@@ -10,11 +10,10 @@
 //
 // Output: JSON with failedTests and/or attachments
 
-'use strict';
-
-const fs = require('fs');
-const path = require('path');
-const { execSync } = require('child_process');
+import { readFileSync, readdirSync, existsSync, mkdirSync, unlinkSync, rmdirSync } from 'fs';
+import { join, resolve } from 'path';
+import { execSync } from 'child_process';
+import { tmpdir } from 'os';
 
 const args = process.argv.slice(2);
 let blobDir = null;
@@ -34,8 +33,8 @@ if (!blobDir) {
 	process.exit(1);
 }
 
-const resolved = path.resolve(blobDir);
-if (!fs.existsSync(resolved)) {
+const resolved = resolve(blobDir);
+if (!existsSync(resolved)) {
 	console.error(`Directory not found: ${resolved}`);
 	process.exit(1);
 }
@@ -43,7 +42,7 @@ if (!fs.existsSync(resolved)) {
 const FAIL_STATUSES = new Set(['failed', 'timedOut', 'interrupted']);
 
 // Find all zip files in the blob directory
-const zipFiles = fs.readdirSync(resolved).filter(f => f.endsWith('.zip'));
+const zipFiles = readdirSync(resolved).filter(f => f.endsWith('.zip'));
 if (zipFiles.length === 0) {
 	console.error('No zip files found in blob directory.');
 	process.exit(1);
@@ -75,12 +74,12 @@ function collectTestMeta(suite, filePath) {
 }
 
 for (const zipFile of zipFiles) {
-	const zipPath = path.join(resolved, zipFile);
-	const tmpDir = path.join(require('os').tmpdir(), `blob-inspect-${zipFile.replace('.zip', '')}`);
+	const zipPath = join(resolved, zipFile);
+	const tmpDir = join(tmpdir(), `blob-inspect-${zipFile.replace('.zip', '')}`);
 
 	// Extract report.jsonl from the blob zip
 	try {
-		fs.mkdirSync(tmpDir, { recursive: true });
+		mkdirSync(tmpDir, { recursive: true });
 		execSync(`unzip -o "${zipPath}" report.jsonl -d "${tmpDir}"`, {
 			stdio: ['pipe', 'pipe', 'pipe'],
 		});
@@ -88,10 +87,10 @@ for (const zipFile of zipFiles) {
 		continue; // skip blobs without report.jsonl
 	}
 
-	const jsonlPath = path.join(tmpDir, 'report.jsonl');
-	if (!fs.existsSync(jsonlPath)) continue;
+	const jsonlPath = join(tmpDir, 'report.jsonl');
+	if (!existsSync(jsonlPath)) continue;
 
-	const lines = fs.readFileSync(jsonlPath, 'utf8').split('\n').filter(Boolean);
+	const lines = readFileSync(jsonlPath, 'utf8').split('\n').filter(Boolean);
 
 	for (const line of lines) {
 		let event;
@@ -146,8 +145,8 @@ for (const zipFile of zipFiles) {
 
 	// Clean up extracted jsonl
 	try {
-		fs.unlinkSync(jsonlPath);
-		fs.rmdirSync(tmpDir);
+		unlinkSync(jsonlPath);
+		rmdirSync(tmpDir);
 	} catch {
 		// best effort cleanup
 	}

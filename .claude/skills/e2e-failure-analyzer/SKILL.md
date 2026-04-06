@@ -22,11 +22,9 @@ Analyzes Playwright e2e test failures from a GitHub Actions run using JSON repor
 
 Scripts live alongside this skill in `scripts/` (referenced below as `$SKILL_DIR/scripts/`). Resolve `$SKILL_DIR` from the skill's base directory shown at load time. All scripts are cross-platform (Windows, macOS, Linux) and require only Node.js with no external dependencies.
 
-- **`e2e-extract-failures.cjs`** - Extracts failures from a merged Playwright JSON report
-- **`e2e-parse-trace.cjs`** - Parses a `trace.trace` file into an action timeline with errors and last screenshot hash
-- **`e2e-inspect-blobs.cjs`** - Scans blob report zips to find failed test IDs and their trace/log resource hashes
-
-Note: Scripts use `.cjs` extension because the parent repo's `package.json` has `"type": "module"`.
+- **`e2e-extract-failures.js`** - Extracts failures from a merged Playwright JSON report
+- **`e2e-parse-trace.js`** - Parses a `trace.trace` file into an action timeline with errors and last screenshot hash
+- **`e2e-inspect-blobs.js`** - Scans blob report zips to find failed test IDs and their trace/log resource hashes
 
 ## Input
 
@@ -84,7 +82,7 @@ node scripts/check-soft-fail-failures.js /tmp/report-<PROJECT>.json
 ### A3: Extract Failure Details from JSON Report
 
 ```bash
-node "$SKILL_DIR/scripts/e2e-extract-failures.cjs" /tmp/report-<PROJECT>.json
+node "$SKILL_DIR/scripts/e2e-extract-failures.js" /tmp/report-<PROJECT>.json
 ```
 
 Outputs a JSON array with each failure's title, file, tags, suite, project, and error details.
@@ -95,14 +93,14 @@ Each blob zip contains `report.jsonl` and `resources/*.zip`.
 
 **Find failed tests across all blobs:**
 ```bash
-node "$SKILL_DIR/scripts/e2e-inspect-blobs.cjs" /tmp/blob-merged-<PROJECT>
+node "$SKILL_DIR/scripts/e2e-inspect-blobs.js" /tmp/blob-merged-<PROJECT>
 ```
 
 This outputs JSON with `failedTests` (testId, title, file, status, blob).
 
 **Find trace/log resource hashes for specific failed test IDs:**
 ```bash
-node "$SKILL_DIR/scripts/e2e-inspect-blobs.cjs" /tmp/blob-merged-<PROJECT> --test-ids <TEST_ID_1>,<TEST_ID_2>
+node "$SKILL_DIR/scripts/e2e-inspect-blobs.js" /tmp/blob-merged-<PROJECT> --test-ids <TEST_ID_1>,<TEST_ID_2>
 ```
 
 This outputs JSON with `attachments` (testId, name, contentType, resourceHash, blob).
@@ -116,7 +114,7 @@ unzip -o /tmp/trace-extract/resources/<TRACE_HASH>.zip trace.trace
 
 Parse the trace action timeline:
 ```bash
-node "$SKILL_DIR/scripts/e2e-parse-trace.cjs" /tmp/trace-contents/trace.trace
+node "$SKILL_DIR/scripts/e2e-parse-trace.js" /tmp/trace-contents/trace.trace
 ```
 
 Outputs the last 30 actions with selectors/errors, last screenshot sha1, and error summary. Use `--last N` to adjust.
@@ -205,7 +203,7 @@ unzip -l /tmp/pw-trace.zip | head -5  # Should show trace.trace + resources/*.jp
 Then extract and parse the trace using the same script as Path A:
 ```bash
 mkdir -p /tmp/trace-contents && unzip -o /tmp/pw-trace.zip trace.trace -d /tmp/trace-contents
-node "$SKILL_DIR/scripts/e2e-parse-trace.cjs" /tmp/trace-contents/trace.trace
+node "$SKILL_DIR/scripts/e2e-parse-trace.js" /tmp/trace-contents/trace.trace
 ```
 
 Extract the last screenshot from the trace zip using the sha1 from the script output:

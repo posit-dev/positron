@@ -3,10 +3,8 @@
 // Usage: node e2e-extract-failures.js <report.json>
 // Output: JSON array of failures with title, file, tags, suite, project, errors
 
-'use strict';
-
-const fs = require('fs');
-const path = require('path');
+import { readFileSync, existsSync } from 'fs';
+import { resolve } from 'path';
 
 const reportPath = process.argv[2];
 if (!reportPath) {
@@ -14,13 +12,13 @@ if (!reportPath) {
 	process.exit(1);
 }
 
-const resolved = path.resolve(reportPath);
-if (!fs.existsSync(resolved)) {
+const resolved = resolve(reportPath);
+if (!existsSync(resolved)) {
 	console.error(`File not found: ${resolved}`);
 	process.exit(1);
 }
 
-const report = JSON.parse(fs.readFileSync(resolved, 'utf8'));
+const report = JSON.parse(readFileSync(resolved, 'utf8'));
 const FAIL_STATUSES = new Set(['failed', 'timedOut', 'interrupted']);
 
 function walk(suite, suitePath) {

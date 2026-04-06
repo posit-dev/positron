@@ -3,10 +3,8 @@
 // Usage: node e2e-parse-trace.js <trace.trace> [--last N]
 // Output: Human-readable action timeline, last screenshot hash, and any errors
 
-'use strict';
-
-const fs = require('fs');
-const path = require('path');
+import { readFileSync, existsSync } from 'fs';
+import { resolve } from 'path';
 
 const args = process.argv.slice(2);
 let tracePath = null;
@@ -26,13 +24,13 @@ if (!tracePath) {
 	process.exit(1);
 }
 
-const resolved = path.resolve(tracePath);
-if (!fs.existsSync(resolved)) {
+const resolved = resolve(tracePath);
+if (!existsSync(resolved)) {
 	console.error(`File not found: ${resolved}`);
 	process.exit(1);
 }
 
-const content = fs.readFileSync(resolved, 'utf8');
+const content = readFileSync(resolved, 'utf8');
 const lines = content.split('\n').filter(Boolean);
 const events = [];
 for (const line of lines) {
