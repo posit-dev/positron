@@ -24,23 +24,25 @@ Positron inherits VS Code's Mocha-based unit test infrastructure. While this ser
 
 ## The Testing Pyramid
 
-Positron's testing strategy follows a three-layer pyramid. The rule is simple: **test at the lowest layer that can catch the bug.**
+Positron's testing strategy follows a three-layer pyramid. The deciding question at each layer is: **does this need Electron?**
 
 ```
             /\
            /  \        E2E (Playwright)
-          / UI \       "Does the app work for the user?"
+          / UI \       "Full app, real browser"
          /------\
-        /        \     Extension Host Tests (Mocha)
-       / Extension\    "Does the extension work inside VS Code?"
-      /   Host     \
+        /        \     Extension Host (Mocha)
+       / Needs     \   "Needs Electron + activated extensions"
+      / Electron    \
      /--------------\
     /                \  Vitest (Tiers 0-3)
-   /  Unit + Service  \ "Does the logic work?"
+   / No Electron      \ "Runs in plain Node.js"
   /____________________\
 ```
 
-### Layer 1: Vitest (fast, no Electron)
+We avoid the terms "unit test" and "integration test" because they mean different things to different people. Vitest Tier 3 tests wire up 124+ real services (that's integration), but they don't need Electron. Extension host tests are sometimes called "integration tests" in CI, but they're really "tests that need Electron." The pyramid is about **what runtime you need**, not a taxonomy debate.
+
+### Layer 1: Vitest (no Electron needed)
 
 **What it tests**: Pure functions, service logic, data transformations, state management, React components. Anything that doesn't require `import * as vscode from 'vscode'` or `import * as positron from 'positron'`.
 
@@ -84,21 +86,16 @@ Positron's testing strategy follows a three-layer pyramid. The rule is simple: *
 "I need to write a test for X"
     |
     v
-Does your code import 'vscode' or 'positron' APIs?
+Does it need Electron? (imports 'vscode' or 'positron' and genuinely needs those APIs)
     |
-    +-- No --> Vitest (Layer 1)
+    +-- No --> Vitest
     |
-    +-- Yes --> Does it NEED those APIs, or just use them for convenience?
-                    |
-                    +-- Convenience (e.g., reading config) --> Extract the logic, test in Vitest
-                    |
-                    +-- Genuinely needs them --> Extension Host Test (Layer 2)
-                                                    |
-                                                    v
-                                          Is this testing a user-visible workflow?
-                                                    |
-                                                    +-- No --> Extension Host Test (Layer 2)
-                                                    +-- Yes --> E2E (Layer 3)
+    +-- Yes, but only for types/config --> Extract the logic, test in Vitest
+    |
+    +-- Yes, genuinely --> Does it need the full app with real UI?
+                              |
+                              +-- No --> Extension Host Test
+                              +-- Yes --> E2E
 ```
 
 ### Why This Matters
