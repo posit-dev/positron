@@ -937,21 +937,25 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 			return;
 		}
 
-		// Update the foreground session.
-		// First try to use the last created console session for the runtime.
-		let runtimeSession = this._runtimeSessionService.getConsoleSessionForRuntime(
-			consoleInstance.runtimeMetadata.runtimeId
-		);
-		if (!runtimeSession) {
-			// Otherwise, select the next available runtime session.
-			const sessions = Array.from(this._positronConsoleInstancesBySessionId.values());
-			const currentIndex = sessions.indexOf(consoleInstance);
-			if (currentIndex !== -1) {
-				const nextSession = sessions[currentIndex + 1] || sessions[currentIndex - 1];
-				runtimeSession = nextSession?.session;
+		// Only update the foreground session when deleting a console session.
+		// The foreground session management for notebook sessions is handled by
+		// ForegroundSessionContribution.
+		if (consoleInstance.sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Console) {
+			// First try to use the last created console session for the runtime.
+			let runtimeSession = this._runtimeSessionService.getConsoleSessionForRuntime(
+				consoleInstance.runtimeMetadata.runtimeId
+			);
+			if (!runtimeSession) {
+				// Otherwise, select the next available runtime session.
+				const sessions = Array.from(this._positronConsoleInstancesBySessionId.values());
+				const currentIndex = sessions.indexOf(consoleInstance);
+				if (currentIndex !== -1) {
+					const nextSession = sessions[currentIndex + 1] || sessions[currentIndex - 1];
+					runtimeSession = nextSession?.session;
+				}
 			}
+			this._runtimeSessionService.foregroundSession = runtimeSession;
 		}
-		this._runtimeSessionService.foregroundSession = runtimeSession;
 		this._positronConsoleInstancesBySessionId.delete(sessionId);
 
 		consoleInstance.dispose();

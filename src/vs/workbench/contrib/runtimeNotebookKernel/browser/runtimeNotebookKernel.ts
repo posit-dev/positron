@@ -185,8 +185,8 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 
 			// Get the notebook's session.
 			let session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
-			if (!session || session.getRuntimeState() === RuntimeState.Exited) {
-				// There's no active session for the notebook (or it has exited), start one.
+			if (!session) {
+				// There's no active session for the notebook, start one.
 				const ensureSessionStartedForNotebook = () => this.ensureSessionStarted(
 					notebookUri,
 					`Runtime kernel ${this.id} executed cells for notebook`,
@@ -358,33 +358,11 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 	}
 
 	private async doEnsureSessionStarted(notebookUri: URI, source: string): Promise<INotebookLanguageRuntimeSession> {
-		// If we've already got a session going, handle it based on its state.
+		// If we've already got a session going, no need to do anything
 		const session = this._runtimeSessionService
 			.getNotebookSessionForNotebookUri(notebookUri);
-
 		if (session && session.runtimeMetadata.runtimeId === this.runtime.runtimeId) {
-			if (session.getRuntimeState() !== RuntimeState.Exited) {
-				// Session is already running for this runtime.
-				return session;
-			}
-
-			// Session is exited for the same runtime, so restart it. We use restartSession
-			// rather than selectRuntime because selectRuntime is a no-op when the
-			// existing session is for the same runtime (even if exited).
-			try {
-				await this._runtimeSessionService.restartSession(session.sessionId, source, false);
-				await this.whenReadyToExecute(session);
-				return session as INotebookLanguageRuntimeSession;
-			} catch (err) {
-				this._notificationService.error(localize(
-					'positron.notebook.kernel.restart.failed',
-					'Starting {0} interpreter for \'{1}\' failed. Reason: {2}',
-					this.label,
-					notebookUri.fsPath,
-					err.toString(),
-				));
-				throw err;
-			}
+			return session;
 		}
 
 		// If the runtime startup phase isn't complete, it is possible that the

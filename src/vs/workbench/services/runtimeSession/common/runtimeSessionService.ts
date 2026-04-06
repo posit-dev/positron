@@ -272,6 +272,22 @@ export interface INotebookLanguageRuntimeSession extends ILanguageRuntimeSession
 	metadata: INotebookRuntimeSessionMetadata;
 }
 
+/**
+ * Lightweight session display info. Used to show session information
+ * in the interpreter picker after the session has been disposed
+ * (e.g. for exited notebook sessions).
+ */
+export interface ISessionDisplayInfo {
+	readonly sessionName: string;
+	readonly sessionMode: LanguageRuntimeSessionMode;
+	readonly notebookUri?: URI;
+	readonly runtimeId: string;
+	readonly languageName: string;
+	readonly languageId: string;
+	readonly base64EncodedIconSvg: string | undefined;
+	sessionState: RuntimeState;
+}
+
 export interface ILanguageRuntimePackage {
 	id: string;
 	name: string;
@@ -446,6 +462,16 @@ export interface IRuntimeSessionService {
 	// An event that fires when the active runtime changes.
 	readonly onDidChangeForegroundSession: Event<ILanguageRuntimeSession | undefined>;
 
+	// An event that fires when the foreground session display info changes.
+	// This can be driven by a live foreground session change or by falling
+	// back to cached session info for an exited notebook session.
+	readonly onDidChangeForegroundSessionDisplayInfo: Event<ISessionDisplayInfo | undefined>;
+
+	// The current display info for the foreground session. May contain
+	// session details from an exited session if an actual session is not
+	// available to be the foreground session.
+	foregroundSessionDisplayInfo: ISessionDisplayInfo | undefined;
+
 	// An event that fires when a runtime session is deleted.
 	readonly onDidDeleteRuntimeSession: Event<string>;
 
@@ -495,6 +521,13 @@ export interface IRuntimeSessionService {
 	 * notebook session can exist per notebook URI.
 	 */
 	getNotebookSessionForNotebookUri(notebookUri: URI): INotebookLanguageRuntimeSession | undefined;
+
+	/**
+	 * Gets the last known session display info for a notebook URI.
+	 * This persists after the session has exited and been disposed,
+	 * allowing UI components to show what runtime was last used.
+	 */
+	getLastNotebookSessionInfo(notebookUri: URI): ISessionDisplayInfo | undefined;
 
 	/**
 	 * List all active runtime sessions.
@@ -638,18 +671,6 @@ export interface IRuntimeSessionService {
 	 * @returns A promise that resolves when the session has exited.
 	 */
 	shutdownNotebookSession(notebookUri: URI, exitReason: RuntimeExitReason, source: string): Promise<void>;
-
-	/**
-	 * Removes the notebook session from the notebook session tracking map.
-	 *
-	 * This should be called when a notebook editor is closed to clean up the session
-	 * record from `_notebookSessionsByNotebookUri` since notebook sessions are now
-	 * kept in the map after they exit (to support showing exited session info in
-	 * the interpreter picker).
-	 *
-	 * @param notebookUri The notebook's URI.
-	 */
-	removeNotebookSessionFromNotebookMap(notebookUri: URI): void;
 
 	/**
 	 * Updates the URI of a notebook session to maintain session continuity when

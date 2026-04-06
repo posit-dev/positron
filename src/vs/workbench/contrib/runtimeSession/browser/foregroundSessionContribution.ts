@@ -426,7 +426,15 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 				this._logService.trace(`[ForegroundSessionContribution] Quarto editor focused (${fileName}), already the foreground session: ${session.sessionId}`);
 			}
 		} else {
-			this._logService.trace(`[ForegroundSessionContribution] Quarto editor focused (${fileName}) but no session found`);
+			// No active session. Check if there's saved info from a previous session.
+			const sessionInfo = this._runtimeSessionService.getLastNotebookSessionInfo(uri);
+			if (sessionInfo) {
+				this._logService.trace(`[ForegroundSessionContribution] Quarto editor focused (${fileName}), using session info`);
+				this._runtimeSessionService.foregroundSession = undefined;
+				this._runtimeSessionService.foregroundSessionDisplayInfo = sessionInfo;
+			} else {
+				this._logService.trace(`[ForegroundSessionContribution] Quarto editor focused (${fileName}) but no session found`);
+			}
 		}
 	}
 
@@ -544,8 +552,18 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 					this._logService.trace(`[ForegroundSessionContribution] Notebook editor focused (${notebookName}), but it is already the foreground session: ${session.sessionId}`);
 				}
 			} else {
-				// Notebook has no session yet - don't change foreground
-				this._logService.trace(`[ForegroundSessionContribution] Notebook editor focused (${notebookName}) but has no session yet`);
+				// No active session. Check if there's saved info from a previous session
+				// so the interpreter picker can still show what runtime was last used.
+				const sessionInfo = activeEditor.resource
+					? this._runtimeSessionService.getLastNotebookSessionInfo(activeEditor.resource)
+					: undefined;
+				if (sessionInfo) {
+					this._logService.trace(`[ForegroundSessionContribution] Notebook editor focused (${notebookName}), using session info`);
+					this._runtimeSessionService.foregroundSession = undefined;
+					this._runtimeSessionService.foregroundSessionDisplayInfo = sessionInfo;
+				} else {
+					this._logService.trace(`[ForegroundSessionContribution] Notebook editor focused (${notebookName}) but has no session yet`);
+				}
 			}
 			return;
 		}
@@ -578,8 +596,15 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 					this._logService.trace(`[ForegroundSessionContribution] Quarto file focused (${fileName}), but it is already the foreground session: ${session.sessionId}`);
 				}
 			} else {
-				// Quarto has no session yet - don't change foreground
-				this._logService.trace(`[ForegroundSessionContribution] Quarto file focused (${fileName}) but has no session yet`);
+				// No active session. Check if there's saved info from a previous session.
+				const sessionInfo = this._runtimeSessionService.getLastNotebookSessionInfo(uri);
+				if (sessionInfo) {
+					this._logService.trace(`[ForegroundSessionContribution] Quarto file focused (${fileName}), using session info`);
+					this._runtimeSessionService.foregroundSession = undefined;
+					this._runtimeSessionService.foregroundSessionDisplayInfo = sessionInfo;
+				} else {
+					this._logService.trace(`[ForegroundSessionContribution] Quarto file focused (${fileName}) but has no session yet`);
+				}
 			}
 			return;
 		}
