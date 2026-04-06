@@ -322,7 +322,7 @@ Write a standalone `.test.ts` file when saving (via `--save` flag, or user said 
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test } from './_qa.setup';
+import { test, expect } from './_qa.setup';
 
 test.use({ suiteId: __filename });
 
