@@ -32,6 +32,7 @@ import { QuartoInlineDataExplorer } from './quartoInlineDataExplorer.js';
 import { parseVariablePath } from '../../../services/positronDataExplorer/common/utils.js';
 import { calculateInlineDataExplorerHeight } from './quartoInlineDataExplorerLayout.js';
 import { ResourceUsageGraph } from '../../positronConsole/browser/components/resourceUsageGraph.js';
+import { IResourceUsageHistoryService } from '../../../services/positronConsole/browser/resourceUsageHistoryService.js';
 
 /**
  * Minimum height for a view zone in pixels.
@@ -182,9 +183,14 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 
 	// Resource usage sparkline shown during execution
 	private readonly _sparklineContainer: HTMLElement;
+	private readonly _cpuLabel: HTMLSpanElement;
 	private _sparklineRenderer: PositronReactRenderer | undefined;
 	private readonly _resourceUsageDisposables = this._register(new DisposableStore());
 	private _resourceUsageData: ILanguageRuntimeResourceUsage[] = [];
+
+	// Live timer interval during execution
+	private _timerInterval: ReturnType<typeof setInterval> | undefined;
+	private _executionStartTime: number | undefined;
 
 	// Icon element inside the close button (for switching between close and stop icons)
 	private _buttonIcon!: HTMLSpanElement;
@@ -225,6 +231,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		maxLines: number = 40,
 		configurationService?: IConfigurationService,
 		documentUri?: URI,
+		private readonly _resourceUsageHistoryService?: IResourceUsageHistoryService,
 	) {
 		super();
 
@@ -281,13 +288,17 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._statusIcon = document.createElement('span');
 		this._statusIcon.className = 'codicon code-cell-footer-icon';
 		this._statusBar.appendChild(this._statusIcon);
+		this._statusText = document.createElement('span');
+		this._statusText.className = 'code-cell-footer-text';
+		this._statusBar.appendChild(this._statusText);
 		this._sparklineContainer = document.createElement('div');
 		this._sparklineContainer.className = 'quarto-output-sparkline';
 		this._sparklineContainer.style.display = 'none';
 		this._statusBar.appendChild(this._sparklineContainer);
-		this._statusText = document.createElement('span');
-		this._statusText.className = 'code-cell-footer-text';
-		this._statusBar.appendChild(this._statusText);
+		this._cpuLabel = document.createElement('span');
+		this._cpuLabel.className = 'quarto-output-cpu-label';
+		this._cpuLabel.style.display = 'none';
+		this._statusBar.appendChild(this._cpuLabel);
 		this.domNode.insertBefore(this._statusBar, this._styledContainer);
 
 		// Create output container
@@ -432,6 +443,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		// Hide status bar when idle with no timing info
 		if (state === CellExecutionState.Idle && !startTime) {
 			this._statusBar.style.display = 'none';
+			this._stopTimer();
 			this._stopSparkline();
 			this._updateStatusOnlyState();
 			this._updateHeight();
@@ -442,6 +454,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._statusIcon.className = 'codicon code-cell-footer-icon';
 		this._statusText.textContent = '';
 		dom.clearNode(this._statusText);
+		this._stopTimer();
 		this._stopSparkline();
 
 		this._statusBar.style.display = '';
@@ -450,7 +463,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		switch (state) {
 			case CellExecutionState.Running:
 				this._statusIcon.classList.add(...ThemeIcon.asClassName(Codicon.sync).split(' '), 'running');
-				this._statusText.textContent = localize('quartoRunning', 'Running...');
+				this._startTimer(startTime);
 				this._startSparkline();
 				break;
 			case CellExecutionState.Queued:
@@ -492,6 +505,48 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	}
 
 	/**
+	 * Start a live timer that updates the status text every 100ms with
+	 * the elapsed execution time.
+	 */
+	private _startTimer(startTime?: number): void {
+		this._executionStartTime = startTime ?? Date.now();
+
+		// Build the duration span (same structure as completed state)
+		const durationSpan = document.createElement('span');
+		durationSpan.className = 'code-cell-footer-duration';
+		durationSpan.textContent = '0.0s';
+		dom.clearNode(this._statusText);
+		this._statusText.appendChild(durationSpan);
+
+		// Format elapsed time always in seconds (no ms) to avoid jumpy transitions
+		const formatElapsed = (ms: number): string => {
+			const minutes = Math.floor(ms / 1000 / 60);
+			const seconds = Math.floor(ms / 1000) % 60;
+			const tenths = Math.floor((ms % 1000) / 100);
+			if (minutes > 0) {
+				return `${minutes}m ${seconds}.${tenths}s`;
+			}
+			return `${seconds}.${tenths}s`;
+		};
+
+		this._timerInterval = setInterval(() => {
+			const elapsed = Date.now() - this._executionStartTime!;
+			durationSpan.textContent = formatElapsed(elapsed);
+		}, 100);
+	}
+
+	/**
+	 * Stop the live timer.
+	 */
+	private _stopTimer(): void {
+		if (this._timerInterval) {
+			clearInterval(this._timerInterval);
+			this._timerInterval = undefined;
+		}
+		this._executionStartTime = undefined;
+	}
+
+	/**
 	 * Height and width of the sparkline graph in the status bar.
 	 */
 	private static readonly SPARKLINE_HEIGHT = 16;
@@ -505,9 +560,23 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			return;
 		}
 
-		// Reset data and show container
+		const maxPoints = Math.floor(QuartoOutputViewZone.SPARKLINE_WIDTH / 2) + 1;
+
+		// Seed with historical data from the resource usage history service
 		this._resourceUsageData = [];
+		if (this._resourceUsageHistoryService) {
+			this._resourceUsageHistoryService.getHistory(this._session.sessionId).then(history => {
+				if (history.length > 0) {
+					this._resourceUsageData = history.slice(-maxPoints);
+					this._renderSparkline();
+					this._updateCpuLabel();
+				}
+			});
+		}
+
+		// Show containers
 		this._sparklineContainer.style.display = '';
+		this._cpuLabel.style.display = '';
 
 		// Create React renderer for the sparkline
 		if (!this._sparklineRenderer) {
@@ -520,12 +589,11 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._resourceUsageDisposables.add(
 			this._session.onDidUpdateResourceUsage((usage) => {
 				this._resourceUsageData.push(usage);
-				// Keep only the most recent points that fit the width
-				const maxPoints = Math.floor(QuartoOutputViewZone.SPARKLINE_WIDTH / 2) + 1;
 				if (this._resourceUsageData.length > maxPoints) {
 					this._resourceUsageData = this._resourceUsageData.slice(-maxPoints);
 				}
 				this._renderSparkline();
+				this._updateCpuLabel();
 			})
 		);
 	}
@@ -542,6 +610,8 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		// Clear any residual DOM content and hide
 		dom.clearNode(this._sparklineContainer);
 		this._sparklineContainer.style.display = 'none';
+		this._cpuLabel.style.display = 'none';
+		this._cpuLabel.textContent = '';
 		this._resourceUsageData = [];
 	}
 
@@ -559,6 +629,16 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 				height: QuartoOutputViewZone.SPARKLINE_HEIGHT,
 			})
 		);
+	}
+
+	/**
+	 * Update the CPU percentage label from the latest resource usage data point.
+	 */
+	private _updateCpuLabel(): void {
+		if (this._resourceUsageData.length > 0) {
+			const latest = this._resourceUsageData[this._resourceUsageData.length - 1];
+			this._cpuLabel.textContent = `CPU ${Math.round(latest.cpu_percent)}%`;
+		}
 	}
 
 	/**
@@ -799,6 +879,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 
 	override dispose(): void {
 		this.hide();
+		this._stopTimer();
 		this._stopSparkline();
 		this._disposeResizeObserver();
 		this._disposeAllWebviews();

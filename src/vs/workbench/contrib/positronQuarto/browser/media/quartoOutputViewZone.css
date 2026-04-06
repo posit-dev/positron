@@ -350,7 +350,7 @@
 	display: flex;
 	align-items: center;
 	gap: 8px;
-	height: 24px;
+	height: 20px;
 	padding-left: 12px;
 	font-size: 11px;
 	color: var(--vscode-descriptionForeground);
@@ -398,6 +398,7 @@
 	display: flex;
 	align-items: center;
 	flex-shrink: 0;
+	margin-left: auto;
 	height: 16px;
 }
 
@@ -438,6 +439,14 @@
 	bottom: 1px;
 	width: 1px;
 	background-color: var(--vscode-widget-border);
+}
+
+/* CPU percentage label next to sparkline */
+.quarto-output-status-bar .quarto-output-cpu-label {
+	flex-shrink: 0;
+	margin-left: 4px;
+	margin-right: 8px;
+	white-space: nowrap;
 }
 
 /* Status-only view zone: hide the output container entirely, just show the status bar */
