@@ -33,7 +33,7 @@ git diff main...HEAD --name-only --diff-filter=ACMR
 
 ### Step 2: Read the testing guide
 
-Read the Testing section of `CLAUDE.md` to understand the tier system, mocking guide, and decision tree. This is your reference for all recommendations.
+Read the Testing section of `CLAUDE.md` for the decision tree and mocking guide. Read `src/vs/workbench/test/browser/positronTestContainer.ts` for available presets. These are your references for all recommendations.
 
 ### Step 3: Classify each changed file
 
@@ -48,7 +48,7 @@ For each file in the diff, determine:
 **For Positron source files** (Posit Software copyright in `src/vs/` or `extensions/positron-*/`):
 
 1. Check if a `.vitest.ts` test already exists for this file
-2. Read the file's imports and constructor to determine the tier:
+2. Read the file's imports and constructor to determine the preset:
    - Read `src/vs/workbench/test/browser/positronTestContainer.ts` to see the available presets (e.g., `withRuntimeServices()`, `withNotebookServices()`, `withWorkbenchServices()`). Match the source file's dependencies to the lowest preset that covers them.
    - If no preset is needed (pure functions, no `@IServiceId` decorators), use a bare `createTestContainer().build()`.
    - If dependencies don't fit a preset cleanly, use the closest preset + `.stub()` for the extras.
@@ -67,7 +67,7 @@ Show the dev a clear summary grouped by action:
 
 **Tests to write** -- files with no existing test or where changes need new test cases. Include:
 - The file path
-- The recommended tier and WHY (which dependencies led to this tier)
+- The recommended preset and WHY (which dependencies led to this choice)
 - What to test (public methods, events, state changes visible from the diff)
 
 **Tests to extend** -- files that already have a `.vitest.ts` but the diff introduces new behavior not covered. Include:
@@ -90,7 +90,7 @@ For each approved item:
 
 2. **Read existing tests in the same directory** for pattern consistency.
 
-3. **Write the test** following the tier pattern from CLAUDE.md:
+3. **Write the test** following the preset pattern from `positronTestContainer.ts`:
    - If bare (no services): just import and assert. No builder needed.
    - Otherwise: read `src/vs/workbench/test/browser/positronTestContainer.ts` for available presets, use the lowest one that fits.
    - Use incremental mocking: start with the preset, add `.stub()` only if the test fails.
@@ -118,7 +118,7 @@ For each approved item:
 
 - **Show your reasoning.** Don't just say "Runtime" -- say "Runtime because this service depends on IRuntimeSessionService, which is covered by `.withRuntimeServices()`." This teaches the dev the preset system.
 - **Don't over-test.** Focus on public behavior, not implementation details. Test what the code DOES, not how it does it.
-- **Don't over-mock.** Start with the tier preset. Add stubs incrementally only when tests fail.
+- **Don't over-mock.** Start with the preset. Add stubs incrementally only when tests fail.
 - **Don't write E2E tests.** This command is for Vitest unit/service tests only. If something needs E2E coverage, say so but don't write it.
 - **Don't modify upstream VS Code tests.** Warn about upstream changes and provide the Mocha test command.
 - **Don't auto-commit.** The dev reviews and commits when ready.
