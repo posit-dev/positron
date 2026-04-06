@@ -341,6 +341,21 @@ test('QA #12345: Variable appears after execution', async function ({ app, pytho
 - Always include `test.use({ suiteId: __filename })` for app isolation
 - Map action steps to the equivalent Playwright calls
 - File path: `test/e2e/tests/_generated/MMDD_<issue>-<slug>.test.ts`
+- **Always use fixtures over workbench properties when available.** Fixtures come
+  from the test function parameter, NOT from `app.workbench`. Key fixtures:
+  `python`, `r`, `sessions`, `settings`, `hotKeys`, `page`. If you need `settings`,
+  add it to the function signature -- do NOT destructure it from `app.workbench`:
+  ```typescript
+  // CORRECT: settings from fixture parameter
+  test('example', async function ({ app, settings }) {
+  	await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
+  });
+
+  // WRONG: app.workbench.settings is a different object
+  test('example', async function ({ app }) {
+  	const { settings } = app.workbench; // WRONG TYPE
+  });
+  ```
 - **Do NOT wrap POM calls in `test.step()`.** POM methods already have internal
   `test.step()` wrappers. Use comments to group steps, not `test.step()`:
   ```typescript
