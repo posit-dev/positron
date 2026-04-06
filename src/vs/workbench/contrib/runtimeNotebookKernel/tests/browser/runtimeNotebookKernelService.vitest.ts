@@ -2,6 +2,7 @@
  *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+/// <reference types="vitest/globals" />
 
 import sinon from 'sinon';
 import { Emitter, Event } from '../../../../../base/common/event.js';
@@ -236,6 +237,7 @@ describe('Positron - RuntimeNotebookKernelService', () => {
 });
 
 /** INotebookService mock specifically for this test suite. */
+/// <reference types="vitest/globals" />
 class TestNotebookService extends mock<INotebookService>() {
 	onWillAddNotebookDocumentEmitter = new Emitter<NotebookTextModel>();
 	onWillRemoveNotebookDocumentEmitter = new Emitter<NotebookTextModel>();

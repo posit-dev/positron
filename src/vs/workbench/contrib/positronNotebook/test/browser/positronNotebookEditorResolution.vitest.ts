@@ -2,6 +2,7 @@
  *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+/// <reference types="vitest/globals" />
 
 /**
  * @fileoverview Tests for Positron Notebook editor resolution logic.
@@ -30,6 +31,7 @@
  * @see {@link usingPositronNotebooks} - Configuration utility function
  * @see {@link EditorResolverService} - Core service for editor resolution
  */
+/// <reference types="vitest/globals" />
 
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';

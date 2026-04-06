@@ -2,6 +2,7 @@
  *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+/// <reference types="vitest/globals" />
 
 import { URI } from '../../../../../base/common/uri.js';
 import { ensureNoLeakedDisposables } from '../../../../../base/test/common/vitestSetup.js';
@@ -32,6 +33,7 @@ describe('QuartoOutputManager', () => {
 		 * This test verifies that we can correctly remap outputs when cells move
 		 * by using content hashes to track cell identity across position changes.
 		 */
+		/// <reference types="vitest/globals" />
 		it('outputs should be preserved when a new cell is inserted above existing cells', async () => {
 			const content = `\`\`\`{python}
 x = 1
@@ -211,6 +213,7 @@ y = 2
 		 * The fix: use previewService.openHtmlString(html) which sets HTML
 		 * directly on a webview without needing temp files or proxy servers.
 		 */
+		/// <reference types="vitest/globals" />
 		it('HTML popout should use openHtmlString instead of writing temp files', () => {
 			// Track calls to the preview service
 			let openHtmlStringCalled = false;

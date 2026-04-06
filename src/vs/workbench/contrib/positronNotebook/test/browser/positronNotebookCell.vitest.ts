@@ -2,6 +2,7 @@
  *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+/// <reference types="vitest/globals" />
 
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { CellEditType, CellKind, NotebookCellsChangeType } from '../../../notebook/common/notebookCommon.js';
@@ -89,6 +90,7 @@ describe('PositronNotebookCell', () => {
 });
 
 /** Tests to ensure that the test harness is correctly setup, useful for debugging the test harness */
+/// <reference types="vitest/globals" />
 describe('PositronNotebookCell Test Harness', () => {
 
 	it('cells have editors auto-attached', () => {

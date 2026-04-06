@@ -2,8 +2,10 @@
  *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+/// <reference types="vitest/globals" />
 
 /* eslint-disable no-restricted-syntax */
+/// <reference types="vitest/globals" />
 
 import sinon from 'sinon';
 import { ActionBarWidget } from '../../browser/components/actionBarWidget.js';
@@ -27,6 +29,7 @@ describe('ActionBarWidget', () => {
 	let commandService: TestCommandService;
 
 	/** Helper to render ActionBarWidget with context. */
+	/// <reference types="vitest/globals" />
 	function renderWidget(descriptor: IPositronActionBarWidgetDescriptor) {
 		return render(
 			<PositronReactServicesContext.Provider value={mockServicesAccessor}>

@@ -2,17 +2,20 @@
  *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+/// <reference types="vitest/globals" />
 
 import { Range } from '../../../../../../editor/common/core/range.js';
 import { CellEditorRange } from '../../../common/editor/range.js';
 import { CellEditorPosition } from '../../../common/editor/position.js';
 
 /** Shorthand to create a CellEditorRange. */
+/// <reference types="vitest/globals" />
 function r(cellIndex: number, startLine: number, startCol: number, endLine: number, endCol: number): CellEditorRange {
 	return new CellEditorRange(cellIndex, new Range(startLine, startCol, endLine, endCol));
 }
 
 /** Shorthand to create a CellEditorPosition. */
+/// <reference types="vitest/globals" />
 function p(cellIndex: number, lineNumber: number, column: number): CellEditorPosition {
 	return new CellEditorPosition(cellIndex, { lineNumber, column });
 }

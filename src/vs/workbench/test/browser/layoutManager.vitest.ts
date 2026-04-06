@@ -2,16 +2,19 @@
  *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+/// <reference types="vitest/globals" />
 
 import { LayoutManager } from '../../browser/positronDataGrid/classes/layoutManager.js';
 
 /**
  * Tests the LayoutManager class.
  */
+/// <reference types="vitest/globals" />
 describe('LayoutManager', () => {
 	/**
 	 * Tests size.
 	 */
+	/// <reference types="vitest/globals" />
 	it('Size', () => {
 		verifySizeOfDefaultSizedEntries(1, 1);
 		verifySizeOfDefaultSizedEntries(123, 100);
@@ -29,6 +32,7 @@ describe('LayoutManager', () => {
 	/**
 	 * Tests getting a layout entry.
 	 */
+	/// <reference types="vitest/globals" />
 	it('Get Layout Entry', () => {
 		verifyGetLayoutEntryOfDefaultSizedEntries(1, 1);
 		verifyGetLayoutEntryOfDefaultSizedEntries(123, 100);
@@ -46,6 +50,7 @@ describe('LayoutManager', () => {
 	/**
 	 * Tests default-sized entries.
 	 */
+	/// <reference types="vitest/globals" />
 	it('Default-Sized Entries', () => {
 		verifyDefaultSizedEntries(1, 2);
 		verifyDefaultSizedEntries(10, 10);
@@ -59,6 +64,7 @@ describe('LayoutManager', () => {
 	/**
 	 * Tests default-sized entries with overrides.
 	 */
+	/// <reference types="vitest/globals" />
 	it('Default-Sized Entries With Overrides', () => {
 		verifyDefaultSizedEntriesWithOverrides(127, 253, 20_000, 500);
 		verifyDefaultSizedEntriesWithOverrides(200, 18, 50_000, 1_000);
@@ -69,6 +75,7 @@ describe('LayoutManager', () => {
 	/**
 	 * Tests fixed-sized predefined entries.
 	 */
+	/// <reference types="vitest/globals" />
 	it('Fixed-Sized Predefined Entries', () => {
 		verifyFixedSizedPredefinedEntries(1, 1);
 		verifyFixedSizedPredefinedEntries(10, 10);
@@ -82,6 +89,7 @@ describe('LayoutManager', () => {
 	/**
 	 * Tests randomly-sized predefined entries.
 	 */
+	/// <reference types="vitest/globals" />
 	it('Randomly-Sized Predefined Entries', () => {
 		verifyRandomlySizedPredefinedEntries(1);
 		verifyRandomlySizedPredefinedEntries(10);
@@ -94,6 +102,7 @@ describe('LayoutManager', () => {
 	/**
 	 * Tests mapping positions to indexes and indexes to positions with no entry map and no pinned indexes.
 	 */
+	/// <reference types="vitest/globals" />
 	it('Map Position To Index - Map Index To Position - No Entry Map - No Pinned Indexes', () => {
 		// Create and initialize the layout manager.
 		const layoutManager = new LayoutManager(100);
@@ -135,6 +144,7 @@ describe('LayoutManager', () => {
 	/**
 	 * Tests mapping positions to indexes and indexes to positions with an entry map and no pinned indexes.
 	 */
+	/// <reference types="vitest/globals" />
 	it('Map Position To Index - Map Index To Position - With Entry Map - No Pinned Indexes', () => {
 		// Create and initialize the layout manager.
 		const layoutManager = new LayoutManager(100);
@@ -176,6 +186,7 @@ describe('LayoutManager', () => {
 	/**
 	 * Tests mapping positions to indexes and indexes to positions with an entry map and no pinned indexes.
 	 */
+	/// <reference types="vitest/globals" />
 	it('Map Position To Index - Map Index To Position - With No Entry Map - With Pinned Indexes', () => {
 		// Create and initialize the layout manager.
 		const layoutManager = new LayoutManager(100);
@@ -218,6 +229,7 @@ describe('LayoutManager', () => {
 	/**
 	 * Tests mapping positions to indexes and indexes to positions with an entry map and no pinned indexes.
 	 */
+	/// <reference types="vitest/globals" />
 	it('Map Position To Index - Map Index To Position - With Entry Map - With Pinned Indexes', () => {
 		// Create and initialize the layout manager.
 		const layoutManager = new LayoutManager(100);
@@ -260,6 +272,7 @@ describe('LayoutManager', () => {
 	/**
 	 * Verify size for default-sized entries.
 	 */
+	/// <reference types="vitest/globals" />
 	const verifySizeOfDefaultSizedEntries = (defaultSize: number, entries: number) => {
 		// Create and initialize the layout manager.
 		const layoutManager = new LayoutManager(defaultSize);
@@ -290,6 +303,7 @@ describe('LayoutManager', () => {
 	/**
 	 * Verify size for fixed-sized entries.
 	 */
+	/// <reference types="vitest/globals" />
 	const verifySizeOfFixedSizedEntries = (entrySize: number, entries: number) => {
 		// Create and initialize the layout manager.
 		const layoutManager = new LayoutManager(100);
@@ -317,6 +331,7 @@ describe('LayoutManager', () => {
 	/**
 	 * Verify size for randomly-sized entries.
 	 */
+	/// <reference types="vitest/globals" />
 	const verifySizeOfRandomlySizedEntries = (entries: number) => {
 		// Create the layout manager.
 		const layoutManager = new LayoutManager(100);
@@ -349,6 +364,7 @@ describe('LayoutManager', () => {
 	 * @param defaultSize
 	 * @param entries
 	 */
+	/// <reference types="vitest/globals" />
 	const verifyGetLayoutEntryOfDefaultSizedEntries = (defaultSize: number, entries: number) => {
 		// Create and initialize the layout manager.
 		const layoutManager = new LayoutManager(defaultSize);
@@ -410,6 +426,7 @@ describe('LayoutManager', () => {
 	 * @param entrySize The entry size.
 	 * @param entries The number of entries.
 	 */
+	/// <reference types="vitest/globals" />
 	const verifyGetLayoutEntryOfFixedSizedEntries = (entrySize: number, entries: number) => {
 		// Create and initialize the layout manager.
 		const layoutManager = new LayoutManager(entrySize);
@@ -471,6 +488,7 @@ describe('LayoutManager', () => {
 	 * @param defaultSize
 	 * @param entries
 	 */
+	/// <reference types="vitest/globals" />
 	const verifyGetLayoutEntryOfRandomlySizedEntries = (entries: number) => {
 		// Create the layout manager.
 		const layoutManager = new LayoutManager(50);
@@ -536,6 +554,7 @@ describe('LayoutManager', () => {
 	 * @param defaultSize The default size of each entry.
 	 * @param entries The number of entries.
 	 */
+	/// <reference types="vitest/globals" />
 	const verifyDefaultSizedEntries = (defaultSize: number, entries: number) => {
 		// Create the layout manager.
 		const layoutManager = new LayoutManager(defaultSize);
@@ -565,6 +584,7 @@ describe('LayoutManager', () => {
 	 * @param entries The number of entries.
 	 * @param overrideEntries The number of override entries.
 	 */
+	/// <reference types="vitest/globals" />
 	const verifyDefaultSizedEntriesWithOverrides = (
 		defaultSize: number,
 		overrideSize: number,
@@ -600,6 +620,7 @@ describe('LayoutManager', () => {
 		 * Verifies a layout entry before the overrides.
 		 * @param index The index of the layout entry to verify.
 		 */
+		/// <reference types="vitest/globals" />
 		const verifyLayoutEntryBeforeOverrides = (index: number) => {
 			// Assert that the index is within the range.
 			expect(index < overridesStartAt).toBeTruthy();
@@ -632,6 +653,7 @@ describe('LayoutManager', () => {
 		 * Verifies a layout entry in the overrides.
 		 * @param testIndex The test index.
 		 */
+		/// <reference types="vitest/globals" />
 		let startingOffset = defaultSize * overridesStartAt;
 		const verifyLayoutEntryInOverrides = (testIndex: number) => {
 			// Calculate the index.
@@ -668,6 +690,7 @@ describe('LayoutManager', () => {
 		 * Verifies a layout entry after the overrides.
 		 * @param index The index of the layout entry to verify.
 		 */
+		/// <reference types="vitest/globals" />
 		startingOffset += overrideEntries * overrideSize;
 		const verifyLayoutEntryAfterOverrides = (testIndex: number) => {
 			// Calculate the index.
@@ -715,6 +738,7 @@ describe('LayoutManager', () => {
 	 * @param entrySize The size of each entry.
 	 * @param entries The number of entries.
 	 */
+	/// <reference types="vitest/globals" />
 	const verifyFixedSizedPredefinedEntries = (entrySize: number, entries: number) => {
 		// Create the layout manager.
 		const layoutManager = new LayoutManager(entrySize);
@@ -764,6 +788,7 @@ describe('LayoutManager', () => {
 	 * Verify randomly-sized predefined entries.
 	 * @param entries The number of entries.
 	 */
+	/// <reference types="vitest/globals" />
 	const verifyRandomlySizedPredefinedEntries = (entries: number) => {
 		// Create the layout manager.
 		const layoutManager = new LayoutManager(getRandomIntInclusive(20, 400));
@@ -818,6 +843,7 @@ describe('LayoutManager', () => {
 	 * @param entries The number of entries.
 	 * @param size The size of each entry.
 	 */
+	/// <reference types="vitest/globals" />
 	const verifyEntriesThatShouldNotBeFound = (
 		layoutManager: LayoutManager,
 		entries: number,
@@ -833,6 +859,7 @@ describe('LayoutManager', () => {
 	/**
 	 * Gets a random integer in the inclusive range.
 	 */
+	/// <reference types="vitest/globals" />
 	const getRandomIntInclusive = (min: number, max: number) => {
 		min = Math.ceil(min);
 		max = Math.floor(max);
@@ -845,6 +872,7 @@ describe('LayoutManager', () => {
 	 * @param position The position to test.
 	 * @param expectedIndex The expected index.
 	 */
+	/// <reference types="vitest/globals" />
 	const testMapPositionToIndex = (layoutManager: LayoutManager, position: number, expectedIndex: number) => {
 		const index = layoutManager.mapPositionToIndex(position);
 		expect(index !== undefined).toBeTruthy();
@@ -857,6 +885,7 @@ describe('LayoutManager', () => {
 	 * @param index The index to test.
 	 * @param expectedPosition The expected position.
 	 */
+	/// <reference types="vitest/globals" />
 	const testMapIndexToPosition = (layoutManager: LayoutManager, index: number, expectedPosition: number) => {
 		const position = layoutManager.mapIndexToPosition(index);
 		expect(position !== undefined).toBeTruthy();

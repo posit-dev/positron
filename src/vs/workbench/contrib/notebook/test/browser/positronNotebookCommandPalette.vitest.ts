@@ -2,6 +2,7 @@
  *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+/// <reference types="vitest/globals" />
 
 import { MenuId, MenuRegistry, isIMenuItem } from '../../../../../platform/actions/common/actions.js';
 import { ContextKeyValue, IContext } from '../../../../../platform/contextkey/common/contextkey.js';
@@ -23,6 +24,7 @@ import '../../browser/viewParts/notebookViewZones.js';
  * extensions/ipynb/package.json, not registerAction2(), so it is not present
  * in MenuRegistry during core unit tests.
  */
+/// <reference types="vitest/globals" />
 const HIDDEN_COMMAND_IDS = [
 	'workbench.notebook.layout.configure',
 	'notebook.action.toggleNotebookStickyScroll',

@@ -2,6 +2,7 @@
  *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+/// <reference types="vitest/globals" />
 import { createTestPositronNotebookInstance } from './testPositronNotebookInstance.js';
 import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
@@ -15,6 +16,7 @@ describe('PositronNotebookInstance', () => {
 	const disposables = ctx.disposables;
 
 	/** Tests to ensure that the test harness is correctly setup, useful for debugging the test harness */
+	/// <reference types="vitest/globals" />
 	describe('Test Harness', () => {
 		it('notebook has cells from notebook text model', () => {
 			const notebook = createTestPositronNotebookInstance(
@@ -65,11 +67,13 @@ describe('PositronNotebookInstance', () => {
 	describe('moveCells', () => {
 
 		/** Helper: returns cell content values in current order. */
+		/// <reference types="vitest/globals" />
 		function getCellValues(notebook: ReturnType<typeof createTestPositronNotebookInstance>): string[] {
 			return notebook.cells.get().map(c => c.model.getValue());
 		}
 
 		/** Creates a 5-cell notebook labelled A-E for move tests. */
+		/// <reference types="vitest/globals" />
 		function createFiveCellNotebook() {
 			return createTestPositronNotebookInstance(
 				['A', 'B', 'C', 'D', 'E'].map(v => [v, 'python', CellKind.Code]),

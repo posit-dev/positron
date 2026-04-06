@@ -2,6 +2,7 @@
  *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+/// <reference types="vitest/globals" />
 import { IPathService } from '../../../../services/path/common/pathService.js';
 import { getCodeSettingsPathNative } from "../../browser/helpers.js";
 import { ensureNoLeakedDisposables } from '../../../../../base/test/common/vitestSetup.js';

@@ -2,6 +2,7 @@
  *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+/// <reference types="vitest/globals" />
 
 import { ANSIColor, ANSIFormat, ANSIOutput, ANSIStyle } from '../../common/ansiOutput.js';
 
@@ -10,6 +11,7 @@ import { ANSIColor, ANSIFormat, ANSIOutput, ANSIStyle } from '../../common/ansiO
 /**
  * Constants.
  */
+/// <reference types="vitest/globals" />
 const BS = '\b';
 const CR = '\r';
 const LF = '\n';
@@ -19,6 +21,7 @@ const PANGRAM = 'The quick brown fox jumps over the lazy dog';
 /**
  * Gets one of the possible CSI values in an alternating fashion to increase test coverage.
  */
+/// <reference types="vitest/globals" />
 let csiIndex = 0;
 const CSI = () => {
 	switch (csiIndex) {
@@ -34,6 +37,7 @@ const CSI = () => {
 /**
  * Gets one of the possible OSC values in an alternating fashion to increase test coverage.
  */
+/// <reference types="vitest/globals" />
 let oscIndex = 0;
 const OSC = () => {
 	switch (oscIndex) {
@@ -49,6 +53,7 @@ const OSC = () => {
 /**
  * Gets one of the possible ST values in an alternating fashion to increase test coverage.
  */
+/// <reference types="vitest/globals" />
 let stIndex = 0;
 const ST = () => {
 	switch (stIndex) {
@@ -67,6 +72,7 @@ const ST = () => {
 /**
  * SGR (Select Graphic Rendition).
  */
+/// <reference types="vitest/globals" />
 enum SGRParam {
 	Reset = 0,
 	Bold = 1,
@@ -181,6 +187,7 @@ enum SGRParam {
 /**
  * SGRParamColor enumeration.
  */
+/// <reference types="vitest/globals" />
 enum SGRParamColor {
 	Color256 = 5,
 	ColorRGB = 2
@@ -189,11 +196,13 @@ enum SGRParamColor {
 /**
  * SGRValue type.
  */
+/// <reference types="vitest/globals" />
 type SGRValue = SGRParam | SGRParamColor | number;
 
 /**
  * SGRTestScenario interface.
  */
+/// <reference types="vitest/globals" />
 interface SGRTestScenario {
 	sgr: SGRValue[];
 	ansiFormat: ANSIFormat;
@@ -204,6 +213,7 @@ interface SGRTestScenario {
  * @param colorIndex The 8-bit color index.
  * @returns An ANSIColor or RGB color value.
  */
+/// <reference types="vitest/globals" />
 const map8BitColorIndexToColor = (colorIndex: number) => {
 	// Process the color index. The first 16 indexes map to normal ANSIColors.
 	switch (colorIndex) {
@@ -301,6 +311,7 @@ const map8BitColorIndexToColor = (colorIndex: number) => {
  * @param count The count.
  * @returns The CUB escape sequence.
  */
+/// <reference types="vitest/globals" />
 const makeCUB = (count?: number) => {
 	if (count === undefined) {
 		return `${CSI()}D`;
@@ -314,6 +325,7 @@ const makeCUB = (count?: number) => {
  * @param count The count.
  * @returns The CUD escape sequence.
  */
+/// <reference types="vitest/globals" />
 const makeCUD = (count?: number) => {
 	if (count === undefined) {
 		return `${CSI()}B`;
@@ -327,6 +339,7 @@ const makeCUD = (count?: number) => {
  * @param count The count.
  * @returns The CUF escape sequence.
  */
+/// <reference types="vitest/globals" />
 const makeCUF = (count?: number) => {
 	if (count === undefined) {
 		return `${CSI()}C`;
@@ -341,6 +354,7 @@ const makeCUF = (count?: number) => {
  * @param column The column.
  * @returns The CUP escape sequence.
  */
+/// <reference types="vitest/globals" />
 const makeCUP = (line?: number, column?: number) => {
 	if (line === undefined && column === undefined) {
 		return `${CSI()}H`;
@@ -358,6 +372,7 @@ const makeCUP = (line?: number, column?: number) => {
  * @param count The count.
  * @returns The CUU escape sequence.
  */
+/// <reference types="vitest/globals" />
 const makeCUU = (count?: number) => {
 	if (count === undefined) {
 		return `${CSI()}A`;
@@ -371,6 +386,7 @@ const makeCUU = (count?: number) => {
  * @param direction The direction.
  * @returns The ED escape sequence.
  */
+/// <reference types="vitest/globals" />
 const makeED = (direction: 'end-of-screen' | 'end-of-screen-explicit-0' | 'beginning-of-screen' | 'entire-screen' = 'end-of-screen') => {
 	switch (direction) {
 		case 'end-of-screen':
@@ -392,6 +408,7 @@ const makeED = (direction: 'end-of-screen' | 'end-of-screen-explicit-0' | 'begin
  * @param count The count.
  * @returns The EL escape sequence.
  */
+/// <reference types="vitest/globals" />
 const makeEL = (direction: 'end-of-line' | 'end-of-line-explicit-0' | 'beginning-of-line' | 'entire-line' = 'end-of-line') => {
 	switch (direction) {
 		case 'end-of-line':
@@ -413,6 +430,7 @@ const makeEL = (direction: 'end-of-line' | 'end-of-line-explicit-0' | 'beginning
  * @param parameters The SGR parameters.
  * @returns The SGR escape sequence.
  */
+/// <reference types="vitest/globals" />
 const makeSGR = (...parameters: SGRParam[]) => {
 	return CSI() + parameters.map(parameter => `${parameter}`).join(';') + 'm';
 };
@@ -424,6 +442,7 @@ const makeSGR = (...parameters: SGRParam[]) => {
  * @param params The parameters (e.g. foo=bar:bar=foo).
  * @returns The SGR escape sequence.
  */
+/// <reference types="vitest/globals" />
 const makeOSC8 = (text: string, url: string, params: string = '') => {
 	return `${OSC()}8;${params};${url}${ST()}${text}${OSC()}8;;${ST()}`;
 };
@@ -432,6 +451,7 @@ const makeOSC8 = (text: string, url: string, params: string = '') => {
  * Sets up an ANSIOutput with a standard "screen" of content.
  * @returns The newly set up ANSIOutput.
  */
+/// <reference types="vitest/globals" />
 const setupStandardScreen = () => {
 	const ansiOutput = new ANSIOutput();
 	for (let i = 0; i < 25; i++) {
@@ -449,6 +469,7 @@ const setupStandardScreen = () => {
  * @param count The number of lines to put in the array.
  * @returns The array of lines.
  */
+/// <reference types="vitest/globals" />
 const makeLines = (count: number): string[] => {
 	// Make the lines.
 	const lines: string[] = [];
@@ -465,6 +486,7 @@ const makeLines = (count: number): string[] => {
  * @param value The value.
  * @returns A two digit hex string representing the value.
  */
+/// <reference types="vitest/globals" />
 export const twoDigitHex = (value: number) => {
 	// Sanity check the value.
 	if (value < 0) {
@@ -485,6 +507,7 @@ export const twoDigitHex = (value: number) => {
 /**
  * ANSIOutput suite.
  */
+/// <reference types="vitest/globals" />
 describe('ANSIOutput', () => {
 	it('Test ANSIOutput.processOutput with empty string', () => {
 		// Setup.
@@ -1407,6 +1430,7 @@ describe('ANSIOutput', () => {
 		/**
 		 * SGRToAnsiColorMap type.
 		 */
+		/// <reference types="vitest/globals" />
 		type SGRToAnsiColorMap = [SGRParam, ANSIColor];
 
 		// Foreground colors.
@@ -1835,6 +1859,7 @@ describe('ANSIOutput', () => {
 	 * @param outputLine The expected output line.
 	 * @param outputColumn The expected output column.
 	 */
+	/// <reference types="vitest/globals" />
 	const checkOutputPosition = (ansiOutput: ANSIOutput, outputLine: number, outputColumn: number) => {
 		expect(ansiOutput['_outputLine' as keyof ANSIOutput] as unknown as number).toBe(outputLine);
 		expect(ansiOutput['_outputColumn' as keyof ANSIOutput] as unknown as number).toBe(outputColumn);

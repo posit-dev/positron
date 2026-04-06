@@ -2,6 +2,7 @@
  *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+/// <reference types="vitest/globals" />
 
 import { Emitter } from '../../../../../base/common/event.js';
 import { isWeb } from '../../../../../base/common/platform.js';
@@ -22,6 +23,7 @@ import { createTestContainer } from '../../../../test/browser/positronTestContai
 /**
  * Helper to create common service stubs for RuntimeStartupService tests.
  */
+/// <reference types="vitest/globals" />
 function createCommonStubs(
 	instantiationService: TestInstantiationService,
 	notificationService: MockNotificationService,
@@ -140,6 +142,7 @@ describe('Positron - RuntimeStartupService Architecture Mismatch', () => {
 /**
  * Mock notification service that captures prompt calls for testing.
  */
+/// <reference types="vitest/globals" />
 class MockNotificationService implements Partial<INotificationService> {
 	promptCalls: Array<{
 		severity: Severity;

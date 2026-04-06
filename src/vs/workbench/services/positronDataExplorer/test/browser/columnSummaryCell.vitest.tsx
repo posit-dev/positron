@@ -2,8 +2,10 @@
  *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+/// <reference types="vitest/globals" />
 
 /* eslint-disable no-restricted-syntax */
+/// <reference types="vitest/globals" />
 
 import sinon from 'sinon';
 import { ColumnSummaryCell } from '../../browser/components/columnSummaryCell.js';
@@ -18,6 +20,7 @@ import { IConfigurationService } from '../../../../../platform/configuration/com
 /**
  * Creates a minimal mock of TableSummaryDataGridInstance
  */
+/// <reference types="vitest/globals" />
 function createMockTableSummaryDataGridInstance(overrides: Partial<TableSummaryDataGridInstance> = {}): TableSummaryDataGridInstance {
 	// Mock the hover manager
 	const mockHoverManager: Partial<PositronActionBarHoverManager> = {

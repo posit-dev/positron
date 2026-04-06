@@ -2,6 +2,7 @@
  *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+/// <reference types="vitest/globals" />
 
 import { URI } from '../../../../../base/common/uri.js';
 import { ensureNoLeakedDisposables } from '../../../../../base/test/common/vitestSetup.js';
@@ -17,6 +18,7 @@ describe('QuartoCellToolbar - Position Updates', () => {
 	 * Test that verifies the document model fires appropriate events when cells move.
 	 * This is a prerequisite for the toolbar controller to update positions correctly.
 	 */
+	/// <reference types="vitest/globals" />
 	describe('Document Model Events for Cell Movement', () => {
 
 		it('inserting text between cells should update cell line numbers', async () => {

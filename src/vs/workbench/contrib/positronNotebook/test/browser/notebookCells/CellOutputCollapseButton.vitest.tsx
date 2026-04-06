@@ -2,9 +2,12 @@
  *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+/// <reference types="vitest/globals" />
 
 /* eslint-disable no-restricted-syntax */
+/// <reference types="vitest/globals" />
 /* eslint-disable local/code-no-dangerous-type-assertions */
+/// <reference types="vitest/globals" />
 
 import { ensureNoLeakedDisposables } from '../../../../../../base/test/common/vitestSetup.js';
 import { setupReactRenderer } from '../../../../../../base/test/browser/reactVitest.js';

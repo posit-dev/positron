@@ -2,12 +2,14 @@
  *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+/// <reference types="vitest/globals" />
 
 import { detectHyperlinks } from '../../common/linkDetector.js';
 
 /**
  * Suite of tests for link detector
  */
+/// <reference types="vitest/globals" />
 describe('Output Run with Links', () => {
 	it('basic links correctly extracted', () => {
 		const text = "This is a link to https://www.example.com";

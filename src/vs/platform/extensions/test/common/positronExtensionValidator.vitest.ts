@@ -2,6 +2,7 @@
  *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+/// <reference types="vitest/globals" />
 
 import { URI } from '../../../../base/common/uri.js';
 import { IExtensionManifest } from '../../common/extensions.js';
@@ -10,10 +11,12 @@ import { validatePositronExtensionManifest } from '../../common/positronExtensio
 /**
  * Positron Extension Validator suite.
  */
+/// <reference types="vitest/globals" />
 describe('Positron Extension Validator', () => {
 	/**
 	 * Test for validating the Positron extension manifest's Positron version.
 	 */
+	/// <reference types="vitest/globals" />
 	it('Positron Extension Validator - Positron Version', () => {
 		// Setup the tests.
 		const uri = URI.parse('http://test-extension.com');

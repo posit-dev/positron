@@ -2,6 +2,7 @@
  *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+/// <reference types="vitest/globals" />
 
 import * as positron from 'positron';
 import { filterNotebookContext, MAX_NOTEBOOK_CONTEXT_CHARS, MAX_NON_SELECTED_CELL_CONTENT_CHARS } from '../notebookContextFilter';
@@ -9,6 +10,7 @@ import { filterNotebookContext, MAX_NOTEBOOK_CONTEXT_CHARS, MAX_NON_SELECTED_CEL
 /**
  * Creates a mock notebook cell for testing
  */
+/// <reference types="vitest/globals" />
 function createMockCell(
 	index: number,
 	content: string,
@@ -32,6 +34,7 @@ function createMockCell(
 /**
  * Creates a mock notebook context for testing
  */
+/// <reference types="vitest/globals" />
 function createMockContext(
 	cells: positron.notebooks.NotebookCell[],
 	selectedIndices: number[] = []

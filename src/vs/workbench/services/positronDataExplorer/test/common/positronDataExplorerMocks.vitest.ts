@@ -2,6 +2,7 @@
  *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+/// <reference types="vitest/globals" />
 
 import {
 	FilterComparison,
@@ -16,6 +17,7 @@ import * as mocks from "../../../positronDataExplorer/common/positronDataExplore
 /**
  * Basic smoke tests for debugging the mock functions
  */
+/// <reference types="vitest/globals" />
 describe('DataExplorerMocks', () => {
 
 	it('Test getTableSchema', () => {

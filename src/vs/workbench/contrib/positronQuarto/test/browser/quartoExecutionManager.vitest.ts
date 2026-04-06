@@ -2,6 +2,7 @@
  *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+/// <reference types="vitest/globals" />
 
 import { URI } from '../../../../../base/common/uri.js';
 import { Disposable } from '../../../../../base/common/lifecycle.js';
@@ -472,6 +473,7 @@ describe('QuartoExecutionManager', () => {
 /**
  * Mock kernel manager that returns the TestLanguageRuntimeSession directly.
  */
+/// <reference types="vitest/globals" />
 class MockKernelManager extends Disposable {
 	lastExecutionId?: string;
 	private _executionResolve?: (id: string) => void;
@@ -580,6 +582,7 @@ class MockDocumentModelService {
  * Mock Quarto document model that allows simulating document edits
  * by updating cell line numbers.
  */
+/// <reference types="vitest/globals" />
 class MockQuartoDocumentModel {
 	private _cells: Map<string, QuartoCodeCell> = new Map();
 	private _documentLines: string[] = [];

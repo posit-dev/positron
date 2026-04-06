@@ -2,6 +2,7 @@
  *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+/// <reference types="vitest/globals" />
 
 import * as sinon from 'sinon';
 import { timeout } from '../../../../../base/common/async.js';
@@ -162,6 +163,7 @@ describe('Positron - RuntimeSessionService', () => {
 	 * For a notebook session, checks that the session is the active notebook session for a given notebook URI.
 	 * For a console session, checks that the session is the last used console session for a given runtime and language.
 	 */
+	/// <reference types="vitest/globals" />
 	function assertCurrentSession(
 		runtime: ILanguageRuntimeMetadata,
 		notebookUri: URI,

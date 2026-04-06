@@ -2,6 +2,7 @@
  *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+/// <reference types="vitest/globals" />
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { createTestPositronNotebookInstance, TestPositronNotebookInstance } from './testPositronNotebookInstance.js';
 import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
@@ -13,6 +14,7 @@ import { CellSelectionType } from '../../browser/selectionMachine.js';
  * Helper to enter edit mode on a cell and set cursor position.
  * Split requires the cell to be in editing state with a cursor.
  */
+/// <reference types="vitest/globals" />
 function enterEditModeWithCursor(
 	notebook: TestPositronNotebookInstance,
 	cellIndex: number,
