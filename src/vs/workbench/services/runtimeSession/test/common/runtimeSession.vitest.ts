@@ -1297,4 +1297,73 @@ describe('Positron - RuntimeSessionService', () => {
 			expect(notebookSession.metadata.workingDirectory).toBe(notebookWorkingDir);
 		});
 	});
+
+	describe('session tracking (PR #12593)', () => {
+		describe('getLastActiveConsoleSession', () => {
+			it('returns undefined when no console sessions have been started', () => {
+				expect(runtimeSessionService.getLastActiveConsoleSession()).toBeUndefined();
+			});
+
+			it('returns the console session after one is started', async () => {
+				const session = await startConsole(runtime);
+
+				expect(runtimeSessionService.getLastActiveConsoleSession()?.sessionId).toBe(session.sessionId);
+			});
+
+			it('returns the last active console session when multiple exist', async () => {
+				const session1 = await startConsole(runtime);
+				await waitForRuntimeState(session1, RuntimeState.Ready);
+
+				const session2 = await startConsole(anotherRuntime);
+
+				expect(runtimeSessionService.getLastActiveConsoleSession()?.sessionId).toBe(session2.sessionId);
+			});
+		});
+
+		describe('removeNotebookSessionFromNotebookMap', () => {
+			it('after removing, getNotebookSessionForNotebookUri returns undefined', async () => {
+				const session = await startNotebook(runtime);
+				assertNotebookSessionForNotebookUri(notebookUri, session);
+
+				runtimeSessionService.removeNotebookSessionFromNotebookMap(notebookUri);
+
+				assertNotebookSessionForNotebookUri(notebookUri, undefined);
+			});
+
+			it('removing a non-existent URI is a no-op', () => {
+				const unknownUri = URI.file('/path/to/unknown/notebook');
+				expect(() => {
+					runtimeSessionService.removeNotebookSessionFromNotebookMap(unknownUri);
+				}).not.toThrow();
+			});
+		});
+
+		describe('selectRuntime cleans up exited notebook sessions', () => {
+			it('cleans up an exited session for a different runtime before starting the new one', async () => {
+				// Start a notebook session with the first runtime and let it reach Ready.
+				const session1 = await startNotebook(runtime);
+				await waitForRuntimeState(session1, RuntimeState.Ready);
+
+				// Simulate the session exiting.
+				session1.setRuntimeState(RuntimeState.Exited);
+
+				// Select a different runtime for the same notebook.
+				const session2 = await selectRuntime(anotherRuntime, notebookUri);
+
+				// The new session should be for the new runtime.
+				expect(session2.runtimeMetadata.runtimeId).toBe(anotherRuntime.runtimeId);
+				expect(session2.sessionId).not.toBe(session1.sessionId);
+
+				// The new session should be tracked for this notebook URI.
+				assertNotebookSessionForNotebookUri(notebookUri, session2);
+
+				// The old session should no longer be in the active sessions list.
+				const activeSessionIds = runtimeSessionService.activeSessions.map(s => s.sessionId);
+				expect(activeSessionIds).not.toContain(session1.sessionId);
+
+				// The new session should be starting.
+				expect(session2.getRuntimeState()).toBe(RuntimeState.Starting);
+			});
+		});
+	});
 });
