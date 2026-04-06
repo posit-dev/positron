@@ -10,6 +10,22 @@ import { TestInstantiationService } from '../../../platform/instantiation/test/c
 import { createRuntimeServices } from '../../services/runtimeSession/test/common/testRuntimeSessionService.js';
 import { positronWorkbenchInstantiationService } from './positronWorkbenchTestServices.js';
 import { ensureNoLeakedDisposables } from '../../../base/test/common/vitestSetup.js';
+import { INotebookExecutionService } from '../../contrib/notebook/common/notebookExecutionService.js';
+import { INotebookExecutionStateService } from '../../contrib/notebook/common/notebookExecutionStateService.js';
+import { INotebookRendererMessagingService } from '../../contrib/notebook/common/notebookRendererMessagingService.js';
+import { NotebookRendererMessagingService } from '../../contrib/notebook/browser/services/notebookRendererMessagingServiceImpl.js';
+import { INotebookEditorService } from '../../contrib/notebook/browser/services/notebookEditorService.js';
+import { NotebookEditorWidgetService } from '../../contrib/notebook/browser/services/notebookEditorServiceImpl.js';
+import { INotebookDocumentService, NotebookDocumentWorkbenchService } from '../../services/notebook/common/notebookDocumentService.js';
+import { INotebookService } from '../../contrib/notebook/common/notebookService.js';
+import { NotebookService } from '../../contrib/notebook/browser/services/notebookServiceImpl.js';
+import { INotebookKernelService } from '../../contrib/notebook/common/notebookKernelService.js';
+import { NotebookKernelService } from '../../contrib/notebook/browser/services/notebookKernelServiceImpl.js';
+import { INotebookLoggingService } from '../../contrib/notebook/common/notebookLoggingService.js';
+import { NotebookLoggingService } from '../../contrib/notebook/browser/services/notebookLoggingServiceImpl.js';
+import { TestNotebookExecutionService } from '../../test/common/positronWorkbenchTestServices.js';
+import { TestNotebookExecutionStateService } from '../../contrib/notebook/test/browser/testNotebookEditor.js';
+import { workbenchInstantiationService as baseWorkbenchInstantiationService } from './workbenchTestServices.js';
 
 interface TestContainerResult {
 	/** Retrieve a registered service by its identifier. */
@@ -25,6 +41,7 @@ type ServiceStub = { id: ServiceIdentifier<any>; impl: any };
 
 class PositronTestContainerBuilder {
 	private _useRuntimeServices = false;
+	private _useNotebookServices = false;
 	private _useWorkbenchServices = false;
 	private _stubs: ServiceStub[] = [];
 
@@ -34,7 +51,13 @@ class PositronTestContainerBuilder {
 		return this;
 	}
 
-	/** Add the full 124+ workbench service stack (includes runtime services). */
+	/** Add runtime services + 8 notebook services (INotebookService, INotebookEditorService, etc.) */
+	withNotebookServices(): this {
+		this._useNotebookServices = true;
+		return this;
+	}
+
+	/** Add the full 124+ workbench service stack (includes runtime + notebook services). */
 	withWorkbenchServices(): this {
 		this._useWorkbenchServices = true;
 		return this;
@@ -58,6 +81,7 @@ class PositronTestContainerBuilder {
 		const disposables = ensureNoLeakedDisposables();
 		const stubs = this._stubs;
 		const useRuntimeServices = this._useRuntimeServices;
+		const useNotebookServices = this._useNotebookServices;
 		const useWorkbenchServices = this._useWorkbenchServices;
 
 		// Mutable slot -- reassigned in beforeEach so each test starts fresh.
@@ -66,6 +90,18 @@ class PositronTestContainerBuilder {
 		beforeEach(() => {
 			if (useWorkbenchServices) {
 				_instantiationService = positronWorkbenchInstantiationService(disposables);
+			} else if (useNotebookServices) {
+				// Runtime services + base workbench (for editor/theme deps) + notebook services.
+				_instantiationService = baseWorkbenchInstantiationService(undefined, disposables);
+				createRuntimeServices(_instantiationService, disposables);
+				_instantiationService.stub(INotebookExecutionService, new TestNotebookExecutionService());
+				_instantiationService.stub(INotebookExecutionStateService, _instantiationService.createInstance(TestNotebookExecutionStateService));
+				_instantiationService.stub(INotebookRendererMessagingService, disposables.add(_instantiationService.createInstance(NotebookRendererMessagingService)));
+				_instantiationService.stub(INotebookEditorService, disposables.add(_instantiationService.createInstance(NotebookEditorWidgetService)));
+				_instantiationService.stub(INotebookDocumentService, new NotebookDocumentWorkbenchService());
+				_instantiationService.stub(INotebookService, disposables.add(_instantiationService.createInstance(NotebookService)));
+				_instantiationService.stub(INotebookKernelService, disposables.add(_instantiationService.createInstance(NotebookKernelService)));
+				_instantiationService.stub(INotebookLoggingService, disposables.add(_instantiationService.createInstance(NotebookLoggingService)));
 			} else if (useRuntimeServices) {
 				_instantiationService = new TestInstantiationService(new ServiceCollection());
 				createRuntimeServices(_instantiationService, disposables);
