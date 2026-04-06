@@ -313,10 +313,13 @@ Write a standalone `.test.ts` file when saving (via `--save` flag, or user said 
 - `MMDD` is the current date (e.g., `0405`)
 - `<issue>` is the issue number if available, omit if free-text or `--branch` without issue
 - `<slug>` is a short kebab-case summary (e.g., `variable-filter`)
+- **If the file already exists**, append `-1`, `-2`, etc. to the date:
+  `0406_12025-ghost-cell-info.test.ts` -> `0406-1_12025-ghost-cell-info.test.ts`
+  Check with: `ls test/e2e/tests/_generated/MMDD*<issue>-<slug>* 2>/dev/null`
 - Examples:
   - `test/e2e/tests/_generated/0405_9638-notebook-outline.test.ts`
+  - `test/e2e/tests/_generated/0405-1_9638-notebook-outline.test.ts` (second run same day)
   - `test/e2e/tests/_generated/0404_console-sessions.test.ts`
-  - `test/e2e/tests/_generated/0405_data-explorer-summary.test.ts`
 
 **Format:**
 ```typescript
