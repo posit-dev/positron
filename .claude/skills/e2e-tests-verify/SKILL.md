@@ -329,14 +329,23 @@ import { test, expect } from './_qa.setup';
 
 test.use({ suiteId: __filename });
 
-test('QA #12345: Variable appears after execution', async function ({ app, python }) {
-	const { console, variables } = app.workbench;
+test.describe('Verify #12345: Variables appear after execution', () => {
 
-	// Execute code and verify variable
-	await console.executeCode('Python', 'x = 42');
-	await variables.expectVariableToBe('x', '42');
+	test('Variable x is set after running code', async function ({ app, python }) {
+		const { console, variables } = app.workbench;
+
+		// Execute code and verify variable
+		await console.executeCode('Python', 'x = 42');
+		await variables.expectVariableToBe('x', '42');
+	});
+
 });
 ```
+
+Use `test.describe('Verify #<issue>: <short summary>')` as the parent block.
+Individual test names describe the specific scenario without repeating the issue number.
+For free-text tests (no issue number), use `test.describe('Verify: <description>')`.
+
 
 **Rules:**
 - Follow all conventions in `../shared-e2e-references/test-conventions.md`
