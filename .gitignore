@@ -58,3 +58,4 @@ product.json.backup
 *.lic
 # --- End Positron ---
 test-output.json
+.superset/
