@@ -665,6 +665,35 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 		this._eventClocks.push(0);
 
+		// Hook up the package manager's sync support change event when the session becomes ready.
+		// We can't do this at registration time because the package manager may not be available
+		// until the session has started (e.g., Python sessions create it during kernel startup).
+		let syncSupportListenerSetUp = false;
+		const setupSyncSupportListener = () => {
+			if (syncSupportListenerSetUp) {
+				return;
+			}
+			try {
+				const packageManager = session.getPackageManager?.();
+				if (packageManager?.onDidChangeSyncSupport) {
+					packageManager.onDidChangeSyncSupport(supported => {
+						this._proxy.$emitSyncSupportChanged(sessionId, supported);
+					});
+					syncSupportListenerSetUp = true;
+				}
+			} catch {
+				// Package manager not available yet; will try again on next state change.
+			}
+		};
+
+		// Try immediately in case the session is already ready
+		setupSyncSupportListener();
+
+		// Also try when the session state changes (e.g., becomes Ready)
+		session.onDidChangeRuntimeState(() => {
+			setupSyncSupportListener();
+		});
+
 		return handle;
 	}
 
@@ -772,14 +801,21 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	}
 
 	async $supportsSyncFromRequirements(handle: number): Promise<boolean> {
-		const packageManager = this.getPackageManagerOrThrow(handle, 'check sync support');
-		// If the package manager implements supportsSyncFromRequirements, use it
-		// (it may check for requirements.txt existence, etc.)
-		if (typeof packageManager.supportsSyncFromRequirements === 'function') {
-			return packageManager.supportsSyncFromRequirements();
+		// Gracefully handle the case where the session isn't ready yet.
+		// This can happen when the UI queries sync support before the session
+		// has fully started (e.g., before the kernel is created).
+		try {
+			const packageManager = this.getPackageManagerOrThrow(handle, 'check sync support');
+			// If the package manager implements supportsSyncFromRequirements, use it
+			// (it may check for requirements.txt existence, etc.)
+			if (typeof packageManager.supportsSyncFromRequirements === 'function') {
+				return packageManager.supportsSyncFromRequirements();
+			}
+			// Otherwise, just check if the method exists
+			return typeof packageManager.syncFromRequirements === 'function';
+		} catch {
+			return false;
 		}
-		// Otherwise, just check if the method exists
-		return typeof packageManager.syncFromRequirements === 'function';
 	}
 
 	async $syncFromRequirements(handle: number, token: CancellationToken): Promise<void> {
