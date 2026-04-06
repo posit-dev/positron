@@ -106,6 +106,20 @@ gh issue view <number> --repo posit-dev/positron --json title,body,labels
 If no linked PR is found, fall back to generating a test plan from the issue
 description alone.
 
+**Feature flag detection (always do this):**
+
+After identifying the changed files, check if any require feature flags to be enabled.
+These are path-based rules -- if the PR touches files under these paths, add the
+corresponding setup step to the test plan:
+
+| Changed file path contains | Required setup |
+|---------------------------|----------------|
+| `positronNotebook/browser/` | `enablePositronNotebooks({"$pom": "settings"})` |
+| `positron.environments` or `positronVariables` | `settings.set({"positron.environments.enable": true}, {"reload": true})` |
+
+Also check existing tests in the same area (see `references/diff-analysis.md` --
+"Check existing tests for setup patterns") for any other setup requirements.
+
 **If issue number with `--deep`:**
 1. Run the `e2e-verify-plan` skill to generate a full verification guide
 2. Fetch ALL context: issue body, PR diff, PR comments, linked issues, linked PRs
