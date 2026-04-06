@@ -100,7 +100,7 @@
     },
     {
         "key": "cmd+shift+g",
-        "command": "positronNotebook.triggerGhostCell" // Trigger Ghost Cell Suggestion
+        "command": "positronNotebook.requestGhostCellSuggestion" // Trigger Ghost Cell Suggestion
     },
     {
         "key": "cmd+j s",
