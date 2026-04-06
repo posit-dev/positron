@@ -40,7 +40,7 @@ Positron forks VSCode. Minimize merge conflicts by isolating Positron code.
 
 The deciding question: **does it need Electron?**
 
-1. **Vitest** (`*.vitest.ts`) -- DEFAULT for Positron code. No Electron needed. Covers everything from pure functions (Tier 0) to 124-service integration (Tier 3). If your code doesn't genuinely need `vscode`/`positron` APIs at runtime, it belongs here.
+1. **Vitest** (`*.vitest.ts`) -- DEFAULT for Positron code. No Electron needed. Covers everything from pure functions to 124-service integration. If your code doesn't genuinely need `vscode`/`positron` APIs at runtime, it belongs here.
 2. **Extension host** (`npm run test-extension`) -- Needs Electron. Only when your test requires activated extensions, workspace APIs, or editor document manipulation.
 3. **E2E** (Playwright) -- Needs the full app. Only for user-visible workflows across multiple systems.
 
@@ -53,7 +53,7 @@ Full strategy: `docs/superpowers/specs/2026-04-03-vitest-migration-design.md`
 	- `npm run test-vitest:run`: single run
 	- `npx vitest run src/path/to/<file>.vitest.ts`: run a specific file
 	- `npx vitest run --grep '<pattern>'`: run tests matching a pattern
-	- New Positron tests should use `.vitest.ts` extension -- see the tier guide below
+	- New Positron tests should use `.vitest.ts` extension -- see the preset guide below
 - **Upstream VS Code tests** (`*.test.ts`, requires build daemons):
 	- `./scripts/test.sh`: run all upstream tests
 	- `./scripts/test.sh --run src/path/to/<file>.test.ts`: run a specific file
@@ -63,9 +63,9 @@ Full strategy: `docs/superpowers/specs/2026-04-03-vitest-migration-design.md`
 	- For positron-python, see that extension's CLAUDE.md
 - **E2E tests** (full app, real browser): `npx playwright test test/e2e/tests/<test-name>.test.ts --project e2e-electron --grep '<pattern>'`
 
-### Positron Vitest Tiers
+### Positron Vitest Presets
 
-All Positron-specific tests use Vitest (`.vitest.ts`). Three tiers -- pick the lowest one that works:
+All Positron-specific tests use Vitest (`.vitest.ts`). The builder provides presets for common service groupings -- pick the lowest one that works:
 
 **Bare** -- pure logic, no services
 
@@ -99,9 +99,27 @@ describe('MyRuntimeFeature', () => {
 });
 ```
 
+**Notebooks** -- runtime + notebook/kernel services
+
+For code that interacts with notebooks, kernels, or execution state. The `.withNotebookServices()` preset adds 8 notebook services on top of Runtime.
+
+```typescript
+import { createTestContainer } from '<path>/test/browser/positronTestContainer.js';
+import { INotebookService } from '<path>/contrib/notebook/common/notebookService.js';
+
+describe('MyNotebookFeature', () => {
+	const ctx = createTestContainer().withNotebookServices().build();
+
+	it('accesses notebook service', () => {
+		const notebookService = ctx.get(INotebookService);
+		expect(notebookService).toBeDefined();
+	});
+});
+```
+
 **Workbench** -- full Positron stack
 
-For code that needs notebooks, plots, variables, webviews, or the full workbench. The `.withWorkbenchServices()` preset includes everything from Runtime plus 100+ more services.
+For code that needs plots, variables, webviews, or the full workbench. The `.withWorkbenchServices()` preset includes everything from Notebooks plus 100+ more services.
 
 ```typescript
 import { createTestContainer } from '<path>/test/browser/positronTestContainer.js';
@@ -122,7 +140,8 @@ describe('MyWorkbenchFeature', () => {
 ```
 
 **Key rules:**
-- Any tier supports `.stub(IService, mock)` for adding or overriding individual services
+- Any preset supports `.stub(IService, mock)` for adding or overriding individual services
+- New presets are easy to add -- see `src/vs/workbench/test/browser/positronTestContainer.ts`
 - The builder result (`ctx`) uses lazy getters -- access `ctx.instantiationService` inside `beforeEach`/`it`, not at describe-level via destructuring
 - `ctx.disposables` is auto-cleaned after each test -- pass it to helpers like `startTestLanguageRuntimeSession()` that need it
 - Upstream VS Code tests stay on Mocha (`.test.ts`) -- only Positron tests use Vitest
@@ -131,7 +150,7 @@ describe('MyWorkbenchFeature', () => {
 
 You don't need to understand all 124 services. You build mocks incrementally -- start with nothing and let the test tell you what's missing.
 
-**Step 1: Start with a tier preset and run the test.**
+**Step 1: Start with a preset and run the test.**
 
 ```typescript
 const ctx = createTestContainer().withRuntimeServices().build();
@@ -174,7 +193,7 @@ const onDidChange = new Emitter<void>();
 
 Now your test can trigger the event with `onDidChange.fire()` to test reactive behavior.
 
-**The pattern: empty -> add methods -> add events.** You never mock more than what the test actually needs. If you're writing 20 lines of mock setup, you're probably over-mocking -- step back and check if a higher tier preset already covers it.
+**The pattern: empty -> add methods -> add events.** You never mock more than what the test actually needs. If you're writing 20 lines of mock setup, you're probably over-mocking -- step back and check if a higher preset already covers it.
 
 ## Directory Structure
 
