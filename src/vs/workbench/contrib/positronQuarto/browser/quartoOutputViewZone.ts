@@ -19,7 +19,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { INotebookOutputWebview, IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { isHTMLOutputWebviewMessage } from '../../positronWebviewPreloads/browser/notebookOutputUtils.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { RuntimeOutputKind, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeMessageType } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { RuntimeOutputKind, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeMessageType, ILanguageRuntimeResourceUsage } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { EditorLayoutInfo, EditorOption } from '../../../../editor/common/config/editorOptions.js';
 import { applyFontInfo } from '../../../../editor/browser/config/domFontInfo.js';
 import { ANSIOutput, ANSIOutputLine, ANSIOutputRun } from '../../../../base/common/ansiOutput.js';
@@ -31,6 +31,7 @@ import { POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_ENABLED_KEY } from '../../positr
 import { QuartoInlineDataExplorer } from './quartoInlineDataExplorer.js';
 import { parseVariablePath } from '../../../services/positronDataExplorer/common/utils.js';
 import { calculateInlineDataExplorerHeight } from './quartoInlineDataExplorerLayout.js';
+import { ResourceUsageGraph } from '../../positronConsole/browser/components/resourceUsageGraph.js';
 
 /**
  * Minimum height for a view zone in pixels.
@@ -179,6 +180,12 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	private readonly _statusIcon: HTMLSpanElement;
 	private readonly _statusText: HTMLElement;
 
+	// Resource usage sparkline shown during execution
+	private readonly _sparklineContainer: HTMLElement;
+	private _sparklineRenderer: PositronReactRenderer | undefined;
+	private readonly _resourceUsageDisposables = this._register(new DisposableStore());
+	private _resourceUsageData: ILanguageRuntimeResourceUsage[] = [];
+
 	// Icon element inside the close button (for switching between close and stop icons)
 	private _buttonIcon!: HTMLSpanElement;
 
@@ -274,6 +281,10 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._statusIcon = document.createElement('span');
 		this._statusIcon.className = 'codicon code-cell-footer-icon';
 		this._statusBar.appendChild(this._statusIcon);
+		this._sparklineContainer = document.createElement('div');
+		this._sparklineContainer.className = 'quarto-output-sparkline';
+		this._sparklineContainer.style.display = 'none';
+		this._statusBar.appendChild(this._sparklineContainer);
 		this._statusText = document.createElement('span');
 		this._statusText.className = 'code-cell-footer-text';
 		this._statusBar.appendChild(this._statusText);
@@ -421,36 +432,39 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		// Hide status bar when idle with no timing info
 		if (state === CellExecutionState.Idle && !startTime) {
 			this._statusBar.style.display = 'none';
+			this._stopSparkline();
 			this._updateStatusOnlyState();
 			this._updateHeight();
 			return;
 		}
 
+		// Always reset everything first to avoid stale state from previous calls
+		this._statusIcon.className = 'codicon code-cell-footer-icon';
+		this._statusText.textContent = '';
+		dom.clearNode(this._statusText);
+		this._stopSparkline();
+
 		this._statusBar.style.display = '';
 
-		// Update icon
-		this._statusIcon.className = 'codicon code-cell-footer-icon';
+		// Apply new state
 		switch (state) {
 			case CellExecutionState.Running:
 				this._statusIcon.classList.add(...ThemeIcon.asClassName(Codicon.sync).split(' '), 'running');
 				this._statusText.textContent = localize('quartoRunning', 'Running...');
+				this._startSparkline();
 				break;
 			case CellExecutionState.Queued:
 				this._statusIcon.classList.add(...ThemeIcon.asClassName(Codicon.clock).split(' '), 'pending');
 				this._statusText.textContent = localize('quartoQueued', 'Queued');
 				break;
-			case CellExecutionState.Completed: {
+			case CellExecutionState.Completed:
 				this._statusIcon.classList.add(...ThemeIcon.asClassName(Codicon.check).split(' '), 'success');
-				this._statusText.innerHTML = '';
 				this._buildDurationText(startTime, endTime);
 				break;
-			}
-			case CellExecutionState.Error: {
+			case CellExecutionState.Error:
 				this._statusIcon.classList.add(...ThemeIcon.asClassName(Codicon.error).split(' '), 'error');
-				this._statusText.innerHTML = '';
 				this._buildDurationText(startTime, endTime);
 				break;
-			}
 			default:
 				this._statusBar.style.display = 'none';
 				break;
@@ -475,6 +489,76 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			timestampSpan.textContent = getRelativeTime(endTime);
 			this._statusText.appendChild(timestampSpan);
 		}
+	}
+
+	/**
+	 * Height and width of the sparkline graph in the status bar.
+	 */
+	private static readonly SPARKLINE_HEIGHT = 16;
+	private static readonly SPARKLINE_WIDTH = 80;
+
+	/**
+	 * Start showing the CPU sparkline in the status bar during execution.
+	 */
+	private _startSparkline(): void {
+		if (!this._session) {
+			return;
+		}
+
+		// Reset data and show container
+		this._resourceUsageData = [];
+		this._sparklineContainer.style.display = '';
+
+		// Create React renderer for the sparkline
+		if (!this._sparklineRenderer) {
+			this._sparklineRenderer = new PositronReactRenderer(this._sparklineContainer);
+		}
+		this._renderSparkline();
+
+		// Subscribe to resource usage updates from the session
+		this._resourceUsageDisposables.clear();
+		this._resourceUsageDisposables.add(
+			this._session.onDidUpdateResourceUsage((usage) => {
+				this._resourceUsageData.push(usage);
+				// Keep only the most recent points that fit the width
+				const maxPoints = Math.floor(QuartoOutputViewZone.SPARKLINE_WIDTH / 2) + 1;
+				if (this._resourceUsageData.length > maxPoints) {
+					this._resourceUsageData = this._resourceUsageData.slice(-maxPoints);
+				}
+				this._renderSparkline();
+			})
+		);
+	}
+
+	/**
+	 * Stop showing the CPU sparkline and clean up.
+	 */
+	private _stopSparkline(): void {
+		this._resourceUsageDisposables.clear();
+		if (this._sparklineRenderer) {
+			this._sparklineRenderer.dispose();
+			this._sparklineRenderer = undefined;
+		}
+		// Clear any residual DOM content and hide
+		dom.clearNode(this._sparklineContainer);
+		this._sparklineContainer.style.display = 'none';
+		this._resourceUsageData = [];
+	}
+
+	/**
+	 * Render the sparkline graph with current data.
+	 */
+	private _renderSparkline(): void {
+		if (!this._sparklineRenderer) {
+			return;
+		}
+		this._sparklineRenderer.render(
+			React.createElement(ResourceUsageGraph, {
+				data: this._resourceUsageData,
+				width: QuartoOutputViewZone.SPARKLINE_WIDTH,
+				height: QuartoOutputViewZone.SPARKLINE_HEIGHT,
+			})
+		);
 	}
 
 	/**
@@ -715,6 +799,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 
 	override dispose(): void {
 		this.hide();
+		this._stopSparkline();
 		this._disposeResizeObserver();
 		this._disposeAllWebviews();
 		this._disposeAllReactRenderers();
