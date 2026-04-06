@@ -278,7 +278,7 @@ export interface INotebookLanguageRuntimeSession extends ILanguageRuntimeSession
  * (e.g. for exited notebook sessions).
  */
 export interface ISessionDisplayInfo {
-	readonly sessionName: string;
+	sessionName: string;
 	readonly sessionMode: LanguageRuntimeSessionMode;
 	readonly notebookUri?: URI;
 	readonly runtimeId: string;

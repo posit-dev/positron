@@ -1145,6 +1145,12 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// Update the sesion name in its dynamic state
 		session.updateSessionName(validatedName);
 
+		// Keep the foreground session display info in sync
+		if (this._foregroundSession?.sessionId === session.sessionId && this._foregroundSessionDisplayInfo) {
+			this._foregroundSessionDisplayInfo.sessionName = validatedName;
+			this._onDidChangeForegroundSessionDisplayInfoEmitter.fire(this._foregroundSessionDisplayInfo);
+		}
+
 		// Log the end of the session name update
 		this._logService.info(
 			`Successfully updated session name to ${validatedName} for session ${formatLanguageRuntimeSession(session)}'`);
@@ -1970,6 +1976,12 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					old_state: oldState,
 					new_state: state
 				});
+			}
+
+			// Keep the foreground session display info in sync
+			if (this._foregroundSession?.sessionId === session.sessionId && this._foregroundSessionDisplayInfo) {
+				this._foregroundSessionDisplayInfo.sessionState = state;
+				this._onDidChangeForegroundSessionDisplayInfoEmitter.fire(this._foregroundSessionDisplayInfo);
 			}
 		}));
 
