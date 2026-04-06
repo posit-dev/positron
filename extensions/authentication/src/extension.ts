@@ -250,6 +250,7 @@ function registerFoundryProvider(context: vscode.ExtensionContext): void {
 }
 
 function registerSnowflakeProvider(context: vscode.ExtensionContext): void {
+	const logger = new AuthProviderLogger('Snowflake Cortex');
 	let lastTomlCheck: number | undefined;
 	let pendingMtime: number | undefined;
 
@@ -278,7 +279,7 @@ function registerSnowflakeProvider(context: vscode.ExtensionContext): void {
 							{ ...globalValue, SNOWFLAKE_ACCOUNT: credentials.account },
 							vscode.ConfigurationTarget.Global
 						).then(undefined, err =>
-							log.error(`Failed to sync Snowflake account: ${err}`)
+							logger.logOperationError('sync Snowflake account', err)
 						);
 					}
 				}
@@ -320,7 +321,10 @@ function registerSnowflakeProvider(context: vscode.ExtensionContext): void {
 		validateApiKey: validateSnowflakeApiKey,
 	});
 	provider.resolveChainCredentials().catch(err =>
-		log.debug(`[Snowflake] Initial credential resolution failed: ${err}`)
+		logger.logCredentialResolution(
+			'failed',
+			`Initial credential resolution failed: ${err}`
+		)
 	);
-	log.info('Registered auth provider: snowflake-cortex');
+	logger.info('Registered auth provider');
 }

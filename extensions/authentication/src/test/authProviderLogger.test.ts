@@ -62,20 +62,6 @@ suite('AuthProviderLogger', () => {
 });
 
 suite('AuthProviderLogger convenience methods', () => {
-	test('logAuthentication failure logs at error', () => {
-		const capture = createCapture();
-		// eslint-disable-next-line local/code-no-any-casts
-		const logger = new AuthProviderLogger('Anthropic', capture as any);
-
-		logger.logAuthentication('failure', 'Invalid key');
-
-		assert.strictEqual(capture.captured[0].level, 'error');
-		assert.strictEqual(
-			capture.captured[0].message,
-			'[Anthropic] Authentication failure: Invalid key'
-		);
-	});
-
 	test('logCredentialResolution failed logs at debug', () => {
 		const capture = createCapture();
 		// eslint-disable-next-line local/code-no-any-casts

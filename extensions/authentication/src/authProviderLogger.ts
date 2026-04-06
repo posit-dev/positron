@@ -82,24 +82,6 @@ export class AuthProviderLogger {
 	}
 
 	/**
-	 * Logs authentication status.
-	 *
-	 * @param status The authentication status.
-	 * @param details Optional additional details.
-	 */
-	logAuthentication(
-		status: 'success' | 'failure' | 'pending',
-		details?: string
-	): void {
-		const message = `Authentication ${status}${details ? `: ${details}` : ''}`;
-		if (status === 'failure') {
-			this.error(message);
-		} else {
-			this.info(message);
-		}
-	}
-
-	/**
 	 * Logs credential resolution activity.
 	 *
 	 * Failed resolutions log at debug level since initial failures
