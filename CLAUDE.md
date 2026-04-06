@@ -44,8 +44,6 @@ The deciding question: **does it need Electron?**
 2. **Extension host** (`npm run test-extension`) -- Needs Electron. Only when your test requires activated extensions, workspace APIs, or editor document manipulation.
 3. **E2E** (Playwright) -- Needs the full app. Only for user-visible workflows across multiple systems.
 
-Full strategy: `docs/superpowers/specs/2026-04-03-vitest-migration-design.md`
-
 ### Running tests
 
 - **Positron Vitest tests** (`*.vitest.ts`, no build daemon needed):
