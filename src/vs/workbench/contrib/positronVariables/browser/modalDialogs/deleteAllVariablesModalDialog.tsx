@@ -54,20 +54,20 @@ export const DeleteAllVariablesModalDialog = (props: DeleteAllVariablesModalDial
 		<ConfirmDeleteModalDialog
 			height={175}
 			renderer={props.renderer}
-			title={(() => localize(
+			title={localize(
 				'positron.deleteAllVariablesModalDialogTitle',
 				"Delete All Variables"
-			))()}
+			)}
 			width={375}
 			onCancel={cancelHandler}
 			onDeleteAction={acceptHandler}
 		>
 			<VerticalStack>
 				<div>
-					{(() => localize(
+					{localize(
 						'positron.deleteAllVariablesModalDialogText',
 						"Are you sure you want to delete all variables? This operation cannot be undone."
-					))()}
+					)}
 				</div>
 			</VerticalStack>
 		</ConfirmDeleteModalDialog>

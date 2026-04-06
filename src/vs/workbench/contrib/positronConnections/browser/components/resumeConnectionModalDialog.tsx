@@ -124,7 +124,7 @@ const ResumeConnectionModalDialog = (props: PropsWithChildren<ResumeConnectionMo
 			<PositronModalDialog
 				height={RESUME_CONNECTION_MODAL_DIALOG_HEIGHT}
 				renderer={props.renderer}
-				title={(() => localize('positron.resumeConnectionModalDialog.title', "Resume Connection"))()}
+				title={localize('positron.resumeConnectionModalDialog.title', "Resume Connection")}
 				width={RESUME_CONNECTION_MODAL_DIALOG_WIDTH}
 				onCancel={cancelHandler}
 			>
@@ -150,7 +150,7 @@ const ResumeConnectionModalDialog = (props: PropsWithChildren<ResumeConnectionMo
 									disabled={!code}
 									onPressed={editHandler}
 								>
-									{(() => localize('positron.resumeConnectionModalDialog.edit', "Edit"))()}
+									{localize('positron.resumeConnectionModalDialog.edit', "Edit")}
 								</PositronButton>
 							</div>
 							<div className='bottom'>
@@ -159,13 +159,13 @@ const ResumeConnectionModalDialog = (props: PropsWithChildren<ResumeConnectionMo
 									disabled={!code}
 									onPressed={copyHandler}
 								>
-									{(() => localize('positron.resumeConnectionModalDialog.copy', "Copy"))()}
+									{localize('positron.resumeConnectionModalDialog.copy', "Copy")}
 								</PositronButton>
 								<PositronButton
 									className='button action-bar-button'
 									onPressed={cancelHandler}
 								>
-									{(() => localize('positron.resumeConnectionModalDialog.cancel', "Cancel"))()}
+									{localize('positron.resumeConnectionModalDialog.cancel', "Cancel")}
 								</PositronButton>
 							</div>
 						</div>
@@ -175,7 +175,7 @@ const ResumeConnectionModalDialog = (props: PropsWithChildren<ResumeConnectionMo
 								disabled={!activeInstance.connect}
 								onPressed={resumeHandler}
 							>
-								{(() => localize('positron.resumeConnectionModalDialog.resume', "Resume Connection"))()}
+								{localize('positron.resumeConnectionModalDialog.resume', "Resume Connection")}
 							</PositronButton>
 						</div>
 					</div>

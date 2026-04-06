@@ -261,7 +261,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 		<PositronModalDialog
 			height={SAVE_PLOT_MODAL_DIALOG_HEIGHT}
 			renderer={props.renderer}
-			title={(() => localize('positron.savePlotModalDialog.title', "Save Plot"))()}
+			title={localize('positron.savePlotModalDialog.title', "Save Plot")}
 			width={SAVE_PLOT_MODAL_DIALOG_WIDTH}
 			onCancel={cancelHandler}>
 			<ContentArea>
@@ -271,10 +271,10 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 							<LabeledFolderInput
 								error={!directory.valid}
 								inputRef={inputRef}
-								label={(() => localize(
+								label={localize(
 									'positron.savePlotModalDialog.directory',
 									"Directory"
-								))()}
+								)}
 								readOnlyInput={false}
 								value={pathUriToLabel(directory.value, props.renderer.services.labelService)}
 								onBrowse={browseHandler}
@@ -289,15 +289,15 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 						<div className='file'>
 							<LabeledTextInput
 								error={!name.valid}
-								label={(() => localize(
+								label={localize(
 									'positron.savePlotModalDialog.name',
 									"Name"
-								))()}
+								)}
 								value={name.value}
 								onChange={e => setName({ value: e.target.value, valid: !!e.target.value })}
 							/>
 							<div>
-								<label>{(() => localize('positron.savePlotModalDialog.format', "Format"))()}
+								<label>{localize('positron.savePlotModalDialog.format', "Format")}
 									<DropDownListBox
 										entries={[
 											new DropDownListBoxItem<PlotRenderFormat, PlotRenderFormat>({ identifier: PlotRenderFormat.Png, title: PlotRenderFormat.Png.toUpperCase(), value: PlotRenderFormat.Png }),
@@ -307,10 +307,10 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 											new DropDownListBoxItem<PlotRenderFormat, PlotRenderFormat>({ identifier: PlotRenderFormat.Tiff, title: PlotRenderFormat.Tiff.toUpperCase(), value: PlotRenderFormat.Tiff }),
 										]}
 										selectedIdentifier={format}
-										title={(() => localize(
+										title={localize(
 											'positron.savePlotModalDialog.format',
 											"Format"
-										))()}
+										)}
 										onSelectionChanged={(ext) => { setFormat(ext.options.identifier); }} />
 								</label>
 							</div>
@@ -319,29 +319,29 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 							{enableIntrinsicSize ? <>
 								<LabeledTextInput
 									disabled={true}
-									label={(() => localize(
+									label={localize(
 										'positron.savePlotModalDialog.width',
 										"Width"
-									))()}
+									)}
 									type={'text'}
 									value={intrinsicWidth}
 								/>
 								<LabeledTextInput
 									disabled={true}
-									label={(() => localize(
+									label={localize(
 										'positron.savePlotModalDialog.height',
 										"Height"
-									))()}
+									)}
 									type={'text'}
 									value={intrinsicHeight}
 								/>
 							</> : <>
 								<LabeledTextInput
 									error={!width.valid}
-									label={(() => localize(
+									label={localize(
 										'positron.savePlotModalDialog.width',
 										"Width"
-									))()}
+									)}
 									min={1}
 									type={'number'}
 									value={width.value}
@@ -349,10 +349,10 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 								/>
 								<LabeledTextInput
 									error={!height.valid}
-									label={(() => localize(
+									label={localize(
 										'positron.savePlotModalDialog.height',
 										"Height"
-									))()}
+									)}
 									min={1}
 									type={'number'}
 									value={height.value}
@@ -361,10 +361,10 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 							</>}
 							{enableDPI && <LabeledTextInput
 								error={!dpi.valid}
-								label={(() => localize(
+								label={localize(
 									'positron.savePlotModalDialog.dpi',
 									"DPI"
-								))()}
+								)}
 								max={300}
 								min={1}
 								type={'number'}
@@ -373,38 +373,38 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 							/>}
 							<div className='error'>
 								<div>
-									{!directory.valid && (() => localize(
+									{!directory.valid && localize(
 										'positron.savePlotModalDialog.invalidPathError',
 										"Invalid path: {0}", directory.errorMessage
-									))()}
+									)}
 								</div>
 								<div>
-									{(!width.valid || !height.valid) && (() => localize(
+									{(!width.valid || !height.valid) && localize(
 										'positron.savePlotModalDialog.dimensionError',
 										"Width and height must be greater than 0."
-									))()}
+									)}
 								</div>
 								<div>
-									{!dpi.valid && (() => localize(
+									{!dpi.valid && localize(
 										'positron.savePlotModalDialog.dpiMinMaxError',
 										"DPI must be between 1 and 300."
-									))()}
+									)}
 								</div>
 								<div>
-									{!name.valid && (() => localize(
+									{!name.valid && localize(
 										'positron.savePlotModalDialog.invalidNameError',
 										"Plot name cannot be empty."
-									))()}
+									)}
 								</div>
 							</div>
 						</div>
 						<div className='use-intrinsic-size'>
 							{props.plotIntrinsicSize ? <Checkbox
 								initialChecked={enableIntrinsicSize}
-								label={(() => localize(
+								label={localize(
 									'positron.savePlotModalDialog.useIntrinsicSize',
 									"Use intrinsic size"
-								))()}
+								)}
 								onChanged={checked => setEnableIntrinsicSize(checked)} /> : null}
 						</div>
 						<div className='preview-progress'>
@@ -422,7 +422,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 			<div className='plot-save-dialog-action-bar top-separator'>
 				<div className='left'>
 					<PositronButton className='action-bar-button' onPressed={updatePreview}>
-						{(() => localize('positron.savePlotModalDialog.updatePreview', "Preview"))()}
+						{localize('positron.savePlotModalDialog.updatePreview', "Preview")}
 					</PositronButton>
 				</div>
 				<div className='right'>
