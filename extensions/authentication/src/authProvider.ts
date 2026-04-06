@@ -5,7 +5,6 @@
 
 import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
-import { IS_RUNNING_ON_PWB } from './constants';
 import { AuthProviderLogger } from './authProviderLogger';
 
 interface StoredAccount {
@@ -124,7 +123,7 @@ export class AuthProvider
 		}
 
 		// Workbench-managed credentials
-		if (this.workbench && IS_RUNNING_ON_PWB) {
+		if (this.workbench) {
 			const session = await this.getManagedSession();
 			if (session) {
 				this.logger.logSessionChange('retrieved', 'getSessions: returned Workbench-managed session');

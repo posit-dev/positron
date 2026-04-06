@@ -18,15 +18,17 @@ function createCapture() {
 		debug: (msg: string) => captured.push({ level: 'debug', message: msg }),
 		info: (msg: string) => captured.push({ level: 'info', message: msg }),
 		warn: (msg: string) => captured.push({ level: 'warn', message: msg }),
-		error: (msg: string) => captured.push({ level: 'error', message: msg }),
+		error: (msg: string | Error) => captured.push({
+			level: 'error',
+			message: msg instanceof Error ? msg.message : msg,
+		}),
 	};
 }
 
 suite('AuthProviderLogger', () => {
 	test('prefixes messages with provider name', () => {
 		const capture = createCapture();
-		// eslint-disable-next-line local/code-no-any-casts
-		const logger = new AuthProviderLogger('Anthropic', capture as any);
+		const logger = new AuthProviderLogger('Anthropic', capture);
 
 		logger.info('hello');
 
@@ -37,8 +39,7 @@ suite('AuthProviderLogger', () => {
 
 	test('warn with error appends formatted error', () => {
 		const capture = createCapture();
-		// eslint-disable-next-line local/code-no-any-casts
-		const logger = new AuthProviderLogger('Test', capture as any);
+		const logger = new AuthProviderLogger('Test', capture);
 
 		logger.warn('something failed', new Error('bad input'));
 
@@ -50,8 +51,7 @@ suite('AuthProviderLogger', () => {
 
 	test('error with error object appends formatted error', () => {
 		const capture = createCapture();
-		// eslint-disable-next-line local/code-no-any-casts
-		const logger = new AuthProviderLogger('Test', capture as any);
+		const logger = new AuthProviderLogger('Test', capture);
 
 		logger.error('operation failed', { code: 403, reason: 'forbidden' });
 
@@ -64,8 +64,7 @@ suite('AuthProviderLogger', () => {
 suite('AuthProviderLogger convenience methods', () => {
 	test('logCredentialResolution failed logs at debug', () => {
 		const capture = createCapture();
-		// eslint-disable-next-line local/code-no-any-casts
-		const logger = new AuthProviderLogger('AWS', capture as any);
+		const logger = new AuthProviderLogger('AWS', capture);
 
 		logger.logCredentialResolution(
 			'failed',
@@ -80,8 +79,7 @@ suite('AuthProviderLogger convenience methods', () => {
 
 	test('logSessionChange retrieved logs at debug', () => {
 		const capture = createCapture();
-		// eslint-disable-next-line local/code-no-any-casts
-		const logger = new AuthProviderLogger('Foundry', capture as any);
+		const logger = new AuthProviderLogger('Foundry', capture);
 
 		logger.logSessionChange(
 			'retrieved',
@@ -96,8 +94,7 @@ suite('AuthProviderLogger convenience methods', () => {
 
 	test('logOperationError logs at error with formatted error', () => {
 		const capture = createCapture();
-		// eslint-disable-next-line local/code-no-any-casts
-		const logger = new AuthProviderLogger('Foundry', capture as any);
+		const logger = new AuthProviderLogger('Foundry', capture);
 
 		logger.logOperationError(
 			'sync Foundry endpoint',
