@@ -36,6 +36,7 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 	private readonly _onDidReceiveRuntimeMessagePromptConfig = this._register(new Emitter<void>());
 	private readonly _onDidReceiveRuntimeMessageIPyWidgetEmitter = new Emitter<ILanguageRuntimeMessageIPyWidget>();
 	private readonly _onDidUpdateResourceUsage = this._register(new Emitter<ILanguageRuntimeResourceUsage>());
+	private readonly _onDidChangeSyncSupport = this._register(new Emitter<boolean>());
 
 	private _currentState = RuntimeState.Uninitialized;
 
@@ -63,6 +64,7 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 	onDidReceiveRuntimeMessagePromptConfig = this._onDidReceiveRuntimeMessagePromptConfig.event;
 	onDidReceiveRuntimeMessageIPyWidget = this._onDidReceiveRuntimeMessageIPyWidgetEmitter.event;
 	onDidUpdateResourceUsage = this._onDidUpdateResourceUsage.event;
+	onDidChangeSyncSupport = this._onDidChangeSyncSupport.event;
 
 	// Test helper events
 	private readonly _onDidExecute = this._register(new Emitter<string>());

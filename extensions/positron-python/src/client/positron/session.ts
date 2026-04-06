@@ -81,6 +81,9 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     /** The emitter for resource usage updates */
     private _resourceUsageEmitter = new vscode.EventEmitter<positron.RuntimeResourceUsage>();
 
+    /** The emitter for sync support changes (forwarded from package manager) */
+    private _syncSupportEmitter = new vscode.EventEmitter<boolean>();
+
     /** The Positron Supervisor extension API */
     private adapterApi?: PositronSupervisorApi;
 
@@ -136,6 +139,8 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     onDidEndSession = this._exitEmitter.event;
 
     onDidUpdateResourceUsage = this._resourceUsageEmitter.event;
+
+    onDidChangeSyncSupport = this._syncSupportEmitter.event;
 
     constructor(
         readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
@@ -508,6 +513,13 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
                 this.serviceContainer,
                 this,
             );
+
+            // Forward the package manager's sync support change event to the session
+            if (this._packageManager.onDidChangeSyncSupport) {
+                this._packageManager.onDidChangeSyncSupport(supported => {
+                    this._syncSupportEmitter.fire(supported);
+                });
+            }
         }
 
         if (this.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console && !this._isExternallyManaged) {

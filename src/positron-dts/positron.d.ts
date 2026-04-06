@@ -1234,6 +1234,14 @@ declare module 'positron' {
 		 * @param token Optional cancellation token
 		 */
 		syncFromRequirements?(token?: vscode.CancellationToken): Thenable<void>;
+
+		/**
+		 * Event that fires when sync support changes (e.g., when requirements.txt
+		 * is created or deleted).
+		 *
+		 * The event payload is a boolean indicating whether sync is now supported.
+		 */
+		onDidChangeSyncSupport?: vscode.Event<boolean>;
 	}
 
 	/**
@@ -1323,6 +1331,12 @@ declare module 'positron' {
 
 		/** An object that emits an event when the runtime's resource usage is updated */
 		onDidUpdateResourceUsage: vscode.Event<RuntimeResourceUsage>;
+
+		/**
+		 * An event that fires when sync support changes (e.g., requirements.txt created/deleted).
+		 * The session is responsible for forwarding this from the package manager.
+		 */
+		onDidChangeSyncSupport?: vscode.Event<boolean>;
 
 		/**
 		 * Opens a resource in the runtime.

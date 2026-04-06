@@ -188,6 +188,7 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 	private readonly _onDidReceiveRuntimeMessageIPyWidgetEmitter = new Emitter<ILanguageRuntimeMessageIPyWidget>();
 	private readonly _onDidCreateClientInstanceEmitter = new Emitter<ILanguageRuntimeClientCreatedEvent>();
 	private readonly _onDidUpdateResourceUsageEmitter = new Emitter<ILanguageRuntimeResourceUsage>();
+	private readonly _onDidChangeSyncSupportEmitter = new Emitter<boolean>();
 
 	private _runtimeInfo: ILanguageRuntimeInfo | undefined;
 	private _currentState: RuntimeState = RuntimeState.Uninitialized;
@@ -388,6 +389,7 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 	onDidReceiveRuntimeMessageIPyWidget = this._onDidReceiveRuntimeMessageIPyWidgetEmitter.event;
 	onDidCreateClientInstance = this._onDidCreateClientInstanceEmitter.event;
 	onDidUpdateResourceUsage = this._onDidUpdateResourceUsageEmitter.event;
+	onDidChangeSyncSupport = this._onDidChangeSyncSupportEmitter.event;
 
 	handleRuntimeMessage(message: ILanguageRuntimeMessage, handled: boolean): void {
 		// Add the message to the event queue
@@ -458,6 +460,10 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 
 	emitResourceUsage(usage: ILanguageRuntimeResourceUsage): void {
 		this._onDidUpdateResourceUsageEmitter.fire(usage);
+	}
+
+	emitSyncSupportChanged(supported: boolean): void {
+		this._onDidChangeSyncSupportEmitter.fire(supported);
 	}
 
 	/**
@@ -1657,6 +1663,10 @@ export class MainThreadLanguageRuntime
 
 	$emitLanguageRuntimeResourceUsage(sessionId: string, usage: ILanguageRuntimeResourceUsage): void {
 		this.findSession(sessionId).emitResourceUsage(usage);
+	}
+
+	$emitSyncSupportChanged(sessionId: string, supported: boolean): void {
+		this.findSession(sessionId).emitSyncSupportChanged(supported);
 	}
 
 	// Called by the extension host to register a language runtime

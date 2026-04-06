@@ -21,13 +21,57 @@ import { IPackageManager, MessageEmitter, PackageSession } from './types';
  */
 export class PipPackageManager implements IPackageManager {
     private _pythonService: IPythonExecutionService | undefined;
+    private readonly _onDidChangeSyncSupport = new vscode.EventEmitter<boolean>();
+    private _fileWatcher: vscode.FileSystemWatcher | undefined;
+    private _lastSyncSupported: boolean | undefined;
+
+    readonly onDidChangeSyncSupport = this._onDidChangeSyncSupport.event;
 
     constructor(
         private readonly _pythonPath: string,
         private readonly _messageEmitter: MessageEmitter,
         private readonly _serviceContainer: IServiceContainer,
         private readonly _session: PackageSession,
-    ) {}
+    ) {
+        this._setupFileWatcher();
+    }
+
+    /**
+     * Set up a file watcher for requirements.txt to detect when sync support changes.
+     */
+    private _setupFileWatcher(): void {
+        const workspaceFolders = getWorkspaceFolders();
+        if (!workspaceFolders || workspaceFolders.length === 0) {
+            return;
+        }
+
+        // Watch for requirements.txt in the workspace root
+        const pattern = new vscode.RelativePattern(workspaceFolders[0], 'requirements.txt');
+        this._fileWatcher = vscode.workspace.createFileSystemWatcher(pattern);
+
+        // When the file is created or deleted, check if sync support changed
+        this._fileWatcher.onDidCreate(() => this._checkAndFireSyncSupportChange());
+        this._fileWatcher.onDidDelete(() => this._checkAndFireSyncSupportChange());
+    }
+
+    /**
+     * Check if sync support has changed and fire the event if so.
+     */
+    private async _checkAndFireSyncSupportChange(): Promise<void> {
+        const supported = await this.supportsSyncFromRequirements();
+        if (this._lastSyncSupported !== supported) {
+            this._lastSyncSupported = supported;
+            this._onDidChangeSyncSupport.fire(supported);
+        }
+    }
+
+    /**
+     * Dispose of the file watcher and event emitter.
+     */
+    dispose(): void {
+        this._fileWatcher?.dispose();
+        this._onDidChangeSyncSupport.dispose();
+    }
 
     async getPackages(token?: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]> {
         return this._callMethod<positron.LanguageRuntimePackage[]>('getPackagesInstalled', token);

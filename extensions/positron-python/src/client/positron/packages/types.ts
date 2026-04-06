@@ -99,4 +99,12 @@ export interface IPackageManager {
      * @param token Optional cancellation token
      */
     syncFromRequirements?(token?: vscode.CancellationToken): Promise<void>;
+
+    /**
+     * Event that fires when sync support changes (e.g., when requirements.txt
+     * is created or deleted).
+     *
+     * The event payload is a boolean indicating whether sync is now supported.
+     */
+    onDidChangeSyncSupport?: vscode.Event<boolean>;
 }

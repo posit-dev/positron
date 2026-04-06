@@ -457,6 +457,7 @@ class TestLanguageRuntimeSession extends Disposable implements ILanguageRuntimeS
 	readonly onDidReceiveRuntimeMessagePromptConfig = new Emitter<void>().event;
 	readonly onDidReceiveRuntimeMessageIPyWidget = new Emitter<any>().event;
 	readonly onDidUpdateResourceUsage = new Emitter<any>().event;
+	readonly onDidChangeSyncSupport = new Emitter<boolean>().event;
 
 	constructor(
 		sessionId: string,

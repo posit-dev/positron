@@ -38,6 +38,8 @@ export interface IPositronPackagesInstance {
 	readonly onDidChangeUpdateAllState: Event<boolean>;
 
 	readonly onDidChangeSyncState: Event<boolean>;
+
+	readonly onDidChangeSyncSupport: Event<boolean>;
 }
 
 export class PositronPackagesInstance extends Disposable implements IPositronPackagesInstance {
@@ -64,6 +66,8 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 
 	private readonly _onDidChangeSyncState = this._register(new Emitter<boolean>());
 
+	private readonly _onDidChangeSyncSupport = this._register(new Emitter<boolean>());
+
 	constructor(
 		session: ILanguageRuntimeSession,
 		logService: ILogService,
@@ -87,6 +91,8 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	readonly onDidChangeUpdateAllState = this._onDidChangeUpdateAllState.event;
 
 	readonly onDidChangeSyncState = this._onDidChangeSyncState.event;
+
+	readonly onDidChangeSyncSupport = this._onDidChangeSyncSupport.event;
 
 	/**
 	 * Gets the packages.
@@ -287,6 +293,13 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 				} else if (runtimeState === RuntimeState.Exited) {
 					this.detachRuntime();
 				}
+			})
+		);
+
+		// Listen for sync support changes from the package manager
+		this._runtimeDisposableStore.add(
+			this._session.onDidChangeSyncSupport(supported => {
+				this._onDidChangeSyncSupport.fire(supported);
 			})
 		);
 

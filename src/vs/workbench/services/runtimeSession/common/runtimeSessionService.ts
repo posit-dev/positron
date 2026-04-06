@@ -162,6 +162,9 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	/** An event that fires when the runtime's resource usage is updated */
 	onDidUpdateResourceUsage: Event<ILanguageRuntimeResourceUsage>;
 
+	/** An event that fires when sync support changes (e.g., requirements.txt created/deleted) */
+	onDidChangeSyncSupport: Event<boolean>;
+
 	/** The current state of the runtime (tracks events above) */
 	getRuntimeState(): RuntimeState;
 

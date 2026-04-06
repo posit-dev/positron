@@ -144,9 +144,14 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		// Check immediately
 		checkSyncSupport();
 
+		// Listen for sync support changes (e.g., requirements.txt created/deleted)
+		const disposables = new DisposableStore();
+		disposables.add(activeInstance.onDidChangeSyncSupport(supported => {
+			setSyncVisible(supported);
+		}));
+
 		// Also re-check when packages are refreshed, since the package manager
 		// may not be available until the runtime is ready
-		const disposables = new DisposableStore();
 		disposables.add(activeInstance.onDidRefreshPackagesInstance(() => {
 			checkSyncSupport();
 		}));

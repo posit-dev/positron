@@ -665,34 +665,13 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 		this._eventClocks.push(0);
 
-		// Hook up the package manager's sync support change event when the session becomes ready.
-		// We can't do this at registration time because the package manager may not be available
-		// until the session has started (e.g., Python sessions create it during kernel startup).
-		let syncSupportListenerSetUp = false;
-		const setupSyncSupportListener = () => {
-			if (syncSupportListenerSetUp) {
-				return;
-			}
-			try {
-				const packageManager = session.getPackageManager?.();
-				if (packageManager?.onDidChangeSyncSupport) {
-					packageManager.onDidChangeSyncSupport(supported => {
-						this._proxy.$emitSyncSupportChanged(sessionId, supported);
-					});
-					syncSupportListenerSetUp = true;
-				}
-			} catch {
-				// Package manager not available yet; will try again on next state change.
-			}
-		};
-
-		// Try immediately in case the session is already ready
-		setupSyncSupportListener();
-
-		// Also try when the session state changes (e.g., becomes Ready)
-		session.onDidChangeRuntimeState(() => {
-			setupSyncSupportListener();
-		});
+		// Hook up the session's sync support change event, if available.
+		// The session is responsible for forwarding events from the package manager.
+		if (session.onDidChangeSyncSupport) {
+			session.onDidChangeSyncSupport(supported => {
+				this._proxy.$emitSyncSupportChanged(sessionId, supported);
+			});
+		}
 
 		return handle;
 	}
