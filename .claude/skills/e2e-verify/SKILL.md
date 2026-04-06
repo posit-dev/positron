@@ -766,6 +766,17 @@ This section MUST appear whenever a retry occurred. Never omit it.
 
 If any step fails, include the error message and enriched state. Use `snapshot` or `takeScreenshot` only if the enriched state is not sufficient to diagnose.
 
+**FINAL GATE -- POM Health self-check (do this AFTER writing the retry summary):**
+Before moving to Step 5, re-read your retry summary and every step in the test plan.
+For EACH of these, answer yes or no:
+1. Did any step use `clickRole`, `clickText`, `clickSelector`, `waitForSelector`, or `evaluate`?
+2. Did any retry fix switch from a POM method to a raw action (or vice versa)?
+3. Could any raw action be replaced by a POM method that exists in pom-reference.md?
+
+If ANY answer is yes, you MUST add a POM Health section. If you already wrote the
+report without it, go back and add it now. Do NOT proceed to Step 5 without completing
+this check.
+
 ### Step 5: Cleanup and Save Prompt
 
 ```bash
