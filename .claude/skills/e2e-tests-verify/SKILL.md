@@ -285,22 +285,25 @@ this check.
 curl -s -X POST "http://localhost:$PORT/done"
 ```
 
-**After reporting results and sending `/done`, handle saving:**
+**After reporting results and sending `/done`:**
 - `--save`: Save the test file immediately (go to Step 6, no prompt needed)
 - `--no-save`: Do not save, do not prompt. Done.
-- **No flag (default): You MUST ask the user using `AskUserQuestion`:**
+- **No flag (default): Ask the user what to do next using `AskUserQuestion` with
+  `multiSelect: true`:**
 
-Use `AskUserQuestion` with this exact question:
-> "Would you like to save this as a reusable test file?"
+Ask: "What would you like to do next?" with these options:
+- **Save as test file** -- Generate a `.test.ts` file (Step 6)
+- **Generate verification comment** -- Create a GitHub-ready verification comment (see `references/verification-comment.md`)
+- **Make POM updates** -- Implement the POM recommendations from the report (if any were flagged)
 
 **Do NOT skip this prompt.** This applies even if:
 - The test required retries (the corrected steps are what gets saved)
 - Some steps failed but the core scenario worked (save the passing steps)
 - The result was "PASSED after retry"
 
-Wait for the user's answer before proceeding.
-If yes, generate the `.test.ts` file following Step 6 format, using the CORRECTED
-method names and values from the successful retry (not the original failed attempt).
+Wait for the user's answer, then execute all selected actions.
+If "Save as test file" is selected, use the CORRECTED method names and values
+from the successful retry (not the original failed attempt).
 
 ### Step 6: Save Test
 
