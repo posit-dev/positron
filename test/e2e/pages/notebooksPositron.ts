@@ -739,9 +739,9 @@ export class PositronNotebooks extends Notebooks {
 	async addCodeToCell(
 		cellIndex: number,
 		code: string,
-		options?: { delay?: number; run?: boolean; waitForSpinner?: boolean; type?: 'code' | 'markdown' }
+		options?: { delay?: number; run?: boolean; waitForSpinner?: boolean; type?: 'code' | 'markdown'; clearCell?: boolean }
 	): Promise<Locator> {
-		const { delay = 0, run = false, waitForSpinner = false, type = 'code' } = options ?? {};
+		const { delay = 0, run = false, waitForSpinner = false, type = 'code', clearCell = false } = options ?? {};
 		return await test.step(`Add code to cell: ${cellIndex}, type: ${type}, run: ${run}, waitForSpinner: ${waitForSpinner}`, async () => {
 			const currentCellCount = await this.getCellCount();
 
@@ -761,6 +761,12 @@ export class PositronNotebooks extends Notebooks {
 			// Focus the editor for the cell
 			const editor = this.editorAtIndex(cellIndex);
 			await editor.focus();
+
+			if (clearCell) {
+				const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
+				await editor.press(`${modifier}+a`);
+				await editor.press('Backspace');
+			}
 
 			await editor.pressSequentially(code, { delay });
 			await this.code.driver.page.waitForTimeout(100); // Small delay to ensure content is registered
@@ -1682,6 +1688,16 @@ export class PositronNotebooks extends Notebooks {
 	async dismissGhostCellSuggestion(): Promise<void> {
 		await test.step('Dismiss ghost cell suggestion', async () => {
 			await this.ghostCellDismiss.click();
+		});
+	}
+
+	/**
+	 * Verify: The ghost cell info button is visible, indicating a suggestion has loaded.
+	 * @param timeout - Maximum time to wait for the button to appear (default 30000ms)
+	 */
+	async expectGhostCellInfoButtonVisible(timeout = 30000): Promise<void> {
+		await test.step('Verify ghost cell info button is visible', async () => {
+			await expect(this.ghostCellInfoButton).toBeVisible({ timeout });
 		});
 	}
 
