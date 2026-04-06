@@ -26,7 +26,6 @@ Load this skill when:
 These reference docs are shared with the `e2e-verify` skill (AI-driven testing):
 
 - **Test conventions:** See `../shared-e2e-references/test-conventions.md` for imports, suiteId, function syntax, commenting style, and test.step() rules.
-- **Fixtures:** See `../shared-e2e-references/fixtures.md` for fixture selection, session ID patterns, and setup patterns.
 - **POM patterns:** See `../shared-e2e-references/pom-patterns.md` for POM method selection, confusable methods, and POM-first rules.
 - **POM reference:** Auto-generated method signatures at `test/e2e/tests/_generated/pom-reference.md`. Always check this for exact method names and parameter types. Regenerate if stale:
   ```bash
@@ -88,7 +87,6 @@ test.describe('Feature Name', {
 | `hotKeys` | Keyboard shortcuts: `await hotKeys.closeAllEditors();` |
 | `settings` | Change settings: `await settings.set({ 'key': value });` |
 
-See `../shared-e2e-references/fixtures.md` for details.
 
 ## Quick Reference: Page Objects
 

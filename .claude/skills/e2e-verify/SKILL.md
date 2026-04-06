@@ -275,7 +275,6 @@ Apply the same setup patterns in the generated test. If an existing test uses
 
 When generating tests or choosing POM methods, consult these shared reference docs:
 - `../shared-e2e-references/test-conventions.md` -- imports, suiteId, commenting style, test.step() rules
-- `../shared-e2e-references/fixtures.md` -- fixture selection, session ID patterns, setup patterns
 - `../shared-e2e-references/pom-patterns.md` -- POM method selection, confusable methods, POM-first rules
 - `../shared-e2e-references/common-mistakes.md` -- 32 gotchas to avoid
 
@@ -835,7 +834,6 @@ test('QA #12345: Variable appears after execution', async function ({ app, pytho
 
 **Rules:**
 - Follow all conventions in `../shared-e2e-references/test-conventions.md`
-- Follow fixture selection rules in `../shared-e2e-references/fixtures.md`
 - Import from `./_qa.setup`, not `../_test.setup`
 - Always include `test.use({ suiteId: __filename })` for app isolation
 - Map action steps to the equivalent Playwright calls
