@@ -49,11 +49,10 @@ For each file in the diff, determine:
 
 1. Check if a `.vitest.ts` test already exists for this file
 2. Read the file's imports and constructor to determine the tier:
-   - **Tier 0**: No `@IServiceId` constructor params. Pure functions, parsers, utilities.
-   - **Tier 1**: 1-5 service dependencies.
-   - **Tier 2**: Depends on runtime/language/console services (IRuntimeSessionService, ILanguageRuntimeService, etc.)
-   - **Tier 3**: Needs notebook, plots, webview, or other workbench services.
-3. For `.tsx` files: check if it's a presentational component (Tier 0-1), a component with service context (Tier 2-3), or tightly coupled to VS Code editor lifecycle (recommend E2E instead).
+   - Read `src/vs/workbench/test/browser/positronTestContainer.ts` to see the available presets (e.g., `withRuntimeServices()`, `withNotebookServices()`, `withWorkbenchServices()`). Match the source file's dependencies to the lowest preset that covers them.
+   - If no preset is needed (pure functions, no `@IServiceId` decorators), use a bare `createTestContainer().build()`.
+   - If dependencies don't fit a preset cleanly, use the closest preset + `.stub()` for the extras.
+3. For `.tsx` files: check if it's a presentational component (bare), a component with service context (use a preset), or tightly coupled to VS Code editor lifecycle (recommend E2E instead).
 4. For extension files that import `vscode` or `positron`: check if the import is for types/enums only (can still be Vitest with stubs) or genuinely needs extension host APIs (recommend `npm run test-extension` instead).
 
 **For upstream VS Code files** (Microsoft copyright):
@@ -92,9 +91,9 @@ For each approved item:
 2. **Read existing tests in the same directory** for pattern consistency.
 
 3. **Write the test** following the tier pattern from CLAUDE.md:
-   - Tier 0: Just import and assert. No builder needed.
-   - Tier 1-3: Use `createTestContainer()` with the appropriate preset.
-   - Use incremental mocking: start with the tier preset, add `.stub()` only if the test fails.
+   - If bare (no services): just import and assert. No builder needed.
+   - Otherwise: read `src/vs/workbench/test/browser/positronTestContainer.ts` for available presets, use the lowest one that fits.
+   - Use incremental mocking: start with the preset, add `.stub()` only if the test fails.
    - Use `// @vitest-environment node` if the test uses sinon's fetch stubs.
    - Use tabs for indentation.
    - Add the Posit Software copyright header.
@@ -117,7 +116,7 @@ For each approved item:
 
 ## Key Rules
 
-- **Show your reasoning.** Don't just say "Tier 2" -- say "Tier 2 because this service depends on IRuntimeSessionService, which is covered by `.withRuntimeServices()`." This teaches the dev the tier system.
+- **Show your reasoning.** Don't just say "Runtime" -- say "Runtime because this service depends on IRuntimeSessionService, which is covered by `.withRuntimeServices()`." This teaches the dev the preset system.
 - **Don't over-test.** Focus on public behavior, not implementation details. Test what the code DOES, not how it does it.
 - **Don't over-mock.** Start with the tier preset. Add stubs incrementally only when tests fail.
 - **Don't write E2E tests.** This command is for Vitest unit/service tests only. If something needs E2E coverage, say so but don't write it.
