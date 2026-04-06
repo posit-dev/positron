@@ -473,7 +473,6 @@ describe('QuartoExecutionManager', () => {
 /**
  * Mock kernel manager that returns the TestLanguageRuntimeSession directly.
  */
-/// <reference types="vitest/globals" />
 class MockKernelManager extends Disposable {
 	lastExecutionId?: string;
 	private _executionResolve?: (id: string) => void;
@@ -582,7 +581,6 @@ class MockDocumentModelService {
  * Mock Quarto document model that allows simulating document edits
  * by updating cell line numbers.
  */
-/// <reference types="vitest/globals" />
 class MockQuartoDocumentModel {
 	private _cells: Map<string, QuartoCodeCell> = new Map();
 	private _documentLines: string[] = [];

@@ -28,7 +28,6 @@ import { Disposable, IDisposable } from '../../../../../../../base/common/lifecy
 import { runWithFakedTimers } from '../../../../../../../base/test/common/timeTravelScheduler.js';
 
 /** Get the find controller for a notebook. */
-/// <reference types="vitest/globals" />
 function getController(notebook: TestPositronNotebookInstance): PositronNotebookFindController {
 	const controller = PositronNotebookFindController.get(notebook);
 	expect(controller).toBeTruthy();
@@ -36,7 +35,6 @@ function getController(notebook: TestPositronNotebookInstance): PositronNotebook
 }
 
 /** Gets the find instance, starting the controller if needed. */
-/// <reference types="vitest/globals" />
 function getOrStartFindInstance(controller: PositronNotebookFindController): PositronFindInstance {
 	let find = controller.findInstance;
 
@@ -71,7 +69,6 @@ function getCellSelection(cell: IPositronNotebookCell): [number, number, number,
 }
 
 /** Waits past the 20ms debounce used by the notebook content change scheduler. */
-/// <reference types="vitest/globals" />
 function waitForDebounce(): Promise<void> {
 	return new Promise(resolve => setTimeout(resolve, 25));
 }
@@ -82,7 +79,6 @@ function waitForDebounce(): Promise<void> {
  * Groups edits by model and applies them atomically via pushEditOperations
  * (which supports undo, unlike model.applyEdits).
  */
-/// <reference types="vitest/globals" />
 class TestBulkEditService implements IBulkEditService {
 	declare readonly _serviceBrand: undefined;
 

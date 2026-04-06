@@ -11,12 +11,10 @@ import { validatePositronExtensionManifest } from '../../common/positronExtensio
 /**
  * Positron Extension Validator suite.
  */
-/// <reference types="vitest/globals" />
 describe('Positron Extension Validator', () => {
 	/**
 	 * Test for validating the Positron extension manifest's Positron version.
 	 */
-	/// <reference types="vitest/globals" />
 	it('Positron Extension Validator - Positron Version', () => {
 		// Setup the tests.
 		const uri = URI.parse('http://test-extension.com');

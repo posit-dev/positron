@@ -5,9 +5,7 @@
 /// <reference types="vitest/globals" />
 
 /* eslint-disable no-restricted-syntax */
-/// <reference types="vitest/globals" />
 /* eslint-disable local/code-no-dangerous-type-assertions */
-/// <reference types="vitest/globals" />
 
 import sinon from 'sinon';
 import { flushSync } from 'react-dom';
@@ -55,7 +53,6 @@ class CellTextOutputFixture {
 }
 
 /** Generate multiline content with the given number of lines. */
-/// <reference types="vitest/globals" />
 function makeLines(n: number): string {
 	return Array.from({ length: n }, (_, i) => `line ${i + 1}`).join('\n');
 }

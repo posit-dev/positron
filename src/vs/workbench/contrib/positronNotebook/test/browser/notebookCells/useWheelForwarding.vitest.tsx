@@ -11,7 +11,6 @@ import { setupReactRenderer } from '../../../../../../base/test/browser/reactVit
 import { useWheelForwarding } from '../../../browser/notebookCells/useWheelForwarding.js';
 
 /* Minimal wrapper that wires up the hook between a source div and a target ref. */
-/// <reference types="vitest/globals" />
 function TestComponent({ targetRef }: {
 	targetRef: React.RefObject<HTMLElement | null>;
 }) {
@@ -28,7 +27,6 @@ describe('useWheelForwarding', () => {
 	let scrollTargetRef: React.RefObject<HTMLElement | null>;
 
 	/* Create a scrollable container (100x50) with oversized content (300x300). */
-	/// <reference types="vitest/globals" />
 	beforeEach(() => {
 		scrollTarget = mainWindow.document.createElement('div');
 		scrollTarget.style.overflow = 'auto';
@@ -49,7 +47,6 @@ describe('useWheelForwarding', () => {
 	});
 
 	/* Render the hook and return the source element that receives wheel events. */
-	/// <reference types="vitest/globals" />
 	function renderHook() {
 		const container = render(<TestComponent targetRef={scrollTargetRef} />);
 		const source = container.firstElementChild as HTMLDivElement;
@@ -80,7 +77,6 @@ describe('useWheelForwarding', () => {
 	// relies on real browser scroll-clamping behavior; skip in Vitest.
 	it.skip('does not preventDefault at scroll boundary', () => {
 		/* Pin to the bottom so further deltaY has no effect. */
-		/// <reference types="vitest/globals" />
 		scrollTarget.scrollTop = scrollTarget.scrollHeight;
 		const prevTop = scrollTarget.scrollTop;
 		const source = renderHook();

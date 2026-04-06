@@ -90,7 +90,6 @@ describe('PositronNotebookCell', () => {
 });
 
 /** Tests to ensure that the test harness is correctly setup, useful for debugging the test harness */
-/// <reference types="vitest/globals" />
 describe('PositronNotebookCell Test Harness', () => {
 
 	it('cells have editors auto-attached', () => {

@@ -94,7 +94,6 @@ describe('Positron - RuntimeNotebookKernel', () => {
 	});
 
 	/** Start a session for the test notebook and wait for it to be ready. */
-	/// <reference types="vitest/globals" />
 	async function startSession() {
 		const session = await startTestLanguageRuntimeSession(ctx.instantiationService, disposables, {
 			runtime,
@@ -108,7 +107,6 @@ describe('Positron - RuntimeNotebookKernel', () => {
 	}
 
 	/** Get a cell execution by cell index. */
-	/// <reference types="vitest/globals" />
 	function getExecution(cellIndex: number) {
 		const cell = notebookDocument.cells[cellIndex];
 		expect(cell).toBeTruthy();
@@ -441,7 +439,6 @@ describe('Positron - RuntimeNotebookKernel', () => {
 });
 
 /** A TestNotebookExecutionStateService that spies on cell executions. */
-/// <reference types="vitest/globals" />
 class TestNotebookExecutionStateService2 extends TestNotebookExecutionStateService {
 	public readonly executions = new ResourceMap<sinon.SinonSpiedInstance<INotebookCellExecution>>();
 
@@ -458,7 +455,6 @@ class TestNotebookExecutionStateService2 extends TestNotebookExecutionStateServi
 }
 
 /** An INotebookCellExecution that does nothing. */
-/// <reference types="vitest/globals" />
 class TestCellExecution implements INotebookCellExecution {
 	constructor(
 		readonly notebook: URI,

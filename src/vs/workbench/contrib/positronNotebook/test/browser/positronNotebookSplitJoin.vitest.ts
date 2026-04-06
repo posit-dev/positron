@@ -14,7 +14,6 @@ import { CellSelectionType } from '../../browser/selectionMachine.js';
  * Helper to enter edit mode on a cell and set cursor position.
  * Split requires the cell to be in editing state with a cursor.
  */
-/// <reference types="vitest/globals" />
 function enterEditModeWithCursor(
 	notebook: TestPositronNotebookInstance,
 	cellIndex: number,

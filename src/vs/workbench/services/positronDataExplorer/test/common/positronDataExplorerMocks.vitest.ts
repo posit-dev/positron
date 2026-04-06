@@ -17,7 +17,6 @@ import * as mocks from "../../../positronDataExplorer/common/positronDataExplore
 /**
  * Basic smoke tests for debugging the mock functions
  */
-/// <reference types="vitest/globals" />
 describe('DataExplorerMocks', () => {
 
 	it('Test getTableSchema', () => {

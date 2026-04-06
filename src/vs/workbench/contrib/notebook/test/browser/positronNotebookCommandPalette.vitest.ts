@@ -24,7 +24,6 @@ import '../../browser/viewParts/notebookViewZones.js';
  * extensions/ipynb/package.json, not registerAction2(), so it is not present
  * in MenuRegistry during core unit tests.
  */
-/// <reference types="vitest/globals" />
 const HIDDEN_COMMAND_IDS = [
 	'workbench.notebook.layout.configure',
 	'notebook.action.toggleNotebookStickyScroll',

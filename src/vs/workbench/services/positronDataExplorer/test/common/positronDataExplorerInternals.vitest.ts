@@ -51,7 +51,6 @@ class MockSchemaCache extends TableSchemaCache {
 /**
  * Testing internal business logic
  */
-/// <reference types="vitest/globals" />
 describe('DataExplorerInternals', () => {
 
 	it('Data cache works correctly', async () => {

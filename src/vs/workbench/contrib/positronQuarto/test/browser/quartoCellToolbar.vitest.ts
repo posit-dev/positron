@@ -18,7 +18,6 @@ describe('QuartoCellToolbar - Position Updates', () => {
 	 * Test that verifies the document model fires appropriate events when cells move.
 	 * This is a prerequisite for the toolbar controller to update positions correctly.
 	 */
-	/// <reference types="vitest/globals" />
 	describe('Document Model Events for Cell Movement', () => {
 
 		it('inserting text between cells should update cell line numbers', async () => {

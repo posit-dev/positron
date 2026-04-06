@@ -5,9 +5,7 @@
 /// <reference types="vitest/globals" />
 
 /* eslint-disable no-restricted-syntax */
-/// <reference types="vitest/globals" />
 /* eslint-disable local/code-no-dangerous-type-assertions */
-/// <reference types="vitest/globals" />
 
 import React from 'react';
 import { mainWindow } from '../../../../../../base/browser/window.js';
@@ -28,7 +26,6 @@ import { IMenu, IMenuService, MenuItemAction, SubmenuItemAction } from '../../..
 import { ThemeIcon } from '../../../../../../base/common/themables.js';
 
 /* Creates a mock MenuItemAction with the minimum fields needed for rendering. */
-/// <reference types="vitest/globals" />
 function mockAction(id: string, label: string, iconId?: string): MenuItemAction {
 	return {
 		id,
@@ -46,7 +43,6 @@ function mockAction(id: string, label: string, iconId?: string): MenuItemAction 
 }
 
 /* DOM queries for asserting on rendered CellOutputActionBar structure. */
-/// <reference types="vitest/globals" />
 class CellOutputActionBarFixture {
 	constructor(private readonly container: HTMLElement) { }
 
@@ -76,7 +72,6 @@ describe('CellOutputActionBar', () => {
 	});
 
 	/* Render the component with mock services and return a fixture for querying. */
-	/// <reference types="vitest/globals" />
 	function renderActionBar(scrollTargetRef = React.createRef<HTMLElement | null>()) {
 		const instantiationService = disposables.add(new TestInstantiationService());
 		const commandService = new TestCommandService(instantiationService);
@@ -190,7 +185,6 @@ describe('CellOutputActionBar', () => {
 	});
 
 	/* Verify the action bar wires up wheel forwarding (detailed behavior tested in useWheelForwarding.vitest). */
-	/// <reference types="vitest/globals" />
 	it('forwards wheel events to scroll target', () => {
 		menuActions = [
 			['0_visibility', [mockAction('collapse', 'Collapse', 'chevron-down')]],

@@ -5,9 +5,7 @@
 /// <reference types="vitest/globals" />
 
 /* eslint-disable no-restricted-syntax */
-/// <reference types="vitest/globals" />
 /* eslint-disable local/code-no-dangerous-type-assertions */
-/// <reference types="vitest/globals" />
 
 import sinon from 'sinon';
 import { flushSync } from 'react-dom';
@@ -49,7 +47,6 @@ function mockAction(overrides?: Partial<{
 }
 
 /* DOM queries and actions for a rendered CellActionButton. */
-/// <reference types="vitest/globals" />
 class CellActionButtonFixture {
 	constructor(private readonly button: HTMLButtonElement) { }
 

@@ -163,7 +163,6 @@ describe('Positron - RuntimeSessionService', () => {
 	 * For a notebook session, checks that the session is the active notebook session for a given notebook URI.
 	 * For a console session, checks that the session is the last used console session for a given runtime and language.
 	 */
-	/// <reference types="vitest/globals" />
 	function assertCurrentSession(
 		runtime: ILanguageRuntimeMetadata,
 		notebookUri: URI,

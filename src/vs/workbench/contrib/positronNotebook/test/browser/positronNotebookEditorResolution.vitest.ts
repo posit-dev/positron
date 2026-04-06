@@ -31,7 +31,6 @@
  * @see {@link usingPositronNotebooks} - Configuration utility function
  * @see {@link EditorResolverService} - Core service for editor resolution
  */
-/// <reference types="vitest/globals" />
 
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';

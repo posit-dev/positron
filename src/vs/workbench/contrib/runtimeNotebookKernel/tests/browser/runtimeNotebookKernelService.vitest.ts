@@ -237,7 +237,6 @@ describe('Positron - RuntimeNotebookKernelService', () => {
 });
 
 /** INotebookService mock specifically for this test suite. */
-/// <reference types="vitest/globals" />
 class TestNotebookService extends mock<INotebookService>() {
 	onWillAddNotebookDocumentEmitter = new Emitter<NotebookTextModel>();
 	onWillRemoveNotebookDocumentEmitter = new Emitter<NotebookTextModel>();

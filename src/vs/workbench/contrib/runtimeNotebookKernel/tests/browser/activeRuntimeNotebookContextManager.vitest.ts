@@ -27,7 +27,6 @@ import { isNotebookLanguageRuntimeSession } from '../../../../services/runtimeSe
 import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 
 /** A TestEditorService that fires the onDidActiveEditorChange event when changing the activeEditor. */
-/// <reference types="vitest/globals" />
 class TestEditorService2 extends TestEditorService {
 	private readonly _onDidActiveEditorChange = this._register(new Emitter<void>());
 

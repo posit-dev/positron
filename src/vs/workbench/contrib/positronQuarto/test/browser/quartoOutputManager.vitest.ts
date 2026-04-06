@@ -33,7 +33,6 @@ describe('QuartoOutputManager', () => {
 		 * This test verifies that we can correctly remap outputs when cells move
 		 * by using content hashes to track cell identity across position changes.
 		 */
-		/// <reference types="vitest/globals" />
 		it('outputs should be preserved when a new cell is inserted above existing cells', async () => {
 			const content = `\`\`\`{python}
 x = 1
@@ -213,7 +212,6 @@ y = 2
 		 * The fix: use previewService.openHtmlString(html) which sets HTML
 		 * directly on a webview without needing temp files or proxy servers.
 		 */
-		/// <reference types="vitest/globals" />
 		it('HTML popout should use openHtmlString instead of writing temp files', () => {
 			// Track calls to the preview service
 			let openHtmlStringCalled = false;

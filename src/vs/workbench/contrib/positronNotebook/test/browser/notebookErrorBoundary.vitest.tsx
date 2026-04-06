@@ -5,9 +5,7 @@
 /// <reference types="vitest/globals" />
 
 /* eslint-disable no-restricted-syntax */
-/// <reference types="vitest/globals" />
 /* eslint-disable local/code-no-dangerous-type-assertions */
-/// <reference types="vitest/globals" />
 
 import sinon from 'sinon';
 import { flushSync } from 'react-dom';
@@ -38,14 +36,12 @@ function createMockLogService() {
  * The error fallback always renders exactly two .notebook-error-boundary-action
  * buttons: [0] = toggle details, [1] = retry or reload.
  */
-/// <reference types="vitest/globals" />
 function getActionButtons(container: HTMLElement) {
 	const buttons = container.querySelectorAll<HTMLButtonElement>('.notebook-error-boundary-action');
 	return { toggleDetails: buttons[0], action: buttons[1] };
 }
 
 /** Click a button and flush React state updates synchronously. */
-/// <reference types="vitest/globals" />
 function clickAndFlush(element: HTMLElement): void {
 	flushSync(() => { element.click(); });
 }

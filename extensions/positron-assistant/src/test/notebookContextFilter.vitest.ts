@@ -10,7 +10,6 @@ import { filterNotebookContext, MAX_NOTEBOOK_CONTEXT_CHARS, MAX_NON_SELECTED_CEL
 /**
  * Creates a mock notebook cell for testing
  */
-/// <reference types="vitest/globals" />
 function createMockCell(
 	index: number,
 	content: string,
@@ -34,7 +33,6 @@ function createMockCell(
 /**
  * Creates a mock notebook context for testing
  */
-/// <reference types="vitest/globals" />
 function createMockContext(
 	cells: positron.notebooks.NotebookCell[],
 	selectedIndices: number[] = []

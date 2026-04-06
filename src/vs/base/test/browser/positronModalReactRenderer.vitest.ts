@@ -15,7 +15,6 @@ describe('PositronModalReactRenderer', () => {
 	/**
 	 * Creates a mock container element for testing.
 	 */
-	/// <reference types="vitest/globals" />
 	function createMockContainer(): HTMLElement {
 		const container = document.createElement('div');
 		document.body.appendChild(container);
@@ -26,7 +25,6 @@ describe('PositronModalReactRenderer', () => {
 	/**
 	 * Creates a mock React element for testing.
 	 */
-	/// <reference types="vitest/globals" />
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	function createMockReactElement(): any {
 		return { type: 'div', props: {} };
@@ -35,12 +33,10 @@ describe('PositronModalReactRenderer', () => {
 	/**
 	 * Dispose test suite.
 	 */
-	/// <reference types="vitest/globals" />
 	describe('dispose', () => {
 		/**
 		 * Test disposing a single renderer.
 		 */
-		/// <reference types="vitest/globals" />
 		it('disposes a single renderer', () => {
 			const container = createMockContainer();
 			const renderer = disposables.add(new PositronModalReactRenderer({ container }));
@@ -195,7 +191,6 @@ describe('PositronModalReactRenderer', () => {
 	/**
 	 * Render test suite.
 	 */
-	/// <reference types="vitest/globals" />
 	describe('render', () => {
 		it('renders React element into container', () => {
 			const container = createMockContainer();
@@ -240,7 +235,6 @@ describe('PositronModalReactRenderer', () => {
 	/**
 	 * Parent element test suite.
 	 */
-	/// <reference types="vitest/globals" />
 	describe('parent element', () => {
 		it('sets aria-expanded on parent when rendered', () => {
 			const container = createMockContainer();
@@ -277,7 +271,6 @@ describe('PositronModalReactRenderer', () => {
 	/**
 	 * disposeAll test suite.
 	 */
-	/// <reference types="vitest/globals" />
 	describe('disposeAll', () => {
 		it('disposes all renderers in the stack', () => {
 			const container = createMockContainer();
@@ -322,12 +315,10 @@ describe('PositronModalReactRenderer', () => {
 	/**
 	 * isInsideAnyPopup / setBoundsProvider test suite.
 	 */
-	/// <reference types="vitest/globals" />
 	describe('isInsideAnyPopup', () => {
 		/**
 		 * Creates a mouse event at the given coordinates.
 		 */
-		/// <reference types="vitest/globals" />
 		function createMouseEvent(clientX: number, clientY: number): MouseEvent {
 			return new MouseEvent('mousedown', { clientX, clientY });
 		}
@@ -397,7 +388,6 @@ describe('PositronModalReactRenderer', () => {
 	/**
 	 * allowPointerPassthrough test suite.
 	 */
-	/// <reference types="vitest/globals" />
 	describe('allowPointerPassthrough', () => {
 		it('sets pointer-events: none on the overlay when enabled', () => {
 			const container = createMockContainer();
@@ -430,7 +420,6 @@ describe('PositronModalReactRenderer', () => {
 	/**
 	 * Unrendered renderer test suite.
 	 */
-	/// <reference types="vitest/globals" />
 	describe('unrendered renderer', () => {
 		it('dispose before render is a no-op', () => {
 			const container = createMockContainer();
