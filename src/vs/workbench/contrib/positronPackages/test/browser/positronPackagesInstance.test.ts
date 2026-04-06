@@ -19,6 +19,7 @@ suite('Positron - PositronPackagesInstance', () => {
 	let mockSession: Partial<ILanguageRuntimeSession>;
 	let mockPackageManager: Partial<ILanguageRuntimePackageManager>;
 	let onDidChangeRuntimeStateEmitter: Emitter<RuntimeState>;
+	let onDidChangeSyncSupportEmitter: Emitter<boolean>;
 
 	const testPackages: ILanguageRuntimePackage[] = [
 		{ id: 'numpy', name: 'numpy', displayName: 'NumPy', version: '1.24.0' },
@@ -27,6 +28,7 @@ suite('Positron - PositronPackagesInstance', () => {
 
 	setup(() => {
 		onDidChangeRuntimeStateEmitter = disposables.add(new Emitter<RuntimeState>());
+		onDidChangeSyncSupportEmitter = disposables.add(new Emitter<boolean>());
 
 		mockPackageManager = {
 			getPackages: async () => testPackages,
@@ -45,6 +47,7 @@ suite('Positron - PositronPackagesInstance', () => {
 			getPackageManager: () => mockPackageManager as ILanguageRuntimePackageManager,
 			getRuntimeState: () => RuntimeState.Ready,
 			onDidChangeRuntimeState: onDidChangeRuntimeStateEmitter.event,
+			onDidChangeSyncSupport: onDidChangeSyncSupportEmitter.event,
 		};
 
 		packagesInstance = disposables.add(
