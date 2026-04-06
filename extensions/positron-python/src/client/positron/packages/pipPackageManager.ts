@@ -21,8 +21,8 @@ import { IPackageManager, MessageEmitter, PackageSession } from './types';
  */
 export class PipPackageManager implements IPackageManager {
     private _pythonService: IPythonExecutionService | undefined;
+    private readonly _disposables: vscode.Disposable[] = [];
     private readonly _onDidChangeSyncSupport = new vscode.EventEmitter<boolean>();
-    private _fileWatcher: vscode.FileSystemWatcher | undefined;
     private _lastSyncSupported: boolean | undefined;
 
     readonly onDidChangeSyncSupport = this._onDidChangeSyncSupport.event;
@@ -33,6 +33,7 @@ export class PipPackageManager implements IPackageManager {
         private readonly _serviceContainer: IServiceContainer,
         private readonly _session: PackageSession,
     ) {
+        this._disposables.push(this._onDidChangeSyncSupport);
         this._setupFileWatcher();
     }
 
@@ -47,11 +48,12 @@ export class PipPackageManager implements IPackageManager {
 
         // Watch for requirements.txt in the workspace root
         const pattern = new vscode.RelativePattern(workspaceFolders[0], 'requirements.txt');
-        this._fileWatcher = vscode.workspace.createFileSystemWatcher(pattern);
+        const fileWatcher = vscode.workspace.createFileSystemWatcher(pattern);
+        this._disposables.push(fileWatcher);
 
         // When the file is created or deleted, check if sync support changed
-        this._fileWatcher.onDidCreate(() => this._checkAndFireSyncSupportChange());
-        this._fileWatcher.onDidDelete(() => this._checkAndFireSyncSupportChange());
+        this._disposables.push(fileWatcher.onDidCreate(() => this._checkAndFireSyncSupportChange()));
+        this._disposables.push(fileWatcher.onDidDelete(() => this._checkAndFireSyncSupportChange()));
     }
 
     /**
@@ -66,11 +68,10 @@ export class PipPackageManager implements IPackageManager {
     }
 
     /**
-     * Dispose of the file watcher and event emitter.
+     * Dispose of all resources.
      */
     dispose(): void {
-        this._fileWatcher?.dispose();
-        this._onDidChangeSyncSupport.dispose();
+        this._disposables.forEach(d => d.dispose());
     }
 
     async getPackages(token?: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]> {
