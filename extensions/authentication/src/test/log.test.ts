@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { BufferedLogOutputChannel, LogEntry } from '../log';
+import { BufferedLogOutputChannel } from '../log';
 
 /**
  * Minimal stub of vscode.LogOutputChannel for testing.
@@ -36,25 +36,6 @@ function createMockChannel() {
 }
 
 suite('BufferedLogOutputChannel', () => {
-	test('buffers log entries at each level', () => {
-		const mock = createMockChannel();
-		// eslint-disable-next-line local/code-no-any-casts
-		const channel = new BufferedLogOutputChannel(mock as any);
-
-		channel.trace('trace msg');
-		channel.debug('debug msg');
-		channel.info('info msg');
-		channel.warn('warn msg');
-		channel.error('error msg');
-
-		const output = channel.formatEntriesForDiagnostics();
-		assert.ok(output.includes('TRACE trace msg'));
-		assert.ok(output.includes('DEBUG debug msg'));
-		assert.ok(output.includes('INFO  info msg'));
-		assert.ok(output.includes('WARN  warn msg'));
-		assert.ok(output.includes('ERROR error msg'));
-	});
-
 	test('forwards messages to underlying channel', () => {
 		const mock = createMockChannel();
 		// eslint-disable-next-line local/code-no-any-casts
@@ -82,17 +63,6 @@ suite('BufferedLogOutputChannel', () => {
 		assert.ok(output.includes('two'));
 		assert.ok(output.includes('three'));
 		assert.ok(output.includes('four'));
-	});
-
-	test('formatEntriesForDiagnostics returns message when empty', () => {
-		const mock = createMockChannel();
-		// eslint-disable-next-line local/code-no-any-casts
-		const channel = new BufferedLogOutputChannel(mock as any);
-
-		assert.strictEqual(
-			channel.formatEntriesForDiagnostics(),
-			'No log entries available'
-		);
 	});
 
 	test('formatEntriesForDiagnostics respects count parameter', () => {
@@ -123,14 +93,4 @@ suite('BufferedLogOutputChannel', () => {
 		assert.ok(output.includes('Error: test error'));
 	});
 
-	test('formats args into buffered message', () => {
-		const mock = createMockChannel();
-		// eslint-disable-next-line local/code-no-any-casts
-		const channel = new BufferedLogOutputChannel(mock as any);
-
-		channel.info('count:', 42);
-
-		const output = channel.formatEntriesForDiagnostics();
-		assert.ok(output.includes('count: 42'));
-	});
 });

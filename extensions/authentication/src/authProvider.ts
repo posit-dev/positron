@@ -230,10 +230,9 @@ export class AuthProvider
 				try {
 					const token = await this.credentialChain.resolve();
 					if (token) {
-						log.info(
-							`[${this.displayName}] Chain session ` +
-							`removal blocked -- credentials still ` +
-							`available from environment`
+						this.logger.info(
+							'Chain session removal blocked -- ' +
+							'credentials still available from environment'
 						);
 						vscode.window.showInformationMessage(
 							vscode.l10n.t(
@@ -355,7 +354,7 @@ export class AuthProvider
 
 	private async getManagedSession(
 	): Promise<vscode.AuthenticationSession | undefined> {
-		if (!IS_RUNNING_ON_PWB || !this.workbench!.isAvailable()) {
+		if (!this.workbench!.isAvailable()) {
 			return undefined;
 		}
 

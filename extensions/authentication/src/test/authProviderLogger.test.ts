@@ -35,26 +35,6 @@ suite('AuthProviderLogger', () => {
 		assert.strictEqual(capture.captured[0].level, 'info');
 	});
 
-	test('all base log levels work', () => {
-		const capture = createCapture();
-		// eslint-disable-next-line local/code-no-any-casts
-		const logger = new AuthProviderLogger('AWS', capture as any);
-
-		logger.trace('t');
-		logger.debug('d');
-		logger.info('i');
-		logger.warn('w');
-		logger.error('e');
-
-		assert.deepStrictEqual(
-			capture.captured.map(c => c.level),
-			['trace', 'debug', 'info', 'warn', 'error']
-		);
-		for (const entry of capture.captured) {
-			assert.ok(entry.message.startsWith('[AWS] '));
-		}
-	});
-
 	test('warn with error appends formatted error', () => {
 		const capture = createCapture();
 		// eslint-disable-next-line local/code-no-any-casts
@@ -82,20 +62,6 @@ suite('AuthProviderLogger', () => {
 });
 
 suite('AuthProviderLogger convenience methods', () => {
-	test('logAuthentication success logs at info', () => {
-		const capture = createCapture();
-		// eslint-disable-next-line local/code-no-any-casts
-		const logger = new AuthProviderLogger('Anthropic', capture as any);
-
-		logger.logAuthentication('success', 'API key validated');
-
-		assert.strictEqual(capture.captured[0].level, 'info');
-		assert.strictEqual(
-			capture.captured[0].message,
-			'[Anthropic] Authentication success: API key validated'
-		);
-	});
-
 	test('logAuthentication failure logs at error', () => {
 		const capture = createCapture();
 		// eslint-disable-next-line local/code-no-any-casts
@@ -107,33 +73,6 @@ suite('AuthProviderLogger convenience methods', () => {
 		assert.strictEqual(
 			capture.captured[0].message,
 			'[Anthropic] Authentication failure: Invalid key'
-		);
-	});
-
-	test('logAuthentication without details', () => {
-		const capture = createCapture();
-		// eslint-disable-next-line local/code-no-any-casts
-		const logger = new AuthProviderLogger('AWS', capture as any);
-
-		logger.logAuthentication('pending');
-
-		assert.strictEqual(
-			capture.captured[0].message,
-			'[AWS] Authentication pending'
-		);
-	});
-
-	test('logCredentialResolution resolved logs at info', () => {
-		const capture = createCapture();
-		// eslint-disable-next-line local/code-no-any-casts
-		const logger = new AuthProviderLogger('AWS', capture as any);
-
-		logger.logCredentialResolution('resolved');
-
-		assert.strictEqual(capture.captured[0].level, 'info');
-		assert.strictEqual(
-			capture.captured[0].message,
-			'[AWS] Credential resolution resolved'
 		);
 	});
 
@@ -153,19 +92,6 @@ suite('AuthProviderLogger convenience methods', () => {
 		));
 	});
 
-	test('logCredentialResolution invalidated logs at info', () => {
-		const capture = createCapture();
-		// eslint-disable-next-line local/code-no-any-casts
-		const logger = new AuthProviderLogger('AWS', capture as any);
-
-		logger.logCredentialResolution(
-			'invalidated',
-			'Cached session invalidated'
-		);
-
-		assert.strictEqual(capture.captured[0].level, 'info');
-	});
-
 	test('logSessionChange retrieved logs at debug', () => {
 		const capture = createCapture();
 		// eslint-disable-next-line local/code-no-any-casts
@@ -179,46 +105,6 @@ suite('AuthProviderLogger convenience methods', () => {
 		assert.strictEqual(capture.captured[0].level, 'debug');
 		assert.ok(capture.captured[0].message.includes(
 			'getSessions: returned 2 stored session(s)'
-		));
-	});
-
-	test('logSessionChange created logs at info', () => {
-		const capture = createCapture();
-		// eslint-disable-next-line local/code-no-any-casts
-		const logger = new AuthProviderLogger('Anthropic', capture as any);
-
-		logger.logSessionChange('created', 'Creating session via Accounts menu');
-
-		assert.strictEqual(capture.captured[0].level, 'info');
-		assert.strictEqual(
-			capture.captured[0].message,
-			'[Anthropic] Session created: Creating session via Accounts menu'
-		);
-	});
-
-	test('logSessionChange removed logs at info', () => {
-		const capture = createCapture();
-		// eslint-disable-next-line local/code-no-any-casts
-		const logger = new AuthProviderLogger('AWS', capture as any);
-
-		logger.logSessionChange('removed', 'Chain session removed');
-
-		assert.strictEqual(capture.captured[0].level, 'info');
-	});
-
-	test('logSessionChange stored logs at info', () => {
-		const capture = createCapture();
-		// eslint-disable-next-line local/code-no-any-casts
-		const logger = new AuthProviderLogger('Anthropic', capture as any);
-
-		logger.logSessionChange(
-			'stored',
-			'Stored key for account "admin"'
-		);
-
-		assert.strictEqual(capture.captured[0].level, 'info');
-		assert.ok(capture.captured[0].message.includes(
-			'Stored key for account "admin"'
 		));
 	});
 

@@ -109,7 +109,7 @@ export class AuthProviderLogger {
 	 * @param details Optional additional details.
 	 */
 	logCredentialResolution(
-		status: 'resolved' | 'failed' | 'invalidated' | 'refreshed',
+		status: 'resolved' | 'failed' | 'invalidated',
 		details?: string
 	): void {
 		const message =

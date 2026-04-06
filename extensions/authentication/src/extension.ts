@@ -29,11 +29,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// Migrate settings before registering providers so they
 	// read the migrated values during initialization.
-	const awsLogger = new AuthProviderLogger('AWS');
-	await migrateAwsSettings().catch(err =>
-		awsLogger.logOperationError('settings migration', err)
-	);
-	registerAwsProvider(context);
+	await registerAwsProvider(context);
 
 	await migrateSnowflakeSettings().catch(err =>
 		log.error(`Snowflake settings migration failed: ${err}`)
@@ -145,10 +141,15 @@ function registerPositAIProvider(context: vscode.ExtensionContext): void {
 	logger.info('Registered auth provider');
 }
 
-function registerAwsProvider(
+async function registerAwsProvider(
 	context: vscode.ExtensionContext
-): void {
+): Promise<void> {
 	const logger = new AuthProviderLogger('AWS');
+
+	await migrateAwsSettings().catch(err =>
+		logger.logOperationError('settings migration', err)
+	);
+
 	const awsConfig = vscode.workspace
 		.getConfiguration('authentication.aws')
 		.get<{ AWS_PROFILE?: string; AWS_REGION?: string }>(
