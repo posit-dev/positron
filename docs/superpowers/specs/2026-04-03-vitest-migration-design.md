@@ -246,13 +246,11 @@ Positron merges upstream VS Code roughly every month (1.106, 1.107, 1.108, 1.109
 
 **Before (Mocha):**
 ```
-1. npm run build-start              # start build daemons (30-60s first time)
-2. Edit code
-3. npm run build-check              # wait for recompilation (blocks)
-4. ./scripts/test.sh --run src/path/to/file.test.ts
-5. Read results, go back to step 2
+1. Edit code
+2. ./scripts/test.sh --run src/path/to/file.test.ts
+3. Read results, go back to step 1
 ```
-Every iteration requires step 3 (wait for daemon) and step 4 (manual re-run).
+Devs typically already have build daemons running for the app, so the compilation step isn't extra friction per test run. The main friction is: no watch mode (you manually re-run after each change) and Mocha requires compiled JS to exist in `out/`.
 
 **After (Vitest):**
 ```
@@ -260,12 +258,12 @@ Every iteration requires step 3 (wait for daemon) and step 4 (manual re-run).
 2. Edit code
 3. Results appear automatically on save
 ```
-Step 1 is once per session. From then on, every save triggers an instant re-run of affected tests. No build daemons, no manual commands, no waiting.
+The key improvement is **watch mode** -- tests re-run on save without manual commands. Vitest also doesn't need build daemons at all (it transpiles TypeScript directly), which matters for CI and for the case where you only want to run tests without launching the full app.
 
-**When you need both:** Vitest covers Positron-specific tests. The 814 upstream VS Code tests still run on Mocha via the build daemon + Electron pipeline. Most Positron changes don't affect upstream tests, so `npm run test-vitest` is sufficient for day-to-day work. But if you're changing a shared interface, modifying test infrastructure, or adding a dependency to an upstream class, you should also run the upstream tests:
+**When you need both:** Vitest covers Positron-specific tests. The 814 upstream VS Code tests still run on Mocha via the Electron pipeline. Most Positron changes don't affect upstream tests, so `npm run test-vitest` is sufficient for day-to-day work. But if you're changing a shared interface, modifying test infrastructure, or adding a dependency to an upstream class, you should also run the upstream tests:
 
 ```
-npm run build-start && npm run build-check && ./scripts/test.sh
+./scripts/test.sh
 ```
 
 CI always runs both, so upstream regressions are caught even if you skip this locally.
