@@ -63,85 +63,16 @@ Full strategy: `docs/superpowers/specs/2026-04-03-vitest-migration-design.md`
 	- For positron-python, see that extension's CLAUDE.md
 - **E2E tests** (full app, real browser): `npx playwright test test/e2e/tests/<test-name>.test.ts --project e2e-electron --grep '<pattern>'`
 
-### Positron Vitest Presets
+### Positron Vitest: The Builder
 
-All Positron-specific tests use Vitest (`.vitest.ts`). The builder provides presets for common service groupings -- pick the lowest one that works:
+All Positron-specific tests use Vitest (`.vitest.ts`). The builder (`createTestContainer()`) provides presets for common service groupings. Pick the lowest one that works, and use `.stub()` to add or override individual services.
 
-**Bare** -- pure logic, no services
+For pure logic tests (no services), skip the builder entirely -- just import and assert.
 
-For testing functions, parsers, utilities, data transformations. No builder needed.
-
-```typescript
-import { hasUpdate } from '../../common/positronVersion.js';
-
-describe('positronVersion', () => {
-	it('detects newer version', () => {
-		expect(hasUpdate({ version: '2024.11.0' }, '2024.09.0')).toBe(true);
-	});
-});
-```
-
-**Runtime** -- language runtime and session services
-
-For code that interacts with runtimes, sessions, or the console. The `.withRuntimeServices()` preset wires up 18 services. Add `.stub()` for anything extra.
-
-```typescript
-import { createTestContainer } from '<path>/test/browser/positronTestContainer.js';
-import { startTestLanguageRuntimeSession } from '<path>/runtimeSession/test/common/testRuntimeSessionService.js';
-
-describe('MyRuntimeFeature', () => {
-	const ctx = createTestContainer().withRuntimeServices().build();
-
-	it('starts a session', async () => {
-		const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
-		expect(session).toBeDefined();
-	});
-});
-```
-
-**Notebooks** -- runtime + notebook/kernel services
-
-For code that interacts with notebooks, kernels, or execution state. The `.withNotebookServices()` preset adds 8 notebook services on top of Runtime.
-
-```typescript
-import { createTestContainer } from '<path>/test/browser/positronTestContainer.js';
-import { INotebookService } from '<path>/contrib/notebook/common/notebookService.js';
-
-describe('MyNotebookFeature', () => {
-	const ctx = createTestContainer().withNotebookServices().build();
-
-	it('accesses notebook service', () => {
-		const notebookService = ctx.get(INotebookService);
-		expect(notebookService).toBeDefined();
-	});
-});
-```
-
-**Workbench** -- full Positron stack
-
-For code that needs plots, variables, webviews, or the full workbench. The `.withWorkbenchServices()` preset includes everything from Notebooks plus 100+ more services.
-
-```typescript
-import { createTestContainer } from '<path>/test/browser/positronTestContainer.js';
-import { IPositronVariablesService } from '<path>/positronVariables/common/interfaces/positronVariablesService.js';
-
-describe('MyWorkbenchFeature', () => {
-	const ctx = createTestContainer().withWorkbenchServices().build();
-	let variablesService: IPositronVariablesService;
-
-	beforeEach(() => {
-		variablesService = ctx.get(IPositronVariablesService);
-	});
-
-	it('initializes empty', () => {
-		expect(variablesService.activePositronVariablesInstance).toBeUndefined();
-	});
-});
-```
+For available presets and examples, see `src/vs/workbench/test/browser/positronTestContainer.ts`.
 
 **Key rules:**
 - Any preset supports `.stub(IService, mock)` for adding or overriding individual services
-- New presets are easy to add -- see `src/vs/workbench/test/browser/positronTestContainer.ts`
 - The builder result (`ctx`) uses lazy getters -- access `ctx.instantiationService` inside `beforeEach`/`it`, not at describe-level via destructuring
 - `ctx.disposables` is auto-cleaned after each test -- pass it to helpers like `startTestLanguageRuntimeSession()` that need it
 - Upstream VS Code tests stay on Mocha (`.test.ts`) -- only Positron tests use Vitest

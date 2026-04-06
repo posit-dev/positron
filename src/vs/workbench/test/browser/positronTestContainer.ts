@@ -39,6 +39,24 @@ interface TestContainerResult {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- service stubs are inherently untyped
 type ServiceStub = { id: ServiceIdentifier<any>; impl: any };
 
+/**
+ * Fluent builder for Vitest test containers. Provides presets for common
+ * service groupings. Pick the lowest preset that covers your test's
+ * dependencies, then use .stub() for anything extra.
+ *
+ * Presets (each includes the one above it):
+ *   Bare         -- no services, for pure logic tests
+ *   Runtime      -- language runtime + session services (~18)
+ *   Notebooks    -- runtime + notebook/kernel services (+8)
+ *   Workbench    -- full Positron stack (124+)
+ *
+ * Adding a new preset: add a boolean flag, a with*() method, and an
+ * else-if branch in build(). See withNotebookServices() for an example.
+ *
+ * Usage:
+ *   const ctx = createTestContainer().withRuntimeServices().build();
+ *   const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+ */
 class PositronTestContainerBuilder {
 	private _useRuntimeServices = false;
 	private _useNotebookServices = false;
