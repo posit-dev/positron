@@ -359,6 +359,23 @@ test('QA #12345: Variable appears after execution', async function ({ app, pytho
   	const { settings } = app.workbench; // WRONG TYPE
   });
   ```
+- **Use `sessions.start()` to capture session metadata** when the test needs session
+  names, IDs, or needs to switch/verify specific sessions. The returned metadata has
+  `.id` and `.name` -- use these instead of hardcoding version strings:
+  ```typescript
+  // CORRECT: capture metadata, use .name for assertions
+  const [pySession] = await sessions.start(['python']);
+  await sessions.expectSessionPickerToBe(pySession.name);
+
+  // WRONG: hardcoded version string (environment-specific, breaks on other machines)
+  await sessions.expectSessionPickerToBe('Python 3.10.15 (Pyenv)');
+  ```
+  For multiple sessions:
+  ```typescript
+  const [pySession, rSession] = await sessions.start(['python', 'r']);
+  await sessions.select(pySession.id);
+  await variables.expectRuntimeToBe('visible', pySession.name);
+  ```
 - **Do NOT wrap POM calls in `test.step()`.** POM methods already have internal
   `test.step()` wrappers. Use comments to group steps, not `test.step()`:
   ```typescript
