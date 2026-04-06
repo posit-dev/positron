@@ -42,6 +42,12 @@ interface RunAppOptionsBase {
 	name: string;
 
 	/**
+	 * Whether to detect the application URL and open a preview. Defaults
+	 * to `true`.
+	 */
+	preview?: boolean;
+
+	/**
 	 * The optional URL path at which to preview the application.
 	 */
 	urlPath?: string;
