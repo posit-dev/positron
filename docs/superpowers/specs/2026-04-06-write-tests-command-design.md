@@ -1,12 +1,12 @@
-# Design Spec: /write-tests Slash Command
+# Design Spec: /unit-tests-author Slash Command
 
 ## Problem
 
-The Vitest infrastructure, tier system, and mocking guide exist -- but a developer still has to read the docs, figure out which tier applies to their code, and write the test from scratch. The `/write-tests` command closes that gap by analyzing the dev's branch, recommending what to test and how, and writing the tests after confirmation.
+The Vitest infrastructure, tier system, and mocking guide exist -- but a developer still has to read the docs, figure out which tier applies to their code, and write the test from scratch. The `/unit-tests-author` command closes that gap by analyzing the dev's branch, recommending what to test and how, and writing the tests after confirmation.
 
 ## How It Works
 
-The dev types `/write-tests` (or `/write-tests --branch feature/my-work`) in Claude Code. The command runs in two phases.
+The dev types `/unit-tests-author` (or `/unit-tests-author --branch feature/my-work`) in Claude Code. The command runs in two phases.
 
 ### Phase 1: Analysis
 
@@ -82,8 +82,8 @@ For each approved test:
 ### Usage
 
 ```
-/write-tests                            # analyze current branch vs main
-/write-tests --branch feature/my-work   # analyze a specific branch vs main
+/unit-tests-author                            # analyze current branch vs main
+/unit-tests-author --branch feature/my-work   # analyze a specific branch vs main
 ```
 
 ## What the Command Does NOT Do
@@ -94,7 +94,7 @@ For each approved test:
 
 ## File Location
 
-`.claude/commands/write-tests.md`
+`.claude/commands/unit-tests-author.md`
 
 ## References the Command Reads
 
