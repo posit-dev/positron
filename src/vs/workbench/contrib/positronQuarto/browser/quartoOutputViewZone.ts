@@ -277,7 +277,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._statusText = document.createElement('span');
 		this._statusText.className = 'code-cell-footer-text';
 		this._statusBar.appendChild(this._statusText);
-		this._styledContainer.appendChild(this._statusBar);
+		this.domNode.insertBefore(this._statusBar, this._styledContainer);
 
 		// Create output container
 		this._outputContainer = document.createElement('div');
@@ -1912,7 +1912,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		}
 
 		// Measure the styled container's height (content + padding + border, but not margin)
-		const styledHeight = this._styledContainer.offsetHeight;
+		// plus the status bar height when it's displayed above the output
+		const statusBarHeight = this._statusBar.style.display !== 'none' ? this._statusBar.offsetHeight : 0;
+		const styledHeight = this._styledContainer.offsetHeight + statusBarHeight;
 
 		// Show the Copy button if there's enough room and there's copiable content
 		// Copy is prioritized (shown first) since it's the most common action

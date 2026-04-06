@@ -348,12 +348,14 @@
 	mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.3) 30%, rgba(0, 0, 0, 0.7) 60%, black 100%);
 }
 
-/* Status bar for execution info (duration, timestamp, success/fail) */
+/* Status bar for execution info (duration, timestamp, success/fail).
+   Lives outside the styled output container but inside the view zone wrapper. */
 .quarto-output-status-bar {
 	display: flex;
 	align-items: center;
 	gap: 8px;
 	height: 24px;
+	padding-left: 12px;
 	font-size: 11px;
 	color: var(--vscode-descriptionForeground);
 	cursor: default;
@@ -419,10 +421,7 @@
 	background-color: var(--vscode-widget-border);
 }
 
-/* Status-only view zone: no output border/background, just the status bar */
+/* Status-only view zone: hide the output container entirely, just show the status bar */
 .quarto-inline-output.quarto-output-status-only {
-	background: transparent;
-	border: none;
-	padding: 0;
-	margin: 4px 0;
+	display: none;
 }
