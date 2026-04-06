@@ -32,7 +32,7 @@ Run ID or URL from either repo:
 - `https://github.com/posit-dev/positron/actions/runs/23610137774`
 - `https://github.com/posit-dev/positron-builds/actions/runs/23938334846`
 
-## Step 1: Parse Input and Determine Repo
+## Step 1: Parse Input, Enumerate Failed Jobs, and Determine Repo
 
 Extract the run ID and repo from the URL. The two repos have different data access patterns:
 
@@ -40,25 +40,44 @@ Extract the run ID and repo from the URL. The two repos have different data acce
 - **`posit-dev/positron-builds`**: Non-sharded single-job runs. HTML reports uploaded to S3 at CloudFront. No blob report artifacts.
 
 ```bash
-# Extract repo from URL (posit-dev/positron or posit-dev/positron-builds)
+# Get run metadata
 gh api repos/<REPO>/actions/runs/<RUN_ID> --jq '{name: .name, conclusion: .conclusion, html_url: .html_url, head_sha: .head_sha}'
 ```
 
-Check for blob report artifacts:
+### Step 1a: List ALL failed jobs
+
+Before diving into e2e reports, get the full picture of what failed:
+
 ```bash
-gh api repos/<REPO>/actions/runs/<RUN_ID>/artifacts --jq '.artifacts[] | select(.name | test("^blob-report-")) | "\(.id) \(.name)"'
+gh api repos/<REPO>/actions/runs/<RUN_ID>/jobs --paginate \
+  --jq '.jobs[] | select(.conclusion == "failure") | {id: .id, name: .name}'
 ```
 
-- If blob reports found -> use **Path A** (positron repo flow)
+Categorize each failed job:
+- **e2e jobs** (name contains `e2e`): Analyze with Path A or B below
+- **Non-e2e jobs** (e.g., `test / unit`, `test / integration`, `setup / build`): Report in the summary with a link to the job logs. Extract the failure reason from the job logs:
+  ```bash
+  gh api repos/<REPO>/actions/jobs/<JOB_ID>/logs 2>&1 | grep -E "(FAIL|Error|error:|##\[error\])" | tail -20
+  ```
+
+### Step 1b: Find blob report artifacts for all e2e projects
+
+```bash
+gh api repos/<REPO>/actions/runs/<RUN_ID>/artifacts --jq '.artifacts[] | select(.name | test("^blob-report-")) | .name' | sort
+```
+
+Group by project: extract unique project names from artifact names (e.g., `blob-report-e2e-chromium-1` -> `e2e-chromium`, `blob-report-e2e-windows-1` -> `e2e-windows`). Process **all** projects that have blob reports, not just one.
+
+- If blob reports found -> use **Path A** (positron repo flow) for each project
 - If no blob reports found -> use **Path B** (positron-builds flow)
 
 ---
 
 ## Path A: posit-dev/positron (Sharded Blob Reports)
 
-### A1: Download and Merge Reports
+Repeat the steps below for **each** e2e project that has blob report artifacts (e.g., `e2e-windows`, `e2e-electron`, `e2e-chromium`). Download all projects in parallel, then merge and analyze each.
 
-Group blob artifacts by project (e.g., `e2e-windows`, `e2e-electron`, `e2e-chromium`).
+### A1: Download and Merge Reports
 
 ```bash
 gh run download <RUN_ID> --repo posit-dev/positron \
@@ -258,6 +277,8 @@ For each failure, include the **platform** (OS and project/browser) where it occ
 When multiple projects/platforms are analyzed in a single run, note which platforms each failure occurred on and whether the same test passed on other platforms.
 
 Present the analysis in a summary table that includes columns for: test name, platform, root cause category, and severity. Then provide detailed analysis for each failure below the table.
+
+Include **non-e2e job failures** (unit tests, integration tests, build failures) in the summary table as well, with the job name as the test name and a brief description of the failure extracted from the job logs.
 
 Offer to:
 - Open the relevant test files
