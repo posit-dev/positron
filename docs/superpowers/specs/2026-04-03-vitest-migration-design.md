@@ -4,7 +4,7 @@
 
 Positron inherits VS Code's Mocha-based unit test infrastructure. While this serves the 814 upstream VS Code test files well, it creates significant friction for Positron-specific development:
 
-1. **Writing a test is hard.** Testing a Positron service requires understanding VS Code's dependency injection system, choosing from 124+ service stubs spread across ~2,500 lines of boilerplate, and managing disposable lifecycle tracking. 40-60% of test code is setup, not assertions.
+1. **Writing a test is hard.** Testing a Positron service requires understanding VS Code's dependency injection system, choosing from 124+ service stubs spread across ~2,500 lines of boilerplate, and managing disposable lifecycle tracking. A typical Tier 3 test has ~11 lines of framework setup (imports, instantiation service, accessor, service extraction) before the first assertion. The Vitest builder reduces this to ~6 lines, but more importantly makes it readable -- one builder chain instead of scattered service wiring.
 
 2. **Running a test is slow.** Tests require background build daemons to compile TypeScript to JavaScript before execution. The feedback loop is: edit code -> wait for daemon to recompile (30-60s first run) -> run test inside Electron. There is no watch mode.
 
