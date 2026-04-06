@@ -221,7 +221,7 @@ function registerFoundryProvider(context: vscode.ExtensionContext): void {
 	// Sync Workbench endpoint to auth extension setting
 	if (hasManagedCredentials(FOUNDRY_MANAGED_CREDENTIALS)) {
 		const endpoint = vscode.workspace
-			.getConfiguration('positWorkbench.foundry')
+			.getConfiguration('posit.workbench.foundry')
 			.get<string>('endpoint', '');
 		if (endpoint) {
 			const normalized = normalizeToV1Url(endpoint);
