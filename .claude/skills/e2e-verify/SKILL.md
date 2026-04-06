@@ -47,19 +47,13 @@ Otherwise, **ask the user** which target to run against using `AskUserQuestion`:
 
 **When running in build mode:**
 
-1. Set `BUILD=/Applications/Positron.app` (macOS) in the Playwright launch command in Step 2:
-```bash
-BUILD=/Applications/Positron.app EXPLORE_TITLE="QA #12381: ..." npx playwright test test/e2e/tests/explore/explore.test.ts --project e2e-electron 2>&1 &
-```
+1. Set `BUILD=/Applications/Positron.app` (macOS) in the Playwright launch command in Step 2.
 
 2. Log the version of the built app before starting:
 ```bash
 .claude/skills/e2e-verify-plan/scripts/detect_versions.sh
 ```
-This outputs JSON with `positronVersion`, `positronBuild`, `osVersion`. Report it to the user:
-```
-Target: Built app -- Positron 2026.02.0 (build 10), macOS 26.2
-```
+Report to the user: `Target: Built app -- Positron 2026.02.0 (build 10), macOS 26.2`
 
 If `--branch` flag is present, this is a **diff-driven** test. The diff is the primary
 signal; issue/PR context is enrichment only. `--branch` accepts an optional argument
@@ -72,11 +66,8 @@ that determines where the diff comes from:
 
 To resolve an issue number to a diff:
 ```bash
-# Find PRs linked to the issue
 gh pr list --search "9638" --state all --repo posit-dev/positron --json number,title,headRefName --limit 5
-# Get the diff from the most relevant PR
 gh pr diff <pr-number> --repo posit-dev/positron
-# Get the issue for enrichment
 gh issue view 9638 --repo posit-dev/positron --json title,body,labels
 ```
 
@@ -109,7 +100,7 @@ gh pr diff <pr-number> --repo posit-dev/positron | head -2000
 gh issue view <number> --repo posit-dev/positron --json title,body,labels
 ```
 4. **Validate testability** (see below)
-5. Analyze the diff and show transparent reasoning (see "If --branch flag" section below for the full analysis flow)
+5. Analyze the diff and show transparent reasoning (see diff analysis workflow below)
 6. Generate 5-10 test steps from the diff analysis
 
 If no linked PR is found, fall back to generating a test plan from the issue
@@ -125,151 +116,7 @@ description alone.
 
 **If --branch flag:**
 
-Analyze the current branch's changes vs main to generate a test plan. The diff is the
-primary signal -- PR context and issue context are enrichment only.
-
-1. **Extract the diff:**
-
-The diff source depends on what argument was passed to `--branch`:
-
-**If no argument or a branch name:**
-```bash
-# Determine the target branch (default: current branch)
-BRANCH=$(git rev-parse --abbrev-ref HEAD)  # or the specified branch name
-COMMITS_AHEAD=$(git rev-list --count main..$BRANCH)
-
-# File list for area mapping
-git diff main...$BRANCH --name-only
-
-# Full diff for semantic analysis (cap at 2000 lines to stay focused)
-git diff main...$BRANCH | head -2000
-```
-
-**If an issue number (e.g., `--branch #9638`):**
-```bash
-# Find the PR that closed this issue
-gh pr list --search "9638" --state all --repo posit-dev/positron --json number,title,headRefName --limit 5
-
-# Get the diff from the most relevant PR
-gh pr diff <pr-number> --repo posit-dev/positron | head -2000
-
-# Get file list
-gh pr diff <pr-number> --repo posit-dev/positron --name-only
-```
-
-2. **Fetch enrichment context (secondary signals, if available):**
-```bash
-# PR context (auto-detected from branch, or already known from issue resolution)
-gh pr view --json title,body,number,comments 2>/dev/null
-
-# Issue context (if issue number was passed with --branch)
-gh issue view <number> --repo posit-dev/positron --json title,body,labels 2>/dev/null
-```
-If no PR exists and no issue number was passed, skip -- the diff alone is sufficient.
-
-3. **Classify changed files:**
-
-Group each changed file into one of these categories:
-- **User-facing**: `src/vs/workbench/**`, `extensions/**` -- behavioral code, test these
-- **Shared component**: `src/vs/base/**`, `src/vs/platform/**`, shared dialogs/modals -- note blast radius
-- **Test infrastructure**: `test/e2e/pages/**`, `test/e2e/tests/explore/**` -- skip testing
-- **Build/CI**: `build/**`, `scripts/**`, `.github/**` -- skip testing
-- **Docs only**: `*.md`, `*.txt` -- skip testing
-
-4. **Analyze diff hunks for user-facing files:**
-
-For each user-facing file, read the actual diff hunks and determine:
-- What methods, components, or behaviors were added, changed, or removed
-- Whether the change is behavioral (logic) vs cosmetic (CSS, labels, strings)
-- Whether it touches error handling, timeouts, or state management
-- Blast radius: does this file affect shared components used by other features?
-
-5. **Show transparent analysis to the user:**
-
-Print this analysis BEFORE generating the test plan so the user sees exactly what
-drove the plan. Use this format:
-
-```
-## Diff Analysis: <branch-name> (<N> commits ahead of main)
-
-### Changes detected (user-facing)
-- `src/.../file.ts`: <what changed -- e.g., "Added timeout parameter to show() method">
-- `src/.../other.ts`: <what changed>
-
-### Infrastructure changes (not testing)
-- `test/e2e/pages/variables.ts`: POM update
-- `build/gulpfile.js`: Build config
-
-### Blast radius
-- <area> (<reason> -- e.g., "shared modal component used by 4 dialogs")
-- <area> (<reason>)
-
-### PR context (secondary signal)
-- PR #<number>: "<title>"
-- <summary of body if relevant>
-- Comments: <count> (<brief note if any mention blast radius or related areas>)
-
-### Issue context (if provided)
-- Issue #<number>: "<title>"
-- <summary of expected behavior from issue body>
-```
-
-If the branch has NO user-facing changes (only infrastructure/docs), tell the user:
-```
-No user-facing changes detected on this branch. All changes are in test
-infrastructure, build scripts, or documentation. Nothing to test with the
-explore runner.
-```
-
-6. **Generate test plan:**
-
-Based on the analysis, generate 5-10 test steps (or 10-15+ if `--deep` was passed).
-Apply these priorities:
-- **Deep tests first**: Exercise the specific new/modified behavior and edge cases
-- **Smoke tests second**: Quick happy-path checks for blast radius areas
-- **Suggest existing tests**: If you spot existing test files that cover the changed
-  areas (e.g., `test/e2e/tests/variables/variables-filter.test.ts`), mention them:
-  ```
-  Existing tests that cover this area (run separately):
-  - test/e2e/tests/variables/variables-filter.test.ts
-  - test/e2e/tests/data-explorer/data-explorer-summary.test.ts
-  ```
-
-Then continue to Step 2 (Start the Explore Runner) as normal. The diff analysis
-replaces the free-text/issue parsing -- everything downstream is identical.
-
-**Check existing tests for setup patterns:**
-
-Before generating the test, look for existing test files in the same feature area
-to discover required setup (feature flags, settings, fixtures, beforeAll hooks).
-
-```bash
-# Find existing tests in the area. Map the changed component to a test directory:
-#   notebooks/positron -> test/e2e/tests/notebooks-positron/
-#   dataExplorer       -> test/e2e/tests/data-explorer/
-#   variables          -> test/e2e/tests/variables/
-#   console            -> test/e2e/tests/console/
-#   plots              -> test/e2e/tests/plots/
-ls test/e2e/tests/<area>/*.test.ts 2>/dev/null | head -3
-```
-
-Read one or two of those files (just the imports and beforeAll/beforeEach hooks, not
-the full test bodies) to identify setup patterns. Common patterns to look for:
-- `enablePositronNotebooks(settings)` -- Positron notebooks behind feature flag
-- `settings.set({...})` -- feature flags or configuration
-- `assistant.loginModelProvider(...)` -- AI provider setup
-
-**POM references in args:** When a POM method takes another POM as a parameter (e.g.,
-`enablePositronNotebooks(settings)`), use `{"$pom": "<name>"}` in the args array.
-The runner resolves it to the actual POM instance at runtime:
-```json
-{"type": "pom", "pom": "notebooksPositron", "method": "enablePositronNotebooks", "args": [{"$pom": "settings"}]}
-```
-This works for any POM name available on the workbench (settings, sessions, console, etc.).
-- Custom fixtures (`python`, `r`, `sessions`) in the test signature
-
-Apply the same setup patterns in the generated test. If an existing test uses
-`enablePositronNotebooks` in `beforeAll`, the generated test needs it too.
+For the full diff analysis workflow, see `references/diff-analysis.md`.
 
 **Shared test references:**
 
@@ -277,22 +124,6 @@ When generating tests or choosing POM methods, consult these shared reference do
 - `../shared-e2e-references/test-conventions.md` -- imports, suiteId, commenting style, test.step() rules
 - `../shared-e2e-references/pom-patterns.md` -- POM method selection, confusable methods, POM-first rules
 - `../shared-e2e-references/common-mistakes.md` -- 32 gotchas to avoid
-
-**Generate POM reference if missing or stale:**
-```bash
-# Regenerate if missing OR if any POM source file is newer than the reference
-REF=test/e2e/tests/_generated/pom-reference.md
-if [ ! -f "$REF" ] || [ -n "$(find test/e2e/pages -name '*.ts' -newer "$REF" 2>/dev/null | head -1)" ]; then
-  npx tsx scripts/generate-pom-reference.ts
-fi
-```
-
-**Read the POM reference** to get exact method names, parameter types, and available POMs:
-```bash
-Read test/e2e/tests/_generated/pom-reference.md
-```
-
-Use the reference to pick exact method names and parameter types for every POM step. **NEVER guess method names or parameter types** -- always consult the reference first.
 
 **CRITICAL:** Follow all POM method selection rules in `../shared-e2e-references/pom-patterns.md`.
 
@@ -353,67 +184,19 @@ Browser: Firefox (inferred from issue mentioning "Firefox on Workbench")
 
 ### Step 2: Start the Explore Runner
 
-Launch the Playwright test in the background. **Always** set `EXPLORE_TITLE` to a short, descriptive name (issue number + brief summary).
+See `references/runner-launch.md` for launch commands per mode (local dev, built app, browser) and POM reference staleness check.
 
-**For Electron (default -- local dev):**
-```bash
-cd /Users/marieidleman/Develop/positron
-rm -f /tmp/explore-runner-port
-EXPLORE_TITLE="QA #12381: Ctrl+C in .qmd with inline output" npx playwright test test/e2e/tests/explore/explore.test.ts --project e2e-electron 2>&1 &
-```
-
-**For Electron (built app -- macOS):**
-```bash
-cd /Users/marieidleman/Develop/positron
-rm -f /tmp/explore-runner-port
-BUILD=/Applications/Positron.app EXPLORE_TITLE="QA #12381: Ctrl+C in .qmd with inline output" npx playwright test test/e2e/tests/explore/explore.test.ts --project e2e-electron 2>&1 &
-```
-
-**For browser mode (Firefox, Chromium, WebKit):**
-```bash
-cd /Users/marieidleman/Develop/positron
-rm -f /tmp/explore-runner-port
-ALLOW_EXPLORE=1 EXPLORE_TITLE="QA #11593: Plots new window broken in Firefox" npx playwright test test/e2e/tests/explore/explore.test.ts --project e2e-firefox 2>&1 &
-```
-Note: `ALLOW_EXPLORE=1` is required for browser projects -- it removes the explore directory from testIgnore.
-
-**Important:** Never use just the issue number. Always include a brief summary (under 60 chars).
-
-**Poll for readiness.** The app fixture handles startup readiness, so once the port file exists and `/health` returns ok, the app is ready:
-```bash
-for i in $(seq 1 60); do
-  if [ -f /tmp/explore-runner-port ]; then
-    PORT=$(cat /tmp/explore-runner-port)
-    HEALTH=$(curl -s "http://localhost:$PORT/health" 2>/dev/null)
-    if echo "$HEALTH" | grep -q ok; then
-      echo "Runner ready on port $PORT"
-      break
-    fi
-  fi
-  sleep 2
-done
-```
-
-This launches Positron as a real Electron app. It takes ~30-60 seconds to start.
-
-**While the runner starts**, generate the POM reference if it was missing (this fills dead time):
-```bash
-npx tsx scripts/generate-pom-reference.ts &
-```
-
-Once ready, send a description so the report shows what is being tested. Use `jq` with `$'...'` for multi-line descriptions:
+Poll for readiness, then send a description so the report shows what is being tested:
 ```bash
 PORT=$(cat /tmp/explore-runner-port)
-jq -n --arg desc $'Verify panel hiding behavior when closing editors:\n- Panel maximizes when visible and last editor closes\n- Panel stays hidden when user hid it (Cmd+J)\n- Panel stays hidden after reload' \
+jq -n --arg desc $'Verify panel hiding behavior when closing editors:\n- Panel maximizes when visible and last editor closes\n- Panel stays hidden when user hid it (Cmd+J)' \
   '{description: $desc}' \
 | curl -s -X POST "http://localhost:$PORT/describe" -H 'Content-Type: application/json' -d @-
 ```
 
 ### Step 3: Execute Test via /run-plan (Primary)
 
-Use `POST /run-plan` to execute the entire test in one HTTP call. This replaces the batch-per-group workflow. A happy-path test run is **4 tool calls total**: launch + poll, read POM reference, POST /run-plan, POST /done.
-
-#### /run-plan Request Format
+Use `POST /run-plan` to execute the entire test in one HTTP call. A happy-path test run is **4 tool calls total**: launch + poll, read POM reference, POST /run-plan, POST /done.
 
 ```bash
 PORT=$(cat /tmp/explore-runner-port)
@@ -430,97 +213,9 @@ curl -s -X POST "http://localhost:$PORT/run-plan" \
   }'
 ```
 
-**Request fields:**
-- `title` (required): Descriptive label for the plan in the Playwright report (e.g., "QA #12345: Variable appears after execution")
-- `steps` (required): Array of step objects (same `BatchStep` type as `/batch`)
-- `stepTimeout` (optional): Default timeout in ms for all steps (default 10000)
-- `resetBefore` (optional): Run state reset before executing (set true on retries)
+See `references/runner-api.md` for full API documentation, response formats, jq tips, scoping, explore mode routes, and action tables.
 
-**Step fields:**
-- `type` (required): `"pom"` or `"action"`
-- For `"pom"`: `pom`, `method`, `args`, `scope` (same as `/pom` route)
-- For `"action"`: `action`, `params` (same as `/action` route)
-- `title` (optional): Human-readable label for Playwright report
-- `timeout` (optional): Per-step timeout override in ms (falls back to `stepTimeout`)
-
-#### Dynamic content with jq
-
-Use **`jq -n` piped to `curl -d @-`** when the payload contains code, text with quotes/newlines, or any dynamic strings:
-```bash
-jq -n --arg code $'x = 42\nprint(x)' \
-  '{title: "Run code and verify", stepTimeout: 10000, steps: [
-    {type: "pom", pom: "console", method: "executeCode", args: ["Python", $code], title: "Execute code"},
-    {type: "pom", pom: "variables", method: "expectVariableToBe", args: ["x", "42"], timeout: 5000, title: "Verify x"}
-  ]}' \
-| curl -s -X POST "http://localhost:$PORT/run-plan" -H 'Content-Type: application/json' -d @-
-```
-
-**IMPORTANT: `jq --arg` does NOT interpret `\n` as newlines.** Use bash `$'...'` quoting for any string containing newlines:
-- WRONG: `--arg code 'line1\nline2'` -- types literal backslash-n
-- RIGHT: `--arg code $'line1\nline2'` -- types actual newline
-
-**Rule of thumb:** If the value contains quotes, newlines, backslashes, or comes from a variable -- use `jq` with `$'...'` quoting. Otherwise plain `curl` is fine and faster.
-
-#### /run-plan Response Format
-
-**Success (all steps pass):**
-```json
-{
-  "passed": 3, "failed": 0,
-  "steps": [
-    {"title": "Start Python", "success": true, "duration": 2100},
-    {"title": "Execute code", "success": true, "duration": 800},
-    {"title": "Verify variable", "success": true, "duration": 400}
-  ],
-  "totalDuration": 3300,
-  "state": {
-    "activeEditor": null, "consoleLinesCount": 12,
-    "variableCount": 1, "variableNames": ["x"],
-    "sessionCount": 1, "activeSession": "Python: idle",
-    "notifications": [], "openTabs": [], "focusedPanel": "console"
-  }
-}
-```
-
-**Failure (at step 2 of 3):**
-```json
-{
-  "passed": 1, "failed": 1,
-  "steps": [
-    {"title": "Start Python", "success": true, "duration": 2100},
-    {"title": "Execute code", "success": false, "error": "Timeout 10000ms exceeded", "duration": 10023}
-  ],
-  "skipped": 1, "totalDuration": 12123,
-  "state": {
-    "variableCount": 0, "variableNames": [],
-    "notifications": ["Interpreter disconnected"],
-    "activeSession": "Python: idle"
-  }
-}
-```
-
-The enriched `state` object provides diagnostic context without needing snapshots or screenshots:
-- `variableNames` -- check which variables are set
-- `activeSession` -- confirm session language and status (e.g., "Python: idle", "R: busy")
-- `notifications` -- spot error toasts or interpreter messages
-- `openTabs` -- see which editors are open
-- `focusedPanel` -- confirm focus landed where expected
-
-#### Scoping for side-by-side notebooks
-
-Add `"scope": 0` or `"scope": 1` to scope all locators to a specific editor group:
-```json
-{"type": "pom", "pom": "notebooksPositron", "method": "addCodeToCell", "args": [0, "y = 100"], "scope": 1, "title": "Add code to right notebook"}
-```
-
-#### When to assert
-
-Add a verification step after an action when:
-1. **The target is ambiguous** -- e.g., two notebooks open, verify code landed in the right one
-2. **The test hinges on the result** -- a later step depends on this having worked
-3. **Shared state changed** -- verify with `expectVariable`, `getSessionCount`, etc.
-
-Do NOT assert after every action -- `clickTab`, `startSession`, `expectEditorGroupCount` have built-in waits.
+**POM first, raw never (for assertions):** Do NOT use raw selectors, evaluate, or screenshots for verification when a POM method exists. Look for `expect*` and `waitFor*` methods in the POM reference -- these are assertion methods with built-in retries. Raw actions (`snapshot`, `takeScreenshot`) are for **debugging failures**, not for assertions.
 
 ### Step 3b: Failure Handling and Retries
 
@@ -547,223 +242,17 @@ curl -s -X POST "http://localhost:$PORT/run-plan" \
 
 The `resetBefore` flag closes editors, clears console, and restores default layout before running.
 
-4. **If both attempts fail**: switch to Explore Mode (Step 3c) for interactive diagnosis, or report the failure.
+4. **If both attempts fail**: switch to Explore Mode (see `references/runner-api.md` -- Explore Mode section) for interactive diagnosis, or report the failure.
 
 5. **Track divergences for POM Health reporting.** When a retry succeeds with a different
    POM method or a raw Playwright fallback, note the original method, the replacement,
    and whether either had JSDoc in the reference. Report this in Step 4 under POM Health.
 
-### Step 3c: Explore Mode (Fallback)
-
-Use explore mode when `/run-plan` fails and you need to diagnose interactively. This is NOT the primary workflow -- use `/run-plan` first, always.
-
-The runner has three additional routes for interactive exploration: `POST /pom` for single POM calls, `POST /action` for custom/raw actions, and `POST /batch` for multi-step sequences.
-
-#### POM calls (`POST /pom`)
-
-Call any POM method directly:
-```bash
-PORT=$(cat /tmp/explore-runner-port)
-curl -s -X POST "http://localhost:$PORT/pom" \
-  -H 'Content-Type: application/json' \
-  -d '{"pom": "sessions", "method": "start", "args": ["python"], "title": "Start Python session"}'
-```
-
-**Request fields:**
-- `pom` (required): Workbench property name -- `"sessions"`, `"console"`, `"variables"`, `"dataExplorer"`, `"plots"`, `"notebooksPositron"`, `"editors"`, `"hotKeys"`, `"quickaccess"`, `"settings"`, `"assistant"`, etc. Supports **dotted paths** for sub-objects: `"dataExplorer.grid"`, `"dataExplorer.summaryPanel"`, `"dataExplorer.filters"`.
-- `method` (required): Method name on the POM class
-- `args` (optional): Positional arguments array (default `[]`)
-- `scope` (optional): Editor group index for side-by-side scoping
-- `title` (optional): Human-readable label for Playwright report
-
-#### Custom + Raw actions (`POST /action`)
-
-For actions with custom logic and raw Playwright:
-
-```bash
-# Static params -- plain curl:
-curl -s -X POST "http://localhost:$PORT/action" \
-  -H 'Content-Type: application/json' \
-  -d '{"action": "openFile", "params": {"path": "README.md"}, "title": "Open README"}'
-
-# Dynamic code/text -- jq piped to curl:
-jq -n --arg code 'print("hello world")' \
-  '{action: "addCodeToCell", params: {cellIndex: 0, code: $code, clearCell: true}, title: "Add code to cell 0"}' \
-| curl -s -X POST "http://localhost:$PORT/action" -H 'Content-Type: application/json' -d @-
-```
-
-**Custom actions** (logic beyond a single POM call):
-
-| Action | Params | Description |
-|--------|--------|-------------|
-| `openFile` | `{"path": "README.md"}` | Open file (workspace-relative, handles non-text files) |
-| `openDataFile` | `{"path": "data.csv"}` | Open data file in Data Explorer |
-| `newNotebook` | `{"codeCells?": 1, "markdownCells?": 0, "language?": "Python" (default), "clearCells?": true}` | Create notebook; defaults to Python kernel (pass `null` to skip) |
-| `runCodeInEditor` | `{"code": "x <- 42", "language?": "r"}` | Write code to temp file and execute via Cmd+Enter |
-| `contextMenu` | `{"selector": ".el", "menuItem": "Pin Row", "button?": "right"}` | Right-click and select from context menu (handles native macOS menus) |
-| `getChatResponseText` | `{}` | Get assistant response (needs workspace path) |
-| `getAvailableTools` | `{}` | Get assistant tools (needs workspace path) |
-
-**Raw Playwright actions** (flexible, for recovery and debugging):
-
-| Action | Params | Description |
-|--------|--------|-------------|
-| `snapshot` | `{"maxLength?": 8000}` | Get accessibility tree |
-| `clickText` | `{"text": "OK", "exact?": false}` | Click by visible text |
-| `clickRole` | `{"role": "button", "name": "OK"}` | Click by accessible role |
-| `clickSelector` | `{"selector": ".cls"}` | Click by CSS selector |
-| `fill` | `{"text": "hello", "role?": "textbox"}` | Fill input |
-| `press` | `{"key": "Escape"}` | Press keyboard key |
-| `type` | `{"text": "hello world", "delay?": 0}` | Type text into focused element (Monaco, console, etc.) |
-| `waitForText` | `{"text": "Ready"}` | Wait for text |
-| `waitForSelector` | `{"selector": ".loaded"}` | Wait for selector |
-| `takeScreenshot` | `{"name?": "test"}` | Save screenshot to /tmp/ |
-| `evaluate` | `{"expression": "document.title"}` | Run JS in renderer |
-| `resizeWindow` | `{"width": 600, "height": 800}` | Resize Electron window |
-| `getWindowSize` | `{}` | Get window dimensions |
-
-#### Batch execution (`POST /batch`)
-
-Send multiple steps in one request for interactive sequences:
-```bash
-curl -s -X POST "http://localhost:$PORT/batch" \
-  -H 'Content-Type: application/json' \
-  -d '{"title": "Debug step", "steps": [
-    {"type": "action", "action": "snapshot", "params": {"maxLength": 8000}, "title": "Snapshot UI"},
-    {"type": "pom", "pom": "console", "method": "waitForReady", "args": [">>>"], "title": "Wait for console"}
-  ]}'
-```
-
-#### POM first, raw never (for assertions)
-
-Do NOT use raw selectors, evaluate, or screenshots for verification when a POM method exists. Look for `expect*` and `waitFor*` methods in the POM reference -- these are assertion methods with built-in retries.
-
-Raw actions (`snapshot`, `takeScreenshot`) are for **debugging failures**, not for assertions.
-
 ### Step 4: Report Results
 
-Use the `/run-plan` response fields to report results. For each step:
-```
-Step N: [title]
-  Result: PASS / FAIL
-  Duration: [duration]ms
-  Error: [error message, if failed]
-```
+Report using the summary format with step-by-step pass/fail results.
 
-Summary format:
-```
-## QA Test: #12345 -- Variable appears after execution
-
-Target: Local dev (Electron)
-Browser: e2e-electron
-
-### Result: PASSED (3/3 steps, 3.3s)
-
-Step 1: Start Python session ............ PASS (2100ms)
-Step 2: Execute x = 42 .................. PASS (800ms)
-Step 3: Verify x in Variables pane ....... PASS (400ms)
-```
-
-**IMPORTANT: If a retry was needed**, even if the final result is PASSED, change the
-header to `PASSED after retry` so the user knows it was not a clean pass.
-
-When any step fails, change the header to make the failure obvious:
-
-```
-### Result: FAILED (2/3 steps passed, 1 FAILED, 12.1s)
-
-  Failed step: "Verify outline contains [Introduction, Data Loading, Analysis]"
-  Error: Timeout 10000ms exceeded
-  State: notifications=["Interpreter disconnected"], variableCount=0
-
-Step 1: Start Python session ............ PASS (2100ms)
-Step 2: Execute x = 42 .................. PASS (800ms)
-Step 3: Verify x in Variables pane ....... FAIL (10023ms)
-
-### State after test
-- Active session: Python: idle
-- Variables: x
-- Notifications: (none)
-- Focused panel: console
-
-### POM Recommendations
-[Only include if you had to fall back to raw Playwright actions, retry with
-a different approach, or work around a missing/insufficient POM method.
-Skip this section if all steps used POM methods successfully.]
-
-File: test/e2e/pages/<pom>.ts
-
-/**
- * Action: <What this method does, one line.>
- * <Why it's needed -- what ambiguity or gap it fixes.>
- * @param <name> - <description>
- */
-async <methodName>(<params>): Promise<void> {
-	await test.step(`<Human-readable step label>`, async () => {
-		<implementation using scoped locators>
-	});
-}
-
-Rules:
-- Actions: docstring starts with `Action:`, descriptive method name
-- Verifications: docstring starts with `Verify:`, method named `expect<Thing>()`
-- Always wrap body in `test.step()` with a readable label
-- Use `@param` tags for each parameter
-- Use scoped locators (container-first) to avoid ambiguity
-- Return `Promise<void>`
-
-### POM Health
-**REQUIRED whenever ANY of these occurred during the test run:**
-- A retry used a different POM method than the first attempt
-- A raw Playwright action (`clickRole`, `clickText`, `clickSelector`, `waitForSelector`,
-  `evaluate`, `snapshot`) was used for something a POM method SHOULD cover
-- A POM method failed due to ambiguous matching (strict mode violation)
-
-**If none of these occurred, skip this section.** But if ANY did, you MUST include it --
-even if the test ultimately passed. A passing test that used a raw workaround is a
-POM gap that should be fixed.
-
-**Self-check:** Before finalizing the report, scan every step in the retry summary.
-For each retry fix, ask: "Did I use a raw Playwright action where a POM method should
-exist?" If yes, that's a POM Gap entry.
-
-**Method Confusion** (retried with a different POM method that succeeded):
-- CONFUSION: Called `<original>` (failed), retried with `<replacement>` (passed).
-  JSDoc on original: <present/missing>. JSDoc on replacement: <present/missing>.
-  Recommendation: <Add @see cross-references / Update JSDoc to clarify distinction>
-
-**POM Gap** (fell back to raw Playwright because no POM method existed):
-- GAP: Used raw `<action>` with selector/role `<details>` because no POM method covers <intent>.
-  Suggested POM: <pom>.ts
-  Suggested method: `<methodName>(<params>): Promise<void>`
-
-When a POM Gap is detected, also auto-append it to `test/e2e/tests/explore/BACKLOG.md`
-under `## POM Gaps`:
-
-- [ ] **Missing: <methodName> (<pom>.ts)**
-  During QA test "<test title>", no POM method existed for <intent>.
-  Used raw `<action>` with `<selector>`.
-  Suggested signature: `<methodName>(<params>): Promise<void>`
-  Discovered: <date>
-
-### Rough edges
-- [Any UX issues, slow transitions, or unexpected behaviors noticed]
-- [Even on passing tests, report anything that felt wrong]
-
-### Retry summary
-[REQUIRED if /run-plan was called more than once. Put this at the bottom
-of the report so the clean results are visible first.]
-
-**Attempt 1 failed at:** Step N "<title>"
-- Error: <error message>
-- Root cause: <what was wrong -- wrong expected value, wrong method name, timeout too short, etc.>
-
-**Fix applied:** <what was changed for the retry>
-
-This section MUST appear whenever a retry occurred. Never omit it.
-```
-
-If any step fails, include the error message and enriched state. Use `snapshot` or `takeScreenshot` only if the enriched state is not sufficient to diagnose.
+See `references/reporting.md` for full report format, POM Recommendations, POM Health, retry summary, and rough edges templates.
 
 **FINAL GATE -- POM Health self-check (do this AFTER writing the retry summary):**
 Before moving to Step 5, re-read your retry summary and every step in the test plan.
@@ -853,64 +342,7 @@ test('QA #12345: Variable appears after execution', async function ({ app, pytho
 
 ## Verification Comment
 
-When the user asks for a verification comment (to post on an issue or PR), generate
-it using this GitHub Markdown format. Run `detect_versions.sh` if you haven't already.
-
-**Format:**
-```markdown
-### Verified Fixed
-Positron Version(s): <version> (build <build>)
-OS Version(s): <os>
-
-### Test scenario(s)
-
-**Primary verification:**
-- <Main scenario that directly tests the fix/feature>
-- <Another key scenario>
-
-**Edge cases:**
-- <Edge case 1>
-- <Edge case 2>
-
-**Regression checks:**
-- <Related area that should still work>
-
-### Rough edges
-- <Any UX concerns, surprising behaviors, or minor issues noticed during testing>
-- <Even on passing tests -- note anything that felt off>
-
-### Link(s) to test cases run or created:
-
-<details>
-<summary><code><file path, e.g. test/e2e/tests/_generated/0405_9638-notebook-outline.test.ts></code></summary>
-
-\`\`\`typescript
-<paste the full contents of the saved .test.ts file here>
-\`\`\`
-
-</details>
-```
-
-If no test file was saved, replace the collapsible section with `n/a`.
-
-**Rules:**
-- Use plain bullet points, not checkboxes or tables
-- Omit sections that have no content (e.g., skip "Edge cases" if there were none)
-- Keep scenario descriptions concise -- one line each, describe what was tested not how
-- "Rough edges" replaces "Notes" -- focus on UX observations, not internal metrics
-- Never include retry counts, step durations, or tool call counts -- those are internal
-- Always include the "Rough edges" section even if empty ("None observed")
-- **Write to a temp file and copy to clipboard.** Do NOT output as a markdown chat
-  response -- it renders the HTML and makes it impossible to copy. Instead:
-  ```bash
-  # Write to temp file (reliable fallback)
-  cat << 'EOF' > /tmp/verification-comment.md
-  <comment content>
-  EOF
-  # Copy to clipboard (platform-aware, best-effort)
-  cat /tmp/verification-comment.md | pbcopy 2>/dev/null || cat /tmp/verification-comment.md | clip 2>/dev/null || cat /tmp/verification-comment.md | xclip -selection clipboard 2>/dev/null || true
-  echo "Verification comment copied to clipboard and saved to /tmp/verification-comment.md"
-  ```
+See `references/verification-comment.md` for the GitHub markdown template, rules, and clipboard copy command.
 
 ## Error Handling
 
@@ -922,14 +354,3 @@ If no test file was saved, replace the collapsible section with `n/a`.
 ## Artifacts
 
 Playwright trace is captured automatically. Use `takeScreenshot` or `snapshot` for on-demand evidence.
-
-## Tips
-
-- The enriched `state` object after `/run-plan` shows variable names, session status, notifications, open tabs, and focused panel -- often enough to diagnose failures without snapshots.
-- POM methods via `/pom` and `/run-plan` wait for completion -- no manual delays needed.
-- `snapshot` returns the accessibility tree -- search for roles, names, states. Use in explore mode only.
-- Raw actions default to 5s timeout, POM actions to 10s. Override with `timeout` field on any step.
-- Data Explorer `columnIndex` is 1-based. `rowIndex`/`colIndex` for cells are 0-based.
-- Pinned row headers show the **source row index**: Python/pandas is 0-based (row position 1 -> header "1"), R is 1-based (row position 1 -> header "2"). Use the matching index system when calling `expectRowsToBePinned`.
-- **Always include a `title`** on every step and on the `/run-plan` request for readable Playwright reports.
-- When a test needs to interact with specific sessions by ID (switch, restart, delete), use `sessions.start()` with destructuring to capture the ID directly: `const [pySession] = await sessions.start(['python'])`. Do NOT start sessions via fixtures and then look up IDs with `getAllSessionIdsAndNames()`.
