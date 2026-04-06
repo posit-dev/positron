@@ -90,6 +90,9 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     /** The registration for console width changes */
     private _consoleWidthDisposable?: vscode.Disposable;
 
+    /** The registration for sync support changes from the package manager */
+    private _syncSupportDisposable?: vscode.Disposable;
+
     /** The current state of the runtime */
     private _state: positron.RuntimeState = positron.RuntimeState.Uninitialized;
 
@@ -516,7 +519,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
             // Forward the package manager's sync support change event to the session
             if (this._packageManager.onDidChangeSyncSupport) {
-                this._packageManager.onDidChangeSyncSupport(supported => {
+                this._syncSupportDisposable = this._packageManager.onDidChangeSyncSupport(supported => {
                     this._syncSupportEmitter.fire(supported);
                 });
             }
@@ -807,6 +810,11 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         // Clean up the console width listener
         this._consoleWidthDisposable?.dispose();
         this._consoleWidthDisposable = undefined;
+
+        // Clean up the sync support listener and package manager
+        this._syncSupportDisposable?.dispose();
+        this._syncSupportDisposable = undefined;
+        this._packageManager?.dispose?.();
 
         if (this._lsp) {
             await this._lsp.dispose();

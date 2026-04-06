@@ -107,4 +107,9 @@ export interface IPackageManager {
      * The event payload is a boolean indicating whether sync is now supported.
      */
     onDidChangeSyncSupport?: vscode.Event<boolean>;
+
+    /**
+     * Dispose of any resources held by the package manager.
+     */
+    dispose?(): void;
 }
