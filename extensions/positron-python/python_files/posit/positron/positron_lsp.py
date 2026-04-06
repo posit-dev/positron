@@ -584,12 +584,13 @@ class PositronLanguageServer(LanguageServer):
         self.protocol._shutdown = False  # noqa: SLF001
 
         # Stop any existing server thread
-        if self._server_thread is not None and self._server_thread.is_alive():
+        existing_thread = self._server_thread
+        if existing_thread is not None and existing_thread.is_alive():
             logger.warning("LSP server thread already exists, shutting it down")
             if self._stop_event:
                 self._stop_event.set()
-                self._server_thread.join(timeout=5)
-                if self._server_thread.is_alive():
+                existing_thread.join(timeout=5)
+                if existing_thread.is_alive():
                     logger.warning("LSP server thread did not exit after 5s, dropping it")
 
         # Start the server in a new thread

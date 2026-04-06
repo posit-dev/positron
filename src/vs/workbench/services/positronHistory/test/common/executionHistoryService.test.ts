@@ -159,6 +159,10 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 		throw new Error('Method not implemented.');
 	}
 
+	getLastActiveConsoleSession(): ILanguageRuntimeSession | undefined {
+		throw new Error('Method not implemented.');
+	}
+
 	getNotebookSessionForNotebookUri(_notebookUri: any): INotebookLanguageRuntimeSession | undefined {
 		throw new Error('Method not implemented.');
 	}
@@ -199,7 +203,7 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 		throw new Error('Method not implemented.');
 	}
 
-	restartSession(_sessionId: string, _source: string): Promise<void> {
+	restartSession(_sessionId: string, _source: string): Promise<boolean> {
 		throw new Error('Method not implemented.');
 	}
 
@@ -212,6 +216,10 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 	}
 
 	shutdownNotebookSession(_notebookUri: any, _exitReason: RuntimeExitReason, _source: string): Promise<void> {
+		throw new Error('Method not implemented.');
+	}
+
+	removeNotebookSessionFromNotebookMap(_notebookUri: any): void {
 		throw new Error('Method not implemented.');
 	}
 

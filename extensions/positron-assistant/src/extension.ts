@@ -27,8 +27,8 @@ import { collectDiagnostics } from './diagnostics.js';
 import { log } from './log.js';
 import { resetAssistantState } from './reset.js';
 import { performSettingsMigrations } from './providerMigration.js';
-import { disposeModels, registerModels, registerModelsForProvider } from './modelRegistration';
-import { registerPositAuthProvider } from './providers/posit/positProvider.js';
+import { addAutoconfiguredModel, disposeModels, getAutoconfiguredModels, registerModelWithAPI, registerModels, registerModelsForProvider } from './modelRegistration';
+import { getModelProviders } from './providers/index.js';
 import { PROVIDER_METADATA } from './providerMetadata.js';
 import { ModelConfig } from './configTypes.js';
 import { isAuthExtProvider } from './authExtRouting.js';
@@ -195,12 +195,12 @@ function registerSnowflakeConfigurationListener(context: vscode.ExtensionContext
 			// Snowflake provider enable setting changed
 			if (e.affectsConfiguration('positron.assistant.provider.snowflakeCortex.enable')) {
 				log.info('[Assistant] Snowflake provider enable setting changed, re-registering Snowflake models');
-				await registerModelsForProvider(context, snowflakeProviderId);
+				await registerModelsForProvider(context, snowflakeProviderId, 'snowflake-cortex');
 			}
-			// Snowflake provider variables changed (SNOWFLAKE_HOME, etc.)
-			if (e.affectsConfiguration('positron.assistant.providerVariables.snowflake')) {
-				log.info('[Assistant] Snowflake provider variables changed, re-registering Snowflake models');
-				await registerModelsForProvider(context, snowflakeProviderId);
+			// Snowflake credentials changed in auth extension
+			if (e.affectsConfiguration('authentication.snowflake.credentials')) {
+				log.info('[Assistant] Snowflake credentials changed, re-registering Snowflake models');
+				await registerModelsForProvider(context, snowflakeProviderId, 'snowflake-cortex');
 			}
 		})
 	);
@@ -219,7 +219,7 @@ async function toggleInlineCompletions() {
 	let keyToToggle: string;
 	let currentValue: boolean;
 
-	if (currentLanguageId && (currentLanguageId in currentSettings)) {
+	if (currentLanguageId && Object.prototype.hasOwnProperty.call(currentSettings, currentLanguageId)) {
 		// If current file type has an explicit setting, toggle it
 		keyToToggle = currentLanguageId;
 		currentValue = currentSettings[currentLanguageId];
@@ -276,9 +276,6 @@ async function reconcileAuthProviderModels(
 }
 
 function registerAssistant(context: vscode.ExtensionContext) {
-	// Register Posit AI authentication provider
-	registerPositAuthProvider(context);
-
 	// Register Copilot service
 	registerCopilotService(context);
 
@@ -298,7 +295,7 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	// session-based fallback in registerModelsForProvider. On desktop,
 	// these providers only register when the user explicitly configures them.
 	const SESSION_PROVIDERS = IS_RUNNING_ON_PWB
-		? new Set(['amazon-bedrock', 'ms-foundry'])
+		? new Set(['amazon-bedrock', 'ms-foundry', 'snowflake-cortex'])
 		: new Set<string>();
 
 	// Initialize provider configuration system (registration, migration, validation)

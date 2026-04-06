@@ -5,11 +5,15 @@
 
 import { URI } from '../../../../base/common/uri.js';
 import { isEqual } from '../../../../base/common/resources.js';
-import { Action2 } from '../../../../platform/actions/common/actions.js';
+import { Action2, IAction2Options } from '../../../../platform/actions/common/actions.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 import { getNotebookInstanceFromActiveEditorPane, getNotebookInstanceFromEditorPane } from './notebookUtils.js';
+
+export type INotebookAction2Options = IAction2Options & {
+	readonly grabFocusOnRun?: boolean;
+};
 
 /**
  * Base class for notebook-level actions that operate on IPositronNotebookInstance.
@@ -20,6 +24,13 @@ import { getNotebookInstanceFromActiveEditorPane, getNotebookInstanceFromEditorP
  * multiple notebooks are open side-by-side.
  */
 export abstract class NotebookAction2 extends Action2 {
+	private readonly _grabFocusOnRun: boolean;
+
+	constructor(desc: INotebookAction2Options) {
+		super(desc);
+		this._grabFocusOnRun = desc.grabFocusOnRun ?? true;
+	}
+
 	override async run(accessor: ServicesAccessor, ...args: unknown[]): Promise<void> {
 		const editorService = accessor.get(IEditorService);
 
@@ -45,6 +56,10 @@ export abstract class NotebookAction2 extends Action2 {
 
 		if (!notebook) {
 			return;
+		}
+
+		if (this._grabFocusOnRun) {
+			notebook.grabFocus();
 		}
 
 		const result = this.runNotebookAction(notebook, accessor, ...args);

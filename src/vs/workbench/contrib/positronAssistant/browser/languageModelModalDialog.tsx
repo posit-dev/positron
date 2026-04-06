@@ -277,6 +277,12 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			return true;
 		}
 
+		// Autoconfigured providers have API keys from env vars, not user input
+		const hasAutoconfigure = !!selectedProvider.defaults.autoconfigure && selectedProvider.defaults.autoconfigure.signedIn;
+		if (hasAutoconfigure) {
+			return true;
+		}
+
 		if (isOauthInProgress()) {
 			return await props.renderer.services.positronModalDialogsService.showSimpleModalDialogPrompt(
 				localize('positron.languageModelProviderModalDialog.oauthInProgressTitle', "{0} Authentication in Progress", selectedProvider.provider.displayName),
@@ -425,16 +431,16 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 
 	return <OKModalDialog
 		height={500}
-		okButtonTitle={(() => localize('positron.languageModelModalDialog.close', "Close"))()}
+		okButtonTitle={localize('positron.languageModelModalDialog.close', "Close")}
 		renderer={props.renderer}
-		title={(() => localize('positron.languageModelModalDialog.title', "Configure Language Model Providers"))()}
+		title={localize('positron.languageModelModalDialog.title', "Configure Language Model Providers")}
 		width={600}
 		onAccept={onClose}
 		onCancel={onClose}
 	>
 		<VerticalStack>
 			<label className='language-model-section'>
-				{(() => localize('positron.languageModelProviderModalDialog.provider', "Provider"))()}
+				{localize('positron.languageModelProviderModalDialog.provider', "Provider")}
 			</label>
 			<div className='language-model button-container'>
 				{
@@ -452,7 +458,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 				}
 			</div>
 			<label className='language-model-section'>
-				{(() => localize('positron.languageModelProviderModalDialog.authentication', "Authentication"))()}
+				{localize('positron.languageModelProviderModalDialog.authentication', "Authentication")}
 			</label>
 			{renderAuthMethodSelection()}
 			<LanguageModelConfigComponent

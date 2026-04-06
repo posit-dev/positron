@@ -221,6 +221,16 @@ export interface UpdateParams {
 }
 
 /**
+ * Parameters for the Show method.
+ */
+export interface ShowParams {
+	/**
+	 * Optional pre-rendering data for immediate display
+	 */
+	pre_render?: PlotResult;
+}
+
+/**
  * Event: Notification that a plot has been updated on the backend.
  */
 export interface UpdateEvent {
@@ -235,6 +245,11 @@ export interface UpdateEvent {
  * Event: Show a plot.
  */
 export interface ShowEvent {
+	/**
+	 * Optional pre-rendering data for immediate display
+	 */
+	pre_render?: PlotResult;
+
 }
 
 export enum PlotFrontendEvent {
@@ -255,7 +270,7 @@ export class PositronPlotComm extends PositronBaseComm {
 	) {
 		super(instance, options);
 		this.onDidUpdate = super.createEventEmitter('update', ['pre_render']);
-		this.onDidShow = super.createEventEmitter('show', []);
+		this.onDidShow = super.createEventEmitter('show', ['pre_render']);
 	}
 
 	/**

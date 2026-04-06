@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -136,7 +136,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 		// Add the onDidChangeState event handler.
 		disposableStore.add(
 			positronConsoleInstance.onDidChangeState(state => {
-				setConsoleState(state)
+				setConsoleState(state);
 			})
 		);
 
@@ -176,25 +176,27 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 			cancelled = true;
 			disposableStore.dispose();
 		};
-	}, [services.configurationService, services.runtimeSessionService, services.resourceUsageHistoryService, positronConsoleInstance.sessionId]);
+	}, [services.configurationService, services.runtimeSessionService, services.resourceUsageHistoryService, positronConsoleInstance]);
 
 	/**
 	 * Handles the click event for the console tab.
-	 * Sets the active console instance and focuses the tab element.
+	 * Changes the active console instance and focuses the tab for keyboard navigation.
 	 */
 	const handleClick = (e: MouseEvent<HTMLDivElement>) => {
 		// Prevent the console from stealing focus from the tab element
 		e.stopPropagation();
 
-		// Focus the tab element so the PositronConsoleTabFocused context key
-		// gets set and keyboard interactions work as expected.
+		// Change the active console instance if clicking a different tab
+		if (!isActiveTab) {
+			onChangeSession(positronConsoleInstance);
+		}
+
+		// Focus the tab for keyboard navigation
 		setTimeout(() => {
 			if (tabRef.current) {
 				tabRef.current.focus();
 			}
 		}, 0);
-
-		onChangeSession(positronConsoleInstance);
 	};
 
 	/**
@@ -217,13 +219,13 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 			if ((e.button === 0 && isMacintosh && e.ctrlKey) || e.button === 2) {
 				showContextMenu(e.clientX, e.clientY);
 			}
-		}
+		};
 
 	/**
 	 * Shows the context menu when a user right-clicks on a console instance tab.
-	 * @param {number} x The x coordinate of the mouse event.
-	 * @param {number} y The y coordinate of the mouse event.
-	 * @returns {Promise<void>} A promise that resolves when the context menu is shown.
+	 * @param x The x coordinate of the mouse event.
+	 * @param y The y coordinate of the mouse event.
+	 * @returns A promise that resolves when the context menu is shown.
 	 */
 	const showContextMenu = async (x: number, y: number): Promise<void> => {
 		// The actions that are built below.
@@ -272,7 +274,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 			anchorAlignment: AnchorAlignment.LEFT,
 			anchorAxisAlignment: AnchorAxisAlignment.VERTICAL
 		});
-	}
+	};
 
 	/**
 	 * Shows the rename console session prompt in the UI.
@@ -287,7 +289,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 				inputRef.current.select();
 			}
 		}, 0);
-	}
+	};
 
 	/**
 	 * Submits the new session name on Enter or blur.
@@ -322,7 +324,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 			// Hide the input field
 			setIsRenamingSession(false);
 		}
-	}
+	};
 
 	/**
 	 * This function is called when the user clicks on the delete button.
@@ -330,7 +332,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 	const handleDeleteClick = async (e: MouseEvent<HTMLButtonElement>) => {
 		e.stopPropagation();
 		deleteSession();
-	}
+	};
 
 	/**
 	 * This function attempts to delete the console instance and the accompanying session.
@@ -361,7 +363,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 			// button is no longer clickable anyway.
 			setDeleteDisabled(false);
 		}
-	}
+	};
 
 	/**
 	 * The mouse down handler for the delete button.
@@ -371,7 +373,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 	const handleDeleteMouseDown = (e: MouseEvent<HTMLButtonElement>) => {
 		e.preventDefault();
 		e.stopPropagation();
-	}
+	};
 
 	/**
 	 * Handles the key down event for the delete button.
@@ -536,8 +538,8 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 					</div>
 				)}
 		</div>
-	)
-}
+	);
+};
 
 
 // ConsoleCoreProps interface.
@@ -597,27 +599,17 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 	}, [positronConsoleTabFocusedContextKey]);
 
 	/**
-	 * Function to change the active console instance that is tied to a specific session
+	 * Function to change the active console instance to the one tied to the given session.
+	 * This is called when a user clicks on a console tab or uses the keyboard to
+	 * navigate between tabs.
 	 *
-	 * @param {string}   sessionId The Id of the session that should be active
+	 * This fires onDidChangeActivePositronConsoleInstance, which the ForegroundSessionContribution
+	 * listens to and uses to set the foreground session.
+	 *
+	 * @param sessionId The Id of the session that should be active
 	 */
-	const handleChangeForegroundSession = async (sessionId: string): Promise<void> => {
-		// Find the session
-		const session =
-			services.runtimeSessionService.getSession(sessionId);
-
-		if (session) {
-			// Set the session as the foreground session
-			services.runtimeSessionService.foregroundSession = session;
-		} else {
-			// It is possible for a console instance to exist without a
-			// session; this typically happens when we create a provisional
-			// instance while waiting for a session to be connected, but the
-			// session never connects. In this case we can't set the session as
-			// the foreground session, but we can still set the console
-			// instance as the active console instance.
-			services.positronConsoleService.setActivePositronConsoleSession(sessionId);
-		}
+	const handleChangeActiveConsoleInstance = async (sessionId: string): Promise<void> => {
+		services.positronConsoleService.setActivePositronConsoleSession(sessionId);
 	};
 
 	// Set the selected tab to the active console instance.
@@ -660,7 +652,7 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 		if (newIndex !== activeIndex && newIndex >= 0 && newIndex < consoleInstances.length) {
 			// Get the console instance for the new index
 			const consoleInstance = consoleInstances[newIndex];
-			handleChangeForegroundSession(consoleInstance.sessionId).then(() => {
+			handleChangeActiveConsoleInstance(consoleInstance.sessionId).then(() => {
 				// Focus the tab after it becomes active
 				if (tabListRef.current) {
 					const tabElements = tabListRef.current.children;
@@ -688,9 +680,9 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 					key={positronConsoleInstance.sessionId}
 					positronConsoleInstance={positronConsoleInstance}
 					width={props.width}
-					onChangeSession={() => handleChangeForegroundSession(positronConsoleInstance.sessionId)}
+					onChangeSession={() => handleChangeActiveConsoleInstance(positronConsoleInstance.sessionId)}
 				/>
 			)}
 		</div>
 	);
-}
+};

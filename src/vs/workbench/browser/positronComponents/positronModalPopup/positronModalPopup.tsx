@@ -152,24 +152,17 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 		let anchorY: number;
 		let anchorWidth: number;
 		let anchorHeight: number;
-		if (props.anchorPoint) {
+		if (props.anchorPoint !== undefined) {
 			anchorX = props.anchorPoint.clientX;
 			anchorY = props.anchorPoint.clientY;
 			anchorWidth = 0;
 			anchorHeight = 0;
-		} else if (props.anchorElement) {
+		} else {
 			const topLeftAnchorOffset = DOM.getTopLeftOffset(props.anchorElement);
 			anchorX = topLeftAnchorOffset.left;
 			anchorY = topLeftAnchorOffset.top;
 			anchorWidth = props.anchorElement.offsetWidth;
 			anchorHeight = props.anchorElement.offsetHeight;
-		} else {
-			// If no anchor point or element is provided, default to the center
-			// of the document.
-			anchorX = documentWidth / 2;
-			anchorY = documentHeight / 2;
-			anchorWidth = 0;
-			anchorHeight = 0;
 		}
 
 		// Create the popup layout.
@@ -427,6 +420,9 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 
 	// Event handlers.
 	useEffect(() => {
+		// Set this popup's bounds provider with the renderer so that we can check click containment.
+		props.renderer.setBoundsProvider(() => popupRef.current.getBoundingClientRect());
+
 		// Create a disposable store for the event handlers we'll add.
 		const disposableStore = new DisposableStore();
 
@@ -461,6 +457,7 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 			 */
 			const navigateFocusableElements = (direction: 'next' | 'previous', wrap: boolean) => {
 				// Get the focusable elements.
+				// eslint-disable-next-line no-restricted-syntax
 				const focusableElements = popupContainerRef.current.querySelectorAll<HTMLElement>(
 					props.focusableElementSelectors ?? focusableElementSelectors
 				);
@@ -561,10 +558,19 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 
 		// Add the onMouseDown event handler.
 		disposableStore.add(props.renderer.onMouseDown(e => {
+			// Get the bounding client rect of the popup.
 			const clientRect = popupRef.current.getBoundingClientRect();
-			if (!(e.clientX >= clientRect.left && e.clientX <= clientRect.right &&
-				e.clientY >= clientRect.top && e.clientY <= clientRect.bottom)) {
-				props.renderer.dispose();
+
+			// If the click is outside this popup's bounds, decide what to dismiss.
+			if (!(e.clientX >= clientRect.left && e.clientX <= clientRect.right && e.clientY >= clientRect.top && e.clientY <= clientRect.bottom)) {
+				// If the click is outside every popup in the stack, dismiss the root renderer so
+				// the entire popup stack is dismissed. Otherwise just close this popup (e.g. a
+				// submenu when the user clicks back into its parent menu).
+				if (!PositronModalReactRenderer.isInsideAnyPopup(e)) {
+					PositronModalReactRenderer.disposeAll();
+				} else {
+					props.renderer.dispose();
+				}
 			}
 		}));
 

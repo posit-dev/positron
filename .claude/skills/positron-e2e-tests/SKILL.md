@@ -173,6 +173,7 @@ npx playwright show-report
 
 For detailed information, read the bundled reference docs:
 
+- **`references/test-setup.md`** - How to configure the local machine environment to run tests
 - **`references/test-structure.md`** - Complete test file structure and organization
 - **`references/fixtures.md`** - All available fixtures and their usage
 - **`references/page-objects.md`** - Page object patterns and available POMs

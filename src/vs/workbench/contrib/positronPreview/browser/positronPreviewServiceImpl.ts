@@ -30,6 +30,7 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { Schemas } from '../../../../base/common/network.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { localize } from '../../../../nls.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 
 /**
  * Positron preview service; keeps track of the set of active previews and
@@ -61,7 +62,8 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IPositronNotebookOutputWebviewService private readonly _notebookOutputWebviewService: IPositronNotebookOutputWebviewService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
-		@IEditorService private readonly _editorService: IEditorService
+		@IEditorService private readonly _editorService: IEditorService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
 	) {
 		super();
 		this.onDidCreatePreviewWebview = this._onDidCreatePreviewWebviewEmitter.event;
@@ -429,10 +431,14 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 	/** Handles a language runtime output message. */
 	private async handleRuntimeOutputMessage(previewId: string, message: ILanguageRuntimeMessageOutput | ILanguageRuntimeMessageUpdateOutput, session: ILanguageRuntimeSession) {
+		// viewType ensures renderers registered for the jupyter-notebook type
+		// are resolved (e.g. Plotly) and that notebook static preloads (e.g.
+		// RequireJS from ms-toolsai.jupyter-renderers) are injected.
 		const webview = await this._notebookOutputWebviewService.createNotebookOutputWebview({
 			id: message.id,
 			runtime: session,
-			output: message
+			output: message,
+			viewType: 'jupyter-notebook',
 		});
 		if (webview) {
 			const preview = this.createPreviewWebview(
@@ -488,6 +494,15 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		// Check to see whether we can handle this URL in the viewer; if we
 		// can't, hand it over to the opener service.
 		if (!this.canOpenInViewer(uri)) {
+			this._openerService.open(uri, {
+				openExternal: true,
+			});
+			return;
+		}
+
+		// If the user prefers to open localhost URLs in the browser, hand
+		// it over to the opener service.
+		if (!this._configurationService.getValue<boolean>('positron.viewer.openLocalhostUrls')) {
 			this._openerService.open(uri, {
 				openExternal: true,
 			});

@@ -6,29 +6,40 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
+import { ANTHROPIC_AUTH_PROVIDER_ID, AWS_AUTH_PROVIDER_ID, CREDENTIAL_REFRESH_INTERVAL_MS, FOUNDRY_AUTH_PROVIDER_ID, POSIT_AUTH_PROVIDER_ID } from './constants';
 import { AuthProvider } from './authProvider';
 import { registerAuthProvider, showConfigurationDialog } from './configDialog';
-import { normalizeToV1Url, validateAnthropicApiKey, validateFoundryApiKey } from './validation';
+import { normalizeToV1Url, validateAnthropicApiKey, validateFoundryApiKey, validateSnowflakeApiKey } from './validation';
 import { FOUNDRY_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
-import { CREDENTIAL_REFRESH_INTERVAL_MS } from './constants';
+import { detectSnowflakeCredentials, getSnowflakeConnectionsTomlPath } from './snowflakeCredentials';
+import { PositOAuthProvider } from './positOAuthProvider';
+import * as fs from 'fs';
 import { log } from './log';
 import { migrateAwsSettings } from './migration/aws';
+import { migrateSnowflakeSettings } from './migration/snowflake';
 import { registerMigrateApiKeyCommand } from './migration/apiKey';
 import { AuthProviderLogger } from './authProviderLogger';
 
 export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(log);
 
-	registerAnthropicProvider(context);
+	await registerAnthropicProvider(context);
+	registerPositAIProvider(context);
 	registerFoundryProvider(context);
 
-	// Migrate settings before registering the AWS provider so it
-	// reads the migrated profile/region during initialization.
+	// Migrate settings before registering providers so they
+	// read the migrated values during initialization.
 	const awsLogger = new AuthProviderLogger('AWS');
 	await migrateAwsSettings().catch(err =>
 		awsLogger.logOperationError('settings migration', err)
 	);
 	registerAwsProvider(context);
+
+	await migrateSnowflakeSettings().catch(err =>
+		log.error(`Snowflake settings migration failed: ${err}`)
+	);
+	registerSnowflakeProvider(context);
+
 	log.info('Authentication extension activated');
 
 	context.subscriptions.push(
@@ -45,21 +56,92 @@ export async function activate(context: vscode.ExtensionContext) {
 	registerMigrateApiKeyCommand(context);
 }
 
-function registerAnthropicProvider(context: vscode.ExtensionContext): void {
+async function registerAnthropicProvider(
+	context: vscode.ExtensionContext
+): Promise<void> {
 	const logger = new AuthProviderLogger('Anthropic');
+
+	// Sync ANTHROPIC_BASE_URL env var to the config setting before
+	// chain resolution so validation uses the correct endpoint.
+	const envBaseUrl = process.env.ANTHROPIC_BASE_URL;
+	if (envBaseUrl) {
+		await vscode.workspace
+			.getConfiguration('authentication.anthropic')
+			.update(
+				'baseUrl', envBaseUrl,
+				vscode.ConfigurationTarget.Global
+			).then(undefined, err =>
+				logger.logOperationError('sync Anthropic base URL', err)
+			);
+	}
+
 	const provider = new AuthProvider(
-		'anthropic-api', 'Anthropic', context
+		ANTHROPIC_AUTH_PROVIDER_ID, 'Anthropic', context,
+		undefined,
+		{
+			resolve: async () => {
+				const apiKey = process.env.ANTHROPIC_API_KEY;
+				if (!apiKey) {
+					throw new Error('ANTHROPIC_API_KEY not set');
+				}
+				const baseUrl = vscode.workspace
+					.getConfiguration('authentication.anthropic')
+					.get<string>('baseUrl') || undefined;
+				await validateAnthropicApiKey(apiKey, {
+					provider: ANTHROPIC_AUTH_PROVIDER_ID,
+					name: 'Anthropic',
+					model: '',
+					type: positron.PositronLanguageModelType.Chat,
+					...(baseUrl && { baseUrl }),
+				});
+				return apiKey;
+			},
+			preventSignOut: true,
+		}
 	);
 	context.subscriptions.push(
 		vscode.authentication.registerAuthenticationProvider(
-			'anthropic-api', 'Anthropic', provider,
+			ANTHROPIC_AUTH_PROVIDER_ID, 'Anthropic', provider,
 			{ supportsMultipleAccounts: true }
 		),
 		provider
 	);
-	registerAuthProvider('anthropic-api', provider, {
+	registerAuthProvider(ANTHROPIC_AUTH_PROVIDER_ID, provider, {
 		validateApiKey: validateAnthropicApiKey,
+		onSave: async (config) => {
+			if (config.baseUrl) {
+				await vscode.workspace
+					.getConfiguration('authentication.anthropic')
+					.update(
+						'baseUrl', config.baseUrl,
+						vscode.ConfigurationTarget.Global
+					);
+			}
+		},
 	});
+
+	// Eagerly resolve env var credentials so the session is
+	// available before positron-assistant registers models.
+	await provider.resolveChainCredentials().catch(err =>
+		logger.logCredentialResolution(
+			'failed',
+			`Initial credential resolution: ${err}`
+		)
+	);
+
+	logger.info('Registered auth provider');
+}
+
+function registerPositAIProvider(context: vscode.ExtensionContext): void {
+	const logger = new AuthProviderLogger('Posit AI');
+	const provider = new PositOAuthProvider(context);
+	context.subscriptions.push(
+		vscode.authentication.registerAuthenticationProvider(
+			POSIT_AUTH_PROVIDER_ID, 'Posit AI', provider
+		),
+		provider
+	);
+	registerAuthProvider(POSIT_AUTH_PROVIDER_ID, provider);
 	logger.info('Registered auth provider');
 }
 
@@ -88,7 +170,7 @@ function registerAwsProvider(
 	);
 
 	const provider = new AuthProvider(
-		'amazon-bedrock', 'AWS', context,
+		AWS_AUTH_PROVIDER_ID, 'AWS', context,
 		undefined,
 		{
 			resolve: async () => {
@@ -104,12 +186,12 @@ function registerAwsProvider(
 	);
 	context.subscriptions.push(
 		vscode.authentication.registerAuthenticationProvider(
-			'amazon-bedrock', 'AWS', provider,
+			AWS_AUTH_PROVIDER_ID, 'AWS', provider,
 			{ supportsMultipleAccounts: false }
 		),
 		provider
 	);
-	registerAuthProvider('amazon-bedrock', provider);
+	registerAuthProvider(AWS_AUTH_PROVIDER_ID, provider);
 	provider.resolveChainCredentials().catch(err =>
 		logger.logCredentialResolution(
 			'failed',
@@ -122,7 +204,7 @@ function registerAwsProvider(
 function registerFoundryProvider(context: vscode.ExtensionContext): void {
 	const logger = new AuthProviderLogger('Microsoft Foundry');
 	const provider = new AuthProvider(
-		'ms-foundry', 'Microsoft Foundry', context,
+		FOUNDRY_AUTH_PROVIDER_ID, 'Microsoft Foundry', context,
 		{
 			authProviderId: FOUNDRY_MANAGED_CREDENTIALS.authProvider.id,
 			scopes: FOUNDRY_MANAGED_CREDENTIALS.authProvider.scopes,
@@ -131,12 +213,12 @@ function registerFoundryProvider(context: vscode.ExtensionContext): void {
 	);
 	context.subscriptions.push(
 		vscode.authentication.registerAuthenticationProvider(
-			'ms-foundry', 'Microsoft Foundry', provider,
+			FOUNDRY_AUTH_PROVIDER_ID, 'Microsoft Foundry', provider,
 			{ supportsMultipleAccounts: false }
 		),
 		provider
 	);
-	registerAuthProvider('ms-foundry', provider, {
+	registerAuthProvider(FOUNDRY_AUTH_PROVIDER_ID, provider, {
 		validateApiKey: validateFoundryApiKey,
 		onSave: async (config) => {
 			if (config.baseUrl) {
@@ -164,4 +246,80 @@ function registerFoundryProvider(context: vscode.ExtensionContext): void {
 				);
 		}
 	}
+}
+
+function registerSnowflakeProvider(context: vscode.ExtensionContext): void {
+	let lastTomlCheck: number | undefined;
+	let pendingMtime: number | undefined;
+
+	const provider = new AuthProvider(
+		'snowflake-cortex', 'Snowflake Cortex', context,
+		undefined,
+		{
+			resolve: async () => {
+				const credentials = await detectSnowflakeCredentials();
+				if (!credentials) {
+					throw new Error('No Snowflake credentials found');
+				}
+				// Sync detected account to global settings for baseUrl
+				// derivation. Use inspect() to read only the global scope
+				// so workspace-scoped values are not copied into global.
+				if (credentials.account) {
+					const cfg = vscode.workspace.getConfiguration(
+						'authentication.snowflake'
+					);
+					const inspection = cfg.inspect<Record<string, string>>(
+						'credentials'
+					);
+					const globalValue = inspection?.globalValue ?? {};
+					if (globalValue.SNOWFLAKE_ACCOUNT !== credentials.account) {
+						await cfg.update('credentials',
+							{ ...globalValue, SNOWFLAKE_ACCOUNT: credentials.account },
+							vscode.ConfigurationTarget.Global
+						).then(undefined, err =>
+							log.error(`Failed to sync Snowflake account: ${err}`)
+						);
+					}
+				}
+				// Advance mtime only after successful resolve so a failed
+				// attempt retries on the next getSessions call.
+				if (pendingMtime !== undefined) {
+					lastTomlCheck = pendingMtime;
+					pendingMtime = undefined;
+				}
+				return credentials.token;
+			},
+			shouldRefresh: async () => {
+				const tomlPath = getSnowflakeConnectionsTomlPath();
+				if (!tomlPath) {
+					return false;
+				}
+				try {
+					const stats = await fs.promises.stat(tomlPath);
+					const mtime = stats.mtime.getTime();
+					if (!lastTomlCheck || mtime > lastTomlCheck) {
+						pendingMtime = mtime;
+						return true;
+					}
+					return false;
+				} catch {
+					return false;
+				}
+			},
+		}
+	);
+	context.subscriptions.push(
+		vscode.authentication.registerAuthenticationProvider(
+			'snowflake-cortex', 'Snowflake Cortex', provider,
+			{ supportsMultipleAccounts: false }
+		),
+		provider
+	);
+	registerAuthProvider('snowflake-cortex', provider, {
+		validateApiKey: validateSnowflakeApiKey,
+	});
+	provider.resolveChainCredentials().catch(err =>
+		log.debug(`[Snowflake] Initial credential resolution failed: ${err}`)
+	);
+	log.info('Registered auth provider: snowflake-cortex');
 }
