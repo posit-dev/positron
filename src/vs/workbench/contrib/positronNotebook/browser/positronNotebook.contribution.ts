@@ -60,6 +60,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { UpdateNotebookWorkingDirectoryAction } from './UpdateNotebookWorkingDirectoryAction.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
+import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
 import { PositronNotebookPromptContribution } from './positronNotebookPrompt.js';
 import { ActiveNotebookHasRunningRuntime } from '../../runtimeNotebookKernel/common/activeRuntimeNotebookContextManager.js';
 import { NotebookAction2 } from './NotebookAction2.js';
@@ -1093,6 +1094,38 @@ registerAction2(class extends NotebookAction2 {
 });
 
 
+/**
+ * Resolves the active cell, executes it, and exits edit/markdown-preview mode.
+ * Shared by the Shift+Enter and Alt+Enter notebook actions.
+ * Returns the cell so callers can decide what to do next, or `null` if there
+ * is no active cell.
+ */
+function executeActiveCell(notebook: IPositronNotebookInstance): IPositronNotebookCell | null {
+	const state = notebook.selectionStateMachine.state.get();
+	const cell = getActiveCell(state);
+	if (!cell) {
+		return null;
+	}
+
+	// Exit edit mode if we're in it
+	if (state.type === SelectionState.EditingSelection) {
+		notebook.selectionStateMachine.exitEditor();
+	}
+
+	// Execute the cell only if it's a code cell. Otherwise the user would
+	// have to double call for markdown cells to open and then close the editor.
+	if (cell.isCodeCell()) {
+		cell.run();
+	}
+
+	// If the cell is a markdown cell and the editor is open, close it.
+	if (cell.isMarkdownCell() && cell.editorShown.get()) {
+		cell.toggleEditor();
+	}
+
+	return cell;
+}
+
 // Execute cell and select below
 registerAction2(class extends NotebookAction2 {
 	constructor() {
@@ -1122,27 +1155,9 @@ registerAction2(class extends NotebookAction2 {
 			return;
 		}
 
-		// Get the active cell
-		const cell = getActiveCell(state);
+		const cell = executeActiveCell(notebook);
 		if (!cell) {
 			return;
-		}
-
-		// Check if we're in edit mode and exit if so
-		if (state.type === SelectionState.EditingSelection) {
-			notebook.selectionStateMachine.exitEditor();
-		}
-
-		// Execute the cell only if it's a code cell. Otherwise the user would
-		// have to double call for markdown cells to open and then close the
-		// editor.
-		if (cell.isCodeCell()) {
-			cell.run();
-		}
-
-		// If the cell is a markdown cell and the editor is open, close it. Otherwise just pass over.
-		if (cell.isMarkdownCell() && cell.editorShown.get()) {
-			cell.toggleEditor();
 		}
 
 		// If this is the last cell, insert a new cell below of the same type
@@ -1154,6 +1169,31 @@ registerAction2(class extends NotebookAction2 {
 			// Only move down if we didn't add a cell
 			notebook.selectionStateMachine.moveSelectionDown(false);
 		}
+	}
+});
+
+// Execute cell, insert a new cell below, and focus it (Alt+Enter, Jupyter-style)
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.executeAndInsertBelow',
+			title: localize2('positronNotebook.cell.executeAndInsertBelow', "Execute Cell and Insert Below"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_EDITOR_FOCUSED,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyMod.Alt | KeyCode.Enter
+			}
+		});
+	}
+
+	override async runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		const cell = executeActiveCell(notebook);
+		if (!cell) {
+			return;
+		}
+
+		// Always insert a new cell below of the same type and focus it
+		notebook.addCell(cell.kind, cell.index + 1, true);
 	}
 });
 
