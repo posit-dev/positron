@@ -317,12 +317,23 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 			};
 		}
 
-		// Display messages (e.g., interactive plots) need to create a new webview immediately
-		// and return it for rendering
+		// Display messages (e.g., interactive plots) need their own webview.
+		// Cache by output ID so trust-change or output-item reparsing
+		// doesn't orphan the existing webview.
 		if (messageType === 'display') {
+			const existingDisplay = this._widgetWebviewsByOutputId.get(runtimeOutput.id);
+			if (existingDisplay) {
+				return {
+					preloadMessageType: messageType,
+					webview: existingDisplay
+				};
+			}
+
+			const webviewPromise = this._createNotebookPlotWebview(instance, runtimeOutput);
+			this._widgetWebviewsByOutputId.set(runtimeOutput.id, webviewPromise);
 			return {
 				preloadMessageType: messageType,
-				webview: this._createNotebookPlotWebview(instance, runtimeOutput)
+				webview: webviewPromise
 			};
 		}
 

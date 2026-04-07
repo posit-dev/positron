@@ -139,8 +139,9 @@ export function getWebviewMessageType(outputs: { mime: string }[]): 'widget' | '
 
 /**
  * Checks whether HTML content contains elements that cannot be safely rendered
- * inline due to Trusted Types / CSP restrictions (scripts, iframes, full
- * documents). Such content needs to be routed through a sandboxed webview.
+ * inline due to Trusted Types / CSP restrictions or because they can load
+ * active external content (scripts, iframes, embeds, full documents).
+ * Such content needs to be routed through a sandboxed webview.
  *
  * Used by both the console (to skip inline rendering) and notebooks (to route
  * through an overlay webview).
@@ -151,5 +152,7 @@ export function isComplexHtml(html: string): boolean {
 		lower.includes('<body') ||
 		lower.includes('<html') ||
 		lower.includes('<iframe') ||
+		lower.includes('<object') ||
+		lower.includes('<embed') ||
 		lower.includes('<!doctype');
 }
