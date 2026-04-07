@@ -96,10 +96,10 @@ export class OpenAICompatibleModelProvider extends OpenAIModelProvider implement
 	 */
 	protected override initializeProvider() {
 		const baseProvider = createOpenAI({
-			apiKey: this._config.apiKey || undefined,
+			apiKey: this._config.apiKey,
 			baseURL: this.baseUrl,
 			headers: this.customHeaders,
-			fetch: createOpenAICompatibleFetch(this.providerName)
+			fetch: createOpenAICompatibleFetch(this.providerName, this._config.apiKey)
 		});
 
 		// Create a callable wrapper that routes to .chat() for the default call

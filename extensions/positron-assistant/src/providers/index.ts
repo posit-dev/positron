@@ -187,8 +187,8 @@ export async function createAutomaticModelConfigs(): Promise<ModelConfig[]> {
 				model: model.source.defaults.model,
 				toolCalls: model.source.defaults.toolCalls,
 				completions: model.source.defaults.completions,
-				...(credentials.apiKey && { apiKey: credentials.apiKey }),
-				...(credentials.baseUrl && { baseUrl: credentials.baseUrl }),
+				...(credentials.apiKey !== undefined && { apiKey: credentials.apiKey }),
+				...(credentials.baseUrl !== undefined && { baseUrl: credentials.baseUrl }),
 				autoconfigure: credentials.autoconfigure,
 			};
 			modelConfigs.push(modelConfig);

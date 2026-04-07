@@ -100,9 +100,9 @@ export class OpenAIModelProvider extends VercelModelProvider implements positron
 	 */
 	protected override initializeProvider() {
 		this.aiProvider = createOpenAI({
-			apiKey: this._config.apiKey || undefined,
+			apiKey: this._config.apiKey,
 			baseURL: this.baseUrl,
-			fetch: createOpenAICompatibleFetch(this.providerName)
+			fetch: createOpenAICompatibleFetch(this.providerName, this._config.apiKey)
 		});
 	}
 
