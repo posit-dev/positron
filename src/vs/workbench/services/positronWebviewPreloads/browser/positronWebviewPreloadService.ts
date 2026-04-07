@@ -83,4 +83,13 @@ export interface IPositronWebviewPreloadService {
 				outputs: { mime: string; data: VSBuffer }[];
 			}
 	): NotebookPreloadOutputResults | undefined;
+
+	/**
+	 * Create an overlay webview for raw HTML content that cannot be safely
+	 * rendered inline (e.g. folium maps containing scripts/iframes).
+	 */
+	addRawHtmlOutput(params: {
+		outputId: string;
+		html: string;
+	}): NotebookPreloadOutputResults;
 }

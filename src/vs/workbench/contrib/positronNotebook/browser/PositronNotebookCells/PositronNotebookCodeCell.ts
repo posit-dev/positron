@@ -158,6 +158,19 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 				}
 			}
 
+			// Complex HTML (scripts, iframes, full documents) can't render inline
+			// due to Trusted Types / CSP restrictions. Route through an overlay
+			// webview where scripts execute in an isolated process.
+			if (!preloadMessageType && preferredOutputItem.mime === 'text/html') {
+				const htmlContent = preferredOutputItem.data.toString();
+				if (/<(script|html|body|iframe|!DOCTYPE)/i.test(htmlContent)) {
+					parsedOutput.preloadMessageResult = this._webviewPreloadService.addRawHtmlOutput({
+						outputId: output.outputId,
+						html: htmlContent,
+					});
+				}
+			}
+
 			parsedOutputs.push(parsedOutput);
 		});
 

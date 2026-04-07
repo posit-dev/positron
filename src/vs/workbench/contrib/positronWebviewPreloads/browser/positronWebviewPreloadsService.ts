@@ -255,6 +255,14 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		return { preloadMessageType: messageType };
 	}
 	/**
+	 * Create an overlay webview for raw HTML content (e.g. folium maps).
+	 */
+	public addRawHtmlOutput({ outputId, html }: { outputId: string; html: string }): NotebookPreloadOutputResults {
+		const webviewPromise = this._notebookOutputWebviewService.createRawHtmlOutputWebview(outputId, html);
+		return { preloadMessageType: 'display', webview: webviewPromise };
+	}
+
+	/**
 	 * Create a webview for an IPyWidget output from a Positron Notebook.
 	 * Creates a per-output messaging channel to enable proper communication
 	 * between the output's webview and the kernel.
