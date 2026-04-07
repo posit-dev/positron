@@ -682,6 +682,13 @@ export class Sessions {
 	}
 
 	/**
+	 * Helper: Get all available runtimes with their categories
+	 */
+	async getAllAvailableRuntimes(): Promise<RuntimeInfo[]> {
+		return await this.quickPick.getAllAvailableRuntimes();
+	}
+
+	/**
 	 * Helper: Get Active Sessions in the Console Session Tab List
 	 * Note: Sessions that are disconnected are filtered out
 	 */
@@ -1156,6 +1163,44 @@ export class SessionQuickPick {
 		});
 	}
 
+	/**
+	 * Helper: Get all available runtimes from the Start New Console Session dialog with their categories.
+	 * @returns The list of runtimes with their names, paths, and categories.
+	 */
+	async getAllAvailableRuntimes(): Promise<RuntimeInfo[]> {
+		return await test.step('Get all available runtimes', async () => {
+			await this.openSessionQuickPickMenu(true);
+
+			const entries = await this.code.driver.page.locator('.quick-input-list-entry').all();
+			const runtimes: RuntimeInfo[] = [];
+
+			for (const entry of entries) {
+				// Get the runtime name from the first row
+				const nameElement = entry.locator('.quick-input-list-row').nth(0).locator('.label-name .monaco-highlighted-label');
+				const name = await nameElement.textContent();
+
+				// Get the path from the second row
+				const pathElement = entry.locator('.quick-input-list-row').nth(1).locator('.label-name .monaco-highlighted-label');
+				const path = await pathElement.textContent();
+
+				// Get the category from the separator
+				const separatorElement = entry.locator('.quick-input-list-separator');
+				const category = await separatorElement.textContent();
+
+				if (name && path) {
+					runtimes.push({
+						name: name.trim(),
+						path: path.trim(),
+						category: category?.trim() || ''
+					});
+				}
+			}
+
+			await this.closeSessionQuickPickMenu();
+			return runtimes;
+		});
+	}
+
 	// -- Utils --
 
 	/**
@@ -1186,6 +1231,12 @@ export class SessionQuickPick {
 export type QuickPickSessionInfo = {
 	name: string;
 	path: string;
+};
+
+export type RuntimeInfo = {
+	name: string;
+	path: string;
+	category: string;
 };
 
 export type SessionTrigger = 'session-picker' | 'quickaccess' | 'hotkey';
