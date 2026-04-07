@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 export const enum PositronConsoleFindCommandId {
-	FindFocus = 'workbench.action.positronConsole.focusFind',
-	FindHide = 'workbench.action.positronConsole.hideFind',
+	FindFocus = 'workbench.action.positronConsole.findFocus',
+	FindHide = 'workbench.action.positronConsole.findHide',
 	FindNext = 'workbench.action.positronConsole.findNext',
 	FindPrevious = 'workbench.action.positronConsole.findPrevious',
 	ToggleFindRegex = 'workbench.action.positronConsole.toggleFindRegex',
