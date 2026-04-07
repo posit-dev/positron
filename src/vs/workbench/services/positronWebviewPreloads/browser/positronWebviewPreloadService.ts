@@ -89,6 +89,7 @@ export interface IPositronWebviewPreloadService {
 	 * rendered inline (e.g. folium maps containing scripts/iframes).
 	 */
 	addRawHtmlOutput(params: {
+		instance: IPositronNotebookInstance;
 		outputId: string;
 		html: string;
 	}): NotebookPreloadOutputResults;

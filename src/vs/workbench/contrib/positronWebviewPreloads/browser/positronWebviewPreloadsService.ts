@@ -256,9 +256,43 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 	}
 	/**
 	 * Create an overlay webview for raw HTML content (e.g. folium maps).
+	 * Returns a cached webview if one already exists for the output ID (important
+	 * because parseCellOutputs() is called on every output change event, not just
+	 * re-runs). Tracks the webview for cleanup on notebook close.
 	 */
-	public addRawHtmlOutput({ outputId, html }: { outputId: string; html: string }): NotebookPreloadOutputResults {
+	public addRawHtmlOutput({ instance, outputId, html }: { instance: IPositronNotebookInstance; outputId: string; html: string }): NotebookPreloadOutputResults {
+		// Return cached webview if one already exists for this output.
+		// parseCellOutputs() fires on every onDidChangeOutputItems event,
+		// so without this check we'd destroy and recreate the webview on
+		// every minor output change, causing visible flicker.
+		const existing = this._widgetWebviewsByOutputId.get(outputId);
+		if (existing) {
+			return { preloadMessageType: 'display', webview: existing };
+		}
+
+		// Validate notebook is attached (same precondition as widget creation)
+		const disposables = this._notebookToDisposablesMap.get(instance.getId());
+		if (!disposables) {
+			throw new Error(`[PositronWebviewPreloadService]: Could not find disposables for notebook ${instance.getId()}`);
+		}
+
 		const webviewPromise = this._notebookOutputWebviewService.createRawHtmlOutputWebview(outputId, html);
+
+		// Cache by output ID for reuse and disposal tracking
+		this._widgetWebviewsByOutputId.set(outputId, webviewPromise);
+
+		// Track output ID for cache cleanup when notebook is disposed
+		const outputIds = this._outputIdsByNotebookId.get(instance.getId());
+		if (outputIds) {
+			outputIds.add(outputId);
+		}
+
+		// Register in notebook disposables so it's cleaned up on close
+		webviewPromise.then(
+			webview => disposables.add(webview),
+			err => console.error('[PositronWebviewPreloadService] Failed to create raw HTML webview', err)
+		);
+
 		return { preloadMessageType: 'display', webview: webviewPromise };
 	}
 

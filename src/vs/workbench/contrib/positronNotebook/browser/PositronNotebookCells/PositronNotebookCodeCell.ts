@@ -165,6 +165,7 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 				const htmlContent = preferredOutputItem.data.toString();
 				if (isComplexHtml(htmlContent)) {
 					parsedOutput.preloadMessageResult = this._webviewPreloadService.addRawHtmlOutput({
+						instance: this.instance,
 						outputId: output.outputId,
 						html: htmlContent,
 					});
