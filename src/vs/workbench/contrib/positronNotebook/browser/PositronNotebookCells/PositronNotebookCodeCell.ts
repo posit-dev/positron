@@ -14,7 +14,7 @@ import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
 import { IPositronNotebookCodeCell, NotebookCellOutputs } from './IPositronNotebookCell.js';
 import { IPositronWebviewPreloadService } from '../../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { pickPreferredOutputItem } from './notebookOutputUtils.js';
-import { getWebviewMessageType } from '../../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
+import { getWebviewMessageType, isComplexHtml } from '../../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { INotebookExecutionStateService } from '../../../notebook/common/notebookExecutionStateService.js';
 import { IPositronCellOutputViewModel } from '../IPositronNotebookEditor.js';
 
@@ -163,7 +163,7 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 			// webview where scripts execute in an isolated process.
 			if (!preloadMessageType && preferredOutputItem.mime === 'text/html') {
 				const htmlContent = preferredOutputItem.data.toString();
-				if (/<(script|html|body|iframe|!DOCTYPE)/i.test(htmlContent)) {
+				if (isComplexHtml(htmlContent)) {
 					parsedOutput.preloadMessageResult = this._webviewPreloadService.addRawHtmlOutput({
 						outputId: output.outputId,
 						html: htmlContent,

@@ -39,6 +39,7 @@ import { DidNavigateInputHistoryUpEventArgs, IPositronConsoleInstance, IPositron
 import { ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageOutputData, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 import { UiFrontendEvent } from '../../languageRuntime/common/positronUiComm.js';
+import { isComplexHtml } from '../../positronIPyWidgets/common/webviewPreloadUtils.js';
 import { IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from '../../runtimeStartup/common/runtimeStartupService.js';
 import { ExecutionEntryType, IExecutionHistoryEntry, IExecutionHistoryService } from '../../positronHistory/common/executionHistoryService.js';
 import { Extensions as ConfigurationExtensions, IConfigurationNode, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
@@ -2859,12 +2860,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		let html = Object.hasOwnProperty.call(message.data,
 			'text/html');
 		if (html) {
-			const htmlContent = message.data['text/html']!.toLowerCase();
-			if (htmlContent.indexOf('<script') >= 0 ||
-				htmlContent.indexOf('<body') >= 0 ||
-				htmlContent.indexOf('<html') >= 0 ||
-				htmlContent.indexOf('<iframe') >= 0 ||
-				htmlContent.indexOf('<!doctype') >= 0) {
+			const htmlContent = message.data['text/html']!;
+			if (isComplexHtml(htmlContent)) {
 				// We only want to render HTML fragments for now; if it has
 				// scripts or looks like it is a self-contained document,
 				// hard pass. In the future, we'll need to render those in a
