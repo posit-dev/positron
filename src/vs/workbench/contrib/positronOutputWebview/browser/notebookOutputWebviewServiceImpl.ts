@@ -397,6 +397,11 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		// Wrap the HTML with the sizing script so useWebviewMount receives
 		// webviewMetrics messages and can set the container height.
 		// Without this the container stays 0px tall and content is invisible.
+		//
+		// Note: Full HTML documents (e.g. folium maps with <!DOCTYPE>) will produce
+		// nested <html>/<head>/<body> tags inside our wrapper. Browsers are tolerant
+		// of this and render correctly. Stripping/merging the outer document structure
+		// would add complexity without meaningful benefit.
 		webview.setHtml(`<head>
 ${PositronNotebookOutputWebviewService.CssAddons}
 <script>${webviewMessageCodeString}</script>
