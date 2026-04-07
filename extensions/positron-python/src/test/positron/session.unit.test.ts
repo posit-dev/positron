@@ -38,6 +38,7 @@ import { PythonEnvironment } from '../../client/pythonEnvironments/info';
 import { PythonVersion } from '../../client/pythonEnvironments/info/pythonVersion';
 import { mock } from './utils';
 import { IpykernelBundle } from '../../client/positron/ipykernel';
+import * as workspaceApis from '../../client/common/vscodeApis/workspaceApis';
 
 suite('Python Runtime Session', () => {
     let disposables: vscode.Disposable[];
@@ -192,6 +193,10 @@ suite('Python Runtime Session', () => {
 
         // Stub fs.pathExists so getIpykernelBundle returns valid bundle paths
         pathExistsStub = sinon.stub(fs, 'pathExists').resolves(true);
+
+        // Stub getWorkspaceFolders to return undefined to prevent PipPackageManager
+        // file watcher setup from failing with the RelativePattern mock
+        sinon.stub(workspaceApis, 'getWorkspaceFolders').returns(undefined);
     });
 
     function createSession(
