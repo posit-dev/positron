@@ -26,6 +26,9 @@ const AUTH_EXT_PROVIDERS = new Set<string>([
 	'amazon-bedrock',
 	'ms-foundry',
 	'snowflake-cortex',
+	'openai-api',
+	'openai-compatible',
+	'google',
 ]);
 
 export function isAuthExtProvider(providerId: string): boolean {

@@ -706,6 +706,21 @@
 			"positron.authentication",
 			"positron.positron-assistant",
 			"posit.assistant"
+		],
+		"openai-api": [
+			"positron.authentication",
+			"positron.positron-assistant",
+			"posit.assistant"
+		],
+		"openai-compatible": [
+			"positron.authentication",
+			"positron.positron-assistant",
+			"posit.assistant"
+		],
+		"google": [
+			"positron.authentication",
+			"positron.positron-assistant",
+			"posit.assistant"
 		]
 	}
 }
