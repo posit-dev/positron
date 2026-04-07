@@ -381,10 +381,14 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 	}
 
 	async createRawHtmlOutputWebview(id: string, html: string): Promise<INotebookOutputWebview> {
+		// Only allow scripts in trusted workspaces. Untrusted notebooks may
+		// contain persisted outputs with malicious scripts that would otherwise
+		// auto-execute when the notebook is opened.
+		const isTrusted = this._workspaceTrustManagementService.isWorkspaceTrusted();
 		const webview = this._webviewService.createWebviewOverlay({
 			origin: DOM.getActiveWindow().origin,
 			contentOptions: {
-				allowScripts: true,
+				allowScripts: isTrusted,
 				localResourceRoots: [],
 			},
 			extension: undefined,
