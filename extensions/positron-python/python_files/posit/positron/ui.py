@@ -24,6 +24,7 @@ from .ui_comm import (
     CallMethodRequest,
     DidChangePlotsRenderSettingsEvent,
     EvaluateCodeRequest,
+    FrontendReadyEvent,
     OpenEditorParams,
     ShowHtmlFileDestination,
     ShowHtmlFileParams,
@@ -253,6 +254,9 @@ class UiService:
 
         elif isinstance(request, DidChangePlotsRenderSettingsEvent):
             self.kernel.plots_service.update_render_settings(request.params.settings)
+
+        elif isinstance(request, FrontendReadyEvent):
+            pass
 
         else:
             logger.warning(f"Unhandled request: {request}")

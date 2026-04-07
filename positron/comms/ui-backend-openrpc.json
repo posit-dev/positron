@@ -31,14 +31,7 @@
 						"type": "string"
 					}
 				}
-			],
-			"result": {
-				"schema": {
-					"name": "frontend_ready_result",
-					"description": "Unused response to notification",
-					"type": "null"
-				}
-			}
+			]
 		},
 		{
 			"name": "call_method",

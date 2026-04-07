@@ -309,9 +309,7 @@ export class ActiveRuntimeSession extends Disposable {
 		// Notify the backend that the frontend is ready. The backend
 		// uses this signal to run session init hooks that may need to
 		// make RPCs back to the frontend (e.g. rstudioapi calls).
-		uiClient.frontendReady(startType).catch(err => {
-			this._logService.warn(`frontendReady RPC failed: ${err}`);
-		});
+		uiClient.frontendReady(startType);
 
 		return client.getClientId();
 	}

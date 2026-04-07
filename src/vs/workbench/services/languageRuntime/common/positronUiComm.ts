@@ -999,13 +999,13 @@ export enum UiFrontendRequest {
 }
 
 export enum UiBackendRequest {
-	FrontendReady = 'frontend_ready',
 	CallMethod = 'call_method',
 	EvaluateCode = 'evaluate_code'
 }
 
 export enum UiBackendEvent {
-	DidChangePlotsRenderSettings = 'did_change_plots_render_settings'
+	DidChangePlotsRenderSettings = 'did_change_plots_render_settings',
+	FrontendReady = 'frontend_ready'
 }
 
 export class PositronUiComm extends PositronBaseComm {
@@ -1054,10 +1054,9 @@ export class PositronUiComm extends PositronBaseComm {
 	 * @param startType The type of session start: 'new' for new sessions,
 	 * 'restart' for restarted sessions, 'reconnect' for reconnected sessions
 	 *
-	 * @returns Unused response to notification
 	 */
-	frontendReady(startType: string): Promise<null> {
-		return super.performRpc('frontend_ready', ['start_type'], [startType]);
+	frontendReady(startType: string): void {
+		super.notify('frontend_ready', ['start_type'], [startType]);
 	}
 
 	/**
@@ -1171,3 +1170,4 @@ export class PositronUiComm extends PositronBaseComm {
 	 */
 	onDidClearWebviewPreloads: Event<ClearWebviewPreloadsEvent>;
 }
+

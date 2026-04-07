@@ -274,8 +274,8 @@ export class UiClientInstance extends Disposable {
 	 * @param startType The type of session start ('new', 'restart', or
 	 * 'reconnect')
 	 */
-	public frontendReady(startType: string): Promise<null> {
-		return this._comm.frontendReady(startType);
+	public frontendReady(startType: string): void {
+		this._comm.frontendReady(startType);
 	}
 
 	/**
