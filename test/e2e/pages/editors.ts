@@ -47,7 +47,7 @@ export class Editors {
 
 	async runCurrentFile(): Promise<void> {
 		await test.step('Run current file in console', async () => {
-			await this.code.driver.page.getByRole('button', { name: /Run.*Console|Source R File/ }).click();
+			await this.code.driver.currentPage.getByRole('button', { name: /Run.*Console|Source R File/ }).click();
 		});
 	};
 
