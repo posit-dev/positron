@@ -422,26 +422,26 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 		const reactRenderer = this._positronReactRenderer;
 
 		reactRenderer.render(
-			<NotebookVisibilityProvider isVisible={this._isVisible}>
-				<NotebookInstanceProvider instance={this.notebookInstance}>
-					<EnvironentProvider environmentBundle={{
-						size: this._size,
-						scopedContextKeyProviderCallback: container => scopedContextKeyService.createScoped(container),
-					}}>
-						<NotebookErrorBoundary
-							componentName='PositronNotebookComponent'
-							level='editor'
-							logService={this._logService}
-							onReload={() => {
-								this._disposeReactRenderer();
-								this._renderReact();
-							}}
-						>
+			<NotebookErrorBoundary
+				componentName='PositronNotebookComponent'
+				level='editor'
+				logService={this._logService}
+				onReload={() => {
+					this._disposeReactRenderer();
+					this._renderReact();
+				}}
+			>
+				<NotebookVisibilityProvider isVisible={this._isVisible}>
+					<NotebookInstanceProvider instance={this.notebookInstance}>
+						<EnvironentProvider environmentBundle={{
+							size: this._size,
+							scopedContextKeyProviderCallback: container => scopedContextKeyService.createScoped(container),
+						}}>
 							<PositronNotebookComponent />
-						</NotebookErrorBoundary>
-					</EnvironentProvider>
-				</NotebookInstanceProvider>
-			</NotebookVisibilityProvider>
+						</EnvironentProvider>
+					</NotebookInstanceProvider>
+				</NotebookVisibilityProvider>
+			</NotebookErrorBoundary>
 		);
 	}
 
