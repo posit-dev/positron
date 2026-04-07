@@ -71,9 +71,18 @@ async function resolveAutoconfigureCredentials(model: ConcreteModelProviderConst
 			const session = await vscode.authentication.getSession(
 				providerId, [], { silent: true }
 			);
-			if (session?.accessToken && session.id === providerId) {
+			if (session?.accessToken !== undefined && session.id === providerId) {
+				// Map provider IDs to their authentication
+				// configuration section names. Most providers
+				// use their provider ID directly; legacy
+				// providers that predate this convention are
+				// mapped explicitly.
+				const CONFIG_KEY_OVERRIDES: Record<string, string> = {
+					'anthropic-api': 'anthropic',
+				};
+				const configKey = CONFIG_KEY_OVERRIDES[providerId] ?? providerId;
 				const baseUrl = vscode.workspace
-					.getConfiguration(`authentication.${providerId.replace(/-.*$/, '')}`)
+					.getConfiguration(`authentication.${configKey}`)
 					.get<string>('baseUrl') || undefined;
 				return {
 					apiKey: session.accessToken,

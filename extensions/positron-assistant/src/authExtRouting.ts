@@ -51,7 +51,7 @@ export async function getApiKey(
 		const session = await vscode.authentication.getSession(
 			providerId, [], { silent: true, account: { id: accountId, label: '' } }
 		);
-		if (session?.accessToken) {
+		if (session?.accessToken !== undefined) {
 			providerLogger.logAuthentication('success', 'via Authentication extension');
 			return session.accessToken;
 		}
@@ -63,7 +63,7 @@ export async function getApiKey(
 				[],
 				{ silent: true, account: { id: fallbackAccount.id, label: '' } }
 			);
-			if (fallbackSession?.accessToken) {
+			if (fallbackSession?.accessToken !== undefined) {
 				providerLogger.logAuthentication('success', 'via Authentication extension fallback account session');
 				return fallbackSession.accessToken;
 			}

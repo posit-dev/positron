@@ -95,7 +95,7 @@ export async function registerModel(config: StoredModelConfig, context: vscode.E
 		};
 
 		const apiKey = await resolveApiKey(modelConfig, context.secrets);
-		if (apiKey) {
+		if (apiKey !== undefined) {
 			modelConfig.apiKey = apiKey;
 		}
 

@@ -96,7 +96,7 @@ export class OpenAICompatibleModelProvider extends OpenAIModelProvider implement
 	 */
 	protected override initializeProvider() {
 		const baseProvider = createOpenAI({
-			apiKey: this._config.apiKey,
+			apiKey: this._config.apiKey || undefined,
 			baseURL: this.baseUrl,
 			headers: this.customHeaders,
 			fetch: createOpenAICompatibleFetch(this.providerName)

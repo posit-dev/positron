@@ -100,7 +100,7 @@ export class OpenAIModelProvider extends VercelModelProvider implements positron
 	 */
 	protected override initializeProvider() {
 		this.aiProvider = createOpenAI({
-			apiKey: this._config.apiKey,
+			apiKey: this._config.apiKey || undefined,
 			baseURL: this.baseUrl,
 			fetch: createOpenAICompatibleFetch(this.providerName)
 		});
@@ -267,12 +267,15 @@ export class OpenAIModelProvider extends VercelModelProvider implements positron
 		const modelsUrl = `${this.baseUrl}/models`;
 		this.logger.info(`Fetching models from ${modelsUrl}...`);
 
+		const headers: Record<string, string> = {
+			'Content-Type': 'application/json',
+		};
+		if (this._config.apiKey) {
+			headers['Authorization'] = `Bearer ${this._config.apiKey}`;
+		}
 		const response = await fetch(modelsUrl, {
 			method: 'GET',
-			headers: {
-				'Authorization': `Bearer ${this._config.apiKey}`,
-				'Content-Type': 'application/json'
-			}
+			headers,
 		});
 
 		const data = await response.json();
