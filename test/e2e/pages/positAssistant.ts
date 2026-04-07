@@ -279,30 +279,33 @@ export class PositAssistant {
 
 	/**
 	 * Selects "Allow for this session" from the tool confirmation dropdown.
-	 * Scrolls the dropdown trigger into view first to handle small viewports.
+	 * Uses force:true because outer-page elements (activity bar, pane-body)
+	 * can overlap the webview and intercept pointer events on small viewports.
 	 */
 	async allowToolForSession(): Promise<void> {
 		await this.frame.locator(TOOL_ALLOW_DROPDOWN_TRIGGER).scrollIntoViewIfNeeded();
-		await this.frame.locator(TOOL_ALLOW_DROPDOWN_TRIGGER).click();
+		await this.frame.locator(TOOL_ALLOW_DROPDOWN_TRIGGER).click({ force: true });
 		await this.frame.locator(TOOL_ALLOW_SESSION_MENU_ITEM).click();
 	}
 
 	/**
 	 * Clicks the main "Allow" button on the tool confirmation dialog (allow once).
-	 * Scrolls the button into view first to handle small viewports.
+	 * Uses force:true because outer-page elements (activity bar, pane-body)
+	 * can overlap the webview and intercept pointer events on small viewports.
 	 */
 	async allowToolOnce(): Promise<void> {
 		await this.frame.locator(TOOL_ALLOW_BUTTON).scrollIntoViewIfNeeded();
-		await this.frame.locator(TOOL_ALLOW_BUTTON).click();
+		await this.frame.locator(TOOL_ALLOW_BUTTON).click({ force: true });
 	}
 
 	/**
 	 * Clicks "Decline" on the tool confirmation dialog.
-	 * Scrolls the button into view first to handle small viewports.
+	 * Uses force:true because outer-page elements (activity bar, pane-body)
+	 * can overlap the webview and intercept pointer events on small viewports.
 	 */
 	async declineTool(): Promise<void> {
 		await this.frame.locator(TOOL_DECLINE_BUTTON).scrollIntoViewIfNeeded();
-		await this.frame.locator(TOOL_DECLINE_BUTTON).click();
+		await this.frame.locator(TOOL_DECLINE_BUTTON).click({ force: true });
 	}
 
 }
