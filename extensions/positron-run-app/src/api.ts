@@ -224,8 +224,9 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			const execution = shellIntegration.executeCommand(terminalOptions.commandLine);
 
 			// Wait for the server URL in the execution output.
-			if (options.preview !== false) {
+			if (options.preview !== 'none') {
 				const previewOptions: AppPreviewOptions = {
+					preview: options.preview,
 					terminalPid: await terminal.processId,
 					proxyInfo,
 					urlPath: options.urlPath,
@@ -351,7 +352,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			positron.runtime.focusSession(sessionId);
 			progress.report({ message: vscode.l10n.t('Starting application...') });
 
-			const shouldPreview = options.preview !== false;
+			const shouldPreview = options.preview !== 'none';
 
 			// Set up URL detection via an observer for the output of our execute request
 			const detector = shouldPreview
@@ -392,6 +393,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 				);
 
 				await this.previewApp(url!, {
+					preview: options.preview,
 					proxyInfo,
 					urlPath: options.urlPath,
 					previewSource: {
@@ -655,6 +657,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		}
 
 		return this.previewApp(url, {
+			preview: options.preview,
 			proxyInfo: options.proxyInfo,
 			urlPath: options.urlPath,
 			terminalPid: options.terminalPid,
@@ -665,6 +668,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 	}
 
 	private async previewApp(url: URL, options: {
+		preview?: 'internal' | 'external';
 		proxyInfo?: PositronProxyInfo;
 		urlPath?: string;
 		terminalPid?: number;
@@ -706,11 +710,15 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			previewUri,
 		);
 
-		// Preview the app in the Viewer.
-		if (options.previewSource) {
-			positron.window.previewUrl(previewUri, options.previewSource);
+		if (options.preview === 'external') {
+			await vscode.env.openExternal(previewUri);
 		} else {
-			positron.window.previewUrl(previewUri);
+			// Preview the app in the Viewer.
+			if (options.previewSource) {
+				positron.window.previewUrl(previewUri, options.previewSource);
+			} else {
+				positron.window.previewUrl(previewUri);
+			}
 		}
 
 		return true;

@@ -18,6 +18,7 @@ export type PositronProxyInfo = {
 };
 
 export type AppPreviewOptions = {
+	preview?: 'internal' | 'external';
 	terminalPid: number | undefined;
 	proxyInfo?: PositronProxyInfo;
 	urlPath?: string;
