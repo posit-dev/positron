@@ -109,6 +109,8 @@ export class BufferedLogOutputChannel implements vscode.LogOutputChannel {
 		this.channel.warn(message, ...args);
 	}
 
+	error(message: string, ...args: any[]): void;
+	error(message: Error): void;
 	error(message: string | Error, ...args: any[]): void {
 		const formattedMessage = message instanceof Error
 			? `${message.message}\n${message.stack}`
