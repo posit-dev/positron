@@ -77,6 +77,9 @@ export interface EvalTestCase {
 	/** Tags for filtering - uses standard TestTags from the test infrastructure */
 	tags?: TestTags[];
 
+	/** If set, marks the test as fixme with the given reason */
+	fixme?: string;
+
 	/**
 	 * The test function - reads like a test from top to bottom.
 	 * Uses standard Playwright fixtures, just like other tests.
