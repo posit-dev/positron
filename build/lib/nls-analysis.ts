@@ -108,12 +108,17 @@ export class SingleFileServiceHost implements ts.LanguageServiceHost {
 /**
  * Analyzes TypeScript source code to find localize() or localize2() calls.
  */
+// --- Start Positron ---
+// Accept an optional sourceFilename so we can detect .tsx files and enable JSX parsing.
 export function analyzeLocalizeCalls(
 	contents: string,
-	functionName: 'localize' | 'localize2'
+	functionName: 'localize' | 'localize2',
+	sourceFilename?: string
 ): ILocalizeCall[] {
-	const filename = 'file.ts';
-	const options: ts.CompilerOptions = { noResolve: true };
+	const isTsx = sourceFilename ? /\.tsx$/i.test(sourceFilename) : false;
+	const filename = isTsx ? 'file.tsx' : 'file.ts';
+	const options: ts.CompilerOptions = { noResolve: true, ...(isTsx ? { jsx: ts.JsxEmit.ReactJSX } : {}) };
+	// --- End Positron ---
 	const serviceHost = new SingleFileServiceHost(options, filename, contents);
 	const service = ts.createLanguageService(serviceHost);
 	const sourceFile = ts.createSourceFile(filename, contents, ts.ScriptTarget.ES5, true);
