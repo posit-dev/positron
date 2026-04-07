@@ -181,11 +181,10 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 					<FlowFormattedText
 						type={FlowFormattedTextType.Info}
 					>
-						{(() =>
-							localize(
-								'pythonEnvironmentSubStep.feedback',
-								"The environment will be created at "
-							))()}
+						{localize(
+							'pythonEnvironmentSubStep.feedback',
+							"The environment will be created at "
+						)}
 						<PathDisplay
 							maxLength={65}
 							pathComponents={
@@ -209,11 +208,10 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 					<FlowFormattedText
 						type={FlowFormattedTextType.Warning}
 					>
-						{(() =>
-							localize(
-								'pythonEnvironmentSubStep.feedback.noEnvProviders',
-								"No environment providers found. Please use an existing Python installation."
-							))()}
+						{localize(
+							'pythonEnvironmentSubStep.feedback.noEnvProviders',
+							"No environment providers found. Please use an existing Python installation."
+						)}
 					</FlowFormattedText>
 				);
 			}
@@ -288,11 +286,10 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 					<FlowFormattedText
 						type={FlowFormattedTextType.Warning}
 					>
-						{(() =>
-							localize(
-								'pythonInterpreterSubStep.feedback.uvNotInstalled',
-								"uv is not installed. Please install uv to create a uv environment."
-							))()}
+						{localize(
+							'pythonInterpreterSubStep.feedback.uvNotInstalled',
+							"uv is not installed. Please install uv to create a uv environment."
+						)}
 					</FlowFormattedText>
 				);
 			}
@@ -304,11 +301,10 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 					<FlowFormattedText
 						type={FlowFormattedTextType.Warning}
 					>
-						{(() =>
-							localize(
-								'pythonInterpreterSubStep.feedback.noInterpretersAvailable',
-								"No interpreters available since no environment providers were found."
-							))()}
+						{localize(
+							'pythonInterpreterSubStep.feedback.noInterpretersAvailable',
+							"No interpreters available since no environment providers were found."
+						)}
 					</FlowFormattedText>
 				);
 			}
@@ -318,11 +314,10 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 					<FlowFormattedText
 						type={FlowFormattedTextType.Warning}
 					>
-						{(() =>
-							localize(
-								'pythonInterpreterSubStep.feedback.condaNotInstalled',
-								"Conda is not installed. Please install Conda to create a Conda environment."
-							))()}
+						{localize(
+							'pythonInterpreterSubStep.feedback.condaNotInstalled',
+							"Conda is not installed. Please install Conda to create a Conda environment."
+						)}
 					</FlowFormattedText>
 				);
 			}
@@ -332,12 +327,11 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 				<FlowFormattedText
 					type={FlowFormattedTextType.Warning}
 				>
-					{(() =>
-						localize(
-							'pythonInterpreterSubStep.feedback.noSuitableInterpreters',
-							"No suitable interpreters found. Please install a Python interpreter with version {0} or later.",
-							minimumPythonVersion
-						))()}
+					{localize(
+						'pythonInterpreterSubStep.feedback.noSuitableInterpreters',
+						"No suitable interpreters found. Please install a Python interpreter with version {0} or later.",
+						minimumPythonVersion
+					)}
 				</FlowFormattedText>
 			);
 		}
@@ -347,11 +341,10 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 			return (
 				<FlowFormattedText type={FlowFormattedTextType.Info}>
 					<code>ipykernel</code>
-					{(() =>
-						localize(
-							'pythonInterpreterSubStep.feedback',
-							" will be installed for Python language support."
-						))()}
+					{localize(
+						'pythonInterpreterSubStep.feedback',
+						" will be installed for Python language support."
+					)}
 				</FlowFormattedText>
 			);
 		}
@@ -443,23 +436,23 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 			cancelButtonConfig={{ onClick: props.cancel }}
 			okButtonConfig={{
 				onClick: props.accept,
-				title: (() => localize(
+				title: localize(
 					'positronNewFolderFlow.createButtonTitle',
 					"Create"
-				))(),
+				),
 				disable: disableCreateButton()
 			}}
-			title={(() => localize(
+			title={localize(
 				'pythonEnvironmentStep.title',
 				"Python Environment"
-			))()}
+			)}
 		>
 			{/* New or existing Python environment selection */}
 			<PositronFlowSubStep
-				title={(() => localize(
+				title={localize(
 					'pythonEnvironmentSubStep.howToSetUpEnv',
 					"How would you like to set up your Python environment?"
-				))()}
+				)}
 				titleId='pythonEnvironment-howToSetUpEnv'
 			>
 				<RadioGroup
@@ -477,17 +470,17 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 				<PositronFlowSubStep
 					description={
 						<FlowFormattedText type={FlowFormattedTextType.Info}>
-							{(() => localize(
+							{localize(
 								'pythonEnvironmentSubStep.description',
 								"Select a way to create a new virtual environment"
-							))()}
+							)}
 						</FlowFormattedText>
 					}
 					feedback={envProviderStepFeedback()}
-					title={(() => localize(
+					title={localize(
 						'pythonEnvironmentSubStep.label',
 						"Environment Creation"
-					))()}
+					)}
 				>
 					<DropDownListBox
 						createItem={(item) => (
@@ -505,10 +498,10 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 						}
 					/>
 					<LabeledTextInput
-						label={(() => localize(
+						label={localize(
 							'pythonEnvironmentNameSubStep.label',
 							"Environment name"
-						))()}
+						)}
 						value={envName ?? ''}
 						onChange={(e) => onEnvNameChanged(e.target.value)}
 					/>
@@ -522,7 +515,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 						'pythonInterpreterSubStep.description',
 						"Select {0}",
 						whatToSelect
-					)
+					);
 				})()}
 				feedback={interpreterStepFeedback()}
 				title={(() => {
@@ -531,7 +524,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 						'pythonInterpreterSubStep.title',
 						"Python {0}",
 						interpreterOrVersion
-					)
+					);
 				})()}
 				titleId='pythonEnvironment-interpreterOrVersion'
 			>

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -26,7 +26,9 @@ function registerPositronNotebookFindAction(
 ) {
 	return registerAction2(class extends NotebookAction2 {
 		constructor() {
-			super(options);
+			// Find actions run with focus intentionally in the find widget.
+			// grabbing notebook focus would move it away and break keyboard navigation.
+			super({ ...options, grabFocusOnRun: false });
 		}
 
 		override async runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor): Promise<void> {

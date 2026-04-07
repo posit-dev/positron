@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -89,7 +89,7 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 					ref={inputRef}
 					className='text-input'
 					disabled={props.disabled}
-					placeholder={props.placeholder ?? (() => localize('positronFilterPlaceholder', "Filter"))()}
+					placeholder={props.placeholder ?? localize('positronFilterPlaceholder', "Filter")}
 					type='text'
 					value={filterText}
 					onBlur={() => setFocused(false)}
@@ -99,7 +99,7 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 				/>
 				{filterText !== '' && (
 					<button
-						aria-label={(() => localize('positronClearFilter', "Clear filter"))()}
+						aria-label={localize('positronClearFilter', "Clear filter")}
 						className='clear-button'
 						disabled={props.disabled}
 						onClick={buttonClearClickHandler}

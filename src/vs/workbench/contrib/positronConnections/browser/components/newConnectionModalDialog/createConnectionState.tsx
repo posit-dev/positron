@@ -134,7 +134,7 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 		<Form inputs={inputs} onInputsChange={setInputs}></Form>
 
 		<div className='create-connection-code-title'>
-			{(() => localize('positron.newConnectionModalDialog.createConnection.code', "Connection Code"))()}
+			{localize('positron.newConnectionModalDialog.createConnection.code', "Connection Code")}
 		</div>
 
 		<div className={positronClassNames('create-connection-code-editor', { 'has-error': !!codeState?.errorMessage })}>
@@ -156,13 +156,13 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 				className='button action-bar-button'
 				onPressed={onCopy}
 			>
-				{(() => localize('positron.newConnectionModalDialog.createConnection.copy', 'Copy'))()}
+				{localize('positron.newConnectionModalDialog.createConnection.copy', 'Copy')}
 			</Button>
 			<Button
 				className='button action-bar-button'
 				onPressed={onCancel}
 			>
-				{(() => localize('positron.newConnectionModalDialog.createConnection.cancel', 'Cancel'))()}
+				{localize('positron.newConnectionModalDialog.createConnection.cancel', 'Cancel')}
 			</Button>
 		</div>
 
@@ -171,14 +171,14 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 				className='button action-bar-button'
 				onPressed={onBack}
 			>
-				{(() => localize('positron.newConnectionModalDialog.createConnection.back', 'Back'))()}
+				{localize('positron.newConnectionModalDialog.createConnection.back', 'Back')}
 			</Button>
 			<Button
 				className={`button action-bar-button`}
 				disabled={!codeState || !!codeState.errorMessage}
 				onPressed={onConnectHandler}
 			>
-				{(() => localize('positron.newConnectionModalDialog.createConnection.connect', 'Connect'))()}
+				{localize('positron.newConnectionModalDialog.createConnection.connect', 'Connect')}
 			</Button>
 		</div>
 	</div>;
@@ -250,7 +250,7 @@ const FormElement = (props: PropsWithChildren<FormElementProps>) => {
 				return <div className='labeled-input'><label className='label'>
 					<span className='label-text'>{label}</span>
 					<p>
-						{(() => localize('positron.newConnectionModalDialog.createConnection.input.noOption', 'No options provided'))()}
+						{localize('positron.newConnectionModalDialog.createConnection.input.noOption', 'No options provided')}
 					</p>
 				</label></div>;
 			}

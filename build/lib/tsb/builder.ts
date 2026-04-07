@@ -165,7 +165,11 @@ export function createTypeScriptBuilder(config: IConfiguration, projectFile: str
 								const extname = path.extname(vinyl.relative);
 								const basename = path.basename(vinyl.relative, extname);
 								const dirname = path.dirname(vinyl.relative);
-								const tsname = (dirname === '.' ? '' : dirname + '/') + basename + '.ts';
+								// --- Start Positron ---
+								// Preserve the original extension (.ts or .tsx) so that the
+								// NLS pipeline can detect .tsx files and parse JSX correctly.
+								const tsname = (dirname === '.' ? '' : dirname + '/') + basename + path.extname(fileName);
+								// --- End Positron ---
 
 								let sourceMap = JSON.parse(sourcemapFile.text) as RawSourceMap;
 								sourceMap.sources[0] = tsname.replace(/\\/g, '/');

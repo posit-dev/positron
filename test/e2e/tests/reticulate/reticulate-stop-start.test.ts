@@ -39,7 +39,7 @@ test.describe('Reticulate', {
 		// start new reticulate session and verify functionality
 		const reticulateSession = await sessions.start('pythonReticulate');
 		await modals.installIPyKernel();
-		await sessions.expectSessionPickerToBe(RETICULATE_SESSION, 60000);
+		await sessions.expectSessionPickerToBe(RETICULATE_SESSION, { timeout: 60000 });
 		await verifyReticulateFunctionality(app, `R ${process.env.POSITRON_R_VER_SEL!}`);
 
 		// stop reticulate session
@@ -53,7 +53,7 @@ test.describe('Reticulate', {
 
 		// start reticulate session (again) and verify functionality
 		await sessions.start('pythonReticulate');
-		await sessions.expectSessionPickerToBe(RETICULATE_SESSION, 60000);
+		await sessions.expectSessionPickerToBe(RETICULATE_SESSION, { timeout: 60000 });
 		await sessions.rename('reticulate', 'reticulateNew');
 		await verifyReticulateFunctionality(app, `R ${process.env.POSITRON_R_VER_SEL!}`, 'reticulateNew');
 	});

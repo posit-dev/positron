@@ -165,7 +165,7 @@ export class InlineQuarto {
 		});
 	}
 
-	async runCodeAndWaitForOutput({ cellLine, outputLine, timeout = 120000 }: { cellLine: number, outputLine: number, timeout?: number }): Promise<void> {
+	async runCodeAndWaitForOutput({ cellLine, outputLine, timeout = 120000 }: { cellLine: number; outputLine: number; timeout?: number }): Promise<void> {
 		await test.step(`Run code at line ${cellLine} and wait for output at line ${outputLine}`, async () => {
 			await this.gotoLine(cellLine);
 			await this.runCurrentCode();
@@ -366,12 +366,13 @@ export class InlineQuarto {
 		});
 	}
 
-	async expectKernelRunning(timeout = 30000): Promise<string> {
+	async expectKernelIdle(timeout = 30000): Promise<string> {
 		let kernelText: string | null = null;
-		await test.step('Verify kernel is running', async () => {
+		await test.step('Verify kernel is idle', async () => {
 			const kernelLabel = this.kernelStatusWidget.locator('.kernel-label');
 			await expect(kernelLabel).toBeVisible({ timeout });
 			await expect(kernelLabel).not.toHaveText(/No Kernel|Starting\.\.\./, { timeout });
+			await expect(this.kernelStatusWidget.locator('.codicon-positron-runtime-status-idle')).toBeVisible();
 		});
 		return kernelText!;
 	}

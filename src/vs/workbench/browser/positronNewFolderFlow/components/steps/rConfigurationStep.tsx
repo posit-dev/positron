@@ -110,42 +110,39 @@ export const RConfigurationStep = (props: PropsWithChildren<NewFolderFlowStepPro
 			cancelButtonConfig={{ onClick: props.cancel }}
 			okButtonConfig={{
 				onClick: props.accept,
-				title: (() => localize(
+				title: localize(
 					'positronNewFolderFlow.createButtonTitle',
 					"Create"
-				))(),
+				),
 				disable: !selectedInterpreter
 			}}
-			title={(() => localize(
+			title={localize(
 				'rConfigurationStep.title',
 				"Project Configuration"
-			))()}
+			)}
 		>
 			<PositronFlowSubStep
-				description={(() =>
-					localize(
-						'rConfigurationStep.versionSubStep.description',
-						'Select a version of R to launch your project with'
-					))()}
+				description={localize(
+					'rConfigurationStep.versionSubStep.description',
+					'Select a version of R to launch your project with'
+				)}
 				feedback={
 					!interpretersLoading() && !interpretersAvailable() ? (
 						<FlowFormattedText
 							type={FlowFormattedTextType.Warning}
 						>
-							{(() =>
-								localize(
-									'rConfigurationStep.versionSubStep.feedback.noSuitableInterpreters',
-									'No suitable interpreters found. Please install R version {0} or later.',
-									minimumRVersion
-								))()}
+							{localize(
+								'rConfigurationStep.versionSubStep.feedback.noSuitableInterpreters',
+								'No suitable interpreters found. Please install R version {0} or later.',
+								minimumRVersion
+							)}
 						</FlowFormattedText>
 					) : undefined
 				}
-				title={(() =>
-					localize(
-						'rConfigurationStep.versionSubStep.title',
-						'R Version'
-					))()}
+				title={localize(
+					'rConfigurationStep.versionSubStep.title',
+					'R Version'
+				)}
 			>
 				<DropDownListBox
 					createItem={(item) => (
@@ -170,20 +167,18 @@ export const RConfigurationStep = (props: PropsWithChildren<NewFolderFlowStepPro
 				/>
 			</PositronFlowSubStep>
 			<PositronFlowSubStep
-				title={(() =>
-					localize(
-						'rConfigurationStep.advancedConfigSubStep.title',
-						"Advanced Configuration"
-					))()}
+				title={localize(
+					'rConfigurationStep.advancedConfigSubStep.title',
+					"Advanced Configuration"
+				)}
 			>
 				<div className='renv-configuration'>
 					<Checkbox
 						initialChecked={context.useRenv}
-						label={(() =>
-							localize(
-								'rConfigurationStep.additionalConfigSubStep.useRenv.label',
-								"Use `renv` to create a reproducible environment"
-							))()}
+						label={localize(
+							'rConfigurationStep.additionalConfigSubStep.useRenv.label',
+							"Use `renv` to create a reproducible environment"
+						)}
 						onChanged={(checked) => (context.useRenv = checked)}
 					/>
 					<ExternalLink

@@ -11,6 +11,7 @@
  * 2. Action buttons (Run Cell, Run All, Add Code) target their own notebook, not the focused one
  */
 
+import { availableRuntimes } from '../../pages/sessions.js';
 import { expect, tags } from '../_test.setup';
 import { test } from './_test.setup.js';
 
@@ -29,23 +30,23 @@ test.describe('Notebook Side-by-Side Isolation', {
 	});
 
 	test('Kernel selection and actions are independent per notebook',
-		async function ({ app, runCommand }) {
+		async function ({ app, runCommand, sessions }) {
 			const { notebooksPositron, editors } = app.workbench;
-			const pythonVersion = process.env.POSITRON_PY_VER_SEL!;
 
-			// Create first notebook and select Python kernel (only nb1 visible)
+			const kernelName = availableRuntimes['python'].name;
+			const interpreterNameNb1 = /Untitled\-1.ipynb/;
+			const interpreterNameNb2 = /Untitled\-2.ipynb/;
+
+			// Notebook 1: Create and start kernel
 			await notebooksPositron.newNotebook();
 			await notebooksPositron.kernel.select('Python');
+			await notebooksPositron.kernel.expectToBe(kernelName, { status: 'idle' });
+			await sessions.expectSessionPickerToBe(interpreterNameNb1, { status: 'idle' });
 
-			// Create second notebook (opens as tab, only nb2 visible now)
+			// Notebook 2: Create and ensure kernel autostarts
 			await notebooksPositron.newNotebook();
-
-			// Verify nb2 has no kernel - proves kernel state doesn't inherit from nb1
-			await notebooksPositron.kernel.expectBadgeToContain('No Kernel Selected');
-			await notebooksPositron.kernel.expectStatusToBe('disconnected');
-
-			// Select Python kernel for nb2 (while only nb2 visible)
-			await notebooksPositron.kernel.select('Python');
+			await notebooksPositron.kernel.expectToBe(kernelName, { status: 'idle' });
+			await sessions.expectSessionPickerToBe(interpreterNameNb2, { status: 'idle' });
 
 			// Split notebooks side-by-side
 			await runCommand('workbench.action.moveEditorToNextGroup');
@@ -56,22 +57,24 @@ test.describe('Notebook Side-by-Side Isolation', {
 			const rightNotebook = notebooksPositron.scopedTo(editors.editorGroup(1));
 
 			// Verify both notebooks have Python kernel and are idle
-			await leftNotebook.kernel.expectBadgeToContain(pythonVersion);
-			await leftNotebook.kernel.expectStatusToBe('idle');
-			await rightNotebook.kernel.expectBadgeToContain(pythonVersion);
-			await rightNotebook.kernel.expectStatusToBe('idle');
+			await leftNotebook.kernel.expectToBe(kernelName, { status: 'idle' });
+			await rightNotebook.kernel.expectToBe(kernelName, { status: 'idle' });
 
 			// --- Test: Kernel actions are independent ---
 
 			// Shut down left notebook kernel and verify it does not affect right notebook
+			await editors.clickTab('Untitled-1'); // temporary workaround, clicking the shutdown should change quickpick. @dhruvisompura remove when fixed.
 			await leftNotebook.kernel.shutdown();
-			await leftNotebook.kernel.expectStatusToBe('disconnected');
-			await rightNotebook.kernel.expectStatusToBe('idle');
+			await leftNotebook.kernel.expectToBe(kernelName, { status: 'disconnected' });
+			await rightNotebook.kernel.expectToBe(kernelName, { status: 'idle' });
+			await sessions.expectSessionPickerToBe(interpreterNameNb1, { status: 'disconnected' });
 
 			// Restart right notebook kernel and verify it does not affect left notebook
+			await editors.clickTab('Untitled-2'); // temporary workaround, clicking the shutdown should change quickpick. @dhruvisompura remove when fixed.
 			await rightNotebook.kernel.restart();
-			await leftNotebook.kernel.expectStatusToBe('disconnected');
-			await rightNotebook.kernel.expectStatusToBe('idle');
+			await leftNotebook.kernel.expectToBe(kernelName, { status: 'disconnected' });
+			await rightNotebook.kernel.expectToBe(kernelName, { status: 'idle' });
+			await sessions.expectSessionPickerToBe(interpreterNameNb2, { status: 'idle' });
 		});
 
 	test('Notebook action buttons target their own notebook, not the focused one',

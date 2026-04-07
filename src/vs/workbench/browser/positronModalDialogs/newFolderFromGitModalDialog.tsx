@@ -104,10 +104,10 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 			catchErrors
 			height={300}
 			renderer={props.renderer}
-			title={(() => localize(
+			title={localize(
 				'positronNewFolderFromGitModalDialogTitle',
 				"New Folder from Git"
-			))()}
+			)}
 			width={400}
 			onAccept={async () => {
 				if (isInputEmpty(result.repo)) {
@@ -123,18 +123,18 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 				<LabeledTextInput
 					ref={folderNameRef}
 					autoFocus
-					label={(() => localize(
+					label={localize(
 						'positron.GitRepositoryURL',
 						"Git repository URL"
-					))()}
+					)}
 					value={result.repo}
 					onChange={e => setResult({ ...result, repo: e.target.value })}
 				/>
 				<LabeledFolderInput
-					label={(() => localize(
+					label={localize(
 						'positron.createFolderAsSubfolderOf',
 						"Create folder as subfolder of"
-					))()}
+					)}
 					value={parentFolderLabel}
 					onBrowse={browseHandler}
 					onChange={e => onChangeParentFolder(e.target.value)}
@@ -142,10 +142,10 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 			</VerticalStack>
 			<VerticalSpacer>
 				<Checkbox
-					label={(() => localize(
+					label={localize(
 						'positron.openInNewWindow',
 						"Open in a new window"
-					))()}
+					)}
 					onChanged={checked => setResult({ ...result, newWindow: checked })} />
 			</VerticalSpacer>
 		</OKCancelModalDialog>

@@ -43,7 +43,10 @@ export function nls(options: { preserveEnglish: boolean }): NodeJS.ReadWriteStre
 			}
 
 			base = f.base;
-			this.emit('data', _nls.patchFile(f, typescript, options));
+			// --- Start Positron ---
+			// Pass the source filename so the NLS pipeline can detect .tsx files.
+			this.emit('data', _nls.patchFile(f, typescript, options, source));
+			// --- End Positron ---
 		}, function () {
 			for (const file of [
 				new File({
@@ -175,9 +178,13 @@ const _nls = (() => {
 		return JSON.parse(smg.toString());
 	}
 
-	function patch(typescript: string, javascript: string, sourcemap: sm.RawSourceMap, options: { preserveEnglish: boolean }): INlsPatchResult {
-		const localizeCalls = analyzeLocalizeCalls(typescript, 'localize');
-		const localize2Calls = analyzeLocalizeCalls(typescript, 'localize2');
+	// --- Start Positron ---
+	// Pass sourceFilename so we can enable JSX parsing for .tsx files,
+	// allowing the NLS pipeline to find localize() calls inside JSX.
+	function patch(typescript: string, javascript: string, sourcemap: sm.RawSourceMap, options: { preserveEnglish: boolean }, sourceFilename?: string): INlsPatchResult {
+		const localizeCalls = analyzeLocalizeCalls(typescript, 'localize', sourceFilename);
+		const localize2Calls = analyzeLocalizeCalls(typescript, 'localize2', sourceFilename);
+	// --- End Positron ---
 
 		if (localizeCalls.length === 0 && localize2Calls.length === 0) {
 			return { javascript, sourcemap };
@@ -234,18 +241,23 @@ const _nls = (() => {
 		return { javascript, sourcemap, nlsKeys, nlsMessages };
 	}
 
-	function patchFile(javascriptFile: File, typescript: string, options: { preserveEnglish: boolean }): File {
+	// --- Start Positron ---
+	function patchFile(javascriptFile: File, typescript: string, options: { preserveEnglish: boolean }, sourceFilename?: string): File {
+		// --- End Positron ---
 		// hack?
 		const moduleId = javascriptFile.relative
 			.replace(/\.js$/, '')
 			.replace(/\\/g, '/');
 
+		// --- Start Positron ---
 		const { javascript, sourcemap, nlsKeys, nlsMessages } = patch(
 			typescript,
 			javascriptFile.contents!.toString(),
 			javascriptFile.sourceMap,
-			options
+			options,
+			sourceFilename
 		);
+		// --- End Positron ---
 
 		const result = fileFrom(javascriptFile, javascript);
 		result.sourceMap = sourcemap;

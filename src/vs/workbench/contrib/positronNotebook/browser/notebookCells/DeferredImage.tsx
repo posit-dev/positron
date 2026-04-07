@@ -188,7 +188,7 @@ export function DeferredImage({ src = 'no-source', ...props }: React.ComponentPr
 	switch (results.status) {
 		case 'pending':
 			return <div
-				aria-label={(() => localize('deferredImageLoading', 'Loading image...'))()}
+				aria-label={localize('deferredImageLoading', 'Loading image...')}
 				className='positron-notebooks-deferred-img-placeholder'
 				role='img'
 				{...props}

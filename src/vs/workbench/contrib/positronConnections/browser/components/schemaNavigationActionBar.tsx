@@ -43,21 +43,21 @@ export const ActionBar = (props: React.PropsWithChildren<ConnectionActionBarProp
 						<ActionBarButton
 							align='left'
 							icon={ThemeIcon.fromId('arrow-left')}
-							tooltip={(() => localize('positron.schemaNavigationActionBar.back', 'Back'))()}
+							tooltip={localize('positron.schemaNavigationActionBar.back', 'Back')}
 							onPressed={() => props.onBack()}
 						/>
 						<ActionBarSeparator />
 						<ActionBarButton
 							align='left'
 							icon={ThemeIcon.fromId('positron-disconnect-connection')}
-							label={(() => localize('positron.schemaNavigationActionBar.disconnect', 'Disconnect'))()}
+							label={localize('positron.schemaNavigationActionBar.disconnect', 'Disconnect')}
 							onPressed={() => props.onDisconnect()}
 						/>
 						<ActionBarSeparator />
 						<ActionBarButton
 							align='left'
 							icon={ThemeIcon.fromId('refresh')}
-							label={(() => localize('positron.schemaNavigationActionBar.refresh', 'Refresh'))()}
+							label={localize('positron.schemaNavigationActionBar.refresh', 'Refresh')}
 							onPressed={() => props.onRefresh()}
 						/>
 					</ActionBarRegion>
