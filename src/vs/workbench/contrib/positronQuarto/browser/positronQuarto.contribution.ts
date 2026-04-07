@@ -185,6 +185,13 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 	 * execute code.
 	 */
 	private _autoStartKernelIfNeeded(): void {
+		// Don't auto-start during startup/reconnection to avoid racing with
+		// session restoration. Open documents will be handled by
+		// _autoStartKernelsForOpenDocuments() once startup completes.
+		if (this._languageRuntimeService.startupPhase !== RuntimeStartupPhase.Complete) {
+			return;
+		}
+
 		const uri = this._editorService.activeEditor?.resource;
 		if (!uri || !this._isQuartoFile()) {
 			return;
@@ -195,8 +202,7 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 			return;
 		}
 
-		const inlineOutputEnabled = this._configurationService.getValue<boolean>(POSITRON_QUARTO_INLINE_OUTPUT_KEY) ?? false;
-		if (!inlineOutputEnabled) {
+		if (!this._inlineOutputEnabledKey.get()) {
 			return;
 		}
 
@@ -215,8 +221,7 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 	 * that we don't race with session reconnection/restoration.
 	 */
 	private _autoStartKernelsForOpenDocuments(): void {
-		const inlineOutputEnabled = this._configurationService.getValue<boolean>(POSITRON_QUARTO_INLINE_OUTPUT_KEY) ?? false;
-		if (!inlineOutputEnabled) {
+		if (!this._inlineOutputEnabledKey.get()) {
 			return;
 		}
 
