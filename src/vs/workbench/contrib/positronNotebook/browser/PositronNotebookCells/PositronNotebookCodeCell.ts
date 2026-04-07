@@ -57,7 +57,11 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 			undefined
 		);
 
-		this._outputs = observableFromEvent(this, Event.any(this.model.onDidChangeOutputs, this.model.onDidChangeOutputItems), () => {
+		this._outputs = observableFromEvent(this, Event.any(
+			this.model.onDidChangeOutputs,
+			this.model.onDidChangeOutputItems,
+			this._workspaceTrustManagementService.onDidChangeTrust,
+		), () => {
 			/** @description cellOutputs */
 			return this.parseCellOutputs();
 		});
@@ -139,23 +143,25 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 				return;
 			}
 
-			const parsedOutput: NotebookCellOutputs = {
+			let parsed = parseOutputData(preferredOutputItem);
+			let preloadMessageResult: NotebookCellOutputs['preloadMessageResult'];
+			const removeRawHtmlOutput = () => this._webviewPreloadService.removeRawHtmlOutput({
+				instance: this.instance,
 				outputId: output.outputId,
-				outputs: outputItems,
-				parsed: parseOutputData(preferredOutputItem),
-			};
+			});
 
 			const preloadMessageType = getWebviewMessageType(outputItems);
 
 			if (preloadMessageType) {
-				parsedOutput.preloadMessageResult = this._webviewPreloadService.addNotebookOutput({
+				removeRawHtmlOutput();
+				preloadMessageResult = this._webviewPreloadService.addNotebookOutput({
 					instance: this.instance,
 					outputId: output.outputId,
 					outputs: outputItems,
 				});
 
 				// Don't add widget outputs when there's no session available.
-				if (parsedOutput.preloadMessageResult === undefined) {
+				if (preloadMessageResult === undefined) {
 					return;
 				}
 			}
@@ -163,22 +169,34 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 			// Complex HTML (scripts, iframes, full documents) can't render inline
 			// due to Trusted Types / CSP restrictions. Route through an overlay
 			// webview where scripts execute in an isolated process.
-			// Only do this in trusted workspaces -- untrusted notebooks may have
-			// persisted outputs with malicious scripts. In untrusted workspaces,
-			// complex HTML falls through to the safe inline renderer.
-			if (!preloadMessageType && preferredOutputItem.mime === 'text/html'
-				&& this._workspaceTrustManagementService.isWorkspaceTrusted()) {
+			// Only do this in trusted workspaces. In Restricted Mode, block the
+			// complex output entirely instead of falling through to inline HTML.
+			if (!preloadMessageType && preferredOutputItem.mime === 'text/html') {
 				const htmlContent = preferredOutputItem.data.toString();
 				if (isComplexHtml(htmlContent)) {
-					parsedOutput.preloadMessageResult = this._webviewPreloadService.addRawHtmlOutput({
-						instance: this.instance,
-						outputId: output.outputId,
-						html: htmlContent,
-					});
+					if (this._workspaceTrustManagementService.isWorkspaceTrusted()) {
+						preloadMessageResult = this._webviewPreloadService.addRawHtmlOutput({
+							instance: this.instance,
+							outputId: output.outputId,
+							html: htmlContent,
+						});
+					} else {
+						removeRawHtmlOutput();
+						parsed = { type: 'htmlBlocked' };
+					}
+				} else {
+					removeRawHtmlOutput();
 				}
+			} else {
+				removeRawHtmlOutput();
 			}
 
-			parsedOutputs.push(parsedOutput);
+			parsedOutputs.push({
+				outputId: output.outputId,
+				outputs: outputItems,
+				parsed,
+				preloadMessageResult,
+			});
 		});
 
 		return parsedOutputs;
@@ -189,7 +207,5 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 		this._instance.runCells([this]);
 	}
 }
-
-
 
 

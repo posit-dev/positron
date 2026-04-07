@@ -5,10 +5,15 @@
 
 import * as assert from 'assert';
 import { VSBuffer } from '../../../../../base/common/buffer.js';
+import { Event } from '../../../../../base/common/event.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { IWorkspaceTrustManagementService } from '../../../../../platform/workspace/common/workspaceTrust.js';
+import sinon from 'sinon';
 import { CellEditType, CellKind } from '../../../notebook/common/notebookCommon.js';
 import { POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED } from '../../browser/ContextKeysManager.js';
-import { createTestPositronNotebookInstance, TestCellInput } from './testPositronNotebookInstance.js';
+import { TestWorkspaceTrustManagementService } from '../../../../test/common/workbenchTestServices.js';
+import { IPositronWebviewPreloadService } from '../../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
+import { createTestPositronNotebookInstance, instantiateTestNotebookInstance, positronNotebookInstantiationService, TestCellInput } from './testPositronNotebookInstance.js';
 
 function pngOutputItem() {
 	// Minimal valid base64 PNG data
@@ -21,6 +26,22 @@ function textOutputItem(text: string) {
 
 function svgOutputItem() {
 	return { mime: 'image/svg+xml', data: VSBuffer.fromString('<svg><circle r="10"/></svg>') };
+}
+
+function complexHtmlOutputItem() {
+	return { mime: 'text/html', data: VSBuffer.fromString('<iframe src="https://example.com"></iframe>') };
+}
+
+function createDisplayPreloadResult(id: string) {
+	return {
+		preloadMessageType: 'display' as const,
+		webview: Promise.resolve({
+			id,
+			sessionId: id,
+			dispose: () => { },
+			onDidRender: Event.None,
+		}),
+	};
 }
 
 suite('Positron Notebook Cell Outputs', () => {
@@ -175,6 +196,137 @@ suite('Positron Notebook Cell Outputs', () => {
 				false,
 				'outputImageTargeted should be false after being cleared'
 			);
+		});
+
+		test('trusted complex HTML routes through the raw HTML webview path', () => {
+			const addRawHtmlOutput = sinon.stub().returns(createDisplayPreloadResult('output-1'));
+			const removeRawHtmlOutput = sinon.stub();
+			const preloadService: IPositronWebviewPreloadService = {
+				_serviceBrand: undefined,
+				initialize: () => { },
+				onDidCreatePlot: Event.None,
+				sessionInfo: () => null,
+				attachNotebookInstance: () => { },
+				addNotebookOutput: () => undefined,
+				addRawHtmlOutput,
+				removeRawHtmlOutput,
+			};
+
+			const instantiationService = positronNotebookInstantiationService(disposables);
+			instantiationService.stub(IPositronWebviewPreloadService, preloadService);
+
+			const notebook = instantiateTestNotebookInstance([{
+				source: 'map()',
+				language: 'python',
+				mime: undefined,
+				cellKind: CellKind.Code,
+				outputs: [{
+					outputId: 'output-1',
+					outputs: [complexHtmlOutputItem()],
+				}],
+			}], instantiationService, disposables);
+			const cell = notebook.cells.get()[0];
+
+			assert.ok(cell.isCodeCell());
+			const outputs = cell.outputs.get();
+			assert.strictEqual(outputs.length, 1);
+			assert.strictEqual(outputs[0].parsed.type, 'html');
+			assert.ok(outputs[0].preloadMessageResult);
+			assert.strictEqual(addRawHtmlOutput.callCount, 1);
+			assert.strictEqual(removeRawHtmlOutput.callCount, 0);
+		});
+
+		test('untrusted complex HTML is blocked instead of rendered inline', async () => {
+			const addRawHtmlOutput = sinon.stub().returns(createDisplayPreloadResult('output-1'));
+			const removeRawHtmlOutput = sinon.stub();
+			const preloadService: IPositronWebviewPreloadService = {
+				_serviceBrand: undefined,
+				initialize: () => { },
+				onDidCreatePlot: Event.None,
+				sessionInfo: () => null,
+				attachNotebookInstance: () => { },
+				addNotebookOutput: () => undefined,
+				addRawHtmlOutput,
+				removeRawHtmlOutput,
+			};
+
+			const instantiationService = positronNotebookInstantiationService(disposables);
+			instantiationService.stub(IPositronWebviewPreloadService, preloadService);
+
+			const trustService = instantiationService.get(IWorkspaceTrustManagementService) as TestWorkspaceTrustManagementService;
+			await trustService.setWorkspaceTrust(false);
+
+			const notebook = instantiateTestNotebookInstance([{
+				source: 'map()',
+				language: 'python',
+				mime: undefined,
+				cellKind: CellKind.Code,
+				outputs: [{
+					outputId: 'output-1',
+					outputs: [complexHtmlOutputItem()],
+				}],
+			}], instantiationService, disposables);
+			const cell = notebook.cells.get()[0];
+
+			assert.ok(cell.isCodeCell());
+			const outputs = cell.outputs.get();
+			assert.strictEqual(outputs.length, 1);
+			assert.strictEqual(outputs[0].parsed.type, 'htmlBlocked');
+			assert.strictEqual(outputs[0].preloadMessageResult, undefined);
+			assert.strictEqual(addRawHtmlOutput.callCount, 0);
+			assert.strictEqual(removeRawHtmlOutput.callCount, 1);
+		});
+
+		test('trust changes reroute persisted complex HTML outputs without rerunning the cell', async () => {
+			const addRawHtmlOutput = sinon.stub().returns(createDisplayPreloadResult('output-1'));
+			const removeRawHtmlOutput = sinon.stub();
+			const preloadService: IPositronWebviewPreloadService = {
+				_serviceBrand: undefined,
+				initialize: () => { },
+				onDidCreatePlot: Event.None,
+				sessionInfo: () => null,
+				attachNotebookInstance: () => { },
+				addNotebookOutput: () => undefined,
+				addRawHtmlOutput,
+				removeRawHtmlOutput,
+			};
+
+			const instantiationService = positronNotebookInstantiationService(disposables);
+			instantiationService.stub(IPositronWebviewPreloadService, preloadService);
+
+			const trustService = instantiationService.get(IWorkspaceTrustManagementService) as TestWorkspaceTrustManagementService;
+			await trustService.setWorkspaceTrust(false);
+
+			const notebook = instantiateTestNotebookInstance([{
+				source: 'map()',
+				language: 'python',
+				mime: undefined,
+				cellKind: CellKind.Code,
+				outputs: [{
+					outputId: 'output-1',
+					outputs: [complexHtmlOutputItem()],
+				}],
+			}], instantiationService, disposables);
+			const cell = notebook.cells.get()[0];
+			assert.ok(cell.isCodeCell());
+
+			let outputs = cell.outputs.get();
+			assert.strictEqual(outputs[0].parsed.type, 'htmlBlocked');
+
+			await trustService.setWorkspaceTrust(true);
+
+			outputs = cell.outputs.get();
+			assert.strictEqual(outputs[0].parsed.type, 'html');
+			assert.ok(outputs[0].preloadMessageResult);
+			assert.strictEqual(addRawHtmlOutput.callCount, 1);
+			assert.strictEqual(removeRawHtmlOutput.callCount, 1);
+
+			await trustService.setWorkspaceTrust(false);
+
+			outputs = cell.outputs.get();
+			assert.strictEqual(outputs[0].parsed.type, 'htmlBlocked');
+			assert.strictEqual(outputs[0].preloadMessageResult, undefined);
+			assert.strictEqual(removeRawHtmlOutput.callCount, 2);
 		});
 	});
 });

@@ -61,6 +61,15 @@
 			color: var(--vscode-positronNotebook-error-color);
 		}
 
+		& .blocked-complex-html-output {
+			align-items: center;
+			color: var(--vscode-descriptionForeground);
+			cursor: help;
+			display: inline-flex;
+			font-size: 14px;
+			line-height: 1;
+		}
+
 		/*
 		Provide style hints for dataframes rendered as tables,
 		similar to styling in the console

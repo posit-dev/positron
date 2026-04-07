@@ -405,6 +405,9 @@ export type ParsedOutput = ParsedTextOutput |
 	content: string;
 } |
 {
+	type: 'htmlBlocked';
+} |
+{
 	type: 'markdown';
 	content: string;
 } |

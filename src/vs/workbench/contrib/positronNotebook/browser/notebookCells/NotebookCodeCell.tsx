@@ -40,6 +40,10 @@ import { Button } from '../../../../../base/browser/ui/positronComponents/button
 
 const expandOutputTooltip = localize('positron.notebook.expandOutput', "Click to Expand Output");
 const outputCollapsedLabel = localize('positron.notebook.outputCollapsed', 'Output collapsed');
+const blockedComplexHtmlTooltip = localize(
+	'positron.notebook.complexHtmlBlocked',
+	'Complex HTML output is disabled in Restricted Mode. Trust this workspace to render it.'
+);
 
 interface CellOutputsSectionProps {
 	cell: PositronNotebookCodeCell;
@@ -227,6 +231,13 @@ const CellOutput = React.memo(function CellOutput(output: CellOutputProps) {
 			return <img alt='output image' src={parsed.dataUrl} />;
 		case 'html':
 			return renderHtml(parsed.content);
+		case 'htmlBlocked':
+			return <span
+				aria-label={blockedComplexHtmlTooltip}
+				className='blocked-complex-html-output codicon codicon-info'
+				role='img'
+				title={blockedComplexHtmlTooltip}
+			/>;
 		case 'markdown':
 			return <Markdown content={parsed.content} />;
 		case 'dataExplorer':
@@ -255,4 +266,3 @@ const CollapsedOutputLabel = ({ onExpand }: { onExpand: () => void }) => {
 		{outputCollapsedLabel}
 	</Button>;
 };
-
