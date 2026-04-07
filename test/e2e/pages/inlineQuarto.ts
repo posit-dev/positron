@@ -25,6 +25,7 @@ const OUTPUT_HTML = '.quarto-output-html';
 const OUTPUT_IMAGE = '.quarto-output-image';
 const OUTPUT_ERROR = '.quarto-output-error';
 const OUTPUT_WEBVIEW = '.quarto-output-webview-container';
+const OUTPUT_DATA_EXPLORER = '.quarto-output-data-explorer';
 const IMAGE_PREVIEW_WRAPPER = '.quarto-image-preview-wrapper';
 const IMAGE_PREVIEW = '.quarto-image-preview';
 const IMAGE_PREVIEW_ERROR = '.quarto-image-preview-error';
@@ -88,7 +89,7 @@ export class InlineQuarto {
 		this.imageOutput = page.locator(`${INLINE_OUTPUT} ${OUTPUT_IMAGE}`);
 		this.errorOutput = page.locator(`${INLINE_OUTPUT} ${OUTPUT_ERROR}`);
 		this.webviewContainer = page.locator(`${INLINE_OUTPUT} ${OUTPUT_WEBVIEW}`);
-		this.webviewOrHtmlOutput = page.locator(`${INLINE_OUTPUT}`).locator(`${OUTPUT_WEBVIEW}, ${OUTPUT_HTML}`);
+		this.webviewOrHtmlOutput = page.locator(`${INLINE_OUTPUT}`).locator(`${OUTPUT_WEBVIEW}, ${OUTPUT_HTML}, ${OUTPUT_DATA_EXPLORER}`);
 		this.imagePreviewWrapper = page.locator(IMAGE_PREVIEW_WRAPPER);
 		this.imagePreview = page.locator(IMAGE_PREVIEW);
 		this.imagePreviewError = page.locator(IMAGE_PREVIEW_ERROR);
