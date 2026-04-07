@@ -187,6 +187,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	private _sparklineRenderer: PositronReactRenderer | undefined;
 	private readonly _resourceUsageDisposables = this._register(new DisposableStore());
 	private _resourceUsageData: ILanguageRuntimeResourceUsage[] = [];
+	private _sparklineGeneration = 0;
 
 	// Live timer interval during execution
 	private _timerInterval: ReturnType<typeof setInterval> | undefined;
@@ -564,13 +565,20 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 
 		// Seed with historical data from the resource usage history service
 		this._resourceUsageData = [];
+		const generation = ++this._sparklineGeneration;
 		if (this._resourceUsageHistoryService) {
 			this._resourceUsageHistoryService.getHistory(this._session.sessionId).then(history => {
+				// Discard results if sparkline was stopped or restarted
+				if (this._sparklineGeneration !== generation) {
+					return;
+				}
 				if (history.length > 0) {
 					this._resourceUsageData = history.slice(-maxPoints);
 					this._renderSparkline();
 					this._updateCpuLabel();
 				}
+			}, _err => {
+				// History unavailable; leave sparkline empty
 			});
 		}
 
@@ -602,6 +610,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	 * Stop showing the CPU sparkline and clean up.
 	 */
 	private _stopSparkline(): void {
+		this._sparklineGeneration++;
 		this._resourceUsageDisposables.clear();
 		if (this._sparklineRenderer) {
 			this._sparklineRenderer.dispose();
