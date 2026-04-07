@@ -319,7 +319,7 @@ async function registerOpenaiProvider(
 	const envBaseUrl = process.env.OPENAI_BASE_URL;
 	if (envBaseUrl) {
 		await vscode.workspace
-			.getConfiguration('authentication.openai')
+			.getConfiguration(`authentication.${OPENAI_AUTH_PROVIDER_ID}`)
 			.update(
 				'baseUrl', envBaseUrl,
 				vscode.ConfigurationTarget.Global
@@ -338,7 +338,7 @@ async function registerOpenaiProvider(
 					throw new Error('OPENAI_API_KEY not set');
 				}
 				const baseUrl = vscode.workspace
-					.getConfiguration('authentication.openai')
+					.getConfiguration(`authentication.${OPENAI_AUTH_PROVIDER_ID}`)
 					.get<string>('baseUrl') || undefined;
 				await validateOpenaiApiKey(apiKey, {
 					provider: OPENAI_AUTH_PROVIDER_ID,
@@ -364,7 +364,7 @@ async function registerOpenaiProvider(
 		onSave: async (config) => {
 			if (config.baseUrl) {
 				await vscode.workspace
-					.getConfiguration('authentication.openai')
+					.getConfiguration(`authentication.${OPENAI_AUTH_PROVIDER_ID}`)
 					.update(
 						'baseUrl', config.baseUrl,
 						vscode.ConfigurationTarget.Global
@@ -396,7 +396,7 @@ async function registerGeminiProvider(
 					);
 				}
 				const baseUrl = vscode.workspace
-					.getConfiguration('authentication.google')
+					.getConfiguration(`authentication.${GEMINI_AUTH_PROVIDER_ID}`)
 					.get<string>('baseUrl') || undefined;
 				await validateGeminiApiKey(apiKey, {
 					provider: GEMINI_AUTH_PROVIDER_ID,
@@ -422,7 +422,7 @@ async function registerGeminiProvider(
 		onSave: async (config) => {
 			if (config.baseUrl) {
 				await vscode.workspace
-					.getConfiguration('authentication.google')
+					.getConfiguration(`authentication.${GEMINI_AUTH_PROVIDER_ID}`)
 					.update(
 						'baseUrl', config.baseUrl,
 						vscode.ConfigurationTarget.Global
@@ -456,7 +456,7 @@ function registerCustomProvider(
 		onSave: async (config) => {
 			if (config.baseUrl) {
 				await vscode.workspace
-					.getConfiguration('authentication.customProvider')
+					.getConfiguration(`authentication.${CUSTOM_PROVIDER_AUTH_PROVIDER_ID}`)
 					.update(
 						'baseUrl', config.baseUrl,
 						vscode.ConfigurationTarget.Global

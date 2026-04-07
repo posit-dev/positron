@@ -111,20 +111,20 @@
 					"default": "",
 					"description": "%configuration.foundry.baseUrl.description%"
 				},
-				"authentication.openai.baseUrl": {
+				"authentication.openai-api.baseUrl": {
 					"type": "string",
 					"default": "",
-					"description": "%configuration.openai.baseUrl.description%"
+					"description": "%configuration.openai-api.baseUrl.description%"
 				},
 				"authentication.google.baseUrl": {
 					"type": "string",
 					"default": "",
 					"description": "%configuration.google.baseUrl.description%"
 				},
-				"authentication.customProvider.baseUrl": {
+				"authentication.openai-compatible.baseUrl": {
 					"type": "string",
 					"default": "",
-					"description": "%configuration.customProvider.baseUrl.description%"
+					"description": "%configuration.openai-compatible.baseUrl.description%"
 				}
 			}
 		}
