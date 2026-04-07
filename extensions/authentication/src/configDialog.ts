@@ -224,7 +224,7 @@ async function handleSave(
 		);
 	}
 
-	if (config.apiKey?.trim()) {
+	if (config.apiKey !== undefined) {
 		return handleApiKeySave(config, provider);
 	}
 
@@ -236,10 +236,7 @@ async function handleApiKeySave(
 	config: positron.ai.LanguageModelConfig,
 	provider: AuthProvider
 ): Promise<string> {
-	const apiKey = config.apiKey?.trim();
-	if (!apiKey) {
-		throw new Error(vscode.l10n.t('API key is required'));
-	}
+	const apiKey = config.apiKey?.trim() ?? '';
 	const validateApiKey = apiKeyValidators.get(config.provider);
 	if (validateApiKey) {
 		await validateApiKey(apiKey, config);
