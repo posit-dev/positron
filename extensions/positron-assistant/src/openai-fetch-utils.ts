@@ -170,9 +170,11 @@ export function createOpenAICompatibleFetch(providerName: string, apiKey?: strin
 			noArgTools = tools;
 		});
 
-		// Strip the Authorization header when the API key is blank
-		// so unauthenticated endpoints don't receive a bare Bearer token.
-		if (!apiKey && transformedInit?.headers) {
+		// Strip the Authorization header when the API key is explicitly
+		// blank so unauthenticated endpoints don't receive a bare Bearer
+		// token. Only match empty string -- undefined means the caller
+		// manages auth separately (e.g. Foundry injects its own token).
+		if (apiKey === '' && transformedInit?.headers) {
 			const headers = new Headers(transformedInit.headers as HeadersInit);
 			headers.delete('Authorization');
 			transformedInit.headers = headers;
