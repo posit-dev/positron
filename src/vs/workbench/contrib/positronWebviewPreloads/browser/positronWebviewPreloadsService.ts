@@ -176,6 +176,10 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		disposables.add(toDisposable(() => {
 			const widgetOutputIds = this._widgetOutputIdsByNotebookId.get(notebookId);
 			widgetOutputIds?.forEach(outputId => {
+				const webviewPromise = this._widgetWebviewsByOutputId.get(outputId);
+				if (webviewPromise) {
+					webviewPromise.then(w => w.dispose()).catch(() => { /* already disposed or creation failed */ });
+				}
 				this._widgetWebviewsByOutputId.delete(outputId);
 			});
 			this._widgetOutputIdsByNotebookId.delete(notebookId);
