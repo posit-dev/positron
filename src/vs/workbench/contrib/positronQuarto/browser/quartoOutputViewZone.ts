@@ -494,7 +494,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		if (startTime && endTime) {
 			const duration = endTime - startTime;
 			const durationSpan = document.createElement('span');
-			durationSpan.className = 'code-cell-footer-duration';
+			durationSpan.className = 'code-cell-footer-duration has-separator';
 			durationSpan.textContent = formatCellDuration(duration);
 			this._statusText.appendChild(durationSpan);
 

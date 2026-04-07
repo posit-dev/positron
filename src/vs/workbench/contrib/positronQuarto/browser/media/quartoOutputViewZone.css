@@ -351,6 +351,8 @@
 	align-items: center;
 	gap: 8px;
 	height: 20px;
+	margin-top: 4px;
+	margin-bottom: 4px;
 	padding-left: 12px;
 	font-size: 11px;
 	color: var(--vscode-descriptionForeground);
@@ -430,8 +432,8 @@
 	position: relative;
 }
 
-/* Vertical separator between duration and timestamp */
-.quarto-output-status-bar .code-cell-footer-duration::after {
+/* Vertical separator between duration and timestamp (only when has-separator class is set) */
+.quarto-output-status-bar .code-cell-footer-duration.has-separator::after {
 	content: '';
 	position: absolute;
 	right: -7px;
@@ -444,8 +446,12 @@
 /* CPU percentage label next to sparkline */
 .quarto-output-status-bar .quarto-output-cpu-label {
 	flex-shrink: 0;
+	width: 7ch;
 	margin-left: 4px;
-	margin-right: 8px;
+	margin-right: 20px;
+	font-family: var(--monaco-monospace-font);
+	font-size: 10px;
+	text-align: right;
 	white-space: nowrap;
 }
 
