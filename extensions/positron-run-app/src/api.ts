@@ -352,19 +352,27 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			positron.runtime.focusSession(sessionId);
 			progress.report({ message: vscode.l10n.t('Starting application...') });
 
-			const shouldPreview = options.preview !== 'none';
+			let preview = options.preview ?? 'internal';
+			switch (preview) {
+				case 'internal':
+				case 'external':
+				case 'none':
+					break;
+				default:
+					log.warn(`Unknown preview mode '${preview}', falling back to 'internal'`);
+					preview = 'internal';
+			}
 
-			// Set up URL detection via an observer for the output of our execute request
-			const detector = shouldPreview
-				? new AppUrlDetector(options.appUrlStrings, options.appReadyMessage)
-				: undefined;
+			// Set up URL detection via an observer for the output of our execute request.
+			// Always created but only consumed when `preview` is not `'none'`.
+			const detector = new AppUrlDetector(options.appUrlStrings, options.appReadyMessage);
 			const cancellation = new vscode.CancellationTokenSource();
 			cleanup.push(cancellation);
 
 			const observer: positron.runtime.ExecutionObserver = {
 				token: cancellation.token,
-				onOutput: (data) => detector?.processOutput(data),
-				onError: (data) => detector?.processOutput(data),
+				onOutput: (data) => detector.processOutput(data),
+				onError: (data) => detector.processOutput(data),
 			};
 
 			// Execute the code in the console session.
@@ -382,25 +390,31 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 				log.error(`Console execution error: ${error.message}`);
 			});
 
-			if (detector) {
-				const url = await raceTimeout(
-					detector.found,
-					TERMINAL_OUTPUT_TIMEOUT,
-					() => {
-						cancellation.cancel();
-						throw new Error(vscode.l10n.t('Timed out waiting for {0} app URL in console output.', options.name));
-					},
-				);
+			switch (preview) {
+				case 'internal':
+				case 'external': {
+					const url = await raceTimeout(
+						detector.found,
+						TERMINAL_OUTPUT_TIMEOUT,
+						() => {
+							cancellation.cancel();
+							throw new Error(vscode.l10n.t('Timed out waiting for {0} app URL in console output.', options.name));
+						},
+					);
 
-				await this.previewApp(url!, {
-					preview: options.preview,
-					proxyInfo,
-					urlPath: options.urlPath,
-					previewSource: {
-						type: positron.PreviewSourceType.Runtime,
-						id: sessionId,
-					},
-				});
+					await this.previewApp(url!, {
+						preview,
+						proxyInfo,
+						urlPath: options.urlPath,
+						previewSource: {
+							type: positron.PreviewSourceType.Runtime,
+							id: sessionId,
+						},
+					});
+					break;
+				}
+				case 'none':
+					break;
 			}
 		} finally {
 			cleanup.forEach(d => d.dispose());
