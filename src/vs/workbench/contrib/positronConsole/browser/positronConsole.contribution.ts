@@ -91,7 +91,7 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 	id: POSITRON_CONSOLE_PASTE,
 	weight: KeybindingWeight.WorkbenchContrib,
 	primary: KeyMod.CtrlCmd | KeyCode.KeyV,
-	when: PositronConsoleFocused,
+	when: ContextKeyExpr.and(PositronConsoleFocused, PositronConsoleFindInputFocused.negate()),
 	handler: async accessor => {
 		const clipboardService = accessor.get(IClipboardService);
 		const consoleService = accessor.get(IPositronConsoleService);
@@ -105,7 +105,7 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 	id: POSITRON_CONSOLE_SELECT_ALL,
 	weight: KeybindingWeight.WorkbenchContrib,
 	primary: KeyMod.CtrlCmd | KeyCode.KeyA,
-	when: PositronConsoleFocused,
+	when: ContextKeyExpr.and(PositronConsoleFocused, PositronConsoleFindInputFocused.negate()),
 	handler: async accessor => {
 		const consoleService = accessor.get(IPositronConsoleService);
 		return consoleService.activePositronConsoleInstance?.selectAll();
