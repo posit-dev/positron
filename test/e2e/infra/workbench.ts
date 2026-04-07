@@ -143,7 +143,7 @@ export class Workbench {
 		this.search = new Search(code);
 		this.assistant = new Assistant(code, this.quickaccess, this.toasts, this.modals);
 		this.positConnect = new PositConnect(code);
-		this.positAssistant = new PositAssistant(code);
+		this.positAssistant = new PositAssistant(code, this.quickaccess);
 		this.inlineDataExplorer = new InlineDataExplorer(code.driver.page);
 		this.inlineQuarto = new InlineQuarto(code, this.quickaccess, this.hotKeys);
 	}

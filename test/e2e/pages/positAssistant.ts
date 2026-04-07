@@ -5,6 +5,7 @@
 
 import { expect, FrameLocator } from '@playwright/test';
 import { Code } from '../infra/code';
+import { QuickAccess } from './quickaccess';
 
 // Webview frame selectors (Posit Assistant renders inside a VS Code webview)
 const OUTER_FRAME = '.webview';
@@ -59,7 +60,7 @@ const TOOL_DECLINE_BUTTON = 'button.rounded-r-none:has-text("Decline")';
  */
 export class PositAssistant {
 
-	constructor(private code: Code) { }
+	constructor(private code: Code, private quickaccess: QuickAccess) { }
 
 	/**
 	 * Gets the frame locator for the Posit Assistant webview content.
@@ -80,6 +81,9 @@ export class PositAssistant {
 			await button.click();
 		}
 		await expect(button.locator('..')).toHaveAttribute('aria-selected', 'true');
+		// Maximize the sidebar so the webview is not obscured by outer-page
+		// elements (activity bar, pane-body) on small CI viewports.
+		await this.quickaccess.runCommand('workbench.action.fullSizedSidebar');
 	}
 
 	/**
@@ -279,33 +283,24 @@ export class PositAssistant {
 
 	/**
 	 * Selects "Allow for this session" from the tool confirmation dropdown.
-	 * Uses force:true because outer-page elements (activity bar, pane-body)
-	 * can overlap the webview and intercept pointer events on small viewports.
 	 */
 	async allowToolForSession(): Promise<void> {
-		await this.frame.locator(TOOL_ALLOW_DROPDOWN_TRIGGER).scrollIntoViewIfNeeded();
-		await this.frame.locator(TOOL_ALLOW_DROPDOWN_TRIGGER).click({ force: true });
+		await this.frame.locator(TOOL_ALLOW_DROPDOWN_TRIGGER).click();
 		await this.frame.locator(TOOL_ALLOW_SESSION_MENU_ITEM).click();
 	}
 
 	/**
 	 * Clicks the main "Allow" button on the tool confirmation dialog (allow once).
-	 * Uses force:true because outer-page elements (activity bar, pane-body)
-	 * can overlap the webview and intercept pointer events on small viewports.
 	 */
 	async allowToolOnce(): Promise<void> {
-		await this.frame.locator(TOOL_ALLOW_BUTTON).scrollIntoViewIfNeeded();
-		await this.frame.locator(TOOL_ALLOW_BUTTON).click({ force: true });
+		await this.frame.locator(TOOL_ALLOW_BUTTON).click();
 	}
 
 	/**
 	 * Clicks "Decline" on the tool confirmation dialog.
-	 * Uses force:true because outer-page elements (activity bar, pane-body)
-	 * can overlap the webview and intercept pointer events on small viewports.
 	 */
 	async declineTool(): Promise<void> {
-		await this.frame.locator(TOOL_DECLINE_BUTTON).scrollIntoViewIfNeeded();
-		await this.frame.locator(TOOL_DECLINE_BUTTON).click({ force: true });
+		await this.frame.locator(TOOL_DECLINE_BUTTON).click();
 	}
 
 }
