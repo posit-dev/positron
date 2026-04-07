@@ -293,9 +293,13 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 
 		const webviewPromise = this._notebookOutputWebviewService.createRawHtmlOutputWebview(outputId, html)
 			.catch(err => {
-				// Remove from cache on failure to allow retry (mirrors widget pattern)
-				this._widgetWebviewsByOutputId.delete(outputId);
-				this._rawHtmlByOutputId.delete(outputId);
+				// Remove from cache on failure to allow retry (mirrors widget pattern).
+				// Only clear if this promise is still the current cached entry -- if HTML
+				// changed while we were pending, a newer promise may have replaced us.
+				if (this._widgetWebviewsByOutputId.get(outputId) === webviewPromise) {
+					this._widgetWebviewsByOutputId.delete(outputId);
+					this._rawHtmlByOutputId.delete(outputId);
+				}
 				throw err;
 			});
 
