@@ -1018,15 +1018,19 @@ export class Assistant {
 	async expectModelInPicker(text: string | RegExp): Promise<void> {
 		await test.step(`Expect model in picker: ${text}`, async () => {
 			await this._expandOtherModelsSection();
+			const filterInput = this.code.driver.currentPage.locator('.action-list-filter-input');
 			const locator = this.code.driver.currentPage.locator('.monaco-list-row.action span.title', { hasText: text });
-			// Scroll incrementally to find items that may be off-screen in the virtualized list
-			await expect(async () => {
-				if (await locator.count() === 0) {
-					const scrollable = this.code.driver.currentPage.locator('.action-widget .monaco-scrollable-element');
-					await scrollable.evaluate(el => { el.scrollTop += 100; });
-				}
-				await expect(locator).toHaveCount(1, { timeout: 500 });
-			}).toPass({ timeout: 15000 });
+
+			if (await filterInput.isVisible()) {
+				// Use the search input to filter models — avoids scrolling in virtualized list
+				const searchText = typeof text === 'string' ? text : text.source;
+				await filterInput.fill(searchText);
+				await expect(locator).toHaveCount(1, { timeout: 10000 });
+				await filterInput.clear();
+			} else {
+				// No filter input available; item should be directly visible
+				await expect(locator).toHaveCount(1, { timeout: 10000 });
+			}
 		});
 	}
 
