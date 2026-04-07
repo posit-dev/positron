@@ -16,13 +16,14 @@ import { AppPreviewOptions, Config, PositronProxyInfo } from './types.js';
 import { shouldUsePositronProxy, showShellIntegrationNotSupportedMessage, showEnableShellIntegrationMessage } from './api-utils.js';
 
 
-type PreviewMode = 'internal' | 'external' | 'none' | 'manual';
+type PreviewMode = 'internal' | 'external' | 'simple' | 'none' | 'manual';
 
 function parsePreviewMode(value: string | undefined): PreviewMode {
 	const mode = value ?? 'internal';
 	switch (mode) {
 		case 'internal':
 		case 'external':
+		case 'simple':
 		case 'none':
 		case 'manual':
 			return mode;
@@ -415,6 +416,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			switch (preview) {
 				case 'internal':
 				case 'external':
+				case 'simple':
 				case 'manual': {
 					const url = await raceTimeout(
 						detector.found,
@@ -707,7 +709,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 	}
 
 	private async previewApp(url: URL, options: {
-		preview?: 'internal' | 'external' | 'manual';
+		preview?: 'internal' | 'external' | 'simple' | 'manual';
 		proxyInfo?: PositronProxyInfo;
 		urlPath?: string;
 		terminalPid?: number;
@@ -749,10 +751,22 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			previewUri,
 		);
 
-		if (options.preview === 'external') {
-			await vscode.env.openExternal(previewUri);
-		} else if (options.preview !== 'manual') {
-			positron.window.previewUrl(previewUri, options.previewSource);
+		switch (options.preview) {
+			default:
+			case 'internal':
+				positron.window.previewUrl(previewUri, options.previewSource);
+				break;
+			case 'external':
+				await vscode.env.openExternal(previewUri);
+				break;
+			case 'simple':
+				await vscode.commands.executeCommand('simpleBrowser.api.open', previewUri.toString(true), {
+					preserveFocus: true,
+					viewColumn: vscode.ViewColumn.Beside,
+				});
+				break;
+			case 'manual':
+				break;
 		}
 
 		return previewUri;

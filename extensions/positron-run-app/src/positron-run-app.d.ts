@@ -47,11 +47,12 @@ interface RunAppOptionsBase {
 	 *
 	 * - `'internal'` — open in the Positron Viewer pane.
 	 * - `'external'` — open in an external browser.
+	 * - `'simple'`   — open in the Simple Browser editor.
 	 * - `'none'`     — skip URL detection and preview entirely.
 	 * - `'manual'`   — detect the URL but return it to the caller
 	 *                   instead of previewing.
 	 */
-	preview?: 'internal' | 'external' | 'none' | 'manual';
+	preview?: 'internal' | 'external' | 'simple' | 'none' | 'manual';
 
 	/**
 	 * The optional URL path at which to preview the application.
