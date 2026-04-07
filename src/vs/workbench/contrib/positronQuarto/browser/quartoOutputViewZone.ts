@@ -729,6 +729,26 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			this.setRecomputing(false);
 		}
 
+		// When an error output arrives, remove the preceding stderr output
+		// if it's redundant. R (and some other runtimes) send the error text
+		// as both a stderr stream message and a structured error message,
+		// which would otherwise render the same content twice.
+		const hasError = output.items.some(
+			i => i.mime === 'application/vnd.code.notebook.error'
+		);
+		if (hasError && this._outputs.length > 0) {
+			const prev = this._outputs[this._outputs.length - 1];
+			const isStderr = prev.items.length === 1 &&
+				prev.items[0].mime === 'application/vnd.code.notebook.stderr';
+			if (isStderr) {
+				this._outputs.pop();
+				const lastChild = this._outputContainer.lastElementChild;
+				if (lastChild) {
+					this._outputContainer.removeChild(lastChild);
+				}
+			}
+		}
+
 		this._outputs.push(output);
 		this._renderOutput(output);
 		this._updateStatusOnlyState();
@@ -1197,16 +1217,18 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		if (mime === 'application/vnd.code.notebook.error') {
 			try {
 				const errorData = JSON.parse(data);
-				const parts: string[] = [];
-				if (errorData.name) {
-					parts.push(`${errorData.name}: ${errorData.message || ''}`);
-				} else if (errorData.message) {
-					parts.push(errorData.message);
+				const stack = (errorData.stack || '').trim();
+				const name = (errorData.name || '').trim();
+				const message = (errorData.message || '').trim();
+
+				if (stack && name && stack.startsWith(name)) {
+					return stack;
+				} else if (stack && stack !== message) {
+					const header = name ? `${name}: ${message}` : message;
+					return header ? `${header}\n${stack}` : stack;
+				} else {
+					return name ? `${name}: ${message}` : (message || stack);
 				}
-				if (errorData.stack) {
-					parts.push(errorData.stack);
-				}
-				return parts.join('\n');
 			} catch {
 				return data;
 			}
@@ -1709,20 +1731,18 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		try {
 			const errorData = JSON.parse(data);
 
-			// Format error output
-			const parts: string[] = [];
-			if (errorData.name) {
-				parts.push(`${errorData.name}: ${errorData.message || ''}`);
-			} else if (errorData.message) {
-				parts.push(errorData.message);
+			// Prefer the stack/traceback when available: it is the most
+			// complete representation and preserves ANSI formatting that
+			// runtimes (especially R) use for colors and bold text.
+			// Only fall back to name+message when no stack is provided.
+			const stack = (errorData.stack || '').trim();
+			if (stack) {
+				errorText = stack;
+			} else if (errorData.name) {
+				errorText = `${errorData.name}: ${errorData.message || ''}`;
+			} else {
+				errorText = errorData.message || '';
 			}
-			// Only add stack if it's different from the message
-			// R sometimes sends the error message in both fields
-			if (errorData.stack && errorData.stack.trim() !== (errorData.message || '').trim()) {
-				parts.push(errorData.stack);
-			}
-
-			errorText = parts.join('\n');
 		} catch {
 			// If not JSON, render as plain text
 			errorText = data;
@@ -2082,16 +2102,20 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		const statusBarHeight = this._statusBar.style.display !== 'none' ? this._statusBar.offsetHeight : 0;
 		const styledHeight = this._styledContainer.offsetHeight + statusBarHeight;
 
+		// Use the styled container's height (not including status bar) for button
+		// visibility, since the buttons are positioned inside the styled container
+		const containerHeight = this._styledContainer.offsetHeight;
+
 		// Show the Copy button if there's enough room and there's copiable content
 		// Copy is prioritized (shown first) since it's the most common action
-		this._copyButton.style.display = styledHeight > 40 && this.hasCopiableContent() ? 'block' : 'none';
+		this._copyButton.style.display = containerHeight > 40 && this.hasCopiableContent() ? 'block' : 'none';
 
 		// Show the Popout button if there's more room and there's popout content
 		// (not just errors - plot, HTML, or text content)
-		this._popoutButton.style.display = styledHeight > 80 && this.hasPopoutContent() ? 'block' : 'none';
+		this._popoutButton.style.display = containerHeight > 80 && this.hasPopoutContent() ? 'block' : 'none';
 
 		// Show the Save button if there's even more room and there's exactly one plot
-		this._saveButton.style.display = styledHeight > 100 && this.hasSinglePlot() ? 'block' : 'none';
+		this._saveButton.style.display = containerHeight > 100 && this.hasSinglePlot() ? 'block' : 'none';
 
 		// Add margin space (4px top + 4px bottom) plus 5px spacing below the widget
 		const newHeight = Math.max(MIN_VIEW_ZONE_HEIGHT, styledHeight + 13);

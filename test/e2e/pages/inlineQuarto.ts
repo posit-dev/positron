@@ -290,6 +290,21 @@ export class InlineQuarto {
 		});
 	}
 
+	/**
+	 * Verify that the error output at the given index has at most the
+	 * expected number of rendered lines (div elements inside the pre).
+	 * Catches regressions where error text is duplicated.
+	 */
+	async expectErrorMaxLines(maxLines: number, { index = 0, timeout = 10000 }: { index?: number; timeout?: number } = {}): Promise<void> {
+		await test.step(`Expect error output has at most ${maxLines} lines`, async () => {
+			const errorEl = this.errorOutput.nth(index);
+			await expect(errorEl).toBeVisible({ timeout });
+			// Each ANSI output line is rendered as a <div> inside a <pre>
+			const lineCount = await errorEl.locator('pre > div').count();
+			expect(lineCount, `Expected at most ${maxLines} lines in error, but found ${lineCount}`).toBeLessThanOrEqual(maxLines);
+		});
+	}
+
 	async expectHtmlOutputVisible(): Promise<void> {
 		await test.step('Verify HTML output present', async () => {
 			const htmlCount = await this.htmlOutput.count();

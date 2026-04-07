@@ -534,16 +534,13 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		if (mime === 'application/vnd.code.notebook.error') {
 			try {
 				const errorData = JSON.parse(data);
-				const parts: string[] = [];
-				if (errorData.name) {
-					parts.push(`${errorData.name}: ${errorData.message || ''}`);
-				} else if (errorData.message) {
-					parts.push(errorData.message);
+				const stack = (errorData.stack || '').trim();
+				if (stack) {
+					return stack;
 				}
-				if (errorData.stack) {
-					parts.push(errorData.stack);
-				}
-				return parts.join('\n');
+				const name = (errorData.name || '').trim();
+				const message = (errorData.message || '').trim();
+				return name ? `${name}: ${message}` : (message || '');
 			} catch {
 				return data;
 			}

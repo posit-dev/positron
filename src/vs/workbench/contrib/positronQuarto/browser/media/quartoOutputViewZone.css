@@ -432,8 +432,14 @@
 	position: relative;
 }
 
+/* Hide the upstream ::after separator by default (from CodeCellStatusFooter.css) */
+.quarto-output-status-bar .code-cell-footer-duration::after {
+	display: none;
+}
+
 /* Vertical separator between duration and timestamp (only when has-separator class is set) */
 .quarto-output-status-bar .code-cell-footer-duration.has-separator::after {
+	display: block;
 	content: '';
 	position: absolute;
 	right: -7px;
@@ -446,11 +452,10 @@
 /* CPU percentage label next to sparkline */
 .quarto-output-status-bar .quarto-output-cpu-label {
 	flex-shrink: 0;
-	width: 7ch;
+	min-width: 5em;
 	margin-left: 4px;
 	margin-right: 20px;
-	font-family: var(--monaco-monospace-font);
-	font-size: 10px;
+	font-variant-numeric: tabular-nums;
 	text-align: right;
 	white-space: nowrap;
 }
