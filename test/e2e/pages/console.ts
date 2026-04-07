@@ -190,9 +190,13 @@ export class Console {
 	}
 
 	async waitForReady(prompt: string, timeout = 30000): Promise<void> {
-		await this.focus();
-		const activeLine = this.code.driver.currentPage.locator(`${ACTIVE_CONSOLE_INSTANCE} .active-line-number`);
-		await expect(activeLine).toHaveText(prompt, { timeout });
+		// Retry the focus + check together in case another panel (e.g. Terminal) steals
+		// focus after the console is focused but before the assertion completes.
+		await expect(async () => {
+			await this.focus();
+			const activeLine = this.code.driver.currentPage.locator(`${ACTIVE_CONSOLE_INSTANCE} .active-line-number`);
+			await expect(activeLine).toHaveText(prompt, { timeout: 5000 });
+		}).toPass({ timeout });
 	}
 
 	async waitForReadyAndStarted(prompt: string, timeout = 30000, expectedCount = 1): Promise<void> {
