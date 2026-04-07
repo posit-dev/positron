@@ -228,6 +228,13 @@ async function handleSave(
 		return handleApiKeySave(config, provider);
 	}
 
+	// Persist settings (e.g. base URL) before resolving the chain
+	// so the chain validator uses the value the user just entered.
+	const onSave = onSaveCallbacks.get(config.provider);
+	if (onSave) {
+		await onSave(config);
+	}
+
 	const session = await provider.createSession([], {});
 	return session.account.id;
 }
