@@ -939,9 +939,9 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 			return;
 		}
 
-		// Only update the foreground session when deleting a console session.
-		// The foreground session management for notebook sessions is handled by
-		// ForegroundSessionContribution.
+		// For console sessions, update the foreground session to the next available console session.
+		// For notebook sessions, just make sure the active console instance isn't left pointing at a
+		// deleted notebook console. Then let ForegroundSessionContribution handle the rest.
 		if (consoleInstance.sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 			// First try to use the last created console session for the runtime.
 			let runtimeSession = this._runtimeSessionService.getConsoleSessionForRuntime(
@@ -957,6 +957,17 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 				}
 			}
 			this._runtimeSessionService.foregroundSession = runtimeSession;
+		} else if (consoleInstance.sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
+			// For notebook sessions, switch the active console instance so the
+			// console pane isn't left empty.
+			if (this._activePositronConsoleInstance === consoleInstance) {
+				const instances = Array.from(this._positronConsoleInstancesBySessionId.values());
+				const currentIndex = instances.indexOf(consoleInstance);
+				if (currentIndex !== -1) {
+					const nextInstance = instances[currentIndex + 1] || instances[currentIndex - 1];
+					this.setActivePositronConsoleInstance(nextInstance);
+				}
+			}
 		}
 		this._positronConsoleInstancesBySessionId.delete(sessionId);
 
