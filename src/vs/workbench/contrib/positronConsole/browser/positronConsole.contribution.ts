@@ -20,7 +20,6 @@ import { POSITRON_CONSOLE_COPY, POSITRON_CONSOLE_PASTE, POSITRON_CONSOLE_SELECT_
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { ContextKeyExpr, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { PositronConsoleFindCommandId } from './positronConsoleFindCommandIds.js';
-import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { localize2 } from '../../../../nls.js';
@@ -113,12 +112,6 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 	}
 } satisfies ICommandAndKeybindingRule);
 
-// Helper to get the console view pane from the views service.
-function getConsoleViewPane(accessor: ServicesAccessor): PositronConsoleViewPane | undefined {
-	const viewsService = accessor.get(IViewsService);
-	return viewsService.getViewWithId<PositronConsoleViewPane>(POSITRON_CONSOLE_VIEW_ID) ?? undefined;
-}
-
 // Register keybinding rule for hiding find (Escape).
 KeybindingsRegistry.registerCommandAndKeybindingRule({
 	id: PositronConsoleFindCommandId.FindHide,
@@ -127,7 +120,7 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 	secondary: [KeyMod.Shift | KeyCode.Escape],
 	when: ContextKeyExpr.and(PositronConsoleFocused, PositronConsoleFindVisible),
 	handler: accessor => {
-		getConsoleViewPane(accessor)?.hideFindWidget();
+		accessor.get(IPositronConsoleService).hideFindWidget();
 	}
 } satisfies ICommandAndKeybindingRule);
 
@@ -139,7 +132,7 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 	mac: { primary: KeyMod.CtrlCmd | KeyCode.KeyG, secondary: [KeyCode.F3] },
 	when: ContextKeyExpr.and(PositronConsoleFocused, PositronConsoleFindVisible),
 	handler: accessor => {
-		getConsoleViewPane(accessor)?.findNext();
+		accessor.get(IPositronConsoleService).findNext();
 	}
 } satisfies ICommandAndKeybindingRule);
 
@@ -151,7 +144,7 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 	primary: KeyMod.Shift | KeyCode.Enter,
 	when: PositronConsoleFindInputFocused,
 	handler: accessor => {
-		getConsoleViewPane(accessor)?.findNext();
+		accessor.get(IPositronConsoleService).findNext();
 	}
 } satisfies ICommandAndKeybindingRule);
 
@@ -163,7 +156,7 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 	mac: { primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyG, secondary: [KeyMod.Shift | KeyCode.F3] },
 	when: ContextKeyExpr.and(PositronConsoleFocused, PositronConsoleFindVisible),
 	handler: accessor => {
-		getConsoleViewPane(accessor)?.findPrevious();
+		accessor.get(IPositronConsoleService).findPrevious();
 	}
 } satisfies ICommandAndKeybindingRule);
 
@@ -176,7 +169,7 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 	primary: KeyCode.Enter,
 	when: PositronConsoleFindInputFocused,
 	handler: accessor => {
-		getConsoleViewPane(accessor)?.findPrevious();
+		accessor.get(IPositronConsoleService).findPrevious();
 	}
 } satisfies ICommandAndKeybindingRule);
 
@@ -185,7 +178,7 @@ registerAction2(class extends Action2 {
 	constructor() {
 		super({
 			id: PositronConsoleFindCommandId.FindFocus,
-			title: localize2('positronConsole.focusFind', 'Console: Focus Find'),
+			title: localize2('positronConsole.find', 'Console: Find'),
 			f1: true,
 			keybinding: {
 				primary: KeyMod.CtrlCmd | KeyCode.KeyF,
@@ -195,7 +188,7 @@ registerAction2(class extends Action2 {
 		});
 	}
 	run(accessor: ServicesAccessor) {
-		getConsoleViewPane(accessor)?.revealFindWidget();
+		accessor.get(IPositronConsoleService).revealFindWidget();
 	}
 });
 

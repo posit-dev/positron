@@ -597,6 +597,22 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	initialize() {
 	}
 
+	revealFindWidget(): void {
+		this.activePositronConsoleInstance?.requestFind();
+	}
+
+	hideFindWidget(): void {
+		this.activePositronConsoleInstance?.requestHideFind();
+	}
+
+	findNext(): void {
+		this.activePositronConsoleInstance?.requestFindNext();
+	}
+
+	findPrevious(): void {
+		this.activePositronConsoleInstance?.requestFindPrevious();
+	}
+
 	/**
 	 * Begins the process of restoring a Positron console.
 	 *
@@ -1122,6 +1138,14 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private readonly _onFocusInputEmitter = this._register(new Emitter<void>);
 
 	/**
+	 * Find event emitters.
+	 */
+	private readonly _onDidRequestFindEmitter = this._register(new Emitter<void>);
+	private readonly _onDidRequestHideFindEmitter = this._register(new Emitter<void>);
+	private readonly _onDidRequestFindNextEmitter = this._register(new Emitter<void>);
+	private readonly _onDidRequestFindPreviousEmitter = this._register(new Emitter<void>);
+
+	/**
 	 * The onDidChangeState event emitter.
 	 */
 	private readonly _onDidChangeStateEmitter = this._register(new Emitter<PositronConsoleState>);
@@ -1432,6 +1456,14 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	readonly onFocusInput = this._onFocusInputEmitter.event;
 
 	/**
+	 * Find events.
+	 */
+	readonly onDidRequestFind = this._onDidRequestFindEmitter.event;
+	readonly onDidRequestHideFind = this._onDidRequestHideFindEmitter.event;
+	readonly onDidRequestFindNext = this._onDidRequestFindNextEmitter.event;
+	readonly onDidRequestFindPrevious = this._onDidRequestFindPreviousEmitter.event;
+
+	/**
 	 * onDidChangeState event.
 	 */
 	readonly onDidChangeState = this._onDidChangeStateEmitter.event;
@@ -1521,6 +1553,22 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 */
 	focusInput() {
 		this._onFocusInputEmitter.fire();
+	}
+
+	requestFind() {
+		this._onDidRequestFindEmitter.fire();
+	}
+
+	requestHideFind() {
+		this._onDidRequestHideFindEmitter.fire();
+	}
+
+	requestFindNext() {
+		this._onDidRequestFindNextEmitter.fire();
+	}
+
+	requestFindPrevious() {
+		this._onDidRequestFindPreviousEmitter.fire();
 	}
 
 	/**

@@ -29,6 +29,7 @@ import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browse
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { POSITRON_CONSOLE_COPY, POSITRON_CONSOLE_PASTE, POSITRON_CONSOLE_SELECT_ALL } from '../positronConsoleIdentifiers.js';
 import { IPositronConsoleInstance, PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { PositronConsoleFindWidget } from '../positronConsoleFindWidget.js';
 
 // ConsoleInstanceProps interface.
 interface ConsoleInstanceProps {
@@ -61,6 +62,64 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	const [runtimeAttached, setRuntimeAttached] = useState(props.positronConsoleInstance.runtimeAttached);
 	const [, setIgnoreNextScrollEvent, ignoreNextScrollEventRef] = useStateRef(false);
 	const [disconnected, setDisconnected] = useState(false);
+
+	// Reference to the find widget for this console instance.
+	const findWidgetRef = useRef<PositronConsoleFindWidget | undefined>(undefined);
+
+	// Create and manage the find widget for this console instance.
+	useEffect(() => {
+		if (!consoleInstanceRef.current) {
+			return;
+		}
+
+		const disposableStore = new DisposableStore();
+
+		const findWidget = disposableStore.add(
+			services.instantiationService.createInstance(PositronConsoleFindWidget)
+		);
+		findWidgetRef.current = findWidget;
+		consoleInstanceRef.current.prepend(findWidget.getDomNode());
+
+		// Wire up find events from the console instance.
+		disposableStore.add(props.positronConsoleInstance.onDidRequestFind(() => {
+			findWidget.reveal();
+		}));
+		disposableStore.add(props.positronConsoleInstance.onDidRequestHideFind(() => {
+			findWidget.hide();
+			props.positronConsoleInstance.focusInput();
+		}));
+		disposableStore.add(props.positronConsoleInstance.onDidRequestFindNext(() => {
+			findWidget.find(false);
+		}));
+		disposableStore.add(props.positronConsoleInstance.onDidRequestFindPrevious(() => {
+			findWidget.find(true);
+		}));
+
+		// Refresh find results when runtime items change (debounced).
+		let refreshTimeout: ReturnType<typeof setTimeout> | undefined;
+		disposableStore.add(props.positronConsoleInstance.onDidChangeRuntimeItems(() => {
+			if (refreshTimeout !== undefined) {
+				clearTimeout(refreshTimeout);
+			}
+			refreshTimeout = setTimeout(() => {
+				findWidget.refreshSearch();
+				refreshTimeout = undefined;
+			}, 100);
+		}));
+
+		return () => {
+			if (refreshTimeout !== undefined) {
+				clearTimeout(refreshTimeout);
+			}
+			findWidgetRef.current = undefined;
+			disposableStore.dispose();
+		};
+	}, [props.positronConsoleInstance, services.instantiationService]);
+
+	// Update find widget layout when width changes.
+	useEffect(() => {
+		findWidgetRef.current?.layout(props.width);
+	}, [props.width]);
 
 	// Determines whether the console is scrollable.
 	const scrollable = () => consoleInstanceRef.current.scrollHeight > consoleInstanceRef.current.clientHeight;

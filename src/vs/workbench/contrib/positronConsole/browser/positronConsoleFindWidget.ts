@@ -46,12 +46,8 @@ export class PositronConsoleFindWidget extends SimpleFindWidget {
 
 	private _matches: ISearchMatch[] = [];
 	private _currentMatchIndex: number = -1;
-	private _consoleContainer: HTMLElement;
-	private _resizeObserver: ResizeObserver | undefined;
-	private _observedElement: HTMLElement | undefined;
 
 	constructor(
-		consoleContainer: HTMLElement,
 		@IContextViewService contextViewService: IContextViewService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IHoverService hoverService: IHoverService,
@@ -72,14 +68,17 @@ export class PositronConsoleFindWidget extends SimpleFindWidget {
 			matchesLimit: MATCHES_LIMIT,
 		}, contextViewService, contextKeyService, hoverService, keybindingService);
 
-		this._consoleContainer = consoleContainer;
-
 		this._findInputFocused = PositronConsoleFindInputFocused.bindTo(contextKeyService);
 		this._findWidgetVisible = PositronConsoleFindVisible.bindTo(contextKeyService);
 
-		// Stop mouse events from propagating through to the console.
+		// Stop events from propagating through to the console instance.
+		// The console instance's keydown handler redirects typing to the
+		// console input, so we must prevent that when the find widget has focus.
 		const innerDom = this.getDomNode().firstChild;
 		if (innerDom) {
+			this._register(dom.addDisposableListener(innerDom, 'keydown', (event) => {
+				event.stopPropagation();
+			}));
 			this._register(dom.addDisposableListener(innerDom, 'mousedown', (event) => {
 				event.stopPropagation();
 			}));
@@ -174,7 +173,6 @@ export class PositronConsoleFindWidget extends SimpleFindWidget {
 
 		super.reveal(input);
 		this._findWidgetVisible.set(true);
-		this.observeConsoleInstance();
 
 		if (input && input.length > 0) {
 			this._performSearch();
@@ -190,46 +188,7 @@ export class PositronConsoleFindWidget extends SimpleFindWidget {
 		this._findWidgetVisible.reset();
 	}
 
-	/**
-	 * Update the horizontal position of the find widget so it stays within
-	 * the console pane area and does not overlap the tab list.
-	 */
-	private _updatePosition(): void {
-		const searchContainer = this._getSearchContainer();
-		if (searchContainer) {
-			const containerWidth = this._consoleContainer.offsetWidth;
-			const paneWidth = searchContainer.offsetWidth;
-			const rightOffset = containerWidth - paneWidth + 28;
-			this.getDomNode().style.right = `${rightOffset}px`;
-		}
-	}
-
-	/**
-	 * Start observing the active console instance element for size changes
-	 * so the find widget repositions when the splitter is dragged.
-	 */
-	public observeConsoleInstance(): void {
-		const searchContainer = this._getSearchContainer();
-		if (searchContainer === this._observedElement) {
-			return;
-		}
-		this._disposeResizeObserver();
-		if (searchContainer) {
-			this._observedElement = searchContainer;
-			this._resizeObserver = new ResizeObserver(() => this._updatePosition());
-			this._resizeObserver.observe(searchContainer);
-		}
-		this._updatePosition();
-	}
-
-	private _disposeResizeObserver(): void {
-		this._resizeObserver?.disconnect();
-		this._resizeObserver = undefined;
-		this._observedElement = undefined;
-	}
-
 	override dispose(): void {
-		this._disposeResizeObserver();
 		this._clearHighlights();
 		super.dispose();
 	}
@@ -237,16 +196,12 @@ export class PositronConsoleFindWidget extends SimpleFindWidget {
 	// --- Search implementation ---
 
 	/**
-	 * Gets the visible console instance container element.
+	 * Gets the console instance element that the widget is currently
+	 * attached to (its direct parent).
 	 */
 	private _getSearchContainer(): HTMLElement | undefined {
-		const instances = this._consoleContainer.querySelectorAll('.console-instance');
-		for (const instance of instances) {
-			if (dom.isHTMLElement(instance) && instance.style.zIndex !== '-1') {
-				return instance;
-			}
-		}
-		return undefined;
+		const parent = this.getDomNode().parentElement;
+		return parent && parent.classList.contains('console-instance') ? parent : undefined;
 	}
 
 	/**

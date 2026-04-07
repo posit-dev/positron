@@ -72,9 +72,12 @@ suite('PositronConsoleFindWidget', () => {
 		const instantiationService = workbenchInstantiationService(undefined, disposables);
 		contextKeyService = instantiationService.get(IContextKeyService) as MockContextKeyService;
 		widget = disposables.add(
-			instantiationService.createInstance(TestableConsoleFindWidget, consoleContainer)
+			instantiationService.createInstance(TestableConsoleFindWidget)
 		);
-		consoleContainer.appendChild(widget.getDomNode());
+		// Attach the widget to the visible console instance element
+		// (mirrors what ConsoleInstance does via useEffect).
+		const instance = consoleContainer.querySelector('.console-instance')!;
+		instance.appendChild(widget.getDomNode());
 	}
 
 	teardown(() => {
@@ -197,9 +200,11 @@ suite('PositronConsoleFindWidget', () => {
 			const instantiationService = workbenchInstantiationService(undefined, disposables);
 			contextKeyService = instantiationService.get(IContextKeyService) as MockContextKeyService;
 			widget = disposables.add(
-				instantiationService.createInstance(TestableConsoleFindWidget, consoleContainer)
+				instantiationService.createInstance(TestableConsoleFindWidget)
 			);
-			consoleContainer.appendChild(widget.getDomNode());
+			// Attach the widget to the visible instance
+			// (mirrors what ConsoleInstance does via useEffect).
+			visible.appendChild(widget.getDomNode());
 
 			widget.reveal('secret');
 			let result = await widget.getResultCount();

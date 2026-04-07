@@ -3,17 +3,18 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/* Make the pane body a positioning context for the find widget. */
-.pane-body:has(> .positron-console-container) {
-	position: relative;
+/* Keep the find widget pinned at the top of the scrollable console instance.
+	Use margin-left to right-align since sticky does not support right positioning. */
+.console-instance > .simple-find-part-wrapper {
+	position: sticky;
+	margin-left: auto;
+	z-index: 100;
 }
 
-/* Position the find widget below the action bar (28px). The right offset
-	is set dynamically by the widget to avoid overlapping the tab list. */
-.pane-body:has(> .positron-console-container) > .simple-find-part-wrapper {
-	position: absolute;
-	top: 28px;
-	z-index: 100;
+/* Reset the font inherited from the console instance's monospace editor font
+	(applied via inline styles by FontConfigurationManager). */
+.console-instance .simple-find-part {
+	font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 /* Highlight styles for find matches using the CSS Custom Highlight API */

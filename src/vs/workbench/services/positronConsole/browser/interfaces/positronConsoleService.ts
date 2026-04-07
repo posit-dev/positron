@@ -109,6 +109,26 @@ export interface IPositronConsoleService {
 	initialize(): void;
 
 	/**
+	 * Reveals the find widget in the active console instance.
+	 */
+	revealFindWidget(): void;
+
+	/**
+	 * Hides the find widget in the active console instance.
+	 */
+	hideFindWidget(): void;
+
+	/**
+	 * Navigates to the next find match in the active console instance.
+	 */
+	findNext(): void;
+
+	/**
+	 * Navigates to the previous find match in the active console instance.
+	 */
+	findPrevious(): void;
+
+	/**
 	 * Gets the current console input width, in characters.
 	 */
 	getConsoleWidth(): number;
@@ -366,6 +386,46 @@ export interface IPositronConsoleInstance {
 	 * Focuses the input for the console.
 	 */
 	focusInput(): void;
+
+	/**
+	 * The onDidRequestFind event. Fired when the find widget should be revealed.
+	 */
+	readonly onDidRequestFind: Event<void>;
+
+	/**
+	 * The onDidRequestHideFind event. Fired when the find widget should be hidden.
+	 */
+	readonly onDidRequestHideFind: Event<void>;
+
+	/**
+	 * The onDidRequestFindNext event. Fired when the find widget should navigate to the next match.
+	 */
+	readonly onDidRequestFindNext: Event<void>;
+
+	/**
+	 * The onDidRequestFindPrevious event. Fired when the find widget should navigate to the previous match.
+	 */
+	readonly onDidRequestFindPrevious: Event<void>;
+
+	/**
+	 * Requests that the find widget be revealed.
+	 */
+	requestFind(): void;
+
+	/**
+	 * Requests that the find widget be hidden.
+	 */
+	requestHideFind(): void;
+
+	/**
+	 * Requests navigation to the next find match.
+	 */
+	requestFindNext(): void;
+
+	/**
+	 * Requests navigation to the previous find match.
+	 */
+	requestFindPrevious(): void;
 
 	/**
 	 * Tells the console its current console input width, in characters. Fires

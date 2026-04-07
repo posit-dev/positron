@@ -152,6 +152,22 @@ export class TestPositronConsoleService implements IPositronConsoleService {
 		// No-op for test implementation
 	}
 
+	revealFindWidget(): void {
+		this._activePositronConsoleInstance?.requestFind();
+	}
+
+	hideFindWidget(): void {
+		this._activePositronConsoleInstance?.requestHideFind();
+	}
+
+	findNext(): void {
+		this._activePositronConsoleInstance?.requestFindNext();
+	}
+
+	findPrevious(): void {
+		this._activePositronConsoleInstance?.requestFindPrevious();
+	}
+
 	/**
 	 * Gets the current console input width, in characters.
 	 */
@@ -295,6 +311,10 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 	private readonly _onDidAttachSessionEmitter = new Emitter<ILanguageRuntimeSession | undefined>();
 	private readonly _onDidChangeWidthInCharsEmitter = new Emitter<number>();
 	private readonly _onDidRequestRevealExecutionEmitter = new Emitter<string>();
+	private readonly _onDidRequestFindEmitter = new Emitter<void>();
+	private readonly _onDidRequestHideFindEmitter = new Emitter<void>();
+	private readonly _onDidRequestFindNextEmitter = new Emitter<void>();
+	private readonly _onDidRequestFindPreviousEmitter = new Emitter<void>();
 
 	private _state: PositronConsoleState = PositronConsoleState.Ready;
 	private _trace: boolean = false;
@@ -386,6 +406,22 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 		return this._onDidChangeWidthInCharsEmitter.event;
 	}
 
+	get onDidRequestFind(): Event<void> {
+		return this._onDidRequestFindEmitter.event;
+	}
+
+	get onDidRequestHideFind(): Event<void> {
+		return this._onDidRequestHideFindEmitter.event;
+	}
+
+	get onDidRequestFindNext(): Event<void> {
+		return this._onDidRequestFindNextEmitter.event;
+	}
+
+	get onDidRequestFindPrevious(): Event<void> {
+		return this._onDidRequestFindPreviousEmitter.event;
+	}
+
 	get state(): PositronConsoleState {
 		return this._state;
 	}
@@ -438,6 +474,22 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 
 	focusInput(): void {
 		this._onFocusInputEmitter.fire();
+	}
+
+	requestFind(): void {
+		this._onDidRequestFindEmitter.fire();
+	}
+
+	requestHideFind(): void {
+		this._onDidRequestHideFindEmitter.fire();
+	}
+
+	requestFindNext(): void {
+		this._onDidRequestFindNextEmitter.fire();
+	}
+
+	requestFindPrevious(): void {
+		this._onDidRequestFindPreviousEmitter.fire();
 	}
 
 	setWidthInChars(newWidth: number): void {
