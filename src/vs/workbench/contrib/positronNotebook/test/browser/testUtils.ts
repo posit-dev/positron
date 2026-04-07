@@ -139,7 +139,20 @@ export async function createPositronNotebookTestServices(disposables: Disposable
 
 	const mockWebviewPreloadService: Partial<IPositronWebviewPreloadService> = {
 		initialize: () => { },
-		attachNotebookInstance: () => { }
+		onDidCreatePlot: Event.None,
+		sessionInfo: () => null,
+		attachNotebookInstance: () => { },
+		addNotebookOutput: () => undefined,
+		addRawHtmlOutput: ({ outputId }) => ({
+			preloadMessageType: 'display',
+			webview: Promise.resolve({
+				id: outputId,
+				sessionId: outputId,
+				dispose: () => { },
+				onDidRender: Event.None,
+			}),
+		}),
+		removeRawHtmlOutput: () => { },
 	};
 	instantiationService.stub(IPositronWebviewPreloadService, mockWebviewPreloadService);
 

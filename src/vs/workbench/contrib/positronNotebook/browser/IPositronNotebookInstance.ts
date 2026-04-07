@@ -12,6 +12,7 @@ import { Event } from '../../../../base/common/event.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { IBaseCellEditorOptions } from '../../notebook/browser/notebookBrowser.js';
 import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
+import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
 import { RuntimeNotebookKernel } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernel.js';
 import { IPositronNotebookEditor } from './IPositronNotebookEditor.js';
 import { IHoverManager } from '../../../../platform/hover/browser/hoverManager.js';
@@ -171,6 +172,16 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * will trigger UI updates in connected views.
 	 */
 	readonly cells: IObservable<IPositronNotebookCell[]>;
+
+	/**
+	 * The backing notebook text model, when attached.
+	 */
+	readonly textModel: NotebookTextModel | undefined;
+
+	/**
+	 * Fired when the backing notebook model is attached or replaced.
+	 */
+	readonly onDidChangeModel: Event<NotebookTextModel | undefined>;
 
 	/**
 	 * Observable status of the notebook's kernel connection. UI elements can

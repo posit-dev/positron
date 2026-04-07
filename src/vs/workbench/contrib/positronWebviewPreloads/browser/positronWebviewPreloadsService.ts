@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, MutableDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageWebOutput, LanguageRuntimeMessageType, LanguageRuntimeSessionMode, RuntimeOutputKind } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPositronWebviewPreloadService, NotebookPreloadOutputResults } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
@@ -16,6 +16,7 @@ import { VSBuffer } from '../../../../base/common/buffer.js';
 import { isWebviewDisplayMessage, getWebviewMessageType } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { IPositronNotebookInstance } from '../../positronNotebook/browser/IPositronNotebookInstance.js';
 import { IPositronIPyWidgetsService } from '../../../services/positronIPyWidgets/common/positronIPyWidgetsService.js';
+import { NotebookCellsChangeType, NotebookTextModelChangedEvent } from '../../notebook/common/notebookCommon.js';
 
 /**
  * Format of output from a notebook cell
@@ -35,8 +36,14 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 	/** Map of created ipywidgets webviews keyed by output ID for Positron notebooks. */
 	private readonly _widgetWebviewsByOutputId = new Map<string, Promise<INotebookOutputWebview>>();
 
-	/** Map tracking which output IDs belong to which notebook for cache cleanup. */
-	private readonly _outputIdsByNotebookId = new Map<string, Set<string>>();
+	/** Map tracking which widget output IDs belong to which notebook for cache cleanup. */
+	private readonly _widgetOutputIdsByNotebookId = new Map<string, Set<string>>();
+
+	/** Map of created raw HTML webviews keyed by output ID for Positron notebooks. */
+	private readonly _rawHtmlWebviewsByOutputId = new Map<string, Promise<INotebookOutputWebview>>();
+
+	/** Map tracking which raw HTML output IDs belong to which notebook. */
+	private readonly _rawHtmlOutputIdsByNotebookId = new Map<string, Set<string>>();
 
 	/** Tracks the HTML content for cached raw HTML webviews to detect content changes. */
 	private readonly _rawHtmlByOutputId = new Map<string, string>();
@@ -137,22 +144,86 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		this._messagesByNotebookId.set(notebookId, messagesForNotebook);
 
 		// Initialize output ID tracking for this notebook
-		this._outputIdsByNotebookId.set(notebookId, new Set());
+		this._widgetOutputIdsByNotebookId.set(notebookId, new Set());
+		this._rawHtmlOutputIdsByNotebookId.set(notebookId, new Set());
+
+		const modelDisposables = disposables.add(new MutableDisposable<DisposableStore>());
+		const attachModel = () => {
+			const textModel = instance.textModel;
+			modelDisposables.clear();
+
+			if (!textModel) {
+				this._reconcileRawHtmlOutputs(instance);
+				return;
+			}
+
+			const notebookModelDisposables = new DisposableStore();
+			notebookModelDisposables.add(textModel.onDidChangeContent(event => {
+				if (this._affectsNotebookOutputs(event)) {
+					this._reconcileRawHtmlOutputs(instance);
+				}
+			}));
+			modelDisposables.value = notebookModelDisposables;
+			this._reconcileRawHtmlOutputs(instance);
+		};
+
+		attachModel();
+		disposables.add(instance.onDidChangeModel(() => {
+			attachModel();
+		}));
 
 		// Clean up webview cache entries when notebook is disposed
 		disposables.add(toDisposable(() => {
-			const outputIds = this._outputIdsByNotebookId.get(notebookId);
-			if (outputIds) {
-				// Remove all cached webview promises and HTML content for this notebook's outputs
-				outputIds.forEach(outputId => {
-					this._widgetWebviewsByOutputId.delete(outputId);
-					this._rawHtmlByOutputId.delete(outputId);
-				});
-				this._outputIdsByNotebookId.delete(notebookId);
-			}
+			const widgetOutputIds = this._widgetOutputIdsByNotebookId.get(notebookId);
+			widgetOutputIds?.forEach(outputId => {
+				this._widgetWebviewsByOutputId.delete(outputId);
+			});
+			this._widgetOutputIdsByNotebookId.delete(notebookId);
+
+			const rawHtmlOutputIds = this._rawHtmlOutputIdsByNotebookId.get(notebookId);
+			rawHtmlOutputIds?.forEach(outputId => {
+				this._disposeRawHtmlOutput(outputId);
+			});
+			this._rawHtmlOutputIdsByNotebookId.delete(notebookId);
+
 			this._messagesByNotebookId.delete(notebookId);
 			this._notebookToDisposablesMap.delete(notebookId);
 		}));
+	}
+
+	private _affectsNotebookOutputs(event: NotebookTextModelChangedEvent): boolean {
+		return event.rawEvents.some(rawEvent =>
+			rawEvent.kind === NotebookCellsChangeType.Output ||
+			rawEvent.kind === NotebookCellsChangeType.OutputItem ||
+			rawEvent.kind === NotebookCellsChangeType.ModelChange
+		);
+	}
+
+	private _reconcileRawHtmlOutputs(instance: IPositronNotebookInstance): void {
+		const trackedOutputIds = this._rawHtmlOutputIdsByNotebookId.get(instance.getId());
+		if (!trackedOutputIds?.size) {
+			return;
+		}
+
+		const liveOutputIds = new Set(
+			instance.textModel?.cells.flatMap(cell => cell.outputs.map(output => output.outputId)) ?? []
+		);
+
+		for (const outputId of Array.from(trackedOutputIds)) {
+			if (!liveOutputIds.has(outputId)) {
+				this.removeRawHtmlOutput({ instance, outputId });
+			}
+		}
+	}
+
+	private _disposeRawHtmlOutput(outputId: string): void {
+		const webviewPromise = this._rawHtmlWebviewsByOutputId.get(outputId);
+		if (webviewPromise) {
+			webviewPromise.then(webview => webview.dispose()).catch(() => { /* already disposed or creation failed */ });
+		}
+
+		this._rawHtmlWebviewsByOutputId.delete(outputId);
+		this._rawHtmlByOutputId.delete(outputId);
 	}
 
 	static notebookMessageToRuntimeOutput(message: NotebookOutput, kind: RuntimeOutputKind): ILanguageRuntimeMessageWebOutput {
@@ -273,16 +344,14 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		// parseCellOutputs() fires on every onDidChangeOutputItems event,
 		// so without this check we'd destroy and recreate the webview on
 		// every minor output change, causing visible flicker.
-		const existing = this._widgetWebviewsByOutputId.get(outputId);
+		const existing = this._rawHtmlWebviewsByOutputId.get(outputId);
 		if (existing && this._rawHtmlByOutputId.get(outputId) === html) {
 			return { preloadMessageType: 'display', webview: existing };
 		}
 
 		// HTML changed under the same output ID -- dispose the old webview
 		if (existing) {
-			existing.then(webview => webview.dispose()).catch(() => { /* already disposed or creation failed */ });
-			this._widgetWebviewsByOutputId.delete(outputId);
-			this._rawHtmlByOutputId.delete(outputId);
+			this._disposeRawHtmlOutput(outputId);
 		}
 
 		// Validate notebook is attached (same precondition as widget creation)
@@ -296,19 +365,18 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 				// Remove from cache on failure to allow retry (mirrors widget pattern).
 				// Only clear if this promise is still the current cached entry -- if HTML
 				// changed while we were pending, a newer promise may have replaced us.
-				if (this._widgetWebviewsByOutputId.get(outputId) === webviewPromise) {
-					this._widgetWebviewsByOutputId.delete(outputId);
-					this._rawHtmlByOutputId.delete(outputId);
+				if (this._rawHtmlWebviewsByOutputId.get(outputId) === webviewPromise) {
+					this._disposeRawHtmlOutput(outputId);
 				}
 				throw err;
 			});
 
 		// Cache by output ID for reuse and disposal tracking
-		this._widgetWebviewsByOutputId.set(outputId, webviewPromise);
+		this._rawHtmlWebviewsByOutputId.set(outputId, webviewPromise);
 		this._rawHtmlByOutputId.set(outputId, html);
 
 		// Track output ID for cache cleanup when notebook is disposed
-		const outputIds = this._outputIdsByNotebookId.get(instance.getId());
+		const outputIds = this._rawHtmlOutputIdsByNotebookId.get(instance.getId());
 		if (outputIds) {
 			outputIds.add(outputId);
 		}
@@ -320,6 +388,11 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		);
 
 		return { preloadMessageType: 'display', webview: webviewPromise };
+	}
+
+	public removeRawHtmlOutput({ instance, outputId }: { instance: IPositronNotebookInstance; outputId: string }): void {
+		this._rawHtmlOutputIdsByNotebookId.get(instance.getId())?.delete(outputId);
+		this._disposeRawHtmlOutput(outputId);
 	}
 
 	/**
@@ -344,7 +417,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		}
 
 		// Track this output ID for cache cleanup when notebook is disposed
-		const outputIds = this._outputIdsByNotebookId.get(instance.getId());
+		const outputIds = this._widgetOutputIdsByNotebookId.get(instance.getId());
 		if (outputIds) {
 			outputIds.add(displayMessage.id);
 		}

@@ -93,4 +93,12 @@ export interface IPositronWebviewPreloadService {
 		outputId: string;
 		html: string;
 	}): NotebookPreloadOutputResults;
+
+	/**
+	 * Dispose and forget any cached raw HTML webview for a notebook output.
+	 */
+	removeRawHtmlOutput(params: {
+		instance: IPositronNotebookInstance;
+		outputId: string;
+	}): void;
 }
