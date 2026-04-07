@@ -16,6 +16,21 @@ import { AppPreviewOptions, Config, PositronProxyInfo } from './types.js';
 import { shouldUsePositronProxy, showShellIntegrationNotSupportedMessage, showEnableShellIntegrationMessage } from './api-utils.js';
 
 
+type PreviewMode = 'internal' | 'external' | 'none';
+
+function parsePreviewMode(value: string | undefined): PreviewMode {
+	const mode = value ?? 'internal';
+	switch (mode) {
+		case 'internal':
+		case 'external':
+		case 'none':
+			return mode;
+		default:
+			log.warn(`Unknown preview mode '${mode}', falling back to 'internal'`);
+			return 'internal';
+	}
+}
+
 export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable {
 	private static readonly CONSOLE_SESSIONS_KEY = 'consoleSessionsByName';
 
@@ -224,9 +239,10 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			const execution = shellIntegration.executeCommand(terminalOptions.commandLine);
 
 			// Wait for the server URL in the execution output.
-			if (options.preview !== 'none') {
+			const preview = parsePreviewMode(options.preview);
+			if (preview !== 'none') {
 				const previewOptions: AppPreviewOptions = {
-					preview: options.preview,
+					preview,
 					terminalPid: await terminal.processId,
 					proxyInfo,
 					urlPath: options.urlPath,
@@ -352,16 +368,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			positron.runtime.focusSession(sessionId);
 			progress.report({ message: vscode.l10n.t('Starting application...') });
 
-			let preview = options.preview ?? 'internal';
-			switch (preview) {
-				case 'internal':
-				case 'external':
-				case 'none':
-					break;
-				default:
-					log.warn(`Unknown preview mode '${preview}', falling back to 'internal'`);
-					preview = 'internal';
-			}
+			const preview = parsePreviewMode(options.preview);
 
 			// Set up URL detection via an observer for the output of our execute request.
 			// Always created but only consumed when `preview` is not `'none'`.
