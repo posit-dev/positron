@@ -446,6 +446,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	clearAllOutputs(): void {
 		this._disposeAllViewZones();
 		this._outputsByCell.clear();
+		this._executionInfoByCell.clear();
 	}
 
 	/**
@@ -914,6 +915,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		// Set up clear callback
 		viewZone.onClear = () => {
 			this._outputsByCell.delete(cellId);
+			this._executionInfoByCell.delete(cellId);
 			this._viewZones.delete(cellId);
 			this._onDidChangeOutputs.fire({
 				cellId,

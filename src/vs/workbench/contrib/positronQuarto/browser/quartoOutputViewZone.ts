@@ -790,15 +790,15 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._isRecomputing = false;
 		this._styledContainer.classList.remove('quarto-output-recomputing');
 
-		// Update status-only state (may still show status bar)
-		this._updateStatusOnlyState();
+		// Hide the status bar and stop any running timer/sparkline.
+		// This is an explicit user action to dismiss the output, so the
+		// status line should be cleared too.
+		this._statusBar.style.display = 'none';
+		this._stopTimer();
+		this._stopSparkline();
 
-		// Hide the view zone when outputs are cleared (unless showing status only)
-		if (!this._isStatusOnly) {
-			this.hide();
-		} else {
-			this._updateHeight();
-		}
+		this._isStatusOnly = false;
+		this.hide();
 
 		this._onClear?.();
 	}
