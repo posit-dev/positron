@@ -38,6 +38,9 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 	/** Map tracking which output IDs belong to which notebook for cache cleanup. */
 	private readonly _outputIdsByNotebookId = new Map<string, Set<string>>();
 
+	/** Tracks the HTML content for cached raw HTML webviews to detect content changes. */
+	private readonly _rawHtmlByOutputId = new Map<string, string>();
+
 	/**
 	 * Map to disposeable stores for each session. Used to prevent memory leaks caused by
 	 * repeatedly attaching to the same session which can happen in the case of the application
@@ -140,8 +143,11 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		disposables.add(toDisposable(() => {
 			const outputIds = this._outputIdsByNotebookId.get(notebookId);
 			if (outputIds) {
-				// Remove all cached webview promises for this notebook's outputs
-				outputIds.forEach(outputId => this._widgetWebviewsByOutputId.delete(outputId));
+				// Remove all cached webview promises and HTML content for this notebook's outputs
+				outputIds.forEach(outputId => {
+					this._widgetWebviewsByOutputId.delete(outputId);
+					this._rawHtmlByOutputId.delete(outputId);
+				});
 				this._outputIdsByNotebookId.delete(notebookId);
 			}
 			this._messagesByNotebookId.delete(notebookId);
@@ -256,18 +262,27 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 	}
 	/**
 	 * Create an overlay webview for raw HTML content (e.g. folium maps).
-	 * Returns a cached webview if one already exists for the output ID (important
-	 * because parseCellOutputs() is called on every output change event, not just
-	 * re-runs). Tracks the webview for cleanup on notebook close.
+	 * Returns a cached webview if one already exists for the output ID with
+	 * identical HTML content (important because parseCellOutputs() is called on
+	 * every output change event, not just re-runs). If the HTML content changed
+	 * under the same output ID, the old webview is disposed and a new one is
+	 * created. Tracks the webview for cleanup on notebook close.
 	 */
 	public addRawHtmlOutput({ instance, outputId, html }: { instance: IPositronNotebookInstance; outputId: string; html: string }): NotebookPreloadOutputResults {
-		// Return cached webview if one already exists for this output.
+		// Return cached webview if one already exists with the same HTML content.
 		// parseCellOutputs() fires on every onDidChangeOutputItems event,
 		// so without this check we'd destroy and recreate the webview on
 		// every minor output change, causing visible flicker.
 		const existing = this._widgetWebviewsByOutputId.get(outputId);
-		if (existing) {
+		if (existing && this._rawHtmlByOutputId.get(outputId) === html) {
 			return { preloadMessageType: 'display', webview: existing };
+		}
+
+		// HTML changed under the same output ID -- dispose the old webview
+		if (existing) {
+			existing.then(webview => webview.dispose()).catch(() => { /* already disposed or creation failed */ });
+			this._widgetWebviewsByOutputId.delete(outputId);
+			this._rawHtmlByOutputId.delete(outputId);
 		}
 
 		// Validate notebook is attached (same precondition as widget creation)
@@ -276,10 +291,17 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 			throw new Error(`[PositronWebviewPreloadService]: Could not find disposables for notebook ${instance.getId()}`);
 		}
 
-		const webviewPromise = this._notebookOutputWebviewService.createRawHtmlOutputWebview(outputId, html);
+		const webviewPromise = this._notebookOutputWebviewService.createRawHtmlOutputWebview(outputId, html)
+			.catch(err => {
+				// Remove from cache on failure to allow retry (mirrors widget pattern)
+				this._widgetWebviewsByOutputId.delete(outputId);
+				this._rawHtmlByOutputId.delete(outputId);
+				throw err;
+			});
 
 		// Cache by output ID for reuse and disposal tracking
 		this._widgetWebviewsByOutputId.set(outputId, webviewPromise);
+		this._rawHtmlByOutputId.set(outputId, html);
 
 		// Track output ID for cache cleanup when notebook is disposed
 		const outputIds = this._outputIdsByNotebookId.get(instance.getId());
@@ -290,7 +312,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		// Register in notebook disposables so it's cleaned up on close
 		webviewPromise.then(
 			webview => disposables.add(webview),
-			err => console.error('[PositronWebviewPreloadService] Failed to create raw HTML webview', err)
+			() => { /* error already handled above in .catch() */ }
 		);
 
 		return { preloadMessageType: 'display', webview: webviewPromise };
