@@ -331,6 +331,13 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 
 			const webviewPromise = this._createNotebookPlotWebview(instance, runtimeOutput);
 			this._widgetWebviewsByOutputId.set(runtimeOutput.id, webviewPromise);
+
+			// Track for cache cleanup when notebook is disposed
+			const outputIds = this._widgetOutputIdsByNotebookId.get(instance.getId());
+			if (outputIds) {
+				outputIds.add(runtimeOutput.id);
+			}
+
 			return {
 				preloadMessageType: messageType,
 				webview: webviewPromise
