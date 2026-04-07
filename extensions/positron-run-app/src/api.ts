@@ -713,12 +713,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		if (options.preview === 'external') {
 			await vscode.env.openExternal(previewUri);
 		} else {
-			// Preview the app in the Viewer.
-			if (options.previewSource) {
-				positron.window.previewUrl(previewUri, options.previewSource);
-			} else {
-				positron.window.previewUrl(previewUri);
-			}
+			positron.window.previewUrl(previewUri, options.previewSource);
 		}
 
 		return true;
