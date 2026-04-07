@@ -48,8 +48,10 @@ interface RunAppOptionsBase {
 	 * - `'internal'` — open in the Positron Viewer pane.
 	 * - `'external'` — open in an external browser.
 	 * - `'none'`     — skip URL detection and preview entirely.
+	 * - `'manual'`   — detect the URL but return it to the caller
+	 *                   instead of previewing.
 	 */
-	preview?: 'internal' | 'external' | 'none';
+	preview?: 'internal' | 'external' | 'none' | 'manual';
 
 	/**
 	 * The optional URL path at which to preview the application.
@@ -160,19 +162,23 @@ export interface PositronRunApp {
 	 * Run an application in the terminal.
 	 *
 	 * @param options Options for running the application.
-	 * @returns If terminal shell integration is supported, resolves when the application server has
-	 *  started, otherwise resolves when the command has been sent to the terminal.
+	 * @returns If terminal shell integration is supported, resolves when the
+	 *  application server has started, otherwise resolves when the command has
+	 *  been sent to the terminal. When `preview` is `'manual'`, resolves with
+	 *  the detected URL (rejects if detection fails).
 	 */
-	runApplication(options: RunAppOptions): Promise<void>;
+	runApplication(options: RunAppOptions): Promise<vscode.Uri | undefined>;
 
 	/**
 	 * Run an application in a new console session.
 	 *
 	 * @param options Options for running the application.
 	 * @returns Resolves when the application server has started, or when the
-	 *  code has been sent to the console if URL detection times out.
+	 *  code has been sent to the console if URL detection times out. When
+	 *  `preview` is `'manual'`, resolves with the detected URL (rejects if
+	 *  detection fails).
 	 */
-	runApplicationInConsole(options: RunConsoleAppOptions): Promise<void>;
+	runApplicationInConsole(options: RunConsoleAppOptions): Promise<vscode.Uri | undefined>;
 
 	/**
 	 * Debug an application.
