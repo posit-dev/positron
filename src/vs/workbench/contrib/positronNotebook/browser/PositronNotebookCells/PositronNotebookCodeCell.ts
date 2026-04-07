@@ -17,6 +17,7 @@ import { pickPreferredOutputItem } from './notebookOutputUtils.js';
 import { getWebviewMessageType, isComplexHtml } from '../../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { INotebookExecutionStateService } from '../../../notebook/common/notebookExecutionStateService.js';
 import { IPositronCellOutputViewModel } from '../IPositronNotebookEditor.js';
+import { IWorkspaceTrustManagementService } from '../../../../../platform/workspace/common/workspaceTrust.js';
 
 export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implements IPositronNotebookCodeCell {
 	override kind: CellKind.Code = CellKind.Code;
@@ -40,6 +41,7 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 		@INotebookExecutionStateService _executionStateService: INotebookExecutionStateService,
 		@ITextModelService _textModelService: ITextModelService,
 		@IPositronWebviewPreloadService private _webviewPreloadService: IPositronWebviewPreloadService,
+		@IWorkspaceTrustManagementService private _workspaceTrustManagementService: IWorkspaceTrustManagementService,
 	) {
 		super(cellModel, instance, _executionStateService, _textModelService);
 
@@ -161,7 +163,11 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 			// Complex HTML (scripts, iframes, full documents) can't render inline
 			// due to Trusted Types / CSP restrictions. Route through an overlay
 			// webview where scripts execute in an isolated process.
-			if (!preloadMessageType && preferredOutputItem.mime === 'text/html') {
+			// Only do this in trusted workspaces -- untrusted notebooks may have
+			// persisted outputs with malicious scripts. In untrusted workspaces,
+			// complex HTML falls through to the safe inline renderer.
+			if (!preloadMessageType && preferredOutputItem.mime === 'text/html'
+				&& this._workspaceTrustManagementService.isWorkspaceTrusted()) {
 				const htmlContent = preferredOutputItem.data.toString();
 				if (isComplexHtml(htmlContent)) {
 					parsedOutput.preloadMessageResult = this._webviewPreloadService.addRawHtmlOutput({
