@@ -533,10 +533,10 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		}));
 
 		// Register the onDidChangeForegroundSession event handler so we can activate the REPL for the active runtime.
+		// When the foreground session is undefined (e.g. a notebook with an exited session is focused),
+		// we keep the current active console instance so the console pane isn't cleared.
 		this._register(this._runtimeSessionService.onDidChangeForegroundSession(session => {
-			if (!session) {
-				this.setActivePositronConsoleInstance();
-			} else {
+			if (session) {
 				const positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(
 					session.sessionId);
 				if (positronConsoleInstance) {
@@ -937,24 +937,34 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 			return;
 		}
 
-		// Only update the foreground session when deleting a console session.
-		// The foreground session management for notebook sessions is handled by
-		// ForegroundSessionContribution.
+		// For console sessions, update the foreground session to the next available one.
+		// For notebook sessions, updating the foreground session is managed by ForegroundSessionContribution
 		if (consoleInstance.sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 			// First try to use the last created console session for the runtime.
 			let runtimeSession = this._runtimeSessionService.getConsoleSessionForRuntime(
 				consoleInstance.runtimeMetadata.runtimeId
 			);
 			if (!runtimeSession) {
-				// Otherwise, select the next available runtime session.
-				const sessions = Array.from(this._positronConsoleInstancesBySessionId.values());
-				const currentIndex = sessions.indexOf(consoleInstance);
+				const instances = Array.from(this._positronConsoleInstancesBySessionId.values());
+				const currentIndex = instances.indexOf(consoleInstance);
 				if (currentIndex !== -1) {
-					const nextSession = sessions[currentIndex + 1] || sessions[currentIndex - 1];
-					runtimeSession = nextSession?.session;
+					const nextInstance = instances[currentIndex + 1] || instances[currentIndex - 1];
+					runtimeSession = nextInstance?.session;
 				}
 			}
 			this._runtimeSessionService.foregroundSession = runtimeSession;
+		} else if (consoleInstance.sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
+			// For notebook sessions with a console instance, we need to find a different console
+			// instance that we can set as the active console instance so the console is not blank
+			// once the notebook console instance is deleted.
+			if (this._activePositronConsoleInstance === consoleInstance) {
+				const instances = Array.from(this._positronConsoleInstancesBySessionId.values());
+				const currentIndex = instances.indexOf(consoleInstance);
+				if (currentIndex !== -1) {
+					const nextInstance = instances[currentIndex + 1] || instances[currentIndex - 1];
+					this.setActivePositronConsoleInstance(nextInstance);
+				}
+			}
 		}
 		this._positronConsoleInstancesBySessionId.delete(sessionId);
 

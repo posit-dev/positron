@@ -121,6 +121,15 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 			}
 		}));
 
+		// Listen for notebook session deletion. When a notebook session is deleted
+		// (e.g. after kernel shutdown) and it was the foreground session, re-evaluate
+		// the foreground so the console pane switches to a console session.
+		this._register(this._runtimeSessionService.onDidDeleteRuntimeSession((sessionId) => {
+			if (this._runtimeSessionService.foregroundSession?.sessionId === sessionId) {
+				this._handleActiveEditorChange();
+			}
+		}));
+
 		// Listen for console instance selection (e.g., clicking a console tab or focusing the console pane)
 		this._register(this._positronConsoleService.onDidChangeActivePositronConsoleInstance((instance) => {
 			this._handleConsoleInstanceSelected(instance);
