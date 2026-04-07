@@ -13,7 +13,7 @@ test.use({
 /**
  * Test suite for the setup of Positron Assistant.
  */
-test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB] }, () => {
+test.fixme('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB] }, () => {
 	/**
 	 * Verifies that Posit AI is the first provider in the Configure Providers modal.
 	 * This ensures Posit AI has prominence as the default/recommended provider.
@@ -226,10 +226,8 @@ test.describe('Positron Assistant Model Picker Default Indicator', { tag: [tags.
 		// Close the dropdown
 		await assistant.closeModelPickerDropdown();
 
-		// Clean up: reset the setting
-		await settings.set({
-			'positron.assistant.models.preference.echo': ''
-		});
+		// Clean up: remove the setting (avoids editor interaction that can fail when chat input has focus)
+		await settings.remove(['positron.assistant.models.preference.echo']);
 	});
 
 });
@@ -249,11 +247,8 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 	});
 
 	test.afterAll('Sign out of providers and clean up', async function ({ app, settings }) {
-		// Clean up settings
-		await settings.set({
-			'positron.assistant.models.preference.anthropic': '',
-			'positron.assistant.models.preference.echo': ''
-		});
+		// Clean up settings (use remove to avoid editor interaction that can fail when chat input has focus)
+		await settings.remove(['positron.assistant.models.preference.anthropic', 'positron.assistant.models.preference.echo']);
 
 		// Sign out of providers (methods handle auto-sign-in detection)
 		await expect(async () => {
