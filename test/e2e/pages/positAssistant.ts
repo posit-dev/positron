@@ -5,7 +5,6 @@
 
 import { expect, FrameLocator } from '@playwright/test';
 import { Code } from '../infra/code';
-import { QuickAccess } from './quickaccess';
 
 // Webview frame selectors (Posit Assistant renders inside a VS Code webview)
 const OUTER_FRAME = '.webview';
@@ -60,7 +59,7 @@ const TOOL_DECLINE_BUTTON = 'button.rounded-r-none:has-text("Decline")';
  */
 export class PositAssistant {
 
-	constructor(private code: Code, private quickaccess: QuickAccess) { }
+	constructor(private code: Code) { }
 
 	/**
 	 * Gets the frame locator for the Posit Assistant webview content.
@@ -81,9 +80,6 @@ export class PositAssistant {
 			await button.click();
 		}
 		await expect(button.locator('..')).toHaveAttribute('aria-selected', 'true');
-		// Maximize the sidebar so the webview is not obscured by outer-page
-		// elements (activity bar, pane-body) on small CI viewports.
-		await this.quickaccess.runCommand('workbench.action.fullSizedSidebar');
 	}
 
 	/**

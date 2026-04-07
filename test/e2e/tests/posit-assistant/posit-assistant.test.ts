@@ -20,6 +20,9 @@ test.describe('Posit Assistant', {
 		test.describe(provider, () => {
 			test.beforeAll(async function ({ app }) {
 				await app.workbench.assistant.loginModelProvider(provider);
+				// Maximize the sidebar so the Posit Assistant webview is not
+				// obscured by outer-page elements on small CI viewports.
+				await app.workbench.quickaccess.runCommand('workbench.action.fullSizedSidebar');
 			});
 
 			test.afterAll(async function ({ app }) {
