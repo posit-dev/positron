@@ -1333,6 +1333,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// Clean up if necessary (should already by done once the runtime is exited).
 			this.updateSessionMapsAfterExit(session);
 
+			// Clear the last active console session if it is the session being deleted.
+			if (this._lastActiveConsoleSession?.sessionId === sessionId) {
+				this._lastActiveConsoleSession = undefined;
+			}
+
 			// Dispose of the session.
 			session.dispose();
 
@@ -2173,8 +2178,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			} else {
 				// Remove the key entirely from the map since there are no sessions for the runtime
 				this._consoleSessionsByRuntimeId.delete(session.runtimeMetadata.runtimeId);
-				// Clear the last active console session when there are no console sessions left
-				this._lastActiveConsoleSession = undefined;
 			}
 		} else if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
 			if (session.metadata.notebookUri) {
