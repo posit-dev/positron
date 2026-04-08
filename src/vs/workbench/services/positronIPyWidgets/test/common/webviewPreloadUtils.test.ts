@@ -10,25 +10,23 @@ import { isComplexHtml } from '../../common/webviewPreloadUtils.js';
 suite('isComplexHtml', () => {
 	ensureNoDisposablesAreLeakedInTestSuite();
 
-	test('detects script tags', () => {
-		assert.strictEqual(isComplexHtml('<div><script>alert(1)</script></div>'), true);
-	});
-
-	test('detects iframe tags', () => {
-		assert.strictEqual(isComplexHtml('<iframe src="https://example.com"></iframe>'), true);
-	});
-
-	test('detects full HTML documents', () => {
-		assert.strictEqual(isComplexHtml('<html><body><p>Hello</p></body></html>'), true);
-	});
-
-	test('detects javascript: URLs', () => {
-		assert.strictEqual(isComplexHtml('<a href="javascript:alert(1)">click</a>'), true);
-	});
-
-	test('detects inline event handlers', () => {
-		assert.strictEqual(isComplexHtml('<img src="x" onerror="alert(1)">'), true);
-	});
+	// Each entry exercises a distinct detection branch in isComplexHtml().
+	const complexCases: [string, string][] = [
+		['script', '<div><script>alert(1)</script></div>'],
+		['iframe', '<iframe src="https://example.com"></iframe>'],
+		['object', '<object data="file.swf"></object>'],
+		['embed', '<embed src="file.pdf">'],
+		['body', '<body><p>Hello</p></body>'],
+		['html', '<html><p>Hello</p></html>'],
+		['doctype', '<!DOCTYPE html><html></html>'],
+		['javascript: URL', '<a href="javascript:alert(1)">click</a>'],
+		['event handler', '<img src="x" onerror="alert(1)">'],
+	];
+	for (const [label, html] of complexCases) {
+		test(`detects ${label}`, () => {
+			assert.strictEqual(isComplexHtml(html), true);
+		});
+	}
 
 	test('data attributes containing "on" prefix are not complex', () => {
 		assert.strictEqual(isComplexHtml('<div data-onclick="value">test</div>'), false);
