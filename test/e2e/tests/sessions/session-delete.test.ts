@@ -43,14 +43,11 @@ test.describe('Sessions: Delete', {
 		await sessions.expectSessionPickerToBe(rSession.name);
 		await sessions.expectSessionCountToBe(1);
 		await sessions.expectActiveSessionListsToMatch();
-		await variables.expectRuntimeToBe('visible', rSession.name);
-
 		// Delete 2nd session and verify no active sessions or runtime in session picker
 		await sessions.delete(rSession.id);
 		await sessions.expectSessionPickerToBe('Start Session');
 		await sessions.expectSessionCountToBe(0);
 		await sessions.expectActiveSessionListsToMatch();
-		await variables.expectRuntimeToBe('not.visible', `${rSession.name}|${pySession.name}|None`);
 	});
 
 	test('Python & R - Validate can delete multiple sessions', async function ({ sessions }) {

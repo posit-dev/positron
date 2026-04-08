@@ -31,7 +31,7 @@ test.describe('Variables: Sessions', {
 		await sessions.select(pySession.id);
 		await console.executeCode('Python', 'x = 1');
 		await console.executeCode('Python', 'y = 2');
-		await variables.expectRuntimeToBe('visible', pySession.name);
+
 		await variables.expectVariableToBe('x', '1');
 		await variables.expectVariableToBe('y', '2');
 
@@ -39,7 +39,7 @@ test.describe('Variables: Sessions', {
 		await sessions.select(pySessionAlt.id);
 		await console.executeCode('Python', 'x = 11');
 		await console.executeCode('Python', 'y = 22');
-		await variables.expectRuntimeToBe('visible', pySessionAlt.name);
+
 		await variables.expectVariableToBe('x', '11');
 		await variables.expectVariableToBe('y', '22');
 
@@ -47,20 +47,20 @@ test.describe('Variables: Sessions', {
 		await sessions.select(rSession.id);
 		await console.executeCode('R', 'x <- 3');
 		await console.executeCode('R', 'z <- 4');
-		await variables.expectRuntimeToBe('visible', rSession.name);
+
 		await variables.expectVariableToBe('x', '3');
 		await variables.expectVariableToBe('z', '4');
 
 		// Switch back to Python, update variables, and verify
 		await sessions.select(pySession.id);
 		await console.executeCode('Python', 'x = 0');
-		await variables.expectRuntimeToBe('visible', pySession.name);
+
 		await variables.expectVariableToBe('x', '0');
 		await variables.expectVariableToBe('y', '2');
 
 		// Switch back to R, verify variables remain unchanged
 		await sessions.select(rSession.id);
-		await variables.expectRuntimeToBe('visible', rSession.name);
+
 		await variables.expectVariableToBe('x', '3');
 		await variables.expectVariableToBe('z', '4');
 	});

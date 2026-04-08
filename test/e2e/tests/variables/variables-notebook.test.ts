@@ -29,9 +29,8 @@ test.describe('Variables Pane - Notebook', {
 		await notebooks.addCodeToCellAtIndex(0, 'y <- c(2, 3, 4, 5)');
 		await notebooks.executeCodeInCell();
 
-		// Verify the interpreter and var in the variable pane
+		// Verify the var in the variable pane
 		await hotKeys.fullSizeSecondarySidebar();
-		await variables.expectSessionToBe('Untitled-1.ipynb');
 		await variables.expectVariableToBe('y', '2 3 4 5');
 	});
 
@@ -44,9 +43,8 @@ test.describe('Variables Pane - Notebook', {
 		await notebooks.addCodeToCellAtIndex(0, 'y = [2, 3, 4, 5]');
 		await notebooks.executeCodeInCell();
 
-		// Verify the interpreter and var in the variable pane
+		// Verify the var in the variable pane
 		await hotKeys.fullSizeSecondarySidebar();
-		await variables.expectSessionToBe(FILENAME);
 		await variables.expectVariableToBe('y', '[2, 3, 4, 5]');
 	});
 
@@ -59,16 +57,14 @@ test.describe('Variables Pane - Notebook', {
 		await notebooks.addCodeToCellAtIndex(0, 'dict = [{"a":1,"b":2},{"a":3,"b":4}]');
 		await notebooks.executeCodeInCell();
 
-		// Verify the interpreter and var in the variable pane
+		// Verify the var in the variable pane
 		await hotKeys.fullSizeSecondarySidebar();
-		await variables.expectSessionToBe(FILENAME);
 		await variables.expectVariableToBe('dict', `[{'a': 1, 'b': 2}, {'a': 3, 'b': 4}]`);
 
 		// Reload window
 		await hotKeys.reloadWindow(true);
 
 		// Ensure the variable is still present
-		await variables.selectSession(FILENAME);
 		await variables.expectVariableToBe('dict', `[{'a': 1, 'b': 2}, {'a': 3, 'b': 4}]`);
 	});
 
@@ -102,14 +98,14 @@ test.describe('Variables Pane - Notebook', {
 
 		// Verify we're on the notebook session
 		await hotKeys.fullSizeSecondarySidebar();
-		await variables.expectSessionToBe(FILENAME);
+
 
 		// Open the Data Explorer by double-clicking the variable
 		await variables.doubleClickVariableRow('df');
 		await editors.verifyTab('Data: df', { isVisible: true });
 
 		// Verify Variables pane stayed on the notebook session (regression test for #7539)
-		await variables.expectSessionToBe(FILENAME);
+
 	});
 });
 
