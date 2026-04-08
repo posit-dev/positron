@@ -137,7 +137,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh api repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments \
-            -F body="🔨 Building macOS DMG for commit ${{ steps.pr.outputs.sha }}... This will take approximately 30-60 minutes.
+            -F body="🔨 Building macOS DMG for commit ${{ steps.pr.outputs.sha }}... This will take approximately 15-25 minutes.
 
           **Status:** In Progress ⏳
 
@@ -167,7 +167,12 @@ jobs:
 
           📦 [Download DMG](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
-          The DMG will be available for 7 days. Note: This build is unsigned and not notarized - you may need to allow it in System Settings > Privacy & Security."
+          The DMG will be available for 7 days.
+
+          **⚠️ Installation:** This build is unsigned and not notarized. After installing, you'll need to remove the quarantine attribute:
+          \`\`\`bash
+          xattr -dr com.apple.quarantine /Applications/Positron.app
+          \`\`\`"
 
       - name: Post failure comment
         if: needs.build-dmg.result == 'failure'
