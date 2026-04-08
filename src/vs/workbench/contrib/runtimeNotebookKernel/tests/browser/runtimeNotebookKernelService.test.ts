@@ -9,13 +9,12 @@ import { Emitter, Event } from '../../../../../base/common/event.js';
 import { DisposableStore, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { ResourceMap } from '../../../../../base/common/map.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
-import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { ILanguageRuntimeMetadata, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { waitForRuntimeState } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { createTestLanguageRuntimeMetadata } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
-import { PositronTestServiceAccessor, positronWorkbenchInstantiationService } from '../../../../test/browser/positronWorkbenchTestServices.js';
+import { PositronTestServiceAccessor } from '../../../../test/browser/positronWorkbenchTestServices.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { IPYNB_VIEW_TYPE } from '../../../notebook/browser/notebookBrowser.js';
 import { NotebookKernelService } from '../../../notebook/browser/services/notebookKernelServiceImpl.js';
 import { NotebookTextModel } from '../../../notebook/common/model/notebookTextModel.js';
@@ -29,8 +28,7 @@ import { POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../../common/run
 import { mock } from '../../../../../base/test/common/mock.js';
 
 suite('Positron - RuntimeNotebookKernelService', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
-	let instantiationService: TestInstantiationService;
+	const ctx = createTestContainer().withWorkbenchServices().build();
 	let accessor: PositronTestServiceAccessor;
 	let notebookKernelService: NotebookKernelService;
 	let runtimeSessionService: IRuntimeSessionService;
@@ -43,24 +41,23 @@ suite('Positron - RuntimeNotebookKernelService', () => {
 	let anotherKernel: INotebookKernel;
 
 	setup(async () => {
-		instantiationService = positronWorkbenchInstantiationService(disposables);
-		accessor = instantiationService.createInstance(PositronTestServiceAccessor);
+		accessor = ctx.instantiationService.createInstance(PositronTestServiceAccessor);
 		notebookKernelService = accessor.notebookKernelService;
 		runtimeSessionService = accessor.runtimeSessionService;
 
 		// Dispose all active sessions on teardown.
 		// TODO: Should sessions be disposed by the runtime session service?
-		disposables.add(toDisposable(() => {
+		ctx.disposables.add(toDisposable(() => {
 			runtimeSessionService.activeSessions.map(s => s.dispose());
 		}));
 
 		// Create a test language runtime.
-		runtime = createTestLanguageRuntimeMetadata(instantiationService, disposables);
+		runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
 
 		// Create a test notebook document.
 		notebookDocument = createTestNotebookEditor(
-			instantiationService,
-			disposables.add(new DisposableStore()),
+			ctx.instantiationService,
+			ctx.disposables.add(new DisposableStore()),
 			[
 				['1 + 1', 'text', CellKind.Code, [], {}],
 				['2 + 2', 'text', CellKind.Code, [], {}],
@@ -71,27 +68,27 @@ suite('Positron - RuntimeNotebookKernelService', () => {
 
 		// Create a test notebook service containing the test notebook document.
 		notebookService = new TestNotebookService([notebookDocument]);
-		instantiationService.stub(INotebookService, notebookService);
+		ctx.instantiationService.stub(INotebookService, notebookService);
 
 		// Instantiate the runtime notebook kernel service.
-		runtimeNotebookKernelService = disposables.add(instantiationService.createInstance(RuntimeNotebookKernelService));
-		instantiationService.stub(IRuntimeNotebookKernelService, runtimeNotebookKernelService);
+		runtimeNotebookKernelService = ctx.disposables.add(ctx.instantiationService.createInstance(RuntimeNotebookKernelService));
+		ctx.instantiationService.stub(IRuntimeNotebookKernelService, runtimeNotebookKernelService);
 
 		// Get the kernel corresponding to the test language runtime.
 		kernel = runtimeNotebookKernelService.getKernelByRuntimeId(runtime.runtimeId)!;
 
 		// Create another runtime and kernel to test swapping kernels.
-		anotherRuntime = createTestLanguageRuntimeMetadata(instantiationService, disposables);
+		anotherRuntime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
 		anotherKernel = runtimeNotebookKernelService.getKernelByRuntimeId(anotherRuntime.runtimeId)!;
 
 		// Register the 'test' language, otherwise cells can't be set to that language.
-		disposables.add(accessor.languageService.registerLanguage({ id: runtime.languageId }));
+		ctx.disposables.add(accessor.languageService.registerLanguage({ id: runtime.languageId }));
 	});
 
 	test('kernel is added on language runtime registration', async () => {
 		// Register a language runtime, and wait for the corresponding kernel to be added.
 		const kernelPromise = Event.toPromise(notebookKernelService.onDidAddKernel);
-		const runtime = createTestLanguageRuntimeMetadata(instantiationService, disposables);
+		const runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
 		const kernel = await kernelPromise;
 
 		// Check the kernel's properties.

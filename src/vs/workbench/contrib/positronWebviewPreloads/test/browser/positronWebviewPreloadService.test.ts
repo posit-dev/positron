@@ -5,13 +5,12 @@
 
 import assert from 'assert';
 import { timeout } from '../../../../../base/common/async.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { PositronWebviewPreloadService } from '../../browser/positronWebviewPreloadsService.js';
-import { PositronTestServiceAccessor, positronWorkbenchInstantiationService } from '../../../../test/browser/positronWorkbenchTestServices.js';
+import { PositronTestServiceAccessor } from '../../../../test/browser/positronWorkbenchTestServices.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { RuntimeOutputKind } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { TestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { startTestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
-import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { NotebookMultiMessagePlotClient } from '../../../positronPlots/browser/notebookMultiMessagePlotClient.js';
 
 
@@ -47,21 +46,19 @@ const bokehDisplayMessage = {
 };
 
 suite('Positron - PositronWebviewPreloadService', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+	const ctx = createTestContainer().withWorkbenchServices().build();
 
-	let instantiationService: TestInstantiationService;
 	let positronWebviewPreloadService: PositronWebviewPreloadService;
 
 	setup(() => {
-		instantiationService = positronWorkbenchInstantiationService(disposables);
-		const accessor = instantiationService.createInstance(PositronTestServiceAccessor);
+		const accessor = ctx.instantiationService.createInstance(PositronTestServiceAccessor);
 		positronWebviewPreloadService = accessor.positronWebviewPreloadService;
 	});
 
 	async function createConsoleSession() {
 
 		// Start a console session.
-		const session = await startTestLanguageRuntimeSession(instantiationService, disposables);
+		const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
 
 		const out: {
 			session: TestLanguageRuntimeSession;
@@ -70,7 +67,7 @@ suite('Positron - PositronWebviewPreloadService', () => {
 			session, plotClient: undefined,
 		};
 
-		disposables.add(positronWebviewPreloadService.onDidCreatePlot(client => {
+		ctx.disposables.add(positronWebviewPreloadService.onDidCreatePlot(client => {
 			out.plotClient = client;
 		}));
 

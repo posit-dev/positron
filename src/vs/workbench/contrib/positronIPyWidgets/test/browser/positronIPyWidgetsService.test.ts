@@ -7,8 +7,6 @@ import assert from 'assert';
 import { timeout } from '../../../../../base/common/async.js';
 import { Emitter } from '../../../../../base/common/event.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
-import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { INotebookEditor } from '../../../notebook/browser/notebookBrowser.js';
 import { INotebookEditorService } from '../../../notebook/browser/services/notebookEditorService.js';
@@ -23,7 +21,8 @@ import { TestIPyWidgetsWebviewMessaging } from '../../../../services/languageRun
 import { RuntimeClientType } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { TestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { startTestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
-import { PositronTestServiceAccessor, positronWorkbenchInstantiationService } from '../../../../test/browser/positronWorkbenchTestServices.js';
+import { PositronTestServiceAccessor } from '../../../../test/browser/positronWorkbenchTestServices.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { INotebookRendererInfo, INotebookStaticPreloadInfo } from '../../../notebook/common/notebookCommon.js';
 import { NotebookOutputRendererInfo } from '../../../notebook/common/notebookOutputRenderer.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
@@ -52,15 +51,13 @@ interface TestNotebookEditor extends INotebookEditor {
 }
 
 suite('Positron - PositronIPyWidgetsService', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+	const ctx = createTestContainer().withWorkbenchServices().build();
 
-	let instantiationService: TestInstantiationService;
 	let positronIpywidgetsService: PositronIPyWidgetsService;
 	let notebookEditorService: INotebookEditorService;
 
 	setup(() => {
-		instantiationService = positronWorkbenchInstantiationService(disposables);
-		const accessor = instantiationService.createInstance(PositronTestServiceAccessor);
+		const accessor = ctx.instantiationService.createInstance(PositronTestServiceAccessor);
 		notebookEditorService = accessor.notebookEditorService;
 		positronIpywidgetsService = accessor.positronIPyWidgetsService;
 	});
@@ -86,10 +83,10 @@ suite('Positron - PositronIPyWidgetsService', () => {
 	async function createConsoleInstance() {
 		// Listen for the plot client to be created.
 		let plotClient: NotebookOutputPlotClient | undefined;
-		disposables.add(positronIpywidgetsService.onDidCreatePlot(client => plotClient = client));
+		ctx.disposables.add(positronIpywidgetsService.onDidCreatePlot(client => plotClient = client));
 
 		// Start a console session.
-		const session = await startTestLanguageRuntimeSession(instantiationService, disposables);
+		const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
 
 		// Simulate the runtime sending an IPyWidgets output message.
 		const message = await receiveIPyWidgetsResultMessage(session);
@@ -154,7 +151,7 @@ suite('Positron - PositronIPyWidgetsService', () => {
 		const notebookUri = URI.file('notebook.ipynb');
 
 		// Add a mock notebook editor.
-		const onDidChangeModel = disposables.add(new Emitter<NotebookTextModel | undefined>());
+		const onDidChangeModel = ctx.disposables.add(new Emitter<NotebookTextModel | undefined>());
 		const notebookEditor = <TestNotebookEditor>{
 			getId() { return 'test-notebook-editor-id'; },
 			onDidChangeModel: onDidChangeModel.event,
@@ -166,8 +163,8 @@ suite('Positron - PositronIPyWidgetsService', () => {
 
 		// Start a notebook session.
 		const session = await startTestLanguageRuntimeSession(
-			instantiationService,
-			disposables,
+			ctx.instantiationService,
+			ctx.disposables,
 			{ sessionMode: LanguageRuntimeSessionMode.Notebook, notebookUri },
 		);
 
@@ -219,7 +216,7 @@ suite('Positron - PositronIPyWidgetsService', () => {
 });
 
 suite('Positron - IPyWidgetsInstance constructor', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+	const ctx = createTestContainer().withWorkbenchServices().build();
 
 	let logService: ILogService;
 	let session: TestLanguageRuntimeSession;
@@ -227,16 +224,15 @@ suite('Positron - IPyWidgetsInstance constructor', () => {
 	let notebookService: INotebookService;
 
 	setup(async () => {
-		const instantiationService = positronWorkbenchInstantiationService(disposables);
-		const accessor = instantiationService.createInstance(PositronTestServiceAccessor);
+		const accessor = ctx.instantiationService.createInstance(PositronTestServiceAccessor);
 		logService = accessor.logService;
-		session = await startTestLanguageRuntimeSession(instantiationService, disposables);
-		messaging = disposables.add(new TestIPyWidgetsWebviewMessaging());
+		session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+		messaging = ctx.disposables.add(new TestIPyWidgetsWebviewMessaging());
 		notebookService = new TestNotebookService() as INotebookService;
 	});
 
 	async function createIPyWidgetsInstance() {
-		const ipywidgetsInstance = disposables.add(new IPyWidgetsInstance(session, messaging, notebookService, logService));
+		const ipywidgetsInstance = ctx.disposables.add(new IPyWidgetsInstance(session, messaging, notebookService, logService));
 		await timeout(0);
 		return ipywidgetsInstance;
 	}
@@ -305,19 +301,18 @@ suite('Positron - IPyWidgetsInstance constructor', () => {
 });
 
 suite('Positron - IPyWidgetsInstance', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+	const ctx = createTestContainer().withWorkbenchServices().build();
 
 	let session: TestLanguageRuntimeSession;
 	let messaging: TestIPyWidgetsWebviewMessaging;
 	let ipywidgetsInstance: IPyWidgetsInstance;
 
 	setup(async () => {
-		const instantiationService = positronWorkbenchInstantiationService(disposables);
-		const accessor = instantiationService.createInstance(PositronTestServiceAccessor);
-		session = await startTestLanguageRuntimeSession(instantiationService, disposables);
-		messaging = disposables.add(new TestIPyWidgetsWebviewMessaging());
+		const accessor = ctx.instantiationService.createInstance(PositronTestServiceAccessor);
+		session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+		messaging = ctx.disposables.add(new TestIPyWidgetsWebviewMessaging());
 		const notebookService = new TestNotebookService() as INotebookService;
-		ipywidgetsInstance = disposables.add(new IPyWidgetsInstance(
+		ipywidgetsInstance = ctx.disposables.add(new IPyWidgetsInstance(
 			session,
 			messaging,
 			notebookService,
