@@ -15,8 +15,20 @@ import { DAP_CONFIGURATION_TIMEOUT, DID_PREVIEW_URL_TIMEOUT, IS_POSITRON_WEB, IS
 import { AppPreviewOptions, Config, PositronProxyInfo } from './types.js';
 import { shouldUsePositronProxy, showShellIntegrationNotSupportedMessage, showEnableShellIntegrationMessage } from './api-utils.js';
 
+function readDefaultPreviewMode(): PreviewMode {
+	const setting = vscode.workspace.getConfiguration().get<string>(Config.PreviewMode);
+	switch (setting) {
+		case 'viewer':
+		case 'external':
+		case 'editor':
+			return setting;
+		default:
+			return 'viewer';
+	}
+}
+
 function parsePreviewMode(value: string | undefined): PreviewMode {
-	const mode = value ?? 'viewer';
+	const mode = value ?? 'default';
 	switch (mode) {
 		case 'viewer':
 		case 'external':
@@ -24,9 +36,11 @@ function parsePreviewMode(value: string | undefined): PreviewMode {
 		case 'none':
 		case 'manual':
 			return mode;
+		case 'default':
+			return readDefaultPreviewMode();
 		default:
-			log.warn(`Unknown preview mode '${mode}', falling back to 'viewer'`);
-			return 'viewer';
+			log.warn(`Unknown preview mode '${mode}', falling back to default`);
+			return readDefaultPreviewMode();
 	}
 }
 

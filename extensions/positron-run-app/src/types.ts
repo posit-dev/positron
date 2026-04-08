@@ -10,6 +10,7 @@ export enum Config {
 	ShellIntegrationEnabled = 'terminal.integrated.shellIntegration.enabled',
 	ShowEnableShellIntegrationMessage = 'positron.appLauncher.showEnableShellIntegrationMessage',
 	ShowShellIntegrationNotSupportedMessage = 'positron.appLauncher.showShellIntegrationNotSupportedMessage',
+	PreviewMode = 'positron.runApp.previewMode',
 }
 
 export type PositronProxyInfo = {
