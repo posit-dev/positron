@@ -21,14 +21,13 @@ import { IEditorService } from '../../../../services/editor/common/editorService
 import { IPositronNotebookInstance } from '../../../positronNotebook/browser/IPositronNotebookInstance.js';
 import { IPositronNotebookService } from '../../../positronNotebook/browser/positronNotebookService.js';
 import { IQuartoKernelManager } from '../../../positronQuarto/browser/quartoKernelManager.js';
-import { INotebookEditorService } from '../../../notebook/browser/services/notebookEditorService.js';
 import { ForegroundSessionContribution } from '../../browser/foregroundSessionContribution.js';
 import { POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../../../positronNotebook/common/positronNotebookCommon.js';
 import { POSITRON_QUARTO_INLINE_OUTPUT_KEY } from '../../../positronQuarto/common/positronQuartoConfig.js';
 
 suite('Positron - ForegroundSessionContribution', () => {
 
-	// --- Emitters for controllable service stubs ---
+	// --- Emitters for controllable service stubs (override preset defaults) ---
 	const onDidActiveEditorChange = new Emitter<void>();
 	const onDidAddNotebookInstance = new Emitter<IPositronNotebookInstance>();
 	const onDidRemoveNotebookInstance = new Emitter<IPositronNotebookInstance>();
@@ -36,11 +35,13 @@ suite('Positron - ForegroundSessionContribution', () => {
 	// --- Mutable state set in tests ---
 	let activeEditor: EditorInput | undefined;
 	let activeCodeEditor: ICodeEditor | undefined;
-	let notebookInstances: IPositronNotebookInstance[];
+	let notebookInstances: IPositronNotebookInstance[] = [];
 	let quartoSessionForDocument: ILanguageRuntimeSession | undefined;
 
+	// Use withContributionServices() for Event.None defaults, then override
+	// the specific services this test needs to control via emitters/getters.
 	const ctx = createTestContainer()
-		.withWorkbenchServices()
+		.withContributionServices()
 		.stub(IEditorService, {
 			get activeEditor() { return activeEditor; },
 			onDidActiveEditorChange: onDidActiveEditorChange.event,
@@ -50,11 +51,6 @@ suite('Positron - ForegroundSessionContribution', () => {
 			onDidRemoveNotebookInstance: onDidRemoveNotebookInstance.event,
 			listInstances: () => notebookInstances,
 		} as IPositronNotebookService)
-		.stub(INotebookEditorService, {
-			onDidAddNotebookEditor: Event.None,
-			onDidRemoveNotebookEditor: Event.None,
-			listNotebookEditors: () => [],
-		} as unknown as INotebookEditorService)
 		.stub(IQuartoKernelManager, {
 			getSessionForDocument: () => quartoSessionForDocument,
 		} as unknown as IQuartoKernelManager)

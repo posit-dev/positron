@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { DisposableStore } from '../../../base/common/lifecycle.js';
+import { Event } from '../../../base/common/event.js';
 import { ServiceIdentifier } from '../../../platform/instantiation/common/instantiation.js';
 import { ServiceCollection } from '../../../platform/instantiation/common/serviceCollection.js';
 import { TestInstantiationService } from '../../../platform/instantiation/test/common/instantiationServiceMock.js';
@@ -26,6 +27,9 @@ import { NotebookLoggingService } from '../../contrib/notebook/browser/services/
 import { TestNotebookExecutionService } from '../../test/common/positronWorkbenchTestServices.js';
 import { TestNotebookExecutionStateService } from '../../contrib/notebook/test/browser/testNotebookEditor.js';
 import { workbenchInstantiationService as baseWorkbenchInstantiationService } from './workbenchTestServices.js';
+import { ICodeEditorService } from '../../../editor/browser/services/codeEditorService.js';
+import { IPositronNotebookService } from '../../contrib/positronNotebook/browser/positronNotebookService.js';
+import { IQuartoKernelManager } from '../../contrib/positronQuarto/browser/quartoKernelManager.js';
 
 interface TestContainerResult {
 	/** Retrieve a registered service by its identifier. */
@@ -45,10 +49,11 @@ type ServiceStub = { id: ServiceIdentifier<any>; impl: any };
  * dependencies, then use .stub() for anything extra.
  *
  * Presets (each includes the one above it):
- *   Bare         -- no services, for pure logic tests
- *   Runtime      -- language runtime + session services (~18)
- *   Notebooks    -- runtime + notebook/kernel services (+8)
- *   Workbench    -- full Positron stack (124+)
+ *   Bare           -- no services, for pure logic tests
+ *   Runtime        -- language runtime + session services (~18)
+ *   Notebooks      -- runtime + notebook/kernel services (+8)
+ *   Workbench      -- full Positron stack (124+)
+ *   Contributions  -- workbench + Event.None stubs for editor/notebook lifecycle
  *
  * When to add a new preset:
  *   - 3+ test files across different directories need the same .stub() set
@@ -74,6 +79,7 @@ class PositronTestContainerBuilder {
 	private _useRuntimeServices = false;
 	private _useNotebookServices = false;
 	private _useWorkbenchServices = false;
+	private _useContributionServices = false;
 	private _stubs: ServiceStub[] = [];
 
 	/** Add the 18 runtime/language services (ILanguageRuntimeService, IRuntimeSessionService, etc.) */
@@ -91,6 +97,21 @@ class PositronTestContainerBuilder {
 	/** Add the full 124+ workbench service stack (includes runtime + notebook services). */
 	withWorkbenchServices(): this {
 		this._useWorkbenchServices = true;
+		return this;
+	}
+
+	/**
+	 * Add workbench services + Event.None stubs for editor/notebook lifecycle events.
+	 * Use this when testing workbench contributions that subscribe to editor, notebook,
+	 * and code editor events in their constructors. Provides safe no-op defaults for:
+	 *   - INotebookEditorService (onDidAddNotebookEditor, onDidRemoveNotebookEditor)
+	 *   - ICodeEditorService (onCodeEditorAdd, onCodeEditorRemove)
+	 *   - IPositronNotebookService (onDidAddNotebookInstance, onDidRemoveNotebookInstance)
+	 *   - IQuartoKernelManager (getSessionForDocument)
+	 * Override any of these with .stub() for tests that need to control specific events.
+	 */
+	withContributionServices(): this {
+		this._useContributionServices = true;
 		return this;
 	}
 
@@ -114,12 +135,36 @@ class PositronTestContainerBuilder {
 		const useRuntimeServices = this._useRuntimeServices;
 		const useNotebookServices = this._useNotebookServices;
 		const useWorkbenchServices = this._useWorkbenchServices;
+		const useContributionServices = this._useContributionServices;
 
 		// Mutable slot -- reassigned in setup so each test starts fresh.
 		let _instantiationService: TestInstantiationService;
 
 		setup(() => {
-			if (useWorkbenchServices) {
+			if (useContributionServices) {
+				_instantiationService = positronWorkbenchInstantiationService(disposables);
+				// Event.None stubs for services that contributions subscribe to
+				// in their constructors. Tests can override any of these with .stub().
+				_instantiationService.stub(INotebookEditorService, {
+					onDidAddNotebookEditor: Event.None,
+					onDidRemoveNotebookEditor: Event.None,
+					listNotebookEditors: () => [],
+				} as Partial<INotebookEditorService>);
+				_instantiationService.stub(ICodeEditorService, {
+					onCodeEditorAdd: Event.None,
+					onCodeEditorRemove: Event.None,
+					listCodeEditors: () => [],
+					getActiveCodeEditor: () => null,
+				} as Partial<ICodeEditorService>);
+				_instantiationService.stub(IPositronNotebookService, {
+					onDidAddNotebookInstance: Event.None,
+					onDidRemoveNotebookInstance: Event.None,
+					listInstances: () => [],
+				} as Partial<IPositronNotebookService>);
+				_instantiationService.stub(IQuartoKernelManager, {
+					getSessionForDocument: () => undefined,
+				} as Partial<IQuartoKernelManager>);
+			} else if (useWorkbenchServices) {
 				_instantiationService = positronWorkbenchInstantiationService(disposables);
 			} else if (useNotebookServices) {
 				// Runtime services + base workbench (for editor/theme deps) + notebook services.
