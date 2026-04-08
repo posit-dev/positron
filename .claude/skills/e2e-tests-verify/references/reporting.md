@@ -12,7 +12,7 @@ Step N: [title]
 
 Summary format:
 ```
-## QA Test: #12345 -- Variable appears after execution
+## PR 456: Variable appears after execution
 
 Target: Local dev (Electron)
 Browser: e2e-electron

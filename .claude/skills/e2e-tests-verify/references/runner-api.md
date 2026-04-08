@@ -7,7 +7,7 @@ PORT=$(cat /tmp/explore-runner-port)
 curl -s -X POST "http://localhost:$PORT/run-plan" \
   -H 'Content-Type: application/json' \
   -d '{
-    "title": "QA #12345: Variable appears after execution",
+    "title": "PR 456: Variable appears after execution",
     "stepTimeout": 10000,
     "steps": [
       {"type": "pom", "pom": "sessions", "method": "start", "args": ["python"], "timeout": 20000, "title": "Start Python session"},
@@ -18,7 +18,7 @@ curl -s -X POST "http://localhost:$PORT/run-plan" \
 ```
 
 **Request fields:**
-- `title` (required): Descriptive label for the plan in the Playwright report (e.g., "QA #12345: Variable appears after execution")
+- `title` (required): Descriptive label for the plan in the Playwright report (e.g., "PR 456: Variable appears after execution")
 - `steps` (required): Array of step objects (same `BatchStep` type as `/batch`)
 - `stepTimeout` (optional): Default timeout in ms for all steps (default 10000)
 - `resetBefore` (optional): Run state reset before executing (set true on retries)
