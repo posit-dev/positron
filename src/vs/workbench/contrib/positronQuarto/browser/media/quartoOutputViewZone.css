@@ -402,6 +402,12 @@
 	flex-shrink: 0;
 	margin-left: auto;
 	height: 16px;
+	opacity: 0;
+	transition: opacity 400ms ease;
+}
+
+.quarto-output-status-bar .quarto-output-sparkline.sparkline-visible {
+	opacity: 1;
 }
 
 .quarto-output-status-bar .quarto-output-sparkline .resource-usage-graph {
@@ -458,6 +464,12 @@
 	font-variant-numeric: tabular-nums;
 	text-align: right;
 	white-space: nowrap;
+	opacity: 0;
+	transition: opacity 400ms ease;
+}
+
+.quarto-output-status-bar .quarto-output-cpu-label.sparkline-visible {
+	opacity: 1;
 }
 
 /* Status-only view zone: hide the output container entirely, just show the status bar */

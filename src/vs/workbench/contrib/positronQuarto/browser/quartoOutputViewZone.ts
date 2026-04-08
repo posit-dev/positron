@@ -188,10 +188,15 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	private readonly _resourceUsageDisposables = this._register(new DisposableStore());
 	private _resourceUsageData: ILanguageRuntimeResourceUsage[] = [];
 	private _sparklineGeneration = 0;
+	private _sparklineDelayTimeout: ReturnType<typeof setTimeout> | undefined;
+	private _sparklineFadeOutTimeout: ReturnType<typeof setTimeout> | undefined;
 
 	// Live timer interval during execution
 	private _timerInterval: ReturnType<typeof setInterval> | undefined;
 	private _executionStartTime: number | undefined;
+
+	// Subscription to a shared tick event for refreshing the relative timestamp
+	private _timestampRefreshDisposable: { dispose(): void } | undefined;
 
 	// Icon element inside the close button (for switching between close and stop icons)
 	private _buttonIcon!: HTMLSpanElement;
@@ -233,6 +238,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		configurationService?: IConfigurationService,
 		documentUri?: URI,
 		private readonly _resourceUsageHistoryService?: IResourceUsageHistoryService,
+		private readonly _onTimestampTick?: VSEvent<void>,
 	) {
 		super();
 
@@ -445,7 +451,8 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		if (state === CellExecutionState.Idle && !startTime) {
 			this._statusBar.style.display = 'none';
 			this._stopTimer();
-			this._stopSparkline();
+			this._stopTimestampRefresh();
+			this._stopSparkline(true);
 			this._updateStatusOnlyState();
 			this._updateHeight();
 			return;
@@ -456,6 +463,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._statusText.textContent = '';
 		dom.clearNode(this._statusText);
 		this._stopTimer();
+		this._stopTimestampRefresh();
 		this._stopSparkline();
 
 		this._statusBar.style.display = '';
@@ -502,7 +510,24 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			const timestampSpan = document.createElement('span');
 			timestampSpan.textContent = getRelativeTime(endTime);
 			this._statusText.appendChild(timestampSpan);
+
+			// Subscribe to the shared timestamp tick so "just now"
+			// naturally transitions to "1 min ago", etc.
+			this._stopTimestampRefresh();
+			if (this._onTimestampTick) {
+				this._timestampRefreshDisposable = this._onTimestampTick(() => {
+					timestampSpan.textContent = getRelativeTime(endTime);
+				});
+			}
 		}
+	}
+
+	/**
+	 * Stop listening for timestamp refresh ticks.
+	 */
+	private _stopTimestampRefresh(): void {
+		this._timestampRefreshDisposable?.dispose();
+		this._timestampRefreshDisposable = undefined;
 	}
 
 	/**
@@ -561,6 +586,12 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			return;
 		}
 
+		// Clear any pending fade-out from a previous execution
+		if (this._sparklineFadeOutTimeout) {
+			clearTimeout(this._sparklineFadeOutTimeout);
+			this._sparklineFadeOutTimeout = undefined;
+		}
+
 		const maxPoints = Math.floor(QuartoOutputViewZone.SPARKLINE_WIDTH / 2) + 1;
 
 		// Seed with historical data from the resource usage history service
@@ -582,9 +613,11 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			});
 		}
 
-		// Show containers
+		// Show containers (initially invisible via CSS opacity: 0)
 		this._sparklineContainer.style.display = '';
+		this._sparklineContainer.classList.remove('sparkline-visible');
 		this._cpuLabel.style.display = '';
+		this._cpuLabel.classList.remove('sparkline-visible');
 
 		// Create React renderer for the sparkline
 		if (!this._sparklineRenderer) {
@@ -604,22 +637,63 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 				this._updateCpuLabel();
 			})
 		);
+
+		// Delay appearance by 200ms, then fade in over 400ms (via CSS transition)
+		this._sparklineDelayTimeout = setTimeout(() => {
+			this._sparklineDelayTimeout = undefined;
+			if (this._sparklineGeneration !== generation) {
+				return;
+			}
+			this._sparklineContainer.classList.add('sparkline-visible');
+			this._cpuLabel.classList.add('sparkline-visible');
+		}, 200);
 	}
 
 	/**
 	 * Stop showing the CPU sparkline and clean up.
 	 */
-	private _stopSparkline(): void {
+	private _stopSparkline(immediate?: boolean): void {
+		// Cancel any pending delay timer
+		if (this._sparklineDelayTimeout) {
+			clearTimeout(this._sparklineDelayTimeout);
+			this._sparklineDelayTimeout = undefined;
+		}
+
 		this._sparklineGeneration++;
 		this._resourceUsageDisposables.clear();
+
+		if (immediate || !this._sparklineContainer.classList.contains('sparkline-visible')) {
+			// Immediate cleanup (dispose, clear output, or never became visible)
+			this._cleanupSparkline();
+			return;
+		}
+
+		// Fade out over 400ms (via CSS transition), then clean up
+		this._sparklineContainer.classList.remove('sparkline-visible');
+		this._cpuLabel.classList.remove('sparkline-visible');
+		this._sparklineFadeOutTimeout = setTimeout(() => {
+			this._sparklineFadeOutTimeout = undefined;
+			this._cleanupSparkline();
+		}, 400);
+	}
+
+	/**
+	 * Immediately tear down sparkline DOM and state.
+	 */
+	private _cleanupSparkline(): void {
+		if (this._sparklineFadeOutTimeout) {
+			clearTimeout(this._sparklineFadeOutTimeout);
+			this._sparklineFadeOutTimeout = undefined;
+		}
 		if (this._sparklineRenderer) {
 			this._sparklineRenderer.dispose();
 			this._sparklineRenderer = undefined;
 		}
-		// Clear any residual DOM content and hide
 		dom.clearNode(this._sparklineContainer);
 		this._sparklineContainer.style.display = 'none';
+		this._sparklineContainer.classList.remove('sparkline-visible');
 		this._cpuLabel.style.display = 'none';
+		this._cpuLabel.classList.remove('sparkline-visible');
 		this._cpuLabel.textContent = '';
 		this._resourceUsageData = [];
 	}
@@ -795,7 +869,8 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		// status line should be cleared too.
 		this._statusBar.style.display = 'none';
 		this._stopTimer();
-		this._stopSparkline();
+		this._stopTimestampRefresh();
+		this._stopSparkline(true);
 
 		this._isStatusOnly = false;
 		this.hide();
@@ -909,7 +984,8 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	override dispose(): void {
 		this.hide();
 		this._stopTimer();
-		this._stopSparkline();
+		this._stopTimestampRefresh();
+		this._stopSparkline(true);
 		this._disposeResizeObserver();
 		this._disposeAllWebviews();
 		this._disposeAllReactRenderers();

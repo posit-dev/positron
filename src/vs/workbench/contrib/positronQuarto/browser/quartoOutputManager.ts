@@ -131,6 +131,11 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	private readonly _onDidChangeOutputs = this._register(new Emitter<OutputChangeEvent>());
 	readonly onDidChangeOutputs = this._onDidChangeOutputs.event;
 
+	// Shared tick emitter for refreshing relative timestamps across all view zones.
+	// A single 30-second interval drives all cells instead of one timer per cell.
+	private readonly _timestampTickEmitter = this._register(new Emitter<void>());
+	private _timestampTickInterval: ReturnType<typeof setInterval> | undefined;
+
 	constructor(
 		private readonly _editor: ICodeEditor,
 		@IQuartoExecutionManager private readonly _executionManager: IQuartoExecutionManager,
@@ -151,6 +156,11 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		@IResourceUsageHistoryService private readonly _resourceUsageHistoryService: IResourceUsageHistoryService,
 	) {
 		super();
+
+		// Start a shared 30-second timer for refreshing relative timestamps
+		this._timestampTickInterval = setInterval(() => {
+			this._timestampTickEmitter.fire();
+		}, 30_000);
 
 		// Get document URI from editor model
 		const model = this._editor.getModel();
@@ -555,6 +565,10 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	}
 
 	override dispose(): void {
+		if (this._timestampTickInterval) {
+			clearInterval(this._timestampTickInterval);
+			this._timestampTickInterval = undefined;
+		}
 		this._disposeAllViewZones();
 		super.dispose();
 	}
@@ -910,6 +924,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			this._configurationService,
 			this._documentUri,
 			this._resourceUsageHistoryService,
+			this._timestampTickEmitter.event,
 		);
 
 		// Set up clear callback
