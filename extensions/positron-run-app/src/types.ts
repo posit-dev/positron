@@ -20,7 +20,7 @@ export type PositronProxyInfo = {
 };
 
 export type AppPreviewOptions = {
-	preview?: PreviewMode;
+	preview?: Exclude<PreviewMode, 'none'>;
 	terminalPid: number | undefined;
 	proxyInfo?: PositronProxyInfo;
 	urlPath?: string;

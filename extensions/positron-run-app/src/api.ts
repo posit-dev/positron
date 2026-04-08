@@ -720,7 +720,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 	}
 
 	private async previewApp(url: URL, options: {
-		preview?: PreviewMode;
+		preview?: Exclude<PreviewMode, 'none'>;
 		proxyInfo?: PositronProxyInfo;
 		urlPath?: string;
 		terminalPid?: number;
@@ -763,8 +763,8 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		);
 
 		switch (options.preview) {
-			default:
 			case 'viewer':
+			case undefined:
 				positron.window.previewUrl(previewUri, options.previewSource);
 				break;
 			case 'external':
