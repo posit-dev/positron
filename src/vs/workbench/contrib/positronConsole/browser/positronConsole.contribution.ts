@@ -19,12 +19,11 @@ import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensio
 import { POSITRON_CONSOLE_COPY, POSITRON_CONSOLE_PASTE, POSITRON_CONSOLE_SELECT_ALL } from './positronConsoleIdentifiers.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { ContextKeyExpr, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
-import { PositronConsoleFindCommandId } from './positronConsoleFindCommandIds.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { localize2 } from '../../../../nls.js';
-import { ConsoleFindWidgetFactory } from './positronConsoleFindWidget.js';
+import { ConsoleFindWidgetFactory, PositronConsoleFindCommandId } from './positronConsoleFind.js';
 
 // The Positron console view icon.
 const positronConsoleViewIcon = registerIcon(

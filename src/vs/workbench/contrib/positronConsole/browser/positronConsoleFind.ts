@@ -13,9 +13,18 @@ import { IContextViewService } from '../../../../platform/contextview/browser/co
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
-import { PositronConsoleFindCommandId } from './positronConsoleFindCommandIds.js';
 import { IConsoleFindWidgetFactory } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { PositronConsoleFindInputFocused, PositronConsoleFindVisible } from '../../../common/contextkeys.js';
+
+export const enum PositronConsoleFindCommandId {
+	FindFocus = 'workbench.action.positronConsole.findFocus',
+	FindHide = 'workbench.action.positronConsole.findHide',
+	FindNext = 'workbench.action.positronConsole.findNext',
+	FindPrevious = 'workbench.action.positronConsole.findPrevious',
+	ToggleFindRegex = 'workbench.action.positronConsole.toggleFindRegex',
+	ToggleFindWholeWord = 'workbench.action.positronConsole.toggleFindWholeWord',
+	ToggleFindCaseSensitive = 'workbench.action.positronConsole.toggleFindCaseSensitive',
+}
 
 const POSITRON_CONSOLE_FIND_WIDGET_INITIAL_WIDTH = 419;
 const MATCHES_LIMIT = 1000;

@@ -10,7 +10,7 @@ import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/tes
 import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { workbenchInstantiationService } from '../../../../test/browser/workbenchTestServices.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
-import { PositronConsoleFindWidget } from '../../browser/positronConsoleFindWidget.js';
+import { PositronConsoleFindWidget } from '../../browser/positronConsoleFind.js';
 
 /**
  * Test subclass that exposes protected members for testing.
