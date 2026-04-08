@@ -41,11 +41,16 @@ for i in $(seq 1 60); do
       break
     fi
   fi
-  sleep 2
+  sleep 1
 done
 ```
 
 This launches Positron as a real Electron app. It takes ~30-60 seconds to start.
+
+**Parallel launch pattern:** The runner is launched as a background Bash command
+in the same message as GH API calls and POM ref generation. By the time planning
+completes and polling starts, the runner typically has a 20-40s head start. The
+first poll usually finds it already ready.
 
 **While the runner starts**, generate the POM reference if it was missing (this fills dead time):
 ```bash
