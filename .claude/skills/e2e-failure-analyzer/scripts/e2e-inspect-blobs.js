@@ -12,7 +12,7 @@
 
 import { readFileSync, readdirSync, existsSync, mkdirSync, unlinkSync, rmdirSync } from 'fs';
 import { join, resolve } from 'path';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { tmpdir } from 'os';
 
 const args = process.argv.slice(2);
@@ -80,7 +80,7 @@ for (const zipFile of zipFiles) {
 	// Extract report.jsonl from the blob zip
 	try {
 		mkdirSync(tmpDir, { recursive: true });
-		execSync(`unzip -o "${zipPath}" report.jsonl -d "${tmpDir}"`, {
+		execFileSync('unzip', ['-o', zipPath, 'report.jsonl', '-d', tmpDir], {
 			stdio: ['pipe', 'pipe', 'pipe'],
 		});
 	} catch {

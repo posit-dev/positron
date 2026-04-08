@@ -21,7 +21,7 @@ Analyzes Playwright e2e test failures from a GitHub Actions run using JSON repor
 
 ## Helper Scripts
 
-Scripts live alongside this skill in `scripts/`. Use the base directory path shown above when the skill loads (the "Base directory for this skill: ..." line) as `$SKILL_DIR`. All scripts are cross-platform (Windows, macOS, Linux) and require only Node.js with no external dependencies.
+Scripts live alongside this skill in `scripts/`. Use the base directory path shown above when the skill loads (the "Base directory for this skill: ..." line) as `$SKILL_DIR`. Scripts require Node.js and are cross-platform (Windows via Git Bash, macOS, Linux). The `e2e-inspect-blobs.js` script requires `unzip` to be available in PATH (included in Git Bash on Windows).
 
 - **`e2e-extract-failures.js`** - Extracts failures from a merged Playwright JSON report
 - **`e2e-parse-trace.js`** - Parses a `trace.trace` file into an action timeline with errors and last screenshot hash

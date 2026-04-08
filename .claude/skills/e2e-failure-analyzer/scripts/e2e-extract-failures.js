@@ -24,7 +24,7 @@ const FAIL_STATUSES = new Set(['failed', 'timedOut', 'interrupted']);
 function walk(suite, suitePath) {
 	const results = [];
 	for (const child of suite.suites || []) {
-		results.push(...walk(child, suitePath.concat(suite.title || '')));
+		results.push(...walk(child, suitePath.concat(child.title || '')));
 	}
 	for (const spec of suite.specs || []) {
 		const failed = typeof spec.ok === 'boolean'
