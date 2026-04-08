@@ -50,9 +50,10 @@ Performs on-demand QA testing by driving Positron through test scenarios using t
 
 ### Step 0: Choose Target
 
-If `--build` flag is present, skip the prompt and use build mode.
+**If `--build` flag is present:** Skip the prompt and use build mode.
+**If `--local` flag is present:** Skip the prompt and use local dev mode.
 
-Otherwise, **ask the user** which target to run against using `AskUserQuestion`:
+If neither `--build` nor `--local` is present, **ask the user** which target to run against using `AskUserQuestion`:
 - **Local dev instance (Recommended)** -- runs against the local development build (default, no extra setup)
 - **Built app** -- runs against an installed Positron build (e.g. `/Applications/Positron.app` on macOS)
 
@@ -62,35 +63,12 @@ Otherwise, **ask the user** which target to run against using `AskUserQuestion`:
 
 2. Log the version of the built app before starting:
 ```bash
-.claude/skills/e2e-verify-plan/scripts/detect_versions.sh
+.claude/skills/e2e-tests-plan/scripts/detect_versions.sh
 ```
 Report to the user: `Target: Built app -- Positron 2026.02.0 (build 10), macOS 26.2`
 
-If `--branch` flag is present, this is a **diff-driven** test. The diff is the primary
-signal; issue/PR context is enrichment only. `--branch` accepts an optional argument
-that determines where the diff comes from:
-
-- **No argument** (`--branch`): Diff current branch vs main
-- **Branch name** (`--branch feature/my-branch`): Diff that branch vs main
-- **Issue number** (`--branch #9638`): Find the PR that closed this issue, extract its
-  diff. Also fetches the issue body as enrichment context. Works for merged PRs too.
-
-To resolve an issue number to a diff:
-```bash
-gh pr list --search "9638" --state all --repo posit-dev/positron --json number,title,headRefName --limit 5
-gh pr diff <pr-number> --repo posit-dev/positron
-gh issue view 9638 --repo posit-dev/positron --json title,body,labels
-```
-
-The `--branch` flag composes with all other flags:
-- `--branch --build`: Analyze current branch diff, run tests against built app
-- `--branch --build #9638`: Get diff from issue's PR, run against built app
-- `--branch --save`: Analyze diff, auto-save test file
-- `--branch --browser firefox`: Analyze diff, run in Firefox
-- `--branch feature/my-branch`: Analyze a specific branch
-
-If `--branch` is used without `--build`, ask the user which target to run against
-(same as the default flow).
+**When running in local dev mode:**
+Report to the user: `Target: Local dev instance`
 
 ### Step 1: Parse Input and Plan Test Steps
 
