@@ -9,31 +9,42 @@ user-invocable: true
 
 > **See also:** For hand-writing permanent e2e tests with Playwright, see the `e2e-author` skill.
 
-Performs on-demand QA testing by driving Positron through test scenarios using the explore runner. Accepts a natural-language description or a GitHub issue number.
+Performs on-demand QA testing by driving Positron through test scenarios using the explore runner. Accepts a PR number, branch diff, or natural-language description.
 
 ## Input Formats
 
 ```
-/e2e-verify "Verify that the Variables pane updates after running x = 42 in the Python console"
-/e2e-verify #12345
-/e2e-verify #12345 --deep
-/e2e-verify --build #12345
-/e2e-verify --browser firefox #11593
-/e2e-verify --build "Verify plots render correctly"
-/e2e-verify --save #12345
-/e2e-verify --no-save --build "Quick smoke test"
-/e2e-verify --branch
-/e2e-verify --branch --build
-/e2e-verify --branch feature/my-branch
-/e2e-verify --branch --build #9638
-/e2e-verify --branch --deep
+/e2e-verify 456                            PR diff, prompt for target
+/e2e-verify 456 --local                    PR diff, local dev
+/e2e-verify 456 --build --no-save          PR diff, built app, CI-friendly
+/e2e-verify 456 --context 12345 --deep     PR diff + issue enrichment, exhaustive
+/e2e-verify --branch --local               Branch diff, local dev
+/e2e-verify --branch feature/my-branch     Named branch diff
+/e2e-verify "free text" --build            Description, built app
+/e2e-verify --save 456                     PR diff, auto-save test file
+/e2e-verify --browser firefox 456          PR diff, Firefox
 ```
 
+**Target (mutually exclusive):**
+- `--local`: Run against local dev instance, skip prompt
+- `--build`: Run against `/Applications/Positron.app`, skip prompt
+- No flag: Prompt the user to choose
+
+**Save behavior (mutually exclusive):**
 - `--save`: Always save a `.test.ts` file after a successful run (no prompt)
 - `--no-save`: Never save, never prompt
 - No flag: Prompt the user to save after a successful run
-- `--branch`: Test current branch's changes vs main. Optionally pass a branch name or issue number (see Step 1)
-- `--deep`: Exhaustive mode -- gathers all signals (PR comments, linked issues, linked PRs) and generates a thorough test plan (10-15+ steps with edge cases). Without this flag, tests are diff-driven and targeted (5-10 steps)
+
+**Other flags:**
+- `--branch`: Test current branch's changes vs main. Optionally pass a branch name (e.g., `--branch feature/my-branch`)
+- `--deep`: Exhaustive mode -- gathers all signals and generates a thorough test plan (10-15+ steps with edge cases). Without this flag, tests are diff-driven and targeted (5-10 steps)
+- `--context <issue>`: Pull issue body as enrichment for test planning. Does not resolve the issue to a PR -- use this alongside a PR number for richer context
+- `--browser <name>`: Firefox, Chromium, or WebKit instead of Electron
+
+**Input types:**
+- **PR number** (e.g., `456`): Primary mode. Gets diff and metadata directly via `gh pr diff` and `gh pr view`. Numbers are always treated as PR numbers. If `gh pr view` fails, error immediately -- no fallback to issue search.
+- **Branch diff** (`--branch`): Uses `git diff main...HEAD` (or named branch vs main)
+- **Free-text description** (quoted string): No diff, no GH calls. AI plans from description alone.
 
 ## Workflow
 
