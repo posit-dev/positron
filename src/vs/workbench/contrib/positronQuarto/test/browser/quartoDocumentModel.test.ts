@@ -5,13 +5,13 @@
 
 import assert from 'assert';
 import { URI } from '../../../../../base/common/uri.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { createTextModel } from '../../../../../editor/test/common/testTextModel.js';
 import { QuartoDocumentModel } from '../../browser/quartoDocumentModel.js';
 
 suite('QuartoDocumentModel', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+	const { disposables } = createTestContainer().build();
 	const logService = new NullLogService();
 
 	function createModel(content: string, uri?: URI): QuartoDocumentModel {
@@ -152,17 +152,19 @@ x = 1
 		});
 
 		test('extracts kernelspec name', () => {
-			const content = `---
-jupyter:
-  kernelspec:
-    name: ir
-    display_name: R
----
-
-\`\`\`{r}
-x <- 1
-\`\`\`
-`;
+			const content = [
+				'---',
+				'jupyter:',
+				'  kernelspec:',
+				'    name: ir',
+				'    display_name: R',
+				'---',
+				'',
+				'```{r}',
+				'x <- 1',
+				'```',
+				'',
+			].join('\n');
 			const model = createModel(content);
 
 			assert.strictEqual(model.jupyterKernel, 'ir');
