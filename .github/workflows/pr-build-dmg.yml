@@ -1,0 +1,122 @@
+name: "PR: Build DMG on Comment"
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  packages: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  build-dmg:
+    name: Build macOS DMG for PR
+    runs-on: macos-latest-xlarge
+    timeout-minutes: 180
+    # Only run for PR comments (not issue comments) that contain /dmg
+    if: |
+      github.event.issue.pull_request &&
+      contains(github.event.comment.body, '/dmg')
+
+    steps:
+      - name: Get PR details
+        id: pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get PR information
+          PR_DATA=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.issue.number }})
+          echo "sha=$(echo "$PR_DATA" | jq -r .head.sha)" >> $GITHUB_OUTPUT
+          echo "ref=$(echo "$PR_DATA" | jq -r .head.ref)" >> $GITHUB_OUTPUT
+          echo "repo=$(echo "$PR_DATA" | jq -r .head.repo.full_name)" >> $GITHUB_OUTPUT
+
+      - name: Post initial comment
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments \
+            -F body="🔨 Building macOS DMG for commit ${{ steps.pr.outputs.sha }}... This will take approximately 30-60 minutes.
+
+          **Status:** In Progress ⏳
+
+          [View workflow run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+
+      - name: Checkout PR branch
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ steps.pr.outputs.repo }}
+          ref: ${{ steps.pr.outputs.ref }}
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install dependencies
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          npm_config_arch: arm64
+        run: |
+          npm install --prefix build --fetch-timeout 120000
+          npm ci --fetch-timeout 120000
+
+      - name: Build Positron
+        env:
+          npm_config_arch: arm64
+        run: |
+          npm run gulp vscode-darwin-arm64
+
+      - name: Create DMG
+        run: |
+          # Install dmgbuild using uv
+          brew install uv
+
+          # Create DMG
+          export POSITRON_BUNDLE_NAME=Positron-PR-${{ github.event.issue.number }}-arm64
+
+          uvx --python 3.12 --from 'dmgbuild==1.6.7' dmgbuild \
+            -s "${{ github.workspace }}/resources/darwin/dmg/dmg-settings.py" \
+            -D app_path="$(pwd)/../VSCode-darwin-arm64/Positron.app" \
+            -D app_name="Positron.app" \
+            -D background="${{ github.workspace }}/resources/darwin/dmg/background.png" \
+            -D icon="${{ github.workspace }}/resources/darwin/dmg/volume-icon.icns" \
+            "${POSITRON_BUNDLE_NAME}" \
+            "${{ github.workspace }}/${POSITRON_BUNDLE_NAME}.dmg"
+
+      - name: Upload DMG artifact
+        id: upload
+        uses: actions/upload-artifact@v7
+        with:
+          name: positron-pr-${{ github.event.issue.number }}-macos-arm64-dmg
+          path: Positron-PR-${{ github.event.issue.number }}-arm64.dmg
+          retention-days: 7
+
+      - name: Post success comment
+        if: success()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments \
+            -F body="✅ macOS DMG build completed successfully!
+
+          **Commit:** ${{ steps.pr.outputs.sha }}
+          **Artifact:** \`positron-pr-${{ github.event.issue.number }}-macos-arm64-dmg\`
+
+          📦 [Download DMG](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+          The DMG will be available for 7 days. Note: This build is unsigned and not notarized - you may need to allow it in System Settings > Privacy & Security."
+
+      - name: Post failure comment
+        if: failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments \
+            -F body="❌ macOS DMG build failed.
+
+          [View workflow logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details."
