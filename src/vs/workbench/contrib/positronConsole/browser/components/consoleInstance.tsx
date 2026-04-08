@@ -70,7 +70,9 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		}
 		consoleInstanceRef.current.prepend(domNode);
 		return () => {
-			// Remove the DOM node when the component unmounts or the instance changes. The find widget will create a new DOM node when the instance changes, so we need to remove the old one.
+			// Remove the DOM node when the component unmounts or the instance changes.
+			// The find widget will create a new DOM node when the instance changes,
+			// so we need to remove the old one.
 			domNode.remove();
 		};
 	}, [props.positronConsoleInstance]);
