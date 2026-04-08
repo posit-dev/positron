@@ -53,6 +53,16 @@ export const QUARTO_KERNEL_RUNNING = new RawContextKey<boolean>(
 	localize('quartoKernelRunning', 'Whether the active Quarto document has a running kernel')
 );
 
+/**
+ * Context key for whether the active Quarto document's kernel is busy executing code.
+ * Used to disable actions like Change Kernel while code is running.
+ */
+export const QUARTO_KERNEL_BUSY = new RawContextKey<boolean>(
+	'positron.quartoKernelBusy',
+	false,
+	localize('quartoKernelBusy', 'Whether the active Quarto document kernel is busy executing code')
+);
+
 // Register the configuration setting
 const configurationRegistry = Registry.as<IConfigurationRegistry>(
 	Extensions.Configuration

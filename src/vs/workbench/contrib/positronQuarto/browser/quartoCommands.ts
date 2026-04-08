@@ -14,11 +14,13 @@ import { ITextModel } from '../../../../editor/common/model.js';
 import { IQuartoExecutionManager, IQuartoOutputCacheService } from '../common/quartoExecutionTypes.js';
 import { IQuartoKernelManager } from './quartoKernelManager.js';
 import { IQuartoOutputManager } from './quartoOutputManager.js';
-import { IS_QUARTO_DOCUMENT, QUARTO_INLINE_OUTPUT_ENABLED, QUARTO_KERNEL_RUNNING, isQuartoDocument } from '../common/positronQuartoConfig.js';
+import { IS_QUARTO_DOCUMENT, QUARTO_INLINE_OUTPUT_ENABLED, QUARTO_KERNEL_BUSY, QUARTO_KERNEL_RUNNING, isQuartoDocument } from '../common/positronQuartoConfig.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { QuartoOutputContribution } from './quartoOutputManager.js';
 import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
+import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ByteSize, IFileService } from '../../../../platform/files/common/files.js';
 import { basename } from '../../../../base/common/resources.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -285,6 +287,103 @@ registerAction2(class ShutdownKernelAction extends Action2 {
 		const { documentUri } = context;
 
 		await kernelManager.shutdownKernelForDocument(documentUri);
+	}
+});
+
+/**
+ * Change the kernel for the current Quarto document.
+ * Shows a quick pick with available runtimes matching the document's language.
+ */
+registerAction2(class ChangeKernelAction extends Action2 {
+	constructor() {
+		super({
+			id: QuartoCommandId.ChangeKernel,
+			title: {
+				value: localize('quarto.changeKernel', 'Change Kernel...'),
+				original: 'Change Kernel...',
+			},
+			category: QUARTO_CATEGORY,
+			f1: true,
+			precondition: ContextKeyExpr.and(
+				QUARTO_PRECONDITION,
+				QUARTO_KERNEL_BUSY.negate()
+			),
+			menu: {
+				id: MenuId.PositronQuartoKernelSubmenu,
+				order: 0,
+				when: QUARTO_KERNEL_BUSY.negate(),
+			},
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const editorService = accessor.get(IEditorService);
+		const kernelManager = accessor.get(IQuartoKernelManager);
+		const quickInputService = accessor.get(IQuickInputService);
+		const languageRuntimeService = accessor.get(ILanguageRuntimeService);
+
+		const context = getQuartoContext(editorService);
+		if (!context) {
+			return;
+		}
+
+		const { documentUri } = context;
+
+		// Get the document's primary language to filter runtimes
+		const language = await kernelManager.getDocumentLanguage(documentUri);
+		if (!language) {
+			return;
+		}
+
+		// Get the current session's runtime ID to mark as selected
+		const currentSession = kernelManager.getSessionForDocument(documentUri);
+		const currentRuntimeId = currentSession?.runtimeMetadata.runtimeId;
+
+		const quickPick = quickInputService.createQuickPick<IQuickPickItem & { runtime?: ILanguageRuntimeMetadata }>();
+		quickPick.title = localize('quarto.changeKernel.title', 'Select Quarto Kernel');
+
+		const gatherRuntimePicks = () => {
+			const runtimes = languageRuntimeService.registeredRuntimes
+				.filter(r => r.languageId === language);
+
+			if (runtimes.length === 0) {
+				quickPick.busy = true;
+				quickPick.items = [{
+					label: localize('quarto.changeKernel.noRuntime', 'No {0} runtimes found', language),
+				}];
+			} else {
+				quickPick.busy = false;
+				quickPick.items = runtimes.map(runtime => ({
+					label: runtime.runtimeName,
+					description: runtime.runtimePath,
+					runtime,
+					picked: runtime.runtimeId === currentRuntimeId,
+				}));
+			}
+		};
+
+		// Watch for new runtimes being registered
+		const onDidRegisterDisposable = languageRuntimeService.onDidRegisterRuntime(gatherRuntimePicks);
+
+		gatherRuntimePicks();
+
+		return new Promise<void>(resolve => {
+			quickPick.onDidAccept(async () => {
+				const selected = quickPick.selectedItems[0];
+				if (selected?.runtime && selected.runtime.runtimeId !== currentRuntimeId) {
+					await kernelManager.changeKernelForDocument(documentUri, selected.runtime.runtimeId);
+				}
+				quickPick.hide();
+			});
+
+			quickPick.show();
+
+			quickPick.onDidHide(() => {
+				onDidRegisterDisposable.dispose();
+				quickPick.dispose();
+				resolve();
+			});
+		});
 	}
 });
 
