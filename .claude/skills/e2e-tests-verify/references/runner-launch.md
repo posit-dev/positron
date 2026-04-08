@@ -8,21 +8,21 @@ Launch the Playwright test in the background. **Always** set `EXPLORE_TITLE` to 
 ```bash
 cd /Users/marieidleman/Develop/positron
 rm -f /tmp/explore-runner-port
-EXPLORE_TITLE="QA #12381: Ctrl+C in .qmd with inline output" npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-electron 2>&1 &
+EXPLORE_TITLE="QA PR#456: Ctrl+C in .qmd with inline output" npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-electron 2>&1 &
 ```
 
 **For Electron (built app -- macOS):**
 ```bash
 cd /Users/marieidleman/Develop/positron
 rm -f /tmp/explore-runner-port
-BUILD=/Applications/Positron.app EXPLORE_TITLE="QA #12381: Ctrl+C in .qmd with inline output" npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-electron 2>&1 &
+BUILD=/Applications/Positron.app EXPLORE_TITLE="QA PR#456: Ctrl+C in .qmd with inline output" npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-electron 2>&1 &
 ```
 
 **For browser mode (Firefox, Chromium, WebKit):**
 ```bash
 cd /Users/marieidleman/Develop/positron
 rm -f /tmp/explore-runner-port
-ALLOW_EXPLORE=1 EXPLORE_TITLE="QA #11593: Plots new window broken in Firefox" npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-firefox 2>&1 &
+ALLOW_EXPLORE=1 EXPLORE_TITLE="QA PR#789: Plots new window broken in Firefox" npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-firefox 2>&1 &
 ```
 Note: `ALLOW_EXPLORE=1` is required for browser projects -- it removes the explore directory from testIgnore.
 
