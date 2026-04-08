@@ -24,6 +24,8 @@ const ctx = createTestContainer().withRuntimeServices().build();
 
 **Important:** `ctx` uses lazy getters. Access `ctx.instantiationService` inside `setup`/`test`, not at suite-level via destructuring.
 
+**When to add a new preset:** When 3+ test files across different directories need the same non-trivial stubs (emitters, real instances) for a recognizable domain. If only 1-2 files need extra services, use `.stub()` instead.
+
 ## Disposables
 
 The builder calls `ensureNoDisposablesAreLeakedInTestSuite()` automatically. If you're not using the builder, call it yourself:

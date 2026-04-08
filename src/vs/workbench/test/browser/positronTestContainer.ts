@@ -50,7 +50,13 @@ type ServiceStub = { id: ServiceIdentifier<any>; impl: any };
  *   Notebooks    -- runtime + notebook/kernel services (+8)
  *   Workbench    -- full Positron stack (124+)
  *
- * Adding a new preset: add a boolean flag, a with*() method, and an
+ * When to add a new preset:
+ *   - 3+ test files across different directories need the same .stub() set
+ *   - The stubs are non-trivial (emitters, real instances), not just {} as T
+ *   - The services map to a recognizable domain (e.g. "Quarto", "Plots")
+ *   If only 1-2 files need the combination, use an existing preset + .stub().
+ *
+ * How to add a new preset: add a boolean flag, a with*() method, and an
  * else-if branch in build(). See withNotebookServices() for an example.
  *
  * Usage:

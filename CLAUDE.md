@@ -69,6 +69,10 @@ For available presets and examples, see `src/vs/workbench/test/browser/positronT
 - The builder result (`ctx`) uses lazy getters -- access `ctx.instantiationService` inside `setup`/`test`, not at suite-level via destructuring
 - `ctx.disposables` is auto-cleaned after each test -- pass it to helpers like `startTestLanguageRuntimeSession()` that need it
 
+**When to add a new preset vs using .stub():**
+- **Use .stub()** when 1-2 test files need extra services, or the stubs are simple (`{} as T`)
+- **Add a preset** when 3+ test files across different directories need the same non-trivial stub set (emitters, real instances) and the services map to a recognizable domain (e.g. "Quarto", "Plots")
+
 ### How to mock (the incremental approach)
 
 You don't need to understand all 124 services. You build mocks incrementally -- start with nothing and let the test tell you what's missing.
