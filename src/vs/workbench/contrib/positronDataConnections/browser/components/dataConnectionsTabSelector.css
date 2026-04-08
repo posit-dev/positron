@@ -9,6 +9,5 @@
 	display: flex;
 	padding: 0 12px;
 	flex-direction: row;
-	background-color: var(--vscode-positronActionBar-background);
 	border-top: 1px solid var(--vscode-positronActionBar-border);
 }
