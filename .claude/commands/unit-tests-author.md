@@ -104,24 +104,41 @@ For each approved item:
 3. **Write the test** following the builder pattern from `positronTestContainer.ts`:
    - If bare (no services): just import and assert. No builder needed.
    - Otherwise: read `src/vs/workbench/test/browser/positronTestContainer.ts` for available presets, use the lowest one that fits.
-   - Use `createTestContainer()` as the default entry point. Only fall back to manual `positronWorkbenchInstantiationService()` when the builder's `build()` hook conflicts with your setup needs (e.g., you must stub services before the builder's `setup()` runs).
+   - **Always use `createTestContainer()`.** Do not fall back to manual `positronWorkbenchInstantiationService()`.
    - Use incremental mocking: start with the preset, add `.stub()` only if the test fails.
    - Use Mocha conventions: `suite()`, `test()`, `setup()`, `teardown()`.
    - Use tabs for indentation.
    - Add the Posit Software copyright header.
    - File name: `<source-name>.test.ts` (or `.test.tsx` if it contains JSX).
 
-   **Test skeleton** (use this as a starting point):
-   ```typescript
-   suite('Positron - ComponentName', () => {
-       const ctx = createTestContainer().withRuntimeServices().build();
+   **How the builder works with `createInstance()`:**
+   The builder's `.stub()` runs inside its `setup()` hook, which means all stubs are applied BEFORE your test body runs. When testing a class that subscribes to events in its constructor, call `ctx.instantiationService.createInstance(MyClass)` in the test body -- the stubs are already in place. Create emitters at suite level and pass them via `.stub()`:
 
-       test('method does expected thing', async () => {
-           const service = ctx.get(IMyService);
-           // arrange, act, assert
+   ```typescript
+   suite('Positron - MyContribution', () => {
+       // Emitters created at suite level, reused each test
+       const onDidSomething = new Emitter<void>();
+
+       const ctx = createTestContainer()
+           .withWorkbenchServices()
+           .stub(IMyService, {
+               onDidSomething: onDidSomething.event,
+               listItems: () => [],
+           } as IMyService)
+           .build();
+
+       test('responds to event', () => {
+           // Stubs are applied. createInstance runs the constructor safely.
+           const contribution = ctx.instantiationService.createInstance(MyContribution);
+           ctx.disposables.add(contribution);
+
+           onDidSomething.fire();
+           // assert behavior
        });
    });
    ```
+
+   **Do NOT assume the builder can't handle your case.** The builder's `setup()` hook creates a fresh instantiation service and applies all stubs before each test. The only case where manual setup is needed is when you need a completely custom instantiation service creation (not just extra stubs).
 
    **Quality checklist while writing:**
    - Every variable declared in `setup()` must be used in at least one test
@@ -144,37 +161,36 @@ For each approved item:
 
 ## Phase 3: Independent Review
 
-After all tests pass, spawn a **review subagent** for each new or modified test file. The review agent provides fresh-eyes quality feedback without knowledge of the writing process.
-
-For each test file, use the Agent tool:
+After all tests pass, spawn **one** review subagent that reviews all new/modified test files together. A single agent can cross-check consistency between files and avoids redundant setup. Use the Agent tool:
 
 ```
 Agent({
-  description: "Review test: <filename>",
-  prompt: "<the review prompt below, filled in with paths>"
+  description: "Review all new tests",
+  prompt: "<the review prompt below, filled in with all file paths>"
 })
 ```
 
 ### Review subagent prompt template
 
-Use this prompt for each review subagent, filling in the file paths:
+Fill in the file list and use this prompt:
 
 ---
 
-You are reviewing a unit test file for quality, maintainability, and adherence to the project's testing patterns. You have no context about why the test was written this way -- evaluate it on its own merits.
+You are reviewing unit test files for quality, maintainability, and adherence to the project's testing patterns. You have no context about why these tests were written this way -- evaluate them on their own merits.
 
-**Test file:** `<path to test file>`
-**Source file:** `<path to source file under test>`
+**Test files to review:**
+<list each test file path and its corresponding source file path>
+
 **Builder reference:** `src/vs/workbench/test/browser/positronTestContainer.ts`
 **Testing guide:** Read the Testing section of `CLAUDE.md`
 
-Read all four files, then evaluate against this checklist. Report ONLY items that fail -- don't list passing items.
+Read all files, then evaluate each test file against this checklist. Report ONLY items that fail -- don't list passing items. Also flag any cross-file inconsistencies (e.g., same service stubbed differently, different assertion styles for the same pattern).
 
-**Checklist:**
+**Checklist (per test file):**
 
 1. **Unused declarations** -- Any variables, emitters, or imports declared but never referenced in a test? Suite-level `let` variables that only exist for setup wiring should be inlined into the stub objects instead.
 
-2. **Builder adoption** -- Is the test using `createTestContainer()` or manually calling `positronWorkbenchInstantiationService()`? Manual setup is acceptable only when the builder's `setup()` hook conflicts with the test's own setup needs. Flag if the builder could have been used.
+2. **Builder adoption** -- Is the test using `createTestContainer()` or manually calling `positronWorkbenchInstantiationService()`? The builder's `.stub()` runs inside `setup()`, so stubs are always applied before the test body. Calling `ctx.instantiationService.createInstance()` in the test body works even for classes that subscribe to events in their constructor. Flag any manual setup as a failure unless there is a comment explaining a genuinely unsolvable conflict.
 
 3. **Setup weight** -- Count lines of setup vs number of tests. If the ratio exceeds 10:1, suggest extracting a helper function. If 3+ test files would need the same setup, suggest a new builder preset.
 
@@ -190,18 +206,18 @@ Read all four files, then evaluate against this checklist. Report ONLY items tha
 
 **Output format:**
 
-For each failing item, report:
+Group findings by test file. For each failing item, report:
 - The checklist number and name
 - What specifically is wrong
 - A concrete fix (not just "improve this")
 
-If everything passes, say "No issues found."
+If a test file has no issues, say "No issues found" for that file.
 
 ---
 
-### After reviews complete
+### After review completes
 
-Collect findings from all review subagents. For each issue:
+For each issue from the review:
 1. Apply the fix
 2. Re-run the affected test to confirm it still passes
 
