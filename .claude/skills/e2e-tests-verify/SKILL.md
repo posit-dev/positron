@@ -252,6 +252,22 @@ Bash (background): <POM ref staleness check + gen if needed>
 
 **Happy-path tool call count:** 5-6 calls total (parallel launch message, read POM ref, poll, POST /describe, POST /run-plan, POST /done).
 
+### Step 2b: Verify POM Methods Before Building Plan (HARD GATE)
+
+**Before building the `/run-plan` payload, verify every POM method you plan to use.**
+
+For each POM in your test plan:
+1. Search the POM reference for that POM name (e.g., grep for `## help` or `## plots`)
+2. Confirm the exact method name exists and note its parameter types
+3. **Do NOT include any method you did not find in the reference**
+
+If you cannot find a method, check for similar names -- the reference lists all available
+methods when a POM is found. Do not guess, abbreviate, or infer method names from
+the POM name or from other POMs.
+
+This gate exists because guessed method names (e.g., `openHelpPane` instead of
+`openHelpPanel`) waste a retry and add 10-15s of dead time.
+
 ### Step 3: Execute Test via /run-plan (Primary)
 
 Use `POST /run-plan` to execute the entire test in one HTTP call. A happy-path test run is **4 tool calls total**: launch + poll, read POM reference, POST /run-plan, POST /done.
