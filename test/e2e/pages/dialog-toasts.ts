@@ -61,7 +61,7 @@ export class Toasts {
 
 		await Promise.race([
 			toastLocator.waitFor({ state: 'attached', timeout }),
-			centerLocator.waitFor({ state: 'attached', timeout }),
+			centerLocator.first().waitFor({ state: 'attached', timeout }),
 		]);
 
 		await this.closeNotificationCenter();
