@@ -1171,28 +1171,54 @@ export class SessionQuickPick {
 		return await test.step('Get all available runtimes', async () => {
 			await this.openSessionQuickPickMenu(true);
 
-			const entries = await this.code.driver.page.locator('.quick-input-list-entry').all();
+			// Clear the search text to show all runtimes
+			await this.code.driver.page.getByRole('textbox', { name: START_NEW_CONSOLE_SESSION_PATTERN }).clear();
+
+			const seen = new Set<string>();
 			const runtimes: RuntimeInfo[] = [];
 
-			for (const entry of entries) {
-				// Get the runtime name from the first row
-				const nameElement = entry.locator('.quick-input-list-row').nth(0).locator('.label-name .monaco-highlighted-label');
-				const name = await nameElement.textContent();
+			// Page through the list to load all entries (handles virtualized lists)
+			let stable = false;
+			while (!stable) {
+				const entries = this.code.driver.page.locator('.quick-input-list-entry');
+				const entryCount = await entries.count();
 
-				// Get the path from the second row
-				const pathElement = entry.locator('.quick-input-list-row').nth(1).locator('.label-name .monaco-highlighted-label');
-				const path = await pathElement.textContent();
+				let newEntriesFound = false;
+				for (let i = 0; i < entryCount; i++) {
+					const entry = entries.nth(i);
 
-				// Get the category from the separator
-				const separatorElement = entry.locator('.quick-input-list-separator');
-				const category = await separatorElement.textContent();
+					// Get the runtime name from the first row
+					const nameElement = entry.locator('.quick-input-list-row').nth(0).locator('.label-name .monaco-highlighted-label');
+					const name = await nameElement.textContent();
 
-				if (name && path) {
-					runtimes.push({
-						name: name.trim(),
-						path: path.trim(),
-						category: category?.trim() || ''
-					});
+					// Get the path from the second row
+					const pathElement = entry.locator('.quick-input-list-row').nth(1).locator('.label-name .monaco-highlighted-label');
+					const path = await pathElement.textContent();
+
+					// Get the category from the separator
+					const separatorElement = entry.locator('.quick-input-list-separator');
+					const category = await separatorElement.textContent();
+
+					if (name && path) {
+						const key = `${name}||${path}`;
+						if (!seen.has(key)) {
+							seen.add(key);
+							runtimes.push({
+								name: name.trim(),
+								path: path.trim(),
+								category: category?.trim() || ''
+							});
+							newEntriesFound = true;
+						}
+					}
+				}
+
+				if (newEntriesFound) {
+					await this.code.driver.page.keyboard.press('PageDown');
+					await this.code.driver.page.keyboard.press('PageDown');
+					await this.code.driver.page.waitForTimeout(50); // allow more items to render
+				} else {
+					stable = true; // no new items found after PageDown
 				}
 			}
 
