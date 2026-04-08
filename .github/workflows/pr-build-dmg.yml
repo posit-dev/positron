@@ -4,11 +4,13 @@ on:
   issue_comment:
     types: [created]
 
+# Restrict workflow permissions - comment jobs get write access separately
 permissions:
   contents: read
-  packages: read
-  pull-requests: write
-  issues: write
+
+concurrency:
+  group: pr-dmg-${{ github.event.issue.number }}
+  cancel-in-progress: true
 
 jobs:
   build-dmg:
@@ -16,9 +18,20 @@ jobs:
     runs-on: macos-latest-xlarge
     timeout-minutes: 180
     # Only run for PR comments (not issue comments) that contain /dmg
+    # And only allow trusted users (org members, collaborators, repo owners)
     if: |
       github.event.issue.pull_request &&
-      contains(github.event.comment.body, '/dmg')
+      contains(github.event.comment.body, '/dmg') &&
+      (github.event.comment.author_association == 'OWNER' ||
+       github.event.comment.author_association == 'MEMBER' ||
+       github.event.comment.author_association == 'COLLABORATOR')
+
+    permissions:
+      contents: read
+      packages: read
+
+    outputs:
+      pr-sha: ${{ steps.pr.outputs.sha }}
 
     steps:
       - name: Get PR details
@@ -32,17 +45,6 @@ jobs:
           echo "ref=$(echo "$PR_DATA" | jq -r .head.ref)" >> $GITHUB_OUTPUT
           echo "repo=$(echo "$PR_DATA" | jq -r .head.repo.full_name)" >> $GITHUB_OUTPUT
 
-      - name: Post initial comment
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh api repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments \
-            -F body="🔨 Building macOS DMG for commit ${{ steps.pr.outputs.sha }}... This will take approximately 30-60 minutes.
-
-          **Status:** In Progress ⏳
-
-          [View workflow run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})"
-
       - name: Checkout PR branch
         uses: actions/checkout@v6
         with:
@@ -50,6 +52,7 @@ jobs:
           ref: ${{ steps.pr.outputs.ref }}
           fetch-depth: 0
           submodules: recursive
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -96,15 +99,60 @@ jobs:
           path: Positron-PR-${{ github.event.issue.number }}-arm64.dmg
           retention-days: 7
 
+  post-start-comment:
+    name: Post build started comment
+    runs-on: ubuntu-latest
+    if: |
+      github.event.issue.pull_request &&
+      contains(github.event.comment.body, '/dmg') &&
+      (github.event.comment.author_association == 'OWNER' ||
+       github.event.comment.author_association == 'MEMBER' ||
+       github.event.comment.author_association == 'COLLABORATOR')
+
+    permissions:
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Get PR details
+        id: pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_DATA=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.issue.number }})
+          echo "sha=$(echo "$PR_DATA" | jq -r .head.sha)" >> $GITHUB_OUTPUT
+
+      - name: Post initial comment
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments \
+            -F body="🔨 Building macOS DMG for commit ${{ steps.pr.outputs.sha }}... This will take approximately 30-60 minutes.
+
+          **Status:** In Progress ⏳
+
+          [View workflow run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+
+  post-result-comment:
+    name: Post build result comment
+    runs-on: ubuntu-latest
+    needs: build-dmg
+    if: always()
+
+    permissions:
+      pull-requests: write
+      issues: write
+
+    steps:
       - name: Post success comment
-        if: success()
+        if: needs.build-dmg.result == 'success'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh api repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments \
             -F body="✅ macOS DMG build completed successfully!
 
-          **Commit:** ${{ steps.pr.outputs.sha }}
+          **Commit:** ${{ needs.build-dmg.outputs.pr-sha }}
           **Artifact:** \`positron-pr-${{ github.event.issue.number }}-macos-arm64-dmg\`
 
           📦 [Download DMG](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
@@ -112,7 +160,7 @@ jobs:
           The DMG will be available for 7 days. Note: This build is unsigned and not notarized - you may need to allow it in System Settings > Privacy & Security."
 
       - name: Post failure comment
-        if: failure()
+        if: needs.build-dmg.result == 'failure'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
