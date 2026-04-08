@@ -17,20 +17,22 @@ Performs on-demand QA testing by driving Positron through test scenarios using t
 takes 30-60s to boot and has ZERO dependencies on planning, references, or input parsing.
 Every second spent reading docs before launching is wasted wall-clock time.
 
-**In your very first tool-call message**, include these background commands alongside
+**In your very first tool-call message**, include these two background commands alongside
 whatever reference reads you need:
 
+**Background command 1 -- Launch runner:**
+```bash
+rm -f /tmp/explore-runner-port && EXPLORE_TITLE="<short description>" <ENV> npx playwright test test/e2e/tests/_verify/verify.test.ts --project <project> 2>&1 &
 ```
-Bash (background): rm -f /tmp/explore-runner-port && <launch command per target mode, see references/runner-launch.md>
-Bash (background): <POM ref staleness check, see references/runner-launch.md>
+Where `<ENV>` and `<project>` depend on the target flag:
+- `--build`: `ENV=BUILD=/Applications/Positron.app`, `project=e2e-electron`
+- `--local` or default: no ENV needed, `project=e2e-electron`
+- `--browser <name>`: `ENV=ALLOW_EXPLORE=1`, `project=e2e-<name>`
+
+**Background command 2 -- POM ref staleness check:**
+```bash
+REF=test/e2e/tests/_generated/pom-reference.md && if [ ! -f "$REF" ] || [ -n "$(find test/e2e/pages -name '*.ts' -newer "$REF" 2>/dev/null | head -1)" ]; then npx tsx scripts/generate-pom-reference.ts; else echo "POM ref is fresh"; fi
 ```
-
-Determine the launch command from the target flag:
-- `--build`: `BUILD=/Applications/Positron.app npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-electron 2>&1 &`
-- `--local` or default: `npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-electron 2>&1 &`
-- `--browser <name>`: `ALLOW_EXPLORE=1 npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-<name> 2>&1 &`
-
-Set `EXPLORE_TITLE` to a short description (e.g., `EXPLORE_TITLE="PR 456: Variable filter"`).
 
 **Then continue with Steps 0-2 while the runner boots in the background.**
 
