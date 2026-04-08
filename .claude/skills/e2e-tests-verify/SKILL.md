@@ -11,6 +11,12 @@ user-invocable: true
 
 Performs on-demand QA testing by driving Positron through test scenarios using the explore runner. Accepts a PR number, branch diff, or natural-language description.
 
+## Rules for This Workflow
+
+- **Do NOT use TaskCreate or TaskUpdate.** This workflow is fast and linear -- task tracking adds overhead with zero value.
+- **Avoid `$'...'` bash syntax** (ansi_c_string). Use heredocs or plain strings instead. The `$'...'` pattern triggers permission prompts for users and blocks CI. See `references/runner-api.md` for safe alternatives.
+- **Notebook kernel timing:** When testing notebooks, always wait for the kernel to connect before running cells. Use `newNotebook` action to create, then separate `addCodeToCell` and run steps. Do NOT use `addCodeToCell({ run: true })` immediately after notebook creation -- the kernel may not be ready.
+
 ## IMMEDIATE: Launch Runner First
 
 **Before reading any other section**, fire the runner launch in the background. The runner
@@ -287,9 +293,9 @@ For free-text mode, skip the agent wait -- plan directly from the description.
 4. **Send description** so the report shows what is being tested:
    ```bash
    PORT=$(cat /tmp/explore-runner-port)
-   jq -n --arg desc $'Verify PR #456: Panel hiding behavior when closing editors:\n- Panel maximizes when visible and last editor closes\n- Panel stays hidden when user hid it (Cmd+J)' \
-     '{description: $desc}' \
-   | curl -s -X POST "http://localhost:$PORT/describe" -H 'Content-Type: application/json' -d @-
+   curl -s -X POST "http://localhost:${PORT}/describe" \
+     -H 'Content-Type: application/json' \
+     -d '{"description": "PR 456: Panel hiding behavior when closing editors"}'
    ```
 
 **Happy-path tool call count:** 5-6 calls total (parallel launch message, read POM ref, poll, POST /describe, POST /run-plan, POST /done).
@@ -315,21 +321,16 @@ This gate exists because guessed method names (e.g., `openHelpPane` instead of
 Use `POST /run-plan` to execute the entire test in one HTTP call. A happy-path test run is **4 tool calls total**: launch + poll, read POM reference, POST /run-plan, POST /done.
 
 ```bash
-PORT=$(cat /tmp/explore-runner-port)
-curl -s -X POST "http://localhost:$PORT/run-plan" \
+PORT=$(cat /tmp/explore-runner-port) && curl -s -X POST "http://localhost:${PORT}/run-plan" \
   -H 'Content-Type: application/json' \
-  -d '{
-    "title": "PR 456: Variable appears after execution",
-    "stepTimeout": 10000,
-    "steps": [
-      {"type": "pom", "pom": "sessions", "method": "start", "args": ["python"], "timeout": 20000, "title": "Start Python session"},
-      {"type": "pom", "pom": "console", "method": "executeCode", "args": ["Python", "x = 42"], "title": "Execute x = 42"},
-      {"type": "pom", "pom": "variables", "method": "expectVariableToBe", "args": ["x", "42"], "timeout": 5000, "title": "Verify x in Variables pane"}
-    ]
-  }'
+  -d '{"title": "PR 456: Variable appears after execution", "stepTimeout": 10000, "steps": [
+    {"type": "pom", "pom": "sessions", "method": "start", "args": ["python"], "timeout": 20000, "title": "Start Python session"},
+    {"type": "pom", "pom": "console", "method": "executeCode", "args": ["Python", "x = 42"], "title": "Execute x = 42"},
+    {"type": "pom", "pom": "variables", "method": "expectVariableToBe", "args": ["x", "42"], "timeout": 5000, "title": "Verify x in Variables pane"}
+  ]}'
 ```
 
-See `references/runner-api.md` for full API documentation, response formats, jq tips, scoping, explore mode routes, and action tables.
+See `references/runner-api.md` for full API documentation, response formats, scoping, explore mode routes, and action tables.
 
 **POM first, raw never (for assertions):** Do NOT use raw selectors, evaluate, or screenshots for verification when a POM method exists. Look for `expect*` and `waitFor*` methods in the POM reference -- these are assertion methods with built-in retries. Raw actions (`snapshot`, `takeScreenshot`) are for **debugging failures**, not for assertions.
 

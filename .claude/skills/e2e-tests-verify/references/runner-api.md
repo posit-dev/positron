@@ -30,23 +30,39 @@ curl -s -X POST "http://localhost:$PORT/run-plan" \
 - `title` (optional): Human-readable label for Playwright report
 - `timeout` (optional): Per-step timeout override in ms (falls back to `stepTimeout`)
 
-## Dynamic content with jq
+## Dynamic content
 
-Use **`jq -n` piped to `curl -d @-`** when the payload contains code, text with quotes/newlines, or any dynamic strings:
+**IMPORTANT: Do NOT use `$'...'` bash syntax (ansi_c_string).** It triggers permission
+prompts for users and blocks CI. Use heredocs or plain curl instead.
+
+**For simple payloads** (no code with newlines), use plain curl:
 ```bash
-jq -n --arg code $'x = 42\nprint(x)' \
-  '{title: "Run code and verify", stepTimeout: 10000, steps: [
-    {type: "pom", pom: "console", method: "executeCode", args: ["Python", $code], title: "Execute code"},
-    {type: "pom", pom: "variables", method: "expectVariableToBe", args: ["x", "42"], timeout: 5000, title: "Verify x"}
-  ]}' \
-| curl -s -X POST "http://localhost:$PORT/run-plan" -H 'Content-Type: application/json' -d @-
+PORT=$(cat /tmp/explore-runner-port)
+curl -s -X POST "http://localhost:${PORT}/run-plan" \
+  -H 'Content-Type: application/json' \
+  -d '{"title": "PR 456: Variable test", "stepTimeout": 10000, "steps": [
+    {"type": "pom", "pom": "console", "method": "executeCode", "args": ["Python", "x = 42"], "title": "Execute code"}
+  ]}'
 ```
 
-**IMPORTANT: `jq --arg` does NOT interpret `\n` as newlines.** Use bash `$'...'` quoting for any string containing newlines:
-- WRONG: `--arg code 'line1\nline2'` -- types literal backslash-n
-- RIGHT: `--arg code $'line1\nline2'` -- types actual newline
+**For payloads with code containing newlines**, use a heredoc to build the JSON:
+```bash
+PORT=$(cat /tmp/explore-runner-port)
+cat <<'PAYLOAD' | curl -s -X POST "http://localhost:${PORT}/run-plan" -H 'Content-Type: application/json' -d @-
+{
+  "title": "PR 456: Run multiline code",
+  "stepTimeout": 10000,
+  "steps": [
+    {"type": "pom", "pom": "console", "method": "executeCode", "args": ["Python", "x = 42\nprint(x)"], "title": "Execute code"},
+    {"type": "pom", "pom": "variables", "method": "expectVariableToBe", "args": ["x", "42"], "timeout": 5000, "title": "Verify x"}
+  ]
+}
+PAYLOAD
+```
 
-**Rule of thumb:** If the value contains quotes, newlines, backslashes, or comes from a variable -- use `jq` with `$'...'` quoting. Otherwise plain `curl` is fine and faster.
+Note: In JSON strings, `\n` is a literal newline escape -- no special bash quoting needed.
+
+**Rule of thumb:** Plain curl for simple payloads. Heredoc for complex payloads with code. Never `$'...'`.
 
 ## /run-plan Response Format
 
