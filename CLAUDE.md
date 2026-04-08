@@ -36,15 +36,87 @@ Positron forks VSCode. Minimize merge conflicts by isolating Positron code.
 
 ## Testing
 
-- Ensure build daemons are running before testing
-- Core tests (`src/**/*.ts`):
+### Where should I put my test?
+
+The deciding question: **does it need Electron?**
+
+1. **Core tests** (`*.test.ts`) -- DEFAULT for Positron code in `src/`. No Electron needed. Covers everything from pure functions to 124-service integration tests. If your code doesn't genuinely need `vscode`/`positron` APIs at runtime, it belongs here.
+2. **Extension host** (`npm run test-extension`) -- Needs Electron. Only when your test requires activated extensions, workspace APIs, or editor document manipulation.
+3. **E2E** (Playwright) -- Needs the full app. Only for user-visible workflows across multiple systems.
+
+### Running tests
+
+- **Core tests** (`*.test.ts`, requires build daemons):
+	- Ensure build daemons are running first: `npm run build-start && npm run build-check`
 	- `./scripts/test.sh`: run all tests
 	- `./scripts/test.sh --run src/path/to/<file>.test.ts`: run a specific file
 	- `./scripts/test.sh --run src/path/to/<file>.test.ts --grep '<pattern>'`: run specific tests in a file
 	- `./scripts/test.sh --runGlob <glob>.test.js`: run files matching a glob (use `.js` extension with `--runGlob`)
-- Extension tests (`extensions/<extension-name>/*.test.ts`, preferred for extension development except positron-python): `npm run test-extension -- -l <extension-name> --grep <pattern>`
-	- For positron-python, see that extension's CLAUDE.md
-- E2E tests (for UI integration testing): `npx playwright test test/e2e/tests/<test-name>.test.ts --project e2e-electron --grep '<pattern>'`
+- **Extension tests** (`extensions/<extension-name>/*.test.ts`): `npm run test-extension -- -l <extension-name> --grep <pattern>`
+	- positron-python has its own test setup -- see `extensions/positron-python/CLAUDE.md`
+- **E2E tests** (full app, real browser): `npx playwright test test/e2e/tests/<test-name>.test.ts --project e2e-electron --grep '<pattern>'`
+
+### The Builder
+
+The builder (`createTestContainer()`) provides presets for common service groupings. Pick the lowest one that works, and use `.stub()` to add or override individual services.
+
+For pure logic tests (no services), skip the builder entirely -- just import and assert.
+
+For available presets and examples, see `src/vs/workbench/test/browser/positronTestContainer.ts`.
+
+**Key rules:**
+- Any preset supports `.stub(IService, mock)` for adding or overriding individual services
+- The builder result (`ctx`) uses lazy getters -- access `ctx.instantiationService` inside `setup`/`test`, not at suite-level via destructuring
+- `ctx.disposables` is auto-cleaned after each test -- pass it to helpers like `startTestLanguageRuntimeSession()` that need it
+
+### How to mock (the incremental approach)
+
+You don't need to understand all 124 services. You build mocks incrementally -- start with nothing and let the test tell you what's missing.
+
+**Step 1: Start with a preset and run the test.**
+
+```typescript
+const ctx = createTestContainer().withRuntimeServices().build();
+```
+
+If the test passes, you're done. Most dependencies are already handled.
+
+**Step 2: If it fails with "X is not a function" or "Cannot read properties of undefined", a service is missing.**
+
+Add an empty stub for just that service:
+
+```typescript
+const ctx = createTestContainer()
+	.withRuntimeServices()
+	.stub(IMissingService, {} as IMissingService)
+	.build();
+```
+
+Run again. If it passes, you're done. The empty stub works when the code has the dependency but your test path doesn't call it.
+
+**Step 3: If it still fails because the code calls a specific method, add just that method.**
+
+```typescript
+.stub(IMissingService, {
+	getDoc: () => undefined,
+} as IMissingService)
+```
+
+**Step 4: If the code listens to an event, add an Emitter.**
+
+```typescript
+import { Emitter } from '<path>/base/common/event.js';
+
+const onDidChange = new Emitter<void>();
+.stub(IMissingService, {
+	getDoc: () => undefined,
+	onDidChange: onDidChange.event,
+} as IMissingService)
+```
+
+Now your test can trigger the event with `onDidChange.fire()` to test reactive behavior.
+
+**The pattern: empty -> add methods -> add events.** You never mock more than what the test actually needs. If you're writing 20 lines of mock setup, you're probably over-mocking -- step back and check if a higher preset already covers it.
 
 ## Directory Structure
 

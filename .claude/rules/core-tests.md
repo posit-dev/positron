@@ -7,30 +7,46 @@ paths:
 
 Core Positron unit/integration tests in `src/`, run via `./scripts/test.sh`.
 
+## The Builder
+
+Use `createTestContainer()` from `src/vs/workbench/test/browser/positronTestContainer.ts` for any test that needs services. Pick the lowest preset that covers your dependencies:
+
+- **Bare** (no preset) -- pure logic, no services
+- `.withRuntimeServices()` -- language runtime + session services (~18)
+- `.withNotebookServices()` -- runtime + notebook/kernel services (+8)
+- `.withWorkbenchServices()` -- full Positron stack (124+)
+
+Use `.stub(IService, impl)` to add or override individual services after any preset.
+
+```typescript
+const ctx = createTestContainer().withRuntimeServices().build();
+```
+
+**Important:** `ctx` uses lazy getters. Access `ctx.instantiationService` inside `setup`/`test`, not at suite-level via destructuring.
+
 ## Disposables
 
-Every test suite must call `ensureNoDisposablesAreLeakedInTestSuite()`. Capture the return value if tests create disposables:
+The builder calls `ensureNoDisposablesAreLeakedInTestSuite()` automatically. If you're not using the builder, call it yourself:
 
 ```typescript
 const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 disposables.add(someDisposable);
 ```
 
-## Services (prefer in this order)
+## Mocking
 
-1. `{} as T` for services the code under test doesn't call (e.g. dependencies it only passes through to collaborators).
-2. Real services directly (e.g. `new RuntimeStartupService(...)`).
-3. Existing `Test*` service classes - search from `src/vs/workbench/test/browser/positronWorkbenchTestServices.ts`.
-4. For many dependencies, use `positronWorkbenchInstantiationService`.
+Build mocks incrementally -- see the "How to mock" section in `CLAUDE.md`. In short:
+
+1. Start with a preset and run the test
+2. If a service is missing, add an empty stub: `.stub(IService, {} as IService)`
+3. If a method is called, add just that method
+4. If an event is subscribed, add an `Emitter`
+
+Use `Partial<T>` with only the members your test needs, cast with `as T`. This may trigger `local/code-no-dangerous-type-assertions`; add `/* eslint-disable local/code-no-dangerous-type-assertions */` below the copyright header.
 
 ## Structure
 
 - Group related tests with nested `suite()` calls, not comment headers like `// --- Section ---`.
-
-## Mocking
-
-- Use `Partial<T>` with only the members your test needs, cast with `as T`. This might trigger `local/code-no-dangerous-type-assertions`; add `/* eslint-disable local/code-no-dangerous-type-assertions */` below the copyright header.
-- For reusable mocks, create a test helper class implementing `Partial<T>`.
 
 ## Sinon
 

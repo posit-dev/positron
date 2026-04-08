@@ -1,0 +1,149 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import { DisposableStore } from '../../../base/common/lifecycle.js';
+import { ServiceIdentifier } from '../../../platform/instantiation/common/instantiation.js';
+import { ServiceCollection } from '../../../platform/instantiation/common/serviceCollection.js';
+import { TestInstantiationService } from '../../../platform/instantiation/test/common/instantiationServiceMock.js';
+import { createRuntimeServices } from '../../services/runtimeSession/test/common/testRuntimeSessionService.js';
+import { positronWorkbenchInstantiationService } from './positronWorkbenchTestServices.js';
+import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../base/test/common/utils.js';
+import { INotebookExecutionService } from '../../contrib/notebook/common/notebookExecutionService.js';
+import { INotebookExecutionStateService } from '../../contrib/notebook/common/notebookExecutionStateService.js';
+import { INotebookRendererMessagingService } from '../../contrib/notebook/common/notebookRendererMessagingService.js';
+import { NotebookRendererMessagingService } from '../../contrib/notebook/browser/services/notebookRendererMessagingServiceImpl.js';
+import { INotebookEditorService } from '../../contrib/notebook/browser/services/notebookEditorService.js';
+import { NotebookEditorWidgetService } from '../../contrib/notebook/browser/services/notebookEditorServiceImpl.js';
+import { INotebookDocumentService, NotebookDocumentWorkbenchService } from '../../services/notebook/common/notebookDocumentService.js';
+import { INotebookService } from '../../contrib/notebook/common/notebookService.js';
+import { NotebookService } from '../../contrib/notebook/browser/services/notebookServiceImpl.js';
+import { INotebookKernelService } from '../../contrib/notebook/common/notebookKernelService.js';
+import { NotebookKernelService } from '../../contrib/notebook/browser/services/notebookKernelServiceImpl.js';
+import { INotebookLoggingService } from '../../contrib/notebook/common/notebookLoggingService.js';
+import { NotebookLoggingService } from '../../contrib/notebook/browser/services/notebookLoggingServiceImpl.js';
+import { TestNotebookExecutionService } from '../../test/common/positronWorkbenchTestServices.js';
+import { TestNotebookExecutionStateService } from '../../contrib/notebook/test/browser/testNotebookEditor.js';
+import { workbenchInstantiationService as baseWorkbenchInstantiationService } from './workbenchTestServices.js';
+
+interface TestContainerResult {
+	/** Retrieve a registered service by its identifier. */
+	get: <T>(id: ServiceIdentifier<T>) => T;
+	/** The underlying instantiation service (escape hatch for advanced use). */
+	instantiationService: TestInstantiationService;
+	/** Disposable store -- auto-cleaned after each test. Pass to helpers that need it. */
+	disposables: Pick<DisposableStore, 'add'>;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- service stubs are inherently untyped
+type ServiceStub = { id: ServiceIdentifier<any>; impl: any };
+
+/**
+ * Fluent builder for test containers. Provides presets for common
+ * service groupings. Pick the lowest preset that covers your test's
+ * dependencies, then use .stub() for anything extra.
+ *
+ * Presets (each includes the one above it):
+ *   Bare         -- no services, for pure logic tests
+ *   Runtime      -- language runtime + session services (~18)
+ *   Notebooks    -- runtime + notebook/kernel services (+8)
+ *   Workbench    -- full Positron stack (124+)
+ *
+ * Adding a new preset: add a boolean flag, a with*() method, and an
+ * else-if branch in build(). See withNotebookServices() for an example.
+ *
+ * Usage:
+ *   const ctx = createTestContainer().withRuntimeServices().build();
+ *   const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+ */
+class PositronTestContainerBuilder {
+	private _useRuntimeServices = false;
+	private _useNotebookServices = false;
+	private _useWorkbenchServices = false;
+	private _stubs: ServiceStub[] = [];
+
+	/** Add the 18 runtime/language services (ILanguageRuntimeService, IRuntimeSessionService, etc.) */
+	withRuntimeServices(): this {
+		this._useRuntimeServices = true;
+		return this;
+	}
+
+	/** Add runtime services + 8 notebook services (INotebookService, INotebookEditorService, etc.) */
+	withNotebookServices(): this {
+		this._useNotebookServices = true;
+		return this;
+	}
+
+	/** Add the full 124+ workbench service stack (includes runtime + notebook services). */
+	withWorkbenchServices(): this {
+		this._useWorkbenchServices = true;
+		return this;
+	}
+
+	/** Stub a specific service. Applied after presets, so it overrides preset defaults. */
+	stub<T>(id: ServiceIdentifier<T>, impl: Partial<T>): this {
+		this._stubs.push({ id, impl });
+		return this;
+	}
+
+	/**
+	 * Build the container. Returns get(), instantiationService, and disposables.
+	 *
+	 * Must be called at suite-level (not inside setup). The builder registers
+	 * its own setup hook to create a fresh instantiation service and apply presets
+	 * each test, so the disposable store created by ensureNoDisposablesAreLeakedInTestSuite()
+	 * is always initialized before service setup runs.
+	 */
+	build(): TestContainerResult {
+		const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+		const stubs = this._stubs;
+		const useRuntimeServices = this._useRuntimeServices;
+		const useNotebookServices = this._useNotebookServices;
+		const useWorkbenchServices = this._useWorkbenchServices;
+
+		// Mutable slot -- reassigned in setup so each test starts fresh.
+		let _instantiationService: TestInstantiationService;
+
+		setup(() => {
+			if (useWorkbenchServices) {
+				_instantiationService = positronWorkbenchInstantiationService(disposables);
+			} else if (useNotebookServices) {
+				// Runtime services + base workbench (for editor/theme deps) + notebook services.
+				_instantiationService = baseWorkbenchInstantiationService(undefined, disposables);
+				createRuntimeServices(_instantiationService, disposables);
+				_instantiationService.stub(INotebookExecutionService, new TestNotebookExecutionService());
+				_instantiationService.stub(INotebookExecutionStateService, _instantiationService.createInstance(TestNotebookExecutionStateService));
+				_instantiationService.stub(INotebookRendererMessagingService, disposables.add(_instantiationService.createInstance(NotebookRendererMessagingService)));
+				_instantiationService.stub(INotebookEditorService, disposables.add(_instantiationService.createInstance(NotebookEditorWidgetService)));
+				_instantiationService.stub(INotebookDocumentService, new NotebookDocumentWorkbenchService());
+				_instantiationService.stub(INotebookService, disposables.add(_instantiationService.createInstance(NotebookService)));
+				_instantiationService.stub(INotebookKernelService, disposables.add(_instantiationService.createInstance(NotebookKernelService)));
+				_instantiationService.stub(INotebookLoggingService, disposables.add(_instantiationService.createInstance(NotebookLoggingService)));
+			} else if (useRuntimeServices) {
+				_instantiationService = new TestInstantiationService(new ServiceCollection());
+				createRuntimeServices(_instantiationService, disposables);
+			} else {
+				_instantiationService = new TestInstantiationService(new ServiceCollection());
+			}
+
+			for (const { id, impl } of stubs) {
+				_instantiationService.stub(id, impl);
+			}
+		});
+
+		// Return a result object whose properties delegate to the mutable slot.
+		// This is safe because tests only access these after setup has run.
+		const result: TestContainerResult = {
+			get instantiationService() { return _instantiationService; },
+			get: <T>(id: ServiceIdentifier<T>) => _instantiationService.get(id),
+			disposables,
+		};
+		return result;
+	}
+}
+
+/** Create a test container with fluent builder API. */
+export function createTestContainer(): PositronTestContainerBuilder {
+	return new PositronTestContainerBuilder();
+}
