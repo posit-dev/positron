@@ -85,6 +85,8 @@ const ctx = createTestContainer().withRuntimeServices().build();
 
 If the test passes, you're done. Most dependencies are already handled.
 
+**When NOT to create a Test* class:** The presets use existing Test* classes internally, but you don't need to create new ones. A `.stub(IService, { methodYouNeed: () => value })` is almost always sufficient. Only create a dedicated Test* class if multiple test files need the same complex mock with emitters, state tracking, or multi-method behavior.
+
 **Step 2: If it fails with "X is not a function" or "Cannot read properties of undefined", a service is missing.**
 
 Add an empty stub for just that service:

@@ -59,6 +59,13 @@ type ServiceStub = { id: ServiceIdentifier<any>; impl: any };
  * How to add a new preset: add a boolean flag, a with*() method, and an
  * else-if branch in build(). See withNotebookServices() for an example.
  *
+ * Test* classes vs .stub(): The presets wire up existing Test* classes
+ * where they exist (e.g. TestPositronConsoleService, TestConfigurationService).
+ * These are convenience defaults -- any can be overridden with .stub(IService,
+ * partial). For new tests, prefer .stub() with a partial object over creating
+ * new Test* classes. Only create a Test* class when multiple tests need the
+ * same complex mock behavior (emitters, state management, etc.).
+ *
  * Usage:
  *   const ctx = createTestContainer().withRuntimeServices().build();
  *   const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);

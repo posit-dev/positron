@@ -78,12 +78,9 @@ Wait for confirmation before proceeding to Phase 2.
 
 ## Phase 2: Writing
 
-### New test files vs extending existing files
-
-- **New test files:** Always use `createTestContainer()`. No exceptions.
-- **Extending existing files:** If the file already uses manual setup (e.g., `ensureNoDisposablesAreLeakedInTestSuite()` + `createRuntimeServices()`), match the existing patterns. Nesting a builder suite inside an existing manual suite creates duplicate disposable tracking. Add new suites that follow the file's conventions.
-
 ### Writing each test
+
+Always use `createTestContainer()`. Every Positron test file uses the builder. The only exceptions are files in `test/common/` directories that cannot import from the `browser` layer.
 
 For each approved item:
 

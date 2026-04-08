@@ -28,11 +28,11 @@ const ctx = createTestContainer().withRuntimeServices().build();
 
 ## Disposables
 
-The builder calls `ensureNoDisposablesAreLeakedInTestSuite()` automatically. If you're not using the builder, call it yourself:
+The builder handles disposable leak detection automatically. Access the disposable store via `ctx.disposables`:
 
 ```typescript
-const disposables = ensureNoDisposablesAreLeakedInTestSuite();
-disposables.add(someDisposable);
+const ctx = createTestContainer().build();
+ctx.disposables.add(someDisposable);
 ```
 
 ## Mocking

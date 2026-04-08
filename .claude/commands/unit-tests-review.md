@@ -22,11 +22,7 @@ Any variables, emitters, or imports declared but never referenced in a test? Sui
 
 ### 2. Builder adoption
 
-Is the test using `createTestContainer()` or manually calling `positronWorkbenchInstantiationService()`? The builder's `.stub()` runs inside `setup()`, so stubs are always applied before the test body. Calling `ctx.instantiationService.createInstance()` in the test body works even for classes that subscribe to events in their constructor.
-
-**For new test files:** Flag any manual `positronWorkbenchInstantiationService()` as a failure unless there is a comment explaining a genuinely unsolvable conflict (e.g., the test is extending an existing file that uses manual setup and nesting a builder suite would create duplicate disposable tracking).
-
-**For extending existing files:** If the existing file uses manual setup, new suites should match the existing patterns. Don't flag this -- the migration to the builder is a separate task.
+Is the test using `createTestContainer()`? Flag any usage of `positronWorkbenchInstantiationService()`, `createRuntimeServices()`, or raw `ensureNoDisposablesAreLeakedInTestSuite()` as a failure. All Positron tests use the builder. The only exception is files in `test/common/` directories that cannot import from the `browser` layer.
 
 ### 3. Setup weight
 
