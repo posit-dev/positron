@@ -114,18 +114,6 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 			this._setActivePositronVariablesBySession(session?.sessionId);
 		}));
 
-		// Listen for notebook URI updates from session remapping
-		// When a notebook changes URI (during save), the variables view needs to update its UI.
-		// This maintains a consistent user experience by showing the correct file path in the variables view
-		// The event-based approach allows loose coupling between the session service and variables service
-		// which if we directly called the variables session method it would cause a circular dependency.
-		this._register(this._runtimeSessionService.onDidUpdateNotebookSessionUri(e => {
-			// Respond to URI changes by setting the appropriate session as active in the variables view
-			// This ensures that the variables view context stays consistent with the file system
-			this._logService.debug(`Setting active variables session for notebook URI update: ${e.sessionId}`);
-			this.setActivePositronVariablesSession(e.sessionId);
-		}));
-
 		// Listen for console code execution events
 		this._register(this._positronConsoleService.onDidExecuteCode(e => {
 			this._watchForCodeExecution(e);
@@ -174,26 +162,6 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 	// Gets the active REPL instance.
 	get activePositronVariablesInstance(): IPositronVariablesInstance | undefined {
 		return this._activePositronVariablesInstance;
-	}
-
-	/**
-	 * Sets the active variables instance to the one with the given session ID.
-	 *
-	 * @param sessionId The session ID.
-	 */
-	setActivePositronVariablesSession(sessionId: string): void {
-		// Find the Positron variables instance associated with the session ID.
-		const positronVariablesInstance =
-			this._positronVariablesInstancesBySessionId.get(sessionId);
-		if (positronVariablesInstance) {
-			// Found it; make it active.
-			this._setActivePositronVariablesInstance(positronVariablesInstance);
-		} else {
-			// Did not find it; log a warning.
-			this._logService.warn(
-				`Attempted to set the active Positron variables instance to a session ` +
-				`(${sessionId}) that does not have a corresponding Positron variables instance.`);
-		}
 	}
 
 	/**

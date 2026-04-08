@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -76,9 +76,8 @@ suite('PositronAssistantService', () => {
 		]);
 
 		// Create variables instances for each session and set the active session
-		testVariablesService.createPositronVariablesInstance(testConsoleSession);
+		testVariablesService.createPositronVariablesInstance(testConsoleSession, true);
 		testVariablesService.createPositronVariablesInstance(testNotebookSession);
-		testVariablesService.setActivePositronVariablesSession(testConsoleSession.sessionId);
 
 		// Create the service under test with all required services
 		positronAssistantService = disposables.add(instantiationService.createInstance(PositronAssistantService));
