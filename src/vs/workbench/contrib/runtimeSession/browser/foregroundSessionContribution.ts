@@ -21,7 +21,6 @@ import {
 } from '../../positronQuarto/common/positronQuartoConfig.js';
 import { IQuartoKernelManager } from '../../positronQuarto/browser/quartoKernelManager.js';
 import { isNotebookEditorInput } from '../../runtimeNotebookKernel/common/activeRuntimeNotebookContextManager.js';
-import { IPositronConsoleInstance, IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IPositronNotebookInstance } from '../../positronNotebook/browser/IPositronNotebookInstance.js';
 import { IPositronNotebookService } from '../../positronNotebook/browser/positronNotebookService.js';
 import { INotebookEditor } from '../../notebook/browser/notebookBrowser.js';
@@ -44,13 +43,12 @@ export interface IForegroundSessionContribution {
 export const IForegroundSessionContribution = createDecorator<IForegroundSessionContribution>('foregroundSessionContribution');
 
 /**
- * Contribution that coordinates foreground session changes from various UI gestures.
+ * Contribution that coordinates foreground session changes due to editor tab changes.
  * This contribution tries to centralize the foreground session switching logic by
  * listening to events from various UI components and determining which session should
  * be the foreground session.
  *
  * For runtime startup, the logic to set the foreground session is handled elsewhere.
- * This contribution is focused on user-driven context changes (for now).
  *
  * Events handled:
  *
@@ -63,9 +61,10 @@ export const IForegroundSessionContribution = createDecorator<IForegroundSession
  * - Notebook session starts -> becomes foreground if its notebook is the active editor
  * - Notebook session becomes ready (e.g., after restart) -> becomes foreground if its notebook is the active editor
  *
- * Console Session Selection (onDidChangeActivePositronConsoleInstance):
- * - Console tab clicked -> that console session becomes foreground
- * - Console pane focused -> active console session becomes foreground
+ * Console session foreground changes are handled directly by:
+ * - consoleTabList.tsx: Sets foreground when user clicks a tab
+ * - positronConsoleView.tsx: Sets foreground when console pane gains focus
+ * - runtimeSession.ts: Sets foreground when console session starts or becomes ready
  *
  * The foreground session is used by:
  * - Variables pane (shows variables for foreground session)
@@ -92,7 +91,6 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 		@IEditorService private readonly _editorService: IEditorService,
 		@ILogService private readonly _logService: ILogService,
 		@INotebookEditorService private readonly _notebookEditorService: INotebookEditorService,
-		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService,
 		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
 		@IQuartoKernelManager private readonly _quartoKernelManager: IQuartoKernelManager,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
@@ -121,9 +119,22 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 			}
 		}));
 
-		// Listen for console instance selection (e.g., clicking a console tab or focusing the console pane)
-		this._register(this._positronConsoleService.onDidChangeActivePositronConsoleInstance((instance) => {
-			this._handleConsoleInstanceSelected(instance);
+		// When a notebook session is deleted (e.g. after kernel shutdown) and it
+		// was the foreground session, clear the foreground and show the cached display
+		// info so the interpreter picker continues showing the exited notebook info.
+		// Console session deletion is handled by positronConsoleService.deletePositronConsoleSession.
+		this._register(this._runtimeSessionService.onDidDeleteRuntimeSession((sessionId) => {
+			const foregroundSession = this._runtimeSessionService.foregroundSession;
+			if (foregroundSession?.sessionId === sessionId
+				&& foregroundSession.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook
+				&& foregroundSession.metadata.notebookUri
+			) {
+				const sessionInfo = this._runtimeSessionService.getLastNotebookSessionInfo(foregroundSession.metadata.notebookUri);
+				this._runtimeSessionService.foregroundSession = undefined;
+				if (sessionInfo) {
+					this._runtimeSessionService.foregroundSessionDisplayInfo = sessionInfo;
+				}
+			}
 		}));
 
 		// --- Start Positron Notebook Editor Focus Handling ---
@@ -292,7 +303,16 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 				this._logService.trace(`[ForegroundSessionContribution] Positron notebook instance focused (${notebookName}), but it is already the foreground session: ${session.sessionId}`);
 			}
 		} else {
-			this._logService.trace(`[ForegroundSessionContribution] Positron notebook instance focused (${notebookName}) but no session found for URI`);
+			// No active session. Check if there's saved info from a previous session
+			// so the interpreter picker can still show what runtime was last used.
+			const sessionInfo = this._runtimeSessionService.getLastNotebookSessionInfo(notebookUri);
+			if (sessionInfo) {
+				this._logService.trace(`[ForegroundSessionContribution] Positron notebook instance focused (${notebookName}), using cached session info`);
+				this._runtimeSessionService.foregroundSession = undefined;
+				this._runtimeSessionService.foregroundSessionDisplayInfo = sessionInfo;
+			} else {
+				this._logService.trace(`[ForegroundSessionContribution] Positron notebook instance focused (${notebookName}) but no session found for URI`);
+			}
 		}
 	}
 
@@ -360,7 +380,16 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 				this._logService.trace(`[ForegroundSessionContribution] Legacy notebook editor focused (${notebookName}), but it is already the foreground session: ${session.sessionId}`);
 			}
 		} else {
-			this._logService.trace(`[ForegroundSessionContribution] Legacy notebook editor focused (${notebookName}) but no session found for URI`);
+			// No active session. Check if there's saved info from a previous session
+			// so the interpreter picker can still show what runtime was last used.
+			const sessionInfo = this._runtimeSessionService.getLastNotebookSessionInfo(notebookUri);
+			if (sessionInfo) {
+				this._logService.trace(`[ForegroundSessionContribution] Legacy notebook editor focused (${notebookName}), using cached session info`);
+				this._runtimeSessionService.foregroundSession = undefined;
+				this._runtimeSessionService.foregroundSessionDisplayInfo = sessionInfo;
+			} else {
+				this._logService.trace(`[ForegroundSessionContribution] Legacy notebook editor focused (${notebookName}) but no session found for URI`);
+			}
 		}
 	}
 
@@ -426,38 +455,15 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 				this._logService.trace(`[ForegroundSessionContribution] Quarto editor focused (${fileName}), already the foreground session: ${session.sessionId}`);
 			}
 		} else {
-			this._logService.trace(`[ForegroundSessionContribution] Quarto editor focused (${fileName}) but no session found`);
-		}
-	}
-
-	/**
-	 * Handle console instance selection (e.g., clicking a console tab or focusing the console pane).
-	 * Sets the console instance's session as the foreground session.
-	 */
-	private _handleConsoleInstanceSelected(instance: IPositronConsoleInstance | undefined): void {
-		if (!instance) {
-			return;
-		}
-
-		if (this._runtimeSessionService.foregroundSession?.sessionId !== instance.sessionId) {
-			// Get the session associated with the console instance. We fetch the session from the runtime
-			// session service because we don't have access to the console session via the console instance
-			// when its exited.
-			const session = this._runtimeSessionService.getSession(instance.sessionId);
-
-			// The session may not yet exist for the console instance since we create console instances
-			// before the runtime sessions are created. We need to check if the session exists before
-			// setting it as the foreground session.
-			if (session) {
-				this._runtimeSessionService.foregroundSession = session;
-				this._logService.trace(`[ForegroundSessionContribution] Console instance (${instance.sessionName}) selected, setting foreground session: ${instance.sessionId}`);
+			// No active session. Check if there's saved info from a previous session.
+			const sessionInfo = this._runtimeSessionService.getLastNotebookSessionInfo(uri);
+			if (sessionInfo) {
+				this._logService.trace(`[ForegroundSessionContribution] Quarto editor focused (${fileName}), using session info`);
+				this._runtimeSessionService.foregroundSession = undefined;
+				this._runtimeSessionService.foregroundSessionDisplayInfo = sessionInfo;
 			} else {
-				// Console instance has no session yet - this can happen for provisional
-				// instances while waiting for a session to connect.
-				this._logService.trace(`[ForegroundSessionContribution] Console instance (${instance.sessionName}) selected but no session found: ${instance.sessionId}`);
+				this._logService.trace(`[ForegroundSessionContribution] Quarto editor focused (${fileName}) but no session found`);
 			}
-		} else {
-			this._logService.trace(`[ForegroundSessionContribution] Console instance (${instance.sessionName}) selected, but it is already the foreground session: ${instance.sessionId}`);
 		}
 	}
 
@@ -544,8 +550,18 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 					this._logService.trace(`[ForegroundSessionContribution] Notebook editor focused (${notebookName}), but it is already the foreground session: ${session.sessionId}`);
 				}
 			} else {
-				// Notebook has no session yet - don't change foreground
-				this._logService.trace(`[ForegroundSessionContribution] Notebook editor focused (${notebookName}) but has no session yet`);
+				// No active session. Check if there's saved info from a previous session
+				// so the interpreter picker can still show what runtime was last used.
+				const sessionInfo = activeEditor.resource
+					? this._runtimeSessionService.getLastNotebookSessionInfo(activeEditor.resource)
+					: undefined;
+				if (sessionInfo) {
+					this._logService.trace(`[ForegroundSessionContribution] Notebook editor focused (${notebookName}), using session info`);
+					this._runtimeSessionService.foregroundSession = undefined;
+					this._runtimeSessionService.foregroundSessionDisplayInfo = sessionInfo;
+				} else {
+					this._logService.trace(`[ForegroundSessionContribution] Notebook editor focused (${notebookName}) but has no session yet`);
+				}
 			}
 			return;
 		}
@@ -578,8 +594,15 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 					this._logService.trace(`[ForegroundSessionContribution] Quarto file focused (${fileName}), but it is already the foreground session: ${session.sessionId}`);
 				}
 			} else {
-				// Quarto has no session yet - don't change foreground
-				this._logService.trace(`[ForegroundSessionContribution] Quarto file focused (${fileName}) but has no session yet`);
+				// No active session. Check if there's saved info from a previous session.
+				const sessionInfo = this._runtimeSessionService.getLastNotebookSessionInfo(uri);
+				if (sessionInfo) {
+					this._logService.trace(`[ForegroundSessionContribution] Quarto file focused (${fileName}), using session info`);
+					this._runtimeSessionService.foregroundSession = undefined;
+					this._runtimeSessionService.foregroundSessionDisplayInfo = sessionInfo;
+				} else {
+					this._logService.trace(`[ForegroundSessionContribution] Quarto file focused (${fileName}) but has no session yet`);
+				}
 			}
 			return;
 		}

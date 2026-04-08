@@ -27,6 +27,23 @@
           "default": true,
           "description": "%configuration.appLauncher.showShellIntegrationNotSupportedMessage%"
         },
+        "positron.runApp.previewMode": {
+          "type": "string",
+          "default": "viewer",
+          "enum": [
+            "viewer",
+            "editor",
+            "external",
+            "none"
+          ],
+          "enumDescriptions": [
+            "%configuration.runApp.previewMode.viewer%",
+            "%configuration.runApp.previewMode.editor%",
+            "%configuration.runApp.previewMode.external%",
+            "%configuration.runApp.previewMode.none%"
+          ],
+          "description": "%configuration.runApp.previewMode%"
+        },
         "positron.appLauncher.terminalAppUrlOpenLocation": {
           "type": "string",
           "default": "ask",

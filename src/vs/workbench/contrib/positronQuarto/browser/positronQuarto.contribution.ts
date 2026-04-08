@@ -28,8 +28,10 @@ import {
 	QUARTO_INLINE_OUTPUT_ENABLED,
 	QUARTO_KERNEL_RUNNING,
 	isQuartoDocument,
+	isQuartoOrRmdFile,
 } from '../common/positronQuartoConfig.js';
 import { QuartoKernelState } from './quartoKernelManager.js';
+import { ILanguageRuntimeService, RuntimeStartupPhase } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { MenuId } from '../../../../platform/actions/common/actions.js';
 import { PositronActionBarWidgetRegistry } from '../../../../platform/positronActionBar/browser/positronActionBarWidgetRegistry.js';
 import { QuartoKernelStatusBadge } from './QuartoKernelStatusBadge.js';
@@ -78,12 +80,16 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 	private readonly _inlineOutputEnabledKey = QUARTO_INLINE_OUTPUT_ENABLED.bindTo(this._contextKeyService);
 	private readonly _kernelRunningKey = QUARTO_KERNEL_RUNNING.bindTo(this._contextKeyService);
 
+	/** Tracks documents that have already had auto-start attempted, so we only auto-start on first open. */
+	private readonly _autoStartedDocuments = new Set<string>();
+
 	constructor(
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IEditorService private readonly _editorService: IEditorService,
 		@IQuartoKernelManager private readonly _quartoKernelManager: IQuartoKernelManager,
 		@IExtensionService private readonly _extensionService: IExtensionService,
+		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 	) {
 		super();
 
@@ -103,6 +109,7 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 		this._register(this._editorService.onDidActiveEditorChange(() => {
 			this._updateIsQuartoDocument();
 			this._updateKernelRunning();
+			this._autoStartKernelIfNeeded();
 		}));
 
 		// Listen for kernel state changes
@@ -114,6 +121,28 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 		this._register(this._extensionService.onDidChangeExtensions(() => {
 			this._updateInlineOutputEnabled();
 		}));
+
+		// Clear auto-start tracking when a Quarto document is closed,
+		// so reopening it will trigger auto-start again.
+		this._register(this._editorService.onDidCloseEditor(e => {
+			const uri = e.editor.resource;
+			if (uri) {
+				this._autoStartedDocuments.delete(uri.toString());
+			}
+		}));
+
+		// After the runtime startup phase completes (reconnection finished),
+		// auto-start kernels for any already-open Quarto documents that
+		// didn't get a session restored.
+		if (this._languageRuntimeService.startupPhase === RuntimeStartupPhase.Complete) {
+			this._autoStartKernelsForOpenDocuments();
+		} else {
+			this._register(this._languageRuntimeService.onDidChangeRuntimeStartupPhase(phase => {
+				if (phase === RuntimeStartupPhase.Complete) {
+					this._autoStartKernelsForOpenDocuments();
+				}
+			}));
+		}
 	}
 
 	private _updateInlineOutputEnabled(): void {
@@ -146,6 +175,78 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 			this._kernelRunningKey.set(isRunning);
 		} else {
 			this._kernelRunningKey.set(false);
+		}
+	}
+
+	/**
+	 * Auto-start the kernel for the active Quarto document if inline output
+	 * is enabled and no kernel is already running. This provides a seamless
+	 * experience where the kernel is ready by the time the user wants to
+	 * execute code.
+	 */
+	private _autoStartKernelIfNeeded(): void {
+		// Don't auto-start during startup/reconnection to avoid racing with
+		// session restoration. Open documents will be handled by
+		// _autoStartKernelsForOpenDocuments() once startup completes.
+		if (this._languageRuntimeService.startupPhase !== RuntimeStartupPhase.Complete) {
+			return;
+		}
+
+		const uri = this._editorService.activeEditor?.resource;
+		if (!uri || !this._isQuartoFile()) {
+			return;
+		}
+
+		const key = uri.toString();
+		if (this._autoStartedDocuments.has(key)) {
+			return;
+		}
+
+		if (!this._inlineOutputEnabledKey.get()) {
+			return;
+		}
+
+		// Mark as attempted so we don't auto-start again on tab switches
+		this._autoStartedDocuments.add(key);
+
+		// Fire and forget - kernel startup is handled asynchronously
+		this._quartoKernelManager.ensureKernelForDocument(uri).catch(() => {
+			// Errors are handled internally by the kernel manager
+		});
+	}
+
+	/**
+	 * Auto-start kernels for all open Quarto documents that don't already
+	 * have a session. Called after the runtime startup phase completes, so
+	 * that we don't race with session reconnection/restoration.
+	 */
+	private _autoStartKernelsForOpenDocuments(): void {
+		if (!this._inlineOutputEnabledKey.get()) {
+			return;
+		}
+
+		for (const editorInput of this._editorService.editors) {
+			const uri = editorInput.resource;
+			if (!uri || !isQuartoOrRmdFile(uri.path)) {
+				continue;
+			}
+
+			const key = uri.toString();
+			if (this._autoStartedDocuments.has(key)) {
+				continue;
+			}
+
+			const state = this._quartoKernelManager.getKernelState(uri);
+			if (state !== QuartoKernelState.None) {
+				// Already has a session (e.g., restored during reconnection)
+				this._autoStartedDocuments.add(key);
+				continue;
+			}
+
+			this._autoStartedDocuments.add(key);
+			this._quartoKernelManager.ensureKernelForDocument(uri).catch(() => {
+				// Errors are handled internally by the kernel manager
+			});
 		}
 	}
 

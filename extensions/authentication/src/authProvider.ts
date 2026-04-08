@@ -5,8 +5,7 @@
 
 import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
-import { IS_RUNNING_ON_PWB } from './constants';
-import { log } from './log';
+import { AuthProviderLogger } from './authProviderLogger';
 
 interface StoredAccount {
 	readonly id: string;
@@ -59,6 +58,7 @@ export class AuthProvider
 	private _chainSession: vscode.AuthenticationSession | undefined;
 	private _refreshTimer: ReturnType<typeof setInterval> | undefined;
 	private _disposed = false;
+	private readonly logger: AuthProviderLogger;
 
 	constructor(
 		private readonly providerId: string,
@@ -66,7 +66,9 @@ export class AuthProvider
 		protected readonly context: vscode.ExtensionContext,
 		private readonly workbench?: WorkbenchCredentialConfig,
 		private readonly credentialChain?: CredentialChainConfig,
-	) { }
+	) {
+		this.logger = new AuthProviderLogger(this.displayName);
+	}
 
 	/** Whether this provider blocks sign-out for chain sessions. */
 	get chainPreventsSignOut(): boolean {
@@ -115,7 +117,7 @@ export class AuthProvider
 				}
 			}
 			if (this._chainSession) {
-				log.debug(`[${this.displayName}] getSessions: returned chain session`);
+				this.logger.logSessionChange('retrieved', 'getSessions: returned chain session');
 				return [this._chainSession];
 			}
 		}
@@ -124,7 +126,7 @@ export class AuthProvider
 		if (this.workbench) {
 			const session = await this.getManagedSession();
 			if (session) {
-				log.debug(`[${this.displayName}] getSessions: returned Workbench-managed session`);
+				this.logger.logSessionChange('retrieved', 'getSessions: returned Workbench-managed session');
 				return [session];
 			}
 		}
@@ -147,7 +149,7 @@ export class AuthProvider
 				});
 			}
 		}
-		log.debug(`[${this.displayName}] getSessions: returned ${sessions.length} stored session(s)`);
+		this.logger.logSessionChange('retrieved', `getSessions: returned ${sessions.length} stored session(s)`);
 		return sessions;
 	}
 
@@ -182,7 +184,7 @@ export class AuthProvider
 		if (!key) {
 			throw new Error(vscode.l10n.t('API key is required'));
 		}
-		log.info(`[${this.displayName}] Creating session via Accounts menu`);
+		this.logger.logSessionChange('created', 'Creating session via Accounts menu');
 		return this.storeKey(randomUUID(), this.displayName, key);
 	}
 
@@ -214,7 +216,7 @@ export class AuthProvider
 		this._onDidChangeSessions.fire({
 			added: [session], removed: [], changed: [],
 		});
-		log.info(`[${this.displayName}] Stored key for account "${label}"`);
+		this.logger.logSessionChange('stored', `Stored key for account "${label}"`);
 		return session;
 	}
 
@@ -227,10 +229,9 @@ export class AuthProvider
 				try {
 					const token = await this.credentialChain.resolve();
 					if (token) {
-						log.info(
-							`[${this.displayName}] Chain session ` +
-							`removal blocked -- credentials still ` +
-							`available from environment`
+						this.logger.info(
+							'Chain session removal blocked -- ' +
+							'credentials still available from environment'
 						);
 						vscode.window.showInformationMessage(
 							vscode.l10n.t(
@@ -253,14 +254,14 @@ export class AuthProvider
 			this._onDidChangeSessions.fire({
 				added: [], removed: [removed], changed: [],
 			});
-			log.info(`[${this.displayName}] Chain session removed`);
+			this.logger.logSessionChange('removed', 'Chain session removed');
 			return;
 		}
 
 		const accounts = this.getStoredAccounts();
 		const account = accounts.find(a => a.id === sessionId);
 		if (!account) {
-			log.warn(`[${this.displayName}] removeSession: no account found for ${sessionId}`);
+			this.logger.warn(`removeSession: no account found for ${sessionId}`);
 			return;
 		}
 
@@ -277,7 +278,7 @@ export class AuthProvider
 			}],
 			changed: [],
 		});
-		log.info(`[${this.displayName}] Removed session for account "${account.label}" (${sessionId})`);
+		this.logger.logSessionChange('removed', `Removed session for account "${account.label}" (${sessionId})`);
 	}
 
 	/**
@@ -313,15 +314,12 @@ export class AuthProvider
 				this._onDidChangeSessions.fire({
 					added: [session], removed: [], changed: [],
 				});
-				log.info(`[${this.displayName}] Credentials resolved`);
+				this.logger.logCredentialResolution('resolved');
 			}
 
 			return session;
 		} catch (err) {
-			log.debug(
-				`[${this.displayName}] Credential resolution failed: ` +
-				`${err instanceof Error ? err.message : String(err)}`
-			);
+			this.logger.logCredentialResolution('failed', `${err instanceof Error ? err.message : String(err)}`);
 
 			if (this._chainSession) {
 				const removed = this._chainSession;
@@ -329,7 +327,7 @@ export class AuthProvider
 				this._onDidChangeSessions.fire({
 					added: [], removed: [removed], changed: [],
 				});
-				log.info(`[${this.displayName}] Cached session invalidated`);
+				this.logger.logCredentialResolution('invalidated', 'Cached session invalidated');
 			}
 			return undefined;
 		}
@@ -355,7 +353,7 @@ export class AuthProvider
 
 	private async getManagedSession(
 	): Promise<vscode.AuthenticationSession | undefined> {
-		if (!IS_RUNNING_ON_PWB || !this.workbench!.isAvailable()) {
+		if (!this.workbench!.isAvailable()) {
 			return undefined;
 		}
 
@@ -366,14 +364,11 @@ export class AuthProvider
 				{ silent: true }
 			);
 			if (session) {
-				log.debug(`[${this.displayName}] Using Workbench-managed credentials`);
+				this.logger.logCredentialResolution('resolved', 'Using Workbench-managed credentials');
 			}
 			return session ?? undefined;
 		} catch (err) {
-			log.warn(
-				`[${this.displayName}] Failed to get Workbench session: ` +
-				`${err instanceof Error ? err.message : String(err)}`
-			);
+			this.logger.logCredentialResolution('failed', `Failed to get Workbench session: ${err instanceof Error ? err.message : String(err)}`);
 			return undefined;
 		}
 	}

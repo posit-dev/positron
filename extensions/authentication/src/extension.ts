@@ -18,6 +18,7 @@ import { log } from './log';
 import { migrateAwsSettings } from './migration/aws';
 import { migrateSnowflakeSettings } from './migration/snowflake';
 import { registerMigrateApiKeyCommand } from './migration/apiKey';
+import { AuthProviderLogger } from './authProviderLogger';
 
 export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(log);
@@ -28,10 +29,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// Migrate settings before registering providers so they
 	// read the migrated values during initialization.
-	await migrateAwsSettings().catch(err =>
-		log.error(`AWS settings migration failed: ${err}`)
-	);
-	registerAwsProvider(context);
+	await registerAwsProvider(context);
 
 	await migrateSnowflakeSettings().catch(err =>
 		log.error(`Snowflake settings migration failed: ${err}`)
@@ -57,6 +55,8 @@ export async function activate(context: vscode.ExtensionContext) {
 async function registerAnthropicProvider(
 	context: vscode.ExtensionContext
 ): Promise<void> {
+	const logger = new AuthProviderLogger('Anthropic');
+
 	// Sync ANTHROPIC_BASE_URL env var to the config setting before
 	// chain resolution so validation uses the correct endpoint.
 	const envBaseUrl = process.env.ANTHROPIC_BASE_URL;
@@ -67,7 +67,7 @@ async function registerAnthropicProvider(
 				'baseUrl', envBaseUrl,
 				vscode.ConfigurationTarget.Global
 			).then(undefined, err =>
-				log.error(`Failed to sync Anthropic base URL: ${err}`)
+				logger.logOperationError('sync Anthropic base URL', err)
 			);
 	}
 
@@ -119,13 +119,17 @@ async function registerAnthropicProvider(
 	// Eagerly resolve env var credentials so the session is
 	// available before positron-assistant registers models.
 	await provider.resolveChainCredentials().catch(err =>
-		log.debug(`[Anthropic] Initial credential resolution: ${err}`)
+		logger.logCredentialResolution(
+			'failed',
+			`Initial credential resolution: ${err}`
+		)
 	);
 
-	log.info(`Registered auth provider: ${ANTHROPIC_AUTH_PROVIDER_ID}`);
+	logger.info('Registered auth provider');
 }
 
 function registerPositAIProvider(context: vscode.ExtensionContext): void {
+	const logger = new AuthProviderLogger('Posit AI');
 	const provider = new PositOAuthProvider(context);
 	context.subscriptions.push(
 		vscode.authentication.registerAuthenticationProvider(
@@ -134,12 +138,18 @@ function registerPositAIProvider(context: vscode.ExtensionContext): void {
 		provider
 	);
 	registerAuthProvider(POSIT_AUTH_PROVIDER_ID, provider);
-	log.info(`Registered auth provider: ${POSIT_AUTH_PROVIDER_ID}`);
+	logger.info('Registered auth provider');
 }
 
-function registerAwsProvider(
+async function registerAwsProvider(
 	context: vscode.ExtensionContext
-): void {
+): Promise<void> {
+	const logger = new AuthProviderLogger('AWS');
+
+	await migrateAwsSettings().catch(err =>
+		logger.logOperationError('settings migration', err)
+	);
+
 	const awsConfig = vscode.workspace
 		.getConfiguration('authentication.aws')
 		.get<{ AWS_PROFILE?: string; AWS_REGION?: string }>(
@@ -155,8 +165,8 @@ function registerAwsProvider(
 		profile ? { profile } : {}
 	);
 
-	log.info(
-		`[AWS] Credential chain initialized ` +
+	logger.info(
+		`Credential chain initialized ` +
 		`(region=${region}, profile=${profile ?? '(default)'})`
 	);
 
@@ -184,12 +194,16 @@ function registerAwsProvider(
 	);
 	registerAuthProvider(AWS_AUTH_PROVIDER_ID, provider);
 	provider.resolveChainCredentials().catch(err =>
-		log.debug(`[AWS] Initial credential resolution failed: ${err}`)
+		logger.logCredentialResolution(
+			'failed',
+			`Initial credential resolution failed: ${err}`
+		)
 	);
-	log.info(`Registered auth provider: ${AWS_AUTH_PROVIDER_ID}`);
+	logger.info('Registered auth provider');
 }
 
 function registerFoundryProvider(context: vscode.ExtensionContext): void {
+	const logger = new AuthProviderLogger('Microsoft Foundry');
 	const provider = new AuthProvider(
 		FOUNDRY_AUTH_PROVIDER_ID, 'Microsoft Foundry', context,
 		{
@@ -216,7 +230,7 @@ function registerFoundryProvider(context: vscode.ExtensionContext): void {
 			}
 		},
 	});
-	log.info(`Registered auth provider: ${FOUNDRY_AUTH_PROVIDER_ID}`);
+	logger.info('Registered auth provider');
 
 	// Sync Workbench endpoint to auth extension setting
 	if (hasManagedCredentials(FOUNDRY_MANAGED_CREDENTIALS)) {
@@ -228,12 +242,15 @@ function registerFoundryProvider(context: vscode.ExtensionContext): void {
 			vscode.workspace
 				.getConfiguration('authentication.foundry')
 				.update('baseUrl', normalized, vscode.ConfigurationTarget.Global)
-				.then(undefined, err => log.error(`Failed to sync Foundry endpoint: ${err}`));
+				.then(undefined, err =>
+					logger.logOperationError('sync Foundry endpoint', err)
+				);
 		}
 	}
 }
 
 function registerSnowflakeProvider(context: vscode.ExtensionContext): void {
+	const logger = new AuthProviderLogger('Snowflake Cortex');
 	let lastTomlCheck: number | undefined;
 	let pendingMtime: number | undefined;
 
@@ -262,7 +279,7 @@ function registerSnowflakeProvider(context: vscode.ExtensionContext): void {
 							{ ...globalValue, SNOWFLAKE_ACCOUNT: credentials.account },
 							vscode.ConfigurationTarget.Global
 						).then(undefined, err =>
-							log.error(`Failed to sync Snowflake account: ${err}`)
+							logger.logOperationError('sync Snowflake account', err)
 						);
 					}
 				}
@@ -304,7 +321,10 @@ function registerSnowflakeProvider(context: vscode.ExtensionContext): void {
 		validateApiKey: validateSnowflakeApiKey,
 	});
 	provider.resolveChainCredentials().catch(err =>
-		log.debug(`[Snowflake] Initial credential resolution failed: ${err}`)
+		logger.logCredentialResolution(
+			'failed',
+			`Initial credential resolution failed: ${err}`
+		)
 	);
-	log.info('Registered auth provider: snowflake-cortex');
+	logger.info('Registered auth provider');
 }

@@ -118,6 +118,9 @@ export class PositronReactRenderer extends Disposable {
 		super();
 
 		// Create the root.
+		// TODO: Consider passing onUncaughtError/onCaughtError callbacks to
+		// createRoot for better diagnostics when errors escape all error
+		// boundaries. This won't prevent unmounting but would log context.
 		this._root = createRoot(container);
 	}
 

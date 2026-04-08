@@ -10,7 +10,7 @@ import './NotebookCodeCell.css';
 import React, { useMemo } from 'react';
 
 // Other dependencies.
-import { NotebookCellOutputs } from '../PositronNotebookCells/IPositronNotebookCell.js';
+import { NotebookCellOutputs, ParsedTextOutput } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { isParsedTextOutput } from '../getOutputContents.js';
 import { useObservedValue } from '../useObservedValue.js';
 import { CellEditorMonacoWidget } from './CellEditorMonacoWidget.js';
@@ -24,7 +24,8 @@ import { CellLeftActionMenu } from './CellLeftActionMenu.js';
 import { CellOutputCollapseButton } from './CellOutputCollapseButton.js';
 import { useNotebookInstance, useNotebookOptions } from '../NotebookInstanceProvider.js';
 import { CodeCellStatusFooter } from './CodeCellStatusFooter.js';
-import { isHTMLElement } from '../../../../../base/browser/dom.js';
+import { getActiveWindow, isHTMLElement } from '../../../../../base/browser/dom.js';
+import { IAction, Separator } from '../../../../../base/common/actions.js';
 import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
 import { Markdown } from './Markdown.js';
 import { useCellContextMenu } from './useCellContextMenu.js';
@@ -38,6 +39,7 @@ import { useScrollingIndicator } from './useScrollingIndicator.js';
 import { CellOutputActionBar } from './CellOutputActionBar.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 
+const copyOutputTextLabel = localize('positron.notebook.copyOutputText', "Copy Output Text");
 const expandOutputTooltip = localize('positron.notebook.expandOutput', "Click to Expand Output");
 const outputCollapsedLabel = localize('positron.notebook.outputCollapsed', 'Output collapsed');
 
@@ -103,6 +105,9 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 			return;
 		}
 
+		const x = event.clientX;
+		const y = event.clientY;
+
 		// Check if the click target is an <img> with a data: URL
 		const src = isHTMLElement(event.target) && event.target.tagName === 'IMG'
 			? (event.target as HTMLImageElement).src
@@ -114,16 +119,48 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 
 		const onHide = () => outputImageTargeted?.set(false);
 
-		if (imageDataUrl) {
-			showContextMenu(
-				{ x: event.clientX, y: event.clientY },
-				undefined,
-				onHide,
-				{ arg: { imageDataUrl }, shouldForwardArgs: true },
-			);
-		} else {
-			showContextMenu({ x: event.clientX, y: event.clientY }, undefined, onHide);
-		}
+		// Delay to next tick so the browser selection is up to date
+		// (right-click may highlight a word after the contextmenu event fires)
+		setTimeout(() => {
+			const selection = getActiveWindow().document.getSelection();
+			const hasTextOutputs = outputs.some(o => isParsedTextOutput(o.parsed));
+
+			const getClipboardActions = (): IAction[] => {
+				if (!hasTextOutputs) {
+					return [];
+				}
+
+				return [
+					{
+						id: 'positron.notebook.copyOutputText',
+						label: copyOutputTextLabel,
+						tooltip: '',
+						class: undefined,
+						enabled: true,
+						run: () => {
+							if (selection?.type === 'Range') {
+								// Copy the user's text selection
+								getActiveWindow().document.execCommand('copy');
+							} else {
+								// Fall back to copying all text output from the cell
+								const textContent = outputs
+									.filter(o => isParsedTextOutput(o.parsed))
+									.map(o => (o.parsed as ParsedTextOutput).content)
+									.join('\n');
+								services.clipboardService.writeText(textContent);
+							}
+						}
+					},
+					new Separator(),
+				];
+			};
+
+			const menuActionOptions = imageDataUrl
+				? { arg: { imageDataUrl }, shouldForwardArgs: true }
+				: undefined;
+
+			showContextMenu({ x, y }, getClipboardActions, onHide, menuActionOptions);
+		}, 0);
 	};
 
 	return (

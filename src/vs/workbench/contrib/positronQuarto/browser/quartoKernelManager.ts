@@ -19,7 +19,7 @@ import {
 	RuntimeStartMode,
 } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
-import { LanguageRuntimeSessionMode, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { LanguageRuntimeSessionMode, RuntimeExitReason, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { ITextModel } from '../../../../editor/common/model.js';
@@ -577,18 +577,21 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		this._setKernelState(documentUri, QuartoKernelState.ShuttingDown);
 
 		try {
-			if (info.session) {
-				await info.session.shutdown();
-			}
+			// Use the runtime session service to shut down the notebook session
+			// so the associated console instance (if any) is also cleaned up.
+			await this._runtimeSessionService.shutdownNotebookSession(
+				documentUri,
+				RuntimeExitReason.Shutdown,
+				'Quarto kernel shutdown',
+			);
 		} catch (error) {
 			this._logService.warn(`[QuartoKernelManager] Error shutting down kernel: ${error}`);
 		} finally {
-			// Remove the session from the runtime session service's notebook map.
-			// This must always happen so that subsequent restart attempts can start
-			// a fresh session rather than finding the exited session in the map.
-			this._runtimeSessionService.removeNotebookSessionFromNotebookMap(documentUri);
+			// For cleanup, we want to. dispose of listeners, then fire the state-change
+			// event while the _documentKernels entry is still present, then delete the entry.
+			// _setKernelState must run before _documentKernels.delete so that the state change
+			// event fires.
 			info.disposables.dispose();
-			// set the kernel state before deleting the entry so the state-change event fires
 			this._setKernelState(documentUri, QuartoKernelState.None);
 			this._documentKernels.delete(documentUri);
 		}
