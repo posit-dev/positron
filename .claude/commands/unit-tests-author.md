@@ -124,6 +124,7 @@ For each approved item:
    - Each suite: happy path, no-op/boundary, and at least one negative case
    - Prefer shared runtime/session variables over per-test creation
    - If setup exceeds ~20 lines of stubs, extract a helper function
+   - **Minimize imports.** If you're importing 5+ service identifiers just for `.stub()` calls, extract the stubs into a helper function (either in the test file or a shared test utility). The test should import the helper, not every service interface individually. Use `Event.None` for events the test never fires -- it avoids importing `Emitter`.
 
 3. **Run the test:** `./scripts/test.sh --run <path-to-test-file>`
 
