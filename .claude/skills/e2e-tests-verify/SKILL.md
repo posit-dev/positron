@@ -40,46 +40,39 @@ Where `<ENV>` and `<project>` depend on the target flag:
 REF=test/e2e/tests/_generated/pom-reference.md && if [ ! -f "$REF" ] || [ -n "$(find test/e2e/pages -name '*.ts' -newer "$REF" 2>/dev/null | head -1)" ]; then npx tsx scripts/generate-pom-reference.ts; else echo "POM ref is fresh"; fi
 ```
 
-**Background agent 3 -- Diff analysis (PR mode only):**
+**Foreground command 3 -- PR context (PR mode only):**
 
-If the input is a PR number, dispatch a background subagent to analyze the diff.
-This keeps raw diff out of the main context and runs in parallel with the runner boot.
-
+Fetch the PR metadata and file list -- these are small, fast calls that return in Message 1:
+```bash
+gh pr view <number> --repo posit-dev/positron --json title,body,labels | head -100
 ```
-Agent (background):
-  description: "Analyze PR <number> diff"
-  prompt: |
-    Analyze the diff for PR <number> in the posit-dev/positron repo.
-
-    Run these commands:
-    1. gh pr diff <number> --repo posit-dev/positron --name-only
-    2. gh pr diff <number> --repo posit-dev/positron | head -2000
-    3. gh pr view <number> --repo posit-dev/positron --json title,body,labels
-    [4. gh issue view <context-number> --repo posit-dev/positron --json title,body  (only if --context flag)]
-
-    Then return a structured summary:
-    - PR title and what it does (1-2 sentences)
-    - Changed files classified as: user-facing, shared component, test infrastructure, build/CI, docs
-    - For each user-facing file: what methods/behaviors changed and how
-    - Testability: can this be tested in Electron on macOS? Any blockers?
-    - Browser hints: does the PR body mention a specific browser?
-    - Feature flags: do any changed paths require feature flags? (positronNotebook/browser/ needs enablePositronNotebooks, positron.environments needs environments flag)
-    - Suggested test areas: 5-10 concrete things to verify, ordered by importance
-
-    Keep the response under 300 words. Focus on what changed and what to test, not on code details.
+```bash
+gh pr diff <number> --repo posit-dev/positron --name-only
+```
+If `--context <issue>` flag:
+```bash
+gh issue view <issue-number> --repo posit-dev/positron --json title,body | head -50
 ```
 
-For `--branch` mode, use the same agent pattern but with `git diff` commands instead of `gh pr diff`.
-For free-text mode, skip the agent -- no diff to analyze.
+**Do NOT fetch the full diff** (`gh pr diff` without `--name-only`) in the default flow.
+The PR title, body, and file list are enough to plan a good test. The full diff is
+expensive (1000+ lines, slow GH API) and rarely changes the test plan.
 
-**While the agent runs in the background:**
-- You will be **automatically notified** when the agent completes -- do NOT poll or check for it
-- Do NOT try to `cat` or `Read` agent output files -- that is not how agent results work
-- Do NOT run your own `gh pr diff` or `gh pr view` calls -- that duplicates the agent's work and puts the raw diff into your context (the whole point of the agent is to keep it out)
-- **Productive work while waiting:** read POM reference, read shared references, read runner-api.md. These are useful and fill the dead time
-- When the agent notification arrives, use its structured summary to plan test steps
+For `--deep` mode only, also fetch the full diff:
+```bash
+gh pr diff <number> --repo posit-dev/positron | head -2000
+```
 
-**Then continue with Steps 0-2 while the runner and agent work in the background.**
+For `--branch` mode, use git commands instead:
+```bash
+git diff main...HEAD --name-only
+```
+And for `--deep --branch`:
+```bash
+git diff main...HEAD | head -2000
+```
+
+**Then continue with Steps 0-2 while the runner boots in the background.**
 
 ## Input Formats
 
@@ -145,33 +138,34 @@ Report to the user: `Target: Local dev instance`
 **If free-text description:**
 Parse into 5-10 concrete, ordered test steps. Each step becomes one entry in the `/run-plan` steps array. Skip to Step 2 (no GH calls needed).
 
-**If PR number (default -- diff-driven):**
+**If PR number (default):**
 
-The diff analysis subagent (dispatched in the IMMEDIATE section) runs in the background
-and returns a structured summary. When it completes:
+The PR title, body, and file list were fetched in the IMMEDIATE section (Message 1).
+Use these to plan:
 
-1. **Check the agent's testability assessment.** If untestable, stop and tell the user.
-2. **Show the agent's analysis to the user** -- PR summary, changed files, suggested test areas.
-3. **Generate 5-10 test steps** from the agent's suggested test areas.
-4. Use the agent's feature flag findings to add setup steps if needed.
-5. Use the agent's browser hints to select the right project (if no `--browser` flag).
-
-If the agent reports the PR doesn't exist, error immediately:
-```
-No PR found for #456. Pass a PR number, or use --branch to test local changes.
-```
+1. **Validate the PR exists.** If `gh pr view` failed, error immediately:
+   ```
+   No PR found for #456. Pass a PR number, or use --branch to test local changes.
+   ```
+2. **Validate testability** (see below)
+3. **Classify the changed files** from `--name-only` output: user-facing, shared component, test, build/CI, docs
+4. **Plan 5-10 test steps** from the PR title + body + file classification. The PR description tells you *what* to test. The file list tells you *where* the changes are and which POMs to use.
+5. Check file paths for feature flags (see table below)
+6. Check PR body for browser hints (see Browser Selection below)
 
 **If PR number with `--context <issue>`:**
 
-Same as above -- the `--context` issue number is passed to the diff analysis agent,
-which fetches the issue body and incorporates it into the summary. The agent provides
-the "why" (bug report, expected behavior) alongside the "what" (code changes).
+Same as above, plus the issue body (also fetched in Message 1) provides the "why"
+(bug report, expected behavior) for richer test planning.
 
 **If PR number with `--deep`:**
 
-Pass `--deep` context to the agent prompt so it also fetches PR comments and linked
-issues. The agent returns an expanded summary. Generate 10-15+ test steps with edge
-cases, blast radius smoke tests, and regression checks.
+In `--deep` mode, the full diff IS fetched (see IMMEDIATE section). Use the diff hunks
+for exhaustive analysis. Generate 10-15+ test steps with edge cases, blast radius
+smoke tests, and regression checks. Also fetch PR comments for additional context:
+```bash
+gh pr view <number> --repo posit-dev/positron --json comments
+```
 
 **If `--branch` flag:**
 
@@ -268,19 +262,16 @@ See `references/runner-launch.md` for launch commands per mode (local dev, built
 
 **Parallel launch (already fired in IMMEDIATE section):**
 
-The runner, POM ref gen, and diff analysis agent were all launched in your first message.
-By this point they should be running in the background. Now:
+The runner, POM ref gen, and PR context calls were all fired in your first message.
+The PR title/body and file list are already in your context. Now:
 
 1. **Read the POM reference** (should be generated by now). Search for the specific POMs
-   you'll need based on the agent's summary (Step 2b gate):
+   you'll need based on the changed file list (Step 2b gate):
    ```
    Grep: search pom-reference.md for each POM you plan to use
    ```
 
-2. **Wait for the diff analysis agent** to return its structured summary (if PR/branch mode).
-   Use the summary to plan test steps per Step 1.
-
-For free-text mode, skip the agent wait -- plan directly from the description.
+2. **Plan test steps** from the PR title, body, and file list per Step 1.
 
 3. **Poll for runner readiness** (the runner has had 20-40s of head start by now -- likely already ready):
    ```bash
