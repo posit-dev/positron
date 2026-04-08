@@ -28,6 +28,7 @@
 	border-style: solid;
 	border-radius: var(--vscode-positronNotebook-cell-radius);
 	background-color: var(--vscode-positronNotebook-action-bar-background);
+	transition: border-radius 0.15s ease-out;
 	display: flex;
 	gap: var(--_positron-notebook-cell-action-bar-button-gap);
 
@@ -37,6 +38,14 @@
 	/* Always show action bar when cell is active (selected) */
 	&.visible {
 		visibility: visible;
+	}
+
+	/* Toggled by useToggleOnSticky while the bar is stuck to the scrollport.
+	 * Square off the top corners so the bar meets the scroll viewport flush. */
+	&.positron-notebooks-cell-action-bar--stuck {
+		border-top-left-radius: 0;
+		border-top-right-radius: 0;
+		border-top-width: 0.5px;
 	}
 }
 
