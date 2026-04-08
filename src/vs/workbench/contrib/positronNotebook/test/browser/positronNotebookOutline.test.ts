@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { createTestPositronNotebookInstance } from './testPositronNotebookInstance.js';
 import {
@@ -15,7 +15,7 @@ import {
 } from '../../browser/contrib/outline/positronNotebookOutline.contribution.js';
 
 suite('PositronNotebookOutline', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+	const { disposables } = createTestContainer().build();
 
 	suite('getFirstNonEmptyLine', () => {
 		test('returns first non-empty line', () => {

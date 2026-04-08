@@ -6,7 +6,7 @@
 import assert from 'assert';
 import { timeout } from '../../../../../base/common/async.js';
 import { VSBuffer } from '../../../../../base/common/buffer.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { ILogService, NullLogger } from '../../../../../platform/log/common/log.js';
 import { RuntimeClientState, RuntimeClientType } from '../../common/languageRuntimeClientInstance.js';
 import { IPyWidgetClientInstance } from '../../common/languageRuntimeIPyWidgetClient.js';
@@ -14,7 +14,7 @@ import { TestIPyWidgetsWebviewMessaging } from './testIPyWidgetsWebviewMessaging
 import { TestRuntimeClientInstance } from './testRuntimeClientInstance.js';
 
 suite('Positron - IPyWidgetClientInstance', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+	const { disposables } = createTestContainer().build();
 
 	const rpcMethod = 'test-rpc-method';
 

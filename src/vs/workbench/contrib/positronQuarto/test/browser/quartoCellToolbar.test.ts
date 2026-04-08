@@ -5,13 +5,13 @@
 
 import assert from 'assert';
 import { URI } from '../../../../../base/common/uri.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { createTextModel } from '../../../../../editor/test/common/testTextModel.js';
 import { QuartoDocumentModel } from '../../browser/quartoDocumentModel.js';
 
 suite('QuartoCellToolbar - Position Updates', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+	const { disposables } = createTestContainer().build();
 	const logService = new NullLogService();
 
 	/**

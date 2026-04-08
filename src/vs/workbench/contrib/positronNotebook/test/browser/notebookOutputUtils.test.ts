@@ -5,7 +5,7 @@
 
 import * as assert from 'assert';
 import { VSBuffer } from '../../../../../base/common/buffer.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { DATA_EXPLORER_MIME_TYPE, parseOutputData } from '../../browser/getOutputContents.js';
 import { ParsedDataExplorerOutput } from '../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { pickPreferredOutputItem } from '../../browser/PositronNotebookCells/notebookOutputUtils.js';
@@ -16,7 +16,7 @@ function makeOutputItem(mime: string, text: string) {
 }
 
 suite('Notebook Output Utils', () => {
-	ensureNoDisposablesAreLeakedInTestSuite();
+	createTestContainer().build();
 
 	suite('parseOutputData', () => {
 		test('parses image/svg+xml into an image with a data URL', () => {

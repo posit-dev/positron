@@ -17,7 +17,7 @@ import { ExecutionHistoryService } from '../../common/executionHistory.js';
 import { IWorkspace, IWorkspaceContextService, IWorkspaceFoldersWillChangeEvent } from '../../../../../platform/workspace/common/workspace.js';
 import { ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState, IRuntimeManager, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { Emitter } from '../../../../../base/common/event.js';
 import { TestStorageService } from '../../../../test/common/workbenchTestServices.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
@@ -617,7 +617,7 @@ class TestLanguageRuntimeSession extends Disposable implements ILanguageRuntimeS
 }
 
 suite('ExecutionHistoryService', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+	const { disposables } = createTestContainer().build();
 	let instantiationService: TestInstantiationService;
 	let runtimeSessionService: TestRuntimeSessionService;
 	let runtimeStartupService: TestRuntimeStartupService;

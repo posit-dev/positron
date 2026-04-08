@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import {
 	parseCellExecutionOptions,
 	extractExecutableCode,
@@ -13,7 +13,7 @@ import {
 } from '../../common/quartoExecutionOptions.js';
 
 suite('QuartoExecutionOptions', () => {
-	ensureNoDisposablesAreLeakedInTestSuite();
+	createTestContainer().build();
 
 	suite('parseCellExecutionOptions', () => {
 		test('returns defaults for code without options', () => {

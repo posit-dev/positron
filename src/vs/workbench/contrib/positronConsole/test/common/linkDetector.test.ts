@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import assert from 'assert';
 import { detectHyperlinks } from '../../common/linkDetector.js';
 
@@ -11,7 +11,7 @@ import { detectHyperlinks } from '../../common/linkDetector.js';
  * Suite of tests for link detector
  */
 suite('Output Run with Links', () => {
-	ensureNoDisposablesAreLeakedInTestSuite();
+	createTestContainer().build();
 
 	test('basic links correctly extracted', () => {
 		const text = "This is a link to https://www.example.com";

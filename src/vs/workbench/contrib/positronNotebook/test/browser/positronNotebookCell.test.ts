@@ -5,13 +5,13 @@
 
 import * as assert from 'assert';
 import { VSBuffer } from '../../../../../base/common/buffer.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { CellEditType, CellKind, NotebookCellsChangeType } from '../../../notebook/common/notebookCommon.js';
 import { createTestPositronNotebookInstance, TestPositronNotebookInstance } from './testPositronNotebookInstance.js';
 import { PositronNotebookCodeCell } from '../../browser/PositronNotebookCells/PositronNotebookCodeCell.js';
 
 suite('PositronNotebookCell', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+	const { disposables } = createTestContainer().build();
 
 	let notebook: TestPositronNotebookInstance;
 	let cell: PositronNotebookCodeCell;
@@ -87,7 +87,7 @@ suite('PositronNotebookCell', () => {
 
 /** Tests to ensure that the test harness is correctly setup, useful for debugging the test harness */
 suite('PositronNotebookCell Test Harness', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+	const { disposables } = createTestContainer().build();
 
 	test('cells have editors auto-attached', () => {
 		const notebook = createTestPositronNotebookInstance(

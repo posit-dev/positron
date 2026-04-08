@@ -5,7 +5,7 @@
 
 import assert from 'assert';
 import { URI } from '../../../../../base/common/uri.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
@@ -244,7 +244,7 @@ class MockContextPickService implements Partial<IChatContextPickService> {
 
 
 suite('ChatRuntimeSessionContext', () => {
-	const testDisposables = ensureNoDisposablesAreLeakedInTestSuite();
+	const { disposables: testDisposables } = createTestContainer().build();
 
 	let instantiationService: TestInstantiationService;
 	let configurationService: TestConfigurationService;

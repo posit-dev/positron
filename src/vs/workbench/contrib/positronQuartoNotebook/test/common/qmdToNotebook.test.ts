@@ -4,13 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { qmdToNotebook } from '../../common/qmdToNotebook.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { isFrontmatterCell } from '../../common/notebookToQmd.js';
 
 suite('qmdToNotebook', () => {
-	ensureNoDisposablesAreLeakedInTestSuite();
+	createTestContainer().build();
 
 	suite('Basic conversion', () => {
 

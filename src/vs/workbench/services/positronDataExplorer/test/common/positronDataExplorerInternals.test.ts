@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { TableSchema } from '../../../languageRuntime/common/positronDataExplorerComm.js';
 import {
 	DataFetchRange,
@@ -53,7 +53,7 @@ class MockSchemaCache extends TableSchemaCache {
  * Testing internal business logic
  */
 suite('DataExplorerInternals', () => {
-	ensureNoDisposablesAreLeakedInTestSuite();
+	createTestContainer().build();
 
 	test('Data cache works correctly', async () => {
 		const numRows = 100000;

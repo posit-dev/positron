@@ -7,7 +7,7 @@ import '../../../../browser/contrib/find/positronNotebookFind.contribution.js';
 
 import assert from 'assert';
 import * as sinon from 'sinon';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../../base/test/common/utils.js';
+import { createTestContainer } from '../../../../../../test/browser/positronTestContainer.js';
 import { IModelDecoration, ITextModel } from '../../../../../../../editor/common/model.js';
 import { USUAL_WORD_SEPARATORS } from '../../../../../../../editor/common/core/wordHelper.js';
 import { IBulkEditService, ResourceEdit, ResourceTextEdit } from '../../../../../../../editor/browser/services/bulkEditService.js';
@@ -120,7 +120,7 @@ class TestBulkEditService implements IBulkEditService {
 }
 
 suite('PositronNotebookFindController', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+	const { disposables } = createTestContainer().build();
 
 	let instantiationService: TestInstantiationService;
 	let bulkEditApplySpy: sinon.SinonSpy;

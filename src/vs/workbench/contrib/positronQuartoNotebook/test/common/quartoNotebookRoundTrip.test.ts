@@ -4,13 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { qmdToNotebook } from '../../common/qmdToNotebook.js';
 import { notebookToQmd, isFrontmatterCell } from '../../common/notebookToQmd.js';
 import { CellKind, ICellDto2 } from '../../../notebook/common/notebookCommon.js';
 
 suite('Round-trip serialization', () => {
-	ensureNoDisposablesAreLeakedInTestSuite();
+	createTestContainer().build();
 
 	function codeCell(code: string, language: string): ICellDto2 {
 		return { cellKind: CellKind.Code, source: code, language, mime: undefined, outputs: [] };

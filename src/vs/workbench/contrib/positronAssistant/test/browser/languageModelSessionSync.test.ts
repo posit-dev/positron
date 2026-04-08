@@ -5,12 +5,12 @@
 
 import * as assert from 'assert';
 import { Emitter } from '../../../../../base/common/event.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { AuthenticationSession, AuthenticationSessionsChangeEvent, IAuthenticationService } from '../../../../services/authentication/common/authentication.js';
 import { syncAuthSessions } from '../../browser/languageModelSessionSync.js';
 
 suite('syncAuthSessions', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+	const { disposables } = createTestContainer().build();
 
 	let emitter: Emitter<{ providerId: string; label: string; event: AuthenticationSessionsChangeEvent }>;
 	let sessionsMap: Map<string, AuthenticationSession[]>;
