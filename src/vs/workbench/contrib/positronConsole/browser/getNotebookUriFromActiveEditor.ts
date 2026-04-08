@@ -4,8 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { URI } from '../../../../base/common/uri.js';
-import { ITextModel } from '../../../../editor/common/model.js';
-import { IEditor } from '../../../../editor/common/editorCommon.js';
+import { isCodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { getContextFromActiveEditor } from '../../notebook/browser/controller/coreActions.js';
@@ -33,10 +32,12 @@ export function getNotebookUriFromActiveEditor(
 	// Fall back to checking if the active editor is a Quarto document with
 	// inline output enabled
 	if (usingQuartoInlineOutput(configurationService)) {
-		const editor = editorService.activeTextEditorControl as IEditor | undefined;
-		const model = editor?.getModel() as ITextModel | undefined;
-		if (model && isQuartoDocument(model.uri.path, model.getLanguageId())) {
-			return model.uri;
+		const editor = editorService.activeTextEditorControl;
+		if (isCodeEditor(editor)) {
+			const model = editor.getModel();
+			if (model && isQuartoDocument(model.uri.path, model.getLanguageId())) {
+				return model.uri;
+			}
 		}
 	}
 
