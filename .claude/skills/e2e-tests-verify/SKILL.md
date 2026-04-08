@@ -11,6 +11,29 @@ user-invocable: true
 
 Performs on-demand QA testing by driving Positron through test scenarios using the explore runner. Accepts a PR number, branch diff, or natural-language description.
 
+## IMMEDIATE: Launch Runner First
+
+**Before reading any other section**, fire the runner launch in the background. The runner
+takes 30-60s to boot and has ZERO dependencies on planning, references, or input parsing.
+Every second spent reading docs before launching is wasted wall-clock time.
+
+**In your very first tool-call message**, include these background commands alongside
+whatever reference reads you need:
+
+```
+Bash (background): rm -f /tmp/explore-runner-port && <launch command per target mode, see references/runner-launch.md>
+Bash (background): <POM ref staleness check, see references/runner-launch.md>
+```
+
+Determine the launch command from the target flag:
+- `--build`: `BUILD=/Applications/Positron.app npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-electron 2>&1 &`
+- `--local` or default: `npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-electron 2>&1 &`
+- `--browser <name>`: `ALLOW_EXPLORE=1 npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-<name> 2>&1 &`
+
+Set `EXPLORE_TITLE` to a short description (e.g., `EXPLORE_TITLE="PR 456: Variable filter"`).
+
+**Then continue with Steps 0-2 while the runner boots in the background.**
+
 ## Input Formats
 
 ```
