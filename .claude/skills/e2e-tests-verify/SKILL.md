@@ -265,13 +265,14 @@ See `references/runner-launch.md` for launch commands per mode (local dev, built
 The runner, POM ref gen, and PR context calls were all fired in your first message.
 The PR title/body and file list are already in your context. Now:
 
-1. **Grep the POM reference for specific POMs** -- do NOT Read the entire 800+ line file.
-   Use Grep to extract only the POMs you need based on the changed file list:
+1. **Grep the POM reference for specific POMs.** One Grep call, done:
    ```
    Grep: pattern="^## (console|variables|plots)" path=test/e2e/tests/_generated/pom-reference.md -A 30
    ```
-   One Grep call with a regex OR pattern for all POMs you need. This returns ~30 lines
-   per POM instead of 800+ lines for the whole file. Multiple POMs in one Grep call.
+   This returns ~30 lines per POM. The Grep output IS your POM reference -- do NOT
+   follow up with a Read of pom-reference.md. Do NOT read the full file "to be sure."
+   The Grep result has everything you need. 800+ lines of file reading wastes 2-3
+   message turns and adds nothing.
 
 2. **Plan test steps** from the PR title, body, and file list per Step 1.
 
