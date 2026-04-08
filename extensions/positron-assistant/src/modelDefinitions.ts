@@ -41,13 +41,13 @@ const builtInModelDefinitions = new Map<string, ModelDefinition[]>([
 	['google', [
 		{
 			name: 'Gemini 2.5 Flash',
-			identifier: 'gemini-2.5-pro-exp-03-25',
-			maxOutputTokens: 65_536, // reference: https://ai.google.dev/gemini-api/docs/models#gemini-2.5-flash-preview
+			identifier: 'gemini-2.5-flash',
+			maxOutputTokens: 65_536, // reference: https://ai.google.dev/gemini-api/docs/models/gemini-2.5-flash
 		},
 		{
-			name: 'Gemini 2.0 Flash',
-			identifier: 'gemini-2.0-flash-exp',
-			maxOutputTokens: 8_192, // reference: https://ai.google.dev/gemini-api/docs/models#gemini-2.0-flash
+			name: 'Gemini 2.5 Pro',
+			identifier: 'gemini-2.5-pro',
+			maxOutputTokens: 65_536, // reference: https://ai.google.dev/gemini-api/docs/models/gemini-2.5-pro
 		},
 	]],
 	// Microsoft Foundry models -- model-router means model routing is handled by Foundry.
