@@ -72,6 +72,13 @@ Agent (background):
 For `--branch` mode, use the same agent pattern but with `git diff` commands instead of `gh pr diff`.
 For free-text mode, skip the agent -- no diff to analyze.
 
+**While the agent runs in the background:**
+- You will be **automatically notified** when the agent completes -- do NOT poll or check for it
+- Do NOT try to `cat` or `Read` agent output files -- that is not how agent results work
+- Do NOT run your own `gh pr diff` or `gh pr view` calls -- that duplicates the agent's work and puts the raw diff into your context (the whole point of the agent is to keep it out)
+- **Productive work while waiting:** read POM reference, read shared references, read runner-api.md. These are useful and fill the dead time
+- When the agent notification arrives, use its structured summary to plan test steps
+
 **Then continue with Steps 0-2 while the runner and agent work in the background.**
 
 ## Input Formats
