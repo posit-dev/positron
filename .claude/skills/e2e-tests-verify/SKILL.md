@@ -353,17 +353,17 @@ from the successful retry (not the original failed attempt).
 
 Write a standalone `.test.ts` file when saving (via `--save` flag, or user said yes to prompt).
 
-**File path:** `test/e2e/tests/_generated/MMDD_<issue>-<slug>.test.ts`
+**File path:** `test/e2e/tests/_generated/MMDD_<pr>-<slug>.test.ts`
 - `MMDD` is the current date (e.g., `0405`)
-- `<issue>` is the issue number if available, omit if free-text or `--branch` without issue
+- `<pr>` is the PR number if available, omit if free-text or `--branch`
 - `<slug>` is a short kebab-case summary (e.g., `variable-filter`)
 - **If the file already exists**, append `-1`, `-2`, etc. to the date:
   `0406_12025-ghost-cell-info.test.ts` -> `0406-1_12025-ghost-cell-info.test.ts`
-  Check with: `ls test/e2e/tests/_generated/MMDD*<issue>-<slug>* 2>/dev/null`
+  Check with: `ls test/e2e/tests/_generated/MMDD*<pr>-<slug>* 2>/dev/null`
 - Examples:
-  - `test/e2e/tests/_generated/0405_9638-notebook-outline.test.ts`
-  - `test/e2e/tests/_generated/0405-1_9638-notebook-outline.test.ts` (second run same day)
-  - `test/e2e/tests/_generated/0404_console-sessions.test.ts`
+  - `test/e2e/tests/_generated/0405_456-notebook-outline.test.ts`
+  - `test/e2e/tests/_generated/0405-1_456-notebook-outline.test.ts` (second run same day)
+  - `test/e2e/tests/_generated/0404_console-sessions.test.ts` (free-text, no PR)
 
 **Format:**
 ```typescript
@@ -376,7 +376,7 @@ import { test, expect } from './_qa.setup';
 
 test.use({ suiteId: __filename });
 
-test.describe('Verify #12345: Variables appear after execution', () => {
+test.describe('Verify PR#456: Variables appear after execution', () => {
 
 	test('Variable x is set after running code', async function ({ app, python }) {
 		const { console, variables } = app.workbench;
@@ -389,9 +389,9 @@ test.describe('Verify #12345: Variables appear after execution', () => {
 });
 ```
 
-Use `test.describe('Verify #<issue>: <short summary>')` as the parent block.
-Individual test names describe the specific scenario without repeating the issue number.
-For free-text tests (no issue number), use `test.describe('Verify: <description>')`.
+Use `test.describe('Verify PR#<number>: <short summary>')` as the parent block.
+Individual test names describe the specific scenario without repeating the PR number.
+For free-text tests (no PR number), use `test.describe('Verify: <description>')`.
 
 
 **Rules:**
@@ -399,7 +399,7 @@ For free-text tests (no issue number), use `test.describe('Verify: <description>
 - Import from `./_qa.setup`, not `../_test.setup`
 - Always include `test.use({ suiteId: __filename })` for app isolation
 - Map action steps to the equivalent Playwright calls
-- File path: `test/e2e/tests/_generated/MMDD_<issue>-<slug>.test.ts`
+- File path: `test/e2e/tests/_generated/MMDD_<pr>-<slug>.test.ts`
 - **Always use fixtures over workbench properties when available.** Fixtures come
   from the test function parameter, NOT from `app.workbench`. Key fixtures:
   `python`, `r`, `sessions`, `settings`, `hotKeys`, `page`. If you need `settings`,
