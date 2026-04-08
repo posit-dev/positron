@@ -1,6 +1,7 @@
 ---
 name: e2e-failure-analyzer
 description: Analyze e2e test failures from a GitHub Actions run. Provide a run ID or URL to download reports, extract traces/screenshots/logs, identify root causes, and get suggested actions. Works with both posit-dev/positron and posit-dev/positron-builds repos.
+disable-model-invocation: true
 ---
 
 # E2E Failure Analyzer
