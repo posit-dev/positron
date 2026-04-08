@@ -26,6 +26,7 @@ import {
 	POSITRON_QUARTO_INLINE_OUTPUT_KEY,
 	QUARTO_INLINE_OUTPUT_ENABLED,
 	QUARTO_KERNEL_RUNNING,
+	QUARTO_LANGUAGE_IDS,
 	isQuartoDocument,
 	isQuartoOrRmdFile,
 } from '../common/positronQuartoConfig.js';
@@ -35,6 +36,7 @@ import { ILanguageRuntimeService, RuntimeStartupPhase } from '../../../services/
 import { MenuId } from '../../../../platform/actions/common/actions.js';
 import { PositronActionBarWidgetRegistry } from '../../../../platform/positronActionBar/browser/positronActionBarWidgetRegistry.js';
 import { QuartoKernelStatusBadge } from './QuartoKernelStatusBadge.js';
+import { ResourceContextKey } from '../../../common/contextkeys.js';
 
 // Import the configuration to ensure it's registered
 import '../common/positronQuartoConfig.js';
@@ -283,7 +285,17 @@ PositronActionBarWidgetRegistry.registerWidget({
 	order: 100, // Rightmost position (same as notebook kernel status)
 	when: ContextKeyExpr.and(
 		QUARTO_INLINE_OUTPUT_ENABLED,
-		IS_QUARTO_DOCUMENT
+		// Important: use the per-editor-group resourceLangId here, NOT the
+		// global IS_QUARTO_DOCUMENT context key. Widget `when` clauses are
+		// evaluated per editor pane, so global context keys leak visibility
+		// into unrelated panes (e.g. a notebook open beside a Quarto doc
+		// would show two kernel selectors). resourceLangId is set on each
+		// editor group's scoped context key service, so it correctly scopes
+		// the widget to only panes showing a Quarto file. Compare with the
+		// notebook kernel widget, which uses `activeEditor` -- also per-group.
+		ContextKeyExpr.or(
+			...QUARTO_LANGUAGE_IDS.map(id => ContextKeyExpr.equals(ResourceContextKey.LangId.key, id))
+		)
 	),
 	selfContained: true,
 	componentFactory: (accessor) => {
