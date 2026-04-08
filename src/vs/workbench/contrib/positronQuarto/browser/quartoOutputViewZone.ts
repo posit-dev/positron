@@ -10,15 +10,16 @@ import { status as ariaStatus } from '../../../../base/browser/ui/aria/aria.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ICodeEditor, IViewZone } from '../../../../editor/browser/editorBrowser.js';
 import { localize } from '../../../../nls.js';
-import { ICellOutput, ICellOutputItem, DATA_EXPLORER_MIME_TYPE } from '../common/quartoExecutionTypes.js';
+import { ICellOutput, ICellOutputItem, DATA_EXPLORER_MIME_TYPE, CellExecutionState } from '../common/quartoExecutionTypes.js';
 import { Codicon } from '../../../../base/common/codicons.js';
+import { formatCellDuration, getRelativeTime } from '../../positronNotebook/browser/notebookCells/cellExecutionUtils.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Event as VSEvent, Emitter } from '../../../../base/common/event.js';
 import { URI } from '../../../../base/common/uri.js';
 import { INotebookOutputWebview, IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { isHTMLOutputWebviewMessage } from '../../positronWebviewPreloads/browser/notebookOutputUtils.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { RuntimeOutputKind, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeMessageType } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { RuntimeOutputKind, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeMessageType, ILanguageRuntimeResourceUsage } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { EditorLayoutInfo, EditorOption } from '../../../../editor/common/config/editorOptions.js';
 import { applyFontInfo } from '../../../../editor/browser/config/domFontInfo.js';
 import { ANSIOutput, ANSIOutputLine, ANSIOutputRun } from '../../../../base/common/ansiOutput.js';
@@ -30,6 +31,8 @@ import { POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_ENABLED_KEY } from '../../positr
 import { QuartoInlineDataExplorer } from './quartoInlineDataExplorer.js';
 import { parseVariablePath } from '../../../services/positronDataExplorer/common/utils.js';
 import { calculateInlineDataExplorerHeight } from './quartoInlineDataExplorerLayout.js';
+import { ResourceUsageGraph } from '../../positronConsole/browser/components/resourceUsageGraph.js';
+import { IResourceUsageHistoryService } from '../../../services/positronConsole/browser/resourceUsageHistoryService.js';
 
 /**
  * Minimum height for a view zone in pixels.
@@ -167,8 +170,33 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	// Maximum number of lines to display for text output before truncating
 	private _maxLines: number;
 
+	// Whether this view zone is showing only a status bar (no output content)
+	private _isStatusOnly = false;
+
 	// Inner styled container (separate from domNode so Monaco's height doesn't stretch it)
 	private readonly _styledContainer: HTMLElement;
+
+	// Status bar element showing execution state, duration, and timestamp
+	private readonly _statusBar: HTMLElement;
+	private readonly _statusIcon: HTMLSpanElement;
+	private readonly _statusText: HTMLElement;
+
+	// Resource usage sparkline shown during execution
+	private readonly _sparklineContainer: HTMLElement;
+	private readonly _cpuLabel: HTMLSpanElement;
+	private _sparklineRenderer: PositronReactRenderer | undefined;
+	private readonly _resourceUsageDisposables = this._register(new DisposableStore());
+	private _resourceUsageData: ILanguageRuntimeResourceUsage[] = [];
+	private _sparklineGeneration = 0;
+	private _sparklineDelayTimeout: ReturnType<typeof setTimeout> | undefined;
+	private _sparklineFadeOutTimeout: ReturnType<typeof setTimeout> | undefined;
+
+	// Live timer interval during execution
+	private _timerInterval: ReturnType<typeof setInterval> | undefined;
+	private _executionStartTime: number | undefined;
+
+	// Subscription to a shared tick event for refreshing the relative timestamp
+	private _timestampRefreshDisposable: { dispose(): void } | undefined;
 
 	// Icon element inside the close button (for switching between close and stop icons)
 	private _buttonIcon!: HTMLSpanElement;
@@ -209,6 +237,8 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		maxLines: number = 40,
 		configurationService?: IConfigurationService,
 		documentUri?: URI,
+		private readonly _resourceUsageHistoryService?: IResourceUsageHistoryService,
+		private readonly _onTimestampTick?: VSEvent<void>,
 	) {
 		super();
 
@@ -257,6 +287,26 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._saveButton.style.display = 'none';
 
 		this._styledContainer.appendChild(buttonContainer);
+
+		// Create status bar for execution info (hidden by default)
+		this._statusBar = document.createElement('div');
+		this._statusBar.className = 'quarto-output-status-bar';
+		this._statusBar.style.display = 'none';
+		this._statusIcon = document.createElement('span');
+		this._statusIcon.className = 'codicon code-cell-footer-icon';
+		this._statusBar.appendChild(this._statusIcon);
+		this._statusText = document.createElement('span');
+		this._statusText.className = 'code-cell-footer-text';
+		this._statusBar.appendChild(this._statusText);
+		this._sparklineContainer = document.createElement('div');
+		this._sparklineContainer.className = 'quarto-output-sparkline';
+		this._sparklineContainer.style.display = 'none';
+		this._statusBar.appendChild(this._sparklineContainer);
+		this._cpuLabel = document.createElement('span');
+		this._cpuLabel.className = 'quarto-output-cpu-label';
+		this._cpuLabel.style.display = 'none';
+		this._statusBar.appendChild(this._cpuLabel);
+		this.domNode.insertBefore(this._statusBar, this._styledContainer);
 
 		// Create output container
 		this._outputContainer = document.createElement('div');
@@ -393,6 +443,298 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	}
 
 	/**
+	 * Set execution information to display in the status bar.
+	 * Hides the status bar when no meaningful info is available (e.g. cached outputs).
+	 */
+	setExecutionInfo(state: CellExecutionState, startTime?: number, endTime?: number): void {
+		// Hide status bar when idle with no timing info
+		if (state === CellExecutionState.Idle && !startTime) {
+			this._statusBar.style.display = 'none';
+			this._stopTimer();
+			this._stopTimestampRefresh();
+			this._stopSparkline(true);
+			this._updateStatusOnlyState();
+			this._updateHeight();
+			return;
+		}
+
+		// Always reset everything first to avoid stale state from previous calls
+		this._statusIcon.className = 'codicon code-cell-footer-icon';
+		this._statusText.textContent = '';
+		dom.clearNode(this._statusText);
+		this._stopTimer();
+		this._stopTimestampRefresh();
+		this._stopSparkline();
+
+		this._statusBar.style.display = '';
+
+		// Apply new state
+		switch (state) {
+			case CellExecutionState.Running:
+				this._statusIcon.classList.add(...ThemeIcon.asClassName(Codicon.sync).split(' '), 'running');
+				this._startTimer(startTime);
+				this._startSparkline();
+				break;
+			case CellExecutionState.Queued:
+				this._statusIcon.classList.add(...ThemeIcon.asClassName(Codicon.clock).split(' '), 'pending');
+				this._statusText.textContent = localize('quartoQueued', 'Queued');
+				break;
+			case CellExecutionState.Completed:
+				this._statusIcon.classList.add(...ThemeIcon.asClassName(Codicon.check).split(' '), 'success');
+				this._buildDurationText(startTime, endTime);
+				break;
+			case CellExecutionState.Error:
+				this._statusIcon.classList.add(...ThemeIcon.asClassName(Codicon.error).split(' '), 'error');
+				this._buildDurationText(startTime, endTime);
+				break;
+			default:
+				this._statusBar.style.display = 'none';
+				break;
+		}
+
+		this._updateStatusOnlyState();
+		this._updateHeight();
+	}
+
+	/**
+	 * Build duration and timestamp text elements inside the status text span.
+	 */
+	private _buildDurationText(startTime?: number, endTime?: number): void {
+		if (startTime && endTime) {
+			const duration = endTime - startTime;
+			const durationSpan = document.createElement('span');
+			durationSpan.className = 'code-cell-footer-duration has-separator';
+			durationSpan.textContent = formatCellDuration(duration);
+			this._statusText.appendChild(durationSpan);
+
+			const timestampSpan = document.createElement('span');
+			timestampSpan.textContent = getRelativeTime(endTime);
+			this._statusText.appendChild(timestampSpan);
+
+			// Subscribe to the shared timestamp tick so "just now"
+			// naturally transitions to "1 min ago", etc.
+			this._stopTimestampRefresh();
+			if (this._onTimestampTick) {
+				this._timestampRefreshDisposable = this._onTimestampTick(() => {
+					timestampSpan.textContent = getRelativeTime(endTime);
+				});
+			}
+		}
+	}
+
+	/**
+	 * Stop listening for timestamp refresh ticks.
+	 */
+	private _stopTimestampRefresh(): void {
+		this._timestampRefreshDisposable?.dispose();
+		this._timestampRefreshDisposable = undefined;
+	}
+
+	/**
+	 * Start a live timer that updates the status text every 100ms with
+	 * the elapsed execution time.
+	 */
+	private _startTimer(startTime?: number): void {
+		this._executionStartTime = startTime ?? Date.now();
+
+		// Build the duration span (same structure as completed state)
+		const durationSpan = document.createElement('span');
+		durationSpan.className = 'code-cell-footer-duration';
+		durationSpan.textContent = '0.0s';
+		dom.clearNode(this._statusText);
+		this._statusText.appendChild(durationSpan);
+
+		// Format elapsed time always in seconds (no ms) to avoid jumpy transitions
+		const formatElapsed = (ms: number): string => {
+			const minutes = Math.floor(ms / 1000 / 60);
+			const seconds = Math.floor(ms / 1000) % 60;
+			const tenths = Math.floor((ms % 1000) / 100);
+			if (minutes > 0) {
+				return `${minutes}m ${seconds}.${tenths}s`;
+			}
+			return `${seconds}.${tenths}s`;
+		};
+
+		this._timerInterval = setInterval(() => {
+			const elapsed = Date.now() - this._executionStartTime!;
+			durationSpan.textContent = formatElapsed(elapsed);
+		}, 100);
+	}
+
+	/**
+	 * Stop the live timer.
+	 */
+	private _stopTimer(): void {
+		if (this._timerInterval) {
+			clearInterval(this._timerInterval);
+			this._timerInterval = undefined;
+		}
+		this._executionStartTime = undefined;
+	}
+
+	/**
+	 * Height and width of the sparkline graph in the status bar.
+	 */
+	private static readonly SPARKLINE_HEIGHT = 16;
+	private static readonly SPARKLINE_WIDTH = 80;
+
+	/**
+	 * Start showing the CPU sparkline in the status bar during execution.
+	 */
+	private _startSparkline(): void {
+		if (!this._session) {
+			return;
+		}
+
+		// Clear any pending fade-out from a previous execution
+		if (this._sparklineFadeOutTimeout) {
+			clearTimeout(this._sparklineFadeOutTimeout);
+			this._sparklineFadeOutTimeout = undefined;
+		}
+
+		const maxPoints = Math.floor(QuartoOutputViewZone.SPARKLINE_WIDTH / 2) + 1;
+
+		// Seed with historical data from the resource usage history service
+		this._resourceUsageData = [];
+		const generation = ++this._sparklineGeneration;
+		if (this._resourceUsageHistoryService) {
+			this._resourceUsageHistoryService.getHistory(this._session.sessionId).then(history => {
+				// Discard results if sparkline was stopped or restarted
+				if (this._sparklineGeneration !== generation) {
+					return;
+				}
+				if (history.length > 0) {
+					this._resourceUsageData = history.slice(-maxPoints);
+					this._renderSparkline();
+					this._updateCpuLabel();
+				}
+			}, _err => {
+				// History unavailable; leave sparkline empty
+			});
+		}
+
+		// Show containers (initially invisible via CSS opacity: 0)
+		this._sparklineContainer.style.display = '';
+		this._sparklineContainer.classList.remove('sparkline-visible');
+		this._cpuLabel.style.display = '';
+		this._cpuLabel.classList.remove('sparkline-visible');
+
+		// Create React renderer for the sparkline
+		if (!this._sparklineRenderer) {
+			this._sparklineRenderer = new PositronReactRenderer(this._sparklineContainer);
+		}
+		this._renderSparkline();
+
+		// Subscribe to resource usage updates from the session
+		this._resourceUsageDisposables.clear();
+		this._resourceUsageDisposables.add(
+			this._session.onDidUpdateResourceUsage((usage) => {
+				this._resourceUsageData.push(usage);
+				if (this._resourceUsageData.length > maxPoints) {
+					this._resourceUsageData = this._resourceUsageData.slice(-maxPoints);
+				}
+				this._renderSparkline();
+				this._updateCpuLabel();
+			})
+		);
+
+		// Delay appearance by 200ms, then fade in over 400ms (via CSS transition)
+		this._sparklineDelayTimeout = setTimeout(() => {
+			this._sparklineDelayTimeout = undefined;
+			if (this._sparklineGeneration !== generation) {
+				return;
+			}
+			this._sparklineContainer.classList.add('sparkline-visible');
+			this._cpuLabel.classList.add('sparkline-visible');
+		}, 200);
+	}
+
+	/**
+	 * Stop showing the CPU sparkline and clean up.
+	 */
+	private _stopSparkline(immediate?: boolean): void {
+		// Cancel any pending delay timer
+		if (this._sparklineDelayTimeout) {
+			clearTimeout(this._sparklineDelayTimeout);
+			this._sparklineDelayTimeout = undefined;
+		}
+
+		this._sparklineGeneration++;
+		this._resourceUsageDisposables.clear();
+
+		if (immediate || !this._sparklineContainer.classList.contains('sparkline-visible')) {
+			// Immediate cleanup (dispose, clear output, or never became visible)
+			this._cleanupSparkline();
+			return;
+		}
+
+		// Fade out over 400ms (via CSS transition), then clean up
+		this._sparklineContainer.classList.remove('sparkline-visible');
+		this._cpuLabel.classList.remove('sparkline-visible');
+		this._sparklineFadeOutTimeout = setTimeout(() => {
+			this._sparklineFadeOutTimeout = undefined;
+			this._cleanupSparkline();
+		}, 400);
+	}
+
+	/**
+	 * Immediately tear down sparkline DOM and state.
+	 */
+	private _cleanupSparkline(): void {
+		if (this._sparklineFadeOutTimeout) {
+			clearTimeout(this._sparklineFadeOutTimeout);
+			this._sparklineFadeOutTimeout = undefined;
+		}
+		if (this._sparklineRenderer) {
+			this._sparklineRenderer.dispose();
+			this._sparklineRenderer = undefined;
+		}
+		dom.clearNode(this._sparklineContainer);
+		this._sparklineContainer.style.display = 'none';
+		this._sparklineContainer.classList.remove('sparkline-visible');
+		this._cpuLabel.style.display = 'none';
+		this._cpuLabel.classList.remove('sparkline-visible');
+		this._cpuLabel.textContent = '';
+		this._resourceUsageData = [];
+	}
+
+	/**
+	 * Render the sparkline graph with current data.
+	 */
+	private _renderSparkline(): void {
+		if (!this._sparklineRenderer) {
+			return;
+		}
+		this._sparklineRenderer.render(
+			React.createElement(ResourceUsageGraph, {
+				data: this._resourceUsageData,
+				width: QuartoOutputViewZone.SPARKLINE_WIDTH,
+				height: QuartoOutputViewZone.SPARKLINE_HEIGHT,
+			})
+		);
+	}
+
+	/**
+	 * Update the CPU percentage label from the latest resource usage data point.
+	 */
+	private _updateCpuLabel(): void {
+		if (this._resourceUsageData.length > 0) {
+			const latest = this._resourceUsageData[this._resourceUsageData.length - 1];
+			this._cpuLabel.textContent = `CPU ${Math.round(latest.cpu_percent)}%`;
+		}
+	}
+
+	/**
+	 * Update the status-only CSS class based on whether we have outputs.
+	 */
+	private _updateStatusOnlyState(): void {
+		const hasStatus = this._statusBar.style.display !== 'none';
+		const hasOutputs = this._outputs.length > 0;
+		this._isStatusOnly = hasStatus && !hasOutputs;
+		this._styledContainer.classList.toggle('quarto-output-status-only', this._isStatusOnly);
+	}
+
+	/**
 	 * Update the visual appearance for recomputing state.
 	 */
 	private _updateRecomputingState(): void {
@@ -470,10 +812,29 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			this.setRecomputing(false);
 		}
 
+		// When an error output arrives, remove the preceding stderr output
+		// if it's redundant. R (and some other runtimes) send the error text
+		// as both a stderr stream message and a structured error message,
+		// which would otherwise render the same content twice.
+		const hasError = output.items.some(
+			i => i.mime === 'application/vnd.code.notebook.error'
+		);
+		if (hasError && this._outputs.length > 0) {
+			const prev = this._outputs[this._outputs.length - 1];
+			const isStderr = prev.items.length === 1 &&
+				prev.items[0].mime === 'application/vnd.code.notebook.stderr';
+			if (isStderr) {
+				this._outputs.pop();
+				const lastChild = this._outputContainer.lastElementChild;
+				if (lastChild) {
+					this._outputContainer.removeChild(lastChild);
+				}
+			}
+		}
+
 		this._outputs.push(output);
 		this._renderOutput(output);
-		// Update error-only class after adding new output
-		this._styledContainer.classList.toggle('quarto-output-error-only', this._isErrorOnly());
+		this._updateStatusOnlyState();
 		this._updateHeight();
 		this._announceOutput(output);
 	}
@@ -503,7 +864,15 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._isRecomputing = false;
 		this._styledContainer.classList.remove('quarto-output-recomputing');
 
-		// Hide the view zone when outputs are cleared
+		// Hide the status bar and stop any running timer/sparkline.
+		// This is an explicit user action to dismiss the output, so the
+		// status line should be cleared too.
+		this._statusBar.style.display = 'none';
+		this._stopTimer();
+		this._stopTimestampRefresh();
+		this._stopSparkline(true);
+
+		this._isStatusOnly = false;
 		this.hide();
 
 		this._onClear?.();
@@ -614,6 +983,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 
 	override dispose(): void {
 		this.hide();
+		this._stopTimer();
+		this._stopTimestampRefresh();
+		this._stopSparkline(true);
 		this._disposeResizeObserver();
 		this._disposeAllWebviews();
 		this._disposeAllReactRenderers();
@@ -930,16 +1302,18 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		if (mime === 'application/vnd.code.notebook.error') {
 			try {
 				const errorData = JSON.parse(data);
-				const parts: string[] = [];
-				if (errorData.name) {
-					parts.push(`${errorData.name}: ${errorData.message || ''}`);
-				} else if (errorData.message) {
-					parts.push(errorData.message);
+				const stack = (errorData.stack || '').trim();
+				const name = (errorData.name || '').trim();
+				const message = (errorData.message || '').trim();
+
+				if (stack && name && stack.startsWith(name)) {
+					return stack;
+				} else if (stack && stack !== message) {
+					const header = name ? `${name}: ${message}` : message;
+					return header ? `${header}\n${stack}` : stack;
+				} else {
+					return name ? `${name}: ${message}` : (message || stack);
 				}
-				if (errorData.stack) {
-					parts.push(errorData.stack);
-				}
-				return parts.join('\n');
 			} catch {
 				return data;
 			}
@@ -1074,7 +1448,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			this._updateHeight();
 		});
 
-		this._resizeObserver.observe(this._outputContainer);
+		this._resizeObserver.observe(this._styledContainer);
 	}
 
 	private _disposeResizeObserver(): void {
@@ -1105,26 +1479,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._disposeAllReactRenderers();
 		dom.clearNode(this._outputContainer);
 
-		// Check if all outputs are errors only
-		const isErrorOnly = this._isErrorOnly();
-		this._styledContainer.classList.toggle('quarto-output-error-only', isErrorOnly);
-
 		for (const output of this._outputs) {
 			this._renderOutput(output);
 		}
-	}
-
-	/**
-	 * Check if all outputs contain only error items.
-	 */
-	private _isErrorOnly(): boolean {
-		if (this._outputs.length === 0) {
-			return false;
-		}
-		return this._outputs.every(output =>
-			output.items.length > 0 &&
-			output.items.every(item => item.mime === 'application/vnd.code.notebook.error')
-		);
 	}
 
 	private _renderOutput(output: ICellOutput): void {
@@ -1459,20 +1816,18 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		try {
 			const errorData = JSON.parse(data);
 
-			// Format error output
-			const parts: string[] = [];
-			if (errorData.name) {
-				parts.push(`${errorData.name}: ${errorData.message || ''}`);
-			} else if (errorData.message) {
-				parts.push(errorData.message);
+			// Prefer the stack/traceback when available: it is the most
+			// complete representation and preserves ANSI formatting that
+			// runtimes (especially R) use for colors and bold text.
+			// Only fall back to name+message when no stack is provided.
+			const stack = (errorData.stack || '').trim();
+			if (stack) {
+				errorText = stack;
+			} else if (errorData.name) {
+				errorText = `${errorData.name}: ${errorData.message || ''}`;
+			} else {
+				errorText = errorData.message || '';
 			}
-			// Only add stack if it's different from the message
-			// R sometimes sends the error message in both fields
-			if (errorData.stack && errorData.stack.trim() !== (errorData.message || '').trim()) {
-				parts.push(errorData.stack);
-			}
-
-			errorText = parts.join('\n');
 		} catch {
 			// If not JSON, render as plain text
 			errorText = data;
@@ -1828,18 +2183,24 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		}
 
 		// Measure the styled container's height (content + padding + border, but not margin)
-		const styledHeight = this._styledContainer.offsetHeight;
+		// plus the status bar height when it's displayed above the output
+		const statusBarHeight = this._statusBar.style.display !== 'none' ? this._statusBar.offsetHeight : 0;
+		const styledHeight = this._styledContainer.offsetHeight + statusBarHeight;
+
+		// Use the styled container's height (not including status bar) for button
+		// visibility, since the buttons are positioned inside the styled container
+		const containerHeight = this._styledContainer.offsetHeight;
 
 		// Show the Copy button if there's enough room and there's copiable content
 		// Copy is prioritized (shown first) since it's the most common action
-		this._copyButton.style.display = styledHeight > 40 && this.hasCopiableContent() ? 'block' : 'none';
+		this._copyButton.style.display = containerHeight > 40 && this.hasCopiableContent() ? 'block' : 'none';
 
 		// Show the Popout button if there's more room and there's popout content
 		// (not just errors - plot, HTML, or text content)
-		this._popoutButton.style.display = styledHeight > 80 && this.hasPopoutContent() ? 'block' : 'none';
+		this._popoutButton.style.display = containerHeight > 80 && this.hasPopoutContent() ? 'block' : 'none';
 
 		// Show the Save button if there's even more room and there's exactly one plot
-		this._saveButton.style.display = styledHeight > 100 && this.hasSinglePlot() ? 'block' : 'none';
+		this._saveButton.style.display = containerHeight > 100 && this.hasSinglePlot() ? 'block' : 'none';
 
 		// Add margin space (4px top + 4px bottom) plus 5px spacing below the widget
 		const newHeight = Math.max(MIN_VIEW_ZONE_HEIGHT, styledHeight + 13);

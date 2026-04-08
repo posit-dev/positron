@@ -29,6 +29,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { IQuartoKernelManager } from './quartoKernelManager.js';
 import { ILanguageRuntimeMessageWebOutput, LanguageRuntimeMessageType, RuntimeOutputKind, PositronOutputLocation } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IResourceUsageHistoryService } from '../../../services/positronConsole/browser/resourceUsageHistoryService.js';
 
 export const IQuartoOutputManager = createDecorator<IQuartoOutputManager>('quartoOutputManager');
 
@@ -103,6 +104,8 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	// Track content hashes for each cell ID so we can find cells that moved
 	// (cell IDs include the index, which changes when cells are inserted/deleted)
 	private readonly _contentHashByCellId = new Map<string, string>();
+	// Track last-known execution info per cell so the status bar can survive tab switches
+	private readonly _executionInfoByCell = new Map<string, { state: CellExecutionState; startTime?: number; endTime?: number }>();
 	private _documentUri: URI | undefined;
 	private _featureEnabled: boolean;
 	private _outputHandlingInitialized = false;
@@ -122,10 +125,16 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	private readonly _stashedOutputsByUri = new Map<string, {
 		outputsByCell: Map<string, ICellOutput[]>;
 		contentHashByCellId: Map<string, string>;
+		executionInfoByCell: Map<string, { state: CellExecutionState; startTime?: number; endTime?: number }>;
 	}>();
 
 	private readonly _onDidChangeOutputs = this._register(new Emitter<OutputChangeEvent>());
 	readonly onDidChangeOutputs = this._onDidChangeOutputs.event;
+
+	// Shared tick emitter for refreshing relative timestamps across all view zones.
+	// A single 30-second interval drives all cells instead of one timer per cell.
+	private readonly _timestampTickEmitter = this._register(new Emitter<void>());
+	private _timestampTickInterval: ReturnType<typeof setInterval> | undefined;
 
 	constructor(
 		private readonly _editor: ICodeEditor,
@@ -144,8 +153,14 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		@IEditorService private readonly _editorService: IEditorService,
 		@IPositronPreviewService private readonly _previewService: IPositronPreviewService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IResourceUsageHistoryService private readonly _resourceUsageHistoryService: IResourceUsageHistoryService,
 	) {
 		super();
+
+		// Start a shared 30-second timer for refreshing relative timestamps
+		this._timestampTickInterval = setInterval(() => {
+			this._timestampTickEmitter.fire();
+		}, 30_000);
 
 		// Get document URI from editor model
 		const model = this._editor.getModel();
@@ -180,19 +195,22 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			// Capture the previous URI before updating
 			const previousUri = this._documentUri;
 
-			// Stash outputs for the previous document so they can be restored
-			// when switching back. This preserves data explorer MIME items that
-			// the disk cache intentionally strips.
-			if (previousUri && this._outputsByCell.size > 0) {
+			// Stash outputs and execution info for the previous document so they
+			// can be restored when switching back. This preserves data explorer
+			// MIME items that the disk cache intentionally strips, and also
+			// preserves the status bar state (duration, timestamp).
+			if (previousUri && (this._outputsByCell.size > 0 || this._executionInfoByCell.size > 0)) {
 				this._stashedOutputsByUri.set(previousUri.toString(), {
 					outputsByCell: new Map(this._outputsByCell),
 					contentHashByCellId: new Map(this._contentHashByCellId),
+					executionInfoByCell: new Map(this._executionInfoByCell),
 				});
 			}
 
 			this._disposeAllViewZones();
 			this._outputsByCell.clear();
 			this._contentHashByCellId.clear();
+			this._executionInfoByCell.clear();
 
 			// Clear previous output handling subscriptions to prevent duplicates
 			this._outputHandlingDisposables.clear();
@@ -267,11 +285,33 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 				const currentState = event.execution.state;
 				const isRunning = currentState === CellExecutionState.Running;
 
-				// Update view zone button state
-				const viewZone = this._viewZones.get(cellId);
+				// Update view zone button state and execution info
+				let viewZone = this._viewZones.get(cellId);
+
+				// When execution starts and there is no view zone yet,
+				// create one to show the status bar (Running...)
+				if (isRunning && !viewZone) {
+					viewZone = this._createViewZone(cellId);
+					if (viewZone) {
+						this._viewZones.set(cellId, viewZone);
+					}
+				}
+
 				if (viewZone) {
 					viewZone.setExecuting(isRunning);
+					viewZone.setExecutionInfo(
+						currentState,
+						event.execution.startTime,
+						event.execution.endTime,
+					);
 				}
+
+				// Track execution info so it survives tab switches
+				this._executionInfoByCell.set(cellId, {
+					state: currentState,
+					startTime: event.execution.startTime,
+					endTime: event.execution.endTime,
+				});
 
 				// When execution starts, put existing output into recomputing state
 				// instead of clearing it immediately
@@ -292,14 +332,41 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 
 				// When execution finishes (Idle, Completed, or Error), if still in
 				// recomputing state (no new output arrived), clear the old outputs
-				const executionFinished = currentState === CellExecutionState.Idle ||
-					currentState === CellExecutionState.Completed ||
+				// but keep the view zone visible for the status bar
+				const executionFinished = currentState === CellExecutionState.Completed ||
 					currentState === CellExecutionState.Error;
 
 				if (executionFinished && viewZone?.isRecomputing) {
-					// No new output was produced - clear the old output and hide
+					// No new output was produced - clear old output but keep
+					// view zone for status display
+					viewZone.clearOutputs();
+					this._onDidChangeOutputs.fire({
+						cellId,
+						documentUri: this._documentUri!,
+						outputs: [],
+					});
+				}
+
+				// When execution finishes and there is no view zone yet,
+				// create one to show the status bar
+				if (executionFinished && !viewZone) {
+					viewZone = this._createViewZone(cellId);
+					if (viewZone) {
+						this._viewZones.set(cellId, viewZone);
+						viewZone.setExecutionInfo(
+							currentState,
+							event.execution.startTime,
+							event.execution.endTime,
+						);
+					}
+				}
+
+				// When state goes to Idle (e.g. after cancellation), hide
+				// status-only view zones since there's nothing meaningful to show
+				if (currentState === CellExecutionState.Idle && viewZone?.isRecomputing) {
 					viewZone.clearOutputs();
 					this._viewZones.delete(cellId);
+					this._executionInfoByCell.delete(cellId);
 					this._onDidChangeOutputs.fire({
 						cellId,
 						documentUri: this._documentUri!,
@@ -389,6 +456,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	clearAllOutputs(): void {
 		this._disposeAllViewZones();
 		this._outputsByCell.clear();
+		this._executionInfoByCell.clear();
 	}
 
 	/**
@@ -477,16 +545,13 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		if (mime === 'application/vnd.code.notebook.error') {
 			try {
 				const errorData = JSON.parse(data);
-				const parts: string[] = [];
-				if (errorData.name) {
-					parts.push(`${errorData.name}: ${errorData.message || ''}`);
-				} else if (errorData.message) {
-					parts.push(errorData.message);
+				const stack = (errorData.stack || '').trim();
+				if (stack) {
+					return stack;
 				}
-				if (errorData.stack) {
-					parts.push(errorData.stack);
-				}
-				return parts.join('\n');
+				const name = (errorData.name || '').trim();
+				const message = (errorData.message || '').trim();
+				return name ? `${name}: ${message}` : (message || '');
 			} catch {
 				return data;
 			}
@@ -500,6 +565,10 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	}
 
 	override dispose(): void {
+		if (this._timestampTickInterval) {
+			clearInterval(this._timestampTickInterval);
+			this._timestampTickInterval = undefined;
+		}
 		this._disposeAllViewZones();
 		super.dispose();
 	}
@@ -603,7 +672,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		// outputs preserve data explorer MIME items so the inline data explorer
 		// can reconnect to a live comm without going through the disk cache.
 		const stash = this._stashedOutputsByUri.get(this._documentUri.toString());
-		if (stash && stash.outputsByCell.size > 0) {
+		if (stash && (stash.outputsByCell.size > 0 || stash.executionInfoByCell.size > 0)) {
 			this._stashedOutputsByUri.delete(this._documentUri.toString());
 			this._cachedOutputsLoaded = true;
 			this._restoreFromStash(stash);
@@ -715,10 +784,17 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	 * Restore outputs from a stash saved during a previous model change (tab switch).
 	 * The stash preserves data explorer MIME items that the disk cache strips.
 	 */
-	private _restoreFromStash(stash: { outputsByCell: Map<string, ICellOutput[]>; contentHashByCellId: Map<string, string> }): void {
-		// Restore content hashes
+	private _restoreFromStash(stash: {
+		outputsByCell: Map<string, ICellOutput[]>;
+		contentHashByCellId: Map<string, string>;
+		executionInfoByCell: Map<string, { state: CellExecutionState; startTime?: number; endTime?: number }>;
+	}): void {
+		// Restore content hashes and execution info
 		for (const [cellId, hash] of stash.contentHashByCellId) {
 			this._contentHashByCellId.set(cellId, hash);
+		}
+		for (const [cellId, info] of stash.executionInfoByCell) {
+			this._executionInfoByCell.set(cellId, info);
 		}
 
 		// Restore outputs and recreate view zones
@@ -739,6 +815,22 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 				}
 			}
 			restoredCount++;
+		}
+
+		// Restore execution info on view zones (including status-only cells
+		// that had no outputs but did have a status bar)
+		for (const [cellId, info] of stash.executionInfoByCell) {
+			let viewZone = this._viewZones.get(cellId);
+			if (!viewZone) {
+				// Create a view zone for status-only cells (no outputs but had status bar)
+				viewZone = this._createViewZone(cellId);
+				if (viewZone) {
+					this._viewZones.set(cellId, viewZone);
+				}
+			}
+			if (viewZone) {
+				viewZone.setExecutionInfo(info.state, info.startTime, info.endTime);
+			}
 		}
 
 		this._logService.debug('[QuartoOutputContribution] Restored outputs from stash for', restoredCount, 'cells');
@@ -831,11 +923,14 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			this._maxLines,
 			this._configurationService,
 			this._documentUri,
+			this._resourceUsageHistoryService,
+			this._timestampTickEmitter.event,
 		);
 
 		// Set up clear callback
 		viewZone.onClear = () => {
 			this._outputsByCell.delete(cellId);
+			this._executionInfoByCell.delete(cellId);
 			this._viewZones.delete(cellId);
 			this._onDidChangeOutputs.fire({
 				cellId,
