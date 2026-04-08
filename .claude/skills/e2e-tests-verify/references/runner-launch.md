@@ -2,7 +2,7 @@
 
 ## Launching the Explore Runner
 
-Launch the Playwright test in the background. **Always** set `EXPLORE_TITLE` to a short, descriptive name (issue number + brief summary).
+Launch the Playwright test in the background. **Always** set `EXPLORE_TITLE` to a short, descriptive name (PR number + brief summary).
 
 **For Electron (default -- local dev):**
 ```bash
@@ -26,7 +26,7 @@ ALLOW_EXPLORE=1 EXPLORE_TITLE="QA #11593: Plots new window broken in Firefox" np
 ```
 Note: `ALLOW_EXPLORE=1` is required for browser projects -- it removes the explore directory from testIgnore.
 
-**Important:** Never use just the issue number. Always include a brief summary (under 60 chars).
+**Important:** Never use just the PR number. Always include a brief summary (under 60 chars).
 
 ## Poll for Readiness
 

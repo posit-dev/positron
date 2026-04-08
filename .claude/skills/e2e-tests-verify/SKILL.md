@@ -133,7 +133,7 @@ When generating tests or choosing POM methods, consult these shared reference do
 
 #### Testability Check
 
-Before starting the runner, confirm the issue can actually be tested with this framework.
+Before starting the runner, confirm the PR's changes can actually be tested with this framework.
 
 **Definitely untestable -- stop and tell the user:**
 
@@ -149,15 +149,15 @@ Before starting the runner, confirm the issue can actually be tested with this f
 - **Requires external services**: databases, cloud APIs -- ask if the user has access locally before assuming they don't.
 - **Requires specific data**: large files, proprietary datasets -- ask if the data exists in the workspace.
 
-If the issue is untestable, respond with:
+If the changes are untestable, respond with:
 ```
-Cannot test #NNNNN with the explore runner:
+Cannot test PR#NNNNN with the explore runner:
 - Reason: [why it can't be tested]
-- The issue is about: [brief summary]
+- The PR is about: [brief summary]
 - What would be needed: [what environment/setup would be required]
 ```
 
-If the issue is **partially testable** (e.g., a UI bug that also has a server component), explain what CAN be tested and proceed with those parts.
+If the PR is **partially testable** (e.g., a UI bug that also has a server component), explain what CAN be tested and proceed with those parts.
 
 #### Browser Selection
 
@@ -168,16 +168,16 @@ Decide which browser/project to run the test in. The default is `e2e-electron` (
 - `--browser chromium` -> `e2e-chromium`
 - `--browser webkit` -> `e2e-webkit`
 
-**If no flag but issue mentions a specific browser**, infer automatically:
-- Issue mentions "Firefox", "firefox-specific", "Firefox on Workbench" -> use `e2e-firefox`
-- Issue mentions "Safari", "WebKit" -> use `e2e-webkit`
-- Issue mentions "Chrome", "Chromium" (but not Electron) -> use `e2e-chromium`
-- Issue mentions "Workbench", "Positron Pro", "browser mode" (no specific browser) -> use `e2e-chromium`
+**If no flag but PR body mentions a specific browser**, infer automatically:
+- PR mentions "Firefox", "firefox-specific", "Firefox on Workbench" -> use `e2e-firefox`
+- PR mentions "Safari", "WebKit" -> use `e2e-webkit`
+- PR mentions "Chrome", "Chromium" (but not Electron) -> use `e2e-chromium`
+- PR mentions "Workbench", "Positron Pro", "browser mode" (no specific browser) -> use `e2e-chromium`
 - No browser mentioned, or mentions "Electron", "desktop" -> use `e2e-electron` (default)
 
 Tell the user which browser was selected and why:
 ```
-Browser: Firefox (inferred from issue mentioning "Firefox on Workbench")
+Browser: Firefox (inferred from PR mentioning "Firefox on Workbench")
 ```
 
 **Important browser mode differences:**
