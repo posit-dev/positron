@@ -142,6 +142,11 @@ export function getWebviewMessageType(outputs: { mime: string }[]): 'widget' | '
  * inline due to Trusted Types / CSP restrictions or because they can load
  * active external content (scripts, iframes, embeds, full documents).
  * Such content needs to be routed through a sandboxed webview.
+ *
+ * Uses substring matching rather than word-boundary regex intentionally.
+ * This may over-classify custom elements like `<script-viewer>` as complex,
+ * but a false positive just routes through a webview (safe, still renders).
+ * A false negative would be a security gap. We prefer conservative detection.
  */
 export function isComplexHtml(html: string): boolean {
 	const lower = html.toLowerCase();
