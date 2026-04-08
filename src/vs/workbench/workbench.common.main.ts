@@ -497,7 +497,6 @@ import './services/positronConsole/browser/resourceUsageHistoryService.js';
 import './contrib/positronHelp/browser/positronHelpService.js';
 import './services/positronHistory/common/executionHistory.js';
 import './services/positronVariables/common/positronVariablesService.js';
-import './services/positronVariables/common/positronVariables.contribution.js';
 import './services/positronDataExplorer/browser/positronDataExplorerService.js';
 import './services/positronConnections/browser/positronConnectionsService.js';
 import './contrib/positronWebviewPreloads/browser/positronWebviewPreloadsService.js';
