@@ -33,12 +33,14 @@
           "enum": [
             "viewer",
             "editor",
-            "external"
+            "external",
+            "none"
           ],
           "enumDescriptions": [
             "%configuration.runApp.previewMode.viewer%",
             "%configuration.runApp.previewMode.editor%",
-            "%configuration.runApp.previewMode.external%"
+            "%configuration.runApp.previewMode.external%",
+            "%configuration.runApp.previewMode.none%"
           ],
           "description": "%configuration.runApp.previewMode%"
         },

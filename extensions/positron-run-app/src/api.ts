@@ -21,6 +21,7 @@ function readDefaultPreviewMode(): PreviewMode {
 		case 'viewer':
 		case 'external':
 		case 'editor':
+		case 'none':
 			return setting;
 		default:
 			return 'viewer';

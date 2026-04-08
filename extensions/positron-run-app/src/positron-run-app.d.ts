@@ -36,7 +36,7 @@ export interface RunAppConsoleCode {
  * How to preview the application once the URL is detected.
  *
  * - `'viewer'`   — open in the Positron Viewer pane.
- * - `'editor'`   — open in the Simple Browser editor.
+ * - `'editor'`   — open in an editor tab.
  * - `'external'` — open in an external browser.
  * - `'none'`     — skip URL detection and preview entirely.
  * - `'manual'`   — detect the URL but return it to the caller
