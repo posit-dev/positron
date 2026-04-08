@@ -77,5 +77,19 @@ export interface IPositronNotebookOutputWebviewService {
 			viewType?: string;
 		}): Promise<INotebookOutputWebview | undefined>;
 
+	/**
+	 * Create a new notebook output webview that renders raw HTML content directly.
+	 *
+	 * Used for complex HTML outputs (e.g. folium maps, HTML with scripts/iframes)
+	 * that cannot be safely rendered inline due to Trusted Types / CSP restrictions.
+	 * The webview runs in an isolated Electron process with its own CSP, so embedded
+	 * scripts and iframes execute normally.
+	 *
+	 * @param id A unique ID for this webview; typically the output ID.
+	 * @param html The raw HTML content to render.
+	 * @returns A promise that resolves to the new webview.
+	 */
+	createRawHtmlOutputWebview(id: string, html: string): Promise<INotebookOutputWebview>;
+
 }
 

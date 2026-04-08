@@ -380,6 +380,35 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		return notebookOutputWebview;
 	}
 
+	async createRawHtmlOutputWebview(id: string, html: string): Promise<INotebookOutputWebview> {
+		const webview = this._webviewService.createWebviewOverlay({
+			origin: DOM.getActiveWindow().origin,
+			contentOptions: {
+				allowScripts: true,
+				localResourceRoots: [],
+			},
+			extension: undefined,
+			options: {
+				retainContextWhenHidden: true,
+			},
+			title: '',
+		});
+
+		// Wrap the HTML with the sizing script so useWebviewMount receives
+		// webviewMetrics messages and can set the container height.
+		webview.setHtml(`<head>
+${PositronNotebookOutputWebviewService.CssAddons}
+<script>${webviewMessageCodeString}</script>
+</head>
+<body>${html}</body>`);
+
+		return this._instantiationService.createInstance(NotebookOutputWebview, {
+			id,
+			sessionId: id,
+			webview,
+		});
+	}
+
 	/**
 	 * A set of CSS addons to inject into the HTML of the webview. Used to do things like
 	 * hide elements that are not functional in the context of positron such as links to
