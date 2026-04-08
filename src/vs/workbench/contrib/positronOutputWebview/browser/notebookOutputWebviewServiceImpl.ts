@@ -381,8 +381,12 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 	}
 
 	private _buildRawHtmlDocument(html: string, baseUri?: URI): string {
+		// Only inject a <base> tag if the HTML doesn't already define one.
+		// In HTML only the first <base> is honored, so overriding an existing
+		// one would break outputs that set their own base URL.
+		const needsBase = baseUri && !/<base[\s>]/i.test(html);
 		const headContent = [
-			baseUri ? `<base href="${asWebviewUri(baseUri).toString(true)}/">` : '',
+			needsBase ? `<base href="${asWebviewUri(baseUri).toString(true)}/">` : '',
 			PositronNotebookOutputWebviewService.CssAddons,
 			`<script>${webviewMessageCodeString}</script>`,
 		].filter(Boolean).join('\n');
