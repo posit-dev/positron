@@ -4,13 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
-import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
+import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { kernelToLanguageId, parseQuarto } from '../../common/quartoParser.js';
 import { QuartoCodeBlock, QuartoNodeType, QuartoRawBlock } from '../../common/quartoTypes.js';
 
 suite('parseQuartoDocument', () => {
 
-	createTestContainer().build();
+	ensureNoDisposablesAreLeakedInTestSuite();
 
 	suite('Empty and minimal documents', () => {
 		test('empty string returns no blocks', () => {

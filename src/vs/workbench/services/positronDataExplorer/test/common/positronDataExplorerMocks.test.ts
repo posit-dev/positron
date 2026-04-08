@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
+import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import {
 	FilterComparison,
 	FilterComparisonOp,
@@ -19,7 +19,7 @@ import * as mocks from "../../../positronDataExplorer/common/positronDataExplore
  * Basic smoke tests for debugging the mock functions
  */
 suite('DataExplorerMocks', () => {
-	createTestContainer().build();
+	ensureNoDisposablesAreLeakedInTestSuite();
 
 	test('Test getTableSchema', () => {
 		const schema = mocks.getTableSchema(1000, 10000);

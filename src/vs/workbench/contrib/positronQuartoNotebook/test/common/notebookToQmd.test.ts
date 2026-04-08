@@ -4,12 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
-import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
+import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { CellKind, ICellDto2 } from '../../../notebook/common/notebookCommon.js';
 import { notebookToQmd } from '../../common/notebookToQmd.js';
 
 suite('notebookToQmd', () => {
-	createTestContainer().build();
+	ensureNoDisposablesAreLeakedInTestSuite();
 
 	function codeCell(code: string, language: string, metadata?: Record<string, unknown>): ICellDto2 {
 		return { cellKind: CellKind.Code, source: code, language, mime: undefined, outputs: [], metadata };

@@ -5,7 +5,7 @@
 
 import assert from 'assert';
 import { raceTimeout } from '../../../../../base/common/async.js';
-import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
+import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { ILogService, NullLogger } from '../../../../../platform/log/common/log.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
@@ -14,7 +14,7 @@ import { LanguageRuntimeService } from '../../common/languageRuntime.js';
 import { ILanguageRuntimeMetadata, LanguageStartupBehavior } from '../../common/languageRuntimeService.js';
 
 suite('Positron - LanguageRuntimeService', () => {
-	const { disposables } = createTestContainer().build();
+	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 	let instantiationService: TestInstantiationService;
 
 	setup(async () => {
