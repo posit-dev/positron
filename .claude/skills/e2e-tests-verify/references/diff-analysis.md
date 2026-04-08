@@ -2,9 +2,22 @@
 
 ## Extract the diff
 
-The diff source depends on what argument was passed to `--branch`:
+The diff source depends on the input mode:
 
-**If no argument or a branch name:**
+**If PR number (primary mode):**
+
+The diff is fetched during the parallel launch in Step 2. By the time diff analysis
+runs, these results are already available:
+```bash
+# Fetched in parallel during Step 2:
+gh pr diff <pr-number> --repo posit-dev/positron | head -2000
+gh pr view <pr-number> --repo posit-dev/positron --json title,body,labels
+
+# File list (extract from diff output or run separately):
+gh pr diff <pr-number> --repo posit-dev/positron --name-only
+```
+
+**If `--branch` (no argument or a branch name):**
 ```bash
 # Determine the target branch (default: current branch)
 BRANCH=$(git rev-parse --abbrev-ref HEAD)  # or the specified branch name
@@ -17,28 +30,27 @@ git diff main...$BRANCH --name-only
 git diff main...$BRANCH | head -2000
 ```
 
-**If an issue number (e.g., `--branch #9638`):**
-```bash
-# Find the PR that closed this issue
-gh pr list --search "9638" --state all --repo posit-dev/positron --json number,title,headRefName --limit 5
+## Fetch enrichment context (secondary signals)
 
-# Get the diff from the most relevant PR
-gh pr diff <pr-number> --repo posit-dev/positron | head -2000
-
-# Get file list
-gh pr diff <pr-number> --repo posit-dev/positron --name-only
-```
-
-## Fetch enrichment context (secondary signals, if available)
+Enrichment is fetched during the parallel launch in Step 2. These are secondary signals
+that improve test plan quality but are not required:
 
 ```bash
-# PR context (auto-detected from branch, or already known from issue resolution)
-gh pr view --json title,body,number,comments 2>/dev/null
+# PR metadata (always fetched in parallel for PR input):
+gh pr view <pr-number> --repo posit-dev/positron --json title,body,labels
 
-# Issue context (if issue number was passed with --branch)
-gh issue view <number> --repo posit-dev/positron --json title,body,labels 2>/dev/null
+# Issue context (only if --context <issue> flag was passed):
+gh issue view <issue-number> --repo posit-dev/positron --json title,body,labels
+
+# For --deep mode, also fetch PR comments:
+gh pr view <pr-number> --repo posit-dev/positron --json comments
 ```
-If no PR exists and no issue number was passed, skip -- the diff alone is sufficient.
+
+The `--context` flag provides the "why" (bug report, expected behavior) while
+the PR diff provides the "what" (code changes to exercise). Use both signals
+when planning test steps.
+
+If `--branch` mode without `--context`, the diff alone is sufficient.
 
 ## Classify changed files
 
