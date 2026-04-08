@@ -115,6 +115,10 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 	readonly onDidStartUiClient = this._onDidStartUiClient.event;
 
 	foregroundSession: ILanguageRuntimeSession | undefined;
+	foregroundSessionDisplayInfo: undefined;
+	private readonly _onDidChangeForegroundSessionDisplayInfo = new Emitter<any>();
+	readonly onDidChangeForegroundSessionDisplayInfo = this._onDidChangeForegroundSessionDisplayInfo.event;
+	getLastNotebookSessionInfo() { return undefined; }
 	implicitStartupSuppressed = false;
 
 	async updateNotebookSessionUri(oldUri: URI, newUri: URI): Promise<string | undefined> {
