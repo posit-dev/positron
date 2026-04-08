@@ -797,7 +797,12 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 				const persistedRuntimeId = this._kernelBindings.get(documentUri.toString());
 				if (persistedRuntimeId) {
 					runtime = this._languageRuntimeService.registeredRuntimes
-						.find(r => r.runtimeId === persistedRuntimeId);
+						.find(r => r.runtimeId === persistedRuntimeId && r.languageId === language);
+					if (!runtime) {
+						// Persisted binding doesn't match the current language; clear it
+						this._kernelBindings.delete(documentUri.toString());
+						this._persistKernelBindings();
+					}
 				}
 			}
 			if (!runtime) {
