@@ -85,11 +85,12 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 			this.createOrAssignPositronVariablesInstance(e.session, e.activate);
 		}));
 
-		// Register session cleanup handler
-		this._register(this._runtimeSessionService.onDidChangeRuntimeState(e => {
-			if (e.new_state === RuntimeState.Exited) {
-				this.cleanupSession(e.session_id);
-			}
+		// Only clean up variables instances when sessions are deleted. We do not clean up
+		// instances when a session is exited because that session may be restarted. The
+		// createOrAssignPositronVariablesInstance method will handle re-attaching the
+		// restarted session to an existing instance if needed.
+		this._register(this._runtimeSessionService.onDidDeleteRuntimeSession(sessionId => {
+			this.cleanupSession(sessionId);
 		}));
 
 		// Register the onDidChangeActiveRuntime event handler.
