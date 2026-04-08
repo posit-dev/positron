@@ -35,6 +35,7 @@ import { Conda } from '../common/environmentManagers/conda';
 import { getUvPythonVersions } from './provider/uvUtils';
 import { isUvInstalled } from '../common/environmentManagers/uv';
 import { UvCreationProvider } from './provider/uvCreationProvider';
+import { installPythonViaUv } from '../common/environmentManagers/uvPythonInstaller';
 import {
     createEnvironmentAndRegister,
     getCreateEnvironmentProviders,
@@ -191,6 +192,13 @@ export async function registerCreateEnvironmentFeatures(
         registerCommand(Commands.Get_Conda_Python_Versions, () => getCondaPythonVersions()),
         registerCommand(Commands.Is_Uv_Installed, async () => await isUvInstalled()),
         registerCommand(Commands.Get_Uv_Python_Versions, () => getUvPythonVersions()),
+        registerCommand(Commands.InstallPythonViaUv, async () => {
+            const result = await installPythonViaUv();
+            if (result.success && result.pythonPath) {
+                await pythonRuntimeManager.selectLanguageRuntimeFromPath(result.pythonPath, true);
+            }
+            return result.success ? result.pythonPath : undefined;
+        }),
         registerCommand(Commands.Is_Global_Python, (interpreterPath: string) => isGlobalPython(interpreterPath)),
         // --- End Positron ---
         registerCreateEnvironmentProvider(new VenvCreationProvider(interpreterQuickPick)),

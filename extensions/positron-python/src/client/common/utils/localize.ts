@@ -289,6 +289,23 @@ export namespace InterpreterQuickPickList {
     // --- Start Positron ---
     // Add a new tooltip text
     export const unsupportedVersionTooltip = l10n.t('This version of Python is not supported');
+
+    export namespace UvInstall {
+        export const noVersionsAvailable = l10n.t('No Python versions available for installation');
+        export const installed = l10n.t('(installed)');
+        export const selectVersion = l10n.t('Select a Python version to install');
+        export const selectVersionTitle = l10n.t('Install Python via uv');
+        export const installingPython = l10n.t('Installing Python');
+        export const installingUv = l10n.t('Installing uv');
+        export const selectingVersion = l10n.t('Loading available versions');
+        export const installingPythonVersion = (version: string) => l10n.t('Installing Python {0}', version);
+        export const installSuccess = (version: string) => l10n.t('Python {0} installed successfully', version);
+        export const installFailed = (version: string) => l10n.t('Failed to install Python {0}', version);
+        export const uvInstallFailed = l10n.t('Failed to install uv');
+        export const createVenvPrompt = l10n.t('Create a virtual environment in your workspace?');
+        export const creatingVenv = l10n.t('Creating virtual environment');
+        export const venvCreated = l10n.t('Virtual environment created');
+    }
     // --- End Positron ---
 }
 

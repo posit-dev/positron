@@ -19,6 +19,7 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { dispose } from '../../../../base/common/lifecycle.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { ExplorerFolderContext } from '../../files/common/files.js';
@@ -53,6 +54,9 @@ export const LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_CONSOLE_SESSION_ID = 'workbench.a
 
 // Notebook Session Specific Action IDs
 export const LANGUAGE_RUNTIME_SELECT_LEGACY_NOTEBOOK_RUNTIME_ID = 'workbench.action.languageRuntime.selectLegacyNotebookRuntime';
+
+// Special quick pick item ID for installing Python via uv
+const INSTALL_PYTHON_VIA_UV_ID = '__install_python_via_uv__';
 
 /**
  * Helper function that askses the user to select a language from the list of registered language
@@ -294,6 +298,8 @@ const selectNewLanguageRuntime = async (
 	const runtimeSessionService = accessor.get(IRuntimeSessionService);
 	const runtimeStartupService = accessor.get(IRuntimeStartupService);
 	const languageRuntimeService = accessor.get(ILanguageRuntimeService);
+	const configurationService = accessor.get(IConfigurationService);
+	const commandService = accessor.get(ICommandService);
 
 	// Group runtimes by language.
 	const interpreterGroups = createInterpreterGroups(languageRuntimeService, runtimeStartupService);
@@ -413,21 +419,47 @@ const selectNewLanguageRuntime = async (
 		});
 	});
 
-	// Prompt the user to select a runtime to start
-	const selectedRuntime = await quickInputService.pick(
-		runtimeItems,
-		{
-			title: options?.title || localize('positron.languageRuntime.startSession', 'Start New Interpreter Session'),
-			canPickMany: false
-		}
-	);
+	// Check if we should show the "Install Python via uv" option
+	const allowPythonInstall = configurationService.getValue<boolean>('python.allowPythonInstall') ?? true;
+	if (allowPythonInstall) {
+		const alwaysShow = configurationService.getValue<boolean>('python.INTERNAL_alwaysShowUvInstallOption') ?? false;
+		const pythonRuntimes = languageRuntimeService.registeredRuntimes.filter(r => r.languageId === 'python');
+		const hasOnlySystemPython = pythonRuntimes.length > 0 &&
+			pythonRuntimes.every(r => ['System', 'Global'].includes(r.runtimeSource));
 
-	// If the user selected a runtime, return the runtime metadata.
-	if (selectedRuntime?.id) {
-		return languageRuntimeService.getRegisteredRuntime(selectedRuntime.id);
+		if (alwaysShow || pythonRuntimes.length === 0 || hasOnlySystemPython) {
+			runtimeItems.push(
+				{ type: 'separator', label: localize('positron.languageRuntime.installPython', 'Install Python') },
+				{
+					id: INSTALL_PYTHON_VIA_UV_ID,
+					label: localize('positron.languageRuntime.installPythonViaUv', '$(add) Install Python via uv'),
+				}
+			);
+		}
 	}
 
-	return undefined;
+	const selectedRuntime = await quickInputService.pick(runtimeItems, {
+		title: options?.title || localize('positron.languageRuntime.startSession', 'Start New Interpreter Session'),
+		canPickMany: false
+	});
+
+	if (!selectedRuntime?.id) {
+		return undefined;
+	}
+
+	// Handle "Install Python via uv" - venv creation is handled in the Python extension
+	if (selectedRuntime.id === INSTALL_PYTHON_VIA_UV_ID) {
+		const pythonPath = await commandService.executeCommand<string | undefined>('python.installPythonViaUv');
+		if (pythonPath) {
+			await commandService.executeCommand(LANGUAGE_RUNTIME_DISCOVER_RUNTIMES_ID);
+			return languageRuntimeService.registeredRuntimes.find(
+				r => r.languageId === 'python' && r.runtimePath === pythonPath
+			);
+		}
+		return undefined;
+	}
+
+	return languageRuntimeService.getRegisteredRuntime(selectedRuntime.id);
 };
 
 /**
