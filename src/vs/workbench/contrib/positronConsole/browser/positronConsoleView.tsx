@@ -242,7 +242,6 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 		this._register(this.positronConsoleService.onDidDeletePositronConsoleInstance(() => {
 			this.updateConsoleInstancesExistContext();
 		}));
-
 	}
 
 	/**
@@ -272,9 +271,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 		// Render the Positron console.
 		this._positronReactRenderer = this._register(new PositronReactRenderer(this._positronConsoleContainer));
 		this._positronReactRenderer.render(
-			<PositronConsole
-				reactComponentContainer={this}
-			/>
+			<PositronConsole reactComponentContainer={this} />
 		);
 
 		// Create a focus tracker that updates the PositronConsoleFocused context key.
@@ -342,10 +339,6 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 		}
 		return super.createActionViewItem(action, options);
 	}
-
-	//#endregion Overrides
-
-	//#region Private Methods
 
 	private updateSessionDropdown(dropdownAction: Action): void {
 		// Grab the current runtime.
@@ -420,5 +413,5 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 		this._positronConsoleInstancesExistContextKey.set(hasInstances);
 	}
 
-	//#endregion Private Methods
+	//#endregion Public Overrides
 }
