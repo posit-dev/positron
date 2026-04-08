@@ -1,0 +1,445 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+/* eslint-disable local/code-no-dangerous-type-assertions */
+
+import assert from 'assert';
+import { Emitter, Event } from '../../../../../base/common/event.js';
+import { URI } from '../../../../../base/common/uri.js';
+import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
+import { ICodeEditorService } from '../../../../../editor/browser/services/codeEditorService.js';
+import { ITextModel } from '../../../../../editor/common/model.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+import { EditorInput } from '../../../../common/editor/editorInput.js';
+import { LanguageRuntimeSessionMode, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { TestLanguageRuntimeSession, waitForRuntimeState } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
+import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
+import { IEditorService } from '../../../../services/editor/common/editorService.js';
+import { IPositronNotebookInstance } from '../../../positronNotebook/browser/IPositronNotebookInstance.js';
+import { IPositronNotebookService } from '../../../positronNotebook/browser/positronNotebookService.js';
+import { IQuartoKernelManager } from '../../../positronQuarto/browser/quartoKernelManager.js';
+import { INotebookEditorService } from '../../../notebook/browser/services/notebookEditorService.js';
+import { ForegroundSessionContribution } from '../../browser/foregroundSessionContribution.js';
+import { POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../../../positronNotebook/common/positronNotebookCommon.js';
+import { POSITRON_QUARTO_INLINE_OUTPUT_KEY } from '../../../positronQuarto/common/positronQuartoConfig.js';
+
+suite('Positron - ForegroundSessionContribution', () => {
+
+	// --- Emitters for controllable service stubs ---
+	const onDidActiveEditorChange = new Emitter<void>();
+	const onDidAddNotebookInstance = new Emitter<IPositronNotebookInstance>();
+	const onDidRemoveNotebookInstance = new Emitter<IPositronNotebookInstance>();
+
+	// --- Mutable state set in tests ---
+	let activeEditor: EditorInput | undefined;
+	let activeCodeEditor: ICodeEditor | undefined;
+	let notebookInstances: IPositronNotebookInstance[];
+	let quartoSessionForDocument: ILanguageRuntimeSession | undefined;
+
+	const ctx = createTestContainer()
+		.withWorkbenchServices()
+		.stub(IEditorService, {
+			get activeEditor() { return activeEditor; },
+			onDidActiveEditorChange: onDidActiveEditorChange.event,
+		} as IEditorService)
+		.stub(IPositronNotebookService, {
+			onDidAddNotebookInstance: onDidAddNotebookInstance.event,
+			onDidRemoveNotebookInstance: onDidRemoveNotebookInstance.event,
+			listInstances: () => notebookInstances,
+		} as IPositronNotebookService)
+		.stub(INotebookEditorService, {
+			onDidAddNotebookEditor: Event.None,
+			onDidRemoveNotebookEditor: Event.None,
+			listNotebookEditors: () => [],
+		} as unknown as INotebookEditorService)
+		.stub(IQuartoKernelManager, {
+			getSessionForDocument: () => quartoSessionForDocument,
+		} as unknown as IQuartoKernelManager)
+		.stub(ICodeEditorService, {
+			onCodeEditorAdd: Event.None,
+			onCodeEditorRemove: Event.None,
+			listCodeEditors: () => [],
+			getActiveCodeEditor: () => activeCodeEditor,
+		} as unknown as ICodeEditorService)
+		.build();
+
+	let runtimeSessionService: IRuntimeSessionService;
+	let configService: TestConfigurationService;
+	let contribution: ForegroundSessionContribution;
+
+	const notebookUri = URI.file('/path/to/notebook.ipynb');
+
+	/** Read foregroundSession through a helper to avoid TS control-flow narrowing after assignment. */
+	function getForegroundSessionId(): string | undefined {
+		return runtimeSessionService.foregroundSession?.sessionId;
+	}
+
+	setup(() => {
+		runtimeSessionService = ctx.instantiationService.get(IRuntimeSessionService);
+		configService = ctx.instantiationService.get(IConfigurationService) as TestConfigurationService;
+
+		// Reset mutable state
+		activeEditor = undefined;
+		activeCodeEditor = undefined;
+		notebookInstances = [];
+		quartoSessionForDocument = undefined;
+
+		// Create the contribution
+		contribution = ctx.disposables.add(
+			ctx.instantiationService.createInstance(ForegroundSessionContribution)
+		);
+	});
+
+	/** Create a mock notebook EditorInput that passes isNotebookEditorInput(). */
+	function createNotebookEditorInput(uri: URI): EditorInput {
+		return { typeId: POSITRON_NOTEBOOK_EDITOR_INPUT_ID, resource: uri } as unknown as EditorInput;
+	}
+
+	/** Create a mock ICodeEditor with a model for the given URI and language. */
+	function createMockCodeEditor(uri: URI, languageId: string): ICodeEditor {
+		const model = {
+			uri,
+			getLanguageId: () => languageId,
+		} as ITextModel;
+		return {
+			getId: () => `editor-${uri.toString()}`,
+			getModel: () => model,
+			onDidFocusEditorWidget: Event.None,
+		} as unknown as ICodeEditor;
+	}
+
+	/** Start a console session and set it as foreground. */
+	async function startConsoleSession() {
+		const runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+		const session = await startTestLanguageRuntimeSession(
+			ctx.instantiationService, ctx.disposables, {
+			runtime,
+			sessionName: runtime.runtimeName,
+			startReason: 'test',
+			sessionMode: LanguageRuntimeSessionMode.Console,
+		});
+		runtimeSessionService.foregroundSession = session;
+		return session;
+	}
+
+	/** Start a notebook session for the given URI. */
+	async function startNotebookSession(uri: URI = notebookUri) {
+		const runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+		const session = await startTestLanguageRuntimeSession(
+			ctx.instantiationService, ctx.disposables, {
+			runtime,
+			sessionName: runtime.runtimeName,
+			startReason: 'test',
+			sessionMode: LanguageRuntimeSessionMode.Notebook,
+			notebookUri: uri,
+		});
+		return session;
+	}
+
+	suite('setForegroundSession', () => {
+		test('sets the foreground session', async () => {
+			const session = await startConsoleSession();
+			runtimeSessionService.foregroundSession = undefined;
+
+			contribution.setForegroundSession(session);
+
+			assert.strictEqual(getForegroundSessionId(), session.sessionId);
+		});
+
+		test('is a no-op when the session is already foreground', async () => {
+			const session = await startConsoleSession();
+			assert.strictEqual(runtimeSessionService.foregroundSession?.sessionId, session.sessionId);
+
+			// Should not throw or change anything
+			contribution.setForegroundSession(session);
+
+			assert.strictEqual(
+				runtimeSessionService.foregroundSession?.sessionId,
+				session.sessionId
+			);
+		});
+	});
+
+	suite('active editor change to notebook', () => {
+		test('sets notebook session as foreground when notebook becomes active', async () => {
+			const session = await startNotebookSession();
+
+			activeEditor = createNotebookEditorInput(notebookUri);
+			onDidActiveEditorChange.fire();
+
+			assert.strictEqual(
+				runtimeSessionService.foregroundSession?.sessionId,
+				session.sessionId
+			);
+		});
+
+		test('no-op when notebook editor is already the foreground session', async () => {
+			const session = await startNotebookSession();
+			runtimeSessionService.foregroundSession = session;
+
+			activeEditor = createNotebookEditorInput(notebookUri);
+			onDidActiveEditorChange.fire();
+
+			assert.strictEqual(
+				runtimeSessionService.foregroundSession?.sessionId,
+				session.sessionId
+			);
+		});
+
+		test('uses cached session info when notebook has no active session', async () => {
+			// Start and exit a notebook session to create cached display info
+			const session = await startNotebookSession();
+			const exitedPromise = waitForRuntimeState(session, RuntimeState.Exited);
+			session.setRuntimeState(RuntimeState.Exited);
+			await exitedPromise;
+			await runtimeSessionService.deleteSession(session.sessionId);
+
+			// Set the notebook as active editor
+			activeEditor = createNotebookEditorInput(notebookUri);
+			onDidActiveEditorChange.fire();
+
+			// No live session, foreground should be cleared
+			assert.strictEqual(runtimeSessionService.foregroundSession, undefined);
+			// Cached display info should be set so the interpreter picker shows what was last used
+			assert.ok(
+				runtimeSessionService.foregroundSessionDisplayInfo,
+				'Expected foregroundSessionDisplayInfo to be set from cached info'
+			);
+		});
+	});
+
+	suite('active editor change to regular file', () => {
+		test('restores last active console session', async () => {
+			const consoleSession = await startConsoleSession();
+
+			// Switch to notebook first
+			const notebookSession = await startNotebookSession();
+			runtimeSessionService.foregroundSession = notebookSession;
+
+			// Now switch to a regular file
+			const codeEditor = createMockCodeEditor(URI.file('/path/to/file.py'), 'python');
+			activeEditor = { typeId: 'text', resource: URI.file('/path/to/file.py') } as unknown as EditorInput;
+			activeCodeEditor = codeEditor;
+			onDidActiveEditorChange.fire();
+
+			assert.strictEqual(
+				runtimeSessionService.foregroundSession?.sessionId,
+				consoleSession.sessionId
+			);
+		});
+
+		test('clears notebook foreground when no console session exists', async () => {
+			const notebookSession = await startNotebookSession();
+			runtimeSessionService.foregroundSession = notebookSession;
+
+			const codeEditor = createMockCodeEditor(URI.file('/path/to/file.py'), 'python');
+			activeEditor = { typeId: 'text', resource: URI.file('/path/to/file.py') } as unknown as EditorInput;
+			activeCodeEditor = codeEditor;
+			onDidActiveEditorChange.fire();
+
+			assert.strictEqual(runtimeSessionService.foregroundSession, undefined);
+		});
+	});
+
+	suite('active editor change to no editor', () => {
+		test('falls back to console session when notebook was foreground', async () => {
+			const consoleSession = await startConsoleSession();
+			const notebookSession = await startNotebookSession();
+			runtimeSessionService.foregroundSession = notebookSession;
+
+			activeEditor = undefined;
+			onDidActiveEditorChange.fire();
+
+			assert.strictEqual(
+				runtimeSessionService.foregroundSession?.sessionId,
+				consoleSession.sessionId
+			);
+		});
+
+		test('no-op when foreground is already a console session', async () => {
+			const consoleSession = await startConsoleSession();
+
+			activeEditor = undefined;
+			onDidActiveEditorChange.fire();
+
+			assert.strictEqual(
+				runtimeSessionService.foregroundSession?.sessionId,
+				consoleSession.sessionId
+			);
+		});
+
+		test('clears foreground when notebook was foreground and no console exists', async () => {
+			const notebookSession = await startNotebookSession();
+			runtimeSessionService.foregroundSession = notebookSession;
+
+			activeEditor = undefined;
+			onDidActiveEditorChange.fire();
+
+			assert.strictEqual(runtimeSessionService.foregroundSession, undefined);
+		});
+	});
+
+	suite('Quarto editor focus', () => {
+		test('sets Quarto session as foreground when Quarto file is active and inline output enabled', async () => {
+			configService.setUserConfiguration(POSITRON_QUARTO_INLINE_OUTPUT_KEY, true);
+
+			const quartoUri = URI.file('/path/to/doc.qmd');
+			const quartoSession = await startNotebookSession(quartoUri);
+			quartoSessionForDocument = quartoSession;
+
+			const codeEditor = createMockCodeEditor(quartoUri, 'quarto');
+			activeEditor = { typeId: 'text', resource: quartoUri } as unknown as EditorInput;
+			activeCodeEditor = codeEditor;
+			onDidActiveEditorChange.fire();
+
+			assert.strictEqual(
+				runtimeSessionService.foregroundSession?.sessionId,
+				quartoSession.sessionId
+			);
+		});
+
+		test('does not set Quarto session when inline output is disabled', async () => {
+			configService.setUserConfiguration(POSITRON_QUARTO_INLINE_OUTPUT_KEY, false);
+
+			const quartoUri = URI.file('/path/to/doc.qmd');
+			const quartoSession = await startNotebookSession(quartoUri);
+			quartoSessionForDocument = quartoSession;
+
+			const codeEditor = createMockCodeEditor(quartoUri, 'quarto');
+			activeEditor = { typeId: 'text', resource: quartoUri } as unknown as EditorInput;
+			activeCodeEditor = codeEditor;
+			onDidActiveEditorChange.fire();
+
+			// With inline output disabled, should not set Quarto session as foreground
+			assert.notStrictEqual(
+				runtimeSessionService.foregroundSession?.sessionId,
+				quartoSession.sessionId
+			);
+		});
+	});
+
+	suite('notebook session lifecycle', () => {
+		test('notebook session start sets foreground when notebook is active editor', async () => {
+			// Set notebook as active editor before the session starts
+			activeEditor = createNotebookEditorInput(notebookUri);
+			onDidActiveEditorChange.fire();
+
+			// Start the notebook session - the onDidStartRuntime event will fire
+			const session = await startNotebookSession();
+
+			assert.strictEqual(
+				runtimeSessionService.foregroundSession?.sessionId,
+				session.sessionId
+			);
+		});
+
+		test('notebook session start does not steal foreground when different notebook is active', async () => {
+			const consoleSession = await startConsoleSession();
+
+			// Active editor is a DIFFERENT notebook
+			const otherNotebookUri = URI.file('/path/to/other.ipynb');
+			activeEditor = createNotebookEditorInput(otherNotebookUri);
+			onDidActiveEditorChange.fire();
+
+			// Start a session for a different notebook than the active editor
+			await startNotebookSession(notebookUri);
+
+			// Should NOT have changed foreground to the started session
+			assert.strictEqual(
+				runtimeSessionService.foregroundSession?.sessionId,
+				consoleSession.sessionId
+			);
+		});
+
+		test('notebook session becoming ready sets foreground when notebook is active', async () => {
+			activeEditor = createNotebookEditorInput(notebookUri);
+			onDidActiveEditorChange.fire();
+
+			const session = await startNotebookSession();
+			runtimeSessionService.foregroundSession = undefined;
+
+			// Simulate the session becoming ready
+			session.setRuntimeState(RuntimeState.Ready);
+
+			assert.strictEqual(getForegroundSessionId(), session.sessionId);
+		});
+	});
+
+	suite('notebook instance removed', () => {
+		test('falls back to console session when last notebook is removed', async () => {
+			const consoleSession = await startConsoleSession();
+			const notebookSession = await startNotebookSession();
+			runtimeSessionService.foregroundSession = notebookSession;
+
+			const mockInstance = {
+				getId: () => 'instance-1',
+				uri: notebookUri,
+				onDidFocusWidget: Event.None,
+			} as unknown as IPositronNotebookInstance;
+			notebookInstances = [];
+
+			onDidRemoveNotebookInstance.fire(mockInstance);
+
+			assert.strictEqual(
+				runtimeSessionService.foregroundSession?.sessionId,
+				consoleSession.sessionId
+			);
+		});
+
+		test('no-op when foreground is a console session', async () => {
+			const consoleSession = await startConsoleSession();
+
+			const mockInstance = {
+				getId: () => 'instance-1',
+				uri: notebookUri,
+				onDidFocusWidget: Event.None,
+			} as unknown as IPositronNotebookInstance;
+			notebookInstances = [];
+
+			onDidRemoveNotebookInstance.fire(mockInstance);
+
+			assert.strictEqual(
+				runtimeSessionService.foregroundSession?.sessionId,
+				consoleSession.sessionId
+			);
+		});
+	});
+
+	suite('notebook session deleted', () => {
+		test('clears foreground when deleted session was the foreground notebook session', async () => {
+			const session = await startNotebookSession();
+			runtimeSessionService.foregroundSession = session;
+
+			// Exit the session first (required before deletion)
+			assert.ok(session instanceof TestLanguageRuntimeSession);
+			const exitedPromise = waitForRuntimeState(session, RuntimeState.Exited);
+			session.setRuntimeState(RuntimeState.Exited);
+			await exitedPromise;
+
+			// Delete the session through the service
+			await runtimeSessionService.deleteSession(session.sessionId);
+
+			// The foreground should be cleared
+			assert.strictEqual(runtimeSessionService.foregroundSession, undefined);
+		});
+	});
+
+	suite('dispose', () => {
+		test('cleans up disposable maps without errors', () => {
+			// Register a mock notebook instance to create disposables
+			const mockInstance = {
+				getId: () => 'instance-1',
+				uri: notebookUri,
+				onDidFocusWidget: Event.None,
+			} as unknown as IPositronNotebookInstance;
+			onDidAddNotebookInstance.fire(mockInstance);
+
+			// Disposing should not throw
+			contribution.dispose();
+		});
+	});
+});
