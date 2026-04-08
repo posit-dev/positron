@@ -25,17 +25,27 @@ interface NewDataConnectionModalDialogProps {
  * @returns The rendered component.
  */
 export const NewDataConnectionModalDialog = (props: NewDataConnectionModalDialogProps) => {
+	const acceptHandler = () => {
+		console.log('Accept');
+		props.renderer.dispose();
+	};
+
+	const cancelHandler = () => {
+		console.log('Cancel');
+		props.renderer.dispose();
+	};
+
 	// Render.
 	return (
-		<PositronModalDialog height={400} renderer={props.renderer} title='Yes' width={400} >
+		<PositronModalDialog height={400} renderer={props.renderer} title='Yes' width={400} onCancel={cancelHandler} >
 			<ContentArea>
 				<div>Hello</div>
 			</ContentArea>
 			<OKCancelActionBar
 				cancelButtonTitle='Cancel'
-				okButtonTitle='OK'
-				onAccept={() => console.log('OK')}
-				onCancel={() => console.log('Cancel')}
+				okButtonTitle='Next'
+				onAccept={acceptHandler}
+				onCancel={cancelHandler}
 			/>
 		</PositronModalDialog>
 	);
