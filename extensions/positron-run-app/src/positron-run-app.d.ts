@@ -35,14 +35,14 @@ export interface RunAppConsoleCode {
 /**
  * How to preview the application once the URL is detected.
  *
- * - `'internal'` — open in the Positron Viewer pane.
+ * - `'viewer'`   — open in the Positron Viewer pane.
  * - `'external'` — open in an external browser.
- * - `'simple'`   — open in the Simple Browser editor.
+ * - `'editor'`   — open in the Simple Browser editor.
  * - `'none'`     — skip URL detection and preview entirely.
  * - `'manual'`   — detect the URL but return it to the caller
  *                   instead of previewing.
  */
-export type PreviewMode = 'internal' | 'external' | 'simple' | 'none' | 'manual';
+export type PreviewMode = 'viewer' | 'external' | 'editor' | 'none' | 'manual';
 
 /**
  * Shared options for running an application.
@@ -55,7 +55,7 @@ interface RunAppOptionsBase {
 
 	/**
 	 * How to preview the application once the URL is detected. Defaults
-	 * to `'internal'`.
+	 * to `'viewer'`.
 	 */
 	preview?: PreviewMode;
 
