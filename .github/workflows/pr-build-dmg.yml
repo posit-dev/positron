@@ -79,12 +79,22 @@ jobs:
           # Install dmgbuild using uv
           brew install uv
 
-          # Create DMG
+          # The build outputs to the parent directory of the repo
+          # Verify the app exists where we expect it
+          ls -la ../VSCode-darwin-arm64/Positron.app || {
+            echo "Error: Positron.app not found at expected location"
+            echo "Contents of parent directory:"
+            ls -la ..
+            exit 1
+          }
+
+          # Create DMG using absolute path to the app
           export POSITRON_BUNDLE_NAME=Positron-PR-${{ github.event.issue.number }}-arm64
+          export APP_PATH="$(cd .. && pwd)/VSCode-darwin-arm64/Positron.app"
 
           uvx --python 3.12 --from 'dmgbuild==1.6.7' dmgbuild \
             -s "${{ github.workspace }}/resources/darwin/dmg/dmg-settings.py" \
-            -D app_path="$(pwd)/../VSCode-darwin-arm64/Positron.app" \
+            -D app_path="${APP_PATH}" \
             -D app_name="Positron.app" \
             -D background="${{ github.workspace }}/resources/darwin/dmg/background.png" \
             -D icon="${{ github.workspace }}/resources/darwin/dmg/volume-icon.icns" \
