@@ -4,9 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter, Event } from '../../../../../base/common/event.js';
-import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
-import { DidNavigateInputHistoryUpEventArgs, IPositronConsoleInstance, IPositronConsoleService, PositronConsoleState, SessionAttachMode } from '../../browser/interfaces/positronConsoleService.js';
+import { DidNavigateInputHistoryUpEventArgs, IConsoleFindWidget, IPositronConsoleInstance, IPositronConsoleService, PositronConsoleState, SessionAttachMode } from '../../browser/interfaces/positronConsoleService.js';
 import { RuntimeItem } from '../../browser/classes/runtimeItem.js';
 import { ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata } from '../../../runtimeSession/common/runtimeSessionService.js';
@@ -311,10 +310,8 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 	private readonly _onDidAttachSessionEmitter = new Emitter<ILanguageRuntimeSession | undefined>();
 	private readonly _onDidChangeWidthInCharsEmitter = new Emitter<number>();
 	private readonly _onDidRequestRevealExecutionEmitter = new Emitter<string>();
-	private readonly _onDidRequestFindEmitter = new Emitter<void>();
-	private readonly _onDidRequestHideFindEmitter = new Emitter<void>();
-	private readonly _onDidRequestFindNextEmitter = new Emitter<void>();
-	private readonly _onDidRequestFindPreviousEmitter = new Emitter<void>();
+
+	private _findWidget: IConsoleFindWidget | undefined;
 
 	private _state: PositronConsoleState = PositronConsoleState.Ready;
 	private _trace: boolean = false;
@@ -406,20 +403,8 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 		return this._onDidChangeWidthInCharsEmitter.event;
 	}
 
-	get onDidRequestFind(): Event<void> {
-		return this._onDidRequestFindEmitter.event;
-	}
-
-	get onDidRequestHideFind(): Event<void> {
-		return this._onDidRequestHideFindEmitter.event;
-	}
-
-	get onDidRequestFindNext(): Event<void> {
-		return this._onDidRequestFindNextEmitter.event;
-	}
-
-	get onDidRequestFindPrevious(): Event<void> {
-		return this._onDidRequestFindPreviousEmitter.event;
+	get findWidgetDomNode(): HTMLElement | undefined {
+		return this._findWidget?.getDomNode();
 	}
 
 	get state(): PositronConsoleState {
@@ -468,28 +453,28 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 		this._runtimeAttached = runtimeAttached;
 	}
 
-	addDisposables(_disposables: IDisposable): void {
-		// No-op for test implementation
-	}
-
 	focusInput(): void {
 		this._onFocusInputEmitter.fire();
 	}
 
+	layoutFindWidget(_width: number): void {
+		this._findWidget?.layout(_width);
+	}
+
 	requestFind(): void {
-		this._onDidRequestFindEmitter.fire();
+		this._findWidget?.reveal();
 	}
 
 	requestHideFind(): void {
-		this._onDidRequestHideFindEmitter.fire();
+		this._findWidget?.hide();
 	}
 
 	requestFindNext(): void {
-		this._onDidRequestFindNextEmitter.fire();
+		this._findWidget?.find(false);
 	}
 
 	requestFindPrevious(): void {
-		this._onDidRequestFindPreviousEmitter.fire();
+		this._findWidget?.find(true);
 	}
 
 	setWidthInChars(newWidth: number): void {

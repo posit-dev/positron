@@ -4,11 +4,22 @@
  *--------------------------------------------------------------------------------------------*/
 
 /* Keep the find widget pinned at the top of the scrollable console instance.
-	Use margin-left to right-align since sticky does not support right positioning. */
-.console-instance > .simple-find-part-wrapper {
+	sticky positioning keeps it visible while scrolling; height: 0 with
+	overflow: visible makes it out-of-flow so it never allocates vertical
+	space (no whitespace when hidden or visible). margin-left right-aligns
+	since sticky does not support right positioning. */
+.console-core .console-instance > .simple-find-part-wrapper {
 	position: sticky;
+	top: 0;
 	margin-left: auto;
-	z-index: 100;
+	/* Override z-index: 10 set by the base SimpleFindWidget selector
+		.monaco-workbench .simple-find-part-wrapper (simpleFindWidget.css).
+		!important is needed because that upstream selector has equal
+		specificity and may load after this rule. */
+	z-index: 100 !important;
+	/* Out-of-flow so it doesn't take up space when visible, while staying sticky. */
+	height: 0;
+	overflow: visible;
 }
 
 /* Reset the font inherited from the console instance's monospace editor font

@@ -221,6 +221,32 @@ export type DidNavigateInputHistoryUpEventArgs = {
 };
 
 /**
+ * IConsoleFindWidget interface. Abstracts the find widget so the service layer
+ * can own its lifecycle without depending on the concrete implementation.
+ */
+export interface IConsoleFindWidget extends IDisposable {
+	reveal(initialInput?: string): void;
+	hide(): void;
+	find(previous: boolean): void;
+	refreshSearch(): void;
+	layout(width: number): void;
+	getDomNode(): HTMLElement;
+	readonly onDidHide: Event<void>;
+}
+
+// Create the decorator for the console find widget factory (used in dependency injection).
+export const IConsoleFindWidgetFactory = createDecorator<IConsoleFindWidgetFactory>('consoleFindWidgetFactory');
+
+/**
+ * IConsoleFindWidgetFactory interface. Allows the service layer to create
+ * find widgets without depending on the concrete implementation.
+ */
+export interface IConsoleFindWidgetFactory {
+	readonly _serviceBrand: undefined;
+	createFindWidget(): IConsoleFindWidget;
+}
+
+/**
  * IPositronConsoleInstance interface.
  */
 export interface IPositronConsoleInstance {
@@ -284,11 +310,6 @@ export interface IPositronConsoleInstance {
 	 */
 	lastScrollTop: number;
 
-	/**
-	 * Adds disposables that should be cleaned up when this instance is disposed.
-	 * @param disposables The disposables to add.
-	 */
-	addDisposables(disposables: IDisposable): void;
 
 	/**
 	 * The onFocusInput event.
@@ -388,24 +409,15 @@ export interface IPositronConsoleInstance {
 	focusInput(): void;
 
 	/**
-	 * The onDidRequestFind event. Fired when the find widget should be revealed.
+	 * Gets the find widget's DOM node for insertion into the console container.
+	 * Returns undefined if no find widget has been set.
 	 */
-	readonly onDidRequestFind: Event<void>;
+	readonly findWidgetDomNode: HTMLElement | undefined;
 
 	/**
-	 * The onDidRequestHideFind event. Fired when the find widget should be hidden.
+	 * Layouts the find widget to the given width.
 	 */
-	readonly onDidRequestHideFind: Event<void>;
-
-	/**
-	 * The onDidRequestFindNext event. Fired when the find widget should navigate to the next match.
-	 */
-	readonly onDidRequestFindNext: Event<void>;
-
-	/**
-	 * The onDidRequestFindPrevious event. Fired when the find widget should navigate to the previous match.
-	 */
-	readonly onDidRequestFindPrevious: Event<void>;
+	layoutFindWidget(width: number): void;
 
 	/**
 	 * Requests that the find widget be revealed.

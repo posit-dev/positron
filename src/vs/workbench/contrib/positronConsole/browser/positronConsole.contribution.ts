@@ -13,7 +13,7 @@ import { SyncDescriptor } from '../../../../platform/instantiation/common/descri
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
 import { PositronConsoleViewPane } from './positronConsoleView.js';
 import { registerPositronConsoleActions } from './positronConsoleActions.js';
-import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { IConsoleFindWidgetFactory, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ICommandAndKeybindingRule, KeybindingWeight, KeybindingsRegistry } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from '../../../common/views.js';
 import { POSITRON_CONSOLE_COPY, POSITRON_CONSOLE_PASTE, POSITRON_CONSOLE_SELECT_ALL } from './positronConsoleIdentifiers.js';
@@ -21,8 +21,10 @@ import { IClipboardService } from '../../../../platform/clipboard/common/clipboa
 import { ContextKeyExpr, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { PositronConsoleFindCommandId } from './positronConsoleFindCommandIds.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { localize2 } from '../../../../nls.js';
+import { ConsoleFindWidgetFactory } from './positronConsoleFindWidget.js';
 
 // The Positron console view icon.
 const positronConsoleViewIcon = registerIcon(
@@ -194,3 +196,6 @@ registerAction2(class extends Action2 {
 
 // Register all the Positron console actions.
 registerPositronConsoleActions();
+
+// Singleton to allow service layers to instantiate a find widget.
+registerSingleton(IConsoleFindWidgetFactory, ConsoleFindWidgetFactory, InstantiationType.Delayed);

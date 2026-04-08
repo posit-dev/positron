@@ -8,7 +8,7 @@ import { generateUuid } from '../../../../base/common/uuid.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { Disposable, DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ISettableObservable, observableValue } from '../../../../base/common/observable.js';
 import { IViewsService } from '../../views/common/viewsService.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -35,7 +35,7 @@ import { RuntimeItemStartupFailure } from './classes/runtimeItemStartupFailure.j
 import { ActivityItem, ActivityItemOutput, RuntimeItemActivity } from './classes/runtimeItemActivity.js';
 import { ActivityItemInput, ActivityItemInputState } from './classes/activityItemInput.js';
 import { ActivityItemStream, ActivityItemStreamType } from './classes/activityItemStream.js';
-import { DidNavigateInputHistoryUpEventArgs, IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from './interfaces/positronConsoleService.js';
+import { DidNavigateInputHistoryUpEventArgs, IConsoleFindWidget, IConsoleFindWidgetFactory, IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from './interfaces/positronConsoleService.js';
 import { ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageOutputData, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 import { UiFrontendEvent } from '../../languageRuntime/common/positronUiComm.js';
@@ -1138,12 +1138,10 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private readonly _onFocusInputEmitter = this._register(new Emitter<void>);
 
 	/**
-	 * Find event emitters.
+	 * The find widget for this console instance.
 	 */
-	private readonly _onDidRequestFindEmitter = this._register(new Emitter<void>);
-	private readonly _onDidRequestHideFindEmitter = this._register(new Emitter<void>);
-	private readonly _onDidRequestFindNextEmitter = this._register(new Emitter<void>);
-	private readonly _onDidRequestFindPreviousEmitter = this._register(new Emitter<void>);
+	private _findWidget: IConsoleFindWidget | undefined;
+	private _findRefreshTimeout: ReturnType<typeof setTimeout> | undefined;
 
 	/**
 	 * The onDidChangeState event emitter.
@@ -1268,6 +1266,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		private _runtimeMetadata: ILanguageRuntimeMetadata,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IConsoleFindWidgetFactory private readonly _consoleFindWidgetFactory: IConsoleFindWidgetFactory,
 	) {
 		// Call the base class's constructor.
 		super();
@@ -1289,6 +1288,27 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		// Initialize the width in characters.
 		this._widthInChars = observableValue<number>('console-width', 80);
 		this.onDidChangeWidthInChars = Event.fromObservable(this._widthInChars);
+
+		// Create the find widget.
+		const findWidget = this._consoleFindWidgetFactory.createFindWidget();
+		this._findWidget = findWidget;
+		this._register(findWidget);
+
+		// Return focus to the console input when the find widget is closed.
+		this._register(findWidget.onDidHide(() => {
+			this.focusInput();
+		}));
+
+		// Refresh find results when runtime items change (debounced).
+		this._register(this.onDidChangeRuntimeItems(() => {
+			if (this._findRefreshTimeout !== undefined) {
+				clearTimeout(this._findRefreshTimeout);
+			}
+			this._findRefreshTimeout = setTimeout(() => {
+				this._findWidget?.refreshSearch();
+				this._findRefreshTimeout = undefined;
+			}, 100);
+		}));
 	}
 
 	/**
@@ -1362,6 +1382,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			this.addRuntimeItemTrace('dispose()');
 		}
 
+		// Clear find refresh timeout.
+		if (this._findRefreshTimeout !== undefined) {
+			clearTimeout(this._findRefreshTimeout);
+		}
+
 		// Call Disposable's dispose.
 		super.dispose();
 
@@ -1369,13 +1394,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		this._runtimeDisposableStore.dispose();
 	}
 
-	/**
-	 * Adds disposables that should be cleaned up when this instance is disposed.
-	 * @param disposables The disposables to add.
-	 */
-	addDisposables(disposables: IDisposable): void {
-		this._register(disposables);
-	}
 
 	//#endregion Constructor & Dispose
 
@@ -1456,12 +1474,19 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	readonly onFocusInput = this._onFocusInputEmitter.event;
 
 	/**
-	 * Find events.
+	 * Gets the find widget's DOM node for insertion into the console container.
 	 */
-	readonly onDidRequestFind = this._onDidRequestFindEmitter.event;
-	readonly onDidRequestHideFind = this._onDidRequestHideFindEmitter.event;
-	readonly onDidRequestFindNext = this._onDidRequestFindNextEmitter.event;
-	readonly onDidRequestFindPrevious = this._onDidRequestFindPreviousEmitter.event;
+	get findWidgetDomNode(): HTMLElement | undefined {
+		return this._findWidget?.getDomNode();
+	}
+
+
+	/**
+	 * Layouts the find widget to the given width.
+	 */
+	layoutFindWidget(width: number): void {
+		this._findWidget?.layout(width);
+	}
 
 	/**
 	 * onDidChangeState event.
@@ -1556,19 +1581,19 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	}
 
 	requestFind() {
-		this._onDidRequestFindEmitter.fire();
+		this._findWidget?.reveal();
 	}
 
 	requestHideFind() {
-		this._onDidRequestHideFindEmitter.fire();
+		this._findWidget?.hide();
 	}
 
 	requestFindNext() {
-		this._onDidRequestFindNextEmitter.fire();
+		this._findWidget?.find(false);
 	}
 
 	requestFindPrevious() {
-		this._onDidRequestFindPreviousEmitter.fire();
+		this._findWidget?.find(true);
 	}
 
 	/**

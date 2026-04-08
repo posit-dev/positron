@@ -6,12 +6,15 @@
 import './positronConsoleFind.css';
 
 import * as dom from '../../../../base/browser/dom.js';
+import { Emitter } from '../../../../base/common/event.js';
 import { SimpleFindWidget } from '../../codeEditor/browser/find/simpleFindWidget.js';
 import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IContextViewService } from '../../../../platform/contextview/browser/contextView.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { PositronConsoleFindCommandId } from './positronConsoleFindCommandIds.js';
+import { IConsoleFindWidgetFactory } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { PositronConsoleFindInputFocused, PositronConsoleFindVisible } from '../../../common/contextkeys.js';
 
 const POSITRON_CONSOLE_FIND_WIDGET_INITIAL_WIDTH = 419;
@@ -43,6 +46,8 @@ export class PositronConsoleFindWidget extends SimpleFindWidget {
 
 	private readonly _findInputFocused: IContextKey<boolean>;
 	private readonly _findWidgetVisible: IContextKey<boolean>;
+	private readonly _onDidHideEmitter = this._register(new Emitter<void>());
+	readonly onDidHide = this._onDidHideEmitter.event;
 
 	private _matches: ISearchMatch[] = [];
 	private _currentMatchIndex: number = -1;
@@ -71,14 +76,9 @@ export class PositronConsoleFindWidget extends SimpleFindWidget {
 		this._findInputFocused = PositronConsoleFindInputFocused.bindTo(contextKeyService);
 		this._findWidgetVisible = PositronConsoleFindVisible.bindTo(contextKeyService);
 
-		// Stop events from propagating through to the console instance.
-		// The console instance's keydown handler redirects typing to the
-		// console input, so we must prevent that when the find widget has focus.
+		// Stop mouse events from propagating through to the console instance.
 		const innerDom = this.getDomNode().firstChild;
 		if (innerDom) {
-			this._register(dom.addDisposableListener(innerDom, 'keydown', (event) => {
-				event.stopPropagation();
-			}));
 			this._register(dom.addDisposableListener(innerDom, 'mousedown', (event) => {
 				event.stopPropagation();
 			}));
@@ -186,6 +186,7 @@ export class PositronConsoleFindWidget extends SimpleFindWidget {
 		this._matches = [];
 		this._currentMatchIndex = -1;
 		this._findWidgetVisible.reset();
+		this._onDidHideEmitter.fire();
 	}
 
 	override dispose(): void {
@@ -440,5 +441,22 @@ export class PositronConsoleFindWidget extends SimpleFindWidget {
 				behavior: 'auto',
 			});
 		}
+	}
+}
+
+/**
+ * ConsoleFindWidgetFactory - creates PositronConsoleFindWidget instances.
+ * Registered as a singleton so the service layer can create find widgets
+ * without depending on the concrete implementation.
+ */
+export class ConsoleFindWidgetFactory implements IConsoleFindWidgetFactory {
+	readonly _serviceBrand: undefined;
+
+	constructor(
+		@IInstantiationService private readonly _instantiationService: IInstantiationService,
+	) { }
+
+	createFindWidget() {
+		return this._instantiationService.createInstance(PositronConsoleFindWidget);
 	}
 }
