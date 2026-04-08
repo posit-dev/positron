@@ -73,7 +73,9 @@ export interface IPositronWebviewPreloadService {
 	attachNotebookInstance(instance: IPositronNotebookInstance): void;
 
 	/**
-	 * Add output from a notebook cell and process it for webview preloads
+	 * Add output from a notebook cell and process it for webview preloads.
+	 * When rawHtml is provided, the output bypasses MIME-based type detection
+	 * and is rendered directly in an isolated overlay webview.
 	 */
 	addNotebookOutput(
 		opts:
@@ -81,6 +83,7 @@ export interface IPositronWebviewPreloadService {
 				instance: IPositronNotebookInstance;
 				outputId: string;
 				outputs: { mime: string; data: VSBuffer }[];
+				rawHtml?: string;
 			}
 	): NotebookPreloadOutputResults | undefined;
 }
