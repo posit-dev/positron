@@ -69,7 +69,20 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			return;
 		}
 		consoleInstanceRef.current.prepend(domNode);
+		return () => {
+			// Remove the DOM node when the component unmounts or the instance changes. The find widget will create a new DOM node when the instance changes, so we need to remove the old one.
+			domNode.remove();
+		};
 	}, [props.positronConsoleInstance]);
+
+	// Re-apply find highlights when this tab becomes active. The CSS Custom
+	// Highlight API is global per-document, so only the active tab's
+	// highlights should be registered.
+	useEffect(() => {
+		if (props.active) {
+			props.positronConsoleInstance.refreshFindHighlights();
+		}
+	}, [props.active, props.positronConsoleInstance]);
 
 	// Update find widget layout when width changes.
 	useEffect(() => {

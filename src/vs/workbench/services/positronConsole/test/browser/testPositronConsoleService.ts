@@ -477,6 +477,11 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 		this._findWidget?.find(true);
 	}
 
+	refreshFindHighlights(): void {
+		this._findWidget?.refreshSearch();
+	}
+
+
 	setWidthInChars(newWidth: number): void {
 		if (this._widthInChars !== newWidth) {
 			this._widthInChars = newWidth;

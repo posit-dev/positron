@@ -440,6 +440,12 @@ export interface IPositronConsoleInstance {
 	requestFindPrevious(): void;
 
 	/**
+	 * Re-applies find highlights. Called when the console tab becomes active
+	 * to reclaim the global CSS Custom Highlight API entries.
+	 */
+	refreshFindHighlights(): void;
+
+	/**
 	 * Tells the console its current console input width, in characters. Fires
 	 * the onDidChangeWidth event if the width has changed.
 	 */

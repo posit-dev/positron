@@ -30,6 +30,9 @@ const POSITRON_CONSOLE_FIND_WIDGET_INITIAL_WIDTH = 419;
 const MATCHES_LIMIT = 1000;
 
 // Names for the CSS Custom Highlight API highlights.
+// Note: CSS.highlights is global per-document, so only one widget's highlights
+// are active at a time. The active console tab re-applies its highlights when
+// it becomes visible (see ConsoleInstance's active-prop effect).
 const HIGHLIGHT_ALL = 'positron-console-find-match';
 const HIGHLIGHT_ACTIVE = 'positron-console-find-match-active';
 
@@ -298,6 +301,7 @@ export class PositronConsoleFindWidget extends SimpleFindWidget {
 				// Create a Range spanning the matched text nodes.
 				const range = container.ownerDocument.createRange();
 				let startSet = false;
+				let endSet = false;
 
 				for (const { node: textNode, offset } of group.nodes) {
 					const nodeLength = textNode.textContent?.length || 0;
@@ -310,11 +314,12 @@ export class PositronConsoleFindWidget extends SimpleFindWidget {
 
 					if (startSet && matchEnd >= offset && matchEnd <= nodeEnd) {
 						range.setEnd(textNode, matchEnd - offset);
+						endSet = true;
 						break;
 					}
 				}
 
-				if (startSet) {
+				if (startSet && endSet) {
 					this._matches.push({ range });
 				}
 			}
@@ -340,7 +345,7 @@ export class PositronConsoleFindWidget extends SimpleFindWidget {
 				continue;
 			}
 
-			const block = this._getLineAncestor(node);
+			const block = this._getLineAncestor(node, container);
 			if (block !== currentBlock) {
 				if (currentGroup && currentGroup.nodes.length > 0) {
 					groups.push(currentGroup);
@@ -366,9 +371,9 @@ export class PositronConsoleFindWidget extends SimpleFindWidget {
 	 * Gets the nearest block/line-level ancestor of a text node.
 	 * Uses the element's tag name to avoid getComputedStyle calls.
 	 */
-	private _getLineAncestor(node: Node): Element | null {
+	private _getLineAncestor(node: Node, container: HTMLElement): Element | null {
 		let current = node.parentElement;
-		while (current) {
+		while (current && current !== container) {
 			const tag = current.tagName;
 			if (tag === 'DIV' || tag === 'P' || tag === 'PRE' || tag === 'LI' ||
 				tag === 'TR' || tag === 'SECTION' || tag === 'ARTICLE') {
@@ -376,7 +381,7 @@ export class PositronConsoleFindWidget extends SimpleFindWidget {
 			}
 			current = current.parentElement;
 		}
-		return null;
+		return container;
 	}
 
 	// --- Highlighting ---

@@ -1596,6 +1596,10 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		this._findWidget?.find(true);
 	}
 
+	refreshFindHighlights() {
+		this._findWidget?.refreshSearch();
+	}
+
 	/**
 	 * Toggles trace.
 	 */
