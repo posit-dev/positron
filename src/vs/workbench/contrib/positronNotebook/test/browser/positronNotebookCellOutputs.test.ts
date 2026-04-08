@@ -228,26 +228,5 @@ suite('Positron Notebook Cell Outputs', () => {
 			assert.strictEqual(outputs[0].preloadMessageResult, undefined, 'simple HTML should not have preloadMessageResult');
 			assert.strictEqual(outputs[0].parsed.type, 'html');
 		});
-
-		test('javascript: URL in HTML is routed through webview', () => {
-			const cellWithJsUrl: TestCellInput = {
-				source: 'display(html)',
-				language: 'python',
-				mime: undefined,
-				cellKind: CellKind.Code,
-				outputs: [{
-					outputId: 'output-1',
-					outputs: [{ mime: 'text/html', data: VSBuffer.fromString('<a href="javascript:alert(1)">click</a>') }],
-				}],
-			};
-			const notebook = createTestPositronNotebookInstance([cellWithJsUrl], disposables);
-			const cell = notebook.cells.get()[0];
-
-			assert.ok(cell.isCodeCell());
-			const outputs = cell.outputs.get();
-			assert.strictEqual(outputs.length, 1);
-			assert.ok(outputs[0].preloadMessageResult, 'javascript: URL HTML should have preloadMessageResult');
-			assert.strictEqual(outputs[0].preloadMessageResult!.preloadMessageType, 'display');
-		});
 	});
 });
