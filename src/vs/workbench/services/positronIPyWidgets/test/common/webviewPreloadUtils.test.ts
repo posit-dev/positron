@@ -4,9 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { isComplexHtml } from '../../common/webviewPreloadUtils.js';
 
 suite('isComplexHtml', () => {
+	ensureNoDisposablesAreLeakedInTestSuite();
+
 	// Positive cases: these should all be detected as complex
 	test('detects script tags', () => {
 		assert.strictEqual(isComplexHtml('<div><script>alert(1)</script></div>'), true);
