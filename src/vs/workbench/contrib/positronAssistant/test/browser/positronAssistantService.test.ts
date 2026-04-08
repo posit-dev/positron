@@ -6,13 +6,11 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
 import { RuntimeState, LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { IPositronAssistantService, IPositronChatContext, IChatRequestData } from '../../common/interfaces/positronAssistantService.js';
 import { PositronAssistantService } from '../../browser/positronAssistantService.js';
 import { ChatAgentLocation } from '../../../chat/common/constants.js';
-import { createRuntimeServices, createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
+import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
 import { TestLanguageRuntimeSession, waitForRuntimeState } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { IPositronVariablesService } from '../../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { TestPositronVariablesService } from '../../../../services/positronVariables/test/common/testPositronVariablesService.js';
 import { IPositronPlotsService } from '../../../../services/positronPlots/common/positronPlots.js';
@@ -24,49 +22,33 @@ import { createTestPlotsServiceWithPlots } from '../../../../services/positronPl
 import { URI } from '../../../../../base/common/uri.js';
 import { IConsoleFindWidgetFactory, IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { PositronConsoleService } from '../../../../services/positronConsole/browser/positronConsoleService.js';
-import { Emitter } from '../../../../../base/common/event.js';
-import { Disposable } from '../../../../../base/common/lifecycle.js';
+import { createTestContainer } from '../../../../../workbench/test/browser/positronTestContainer.js';
 
 suite('PositronAssistantService', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
-	let instantiationService: TestInstantiationService;
+	const ctx = createTestContainer()
+		.withRuntimeServices()
+		.stub(IRuntimeStartupService, new TestRuntimeStartupService())
+		.build();
+
 	let testVariablesService: TestPositronVariablesService;
 	let positronAssistantService: IPositronAssistantService;
 	let testConsoleSession: TestLanguageRuntimeSession;
 	let testNotebookSession: TestLanguageRuntimeSession;
 
 	setup(async () => {
-		instantiationService = new TestInstantiationService();
 		testVariablesService = new TestPositronVariablesService();
 
-		// Set up the test runtime services
-		instantiationService.stub(IPositronVariablesService, disposables.add(testVariablesService));
-		instantiationService.stub(IPositronPlotsService, disposables.add(createTestPlotsServiceWithPlots()));
-		instantiationService.stub(IRuntimeStartupService, new TestRuntimeStartupService());
-		createRuntimeServices(instantiationService, disposables);
-		instantiationService.stub(IExecutionHistoryService, disposables.add(instantiationService.createInstance(ExecutionHistoryService)));
-		instantiationService.stub(IConsoleFindWidgetFactory, {
-			_serviceBrand: undefined,
-			createFindWidget: () => {
-				const emitter = disposables.add(new Emitter<void>());
-				return disposables.add(new class extends Disposable {
-					reveal() { }
-					hide() { }
-					find() { }
-					refreshSearch() { }
-					layout() { }
-					getDomNode() { return document.createElement('div'); }
-					readonly onDidHide = emitter.event;
-				});
-			}
-		} as IConsoleFindWidgetFactory);
-		instantiationService.stub(IPositronConsoleService, disposables.add(instantiationService.createInstance(PositronConsoleService)));
+		// Stub services that need disposables or createInstance
+		ctx.instantiationService.stub(IPositronVariablesService, ctx.disposables.add(testVariablesService));
+		ctx.instantiationService.stub(IPositronPlotsService, ctx.disposables.add(createTestPlotsServiceWithPlots()));
+		ctx.instantiationService.stub(IExecutionHistoryService, ctx.disposables.add(ctx.instantiationService.createInstance(ExecutionHistoryService)));
+		ctx.instantiationService.stub(IPositronConsoleService, ctx.disposables.add(ctx.instantiationService.createInstance(PositronConsoleService)));
 
 		// Create test runtime sessions
-		const runtime = createTestLanguageRuntimeMetadata(instantiationService, disposables);
+		const runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
 		testConsoleSession = await startTestLanguageRuntimeSession(
-			instantiationService,
-			disposables,
+			ctx.instantiationService,
+			ctx.disposables,
 			{
 				runtime,
 				sessionName: "Test Session",
@@ -75,8 +57,8 @@ suite('PositronAssistantService', () => {
 			}
 		);
 		testNotebookSession = await startTestLanguageRuntimeSession(
-			instantiationService,
-			disposables,
+			ctx.instantiationService,
+			ctx.disposables,
 			{
 				runtime,
 				sessionName: "Test Notebook Session",
@@ -97,7 +79,7 @@ suite('PositronAssistantService', () => {
 		testVariablesService.createPositronVariablesInstance(testNotebookSession);
 
 		// Create the service under test with all required services
-		positronAssistantService = disposables.add(instantiationService.createInstance(PositronAssistantService));
+		positronAssistantService = ctx.disposables.add(ctx.instantiationService.createInstance(PositronAssistantService));
 	});
 
 	teardown(() => {
