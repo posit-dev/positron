@@ -12,10 +12,7 @@
 	position: sticky;
 	top: 0;
 	margin-left: auto;
-	/* Override z-index: 10 set by the base SimpleFindWidget selector
-		.monaco-workbench .simple-find-part-wrapper (simpleFindWidget.css).
-		!important is needed because that upstream selector has equal
-		specificity and may load after this rule. */
+	/* Override z-index set by terminal.css. */
 	z-index: 100 !important;
 	/* Out-of-flow so it doesn't take up space when visible, while staying sticky. */
 	height: 0;
