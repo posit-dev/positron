@@ -173,8 +173,8 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 					this._kernelBindings.set(key, value);
 				}
 			}
-		} catch {
-			// ignore
+		} catch (e) {
+			this._logService.warn('[QuartoKernelManager] Failed to parse persisted kernel bindings: ', e);
 		}
 
 		// Clean up sessions when documents are closed
@@ -661,15 +661,30 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		this._kernelBindings.set(documentUri.toString(), runtimeId);
 		this._persistKernelBindings();
 
-		// Shut down any existing session
-		await this.shutdownKernelForDocument(documentUri);
-
 		// Find the runtime metadata for the requested runtime
 		const runtime = this._languageRuntimeService.registeredRuntimes
 			.find(r => r.runtimeId === runtimeId);
 		if (!runtime) {
 			this._logService.warn(`[QuartoKernelManager] Runtime not found: ${runtimeId}`);
 			return undefined;
+		}
+
+		// Shut down any existing session; if this fails, warn but continue
+		// so that the user can still switch to the new kernel.
+		const oldRuntimeName = this._documentKernels.get(documentUri)?.session?.runtimeMetadata.runtimeName;
+		try {
+			await this.shutdownKernelForDocument(documentUri);
+		} catch (error) {
+			this._logService.error(`[QuartoKernelManager] Failed to shut down existing kernel for ${documentUri.toString()}:`, error);
+			this._notificationService.warn(
+				localize(
+					'quartoKernel.shutdownFailed',
+					"Failed to shut down {0} while switching to {1}: {2}",
+					oldRuntimeName ?? 'the previous kernel',
+					runtime.runtimeName,
+					error instanceof Error ? error.message : String(error)
+				)
+			);
 		}
 
 		// Start a new session with the specified runtime
