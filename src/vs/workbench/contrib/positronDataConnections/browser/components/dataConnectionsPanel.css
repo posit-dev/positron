@@ -3,8 +3,16 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-.positron-data-container {
-	height: 100%;
+.data-connections-panel {
+	flex: 1;
+	display: none;
+}
+
+.data-connections-panel.active {
 	display: flex;
 	flex-direction: column;
+}
+
+.data-connections-panel .temporary-label {
+	padding: 8px;
 }

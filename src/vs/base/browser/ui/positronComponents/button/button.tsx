@@ -35,8 +35,11 @@ export interface KeyboardModifiers {
  * ButtonProps interface.
  */
 export interface ButtonProps {
+	readonly ariaControls?: string;
 	readonly ariaHaspopup?: React.AriaAttributes['aria-haspopup'];
 	readonly ariaLabel?: string;
+	readonly ariaSelected?: boolean;
+	readonly role?: string;
 	readonly className?: string;
 	readonly disabled?: boolean;
 	readonly hoverManager?: IHoverManager;
@@ -175,16 +178,18 @@ export const Button = (props: PropsWithChildren<ButtonProps>) => {
 	return (
 		<button
 			ref={buttonRef}
+			aria-controls={props.ariaControls}
 			aria-disabled={props.disabled ? 'true' : undefined}
 			aria-haspopup={props.ariaHaspopup}
 			aria-label={props.ariaLabel}
+			aria-selected={props.ariaSelected}
 			className={positronClassNames(
 				'positron-button',
 				props.className,
 				{ 'disabled': props.disabled }
 			)}
 			disabled={props.disabled}
-			role='button'
+			role={props.role ?? 'button'}
 			style={props.style}
 			tabIndex={props.tabIndex ?? 0}
 			onBlur={props.onBlur}

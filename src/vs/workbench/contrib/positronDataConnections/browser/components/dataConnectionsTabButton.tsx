@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import './dataTabButton.css';
+import './dataConnectionsTabButton.css';
 
 // Other dependencies.
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
@@ -14,11 +14,14 @@ import { positronClassNames } from '../../../../../base/common/positronUtilities
  * DataTabButtonProps interface.
  */
 interface DataTabButtonProps {
-	// The label of the tab button.
-	readonly label: string;
-
 	// Whether the tab button is active.
 	readonly active: boolean;
+
+	// The ID of the panel this tab controls.
+	readonly ariaControls: string;
+
+	// The label of the tab button.
+	readonly label: string;
 
 	// A callback that is called when the tab button is pressed.
 	readonly onPressed: () => void;
@@ -27,10 +30,16 @@ interface DataTabButtonProps {
 /**
  * DataTabButton component.
  */
-export const DataTabButton = ({ label, active, onPressed }: DataTabButtonProps) => {
+export const DataTabButton = ({ active, ariaControls, label, onPressed }: DataTabButtonProps) => {
 	// Render.
 	return (
-		<Button className='data-tab-button' onPressed={onPressed}>
+		<Button
+			ariaControls={ariaControls}
+			ariaSelected={active}
+			className='data-tab-button'
+			role='tab'
+			onPressed={onPressed}
+		>
 			<div className='label'>{label}</div>
 			<div className={positronClassNames(
 				'active-indicator',

@@ -4,24 +4,24 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import './positronDataView.css';
+import './positronDataConnectionsView.css';
 
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
 import { Emitter } from '../../../../base/common/event.js';
-import { IReactComponentContainer, ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { IViewDescriptorService } from '../../../common/views.js';
+import { PositronDataConnections } from './positronDataConnections.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { IViewPaneOptions } from '../../../browser/parts/views/viewPane.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
+import { PositronViewPane } from '../../../browser/positronViewPane/positronViewPane.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { PositronViewPane } from '../../../browser/positronViewPane/positronViewPane.js';
-import { PositronData } from './positronData.js';
+import { IReactComponentContainer, ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 
 /**
  * PositronDataViewPane class.
@@ -41,7 +41,7 @@ export class PositronDataViewPane extends PositronViewPane implements IReactComp
 	readonly onRestoreScrollPosition = this._onRestoreScrollPositionEmitter.event;
 	readonly onFocused = this._onFocusedEmitter.event;
 
-	private _positronDataContainer!: HTMLElement;
+	private _positronDataConnectionsContainer!: HTMLElement;
 	private _positronReactRenderer?: PositronReactRenderer;
 
 	private _width = 0;
@@ -113,23 +113,35 @@ export class PositronDataViewPane extends PositronViewPane implements IReactComp
 
 	//#region Protected Overrides
 
+	/**
+	 * Render the view body.
+	 */
 	protected override renderBody(container: HTMLElement): void {
+		// Call the base class renderBody to ensure any necessary rendering work is performed.
 		super.renderBody(container);
 
-		// Create and append the Positron data container.
-		this._positronDataContainer = DOM.$('.positron-data-container');
-		container.appendChild(this._positronDataContainer);
+		// Create and append the Positron data connections container.
+		this._positronDataConnectionsContainer = DOM.$('.positron-data-connections-container');
+		container.appendChild(this._positronDataConnectionsContainer);
 
-		// Create the PositronReactRenderer for the PositronData component.
+		// Create the PositronReactRenderer for the PositronDataConnections component.
 		this._positronReactRenderer = this._register(
-			new PositronReactRenderer(this._positronDataContainer)
+			new PositronReactRenderer(this._positronDataConnectionsContainer)
 		);
+
+		// Render the PositronDataConnections component into the container.
 		this._positronReactRenderer.render(
-			<PositronData reactComponentContainer={this} />
+			<PositronDataConnections reactComponentContainer={this} />
 		);
 	}
 
+	/**
+	 * Layout the view.
+	 * @param height The height of the view.
+	 * @param width The width of the view.
+	 */
 	protected override layoutBody(height: number, width: number): void {
+		// Call the base class layoutBody to ensure any necessary layout work is performed.
 		super.layoutBody(height, width);
 
 		// Update dimensions.

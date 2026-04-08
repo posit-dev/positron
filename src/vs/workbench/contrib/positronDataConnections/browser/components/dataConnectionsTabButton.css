@@ -6,7 +6,7 @@
 .data-tab-button {
 	padding: 0;
 	display: flex;
-	height: 24px;
+	height: 26px;
 	flex-direction: column;
 }
 
@@ -16,17 +16,18 @@
 
 .data-tab-button:focus-visible .label {
 	border-radius: 2px;
+	outline-offset: -1px;
 	outline: 1px solid var(--vscode-focusBorder);
 }
 
 .data-tab-button .label {
 	margin-top: auto;
-	padding: 0 10px;
+	padding: 1px 10px;
 	font-size: 11px;
 }
 
 .data-tab-button .active-indicator {
-	height: 4px;
+	height: 6px;
 	box-sizing: border-box;
 }
 
