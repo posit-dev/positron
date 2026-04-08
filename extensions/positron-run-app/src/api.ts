@@ -8,15 +8,12 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { DebugAdapterTrackerFactory } from './debugAdapterTrackerFactory';
 import { log } from './extension';
-import { DebugAppOptions, PositronRunApp, RunAppOptions, RunConsoleAppOptions } from './positron-run-app';
+import { DebugAppOptions, PositronRunApp, PreviewMode, RunAppOptions, RunConsoleAppOptions } from './positron-run-app';
 import { AppUrlDetector } from './appUrlDetector';
 import { raceTimeout, SequencerByKey } from './utils';
 import { DAP_CONFIGURATION_TIMEOUT, DID_PREVIEW_URL_TIMEOUT, IS_POSITRON_WEB, IS_RUNNING_ON_PWB, SHELL_INTEGRATION_TIMEOUT, TERMINAL_OUTPUT_TIMEOUT } from './constants.js';
 import { AppPreviewOptions, Config, PositronProxyInfo } from './types.js';
 import { shouldUsePositronProxy, showShellIntegrationNotSupportedMessage, showEnableShellIntegrationMessage } from './api-utils.js';
-
-
-type PreviewMode = 'internal' | 'external' | 'simple' | 'none' | 'manual';
 
 function parsePreviewMode(value: string | undefined): PreviewMode {
 	const mode = value ?? 'internal';
@@ -709,7 +706,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 	}
 
 	private async previewApp(url: URL, options: {
-		preview?: 'internal' | 'external' | 'simple' | 'manual';
+		preview?: PreviewMode;
 		proxyInfo?: PositronProxyInfo;
 		urlPath?: string;
 		terminalPid?: number;

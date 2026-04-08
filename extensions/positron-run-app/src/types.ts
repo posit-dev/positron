@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { PreviewMode } from './positron-run-app';
 
 export enum Config {
 	ShellIntegrationEnabled = 'terminal.integrated.shellIntegration.enabled',
@@ -18,7 +19,7 @@ export type PositronProxyInfo = {
 };
 
 export type AppPreviewOptions = {
-	preview?: 'internal' | 'external' | 'manual' | 'simple';
+	preview?: PreviewMode;
 	terminalPid: number | undefined;
 	proxyInfo?: PositronProxyInfo;
 	urlPath?: string;
