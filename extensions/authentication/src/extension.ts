@@ -383,6 +383,18 @@ async function registerOpenaiProvider(
 async function registerGeminiProvider(
 	context: vscode.ExtensionContext
 ): Promise<void> {
+	const envBaseUrl = process.env.GEMINI_BASE_URL;
+	if (envBaseUrl) {
+		await vscode.workspace
+			.getConfiguration(`authentication.${GEMINI_AUTH_PROVIDER_ID}`)
+			.update(
+				'baseUrl', envBaseUrl,
+				vscode.ConfigurationTarget.Global
+			).then(undefined, err =>
+				log.error(`Failed to sync Gemini base URL: ${err}`)
+			);
+	}
+
 	const provider = new AuthProvider(
 		GEMINI_AUTH_PROVIDER_ID, 'Gemini Code Assist', context,
 		undefined,
