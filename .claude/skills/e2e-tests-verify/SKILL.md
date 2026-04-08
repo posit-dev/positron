@@ -73,27 +73,40 @@ Report to the user: `Target: Local dev instance`
 ### Step 1: Parse Input and Plan Test Steps
 
 **If free-text description:**
-Parse into 5-10 concrete, ordered test steps. Each step becomes one entry in the `/run-plan` steps array.
+Parse into 5-10 concrete, ordered test steps. Each step becomes one entry in the `/run-plan` steps array. Skip to Step 2 (no GH calls needed).
 
-**If issue number (default -- diff-driven):**
-1. Find the PR that closed/addresses this issue:
-```bash
-gh pr list --search "<number>" --state all --repo posit-dev/positron --json number,title,headRefName --limit 5
-```
-2. Get the PR diff (primary signal):
-```bash
-gh pr diff <pr-number> --repo posit-dev/positron | head -2000
-```
-3. Fetch the issue body for enrichment:
-```bash
-gh issue view <number> --repo posit-dev/positron --json title,body,labels
-```
-4. **Validate testability** (see below)
-5. Analyze the diff and show transparent reasoning (see diff analysis workflow below)
-6. Generate 5-10 test steps from the diff analysis
+**If PR number (default -- diff-driven):**
 
-If no linked PR is found, fall back to generating a test plan from the issue
-description alone.
+PR context and diff are fetched in Step 2 as part of the parallel launch. After those results land:
+
+1. **Validate the PR exists.** If `gh pr view` failed, error immediately:
+   ```
+   No PR found for #456. Pass a PR number, or use --branch to test local changes.
+   ```
+2. **Validate testability** (see below)
+3. Analyze the diff and show transparent reasoning (see diff analysis workflow in `references/diff-analysis.md`)
+4. Generate 5-10 test steps from the diff analysis
+
+**If PR number with `--context <issue>`:**
+
+Same as above, but the issue body (fetched in parallel during Step 2) is used as
+enrichment for test planning. The issue provides the "why" (bug report, expected
+behavior) while the PR diff provides the "what" (code changes to exercise).
+
+**If PR number with `--deep`:**
+1. Fetch ALL context: PR diff, PR body, PR comments, plus issue body if `--context` provided
+2. **Validate testability** (see below)
+3. Show transparent analysis with all signals labeled
+4. Generate an exhaustive test plan: 10-15+ steps with edge cases, blast radius
+   smoke tests, and regression checks
+
+**If `--branch` flag:**
+
+The diff comes from git, not GitHub:
+- **No argument** (`--branch`): `git diff main...HEAD` on current branch
+- **Branch name** (`--branch feature/my-branch`): `git diff main...<branch>`
+
+For the full diff analysis workflow, see `references/diff-analysis.md`.
 
 **Feature flag detection (always do this):**
 
@@ -108,18 +121,6 @@ corresponding setup step to the test plan:
 
 Also check existing tests in the same area (see `references/diff-analysis.md` --
 "Check existing tests for setup patterns") for any other setup requirements.
-
-**If issue number with `--deep`:**
-1. Run the `e2e-verify-plan` skill to generate a full verification guide
-2. Fetch ALL context: issue body, PR diff, PR comments, linked issues, linked PRs
-3. **Validate testability** (see below)
-4. Show transparent analysis with all signals labeled
-5. Generate an exhaustive test plan: 10-15+ steps with edge cases, blast radius
-   smoke tests, and regression checks
-
-**If --branch flag:**
-
-For the full diff analysis workflow, see `references/diff-analysis.md`.
 
 **Shared test references:**
 
