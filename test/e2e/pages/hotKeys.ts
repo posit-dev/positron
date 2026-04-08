@@ -288,7 +288,7 @@ export class HotKeys {
 	// -----------------------
 
 	public configureProviders() {
-		return this.pressHotKeys('Cmd+L B', 'Configure Language Model Providers');
+		return this.pressHotKeys('Cmd+J R', 'Configure Language Model Providers');
 	}
 
 	// -----------------------

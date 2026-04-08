@@ -270,7 +270,7 @@ export class Assistant {
 	}
 
 	async runConfigureProviders() {
-		await this.hotKeys.configureProviders();
+		await this.clickConfigureProvidersButton();
 	}
 
 	async clickConfigureProvidersLink() {
