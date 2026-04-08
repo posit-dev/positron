@@ -9,6 +9,7 @@ import { ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageWebOutput } from 
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Event } from '../../../../base/common/event.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
+import { URI } from '../../../../base/common/uri.js';
 
 export const POSITRON_NOTEBOOK_OUTPUT_WEBVIEW_SERVICE_ID = 'positronNotebookOutputWebview';
 
@@ -87,9 +88,9 @@ export interface IPositronNotebookOutputWebviewService {
 	 *
 	 * @param id A unique ID for this webview; typically the output ID.
 	 * @param html The raw HTML content to render.
+	 * @param baseUri Optional base directory used to resolve relative asset URLs in the HTML.
 	 * @returns A promise that resolves to the new webview.
 	 */
-	createRawHtmlOutputWebview(id: string, html: string): Promise<INotebookOutputWebview>;
+	createRawHtmlOutputWebview(id: string, html: string, baseUri?: URI): Promise<INotebookOutputWebview>;
 
 }
-

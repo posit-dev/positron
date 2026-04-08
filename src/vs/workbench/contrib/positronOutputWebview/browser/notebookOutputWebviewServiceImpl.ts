@@ -380,12 +380,44 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		return notebookOutputWebview;
 	}
 
-	async createRawHtmlOutputWebview(id: string, html: string): Promise<INotebookOutputWebview> {
+	private _buildRawHtmlDocument(html: string, baseUri?: URI): string {
+		const headContent = [
+			baseUri ? `<base href="${asWebviewUri(baseUri).toString(true)}/">` : '',
+			PositronNotebookOutputWebviewService.CssAddons,
+			`<script>${webviewMessageCodeString}</script>`,
+		].filter(Boolean).join('\n');
+
+		if (/<head[\s>]/i.test(html)) {
+			return html.replace(/<head(\s[^>]*)?>/i, match => `${match}\n${headContent}`);
+		}
+
+		if (/<html[\s>]/i.test(html)) {
+			return html.replace(/<html(\s[^>]*)?>/i, match => `${match}\n<head>\n${headContent}\n</head>`);
+		}
+
+		if (/<body[\s>]/i.test(html)) {
+			return `<html>
+<head>
+${headContent}
+</head>
+${html}
+</html>`;
+		}
+
+		return `<html>
+<head>
+${headContent}
+</head>
+<body>${html}</body>
+</html>`;
+	}
+
+	async createRawHtmlOutputWebview(id: string, html: string, baseUri?: URI): Promise<INotebookOutputWebview> {
 		const webview = this._webviewService.createWebviewOverlay({
 			origin: DOM.getActiveWindow().origin,
 			contentOptions: {
 				allowScripts: true,
-				localResourceRoots: [],
+				localResourceRoots: baseUri ? [baseUri] : [],
 			},
 			extension: undefined,
 			options: {
@@ -394,13 +426,9 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 			title: '',
 		});
 
-		// Wrap the HTML with the sizing script so useWebviewMount receives
-		// webviewMetrics messages and can set the container height.
-		webview.setHtml(`<head>
-${PositronNotebookOutputWebviewService.CssAddons}
-<script>${webviewMessageCodeString}</script>
-</head>
-<body>${html}</body>`);
+		// Inject a base URL and sizing script so relative assets resolve and
+		// useWebviewMount receives webviewMetrics messages for layout.
+		webview.setHtml(this._buildRawHtmlDocument(html, baseUri));
 
 		return this._instantiationService.createInstance(NotebookOutputWebview, {
 			id,

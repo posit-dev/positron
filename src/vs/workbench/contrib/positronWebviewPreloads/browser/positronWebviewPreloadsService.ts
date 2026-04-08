@@ -16,6 +16,8 @@ import { VSBuffer } from '../../../../base/common/buffer.js';
 import { isWebviewDisplayMessage, getWebviewMessageType } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { IPositronNotebookInstance } from '../../positronNotebook/browser/IPositronNotebookInstance.js';
 import { IPositronIPyWidgetsService } from '../../../services/positronIPyWidgets/common/positronIPyWidgetsService.js';
+import { dirname } from '../../../../base/common/resources.js';
+import { Schemas } from '../../../../base/common/network.js';
 
 /**
  * Format of output from a notebook cell
@@ -194,6 +196,9 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		// Raw HTML outputs bypass MIME-based type detection and are rendered
 		// directly in an isolated overlay webview.
 		if (rawHtml) {
+			const rawHtmlBaseUri = instance.uri.scheme === Schemas.untitled
+				? undefined
+				: dirname(instance.uri);
 			// TODO: Overlay webviews (display AND raw HTML) are not disposed when
 			// outputs are cleared, cells are deleted, or output types change. A
 			// follow-up PR should add model-change reconciliation for all webview
@@ -202,7 +207,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 			// component mount/unmount cycles.
 			return {
 				preloadMessageType: 'display',
-				webview: this._notebookOutputWebviewService.createRawHtmlOutputWebview(outputId, rawHtml),
+				webview: this._notebookOutputWebviewService.createRawHtmlOutputWebview(outputId, rawHtml, rawHtmlBaseUri),
 			};
 		}
 

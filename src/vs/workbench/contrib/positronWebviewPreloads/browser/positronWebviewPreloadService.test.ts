@@ -14,20 +14,24 @@ import { IPositronNotebookOutputWebviewService, INotebookOutputWebview } from '.
 import { IPositronIPyWidgetsService } from '../../../services/positronIPyWidgets/common/positronIPyWidgetsService.js';
 import { IPositronNotebookInstance } from '../../positronNotebook/browser/IPositronNotebookInstance.js';
 import { IOverlayWebview } from '../../webview/browser/webview.js';
+import { URI } from '../../../../base/common/uri.js';
 
 /** Minimal stub for IPositronNotebookInstance */
-function stubNotebookInstance(id: string): IPositronNotebookInstance {
-	return { getId: () => id } as any;
+function stubNotebookInstance(id: string, uri = URI.file('/workspace/notebook.ipynb')): IPositronNotebookInstance {
+	return { getId: () => id, uri } as any;
 }
 
 /** Counts raw HTML webview creations */
-function stubOutputWebviewService(): IPositronNotebookOutputWebviewService & { rawHtmlCreationCount: number } {
+function stubOutputWebviewService(): IPositronNotebookOutputWebviewService & { rawHtmlCreationCount: number; rawHtmlBaseUris: (URI | undefined)[] } {
 	let count = 0;
+	const rawHtmlBaseUris: (URI | undefined)[] = [];
 	return {
 		_serviceBrand: undefined,
 		get rawHtmlCreationCount() { return count; },
-		createRawHtmlOutputWebview(id: string, _html: string): Promise<INotebookOutputWebview> {
+		rawHtmlBaseUris,
+		createRawHtmlOutputWebview(id: string, _html: string, baseUri?: URI): Promise<INotebookOutputWebview> {
 			count++;
+			rawHtmlBaseUris.push(baseUri);
 			const onDidRender = new Emitter<void>();
 			return Promise.resolve({
 				id,
@@ -80,11 +84,27 @@ suite('PositronWebviewPreloadService - addNotebookOutput rawHtml', () => {
 		assert.strictEqual(result!.preloadMessageType, 'display');
 		assert.ok('webview' in result!, 'display result should have a webview');
 		assert.strictEqual(outputWebviewService.rawHtmlCreationCount, 1);
+		assert.strictEqual(outputWebviewService.rawHtmlBaseUris[0]?.toString(), URI.file('/workspace').toString());
 
 		// Resolve the webview promise to check the ID
 		const webview = await (result as any).webview;
 		assert.strictEqual(webview.id, 'out-1');
 		webview.dispose();
+	});
+
+	test('untitled notebooks do not set a base URI for raw HTML', () => {
+		const untitledNotebook = stubNotebookInstance('nb-untitled', URI.from({ scheme: 'untitled', path: '/Untitled-1.ipynb' }));
+		service.attachNotebookInstance(untitledNotebook);
+
+		const result = service.addNotebookOutput({
+			instance: untitledNotebook,
+			outputId: 'out-untitled',
+			outputs: [{ mime: 'text/html', data: VSBuffer.fromString('<iframe>') }],
+			rawHtml: '<iframe src="map.html"></iframe>',
+		});
+
+		assert.ok(result, 'should return a result');
+		assert.strictEqual(outputWebviewService.rawHtmlBaseUris[0], undefined);
 	});
 
 	test('without rawHtml, text/html output returns undefined (not a webview type)', () => {
