@@ -41,8 +41,17 @@ Returns `passed`, `failed`, `steps` array (each with `title`, `success`, `durati
 | `openDataFile` | `{"path": "data.csv"}` | Open in Data Explorer |
 | `newNotebook` | `{"codeCells?": 1, "language?": "Python", "clearCells?": true}` | Create notebook; `null` language skips kernel |
 | `runCodeInEditor` | `{"code": "x <- 42", "language?": "r"}` | Write temp file + execute via Cmd+Enter |
-| `createFile` | `{"filename": "test.qmd", "content": "..."}` | Create + open file. For .qmd: kernel won't connect until you runCurrentCell() -- don't expectKernelIdle right after. |
+| `createFile` | `{"filename": "test.qmd", "content": "..."}` | Create + open file. |
 | `contextMenu` | `{"selector": ".el", "menuItem": "Pin Row"}` | Right-click context menu |
+
+**Quarto .qmd step order** (must follow this exact sequence):
+1. `createFile` (creates and opens the .qmd)
+2. `inlineQuarto.gotoLine` (navigate to the code cell)
+3. `inlineQuarto.runCurrentCell` (this triggers kernel connection)
+4. `inlineQuarto.expectKernelIdle` (NOW the kernel is connected)
+5. Assertions (`expectOutputVisible`, `inlineDataExplorer.expectToBeVisible`, etc.)
+
+**Do NOT put expectKernelIdle before runCurrentCell.** The kernel shows "No Kernel" until a cell is run.
 
 **Raw Playwright** (`type: "action"`, recovery/debugging only):
 
