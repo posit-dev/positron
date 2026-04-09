@@ -472,17 +472,19 @@ from the successful retry (not the original failed attempt).
 
 Write a standalone `.test.ts` file when saving (via `--save` flag, or user said yes to prompt).
 
-**File path:** `test/e2e/tests/_generated/MMDD_<pr>-<slug>.test.ts`
+**File path:** `test/e2e/tests/_generated/MMDD-<increment>_<pr>-<slug>.test.ts`
 - `MMDD` is the current date (e.g., `0405`)
+- `<increment>` is a sequential number for the day -- count existing `MMDD-*` files and add 1:
+  ```bash
+  ls test/e2e/tests/_generated/MMDD-* 2>/dev/null | wc -l
+  ```
+  First run of the day = `1`, second = `2`, etc.
 - `<pr>` is the PR number if available, omit if free-text or `--branch`
 - `<slug>` is a short kebab-case summary (e.g., `variable-filter`)
-- **If the file already exists**, insert `-2`, `-3`, etc. after the PR number (or after the date if no PR):
-  `0406_456-ghost-cell-info.test.ts` -> `0406_456-2-ghost-cell-info.test.ts`
-  Check with: `ls test/e2e/tests/_generated/MMDD*<pr>* 2>/dev/null`
 - Examples:
-  - `test/e2e/tests/_generated/0405_456-notebook-outline.test.ts`
-  - `test/e2e/tests/_generated/0405_456-2-notebook-outline.test.ts` (second run same day)
-  - `test/e2e/tests/_generated/0404_console-sessions.test.ts` (free-text, no PR)
+  - `test/e2e/tests/_generated/0405-1_456-notebook-outline.test.ts` (first run)
+  - `test/e2e/tests/_generated/0405-2_456-notebook-outline.test.ts` (second run)
+  - `test/e2e/tests/_generated/0405-3_console-sessions.test.ts` (third run, free-text)
 
 **Format:**
 ```typescript
@@ -495,7 +497,7 @@ import { test, expect } from './_qa.setup';
 
 test.use({ suiteId: __filename });
 
-test.describe('Verify PR#456: Variables appear after execution', () => {
+test.describe('Verify PR #456: Variables appear after execution', () => {
 
 	test('Variable x is set after running code', async function ({ app, python }) {
 		const { console, variables } = app.workbench;
@@ -508,7 +510,7 @@ test.describe('Verify PR#456: Variables appear after execution', () => {
 });
 ```
 
-Use `test.describe('Verify PR#<number>: <short summary>')` as the parent block.
+Use `test.describe('Verify PR #<number>: <short summary>')` as the parent block.
 Individual test names describe the specific scenario without repeating the PR number.
 For free-text tests (no PR number), use `test.describe('Verify: <description>')`.
 
@@ -518,7 +520,7 @@ For free-text tests (no PR number), use `test.describe('Verify: <description>')`
 - Import from `./_qa.setup`, not `../_test.setup`
 - Always include `test.use({ suiteId: __filename })` for app isolation
 - Map action steps to the equivalent Playwright calls
-- File path: `test/e2e/tests/_generated/MMDD_<pr>-<slug>.test.ts`
+- File path: `test/e2e/tests/_generated/MMDD-<increment>_<pr>-<slug>.test.ts`
 - **Always use fixtures over workbench properties when available.** Fixtures come
   from the test function parameter, NOT from `app.workbench`. Key fixtures:
   `python`, `r`, `sessions`, `settings`, `hotKeys`, `page`. If you need `settings`,
