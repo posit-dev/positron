@@ -281,15 +281,39 @@ See `references/runner-launch.md` for launch commands per mode (local dev, built
 The runner, POM ref gen, and PR context calls were all fired in your first message.
 The PR title/body and file list are already in your context. Now:
 
-1. **Read per-POM reference files** -- one small file per POM, in parallel:
+1. **Read ALL potentially relevant per-POM files in ONE parallel message.**
+
+   Over-read upfront. Small files are cheap (10-80 lines each). Extra messages
+   from discovering you need more POMs later cost 10-20s each. Read every POM
+   that could be relevant based on the file list, not just the obvious ones.
+
+   Include `sessions.md` and `settings.md` in every run (always needed for setup).
+   Then add POMs based on the changed file paths:
+
+   | File list contains | Also read these POMs |
+   |-------------------|---------------------|
+   | `positronNotebook/` or `notebookCells/` | `notebooksPositron`, `editors`, `editor` |
+   | `inlineDataExplorer` or `dataGrid` | `inlineDataExplorer`, `dataExplorer` |
+   | `inlineQuarto` or `quarto` | `inlineQuarto`, `quickaccess` |
+   | `console/` | `console`, `variables` |
+   | `plots/` | `plots` |
+   | `dataExplorer/` | `dataExplorer`, `dataExplorer.grid` |
+
+   Example -- one parallel message with all POMs for a notebook PR:
    ```
-   Read: test/e2e/tests/_generated/pom-ref/sessions.md    (36 lines)
-   Read: test/e2e/tests/_generated/pom-ref/console.md     (31 lines)
-   Read: test/e2e/tests/_generated/pom-ref/plots.md       (31 lines)
+   Read: pom-ref/sessions.md
+   Read: pom-ref/settings.md
+   Read: pom-ref/notebooksPositron.md
+   Read: pom-ref/inlineDataExplorer.md
+   Read: pom-ref/inlineQuarto.md
+   Read: pom-ref/editors.md
+   Read: pom-ref/console.md
+   Read: pom-ref/quickaccess.md
    ```
-   Read all needed POMs in ONE parallel message. Each file is 10-80 lines.
+
    Do NOT read `pom-reference.md` (the 800+ line single file). The per-POM
    files have the exact same content, split for fast targeted access.
+   Do NOT defer POM reads to later messages -- read them all now.
 
 2. **Plan test steps** from the PR title, body, and file list per Step 1.
 
