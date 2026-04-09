@@ -80,7 +80,7 @@ Wait for confirmation before proceeding to Phase 2.
 
 ### Writing each test
 
-Always use `createTestContainer()`. Every Positron test file in `test/browser/` or `test/electron-browser/` uses the builder. **Exception:** files in `test/common/` directories CANNOT use the builder -- it lives in the `browser` layer and transitively imports CSS, which the Node.js test runner cannot handle. Those files must use `ensureNoDisposablesAreLeakedInTestSuite()` directly.
+Always use `createTestContainer()` for test files in `test/browser/` or `tests/browser/` directories. **Exception:** the builder lives in the `browser` layer and transitively imports CSS. Files that run in the Node.js test runner (`test/common/`, `tests/common/`, or `test/` without a `browser` sublayer) CANNOT use the builder. Those files must use `ensureNoDisposablesAreLeakedInTestSuite()` directly. When in doubt, check if the test directory contains a `browser/` subfolder.
 
 For each approved item:
 
