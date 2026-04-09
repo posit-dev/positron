@@ -1,129 +1,65 @@
 # Runner API Reference
 
-## /run-plan Request Format
+## /run-plan Request
 
 ```bash
 PORT=$(cat /tmp/explore-runner-port) && curl -s -X POST "http://localhost:${PORT}/run-plan" \
   -H 'Content-Type: application/json' \
-  -d '{"title": "PR 456: Variable appears after execution", "stepTimeout": 10000, "steps": [
-    {"type": "pom", "pom": "sessions", "method": "start", "args": ["python"], "timeout": 20000, "title": "Start Python session"},
-    {"type": "pom", "pom": "console", "method": "executeCode", "args": ["Python", "x = 42"], "title": "Execute x = 42"},
-    {"type": "pom", "pom": "variables", "method": "expectVariableToBe", "args": ["x", "42"], "timeout": 5000, "title": "Verify x in Variables pane"}
+  -d '{"title": "PR 456: Variable test", "stepTimeout": 5000, "steps": [
+    {"type": "pom", "pom": "sessions", "method": "start", "args": ["python"], "timeout": 30000, "title": "Start Python"},
+    {"type": "pom", "pom": "console", "method": "executeCode", "args": ["Python", "x = 42"], "timeout": 15000, "title": "Execute x = 42"},
+    {"type": "pom", "pom": "variables", "method": "expectVariableToBe", "args": ["x", "42"], "title": "Verify x"}
   ]}'
 ```
 
-**Request fields:**
-- `title` (required): Descriptive label for the Playwright report
-- `steps` (required): Array of step objects
-- `stepTimeout` (optional): Default timeout in ms for all steps (default 10000)
-- `resetBefore` (optional): Run state reset before executing (set true on retries)
-
-**Step fields:**
-- `type` (required): `"pom"` or `"action"`
-- For `"pom"`: `pom`, `method`, `args`, `scope`
-- For `"action"`: `action`, `params`
-- `title` (optional): Human-readable label for Playwright report
-- `timeout` (optional): Per-step timeout override in ms
-
-## Dynamic content
-
-**Do NOT use `$'...'` bash syntax.** Use heredocs or plain curl instead.
-
-**For simple payloads**, use plain curl (see example above).
-
-**For payloads with code containing newlines**, use a heredoc:
-```bash
-PORT=$(cat /tmp/explore-runner-port)
-cat <<'PAYLOAD' | curl -s -X POST "http://localhost:${PORT}/run-plan" -H 'Content-Type: application/json' -d @-
-{
-  "title": "PR 456: Run multiline code",
-  "steps": [
-    {"type": "pom", "pom": "console", "method": "executeCode", "args": ["Python", "x = 42\nprint(x)"], "title": "Execute code"}
-  ]
-}
-PAYLOAD
-```
-
-Note: In JSON strings, `\n` is a literal newline escape -- no special bash quoting needed.
+**Request:** `title` (required), `steps` (required), `stepTimeout` (default 5000ms), `resetBefore` (true on retries).
+**Step:** `type` ("pom" or "action"), then `pom`+`method`+`args` or `action`+`params`. Optional: `title`, `timeout`, `scope` (editor group index for side-by-side).
+**Multiline code:** Use heredoc: `cat <<'PAYLOAD' | curl ... -d @-`. In JSON, `\n` is a literal newline -- no special bash quoting.
+**Do NOT use `$'...'` bash syntax** -- triggers permission prompts.
 
 ## Timeout Tiers
 
-Steps should fail fast. Use the lowest timeout that covers the happy path -- a step
-that won't succeed in 15s won't succeed in 60s either. Sitting idle for a full minute
-on a doomed step wastes more time than a rare false-negative retry.
-
 | Tier | Timeout | Operations |
 |------|---------|------------|
-| **Fast** (default) | 5s | UI assertions (`expect*`, `waitFor*`), visibility checks, clicks, shape/content verification, `snapshot`, `takeScreenshot` |
-| **Medium** | 15-20s | Code execution (`executeCode`, `runCodeAtIndex`, `runAllCells`, `runCurrentCell`), file creation (`createFile`, `openFile`), output waits (`expectOutputVisible`) |
-| **Slow** | 30-40s | Session starts (`sessions.start`), first kernel connection (`expectKernelIdle`, `expectKernelStatusVisible`), settings with reload |
+| **Fast** (default) | 5s | `expect*`, `waitFor*`, visibility checks, clicks, `snapshot`, `takeScreenshot` |
+| **Medium** | 15-20s | `executeCode`, `runAllCells`, `createFile`, `openFile`, output waits |
+| **Slow** | 30-40s | `sessions.start`, kernel connection, settings with reload |
 
-**Rules:**
-- Set `stepTimeout: 5000` (covers Fast tier automatically)
-- Override per-step `timeout` only for Medium and Slow tiers
-- **Never set timeout above 20s** unless the step is a session start or kernel connection
-- If a step times out at 15s, the fix is diagnosing why it failed -- not doubling the timeout
+Set `stepTimeout: 5000`. Override per-step only for Medium/Slow. Never above 20s unless session/kernel. If it times out at 15s, diagnose -- don't double the timeout.
 
-## /run-plan Response Format
+## Response
 
-**Success:**
-```json
-{
-  "passed": 3, "failed": 0,
-  "steps": [
-    {"title": "Start Python", "success": true, "duration": 2100},
-    {"title": "Execute code", "success": true, "duration": 800},
-    {"title": "Verify variable", "success": true, "duration": 400}
-  ],
-  "totalDuration": 3300,
-  "state": {
-    "variableCount": 1, "variableNames": ["x"],
-    "activeSession": "Python: idle",
-    "notifications": [], "openTabs": [], "focusedPanel": "console"
-  }
-}
-```
+Returns `passed`, `failed`, `steps` array (each with `title`, `success`, `duration`, `error`), `totalDuration`, and `state` object with: `variableNames`, `activeSession`, `notifications`, `openTabs`, `focusedPanel`.
 
-The `state` object provides diagnostic context: `variableNames`, `activeSession`, `notifications`, `openTabs`, `focusedPanel`.
+## Actions
 
-## Available actions for /run-plan steps
-
-**Custom actions** (`type: "action"`):
+**Custom** (`type: "action"`):
 
 | Action | Params | Description |
 |--------|--------|-------------|
 | `openFile` | `{"path": "README.md"}` | Open file (workspace-relative) |
-| `openDataFile` | `{"path": "data.csv"}` | Open data file in Data Explorer |
-| `newNotebook` | `{"codeCells?": 1, "markdownCells?": 0, "language?": "Python", "clearCells?": true}` | Create notebook; pass `null` for language to skip kernel |
-| `runCodeInEditor` | `{"code": "x <- 42", "language?": "r"}` | Write code to temp file and execute via Cmd+Enter |
-| `createFile` | `{"filename": "test.qmd", "content": "..."}` | Create file with content and open it. Prefer over qa-example-content. |
-| `contextMenu` | `{"selector": ".el", "menuItem": "Pin Row"}` | Right-click and select from context menu |
+| `openDataFile` | `{"path": "data.csv"}` | Open in Data Explorer |
+| `newNotebook` | `{"codeCells?": 1, "language?": "Python", "clearCells?": true}` | Create notebook; `null` language skips kernel |
+| `runCodeInEditor` | `{"code": "x <- 42", "language?": "r"}` | Write temp file + execute via Cmd+Enter |
+| `createFile` | `{"filename": "test.qmd", "content": "..."}` | Create + open file. Prefer over qa-example-content. |
+| `contextMenu` | `{"selector": ".el", "menuItem": "Pin Row"}` | Right-click context menu |
 
-**Raw Playwright actions** (`type: "action"`, for recovery/debugging):
+**Raw Playwright** (`type: "action"`, recovery/debugging only):
 
-| Action | Params | Description |
-|--------|--------|-------------|
-| `snapshot` | `{"maxLength?": 8000}` | Get accessibility tree |
-| `clickText` | `{"text": "OK", "exact?": false}` | Click by visible text |
-| `clickRole` | `{"role": "button", "name": "OK"}` | Click by accessible role |
-| `press` | `{"key": "Escape"}` | Press keyboard key |
-| `type` | `{"text": "hello", "delay?": 0}` | Type text into focused element |
-| `takeScreenshot` | `{"name?": "test"}` | Save screenshot to /tmp/ |
-| `waitForText` | `{"text": "Ready"}` | Wait for text |
-
-## Scoping for side-by-side notebooks
-
-Add `"scope": 0` or `"scope": 1` to scope locators to a specific editor group.
+| Action | Params |
+|--------|--------|
+| `snapshot` | `{"maxLength?": 8000}` |
+| `clickText` | `{"text": "OK", "exact?": false}` |
+| `clickRole` | `{"role": "button", "name": "OK"}` |
+| `press` | `{"key": "Escape"}` |
+| `type` | `{"text": "hello", "delay?": 0}` |
+| `takeScreenshot` | `{"name?": "test"}` |
+| `waitForText` | `{"text": "Ready"}` |
 
 ## When to assert
 
-Add verification after an action when:
-1. The target is ambiguous (e.g., two notebooks open)
-2. A later step depends on the result
-3. Shared state changed
-
-Do NOT assert after every action -- POM methods have built-in waits.
+Only after ambiguous targets, result dependencies, or shared state changes. POM methods have built-in waits -- don't assert after every step.
 
 ## Explore Mode
 
-If `/run-plan` fails twice and you need interactive diagnosis, see `references/runner-api-explore.md`.
+If `/run-plan` fails twice, see `references/runner-api-explore.md`.
