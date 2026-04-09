@@ -435,8 +435,8 @@ test.describe('Autocomplete with Notebook Console', {
 
 	test('R - Autocomplete works in Quarto without inline output', {
 		tag: [tags.ARK, tags.QUARTO]
-	}, async function ({ app, runCommand, openFile, sessions, hotKeys, settings }) {
-		const { editors } = app.workbench;
+	}, async function ({ app, openFile, sessions, hotKeys, settings }) {
+		const { editors, inlineQuarto } = app.workbench;
 		const page = app.code.driver.page;
 		const keyboard = page.keyboard;
 		const suggestionList = page.locator('.suggest-widget .monaco-list-row');
@@ -463,9 +463,7 @@ test.describe('Autocomplete with Notebook Console', {
 			// code block, then type data.f to trigger completions.
 			// The console LSP should handle the vdoc and provide
 			// completions for base R functions like data.frame.
-			await runCommand('workbench.action.gotoLine', { keepOpen: true });
-			await keyboard.type('11');
-			await keyboard.press('Enter');
+			await inlineQuarto.gotoLine(11);
 			await keyboard.press('End');
 			await keyboard.press('Enter');
 			await keyboard.type('data.f', { delay: 250 });
