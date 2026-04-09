@@ -299,8 +299,17 @@ The PR title/body and file list are already in your context. Now:
    | `inlineDataExplorer` or `dataGrid` | `inlineDataExplorer`, `dataExplorer` |
    | `inlineQuarto` or `quarto` | `inlineQuarto`, `quickaccess` |
    | `console/` | `console`, `variables` |
-   | `plots/` | `plots` |
+   | `plots/` | `plots`, `viewer` |
    | `dataExplorer/` | `dataExplorer`, `dataExplorer.grid` |
+   | `assistant/` or `copilot/` | `assistant` |
+   | `debug/` | `debug`, `editor` |
+   | `terminal/` | `terminal` |
+   | `help/` | `help` |
+   | `connections/` | `connections` |
+   | `outline/` | `outline`, `editor` |
+   | `explorer/` or `sideBar/` | `explorer`, `sideBar` |
+   | `output/` | `output` |
+   | `variables/` | `variables`, `console` |
 
    Example -- one parallel message with all POMs for a notebook PR:
    ```
