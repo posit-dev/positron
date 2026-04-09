@@ -30,30 +30,34 @@ whatever reference reads you need:
 
 **Background command 1 -- Launch runner:**
 
-Each session uses a unique port file. The launch command prints the path -- use that
-literal path in all subsequent commands.
+Pick a deterministic port file name using `MMDD-<increment>-<slug>` -- the same pattern
+as test file naming. Count existing port files to get the increment:
+```bash
+ls /tmp/explore-runner-port-* 2>/dev/null | wc -l | xargs -I{} echo $(({} + 1))
+```
+Then use the resulting name (e.g., `0409-3-pr-12693`) in ALL commands for this session.
 
 For `--build`:
 ```bash
-PF="/tmp/explore-runner-port-$$" && rm -f "$PF" && echo "PORTFILE=$PF" && EXPLORE_PORT_FILE="$PF" EXPLORE_TITLE="<short description>" BUILD=/Applications/Positron.app npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-electron 2>&1 &
+rm -f /tmp/explore-runner-port-MMDD-N-SLUG && EXPLORE_PORT_FILE="/tmp/explore-runner-port-MMDD-N-SLUG" EXPLORE_TITLE="<short description>" BUILD=/Applications/Positron.app npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-electron 2>&1 &
 ```
 For `--local` or default:
 ```bash
-PF="/tmp/explore-runner-port-$$" && rm -f "$PF" && echo "PORTFILE=$PF" && EXPLORE_PORT_FILE="$PF" EXPLORE_TITLE="<short description>" npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-electron 2>&1 &
+rm -f /tmp/explore-runner-port-MMDD-N-SLUG && EXPLORE_PORT_FILE="/tmp/explore-runner-port-MMDD-N-SLUG" EXPLORE_TITLE="<short description>" npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-electron 2>&1 &
 ```
 For `--browser <name>`:
 ```bash
-PF="/tmp/explore-runner-port-$$" && rm -f "$PF" && echo "PORTFILE=$PF" && EXPLORE_PORT_FILE="$PF" EXPLORE_TITLE="<short description>" ALLOW_EXPLORE=1 npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-<name> 2>&1 &
+rm -f /tmp/explore-runner-port-MMDD-N-SLUG && EXPLORE_PORT_FILE="/tmp/explore-runner-port-MMDD-N-SLUG" EXPLORE_TITLE="<short description>" ALLOW_EXPLORE=1 npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-<name> 2>&1 &
 ```
 
-The output will include `PORTFILE=/tmp/explore-runner-port-12345`. **Read that EXACT path
-from the output** and use it as a literal string in ALL subsequent commands:
+Example: for PR 12693 on April 9, third run of the day:
 ```bash
-PORT=$(cat /tmp/explore-runner-port-12345) && curl -s ...
+EXPLORE_PORT_FILE="/tmp/explore-runner-port-0409-3-pr-12693" ...
+PORT=$(cat /tmp/explore-runner-port-0409-3-pr-12693) && curl -s ...
 ```
-**Do NOT glob** (`/tmp/explore-runner-port-*`) -- stale port files from previous sessions
-will exist and you'll get the wrong port. Use YOUR session's exact path only.
-Do NOT use `$EXPLORE_PORT_FILE` or any env var -- they don't persist across Bash calls.
+
+You decide the name once. Use that same literal string in every subsequent command.
+Do NOT glob (`/tmp/explore-runner-port-*`), do NOT use env vars (they don't persist).
 
 **Background command 2 -- POM ref staleness check:**
 ```bash
@@ -384,7 +388,7 @@ This gate exists because guessed method names (e.g., `openHelpPane` instead of
 Use `POST /run-plan` to execute the entire test in one HTTP call. A happy-path test run is **4 tool calls total**: launch + poll, read POM reference, POST /run-plan, POST /done.
 
 ```bash
-PORT=$(cat /tmp/explore-runner-port-NNNNN) && curl -s -X POST "http://localhost:${PORT}/run-plan" \
+PORT=$(cat /tmp/explore-runner-port-MMDD-N-SLUG) && curl -s -X POST "http://localhost:${PORT}/run-plan" \
   -H 'Content-Type: application/json' \
   -d '{"title": "PR 456: Variable appears after execution", "stepTimeout": 10000, "steps": [
     {"type": "pom", "pom": "sessions", "method": "start", "args": ["python"], "timeout": 20000, "title": "Start Python session"},
@@ -456,7 +460,7 @@ this check.
 ### Step 5: Cleanup and Save Prompt
 
 ```bash
-PORT=$(cat /tmp/explore-runner-port-NNNNN) && curl -s -X POST "http://localhost:${PORT}/done"
+PORT=$(cat /tmp/explore-runner-port-MMDD-N-SLUG) && curl -s -X POST "http://localhost:${PORT}/done"
 ```
 
 **`/done` can be parallelized with screenshots** (e.g., `takeScreenshot` + `/done` in one message).
