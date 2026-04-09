@@ -291,7 +291,13 @@ The PR title/body and file list are already in your context. Now:
    that could be relevant based on the file list, not just the obvious ones.
 
    Include `sessions.md` and `settings.md` in every run (always needed for setup).
-   Then add POMs based on the changed file paths:
+   Then add POMs based on the changed file paths.
+
+   **Default rule:** file path containing `<name>/` → read `pom-ref/<name>.md`.
+   Most POMs are 1:1 (e.g., `console/` → `console`, `terminal/` → `terminal`,
+   `help/` → `help`, `plots/` → `plots`, `debug/` → `debug`).
+
+   **Exceptions (multi-POM or non-obvious mappings):**
 
    | File list contains | Also read these POMs |
    |-------------------|---------------------|
@@ -299,16 +305,7 @@ The PR title/body and file list are already in your context. Now:
    | `inlineDataExplorer` or `dataGrid` | `inlineDataExplorer`, `dataExplorer` |
    | `inlineQuarto` or `quarto` | `inlineQuarto`, `quickaccess` |
    | `console/` | `console`, `variables` |
-   | `plots/` | `plots`, `viewer` |
    | `dataExplorer/` | `dataExplorer`, `dataExplorer.grid` |
-   | `assistant/` or `copilot/` | `assistant` |
-   | `debug/` | `debug`, `editor` |
-   | `terminal/` | `terminal` |
-   | `help/` | `help` |
-   | `connections/` | `connections` |
-   | `outline/` | `outline`, `editor` |
-   | `explorer/` or `sideBar/` | `explorer`, `sideBar` |
-   | `output/` | `output` |
    | `variables/` | `variables`, `console` |
 
    Example -- one parallel message with all POMs for a notebook PR:
