@@ -60,7 +60,9 @@ export class Sessions {
 	// -- Actions --
 
 	/**
-	 * Action: Starts one or more sessions
+	 * Action: Starts one or more sessions and returns metadata with .id and .name for each.
+	 * Use the returned .id to select/switch sessions later (e.g., sessions.select(pySession.id)).
+	 * Use the returned .name for assertions (e.g., sessions.expectSessionPickerToBe(pySession.name)).
 	 * Note: If you are seeking to start a session and NOT wait for ready, use `startAndSkipMetadata()`
 	 *
 	 * @param sessions - The session runtime(s) to start: 'python', 'pythonAlt', 'pythonHidden', 'r', 'rAlt'
@@ -70,14 +72,13 @@ export class Sessions {
 	 *
 	 * @example - start a single session
 	 * const pythonSession = await sessions.start('python');
+	 * // pythonSession.id => "python-abc123", pythonSession.name => "Python 3.12.0"
 	 *
 	 * @example - start multiple sessions with custom options
-	 * const [pySession1, pySession2, rSession, rSessionAlt] = await sessions.start(['python', 'python', 'r', 'rAlt'], {
-	 *   triggerMode: 'quickaccess',
-	 *   reuse: false,
-	 * });
+	 * const [pySession, rSession] = await sessions.start(['python', 'r']);
+	 * await sessions.select(pySession.id); // switch to Python session
 	 *
-	 * @returns returns the SessionInfo for the session(s)
+	 * @returns SessionMetaData with .id (string) and .name (string) for each session
 	 */
 	async start<T extends SessionRuntimes | SessionRuntimes[]>(
 		sessions: T,
