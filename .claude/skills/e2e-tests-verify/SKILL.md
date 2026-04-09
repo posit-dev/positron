@@ -83,10 +83,12 @@ If the file list includes Quarto or notebook test paths, check that test data ex
 in the same parallel batch as the shared reference reads (Message 2), NOT after the
 runner is ready:
 ```bash
-ls /tmp/vscsmoke/qa-example-content/workspaces/ 2>/dev/null || ls "$(echo $TMPDIR)/vscsmoke/qa-example-content/workspaces/" 2>/dev/null
+ls "${TMPDIR}vscsmoke/qa-example-content/workspaces/" 2>/dev/null || ls /tmp/vscsmoke/qa-example-content/workspaces/ 2>/dev/null
 ```
+Note: `$TMPDIR` is the correct path on macOS (usually `/var/folders/.../T/`), not `/tmp/`.
 Do NOT spend multiple tool calls searching for test data paths after the runner is
-idle. One `ls` in an early message is enough.
+idle. One `ls` in an early message is enough. If neither path exists, skip
+test-data-dependent steps rather than searching further.
 
 **Then continue with Steps 0-2 while the runner boots in the background.**
 
