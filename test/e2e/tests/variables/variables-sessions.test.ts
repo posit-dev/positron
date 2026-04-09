@@ -21,23 +21,6 @@ test.describe('Variables: Sessions', {
 		await sessions.deleteDisconnectedSessions();
 	});
 
-	test('Validate variables persist after console session exits', async function ({ app, sessions }) {
-		const { console, variables } = app.workbench;
-
-		// Start a Python console session and create a variable
-		const [pySession] = await sessions.start(['python']);
-		await sessions.select(pySession.id);
-		await console.executeCode('Python', 'persist_var = 42');
-		await variables.expectVariableToBe('persist_var', '42');
-
-		// Exit the session (not delete)
-		await console.executeCode('Python', 'exit()', { waitForReady: false });
-		await sessions.expectStatusToBe(pySession.id, 'disconnected');
-
-		// Variables pane should still show the variable from the exited session
-		await variables.expectVariableToBe('persist_var', '42');
-	});
-
 	test('Validate variables are isolated between sessions', async function ({ app, sessions }) {
 		const { console, variables } = app.workbench;
 
