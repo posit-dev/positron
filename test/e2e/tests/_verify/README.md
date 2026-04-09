@@ -31,7 +31,7 @@ Claude Code (AI)                     Explore Runner (Playwright test)
 
 | File | Purpose |
 |------|---------|
-| `verify.test.ts` | Playwright test entry point. Uses the `app` fixture to get a full Application instance, starts the HTTP server, waits for `/done` or 10-minute timeout. |
+| `verify.test.ts` | Playwright test entry point. Uses the `app` fixture to get a full Application instance, starts the HTTP server, waits for `/done` or 15-minute timeout. |
 | `server.ts` | HTTP server (~85 lines, Node built-in `http`). Three endpoints: `POST /action`, `POST /done`, `GET /health`. Writes port to `/tmp/explore-runner-port`. |
 | `action-catalog.ts` | 102 action handlers mapping action names to POM calls. Organized in tiers: POM actions (reliable), raw Playwright actions (flexible), escape hatches. |
 | `action-executor.ts` | Dispatcher. Looks up action in catalog, runs it, times it, catches errors, gathers state. |

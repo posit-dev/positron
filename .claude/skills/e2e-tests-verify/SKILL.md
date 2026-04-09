@@ -570,7 +570,7 @@ See `references/verification-comment.md` for the GitHub markdown template, rules
 - **Runner not starting**: Ensure build daemons are running (`npm run build-start`).
 - **Action fails**: Read the enriched state first. Use `snapshot` in explore mode to see the UI if state is insufficient.
 - **Unknown POM or method**: The response lists available options. Cross-check with pom-reference.md.
-- **Runner timeout**: Auto-stops after 10 minutes. Send `/health` to keep alive.
+- **Runner timeout**: Auto-stops after 15 minutes. Send `/health` to keep alive.
 
 ## Artifacts
 
