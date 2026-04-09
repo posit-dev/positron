@@ -77,6 +77,17 @@ And for `--deep --branch`:
 git diff main...HEAD | head -2000
 ```
 
+**Foreground command 4 -- Test data check (if PR touches Quarto or notebooks):**
+
+If the file list includes Quarto or notebook test paths, check that test data exists
+in the same parallel batch as the shared reference reads (Message 2), NOT after the
+runner is ready:
+```bash
+ls /tmp/vscsmoke/qa-example-content/workspaces/ 2>/dev/null || ls "$(echo $TMPDIR)/vscsmoke/qa-example-content/workspaces/" 2>/dev/null
+```
+Do NOT spend multiple tool calls searching for test data paths after the runner is
+idle. One `ls` in an early message is enough.
+
 **Then continue with Steps 0-2 while the runner boots in the background.**
 
 ## Input Formats
