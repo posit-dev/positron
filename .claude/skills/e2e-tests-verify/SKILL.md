@@ -441,8 +441,12 @@ this check.
 ### Step 5: Cleanup and Save Prompt
 
 ```bash
-curl -s -X POST "http://localhost:$PORT/done"
+PORT=$(cat /tmp/explore-runner-port) && curl -s -X POST "http://localhost:${PORT}/done"
 ```
+
+**Send `/done` BEFORE the file collision check, not in parallel with it.** The `ls` glob
+for collision checking exits non-zero when no files match, which cancels any parallel
+calls in the same message.
 
 **After reporting results and sending `/done`:**
 - `--save`: Save the test file immediately (go to Step 6, no prompt needed)
