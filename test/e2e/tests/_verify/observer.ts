@@ -52,6 +52,7 @@ export async function observeState(app: Application): Promise<AppState> {
 					});
 
 					// Session count and active session
+					// Note: returns 0 when console panel is not focused/rendered in DOM
 					const sessionTabs = document.querySelectorAll('[data-testid*="console-tab"]');
 					const sessionCount = sessionTabs.length;
 					const activeSessionTab = document.querySelector('[data-testid*="console-tab"] .tab-button--active');

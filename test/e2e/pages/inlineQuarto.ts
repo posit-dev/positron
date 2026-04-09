@@ -251,6 +251,12 @@ export class InlineQuarto {
 		});
 	}
 
+	/**
+	 * Verify: Kernel status widget is visible in the Quarto editor.
+	 * Note: The Quarto kernel does NOT auto-connect to existing console sessions.
+	 * After opening a .qmd file, kernel status shows "No Kernel" until a cell is
+	 * explicitly run via runCurrentCell(). Call runCurrentCell() before this method.
+	 */
 	async expectKernelStatusVisible(timeout = 30000): Promise<void> {
 		await test.step('Expect kernel status widget visible', async () => {
 			await expect(this.kernelStatusWidget.first()).toBeVisible({ timeout });
@@ -366,6 +372,14 @@ export class InlineQuarto {
 		});
 	}
 
+	/**
+	 * Verify: Kernel is idle (connected and not starting).
+	 * Note: The Quarto kernel does NOT auto-connect to existing console sessions.
+	 * You must run a cell first (runCurrentCell) to trigger kernel connection.
+	 * Do NOT call this immediately after opening a .qmd file -- it will time out
+	 * with "No Kernel" status.
+	 * @returns the kernel label text
+	 */
 	async expectKernelIdle(timeout = 30000): Promise<string> {
 		let kernelText: string | null = null;
 		await test.step('Verify kernel is idle', async () => {
