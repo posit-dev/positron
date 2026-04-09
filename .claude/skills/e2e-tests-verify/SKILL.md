@@ -210,7 +210,10 @@ corresponding setup step to the test plan:
 **If `--test-patterns` flag is set**, also check existing tests in the same area for
 setup and assertion patterns (see `references/diff-analysis.md` -- "Check existing
 tests for setup patterns"). This adds 2-3 messages but produces tests that better
-match existing conventions. Without this flag, skip existing test research to save time.
+match existing conventions. Without this flag, skip ALL extra file reading -- no
+existing test files, no test data files (.qmd, .py, .r), no reading file contents
+for line numbers. Open files by path only. Every extra Read after the runner is
+ready is wasted time.
 
 **Shared test references:**
 
