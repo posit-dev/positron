@@ -87,6 +87,7 @@ export class Editor {
 					.locator('.notification-list-item')
 					.getByText(/Running.*application:/);
 				await expect(appRunningNotification).toBeVisible({ timeout: 30000 });
+				await expect(appRunningNotification).not.toBeVisible({ timeout: 45000 });
 				await this.toasts.closeNotificationCenter();
 			}
 		});
