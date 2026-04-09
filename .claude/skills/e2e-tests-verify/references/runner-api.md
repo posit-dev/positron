@@ -41,7 +41,7 @@ Returns `passed`, `failed`, `steps` array (each with `title`, `success`, `durati
 | `openDataFile` | `{"path": "data.csv"}` | Open in Data Explorer |
 | `newNotebook` | `{"codeCells?": 1, "language?": "Python", "clearCells?": true}` | Create notebook; `null` language skips kernel |
 | `runCodeInEditor` | `{"code": "x <- 42", "language?": "r"}` | Write temp file + execute via Cmd+Enter |
-| `createFile` | `{"filename": "test.qmd", "content": "..."}` | Create + open file. Prefer over qa-example-content. |
+| `createFile` | `{"filename": "test.qmd", "content": "..."}` | Create + open file. For .qmd: kernel won't connect until you runCurrentCell() -- don't expectKernelIdle right after. |
 | `contextMenu` | `{"selector": ".el", "menuItem": "Pin Row"}` | Right-click context menu |
 
 **Raw Playwright** (`type: "action"`, recovery/debugging only):

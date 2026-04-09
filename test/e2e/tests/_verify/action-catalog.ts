@@ -6,6 +6,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { Application } from '../../infra/application';
+import { FileOperationsFixture } from '../../fixtures/test-setup/file-ops.fixtures';
 
 type ActionFn = (app: Application, params: Record<string, any>) => Promise<string>;
 
@@ -173,6 +174,12 @@ export const actionCatalog: Record<string, ActionFn> = {
 	 * Use this to create test files on the fly (.qmd, .py, .R, .csv, etc.)
 	 * instead of depending on qa-example-content files.
 	 * params: { filename: string, content: string }
+	 *
+	 * IMPORTANT for .qmd files: The Quarto kernel does NOT auto-connect to
+	 * existing console sessions. After creating a .qmd, you MUST run a cell
+	 * (runCurrentCell) before the kernel connects. Do NOT call expectKernelIdle
+	 * or expectKernelStatusVisible immediately after createFile -- they will
+	 * time out with "No Kernel".
 	 */
 	createFile: async (app, params) => {
 		const filename = params.filename;
@@ -183,17 +190,9 @@ export const actionCatalog: Record<string, ActionFn> = {
 		if (content === undefined) {
 			throw new Error('createFile requires a "content" param');
 		}
-		const tempPath = path.join(app.workspacePathOrFolder, filename);
-
-		// Ensure parent directory exists
-		const dir = path.dirname(tempPath);
-		if (!fs.existsSync(dir)) {
-			fs.mkdirSync(dir, { recursive: true });
-		}
-
-		fs.writeFileSync(tempPath, content);
-		await app.workbench.quickaccess.openFile(tempPath);
-		return `Created and opened ${tempPath}`;
+		const fileOps = FileOperationsFixture(app);
+		const filePath = await fileOps.createFile(filename, content);
+		return `Created and opened ${filePath}`;
 	},
 
 	// =========================================================================
