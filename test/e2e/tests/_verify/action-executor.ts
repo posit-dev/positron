@@ -109,14 +109,28 @@ function normalizeArgs(method: string, args: unknown[]): unknown[] {
  */
 function resolvePomRefs(workbench: Record<string, unknown>, args: unknown[]): unknown[] {
 	return args.map(arg => {
-		if (arg !== null && typeof arg === 'object' && !Array.isArray(arg) && Object.prototype.hasOwnProperty.call(arg, '$pom')) {
-			const pomPath = (arg as Record<string, unknown>)['$pom'];
-			if (typeof pomPath === 'string') {
-				const { target, error } = resolvePom(workbench, pomPath);
-				if (error) {
-					throw new Error(`Cannot resolve $pom reference "${pomPath}": ${error}`);
+		if (arg !== null && typeof arg === 'object' && !Array.isArray(arg)) {
+			const obj = arg as Record<string, unknown>;
+
+			// Resolve {"$pom": "settings"} to the actual POM instance
+			if (Object.prototype.hasOwnProperty.call(obj, '$pom')) {
+				const pomPath = obj['$pom'];
+				if (typeof pomPath === 'string') {
+					const { target, error } = resolvePom(workbench, pomPath);
+					if (error) {
+						throw new Error(`Cannot resolve $pom reference "${pomPath}": ${error}`);
+					}
+					return target;
 				}
-				return target;
+			}
+
+			// Resolve {"$regex": "10000 rows"} to a RegExp instance
+			if (Object.prototype.hasOwnProperty.call(obj, '$regex')) {
+				const pattern = obj['$regex'];
+				const flags = typeof obj['$flags'] === 'string' ? obj['$flags'] : undefined;
+				if (typeof pattern === 'string') {
+					return new RegExp(pattern, flags);
+				}
 			}
 		}
 		return arg;
