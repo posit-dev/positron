@@ -140,7 +140,7 @@ export class AuthProvider
 		const sessions: vscode.AuthenticationSession[] = [];
 		for (const account of filtered) {
 			const key = await this.context.secrets.get(this.secretKey(account.id));
-			if (key) {
+			if (key !== undefined) {
 				sessions.push({
 					id: account.id,
 					accessToken: key,

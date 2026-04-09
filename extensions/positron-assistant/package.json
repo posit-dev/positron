@@ -971,6 +971,11 @@
         "vendor": "snowflake-cortex",
         "displayName": "Snowflake Cortex",
         "managementCommand": "positron-assistant.configureProviders"
+      },
+      {
+        "vendor": "google",
+        "displayName": "Gemini Code Assist",
+        "managementCommand": "positron-assistant.configureProviders"
       }
     ],
     "languageModelTools": [

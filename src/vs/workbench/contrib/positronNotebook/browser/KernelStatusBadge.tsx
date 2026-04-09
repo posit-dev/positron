@@ -81,7 +81,15 @@ export function KernelStatusBadge() {
 		// This shouldn't happen...
 		return '';
 	}));
-	const menu = useMenu(MenuId.PositronNotebookKernelSubmenu, notebookInstance.scopedContextKeyService);
+	// scopedContextKeyService is only available after attachView() is called.
+	// When a notebook replaces a preview tab, the widget may render before
+	// attachView() completes. Use container (set last in attachView) as the
+	// readiness signal.
+	const container = useObservedValue(notebookInstance.container);
+	const menu = useMenu(
+		MenuId.PositronNotebookKernelSubmenu,
+		container ? notebookInstance.scopedContextKeyService : undefined
+	);
 
 	// Callback to load actions from the menu
 	const getActions = React.useCallback(() => {

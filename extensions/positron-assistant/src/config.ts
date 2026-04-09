@@ -144,7 +144,15 @@ export async function showConfigurationDialog(
 							} catch {
 								signedIn = false;
 							}
-							const configKey = providerId.replace(/-.*$/, '');
+							// Map provider IDs to their authentication
+							// configuration section names. Most providers
+							// use their provider ID directly; legacy
+							// providers that predate this convention are
+							// mapped explicitly.
+							const CONFIG_KEY_OVERRIDES: Record<string, string> = {
+								'anthropic-api': 'anthropic',
+							};
+							const configKey = CONFIG_KEY_OVERRIDES[providerId] ?? providerId;
 							baseUrlValue = vscode.workspace
 								.getConfiguration(`authentication.${configKey}`)
 								.get<string>('baseUrl') || undefined;

@@ -6,10 +6,10 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
-import { ANTHROPIC_AUTH_PROVIDER_ID, AWS_AUTH_PROVIDER_ID, CREDENTIAL_REFRESH_INTERVAL_MS, FOUNDRY_AUTH_PROVIDER_ID, POSIT_AUTH_PROVIDER_ID } from './constants';
+import { ANTHROPIC_AUTH_PROVIDER_ID, AWS_AUTH_PROVIDER_ID, CREDENTIAL_REFRESH_INTERVAL_MS, CUSTOM_PROVIDER_AUTH_PROVIDER_ID, FOUNDRY_AUTH_PROVIDER_ID, GEMINI_AUTH_PROVIDER_ID, OPENAI_AUTH_PROVIDER_ID, POSIT_AUTH_PROVIDER_ID } from './constants';
 import { AuthProvider } from './authProvider';
 import { registerAuthProvider, showConfigurationDialog } from './configDialog';
-import { normalizeToV1Url, validateAnthropicApiKey, validateFoundryApiKey, validateSnowflakeApiKey } from './validation';
+import { normalizeToV1Url, validateAnthropicApiKey, validateCustomProviderApiKey, validateFoundryApiKey, validateGeminiApiKey, validateOpenaiApiKey, validateSnowflakeApiKey } from './validation';
 import { FOUNDRY_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
 import { detectSnowflakeCredentials, getSnowflakeConnectionsTomlPath } from './snowflakeCredentials';
 import { PositOAuthProvider } from './positOAuthProvider';
@@ -35,6 +35,10 @@ export async function activate(context: vscode.ExtensionContext) {
 		log.error(`Snowflake settings migration failed: ${err}`)
 	);
 	registerSnowflakeProvider(context);
+
+	await registerOpenaiProvider(context);
+	await registerGeminiProvider(context);
+	registerCustomProvider(context);
 
 	log.info('Authentication extension activated');
 
@@ -327,4 +331,172 @@ function registerSnowflakeProvider(context: vscode.ExtensionContext): void {
 		)
 	);
 	logger.info('Registered auth provider');
+}
+
+async function registerOpenaiProvider(
+	context: vscode.ExtensionContext
+): Promise<void> {
+	const envBaseUrl = process.env.OPENAI_BASE_URL;
+	if (envBaseUrl) {
+		await vscode.workspace
+			.getConfiguration(`authentication.${OPENAI_AUTH_PROVIDER_ID}`)
+			.update(
+				'baseUrl', envBaseUrl,
+				vscode.ConfigurationTarget.Global
+			).then(undefined, err =>
+				log.error(`Failed to sync OpenAI base URL: ${err}`)
+			);
+	}
+
+	const provider = new AuthProvider(
+		OPENAI_AUTH_PROVIDER_ID, 'OpenAI', context,
+		undefined,
+		{
+			resolve: async () => {
+				const apiKey = process.env.OPENAI_API_KEY;
+				if (!apiKey) {
+					throw new Error('OPENAI_API_KEY not set');
+				}
+				const baseUrl = vscode.workspace
+					.getConfiguration(`authentication.${OPENAI_AUTH_PROVIDER_ID}`)
+					.get<string>('baseUrl') || undefined;
+				await validateOpenaiApiKey(apiKey, {
+					provider: OPENAI_AUTH_PROVIDER_ID,
+					name: 'OpenAI',
+					model: '',
+					type: positron.PositronLanguageModelType.Chat,
+					...(baseUrl && { baseUrl }),
+				});
+				return apiKey;
+			},
+			preventSignOut: true,
+		}
+	);
+	context.subscriptions.push(
+		vscode.authentication.registerAuthenticationProvider(
+			OPENAI_AUTH_PROVIDER_ID, 'OpenAI', provider,
+			{ supportsMultipleAccounts: true }
+		),
+		provider
+	);
+	registerAuthProvider(OPENAI_AUTH_PROVIDER_ID, provider, {
+		validateApiKey: validateOpenaiApiKey,
+		onSave: async (config) => {
+			if (config.baseUrl) {
+				await vscode.workspace
+					.getConfiguration(`authentication.${OPENAI_AUTH_PROVIDER_ID}`)
+					.update(
+						'baseUrl', config.baseUrl,
+						vscode.ConfigurationTarget.Global
+					);
+			}
+		},
+	});
+
+	await provider.resolveChainCredentials().catch(err =>
+		log.debug(`[OpenAI] Initial credential resolution: ${err}`)
+	);
+
+	log.info(`Registered auth provider: ${OPENAI_AUTH_PROVIDER_ID}`);
+}
+
+async function registerGeminiProvider(
+	context: vscode.ExtensionContext
+): Promise<void> {
+	const envBaseUrl = process.env.GEMINI_BASE_URL;
+	if (envBaseUrl) {
+		await vscode.workspace
+			.getConfiguration(`authentication.${GEMINI_AUTH_PROVIDER_ID}`)
+			.update(
+				'baseUrl', envBaseUrl,
+				vscode.ConfigurationTarget.Global
+			).then(undefined, err =>
+				log.error(`Failed to sync Gemini base URL: ${err}`)
+			);
+	}
+
+	const provider = new AuthProvider(
+		GEMINI_AUTH_PROVIDER_ID, 'Gemini Code Assist', context,
+		undefined,
+		{
+			resolve: async () => {
+				const apiKey = process.env.GEMINI_API_KEY
+					?? process.env.GOOGLE_API_KEY;
+				if (!apiKey) {
+					throw new Error(
+						'GEMINI_API_KEY or GOOGLE_API_KEY not set'
+					);
+				}
+				const baseUrl = vscode.workspace
+					.getConfiguration(`authentication.${GEMINI_AUTH_PROVIDER_ID}`)
+					.get<string>('baseUrl') || undefined;
+				await validateGeminiApiKey(apiKey, {
+					provider: GEMINI_AUTH_PROVIDER_ID,
+					name: 'Gemini Code Assist',
+					model: '',
+					type: positron.PositronLanguageModelType.Chat,
+					...(baseUrl && { baseUrl }),
+				});
+				return apiKey;
+			},
+			preventSignOut: true,
+		}
+	);
+	context.subscriptions.push(
+		vscode.authentication.registerAuthenticationProvider(
+			GEMINI_AUTH_PROVIDER_ID, 'Gemini Code Assist', provider,
+			{ supportsMultipleAccounts: true }
+		),
+		provider
+	);
+	registerAuthProvider(GEMINI_AUTH_PROVIDER_ID, provider, {
+		validateApiKey: validateGeminiApiKey,
+		onSave: async (config) => {
+			if (config.baseUrl) {
+				await vscode.workspace
+					.getConfiguration(`authentication.${GEMINI_AUTH_PROVIDER_ID}`)
+					.update(
+						'baseUrl', config.baseUrl,
+						vscode.ConfigurationTarget.Global
+					);
+			}
+		},
+	});
+
+	await provider.resolveChainCredentials().catch(err =>
+		log.debug(`[Gemini] Initial credential resolution: ${err}`)
+	);
+
+	log.info(`Registered auth provider: ${GEMINI_AUTH_PROVIDER_ID}`);
+}
+
+function registerCustomProvider(
+	context: vscode.ExtensionContext
+): void {
+	const provider = new AuthProvider(
+		CUSTOM_PROVIDER_AUTH_PROVIDER_ID, 'Custom Provider', context
+	);
+	context.subscriptions.push(
+		vscode.authentication.registerAuthenticationProvider(
+			CUSTOM_PROVIDER_AUTH_PROVIDER_ID, 'Custom Provider', provider,
+			{ supportsMultipleAccounts: true }
+		),
+		provider
+	);
+	registerAuthProvider(CUSTOM_PROVIDER_AUTH_PROVIDER_ID, provider, {
+		validateApiKey: validateCustomProviderApiKey,
+		onSave: async (config) => {
+			if (config.baseUrl) {
+				await vscode.workspace
+					.getConfiguration(`authentication.${CUSTOM_PROVIDER_AUTH_PROVIDER_ID}`)
+					.update(
+						'baseUrl', config.baseUrl,
+						vscode.ConfigurationTarget.Global
+					);
+			}
+		},
+	});
+	log.info(
+		`Registered auth provider: ${CUSTOM_PROVIDER_AUTH_PROVIDER_ID}`
+	);
 }

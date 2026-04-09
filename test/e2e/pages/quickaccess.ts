@@ -217,5 +217,37 @@ export class QuickAccess {
 			}
 		}).toPass({ timeout });
 	}
+
+	async createModuleEnvironment(name: string, languages: string[], modules: string[]): Promise<void> {
+		await test.step(`Create module environment: ${name}`, async () => {
+			// Open the Manage Module Environments dialog
+			await this.runCommand('positron.environmentModules.manageEnvironments', { keepOpen: true });
+
+			// Click "Create New Module Environment"
+			await this.quickInput.selectQuickInputElementContaining('Create New Module Environment');
+
+			// Step 1: Enter the name
+			await this.quickInput.waitForQuickInputOpened();
+			await this.quickInput.type(name);
+			await this.quickInput.submitInputBox();
+
+			// Step 2: Select target languages
+			await this.quickInput.waitForQuickInputOpened();
+			for (const language of languages) {
+				await this.quickInput.toggleCheckbox(language);
+			}
+			await this.quickInput.clickOkButton();
+
+			// Step 3: Select modules to load
+			await this.quickInput.waitForQuickInputOpened();
+			for (const module of modules) {
+				await this.quickInput.toggleCheckbox(module);
+			}
+			await this.quickInput.clickOkButton();
+
+			// Wait for dialog to close
+			await this.quickInput.waitForQuickInputClosed();
+		});
+	}
 }
 

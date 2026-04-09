@@ -1974,8 +1974,14 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			documentUri,
 		};
 
+		// Set endTime when execution finishes (Completed or Error)
+		const isFinished = state === CellExecutionState.Completed || state === CellExecutionState.Error;
 		this._onDidChangeExecutionState.fire({
-			execution: { ...execution, state },
+			execution: {
+				...execution,
+				state,
+				...(isFinished && !execution.endTime ? { endTime: Date.now() } : {}),
+			},
 			previousState,
 		});
 	}

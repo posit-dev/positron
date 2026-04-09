@@ -274,8 +274,8 @@ export class UiClientInstance extends Disposable {
 	 * @param startType The type of session start ('new', 'restart', or
 	 * 'reconnect')
 	 */
-	public frontendReady(startType: string): Promise<null> {
-		return this._comm.frontendReady(startType);
+	public frontendReady(startType: string): void {
+		this._comm.frontendReady(startType);
 	}
 
 	/**
@@ -313,7 +313,7 @@ export class UiClientInstance extends Disposable {
 	 * @param settings Plot rendering settings
 	 *
 	 */
-	public async didChangePlotsRenderSettings(settings: PlotRenderSettings): Promise<void> {
-		await this._comm.didChangePlotsRenderSettings(settings);
+	public didChangePlotsRenderSettings(settings: PlotRenderSettings): void {
+		this._comm.didChangePlotsRenderSettings(settings);
 	}
 }
