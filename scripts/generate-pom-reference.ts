@@ -496,15 +496,33 @@ function extractJsdocSeeAlso(jsdoc: string): string[] {
 }
 
 /**
+ * Extract @returns description from a JSDoc block.
+ */
+function extractJsdocReturns(jsdoc: string): string | null {
+	for (const line of jsdoc.split('\n')) {
+		const cleaned = line.replace(/^\s*\*?\s*/, '').trim();
+		const returnsMatch = cleaned.match(/^@returns?\s+(.+)/);
+		if (returnsMatch) {
+			return returnsMatch[1];
+		}
+	}
+	return null;
+}
+
+/**
  * Format a method entry for the markdown reference, including JSDoc summary and @see links.
  */
 function formatMethodLine(method: MethodSignature): string {
 	let line = `- ${method.signature}`;
 	if (method.jsdoc) {
 		const summary = extractJsdocSummary(method.jsdoc);
+		const returns = extractJsdocReturns(method.jsdoc);
 		const sees = extractJsdocSeeAlso(method.jsdoc);
 		if (summary) {
 			line += ` -- ${summary}`;
+		}
+		if (returns) {
+			line += ` (Returns: ${returns})`;
 		}
 		if (sees.length > 0) {
 			line += ` (See also: ${sees.join(', ')})`;
