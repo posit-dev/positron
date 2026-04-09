@@ -346,7 +346,12 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		this.availableUpdate.updateFilePath = path.join(cachePath, `CodeSetup-${this.productService.quality}-${update.version}.flag`);
 
 		await pfs.Promises.writeFile(this.availableUpdate.updateFilePath, 'flag');
-		const child = spawn(this.availableUpdate.packagePath, ['/verysilent', '/log', `/update="${this.availableUpdate.updateFilePath}"`, `/sessionend="${sessionEndFlagPath}"`, '/nocloseapplications', '/mergetasks=runcode,!desktopicon,!quicklaunchicon'], {
+		// --- Start Positron ---
+		// Pass the current install directory so Inno Setup does not fall back to
+		// the hardcoded default path when Positron was installed to a custom location.
+		const installDir = path.dirname(process.execPath);
+		// --- End Positron ---
+		const child = spawn(this.availableUpdate.packagePath, ['/verysilent', '/log', `/update="${this.availableUpdate.updateFilePath}"`, `/sessionend="${sessionEndFlagPath}"`, '/nocloseapplications', '/mergetasks=runcode,!desktopicon,!quicklaunchicon', `/DIR="${installDir}"`], {
 			detached: true,
 			stdio: ['ignore', 'ignore', 'ignore'],
 			windowsVerbatimArguments: true
@@ -375,7 +380,11 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		if (this.availableUpdate.updateFilePath) {
 			unlinkSync(this.availableUpdate.updateFilePath);
 		} else {
-			spawn(this.availableUpdate.packagePath, ['/silent', '/log', '/mergetasks=runcode,!desktopicon,!quicklaunchicon'], {
+			// --- Start Positron ---
+			// Pass the current install directory so Inno Setup does not fall back to
+			// the hardcoded default path when Positron was installed to a custom location.
+			spawn(this.availableUpdate.packagePath, ['/silent', '/log', '/mergetasks=runcode,!desktopicon,!quicklaunchicon', `/DIR="${path.dirname(process.execPath)}"`], {
+				// --- End Positron ---
 				detached: true,
 				stdio: ['ignore', 'ignore', 'ignore']
 			});
