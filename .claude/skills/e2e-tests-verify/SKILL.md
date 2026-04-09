@@ -17,6 +17,7 @@ Performs on-demand QA testing by driving Positron through test scenarios using t
 - **Avoid `$'...'` bash syntax** (ansi_c_string). Use heredocs or plain strings instead. The `$'...'` pattern triggers permission prompts for users and blocks CI. See `references/runner-api.md` for safe alternatives.
 - **Notebook kernel timing:** When testing notebooks, always wait for the kernel to connect before running cells. Use `newNotebook` action to create, then separate `addCodeToCell` and run steps. Do NOT use `addCodeToCell({ run: true })` immediately after notebook creation -- the kernel may not be ready.
 - **Do NOT invent runner syntax that doesn't exist.** There is no `captureAs`, `$ref.id`, `$pySession`, or variable interpolation in `/run-plan`. POM methods return values in the response JSON -- read the `(Returns: ...)` annotation in the POM reference to see what's available.
+- **No regex literals in JSON.** `/pattern/` is not valid JSON. If a POM method accepts `string | RegExp`, pass a plain string in the args. The runner does not convert strings to RegExp.
 - **Do NOT report hallucinated limitations as rough edges.** If a step fails because you used syntax that doesn't exist, that's your error, not a runner limitation.
 
 ## IMMEDIATE: Launch Runner First
