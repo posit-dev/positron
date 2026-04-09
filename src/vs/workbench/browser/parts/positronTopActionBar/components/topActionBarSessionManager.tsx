@@ -20,6 +20,8 @@ import { IRuntimeSessionDisplayInfo } from '../../../../services/runtimeSession/
 import { localize } from '../../../../../nls.js';
 import { LANGUAGE_RUNTIME_SELECT_SESSION_ID, LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID } from '../../../../contrib/languageRuntime/browser/languageRuntimeActions.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { isQuartoOrRmdFile } from '../../../../contrib/positronQuarto/common/positronQuartoConfig.js';
+import { QUARTO_ICON_SVG_BASE64 } from '../../../../contrib/positronConsole/browser/components/runtimeIcon.js';
 
 const startSession = localize('positron.console.startSession', "Start Session");
 
@@ -38,16 +40,20 @@ const getDisplayInfoLabel = (info: IRuntimeSessionDisplayInfo | undefined): stri
 };
 
 /**
- * Gets the session mode icon from display info.
+ * Gets the session mode icon from display info. Returns either a ThemeIcon
+ * or an image source string for Quarto sessions.
  */
-const getDisplayInfoIcon = (info: IRuntimeSessionDisplayInfo | undefined) => {
+const getDisplayInfoIcon = (info: IRuntimeSessionDisplayInfo | undefined): { icon?: typeof Codicon.arrowSwap; iconSrc?: string } => {
 	if (!info) {
-		return Codicon.arrowSwap;
+		return { icon: Codicon.arrowSwap };
 	}
 	if (info.sessionMode === LanguageRuntimeSessionMode.Notebook) {
-		return Codicon.notebook;
+		if (isQuartoOrRmdFile(info.notebookUri?.path)) {
+			return { iconSrc: `data:image/svg+xml;base64,${QUARTO_ICON_SVG_BASE64}` };
+		}
+		return { icon: Codicon.notebook };
 	}
-	return Codicon.positronNewConsole;
+	return { icon: Codicon.positronNewConsole };
 };
 
 /**
@@ -61,8 +67,9 @@ export const TopActionBarSessionManager = () => {
 
 	const [labelText, setLabelText] = useState<string>(
 		getDisplayInfoLabel(services.runtimeSessionService.foregroundSessionDisplayInfo));
-	const [sessionIcon, setSessionIcon] = useState(
-		getDisplayInfoIcon(services.runtimeSessionService.foregroundSessionDisplayInfo));
+	const initialIcon = getDisplayInfoIcon(services.runtimeSessionService.foregroundSessionDisplayInfo);
+	const [sessionIcon, setSessionIcon] = useState(initialIcon.icon);
+	const [sessionIconSrc, setSessionIconSrc] = useState(initialIcon.iconSrc);
 
 	// Check if there are any active console sessions to determine if the
 	// active session picker or the create session picker should be shown.
@@ -84,7 +91,9 @@ export const TopActionBarSessionManager = () => {
 		disposableStore.add(
 			services.runtimeSessionService.onDidChangeForegroundSessionDisplayInfo(info => {
 				setLabelText(getDisplayInfoLabel(info));
-				setSessionIcon(getDisplayInfoIcon(info));
+				const iconInfo = getDisplayInfoIcon(info);
+				setSessionIcon(iconInfo.icon);
+				setSessionIconSrc(iconInfo.iconSrc);
 			})
 		);
 
@@ -98,7 +107,10 @@ export const TopActionBarSessionManager = () => {
 			border={true}
 			commandId={command}
 			height={24}
-			icon={sessionIcon}
+			{...(sessionIconSrc
+				? { iconImageSrc: sessionIconSrc, iconHeight: 14, iconWidth: 14 }
+				: { icon: sessionIcon }
+			)}
 			label={labelText}
 		/>
 	);

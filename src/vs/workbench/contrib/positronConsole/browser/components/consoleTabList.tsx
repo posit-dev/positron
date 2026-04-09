@@ -484,6 +484,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 				<RuntimeIcon
 					base64EncodedIconSvg={positronConsoleInstance.runtimeMetadata.base64EncodedIconSvg}
 					sessionMode={positronConsoleInstance.sessionMetadata.sessionMode}
+					notebookUri={positronConsoleInstance.sessionMetadata.notebookUri}
 				/>
 				{isRenamingSession ? (
 					<input
