@@ -16,6 +16,7 @@ Performs on-demand QA testing by driving Positron through test scenarios using t
 - **Do NOT use TaskCreate or TaskUpdate.** This workflow is fast and linear -- task tracking adds overhead with zero value.
 - **Avoid `$'...'` bash syntax** (ansi_c_string). Use heredocs or plain strings instead. The `$'...'` pattern triggers permission prompts for users and blocks CI. See `references/runner-api.md` for safe alternatives.
 - **Notebook kernel timing:** When testing notebooks, always wait for the kernel to connect before running cells. Use `newNotebook` action to create, then separate `addCodeToCell` and run steps. Do NOT use `addCodeToCell({ run: true })` immediately after notebook creation -- the kernel may not be ready.
+- **Do NOT claim the runner has limitations it doesn't have.** The runner CAN capture return values from POM calls (e.g., `sessions.start()` returns metadata). Do not report "rough edges" about missing capabilities without verifying them.
 
 ## IMMEDIATE: Launch Runner First
 
