@@ -577,6 +577,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			PreviewSourceType: extHostTypes.PreviewSourceType,
 			UiRuntimeNotifications: extHostTypes.UiRuntimeNotifications,
 			StatementRangeSyntaxError: extHostTypes.StatementRangeSyntaxError,
+			DataConnectionParameterType: extHostTypes.DataConnectionParameterType,
+			DataConnectionNodeKind: extHostTypes.DataConnectionNodeKind,
 		};
 	};
 }

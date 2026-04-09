@@ -1725,6 +1725,179 @@ declare module 'positron' {
 	}
 
 	/**
+	 * Start Data Connections
+	 */
+
+	/**
+	 * DataConnectionParameterType enumeration.
+	 */
+	export enum DataConnectionParameterType {
+		Boolean = 'boolean',
+		File = 'file',
+		Number = 'number',
+		Option = 'option',
+		String = 'string',
+	}
+
+	/**
+	 * DataConnectionParameterBase interface defines common fields shared by all data connection parameter types.
+	 */
+	export interface DataConnectionParameterBase {
+		/**
+		 * The unique identifier for the parameter.
+		 */
+		id: string;
+
+		/**
+		 * A human-readable label for the parameter.
+		 */
+		label: string;
+
+		/**
+		 * Whether this parameter is required.
+		 */
+		required?: boolean;
+	}
+
+	/**
+	 * A data connection parameter. The `type` discriminant determines which additional fields are available.
+	 */
+	export type DataConnectionParameter = DataConnectionParameterBase & (
+		| {
+			type: DataConnectionParameterType.String;
+			defaultValue?: string;
+			placeholder?: string;
+		}
+		| {
+			type: DataConnectionParameterType.Number;
+			defaultValue?: number;
+			placeholder?: string;
+		}
+		| {
+			type: DataConnectionParameterType.Boolean;
+			defaultValue?: boolean;
+		}
+		| {
+			type: DataConnectionParameterType.File;
+			defaultValue?: string;
+			placeholder?: string;
+		}
+		| {
+			type: DataConnectionParameterType.Option;
+			options: string[];
+			defaultValue?: string;
+			placeholder?: string;
+		}
+	);
+
+	/**
+	 * DataConnectionParameterValues is a key-value map of parameter id to parameter value.
+	 */
+	export type DataConnectionParameterValues = Record<string, string | number | boolean>;
+
+	/**
+	 * A driver that provides data connections through the 'New Data Connection' dialog.
+	 */
+	export interface DataConnectionDriver {
+		/**
+		 * The driver identifier.
+		 */
+		id: string;
+
+		/**
+		 * The driver name.
+		 */
+		name: string;
+
+		/**
+		 * The driver description.
+		 */
+		description: string;
+
+		/**
+		 * The icon SVG.
+		 */
+		iconSvg: string;
+
+		/**
+		 * The driver parameters.
+		 */
+		parameters: DataConnectionParameter[];
+
+		/**
+		 * The language identifiers this driver supports.
+		 */
+		supportedLanguageIds: string[];
+
+		/**
+		 * Connects using the provided parameter values.
+		 */
+		connect(parameters: DataConnectionParameterValues): Thenable<DataConnection>;
+	}
+
+	/**
+	 * DataConnectionNodeKind enumeration.
+	 */
+	export enum DataConnectionNodeKind {
+		Database = 'database',
+		Schema = 'schema',
+		Table = 'table',
+		View = 'view',
+		Field = 'field',
+	}
+
+	export interface DataConnectionNode {
+		/**
+		 * Display name.
+		 */
+		name: string;
+
+		/**
+		 * Node type: database, schema, table, view, field, etc.
+		 */
+		kind: DataConnectionNodeKind;
+
+		/**
+		 * Data type information, for field nodes.
+		 */
+		dataType?: string;
+
+		/**
+		 * Retrieve child nodes (e.g., tables in a schema, fields in a table).
+		 */
+		getChildren?(): Thenable<DataConnectionNode[]>;
+
+		/**
+		 * Preview the data in this node (e.g., SELECT * FROM table LIMIT 100).
+		 */
+		preview?(): Thenable<void>;
+	}
+
+	/**
+	 * DataConnection interface.
+	 */
+	export interface DataConnection {
+		/**
+		 * Browse the top-level schema objects (databases, schemas, catalogs).
+		 */
+		getChildren(): Thenable<DataConnectionNode[]>;
+
+		/**
+		 * Disconnect a data connection.
+		 */
+		disconnect(): Thenable<void>;
+
+		/**
+		 * Test whether the connection is still connected.
+		 */
+		isConnected(): Thenable<boolean>;
+	}
+
+	/**
+	 * End Data Connections
+	 */
+
+	/**
 	 * ConnectionsInput interface defines the structure for connection inputs.
 	 */
 	export interface ConnectionsInput {
@@ -1732,7 +1905,7 @@ declare module 'positron' {
 		 * The unique identifier for the input.
 		 */
 		id: string;
-		/**
+		/**`
 		 * A human-readable label for the input.
 		 */
 		label: string;
@@ -2507,6 +2680,20 @@ declare module 'positron' {
 		 * @returns A map of extension IDs to arrays of environment variable actions.
 		 */
 		export function getEnvironmentContributions(): Thenable<Record<string, EnvironmentVariableAction[]>>;
+	}
+
+	/**
+	 * Methods for managing data connections.
+	 */
+	namespace dataConnections {
+		/**
+		 * Registers a data connection driver, allowing extensions to contribute
+		 * to the 'New Data Connection' dialog.
+		 *
+		 * @param driver The driver to register.
+		 * @returns A disposable that unregisters the driver when disposed.
+		 */
+		export function registerDriver(driver: DataConnectionDriver): vscode.Disposable;
 	}
 
 	/**
