@@ -22,8 +22,10 @@ import { TestRuntimeStartupService } from '../../../../services/runtimeStartup/t
 import { IExecutionHistoryService } from '../../../../services/positronHistory/common/executionHistoryService.js';
 import { createTestPlotsServiceWithPlots } from '../../../../services/positronPlots/test/common/testPlotsServiceHelper.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { IConsoleFindWidgetFactory, IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { PositronConsoleService } from '../../../../services/positronConsole/browser/positronConsoleService.js';
+import { Emitter } from '../../../../../base/common/event.js';
+import { Disposable } from '../../../../../base/common/lifecycle.js';
 
 suite('PositronAssistantService', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
@@ -43,6 +45,20 @@ suite('PositronAssistantService', () => {
 		instantiationService.stub(IRuntimeStartupService, new TestRuntimeStartupService());
 		createRuntimeServices(instantiationService, disposables);
 		instantiationService.stub(IExecutionHistoryService, disposables.add(instantiationService.createInstance(ExecutionHistoryService)));
+		instantiationService.stub(IConsoleFindWidgetFactory, {
+			createFindWidget: () => {
+				const emitter = disposables.add(new Emitter<void>());
+				return disposables.add(new class extends Disposable {
+					reveal() { }
+					hide() { }
+					find() { }
+					refreshSearch() { }
+					layout() { }
+					getDomNode() { return document.createElement('div'); }
+					readonly onDidHide = emitter.event;
+				});
+			}
+		} as IConsoleFindWidgetFactory);
 		instantiationService.stub(IPositronConsoleService, disposables.add(instantiationService.createInstance(PositronConsoleService)));
 
 		// Create test runtime sessions
