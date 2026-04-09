@@ -30,6 +30,10 @@ whatever reference reads you need:
 
 **Background command 1 -- Launch runner:**
 
+**Concurrent sessions:** Port files are per-session, but Playwright's global setup
+nukes the shared `vscsmoke` directory on launch. Running two `/e2e-verify` sessions
+simultaneously will cause the second to destroy the first's workspace. Run one at a time.
+
 Pick a port file name using `MMDD-<slug>` (e.g., `0409-pr-12693` or `0409-smoke-test`).
 No increment needed -- port files are ephemeral, collisions just overwrite.
 
