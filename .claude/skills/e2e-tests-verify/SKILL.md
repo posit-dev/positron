@@ -531,8 +531,9 @@ For free-text tests (no PR number), use `test.describe('Verify: <description>')`
 - File path: `test/e2e/tests/_generated/MMDD-<increment>_<pr>-<slug>.test.ts`
 - **Always use fixtures over workbench properties when available.** Fixtures come
   from the test function parameter, NOT from `app.workbench`. Key fixtures:
-  `python`, `r`, `sessions`, `settings`, `hotKeys`, `page`. If you need `settings`,
-  add it to the function signature -- do NOT destructure it from `app.workbench`:
+  `python`, `r`, `sessions`, `settings`, `hotKeys`, `page`, `createFile`.
+  If you need `settings`, add it to the function signature -- do NOT destructure
+  it from `app.workbench`:
   ```typescript
   // CORRECT: settings from fixture parameter
   test('example', async function ({ app, settings }) {
@@ -560,6 +561,21 @@ For free-text tests (no PR number), use `test.describe('Verify: <description>')`
 - **Do NOT rename `console` when destructuring.** Use `const { console } = app.workbench`
   directly -- do not alias it as `consoleView`, `consolePom`, etc. The existing codebase
   uses `console` everywhere and shadowing the global `console` is fine in test files.
+- **Map runner `createFile` action to the `createFile` fixture.** When the runner
+  used `{"action": "createFile", "params": {"filename": "test.qmd", "content": "..."}}`,
+  translate it to the fixture in the saved test:
+  ```typescript
+  // CORRECT: createFile fixture writes to workspace, opens in editor, auto-cleans up
+  test('example', async function ({ app, createFile }) {
+  	await createFile('test.qmd', '---\ntitle: Test\n---\n```{r}\n1+1\n```');
+  });
+
+  // WRONG: console.createFile only writes a stub, quickaccess.openFile needs absolute path
+  test('example', async function ({ app }) {
+  	await app.workbench.console.createFile('R', 'test.qmd');
+  	await app.workbench.quickaccess.openFile('test.qmd'); // ERROR: not absolute
+  });
+  ```
 
 ## Verification Comment
 
