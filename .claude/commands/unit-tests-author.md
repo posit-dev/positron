@@ -59,10 +59,10 @@ For each Positron source file (`src/vs/` or `extensions/positron-*/`):
 Format your response as:
 
 **Tests to write:**
-For each: file path, preset + reasoning, extra stubs needed, what to test, whether class is exported
+For each: file path, preset + reasoning (why this is the lowest viable preset -- name the key dependencies that require it), extra stubs needed, what to test, whether class is exported
 
 **Tests to extend:**
-For each: existing test file path, what new cases are needed
+For each: existing test file path, current preset + why it's sufficient (or what changes are needed), what new cases are needed
 
 **Already covered:** Brief list
 
