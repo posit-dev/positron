@@ -13,8 +13,7 @@ import React, { PropsWithChildren, useRef } from 'react';
 import { IAction } from '../../../../../base/common/actions.js';
 import { IContextMenuService } from '../../../../../platform/contextview/browser/contextView.js';
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
-import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
-import { KeyboardModifiers } from '../../../../../base/browser/ui/positronComponents/button/button.js';
+import { Button, KeyboardModifiers } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 
 /**
  * Props for the SplitButton component.
@@ -83,14 +82,14 @@ export const SplitButton: React.FC<PropsWithChildren<SplitButtonProps>> = ({
 
 	return (
 		<div className={`split-button ${className ?? ''} ${disabled ? 'disabled' : ''}`}>
-			<PositronButton
+			<Button
 				ariaLabel={ariaLabel}
 				className='split-button-main'
 				disabled={disabled}
 				onPressed={onMainAction}
 			>
 				{children ?? label}
-			</PositronButton>
+			</Button>
 			<div
 				ref={dropdownRef}
 				aria-label={dropdownTooltip}
