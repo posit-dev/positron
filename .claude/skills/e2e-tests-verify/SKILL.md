@@ -46,11 +46,13 @@ For `--browser <name>`:
 PF="/tmp/explore-runner-port-$$" && rm -f "$PF" && echo "PORTFILE=$PF" && EXPLORE_PORT_FILE="$PF" EXPLORE_TITLE="<short description>" ALLOW_EXPLORE=1 npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-<name> 2>&1 &
 ```
 
-The output will include `PORTFILE=/tmp/explore-runner-port-12345`. **Read that path from
-the output** and use it as a literal string in all subsequent commands:
+The output will include `PORTFILE=/tmp/explore-runner-port-12345`. **Read that EXACT path
+from the output** and use it as a literal string in ALL subsequent commands:
 ```bash
 PORT=$(cat /tmp/explore-runner-port-12345) && curl -s ...
 ```
+**Do NOT glob** (`/tmp/explore-runner-port-*`) -- stale port files from previous sessions
+will exist and you'll get the wrong port. Use YOUR session's exact path only.
 Do NOT use `$EXPLORE_PORT_FILE` or any env var -- they don't persist across Bash calls.
 
 **Background command 2 -- POM ref staleness check:**
