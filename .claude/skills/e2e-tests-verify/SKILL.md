@@ -121,6 +121,7 @@ test-data-dependent steps rather than searching further.
 - `--deep`: Exhaustive mode -- gathers all signals and generates a thorough test plan (10-15+ steps with edge cases). Without this flag, tests are diff-driven and targeted (5-10 steps)
 - `--context <issue>`: Pull issue body as enrichment for test planning. Does not resolve the issue to a PR -- use this alongside a PR number for richer context
 - `--browser <name>`: Firefox, Chromium, or WebKit instead of Electron
+- `--test-patterns`: Read existing test files in the same area for setup/assertion patterns before planning. Off by default (saves 2-3 messages). Use when you want higher-quality test output that matches existing conventions.
 
 **Input types:**
 - **PR number** (e.g., `456`): Primary mode. Gets diff and metadata directly via `gh pr diff` and `gh pr view`. Numbers are always treated as PR numbers. If `gh pr view` fails, error immediately -- no fallback to issue search.
@@ -204,8 +205,10 @@ corresponding setup step to the test plan:
 | `positronNotebook/browser/` | `enablePositronNotebooks({"$pom": "settings"})` |
 | `positron.environments` or `positronVariables` | `settings.set({"positron.environments.enable": true}, {"reload": true})` |
 
-Also check existing tests in the same area (see `references/diff-analysis.md` --
-"Check existing tests for setup patterns") for any other setup requirements.
+**If `--test-patterns` flag is set**, also check existing tests in the same area for
+setup and assertion patterns (see `references/diff-analysis.md` -- "Check existing
+tests for setup patterns"). This adds 2-3 messages but produces tests that better
+match existing conventions. Without this flag, skip existing test research to save time.
 
 **Shared test references:**
 
