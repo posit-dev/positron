@@ -190,6 +190,27 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		await use(fileOps.openFolder);
 	},
 
+	// ex: await createFile('test.qmd', '---\ntitle: Test\n---\n```{r}\n1+1\n```');
+	createFile: async ({ app }, use) => {
+		const fileOps = FileOperationsFixture(app);
+		const createdFiles: string[] = [];
+		await use(async (filename: string, content: string) => {
+			const filePath = await fileOps.createFile(filename, content);
+			createdFiles.push(filePath);
+		});
+		// Auto-cleanup after test
+		for (const filePath of createdFiles) {
+			try {
+				const fs = await import('fs');
+				if (fs.existsSync(filePath)) {
+					fs.rmSync(filePath);
+				}
+			} catch (error) {
+				console.warn(`Failed to clean up test file "${filePath}":`, error);
+			}
+		}
+	},
+
 	// ex: await saveFileAs(path.join(app.workspacePathOrFolder, 'newfile.txt'));
 	saveFileAs: async ({ app }, use) => {
 		await use(async (filePath: string) => {
@@ -485,6 +506,7 @@ export interface TestFixtures {
 	openFile: (filePath: string, waitForFocus?: boolean) => Promise<void>;
 	openDataFile: (filePath: string) => Promise<void>;
 	openFolder: (folderPath: string) => Promise<void>;
+	createFile: (filename: string, content: string) => Promise<void>;
 	saveFileAs: (filePath: string) => Promise<void>;
 	runCommand: (command: string, options?: { keepOpen?: boolean; exactMatch?: boolean }) => Promise<void>;
 	runDockerCommand: (command: string, description: string) => Promise<RunResult>;

@@ -223,9 +223,9 @@ the content you need, then open and test it. Self-contained tests are faster to 
 **Shared test references:**
 
 When generating tests or choosing POM methods, consult these shared reference docs:
-- `../shared-e2e-references/test-conventions.md` -- imports, suiteId, commenting style, test.step() rules
 - `../shared-e2e-references/pom-patterns.md` -- POM method selection, confusable methods, POM-first rules
-- `../shared-e2e-references/common-mistakes.md` -- 32 gotchas to avoid
+- `../shared-e2e-references/test-conventions.md` -- only read when saving a .test.ts file (Step 6), not during planning
+- `../shared-e2e-references/common-mistakes.md` -- only read with `--test-patterns` flag (706 lines, too large for default runs)
 
 **CRITICAL:** Follow all POM method selection rules in `../shared-e2e-references/pom-patterns.md`.
 
