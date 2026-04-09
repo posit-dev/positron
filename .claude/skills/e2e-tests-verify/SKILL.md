@@ -326,9 +326,15 @@ The PR title/body and file list are already in your context. Now:
    Read: pom-ref/quickaccess.md
    ```
 
+   Also include in this same parallel message:
+   ```
+   Read: shared-e2e-references/pom-patterns.md
+   Read: references/runner-api.md
+   ```
+
    Do NOT read `pom-reference.md` (the 800+ line single file). The per-POM
    files have the exact same content, split for fast targeted access.
-   Do NOT defer POM reads to later messages -- read them all now.
+   Do NOT defer POM reads, pom-patterns, or runner-api to later messages -- read them all now.
 
 2. **Plan test steps** from the PR title, body, and file list per Step 1.
 
