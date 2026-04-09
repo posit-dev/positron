@@ -7,7 +7,7 @@ This is NOT the primary workflow -- use `/run-plan` first, always.
 
 Call any POM method directly:
 ```bash
-PORT=$(cat /tmp/explore-runner-port-MMDD-SLUG) && curl -s -X POST "http://localhost:${PORT}/pom" \
+PORT=$(cat /tmp/explore-runner-port) && curl -s -X POST "http://localhost:${PORT}/pom" \
   -H 'Content-Type: application/json' \
   -d '{"pom": "sessions", "method": "start", "args": ["python"], "title": "Start Python session"}'
 ```
@@ -23,7 +23,7 @@ PORT=$(cat /tmp/explore-runner-port-MMDD-SLUG) && curl -s -X POST "http://localh
 
 Same action catalog as `/run-plan` steps, but as individual calls:
 ```bash
-PORT=$(cat /tmp/explore-runner-port-MMDD-SLUG) && curl -s -X POST "http://localhost:${PORT}/action" \
+PORT=$(cat /tmp/explore-runner-port) && curl -s -X POST "http://localhost:${PORT}/action" \
   -H 'Content-Type: application/json' \
   -d '{"action": "snapshot", "params": {"maxLength": 8000}, "title": "Diagnose current state"}'
 ```
@@ -32,7 +32,7 @@ PORT=$(cat /tmp/explore-runner-port-MMDD-SLUG) && curl -s -X POST "http://localh
 
 Send multiple steps in one request:
 ```bash
-PORT=$(cat /tmp/explore-runner-port-MMDD-SLUG) && curl -s -X POST "http://localhost:${PORT}/batch" \
+PORT=$(cat /tmp/explore-runner-port) && curl -s -X POST "http://localhost:${PORT}/batch" \
   -H 'Content-Type: application/json' \
   -d '{"title": "Debug step", "steps": [
     {"type": "action", "action": "snapshot", "params": {"maxLength": 8000}, "title": "Snapshot UI"},

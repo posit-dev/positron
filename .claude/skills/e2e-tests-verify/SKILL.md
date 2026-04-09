@@ -29,34 +29,18 @@ Every second spent reading docs before launching is wasted wall-clock time.
 whatever reference reads you need:
 
 **Background command 1 -- Launch runner:**
-
-**Concurrent sessions:** Port files are per-session, but Playwright's global setup
-nukes the shared `vscsmoke` directory on launch. Running two `/e2e-verify` sessions
-simultaneously will cause the second to destroy the first's workspace. Run one at a time.
-
-Pick a port file name using `MMDD-<slug>` (e.g., `0409-pr-12693` or `0409-smoke-test`).
-No increment needed -- port files are ephemeral, collisions just overwrite.
-
 For `--build`:
 ```bash
-rm -f /tmp/explore-runner-port-MMDD-SLUG && EXPLORE_PORT_FILE="/tmp/explore-runner-port-MMDD-SLUG" EXPLORE_TITLE="<short description>" BUILD=/Applications/Positron.app npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-electron 2>&1 &
+rm -rf /tmp/vscsmoke/d-* 2>/dev/null; rm -f /tmp/explore-runner-port && EXPLORE_TITLE="<short description>" BUILD=/Applications/Positron.app npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-electron 2>&1 &
 ```
 For `--local` or default:
 ```bash
-rm -f /tmp/explore-runner-port-MMDD-SLUG && EXPLORE_PORT_FILE="/tmp/explore-runner-port-MMDD-SLUG" EXPLORE_TITLE="<short description>" npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-electron 2>&1 &
+rm -rf /tmp/vscsmoke/d-* 2>/dev/null; rm -f /tmp/explore-runner-port && EXPLORE_TITLE="<short description>" npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-electron 2>&1 &
 ```
 For `--browser <name>`:
 ```bash
-rm -f /tmp/explore-runner-port-MMDD-SLUG && EXPLORE_PORT_FILE="/tmp/explore-runner-port-MMDD-SLUG" EXPLORE_TITLE="<short description>" ALLOW_EXPLORE=1 npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-<name> 2>&1 &
+rm -rf /tmp/vscsmoke/d-* 2>/dev/null; rm -f /tmp/explore-runner-port && EXPLORE_TITLE="<short description>" ALLOW_EXPLORE=1 npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-<name> 2>&1 &
 ```
-
-Example: `EXPLORE_PORT_FILE="/tmp/explore-runner-port-0409-pr-12693"`.
-Use that same literal path in every subsequent command:
-```bash
-PORT=$(cat /tmp/explore-runner-port-0409-pr-12693) && curl -s ...
-```
-Do NOT glob (`/tmp/explore-runner-port-*`). Do NOT use env vars (they don't persist).
-Do NOT count or ls existing port files (globs error on zsh and cancel parallel calls).
 
 **Background command 2 -- POM ref staleness check:**
 ```bash
@@ -348,14 +332,14 @@ The PR title/body and file list are already in your context. Now:
 
 2. **Plan test steps** from the PR title, body, and file list per Step 1.
 
-3. **Send description** using the port file path from the launch output:
+3. **Send description** (skip the poll -- the runner has had 30-40s head start and is almost always ready):
    ```bash
-   PORT=$(cat /tmp/explore-runner-port-12345) && curl -s -X POST "http://localhost:${PORT}/describe" \
+   PORT=$(cat /tmp/explore-runner-port) && curl -s -X POST "http://localhost:${PORT}/describe" \
      -H 'Content-Type: application/json' \
      -d '{"description": "PR 456: Panel hiding behavior when closing editors"}'
    ```
-   Replace `/tmp/explore-runner-port-12345` with the actual `PORTFILE=` value from
-   your launch output. If the file doesn't exist yet, retry once after 5s.
+   If the port file doesn't exist yet, the `cat` will fail -- just retry once after 5s.
+   Do NOT use a poll loop. The runner is ready by now in 99% of runs.
 
 **Happy-path tool call count:** 4-5 calls total (parallel launch, read POM refs, POST /describe, POST /run-plan, POST /done).
 
@@ -387,7 +371,7 @@ This gate exists because guessed method names (e.g., `openHelpPane` instead of
 Use `POST /run-plan` to execute the entire test in one HTTP call. A happy-path test run is **4 tool calls total**: launch + poll, read POM reference, POST /run-plan, POST /done.
 
 ```bash
-PORT=$(cat /tmp/explore-runner-port-MMDD-SLUG) && curl -s -X POST "http://localhost:${PORT}/run-plan" \
+PORT=$(cat /tmp/explore-runner-port) && curl -s -X POST "http://localhost:${PORT}/run-plan" \
   -H 'Content-Type: application/json' \
   -d '{"title": "PR 456: Variable appears after execution", "stepTimeout": 10000, "steps": [
     {"type": "pom", "pom": "sessions", "method": "start", "args": ["python"], "timeout": 20000, "title": "Start Python session"},
@@ -459,7 +443,7 @@ this check.
 ### Step 5: Cleanup and Save Prompt
 
 ```bash
-PORT=$(cat /tmp/explore-runner-port-MMDD-SLUG) && curl -s -X POST "http://localhost:${PORT}/done"
+PORT=$(cat /tmp/explore-runner-port) && curl -s -X POST "http://localhost:${PORT}/done"
 ```
 
 **`/done` can be parallelized with screenshots** (e.g., `takeScreenshot` + `/done` in one message).

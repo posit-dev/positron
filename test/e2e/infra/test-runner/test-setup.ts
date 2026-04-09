@@ -107,30 +107,13 @@ function initializeTestEnvironment(rootPath = process.env.ROOT_PATH || 'ROOT_PAT
 
 /**
  * Cleans and prepares the test data directory.
- * Only removes stale user data dirs (d-*), preserving the workspace
- * (qa-example-content) and extensions-dir which are shared and expensive to recreate.
- * This allows multiple concurrent Playwright processes to coexist.
  */
 function prepareTestDataDirectory() {
+	// skipping deletion if running in CI because extensions setup case needs to be able to leave behind its extensions
+	if (!process.env.CI && fs.existsSync(TEST_DATA_PATH)) {
+		rimraf.sync(TEST_DATA_PATH);
+	}
 	mkdirp.sync(TEST_DATA_PATH);
-
-	if (process.env.CI) {
-		// In CI, skip cleanup -- extensions setup needs to persist
-		return;
-	}
-
-	// Clean only stale user data dirs, not the whole tree
-	const entries = fs.readdirSync(TEST_DATA_PATH);
-	for (const entry of entries) {
-		if (entry.startsWith('d-') || entry.startsWith('d')) {
-			const fullPath = join(TEST_DATA_PATH, entry);
-			try {
-				rimraf.sync(fullPath);
-			} catch {
-				// May be locked by another runner -- skip it
-			}
-		}
-	}
 }
 
 export function getPositronVersion(testCodePath = process.env.BUILD || ''): PositronVersion | null {

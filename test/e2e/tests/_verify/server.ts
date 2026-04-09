@@ -42,7 +42,7 @@ function buildCatalog(app: Application): Record<string, string[]> {
 	return catalog;
 }
 
-const PORT_FILE = process.env.EXPLORE_PORT_FILE || '/tmp/explore-runner-port';
+const PORT_FILE = '/tmp/explore-runner-port';
 
 function readBody(req: http.IncomingMessage): Promise<string> {
 	return new Promise((resolve, reject) => {
