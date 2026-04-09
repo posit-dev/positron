@@ -156,17 +156,19 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 				if (parsedOutput.preloadMessageResult === undefined) {
 					return;
 				}
-			} else if (preferredOutputItem.mime === 'text/html' &&
-				isComplexHtml(preferredOutputItem.data.toString())) {
-				// Complex HTML (scripts, iframes, full documents) can't render
-				// inline due to Trusted Types / CSP restrictions. Route through
-				// an overlay webview where scripts execute in an isolated process.
-				parsedOutput.preloadMessageResult = this._webviewPreloadService.addNotebookOutput({
-					instance: this.instance,
-					outputId: output.outputId,
-					outputs: outputItems,
-					rawHtml: preferredOutputItem.data.toString(),
-				});
+			} else if (preferredOutputItem.mime === 'text/html') {
+				const rawHtml = preferredOutputItem.data.toString();
+				if (isComplexHtml(rawHtml)) {
+					// Complex HTML (scripts, iframes, full documents) can't render
+					// inline due to Trusted Types / CSP restrictions. Route through
+					// an overlay webview where scripts execute in an isolated process.
+					parsedOutput.preloadMessageResult = this._webviewPreloadService.addNotebookOutput({
+						instance: this.instance,
+						outputId: output.outputId,
+						outputs: outputItems,
+						rawHtml,
+					});
+				}
 			}
 
 			parsedOutputs.push(parsedOutput);
