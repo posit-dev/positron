@@ -46,6 +46,8 @@ test.describe('Quarto - Variables Follow Mode', {
 		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 17, outputLine: 30 });
 
 		// After running code in the QMD, variables pane should show the QMD's variables
+		await variables.waitForVariableRow('theta');
+		await variables.expectVariableToNotExist('console_var');
 
 		// Step 4: Open a Python file to create a second editor tab
 		// This is needed because onDidActiveEditorChange only fires when switching between
@@ -61,6 +63,7 @@ test.describe('Quarto - Variables Follow Mode', {
 
 		// Verify the variables pane switched to the console session (NOT the QMD)
 		await variables.expectVariableToBe('another_var', '456');
+		await variables.expectVariableToNotExist('theta');
 
 		// Step 5: Now switch back to the QMD editor tab
 		// Click on the editor tab for report.qmd - this triggers onDidActiveEditorChange
@@ -69,6 +72,7 @@ test.describe('Quarto - Variables Follow Mode', {
 		// Step 6: The variables pane should switch to the QMD's session
 		// This is the key assertion - verifying the feature works
 		// The console variable should not be visible, confirming the pane switched
+		await variables.waitForVariableRow('theta');
 		await variables.expectVariableToNotExist('another_var');
 	});
 });

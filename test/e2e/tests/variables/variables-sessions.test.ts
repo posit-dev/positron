@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -21,6 +21,23 @@ test.describe('Variables: Sessions', {
 		await sessions.deleteDisconnectedSessions();
 	});
 
+	test('Validate variables persist after console session exits', async function ({ app, sessions }) {
+		const { console, variables } = app.workbench;
+
+		// Start a Python console session and create a variable
+		const [pySession] = await sessions.start(['python']);
+		await sessions.select(pySession.id);
+		await console.executeCode('Python', 'persist_var = 42');
+		await variables.expectVariableToBe('persist_var', '42');
+
+		// Exit the session (not delete)
+		await console.executeCode('Python', 'exit()', { waitForReady: false });
+		await sessions.expectStatusToBe(pySession.id, 'disconnected');
+
+		// Variables pane should still show the variable from the exited session
+		await variables.expectVariableToBe('persist_var', '42');
+	});
+
 	test('Validate variables are isolated between sessions', async function ({ app, sessions }) {
 		const { console, variables } = app.workbench;
 
@@ -37,6 +54,9 @@ test.describe('Variables: Sessions', {
 
 		// Set and verify variables in Python Session 2
 		await sessions.select(pySessionAlt.id);
+		await variables.expectVariableToNotExist('x');
+		await variables.expectVariableToNotExist('y');
+
 		await console.executeCode('Python', 'x = 11');
 		await console.executeCode('Python', 'y = 22');
 
@@ -45,6 +65,9 @@ test.describe('Variables: Sessions', {
 
 		// Set and verify variables in R
 		await sessions.select(rSession.id);
+		await variables.expectVariableToNotExist('x');
+		await variables.expectVariableToNotExist('y');
+
 		await console.executeCode('R', 'x <- 3');
 		await console.executeCode('R', 'z <- 4');
 
@@ -53,6 +76,10 @@ test.describe('Variables: Sessions', {
 
 		// Switch back to Python, update variables, and verify
 		await sessions.select(pySession.id);
+		await variables.expectVariableToBe('x', '1');
+		await variables.expectVariableToBe('y', '2');
+		await variables.expectVariableToNotExist('z');
+
 		await console.executeCode('Python', 'x = 0');
 
 		await variables.expectVariableToBe('x', '0');
@@ -63,5 +90,6 @@ test.describe('Variables: Sessions', {
 
 		await variables.expectVariableToBe('x', '3');
 		await variables.expectVariableToBe('z', '4');
+		await variables.expectVariableToNotExist('y');
 	});
 });

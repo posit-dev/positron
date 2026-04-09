@@ -5,8 +5,6 @@
 
 import { test, tags } from '../_test.setup';
 
-const FILENAME = 'Untitled-1.ipynb';
-
 test.use({
 	suiteId: __filename
 });
@@ -98,14 +96,14 @@ test.describe('Variables Pane - Notebook', {
 
 		// Verify we're on the notebook session
 		await hotKeys.fullSizeSecondarySidebar();
-
+		await variables.expectVariableToBe('df', /DataFrame/);
 
 		// Open the Data Explorer by double-clicking the variable
 		await variables.doubleClickVariableRow('df');
 		await editors.verifyTab('Data: df', { isVisible: true });
 
 		// Verify Variables pane stayed on the notebook session (regression test for #7539)
-
+		await variables.expectVariableToBe('df', /DataFrame/);
 	});
 });
 
