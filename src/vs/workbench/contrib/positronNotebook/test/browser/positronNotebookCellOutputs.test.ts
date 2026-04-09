@@ -205,7 +205,7 @@ suite('Positron Notebook Cell Outputs', () => {
 			const outputs = cell.outputs.get();
 			assert.strictEqual(outputs.length, 1);
 			assert.ok(outputs[0].preloadMessageResult, 'should have a preloadMessageResult');
-			assert.strictEqual(outputs[0].preloadMessageResult?.preloadMessageType, 'display');
+			assert.strictEqual(outputs[0].preloadMessageResult.preloadMessageType, 'display');
 		});
 
 		test('simple HTML output renders inline without preloadMessageResult', () => {
