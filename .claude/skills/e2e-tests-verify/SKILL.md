@@ -30,34 +30,29 @@ whatever reference reads you need:
 
 **Background command 1 -- Launch runner:**
 
-Pick a deterministic port file name using `MMDD-<increment>-<slug>` -- the same pattern
-as test file naming. Count existing port files to get the increment:
-```bash
-ls /tmp/explore-runner-port-* 2>/dev/null | wc -l | xargs -I{} echo $(({} + 1))
-```
-Then use the resulting name (e.g., `0409-3-pr-12693`) in ALL commands for this session.
+Pick a port file name using `MMDD-<slug>` (e.g., `0409-pr-12693` or `0409-smoke-test`).
+No increment needed -- port files are ephemeral, collisions just overwrite.
 
 For `--build`:
 ```bash
-rm -f /tmp/explore-runner-port-MMDD-N-SLUG && EXPLORE_PORT_FILE="/tmp/explore-runner-port-MMDD-N-SLUG" EXPLORE_TITLE="<short description>" BUILD=/Applications/Positron.app npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-electron 2>&1 &
+rm -f /tmp/explore-runner-port-MMDD-SLUG && EXPLORE_PORT_FILE="/tmp/explore-runner-port-MMDD-SLUG" EXPLORE_TITLE="<short description>" BUILD=/Applications/Positron.app npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-electron 2>&1 &
 ```
 For `--local` or default:
 ```bash
-rm -f /tmp/explore-runner-port-MMDD-N-SLUG && EXPLORE_PORT_FILE="/tmp/explore-runner-port-MMDD-N-SLUG" EXPLORE_TITLE="<short description>" npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-electron 2>&1 &
+rm -f /tmp/explore-runner-port-MMDD-SLUG && EXPLORE_PORT_FILE="/tmp/explore-runner-port-MMDD-SLUG" EXPLORE_TITLE="<short description>" npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-electron 2>&1 &
 ```
 For `--browser <name>`:
 ```bash
-rm -f /tmp/explore-runner-port-MMDD-N-SLUG && EXPLORE_PORT_FILE="/tmp/explore-runner-port-MMDD-N-SLUG" EXPLORE_TITLE="<short description>" ALLOW_EXPLORE=1 npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-<name> 2>&1 &
+rm -f /tmp/explore-runner-port-MMDD-SLUG && EXPLORE_PORT_FILE="/tmp/explore-runner-port-MMDD-SLUG" EXPLORE_TITLE="<short description>" ALLOW_EXPLORE=1 npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-<name> 2>&1 &
 ```
 
-Example: for PR 12693 on April 9, third run of the day:
+Example: `EXPLORE_PORT_FILE="/tmp/explore-runner-port-0409-pr-12693"`.
+Use that same literal path in every subsequent command:
 ```bash
-EXPLORE_PORT_FILE="/tmp/explore-runner-port-0409-3-pr-12693" ...
-PORT=$(cat /tmp/explore-runner-port-0409-3-pr-12693) && curl -s ...
+PORT=$(cat /tmp/explore-runner-port-0409-pr-12693) && curl -s ...
 ```
-
-You decide the name once. Use that same literal string in every subsequent command.
-Do NOT glob (`/tmp/explore-runner-port-*`), do NOT use env vars (they don't persist).
+Do NOT glob (`/tmp/explore-runner-port-*`). Do NOT use env vars (they don't persist).
+Do NOT count or ls existing port files (globs error on zsh and cancel parallel calls).
 
 **Background command 2 -- POM ref staleness check:**
 ```bash
@@ -388,7 +383,7 @@ This gate exists because guessed method names (e.g., `openHelpPane` instead of
 Use `POST /run-plan` to execute the entire test in one HTTP call. A happy-path test run is **4 tool calls total**: launch + poll, read POM reference, POST /run-plan, POST /done.
 
 ```bash
-PORT=$(cat /tmp/explore-runner-port-MMDD-N-SLUG) && curl -s -X POST "http://localhost:${PORT}/run-plan" \
+PORT=$(cat /tmp/explore-runner-port-MMDD-SLUG) && curl -s -X POST "http://localhost:${PORT}/run-plan" \
   -H 'Content-Type: application/json' \
   -d '{"title": "PR 456: Variable appears after execution", "stepTimeout": 10000, "steps": [
     {"type": "pom", "pom": "sessions", "method": "start", "args": ["python"], "timeout": 20000, "title": "Start Python session"},
@@ -460,7 +455,7 @@ this check.
 ### Step 5: Cleanup and Save Prompt
 
 ```bash
-PORT=$(cat /tmp/explore-runner-port-MMDD-N-SLUG) && curl -s -X POST "http://localhost:${PORT}/done"
+PORT=$(cat /tmp/explore-runner-port-MMDD-SLUG) && curl -s -X POST "http://localhost:${PORT}/done"
 ```
 
 **`/done` can be parallelized with screenshots** (e.g., `takeScreenshot` + `/done` in one message).
