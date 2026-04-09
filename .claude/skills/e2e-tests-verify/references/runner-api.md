@@ -46,6 +46,24 @@ PAYLOAD
 
 Note: In JSON strings, `\n` is a literal newline escape -- no special bash quoting needed.
 
+## Timeout Tiers
+
+Steps should fail fast. Use the lowest timeout that covers the happy path -- a step
+that won't succeed in 15s won't succeed in 60s either. Sitting idle for a full minute
+on a doomed step wastes more time than a rare false-negative retry.
+
+| Tier | Timeout | Operations |
+|------|---------|------------|
+| **Fast** (default) | 10s | UI assertions (`expect*`, `waitFor*`), visibility checks, clicks, shape/content verification, `snapshot`, `takeScreenshot` |
+| **Medium** | 15-20s | Code execution (`executeCode`, `runCodeAtIndex`, `runAllCells`, `runCurrentCell`), file creation (`createFile`, `openFile`), output waits (`expectOutputVisible`) |
+| **Slow** | 30-40s | Session starts (`sessions.start`), first kernel connection (`expectKernelIdle`, `expectKernelStatusVisible`), settings with reload |
+
+**Rules:**
+- Set `stepTimeout: 10000` (covers Fast tier automatically)
+- Override per-step `timeout` only for Medium and Slow tiers
+- **Never set timeout above 20s** unless the step is a session start or kernel connection
+- If a step times out at 15s, the fix is diagnosing why it failed -- not doubling the timeout
+
 ## /run-plan Response Format
 
 **Success:**
