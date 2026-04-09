@@ -97,7 +97,6 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
                 if (!event.old && event.new) {
                     // An interpreter was added.
                     const interpreterPath = event.new.path;
-                    await checkAndInstallPython(interpreterPath, serviceContainer);
                     await this.registerLanguageRuntimeFromPath(interpreterPath);
                 }
             }),
@@ -284,6 +283,9 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
         if (!extraData || !extraData.pythonPath) {
             throw new Error(`Runtime metadata missing Python path: ${JSON.stringify(extraData)}`);
         }
+
+        // For conda environments without Python, install Python now (deferred from discovery).
+        await checkAndInstallPython(extraData.pythonPath, this.serviceContainer);
 
         // Check Python kernel debug and log level settings
         // NOTE: We may need to pass a resource to getSettings to support multi-root workspaces
