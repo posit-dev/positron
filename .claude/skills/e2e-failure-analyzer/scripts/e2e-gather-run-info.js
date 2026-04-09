@@ -43,13 +43,14 @@ if (urlMatch) {
 
 function gh(...ghArgs) {
 	try {
+		// Do NOT use shell: true -- the --jq arguments contain pipe characters
+		// that cmd.exe would interpret as shell pipes. This works in Git Bash
+		// (Claude Code's shell on Windows) where gh resolves as a real binary.
 		return execFileSync('gh', ghArgs, {
 			encoding: 'utf8',
 			stdio: ['pipe', 'pipe', 'pipe'],
 			timeout: 60000,
 			maxBuffer: 50 * 1024 * 1024, // 50MB - CI logs can be very large
-			// Note: do NOT use shell: true here -- the --jq arguments contain
-			// pipe characters that cmd.exe would interpret as shell pipes.
 		}).trim();
 	} catch (err) {
 		process.stderr.write(`Warning: gh command failed: gh ${ghArgs.join(' ')}\n`);
