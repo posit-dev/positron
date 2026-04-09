@@ -4,7 +4,7 @@ How to discover, choose, and use Page Object Model methods correctly.
 
 ## POM Reference File
 
-Always read `test/e2e/tests/_generated/pom-reference.md` before choosing methods. It auto-generates from POM source files with full TypeScript signatures.
+Read the per-POM reference files at `test/e2e/tests/_generated/pom-ref/<name>.md` before choosing methods. Each file covers one POM (10-80 lines) with full TypeScript signatures. Read only the POMs you need, in parallel. Do NOT read the monolith `pom-reference.md` (800+ lines).
 
 **Check staleness:** If any file in `test/e2e/pages/` is newer than the reference, regenerate:
 
