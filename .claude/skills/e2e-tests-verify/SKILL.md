@@ -265,14 +265,15 @@ See `references/runner-launch.md` for launch commands per mode (local dev, built
 The runner, POM ref gen, and PR context calls were all fired in your first message.
 The PR title/body and file list are already in your context. Now:
 
-1. **Grep the POM reference for specific POMs.** One Grep call, done:
+1. **Read per-POM reference files** -- one small file per POM, in parallel:
    ```
-   Grep: pattern="^## (console|variables|plots)" path=test/e2e/tests/_generated/pom-reference.md -A 30
+   Read: test/e2e/tests/_generated/pom-ref/sessions.md    (36 lines)
+   Read: test/e2e/tests/_generated/pom-ref/console.md     (31 lines)
+   Read: test/e2e/tests/_generated/pom-ref/plots.md       (31 lines)
    ```
-   This returns ~30 lines per POM. The Grep output IS your POM reference -- do NOT
-   follow up with a Read of pom-reference.md. Do NOT read the full file "to be sure."
-   The Grep result has everything you need. 800+ lines of file reading wastes 2-3
-   message turns and adds nothing.
+   Read all needed POMs in ONE parallel message. Each file is 10-80 lines.
+   Do NOT read `pom-reference.md` (the 800+ line single file). The per-POM
+   files have the exact same content, split for fast targeted access.
 
 2. **Plan test steps** from the PR title, body, and file list per Step 1.
 
@@ -305,14 +306,16 @@ The PR title/body and file list are already in your context. Now:
 
 **Before building the `/run-plan` payload, verify every POM method you plan to use.**
 
-Use **one Grep call** with a regex OR pattern to extract all POMs you need:
+Read the per-POM files for each POM you plan to use -- all in one parallel message:
 ```
-Grep: pattern="^## (sessions|console|variables|plots)" path=test/e2e/tests/_generated/pom-reference.md -A 30
+Read: test/e2e/tests/_generated/pom-ref/sessions.md
+Read: test/e2e/tests/_generated/pom-ref/console.md
+Read: test/e2e/tests/_generated/pom-ref/variables.md
 ```
 
-Do NOT Read the full POM reference file. It is 800+ lines. Grep for only what you need.
+Do NOT read `pom-reference.md` (the 800+ line monolith). Use the per-POM files.
 
-For each POM in the Grep results:
+For each POM in the results:
 1. Confirm the exact method name exists and note its parameter types
 2. **Do NOT include any method you did not find in the Grep output**
 

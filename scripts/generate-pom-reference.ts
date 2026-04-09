@@ -15,7 +15,8 @@
  *   npx tsx scripts/generate-pom-reference.ts
  *
  * Output:
- *   test/e2e/tests/_generated/pom-reference.md
+ *   test/e2e/tests/_generated/pom-reference.md      (single-file, kept for backward compat)
+ *   test/e2e/tests/_generated/pom-ref/<name>.md      (per-POM files for targeted reads)
  */
 
 import * as fs from 'fs';
@@ -609,9 +610,49 @@ function generateReference(): void {
 
 	lines.push('');
 
-	// Write output
+	// Write single-file output (backward compat)
 	fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 	fs.writeFileSync(OUTPUT_PATH, lines.join('\n'), 'utf-8');
+
+	// Write per-POM files for targeted reads
+	const pomRefDir = path.join(OUTPUT_DIR, 'pom-ref');
+	fs.mkdirSync(pomRefDir, { recursive: true });
+
+	// Clean old per-POM files
+	for (const existing of fs.readdirSync(pomRefDir)) {
+		if (existing.endsWith('.md')) {
+			fs.unlinkSync(path.join(pomRefDir, existing));
+		}
+	}
+
+	for (const section of sections) {
+		const pomLines: string[] = [];
+		pomLines.push(`## ${section.propName} (${section.relativePath})`);
+
+		if (section.methods.length === 0) {
+			pomLines.push('- (no public methods found)');
+		} else {
+			for (const method of section.methods) {
+				pomLines.push(formatMethodLine(method));
+			}
+		}
+
+		for (const sub of section.subObjects) {
+			const subRelativePath = path.relative(E2E_ROOT, sub.filePath);
+			pomLines.push('');
+			pomLines.push(`### ${section.propName}.${sub.getterName} (${subRelativePath})`);
+			if (sub.methods.length === 0) {
+				pomLines.push('- (no public methods found)');
+			} else {
+				for (const method of sub.methods) {
+					pomLines.push(formatMethodLine(method));
+				}
+			}
+		}
+
+		pomLines.push('');
+		fs.writeFileSync(path.join(pomRefDir, `${section.propName}.md`), pomLines.join('\n'), 'utf-8');
+	}
 
 	// Report
 	console.log(`\nPOM Reference Generator`);
@@ -621,6 +662,7 @@ function generateReference(): void {
 	console.log(`Total POMs (including sub-objects): ${totalPoms}`);
 	console.log(`Total methods: ${sections.reduce((acc, s) => acc + s.methods.length + s.subObjects.reduce((a, sub) => a + sub.methods.length, 0), 0)}`);
 	console.log(`Output: ${OUTPUT_PATH}`);
+	console.log(`Per-POM files: ${pomRefDir}/ (${sections.length} files)`);
 }
 
 generateReference();
