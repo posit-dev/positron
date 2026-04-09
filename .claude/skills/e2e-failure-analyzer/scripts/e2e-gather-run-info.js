@@ -48,7 +48,8 @@ function gh(...ghArgs) {
 			stdio: ['pipe', 'pipe', 'pipe'],
 			timeout: 60000,
 			maxBuffer: 50 * 1024 * 1024, // 50MB - CI logs can be very large
-			shell: true, // needed on Windows where gh is a .cmd wrapper
+			// Note: do NOT use shell: true here -- the --jq arguments contain
+			// pipe characters that cmd.exe would interpret as shell pipes.
 		}).trim();
 	} catch (err) {
 		process.stderr.write(`Warning: gh command failed: gh ${ghArgs.join(' ')}\n`);

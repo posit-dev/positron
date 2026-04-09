@@ -303,7 +303,7 @@ For each failure, include the **platform** (OS and project/browser) where it occ
 
 When multiple projects/platforms are analyzed in a single run, note which platforms each failure occurred on and whether the same test passed on other platforms.
 
-Present the analysis in a summary table that includes columns for: test name, platform, root cause category, and severity. Then provide detailed analysis for each failure below the table.
+Present the analysis in a summary table that includes columns for: test name, platform, root cause category, and severity. In the severity column, clearly distinguish tests that **failed all retries** (hard failures) from tests that **passed on retry** (flaky). This distinction comes from comparing `failures` (final failures after all retries) vs `failedTests` (all attempts including those that recovered). Then provide detailed analysis for each failure below the table.
 
 Include **non-e2e job failures** (unit tests, integration tests, build failures) in the summary table as well, with the job name as the test name and a brief description of the failure extracted from the job logs.
 
