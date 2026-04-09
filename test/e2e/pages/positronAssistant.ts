@@ -1023,10 +1023,15 @@ export class Assistant {
 
 			if (await filterInput.isVisible()) {
 				// Use the search input to filter models — avoids scrolling in virtualized list
-				const searchText = typeof text === 'string' ? text : text.source;
+				const searchText = typeof text === 'string' ? text : text.source.replace(/^\^/, '').replace(/\$$/, '');
 				await filterInput.fill(searchText);
-				await expect(locator).toHaveCount(1, { timeout: 10000 });
-				await filterInput.clear();
+				try {
+					await expect(locator).toHaveCount(1, { timeout: 3000 });
+				} finally {
+					// Always clear the filter so MODEL_DROPDOWN_ITEM items remain visible for
+					// subsequent calls (closeModelPickerDropdown relies on them being visible).
+					await filterInput.clear();
+				}
 			} else {
 				// No filter input available; item should be directly visible
 				await expect(locator).toHaveCount(1, { timeout: 10000 });
@@ -1042,7 +1047,7 @@ export class Assistant {
 	async expectVendorSeparator(vendor: string): Promise<void> {
 		await test.step(`Expect vendor separator: ${vendor}`, async () => {
 			await this._expandOtherModelsSection();
-			const locator = this.code.driver.currentPage.locator('.monaco-list-row.separator span.separator-label', { hasText: vendor });
+			const locator = this.code.driver.currentPage.locator('.monaco-list-row.separator span.separator-text', { hasText: vendor });
 			await expect(locator).toHaveCount(1);
 		});
 	}
