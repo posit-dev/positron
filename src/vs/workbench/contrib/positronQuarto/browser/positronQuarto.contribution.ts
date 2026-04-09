@@ -209,8 +209,10 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 		// Mark as attempted so we don't auto-start again on tab switches
 		this._autoStartedDocuments.add(key);
 
-		// Fire and forget - kernel startup is handled asynchronously
-		this._quartoKernelManager.ensureKernelForDocument(uri).catch(() => {
+		// Fire and forget - kernel startup is handled asynchronously.
+		// Use silent mode to avoid warning toasts for documents with no
+		// code cells (e.g. a blank new Quarto document).
+		this._quartoKernelManager.ensureKernelForDocument(uri, undefined, { silent: true }).catch(() => {
 			// Errors are handled internally by the kernel manager
 		});
 	}
@@ -244,7 +246,7 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 			}
 
 			this._autoStartedDocuments.add(key);
-			this._quartoKernelManager.ensureKernelForDocument(uri).catch(() => {
+			this._quartoKernelManager.ensureKernelForDocument(uri, undefined, { silent: true }).catch(() => {
 				// Errors are handled internally by the kernel manager
 			});
 		}
