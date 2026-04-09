@@ -300,10 +300,10 @@ class UninstallPackageAction extends Action2 {
 			title: nls.localize2('uninstallPackage', 'Uninstall Package'),
 			category: PACKAGES_CATEGORY,
 			f1: true,
-			precondition: ContextKeyExpr.and(POSITRON_PACKAGES_ENABLED, PACKAGES_HAS_SELECTION),
+			precondition: POSITRON_PACKAGES_ENABLED,
 			menu: {
 				id: MenuId.ViewTitle,
-				when: PACKAGES_VIEW_VISIBLE,
+				when: ContextKeyExpr.and(PACKAGES_VIEW_VISIBLE, PACKAGES_HAS_SELECTION),
 				group: 'packages',
 				order: 4
 			}
@@ -378,10 +378,10 @@ class UpdatePackageAction extends Action2 {
 			title: nls.localize2('updatePackage', 'Update Package'),
 			category: PACKAGES_CATEGORY,
 			f1: true,
-			precondition: ContextKeyExpr.and(POSITRON_PACKAGES_ENABLED, PACKAGES_HAS_SELECTION),
+			precondition: POSITRON_PACKAGES_ENABLED,
 			menu: {
 				id: MenuId.ViewTitle,
-				when: PACKAGES_VIEW_VISIBLE,
+				when: ContextKeyExpr.and(PACKAGES_VIEW_VISIBLE, PACKAGES_HAS_SELECTION),
 				group: 'packages',
 				order: 3
 			}
