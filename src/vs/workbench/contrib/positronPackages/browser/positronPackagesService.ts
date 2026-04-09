@@ -12,7 +12,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { LanguageRuntimeSessionMode } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageSpec, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronPackagesService } from './interfaces/positronPackagesService.js';
-import { POSITRON_PACKAGES_HAS_ACTIVE_SESSION, POSITRON_PACKAGES_IS_BUSY } from './positronPackagesContextKeys.js';
+import { POSITRON_PACKAGES_HAS_ACTIVE_SESSION, POSITRON_PACKAGES_HAS_SELECTED_PACKAGE, POSITRON_PACKAGES_IS_BUSY } from './positronPackagesContextKeys.js';
 import { IPositronPackagesInstance, PositronPackagesInstance } from './positronPackagesInstance.js';
 
 const TIMEOUT_REFRESH_MS = 5_000; // 5 seconds
@@ -34,6 +34,10 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 	// Context keys
 	private readonly _hasActiveSessionContextKey: IContextKey<boolean>;
 	private readonly _isBusyContextKey: IContextKey<boolean>;
+	private readonly _hasSelectedPackageContextKey: IContextKey<boolean>;
+
+	// Selected package
+	private _selectedPackage: string | undefined;
 
 	// Disposables for tracking busy state of the active instance
 	private readonly _activeInstanceDisposables = this._register(new DisposableStore());
@@ -60,6 +64,7 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		// Initialize context keys
 		this._hasActiveSessionContextKey = POSITRON_PACKAGES_HAS_ACTIVE_SESSION.bindTo(this._contextKeyService);
 		this._isBusyContextKey = POSITRON_PACKAGES_IS_BUSY.bindTo(this._contextKeyService);
+		this._hasSelectedPackageContextKey = POSITRON_PACKAGES_HAS_SELECTED_PACKAGE.bindTo(this._contextKeyService);
 
 		// Create new instances
 		this._register(this._runtimeSessionService.onWillStartSession((e) => {
@@ -167,6 +172,15 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 
 	get activePackagesInstance(): IPositronPackagesInstance | undefined {
 		return this._activeInstance;
+	}
+
+	get selectedPackage(): string | undefined {
+		return this._selectedPackage;
+	}
+
+	setSelectedPackage(packageName: string | undefined): void {
+		this._selectedPackage = packageName;
+		this._hasSelectedPackageContextKey.set(!!packageName);
 	}
 
 	async refreshPackages(token?: CancellationToken): Promise<ILanguageRuntimePackage[]> {

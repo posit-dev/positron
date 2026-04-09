@@ -350,7 +350,8 @@ class UninstallPackageAction extends Action2 {
 				}, () => cts.cancel());
 			};
 
-			const argPackage = args.at(0) as string | undefined;
+			// Use argument, then selected package, then fall back to picker
+			const argPackage = args.at(0) as string | undefined ?? service.selectedPackage;
 			if (argPackage) {
 				const res = await dialogService.confirm({
 					message: nls.localize('positronPackages.confirmUninstallPackage', "Are you sure you want to uninstall the package '{0}'?", argPackage)
@@ -432,7 +433,8 @@ class UpdatePackageAction extends Action2 {
 				}, () => cts.cancel());
 			};
 
-			const arg0 = args.at(0) as string | undefined;
+			// Use argument, then selected package, then fall back to picker
+			const arg0 = args.at(0) as string | undefined ?? service.selectedPackage;
 			await updatePackage(accessor, performSearch, performSearchVersions, performUpdate, arg0, cts);
 		} catch (error) {
 			notifications.error(cleanErrorMessage(error));

@@ -29,7 +29,6 @@ import { ILanguageRuntimePackage } from '../../../../services/runtimeSession/com
 import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progressbar.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { Separator } from '../../../../../base/common/actions.js';
-import { POSITRON_PACKAGES_HAS_SELECTED_PACKAGE } from '../positronPackagesContextKeys.js';
 
 const positronUninstallPackage = localize(
 	'positronUninstallPackage',
@@ -259,12 +258,15 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		);
 	};
 
-	// Update selected package context key when selection changes
+	// Update selected package in the service when selection changes
 	useEffect(() => {
-		const contextKey = POSITRON_PACKAGES_HAS_SELECTED_PACKAGE.bindTo(services.contextKeyService);
-		contextKey.set(!!selectedItem);
-		return () => contextKey.reset();
-	}, [selectedItem, services.contextKeyService]);
+		// Find the package name from the selected item id
+		const selectedPackageName = selectedItem
+			? deduplicatedPackages.find((pkg) => pkg.id === selectedItem)?.name
+			: undefined;
+		services.positronPackagesService.setSelectedPackage(selectedPackageName);
+		return () => services.positronPackagesService.setSelectedPackage(undefined);
+	}, [selectedItem, deduplicatedPackages, services.positronPackagesService]);
 
 	return (
 		// eslint-disable-next-line jsx-a11y/no-static-element-interactions
