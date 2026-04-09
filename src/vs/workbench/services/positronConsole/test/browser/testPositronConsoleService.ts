@@ -30,6 +30,8 @@ export class TestPositronConsoleService implements IPositronConsoleService {
 	 */
 	private _activePositronConsoleInstance?: IPositronConsoleInstance;
 
+	readonly isDeletingNotebookConsole = false;
+
 	/**
 	 * The console width in characters.
 	 */
