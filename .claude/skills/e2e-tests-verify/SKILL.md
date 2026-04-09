@@ -458,9 +458,9 @@ this check.
 PORT=$(cat /tmp/explore-runner-port) && curl -s -X POST "http://localhost:${PORT}/done"
 ```
 
-**Send `/done` BEFORE the file collision check, not in parallel with it.** The `ls` glob
-for collision checking exits non-zero when no files match, which cancels any parallel
-calls in the same message.
+**`/done` can be parallelized with screenshots** (e.g., `takeScreenshot` + `/done` in one message).
+But do NOT parallel `/done` with the file collision `ls` check -- the glob exits non-zero
+when no files match, which cancels parallel calls in the same message.
 
 **After reporting results and sending `/done`:**
 - **`--save`: Go directly to Step 6. Do NOT prompt. Do NOT use AskUserQuestion.**
