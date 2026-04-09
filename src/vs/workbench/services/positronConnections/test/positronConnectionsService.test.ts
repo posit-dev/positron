@@ -5,28 +5,33 @@
 
 import * as assert from 'assert';
 import * as sinon from 'sinon';
+import { TestInstantiationService } from '../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { PositronConnectionsService } from '../browser/positronConnectionsService.js';
 import { IPositronConnectionsService } from '../common/interfaces/positronConnectionsService.js';
 import { IDriver } from '../common/interfaces/positronConnectionsDriver.js';
 import { TestConnectionInstance } from './positronConnectionInstanceMock.js';
 import { TestSecretStorageService } from '../../../../platform/secrets/test/common/testSecretStorageService.js';
 import { ISecretStorageService } from '../../../../platform/secrets/common/secrets.js';
-import { startTestLanguageRuntimeSession } from '../../runtimeSession/test/common/testRuntimeSessionService.js';
+import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
+import { createRuntimeServices, startTestLanguageRuntimeSession } from '../../runtimeSession/test/common/testRuntimeSessionService.js';
 import { RuntimeClientType } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
-import { createTestContainer } from '../../../../workbench/test/browser/positronTestContainer.js';
 
 
 suite('Positron - Connections Service', () => {
 
-	const ctx = createTestContainer()
-		.withRuntimeServices()
-		.stub(ISecretStorageService, new TestSecretStorageService())
-		.build();
-
+	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+	let instantiationService: TestInstantiationService;
+	let secretStorageService: TestSecretStorageService;
 	let connectionsService: IPositronConnectionsService;
 
 	setup(async () => {
-		connectionsService = ctx.disposables.add(ctx.instantiationService.createInstance(
+		instantiationService = new TestInstantiationService();
+		createRuntimeServices(instantiationService, disposables);
+
+		secretStorageService = new TestSecretStorageService();
+		instantiationService.stub(ISecretStorageService, secretStorageService);
+
+		connectionsService = disposables.add(instantiationService.createInstance(
 			PositronConnectionsService
 		));
 	});
@@ -36,7 +41,7 @@ suite('Positron - Connections Service', () => {
 	});
 
 	async function createSession() {
-		const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+		const session = await startTestLanguageRuntimeSession(instantiationService, disposables);
 		return session;
 	}
 
@@ -55,10 +60,10 @@ suite('Positron - Connections Service', () => {
 
 	test('Add a connection', async () => {
 		const changeConnectionsSpy = sinon.spy();
-		ctx.disposables.add(connectionsService.onDidChangeConnections(changeConnectionsSpy));
+		disposables.add(connectionsService.onDidChangeConnections(changeConnectionsSpy));
 
 		const connectionId = 'test-connection-1';
-		const connectionInstance = ctx.disposables.add(new TestConnectionInstance(connectionId));
+		const connectionInstance = disposables.add(new TestConnectionInstance(connectionId));
 
 		connectionsService.addConnection(connectionInstance);
 		assert.equal(connectionsService.getConnections().length, 1);
@@ -77,11 +82,11 @@ suite('Positron - Connections Service', () => {
 
 	test('Sessions created by runtimes', async () => {
 		const changeConnectionsSpy = sinon.spy();
-		ctx.disposables.add(connectionsService.onDidChangeConnections(changeConnectionsSpy));
+		disposables.add(connectionsService.onDidChangeConnections(changeConnectionsSpy));
 
-		const session = ctx.disposables.add(await createSession());
+		const session = disposables.add(await createSession());
 
-		const client = ctx.disposables.add(await session.createClient(RuntimeClientType.Connection, {
+		const client = disposables.add(await session.createClient(RuntimeClientType.Connection, {
 			name: 'test-connection',
 			language_id: 'test',
 			code: 'hello world'
@@ -118,7 +123,7 @@ suite('Positron - Connections Service', () => {
 		const instance = connectionsService.getConnections()[0];
 		assert.equal(instance.metadata.name, 'test-connection');
 		const instanceEntriesChangedSpy = sinon.spy();
-		ctx.disposables.add(instance.onDidChangeEntries(instanceEntriesChangedSpy));
+		disposables.add(instance.onDidChangeEntries(instanceEntriesChangedSpy));
 
 		// Toggle expansion should trigger the connections service
 		// entries to change
@@ -143,7 +148,7 @@ suite('Positron - Connections Service', () => {
 		test('registerDriver fires onDidChangeDrivers', () => {
 			const driverManager = connectionsService.driverManager;
 			const changeDriversSpy = sinon.spy();
-			ctx.disposables.add(driverManager.onDidChangeDrivers(changeDriversSpy));
+			disposables.add(driverManager.onDidChangeDrivers(changeDriversSpy));
 
 			const driver = createTestDriver('driver-1');
 			driverManager.registerDriver(driver);
@@ -159,7 +164,7 @@ suite('Positron - Connections Service', () => {
 			const driver = createTestDriver('driver-1');
 			driverManager.registerDriver(driver);
 
-			ctx.disposables.add(driverManager.onDidChangeDrivers(changeDriversSpy));
+			disposables.add(driverManager.onDidChangeDrivers(changeDriversSpy));
 			driverManager.removeDriver('driver-1');
 
 			assert.equal(changeDriversSpy.callCount, 1);
