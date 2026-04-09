@@ -149,7 +149,7 @@ Use these to plan:
    ```
 2. **Validate testability** (see below)
 3. **Classify the changed files** from `--name-only` output: user-facing, shared component, test, build/CI, docs
-4. **Plan 5-10 test steps** from the PR title + body + file classification. The PR description tells you *what* to test. The file list tells you *where* the changes are and which POMs to use.
+4. **Plan 5-10 test steps** from the PR title + body + file classification. The PR description tells you *what* to test. The file list tells you *where* the changes are and which POMs to use. **Cover ALL languages/areas mentioned in the PR title** -- if the PR says "R and Python" or "R and Quarto", test both, not just one.
 5. Check file paths for feature flags (see table below)
 6. Check PR body for browser hints (see Browser Selection below)
 
@@ -425,12 +425,12 @@ Write a standalone `.test.ts` file when saving (via `--save` flag, or user said 
 - `MMDD` is the current date (e.g., `0405`)
 - `<pr>` is the PR number if available, omit if free-text or `--branch`
 - `<slug>` is a short kebab-case summary (e.g., `variable-filter`)
-- **If the file already exists**, append `-1`, `-2`, etc. to the date:
-  `0406_12025-ghost-cell-info.test.ts` -> `0406-1_12025-ghost-cell-info.test.ts`
+- **If the file already exists**, append `-2`, `-3`, etc. after the PR number (or slug):
+  `0406_456-ghost-cell-info.test.ts` -> `0406_456-ghost-cell-info-2.test.ts`
   Check with: `ls test/e2e/tests/_generated/MMDD*<pr>-<slug>* 2>/dev/null`
 - Examples:
   - `test/e2e/tests/_generated/0405_456-notebook-outline.test.ts`
-  - `test/e2e/tests/_generated/0405-1_456-notebook-outline.test.ts` (second run same day)
+  - `test/e2e/tests/_generated/0405_456-notebook-outline-2.test.ts` (second run same day)
   - `test/e2e/tests/_generated/0404_console-sessions.test.ts` (free-text, no PR)
 
 **Format:**
