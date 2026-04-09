@@ -23,12 +23,12 @@ import { IViewContainersRegistry, IViewsRegistry, Extensions as ViewContainerExt
 import { ILanguageRuntimePackage, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { positronSessionViewIcon } from '../../positronSession/browser/positronSessionContainer.js';
 import { IPositronPackagesService } from './interfaces/positronPackagesService.js';
+import { PACKAGES_CAN_RUN_ACTION, PACKAGES_HAS_SELECTION, PACKAGES_VIEW_VISIBLE, POSITRON_PACKAGES_VIEW_ID } from './positronPackagesContextKeys.js';
 import { installPackage, uninstallPackage, updatePackage } from './positronPackagesQuickPick.js';
 import { PositronPackagesService } from './positronPackagesService.js';
 import { PositronPackagesView } from './positronPackagesView.js';
 
 export const POSITRON_PACKAGES_VIEW_CONTAINER_ID = 'workbench.viewContainer.positronPackages';
-export const POSITRON_PACKAGES_VIEW_ID = 'workbench.view.positronPackages.view';
 
 const POSITRON_PACKAGES_ENABLED = ContextKeyExpr.equals('config.positron.environments.enable', true);
 
@@ -183,7 +183,14 @@ class RefreshPackagesAction extends Action2 {
 			title: nls.localize2('refreshPackages', 'Refresh Packages'),
 			category: PACKAGES_CATEGORY,
 			f1: true,
+			icon: Codicon.refresh,
 			precondition: POSITRON_PACKAGES_ENABLED,
+			menu: {
+				id: MenuId.ViewTitle,
+				when: ContextKeyExpr.and(PACKAGES_VIEW_VISIBLE, PACKAGES_CAN_RUN_ACTION),
+				group: 'navigation',
+				order: 1
+			}
 		});
 	}
 	override async run(accessor: ServicesAccessor): Promise<ILanguageRuntimePackage[]> {
@@ -222,6 +229,12 @@ class InstallPackageAction extends Action2 {
 			category: PACKAGES_CATEGORY,
 			f1: true,
 			precondition: POSITRON_PACKAGES_ENABLED,
+			menu: {
+				id: MenuId.ViewTitle,
+				when: ContextKeyExpr.and(PACKAGES_VIEW_VISIBLE, PACKAGES_CAN_RUN_ACTION),
+				group: 'packages',
+				order: 1
+			}
 		});
 	}
 	override async run(accessor: ServicesAccessor): Promise<void> {
@@ -288,6 +301,12 @@ class UninstallPackageAction extends Action2 {
 			category: PACKAGES_CATEGORY,
 			f1: true,
 			precondition: POSITRON_PACKAGES_ENABLED,
+			menu: {
+				id: MenuId.ViewTitle,
+				when: ContextKeyExpr.and(PACKAGES_VIEW_VISIBLE, PACKAGES_HAS_SELECTION),
+				group: 'packages',
+				order: 4
+			}
 		});
 	}
 	override async run(accessor: ServicesAccessor, ...args: unknown[]): Promise<void> {
@@ -360,10 +379,10 @@ class UpdatePackageAction extends Action2 {
 			f1: true,
 			precondition: POSITRON_PACKAGES_ENABLED,
 			menu: {
-				id: MenuId.ViewItemContext,
-				when: ContextKeyExpr.equals('view', POSITRON_PACKAGES_VIEW_ID),
-				group: 'navigation',
-				order: 1
+				id: MenuId.ViewTitle,
+				when: ContextKeyExpr.and(PACKAGES_VIEW_VISIBLE, PACKAGES_HAS_SELECTION),
+				group: 'packages',
+				order: 3
 			}
 		});
 	}
@@ -433,10 +452,10 @@ class UpdateAllPackagesAction extends Action2 {
 			f1: true,
 			precondition: POSITRON_PACKAGES_ENABLED,
 			menu: {
-				id: MenuId.ViewItemContext,
-				when: ContextKeyExpr.equals('view', POSITRON_PACKAGES_VIEW_ID),
-				group: 'navigation',
-				order: 1
+				id: MenuId.ViewTitle,
+				when: ContextKeyExpr.and(PACKAGES_VIEW_VISIBLE, PACKAGES_CAN_RUN_ACTION),
+				group: 'packages',
+				order: 2
 			}
 		});
 	}
