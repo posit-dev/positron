@@ -73,6 +73,12 @@ suite('Positron - ForegroundSessionContribution', () => {
 		return runtimeSessionService.foregroundSession?.sessionId;
 	}
 
+	suiteTeardown(() => {
+		onDidActiveEditorChange.dispose();
+		onDidAddNotebookInstance.dispose();
+		onDidRemoveNotebookInstance.dispose();
+	});
+
 	setup(() => {
 		runtimeSessionService = ctx.instantiationService.get(IRuntimeSessionService);
 		configService = ctx.instantiationService.get(IConfigurationService) as TestConfigurationService;
@@ -424,10 +430,151 @@ suite('Positron - ForegroundSessionContribution', () => {
 			// The foreground should be cleared
 			assert.strictEqual(runtimeSessionService.foregroundSession, undefined);
 		});
+
+		test('sets cached display info when deleted session was the foreground notebook session', async () => {
+			const session = await startNotebookSession();
+			runtimeSessionService.foregroundSession = session;
+
+			// Exit and delete
+			const exitedPromise = waitForRuntimeState(session, RuntimeState.Exited);
+			session.setRuntimeState(RuntimeState.Exited);
+			await exitedPromise;
+			await runtimeSessionService.deleteSession(session.sessionId);
+
+			// Cached display info should be set so the interpreter picker shows last used runtime
+			assert.ok(
+				runtimeSessionService.foregroundSessionDisplayInfo,
+				'Expected foregroundSessionDisplayInfo to be set from cached info after deletion'
+			);
+		});
+
+		test('does not clear foreground when a console session is deleted', async () => {
+			const consoleSession = await startConsoleSession();
+			const notebookSession = await startNotebookSession();
+			runtimeSessionService.foregroundSession = notebookSession;
+
+			// Exit and delete the console session
+			const exitedPromise = waitForRuntimeState(consoleSession, RuntimeState.Exited);
+			(consoleSession as TestLanguageRuntimeSession).setRuntimeState(RuntimeState.Exited);
+			await exitedPromise;
+			await runtimeSessionService.deleteSession(consoleSession.sessionId);
+
+			// Notebook session should still be foreground
+			assert.strictEqual(
+				runtimeSessionService.foregroundSession?.sessionId,
+				notebookSession.sessionId
+			);
+		});
+	});
+
+	suite('Quarto session started/ready sets foreground', () => {
+		const quartoUri = URI.file('/path/to/doc.qmd');
+
+		test('sets foreground when Quarto session starts and Quarto file is active code editor', async () => {
+			configService.setUserConfiguration(POSITRON_QUARTO_INLINE_OUTPUT_KEY, true);
+
+			// Set Quarto file as active code editor
+			const codeEditor = createMockCodeEditor(quartoUri, 'quarto');
+			activeEditor = { typeId: 'text', resource: quartoUri } as unknown as EditorInput;
+			activeCodeEditor = codeEditor;
+
+			// Start a notebook session for the Quarto URI -- the onDidStartRuntime event fires
+			const session = await startNotebookSession(quartoUri);
+
+			assert.strictEqual(
+				runtimeSessionService.foregroundSession?.sessionId,
+				session.sessionId
+			);
+		});
+
+		test('does not set foreground when Quarto inline output is disabled', async () => {
+			configService.setUserConfiguration(POSITRON_QUARTO_INLINE_OUTPUT_KEY, false);
+			const consoleSession = await startConsoleSession();
+
+			const codeEditor = createMockCodeEditor(quartoUri, 'quarto');
+			activeEditor = { typeId: 'text', resource: quartoUri } as unknown as EditorInput;
+			activeCodeEditor = codeEditor;
+
+			await startNotebookSession(quartoUri);
+
+			// Should not have changed from the console session
+			assert.strictEqual(
+				runtimeSessionService.foregroundSession?.sessionId,
+				consoleSession.sessionId
+			);
+		});
+
+		test('sets foreground when Quarto session becomes ready and Quarto file is active', async () => {
+			configService.setUserConfiguration(POSITRON_QUARTO_INLINE_OUTPUT_KEY, true);
+
+			const codeEditor = createMockCodeEditor(quartoUri, 'quarto');
+			activeEditor = { typeId: 'text', resource: quartoUri } as unknown as EditorInput;
+			activeCodeEditor = codeEditor;
+
+			const session = await startNotebookSession(quartoUri);
+			runtimeSessionService.foregroundSession = undefined;
+
+			// Simulate the session becoming ready (e.g. after restart)
+			session.setRuntimeState(RuntimeState.Ready);
+
+			assert.strictEqual(
+				runtimeSessionService.foregroundSession?.sessionId,
+				session.sessionId
+			);
+		});
+
+		test('does not set foreground when a different file is the active editor', async () => {
+			configService.setUserConfiguration(POSITRON_QUARTO_INLINE_OUTPUT_KEY, true);
+			const consoleSession = await startConsoleSession();
+
+			// Active editor is a regular file, not the Quarto file
+			const codeEditor = createMockCodeEditor(URI.file('/path/to/other.py'), 'python');
+			activeEditor = { typeId: 'text', resource: URI.file('/path/to/other.py') } as unknown as EditorInput;
+			activeCodeEditor = codeEditor;
+
+			await startNotebookSession(quartoUri);
+
+			assert.strictEqual(
+				runtimeSessionService.foregroundSession?.sessionId,
+				consoleSession.sessionId
+			);
+		});
+	});
+
+	suite('Quarto editor cached session info', () => {
+		test('uses cached session info when Quarto file has no active session', async () => {
+			configService.setUserConfiguration(POSITRON_QUARTO_INLINE_OUTPUT_KEY, true);
+
+			const quartoUri = URI.file('/path/to/doc.qmd');
+
+			// Start and exit a Quarto session to create cached info
+			const session = await startNotebookSession(quartoUri);
+			const exitedPromise = waitForRuntimeState(session, RuntimeState.Exited);
+			session.setRuntimeState(RuntimeState.Exited);
+			await exitedPromise;
+			await runtimeSessionService.deleteSession(session.sessionId);
+
+			// Set Quarto file as active editor
+			const codeEditor = createMockCodeEditor(quartoUri, 'quarto');
+			activeEditor = { typeId: 'text', resource: quartoUri } as unknown as EditorInput;
+			activeCodeEditor = codeEditor;
+			onDidActiveEditorChange.fire();
+
+			// No live session, foreground should be cleared
+			assert.strictEqual(runtimeSessionService.foregroundSession, undefined);
+			// Cached display info should be set
+			assert.ok(
+				runtimeSessionService.foregroundSessionDisplayInfo,
+				'Expected foregroundSessionDisplayInfo to be set from cached Quarto session info'
+			);
+		});
 	});
 
 	suite('dispose', () => {
 		test('cleans up disposable maps without errors', () => {
+			// Create a standalone instance so we can dispose it without double-dispose
+			const disposableContribution = ctx.instantiationService.createInstance(ForegroundSessionContribution);
+
 			// Register a mock notebook instance to create disposables
 			const mockInstance = {
 				getId: () => 'instance-1',
@@ -437,7 +584,7 @@ suite('Positron - ForegroundSessionContribution', () => {
 			onDidAddNotebookInstance.fire(mockInstance);
 
 			// Disposing should not throw
-			contribution.dispose();
+			disposableContribution.dispose();
 		});
 	});
 });

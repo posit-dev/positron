@@ -5,7 +5,7 @@
 
 import assert from 'assert';
 import sinon from 'sinon';
-import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { DisposableStore, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { ResourceMap } from '../../../../../base/common/map.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ILanguageRuntimeMessageError, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeExitReason, RuntimeOnlineState, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
@@ -84,6 +84,11 @@ suite('Positron - RuntimeNotebookKernel', () => {
 				return { value: mockWidget };
 			}
 		});
+
+		// Clean up active sessions between tests to prevent leakage.
+		ctx.disposables.add(toDisposable(() => {
+			runtimeSessionService.activeSessions.map(s => s.dispose());
+		}));
 
 		// Create a test language runtime.
 		runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);

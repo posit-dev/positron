@@ -8,7 +8,7 @@ import { Emitter } from '../../../../../base/common/event.js';
 import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
-import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
+import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
@@ -106,7 +106,7 @@ class MockRuntimeSessionService extends Disposable implements Partial<IRuntimeSe
 }
 
 suite('ActiveRuntimeNotebookContextManager', () => {
-	const { disposables } = createTestContainer().build();
+	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 	const textUri = URI.file('script.py');
 	const notebookUri = URI.file('notebook.ipynb');
 	const notebookUri2 = URI.file('notebook2.ipynb');

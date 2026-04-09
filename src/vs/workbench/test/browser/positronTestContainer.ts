@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -194,7 +194,7 @@ class PositronTestContainerBuilder {
 		// This is safe because tests only access these after setup has run.
 		const result: TestContainerResult = {
 			get instantiationService() { return _instantiationService; },
-			get: <T>(id: ServiceIdentifier<T>) => _instantiationService.get(id),
+			get<T>(id: ServiceIdentifier<T>) { return _instantiationService.get(id); },
 			disposables,
 		};
 		return result;

@@ -158,6 +158,7 @@ Agent({
 For each issue:
 1. Apply the fix
 2. Re-run the affected test
+3. Re-run the area-wide glob from Phase 2 step 5 (`./scripts/test.sh --runGlob '<glob>.test.js'`) to confirm no regressions
 
 Present the dev with a summary:
 - How many issues the review caught

@@ -15,6 +15,7 @@ Use `createTestContainer()` from `src/vs/workbench/test/browser/positronTestCont
 - `.withRuntimeServices()` -- language runtime + session services (~18)
 - `.withNotebookServices()` -- runtime + notebook/kernel services (+8)
 - `.withWorkbenchServices()` -- full Positron stack (124+)
+- `.withContributionServices()` -- full stack + Event.None stubs for contribution constructors (editor, notebook, Quarto events)
 
 Use `.stub(IService, impl)` to add or override individual services after any preset.
 

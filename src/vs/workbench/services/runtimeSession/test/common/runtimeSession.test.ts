@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -1351,6 +1351,54 @@ suite('Positron - RuntimeSessionService', () => {
 				runtimeSessionService.getLastActiveConsoleSession(),
 				undefined,
 				'Expected last active console session to be cleared after deletion'
+			);
+		});
+	});
+
+	suite('foregroundSessionDisplayInfo', () => {
+		test('syncs with foreground session when set', async () => {
+			const session = await startConsole(runtime);
+			runtimeSessionService.foregroundSession = session;
+
+			const displayInfo = runtimeSessionService.foregroundSessionDisplayInfo;
+			assert.ok(displayInfo, 'Expected display info to be set when foreground session is set');
+			assert.strictEqual(displayInfo.sessionName, session.dynState.sessionName);
+		});
+
+		test('is cleared when foreground session is cleared', async () => {
+			const session = await startConsole(runtime);
+			runtimeSessionService.foregroundSession = session;
+			assert.ok(runtimeSessionService.foregroundSessionDisplayInfo);
+
+			runtimeSessionService.foregroundSession = undefined;
+			assert.strictEqual(
+				runtimeSessionService.foregroundSessionDisplayInfo,
+				undefined,
+				'Expected display info to be cleared when foreground session is cleared'
+			);
+		});
+
+		test('can be set independently for cached notebook info', async () => {
+			const session = await startNotebook(runtime);
+			const sessionNotebookUri = session.metadata.notebookUri!;
+
+			// Exit the session to create cached info
+			const exitedPromise = waitForRuntimeState(session, RuntimeState.Exited);
+			session.setRuntimeState(RuntimeState.Exited);
+			await exitedPromise;
+
+			// Clear foreground and set cached display info directly
+			runtimeSessionService.foregroundSession = undefined;
+			const cachedInfo = runtimeSessionService.getLastNotebookSessionInfo(sessionNotebookUri);
+			assert.ok(cachedInfo);
+			runtimeSessionService.foregroundSessionDisplayInfo = cachedInfo;
+
+			// Display info should be set even though no foreground session
+			assert.strictEqual(runtimeSessionService.foregroundSession, undefined);
+			assert.ok(runtimeSessionService.foregroundSessionDisplayInfo);
+			assert.strictEqual(
+				runtimeSessionService.foregroundSessionDisplayInfo.sessionName,
+				session.dynState.sessionName
 			);
 		});
 	});
