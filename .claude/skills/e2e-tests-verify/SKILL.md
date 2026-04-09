@@ -425,12 +425,12 @@ Write a standalone `.test.ts` file when saving (via `--save` flag, or user said 
 - `MMDD` is the current date (e.g., `0405`)
 - `<pr>` is the PR number if available, omit if free-text or `--branch`
 - `<slug>` is a short kebab-case summary (e.g., `variable-filter`)
-- **If the file already exists**, append `-2`, `-3`, etc. after the PR number (or slug):
-  `0406_456-ghost-cell-info.test.ts` -> `0406_456-ghost-cell-info-2.test.ts`
-  Check with: `ls test/e2e/tests/_generated/MMDD*<pr>-<slug>* 2>/dev/null`
+- **If the file already exists**, insert `-2`, `-3`, etc. after the PR number (or after the date if no PR):
+  `0406_456-ghost-cell-info.test.ts` -> `0406_456-2-ghost-cell-info.test.ts`
+  Check with: `ls test/e2e/tests/_generated/MMDD*<pr>* 2>/dev/null`
 - Examples:
   - `test/e2e/tests/_generated/0405_456-notebook-outline.test.ts`
-  - `test/e2e/tests/_generated/0405_456-notebook-outline-2.test.ts` (second run same day)
+  - `test/e2e/tests/_generated/0405_456-2-notebook-outline.test.ts` (second run same day)
   - `test/e2e/tests/_generated/0404_console-sessions.test.ts` (free-text, no PR)
 
 **Format:**
