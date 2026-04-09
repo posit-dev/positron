@@ -6,6 +6,7 @@
 /* eslint-disable local/code-no-dangerous-type-assertions */
 
 import assert from 'assert';
+import sinon from 'sinon';
 import { Emitter } from '../../../../../base/common/event.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { setupReactRenderer } from '../../../../../base/test/browser/react.js';
@@ -100,15 +101,23 @@ suite('useMenuActions', () => {
 			onDidChange = disposables.add(new Emitter<IMenuChangeEvent>());
 		});
 
+		/** Tracks all menus created by the mock service. */
+		let createdMenus: { menu: IMenu; dispose: sinon.SinonSpy }[];
+
 		function createServices(): PositronReactServices {
-			const menu: IMenu = {
-				onDidChange: onDidChange.event,
-				dispose: () => { },
-				getActions: () => menuActions,
-			};
+			createdMenus = [];
 			const menuService: IMenuService = {
 				_serviceBrand: undefined,
-				createMenu: () => menu,
+				createMenu: () => {
+					const dispose = sinon.spy();
+					const menu: IMenu = {
+						onDidChange: onDidChange.event,
+						dispose,
+						getActions: () => menuActions,
+					};
+					createdMenus.push({ menu, dispose });
+					return menu;
+				},
 				getMenuActions: () => [],
 				getMenuContexts: () => new Set(),
 				resetHiddenStates: () => { },
@@ -198,6 +207,53 @@ suite('useMenuActions', () => {
 				</PositronReactServicesContext.Provider>
 			);
 			assert.deepStrictEqual(captured, [], 'actions must clear when service disappears');
+		});
+
+		test('clears stale actions and disposes old menu on contextKeyService identity swap', () => {
+			menuActions = [['g', [action('a1')]]];
+			let captured: Actions = [];
+			const services = createServices();
+
+			const serviceA = contextKeyService;
+			const serviceB = disposables.add(new MockContextKeyService());
+
+			// Mount with service A and settle
+			const withA = (
+				<PositronReactServicesContext.Provider value={services}>
+					<ComposedHarness
+						contextKeyService={serviceA}
+						onActions={a => { captured = a; }}
+					/>
+				</PositronReactServicesContext.Provider>
+			);
+			render(withA);
+			render(withA);
+			assert.deepStrictEqual(captured, [['g', [action('a1')]]]);
+			assert.strictEqual(createdMenus.length, 1, 'one menu created for service A');
+
+			// Swap to service B -- stale actions must not leak on first render
+			render(
+				<PositronReactServicesContext.Provider value={services}>
+					<ComposedHarness
+						contextKeyService={serviceB}
+						onActions={a => { captured = a; }}
+					/>
+				</PositronReactServicesContext.Provider>
+			);
+			assert.deepStrictEqual(captured, [], 'stale actions from service A must not appear');
+
+			// Settle the effect for service B
+			render(
+				<PositronReactServicesContext.Provider value={services}>
+					<ComposedHarness
+						contextKeyService={serviceB}
+						onActions={a => { captured = a; }}
+					/>
+				</PositronReactServicesContext.Provider>
+			);
+			assert.deepStrictEqual(captured, [['g', [action('a1')]]], 'actions from service B menu');
+			assert.strictEqual(createdMenus.length, 2, 'a new menu was created for service B');
+			sinon.assert.calledOnce(createdMenus[0].dispose);
 		});
 	});
 });
