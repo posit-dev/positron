@@ -144,12 +144,12 @@ If any new file uses manual instantiation service creation, rewrite it to use `c
 
 ## Phase 3: Independent Review
 
-After all tests pass and builder enforcement is confirmed, spawn **one** review subagent for all new/modified test files. Use the checklist from `.claude/commands/unit-tests-review.md`.
+After all tests pass and builder enforcement is confirmed, spawn **one** review subagent for all new/modified test files. Use the checklist from `.claude/commands/review-unit-tests.md`.
 
 ```
 Agent({
   description: "Review all new tests",
-  prompt: "Review these test files using the checklist in .claude/commands/unit-tests-review.md:\n\n<list each test file and its source file>"
+  prompt: "Review these test files using the checklist in .claude/commands/review-unit-tests.md:\n\n<list each test file and its source file>"
 })
 ```
 

@@ -1,5 +1,5 @@
 ---
-name: positron-e2e-tests
+name: author-e2e-tests
 description: This skill should be used when writing, debugging, or maintaining Playwright e2e tests for Positron. Load this skill when creating new test files, adding test cases, fixing flaky tests, or understanding the test infrastructure.
 ---
 
