@@ -131,7 +131,7 @@ class PositronTestContainerBuilder {
 	 */
 	build(): TestContainerResult {
 		const disposables = ensureNoDisposablesAreLeakedInTestSuite();
-		const stubs = this._stubs;
+		const stubs = [...this._stubs];
 		const useRuntimeServices = this._useRuntimeServices;
 		const useNotebookServices = this._useNotebookServices;
 		const useWorkbenchServices = this._useWorkbenchServices;
@@ -179,10 +179,10 @@ class PositronTestContainerBuilder {
 				_instantiationService.stub(INotebookKernelService, disposables.add(_instantiationService.createInstance(NotebookKernelService)));
 				_instantiationService.stub(INotebookLoggingService, disposables.add(_instantiationService.createInstance(NotebookLoggingService)));
 			} else if (useRuntimeServices) {
-				_instantiationService = new TestInstantiationService(new ServiceCollection());
+				_instantiationService = disposables.add(new TestInstantiationService(new ServiceCollection()));
 				createRuntimeServices(_instantiationService, disposables);
 			} else {
-				_instantiationService = new TestInstantiationService(new ServiceCollection());
+				_instantiationService = disposables.add(new TestInstantiationService(new ServiceCollection()));
 			}
 
 			for (const { id, impl } of stubs) {

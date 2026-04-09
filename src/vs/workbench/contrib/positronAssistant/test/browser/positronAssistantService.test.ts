@@ -27,7 +27,6 @@ import { createTestContainer } from '../../../../../workbench/test/browser/posit
 suite('PositronAssistantService', () => {
 	const ctx = createTestContainer()
 		.withRuntimeServices()
-		.stub(IRuntimeStartupService, new TestRuntimeStartupService())
 		.build();
 
 	let testVariablesService: TestPositronVariablesService;
@@ -36,6 +35,8 @@ suite('PositronAssistantService', () => {
 	let testNotebookSession: TestLanguageRuntimeSession;
 
 	setup(async () => {
+		// Create fresh mutable stubs per test to avoid state leakage
+		ctx.instantiationService.stub(IRuntimeStartupService, new TestRuntimeStartupService());
 		testVariablesService = new TestPositronVariablesService();
 
 		// Stub services that need disposables or createInstance

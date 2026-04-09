@@ -80,7 +80,7 @@ Wait for confirmation before proceeding to Phase 2.
 
 ### Writing each test
 
-Always use `createTestContainer()` for test files in `test/browser/` or `tests/browser/` directories. **Exception:** the builder lives in the `browser` layer and transitively imports CSS. Files that run in the Node.js test runner (`test/common/`, `tests/common/`, or `test/` without a `browser` sublayer) CANNOT use the builder. Those files must use `ensureNoDisposablesAreLeakedInTestSuite()` directly. When in doubt, check if the test directory contains a `browser/` subfolder.
+Always use `createTestContainer()` for test files in `test/browser/`, `tests/browser/`, or `test/electron-browser/` directories. **Exception:** the builder lives in the `browser` layer and transitively imports CSS. Files that run in the Node.js test runner (`test/common/`, `tests/common/`, or `test/` without a `browser` sublayer) CANNOT use the builder. Those files must use `ensureNoDisposablesAreLeakedInTestSuite()` directly. When in doubt, check whether the path of the test file itself includes a `browser/` or `electron-browser/` segment.
 
 For each approved item:
 

@@ -83,6 +83,9 @@ suite('Positron - ForegroundSessionContribution', () => {
 		notebookInstances = [];
 		quartoSessionForDocument = undefined;
 
+		// Reset Quarto config to avoid leakage between tests
+		configService.setUserConfiguration(POSITRON_QUARTO_INLINE_OUTPUT_KEY, undefined);
+
 		// Create the contribution
 		contribution = ctx.disposables.add(
 			ctx.instantiationService.createInstance(ForegroundSessionContribution)
