@@ -394,7 +394,15 @@ PORT=$(cat /tmp/explore-runner-port) && curl -s -X POST "http://localhost:${PORT
   ]}'
 ```
 
-See `references/runner-api.md` for full API documentation, response formats, scoping, explore mode routes, and action tables.
+See `references/runner-api.md` for full API documentation, response formats, scoping, explore mode routes, action tables, and **timeout tiers**.
+
+**Timeout discipline:** Failed steps burn their full timeout doing nothing useful. Use
+the shortest timeout that covers the happy path -- see the Timeout Tiers table in
+`references/runner-api.md`. Key rules:
+- `stepTimeout: 5000` covers assertions and UI checks (the majority of steps -- 5s is plenty)
+- Override to `15000-20000` for code execution, cell runs, output waits
+- Override to `30000-40000` ONLY for session starts and kernel connections
+- **Never set timeout above 20s** for anything other than session/kernel steps
 
 **POM first, raw never (for assertions):** Do NOT use raw selectors, evaluate, or screenshots for verification when a POM method exists. Look for `expect*` and `waitFor*` methods in the POM reference -- these are assertion methods with built-in retries. Raw actions (`snapshot`, `takeScreenshot`) are for **debugging failures**, not for assertions.
 

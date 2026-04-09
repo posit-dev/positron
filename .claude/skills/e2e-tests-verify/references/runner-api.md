@@ -54,12 +54,12 @@ on a doomed step wastes more time than a rare false-negative retry.
 
 | Tier | Timeout | Operations |
 |------|---------|------------|
-| **Fast** (default) | 10s | UI assertions (`expect*`, `waitFor*`), visibility checks, clicks, shape/content verification, `snapshot`, `takeScreenshot` |
+| **Fast** (default) | 5s | UI assertions (`expect*`, `waitFor*`), visibility checks, clicks, shape/content verification, `snapshot`, `takeScreenshot` |
 | **Medium** | 15-20s | Code execution (`executeCode`, `runCodeAtIndex`, `runAllCells`, `runCurrentCell`), file creation (`createFile`, `openFile`), output waits (`expectOutputVisible`) |
 | **Slow** | 30-40s | Session starts (`sessions.start`), first kernel connection (`expectKernelIdle`, `expectKernelStatusVisible`), settings with reload |
 
 **Rules:**
-- Set `stepTimeout: 10000` (covers Fast tier automatically)
+- Set `stepTimeout: 5000` (covers Fast tier automatically)
 - Override per-step `timeout` only for Medium and Slow tiers
 - **Never set timeout above 20s** unless the step is a session start or kernel connection
 - If a step times out at 15s, the fix is diagnosing why it failed -- not doubling the timeout
