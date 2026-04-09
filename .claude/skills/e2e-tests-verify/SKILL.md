@@ -212,8 +212,12 @@ setup and assertion patterns (see `references/diff-analysis.md` -- "Check existi
 tests for setup patterns"). This adds 2-3 messages but produces tests that better
 match existing conventions. Without this flag, skip ALL extra file reading -- no
 existing test files, no test data files (.qmd, .py, .r), no reading file contents
-for line numbers. Open files by path only. Every extra Read after the runner is
-ready is wasted time.
+for line numbers. Every extra Read after the runner is ready is wasted time.
+
+**Prefer creating test files on the fly** over reading files from qa-example-content.
+Use the `createFile` action to write a `.qmd`, `.py`, `.R`, or `.csv` with exactly
+the content you need, then open and test it. Self-contained tests are faster to plan
+(no file reading needed) and don't depend on external test data.
 
 **Shared test references:**
 

@@ -165,6 +165,38 @@ export const actionCatalog: Record<string, ActionFn> = {
 	},
 
 	// =========================================================================
+	// Custom: File creation
+	// =========================================================================
+
+	/**
+	 * Create a file with the given content and open it in the editor.
+	 * Use this to create test files on the fly (.qmd, .py, .R, .csv, etc.)
+	 * instead of depending on qa-example-content files.
+	 * params: { filename: string, content: string }
+	 */
+	createFile: async (app, params) => {
+		const filename = params.filename;
+		const content = params.content;
+		if (!filename) {
+			throw new Error('createFile requires a "filename" param');
+		}
+		if (content === undefined) {
+			throw new Error('createFile requires a "content" param');
+		}
+		const tempPath = path.join(app.workspacePathOrFolder, filename);
+
+		// Ensure parent directory exists
+		const dir = path.dirname(tempPath);
+		if (!fs.existsSync(dir)) {
+			fs.mkdirSync(dir, { recursive: true });
+		}
+
+		fs.writeFileSync(tempPath, content);
+		await app.workbench.quickaccess.openFile(tempPath);
+		return `Created and opened ${tempPath}`;
+	},
+
+	// =========================================================================
 	// Custom: Assistant (methods with workspace path or non-obvious signatures)
 	// =========================================================================
 

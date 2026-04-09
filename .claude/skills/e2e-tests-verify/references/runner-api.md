@@ -172,6 +172,7 @@ jq -n --arg code 'print("hello world")' \
 | `openDataFile` | `{"path": "data.csv"}` | Open data file in Data Explorer |
 | `newNotebook` | `{"codeCells?": 1, "markdownCells?": 0, "language?": "Python" (default), "clearCells?": true}` | Create notebook; defaults to Python kernel (pass `null` to skip) |
 | `runCodeInEditor` | `{"code": "x <- 42", "language?": "r"}` | Write code to temp file and execute via Cmd+Enter |
+| `createFile` | `{"filename": "test.qmd", "content": "---\ntitle: Test\n---\n```{r}\ndf <- data.frame(x=1:3)\ndf\n```"}` | Create a file with content and open it. Use for .qmd, .py, .R, .csv, etc. Prefer this over reading qa-example-content files. |
 | `contextMenu` | `{"selector": ".el", "menuItem": "Pin Row", "button?": "right"}` | Right-click and select from context menu (handles native macOS menus) |
 | `getChatResponseText` | `{}` | Get assistant response (needs workspace path) |
 | `getAvailableTools` | `{}` | Get assistant tools (needs workspace path) |
