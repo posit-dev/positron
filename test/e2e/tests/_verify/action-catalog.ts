@@ -90,7 +90,9 @@ export const actionCatalog: Record<string, ActionFn> = {
 
 	/**
 	 * Create a new Positron notebook (enables setting, reloads, creates).
-	 * params: { codeCells?: number, markdownCells?: number }
+	 * params: { codeCells?: number, markdownCells?: number, language?: 'Python' | 'R' | null, clearCells?: boolean }
+	 * Pass language to select a kernel (triggers interpreter startup). Pass null to skip kernel selection.
+	 * Use sessions.start() before this action if you need the interpreter fully ready before running cells.
 	 */
 	newNotebook: async (app, params) => {
 		// Enable Positron notebooks; only browser/web mode needs a reload for this setting

@@ -251,9 +251,14 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
-	 * Action: Create a new Positron notebook.
-	 * @param codeCells - Number of code cells to create
-	 * @param markdownCells - Number of markdown cells to create
+	 * Action: Create a new Positron notebook and optionally select a kernel.
+	 * When `language` is set, the kernel is selected which triggers interpreter
+	 * discovery and startup. Use `sessions.start()` beforehand if you need the
+	 * interpreter fully ready before running cells.
+	 * @param codeCells - Number of code cells to create (default 0)
+	 * @param markdownCells - Number of markdown cells to create (default 0)
+	 * @param language - Kernel language to select: 'Python' or 'R'. Omit to skip kernel selection.
+	 * @param clearCells - Whether to clear default cell content after adding cells (default false)
 	 */
 	async newNotebook({
 		codeCells = 0,
