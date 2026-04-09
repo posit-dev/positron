@@ -6,16 +6,12 @@ The diff source depends on the input mode:
 
 **If PR number (primary mode):**
 
-The diff is fetched during the parallel launch in Step 2. By the time diff analysis
-runs, these results are already available:
+These are fetched in the IMMEDIATE parallel launch (Message 1):
 ```bash
-# Fetched in parallel during Step 2:
-gh pr diff <pr-number> --repo posit-dev/positron | head -2000
-gh pr view <pr-number> --repo posit-dev/positron --json title,body,labels
-
-# File list (extract from diff output or run separately):
+gh pr view <pr-number> --repo posit-dev/positron --json title,body,labels | head -100
 gh pr diff <pr-number> --repo posit-dev/positron --name-only
 ```
+The full diff (`gh pr diff | head -2000`) is only fetched in `--deep` mode.
 
 **If `--branch` (no argument or a branch name):**
 ```bash
@@ -36,13 +32,13 @@ Enrichment is fetched during the parallel launch in Step 2. These are secondary 
 that improve test plan quality but are not required:
 
 ```bash
-# PR metadata (always fetched in parallel for PR input):
-gh pr view <pr-number> --repo posit-dev/positron --json title,body,labels
-
 # Issue context (only if --context <issue> flag was passed):
 gh issue view <issue-number> --repo posit-dev/positron --json title,body,labels
+```
 
-# For --deep mode, also fetch PR comments:
+PR metadata (`gh pr view`) is already fetched in the IMMEDIATE section -- do not
+re-fetch it here. For `--deep` mode, also fetch PR comments:
+```bash
 gh pr view <pr-number> --repo posit-dev/positron --json comments
 ```
 

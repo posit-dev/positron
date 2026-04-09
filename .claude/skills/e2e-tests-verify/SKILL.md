@@ -27,13 +27,18 @@ Every second spent reading docs before launching is wasted wall-clock time.
 whatever reference reads you need:
 
 **Background command 1 -- Launch runner:**
+For `--build`:
 ```bash
-rm -f /tmp/explore-runner-port && EXPLORE_TITLE="<short description>" <ENV> npx playwright test test/e2e/tests/_verify/verify.test.ts --project <project> 2>&1 &
+rm -f /tmp/explore-runner-port && EXPLORE_TITLE="<short description>" BUILD=/Applications/Positron.app npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-electron 2>&1 &
 ```
-Where `<ENV>` and `<project>` depend on the target flag:
-- `--build`: `ENV=BUILD=/Applications/Positron.app`, `project=e2e-electron`
-- `--local` or default: no ENV needed, `project=e2e-electron`
-- `--browser <name>`: `ENV=ALLOW_EXPLORE=1`, `project=e2e-<name>`
+For `--local` or default:
+```bash
+rm -f /tmp/explore-runner-port && EXPLORE_TITLE="<short description>" npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-electron 2>&1 &
+```
+For `--browser <name>`:
+```bash
+rm -f /tmp/explore-runner-port && EXPLORE_TITLE="<short description>" ALLOW_EXPLORE=1 npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-<name> 2>&1 &
+```
 
 **Background command 2 -- POM ref staleness check:**
 ```bash
@@ -279,7 +284,7 @@ The PR title/body and file list are already in your context. Now:
 
 3. **Poll for runner readiness** (the runner has had 20-40s of head start by now -- likely already ready):
    ```bash
-   for i in $(seq 1 60); do
+   for i in $(seq 1 120); do
      if [ -f /tmp/explore-runner-port ]; then
        PORT=$(cat /tmp/explore-runner-port)
        HEALTH=$(curl -s "http://localhost:$PORT/health" 2>/dev/null)
