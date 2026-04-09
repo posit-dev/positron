@@ -3,58 +3,42 @@
 ## /run-plan Request Format
 
 ```bash
-PORT=$(cat /tmp/explore-runner-port)
-curl -s -X POST "http://localhost:$PORT/run-plan" \
+PORT=$(cat /tmp/explore-runner-port) && curl -s -X POST "http://localhost:${PORT}/run-plan" \
   -H 'Content-Type: application/json' \
-  -d '{
-    "title": "PR 456: Variable appears after execution",
-    "stepTimeout": 10000,
-    "steps": [
-      {"type": "pom", "pom": "sessions", "method": "start", "args": ["python"], "timeout": 20000, "title": "Start Python session"},
-      {"type": "pom", "pom": "console", "method": "executeCode", "args": ["Python", "x = 42"], "title": "Execute x = 42"},
-      {"type": "pom", "pom": "variables", "method": "expectVariableToBe", "args": ["x", "42"], "timeout": 5000, "title": "Verify x in Variables pane"}
-    ]
-  }'
+  -d '{"title": "PR 456: Variable appears after execution", "stepTimeout": 10000, "steps": [
+    {"type": "pom", "pom": "sessions", "method": "start", "args": ["python"], "timeout": 20000, "title": "Start Python session"},
+    {"type": "pom", "pom": "console", "method": "executeCode", "args": ["Python", "x = 42"], "title": "Execute x = 42"},
+    {"type": "pom", "pom": "variables", "method": "expectVariableToBe", "args": ["x", "42"], "timeout": 5000, "title": "Verify x in Variables pane"}
+  ]}'
 ```
 
 **Request fields:**
-- `title` (required): Descriptive label for the plan in the Playwright report (e.g., "PR 456: Variable appears after execution")
-- `steps` (required): Array of step objects (same `BatchStep` type as `/batch`)
+- `title` (required): Descriptive label for the Playwright report
+- `steps` (required): Array of step objects
 - `stepTimeout` (optional): Default timeout in ms for all steps (default 10000)
 - `resetBefore` (optional): Run state reset before executing (set true on retries)
 
 **Step fields:**
 - `type` (required): `"pom"` or `"action"`
-- For `"pom"`: `pom`, `method`, `args`, `scope` (same as `/pom` route)
-- For `"action"`: `action`, `params` (same as `/action` route)
+- For `"pom"`: `pom`, `method`, `args`, `scope`
+- For `"action"`: `action`, `params`
 - `title` (optional): Human-readable label for Playwright report
-- `timeout` (optional): Per-step timeout override in ms (falls back to `stepTimeout`)
+- `timeout` (optional): Per-step timeout override in ms
 
 ## Dynamic content
 
-**IMPORTANT: Do NOT use `$'...'` bash syntax (ansi_c_string).** It triggers permission
-prompts for users and blocks CI. Use heredocs or plain curl instead.
+**Do NOT use `$'...'` bash syntax.** Use heredocs or plain curl instead.
 
-**For simple payloads** (no code with newlines), use plain curl:
-```bash
-PORT=$(cat /tmp/explore-runner-port)
-curl -s -X POST "http://localhost:${PORT}/run-plan" \
-  -H 'Content-Type: application/json' \
-  -d '{"title": "PR 456: Variable test", "stepTimeout": 10000, "steps": [
-    {"type": "pom", "pom": "console", "method": "executeCode", "args": ["Python", "x = 42"], "title": "Execute code"}
-  ]}'
-```
+**For simple payloads**, use plain curl (see example above).
 
-**For payloads with code containing newlines**, use a heredoc to build the JSON:
+**For payloads with code containing newlines**, use a heredoc:
 ```bash
 PORT=$(cat /tmp/explore-runner-port)
 cat <<'PAYLOAD' | curl -s -X POST "http://localhost:${PORT}/run-plan" -H 'Content-Type: application/json' -d @-
 {
   "title": "PR 456: Run multiline code",
-  "stepTimeout": 10000,
   "steps": [
-    {"type": "pom", "pom": "console", "method": "executeCode", "args": ["Python", "x = 42\nprint(x)"], "title": "Execute code"},
-    {"type": "pom", "pom": "variables", "method": "expectVariableToBe", "args": ["x", "42"], "timeout": 5000, "title": "Verify x"}
+    {"type": "pom", "pom": "console", "method": "executeCode", "args": ["Python", "x = 42\nprint(x)"], "title": "Execute code"}
   ]
 }
 PAYLOAD
@@ -62,11 +46,9 @@ PAYLOAD
 
 Note: In JSON strings, `\n` is a literal newline escape -- no special bash quoting needed.
 
-**Rule of thumb:** Plain curl for simple payloads. Heredoc for complex payloads with code. Never `$'...'`.
-
 ## /run-plan Response Format
 
-**Success (all steps pass):**
+**Success:**
 ```json
 {
   "passed": 3, "failed": 0,
@@ -77,132 +59,53 @@ Note: In JSON strings, `\n` is a literal newline escape -- no special bash quoti
   ],
   "totalDuration": 3300,
   "state": {
-    "activeEditor": null, "consoleLinesCount": 12,
     "variableCount": 1, "variableNames": ["x"],
-    "sessionCount": 1, "activeSession": "Python: idle",
+    "activeSession": "Python: idle",
     "notifications": [], "openTabs": [], "focusedPanel": "console"
   }
 }
 ```
 
-**Failure (at step 2 of 3):**
-```json
-{
-  "passed": 1, "failed": 1,
-  "steps": [
-    {"title": "Start Python", "success": true, "duration": 2100},
-    {"title": "Execute code", "success": false, "error": "Timeout 10000ms exceeded", "duration": 10023}
-  ],
-  "skipped": 1, "totalDuration": 12123,
-  "state": {
-    "variableCount": 0, "variableNames": [],
-    "notifications": ["Interpreter disconnected"],
-    "activeSession": "Python: idle"
-  }
-}
-```
+The `state` object provides diagnostic context: `variableNames`, `activeSession`, `notifications`, `openTabs`, `focusedPanel`.
 
-The enriched `state` object provides diagnostic context without needing snapshots or screenshots:
-- `variableNames` -- check which variables are set
-- `activeSession` -- confirm session language and status (e.g., "Python: idle", "R: busy")
-- `notifications` -- spot error toasts or interpreter messages
-- `openTabs` -- see which editors are open
-- `focusedPanel` -- confirm focus landed where expected
+## Available actions for /run-plan steps
 
-## Scoping for side-by-side notebooks
-
-Add `"scope": 0` or `"scope": 1` to scope all locators to a specific editor group:
-```json
-{"type": "pom", "pom": "notebooksPositron", "method": "addCodeToCell", "args": [0, "y = 100"], "scope": 1, "title": "Add code to right notebook"}
-```
-
-## When to assert
-
-Add a verification step after an action when:
-1. **The target is ambiguous** -- e.g., two notebooks open, verify code landed in the right one
-2. **The test hinges on the result** -- a later step depends on this having worked
-3. **Shared state changed** -- verify with `expectVariable`, `getSessionCount`, etc.
-
-Do NOT assert after every action -- `clickTab`, `startSession`, `expectEditorGroupCount` have built-in waits.
-
-## Explore Mode (Step 3c -- Fallback)
-
-Use explore mode when `/run-plan` fails and you need to diagnose interactively. This is NOT the primary workflow -- use `/run-plan` first, always.
-
-The runner has three additional routes for interactive exploration: `POST /pom` for single POM calls, `POST /action` for custom/raw actions, and `POST /batch` for multi-step sequences.
-
-### POM calls (`POST /pom`)
-
-Call any POM method directly:
-```bash
-PORT=$(cat /tmp/explore-runner-port)
-curl -s -X POST "http://localhost:$PORT/pom" \
-  -H 'Content-Type: application/json' \
-  -d '{"pom": "sessions", "method": "start", "args": ["python"], "title": "Start Python session"}'
-```
-
-**Request fields:**
-- `pom` (required): Workbench property name -- `"sessions"`, `"console"`, `"variables"`, `"dataExplorer"`, `"plots"`, `"notebooksPositron"`, `"editors"`, `"hotKeys"`, `"quickaccess"`, `"settings"`, `"assistant"`, etc. Supports **dotted paths** for sub-objects: `"dataExplorer.grid"`, `"dataExplorer.summaryPanel"`, `"dataExplorer.filters"`.
-- `method` (required): Method name on the POM class
-- `args` (optional): Positional arguments array (default `[]`)
-- `scope` (optional): Editor group index for side-by-side scoping
-- `title` (optional): Human-readable label for Playwright report
-
-### Custom + Raw actions (`POST /action`)
-
-For actions with custom logic and raw Playwright:
-
-```bash
-# Static params -- plain curl:
-curl -s -X POST "http://localhost:$PORT/action" \
-  -H 'Content-Type: application/json' \
-  -d '{"action": "openFile", "params": {"path": "README.md"}, "title": "Open README"}'
-
-# Dynamic code/text -- jq piped to curl:
-jq -n --arg code 'print("hello world")' \
-  '{action: "addCodeToCell", params: {cellIndex: 0, code: $code, clearCell: true}, title: "Add code to cell 0"}' \
-| curl -s -X POST "http://localhost:$PORT/action" -H 'Content-Type: application/json' -d @-
-```
-
-**Custom actions** (logic beyond a single POM call):
+**Custom actions** (`type: "action"`):
 
 | Action | Params | Description |
 |--------|--------|-------------|
-| `openFile` | `{"path": "README.md"}` | Open file (workspace-relative, handles non-text files) |
+| `openFile` | `{"path": "README.md"}` | Open file (workspace-relative) |
 | `openDataFile` | `{"path": "data.csv"}` | Open data file in Data Explorer |
-| `newNotebook` | `{"codeCells?": 1, "markdownCells?": 0, "language?": "Python" (default), "clearCells?": true}` | Create notebook; defaults to Python kernel (pass `null` to skip) |
+| `newNotebook` | `{"codeCells?": 1, "markdownCells?": 0, "language?": "Python", "clearCells?": true}` | Create notebook; pass `null` for language to skip kernel |
 | `runCodeInEditor` | `{"code": "x <- 42", "language?": "r"}` | Write code to temp file and execute via Cmd+Enter |
-| `createFile` | `{"filename": "test.qmd", "content": "---\ntitle: Test\n---\n```{r}\ndf <- data.frame(x=1:3)\ndf\n```"}` | Create a file with content and open it. Use for .qmd, .py, .R, .csv, etc. Prefer this over reading qa-example-content files. |
-| `contextMenu` | `{"selector": ".el", "menuItem": "Pin Row", "button?": "right"}` | Right-click and select from context menu (handles native macOS menus) |
-| `getChatResponseText` | `{}` | Get assistant response (needs workspace path) |
-| `getAvailableTools` | `{}` | Get assistant tools (needs workspace path) |
+| `createFile` | `{"filename": "test.qmd", "content": "..."}` | Create file with content and open it. Prefer over qa-example-content. |
+| `contextMenu` | `{"selector": ".el", "menuItem": "Pin Row"}` | Right-click and select from context menu |
 
-**Raw Playwright actions** (flexible, for recovery and debugging):
+**Raw Playwright actions** (`type: "action"`, for recovery/debugging):
 
 | Action | Params | Description |
 |--------|--------|-------------|
 | `snapshot` | `{"maxLength?": 8000}` | Get accessibility tree |
 | `clickText` | `{"text": "OK", "exact?": false}` | Click by visible text |
 | `clickRole` | `{"role": "button", "name": "OK"}` | Click by accessible role |
-| `clickSelector` | `{"selector": ".cls"}` | Click by CSS selector |
-| `fill` | `{"text": "hello", "role?": "textbox"}` | Fill input |
 | `press` | `{"key": "Escape"}` | Press keyboard key |
-| `type` | `{"text": "hello world", "delay?": 0}` | Type text into focused element (Monaco, console, etc.) |
-| `waitForText` | `{"text": "Ready"}` | Wait for text |
-| `waitForSelector` | `{"selector": ".loaded"}` | Wait for selector |
+| `type` | `{"text": "hello", "delay?": 0}` | Type text into focused element |
 | `takeScreenshot` | `{"name?": "test"}` | Save screenshot to /tmp/ |
-| `evaluate` | `{"expression": "document.title"}` | Run JS in renderer |
-| `resizeWindow` | `{"width": 600, "height": 800}` | Resize Electron window |
-| `getWindowSize` | `{}` | Get window dimensions |
+| `waitForText` | `{"text": "Ready"}` | Wait for text |
 
-### Batch execution (`POST /batch`)
+## Scoping for side-by-side notebooks
 
-Send multiple steps in one request for interactive sequences:
-```bash
-curl -s -X POST "http://localhost:$PORT/batch" \
-  -H 'Content-Type: application/json' \
-  -d '{"title": "Debug step", "steps": [
-    {"type": "action", "action": "snapshot", "params": {"maxLength": 8000}, "title": "Snapshot UI"},
-    {"type": "pom", "pom": "console", "method": "waitForReady", "args": [">>>"], "title": "Wait for console"}
-  ]}'
-```
+Add `"scope": 0` or `"scope": 1` to scope locators to a specific editor group.
+
+## When to assert
+
+Add verification after an action when:
+1. The target is ambiguous (e.g., two notebooks open)
+2. A later step depends on the result
+3. Shared state changed
+
+Do NOT assert after every action -- POM methods have built-in waits.
+
+## Explore Mode
+
+If `/run-plan` fails twice and you need interactive diagnosis, see `references/runner-api-explore.md`.
