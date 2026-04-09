@@ -30,26 +30,28 @@ whatever reference reads you need:
 
 **Background command 1 -- Launch runner:**
 
-Use the default port file `/tmp/explore-runner-port`. Concurrent sessions are not
-currently supported (Playwright shares the extensions-dir and workspace).
+Each session uses a unique port file. The launch command prints the path -- use that
+literal path in all subsequent commands.
 
 For `--build`:
 ```bash
-rm -f /tmp/explore-runner-port && EXPLORE_TITLE="<short description>" BUILD=/Applications/Positron.app npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-electron 2>&1 &
+PF="/tmp/explore-runner-port-$$" && rm -f "$PF" && echo "PORTFILE=$PF" && EXPLORE_PORT_FILE="$PF" EXPLORE_TITLE="<short description>" BUILD=/Applications/Positron.app npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-electron 2>&1 &
 ```
 For `--local` or default:
 ```bash
-rm -f /tmp/explore-runner-port && EXPLORE_TITLE="<short description>" npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-electron 2>&1 &
+PF="/tmp/explore-runner-port-$$" && rm -f "$PF" && echo "PORTFILE=$PF" && EXPLORE_PORT_FILE="$PF" EXPLORE_TITLE="<short description>" npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-electron 2>&1 &
 ```
 For `--browser <name>`:
 ```bash
-rm -f /tmp/explore-runner-port && EXPLORE_TITLE="<short description>" ALLOW_EXPLORE=1 npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-<name> 2>&1 &
+PF="/tmp/explore-runner-port-$$" && rm -f "$PF" && echo "PORTFILE=$PF" && EXPLORE_PORT_FILE="$PF" EXPLORE_TITLE="<short description>" ALLOW_EXPLORE=1 npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-<name> 2>&1 &
 ```
 
-**Reading the port in subsequent commands:**
+The output will include `PORTFILE=/tmp/explore-runner-port-12345`. **Read that path from
+the output** and use it as a literal string in all subsequent commands:
 ```bash
-PORT=$(cat /tmp/explore-runner-port) && curl -s ...
+PORT=$(cat /tmp/explore-runner-port-12345) && curl -s ...
 ```
+Do NOT use `$EXPLORE_PORT_FILE` or any env var -- they don't persist across Bash calls.
 
 **Background command 2 -- POM ref staleness check:**
 ```bash
@@ -341,14 +343,14 @@ The PR title/body and file list are already in your context. Now:
 
 2. **Plan test steps** from the PR title, body, and file list per Step 1.
 
-3. **Send description** (skip the poll -- the runner has had 30-40s head start and is almost always ready):
+3. **Send description** using the port file path from the launch output:
    ```bash
-   PORT=$(cat /tmp/explore-runner-port) && curl -s -X POST "http://localhost:${PORT}/describe" \
+   PORT=$(cat /tmp/explore-runner-port-12345) && curl -s -X POST "http://localhost:${PORT}/describe" \
      -H 'Content-Type: application/json' \
      -d '{"description": "PR 456: Panel hiding behavior when closing editors"}'
    ```
-   If the port file doesn't exist yet, the `cat` will fail -- just retry once after 5s.
-   Do NOT use a poll loop. The runner is ready by now in 99% of runs.
+   Replace `/tmp/explore-runner-port-12345` with the actual `PORTFILE=` value from
+   your launch output. If the file doesn't exist yet, retry once after 5s.
 
 **Happy-path tool call count:** 4-5 calls total (parallel launch, read POM refs, POST /describe, POST /run-plan, POST /done).
 
@@ -380,7 +382,7 @@ This gate exists because guessed method names (e.g., `openHelpPane` instead of
 Use `POST /run-plan` to execute the entire test in one HTTP call. A happy-path test run is **4 tool calls total**: launch + poll, read POM reference, POST /run-plan, POST /done.
 
 ```bash
-PORT=$(cat /tmp/explore-runner-port) && curl -s -X POST "http://localhost:${PORT}/run-plan" \
+PORT=$(cat /tmp/explore-runner-port-NNNNN) && curl -s -X POST "http://localhost:${PORT}/run-plan" \
   -H 'Content-Type: application/json' \
   -d '{"title": "PR 456: Variable appears after execution", "stepTimeout": 10000, "steps": [
     {"type": "pom", "pom": "sessions", "method": "start", "args": ["python"], "timeout": 20000, "title": "Start Python session"},
@@ -452,7 +454,7 @@ this check.
 ### Step 5: Cleanup and Save Prompt
 
 ```bash
-PORT=$(cat /tmp/explore-runner-port) && curl -s -X POST "http://localhost:${PORT}/done"
+PORT=$(cat /tmp/explore-runner-port-NNNNN) && curl -s -X POST "http://localhost:${PORT}/done"
 ```
 
 **`/done` can be parallelized with screenshots** (e.g., `takeScreenshot` + `/done` in one message).
