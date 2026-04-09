@@ -184,10 +184,10 @@ class RefreshPackagesAction extends Action2 {
 			category: PACKAGES_CATEGORY,
 			f1: true,
 			icon: Codicon.refresh,
-			precondition: POSITRON_PACKAGES_ENABLED,
+			precondition: ContextKeyExpr.and(POSITRON_PACKAGES_ENABLED, PACKAGES_CAN_RUN_ACTION),
 			menu: {
 				id: MenuId.ViewTitle,
-				when: ContextKeyExpr.and(PACKAGES_VIEW_VISIBLE, PACKAGES_CAN_RUN_ACTION),
+				when: PACKAGES_VIEW_VISIBLE,
 				group: 'navigation',
 				order: 1
 			}
@@ -228,10 +228,10 @@ class InstallPackageAction extends Action2 {
 			title: nls.localize2('installPackage', 'Install Package'),
 			category: PACKAGES_CATEGORY,
 			f1: true,
-			precondition: POSITRON_PACKAGES_ENABLED,
+			precondition: ContextKeyExpr.and(POSITRON_PACKAGES_ENABLED, PACKAGES_CAN_RUN_ACTION),
 			menu: {
 				id: MenuId.ViewTitle,
-				when: ContextKeyExpr.and(PACKAGES_VIEW_VISIBLE, PACKAGES_CAN_RUN_ACTION),
+				when: PACKAGES_VIEW_VISIBLE,
 				group: 'packages',
 				order: 1
 			}
@@ -300,10 +300,10 @@ class UninstallPackageAction extends Action2 {
 			title: nls.localize2('uninstallPackage', 'Uninstall Package'),
 			category: PACKAGES_CATEGORY,
 			f1: true,
-			precondition: POSITRON_PACKAGES_ENABLED,
+			precondition: ContextKeyExpr.and(POSITRON_PACKAGES_ENABLED, PACKAGES_HAS_SELECTION),
 			menu: {
 				id: MenuId.ViewTitle,
-				when: ContextKeyExpr.and(PACKAGES_VIEW_VISIBLE, PACKAGES_HAS_SELECTION),
+				when: PACKAGES_VIEW_VISIBLE,
 				group: 'packages',
 				order: 4
 			}
@@ -377,10 +377,10 @@ class UpdatePackageAction extends Action2 {
 			title: nls.localize2('updatePackage', 'Update Package'),
 			category: PACKAGES_CATEGORY,
 			f1: true,
-			precondition: POSITRON_PACKAGES_ENABLED,
+			precondition: ContextKeyExpr.and(POSITRON_PACKAGES_ENABLED, PACKAGES_HAS_SELECTION),
 			menu: {
 				id: MenuId.ViewTitle,
-				when: ContextKeyExpr.and(PACKAGES_VIEW_VISIBLE, PACKAGES_HAS_SELECTION),
+				when: PACKAGES_VIEW_VISIBLE,
 				group: 'packages',
 				order: 3
 			}
@@ -450,10 +450,10 @@ class UpdateAllPackagesAction extends Action2 {
 			title: nls.localize2('updateAllPackages', 'Update All Packages'),
 			category: PACKAGES_CATEGORY,
 			f1: true,
-			precondition: POSITRON_PACKAGES_ENABLED,
+			precondition: ContextKeyExpr.and(POSITRON_PACKAGES_ENABLED, PACKAGES_CAN_RUN_ACTION),
 			menu: {
 				id: MenuId.ViewTitle,
-				when: ContextKeyExpr.and(PACKAGES_VIEW_VISIBLE, PACKAGES_CAN_RUN_ACTION),
+				when: PACKAGES_VIEW_VISIBLE,
 				group: 'packages',
 				order: 2
 			}
