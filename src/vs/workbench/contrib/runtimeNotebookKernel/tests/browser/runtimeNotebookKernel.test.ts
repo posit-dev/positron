@@ -87,7 +87,7 @@ suite('Positron - RuntimeNotebookKernel', () => {
 
 		// Clean up active sessions between tests to prevent leakage.
 		ctx.disposables.add(toDisposable(() => {
-			runtimeSessionService.activeSessions.map(s => s.dispose());
+			runtimeSessionService.activeSessions.forEach(s => s.dispose());
 		}));
 
 		// Create a test language runtime.
