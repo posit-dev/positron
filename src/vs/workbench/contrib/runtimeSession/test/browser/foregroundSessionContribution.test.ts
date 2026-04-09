@@ -517,10 +517,7 @@ suite('Positron - ForegroundSessionContribution', () => {
 			// Simulate the session becoming ready (e.g. after restart)
 			session.setRuntimeState(RuntimeState.Ready);
 
-			assert.strictEqual(
-				runtimeSessionService.foregroundSession?.sessionId,
-				session.sessionId
-			);
+			assert.strictEqual(getForegroundSessionId(), session.sessionId);
 		});
 
 		test('does not set foreground when a different file is the active editor', async () => {
