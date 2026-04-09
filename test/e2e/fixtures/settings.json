@@ -17,5 +17,6 @@
 	"posit.workbench.showWorkbenchFlaskHint": false,
 	"editor.accessibilitySupport": "off",
 	"githubIssues.issueCompletions.enabled": false,
-	"posit.assistant.sidebarView": true
+	"posit.assistant.sidebarView": true,
+	"assistant.sidebarView": true
 }
