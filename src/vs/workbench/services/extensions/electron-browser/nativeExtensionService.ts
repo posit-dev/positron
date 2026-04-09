@@ -354,13 +354,13 @@ export class NativeExtensionService extends AbstractExtensionService implements 
 
 		if (lastKnownVersion === currentVersion) {
 			this._logService.info(
-				'[bootstrap] Extension versions match, skipping bootstrap wait'
+				'Subsequent launch, skipping bootstrap wait'
 			);
 			return;
 		}
 
 		this._logService.info(
-			'[bootstrap] Version mismatch detected ' +
+			'Bootstrap version mismatch detected ' +
 			`(installed: "${lastKnownVersion}", current: "${currentVersion}"). ` +
 			'Waiting for shared process bootstrap to complete before scanning extensions...'
 		);
@@ -369,7 +369,7 @@ export class NativeExtensionService extends AbstractExtensionService implements 
 		await channel.call('getInstalled', [null]);
 
 		this._logService.info(
-			'[bootstrap] Shared process bootstrap complete, proceeding with extension scan'
+			'Shared process bootstrap complete, proceeding with extension scan'
 		);
 	}
 	// --- End Positron ---
