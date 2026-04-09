@@ -332,30 +332,16 @@ The PR title/body and file list are already in your context. Now:
 
 2. **Plan test steps** from the PR title, body, and file list per Step 1.
 
-3. **Poll for runner readiness** (the runner has had 20-40s of head start by now -- likely already ready):
+3. **Send description** (skip the poll -- the runner has had 30-40s head start and is almost always ready):
    ```bash
-   for i in $(seq 1 120); do
-     if [ -f /tmp/explore-runner-port ]; then
-       PORT=$(cat /tmp/explore-runner-port)
-       HEALTH=$(curl -s "http://localhost:$PORT/health" 2>/dev/null)
-       if echo "$HEALTH" | grep -q ok; then
-         echo "Runner ready on port $PORT"
-         break
-       fi
-     fi
-     sleep 1
-   done
-   ```
-
-4. **Send description** so the report shows what is being tested:
-   ```bash
-   PORT=$(cat /tmp/explore-runner-port)
-   curl -s -X POST "http://localhost:${PORT}/describe" \
+   PORT=$(cat /tmp/explore-runner-port) && curl -s -X POST "http://localhost:${PORT}/describe" \
      -H 'Content-Type: application/json' \
      -d '{"description": "PR 456: Panel hiding behavior when closing editors"}'
    ```
+   If the port file doesn't exist yet, the `cat` will fail -- just retry once after 5s.
+   Do NOT use a poll loop. The runner is ready by now in 99% of runs.
 
-**Happy-path tool call count:** 5-6 calls total (parallel launch message, read POM ref, poll, POST /describe, POST /run-plan, POST /done).
+**Happy-path tool call count:** 4-5 calls total (parallel launch, read POM refs, POST /describe, POST /run-plan, POST /done).
 
 ### Step 2b: Verify POM Methods Before Building Plan (HARD GATE)
 

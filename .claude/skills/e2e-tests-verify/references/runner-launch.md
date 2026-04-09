@@ -28,29 +28,12 @@ Note: `ALLOW_EXPLORE=1` is required for browser projects -- it removes the explo
 
 **Important:** Never use just the PR number. Always include a brief summary (under 60 chars).
 
-## Poll for Readiness
+## Readiness
 
-The app fixture handles startup readiness, so once the port file exists and `/health` returns ok, the app is ready:
-```bash
-for i in $(seq 1 60); do
-  if [ -f /tmp/explore-runner-port ]; then
-    PORT=$(cat /tmp/explore-runner-port)
-    HEALTH=$(curl -s "http://localhost:$PORT/health" 2>/dev/null)
-    if echo "$HEALTH" | grep -q ok; then
-      echo "Runner ready on port $PORT"
-      break
-    fi
-  fi
-  sleep 1
-done
-```
-
-This launches Positron as a real Electron app. It takes ~30-60 seconds to start.
-
-**Parallel launch pattern:** The runner is launched as a background Bash command
-in the same message as GH API calls and POM ref generation. By the time planning
-completes and polling starts, the runner typically has a 20-40s head start. The
-first poll usually finds it already ready.
+The runner writes `/tmp/explore-runner-port` when ready. It takes ~30-60s to boot.
+With the parallel launch pattern, the runner has a 30-40s head start by the time
+you need it -- it's almost always ready. Skip the poll loop and go straight to
+`/describe`. If the port file doesn't exist, retry once after 5s.
 
 **While the runner starts**, generate the POM reference if it was missing (this fills dead time):
 ```bash
