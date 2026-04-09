@@ -463,17 +463,17 @@ for collision checking exits non-zero when no files match, which cancels any par
 calls in the same message.
 
 **After reporting results and sending `/done`:**
-- `--save`: Save the test file immediately (go to Step 6, no prompt needed)
-- `--no-save`: Do not save, do not prompt. Done.
-- **No flag (default): Ask the user what to do next using `AskUserQuestion` with
-  `multiSelect: true`:**
+- **`--save`: Go directly to Step 6. Do NOT prompt. Do NOT use AskUserQuestion.**
+- **`--no-save`: Done. Do NOT prompt. Do NOT save.**
+- **No flag (default):** Ask the user what to do next using `AskUserQuestion` with
+  `multiSelect: true`:
 
 Ask: "What would you like to do next?" with these options:
 - **Save as test file** -- Generate a `.test.ts` file (Step 6)
 - **Generate verification comment** -- Create a GitHub-ready verification comment (see `references/verification-comment.md`)
 - **Make POM updates** -- Implement the POM recommendations from the report (if any were flagged)
 
-**Do NOT skip this prompt.** This applies even if:
+**Do NOT skip this prompt when no flag is set.** This applies even if:
 - The test required retries (the corrected steps are what gets saved)
 - Some steps failed but the core scenario worked (save the passing steps)
 - The result was "PASSED after retry"
