@@ -56,6 +56,14 @@ export interface IPositronConsoleService {
 	readonly activePositronConsoleInstance?: IPositronConsoleInstance;
 
 	/**
+	 * Whether a notebook console session is currently being deleted.
+	 * When true, focus changes should not update the foreground session
+	 * because the active console tab switch is a side effect of cleanup,
+	 * not a user gesture.
+	 */
+	readonly isDeletingNotebookConsole: boolean;
+
+	/**
 	 * Gets the active code editor (CodeEditorWidget used to enter code) for the active Positron
 	 * console instance.
 	 */

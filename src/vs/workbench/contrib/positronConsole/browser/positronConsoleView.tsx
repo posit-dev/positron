@@ -37,7 +37,6 @@ import { DropdownWithPrimaryActionViewItem } from '../../../../platform/actions/
 import { MenuItemAction } from '../../../../platform/actions/common/actions.js';
 import { localize } from '../../../../nls.js';
 import { MutableDisposable } from '../../../../base/common/lifecycle.js';
-import { IForegroundSessionContribution } from '../../runtimeSession/browser/foregroundSessionContribution.js';
 
 /**
  * PositronConsoleViewPane class.
@@ -145,12 +144,15 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 
 		if (focused) {
 			// When the console pane gains focus, ensure the foreground session matches
-			// the active console instance. If the user clicked a console tab, that already
-			// set the foreground session via onDidChangeActivePositronConsoleInstance. This
-			// handles the case where the user clicks elsewhere in the console pane (not a tab).
-			const activeInstance = this.positronConsoleService.activePositronConsoleInstance;
-			if (activeInstance?.attachedRuntimeSession) {
-				this.foregroundSessionContribution.setForegroundSession(activeInstance.attachedRuntimeSession);
+			// the active console instance. This handles the case where the user clicks
+			// in the console body (not a tab). For notebook console sessions, we skip
+			// this step because the new console gaining focus is happening as a side
+			// effect of the active tab switching rather than a deliberate user gesture.
+			if (!this.positronConsoleService.isDeletingNotebookConsole) {
+				const activeInstance = this.positronConsoleService.activePositronConsoleInstance;
+				if (activeInstance?.attachedRuntimeSession) {
+					this.runtimeSessionService.foregroundSession = activeInstance.attachedRuntimeSession;
+				}
 			}
 			this._onFocusedEmitter.fire();
 		}
@@ -196,7 +198,6 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 		@IConfigurationService configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IContextMenuService contextMenuService: IContextMenuService,
-		@IForegroundSessionContribution private readonly foregroundSessionContribution: IForegroundSessionContribution,
 		@IHoverService hoverService: IHoverService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IKeybindingService keybindingService: IKeybindingService,

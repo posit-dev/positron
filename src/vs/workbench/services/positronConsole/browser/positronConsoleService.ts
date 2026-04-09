@@ -309,6 +309,14 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	private _activePositronConsoleInstance?: IPositronConsoleInstance;
 
 	/**
+	 * Whether a notebook console session is currently being deleted.
+	 * When true, focus changes should not update the foreground session
+	 * because the active console tab switch is a side effect of cleanup,
+	 * not a user gesture.
+	 */
+	private _isDeletingNotebookConsole = false;
+
+	/**
 	 * The onDidStartPositronConsoleInstance event emitter.
 	 */
 	private readonly _onDidStartPositronConsoleInstanceEmitter = this._register(new Emitter<IPositronConsoleInstance>);
@@ -582,6 +590,10 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	// Gets the active REPL instance.
 	get activePositronConsoleInstance(): IPositronConsoleInstance | undefined {
 		return this._activePositronConsoleInstance;
+	}
+
+	get isDeletingNotebookConsole(): boolean {
+		return this._isDeletingNotebookConsole;
 	}
 
 	// Gets the active code editor.
@@ -959,13 +971,20 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 			this._runtimeSessionService.foregroundSession = runtimeSession;
 		} else if (consoleInstance.sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
 			// For notebook sessions, switch the active console instance so the
-			// console pane isn't left empty.
+			// console pane isn't left empty. We set a flag to prevent the
+			// console view's focusChanged handler from updating the foreground
+			// session, since this tab switch is a side effect of cleanup.
 			if (this._activePositronConsoleInstance === consoleInstance) {
-				const instances = Array.from(this._positronConsoleInstancesBySessionId.values());
-				const currentIndex = instances.indexOf(consoleInstance);
-				if (currentIndex !== -1) {
-					const nextInstance = instances[currentIndex + 1] || instances[currentIndex - 1];
-					this.setActivePositronConsoleInstance(nextInstance);
+				this._isDeletingNotebookConsole = true;
+				try {
+					const instances = Array.from(this._positronConsoleInstancesBySessionId.values());
+					const currentIndex = instances.indexOf(consoleInstance);
+					if (currentIndex !== -1) {
+						const nextInstance = instances[currentIndex + 1] || instances[currentIndex - 1];
+						this.setActivePositronConsoleInstance(nextInstance);
+					}
+				} finally {
+					this._isDeletingNotebookConsole = false;
 				}
 			}
 		}
