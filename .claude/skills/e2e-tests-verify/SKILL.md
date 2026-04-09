@@ -30,26 +30,25 @@ whatever reference reads you need:
 
 **Background command 1 -- Launch runner:**
 
-Each session gets a unique port file to avoid conflicts when running multiple sessions.
-Generate a unique path and write it to `/tmp/explore-runner-portpath` so later shells
-can read it back (env vars don't persist across Bash tool calls).
+Use the default port file `/tmp/explore-runner-port`. Concurrent sessions are not
+currently supported (Playwright shares the extensions-dir and workspace).
 
 For `--build`:
 ```bash
-PORTFILE="/tmp/explore-runner-port-$$" && echo "$PORTFILE" > /tmp/explore-runner-portpath && rm -rf /tmp/vscsmoke/d-* 2>/dev/null; rm -f "$PORTFILE" && EXPLORE_PORT_FILE="$PORTFILE" EXPLORE_TITLE="<short description>" BUILD=/Applications/Positron.app npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-electron 2>&1 &
+rm -rf /tmp/vscsmoke/d-* 2>/dev/null; rm -f /tmp/explore-runner-port && EXPLORE_TITLE="<short description>" BUILD=/Applications/Positron.app npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-electron 2>&1 &
 ```
 For `--local` or default:
 ```bash
-PORTFILE="/tmp/explore-runner-port-$$" && echo "$PORTFILE" > /tmp/explore-runner-portpath && rm -rf /tmp/vscsmoke/d-* 2>/dev/null; rm -f "$PORTFILE" && EXPLORE_PORT_FILE="$PORTFILE" EXPLORE_TITLE="<short description>" npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-electron 2>&1 &
+rm -rf /tmp/vscsmoke/d-* 2>/dev/null; rm -f /tmp/explore-runner-port && EXPLORE_TITLE="<short description>" npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-electron 2>&1 &
 ```
 For `--browser <name>`:
 ```bash
-PORTFILE="/tmp/explore-runner-port-$$" && echo "$PORTFILE" > /tmp/explore-runner-portpath && rm -rf /tmp/vscsmoke/d-* 2>/dev/null; rm -f "$PORTFILE" && EXPLORE_PORT_FILE="$PORTFILE" EXPLORE_TITLE="<short description>" ALLOW_EXPLORE=1 npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-<name> 2>&1 &
+rm -rf /tmp/vscsmoke/d-* 2>/dev/null; rm -f /tmp/explore-runner-port && EXPLORE_TITLE="<short description>" ALLOW_EXPLORE=1 npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-<name> 2>&1 &
 ```
 
 **Reading the port in subsequent commands:**
 ```bash
-PORT=$(cat "$(cat /tmp/explore-runner-portpath)") && curl -s ...
+PORT=$(cat /tmp/explore-runner-port) && curl -s ...
 ```
 
 **Background command 2 -- POM ref staleness check:**
@@ -344,7 +343,7 @@ The PR title/body and file list are already in your context. Now:
 
 3. **Send description** (skip the poll -- the runner has had 30-40s head start and is almost always ready):
    ```bash
-   PORT=$(cat "$(cat /tmp/explore-runner-portpath)") && curl -s -X POST "http://localhost:${PORT}/describe" \
+   PORT=$(cat /tmp/explore-runner-port) && curl -s -X POST "http://localhost:${PORT}/describe" \
      -H 'Content-Type: application/json' \
      -d '{"description": "PR 456: Panel hiding behavior when closing editors"}'
    ```
@@ -381,7 +380,7 @@ This gate exists because guessed method names (e.g., `openHelpPane` instead of
 Use `POST /run-plan` to execute the entire test in one HTTP call. A happy-path test run is **4 tool calls total**: launch + poll, read POM reference, POST /run-plan, POST /done.
 
 ```bash
-PORT=$(cat "$(cat /tmp/explore-runner-portpath)") && curl -s -X POST "http://localhost:${PORT}/run-plan" \
+PORT=$(cat /tmp/explore-runner-port) && curl -s -X POST "http://localhost:${PORT}/run-plan" \
   -H 'Content-Type: application/json' \
   -d '{"title": "PR 456: Variable appears after execution", "stepTimeout": 10000, "steps": [
     {"type": "pom", "pom": "sessions", "method": "start", "args": ["python"], "timeout": 20000, "title": "Start Python session"},
@@ -453,7 +452,7 @@ this check.
 ### Step 5: Cleanup and Save Prompt
 
 ```bash
-PORT=$(cat "$(cat /tmp/explore-runner-portpath)") && curl -s -X POST "http://localhost:${PORT}/done"
+PORT=$(cat /tmp/explore-runner-port) && curl -s -X POST "http://localhost:${PORT}/done"
 ```
 
 **`/done` can be parallelized with screenshots** (e.g., `takeScreenshot` + `/done` in one message).

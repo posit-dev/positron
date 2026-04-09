@@ -3,7 +3,7 @@
 ## /run-plan Request
 
 ```bash
-PORT=$(cat "$(cat /tmp/explore-runner-portpath)") && curl -s -X POST "http://localhost:${PORT}/run-plan" \
+PORT=$(cat /tmp/explore-runner-port) && curl -s -X POST "http://localhost:${PORT}/run-plan" \
   -H 'Content-Type: application/json' \
   -d '{"title": "PR 456: Variable test", "stepTimeout": 5000, "steps": [
     {"type": "pom", "pom": "sessions", "method": "start", "args": ["python"], "timeout": 30000, "title": "Start Python"},
