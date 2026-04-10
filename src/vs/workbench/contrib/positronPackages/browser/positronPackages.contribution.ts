@@ -491,10 +491,10 @@ class UpdateSelectedPackageAction extends Action2 {
 			id: 'positronPackages.updateSelectedPackage',
 			title: nls.localize2('updatePackage', 'Update Package'),
 			category: PACKAGES_CATEGORY,
-			precondition: ContextKeyExpr.and(POSITRON_PACKAGES_ENABLED, PACKAGES_CAN_RUN_ACTION),
+			precondition: ContextKeyExpr.and(POSITRON_PACKAGES_ENABLED, PACKAGES_CAN_RUN_ACTION, PACKAGES_HAS_SELECTION),
 			menu: {
 				id: MenuId.ViewTitle,
-				when: ContextKeyExpr.and(PACKAGES_VIEW_VISIBLE, PACKAGES_HAS_SELECTION),
+				when: PACKAGES_VIEW_VISIBLE,
 				group: 'packages',
 				order: 3
 			}
@@ -518,10 +518,10 @@ class UninstallSelectedPackageAction extends Action2 {
 			id: 'positronPackages.uninstallSelectedPackage',
 			title: nls.localize2('uninstallPackage', 'Uninstall Package'),
 			category: PACKAGES_CATEGORY,
-			precondition: ContextKeyExpr.and(POSITRON_PACKAGES_ENABLED, PACKAGES_CAN_RUN_ACTION),
+			precondition: ContextKeyExpr.and(POSITRON_PACKAGES_ENABLED, PACKAGES_CAN_RUN_ACTION, PACKAGES_HAS_SELECTION),
 			menu: {
 				id: MenuId.ViewTitle,
-				when: ContextKeyExpr.and(PACKAGES_VIEW_VISIBLE, PACKAGES_HAS_SELECTION),
+				when: PACKAGES_VIEW_VISIBLE,
 				group: 'packages',
 				order: 4
 			}
