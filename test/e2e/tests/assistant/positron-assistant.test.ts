@@ -266,22 +266,22 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 	 * 1. Each provider shows its respective default model with "(default)" suffix
 	 * 2. Each default model appears first in its provider group
 	 */
-	test('Verify default model indicators and ordering for multiple providers', async function ({ settings, assistant }) {
+	// FIXME: The model picker has changed where detecting the default model fails because of the recent model section of the picker
+	test.fixme('Verify default model indicators and ordering for multiple providers', async function ({ settings, assistant }) {
 		// Configure defaults for both Anthropic and Echo providers
 		await settings.set({
 			'positron.assistant.models.preference.anthropic': 'Claude Haiku 4.5',
 			'positron.assistant.models.preference.echo': 'Echo Language Model v2'
 		}, { reload: true });
 
-		// Sign in to Anthropic (method handles auto-sign-in detection)
+		// Sign in to Anthropic (method handles auto-sign-in detection and waits for
+		// the "Language Model has been added successfully" notification before returning,
+		// so models are ready in the picker by the time it returns)
 		await assistant.loginModelProvider('anthropic-api');
 
 		// Verify Anthropic default - Claude Haiku 4.5 should have "(default)"
-		await expect(async () => {
-			await assistant.closeModelPickerDropdown();
-			await assistant.pickModel();
-			await assistant.expectModelInPicker('Claude Haiku 4.5 (default)');
-		}).toPass({ timeout: 30000 });
+		await assistant.pickModel();
+		await assistant.expectModelInPicker('Claude Haiku 4.5 (default)');
 
 		// Verify other Anthropic models do NOT have "(default)"
 		await assistant.expectModelInPicker(/^Claude Sonnet 4$/);

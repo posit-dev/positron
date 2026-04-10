@@ -39,10 +39,15 @@ export class Toasts {
 	 */
 	async closeNotificationCenter() {
 		await test.step('Close notification center', async () => {
-			if (await this.notificationsCenter.isVisible()) {
-				await this.code.driver.currentPage.keyboard.press('Escape');
-				await expect(this.notificationsCenter).not.toBeVisible({ timeout: 5000 });
-			}
+			const page = this.code.driver.currentPage;
+			// Press Escape repeatedly until the notifications center is gone,
+			// since unrelated notifications may keep it visible after a single press.
+			await expect(async () => {
+				if (await this.notificationsCenter.isVisible()) {
+					await page.keyboard.press('Escape');
+					await expect(this.notificationsCenter).not.toBeVisible({ timeout: 1000 });
+				}
+			}).toPass({ timeout: 10000 });
 		});
 	}
 

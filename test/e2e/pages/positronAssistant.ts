@@ -441,6 +441,11 @@ export class Assistant {
 
 			// Close the configuration dialog
 			await this.clickCloseButton();
+
+			// Wait for the success notification confirming the model was registered.
+			// The notification fires after resolveConnection() completes, which means
+			// models are available in the picker by the time it appears.
+			await this.toasts.waitForAppear('has been added successfully', { timeout: 15000 });
 		});
 	}
 
