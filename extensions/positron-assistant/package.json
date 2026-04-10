@@ -867,7 +867,7 @@
           },
           "positron.assistant.provider.positAI.enable": {
             "type": "boolean",
-            "default": false,
+            "default": true,
             "markdownDescription": "%configuration.provider.positAI.enable.description%",
             "tags": [
               "preview"
