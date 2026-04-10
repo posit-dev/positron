@@ -45,7 +45,7 @@ export const enum QuartoCommandId {
 /**
  * Category for Quarto commands.
  */
-const QUARTO_CATEGORY = localize2('quarto.category', 'Quarto');
+const QUARTO_CATEGORY = localize2('quarto.category', "Quarto");
 
 /**
  * Common precondition for Quarto commands: feature enabled and in a Quarto document.
@@ -98,7 +98,7 @@ registerAction2(class CancelExecutionAction extends Action2 {
 		super({
 			id: QuartoCommandId.CancelExecution,
 			title: {
-				value: localize('quarto.cancelExecution', 'Cancel Execution'),
+				value: localize('quarto.cancelExecution', "Cancel Execution"),
 				original: 'Cancel Execution',
 			},
 			category: QUARTO_CATEGORY,
@@ -143,7 +143,7 @@ registerAction2(class ClearAllOutputsAction extends Action2 {
 		super({
 			id: QuartoCommandId.ClearAllOutputs,
 			title: {
-				value: localize('quarto.clearAllOutputs', 'Clear All Outputs'),
+				value: localize('quarto.clearAllOutputs', "Clear All Outputs"),
 				original: 'Clear All Outputs',
 			},
 			category: QUARTO_CATEGORY,
@@ -181,7 +181,7 @@ registerAction2(class RestartKernelAction extends Action2 {
 		super({
 			id: QuartoCommandId.RestartKernel,
 			title: {
-				value: localize('quarto.restartKernel', 'Restart Kernel'),
+				value: localize('quarto.restartKernel', "Restart Kernel"),
 				original: 'Restart Kernel',
 			},
 			category: QUARTO_CATEGORY,
@@ -217,10 +217,7 @@ registerAction2(class InterruptKernelAction extends Action2 {
 	constructor() {
 		super({
 			id: QuartoCommandId.InterruptKernel,
-			title: {
-				value: localize('quarto.interruptKernel', 'Interrupt Kernel'),
-				original: 'Interrupt Kernel',
-			},
+			title: localize2('quarto.interruptKernel', "Interrupt Kernel"),
 			category: QUARTO_CATEGORY,
 			f1: true,
 			precondition: QUARTO_PRECONDITION,
@@ -259,10 +256,7 @@ registerAction2(class ShutdownKernelAction extends Action2 {
 	constructor() {
 		super({
 			id: QuartoCommandId.ShutdownKernel,
-			title: {
-				value: localize('quarto.shutdownKernel', 'Shutdown Kernel'),
-				original: 'Shutdown Kernel',
-			},
+			title: localize2('quarto.shutdownKernel', "Shutdown Kernel"),
 			category: QUARTO_CATEGORY,
 			f1: true,
 			precondition: ContextKeyExpr.and(QUARTO_PRECONDITION, QUARTO_KERNEL_RUNNING),
@@ -298,10 +292,7 @@ registerAction2(class ChangeKernelAction extends Action2 {
 	constructor() {
 		super({
 			id: QuartoCommandId.ChangeKernel,
-			title: {
-				value: localize('quarto.changeKernel', 'Change Kernel...'),
-				original: 'Change Kernel...',
-			},
+			title: localize2('quarto.changeKernel', "Change Kernel..."),
 			category: QUARTO_CATEGORY,
 			f1: true,
 			precondition: ContextKeyExpr.and(
@@ -340,7 +331,7 @@ registerAction2(class ChangeKernelAction extends Action2 {
 		const currentRuntimeId = currentSession?.runtimeMetadata.runtimeId;
 
 		const quickPick = quickInputService.createQuickPick<IQuickPickItem & { runtime?: ILanguageRuntimeMetadata }>();
-		quickPick.title = localize('quarto.changeKernel.title', 'Select Quarto Kernel');
+		quickPick.title = localize('quarto.changeKernel.title', "Select Quarto Kernel");
 
 		const gatherRuntimePicks = () => {
 			const runtimes = languageRuntimeService.registeredRuntimes
@@ -349,7 +340,7 @@ registerAction2(class ChangeKernelAction extends Action2 {
 			if (runtimes.length === 0) {
 				quickPick.busy = true;
 				quickPick.items = [{
-					label: localize('quarto.changeKernel.noRuntime', 'No {0} runtimes found', language),
+					label: localize('quarto.changeKernel.noRuntime', "No {0} runtimes found", language),
 				}];
 			} else {
 				quickPick.busy = false;
@@ -405,10 +396,7 @@ registerAction2(class CopyOutputAction extends Action2 {
 	constructor() {
 		super({
 			id: QuartoCommandId.CopyOutput,
-			title: {
-				value: localize('quarto.copyOutput', 'Copy Cell Output'),
-				original: 'Copy Cell Output',
-			},
+			title: localize2('quarto.copyOutput', "Copy Cell Output"),
 			category: QUARTO_CATEGORY,
 			f1: true,
 			precondition: QUARTO_PRECONDITION,
@@ -448,10 +436,7 @@ registerAction2(class ClearOutputCacheAction extends Action2 {
 	constructor() {
 		super({
 			id: QuartoCommandId.ClearOutputCache,
-			title: {
-				value: localize('quarto.clearOutputCache', 'Clear Inline Output Cache...'),
-				original: 'Clear Inline Output Cache...',
-			},
+			title: localize2('quarto.clearOutputCache', "Clear Inline Output Cache..."),
 			category: QUARTO_CATEGORY,
 			f1: true,
 			precondition: QUARTO_INLINE_OUTPUT_ENABLED,
@@ -470,9 +455,9 @@ registerAction2(class ClearOutputCacheAction extends Action2 {
 		// If cache is empty, show a simple message
 		if (cacheInfo.fileCount === 0) {
 			await modalDialogsService.showSimpleModalDialogMessage(
-				localize('quarto.cacheEmpty.title', 'Cache Empty'),
-				localize('quarto.cacheEmpty.message', 'The Quarto inline output cache is empty.'),
-				localize('quarto.ok', 'OK')
+				localize('quarto.cacheEmpty.title', "Cache Empty"),
+				localize('quarto.cacheEmpty.message', "The Quarto inline output cache is empty."),
+				localize('quarto.ok', "OK")
 			);
 			return;
 		}
@@ -482,15 +467,15 @@ registerAction2(class ClearOutputCacheAction extends Action2 {
 
 		// Show confirmation dialog
 		const confirmed = await modalDialogsService.showSimpleModalDialogPrompt(
-			localize('quarto.clearCache.title', 'Clear Inline Output Cache'),
+			localize('quarto.clearCache.title', "Clear Inline Output Cache"),
 			localize(
 				'quarto.clearCache.message',
-				'The Quarto inline output cache is using {0} of storage ({1} files).\n\nOutputs from all documents will be removed. This action cannot be undone.',
+				"The Quarto inline output cache is using {0} of storage ({1} files).\n\nOutputs from all documents will be removed. This action cannot be undone.",
 				formattedSize,
 				cacheInfo.fileCount
 			),
-			localize('quarto.clearCache.confirm', 'Remove'),
-			localize('quarto.cancel', 'Cancel'),
+			localize('quarto.clearCache.confirm', "Remove"),
+			localize('quarto.cancel', "Cancel"),
 			250 // height
 		);
 
@@ -510,7 +495,7 @@ registerAction2(class ClearOutputCacheAction extends Action2 {
 			notificationService.info(
 				localize(
 					'quarto.clearCache.success',
-					'Quarto inline output cache removed successfully ({0} files, {1})',
+					"Quarto inline output cache removed successfully ({0} files, {1})",
 					result.filesDeleted,
 					formattedFreed
 				)
@@ -525,7 +510,7 @@ registerAction2(class ClearOutputCacheAction extends Action2 {
 				severity: Severity.Warning,
 				message: localize(
 					'quarto.clearCache.partial',
-					'Quarto inline output cache partially cleared ({0} of {1} files removed). Some errors occurred:\n{2}',
+					"Quarto inline output cache partially cleared ({0} of {1} files removed). Some errors occurred:\n{2}",
 					result.filesDeleted,
 					cacheInfo.fileCount,
 					errorSummary
@@ -543,10 +528,7 @@ registerAction2(class ShowOutputCacheAction extends Action2 {
 	constructor() {
 		super({
 			id: QuartoCommandId.ShowOutputCache,
-			title: {
-				value: localize('quarto.showOutputCache', 'Show Output Cache'),
-				original: 'Show Output Cache',
-			},
+			title: localize2('quarto.showOutputCache', "Show Output Cache"),
 			category: QUARTO_CATEGORY,
 			f1: true,
 			precondition: QUARTO_INLINE_OUTPUT_ENABLED,
@@ -563,7 +545,7 @@ registerAction2(class ShowOutputCacheAction extends Action2 {
 		const context = getQuartoContext(editorService);
 		if (!context) {
 			notificationService.info(
-				localize('quarto.showOutputCache.noQuartoFile', 'Open a Quarto file to view its output cache.')
+				localize('quarto.showOutputCache.noQuartoFile', "Open a Quarto file to view its output cache.")
 			);
 			return;
 		}
@@ -580,7 +562,7 @@ registerAction2(class ShowOutputCacheAction extends Action2 {
 			notificationService.info(
 				localize(
 					'quarto.showOutputCache.noCacheExists',
-					'No output cache exists for {0}. Run one or more cells in the document to create one.',
+					"No output cache exists for {0}. Run one or more cells in the document to create one.",
 					fileName
 				)
 			);
@@ -607,10 +589,7 @@ registerAction2(class SaveCellPlotAction extends Action2 {
 	constructor() {
 		super({
 			id: QuartoCommandId.SaveCellPlot,
-			title: {
-				value: localize('quarto.saveCellPlot', 'Save Cell Plot Output As...'),
-				original: 'Save Cell Plot Output As...',
-			},
+			title: localize2('quarto.saveCellPlot', "Save Cell Plot Output As..."),
 			category: QUARTO_CATEGORY,
 			f1: true,
 			precondition: QUARTO_PRECONDITION,
@@ -629,7 +608,7 @@ registerAction2(class SaveCellPlotAction extends Action2 {
 		const { editor } = context;
 		const position = editor.getPosition();
 		if (!position) {
-			notificationService.warn(localize('quarto.saveCellPlot.noCursor', 'No cursor position'));
+			notificationService.warn(localize('quarto.saveCellPlot.noCursor', "No cursor position"));
 			return false;
 		}
 
@@ -642,14 +621,14 @@ registerAction2(class SaveCellPlotAction extends Action2 {
 		// Check if cursor is in a cell
 		const cellId = contribution.getCellIdAtLine(position.lineNumber);
 		if (!cellId) {
-			notificationService.warn(localize('quarto.saveCellPlot.noCell', 'Cursor is not in a code cell'));
+			notificationService.warn(localize('quarto.saveCellPlot.noCell', "Cursor is not in a code cell"));
 			return false;
 		}
 
 		// Get plot info for the cell at cursor position
 		const plotInfo = contribution.getPlotInfoForCellAtLine(position.lineNumber);
 		if (!plotInfo) {
-			notificationService.warn(localize('quarto.saveCellPlot.noPlot', 'No single plot output in this cell'));
+			notificationService.warn(localize('quarto.saveCellPlot.noPlot', "No single plot output in this cell"));
 			return false;
 		}
 
@@ -693,7 +672,7 @@ registerAction2(class PopoutOutputAction extends Action2 {
 		const { editor } = context;
 		const position = editor.getPosition();
 		if (!position) {
-			notificationService.warn(localize('quarto.popoutOutput.noCursor', 'No cursor position'));
+			notificationService.warn(localize('quarto.popoutOutput.noCursor', "No cursor position"));
 			return false;
 		}
 
@@ -706,14 +685,14 @@ registerAction2(class PopoutOutputAction extends Action2 {
 		// Check if cursor is in a cell
 		const cellId = contribution.getCellIdAtLine(position.lineNumber);
 		if (!cellId) {
-			notificationService.warn(localize('quarto.popoutOutput.noCell', 'Cursor is not in a code cell'));
+			notificationService.warn(localize('quarto.popoutOutput.noCell', "Cursor is not in a code cell"));
 			return false;
 		}
 
 		// Try to popout the output for the cell at cursor position
 		const success = contribution.popoutForCellAtLine(position.lineNumber);
 		if (!success) {
-			notificationService.warn(localize('quarto.popoutOutput.noOutput', 'No output available to open for this cell'));
+			notificationService.warn(localize('quarto.popoutOutput.noOutput', "No output available to open for this cell"));
 			return false;
 		}
 
