@@ -473,6 +473,11 @@
             "default": "",
             "markdownDescription": "%configuration.models.preference.snowflakeCortex.description%"
           },
+          "positron.assistant.models.preference.msFoundry": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "%configuration.models.preference.msFoundry.description%"
+          },
           "positron.assistant.models.preference.openAI": {
             "type": "string",
             "default": "",
@@ -486,18 +491,7 @@
           "positron.assistant.models.preference.positAI": {
             "type": "string",
             "default": "",
-            "markdownDescription": "%configuration.models.preference.positAI.description%",
-            "tags": [
-              "advanced"
-            ]
-          },
-          "positron.assistant.models.preference.msFoundry": {
-            "type": "string",
-            "default": "",
-            "markdownDescription": "%configuration.models.preference.msFoundry.description%",
-            "tags": [
-              "advanced"
-            ]
+            "markdownDescription": "%configuration.models.preference.positAI.description%"
           },
           "positron.assistant.models.preference.google": {
             "type": "string",
@@ -633,6 +627,38 @@
               ]
             ]
           },
+          "positron.assistant.models.overrides.msFoundry": {
+            "type": "array",
+            "default": [],
+            "markdownDescription": "%configuration.models.overrides.msFoundry.description%",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Display name for the model"
+                },
+                "identifier": {
+                  "type": "string",
+                  "description": "Model identifier for API calls"
+                },
+                "maxInputTokens": {
+                  "type": "number",
+                  "minimum": 512,
+                  "description": "Maximum input tokens for this model"
+                },
+                "maxOutputTokens": {
+                  "type": "number",
+                  "minimum": 512,
+                  "description": "Maximum output tokens for this model"
+                }
+              },
+              "required": [
+                "name",
+                "identifier"
+              ]
+            }
+          },
           "positron.assistant.models.overrides.openAI": {
             "type": "array",
             "default": [],
@@ -719,44 +745,6 @@
             "type": "array",
             "default": [],
             "markdownDescription": "%configuration.models.overrides.positAI.description%",
-            "tags": [
-              "advanced"
-            ],
-            "items": {
-              "type": "object",
-              "properties": {
-                "name": {
-                  "type": "string",
-                  "description": "Display name for the model"
-                },
-                "identifier": {
-                  "type": "string",
-                  "description": "Model identifier for API calls"
-                },
-                "maxInputTokens": {
-                  "type": "number",
-                  "minimum": 512,
-                  "description": "Maximum input tokens for this model"
-                },
-                "maxOutputTokens": {
-                  "type": "number",
-                  "minimum": 512,
-                  "description": "Maximum output tokens for this model"
-                }
-              },
-              "required": [
-                "name",
-                "identifier"
-              ]
-            }
-          },
-          "positron.assistant.models.overrides.msFoundry": {
-            "type": "array",
-            "default": [],
-            "markdownDescription": "%configuration.models.overrides.msFoundry.description%",
-            "tags": [
-              "advanced"
-            ],
             "items": {
               "type": "object",
               "properties": {
@@ -843,30 +831,30 @@
           },
           "positron.assistant.provider.amazonBedrock.enable": {
             "type": "boolean",
-            "default": false,
+            "default": true,
             "markdownDescription": "%configuration.provider.amazonBedrock.enable.description%",
-            "tags": [
-              "preview"
-            ],
             "order": 3
           },
           "positron.assistant.provider.snowflakeCortex.enable": {
             "type": "boolean",
-            "default": false,
+            "default": true,
             "markdownDescription": "%configuration.provider.snowflakeCortex.enable.description%",
-            "tags": [
-              "preview"
-            ],
             "order": 4
           },
-          "positron.assistant.provider.openAI.enable": {
+          "positron.assistant.provider.msFoundry.enable": {
             "type": "boolean",
             "default": false,
-            "markdownDescription": "%configuration.provider.openAI.enable.description%",
+            "markdownDescription": "%configuration.provider.msFoundry.enable.description%",
             "tags": [
               "preview"
             ],
             "order": 5
+          },
+          "positron.assistant.provider.openAI.enable": {
+            "type": "boolean",
+            "default": true,
+            "markdownDescription": "%configuration.provider.openAI.enable.description%",
+            "order": 6
           },
           "positron.assistant.provider.customProvider.enable": {
             "type": "boolean",
@@ -875,25 +863,14 @@
             "tags": [
               "experimental"
             ],
-            "order": 6
+            "order": 7
           },
           "positron.assistant.provider.positAI.enable": {
             "type": "boolean",
-            "default": false,
+            "default": true,
             "markdownDescription": "%configuration.provider.positAI.enable.description%",
             "tags": [
-              "experimental",
-              "advanced"
-            ],
-            "order": 7
-          },
-          "positron.assistant.provider.msFoundry.enable": {
-            "type": "boolean",
-            "default": false,
-            "markdownDescription": "%configuration.provider.msFoundry.enable.description%",
-            "tags": [
-              "experimental",
-              "advanced"
+              "preview"
             ],
             "order": 8
           },
