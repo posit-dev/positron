@@ -106,7 +106,7 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		this._activeInstance = instance;
 
 		// Update context keys
-		this._hasActiveSessionContextKey.set(!!instance);
+		this._hasActiveSessionContextKey.set(Boolean(instance));
 
 		// Clear previous instance's busy state tracking
 		this._activeInstanceDisposables.clear();
