@@ -5,7 +5,7 @@
 
 import * as positron from 'positron';
 import * as extHostProtocol from './extHost.positron.protocol.js';
-import { IDataConnectionDriverMetadata, IDataConnectionNodeDTO, IDataConnectionParameterDTO } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
+import { IDataConnectionDriverMetadata, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
 import { Disposable } from '../extHostTypes.js';
 
 /**
@@ -96,6 +96,32 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 		});
 	}
 
+	/**
+	 * Returns summaries of all registered drivers by calling the main thread
+	 * service. This exercises the full RPC round trip.
+	 */
+	public async getDrivers(): Promise<positron.DataConnectionDriverSummary[]> {
+		const dtos: IDataConnectionDriverSummaryDTO[] = await this._proxy.$getDataConnectionDrivers();
+		return dtos.map(dto => ({
+			id: dto.id,
+			name: dto.name,
+			description: dto.description,
+			parameters: dto.parameters as positron.DataConnectionParameter[],
+			supportedLanguageIds: dto.supportedLanguageIds,
+		}));
+	}
+
+	/**
+	 * Connects to a driver by calling through the main thread service, which
+	 * calls back into the ext host via $driverConnect (full round trip).
+	 * Returns a DataConnection proxy that routes all operations through the
+	 * main thread.
+	 */
+	public async connect(driverId: string, params: positron.DataConnectionParameterValues): Promise<positron.DataConnection> {
+		const connectionHandle = await this._proxy.$connectToDataConnectionDriver(driverId, params);
+		return new ExtHostDataConnectionProxy(connectionHandle, this._proxy);
+	}
+
 	// --- ExtHostDataConnectionsShape (called by main thread via RPC) ---
 
 	/**
@@ -119,6 +145,17 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 		this._driverConnections.get(driverId)?.add(handle);
 
 		return handle;
+	}
+
+	/**
+	 * Returns whether the connection was opened in read-only mode.
+	 */
+	async $connectionIsReadOnly(connectionHandle: number): Promise<boolean> {
+		const connection = this._connections.get(connectionHandle);
+		if (!connection) {
+			throw new Error(`Connection handle ${connectionHandle} not found`);
+		}
+		return connection.isReadOnly();
 	}
 
 	/**
@@ -255,3 +292,80 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 		return dto;
 	}
 }
+
+/**
+ * A DataConnection proxy that routes all operations through the main thread
+ * via the "ViaService" RPC methods. This ensures that calls from the ext host
+ * API (e.g. in integration tests) exercise the full main-thread service layer.
+ */
+class ExtHostDataConnectionProxy implements positron.DataConnection {
+
+	/**
+	 * Constructor.
+	 * @param _connectionHandle The integer connection handle assigned by the ext host.
+	 * @param _proxy RPC proxy for calling through the main thread service.
+	 */
+	constructor(
+		private readonly _connectionHandle: number,
+		private readonly _proxy: extHostProtocol.MainThreadDataConnectionsShape,
+	) { }
+
+	/**
+	 * Returns whether this connection was opened in read-only mode.
+	 */
+	async isReadOnly(): Promise<boolean> {
+		return this._proxy.$connectionIsReadOnlyViaService(this._connectionHandle);
+	}
+
+	/**
+	 * Returns top-level schema objects (tables, views, etc.) for this connection.
+	 */
+	async getChildren(): Promise<positron.DataConnectionNode[]> {
+		const dtos = await this._proxy.$connectionGetChildrenViaService(this._connectionHandle);
+		return dtos.map(dto => this._dtoToNode(dto));
+	}
+
+	/**
+	 * Disconnects this connection.
+	 */
+	async disconnect(): Promise<void> {
+		return this._proxy.$connectionDisconnectViaService(this._connectionHandle);
+	}
+
+	/**
+	 * Returns whether this connection is still connected.
+	 */
+	async isConnected(): Promise<boolean> {
+		return this._proxy.$connectionIsConnectedViaService(this._connectionHandle);
+	}
+
+	/**
+	 * Converts a serializable node DTO into a DataConnectionNode, wiring up
+	 * getChildren and preview callbacks that route through the main thread.
+	 * @param dto The serializable node DTO from the RPC layer.
+	 * @returns A DataConnectionNode with live callbacks.
+	 */
+	private _dtoToNode(dto: IDataConnectionNodeDTO): positron.DataConnectionNode {
+		const node: positron.DataConnectionNode = {
+			name: dto.name,
+			kind: dto.kind as positron.DataConnectionNodeKind,
+			dataType: dto.dataType,
+		};
+
+		if (dto.hasGetChildren) {
+			node.getChildren = async () => {
+				const childDtos = await this._proxy.$nodeGetChildrenViaService(this._connectionHandle, dto.nodeHandle);
+				return childDtos.map(child => this._dtoToNode(child));
+			};
+		}
+
+		if (dto.hasPreview) {
+			node.preview = async () => {
+				return this._proxy.$nodePreviewViaService(this._connectionHandle, dto.nodeHandle);
+			};
+		}
+
+		return node;
+	}
+}
+

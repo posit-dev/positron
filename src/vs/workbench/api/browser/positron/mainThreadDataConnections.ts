@@ -6,7 +6,7 @@
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IPositronDataConnectionsService } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
-import { DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionNodeDTO } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
+import { DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionDriverSummaryDTO, IDataConnectionHandle, IDataConnectionNodeDTO } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
 import { ExtHostDataConnectionsShape, ExtHostPositronContext, MainPositronContext, MainThreadDataConnectionsShape } from '../../common/positron/extHost.positron.protocol.js';
 
 // Registers this class as a named customer so the extension host manager
@@ -26,6 +26,9 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 
 	// The disposable store.
 	private readonly _disposableStore = new DisposableStore();
+
+	// Connection handles created via $connectToDataConnectionDriver, keyed by handle number.
+	private readonly _connectionHandles = new Map<number, IDataConnectionHandle>();
 
 	/**
 	 * Constructor.
@@ -58,6 +61,97 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 	 */
 	$removeDataConnectionDriver(driverId: string): void {
 		this._dataConnectionsService.driverManager.removeDriver(driverId);
+	}
+
+	/**
+	 * Returns summaries of all registered drivers from the service.
+	 */
+	async $getDataConnectionDrivers(): Promise<IDataConnectionDriverSummaryDTO[]> {
+		return this._dataConnectionsService.driverManager.getDrivers().map(driver => ({
+			id: driver.id,
+			name: driver.metadata.name,
+			description: driver.metadata.description,
+			parameters: driver.metadata.parameters,
+			supportedLanguageIds: driver.metadata.supportedLanguageIds,
+		}));
+	}
+
+	/**
+	 * Connects to a driver via the service and returns a connection handle.
+	 * This goes through the MainThreadDataConnectionDriverAdapter which calls
+	 * back into the ext host via $driverConnect, exercising the full RPC
+	 * round trip.
+	 */
+	async $connectToDataConnectionDriver(driverId: string, params: DataConnectionParameterValues): Promise<number> {
+		const drivers = this._dataConnectionsService.driverManager.getDrivers();
+		const driver = drivers.find(d => d.id === driverId);
+		if (!driver) {
+			throw new Error(`Data connection driver '${driverId}' not found`);
+		}
+		const handle = await driver.connect(params);
+		this._connectionHandles.set(handle.handle, handle);
+		return handle.handle;
+	}
+
+	/**
+	 * Gets top-level children of a connection through the main thread handle.
+	 */
+	async $connectionGetChildrenViaService(connectionHandle: number): Promise<IDataConnectionNodeDTO[]> {
+		return this._getHandle(connectionHandle).getChildren();
+	}
+
+	/**
+	 * Disconnects a connection through the main thread handle.
+	 */
+	async $connectionDisconnectViaService(connectionHandle: number): Promise<void> {
+		return this._getHandle(connectionHandle).disconnect();
+	}
+
+	/**
+	 * Checks whether a connection is read-only through the main thread handle.
+	 */
+	async $connectionIsReadOnlyViaService(connectionHandle: number): Promise<boolean> {
+		return this._getHandle(connectionHandle).isReadOnly();
+	}
+
+	/**
+	 * Checks connection status through the main thread handle.
+	 */
+	async $connectionIsConnectedViaService(connectionHandle: number): Promise<boolean> {
+		return this._getHandle(connectionHandle).isConnected();
+	}
+
+	/**
+	 * Gets children of a node through the main thread handle.
+	 */
+	async $nodeGetChildrenViaService(connectionHandle: number, nodeHandle: number): Promise<IDataConnectionNodeDTO[]> {
+		return this._getHandle(connectionHandle).nodeGetChildren(nodeHandle);
+	}
+
+	/**
+	 * Previews a node through the main thread handle.
+	 */
+	async $nodePreviewViaService(connectionHandle: number, nodeHandle: number): Promise<void> {
+		return this._getHandle(connectionHandle).nodePreview(nodeHandle);
+	}
+
+	/**
+	 * Releases a connection handle through the main thread handle.
+	 */
+	$releaseConnectionViaService(connectionHandle: number): void {
+		const handle = this._connectionHandles.get(connectionHandle);
+		if (handle) {
+			handle.release();
+			this._connectionHandles.delete(connectionHandle);
+		}
+	}
+
+	private _getHandle(connectionHandle: number): IDataConnectionHandle {
+		const handle = this._connectionHandles.get(connectionHandle);
+		if (!handle) {
+			throw new Error(`Connection handle ${connectionHandle} not found on the main thread`);
+		}
+		return handle;
 	}
 
 	// Called by the extension host manager when the extension host disconnects.
@@ -111,6 +205,13 @@ class MainThreadDataConnectionHandleAdapter implements IDataConnectionHandle {
 		readonly handle: number,
 		private readonly _proxy: ExtHostDataConnectionsShape
 	) { }
+
+	/**
+	 * Checks whether the extension-side connection is read-only.
+	 */
+	async isReadOnly(): Promise<boolean> {
+		return this._proxy.$connectionIsReadOnly(this.handle);
+	}
 
 	/**
 	 * Fetches top-level children (databases, schemas, etc.) from the ext host.

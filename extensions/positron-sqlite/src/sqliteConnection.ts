@@ -16,6 +16,9 @@ export class SQLiteConnection implements positron.DataConnection {
 	// The open database handle, or null after disconnect.
 	private _db: Database.Database | null;
 
+	// Whether this connection was opened in read-only mode.
+	private readonly _readOnly: boolean;
+
 	/**
 	 * Constructor.
 	 * @param databasePath Absolute path to the SQLite database file.
@@ -23,17 +26,26 @@ export class SQLiteConnection implements positron.DataConnection {
 	 */
 	constructor(databasePath: string, readOnly: boolean) {
 		try {
+			// Open the database.
 			this._db = new Database(databasePath, {
 				readonly: readOnly,
 				fileMustExist: true,
 			});
+
+			// Set the read only flag.
+			this._readOnly = readOnly;
 		} catch (err: any) {
+			// Can't open error.
 			if (err.code === 'SQLITE_CANTOPEN' || err.message?.includes('directory does not exist')) {
 				throw new Error(`Cannot open SQLite database: ${databasePath}. File does not exist or is not accessible.`);
 			}
+
+			// File is not a database error.
 			if (err.message?.includes('file is not a database')) {
 				throw new Error(`The file at ${databasePath} is not a valid SQLite database.`);
 			}
+
+			// Other errors.
 			throw new Error(`Failed to open SQLite database: ${err.message}`);
 		}
 	}
@@ -45,19 +57,28 @@ export class SQLiteConnection implements positron.DataConnection {
 	async getChildren(): Promise<positron.DataConnectionNode[]> {
 		this._ensureConnected();
 
+		// Prepare SQL to select user tables and views.
 		const rows = this._db!.prepare(
-			`SELECT name, type FROM sqlite_masterZ
-WHERE type IN ('table', 'view')
-AND name NOT LIKE 'sqlite_%'
-ORDER BY type, name`
+			`SELECT name, type FROM sqlite_master WHERE type IN ('table', 'view') AND name NOT LIKE 'sqlite_%' ORDER BY type, name`
 		).all() as Array<{ name: string; type: string }>;
 
-		return rows.map(row => {
-			if (row.type === 'view') {
-				return createViewNode(this._db!, row.name);
-			}
-			return createTableNode(this._db!, row.name);
-		});
+		// Tables.
+		const tables = rows
+			.filter(row => row.type === 'table')
+			.map(row => createTableNode(this._db!, row.name));
+
+		// Views.
+		const views = rows
+			.filter(row => row.type === 'view')
+			.map(row => createViewNode(this._db!, row.name));
+
+		// Return the node.
+		return [...tables, ...views];
+	}
+
+	/** Returns whether this connection was opened in read-only mode. */
+	async isReadOnly(): Promise<boolean> {
+		return this._readOnly;
 	}
 
 	/** Closes the database. Idempotent -- safe to call multiple times. */

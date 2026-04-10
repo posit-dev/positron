@@ -301,7 +301,24 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				// Delegates to the ext host class which stores the driver and sends serializable
 				// metadata to the main thread via RPC.
 				return extHostDataConnections.registerDriver(driver);
-			}
+			},
+
+			/**
+			 * Returns summaries of all registered data connection drivers.
+			 */
+			getDrivers(): Thenable<positron.DataConnectionDriverSummary[]> {
+				return extHostDataConnections.getDrivers();
+			},
+
+			/**
+			 * Connects to a data connection driver with the given parameters.
+			 * @param driverId The driver identifier.
+			 * @param parameters The parameter values for the connection.
+			 * @returns A DataConnection that can be used to browse and interact with the data source.
+			 */
+			connect(driverId: string, parameters: positron.DataConnectionParameterValues): Thenable<positron.DataConnection> {
+				return extHostDataConnections.connect(driverId, parameters);
+			},
 		};
 
 		const environment: typeof positron.environment = {

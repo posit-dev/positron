@@ -16,7 +16,7 @@ import { INotebookContextDTO, NotebookCellType } from '../../../common/positron/
 import { ActiveRuntimeSessionMetadata, EnvironmentVariableAction, LanguageRuntimeDynState, LanguageRuntimePackage, PackageSpec, RuntimeSessionMetadata, type notebooks } from 'positron';
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
-import { DataConnectionParameterValues, IDataConnectionDriverMetadata, IDataConnectionNodeDTO } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
+import { DataConnectionParameterValues, IDataConnectionDriverMetadata, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
 import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource, IPositronProviderMetadata, IShowLanguageModelConfigOptions } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { IChatAgentData } from '../../../contrib/chat/common/participants/chatAgents.js';
 import { PlotRenderSettings } from '../../../services/positronPlots/common/positronPlots.js';
@@ -202,6 +202,53 @@ export interface MainThreadDataConnectionsShape extends IDisposable {
 	 * @param driverId The unique identifier for the driver to remove.
 	 */
 	$removeDataConnectionDriver(driverId: string): void;
+
+	/**
+	 * Returns summaries of all registered data connection drivers.
+	 */
+	$getDataConnectionDrivers(): Promise<IDataConnectionDriverSummaryDTO[]>;
+
+	/**
+	 * Connects to a driver and returns a connection handle. The main thread
+	 * adapter calls back into the ext host via $driverConnect, so the full
+	 * RPC round trip is exercised.
+	 */
+	$connectToDataConnectionDriver(driverId: string, params: DataConnectionParameterValues): Promise<number>;
+
+	/**
+	 * Checks whether a connection is read-only via the main thread service.
+	 */
+	$connectionIsReadOnlyViaService(connectionHandle: number): Promise<boolean>;
+
+	/**
+	 * Gets top-level children of a connection via the main thread service.
+	 */
+	$connectionGetChildrenViaService(connectionHandle: number): Promise<IDataConnectionNodeDTO[]>;
+
+	/**
+	 * Disconnects a connection via the main thread service.
+	 */
+	$connectionDisconnectViaService(connectionHandle: number): Promise<void>;
+
+	/**
+	 * Checks whether a connection is still connected via the main thread service.
+	 */
+	$connectionIsConnectedViaService(connectionHandle: number): Promise<boolean>;
+
+	/**
+	 * Gets children of a node via the main thread service.
+	 */
+	$nodeGetChildrenViaService(connectionHandle: number, nodeHandle: number): Promise<IDataConnectionNodeDTO[]>;
+
+	/**
+	 * Previews a node via the main thread service.
+	 */
+	$nodePreviewViaService(connectionHandle: number, nodeHandle: number): Promise<void>;
+
+	/**
+	 * Releases a connection handle via the main thread service.
+	 */
+	$releaseConnectionViaService(connectionHandle: number): void;
 }
 
 /**
@@ -211,6 +258,7 @@ export interface MainThreadDataConnectionsShape extends IDisposable {
  */
 export interface ExtHostDataConnectionsShape {
 	$driverConnect(driverId: string, params: DataConnectionParameterValues): Promise<number>;
+	$connectionIsReadOnly(connectionHandle: number): Promise<boolean>;
 	$connectionGetChildren(connectionHandle: number): Promise<IDataConnectionNodeDTO[]>;
 	$connectionDisconnect(connectionHandle: number): Promise<void>;
 	$connectionIsConnected(connectionHandle: number): Promise<boolean>;

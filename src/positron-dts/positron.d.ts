@@ -1878,6 +1878,11 @@ declare module 'positron' {
 	 */
 	export interface DataConnection {
 		/**
+		 * Whether this connection was opened in read-only mode.
+		 */
+		isReadOnly(): Thenable<boolean>;
+
+		/**
 		 * Browse the top-level schema objects (databases, schemas, catalogs).
 		 */
 		getChildren(): Thenable<DataConnectionNode[]>;
@@ -1891,6 +1896,26 @@ declare module 'positron' {
 		 * Test whether the connection is still connected.
 		 */
 		isConnected(): Thenable<boolean>;
+	}
+
+	/**
+	 * A summary of a registered data connection driver, returned by getDrivers().
+	 */
+	export interface DataConnectionDriverSummary {
+		// The driver identifier.
+		id: string;
+
+		// The driver name.
+		name: string;
+
+		// The driver description.
+		description: string;
+
+		// The driver parameters.
+		parameters: DataConnectionParameter[];
+
+		// The language identifiers this driver supports.
+		supportedLanguageIds: string[];
 	}
 
 	/**
@@ -2694,6 +2719,22 @@ declare module 'positron' {
 		 * @returns A disposable that unregisters the driver when disposed.
 		 */
 		export function registerDriver(driver: DataConnectionDriver): vscode.Disposable;
+
+		/**
+		 * Returns the registered data connection drivers.
+		 */
+		export function getDrivers(): Thenable<DataConnectionDriverSummary[]>;
+
+		/**
+		 * Connects to a data connection driver with the given parameters.
+		 * The connection goes through the main thread service and exercises
+		 * the full RPC pipeline.
+		 *
+		 * @param driverId The driver identifier.
+		 * @param parameters The connection parameters.
+		 * @returns A data connection.
+		 */
+		export function connect(driverId: string, parameters: DataConnectionParameterValues): Thenable<DataConnection>;
 	}
 
 	/**

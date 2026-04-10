@@ -52,6 +52,18 @@ export interface IDataConnectionNodeDTO {
 	hasPreview: boolean;
 }
 
+/**
+ * A lightweight summary of a registered driver, returned to the ext host
+ * for the positron.dataConnections.getDrivers() API.
+ */
+export interface IDataConnectionDriverSummaryDTO {
+	id: string;
+	name: string;
+	description: string;
+	parameters: IDataConnectionParameterDTO[];
+	supportedLanguageIds: string[];
+}
+
 // --- Service-level interfaces ---
 
 /**
@@ -70,6 +82,7 @@ export interface IDataConnectionDriver {
  */
 export interface IDataConnectionHandle {
 	readonly handle: number;
+	isReadOnly(): Promise<boolean>;
 	getChildren(): Promise<IDataConnectionNodeDTO[]>;
 	disconnect(): Promise<void>;
 	isConnected(): Promise<boolean>;
