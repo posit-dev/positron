@@ -368,10 +368,13 @@ registerAction2(class ChangeKernelAction extends Action2 {
 		gatherRuntimePicks();
 
 		return new Promise<void>(resolve => {
-			quickPick.onDidAccept(async () => {
+			quickPick.onDidAccept(() => {
 				const selected = quickPick.selectedItems[0];
 				if (selected?.runtime && selected.runtime.runtimeId !== currentRuntimeId) {
-					await kernelManager.changeKernelForDocument(documentUri, selected.runtime.runtimeId);
+					// Fire and forget; the kernel state badge will show
+					// progress as the old kernel shuts down and the new
+					// one starts up.
+					kernelManager.changeKernelForDocument(documentUri, selected.runtime.runtimeId);
 				}
 				quickPick.hide();
 			});
