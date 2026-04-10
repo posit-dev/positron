@@ -9,11 +9,11 @@ test.use({
 	suiteId: __filename
 });
 
+// mouse scroll doesn't work in web
+// https://github.com/posit-dev/positron/issues/12964
 test.describe('Environment Pane', {
-	tag: [tags.WEB, tags.WIN, tags.PACKAGES_PANE]
+	tag: [tags.WIN, tags.PACKAGES_PANE]
 }, () => {
-
-	const getPackagesButton = (page: any) => page.locator('a.action-label.codicon-package');
 
 	test.beforeAll(async function ({ settings }) {
 		await settings.set({
@@ -21,35 +21,27 @@ test.describe('Environment Pane', {
 		}, { reload: 'web' });
 	});
 
-	test.afterEach(async function ({ page }) {
-		await getPackagesButton(page).click();
+	test.afterEach(async function ({ app }) {
+		await app.workbench.packages.closePackagesPane();
 	});
 
-	async function verifyPackagesList(page: any, expectedVersion: string) {
-		// Click on the Packages button in the environment pane
-		await getPackagesButton(page).click();
+	test('Python - Click packages button', async function ({ app, python: _python }) {
+		const { packages } = app.workbench;
 
-		// Verify the packages list is displayed
-		const packagesContainer = page.locator('.positron-packages-list');
-		await expect(packagesContainer).toBeVisible();
+		await packages.verifyPackagesList();
+		await packages.installPackage('cowsay');
 
-		// Verify button contains the expected version
-		const versionButton = packagesContainer.locator('.action-bar-region-left button').first();
-		await expect(versionButton).toBeVisible();
-		await expect(versionButton).toContainText(expectedVersion);
-
-		// Verify package list items are present
-		const packageItems = packagesContainer.locator('.packages-list-item-name');
-		await expect(packageItems.first()).toBeVisible();
-		const itemCount = await packageItems.count();
-		expect(itemCount).toBeGreaterThan(0);
-	}
-
-	test('Python - Click packages button', async function ({ page, python: _python }) {
-		await verifyPackagesList(page, process.env.POSITRON_PY_VER_SEL!);
+		const allPackages = await packages.getAllPackages();
+		expect(allPackages).toContain('cowsay');
 	});
 
-	test('R - Click packages button', async function ({ page, r: _r }) {
-		await verifyPackagesList(page, process.env.POSITRON_R_VER_SEL!);
+	test('R - Click packages button', async function ({ app, r: _r }) {
+		const { packages } = app.workbench;
+
+		await packages.verifyPackagesList();
+		await packages.installPackage('cowsay');
+
+		const allPackages = await packages.getAllPackages();
+		expect(allPackages).toContain('cowsay');
 	});
 });
