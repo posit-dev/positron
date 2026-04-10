@@ -256,14 +256,14 @@ export class PositronNotebooks extends Notebooks {
 		await this.expectToBeVisible();
 		await this.expectCellCountToBe(1); // New notebook starts with 1 cell by default
 
-		if (codeCells === 1 && markdownCells === 0) {
+		if (codeCells <= 1 && markdownCells === 0) {
 			return;
 		}
 
-		let totalCellsAdded = 1;
+		let totalCellsAdded = 0;
 
-		if (codeCells > 1) {
-			for (let i = 1; i < codeCells; i++) {
+		if (codeCells > 0) {
+			for (let i = 0; i < codeCells; i++) {
 				await this.addCodeToCell(i, `# Cell ${i}`);
 				await this.expectCellCountToBe(totalCellsAdded + 1);
 				await this.expectCellContentAtIndexToBe(i, `# Cell ${i}`);
