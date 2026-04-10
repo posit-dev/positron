@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -31,7 +31,6 @@
 
 .connections-item {
 	display: flex;
-	cursor: pointer;
 	align-items: center;
 	height: 26px;
 	scrollbar-gutter: stable;
@@ -84,6 +83,7 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	cursor: pointer;
 }
 
 .connections-items-container .animate-spin {
