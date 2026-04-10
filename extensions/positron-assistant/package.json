@@ -831,13 +831,13 @@
           },
           "positron.assistant.provider.amazonBedrock.enable": {
             "type": "boolean",
-            "default": false,
+            "default": true,
             "markdownDescription": "%configuration.provider.amazonBedrock.enable.description%",
             "order": 3
           },
           "positron.assistant.provider.snowflakeCortex.enable": {
             "type": "boolean",
-            "default": false,
+            "default": true,
             "markdownDescription": "%configuration.provider.snowflakeCortex.enable.description%",
             "order": 4
           },
@@ -852,7 +852,7 @@
           },
           "positron.assistant.provider.openAI.enable": {
             "type": "boolean",
-            "default": false,
+            "default": true,
             "markdownDescription": "%configuration.provider.openAI.enable.description%",
             "order": 6
           },
