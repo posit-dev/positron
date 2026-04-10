@@ -593,7 +593,28 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		return QuartoKernelState.None;
 	}
 
+	/**
+	 * Shut down the kernel for a document, logging any errors.
+	 *
+	 * @param documentUri The URI of the document whose kernel should be shut down.
+	 */
 	async shutdownKernelForDocument(documentUri: URI): Promise<void> {
+		try {
+			await this.tryShutdownKernelForDocument(documentUri);
+		} catch (error) {
+			this._logService.error(`[QuartoKernelManager] Failed to shut down kernel for ${documentUri.toString()}:`, error);
+		}
+	}
+
+	/**
+	 * Try to shut down the kernel for a document, throwing any errors to the caller.
+	 *
+	 * @param documentUri The URI of the document whose kernel should be shut down.
+	 *
+	 * @returns A promise that resolves when the kernel has been shut down, or
+	 * rejects if an error occurs during shutdown.
+	 */
+	async tryShutdownKernelForDocument(documentUri: URI): Promise<void> {
 		const info = this._documentKernels.get(documentUri);
 		if (!info) {
 			return;
@@ -617,8 +638,6 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 				RuntimeExitReason.Shutdown,
 				'Quarto kernel shutdown',
 			);
-		} catch (error) {
-			this._logService.warn(`[QuartoKernelManager] Error shutting down kernel: ${error}`);
 		} finally {
 			// For cleanup, we want to. dispose of listeners, then fire the state-change
 			// event while the _documentKernels entry is still present, then delete the entry.
@@ -673,7 +692,7 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		// so that the user can still switch to the new kernel.
 		const oldRuntimeName = this._documentKernels.get(documentUri)?.session?.runtimeMetadata.runtimeName;
 		try {
-			await this.shutdownKernelForDocument(documentUri);
+			await this.tryShutdownKernelForDocument(documentUri);
 		} catch (error) {
 			this._logService.error(`[QuartoKernelManager] Failed to shut down existing kernel for ${documentUri.toString()}:`, error);
 			this._notificationService.warn(
