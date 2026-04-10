@@ -357,8 +357,15 @@ registerAction2(class ChangeKernelAction extends Action2 {
 					label: runtime.runtimeName,
 					description: runtime.runtimePath,
 					runtime,
-					picked: runtime.runtimeId === currentRuntimeId,
 				}));
+
+				// Pre-select the current runtime
+				const currentItem = quickPick.items.find(
+					item => (item as any).runtime?.runtimeId === currentRuntimeId
+				);
+				if (currentItem) {
+					quickPick.activeItems = [currentItem];
+				}
 			}
 		};
 
