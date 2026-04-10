@@ -300,13 +300,7 @@ class UninstallPackageAction extends Action2 {
 			title: nls.localize2('uninstallPackage', 'Uninstall Package'),
 			category: PACKAGES_CATEGORY,
 			f1: true,
-			precondition: POSITRON_PACKAGES_ENABLED,
-			menu: {
-				id: MenuId.ViewTitle,
-				when: ContextKeyExpr.and(PACKAGES_VIEW_VISIBLE, PACKAGES_HAS_SELECTION),
-				group: 'packages',
-				order: 4
-			}
+			precondition: ContextKeyExpr.and(POSITRON_PACKAGES_ENABLED, PACKAGES_CAN_RUN_ACTION),
 		});
 	}
 	override async run(accessor: ServicesAccessor, ...args: unknown[]): Promise<void> {
@@ -377,13 +371,7 @@ class UpdatePackageAction extends Action2 {
 			title: nls.localize2('updatePackage', 'Update Package'),
 			category: PACKAGES_CATEGORY,
 			f1: true,
-			precondition: POSITRON_PACKAGES_ENABLED,
-			menu: {
-				id: MenuId.ViewTitle,
-				when: ContextKeyExpr.and(PACKAGES_VIEW_VISIBLE, PACKAGES_HAS_SELECTION),
-				group: 'packages',
-				order: 3
-			}
+			precondition: ContextKeyExpr.and(POSITRON_PACKAGES_ENABLED, PACKAGES_CAN_RUN_ACTION),
 		});
 	}
 	override async run(accessor: ServicesAccessor, ...args: unknown[]): Promise<void> {
@@ -494,9 +482,65 @@ class UpdateAllPackagesAction extends Action2 {
 	}
 }
 
+/**
+ * Menu wrapper for Update Package that passes the selected package to the main command.
+ */
+class UpdateSelectedPackageAction extends Action2 {
+	constructor() {
+		super({
+			id: 'positronPackages.updateSelectedPackage',
+			title: nls.localize2('updatePackage', 'Update Package'),
+			category: PACKAGES_CATEGORY,
+			precondition: ContextKeyExpr.and(POSITRON_PACKAGES_ENABLED, PACKAGES_CAN_RUN_ACTION),
+			menu: {
+				id: MenuId.ViewTitle,
+				when: ContextKeyExpr.and(PACKAGES_VIEW_VISIBLE, PACKAGES_HAS_SELECTION),
+				group: 'packages',
+				order: 3
+			}
+		});
+	}
+	override async run(accessor: ServicesAccessor): Promise<void> {
+		const service = accessor.get(IPositronPackagesService);
+		const commandService = accessor.get(ICommandService);
+		if (service.selectedPackage) {
+			await commandService.executeCommand(PACKAGES_UPDATE_COMMAND_ID, service.selectedPackage);
+		}
+	}
+}
+
+/**
+ * Menu wrapper for Uninstall Package that passes the selected package to the main command.
+ */
+class UninstallSelectedPackageAction extends Action2 {
+	constructor() {
+		super({
+			id: 'positronPackages.uninstallSelectedPackage',
+			title: nls.localize2('uninstallPackage', 'Uninstall Package'),
+			category: PACKAGES_CATEGORY,
+			precondition: ContextKeyExpr.and(POSITRON_PACKAGES_ENABLED, PACKAGES_CAN_RUN_ACTION),
+			menu: {
+				id: MenuId.ViewTitle,
+				when: ContextKeyExpr.and(PACKAGES_VIEW_VISIBLE, PACKAGES_HAS_SELECTION),
+				group: 'packages',
+				order: 4
+			}
+		});
+	}
+	override async run(accessor: ServicesAccessor): Promise<void> {
+		const service = accessor.get(IPositronPackagesService);
+		const commandService = accessor.get(ICommandService);
+		if (service.selectedPackage) {
+			await commandService.executeCommand(PACKAGES_UNINSTALL_COMMAND_ID, service.selectedPackage);
+		}
+	}
+}
+
 registerAction2(InstallPackageAction);
 registerAction2(RefreshPackagesAction);
 registerAction2(UninstallPackageAction);
 registerAction2(UpdatePackageAction);
 registerAction2(UpdateAllPackagesAction);
+registerAction2(UpdateSelectedPackageAction);
+registerAction2(UninstallSelectedPackageAction);
 registerSingleton(IPositronPackagesService, PositronPackagesService, InstantiationType.Delayed);

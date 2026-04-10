@@ -11,7 +11,7 @@ export const POSITRON_PACKAGES_VIEW_ID = 'workbench.view.positronPackages.view';
 // Context keys for the packages view
 export const POSITRON_PACKAGES_HAS_ACTIVE_SESSION = new RawContextKey<boolean>('positronPackages.hasActiveSession', false);
 export const POSITRON_PACKAGES_IS_BUSY = new RawContextKey<boolean>('positronPackages.isBusy', false);
-export const POSITRON_PACKAGES_HAS_SELECTED_PACKAGE = new RawContextKey<boolean>('positronPackages.hasSelectedPackage', false);
+export const POSITRON_PACKAGES_SELECTED_PACKAGE = new RawContextKey<string>('positronPackages.selectedPackage', '');
 
 // Context key expressions for menu enablement
 export const PACKAGES_VIEW_VISIBLE = ContextKeyExpr.equals('view', POSITRON_PACKAGES_VIEW_ID);
@@ -21,5 +21,5 @@ export const PACKAGES_CAN_RUN_ACTION = ContextKeyExpr.and(
 );
 export const PACKAGES_HAS_SELECTION = ContextKeyExpr.and(
 	PACKAGES_CAN_RUN_ACTION,
-	POSITRON_PACKAGES_HAS_SELECTED_PACKAGE
+	POSITRON_PACKAGES_SELECTED_PACKAGE.notEqualsTo('')
 );
