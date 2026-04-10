@@ -46,6 +46,7 @@ suite('PositronAssistantService', () => {
 		createRuntimeServices(instantiationService, disposables);
 		instantiationService.stub(IExecutionHistoryService, disposables.add(instantiationService.createInstance(ExecutionHistoryService)));
 		instantiationService.stub(IConsoleFindWidgetFactory, {
+			_serviceBrand: undefined,
 			createFindWidget: () => {
 				const emitter = disposables.add(new Emitter<void>());
 				return disposables.add(new class extends Disposable {
