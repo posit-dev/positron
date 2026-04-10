@@ -1,11 +1,11 @@
 ---
-name: e2e-verify
-description: AI-driven on-demand QA testing for Positron -- drives the IDE via POM reflection, custom actions, and raw Playwright
+name: qa-agent
+description: AI-driven QA agent for Positron -- autonomously drives a live IDE to verify PRs, features, and bug fixes
 allowed-tools: ["Bash", "Read", "WebFetch"]
 user-invocable: true
 ---
 
-# QA Test
+# QA Agent
 
 > **See also:** For hand-writing permanent e2e tests with Playwright, see the `e2e-author` skill.
 
@@ -86,15 +86,15 @@ git diff main...HEAD | head -2000
 ## Input Formats
 
 ```
-/e2e-verify 456                            PR diff, prompt for target
-/e2e-verify 456 --local                    PR diff, local dev
-/e2e-verify 456 --build --no-save          PR diff, built app, CI-friendly
-/e2e-verify 456 --context 12345 --deep     PR diff + issue enrichment, exhaustive
-/e2e-verify --branch --local               Branch diff, local dev
-/e2e-verify --branch feature/my-branch     Named branch diff
-/e2e-verify "free text" --build            Description, built app
-/e2e-verify --save 456                     PR diff, auto-save test file
-/e2e-verify --browser firefox 456          PR diff, Firefox
+/qa-agent 456                            PR diff, prompt for target
+/qa-agent 456 --local                    PR diff, local dev
+/qa-agent 456 --build --no-save          PR diff, built app, CI-friendly
+/qa-agent 456 --context 12345 --deep     PR diff + issue enrichment, exhaustive
+/qa-agent --branch --local               Branch diff, local dev
+/qa-agent --branch feature/my-branch     Named branch diff
+/qa-agent "free text" --build            Description, built app
+/qa-agent --save 456                     PR diff, auto-save test file
+/qa-agent --browser firefox 456          PR diff, Firefox
 ```
 
 **Target (mutually exclusive):**

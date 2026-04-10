@@ -9,7 +9,7 @@ description: Guide for writing, debugging, and maintaining Playwright e2e tests 
 
 Provides specialized knowledge and patterns for writing correct, reliable Playwright e2e tests that follow Positron's established conventions and avoid common mistakes.
 
-> **See also:** To verify a feature on-demand without writing a test file, use `/e2e-verify`.
+> **See also:** To verify a feature on-demand without writing a test file, use `/qa-agent`.
 
 ## When to Use This Skill
 
@@ -23,7 +23,7 @@ Load this skill when:
 
 ## Shared References
 
-These reference docs are shared with the `e2e-verify` skill (AI-driven testing):
+These reference docs are shared with the `qa-agent` skill (AI-driven testing):
 
 - **Test conventions:** See `../shared-e2e-references/test-conventions.md` for imports, suiteId, function syntax, commenting style, and test.step() rules.
 - **POM patterns:** See `../shared-e2e-references/pom-patterns.md` for POM method selection, confusable methods, and POM-first rules.
