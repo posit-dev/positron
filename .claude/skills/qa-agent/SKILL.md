@@ -7,7 +7,7 @@ user-invocable: true
 
 # QA Agent
 
-> **See also:** For hand-writing permanent e2e tests with Playwright, see the `e2e-author` skill.
+> **See also:** For hand-writing permanent e2e tests with Playwright, see the `author-e2e-tests` skill.
 
 Performs on-demand QA testing by driving Positron through test scenarios using the explore runner. Accepts a PR number, branch diff, or natural-language description.
 
