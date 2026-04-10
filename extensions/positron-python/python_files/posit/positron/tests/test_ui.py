@@ -14,6 +14,7 @@ import pandas as pd
 import polars as pl
 import pytest
 
+from positron.plot_comm import PlotRenderFormat
 from positron.positron_ipkernel import PositronIPyKernel, PositronShell
 from positron.ui import UiService
 from positron.ui_comm import ShowHtmlFileDestination, UiFrontendEvent
@@ -147,6 +148,22 @@ def test_is_module_loaded(ui_comm: DummyComm) -> None:
 
     # Check that the response is sent, with a result of False.
     assert ui_comm.messages == [json_rpc_response(result=False)]
+
+
+def test_did_change_plots_render_settings(kernel: PositronIPyKernel, ui_comm: DummyComm) -> None:
+    msg = json_rpc_request(
+        "did_change_plots_render_settings",
+        {"settings": {"size": {"width": 800, "height": 600}, "pixel_ratio": 2.0, "format": "png"}},
+        comm_id="dummy_comm_id",
+    )
+    ui_comm.handle_msg(msg)
+
+    settings = kernel.plots_service.get_render_settings()
+    assert settings is not None
+    assert settings.size.width == 800
+    assert settings.size.height == 600
+    assert settings.pixel_ratio == 2.0
+    assert settings.format == PlotRenderFormat.Png
 
 
 def test_clear_console(ui_service: UiService, ui_comm: DummyComm) -> None:

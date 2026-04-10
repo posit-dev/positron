@@ -43,14 +43,22 @@ export function useMenu(
 	const [menu, setMenu] = React.useState<IMenu | undefined>();
 	const [version, setVersion] = React.useState(0);
 
+	// Track which contextKeyService created the current menu so we can
+	// synchronously mask stale menus when the service identity changes
+	// (not just when it becomes undefined).
+	const menuOwnerRef = React.useRef<IContextKeyService | undefined>(undefined);
+
 	// Main effect
 	React.useEffect(() => {
 		if (!contextKeyService) {
+			setMenu(undefined);
+			menuOwnerRef.current = undefined;
 			return;
 		}
 
 		const menu = menuService.createMenu(menuId, contextKeyService, options);
 		setMenu(menu);
+		menuOwnerRef.current = contextKeyService;
 		setVersion(0);
 
 		const disposable = combinedDisposable(
@@ -60,5 +68,10 @@ export function useMenu(
 		return () => disposable.dispose();
 	}, [menuService, contextKeyService, menuId, options]);
 
-	return React.useMemo(() => ({ current: menu, version }), [menu, version]);
+	// Synchronously mask the menu whenever the contextKeyService doesn't
+	// match the service that created it. This covers both the undefined
+	// case and the case where the service changes identity (e.g. during
+	// notebook tab reuse: service A -> undefined -> service B).
+	const current = (contextKeyService && contextKeyService === menuOwnerRef.current) ? menu : undefined;
+	return React.useMemo(() => ({ current, version }), [current, version]);
 }

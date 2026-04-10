@@ -3,6 +3,21 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/* Sticky wrapper keeps the action bar visible when scrolling long cells.
+ * Height 0 keeps it out of the flow; the action bar overflows visually.
+ * The wrapper is needed because making the action bar directly sticky with
+ * negative margins causes margin-collapsing with the parent cell (shifting
+ * the cell up) and a height mismatch from the action bar's 2px border. */
+.positron-notebooks-cell-action-bar-container {
+	position: sticky;
+	/* Compensate for the cells container's padding (which offsets sticky
+	 * positioning from the scroll viewport) then add back the action bar
+	 * inset so the bar (positioned at -inset) lands at the viewport edge. */
+	top: calc(var(--_positron-notebook-cells-padding-block) * -1 + var(--vscode-positronNotebook-action-bar-inset));
+	height: 0;
+	z-index: 10;
+}
+
 .positron-notebooks-cell-action-bar {
 	position: absolute;
 	top: calc(var(--vscode-positronNotebook-action-bar-inset) * -1);
@@ -13,6 +28,7 @@
 	border-style: solid;
 	border-radius: var(--vscode-positronNotebook-cell-radius);
 	background-color: var(--vscode-positronNotebook-action-bar-background);
+	transition: border-radius 0.15s ease-out;
 	display: flex;
 	gap: var(--_positron-notebook-cell-action-bar-button-gap);
 
@@ -22,6 +38,14 @@
 	/* Always show action bar when cell is active (selected) */
 	&.visible {
 		visibility: visible;
+	}
+
+	/* Toggled by useToggleOnSticky while the bar is stuck to the scrollport.
+	 * Square off the top corners so the bar meets the scroll viewport flush. */
+	&.positron-notebooks-cell-action-bar--stuck {
+		border-top-left-radius: 0;
+		border-top-right-radius: 0;
+		border-top-width: 0.5px;
 	}
 }
 

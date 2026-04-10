@@ -41,9 +41,9 @@ import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../service
 import { createCodeLocation, ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
 import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../../positronNotebook/browser/ContextKeysManager.js';
-import { getContextFromActiveEditor } from '../../notebook/browser/controller/coreActions.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { usingQuartoInlineOutput, isQuartoDocument } from '../../positronQuarto/common/positronQuartoConfig.js';
+import { usingQuartoInlineOutput, isQuartoDocument, QUARTO_INLINE_OUTPUT_ENABLED, IS_QUARTO_DOCUMENT } from '../../positronQuarto/common/positronQuartoConfig.js';
+import { getNotebookUriFromActiveEditor } from './getNotebookUriFromActiveEditor.js';
 import { IQuartoExecutionManager } from '../../positronQuarto/common/quartoExecutionTypes.js';
 
 /**
@@ -1375,7 +1375,13 @@ export function registerPositronConsoleActions() {
 				},
 				f1: true,
 				category,
-				precondition: ContextKeyExpr.equals('config.console.showNotebookConsoleActions', true),
+				precondition: ContextKeyExpr.or(
+					ContextKeyExpr.equals('config.console.showNotebookConsoleActions', true),
+					ContextKeyExpr.and(
+						QUARTO_INLINE_OUTPUT_ENABLED,
+						IS_QUARTO_DOCUMENT,
+					),
+				),
 				menu: [
 					{
 						// Add an entry to the notebook toolbar to show the
@@ -1402,12 +1408,14 @@ export function registerPositronConsoleActions() {
 			const positronConsoleService = accessor.get(IPositronConsoleService);
 			const editorService = accessor.get(IEditorService);
 			const notificationService = accessor.get(INotificationService);
+			const configurationService = accessor.get(IConfigurationService);
 
-			// Figure out the URI of the active notebook and tell the console
-			// service to start a console attached to the appropriate session
-			const context = getContextFromActiveEditor(editorService);
-			if (context) {
-				positronConsoleService.showNotebookConsole(context.notebookEditor.textModel.uri, true);
+			// Figure out the URI of the active notebook (or Quarto document
+			// with inline output) and tell the console service to start a
+			// console attached to the appropriate session
+			const notebookUri = getNotebookUriFromActiveEditor(editorService, configurationService);
+			if (notebookUri) {
+				positronConsoleService.showNotebookConsole(notebookUri, true);
 			} else {
 				notificationService.info(localize('positron.noActiveNotebook', "No active notebook; run this command with a notebook open in an editor to see its console."));
 			}

@@ -432,4 +432,59 @@ test.describe('Autocomplete with Notebook Console', {
 			// correctly providing them.
 		});
 	});
+
+	test('R - Autocomplete works in Quarto without inline output', {
+		tag: [tags.ARK, tags.QUARTO]
+	}, async function ({ app, openFile, sessions, hotKeys, settings }) {
+		const { editors, inlineQuarto } = app.workbench;
+		const page = app.code.driver.page;
+		const keyboard = page.keyboard;
+		const suggestionList = page.locator('.suggest-widget .monaco-list-row');
+
+		await test.step('Disable inline output', async () => {
+			await settings.set({
+				'positron.quarto.inlineOutput.enabled': false,
+				'workbench.editor.enablePreview': false,
+			}, { reload: true, waitMs: 1000 });
+		});
+
+		// Start an R console session (no notebook session will be created)
+		await sessions.start(['r']);
+		await hotKeys.closeSecondarySidebar();
+		await sessions.expectAllSessionsToBeReady();
+
+		await test.step('Open Quarto file and verify autocomplete works', async () => {
+			// Open the simple R rmd file
+			await openFile(join('workspaces', 'quarto_inline_output', 'simple_r.rmd'));
+			await editors.waitForActiveTab('simple_r.rmd');
+
+			// Go to line 11 (df <- data.frame(x, y)), press End to go
+			// to end of line, Enter to create a new line inside the
+			// code block, then type data.f to trigger completions.
+			// The console LSP should handle the vdoc and provide
+			// completions for base R functions like data.frame.
+			await inlineQuarto.gotoLine(11);
+			await keyboard.press('End');
+			await keyboard.press('Enter');
+			await keyboard.type('data.f', { delay: 250 });
+
+			// Explicitly trigger completions and verify we get results.
+			// Before the fix, the console LSP skipped vdoc files and
+			// no completions appeared. With the fix, the console LSP
+			// handles vdocs and provides R completions like data.frame.
+			await expect(async () => {
+				await keyboard.press('Control+Space');
+				await expect(suggestionList.first()).toBeVisible({ timeout: 5000 });
+			}).toPass({ timeout: 30000 });
+
+			// Verify we see data.frame from the R LSP (match the
+			// first exact entry, not substrings like as.data.frame)
+			const suggestWidget = page.locator('.suggest-widget');
+			await expect(suggestWidget.getByRole('option', {
+				name: 'data.frame, {base}, Function',
+				exact: true
+			})).toBeVisible();
+		});
+	});
+
 });
