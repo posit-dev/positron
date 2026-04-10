@@ -63,6 +63,7 @@ const compilations = [
 	'extensions/positron-dev-containers/tsconfig.json',
 	'extensions/positron-duckdb/tsconfig.json',
 	'extensions/positron-environment/tsconfig.json',
+	'extensions/positron-sqlite/tsconfig.json',
 	'extensions/positron-environment-modules/tsconfig.json',
 	'extensions/positron-ipywidgets/renderer/tsconfig.json',
 	'extensions/positron-javascript/tsconfig.json',

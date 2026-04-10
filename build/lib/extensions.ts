@@ -162,6 +162,7 @@ function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, 
 	const extensionsWithNpmDeps = [
 		'positron-proxy',
 		'positron-duckdb',
+		'positron-sqlite',
 		'positron-catalog-explorer',
 		'positron-pdf-server'
 	];
