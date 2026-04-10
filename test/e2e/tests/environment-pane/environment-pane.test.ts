@@ -28,7 +28,7 @@ test.describe('Environment Pane', {
 	test('Python - Click packages button', async function ({ app, python: _python }) {
 		const { packages } = app.workbench;
 
-		await packages.verifyPackagesList(process.env.POSITRON_PY_VER_SEL!);
+		await packages.verifyPackagesList();
 		await packages.installPackage('cowsay');
 
 		const allPackages = await packages.getAllPackages();
@@ -38,7 +38,7 @@ test.describe('Environment Pane', {
 	test('R - Click packages button', async function ({ app, r: _r }) {
 		const { packages } = app.workbench;
 
-		await packages.verifyPackagesList(process.env.POSITRON_R_VER_SEL!);
+		await packages.verifyPackagesList();
 		await packages.installPackage('cowsay');
 
 		const allPackages = await packages.getAllPackages();

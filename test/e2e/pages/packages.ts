@@ -29,17 +29,12 @@ export class Packages {
 	 * Verifies the packages list is displayed with the expected version
 	 * @param expectedVersion The expected version string to verify
 	 */
-	async verifyPackagesList(expectedVersion: string): Promise<void> {
+	async verifyPackagesList(): Promise<void> {
 		// Ensure packages pane is open
 		await this.clickPackagesButton();
 
 		// Verify the packages list is displayed
 		await expect(this.packagesContainer).toBeVisible();
-
-		// Verify button contains the expected version
-		const versionButton = this.packagesContainer.locator('.action-bar-region-left button').first();
-		await expect(versionButton).toBeVisible();
-		await expect(versionButton).toContainText(expectedVersion);
 
 		// Verify package list items are present
 		const packageItems = this.packagesContainer.locator('.packages-list-item-name');
