@@ -209,11 +209,17 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 	return prevProps.outputs === nextProps.outputs;
 });
 
-const isEmptyArray = (a: unknown[]) => a.length === 0;
-
 export const NotebookCodeCell = React.memo(function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
-	// Debounce only transitions to empty so re-execution doesn't flash.
-	const outputContents = useDebouncedObservedValue(cell.outputs, isEmptyArray);
+	// Debounce transitions to empty only while the cell is executing so
+	// re-execution doesn't flash. Explicit clears (when idle) propagate
+	// immediately. We read executionStatus synchronously inside the predicate
+	// so it reflects the state at the moment outputs change.
+	const shouldDebounceOutputs = React.useCallback(
+		(outputs: NotebookCellOutputs[]) =>
+			outputs.length === 0 && cell.executionStatus.get() !== 'idle',
+		[cell.executionStatus]
+	);
+	const outputContents = useDebouncedObservedValue(cell.outputs, shouldDebounceOutputs);
 	const hasError = outputContents.some(o => o.parsed.type === 'error');
 
 	return (
