@@ -676,10 +676,6 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		documentUri: URI,
 		runtimeId: string
 	): Promise<ILanguageRuntimeSession | undefined> {
-		// Persist the selection
-		this._kernelBindings.set(documentUri.toString(), runtimeId);
-		this._persistKernelBindings();
-
 		// Find the runtime metadata for the requested runtime
 		const runtime = this._languageRuntimeService.registeredRuntimes
 			.find(r => r.runtimeId === runtimeId);
@@ -687,6 +683,10 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 			this._logService.warn(`[QuartoKernelManager] Runtime not found: ${runtimeId}`);
 			return undefined;
 		}
+
+		// Persist the selection now that we've validated the runtime exists
+		this._kernelBindings.set(documentUri.toString(), runtimeId);
+		this._persistKernelBindings();
 
 		// Shut down any existing session; if this fails, warn but continue
 		// so that the user can still switch to the new kernel.
