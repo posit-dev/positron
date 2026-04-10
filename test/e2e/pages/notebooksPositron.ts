@@ -262,7 +262,9 @@ export class PositronNotebooks extends Notebooks {
 
 		let totalCellsAdded = 0;
 
-		if (codeCells > 0) {
+		if (codeCells === 0) {
+			await this.deleteCellWithActionBar(0);
+		} else if (codeCells > 0) {
 			for (let i = 0; i < codeCells; i++) {
 				await this.addCodeToCell(i, `# Cell ${i}`);
 				await this.expectCellCountToBe(totalCellsAdded + 1);
