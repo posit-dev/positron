@@ -251,18 +251,19 @@ export class PositronNotebooks extends Notebooks {
 	 * @param codeCells - Number of code cells to create
 	 * @param markdownCells - Number of markdown cells to create
 	 */
-	async newNotebook({ codeCells = 0, markdownCells = 0 }: { codeCells?: number; markdownCells?: number } = {}): Promise<void> {
+	async newNotebook({ codeCells = 1, markdownCells = 0 }: { codeCells?: number; markdownCells?: number } = {}): Promise<void> {
 		await this.createNewNotebook();
 		await this.expectToBeVisible();
+		await this.expectCellCountToBe(1); // New notebook starts with 1 cell by default
 
-		if (codeCells === 0 && markdownCells === 0) {
+		if (codeCells === 1 && markdownCells === 0) {
 			return;
 		}
 
-		let totalCellsAdded = 0;
+		let totalCellsAdded = 1;
 
-		if (codeCells > 0) {
-			for (let i = 0; i < codeCells; i++) {
+		if (codeCells > 1) {
+			for (let i = 1; i < codeCells; i++) {
 				await this.addCodeToCell(i, `# Cell ${i}`);
 				await this.expectCellCountToBe(totalCellsAdded + 1);
 				await this.expectCellContentAtIndexToBe(i, `# Cell ${i}`);
