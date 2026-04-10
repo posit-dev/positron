@@ -12,7 +12,7 @@ import React, { useMemo } from 'react';
 // Other dependencies.
 import { NotebookCellOutputs, ParsedTextOutput } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { isParsedTextOutput } from '../getOutputContents.js';
-import { useObservedValue } from '../useObservedValue.js';
+import { useObservedValue, useDebouncedObservedValue } from '../useObservedValue.js';
 import { CellEditorMonacoWidget } from './CellEditorMonacoWidget.js';
 import { localize } from '../../../../../nls.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
@@ -209,8 +209,11 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 	return prevProps.outputs === nextProps.outputs;
 });
 
+const isEmptyArray = (a: unknown[]) => a.length === 0;
+
 export const NotebookCodeCell = React.memo(function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
-	const outputContents = useObservedValue(cell.outputs);
+	// Debounce only transitions to empty so re-execution doesn't flash.
+	const outputContents = useDebouncedObservedValue(cell.outputs, isEmptyArray);
 	const hasError = outputContents.some(o => o.parsed.type === 'error');
 
 	return (
