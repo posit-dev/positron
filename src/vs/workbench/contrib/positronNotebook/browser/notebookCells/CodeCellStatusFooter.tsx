@@ -14,6 +14,7 @@ import { localize } from '../../../../../nls.js';
 import * as DOM from '../../../../../base/browser/dom.js';
 import { useObservedValue, useDebouncedObservedValue } from '../useObservedValue.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
+import { ExecutionStatus } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { formatCellDuration, formatTimestamp, getRelativeTime, isMoreThanOneHourAgo } from './cellExecutionUtils.js';
 import { Icon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
@@ -23,7 +24,9 @@ interface CodeCellStatusFooterProps {
 	hasError: boolean;
 }
 
-const isRunningOrPending = (s: string) => s === 'running' || s === 'pending';
+// Defined outside the component so the reference is stable across renders,
+// avoiding memoization invalidation inside useDebouncedObservedValue.
+const isRunningOrPending = (s: ExecutionStatus) => s === 'running' || s === 'pending';
 
 /**
  * Footer component that displays cell execution status information between
