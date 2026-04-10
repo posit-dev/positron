@@ -103,6 +103,8 @@ git diff main...HEAD | head -2000
 /qa-agent --branch feature/my-branch     Named branch diff
 /qa-agent "free text" --build            Description, built app
 /qa-agent --save 456                     PR diff, auto-save test file
+/qa-agent --comment 456                  PR diff, copy verification comment to clipboard
+/qa-agent --save --comment 456           PR diff, save test + copy comment
 /qa-agent --browser firefox 456          PR diff, Firefox
 ```
 
@@ -115,6 +117,10 @@ git diff main...HEAD | head -2000
 - `--save`: Always save a `.test.ts` file after a successful run (no prompt)
 - `--no-save`: Never save, never prompt
 - No flag: Prompt the user to save after a successful run
+
+**Comment behavior:**
+- `--comment`: Generate a verification comment and copy to clipboard after test completes (no prompt)
+- No flag: Prompt the user (option available in post-test menu)
 
 **Other flags:**
 - `--branch`: Test current branch's changes vs main. Optionally pass a branch name (e.g., `--branch feature/my-branch`)
@@ -461,8 +467,14 @@ But do NOT parallel `/done` with the file collision `ls` check -- the glob exits
 when no files match, which cancels parallel calls in the same message.
 
 **After reporting results and sending `/done`:**
-- **`--save`: Go directly to Step 6. Do NOT prompt. Do NOT use AskUserQuestion.**
-- **`--no-save`: Done. Do NOT prompt. Do NOT save.**
+
+Execute all flagged actions without prompting:
+- **`--save`:** Save the test file (Step 6).
+- **`--comment`:** Generate a verification comment and copy to clipboard (see `references/verification-comment.md`).
+- **`--save --comment`:** Do both.
+- **`--no-save`:** Done. Do NOT save, do NOT prompt.
+
+If `--save`, `--comment`, or `--no-save` is set, **do NOT prompt with AskUserQuestion.**
 - **No flag (default):** Ask the user what to do next using `AskUserQuestion` with
   `multiSelect: true`:
 
