@@ -314,8 +314,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 
 		if (getAuthMethod() === AuthMethod.API_KEY) {
 			const liveApiKey = apiKeyFromInput;
-			const currentApiKey = currentConfig.apiKey ?? '';
-			if (typeof liveApiKey === 'string' && liveApiKey !== currentApiKey) {
+			if (typeof liveApiKey === 'string' && liveApiKey !== currentConfig.apiKey) {
 				currentConfig = { ...currentConfig, apiKey: liveApiKey };
 				providerConfigRef.current = currentConfig;
 				setProviderConfig(currentConfig);

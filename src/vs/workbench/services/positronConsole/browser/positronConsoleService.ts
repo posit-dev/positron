@@ -534,9 +534,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 
 		// Register the onDidChangeForegroundSession event handler so we can activate the REPL for the active runtime.
 		this._register(this._runtimeSessionService.onDidChangeForegroundSession(session => {
-			if (!session) {
-				this.setActivePositronConsoleInstance();
-			} else {
+			if (session) {
 				const positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(
 					session.sessionId);
 				if (positronConsoleInstance) {
@@ -778,6 +776,10 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 			return;
 		}
 
+		// Set the foreground session to the notebook session so the interpreter
+		// picker and variables pane show the correct session.
+		this._runtimeSessionService.foregroundSession = session;
+
 		const positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(session.sessionId);
 		if (positronConsoleInstance) {
 			// We already have a console instance! Focus it
@@ -937,21 +939,36 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 			return;
 		}
 
-		// Update the foreground session.
-		// First try to use the last created console session for the runtime.
-		let runtimeSession = this._runtimeSessionService.getConsoleSessionForRuntime(
-			consoleInstance.runtimeMetadata.runtimeId
-		);
-		if (!runtimeSession) {
-			// Otherwise, select the next available runtime session.
-			const sessions = Array.from(this._positronConsoleInstancesBySessionId.values());
-			const currentIndex = sessions.indexOf(consoleInstance);
-			if (currentIndex !== -1) {
-				const nextSession = sessions[currentIndex + 1] || sessions[currentIndex - 1];
-				runtimeSession = nextSession?.session;
+		// For console sessions, update the foreground session to the next available console session.
+		// For notebook sessions, just make sure the active console instance isn't left pointing at a
+		// deleted notebook console. Then let ForegroundSessionContribution handle the rest.
+		if (consoleInstance.sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Console) {
+			// First try to use the last created console session for the runtime.
+			let runtimeSession = this._runtimeSessionService.getConsoleSessionForRuntime(
+				consoleInstance.runtimeMetadata.runtimeId
+			);
+			if (!runtimeSession) {
+				// Otherwise, select the next available runtime session.
+				const instances = Array.from(this._positronConsoleInstancesBySessionId.values());
+				const currentIndex = instances.indexOf(consoleInstance);
+				if (currentIndex !== -1) {
+					const nextInstance = instances[currentIndex + 1] || instances[currentIndex - 1];
+					runtimeSession = nextInstance?.session;
+				}
+			}
+			this._runtimeSessionService.foregroundSession = runtimeSession;
+		} else if (consoleInstance.sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
+			// For notebook sessions, switch the active console instance so the
+			// console pane isn't left empty.
+			if (this._activePositronConsoleInstance === consoleInstance) {
+				const instances = Array.from(this._positronConsoleInstancesBySessionId.values());
+				const currentIndex = instances.indexOf(consoleInstance);
+				if (currentIndex !== -1) {
+					const nextInstance = instances[currentIndex + 1] || instances[currentIndex - 1];
+					this.setActivePositronConsoleInstance(nextInstance);
+				}
 			}
 		}
-		this._runtimeSessionService.foregroundSession = runtimeSession;
 		this._positronConsoleInstancesBySessionId.delete(sessionId);
 
 		consoleInstance.dispose();
@@ -974,8 +991,14 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 
 		this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID, false);
 
-		// Activate the console instance. This fires onDidChangeActivePositronConsoleInstance,
-		// which ForegroundSessionContribution listens to and uses to set the foreground session.
+		// Set the foreground session so the interpreter picker and variables
+		// pane show the correct session when navigating to code.
+		const session = this._runtimeSessionService.getSession(sessionId);
+		if (session) {
+			this._runtimeSessionService.foregroundSession = session;
+		}
+
+		// Activate the console instance.
 		this.setActivePositronConsoleInstance(consoleInstance);
 
 		// Ask the console instance to reveal the execution.

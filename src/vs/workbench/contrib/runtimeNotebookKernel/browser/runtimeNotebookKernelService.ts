@@ -176,21 +176,11 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 			// Clean up any pending kernel selection
 			this._pendingKernelSelections.delete(notebook.uri);
 
-			try {
-				await this._runtimeSessionService.shutdownNotebookSession(
-					notebook.uri,
-					RuntimeExitReason.Shutdown,
-					`Notebook closed`,
-				);
-			} finally {
-				// Delete the notebook session record from the runtime session service
-				// now that the notebook is being closed. This is done here instead of
-				// when the session exits because notebook sessions need to be tracked
-				// even after they exit to support showing the session info in the
-				// interpreter picker while the notebook editor is still open.
-				// Using finally ensures the map is always cleaned up even if shutdown fails.
-				this._runtimeSessionService.removeNotebookSessionFromNotebookMap(notebook.uri);
-			}
+			await this._runtimeSessionService.shutdownNotebookSession(
+				notebook.uri,
+				RuntimeExitReason.Shutdown,
+				`Notebook closed`,
+			);
 		}));
 
 		// Register kernel source action providers. This is how we customize the

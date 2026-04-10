@@ -158,6 +158,10 @@ export class PositronBaseComm extends Disposable {
 					`on comm ${this.clientInstance.getClientId()}: ` +
 					`${JSON.stringify(data.params)} ` +
 					`(No listeners for event '${data.method}'`);
+			} else {
+				console.warn(`Dropping unexpected message ` +
+					`on comm ${this.clientInstance.getClientId()}: ` +
+					`${JSON.stringify(data)}`);
 			}
 		}));
 
@@ -216,17 +220,13 @@ export class PositronBaseComm extends Disposable {
 	 * @returns A promise that resolves to the result of the RPC, or rejects
 	 *  with a PositronCommError.
 	 */
-	protected async performRpc<T>(rpcName: string,
+	protected async performRpc<T>(
+		rpcName: string,
 		paramNames: Array<string>,
-		paramValues: Array<any>): Promise<T> {
+		paramValues: Array<unknown>
+	): Promise<T> {
 
-		// Create the RPC arguments from the parameter names and values. This
-		// allows us to pass the parameters as positional parameters, but
-		// still have them be named parameters in the RPC.
-		const rpcArgs: any = {};
-		for (let i = 0; i < paramNames.length; i++) {
-			rpcArgs[paramNames[i]] = paramValues[i];
-		}
+		const rpcArgs = this.zipParams(paramNames, paramValues);
 
 		// Generate a unique ID for this message.
 		const id = generateUuid();
@@ -236,7 +236,7 @@ export class PositronBaseComm extends Disposable {
 		// level. It only expresses that this is a request, not a notification, as
 		// required by the JSON-RPC spec. This allows comms at the other end to
 		// determine whether they should respond to the message.
-		const request: any = {
+		const request: Record<string, unknown> = {
 			jsonrpc: '2.0',
 			method: rpcName,
 			id
@@ -249,7 +249,7 @@ export class PositronBaseComm extends Disposable {
 		}
 
 		// Perform the RPC
-		let response = {} as any;
+		let response: Record<string, unknown> = {};
 		try {
 			// Check for explicitly set timeout in options, otherwise use the default.
 			const defaultTimeout = 5000; // 5 seconds
@@ -275,11 +275,11 @@ export class PositronBaseComm extends Disposable {
 
 		// If the response is an error, throw it
 		if (Object.keys(response).includes('error')) {
-			const error = response.error;
+			const error = response.error as PositronCommError;
 
 			// Populate the error object with the name of the error code
 			// for conformity with code that expects an Error object.
-			error.name = `RPC Error ${response.error.code}`;
+			error.name = `RPC Error ${error.code}`;
 
 			throw error;
 		}
@@ -300,6 +300,61 @@ export class PositronBaseComm extends Disposable {
 		}
 
 		// Otherwise, return the result
-		return response.result;
+		return response.result as T;
+	}
+
+	/**
+	 * Send a fire-and-forget JSON-RPC notification (or event) to the backend.
+	 *
+	 * Unlike `performRpc`, this does not include an `id` field and does
+	 * not wait for a response. Per the JSON-RPC spec, the absence of
+	 * `id` signals that no response is expected.
+	 *
+	 * @param rpcName The name of the event method.
+	 * @param paramNames The parameter names.
+	 * @param paramValues The parameter values.
+	 */
+	protected notify(
+		methodName: string,
+		paramNames: Array<string>,
+		paramValues: Array<unknown>
+	): void {
+
+		const params = this.zipParams(paramNames, paramValues);
+
+		const notification: Record<string, unknown> = {
+			jsonrpc: '2.0',
+			method: methodName,
+		};
+
+		if (paramNames.length > 0) {
+			notification.params = params;
+		}
+
+		this.clientInstance.sendMessage(notification);
+	}
+
+	/**
+	 * Zip parallel arrays of parameter names and values into a
+	 * JSON-RPC params object.
+	 *
+	 * @param paramNames The parameter names.
+	 * @param paramValues The parameter values (must be same length as paramNames).
+	 */
+	private zipParams(
+		paramNames: Array<string>,
+		paramValues: Array<unknown>
+	): Record<string, unknown> {
+		if (paramNames.length !== paramValues.length) {
+			throw new Error(
+				`paramNames length (${paramNames.length}) !== ` +
+				`paramValues length (${paramValues.length})`
+			);
+		}
+		const params: Record<string, unknown> = {};
+		for (let i = 0; i < paramNames.length; i++) {
+			params[paramNames[i]] = paramValues[i];
+		}
+		return params;
 	}
 }

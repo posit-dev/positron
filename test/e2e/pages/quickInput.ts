@@ -3,19 +3,19 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import test, { expect, Locator } from "@playwright/test";
-import { Code } from "../infra/code";
+import test, { expect, Locator } from '@playwright/test';
+import { Code } from '../infra/code';
 
-const QUICK_INPUT_LIST = ".quick-input-widget .quick-input-list";
+const QUICK_INPUT_LIST = '.quick-input-widget .quick-input-list';
 
 export class QuickInput {
-	private static QUICK_INPUT = ".quick-input-widget";
+	private static QUICK_INPUT = '.quick-input-widget';
 	private static QUICK_INPUT_INPUT = `${QuickInput.QUICK_INPUT} .quick-input-box input`;
 	private static QUICK_INPUT_RESULT = `${QuickInput.QUICK_INPUT} .quick-input-list .monaco-list-row`;
 	// Note: this only grabs the label and not the description or detail
 	private static QUICK_INPUT_ENTRY_LABEL = `${this.QUICK_INPUT_RESULT} .quick-input-list-row > .monaco-icon-label .label-name`;
 	private static QUICKINPUT_OK_BUTTON =
-		'.quick-input-widget .quick-input-action a:has-text("OK")';
+		'.quick-input-widget .quick-input-action a:has-text(\'OK\')';
 	quickInputList: Locator;
 	quickInput: Locator;
 	quickInputTitleBar: Locator;
@@ -38,7 +38,7 @@ export class QuickInput {
 	}
 
 	async expectQuickInputResultsToContain(titles: string[]): Promise<void> {
-		await test.step("Verify Quick Input results contain expected title", async () => {
+		await test.step('Verify Quick Input results contain expected title', async () => {
 			for (let i = 0; i < titles.length; i++) {
 				await expect(
 					this.quickInputResult.filter({ hasText: titles[i] }),
@@ -59,7 +59,7 @@ export class QuickInput {
 		await this.code.driver.page
 			.locator(QuickInput.QUICK_INPUT_INPUT)
 			.selectText();
-		await this.code.driver.page.keyboard.press("Backspace");
+		await this.code.driver.page.keyboard.press('Backspace');
 		await this.code.driver.page
 			.locator(QuickInput.QUICK_INPUT_INPUT)
 			.fill(value);
@@ -73,16 +73,16 @@ export class QuickInput {
 		// Wait for at least one matching element with non-empty text
 		await expect(async () => {
 			const texts = await quickInputResult.allTextContents();
-			return texts.some((text) => text.trim() !== "");
+			return texts.some((text) => text.trim() !== '');
 		}).toPass();
 
 		// Retrieve the text content of the first matching element
 		const text = await quickInputResult.first().textContent();
-		return text?.trim() || "";
+		return text?.trim() || '';
 	}
 
 	async closeQuickInput(): Promise<void> {
-		await this.code.driver.page.keyboard.press("Escape");
+		await this.code.driver.page.keyboard.press('Escape');
 		await this.waitForQuickInputClosed();
 	}
 
@@ -130,9 +130,9 @@ export class QuickInput {
 
 		const firstMatchResult =
 			(await firstMatch
-				.locator(".quick-input-list-row")
+				.locator('.quick-input-list-row')
 				.nth(0)
-				.textContent({ timeout })) || "";
+				.textContent({ timeout })) || '';
 		await firstMatch.click({ force, timeout });
 		await this.code.driver.page.mouse.move(0, 0);
 
@@ -143,5 +143,15 @@ export class QuickInput {
 		await this.code.driver.page
 			.locator(QuickInput.QUICKINPUT_OK_BUTTON)
 			.click();
+	}
+
+	async toggleCheckbox(text: string): Promise<void> {
+		const row = this.code.driver.page
+			.locator(`${QuickInput.QUICK_INPUT_RESULT}[role="checkbox"][aria-label="${text}"]`);
+		await row.click();
+	}
+
+	async submitInputBox(): Promise<void> {
+		await this.code.driver.page.keyboard.press('Enter');
 	}
 }

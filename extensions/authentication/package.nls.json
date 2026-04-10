@@ -3,5 +3,8 @@
 	"configuration.aws.inferenceProfileRegion.description": "Override the inference profile region for AWS services.\n\nBy default, the inference profile region is derived from `AWS_REGION` (e.g., 'us-east-1' -> 'us'). Use this setting to explicitly specify a different region.\n\nExamples: 'global', 'us', 'eu', 'apac'.",
 	"configuration.snowflake.credentials.description": "Variables used to configure Snowflake Cortex provider.\n\nExample: to set the Snowflake account and connections path, add items with keys `SNOWFLAKE_ACCOUNT` and `SNOWFLAKE_HOME`.",
 	"configuration.anthropic.baseUrl.description": "Custom Anthropic API base URL. Overrides the default https://api.anthropic.com endpoint. Also set automatically from the ANTHROPIC_BASE_URL environment variable.",
-	"configuration.foundry.baseUrl.description": "Microsoft Foundry endpoint URL."
+	"configuration.foundry.baseUrl.description": "Microsoft Foundry endpoint URL.",
+	"configuration.openai-api.baseUrl.description": "Custom OpenAI API base URL. Overrides the default https://api.openai.com/v1 endpoint. Also set automatically from the OPENAI_BASE_URL environment variable.",
+	"configuration.google.baseUrl.description": "Custom Gemini API base URL. Overrides the default https://generativelanguage.googleapis.com/v1beta endpoint. Also set automatically from the GEMINI_BASE_URL environment variable.",
+	"configuration.openai-compatible.baseUrl.description": "Base URL for the custom OpenAI-compatible provider endpoint."
 }

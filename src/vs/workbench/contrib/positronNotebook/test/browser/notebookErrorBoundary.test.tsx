@@ -6,6 +6,7 @@
 /* eslint-disable no-restricted-syntax */
 /* eslint-disable local/code-no-dangerous-type-assertions */
 
+import React from 'react';
 import assert from 'assert';
 import sinon from 'sinon';
 import { flushSync } from 'react-dom';
@@ -24,6 +25,10 @@ function ThrowingNonErrorComponent({ value }: { value: unknown }): never {
 
 function GoodComponent() {
 	return <div className='good-component'>Hello</div>;
+}
+
+function ThrowingProvider({ children: _children }: { children: React.ReactNode }): never {
+	throw new Error('provider error');
 }
 
 function createMockLogService() {
@@ -279,5 +284,36 @@ suite('NotebookErrorBoundary', () => {
 
 			sinon.assert.calledOnce(onReload);
 		});
+	});
+
+	suite('boundary wrapping providers', () => {
+		let originalConsoleError: typeof console.error;
+		setup(() => {
+			originalConsoleError = console.error;
+			console.error = () => { };
+		});
+		teardown(() => {
+			console.error = originalConsoleError;
+		});
+
+		test('catches errors from provider components when boundary wraps them', () => {
+			const { logService, errorSpy } = createMockLogService();
+			const container = render(
+				<NotebookErrorBoundary componentName='Test' level='editor' logService={logService} onReload={() => { }}>
+					<ThrowingProvider>
+						<GoodComponent />
+					</ThrowingProvider>
+				</NotebookErrorBoundary>
+			);
+
+			assert.ok(
+				container.querySelector<HTMLElement>('[role="alert"]'),
+				'Error boundary should catch provider errors'
+			);
+			sinon.assert.calledOnce(errorSpy);
+			const logMessage = errorSpy.firstCall.args[0] as string;
+			assert.ok(logMessage.includes('provider error'), 'Log should include the provider error message');
+		});
+
 	});
 });

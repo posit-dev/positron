@@ -7,7 +7,7 @@
 import './NotebookCellActionBar.css';
 
 // React.
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -21,8 +21,12 @@ import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.
 import { useMenuActions } from '../useMenuActions.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { PositronNotebookCellActionBarLeftGroup } from '../../common/positronNotebookCommon.js';
+import { useToggleOnSticky } from './useToggleOnSticky.js';
 
 const moreCellActions = localize('moreCellActions', 'More Cell Actions');
+
+/** Class toggled while the sticky action bar is pinned to the notebook scrollport. */
+const ACTION_BAR_STUCK_CLASS = 'positron-notebooks-cell-action-bar--stuck';
 
 interface NotebookCellActionBarProps {
 	cell: IPositronNotebookCell;
@@ -58,7 +62,11 @@ export function NotebookCellActionBar({ cell }: NotebookCellActionBarProps) {
 	// the separator between primary actions and all other actions
 	const lastPrimaryIndex = actionsWithMetadata.findLastIndex(item => item.isPrimary);
 
+	const actionBarRef = useRef<HTMLDivElement>(null);
+	useToggleOnSticky(actionBarRef, ACTION_BAR_STUCK_CLASS);
+
 	return <div
+		ref={actionBarRef}
 		aria-hidden={!isActiveCell}
 		aria-label={localize('cellActions', 'Cell actions')}
 		className={`positron-notebooks-cell-action-bar ${isActiveCell || isMenuOpen ? 'visible' : ''}`}

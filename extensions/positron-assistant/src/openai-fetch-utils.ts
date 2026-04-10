@@ -159,7 +159,7 @@ function isChatCompletionChunk(obj: unknown): obj is PossiblyBrokenChatCompletio
  * 1. Request body transformations (max_tokens -> max_completion_tokens for Snowflake compatibility)
  * 2. Response transformations (empty role fields -> "assistant")
  */
-export function createOpenAICompatibleFetch(providerName: string): (input: RequestInfo, init?: RequestInit) => Promise<Response> {
+export function createOpenAICompatibleFetch(providerName: string, apiKey?: string): (input: RequestInfo, init?: RequestInit) => Promise<Response> {
 	return async (input: RequestInfo, init?: RequestInit): Promise<Response> => {
 		log.debug(`[${providerName}] [DEBUG] Making request to: ${input}`);
 
@@ -169,6 +169,16 @@ export function createOpenAICompatibleFetch(providerName: string): (input: Reque
 		const transformedInit = transformRequestBody(init, providerName, (tools) => {
 			noArgTools = tools;
 		});
+
+		// Strip the Authorization header when the API key is explicitly
+		// blank so unauthenticated endpoints don't receive a bare Bearer
+		// token. Only match empty string -- undefined means the caller
+		// manages auth separately (e.g. Foundry injects its own token).
+		if (apiKey === '' && transformedInit?.headers) {
+			const headers = new Headers(transformedInit.headers as HeadersInit);
+			headers.delete('Authorization');
+			transformedInit.headers = headers;
+		}
 
 		const response = await fetch(input, transformedInit);
 		log.debug(`[${providerName}] [DEBUG] Response status: ${response.status} ${response.statusText}`);

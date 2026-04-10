@@ -16,7 +16,7 @@ import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ActionBarCommandButton } from '../../../../../platform/positronActionBar/browser/components/actionBarCommandButton.js';
 import { CommandCenter } from '../../../../../platform/commandCenter/common/commandCenter.js';
-import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeSessionDisplayInfo } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { localize } from '../../../../../nls.js';
 import { LANGUAGE_RUNTIME_SELECT_SESSION_ID, LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID } from '../../../../contrib/languageRuntime/browser/languageRuntimeActions.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
@@ -24,37 +24,30 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 const startSession = localize('positron.console.startSession', "Start Session");
 
 /**
- * Gets the session mode icon for the given session.
- * @param session The session to get the icon for.
- * @returns The Codicon for the session mode.
+ * Gets the label text from session display info.
  */
-const getSessionModeIcon = (session: ILanguageRuntimeSession | undefined) => {
-	if (!session) {
-		return Codicon.arrowSwap;
+const getDisplayInfoLabel = (info: IRuntimeSessionDisplayInfo | undefined): string => {
+	if (!info) {
+		return startSession;
 	}
-	if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
-		return Codicon.notebook;
+	if (info.sessionMode === LanguageRuntimeSessionMode.Notebook && info.notebookUri) {
+		const notebookName = basename(info.notebookUri.path);
+		return `${notebookName} - ${info.sessionName}`;
 	}
-	return Codicon.positronNewConsole;
+	return info.sessionName;
 };
 
 /**
- * Gets the label text for the given session.
- * For notebook sessions, includes the notebook filename.
- * For console sessions, just shows the session name.
- * @param session The session to get the label for.
- * @returns The label text.
+ * Gets the session mode icon from display info.
  */
-const getSessionLabel = (session: ILanguageRuntimeSession | undefined): string => {
-	if (!session) {
-		return startSession;
+const getDisplayInfoIcon = (info: IRuntimeSessionDisplayInfo | undefined) => {
+	if (!info) {
+		return Codicon.arrowSwap;
 	}
-	const sessionName = session.dynState.sessionName;
-	if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook && session.metadata.notebookUri) {
-		const notebookName = basename(session.metadata.notebookUri.path);
-		return `${notebookName} - ${sessionName}`;
+	if (info.sessionMode === LanguageRuntimeSessionMode.Notebook) {
+		return Codicon.notebook;
 	}
-	return sessionName;
+	return Codicon.positronNewConsole;
 };
 
 /**
@@ -66,9 +59,10 @@ const getSessionLabel = (session: ILanguageRuntimeSession | undefined): string =
 export const TopActionBarSessionManager = () => {
 	const services = usePositronReactServicesContext();
 
-	const [activeSession, setActiveSession] = useState<ILanguageRuntimeSession>();
-	const [labelText, setLabelText] = useState<string>(getSessionLabel(activeSession));
-	const [sessionIcon, setSessionIcon] = useState(getSessionModeIcon(activeSession));
+	const [labelText, setLabelText] = useState<string>(
+		getDisplayInfoLabel(services.runtimeSessionService.foregroundSessionDisplayInfo));
+	const [sessionIcon, setSessionIcon] = useState(
+		getDisplayInfoIcon(services.runtimeSessionService.foregroundSessionDisplayInfo));
 
 	// Check if there are any active console sessions to determine if the
 	// active session picker or the create session picker should be shown.
@@ -83,23 +77,14 @@ export const TopActionBarSessionManager = () => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
-		// Add the onDidChangeForegroundSession event handler to listen for changes
-		// to the foreground session and update the label, icon, and active session accordingly.
+		// Use _foregroundSessionDisplayInfo as the single source of truth for
+		// the interpreter. This event should fire when the foreground session
+		// changes, the session's runtime state changes, and when an exited
+		// notebook session is attempted to be set as the foreground session.
 		disposableStore.add(
-			services.runtimeSessionService.onDidChangeForegroundSession(session => {
-				setActiveSession(session);
-				setLabelText(getSessionLabel(session));
-				setSessionIcon(getSessionModeIcon(session));
-			})
-		);
-
-		// Add the onDidUpdateSessionName event handler to listen for changes
-		// to the session name and update the label accordingly.
-		disposableStore.add(
-			services.runtimeSessionService.onDidUpdateSessionName(session => {
-				if (session.sessionId === services.runtimeSessionService.foregroundSession?.sessionId) {
-					setLabelText(getSessionLabel(session));
-				}
+			services.runtimeSessionService.onDidChangeForegroundSessionDisplayInfo(info => {
+				setLabelText(getDisplayInfoLabel(info));
+				setSessionIcon(getDisplayInfoIcon(info));
 			})
 		);
 

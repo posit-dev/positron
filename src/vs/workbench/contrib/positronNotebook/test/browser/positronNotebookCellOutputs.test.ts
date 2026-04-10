@@ -177,4 +177,56 @@ suite('Positron Notebook Cell Outputs', () => {
 			);
 		});
 	});
+
+	suite('complex HTML routing', () => {
+		function complexHtmlOutputItem() {
+			return { mime: 'text/html', data: VSBuffer.fromString('<html><body><iframe src="map.html"></iframe></body></html>') };
+		}
+
+		function simpleHtmlOutputItem() {
+			return { mime: 'text/html', data: VSBuffer.fromString('<p>Hello world</p>') };
+		}
+
+		test('complex HTML output produces a preloadMessageResult with display type', () => {
+			const cellWithComplexHtml: TestCellInput = {
+				source: 'display_map()',
+				language: 'python',
+				mime: undefined,
+				cellKind: CellKind.Code,
+				outputs: [{
+					outputId: 'output-1',
+					outputs: [complexHtmlOutputItem()],
+				}],
+			};
+			const notebook = createTestPositronNotebookInstance([cellWithComplexHtml], disposables);
+			const cell = notebook.cells.get()[0];
+
+			assert.ok(cell.isCodeCell(), 'cell should be a code cell');
+			const outputs = cell.outputs.get();
+			assert.strictEqual(outputs.length, 1);
+			assert.ok(outputs[0].preloadMessageResult, 'should have a preloadMessageResult');
+			assert.strictEqual(outputs[0].preloadMessageResult.preloadMessageType, 'display');
+		});
+
+		test('simple HTML output renders inline without preloadMessageResult', () => {
+			const cellWithSimpleHtml: TestCellInput = {
+				source: 'display_html()',
+				language: 'python',
+				mime: undefined,
+				cellKind: CellKind.Code,
+				outputs: [{
+					outputId: 'output-1',
+					outputs: [simpleHtmlOutputItem()],
+				}],
+			};
+			const notebook = createTestPositronNotebookInstance([cellWithSimpleHtml], disposables);
+			const cell = notebook.cells.get()[0];
+
+			assert.ok(cell.isCodeCell());
+			const outputs = cell.outputs.get();
+			assert.strictEqual(outputs.length, 1);
+			assert.strictEqual(outputs[0].preloadMessageResult, undefined, 'simple HTML should not have preloadMessageResult');
+			assert.strictEqual(outputs[0].parsed.type, 'html');
+		});
+	});
 });
