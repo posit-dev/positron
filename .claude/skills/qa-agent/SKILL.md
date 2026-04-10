@@ -19,6 +19,8 @@ Performs on-demand QA testing by driving Positron through test scenarios using t
 - **Do NOT invent runner syntax that doesn't exist.** There is no `captureAs`, `$ref.id`, `$pySession`, or variable interpolation in `/run-plan`. POM methods return values in the response JSON -- read the `(Returns: ...)` annotation in the POM reference to see what's available.
 - **No regex literals in JSON.** `/pattern/` is not valid JSON. For POM methods that accept `string | RegExp`, use `{"$regex": "pattern"}` (optionally `{"$regex": "pattern", "$flags": "i"}` for flags).
 - **Do NOT report hallucinated limitations as rough edges.** If a step fails because you used syntax that doesn't exist, that's your error, not a runner limitation.
+- **Every action must have a verification step.** If you perform an action, assert the expected outcome. Clicked "Copy"? Use `clipboard.expectClipboardTextToBe(expected)` to verify contents. Ran code? Check the output. Opened a file? Verify the tab. An action without verification is an incomplete test -- it only proves the action didn't throw, not that it worked. Do NOT improvise clipboard verification (e.g., pasting into a cell) -- always use the `clipboard` POM.
+- **Clipboard timing in the runner:** Clipboard writes are timing-sensitive. In `/run-plan`, the copy action and clipboard assertion are separate steps with no retry loop, so `expectClipboardTextToBe` may time out even when the copy worked. If clipboard verification fails in the runner, note it as a known timing limitation (not a bug) and move on. The saved `.test.ts` file MUST wrap action + assertion in `expect.toPass()` -- see `shared-e2e-references/pom-patterns.md` for the pattern.
 
 ## IMMEDIATE: Launch Runner First
 
@@ -323,6 +325,11 @@ The PR title/body and file list are already in your context. Now:
    | `console/` | `console`, `variables` |
    | `dataExplorer/` | `dataExplorer`, `dataExplorer.grid` |
    | `variables/` | `variables`, `console` |
+
+   **Always include `clipboard.md`** when the PR involves copy, paste, or clipboard
+   operations (e.g., "Copy Output Text", "Copy Image", copy-to-clipboard buttons).
+   Use `clipboard.expectClipboardTextToBe(expected)` to verify clipboard contents
+   after any copy action -- do NOT improvise verification with paste-into-cell workarounds.
 
    Example -- one parallel message with all POMs for a notebook PR:
    ```

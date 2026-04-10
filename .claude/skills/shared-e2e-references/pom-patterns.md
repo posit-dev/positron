@@ -58,6 +58,34 @@ POM source files live in `test/e2e/pages/`. Read them directly when you need:
 - Implementation details for understanding retry behavior
 - Available methods on sub-objects (e.g., `dataExplorer.grid`, `dataExplorer.summaryPanel`)
 
+## Context Menus
+
+The runner's `contextMenu` action and saved `.test.ts` files both use the same POM (`app.workbench.contextMenu.triggerAndClick`). This means the same selector rules apply everywhere.
+
+**Always target the content element, not the container.** The POM clicks the center of the matched element. A container (e.g., `.positron-notebook-code-cell-outputs`) and its child content (e.g., the output text) often have **different context menus**. Clicking the container center may land on empty space with the wrong menu, or succeed non-deterministically depending on element size. Target the specific interactive element:
+
+- Output text: `.positron-notebook-code-cell-outputs >> nth=0 >> text=hello world`
+- Table row: `.data-grid-row >> nth=2`
+- Tab: `text=filename.py`
+
+**In `/run-plan`**, use Playwright selector chaining to narrow to content. **In saved tests**, use the equivalent locator chain (`.locator().getByText()`). Since both paths use the same POM, a precise selector that works in the runner will work in the saved test.
+
+Read `pom-ref/contextMenu.md` for method signatures.
+
+## Known Notebook Pitfalls
+
+**`expectExecutionStatusToBe(index, "success")` doesn't work.** The `data-execution-status` attribute returns to `"idle"` after completion, not `"success"`. Use `expectFooterToContain(index, {"status": "Cell execution succeeded"})` instead.
+
+**`newNotebook({codeCells: N})` is flaky for N >= 2.** The placeholder text check ("# Cell 1") times out because the text isn't fully rendered within the 2000ms internal timeout. Workaround: create with `codeCells: 0` (or omit), then add cells manually via `addCell("code")`.
+
+**Kernel may not connect after `newNotebook`.** The quickpicker selects the language but the kernel doesn't fully start. Cells "execute" (show success footer) but produce no output. Use `newNotebook({language: "Python", waitForReady: true})` and verify output before proceeding -- if output is missing, the kernel didn't connect.
+
+## Clipboard Verification
+
+**Always verify clipboard contents after copy actions.** Use the `clipboard` POM (`pom-ref/clipboard.md`) -- never improvise with paste-into-cell or other workarounds.
+
+**Clipboard writes are timing-sensitive.** `expectClipboardTextToBe` retries the read but not the copy action. When the copy action itself may need retrying (context menus, copy-after-selection), wrap both action + assertion in `expect.toPass()` with tight inner timeouts so each retry fails fast. See the `@example` on `expectClipboardTextToBe` in `pages/clipboard.ts`. Key: keep the inner `expectClipboardTextToBe` timeout short (1s) so retries cycle quickly, and use a 10s outer `toPass` timeout.
+
 ## POM Access Pattern
 
 Access POMs through `app.workbench.*`:

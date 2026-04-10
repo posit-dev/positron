@@ -42,7 +42,7 @@ Returns `passed`, `failed`, `steps` array (each with `title`, `success`, `durati
 | `newNotebook` | `{"codeCells?": 1, "language?": "Python", "clearCells?": true}` | Create notebook; `null` language skips kernel |
 | `runCodeInEditor` | `{"code": "x <- 42", "language?": "r"}` | Write temp file + execute via Cmd+Enter |
 | `createFile` | `{"filename": "test.qmd", "content": "..."}` | Create + open file. |
-| `contextMenu` | `{"selector": ".el", "menuItem": "Pin Row"}` | Right-click context menu |
+| `contextMenu` | `{"selector": ".el", "menuItem": "Pin Row"}` | Right-click context menu. Works for most menus -- try it first. If it fails, try a different selector. For saved `.test.ts` files, prefer the `contextMenu` POM for native menu reliability. |
 
 **Quarto .qmd step order** (must follow this exact sequence):
 1. `createFile` (creates and opens the .qmd)

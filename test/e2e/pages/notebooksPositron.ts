@@ -253,22 +253,24 @@ export class PositronNotebooks extends Notebooks {
 	/**
 	 * Action: Create a new Positron notebook and optionally select a kernel.
 	 * When `language` is set, the kernel is selected which triggers interpreter
-	 * discovery and startup. Use `sessions.start()` beforehand if you need the
-	 * interpreter fully ready before running cells.
+	 * discovery and startup.
 	 * @param codeCells - Number of code cells to create (default 0)
 	 * @param markdownCells - Number of markdown cells to create (default 0)
 	 * @param language - Kernel language to select: 'Python' or 'R'. Omit to skip kernel selection.
+	 * @param waitForReady - Whether to wait for notebook kernel to be ready before returning
 	 * @param clearCells - Whether to clear default cell content after adding cells (default false)
 	 */
 	async newNotebook({
 		codeCells = 0,
 		markdownCells = 0,
 		language,
+		waitForReady = false,
 		clearCells = false,
 	}: {
 		codeCells?: number;
 		markdownCells?: number;
 		language?: 'Python' | 'R';
+		waitForReady?: boolean;
 		clearCells?: boolean;
 	} = {}): Promise<void> {
 		await this.createNewNotebook();
@@ -277,7 +279,7 @@ export class PositronNotebooks extends Notebooks {
 		if (codeCells === 0 && markdownCells === 0) {
 			// Select kernel even with no cells if language is specified
 			if (language) {
-				await this.kernel.select(language);
+				await this.kernel.select(language, { waitForReady });
 			}
 			return;
 		}
@@ -307,7 +309,7 @@ export class PositronNotebooks extends Notebooks {
 
 		// Select kernel if language specified
 		if (language) {
-			await this.kernel.select(language);
+			await this.kernel.select(language, { waitForReady });
 		}
 
 		// Clear default placeholder content from all cells
@@ -1218,7 +1220,13 @@ export class PositronNotebooks extends Notebooks {
 	 */
 	async expectExecutionStatusToBe(cellIndex: number, expectedStatus: 'running' | 'idle' | 'failed' | 'success', timeout = DEFAULT_TIMEOUT): Promise<void> {
 		await test.step(`Expect execution status to be: ${expectedStatus}`, async () => {
-			await expect(this.executionStatusAtIndex(cellIndex)).toHaveAttribute('data-execution-status', expectedStatus, { timeout });
+			if (expectedStatus === 'success') {
+				// data-execution-status returns to "idle" after completion, not "success".
+				// Route to the footer check which reads the aria-label.
+				await this.expectFooterToContain(cellIndex, { status: 'Cell execution succeeded' }, timeout);
+			} else {
+				await expect(this.executionStatusAtIndex(cellIndex)).toHaveAttribute('data-execution-status', expectedStatus, { timeout });
+			}
 		});
 	}
 
