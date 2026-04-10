@@ -27,10 +27,12 @@ export class Packages {
 
 	/**
 	 * Verifies the packages list is displayed with the expected version
-	 * Note: Assumes packages pane is already open. Use clickPackagesButton() first if needed.
 	 * @param expectedVersion The expected version string to verify
 	 */
 	async verifyPackagesList(expectedVersion: string): Promise<void> {
+		// Ensure packages pane is open
+		await this.clickPackagesButton();
+
 		// Verify the packages list is displayed
 		await expect(this.packagesContainer).toBeVisible();
 
@@ -47,18 +49,34 @@ export class Packages {
 	}
 
 	/**
-	 * Clicks the packages button to toggle the packages view
+	 * Clicks the packages button to open the packages view
+	 * If the packages pane is already visible, this is a no-op
 	 */
 	async clickPackagesButton(): Promise<void> {
-		await this.packagesButton.click();
+		const isVisible = await this.packagesContainer.isVisible();
+		if (!isVisible) {
+			await this.packagesButton.click();
+		}
+	}
+
+	/**
+	 * Closes the packages pane if it's currently open
+	 */
+	async closePackagesPane(): Promise<void> {
+		const isVisible = await this.packagesContainer.isVisible();
+		if (isVisible) {
+			await this.packagesButton.click();
+		}
 	}
 
 	/**
 	 * Gets all packages by scrolling through the list with mouse wheel
-	 * Note: Assumes packages pane is already open. Use clickPackagesButton() first if needed.
 	 * @returns An array of all package names
 	 */
 	async getAllPackages(): Promise<string[]> {
+		// Ensure packages pane is open
+		await this.clickPackagesButton();
+
 		// Wait for the packages container to be visible
 		await expect(this.packagesContainer).toBeVisible();
 
@@ -111,12 +129,14 @@ export class Packages {
 
 	/**
 	 * Installs a package using the package actions menu
-	 * Note: Assumes packages pane is already open. Use clickPackagesButton() first if needed.
 	 * @param packageName The name of the package to install (e.g., 'cowsay')
 	 * @param options Optional parameters for installation
 	 * @param options.version Specific version to install. If not provided, uses the first version in the list.
 	 */
 	async installPackage(packageName: string, options?: { version?: string }): Promise<void> {
+		// Ensure packages pane is open
+		await this.clickPackagesButton();
+
 		// Open the package actions menu and click "Install Package"
 		await this.contextMenu.triggerAndClick({
 			menuTrigger: this.packageActionsButton,

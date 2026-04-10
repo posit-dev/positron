@@ -9,8 +9,10 @@ test.use({
 	suiteId: __filename
 });
 
+// mouse scroll doesn't work in web
+// https://github.com/posit-dev/positron/issues/12964
 test.describe('Environment Pane', {
-	tag: [tags.WEB, tags.WIN, tags.PACKAGES_PANE]
+	tag: [tags.WIN, tags.PACKAGES_PANE]
 }, () => {
 
 	test.beforeAll(async function ({ settings }) {
@@ -20,15 +22,13 @@ test.describe('Environment Pane', {
 	});
 
 	test.afterEach(async function ({ app }) {
-		await app.workbench.packages.clickPackagesButton();
+		await app.workbench.packages.closePackagesPane();
 	});
 
 	test('Python - Click packages button', async function ({ app, python: _python }) {
 		const { packages } = app.workbench;
 
-		await packages.clickPackagesButton();
 		await packages.verifyPackagesList(process.env.POSITRON_PY_VER_SEL!);
-
 		await packages.installPackage('cowsay');
 
 		const allPackages = await packages.getAllPackages();
@@ -36,11 +36,9 @@ test.describe('Environment Pane', {
 	});
 
 	test('R - Click packages button', async function ({ app, r: _r }) {
-
 		const { packages } = app.workbench;
-		await packages.clickPackagesButton();
-		await packages.verifyPackagesList(process.env.POSITRON_R_VER_SEL!);
 
+		await packages.verifyPackagesList(process.env.POSITRON_R_VER_SEL!);
 		await packages.installPackage('cowsay');
 
 		const allPackages = await packages.getAllPackages();
