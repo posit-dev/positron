@@ -50,13 +50,21 @@ REF=test/e2e/tests/_generated/pom-reference.md && if [ ! -f "$REF" ] || [ -n "$(
 
 **Foreground command 3 -- PR context (PR mode only):**
 
-Fetch the PR metadata and file list -- these are small, fast calls that return in Message 1:
+Fetch the PR metadata and file list -- these are small, fast calls that return in Message 1.
+For each PR number, fire `gh pr view` and `gh pr diff --name-only` in parallel:
 ```bash
 gh pr view <number> --repo posit-dev/positron --json title,body,labels | head -100
-```
-```bash
 gh pr diff <number> --repo posit-dev/positron --name-only
 ```
+For multiple PRs (e.g., `456 789`), fetch all in the same parallel batch:
+```bash
+gh pr view 456 --repo posit-dev/positron --json title,body,labels | head -100
+gh pr diff 456 --repo posit-dev/positron --name-only
+gh pr view 789 --repo posit-dev/positron --json title,body,labels | head -100
+gh pr diff 789 --repo posit-dev/positron --name-only
+```
+Merge the file lists and combine descriptions when planning test steps.
+
 If `--context <issue>` flag:
 ```bash
 gh issue view <issue-number> --repo posit-dev/positron --json title,body | head -50
@@ -89,6 +97,7 @@ git diff main...HEAD | head -2000
 /qa-agent 456                            PR diff, prompt for target
 /qa-agent 456 --local                    PR diff, local dev
 /qa-agent 456 --build --no-save          PR diff, built app, CI-friendly
+/qa-agent 456 789                        Multiple PRs (dependent or independent)
 /qa-agent 456 --context 12345 --deep     PR diff + issue enrichment, exhaustive
 /qa-agent --branch --local               Branch diff, local dev
 /qa-agent --branch feature/my-branch     Named branch diff
@@ -115,7 +124,7 @@ git diff main...HEAD | head -2000
 - `--test-patterns`: Read existing test files in the same area for setup/assertion patterns before planning. Off by default (saves 2-3 messages). Use when you want higher-quality test output that matches existing conventions.
 
 **Input types:**
-- **PR number** (e.g., `456`): Primary mode. Gets diff and metadata directly via `gh pr diff` and `gh pr view`. Numbers are always treated as PR numbers. If `gh pr view` fails, error immediately -- no fallback to issue search.
+- **PR number(s)** (e.g., `456` or `456 789`): Primary mode. Gets diff and metadata directly via `gh pr diff` and `gh pr view`. Numbers are always treated as PR numbers. If `gh pr view` fails, error immediately -- no fallback to issue search. Multiple PRs: fetch all in parallel, merge file lists, combine descriptions into one test plan.
 - **Branch diff** (`--branch`): Uses `git diff main...HEAD` (or named branch vs main)
 - **Free-text description** (quoted string): No diff, no GH calls. AI plans from description alone.
 
