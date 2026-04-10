@@ -33,6 +33,7 @@ import { ExtHostMethods } from './extHostMethods.js';
 import { ExtHostEditors } from '../extHostTextEditors.js';
 import { UiFrontendRequest } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { ExtHostConnections } from './extHostConnections.js';
+import { ExtHostDataConnections } from './extHostDataConnections.js';
 import { ExtHostAiFeatures } from './extHostAiFeatures.js';
 import { IToolInvocationContext } from '../../../contrib/chat/common/tools/languageModelToolsService.js';
 import { IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
@@ -88,6 +89,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 		new ExtHostMethods(rpcProtocol, extHostEditors, extHostDocuments, extHostModalDialogs,
 			extHostLanguageRuntime, extHostWorkspace, extHostQuickOpen, extHostCommands, extHostContextKeyService));
 	const extHostConnections = rpcProtocol.set(ExtHostPositronContext.ExtHostConnections, new ExtHostConnections(rpcProtocol));
+	const extHostDataConnections = rpcProtocol.set(ExtHostPositronContext.ExtHostDataConnections, new ExtHostDataConnections(rpcProtocol));
 	const extHostEnvironment = rpcProtocol.set(ExtHostPositronContext.ExtHostEnvironment, new ExtHostEnvironment(rpcProtocol));
 	const extHostNotebookFeatures = rpcProtocol.set(ExtHostPositronContext.ExtHostNotebookFeatures, new ExtHostNotebookFeatures(rpcProtocol));
 	const storage = accessor.get(IExtHostStorage);
@@ -285,6 +287,20 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			 */
 			registerConnectionDriver(driver: positron.ConnectionsDriver): vscode.Disposable {
 				return extHostConnections.registerConnectionDriver(driver);
+			}
+		};
+
+		const dataConnections: typeof positron.dataConnections = {
+			/**
+			 * Registers a data connection driver, allowing extensions to contribute to the
+			 * 'New Data Connection' dialog.
+			 * @param driver The data connection driver to register.
+			 * @returns A disposable that unregisters the driver when disposed.
+			 */
+			registerDriver(driver: positron.DataConnectionDriver): vscode.Disposable {
+				// Delegates to the ext host class which stores the driver and sends serializable
+				// metadata to the main thread via RPC.
+				return extHostDataConnections.registerDriver(driver);
 			}
 		};
 
@@ -550,6 +566,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			environment,
 			paths,
 			connections,
+			dataConnections,
 			ai,
 			notebooks,
 			CodeAttributionSource: extHostTypes.CodeAttributionSource,
