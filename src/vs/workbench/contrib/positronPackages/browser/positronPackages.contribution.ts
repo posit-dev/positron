@@ -323,7 +323,7 @@ class UninstallPackageAction extends Action2 {
 				const packages = await service.refreshPackages(cts.token);
 				return packages
 					.map((x) => ({
-						name: x.displayName
+						name: x.name
 					}));
 			};
 
@@ -401,7 +401,7 @@ class UpdatePackageAction extends Action2 {
 				const packages = await service.refreshPackages(cts.token);
 				return packages
 					.map((x) => ({
-						name: x.displayName
+						name: x.name
 					}));
 			};
 
