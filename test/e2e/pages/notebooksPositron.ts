@@ -149,14 +149,7 @@ export class PositronNotebooks extends Notebooks {
 		}
 
 		const content = await test.step(`Get markdown content lines of cell at index: ${cellIndex}`, async () => {
-			const editor = this.cell.nth(cellIndex).locator('.positron-cell-editor-monaco-widget .view-lines');
-			const lineLocator = editor.locator('.view-line');
-
-			// allTextContents returns an array of text for each matching locator
-			const rawLines = await lineLocator.allTextContents();
-
-			// Normalize non-breaking spaces and trim line endings
-			return rawLines.map(l => (l ?? '').replace(/\u00a0/g, ' '));
+			return this.getCellContentFromLocator(this.cell.nth(cellIndex));
 		});
 
 		if (cellType === 'markdown') {
@@ -164,6 +157,16 @@ export class PositronNotebooks extends Notebooks {
 		}
 
 		return content;
+	}
+
+	/**
+	 * Read the view-line text of a cell directly from its locator.
+	 * Use this when you already have a scoped cell locator (e.g., from a container).
+	 */
+	private async getCellContentFromLocator(cell: Locator): Promise<string[]> {
+		const editor = cell.locator('.positron-cell-editor-monaco-widget .view-lines');
+		const rawLines = await editor.locator('.view-line').allTextContents();
+		return rawLines.map(l => (l ?? '').replace(/\u00a0/g, ' '));
 	}
 
 
@@ -260,25 +263,31 @@ export class PositronNotebooks extends Notebooks {
 			return;
 		}
 
+		// Scope all cell operations to the active editor group so that cells from
+		// other open notebooks are not counted or accidentally targeted when multiple
+		// notebooks are open simultaneously (e.g., when setting up side-by-side tests).
+		const activeGroup = this.code.driver.currentPage.locator('.part.editor .editor-group-container.active');
+		const scopedCell = activeGroup.locator('[data-testid="notebook-cell"]');
+
 		let totalCellsAdded = 0;
 
 		if (codeCells > 0) {
 			for (let i = 0; i < codeCells; i++) {
-				await this.addCodeToCell(i, `# Cell ${i}`);
-				await this.expectCellCountToBe(totalCellsAdded + 1);
-				await this.expectCellContentAtIndexToBe(i, `# Cell ${i}`);
+				await this.addCodeToCell(i, `# Cell ${i}`, { container: activeGroup });
+				await expect(scopedCell).toHaveCount(totalCellsAdded + 1, { timeout: DEFAULT_TIMEOUT });
+				await this.expectCellContentAtIndexToBe(i, `# Cell ${i}`, scopedCell.nth(i));
 				totalCellsAdded++;
 			}
 		}
 
 		if (markdownCells > 0) {
 			for (let i = 0; i < markdownCells; i++) {
-				await this.addCell('markdown');
-				const editor = this.editorAtIndex(totalCellsAdded);
+				await this.addCell('markdown', activeGroup);
+				const editor = scopedCell.nth(totalCellsAdded).locator('.monaco-editor :is(.native-edit-context, .inputarea)');
 				await editor.focus();
 				await editor.pressSequentially(`### Cell ${totalCellsAdded}`);
-				await this.expectCellCountToBe(totalCellsAdded + 1);
-				await this.expectCellContentAtIndexToBe(totalCellsAdded, `### Cell ${totalCellsAdded}`);
+				await expect(scopedCell).toHaveCount(totalCellsAdded + 1, { timeout: DEFAULT_TIMEOUT });
+				await this.expectCellContentAtIndexToBe(totalCellsAdded, `### Cell ${totalCellsAdded}`, scopedCell.nth(totalCellsAdded));
 				totalCellsAdded++;
 			}
 		}
@@ -319,10 +328,20 @@ export class PositronNotebooks extends Notebooks {
 	 * Action: Add a new cell of the specified type.
 	 * @param type - The type of cell to add ('code' or 'markdown').
 	 */
-	async addCell(type: 'code' | 'markdown'): Promise<void> {
-		const beforeCount = await this.getCellCount();
+	async addCell(type: 'code' | 'markdown', container?: Locator): Promise<void> {
+		const scopedCell = container ? container.locator('[data-testid="notebook-cell"]') : this.cell;
+		const beforeCount = await scopedCell.count();
 
-		if (type === 'code') {
+		if (container) {
+			const actionBar = container.locator('.editor-action-bar-container');
+			if (type === 'code') {
+				await actionBar.getByRole('button', { name: 'Code' }).click();
+			} else {
+				this.code.driver.browser === 'webkit'
+					? await actionBar.getByRole('button', { name: 'Markdown' }).dispatchEvent('click')
+					: await actionBar.getByRole('button', { name: 'Markdown' }).click();
+			}
+		} else if (type === 'code') {
 			await this.addCodeButton.click();
 		} else {
 			// WebKit has trouble clicking the Markdown button (tabindex="-1")
@@ -331,7 +350,7 @@ export class PositronNotebooks extends Notebooks {
 				: await this.addMarkdownButton.click();
 		}
 
-		await expect(this.cell).toHaveCount(beforeCount + 1, { timeout: DEFAULT_TIMEOUT });
+		await expect(scopedCell).toHaveCount(beforeCount + 1, { timeout: DEFAULT_TIMEOUT });
 	}
 
 	/**
@@ -687,11 +706,15 @@ export class PositronNotebooks extends Notebooks {
 	async addCodeToCell(
 		cellIndex: number,
 		code: string,
-		options?: { delay?: number; run?: boolean; waitForSpinner?: boolean }
+		options?: { delay?: number; run?: boolean; waitForSpinner?: boolean; container?: Locator }
 	): Promise<Locator> {
-		const { delay = 0, run = false, waitForSpinner = false } = options ?? {};
+		const { delay = 0, run = false, waitForSpinner = false, container } = options ?? {};
+		// When a container is provided, scope all cell lookups to it so that cells from
+		// other open notebooks are not counted or accidentally targeted.
+		const scopedCell = container ? container.locator('[data-testid="notebook-cell"]') : this.cell;
+
 		return await test.step(`Add code to cell: ${cellIndex}, run: ${run}, waitForSpinner: ${waitForSpinner}`, async () => {
-			const currentCellCount = await this.getCellCount();
+			const currentCellCount = await scopedCell.count();
 
 			if (cellIndex >= currentCellCount) {
 				if (cellIndex > currentCellCount) {
@@ -700,19 +723,21 @@ export class PositronNotebooks extends Notebooks {
 				await this.addCodeCellToEnd();
 			}
 
-			await this.editModeAtIndex(cellIndex);
+			const cell = scopedCell.nth(cellIndex);
+			const ariaLabel = await cell.getAttribute('aria-label');
+			ariaLabel === 'Markdown cell' ? await cell.dblclick() : await cell.click();
 
 			// Focus the editor for the cell
-			const editor = this.editorAtIndex(cellIndex);
+			const editor = cell.locator('.monaco-editor :is(.native-edit-context, .inputarea)');
 			await editor.focus();
 
 			await editor.pressSequentially(code, { delay });
 
 			if (run) {
-				await this.runCellButtonAtIndex(cellIndex).click();
+				await cell.getByRole('button', { name: 'Run Cell', exact: true }).click();
 
 				if (waitForSpinner) {
-					const spinner = this.spinnerAtIndex(cellIndex);
+					const spinner = cell.getByLabel(/Cell is executing/i);
 					await expect(spinner).toBeVisible({ timeout: 2000 }).catch(() => {
 						// Spinner might not appear for very fast executions, that's okay
 					});
@@ -720,7 +745,7 @@ export class PositronNotebooks extends Notebooks {
 				}
 			}
 
-			return this.cell.nth(cellIndex);
+			return cell;
 		});
 	}
 
@@ -1051,11 +1076,16 @@ export class PositronNotebooks extends Notebooks {
 	 * Verify: Cell content at specified index matches expected content.
 	 * @param cellIndex - The index of the cell to check.
 	 * @param expectedContent - The expected content of the cell.
+	 * @param cell - Optional scoped cell locator. When provided, reads content directly
+	 *               from this locator instead of using the page-wide cell at cellIndex.
+	 *               Use this when multiple notebooks are open to avoid targeting the wrong cell.
 	 */
-	async expectCellContentAtIndexToBe(cellIndex: number, expectedContent: string | string[]): Promise<void> {
+	async expectCellContentAtIndexToBe(cellIndex: number, expectedContent: string | string[], cell?: Locator): Promise<void> {
 		await test.step(`Expect cell ${cellIndex} content to be: ${expectedContent}`, async () => {
 			await expect(async () => {
-				const actualContent = await this.getCellContent(cellIndex);
+				const actualContent = cell
+					? await this.getCellContentFromLocator(cell)
+					: await this.getCellContent(cellIndex);
 
 				if (Array.isArray(expectedContent)) {
 					// Compare arrays line by line
