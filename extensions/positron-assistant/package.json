@@ -491,10 +491,7 @@
           "positron.assistant.models.preference.positAI": {
             "type": "string",
             "default": "",
-            "markdownDescription": "%configuration.models.preference.positAI.description%",
-            "tags": [
-              "advanced"
-            ]
+            "markdownDescription": "%configuration.models.preference.positAI.description%"
           },
           "positron.assistant.models.preference.google": {
             "type": "string",
@@ -748,9 +745,6 @@
             "type": "array",
             "default": [],
             "markdownDescription": "%configuration.models.overrides.positAI.description%",
-            "tags": [
-              "advanced"
-            ],
             "items": {
               "type": "object",
               "properties": {
@@ -839,18 +833,12 @@
             "type": "boolean",
             "default": false,
             "markdownDescription": "%configuration.provider.amazonBedrock.enable.description%",
-            "tags": [
-              "preview"
-            ],
             "order": 3
           },
           "positron.assistant.provider.snowflakeCortex.enable": {
             "type": "boolean",
             "default": false,
             "markdownDescription": "%configuration.provider.snowflakeCortex.enable.description%",
-            "tags": [
-              "preview"
-            ],
             "order": 4
           },
           "positron.assistant.provider.msFoundry.enable": {
@@ -866,9 +854,6 @@
             "type": "boolean",
             "default": false,
             "markdownDescription": "%configuration.provider.openAI.enable.description%",
-            "tags": [
-              "preview"
-            ],
             "order": 6
           },
           "positron.assistant.provider.customProvider.enable": {
@@ -885,8 +870,7 @@
             "default": false,
             "markdownDescription": "%configuration.provider.positAI.enable.description%",
             "tags": [
-              "experimental",
-              "advanced"
+              "preview"
             ],
             "order": 8
           },
