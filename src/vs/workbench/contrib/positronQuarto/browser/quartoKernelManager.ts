@@ -718,13 +718,9 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 	 * Persist kernel bindings to workspace storage.
 	 */
 	private _persistKernelBindings(): void {
-		const data: Record<string, string> = {};
-		for (const [key, value] of this._kernelBindings) {
-			data[key] = value;
-		}
 		this._storageService.store(
 			STORAGE_KEY_KERNEL_BINDINGS,
-			JSON.stringify(data),
+			JSON.stringify(Object.fromEntries(this._kernelBindings)),
 			StorageScope.WORKSPACE,
 			StorageTarget.MACHINE
 		);
