@@ -1172,7 +1172,7 @@ export class SessionQuickPick {
 			await this.openSessionQuickPickMenu(true);
 
 			// Clear the search text to show all runtimes
-			await this.code.driver.page.getByRole('textbox', { name: START_NEW_CONSOLE_SESSION_PATTERN }).clear();
+			await this.code.driver.currentPage.getByRole('textbox', { name: START_NEW_CONSOLE_SESSION_PATTERN }).clear();
 
 			const seen = new Set<string>();
 			const runtimes: RuntimeInfo[] = [];
@@ -1180,7 +1180,7 @@ export class SessionQuickPick {
 			// Page through the list to load all entries (handles virtualized lists)
 			let stable = false;
 			while (!stable) {
-				const entries = this.code.driver.page.locator('.quick-input-list-entry');
+				const entries = this.code.driver.currentPage.locator('.quick-input-list-entry');
 				const entryCount = await entries.count();
 
 				let newEntriesFound = false;
@@ -1214,9 +1214,9 @@ export class SessionQuickPick {
 				}
 
 				if (newEntriesFound) {
-					await this.code.driver.page.keyboard.press('PageDown');
-					await this.code.driver.page.keyboard.press('PageDown');
-					await this.code.driver.page.waitForTimeout(50); // allow more items to render
+					await this.code.driver.currentPage.keyboard.press('PageDown');
+					await this.code.driver.currentPage.keyboard.press('PageDown');
+					await this.code.driver.currentPage.waitForTimeout(50); // allow more items to render
 				} else {
 					stable = true; // no new items found after PageDown
 				}
