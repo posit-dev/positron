@@ -41,7 +41,7 @@ export function AddCodeCellButton({ notebookInstance, index, bordered }: { noteb
 		bordered={bordered}
 		fullLabel={fullLabel}
 		hoverManager={notebookInstance.hoverManager}
-		icon={Codicon.code}
+		icon={Codicon.plus}
 		label={label}
 		onClick={() => notebookInstance.addCell(CellKind.Code, index, true)}
 	/>;
@@ -57,7 +57,7 @@ export function AddMarkdownCellButton({ notebookInstance, index, bordered }: { n
 		bordered={bordered}
 		fullLabel={fullLabel}
 		hoverManager={notebookInstance.hoverManager}
-		icon={Codicon.markdown}
+		icon={Codicon.plus}
 		label={label}
 		onClick={() => notebookInstance.addCell(CellKind.Markup, index, true)}
 	/>;
