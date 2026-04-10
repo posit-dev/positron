@@ -12,6 +12,8 @@
 }
 
 .console-instance-info .actions {
+	display: flex;
+	flex-direction: column;
 	background-color: var(--vscode-editorHoverWidget-statusBarBackground);
 	padding-bottom: 4px;
 }
