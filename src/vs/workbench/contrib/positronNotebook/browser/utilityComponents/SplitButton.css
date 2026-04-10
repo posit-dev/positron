@@ -25,9 +25,7 @@
 	border-radius: 3px 0 0 3px;
 	padding: 2px 8px;
 	font-size: 11px;
-	background: transparent;
 	color: var(--vscode-foreground);
-	border: none;
 }
 
 .split-button .split-button-main:hover {

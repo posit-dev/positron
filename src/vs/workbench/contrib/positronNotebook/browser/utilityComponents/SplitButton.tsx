@@ -11,9 +11,10 @@ import React, { PropsWithChildren, useRef } from 'react';
 
 // Other dependencies.
 import { IAction } from '../../../../../base/common/actions.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { IContextMenuService } from '../../../../../platform/contextview/browser/contextView.js';
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
-import { Button, KeyboardModifiers } from '../../../../../base/browser/ui/positronComponents/button/button.js';
+import { Button, KeyboardModifiers, MouseTrigger } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 
 /**
  * Props for the SplitButton component.
@@ -58,15 +59,12 @@ export const SplitButton: React.FC<PropsWithChildren<SplitButtonProps>> = ({
 	dropdownIconClass = 'codicon-chevron-down',
 	children
 }) => {
-	const dropdownRef = useRef<HTMLDivElement>(null);
+	const dropdownRef = useRef<HTMLButtonElement>(null);
 
 	/**
 	 * Shows the context menu for the dropdown.
 	 */
-	const showDropdownMenu = (event: React.SyntheticEvent<HTMLDivElement>) => {
-		event.preventDefault();
-		event.stopPropagation();
-
+	const showDropdownMenu = () => {
 		if (!dropdownRef.current || disabled) {
 			return;
 		}
@@ -81,7 +79,7 @@ export const SplitButton: React.FC<PropsWithChildren<SplitButtonProps>> = ({
 	};
 
 	return (
-		<div className={`split-button ${className ?? ''} ${disabled ? 'disabled' : ''}`}>
+		<div className={positronClassNames('split-button', className, { 'disabled': disabled })}>
 			<Button
 				ariaLabel={ariaLabel}
 				className='split-button-main'
@@ -90,26 +88,18 @@ export const SplitButton: React.FC<PropsWithChildren<SplitButtonProps>> = ({
 			>
 				{children ?? label}
 			</Button>
-			<div
+			<Button
 				ref={dropdownRef}
-				aria-label={dropdownTooltip}
+				ariaLabel={dropdownTooltip}
 				className='split-button-dropdown'
-				role='button'
+				disabled={disabled}
+				mouseTrigger={MouseTrigger.MouseDown}
 				tabIndex={disabled ? -1 : 0}
-				title={dropdownTooltip}
-				onKeyDown={(e) => {
-					if ((e.key === 'Enter' || e.key === ' ') && !disabled) {
-						showDropdownMenu(e);
-					}
-				}}
-				onMouseDown={(e) => {
-					if (!disabled) {
-						showDropdownMenu(e);
-					}
-				}}
+				tooltip={dropdownTooltip}
+				onPressed={showDropdownMenu}
 			>
 				<span className={`codicon ${dropdownIconClass}`} />
-			</div>
+			</Button>
 		</div>
 	);
 };
