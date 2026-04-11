@@ -22,8 +22,8 @@ import { isMacintosh } from '../../../../../base/common/platform.js';
 import { PositronConsoleTabFocused } from '../../../../common/contextkeys.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ILanguageRuntimeResourceUsage, LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { basename } from '../../../../../base/common/path.js';
-import { RuntimeIcon, isQuartoSession } from './runtimeIcon.js';
+import { RuntimeIcon } from './runtimeIcon.js';
+import { getNotebookDisplayName } from '../../common/sessionDisplayUtils.js';
 import { ResourceUsageGraph } from './resourceUsageGraph.js';
 import { ResourceUsageStats } from './resourceUsageStats.js';
 import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -61,17 +61,11 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 	if (session) {
 		// Ask the session directly
 		sessionDisplayName = session.session.getLabel();
+	} else if (isNotebookSession) {
+		sessionDisplayName = getNotebookDisplayName(
+			positronConsoleInstance.sessionMetadata.notebookUri!, services.modelService);
 	} else {
-		// No session to ask, compute from the other metadata we have
-		sessionDisplayName = isNotebookSession ?
-			basename(positronConsoleInstance.sessionMetadata.notebookUri!.path) :
-			positronConsoleInstance.sessionName;
-	}
-	// For untitled Quarto documents, the URI doesn't include the .qmd
-	// extension. Append it so the session tab shows the correct file type.
-	if (isNotebookSession && !sessionDisplayName.includes('.') &&
-		isQuartoSession(positronConsoleInstance.sessionMetadata.notebookUri, services.modelService)) {
-		sessionDisplayName = `${sessionDisplayName}.qmd`;
+		sessionDisplayName = positronConsoleInstance.sessionName;
 	}
 
 	// State
@@ -489,9 +483,9 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 				<ConsoleInstanceState positronConsoleInstance={positronConsoleInstance} />
 				<RuntimeIcon
 					base64EncodedIconSvg={positronConsoleInstance.runtimeMetadata.base64EncodedIconSvg}
-					sessionMode={positronConsoleInstance.sessionMetadata.sessionMode}
-					notebookUri={positronConsoleInstance.sessionMetadata.notebookUri}
 					modelService={services.modelService}
+					notebookUri={positronConsoleInstance.sessionMetadata.notebookUri}
+					sessionMode={positronConsoleInstance.sessionMetadata.sessionMode}
 				/>
 				{isRenamingSession ? (
 					<input

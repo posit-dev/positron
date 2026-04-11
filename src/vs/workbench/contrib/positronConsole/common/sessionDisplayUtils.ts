@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { URI } from '../../../../base/common/uri.js';
+import { basename } from '../../../../base/common/path.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
 import { isQuartoDocument } from '../../positronQuarto/common/positronQuartoConfig.js';
 
@@ -19,4 +20,16 @@ export function isQuartoSession(notebookUri: URI | undefined, modelService: IMod
 	}
 	const model = modelService.getModel(notebookUri);
 	return isQuartoDocument(notebookUri.path, model?.getLanguageId());
+}
+
+/**
+ * Gets the display name for a notebook file. For untitled Quarto documents,
+ * the .qmd extension is appended since the URI doesn't include it.
+ */
+export function getNotebookDisplayName(notebookUri: URI, modelService: IModelService): string {
+	let name = basename(notebookUri.path);
+	if (!name.includes('.') && isQuartoSession(notebookUri, modelService)) {
+		name = `${name}.qmd`;
+	}
+	return name;
 }
