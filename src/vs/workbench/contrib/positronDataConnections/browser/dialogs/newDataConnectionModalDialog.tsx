@@ -6,18 +6,24 @@
 // CSS.
 import './newDataConnectionModalDialog.css';
 
+// React.
+import { useState, useEffect } from 'react';
+
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
 import { PositronModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
 import { OKCancelActionBar } from '../../../../browser/positronComponents/positronModalDialog/components/okCancelActionBar.js';
+import { IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
+import { IDataConnectionDriverMetadata } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
 
 /**
  * NewDataConnectionModalDialogProps interface.
  */
 interface NewDataConnectionModalDialogProps {
 	renderer: PositronModalReactRenderer;
+	dataConnectionsService: IPositronDataConnectionsService;
 }
 
 /**
@@ -26,6 +32,9 @@ interface NewDataConnectionModalDialogProps {
  * @returns The rendered component.
  */
 export const NewDataConnectionModalDialog = (props: NewDataConnectionModalDialogProps) => {
+	// State.
+	const [drivers, setDrivers] = useState<IDataConnectionDriverMetadata[]>([]);
+
 	/**
 	 * Cancel handler.
 	 */
@@ -39,6 +48,15 @@ export const NewDataConnectionModalDialog = (props: NewDataConnectionModalDialog
 	const acceptHandler = () => {
 		props.renderer.dispose();
 	};
+
+	// Load the registered drivers.
+	useEffect(() => {
+		// Get the registered drivers from the service and store them in state.
+		const registeredDrivers = props.dataConnectionsService.driverManager.getDrivers();
+
+		// Set the drivers in state so we can render them.
+		setDrivers(registeredDrivers.map(d => d.metadata));
+	}, [props.dataConnectionsService]);
 
 	// Render.
 	return (
@@ -54,7 +72,11 @@ export const NewDataConnectionModalDialog = (props: NewDataConnectionModalDialog
 		>
 			<ContentArea>
 				<div>Select a provider</div>
-				<div>YAYA</div>
+				{drivers.map(driver => (
+					<div key={driver.id}>
+						{driver.name} - {driver.description}
+					</div>
+				))}
 			</ContentArea>
 			<OKCancelActionBar
 				okButtonTitle={localize('positron.newDataConnectionModalDialog.next', "Next")}

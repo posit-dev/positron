@@ -22,6 +22,7 @@ import { IContextMenuService } from '../../../../platform/contextview/browser/co
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
+import { IPositronDataConnectionsService } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 
 /**
  * PositronDataViewPane class.
@@ -85,6 +86,7 @@ export class PositronDataViewPane extends PositronViewPane implements IReactComp
 		@IOpenerService openerService: IOpenerService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
+		@IPositronDataConnectionsService private readonly _dataConnectionsService: IPositronDataConnectionsService,
 	) {
 		super(
 			options,
@@ -131,7 +133,10 @@ export class PositronDataViewPane extends PositronViewPane implements IReactComp
 
 		// Render the PositronDataConnections component into the container.
 		this._positronReactRenderer.render(
-			<PositronDataConnections reactComponentContainer={this} />
+			<PositronDataConnections
+				dataConnectionsService={this._dataConnectionsService}
+				reactComponentContainer={this}
+			/>
 		);
 	}
 
