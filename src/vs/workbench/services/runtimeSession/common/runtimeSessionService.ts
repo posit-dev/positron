@@ -280,6 +280,7 @@ export interface IRuntimeSessionDisplayInfo {
 	readonly sessionMode: LanguageRuntimeSessionMode;
 	readonly notebookUri?: URI;
 	readonly runtimeId: string;
+	readonly runtimeName: string;
 	readonly languageName: string;
 	readonly languageId: string;
 	readonly base64EncodedIconSvg: string | undefined;
