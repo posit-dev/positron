@@ -163,6 +163,7 @@ function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, 
 		'positron-proxy',
 		'positron-duckdb',
 		'positron-sqlite',
+		'positron-postgresql',
 		'positron-catalog-explorer',
 		'positron-pdf-server'
 	];

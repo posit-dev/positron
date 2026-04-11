@@ -17,4 +17,7 @@ module.exports.default = withDefaults({
 	node: {
 		__dirname: false
 	},
+	externals: {
+		'pg': 'commonjs pg',
+	}
 });

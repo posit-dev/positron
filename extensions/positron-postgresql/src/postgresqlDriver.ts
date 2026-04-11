@@ -63,19 +63,30 @@ export function createPostgreSQLDriver(
 				required: false,
 				placeholder: '',
 			},
+			{
+				id: 'ssl',
+				label: 'Use SSL',
+				type: positron.DataConnectionParameterType.Boolean,
+				defaultValue: false,
+			},
 		],
-		connect(params: positron.DataConnectionParameterValues): Thenable<positron.DataConnection> {
+		async connect(params: positron.DataConnectionParameterValues): Promise<positron.DataConnection> {
 			const host = params.host as string;
 			const port = params.port as number;
 			const database = params.database as string;
 			const user = params.user as string;
 			const password = params.password as string ?? '';
+			const ssl = params.ssl as boolean ?? false;
 
 			if (!host || !database || !user) {
 				throw new Error('Host, database, and user are required');
 			}
 
-			return Promise.resolve(new PostgreSQLConnection(host, port, database, user, password));
+			const connection = new PostgreSQLConnection({
+				host, port, database, user, password, ssl
+			});
+			await connection.connect();
+			return connection;
 		},
 	};
 }
