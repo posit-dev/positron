@@ -212,7 +212,7 @@ corresponding setup step to the test plan:
 |---------------------------|----------------|
 | `positronNotebook/browser/` | `enablePositronNotebooks({"$pom": "settings"})` |
 | `positron.environments` or `positronVariables` | `settings.set({"positron.environments.enable": true}, {"reload": true})` |
-| `inlineQuarto` or `quarto` with inline output | `settings.set({"positron.quarto.inlineOutput.enabled": true})` + `sessions.start` before opening .qmd files (kernel status requires an active session) |
+| `inlineQuarto` or `quarto` with inline output | `settings.set({"positron.quarto.inlineOutput.enabled": true})` |
 
 **If `--test-patterns` flag is set**, also check existing tests in the same area for
 setup and assertion patterns (see `references/diff-analysis.md` -- "Check existing

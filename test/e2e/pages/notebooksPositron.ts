@@ -261,7 +261,7 @@ export class PositronNotebooks extends Notebooks {
 	 * @param clearCells - Whether to clear default cell content after adding cells (default false)
 	 */
 	async newNotebook({
-		codeCells = 0,
+		codeCells = 1,
 		markdownCells = 0,
 		language,
 		waitForReady = false,
@@ -275,8 +275,13 @@ export class PositronNotebooks extends Notebooks {
 	} = {}): Promise<void> {
 		await this.createNewNotebook();
 		await this.expectToBeVisible();
+		await this.expectCellCountToBe(1); // New notebook starts with 1 cell by default
 
-		if (codeCells === 0 && markdownCells === 0) {
+		if (codeCells === 0) {
+			await this.deleteCellWithActionBar(0);
+		}
+
+		if (codeCells <= 1 && markdownCells === 0) {
 			// Select kernel even with no cells if language is specified
 			if (language) {
 				await this.kernel.select(language, { waitForReady });

@@ -108,7 +108,7 @@ export class Workbench {
 		this.toasts = new Toasts(code);
 		this.popups = new Popups(code);
 		this.contextMenu = new ContextMenu(code);
-		this.variables = new Variables(code, this.hotKeys, this.contextMenu);
+		this.variables = new Variables(code, this.hotKeys);
 		this.dataExplorer = new DataExplorer(code, this);
 		this.sideBar = new SideBar(code);
 		this.plots = new Plots(code, this.contextMenu);
@@ -148,7 +148,7 @@ export class Workbench {
 		this.positAssistant = new PositAssistant(code);
 		this.inlineDataExplorer = new InlineDataExplorer(code.driver.page);
 		this.inlineQuarto = new InlineQuarto(code, this.quickaccess, this.hotKeys);
-		this.packages = new Packages(code, this.contextMenu);
+		this.packages = new Packages(code, this.contextMenu, this.quickInput, this.toasts);
 	}
 }
 

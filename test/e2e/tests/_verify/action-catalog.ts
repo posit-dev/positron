@@ -174,12 +174,6 @@ export const actionCatalog: Record<string, ActionFn> = {
 	 * Use this to create test files on the fly (.qmd, .py, .R, .csv, etc.)
 	 * instead of depending on qa-example-content files.
 	 * params: { filename: string, content: string }
-	 *
-	 * IMPORTANT for .qmd files: The Quarto kernel does NOT auto-connect to
-	 * existing console sessions. After creating a .qmd, you MUST run a cell
-	 * (runCurrentCell) before the kernel connects. Do NOT call expectKernelIdle
-	 * or expectKernelStatusVisible immediately after createFile -- they will
-	 * time out with "No Kernel".
 	 */
 	createFile: async (app, params) => {
 		const filename = params.filename;

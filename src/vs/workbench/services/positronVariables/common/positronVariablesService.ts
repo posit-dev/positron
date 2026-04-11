@@ -10,21 +10,12 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { PositronVariablesInstance } from './positronVariablesInstance.js';
 import { IPositronVariablesService } from './interfaces/positronVariablesService.js';
 import { IPositronVariablesInstance } from './interfaces/positronVariablesInstance.js';
-import { LanguageRuntimeSessionMode, RuntimeState } from '../../languageRuntime/common/languageRuntimeService.js';
+import { LanguageRuntimeSessionMode } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessionService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { RuntimeClientState } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
-import { IEditorService } from '../../editor/common/editorService.js';
-import { NotebookEditorInput } from '../../../contrib/notebook/common/notebookEditorInput.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { IPositronConsoleService } from '../../positronConsole/browser/interfaces/positronConsoleService.js';
-import { PositronNotebookEditorInput } from '../../../contrib/positronNotebook/browser/PositronNotebookEditorInput.js';
-import { IRuntimeNotebookKernelService } from '../../../contrib/runtimeNotebookKernel/common/interfaces/runtimeNotebookKernelService.js';
-import { ILanguageRuntimeCodeExecutedEvent } from '../../positronConsole/common/positronConsoleCodeExecution.js';
-import { IQuartoExecutionManager } from '../../../contrib/positronQuarto/common/quartoExecutionTypes.js';
-import { PositronDataExplorerEditorInput } from '../../../contrib/positronDataExplorerEditor/browser/positronDataExplorerEditorInput.js';
 
 /**
  * PositronVariablesService class.
@@ -74,24 +65,16 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 
 	/**
 	 * Constructor.
-	 * @param _runtimeSessionService The language runtime service.
-	 * @param _runtimeNotebookKernelService The runtime notebook kernel service.
+	 * @param _runtimeSessionService The runtime session service.
 	 * @param _logService The log service.
 	 * @param _notificationService The notification service.
 	 * @param _accessibilityService The accessibility service.
-	 * @param _editorService The editor service.
-	 * @param _configurationService The configuration service.
 	 */
 	constructor(
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
-		@IRuntimeNotebookKernelService private readonly _runtimeNotebookKernelService: IRuntimeNotebookKernelService,
-		@IQuartoExecutionManager private readonly _quartoExecutionManager: IQuartoExecutionManager,
 		@ILogService private readonly _logService: ILogService,
 		@INotificationService private readonly _notificationService: INotificationService,
-		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService,
-		@IEditorService private readonly _editorService: IEditorService,
-		@IConfigurationService private readonly _configurationService: IConfigurationService,
-		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService
+		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService
 	) {
 		// Call the disposable constructor.
 		super();
@@ -102,48 +85,17 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 			this.createOrAssignPositronVariablesInstance(e.session, e.activate);
 		}));
 
-		// Register session cleanup handler
-		this._register(this._runtimeSessionService.onDidChangeRuntimeState(e => {
-			if (e.new_state === RuntimeState.Exited) {
-				this.cleanupSession(e.session_id);
-			}
+		// Only clean up variables instances when sessions are deleted. We do not clean up
+		// instances when a session is exited because that session may be restarted. The
+		// createOrAssignPositronVariablesInstance method will handle re-attaching the
+		// restarted session to an existing instance if needed.
+		this._register(this._runtimeSessionService.onDidDeleteRuntimeSession(sessionId => {
+			this.cleanupSession(sessionId);
 		}));
 
 		// Register the onDidChangeActiveRuntime event handler.
 		this._register(this._runtimeSessionService.onDidChangeForegroundSession(session => {
 			this._setActivePositronVariablesBySession(session?.sessionId);
-		}));
-
-		// Listen for notebook URI updates from session remapping
-		// When a notebook changes URI (during save), the variables view needs to update its UI.
-		// This maintains a consistent user experience by showing the correct file path in the variables view
-		// The event-based approach allows loose coupling between the session service and variables service
-		// which if we directly called the variables session method it would cause a circular dependency.
-		this._register(this._runtimeSessionService.onDidUpdateNotebookSessionUri(e => {
-			// Respond to URI changes by setting the appropriate session as active in the variables view
-			// This ensures that the variables view context stays consistent with the file system
-			this._logService.debug(`Setting active variables session for notebook URI update: ${e.sessionId}`);
-			this.setActivePositronVariablesSession(e.sessionId);
-		}));
-
-		// Listen for console code execution events
-		this._register(this._positronConsoleService.onDidExecuteCode(e => {
-			this._watchForCodeExecution(e);
-		}));
-
-		// List for notebook code execution events
-		this._register(this._runtimeNotebookKernelService.onDidExecuteCode(e => {
-			this._watchForCodeExecution(e);
-		}));
-
-		// Listen for Quarto code execution events
-		this._register(this._quartoExecutionManager.onDidExecuteCode(e => {
-			this._watchForCodeExecution(e)
-		}));
-
-		// Listen for editor changes
-		this._register(this._editorService.onDidActiveEditorChange(() => {
-			this._syncToActiveEditor();
 		}));
 	}
 
@@ -174,26 +126,6 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 	// Gets the active REPL instance.
 	get activePositronVariablesInstance(): IPositronVariablesInstance | undefined {
 		return this._activePositronVariablesInstance;
-	}
-
-	/**
-	 * Sets the active variables instance to the one with the given session ID.
-	 *
-	 * @param sessionId The session ID.
-	 */
-	setActivePositronVariablesSession(sessionId: string): void {
-		// Find the Positron variables instance associated with the session ID.
-		const positronVariablesInstance =
-			this._positronVariablesInstancesBySessionId.get(sessionId);
-		if (positronVariablesInstance) {
-			// Found it; make it active.
-			this._setActivePositronVariablesInstance(positronVariablesInstance);
-		} else {
-			// Did not find it; log a warning.
-			this._logService.warn(
-				`Attempted to set the active Positron variables instance to a session ` +
-				`(${sessionId}) that does not have a corresponding Positron variables instance.`);
-		}
 	}
 
 	/**
@@ -235,9 +167,6 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 					this._setActivePositronVariablesInstance(activeInstance);
 				}
 			}
-
-			// Sync to the active editor to handle notebook scenarios
-			this._syncToActiveEditor();
 		}
 	}
 
@@ -284,81 +213,6 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 
 		// Clear and dispose all instances
 		this._positronVariablesInstancesBySessionId.clearAndDisposeAll();
-	}
-
-	/**
-	 * Gets whether the follow mode is enabled.
-	 * @returns Whether the follow mode is enabled.
-	 */
-	private get _inFollowMode(): boolean {
-		return this._configurationService.getValue('positron.variables.followMode');
-	}
-
-	/**
-	 * Syncs the active variables instance to the active editor.
-	 * This is called when the active editor changes or the service is initialized.
-	 */
-	private _syncToActiveEditor() {
-		// Check for feature flag for session following editor being on before proceeding
-		if (!this._inFollowMode) {
-			return;
-		}
-
-		const editorInput = this._editorService.activeEditor;
-
-		// If a data explorer is opened, don't change the Variables pane session.
-		// The data explorer should not impact session following, keeping the
-		// Variables pane on whichever session spawned the data being viewed.
-		if (editorInput instanceof PositronDataExplorerEditorInput) {
-			return;
-		}
-
-		if (editorInput instanceof NotebookEditorInput || editorInput instanceof PositronNotebookEditorInput) {
-			// If this is a notebook editor try and set the active variables session to the one
-			// that corresponds with it.
-			const notebookSession = this._runtimeSessionService.activeSessions.find(
-				s => s.metadata.notebookUri && isEqual(s.metadata.notebookUri, editorInput.resource)
-			);
-			// If the editor is not for a jupyter notebook, just leave variables session as is.
-			if (!notebookSession) { return; }
-			this._setActivePositronVariablesBySession(notebookSession.sessionId);
-		} else if (editorInput?.resource?.path.endsWith('.qmd')) {
-			// If this is a Quarto document (.qmd file), check if there's a kernel session
-			// associated with it. QMD sessions are started with LanguageRuntimeSessionMode.Notebook
-			// and have their document URI stored in metadata.notebookUri.
-			const qmdSession = this._runtimeSessionService.activeSessions.find(
-				s => s.metadata.notebookUri && isEqual(s.metadata.notebookUri, editorInput.resource)
-			);
-			// If there's a session for this QMD file, switch to it; otherwise fall back to
-			// the foreground console session.
-			if (qmdSession) {
-				this._setActivePositronVariablesBySession(qmdSession.sessionId);
-			} else if (this._runtimeSessionService.foregroundSession) {
-				this._setActivePositronVariablesBySession(
-					this._runtimeSessionService.foregroundSession.sessionId);
-			} else {
-				this._setActivePositronVariablesInstance();
-			}
-		} else if (this._runtimeSessionService.foregroundSession) {
-			// Revert to the most recent console session if we're not in a notebook editor
-			this._setActivePositronVariablesBySession(
-				this._runtimeSessionService.foregroundSession.sessionId);
-		} else {
-			// All else fails, just reset to the default
-			this._setActivePositronVariablesInstance();
-		}
-	}
-
-	/**
-	 * Handles code execution by updating the active variables if follow mode is enabled.
-	 * @param event The code executed event
-	 */
-	private _watchForCodeExecution(event: ILanguageRuntimeCodeExecutedEvent): void {
-		// Check for feature flag for session following editor being on before proceeding
-		if (!this._inFollowMode) {
-			return;
-		}
-		this._setActivePositronVariablesBySession(event.sessionId);
 	}
 
 	/**

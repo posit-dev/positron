@@ -62,6 +62,35 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	const [, setIgnoreNextScrollEvent, ignoreNextScrollEventRef] = useStateRef(false);
 	const [disconnected, setDisconnected] = useState(false);
 
+	// Attach the find widget DOM node to the console container.
+	useEffect(() => {
+		const domNode = props.positronConsoleInstance.findWidgetDomNode;
+		if (!consoleInstanceRef.current || !domNode) {
+			return;
+		}
+		consoleInstanceRef.current.prepend(domNode);
+		return () => {
+			// Remove the DOM node when the component unmounts or the instance changes.
+			// The find widget will create a new DOM node when the instance changes,
+			// so we need to remove the old one.
+			domNode.remove();
+		};
+	}, [props.positronConsoleInstance]);
+
+	// Re-apply find highlights when this tab becomes active. The CSS Custom
+	// Highlight API is global per-document, so only the active tab's
+	// highlights should be registered.
+	useEffect(() => {
+		if (props.active) {
+			props.positronConsoleInstance.refreshFindHighlights();
+		}
+	}, [props.active, props.positronConsoleInstance]);
+
+	// Update find widget layout when width changes.
+	useEffect(() => {
+		props.positronConsoleInstance.layoutFindWidget(props.width);
+	}, [props.positronConsoleInstance, props.width]);
+
 	// Determines whether the console is scrollable.
 	const scrollable = () => consoleInstanceRef.current.scrollHeight > consoleInstanceRef.current.clientHeight;
 
@@ -351,6 +380,13 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	 * @param e A KeyboardEvent<HTMLDivElement> that describes a user interaction with the keyboard.
 	 */
 	const keyDownHandler = async (e: KeyboardEvent<HTMLDivElement>) => {
+		// Ignore keydown events originating from within the find widget so
+		// they can bubble to the keybinding service on the window.
+		const target = e.target as HTMLElement;
+		if (target.closest?.('.simple-find-part')) {
+			return;
+		}
+
 		/**
 		 * Consumes an event.
 		 */

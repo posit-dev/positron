@@ -44,14 +44,6 @@ Returns `passed`, `failed`, `steps` array (each with `title`, `success`, `durati
 | `createFile` | `{"filename": "test.qmd", "content": "..."}` | Create + open file. |
 | `contextMenu` | `{"selector": ".el", "menuItem": "Pin Row"}` | Right-click context menu. Works for most menus -- try it first. If it fails, try a different selector. For saved `.test.ts` files, prefer the `contextMenu` POM for native menu reliability. |
 
-**Quarto .qmd step order** (must follow this exact sequence):
-1. `createFile` (creates and opens the .qmd)
-2. `inlineQuarto.gotoLine` (navigate to the code cell)
-3. `inlineQuarto.runCurrentCell` (this triggers kernel connection)
-4. `inlineQuarto.expectKernelIdle` (NOW the kernel is connected)
-5. Assertions (`expectOutputVisible`, `inlineDataExplorer.expectToBeVisible`, etc.)
-
-**Do NOT put expectKernelIdle before runCurrentCell.** The kernel shows "No Kernel" until a cell is run.
 
 **Raw Playwright** (`type: "action"`, recovery/debugging only):
 
