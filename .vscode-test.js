@@ -104,6 +104,11 @@ const extensions = [
 		mocha: { timeout: 60_000 }
 	},
 	{
+		label: 'positron-postgresql',
+		workspaceFolder: path.join(os.tmpdir(), `positron-postgresql-${Math.floor(Math.random() * 100000)}`),
+		mocha: { timeout: 60_000 }
+	},
+	{
 		label: 'positron-run-app',
 		workspaceFolder: 'extensions/positron-run-app/test-workspace',
 		mocha: { timeout: 60_000 }
