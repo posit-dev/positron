@@ -14,18 +14,49 @@ import { Application } from '../../infra';
  */
 export function FileOperationsFixture(app: Application) {
 	return {
+		/**
+		 * Open a file in the editor via quick access.
+		 *
+		 * Takes a **workspace-relative** path (e.g. `'workspaces/data/test.csv'`
+		 * or `'test.qmd'`). The path is resolved to an absolute path internally
+		 * using the workspace root. Do not pass absolute paths -- use
+		 * `quickaccess.openFile` directly for that.
+		 *
+		 * @param filePath - Workspace-relative path to the file
+		 * @param waitForFocus - Whether to wait for the editor to receive focus (default: true)
+		 */
 		openFile: async (filePath: string, waitForFocus = true) => {
 			await test.step(`Open file: ${path.basename(filePath)}`, async () => {
 				await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, filePath), waitForFocus);
 			});
 		},
 
+		/**
+		 * Open a data file in the Data Explorer via quick access.
+		 *
+		 * Takes a **workspace-relative** path. Resolved to absolute internally.
+		 *
+		 * @param filePath - Workspace-relative path to the data file
+		 */
 		openDataFile: async (filePath: string) => {
 			await test.step(`Open data file: ${path.basename(filePath)}`, async () => {
 				await app.workbench.quickaccess.openDataFile(path.join(app.workspacePathOrFolder, filePath));
 			});
 		},
 
+		/**
+		 * Create a file on disk and open it in the editor.
+		 *
+		 * Writes the file to the workspace directory, then opens it via
+		 * quick access and waits for the editor tab to be active.
+		 * Use the `createFile` fixture in `_test.setup.ts` instead of calling
+		 * this directly -- the fixture wraps this and auto-deletes the file
+		 * when the test ends.
+		 *
+		 * @param filename - Workspace-relative filename (e.g. `'test.qmd'`)
+		 * @param content - File content to write
+		 * @returns The absolute path to the created file
+		 */
 		createFile: async (filename: string, content: string) => {
 			const filePath = path.join(app.workspacePathOrFolder, filename);
 			await test.step(`Create file: ${filename}`, async () => {

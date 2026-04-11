@@ -553,52 +553,23 @@ For free-text tests (no PR number), use `test.describe('Verify: <description>')`
 - Map action steps to the equivalent Playwright calls
 - File path: `test/e2e/tests/_generated/MMDD-<increment>_<pr>-<slug>.test.ts`
 - **Always use fixtures over workbench properties when available.** Fixtures come
-  from the test function parameter, NOT from `app.workbench`. Key fixtures:
-  `python`, `r`, `sessions`, `settings`, `hotKeys`, `page`, `createFile`.
-  If you need `settings`, add it to the function signature -- do NOT destructure
-  it from `app.workbench`:
-  ```typescript
-  // CORRECT: settings from fixture parameter
-  test('example', async function ({ app, settings }) {
-  	await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
-  });
-
-  // WRONG: app.workbench.settings is a different object
-  test('example', async function ({ app }) {
-  	const { settings } = app.workbench; // WRONG TYPE
-  });
-  ```
-- **Use `sessions.start()` return values** -- see POM reference for `.id` and `.name` fields. Never hardcode version strings like `'Python 3.10.15 (Pyenv)'` -- use `session.name` instead.
+  from the test function parameter, NOT from `app.workbench`. Read
+  `test/e2e/tests/_test.setup.ts` for the full list of available fixtures, their
+  types, and JSDoc usage examples. Key rules:
+  - Add fixtures (`settings`, `hotKeys`, `createFile`, `openFile`, etc.) to the
+    test function signature -- do NOT destructure them from `app.workbench`
+    (different types, missing path resolution, etc.)
+  - Use `hotKeys` fixture over `quickaccess.runCommand` when a hotkey exists --
+    check `pom-ref/hotKeys.md` before writing any `quickaccess.runCommand(...)` call
+  - Use `openFile` fixture (not `quickaccess.openFile`) to re-open workspace files --
+    the fixture resolves relative paths; `quickaccess.openFile` requires absolute paths
+  - Map runner `createFile` action to the `createFile` fixture (writes to disk,
+    opens in editor, auto-cleans up on test end)
+  - Use `sessions.start()` return values (`.id`, `.name`) -- never hardcode version strings
 - **Do NOT wrap POM calls in `test.step()`.** POM methods already have internal
-  `test.step()` wrappers. Use comments to group steps, not `test.step()`:
-  ```typescript
-  // WRONG
-  await test.step('Verify variable', async () => {
-  	await variables.expectVariableToBe('x', '42');
-  });
-
-  // CORRECT
-  // Verify variable appears
-  await variables.expectVariableToBe('x', '42');
-  ```
+  `test.step()` wrappers. Use comments to group steps, not `test.step()`.
 - **Do NOT rename `console` when destructuring.** Use `const { console } = app.workbench`
-  directly -- do not alias it as `consoleView`, `consolePom`, etc. The existing codebase
-  uses `console` everywhere and shadowing the global `console` is fine in test files.
-- **Map runner `createFile` action to the `createFile` fixture.** When the runner
-  used `{"action": "createFile", "params": {"filename": "test.qmd", "content": "..."}}`,
-  translate it to the fixture in the saved test:
-  ```typescript
-  // CORRECT: createFile fixture writes to workspace, opens in editor, auto-cleans up
-  test('example', async function ({ app, createFile }) {
-  	await createFile('test.qmd', '---\ntitle: Test\n---\n```{r}\n1+1\n```');
-  });
-
-  // WRONG: console.createFile only writes a stub, quickaccess.openFile needs absolute path
-  test('example', async function ({ app }) {
-  	await app.workbench.console.createFile('R', 'test.qmd');
-  	await app.workbench.quickaccess.openFile('test.qmd'); // ERROR: not absolute
-  });
-  ```
+  directly -- shadowing the global `console` is fine in test files.
 
 ## Verification Comment
 

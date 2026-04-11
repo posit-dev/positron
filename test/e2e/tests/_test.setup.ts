@@ -172,24 +172,28 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		await use();
 	}, { scope: 'test' }],
 
+	// Open a workspace-relative file in the editor. Path is resolved to absolute internally.
 	// ex: await openFile('workspaces/basic-rmd-file/basicRmd.rmd');
 	openFile: async ({ app }, use) => {
 		const fileOps = FileOperationsFixture(app);
 		await use(fileOps.openFile);
 	},
 
+	// Open a workspace-relative data file in the Data Explorer. Path is resolved to absolute internally.
 	// ex: await openDataFile('workspaces/large_r_notebook/spotify.ipynb');
 	openDataFile: async ({ app }, use) => {
 		const fileOps = FileOperationsFixture(app);
 		await use(fileOps.openDataFile);
 	},
 
+	// Open a workspace-relative folder via the quick open dialog.
 	// ex: await openFolder(path.join('qa-example-content/workspaces/r_testing'));
 	openFolder: async ({ app }, use) => {
 		const fileOps = FileOperationsFixture(app);
 		await use(fileOps.openFolder);
 	},
 
+	// Create a file on disk and open it. Auto-deletes on test teardown.
 	// ex: await createFile('test.qmd', '---\ntitle: Test\n---\n```{r}\n1+1\n```');
 	createFile: async ({ app }, use) => {
 		const fileOps = FileOperationsFixture(app);
