@@ -20,7 +20,10 @@ Performs on-demand QA testing by driving Positron through test scenarios using t
 - **No regex literals in JSON.** `/pattern/` is not valid JSON. For POM methods that accept `string | RegExp`, use `{"$regex": "pattern"}` (optionally `{"$regex": "pattern", "$flags": "i"}` for flags).
 - **Do NOT report hallucinated limitations as rough edges.** If a step fails because you used syntax that doesn't exist, that's your error, not a runner limitation.
 - **Every action must have a verification step.** If you perform an action, assert the expected outcome. Clicked "Copy"? Use `clipboard.expectClipboardTextToBe(expected)` to verify contents. Ran code? Check the output. Opened a file? Verify the tab. An action without verification is an incomplete test -- it only proves the action didn't throw, not that it worked. Do NOT improvise clipboard verification (e.g., pasting into a cell) -- always use the `clipboard` POM.
-- **Clipboard timing in the runner:** Clipboard writes are timing-sensitive. In `/run-plan`, the copy action and clipboard assertion are separate steps with no retry loop, so `expectClipboardTextToBe` may time out even when the copy worked. If clipboard verification fails in the runner, note it as a known timing limitation (not a bug) and move on. The saved `.test.ts` file MUST wrap action + assertion in `expect.toPass()` -- see `shared-e2e-references/pom-patterns.md` for the pattern.
+- **Clipboard timing in the runner:** Clipboard writes are timing-sensitive. In `/run-plan`, the copy action and clipboard assertion are separate steps with no retry loop, so `expectClipboardTextToBe` may time out even when the copy worked. **Distinguish two failure modes:**
+  - **Timeout with empty/unchanged clipboard:** Likely a timing issue. Note it as a known timing limitation and move on.
+  - **Wrong clipboard content** (e.g., got `" "` instead of `"hello world"`): **This is likely a product bug**, not a timing issue. The copy ran and produced the wrong result. Apply the feature-behavior failure triage in Step 3b before working around it.
+  The saved `.test.ts` file MUST wrap action + assertion in `expect.toPass()` -- see `shared-e2e-references/pom-patterns.md` for the pattern.
 
 ## IMMEDIATE: Launch Runner First
 
@@ -76,18 +79,9 @@ gh issue view <issue-number> --repo posit-dev/positron --json title,body | head 
 The PR title, body, and file list are enough to plan a good test. The full diff is
 expensive (1000+ lines, slow GH API) and rarely changes the test plan.
 
-For `--deep` mode only, also fetch the full diff:
-```bash
-gh pr diff <number> --repo posit-dev/positron | head -2000
-```
-
 For `--branch` mode, use git commands instead:
 ```bash
 git diff main...HEAD --name-only
-```
-And for `--deep --branch`:
-```bash
-git diff main...HEAD | head -2000
 ```
 
 
@@ -100,7 +94,7 @@ git diff main...HEAD | head -2000
 /qa-agent 456 --local                    PR diff, local dev
 /qa-agent 456 --build --no-save          PR diff, built app, CI-friendly
 /qa-agent 456 789                        Multiple PRs (dependent or independent)
-/qa-agent 456 --context 12345 --deep     PR diff + issue enrichment, exhaustive
+/qa-agent 456 --context 12345            PR diff + issue enrichment
 /qa-agent --branch --local               Branch diff, local dev
 /qa-agent --branch feature/my-branch     Named branch diff
 /qa-agent "free text" --build            Description, built app
@@ -108,6 +102,7 @@ git diff main...HEAD | head -2000
 /qa-agent --comment 456                  PR diff, copy verification comment to clipboard
 /qa-agent --save --comment 456           PR diff, save test + copy comment
 /qa-agent --browser firefox 456          PR diff, Firefox
+/qa-agent 456 --edge-cases --build      PR diff, built app, with input diversity
 ```
 
 **Target (mutually exclusive):**
@@ -126,10 +121,9 @@ git diff main...HEAD | head -2000
 
 **Other flags:**
 - `--branch`: Test current branch's changes vs main. Optionally pass a branch name (e.g., `--branch feature/my-branch`)
-- `--deep`: Exhaustive mode -- gathers all signals and generates a thorough test plan (10-15+ steps with edge cases). Without this flag, tests are diff-driven and targeted (5-10 steps)
+- `--edge-cases`: After planning core test steps, add 1-2 input variants per scenario to exercise different code paths (errors, empty values, special formatting, boundary conditions). Targets 10-20 total steps.
 - `--context <issue>`: Pull issue body as enrichment for test planning. Does not resolve the issue to a PR -- use this alongside a PR number for richer context
 - `--browser <name>`: Firefox, Chromium, or WebKit instead of Electron
-- `--test-patterns`: Read existing test files in the same area for setup/assertion patterns before planning. Off by default (saves 2-3 messages). Use when you want higher-quality test output that matches existing conventions.
 
 **Input types:**
 - **PR number(s)** (e.g., `456` or `456 789`): Primary mode. Gets diff and metadata directly via `gh pr diff` and `gh pr view`. Numbers are always treated as PR numbers. If `gh pr view` fails, error immediately -- no fallback to issue search. Multiple PRs: fetch all in parallel, merge file lists, combine descriptions into one test plan.
@@ -185,14 +179,15 @@ Use these to plan:
 Same as above, plus the issue body (also fetched in Message 1) provides the "why"
 (bug report, expected behavior) for richer test planning.
 
-**If PR number with `--deep`:**
+**If `--edge-cases` flag is set:**
 
-In `--deep` mode, the full diff IS fetched (see IMMEDIATE section). Use the diff hunks
-for exhaustive analysis. Generate 10-15+ test steps with edge cases, blast radius
-smoke tests, and regression checks. Also fetch PR comments for additional context:
-```bash
-gh pr view <number> --repo posit-dev/positron --json comments
-```
+After planning the core 5-10 steps, do a second pass. For each core test step that
+involves user-visible output or data transformation, add 1-2 additional steps that
+test the same action with inputs designed to exercise different code paths. Vary the
+*kind* of input -- errors vs clean output, empty vs populated, special characters vs
+plain text, multi-line vs single-line. Target 10-20 total steps. Do not hardcode
+specific edge cases -- reason about what inputs would reveal bugs in this specific
+feature.
 
 **If `--branch` flag:**
 
@@ -214,13 +209,6 @@ corresponding setup step to the test plan:
 | `positron.environments` or `positronVariables` | `settings.set({"positron.environments.enable": true}, {"reload": true})` |
 | `inlineQuarto` or `quarto` with inline output | `settings.set({"positron.quarto.inlineOutput.enabled": true})` |
 
-**If `--test-patterns` flag is set**, also check existing tests in the same area for
-setup and assertion patterns (see `references/diff-analysis.md` -- "Check existing
-tests for setup patterns"). This adds 2-3 messages but produces tests that better
-match existing conventions. Without this flag, skip ALL extra file reading -- no
-existing test files, no test data files (.qmd, .py, .r), no reading file contents
-for line numbers. Every extra Read after the runner is ready is wasted time.
-
 **Prefer creating test files on the fly** over reading files from qa-example-content.
 Use the `createFile` action to write a `.qmd`, `.py`, `.R`, or `.csv` with exactly
 the content you need, then open and test it. Self-contained tests are faster to plan
@@ -231,7 +219,7 @@ the content you need, then open and test it. Self-contained tests are faster to 
 When generating tests or choosing POM methods, consult these shared reference docs:
 - `../shared-e2e-references/pom-patterns.md` -- POM method selection, confusable methods, POM-first rules
 - `../shared-e2e-references/test-conventions.md` -- only read when saving a .test.ts file (Step 6), not during planning
-- `../shared-e2e-references/common-mistakes.md` -- only read with `--test-patterns` flag (706 lines, too large for default runs)
+- `../shared-e2e-references/common-mistakes.md` -- only read when saving a .test.ts file (Step 6), not during planning
 
 **CRITICAL:** Follow all POM method selection rules in `../shared-e2e-references/pom-patterns.md`.
 
@@ -421,12 +409,29 @@ If `/run-plan` returns failures:
 
 1. **Read the error and enriched state.** The `state` fields (`variableNames`, `activeSession`, `notifications`, `openTabs`, `focusedPanel`) often reveal the root cause without needing a snapshot.
 
-2. **Retry budget: 2 attempts max.** On first failure, analyze the error and correct the plan:
+2. **Classify: infrastructure failure vs. feature-behavior failure.**
+
+   | Signal | Type | Example |
+   |--------|------|---------|
+   | Action itself failed (selector not found, timeout on click, wrong POM method) | Infrastructure | `contextMenu` step errors with "element not found" |
+   | Action succeeded but produced wrong result | **Feature behavior** | `contextMenu` step passed, but clipboard contains `" "` instead of expected text |
+
+   - **Infrastructure:** Fix the test plan (correct method, adjust timeout, add wait step) and retry.
+   - **Feature behavior: treat as a potential product bug.** Before retrying with a workaround:
+     1. Use `evaluate` to inspect relevant state (e.g., `window.getSelection().toString()` for selection issues, DOM inspection for missing elements)
+     2. Flag it as a potential bug in the report **regardless** of whether a workaround makes the test pass
+     3. If you work around it, the report must say: "Workaround: X. Original behavior is still a bug because Y."
+
+   **"The test passed but the feature is broken" is a valid and important QA finding.**
+   Never dismiss a feature-behavior failure as an "automation artifact" without
+   diagnostic evidence that real users would not hit the same issue.
+
+3. **Retry budget: 2 attempts max.** On first failure, analyze the error and correct the plan:
    - Wrong method name or args? Fix from the POM reference.
    - Timeout too short? Increase the per-step `timeout`.
    - Session not ready? Add a wait step or increase session start timeout.
 
-3. **Retry with `resetBefore: true`** to clean up state before re-running:
+4. **Retry with `resetBefore: true`** to clean up state before re-running:
 ```bash
 curl -s -X POST "http://localhost:$PORT/run-plan" \
   -H 'Content-Type: application/json' \
@@ -440,9 +445,9 @@ curl -s -X POST "http://localhost:$PORT/run-plan" \
 
 The `resetBefore` flag closes editors, clears console, and restores default layout before running.
 
-4. **If both attempts fail**: switch to Explore Mode (see `references/runner-api.md` -- Explore Mode section) for interactive diagnosis, or report the failure.
+5. **If both attempts fail**: switch to Explore Mode (see `references/runner-api.md` -- Explore Mode section) for interactive diagnosis, or report the failure.
 
-5. **Track divergences for POM Health reporting.** When a retry succeeds with a different
+6. **Track divergences for POM Health reporting.** When a retry succeeds with a different
    POM method or a raw Playwright fallback, note the original method, the replacement,
    and whether either had JSDoc in the reference. Report this in Step 4 under POM Health.
 
