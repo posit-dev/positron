@@ -108,6 +108,10 @@
 	color: var(--vscode-positronActionBar-foreground);
 }
 
+.action-bar-button-icon.custom-icon-color::before {
+	color: inherit;
+}
+
 .disabled .action-bar-button-icon::before {
 	color: var(--vscode-positronActionBar-disabledForeground);
 }

@@ -5,7 +5,11 @@
 
 import { URI } from '../../../../base/common/uri.js';
 import { basename } from '../../../../base/common/path.js';
+import { Codicon } from '../../../../base/common/codicons.js';
+import { ThemeIcon } from '../../../../base/common/themables.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
+import { LanguageRuntimeSessionMode } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IRuntimeSessionDisplayInfo } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { isQuartoDocument } from '../../positronQuarto/common/positronQuartoConfig.js';
 
 /**
@@ -32,4 +36,40 @@ export function getNotebookDisplayName(notebookUri: URI, modelService: IModelSer
 		name = `${name}.qmd`;
 	}
 	return name;
+}
+
+/**
+ * Gets the display label for a session. For notebook sessions, this includes
+ * the notebook file name and the runtime name. For Quarto sessions, the
+ * runtime name is used instead of the session name (which redundantly
+ * contains the file name). For untitled Quarto documents, the .qmd extension
+ * is appended since the URI doesn't include it.
+ */
+export function getSessionDisplayName(info: IRuntimeSessionDisplayInfo, modelService: IModelService): string {
+	if (info.sessionMode === LanguageRuntimeSessionMode.Notebook && info.notebookUri) {
+		const notebookName = getNotebookDisplayName(info.notebookUri, modelService);
+		// For Quarto sessions, show the underlying runtime name (e.g.
+		// "Python 3.12.11 (Pyenv)") instead of the session name (which is
+		// "Quarto: <file>.qmd" and would duplicate the file name).
+		const env = isQuartoSession(info.notebookUri, modelService)
+			? info.runtimeName
+			: info.sessionName;
+		return `${notebookName} - ${env}`;
+	}
+	return info.sessionName;
+}
+
+/**
+ * Gets the icon for a session based on its mode. Returns the Quarto icon for
+ * Quarto notebook sessions, the notebook icon for other notebook sessions,
+ * and the console icon for console sessions.
+ */
+export function getSessionIcon(info: IRuntimeSessionDisplayInfo, modelService: IModelService): ThemeIcon {
+	if (info.sessionMode === LanguageRuntimeSessionMode.Notebook) {
+		if (isQuartoSession(info.notebookUri, modelService)) {
+			return Codicon.positronQuarto;
+		}
+		return Codicon.notebook;
+	}
+	return Codicon.positronNewConsole;
 }

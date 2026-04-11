@@ -7,10 +7,9 @@
 import './topActionBarSessionManager.css';
 
 // React.
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 // Other dependencies.
-import { basename } from '../../../../../base/common/path.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { IModelService } from '../../../../../editor/common/services/model.js';
@@ -21,43 +20,43 @@ import { IRuntimeSessionDisplayInfo } from '../../../../services/runtimeSession/
 import { localize } from '../../../../../nls.js';
 import { LANGUAGE_RUNTIME_SELECT_SESSION_ID, LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID } from '../../../../contrib/languageRuntime/browser/languageRuntimeActions.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { isQuartoSession, QUARTO_ICON_SVG_BASE64 } from '../../../../contrib/positronConsole/browser/components/runtimeIcon.js';
+import { getSessionDisplayName, getSessionIcon, isQuartoSession } from '../../../../contrib/positronConsole/common/sessionDisplayUtils.js';
+import { asCssVariable } from '../../../../../platform/theme/common/colorUtils.js';
+import { POSITRON_QUARTO_ICON } from '../../../../common/theme.js';
 
 const startSession = localize('positron.console.startSession', "Start Session");
 
 /**
- * Gets the label text from session display info.
+ * Gets the label text from session display info, or the default start session
+ * label if no session is active.
  */
-const getDisplayInfoLabel = (info: IRuntimeSessionDisplayInfo | undefined, modelService: IModelService): string => {
+const getLabel = (info: IRuntimeSessionDisplayInfo | undefined, modelService: IModelService): string => {
 	if (!info) {
 		return startSession;
 	}
-	if (info.sessionMode === LanguageRuntimeSessionMode.Notebook && info.notebookUri) {
-		let notebookName = basename(info.notebookUri.path);
-		// For untitled Quarto documents, the URI doesn't include .qmd.
-		if (!notebookName.includes('.') && isQuartoSession(info.notebookUri, modelService)) {
-			notebookName = `${notebookName}.qmd`;
-		}
-		return `${notebookName} - ${info.sessionName}`;
-	}
-	return info.sessionName;
+	return getSessionDisplayName(info, modelService);
 };
 
 /**
- * Gets the session mode icon from display info. Returns either a ThemeIcon
- * or an image source string for Quarto sessions.
+ * Gets the session mode icon from display info.
  */
-const getDisplayInfoIcon = (info: IRuntimeSessionDisplayInfo | undefined, modelService: IModelService): { icon?: typeof Codicon.arrowSwap; iconSrc?: string } => {
+const getIcon = (info: IRuntimeSessionDisplayInfo | undefined, modelService: IModelService) => {
 	if (!info) {
-		return { icon: Codicon.arrowSwap };
+		return Codicon.arrowSwap;
 	}
-	if (info.sessionMode === LanguageRuntimeSessionMode.Notebook) {
-		if (isQuartoSession(info.notebookUri, modelService)) {
-			return { iconSrc: `data:image/svg+xml;base64,${QUARTO_ICON_SVG_BASE64}` };
-		}
-		return { icon: Codicon.notebook };
+	return getSessionIcon(info, modelService);
+};
+
+/**
+ * Gets the icon style for the session. Returns a color style for Quarto
+ * sessions and undefined for all other sessions.
+ */
+const getIconStyle = (info: IRuntimeSessionDisplayInfo | undefined, modelService: IModelService): React.CSSProperties | undefined => {
+	if (info?.sessionMode === LanguageRuntimeSessionMode.Notebook &&
+		isQuartoSession(info.notebookUri, modelService)) {
+		return { color: asCssVariable(POSITRON_QUARTO_ICON) };
 	}
-	return { icon: Codicon.positronNewConsole };
+	return undefined;
 };
 
 /**
@@ -70,10 +69,11 @@ export const TopActionBarSessionManager = () => {
 	const services = usePositronReactServicesContext();
 
 	const [labelText, setLabelText] = useState<string>(
-		getDisplayInfoLabel(services.runtimeSessionService.foregroundSessionDisplayInfo, services.modelService));
-	const initialIcon = getDisplayInfoIcon(services.runtimeSessionService.foregroundSessionDisplayInfo, services.modelService);
-	const [sessionIcon, setSessionIcon] = useState(initialIcon.icon);
-	const [sessionIconSrc, setSessionIconSrc] = useState(initialIcon.iconSrc);
+		getLabel(services.runtimeSessionService.foregroundSessionDisplayInfo, services.modelService));
+	const [sessionIcon, setSessionIcon] = useState(
+		getIcon(services.runtimeSessionService.foregroundSessionDisplayInfo, services.modelService));
+	const [iconStyle, setIconStyle] = useState(
+		getIconStyle(services.runtimeSessionService.foregroundSessionDisplayInfo, services.modelService));
 
 	// Check if there are any active console sessions to determine if the
 	// active session picker or the create session picker should be shown.
@@ -94,10 +94,9 @@ export const TopActionBarSessionManager = () => {
 		// notebook session is attempted to be set as the foreground session.
 		disposableStore.add(
 			services.runtimeSessionService.onDidChangeForegroundSessionDisplayInfo(info => {
-				setLabelText(getDisplayInfoLabel(info, services.modelService));
-				const iconInfo = getDisplayInfoIcon(info, services.modelService);
-				setSessionIcon(iconInfo.icon);
-				setSessionIconSrc(iconInfo.iconSrc);
+				setLabelText(getLabel(info, services.modelService));
+				setSessionIcon(getIcon(info, services.modelService));
+				setIconStyle(getIconStyle(info, services.modelService));
 			})
 		);
 
@@ -111,10 +110,8 @@ export const TopActionBarSessionManager = () => {
 			border={true}
 			commandId={command}
 			height={24}
-			{...(sessionIconSrc
-				? { iconImageSrc: sessionIconSrc, iconHeight: 14, iconWidth: 14 }
-				: { icon: sessionIcon }
-			)}
+			icon={sessionIcon}
+			iconStyle={iconStyle}
 			label={labelText}
 		/>
 	);
