@@ -11,8 +11,6 @@ These are fetched in the IMMEDIATE parallel launch (Message 1):
 gh pr view <pr-number> --repo posit-dev/positron --json title,body,labels | head -100
 gh pr diff <pr-number> --repo posit-dev/positron --name-only
 ```
-The full diff (`gh pr diff | head -2000`) is only fetched in `--deep` mode.
-
 **If `--branch` (no argument or a branch name):**
 ```bash
 # Determine the target branch (default: current branch)
@@ -21,9 +19,6 @@ COMMITS_AHEAD=$(git rev-list --count main..$BRANCH)
 
 # File list for area mapping
 git diff main...$BRANCH --name-only
-
-# Full diff for semantic analysis (cap at 2000 lines to stay focused)
-git diff main...$BRANCH | head -2000
 ```
 
 ## Fetch enrichment context (secondary signals)
@@ -37,10 +32,7 @@ gh issue view <issue-number> --repo posit-dev/positron --json title,body,labels
 ```
 
 PR metadata (`gh pr view`) is already fetched in the IMMEDIATE section -- do not
-re-fetch it here. For `--deep` mode, also fetch PR comments:
-```bash
-gh pr view <pr-number> --repo posit-dev/positron --json comments
-```
+re-fetch it here.
 
 The `--context` flag provides the "why" (bug report, expected behavior) while
 the PR diff provides the "what" (code changes to exercise). Use both signals
@@ -104,8 +96,7 @@ explore runner.
 
 ## Generate test plan priorities
 
-Based on the analysis, generate 5-10 test steps (or 10-15+ if `--deep` was passed).
-Apply these priorities:
+Based on the analysis, generate 5-10 test steps. Apply these priorities:
 - **Deep tests first**: Exercise the specific new/modified behavior and edge cases
 - **Smoke tests second**: Quick happy-path checks for blast radius areas
 - **Suggest existing tests**: If you spot existing test files that cover the changed
@@ -119,27 +110,6 @@ Apply these priorities:
 Then continue to Step 2 (Start the Explore Runner) as normal. The diff analysis
 replaces the free-text/issue parsing -- everything downstream is identical.
 
-## Check existing tests for setup patterns
-
-Before generating the test, look for existing test files in the same feature area
-to discover required setup (feature flags, settings, fixtures, beforeAll hooks).
-
-```bash
-# Find existing tests in the area. Map the changed component to a test directory:
-#   notebooks/positron -> test/e2e/tests/notebooks-positron/
-#   dataExplorer       -> test/e2e/tests/data-explorer/
-#   variables          -> test/e2e/tests/variables/
-#   console            -> test/e2e/tests/console/
-#   plots              -> test/e2e/tests/plots/
-ls test/e2e/tests/<area>/*.test.ts 2>/dev/null | head -3
-```
-
-Read one or two of those files (just the imports and beforeAll/beforeEach hooks, not
-the full test bodies) to identify setup patterns. Common patterns to look for:
-- `enablePositronNotebooks(settings)` -- Positron notebooks behind feature flag
-- `settings.set({...})` -- feature flags or configuration
-- `assistant.loginModelProvider(...)` -- AI provider setup
-
 ## $pom references in args
 
 When a POM method takes another POM as a parameter (e.g.,
@@ -149,7 +119,3 @@ The runner resolves it to the actual POM instance at runtime:
 {"type": "pom", "pom": "notebooksPositron", "method": "enablePositronNotebooks", "args": [{"$pom": "settings"}]}
 ```
 This works for any POM name available on the workbench (settings, sessions, console, etc.).
-- Custom fixtures (`python`, `r`, `sessions`) in the test signature
-
-Apply the same setup patterns in the generated test. If an existing test uses
-`enablePositronNotebooks` in `beforeAll`, the generated test needs it too.

@@ -101,17 +101,6 @@ POM gap that should be fixed.
   Suggested POM: <pom>.ts
   Suggested method: `<methodName>(<params>): Promise<void>`
 
-## Backlog Auto-Append
-
-When a POM Gap is detected, also auto-append it to `test/e2e/tests/_verify/BACKLOG.md`
-under `## POM Gaps`:
-
-- [ ] **Missing: <methodName> (<pom>.ts)**
-  During QA test "<test title>", no POM method existed for <intent>.
-  Used raw `<action>` with `<selector>`.
-  Suggested signature: `<methodName>(<params>): Promise<void>`
-  Discovered: <date>
-
 ## Rough Edges
 
 ```

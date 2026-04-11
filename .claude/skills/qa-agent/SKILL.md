@@ -117,6 +117,7 @@ git diff main...HEAD --name-only
 
 **Comment behavior:**
 - `--comment`: Generate a verification comment and copy to clipboard after test completes (no prompt)
+- `--no-comment`: Never generate a verification comment, never prompt
 - No flag: Prompt the user (option available in post-test menu)
 
 **Other flags:**
@@ -319,27 +320,17 @@ The PR title/body and file list are already in your context. Now:
    Use `clipboard.expectClipboardTextToBe(expected)` to verify clipboard contents
    after any copy action -- do NOT improvise verification with paste-into-cell workarounds.
 
-   Example -- one parallel message with all POMs for a notebook PR:
-   ```
-   Read: pom-ref/sessions.md
-   Read: pom-ref/settings.md
-   Read: pom-ref/notebooksPositron.md
-   Read: pom-ref/inlineDataExplorer.md
-   Read: pom-ref/inlineQuarto.md
-   Read: pom-ref/editors.md
-   Read: pom-ref/console.md
-   Read: pom-ref/quickaccess.md
-   ```
+   Also include `shared-e2e-references/pom-patterns.md` and `references/runner-api.md`
+   in this same parallel message.
 
-   Also include in this same parallel message:
-   ```
-   Read: shared-e2e-references/pom-patterns.md
-   Read: references/runner-api.md
-   ```
+   Do NOT read `pom-reference.md` (the 800+ line monolith). Use the per-POM files.
+   Do NOT defer POM reads to later messages -- read them all now.
 
-   Do NOT read `pom-reference.md` (the 800+ line single file). The per-POM
-   files have the exact same content, split for fast targeted access.
-   Do NOT defer POM reads, pom-patterns, or runner-api to later messages -- read them all now.
+   **HARD GATE: Verify every POM method you plan to use exists in the per-POM files
+   you just read.** Confirm exact method names and parameter types. Do NOT guess,
+   abbreviate, or infer method names. If you cannot find a method, check for similar
+   names. Guessed names (e.g., `openHelpPane` instead of `openHelpPanel`) waste a
+   retry and add 10-15s.
 
 2. **Plan test steps** from the PR title, body, and file list per Step 1.
 
@@ -352,31 +343,6 @@ The PR title/body and file list are already in your context. Now:
    If the port file doesn't exist yet, the `cat` will fail -- just retry once after 5s.
    Do NOT use a poll loop. The runner is ready by now in 99% of runs.
 
-**Happy-path tool call count:** 4-5 calls total (parallel launch, read POM refs, POST /describe, POST /run-plan, POST /done).
-
-### Step 2b: Verify POM Methods Before Building Plan (HARD GATE)
-
-**Before building the `/run-plan` payload, verify every POM method you plan to use.**
-
-Read the per-POM files for each POM you plan to use -- all in one parallel message:
-```
-Read: test/e2e/tests/_generated/pom-ref/sessions.md
-Read: test/e2e/tests/_generated/pom-ref/console.md
-Read: test/e2e/tests/_generated/pom-ref/variables.md
-```
-
-Do NOT read `pom-reference.md` (the 800+ line monolith). Use the per-POM files.
-
-For each POM in the results:
-1. Confirm the exact method name exists and note its parameter types
-2. **Do NOT include any method you did not find in the Grep output**
-
-If you cannot find a method, check for similar names. Do not guess, abbreviate, or
-infer method names from the POM name or from other POMs.
-
-This gate exists because guessed method names (e.g., `openHelpPane` instead of
-`openHelpPanel`) waste a retry and add 10-15s of dead time.
-
 ### Step 3: Execute Test via /run-plan (Primary)
 
 Use `POST /run-plan` to execute the entire test in one HTTP call. A happy-path test run is **4 tool calls total**: launch + poll, read POM reference, POST /run-plan, POST /done.
@@ -384,10 +350,10 @@ Use `POST /run-plan` to execute the entire test in one HTTP call. A happy-path t
 ```bash
 PORT=$(cat /tmp/explore-runner-port) && curl -s -X POST "http://localhost:${PORT}/run-plan" \
   -H 'Content-Type: application/json' \
-  -d '{"title": "PR 456: Variable appears after execution", "stepTimeout": 10000, "steps": [
-    {"type": "pom", "pom": "sessions", "method": "start", "args": ["python"], "timeout": 20000, "title": "Start Python session"},
-    {"type": "pom", "pom": "console", "method": "executeCode", "args": ["Python", "x = 42"], "title": "Execute x = 42"},
-    {"type": "pom", "pom": "variables", "method": "expectVariableToBe", "args": ["x", "42"], "timeout": 5000, "title": "Verify x in Variables pane"}
+  -d '{"title": "PR 456: Variable appears after execution", "stepTimeout": 5000, "steps": [
+    {"type": "pom", "pom": "sessions", "method": "start", "args": ["python"], "timeout": 30000, "title": "Start Python session"},
+    {"type": "pom", "pom": "console", "method": "executeCode", "args": ["Python", "x = 42"], "timeout": 15000, "title": "Execute x = 42"},
+    {"type": "pom", "pom": "variables", "method": "expectVariableToBe", "args": ["x", "42"], "title": "Verify x in Variables pane"}
   ]}'
 ```
 
@@ -405,51 +371,7 @@ the shortest timeout that covers the happy path -- see the Timeout Tiers table i
 
 ### Step 3b: Failure Handling and Retries
 
-If `/run-plan` returns failures:
-
-1. **Read the error and enriched state.** The `state` fields (`variableNames`, `activeSession`, `notifications`, `openTabs`, `focusedPanel`) often reveal the root cause without needing a snapshot.
-
-2. **Classify: infrastructure failure vs. feature-behavior failure.**
-
-   | Signal | Type | Example |
-   |--------|------|---------|
-   | Action itself failed (selector not found, timeout on click, wrong POM method) | Infrastructure | `contextMenu` step errors with "element not found" |
-   | Action succeeded but produced wrong result | **Feature behavior** | `contextMenu` step passed, but clipboard contains `" "` instead of expected text |
-
-   - **Infrastructure:** Fix the test plan (correct method, adjust timeout, add wait step) and retry.
-   - **Feature behavior: treat as a potential product bug.** Before retrying with a workaround:
-     1. Use `evaluate` to inspect relevant state (e.g., `window.getSelection().toString()` for selection issues, DOM inspection for missing elements)
-     2. Flag it as a potential bug in the report **regardless** of whether a workaround makes the test pass
-     3. If you work around it, the report must say: "Workaround: X. Original behavior is still a bug because Y."
-
-   **"The test passed but the feature is broken" is a valid and important QA finding.**
-   Never dismiss a feature-behavior failure as an "automation artifact" without
-   diagnostic evidence that real users would not hit the same issue.
-
-3. **Retry budget: 2 attempts max.** On first failure, analyze the error and correct the plan:
-   - Wrong method name or args? Fix from the POM reference.
-   - Timeout too short? Increase the per-step `timeout`.
-   - Session not ready? Add a wait step or increase session start timeout.
-
-4. **Retry with `resetBefore: true`** to clean up state before re-running:
-```bash
-curl -s -X POST "http://localhost:$PORT/run-plan" \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "title": "PR 456 (retry)",
-    "resetBefore": true,
-    "stepTimeout": 10000,
-    "steps": [...]
-  }'
-```
-
-The `resetBefore` flag closes editors, clears console, and restores default layout before running.
-
-5. **If both attempts fail**: switch to Explore Mode (see `references/runner-api.md` -- Explore Mode section) for interactive diagnosis, or report the failure.
-
-6. **Track divergences for POM Health reporting.** When a retry succeeds with a different
-   POM method or a raw Playwright fallback, note the original method, the replacement,
-   and whether either had JSDoc in the reference. Report this in Step 4 under POM Health.
+If `/run-plan` returns failures, see `references/failure-handling.md` for the full triage workflow: classify infrastructure vs. feature-behavior failures, retry budget (2 max with `resetBefore: true`), and POM Health tracking.
 
 ### Step 4: Report Results
 
@@ -462,7 +384,7 @@ Before moving to Step 5, re-read your retry summary and every step in the test p
 For EACH of these, answer yes or no:
 1. Did any step use `clickRole`, `clickText`, `clickSelector`, `waitForSelector`, or `evaluate`?
 2. Did any retry fix switch from a POM method to a raw action (or vice versa)?
-3. Could any raw action be replaced by a POM method that exists in pom-reference.md?
+3. Could any raw action be replaced by a POM method that exists in the per-POM reference files?
 
 If ANY answer is yes, you MUST add a POM Health section. If you already wrote the
 report without it, go back and add it now. Do NOT proceed to Step 5 without completing
@@ -485,8 +407,9 @@ Execute all flagged actions without prompting:
 - **`--comment`:** Generate a verification comment and copy to clipboard (see `references/verification-comment.md`).
 - **`--save --comment`:** Do both.
 - **`--no-save`:** Done. Do NOT save, do NOT prompt.
+- **`--no-comment`:** Do NOT generate a verification comment, do NOT prompt.
 
-If `--save`, `--comment`, or `--no-save` is set, **do NOT prompt with AskUserQuestion.**
+If `--save`, `--comment`, `--no-save`, or `--no-comment` is set, **do NOT prompt with AskUserQuestion.**
 - **No flag (default):** Ask the user what to do next using `AskUserQuestion` with
   `multiSelect: true`:
 
@@ -506,75 +429,8 @@ from the successful retry (not the original failed attempt).
 
 ### Step 6: Save Test
 
-Write a standalone `.test.ts` file when saving (via `--save` flag, or user said yes to prompt).
-
-**File path:** `test/e2e/tests/_generated/MMDD-<increment>_<pr>-<slug>.test.ts`
-- `MMDD` is the current date (e.g., `0405`)
-- `<increment>` is a sequential number for the day -- count existing `MMDD-*` files and add 1:
-  ```bash
-  ls test/e2e/tests/_generated/MMDD-* 2>/dev/null | wc -l
-  ```
-  First run of the day = `1`, second = `2`, etc.
-- `<pr>` is the PR number if available, omit if free-text or `--branch`
-- `<slug>` is a short kebab-case summary (e.g., `variable-filter`)
-- Examples:
-  - `test/e2e/tests/_generated/0405-1_456-notebook-outline.test.ts` (first run)
-  - `test/e2e/tests/_generated/0405-2_456-notebook-outline.test.ts` (second run)
-  - `test/e2e/tests/_generated/0405-3_console-sessions.test.ts` (third run, free-text)
-
-**Format:**
-```typescript
-/*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
- *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
- *--------------------------------------------------------------------------------------------*/
-
-import { test, expect } from './_qa.setup';
-
-test.use({ suiteId: __filename });
-
-test.describe('Verify PR #456: Variables appear after execution', () => {
-
-	test('Variable x is set after running code', async function ({ app, python }) {
-		const { console, variables } = app.workbench;
-
-		// Execute code and verify variable
-		await console.executeCode('Python', 'x = 42');
-		await variables.expectVariableToBe('x', '42');
-	});
-
-});
-```
-
-Use `test.describe('Verify PR #<number>: <short summary>')` as the parent block.
-Individual test names describe the specific scenario without repeating the PR number.
-For free-text tests (no PR number), use `test.describe('Verify: <description>')`.
-
-
-**Rules:**
-- Follow all conventions in `../shared-e2e-references/test-conventions.md`
-- Import from `./_qa.setup`, not `../_test.setup`
-- Always include `test.use({ suiteId: __filename })` for app isolation
-- Map action steps to the equivalent Playwright calls
-- File path: `test/e2e/tests/_generated/MMDD-<increment>_<pr>-<slug>.test.ts`
-- **Always use fixtures over workbench properties when available.** Fixtures come
-  from the test function parameter, NOT from `app.workbench`. Read
-  `test/e2e/tests/_test.setup.ts` for the full list of available fixtures, their
-  types, and JSDoc usage examples. Key rules:
-  - Add fixtures (`settings`, `hotKeys`, `createFile`, `openFile`, etc.) to the
-    test function signature -- do NOT destructure them from `app.workbench`
-    (different types, missing path resolution, etc.)
-  - Use `hotKeys` fixture over `quickaccess.runCommand` when a hotkey exists --
-    check `pom-ref/hotKeys.md` before writing any `quickaccess.runCommand(...)` call
-  - Use `openFile` fixture (not `quickaccess.openFile`) to re-open workspace files --
-    the fixture resolves relative paths; `quickaccess.openFile` requires absolute paths
-  - Map runner `createFile` action to the `createFile` fixture (writes to disk,
-    opens in editor, auto-cleans up on test end)
-  - Use `sessions.start()` return values (`.id`, `.name`) -- never hardcode version strings
-- **Do NOT wrap POM calls in `test.step()`.** POM methods already have internal
-  `test.step()` wrappers. Use comments to group steps, not `test.step()`.
-- **Do NOT rename `console` when destructuring.** Use `const { console } = app.workbench`
-  directly -- shadowing the global `console` is fine in test files.
+See `references/save-test.md` for file path conventions, format rules, and fixture usage.
+Read it when saving -- not during planning.
 
 ## Verification Comment
 
@@ -584,7 +440,7 @@ See `references/verification-comment.md` for the GitHub markdown template, rules
 
 - **Runner not starting**: Ensure build daemons are running (`npm run build-start`).
 - **Action fails**: Read the enriched state first. Use `snapshot` in explore mode to see the UI if state is insufficient.
-- **Unknown POM or method**: The response lists available options. Cross-check with pom-reference.md.
+- **Unknown POM or method**: The response lists available options. Cross-check with the per-POM reference files.
 - **Runner timeout**: Auto-stops after 15 minutes. Send `/health` to keep alive.
 
 ## Artifacts
