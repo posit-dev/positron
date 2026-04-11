@@ -69,6 +69,7 @@ const compilations = [
 	'extensions/positron-javascript/tsconfig.json',
 	'extensions/positron-notebooks/tsconfig.json',
 	'extensions/positron-pdf-server/tsconfig.json',
+	'extensions/positron-postgresql/tsconfig.json',
 	'extensions/positron-proxy/tsconfig.json',
 	'extensions/positron-python/tsconfig.json',
 	'extensions/positron-r/tsconfig.json',
