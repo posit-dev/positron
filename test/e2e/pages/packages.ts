@@ -135,7 +135,8 @@ export class Packages {
 		// Open the package actions menu and click "Install Package"
 		await this.contextMenu.triggerAndClick({
 			menuTrigger: this.packageActionsButton,
-			menuItemLabel: 'Install Package'
+			menuItemLabel: 'Install Package',
+			exact: true
 		});
 
 		// Wait for the quick input to appear
