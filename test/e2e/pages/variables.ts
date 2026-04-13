@@ -7,7 +7,6 @@
 import { Code } from '../infra/code';
 import test, { expect, Locator } from '@playwright/test';
 import { HotKeys } from './hotKeys.js';
-import { ContextMenu } from './dialog-contextMenu.js';
 
 interface FlatVariables {
 	value: string;
@@ -19,26 +18,21 @@ const VARIABLE_NAMES = 'name-column';
 const VARIABLE_DETAILS = 'details-column';
 const CURRENT_VARIABLES_GROUP = '.variables-instance[style*="z-index: 1"]';
 const VARIABLES_NAME_COLUMN = `${CURRENT_VARIABLES_GROUP} .variable-item .name-column`;
-const VARIABLES_INTERPRETER = '.positron-variables-container .action-bar-button-label';
 const VARIABLE_CHEVRON_ICON = '.gutter .expand-collapse-icon';
 const VARIABLE_INDENTED = '.name-column-indenter[style*="margin-left: 40px"]';
-const VARIABLES_GROUP_SELECTOR = '.positron-variables-container .action-bar-button-label';
 const VARIABLES_FILTER_SELECTOR = '.positron-variables-container .action-bar-filter-input .text-input';
 
 /*
  *  Reuseable Positron variables functionality for tests to leverage.
  */
 export class Variables {
-	get interpreterLocator(): Locator { return this.code.driver.page.locator(VARIABLES_INTERPRETER); }
 	variablesPane: Locator;
-	variablesRuntime: (name: string | RegExp) => Locator;
 	memoryMeter: Locator;
 	memoryDropdown: Locator;
 	memorySizeLabel: Locator;
 
-	constructor(private code: Code, private hotKeys: HotKeys, private contextMenu: ContextMenu) {
+	constructor(private code: Code, private hotKeys: HotKeys) {
 		this.variablesPane = this.code.driver.page.locator('[id="workbench.panel.positronSession"]');
-		this.variablesRuntime = (name: string | RegExp) => this.variablesPane.getByRole('button', { name });
 		this.memoryMeter = this.code.driver.page.locator('.memory-usage-meter');
 		this.memoryDropdown = this.code.driver.page.locator('.memory-usage-dropdown');
 		this.memorySizeLabel = this.code.driver.page.locator('.memory-size-label');
@@ -158,36 +152,6 @@ export class Variables {
 		return result;
 	}
 
-	async getCurrentVariablesGroup(): Promise<string> {
-		const group = await this.code.driver.page.locator(VARIABLES_GROUP_SELECTOR).innerText();
-		return group;
-	}
-
-	/**
-	 * Select a session in the variables pane.
-	 * @param name the name of the session to select
-	 */
-	async selectSession(name: string) {
-		await this.contextMenu.triggerAndClick({
-			menuTrigger: this.code.driver.page.locator('.positron-variables .positron-action-bar').first().locator('button'),
-			menuItemLabel: name,
-		});
-	}
-
-	async selectVariablesGroup(name: string) {
-		await this.code.driver.page.locator(VARIABLES_GROUP_SELECTOR).click();
-		await this.code.driver.page.locator('a.action-menu-item', { hasText: name }).first().isVisible();
-		await this.code.wait(500);
-		await this.code.driver.page.locator('a.action-menu-item', { hasText: name }).first().click();
-	}
-
-	async getVariablesGroupList() {
-		await this.code.driver.page.locator(VARIABLES_GROUP_SELECTOR).click();
-		const groupList = await this.code.driver.page.locator('a.action-menu-item').all();
-		const groupNames = await Promise.all(groupList.map(async (group) => group.innerText()));
-		return groupNames;
-	}
-
 	async setFilterText(filterText: string) {
 		await this.code.driver.page.locator(VARIABLES_FILTER_SELECTOR).fill(filterText);
 	}
@@ -204,21 +168,6 @@ export class Variables {
 	async clickDeleteAllVariables() {
 		await this.code.driver.page.getByLabel('Delete all objects').click();
 	}
-
-	/**
-	 * Verify: Confirm the runtime is visible in the variables pane.
-	 * @param language the language of the runtime: Python or R
-	 * @param version the version of the runtime: e.g. 3.10.15
-	 */
-	async expectRuntimeToBe(expectation: 'visible' | 'not.visible', sessionName: string | RegExp) {
-		await test.step(`Verify runtime is ${expectation}: ${sessionName}`, async () => {
-			await this.hotKeys.showSecondarySidebar();
-			expectation === 'visible'
-				? await expect(this.variablesRuntime(sessionName)).toBeVisible()
-				: await expect(this.variablesRuntime(sessionName)).not.toBeVisible();
-		});
-	}
-
 
 	/**
 	 * Verify: Confirm the variable is visible and has the expected value.
@@ -248,17 +197,6 @@ export class Variables {
 				.filter({ hasText: variableName });
 
 			await expect(row).toHaveCount(0);
-		});
-	}
-
-	/**
-	 * Verify: Confirm the session is selected in the variables pane.
-	 * @param sessionName the name of the session to check is selected
-	 */
-	async expectSessionToBe(sessionName: string | RegExp) {
-		await test.step(`Verify session is selected in variables pane: ${sessionName}`, async () => {
-			await expect(this.interpreterLocator).toBeVisible();
-			await expect(this.interpreterLocator).toHaveText(sessionName);
 		});
 	}
 

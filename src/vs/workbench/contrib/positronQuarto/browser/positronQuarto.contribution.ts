@@ -25,6 +25,7 @@ import {
 	IS_QUARTO_DOCUMENT,
 	POSITRON_QUARTO_INLINE_OUTPUT_KEY,
 	QUARTO_INLINE_OUTPUT_ENABLED,
+	QUARTO_KERNEL_BUSY,
 	QUARTO_KERNEL_RUNNING,
 	QUARTO_LANGUAGE_IDS,
 	isQuartoDocument,
@@ -81,6 +82,7 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 	private readonly _isQuartoDocumentKey = IS_QUARTO_DOCUMENT.bindTo(this._contextKeyService);
 	private readonly _inlineOutputEnabledKey = QUARTO_INLINE_OUTPUT_ENABLED.bindTo(this._contextKeyService);
 	private readonly _kernelRunningKey = QUARTO_KERNEL_RUNNING.bindTo(this._contextKeyService);
+	private readonly _kernelBusyKey = QUARTO_KERNEL_BUSY.bindTo(this._contextKeyService);
 
 	/** Tracks documents that have already had auto-start attempted, so we only auto-start on first open. */
 	private readonly _autoStartedDocuments = new Set<string>();
@@ -175,8 +177,10 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 				state === QuartoKernelState.Busy ||
 				state === QuartoKernelState.Starting;
 			this._kernelRunningKey.set(isRunning);
+			this._kernelBusyKey.set(state === QuartoKernelState.Busy);
 		} else {
 			this._kernelRunningKey.set(false);
+			this._kernelBusyKey.set(false);
 		}
 	}
 

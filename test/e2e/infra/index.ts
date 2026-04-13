@@ -37,6 +37,7 @@ export * from '../pages/testExplorer';
 export * from '../pages/explorer';
 export * from '../pages/quickaccess';
 export * from '../pages/outline';
+export * from '../pages/packages';
 export * from '../pages/clipboard';
 export * from '../pages/extensions';
 export * from '../pages/editors';
