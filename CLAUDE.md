@@ -58,71 +58,9 @@ The deciding question: **does it need Electron?**
 
 ### The Builder
 
-The builder (`createTestContainer()`) provides presets for common service groupings. Pick the lowest one that works, and use `.stub()` to add or override individual services.
+Use `createTestContainer()` for any test that needs services. Pick the lowest preset, use `.stub()` for extras. For pure logic tests, skip the builder entirely.
 
-For pure logic tests (no services), skip the builder entirely -- just import and assert.
-
-For available presets and examples, see `src/vs/workbench/test/browser/positronTestContainer.ts`.
-
-**Key rules:**
-- Any preset supports `.stub(IService, mock)` for adding or overriding individual services
-- The builder result (`ctx`) uses lazy getters -- access `ctx.instantiationService` inside `setup`/`test`, not at suite-level via destructuring
-- `ctx.disposables` is auto-cleaned after each test -- pass it to helpers like `startTestLanguageRuntimeSession()` that need it
-
-**When to add a new preset vs using .stub():**
-- **Use .stub()** when 1-2 test files need extra services, or the stubs are simple (`{} as T`)
-- **Add a preset** when 3+ test files across different directories need the same non-trivial stub set (emitters, real instances) and the services map to a recognizable domain (e.g. "Quarto", "Plots")
-
-### How to mock (the incremental approach)
-
-You don't need to understand all 124 services. You build mocks incrementally -- start with nothing and let the test tell you what's missing.
-
-**Step 1: Start with a preset and run the test.**
-
-```typescript
-const ctx = createTestContainer().withRuntimeServices().build();
-```
-
-If the test passes, you're done. Most dependencies are already handled.
-
-**When NOT to create a Test* class:** The presets use existing Test* classes internally, but you don't need to create new ones. A `.stub(IService, { methodYouNeed: () => value })` is almost always sufficient. Only create a dedicated Test* class if multiple test files need the same complex mock with emitters, state tracking, or multi-method behavior.
-
-**Step 2: If it fails with "X is not a function" or "Cannot read properties of undefined", a service is missing.**
-
-Add an empty stub for just that service:
-
-```typescript
-const ctx = createTestContainer()
-	.withRuntimeServices()
-	.stub(IMissingService, {} as IMissingService)
-	.build();
-```
-
-Run again. If it passes, you're done. The empty stub works when the code has the dependency but your test path doesn't call it.
-
-**Step 3: If it still fails because the code calls a specific method, add just that method.**
-
-```typescript
-.stub(IMissingService, {
-	getDoc: () => undefined,
-} as IMissingService)
-```
-
-**Step 4: If the code listens to an event, add an Emitter.**
-
-```typescript
-import { Emitter } from '<path>/base/common/event.js';
-
-const onDidChange = new Emitter<void>();
-.stub(IMissingService, {
-	getDoc: () => undefined,
-	onDidChange: onDidChange.event,
-} as IMissingService)
-```
-
-Now your test can trigger the event with `onDidChange.fire()` to test reactive behavior.
-
-**The pattern: empty -> add methods -> add events.** You never mock more than what the test actually needs. If you're writing 20 lines of mock setup, you're probably over-mocking -- step back and check if a higher preset already covers it.
+For presets, key rules, and the incremental mocking guide, see the JSDoc on `PositronTestContainerBuilder` in `src/vs/workbench/test/browser/positronTestContainer.ts`.
 
 ## Directory Structure
 
