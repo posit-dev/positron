@@ -38,7 +38,7 @@ export const ConsoleInstanceState = ({ positronConsoleInstance }: ConsoleInstanc
 		const disposableStore = new DisposableStore();
 
 		disposableStore.add(positronConsoleInstance.onDidChangeState(state => {
-			setConsoleState(state)
+			setConsoleState(state);
 		}));
 
 		return () => disposableStore.dispose();
