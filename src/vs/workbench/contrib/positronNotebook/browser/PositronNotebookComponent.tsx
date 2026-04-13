@@ -36,9 +36,19 @@ import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebook
 import { IDeletionSentinel } from './IPositronNotebookInstance.js';
 import { NotebookErrorBoundary } from './NotebookErrorBoundary.js';
 import { getSelectedCells } from './selectionMachine.js';
+import { useScrollRestoration } from './useScrollRestoration.js';
 
+interface PositronNotebookComponentProps {
+	/** Scroll position to restore when the notebook is mounted. */
+	scrollPosition?: {
+		/** Anchor cell at the top of the viewport. */
+		cell: IPositronNotebookCell;
+		/** Pixels from the top of the anchor cell to the viewport top. */
+		offsetFromCell: number;
+	};
+}
 
-export function PositronNotebookComponent() {
+export function PositronNotebookComponent({ scrollPosition }: PositronNotebookComponentProps) {
 	const notebookInstance = useNotebookInstance();
 	const notebookCells = useObservedValue(notebookInstance.cells);
 
@@ -61,13 +71,24 @@ export function PositronNotebookComponent() {
 		CONTEXT_FIND_WIDGET_VISIBLE
 	);
 
-	React.useEffect(() => {
-		notebookInstance.setCellsContainer(containerRef.current);
-		// Initial scroll check
-		if (containerRef.current) {
-			setIsScrolled(containerRef.current.scrollTop > 0);
-		}
+	// Attach the container in the callback ref so it's available
+	// synchronously during the commit phase, for useScrollRestoration.
+	const containerCallbackRef = React.useCallback((node: HTMLDivElement | null) => {
+		containerRef.current = node;
+		notebookInstance.setCellsContainer(node);
 	}, [notebookInstance]);
+
+	// Restore scroll position, if provided
+	const getScrollTop = React.useCallback(
+		() => {
+			if (!scrollPosition) { return undefined; }
+			const cellTop = notebookInstance.getCellOffsetTop(scrollPosition.cell);
+			if (cellTop === undefined) { return undefined; }
+			return cellTop + scrollPosition.offsetFromCell;
+		},
+		[scrollPosition, notebookInstance]
+	);
+	useScrollRestoration(containerRef, scrollPosition ? getScrollTop : undefined, services.logService);
 
 	// Track cell count changes and announce to screen readers
 	React.useEffect(() => {
@@ -117,7 +138,7 @@ export function PositronNotebookComponent() {
 					role='presentation'
 				/>
 			)}
-			<div ref={containerRef} className='positron-notebook-cells-container positron-notebook-scrollable'>
+			<div ref={containerCallbackRef} className='positron-notebook-cells-container positron-notebook-scrollable'>
 				<SortableCellList
 					cells={notebookCells}
 					getSelectedCells={getSelectedCellsCallback}

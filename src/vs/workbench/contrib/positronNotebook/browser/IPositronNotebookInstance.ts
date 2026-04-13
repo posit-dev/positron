@@ -459,6 +459,13 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	getOutputLayoutInfo(): EditorLayoutMetadata | undefined;
 
 	/**
+	 * Returns the top offset of a cell relative to the cells container.
+	 * Walks up the offsetParent chain to account for positioned wrappers.
+	 * Returns undefined if the cells container or cell element is not mounted.
+	 */
+	getCellOffsetTop(cell: IPositronNotebookCell): number | undefined;
+
+	/**
 	 * Fire the scroll event for the cells container.
 	 * Called by React when scroll or DOM mutations occur.
 	 */

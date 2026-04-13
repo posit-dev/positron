@@ -24,6 +24,7 @@ import { ScreenReaderOnly } from '../../../../../base/browser/ui/positronCompone
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { NotebookErrorBoundary } from '../NotebookErrorBoundary.js';
 import { CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_REPLACE_INPUT_FOCUSED } from '../../../../../editor/contrib/find/browser/findModel.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 
 export function NotebookCellWrapper({ cell, children }: {
 	cell: IPositronNotebookCell;
@@ -38,7 +39,16 @@ export function NotebookCellWrapper({ cell, children }: {
 	 * that are bound in useCellContextKeys which required a valid cell ref.
 	 */
 	const [cellElement, setCellElement] = React.useState<HTMLDivElement | null>(null);
-	const cellRef = React.useCallback((node: HTMLDivElement | null) => { setCellElement(node); }, []);
+
+	// Attach the container in the callback ref so cell.container is available
+	// synchronously during the commit phase, for useScrollRestoration.
+	const cellRef = React.useCallback((node: HTMLDivElement | null) => {
+		setCellElement(node);
+		if (node) {
+			// Attach the container so the cell instance can properly control focus.
+			cell.attachContainer(node);
+		}
+	}, [cell]);
 
 	const services = usePositronReactServicesContext();
 	const notebookInstance = useNotebookInstance();
@@ -48,13 +58,6 @@ export function NotebookCellWrapper({ cell, children }: {
 	const isActiveCell = useObservedValue(cell.isActive);
 	// Track previous selection status to detect edit mode exit
 	const prevSelectionStatusRef = React.useRef<CellSelectionStatus | undefined>(undefined);
-
-	React.useEffect(() => {
-		if (cellElement) {
-			// Attach the container so the cell instance can properly control focus.
-			cell.attachContainer(cellElement);
-		}
-	}, [cell, cellElement]);
 
 	// Focus management: focus when this cell becomes the active cell
 	React.useLayoutEffect(() => {
@@ -89,6 +92,7 @@ export function NotebookCellWrapper({ cell, children }: {
 	const scopedContextKeyService = useCellContextKeys(cell, cellElement, environment, notebookInstance);
 
 	const cellType = cell.isRawCell() ? 'Raw' : cell.isCodeCell() ? 'Code' : 'Markdown';
+	const cellTypeLower = cellType.toLowerCase();
 	const isSelected = selectionStatus === CellSelectionStatus.Selected || selectionStatus === CellSelectionStatus.Editing;
 
 	/**
@@ -139,7 +143,11 @@ export function NotebookCellWrapper({ cell, children }: {
 			? localize('notebookCell', '{0} cell', cellType)
 			: localize('notebookCellEditable', '{0} cell - Press Enter to edit', cellType)}
 		aria-selected={isSelected}
-		className={`positron-notebook-cell positron-notebook-${cell.isRawCell() ? 'raw' : cell.isCodeCell() ? 'code' : 'markdown'}-cell ${selectionStatus}`}
+		className={positronClassNames(
+			'positron-notebook-cell',
+			`positron-notebook-${cellTypeLower}-cell`,
+			selectionStatus,
+		)}
 		data-testid='notebook-cell'
 		role='article'
 		tabIndex={0}
@@ -198,7 +206,7 @@ export function NotebookCellWrapper({ cell, children }: {
 				<NotebookCellActionBar cell={cell} />
 			</div>
 			<NotebookErrorBoundary
-				componentName={`Cell[${cell.isCodeCell() ? 'code' : cell.isMarkdownCell() ? 'markdown' : 'raw'}]`}
+				componentName={`Cell[${cellTypeLower}]`}
 				level='cell'
 				logService={services.logService}
 			>

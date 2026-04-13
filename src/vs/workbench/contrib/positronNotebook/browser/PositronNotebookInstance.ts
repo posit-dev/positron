@@ -11,7 +11,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { IContextKeyService, IScopedContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { IActiveNotebookEditorDelegate, IBaseCellEditorOptions, ICellViewModel, INotebookCellOverlayChangeAccessor, INotebookDeltaDecoration, INotebookEditorCreationOptions, INotebookEditorOptions, INotebookEditorViewState, INotebookViewZoneChangeAccessor } from '../../notebook/browser/notebookBrowser.js';
+import { IActiveNotebookEditorDelegate, IBaseCellEditorOptions, ICellViewModel, INotebookCellOverlayChangeAccessor, INotebookDeltaDecoration, INotebookEditorCreationOptions, INotebookEditorOptions, INotebookViewZoneChangeAccessor } from '../../notebook/browser/notebookBrowser.js';
 import { NotebookLayoutInfo } from '../../notebook/browser/notebookViewEvents.js';
 import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
@@ -58,6 +58,7 @@ import { IEditorOptions } from '../../../../editor/common/config/editorOptions.j
 import { FontInfo } from '../../../../editor/common/config/fontInfo.js';
 import { createBareFontInfoFromRawSettings } from '../../../../editor/common/config/fontInfoFromSettings.js';
 import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
+import { IPositronNotebookViewState, IPositronNotebookScrollAnchor } from './positronNotebookEditorTypes.js';
 
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
 	textModel: NotebookTextModel;
@@ -193,11 +194,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * The DOM element for contributions (like find widget) to render into.
 	 */
 	private _overlayContainer: HTMLElement | undefined = undefined;
-
-	/**
-	 * Disposables for the current cells container event listeners
-	 */
-	private readonly _cellsContainerListeners = this._register(new DisposableStore());
 
 	/**
 	 * Key-value map of language to base cell editor options for cells of that language.
@@ -337,15 +333,31 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @param container The container element to set, or null to clear
 	 */
 	setCellsContainer(container: HTMLElement | null): void {
-		// Clean up any existing listeners
-		this._cellsContainerListeners.clear();
-
 		if (!container) {
 			this._cellsContainer = undefined;
 			return;
 		}
 
 		this._cellsContainer = container;
+	}
+
+	/**
+	 * Returns the top offset of a cell relative to the cells container.
+	 * Walks up the offsetParent chain to account for positioned wrappers
+	 * (e.g. sortable-cell with position: relative).
+	 */
+	getCellOffsetTop(cell: IPositronNotebookCell): number | undefined {
+		const container = this._cellsContainer;
+		if (!container || !cell.container) {
+			return undefined;
+		}
+		let top = 0;
+		let current: HTMLElement | null | undefined = cell.container;
+		while (current && current !== container) {
+			top += current.offsetTop;
+			current = DOM.isHTMLElement(current.offsetParent) ? current.offsetParent : null;
+		}
+		return top;
 	}
 
 	/**
@@ -1973,15 +1985,59 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Gets the current state of the editor. This should
 	 * fully determine the view we see.
 	 */
-	getEditorViewState(): INotebookEditorViewState {
-		// NOTE: Placeholder if we need to use editor view state
+	getEditorViewState(): IPositronNotebookViewState | undefined {
+		if (!this._cellsContainer || !this._cellsContainer.isConnected) {
+			return undefined;
+		}
+
 		return {
-			editingCells: {},
-			cellLineNumberStates: {},
-			editorViewStates: {},
-			collapsedInputCells: {},
-			collapsedOutputCells: {},
+			scrollPosition: this._getScrollPosition(),
 		};
+	}
+
+	/**
+	 * Finds the first cell at least partially visible in the viewport and
+	 * returns its index plus the pixel offset from its top to scrollTop.
+	 */
+	private _getScrollPosition(): IPositronNotebookScrollAnchor | undefined {
+		const container = this._cellsContainer;
+		if (!container) {
+			return undefined;
+		}
+		const scrollTop = container.scrollTop;
+		const cells = this.cells.get();
+
+		for (let i = 0; i < cells.length; i++) {
+			const cell = cells[i];
+			if (!cell.container) {
+				continue;
+			}
+			const cellTop = this.getCellOffsetTop(cell);
+			if (cellTop !== undefined && cellTop + cell.container.offsetHeight > scrollTop) {
+				return {
+					cellIndex: i,
+					offsetFromCell: scrollTop - cellTop,
+				};
+			}
+		}
+
+		// Scrolled past all cells (e.g. into trailing add-cell controls).
+		// Anchor to the last cell so the position is still persisted.
+		for (let i = cells.length - 1; i >= 0; i--) {
+			const cell = cells[i];
+			if (!cell.container) {
+				continue;
+			}
+			const cellTop = this.getCellOffsetTop(cell);
+			if (cellTop !== undefined) {
+				return {
+					cellIndex: i,
+					offsetFromCell: scrollTop - cellTop,
+				};
+			}
+		}
+
+		return undefined;
 	}
 
 	/**

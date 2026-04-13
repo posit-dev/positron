@@ -1,0 +1,135 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import { RefObject, useLayoutEffect } from 'react';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { disposableTimeout } from '../../../../base/common/async.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { addDisposableListener, getWindow } from '../../../../base/browser/dom.js';
+
+/** Number of consecutive stable frames required to consider the scroll position stable. */
+const STABLE_THRESHOLD = 5;
+
+/** Maximum time (ms) to keep the restoration loop running before giving up. */
+const TIMEOUT_MS = 1500;
+
+/**
+ * Restores scroll position by continuously scrolling the container to the
+ * target returned by {@link getScrollTop}. A requestAnimationFrame loop
+ * runs for up to 1.5 s to accommodate async layout shifts (e.g. from markdown
+ * previews and editor model loading). The loop stops early once the position
+ * has been stable for several consecutive frames, or if the user scrolls
+ * (detected via wheel/pointer/keyboard events, since programmatic scrollTop
+ * assignments also fire scroll events).
+ *
+ * @param containerRef Ref to the scrollable container element.
+ * @param getScrollTop Callback returning the target scrollTop, or undefined
+ *   if the target cannot be resolved. Called each frame. Pass undefined to skip.
+ * @param logService Logger for debug output.
+ */
+export function useScrollRestoration(
+	containerRef: RefObject<HTMLElement | null>,
+	getScrollTop: (() => number | undefined) | undefined,
+	logService: ILogService
+) {
+	// Use a layout effect so that if the first scroll position update is correct
+	// it'll apply before the paint, avoiding a flash of incorrect scroll position.
+	return useLayoutEffect(() => {
+		// Nothing to restore.
+		if (!getScrollTop) {
+			return;
+		}
+
+		const container = containerRef.current;
+
+		// Container not yet in the DOM, nothing we can do.
+		if (!container) {
+			return;
+		}
+
+		const startTimestamp = performance.now();
+		const targetWindow = getWindow(container);
+		const disposables = new DisposableStore();
+		let running = true;
+		let pendingFrame: number | undefined;
+
+		/** Number of consecutive frames where the scroll position did not change. */
+		let stableFrames = 0;
+
+		/** Stop the restoration loop and log the final state. */
+		const stop = (reason: string) => {
+			if (!running) {
+				return;
+			}
+			running = false;
+
+			if (pendingFrame !== undefined) {
+				targetWindow.cancelAnimationFrame(pendingFrame);
+				pendingFrame = undefined;
+			}
+			disposables.dispose();
+
+			const target = getScrollTop();
+			const drift = target !== undefined
+				? container.scrollTop - target
+				: NaN;
+			logService.debug(
+				`[scroll-restore] ${reason} +${(performance.now() - startTimestamp).toFixed(0)}ms:` +
+				` final scrollTop=${container.scrollTop}, drift=${drift.toFixed(1)}px`
+			);
+		};
+
+		/** Schedule a scroll position correction for the next frame. */
+		const scheduleUpdate = () => {
+			if (!running) {
+				return;
+			}
+
+			pendingFrame = targetWindow.requestAnimationFrame(() => {
+				pendingFrame = undefined;
+
+				const target = getScrollTop();
+
+				if (target === undefined) {
+					stop('no-target');
+					return;
+				}
+
+				if (Math.abs(container.scrollTop - target) < 1) {
+					// Close enough. Once stable for enough consecutive frames,
+					// the layout has settled and we can stop.
+					if (++stableFrames >= STABLE_THRESHOLD) {
+						stop('stable');
+						return;
+					}
+				} else {
+					// Still drifting (e.g. async content is shifting layout).
+					// Reset the stable counter and correct the scroll position.
+					stableFrames = 0;
+					container.scrollTop = target;
+				}
+
+				scheduleUpdate();
+			});
+		};
+
+		// Kick off the loop.
+		scheduleUpdate();
+
+		// Cancel restoration on user-initiated scroll input. We listen for
+		// specific input events rather than the generic 'scroll' event because
+		// our own programmatic scrollTop assignments also fire 'scroll'.
+		disposables.add(addDisposableListener(container, 'wheel', () => stop('wheel')));
+		disposables.add(addDisposableListener(container, 'pointerdown', () => stop('pointerdown')));
+		disposables.add(addDisposableListener(container, 'keydown', () => stop('keydown')));
+
+		// Hard cutoff in case layout never stabilizes.
+		disposables.add(disposableTimeout(() => stop('timeout'), TIMEOUT_MS));
+
+		return () => {
+			stop('unmount');
+		};
+	}, [getScrollTop, logService, containerRef]);
+}

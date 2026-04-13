@@ -20,10 +20,8 @@ import {
 	IEditorOpenContext,
 	IEditorPaneSelectionChangeEvent
 } from '../../../common/editor.js';
-import {
-	INotebookEditorOptions,
-	INotebookEditorViewState
-} from '../../notebook/browser/notebookBrowser.js';
+import { INotebookEditorOptions } from '../../notebook/browser/notebookBrowser.js';
+import { IPositronNotebookEditorOptions, IPositronNotebookViewState } from './positronNotebookEditorTypes.js';
 import { NotebookInstanceProvider } from './NotebookInstanceProvider.js';
 import { PositronNotebookComponent } from './PositronNotebookComponent.js';
 import { EnvironentProvider } from './EnvironmentProvider.js';
@@ -51,7 +49,7 @@ const POSITRON_NOTEBOOK_EDITOR_VIEW_STATE_PREFERENCE_KEY =
 
 
 
-export class PositronNotebookEditor extends AbstractEditorWithViewState<INotebookEditorViewState> {
+export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositronNotebookViewState> {
 	/**
 	 * Value to keep track of what instance of the editor this is.
 	 * Used for keeping track of the editor in the logs.
@@ -139,7 +137,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 	 * by comparing with the underlying model (this was a fix for
 	 * https://github.com/microsoft/vscode/issues/40114).
 	 */
-	protected override computeEditorViewState(resource: URI): INotebookEditorViewState | undefined {
+	protected override computeEditorViewState(resource: URI): IPositronNotebookViewState | undefined {
 		if (this.notebookInstance &&
 			this.notebookInstance.textModel &&
 			isEqual(this.notebookInstance.textModel.uri, resource)) {
@@ -247,7 +245,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 
 	override async setInput(
 		input: PositronNotebookEditorInput,
-		options: INotebookEditorOptions | undefined,
+		options: IPositronNotebookEditorOptions | undefined,
 		context: IEditorOpenContext,
 		token: CancellationToken,
 		noRetry?: boolean
@@ -269,8 +267,11 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 		// without having to pass the options to the resolve method.
 		input.editorOptions = options;
 
-		// NOTE: Placeholder if we need to use editor view state:
-		// const viewState = options?.viewState ?? this.loadEditorViewState(input, context);
+		// Load saved view state (e.g. scroll position) from either:
+		// - options.viewState: passed explicitly when the editor is moved between groups
+		// - loadEditorViewState: loaded from persisted storage (e.g. after reload)
+		const viewState = options?.viewState
+			?? this.loadEditorViewState(input, context);
 		const { notebookInstance } = input;
 
 		// Update the editor control given the notebook instance.
@@ -320,7 +321,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 		);
 
 		// Now render the React component tree.
-		this._renderReact();
+		this._renderReact(viewState);
 	}
 
 	/**
@@ -338,20 +339,23 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 	override clearInput(): void {
 		this._logService.debug(this._identifier, 'clearInput');
 
-		if (this.notebookInstance) {
-			this.notebookInstance.detachView();
-		}
+		// Capture the notebook instance before super.clearInput() clears this._input.
+		const notebookInstance = this._input?.notebookInstance;
 
-		// Clear the input.
-		this._input = undefined;
+		// Call super first so that AbstractEditorWithViewState can save the
+		// editor view state (e.g. scroll position) while the input and the
+		// DOM are still alive. The base class reads view state via
+		// computeEditorViewState() which needs the notebook instance and
+		// its cells container to still be accessible.
+		super.clearInput();
+
+		// Detach the notebook instance.
+		notebookInstance?.detachView();
 
 		// Clear the editor control.
 		this._control.clear();
 
 		this._disposeReactRenderer();
-
-		// Call the base class's method.
-		super.clearInput();
 	}
 
 	override async setOptions(options: INotebookEditorOptions | undefined): Promise<void> {
@@ -388,7 +392,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 		}
 	}
 
-	private _renderReact(): void {
+	private _renderReact(viewState?: IPositronNotebookViewState): void {
 		this._logService.debug(this._identifier, 'renderReact');
 
 		if (!this.notebookInstance) {
@@ -411,6 +415,15 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 		if (!scopedContextKeyService) {
 			throw new Error('Scoped context key service is not set.');
 		}
+
+		// Resolve the scroll position cell now. This resolved cell is stable
+		// for React -- it won't shift if cells are added/removed during
+		// the restoration window.
+		const cells = this.notebookInstance.cells.get();
+		const anchor = viewState?.scrollPosition;
+		const scrollPosition = anchor && anchor.cellIndex < cells.length
+			? { cell: cells[anchor.cellIndex], offsetFromCell: anchor.offsetFromCell }
+			: undefined;
 
 		// Set the editor container for focus tracking.
 		this.notebookInstance.setEditorContainer(this._editorContainer);
@@ -437,7 +450,9 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 							size: this._size,
 							scopedContextKeyProviderCallback: container => scopedContextKeyService.createScoped(container),
 						}}>
-							<PositronNotebookComponent />
+							<PositronNotebookComponent
+								scrollPosition={scrollPosition}
+							/>
 						</EnvironentProvider>
 					</NotebookInstanceProvider>
 				</NotebookVisibilityProvider>
