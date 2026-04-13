@@ -16,13 +16,16 @@ export class Packages {
 
 	packagesButton: Locator;
 	packagesContainer: Locator;
-	packageActionsButton: Locator;
+	packagesViewMoreActionsButton: Locator;
 	private get page(): Page { return this.code.driver.page; }
 
-	constructor(private code: Code, private contextMenu: ContextMenu, private quickInput: QuickInput, private toasts: Toasts) {
+	constructor(private code: Code, _contextMenu: ContextMenu, private quickInput: QuickInput, private toasts: Toasts) {
 		this.packagesButton = code.driver.page.locator('a.action-label.codicon-package');
 		this.packagesContainer = code.driver.page.locator('.positron-packages-list');
-		this.packageActionsButton = code.driver.page.getByRole('button', { name: 'Package Actions' });
+		// More Actions button (overflow menu) in the packages view title bar
+		this.packagesViewMoreActionsButton = code.driver.page
+			.getByRole('toolbar', { name: 'Packages actions' })
+			.getByRole('button', { name: 'Views and More Actions...' });
 	}
 
 	/**
@@ -123,7 +126,7 @@ export class Packages {
 	}
 
 	/**
-	 * Installs a package using the package actions menu
+	 * Installs a package using the Install Package action in the view title overflow menu
 	 * @param packageName The name of the package to install (e.g., 'cowsay')
 	 * @param options Optional parameters for installation
 	 * @param options.version Specific version to install. If not provided, uses the first version in the list.
@@ -132,11 +135,15 @@ export class Packages {
 		// Ensure packages pane is open
 		await this.clickPackagesButton();
 
-		// Open the package actions menu and click "Install Package"
-		await this.contextMenu.triggerAndClick({
-			menuTrigger: this.packageActionsButton,
-			menuItemLabel: 'Install Package'
-		});
+		// Click the More Actions button to open the overflow menu
+		await this.packagesViewMoreActionsButton.click();
+
+		// Wait for the menu item to be enabled (context keys may take a moment to update)
+		const installMenuItem = this.page.getByRole('menuitem', { name: 'Install Package' });
+		await expect(installMenuItem).toBeEnabled({ timeout: 5000 });
+
+		// Click "Install Package" from the overflow menu
+		await installMenuItem.click();
 
 		// Wait for the quick input to appear
 		await this.quickInput.waitForQuickInputOpened();
