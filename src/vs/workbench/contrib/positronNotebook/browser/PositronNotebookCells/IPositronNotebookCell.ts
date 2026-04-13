@@ -11,7 +11,7 @@ import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { INotebookEditorOptions } from '../../../notebook/browser/notebookBrowser.js';
 import { NotebookPreloadOutputResults } from '../../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { CellSelectionType } from '../selectionMachine.js';
-import { IOutputItemDto } from '../../../notebook/common/notebookCommon.js';
+import { IOutputItemDto, NotebookCellInternalMetadata } from '../../../notebook/common/notebookCommon.js';
 import { IPositronCellViewModel } from '../IPositronNotebookEditor.js';
 import { ICellRevealOptions } from './PositronNotebookCell.js';
 
@@ -48,6 +48,11 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	 * URI for the notebook that contains this cell
 	 */
 	get notebookUri(): URI;
+
+	/**
+	 * Internal metadata for the cell (execution timing, order, success, etc.).
+	 */
+	readonly internalMetadata: IObservable<NotebookCellInternalMetadata>;
 
 	/**
 	 * Current execution status for this cell

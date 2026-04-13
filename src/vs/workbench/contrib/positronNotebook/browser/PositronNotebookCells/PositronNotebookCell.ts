@@ -68,7 +68,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	protected readonly _editor = observableValue<ICodeEditor | undefined>('cellEditor', undefined);
 	public readonly editorObservable: IObservable<ICodeEditor | undefined> = this._editor;
 	public readonly editor: IObservable<ICodeEditor | undefined> = this._editor;
-	protected readonly _internalMetadata;
+	public readonly internalMetadata;
 	private readonly _editorFocusRequested = observableSignal<void>('editorFocusRequested');
 	private _modelRef: IReference<IResolvedTextEditorModel> | undefined;
 
@@ -93,7 +93,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 
 		// Observable of internal metadata to derive execution status and timing info
 		// e.g. as used in PositronNotebookCodeCell
-		this._internalMetadata = observableFromEvent(
+		this.internalMetadata = observableFromEvent(
 			this,
 			this.model.onDidChangeInternalMetadata,
 			() => /** @description internalMetadata */ this.model.internalMetadata,
@@ -111,7 +111,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		this.executionStatus = derived(this, (reader): ExecutionStatus => {
 			/** @description cellExecutionStatus */
 			const execution = this._execution.read(reader);
-			const { lastRunSuccess } = this._internalMetadata.read(reader);
+			const { lastRunSuccess } = this.internalMetadata.read(reader);
 			const state = execution?.state;
 			if (!state) {
 				// TODO: Should we have separate "success" and "error" states?

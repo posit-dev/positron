@@ -50,24 +50,28 @@ export function useObservedValue<T>(observable: IObservable<T> | undefined, defa
  * delaying meaningful updates.
  *
  * @param observable The observable to subscribe to.
- * @param shouldDebounce Predicate receiving the new value. Return `true` to
- *   delay propagation by the specified `delayMs`, `false` to propagate
- *   immediately. Defaults to nullish check which covers `undefined` and `null`
- *   but not valid falsy values like `0` or `false`. Note that this is used in
- *   the dependency array of the `useMemo` call that creates the debounced
- *   observable, so it should be memoized if it is not a stable reference or
- *   otherwise the memo will be invalidated on every render, defeating the
- *   purpose of debouncing.
+ * @param shouldDebounce Predicate receiving the previous and new values.
+ *   Return `true` to delay propagation by the specified `delayMs`, `false` to
+ *   propagate immediately. Defaults to nullish check on the new value which
+ *   covers `undefined` and `null` but not valid falsy values like `0` or
+ *   `false`. Note that this is used in the dependency array of the `useMemo`
+ *   call that creates the debounced observable, so it should be memoized if it
+ *   is not a stable reference or otherwise the memo will be invalidated on
+ *   every render, defeating the purpose of debouncing.
  * @param delayMs Optional debounce delay in milliseconds. Defaults to 150ms.
  */
 
+// Stable default predicate: debounce nullish values regardless of prev.
+// Hoisted to module level so the reference is stable across renders.
+const defaultShouldDebounce = (_prev: unknown, next: unknown) => isUndefinedOrNull(next);
+
 export function useDebouncedObservedValue<T>(
 	observable: IObservable<T>,
-	shouldDebounce: (next: T) => boolean = isUndefinedOrNull,
+	shouldDebounce: (prev: T | undefined, next: T) => boolean = defaultShouldDebounce,
 	delayMs: number = 150,
 ): T {
 	const debounced = React.useMemo(
-		() => debouncedObservable(observable, (_prev, next) => shouldDebounce(next) ? delayMs : 0),
+		() => debouncedObservable(observable, (prev, next) => shouldDebounce(prev, next) ? delayMs : 0),
 		// We dont need to worry about the delayMs causing invalidation because
 		// pure number types are compared by value not reference in the
 		// dependency arrays of hooks.

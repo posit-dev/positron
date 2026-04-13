@@ -7,19 +7,17 @@
 import './CellLeftActionMenu.css';
 
 // Other dependencies.
-import { useDebouncedObservedValue } from '../useObservedValue.js';
-import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
+import { NotebookCellInternalMetadata } from '../../../notebook/common/notebookCommon.js';
 
 interface CellLeftActionMenuProps {
-	cell: PositronNotebookCodeCell;
+	metadata: NotebookCellInternalMetadata;
 }
 
 /**
  * Left-side menu for notebook cells that displays the execution order badge ([1], [2], etc.).
  */
-export function CellLeftActionMenu({ cell }: CellLeftActionMenuProps) {
-	// Observed values
-	const executionOrder = useDebouncedObservedValue(cell.lastExecutionOrder);
+export function CellLeftActionMenu({ metadata }: CellLeftActionMenuProps) {
+	const executionOrder = metadata.executionOrder;
 
 	// Determine what to show
 	const showPending = executionOrder === undefined;

@@ -71,16 +71,16 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 		}));
 
 		// Execution timing observables
-		this.lastExecutionDuration = this._internalMetadata.map(({ runStartTime, runEndTime }) => {
+		this.lastExecutionDuration = this.internalMetadata.map(({ runStartTime, runEndTime }) => {
 			/** @description lastExecutionDuration */
 			if (typeof runStartTime === 'number' && typeof runEndTime === 'number') {
 				return Math.max(0, runEndTime - runStartTime);
 			}
 			return undefined;
 		});
-		this.lastExecutionOrder = this._internalMetadata.map(m => /** @description lastExecutionOrder */ m.executionOrder);
-		this.lastRunSuccess = this._internalMetadata.map(m => /** @description lastRunSuccess */ m.lastRunSuccess);
-		this.lastRunEndTime = this._internalMetadata.map(m => /** @description lastRunEndTime */ m.runEndTime);
+		this.lastExecutionOrder = this.internalMetadata.map(m => /** @description lastExecutionOrder */ m.executionOrder);
+		this.lastRunSuccess = this.internalMetadata.map(m => /** @description lastRunSuccess */ m.lastRunSuccess);
+		this.lastRunEndTime = this.internalMetadata.map(m => /** @description lastRunEndTime */ m.runEndTime);
 	}
 
 	override get outputsViewModels(): IPositronCellOutputViewModel[] {

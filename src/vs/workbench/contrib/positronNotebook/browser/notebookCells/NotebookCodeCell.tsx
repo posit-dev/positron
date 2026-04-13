@@ -11,6 +11,7 @@ import React, { useMemo } from 'react';
 
 // Other dependencies.
 import { NotebookCellOutputs, ParsedTextOutput } from '../PositronNotebookCells/IPositronNotebookCell.js';
+import { NotebookCellInternalMetadata } from '../../../notebook/common/notebookCommon.js';
 import { isParsedTextOutput } from '../getOutputContents.js';
 import { useObservedValue, useDebouncedObservedValue } from '../useObservedValue.js';
 import { CellEditorMonacoWidget } from './CellEditorMonacoWidget.js';
@@ -209,14 +210,28 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 	return prevProps.outputs === nextProps.outputs;
 });
 
+// Debounce metadata during re-execution until the run completes (runEndTime is
+// set). This keeps old timing info visible while the cell is executing.
+// Fields are set in separate emissions (executionOrder arrives before
+// runEndTime), so gating on runEndTime avoids a brief "nothing" state where
+// executionOrder is set but timing info is absent.
+// Explicit clears (same executionId) propagate immediately.
+const shouldDebounceMetadata = (prev: NotebookCellInternalMetadata | undefined, next: NotebookCellInternalMetadata) =>
+	next.executionId !== prev?.executionId && typeof next.runEndTime !== 'number';
+
 export const NotebookCodeCell = React.memo(function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
+	// Debounce internal metadata so re-execution doesn't flash stale values.
+	// Holds old values until runEndTime is set (completion).
+	// Explicit clears propagate immediately (same executionId).
+	const metadata = useDebouncedObservedValue(cell.internalMetadata, shouldDebounceMetadata);
+
 	// Debounce transitions to empty only while the cell is executing so
 	// re-execution doesn't flash. Explicit clears (when idle) propagate
 	// immediately. We read executionStatus synchronously inside the predicate
 	// so it reflects the state at the moment outputs change.
 	const shouldDebounceOutputs = React.useCallback(
-		(outputs: NotebookCellOutputs[]) =>
-			outputs.length === 0 && cell.executionStatus.get() !== 'idle',
+		(_prev: NotebookCellOutputs[] | undefined, next: NotebookCellOutputs[]) =>
+			next.length === 0 && cell.executionStatus.get() !== 'idle',
 		[cell.executionStatus]
 	);
 	const outputContents = useDebouncedObservedValue(cell.outputs, shouldDebounceOutputs);
@@ -228,11 +243,11 @@ export const NotebookCodeCell = React.memo(function NotebookCodeCell({ cell }: {
 		>
 			<div className='positron-notebook-code-cell-contents'>
 				<div className='positron-notebook-editor-section'>
-					<CellLeftActionMenu cell={cell} />
+					<CellLeftActionMenu metadata={metadata} />
 					<div className='positron-notebook-editor-container'>
 						<CellEditorMonacoWidget cell={cell} />
 					</div>
-					<CodeCellStatusFooter cell={cell} hasError={hasError} />
+					<CodeCellStatusFooter cell={cell} hasError={hasError} metadata={metadata} />
 				</div>
 				<CellOutputsSection cell={cell} outputs={outputContents} />
 			</div>

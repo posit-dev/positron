@@ -12,35 +12,45 @@ import { useEffect, useRef, useState } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import * as DOM from '../../../../../base/browser/dom.js';
-import { useObservedValue, useDebouncedObservedValue } from '../useObservedValue.js';
+import { useDebouncedObservedValue } from '../useObservedValue.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
-import { ExecutionStatus } from '../PositronNotebookCells/IPositronNotebookCell.js';
+import { NotebookCellInternalMetadata } from '../../../notebook/common/notebookCommon.js';
 import { formatCellDuration, formatTimestamp, getRelativeTime, isMoreThanOneHourAgo } from './cellExecutionUtils.js';
 import { Icon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 
+// Debounce transitions away from idle so fast re-executions don't flash
+// a pending/running icon before snapping back to the completion tick.
+// Completion (→ idle) propagates immediately because delay is 0.
+const shouldDebounceExecStatus = (_prev: string | undefined, next: string) =>
+	next !== 'idle';
+
 interface CodeCellStatusFooterProps {
 	cell: PositronNotebookCodeCell;
+	metadata: NotebookCellInternalMetadata;
 	hasError: boolean;
 }
-
-// Defined outside the component so the reference is stable across renders,
-// avoiding memoization invalidation inside useDebouncedObservedValue.
-const isRunningOrPending = (s: ExecutionStatus) => s === 'running' || s === 'pending';
 
 /**
  * Footer component that displays cell execution status information between
  * the editor and outputs sections. Shows execution state, duration, and timestamp.
  */
-export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterProps) {
-	// Debounce "clearing" transitions to prevent visual flash during fast re-executions.
-	// Only delay transitions to running/pending/undefined; new values propagate immediately.
-	const executionStatus = useDebouncedObservedValue(cell.executionStatus, isRunningOrPending);
-	const executionOrder = useObservedValue(cell.lastExecutionOrder);
-	const duration = useDebouncedObservedValue(cell.lastExecutionDuration);
-	const lastRunEndTime = useDebouncedObservedValue(cell.lastRunEndTime);
-	const lastRunSuccess = useDebouncedObservedValue(cell.lastRunSuccess);
+export function CodeCellStatusFooter({ cell, metadata, hasError }: CodeCellStatusFooterProps) {
+	// Debounce execution status so fast re-executions don't flash
+	// a pending/running icon. The metadata prop is already debounced by
+	// the parent, so timing info stays stable during re-execution.
+	const executionStatus = useDebouncedObservedValue(cell.executionStatus, shouldDebounceExecStatus);
+	const executionOrder = metadata.executionOrder;
+	const lastRunSuccess = metadata.lastRunSuccess;
+	const lastRunEndTime = metadata.runEndTime;
+	const duration = (() => {
+		const { runStartTime, runEndTime } = metadata;
+		if (typeof runStartTime === 'number' && typeof runEndTime === 'number') {
+			return Math.max(0, runEndTime - runStartTime);
+		}
+		return undefined;
+	})();
 
 	/**
 	 * `lastRunEndTime` doesn't change after execution completes, which means the
