@@ -19,7 +19,7 @@ export class Packages {
 	packagesViewMoreActionsButton: Locator;
 	private get page(): Page { return this.code.driver.page; }
 
-	constructor(private code: Code, _contextMenu: ContextMenu, private quickInput: QuickInput, private toasts: Toasts) {
+	constructor(private code: Code, private contextMenu: ContextMenu, private quickInput: QuickInput, private toasts: Toasts) {
 		this.packagesButton = code.driver.page.locator('a.action-label.codicon-package');
 		this.packagesContainer = code.driver.page.locator('.positron-packages-list');
 		// More Actions button (overflow menu) in the packages view title bar
@@ -135,25 +135,25 @@ export class Packages {
 		// Ensure packages pane is open
 		await this.clickPackagesButton();
 
-		// Click the More Actions button to open the overflow menu
-		await this.packagesViewMoreActionsButton.click();
-
-		// Wait for the menu item to be enabled (context keys may take a moment to update)
-		const installMenuItem = this.page.getByRole('menuitem', { name: 'Install Package' });
-		await expect(installMenuItem).toBeEnabled({ timeout: 5000 });
-
 		// Click "Install Package" from the overflow menu
-		await installMenuItem.click();
+		await this.contextMenu.triggerAndClick({
+			menuTrigger: this.packagesViewMoreActionsButton,
+			menuItemLabel: 'Install Package'
+		});
 
 		// Wait for the quick input to appear
 		await this.quickInput.waitForQuickInputOpened();
 
-		// Type the package name
+		// Type the package name and submit to trigger API search
 		await this.quickInput.type(packageName);
 		await this.quickInput.submitInputBox();
 
-		// Wait for results and select the exact match
-		await this.quickInput.selectQuickInputElementExact(packageName);
+		// Wait for search results to load (API call)
+		const resultsLocator = this.page.locator('.quick-input-widget .quick-input-list .monaco-list-row');
+		await expect(resultsLocator.first()).toBeVisible({ timeout: 30000 });
+
+		// Select the first match containing the package name
+		await this.quickInput.selectQuickInputElementContaining(packageName);
 
 		// Wait for version selection screen
 		await this.quickInput.waitForQuickInputOpened();
