@@ -5,17 +5,16 @@
 
 import { join } from 'path';
 import { PermissionPayload } from '../../../pages/connect.js';
-import { test, tags, expect } from '../../_test.setup';
+import { test, tags, expect } from '../../_test.setup.js';
 
 test.use({
 	suiteId: __filename
 });
 
 let userId: string;
-let pythonVersion: string;
 const connectServer = 'http://connect:3939';
 
-test.describe('Publisher - Quarto Python', { tag: [tags.WORKBENCH, tags.PUBLISHER] }, () => {
+test.describe('Publisher - Quarto R', { tag: [tags.WORKBENCH, tags.PUBLISHER] }, () => {
 
 	test.beforeAll('Get connect API key', async function ({ app, runDockerCommand, hotKeys }) {
 
@@ -44,9 +43,6 @@ test.describe('Publisher - Quarto Python', { tag: [tags.WORKBENCH, tags.PUBLISHE
 			userId = user1Present;
 		}
 
-		const versions = await app.workbench.positConnect.getPythonVersions();
-		pythonVersion = versions[0];
-
 		await hotKeys.stackedLayout();
 
 	});
@@ -54,38 +50,51 @@ test.describe('Publisher - Quarto Python', { tag: [tags.WORKBENCH, tags.PUBLISHE
 	test('Verify Publisher functionality with Quarto Python document deployment', async function ({ app, page, openFile, hotKeys }) {
 
 		await test.step('Open file', async () => {
-			await openFile(join('workspaces', 'quarto_python', 'report.qmd'));
+			await openFile(join('workspaces', 'quarto_basic', 'quarto_basic.qmd'));
 		});
 
 		await test.step('Click on Publish button', async () => {
 			await app.workbench.editorActionBar.clickButton('Deploy with Posit Publisher');
 		});
 
-		await test.step('Enter title for application through quick-input', async () => {
-			await app.workbench.quickInput.waitForQuickInputOpened();
-			await app.workbench.quickInput.type('quarto-py-example');
-			await page.keyboard.press('Enter');
-		});
+		// Check if quick input appears (first run) or if we go straight to publisher UI (re-run)
+		const quickInputPresent = await page.locator('.quick-input-widget .quick-input-box input').isVisible({ timeout: 3000 }).catch(() => false);
 
-		const existingPresent = await app.workbench.publisher.hasSavedCredential(page, 'quarto-py-example');
-
-		if (existingPresent) {
-			await test.step('Use saved credential', async () => {
-				await app.workbench.publisher.useSavedCredential();
-			});
-		} else {
-			// Make sure to delete stored credentials by accessing Keychain Access --> Login --> Search for `posit` --> Remove `Posit Publisher Safe Storage`
-			await test.step('Enter Connect server and API key', async () => {
-				await app.workbench.publisher.enterConnectCredentials(page, connectServer, app.workbench.positConnect.getConnectApiKey());
+		if (quickInputPresent) {
+			// First run: need to complete setup wizard
+			await test.step('Publish with source code', async () => {
+				await app.workbench.quickInput.waitForQuickInputOpened();
+				await app.workbench.quickInput.type('source');
+				await page.keyboard.press('Enter');
 			});
 
-			await test.step('Unique name for credential (Connect Server and API key)', async () => {
-				await app.workbench.publisher.saveCredentialName(page, 'quarto-py-example', connectServer);
+			await test.step('Enter title for application through quick-input', async () => {
+				await app.workbench.quickInput.waitForQuickInputOpened();
+				await app.workbench.quickInput.type('quarto-r-example');
+				await page.keyboard.press('Enter');
 			});
+
+			const existingPresent = await app.workbench.publisher.hasSavedCredential(page, 'connect-container');
+
+			if (existingPresent) {
+				await test.step('Use saved credential', async () => {
+					await app.workbench.publisher.useSavedCredential();
+				});
+			} else {
+
+				// Make sure to delete stored credentials by accessing Keychain Access --> Login --> Search for `posit` --> Remove `Posit Publisher Safe Storage`
+				await test.step('Enter Connect server and API key', async () => {
+					await app.workbench.publisher.enterConnectCredentials(page, connectServer, app.workbench.positConnect.getConnectApiKey());
+				});
+
+				await test.step('Unique name for credential (Connect Server and API key)', async () => {
+					await app.workbench.publisher.saveCredentialName(page, 'connect-container', connectServer);
+				});
+			}
 		}
 
+		// At this point, whether first run or re-run, we should have the publisher UI with deploy button
 		const { innerFrame } = app.workbench.publisher.getPublisherFrames(page);
-
 		const deployButton = app.workbench.publisher.getDeployButton(innerFrame);
 
 		await test.step('Expect Deploy Your Project button to appear', async () => {
@@ -94,42 +103,11 @@ test.describe('Publisher - Quarto Python', { tag: [tags.WORKBENCH, tags.PUBLISHE
 
 		await hotKeys.minimizeBottomPanel();
 
-		await test.step('Ensure toml file is ready for update - flake workaround', async () => {
-			await expect(async () => {
-				try {
-					// Check if report.qmd is in the toml file
-					const editorContainer = app.code.driver.page.locator('[id="workbench.parts.editor"]');
-					const dynamicTomlLineRegex = 'report.qmd';
-					const targetLine = editorContainer.locator('.view-line').filter({ hasText: dynamicTomlLineRegex });
-					await expect(targetLine).toBeVisible({ timeout: 10000 });
-				} catch (e) {
-					// reload the toml file
-					const filenames = await app.workbench.editor.getMonacoFilenames();
-					await hotKeys.closeAllEditors();
-					const file = `workspaces/quarto_python/.posit/publish/${filenames.find(f => f.startsWith('quarto-py-example'))}`;
-					console.log(`Retrying to open file ${file} in editor`);
-					await openFile(file);
-					await hotKeys.stackedLayout();
-					await hotKeys.minimizeBottomPanel();
-					await hotKeys.publishDocument();
-					throw e;
-				}
-			}).toPass({ timeout: 60000 });
-		});
-
-		await test.step('Update toml file', async () => {
-			await app.workbench.positConnect.setPythonVersion(pythonVersion);
-
-			await hotKeys.save();
-
-			await expect(app.workbench.topActionBar.saveAllButton).not.toBeEnabled({ timeout: 10000 });
-		});
-
 		let appGuid;
 		await test.step('Deploy, await completion and get appGuid', async () => {
 			await deployButton.click({ timeout: 5000 });
 
-			await expect(app.code.driver.page.locator('text=Deployment was successful').first()).toBeVisible({ timeout: 200000 });
+			await expect(app.code.driver.page.locator('text=Successfully deployed').first()).toBeVisible({ timeout: 600000 });
 
 			await hotKeys.closeSecondarySidebar();
 
@@ -169,7 +147,7 @@ test.describe('Publisher - Quarto Python', { tag: [tags.WORKBENCH, tags.PUBLISHE
 			await app.code.driver.page.locator('[data-automation="content-table__row__display-name"]').first().click();
 
 			const headerLocator = app.code.driver.page.frameLocator('#contentIFrame').locator('h1');
-			await expect(headerLocator).toHaveText('Example Report', { timeout: 20000 });
+			await expect(headerLocator).toHaveText('Diamond sizes', { timeout: 20000 });
 		});
 
 	});

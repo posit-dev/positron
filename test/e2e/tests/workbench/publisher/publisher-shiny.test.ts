@@ -66,7 +66,7 @@ test.describe('Publisher - Shiny', { tag: [tags.WORKBENCH, tags.PUBLISHER] }, ()
 			await page.keyboard.press('Enter');
 		});
 
-		const existingPresent = await app.workbench.publisher.hasSavedCredential(page, 'shiny-py-example');
+		const existingPresent = await app.workbench.publisher.hasSavedCredential(page, 'connect-container');
 
 		if (existingPresent) {
 			await test.step('Use saved credential', async () => {
@@ -79,7 +79,7 @@ test.describe('Publisher - Shiny', { tag: [tags.WORKBENCH, tags.PUBLISHER] }, ()
 			});
 
 			await test.step('Unique name for credential (Connect Server and API key)', async () => {
-				await app.workbench.publisher.saveCredentialName(page, 'shiny-py-example', connectServer);
+				await app.workbench.publisher.saveCredentialName(page, 'connect-container', connectServer);
 			});
 		}
 
