@@ -343,13 +343,16 @@ export class NativeExtensionService extends AbstractExtensionService implements 
 		const currentVersion = `${this._productService.positronVersion}-${this._productService.positronBuildNumber}`;
 
 		let lastKnownVersion = '';
-		try {
-			if (await this._fileService.exists(versionFileUri)) {
+		const fileExists = await this._fileService.exists(versionFileUri);
+		if (fileExists) {
+			try {
 				const content = await this._fileService.readFile(versionFileUri);
 				lastKnownVersion = content.value.toString().trim();
+			} catch (err) {
+				this._logService.warn(
+					`Failed to read bootstrap version file: ${err}`
+				);
 			}
-		} catch {
-			// If we can't read the file, assume mismatch
 		}
 
 		if (lastKnownVersion === currentVersion) {
@@ -376,7 +379,13 @@ export class NativeExtensionService extends AbstractExtensionService implements 
 
 	private async _doResolveExtensions(emitter: AsyncIterableEmitter<ResolvedExtensions>): Promise<void> {
 		// --- Start Positron ---
-		await this._waitForBootstrapExtensionsIfNeeded();
+		try {
+			await this._waitForBootstrapExtensionsIfNeeded();
+		} catch (err) {
+			this._logService.error(
+				`Bootstrap extension wait failed, proceeding with scan: ${err}`
+			);
+		}
 		// --- End Positron ---
 		this._extensionScanner.startScanningExtensions();
 
