@@ -120,13 +120,13 @@ class TestBulkEditService implements IBulkEditService {
 }
 
 suite('PositronNotebookFindController', () => {
-	const { disposables } = createTestContainer().build();
+	const ctx = createTestContainer().build();
 
 	let instantiationService: TestInstantiationService;
 	let bulkEditApplySpy: sinon.SinonSpy;
 
 	setup(() => {
-		instantiationService = positronNotebookInstantiationService(disposables);
+		instantiationService = positronNotebookInstantiationService(ctx.disposables);
 
 		const bulkEditService = new TestBulkEditService(instantiationService.get(IModelService));
 		bulkEditApplySpy = sinon.spy(bulkEditService, 'apply');
@@ -134,7 +134,7 @@ suite('PositronNotebookFindController', () => {
 	});
 
 	function createNotebook(cells: [string, string, CellKind][]) {
-		return instantiateTestNotebookInstance(cells, instantiationService, disposables);
+		return instantiateTestNotebookInstance(cells, instantiationService, ctx.disposables);
 	}
 
 	function findFixture(cells: [string, string, CellKind][]) {

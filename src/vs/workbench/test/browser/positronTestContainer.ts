@@ -48,7 +48,9 @@ type ServiceStub = { id: ServiceIdentifier<any>; impl: any };
  * service groupings. Pick the lowest preset that covers your test's
  * dependencies, then use .stub() for anything extra.
  *
- * Presets (each includes the one above it):
+ * ## Presets
+ *
+ * Each preset includes the one above it:
  *   Bare           -- no services, for pure logic tests
  *   Runtime        -- language runtime + session services (~18)
  *   Notebooks      -- runtime + notebook/kernel services (+8)
@@ -64,16 +66,65 @@ type ServiceStub = { id: ServiceIdentifier<any>; impl: any };
  * How to add a new preset: add a boolean flag, a with*() method, and an
  * else-if branch in build(). See withNotebookServices() for an example.
  *
- * Test* classes vs .stub(): The presets wire up existing Test* classes
- * where they exist (e.g. TestPositronConsoleService, TestConfigurationService).
- * These are convenience defaults -- any can be overridden with .stub(IService,
- * partial). For new tests, prefer .stub() with a partial object over creating
- * new Test* classes. Only create a Test* class when multiple tests need the
+ * ## Test* classes vs .stub()
+ *
+ * The presets wire up existing Test* classes where they exist (e.g.
+ * TestPositronConsoleService, TestConfigurationService). These are
+ * convenience defaults -- any can be overridden with .stub(IService, partial).
+ * For new tests, prefer .stub() with a partial object over creating new
+ * Test* classes. Only create a Test* class when multiple tests need the
  * same complex mock behavior (emitters, state management, etc.).
  *
- * Usage:
- *   const ctx = createTestContainer().withRuntimeServices().build();
- *   const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+ * ## Incremental mocking
+ *
+ * Build mocks incrementally -- start with nothing and let the test tell you
+ * what's missing:
+ *
+ * 1. Start with a preset and run the test. If it passes, you're done.
+ * 2. "X is not a function" or "Cannot read properties of undefined" means
+ *    a service is missing. Add an empty stub:
+ *    `.stub(IMissingService, {} as IMissingService)`
+ * 3. If the code calls a specific method, add just that method:
+ *    `.stub(IMissingService, { getDoc: () => undefined } as IMissingService)`
+ * 4. If the code subscribes to an event, add an Emitter:
+ *    ```
+ *    const onDidChange = new Emitter<void>();
+ *    .stub(IService, { onDidChange: onDidChange.event } as IService)
+ *    ```
+ *
+ * Use `Partial<T>` with only the members your test needs, cast with `as T`.
+ * This may trigger `local/code-no-dangerous-type-assertions`; add
+ * `// eslint-disable local/code-no-dangerous-type-assertions` below the
+ * copyright header.
+ *
+ * ## Disposables
+ *
+ * The builder handles disposable leak detection automatically. Access the
+ * disposable store via `ctx.disposables` to register disposables created
+ * in tests:
+ *   `ctx.disposables.add(someDisposable);`
+ *
+ * ## Lazy getters
+ *
+ * `ctx` uses lazy getters. Access `ctx.instantiationService` inside
+ * `setup`/`test` callbacks, not at suite-level via destructuring.
+ *
+ * ## Test style
+ *
+ * - Group related tests with nested `suite()` calls, not comment headers.
+ * - Prefer events/state to verify behavior (e.g. await
+ *   `TestCommandService.onWillExecuteCommand` instead of stubbing
+ *   `executeCommand`). Use sinon only when no observable signal exists.
+ * - Await events with `Event.toPromise(event)` instead of timeouts.
+ * - For debounce/throttle/scheduler logic, use `runWithFakedTimers`.
+ *
+ * ## Usage
+ *
+ * ```typescript
+ * const ctx = createTestContainer().withRuntimeServices().build();
+ * const session = await startTestLanguageRuntimeSession(
+ *     ctx.instantiationService, ctx.disposables);
+ * ```
  */
 class PositronTestContainerBuilder {
 	private _useRuntimeServices = false;

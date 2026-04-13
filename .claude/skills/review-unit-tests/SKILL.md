@@ -1,6 +1,11 @@
-# Review unit test files for quality
+---
+name: review-unit-tests
+description: Use when reviewing unit test files for quality, maintainability, and adherence to Positron's testing patterns. Load this skill when test files need a quality check against the builder pattern and project conventions.
+---
 
-You are reviewing unit test files for quality, maintainability, and adherence to the project's testing patterns. You have no context about why these tests were written this way -- evaluate them on their own merits.
+# Positron Unit Test Review
+
+Review unit test files for quality, maintainability, and adherence to the project's testing patterns. Evaluate them on their own merits with no context about why they were written this way.
 
 ## Arguments
 

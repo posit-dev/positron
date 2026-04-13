@@ -14,14 +14,10 @@ import { TestLanguageRuntimeSession, waitForRuntimeState } from '../../../../ser
 import { IPositronVariablesService } from '../../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { TestPositronVariablesService } from '../../../../services/positronVariables/test/common/testPositronVariablesService.js';
 import { IPositronPlotsService } from '../../../../services/positronPlots/common/positronPlots.js';
-import { ExecutionHistoryService } from '../../../../services/positronHistory/common/executionHistory.js';
 import { IRuntimeStartupService } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { TestRuntimeStartupService } from '../../../../services/runtimeStartup/test/common/testRuntimeStartupService.js';
-import { IExecutionHistoryService } from '../../../../services/positronHistory/common/executionHistoryService.js';
 import { createTestPlotsServiceWithPlots } from '../../../../services/positronPlots/test/common/testPlotsServiceHelper.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { IConsoleFindWidgetFactory, IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
-import { PositronConsoleService } from '../../../../services/positronConsole/browser/positronConsoleService.js';
 import { createTestContainer } from '../../../../../workbench/test/browser/positronTestContainer.js';
 
 suite('PositronAssistantService', () => {
@@ -42,8 +38,6 @@ suite('PositronAssistantService', () => {
 		// Stub services that need disposables or createInstance
 		ctx.instantiationService.stub(IPositronVariablesService, ctx.disposables.add(testVariablesService));
 		ctx.instantiationService.stub(IPositronPlotsService, ctx.disposables.add(createTestPlotsServiceWithPlots()));
-		ctx.instantiationService.stub(IExecutionHistoryService, ctx.disposables.add(ctx.instantiationService.createInstance(ExecutionHistoryService)));
-		ctx.instantiationService.stub(IPositronConsoleService, ctx.disposables.add(ctx.instantiationService.createInstance(PositronConsoleService)));
 
 		// Create test runtime sessions
 		const runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);

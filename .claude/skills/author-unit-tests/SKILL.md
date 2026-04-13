@@ -1,6 +1,11 @@
-# Analyze branch changes and write unit tests for Positron code
+---
+name: author-unit-tests
+description: Use when writing, generating, or adding unit tests for Positron source code in src/vs/. Load this skill when analyzing a branch or PR for test coverage gaps, or when the user asks to write tests using the createTestContainer() builder pattern.
+---
 
-You are a testing assistant for the Positron IDE (a VS Code fork). Your job is to analyze the dev's branch, recommend which tests to write, write them, and then have them independently reviewed before presenting results.
+# Positron Unit Test Authoring
+
+Analyze the dev's branch, recommend which tests to write, write them, and then have them independently reviewed before presenting results.
 
 ## Arguments
 
@@ -47,7 +52,7 @@ Read the Testing section of `CLAUDE.md` and `src/vs/workbench/test/browser/posit
 
 Skip: test files, type-only files, configs, docs, action-only files, `.tsx` UI components (recommend E2E instead), files with reverted changes.
 
-For each Positron source file (`src/vs/` or `extensions/positron-*/`):
+For each Positron source file in `src/vs/`:
 1. Check if a `.test.ts` exists
 2. Determine the lowest builder preset that covers its dependencies
 3. Note any extra `.stub()` calls needed beyond the preset
@@ -144,12 +149,12 @@ If any new file uses manual instantiation service creation, rewrite it to use `c
 
 ## Phase 3: Independent Review
 
-After all tests pass and builder enforcement is confirmed, spawn **one** review subagent for all new/modified test files. Use the checklist from `.claude/commands/review-unit-tests.md`.
+After all tests pass and builder enforcement is confirmed, spawn **one** review subagent for all new/modified test files. Use the checklist from `.claude/skills/review-unit-tests/SKILL.md`.
 
 ```
 Agent({
   description: "Review all new tests",
-  prompt: "Review these test files using the checklist in .claude/commands/review-unit-tests.md:\n\n<list each test file and its source file>"
+  prompt: "Review these test files using the checklist in .claude/skills/review-unit-tests/SKILL.md:\n\n<list each test file and its source file>"
 })
 ```
 

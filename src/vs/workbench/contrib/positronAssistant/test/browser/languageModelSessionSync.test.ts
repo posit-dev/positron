@@ -10,14 +10,14 @@ import { AuthenticationSession, AuthenticationSessionsChangeEvent, IAuthenticati
 import { syncAuthSessions } from '../../browser/languageModelSessionSync.js';
 
 suite('syncAuthSessions', () => {
-	const { disposables } = createTestContainer().build();
+	const ctx = createTestContainer().build();
 
 	let emitter: Emitter<{ providerId: string; label: string; event: AuthenticationSessionsChangeEvent }>;
 	let sessionsMap: Map<string, AuthenticationSession[]>;
 	let authService: IAuthenticationService;
 
 	setup(() => {
-		emitter = disposables.add(
+		emitter = ctx.disposables.add(
 			new Emitter<{ providerId: string; label: string; event: AuthenticationSessionsChangeEvent }>()
 		);
 		sessionsMap = new Map();
@@ -31,7 +31,7 @@ suite('syncAuthSessions', () => {
 
 	test('updates signedIn to true when session added for matching provider', async () => {
 		const results: { providerId: string; signedIn: boolean }[] = [];
-		disposables.add(
+		ctx.disposables.add(
 			syncAuthSessions(authService, ['anthropic-api'], (providerId, signedIn) => {
 				results.push({ providerId, signedIn });
 			})
@@ -56,7 +56,7 @@ suite('syncAuthSessions', () => {
 
 	test('updates signedIn to false when all sessions removed', async () => {
 		const results: { providerId: string; signedIn: boolean }[] = [];
-		disposables.add(
+		ctx.disposables.add(
 			syncAuthSessions(authService, ['anthropic-api'], (providerId, signedIn) => {
 				results.push({ providerId, signedIn });
 			})
@@ -79,7 +79,7 @@ suite('syncAuthSessions', () => {
 
 	test('ignores session changes for non-matching providers', async () => {
 		const results: { providerId: string; signedIn: boolean }[] = [];
-		disposables.add(
+		ctx.disposables.add(
 			syncAuthSessions(authService, ['anthropic-api'], (providerId, signedIn) => {
 				results.push({ providerId, signedIn });
 			})
