@@ -149,11 +149,7 @@ export class Packages {
 		await this.quickInput.submitInputBox();
 
 		// Wait for search results to load (API call)
-		const resultsLocator = this.page.locator('.quick-input-widget .quick-input-list .monaco-list-row');
-		await expect(resultsLocator.first()).toBeVisible({ timeout: 30000 });
-
-		// Select the first match containing the package name
-		await this.quickInput.selectQuickInputElementContaining(packageName);
+		await this.quickInput.selectQuickInputElementExact(packageName);
 
 		// Wait for version selection screen
 		await this.quickInput.waitForQuickInputOpened();
