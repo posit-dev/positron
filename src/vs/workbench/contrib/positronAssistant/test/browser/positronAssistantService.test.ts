@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -22,8 +22,10 @@ import { TestRuntimeStartupService } from '../../../../services/runtimeStartup/t
 import { IExecutionHistoryService } from '../../../../services/positronHistory/common/executionHistoryService.js';
 import { createTestPlotsServiceWithPlots } from '../../../../services/positronPlots/test/common/testPlotsServiceHelper.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { IConsoleFindWidgetFactory, IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { PositronConsoleService } from '../../../../services/positronConsole/browser/positronConsoleService.js';
+import { Emitter } from '../../../../../base/common/event.js';
+import { Disposable } from '../../../../../base/common/lifecycle.js';
 
 suite('PositronAssistantService', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
@@ -43,6 +45,21 @@ suite('PositronAssistantService', () => {
 		instantiationService.stub(IRuntimeStartupService, new TestRuntimeStartupService());
 		createRuntimeServices(instantiationService, disposables);
 		instantiationService.stub(IExecutionHistoryService, disposables.add(instantiationService.createInstance(ExecutionHistoryService)));
+		instantiationService.stub(IConsoleFindWidgetFactory, {
+			_serviceBrand: undefined,
+			createFindWidget: () => {
+				const emitter = disposables.add(new Emitter<void>());
+				return disposables.add(new class extends Disposable {
+					reveal() { }
+					hide() { }
+					find() { }
+					refreshSearch() { }
+					layout() { }
+					getDomNode() { return document.createElement('div'); }
+					readonly onDidHide = emitter.event;
+				});
+			}
+		} as IConsoleFindWidgetFactory);
 		instantiationService.stub(IPositronConsoleService, disposables.add(instantiationService.createInstance(PositronConsoleService)));
 
 		// Create test runtime sessions
@@ -76,9 +93,8 @@ suite('PositronAssistantService', () => {
 		]);
 
 		// Create variables instances for each session and set the active session
-		testVariablesService.createPositronVariablesInstance(testConsoleSession);
+		testVariablesService.createPositronVariablesInstance(testConsoleSession, true);
 		testVariablesService.createPositronVariablesInstance(testNotebookSession);
-		testVariablesService.setActivePositronVariablesSession(testConsoleSession.sessionId);
 
 		// Create the service under test with all required services
 		positronAssistantService = disposables.add(instantiationService.createInstance(PositronAssistantService));

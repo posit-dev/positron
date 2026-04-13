@@ -97,18 +97,6 @@ export class TestPositronVariablesService extends Disposable implements IPositro
 	readonly onDidChangeActivePositronVariablesInstance = this._onDidChangeActivePositronVariablesInstanceEmitter.event;
 
 	/**
-	 * Sets the active variables instance to the one with the given session ID.
-	 *
-	 * @param sessionId The session ID.
-	 */
-	setActivePositronVariablesSession(sessionId: string): void {
-		const positronVariablesInstance = this._positronVariablesInstancesBySessionId.get(sessionId);
-		if (positronVariablesInstance) {
-			this._setActivePositronVariablesInstance(positronVariablesInstance);
-		}
-	}
-
-	/**
 	 * Placeholder that gets called to "initialize" the PositronVariablesService.
 	 */
 	initialize(): void {
