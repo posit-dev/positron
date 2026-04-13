@@ -12,10 +12,6 @@
 	border-bottom: 1px solid var(--vscode-positronPackages-border);
 }
 
-.packages-filter-container .action-bar-filter-container {
-	width: 100%;
-}
-
 .packages-list-container {
 	height: 100%;
 	position: relative;

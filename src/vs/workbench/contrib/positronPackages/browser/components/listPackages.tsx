@@ -311,7 +311,6 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 			<div className='packages-filter-container'>
 				<ActionBarFilter
 					placeholder={localize('positronPackages.filterPlaceholder', "Filter packages")}
-					width={0}
 					onFilterTextChanged={setFilterText}
 				/>
 			</div>
