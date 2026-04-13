@@ -1,6 +1,6 @@
 # Positron: LLM Eval Test Catalog
 
-> 9 test cases · Auto-generated on 2026-03-04T17:56:14.438Z
+> 9 test cases · Auto-generated on 2026-04-13T11:49:32.378Z
 
 ## Hallucination
 
@@ -73,11 +73,11 @@ Load the forested package and make some plots of the forested data
 ## Notebooks
 
 <details>
-<summary><strong>py-notebook-get-cells</strong> · Edit · Ensure getNotebookCells is called for large not...</summary>
+<summary><strong>py-notebook-get-cells</strong> · Edit · Ensure getNotebookInfo is called for large note...</summary>
 
 ### Intent
 
-Ensure getNotebookCells is called for large notebooks
+Ensure getNotebookInfo is called for large notebooks
 
 ### User prompt
 
@@ -89,7 +89,7 @@ What is the value calculated in cell 21 (index 20) of my notebook?
 
 #### Required
 
-- The `getNotebookCells` tool must appear in the "Tools Called:" section (required because large notebooks use sliding window)
+- The `getNotebookInfo` tool must appear in the "Tools Called:" section (required because large notebooks use sliding window)
 - Reports the correct value from cell 21 (index 20), which is 200, since it calculates x * 10 where x = 20)
 
 #### Nice to have
@@ -119,7 +119,7 @@ What is the total revenue shown in my notebook? Just tell me the answer, don't a
 
 - Correctly identifies the total revenue as 145,500 (sum of 45000 + 52000 + 48500)
 - Response demonstrates the assistant can READ notebook contents by mentioning at least 2 of: specific revenue values (45000, 52000, 48500), months (January, February, March), or cell reference (cell 0)
-- The `editNotebookCells` tool must NOT appear in "Tools Called:" (we asked NOT to edit)
+- The `editNotebook` tool must NOT appear in "Tools Called:" (we asked NOT to edit)
 
 #### Nice to have
 
@@ -157,11 +157,11 @@ Create a new R notebook for me.
 </details>
 
 <details>
-<summary><strong>r-notebook-edit-cells</strong> · Edit · Ensure editNotebookCells is used when editing n...</summary>
+<summary><strong>r-notebook-edit-cells</strong> · Edit · Ensure editNotebook is used when editing notebo...</summary>
 
 ### Intent
 
-Ensure editNotebookCells is used when editing notebook cells
+Ensure editNotebook is used when editing notebook cells
 
 ### User prompt
 
@@ -173,7 +173,7 @@ Fix the error in cell 2 of my notebook.
 
 #### Required
 
-- The `editNotebookCells` tool must appear in the "Tools Called:" section
+- The `editNotebook` tool must appear in the "Tools Called:" section
 - The `editFile` or `positron_editFile_internal` tool must NOT appear (wrong tool for notebooks)
 
 #### Nice to have
@@ -185,16 +185,16 @@ Fix the error in cell 2 of my notebook.
 
 #### Fail if
 
-- Uses editFile instead of editNotebookCells (indicates the assistant did not correctly identify the notebook context)
+- Uses editFile instead of editNotebook (indicates the assistant did not correctly identify the notebook context)
 
 </details>
 
 <details>
-<summary><strong>r-notebook-run-cells</strong> · Agent · Ensure runNotebookCells is used to execute note...</summary>
+<summary><strong>r-notebook-run-cells</strong> · Agent · Ensure executeNotebook is used to execute noteb...</summary>
 
 ### Intent
 
-Ensure runNotebookCells is used to execute notebook cells
+Ensure executeNotebook is used to execute notebook cells
 
 ### User prompt
 
@@ -206,14 +206,14 @@ Run cell 2 of my notebook and tell me what the output is.
 
 #### Required
 
-- The `runNotebookCells` tool must appear in the "Tools Called:" section
+- The `executeNotebook` tool must appear in the "Tools Called:" section
 - Reports the correct output value (15, since x=10 and the code is result <- x + 5)
 
 #### Nice to have
 
 - Explains what the code does (adds x + 5 where x is 10)
 - Confirms the cell was executed successfully
-- Does not use editNotebookCells when only asked to run (should use runNotebookCells)
+- Does not use editNotebook when only asked to run (should use executeNotebook)
 
 </details>
 
