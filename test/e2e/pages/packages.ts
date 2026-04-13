@@ -138,7 +138,8 @@ export class Packages {
 		// Click "Install Package" from the overflow menu
 		await this.contextMenu.triggerAndClick({
 			menuTrigger: this.packagesViewMoreActionsButton,
-			menuItemLabel: 'Install Package'
+			menuItemLabel: 'Install Package',
+			exact: true
 		});
 
 		// Wait for the quick input to appear
