@@ -21,6 +21,9 @@ import { localize } from '../../../../../nls.js';
 import { LANGUAGE_RUNTIME_SELECT_SESSION_ID, LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID } from '../../../../contrib/languageRuntime/browser/languageRuntimeActions.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { getSessionDisplayName, getSessionIcon, getSessionIconStyle } from '../../../../contrib/positronConsole/common/sessionDisplayUtils.js';
+import { RuntimeStatus, RuntimeStatusIcon, runtimeStateToRuntimeStatus } from '../../../../contrib/positronConsole/browser/components/runtimeStatus.js';
+import { Icon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 
 const startSession = localize('positron.console.startSession', "Start Session");
 
@@ -46,6 +49,17 @@ const getIcon = (info: IRuntimeSessionDisplayInfo | undefined, modelService: IMo
 };
 
 /**
+ * Gets the runtime status from session display info.
+ * Returns undefined when there is no foreground session.
+ */
+const getRuntimeStatus = (info: IRuntimeSessionDisplayInfo | undefined): RuntimeStatus | undefined => {
+	if (!info) {
+		return undefined;
+	}
+	return runtimeStateToRuntimeStatus[info.sessionState];
+};
+
+/**
  * This component allows users to manage the foreground session.
  * - displays the current foreground session (console or notebook)
  * - allows users to switch between console sessions
@@ -61,6 +75,8 @@ export const TopActionBarSessionManager = () => {
 	const info = services.runtimeSessionService.foregroundSessionDisplayInfo;
 	const [iconStyle, setIconStyle] = useState(
 		info ? getSessionIconStyle(info, services.modelService) : undefined);
+	const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatus | undefined>(
+		getRuntimeStatus(services.runtimeSessionService.foregroundSessionDisplayInfo));
 
 	// Check if there are any active console sessions to determine if the
 	// active session picker or the create session picker should be shown.
@@ -84,6 +100,7 @@ export const TopActionBarSessionManager = () => {
 				setLabelText(getLabel(info, services.modelService));
 				setSessionIcon(getIcon(info, services.modelService));
 				setIconStyle(info ? getSessionIconStyle(info, services.modelService) : undefined);
+				setRuntimeStatus(getRuntimeStatus(info));
 			})
 		);
 
@@ -97,9 +114,23 @@ export const TopActionBarSessionManager = () => {
 			border={true}
 			commandId={command}
 			height={24}
-			icon={sessionIcon}
-			iconStyle={iconStyle}
-			label={labelText}
-		/>
+		>
+			<div className='top-action-bar-session-manager-face'>
+				{runtimeStatus !== undefined &&
+					<RuntimeStatusIcon status={runtimeStatus} />
+				}
+				<Icon
+					className={positronClassNames(
+						'action-bar-button-icon',
+						{ 'custom-icon-color': Boolean(iconStyle) }
+					)}
+					icon={sessionIcon}
+					style={iconStyle}
+				/>
+				<div className='action-bar-button-label'>
+					{labelText}
+				</div>
+			</div>
+		</ActionBarCommandButton>
 	);
 };

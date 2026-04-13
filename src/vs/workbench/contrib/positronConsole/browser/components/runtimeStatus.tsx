@@ -7,6 +7,7 @@
 import './runtimeStatus.css';
 
 // Other dependencies.
+import { RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { POSITRON_CONSOLE_STATE_ICON_ACTIVE, POSITRON_CONSOLE_STATE_ICON_DISCONNECTED, POSITRON_CONSOLE_STATE_ICON_IDLE } from '../../../../common/theme.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
@@ -20,6 +21,23 @@ export const enum RuntimeStatus {
 	Disconnected = 'Disconnected',
 	Idle = 'Idle'
 }
+
+/**
+ * Maps a RuntimeState to a RuntimeStatus icon.
+ */
+export const runtimeStateToRuntimeStatus: Record<RuntimeState, RuntimeStatus> = {
+	[RuntimeState.Uninitialized]: RuntimeStatus.Disconnected,
+	[RuntimeState.Initializing]: RuntimeStatus.Active,
+	[RuntimeState.Starting]: RuntimeStatus.Active,
+	[RuntimeState.Restarting]: RuntimeStatus.Active,
+	[RuntimeState.Ready]: RuntimeStatus.Idle,
+	[RuntimeState.Idle]: RuntimeStatus.Idle,
+	[RuntimeState.Busy]: RuntimeStatus.Active,
+	[RuntimeState.Interrupting]: RuntimeStatus.Active,
+	[RuntimeState.Exiting]: RuntimeStatus.Active,
+	[RuntimeState.Exited]: RuntimeStatus.Disconnected,
+	[RuntimeState.Offline]: RuntimeStatus.Disconnected,
+};
 
 const positronRuntimeStatusActiveIcon = registerIcon(
 	'positron-runtime-status-active',
