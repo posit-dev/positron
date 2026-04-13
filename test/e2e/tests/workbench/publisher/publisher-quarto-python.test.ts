@@ -74,10 +74,6 @@ test.describe('Publisher - Quarto Python', { tag: [tags.WORKBENCH, tags.PUBLISHE
 				await app.workbench.publisher.useSavedCredential();
 			});
 		} else {
-			await test.step('Select Posit Connect as deployment target', async () => {
-				await app.workbench.quickInput.selectQuickInputElement(1, true);
-			});
-
 			// Make sure to delete stored credentials by accessing Keychain Access --> Login --> Search for `posit` --> Remove `Posit Publisher Safe Storage`
 			await test.step('Enter Connect server and API key', async () => {
 				await app.workbench.publisher.enterConnectCredentials(page, connectServer, app.workbench.positConnect.getConnectApiKey());
