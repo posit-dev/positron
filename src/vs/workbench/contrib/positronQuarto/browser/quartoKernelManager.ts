@@ -12,6 +12,7 @@ import { Action } from '../../../../base/common/actions.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { localize } from '../../../../nls.js';
 import {
 	ILanguageRuntimeSession,
@@ -19,7 +20,7 @@ import {
 	RuntimeStartMode,
 } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
-import { LanguageRuntimeSessionMode, RuntimeExitReason, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeExitReason, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { ITextModel } from '../../../../editor/common/model.js';
@@ -101,6 +102,18 @@ export interface IQuartoKernelManager {
 	 * Interrupt the kernel for a document.
 	 */
 	interruptKernelForDocument(documentUri: URI): void;
+
+	/**
+	 * Change the kernel for a document. Shuts down any existing session
+	 * and starts a new one with the specified runtime.
+	 * The choice is persisted so it will be used on subsequent opens.
+	 */
+	changeKernelForDocument(documentUri: URI, runtimeId: string): Promise<ILanguageRuntimeSession | undefined>;
+
+	/**
+	 * Get the primary language for a document.
+	 */
+	getDocumentLanguage(documentUri: URI): Promise<string | undefined>;
 }
 
 /**
@@ -114,6 +127,9 @@ interface DocumentKernelInfo {
 	startupCancellation: CancellationTokenSource | undefined;
 }
 
+/** Storage key for persisted kernel selections. */
+const STORAGE_KEY_KERNEL_BINDINGS = 'positronQuarto.kernelBindings';
+
 /**
  * Implementation of the Quarto kernel manager.
  * Manages kernel sessions for Quarto documents, one session per document.
@@ -122,6 +138,9 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 	declare readonly _serviceBrand: undefined;
 
 	private readonly _documentKernels = new ResourceMap<DocumentKernelInfo>();
+
+	/** Persisted runtime selections keyed by document URI string. */
+	private readonly _kernelBindings = new Map<string, string>();
 
 	/** Pending cleanup timeouts, tracked so they can be cancelled on dispose */
 	private readonly _pendingCleanupTimeouts = new Set<ReturnType<typeof setTimeout>>();
@@ -135,14 +154,28 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 	constructor(
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
+		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@IQuartoDocumentModelService private readonly _quartoDocumentModelService: IQuartoDocumentModelService,
 		@IEditorService private readonly _editorService: IEditorService,
 		@ILogService private readonly _logService: ILogService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IStorageService private readonly _storageService: IStorageService,
 		@IQuartoOutputCacheService private readonly _cacheService: IQuartoOutputCacheService,
 	) {
 		super();
+
+		// Restore persisted kernel bindings
+		try {
+			const data = JSON.parse(this._storageService.get(STORAGE_KEY_KERNEL_BINDINGS, StorageScope.WORKSPACE, '{}'));
+			for (const [key, value] of Object.entries(data)) {
+				if (typeof value === 'string') {
+					this._kernelBindings.set(key, value);
+				}
+			}
+		} catch (e) {
+			this._logService.warn('[QuartoKernelManager] Failed to parse persisted kernel bindings: ', e);
+		}
 
 		// Clean up sessions when documents are closed
 		this._register(this._editorService.onDidCloseEditor(e => {
@@ -560,7 +593,28 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		return QuartoKernelState.None;
 	}
 
+	/**
+	 * Shut down the kernel for a document, logging any errors.
+	 *
+	 * @param documentUri The URI of the document whose kernel should be shut down.
+	 */
 	async shutdownKernelForDocument(documentUri: URI): Promise<void> {
+		try {
+			await this.tryShutdownKernelForDocument(documentUri);
+		} catch (error) {
+			this._logService.error(`[QuartoKernelManager] Failed to shut down kernel for ${documentUri.toString()}:`, error);
+		}
+	}
+
+	/**
+	 * Try to shut down the kernel for a document, throwing any errors to the caller.
+	 *
+	 * @param documentUri The URI of the document whose kernel should be shut down.
+	 *
+	 * @returns A promise that resolves when the kernel has been shut down, or
+	 * rejects if an error occurs during shutdown.
+	 */
+	async tryShutdownKernelForDocument(documentUri: URI): Promise<void> {
 		const info = this._documentKernels.get(documentUri);
 		if (!info) {
 			return;
@@ -584,8 +638,6 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 				RuntimeExitReason.Shutdown,
 				'Quarto kernel shutdown',
 			);
-		} catch (error) {
-			this._logService.warn(`[QuartoKernelManager] Error shutting down kernel: ${error}`);
 		} finally {
 			// For cleanup, we want to. dispose of listeners, then fire the state-change
 			// event while the _documentKernels entry is still present, then delete the entry.
@@ -620,12 +672,67 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		}
 	}
 
+	async changeKernelForDocument(
+		documentUri: URI,
+		runtimeId: string
+	): Promise<ILanguageRuntimeSession | undefined> {
+		// Find the runtime metadata for the requested runtime
+		const runtime = this._languageRuntimeService.registeredRuntimes
+			.find(r => r.runtimeId === runtimeId);
+		if (!runtime) {
+			this._logService.warn(`[QuartoKernelManager] Runtime not found: ${runtimeId}`);
+			return undefined;
+		}
+
+		// Persist the selection now that we've validated the runtime exists
+		this._kernelBindings.set(documentUri.toString(), runtimeId);
+		this._persistKernelBindings();
+
+		// Shut down any existing session; if this fails, warn but continue
+		// so that the user can still switch to the new kernel.
+		const oldRuntimeName = this._documentKernels.get(documentUri)?.session?.runtimeMetadata.runtimeName;
+		try {
+			await this.tryShutdownKernelForDocument(documentUri);
+		} catch (error) {
+			this._logService.error(`[QuartoKernelManager] Failed to shut down existing kernel for ${documentUri.toString()}:`, error);
+			this._notificationService.warn(
+				localize(
+					'quartoKernel.shutdownFailed',
+					"Failed to shut down {0} while switching to {1}: {2}",
+					oldRuntimeName ?? 'the previous kernel',
+					runtime.runtimeName,
+					error instanceof Error ? error.message : String(error)
+				)
+			);
+		}
+
+		// Start a new session with the specified runtime
+		return this._startKernelWithRetry(documentUri, undefined, runtime);
+	}
+
+	async getDocumentLanguage(documentUri: URI): Promise<string | undefined> {
+		return this._getDocumentLanguage(documentUri);
+	}
+
+	/**
+	 * Persist kernel bindings to workspace storage.
+	 */
+	private _persistKernelBindings(): void {
+		this._storageService.store(
+			STORAGE_KEY_KERNEL_BINDINGS,
+			JSON.stringify(Object.fromEntries(this._kernelBindings)),
+			StorageScope.WORKSPACE,
+			StorageTarget.MACHINE
+		);
+	}
+
 	/**
 	 * Start a kernel with retry logic and exponential backoff.
 	 */
 	private async _startKernelWithRetry(
 		documentUri: URI,
-		token?: CancellationToken
+		token?: CancellationToken,
+		runtimeOverride?: ILanguageRuntimeMetadata
 	): Promise<ILanguageRuntimeSession | undefined> {
 		let lastError: Error | undefined;
 
@@ -636,7 +743,7 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 			}
 
 			try {
-				const session = await this._startKernel(documentUri, token);
+				const session = await this._startKernel(documentUri, token, runtimeOverride);
 				if (session) {
 					return session;
 				}
@@ -665,10 +772,12 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 
 	/**
 	 * Start a kernel session for a document.
+	 * @param runtimeOverride If provided, use this runtime instead of the preferred one.
 	 */
 	private async _startKernel(
 		documentUri: URI,
-		token?: CancellationToken
+		token?: CancellationToken,
+		runtimeOverride?: ILanguageRuntimeMetadata
 	): Promise<ILanguageRuntimeSession | undefined> {
 		// Initialize or get document info
 		let info = this._documentKernels.get(documentUri);
@@ -709,8 +818,26 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 			info.language = language;
 			this._logService.debug(`[QuartoKernelManager] Starting ${language} kernel for ${documentUri.toString()}`);
 
-			// Get preferred runtime for language
-			const runtime = this._runtimeStartupService.getPreferredRuntime(language);
+			// Determine which runtime to use:
+			// 1. Explicit override (from changeKernelForDocument)
+			// 2. Persisted binding for this document
+			// 3. Preferred runtime for the language
+			let runtime: ILanguageRuntimeMetadata | undefined = runtimeOverride;
+			if (!runtime) {
+				const persistedRuntimeId = this._kernelBindings.get(documentUri.toString());
+				if (persistedRuntimeId) {
+					runtime = this._languageRuntimeService.registeredRuntimes
+						.find(r => r.runtimeId === persistedRuntimeId && r.languageId === language);
+					if (!runtime) {
+						// Persisted binding doesn't match the current language; clear it
+						this._kernelBindings.delete(documentUri.toString());
+						this._persistKernelBindings();
+					}
+				}
+			}
+			if (!runtime) {
+				runtime = this._runtimeStartupService.getPreferredRuntime(language);
+			}
 			if (!runtime) {
 				this._logService.warn(`[QuartoKernelManager] No runtime found for language: ${language}`);
 				this._setKernelState(documentUri, QuartoKernelState.Error);

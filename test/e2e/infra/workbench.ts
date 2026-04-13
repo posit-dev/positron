@@ -49,6 +49,7 @@ import { VsCodeNotebooks } from '../pages/notebooksVscode.js';
 import { PositAssistant } from '../pages/positAssistant.js';
 import { InlineDataExplorer } from '../pages/inlineDataExplorer.js';
 import { InlineQuarto } from '../pages/inlineQuarto.js';
+import { Packages } from '../pages/packages.js';
 
 export interface Commands {
 	runCommand(command: string, options?: { exactLabelMatch?: boolean }): Promise<any>;
@@ -100,13 +101,14 @@ export class Workbench {
 	readonly positAssistant: PositAssistant;
 	readonly inlineDataExplorer: InlineDataExplorer;
 	readonly inlineQuarto: InlineQuarto;
+	readonly packages: Packages;
 
 	constructor(code: Code) {
 		this.hotKeys = new HotKeys(code);
 		this.toasts = new Toasts(code);
 		this.popups = new Popups(code);
 		this.contextMenu = new ContextMenu(code);
-		this.variables = new Variables(code, this.hotKeys, this.contextMenu);
+		this.variables = new Variables(code, this.hotKeys);
 		this.dataExplorer = new DataExplorer(code, this);
 		this.sideBar = new SideBar(code);
 		this.plots = new Plots(code, this.contextMenu);
@@ -146,6 +148,7 @@ export class Workbench {
 		this.positAssistant = new PositAssistant(code);
 		this.inlineDataExplorer = new InlineDataExplorer(code.driver.page);
 		this.inlineQuarto = new InlineQuarto(code, this.quickaccess, this.hotKeys);
+		this.packages = new Packages(code, this.contextMenu, this.quickInput, this.toasts);
 	}
 }
 

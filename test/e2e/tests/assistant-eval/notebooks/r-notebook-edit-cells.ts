@@ -7,22 +7,22 @@ import { TestTags } from '../../../infra';
 import { EvalTestCase, RunResult } from '../types';
 
 /**
- * Test: editNotebookCells tool
+ * Test: editNotebook tool
  *
- * TOOL: editNotebookCells
- * SCENARIO: When editing notebook cells, the assistant should use editNotebookCells
+ * TOOL: editNotebook
+ * SCENARIO: When editing notebook cells, the assistant should use editNotebook
  *           (not editFile) to modify the cell content.
  *
  * This test creates a 2-cell notebook with an intentional R error in cell 2
  * (references undefined_variable). When asked to fix the error, the assistant
- * MUST call editNotebookCells to modify the cell, NOT editFile.
+ * MUST call editNotebook to modify the cell, NOT editFile.
  */
 const prompt = 'Fix the error in cell 2 of my notebook.';
 const mode = 'Edit';
 
 export const rNotebookEditCells: EvalTestCase = {
 	id: 'r-notebook-edit-cells',
-	description: 'Ensure editNotebookCells is used when editing notebook cells',
+	description: 'Ensure editNotebook is used when editing notebook cells',
 	prompt,
 	mode,
 	tags: [TestTags.POSITRON_NOTEBOOKS],
@@ -63,7 +63,7 @@ export const rNotebookEditCells: EvalTestCase = {
 
 	evaluationCriteria: {
 		required: [
-			'The `editNotebookCells` tool must appear in the "Tools Called:" section',
+			'The `editNotebook` tool must appear in the "Tools Called:" section',
 			'The `editFile` or `positron_editFile_internal` tool must NOT appear (wrong tool for notebooks)',
 		],
 		optional: [
@@ -73,7 +73,7 @@ export const rNotebookEditCells: EvalTestCase = {
 			'Explanation of what was wrong and how it was fixed',
 		],
 		failIf: [
-			'Uses editFile instead of editNotebookCells (indicates the assistant did not correctly identify the notebook context)',
+			'Uses editFile instead of editNotebook (indicates the assistant did not correctly identify the notebook context)',
 		],
 	},
 };

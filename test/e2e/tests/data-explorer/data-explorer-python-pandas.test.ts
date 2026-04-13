@@ -99,7 +99,7 @@ test.describe('Data Explorer - Python Pandas', {
 		await notebooks.openNotebook(join(app.workspacePathOrFolder, 'workspaces', 'data-explorer-update-datasets', pythonNotebook));
 		await notebooks.selectInterpreter('Python', process.env.POSITRON_PY_VER_SEL!);
 		await notebooks.selectCellAtIndex(0);
-		await notebooks.executeActiveCell();
+		await notebooks.executeCodeInCell();
 
 		// open the DataFrame in data explorer and verify data
 		await variables.doubleClickVariableRow('df');
@@ -110,14 +110,14 @@ test.describe('Data Explorer - Python Pandas', {
 		// execute the next cell and verify data in the data explorer
 		await editors.clickTab(pythonNotebook);
 		await notebooks.selectCellAtIndex(1);
-		await notebooks.executeActiveCell();
+		await notebooks.executeCodeInCell();
 		await editors.clickTab('Data: df');
 		await dataExplorer.grid.verifyTableDataLength(12);
 
 		// execute the next cell to sort the DataFrame and verify sorted data
 		await editors.clickTab(pythonNotebook);
 		await notebooks.selectCellAtIndex(2);
-		await notebooks.executeActiveCell();
+		await notebooks.executeCodeInCell();
 		await editors.clickTab('Data: df');
 		await dataExplorer.grid.sortColumnBy(1, 'Sort Descending');
 		await dataExplorer.grid.verifyTableDataLength(12);

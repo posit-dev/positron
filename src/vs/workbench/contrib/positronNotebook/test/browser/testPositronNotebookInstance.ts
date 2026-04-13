@@ -29,6 +29,8 @@ import { IContextKeyService } from '../../../../../platform/contextkey/common/co
 import { IModelService } from '../../../../../editor/common/services/model.js';
 import { ILanguageService } from '../../../../../editor/common/languages/language.js';
 import { PLAINTEXT_LANGUAGE_ID } from '../../../../../editor/common/languages/modesRegistry.js';
+import { Event } from '../../../../../base/common/event.js';
+import { IPositronWebviewPreloadService } from '../../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 
 /**
  * Test subclass of PositronNotebookInstance that exposes disposable registration.
@@ -58,6 +60,29 @@ export function positronNotebookInstantiationService(
 	instantiationService.stub(ILanguageFeatureDebounceService, instantiationService.createInstance(LanguageFeatureDebounceService));
 	instantiationService.stub(ILanguageFeaturesService, new LanguageFeaturesService());
 	instantiationService.stub(ITreeSitterLibraryService, new TestTreeSitterLibraryService());
+
+	// Override the real webview preload service with a lightweight mock to avoid
+	// creating real webviews (which create undisposed disposables in unit tests).
+	// The mock returns a display-type result for rawHtml outputs and undefined otherwise.
+	// eslint-disable-next-line local/code-no-dangerous-type-assertions
+	instantiationService.stub(IPositronWebviewPreloadService, {
+		initialize: () => { },
+		attachNotebookInstance: () => { },
+		addNotebookOutput: (opts: { outputId: string; rawHtml?: string }) => {
+			if (opts.rawHtml) {
+				return {
+					preloadMessageType: 'display' as const,
+					webview: Promise.resolve({
+						id: opts.outputId,
+						sessionId: opts.outputId,
+						dispose() { },
+						onDidRender: Event.None,
+					}),
+				};
+			}
+			return undefined;
+		},
+	} as Partial<IPositronWebviewPreloadService> as IPositronWebviewPreloadService);
 
 	return instantiationService;
 }

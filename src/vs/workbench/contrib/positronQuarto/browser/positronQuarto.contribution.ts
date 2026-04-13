@@ -25,7 +25,9 @@ import {
 	IS_QUARTO_DOCUMENT,
 	POSITRON_QUARTO_INLINE_OUTPUT_KEY,
 	QUARTO_INLINE_OUTPUT_ENABLED,
+	QUARTO_KERNEL_BUSY,
 	QUARTO_KERNEL_RUNNING,
+	QUARTO_LANGUAGE_IDS,
 	isQuartoDocument,
 	isQuartoOrRmdFile,
 } from '../common/positronQuartoConfig.js';
@@ -35,6 +37,7 @@ import { ILanguageRuntimeService, RuntimeStartupPhase } from '../../../services/
 import { MenuId } from '../../../../platform/actions/common/actions.js';
 import { PositronActionBarWidgetRegistry } from '../../../../platform/positronActionBar/browser/positronActionBarWidgetRegistry.js';
 import { QuartoKernelStatusBadge } from './QuartoKernelStatusBadge.js';
+import { ResourceContextKey } from '../../../common/contextkeys.js';
 
 // Import the configuration to ensure it's registered
 import '../common/positronQuartoConfig.js';
@@ -79,6 +82,7 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 	private readonly _isQuartoDocumentKey = IS_QUARTO_DOCUMENT.bindTo(this._contextKeyService);
 	private readonly _inlineOutputEnabledKey = QUARTO_INLINE_OUTPUT_ENABLED.bindTo(this._contextKeyService);
 	private readonly _kernelRunningKey = QUARTO_KERNEL_RUNNING.bindTo(this._contextKeyService);
+	private readonly _kernelBusyKey = QUARTO_KERNEL_BUSY.bindTo(this._contextKeyService);
 
 	/** Tracks documents that have already had auto-start attempted, so we only auto-start on first open. */
 	private readonly _autoStartedDocuments = new Set<string>();
@@ -173,8 +177,10 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 				state === QuartoKernelState.Busy ||
 				state === QuartoKernelState.Starting;
 			this._kernelRunningKey.set(isRunning);
+			this._kernelBusyKey.set(state === QuartoKernelState.Busy);
 		} else {
 			this._kernelRunningKey.set(false);
+			this._kernelBusyKey.set(false);
 		}
 	}
 
@@ -283,7 +289,17 @@ PositronActionBarWidgetRegistry.registerWidget({
 	order: 100, // Rightmost position (same as notebook kernel status)
 	when: ContextKeyExpr.and(
 		QUARTO_INLINE_OUTPUT_ENABLED,
-		IS_QUARTO_DOCUMENT
+		// Important: use the per-editor-group resourceLangId here, NOT the
+		// global IS_QUARTO_DOCUMENT context key. Widget `when` clauses are
+		// evaluated per editor pane, so global context keys leak visibility
+		// into unrelated panes (e.g. a notebook open beside a Quarto doc
+		// would show two kernel selectors). resourceLangId is set on each
+		// editor group's scoped context key service, so it correctly scopes
+		// the widget to only panes showing a Quarto file. Compare with the
+		// notebook kernel widget, which uses `activeEditor` -- also per-group.
+		ContextKeyExpr.or(
+			...QUARTO_LANGUAGE_IDS.map(id => ContextKeyExpr.equals(ResourceContextKey.LangId.key, id))
+		)
 	),
 	selfContained: true,
 	componentFactory: (accessor) => {

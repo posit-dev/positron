@@ -112,6 +112,7 @@ def json_rpc_request(
         "content": {
             "data": {
                 "jsonrpc": "2.0",
+                "id": "test-id",
                 "method": method,
                 **data,
             },

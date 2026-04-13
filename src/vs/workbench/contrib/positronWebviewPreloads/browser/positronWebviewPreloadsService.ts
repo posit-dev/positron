@@ -16,6 +16,8 @@ import { VSBuffer } from '../../../../base/common/buffer.js';
 import { isWebviewDisplayMessage, getWebviewMessageType } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { IPositronNotebookInstance } from '../../positronNotebook/browser/IPositronNotebookInstance.js';
 import { IPositronIPyWidgetsService } from '../../../services/positronIPyWidgets/common/positronIPyWidgetsService.js';
+import { dirname } from '../../../../base/common/resources.js';
+import { Schemas } from '../../../../base/common/network.js';
 
 /**
  * Format of output from a notebook cell
@@ -177,16 +179,36 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 	public addNotebookOutput({
 		instance,
 		outputId,
-		outputs
+		outputs,
+		rawHtml
 	}: {
 		instance: IPositronNotebookInstance;
 		outputId: NotebookOutput['outputId'];
 		outputs: NotebookOutput['outputs'];
+		rawHtml?: string;
 	}): NotebookPreloadOutputResults | undefined {
 		const notebookMessages = this._messagesByNotebookId.get(instance.getId());
 
 		if (!notebookMessages) {
 			throw new Error(`PositronWebviewPreloadService: Notebook ${instance.getId()} not found in messagesByNotebookId map.`);
+		}
+
+		// Raw HTML outputs bypass MIME-based type detection and are rendered
+		// directly in an isolated overlay webview.
+		if (rawHtml) {
+			const rawHtmlBaseUri = instance.uri.scheme === Schemas.untitled
+				? undefined
+				: dirname(instance.uri);
+			// TODO: Overlay webviews (display AND raw HTML) are not disposed when
+			// outputs are cleared, cells are deleted, or output types change. A
+			// follow-up PR should add model-change reconciliation for all webview
+			// types. This is also a virtualization prerequisite: when cells are
+			// virtualized, the service will need to hold webviews across
+			// component mount/unmount cycles.
+			return {
+				preloadMessageType: 'display',
+				webview: this._notebookOutputWebviewService.createRawHtmlOutputWebview(outputId, rawHtml, rawHtmlBaseUri),
+			};
 		}
 
 		// Check if this output contains any mime types that require webview handling

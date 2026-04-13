@@ -194,7 +194,9 @@ export function NotebookCellWrapper({ cell, children }: {
 		}}
 	>
 		<CellScopedContextKeyServiceProvider service={scopedContextKeyService}>
-			<NotebookCellActionBar cell={cell} />
+			<div className='positron-notebooks-cell-action-bar-container'>
+				<NotebookCellActionBar cell={cell} />
+			</div>
 			<NotebookErrorBoundary
 				componentName={`Cell[${cell.isCodeCell() ? 'code' : cell.isMarkdownCell() ? 'markdown' : 'raw'}]`}
 				level='cell'

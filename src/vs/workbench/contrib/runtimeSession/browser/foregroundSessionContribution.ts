@@ -7,14 +7,12 @@ import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.j
 import { basename, isEqual } from '../../../../base/common/resources.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { IWorkbenchContribution } from '../../../common/contributions.js';
-import { registerSingleton, InstantiationType } from '../../../../platform/instantiation/common/extensions.js';
+import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { ICodeEditorService } from '../../../../editor/browser/services/codeEditorService.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { LanguageRuntimeSessionMode, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import {
 	isQuartoDocument,
 	usingQuartoInlineOutput,
@@ -25,22 +23,6 @@ import { IPositronNotebookInstance } from '../../positronNotebook/browser/IPosit
 import { IPositronNotebookService } from '../../positronNotebook/browser/positronNotebookService.js';
 import { INotebookEditor } from '../../notebook/browser/notebookBrowser.js';
 import { INotebookEditorService } from '../../notebook/browser/services/notebookEditorService.js';
-
-/**
- * Service interface for the foreground session contribution.
- * Allows other components to set the foreground session through the contribution
- * rather than directly via the runtime session service.
- */
-export interface IForegroundSessionContribution {
-	readonly _serviceBrand: undefined;
-
-	/**
-	 * Sets the foreground session. No-op if the session is already the foreground session.
-	 */
-	setForegroundSession(session: ILanguageRuntimeSession): void;
-}
-
-export const IForegroundSessionContribution = createDecorator<IForegroundSessionContribution>('foregroundSessionContribution');
 
 /**
  * Contribution that coordinates foreground session changes due to editor tab changes.
@@ -63,7 +45,8 @@ export const IForegroundSessionContribution = createDecorator<IForegroundSession
  *
  * Console session foreground changes are handled directly by:
  * - consoleTabList.tsx: Sets foreground when user clicks a tab
- * - positronConsoleView.tsx: Sets foreground when console pane gains focus
+ * - positronConsoleView.tsx: Sets foreground when console pane gains focus (console sessions only)
+ * - positronConsoleService.ts: Sets foreground for programmatic console operations (focusSession, deleteSession, revealExecution)
  * - runtimeSession.ts: Sets foreground when console session starts or becomes ready
  *
  * The foreground session is used by:
@@ -72,10 +55,8 @@ export const IForegroundSessionContribution = createDecorator<IForegroundSession
  * - Interpreter picker (shows foreground session name)
  * - Language Runtime Actions (restart, interrupt, etc.)
  */
-class ForegroundSessionContribution extends Disposable implements IWorkbenchContribution, IForegroundSessionContribution {
+class ForegroundSessionContribution extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'workbench.contrib.foregroundSessionContribution';
-
-	readonly _serviceBrand: undefined;
 
 	/** Tracks disposables for each Positron notebook instance's focus listener */
 	private readonly _positronNotebookDisposables = new Map<string, DisposableStore>();
@@ -217,13 +198,6 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 		// This is important for the case where the active editor is a notebook, so that the notebook session is set as foreground on startup.
 		// Without this, the foreground session would only be set after the user focuses a different editor and then comes back to the notebook.
 		this._handleActiveEditorChange();
-	}
-
-	setForegroundSession(session: ILanguageRuntimeSession): void {
-		if (this._runtimeSessionService.foregroundSession?.sessionId !== session.sessionId) {
-			this._logService.trace(`[ForegroundSessionContribution] setForegroundSession called, setting foreground session: ${session.sessionId}`);
-			this._runtimeSessionService.foregroundSession = session;
-		}
 	}
 
 	override dispose(): void {
@@ -629,6 +603,5 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 	}
 }
 
-// Register as an eager singleton service so it is instantiated at startup
-// and can be injected by other components.
-registerSingleton(IForegroundSessionContribution, ForegroundSessionContribution, InstantiationType.Eager);
+// Register as a workbench contribution so it is instantiated at startup.
+registerWorkbenchContribution2(ForegroundSessionContribution.ID, ForegroundSessionContribution, WorkbenchPhase.BlockRestore);

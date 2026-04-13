@@ -137,6 +137,11 @@ export class PythonLsp implements vscode.Disposable {
                   // Assistant code confirmation widget: https://github.com/posit-dev/positron/issues/7750
                   { language: 'python', scheme: 'assistant-code-confirmation-widget' },
                   { language: 'python', pattern: '**/*.py' },
+                  // Match Quarto virtual documents (vdocs) so the
+                  // console LSP can provide completions in Quarto
+                  // code blocks when inline output is disabled and
+                  // no notebook LSP exists.
+                  VDOC_SELECTOR,
               ];
 
         // This is needed in addition to the document selector, otherwise every client seems to
@@ -162,11 +167,19 @@ export class PythonLsp implements vscode.Disposable {
         // the notebook LSP skips regular console inputs.
         const shouldSkipDocument = (document: vscode.TextDocument): boolean => {
             if (!notebookUri) {
-                // Console LSP: skip vdoc files (notebook LSP handles them)
+                // Console LSP: skip vdoc files when inline output
+                // is enabled, because a notebook LSP handles them.
+                // When inline output is disabled, no notebook LSP
+                // exists, so the console LSP must handle vdocs.
                 if (document.uri.scheme === 'file') {
                     const baseName = path.basename(document.uri.fsPath);
                     if (VDOC_PATTERN.test(baseName)) {
-                        return true;
+                        const inlineOutputEnabled = vscode.workspace
+                            .getConfiguration('positron.quarto.inlineOutput')
+                            .get<boolean>('enabled', false);
+                        if (inlineOutputEnabled) {
+                            return true;
+                        }
                     }
                 }
                 // Console LSP: skip notebook console inputs
