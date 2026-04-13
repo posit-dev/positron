@@ -13,7 +13,7 @@ import { IInterpreterQuickPick, IPythonPathUpdaterServiceManager } from '../../i
 import { getCreationEvents, handleCreateEnvironmentCommand } from './createEnvironment';
 import { condaCreationProvider } from './provider/condaCreationProvider';
 import { VenvCreationProvider, VenvCreationProviderId } from './provider/venvCreationProvider';
-import { showInformationMessage } from '../../common/vscodeApis/windowApis';
+import { showErrorMessage, showInformationMessage } from '../../common/vscodeApis/windowApis';
 import { CreateEnv } from '../../common/utils/localize';
 import {
     CreateEnvironmentProvider,
@@ -193,11 +193,28 @@ export async function registerCreateEnvironmentFeatures(
         registerCommand(Commands.Is_Uv_Installed, async () => await isUvInstalled()),
         registerCommand(Commands.Get_Uv_Python_Versions, () => getUvPythonVersions()),
         registerCommand(Commands.InstallPythonViaUv, async () => {
-            const result = await installPythonViaUv();
-            if (result.success && result.pythonPath) {
-                await pythonRuntimeManager.selectLanguageRuntimeFromPath(result.pythonPath, true);
+            try {
+                const result = await installPythonViaUv();
+                if (result.success && result.pythonPath) {
+                    // Register the runtime without starting a session - the caller handles that
+                    let metadata = await pythonRuntimeManager.registerLanguageRuntimeFromPath(result.pythonPath, true);
+
+                    // If registration failed, the interpreter might not be discovered yet - trigger refresh and retry
+                    if (!metadata) {
+                        await pythonRuntimeManager.triggerInterpreterRefresh();
+                        metadata = await pythonRuntimeManager.registerLanguageRuntimeFromPath(result.pythonPath, true);
+                    }
+
+                    return { pythonPath: result.pythonPath, runtimeId: metadata?.runtimeId };
+                }
+                if (result.error && result.error !== 'Cancelled') {
+                    showErrorMessage(result.error);
+                }
+                return undefined;
+            } catch (error) {
+                showErrorMessage(`Failed to install Python: ${error}`);
+                return undefined;
             }
-            return result.success ? result.pythonPath : undefined;
         }),
         registerCommand(Commands.Is_Global_Python, (interpreterPath: string) => isGlobalPython(interpreterPath)),
         // --- End Positron ---

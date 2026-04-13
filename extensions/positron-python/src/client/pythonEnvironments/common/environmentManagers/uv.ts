@@ -14,13 +14,13 @@ import { splitLines } from '../../../common/stringUtils';
 import { CreateEnv } from '../../../common/utils/localize';
 
 /** Regex to extract version from uv python list output (e.g., "cpython-3.14.0a5-macos-aarch64-none") */
-const UV_VERSION_REGEX = /cpython-(\d+\.\d+\.\d+(?:a|b|rc)?\d*)/i;
+export const UV_VERSION_REGEX = /cpython-(\d+\.\d+\.\d+(?:a|b|rc)?\d*)/i;
 
 /** Regex to check if a version string is a pre-release (alpha, beta, or release candidate) */
-const PRERELEASE_REGEX = /\d+\.\d+\.\d+(a|b|rc)\d+/i;
+export const PRERELEASE_REGEX = /\d+\.\d+\.\d+(a|b|rc)\d+/i;
 
 /** Check if a version string represents a pre-release version */
-function isVersionPrerelease(version: string): boolean {
+export function isVersionPrerelease(version: string): boolean {
     return PRERELEASE_REGEX.test(version);
 }
 

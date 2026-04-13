@@ -303,6 +303,7 @@ export namespace InterpreterQuickPickList {
         export const installFailed = (version: string) => l10n.t('Failed to install Python {0}', version);
         export const uvInstallFailed = l10n.t('Failed to install uv');
         export const createVenvPrompt = l10n.t('Create a virtual environment in your workspace?');
+        export const yesRecommended = l10n.t('Yes (recommended)');
         export const creatingVenv = l10n.t('Creating virtual environment');
         export const venvCreated = l10n.t('Virtual environment created');
     }

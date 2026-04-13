@@ -4,19 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { traceError, traceInfo, traceVerbose } from '../../../logging';
+import { traceError, traceInfo } from '../../../logging';
 import { exec } from '../externalDependencies';
-import { isUvInstalled } from './uv';
+import { isUvInstalled, PRERELEASE_REGEX, UV_VERSION_REGEX } from './uv';
 import { Common, InterpreterQuickPickList } from '../../../common/utils/localize';
 import { MINIMUM_PYTHON_VERSION, MAXIMUM_PYTHON_VERSION_EXCLUSIVE } from '../../../common/constants';
 import { getWorkspaceFolders } from '../../../common/vscodeApis/workspaceApis';
 import { createUvVenv } from '../../creation/provider/uvCreationProvider';
-
-/** Regex to extract version from uv python list output (e.g., "cpython-3.13.1-macos-aarch64-none" or "cpython-3.14.0a5-macos-aarch64-none") */
-const UV_VERSION_REGEX = /cpython-(\d+\.\d+\.\d+(?:a|b|rc)?\d*)/i;
-
-/** Regex to check if a version string is a pre-release (alpha, beta, or release candidate) */
-const PRERELEASE_REGEX = /\d+\.\d+\.\d+(a|b|rc)\d+/i;
 
 /**
  * Information about an available Python version from uv.
@@ -33,25 +27,11 @@ export interface UvAvailablePython {
 }
 
 /**
- * Gets the command to install uv based on the current platform.
- * @returns Shell command string to install uv
- */
-function getUvInstallCommand(): string {
-    if (process.platform === 'win32') {
-        return 'powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"';
-    }
-    return 'curl -LsSf https://astral.sh/uv/install.sh | sh';
-}
-
-/**
  * Installs uv using the official installer script.
  * @returns true if installation succeeded, false otherwise
  */
 async function installUv(): Promise<boolean> {
     traceInfo('Installing uv...');
-
-    const command = getUvInstallCommand();
-    traceVerbose(`Running uv install command: ${command}`);
 
     try {
         if (process.platform === 'win32') {
@@ -198,14 +178,16 @@ export async function getAvailablePythonVersions(): Promise<UvAvailablePython[]>
 }
 
 /**
- * Installs a Python version using uv.
+ * Installs a Python version using uv and returns the path to the installed Python.
  * @param version The version to install (e.g., "3.13.1" or "3.13")
  * @returns The path to the installed Python, or undefined if installation failed
  */
-async function installPythonVersion(version: string): Promise<string | undefined> {
+async function installPythonVersionAndGetPath(version: string): Promise<string | undefined> {
     traceInfo(`Installing Python ${version} via uv...`);
 
     try {
+        // Use exec directly instead of installUvPython to avoid cache issues
+        // when uv was just installed in the same session
         await exec('uv', ['python', 'install', version], { throwOnStdErr: false });
         traceInfo(`Python ${version} installed successfully`);
 
@@ -294,7 +276,7 @@ export async function installPythonViaUv(): Promise<InstallPythonResult> {
                 }
 
                 progress.report({ message: InterpreterQuickPickList.UvInstall.installingPythonVersion(version) });
-                const pythonPath = await installPythonVersion(version);
+                const pythonPath = await installPythonVersionAndGetPath(version);
                 if (!pythonPath) {
                     return { success: false, error: InterpreterQuickPickList.UvInstall.installFailed(version) };
                 }
@@ -304,7 +286,7 @@ export async function installPythonViaUv(): Promise<InstallPythonResult> {
                 if (workspaces && workspaces.length > 0) {
                     const createVenv = await vscode.window.showQuickPick(
                         [
-                            { label: Common.bannerLabelYes, id: 'yes' },
+                            { label: InterpreterQuickPickList.UvInstall.yesRecommended, id: 'yes' },
                             { label: Common.bannerLabelNo, id: 'no' },
                         ],
                         { title: InterpreterQuickPickList.UvInstall.createVenvPrompt },

@@ -13,7 +13,7 @@ import { IQuickInputService, IQuickPickItem, QuickPickItem } from '../../../../p
 import { IKeybindingRule, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { LANGUAGE_RUNTIME_ACTION_CATEGORY } from '../common/languageRuntime.js';
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
@@ -420,8 +420,10 @@ const selectNewLanguageRuntime = async (
 	});
 
 	// Check if we should show the "Install Python via uv" option
+	// Only check after discovery is complete to avoid showing the option prematurely
 	const allowPythonInstall = configurationService.getValue<boolean>('python.allowPythonInstall') ?? true;
-	if (allowPythonInstall) {
+	const discoveryComplete = languageRuntimeService.startupPhase === RuntimeStartupPhase.Complete;
+	if (allowPythonInstall && discoveryComplete) {
 		const alwaysShow = configurationService.getValue<boolean>('python.INTERNAL_alwaysShowUvInstallOption') ?? false;
 		const pythonRuntimes = languageRuntimeService.registeredRuntimes.filter(r => r.languageId === 'python');
 		const hasOnlySystemPython = pythonRuntimes.length > 0 &&
@@ -449,11 +451,15 @@ const selectNewLanguageRuntime = async (
 
 	// Handle "Install Python via uv" - venv creation is handled in the Python extension
 	if (selectedRuntime.id === INSTALL_PYTHON_VIA_UV_ID) {
-		const pythonPath = await commandService.executeCommand<string | undefined>('python.installPythonViaUv');
-		if (pythonPath) {
+		const result = await commandService.executeCommand<{ pythonPath: string; runtimeId?: string } | undefined>('python.installPythonViaUv');
+		if (result?.runtimeId) {
+			return languageRuntimeService.getRegisteredRuntime(result.runtimeId);
+		}
+		// Fallback: if runtimeId not returned, try to find by path after discovery
+		if (result?.pythonPath) {
 			await commandService.executeCommand(LANGUAGE_RUNTIME_DISCOVER_RUNTIMES_ID);
 			return languageRuntimeService.registeredRuntimes.find(
-				r => r.languageId === 'python' && r.runtimePath === pythonPath
+				r => r.languageId === 'python' && r.runtimePath === result.pythonPath
 			);
 		}
 		return undefined;
