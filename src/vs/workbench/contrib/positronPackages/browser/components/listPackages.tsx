@@ -21,6 +21,7 @@ import * as DOM from '../../../../../base/browser/dom.js';
 import { isMacintosh } from '../../../../../base/common/platform.js';
 import { useStateRef } from '../../../../../base/browser/ui/react/useStateRef.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { ActionBarFilter } from '../../../../../platform/positronActionBar/browser/components/actionBarFilter.js';
 import { ViewsProps } from '../positronPackages.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { localize } from '../../../../../nls.js';
@@ -39,6 +40,9 @@ const positronUpdatePackage = localize(
 	'positronUpdatePackage',
 	'Update Package',
 );
+
+// Height of the filter container in pixels
+const FILTER_HEIGHT = 34;
 
 export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	const {
@@ -141,6 +145,18 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		};
 	}, [loading]);
 
+	// Filter state
+	const [filterText, setFilterText] = useState('');
+	const [debouncedFilterText, setDebouncedFilterText] = useState('');
+
+	// Debounce filter text changes (300ms)
+	useEffect(() => {
+		const timeout = setTimeout(() => {
+			setDebouncedFilterText(filterText);
+		}, 300);
+		return () => clearTimeout(timeout);
+	}, [filterText]);
+
 	// Deduplicate packages by name, keeping only the first occurrence.
 	// The same package can exist in multiple library paths (e.g., user and system libraries).
 	// We show only the first one, matching R's library search order.
@@ -154,6 +170,18 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 			return true;
 		});
 	}, [packages]);
+
+	// Filter packages based on the debounced filter text (case-insensitive, matches name or displayName)
+	const filteredPackages = useMemo(() => {
+		if (!debouncedFilterText) {
+			return deduplicatedPackages;
+		}
+		const lowerFilter = debouncedFilterText.toLowerCase();
+		return deduplicatedPackages.filter((pkg) =>
+			pkg.name.toLowerCase().includes(lowerFilter) ||
+			pkg.displayName.toLowerCase().includes(lowerFilter)
+		);
+	}, [deduplicatedPackages, debouncedFilterText]);
 
 	// UI State
 	const [focused, setFocused] = useState(false);
@@ -194,7 +222,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 
 	// Item renderer
 	const ItemEntry = (props: { index: number; style: CSSProperties }) => {
-		const itemProps = deduplicatedPackages[props.index];
+		const itemProps = filteredPackages[props.index];
 		const { id, name, displayName, version } = itemProps;
 
 		return (
@@ -280,12 +308,19 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		>
 			<div ref={progressRef} id='packages-progress' />
 
+			<div className='packages-filter-container'>
+				<ActionBarFilter
+					placeholder={localize('positronPackages.filterPlaceholder', "Filter packages")}
+					width={0}
+					onFilterTextChanged={setFilterText}
+				/>
+			</div>
 			<div className='packages-list-container'>
 				<List
-					height={height}
+					height={height - FILTER_HEIGHT}
 					innerRef={innerRef}
-					itemCount={deduplicatedPackages.length}
-					itemKey={(index) => deduplicatedPackages[index].id}
+					itemCount={filteredPackages.length}
+					itemKey={(index) => filteredPackages[index].id}
 					itemSize={26}
 					width={'calc(100% - 2px)'}
 				>
