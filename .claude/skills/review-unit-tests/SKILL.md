@@ -31,7 +31,7 @@ Is the test using `createTestContainer()`? Flag any usage of `positronWorkbenchI
 
 ### 3. Setup weight
 
-Count lines of setup vs number of tests. If the ratio exceeds 10:1, suggest extracting a helper function. If 3+ test files would need the same setup, suggest a new builder preset.
+Count lines of setup vs number of tests. If the ratio exceeds 10:1, suggest extracting a helper function. If 2+ test files would need the same setup, suggest a new builder preset.
 
 ### 4. Mock minimality
 
