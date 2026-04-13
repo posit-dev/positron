@@ -21,7 +21,12 @@ test.describe('Extensions', {
 
 		await app.workbench.extensions.installExtension('mikhail-arkhipov.r', false, true);
 
-		await expect(app.code.driver.currentPage.getByLabel('DialogService: refused to show dialog in tests. Contents: Cannot install the \'R Tools\' extension because it conflicts with Positron built-in features').first()).toBeVisible();
+		// When a blocked extension install is attempted in smoke test mode, the dialog service
+		// refuses to show the dialog and throws an error. This error propagates to
+		// notificationService.error(), which triggers the ARIA alert mechanism. The alert
+		// sets textContent (not aria-label) on the role="alert" element, so we use
+		// getByRole('alert') with a text filter rather than getByLabel.
+		await expect(app.code.driver.currentPage.getByRole('alert').filter({ hasText: "Cannot install the 'R Tools' extension because it conflicts with Positron built-in features" })).toBeVisible({ timeout: 15000 });
 
 	});
 });
