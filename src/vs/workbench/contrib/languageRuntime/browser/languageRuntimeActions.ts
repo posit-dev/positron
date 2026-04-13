@@ -453,12 +453,20 @@ const selectNewLanguageRuntime = async (
 	if (selectedRuntime.id === INSTALL_PYTHON_VIA_UV_ID) {
 		try {
 			const result = await commandService.executeCommand<{ pythonPath: string; runtimeId?: string } | undefined>('python.installPythonViaUv');
-			if (result?.runtimeId) {
-				return languageRuntimeService.getRegisteredRuntime(result.runtimeId);
-			}
-			// Fallback: if runtimeId not returned, try to find by path after discovery
 			if (result?.pythonPath) {
+				// Wait for runtime discovery to complete, then find the runtime by path
+				// This is needed because the runtime registration event may not have propagated yet
 				await commandService.executeCommand(LANGUAGE_RUNTIME_DISCOVER_RUNTIMES_ID);
+
+				// First try by runtimeId if provided
+				if (result.runtimeId) {
+					const runtime = languageRuntimeService.getRegisteredRuntime(result.runtimeId);
+					if (runtime) {
+						return runtime;
+					}
+				}
+
+				// Fallback: search by path
 				return languageRuntimeService.registeredRuntimes.find(
 					r => r.languageId === 'python' && r.runtimePath === result.pythonPath
 				);

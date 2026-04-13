@@ -266,11 +266,6 @@ export async function installPythonViaUv(): Promise<InstallPythonResult> {
                     if (!(await installUv())) {
                         return { success: false, error: InterpreterQuickPickList.UvInstall.uvInstallFailed };
                     }
-                    // Verify uv is now runnable (installer may only update shell config, not current process)
-                    if (!(await isUvInstalled())) {
-                        traceError('uv installed but not available in current process PATH');
-                        return { success: false, error: InterpreterQuickPickList.UvInstall.uvInstallFailed };
-                    }
                 }
 
                 // Select and install Python version

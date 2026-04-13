@@ -339,17 +339,26 @@ suite('UV Python Installer Tests', () => {
             assert.ok(result.error);
         });
 
-        test('Returns error when uv installed but not available in PATH', async () => {
-            // uv not installed initially, then still not available after install attempt
+        test('Continues after uv installation even if PATH not updated in current process', async () => {
+            // uv not installed initially
             isUvInstalledStub.onFirstCall().resolves(false);
-            isUvInstalledStub.onSecondCall().resolves(false);
-            // uv install command succeeds
-            execStub.resolves({ stdout: '' });
+            // uv install succeeds, then uv python list works (uv found via default install path)
+            execStub.onFirstCall().resolves({ stdout: '' }); // uv install
+            execStub.onSecondCall().resolves({
+                stdout: 'cpython-3.13.1-macos-aarch64-none    <download available>',
+            });
+            // User selects version
+            quickPickResponses = [{ version: '3.13', label: 'Python 3.13' }];
+            // uv python install succeeds
+            execStub.onThirdCall().resolves({ stdout: '' });
+            // uv python find returns path
+            execStub.onCall(3).resolves({ stdout: '/usr/local/bin/python3.13' });
+            // No workspace
+            getWorkspaceFoldersStub.returns(undefined);
 
             const result = await installPythonViaUv();
 
-            assert.strictEqual(result.success, false);
-            assert.ok(traceErrorStub.calledWith('uv installed but not available in current process PATH'));
+            assert.strictEqual(result.success, true);
         });
 
         test('Returns error when Python installation fails', async () => {
