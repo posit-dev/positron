@@ -83,8 +83,8 @@ export async function createPythonRuntimeMetadata(
         if (ipykernelBundle.disabledReason) {
             traceInfo(
                 `createPythonRuntime: ipykernel bundling is disabled ` +
-                `(reason: ${ipykernelBundle.disabledReason}). ` +
-                `Checking if ipykernel is installed`,
+                    `(reason: ${ipykernelBundle.disabledReason}). ` +
+                    `Checking if ipykernel is installed`,
             );
             const productInstallStatus = await installer.isProductVersionCompatible(
                 Product.ipykernel,
@@ -119,7 +119,7 @@ export async function createPythonRuntimeMetadata(
             isLocal && recommendedForWorkspace
                 ? positron.LanguageRuntimeStartupBehavior.Immediate
                 : // If ipykernel is not installed and this is not a local Python env, require explicit startup
-                positron.LanguageRuntimeStartupBehavior.Explicit;
+                  positron.LanguageRuntimeStartupBehavior.Explicit;
     }
     traceInfo(`createPythonRuntime: startup behavior: ${startupBehavior}`);
 
@@ -187,9 +187,8 @@ export async function createPythonRuntimeMetadata(
     // differs from actual path /envs/name/bin/python, but envPath is always /envs/name).
     // For other environments, use the interpreter path.
     const digest = crypto.createHash('sha256');
-    const idSource = (interpreter.envType === EnvironmentType.Conda && interpreter.envPath)
-        ? interpreter.envPath
-        : interpreter.path;
+    const idSource =
+        interpreter.envType === EnvironmentType.Conda && interpreter.envPath ? interpreter.envPath : interpreter.path;
     digest.update(idSource);
     const runtimeId = digest.digest('hex').substring(0, 32);
 

@@ -42,18 +42,12 @@ suite('Set up extension', () => {
         interpreterService
             .setup((i) => i.getInterpreterDetails(TypeMoq.It.isAny()))
             .returns(() => Promise.resolve(interpreter));
-        interpreterService
-            .setup((i) => i.triggerRefresh())
-            .returns(() => Promise.resolve(undefined));
-        interpreterService
-            .setup((i) => i.refreshPromise)
-            .returns(() => Promise.resolve());
+        interpreterService.setup((i) => i.triggerRefresh()).returns(() => Promise.resolve(undefined));
+        interpreterService.setup((i) => i.refreshPromise).returns(() => Promise.resolve());
         installer
             .setup((i) => i.install(TypeMoq.It.isAny(), TypeMoq.It.isAny()))
             .returns(() => Promise.resolve(InstallerResponse.Installed));
-        shell
-            .setup((s) => s.withProgress(TypeMoq.It.isAny(), TypeMoq.It.isAny()))
-            .returns((_opts, task) => task());
+        shell.setup((s) => s.withProgress(TypeMoq.It.isAny(), TypeMoq.It.isAny())).returns((_opts, task) => task());
     });
 
     test('installPythonInCondaEnv should install Python if necessary', async () => {

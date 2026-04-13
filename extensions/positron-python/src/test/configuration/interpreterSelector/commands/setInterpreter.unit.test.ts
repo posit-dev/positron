@@ -59,6 +59,7 @@ import * as windowApis from '../../../../client/common/vscodeApis/windowApis';
 import * as workspaceApis from '../../../../client/common/vscodeApis/workspaceApis';
 import { IPythonRuntimeManager } from '../../../../client/positron/manager';
 import { WorkspaceConfiguration } from 'vscode';
+import * as externalDependencies from '../../../../client/pythonEnvironments/common/externalDependencies';
 // --- End Positron ---
 
 type TelemetryEventType = { eventName: EventName; properties: unknown };
@@ -88,6 +89,11 @@ suite('Set Interpreter Command', () => {
     setup(() => {
         useEnvExtensionStub = sinon.stub(extapi, 'useEnvExtension');
         useEnvExtensionStub.returns(false);
+        // --- Start Positron ---
+        // Stub pathExistsSync to return true for mock interpreter paths
+        // so they are not flagged as problematic conda environments
+        sinon.stub(externalDependencies, 'pathExistsSync').returns(true);
+        // --- End Positron ---
 
         interpreterSelector = TypeMoq.Mock.ofType<IInterpreterSelector>();
         multiStepInputFactory = TypeMoq.Mock.ofType<IMultiStepInputFactory>();

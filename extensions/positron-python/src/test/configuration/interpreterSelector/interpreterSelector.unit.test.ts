@@ -5,6 +5,7 @@
 import * as assert from 'assert';
 import * as path from 'path';
 import { SemVer } from 'semver';
+import * as sinon from 'sinon';
 import * as TypeMoq from 'typemoq';
 import { Uri } from 'vscode';
 import { PathUtils } from '../../../client/common/platform/pathUtils';
@@ -17,6 +18,9 @@ import { IInterpreterHelper, IInterpreterService, WorkspacePythonPath } from '..
 import { PythonEnvType } from '../../../client/pythonEnvironments/base/info';
 import { EnvironmentType, PythonEnvironment } from '../../../client/pythonEnvironments/info';
 import { getOSType, OSType } from '../../common';
+// --- Start Positron ---
+import * as externalDependencies from '../../../client/pythonEnvironments/common/externalDependencies';
+// --- End Positron ---
 
 const info: PythonEnvironment = {
     architecture: Architecture.Unknown,
@@ -65,6 +69,11 @@ suite('Interpreters - selector', () => {
     let selector: TestInterpreterSelector;
 
     setup(() => {
+        // --- Start Positron ---
+        // Stub pathExistsSync to return true for mock interpreter paths
+        // so they are not flagged as problematic conda environments
+        sinon.stub(externalDependencies, 'pathExistsSync').returns(true);
+        // --- End Positron ---
         newComparer = TypeMoq.Mock.ofType<IInterpreterComparer>();
         interpreterService = TypeMoq.Mock.ofType<IInterpreterService>();
         fileSystem = TypeMoq.Mock.ofType<IFileSystem>();
@@ -75,6 +84,12 @@ suite('Interpreters - selector', () => {
         newComparer.setup((c) => c.compare(TypeMoq.It.isAny(), TypeMoq.It.isAny())).returns(() => 0);
         selector = new TestInterpreterSelector(interpreterService.object, newComparer.object, new PathUtils(false));
     });
+
+    // --- Start Positron ---
+    teardown(() => {
+        sinon.restore();
+    });
+    // --- End Positron ---
 
     [true, false].forEach((isWindows) => {
         test(`Suggestions (${isWindows ? 'Windows' : 'Non-Windows'})`, async () => {
