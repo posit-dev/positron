@@ -451,16 +451,21 @@ const selectNewLanguageRuntime = async (
 
 	// Handle "Install Python via uv" - venv creation is handled in the Python extension
 	if (selectedRuntime.id === INSTALL_PYTHON_VIA_UV_ID) {
-		const result = await commandService.executeCommand<{ pythonPath: string; runtimeId?: string } | undefined>('python.installPythonViaUv');
-		if (result?.runtimeId) {
-			return languageRuntimeService.getRegisteredRuntime(result.runtimeId);
-		}
-		// Fallback: if runtimeId not returned, try to find by path after discovery
-		if (result?.pythonPath) {
-			await commandService.executeCommand(LANGUAGE_RUNTIME_DISCOVER_RUNTIMES_ID);
-			return languageRuntimeService.registeredRuntimes.find(
-				r => r.languageId === 'python' && r.runtimePath === result.pythonPath
-			);
+		try {
+			const result = await commandService.executeCommand<{ pythonPath: string; runtimeId?: string } | undefined>('python.installPythonViaUv');
+			if (result?.runtimeId) {
+				return languageRuntimeService.getRegisteredRuntime(result.runtimeId);
+			}
+			// Fallback: if runtimeId not returned, try to find by path after discovery
+			if (result?.pythonPath) {
+				await commandService.executeCommand(LANGUAGE_RUNTIME_DISCOVER_RUNTIMES_ID);
+				return languageRuntimeService.registeredRuntimes.find(
+					r => r.languageId === 'python' && r.runtimePath === result.pythonPath
+				);
+			}
+		} catch (error) {
+			// Command may not be registered if Python extension is not active
+			console.error('Failed to install Python via uv:', getErrorMessage(error));
 		}
 		return undefined;
 	}

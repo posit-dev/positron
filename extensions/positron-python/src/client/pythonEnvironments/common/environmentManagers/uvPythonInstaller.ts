@@ -225,7 +225,7 @@ async function selectPythonVersion(): Promise<string | undefined> {
     }
 
     const items: VersionQuickPickItem[] = versions.map((v) => ({
-        label: `Python ${v.version}`,
+        label: InterpreterQuickPickList.UvInstall.pythonVersionLabel(v.version),
         description: v.isInstalled ? InterpreterQuickPickList.UvInstall.installed : undefined,
         detail: v.path,
         version: v.version,
@@ -264,6 +264,11 @@ export async function installPythonViaUv(): Promise<InstallPythonResult> {
                 if (!(await isUvInstalled())) {
                     progress.report({ message: InterpreterQuickPickList.UvInstall.installingUv });
                     if (!(await installUv())) {
+                        return { success: false, error: InterpreterQuickPickList.UvInstall.uvInstallFailed };
+                    }
+                    // Verify uv is now runnable (installer may only update shell config, not current process)
+                    if (!(await isUvInstalled())) {
+                        traceError('uv installed but not available in current process PATH');
                         return { success: false, error: InterpreterQuickPickList.UvInstall.uvInstallFailed };
                     }
                 }

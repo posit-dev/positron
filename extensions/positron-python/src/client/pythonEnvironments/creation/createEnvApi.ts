@@ -14,7 +14,7 @@ import { getCreationEvents, handleCreateEnvironmentCommand } from './createEnvir
 import { condaCreationProvider } from './provider/condaCreationProvider';
 import { VenvCreationProvider, VenvCreationProviderId } from './provider/venvCreationProvider';
 import { showErrorMessage, showInformationMessage } from '../../common/vscodeApis/windowApis';
-import { CreateEnv } from '../../common/utils/localize';
+import { CreateEnv, InterpreterQuickPickList } from '../../common/utils/localize';
 import {
     CreateEnvironmentProvider,
     CreateEnvironmentOptions,
@@ -42,7 +42,7 @@ import {
     isEnvProviderEnabled,
     isGlobalPython,
 } from '../../positron/createEnvApi';
-import { traceLog } from '../../logging';
+import { traceError, traceLog } from '../../logging';
 // --- End Positron ---
 
 class CreateEnvironmentProviders {
@@ -212,7 +212,8 @@ export async function registerCreateEnvironmentFeatures(
                 }
                 return undefined;
             } catch (error) {
-                showErrorMessage(`Failed to install Python: ${error}`);
+                traceError(`installPythonViaUv command failed: ${error}`);
+                showErrorMessage(InterpreterQuickPickList.UvInstall.installCommandFailed);
                 return undefined;
             }
         }),

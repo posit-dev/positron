@@ -298,6 +298,7 @@ export namespace InterpreterQuickPickList {
         export const installingPython = l10n.t('Installing Python');
         export const installingUv = l10n.t('Installing uv');
         export const selectingVersion = l10n.t('Loading available versions');
+        export const pythonVersionLabel = (version: string) => l10n.t('Python {0}', version);
         export const installingPythonVersion = (version: string) => l10n.t('Installing Python {0}', version);
         export const installSuccess = (version: string) => l10n.t('Python {0} installed successfully', version);
         export const installFailed = (version: string) => l10n.t('Failed to install Python {0}', version);
@@ -306,6 +307,7 @@ export namespace InterpreterQuickPickList {
         export const yesRecommended = l10n.t('Yes (recommended)');
         export const creatingVenv = l10n.t('Creating virtual environment');
         export const venvCreated = l10n.t('Virtual environment created');
+        export const installCommandFailed = l10n.t('Failed to install Python');
     }
     // --- End Positron ---
 }
