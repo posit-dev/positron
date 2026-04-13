@@ -247,9 +247,25 @@ function isBaseCondaEnvironment(environment: PythonEnvironment): boolean {
     );
 }
 
+// --- Start Positron ---
 export function isProblematicCondaEnvironment(environment: PythonEnvironment): boolean {
-    return environment.envType === EnvironmentType.Conda && environment.path === 'python';
+    if (environment.envType !== EnvironmentType.Conda) {
+        return false;
+    }
+    // Check if Python is not installed in the conda environment:
+    // - JS locator case: path is just 'python'
+    // - Native locator case: path is a predicted full path that doesn't exist
+    const executablePath = environment.path;
+    if (executablePath === 'python') {
+        return true;
+    }
+    // For full paths, check if the file actually exists
+    if (executablePath && executablePath !== '' && !pathExistsSync(executablePath)) {
+        return true;
+    }
+    return false;
 }
+// --- End Positron ---
 
 /**
  * Compare 2 Python versions in decending order, most recent one comes first.

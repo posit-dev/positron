@@ -12,7 +12,7 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 
 import { IServiceContainer } from '../ioc/types';
-import { PythonEnvironment } from '../pythonEnvironments/info';
+import { EnvironmentType, PythonEnvironment } from '../pythonEnvironments/info';
 import { traceInfo } from '../logging';
 import { IInstaller, Product, ProductInstallStatus } from '../common/types';
 import { IApplicationEnvironment, IWorkspaceService } from '../common/application/types';
@@ -20,6 +20,7 @@ import { EXTENSION_ROOT_DIR, IPYKERNEL_VERSION, PYTHON_LANGUAGE } from '../commo
 import {
     EnvLocationHeuristic,
     getEnvLocationHeuristic,
+    isProblematicCondaEnvironment,
     isVersionSupported,
 } from '../interpreter/configuration/environmentTypeComparer';
 import { getIpykernelBundle, IpykernelBundle } from './ipykernel';
@@ -43,6 +44,8 @@ export interface PythonRuntimeExtraData {
     supported?: boolean;
     /** Module metadata for interpreters discovered via environment modules */
     moduleMetadata?: PythonModuleMetadata;
+    /** True if this is a conda environment without Python installed */
+    condaEnvWithoutPython?: boolean;
 }
 
 export async function createPythonRuntimeMetadata(
@@ -62,30 +65,41 @@ export async function createPythonRuntimeMetadata(
     // NOTE: We may need to pass a resource to getSettings to support multi-root workspaces
     traceInfo('createPythonRuntime: getting extension runtime settings');
 
-    // Check if we should use the bundled ipykernel.
-    const ipykernelBundle = await getIpykernelBundle(interpreter, serviceContainer, workspaceUri);
-
-    // Determine if a compatible version of ipykernel is available (either bundled or already installed).
+    // For conda environments without Python installed, skip ipykernel checks entirely.
+    // Python will be installed when the user selects this runtime.
+    const isCondaWithoutPython = isProblematicCondaEnvironment(interpreter);
+    let ipykernelBundle: IpykernelBundle;
     let hasCompatibleKernel: boolean;
-    if (ipykernelBundle.disabledReason) {
-        traceInfo(
-            `createPythonRuntime: ipykernel bundling is disabled ` +
+
+    if (isCondaWithoutPython) {
+        traceInfo(`createPythonRuntime: conda env without Python, skipping ipykernel checks`);
+        ipykernelBundle = { disabledReason: 'Python not installed in conda environment' };
+        hasCompatibleKernel = false;
+    } else {
+        // Check if we should use the bundled ipykernel.
+        ipykernelBundle = await getIpykernelBundle(interpreter, serviceContainer, workspaceUri);
+
+        // Determine if a compatible version of ipykernel is available (either bundled or already installed).
+        if (ipykernelBundle.disabledReason) {
+            traceInfo(
+                `createPythonRuntime: ipykernel bundling is disabled ` +
                 `(reason: ${ipykernelBundle.disabledReason}). ` +
                 `Checking if ipykernel is installed`,
-        );
-        const productInstallStatus = await installer.isProductVersionCompatible(
-            Product.ipykernel,
-            IPYKERNEL_VERSION,
-            interpreter,
-        );
-        hasCompatibleKernel = productInstallStatus === ProductInstallStatus.Installed;
-        if (hasCompatibleKernel) {
-            traceInfo(`createPythonRuntime: ipykernel installed`);
+            );
+            const productInstallStatus = await installer.isProductVersionCompatible(
+                Product.ipykernel,
+                IPYKERNEL_VERSION,
+                interpreter,
+            );
+            hasCompatibleKernel = productInstallStatus === ProductInstallStatus.Installed;
+            if (hasCompatibleKernel) {
+                traceInfo(`createPythonRuntime: ipykernel installed`);
+            } else {
+                traceInfo('createPythonRuntime: ipykernel not installed');
+            }
         } else {
-            traceInfo('createPythonRuntime: ipykernel not installed');
+            hasCompatibleKernel = true;
         }
-    } else {
-        hasCompatibleKernel = true;
     }
 
     // Define the startup behavior; request immediate startup if this is the
@@ -105,7 +119,7 @@ export async function createPythonRuntimeMetadata(
             isLocal && recommendedForWorkspace
                 ? positron.LanguageRuntimeStartupBehavior.Immediate
                 : // If ipykernel is not installed and this is not a local Python env, require explicit startup
-                  positron.LanguageRuntimeStartupBehavior.Explicit;
+                positron.LanguageRuntimeStartupBehavior.Explicit;
     }
     traceInfo(`createPythonRuntime: startup behavior: ${startupBehavior}`);
 
@@ -131,28 +145,52 @@ export async function createPythonRuntimeMetadata(
     const runtimeSource = interpreter.envType;
 
     // Construct the display name for the runtime, like 'Python (Pyenv: venv-name)'.
-    let runtimeShortName = pythonVersion;
-
-    // Add the environment type (e.g. 'Pyenv', 'Global', 'Conda', etc.)
-    runtimeShortName += ` (${runtimeSource}`;
-
-    // Add the environment name if it's not the same as the Python version
-    if (envName.length > 0 && envName !== pythonVersion) {
-        runtimeShortName += `: ${envName}`;
+    // --- Start Positron ---
+    // For conda envs without Python, don't show the placeholder version
+    let runtimeShortName: string;
+    if (isCondaWithoutPython) {
+        // Just show "(Conda: env-name)" without version
+        runtimeShortName = `(${runtimeSource}`;
+        if (envName.length > 0) {
+            runtimeShortName += `: ${envName}`;
+        }
+        runtimeShortName += ')';
+    } else {
+        runtimeShortName = pythonVersion;
+        // Add the environment type (e.g. 'Pyenv', 'Global', 'Conda', etc.)
+        runtimeShortName += ` (${runtimeSource}`;
+        // Add the environment name if it's not the same as the Python version
+        if (envName.length > 0 && envName !== pythonVersion) {
+            runtimeShortName += `: ${envName}`;
+        }
+        runtimeShortName += ')';
     }
-    runtimeShortName += ')';
+    // --- End Positron ---
 
-    let supportedFlag = '';
-    if (!isVersionSupported(interpreter.version)) {
-        supportedFlag = `Unsupported: `;
+    // --- Start Positron ---
+    // Determine the runtime name based on the environment state
+    let runtimeName: string;
+    if (isCondaWithoutPython) {
+        // Conda environment without Python - show warning, Python will be installed on selection
+        // Format: "$(warning) No Python (Conda: env-name)"
+        runtimeName = `$(warning) No Python ${runtimeShortName}`;
+    } else if (!isVersionSupported(interpreter.version)) {
+        runtimeName = `Unsupported: Python ${runtimeShortName}`;
+    } else {
+        runtimeName = `Python ${runtimeShortName}`;
     }
+    // --- End Positron ---
 
-    const runtimeName = `${supportedFlag}Python ${runtimeShortName}`;
-
-    // Create a stable ID for the runtime based on the interpreter path and version.
+    // Create a stable ID for the runtime.
+    // For conda environments, use envPath (the environment directory) so the ID stays
+    // consistent whether Python is installed or not (the predicted path /envs/name/python
+    // differs from actual path /envs/name/bin/python, but envPath is always /envs/name).
+    // For other environments, use the interpreter path.
     const digest = crypto.createHash('sha256');
-    digest.update(interpreter.path);
-    digest.update(pythonVersion);
+    const idSource = (interpreter.envType === EnvironmentType.Conda && interpreter.envPath)
+        ? interpreter.envPath
+        : interpreter.path;
+    digest.update(idSource);
     const runtimeId = digest.digest('hex').substring(0, 32);
 
     // Create the runtime path.
@@ -168,7 +206,9 @@ export async function createPythonRuntimeMetadata(
     const extraRuntimeData: PythonRuntimeExtraData = {
         pythonPath: interpreter.path,
         ipykernelBundle,
-        supported: isVersionSupported(interpreter.version),
+        // Conda envs without Python are "supported" in the sense that we can install Python
+        supported: isCondaWithoutPython || isVersionSupported(interpreter.version),
+        condaEnvWithoutPython: isCondaWithoutPython,
     };
 
     // Check if this interpreter was discovered via environment modules

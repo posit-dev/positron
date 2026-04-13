@@ -1037,6 +1037,15 @@ declare module 'positron' {
 		onDidDiscoverRuntime?: vscode.Event<LanguageRuntimeMetadata>;
 
 		/**
+		 * An optional event that fires when a runtime should be unregistered.
+		 *
+		 * Used to notify Positron that a previously discovered runtime is no
+		 * longer available and should be removed from the runtime picker.
+		 * The event payload is the runtimeId of the runtime to unregister.
+		 */
+		onDidUnregisterRuntime?: vscode.Event<string>;
+
+		/**
 		 * An optional metadata validation function. If provided, Positron will
 		 * validate any stored metadata before attempting to use it to create a
 		 * new session. This happens when a workspace is re-opened, for example.

@@ -16,7 +16,7 @@ import * as fs from '../common/platform/fs-paths';
 import { IServiceContainer } from '../ioc/types';
 import { pythonRuntimeDiscoverer } from './discoverer';
 import { IInterpreterService } from '../interpreter/contracts';
-import { traceError, traceInfo, traceLog } from '../logging';
+import { traceError, traceInfo } from '../logging';
 import {
     IConfigurationService,
     IDisposable,
@@ -33,8 +33,6 @@ import { IEnvironmentVariablesProvider } from '../common/variables/types';
 import { getConfiguration } from '../common/vscodeApis/workspaceApis';
 import { shouldIncludeInterpreter, getUserDefaultInterpreter } from './interpreterSettings';
 import { hasFiles } from './util';
-import { isProblematicCondaEnvironment } from '../interpreter/configuration/environmentTypeComparer';
-import { EnvironmentType } from '../pythonEnvironments/info';
 import { isCondaEnvironment } from '../pythonEnvironments/common/environmentManagers/conda';
 import { IApplicationShell } from '../common/application/types';
 import { Interpreters } from '../common/utils/localize';
@@ -74,12 +72,19 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
 
     private readonly _onDidDiscoverRuntime = new EventEmitter<positron.LanguageRuntimeMetadata>();
 
+    private readonly _onDidUnregisterRuntime = new EventEmitter<string>();
+
     private readonly _onDidCreateSession = new EventEmitter<PythonRuntimeSession>();
 
     /**
      * An event that fires when a new Python language runtime is discovered.
      */
     public readonly onDidDiscoverRuntime = this._onDidDiscoverRuntime.event;
+
+    /**
+     * An event that fires when a Python language runtime should be unregistered.
+     */
+    public readonly onDidUnregisterRuntime = this._onDidUnregisterRuntime.event;
 
     public readonly onDidCreateSession = this._onDidCreateSession.event;
 
@@ -279,13 +284,20 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
 
         // Extract the extra data from the runtime metadata; it contains the
         // environment ID that was saved when the metadata was created.
-        const extraData: PythonRuntimeExtraData = runtimeMetadata.extraRuntimeData as PythonRuntimeExtraData;
+        let extraData: PythonRuntimeExtraData = runtimeMetadata.extraRuntimeData as PythonRuntimeExtraData;
         if (!extraData || !extraData.pythonPath) {
             throw new Error(`Runtime metadata missing Python path: ${JSON.stringify(extraData)}`);
         }
 
-        // For conda environments without Python, install Python now (deferred from discovery).
-        await checkAndInstallPython(extraData.pythonPath, this.serviceContainer);
+        // For conda environments without Python, install Python and continue with the new runtime
+        if (extraData.condaEnvWithoutPython) {
+            const installResult = await this.handleCondaPythonInstallation(runtimeMetadata, extraData.pythonPath);
+            if (installResult) {
+                // Python was installed - use the new runtime metadata and extraData for this session
+                runtimeMetadata = installResult.metadata;
+                extraData = runtimeMetadata.extraRuntimeData as PythonRuntimeExtraData;
+            }
+        }
 
         // Check Python kernel debug and log level settings
         // NOTE: We may need to pass a resource to getSettings to support multi-root workspaces
@@ -556,41 +568,112 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             traceError(`Tried to switch to a language runtime that has not been registered: ${pythonPath}`);
         }
     }
+
+    /**
+     * Handle Python installation for conda environments without Python.
+     * Installs Python, unregisters the old runtime, and registers a new runtime.
+     *
+     * @param oldMetadata The metadata for the "No Python" runtime
+     * @param pythonPath The predicted Python path
+     * @returns Object with new metadata and Python path if installed, undefined otherwise
+     */
+    private async handleCondaPythonInstallation(
+        oldMetadata: positron.LanguageRuntimeMetadata,
+        pythonPath: string,
+    ): Promise<{ metadata: positron.LanguageRuntimeMetadata; pythonPath: string } | undefined> {
+        const result = await installPythonInCondaEnv(pythonPath, this.serviceContainer);
+        if (!result.installed || !result.actualPythonPath) {
+            return undefined;
+        }
+
+        // Get the interpreter details for the newly installed Python
+        const interpreter = await this.interpreterService.getInterpreterDetails(result.actualPythonPath);
+        if (!interpreter) {
+            traceError(`Could not find interpreter at ${result.actualPythonPath}`);
+            return undefined;
+        }
+
+        // Unregister the old "No Python" runtime and clean up internal map
+        this._onDidUnregisterRuntime.fire(oldMetadata.runtimeId);
+        this.registeredPythonRuntimes.delete(pythonPath);
+
+        // Register the new runtime with correct Python path
+        const newMetadata = await createPythonRuntimeMetadata(interpreter, this.serviceContainer, false);
+        this.registerLanguageRuntime(newMetadata);
+
+        return { metadata: newMetadata, pythonPath: result.actualPythonPath };
+    }
 }
 
-export async function checkAndInstallPython(
+/**
+ * Result of installing Python in a conda environment.
+ */
+export interface CondaPythonInstallResult {
+    installed: boolean;
+    actualPythonPath?: string;
+}
+
+/**
+ * Install Python in a conda environment.
+ *
+ * @param pythonPath The predicted Python interpreter path
+ * @param serviceContainer The service container
+ * @returns Result indicating if Python was installed and the actual path
+ */
+export async function installPythonInCondaEnv(
     pythonPath: string,
     serviceContainer: IServiceContainer,
-): Promise<InstallerResponse> {
+): Promise<CondaPythonInstallResult> {
     const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
     const interpreter = await interpreterService.getInterpreterDetails(pythonPath);
-    if (!interpreter) {
-        return InstallerResponse.Ignore;
-    }
-    if (
-        isProblematicCondaEnvironment(interpreter) ||
-        (interpreter.id && !fs.existsSync(interpreter.id) && interpreter.envType === EnvironmentType.Conda)
-    ) {
-        if (interpreter) {
-            const installer = serviceContainer.get<IInstaller>(IInstaller);
-            const shell = serviceContainer.get<IApplicationShell>(IApplicationShell);
-            const progressOptions: vscode.ProgressOptions = {
-                location: vscode.ProgressLocation.Window,
-                title: `[${Interpreters.installingPython}](command:${Commands.ViewOutput})`,
-            };
-            traceLog('Conda envs without Python are known to not work well; fixing conda environment...');
-            const promise = installer.install(
-                Product.python,
-                await interpreterService.getInterpreterDetails(pythonPath),
-            );
-            shell.withProgress(progressOptions, () => promise);
 
-            // If Python is not installed into the environment, install it.
-            if (!(await installer.isInstalled(Product.python))) {
-                traceInfo(`Python not able to be installed.`);
-                return InstallerResponse.Ignore;
-            }
-        }
+    if (!interpreter?.envPath) {
+        return { installed: false };
     }
-    return InstallerResponse.Installed;
+
+    const installer = serviceContainer.get<IInstaller>(IInstaller);
+    const shell = serviceContainer.get<IApplicationShell>(IApplicationShell);
+    const progressOptions: vscode.ProgressOptions = {
+        location: vscode.ProgressLocation.Window,
+        title: `[${Interpreters.installingPython}](command:${Commands.ViewOutput})`,
+    };
+
+    const installResult = await shell.withProgress(progressOptions, async () => {
+        return installer.install(Product.python, interpreter);
+    });
+
+    if (installResult !== InstallerResponse.Installed) {
+        return { installed: false };
+    }
+
+    // Refresh interpreter service to pick up newly installed Python
+    await interpreterService.triggerRefresh();
+    await interpreterService.refreshPromise;
+
+    // Get the actual Python path
+    const actualPythonPath = getCondaPythonPath(interpreter.envPath);
+    return { installed: true, actualPythonPath };
+}
+
+/**
+ * Get the actual Python executable path for a conda environment.
+ */
+function getCondaPythonPath(envPath: string | undefined): string | undefined {
+    if (!envPath) {
+        return undefined;
+    }
+    if (os.platform() === 'win32') {
+        const pythonPath = path.join(envPath, 'python.exe');
+        return fs.existsSync(pythonPath) ? pythonPath : undefined;
+    }
+    // On Unix, try 'python' first, then 'python3'
+    const pythonPath = path.join(envPath, 'bin', 'python');
+    if (fs.existsSync(pythonPath)) {
+        return pythonPath;
+    }
+    const python3Path = path.join(envPath, 'bin', 'python3');
+    if (fs.existsSync(python3Path)) {
+        return python3Path;
+    }
+    return undefined;
 }
