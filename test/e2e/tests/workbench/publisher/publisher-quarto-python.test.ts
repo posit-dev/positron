@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { join } from 'path';
 import { PermissionPayload } from '../../../pages/connect.js';
 import { test, tags, expect } from '../../_test.setup';
 
@@ -14,7 +15,7 @@ let userId: string;
 let pythonVersion: string;
 const connectServer = 'http://connect:3939';
 
-test.describe('Publisher - Positron', { tag: [tags.WORKBENCH, tags.PUBLISHER] }, () => {
+test.describe('Publisher - Quarto Python', { tag: [tags.WORKBENCH, tags.PUBLISHER] }, () => {
 
 	test.beforeAll('Get connect API key', async function ({ app, runDockerCommand, hotKeys }) {
 
@@ -50,10 +51,10 @@ test.describe('Publisher - Positron', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 
 	});
 
-	test('Verify Publisher functionality in Positron with Shiny app deployment as example', async function ({ app, page, openFile, hotKeys }) {
+	test('Verify Publisher functionality with Quarto Python document deployment', async function ({ app, page, openFile, hotKeys }) {
 
 		await test.step('Open file', async () => {
-			await openFile('workspaces/shiny-py-example/app.py');
+			await openFile(join('workspaces', 'quarto_python', 'report.qmd'));
 		});
 
 		await test.step('Click on Publish button', async () => {
@@ -62,60 +63,34 @@ test.describe('Publisher - Positron', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 
 		await test.step('Enter title for application through quick-input', async () => {
 			await app.workbench.quickInput.waitForQuickInputOpened();
-			await app.workbench.quickInput.type('shiny-py-example');
+			await app.workbench.quickInput.type('quarto-py-example');
 			await page.keyboard.press('Enter');
 		});
 
-		const existing = app.workbench.quickInput.quickInputList.getByText('shiny-py-example');
-
-		let existingPresent = false;
-		try {
-			await existing.textContent({ timeout: 3000 });
-			existingPresent = true;
-		} catch {
-		}
+		const existingPresent = await app.workbench.publisher.hasSavedCredential(page, 'quarto-py-example');
 
 		if (existingPresent) {
 			await test.step('Use saved credential', async () => {
-				await app.workbench.quickInput.selectQuickInputElement(0, false);
+				await app.workbench.publisher.useSavedCredential();
 			});
 		} else {
-
 			await test.step('Select Posit Connect as deployment target', async () => {
 				await app.workbench.quickInput.selectQuickInputElement(1, true);
-				await expect(app.code.driver.page.getByText('Please provide the Posit Connect server\'s URL')).toBeVisible({ timeout: 10000 });
-				await app.workbench.quickInput.type(connectServer);
-				await page.keyboard.press('Enter');
 			});
 
 			// Make sure to delete stored credentials by accessing Keychain Access --> Login --> Search for `posit` --> Remove `Posit Publisher Safe Storage`
 			await test.step('Enter Connect server and API key', async () => {
-				await app.workbench.quickInput.selectQuickInputElement(1, true);
-				const apiKeyInputLocator = page.locator('div.monaco-inputbox input[type="password"]');
-				await expect(apiKeyInputLocator).toBeVisible({ timeout: 30000 });
-				await app.workbench.quickInput.type(app.workbench.positConnect.getConnectApiKey());
-				await page.keyboard.press('Enter');
+				await app.workbench.publisher.enterConnectCredentials(page, connectServer, app.workbench.positConnect.getConnectApiKey());
 			});
 
 			await test.step('Unique name for credential (Connect Server and API key)', async () => {
-				await expect(app.code.driver.page.getByText(`Successfully connected to ${connectServer}`)).toBeVisible({ timeout: 10000 });
-
-				await app.workbench.quickInput.type('shiny-py-example');
-				await page.keyboard.press('Enter');
+				await app.workbench.publisher.saveCredentialName(page, 'quarto-py-example', connectServer);
 			});
 		}
 
-		const outerFrame = page.frameLocator('iframe.webview.ready');
-		const innerFrame = outerFrame.frameLocator('iframe#active-frame');
+		const { innerFrame } = app.workbench.publisher.getPublisherFrames(page);
 
-
-		await test.step('Add files to deployment file (after app.py) and save', async () => {
-			await innerFrame.locator('.tree-item-container').filter({ hasText: 'shared.py' }).locator('.tree-item-checkbox .checkbox-control').click();
-			await innerFrame.locator('.tree-item-container').filter({ hasText: 'styles.css' }).locator('.tree-item-checkbox .checkbox-control').click();
-			await innerFrame.locator('.tree-item-container').filter({ hasText: 'tips.csv' }).locator('.tree-item-checkbox .checkbox-control').click();
-		});
-
-		const deployButton = innerFrame.locator('vscode-button[data-automation="deploy-button"] >>> button');
+		const deployButton = app.workbench.publisher.getDeployButton(innerFrame);
 
 		await test.step('Expect Deploy Your Project button to appear', async () => {
 			await expect(deployButton).toBeVisible();
@@ -126,16 +101,16 @@ test.describe('Publisher - Positron', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 		await test.step('Ensure toml file is ready for update - flake workaround', async () => {
 			await expect(async () => {
 				try {
-					// is tips.csv in the toml file?
+					// Check if report.qmd is in the toml file
 					const editorContainer = app.code.driver.page.locator('[id="workbench.parts.editor"]');
-					const dynamicTomlLineRegex = 'tips.csv';
+					const dynamicTomlLineRegex = 'report.qmd';
 					const targetLine = editorContainer.locator('.view-line').filter({ hasText: dynamicTomlLineRegex });
 					await expect(targetLine).toBeVisible({ timeout: 10000 });
 				} catch (e) {
 					// reload the toml file
 					const filenames = await app.workbench.editor.getMonacoFilenames();
 					await hotKeys.closeAllEditors();
-					const file = `workspaces/shiny-py-example/.posit/publish/${filenames.find(f => f.startsWith('shiny-py-example'))}`;
+					const file = `workspaces/quarto_python/.posit/publish/${filenames.find(f => f.startsWith('quarto-py-example'))}`;
 					console.log(`Retrying to open file ${file} in editor`);
 					await openFile(file);
 					await hotKeys.stackedLayout();
@@ -170,7 +145,7 @@ test.describe('Publisher - Positron', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 
 			const deploymentText = await deployedLocator.textContent();
 
-			appGuid = extractGuid(deploymentText || '');
+			appGuid = app.workbench.publisher.extractGuid(deploymentText || '');
 		});
 
 		await test.step('Grant permission to connect user', async () => {
@@ -198,15 +173,8 @@ test.describe('Publisher - Positron', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 			await app.code.driver.page.locator('[data-automation="content-table__row__display-name"]').first().click();
 
 			const headerLocator = app.code.driver.page.frameLocator('#contentIFrame').locator('h1');
-			await expect(headerLocator).toHaveText('Restaurant tipping', { timeout: 20000 });
+			await expect(headerLocator).toHaveText('Example Report', { timeout: 20000 });
 		});
 
 	});
 });
-
-export function extractGuid(line: string): string | null {
-	const m = line.match(
-		/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})(?!.*[0-9a-f-])/i
-	);
-	return m ? m[1] : null;
-}
