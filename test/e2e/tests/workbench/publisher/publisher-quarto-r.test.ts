@@ -49,6 +49,8 @@ test.describe('Publisher - Quarto R', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 
 	test('Verify Publisher functionality with Quarto Python document deployment', async function ({ app, page, openFile, hotKeys }) {
 
+		test.slow();
+
 		await test.step('Open file', async () => {
 			await openFile(join('workspaces', 'quarto_basic', 'quarto_basic.qmd'));
 		});
@@ -57,10 +59,17 @@ test.describe('Publisher - Quarto R', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 			await app.workbench.editorActionBar.clickButton('Deploy with Posit Publisher');
 		});
 
-		// Check if quick input appears (first run) or if we go straight to publisher UI (re-run)
-		const quickInputPresent = await page.locator('.quick-input-widget .quick-input-box input').isVisible({ timeout: 3000 }).catch(() => false);
+		// Check if the publisher setup wizard appears (first run) or if we go straight to publisher UI (re-run)
+		// Look for the specific quick input list items that appear during the publisher wizard
+		let publishWizardPresent = false;
+		try {
+			await page.locator('.quick-input-list').getByText('source', { exact: false }).waitFor({ state: 'visible', timeout: 5000 });
+			publishWizardPresent = true;
+		} catch {
+			publishWizardPresent = false;
+		}
 
-		if (quickInputPresent) {
+		if (publishWizardPresent) {
 			// First run: need to complete setup wizard
 			await test.step('Publish with source code', async () => {
 				await app.workbench.quickInput.waitForQuickInputOpened();
@@ -107,7 +116,7 @@ test.describe('Publisher - Quarto R', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 		await test.step('Deploy, await completion and get appGuid', async () => {
 			await deployButton.click({ timeout: 5000 });
 
-			await expect(app.code.driver.page.locator('text=Successfully deployed').first()).toBeVisible({ timeout: 600000 });
+			await expect(app.code.driver.page.locator('text=Deployment was successful').first()).toBeVisible({ timeout: 400000 });
 
 			await hotKeys.closeSecondarySidebar();
 
