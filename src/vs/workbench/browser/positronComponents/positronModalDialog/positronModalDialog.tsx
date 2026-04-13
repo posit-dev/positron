@@ -80,9 +80,8 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 	// State hooks.
 	const [dialogBoxState, setDialogBoxState] = useState(kInitialDialogBoxState);
 
-	// Initialization.
+	// Center the dialog box on mount or when dimensions change.
 	useEffect(() => {
-		// Center the dialog box.
 		setDialogBoxState(prevDialogBoxState => {
 			// Update the dialog box state, centering the dialog box.
 			const result: DialogBoxState = {
@@ -94,7 +93,10 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 			// Return the updated dialog box state.
 			return result;
 		});
+	}, [props.width, props.height]);
 
+	// Set up keyboard and resize event handlers.
+	useEffect(() => {
 		// Create a disposable store for the event handlers we'll add.
 		const disposableStore = new DisposableStore();
 
@@ -221,7 +223,7 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 
 		// Return the clean up for our event handlers.
 		return () => disposableStore.dispose();
-	}, [props]);
+	}, [props.renderer, props.onCancel, props.width, props.height]);
 
 	// Start drag handler.
 	const startDragHandler = () => {

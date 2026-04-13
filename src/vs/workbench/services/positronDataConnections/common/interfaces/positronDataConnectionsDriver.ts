@@ -40,6 +40,20 @@ export interface IDataConnectionParameterDTO {
 export type DataConnectionParameterValues = Record<string, string | number | boolean>;
 
 /**
+ * A saved data connection with its metadata and parameter values.
+ */
+export interface IDataConnectionProfile {
+	// The user-chosen name for this connection.
+	connectionName: string;
+
+	// The ID of the driver used for this connection.
+	driverId: string;
+
+	// The parameter values for this connection.
+	parameterValues: DataConnectionParameterValues;
+}
+
+/**
  * Serializable node returned from getChildren calls. Each node gets a handle
  * so the main thread can call back for child expansion and preview.
  */

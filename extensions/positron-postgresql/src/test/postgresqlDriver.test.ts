@@ -31,6 +31,7 @@ function createMockClient(queryHandler?: (sql: string, params?: any[]) => { rows
 // Injects a mock client into a PostgreSQLConnection, bypassing the real pg Client.
 function createTestConnection(mockClient: any): PostgreSQLConnection {
 	const conn = new PostgreSQLConnection(TEST_CONFIG);
+	// eslint-disable-next-line local/code-no-any-casts
 	(conn as any)._client = mockClient;
 	return conn;
 }
@@ -64,6 +65,7 @@ suite('PostgreSQL Driver Tests', () => {
 
 	test('connect failure throws', async () => {
 		const conn = new PostgreSQLConnection(TEST_CONFIG);
+		// eslint-disable-next-line local/code-no-any-casts
 		(conn as any)._client = {
 			connect: async () => { throw new Error('Connection refused'); },
 		};

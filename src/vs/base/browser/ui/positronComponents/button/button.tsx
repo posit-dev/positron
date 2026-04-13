@@ -35,6 +35,7 @@ export interface KeyboardModifiers {
  * ButtonProps interface.
  */
 export interface ButtonProps {
+	readonly id?: string;
 	readonly ariaControls?: string;
 	readonly ariaHaspopup?: React.AriaAttributes['aria-haspopup'];
 	readonly ariaLabel?: string;
@@ -189,6 +190,7 @@ export const Button = (props: PropsWithChildren<ButtonProps>) => {
 				{ 'disabled': props.disabled }
 			)}
 			disabled={props.disabled}
+			id={props.id}
 			role={props.role ?? 'button'}
 			style={props.style}
 			tabIndex={props.tabIndex ?? 0}

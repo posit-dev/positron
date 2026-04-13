@@ -60,20 +60,20 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 	// --- Public API (called by extension via positron.dataConnections.registerDriver) ---
 
 	/**
-	 * Registers a data connection driver. Sends serializable metadata to the
-	 * main thread and returns a Disposable that cleans up the driver and all
-	 * connections it created.
+	 * Registers a data connection driver. Sends serializable metadata to the main thread and
+	 * returns a Disposable that cleans up the driver and all connections it created.
 	 */
 	public registerDriver(driver: positron.DataConnectionDriver): Disposable {
 		this._drivers.set(driver.id, driver);
 		this._driverConnections.set(driver.id, new Set());
 
-		// Convert the driver's public API shape into a serializable DTO.
+		// Convert the driver's public API shape into a serializable DTO. Base64-encode the SVG so
+		// the UI can use it directly in <img> src attributes.
 		const metadata: IDataConnectionDriverMetadata = {
 			id: driver.id,
 			name: driver.name,
 			description: driver.description,
-			iconSvg: driver.iconSvg,
+			iconSvg: btoa(driver.iconSvg),
 			parameters: driver.parameters.map(p => this._convertParameter(p)),
 			supportedLanguageIds: driver.supportedLanguageIds,
 		};
@@ -97,8 +97,8 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 	}
 
 	/**
-	 * Returns summaries of all registered drivers by calling the main thread
-	 * service. This exercises the full RPC round trip.
+	 * Returns summaries of all registered drivers by calling the main thread service. This
+	 * exercises the full RPC round trip.
 	 */
 	public async getDrivers(): Promise<positron.DataConnectionDriverSummary[]> {
 		const dtos: IDataConnectionDriverSummaryDTO[] = await this._proxy.$getDataConnectionDrivers();
@@ -112,10 +112,9 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 	}
 
 	/**
-	 * Connects to a driver by calling through the main thread service, which
-	 * calls back into the ext host via $driverConnect (full round trip).
-	 * Returns a DataConnection proxy that routes all operations through the
-	 * main thread.
+	 * Connects to a driver by calling through the main thread service, which calls back into the
+	 * ext host via $driverConnect (full round trip). Returns a DataConnection proxy that routes
+	 * all operations through the main thread.
 	 */
 	public async connect(driverId: string, params: positron.DataConnectionParameterValues): Promise<positron.DataConnection> {
 		const connectionHandle = await this._proxy.$connectToDataConnectionDriver(driverId, params);
@@ -125,8 +124,8 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 	// --- ExtHostDataConnectionsShape (called by main thread via RPC) ---
 
 	/**
-	 * Calls the extension's driver.connect(), stores the resulting DataConnection,
-	 * and returns a handle the main thread can use to operate on it.
+	 * Calls the extension's driver.connect(), stores the resulting DataConnection, and returns a
+	 * handle the main thread can use to operate on it.
 	 * @param driverId The unique identifier of the driver to connect with.
 	 * @param params User-supplied parameter values from the connection dialog.
 	 */
@@ -159,9 +158,8 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 	}
 
 	/**
-	 * Gets the top-level children of a connection. Clears any previously cached
-	 * node handles for this connection since a top-level call implies a full
-	 * tree refresh.
+	 * Gets the top-level children of a connection. Clears any previously cached node handles for
+	 * this connection since a top-level call implies a full tree refresh.
 	 */
 	async $connectionGetChildren(connectionHandle: number): Promise<IDataConnectionNodeDTO[]> {
 		const connection = this._connections.get(connectionHandle);
@@ -230,8 +228,8 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 	// --- Private helpers ---
 
 	/**
-	 * Releases a connection handle, its node map, and removes it from driver
-	 * tracking so it is no longer cleaned up on driver dispose.
+	 * Releases a connection handle, its node map, and removes it from driver tracking so it is no
+	 * longer cleaned up on driver dispose.
 	 */
 	private _releaseConnectionHandle(connectionHandle: number): void {
 		this._connections.delete(connectionHandle);
@@ -243,8 +241,8 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 	}
 
 	/**
-	 * Converts an array of extension-side DataConnectionNode objects into
-	 * serializable DTOs, assigning each node a handle for future callbacks.
+	 * Converts an array of extension-side DataConnectionNode objects into serializable DTOs,
+	 * assigning each node a handle for future callbacks.
 	 */
 	private _serializeNodes(connectionHandle: number, nodes: positron.DataConnectionNode[]): IDataConnectionNodeDTO[] {
 		const nodeMap = this._nodes.get(connectionHandle)!;
@@ -263,8 +261,9 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 	}
 
 	/**
-	 * Converts a typed DataConnectionParameter from the public API into a flat DTO that can be serialized
-	 * across the RPC boundary. Uses the `type` discriminant to extract variant-specific fields.
+	 * Converts a typed DataConnectionParameter from the public API into a flat DTO that can be
+	 * serialized across the RPC boundary. Uses the `type` discriminant to extract variant-specific
+	 * fields.
 	 */
 	private _convertParameter(p: positron.DataConnectionParameter): IDataConnectionParameterDTO {
 		const dto: IDataConnectionParameterDTO = {
@@ -294,9 +293,9 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 }
 
 /**
- * A DataConnection proxy that routes all operations through the main thread
- * via the "ViaService" RPC methods. This ensures that calls from the ext host
- * API (e.g. in integration tests) exercise the full main-thread service layer.
+ * A DataConnection proxy that routes all operations through the main thread via the "ViaService"
+ * RPC methods. This ensures that calls from the ext host API (e.g. in integration tests)
+ * exercise the full main-thread service layer.
  */
 class ExtHostDataConnectionProxy implements positron.DataConnection {
 
@@ -340,8 +339,8 @@ class ExtHostDataConnectionProxy implements positron.DataConnection {
 	}
 
 	/**
-	 * Converts a serializable node DTO into a DataConnectionNode, wiring up
-	 * getChildren and preview callbacks that route through the main thread.
+	 * Converts a serializable node DTO into a DataConnectionNode, wiring up getChildren and
+	 * preview callbacks that route through the main thread.
 	 * @param dto The serializable node DTO from the RPC layer.
 	 * @returns A DataConnectionNode with live callbacks.
 	 */

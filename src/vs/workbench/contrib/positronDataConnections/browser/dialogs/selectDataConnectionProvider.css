@@ -1,0 +1,73 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.select-data-connection-provider .select-provider-label {
+	font-size: 13px;
+	margin-bottom: 10px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.select-data-connection-provider .driver-grid {
+	gap: 8px;
+	padding: 8px;
+	display: grid;
+	height: 236px;
+	overflow-y: auto;
+	border-radius: 6px;
+	align-content: start;
+	grid-template-columns: repeat(3, 1fr);
+	border: 1px solid var(--vscode-widget-border);
+}
+
+.select-data-connection-provider .driver-card {
+	gap: 8px;
+	display: flex;
+	font: inherit;
+	color: inherit;
+	font-size: 12px;
+	cursor: pointer;
+	padding: 16px 8px;
+	border-radius: 6px;
+	align-items: center;
+	flex-direction: column;
+	background: transparent;
+	justify-content: center;
+	border: 1px solid var(--vscode-widget-border);
+}
+
+.select-data-connection-provider .driver-card:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.select-data-connection-provider .driver-card.selected {
+	border-color: var(--vscode-focusBorder);
+	color: var(--vscode-list-activeSelectionForeground);
+	background: var(--vscode-list-activeSelectionBackground);
+}
+
+.select-data-connection-provider .driver-card-badge {
+	width: 48px;
+	height: 48px;
+	display: flex;
+	border-radius: 8px;
+	align-items: center;
+	background: #f8f8f8;
+	justify-content: center;
+	border: 1px solid rgba(128, 128, 128, 0.2);
+}
+
+.select-data-connection-provider .driver-card-icon {
+	width: 32px;
+	height: 32px;
+	object-fit: contain;
+}
+
+.select-data-connection-provider .driver-card-name {
+	max-width: 100%;
+	overflow: hidden;
+	text-align: center;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
