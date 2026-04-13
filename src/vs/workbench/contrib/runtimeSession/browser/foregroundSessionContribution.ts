@@ -55,7 +55,7 @@ import { INotebookEditorService } from '../../notebook/browser/services/notebook
  * - Interpreter picker (shows foreground session name)
  * - Language Runtime Actions (restart, interrupt, etc.)
  */
-export class ForegroundSessionContribution extends Disposable implements IWorkbenchContribution, IForegroundSessionContribution {
+export class ForegroundSessionContribution extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'workbench.contrib.foregroundSessionContribution';
 
 	/** Tracks disposables for each Positron notebook instance's focus listener */

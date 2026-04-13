@@ -64,8 +64,6 @@ suite('Positron - ForegroundSessionContribution', () => {
 
 	let runtimeSessionService: IRuntimeSessionService;
 	let configService: TestConfigurationService;
-	let contribution: ForegroundSessionContribution;
-
 	const notebookUri = URI.file('/path/to/notebook.ipynb');
 
 	/** Read foregroundSession through a helper to avoid TS control-flow narrowing after assignment. */
@@ -92,8 +90,9 @@ suite('Positron - ForegroundSessionContribution', () => {
 		// Reset Quarto config to avoid leakage between tests
 		configService.setUserConfiguration(POSITRON_QUARTO_INLINE_OUTPUT_KEY, undefined);
 
-		// Create the contribution
-		contribution = ctx.disposables.add(
+		// Create the contribution -- the constructor wires up event listeners that
+		// the tests exercise by firing events, so we don't need a reference to it.
+		ctx.disposables.add(
 			ctx.instantiationService.createInstance(ForegroundSessionContribution)
 		);
 	});
@@ -143,30 +142,6 @@ suite('Positron - ForegroundSessionContribution', () => {
 		});
 		return session;
 	}
-
-	suite('setForegroundSession', () => {
-		test('sets the foreground session', async () => {
-			const session = await startConsoleSession();
-			runtimeSessionService.foregroundSession = undefined;
-
-			contribution.setForegroundSession(session);
-
-			assert.strictEqual(getForegroundSessionId(), session.sessionId);
-		});
-
-		test('is a no-op when the session is already foreground', async () => {
-			const session = await startConsoleSession();
-			assert.strictEqual(runtimeSessionService.foregroundSession?.sessionId, session.sessionId);
-
-			// Should not throw or change anything
-			contribution.setForegroundSession(session);
-
-			assert.strictEqual(
-				runtimeSessionService.foregroundSession?.sessionId,
-				session.sessionId
-			);
-		});
-	});
 
 	suite('active editor change to notebook', () => {
 		test('sets notebook session as foreground when notebook becomes active', async () => {

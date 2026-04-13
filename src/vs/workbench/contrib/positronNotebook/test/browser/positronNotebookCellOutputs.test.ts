@@ -198,7 +198,7 @@ suite('Positron Notebook Cell Outputs', () => {
 					outputs: [complexHtmlOutputItem()],
 				}],
 			};
-			const notebook = createTestPositronNotebookInstance([cellWithComplexHtml], disposables);
+			const notebook = createTestPositronNotebookInstance([cellWithComplexHtml], ctx.disposables);
 			const cell = notebook.cells.get()[0];
 
 			assert.ok(cell.isCodeCell(), 'cell should be a code cell');
@@ -219,7 +219,7 @@ suite('Positron Notebook Cell Outputs', () => {
 					outputs: [simpleHtmlOutputItem()],
 				}],
 			};
-			const notebook = createTestPositronNotebookInstance([cellWithSimpleHtml], disposables);
+			const notebook = createTestPositronNotebookInstance([cellWithSimpleHtml], ctx.disposables);
 			const cell = notebook.cells.get()[0];
 
 			assert.ok(cell.isCodeCell());
