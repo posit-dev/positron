@@ -3,20 +3,21 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as assert from 'assert';
+/// <reference types="vitest/globals" />
+
 import { URI } from '../../../../base/common/uri.js';
 import { IExtensionManifest } from '../../common/extensions.js';
 import { validatePositronExtensionManifest } from '../../common/positronExtensionValidator.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
+import { ensureNoLeakedDisposables } from '../../../../base/test/common/vitestUtils.js';
 
 /**
  * Positron Extension Validator suite.
  */
-suite('Positron Extension Validator', () => {
+describe('Positron Extension Validator', () => {
 	/**
 	 * Test for validating the Positron extension manifest's Positron version.
 	 */
-	test('Positron Extension Validator - Positron Version', () => {
+	it('Positron Extension Validator - Positron Version', () => {
 		// Setup the tests.
 		const uri = URI.parse('http://test-extension.com');
 		const manifest: IExtensionManifest = {
@@ -45,9 +46,9 @@ suite('Positron Extension Validator', () => {
 
 					// Check the text result based on the year and month.
 					if (year < 2025 || (year === 2025 && month < 6)) {
-						assert.notEqual(testResult, 0, `Expected errors for version ${versionUnderTest}`);
+						expect(testResult).not.toBe(0);
 					} else {
-						assert.equal(testResult, 0, `Expected no errors for version ${versionUnderTest}`);
+						expect(testResult).toBe(0);
 					}
 				}
 			}
@@ -55,5 +56,5 @@ suite('Positron Extension Validator', () => {
 	});
 
 	// Ensure that no disposables are leaked.
-	ensureNoDisposablesAreLeakedInTestSuite();
+	ensureNoLeakedDisposables();
 });

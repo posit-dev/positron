@@ -5,8 +5,9 @@
 
 /* eslint-disable local/code-no-any-casts */
 
-import assert from 'assert';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+/// <reference types="vitest/globals" />
+
+import { ensureNoLeakedDisposables } from '../../../../../base/test/common/vitestUtils.js';
 import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { workbenchInstantiationService } from '../../../../test/browser/workbenchTestServices.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
@@ -58,8 +59,8 @@ function createConsoleDOM(...lines: (string | string[])[]): HTMLElement {
 	return container;
 }
 
-suite('PositronConsoleFindWidget', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+describe('PositronConsoleFindWidget', () => {
+	const disposables = ensureNoLeakedDisposables();
 
 	let widget: TestableConsoleFindWidget;
 	let consoleContainer: HTMLElement;
@@ -80,101 +81,101 @@ suite('PositronConsoleFindWidget', () => {
 		instance.appendChild(widget.getDomNode());
 	}
 
-	teardown(() => {
+	afterEach(() => {
 		consoleContainer?.remove();
 	});
 
-	suite('Search', () => {
-		test('finds a simple match', async () => {
+	describe('Search', () => {
+		it('finds a simple match', async () => {
 			createWidget('Hello world');
 			widget.reveal('Hello');
 			const result = await widget.getResultCount();
-			assert.strictEqual(result?.resultCount, 1);
+			expect(result?.resultCount).toBe(1);
 		});
 
-		test('finds multiple matches across lines', async () => {
+		it('finds multiple matches across lines', async () => {
 			createWidget('apple', 'apple pie', 'banana');
 			widget.reveal('apple');
 			const result = await widget.getResultCount();
-			assert.strictEqual(result?.resultCount, 2);
+			expect(result?.resultCount).toBe(2);
 		});
 
-		test('finds multiple matches within one line', async () => {
+		it('finds multiple matches within one line', async () => {
 			createWidget('cat cat cat');
 			widget.reveal('cat');
 			const result = await widget.getResultCount();
-			assert.strictEqual(result?.resultCount, 3);
+			expect(result?.resultCount).toBe(3);
 		});
 
-		test('matches across text nodes within one block element', async () => {
+		it('matches across text nodes within one block element', async () => {
 			createWidget(['hel', 'lo']);
 			widget.reveal('hello');
 			const result = await widget.getResultCount();
-			assert.strictEqual(result?.resultCount, 1);
+			expect(result?.resultCount).toBe(1);
 		});
 
-		test('does not match across different block elements', async () => {
+		it('does not match across different block elements', async () => {
 			createWidget('hel', 'lo');
 			widget.reveal('hello');
 			const result = await widget.getResultCount();
-			assert.strictEqual(result, undefined);
+			expect(result).toBe(undefined);
 		});
 
-		test('case-insensitive by default', async () => {
+		it('case-insensitive by default', async () => {
 			createWidget('Hello HELLO hello');
 			widget.reveal('hello');
 			const result = await widget.getResultCount();
-			assert.strictEqual(result?.resultCount, 3);
+			expect(result?.resultCount).toBe(3);
 		});
 
-		test('case-sensitive when toggled', async () => {
+		it('case-sensitive when toggled', async () => {
 			createWidget('Hello HELLO hello');
 			(widget as any)._findInput.setCaseSensitive(true);
 			widget.reveal('hello');
 			const result = await widget.getResultCount();
-			assert.strictEqual(result?.resultCount, 1);
+			expect(result?.resultCount).toBe(1);
 		});
 
-		test('whole word matching', async () => {
+		it('whole word matching', async () => {
 			createWidget('cat concatenate cat');
 			(widget as any)._findInput.setWholeWords(true);
 			widget.reveal('cat');
 			const result = await widget.getResultCount();
-			assert.strictEqual(result?.resultCount, 2);
+			expect(result?.resultCount).toBe(2);
 		});
 
-		test('regex matching', async () => {
+		it('regex matching', async () => {
 			createWidget('foo123 bar456 baz');
 			(widget as any)._findInput.setRegex(true);
 			widget.reveal('[a-z]+\\d+');
 			const result = await widget.getResultCount();
-			assert.strictEqual(result?.resultCount, 2);
+			expect(result?.resultCount).toBe(2);
 		});
 
-		test('invalid regex does not throw', async () => {
+		it('invalid regex does not throw', async () => {
 			createWidget('some text');
 			(widget as any)._findInput.setRegex(true);
 			widget.reveal('[invalid');
 			const result = await widget.getResultCount();
-			assert.strictEqual(result, undefined);
+			expect(result).toBe(undefined);
 		});
 
-		test('empty search produces no matches', async () => {
+		it('empty search produces no matches', async () => {
 			createWidget('some text');
 			widget.reveal('');
 			const result = await widget.getResultCount();
-			assert.strictEqual(result, undefined);
+			expect(result).toBe(undefined);
 		});
 
-		test('starts at last (bottom-most) match', async () => {
+		it('starts at last (bottom-most) match', async () => {
 			createWidget('a', 'a', 'a');
 			widget.reveal('a');
 			const result = await widget.getResultCount();
-			assert.strictEqual(result?.resultCount, 3);
-			assert.strictEqual(result?.resultIndex, 2);
+			expect(result?.resultCount).toBe(3);
+			expect(result?.resultIndex).toBe(2);
 		});
 
-		test('only searches visible console instance', async () => {
+		it('only searches visible console instance', async () => {
 			consoleContainer = document.createElement('div');
 
 			// Hidden instance (zIndex -1)
@@ -208,116 +209,114 @@ suite('PositronConsoleFindWidget', () => {
 
 			widget.reveal('secret');
 			let result = await widget.getResultCount();
-			assert.strictEqual(result, undefined, 'should not find text in hidden instance');
+			expect(result).toBe(undefined);
 
 			widget.reveal('visible');
 			result = await widget.getResultCount();
-			assert.strictEqual(result?.resultCount, 1, 'should find text in visible instance');
+			expect(result?.resultCount).toBe(1);
 		});
 	});
 
-	suite('Navigation', () => {
-		test('find(false) advances forward with wrapping', async () => {
+	describe('Navigation', () => {
+		it('find(false) advances forward with wrapping', async () => {
 			createWidget('a', 'a', 'a');
 			widget.reveal('a');
 
 			// Starts at last match (index 2)
 			let result = await widget.getResultCount();
-			assert.strictEqual(result?.resultIndex, 2);
+			expect(result?.resultIndex).toBe(2);
 
 			widget.find(false);
 			result = await widget.getResultCount();
-			assert.strictEqual(result?.resultIndex, 0, 'should wrap to first');
+			expect(result?.resultIndex).toBe(0);
 
 			widget.find(false);
 			result = await widget.getResultCount();
-			assert.strictEqual(result?.resultIndex, 1);
+			expect(result?.resultIndex).toBe(1);
 
 			widget.find(false);
 			result = await widget.getResultCount();
-			assert.strictEqual(result?.resultIndex, 2, 'should wrap back to last');
+			expect(result?.resultIndex).toBe(2);
 		});
 
-		test('find(true) goes backward with wrapping', async () => {
+		it('find(true) goes backward with wrapping', async () => {
 			createWidget('a', 'a', 'a');
 			widget.reveal('a');
 
 			// Starts at last match (index 2)
 			widget.find(true);
 			let result = await widget.getResultCount();
-			assert.strictEqual(result?.resultIndex, 1);
+			expect(result?.resultIndex).toBe(1);
 
 			widget.find(true);
 			result = await widget.getResultCount();
-			assert.strictEqual(result?.resultIndex, 0);
+			expect(result?.resultIndex).toBe(0);
 
 			widget.find(true);
 			result = await widget.getResultCount();
-			assert.strictEqual(result?.resultIndex, 2, 'should wrap to last');
+			expect(result?.resultIndex).toBe(2);
 		});
 
-		test('find() is a no-op with no matches', async () => {
+		it('find() is a no-op with no matches', async () => {
 			createWidget('text');
 			widget.reveal('nonexistent');
 			widget.find(false);
 			const result = await widget.getResultCount();
-			assert.strictEqual(result, undefined);
+			expect(result).toBe(undefined);
 		});
 
-		test('findFirst() jumps to index 0', async () => {
+		it('findFirst() jumps to index 0', async () => {
 			createWidget('a', 'a', 'a');
 			widget.reveal('a');
 
 			// Starts at index 2, move backward
 			widget.find(true);
 			let result = await widget.getResultCount();
-			assert.strictEqual(result?.resultIndex, 1);
+			expect(result?.resultIndex).toBe(1);
 
 			widget.findFirst();
 			result = await widget.getResultCount();
-			assert.strictEqual(result?.resultIndex, 0);
+			expect(result?.resultIndex).toBe(0);
 		});
 
-		test('findFirst() is a no-op with no matches', async () => {
+		it('findFirst() is a no-op with no matches', async () => {
 			createWidget('text');
 			widget.reveal('nonexistent');
 			widget.findFirst();
 			const result = await widget.getResultCount();
-			assert.strictEqual(result, undefined);
+			expect(result).toBe(undefined);
 		});
 	});
 
-	suite('Lifecycle', () => {
-		test('reveal() sets visible context key', () => {
+	describe('Lifecycle', () => {
+		it('reveal() sets visible context key', () => {
 			createWidget('text');
 			widget.reveal('test');
-			assert.strictEqual(
-				contextKeyService.getContextKeyValue('positronConsoleFindVisible'),
-				true
-			);
+			expect(
+				contextKeyService.getContextKeyValue('positronConsoleFindVisible')
+			).toBe(true);
 		});
 
-		test('hide() clears matches and resets visible context key', async () => {
+		it('hide() clears matches and resets visible context key', async () => {
 			createWidget('text');
 			widget.reveal('text');
 
 			let result = await widget.getResultCount();
-			assert.strictEqual(result?.resultCount, 1, 'should have a match before hide');
+			expect(result?.resultCount).toBe(1);
 
 			widget.hide();
 			result = await widget.getResultCount();
-			assert.strictEqual(result, undefined, 'should have no matches after hide');
-			assert.strictEqual(
-				contextKeyService.getContextKeyValue('positronConsoleFindVisible'),
-				false
-			);
+			expect(result).toBe(undefined);
+			expect(
+				contextKeyService.getContextKeyValue('positronConsoleFindVisible')
+			).toBe(false);
 		});
 
-		test('refreshSearch() re-runs search when visible', async () => {
+		it('refreshSearch() re-runs search when visible', async () => {
 			createWidget('word');
 			widget.reveal('word');
 			let result = await widget.getResultCount();
-			assert.strictEqual(result?.resultCount, 1);
+			expect(result?.resultCount).toBe(1);
 
 			// Add another line with the search term
 			const instance = consoleContainer.querySelector('.console-instance')!;
@@ -327,10 +326,10 @@ suite('PositronConsoleFindWidget', () => {
 
 			widget.refreshSearch();
 			result = await widget.getResultCount();
-			assert.strictEqual(result?.resultCount, 2);
+			expect(result?.resultCount).toBe(2);
 		});
 
-		test('refreshSearch() is a no-op when hidden', () => {
+		it('refreshSearch() is a no-op when hidden', () => {
 			createWidget('text');
 			// Don't reveal - widget is hidden
 			widget.refreshSearch();
@@ -338,21 +337,19 @@ suite('PositronConsoleFindWidget', () => {
 		});
 	});
 
-	suite('Context Keys', () => {
-		test('input focus tracker sets and resets findInputFocused', () => {
+	describe('Context Keys', () => {
+		it('input focus tracker sets and resets findInputFocused', () => {
 			createWidget('text');
 
 			widget.testOnFindInputFocusTrackerFocus();
-			assert.strictEqual(
-				contextKeyService.getContextKeyValue('positronConsoleFindInputFocused'),
-				true
-			);
+			expect(
+				contextKeyService.getContextKeyValue('positronConsoleFindInputFocused')
+			).toBe(true);
 
 			widget.testOnFindInputFocusTrackerBlur();
-			assert.strictEqual(
-				contextKeyService.getContextKeyValue('positronConsoleFindInputFocused'),
-				false
-			);
+			expect(
+				contextKeyService.getContextKeyValue('positronConsoleFindInputFocused')
+			).toBe(false);
 		});
 	});
 });

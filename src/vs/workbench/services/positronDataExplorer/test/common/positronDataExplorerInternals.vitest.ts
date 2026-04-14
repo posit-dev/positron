@@ -3,8 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as assert from 'assert';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+/// <reference types="vitest/globals" />
+
+import { ensureNoLeakedDisposables } from '../../../../../base/test/common/vitestUtils.js';
 import { TableSchema } from '../../../languageRuntime/common/positronDataExplorerComm.js';
 import {
 	DataFetchRange,
@@ -52,10 +53,10 @@ class MockSchemaCache extends TableSchemaCache {
 /**
  * Testing internal business logic
  */
-suite('DataExplorerInternals', () => {
-	ensureNoDisposablesAreLeakedInTestSuite();
+describe('DataExplorerInternals', () => {
+	ensureNoLeakedDisposables();
 
-	test('Data cache works correctly', async () => {
+	it('Data cache works correctly', async () => {
 		const numRows = 100000;
 		const numColumns = 1000;
 		const schema = mocks.getTableSchema(numRows, numColumns);
@@ -69,16 +70,16 @@ suite('DataExplorerInternals', () => {
 		};
 
 		const data = await fetcher.fetch(range);
-		assert.equal(data.rowStartIndex, range.rowStartIndex - 100);
-		assert.equal(data.rowEndIndex, range.rowEndIndex + 100);
-		assert.equal(data.columnStartIndex, range.columnStartIndex - 10);
-		assert.equal(data.columnEndIndex, range.columnEndIndex + 10);
+		expect(data.rowStartIndex).toBe(range.rowStartIndex - 100);
+		expect(data.rowEndIndex).toBe(range.rowEndIndex + 100);
+		expect(data.columnStartIndex).toBe(range.columnStartIndex - 10);
+		expect(data.columnEndIndex).toBe(range.columnEndIndex + 10);
 
 		const cacheSize = fetcher.currentCacheSize();
-		assert.equal(cacheSize, fetcher.getRangeTotalSize(data));
+		expect(cacheSize).toBe(fetcher.getRangeTotalSize(data));
 
 		let sameData = await fetcher.fetch(range);
-		assert.strictEqual(data, sameData);
+		expect(data).toBe(sameData);
 
 		// Fetch another range (overlapping, even), and make sure that our fetches
 		// are as expected
@@ -87,17 +88,17 @@ suite('DataExplorerInternals', () => {
 		range2.rowEndIndex = 400;
 		const data2 = await fetcher.fetch(range2);
 
-		assert.equal(fetcher.currentCacheSize(), cacheSize + fetcher.getRangeTotalSize(data2));
+		expect(fetcher.currentCacheSize()).toBe(cacheSize + fetcher.getRangeTotalSize(data2));
 
 		sameData = await fetcher.fetch(range);
-		assert.strictEqual(data, sameData);
+		expect(data).toBe(sameData);
 
 		sameData = await fetcher.fetch(range2);
-		assert.strictEqual(data2, sameData);
+		expect(data2).toBe(sameData);
 
 		// Now, we'll set the data cache size lower and make a large request to show that we
 		// evict the first two change
-		assert.ok(fetcher.currentCacheSize() < 100000);
+		expect(fetcher.currentCacheSize() < 100000).toBeTruthy();
 		fetcher.setMaxCacheSize(10000);
 
 		const largeRange: DataFetchRange = {
@@ -109,17 +110,17 @@ suite('DataExplorerInternals', () => {
 		const largeData = await fetcher.fetch(largeRange);
 
 		// largeData is now the only thing cached
-		assert.equal(fetcher.currentCacheSize(), fetcher.getRangeTotalSize(largeData));
+		expect(fetcher.currentCacheSize()).toBe(fetcher.getRangeTotalSize(largeData));
 
 		// Was cached even though it was big
 		sameData = await fetcher.fetch(largeRange);
-		assert.strictEqual(largeData, sameData);
+		expect(largeData).toBe(sameData);
 
 		fetcher.clear();
-		assert.equal(fetcher.currentCacheSize(), 0);
+		expect(fetcher.currentCacheSize()).toBe(0);
 	});
 
-	test('Schema cache works correctly', async () => {
+	it('Schema cache works correctly', async () => {
 		const numRows = 100000;
 		const numColumns = 1000;
 		const schema = mocks.getTableSchema(numRows, numColumns);
@@ -131,31 +132,31 @@ suite('DataExplorerInternals', () => {
 		};
 
 		const result = await fetcher.fetch(range);
-		assert.equal(result.startIndex, 0);
-		assert.equal(result.endIndex, 150);
-		assert.equal(result.schema.columns.length, 150);
+		expect(result.startIndex).toBe(0);
+		expect(result.endIndex).toBe(150);
+		expect(result.schema.columns.length).toBe(150);
 
-		assert.deepEqual(result.schema.columns, schema.columns.slice(0, 150));
-		assert.equal(fetcher.currentCacheSize(), 150);
+		expect(result.schema.columns).toEqual(schema.columns.slice(0, 150));
+		expect(fetcher.currentCacheSize()).toBe(150);
 
 		range.startIndex = 0;
 		range.endIndex = 50;
 		const result2 = await fetcher.fetch(range);
 
 		// Same object
-		assert.strictEqual(result2, result);
+		expect(result2).toBe(result);
 
 		// Overlapping...
 		range.startIndex = 149;
 		range.endIndex = 151;
 		const result3 = await fetcher.fetch(range);
-		assert.deepEqual(result3.schema.columns, schema.columns.slice(99, 201));
-		assert.equal(fetcher.currentCacheSize(), 252);
+		expect(result3.schema.columns).toEqual(schema.columns.slice(99, 201));
+		expect(fetcher.currentCacheSize()).toBe(252);
 
 		// Trimming cache works
 		fetcher.setMaxCacheSize(result3.endIndex - result3.startIndex);
-		assert.equal(fetcher.currentCacheSize(), 102);
+		expect(fetcher.currentCacheSize()).toBe(102);
 		const result4 = await fetcher.fetch(range);
-		assert.strictEqual(result4, result3);
+		expect(result4).toBe(result3);
 	});
 });

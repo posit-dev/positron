@@ -3,10 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as assert from 'assert';
+/// <reference types="vitest/globals" />
+
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
+import { ensureNoLeakedDisposables } from '../../../../base/test/common/vitestUtils.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { PositronWebviewPreloadService } from './positronWebviewPreloadsService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -46,14 +47,14 @@ function stubOutputWebviewService(): IPositronNotebookOutputWebviewService & { r
 	} as any;
 }
 
-suite('PositronWebviewPreloadService - addNotebookOutput rawHtml', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+describe('PositronWebviewPreloadService - addNotebookOutput rawHtml', () => {
+	const disposables = ensureNoLeakedDisposables();
 
 	let service: IPositronWebviewPreloadService;
 	let outputWebviewService: ReturnType<typeof stubOutputWebviewService>;
 	const notebookInstance = stubNotebookInstance('nb-1');
 
-	setup(() => {
+	beforeEach(() => {
 		outputWebviewService = stubOutputWebviewService();
 
 		const runtimeSessionService = {
@@ -72,7 +73,7 @@ suite('PositronWebviewPreloadService - addNotebookOutput rawHtml', () => {
 		service.attachNotebookInstance(notebookInstance);
 	});
 
-	test('rawHtml parameter creates a raw HTML webview and returns display result', async () => {
+	it('rawHtml parameter creates a raw HTML webview and returns display result', async () => {
 		const result = service.addNotebookOutput({
 			instance: notebookInstance,
 			outputId: 'out-1',
@@ -80,19 +81,19 @@ suite('PositronWebviewPreloadService - addNotebookOutput rawHtml', () => {
 			rawHtml: '<iframe src="map.html"></iframe>',
 		});
 
-		assert.ok(result, 'should return a result');
-		assert.strictEqual(result!.preloadMessageType, 'display');
-		assert.ok('webview' in result!, 'display result should have a webview');
-		assert.strictEqual(outputWebviewService.rawHtmlCreationCount, 1);
-		assert.strictEqual(outputWebviewService.rawHtmlBaseUris[0]?.toString(), URI.file('/workspace').toString());
+		expect(result).toBeTruthy();
+		expect(result!.preloadMessageType).toBe('display');
+		expect('webview' in result!).toBeTruthy();
+		expect(outputWebviewService.rawHtmlCreationCount).toBe(1);
+		expect(outputWebviewService.rawHtmlBaseUris[0]?.toString()).toBe(URI.file('/workspace').toString());
 
 		// Resolve the webview promise to check the ID
 		const webview = await (result as any).webview;
-		assert.strictEqual(webview.id, 'out-1');
+		expect(webview.id).toBe('out-1');
 		webview.dispose();
 	});
 
-	test('untitled notebooks do not set a base URI for raw HTML', () => {
+	it('untitled notebooks do not set a base URI for raw HTML', () => {
 		const untitledNotebook = stubNotebookInstance('nb-untitled', URI.from({ scheme: 'untitled', path: '/Untitled-1.ipynb' }));
 		service.attachNotebookInstance(untitledNotebook);
 
@@ -103,18 +104,18 @@ suite('PositronWebviewPreloadService - addNotebookOutput rawHtml', () => {
 			rawHtml: '<iframe src="map.html"></iframe>',
 		});
 
-		assert.ok(result, 'should return a result');
-		assert.strictEqual(outputWebviewService.rawHtmlBaseUris[0], undefined);
+		expect(result).toBeTruthy();
+		expect(outputWebviewService.rawHtmlBaseUris[0]).toBe(undefined);
 	});
 
-	test('without rawHtml, text/html output returns undefined (not a webview type)', () => {
+	it('without rawHtml, text/html output returns undefined (not a webview type)', () => {
 		const result = service.addNotebookOutput({
 			instance: notebookInstance,
 			outputId: 'out-2',
 			outputs: [{ mime: 'text/html', data: VSBuffer.fromString('<p>simple</p>') }],
 		});
 
-		assert.strictEqual(result, undefined, 'plain HTML should not create a webview');
-		assert.strictEqual(outputWebviewService.rawHtmlCreationCount, 0);
+		expect(result).toBe(undefined);
+		expect(outputWebviewService.rawHtmlCreationCount).toBe(0);
 	});
 });

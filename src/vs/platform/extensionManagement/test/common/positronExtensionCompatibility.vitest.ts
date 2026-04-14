@@ -3,15 +3,16 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import assert from 'assert';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
+/// <reference types="vitest/globals" />
+
+import { ensureNoLeakedDisposables } from '../../../../base/test/common/vitestUtils.js';
 import { positronExtensionCompatibility } from '../../common/abstractExtensionManagementService.js';
 import { IProductService } from '../../../product/common/productService.js';
 import { IExtensionManifest } from '../../../extensions/common/extensions.js';
 
-suite('Positron Extension Compatibility', () => {
+describe('Positron Extension Compatibility', () => {
 
-	ensureNoDisposablesAreLeakedInTestSuite();
+	ensureNoLeakedDisposables();
 
 	const mockProductService: IProductService = {
 		positronVersion: '2026.02.0',
@@ -19,7 +20,7 @@ suite('Positron Extension Compatibility', () => {
 		date: '2026-01-10'
 	} as IProductService;
 
-	test('should reject blocked extension (ms-python.python)', () => {
+	it('should reject blocked extension (ms-python.python)', () => {
 		const extension = {
 			name: 'python',
 			publisher: 'ms-python',
@@ -28,13 +29,13 @@ suite('Positron Extension Compatibility', () => {
 
 		const result = positronExtensionCompatibility(extension, mockProductService);
 
-		assert.strictEqual(result.compatible, false);
-		assert.ok(result.reason);
-		assert.ok(result.reason.includes('conflicts with Positron built-in features'));
-		assert.ok(result.reason.includes('Python'));
+		expect(result.compatible).toBe(false);
+		expect(result.reason).toBeTruthy();
+		expect(result.reason!.includes('conflicts with Positron built-in features')).toBeTruthy();
+		expect(result.reason!.includes('Python')).toBeTruthy();
 	});
 
-	test('should accept extension with compatible version requirement', () => {
+	it('should accept extension with compatible version requirement', () => {
 		const extensionManifest: IExtensionManifest = {
 			name: 'test-extension',
 			publisher: 'test-publisher',
@@ -47,11 +48,11 @@ suite('Positron Extension Compatibility', () => {
 
 		const result = positronExtensionCompatibility(extensionManifest, mockProductService);
 
-		assert.strictEqual(result.compatible, true);
-		assert.strictEqual(result.reason, undefined);
+		expect(result.compatible).toBe(true);
+		expect(result.reason).toBe(undefined);
 	});
 
-	test('should reject extension that requires newer Positron version', () => {
+	it('should reject extension that requires newer Positron version', () => {
 		const extensionManifest: IExtensionManifest = {
 			name: 'future-extension',
 			publisher: 'test-publisher',
@@ -65,14 +66,14 @@ suite('Positron Extension Compatibility', () => {
 
 		const result = positronExtensionCompatibility(extensionManifest, mockProductService);
 
-		assert.strictEqual(result.compatible, false);
-		assert.ok(result.reason);
-		assert.ok(result.reason.includes('Extension is not compatible with Positron'));
-		assert.ok(result.reason.includes('2026.02.0'));
-		assert.ok(result.reason.includes('2027.01.0'));
+		expect(result.compatible).toBe(false);
+		expect(result.reason).toBeTruthy();
+		expect(result.reason!.includes('Extension is not compatible with Positron')).toBeTruthy();
+		expect(result.reason!.includes('2026.02.0')).toBeTruthy();
+		expect(result.reason!.includes('2027.01.0')).toBeTruthy();
 	});
 
-	test('should accept extension without engine requirements', () => {
+	it('should accept extension without engine requirements', () => {
 		const extension = {
 			name: 'simple-extension',
 			publisher: 'simple-publisher',
@@ -81,11 +82,11 @@ suite('Positron Extension Compatibility', () => {
 
 		const result = positronExtensionCompatibility(extension, mockProductService);
 
-		assert.strictEqual(result.compatible, true);
-		assert.strictEqual(result.reason, undefined);
+		expect(result.compatible).toBe(true);
+		expect(result.reason).toBe(undefined);
 	});
 
-	test('should report validation error for malformed Positron version syntax', () => {
+	it('should report validation error for malformed Positron version syntax', () => {
 		// Test with an extension that has malformed Positron version syntax
 		const extensionManifest: IExtensionManifest = {
 			name: 'test-extension',
@@ -100,13 +101,13 @@ suite('Positron Extension Compatibility', () => {
 
 		const result = positronExtensionCompatibility(extensionManifest, mockProductService);
 
-		assert.strictEqual(result.compatible, false);
-		assert.ok(result.reason);
+		expect(result.compatible).toBe(false);
+		expect(result.reason).toBeTruthy();
 		// Should contain error about parsing the version
-		assert.ok(result.reason.includes('Could not parse'));
+		expect(result.reason!.includes('Could not parse')).toBeTruthy();
 	});
 
-	test('should handle missing ProductService gracefully', () => {
+	it('should handle missing ProductService gracefully', () => {
 		const extension = {
 			name: 'test-extension',
 			publisher: 'test-publisher',
@@ -115,18 +116,18 @@ suite('Positron Extension Compatibility', () => {
 
 		const result = positronExtensionCompatibility(extension, undefined);
 
-		assert.strictEqual(result.compatible, true);
-		assert.strictEqual(result.reason, undefined);
+		expect(result.compatible).toBe(true);
+		expect(result.reason).toBe(undefined);
 	});
 
-	test('should handle different extension input types', () => {
+	it('should handle different extension input types', () => {
 		// Test with basic extension object
 		const basicExtension = {
 			name: 'basic',
 			publisher: 'publisher'
 		};
 		let result = positronExtensionCompatibility(basicExtension, mockProductService);
-		assert.strictEqual(result.compatible, true);
+		expect(result.compatible).toBe(true);
 
 		// Test with gallery extension (using only required properties)
 		const galleryExtension = {
@@ -135,7 +136,7 @@ suite('Positron Extension Compatibility', () => {
 			displayName: 'Gallery Extension'
 		};
 		result = positronExtensionCompatibility(galleryExtension, mockProductService);
-		assert.strictEqual(result.compatible, true);
+		expect(result.compatible).toBe(true);
 
 		// Test with manifest
 		const manifestExtension: IExtensionManifest = {
@@ -145,7 +146,7 @@ suite('Positron Extension Compatibility', () => {
 			version: '1.0.0'
 		} as IExtensionManifest;
 		result = positronExtensionCompatibility(manifestExtension, mockProductService);
-		assert.strictEqual(result.compatible, true);
+		expect(result.compatible).toBe(true);
 	});
 
 });

@@ -3,11 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import assert from 'assert';
+/// <reference types="vitest/globals" />
+
 import { mock } from '../../../../../base/test/common/mock.js';
 import { SingleProxyRPCProtocol } from '../testRPCProtocol.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { ensureNoLeakedDisposables } from '../../../../../base/test/common/vitestUtils.js';
 import { ExtHostPositronEphemeralStorage } from '../../../common/positron/extHostPositronEphemeralStorage.js';
 import { MainThreadPositronEphemeralStorageShape } from '../../../common/positron/extHost.positron.protocol.js';
 
@@ -31,30 +32,30 @@ function createMockShape() {
 	};
 }
 
-suite('ExtHostPositronEphemeralStorage', function () {
+describe('ExtHostPositronEphemeralStorage', function () {
 
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+	const disposables = ensureNoLeakedDisposables();
 
 	let shape: ReturnType<typeof createMockShape>;
 
-	setup(() => {
+	beforeEach(() => {
 		shape = createMockShape();
 	});
 
-	test('initializeEphemeralStorage returns defaultValue when nothing stored', async function () {
+	it('initializeEphemeralStorage returns defaultValue when nothing stored', async function () {
 		const storage = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), new NullLogService());
 		const result = await storage.initializeEphemeralStorage('test.ext', { key: 'default' });
-		assert.deepStrictEqual(result, { key: 'default' });
+		expect(result).toEqual({ key: 'default' });
 	});
 
-	test('initializeEphemeralStorage returns parsed stored value', async function () {
+	it('initializeEphemeralStorage returns parsed stored value', async function () {
 		shape.setRaw('test.ext', JSON.stringify({ hello: 'world' }));
 		const storage = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), new NullLogService());
 		const result = await storage.initializeEphemeralStorage('test.ext');
-		assert.deepStrictEqual(result, { hello: 'world' });
+		expect(result).toEqual({ hello: 'world' });
 	});
 
-	test('initializeEphemeralStorage returns defaultValue on invalid JSON', async function () {
+	it('initializeEphemeralStorage returns defaultValue on invalid JSON', async function () {
 		shape.setRaw('test.ext', '{invalid json!!!');
 		const errors: string[] = [];
 		const logService = new class extends NullLogService {
@@ -64,72 +65,72 @@ suite('ExtHostPositronEphemeralStorage', function () {
 		};
 		const storage = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), logService);
 		const result = await storage.initializeEphemeralStorage('test.ext', { fallback: true });
-		assert.deepStrictEqual(result, { fallback: true });
-		assert.ok(errors.length > 0, 'Expected an error to be logged');
+		expect(result).toEqual({ fallback: true });
+		expect(errors.length > 0).toBeTruthy();
 	});
 
-	test('getOrCreateMemento returns same instance for same extensionId', function () {
+	it('getOrCreateMemento returns same instance for same extensionId', function () {
 		const storage = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), new NullLogService());
 		const m1 = storage.getOrCreateMemento('test.ext');
 		disposables.add(m1);
 		const m2 = storage.getOrCreateMemento('test.ext');
-		assert.strictEqual(m1, m2);
+		expect(m1).toBe(m2);
 	});
 
-	test('getOrCreateMemento returns different instances for different extensionIds', function () {
+	it('getOrCreateMemento returns different instances for different extensionIds', function () {
 		const storage = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), new NullLogService());
 		const m1 = storage.getOrCreateMemento('ext.a');
 		disposables.add(m1);
 		const m2 = storage.getOrCreateMemento('ext.b');
 		disposables.add(m2);
-		assert.notStrictEqual(m1, m2);
+		expect(m1).not.toBe(m2);
 	});
 });
 
-suite('EphemeralExtensionMemento', function () {
+describe('EphemeralExtensionMemento', function () {
 
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+	const disposables = ensureNoLeakedDisposables();
 
 	let shape: ReturnType<typeof createMockShape>;
 
-	setup(() => {
+	beforeEach(() => {
 		shape = createMockShape();
 	});
 
-	test('whenReady resolves with the memento', async function () {
+	it('whenReady resolves with the memento', async function () {
 		const storage = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), new NullLogService());
 		const memento = storage.getOrCreateMemento('test.ext');
 		disposables.add(memento);
 		const resolved = await memento.whenReady;
-		assert.strictEqual(resolved, memento);
+		expect(resolved).toBe(memento);
 	});
 
-	test('get returns undefined for missing key', async function () {
+	it('get returns undefined for missing key', async function () {
 		const storage = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), new NullLogService());
 		const memento = storage.getOrCreateMemento('test.ext');
 		disposables.add(memento);
 		await memento.whenReady;
-		assert.strictEqual(memento.get('nonexistent'), undefined);
+		expect(memento.get('nonexistent')).toBe(undefined);
 	});
 
-	test('get returns defaultValue for missing key', async function () {
+	it('get returns defaultValue for missing key', async function () {
 		const storage = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), new NullLogService());
 		const memento = storage.getOrCreateMemento('test.ext');
 		disposables.add(memento);
 		await memento.whenReady;
-		assert.strictEqual(memento.get('nonexistent', 'fallback'), 'fallback');
+		expect(memento.get('nonexistent', 'fallback')).toBe('fallback');
 	});
 
-	test('update and get roundtrip', async function () {
+	it('update and get roundtrip', async function () {
 		const storage = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), new NullLogService());
 		const memento = storage.getOrCreateMemento('test.ext');
 		disposables.add(memento);
 		await memento.whenReady;
 		await memento.update('myKey', 42);
-		assert.strictEqual(memento.get('myKey'), 42);
+		expect(memento.get('myKey')).toBe(42);
 	});
 
-	test('update deep-clones object values', async function () {
+	it('update deep-clones object values', async function () {
 		const storage = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), new NullLogService());
 		const memento = storage.getOrCreateMemento('test.ext');
 		disposables.add(memento);
@@ -142,10 +143,10 @@ suite('EphemeralExtensionMemento', function () {
 		obj.nested.value = 999;
 
 		// Stored value should be unaffected
-		assert.deepStrictEqual(memento.get('obj'), { nested: { value: 1 } });
+		expect(memento.get('obj')).toEqual({ nested: { value: 1 } });
 	});
 
-	test('keys filters out undefined values', async function () {
+	it('keys filters out undefined values', async function () {
 		const storage = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), new NullLogService());
 		const memento = storage.getOrCreateMemento('test.ext');
 		disposables.add(memento);
@@ -155,11 +156,11 @@ suite('EphemeralExtensionMemento', function () {
 		await memento.update('key2', undefined);
 
 		const keys = memento.keys();
-		assert.ok(keys.includes('key1'));
-		assert.ok(!keys.includes('key2'));
+		expect(keys.includes('key1')).toBeTruthy();
+		expect(!keys.includes('key2')).toBeTruthy();
 	});
 
-	test('update persists to storage', async function () {
+	it('update persists to storage', async function () {
 		const storage1 = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), new NullLogService());
 		const memento1 = storage1.getOrCreateMemento('test.ext');
 		disposables.add(memento1);
@@ -174,10 +175,10 @@ suite('EphemeralExtensionMemento', function () {
 		disposables.add(memento2);
 		await memento2.whenReady;
 
-		assert.strictEqual(memento2.get('persistKey'), 'persistValue');
+		expect(memento2.get('persistKey')).toBe('persistValue');
 	});
 
-	test('clear removes all keys and deletes from backend', async function () {
+	it('clear removes all keys and deletes from backend', async function () {
 		const storage1 = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), new NullLogService());
 		const memento1 = storage1.getOrCreateMemento('test.ext');
 		disposables.add(memento1);
@@ -187,7 +188,7 @@ suite('EphemeralExtensionMemento', function () {
 		await memento1.update('b', 2);
 
 		await memento1.clear();
-		assert.deepStrictEqual(memento1.keys(), []);
+		expect(memento1.keys()).toEqual([]);
 
 		// Create a fresh storage + memento from the same proxy to verify backend is cleared
 		const storage2 = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), new NullLogService());
@@ -195,22 +196,22 @@ suite('EphemeralExtensionMemento', function () {
 		disposables.add(memento2);
 		await memento2.whenReady;
 
-		assert.deepStrictEqual(memento2.keys(), []);
-		assert.strictEqual(memento2.get('a'), undefined);
+		expect(memento2.keys()).toEqual([]);
+		expect(memento2.get('a')).toBe(undefined);
 	});
 
-	test('dispose does not throw', async function () {
+	it('dispose does not throw', async function () {
 		const storage = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), new NullLogService());
 		const memento = storage.getOrCreateMemento('test.ext');
 		disposables.add(memento);
 		await memento.whenReady;
 
 		// Verify dispose does not throw.
-		// The ensureNoDisposablesAreLeakedInTestSuite check will catch leaks if we forget dispose.
+		// The ensureNoLeakedDisposables check will catch leaks if we forget dispose.
 		memento.dispose();
 	});
 
-	test('dispose then getOrCreateMemento returns fresh working instance', async function () {
+	it('dispose then getOrCreateMemento returns fresh working instance', async function () {
 		const storage = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), new NullLogService());
 		const memento1 = storage.getOrCreateMemento('test.ext');
 		disposables.add(memento1);
@@ -221,16 +222,16 @@ suite('EphemeralExtensionMemento', function () {
 
 		const memento2 = storage.getOrCreateMemento('test.ext');
 		disposables.add(memento2);
-		assert.notStrictEqual(memento1, memento2);
+		expect(memento1).not.toBe(memento2);
 		await memento2.whenReady;
 
 		// Fresh instance should see persisted state and accept new writes
-		assert.strictEqual(memento2.get('key'), 'before-dispose');
+		expect(memento2.get('key')).toBe('before-dispose');
 		await memento2.update('key', 'after-dispose');
-		assert.strictEqual(memento2.get('key'), 'after-dispose');
+		expect(memento2.get('key')).toBe('after-dispose');
 	});
 
-	test('initializeEphemeralStorage rejects non-object stored values', async function () {
+	it('initializeEphemeralStorage rejects non-object stored values', async function () {
 		const errors: string[] = [];
 		const logService = new class extends NullLogService {
 			override error(message: string | Error): void {
@@ -247,8 +248,8 @@ suite('EphemeralExtensionMemento', function () {
 			disposables.add(memento);
 			await memento.whenReady;
 
-			assert.deepStrictEqual(memento.keys(), [], `keys should be empty for stored value: ${bad}`);
-			assert.ok(errors.length > 0, `expected an error to be logged for stored value: ${bad}`);
+			expect(memento.keys()).toEqual([]);
+			expect(errors.length > 0).toBeTruthy();
 		}
 	});
 });
