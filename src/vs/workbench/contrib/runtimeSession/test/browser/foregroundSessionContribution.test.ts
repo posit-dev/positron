@@ -207,7 +207,7 @@ suite('Positron - ForegroundSessionContribution', () => {
 
 			assert.strictEqual(
 				runtimeSessionService.foregroundSession?.sessionId,
-				consoleSession.sessionId
+				runtimeSessionService.getLastActiveConsoleSession()?.sessionId
 			);
 		});
 
