@@ -105,7 +105,7 @@ export const ActionBarButton = forwardRef<
 						className={positronClassNames(
 							'action-bar-button-icon',
 							props.dropdownIndicator,
-							{ 'custom-icon-color': !!props.iconStyle }
+							{ 'custom-icon-color': Boolean(props.iconStyle) }
 						)}
 						icon={props.icon}
 						style={props.iconStyle}
