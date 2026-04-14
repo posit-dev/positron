@@ -49,6 +49,7 @@ import { VsCodeNotebooks } from '../pages/notebooksVscode.js';
 import { PositAssistant } from '../pages/positAssistant.js';
 import { InlineDataExplorer } from '../pages/inlineDataExplorer.js';
 import { InlineQuarto } from '../pages/inlineQuarto.js';
+import { Publisher } from '../pages/publisher.js';
 import { Packages } from '../pages/packages.js';
 
 export interface Commands {
@@ -101,6 +102,7 @@ export class Workbench {
 	readonly positAssistant: PositAssistant;
 	readonly inlineDataExplorer: InlineDataExplorer;
 	readonly inlineQuarto: InlineQuarto;
+	readonly publisher: Publisher;
 	readonly packages: Packages;
 
 	constructor(code: Code) {
@@ -148,6 +150,7 @@ export class Workbench {
 		this.positAssistant = new PositAssistant(code);
 		this.inlineDataExplorer = new InlineDataExplorer(code.driver.page);
 		this.inlineQuarto = new InlineQuarto(code, this.quickaccess, this.hotKeys);
+		this.publisher = new Publisher(this.quickInput);
 		this.packages = new Packages(code, this.contextMenu, this.quickInput, this.toasts);
 	}
 }

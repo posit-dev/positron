@@ -46,7 +46,6 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 	/**
 	 * Constructor.
 	 * @param _runtimeSessionService The language runtime service.
-	 * @param _editorService The editor service.
 	 * @param _logService The log service.
 	 * @param _contextKeyService The context key service.
 	 */
