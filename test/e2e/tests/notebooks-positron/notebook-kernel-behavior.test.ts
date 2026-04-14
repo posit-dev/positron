@@ -212,7 +212,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 	});
 
 	test('Python - console accepts input after notebook cell execution', {
-		tag: [tags.CONSOLE],
+		tag: [tags.CONSOLE, tags.POSITRON_NOTEBOOKS, tags.WIN],
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/11704' }]
 	}, async function ({ app, sessions }) {
 		const { notebooksPositron, console } = app.workbench;
