@@ -7,7 +7,7 @@
 import './NotebookCodeCell.css';
 
 // React.
-import React, { useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 
 // Other dependencies.
 import { NotebookCellOutputs, ParsedTextOutput } from '../PositronNotebookCells/IPositronNotebookCell.js';
@@ -38,6 +38,7 @@ import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.
 import { useScrollingIndicator } from './useScrollingIndicator.js';
 import { CellOutputActionBar } from './CellOutputActionBar.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
+import { HorizontalSplitter, HorizontalSplitterResizeParams } from '../../../../../base/browser/ui/positronComponents/splitters/horizontalSplitter.js';
 
 const copyOutputTextLabel = localize('positron.notebook.copyOutputText', "Copy Output Text");
 const expandOutputTooltip = localize('positron.notebook.expandOutput', "Click to Expand Output");
@@ -68,6 +69,38 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 
 	// Per-cell scrolling override takes precedence over global setting.
 	const outputScrolling = perCellScrolling ?? layout.outputScrolling;
+
+	const clearHeightOverride = useCallback(() => {
+		const el = outputsInnerRef.current;
+		if (el) {
+			el.style.height = '';
+			el.style.maxHeight = '';
+			el.classList.remove('height-override');
+		}
+	}, []);
+
+	// Reset height override when outputs change (new execution) or scrolling mode toggles.
+	useEffect(() => {
+		clearHeightOverride();
+	}, [outputs, outputScrolling, clearHeightOverride]);
+
+	const onBeginResize = useCallback((): HorizontalSplitterResizeParams => {
+		const el = outputsInnerRef.current;
+		return {
+			startingHeight: el?.offsetHeight ?? 0,
+			minimumHeight: 50,
+			maximumHeight: 2000,
+		};
+	}, []);
+
+	const onResize = useCallback((height: number) => {
+		const el = outputsInnerRef.current;
+		if (el) {
+			el.style.height = height + 'px';
+			el.style.maxHeight = height + 'px';
+			el.classList.add('height-override');
+		}
+	}, []);
 
 	// Update the output overflow context key.
 	React.useEffect(() => {
@@ -181,8 +214,9 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 					'positron-notebook-code-cell-outputs-inner',
 					'positron-notebook-scrollable',
 					'positron-notebook-scrollable-fade',
-					{ 'output-scrolling': outputScrolling }
+					{ 'output-scrolling': outputScrolling },
 				)}>
+
 					{isCollapsed
 						? <CollapsedOutputLabel onExpand={handleShowHiddenOutput} />
 						: outputs?.map((output) => (
@@ -201,6 +235,14 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 						))
 					}
 				</div>
+				{outputScrolling && !isCollapsed && outputs.length > 0 &&
+					<HorizontalSplitter
+						showResizeIndicator
+						onBeginResize={onBeginResize}
+						onDoubleClick={clearHeightOverride}
+						onResize={onResize}
+					/>
+				}
 			</section>
 		</div>
 	);

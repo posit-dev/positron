@@ -43,6 +43,7 @@
 
 	.positron-notebook-cell-outputs {
 		overflow: hidden;
+		position: relative;
 	}
 
 	.positron-notebook-code-cell-outputs-inner {
@@ -52,6 +53,11 @@
 
 		&.output-scrolling {
 			max-height: var(--vscode-positronNotebook-output-max-height);
+			overflow-y: auto;
+		}
+
+		/* When user has manually resized, the inline style controls height */
+		&.height-override {
 			overflow-y: auto;
 		}
 		overflow-x: auto;
