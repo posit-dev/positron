@@ -13,9 +13,10 @@ import { useCallback } from 'react';
 import { localize } from '../../../../../nls.js';
 import { DataConnectionActionBar } from './dataConnectionActionBar.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
+import { Checkbox } from '../../../../browser/positronComponents/positronModalDialog/components/checkbox.js';
 import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
 import { PositronModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
-import { IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
+import { IDataConnectionDriver, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
 
 /**
  * ConfigureDataConnectionProps interface.
@@ -24,11 +25,18 @@ interface ConfigureDataConnectionProps {
 	// The renderer.
 	renderer: PositronModalReactRenderer;
 
-	// The data connection profile being configured.
-	dataConnectionProfile: IDataConnectionProfile;
+	// The driver for the connection being configured.
+	driver: IDataConnectionDriver;
 
-	// Called when the user clicks Back to return to the select provider dialog.
+	// The data connection profile being configured.
+	profile: IDataConnectionProfile;
+
+	// Called when the user clicks Back to return to the previous step. If not provided, the Back
+	// button will not be shown.
 	onBack?: () => void;
+
+	// Called when the user clicks Create to create the data connection. If not provided, the Create
+	onAccept?: (profile: IDataConnectionProfile) => void;
 }
 
 /**
@@ -41,18 +49,14 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 	// Destructure props for use in hooks.
 	const { renderer, onBack } = props;
 
+	// Destructure the driver from props for convenience.
+	const { driver } = props;
+
 	// Cancel handler.
 	const cancelHandler = useCallback(() => {
 		// Dispose the renderer, which will close the dialog.
 		renderer.dispose();
 	}, [renderer]);
-
-	// Back handler.
-	const backHandler = useCallback(() => {
-		if (onBack) {
-			onBack();
-		}
-	}, [onBack]);
 
 	// Accept handler.
 	const acceptHandler = useCallback(() => {
@@ -74,12 +78,94 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 		>
 			<ContentArea>
 				<div className='configure-data-connection'>
+					{/* Driver Header. */}
+					<div className='driver-header'>
+						<div className='driver-header-badge'>
+							<img alt='' className='driver-header-icon' src={`data:image/svg+xml;base64,${driver.metadata.iconSvg}`} />
+						</div>
+						<div className='driver-header-name'>{driver.metadata.name}</div>
+					</div>
+
+					{/* Parameters */}
+					{driver.metadata.parameters.map(parameter => {
+						switch (parameter.type) {
+							case 'string':
+								return (
+									<div key={parameter.id} className='parameter-field'>
+										<label className='parameter-label'>{parameter.label}</label>
+										<input
+											className='parameter-input text-input'
+											defaultValue={parameter.defaultValue as string | undefined}
+											placeholder={parameter.placeholder}
+											type='text'
+										/>
+									</div>
+								);
+
+							case 'number':
+								return (
+									<div key={parameter.id} className='parameter-field'>
+										<label className='parameter-label'>{parameter.label}</label>
+										<input
+											className='parameter-input text-input'
+											defaultValue={parameter.defaultValue !== undefined ? String(parameter.defaultValue) : undefined}
+											inputMode='numeric'
+											placeholder={parameter.placeholder}
+											type='text'
+										/>
+									</div>
+								);
+
+							case 'boolean':
+								return (
+									<div key={parameter.id} className='parameter-field-inline'>
+										<Checkbox
+											initialChecked={parameter.defaultValue as boolean | undefined}
+											label={parameter.label}
+											onChanged={() => { }}
+										/>
+									</div>
+								);
+
+							case 'file':
+								return (
+									<div key={parameter.id} className='parameter-field'>
+										<label className='parameter-label'>{parameter.label}</label>
+										<input
+											className='parameter-input text-input'
+											defaultValue={parameter.defaultValue as string | undefined}
+											placeholder={parameter.placeholder}
+											type='text'
+										/>
+									</div>
+								);
+
+							case 'option':
+								return (
+									<div key={parameter.id} className='parameter-field'>
+										<label className='parameter-label'>{parameter.label}</label>
+										<select
+											className='parameter-input parameter-select'
+											defaultValue={parameter.defaultValue as string | undefined}
+										>
+											{parameter.options?.map(option => (
+												<option key={option} value={option}>{option}</option>
+											))}
+										</select>
+									</div>
+								);
+
+							default:
+								return null;
+						}
+					})}
+
 				</div>
 			</ContentArea>
 			<DataConnectionActionBar
 				acceptLabel={localize('positron.configureDataConnection.create', "Create")}
 				onAccept={acceptHandler}
-				onBack={backHandler}
+				onBack={onBack}
 				onCancel={cancelHandler}
 			/>
 		</PositronModalDialog>

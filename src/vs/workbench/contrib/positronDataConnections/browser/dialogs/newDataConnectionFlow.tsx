@@ -13,8 +13,8 @@ import { useCallback, useState } from 'react';
 import { ConfigureDataConnection } from './configureDataConnection.js';
 import { SelectDataConnectionProvider } from './selectDataConnectionProvider.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
-import { IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
-import { IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { IDataConnectionDriver, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
 
 /**
  * NewDataConnectionFlowStep enumeration.
@@ -37,9 +37,6 @@ enum NewDataConnectionFlowStep {
 interface NewDataConnectionFlowProps {
 	// The renderer.
 	renderer: PositronModalReactRenderer;
-
-	// The data connections service.
-	positronDataConnectionsService: IPositronDataConnectionsService;
 }
 
 /**
@@ -50,13 +47,20 @@ interface NewDataConnectionFlowProps {
  * @returns The rendered component.
  */
 export const NewDataConnectionFlow = (props: NewDataConnectionFlowProps) => {
+	// Get the data connections service from the React services context.
+	const { positronDataConnectionsService } = usePositronReactServicesContext();
+
 	// State.
 	const [step, setStep] = useState(NewDataConnectionFlowStep.SelectProvider);
+	const [driver, setDriver] = useState<IDataConnectionDriver | undefined>(undefined);
 	const [dataConnectionProfile, setDataConnectionProfile] = useState<IDataConnectionProfile | undefined>(undefined);
 
 	// Next handler. Transitions from the select provider step to the configure step.
 	const nextHandler = useCallback((driverId: string) => {
-		// Initialize the data connection profile with the selected driver ID and empty parameter values.
+		// Set the driver.
+		setDriver(positronDataConnectionsService.driverManager.getDriver(driverId));
+
+		// Set the data connection profile.
 		setDataConnectionProfile({
 			connectionName: '',
 			driverId,
@@ -65,7 +69,7 @@ export const NewDataConnectionFlow = (props: NewDataConnectionFlowProps) => {
 
 		// Transition to the configure step.
 		setStep(NewDataConnectionFlowStep.Configure);
-	}, []);
+	}, [positronDataConnectionsService.driverManager]);
 
 	// Back handler. Transitions from the configure step back to the select provider step.
 	const backHandler = useCallback(() => {
@@ -79,7 +83,6 @@ export const NewDataConnectionFlow = (props: NewDataConnectionFlowProps) => {
 		case NewDataConnectionFlowStep.SelectProvider:
 			return (
 				<SelectDataConnectionProvider
-					positronDataConnectionsService={props.positronDataConnectionsService}
 					renderer={props.renderer}
 					onNext={nextHandler}
 				/>
@@ -89,7 +92,8 @@ export const NewDataConnectionFlow = (props: NewDataConnectionFlowProps) => {
 		case NewDataConnectionFlowStep.Configure:
 			return (
 				<ConfigureDataConnection
-					dataConnectionProfile={dataConnectionProfile!}
+					profile={dataConnectionProfile!}
+					driver={driver!}
 					renderer={props.renderer}
 					onBack={backHandler}
 				/>

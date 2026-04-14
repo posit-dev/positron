@@ -9,18 +9,14 @@ import './positronDataConnections.css';
 // Other dependencies.
 import { useState } from 'react';
 import { DataConnectionsPanel } from './components/dataConnectionsPanel.js';
-import { DataConnectionsTab, DataConnectionsTabSelector } from './components/dataConnectionsTabSelector.js';
 import { DataConnectionsExplorerPanel } from './components/dataConnectionsExplorerPanel.js';
 import { IReactComponentContainer } from '../../../../base/browser/positronReactRenderer.js';
-import { IPositronDataConnectionsService } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
+import { DataConnectionsTab, DataConnectionsTabSelector } from './components/dataConnectionsTabSelector.js';
 
 /**
  * PositronDataConnectionsProps interface.
  */
 interface PositronDataConnectionsProps {
-	// The data connections service.
-	readonly dataConnectionsService: IPositronDataConnectionsService;
-
 	// A container that allows the component to save and restore scroll position.
 	readonly reactComponentContainer: IReactComponentContainer;
 }
@@ -42,7 +38,6 @@ export const PositronDataConnections = (props: PositronDataConnectionsProps) => 
 			<div className='panels'>
 				<DataConnectionsPanel
 					active={selectedDataTab === DataConnectionsTab.DataConnections}
-					dataConnectionsService={props.dataConnectionsService}
 				/>
 				<DataConnectionsExplorerPanel active={selectedDataTab === DataConnectionsTab.DataConnectionsExplorer} />
 			</div>

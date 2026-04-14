@@ -12,17 +12,16 @@ import { Emitter } from '../../../../base/common/event.js';
 import { IViewDescriptorService } from '../../../common/views.js';
 import { PositronDataConnections } from './positronDataConnections.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
+import { IViewPaneOptions } from '../../../browser/parts/views/viewPane.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
-import { IViewPaneOptions } from '../../../browser/parts/views/viewPane.js';
+import { PositronViewPane } from '../../../browser/positronViewPane/positronViewPane.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
-import { PositronViewPane } from '../../../browser/positronViewPane/positronViewPane.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
-import { IPositronDataConnectionsService } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 
 /**
  * PositronDataViewPane class.
@@ -86,7 +85,6 @@ export class PositronDataViewPane extends PositronViewPane implements IReactComp
 		@IOpenerService openerService: IOpenerService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
-		@IPositronDataConnectionsService private readonly _dataConnectionsService: IPositronDataConnectionsService,
 	) {
 		super(
 			options,
@@ -134,7 +132,6 @@ export class PositronDataViewPane extends PositronViewPane implements IReactComp
 		// Render the PositronDataConnections component into the container.
 		this._positronReactRenderer.render(
 			<PositronDataConnections
-				dataConnectionsService={this._dataConnectionsService}
 				reactComponentContainer={this}
 			/>
 		);

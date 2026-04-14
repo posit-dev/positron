@@ -39,4 +39,8 @@ export class DataConnectionDriverManager extends Disposable implements IDataConn
 	getDrivers(): IDataConnectionDriver[] {
 		return [...this._drivers];
 	}
+
+	getDriver(driverId: string): IDataConnectionDriver | undefined {
+		return this._drivers.find(d => d.id === driverId);
+	}
 }

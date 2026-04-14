@@ -15,10 +15,10 @@ import { DataConnectionActionBar } from './dataConnectionActionBar.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
 import { PositronModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
 import { IDataConnectionDriverMetadata } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
-import { IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 
 /**
  * SelectDataConnectionProviderProps interface.
@@ -26,9 +26,6 @@ import { IPositronDataConnectionsService } from '../../../../services/positronDa
 interface SelectDataConnectionProviderProps {
 	// The renderer.
 	renderer: PositronModalReactRenderer;
-
-	// The data connections service, used to load drivers and listen for changes.
-	positronDataConnectionsService: IPositronDataConnectionsService;
 
 	// Called when the user selects a driver and clicks Next.
 	onNext: (driverId: string) => void;
@@ -42,7 +39,10 @@ interface SelectDataConnectionProviderProps {
  */
 export const SelectDataConnectionProvider = (props: SelectDataConnectionProviderProps) => {
 	// Destructure props for use in hooks.
-	const { renderer, positronDataConnectionsService, onNext } = props;
+	const { renderer, onNext } = props;
+
+	// Get the data connections service from the React services context.
+	const { positronDataConnectionsService } = usePositronReactServicesContext();
 
 	// State.
 	const [drivers, setDrivers] = useState<IDataConnectionDriverMetadata[]>([]);

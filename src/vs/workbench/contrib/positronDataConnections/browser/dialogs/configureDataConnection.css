@@ -4,5 +4,80 @@
  *--------------------------------------------------------------------------------------------*/
 
 .configure-data-connection {
-	height: 500px;
+	gap: 10px;
+	display: flex;
+	flex-direction: column;
+}
+
+.configure-data-connection .driver-header {
+	gap: 6px;
+	display: flex;
+	/* padding: 10px; */
+	border-radius: 6px;
+	align-items: center;
+	/* background: var(--vscode-sideBar-background); */
+	/* border: 1px solid var(--vscode-widget-border); */
+}
+
+.configure-data-connection .driver-header-badge {
+	width: 20px;
+	height: 20px;
+	display: flex;
+	flex-shrink: 0;
+	border-radius: 3px;
+	align-items: center;
+	background: #f8f8f8;
+	justify-content: center;
+	border: 1px solid rgba(128, 128, 128, 0.2);
+}
+
+.configure-data-connection .driver-header-icon {
+	width: 16px;
+	height: 16px;
+	object-fit: contain;
+}
+
+.configure-data-connection .driver-header-name {
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.configure-data-connection .parameter-field {
+	gap: 4px;
+	display: flex;
+	flex-direction: column;
+}
+
+.configure-data-connection .parameter-field-inline {
+	gap: 6px;
+	display: flex;
+	align-items: center;
+}
+
+.configure-data-connection .parameter-label {
+	font-size: 12px;
+}
+
+.configure-data-connection .parameter-input {
+	width: 100%;
+	padding: 4px 6px;
+	font-size: 13px;
+	border-radius: 4px;
+	box-sizing: border-box;
+	color: var(--vscode-input-foreground);
+	background: var(--vscode-input-background);
+	border: 1px solid var(--vscode-input-border);
+}
+
+.configure-data-connection .parameter-input:focus {
+	outline: none;
+	border-color: var(--vscode-focusBorder);
+}
+
+.configure-data-connection .parameter-select {
+	height: 26px;
+}
+
+.configure-data-connection .parameter-checkbox {
+	margin: 0;
 }

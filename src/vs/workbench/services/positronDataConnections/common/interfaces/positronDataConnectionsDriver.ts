@@ -112,5 +112,6 @@ export interface IDataConnectionDriverManager {
 	registerDriver(driver: IDataConnectionDriver): void;
 	removeDriver(driverId: string): void;
 	getDrivers(): IDataConnectionDriver[];
+	getDriver(driverId: string): IDataConnectionDriver | undefined;
 	onDidChangeDrivers: Event<IDataConnectionDriver[]>;
 }
