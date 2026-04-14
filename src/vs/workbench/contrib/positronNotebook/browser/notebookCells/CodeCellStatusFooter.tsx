@@ -18,6 +18,7 @@ import { ExecutionStatus } from '../PositronNotebookCells/IPositronNotebookCell.
 import { formatCellDuration, formatTimestamp, getRelativeTime, isMoreThanOneHourAgo } from './cellExecutionUtils.js';
 import { Icon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 
 interface CodeCellStatusFooterProps {
 	cell: PositronNotebookCodeCell;
@@ -77,12 +78,17 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 	const hasCurrentSessionContent = hasExecutionResult || isCurrentlyRunning || hasTimingInfo;
 
 	// Check if cell has never been run (no execution order and no current session data)
-	const hasNeverBeenRun = !hasExecutionOrder && !hasExecutionResult && !isCurrentlyRunning;
+	const hasNeverBeenRun = !hasExecutionOrder && !hasCurrentSessionContent;
 
 	// Check if we only have execution order from previous session (no current session data)
 	const wasRunInPreviousSession = hasExecutionOrder && !hasCurrentSessionContent;
 
 	const isPending = executionStatus === 'pending';
+
+	// Collapse the footer when there's no execution info to display.
+	// This covers cells that have never been run and cells only run in a previous session.
+	// isPending guard keeps the clock icon visible for queued cells.
+	const isCollapsed = !isPending && !hasCurrentSessionContent;
 
 	const dataExecutionStatus = executionStatus || 'idle';
 
@@ -147,22 +153,24 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 		return null;
 	};
 
-	// Build ARIA label for accessibility
+	// Build ARIA label for accessibility.
+	// Active states (running/pending) take priority over static states so a
+	// queued cell that has never been run is announced as "queued", not "not yet run".
 	const getAriaLabel = () => {
-		if (hasNeverBeenRun) {
-			return localize('cellExecution.notYetRun', 'Cell not yet run');
-		}
-
-		if (wasRunInPreviousSession) {
-			return localize('cellExecution.notRunThisSession', 'Not run this session');
-		}
-
 		if (isCurrentlyRunning) {
 			return localize('cellExecution.running', 'Cell is executing');
 		}
 
 		if (isPending) {
 			return localize('cellExecution.pending', 'Cell is queued for execution');
+		}
+
+		if (hasNeverBeenRun) {
+			return localize('cellExecution.notYetRun', 'Cell not yet run');
+		}
+
+		if (wasRunInPreviousSession) {
+			return localize('cellExecution.notRunThisSession', 'Not run this session');
 		}
 
 		if (hasTimingInfo && duration !== undefined && lastRunEndTime !== undefined) {
@@ -181,9 +189,10 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 	return (
 		<div
 			ref={containerRef}
-			aria-label={getAriaLabel()}
+			aria-hidden={isCollapsed || undefined}
+			aria-label={isCollapsed ? undefined : getAriaLabel()}
 			aria-live={isCurrentlyRunning ? 'polite' : 'off'}
-			className='positron-notebook-code-cell-footer'
+			className={positronClassNames('positron-notebook-code-cell-footer', { 'collapsed': isCollapsed })}
 			data-execution-status={dataExecutionStatus}
 			role='status'
 		>

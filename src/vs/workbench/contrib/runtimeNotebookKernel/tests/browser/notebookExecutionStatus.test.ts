@@ -5,32 +5,29 @@
 
 import assert from 'assert';
 import sinon from 'sinon';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { IStatusbarService, } from '../../../../services/statusbar/browser/statusbar.js';
-import { PositronTestServiceAccessor, positronWorkbenchInstantiationService } from '../../../../test/browser/positronWorkbenchTestServices.js';
+import { PositronTestServiceAccessor } from '../../../../test/browser/positronWorkbenchTestServices.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { TestNotebookExecutionService } from '../../../../test/common/positronWorkbenchTestServices.js';
 import { NotebookExecutionStatus } from '../../browser/notebookExecutionStatus.js';
 import { NOTEBOOK_EXPERIMENTAL_SHOW_EXECUTION_INFO_KEY } from '../../common/runtimeNotebookKernelConfig.js';
-import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 
 suite('NotebookExecutionStatus', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
-	let instantiationService: TestInstantiationService;
+	const ctx = createTestContainer().withWorkbenchServices().build();
 	let configurationService: TestConfigurationService;
 	let notebookExecutionService: TestNotebookExecutionService;
 	let statusbarService: IStatusbarService;
 
 	setup(() => {
-		instantiationService = positronWorkbenchInstantiationService(disposables);
-		const accessor = instantiationService.createInstance(PositronTestServiceAccessor);
+		const accessor = ctx.instantiationService.createInstance(PositronTestServiceAccessor);
 		configurationService = accessor.configurationService;
 		notebookExecutionService = accessor.notebookExecutionService;
 		statusbarService = accessor.statusbarService;
 	});
 
 	function createEntry() {
-		const notebookExecutionStatus = disposables.add(instantiationService.createInstance(NotebookExecutionStatus));
+		const notebookExecutionStatus = ctx.disposables.add(ctx.instantiationService.createInstance(NotebookExecutionStatus));
 		return sinon.spy(notebookExecutionStatus.entry);
 	}
 

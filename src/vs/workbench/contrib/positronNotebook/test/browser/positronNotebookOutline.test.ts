@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { createTestPositronNotebookInstance } from './testPositronNotebookInstance.js';
 import {
@@ -15,7 +15,7 @@ import {
 } from '../../browser/contrib/outline/positronNotebookOutline.contribution.js';
 
 suite('PositronNotebookOutline', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+	const ctx = createTestContainer().build();
 
 	suite('getFirstNonEmptyLine', () => {
 		test('returns first non-empty line', () => {
@@ -68,7 +68,7 @@ suite('PositronNotebookOutline', () => {
 		test('builds entries from markdown headers', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['# Title\n## Section', 'markdown', CellKind.Markup]],
-				disposables,
+				ctx.disposables,
 			);
 			const cells = notebook.cells.get();
 			const entries = buildOutlineEntries(cells);
@@ -83,7 +83,7 @@ suite('PositronNotebookOutline', () => {
 		test('builds entries from code cells', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['print("hello")', 'python', CellKind.Code]],
-				disposables,
+				ctx.disposables,
 			);
 			const cells = notebook.cells.get();
 			const entries = buildOutlineEntries(cells);
@@ -96,7 +96,7 @@ suite('PositronNotebookOutline', () => {
 		test('skips raw cells', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['raw content', 'raw', CellKind.Code]],
-				disposables,
+				ctx.disposables,
 			);
 			const cells = notebook.cells.get();
 			const entries = buildOutlineEntries(cells);
@@ -110,7 +110,7 @@ suite('PositronNotebookOutline', () => {
 				['x = 1', 'python', CellKind.Code],
 				['## Analysis', 'markdown', CellKind.Markup],
 				['plot(x)', 'python', CellKind.Code],
-			], disposables);
+			], ctx.disposables);
 			const cells = notebook.cells.get();
 			const entries = buildOutlineEntries(cells);
 
@@ -124,7 +124,7 @@ suite('PositronNotebookOutline', () => {
 		test('empty markdown cell shows fallback label', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['', 'markdown', CellKind.Markup]],
-				disposables,
+				ctx.disposables,
 			);
 			const cells = notebook.cells.get();
 			const entries = buildOutlineEntries(cells);
@@ -136,7 +136,7 @@ suite('PositronNotebookOutline', () => {
 		test('non-header markdown uses first-line preview', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['Some paragraph text\nMore text here', 'markdown', CellKind.Markup]],
-				disposables,
+				ctx.disposables,
 			);
 			const cells = notebook.cells.get();
 			const entries = buildOutlineEntries(cells);
@@ -150,7 +150,7 @@ suite('PositronNotebookOutline', () => {
 		test('de-duplicates heading IDs within a cell', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['## Details\n## Details\n## Details', 'markdown', CellKind.Markup]],
-				disposables,
+				ctx.disposables,
 			);
 			const cells = notebook.cells.get();
 			const entries = buildOutlineEntries(cells);
@@ -165,7 +165,7 @@ suite('PositronNotebookOutline', () => {
 			const notebook = createTestPositronNotebookInstance([
 				['## Details', 'markdown', CellKind.Markup],
 				['## Details', 'markdown', CellKind.Markup],
-			], disposables);
+			], ctx.disposables);
 			const cells = notebook.cells.get();
 			const entries = buildOutlineEntries(cells);
 
@@ -180,7 +180,7 @@ suite('PositronNotebookOutline', () => {
 		test('nests entries by header level', () => {
 			const notebook = createTestPositronNotebookInstance([
 				['# H1\n## H2\n### H3', 'markdown', CellKind.Markup],
-			], disposables);
+			], ctx.disposables);
 			const cells = notebook.cells.get();
 			const flatEntries = buildOutlineEntries(cells);
 			const tree = buildTree(flatEntries);
@@ -199,7 +199,7 @@ suite('PositronNotebookOutline', () => {
 			const notebook = createTestPositronNotebookInstance([
 				['# Title', 'markdown', CellKind.Markup],
 				['x = 1', 'python', CellKind.Code],
-			], disposables);
+			], ctx.disposables);
 			const cells = notebook.cells.get();
 			const flatEntries = buildOutlineEntries(cells);
 			const tree = buildTree(flatEntries);
@@ -213,7 +213,7 @@ suite('PositronNotebookOutline', () => {
 		test('sibling headers stay at same level', () => {
 			const notebook = createTestPositronNotebookInstance([
 				['## A\n## B\n## C', 'markdown', CellKind.Markup],
-			], disposables);
+			], ctx.disposables);
 			const cells = notebook.cells.get();
 			const flatEntries = buildOutlineEntries(cells);
 			const tree = buildTree(flatEntries);

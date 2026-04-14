@@ -5,7 +5,7 @@
 
 import * as assert from 'assert';
 import { VSBuffer } from '../../../../../base/common/buffer.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { CellEditType, CellKind } from '../../../notebook/common/notebookCommon.js';
 import { POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED } from '../../browser/ContextKeysManager.js';
 import { createTestPositronNotebookInstance, TestCellInput } from './testPositronNotebookInstance.js';
@@ -24,7 +24,7 @@ function svgOutputItem() {
 }
 
 suite('Positron Notebook Cell Outputs', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+	const ctx = createTestContainer().build();
 
 	suite('outputs observable', () => {
 		test('cell with image output has parsed type "image"', () => {
@@ -38,7 +38,7 @@ suite('Positron Notebook Cell Outputs', () => {
 					outputs: [pngOutputItem()],
 				}],
 			};
-			const notebook = createTestPositronNotebookInstance([cellWithImageOutput], disposables);
+			const notebook = createTestPositronNotebookInstance([cellWithImageOutput], ctx.disposables);
 			const cell = notebook.cells.get()[0];
 
 			assert.ok(cell.isCodeCell(), 'cell should be a code cell');
@@ -58,7 +58,7 @@ suite('Positron Notebook Cell Outputs', () => {
 					outputs: [textOutputItem('hello')],
 				}],
 			};
-			const notebook = createTestPositronNotebookInstance([cellWithTextOutput], disposables);
+			const notebook = createTestPositronNotebookInstance([cellWithTextOutput], ctx.disposables);
 			const cell = notebook.cells.get()[0];
 
 			assert.ok(cell.isCodeCell());
@@ -78,7 +78,7 @@ suite('Positron Notebook Cell Outputs', () => {
 					outputs: [svgOutputItem()],
 				}],
 			};
-			const notebook = createTestPositronNotebookInstance([cellWithSvgOutput], disposables);
+			const notebook = createTestPositronNotebookInstance([cellWithSvgOutput], ctx.disposables);
 			const cell = notebook.cells.get()[0];
 
 			assert.ok(cell.isCodeCell());
@@ -90,7 +90,7 @@ suite('Positron Notebook Cell Outputs', () => {
 		test('adding image output to cell updates the outputs observable', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['print("hello")', 'python', CellKind.Code]],
-				disposables
+				ctx.disposables
 			);
 			const cell = notebook.cells.get()[0];
 
@@ -116,7 +116,7 @@ suite('Positron Notebook Cell Outputs', () => {
 		test('clearing outputs resets collapse state', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['print("hello")', 'python', CellKind.Code]],
-				disposables
+				ctx.disposables
 			);
 			const cell = notebook.cells.get()[0];
 			assert.ok(cell.isCodeCell());
@@ -144,12 +144,12 @@ suite('Positron Notebook Cell Outputs', () => {
 		test('outputImageTargeted context key defaults to false and can be set', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['print("hello")', 'python', CellKind.Code]],
-				disposables
+				ctx.disposables
 			);
 
 			const cellElement = document.createElement('div');
 			const cellContextKeyService = notebook.scopedContextKeyService.createScoped(cellElement);
-			disposables.add(cellContextKeyService);
+			ctx.disposables.add(cellContextKeyService);
 
 			// Defaults to false
 			assert.strictEqual(
@@ -198,7 +198,7 @@ suite('Positron Notebook Cell Outputs', () => {
 					outputs: [complexHtmlOutputItem()],
 				}],
 			};
-			const notebook = createTestPositronNotebookInstance([cellWithComplexHtml], disposables);
+			const notebook = createTestPositronNotebookInstance([cellWithComplexHtml], ctx.disposables);
 			const cell = notebook.cells.get()[0];
 
 			assert.ok(cell.isCodeCell(), 'cell should be a code cell');
@@ -219,7 +219,7 @@ suite('Positron Notebook Cell Outputs', () => {
 					outputs: [simpleHtmlOutputItem()],
 				}],
 			};
-			const notebook = createTestPositronNotebookInstance([cellWithSimpleHtml], disposables);
+			const notebook = createTestPositronNotebookInstance([cellWithSimpleHtml], ctx.disposables);
 			const cell = notebook.cells.get()[0];
 
 			assert.ok(cell.isCodeCell());

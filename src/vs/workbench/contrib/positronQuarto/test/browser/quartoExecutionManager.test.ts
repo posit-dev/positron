@@ -6,7 +6,7 @@
 import assert from 'assert';
 import { URI } from '../../../../../base/common/uri.js';
 import { Disposable } from '../../../../../base/common/lifecycle.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { TestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { TestPositronConsoleService } from '../../../../services/positronConsole/test/browser/testPositronConsoleService.js';
@@ -54,7 +54,7 @@ function createSessionMetadata(sessionId: string): IRuntimeSessionMetadata {
 }
 
 suite('QuartoExecutionManager', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+	const ctx = createTestContainer().build();
 	const logService = new NullLogService();
 
 	let executionManager: QuartoExecutionManager;
@@ -70,13 +70,13 @@ suite('QuartoExecutionManager', () => {
 		const metadata = createSessionMetadata('test-session');
 
 		mockSession = new TestLanguageRuntimeSession(metadata, TestLanguageRuntimeMetadata);
-		disposables.add(mockSession);
+		ctx.disposables.add(mockSession);
 
 		// Transition session to ready state so execute works
 		mockSession.setRuntimeState(RuntimeState.Ready);
 
 		// Create mock services
-		mockKernelManager = disposables.add(new MockKernelManager(mockSession));
+		mockKernelManager = ctx.disposables.add(new MockKernelManager(mockSession));
 		mockDocumentModelService = new MockDocumentModelService();
 		mockEditorService = new MockEditorService();
 		const mockEphemeralStateService = new MockEphemeralStateService();
@@ -97,7 +97,7 @@ suite('QuartoExecutionManager', () => {
 			mockRuntimeSessionService as unknown as IRuntimeSessionService,
 			mockTerminalService as unknown as ITerminalService,
 		);
-		disposables.add(executionManager);
+		ctx.disposables.add(executionManager);
 	});
 
 	suite('Execution Options', () => {
@@ -120,7 +120,7 @@ suite('QuartoExecutionManager', () => {
 			const executionListener = executionManager.onDidExecuteCode(event => {
 				executedErrorBehavior = event.errorBehavior;
 			});
-			disposables.add(executionListener);
+			ctx.disposables.add(executionListener);
 
 			const executionPromise = executionManager.executeCell(documentUri, cell);
 			const executionId = await mockKernelManager.waitForExecution();
@@ -191,7 +191,7 @@ suite('QuartoExecutionManager', () => {
 			const outputListener = executionManager.onDidReceiveOutput((event: ExecutionOutputEvent) => {
 				outputsReceived.push(event.output);
 			});
-			disposables.add(outputListener);
+			ctx.disposables.add(outputListener);
 
 			// Start execution
 			const executionPromise = executionManager.executeCell(documentUri, cell);
@@ -257,7 +257,7 @@ suite('QuartoExecutionManager', () => {
 			const outputListener = executionManager.onDidReceiveOutput((event: ExecutionOutputEvent) => {
 				outputsReceived.push(event.output);
 			});
-			disposables.add(outputListener);
+			ctx.disposables.add(outputListener);
 
 			// Start execution
 			const executionPromise = executionManager.executeCell(documentUri, cell);
@@ -315,7 +315,7 @@ suite('QuartoExecutionManager', () => {
 			const outputListener = executionManager.onDidReceiveOutput((event: ExecutionOutputEvent) => {
 				outputsReceived.push(event.output);
 			});
-			disposables.add(outputListener);
+			ctx.disposables.add(outputListener);
 
 			// Start execution
 			const executionPromise = executionManager.executeCell(documentUri, cell);
@@ -370,7 +370,7 @@ suite('QuartoExecutionManager', () => {
 			const outputListener = executionManager.onDidReceiveOutput((event: ExecutionOutputEvent) => {
 				outputsReceived.push(event.output);
 			});
-			disposables.add(outputListener);
+			ctx.disposables.add(outputListener);
 
 			// Start execution (but don't await yet)
 			const executionPromise = executionManager.executeCell(documentUri, cell);
@@ -485,7 +485,7 @@ suite('QuartoExecutionManager', () => {
 				new MockRuntimeSessionService() as unknown as IRuntimeSessionService,
 				new MockTerminalService() as unknown as ITerminalService,
 			);
-			disposables.add(executionManagerWithMock);
+			ctx.disposables.add(executionManagerWithMock);
 
 			// Create a STALE cell object (simulating what UI might pass)
 			// This has the OLD line numbers from before the document edit
@@ -588,7 +588,7 @@ suite('QuartoExecutionManager', () => {
 				new MockRuntimeSessionService() as unknown as IRuntimeSessionService,
 				new MockTerminalService() as unknown as ITerminalService,
 			);
-			disposables.add(localExecutionManager);
+			ctx.disposables.add(localExecutionManager);
 
 			// Execute via executeInlineCells with range that includes option lines
 			const codeRange = new Range(2, 1, 4, 100);
