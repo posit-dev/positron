@@ -393,7 +393,7 @@ suite('Positron - ForegroundSessionContribution', () => {
 	});
 
 	suite('notebook session deleted', () => {
-		test('clears foreground when deleted session was the foreground notebook session', async () => {
+		test('cached display info and clears foreground when deleted session was the foreground notebook session', async () => {
 			const session = await startNotebookSession();
 			runtimeSessionService.foregroundSession = session;
 
@@ -408,18 +408,6 @@ suite('Positron - ForegroundSessionContribution', () => {
 
 			// The foreground should be cleared
 			assert.strictEqual(runtimeSessionService.foregroundSession, undefined);
-		});
-
-		test('sets cached display info when deleted session was the foreground notebook session', async () => {
-			const session = await startNotebookSession();
-			runtimeSessionService.foregroundSession = session;
-
-			// Exit and delete
-			const exitedPromise = waitForRuntimeState(session, RuntimeState.Exited);
-			session.setRuntimeState(RuntimeState.Exited);
-			await exitedPromise;
-			await runtimeSessionService.deleteSession(session.sessionId);
-
 			// Cached display info should be set so the interpreter picker shows last used runtime
 			assert.ok(
 				runtimeSessionService.foregroundSessionDisplayInfo,
