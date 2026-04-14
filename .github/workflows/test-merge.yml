@@ -101,6 +101,16 @@ jobs:
           include_job_durations: false
           notify_on: "failure"
 
+      - name: Notify E2E Test Insights
+        if: always()
+        run: |
+          curl -s -X POST \
+            "${{ secrets.E2E_INSIGHTS_API_URL }}/webhooks/workflow-complete" \
+            -H "Authorization: Key ${{ secrets.CONNECT_API_KEY }}" \
+            -H "X-Webhook-Secret: ${{ secrets.E2E_INSIGHTS_WEBHOOK_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"workflow_run_id\": ${{ github.run_id }}, \"repo_id\": \"positron\", \"branch\": \"${{ github.ref_name }}\", \"actor\": \"${{ github.actor }}\", \"filter_jobs\": \"(e2e / ([^0-9]*)|unit|integration)$\", \"hide_skipped\": true}"
+
   slack-notify-win-extensions:
     if: ${{ needs.e2e-windows-electron.outputs.extensions_failed == 'true' }}
     needs:
