@@ -3,18 +3,19 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import assert from 'assert';
+/// <reference types="vitest/globals" />
+
 import { LayoutManager } from '../../browser/positronDataGrid/classes/layoutManager.js';
 import { createTestContainer } from './positronTestContainer.js';
 
 /**
  * Tests the LayoutManager class.
  */
-suite('LayoutManager', () => {
+describe('LayoutManager', () => {
 	/**
 	 * Tests size.
 	 */
-	test('Size', () => {
+	it('Size', () => {
 		verifySizeOfDefaultSizedEntries(1, 1);
 		verifySizeOfDefaultSizedEntries(123, 100);
 		verifySizeOfDefaultSizedEntries(4096, 5_000_000);
@@ -31,7 +32,7 @@ suite('LayoutManager', () => {
 	/**
 	 * Tests getting a layout entry.
 	 */
-	test('Get Layout Entry', () => {
+	it('Get Layout Entry', () => {
 		verifyGetLayoutEntryOfDefaultSizedEntries(1, 1);
 		verifyGetLayoutEntryOfDefaultSizedEntries(123, 100);
 		verifyGetLayoutEntryOfDefaultSizedEntries(4096, 5_000_000);
@@ -48,7 +49,7 @@ suite('LayoutManager', () => {
 	/**
 	 * Tests default-sized entries.
 	 */
-	test('Default-Sized Entries', () => {
+	it('Default-Sized Entries', { timeout: 60_000 }, () => {
 		verifyDefaultSizedEntries(1, 2);
 		verifyDefaultSizedEntries(10, 10);
 		verifyDefaultSizedEntries(1, 1_000);
@@ -61,7 +62,7 @@ suite('LayoutManager', () => {
 	/**
 	 * Tests default-sized entries with overrides.
 	 */
-	test('Default-Sized Entries With Overrides', () => {
+	it('Default-Sized Entries With Overrides', () => {
 		verifyDefaultSizedEntriesWithOverrides(127, 253, 20_000, 500);
 		verifyDefaultSizedEntriesWithOverrides(200, 18, 50_000, 1_000);
 		// Too big for CI.
@@ -71,7 +72,7 @@ suite('LayoutManager', () => {
 	/**
 	 * Tests fixed-sized predefined entries.
 	 */
-	test('Fixed-Sized Predefined Entries', () => {
+	it('Fixed-Sized Predefined Entries', () => {
 		verifyFixedSizedPredefinedEntries(1, 1);
 		verifyFixedSizedPredefinedEntries(10, 10);
 		verifyFixedSizedPredefinedEntries(1, 1_000);
@@ -84,7 +85,7 @@ suite('LayoutManager', () => {
 	/**
 	 * Tests randomly-sized predefined entries.
 	 */
-	test('Randomly-Sized Predefined Entries', () => {
+	it('Randomly-Sized Predefined Entries', () => {
 		verifyRandomlySizedPredefinedEntries(1);
 		verifyRandomlySizedPredefinedEntries(10);
 		verifyRandomlySizedPredefinedEntries(100);
@@ -96,14 +97,14 @@ suite('LayoutManager', () => {
 	/**
 	 * Tests mapping positions to indexes and indexes to positions with no entry map and no pinned indexes.
 	 */
-	test('Map Position To Index - Map Index To Position - No Entry Map - No Pinned Indexes', () => {
+	it('Map Position To Index - Map Index To Position - No Entry Map - No Pinned Indexes', () => {
 		// Create and initialize the layout manager.
 		const layoutManager = new LayoutManager(100);
 		layoutManager.setEntries(10);
 
 		// Test mapping positions to indexes.
-		assert(layoutManager.mapPositionToIndex(-1) === undefined);
-		assert(layoutManager.mapPositionToIndex(-10) === undefined);
+		expect(layoutManager.mapPositionToIndex(-1) === undefined).toBeTruthy();
+		expect(layoutManager.mapPositionToIndex(-10) === undefined).toBeTruthy();
 		testMapPositionToIndex(layoutManager, 0, 0);
 		testMapPositionToIndex(layoutManager, 1, 1);
 		testMapPositionToIndex(layoutManager, 2, 2);
@@ -114,12 +115,12 @@ suite('LayoutManager', () => {
 		testMapPositionToIndex(layoutManager, 7, 7);
 		testMapPositionToIndex(layoutManager, 8, 8);
 		testMapPositionToIndex(layoutManager, 9, 9);
-		assert(layoutManager.mapPositionToIndex(10) === undefined);
-		assert(layoutManager.mapPositionToIndex(100) === undefined);
+		expect(layoutManager.mapPositionToIndex(10) === undefined).toBeTruthy();
+		expect(layoutManager.mapPositionToIndex(100) === undefined).toBeTruthy();
 
 		// Test mapping indexes to positions.
-		assert(layoutManager.mapIndexToPosition(-1) === undefined);
-		assert(layoutManager.mapIndexToPosition(-10) === undefined);
+		expect(layoutManager.mapIndexToPosition(-1) === undefined).toBeTruthy();
+		expect(layoutManager.mapIndexToPosition(-10) === undefined).toBeTruthy();
 		testMapIndexToPosition(layoutManager, 0, 0);
 		testMapIndexToPosition(layoutManager, 1, 1);
 		testMapIndexToPosition(layoutManager, 2, 2);
@@ -130,21 +131,21 @@ suite('LayoutManager', () => {
 		testMapIndexToPosition(layoutManager, 7, 7);
 		testMapIndexToPosition(layoutManager, 8, 8);
 		testMapIndexToPosition(layoutManager, 9, 9);
-		assert(layoutManager.mapIndexToPosition(10) === undefined);
-		assert(layoutManager.mapIndexToPosition(100) === undefined);
+		expect(layoutManager.mapIndexToPosition(10) === undefined).toBeTruthy();
+		expect(layoutManager.mapIndexToPosition(100) === undefined).toBeTruthy();
 	});
 
 	/**
 	 * Tests mapping positions to indexes and indexes to positions with an entry map and no pinned indexes.
 	 */
-	test('Map Position To Index - Map Index To Position - With Entry Map - No Pinned Indexes', () => {
+	it('Map Position To Index - Map Index To Position - With Entry Map - No Pinned Indexes', () => {
 		// Create and initialize the layout manager.
 		const layoutManager = new LayoutManager(100);
 		layoutManager.setEntries(10, undefined, [9, 8, 7, 6, 5, 4, 3, 2, 1, 0]);
 
 		// Test mapping positions to indexes.
-		assert(layoutManager.mapPositionToIndex(-1) === undefined);
-		assert(layoutManager.mapPositionToIndex(-10) === undefined);
+		expect(layoutManager.mapPositionToIndex(-1) === undefined).toBeTruthy();
+		expect(layoutManager.mapPositionToIndex(-10) === undefined).toBeTruthy();
 		testMapPositionToIndex(layoutManager, 0, 9);
 		testMapPositionToIndex(layoutManager, 1, 8);
 		testMapPositionToIndex(layoutManager, 2, 7);
@@ -155,12 +156,12 @@ suite('LayoutManager', () => {
 		testMapPositionToIndex(layoutManager, 7, 2);
 		testMapPositionToIndex(layoutManager, 8, 1);
 		testMapPositionToIndex(layoutManager, 9, 0);
-		assert(layoutManager.mapPositionToIndex(10) === undefined);
-		assert(layoutManager.mapPositionToIndex(100) === undefined);
+		expect(layoutManager.mapPositionToIndex(10) === undefined).toBeTruthy();
+		expect(layoutManager.mapPositionToIndex(100) === undefined).toBeTruthy();
 
 		// Test mapping indexes to positions.
-		assert(layoutManager.mapIndexToPosition(-1) === undefined);
-		assert(layoutManager.mapIndexToPosition(-10) === undefined);
+		expect(layoutManager.mapIndexToPosition(-1) === undefined).toBeTruthy();
+		expect(layoutManager.mapIndexToPosition(-10) === undefined).toBeTruthy();
 		testMapIndexToPosition(layoutManager, 9, 0);
 		testMapIndexToPosition(layoutManager, 8, 1);
 		testMapIndexToPosition(layoutManager, 7, 2);
@@ -171,22 +172,22 @@ suite('LayoutManager', () => {
 		testMapIndexToPosition(layoutManager, 2, 7);
 		testMapIndexToPosition(layoutManager, 1, 8);
 		testMapIndexToPosition(layoutManager, 0, 9);
-		assert(layoutManager.mapIndexToPosition(10) === undefined);
-		assert(layoutManager.mapIndexToPosition(100) === undefined);
+		expect(layoutManager.mapIndexToPosition(10) === undefined).toBeTruthy();
+		expect(layoutManager.mapIndexToPosition(100) === undefined).toBeTruthy();
 	});
 
 	/**
 	 * Tests mapping positions to indexes and indexes to positions with an entry map and no pinned indexes.
 	 */
-	test('Map Position To Index - Map Index To Position - With No Entry Map - With Pinned Indexes', () => {
+	it('Map Position To Index - Map Index To Position - With No Entry Map - With Pinned Indexes', () => {
 		// Create and initialize the layout manager.
 		const layoutManager = new LayoutManager(100);
 		layoutManager.setEntries(10);
 		layoutManager.setPinnedIndexes([3, 2, 0]);
 
 		// Test mapping positions to indexes.
-		assert(layoutManager.mapPositionToIndex(-1) === undefined);
-		assert(layoutManager.mapPositionToIndex(-10) === undefined);
+		expect(layoutManager.mapPositionToIndex(-1) === undefined).toBeTruthy();
+		expect(layoutManager.mapPositionToIndex(-10) === undefined).toBeTruthy();
 		testMapPositionToIndex(layoutManager, 0, 3);
 		testMapPositionToIndex(layoutManager, 1, 2);
 		testMapPositionToIndex(layoutManager, 2, 0);
@@ -197,12 +198,12 @@ suite('LayoutManager', () => {
 		testMapPositionToIndex(layoutManager, 7, 7);
 		testMapPositionToIndex(layoutManager, 8, 8);
 		testMapPositionToIndex(layoutManager, 9, 9);
-		assert(layoutManager.mapPositionToIndex(10) === undefined);
-		assert(layoutManager.mapPositionToIndex(100) === undefined);
+		expect(layoutManager.mapPositionToIndex(10) === undefined).toBeTruthy();
+		expect(layoutManager.mapPositionToIndex(100) === undefined).toBeTruthy();
 
 		// Test mapping indexes to positions.
-		assert(layoutManager.mapIndexToPosition(-1) === undefined);
-		assert(layoutManager.mapIndexToPosition(-10) === undefined);
+		expect(layoutManager.mapIndexToPosition(-1) === undefined).toBeTruthy();
+		expect(layoutManager.mapIndexToPosition(-10) === undefined).toBeTruthy();
 		testMapIndexToPosition(layoutManager, 0, 2);
 		testMapIndexToPosition(layoutManager, 1, 3);
 		testMapIndexToPosition(layoutManager, 2, 1);
@@ -213,22 +214,22 @@ suite('LayoutManager', () => {
 		testMapIndexToPosition(layoutManager, 7, 7);
 		testMapIndexToPosition(layoutManager, 8, 8);
 		testMapIndexToPosition(layoutManager, 9, 9);
-		assert(layoutManager.mapIndexToPosition(10) === undefined);
-		assert(layoutManager.mapIndexToPosition(100) === undefined);
+		expect(layoutManager.mapIndexToPosition(10) === undefined).toBeTruthy();
+		expect(layoutManager.mapIndexToPosition(100) === undefined).toBeTruthy();
 	});
 
 	/**
 	 * Tests mapping positions to indexes and indexes to positions with an entry map and no pinned indexes.
 	 */
-	test('Map Position To Index - Map Index To Position - With Entry Map - With Pinned Indexes', () => {
+	it('Map Position To Index - Map Index To Position - With Entry Map - With Pinned Indexes', () => {
 		// Create and initialize the layout manager.
 		const layoutManager = new LayoutManager(100);
 		layoutManager.setEntries(10, undefined, [9, 8, 7, 6, 5, 4, 3, 2, 1, 0]);
 		layoutManager.setPinnedIndexes([3, 2, 0]);
 
 		// Test mapping positions to indexes.
-		assert(layoutManager.mapPositionToIndex(-1) === undefined);
-		assert(layoutManager.mapPositionToIndex(-10) === undefined);
+		expect(layoutManager.mapPositionToIndex(-1) === undefined).toBeTruthy();
+		expect(layoutManager.mapPositionToIndex(-10) === undefined).toBeTruthy();
 		testMapPositionToIndex(layoutManager, 0, 3);
 		testMapPositionToIndex(layoutManager, 1, 2);
 		testMapPositionToIndex(layoutManager, 2, 0);
@@ -239,12 +240,12 @@ suite('LayoutManager', () => {
 		testMapPositionToIndex(layoutManager, 7, 5);
 		testMapPositionToIndex(layoutManager, 8, 4);
 		testMapPositionToIndex(layoutManager, 9, 1);
-		assert(layoutManager.mapPositionToIndex(10) === undefined);
-		assert(layoutManager.mapPositionToIndex(100) === undefined);
+		expect(layoutManager.mapPositionToIndex(10) === undefined).toBeTruthy();
+		expect(layoutManager.mapPositionToIndex(100) === undefined).toBeTruthy();
 
 		// Test mapping indexes to positions.
-		assert(layoutManager.mapIndexToPosition(-1) === undefined);
-		assert(layoutManager.mapIndexToPosition(-10) === undefined);
+		expect(layoutManager.mapIndexToPosition(-1) === undefined).toBeTruthy();
+		expect(layoutManager.mapIndexToPosition(-10) === undefined).toBeTruthy();
 		testMapIndexToPosition(layoutManager, 3, 0);
 		testMapIndexToPosition(layoutManager, 2, 1);
 		testMapIndexToPosition(layoutManager, 0, 2);
@@ -255,8 +256,8 @@ suite('LayoutManager', () => {
 		testMapIndexToPosition(layoutManager, 5, 7);
 		testMapIndexToPosition(layoutManager, 4, 8);
 		testMapIndexToPosition(layoutManager, 1, 9);
-		assert(layoutManager.mapIndexToPosition(10) === undefined);
-		assert(layoutManager.mapIndexToPosition(100) === undefined);
+		expect(layoutManager.mapIndexToPosition(10) === undefined).toBeTruthy();
+		expect(layoutManager.mapIndexToPosition(100) === undefined).toBeTruthy();
 	});
 
 	/**
@@ -269,14 +270,14 @@ suite('LayoutManager', () => {
 		const size = defaultSize * entries;
 
 		// Verify size.
-		assert.strictEqual(layoutManager.unpinnedLayoutEntriesSize, size);
+		expect(layoutManager.unpinnedLayoutEntriesSize).toBe(size);
 
 		// Add a layout override that will affect the size, and one that will not, for coverage.
 		layoutManager.setSizeOverride(0, defaultSize * 2);
 		layoutManager.setSizeOverride(entries, defaultSize * 2);
 
 		// Verify size.
-		assert.strictEqual(layoutManager.unpinnedLayoutEntriesSize, size + defaultSize);
+		expect(layoutManager.unpinnedLayoutEntriesSize).toBe(size + defaultSize);
 
 		// Get a layout entry cached, for coverage.
 		layoutManager.findFirstUnpinnedLayoutEntry(0);
@@ -286,7 +287,7 @@ suite('LayoutManager', () => {
 		layoutManager.clearSizeOverride(entries);
 
 		// Verify size.
-		assert.strictEqual(layoutManager.unpinnedLayoutEntriesSize, size);
+		expect(layoutManager.unpinnedLayoutEntriesSize).toBe(size);
 	};
 
 	/**
@@ -299,21 +300,21 @@ suite('LayoutManager', () => {
 		const size = entrySize * entries;
 
 		// Verify size.
-		assert.strictEqual(layoutManager.unpinnedLayoutEntriesSize, size);
+		expect(layoutManager.unpinnedLayoutEntriesSize).toBe(size);
 
 		// Add a layout override that will affect the size, and one that will not, for coverage.
 		layoutManager.setSizeOverride(0, entrySize * 2);
 		layoutManager.setSizeOverride(entries, entrySize * 2);
 
 		// Verify size.
-		assert.strictEqual(layoutManager.unpinnedLayoutEntriesSize, size + entrySize);
+		expect(layoutManager.unpinnedLayoutEntriesSize).toBe(size + entrySize);
 
 		// Clear layout overrides.
 		layoutManager.clearSizeOverride(0);
 		layoutManager.clearSizeOverride(entries);
 
 		// Verify size.
-		assert.strictEqual(layoutManager.unpinnedLayoutEntriesSize, size);
+		expect(layoutManager.unpinnedLayoutEntriesSize).toBe(size);
 	};
 
 	/**
@@ -329,21 +330,21 @@ suite('LayoutManager', () => {
 		const size = entrySizes.reduce((size, randomSize) => size + randomSize, 0);
 
 		// Verify size.
-		assert.strictEqual(layoutManager.unpinnedLayoutEntriesSize, size);
+		expect(layoutManager.unpinnedLayoutEntriesSize).toBe(size);
 
 		// Add a layout override that will affect the size, and one that will not, for coverage.
 		layoutManager.setSizeOverride(0, entrySizes[0] * 2);
 		layoutManager.setSizeOverride(entries, 354);
 
 		// Verify size.
-		assert.strictEqual(layoutManager.unpinnedLayoutEntriesSize, size + entrySizes[0]);
+		expect(layoutManager.unpinnedLayoutEntriesSize).toBe(size + entrySizes[0]);
 
 		// Clear layout overrides.
 		layoutManager.clearSizeOverride(0);
 		layoutManager.clearSizeOverride(entries);
 
 		// Verify size.
-		assert.strictEqual(layoutManager.unpinnedLayoutEntriesSize, size);
+		expect(layoutManager.unpinnedLayoutEntriesSize).toBe(size);
 	};
 
 	/**
@@ -358,35 +359,35 @@ suite('LayoutManager', () => {
 
 		// Verify getting the first layout entry.
 		let layoutEntry = layoutManager.getLayoutEntry(0);
-		assert(layoutEntry);
-		assert.strictEqual(layoutEntry.index, 0);
-		assert.strictEqual(layoutEntry.start, 0);
-		assert.strictEqual(layoutEntry.size, defaultSize);
+		expect(layoutEntry).toBeTruthy();
+		expect(layoutEntry!.index).toBe(0);
+		expect(layoutEntry!.start).toBe(0);
+		expect(layoutEntry!.size).toBe(defaultSize);
 
 		// Verify getting the last layout entry.
 		layoutEntry = layoutManager.getLayoutEntry(entries - 1);
-		assert(layoutEntry);
-		assert.strictEqual(layoutEntry.index, entries - 1);
-		assert.strictEqual(layoutEntry.start, (entries - 1) * defaultSize);
-		assert.strictEqual(layoutEntry.size, defaultSize);
+		expect(layoutEntry).toBeTruthy();
+		expect(layoutEntry!.index).toBe(entries - 1);
+		expect(layoutEntry!.start).toBe((entries - 1) * defaultSize);
+		expect(layoutEntry!.size).toBe(defaultSize);
 
 		// Add a layout override.
 		layoutManager.setSizeOverride(0, defaultSize * 2);
 
 		// Verify getting the first layout entry.
 		layoutEntry = layoutManager.getLayoutEntry(0);
-		assert(layoutEntry);
-		assert.strictEqual(layoutEntry.index, 0);
-		assert.strictEqual(layoutEntry.start, 0);
-		assert.strictEqual(layoutEntry.size, defaultSize * 2);
+		expect(layoutEntry).toBeTruthy();
+		expect(layoutEntry!.index).toBe(0);
+		expect(layoutEntry!.start).toBe(0);
+		expect(layoutEntry!.size).toBe(defaultSize * 2);
 
 		// Verify getting the last layout entry.
 		if (entries > 1) {
 			layoutEntry = layoutManager.getLayoutEntry(entries - 1);
-			assert(layoutEntry);
-			assert.strictEqual(layoutEntry.index, entries - 1);
-			assert.strictEqual(layoutEntry.start, ((entries - 1) * defaultSize) + defaultSize);
-			assert.strictEqual(layoutEntry.size, defaultSize);
+			expect(layoutEntry).toBeTruthy();
+			expect(layoutEntry!.index).toBe(entries - 1);
+			expect(layoutEntry!.start).toBe(((entries - 1) * defaultSize) + defaultSize);
+			expect(layoutEntry!.size).toBe(defaultSize);
 		}
 
 		// Clear the layout override.
@@ -394,17 +395,17 @@ suite('LayoutManager', () => {
 
 		// Verify getting the first layout entry.
 		layoutEntry = layoutManager.getLayoutEntry(0);
-		assert(layoutEntry);
-		assert.strictEqual(layoutEntry.index, 0);
-		assert.strictEqual(layoutEntry.start, 0);
-		assert.strictEqual(layoutEntry.size, defaultSize);
+		expect(layoutEntry).toBeTruthy();
+		expect(layoutEntry!.index).toBe(0);
+		expect(layoutEntry!.start).toBe(0);
+		expect(layoutEntry!.size).toBe(defaultSize);
 
 		// Verify getting the last layout entry.
 		layoutEntry = layoutManager.getLayoutEntry(entries - 1);
-		assert(layoutEntry);
-		assert.strictEqual(layoutEntry.index, entries - 1);
-		assert.strictEqual(layoutEntry.start, (entries - 1) * defaultSize);
-		assert.strictEqual(layoutEntry.size, defaultSize);
+		expect(layoutEntry).toBeTruthy();
+		expect(layoutEntry!.index).toBe(entries - 1);
+		expect(layoutEntry!.start).toBe((entries - 1) * defaultSize);
+		expect(layoutEntry!.size).toBe(defaultSize);
 	};
 
 	/**
@@ -419,35 +420,35 @@ suite('LayoutManager', () => {
 
 		// Verify getting the first layout entry.
 		let layoutEntry = layoutManager.getLayoutEntry(0);
-		assert(layoutEntry);
-		assert.strictEqual(layoutEntry.index, 0);
-		assert.strictEqual(layoutEntry.start, 0);
-		assert.strictEqual(layoutEntry.size, entrySize);
+		expect(layoutEntry).toBeTruthy();
+		expect(layoutEntry!.index).toBe(0);
+		expect(layoutEntry!.start).toBe(0);
+		expect(layoutEntry!.size).toBe(entrySize);
 
 		// Verify getting the last layout entry.
 		layoutEntry = layoutManager.getLayoutEntry(entries - 1);
-		assert(layoutEntry);
-		assert.strictEqual(layoutEntry.index, entries - 1);
-		assert.strictEqual(layoutEntry.start, (entries - 1) * entrySize);
-		assert.strictEqual(layoutEntry.size, entrySize);
+		expect(layoutEntry).toBeTruthy();
+		expect(layoutEntry!.index).toBe(entries - 1);
+		expect(layoutEntry!.start).toBe((entries - 1) * entrySize);
+		expect(layoutEntry!.size).toBe(entrySize);
 
 		// Add a layout override.
 		layoutManager.setSizeOverride(0, entrySize * 2);
 
 		// Verify getting the first layout entry.
 		layoutEntry = layoutManager.getLayoutEntry(0);
-		assert(layoutEntry);
-		assert.strictEqual(layoutEntry.index, 0);
-		assert.strictEqual(layoutEntry.start, 0);
-		assert.strictEqual(layoutEntry.size, entrySize * 2);
+		expect(layoutEntry).toBeTruthy();
+		expect(layoutEntry!.index).toBe(0);
+		expect(layoutEntry!.start).toBe(0);
+		expect(layoutEntry!.size).toBe(entrySize * 2);
 
 		// Verify getting the last layout entry.
 		if (entries > 1) {
 			layoutEntry = layoutManager.getLayoutEntry(entries - 1);
-			assert(layoutEntry);
-			assert.strictEqual(layoutEntry.index, entries - 1);
-			assert.strictEqual(layoutEntry.start, ((entries - 1) * entrySize) + entrySize);
-			assert.strictEqual(layoutEntry.size, entrySize);
+			expect(layoutEntry).toBeTruthy();
+			expect(layoutEntry!.index).toBe(entries - 1);
+			expect(layoutEntry!.start).toBe(((entries - 1) * entrySize) + entrySize);
+			expect(layoutEntry!.size).toBe(entrySize);
 		}
 
 		// Clear the layout override.
@@ -455,17 +456,17 @@ suite('LayoutManager', () => {
 
 		// Verify getting the first layout entry.
 		layoutEntry = layoutManager.getLayoutEntry(0);
-		assert(layoutEntry);
-		assert.strictEqual(layoutEntry.index, 0);
-		assert.strictEqual(layoutEntry.start, 0);
-		assert.strictEqual(layoutEntry.size, entrySize);
+		expect(layoutEntry).toBeTruthy();
+		expect(layoutEntry!.index).toBe(0);
+		expect(layoutEntry!.start).toBe(0);
+		expect(layoutEntry!.size).toBe(entrySize);
 
 		// Verify getting the last layout entry.
 		layoutEntry = layoutManager.getLayoutEntry(entries - 1);
-		assert(layoutEntry);
-		assert.strictEqual(layoutEntry.index, entries - 1);
-		assert.strictEqual(layoutEntry.start, (entries - 1) * entrySize);
-		assert.strictEqual(layoutEntry.size, entrySize);
+		expect(layoutEntry).toBeTruthy();
+		expect(layoutEntry!.index).toBe(entries - 1);
+		expect(layoutEntry!.start).toBe((entries - 1) * entrySize);
+		expect(layoutEntry!.size).toBe(entrySize);
 	};
 
 	/**
@@ -484,35 +485,35 @@ suite('LayoutManager', () => {
 
 		// Verify getting the first layout entry.
 		let layoutEntry = layoutManager.getLayoutEntry(0);
-		assert(layoutEntry);
-		assert.strictEqual(layoutEntry.index, 0);
-		assert.strictEqual(layoutEntry.start, 0);
-		assert.strictEqual(layoutEntry.size, entrySizes[0]);
+		expect(layoutEntry).toBeTruthy();
+		expect(layoutEntry!.index).toBe(0);
+		expect(layoutEntry!.start).toBe(0);
+		expect(layoutEntry!.size).toBe(entrySizes[0]);
 
 		// Verify getting the last layout entry.
 		layoutEntry = layoutManager.getLayoutEntry(entries - 1);
-		assert(layoutEntry);
-		assert.strictEqual(layoutEntry.index, entries - 1);
-		assert.strictEqual(layoutEntry.start, size - entrySizes[entries - 1]);
-		assert.strictEqual(layoutEntry.size, entrySizes[entries - 1]);
+		expect(layoutEntry).toBeTruthy();
+		expect(layoutEntry!.index).toBe(entries - 1);
+		expect(layoutEntry!.start).toBe(size - entrySizes[entries - 1]);
+		expect(layoutEntry!.size).toBe(entrySizes[entries - 1]);
 
 		// Add a layout override.
 		layoutManager.setSizeOverride(0, entrySizes[0] * 2);
 
 		// Verify getting the first layout entry.
 		layoutEntry = layoutManager.getLayoutEntry(0);
-		assert(layoutEntry);
-		assert.strictEqual(layoutEntry.index, 0);
-		assert.strictEqual(layoutEntry.start, 0);
-		assert.strictEqual(layoutEntry.size, entrySizes[0] * 2);
+		expect(layoutEntry).toBeTruthy();
+		expect(layoutEntry!.index).toBe(0);
+		expect(layoutEntry!.start).toBe(0);
+		expect(layoutEntry!.size).toBe(entrySizes[0] * 2);
 
 		// Verify getting the last layout entry.
 		if (entries > 1) {
 			layoutEntry = layoutManager.getLayoutEntry(entries - 1);
-			assert(layoutEntry);
-			assert.strictEqual(layoutEntry.index, entries - 1);
-			assert.strictEqual(layoutEntry.start, size + entrySizes[0] - entrySizes[entries - 1]);
-			assert.strictEqual(layoutEntry.size, entrySizes[entries - 1]);
+			expect(layoutEntry).toBeTruthy();
+			expect(layoutEntry!.index).toBe(entries - 1);
+			expect(layoutEntry!.start).toBe(size + entrySizes[0] - entrySizes[entries - 1]);
+			expect(layoutEntry!.size).toBe(entrySizes[entries - 1]);
 		}
 
 		// Add a layout override.
@@ -520,17 +521,17 @@ suite('LayoutManager', () => {
 
 		// Verify getting the first layout entry.
 		layoutEntry = layoutManager.getLayoutEntry(0);
-		assert(layoutEntry);
-		assert.strictEqual(layoutEntry.index, 0);
-		assert.strictEqual(layoutEntry.start, 0);
-		assert.strictEqual(layoutEntry.size, entrySizes[0]);
+		expect(layoutEntry).toBeTruthy();
+		expect(layoutEntry!.index).toBe(0);
+		expect(layoutEntry!.start).toBe(0);
+		expect(layoutEntry!.size).toBe(entrySizes[0]);
 
 		// Verify getting the last layout entry.
 		layoutEntry = layoutManager.getLayoutEntry(entries - 1);
-		assert(layoutEntry);
-		assert.strictEqual(layoutEntry.index, entries - 1);
-		assert.strictEqual(layoutEntry.start, size - entrySizes[entries - 1]);
-		assert.strictEqual(layoutEntry.size, entrySizes[entries - 1]);
+		expect(layoutEntry).toBeTruthy();
+		expect(layoutEntry!.index).toBe(entries - 1);
+		expect(layoutEntry!.start).toBe(size - entrySizes[entries - 1]);
+		expect(layoutEntry!.size).toBe(entrySizes[entries - 1]);
 	};
 
 	/**
@@ -549,10 +550,10 @@ suite('LayoutManager', () => {
 			for (let offset = 0; offset < defaultSize; offset++) {
 				const start = defaultSize * entry;
 				const layoutEntry = layoutManager.findFirstUnpinnedLayoutEntry(start + offset);
-				assert(layoutEntry);
-				assert.strictEqual(layoutEntry!.index, entry);
-				assert.strictEqual(layoutEntry!.start, start);
-				assert.strictEqual(layoutEntry!.end, start + defaultSize);
+				expect(layoutEntry).toBeTruthy();
+				expect(layoutEntry!.index).toBe(entry);
+				expect(layoutEntry!.start).toBe(start);
+				expect(layoutEntry!.end).toBe(start + defaultSize);
 			}
 		}
 
@@ -604,23 +605,23 @@ suite('LayoutManager', () => {
 		 */
 		const verifyLayoutEntryBeforeOverrides = (index: number) => {
 			// Assert that the index is within the range.
-			assert(index < overridesStartAt);
+			expect(index < overridesStartAt).toBeTruthy();
 
 			// Verify the layout entry.
 			let layoutEntry = layoutManager.findFirstUnpinnedLayoutEntry(defaultSize * index);
-			assert(layoutEntry);
-			assert.strictEqual(layoutEntry!.index, index);
-			assert.strictEqual(layoutEntry!.start, defaultSize * index);
-			assert.strictEqual(layoutEntry!.size, defaultSize);
+			expect(layoutEntry).toBeTruthy();
+			expect(layoutEntry!.index).toBe(index);
+			expect(layoutEntry!.start).toBe(defaultSize * index);
+			expect(layoutEntry!.size).toBe(defaultSize);
 
 			// Verify the layout entry.
 			layoutEntry = layoutManager.findFirstUnpinnedLayoutEntry(
 				(defaultSize * index) + Math.floor(defaultSize / 2)
 			);
-			assert(layoutEntry);
-			assert.strictEqual(layoutEntry!.index, index);
-			assert.strictEqual(layoutEntry!.start, defaultSize * index);
-			assert.strictEqual(layoutEntry!.size, defaultSize);
+			expect(layoutEntry).toBeTruthy();
+			expect(layoutEntry!.index).toBe(index);
+			expect(layoutEntry!.start).toBe(defaultSize * index);
+			expect(layoutEntry!.size).toBe(defaultSize);
 		};
 
 		// Verify a subset of the layout entries before the overrides.
@@ -640,23 +641,23 @@ suite('LayoutManager', () => {
 			const index = testIndex + overridesStartAt;
 
 			// Assert that the index is within the range.
-			assert(index >= overridesStartAt);
-			assert(index < overridesStartAt + overrideEntries);
+			expect(index >= overridesStartAt).toBeTruthy();
+			expect(index < overridesStartAt + overrideEntries).toBeTruthy();
 
 			// Verify the layout entry.
 			const start = startingOffset + (testIndex * overrideSize);
 			let layoutEntry = layoutManager.findFirstUnpinnedLayoutEntry(start);
-			assert(layoutEntry);
-			assert.strictEqual(layoutEntry!.index, index);
-			assert.strictEqual(layoutEntry!.start, start);
-			assert.strictEqual(layoutEntry!.size, overrideSize);
+			expect(layoutEntry).toBeTruthy();
+			expect(layoutEntry!.index).toBe(index);
+			expect(layoutEntry!.start).toBe(start);
+			expect(layoutEntry!.size).toBe(overrideSize);
 
 			// Verify the layout entry.
 			layoutEntry = layoutManager.findFirstUnpinnedLayoutEntry(start + Math.floor(overrideSize / 2));
-			assert(layoutEntry);
-			assert.strictEqual(layoutEntry!.index, index);
-			assert.strictEqual(layoutEntry!.start, start);
-			assert.strictEqual(layoutEntry!.size, overrideSize);
+			expect(layoutEntry).toBeTruthy();
+			expect(layoutEntry!.index).toBe(index);
+			expect(layoutEntry!.start).toBe(start);
+			expect(layoutEntry!.size).toBe(overrideSize);
 		};
 
 		// Verify a subset of the layout entries in the overrides.
@@ -676,23 +677,23 @@ suite('LayoutManager', () => {
 			const index = testIndex + overridesStartAt + overrideEntries;
 
 			// Assert that the index is within the range.
-			assert(index >= overridesStartAt + overrideEntries);
-			assert(index < entries);
+			expect(index >= overridesStartAt + overrideEntries).toBeTruthy();
+			expect(index < entries).toBeTruthy();
 
 			// Verify the layout entry.
 			const start = startingOffset + (defaultSize * testIndex);
 			let layoutEntry = layoutManager.findFirstUnpinnedLayoutEntry(start);
-			assert(layoutEntry);
-			assert.strictEqual(layoutEntry!.index, index);
-			assert.strictEqual(layoutEntry!.start, start);
-			assert.strictEqual(layoutEntry!.size, defaultSize);
+			expect(layoutEntry).toBeTruthy();
+			expect(layoutEntry!.index).toBe(index);
+			expect(layoutEntry!.start).toBe(start);
+			expect(layoutEntry!.size).toBe(defaultSize);
 
 			// Verify the layout entry.
 			layoutEntry = layoutManager.findFirstUnpinnedLayoutEntry(start + Math.floor(defaultSize / 2));
-			assert(layoutEntry);
-			assert.strictEqual(layoutEntry!.index, index);
-			assert.strictEqual(layoutEntry!.start, start);
-			assert.strictEqual(layoutEntry!.size, defaultSize);
+			expect(layoutEntry).toBeTruthy();
+			expect(layoutEntry!.index).toBe(index);
+			expect(layoutEntry!.start).toBe(start);
+			expect(layoutEntry!.size).toBe(defaultSize);
 		};
 
 		// Verify a random subset of the layout entries after the overrides.
@@ -705,11 +706,11 @@ suite('LayoutManager', () => {
 		verifyLayoutEntryAfterOverrides(entries - overridesStartAt - overrideEntries - 1);
 
 		// Verify finding a layout entry that should not be found.
-		assert(!layoutManager.findFirstUnpinnedLayoutEntry(Number.MAX_SAFE_INTEGER));
-		assert(!layoutManager.findFirstUnpinnedLayoutEntry(Number.MIN_SAFE_INTEGER));
+		expect(!layoutManager.findFirstUnpinnedLayoutEntry(Number.MAX_SAFE_INTEGER)).toBeTruthy();
+		expect(!layoutManager.findFirstUnpinnedLayoutEntry(Number.MIN_SAFE_INTEGER)).toBeTruthy();
 
 		// Verify getting the layout entry past the last index, for coverage.
-		assert(!layoutManager.getLayoutEntry(entries));
+		expect(!layoutManager.getLayoutEntry(entries)).toBeTruthy();
 	};
 
 	/**
@@ -728,18 +729,19 @@ suite('LayoutManager', () => {
 			for (let offset = 0; offset < entrySize; offset++) {
 				const start = entry * entrySize;
 				const layoutEntry = layoutManager.findFirstUnpinnedLayoutEntry(start + offset);
-				assert(layoutEntry);
-				assert.strictEqual(layoutEntry!.index, entry);
-				assert.strictEqual(layoutEntry!.start, start);
-				assert.strictEqual(layoutEntry!.end, start + entrySize);
+				expect(layoutEntry).toBeTruthy();
+				expect(layoutEntry!.index).toBe(entry);
+				expect(layoutEntry!.start).toBe(start);
+				expect(layoutEntry!.end).toBe(start + entrySize);
 			}
 		}
 
 		// Verify getting various layout entries.
-		assert(!layoutManager.getLayoutEntry(-1));
-		assert(!layoutManager.getLayoutEntry(entries));
-		assert.deepEqual(
-			layoutManager.getLayoutEntry(0),
+		expect(!layoutManager.getLayoutEntry(-1)).toBeTruthy();
+		expect(!layoutManager.getLayoutEntry(entries)).toBeTruthy();
+		expect(
+			layoutManager.getLayoutEntry(0)
+		).toEqual(
 			{
 				index: 0,
 				start: 0,
@@ -747,8 +749,9 @@ suite('LayoutManager', () => {
 				end: entrySize
 			}
 		);
-		assert.deepEqual(
-			layoutManager.getLayoutEntry(entries - 1),
+		expect(
+			layoutManager.getLayoutEntry(entries - 1)
+		).toEqual(
 			{
 				index: entries - 1,
 				start: (entries - 1) * entrySize,
@@ -765,7 +768,7 @@ suite('LayoutManager', () => {
 		verifyEntriesThatShouldNotBeFound(layoutManager, entries, entrySize);
 
 		// Verify the size.
-		assert.strictEqual(layoutManager.unpinnedLayoutEntriesSize, (entrySize * (entries - 1)) + layoutOverride);
+		expect(layoutManager.unpinnedLayoutEntriesSize).toBe((entrySize * (entries - 1)) + layoutOverride);
 	};
 
 	/**
@@ -788,10 +791,10 @@ suite('LayoutManager', () => {
 			// Verify that every offset for every entry is correct.
 			for (let offset = 0; offset < size; offset++) {
 				const layoutEntry = layoutManager.findFirstUnpinnedLayoutEntry(start + offset);
-				assert(layoutEntry);
-				assert.strictEqual(layoutEntry!.index, entry);
-				assert.strictEqual(layoutEntry!.start, start);
-				assert.strictEqual(layoutEntry!.end, start + size);
+				expect(layoutEntry).toBeTruthy();
+				expect(layoutEntry!.index).toBe(entry);
+				expect(layoutEntry!.start).toBe(start);
+				expect(layoutEntry!.end).toBe(start + size);
 			}
 
 			// Adjust the start for the next entry.
@@ -809,10 +812,10 @@ suite('LayoutManager', () => {
 			// Verify that every offset for every entry is correct.
 			for (let offset = 0; offset < size; offset++) {
 				const layoutEntry = layoutManager.findFirstUnpinnedLayoutEntry(start + offset);
-				assert(layoutEntry);
-				assert.strictEqual(layoutEntry!.index, entry);
-				assert.strictEqual(layoutEntry!.start, start);
-				assert.strictEqual(layoutEntry!.end, start + size);
+				expect(layoutEntry).toBeTruthy();
+				expect(layoutEntry!.index).toBe(entry);
+				expect(layoutEntry!.start).toBe(start);
+				expect(layoutEntry!.end).toBe(start + size);
 			}
 
 			// Adjust the start for the next entry.
@@ -832,10 +835,10 @@ suite('LayoutManager', () => {
 		size: number
 	) => {
 		// Verify that entries outside the range are not found.
-		assert(!layoutManager.findFirstUnpinnedLayoutEntry(-1));
-		assert(!layoutManager.findFirstUnpinnedLayoutEntry(entries * size));
-		assert(!layoutManager.findFirstUnpinnedLayoutEntry((entries * size) + 100));
-		assert(!layoutManager.findFirstUnpinnedLayoutEntry((entries * size) + 1000));
+		expect(!layoutManager.findFirstUnpinnedLayoutEntry(-1)).toBeTruthy();
+		expect(!layoutManager.findFirstUnpinnedLayoutEntry(entries * size)).toBeTruthy();
+		expect(!layoutManager.findFirstUnpinnedLayoutEntry((entries * size) + 100)).toBeTruthy();
+		expect(!layoutManager.findFirstUnpinnedLayoutEntry((entries * size) + 1000)).toBeTruthy();
 	};
 
 	/**
@@ -855,8 +858,8 @@ suite('LayoutManager', () => {
 	 */
 	const testMapPositionToIndex = (layoutManager: LayoutManager, position: number, expectedIndex: number) => {
 		const index = layoutManager.mapPositionToIndex(position);
-		assert(index !== undefined);
-		assert.strictEqual(index, expectedIndex);
+		expect(index !== undefined).toBeTruthy();
+		expect(index).toBe(expectedIndex);
 	};
 
 	/**
@@ -867,8 +870,8 @@ suite('LayoutManager', () => {
 	 */
 	const testMapIndexToPosition = (layoutManager: LayoutManager, index: number, expectedPosition: number) => {
 		const position = layoutManager.mapIndexToPosition(index);
-		assert(position !== undefined);
-		assert.strictEqual(position, expectedPosition);
+		expect(position !== undefined).toBeTruthy();
+		expect(position).toBe(expectedPosition);
 	};
 
 	// Ensure that all disposables are cleaned up.

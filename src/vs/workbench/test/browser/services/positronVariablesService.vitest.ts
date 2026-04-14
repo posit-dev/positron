@@ -3,7 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import assert from 'assert';
+/// <reference types="vitest/globals" />
+
 import { timeout } from '../../../../base/common/async.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -20,14 +21,14 @@ interface TestNotebookEditor extends INotebookEditor {
 	changeModel(uri: URI): void;
 }
 
-suite('Positron - PositronVariablesService', () => {
+describe('Positron - PositronVariablesService', () => {
 	const ctx = createTestContainer().withWorkbenchServices().build();
 
 	let variablesService: IPositronVariablesService;
 	let notebookEditorService: INotebookEditorService;
 
 
-	setup(() => {
+	beforeEach(() => {
 		const accessor = ctx.instantiationService.createInstance(PositronTestServiceAccessor);
 		variablesService = accessor.positronVariablesService;
 		notebookEditorService = accessor.notebookEditorService;
@@ -79,65 +80,65 @@ suite('Positron - PositronVariablesService', () => {
 		return { session };
 	}
 
-	test('should initialize with no active session', async () => {
-		assert.strictEqual(variablesService.activePositronVariablesInstance, undefined);
+	it('should initialize with no active session', async () => {
+		expect(variablesService.activePositronVariablesInstance).toBe(undefined);
 	});
 
-	test('should create variables instance for new sessions', async () => {
+	it('should create variables instance for new sessions', async () => {
 		const { session: notebookSession } = await createNotebookInstance();
 		const { session: consoleSession } = await createConsoleInstance();
 		await timeout(0);
 
 		// Both sessions should have variables instances
-		assert(variablesService.positronVariablesInstances.some(instance =>
-			instance.session.sessionId === notebookSession.sessionId));
-		assert(variablesService.positronVariablesInstances.some(instance =>
-			instance.session.sessionId === consoleSession.sessionId));
+		expect(variablesService.positronVariablesInstances.some(instance =>
+			instance.session.sessionId === notebookSession.sessionId)).toBeTruthy();
+		expect(variablesService.positronVariablesInstances.some(instance =>
+			instance.session.sessionId === consoleSession.sessionId)).toBeTruthy();
 	});
 
-	test('should dispose all instances when view becomes hidden', async () => {
+	it('should dispose all instances when view becomes hidden', async () => {
 		// Create sessions while view is visible
 		const { session: notebookSession } = await createNotebookInstance();
 		const { session: consoleSession } = await createConsoleInstance();
 		await timeout(0);
 
 		// Verify instances exist
-		assert.strictEqual(variablesService.positronVariablesInstances.length, 2);
-		assert(variablesService.positronVariablesInstances.some(instance =>
-			instance.session.sessionId === notebookSession.sessionId));
-		assert(variablesService.positronVariablesInstances.some(instance =>
-			instance.session.sessionId === consoleSession.sessionId));
+		expect(variablesService.positronVariablesInstances.length).toBe(2);
+		expect(variablesService.positronVariablesInstances.some(instance =>
+			instance.session.sessionId === notebookSession.sessionId)).toBeTruthy();
+		expect(variablesService.positronVariablesInstances.some(instance =>
+			instance.session.sessionId === consoleSession.sessionId)).toBeTruthy();
 
 		// Hide the view
 		variablesService.setViewVisible(false);
 		await timeout(0);
 
 		// All instances should be disposed
-		assert.strictEqual(variablesService.positronVariablesInstances.length, 0);
-		assert.strictEqual(variablesService.activePositronVariablesInstance, undefined);
+		expect(variablesService.positronVariablesInstances.length).toBe(0);
+		expect(variablesService.activePositronVariablesInstance).toBe(undefined);
 	});
 
-	test('should recreate instances when view becomes visible again', async () => {
+	it('should recreate instances when view becomes visible again', async () => {
 		// Create a session while view is visible
 		const { session: consoleSession } = await createConsoleInstance();
 		await timeout(0);
 
 		// Verify instance exists
-		assert.strictEqual(variablesService.positronVariablesInstances.length, 1);
+		expect(variablesService.positronVariablesInstances.length).toBe(1);
 
 		// Hide the view - instances should be disposed
 		variablesService.setViewVisible(false);
 		await timeout(0);
-		assert.strictEqual(variablesService.positronVariablesInstances.length, 0);
+		expect(variablesService.positronVariablesInstances.length).toBe(0);
 
 		// Show the view again - instances should be recreated for active sessions
 		variablesService.setViewVisible(true);
 		await timeout(0);
 
 		// Instance should be recreated for the existing session
-		assert.strictEqual(variablesService.positronVariablesInstances.length, 1);
-		assert(variablesService.positronVariablesInstances.some(instance =>
-			instance.session.sessionId === consoleSession.sessionId));
+		expect(variablesService.positronVariablesInstances.length).toBe(1);
+		expect(variablesService.positronVariablesInstances.some(instance =>
+			instance.session.sessionId === consoleSession.sessionId)).toBeTruthy();
 	});
 
 });
