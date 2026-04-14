@@ -158,14 +158,14 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	 * This runs asynchronously after the initial package list is returned.
 	 */
 	private async _fetchAndMergeMetadata(
-		packageManager: { getPackageMetadata?: (names: string[], token?: CancellationToken) => Promise<Map<string, Partial<ILanguageRuntimePackage>>> },
+		packageManager: { getPackageMetadata?: (names: string[], token?: CancellationToken) => Promise<Map<string, Partial<ILanguageRuntimePackage>> | undefined> },
 		token: CancellationToken,
 	): Promise<void> {
 		try {
 			const packageNames = this._packages.map((pkg) => pkg.name);
 			const metadataMap = await packageManager.getPackageMetadata!(packageNames, token);
 
-			if (token.isCancellationRequested || metadataMap.size === 0) {
+			if (token.isCancellationRequested || !metadataMap || metadataMap.size === 0) {
 				return;
 			}
 

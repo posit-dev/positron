@@ -384,12 +384,12 @@ export interface ILanguageRuntimePackageManager {
 	 * the basic package list quickly while metadata loads in the background.
 	 * @param packageNames Array of package names to fetch metadata for
 	 * @param token Optional cancellation token
-	 * @returns Map of package name (lowercase) to partial package metadata
+	 * @returns Map of package name (lowercase) to partial package metadata, or undefined if not supported
 	 */
 	getPackageMetadata?(
 		packageNames: string[],
 		token?: CancellationToken,
-	): Promise<Map<string, Partial<ILanguageRuntimePackage>>>;
+	): Promise<Map<string, Partial<ILanguageRuntimePackage>> | undefined>;
 }
 
 /**
