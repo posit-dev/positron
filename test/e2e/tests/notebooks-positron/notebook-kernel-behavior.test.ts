@@ -219,7 +219,8 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		await sessions.start(['python']);
 		await notebooksPositron.newNotebook();
 		await notebooksPositron.kernel.select('Python');
-		await notebooksPositron.addCodeToCell(0, 'print("hello")', { run: true });
+		await notebooksPositron.addCodeToCell(0, 'import time; time.sleep(0.1); print("done")', { run: false });
+		await notebooksPositron.runCellButtonAtIndex(0).click();
 
 		// verify the console accepts typed input
 		await console.focus();
@@ -228,6 +229,10 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		await console.waitForReady('>>>');
 		await console.typeToConsole('print(x)', true);
 		await console.waitForConsoleContents('42');
+
+		// the notebook cell should still be running; if "done" appeared the
+		// idea here is to guarantee that user will always get console ready INSTANTLY, not eventually...
+		await expect(notebooksPositron.cellOutput(0)).not.toContainText('done');
 	});
 
 });
