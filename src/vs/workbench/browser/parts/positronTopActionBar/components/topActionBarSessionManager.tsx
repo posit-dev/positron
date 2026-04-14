@@ -7,7 +7,7 @@
 import './topActionBarSessionManager.css';
 
 // React.
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 // Other dependencies.
 import { Codicon } from '../../../../../base/common/codicons.js';
@@ -20,9 +20,7 @@ import { IRuntimeSessionDisplayInfo } from '../../../../services/runtimeSession/
 import { localize } from '../../../../../nls.js';
 import { LANGUAGE_RUNTIME_SELECT_SESSION_ID, LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID } from '../../../../contrib/languageRuntime/browser/languageRuntimeActions.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { getSessionDisplayName, getSessionIcon, isQuartoSession } from '../../../../contrib/positronConsole/common/sessionDisplayUtils.js';
-import { asCssVariable } from '../../../../../platform/theme/common/colorUtils.js';
-import { POSITRON_QUARTO_ICON } from '../../../../common/theme.js';
+import { getSessionDisplayName, getSessionIcon, getSessionIconStyle } from '../../../../contrib/positronConsole/common/sessionDisplayUtils.js';
 
 const startSession = localize('positron.console.startSession', "Start Session");
 
@@ -48,18 +46,6 @@ const getIcon = (info: IRuntimeSessionDisplayInfo | undefined, modelService: IMo
 };
 
 /**
- * Gets the icon style for the session. Returns a color style for Quarto
- * sessions and undefined for all other sessions.
- */
-const getIconStyle = (info: IRuntimeSessionDisplayInfo | undefined, modelService: IModelService): React.CSSProperties | undefined => {
-	if (info?.sessionMode === LanguageRuntimeSessionMode.Notebook &&
-		isQuartoSession(info.notebookUri, modelService)) {
-		return { color: asCssVariable(POSITRON_QUARTO_ICON) };
-	}
-	return undefined;
-};
-
-/**
  * This component allows users to manage the foreground session.
  * - displays the current foreground session (console or notebook)
  * - allows users to switch between console sessions
@@ -72,8 +58,9 @@ export const TopActionBarSessionManager = () => {
 		getLabel(services.runtimeSessionService.foregroundSessionDisplayInfo, services.modelService));
 	const [sessionIcon, setSessionIcon] = useState(
 		getIcon(services.runtimeSessionService.foregroundSessionDisplayInfo, services.modelService));
+	const info = services.runtimeSessionService.foregroundSessionDisplayInfo;
 	const [iconStyle, setIconStyle] = useState(
-		getIconStyle(services.runtimeSessionService.foregroundSessionDisplayInfo, services.modelService));
+		info ? getSessionIconStyle(info, services.modelService) : undefined);
 
 	// Check if there are any active console sessions to determine if the
 	// active session picker or the create session picker should be shown.
@@ -96,7 +83,7 @@ export const TopActionBarSessionManager = () => {
 			services.runtimeSessionService.onDidChangeForegroundSessionDisplayInfo(info => {
 				setLabelText(getLabel(info, services.modelService));
 				setSessionIcon(getIcon(info, services.modelService));
-				setIconStyle(getIconStyle(info, services.modelService));
+				setIconStyle(info ? getSessionIconStyle(info, services.modelService) : undefined);
 			})
 		);
 

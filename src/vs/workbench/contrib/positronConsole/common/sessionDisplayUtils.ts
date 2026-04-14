@@ -8,8 +8,10 @@ import { basename } from '../../../../base/common/path.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
+import { asCssVariable } from '../../../../platform/theme/common/colorUtils.js';
 import { LanguageRuntimeSessionMode } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeSessionDisplayInfo } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { POSITRON_QUARTO_ICON } from '../../../common/theme.js';
 import { isQuartoDocument } from '../../positronQuarto/common/positronQuartoConfig.js';
 
 /**
@@ -72,4 +74,16 @@ export function getSessionIcon(info: IRuntimeSessionDisplayInfo, modelService: I
 		return Codicon.notebook;
 	}
 	return Codicon.positronNewConsole;
+}
+
+/**
+ * Gets the icon style for a session. Returns a color style for Quarto
+ * sessions and undefined for all other sessions.
+ */
+export function getSessionIconStyle(info: IRuntimeSessionDisplayInfo, modelService: IModelService): React.CSSProperties | undefined {
+	if (info.sessionMode === LanguageRuntimeSessionMode.Notebook &&
+		isQuartoSession(info.notebookUri, modelService)) {
+		return { color: asCssVariable(POSITRON_QUARTO_ICON) };
+	}
+	return undefined;
 }
