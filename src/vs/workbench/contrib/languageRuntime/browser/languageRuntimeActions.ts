@@ -424,26 +424,35 @@ const selectNewLanguageRuntime = async (
 	// Only show contributed items after discovery is complete
 	if (languageRuntimeService.startupPhase === RuntimeStartupPhase.Complete) {
 		const contributions = languageRuntimeService.getPickerContributions();
-		for (const contribution of contributions) {
-			try {
-				const items = await contribution.getItems();
-				for (const item of items) {
-					// Create a unique ID for this item that includes the contribution handle
-					const uniqueId = `${CONTRIBUTED_ITEM_PREFIX}${contribution.handle}_${item.id}`;
-					contributedItemMap.set(uniqueId, { contribution, originalId: item.id });
 
-					if (item.separatorLabel) {
-						runtimeItems.push({ type: 'separator', label: item.separatorLabel });
-					}
-					runtimeItems.push({
-						id: uniqueId,
-						label: item.label,
-						detail: item.detail,
-					});
+		// Fetch items from all contributions in parallel
+		const contributionResults = await Promise.all(
+			contributions.map(async (contribution) => {
+				try {
+					const items = await contribution.getItems();
+					return { contribution, items };
+				} catch (error) {
+					// Log but don't fail if a contribution errors
+					console.error(`Failed to get picker items from contribution: ${error}`);
+					return { contribution, items: [] };
 				}
-			} catch (error) {
-				// Log but don't fail if a contribution errors
-				console.error(`Failed to get picker items from contribution: ${error}`);
+			})
+		);
+
+		for (const { contribution, items } of contributionResults) {
+			for (const item of items) {
+				// Create a unique ID for this item that includes the contribution handle
+				const uniqueId = `${CONTRIBUTED_ITEM_PREFIX}${contribution.handle}_${item.id}`;
+				contributedItemMap.set(uniqueId, { contribution, originalId: item.id });
+
+				if (item.separatorLabel) {
+					runtimeItems.push({ type: 'separator', label: item.separatorLabel });
+				}
+				runtimeItems.push({
+					id: uniqueId,
+					label: item.label,
+					detail: item.detail,
+				});
 			}
 		}
 	}

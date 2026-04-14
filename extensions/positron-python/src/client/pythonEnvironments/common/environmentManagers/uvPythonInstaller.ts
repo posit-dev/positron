@@ -28,6 +28,12 @@ export interface UvAvailablePython {
 
 /**
  * Installs uv using the official installer script.
+ *
+ * Note: This follows the official uv installation pattern (https://docs.astral.sh/uv/getting-started/installation/).
+ * The scripts are fetched over HTTPS from astral.sh and executed directly. This is
+ * the recommended installation method from the uv documentation. Users who require
+ * additional verification should install uv manually before using this feature.
+ *
  * @returns true if installation succeeded, false otherwise
  */
 async function installUv(): Promise<boolean> {
@@ -299,6 +305,8 @@ export async function installPythonViaUv(): Promise<InstallPythonResult> {
                             vscode.window.showInformationMessage(InterpreterQuickPickList.UvInstall.venvCreated);
                             return { success: true, pythonPath: venvPython };
                         }
+                        // Venv creation failed - warn the user that we're falling back to base Python
+                        vscode.window.showWarningMessage(InterpreterQuickPickList.UvInstall.venvCreationFailed);
                     }
                 }
 

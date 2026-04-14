@@ -1524,6 +1524,9 @@ export class MainThreadLanguageRuntime
 
 	private readonly _registeredRuntimes: Map<string, ILanguageRuntimeMetadata> = new Map();
 
+	/** Tracks disposables for picker contributions by handle, for cleanup on unregister */
+	private readonly _pickerContributionDisposables: Map<number, IDisposable> = new Map();
+
 	/** Per-session evaluation queues for $evaluateCode */
 	private readonly _evaluationQueues: Map<string, EvaluationEntry[]> = new Map();
 
@@ -2303,6 +2306,7 @@ export class MainThreadLanguageRuntime
 		};
 
 		const disposable = this._languageRuntimeService.registerPickerContribution(contribution);
+		this._pickerContributionDisposables.set(handle, disposable);
 		this._disposables.add(disposable);
 	}
 
@@ -2312,14 +2316,10 @@ export class MainThreadLanguageRuntime
 	 * @param handle The handle of the contribution to unregister
 	 */
 	$unregisterRuntimePickerContribution(handle: number): void {
-		// The contribution will be cleaned up when the disposable is disposed
-		// For now, we rely on the extension host sending this when disposed
-		// The actual cleanup happens in the language runtime service
-		const contributions = this._languageRuntimeService.getPickerContributions();
-		const contribution = contributions.find(c => c.handle === handle);
-		if (contribution) {
-			// Re-register without this contribution by getting all and filtering
-			// This is a bit awkward but keeps the implementation simple
+		const disposable = this._pickerContributionDisposables.get(handle);
+		if (disposable) {
+			disposable.dispose();
+			this._pickerContributionDisposables.delete(handle);
 			this._logService.trace(`Picker contribution with handle ${handle} unregistered`);
 		}
 	}

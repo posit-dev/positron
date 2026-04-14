@@ -37,7 +37,7 @@ import { Conda } from '../common/environmentManagers/conda';
 import { getUvPythonVersions } from './provider/uvUtils';
 import { isUvInstalled } from '../common/environmentManagers/uv';
 import { UvCreationProvider } from './provider/uvCreationProvider';
-import { installPythonViaUv } from '../common/environmentManagers/uvPythonInstaller';
+import { installPythonViaUv, InstallPythonResult } from '../common/environmentManagers/uvPythonInstaller';
 import {
     createEnvironmentAndRegister,
     getCreateEnvironmentProviders,
@@ -103,6 +103,32 @@ export function registerCreateEnvironmentProvider(
 export const { onCreateEnvironmentStarted, onCreateEnvironmentExited, isCreatingEnvironment } = getCreationEvents();
 
 // --- Start Positron ---
+/**
+ * Handles the result of installPythonViaUv by registering the runtime and showing errors.
+ * Returns the runtime ID if successful, undefined otherwise.
+ */
+async function handleInstallPythonResult(
+    result: InstallPythonResult,
+    pythonRuntimeManager: IPythonRuntimeManager,
+): Promise<{ pythonPath: string; runtimeId: string | undefined } | undefined> {
+    if (result.success && result.pythonPath) {
+        // Register the runtime without starting a session - the caller handles that
+        let metadata = await pythonRuntimeManager.registerLanguageRuntimeFromPath(result.pythonPath, true);
+
+        // If registration failed, the interpreter might not be discovered yet - trigger refresh and retry
+        if (!metadata) {
+            await pythonRuntimeManager.triggerInterpreterRefresh();
+            metadata = await pythonRuntimeManager.registerLanguageRuntimeFromPath(result.pythonPath, true);
+        }
+
+        return { pythonPath: result.pythonPath, runtimeId: metadata?.runtimeId };
+    }
+    if (result.error && result.error !== 'Cancelled') {
+        showErrorMessage(result.error);
+    }
+    return undefined;
+}
+
 // Changed this function to be async
 export async function registerCreateEnvironmentFeatures(
     // --- End Positron ---
@@ -198,22 +224,7 @@ export async function registerCreateEnvironmentFeatures(
         registerCommand(Commands.InstallPythonViaUv, async () => {
             try {
                 const result = await installPythonViaUv();
-                if (result.success && result.pythonPath) {
-                    // Register the runtime without starting a session - the caller handles that
-                    let metadata = await pythonRuntimeManager.registerLanguageRuntimeFromPath(result.pythonPath, true);
-
-                    // If registration failed, the interpreter might not be discovered yet - trigger refresh and retry
-                    if (!metadata) {
-                        await pythonRuntimeManager.triggerInterpreterRefresh();
-                        metadata = await pythonRuntimeManager.registerLanguageRuntimeFromPath(result.pythonPath, true);
-                    }
-
-                    return { pythonPath: result.pythonPath, runtimeId: metadata?.runtimeId };
-                }
-                if (result.error && result.error !== 'Cancelled') {
-                    showErrorMessage(result.error);
-                }
-                return undefined;
+                return await handleInstallPythonResult(result, pythonRuntimeManager);
             } catch (error) {
                 traceError(`installPythonViaUv command failed: ${error}`);
                 showErrorMessage(InterpreterQuickPickList.UvInstall.installCommandFailed);
@@ -271,27 +282,8 @@ export async function registerCreateEnvironmentFeatures(
                 if (itemId === 'install-python-uv') {
                     try {
                         const result = await installPythonViaUv();
-                        if (result.success && result.pythonPath) {
-                            // Register the runtime - the caller will handle starting it
-                            let metadata = await pythonRuntimeManager.registerLanguageRuntimeFromPath(
-                                result.pythonPath,
-                                true,
-                            );
-
-                            // If registration failed, trigger a refresh and retry
-                            if (!metadata) {
-                                await pythonRuntimeManager.triggerInterpreterRefresh();
-                                metadata = await pythonRuntimeManager.registerLanguageRuntimeFromPath(
-                                    result.pythonPath,
-                                    true,
-                                );
-                            }
-
-                            return metadata?.runtimeId;
-                        }
-                        if (result.error && result.error !== 'Cancelled') {
-                            showErrorMessage(result.error);
-                        }
+                        const handled = await handleInstallPythonResult(result, pythonRuntimeManager);
+                        return handled?.runtimeId;
                     } catch (error) {
                         traceError(`Install Python via uv failed: ${error}`);
                         showErrorMessage(InterpreterQuickPickList.UvInstall.installCommandFailed);

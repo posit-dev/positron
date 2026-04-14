@@ -307,6 +307,9 @@ export namespace InterpreterQuickPickList {
         export const yesRecommended = l10n.t('Yes (recommended)');
         export const creatingVenv = l10n.t('Creating virtual environment');
         export const venvCreated = l10n.t('Virtual environment created');
+        export const venvCreationFailed = l10n.t(
+            'Failed to create virtual environment. Using installed Python instead.',
+        );
         export const installCommandFailed = l10n.t('Failed to install Python');
     }
     // --- End Positron ---
