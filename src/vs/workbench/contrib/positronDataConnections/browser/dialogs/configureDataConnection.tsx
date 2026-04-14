@@ -67,7 +67,7 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 	// Render.
 	return (
 		<PositronModalDialog
-			height={400}
+			height={520}
 			renderer={props.renderer}
 			title={localize(
 				'positron.configureDataConnection.title',
@@ -173,7 +173,7 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 				</div>
 			</ContentArea>
 			<DataConnectionActionBar
-				acceptLabel={localize('positron.configureDataConnection.create', "Create")}
+				acceptLabel={localize('positron.configureDataConnection.save', "Save")}
 				onAccept={acceptHandler}
 				onBack={onBack}
 				onCancel={cancelHandler}

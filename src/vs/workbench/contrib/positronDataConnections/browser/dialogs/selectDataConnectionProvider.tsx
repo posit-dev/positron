@@ -11,13 +11,13 @@ import { useCallback, useEffect, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
-import { DataConnectionActionBar } from './dataConnectionActionBar.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
 import { PositronModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
+import { OKCancelActionBar } from '../../../../browser/positronComponents/positronModalDialog/components/okCancelActionBar.js';
 import { IDataConnectionDriverMetadata } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
 
 /**
@@ -47,6 +47,7 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 	// State.
 	const [drivers, setDrivers] = useState<IDataConnectionDriverMetadata[]>([]);
 	const [selectedDriverId, setSelectedDriverId] = useState<string | undefined>(undefined);
+	const [showError, setShowError] = useState(false);
 
 	// Load the registered drivers and listen for changes.
 	useEffect(() => {
@@ -64,6 +65,7 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 
 	// Cancel handler.
 	const cancelHandler = useCallback(() => {
+		// Dispose the renderer, which will close the dialog.
 		renderer.dispose();
 	}, [renderer]);
 
@@ -71,6 +73,8 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 	const nextHandler = useCallback(() => {
 		if (selectedDriverId) {
 			onNext(selectedDriverId);
+		} else {
+			setShowError(true);
 		}
 	}, [selectedDriverId, onNext]);
 
@@ -83,40 +87,47 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 				'positron.selectDataConnectionProvider.title',
 				"New Data Connection"
 			)}
-			width={600}
+			width={492}
 			onCancel={cancelHandler}
 		>
 			<ContentArea>
 				<div className='select-data-connection-provider'>
-					<div className='select-provider-label'>
+					<div className={positronClassNames(
+						'select-provider-label',
+						{ 'error': showError }
+					)}>
 						{localize(
 							'positron.selectDataConnectionProvider.selectProvider',
 							"Select a provider"
 						)}
 					</div>
-					<div className='driver-grid'>
-						{drivers.map(driver => (
-							<Button
-								key={driver.id}
-								className={positronClassNames(
-									'driver-card',
-									{ 'selected': selectedDriverId === driver.id }
-								)}
-								id={`data-connection-driver-card-${driver.id}`}
-								onPressed={() => setSelectedDriverId(driver.id)}
-							>
-								<div className='driver-card-badge'>
-									<img alt='' className='driver-card-icon' src={`data:image/svg+xml;base64,${driver.iconSvg}`} />
-								</div>
-								<div className='driver-card-name'>{driver.name}</div>
-							</Button>
-						))}
+					<div className='driver-grid-container'>
+						<div className='driver-grid'>
+							{Array.from({ length: 6 }, () => drivers).flat().map((driver, index) => (
+								<Button
+									key={`${driver.id}-${index}`}
+									className={positronClassNames(
+										'driver-card',
+										{ 'selected': selectedDriverId === driver.id }
+									)}
+									id={`data-connection-driver-card-${driver.id}`}
+									onPressed={() => {
+										setSelectedDriverId(driver.id);
+										setShowError(false);
+									}}
+								>
+									<div className='driver-card-badge'>
+										<img alt='' className='driver-card-icon' src={`data:image/svg+xml;base64,${driver.iconSvg}`} />
+									</div>
+									<div className='driver-card-name'>{driver.name}</div>
+								</Button>
+							))}
+						</div>
 					</div>
 				</div>
 			</ContentArea>
-			<DataConnectionActionBar
-				acceptDisabled={!selectedDriverId}
-				acceptLabel={localize('positron.selectDataConnectionProvider.next', "Next")}
+			<OKCancelActionBar
+				okButtonTitle={localize('positron.selectDataConnectionProvider.next', "Next")}
 				onAccept={nextHandler}
 				onCancel={cancelHandler}
 			/>

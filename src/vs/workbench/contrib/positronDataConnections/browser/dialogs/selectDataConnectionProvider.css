@@ -5,20 +5,40 @@
 
 .select-data-connection-provider .select-provider-label {
 	font-size: 13px;
-	margin-bottom: 10px;
+	margin-bottom: 6px;
 	color: var(--vscode-descriptionForeground);
+}
+
+.select-data-connection-provider .select-provider-label.error {
+	color: var(--vscode-errorForeground);
+}
+
+.select-data-connection-provider .driver-grid-container {
+	height: 246px;
+	overflow-y: auto;
+	border-radius: 6px;
+	border: 1px solid var(--vscode-widget-border);
+}
+
+.select-data-connection-provider .driver-grid-container::-webkit-scrollbar {
+	width: 5px;
+}
+
+.select-data-connection-provider .driver-grid-container::-webkit-scrollbar-thumb {
+	background: var(--vscode-scrollbarSlider-background);
+}
+
+.select-data-connection-provider .driver-grid-container::-webkit-scrollbar-thumb:hover {
+	background: var(--vscode-scrollbarSlider-hoverBackground);
 }
 
 .select-data-connection-provider .driver-grid {
 	gap: 8px;
 	padding: 8px;
 	display: grid;
-	height: 236px;
-	overflow-y: auto;
-	border-radius: 6px;
 	align-content: start;
-	grid-template-columns: repeat(3, 1fr);
-	border: 1px solid var(--vscode-widget-border);
+	grid-template-rows: repeat(2, 110px);
+	grid-template-columns: repeat(3, 142px);
 }
 
 .select-data-connection-provider .driver-card {
@@ -34,6 +54,7 @@
 	flex-direction: column;
 	background: transparent;
 	justify-content: center;
+	/* box-sizing: border-box; */
 	border: 1px solid var(--vscode-widget-border);
 }
 
@@ -53,9 +74,16 @@
 	display: flex;
 	border-radius: 8px;
 	align-items: center;
-	background: #f8f8f8;
 	justify-content: center;
 	border: 1px solid rgba(128, 128, 128, 0.2);
+}
+
+.vs-light .select-data-connection-provider .driver-card-badge {
+	background: #f8f8f8;
+}
+
+.vs-dark .select-data-connection-provider .driver-card-badge {
+	background: #f8f8f8;
 }
 
 .select-data-connection-provider .driver-card-icon {

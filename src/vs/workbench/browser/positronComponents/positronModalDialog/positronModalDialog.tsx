@@ -122,6 +122,7 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 					}
 
 					// Get the first default button that is not disabled. If there is one, click it.
+					// eslint-disable-next-line no-restricted-syntax
 					const defaultButton = dialogBoxRef.current.querySelector<HTMLElement>(
 						'button.default:not([disabled])'
 					);
@@ -142,6 +143,7 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 				// Tab moves between dialog elements. This code works to keep the focus in the dialog.
 				case 'Tab': {
 					// Get the focusable elements.
+					// eslint-disable-next-line no-restricted-syntax
 					const focusableElements = dialogBoxRef.current.querySelectorAll<HTMLElement>(
 						focusableElementSelectors
 					);
@@ -224,7 +226,7 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 
 		// Return the clean up for our event handlers.
 		return () => disposableStore.dispose();
-	}, [props.renderer, props.onCancel, props.width, props.height]);
+	}, [props.renderer, props.onCancel, props.width, props.height, props]);
 
 	// Start drag handler.
 	const startDragHandler = () => {
