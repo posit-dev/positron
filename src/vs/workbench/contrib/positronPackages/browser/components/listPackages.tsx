@@ -9,7 +9,6 @@ import './listPackages.css';
 // React.
 import React, {
 	CSSProperties,
-	useCallback,
 	useEffect,
 	useMemo,
 	useRef,
@@ -22,31 +21,14 @@ import * as DOM from '../../../../../base/browser/dom.js';
 import { isMacintosh } from '../../../../../base/common/platform.js';
 import { useStateRef } from '../../../../../base/browser/ui/react/useStateRef.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
-import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
-import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
-import { ActionBarRegion } from '../../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
-import { PositronActionBar } from '../../../../../platform/positronActionBar/browser/positronActionBar.js';
-import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { ViewsProps } from '../positronPackages.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
-import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { localize } from '../../../../../nls.js';
 import { usePositronPackagesContext } from '../positronPackagesContext.js';
-import { ILanguageRuntimePackage, ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackage } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progressbar.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { Separator } from '../../../../../base/common/actions.js';
-import { PackagesInstanceMenuButton } from './packagesInstanceMenuButton.js';
-
-const positronRefreshPackages = localize(
-	'positronRefreshPackages',
-	'Refresh Packages',
-);
-
-const positronInstallPackage = localize(
-	'positronInstallPackage',
-	'Install Package',
-);
 
 const positronUninstallPackage = localize(
 	'positronUninstallPackage',
@@ -56,16 +38,6 @@ const positronUninstallPackage = localize(
 const positronUpdatePackage = localize(
 	'positronUpdatePackage',
 	'Update Package',
-);
-
-const positronUpdateAllPackages = localize(
-	'positronUpdateAllPackages',
-	'Update All Packages',
-);
-
-const positronPackageActions = localize(
-	'positronPackageActions',
-	'Package Actions',
 );
 
 export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
@@ -286,10 +258,15 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		);
 	};
 
-	// Map selected item to package name
-	const getSelectedItemPackageName = useCallback((item: string | undefined) => {
-		return deduplicatedPackages.find((pkg) => pkg.id === item)?.name;
-	}, [deduplicatedPackages]);
+	// Update selected package in the service when selection changes
+	useEffect(() => {
+		// Find the package name from the selected item id
+		const selectedPackageName = selectedItem
+			? deduplicatedPackages.find((pkg) => pkg.id === selectedItem)?.name
+			: undefined;
+		services.positronPackagesService.setSelectedPackage(selectedPackageName);
+		return () => services.positronPackagesService.setSelectedPackage(undefined);
+	}, [selectedItem, deduplicatedPackages, services.positronPackagesService]);
 
 	return (
 		// eslint-disable-next-line jsx-a11y/no-static-element-interactions
@@ -303,29 +280,9 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		>
 			<div ref={progressRef} id='packages-progress' />
 
-			<ActionBar
-				activeSession={activeInstance?.session}
-				busy={loading}
-				selectedItem={selectedItem}
-				onInstallPackage={() => services.commandService.executeCommand('positronPackages.installPackage')}
-				onRefreshPackages={() => services.commandService.executeCommand('positronPackages.refreshPackages')}
-				onUninstallPackage={() => {
-					const packageName = getSelectedItemPackageName(selectedItem);
-					if (packageName) {
-						services.commandService.executeCommand('positronPackages.uninstallPackage', packageName);
-					}
-				}}
-				onUpdateAllPackages={() => services.commandService.executeCommand('positronPackages.updateAllPackages')}
-				onUpdatePackage={() => {
-					const packageName = getSelectedItemPackageName(selectedItem);
-					if (packageName) {
-						services.commandService.executeCommand('positronPackages.updatePackage', packageName);
-					}
-				}}
-			></ActionBar>
 			<div className='packages-list-container'>
 				<List
-					height={height - ACTION_BAR_HEIGHT}
+					height={height}
 					innerRef={innerRef}
 					itemCount={deduplicatedPackages.length}
 					itemKey={(index) => deduplicatedPackages[index].id}
@@ -336,101 +293,5 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 				</List>
 			</div>
 		</div >
-	);
-};
-
-const ACTION_BAR_PADDING_LEFT = 8;
-const ACTION_BAR_PADDING_RIGHT = 8;
-const ACTION_BAR_HEIGHT = 28;
-
-interface ActionBarProps {
-	busy: boolean;
-	activeSession?: ILanguageRuntimeSession;
-	selectedItem?: string;
-	onInstallPackage: () => void;
-	onRefreshPackages: () => void;
-	onUninstallPackage: () => void;
-	onUpdateAllPackages: () => void;
-	onUpdatePackage: () => void;
-}
-
-const ActionBar = ({
-	busy,
-	activeSession,
-	selectedItem,
-	onInstallPackage,
-	onRefreshPackages,
-	onUpdateAllPackages,
-	onUpdatePackage,
-	onUninstallPackage,
-	...props
-}: React.PropsWithChildren<ActionBarProps>) => {
-	return (
-		<div style={{ height: ACTION_BAR_HEIGHT }}>
-			<PositronActionBarContextProvider {...props}>
-				<PositronActionBar
-					borderBottom={true}
-					borderTop={true}
-					paddingLeft={ACTION_BAR_PADDING_LEFT}
-					paddingRight={ACTION_BAR_PADDING_RIGHT}
-				>
-					<ActionBarRegion location='left'>
-						<PackagesInstanceMenuButton />
-					</ActionBarRegion>
-					<ActionBarRegion location='right'>
-						<ActionBarButton
-							align='right'
-							ariaLabel={positronRefreshPackages}
-							disabled={busy || !activeSession}
-							icon={ThemeIcon.fromId('refresh')}
-							tooltip={positronRefreshPackages}
-							onPressed={onRefreshPackages}
-						/>
-						<ActionBarMenuButton
-							actions={() => [
-								{
-									id: 'positron.packages.installPackage',
-									label: positronInstallPackage,
-									tooltip: positronInstallPackage,
-									class: undefined,
-									enabled: !busy,
-									run: onInstallPackage,
-								},
-								{
-									id: 'positron.packages.updateAllPackages',
-									label: positronUpdateAllPackages,
-									tooltip: positronUpdateAllPackages,
-									class: undefined,
-									enabled: !busy,
-									run: onUpdateAllPackages,
-								},
-								{
-									id: 'positron.packages.updatePackage',
-									label: positronUpdatePackage,
-									tooltip: positronUpdatePackage,
-									class: undefined,
-									enabled: !busy && Boolean(selectedItem),
-									run: onUpdatePackage,
-								},
-								{
-									id: 'positron.packages.uninstallPackage',
-									label: positronUninstallPackage,
-									tooltip: positronUninstallPackage,
-									class: undefined,
-									enabled: !busy && Boolean(selectedItem),
-									run: onUninstallPackage,
-								},
-							]}
-							align='right'
-							ariaLabel={positronPackageActions}
-							disabled={!activeSession}
-							dropdownIndicator='disabled'
-							icon={ThemeIcon.fromId('ellipsis')}
-							tooltip={positronPackageActions}
-						/>
-					</ActionBarRegion>
-				</PositronActionBar>
-			</PositronActionBarContextProvider>
-		</div>
 	);
 };

@@ -12,7 +12,7 @@ import React, { useMemo } from 'react';
 // Other dependencies.
 import { NotebookCellOutputs, ParsedTextOutput } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { isParsedTextOutput } from '../getOutputContents.js';
-import { useObservedValue } from '../useObservedValue.js';
+import { useObservedValue, useDebouncedObservedValue } from '../useObservedValue.js';
 import { CellEditorMonacoWidget } from './CellEditorMonacoWidget.js';
 import { localize } from '../../../../../nls.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
@@ -210,7 +210,16 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 });
 
 export const NotebookCodeCell = React.memo(function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
-	const outputContents = useObservedValue(cell.outputs);
+	// Debounce transitions to empty only while the cell is executing so
+	// re-execution doesn't flash. Explicit clears (when idle) propagate
+	// immediately. We read executionStatus synchronously inside the predicate
+	// so it reflects the state at the moment outputs change.
+	const shouldDebounceOutputs = React.useCallback(
+		(outputs: NotebookCellOutputs[]) =>
+			outputs.length === 0 && cell.executionStatus.get() !== 'idle',
+		[cell.executionStatus]
+	);
+	const outputContents = useDebouncedObservedValue(cell.outputs, shouldDebounceOutputs);
 	const hasError = outputContents.some(o => o.parsed.type === 'error');
 
 	return (
