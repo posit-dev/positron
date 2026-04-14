@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -24,7 +24,7 @@ import { editorErrorForeground } from '../../../theme/common/colorRegistry.js';
 interface IconProps {
 	readonly icon: IconType;
 	readonly className?: string;
-	readonly style?: React.CSSProperties,
+	readonly style?: React.CSSProperties;
 }
 
 /**
@@ -33,7 +33,7 @@ interface IconProps {
 interface ThemeIconProps {
 	readonly icon: ThemeIconClass;
 	readonly className?: string;
-	readonly style?: React.CSSProperties,
+	readonly style?: React.CSSProperties;
 }
 
 /**
@@ -42,7 +42,7 @@ interface ThemeIconProps {
 interface URIIconProps {
 	readonly icon: { dark?: URI; light?: URI };
 	readonly className?: string;
-	readonly style?: React.CSSProperties,
+	readonly style?: React.CSSProperties;
 }
 
 /**
