@@ -124,8 +124,10 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			this._onDidRefreshPackagesInstance.fire(this._packages);
 
 			// Stage 2: Fetch metadata asynchronously (don't block the return)
+			// Use CancellationToken.None since this runs after the main operation completes
+			// and the original token may be disposed
 			if (packageManager.getPackageMetadata && this._packages.length > 0) {
-				this._fetchAndMergeMetadata(packageManager, effectiveToken);
+				this._fetchAndMergeMetadata(packageManager, CancellationToken.None);
 			}
 
 			return this._packages;
@@ -148,8 +150,9 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		this._onDidRefreshPackagesInstance.fire(this._packages);
 
 		// Stage 2: Fetch metadata asynchronously (don't block)
+		// Use CancellationToken.None since this runs after the main operation completes
 		if (packageManager.getPackageMetadata && this._packages.length > 0) {
-			this._fetchAndMergeMetadata(packageManager, token);
+			this._fetchAndMergeMetadata(packageManager, CancellationToken.None);
 		}
 	}
 
