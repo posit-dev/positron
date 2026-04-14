@@ -5,12 +5,14 @@
 
 import { RefObject, useLayoutEffect } from 'react';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
-import { disposableTimeout } from '../../../../base/common/async.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { addDisposableListener, getWindow } from '../../../../base/browser/dom.js';
 
-/** Number of consecutive stable frames required to consider the scroll position stable. */
-const STABLE_THRESHOLD = 5;
+/**
+ * Wall-clock time (ms) the scroll position must remain stable (no corrections
+ * needed) before we consider the layout settled and stop the loop.
+ */
+const STABLE_DURATION_MS = 200;
 
 /** Maximum time (ms) to keep the restoration loop running before giving up. */
 const TIMEOUT_MS = 1500;
@@ -20,7 +22,7 @@ const TIMEOUT_MS = 1500;
  * target returned by {@link getScrollTop}. A requestAnimationFrame loop
  * runs for up to 1.5 s to accommodate async layout shifts (e.g. from markdown
  * previews and editor model loading). The loop stops early once the position
- * has been stable for several consecutive frames, or if the user scrolls
+ * has been stable for 200 ms of wall-clock time, or if the user scrolls
  * (detected via wheel/pointer/keyboard events, since programmatic scrollTop
  * assignments also fire scroll events).
  *
@@ -64,8 +66,10 @@ export function useScrollRestoration(
 		let pendingFrame: number | undefined;
 		let frameCount = 0;
 
-		/** Number of consecutive frames where the scroll position did not change. */
-		let stableFrames = 0;
+		/** Wall-clock time of the last correction. Used for time-based stability
+		 *  detection. We declare stable once no correction has been needed for
+		 *  STABLE_DURATION_MS of real elapsed time. */
+		let lastCorrectionTime = startTimestamp;
 
 		/** Stop the restoration loop and log the final state. */
 		const stop = (reason: string) => {
@@ -84,9 +88,10 @@ export function useScrollRestoration(
 			const drift = target !== undefined
 				? container.scrollTop - target
 				: NaN;
+			const stableSince = performance.now() - lastCorrectionTime;
 			logService.debug(
 				`[scroll-restore] ${reason} +${(performance.now() - startTimestamp).toFixed(0)}ms` +
-				` (${frameCount} frames):` +
+				` (${frameCount} frames, stable ${stableSince.toFixed(0)}ms):` +
 				` final scrollTop=${container.scrollTop}, target=${target}, drift=${drift.toFixed(1)}px`
 			);
 		};
@@ -110,21 +115,29 @@ export function useScrollRestoration(
 				}
 
 				if (Math.abs(container.scrollTop - target) < 1) {
-					// Close enough. Once stable for enough consecutive frames,
-					// the layout has settled and we can stop.
-					if (++stableFrames >= STABLE_THRESHOLD) {
+					// Close enough. If no correction has been needed for
+					// STABLE_DURATION_MS of wall-clock time, the layout has
+					// settled and we can stop.
+					if (performance.now() - lastCorrectionTime >= STABLE_DURATION_MS) {
 						stop('stable');
 						return;
 					}
 				} else {
 					// Still drifting (e.g. async content is shifting layout).
-					// Reset the stable counter and correct the scroll position.
+					// Record the correction time and fix the scroll position.
 					logService.debug(
 						`[scroll-restore] correcting frame ${frameCount}:` +
 						` scrollTop=${container.scrollTop} -> target=${target}, delta=${(container.scrollTop - target).toFixed(1)}`
 					);
-					stableFrames = 0;
+					lastCorrectionTime = performance.now();
 					container.scrollTop = target;
+				}
+
+				// Check the timeout inside the rAF callback so the last
+				// frame always gets a correction attempt before we stop.
+				if (performance.now() - startTimestamp > TIMEOUT_MS) {
+					stop('timeout');
+					return;
 				}
 
 				scheduleUpdate();
@@ -140,9 +153,6 @@ export function useScrollRestoration(
 		disposables.add(addDisposableListener(container, 'wheel', () => stop('wheel')));
 		disposables.add(addDisposableListener(container, 'pointerdown', () => stop('pointerdown')));
 		disposables.add(addDisposableListener(container, 'keydown', () => stop('keydown')));
-
-		// Hard cutoff in case layout never stabilizes.
-		disposables.add(disposableTimeout(() => stop('timeout'), TIMEOUT_MS));
 
 		return () => {
 			stop('unmount');
