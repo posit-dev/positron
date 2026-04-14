@@ -2360,13 +2360,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				const cell = state.type === SelectionState.SingleSelection
 					? state.active
 					: state.selected[0];
-				cell.container?.focus();
+				cell.container?.focus({ preventScroll: true });
 				break;
 			}
 
 			case SelectionState.NoCells:
 				// Fall back to notebook container
-				this.currentContainer?.focus();
+				this.currentContainer?.focus({ preventScroll: true });
 				break;
 		}
 	}
