@@ -609,6 +609,10 @@ async function compareImages({
 }) {
 	await test.step('compare images', async () => {
 		if (process.env.GITHUB_ACTIONS && !app.web && process.env.IS_OPENSUSE !== 'true' && process.env.IS_SLES !== 'true') {
+
+			// attempt to workaround a flake by letting plot settle
+			await app.code.driver.page.waitForTimeout(1000);
+
 			const data = await resembleCompareImages(fs.readFileSync(path.join(__dirname, `${masterScreenshotName}.png`)), buffer, options);
 
 			if (data.rawMisMatchPercentage > 2.0) {
