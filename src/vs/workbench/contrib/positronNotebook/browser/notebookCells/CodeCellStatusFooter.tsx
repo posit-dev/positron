@@ -17,6 +17,7 @@ import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNoteb
 import { formatCellDuration, formatTimestamp, getRelativeTime, isMoreThanOneHourAgo } from './cellExecutionUtils.js';
 import { Icon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 
 interface CodeCellStatusFooterProps {
 	cell: PositronNotebookCodeCell;
@@ -185,7 +186,7 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 			aria-hidden={isCollapsed || undefined}
 			aria-label={isCollapsed ? undefined : getAriaLabel()}
 			aria-live={isCurrentlyRunning ? 'polite' : 'off'}
-			className={`positron-notebook-code-cell-footer${isCollapsed ? ' collapsed' : ''}`}
+			className={positronClassNames('positron-notebook-code-cell-footer', { 'collapsed': isCollapsed })}
 			data-execution-status={dataExecutionStatus}
 			role='status'
 		>
