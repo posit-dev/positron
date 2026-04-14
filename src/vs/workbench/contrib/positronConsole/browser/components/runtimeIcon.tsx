@@ -9,12 +9,9 @@ import './runtimeStatus.css';
 // Other dependencies.
 import { IModelService } from '../../../../../editor/common/services/model.js';
 import { LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { Codicon } from '../../../../../base/common/codicons.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
-import { isQuartoSession } from '../../common/sessionDisplayUtils.js';
-import { asCssVariable } from '../../../../../platform/theme/common/colorUtils.js';
-import { POSITRON_QUARTO_ICON } from '../../../../common/theme.js';
+import { getSessionIcon, getSessionIconStyle } from '../../common/sessionDisplayUtils.js';
 import { URI } from '../../../../../base/common/uri.js';
 
 export interface RuntimeIconProps {
@@ -28,12 +25,10 @@ export const RuntimeIcon = ({ base64EncodedIconSvg, sessionMode, notebookUri, mo
 	const classNames = ['icon'];
 
 	if (sessionMode === LanguageRuntimeSessionMode.Notebook) {
-		if (isQuartoSession(notebookUri, modelService)) {
-			classNames.push(...ThemeIcon.asClassNameArray(Codicon.positronQuarto));
-			return <span className={positronClassNames(...classNames)} style={{ color: asCssVariable(POSITRON_QUARTO_ICON) }}></span>;
-		}
-		classNames.push(...ThemeIcon.asClassNameArray(Codicon.notebook));
-		return <span className={positronClassNames(...classNames)}></span>;
+		const icon = getSessionIcon({ sessionMode, notebookUri }, modelService);
+		const style = getSessionIconStyle({ sessionMode, notebookUri }, modelService);
+		classNames.push(...ThemeIcon.asClassNameArray(icon));
+		return <span className={positronClassNames(...classNames)} style={style}></span>;
 	}
 
 	if (base64EncodedIconSvg === undefined) {

@@ -62,11 +62,19 @@ export function getSessionDisplayName(info: IRuntimeSessionDisplayInfo, modelSer
 }
 
 /**
+ * The subset of session display info needed to determine the session icon.
+ */
+interface SessionIconInfo {
+	readonly sessionMode: LanguageRuntimeSessionMode;
+	readonly notebookUri?: URI;
+}
+
+/**
  * Gets the icon for a session based on its mode. Returns the Quarto icon for
  * Quarto notebook sessions, the notebook icon for other notebook sessions,
  * and the console icon for console sessions.
  */
-export function getSessionIcon(info: IRuntimeSessionDisplayInfo, modelService: IModelService): ThemeIcon {
+export function getSessionIcon(info: SessionIconInfo, modelService: IModelService): ThemeIcon {
 	if (info.sessionMode === LanguageRuntimeSessionMode.Notebook) {
 		if (isQuartoSession(info.notebookUri, modelService)) {
 			return Codicon.positronQuarto;
@@ -80,7 +88,7 @@ export function getSessionIcon(info: IRuntimeSessionDisplayInfo, modelService: I
  * Gets the icon style for a session. Returns a color style for Quarto
  * sessions and undefined for all other sessions.
  */
-export function getSessionIconStyle(info: IRuntimeSessionDisplayInfo, modelService: IModelService): React.CSSProperties | undefined {
+export function getSessionIconStyle(info: SessionIconInfo, modelService: IModelService): React.CSSProperties | undefined {
 	if (info.sessionMode === LanguageRuntimeSessionMode.Notebook &&
 		isQuartoSession(info.notebookUri, modelService)) {
 		return { color: asCssVariable(POSITRON_QUARTO_ICON) };
