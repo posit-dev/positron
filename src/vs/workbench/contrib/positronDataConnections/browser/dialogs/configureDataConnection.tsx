@@ -43,6 +43,7 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 
 	// Cancel handler.
 	const cancelHandler = useCallback(() => {
+		// Dispose the renderer, which will close the dialog.
 		renderer.dispose();
 	}, [renderer]);
 

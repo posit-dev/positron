@@ -3,6 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
+import './newDataConnectionFlow.css';
+
 // React.
 import { useCallback, useState } from 'react';
 
