@@ -9,6 +9,7 @@ import * as vscode from 'vscode';
 import { IPythonExecutionFactory, IPythonExecutionService } from '../../common/process/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
+import { fetchP3MMetadata } from './p3mSearch';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
 
@@ -29,7 +30,30 @@ export class PipPackageManager implements IPackageManager {
     ) {}
 
     async getPackages(token?: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]> {
-        return this._callMethod<positron.LanguageRuntimePackage[]>('getPackagesInstalled', token);
+        // Get installed packages from the kernel
+        const packages = await this._callMethod<positron.LanguageRuntimePackage[]>('getPackagesInstalled', token);
+
+        // Fetch P3M metadata for all packages in a single API call
+        const packageNames = packages.map((pkg) => pkg.name);
+        const metadataMap = await fetchP3MMetadata(packageNames, token);
+
+        // Merge metadata into packages
+        return packages.map((pkg) => {
+            const metadata = metadataMap.get(pkg.name.toLowerCase());
+            if (metadata) {
+                return {
+                    ...pkg,
+                    description: metadata.summary ?? undefined,
+                    license: metadata.license ?? (metadata.licenses?.join(', ') ?? undefined),
+                    latestVersion: metadata.version ?? undefined,
+                    availableVersions: metadata.available_versions,
+                    packageSize: metadata.package_size ?? undefined,
+                    publishedDate: metadata.package_date ?? undefined,
+                    downloads: metadata.downloads !== null && metadata.downloads >= 0 ? metadata.downloads : undefined,
+                };
+            }
+            return pkg;
+        });
     }
 
     /**

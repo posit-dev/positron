@@ -37,6 +37,11 @@ export interface IPositronPackagesService {
 	setSelectedPackage(packageName: string | undefined): void;
 
 	/**
+	 * Event fired when the selected package changes.
+	 */
+	readonly onDidChangeSelectedPackage: Event<string | undefined>;
+
+	/**
 	 * The onDidRefreshPackagesInstance event.
 	 */
 	readonly onDidChangeActivePackagesInstance: Event<IPositronPackagesInstance | undefined>;

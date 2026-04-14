@@ -1,0 +1,82 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.package-details {
+	padding: 12px;
+	overflow-y: auto;
+	height: 100%;
+	box-sizing: border-box;
+}
+
+.package-details-empty {
+	padding: 12px;
+	color: var(--vscode-descriptionForeground);
+	font-style: italic;
+}
+
+.package-details-header {
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+	margin-bottom: 12px;
+	padding-bottom: 8px;
+	border-bottom: 1px solid var(--vscode-widget-border);
+}
+
+.package-details-name {
+	font-weight: 600;
+	font-size: 1.1em;
+}
+
+.package-details-version {
+	color: var(--vscode-descriptionForeground);
+	font-size: 0.9em;
+}
+
+.package-details-content {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.package-details-description {
+	color: var(--vscode-foreground);
+	line-height: 1.4;
+}
+
+.package-details-metadata {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.package-details-row {
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+}
+
+.package-details-label {
+	flex: 0 0 80px;
+	color: var(--vscode-descriptionForeground);
+	font-size: 0.9em;
+}
+
+.package-details-value {
+	flex: 1;
+	min-width: 0;
+	word-break: break-word;
+}
+
+.package-details-update-available {
+	margin-left: 6px;
+	color: var(--vscode-notificationsInfoIcon-foreground);
+	font-size: 0.85em;
+}
+
+.package-details-no-metadata {
+	color: var(--vscode-descriptionForeground);
+	font-style: italic;
+}
