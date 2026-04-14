@@ -40,12 +40,20 @@ Positron forks VSCode. Minimize merge conflicts by isolating Positron code.
 
 The deciding question: **does it need Electron?**
 
-1. **Core tests** (`*.test.ts`) -- DEFAULT for Positron code in `src/`. No Electron needed. Covers everything from pure functions to 124-service integration tests. If your code doesn't genuinely need `vscode`/`positron` APIs at runtime, it belongs here.
-2. **Extension host** (`npm run test-extension`) -- Needs Electron. Only when your test requires activated extensions, workspace APIs, or editor document manipulation.
-3. **E2E** (Playwright) -- Needs the full app. Only for user-visible workflows across multiple systems.
+1. **Vitest tests** (`*.vitest.ts` / `*.vitest.tsx`) -- DEFAULT for new Positron code in `src/`. No Electron or build daemons needed. Covers pure functions, service integration tests, and React component tests. Uses happy-dom.
+2. **Core tests** (`*.test.ts`) -- Legacy Mocha tests for Positron code in `src/`. Existing tests being migrated to Vitest. Still used by upstream VS Code tests and `.test.tsx` React component tests.
+3. **Extension host** (`npm run test-extension`) -- Needs Electron. Only when your test requires activated extensions, workspace APIs, or editor document manipulation.
+4. **E2E** (Playwright) -- Needs the full app. Only for user-visible workflows across multiple systems.
 
 ### Running tests
 
+- **Vitest tests** (`*.vitest.ts` / `*.vitest.tsx`, **no build daemons needed**):
+	- `npm run test:vitest`: run all Vitest tests
+	- `npx vitest run src/path/to/<file>.vitest.ts`: run a specific file
+	- `npx vitest run --reporter=verbose`: run with detailed output
+	- `npx vitest run --coverage --coverage.include='**/myFile.tsx'`: run with scoped coverage
+	- `npx vitest run --update <file>`: update inline snapshots
+	- Vitest compiles TypeScript on-the-fly via esbuild -- no Electron, no `npm run build-start`, no wait. Ideal for rapid iteration and LLM-driven workflows.
 - **Core tests** (`*.test.ts`, requires build daemons):
 	- Ensure build daemons are running first: `npm run build-start && npm run build-check`
 	- `./scripts/test.sh`: run all tests
@@ -61,6 +69,48 @@ The deciding question: **does it need Electron?**
 Use `createTestContainer()` for any test that needs services. Pick the lowest preset, use `.stub()` for extras. For pure logic tests, skip the builder entirely.
 
 For presets, key rules, and the incremental mocking guide, see the JSDoc on `PositronTestContainerBuilder` in `src/vs/workbench/test/browser/positronTestContainer.ts`.
+
+### React Component Testing (Vitest + RTL)
+
+Two patterns for testing React components:
+
+**Service-context pattern** -- for components that call `usePositronReactServicesContext()`:
+```typescript
+const ctx = createTestContainer().withRuntimeServices().build();
+const rtl = setupRTLRenderer({
+	runtimeSessionService: ctx.get(IRuntimeSessionService),
+});
+
+it('renders session info', () => {
+	const { getByText } = rtl.render(<MyComponent />);
+	expect(getByText('Start Session')).toBeTruthy();
+});
+```
+
+**Prop-driven pattern** -- for components that receive all data via props:
+```typescript
+const rtl = setupRTLRenderer();
+
+it('renders label', () => {
+	const { getByText } = rtl.render(<Label text="hello" />);
+	expect(getByText('hello')).toBeTruthy();
+});
+```
+
+**RTL query priority** (prefer top to bottom):
+1. `getByRole` -- accessible roles (button, heading, etc.)
+2. `getByText` -- visible text content
+3. `getByLabelText` -- form labels
+4. `getByTestId` -- last resort, `data-testid` attribute
+5. `container.querySelector` -- escape hatch for CSS selectors
+
+**Inline snapshots** -- use `toMatchInlineSnapshot()` to capture rendered HTML. Vitest auto-fills on first run with `--update`. Snapshots catch unintended UI regressions.
+
+**When to use which mock utility:**
+- `vi.fn()` -- simple function stubs/spies in Vitest tests. Prefer this for new tests.
+- `vi.spyOn(obj, 'method')` -- spy on an existing method while preserving its implementation.
+- Existing `mock.ts` / `Test*` classes -- use when the mock needs complex state (emitters, observable values, multi-method coordination). These exist for services like `TestRuntimeSessionService`.
+- `sinon` -- avoid in new Vitest tests. Use `vi.fn()` instead.
 
 ## Directory Structure
 
