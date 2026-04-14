@@ -317,21 +317,25 @@ suite('Positron - ForegroundSessionContribution', () => {
 		});
 
 		test('notebook session start does not steal foreground when different notebook is active', async () => {
-			const consoleSession = await startConsoleSession();
+			// notebook.ipynb has a running session and is the active editor
+            const session = await startNotebookSession(notebookUri);
+            activeEditor = createNotebookEditorInput(notebookUri);
+            onDidActiveEditorChange.fire();
+      
+            assert.strictEqual(
+                runtimeSessionService.foregroundSession?.sessionId,
+                session.sessionId
+            );
 
-			// Active editor is a DIFFERENT notebook
-			const otherNotebookUri = URI.file('/path/to/other.ipynb');
-			activeEditor = createNotebookEditorInput(otherNotebookUri);
-			onDidActiveEditorChange.fire();
-
-			// Start a session for a different notebook than the active editor
-			await startNotebookSession(notebookUri);
-
-			// Should NOT have changed foreground to the started session
-			assert.strictEqual(
-				runtimeSessionService.foregroundSession?.sessionId,
-				consoleSession.sessionId
-			);
+			// A different notebook starts its session in the background (e.g. auto-start)
+            const otherNotebookUri = URI.file('/path/to/other.ipynb');
+            await startNotebookSession(otherNotebookUri);
+      
+            // The foreground session should not have changed since it is not the active editor
+            assert.strictEqual(
+                runtimeSessionService.foregroundSession?.sessionId,
+                session.sessionId
+            );
 		});
 
 		test('notebook session becoming ready sets foreground when notebook is active', async () => {
