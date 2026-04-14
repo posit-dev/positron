@@ -16,7 +16,8 @@
 		"experimentalDecorators": true,
 		"esModuleInterop": true,
 		"types": [
-			"node"
+			"node",
+			"mocha"
 		]
 	},
 	"include": [

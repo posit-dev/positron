@@ -346,9 +346,11 @@
 		"watch": "tsc -watch -p ./",
 		"pretest": "npm run compile && npm run lint",
 		"lint": "eslint src --ext ts",
-		"test": "node ./out/test/runTest.js"
+		"test": "node ./out/test/runTest.js",
+		"test-unit": "mocha out/test/unit/**/*.test.js --timeout 10000 --ui tdd"
 	},
 	"devDependencies": {
+		"@types/mocha": "^10.0.6",
 		"@types/node": "^16.11.0",
 		"@types/ssh2": "^0.5.52",
 		"@types/ssh2-streams": "0.1.12",

@@ -346,7 +346,7 @@ export class RemoteSSHResolver implements vscode.RemoteAuthorityResolver, vscode
 					username: sshUser,
 				});
 			}
-			if (methodsLeft.includes('publickey') && identityKeys.length && preferredAuthentications.includes('publickey')) {
+			while (methodsLeft.includes('publickey') && identityKeys.length && preferredAuthentications.includes('publickey')) {
 				const identityKey = identityKeys.shift()!;
 
 				this.logger.info(`Trying publickey authentication: ${identityKey.filename} ${identityKey.parsedKey.type} SHA256:${identityKey.fingerprint}`);
@@ -371,8 +371,8 @@ export class RemoteSSHResolver implements vscode.RemoteAuthorityResolver, vscode
 					});
 				}
 				if (!await fileExists(identityKey.filename)) {
-					// Try next identity file
-					return callback(null as any);
+					// Skip missing identity file, try next
+					continue;
 				}
 
 				const keyBuffer = await fs.promises.readFile(identityKey.filename);
@@ -393,8 +393,8 @@ export class RemoteSSHResolver implements vscode.RemoteAuthorityResolver, vscode
 					}
 				}
 				if (!result || result instanceof Error) {
-					// Try next identity file
-					return callback(null as any);
+					// Skip unparseable identity file, try next
+					continue;
 				}
 
 				const key = Array.isArray(result) ? result[0] : result;
