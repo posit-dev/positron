@@ -6,11 +6,13 @@
 import { timeout } from '../../../../base/common/async.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Emitter } from '../../../../base/common/event.js';
-import { Disposable, DisposableMap } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableMap, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { LanguageRuntimeSessionMode } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageSpec, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronPackagesService } from './interfaces/positronPackagesService.js';
+import { POSITRON_PACKAGES_HAS_ACTIVE_SESSION, POSITRON_PACKAGES_IS_BUSY, POSITRON_PACKAGES_SELECTED_PACKAGE } from './positronPackagesContextKeys.js';
 import { IPositronPackagesInstance, PositronPackagesInstance } from './positronPackagesInstance.js';
 
 const TIMEOUT_REFRESH_MS = 5_000; // 5 seconds
@@ -29,6 +31,14 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 
 	private _activeInstance: PositronPackagesInstance | undefined;
 
+	// Context keys
+	private readonly _hasActiveSessionContextKey: IContextKey<boolean>;
+	private readonly _isBusyContextKey: IContextKey<boolean>;
+	private readonly _selectedPackageContextKey: IContextKey<string>;
+
+	// Disposables for tracking busy state of the active instance
+	private readonly _activeInstanceDisposables = this._register(new DisposableStore());
+
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -36,15 +46,21 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 	/**
 	 * Constructor.
 	 * @param _runtimeSessionService The language runtime service.
-	 * @param _editorService The editor service.
 	 * @param _logService The log service.
+	 * @param _contextKeyService The context key service.
 	 */
 	constructor(
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@ILogService private readonly _logService: ILogService,
+		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 	) {
 		// Call the disposable constructor.
 		super();
+
+		// Initialize context keys
+		this._hasActiveSessionContextKey = POSITRON_PACKAGES_HAS_ACTIVE_SESSION.bindTo(this._contextKeyService);
+		this._isBusyContextKey = POSITRON_PACKAGES_IS_BUSY.bindTo(this._contextKeyService);
+		this._selectedPackageContextKey = POSITRON_PACKAGES_SELECTED_PACKAGE.bindTo(this._contextKeyService);
 
 		// Create new instances
 		this._register(this._runtimeSessionService.onWillStartSession((e) => {
@@ -87,6 +103,51 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 	private setActiveInstance(sessionId?: string) {
 		const instance = sessionId ? this._instancesBySessionId.get(sessionId) : undefined;
 		this._activeInstance = instance;
+
+		// Update context keys
+		this._hasActiveSessionContextKey.set(Boolean(instance));
+
+		// Clear previous instance's busy state tracking
+		this._activeInstanceDisposables.clear();
+		this._isBusyContextKey.set(false);
+
+		// Set up busy state tracking for the new instance
+		if (instance) {
+			// Track all loading states to determine if the instance is busy
+			let refreshLoading = false;
+			let installLoading = false;
+			let updateLoading = false;
+			let updateAllLoading = false;
+			let uninstallLoading = false;
+
+			const updateBusy = () => {
+				this._isBusyContextKey.set(
+					refreshLoading || installLoading || updateLoading || updateAllLoading || uninstallLoading
+				);
+			};
+
+			this._activeInstanceDisposables.add(instance.onDidChangeRefreshState((isLoading) => {
+				refreshLoading = isLoading;
+				updateBusy();
+			}));
+			this._activeInstanceDisposables.add(instance.onDidChangeInstallState((isLoading) => {
+				installLoading = isLoading;
+				updateBusy();
+			}));
+			this._activeInstanceDisposables.add(instance.onDidChangeUpdateState((isLoading) => {
+				updateLoading = isLoading;
+				updateBusy();
+			}));
+			this._activeInstanceDisposables.add(instance.onDidChangeUpdateAllState((isLoading) => {
+				updateAllLoading = isLoading;
+				updateBusy();
+			}));
+			this._activeInstanceDisposables.add(instance.onDidChangeUninstallState((isLoading) => {
+				uninstallLoading = isLoading;
+				updateBusy();
+			}));
+		}
+
 		this._onDidChangeActivePackagesInstance.fire(instance);
 	}
 
@@ -107,6 +168,14 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 
 	get activePackagesInstance(): IPositronPackagesInstance | undefined {
 		return this._activeInstance;
+	}
+
+	get selectedPackage(): string | undefined {
+		return this._selectedPackageContextKey.get() || undefined;
+	}
+
+	setSelectedPackage(packageName: string | undefined): void {
+		this._selectedPackageContextKey.set(packageName ?? '');
 	}
 
 	async refreshPackages(token?: CancellationToken): Promise<ILanguageRuntimePackage[]> {

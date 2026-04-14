@@ -71,23 +71,10 @@ export const updatePackage = async (
 			state.selectedPackage = packageToInstall;
 			await MultiStepInput.run(accessor, (input) => pickVersion(input, state), cts);
 		} else {
-			await MultiStepInput.run(accessor, (input) => showLoading(input, state), cts);
+			await MultiStepInput.run(accessor, (input) => pickPackage(input, state), cts);
 		}
 
 		return state as State;
-	}
-
-	async function showLoading(input: MultiStepInput, state: State) {
-		input.showQuickPick({
-			title,
-			step: 1,
-			totalSteps: 2,
-			placeholder: localize('positronPackages.updatePackagePlaceholder', 'Pick a package to update...'),
-			items: state.packages.map((result) => ({
-				label: result.name,
-			})),
-		});
-		return (input: MultiStepInput) => pickPackage(input, state);
 	}
 
 	async function pickPackage(input: MultiStepInput, state: State) {
@@ -149,21 +136,8 @@ export const uninstallPackage = async (
 			packages: [],
 			selectedPackage: undefined,
 		};
-		await MultiStepInput.run(accessor, (input) => showLoading(input, state), cts);
+		await MultiStepInput.run(accessor, (input) => pickPackage(input, state), cts);
 		return state as State;
-	}
-
-	async function showLoading(input: MultiStepInput, state: State) {
-		input.showQuickPick({
-			title,
-			step: 1,
-			totalSteps: 1,
-			placeholder: localize('positronPackages.uninstallPackagePlaceholder', 'Pick a package to uninstall...'),
-			items: state.packages.map((result) => ({
-				label: result.name,
-			})),
-		});
-		return (input: MultiStepInput) => pickPackage(input, state);
 	}
 
 	async function pickPackage(input: MultiStepInput, state: State) {

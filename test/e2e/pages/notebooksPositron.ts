@@ -1146,6 +1146,18 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
+	 * Verify: Cell footer is collapsed (hidden via CSS animation).
+	 * @param cellIndex - The index of the cell whose footer to check.
+	 */
+	async expectFooterNotVisible(cellIndex: number): Promise<void> {
+		await test.step(`Expect cell footer to be collapsed`, async () => {
+			const footer = this.cellFooterAtIndex(cellIndex);
+			await expect(footer).toHaveClass(/\bcollapsed\b/);
+			await expect(footer).not.toBeVisible();
+		});
+	}
+
+	/**
 	 * Verify: Cell execution status matches expected status.
 	 * @param cellIndex - The index of the cell to check.
 	 * @param expectedStatus - The expected execution status of the cell.
