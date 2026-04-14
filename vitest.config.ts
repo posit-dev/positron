@@ -11,7 +11,7 @@ export default defineConfig({
 		environment: 'happy-dom',
 		globals: true,
 	},
-	esbuild: {
-		jsx: 'automatic',
+	oxc: {
+		jsx: { runtime: 'automatic' },
 	},
 });
