@@ -2,7 +2,9 @@
  *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import * as assert from 'assert';
+
+/// <reference types="vitest/globals" />
+
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { createTestPositronNotebookInstance, TestPositronNotebookInstance } from './testPositronNotebookInstance.js';
@@ -22,16 +24,16 @@ function enterEditModeWithCursor(
 	const cell = notebook.cells.get()[cellIndex];
 	notebook.selectionStateMachine.selectCell(cell, CellSelectionType.Edit);
 	const editor = cell.currentEditor!;
-	assert.ok(editor, 'Cell should have an editor attached');
+	expect(editor).toBeTruthy();
 	editor.setSelections(selections);
 }
 
-suite('Split and Join Cells', () => {
+describe('Split and Join Cells', () => {
 	const ctx = createTestContainer().build();
 
-	suite('splitCell', () => {
+	describe('splitCell', () => {
 
-		test('splits cell mid-line', () => {
+		it('splits cell mid-line', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['hello world', 'python', CellKind.Code]],
 				ctx.disposables,
@@ -45,12 +47,12 @@ suite('Split and Join Cells', () => {
 			notebook.splitCell();
 
 			const cells = notebook.cells.get();
-			assert.strictEqual(cells.length, 2, 'Should have 2 cells after split');
-			assert.strictEqual(cells[0].getContent(), 'hello');
-			assert.strictEqual(cells[1].getContent(), ' world');
+			expect(cells.length).toBe(2);
+			expect(cells[0].getContent()).toBe('hello');
+			expect(cells[1].getContent()).toBe(' world');
 		});
 
-		test('splits cell at line boundary', () => {
+		it('splits cell at line boundary', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['line1\nline2\nline3', 'python', CellKind.Code]],
 				ctx.disposables,
@@ -65,12 +67,12 @@ suite('Split and Join Cells', () => {
 			notebook.splitCell();
 
 			const cells = notebook.cells.get();
-			assert.strictEqual(cells.length, 2, 'Should have 2 cells after split');
-			assert.strictEqual(cells[0].getContent(), 'line1\n');
-			assert.strictEqual(cells[1].getContent(), 'line2\nline3');
+			expect(cells.length).toBe(2);
+			expect(cells[0].getContent()).toBe('line1\n');
+			expect(cells[1].getContent()).toBe('line2\nline3');
 		});
 
-		test('split with multi-cursor creates multiple cells', () => {
+		it('split with multi-cursor creates multiple cells', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['aaabbbccc', 'python', CellKind.Code]],
 				ctx.disposables,
@@ -85,13 +87,13 @@ suite('Split and Join Cells', () => {
 			notebook.splitCell();
 
 			const cells = notebook.cells.get();
-			assert.strictEqual(cells.length, 3, 'Should have 3 cells after multi-cursor split');
-			assert.strictEqual(cells[0].getContent(), 'aaa');
-			assert.strictEqual(cells[1].getContent(), 'bbb');
-			assert.strictEqual(cells[2].getContent(), 'ccc');
+			expect(cells.length).toBe(3);
+			expect(cells[0].getContent()).toBe('aaa');
+			expect(cells[1].getContent()).toBe('bbb');
+			expect(cells[2].getContent()).toBe('ccc');
 		});
 
-		test('split at beginning of cell creates empty first cell', () => {
+		it('split at beginning of cell creates empty first cell', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['hello world', 'python', CellKind.Code]],
 				ctx.disposables,
@@ -105,12 +107,12 @@ suite('Split and Join Cells', () => {
 			notebook.splitCell();
 
 			const cells = notebook.cells.get();
-			assert.strictEqual(cells.length, 2);
-			assert.strictEqual(cells[0].getContent(), '');
-			assert.strictEqual(cells[1].getContent(), 'hello world');
+			expect(cells.length).toBe(2);
+			expect(cells[0].getContent()).toBe('');
+			expect(cells[1].getContent()).toBe('hello world');
 		});
 
-		test('split at end of cell creates empty last cell', () => {
+		it('split at end of cell creates empty last cell', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['hello world', 'python', CellKind.Code]],
 				ctx.disposables,
@@ -124,12 +126,12 @@ suite('Split and Join Cells', () => {
 			notebook.splitCell();
 
 			const cells = notebook.cells.get();
-			assert.strictEqual(cells.length, 2);
-			assert.strictEqual(cells[0].getContent(), 'hello world');
-			assert.strictEqual(cells[1].getContent(), '');
+			expect(cells.length).toBe(2);
+			expect(cells[0].getContent()).toBe('hello world');
+			expect(cells[1].getContent()).toBe('');
 		});
 
-		test('split preserves outputs only on first cell', () => {
+		it('split preserves outputs only on first cell', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['hello world', 'python', CellKind.Code, [{
 					outputId: 'test-output',
@@ -145,12 +147,12 @@ suite('Split and Join Cells', () => {
 			notebook.splitCell();
 
 			const { textModel } = notebook;
-			assert.ok(textModel);
-			assert.strictEqual(textModel.cells[0].outputs.length, 1, 'First cell should keep outputs');
-			assert.strictEqual(textModel.cells[1].outputs.length, 0, 'Second cell should have no outputs');
+			expect(textModel).toBeTruthy();
+			expect(textModel!.cells[0].outputs.length).toBe(1);
+			expect(textModel!.cells[1].outputs.length).toBe(0);
 		});
 
-		test('split preserves mime, internalMetadata, and collapseState on first cell', () => {
+		it('split preserves mime, internalMetadata, and collapseState on first cell', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[{
 					source: 'hello world',
@@ -172,22 +174,22 @@ suite('Split and Join Cells', () => {
 			notebook.splitCell();
 
 			const { textModel } = notebook;
-			assert.ok(textModel);
-			assert.strictEqual(textModel.cells.length, 2);
+			expect(textModel).toBeTruthy();
+			expect(textModel!.cells.length).toBe(2);
 
 			// First cell preserves all state
-			assert.strictEqual(textModel.cells[0].mime, 'text/x-python', 'First cell should preserve mime');
-			assert.strictEqual(textModel.cells[0].internalMetadata.executionOrder, 5, 'First cell should preserve executionOrder');
-			assert.strictEqual(textModel.cells[0].internalMetadata.lastRunSuccess, true, 'First cell should preserve lastRunSuccess');
-			assert.deepStrictEqual(textModel.cells[0].collapseState, { inputCollapsed: false, outputCollapsed: true }, 'First cell should preserve collapseState');
+			expect(textModel!.cells[0].mime).toBe('text/x-python');
+			expect(textModel!.cells[0].internalMetadata.executionOrder).toBe(5);
+			expect(textModel!.cells[0].internalMetadata.lastRunSuccess).toBe(true);
+			expect(textModel!.cells[0].collapseState).toEqual({ inputCollapsed: false, outputCollapsed: true });
 
 			// Second cell gets mime but not execution state or collapse
-			assert.strictEqual(textModel.cells[1].mime, 'text/x-python', 'Second cell should preserve mime');
-			assert.strictEqual(textModel.cells[1].internalMetadata.executionOrder, undefined, 'Second cell should not inherit executionOrder');
-			assert.strictEqual(textModel.cells[1].collapseState, undefined, 'Second cell should not inherit collapseState');
+			expect(textModel!.cells[1].mime).toBe('text/x-python');
+			expect(textModel!.cells[1].internalMetadata.executionOrder).toBe(undefined);
+			expect(textModel!.cells[1].collapseState).toBe(undefined);
 		});
 
-		test('split does nothing when not in edit mode', () => {
+		it('split does nothing when not in edit mode', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['line1\nline2', 'python', CellKind.Code]],
 				ctx.disposables,
@@ -200,10 +202,10 @@ suite('Split and Join Cells', () => {
 			notebook.splitCell();
 
 			const cells = notebook.cells.get();
-			assert.strictEqual(cells.length, 1, 'Should not split when not in edit mode');
+			expect(cells.length).toBe(1);
 		});
 
-		test('split does not affect other cells', () => {
+		it('split does not affect other cells', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[
 					['cell0', 'python', CellKind.Code],
@@ -220,16 +222,16 @@ suite('Split and Join Cells', () => {
 			notebook.splitCell();
 
 			const cells = notebook.cells.get();
-			assert.strictEqual(cells.length, 4, 'Should have 4 cells total');
-			assert.strictEqual(cells[0].getContent(), 'cell0', 'Cell before split target unchanged');
-			assert.strictEqual(cells[1].getContent(), 'hello', 'Split first half');
-			assert.strictEqual(cells[2].getContent(), ' world', 'Split second half');
-			assert.strictEqual(cells[3].getContent(), 'cell2', 'Cell after split target unchanged');
+			expect(cells.length).toBe(4);
+			expect(cells[0].getContent()).toBe('cell0');
+			expect(cells[1].getContent()).toBe('hello');
+			expect(cells[2].getContent()).toBe(' world');
+			expect(cells[3].getContent()).toBe('cell2');
 		});
 	});
 
-	suite('joinSelectedCells', () => {
-		test('joins two selected code cells', () => {
+	describe('joinSelectedCells', () => {
+		it('joins two selected code cells', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[
 					['line1', 'python', CellKind.Code],
@@ -246,11 +248,11 @@ suite('Split and Join Cells', () => {
 			notebook.joinSelectedCells();
 
 			const newCells = notebook.cells.get();
-			assert.strictEqual(newCells.length, 1, 'Should have 1 cell after join');
-			assert.strictEqual(newCells[0].getContent(), 'line1\nline2', 'Content should be merged with newline');
+			expect(newCells.length).toBe(1);
+			expect(newCells[0].getContent()).toBe('line1\nline2');
 		});
 
-		test('joins three selected cells in document order', () => {
+		it('joins three selected cells in document order', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[
 					['a', 'python', CellKind.Code],
@@ -268,11 +270,11 @@ suite('Split and Join Cells', () => {
 			notebook.joinSelectedCells();
 
 			const newCells = notebook.cells.get();
-			assert.strictEqual(newCells.length, 1);
-			assert.strictEqual(newCells[0].getContent(), 'a\nb\nc');
+			expect(newCells.length).toBe(1);
+			expect(newCells[0].getContent()).toBe('a\nb\nc');
 		});
 
-		test('with single cell selected, joins with cell below', () => {
+		it('with single cell selected, joins with cell below', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[
 					['line1', 'python', CellKind.Code],
@@ -287,11 +289,11 @@ suite('Split and Join Cells', () => {
 			notebook.joinSelectedCells();
 
 			const newCells = notebook.cells.get();
-			assert.strictEqual(newCells.length, 1, 'Should join with cell below');
-			assert.strictEqual(newCells[0].getContent(), 'line1\nline2');
+			expect(newCells.length).toBe(1);
+			expect(newCells[0].getContent()).toBe('line1\nline2');
 		});
 
-		test('joins cells of different types using first cell type', () => {
+		it('joins cells of different types using first cell type', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[
 					['code cell', 'python', CellKind.Code],
@@ -307,12 +309,12 @@ suite('Split and Join Cells', () => {
 			notebook.joinSelectedCells();
 
 			const newCells = notebook.cells.get();
-			assert.strictEqual(newCells.length, 1, 'Should join mixed cell types');
-			assert.strictEqual(newCells[0].getContent(), 'code cell\n# markdown');
-			assert.strictEqual(newCells[0].kind, CellKind.Code, 'Should use first cell type');
+			expect(newCells.length).toBe(1);
+			expect(newCells[0].getContent()).toBe('code cell\n# markdown');
+			expect(newCells[0].kind).toBe(CellKind.Code);
 		});
 
-		test('preserves outputs from first cell', () => {
+		it('preserves outputs from first cell', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[
 					['cell1', 'python', CellKind.Code, [{
@@ -334,14 +336,14 @@ suite('Split and Join Cells', () => {
 			notebook.joinSelectedCells();
 
 			const { textModel } = notebook;
-			assert.ok(textModel);
-			assert.strictEqual(textModel.cells.length, 1);
+			expect(textModel).toBeTruthy();
+			expect(textModel!.cells.length).toBe(1);
 			// The first cell's outputs are preserved
-			assert.strictEqual(textModel.cells[0].outputs.length, 1);
-			assert.strictEqual(textModel.cells[0].outputs[0].outputId, 'output-1');
+			expect(textModel!.cells[0].outputs.length).toBe(1);
+			expect(textModel!.cells[0].outputs[0].outputId).toBe('output-1');
 		});
 
-		test('preserves mime, internalMetadata, and collapseState from first cell', () => {
+		it('preserves mime, internalMetadata, and collapseState from first cell', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[
 					{
@@ -375,15 +377,15 @@ suite('Split and Join Cells', () => {
 			notebook.joinSelectedCells();
 
 			const { textModel } = notebook;
-			assert.ok(textModel);
-			assert.strictEqual(textModel.cells.length, 1);
-			assert.strictEqual(textModel.cells[0].mime, 'text/x-python', 'Should preserve mime from first cell');
-			assert.strictEqual(textModel.cells[0].internalMetadata.executionOrder, 3, 'Should preserve executionOrder from first cell');
-			assert.strictEqual(textModel.cells[0].internalMetadata.lastRunSuccess, true, 'Should preserve lastRunSuccess from first cell');
-			assert.deepStrictEqual(textModel.cells[0].collapseState, { inputCollapsed: false, outputCollapsed: true }, 'Should preserve collapseState from first cell');
+			expect(textModel).toBeTruthy();
+			expect(textModel!.cells.length).toBe(1);
+			expect(textModel!.cells[0].mime).toBe('text/x-python');
+			expect(textModel!.cells[0].internalMetadata.executionOrder).toBe(3);
+			expect(textModel!.cells[0].internalMetadata.lastRunSuccess).toBe(true);
+			expect(textModel!.cells[0].collapseState).toEqual({ inputCollapsed: false, outputCollapsed: true });
 		});
 
-		test('joins non-contiguous selection, leaving unselected cells intact', () => {
+		it('joins non-contiguous selection, leaving unselected cells intact', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[
 					['a', 'python', CellKind.Code],
@@ -402,14 +404,14 @@ suite('Split and Join Cells', () => {
 
 			const newCells = notebook.cells.get();
 			// Non-contiguous selected cells are merged; unselected cell 1 remains
-			assert.strictEqual(newCells.length, 2);
-			assert.strictEqual(newCells[0].getContent(), 'a\nc');
-			assert.strictEqual(newCells[1].getContent(), 'b');
+			expect(newCells.length).toBe(2);
+			expect(newCells[0].getContent()).toBe('a\nc');
+			expect(newCells[1].getContent()).toBe('b');
 		});
 	});
 
-	suite('joinCellAbove', () => {
-		test('joins active cell with cell above', () => {
+	describe('joinCellAbove', () => {
+		it('joins active cell with cell above', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[
 					['above', 'python', CellKind.Code],
@@ -425,11 +427,11 @@ suite('Split and Join Cells', () => {
 			notebook.joinCellAbove();
 
 			const newCells = notebook.cells.get();
-			assert.strictEqual(newCells.length, 1);
-			assert.strictEqual(newCells[0].getContent(), 'above\nbelow');
+			expect(newCells.length).toBe(1);
+			expect(newCells[0].getContent()).toBe('above\nbelow');
 		});
 
-		test('does nothing when active cell is first cell', () => {
+		it('does nothing when active cell is first cell', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[
 					['first', 'python', CellKind.Code],
@@ -444,10 +446,10 @@ suite('Split and Join Cells', () => {
 			notebook.joinCellAbove();
 
 			const newCells = notebook.cells.get();
-			assert.strictEqual(newCells.length, 2, 'Should not join when at first cell');
+			expect(newCells.length).toBe(2);
 		});
 
-		test('joins cells of different types using active cell type', () => {
+		it('joins cells of different types using active cell type', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[
 					['# markdown', 'markdown', CellKind.Markup],
@@ -462,12 +464,12 @@ suite('Split and Join Cells', () => {
 			notebook.joinCellAbove();
 
 			const newCells = notebook.cells.get();
-			assert.strictEqual(newCells.length, 1, 'Should join different cell types');
-			assert.strictEqual(newCells[0].getContent(), '# markdown\ncode');
-			assert.strictEqual(newCells[0].kind, CellKind.Code, 'Should use active cell type');
+			expect(newCells.length).toBe(1);
+			expect(newCells[0].getContent()).toBe('# markdown\ncode');
+			expect(newCells[0].kind).toBe(CellKind.Code);
 		});
 
-		test('preserves mime, internalMetadata, and collapseState from active cell', () => {
+		it('preserves mime, internalMetadata, and collapseState from active cell', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[
 					{
@@ -500,16 +502,16 @@ suite('Split and Join Cells', () => {
 			notebook.joinCellAbove();
 
 			const { textModel } = notebook;
-			assert.ok(textModel);
-			assert.strictEqual(textModel.cells.length, 1);
-			assert.strictEqual(textModel.cells[0].mime, 'text/x-python', 'Should preserve mime from active cell');
-			assert.strictEqual(textModel.cells[0].internalMetadata.executionOrder, 8, 'Should preserve executionOrder from active cell');
-			assert.deepStrictEqual(textModel.cells[0].collapseState, { inputCollapsed: false, outputCollapsed: true }, 'Should preserve collapseState from active cell');
+			expect(textModel).toBeTruthy();
+			expect(textModel!.cells.length).toBe(1);
+			expect(textModel!.cells[0].mime).toBe('text/x-python');
+			expect(textModel!.cells[0].internalMetadata.executionOrder).toBe(8);
+			expect(textModel!.cells[0].collapseState).toEqual({ inputCollapsed: false, outputCollapsed: true });
 		});
 	});
 
-	suite('joinCellBelow', () => {
-		test('joins active cell with cell below', () => {
+	describe('joinCellBelow', () => {
+		it('joins active cell with cell below', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[
 					['above', 'python', CellKind.Code],
@@ -524,11 +526,11 @@ suite('Split and Join Cells', () => {
 			notebook.joinCellBelow();
 
 			const newCells = notebook.cells.get();
-			assert.strictEqual(newCells.length, 1);
-			assert.strictEqual(newCells[0].getContent(), 'above\nbelow');
+			expect(newCells.length).toBe(1);
+			expect(newCells[0].getContent()).toBe('above\nbelow');
 		});
 
-		test('does nothing when active cell is last cell', () => {
+		it('does nothing when active cell is last cell', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[
 					['first', 'python', CellKind.Code],
@@ -543,10 +545,10 @@ suite('Split and Join Cells', () => {
 			notebook.joinCellBelow();
 
 			const newCells = notebook.cells.get();
-			assert.strictEqual(newCells.length, 2, 'Should not join when at last cell');
+			expect(newCells.length).toBe(2);
 		});
 
-		test('joins cells of different types using active cell type', () => {
+		it('joins cells of different types using active cell type', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[
 					['code', 'python', CellKind.Code],
@@ -561,12 +563,12 @@ suite('Split and Join Cells', () => {
 			notebook.joinCellBelow();
 
 			const newCells = notebook.cells.get();
-			assert.strictEqual(newCells.length, 1, 'Should join different cell types');
-			assert.strictEqual(newCells[0].getContent(), 'code\n# markdown');
-			assert.strictEqual(newCells[0].kind, CellKind.Code, 'Should use active cell type');
+			expect(newCells.length).toBe(1);
+			expect(newCells[0].getContent()).toBe('code\n# markdown');
+			expect(newCells[0].kind).toBe(CellKind.Code);
 		});
 
-		test('preserves mime, internalMetadata, and collapseState from active cell', () => {
+		it('preserves mime, internalMetadata, and collapseState from active cell', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[
 					{
@@ -598,17 +600,17 @@ suite('Split and Join Cells', () => {
 			notebook.joinCellBelow();
 
 			const { textModel } = notebook;
-			assert.ok(textModel);
-			assert.strictEqual(textModel.cells.length, 1);
-			assert.strictEqual(textModel.cells[0].mime, 'text/x-python', 'Should preserve mime from active cell');
-			assert.strictEqual(textModel.cells[0].internalMetadata.executionOrder, 10, 'Should preserve executionOrder from active cell');
-			assert.deepStrictEqual(textModel.cells[0].collapseState, { inputCollapsed: false, outputCollapsed: true }, 'Should preserve collapseState from active cell');
+			expect(textModel).toBeTruthy();
+			expect(textModel!.cells.length).toBe(1);
+			expect(textModel!.cells[0].mime).toBe('text/x-python');
+			expect(textModel!.cells[0].internalMetadata.executionOrder).toBe(10);
+			expect(textModel!.cells[0].collapseState).toEqual({ inputCollapsed: false, outputCollapsed: true });
 		});
 	});
 
-	suite('split and join roundtrip', () => {
+	describe('split and join roundtrip', () => {
 
-		test('mid-line split then join inserts newline at split point', () => {
+		it('mid-line split then join inserts newline at split point', () => {
 			const originalContent = 'hello world';
 			const notebook = createTestPositronNotebookInstance(
 				[[originalContent, 'python', CellKind.Code]],
@@ -621,9 +623,9 @@ suite('Split and Join Cells', () => {
 			]);
 			notebook.splitCell();
 
-			assert.strictEqual(notebook.cells.get().length, 2, 'Should have 2 cells after split');
-			assert.strictEqual(notebook.cells.get()[0].getContent(), 'hello');
-			assert.strictEqual(notebook.cells.get()[1].getContent(), ' world');
+			expect(notebook.cells.get().length).toBe(2);
+			expect(notebook.cells.get()[0].getContent()).toBe('hello');
+			expect(notebook.cells.get()[1].getContent()).toBe(' world');
 
 			// Multi-select both cells and join
 			const cells = notebook.cells.get();
@@ -632,11 +634,11 @@ suite('Split and Join Cells', () => {
 			notebook.joinSelectedCells();
 
 			const newCells = notebook.cells.get();
-			assert.strictEqual(newCells.length, 1, 'Should have 1 cell after join');
+			expect(newCells.length).toBe(1);
 			// Join inserts an EOL between segments, so the content has a newline
 			// where the split was. This is expected: split+join at a mid-line
 			// position turns the split point into a line break.
-			assert.strictEqual(newCells[0].getContent(), 'hello\n world');
+			expect(newCells[0].getContent()).toBe('hello\n world');
 		});
 	});
 });

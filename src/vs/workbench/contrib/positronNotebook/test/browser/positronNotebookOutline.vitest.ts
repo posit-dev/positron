@@ -3,7 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as assert from 'assert';
+/// <reference types="vitest/globals" />
+
 import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { createTestPositronNotebookInstance } from './testPositronNotebookInstance.js';
@@ -14,58 +15,58 @@ import {
 	getFirstNonEmptyLine,
 } from '../../browser/contrib/outline/positronNotebookOutline.contribution.js';
 
-suite('PositronNotebookOutline', () => {
+describe('PositronNotebookOutline', () => {
 	const ctx = createTestContainer().build();
 
-	suite('getFirstNonEmptyLine', () => {
-		test('returns first non-empty line', () => {
-			assert.strictEqual(getFirstNonEmptyLine('hello\nworld'), 'hello');
+	describe('getFirstNonEmptyLine', () => {
+		it('returns first non-empty line', () => {
+			expect(getFirstNonEmptyLine('hello\nworld')).toBe('hello');
 		});
 
-		test('skips blank lines', () => {
-			assert.strictEqual(getFirstNonEmptyLine('\n\n  \nhello'), 'hello');
+		it('skips blank lines', () => {
+			expect(getFirstNonEmptyLine('\n\n  \nhello')).toBe('hello');
 		});
 
-		test('returns empty string for empty input', () => {
-			assert.strictEqual(getFirstNonEmptyLine(''), '');
+		it('returns empty string for empty input', () => {
+			expect(getFirstNonEmptyLine('')).toBe('');
 		});
 
-		test('returns empty string for whitespace-only input', () => {
-			assert.strictEqual(getFirstNonEmptyLine('   \n  \n  '), '');
+		it('returns empty string for whitespace-only input', () => {
+			expect(getFirstNonEmptyLine('   \n  \n  ')).toBe('');
 		});
 	});
 
-	suite('getMarkdownHeaders', () => {
-		test('extracts markdown headers', () => {
+	describe('getMarkdownHeaders', () => {
+		it('extracts markdown headers', () => {
 			const headers = getMarkdownHeaders('# Title\nsome text\n## Subtitle');
-			assert.strictEqual(headers.length, 2);
-			assert.strictEqual(headers[0].depth, 1);
-			assert.strictEqual(headers[0].text, 'Title');
-			assert.strictEqual(headers[1].depth, 2);
-			assert.strictEqual(headers[1].text, 'Subtitle');
+			expect(headers.length).toBe(2);
+			expect(headers[0].depth).toBe(1);
+			expect(headers[0].text).toBe('Title');
+			expect(headers[1].depth).toBe(2);
+			expect(headers[1].text).toBe('Subtitle');
 		});
 
-		test('returns empty for no headers', () => {
+		it('returns empty for no headers', () => {
 			const headers = getMarkdownHeaders('just some text\nno headers here');
-			assert.strictEqual(headers.length, 0);
+			expect(headers.length).toBe(0);
 		});
 
-		test('falls back to HTML heading tags', () => {
+		it('falls back to HTML heading tags', () => {
 			const headers = getMarkdownHeaders('<h2>HTML Heading</h2>');
-			assert.strictEqual(headers.length, 1);
-			assert.strictEqual(headers[0].depth, 2);
-			assert.strictEqual(headers[0].text, 'HTML Heading');
+			expect(headers.length).toBe(1);
+			expect(headers[0].depth).toBe(2);
+			expect(headers[0].text).toBe('HTML Heading');
 		});
 
-		test('prefers markdown headers over HTML tags', () => {
+		it('prefers markdown headers over HTML tags', () => {
 			const headers = getMarkdownHeaders('# Markdown\n<h2>HTML</h2>');
-			assert.strictEqual(headers.length, 1);
-			assert.strictEqual(headers[0].text, 'Markdown');
+			expect(headers.length).toBe(1);
+			expect(headers[0].text).toBe('Markdown');
 		});
 	});
 
-	suite('buildOutlineEntries', () => {
-		test('builds entries from markdown headers', () => {
+	describe('buildOutlineEntries', () => {
+		it('builds entries from markdown headers', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['# Title\n## Section', 'markdown', CellKind.Markup]],
 				ctx.disposables,
@@ -73,14 +74,14 @@ suite('PositronNotebookOutline', () => {
 			const cells = notebook.cells.get();
 			const entries = buildOutlineEntries(cells);
 
-			assert.strictEqual(entries.length, 2);
-			assert.strictEqual(entries[0].label, 'Title');
-			assert.strictEqual(entries[0].level, 1);
-			assert.strictEqual(entries[1].label, 'Section');
-			assert.strictEqual(entries[1].level, 2);
+			expect(entries.length).toBe(2);
+			expect(entries[0].label).toBe('Title');
+			expect(entries[0].level).toBe(1);
+			expect(entries[1].label).toBe('Section');
+			expect(entries[1].level).toBe(2);
 		});
 
-		test('builds entries from code cells', () => {
+		it('builds entries from code cells', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['print("hello")', 'python', CellKind.Code]],
 				ctx.disposables,
@@ -88,12 +89,12 @@ suite('PositronNotebookOutline', () => {
 			const cells = notebook.cells.get();
 			const entries = buildOutlineEntries(cells);
 
-			assert.strictEqual(entries.length, 1);
-			assert.strictEqual(entries[0].label, 'print("hello")');
-			assert.strictEqual(entries[0].level, 7); // NonHeaderOutlineLevel
+			expect(entries.length).toBe(1);
+			expect(entries[0].label).toBe('print("hello")');
+			expect(entries[0].level).toBe(7); // NonHeaderOutlineLevel
 		});
 
-		test('skips raw cells', () => {
+		it('skips raw cells', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['raw content', 'raw', CellKind.Code]],
 				ctx.disposables,
@@ -101,10 +102,10 @@ suite('PositronNotebookOutline', () => {
 			const cells = notebook.cells.get();
 			const entries = buildOutlineEntries(cells);
 
-			assert.strictEqual(entries.length, 0);
+			expect(entries.length).toBe(0);
 		});
 
-		test('handles mixed cell types', () => {
+		it('handles mixed cell types', () => {
 			const notebook = createTestPositronNotebookInstance([
 				['# Introduction', 'markdown', CellKind.Markup],
 				['x = 1', 'python', CellKind.Code],
@@ -114,14 +115,14 @@ suite('PositronNotebookOutline', () => {
 			const cells = notebook.cells.get();
 			const entries = buildOutlineEntries(cells);
 
-			assert.strictEqual(entries.length, 4);
-			assert.strictEqual(entries[0].label, 'Introduction');
-			assert.strictEqual(entries[1].label, 'x = 1');
-			assert.strictEqual(entries[2].label, 'Analysis');
-			assert.strictEqual(entries[3].label, 'plot(x)');
+			expect(entries.length).toBe(4);
+			expect(entries[0].label).toBe('Introduction');
+			expect(entries[1].label).toBe('x = 1');
+			expect(entries[2].label).toBe('Analysis');
+			expect(entries[3].label).toBe('plot(x)');
 		});
 
-		test('empty markdown cell shows fallback label', () => {
+		it('empty markdown cell shows fallback label', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['', 'markdown', CellKind.Markup]],
 				ctx.disposables,
@@ -129,11 +130,11 @@ suite('PositronNotebookOutline', () => {
 			const cells = notebook.cells.get();
 			const entries = buildOutlineEntries(cells);
 
-			assert.strictEqual(entries.length, 1);
-			assert.ok(entries[0].label.length > 0, 'Should have a fallback label');
+			expect(entries.length).toBe(1);
+			expect(entries[0].label.length > 0).toBeTruthy();
 		});
 
-		test('non-header markdown uses first-line preview', () => {
+		it('non-header markdown uses first-line preview', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['Some paragraph text\nMore text here', 'markdown', CellKind.Markup]],
 				ctx.disposables,
@@ -141,13 +142,13 @@ suite('PositronNotebookOutline', () => {
 			const cells = notebook.cells.get();
 			const entries = buildOutlineEntries(cells);
 
-			assert.strictEqual(entries.length, 1);
-			assert.strictEqual(entries[0].level, 7); // NonHeaderOutlineLevel
+			expect(entries.length).toBe(1);
+			expect(entries[0].level).toBe(7); // NonHeaderOutlineLevel
 		});
 	});
 
-	suite('duplicate heading IDs', () => {
-		test('de-duplicates heading IDs within a cell', () => {
+	describe('duplicate heading IDs', () => {
+		it('de-duplicates heading IDs within a cell', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['## Details\n## Details\n## Details', 'markdown', CellKind.Markup]],
 				ctx.disposables,
@@ -155,13 +156,13 @@ suite('PositronNotebookOutline', () => {
 			const cells = notebook.cells.get();
 			const entries = buildOutlineEntries(cells);
 
-			assert.strictEqual(entries.length, 3);
-			assert.strictEqual(entries[0].headingId, 'details');
-			assert.strictEqual(entries[1].headingId, 'details-1');
-			assert.strictEqual(entries[2].headingId, 'details-2');
+			expect(entries.length).toBe(3);
+			expect(entries[0].headingId).toBe('details');
+			expect(entries[1].headingId).toBe('details-1');
+			expect(entries[2].headingId).toBe('details-2');
 		});
 
-		test('resets slug counter between cells', () => {
+		it('resets slug counter between cells', () => {
 			const notebook = createTestPositronNotebookInstance([
 				['## Details', 'markdown', CellKind.Markup],
 				['## Details', 'markdown', CellKind.Markup],
@@ -169,15 +170,15 @@ suite('PositronNotebookOutline', () => {
 			const cells = notebook.cells.get();
 			const entries = buildOutlineEntries(cells);
 
-			assert.strictEqual(entries.length, 2);
+			expect(entries.length).toBe(2);
 			// Each cell gets its own slug counter, so both are "details"
-			assert.strictEqual(entries[0].headingId, 'details');
-			assert.strictEqual(entries[1].headingId, 'details');
+			expect(entries[0].headingId).toBe('details');
+			expect(entries[1].headingId).toBe('details');
 		});
 	});
 
-	suite('buildTree', () => {
-		test('nests entries by header level', () => {
+	describe('buildTree', () => {
+		it('nests entries by header level', () => {
 			const notebook = createTestPositronNotebookInstance([
 				['# H1\n## H2\n### H3', 'markdown', CellKind.Markup],
 			], ctx.disposables);
@@ -185,17 +186,17 @@ suite('PositronNotebookOutline', () => {
 			const flatEntries = buildOutlineEntries(cells);
 			const tree = buildTree(flatEntries);
 
-			assert.strictEqual(tree.length, 1, 'Should have 1 root entry');
-			assert.strictEqual(tree[0].label, 'H1');
+			expect(tree.length).toBe(1);
+			expect(tree[0].label).toBe('H1');
 			const h2Children = Array.from(tree[0].children);
-			assert.strictEqual(h2Children.length, 1);
-			assert.strictEqual(h2Children[0].label, 'H2');
+			expect(h2Children.length).toBe(1);
+			expect(h2Children[0].label).toBe('H2');
 			const h3Children = Array.from(h2Children[0].children);
-			assert.strictEqual(h3Children.length, 1);
-			assert.strictEqual(h3Children[0].label, 'H3');
+			expect(h3Children.length).toBe(1);
+			expect(h3Children[0].label).toBe('H3');
 		});
 
-		test('code cells nest under preceding header', () => {
+		it('code cells nest under preceding header', () => {
 			const notebook = createTestPositronNotebookInstance([
 				['# Title', 'markdown', CellKind.Markup],
 				['x = 1', 'python', CellKind.Code],
@@ -204,13 +205,13 @@ suite('PositronNotebookOutline', () => {
 			const flatEntries = buildOutlineEntries(cells);
 			const tree = buildTree(flatEntries);
 
-			assert.strictEqual(tree.length, 1);
+			expect(tree.length).toBe(1);
 			const children = Array.from(tree[0].children);
-			assert.strictEqual(children.length, 1);
-			assert.strictEqual(children[0].label, 'x = 1');
+			expect(children.length).toBe(1);
+			expect(children[0].label).toBe('x = 1');
 		});
 
-		test('sibling headers stay at same level', () => {
+		it('sibling headers stay at same level', () => {
 			const notebook = createTestPositronNotebookInstance([
 				['## A\n## B\n## C', 'markdown', CellKind.Markup],
 			], ctx.disposables);
@@ -218,12 +219,12 @@ suite('PositronNotebookOutline', () => {
 			const flatEntries = buildOutlineEntries(cells);
 			const tree = buildTree(flatEntries);
 
-			assert.strictEqual(tree.length, 3, 'All h2s should be roots');
+			expect(tree.length).toBe(3);
 		});
 
-		test('returns empty array for empty input', () => {
+		it('returns empty array for empty input', () => {
 			const tree = buildTree([]);
-			assert.strictEqual(tree.length, 0);
+			expect(tree.length).toBe(0);
 		});
 	});
 });

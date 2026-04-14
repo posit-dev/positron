@@ -2,10 +2,12 @@
  *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+
+/// <reference types="vitest/globals" />
+
 // Register the find contribution
 import '../../../../browser/contrib/find/positronNotebookFind.contribution.js';
 
-import assert from 'assert';
 import * as sinon from 'sinon';
 import { createTestContainer } from '../../../../../../test/browser/positronTestContainer.js';
 import { IModelDecoration, ITextModel } from '../../../../../../../editor/common/model.js';
@@ -30,8 +32,8 @@ import { runWithFakedTimers } from '../../../../../../../base/test/common/timeTr
 /** Get the find controller for a notebook. */
 function getController(notebook: TestPositronNotebookInstance): PositronNotebookFindController {
 	const controller = PositronNotebookFindController.get(notebook);
-	assert.ok(controller, 'Find controller should be registered');
-	return controller;
+	expect(controller).toBeTruthy();
+	return controller!;
 }
 
 /** Gets the find instance, starting the controller if needed. */
@@ -44,8 +46,8 @@ function getOrStartFindInstance(controller: PositronNotebookFindController): Pos
 		find = controller.findInstance;
 	}
 
-	assert.ok(find, 'Unexpected Error: Find instance should exist after controller.start()');
-	return find;
+	expect(find).toBeTruthy();
+	return find!;
 }
 
 function getDecorations(cell: IPositronNotebookCell): IModelDecoration[] {
@@ -119,13 +121,13 @@ class TestBulkEditService implements IBulkEditService {
 	}
 }
 
-suite('PositronNotebookFindController', () => {
+describe('PositronNotebookFindController', () => {
 	const ctx = createTestContainer().build();
 
 	let instantiationService: TestInstantiationService;
 	let bulkEditApplySpy: sinon.SinonSpy;
 
-	setup(() => {
+	beforeEach(() => {
 		instantiationService = positronNotebookInstantiationService(ctx.disposables);
 
 		const bulkEditService = new TestBulkEditService(instantiationService.get(IModelService));
@@ -144,37 +146,37 @@ suite('PositronNotebookFindController', () => {
 		return { notebook, controller, find };
 	}
 
-	suite('Matching Logic', () => {
+	describe('Matching Logic', () => {
 
-		test('finds single match in one code cell', () => {
+		it('finds single match in one code cell', () => {
 			const { controller, find } = findFixture([['hello world', 'python', CellKind.Code]]);
 
 			find.searchString.set('hello', undefined);
 
-			assert.strictEqual(controller.matches.get().length, 1);
-			assert.strictEqual(find.matchCount.get(), 1);
-			assert.strictEqual(find.matchIndex.get(), 0);
+			expect(controller.matches.get().length).toBe(1);
+			expect(find.matchCount.get()).toBe(1);
+			expect(find.matchIndex.get()).toBe(0);
 		});
 
-		test('finds multiple matches in one code cell', () => {
+		it('finds multiple matches in one code cell', () => {
 			const { controller, find } = findFixture([['hello hello hello', 'python', CellKind.Code]]);
 
 			find.searchString.set('hello', undefined);
 
-			assert.strictEqual(controller.matches.get().length, 3);
-			assert.strictEqual(find.matchCount.get(), 3);
-			assert.strictEqual(find.matchIndex.get(), 0);
+			expect(controller.matches.get().length).toBe(3);
+			expect(find.matchCount.get()).toBe(3);
+			expect(find.matchIndex.get()).toBe(0);
 		});
 
-		test('finds matches in markdown cells', () => {
+		it('finds matches in markdown cells', () => {
 			const { controller, find } = findFixture([['# Hello World', 'markdown', CellKind.Markup]]);
 
 			find.searchString.set('Hello', undefined);
 
-			assert.strictEqual(controller.matches.get().length, 1);
+			expect(controller.matches.get().length).toBe(1);
 		});
 
-		test('finds matches across multiple cells in index order', () => {
+		it('finds matches across multiple cells in index order', () => {
 			const { controller, find } = findFixture([
 				['alpha beta', 'python', CellKind.Code],
 				['gamma', 'python', CellKind.Code],
@@ -184,20 +186,20 @@ suite('PositronNotebookFindController', () => {
 			find.searchString.set('alpha', undefined);
 
 			const matches = controller.matches.get();
-			assert.strictEqual(matches.length, 2);
-			assert.strictEqual(matches[0].cellRange.cellIndex, 0);
-			assert.strictEqual(matches[1].cellRange.cellIndex, 2);
+			expect(matches.length).toBe(2);
+			expect(matches[0].cellRange.cellIndex).toBe(0);
+			expect(matches[1].cellRange.cellIndex).toBe(2);
 		});
 
-		test('matchCase=false is case-insensitive', () => {
+		it('matchCase=false is case-insensitive', () => {
 			const { controller, find } = findFixture([['Hello HELLO hello', 'python', CellKind.Code]]);
 
 			find.searchString.set('hello', undefined);
 
-			assert.strictEqual(controller.matches.get().length, 3);
+			expect(controller.matches.get().length).toBe(3);
 		});
 
-		test('matchCase=true is case-sensitive', () => {
+		it('matchCase=true is case-sensitive', () => {
 			const { controller, find } = findFixture([['Hello HELLO hello', 'python', CellKind.Code]]);
 
 			transaction((tx) => {
@@ -205,10 +207,10 @@ suite('PositronNotebookFindController', () => {
 				find.searchString.set('hello', tx);
 			});
 
-			assert.strictEqual(controller.matches.get().length, 1);
+			expect(controller.matches.get().length).toBe(1);
 		});
 
-		test('isRegex=true supports regex patterns', () => {
+		it('isRegex=true supports regex patterns', () => {
 			const { controller, find } = findFixture([['foo123 bar456 baz', 'python', CellKind.Code]]);
 
 			transaction((tx) => {
@@ -216,10 +218,10 @@ suite('PositronNotebookFindController', () => {
 				find.searchString.set('\\w+\\d+', tx);
 			});
 
-			assert.strictEqual(controller.matches.get().length, 2);
+			expect(controller.matches.get().length).toBe(2);
 		});
 
-		test('isRegex=true with invalid regex fails safely', () => {
+		it('isRegex=true with invalid regex fails safely', () => {
 			const { controller, find } = findFixture([['hello world', 'python', CellKind.Code]]);
 
 			transaction((tx) => {
@@ -227,20 +229,20 @@ suite('PositronNotebookFindController', () => {
 				find.searchString.set('[invalid', tx);
 			});
 
-			assert.strictEqual(controller.matches.get().length, 0);
-			assert.strictEqual(find.matchCount.get(), 0);
-			assert.strictEqual(find.matchIndex.get(), undefined);
+			expect(controller.matches.get().length).toBe(0);
+			expect(find.matchCount.get()).toBe(0);
+			expect(find.matchIndex.get()).toBe(undefined);
 		});
 
-		test('isRegex=false treats regex symbols literally', () => {
+		it('isRegex=false treats regex symbols literally', () => {
 			const { controller, find } = findFixture([['a.b a*b a+b', 'python', CellKind.Code]]);
 
 			find.searchString.set('a.b', undefined);
 
-			assert.strictEqual(controller.matches.get().length, 1, 'Should match literal "a.b" only');
+			expect(controller.matches.get().length).toBe(1);
 		});
 
-		test('wholeWord=true only matches full words', async () => {
+		it('wholeWord=true only matches full words', async () => {
 			const { notebook, controller, find } = findFixture([['cat catch category', 'python', CellKind.Code]]);
 			const configService = notebook.instantiationService.get(IConfigurationService) as TestConfigurationService;
 			await configService.setUserConfiguration('editor.wordSeparators', USUAL_WORD_SEPARATORS);
@@ -250,88 +252,87 @@ suite('PositronNotebookFindController', () => {
 				find.searchString.set('cat', tx);
 			});
 
-			assert.strictEqual(controller.matches.get().length, 1, 'Should match only standalone "cat"');
+			expect(controller.matches.get().length).toBe(1);
 		});
 
-		test('wholeWord=false allows partial-word matches', () => {
+		it('wholeWord=false allows partial-word matches', () => {
 			const { controller, find } = findFixture([['cat catch category', 'python', CellKind.Code]]);
 
 			find.searchString.set('cat', undefined);
 
-			assert.strictEqual(controller.matches.get().length, 3, 'Should match "cat" in all words');
+			expect(controller.matches.get().length).toBe(3);
 		});
 
-		test('empty search string returns zero matches', () => {
+		it('empty search string returns zero matches', () => {
 			const { controller, find } = findFixture([['hello world', 'python', CellKind.Code]]);
 
 			find.searchString.set('', undefined);
 
-			assert.strictEqual(controller.matches.get().length, 0);
-			assert.strictEqual(find.matchIndex.get(), undefined);
+			expect(controller.matches.get().length).toBe(0);
+			expect(find.matchIndex.get()).toBe(undefined);
 		});
 
-		test('no-cell notebook returns zero matches', () => {
+		it('no-cell notebook returns zero matches', () => {
 			const { controller, find } = findFixture([]);
 
 			find.searchString.set('hello', undefined);
 
-			assert.strictEqual(controller.matches.get().length, 0);
+			expect(controller.matches.get().length).toBe(0);
 		});
 
-		test('match ordering is stable: within-cell positions preserved', () => {
+		it('match ordering is stable: within-cell positions preserved', () => {
 			const { controller, find } = findFixture([['bb aa cc aa', 'python', CellKind.Code]]);
 
 			find.searchString.set('aa', undefined);
 
 			const matches = controller.matches.get();
-			assert.strictEqual(matches.length, 2);
+			expect(matches.length).toBe(2);
 			// First "aa" at column 4, second "aa" at column 10
-			assert.ok(
-				matches[0].cellRange.isBefore(matches[1].cellRange),
-				'Matches within a cell should be in column order'
-			);
+			expect(
+				matches[0].cellRange.isBefore(matches[1].cellRange)
+			).toBeTruthy();
 		});
 
-		test('reactive: query change triggers research', () => {
+		it('reactive: query change triggers research', () => {
 			const { find } = findFixture([['hello world', 'python', CellKind.Code]]);
 
 			find.searchString.set('hello', undefined);
-			assert.strictEqual(find.matchCount.get(), 1);
+			expect(find.matchCount.get()).toBe(1);
 
-			// Change query reactively — autorun fires synchronously
+			// Change query reactively -- autorun fires synchronously
 			find.searchString.set('good bye', undefined);
-			assert.strictEqual(find.matchCount.get(), 0);
+			expect(find.matchCount.get()).toBe(0);
 		});
 
-		test('reactive: toggle change triggers research', () => {
+		it('reactive: toggle change triggers research', () => {
 			const { find } = findFixture([['Hello hello', 'python', CellKind.Code]]);
 
 			find.searchString.set('hello', undefined);
-			assert.strictEqual(find.matchCount.get(), 2, 'case-insensitive should find 2');
+			expect(find.matchCount.get()).toBe(2);
 
-			// Toggle matchCase reactively — autorun fires synchronously
+			// Toggle matchCase reactively -- autorun fires synchronously
 			find.matchCase.set(true, undefined);
-			assert.strictEqual(find.matchCount.get(), 1, 'case-sensitive should find 1');
+			expect(find.matchCount.get()).toBe(1);
 		});
 	});
 
-	suite('Navigation', () => {
+	describe('Navigation', () => {
 
-		test('findNext advances within same cell', () => {
+		it('findNext advances within same cell', () => {
 			const { controller, find } = findFixture([['aa bb aa bb aa', 'python', CellKind.Code]]);
 			find.searchString.set('aa', undefined);
 
 			controller.findNext();
-			assert.strictEqual(controller.currentMatch.get()?.matchIndex, 0);
+			expect(controller.currentMatch.get()?.matchIndex).toBe(0);
 
 			controller.findNext();
-			assert.strictEqual(controller.currentMatch.get()?.matchIndex, 1);
+			expect(controller.currentMatch.get()?.matchIndex).toBe(1);
 
 			controller.findNext();
-			assert.strictEqual(controller.currentMatch.get()?.matchIndex, 2);
+			expect(controller.currentMatch.get()?.matchIndex).toBe(2);
 		});
 
-		test('findPrevious moves backward within same cell', () => {
+		it('findPrevious moves backward within same cell', () => {
 			const { controller, find } = findFixture([['aa bb aa bb aa', 'python', CellKind.Code]]);
 			find.searchString.set('aa', undefined);
 
@@ -340,10 +341,10 @@ suite('PositronNotebookFindController', () => {
 			controller.findNext(); // match 1
 
 			controller.findPrevious(); // back to match 0
-			assert.strictEqual(controller.currentMatch.get()?.matchIndex, 0);
+			expect(controller.currentMatch.get()?.matchIndex).toBe(0);
 		});
 
-		test('findNext wraps from last to first match', () => {
+		it('findNext wraps from last to first match', () => {
 			const { controller, find } = findFixture([
 				['aa', 'python', CellKind.Code],
 				['aa', 'python', CellKind.Code],
@@ -353,10 +354,10 @@ suite('PositronNotebookFindController', () => {
 			controller.findNext(); // match 0
 			controller.findNext(); // match 1
 			controller.findNext(); // wraps to match 0
-			assert.strictEqual(controller.currentMatch.get()?.matchIndex, 0);
+			expect(controller.currentMatch.get()?.matchIndex).toBe(0);
 		});
 
-		test('findPrevious wraps from first to last match', () => {
+		it('findPrevious wraps from first to last match', () => {
 			const { controller, find } = findFixture([
 				['aa', 'python', CellKind.Code],
 				['aa', 'python', CellKind.Code],
@@ -365,10 +366,10 @@ suite('PositronNotebookFindController', () => {
 
 			controller.findNext(); // match 0
 			controller.findPrevious(); // wraps to match 1 (last)
-			assert.strictEqual(controller.currentMatch.get()?.matchIndex, 1);
+			expect(controller.currentMatch.get()?.matchIndex).toBe(1);
 		});
 
-		test('cross-cell navigation moves to correct target match', () => {
+		it('cross-cell navigation moves to correct target match', () => {
 			const { controller, find } = findFixture([
 				['alpha', 'python', CellKind.Code],
 				['no match', 'python', CellKind.Code],
@@ -377,13 +378,13 @@ suite('PositronNotebookFindController', () => {
 			find.searchString.set('alpha', undefined);
 
 			controller.findNext(); // match 0 (cell 0)
-			assert.strictEqual(controller.currentMatch.get()?.cellMatch.cellRange.cellIndex, 0);
+			expect(controller.currentMatch.get()?.cellMatch.cellRange.cellIndex).toBe(0);
 
 			controller.findNext(); // match 1 (cell 2)
-			assert.strictEqual(controller.currentMatch.get()?.cellMatch.cellRange.cellIndex, 2);
+			expect(controller.currentMatch.get()?.cellMatch.cellRange.cellIndex).toBe(2);
 		});
 
-		test('navigation sets editor selection', () => {
+		it('navigation sets editor selection', () => {
 			const { notebook, controller, find } = findFixture([['hello world', 'python', CellKind.Code]]);
 			find.searchString.set('world', undefined);
 
@@ -391,26 +392,26 @@ suite('PositronNotebookFindController', () => {
 			const cells = notebook.cells.get();
 			const selection = getCellSelection(cells[0]);
 			// "world" starts at column 7 and ends at column 12
-			assert.deepStrictEqual(selection, [1, 7, 1, 12]);
+			expect(selection).toEqual([1, 7, 1, 12]);
 		});
 
-		test('no matches: findNext is no-op', () => {
+		it('no matches: findNext is no-op', () => {
 			const { controller, find } = findFixture([['hello', 'python', CellKind.Code]]);
 			find.searchString.set('xyz', undefined);
 
 			controller.findNext();
-			assert.strictEqual(controller.currentMatch.get(), undefined);
+			expect(controller.currentMatch.get()).toBe(undefined);
 		});
 
-		test('no matches: findPrevious is no-op', () => {
+		it('no matches: findPrevious is no-op', () => {
 			const { controller, find } = findFixture([['hello', 'python', CellKind.Code]]);
 			find.searchString.set('xyz', undefined);
 
 			controller.findPrevious();
-			assert.strictEqual(controller.currentMatch.get(), undefined);
+			expect(controller.currentMatch.get()).toBe(undefined);
 		});
 
-		test('findNext from cursor position when no current match', () => {
+		it('findNext from cursor position when no current match', () => {
 			const { notebook, controller, find } = findFixture([['aa bb aa cc aa', 'python', CellKind.Code]]);
 
 			// Place cursor after the first "aa" (at column 3)
@@ -422,121 +423,120 @@ suite('PositronNotebookFindController', () => {
 			// findNext should find the next match after cursor position
 			controller.findNext();
 			const match = controller.currentMatch.get();
-			assert.ok(match);
+			expect(match).toBeTruthy();
 			// The match at column 7 (second "aa") should be found
-			assert.strictEqual(match.cellMatch.cellRange.range.startColumn, 7);
+			expect(match!.cellMatch.cellRange.range.startColumn).toBe(7);
 		});
 
 		// Regression: findNext() was a no-op when the cursor was past all
 		// matches because findNextMatchFromCursor() returned -1 instead of
 		// wrapping to the first match.
-		test('findNext wraps to first match when cursor is past all matches', () => {
+		it('findNext wraps to first match when cursor is past all matches', () => {
 			const { notebook, controller, find } = findFixture([['aa bb', 'python', CellKind.Code]]);
 
-			// Place cursor at column 4 ('aa |bb') — past the only 'aa' match
+			// Place cursor at column 4 ('aa |bb') -- past the only 'aa' match
 			const cell = notebook.cells.get()[0];
 			cell.currentEditor!.setPosition({ lineNumber: 1, column: 4 });
 
 			find.searchString.set('aa', undefined);
 
-			assert.strictEqual(find.matchCount.get(), 1);
-			assert.strictEqual(find.matchIndex.get(), 0);
-			assert.strictEqual(controller.currentMatch.get(), undefined,
-				'research sets matchIndex but not currentMatch');
+			expect(find.matchCount.get()).toBe(1);
+			expect(find.matchIndex.get()).toBe(0);
+			expect(controller.currentMatch.get()).toBe(undefined);
 
 			controller.findNext();
 			const match = controller.currentMatch.get();
-			assert.ok(match, 'findNext should wrap to the first match');
-			assert.strictEqual(match.matchIndex, 0);
-			assert.strictEqual(match.cellMatch.cellRange.range.startColumn, 1);
+			expect(match).toBeTruthy();
+			expect(match!.matchIndex).toBe(0);
+			expect(match!.cellMatch.cellRange.range.startColumn).toBe(1);
 		});
 
 	});
 
-	suite('Notebook Structure Changes', () => {
+	describe('Notebook Structure Changes', () => {
 
-		test('adding a cell with matching content recomputes matches', () => runWithFakedTimers({}, async () => {
+		it('adding a cell with matching content recomputes matches', () => runWithFakedTimers({}, async () => {
 			const { notebook, find } = findFixture([['hello', 'python', CellKind.Code]]);
 			find.searchString.set('hello', undefined);
-			assert.strictEqual(find.matchCount.get(), 1);
+			expect(find.matchCount.get()).toBe(1);
 
 			// Add a new cell with matching content
 			notebook.addCell(CellKind.Code, 1, false, 'hello again');
 
 			// Structural change triggers debounced recompute
 			await waitForDebounce();
-			assert.strictEqual(find.matchCount.get(), 2);
+			expect(find.matchCount.get()).toBe(2);
 		}));
 
-		test('deleting a cell with matches recomputes correctly', () => runWithFakedTimers({}, async () => {
+		it('deleting a cell with matches recomputes correctly', () => runWithFakedTimers({}, async () => {
 			const { notebook, find } = findFixture([
 				['hello', 'python', CellKind.Code],
 				['hello', 'python', CellKind.Code],
 				['world', 'python', CellKind.Code],
 			]);
 			find.searchString.set('hello', undefined);
-			assert.strictEqual(find.matchCount.get(), 2);
+			expect(find.matchCount.get()).toBe(2);
 
 			// Delete second cell (which has a match)
 			const cells = notebook.cells.get();
 			notebook.deleteCell(cells[1]);
 
 			await waitForDebounce();
-			assert.strictEqual(find.matchCount.get(), 1);
+			expect(find.matchCount.get()).toBe(1);
 		}));
 
-		test('content edit that removes match recomputes correctly', () => runWithFakedTimers({}, async () => {
+		it('content edit that removes match recomputes correctly', () => runWithFakedTimers({}, async () => {
 			const { notebook, find } = findFixture([['hello world', 'python', CellKind.Code]]);
 			find.searchString.set('hello', undefined);
-			assert.strictEqual(find.matchCount.get(), 1);
+			expect(find.matchCount.get()).toBe(1);
 
 			// Edit cell content to remove the match
 			const cell = notebook.cells.get()[0];
 			cell.model.textModel!.setValue('goodbye world');
 
 			await waitForDebounce();
-			assert.strictEqual(find.matchCount.get(), 0);
+			expect(find.matchCount.get()).toBe(0);
 		}));
 
-		test('content edit that adds matches recomputes correctly', () => runWithFakedTimers({}, async () => {
+		it('content edit that adds matches recomputes correctly', () => runWithFakedTimers({}, async () => {
 			const { notebook, find } = findFixture([['goodbye world', 'python', CellKind.Code]]);
 			find.searchString.set('hello', undefined);
-			assert.strictEqual(find.matchCount.get(), 0);
+			expect(find.matchCount.get()).toBe(0);
 
 			// Edit cell to add matches
 			const cell = notebook.cells.get()[0];
 			cell.model.textModel!.setValue('hello hello');
 
 			await waitForDebounce();
-			assert.strictEqual(find.matchCount.get(), 2);
+			expect(find.matchCount.get()).toBe(2);
 		}));
 
-		test('navigation remains correct after cell deletion', () => runWithFakedTimers({}, async () => {
+		it('navigation remains correct after cell deletion', () => runWithFakedTimers({}, async () => {
 			const { notebook, controller, find } = findFixture([
 				['match', 'python', CellKind.Code],
 				['match', 'python', CellKind.Code],
 				['match', 'python', CellKind.Code],
 			]);
 			find.searchString.set('match', undefined);
-			assert.strictEqual(find.matchCount.get(), 3);
+			expect(find.matchCount.get()).toBe(3);
 
 			// Navigate to first match
 			controller.findNext();
-			assert.strictEqual(controller.currentMatch.get()?.matchIndex, 0);
+			expect(controller.currentMatch.get()?.matchIndex).toBe(0);
 
 			// Delete first cell
 			const cells = notebook.cells.get();
 			notebook.deleteCell(cells[0]);
 
 			await waitForDebounce();
-			assert.strictEqual(controller.matches.get().length, 2);
+			expect(controller.matches.get().length).toBe(2);
 
 			// Navigation should work on new match set
 			controller.findNext();
-			assert.ok(controller.currentMatch.get());
+			expect(controller.currentMatch.get()).toBeTruthy();
 		}));
 
-		test('decorations are cleaned up for deleted cells', () => runWithFakedTimers({}, async () => {
+		it('decorations are cleaned up for deleted cells', () => runWithFakedTimers({}, async () => {
 			const { notebook, find } = findFixture([
 				['match', 'python', CellKind.Code],
 				['match', 'python', CellKind.Code],
@@ -544,8 +544,8 @@ suite('PositronNotebookFindController', () => {
 			find.searchString.set('match', undefined);
 
 			const cellsBefore = notebook.cells.get();
-			assert.strictEqual(getFindMatchDecorations(cellsBefore[0]).length, 1);
-			assert.strictEqual(getFindMatchDecorations(cellsBefore[1]).length, 1);
+			expect(getFindMatchDecorations(cellsBefore[0]).length).toBe(1);
+			expect(getFindMatchDecorations(cellsBefore[1]).length).toBe(1);
 
 			// Delete first cell
 			notebook.deleteCell(cellsBefore[0]);
@@ -554,14 +554,14 @@ suite('PositronNotebookFindController', () => {
 
 			// Remaining cell still has decoration
 			const cellsAfter = notebook.cells.get();
-			assert.strictEqual(cellsAfter.length, 1);
-			assert.strictEqual(getFindMatchDecorations(cellsAfter[0]).length, 1);
+			expect(cellsAfter.length).toBe(1);
+			expect(getFindMatchDecorations(cellsAfter[0]).length).toBe(1);
 		}));
 	});
 
-	suite('Decorations', () => {
+	describe('Decorations', () => {
 
-		test('decorations applied for all matches', () => {
+		it('decorations applied for all matches', () => {
 			const { notebook, find } = findFixture([
 				['aa bb aa', 'python', CellKind.Code],
 				['aa', 'python', CellKind.Code],
@@ -569,31 +569,31 @@ suite('PositronNotebookFindController', () => {
 			find.searchString.set('aa', undefined);
 
 			const cells = notebook.cells.get();
-			assert.strictEqual(getFindMatchDecorations(cells[0]).length, 2);
-			assert.strictEqual(getFindMatchDecorations(cells[1]).length, 1);
+			expect(getFindMatchDecorations(cells[0]).length).toBe(2);
+			expect(getFindMatchDecorations(cells[1]).length).toBe(1);
 		});
 
-		test('current match decoration is distinct and updates on navigation', () => {
+		it('current match decoration is distinct and updates on navigation', () => {
 			const { notebook, controller, find } = findFixture([['aa bb aa', 'python', CellKind.Code]]);
 			find.searchString.set('aa', undefined);
 
 			const cells = notebook.cells.get();
 
 			// Before navigation, no current match decoration
-			assert.strictEqual(getCurrentFindMatchDecoration(cells[0]), undefined);
+			expect(getCurrentFindMatchDecoration(cells[0])).toBe(undefined);
 
 			controller.findNext(); // match 0
 			const currentDec = getCurrentFindMatchDecoration(cells[0]);
-			assert.ok(currentDec, 'Should have current match decoration');
-			assert.strictEqual(currentDec!.range.startColumn, 1);
+			expect(currentDec).toBeTruthy();
+			expect(currentDec!.range.startColumn).toBe(1);
 
 			controller.findNext(); // match 1
 			const nextDec = getCurrentFindMatchDecoration(cells[0]);
-			assert.ok(nextDec, 'Should still have current match decoration');
-			assert.strictEqual(nextDec!.range.startColumn, 7, 'Decoration should move to second "aa"');
+			expect(nextDec).toBeTruthy();
+			expect(nextDec!.range.startColumn).toBe(7);
 		});
 
-		test('current match decoration moves across cells', () => {
+		it('current match decoration moves across cells', () => {
 			const { notebook, controller, find } = findFixture([
 				['aa', 'python', CellKind.Code],
 				['aa', 'python', CellKind.Code],
@@ -603,53 +603,53 @@ suite('PositronNotebookFindController', () => {
 			const cells = notebook.cells.get();
 
 			controller.findNext(); // match 0 (cell 0)
-			assert.ok(getCurrentFindMatchDecoration(cells[0]));
-			assert.strictEqual(getCurrentFindMatchDecoration(cells[1]), undefined);
+			expect(getCurrentFindMatchDecoration(cells[0])).toBeTruthy();
+			expect(getCurrentFindMatchDecoration(cells[1])).toBe(undefined);
 
 			controller.findNext(); // match 1 (cell 1)
-			assert.strictEqual(getCurrentFindMatchDecoration(cells[0]), undefined, 'Cell 0 should lose current decoration');
-			assert.ok(getCurrentFindMatchDecoration(cells[1]), 'Cell 1 should gain current decoration');
+			expect(getCurrentFindMatchDecoration(cells[0])).toBe(undefined);
+			expect(getCurrentFindMatchDecoration(cells[1])).toBeTruthy();
 		});
 
-		test('decorations update when query changes', () => {
+		it('decorations update when query changes', () => {
 			const { notebook, find } = findFixture([['hello world', 'python', CellKind.Code]]);
 			find.searchString.set('hello', undefined);
 
 			const cells = notebook.cells.get();
-			assert.strictEqual(getFindMatchDecorations(cells[0]).length, 1);
-			assert.strictEqual(getFindMatchDecorations(cells[0])[0].range.startColumn, 1);
+			expect(getFindMatchDecorations(cells[0]).length).toBe(1);
+			expect(getFindMatchDecorations(cells[0])[0].range.startColumn).toBe(1);
 
-			// Change search to match 'world' — autorun fires synchronously
+			// Change search to match 'world' -- autorun fires synchronously
 			find.searchString.set('world', undefined);
-			assert.strictEqual(getFindMatchDecorations(cells[0]).length, 1);
-			assert.strictEqual(getFindMatchDecorations(cells[0])[0].range.startColumn, 7);
+			expect(getFindMatchDecorations(cells[0]).length).toBe(1);
+			expect(getFindMatchDecorations(cells[0])[0].range.startColumn).toBe(7);
 		});
 
-		test('decorations clear when query is emptied', () => {
+		it('decorations clear when query is emptied', () => {
 			const { notebook, find } = findFixture([['hello world', 'python', CellKind.Code]]);
 			find.searchString.set('hello', undefined);
 
 			const cells = notebook.cells.get();
-			assert.strictEqual(getFindMatchDecorations(cells[0]).length, 1);
+			expect(getFindMatchDecorations(cells[0]).length).toBe(1);
 
-			// Empty the search — autorun fires synchronously
+			// Empty the search -- autorun fires synchronously
 			find.searchString.set('', undefined);
-			assert.strictEqual(getFindMatchDecorations(cells[0]).length, 0);
+			expect(getFindMatchDecorations(cells[0]).length).toBe(0);
 		});
 
-		test('decorations clear when find is hidden', () => {
+		it('decorations clear when find is hidden', () => {
 			const { notebook, controller, find } = findFixture([['hello world', 'python', CellKind.Code]]);
 			find.searchString.set('hello', undefined);
 
 			const cells = notebook.cells.get();
-			assert.strictEqual(getFindMatchDecorations(cells[0]).length, 1);
+			expect(getFindMatchDecorations(cells[0]).length).toBe(1);
 
-			// Hide find widget — autorun clears matches synchronously
+			// Hide find widget -- autorun clears matches synchronously
 			controller.hide();
-			assert.strictEqual(getFindMatchDecorations(cells[0]).length, 0, 'Decorations should clear on hide');
+			expect(getFindMatchDecorations(cells[0]).length).toBe(0);
 		});
 
-		test('decoration count matches found matches', () => {
+		it('decoration count matches found matches', () => {
 			const { notebook, controller, find } = findFixture([
 				['aaa', 'python', CellKind.Code],
 			]);
@@ -657,135 +657,129 @@ suite('PositronNotebookFindController', () => {
 			find.searchString.set('a', undefined);
 
 			const cells = notebook.cells.get();
-			assert.strictEqual(getFindMatchDecorations(cells[0]).length, controller.matches.get().length);
+			expect(getFindMatchDecorations(cells[0]).length).toBe(controller.matches.get().length);
 		});
 	});
 
-	suite('Focus and Visibility', () => {
+	describe('Focus and Visibility', () => {
 
-		test('starting find makes widget visible', () => {
+		it('starting find makes widget visible', () => {
 			const { find } = findFixture([['hello', 'python', CellKind.Code]]);
-			assert.strictEqual(find.isVisible.get(), true);
+			expect(find.isVisible.get()).toBe(true);
 		});
 
-		test('hiding find makes widget not visible', () => {
+		it('hiding find makes widget not visible', () => {
 			const { controller, find } = findFixture([['hello', 'python', CellKind.Code]]);
-			assert.strictEqual(find.isVisible.get(), true);
+			expect(find.isVisible.get()).toBe(true);
 
 			controller.hide();
-			assert.strictEqual(find.isVisible.get(), false);
+			expect(find.isVisible.get()).toBe(false);
 		});
 
-		test('starting find twice reuses same instance', () => {
+		it('starting find twice reuses same instance', () => {
 			const { controller, find } = findFixture([['hello', 'python', CellKind.Code]]);
 
 			const fi1 = controller.findInstance;
 			controller.start();
 			const fi2 = controller.findInstance;
-			assert.strictEqual(fi1, fi2, 'Should reuse same find instance');
-			assert.strictEqual(fi1, find);
+			expect(fi1).toBe(fi2);
+			expect(fi1).toBe(find);
 		});
 
-		test('hiding find clears matches and current match', () => {
+		it('hiding find clears matches and current match', () => {
 			const { controller, find } = findFixture([['hello', 'python', CellKind.Code]]);
 			find.searchString.set('hello', undefined);
-			assert.strictEqual(find.matchCount.get(), 1);
+			expect(find.matchCount.get()).toBe(1);
 
 			controller.hide();
-			assert.strictEqual(controller.matches.get().length, 0);
-			assert.strictEqual(controller.currentMatch.get(), undefined);
+			expect(controller.matches.get().length).toBe(0);
+			expect(controller.currentMatch.get()).toBe(undefined);
 		});
 
-		test('context key FIND_WIDGET_VISIBLE toggles correctly', () => {
+		it('context key FIND_WIDGET_VISIBLE toggles correctly', () => {
 			const { notebook, controller } = findFixture([['hello', 'python', CellKind.Code]]);
 
-			assert.strictEqual(
-				notebook.scopedContextKeyService.getContextKeyValue(CONTEXT_FIND_WIDGET_VISIBLE.key),
-				true
-			);
+			expect(
+				notebook.scopedContextKeyService.getContextKeyValue(CONTEXT_FIND_WIDGET_VISIBLE.key)
+			).toBe(true);
 
 			controller.hide();
-			assert.strictEqual(
-				notebook.scopedContextKeyService.getContextKeyValue(CONTEXT_FIND_WIDGET_VISIBLE.key),
-				false
-			);
+			expect(
+				notebook.scopedContextKeyService.getContextKeyValue(CONTEXT_FIND_WIDGET_VISIBLE.key)
+			).toBe(false);
 		});
 
-		test('context key FIND_INPUT_FOCUSED is true immediately after show', () => {
+		it('context key FIND_INPUT_FOCUSED is true immediately after show', () => {
 			// Must be set synchronously so that cells don't consume keyboard
 			// events (e.g. Enter to edit the active cell) before the find
 			// widget's keybindings take effect.
 			const { notebook } = findFixture([['hello', 'python', CellKind.Code]]);
 
-			assert.strictEqual(
-				notebook.scopedContextKeyService.getContextKeyValue(CONTEXT_FIND_INPUT_FOCUSED.key),
-				true
-			);
+			expect(
+				notebook.scopedContextKeyService.getContextKeyValue(CONTEXT_FIND_INPUT_FOCUSED.key)
+			).toBe(true);
 		});
 
-		test('context key FIND_INPUT_FOCUSED is false after hide', () => {
+		it('context key FIND_INPUT_FOCUSED is false after hide', () => {
 			const { notebook, controller } = findFixture([['hello', 'python', CellKind.Code]]);
 
 			// Verify hide resets the context key.
 			controller.hide();
-			assert.strictEqual(
-				notebook.scopedContextKeyService.getContextKeyValue(CONTEXT_FIND_INPUT_FOCUSED.key),
-				false
-			);
+			expect(
+				notebook.scopedContextKeyService.getContextKeyValue(CONTEXT_FIND_INPUT_FOCUSED.key)
+			).toBe(false);
 		});
 
-		test('context key REPLACE_INPUT_FOCUSED is false after show and false after hide', () => {
+		it('context key REPLACE_INPUT_FOCUSED is false after show and false after hide', () => {
 			const { notebook, controller } = findFixture([['hello', 'python', CellKind.Code]]);
 
 			// After show(), replace input is not focused
-			assert.strictEqual(
-				notebook.scopedContextKeyService.getContextKeyValue(CONTEXT_REPLACE_INPUT_FOCUSED.key),
-				false
-			);
+			expect(
+				notebook.scopedContextKeyService.getContextKeyValue(CONTEXT_REPLACE_INPUT_FOCUSED.key)
+			).toBe(false);
 
 			// Hide keeps it false
 			controller.hide();
-			assert.strictEqual(
-				notebook.scopedContextKeyService.getContextKeyValue(CONTEXT_REPLACE_INPUT_FOCUSED.key),
-				false
-			);
+			expect(
+				notebook.scopedContextKeyService.getContextKeyValue(CONTEXT_REPLACE_INPUT_FOCUSED.key)
+			).toBe(false);
 		});
 
-		test('detaching view hides find widget', () => {
+		it('detaching view hides find widget', () => {
 			const { notebook, find } = findFixture([['hello', 'python', CellKind.Code]]);
-			assert.strictEqual(find.isVisible.get(), true);
+			expect(find.isVisible.get()).toBe(true);
 
 			// Detach view
 			notebook.detachView();
-			assert.strictEqual(find.isVisible.get(), false);
+			expect(find.isVisible.get()).toBe(false);
 		});
 
-		test('hide resets replace visibility', () => {
+		it('hide resets replace visibility', () => {
 			const { controller, find } = findFixture([['hello', 'python', CellKind.Code]]);
 
 			// Show with replace visible
 			controller.start({ replace: true });
-			assert.strictEqual(find.replaceIsVisible.get(), true);
+			expect(find.replaceIsVisible.get()).toBe(true);
 
 			// Hide and re-show without replace
 			controller.hide();
 			controller.start();
-			assert.strictEqual(find.replaceIsVisible.get(), false);
+			expect(find.replaceIsVisible.get()).toBe(false);
 		});
 
-		test('hide before start is no-op', () => {
+		it('hide before start is no-op', () => {
 			const notebook = createNotebook([['hello', 'python', CellKind.Code]]);
 			const controller = getController(notebook);
 
 			// Should not throw
 			controller.hide();
-			assert.strictEqual(controller.findInstance, undefined);
+			expect(controller.findInstance).toBe(undefined);
 		});
 	});
 
-	suite('State Isolation', () => {
+	describe('State Isolation', () => {
 
-		test('two notebooks maintain independent match state', () => {
+		it('two notebooks maintain independent match state', () => {
 			const notebook1 = createNotebook([['hello', 'python', CellKind.Code]]);
 			const notebook2 = createNotebook([['world', 'python', CellKind.Code]]);
 			const controller1 = getController(notebook1);
@@ -793,16 +787,16 @@ suite('PositronNotebookFindController', () => {
 
 			const find1 = getOrStartFindInstance(controller1);
 			find1.searchString.set('hello', undefined);
-			assert.strictEqual(find1.matchCount.get(), 1);
-			assert.strictEqual(controller2.findInstance, undefined, 'nb2 controller should have no find instance yet');
+			expect(find1.matchCount.get()).toBe(1);
+			expect(controller2.findInstance).toBe(undefined);
 
 			const find2 = getOrStartFindInstance(controller2);
 			find2.searchString.set('world', undefined);
-			assert.strictEqual(find2.matchCount.get(), 1);
-			assert.strictEqual(find1.matchCount.get(), 1, 'nb1 match count unchanged');
+			expect(find2.matchCount.get()).toBe(1);
+			expect(find1.matchCount.get()).toBe(1);
 		});
 
-		test('matches reference cells from their own notebook', () => {
+		it('matches reference cells from their own notebook', () => {
 			const notebook1 = createNotebook([['shared term', 'python', CellKind.Code]]);
 			const notebook2 = createNotebook([['shared term', 'python', CellKind.Code]]);
 			const controller1 = getController(notebook1);
@@ -813,12 +807,12 @@ suite('PositronNotebookFindController', () => {
 			const find2 = getOrStartFindInstance(controller2);
 			find2.searchString.set('shared', undefined);
 
-			assert.strictEqual(controller1.matches.get()[0].cell, notebook1.cells.get()[0]);
-			assert.strictEqual(controller2.matches.get()[0].cell, notebook2.cells.get()[0]);
-			assert.notStrictEqual(controller1.matches.get()[0].cell, controller2.matches.get()[0].cell);
+			expect(controller1.matches.get()[0].cell).toBe(notebook1.cells.get()[0]);
+			expect(controller2.matches.get()[0].cell).toBe(notebook2.cells.get()[0]);
+			expect(controller1.matches.get()[0].cell).not.toBe(controller2.matches.get()[0].cell);
 		});
 
-		test('decorations are independent across notebooks', () => {
+		it('decorations are independent across notebooks', () => {
 			const notebook1 = createNotebook([['aaa', 'python', CellKind.Code]]);
 			const notebook2 = createNotebook([['bbb', 'python', CellKind.Code]]);
 			const controller1 = getController(notebook1);
@@ -826,16 +820,16 @@ suite('PositronNotebookFindController', () => {
 
 			const find1 = getOrStartFindInstance(controller1);
 			find1.searchString.set('aaa', undefined);
-			assert.ok(getFindMatchDecorations(notebook1.cells.get()[0]).length > 0, 'nb1 should have decorations');
-			assert.strictEqual(getFindMatchDecorations(notebook2.cells.get()[0]).length, 0, 'nb2 should have no decorations');
+			expect(getFindMatchDecorations(notebook1.cells.get()[0]).length > 0).toBeTruthy();
+			expect(getFindMatchDecorations(notebook2.cells.get()[0]).length).toBe(0);
 
 			const find2 = getOrStartFindInstance(controller2);
 			find2.searchString.set('bbb', undefined);
-			assert.ok(getFindMatchDecorations(notebook2.cells.get()[0]).length > 0, 'nb2 should now have decorations');
-			assert.ok(getFindMatchDecorations(notebook1.cells.get()[0]).length > 0, 'nb1 decorations should be unchanged');
+			expect(getFindMatchDecorations(notebook2.cells.get()[0]).length > 0).toBeTruthy();
+			expect(getFindMatchDecorations(notebook1.cells.get()[0]).length > 0).toBeTruthy();
 		});
 
-		test('hiding find in one notebook does not affect the other', () => {
+		it('hiding find in one notebook does not affect the other', () => {
 			const notebook1 = createNotebook([['foo', 'python', CellKind.Code]]);
 			const notebook2 = createNotebook([['foo', 'python', CellKind.Code]]);
 			const controller1 = getController(notebook1);
@@ -847,78 +841,78 @@ suite('PositronNotebookFindController', () => {
 			find2.searchString.set('foo', undefined);
 
 			controller1.hide();
-			assert.strictEqual(controller1.matches.get().length, 0, 'nb1 matches should be cleared');
-			assert.strictEqual(find2.matchCount.get(), 1, 'nb2 matches should be unaffected');
+			expect(controller1.matches.get().length).toBe(0);
+			expect(find2.matchCount.get()).toBe(1);
 		});
 	});
 
-	suite('Debounce and Reactive Updates', () => {
+	describe('Debounce and Reactive Updates', () => {
 
-		test('content change triggers debounced recompute', () => runWithFakedTimers({}, async () => {
+		it('content change triggers debounced recompute', () => runWithFakedTimers({}, async () => {
 			const { notebook, find } = findFixture([['hello world', 'python', CellKind.Code]]);
-			// Set up search — autorun fires synchronously when observables change
+			// Set up search -- autorun fires synchronously when observables change
 			find.searchString.set('hello', undefined);
-			assert.strictEqual(find.matchCount.get(), 1);
+			expect(find.matchCount.get()).toBe(1);
 
 			// setValue() propagates through the event chain:
-			// TextModel → NotebookCellTextModel → NotebookTextModel → controller debounce
+			// TextModel -> NotebookCellTextModel -> NotebookTextModel -> controller debounce
 			const cell = notebook.cells.get()[0];
 			cell.model.textModel!.setValue('hello hello hello');
 
-			// Matches haven't updated yet — debounce hasn't fired
-			assert.strictEqual(find.matchCount.get(), 1, 'Should not recompute before debounce fires');
+			// Matches haven't updated yet -- debounce hasn't fired
+			expect(find.matchCount.get()).toBe(1);
 
 			// Advance past the 20ms debounce
 			await waitForDebounce();
-			assert.strictEqual(find.matchCount.get(), 3, 'Should have recomputed after debounce');
+			expect(find.matchCount.get()).toBe(3);
 		}));
 
-		test('search param change triggers immediate recompute', () => {
+		it('search param change triggers immediate recompute', () => {
 			const { find } = findFixture([['hello Hello HELLO', 'python', CellKind.Code]]);
 			find.searchString.set('hello', undefined);
-			assert.strictEqual(find.matchCount.get(), 3, 'Case-insensitive finds all');
+			expect(find.matchCount.get()).toBe(3);
 
-			// Toggle matchCase — triggers immediate recompute via autorun (not debounced)
+			// Toggle matchCase -- triggers immediate recompute via autorun (not debounced)
 			find.matchCase.set(true, undefined);
-			assert.strictEqual(find.matchCount.get(), 1, 'Case-sensitive finds only lowercase');
+			expect(find.matchCount.get()).toBe(1);
 		});
 
-		test('rapid content changes settle to correct final state', () => runWithFakedTimers({}, async () => {
+		it('rapid content changes settle to correct final state', () => runWithFakedTimers({}, async () => {
 			const { notebook, find } = findFixture([['initial', 'python', CellKind.Code]]);
 			find.searchString.set('final', undefined);
-			assert.strictEqual(find.matchCount.get(), 0);
+			expect(find.matchCount.get()).toBe(0);
 
-			// Rapid edits — each setValue() reschedules the debounce
+			// Rapid edits -- each setValue() reschedules the debounce
 			const cell = notebook.cells.get()[0];
 			cell.model.textModel!.setValue('first');
 			cell.model.textModel!.setValue('second');
 			cell.model.textModel!.setValue('final content');
 
-			// Advance past the 20ms debounce — only final state matters
+			// Advance past the 20ms debounce -- only final state matters
 			await waitForDebounce();
-			assert.strictEqual(find.matchCount.get(), 1, 'Should find "final" in final content');
+			expect(find.matchCount.get()).toBe(1);
 		}));
 	});
 
-	suite('Replace Single Match', () => {
+	describe('Replace Single Match', () => {
 
-		test('replace() with no current match navigates to first match without replacing', async () => {
+		it('replace() with no current match navigates to first match without replacing', async () => {
 			const { notebook, controller, find } = findFixture([['hello world hello', 'python', CellKind.Code]]);
 			transaction((tx) => {
 				find.searchString.set('hello', tx);
 				find.replaceText.set('goodbye', tx);
 			});
-			assert.strictEqual(find.matchCount.get(), 2);
+			expect(find.matchCount.get()).toBe(2);
 
-			// No current match yet — replace should just navigate
+			// No current match yet -- replace should just navigate
 			await controller.replace();
 
-			assert.strictEqual(controller.currentMatch.get()?.matchIndex, 0);
+			expect(controller.currentMatch.get()?.matchIndex).toBe(0);
 			const cell = notebook.cells.get()[0];
-			assert.strictEqual(cell.model.textModel!.getValue(), 'hello world hello', 'Text should be unchanged');
+			expect(cell.model.textModel!.getValue()).toBe('hello world hello');
 		});
 
-		test('replace() with current match replaces it and advances to next', () => runWithFakedTimers({}, async () => {
+		it('replace() with current match replaces it and advances to next', () => runWithFakedTimers({}, async () => {
 			const { notebook, controller, find } = findFixture([['hello world hello', 'python', CellKind.Code]]);
 			transaction((tx) => {
 				find.searchString.set('hello', tx);
@@ -927,19 +921,19 @@ suite('PositronNotebookFindController', () => {
 
 			// Navigate to first match
 			controller.findNext();
-			assert.strictEqual(controller.currentMatch.get()?.matchIndex, 0);
+			expect(controller.currentMatch.get()?.matchIndex).toBe(0);
 
 			// Replace
 			await controller.replace();
 
 			const cell = notebook.cells.get()[0];
-			assert.strictEqual(cell.model.textModel!.getValue(), 'goodbye world hello');
+			expect(cell.model.textModel!.getValue()).toBe('goodbye world hello');
 
 			await waitForDebounce();
-			assert.strictEqual(find.matchCount.get(), 1);
+			expect(find.matchCount.get()).toBe(1);
 		}));
 
-		test('replace() with current match on last match wraps to first', () => runWithFakedTimers({}, async () => {
+		it('replace() with current match on last match wraps to first', () => runWithFakedTimers({}, async () => {
 			const { notebook, controller, find } = findFixture([['hello world hello', 'python', CellKind.Code]]);
 			transaction((tx) => {
 				find.searchString.set('hello', tx);
@@ -949,37 +943,37 @@ suite('PositronNotebookFindController', () => {
 			// Navigate to last match (index 1)
 			controller.findNext();
 			controller.findNext();
-			assert.strictEqual(controller.currentMatch.get()?.matchIndex, 1);
+			expect(controller.currentMatch.get()?.matchIndex).toBe(1);
 
 			// Replace last match
 			await controller.replace();
 
 			const cell = notebook.cells.get()[0];
-			assert.strictEqual(cell.model.textModel!.getValue(), 'hello world goodbye');
+			expect(cell.model.textModel!.getValue()).toBe('hello world goodbye');
 
 			await waitForDebounce();
-			assert.strictEqual(find.matchCount.get(), 1);
+			expect(find.matchCount.get()).toBe(1);
 			// Should wrap to match 0 (the remaining 'hello')
-			assert.strictEqual(controller.currentMatch.get()?.matchIndex, 0);
+			expect(controller.currentMatch.get()?.matchIndex).toBe(0);
 		}));
 
-		test('replace() does nothing when there are no matches', async () => {
+		it('replace() does nothing when there are no matches', async () => {
 			const { notebook, controller, find } = findFixture([['hello world', 'python', CellKind.Code]]);
 			transaction((tx) => {
 				find.searchString.set('xyz', tx);
 				find.replaceText.set('replaced', tx);
 			});
-			assert.strictEqual(find.matchCount.get(), 0);
+			expect(find.matchCount.get()).toBe(0);
 
 			await controller.replace();
 
 			const cell = notebook.cells.get()[0];
-			assert.strictEqual(cell.model.textModel!.getValue(), 'hello world');
-			assert.strictEqual(controller.currentMatch.get(), undefined);
-			assert.ok(bulkEditApplySpy.notCalled, 'IBulkEditService.apply should not be called');
+			expect(cell.model.textModel!.getValue()).toBe('hello world');
+			expect(controller.currentMatch.get()).toBe(undefined);
+			expect(bulkEditApplySpy.notCalled).toBeTruthy();
 		});
 
-		test('replace() uses literal text when regex is off', async () => {
+		it('replace() uses literal text when regex is off', async () => {
 			const { notebook, controller, find } = findFixture([['foo123 bar', 'python', CellKind.Code]]);
 			transaction((tx) => {
 				find.searchString.set('foo123', tx);
@@ -991,10 +985,10 @@ suite('PositronNotebookFindController', () => {
 
 			const cell = notebook.cells.get()[0];
 			// '$1' should be treated literally, not as a capture group
-			assert.strictEqual(cell.model.textModel!.getValue(), '$1-replaced bar');
+			expect(cell.model.textModel!.getValue()).toBe('$1-replaced bar');
 		});
 
-		test('replace() uses capture groups when regex is on', async () => {
+		it('replace() uses capture groups when regex is on', async () => {
 			const { notebook, controller, find } = findFixture([['foo123 bar456', 'python', CellKind.Code]]);
 			transaction((tx) => {
 				find.isRegex.set(true, tx);
@@ -1006,10 +1000,10 @@ suite('PositronNotebookFindController', () => {
 			await controller.replace();
 
 			const cell = notebook.cells.get()[0];
-			assert.strictEqual(cell.model.textModel!.getValue(), '123-foo bar456');
+			expect(cell.model.textModel!.getValue()).toBe('123-foo bar456');
 		});
 
-		test('replace() with preserveCase inherits casing from matched text', async () => {
+		it('replace() with preserveCase inherits casing from matched text', async () => {
 			const { notebook, controller, find } = findFixture([['Hello world', 'python', CellKind.Code]]);
 			transaction((tx) => {
 				find.preserveCase.set(true, tx);
@@ -1022,10 +1016,10 @@ suite('PositronNotebookFindController', () => {
 
 			const cell = notebook.cells.get()[0];
 			// 'Hello' matched -> 'goodbye' should become 'Goodbye'
-			assert.strictEqual(cell.model.textModel!.getValue(), 'Goodbye world');
+			expect(cell.model.textModel!.getValue()).toBe('Goodbye world');
 		});
 
-		test('replace() calls IBulkEditService.apply with correct ResourceTextEdit', async () => {
+		it('replace() calls IBulkEditService.apply with correct ResourceTextEdit', async () => {
 			const { controller, find } = findFixture([['hello world', 'python', CellKind.Code]]);
 			transaction((tx) => {
 				find.searchString.set('hello', tx);
@@ -1035,67 +1029,64 @@ suite('PositronNotebookFindController', () => {
 			controller.findNext();
 			await controller.replace();
 
-			assert.ok(bulkEditApplySpy.calledOnce, 'apply should be called once');
+			expect(bulkEditApplySpy.calledOnce).toBeTruthy();
 			const edits = bulkEditApplySpy.firstCall.args[0];
-			assert.strictEqual(edits.length, 1);
-			assert.strictEqual(edits[0].textEdit.text, 'hi');
+			expect(edits.length).toBe(1);
+			expect(edits[0].textEdit.text).toBe('hi');
 			// 'hello' is at [1,1 -> 1,6]
-			assert.strictEqual(edits[0].textEdit.range.startLineNumber, 1);
-			assert.strictEqual(edits[0].textEdit.range.startColumn, 1);
-			assert.strictEqual(edits[0].textEdit.range.endLineNumber, 1);
-			assert.strictEqual(edits[0].textEdit.range.endColumn, 6);
+			expect(edits[0].textEdit.range.startLineNumber).toBe(1);
+			expect(edits[0].textEdit.range.startColumn).toBe(1);
+			expect(edits[0].textEdit.range.endLineNumber).toBe(1);
+			expect(edits[0].textEdit.range.endColumn).toBe(6);
 			// Check options label
 			const options = bulkEditApplySpy.firstCall.args[1];
-			assert.strictEqual(options.quotableLabel, 'Notebook Replace');
+			expect(options.quotableLabel).toBe('Notebook Replace');
 		});
 
-		test('replace() triggers research via content change debounce', () => runWithFakedTimers({}, async () => {
+		it('replace() triggers research via content change debounce', () => runWithFakedTimers({}, async () => {
 			const { controller, find } = findFixture([['hello hello hello', 'python', CellKind.Code]]);
 			transaction((tx) => {
 				find.searchString.set('hello', tx);
 				find.replaceText.set('bye', tx);
 			});
-			assert.strictEqual(find.matchCount.get(), 3);
+			expect(find.matchCount.get()).toBe(3);
 
 			controller.findNext();
 			await controller.replace();
 
 			// After debounce, match count should update
 			await waitForDebounce();
-			assert.strictEqual(find.matchCount.get(), 2);
+			expect(find.matchCount.get()).toBe(2);
 		}));
 
 		// Matches upstream text-editor behavior (findModel.ts): the first
 		// replace() call after a fresh search navigates to the match; the
 		// second call performs the actual replacement.
-		test('replace() after fresh search navigates first, then replaces on second call', async () => {
+		it('replace() after fresh search navigates first, then replaces on second call', async () => {
 			const { notebook, controller, find } = findFixture([['hello world hello', 'python', CellKind.Code]]);
 
 			transaction((tx) => {
 				find.searchString.set('hello', tx);
 				find.replaceText.set('goodbye', tx);
 			});
-			assert.strictEqual(find.matchCount.get(), 2);
-			assert.strictEqual(controller.currentMatch.get(), undefined, 'currentMatch should be unset after a fresh search');
+			expect(find.matchCount.get()).toBe(2);
+			expect(controller.currentMatch.get()).toBe(undefined);
 
 			// First replace() navigates to the first match without replacing.
 			await controller.replace();
 			const cell = notebook.cells.get()[0];
-			assert.strictEqual(cell.model.textModel!.getValue(), 'hello world hello',
-				'First replace() should navigate, not replace');
-			assert.ok(controller.currentMatch.get() !== undefined,
-				'currentMatch should be set after first replace()');
+			expect(cell.model.textModel!.getValue()).toBe('hello world hello');
+			expect(controller.currentMatch.get() !== undefined).toBeTruthy();
 
 			// Second replace() performs the replacement.
 			await controller.replace();
-			assert.strictEqual(cell.model.textModel!.getValue(), 'goodbye world hello',
-				'Second replace() should replace the first match');
+			expect(cell.model.textModel!.getValue()).toBe('goodbye world hello');
 		});
 	});
 
-	suite('Replace All', () => {
+	describe('Replace All', () => {
 
-		test('replaceAll() replaces all matches in one operation', () => runWithFakedTimers({}, async () => {
+		it('replaceAll() replaces all matches in one operation', () => runWithFakedTimers({}, async () => {
 			const { notebook, controller, find } = findFixture([['hello world hello', 'python', CellKind.Code]]);
 			transaction((tx) => {
 				find.searchString.set('hello', tx);
@@ -1105,13 +1096,13 @@ suite('PositronNotebookFindController', () => {
 			await controller.replaceAll();
 
 			const cell = notebook.cells.get()[0];
-			assert.strictEqual(cell.model.textModel!.getValue(), 'bye world bye');
+			expect(cell.model.textModel!.getValue()).toBe('bye world bye');
 
 			await waitForDebounce();
-			assert.strictEqual(find.matchCount.get(), 0);
+			expect(find.matchCount.get()).toBe(0);
 		}));
 
-		test('replaceAll() works across multiple cells', () => runWithFakedTimers({}, async () => {
+		it('replaceAll() works across multiple cells', () => runWithFakedTimers({}, async () => {
 			const { notebook, controller, find } = findFixture([
 				['hello', 'python', CellKind.Code],
 				['world', 'python', CellKind.Code],
@@ -1125,15 +1116,15 @@ suite('PositronNotebookFindController', () => {
 			await controller.replaceAll();
 
 			const cells = notebook.cells.get();
-			assert.strictEqual(cells[0].model.textModel!.getValue(), 'bye');
-			assert.strictEqual(cells[1].model.textModel!.getValue(), 'world');
-			assert.strictEqual(cells[2].model.textModel!.getValue(), 'bye again');
+			expect(cells[0].model.textModel!.getValue()).toBe('bye');
+			expect(cells[1].model.textModel!.getValue()).toBe('world');
+			expect(cells[2].model.textModel!.getValue()).toBe('bye again');
 
 			await waitForDebounce();
-			assert.strictEqual(find.matchCount.get(), 0);
+			expect(find.matchCount.get()).toBe(0);
 		}));
 
-		test('replaceAll() applies all edits in a single IBulkEditService.apply call', async () => {
+		it('replaceAll() applies all edits in a single IBulkEditService.apply call', async () => {
 			const { controller, find } = findFixture([
 				['aa', 'python', CellKind.Code],
 				['aa', 'python', CellKind.Code],
@@ -1145,14 +1136,14 @@ suite('PositronNotebookFindController', () => {
 
 			await controller.replaceAll();
 
-			assert.ok(bulkEditApplySpy.calledOnce, 'apply should be called exactly once');
+			expect(bulkEditApplySpy.calledOnce).toBeTruthy();
 			const edits = bulkEditApplySpy.firstCall.args[0];
-			assert.strictEqual(edits.length, 2, 'Should have two ResourceTextEdit objects');
+			expect(edits.length).toBe(2);
 			const options = bulkEditApplySpy.firstCall.args[1];
-			assert.strictEqual(options.quotableLabel, 'Notebook Replace All');
+			expect(options.quotableLabel).toBe('Notebook Replace All');
 		});
 
-		test('replaceAll() with zero matches is a no-op', async () => {
+		it('replaceAll() with zero matches is a no-op', async () => {
 			const { notebook, controller, find } = findFixture([['hello', 'python', CellKind.Code]]);
 			transaction((tx) => {
 				find.searchString.set('xyz', tx);
@@ -1162,11 +1153,11 @@ suite('PositronNotebookFindController', () => {
 			await controller.replaceAll();
 
 			const cell = notebook.cells.get()[0];
-			assert.strictEqual(cell.model.textModel!.getValue(), 'hello');
-			assert.ok(bulkEditApplySpy.notCalled, 'IBulkEditService.apply should not be called');
+			expect(cell.model.textModel!.getValue()).toBe('hello');
+			expect(bulkEditApplySpy.notCalled).toBeTruthy();
 		});
 
-		test('replaceAll() with regex capture groups builds per-match replacements', async () => {
+		it('replaceAll() with regex capture groups builds per-match replacements', async () => {
 			const { notebook, controller, find } = findFixture([['foo123 bar456', 'python', CellKind.Code]]);
 			transaction((tx) => {
 				find.isRegex.set(true, tx);
@@ -1177,7 +1168,7 @@ suite('PositronNotebookFindController', () => {
 			await controller.replaceAll();
 
 			const cell = notebook.cells.get()[0];
-			assert.strictEqual(cell.model.textModel!.getValue(), '123-foo 456-bar');
+			expect(cell.model.textModel!.getValue()).toBe('123-foo 456-bar');
 		});
 
 		// Undo grouping is verified by the "single IBulkEditService.apply call"
@@ -1185,9 +1176,9 @@ suite('PositronNotebookFindController', () => {
 		// supports undo, so direct undo verification could be added if needed.
 	});
 
-	suite('Replace Edge Cases', () => {
+	describe('Replace Edge Cases', () => {
 
-		test('replace when match text equals replacement text still advances', async () => {
+		it('replace when match text equals replacement text still advances', async () => {
 			const { notebook, controller, find } = findFixture([['hello world hello', 'python', CellKind.Code]]);
 			transaction((tx) => {
 				find.searchString.set('hello', tx);
@@ -1198,16 +1189,16 @@ suite('PositronNotebookFindController', () => {
 			await controller.replace();
 
 			const cell = notebook.cells.get()[0];
-			assert.strictEqual(cell.model.textModel!.getValue(), 'hello world hello');
-			assert.ok(bulkEditApplySpy.calledOnce, 'apply should still be called');
+			expect(cell.model.textModel!.getValue()).toBe('hello world hello');
+			expect(bulkEditApplySpy.calledOnce).toBeTruthy();
 
 			// No debounce needed: replace() calls findNext() which sets
 			// currentMatch synchronously. The text didn't change so
 			// research() is a no-op.
-			assert.strictEqual(controller.currentMatch.get()?.matchIndex, 1);
+			expect(controller.currentMatch.get()?.matchIndex).toBe(1);
 		});
 
-		test('replace with empty string deletes matched text', () => runWithFakedTimers({}, async () => {
+		it('replace with empty string deletes matched text', () => runWithFakedTimers({}, async () => {
 			const { notebook, controller, find } = findFixture([['hello world', 'python', CellKind.Code]]);
 			transaction((tx) => {
 				find.searchString.set('hello ', tx);
@@ -1218,13 +1209,13 @@ suite('PositronNotebookFindController', () => {
 			await controller.replace();
 
 			const cell = notebook.cells.get()[0];
-			assert.strictEqual(cell.model.textModel!.getValue(), 'world');
+			expect(cell.model.textModel!.getValue()).toBe('world');
 
 			await waitForDebounce();
-			assert.strictEqual(find.matchCount.get(), 0);
+			expect(find.matchCount.get()).toBe(0);
 		}));
 
-		test('replaceAll with empty string deletes all matched text', () => runWithFakedTimers({}, async () => {
+		it('replaceAll with empty string deletes all matched text', () => runWithFakedTimers({}, async () => {
 			const { notebook, controller, find } = findFixture([['hello world hello', 'python', CellKind.Code]]);
 			transaction((tx) => {
 				find.searchString.set('hello', tx);
@@ -1234,19 +1225,19 @@ suite('PositronNotebookFindController', () => {
 			await controller.replaceAll();
 
 			const cell = notebook.cells.get()[0];
-			assert.strictEqual(cell.model.textModel!.getValue(), ' world ');
+			expect(cell.model.textModel!.getValue()).toBe(' world ');
 
 			await waitForDebounce();
-			assert.strictEqual(find.matchCount.get(), 0);
+			expect(find.matchCount.get()).toBe(0);
 		}));
 
-		test('replace triggers research and updates decorations', () => runWithFakedTimers({}, async () => {
+		it('replace triggers research and updates decorations', () => runWithFakedTimers({}, async () => {
 			const { notebook, controller, find } = findFixture([['hello world hello', 'python', CellKind.Code]]);
 			transaction((tx) => {
 				find.searchString.set('hello', tx);
 				find.replaceText.set('bye', tx);
 			});
-			assert.strictEqual(find.matchCount.get(), 2);
+			expect(find.matchCount.get()).toBe(2);
 
 			controller.findNext();
 			await controller.replace();
@@ -1254,10 +1245,10 @@ suite('PositronNotebookFindController', () => {
 			await waitForDebounce();
 
 			const cell = notebook.cells.get()[0];
-			assert.strictEqual(getFindMatchDecorations(cell).length, 1, 'One remaining match decoration');
+			expect(getFindMatchDecorations(cell).length).toBe(1);
 		}));
 
-		test('replaceAll clears all decorations', () => runWithFakedTimers({}, async () => {
+		it('replaceAll clears all decorations', () => runWithFakedTimers({}, async () => {
 			const { notebook, controller, find } = findFixture([['hello world hello', 'python', CellKind.Code]]);
 			transaction((tx) => {
 				find.searchString.set('hello', tx);
@@ -1269,26 +1260,26 @@ suite('PositronNotebookFindController', () => {
 			await waitForDebounce();
 
 			const cell = notebook.cells.get()[0];
-			assert.strictEqual(getFindMatchDecorations(cell).length, 0);
-			assert.strictEqual(getCurrentFindMatchDecoration(cell), undefined);
+			expect(getFindMatchDecorations(cell).length).toBe(0);
+			expect(getCurrentFindMatchDecoration(cell)).toBe(undefined);
 		}));
 
-		test('replace on multi-line content', () => runWithFakedTimers({}, async () => {
+		it('replace on multi-line content', () => runWithFakedTimers({}, async () => {
 			const { notebook, controller, find } = findFixture([['line1\nline2\nline1', 'python', CellKind.Code]]);
 			transaction((tx) => {
 				find.searchString.set('line1', tx);
 				find.replaceText.set('replaced', tx);
 			});
-			assert.strictEqual(find.matchCount.get(), 2);
+			expect(find.matchCount.get()).toBe(2);
 
 			controller.findNext();
 			await controller.replace();
 
 			const cell = notebook.cells.get()[0];
-			assert.strictEqual(cell.model.textModel!.getValue(), 'replaced\nline2\nline1');
+			expect(cell.model.textModel!.getValue()).toBe('replaced\nline2\nline1');
 
 			await waitForDebounce();
-			assert.strictEqual(find.matchCount.get(), 1);
+			expect(find.matchCount.get()).toBe(1);
 		}));
 
 		// Regression test for: replace() does nothing when cursor is past all matches.
@@ -1304,30 +1295,27 @@ suite('PositronNotebookFindController', () => {
 		// Actual (bug): Nothing happens on any number of clicks because
 		// findNextMatchFromCursor() returns -1 when the cursor is past all matches
 		// (no wrap-around).
-		test('replace() works when cursor is positioned after all matches in the cell', async () => {
+		it('replace() works when cursor is positioned after all matches in the cell', async () => {
 			const { notebook, controller, find } = findFixture([['aa bb', 'python', CellKind.Code]]);
 			const cell = notebook.cells.get()[0];
 
-			// Place cursor at column 4 ('aa |bb') — past the only 'aa' match at [1,1]-[1,3]
+			// Place cursor at column 4 ('aa |bb') -- past the only 'aa' match at [1,1]-[1,3]
 			cell.currentEditor!.setPosition({ lineNumber: 1, column: 4 });
 
 			transaction((tx) => {
 				find.searchString.set('aa', tx);
 				find.replaceText.set('test', tx);
 			});
-			assert.strictEqual(find.matchCount.get(), 1);
+			expect(find.matchCount.get()).toBe(1);
 
 			// First replace() should navigate to the match (two-step behavior)
 			await controller.replace();
-			assert.strictEqual(cell.model.textModel!.getValue(), 'aa bb',
-				'First replace() should navigate, not replace');
-			assert.ok(controller.currentMatch.get() !== undefined,
-				'currentMatch should be set after first replace()');
+			expect(cell.model.textModel!.getValue()).toBe('aa bb');
+			expect(controller.currentMatch.get() !== undefined).toBeTruthy();
 
 			// Second replace() should perform the actual replacement
 			await controller.replace();
-			assert.strictEqual(cell.model.textModel!.getValue(), 'test bb',
-				'Second replace() should replace the match');
+			expect(cell.model.textModel!.getValue()).toBe('test bb');
 		});
 
 		// Regression test for: after replace() changes text and research
@@ -1351,7 +1339,7 @@ suite('PositronNotebookFindController', () => {
 		//
 		// Uses different-length replacement ('hello' -> 'hi') so that the second
 		// match's position shifts, making the stale currentMatch invalid.
-		test('replace() after debounce-triggered research immediately replaces next match', () => runWithFakedTimers({}, async () => {
+		it('replace() after debounce-triggered research immediately replaces next match', () => runWithFakedTimers({}, async () => {
 			const { notebook, controller, find } = findFixture([['hello world hello', 'python', CellKind.Code]]);
 			const cell = notebook.cells.get()[0];
 
@@ -1359,35 +1347,32 @@ suite('PositronNotebookFindController', () => {
 				find.searchString.set('hello', tx);
 				find.replaceText.set('hi', tx);
 			});
-			assert.strictEqual(find.matchCount.get(), 2);
+			expect(find.matchCount.get()).toBe(2);
 
 			// Navigate to match 0 (two-step behavior for fresh search)
 			await controller.replace();
-			assert.strictEqual(cell.model.textModel!.getValue(), 'hello world hello',
-				'First replace() should navigate, not replace');
+			expect(cell.model.textModel!.getValue()).toBe('hello world hello');
 
 			// Replace match 0
 			await controller.replace();
-			assert.strictEqual(cell.model.textModel!.getValue(), 'hi world hello',
-				'Second replace() should replace match 0');
+			expect(cell.model.textModel!.getValue()).toBe('hi world hello');
 
 			// Wait for debounced research to recompute matches.
 			// The remaining 'hello' shifted from column 13 to column 10
 			// due to the shorter replacement, so the old currentMatch is stale.
 			await waitForDebounce();
-			assert.strictEqual(find.matchCount.get(), 1);
+			expect(find.matchCount.get()).toBe(1);
 
 			// This replace() should immediately replace the remaining match
 			// without requiring an extra navigation click
 			await controller.replace();
-			assert.strictEqual(cell.model.textModel!.getValue(), 'hi world hi',
-				'replace() after research should immediately replace, not just navigate');
+			expect(cell.model.textModel!.getValue()).toBe('hi world hi');
 		}));
 	});
 
-	suite('Performance Optimizations', () => {
+	describe('Performance Optimizations', () => {
 
-		test('research() does not store capture groups (only needed for replace)', () => {
+		it('research() does not store capture groups (only needed for replace)', () => {
 			const { controller, find } = findFixture([['foo123 bar456', 'python', CellKind.Code]]);
 			transaction((tx) => {
 				find.isRegex.set(true, tx);
@@ -1395,13 +1380,13 @@ suite('PositronNotebookFindController', () => {
 			});
 
 			const matches = controller.matches.get();
-			assert.strictEqual(matches.length, 2);
+			expect(matches.length).toBe(2);
 			// research() should not pay the cost of capturing groups
-			assert.strictEqual(matches[0].matches, null);
-			assert.strictEqual(matches[1].matches, null);
+			expect(matches[0].matches).toBe(null);
+			expect(matches[1].matches).toBe(null);
 		});
 
-		test('replaceAll() replaces all matches beyond the decoration limit', () => runWithFakedTimers({}, async () => {
+		it('replaceAll() replaces all matches beyond the decoration limit', () => runWithFakedTimers({}, async () => {
 			// 1100 occurrences of 'aa', exceeding the default findMatches
 			// limitResultCount of 1000. research() should cap at 1000 for
 			// decorations, but replaceAll() must replace all 1100.
@@ -1415,21 +1400,18 @@ suite('PositronNotebookFindController', () => {
 			// research() should cap matches for decorations.
 			// The default findMatches limitResultCount is 999.
 			const cell = notebook.cells.get()[0];
-			assert.strictEqual(controller.matches.get().length, 999,
-				'research() should limit matches to 999 for decorations');
-			assert.strictEqual(getFindMatchDecorations(cell).length, 999,
-				'decorations should be capped at 999');
+			expect(controller.matches.get().length).toBe(999);
+			expect(getFindMatchDecorations(cell).length).toBe(999);
 
 			// replaceAll() should replace ALL 1100, not just the decorated 1000
 			await controller.replaceAll();
 
-			assert.ok(
-				!cell.model.textModel!.getValue().includes('aa'),
-				'All 1100 matches should be replaced, not just the first 1000'
-			);
+			expect(
+				!cell.model.textModel!.getValue().includes('aa')
+			).toBeTruthy();
 
 			await waitForDebounce();
-			assert.strictEqual(find.matchCount.get(), 0);
+			expect(find.matchCount.get()).toBe(0);
 		}));
 	});
 

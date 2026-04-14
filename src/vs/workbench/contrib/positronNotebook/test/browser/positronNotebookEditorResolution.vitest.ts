@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/// <reference types="vitest/globals" />
+
 /**
  * @fileoverview Tests for Positron Notebook editor resolution logic.
  *
@@ -31,7 +33,6 @@
  * @see {@link EditorResolverService} - Core service for editor resolution
  */
 
-import assert from 'assert';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
@@ -40,11 +41,11 @@ import { RegisteredEditorPriority, ResolvedStatus } from '../../../../services/e
 import { ITestInstantiationService } from '../../../../test/browser/workbenchTestServices.js';
 import { EditorPart } from '../../../../browser/parts/editor/editorPart.js';
 import { PositronNotebookEditorInput } from '../../browser/PositronNotebookEditorInput.js';
-import { POSITRON_NOTEBOOK_EDITOR_ID, usingPositronNotebooks } from '../../common/positronNotebookCommon.js';
+import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../common/positronNotebookCommon.js';
 import { createPositronNotebookTestServices } from './testUtils.js';
 import { IPYNB_VIEW_TYPE } from '../../../notebook/browser/notebookBrowser.js';
 
-suite.skip('Positron Notebook Editor Resolution', () => {
+describe.skip('Positron Notebook Editor Resolution', () => {
 	// Suite skipped: Positron notebook editor is behind feature flag (positron.notebook.enabled=false by default)
 	// These tests assume the editor is registered, which won't happen when the flag is disabled
 
@@ -53,7 +54,7 @@ suite.skip('Positron Notebook Editor Resolution', () => {
 	let editorResolverService: EditorResolverService;
 	let part: EditorPart;
 
-	teardown(() => disposables.clear());
+	afterEach(() => disposables.clear());
 
 	createTestContainer().build();
 
@@ -95,7 +96,7 @@ suite.skip('Positron Notebook Editor Resolution', () => {
 	}
 
 
-	test('Editor is registered with static option priority', async () => {
+	it('Editor is registered with static option priority', async () => {
 		await createTestServices();
 
 		// Register with option priority (static registration)
@@ -110,10 +111,10 @@ suite.skip('Positron Notebook Editor Resolution', () => {
 
 		// Should return ResolvedStatus.NONE when no editor association is configured
 		// This allows VS Code's default notebook editor to handle the file
-		assert.strictEqual(ipynbResult, ResolvedStatus.NONE);
+		expect(ipynbResult).toBe(ResolvedStatus.NONE);
 	});
 
-	test('Editor registration pattern matches only ipynb files', async () => {
+	it('Editor registration pattern matches only ipynb files', async () => {
 		await createTestServices();
 
 		registerPositronNotebookEditor(RegisteredEditorPriority.option);
@@ -125,7 +126,7 @@ suite.skip('Positron Notebook Editor Resolution', () => {
 		);
 
 		// With option priority and no editor association, should return NONE
-		assert.strictEqual(ipynbResult, ResolvedStatus.NONE);
+		expect(ipynbResult).toBe(ResolvedStatus.NONE);
 
 		// Test .py file - should also return NONE as it doesn't match our pattern
 		const pyResult = await editorResolverService.resolveEditor(
@@ -134,10 +135,10 @@ suite.skip('Positron Notebook Editor Resolution', () => {
 		);
 
 		// Should return NONE for non-matching files
-		assert.strictEqual(pyResult, ResolvedStatus.NONE);
+		expect(pyResult).toBe(ResolvedStatus.NONE);
 	});
 
-	test('Editor registration supports file scheme resources', async () => {
+	it('Editor registration supports file scheme resources', async () => {
 		await createTestServices();
 
 		registerPositronNotebookEditor(RegisteredEditorPriority.option);
@@ -149,7 +150,7 @@ suite.skip('Positron Notebook Editor Resolution', () => {
 		);
 
 		// Should return NONE when no editor association is configured
-		assert.strictEqual(fileResult, ResolvedStatus.NONE);
+		expect(fileResult).toBe(ResolvedStatus.NONE);
 
 		// Test non-file scheme - should also return NONE as it doesn't match our pattern
 		const httpResult = await editorResolverService.resolveEditor(
@@ -158,10 +159,10 @@ suite.skip('Positron Notebook Editor Resolution', () => {
 		);
 
 		// Should return NONE for non-file scheme resources
-		assert.strictEqual(httpResult, ResolvedStatus.NONE);
+		expect(httpResult).toBe(ResolvedStatus.NONE);
 	});
 
-	test('Editor registration behavior with option priority', async () => {
+	it('Editor registration behavior with option priority', async () => {
 		await createTestServices();
 
 		registerPositronNotebookEditor(RegisteredEditorPriority.option);
@@ -176,7 +177,7 @@ suite.skip('Positron Notebook Editor Resolution', () => {
 		);
 
 		// Should return NONE when no editor association is configured
-		assert.strictEqual(firstResult, ResolvedStatus.NONE);
+		expect(firstResult).toBe(ResolvedStatus.NONE);
 
 		// Second resolution for same resource should also return NONE
 		const secondResult = await editorResolverService.resolveEditor(
@@ -185,10 +186,10 @@ suite.skip('Positron Notebook Editor Resolution', () => {
 		);
 
 		// Should consistently return NONE
-		assert.strictEqual(secondResult, ResolvedStatus.NONE);
+		expect(secondResult).toBe(ResolvedStatus.NONE);
 	});
 
-	test('Static registration allows editor to be available in Open With menu', async () => {
+	it('Static registration allows editor to be available in Open With menu', async () => {
 		await createTestServices();
 
 		// Register with option priority - this makes the editor available as an option
@@ -205,7 +206,7 @@ suite.skip('Positron Notebook Editor Resolution', () => {
 
 		// Returns NONE to allow default resolution, but the editor is still registered
 		// and would be available in the "Open With..." menu
-		assert.strictEqual(result, ResolvedStatus.NONE);
+		expect(result).toBe(ResolvedStatus.NONE);
 
 		// This test verifies that the static registration approach works as expected:
 		// - Editor is registered with option priority

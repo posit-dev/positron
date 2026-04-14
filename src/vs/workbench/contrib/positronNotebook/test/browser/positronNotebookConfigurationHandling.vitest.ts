@@ -3,7 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import assert from 'assert';
+/// <reference types="vitest/globals" />
+
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
@@ -73,21 +74,17 @@ class MockPositronNotebookContribution extends DisposableStore {
 	}
 }
 
-suite('Positron Notebook Configuration Handling', () => {
+describe('Positron Notebook Configuration Handling', () => {
 
-	const disposables = new DisposableStore();
+	const ctx = createTestContainer().build();
 	let instantiationService: ITestInstantiationService;
 	let configurationService: TestConfigurationService;
 	let editorResolverService: EditorResolverService;
 
 	let notebookContribution: MockPositronNotebookContribution;
 
-	teardown(() => disposables.clear());
-
-	createTestContainer().build();
-
 	async function createTestServices(): Promise<void> {
-		const services = await createPositronNotebookTestServices(disposables);
+		const services = await createPositronNotebookTestServices(ctx.disposables);
 		instantiationService = services.instantiationService;
 		configurationService = services.configurationService;
 		editorResolverService = services.editorResolverService;
@@ -97,39 +94,39 @@ suite('Positron Notebook Configuration Handling', () => {
 			editorResolverService,
 			instantiationService
 		);
-		disposables.add(notebookContribution);
+		ctx.disposables.add(notebookContribution);
 	}
 
-	test('usingPositronNotebooks returns true when positron.notebook.enabled is true', async () => {
+	it('usingPositronNotebooks returns true when positron.notebook.enabled is true', async () => {
 		await createTestServices();
 
 		// Enable Positron notebooks via configuration setting
 		configurationService.setUserConfiguration('positron.notebook.enabled', true);
 
 		const isUsing = usingPositronNotebooks(configurationService);
-		assert.strictEqual(isUsing, true);
+		expect(isUsing).toBe(true);
 	});
 
-	test('usingPositronNotebooks returns false when positron.notebook.enabled is not set', async () => {
+	it('usingPositronNotebooks returns false when positron.notebook.enabled is not set', async () => {
 		await createTestServices();
 
 		// No configuration set (defaults to false/undefined, both are falsy)
 		const isUsing = usingPositronNotebooks(configurationService);
-		assert.strictEqual(!!isUsing, false);
+		expect(!!isUsing).toBe(false);
 	});
 
-	test('usingPositronNotebooks returns false when positron.notebook.enabled is false', async () => {
+	it('usingPositronNotebooks returns false when positron.notebook.enabled is false', async () => {
 		await createTestServices();
 
 		// Explicitly disable Positron notebooks
 		configurationService.setUserConfiguration('positron.notebook.enabled', false);
 
 		const isUsing = usingPositronNotebooks(configurationService);
-		assert.strictEqual(isUsing, false);
+		expect(isUsing).toBe(false);
 	});
 
 
-	test.skip('Cleanup disposes editor registrations properly', async () => {
+	it.skip('Cleanup disposes editor registrations properly', async () => {
 		// Skipped: Positron notebook editor is behind feature flag (positron.notebook.enabled=false by default)
 		// This test assumes the editor is registered by MockPositronNotebookContribution, which won't happen when the flag is disabled
 		await createTestServices();
@@ -137,7 +134,7 @@ suite('Positron Notebook Configuration Handling', () => {
 		// Verify editor is registered
 		let editors = editorResolverService.getEditors();
 		let positronEditor = editors.find(e => e.id === POSITRON_NOTEBOOK_EDITOR_ID);
-		assert.ok(positronEditor);
+		expect(positronEditor).toBeTruthy();
 
 		// Dispose contribution
 		notebookContribution.dispose();
@@ -145,7 +142,6 @@ suite('Positron Notebook Configuration Handling', () => {
 		// Verify editor is no longer registered
 		editors = editorResolverService.getEditors();
 		positronEditor = editors.find(e => e.id === POSITRON_NOTEBOOK_EDITOR_ID);
-		assert.strictEqual(positronEditor, undefined);
+		expect(positronEditor).toBe(undefined);
 	});
 });
-

@@ -3,7 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import assert from 'assert';
+/// <reference types="vitest/globals" />
+
 import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { MenuId, MenuRegistry, isIMenuItem } from '../../../../../platform/actions/common/actions.js';
 import { ContextKeyValue, IContext } from '../../../../../platform/contextkey/common/contextkey.js';
@@ -40,36 +41,30 @@ function createContext(values: Record<string, ContextKeyValue>): IContext {
 	return { getValue: <T extends ContextKeyValue>(key: string) => values[key] as T | undefined };
 }
 
-suite('Positron Notebook Command Palette Visibility', () => {
+describe('Positron Notebook Command Palette Visibility', () => {
 	createTestContainer().build();
 
-	test('POSITRON_NOTEBOOK_IS_NOT_ACTIVE_EDITOR evaluates correctly', () => {
-		assert.strictEqual(
+	it('POSITRON_NOTEBOOK_IS_NOT_ACTIVE_EDITOR evaluates correctly', () => {
+		expect(
 			POSITRON_NOTEBOOK_IS_NOT_ACTIVE_EDITOR.evaluate(
 				createContext({ activeEditor: POSITRON_NOTEBOOK_EDITOR_ID })
-			),
-			false,
-			'should be false when Positron notebook is the active editor'
-		);
+			)
+		).toBe(false);
 
-		assert.strictEqual(
+		expect(
 			POSITRON_NOTEBOOK_IS_NOT_ACTIVE_EDITOR.evaluate(
 				createContext({ activeEditor: 'workbench.editor.notebook' })
-			),
-			true,
-			'should be true when upstream notebook is the active editor'
-		);
+			)
+		).toBe(true);
 
-		assert.strictEqual(
+		expect(
 			POSITRON_NOTEBOOK_IS_NOT_ACTIVE_EDITOR.evaluate(
 				createContext({})
-			),
-			true,
-			'should be true when no editor is active'
-		);
+			)
+		).toBe(true);
 	});
 
-	test('hidden commands have when clauses that exclude the Positron notebook editor', () => {
+	it('hidden commands have when clauses that exclude the Positron notebook editor', () => {
 		const positronContext = createContext({
 			activeEditor: POSITRON_NOTEBOOK_EDITOR_ID,
 			// isDevelopment is true so the AND with IsDevelopmentContext still
@@ -82,27 +77,17 @@ suite('Positron Notebook Command Palette Visibility', () => {
 		for (const item of paletteItems) {
 			if (isIMenuItem(item) && HIDDEN_COMMAND_IDS.includes(item.command.id)) {
 				foundCommands.add(item.command.id);
-				assert.ok(
-					item.when,
-					`Command '${item.command.id}' should have a 'when' clause`
-				);
-				assert.strictEqual(
-					item.when.evaluate(positronContext),
-					false,
-					`Command '${item.command.id}' should be hidden when Positron notebook editor is active`
-				);
+				expect(item.when).toBeTruthy();
+				expect(item.when!.evaluate(positronContext)).toBe(false);
 			}
 		}
 
 		for (const id of HIDDEN_COMMAND_IDS) {
-			assert.ok(
-				foundCommands.has(id),
-				`Command '${id}' should be registered in the CommandPalette`
-			);
+			expect(foundCommands.has(id)).toBeTruthy();
 		}
 	});
 
-	test('hidden commands are visible when upstream notebook editor is active', () => {
+	it('hidden commands are visible when upstream notebook editor is active', () => {
 		const upstreamContext = createContext({
 			activeEditor: 'workbench.editor.notebook',
 			// notebook.developer.addViewZones also requires IsDevelopmentContext
@@ -112,11 +97,7 @@ suite('Positron Notebook Command Palette Visibility', () => {
 
 		for (const item of paletteItems) {
 			if (isIMenuItem(item) && HIDDEN_COMMAND_IDS.includes(item.command.id)) {
-				assert.strictEqual(
-					item.when!.evaluate(upstreamContext),
-					true,
-					`Command '${item.command.id}' should be visible when upstream notebook editor is active`
-				);
+				expect(item.when!.evaluate(upstreamContext)).toBe(true);
 			}
 		}
 	});

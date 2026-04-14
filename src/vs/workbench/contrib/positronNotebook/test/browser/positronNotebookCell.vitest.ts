@@ -3,63 +3,64 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as assert from 'assert';
+/// <reference types="vitest/globals" />
+
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { CellEditType, CellKind, NotebookCellsChangeType } from '../../../notebook/common/notebookCommon.js';
 import { createTestPositronNotebookInstance, TestPositronNotebookInstance } from './testPositronNotebookInstance.js';
 import { PositronNotebookCodeCell } from '../../browser/PositronNotebookCells/PositronNotebookCodeCell.js';
 
-suite('PositronNotebookCell', () => {
+describe('PositronNotebookCell', () => {
 	const ctx = createTestContainer().build();
 
 	let notebook: TestPositronNotebookInstance;
 	let cell: PositronNotebookCodeCell;
 
-	setup(() => {
+	beforeEach(() => {
 		notebook = createTestPositronNotebookInstance(
 			[['print("hello")', 'python', CellKind.Code]], ctx.disposables
 		);
 		cell = notebook.cells.get()[0] as PositronNotebookCodeCell;
-		assert.ok(cell.isCodeCell(), 'Expected cell to be a code cell');
+		expect(cell.isCodeCell()).toBeTruthy();
 	});
 
-	suite('Output scrolling state', () => {
-		test('outputScrolling defaults to undefined', () => {
-			assert.strictEqual(cell.outputScrolling.get(), undefined);
+	describe('Output scrolling state', () => {
+		it('outputScrolling defaults to undefined', () => {
+			expect(cell.outputScrolling.get()).toBe(undefined);
 		});
 
-		test('truncateOutput sets outputScrolling to false', () => {
+		it('truncateOutput sets outputScrolling to false', () => {
 			cell.truncateOutput();
-			assert.strictEqual(cell.outputScrolling.get(), false);
+			expect(cell.outputScrolling.get()).toBe(false);
 		});
 
-		test('showFullOutput sets outputScrolling to true', () => {
+		it('showFullOutput sets outputScrolling to true', () => {
 			cell.showFullOutput();
-			assert.strictEqual(cell.outputScrolling.get(), true);
+			expect(cell.outputScrolling.get()).toBe(true);
 		});
 
-		test('collapse and expand does not affect scrolling state', () => {
+		it('collapse and expand does not affect scrolling state', () => {
 			// Verify with scrolling = true (showing full output)
 			cell.showFullOutput();
 			cell.collapseOutput();
-			assert.strictEqual(cell.outputScrolling.get(), true);
+			expect(cell.outputScrolling.get()).toBe(true);
 			cell.expandOutput();
-			assert.strictEqual(cell.outputScrolling.get(), true);
+			expect(cell.outputScrolling.get()).toBe(true);
 
 			// Verify with scrolling = false (truncated)
 			cell.truncateOutput();
 			cell.collapseOutput();
-			assert.strictEqual(cell.outputScrolling.get(), false);
+			expect(cell.outputScrolling.get()).toBe(false);
 			cell.expandOutput();
-			assert.strictEqual(cell.outputScrolling.get(), false);
+			expect(cell.outputScrolling.get()).toBe(false);
 		});
 
-		test('new output resets scrolling state to undefined', () => {
+		it('new output resets scrolling state to undefined', () => {
 			const textModel = notebook.textModel;
-			assert.ok(textModel);
+			expect(textModel).toBeTruthy();
 
-			const applyNewOutput = () => textModel.applyEdits([{
+			const applyNewOutput = () => textModel!.applyEdits([{
 				editType: CellEditType.Output,
 				index: 0,
 				outputs: [{
@@ -71,40 +72,40 @@ suite('PositronNotebookCell', () => {
 
 			// Reset from showing full output (true -> undefined)
 			cell.showFullOutput();
-			assert.strictEqual(cell.outputScrolling.get(), true);
+			expect(cell.outputScrolling.get()).toBe(true);
 			applyNewOutput();
-			assert.strictEqual(cell.outputScrolling.get(), undefined);
+			expect(cell.outputScrolling.get()).toBe(undefined);
 
 			// Reset from truncated (false -> undefined)
 			cell.truncateOutput();
-			assert.strictEqual(cell.outputScrolling.get(), false);
+			expect(cell.outputScrolling.get()).toBe(false);
 			applyNewOutput();
-			assert.strictEqual(cell.outputScrolling.get(), undefined);
+			expect(cell.outputScrolling.get()).toBe(undefined);
 		});
 	});
 
 });
 
 /** Tests to ensure that the test harness is correctly setup, useful for debugging the test harness */
-suite('PositronNotebookCell Test Harness', () => {
+describe('PositronNotebookCell Test Harness', () => {
 	const ctx = createTestContainer().build();
 
-	test('cells have editors auto-attached', () => {
+	it('cells have editors auto-attached', () => {
 		const notebook = createTestPositronNotebookInstance(
 			[['print("hello")', 'python', CellKind.Code]], ctx.disposables
 		);
 
 		const cell = notebook.cells.get()[0];
-		assert.ok(cell.currentEditor, 'Cell should have an auto-attached editor');
+		expect(cell.currentEditor).toBeTruthy();
 
-		const editorModel = cell.currentEditor.getModel();
-		assert.ok(editorModel, 'Cell editor should have a model');
+		const editorModel = cell.currentEditor!.getModel();
+		expect(editorModel).toBeTruthy();
 
-		assert.strictEqual(cell.getContent(), editorModel.getValue(), 'Cell content should match editor model value');
-		assert.strictEqual(cell.model.textModel, editorModel, 'Cell model should be the editor model');
+		expect(cell.getContent()).toBe(editorModel!.getValue());
+		expect(cell.model.textModel).toBe(editorModel);
 	});
 
-	test('setValue propagates through the content change event chain', () => {
+	it('setValue propagates through the content change event chain', () => {
 		const notebook = createTestPositronNotebookInstance(
 			[['original content', 'python', CellKind.Code]], ctx.disposables
 		);
@@ -132,7 +133,7 @@ suite('PositronNotebookCell Test Harness', () => {
 
 		cell.model.textModel!.setValue('new content');
 
-		assert.ok(cellContentFired, 'NotebookCellTextModel.onDidChangeContent should fire when textModel.setValue() is called');
-		assert.ok(notebookModelFired, 'NotebookTextModel.onDidChangeContent should fire when textModel.setValue() is called');
+		expect(cellContentFired).toBeTruthy();
+		expect(notebookModelFired).toBeTruthy();
 	});
 });

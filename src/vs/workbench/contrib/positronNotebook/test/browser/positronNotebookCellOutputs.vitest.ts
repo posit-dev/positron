@@ -3,7 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as assert from 'assert';
+/// <reference types="vitest/globals" />
+
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { CellEditType, CellKind } from '../../../notebook/common/notebookCommon.js';
@@ -23,11 +24,11 @@ function svgOutputItem() {
 	return { mime: 'image/svg+xml', data: VSBuffer.fromString('<svg><circle r="10"/></svg>') };
 }
 
-suite('Positron Notebook Cell Outputs', () => {
+describe('Positron Notebook Cell Outputs', () => {
 	const ctx = createTestContainer().build();
 
-	suite('outputs observable', () => {
-		test('cell with image output has parsed type "image"', () => {
+	describe('outputs observable', () => {
+		it('cell with image output has parsed type "image"', () => {
 			const cellWithImageOutput: TestCellInput = {
 				source: 'plot()',
 				language: 'python',
@@ -41,13 +42,13 @@ suite('Positron Notebook Cell Outputs', () => {
 			const notebook = createTestPositronNotebookInstance([cellWithImageOutput], ctx.disposables);
 			const cell = notebook.cells.get()[0];
 
-			assert.ok(cell.isCodeCell(), 'cell should be a code cell');
+			expect(cell.isCodeCell()).toBeTruthy();
 			const outputs = cell.outputs.get();
-			assert.strictEqual(outputs.length, 1);
-			assert.strictEqual(outputs[0].parsed.type, 'image');
+			expect(outputs.length).toBe(1);
+			expect(outputs[0].parsed.type).toBe('image');
 		});
 
-		test('cell with text-only output has no image parsed outputs', () => {
+		it('cell with text-only output has no image parsed outputs', () => {
 			const cellWithTextOutput: TestCellInput = {
 				source: 'print("hello")',
 				language: 'python',
@@ -61,13 +62,13 @@ suite('Positron Notebook Cell Outputs', () => {
 			const notebook = createTestPositronNotebookInstance([cellWithTextOutput], ctx.disposables);
 			const cell = notebook.cells.get()[0];
 
-			assert.ok(cell.isCodeCell());
+			expect(cell.isCodeCell()).toBeTruthy();
 			const outputs = cell.outputs.get();
-			assert.strictEqual(outputs.length, 1);
-			assert.strictEqual(outputs[0].parsed.type, 'stdout');
+			expect(outputs.length).toBe(1);
+			expect(outputs[0].parsed.type).toBe('stdout');
 		});
 
-		test('cell with SVG output has parsed type "image"', () => {
+		it('cell with SVG output has parsed type "image"', () => {
 			const cellWithSvgOutput: TestCellInput = {
 				source: 'plot()',
 				language: 'python',
@@ -81,21 +82,21 @@ suite('Positron Notebook Cell Outputs', () => {
 			const notebook = createTestPositronNotebookInstance([cellWithSvgOutput], ctx.disposables);
 			const cell = notebook.cells.get()[0];
 
-			assert.ok(cell.isCodeCell());
+			expect(cell.isCodeCell()).toBeTruthy();
 			const outputs = cell.outputs.get();
-			assert.strictEqual(outputs.length, 1);
-			assert.strictEqual(outputs[0].parsed.type, 'image');
+			expect(outputs.length).toBe(1);
+			expect(outputs[0].parsed.type).toBe('image');
 		});
 
-		test('adding image output to cell updates the outputs observable', () => {
+		it('adding image output to cell updates the outputs observable', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['print("hello")', 'python', CellKind.Code]],
 				ctx.disposables
 			);
 			const cell = notebook.cells.get()[0];
 
-			assert.ok(cell.isCodeCell());
-			assert.strictEqual(cell.outputs.get().length, 0, 'cell should start with no outputs');
+			expect(cell.isCodeCell()).toBeTruthy();
+			expect(cell.outputs.get().length).toBe(0);
 
 			// Add an image output via the text model
 			notebook.textModel!.applyEdits([{
@@ -109,17 +110,17 @@ suite('Positron Notebook Cell Outputs', () => {
 			}], true, undefined, () => undefined, undefined, false);
 
 			const outputs = cell.outputs.get();
-			assert.strictEqual(outputs.length, 1, 'cell should have one output after edit');
-			assert.strictEqual(outputs[0].parsed.type, 'image');
+			expect(outputs.length).toBe(1);
+			expect(outputs[0].parsed.type).toBe('image');
 		});
 
-		test('clearing outputs resets collapse state', () => {
+		it('clearing outputs resets collapse state', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['print("hello")', 'python', CellKind.Code]],
 				ctx.disposables
 			);
 			const cell = notebook.cells.get()[0];
-			assert.ok(cell.isCodeCell());
+			expect(cell.isCodeCell()).toBeTruthy();
 
 			// Add output
 			notebook.textModel!.applyEdits([{
@@ -128,20 +129,20 @@ suite('Positron Notebook Cell Outputs', () => {
 				outputs: [{ outputId: 'output-1', outputs: [textOutputItem('hello')] }],
 				append: false,
 			}], true, undefined, () => undefined, undefined, false);
-			assert.strictEqual(cell.outputs.get().length, 1);
+			expect(cell.outputs.get().length).toBe(1);
 
 			// Collapse the output
 			cell.collapseOutput();
-			assert.strictEqual(cell.outputIsCollapsed.get(), true);
+			expect(cell.outputIsCollapsed.get()).toBe(true);
 
 			// Clear outputs
 			notebook.clearCellOutput(cell);
 
-			assert.strictEqual(cell.outputs.get().length, 0);
-			assert.strictEqual(cell.outputIsCollapsed.get(), false, 'collapse state should reset when outputs are cleared');
+			expect(cell.outputs.get().length).toBe(0);
+			expect(cell.outputIsCollapsed.get()).toBe(false);
 		});
 
-		test('outputImageTargeted context key defaults to false and can be set', () => {
+		it('outputImageTargeted context key defaults to false and can be set', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['print("hello")', 'python', CellKind.Code]],
 				ctx.disposables
@@ -152,33 +153,27 @@ suite('Positron Notebook Cell Outputs', () => {
 			ctx.disposables.add(cellContextKeyService);
 
 			// Defaults to false
-			assert.strictEqual(
-				cellContextKeyService.getContextKeyValue(POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.key),
-				undefined,
-				'outputImageTargeted should not be set by default'
-			);
+			expect(
+				cellContextKeyService.getContextKeyValue(POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.key)
+			).toBe(undefined);
 
 			// Can be bound and set to true (as the context menu handler does)
 			const outputImageTargeted = POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.bindTo(cellContextKeyService);
 			outputImageTargeted.set(true);
 
-			assert.strictEqual(
-				cellContextKeyService.getContextKeyValue(POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.key),
-				true,
-				'outputImageTargeted should be true after being set'
-			);
+			expect(
+				cellContextKeyService.getContextKeyValue(POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.key)
+			).toBe(true);
 
 			// Can be set back to false
 			outputImageTargeted.set(false);
-			assert.strictEqual(
-				cellContextKeyService.getContextKeyValue(POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.key),
-				false,
-				'outputImageTargeted should be false after being cleared'
-			);
+			expect(
+				cellContextKeyService.getContextKeyValue(POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.key)
+			).toBe(false);
 		});
 	});
 
-	suite('complex HTML routing', () => {
+	describe('complex HTML routing', () => {
 		function complexHtmlOutputItem() {
 			return { mime: 'text/html', data: VSBuffer.fromString('<html><body><iframe src="map.html"></iframe></body></html>') };
 		}
@@ -187,7 +182,7 @@ suite('Positron Notebook Cell Outputs', () => {
 			return { mime: 'text/html', data: VSBuffer.fromString('<p>Hello world</p>') };
 		}
 
-		test('complex HTML output produces a preloadMessageResult with display type', () => {
+		it('complex HTML output produces a preloadMessageResult with display type', () => {
 			const cellWithComplexHtml: TestCellInput = {
 				source: 'display_map()',
 				language: 'python',
@@ -201,14 +196,14 @@ suite('Positron Notebook Cell Outputs', () => {
 			const notebook = createTestPositronNotebookInstance([cellWithComplexHtml], ctx.disposables);
 			const cell = notebook.cells.get()[0];
 
-			assert.ok(cell.isCodeCell(), 'cell should be a code cell');
+			expect(cell.isCodeCell()).toBeTruthy();
 			const outputs = cell.outputs.get();
-			assert.strictEqual(outputs.length, 1);
-			assert.ok(outputs[0].preloadMessageResult, 'should have a preloadMessageResult');
-			assert.strictEqual(outputs[0].preloadMessageResult.preloadMessageType, 'display');
+			expect(outputs.length).toBe(1);
+			expect(outputs[0].preloadMessageResult).toBeTruthy();
+			expect(outputs[0].preloadMessageResult!.preloadMessageType).toBe('display');
 		});
 
-		test('simple HTML output renders inline without preloadMessageResult', () => {
+		it('simple HTML output renders inline without preloadMessageResult', () => {
 			const cellWithSimpleHtml: TestCellInput = {
 				source: 'display_html()',
 				language: 'python',
@@ -222,11 +217,11 @@ suite('Positron Notebook Cell Outputs', () => {
 			const notebook = createTestPositronNotebookInstance([cellWithSimpleHtml], ctx.disposables);
 			const cell = notebook.cells.get()[0];
 
-			assert.ok(cell.isCodeCell());
+			expect(cell.isCodeCell()).toBeTruthy();
 			const outputs = cell.outputs.get();
-			assert.strictEqual(outputs.length, 1);
-			assert.strictEqual(outputs[0].preloadMessageResult, undefined, 'simple HTML should not have preloadMessageResult');
-			assert.strictEqual(outputs[0].parsed.type, 'html');
+			expect(outputs.length).toBe(1);
+			expect(outputs[0].preloadMessageResult).toBe(undefined);
+			expect(outputs[0].parsed.type).toBe('html');
 		});
 	});
 });

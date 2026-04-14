@@ -2,19 +2,21 @@
  *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import * as assert from 'assert';
+
+/// <reference types="vitest/globals" />
+
 import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { createTestPositronNotebookInstance } from './testPositronNotebookInstance.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { CellSelectionStatus } from '../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { CellSelectionType, getSelectedCells, SelectionState } from '../../browser/selectionMachine.js';
 
-suite('PositronNotebookInstance', () => {
+describe('PositronNotebookInstance', () => {
 	const ctx = createTestContainer().build();
 
 	/** Tests to ensure that the test harness is correctly setup, useful for debugging the test harness */
-	suite('Test Harness', () => {
-		test('notebook has cells from notebook text model', () => {
+	describe('Test Harness', () => {
+		it('notebook has cells from notebook text model', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[
 					['print("hello")', 'python', CellKind.Code],
@@ -24,19 +26,19 @@ suite('PositronNotebookInstance', () => {
 			);
 
 			const cells = notebook.cells.get();
-			assert.strictEqual(cells.length, 2, 'Unexpected number of cells in notebook');
-			assert.strictEqual(cells[0].model.getValue(), 'print("hello")', 'Unexpected content for notebook cell 0');
-			assert.strictEqual(cells[1].model.getValue(), 'print("world")', 'Unexpected content for notebook cell 1');
+			expect(cells.length).toBe(2);
+			expect(cells[0].model.getValue()).toBe('print("hello")');
+			expect(cells[1].model.getValue()).toBe('print("world")');
 
 			const { textModel } = notebook;
-			assert.ok(textModel, 'Notebook should have a text model');
-			assert.strictEqual(textModel.cells[0].getValue(), 'print("hello")', 'Unexpected content for text model cell 0');
-			assert.strictEqual(textModel.cells[1].getValue(), 'print("world")', 'Unexpected content for text model cell 1');
+			expect(textModel).toBeTruthy();
+			expect(textModel!.cells[0].getValue()).toBe('print("hello")');
+			expect(textModel!.cells[1].getValue()).toBe('print("world")');
 		});
 	});
 
-	suite('selectionStateMachine', () => {
-		test('multi-selection clears editing state from the previously edited cell', () => {
+	describe('selectionStateMachine', () => {
+		it('multi-selection clears editing state from the previously edited cell', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[
 					['print("code")', 'python', CellKind.Code],
@@ -51,16 +53,16 @@ suite('PositronNotebookInstance', () => {
 			notebook.selectionStateMachine.selectCell(markdownCell, CellSelectionType.Add);
 
 			const state = notebook.selectionStateMachine.state.get();
-			assert.strictEqual(state.type, SelectionState.MultiSelection);
-			assert.deepStrictEqual(getSelectedCells(state), [codeCell, markdownCell]);
-			assert.strictEqual(state.active, markdownCell);
-			assert.notStrictEqual(codeCell.selectionStatus.get(), CellSelectionStatus.Editing);
-			assert.strictEqual(codeCell.selectionStatus.get(), CellSelectionStatus.Selected);
-			assert.strictEqual(markdownCell.selectionStatus.get(), CellSelectionStatus.Selected);
+			expect(state.type).toBe(SelectionState.MultiSelection);
+			expect(getSelectedCells(state)).toEqual([codeCell, markdownCell]);
+			expect(state.active).toBe(markdownCell);
+			expect(codeCell.selectionStatus.get()).not.toBe(CellSelectionStatus.Editing);
+			expect(codeCell.selectionStatus.get()).toBe(CellSelectionStatus.Selected);
+			expect(markdownCell.selectionStatus.get()).toBe(CellSelectionStatus.Selected);
 		});
 	});
 
-	suite('moveCells', () => {
+	describe('moveCells', () => {
 
 		/** Helper: returns cell content values in current order. */
 		function getCellValues(notebook: ReturnType<typeof createTestPositronNotebookInstance>): string[] {
@@ -75,84 +77,84 @@ suite('PositronNotebookInstance', () => {
 			);
 		}
 
-		test('contiguous: move single cell down', () => {
+		it('contiguous: move single cell down', () => {
 			const notebook = createFiveCellNotebook();
 			const cells = notebook.cells.get();
 			// Move B (index 1) to after D (target index 4)
 			notebook.moveCells([cells[1]], 4);
-			assert.deepStrictEqual(getCellValues(notebook), ['A', 'C', 'D', 'B', 'E']);
+			expect(getCellValues(notebook)).toEqual(['A', 'C', 'D', 'B', 'E']);
 		});
 
-		test('contiguous: move single cell up', () => {
+		it('contiguous: move single cell up', () => {
 			const notebook = createFiveCellNotebook();
 			const cells = notebook.cells.get();
 			// Move D (index 3) to before B (target index 1)
 			notebook.moveCells([cells[3]], 1);
-			assert.deepStrictEqual(getCellValues(notebook), ['A', 'D', 'B', 'C', 'E']);
+			expect(getCellValues(notebook)).toEqual(['A', 'D', 'B', 'C', 'E']);
 		});
 
-		test('contiguous: move block down', () => {
+		it('contiguous: move block down', () => {
 			const notebook = createFiveCellNotebook();
 			const cells = notebook.cells.get();
 			// Move B,C (indices 1,2) to after D (target index 4)
 			notebook.moveCells([cells[1], cells[2]], 4);
-			assert.deepStrictEqual(getCellValues(notebook), ['A', 'D', 'B', 'C', 'E']);
+			expect(getCellValues(notebook)).toEqual(['A', 'D', 'B', 'C', 'E']);
 		});
 
-		test('contiguous: no-op when already at target', () => {
+		it('contiguous: no-op when already at target', () => {
 			const notebook = createFiveCellNotebook();
 			const cells = notebook.cells.get();
 			// Move B (index 1) to target index 1 -- should be a no-op
 			notebook.moveCells([cells[1]], 1);
-			assert.deepStrictEqual(getCellValues(notebook), ['A', 'B', 'C', 'D', 'E']);
+			expect(getCellValues(notebook)).toEqual(['A', 'B', 'C', 'D', 'E']);
 		});
 
-		test('non-contiguous: move to end', () => {
+		it('non-contiguous: move to end', () => {
 			const notebook = createFiveCellNotebook();
 			const cells = notebook.cells.get();
 			// Move B (1) and D (3) to after E (target index 5)
 			notebook.moveCells([cells[1], cells[3]], 5);
-			assert.deepStrictEqual(getCellValues(notebook), ['A', 'C', 'E', 'B', 'D']);
+			expect(getCellValues(notebook)).toEqual(['A', 'C', 'E', 'B', 'D']);
 		});
 
-		test('non-contiguous: move to beginning', () => {
+		it('non-contiguous: move to beginning', () => {
 			const notebook = createFiveCellNotebook();
 			const cells = notebook.cells.get();
 			// Move B (1) and D (3) to before A (target index 0)
 			notebook.moveCells([cells[1], cells[3]], 0);
-			assert.deepStrictEqual(getCellValues(notebook), ['B', 'D', 'A', 'C', 'E']);
+			expect(getCellValues(notebook)).toEqual(['B', 'D', 'A', 'C', 'E']);
 		});
 
-		test('non-contiguous: move to middle', () => {
+		it('non-contiguous: move to middle', () => {
 			const notebook = createFiveCellNotebook();
 			const cells = notebook.cells.get();
 			// Move A (0) and D (3) to target index 2 (before C)
 			notebook.moveCells([cells[0], cells[3]], 2);
-			assert.deepStrictEqual(getCellValues(notebook), ['B', 'A', 'D', 'C', 'E']);
+			expect(getCellValues(notebook)).toEqual(['B', 'A', 'D', 'C', 'E']);
 		});
 
-		test('non-contiguous: does not move unselected cells between selected ones', () => {
+		it('non-contiguous: does not move unselected cells between selected ones', () => {
 			const notebook = createFiveCellNotebook();
 			const cells = notebook.cells.get();
 			// Move A (0) and C (2) to the end. B (1) should stay in place.
 			notebook.moveCells([cells[0], cells[2]], 5);
-			assert.deepStrictEqual(getCellValues(notebook), ['B', 'D', 'E', 'A', 'C']);
+			expect(getCellValues(notebook)).toEqual(['B', 'D', 'E', 'A', 'C']);
 		});
 
-		test('handles unsorted selection (cells passed in reverse order)', () => {
+		it('handles unsorted selection (cells passed in reverse order)', () => {
 			const notebook = createFiveCellNotebook();
 			const cells = notebook.cells.get();
 			// Pass D (3) before B (1) -- moveCells should normalize order
 			notebook.moveCells([cells[3], cells[1]], 5);
-			assert.deepStrictEqual(getCellValues(notebook), ['A', 'C', 'E', 'B', 'D']);
+			expect(getCellValues(notebook)).toEqual(['A', 'C', 'E', 'B', 'D']);
 		});
 
-		test('handles duplicate cells in selection', () => {
+		it('handles duplicate cells in selection', () => {
 			const notebook = createFiveCellNotebook();
 			const cells = notebook.cells.get();
 			// Pass B twice -- should deduplicate and move B once
 			notebook.moveCells([cells[1], cells[1]], 4);
-			assert.deepStrictEqual(getCellValues(notebook), ['A', 'C', 'D', 'B', 'E']);
+			expect(getCellValues(notebook)).toEqual(['A', 'C', 'D', 'B', 'E']);
 		});
 	});
 });
