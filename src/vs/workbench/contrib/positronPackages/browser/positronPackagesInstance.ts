@@ -119,11 +119,70 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		// Loading
 		this._onDidChangeRefreshState.fire(true);
 		try {
+			// Stage 1: Get basic package list quickly and fire event
 			this._packages = await packageManager.getPackages(effectiveToken);
 			this._onDidRefreshPackagesInstance.fire(this._packages);
+
+			// Stage 2: Fetch metadata asynchronously (don't block the return)
+			if (packageManager.getPackageMetadata && this._packages.length > 0) {
+				this._fetchAndMergeMetadata(packageManager, effectiveToken);
+			}
+
 			return this._packages;
 		} finally {
 			this._onDidChangeRefreshState.fire(false);
+		}
+	}
+
+	/**
+	 * Internal helper to refresh packages with two-stage metadata fetch.
+	 * Stage 1: Get basic packages and fire event immediately.
+	 * Stage 2: Fetch metadata asynchronously and fire event again when ready.
+	 */
+	private async _refreshPackagesInternal(
+		packageManager: ReturnType<typeof this.getPackageManagerOrThrow>,
+		token: CancellationToken,
+	): Promise<void> {
+		// Stage 1: Get basic package list and fire event
+		this._packages = await packageManager.getPackages(token);
+		this._onDidRefreshPackagesInstance.fire(this._packages);
+
+		// Stage 2: Fetch metadata asynchronously (don't block)
+		if (packageManager.getPackageMetadata && this._packages.length > 0) {
+			this._fetchAndMergeMetadata(packageManager, token);
+		}
+	}
+
+	/**
+	 * Fetch package metadata and merge it into the existing packages.
+	 * This runs asynchronously after the initial package list is returned.
+	 */
+	private async _fetchAndMergeMetadata(
+		packageManager: { getPackageMetadata?: (names: string[], token?: CancellationToken) => Promise<Map<string, Partial<ILanguageRuntimePackage>>> },
+		token: CancellationToken,
+	): Promise<void> {
+		try {
+			const packageNames = this._packages.map((pkg) => pkg.name);
+			const metadataMap = await packageManager.getPackageMetadata!(packageNames, token);
+
+			if (token.isCancellationRequested || metadataMap.size === 0) {
+				return;
+			}
+
+			// Merge metadata into packages
+			this._packages = this._packages.map((pkg) => {
+				const metadata = metadataMap.get(pkg.name.toLowerCase());
+				if (metadata) {
+					return { ...pkg, ...metadata };
+				}
+				return pkg;
+			});
+
+			// Fire event with enriched packages
+			this._onDidRefreshPackagesInstance.fire(this._packages);
+		} catch (err) {
+			// Log but don't throw - metadata is optional enhancement
+			this._logService.warn(`[Packages] Failed to fetch package metadata: ${err}`);
 		}
 	}
 
@@ -137,9 +196,8 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		try {
 			await packageManager.installPackages(packages, effectiveToken);
 
-			// Fire refresh event.
-			this._packages = await packageManager.getPackages(effectiveToken);
-			this._onDidRefreshPackagesInstance.fire(this._packages);
+			// Refresh packages with two-stage metadata fetch
+			await this._refreshPackagesInternal(packageManager, effectiveToken);
 		} finally {
 			// Completed
 			this._onDidChangeInstallState.fire(false);
@@ -156,9 +214,8 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		try {
 			await packageManager.uninstallPackages(packageNames, effectiveToken);
 
-			// Fire refresh event.
-			this._packages = await packageManager.getPackages(effectiveToken);
-			this._onDidRefreshPackagesInstance.fire(this._packages);
+			// Refresh packages with two-stage metadata fetch
+			await this._refreshPackagesInternal(packageManager, effectiveToken);
 		} finally {
 			// Completed
 			this._onDidChangeUninstallState.fire(false);
@@ -178,9 +235,8 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 				return;
 			}
 
-			// Fire refresh event.
-			this._packages = await packageManager.getPackages(effectiveToken);
-			this._onDidRefreshPackagesInstance.fire(this._packages);
+			// Refresh packages with two-stage metadata fetch
+			await this._refreshPackagesInternal(packageManager, effectiveToken);
 		} finally {
 			// Completed
 			this._onDidChangeUpdateState.fire(false);
@@ -200,9 +256,8 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 				return;
 			}
 
-			// Fire refresh event.
-			this._packages = await packageManager.getPackages(effectiveToken);
-			this._onDidRefreshPackagesInstance.fire(this._packages);
+			// Refresh packages with two-stage metadata fetch
+			await this._refreshPackagesInternal(packageManager, effectiveToken);
 		} finally {
 			// Completed
 			this._onDidChangeUpdateAllState.fire(false);

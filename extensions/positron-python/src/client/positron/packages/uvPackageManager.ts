@@ -34,30 +34,29 @@ export class UvPackageManager implements IPackageManager {
     ) {}
 
     async getPackages(token?: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]> {
-        // Get installed packages from the kernel
-        const packages = await this._callMethod<positron.LanguageRuntimePackage[]>('getPackagesInstalled', token);
+        return this._callMethod<positron.LanguageRuntimePackage[]>('getPackagesInstalled', token);
+    }
 
-        // Fetch P3M metadata for all packages in a single API call
-        const packageNames = packages.map((pkg) => pkg.name);
+    async getPackageMetadata(
+        packageNames: string[],
+        token?: vscode.CancellationToken,
+    ): Promise<Map<string, Partial<positron.LanguageRuntimePackage>>> {
         const metadataMap = await fetchP3MMetadata(packageNames, token);
+        const result = new Map<string, Partial<positron.LanguageRuntimePackage>>();
 
-        // Merge metadata into packages
-        return packages.map((pkg) => {
-            const metadata = metadataMap.get(pkg.name.toLowerCase());
-            if (metadata) {
-                return {
-                    ...pkg,
-                    description: metadata.summary ?? undefined,
-                    license: metadata.license ?? (metadata.licenses?.join(', ') ?? undefined),
-                    latestVersion: metadata.version ?? undefined,
-                    availableVersions: metadata.available_versions,
-                    packageSize: metadata.package_size ?? undefined,
-                    publishedDate: metadata.package_date ?? undefined,
-                    downloads: metadata.downloads !== null && metadata.downloads >= 0 ? metadata.downloads : undefined,
-                };
-            }
-            return pkg;
-        });
+        for (const [name, metadata] of metadataMap) {
+            result.set(name, {
+                description: metadata.summary ?? undefined,
+                license: metadata.license ?? (metadata.licenses?.join(', ') ?? undefined),
+                latestVersion: metadata.version ?? undefined,
+                availableVersions: metadata.available_versions,
+                packageSize: metadata.package_size ?? undefined,
+                publishedDate: metadata.package_date ?? undefined,
+                downloads: metadata.downloads !== null && metadata.downloads >= 0 ? metadata.downloads : undefined,
+            });
+        }
+
+        return result;
     }
 
     /**
