@@ -39,6 +39,7 @@ export function useScrollRestoration(
 	return useLayoutEffect(() => {
 		// Nothing to restore.
 		if (!getScrollTop) {
+			logService.debug('[scroll-restore] skipped: no getScrollTop callback');
 			return;
 		}
 
@@ -46,14 +47,22 @@ export function useScrollRestoration(
 
 		// Container not yet in the DOM, nothing we can do.
 		if (!container) {
+			logService.debug('[scroll-restore] skipped: container not in DOM');
 			return;
 		}
+
+		const initialScrollTop = container.scrollTop;
+		const initialTarget = getScrollTop();
+		logService.debug(
+			`[scroll-restore] starting: initialScrollTop=${initialScrollTop}, target=${initialTarget}`
+		);
 
 		const startTimestamp = performance.now();
 		const targetWindow = getWindow(container);
 		const disposables = new DisposableStore();
 		let running = true;
 		let pendingFrame: number | undefined;
+		let frameCount = 0;
 
 		/** Number of consecutive frames where the scroll position did not change. */
 		let stableFrames = 0;
@@ -76,8 +85,9 @@ export function useScrollRestoration(
 				? container.scrollTop - target
 				: NaN;
 			logService.debug(
-				`[scroll-restore] ${reason} +${(performance.now() - startTimestamp).toFixed(0)}ms:` +
-				` final scrollTop=${container.scrollTop}, drift=${drift.toFixed(1)}px`
+				`[scroll-restore] ${reason} +${(performance.now() - startTimestamp).toFixed(0)}ms` +
+				` (${frameCount} frames):` +
+				` final scrollTop=${container.scrollTop}, target=${target}, drift=${drift.toFixed(1)}px`
 			);
 		};
 
@@ -89,10 +99,12 @@ export function useScrollRestoration(
 
 			pendingFrame = targetWindow.requestAnimationFrame(() => {
 				pendingFrame = undefined;
+				frameCount++;
 
 				const target = getScrollTop();
 
 				if (target === undefined) {
+					logService.debug(`[scroll-restore] target became undefined on frame ${frameCount}`);
 					stop('no-target');
 					return;
 				}
@@ -107,6 +119,10 @@ export function useScrollRestoration(
 				} else {
 					// Still drifting (e.g. async content is shifting layout).
 					// Reset the stable counter and correct the scroll position.
+					logService.debug(
+						`[scroll-restore] correcting frame ${frameCount}:` +
+						` scrollTop=${container.scrollTop} -> target=${target}, delta=${(container.scrollTop - target).toFixed(1)}`
+					);
 					stableFrames = 0;
 					container.scrollTop = target;
 				}
