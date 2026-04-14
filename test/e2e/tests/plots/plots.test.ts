@@ -52,6 +52,9 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 			await app.workbench.toasts.closeAll();
 
+			// attempt to workaround a flake by letting plot settle
+			await app.code.driver.page.waitForTimeout(1000);
+
 			const buffer = await app.workbench.plots.getCurrentPlotAsBuffer();
 			await compareImages({
 				app,
@@ -92,6 +95,9 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.plots.waitForCurrentStaticPlot();
 
 			await app.workbench.toasts.closeAll();
+
+			// attempt to workaround a flake by letting plot settle
+			await app.code.driver.page.waitForTimeout(1000);
 
 			const buffer = await app.workbench.plots.getCurrentStaticPlotAsBuffer();
 			await compareImages({
@@ -407,6 +413,9 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 			await app.workbench.toasts.closeAll();
 
+			// attempt to workaround a flake by letting plot settle
+			await app.code.driver.page.waitForTimeout(1000);
+
 			const buffer = await app.workbench.plots.getCurrentPlotAsBuffer();
 			await compareImages({
 				app,
@@ -609,9 +618,6 @@ async function compareImages({
 }) {
 	await test.step('compare images', async () => {
 		if (process.env.GITHUB_ACTIONS && !app.web && process.env.IS_OPENSUSE !== 'true' && process.env.IS_SLES !== 'true') {
-
-			// attempt to workaround a flake by letting plot settle
-			await app.code.driver.page.waitForTimeout(1000);
 
 			const data = await resembleCompareImages(fs.readFileSync(path.join(__dirname, `${masterScreenshotName}.png`)), buffer, options);
 
