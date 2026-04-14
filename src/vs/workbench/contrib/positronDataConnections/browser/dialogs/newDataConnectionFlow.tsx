@@ -92,8 +92,8 @@ export const NewDataConnectionFlow = (props: NewDataConnectionFlowProps) => {
 		case NewDataConnectionFlowStep.Configure:
 			return (
 				<ConfigureDataConnection
-					profile={dataConnectionProfile!}
 					driver={driver!}
+					profile={dataConnectionProfile!}
 					renderer={props.renderer}
 					onBack={backHandler}
 				/>
