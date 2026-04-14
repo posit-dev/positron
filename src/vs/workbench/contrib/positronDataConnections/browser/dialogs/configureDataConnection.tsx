@@ -86,6 +86,16 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 						<div className='driver-header-name'>{driver.metadata.name}</div>
 					</div>
 
+					{/* Connection Name */}
+					<div className='parameter-field'>
+						<label className='parameter-label'>Connection Name</label>
+						<input
+							className='parameter-input text-input'
+							placeholder='connection name'
+							type='text'
+						/>
+					</div>
+
 					{/* Parameters */}
 					{driver.metadata.parameters.map(parameter => {
 						switch (parameter.type) {
@@ -118,7 +128,7 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 
 							case 'boolean':
 								return (
-									<div key={parameter.id} className='parameter-field-inline'>
+									<div key={parameter.id}>
 										<Checkbox
 											initialChecked={parameter.defaultValue as boolean | undefined}
 											label={parameter.label}

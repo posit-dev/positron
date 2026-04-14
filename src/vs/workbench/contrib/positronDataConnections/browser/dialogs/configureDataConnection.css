@@ -43,25 +43,20 @@
 }
 
 .configure-data-connection .parameter-field {
-	gap: 4px;
+	/* gap: 4px; */
 	display: flex;
 	flex-direction: column;
 }
 
-.configure-data-connection .parameter-field-inline {
-	gap: 6px;
-	display: flex;
-	align-items: center;
-}
-
 .configure-data-connection .parameter-label {
-	font-size: 12px;
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
 }
 
 .configure-data-connection .parameter-input {
 	width: 100%;
 	padding: 4px 6px;
-	font-size: 13px;
+	/* font-size: 13px; */
 	border-radius: 4px;
 	box-sizing: border-box;
 	color: var(--vscode-input-foreground);
