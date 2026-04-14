@@ -20,8 +20,8 @@ import { IRuntimeSessionDisplayInfo } from '../../../../services/runtimeSession/
 import { localize } from '../../../../../nls.js';
 import { LANGUAGE_RUNTIME_SELECT_SESSION_ID, LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID } from '../../../../contrib/languageRuntime/browser/languageRuntimeActions.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { getSessionDisplayName, getSessionIcon, getSessionIconStyle } from '../../../../contrib/positronConsole/common/sessionDisplayUtils.js';
-import { RuntimeStatus, RuntimeStatusIcon, runtimeStateToRuntimeStatus } from '../../../../contrib/positronConsole/browser/components/runtimeStatus.js';
+import { getSessionDisplayName, getSessionIcon, getSessionIconStyle, runtimeStateToRuntimeStatus } from '../../../../contrib/positronConsole/common/sessionDisplayUtils.js';
+import { RuntimeStatus, RuntimeStatusIcon } from '../../../../contrib/positronConsole/browser/components/runtimeStatus.js';
 import { Icon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 
