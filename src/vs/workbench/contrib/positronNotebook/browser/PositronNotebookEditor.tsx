@@ -320,8 +320,11 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 			this._editorContainer!
 		);
 
+		// Resolve the scroll position before rendering so the component can read it from the instance.
+		notebookInstance.restoreEditorViewState(viewState);
+
 		// Now render the React component tree.
-		this._renderReact(viewState);
+		this._renderReact();
 	}
 
 	/**
@@ -392,7 +395,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		}
 	}
 
-	private _renderReact(viewState?: IPositronNotebookViewState): void {
+	private _renderReact(): void {
 		this._logService.debug(this._identifier, 'renderReact');
 
 		if (!this.notebookInstance) {
@@ -415,15 +418,6 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		if (!scopedContextKeyService) {
 			throw new Error('Scoped context key service is not set.');
 		}
-
-		// Resolve the scroll position cell now. This resolved cell is stable
-		// for React -- it won't shift if cells are added/removed during
-		// the restoration window.
-		const cells = this.notebookInstance.cells.get();
-		const anchor = viewState?.scrollPosition;
-		const scrollPosition = anchor && anchor.cellIndex < cells.length
-			? { cell: cells[anchor.cellIndex], offsetFromCell: anchor.offsetFromCell }
-			: undefined;
 
 		// Set the editor container for focus tracking.
 		this.notebookInstance.setEditorContainer(this._editorContainer);
@@ -450,9 +444,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 							size: this._size,
 							scopedContextKeyProviderCallback: container => scopedContextKeyService.createScoped(container),
 						}}>
-							<PositronNotebookComponent
-								scrollPosition={scrollPosition}
-							/>
+							<PositronNotebookComponent />
 						</EnvironentProvider>
 					</NotebookInstanceProvider>
 				</NotebookVisibilityProvider>

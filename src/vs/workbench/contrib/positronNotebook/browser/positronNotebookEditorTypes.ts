@@ -10,7 +10,7 @@ import { INotebookEditorOptions } from '../../notebook/browser/notebookBrowser.j
  * Using a cell anchor rather than absolute pixel positions handles async
  * content rendering that changes heights above the viewport.
  */
-export interface IPositronNotebookScrollAnchor {
+export interface IPositronNotebookScrollPosition {
 	/** Index of the cell at the top of the viewport. */
 	cellIndex: number;
 	/** Pixels from the top of that cell's DOM element to the viewport top.
@@ -23,7 +23,7 @@ export interface IPositronNotebookScrollAnchor {
  * or when Positron is reloaded.
  */
 export interface IPositronNotebookViewState {
-	scrollPosition?: IPositronNotebookScrollAnchor;
+	scrollPosition?: IPositronNotebookScrollPosition;
 }
 
 /**

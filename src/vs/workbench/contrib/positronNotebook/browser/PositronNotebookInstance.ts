@@ -58,7 +58,7 @@ import { IEditorOptions } from '../../../../editor/common/config/editorOptions.j
 import { FontInfo } from '../../../../editor/common/config/fontInfo.js';
 import { createBareFontInfoFromRawSettings } from '../../../../editor/common/config/fontInfoFromSettings.js';
 import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
-import { IPositronNotebookViewState, IPositronNotebookScrollAnchor } from './positronNotebookEditorTypes.js';
+import { IPositronNotebookViewState, IPositronNotebookScrollPosition } from './positronNotebookEditorTypes.js';
 
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
 	textModel: NotebookTextModel;
@@ -184,6 +184,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Disposables for the editor container event listeners
 	 */
 	private readonly _editorContainerListeners = this._register(new DisposableStore());
+
+	/**
+	 * Resolved scroll position to restore when the notebook is next rendered.
+	 * Set by `restoreEditorViewState` and consumed by the React component.
+	 */
+	private _scrollPosition: { cell: IPositronNotebookCell; offsetFromCell: number } | undefined;
 
 	/**
 	 * The DOM element that contains the cells for the notebook.
@@ -1982,6 +1988,26 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	/**
+	 * The resolved scroll position to restore, if any.
+	 * Read by the React component during mount.
+	 */
+	get scrollPosition(): { cell: IPositronNotebookCell; offsetFromCell: number } | undefined {
+		return this._scrollPosition;
+	}
+
+	/**
+	 * Resolves a persisted view state (cell index) into a live cell reference
+	 * and stores the result for the React component to consume.
+	 */
+	restoreEditorViewState(viewState: IPositronNotebookViewState | undefined): void {
+		const cells = this.cells.get();
+		const anchor = viewState?.scrollPosition;
+		this._scrollPosition = anchor && anchor.cellIndex < cells.length
+			? { cell: cells[anchor.cellIndex], offsetFromCell: anchor.offsetFromCell }
+			: undefined;
+	}
+
+	/**
 	 * Gets the current state of the editor. This should
 	 * fully determine the view we see.
 	 */
@@ -1999,7 +2025,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Finds the first cell at least partially visible in the viewport and
 	 * returns its index plus the pixel offset from its top to scrollTop.
 	 */
-	private _getScrollPosition(): IPositronNotebookScrollAnchor | undefined {
+	private _getScrollPosition(): IPositronNotebookScrollPosition | undefined {
 		const container = this._cellsContainer;
 		if (!container) {
 			return undefined;

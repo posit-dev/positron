@@ -17,6 +17,7 @@ import { IPositronNotebookEditor } from './IPositronNotebookEditor.js';
 import { IHoverManager } from '../../../../platform/hover/browser/hoverManager.js';
 import { IPositronNotebookContribution } from './positronNotebookExtensions.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { IPositronNotebookViewState } from './positronNotebookEditorTypes.js';
 
 /**
  * Metadata about the editor layout that may be relevant for execution, such as
@@ -464,6 +465,18 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * Returns undefined if the cells container or cell element is not mounted.
 	 */
 	getCellOffsetTop(cell: IPositronNotebookCell): number | undefined;
+
+	/**
+	 * The resolved scroll position to restore, if any.
+	 * Set by `restoreEditorViewState` and consumed by the React component.
+	 */
+	readonly scrollPosition: { cell: IPositronNotebookCell; offsetFromCell: number } | undefined;
+
+	/**
+	 * Resolves a persisted view state into a live cell reference and stores
+	 * the result for the React component to consume during mount.
+	 */
+	restoreEditorViewState(viewState: IPositronNotebookViewState | undefined): void;
 
 	/**
 	 * Fire the scroll event for the cells container.

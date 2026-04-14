@@ -38,17 +38,7 @@ import { NotebookErrorBoundary } from './NotebookErrorBoundary.js';
 import { getSelectedCells } from './selectionMachine.js';
 import { useScrollRestoration } from './useScrollRestoration.js';
 
-interface PositronNotebookComponentProps {
-	/** Scroll position to restore when the notebook is mounted. */
-	scrollPosition?: {
-		/** Anchor cell at the top of the viewport. */
-		cell: IPositronNotebookCell;
-		/** Pixels from the top of the anchor cell to the viewport top. */
-		offsetFromCell: number;
-	};
-}
-
-export function PositronNotebookComponent({ scrollPosition }: PositronNotebookComponentProps) {
+export function PositronNotebookComponent() {
 	const notebookInstance = useNotebookInstance();
 	const notebookCells = useObservedValue(notebookInstance.cells);
 
@@ -78,7 +68,8 @@ export function PositronNotebookComponent({ scrollPosition }: PositronNotebookCo
 		notebookInstance.setCellsContainer(node);
 	}, [notebookInstance]);
 
-	// Restore scroll position, if provided
+	// Restore scroll position from the instance, if any
+	const scrollPosition = notebookInstance.scrollPosition;
 	const getScrollTop = React.useCallback(
 		() => {
 			if (!scrollPosition) { return undefined; }
