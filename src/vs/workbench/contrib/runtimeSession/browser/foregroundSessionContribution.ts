@@ -141,6 +141,21 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 				this._logService.trace(`[ForegroundSessionContribution] (${notebookName}) last notebook closed, switching foreground session to: ${consoleSession?.sessionId ?? 'none'}`);
 				this._runtimeSessionService.foregroundSession = consoleSession;
 			}
+			// If the foreground session is already cleared but display info still
+			// shows a notebook session, clear it when the last notebook is closed.
+			else if (!foregroundSession && this._positronNotebookService.listInstances().length === 0) {
+				const displayInfo = this._runtimeSessionService.foregroundSessionDisplayInfo;
+				if (displayInfo?.sessionMode === LanguageRuntimeSessionMode.Notebook) {
+					const consoleSession = this._runtimeSessionService.getLastActiveConsoleSession();
+					if (consoleSession) {
+						this._logService.trace(`[ForegroundSessionContribution] (${notebookName}) last notebook closed, clearing stale display info and switching to console session: ${consoleSession.sessionId}`);
+						this._runtimeSessionService.foregroundSession = consoleSession;
+					} else {
+						this._logService.trace(`[ForegroundSessionContribution] (${notebookName}) last notebook closed, clearing stale display info`);
+						this._runtimeSessionService.foregroundSessionDisplayInfo = undefined;
+					}
+				}
+			}
 		}));
 
 		// Register focus listeners for any existing Positron notebook instances that were open before this contribution was initialized
