@@ -6,19 +6,23 @@
 .positron-iconed-button {
 	cursor: pointer;
 	display: flex;
-	gap: 6px;
+	align-items: center;
+	gap: 4px;
 	font-size: 12px;
 	color: var(--vscode-positronNotebook-deemphasized-foreground);
-
-	.button-icon {
-		color: inherit;
-		font-size: 18px;
-		transform: translateY(0px);
-	}
 
 	.action-label {
 		cursor: pointer;
 	}
+}
+
+.positron-iconed-button div.button-icon {
+	color: inherit;
+	font-size: 14px;
+}
+.positron-iconed-button div.button-icon.codicon-plus {
+	/* The plus icon is not centered vertically within its canvas */
+	transform: translate(1px, 1px);
 }
 
 .positron-iconed-button.bordered {
