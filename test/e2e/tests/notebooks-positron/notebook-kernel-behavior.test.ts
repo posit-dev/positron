@@ -230,7 +230,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		await console.typeToConsole('print(x)', true);
 		await console.waitForConsoleContents('42');
 
-		// the notebook cell should still be running; if "done" appeared the
+		// the notebook cell should still be running; if "done" appeared the test FAILS
 		// idea here is to guarantee that user will always get console ready INSTANTLY, not eventually...
 		await expect(notebooksPositron.cellOutput(0)).not.toContainText('done');
 	});
