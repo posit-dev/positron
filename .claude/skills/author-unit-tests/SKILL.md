@@ -1,6 +1,6 @@
 ---
 name: author-unit-tests
-description: Use when writing, generating, or adding unit tests for Positron source code in src/vs/. Load this skill when analyzing a branch or PR for test coverage gaps, or when the user asks to write tests using the createTestContainer() builder pattern.
+description: Use when writing, generating, or adding unit tests for Positron source code in src/vs/. Load this skill when analyzing a branch or PR for test coverage gaps, or when the user asks to write tests using the createTestContainer() builder pattern. Not for e2e or Playwright tests -- use author-e2e-tests for those.
 ---
 
 # Positron Unit Test Authoring
