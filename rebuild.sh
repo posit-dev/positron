@@ -31,11 +31,7 @@ case "${proceed}" in
 esac
 
 # Kill any running deemons.
-npm run kill-watchd
-npm run kill-watch-webd
-npm run kill-watch-clientd
-npm run kill-watch-extensionsd
-npm run kill-watch-e2ed
+npm run build-stop
 
 # Remove any existing node_modules folders.
 git ls-files --directory -i -o -x node_modules | xargs rm -rf
