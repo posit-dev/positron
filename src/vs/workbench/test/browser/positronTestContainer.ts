@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/// <reference types="vitest/globals" />
+
 import { DisposableStore } from '../../../base/common/lifecycle.js';
 import { Event } from '../../../base/common/event.js';
 import { ServiceIdentifier } from '../../../platform/instantiation/common/instantiation.js';
@@ -10,7 +12,7 @@ import { ServiceCollection } from '../../../platform/instantiation/common/servic
 import { TestInstantiationService } from '../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { createRuntimeServices } from '../../services/runtimeSession/test/common/testRuntimeSessionService.js';
 import { positronWorkbenchInstantiationService } from './positronWorkbenchTestServices.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../base/test/common/utils.js';
+import { ensureNoLeakedDisposables } from '../../../base/test/common/vitestUtils.js';
 import { INotebookExecutionService } from '../../contrib/notebook/common/notebookExecutionService.js';
 import { INotebookExecutionStateService } from '../../contrib/notebook/common/notebookExecutionStateService.js';
 import { INotebookRendererMessagingService } from '../../contrib/notebook/common/notebookRendererMessagingService.js';
@@ -107,11 +109,11 @@ type ServiceStub = { id: ServiceIdentifier<any>; impl: any };
  * ## Lazy getters
  *
  * `ctx` uses lazy getters. Access `ctx.instantiationService` inside
- * `setup`/`test` callbacks, not at suite-level via destructuring.
+ * `beforeEach`/`it` callbacks, not at suite-level via destructuring.
  *
  * ## Test style
  *
- * - Group related tests with nested `suite()` calls, not comment headers.
+ * - Group related tests with nested `describe()` calls, not comment headers.
  * - Prefer events/state to verify behavior (e.g. await
  *   `TestCommandService.onWillExecuteCommand` instead of stubbing
  *   `executeCommand`). Use sinon only when no observable signal exists.
@@ -175,23 +177,23 @@ class PositronTestContainerBuilder {
 	/**
 	 * Build the container. Returns get(), instantiationService, and disposables.
 	 *
-	 * Must be called at suite-level (not inside setup). The builder registers
-	 * its own setup hook to create a fresh instantiation service and apply presets
-	 * each test, so the disposable store created by ensureNoDisposablesAreLeakedInTestSuite()
+	 * Must be called at describe-level (not inside beforeEach). The builder registers
+	 * its own beforeEach hook to create a fresh instantiation service and apply presets
+	 * each test, so the disposable store created by ensureNoLeakedDisposables()
 	 * is always initialized before service setup runs.
 	 */
 	build(): TestContainerResult {
-		const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+		const disposables = ensureNoLeakedDisposables();
 		const stubs = [...this._stubs];
 		const useRuntimeServices = this._useRuntimeServices;
 		const useNotebookServices = this._useNotebookServices;
 		const useWorkbenchServices = this._useWorkbenchServices;
 		const useContributionServices = this._useContributionServices;
 
-		// Mutable slot -- reassigned in setup so each test starts fresh.
+		// Mutable slot -- reassigned in beforeEach so each test starts fresh.
 		let _instantiationService: TestInstantiationService;
 
-		setup(() => {
+		beforeEach(() => {
 			if (useContributionServices) {
 				_instantiationService = positronWorkbenchInstantiationService(disposables);
 				// Event.None stubs for services that contributions subscribe to
@@ -242,7 +244,7 @@ class PositronTestContainerBuilder {
 		});
 
 		// Return a result object whose properties delegate to the mutable slot.
-		// This is safe because tests only access these after setup has run.
+		// This is safe because tests only access these after beforeEach has run.
 		const result: TestContainerResult = {
 			get instantiationService() { return _instantiationService; },
 			get<T>(id: ServiceIdentifier<T>) { return _instantiationService.get(id); },
