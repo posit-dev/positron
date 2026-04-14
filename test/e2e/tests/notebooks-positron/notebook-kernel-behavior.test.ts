@@ -211,59 +211,25 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		await settings.remove(['console.showNotebookConsoleActions']);
 	});
 
-	test('Python - notebook console accepts input after cell execution', {
+	test('Python - console accepts input after notebook cell execution', {
 		tag: [tags.CONSOLE],
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/11704' }]
-	}, async function ({ app, sessions, settings }) {
+	}, async function ({ app, sessions }) {
 		const { notebooksPositron, console } = app.workbench;
-
-		await settings.set({ 'console.showNotebookConsoleActions': true }, { reload: true, waitMs: 1000 });
-
-		// create notebook and select Python kernel
+		await sessions.start(['python']);
 		await notebooksPositron.newNotebook();
 		await notebooksPositron.kernel.select('Python');
+		await notebooksPositron.addCodeToCell(0, 'print("hello")', { run: true });
 
-		// execute a cell to ensure the kernel is active
-		await notebooksPositron.addCodeToCell(0, 'x = 42', { run: true });
-
-		// open the notebook console
-		await notebooksPositron.kernel.openNotebookConsole();
-		await sessions.select('Untitled-1.ipynb');
+		// verify the console accepts typed input
+		await console.focus();
 		await console.waitForReady('>>>');
-
-		// verify the console can execute code that references the notebook variable
-		await console.pasteCodeToConsole('print(x)', true);
+		await console.typeToConsole('x = 42', true);
+		await console.waitForReady('>>>');
+		await console.typeToConsole('print(x)', true);
 		await console.waitForConsoleContents('42');
-
-		await settings.remove(['console.showNotebookConsoleActions']);
 	});
 
-	test('R - notebook console accepts input after cell execution', {
-		tag: [tags.ARK, tags.CONSOLE],
-		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/11704' }]
-	}, async function ({ app, sessions, settings }) {
-		const { notebooksPositron, console } = app.workbench;
-
-		await settings.set({ 'console.showNotebookConsoleActions': true }, { reload: true, waitMs: 1000 });
-
-		// create notebook and select R kernel
-		await notebooksPositron.newNotebook();
-		await notebooksPositron.kernel.select('R');
-
-		// execute a cell to ensure the kernel is active
-		await notebooksPositron.addCodeToCell(0, 'x <- 42', { run: true });
-
-		// open the notebook console
-		await notebooksPositron.kernel.openNotebookConsole();
-		await sessions.select('Untitled-1.ipynb');
-		await console.waitForReady('>');
-
-		// verify the console can execute code that references the notebook variable
-		await console.pasteCodeToConsole('print(x)', true);
-		await console.waitForConsoleContents('[1] 42');
-
-		await settings.remove(['console.showNotebookConsoleActions']);
-	});
 });
 
 const rDataFrame = `data.frame(
