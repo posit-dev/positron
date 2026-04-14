@@ -53,19 +53,22 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 	const services = usePositronReactServicesContext();
 	const positronConsoleContext = usePositronConsoleContext();
 
-	// Compute session display name
+	/**
+	 * Compute the session display name. For notebook sessions, we
+	 * use getNotebookDisplayName so untitled document names are
+	 * handled correctly (e.g. "Untitled.ipynb" vs "Untitled.qmd").
+	 */
 	const isNotebookSession =
 		positronConsoleInstance.sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook;
-	const session = services.runtimeSessionService.getActiveSession(positronConsoleInstance.sessionId);
 	let sessionDisplayName = '';
-	if (session) {
-		// Ask the session directly
-		sessionDisplayName = session.session.getLabel();
-	} else if (isNotebookSession) {
+	if (isNotebookSession) {
 		sessionDisplayName = getNotebookDisplayName(
 			positronConsoleInstance.sessionMetadata.notebookUri!, services.modelService);
 	} else {
-		sessionDisplayName = positronConsoleInstance.sessionName;
+		const session = services.runtimeSessionService.getActiveSession(positronConsoleInstance.sessionId);
+		sessionDisplayName = session
+			? session.session.getLabel()
+			: positronConsoleInstance.sessionName;
 	}
 
 	// State
