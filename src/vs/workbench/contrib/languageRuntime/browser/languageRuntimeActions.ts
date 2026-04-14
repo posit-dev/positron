@@ -19,7 +19,6 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { dispose } from '../../../../base/common/lifecycle.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { ExplorerFolderContext } from '../../files/common/files.js';
@@ -55,8 +54,8 @@ export const LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_CONSOLE_SESSION_ID = 'workbench.a
 // Notebook Session Specific Action IDs
 export const LANGUAGE_RUNTIME_SELECT_LEGACY_NOTEBOOK_RUNTIME_ID = 'workbench.action.languageRuntime.selectLegacyNotebookRuntime';
 
-// Special quick pick item ID for installing Python via uv
-const INSTALL_PYTHON_VIA_UV_ID = '__install_python_via_uv__';
+// Prefix for contributed picker items
+const CONTRIBUTED_ITEM_PREFIX = '__contributed__';
 
 /**
  * Helper function that askses the user to select a language from the list of registered language
@@ -298,7 +297,6 @@ const selectNewLanguageRuntime = async (
 	const runtimeSessionService = accessor.get(IRuntimeSessionService);
 	const runtimeStartupService = accessor.get(IRuntimeStartupService);
 	const languageRuntimeService = accessor.get(ILanguageRuntimeService);
-	const configurationService = accessor.get(IConfigurationService);
 	const commandService = accessor.get(ICommandService);
 
 	// Group runtimes by language.
@@ -419,24 +417,34 @@ const selectNewLanguageRuntime = async (
 		});
 	});
 
-	// Check if we should show the "Install Python via uv" option
-	// Only check after discovery is complete to avoid showing the option prematurely
-	const allowPythonInstall = configurationService.getValue<boolean>('python.allowPythonInstall') ?? true;
-	const discoveryComplete = languageRuntimeService.startupPhase === RuntimeStartupPhase.Complete;
-	if (allowPythonInstall && discoveryComplete) {
-		const alwaysShow = configurationService.getValue<boolean>('python.INTERNAL_alwaysShowUvInstallOption') ?? false;
-		const pythonRuntimes = languageRuntimeService.registeredRuntimes.filter(r => r.languageId === 'python');
-		const hasOnlySystemPython = pythonRuntimes.length > 0 &&
-			pythonRuntimes.every(r => ['System', 'Global'].includes(r.runtimeSource));
+	// Get contributed items from extensions (e.g., "Install Python via uv")
+	// Map to track which contribution owns which item
+	const contributedItemMap = new Map<string, { contribution: { handle: number; onSelect: (itemId: string) => Promise<string | undefined> }; originalId: string }>();
 
-		if (alwaysShow || pythonRuntimes.length === 0 || hasOnlySystemPython) {
-			runtimeItems.push(
-				{ type: 'separator', label: localize('positron.languageRuntime.installPython', 'Install Python') },
-				{
-					id: INSTALL_PYTHON_VIA_UV_ID,
-					label: localize('positron.languageRuntime.installPythonViaUv', '$(add) Install Python via uv'),
+	// Only show contributed items after discovery is complete
+	if (languageRuntimeService.startupPhase === RuntimeStartupPhase.Complete) {
+		const contributions = languageRuntimeService.getPickerContributions();
+		for (const contribution of contributions) {
+			try {
+				const items = await contribution.getItems();
+				for (const item of items) {
+					// Create a unique ID for this item that includes the contribution handle
+					const uniqueId = `${CONTRIBUTED_ITEM_PREFIX}${contribution.handle}_${item.id}`;
+					contributedItemMap.set(uniqueId, { contribution, originalId: item.id });
+
+					if (item.separatorLabel) {
+						runtimeItems.push({ type: 'separator', label: item.separatorLabel });
+					}
+					runtimeItems.push({
+						id: uniqueId,
+						label: item.label,
+						detail: item.detail,
+					});
 				}
-			);
+			} catch (error) {
+				// Log but don't fail if a contribution errors
+				console.error(`Failed to get picker items from contribution: ${error}`);
+			}
 		}
 	}
 
@@ -449,31 +457,20 @@ const selectNewLanguageRuntime = async (
 		return undefined;
 	}
 
-	// Handle "Install Python via uv" - venv creation is handled in the Python extension
-	if (selectedRuntime.id === INSTALL_PYTHON_VIA_UV_ID) {
-		try {
-			const result = await commandService.executeCommand<{ pythonPath: string; runtimeId?: string } | undefined>('python.installPythonViaUv');
-			if (result?.pythonPath) {
-				// Wait for runtime discovery to complete, then find the runtime by path
-				// This is needed because the runtime registration event may not have propagated yet
-				await commandService.executeCommand(LANGUAGE_RUNTIME_DISCOVER_RUNTIMES_ID);
-
-				// First try by runtimeId if provided
-				if (result.runtimeId) {
-					const runtime = languageRuntimeService.getRegisteredRuntime(result.runtimeId);
-					if (runtime) {
-						return runtime;
-					}
+	// Handle contributed items
+	if (selectedRuntime.id.startsWith(CONTRIBUTED_ITEM_PREFIX)) {
+		const contributedItem = contributedItemMap.get(selectedRuntime.id);
+		if (contributedItem) {
+			try {
+				const runtimeId = await contributedItem.contribution.onSelect(contributedItem.originalId);
+				if (runtimeId) {
+					// Wait for runtime discovery to complete to ensure the new runtime is registered
+					await commandService.executeCommand(LANGUAGE_RUNTIME_DISCOVER_RUNTIMES_ID);
+					return languageRuntimeService.getRegisteredRuntime(runtimeId);
 				}
-
-				// Fallback: search by path
-				return languageRuntimeService.registeredRuntimes.find(
-					r => r.languageId === 'python' && r.runtimePath === result.pythonPath
-				);
+			} catch (error) {
+				console.error(`Failed to handle contributed item selection: ${error}`);
 			}
-		} catch (error) {
-			// Command may not be registered if Python extension is not active
-			console.error('Failed to install Python via uv:', getErrorMessage(error));
 		}
 		return undefined;
 	}
