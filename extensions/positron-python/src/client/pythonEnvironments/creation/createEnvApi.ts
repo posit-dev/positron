@@ -221,81 +221,89 @@ export async function registerCreateEnvironmentFeatures(
             }
         }),
         registerCommand(Commands.Is_Global_Python, (interpreterPath: string) => isGlobalPython(interpreterPath)),
-        // Register the runtime picker contribution for "Install Python via uv"
-        positron.runtime.registerRuntimePickerContribution({
-            languageId: 'python',
+    );
 
-            async getItems(): Promise<positron.runtime.RuntimePickerItem[]> {
-                // Check if Python installation via uv is allowed
-                const allowPythonInstall = getConfiguration('python').get<boolean>('allowPythonInstall') ?? true;
-                if (!allowPythonInstall) {
+    // Register the runtime picker contribution for "Install Python via uv"
+    // Guard against older Positron builds that don't have this API
+    if (typeof positron.runtime.registerRuntimePickerContribution === 'function') {
+        disposables.push(
+            positron.runtime.registerRuntimePickerContribution({
+                languageId: 'python',
+
+                async getItems(): Promise<positron.runtime.RuntimePickerItem[]> {
+                    // Check if Python installation via uv is allowed
+                    const allowPythonInstall = getConfiguration('python').get<boolean>('allowPythonInstall') ?? true;
+                    if (!allowPythonInstall) {
+                        return [];
+                    }
+
+                    // Get all registered runtimes to check what Python interpreters exist
+                    const runtimes = await positron.runtime.getRegisteredRuntimes();
+                    const pythonRuntimes = runtimes.filter((r) => r.languageId === 'python');
+
+                    // Check if we only have system/global Python (no virtual environments)
+                    const hasOnlySystemPython =
+                        pythonRuntimes.length > 0 &&
+                        pythonRuntimes.every((r) => ['System', 'Global'].includes(r.runtimeSource));
+
+                    // Check if we should always show the option (for testing)
+                    const alwaysShow =
+                        getConfiguration('python').get<boolean>('INTERNAL_alwaysShowUvInstallOption') ?? false;
+
+                    // Show the install option if:
+                    // - Always show is enabled (for testing), OR
+                    // - No Python runtimes found, OR
+                    // - Only system/global Python found (no virtual environments)
+                    if (alwaysShow || pythonRuntimes.length === 0 || hasOnlySystemPython) {
+                        return [
+                            {
+                                id: 'install-python-uv',
+                                label: '$(add) Install Python via uv',
+                                separatorLabel: 'Install Python',
+                            },
+                        ];
+                    }
+
                     return [];
-                }
+                },
 
-                // Get all registered runtimes to check what Python interpreters exist
-                const runtimes = await positron.runtime.getRegisteredRuntimes();
-                const pythonRuntimes = runtimes.filter((r) => r.languageId === 'python');
-
-                // Check if we only have system/global Python (no virtual environments)
-                const hasOnlySystemPython =
-                    pythonRuntimes.length > 0 &&
-                    pythonRuntimes.every((r) => ['System', 'Global'].includes(r.runtimeSource));
-
-                // Check if we should always show the option (for testing)
-                const alwaysShow =
-                    getConfiguration('python').get<boolean>('INTERNAL_alwaysShowUvInstallOption') ?? false;
-
-                // Show the install option if:
-                // - Always show is enabled (for testing), OR
-                // - No Python runtimes found, OR
-                // - Only system/global Python found (no virtual environments)
-                if (alwaysShow || pythonRuntimes.length === 0 || hasOnlySystemPython) {
-                    return [
-                        {
-                            id: 'install-python-uv',
-                            label: '$(add) Install Python via uv',
-                            separatorLabel: 'Install Python',
-                        },
-                    ];
-                }
-
-                return [];
-            },
-
-            async onDidSelectItem(itemId: string): Promise<string | undefined> {
-                if (itemId === 'install-python-uv') {
-                    try {
-                        const result = await installPythonViaUv();
-                        if (result.success && result.pythonPath) {
-                            // Register the runtime - the caller will handle starting it
-                            let metadata = await pythonRuntimeManager.registerLanguageRuntimeFromPath(
-                                result.pythonPath,
-                                true,
-                            );
-
-                            // If registration failed, trigger a refresh and retry
-                            if (!metadata) {
-                                await pythonRuntimeManager.triggerInterpreterRefresh();
-                                metadata = await pythonRuntimeManager.registerLanguageRuntimeFromPath(
+                async onDidSelectItem(itemId: string): Promise<string | undefined> {
+                    if (itemId === 'install-python-uv') {
+                        try {
+                            const result = await installPythonViaUv();
+                            if (result.success && result.pythonPath) {
+                                // Register the runtime - the caller will handle starting it
+                                let metadata = await pythonRuntimeManager.registerLanguageRuntimeFromPath(
                                     result.pythonPath,
                                     true,
                                 );
-                            }
 
-                            return metadata?.runtimeId;
+                                // If registration failed, trigger a refresh and retry
+                                if (!metadata) {
+                                    await pythonRuntimeManager.triggerInterpreterRefresh();
+                                    metadata = await pythonRuntimeManager.registerLanguageRuntimeFromPath(
+                                        result.pythonPath,
+                                        true,
+                                    );
+                                }
+
+                                return metadata?.runtimeId;
+                            }
+                            if (result.error && result.error !== 'Cancelled') {
+                                showErrorMessage(result.error);
+                            }
+                        } catch (error) {
+                            traceError(`Install Python via uv failed: ${error}`);
+                            showErrorMessage(InterpreterQuickPickList.UvInstall.installCommandFailed);
                         }
-                        if (result.error && result.error !== 'Cancelled') {
-                            showErrorMessage(result.error);
-                        }
-                    } catch (error) {
-                        traceError(`Install Python via uv failed: ${error}`);
-                        showErrorMessage(InterpreterQuickPickList.UvInstall.installCommandFailed);
                     }
-                }
-                return undefined;
-            },
-        }),
-        // --- End Positron ---
+                    return undefined;
+                },
+            }),
+        );
+    }
+    // --- End Positron ---
+    disposables.push(
         registerCreateEnvironmentProvider(new VenvCreationProvider(interpreterQuickPick)),
         registerCreateEnvironmentProvider(condaCreationProvider()),
         // --- Start Positron ---

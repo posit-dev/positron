@@ -417,7 +417,10 @@ suite('UV Python Installer Tests', () => {
                 stdout: 'cpython-3.13.1-macos-aarch64-none    <download available>',
             });
             // User selects version, then accepts venv creation
-            quickPickResponses = [{ version: '3.13', label: 'Python 3.13' }, { id: 'yes', label: 'Yes' }];
+            quickPickResponses = [
+                { version: '3.13', label: 'Python 3.13' },
+                { id: 'yes', label: 'Yes' },
+            ];
             // uv python install succeeds
             execStub.onSecondCall().resolves({ stdout: '' });
             // uv python find returns path
@@ -442,7 +445,10 @@ suite('UV Python Installer Tests', () => {
                 stdout: 'cpython-3.13.1-macos-aarch64-none    <download available>',
             });
             // User selects version, then declines venv creation
-            quickPickResponses = [{ version: '3.13', label: 'Python 3.13' }, { id: 'no', label: 'No' }];
+            quickPickResponses = [
+                { version: '3.13', label: 'Python 3.13' },
+                { id: 'no', label: 'No' },
+            ];
             // uv python install succeeds
             execStub.onSecondCall().resolves({ stdout: '' });
             // uv python find returns path
@@ -465,7 +471,10 @@ suite('UV Python Installer Tests', () => {
                 stdout: 'cpython-3.13.1-macos-aarch64-none    <download available>',
             });
             // User selects version, then accepts venv creation
-            quickPickResponses = [{ version: '3.13', label: 'Python 3.13' }, { id: 'yes', label: 'Yes' }];
+            quickPickResponses = [
+                { version: '3.13', label: 'Python 3.13' },
+                { id: 'yes', label: 'Yes' },
+            ];
             // uv python install succeeds
             execStub.onSecondCall().resolves({ stdout: '' });
             // uv python find returns path
