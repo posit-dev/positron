@@ -20,6 +20,15 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { IPositronNotebookViewState } from './positronNotebookEditorTypes.js';
 
 /**
+ * A resolved scroll position pointing to a live cell and an offset from that cell.
+ * Produced by resolving a persisted view state against the current cell list.
+ */
+export interface IPositronNotebookResolvedScrollPosition {
+	cell: IPositronNotebookCell;
+	offsetFromCell: number;
+}
+
+/**
  * Metadata about the editor layout that may be relevant for execution, such as
  * output sizing.
  */
@@ -470,7 +479,7 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * The resolved scroll position to restore, if any.
 	 * Set by `restoreEditorViewState` and consumed by the React component.
 	 */
-	readonly scrollPosition: { cell: IPositronNotebookCell; offsetFromCell: number } | undefined;
+	readonly scrollPosition: IPositronNotebookResolvedScrollPosition | undefined;
 
 	/**
 	 * Resolves a persisted view state into a live cell reference and stores

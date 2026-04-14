@@ -25,7 +25,7 @@ import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebook
 import { CellSelectionType, getActiveCell, getEditingCell, getSelectedCells, SelectionState, SelectionStateMachine, toCellRanges } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
 import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
 import { IPositronNotebookService } from './positronNotebookService.js';
-import { EditorLayoutMetadata, IDeletionSentinel, IPositronNotebookInstance, KernelStatus, NotebookOperationType } from './IPositronNotebookInstance.js';
+import { EditorLayoutMetadata, IDeletionSentinel, IPositronNotebookInstance, IPositronNotebookResolvedScrollPosition, KernelStatus, NotebookOperationType } from './IPositronNotebookInstance.js';
 import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from '../common/positronNotebookConfig.js';
 import { getAssistantSettings } from '../common/notebookAssistantMetadata.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
@@ -189,7 +189,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Resolved scroll position to restore when the notebook is next rendered.
 	 * Set by `restoreEditorViewState` and consumed by the React component.
 	 */
-	private _scrollPosition: { cell: IPositronNotebookCell; offsetFromCell: number } | undefined;
+	private _scrollPosition: IPositronNotebookResolvedScrollPosition | undefined;
 
 	/**
 	 * The DOM element that contains the cells for the notebook.
@@ -1991,7 +1991,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * The resolved scroll position to restore, if any.
 	 * Read by the React component during mount.
 	 */
-	get scrollPosition(): { cell: IPositronNotebookCell; offsetFromCell: number } | undefined {
+	get scrollPosition(): IPositronNotebookResolvedScrollPosition | undefined {
 		return this._scrollPosition;
 	}
 

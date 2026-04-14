@@ -68,8 +68,11 @@ export function PositronNotebookComponent() {
 		notebookInstance.setCellsContainer(node);
 	}, [notebookInstance]);
 
-	// Restore scroll position from the instance, if any
-	const scrollPosition = notebookInstance.scrollPosition;
+	// Capture the scroll position once on mount. Using a ref ensures that
+	// subsequent re-renders (e.g. from cells observable updates during async
+	// React 18 rendering) don't re-read a potentially stale instance value.
+	const scrollPositionRef = React.useRef(notebookInstance.scrollPosition);
+	const scrollPosition = scrollPositionRef.current;
 	const getScrollTop = React.useCallback(
 		() => {
 			if (!scrollPosition) { return undefined; }
