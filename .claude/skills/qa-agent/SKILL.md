@@ -13,6 +13,21 @@ Performs on-demand QA testing by driving Positron through test scenarios using t
 
 ## Rules for This Workflow
 
+- **20-minute time cap.** Record the wall-clock time when you send your first tool call.
+  - **At 15 minutes:** Stop all diagnostic/retry work. Send `/done` to the runner,
+    report whatever results you have (partial is fine), and proceed to Step 5
+    (cleanup and save prompt). Use `TIMED OUT` as the result header if the core
+    test never completed.
+  - **At 20 minutes absolute hard stop:** If you are still running, immediately
+    send `/done`, kill any remaining Positron processes
+    (`pkill -f "Positron.*vscsmoke" 2>/dev/null`), and report a summary of what
+    was attempted and what is still unknown. Skip `--save` and `--comment` actions.
+  - **Diagnostic rabbit holes are the #1 time sink.** If `/run-plan` fails and the
+    first retry also fails, you have two choices: (a) report the failure with
+    whatever diagnostics you gathered, or (b) switch to explore mode for ONE
+    focused investigation. Do NOT enter multi-round diagnostic loops (snapshot,
+    try different selectors, re-check DOM, etc.) -- each round costs 2-3 minutes
+    and rarely converges.
 - **Do NOT use TaskCreate or TaskUpdate.** This workflow is fast and linear -- task tracking adds overhead with zero value.
 - **Avoid `$'...'` bash syntax** (ansi_c_string). Use heredocs or plain strings instead. The `$'...'` pattern triggers permission prompts for users and blocks CI. See `references/runner-api.md` for safe alternatives.
 - **Notebook kernel timing:** When testing notebooks, always wait for the kernel to connect before running cells. Use `newNotebook` action to create, then separate `addCodeToCell` and run steps. Do NOT use `addCodeToCell({ run: true })` immediately after notebook creation -- the kernel may not be ready.

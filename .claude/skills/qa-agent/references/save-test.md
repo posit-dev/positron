@@ -6,7 +6,8 @@ Write a standalone `.test.ts` file when saving (via `--save` flag, or user said 
 
 `test/e2e/tests/_generated/MMDD-<increment>_<pr>-<slug>.test.ts`
 - `MMDD` is the current date (e.g., `0405`)
-- `<increment>` is a sequential number for the day -- count existing `MMDD-*` files and add 1:
+- `<increment>` is a sequential number for the day -- count existing `MMDD-*` files and add 1.
+  Run **only** this command to get the count. Do NOT glob or list all files in `_generated/`.
   ```bash
   ls test/e2e/tests/_generated/MMDD-* 2>/dev/null | wc -l
   ```
@@ -27,6 +28,11 @@ indentation, and copyright header. Key differences for QA-generated tests:
 - For free-text tests (no PR number), use `test.describe('Verify: <description>')`
 
 ## Rules
+
+- **Do NOT read existing test files in `_generated/` for reference.** Write the
+  test from your runner results and the reference docs listed in this file.
+  Reading other tests leads to pattern copying instead of reflecting what you
+  actually observed.
 
 - **Always use fixtures over workbench properties when available.** Fixtures come
   from the test function parameter, NOT from `app.workbench`. Read

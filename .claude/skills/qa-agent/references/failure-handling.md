@@ -40,7 +40,11 @@ curl -s -X POST "http://localhost:$PORT/run-plan" \
 
 The `resetBefore` flag closes editors, clears console, and restores default layout before running.
 
-5. **If both attempts fail**: switch to Explore Mode (see `references/runner-api-explore.md`) for interactive diagnosis, or report the failure.
+5. **If both attempts fail**: you have ONE more option -- switch to Explore Mode
+   (see `references/runner-api-explore.md`) for a SINGLE focused investigation
+   (e.g., one snapshot + one targeted action). If that doesn't resolve it, **stop
+   and report the failure.** Do NOT enter multi-round diagnostic loops. Each
+   diagnostic round costs 2-3 minutes and the 20-minute time cap is absolute.
 
 6. **Track divergences for POM Health reporting.** When a retry succeeds with a different
    POM method or a raw Playwright fallback, note the original method, the replacement,
