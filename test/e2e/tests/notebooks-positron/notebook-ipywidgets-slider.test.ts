@@ -34,7 +34,7 @@ display(s)
 		await notebooksPositron.widgetSlider.press('ArrowLeft');
 		await expect(notebooksPositron.widgetReadout).toContainText('49');
 
-		// Moving from 49 to 51 proves that widget does NOT get stuck after first interactivity
+		// Moving from 49 to 51 proves that widget does NOT get stuck after first interactivity event.
 		await notebooksPositron.widgetSlider.press('ArrowRight');
 		await notebooksPositron.widgetSlider.press('ArrowRight');
 		await expect(notebooksPositron.widgetReadout).toContainText('51');
