@@ -13,14 +13,20 @@
 	color: var(--vscode-errorForeground);
 }
 
-.select-data-connection-provider .driver-grid-container {
-	height: 246px;
-	overflow-y: auto;
+.select-data-connection-provider .driver-grid-clip {
+	overflow: hidden;
 	border-radius: 6px;
 	border: 1px solid var(--vscode-widget-border);
 }
 
+.select-data-connection-provider .driver-grid-container {
+	/* Two rows: 8px (top padding) + 110px (row 1) + 8px (gap) + 110px (row 2) + 8px (bottom padding) = 244px */
+	height: 244px;
+	overflow-y: auto;
+}
+
 .select-data-connection-provider .driver-grid-container::-webkit-scrollbar {
+	/* Sneaks a thin scrollbar into the 8px gap. */
 	width: 5px;
 }
 

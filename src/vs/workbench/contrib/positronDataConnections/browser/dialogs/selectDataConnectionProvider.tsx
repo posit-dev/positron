@@ -7,9 +7,10 @@
 import './selectDataConnectionProvider.css';
 
 // React.
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
+import * as DOM from '../../../../../base/browser/dom.js';
 import { localize } from '../../../../../nls.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
@@ -44,6 +45,9 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 	// Get the data connections service from the React services context.
 	const { positronDataConnectionsService } = usePositronReactServicesContext();
 
+	// Refs.
+	const gridContainerRef = useRef<HTMLDivElement>(undefined!);
+
 	// State.
 	const [drivers, setDrivers] = useState<IDataConnectionDriverMetadata[]>([]);
 	const [selectedDriverId, setSelectedDriverId] = useState<string | undefined>(undefined);
@@ -68,6 +72,29 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 		// Dispose the renderer, which will close the dialog.
 		renderer.dispose();
 	}, [renderer]);
+
+	// Scrolls the grid container to keep the focused card visible with proper padding.
+	const scrollToFocusedCard = useCallback((target: EventTarget) => {
+		const container = gridContainerRef.current;
+		if (!container || !DOM.isHTMLElement(target)) {
+			return;
+		}
+
+		const card = target;
+		const padding = 8;
+		const cardRect = card.getBoundingClientRect();
+		const containerRect = container.getBoundingClientRect();
+		const borderTop = container.clientTop;
+
+		const cardTop = cardRect.top - containerRect.top - borderTop + container.scrollTop;
+		const cardBottom = cardTop + card.offsetHeight;
+
+		if (cardTop - padding < container.scrollTop) {
+			container.scrollTop = cardTop - padding;
+		} else if (cardBottom + padding > container.scrollTop + container.clientHeight) {
+			container.scrollTop = cardBottom + padding - container.clientHeight;
+		}
+	}, []);
 
 	// Next handler.
 	const nextHandler = useCallback(() => {
@@ -101,27 +128,29 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 							"Select a provider"
 						)}
 					</div>
-					<div className='driver-grid-container'>
-						<div className='driver-grid'>
-							{Array.from({ length: 6 }, () => drivers).flat().map((driver, index) => (
-								<Button
-									key={`${driver.id}-${index}`}
-									className={positronClassNames(
-										'driver-card',
-										{ 'selected': selectedDriverId === driver.id }
-									)}
-									id={`data-connection-driver-card-${driver.id}`}
-									onPressed={() => {
-										setSelectedDriverId(driver.id);
-										setShowError(false);
-									}}
-								>
-									<div className='driver-card-badge'>
-										<img alt='' className='driver-card-icon' src={`data:image/svg+xml;base64,${driver.iconSvg}`} />
-									</div>
-									<div className='driver-card-name'>{driver.name}</div>
-								</Button>
-							))}
+					<div className='driver-grid-clip'>
+						<div ref={gridContainerRef} className='driver-grid-container' role='group' onFocus={(e) => scrollToFocusedCard(e.target)}>
+							<div className='driver-grid'>
+								{Array.from({ length: 6 }, () => drivers).flat().map((driver, index) => (
+									<Button
+										key={`${driver.id}-${index}`}
+										className={positronClassNames(
+											'driver-card',
+											{ 'selected': selectedDriverId === driver.id }
+										)}
+										id={`data-connection-driver-card-${driver.id}`}
+										onPressed={() => {
+											setSelectedDriverId(driver.id);
+											setShowError(false);
+										}}
+									>
+										<div className='driver-card-badge'>
+											<img alt='' className='driver-card-icon' src={`data:image/svg+xml;base64,${driver.iconSvg}`} />
+										</div>
+										<div className='driver-card-name'>{driver.name}</div>
+									</Button>
+								))}
+							</div>
 						</div>
 					</div>
 				</div>
