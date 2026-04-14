@@ -67,28 +67,35 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 		return () => disposable.dispose();
 	}, [positronDataConnectionsService.driverManager]);
 
-	// Cancel handler.
+	/**
+	 * Cancel handler.
+	 */
 	const cancelHandler = useCallback(() => {
 		// Dispose the renderer, which will close the dialog.
 		renderer.dispose();
 	}, [renderer]);
 
-	// Scrolls the grid container to keep the focused card visible with proper padding.
-	const scrollToFocusedCard = useCallback((target: EventTarget) => {
+	/**
+	 * Scrolls the grid container to keep the focused driver card visible with proper padding.
+	 * @param targetCard The driver card that received focus.
+	 */
+	const scrollToFocusedDriverCard = useCallback((targetDriverCard: EventTarget) => {
+		// Get the container element and the target driver card. If we can't find it, do nothing.
 		const container = gridContainerRef.current;
-		if (!container || !DOM.isHTMLElement(target)) {
+		if (!container || !DOM.isHTMLElement(targetDriverCard)) {
 			return;
 		}
 
-		const card = target;
+		// Calculate the top and bottom of the target card relative to the container.
 		const padding = 8;
-		const cardRect = card.getBoundingClientRect();
+		const cardRect = targetDriverCard.getBoundingClientRect();
 		const containerRect = container.getBoundingClientRect();
 		const borderTop = container.clientTop;
-
 		const cardTop = cardRect.top - containerRect.top - borderTop + container.scrollTop;
-		const cardBottom = cardTop + card.offsetHeight;
+		const cardBottom = cardTop + targetDriverCard.offsetHeight;
 
+		// If the top of the card is above the visible area of the container, scroll up to show it with padding.
+		// If the bottom of the card is below the visible area of the container, scroll down to show it with padding.
 		if (cardTop - padding < container.scrollTop) {
 			container.scrollTop = cardTop - padding;
 		} else if (cardBottom + padding > container.scrollTop + container.clientHeight) {
@@ -108,7 +115,7 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 	// Render.
 	return (
 		<PositronModalDialog
-			height={400}
+			height={382}
 			renderer={props.renderer}
 			title={localize(
 				'positron.selectDataConnectionProvider.title',
@@ -129,7 +136,7 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 						)}
 					</div>
 					<div className='driver-grid-clip'>
-						<div ref={gridContainerRef} className='driver-grid-container' role='group' onFocus={(e) => scrollToFocusedCard(e.target)}>
+						<div ref={gridContainerRef} className='driver-grid-container' role='group' onFocus={(e) => scrollToFocusedDriverCard(e.target)}>
 							<div className='driver-grid'>
 								{Array.from({ length: 6 }, () => drivers).flat().map((driver, index) => (
 									<Button
