@@ -994,6 +994,19 @@
                     "default": true,
                     "description": "%python.autoConvertFilePaths.description%",
                     "scope": "resource"
+                },
+                "positron.python.packageMetadataSource": {
+                    "scope": "window",
+                    "type": "string",
+                    "enum": ["p3m", "pypi", "none"],
+                    "default": "p3m",
+                    "markdownDescription": "Source for package search metadata. `p3m` uses Posit Package Manager for richer results with descriptions. `pypi` uses the PyPI Simple API (no descriptions). `none` disables external package search."
+                },
+                "positron.python.packageMetadataUrl": {
+                    "scope": "window",
+                    "type": "string",
+                    "default": "https://packagemanager.posit.co",
+                    "markdownDescription": "Base URL for Posit Package Manager. Only used when `#positron.python.packageMetadataSource#` is `p3m`."
                 }
             },
             "title": "Python",

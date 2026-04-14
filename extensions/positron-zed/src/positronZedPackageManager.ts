@@ -27,19 +27,22 @@ export class ZedPackageManager implements positron.LanguageRuntimePackageManager
 	 * All available packages in the mock repository.
 	 */
 	private readonly _availablePackages: positron.LanguageRuntimePackage[] = [
-		{ name: 'zed-core', version: '1.0.0' },
-		{ name: 'zed-stdlib', version: '1.2.4' },
-		{ name: 'zed-runtime', version: '0.9.8' },
-		{ name: 'zed-io', version: '2.1.0' },
-		{ name: 'zed-net', version: '1.4.2' },
-		{ name: 'zed-crypto', version: '0.7.3' },
-		{ name: 'zed-fmt', version: '3.0.1' },
-		{ name: 'zed-testkit', version: '1.1.0' },
-		{ name: 'zed-async', version: '2.0.0-beta.2' },
-		{ name: 'zed-cli', version: '0.5.6' },
-		{ name: 'zed-packager', version: '1.0.0-rc.1' },
-		{ name: 'zed-vm', version: '4.3.9' }
-	].map((pkg) => ({ id: pkg.name, name: pkg.name, displayName: pkg.name, version: pkg.version }));
+		{ name: 'zed-core', version: '1.0.0', description: 'Core Zed runtime library' },
+		{ name: 'zed-stdlib', version: '1.2.4', description: 'Zed standard library' },
+		{ name: 'zed-runtime', version: '0.9.8', description: 'Zed runtime engine' },
+		{ name: 'zed-io', version: '2.1.0', description: 'Zed I/O utilities' },
+		{ name: 'zed-net', version: '1.4.2', description: 'Zed networking primitives' },
+		{ name: 'zed-crypto', version: '0.7.3', description: 'Zed cryptography support' },
+		{ name: 'zed-fmt', version: '3.0.1', description: 'Zed formatting tools' },
+		{ name: 'zed-testkit', version: '1.1.0', description: 'Zed testing utilities' },
+		{ name: 'zed-async', version: '2.0.0-beta.2', description: 'Zed async runtime' },
+		{ name: 'zed-cli', version: '0.5.6', description: 'Zed command-line interface helpers' },
+		{ name: 'zed-packager', version: '1.0.0-rc.1', description: 'Zed package bundler' },
+		{ name: 'zed-vm', version: '4.3.9', description: 'Zed virtual machine' }
+	].map((pkg) => ({
+		id: pkg.name, name: pkg.name, displayName: pkg.name,
+		version: pkg.version, description: pkg.description,
+	}));
 
 	async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
 		LOGGER.info('Getting installed packages...');

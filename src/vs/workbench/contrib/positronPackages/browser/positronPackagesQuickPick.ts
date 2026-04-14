@@ -214,6 +214,7 @@ export const installPackage = async (
 			placeholder: localize('positronPackages.installPackagePlaceholder', 'Pick a package to install...'),
 			items: state.packages.map((result) => ({
 				label: result.name,
+				description: result.description,
 			})),
 		});
 

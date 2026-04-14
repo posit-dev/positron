@@ -9,6 +9,7 @@ import * as vscode from 'vscode';
 import { IPythonExecutionFactory, IPythonExecutionService } from '../../common/process/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
+import { searchP3M, searchP3MVersions, DEFAULT_P3M_URL } from './p3mSearch.js';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
 
@@ -133,10 +134,28 @@ export class PipPackageManager implements IPackageManager {
     }
 
     async searchPackages(query: string, token?: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]> {
+        const config = vscode.workspace.getConfiguration('positron.python');
+        const source = config.get<string>('packageMetadataSource', 'p3m');
+        if (source === 'none') {
+            return [];
+        }
+        if (source === 'p3m') {
+            const url = config.get<string>('packageMetadataUrl', DEFAULT_P3M_URL);
+            return searchP3M(query, url, token);
+        }
         return searchPyPI(query, token);
     }
 
     async searchPackageVersions(name: string, token?: vscode.CancellationToken): Promise<string[]> {
+        const config = vscode.workspace.getConfiguration('positron.python');
+        const source = config.get<string>('packageMetadataSource', 'p3m');
+        if (source === 'none') {
+            return [];
+        }
+        if (source === 'p3m') {
+            const url = config.get<string>('packageMetadataUrl', DEFAULT_P3M_URL);
+            return searchP3MVersions(name, url, token);
+        }
         return searchPyPIVersions(name, token);
     }
 

@@ -1147,6 +1147,9 @@ declare module 'positron' {
 		name: string;
 		displayName: string;
 		version: string;
+		description?: string;
+		homepage?: string;
+		license?: string;
 	}
 
 	/**
