@@ -30,7 +30,7 @@ display(s)
 		await expect(notebooksPositron.widgetSlider).toBeVisible({ timeout: 5000 });
 		await notebooksPositron.focusWidgetSlider();
 
-		// Moving from 50 to 49 proves widgget interactivity
+		// Moving from 50 to 49 proves widget interactivity
 		await notebooksPositron.widgetSlider.press('ArrowLeft');
 		await expect(notebooksPositron.widgetReadout).toContainText('49');
 
