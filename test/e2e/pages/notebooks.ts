@@ -237,7 +237,9 @@ export class Notebooks {
 					await this.code.driver.page.keyboard.press('ArrowUp');
 				}
 			}
-			await this.code.driver.page.locator(CELL_LINE).nth(cellIndex).click();
+			const cell = this.code.driver.page.locator(CELL_LINE).nth(cellIndex);
+			await cell.evaluate(el => el.scrollIntoView({ block: 'center' }));
+			await cell.click();
 		});
 	}
 
