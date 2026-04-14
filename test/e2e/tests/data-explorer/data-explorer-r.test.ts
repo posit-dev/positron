@@ -29,7 +29,7 @@ test.describe('Data Explorer - R ', {
 		await editor.playButton.click();
 
 		// Open Data Explorer
-		await variables.doubleClickVariableRow('df');
+		await variables.openVariableInDataExplorer('df');
 		await editors.verifyTab('Data: df', { isVisible: true, isSelected: true });
 
 		// Verify the data in the table
@@ -74,14 +74,14 @@ test.describe('Data Explorer - R ', {
 		await variables.focusVariablesView();
 
 		// Open Data Explorer
-		await variables.doubleClickVariableRow('Data_Frame');
+		await variables.openVariableInDataExplorer('Data_Frame');
 		await editors.verifyTab('Data: Data_Frame', { isVisible: true, isSelected: true });
 
 		// Now move focus out of the the data explorer pane
 		await editors.newUntitledFile();
 		await variables.focusVariablesView();
 		await editors.verifyTab('Data: Data_Frame', { isVisible: true, isSelected: false });
-		await variables.doubleClickVariableRow('Data_Frame');
+		await variables.openVariableInDataExplorer('Data_Frame');
 		await editors.verifyTab('Data: Data_Frame', { isVisible: true, isSelected: true });
 	});
 
@@ -92,7 +92,7 @@ test.describe('Data Explorer - R ', {
 		await executeCode('R', `df = data.frame(x = c("a ", "a", "   ", ""))`);
 
 		// Open Data Explorer
-		await variables.doubleClickVariableRow('df');
+		await variables.openVariableInDataExplorer('df');
 		await editors.verifyTab('Data: df', { isVisible: true, isSelected: true });
 
 		// Verify blank spaces in the table

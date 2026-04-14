@@ -118,6 +118,16 @@ export class Console {
 		});
 	}
 
+	/**
+	 * Action: Execute code in the console via the quick-input command palette. Waits for the
+	 * console to return to the ready prompt after execution by default.
+	 *
+	 * @param options.timeout - milliseconds to wait for the ready prompt (default: 30000)
+	 * @param options.waitForReady - whether to wait for the prompt after execution (default: true)
+	 * @param options.maximizeConsole - whether to maximize the console panel afterwards (default: true)
+	 * @see waitForReady to wait for the prompt independently
+	 * @see pasteCodeToConsole to paste code directly into the console input
+	 */
 	async executeCode(languageName: 'Python' | 'R', code: string, options?: { timeout?: number; waitForReady?: boolean; maximizeConsole?: boolean }): Promise<void> {
 		return test.step(`Execute ${languageName} code in console: ${code}`, async () => {
 			const timeout = options?.timeout ?? 30000;
@@ -151,6 +161,9 @@ export class Console {
 		});
 	}
 
+	/**
+	 * Action: Log all visible console text to the test logger. Useful for debugging failures.
+	 */
 	async logConsoleContents() {
 		await test.step('Log console contents', async () => {
 			this.code.logger.log('---- START: Console Contents ----');
@@ -160,6 +173,14 @@ export class Console {
 		});
 	}
 
+	/**
+	 * Action: Type text into the console input character-by-character, simulating keyboard input.
+	 * Use this to trigger autocomplete or test typing behavior.
+	 *
+	 * @param pressEnter - whether to press Enter after typing (default: false)
+	 * @param delay - milliseconds between each keystroke (default: 10)
+	 * @see pasteCodeToConsole to insert text instantly without keystroke simulation
+	 */
 	async typeToConsole(text: string, pressEnter = false, delay = 10) {
 		await test.step(`Type to console: ${text}`, async () => {
 			await this.code.driver.page.waitForTimeout(500);
@@ -173,6 +194,12 @@ export class Console {
 		});
 	}
 
+	/**
+	 * Action: Clear the current console input line (select-all then delete).
+	 * Does not affect previously executed output in the console history.
+	 *
+	 * @see clearButton to clear the entire console output history
+	 */
 	async clearInput() {
 		await test.step('Clear console input', async () => {
 			await this.focus();
@@ -181,6 +208,9 @@ export class Console {
 		});
 	}
 
+	/**
+	 * Action: Press Enter in the console to submit the current input line.
+	 */
 	async sendEnterKey() {
 		await test.step('Send Enter key to console', async () => {
 			await this.focus();
@@ -189,11 +219,26 @@ export class Console {
 		});
 	}
 
+	/**
+	 * Action: Wait for the console to display the language prompt, indicating the runtime is
+	 * idle and ready for input. Use `'>>>'` for Python and `'>'` for R.
+	 *
+	 * @see waitForReadyAndStarted to also confirm a "started" message appeared
+	 * @see waitForReadyAndRestarted to also confirm a "restarted" message appeared
+	 */
 	async waitForReady(prompt: string, timeout = 30000): Promise<void> {
 		const activeLine = this.code.driver.page.locator(`${ACTIVE_CONSOLE_INSTANCE} .active-line-number`);
 		await expect(activeLine).toHaveText(prompt, { timeout });
 	}
 
+	/**
+	 * Action: Wait for the console to show the ready prompt AND for a "started" message to
+	 * appear in the output. Use after launching a new session.
+	 *
+	 * @param expectedCount - number of "started" occurrences to wait for (default: 1)
+	 * @see waitForReady for prompt-only readiness
+	 * @see waitForReadyAndRestarted to wait for a "restarted" message instead
+	 */
 	async waitForReadyAndStarted(prompt: string, timeout = 30000, expectedCount = 1): Promise<void> {
 		await test.step('Wait for console to be ready and started', async () => {
 			await this.waitForReady(prompt, timeout);
@@ -201,6 +246,13 @@ export class Console {
 		});
 	}
 
+	/**
+	 * Action: Wait for the console to show the ready prompt AND for a "restarted" message to
+	 * appear in the output. Use after restarting an existing session.
+	 *
+	 * @see waitForReady for prompt-only readiness
+	 * @see waitForReadyAndStarted to wait for a "started" message instead
+	 */
 	async waitForReadyAndRestarted(prompt: string, timeout = 30000): Promise<void> {
 		await test.step('Wait for console to be ready and restarted', async () => {
 			await this.waitForReady(prompt, timeout);
@@ -208,10 +260,24 @@ export class Console {
 		});
 	}
 
+	/**
+	 * Action: Double-click a span of text in the console output. Useful for selecting a word or
+	 * triggering double-click interactions on console links or output.
+	 */
 	async doubleClickConsoleText(text: string) {
 		await this.code.driver.page.locator(CONSOLE_LINES).getByText(text).dblclick();
 	}
 
+	/**
+	 * Verify: Wait for specific text or a regex pattern to appear in the console output. Returns
+	 * the matching lines as an array of strings once the expected count is reached.
+	 *
+	 * @param options.timeout - milliseconds to wait (default: 15000)
+	 * @param options.expectedCount - number of matching lines to wait for; pass `0` to assert
+	 *   that the text does NOT appear within the timeout (default: 1)
+	 * @param options.exact - whether to require an exact text match (default: false)
+	 * @see waitForCurrentConsoleLineContents to check only the active input line
+	 */
 	async waitForConsoleContents(
 		consoleTextOrRegex: string | RegExp,
 		options: {
@@ -255,30 +321,65 @@ export class Console {
 	}
 
 
+	/**
+	 * Verify: Wait for the active console input line to contain the expected text. Returns the
+	 * full text content of the line once matched.
+	 *
+	 * @see waitForConsoleContents to check anywhere in the console output
+	 */
 	async waitForCurrentConsoleLineContents(expectedText: string, timeout = 30000): Promise<string> {
 		const locator = this.code.driver.page.locator(`${ACTIVE_CONSOLE_INSTANCE} .view-line`);
 		await expect(locator).toContainText(expectedText, { timeout });
 		return await locator.textContent() ?? '';
 	}
 
+	/**
+	 * Action: Wait for the currently running console execution to finish by polling until the
+	 * "Interrupt execution" button is no longer visible.
+	 *
+	 * @see waitForExecutionComplete which checks the interrupt runtime icon directly
+	 */
 	async waitForConsoleExecution({ timeout = 20000 }: { timeout?: number } = {}): Promise<void> {
 		await expect(this.code.driver.page.getByLabel('Interrupt execution')).not.toBeVisible({ timeout });
 	}
 
+	/**
+	 * Verify: Wait for history completion items to appear in the console, filtered to those
+	 * containing `expectedText`. Returns all history item text contents once the count is met.
+	 *
+	 * @param count - number of matching history items to wait for (default: 1)
+	 */
 	async waitForHistoryContents(expectedText: string, count = 1, timeout = 30000): Promise<string[]> {
 		const historyItem = this.code.driver.page.locator(HISTORY_COMPLETION_ITEM);
 		await expect(historyItem.filter({ hasText: expectedText })).toHaveCount(count, { timeout });
 		return await historyItem.allTextContents();
 	}
 
+	/**
+	 * Action: Maximize the console panel by clicking the maximize button in the bottom bar.
+	 */
 	async maximizeConsole() {
 		await this.code.driver.page.locator(MAXIMIZE_CONSOLE).click();
 	}
 
+	/**
+	 * Action: Send a keyboard interrupt (Ctrl+C) to the active console session via the hotkey.
+	 * Does not require the interrupt button to be visible.
+	 *
+	 * @see interruptExecution to click the "Interrupt execution" toolbar button instead
+	 */
 	async sendInterrupt() {
 		await this.hotKeys.sendInterrupt();
 	}
 
+	/**
+	 * Action: Paste code into the console input using clipboard injection. Faster and more
+	 * reliable than typing for multi-line or long code snippets.
+	 *
+	 * @param sendEnterKey - whether to press Enter to submit after pasting (default: false)
+	 * @see typeToConsole to simulate character-by-character keyboard input instead
+	 * @see executeCode to run code via the quick-input command palette
+	 */
 	async pasteCodeToConsole(code: string, sendEnterKey = false) {
 		await test.step(`Paste code to console: ${code}`, async () => {
 			const consoleInput = this.activeConsole.locator(CONSOLE_INPUT);
@@ -291,6 +392,14 @@ export class Console {
 		});
 	}
 
+	/**
+	 * Action: Paste text into a Monaco editor element via a synthetic ClipboardEvent. Retries
+	 * up to `maxRetries` times if the pasted text is not detected in the element.
+	 *
+	 * @param locator - the Monaco editor container locator to paste into
+	 * @param maxRetries - number of paste attempts before throwing (default: 3)
+	 * @see pasteCodeToConsole for the higher-level helper that targets the console input
+	 */
 	async pasteInMonaco(
 		locator: Locator,
 		text: string,
@@ -337,22 +446,51 @@ export class Console {
 
 
 
+	/**
+	 * Action: Get a locator for the last clickable hyperlink in the active console output.
+	 * Returns the locator without waiting - use `.click()` on the result to interact.
+	 */
 	getLastClickableLink() {
 		return this.activeConsole.locator('.output-run-hyperlink').last();
 	}
 
+	/**
+	 * Action: Wait until the runtime interrupt button becomes visible, indicating that code
+	 * execution has begun.
+	 *
+	 * @see waitForExecutionComplete to wait for execution to finish
+	 */
 	async waitForExecutionStarted(timeout = 30000): Promise<void> {
 		await expect(this.code.driver.page.locator(INTERRUPT_RUNTIME)).toBeVisible({ timeout });
 	}
 
+	/**
+	 * Action: Wait until the runtime interrupt button is hidden, indicating that code execution
+	 * has finished.
+	 *
+	 * @see waitForExecutionStarted to wait for execution to begin
+	 * @see waitForConsoleExecution for an equivalent check via the aria-label button
+	 */
 	async waitForExecutionComplete(timeout = 30000): Promise<void> {
 		await expect(this.code.driver.page.locator(INTERRUPT_RUNTIME)).toBeHidden({ timeout });
 	}
 
+	/**
+	 * Action: Focus the console panel using the keyboard hotkey. Prefer this over
+	 * `clickConsoleTab` when focus is all that's needed - it is faster and more reliable.
+	 *
+	 * @see clickConsoleTab to bring the Console tab to the foreground when it may be hidden
+	 */
 	async focus() {
 		await this.hotKeys.focusConsole();
 	}
 
+	/**
+	 * Action: Click the Console tab to bring it to the foreground. Includes a retry loop to
+	 * handle cases where the click happens before the panel is interactive.
+	 *
+	 * @see focus to focus the console via hotkey without needing to click the tab
+	 */
 	async clickConsoleTab() {
 		// sometimes the click doesn't work (or happens too fast), so adding a retry
 		await expect(async () => {
@@ -366,22 +504,43 @@ export class Console {
 		}).toPass({ timeout: 10000 });
 	}
 
+	/**
+	 * Action: Click the "Interrupt execution" toolbar button to stop a running script.
+	 * The button must be visible (i.e., code must currently be executing).
+	 *
+	 * @see sendInterrupt to interrupt via keyboard shortcut without requiring button visibility
+	 */
 	async interruptExecution() {
 		await this.code.driver.page.getByLabel('Interrupt execution').click();
 	}
 
+	/**
+	 * Verify: Assert that the autocomplete suggestion list contains exactly `count` items.
+	 *
+	 * @see expectSuggestionListToContain to assert a specific item is present by label
+	 */
 	async expectSuggestionListCount(count: number): Promise<void> {
 		await test.step(`Expect console suggestion list count to be ${count}`, async () => {
 			await expect(this.suggestionList).toHaveCount(count, { timeout: 15000 });
 		});
 	}
 
+	/**
+	 * Verify: Assert that the autocomplete suggestion list contains an item matching `label`.
+	 *
+	 * @see expectSuggestionListCount to assert the total number of suggestions
+	 */
 	async expectSuggestionListToContain(label: string): Promise<void> {
 		await test.step(`Expect console suggestion list to contain: ${label}`, async () => {
 			await this.code.driver.page.locator('.suggest-widget').getByLabel(label).isVisible();
 		});
 	}
 
+	/**
+	 * Verify: Assert that an error message matching `error` is visible in the console output.
+	 *
+	 * @see waitForConsoleContents to wait for arbitrary text (not just errors) in output
+	 */
 	async expectConsoleToContainError(error: string): Promise<void> {
 		await test.step(`Expect console to contain error: ${error}`, async () => {
 			await expect(this.error).toContainText(error);

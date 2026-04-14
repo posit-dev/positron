@@ -38,6 +38,10 @@ export class Variables {
 		this.memorySizeLabel = this.code.driver.page.locator('.memory-size-label');
 	}
 
+	/**
+	 * Action: Collect all visible variables in the current group into a flat map keyed by name.
+	 * @returns a map of variable name to `{ value, type }`
+	 */
 	async getFlatVariables(): Promise<Map<string, FlatVariables>> {
 		const variables = new Map<string, FlatVariables>();
 		await expect(this.code.driver.page.locator(`${CURRENT_VARIABLES_GROUP} ${VARIABLE_ITEMS}`).first()).toBeVisible();
@@ -63,18 +67,31 @@ export class Variables {
 		return variables;
 	}
 
+	/**
+	 * Action: Focus the Variables panel using the keyboard shortcut.
+	 */
 	async focusVariablesView() {
 		await this.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K');
 		await this.code.driver.page.keyboard.press('V');
 	}
 
+	/**
+	 * Action: Wait for a variable row to become visible and return its locator.
+	 * @param variableName the exact name of the variable to wait for
+	 */
 	async waitForVariableRow(variableName: string): Promise<Locator> {
 		const desiredRow = this.code.driver.page.locator(VARIABLES_NAME_COLUMN).filter({ hasText: variableName });
 		await expect(desiredRow).toBeVisible();
 		return desiredRow;
 	}
 
-	async doubleClickVariableRow(variableName: string) {
+	/**
+	 * Action: Double-click a variable row to open it in the Data Explorer.
+	 * This is the RELIABLE way to open a variable in the Data Explorer.
+	 * @param variableName the exact name of the variable to open
+	 * @see clickDatabaseIconForVariableRow for the icon-based alternative, which can be unreliable
+	 */
+	async openVariableInDataExplorer(variableName: string) {
 		await test.step(`Double click variable: ${variableName}`, async () => {
 			await this.hotKeys.showSecondarySidebar();
 			const desiredRow = this.code.driver.page.locator(VARIABLES_NAME_COLUMN).filter({ hasText: variableName });
@@ -82,11 +99,23 @@ export class Variables {
 		});
 	}
 
+	/**
+	 * Verify: Check whether the variables panel is currently showing a progress bar (loading state).
+	 * @returns `true` if the progress bar is visible, `false` otherwise
+	 */
 	async hasProgressBar(): Promise<boolean> {
 		const progressBar = this.code.driver.page.locator('.variables-core .monaco-progress-container');
 		return await progressBar.isVisible();
 	}
 
+	/**
+	 * Action: Expand or collapse a variable row by clicking its chevron icon.
+	 * No-ops if the variable is already in the desired state.
+	 * @param variableName the exact name of the variable to toggle
+	 * @param action `'expand'` to show children, `'collapse'` to hide them
+	 * @see expandVariable
+	 * @see collapseVariable
+	 */
 	async toggleVariable({ variableName, action }: { variableName: string; action: 'expand' | 'collapse' }) {
 		await test.step(`${action} variable: ${variableName}`, async () => {
 			await this.waitForVariableRow(variableName);
@@ -110,10 +139,22 @@ export class Variables {
 		});
 	}
 
+	/**
+	 * Action: Expand a variable row to reveal its children. No-ops if already expanded.
+	 * @param variableName the exact name of the variable to expand
+	 * @see collapseVariable
+	 * @see toggleVariable
+	 */
 	async expandVariable(variableName: string) {
 		await this.toggleVariable({ variableName, action: 'expand' });
 	}
 
+	/**
+	 * Action: Collapse a variable row to hide its children. No-ops if already collapsed.
+	 * @param variableName the exact name of the variable to collapse
+	 * @see expandVariable
+	 * @see toggleVariable
+	 */
 	async collapseVariable(variableName: string) {
 		await this.toggleVariable({ variableName, action: 'collapse' });
 	}
@@ -152,30 +193,60 @@ export class Variables {
 		return result;
 	}
 
+
+
 	async setFilterText(filterText: string) {
 		await this.code.driver.page.locator(VARIABLES_FILTER_SELECTOR).fill(filterText);
 	}
 
+	/**
+	 * Action: Click the database icon on a variable row to open it in the Data Explorer.
+	 * WARNING: This method can be unreliable and may time out. Prefer `openVariableInDataExplorer` instead.
+	 * @param rowName the exact name of the variable row
+	 * @see openVariableInDataExplorer for the reliable alternative
+	 */
 	async clickDatabaseIconForVariableRow(rowName: string) {
 		const DATABASE_ICON = '.codicon-database';
 		await this.code.driver.page.locator(`${CURRENT_VARIABLES_GROUP} ${VARIABLE_ITEMS}`).filter({ hasText: rowName }).locator(DATABASE_ICON).click();
 	}
 
+	/**
+	 * Action: Click the "Session" link in the active view switcher to navigate to the session panel.
+	 */
 	async clickSessionLink() {
 		await this.code.driver.page.getByLabel('Active View Switcher').getByText('Session').click();
 	}
 
-	async clickDeleteAllVariables() {
-		await this.code.driver.page.getByLabel('Delete all objects').click();
+	/**
+	 * Action: Click the "Delete all objects" button and confirm the modal dialog if it appears.
+	 * WARNING: This is a destructive action -- all variables in the current session will be removed.
+	 */
+	async deleteAllVariables() {
+		await test.step('Delete all variables', async () => {
+			await this.code.driver.page.getByLabel('Delete all objects').click();
+			const deleteButton = this.code.driver.page.locator('.positron-modal-dialog-box')
+				.getByRole('button', { name: 'Delete', exact: true });
+			try {
+				await deleteButton.click({ timeout: 1000 });
+			} catch {
+				// No confirmation modal appeared -- deletion proceeded without one
+			}
+		});
 	}
 
 	/**
 	 * Verify: Confirm the variable is visible and has the expected value.
+	 *
+	 * String quoting is normalized automatically: if the value is wrapped in
+	 * single or double quotes (e.g. `'hello'` or `"hello"`), the assertion
+	 * accepts either quote style so the same call works for both Python and R.
+	 *
 	 * @param variableName the name of the variable to check
 	 * @param value the expected value of the variable
 	 * @param timeout (optional) timeout in milliseconds for visibility (default 15000)
 	 */
 	async expectVariableToBe(variableName: string, value: string | RegExp, timeout: number = 15000) {
+		const normalized = Variables.normalizeQuotedString(value);
 		await test.step(`Verify variable: ${variableName} with value: ${value}`, async () => {
 			await this.focusVariablesView();
 			const variableRow = this.code.driver.page
@@ -185,18 +256,42 @@ export class Variables {
 				.locator('..');
 
 			await expect(variableRow).toBeVisible({ timeout });
-			await expect(variableRow.locator('.details-column .value')).toHaveText(value, { timeout: 3000 });
+			await expect(variableRow.locator('.details-column .value')).toHaveText(normalized, { timeout: 3000 });
 		});
 	}
 
+	/**
+	 * Replace any leading/trailing single or double quote with `['"]` so the
+	 * assertion accepts either quote style (Python uses `'`, R uses `"`).
+	 * Non-string values and RegExp pass through unchanged.
+	 */
+	private static normalizeQuotedString(value: string | RegExp): string | RegExp {
+		if (value instanceof RegExp) {
+			return value;
+		}
+		// Treat single and double quotes as interchangeable so the same
+		// assertion works for both Python ('hello') and R ("hello").
+		if (/['"]/.test(value)) {
+			const escaped = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+			const pattern = escaped.replace(/\\?['"]/g, '[\'"]');
+			return new RegExp(`^${pattern}$`);
+		}
+		return value;
+	}
+
+	/**
+	 * Verify: Confirm that a variable does NOT appear in the current variables group.
+	 * @param variableName the name of the variable that should be absent
+	 * @see expectVariableToBe for asserting a variable exists with a specific value
+	 */
 	async expectVariableToNotExist(variableName: string) {
 		await test.step(`Verify variable does not exist: ${variableName}`, async () => {
 			await this.focusVariablesView();
-			const row = this.code.driver.page
-				.locator('.variables-instance[style*="z-index: 1"] .variable-item')
-				.filter({ hasText: variableName });
+			const nameCell = this.code.driver.page
+				.locator(`${CURRENT_VARIABLES_GROUP} .variable-item .name-value`)
+				.getByText(variableName, { exact: true });
 
-			await expect(row).toHaveCount(0);
+			await expect(nameCell).toHaveCount(0);
 		});
 	}
 

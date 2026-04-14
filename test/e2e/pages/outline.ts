@@ -91,6 +91,17 @@ export class Outline {
 		});
 	}
 
+	/**
+	 * Action: Click an outline element by its label text.
+	 * Scoped to the outline tree to avoid matching rendered content in the editor.
+	 * @param text - The label text of the outline element to click
+	 */
+	async clickOutlineElement(text: string): Promise<void> {
+		await test.step(`Click outline element: ${text}`, async () => {
+			await this.outlineElement.filter({ hasText: text }).click();
+		});
+	}
+
 	async expectOutlineToContain(expected: string[]): Promise<void> {
 		await expect(async () => {
 			const outlineData = await this.getOutlineData();

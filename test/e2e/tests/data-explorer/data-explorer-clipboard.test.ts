@@ -46,7 +46,7 @@ for (const { env, data, rowIndexOffset: indexOffset, tags: testTags = [] } of te
 				await sessions.start(env === 'R' ? 'r' : 'python');
 				await console.pasteCodeToConsole(data, true);
 				await hotKeys.showSecondarySidebar();
-				await variables.doubleClickVariableRow('df');
+				await variables.openVariableInDataExplorer('df');
 			}
 
 			// maximize data view

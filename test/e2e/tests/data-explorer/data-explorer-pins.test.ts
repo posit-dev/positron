@@ -58,7 +58,7 @@ for (const { env, data, rowIndexOffset: indexOffset } of testCases) {
 				await sessions.start(env === 'R' ? 'r' : 'python');
 				await console.pasteCodeToConsole(data, true);
 				await hotKeys.showSecondarySidebar();
-				await variables.doubleClickVariableRow('df');
+				await variables.openVariableInDataExplorer('df');
 			}
 			await dataExplorer.waitForIdle();
 			await dataExplorer.maximize(false);

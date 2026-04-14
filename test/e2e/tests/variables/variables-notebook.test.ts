@@ -99,7 +99,7 @@ test.describe('Variables Pane - Notebook', {
 		await variables.expectVariableToBe('df', /DataFrame/);
 
 		// Open the Data Explorer by double-clicking the variable
-		await variables.doubleClickVariableRow('df');
+		await variables.openVariableInDataExplorer('df');
 		await editors.verifyTab('Data: df', { isVisible: true });
 
 		// Verify Variables pane stayed on the notebook session (regression test for #7539)

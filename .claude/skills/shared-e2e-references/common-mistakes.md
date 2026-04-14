@@ -571,6 +571,123 @@ Reports include:
 - Step-by-step execution
 - Error messages with context
 
+## E2E-Verify Experience Mistakes
+
+### 27. `deleteAllVariables` Requires Dialog Confirmation
+
+The old `clickDeleteAllVariables` only clicks the button but does not confirm the modal. Use `deleteAllVariables()` which clicks AND confirms. The dialog has a "Delete" button (not "OK").
+
+**WRONG:**
+```typescript
+await variables.clickDeleteAllVariables();
+// Modal is open but not confirmed -- variables still exist
+```
+
+**CORRECT:**
+```typescript
+await variables.deleteAllVariables();
+// Clicks the button AND confirms the dialog
+```
+
+### 28. `clickText` Ambiguity with Outline Entries
+
+`clickText('Section Title')` matches both the outline treeitem AND rendered content in the editor (e.g., an `<h1>` in a notebook). Use the scoped POM method instead.
+
+**WRONG:**
+```typescript
+await clickText('Introduction');
+// Might click the heading in the notebook instead of the outline entry
+```
+
+**CORRECT:**
+```typescript
+await app.workbench.outline.clickOutlineElement('Introduction');
+// Scoped to the outline tree
+```
+
+### 29. `enablePositronNotebooks` Needs Settings POM with Reload
+
+Positron notebooks are behind a feature flag. Call `enablePositronNotebooks(settings)` in `beforeAll`. Through the explore runner, use `{"$pom": "settings"}` in args. The setting requires a reload to take effect.
+
+**WRONG:**
+```typescript
+// Missing the settings argument
+await notebooksPositron.enablePositronNotebooks();
+```
+
+**CORRECT:**
+```typescript
+test.beforeAll(async ({ settings }) => {
+	await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
+});
+
+// In explore runner:
+// {"type": "pom", "pom": "notebooksPositron", "method": "enablePositronNotebooks", "args": [{"$pom": "settings"}]}
+```
+
+### 30. Small Python Lists Display Inline Contents
+
+Lists with fewer than ~5 elements show full contents (`[1, 2, 3, 'hello']`) not a summary format (`[4] list`). Match the actual display format in `expectVariableToBe`.
+
+**WRONG:**
+```typescript
+await executeCode('Python', 'x = [1, 2, 3]');
+await variables.expectVariableToBe('x', '[3] list');
+// Fails -- small lists show inline contents
+```
+
+**CORRECT:**
+```typescript
+await executeCode('Python', 'x = [1, 2, 3]');
+await variables.expectVariableToBe('x', '[1, 2, 3]');
+```
+
+### 31. `executeCode` Timeout on Built Apps
+
+The built app can be slower than local dev. Pass timeout in the options object.
+
+**WRONG:**
+```typescript
+await executeCode('Python', 'import pandas as pd; df = pd.read_csv("large.csv")');
+// Default timeout may be too short on built app
+```
+
+**CORRECT:**
+```typescript
+await executeCode('Python', 'import pandas as pd; df = pd.read_csv("large.csv")', { timeout: 30000 });
+```
+
+### 32. String Variable Quoting is Language-Specific
+
+Python shows `'hello'` (single quotes), R shows `"hello"` (double quotes). `expectVariableToBe` normalizes automatically -- pass the value with either quote style and it matches both.
+
+```typescript
+// Both work for Python's 'hello' and R's "hello"
+await variables.expectVariableToBe('greeting', "'hello'");
+await variables.expectVariableToBe('greeting', '"hello"');
+```
+
+### 33. Using `app.workbench.settings` Instead of the `settings` Fixture
+
+The `settings` fixture (from the test function parameter) and `app.workbench.settings` are DIFFERENT objects with different APIs. Methods like `enablePositronNotebooks(settings)` expect the **fixture**, not the workbench POM.
+
+**WRONG:**
+```typescript
+test('example', async function ({ app }) {
+	const { notebooksPositron, settings } = app.workbench;
+	await notebooksPositron.enablePositronNotebooks(settings); // BREAKS -- wrong type
+});
+```
+
+**CORRECT:**
+```typescript
+test('example', async function ({ app, settings }) {
+	await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
+});
+```
+
+The fixture `settings` has `set()`, `clear()`, `backup()`, `restore()` with reload options. The workbench `settings` POM has `mergeSetting()`, `getSettings()`, `remove()`. Don't mix them up.
+
 ## Summary: Pre-Submit Checklist
 
 Before submitting a test, verify:

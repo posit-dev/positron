@@ -109,6 +109,10 @@ export class PositronNotebooks extends Notebooks {
 	private ghostCellDismissButton = this.code.driver.page.locator('.ghost-cell-dismiss-button');
 	private ghostCellAutomaticButton = this.code.driver.page.locator('.ghost-cell-mode-toggle .toggle-button.left');
 	private ghostCellOnDemandButton = this.code.driver.page.locator('.ghost-cell-mode-toggle .toggle-button.right');
+	private ghostCellOptIn = this.code.driver.page.locator('.ghost-cell-opt-in');
+	private ghostCellOptInEnableButton = this.code.driver.page.locator('.ghost-cell-opt-in-button.default');
+	private ghostCellOptInNotNowButton = this.code.driver.page.locator('.ghost-cell-opt-in-actions .ghost-cell-opt-in-button:not(.default):nth-child(2)');
+	private ghostCellOptInDontAskButton = this.code.driver.page.locator('.ghost-cell-opt-in-actions .ghost-cell-opt-in-button:not(.default):nth-child(3)');
 
 	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys, private contextMenu: ContextMenu) {
 		super(code, quickinput, quickaccess, hotKeys);
@@ -247,11 +251,28 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
-	 * Action: Create a new Positron notebook.
-	 * @param codeCells - Number of code cells to create
-	 * @param markdownCells - Number of markdown cells to create
+	 * Action: Create a new Positron notebook and optionally select a kernel.
+	 * When `language` is set, the kernel is selected which triggers interpreter
+	 * discovery and startup.
+	 * @param codeCells - Number of code cells to create (default 0)
+	 * @param markdownCells - Number of markdown cells to create (default 0)
+	 * @param language - Kernel language to select: 'Python' or 'R'. Omit to skip kernel selection.
+	 * @param waitForReady - Whether to wait for notebook kernel to be ready before returning
+	 * @param clearCells - Whether to clear default cell content after adding cells (default false)
 	 */
-	async newNotebook({ codeCells = 1, markdownCells = 0 }: { codeCells?: number; markdownCells?: number } = {}): Promise<void> {
+	async newNotebook({
+		codeCells = 1,
+		markdownCells = 0,
+		language,
+		waitForReady = false,
+		clearCells = false,
+	}: {
+		codeCells?: number;
+		markdownCells?: number;
+		language?: 'Python' | 'R';
+		waitForReady?: boolean;
+		clearCells?: boolean;
+	} = {}): Promise<void> {
 		await this.createNewNotebook();
 		await this.expectToBeVisible();
 		await this.expectCellCountToBe(1); // New notebook starts with 1 cell by default
@@ -261,6 +282,10 @@ export class PositronNotebooks extends Notebooks {
 		}
 
 		if (codeCells <= 1 && markdownCells === 0) {
+			// Select kernel even with no cells if language is specified
+			if (language) {
+				await this.kernel.select(language, { waitForReady });
+			}
 			return;
 		}
 
@@ -285,6 +310,25 @@ export class PositronNotebooks extends Notebooks {
 				await this.expectCellContentAtIndexToBe(totalCellsAdded, `### Cell ${totalCellsAdded}`);
 				totalCellsAdded++;
 			}
+		}
+
+		// Select kernel if language specified
+		if (language) {
+			await this.kernel.select(language, { waitForReady });
+		}
+
+		// Clear default placeholder content from all cells
+		if (clearCells) {
+			const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
+			for (let i = 0; i < totalCellsAdded; i++) {
+				await this.editModeAtIndex(i);
+				const editor = this.editorAtIndex(i);
+				await editor.focus();
+				await this.code.driver.page.keyboard.press(`${modifier}+a`);
+				await this.code.driver.page.keyboard.press('Backspace');
+			}
+			// Return to command mode on cell 0
+			await this.selectCellAtIndex(0);
 		}
 	}
 
@@ -666,13 +710,29 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
+	 * Action: Run the cell at the specified index, regardless of type.
+	 * Code cells are executed; markdown cells are rendered.
+	 */
+	async runCellAtIndex(cellIndex = 0): Promise<void> {
+		const cellType = await this.getCellType(cellIndex);
+		if (cellType === 'markdown') {
+			await this.selectCellAtIndex(cellIndex, { editMode: true });
+			await this.viewMarkdown.click();
+		} else {
+			await this.runCodeAtIndex(cellIndex);
+		}
+	}
+
+	/**
 	 * Action: Enter edit mode for the cell at the specified index.
 	 * @param cellIndex - The index of the cell to enter edit mode for.
 	 */
 	async editModeAtIndex(cellIndex: number): Promise<void> {
-		// Determine if cell is markdown or code and enter edit mode accordingly
-		const ariaLabel = await this.cell.nth(cellIndex).getAttribute('aria-label');
-		ariaLabel === 'Markdown cell'
+		// Determine if cell is markdown or code and enter edit mode accordingly.
+		// Rendered markdown cells have aria-label "Markdown cell - Press Enter to edit",
+		// while editing markdown cells have "Markdown cell".
+		const cellType = await this.getCellType(cellIndex);
+		cellType === 'markdown'
 			? await this.cell.nth(cellIndex).dblclick()
 			: await this.cell.nth(cellIndex).click();
 	}
@@ -691,17 +751,21 @@ export class PositronNotebooks extends Notebooks {
 	async addCodeToCell(
 		cellIndex: number,
 		code: string,
-		options?: { delay?: number; run?: boolean; waitForSpinner?: boolean }
+		options?: { delay?: number; run?: boolean; waitForSpinner?: boolean; type?: 'code' | 'markdown'; clearCell?: boolean }
 	): Promise<Locator> {
-		const { delay = 0, run = false, waitForSpinner = false } = options ?? {};
-		return await test.step(`Add code to cell: ${cellIndex}, run: ${run}, waitForSpinner: ${waitForSpinner}`, async () => {
+		const { delay = 0, run = false, waitForSpinner = false, type = 'code', clearCell = false } = options ?? {};
+		return await test.step(`Add code to cell: ${cellIndex}, type: ${type}, run: ${run}, waitForSpinner: ${waitForSpinner}`, async () => {
 			const currentCellCount = await this.getCellCount();
 
 			if (cellIndex >= currentCellCount) {
 				if (cellIndex > currentCellCount) {
 					throw new Error(`Cannot create cell at index ${cellIndex}. Current cell count is ${currentCellCount}. Can only add cells sequentially.`);
 				}
-				await this.addCodeCellToEnd();
+				if (type === 'markdown') {
+					await this.addCell('markdown');
+				} else {
+					await this.addCodeCellToEnd();
+				}
 			}
 
 			await this.editModeAtIndex(cellIndex);
@@ -710,7 +774,15 @@ export class PositronNotebooks extends Notebooks {
 			const editor = this.editorAtIndex(cellIndex);
 			await editor.focus();
 
+			if (clearCell) {
+				const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
+				await editor.press(`${modifier}+a`);
+				await editor.press('Backspace');
+			}
+
 			await editor.pressSequentially(code, { delay });
+			await this.code.driver.page.waitForTimeout(100); // Small delay to ensure content is registered
+			await this.code.driver.page.keyboard.press('Escape'); // Dismiss autocompletes
 
 			if (run) {
 				await this.runCellButtonAtIndex(cellIndex).click();
@@ -1165,7 +1237,13 @@ export class PositronNotebooks extends Notebooks {
 	 */
 	async expectExecutionStatusToBe(cellIndex: number, expectedStatus: 'running' | 'idle' | 'failed' | 'success', timeout = DEFAULT_TIMEOUT): Promise<void> {
 		await test.step(`Expect execution status to be: ${expectedStatus}`, async () => {
-			await expect(this.executionStatusAtIndex(cellIndex)).toHaveAttribute('data-execution-status', expectedStatus, { timeout });
+			if (expectedStatus === 'success') {
+				// data-execution-status returns to "idle" after completion, not "success".
+				// Route to the footer check which reads the aria-label.
+				await this.expectFooterToContain(cellIndex, { status: 'Cell execution succeeded' }, timeout);
+			} else {
+				await expect(this.executionStatusAtIndex(cellIndex)).toHaveAttribute('data-execution-status', expectedStatus, { timeout });
+			}
 		});
 	}
 
@@ -1529,9 +1607,73 @@ export class PositronNotebooks extends Notebooks {
 		});
 	}
 
+	/**
+	 * Verify: Ghost cell is not visible.
+	 */
+	async expectGhostCellNotVisible(): Promise<void> {
+		await test.step('Verify ghost cell is not visible', async () => {
+			await expect(this.ghostCellHeader).not.toBeVisible();
+		});
+	}
+
+	/**
+	 * Verify: Ghost cell opt-in prompt is visible.
+	 */
+	async expectGhostCellOptInVisible(): Promise<void> {
+		await test.step('Verify ghost cell opt-in prompt is visible', async () => {
+			await expect(this.ghostCellOptIn).toBeVisible();
+		});
+	}
+
+	/**
+	 * Verify: Ghost cell opt-in prompt is not visible.
+	 */
+	async expectGhostCellOptInNotVisible(): Promise<void> {
+		await test.step('Verify ghost cell opt-in prompt is not visible', async () => {
+			await expect(this.ghostCellOptIn).not.toBeVisible();
+		});
+	}
+
+	/**
+	 * Verify: Ghost cell info dialog content matches expectations.
+	 * Checks for section headings in the "About Ghost Cell Suggestions" modal.
+	 * @param expectations - Array of text strings expected in the dialog
+	 */
+	async expectGhostCellInfoDialogContent(expectations: string[]): Promise<void> {
+		await test.step('Verify ghost cell info dialog content', async () => {
+			const dialog = this.code.driver.page.locator('.positron-modal-dialog-box');
+			await expect(dialog).toBeVisible();
+			for (const text of expectations) {
+				await expect(dialog).toContainText(text);
+			}
+		});
+	}
+
+	/**
+	 * Verify: A specific element exists within the ghost cell info dialog.
+	 * Use for checking elements beyond text content (e.g., kbd badges, links).
+	 * @param selector - CSS selector scoped to the dialog
+	 */
+	async expectGhostCellInfoDialogElement(selector: string): Promise<void> {
+		await test.step(`Verify ghost cell info dialog contains element: ${selector}`, async () => {
+			const dialog = this.code.driver.page.locator('.positron-modal-dialog-box');
+			await expect(dialog.locator(selector)).toBeVisible();
+		});
+	}
+
 	// #endregion
 
 	// #region Ghost Cell Actions
+
+	/**
+	 * Action: Close the ghost cell info dialog by clicking "Got it".
+	 */
+	async closeGhostCellInfoDialog(): Promise<void> {
+		await test.step('Close ghost cell info dialog', async () => {
+			await this.code.driver.page.locator('.positron-modal-dialog-box')
+				.getByRole('button', { name: 'Got it' }).click();
+		});
+	}
 
 	/**
 	 * Action: Select ghost cell mode.
@@ -1567,6 +1709,61 @@ export class PositronNotebooks extends Notebooks {
 	async getSuggestion(): Promise<void> {
 		await test.step('Request suggestion', async () => {
 			await this.ghostCellGetSuggestion.click();
+		});
+	}
+
+	/**
+	 * Action: Dismiss the current ghost cell suggestion.
+	 */
+	async dismissGhostCellSuggestion(): Promise<void> {
+		await test.step('Dismiss ghost cell suggestion', async () => {
+			await this.ghostCellDismiss.click();
+		});
+	}
+
+	/**
+	 * Verify: The ghost cell info button is visible, indicating a suggestion has loaded.
+	 * @param timeout - Maximum time to wait for the button to appear (default 30000ms)
+	 */
+	async expectGhostCellInfoButtonVisible(timeout = 30000): Promise<void> {
+		await test.step('Verify ghost cell info button is visible', async () => {
+			await expect(this.ghostCellInfoButton).toBeVisible({ timeout });
+		});
+	}
+
+	/**
+	 * Action: Click the ghost cell info button to open the info dialog.
+	 */
+	async clickGhostCellInfoButton(): Promise<void> {
+		await test.step('Click ghost cell info button', async () => {
+			await this.ghostCellInfoButton.click();
+		});
+	}
+
+	/**
+	 * Action: Click "Enable" on the ghost cell opt-in prompt.
+	 */
+	async enableGhostCellSuggestions(): Promise<void> {
+		await test.step('Enable ghost cell suggestions via opt-in prompt', async () => {
+			await this.ghostCellOptInEnableButton.click();
+		});
+	}
+
+	/**
+	 * Action: Click "Not now" on the ghost cell opt-in prompt.
+	 */
+	async dismissGhostCellOptIn(): Promise<void> {
+		await test.step('Dismiss ghost cell opt-in prompt (Not now)', async () => {
+			await this.ghostCellOptInNotNowButton.click();
+		});
+	}
+
+	/**
+	 * Action: Click "Don't ask again" on the ghost cell opt-in prompt.
+	 */
+	async disableGhostCellOptIn(): Promise<void> {
+		await test.step('Disable ghost cell opt-in prompt (Don\'t ask again)', async () => {
+			await this.ghostCellOptInDontAskButton.click();
 		});
 	}
 
@@ -1896,5 +2093,136 @@ export class ScopedNotebook {
 	/** Get the "Run Cell" button for a specific cell */
 	runCellButton(index: number): Locator {
 		return this.cell(index).getByRole('button', { name: 'Run Cell', exact: true });
+	}
+
+	/** Get the Monaco editor input for a specific cell */
+	editorAtIndex(index: number): Locator {
+		return this.cell(index).locator('.monaco-editor :is(.native-edit-context, .inputarea)');
+	}
+
+	/** Get the spinner for a specific cell */
+	private spinnerAtIndex(index: number): Locator {
+		return this.cell(index).getByLabel(/Cell is executing/i);
+	}
+
+	/** Get cell count */
+	async getCellCount(): Promise<number> {
+		return this.cells.count();
+	}
+
+	/** Get the type of cell at the specified index */
+	async getCellType(index: number): Promise<'code' | 'markdown'> {
+		const ariaLabel = await this.cell(index).getAttribute('aria-label');
+		return ariaLabel === 'Markdown cell - Press Enter to edit' ? 'markdown' : 'code';
+	}
+
+	/** Get content lines of a cell */
+	async getCellContent(index: number): Promise<string[]> {
+		return await test.step(`[Scoped] Get content of cell ${index}`, async () => {
+			const editor = this.cell(index).locator('.positron-cell-editor-monaco-widget .view-lines');
+			const lineLocator = editor.locator('.view-line');
+			const rawLines = await lineLocator.allTextContents();
+			return rawLines.map(l => (l ?? '').replace(/\u00a0/g, ' '));
+		});
+	}
+
+	/** Get the index of the currently focused cell */
+	async getFocusedCellIndex(): Promise<number | null> {
+		return await test.step(`[Scoped] Get focused cell index`, async () => {
+			const cellCount = await this.cells.count();
+			for (let i = 0; i < cellCount; i++) {
+				const cell = this.cells.nth(i);
+				const isFocused = await cell.evaluate((el) =>
+					el.contains(document.activeElement) || el === document.activeElement
+				);
+				if (isFocused) { return i; }
+			}
+			return null;
+		});
+	}
+
+	/** Click a cell to select it, optionally entering edit mode */
+	async selectCellAtIndex(index: number, options?: { editMode?: boolean }): Promise<void> {
+		await test.step(`[Scoped] Select cell ${index}${options?.editMode ? ' (edit mode)' : ''}`, async () => {
+			const cell = this.cell(index);
+			await cell.click();
+			if (options?.editMode) {
+				const cellType = await this.getCellType(index);
+				if (cellType === 'markdown') { await cell.dblclick(); }
+			}
+		});
+	}
+
+	/** Add code to a cell, with optional clear and run */
+	async addCodeToCell(
+		index: number,
+		code: string,
+		options?: { clearCell?: boolean; run?: boolean }
+	): Promise<void> {
+		const { clearCell = true, run = false } = options ?? {};
+		await test.step(`[Scoped] Add code to cell ${index}`, async () => {
+			// Enter edit mode
+			const cellType = await this.getCellType(index);
+			const cell = this.cell(index);
+			cellType === 'markdown' ? await cell.dblclick() : await cell.click();
+
+			const editor = this.editorAtIndex(index);
+			await editor.focus();
+
+			if (clearCell) {
+				const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
+				await editor.press(`${modifier}+a`);
+				await editor.press('Backspace');
+			}
+
+			await editor.pressSequentially(code);
+
+			if (run) {
+				await this.runCellButton(index).click();
+				const spinner = this.spinnerAtIndex(index);
+				await expect(spinner).toBeVisible({ timeout: 2000 }).catch(() => { });
+				await expect(spinner).toHaveCount(0, { timeout: DEFAULT_TIMEOUT });
+			}
+		});
+	}
+
+	/** Run the code in a cell */
+	async runCellAtIndex(index: number): Promise<void> {
+		await test.step(`[Scoped] Run cell ${index}`, async () => {
+			await this.selectCellAtIndex(index);
+			await this.runCellButton(index).click();
+			const spinner = this.spinnerAtIndex(index);
+			await expect(spinner).toBeVisible({ timeout: 2000 }).catch(() => { });
+			await expect(spinner).toHaveCount(0, { timeout: DEFAULT_TIMEOUT });
+		});
+	}
+
+	/** Assert cell selection and edit mode state */
+	async expectCellSelected(
+		index: number,
+		options?: { isSelected?: boolean; inEditMode?: boolean }
+	): Promise<void> {
+		const { isSelected = true, inEditMode } = options ?? {};
+		await expect(async () => {
+			const selected = (await this.cell(index).getAttribute('aria-selected')) === 'true';
+			isSelected ? expect(selected).toBe(true) : expect(selected).toBe(false);
+
+			if (inEditMode !== undefined) {
+				const editorFocused = this.cell(index).locator('.monaco-editor-background').locator('.focused');
+				inEditMode
+					? await expect(editorFocused).toHaveCount(1)
+					: await expect(editorFocused).toHaveCount(0);
+			}
+		}, `[Scoped] Cell ${index} selection`).toPass({ timeout: DEFAULT_TIMEOUT });
+	}
+
+	/** Assert cell output lines */
+	async expectCellOutput(index: number, expectedLines: string[]): Promise<void> {
+		await test.step(`[Scoped] Expect cell ${index} output`, async () => {
+			const output = this.cellOutput(index);
+			for (const line of expectedLines) {
+				await expect(output).toContainText(line, { timeout: DEFAULT_TIMEOUT });
+			}
+		});
 	}
 }

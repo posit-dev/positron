@@ -34,17 +34,6 @@ test.describe('Notebook: Ghost Cell Keyboard Shortcut', {
 		await sessions.start('python');
 	});
 
-	test.afterAll(async function ({ assistant, settings }) {
-		await assistant.logoutModelProvider('anthropic-api');
-
-		// Clean up ghost cell settings to ensure no interference with other tests
-		await settings.remove([
-			'positron.assistant.notebook.ghostCellSuggestions.enabled',
-			'positron.assistant.notebook.ghostCellSuggestions.model',
-			'positron.assistant.notebook.ghostCellSuggestions.automatic'
-		]);
-	});
-
 	test.afterEach(async function ({ hotKeys }) {
 		await hotKeys.closeAllEditors();
 	});

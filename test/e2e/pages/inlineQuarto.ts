@@ -251,6 +251,9 @@ export class InlineQuarto {
 		});
 	}
 
+	/**
+	 * Verify: Kernel status widget is visible in the Quarto editor.
+	 */
 	async expectKernelStatusVisible(timeout = 30000): Promise<void> {
 		await test.step('Expect kernel status widget visible', async () => {
 			await expect(this.kernelStatusWidget.first()).toBeVisible({ timeout });
@@ -381,6 +384,10 @@ export class InlineQuarto {
 		});
 	}
 
+	/**
+	 * Verify: Kernel is idle (connected and not starting).
+	 * @returns the kernel label text
+	 */
 	async expectKernelIdle(timeout = 30000): Promise<string> {
 		let kernelText: string | null = null;
 		await test.step('Verify kernel is idle', async () => {

@@ -33,6 +33,9 @@ const baseIgnore = [
 	'**/workbench/**',
 	'**/remote-ssh/**',
 	'**/assistant-eval/**',
+	// Verify runner is on-demand QA tooling, excluded unless ALLOW_EXPLORE is set
+	...process.env.ALLOW_EXPLORE ? [] : ['**/_verify/**'],
+	'**/_generated/**',
 ];
 
 let reporter: ReporterDescription[];

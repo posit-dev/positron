@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as fs from 'fs';
 import * as playwright from '@playwright/test';
 import * as path from 'path';
 import { test } from '@playwright/test';
@@ -23,6 +24,20 @@ export function FileOperationsFixture(app: Application) {
 			await test.step(`Open data file: ${path.basename(filePath)}`, async () => {
 				await app.workbench.quickaccess.openDataFile(path.join(app.workspacePathOrFolder, filePath));
 			});
+		},
+
+		createFile: async (filename: string, content: string) => {
+			const filePath = path.join(app.workspacePathOrFolder, filename);
+			await test.step(`Create file: ${filename}`, async () => {
+				const dir = path.dirname(filePath);
+				if (!fs.existsSync(dir)) {
+					fs.mkdirSync(dir, { recursive: true });
+				}
+				fs.writeFileSync(filePath, content, 'utf-8');
+				await app.workbench.quickaccess.openFile(filePath);
+				await app.workbench.editors.waitForActiveTab(path.basename(filename));
+			});
+			return filePath;
 		},
 
 		openFolder: async (folderPath: string) => {

@@ -123,7 +123,21 @@ export class Clipboard {
 		return clipboardText;
 	}
 
-	async expectClipboardTextToBe(expectedText: string, stripTrailingChar?: string, { timeout = 20000 } = {}): Promise<void> {
+	/**
+	 * Assert that the clipboard contains the expected text. Retries the clipboard
+	 * read internally, but does NOT retry the copy action that preceded it.
+	 *
+	 * When the copy action itself is timing-sensitive (context menu clicks,
+	 * copy-after-selection, etc.), wrap both the action and this call in an
+	 * outer `expect.toPass()` so the entire sequence retries:
+	 *
+	 * @example
+	 * await expect(async () => {
+	 *   await contextMenu.triggerAndClick({ menuTrigger: el, menuItemLabel: 'Copy Output Text', menuTriggerButton: 'right' });
+	 *   await clipboard.expectClipboardTextToBe('expected', '\n', { timeout: 1000 });
+	 * }).toPass({ timeout: 10000 });
+	 */
+	async expectClipboardTextToBe(expectedText: string, stripTrailingChar?: string, { timeout = 5000 } = {}): Promise<void> {
 		await expect(async () => {
 			let clipboardText = await this.getClipboardText();
 

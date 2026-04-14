@@ -1,9 +1,9 @@
 ---
-name: positron-qa-verify
+name: e2e-verify-plan
 description: Generates clear, actionable verification guides for QA testing of Positron bug fixes and features
 ---
 
-# Positron QA Verify
+# QA Test Plan
 
 Analyzes GitHub issues and PRs to generate verification guides for manual QA testing.
 
@@ -22,7 +22,7 @@ Analyzes GitHub issues and PRs to generate verification guides for manual QA tes
 
 **CRITICAL: Run non-interactively without prompts.**
 
-- **Never use `AskUserQuestion`** - Always write to `.claude/skills/positron-qa-verify/output/`
+- **Never use `AskUserQuestion`** - Always write to `.claude/skills/qa-test-plan/output/`
 - **Version detection is best-effort** - If it fails, use empty values silently
 - **Fail fast** - Don't block on timeouts or missing data
 
@@ -61,7 +61,7 @@ Search comments for `#1234` references, additional test scenarios, edge cases, a
 
 ### Step 6: Generate Verification Guide
 
-Create markdown file in `.claude/skills/positron-qa-verify/output/verify-issue-{number}-{timestamp}.md`
+Create markdown file in `.claude/skills/qa-test-plan/output/verify-issue-{number}-{timestamp}.md`
 
 See `references/verification_guide.md` for format and examples.
 
@@ -81,7 +81,7 @@ After generating the guide, offer to create a verification comment template.
 ## Output
 
 ```
-.claude/skills/positron-qa-verify/output/verify-issue-{number}-{timestamp}.md
+.claude/skills/qa-test-plan/output/verify-issue-{number}-{timestamp}.md
 ```
 
 ## Helper Scripts

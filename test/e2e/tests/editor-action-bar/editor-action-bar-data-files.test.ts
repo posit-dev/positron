@@ -106,7 +106,7 @@ test.describe('Editor Action Bar: Data Files', {
 async function openDataExplorerViaVariablePane(app: Application, variable: string, tabName: string) {
 	await test.step('Open data explorer via variable pane', async () => {
 		await app.workbench.editor.playButton.click();
-		await app.workbench.variables.doubleClickVariableRow(variable);
+		await app.workbench.variables.openVariableInDataExplorer(variable);
 		await app.code.driver.page.getByRole('tablist').locator('.tab').first().click();
 		await app.code.driver.page.getByLabel('Close').first().click();
 		await expect(app.code.driver.page.getByText(tabName, { exact: true })).toBeVisible();

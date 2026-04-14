@@ -45,6 +45,11 @@ export class DataExplorer {
 
 	// --- Actions ---
 
+	/**
+	 * Action: Maximize the data explorer by switching to stacked layout, closing sidebars and the
+	 * bottom panel, and optionally showing or hiding the summary panel.
+	 * @param showSummaryPanel Whether to show the summary panel after maximizing (default: true)
+	 */
 	async maximize(showSummaryPanel: boolean = true): Promise<void> {
 		await this.workbench.hotKeys.stackedLayout();
 		await this.workbench.hotKeys.closeSecondarySidebar();
@@ -58,12 +63,21 @@ export class DataExplorer {
 
 	// --- Verifications ---
 
+	/**
+	 * Verify: Wait until the data grid reports an idle status.
+	 * @param timeout Maximum time in milliseconds to wait (default: 60000)
+	 */
 	async waitForIdle(timeout = 60000): Promise<void> {
 		await test.step('Wait for data grid to be idle', async () => {
 			await expect(this.idleStatus).toBeVisible({ timeout });
 		});
 	}
 
+	/**
+	 * Verify: Assert that the status bar displays the expected text.
+	 * @param expectedText Exact string or regex to match against the status bar text
+	 * @param timeout Maximum time in milliseconds to wait (default: 15000)
+	 */
 	async expectStatusBarToHaveText(expectedText: string | RegExp, timeout = 15000): Promise<void> {
 		await test.step(`Expect status bar text: ${expectedText}`, async () => {
 			await expect(this.code.driver.page.locator(STATUS_BAR)).toHaveText(expectedText, { timeout });
@@ -100,11 +114,21 @@ export class EditorActionBar {
 
 	// --- Actions ---
 
+	/**
+	 * Action: Click one of the named buttons in the editor action bar.
+	 * @param buttonLabel The visible label of the button to click
+	 */
 	async clickButton(buttonLabel: 'Convert to Code' | 'Clear Column Sorting' | 'Open as Plain Text File'): Promise<void> {
 		await this.workbench.editorActionBar.clickButton(buttonLabel);
 	}
 
 	// --- Verifications ---
+	/**
+	 * Verify: Assert that a button with the given name is visible (or not visible) in the editor
+	 * action bar.
+	 * @param buttonName The accessible name of the button to check
+	 * @param isVisible Whether to assert visible (true) or not visible (false) (default: true)
+	 */
 	async expectToHaveButton(buttonName: string, isVisible: boolean = true) {
 		await test.step(`Expect action bar to have button: ${buttonName}`, async () => {
 			const button = this.code.driver.page.getByRole('button', { name: buttonName });
@@ -116,6 +140,12 @@ export class EditorActionBar {
 		});
 	}
 
+	/**
+	 * Verify: Click "Open as Plain Text File" and assert that the given text is visible in the
+	 * resulting editor. Handles the "Open Anyway" confirmation dialog that appears in web mode
+	 * when the file is large.
+	 * @param searchString Text or regex to look for in the plaintext editor
+	 */
 	async verifyCanOpenAsPlaintext(searchString: string | RegExp) {
 		await this.workbench.editorActionBar.clickButton('Open as Plain Text File');
 
@@ -194,6 +224,9 @@ export class Filters {
 		});
 	}
 
+	/**
+	 * Action: Clear all active column sorting and column filters, if any are present.
+	 */
 	async clearAll() {
 		if (await this.clearSortingButton.isVisible() && await this.clearSortingButton.isEnabled()) {
 			await this.clearSortingButton.click();
@@ -225,6 +258,10 @@ export class DataGrid {
 
 	// --- Actions ---
 
+	/**
+	 * Action: Press Cmd+Home (macOS) or Ctrl+Home (other platforms) to scroll the grid back to
+	 * the top-left starting position.
+	 */
 	async jumpToStart(): Promise<void> {
 		if (process.platform === 'darwin') {
 			await this.code.driver.page.keyboard.press('Meta+Home');
@@ -233,10 +270,17 @@ export class DataGrid {
 		}
 	}
 
+	/**
+	 * Action: Click the scrollbar corner widget at the lower-right of the data grid.
+	 */
 	async clickLowerRightCorner() {
 		await this.code.driver.page.locator(SCROLLBAR_LOWER_RIGHT_CORNER).click();
 	}
 
+	/**
+	 * Action: Click the corner widget at the upper-left of the data grid (above row headers,
+	 * left of column headers).
+	 */
 	async clickUpperLeftCorner() {
 		await this.code.driver.page.locator(DATA_GRID_TOP_LEFT).click();
 	}
@@ -255,6 +299,7 @@ export class DataGrid {
 	/**
 	 * Click a cell by its visual position (position is 0-based)
 	 * For example, if a column/row is pinned, the position would be index 0.
+	 * @see {@link clickCellByIndex} to click by stable data index (unaffected by sort/pin)
 	 */
 	async clickCell(rowPosition: number, columnPosition: number, withShift = false) {
 		await test.step(`Click cell by 0-based position: row ${rowPosition}, column ${columnPosition}`, async () => {
@@ -267,6 +312,7 @@ export class DataGrid {
 	/**
 	 * Click a cell by its index (Index is 0-based)
 	 * These indexes never change even with sorting, filtering, or pinning.
+	 * @see {@link clickCell} to click by visual position (changes with sort/pin)
 	 */
 	async clickCellByIndex(rowIndex: number, columnIndex: number, withShift = false) {
 		await test.step(`Click cell by 0-based index: row ${rowIndex}, column ${columnIndex}`, async () => {
@@ -391,6 +437,9 @@ export class DataGrid {
 
 	// --- Getters ---
 
+	/**
+	 * Action: Return the total number of rows as reported by the status bar.
+	 */
 	async getRowCount(): Promise<number> {
 		const statusText = await this.statusBar.innerText();
 		const match = statusText.match(/(\d+(?:,\d+)*)\s+rows?/);
@@ -400,6 +449,9 @@ export class DataGrid {
 		return 0;
 	}
 
+	/**
+	 * Action: Return the total number of columns as reported by the status bar.
+	 */
 	async getColumnCount(): Promise<number> {
 		const statusText = await this.statusBar.innerText();
 		const match = statusText.match(/(\d+(?:,\d+)*)\s+columns?/);
@@ -409,6 +461,10 @@ export class DataGrid {
 		return 0;
 	}
 
+	/**
+	 * Action: Return all currently-visible grid data as an array of row objects keyed by column
+	 * header name. Waits for the grid to be idle before reading.
+	 */
 	async getData(): Promise<object[]> {
 
 		await this.dataExplorer.waitForIdle();
@@ -440,6 +496,9 @@ export class DataGrid {
 		return tableData;
 	}
 
+	/**
+	 * Action: Return an array of all column header names currently visible in the grid.
+	 */
 	async getColumnHeaders(): Promise<string[]> {
 		const headersLocator = this.code.driver.page.locator('div.column-name');
 		return await headersLocator.allInnerTexts();
@@ -494,6 +553,11 @@ export class DataGrid {
 
 
 
+	/**
+	 * Verify: Assert that the number of rows returned by {@link getData} equals `expectedLength`.
+	 * Retries for up to 60 seconds.
+	 * @param expectedLength The expected number of data rows
+	 */
 	async verifyTableDataLength(expectedLength: number) {
 		await test.step('Verify data explorer table data length', async () => {
 			await expect(async () => {
@@ -503,6 +567,12 @@ export class DataGrid {
 		});
 	}
 
+	/**
+	 * Verify: Assert that the row at `rowIndex` in the grid data contains the expected cell values.
+	 * Retries for up to 60 seconds.
+	 * @param rowIndex 0-based index of the row to check
+	 * @param expectedData Map of column header name to expected cell value
+	 */
 	async verifyTableDataRowValue(rowIndex: number, expectedData: CellData) {
 		await test.step(`Verify data explorer row ${rowIndex} data`, async () => {
 			await expect(async () => {
@@ -529,6 +599,15 @@ export class DataGrid {
 		});
 	}
 
+	/**
+	 * Verify: Assert that the cell identified by its data indices contains the expected value.
+	 * These indices are stable across sorting, filtering, and pinning operations.
+	 * @param rowIndex 0-based data row index
+	 * @param colIndex 0-based data column index
+	 * @param value Expected text content of the cell
+	 * @see {@link clickCellByIndex} for clicking by stable data index
+	 * @see {@link expectCellContentAtIndexToBe} for checking by DOM order
+	 */
 	async expectCellContentToBe({ rowIndex, colIndex, value }: { rowIndex: number; colIndex: number; value: string | number }): Promise<void> {
 		await test.step(`Verify cell content at (${rowIndex}, ${colIndex}): ${value}`, async () => {
 			await expect(async () => {
@@ -538,6 +617,11 @@ export class DataGrid {
 		});
 	}
 
+	/**
+	 * Verify: Assert that the selection overlay covers exactly the given rows and columns.
+	 * Row and column indices are 0-based data indices (stable across sorting and pinning).
+	 * @param expectedRange Object with `rows` and `cols` arrays of 0-based data indices
+	 */
 	async expectRangeToBeSelected(expectedRange: { rows: number[]; cols: number[] }): Promise<void> {
 		await test.step(`Verify selection range: ${JSON.stringify(expectedRange)}`, async () => {
 			const selectedCells = this.grid.locator('.selection-overlay');
@@ -552,6 +636,13 @@ export class DataGrid {
 		});
 	}
 
+	/**
+	 * Verify: Assert that the full grid data matches `expectedData` row by row and cell by cell.
+	 * Normalizes numeric strings and missing-value representations before comparing.
+	 * Retries until `timeout` ms elapses.
+	 * @param expectedData Array of row objects keyed by column header name
+	 * @param timeout Maximum time in milliseconds to wait (default: 60000)
+	 */
 	async verifyTableData(expectedData: Array<{ [key: string]: string | number }>, timeout = 60000) {
 		await test.step('Verify data explorer data', async () => {
 			await expect(async () => {
@@ -592,6 +683,12 @@ export class DataGrid {
 		});
 	}
 
+	/**
+	 * Verify: Assert that the pinned row headers display the expected row numbers in order.
+	 * @param expectedRows Array of expected row numbers (before applying `indexOffset`)
+	 * @param indexOffset Added to each element in `expectedRows` when comparing to displayed text
+	 * (default: 0)
+	 */
 	async expectRowsToBePinned(expectedRows: number[], indexOffset = 0) {
 		await test.step(`Verify pinned rows: ${expectedRows}`, async () => {
 			const pinnedRows = this.code.driver.page.locator('.data-grid-row-header.pinned');
@@ -609,6 +706,10 @@ export class DataGrid {
 		});
 	}
 
+	/**
+	 * Verify: Assert that the number of column headers in the grid equals `expectedCount`.
+	 * @param expectedCount The expected number of columns
+	 */
 	async expectColumnCountToBe(expectedCount: number) {
 		await test.step('Verify column count', async () => {
 			const actualCount = await this.getColumnHeaders();
@@ -616,6 +717,12 @@ export class DataGrid {
 		});
 	}
 
+	/**
+	 * Verify: Assert that the row headers display the given row numbers in the given order.
+	 * @param expectedOrder Array of expected row numbers (before applying `indexOffset`)
+	 * @param indexOffset Added to each element in `expectedOrder` when comparing to displayed text
+	 * (default: 0)
+	 */
 	async expectRowOrderToBe(expectedOrder: number[], indexOffset = 0) {
 		await test.step(`Verify row order: ${expectedOrder}`, async () => {
 			const rowHeaders = this.code.driver.page.locator('.data-grid-row-headers > .data-grid-row-header .content');
@@ -625,6 +732,12 @@ export class DataGrid {
 		});
 	}
 
+	/**
+	 * Verify: Assert that the cell at the given visual position has the cursor-border overlay,
+	 * indicating it is the currently selected cell.
+	 * @param row 0-based visual row position
+	 * @param col 0-based visual column position
+	 */
 	async expectCellToBeSelected(row: number, col: number) {
 		await test.step(`Verify cell at (${row}, ${col}) is selected`, async () => {
 			await expect(this.cellByPosition(row, col).locator('.border-overlay .cursor-border')).toBeVisible();
@@ -677,16 +790,29 @@ export class SummaryPanel {
 
 	// --- Actions ---
 
+	/**
+	 * Action: Hide the summary panel using the keyboard shortcut.
+	 * @see {@link show} to make the panel visible again
+	 */
 	async hide(): Promise<void> {
 		await this.workbench.hotKeys.hideDataExplorerSummaryPanel();
 	}
 
+	/**
+	 * Action: Show the summary panel using the keyboard shortcut, docking it on the specified side.
+	 * @param position Which side of the data grid to dock the panel (default: 'left')
+	 * @see {@link hide} to hide the panel
+	 */
 	async show(position: 'left' | 'right' = 'left'): Promise<void> {
 		position === 'left'
 			? await this.workbench.hotKeys.showDataExplorerSummaryPanel()
 			: await this.workbench.hotKeys.showDataExplorerSummaryPanelRight();
 	}
 
+	/**
+	 * Action: Type a search term into the summary panel filter input and press Enter.
+	 * @param filterText The text to search/filter by
+	 */
 	async search(filterText: string) {
 		await test.step('Search summary panel', async () => {
 			await this.searchFilter.fill(filterText);
@@ -694,6 +820,9 @@ export class SummaryPanel {
 		});
 	}
 
+	/**
+	 * Action: Clear the search filter input in the summary panel.
+	 */
 	async clearSearch() {
 		await test.step('Clear search filter in summary panel', async () => {
 			await this.searchFilter.fill('');
@@ -701,6 +830,10 @@ export class SummaryPanel {
 		});
 	}
 
+	/**
+	 * Action: Set the sort order of the summary panel via the context menu.
+	 * @param sortBy The sort option to select
+	 */
 	async sortBy(sortBy: ColumnSort) {
 		await test.step('Sort summary panel', async () => {
 			await this.workbench.contextMenu.triggerAndClick({
@@ -711,20 +844,38 @@ export class SummaryPanel {
 		});
 	}
 
+	/**
+	 * Action: Reset the summary panel sort order to the original (unsorted) state.
+	 */
 	async clearSort() {
 		await test.step('Clear sort in summary panel', async () => {
 			await this.sortBy('Original');
 		});
 	}
 
+	/**
+	 * Action: Toggle the expand/collapse icon for the column profile at the given row.
+	 * @param rowNumber 1-based row number in the summary panel (default: 0 selects the first icon)
+	 * @see {@link getColumnProfileInfo} to expand and read full profile data
+	 */
 	async expandColumnProfile(rowNumber = 0): Promise<void> {
 		await this.code.driver.page.locator(EXPAND_COLLASPE_ICON).nth(rowNumber).click();
 	}
 
+	/**
+	 * Verify: Wait until at least one vector histogram sparkline is visible in the summary panel.
+	 * @param timeout Maximum time in milliseconds to wait (default: 10000)
+	 */
 	async waitForVectorHistogramVisible(timeout = 10000): Promise<void> {
 		await this.vectorHistogram.first().waitFor({ state: 'visible', timeout });
 	}
 
+	/**
+	 * Action: Hover over histogram bins until a tooltip with the given min/max range is found.
+	 * Throws if no bin matches.
+	 * @param expectedMin The lower bound of the expected range (as displayed in the tooltip)
+	 * @param expectedMax The upper bound of the expected range (as displayed in the tooltip)
+	 */
 	async hoverHistogramBinWithRange(expectedMin: string, expectedMax: string): Promise<void> {
 		const bins = this.summaryPanel.locator('.vector-histogram foreignObject.tooltip-container');
 		const count = await bins.count();
@@ -745,11 +896,22 @@ export class SummaryPanel {
 
 	// --- Getters ---
 
+	/**
+	 * Action: Return the missing-value percentage text for the given summary panel row.
+	 * @param rowNumber 1-based row number in the summary panel
+	 */
 	async getColumnMissingPercent(rowNumber: number): Promise<string> {
 		const row = this.code.driver.page.locator(MISSING_PERCENT(rowNumber));
 		return await row.innerText();
 	}
 
+	/**
+	 * Action: Expand the column profile for the given row, read all profile labels/values and
+	 * sparkline heights, collapse the profile again, and return the collected data.
+	 * @param rowNumber 1-based row number in the summary panel
+	 * @returns A {@link ColumnProfile} containing the label-value map and sparkline height array
+	 * @see {@link expandColumnProfile} to toggle without reading data
+	 */
 	async getColumnProfileInfo(rowNumber: number): Promise<ColumnProfile> {
 
 		const expandCollapseLocator = this.code.driver.page.locator(EXPAND_COLLAPSE_PROFILE(rowNumber));
@@ -804,18 +966,31 @@ export class SummaryPanel {
 
 	// --- Verifications ---
 
+	/**
+	 * Verify: Assert that the summary panel sort button displays the given sort option.
+	 * @param sortBy The expected sort option
+	 */
 	async expectSortToBeBy(sortBy: ColumnSort) {
 		await test.step('Verify sort order in summary panel', async () => {
 			await expect(this.sortFilter).toHaveText(`Sort by ${sortBy}`);
 		});
 	}
 
+	/**
+	 * Verify: Assert that the summary panel shows the expected number of column summaries.
+	 * @param count The expected number of column summaries
+	 */
 	async expectColumnCountToBe(count: number) {
 		await test.step('Verify column count in summary panel', async () => {
 			await expect(this.columnSummary).toHaveCount(count);
 		});
 	}
 
+	/**
+	 * Verify: Assert that the column summary at the given index displays the expected column name.
+	 * @param columnProfileIndex 0-based index of the column summary entry
+	 * @param expectedName The expected column name text
+	 */
 	async expectColumnNameToBe(columnProfileIndex: number, expectedName: string) {
 		await test.step(`Verify column ${columnProfileIndex} name is "${expectedName}"`, async () => {
 			const columnName = this.columnSummaryName.nth(columnProfileIndex);
@@ -823,6 +998,10 @@ export class SummaryPanel {
 		});
 	}
 
+	/**
+	 * Verify: Assert that the summary panel column names appear in the exact given order.
+	 * @param columnNames Array of column names in the expected display order
+	 */
 	async expectColumnOrderToBe(columnNames: string[]) {
 		await test.step('Verify column order in summary panel', async () => {
 			await expect(async () => {
@@ -832,6 +1011,13 @@ export class SummaryPanel {
 		});
 	}
 
+	/**
+	 * Verify: Assert a single column summary entry by its index, checking both its name and
+	 * whether its profile is expanded or collapsed.
+	 * @param index 0-based index of the column summary entry
+	 * @param name Expected column name text
+	 * @param expanded Whether the column profile should be expanded (true) or collapsed (false)
+	 */
 	async expectColumnToBe({ index, name, expanded }: { index: number; name: string; expanded: boolean }) {
 		await test.step(`Expect col [${index}] to be: "${name}", ${expanded ? 'expanded' : 'collapsed'}`, async () => {
 			expanded
@@ -842,6 +1028,10 @@ export class SummaryPanel {
 		});
 	}
 
+	/**
+	 * Verify: Assert that the summary panel vertical scrollbar is visible or not visible.
+	 * @param visible Whether the scrollbar should be visible (default: true)
+	 */
 	async expectScrollbarToBeVisible(visible = true) {
 		await test.step(`Verify vertical scrollbar: ${visible ? 'visible' : 'not visible'}`, async () => {
 			visible
@@ -850,6 +1040,11 @@ export class SummaryPanel {
 		});
 	}
 
+	/**
+	 * Verify: Assert the missing-value percentage text for each specified summary panel row.
+	 * @param expectedValues Array of `{ column, expected }` pairs where `column` is the 1-based
+	 * row number and `expected` is the expected percentage text
+	 */
 	async verifyMissingPercent(expectedValues: Array<{ column: number; expected: string }>) {
 		await test.step('Verify missing percent values', async () => {
 			for (const { column, expected } of expectedValues) {
@@ -859,10 +1054,22 @@ export class SummaryPanel {
 		});
 	}
 
+	/**
+	 * Verify: Assert that the column profile at `columnProfileIndex` is expanded (chevron-down,
+	 * height > 100px).
+	 * @param columnProfileIndex 0-based index of the column summary entry
+	 * @see {@link expectColumnProfileToBeCollapsed}
+	 */
 	async expectColumnProfileToBeExpanded(columnProfileIndex: number) {
 		await this.expectColumnSummaryIndexExpansion(columnProfileIndex, 'expanded');
 	}
 
+	/**
+	 * Verify: Assert that the column profile at `columnProfileIndex` is collapsed (chevron-right,
+	 * height < 100px).
+	 * @param columnProfileIndex 0-based index of the column summary entry
+	 * @see {@link expectColumnProfileToBeExpanded}
+	 */
 	async expectColumnProfileToBeCollapsed(columnProfileIndex: number) {
 		await this.expectColumnSummaryIndexExpansion(columnProfileIndex, 'collapsed');
 	}
@@ -890,6 +1097,12 @@ export class SummaryPanel {
 		});
 	}
 
+	/**
+	 * Verify: For each specified column, expand its profile and assert the label-value pairs match
+	 * the expected data map.
+	 * @param expectedValues Array of `{ column, expected }` pairs where `column` is the 1-based
+	 * row number and `expected` is a map of profile label to expected value
+	 */
 	async verifyColumnData(expectedValues: Array<{ column: number; expected: { [key: string]: string } }>) {
 		await test.step('Verify column data', async () => {
 			for (const { column, expected } of expectedValues) {
@@ -899,6 +1112,11 @@ export class SummaryPanel {
 		});
 	}
 
+	/**
+	 * Verify: Hover over the first sparkline in the summary panel and assert that its tooltip
+	 * contains each of the given text strings.
+	 * @param verificationText Array of strings that must all appear in the hover tooltip
+	 */
 	async verifySparklineHoverDialog(verificationText: string[]): Promise<void> {
 		await test.step(`Verify sparkline tooltip: ${verificationText}`, async () => {
 			// Try the proper selector first, then fallback to direct vector components
@@ -915,6 +1133,12 @@ export class SummaryPanel {
 		});
 	}
 
+	/**
+	 * Verify: For each specified column, expand its profile and assert the sparkline bar heights
+	 * (rounded to one decimal place) match the expected array.
+	 * @param expectedHeights Array of `{ column, expected }` pairs where `column` is the 1-based
+	 * row number and `expected` is an array of height strings
+	 */
 	async verifySparklineHeights(expectedHeights: Array<{ column: number; expected: string[] }>) {
 		await test.step('Verify sparkline heights', async () => {
 			for (const { column, expected } of expectedHeights) {
@@ -924,6 +1148,10 @@ export class SummaryPanel {
 		});
 	}
 
+	/**
+	 * Verify: Hover over the first null-percent indicator in the summary panel and assert that
+	 * its tooltip contains either "No missing values" or "X% of values are missing".
+	 */
 	async verifyNullPercentHoverDialog(): Promise<void> {
 		await test.step('Verify null percent hover dialog', async () => {
 			const firstNullPercent = this.code.driver.page.locator('.column-null-percent').nth(0);
@@ -949,16 +1177,28 @@ export class ConvertToCodeModal {
 
 	// --- Actions ---
 
+	/**
+	 * Action: Click the "Copy Code" button to confirm and dismiss the Convert to Code modal.
+	 * @see {@link clickCancel} to dismiss without copying
+	 */
 	async clickOK() {
 		await this.workbench.modals.clickButton('Copy Code');
 	}
 
+	/**
+	 * Action: Click the "Cancel" button to dismiss the Convert to Code modal without copying.
+	 * @see {@link clickOK} to confirm and copy code
+	 */
 	async clickCancel() {
 		await this.workbench.modals.clickButton('Cancel');
 	}
 
 	// --- Verifications ---
 
+	/**
+	 * Verify: Assert that the Convert to Code modal is visible, including the code box and both
+	 * "Copy Code" and "Cancel" buttons.
+	 */
 	async expectToBeVisible() {
 		await test.step('Verify convert to code modal is visible', async () => {
 			await expect(this.codeBox).toBeVisible();
@@ -967,6 +1207,10 @@ export class ConvertToCodeModal {
 		});
 	}
 
+	/**
+	 * Verify: Assert that the code in the modal has syntax highlighting active (more than one
+	 * `mtk*` token class) and that bracket highlighting is present.
+	 */
 	async expectSyntaxHighlighting() {
 		await test.step('Verify syntax highlighting', async () => {
 			// Verify code highlighting - more than one style means highlighting is active

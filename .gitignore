@@ -38,8 +38,10 @@ pwb-version
 !.claude/hooks/
 !.claude/rules/
 !.claude/settings.json
-.claude/skills/positron-qa-verify/output/
+.claude/skills/qa-test-plan/output/
 demo-videos/
+# AI-generated QA test directory (on-demand, not for CI)
+test/e2e/tests/_generated/
 # Often used for agent and personal notes
 /thoughts
 

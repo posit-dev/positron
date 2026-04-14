@@ -10,7 +10,7 @@ import { fail } from 'assert';
 import { ContextMenu } from './dialog-contextMenu.js';
 
 const CURRENT_PLOT = '.plot-instance img';
-const CURRENT_STATIC_PLOT = '.plot-instance.static-plot-instance img';
+const FULL_SIZE_VIEWER_PLOT = '.plot-instance.static-plot-instance img';
 const CLEAR_PLOTS = '.positron-plots-container .positron-dynamic-action-bar .codicon-clear-all';
 const NEXT_PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Show next plot"]';
 const PREVIOUS_PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Show previous plot"]';
@@ -64,42 +64,88 @@ export class Plots {
 		this.overwriteModal = this.code.driver.page.locator('.positron-modal-dialog-box').filter({ hasText: 'The file already exists' });
 	}
 
+	/** Action: Click the session name button displayed on the current plot. */
 	async clickSessionNameButton() {
 		await test.step('Click session name button on plot', async () => {
 			await this.sessionNameButton.click();
 		});
 	}
 
+	/** Action: Click the origin file button to navigate to the source file. */
 	async clickOriginFileButton() {
 		await test.step('Click origin file button', async () => {
 			await this.originFileButton.click();
 		});
 	}
 
+	/**
+	 * Action: Wait for any plot to appear in the Plots pane.
+	 * Matches plots rendered in the sidebar or editor. This is the default
+	 * plot assertion for matplotlib, seaborn, ggplot2, and other plot types.
+	 * @see waitForPlotInFullSizeViewer for plots opened in the full-size editor viewer only
+	 * @see expectCurrentPlotVisible to assert the plot is visible as a test verification
+	 */
 	async waitForCurrentPlot() {
 		await test.step('Wait for current plot to be visible', async () => {
 			await expect(this.code.driver.page.locator(CURRENT_PLOT)).toBeVisible({ timeout: 30000 });
 		});
 	}
 
-	async waitForCurrentStaticPlot() {
-		await test.step('Wait for current static plot to be visible', async () => {
-			await expect(this.code.driver.page.locator(CURRENT_STATIC_PLOT)).toBeVisible({ timeout: 30000 });
+	/**
+	 * Verify: A plot is visible in the Plots pane.
+	 * @see waitForCurrentPlot to wait for a plot before interacting with it
+	 */
+	async expectCurrentPlotVisible() {
+		await test.step('Expect current plot to be visible', async () => {
+			await expect(this.code.driver.page.locator(CURRENT_PLOT)).toBeVisible({ timeout: 30000 });
 		});
 	}
 
+	/**
+	 * Action: Wait for a static (non-webview) plot image in the full-size plot viewer.
+	 * Only matches `.static-plot-instance img` -- does not match webview plots or
+	 * sidebar thumbnails. Use waitForCurrentPlot for general plot assertions.
+	 * @see waitForCurrentPlot for general plot detection (sidebar + editor)
+	 * @see expectPlotInFullSizeViewerVisible to assert the static plot is visible as a test verification
+	 */
+	async waitForPlotInFullSizeViewer() {
+		await test.step('Wait for current static plot to be visible', async () => {
+			await expect(this.code.driver.page.locator(FULL_SIZE_VIEWER_PLOT)).toBeVisible({ timeout: 30000 });
+		});
+	}
+
+	/**
+	 * Verify: A static (non-webview) plot image is visible in the full-size plot viewer.
+	 * @see waitForPlotInFullSizeViewer to wait for a static plot before interacting with it
+	 */
+	async expectPlotInFullSizeViewerVisible() {
+		await test.step('Expect current static plot to be visible', async () => {
+			await expect(this.code.driver.page.locator(FULL_SIZE_VIEWER_PLOT)).toBeVisible({ timeout: 30000 });
+		});
+	}
+
+	/** Verify: The origin file button is visible in the Plots pane. */
 	async expectOriginButtonVisible() {
 		await test.step('Expect origin file button to be visible', async () => {
 			await expect(this.originFileButton).toBeVisible({ timeout: 30000 });
 		});
 	}
 
+	/**
+	 * Verify: The origin file button contains the expected text.
+	 * @param text - Expected text content in the origin file button
+	 */
 	async expectOriginButtonContain(text: string) {
 		await test.step(`Expect origin file button to contain text: ${text}`, async () => {
 			await expect(this.originFileButton).toContainText(text);
 		});
 	}
 
+	/**
+	 * Action: Get a locator for an element inside a webview plot.
+	 * Use for htmlwidgets, plotly, and other interactive plots rendered in webviews.
+	 * @param selector - CSS selector to find within the webview iframe
+	 */
 	getWebviewPlotLocator(selector: string): Locator {
 		return this.code.driver.page
 			.locator(OUTER_WEBVIEW_FRAME).last().contentFrame()
@@ -107,6 +153,11 @@ export class Plots {
 			.locator(selector);
 	}
 
+	/**
+	 * Action: Get a locator for an element inside a deeply nested webview plot.
+	 * Use for R htmlwidgets that use an extra iframe layer (e.g., Shiny, leaflet).
+	 * @param selector - CSS selector to find within the nested webview iframe
+	 */
 	getDeepWebWebviewPlotLocator(selector: string): Locator {
 		return this.code.driver.page
 			.locator(OUTER_WEBVIEW_FRAME).last().contentFrame()
@@ -115,6 +166,14 @@ export class Plots {
 			.locator(selector);
 	}
 
+	/**
+	 * Action: Wait for a webview-based plot to appear.
+	 * Use for interactive plots (plotly, htmlwidgets) rendered inside webview iframes.
+	 * @param selector - CSS selector to match within the webview
+	 * @param state - Wait for 'attached' (in DOM) or 'visible' (rendered). Default: 'visible'
+	 * @param RWeb - Set true for R htmlwidgets with an extra iframe nesting layer
+	 * @see waitForCurrentPlot for static image plots (matplotlib, ggplot2)
+	 */
 	async waitForWebviewPlot(selector: string, state: 'attached' | 'visible' = 'visible', RWeb = false) {
 		const locator = RWeb ? this.getDeepWebWebviewPlotLocator(selector) : this.getWebviewPlotLocator(selector);
 
@@ -125,6 +184,7 @@ export class Plots {
 		}
 	}
 
+	/** Action: Clear all plots from the Plots pane. No-op if no plots exist. */
 	async clearPlots() {
 		const clearPlotsButton = this.code.driver.page.locator(CLEAR_PLOTS);
 
@@ -133,18 +193,40 @@ export class Plots {
 		}
 	}
 
+	/**
+	 * Verify: No plots are visible in the Plots pane.
+	 * @param options.timeout - How long to wait for plots to disappear. Default: 15000ms
+	 * @see expectNoPlots to assert no plots are visible as a test verification
+	 */
 	async waitForNoPlots({ timeout = 15000 }: { timeout?: number } = {}) {
 		await expect(this.code.driver.page.locator(CURRENT_PLOT)).not.toBeVisible({ timeout });
 	}
 
+	/**
+	 * Verify: No plots are visible in the Plots pane.
+	 * @param options.timeout - How long to wait for plots to disappear. Default: 15000ms
+	 * @see waitForNoPlots to wait for plots to disappear before proceeding
+	 */
+	async expectNoPlots({ timeout = 15000 }: { timeout?: number } = {}) {
+		await test.step('Expect no plots to be visible', async () => {
+			await expect(this.code.driver.page.locator(CURRENT_PLOT)).not.toBeVisible({ timeout });
+		});
+	}
+
+	/** Action: Capture the current plot as a screenshot buffer. */
 	async getCurrentPlotAsBuffer(): Promise<Buffer> {
 		return this.currentPlot.screenshot();
 	}
 
-	async getCurrentStaticPlotAsBuffer(): Promise<Buffer> {
-		return this.code.driver.page.locator(CURRENT_STATIC_PLOT).screenshot();
+	/**
+	 * Action: Capture the current static plot as a screenshot buffer.
+	 * @see getCurrentPlotAsBuffer for the general version
+	 */
+	async getFullSizeViewerPlotAsBuffer(): Promise<Buffer> {
+		return this.code.driver.page.locator(FULL_SIZE_VIEWER_PLOT).screenshot();
 	}
 
+	/** Action: Click the copy-to-clipboard button on the current plot. */
 	async copyCurrentPlotToClipboard() {
 		await this.code.driver.page.locator('.codicon-copy').click();
 
@@ -152,12 +234,28 @@ export class Plots {
 		await this.code.wait(500);
 	}
 
+	/**
+	 * Action: Save the current plot from the Plots pane sidebar.
+	 * Opens the save dialog, fills in name and format, and handles overwrite.
+	 * @param name - File name for the saved plot (without extension)
+	 * @param format - Image format: 'JPEG', 'PNG', 'SVG', 'PDF', or 'TIFF'
+	 * @param overwrite - Whether to overwrite if file exists. Default: true
+	 * @see savePlotFromEditor to save from an editor tab instead
+	 */
 	async savePlotFromPlotsPane({ name, format, overwrite = true }: { name: string; format: 'JPEG' | 'PNG' | 'SVG' | 'PDF' | 'TIFF'; overwrite?: boolean }) {
 		// click save and wait for save plot modal
 		await this.savePlotFromPlotsPaneButton.click();
 		await this.savePlot({ name, format, overwrite });
 	}
 
+	/**
+	 * Action: Save the current plot from the editor tab.
+	 * Opens the save dialog, fills in name and format, and handles overwrite.
+	 * @param name - File name for the saved plot (without extension)
+	 * @param format - Image format: 'JPEG', 'PNG', 'SVG', 'PDF', or 'TIFF'
+	 * @param overwrite - Whether to overwrite if file exists. Default: true
+	 * @see savePlotFromPlotsPane to save from the sidebar instead
+	 */
 	async savePlotFromEditor({ name, format, overwrite = true }: { name: string; format: 'JPEG' | 'PNG' | 'SVG' | 'PDF' | 'TIFF'; overwrite?: boolean }) {
 		// click save and wait for save plot modal
 		await this.savePlotFromEditorButton.click();
@@ -193,10 +291,15 @@ export class Plots {
 		}
 	}
 
+	/** Action: Click the "Go to file" button on the current plot. */
 	async clickGoToFileButton() {
 		await this.code.driver.page.locator('.codicon-go-to-file').click();
 	}
 
+	/**
+	 * Action: Set the zoom level for the current plot.
+	 * @param zoomLevel - Target zoom: 'Fit', '50%', '75%', '100%', or '200%'
+	 */
 	async setThePlotZoom(zoomLevel: ZoomLevels) {
 		await test.step(`Set plot zoom to: ${zoomLevel}`, async () => {
 			await this.contextMenu.triggerAndClick({
@@ -206,6 +309,10 @@ export class Plots {
 		});
 	}
 
+	/**
+	 * Action: Open the current plot in a specified location.
+	 * @param plotLocation - Where to open: 'editor', 'new window', or 'editor tab to the side'
+	 */
 	async openPlotIn(plotLocation: PlotLocations) {
 		const menuItemRegex = {
 			'editor': /Open in editor tab$/,
@@ -246,6 +353,7 @@ export class Plots {
 		});
 	}
 
+	/** Action: Click the main "Open in editor tab" button (no dropdown). */
 	async clickOpenInEditorButton() {
 		await test.step('Click the main Open in Editor button', async () => {
 			const openInEditorButton = this.code.driver.page.locator(OPEN_IN_EDITOR_BUTTON);
@@ -253,6 +361,10 @@ export class Plots {
 		});
 	}
 
+	/**
+	 * Verify: The "Open in Editor" dropdown has the expected option checked.
+	 * @param expectedOption - Which location should be checked
+	 */
 	async verifyOpenPlotDropdownCheckedOption(expectedOption: PlotLocations) {
 		const menuItemLabels: Record<PlotLocations, string> = {
 			'editor': 'Open in editor tab',
@@ -271,22 +383,47 @@ export class Plots {
 		});
 	}
 
+	/**
+	 * Action: Wait for a plot image to appear in an editor tab (not the sidebar).
+	 * @see expectPlotInEditorVisible to assert the plot is visible as a test verification
+	 */
 	async waitForPlotInEditor() {
 		await expect(this.code.driver.page.locator('.editor-container img')).toBeVisible({ timeout: 30000 });
 	}
 
+	/**
+	 * Verify: A plot image is visible in an editor tab (not the sidebar).
+	 * @see waitForPlotInEditor to wait for a plot in the editor before interacting with it
+	 */
+	async expectPlotInEditorVisible() {
+		await test.step('Expect plot to be visible in editor', async () => {
+			await expect(this.code.driver.page.locator('.editor-container img')).toBeVisible({ timeout: 30000 });
+		});
+	}
+
+	/**
+	 * Verify: The expected number of plot thumbnails are visible.
+	 * @param count - Expected number of thumbnail images
+	 */
 	async expectPlotThumbnailsCountToBe(count: number) {
 		await expect(this.code.driver.page.locator('.plot-thumbnail')).toHaveCount(count);
 	}
 
+	/** Action: Enlarge the Plots pane area by dragging sashes inward. */
 	async enlargePlotArea() {
 		await this.alterPlotArea(-150, -150);
 	}
 
+	/** Action: Restore the Plots pane area to its original size after enlarging. */
 	async restorePlotArea() {
 		await this.alterPlotArea(150, 150);
 	}
 
+	/**
+	 * Action: Resize the Plots pane area by dragging sashes.
+	 * @param xDelta - Horizontal drag distance in pixels (negative = enlarge)
+	 * @param yDelta - Vertical drag distance in pixels (negative = enlarge)
+	 */
 	async alterPlotArea(xDelta: number, yDelta: number) {
 
 		const vericalSashLocator = this.code.driver.page.locator('.monaco-sash.vertical').nth(2);

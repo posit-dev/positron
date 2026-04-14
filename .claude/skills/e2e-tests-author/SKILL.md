@@ -1,6 +1,6 @@
 ---
-name: positron-e2e-tests
-description: This skill should be used when writing, debugging, or maintaining Playwright e2e tests for Positron. Load this skill when creating new test files, adding test cases, fixing flaky tests, or understanding the test infrastructure.
+name: e2e-author
+description: Guide for writing, debugging, and maintaining Playwright e2e tests for Positron. Provides test structure templates, fixture documentation, POM patterns, assertion strategies, and common mistake avoidance.
 ---
 
 # Positron Playwright E2E Testing
@@ -8,6 +8,8 @@ description: This skill should be used when writing, debugging, or maintaining P
 ## Purpose
 
 Provides specialized knowledge and patterns for writing correct, reliable Playwright e2e tests that follow Positron's established conventions and avoid common mistakes.
+
+> **See also:** To verify a feature on-demand without writing a test file, use `/qa-agent`.
 
 ## When to Use This Skill
 
@@ -19,7 +21,22 @@ Load this skill when:
 - Working with page objects
 - Choosing correct selectors and assertions
 
-## Critical: Test File Structure
+## Shared References
+
+These reference docs are shared with the `qa-agent` skill (AI-driven testing):
+
+- **Test conventions:** See `../shared-e2e-references/test-conventions.md` for imports, suiteId, function syntax, commenting style, and test.step() rules.
+- **POM patterns:** See `../shared-e2e-references/pom-patterns.md` for POM method selection, confusable methods, and POM-first rules.
+- **POM reference:** Auto-generated method signatures at `test/e2e/tests/_generated/pom-reference.md`. Always check this for exact method names and parameter types. Regenerate if stale:
+  ```bash
+  REF=test/e2e/tests/_generated/pom-reference.md
+  if [ ! -f "$REF" ] || [ -n "$(find test/e2e/pages -name '*.ts' -newer "$REF" 2>/dev/null | head -1)" ]; then
+    npx tsx scripts/generate-pom-reference.ts
+  fi
+  ```
+- **Common mistakes:** See `../shared-e2e-references/common-mistakes.md` for 32 detailed gotchas with code examples.
+
+## Quick Reference: Test File Structure
 
 Every test file MUST follow this structure:
 
@@ -70,7 +87,6 @@ test.describe('Feature Name', {
 | `hotKeys` | Keyboard shortcuts: `await hotKeys.closeAllEditors();` |
 | `settings` | Change settings: `await settings.set({ 'key': value });` |
 
-See `references/fixtures.md` for complete fixture documentation.
 
 ## Quick Reference: Page Objects
 
@@ -86,7 +102,7 @@ await console.executeCode('Python', 'x = 1');
 await console.waitForConsoleContents('expected text');
 
 // Variable interaction
-await variables.doubleClickVariableRow('df');
+await variables.openVariableInDataExplorer('df');
 
 // Data explorer
 await dataExplorer.grid.verifyTableData([{ col: 'value' }]);
@@ -133,20 +149,6 @@ test.describe('Console Tests', {
 }, () => { ... });
 ```
 
-## Common Mistakes to Avoid
-
-**Critical (will break tests):**
-1. **Wrong imports** - use `../_test.setup`, not `@playwright/test`
-2. **Missing `suiteId`** - must have `test.use({ suiteId: __filename })`
-3. **Arrow functions** - use `function` syntax, not `async ({ app }) =>`
-4. **Missing platform tags** - add `tags.WEB`, `tags.WIN` for cross-platform
-
-**Quality issues:**
-5. **No timeout on assertions** - use `{ timeout: 30000 }` for async operations
-6. **No `test.step()`** - wrap complex multi-action sequences for better reports
-
-See `references/common-mistakes.md` for 26 detailed gotchas with code examples.
-
 ## Running Tests
 
 ```bash
@@ -169,16 +171,14 @@ npx playwright test --debug
 npx playwright show-report
 ```
 
-## Progressive Documentation
+## E2E-Author-Specific References
 
 For detailed information, read the bundled reference docs:
 
 - **`references/test-setup.md`** - How to configure the local machine environment to run tests
 - **`references/test-structure.md`** - Complete test file structure and organization
-- **`references/fixtures.md`** - All available fixtures and their usage
 - **`references/page-objects.md`** - Page object patterns and available POMs
 - **`references/assertions.md`** - Assertion patterns and waiting strategies
-- **`references/common-mistakes.md`** - Comprehensive list of gotchas to avoid
 
 ## Key Architecture Principles
 

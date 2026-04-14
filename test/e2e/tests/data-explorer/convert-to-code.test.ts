@@ -97,7 +97,7 @@ test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPL
 				// execute code to create a data construct
 				await sessions.start(environment === 'Python' ? 'python' : 'r');
 				await console.pasteCodeToConsole(dataScript, true);
-				await variables.doubleClickVariableRow('df');
+				await variables.openVariableInDataExplorer('df');
 			}
 
 			await hotKeys.closeSecondarySidebar();

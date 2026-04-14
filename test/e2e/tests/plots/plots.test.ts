@@ -89,11 +89,11 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		}, async function ({ app, logger }, testInfo) {
 			logger.log('Sending code to console');
 			await app.workbench.console.executeCode('Python', pythonStaticPlot);
-			await app.workbench.plots.waitForCurrentStaticPlot();
+			await app.workbench.plots.waitForPlotInFullSizeViewer();
 
 			await app.workbench.toasts.closeAll();
 
-			const buffer = await app.workbench.plots.getCurrentStaticPlotAsBuffer();
+			const buffer = await app.workbench.plots.getFullSizeViewerPlotAsBuffer();
 			await compareImages({
 				app,
 				buffer,
@@ -121,7 +121,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 			// create plots separately so that the order is known
 			await app.workbench.console.executeCode('Python', pythonPlotActions1);
-			await plots.waitForCurrentStaticPlot();
+			await plots.waitForPlotInFullSizeViewer();
 			await app.workbench.console.executeCode('Python', pythonPlotActions2);
 			await plots.waitForCurrentPlot();
 
@@ -136,7 +136,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 			// switch to fixed size plot
 			await plots.previousPlotButton.click();
-			await plots.waitForCurrentStaticPlot();
+			await plots.waitForPlotInFullSizeViewer();
 
 			// switching to fixed size plot changes action bar
 			await expect(plots.zoomPlotButton).toBeVisible();
