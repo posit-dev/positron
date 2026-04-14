@@ -36,8 +36,6 @@ import { AbstractUpdateService, createUpdateURL, getUpdateRequestHeaders, Update
 import { INodeProcess } from '../../../base/common/platform.js';
 
 // --- Start Positron ---
-// eslint-disable-next-line no-duplicate-imports
-import { mkdirSync } from 'fs';
 import { IStateService } from '../../state/node/state.js';
 // --- End Positron ---
 
@@ -118,33 +116,11 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 			return;
 		}
 
-		// --- Start Positron ---
-		// this changed from checking this.environmentMainService.isBuilt
-		// if (this.productService.win32VersionedUpdate) {
-		if (this.environmentMainService.isBuilt) {
+		if (this.productService.win32VersionedUpdate) {
 			const cachePath = await this.cachePath;
-			// Wrap setPath in try-catch to prevent initialization failure.
-			// If this fails, the update service can still check for updates,
-			// but background update downloads may not work correctly.
-			try {
-				// Verify directory exists before calling setPath to avoid race condition
-				// where the async mkdir in cachePath getter hasn't completed yet
-				if (!existsSync(cachePath)) {
-					this.logService.info(`update#initialize - cachePath '${cachePath}' does not exist, creating synchronously`);
-					mkdirSync(cachePath, { recursive: true });
-				}
-				app.setPath('appUpdate', cachePath);
-			} catch (e) {
-				const dirExists = existsSync(cachePath);
-				this.logService.error(
-					`update#initialize - failed to set appUpdate path to '${cachePath}' ` +
-					`(exists: ${dirExists}, tmpdir: ${tmpdir()}):`, e
-				);
-			}
-
+			app.setPath('appUpdate', cachePath);
 			await this.unlink(path.join(cachePath, 'session-ending.flag'));
 		}
-		// --- End Positron ---
 
 
 		// Send telemetry
