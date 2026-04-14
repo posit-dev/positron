@@ -7,7 +7,7 @@
 import './positronModalDialog.css';
 
 // React.
-import { PropsWithChildren, useEffect, useRef, useState } from 'react';
+import { PropsWithChildren, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
@@ -80,8 +80,9 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 	// State hooks.
 	const [dialogBoxState, setDialogBoxState] = useState(kInitialDialogBoxState);
 
-	// Center the dialog box on mount or when dimensions change.
-	useEffect(() => {
+	// Center the dialog box on mount or when dimensions change. useLayoutEffect ensures the
+	// centered position is applied before the browser paints, avoiding a visible flash at 0,0.
+	useLayoutEffect(() => {
 		setDialogBoxState(prevDialogBoxState => {
 			// Update the dialog box state, centering the dialog box.
 			const result: DialogBoxState = {

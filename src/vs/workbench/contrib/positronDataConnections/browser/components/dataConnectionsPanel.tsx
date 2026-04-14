@@ -10,7 +10,7 @@ import './dataConnectionsPanel.css';
 import { localize } from '../../../../../nls.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
-import { DataConnectionModalDialog } from '../dialogs/dataConnectionModalDialog.js';
+import { NewDataConnectionFlow } from '../dialogs/newDataConnectionFlow.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
@@ -56,12 +56,9 @@ export const DataConnectionsPanel = ({ active, dataConnectionsService }: DataCon
 				icon={ThemeIcon.fromId('positron-add-connection')}
 				tooltip={addConnection}
 				onPressed={() => {
-					// Create the renderer.
 					const renderer = new PositronModalReactRenderer();
-
-					// Show the copy as code dialog.
 					renderer.render(
-						<DataConnectionModalDialog
+						<NewDataConnectionFlow
 							positronDataConnectionsService={dataConnectionsService}
 							renderer={renderer}
 						/>

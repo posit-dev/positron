@@ -7,12 +7,16 @@
 import './selectDataConnectionProvider.css';
 
 // React.
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
+import { DataConnectionActionBar } from './dataConnectionActionBar.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
+import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
+import { PositronModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
 import { IDataConnectionDriverMetadata } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
 import { IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 
@@ -20,25 +24,29 @@ import { IPositronDataConnectionsService } from '../../../../services/positronDa
  * SelectDataConnectionProviderProps interface.
  */
 interface SelectDataConnectionProviderProps {
+	// The renderer.
+	renderer: PositronModalReactRenderer;
+
 	// The data connections service, used to load drivers and listen for changes.
 	positronDataConnectionsService: IPositronDataConnectionsService;
 
-	// The currently selected driver ID, lifted to the parent for the Next button.
-	selectedDriverId: string | undefined;
-
-	// Called when the selection changes.
-	onSelectionChanged: (driverId: string) => void;
+	// Called when the user selects a driver and clicks Next.
+	onNext: (driverId: string) => void;
 }
 
 /**
  * SelectDataConnectionProvider component.
- * Displays a grid of driver cards that the user can click to select.
+ * Displays a dialog with a grid of driver cards that the user can click to select.
  * @param props The component properties.
  * @returns The rendered component.
  */
-export const SelectDataConnectionProvider = ({ positronDataConnectionsService, selectedDriverId, onSelectionChanged }: SelectDataConnectionProviderProps) => {
+export const SelectDataConnectionProvider = (props: SelectDataConnectionProviderProps) => {
+	// Destructure props for use in hooks.
+	const { renderer, positronDataConnectionsService, onNext } = props;
+
 	// State.
 	const [drivers, setDrivers] = useState<IDataConnectionDriverMetadata[]>([]);
+	const [selectedDriverId, setSelectedDriverId] = useState<string | undefined>(undefined);
 
 	// Load the registered drivers and listen for changes.
 	useEffect(() => {
@@ -54,33 +62,64 @@ export const SelectDataConnectionProvider = ({ positronDataConnectionsService, s
 		return () => disposable.dispose();
 	}, [positronDataConnectionsService.driverManager]);
 
+	// Cancel handler.
+	const cancelHandler = useCallback(() => {
+		renderer.dispose();
+	}, [renderer]);
+
+	// Next handler.
+	const nextHandler = useCallback(() => {
+		if (selectedDriverId) {
+			onNext(selectedDriverId);
+		}
+	}, [selectedDriverId, onNext]);
+
 	// Render.
 	return (
-		<div className='select-data-connection-provider'>
-			<div className='select-provider-label'>
-				{localize(
-					'positron.dataConnectionModalDialog.selectProvider',
-					"Select a provider"
-				)}
-			</div>
-			<div className='driver-grid'>
-				{drivers.map(driver => (
-					<Button
-						key={driver.id}
-						className={positronClassNames(
-							'driver-card',
-							{ 'selected': selectedDriverId === driver.id }
+		<PositronModalDialog
+			height={400}
+			renderer={props.renderer}
+			title={localize(
+				'positron.selectDataConnectionProvider.title',
+				"New Data Connection"
+			)}
+			width={600}
+			onCancel={cancelHandler}
+		>
+			<ContentArea>
+				<div className='select-data-connection-provider'>
+					<div className='select-provider-label'>
+						{localize(
+							'positron.selectDataConnectionProvider.selectProvider',
+							"Select a provider"
 						)}
-						id={`data-connection-driver-card-${driver.id}`} // For automated testing purposes.
-						onPressed={() => onSelectionChanged(driver.id)}
-					>
-						<div className='driver-card-badge'>
-							<img alt='' className='driver-card-icon' src={`data:image/svg+xml;base64,${driver.iconSvg}`} />
-						</div>
-						<div className='driver-card-name'>{driver.name}</div>
-					</Button>
-				))}
-			</div>
-		</div>
+					</div>
+					<div className='driver-grid'>
+						{drivers.map(driver => (
+							<Button
+								key={driver.id}
+								className={positronClassNames(
+									'driver-card',
+									{ 'selected': selectedDriverId === driver.id }
+								)}
+								id={`data-connection-driver-card-${driver.id}`}
+								onPressed={() => setSelectedDriverId(driver.id)}
+							>
+								<div className='driver-card-badge'>
+									<img alt='' className='driver-card-icon' src={`data:image/svg+xml;base64,${driver.iconSvg}`} />
+								</div>
+								<div className='driver-card-name'>{driver.name}</div>
+							</Button>
+						))}
+					</div>
+				</div>
+			</ContentArea>
+			<DataConnectionActionBar
+				acceptDisabled={!selectedDriverId}
+				acceptLabel={localize('positron.selectDataConnectionProvider.next', "Next")}
+				onAccept={nextHandler}
+				onCancel={cancelHandler}
+			/>
+		</PositronModalDialog>
 	);
 };
