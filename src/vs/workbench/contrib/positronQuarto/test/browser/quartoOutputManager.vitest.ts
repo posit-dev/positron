@@ -3,7 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import assert from 'assert';
+/// <reference types="vitest/globals" />
+
 import { URI } from '../../../../../base/common/uri.js';
 import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
@@ -13,27 +14,16 @@ import { QuartoDocumentModel } from '../../browser/quartoDocumentModel.js';
 import { IPositronPreviewService } from '../../../positronPreview/browser/positronPreviewSevice.js';
 import { PreviewWebview } from '../../../positronPreview/browser/previewWebview.js';
 
-suite('QuartoOutputManager', () => {
+describe('QuartoOutputManager', () => {
 	const ctx = createTestContainer().build();
 	const logService = new NullLogService();
 
-	suite('Output Preservation When Cells Move', () => {
+	describe('Output Preservation When Cells Move', () => {
 		/**
 		 * This test simulates the bug where inserting a new cell at the top of the document
 		 * causes all existing outputs to be deleted.
-		 *
-		 * The bug occurs because:
-		 * 1. Cell IDs include the index (e.g., "0-abc12345-unlabeled")
-		 * 2. When a new cell is inserted at the top, all existing cells shift down
-		 * 3. Their IDs change (e.g., "0-abc12345-unlabeled" becomes "1-abc12345-unlabeled")
-		 * 4. The output manager looks up cells by their OLD IDs
-		 * 5. Since those IDs don't exist anymore, it thinks the cells were deleted
-		 * 6. It incorrectly removes the outputs/view zones
-		 *
-		 * This test verifies that we can correctly remap outputs when cells move
-		 * by using content hashes to track cell identity across position changes.
 		 */
-		test('outputs should be preserved when a new cell is inserted above existing cells', async () => {
+		it('outputs should be preserved when a new cell is inserted above existing cells', async () => {
 			const content = `\`\`\`{python}
 x = 1
 \`\`\`
@@ -48,14 +38,13 @@ y = 2
 			ctx.disposables.add(model);
 
 			// Initial state: two cells with outputs
-			assert.strictEqual(model.cells.length, 2);
+			expect(model.cells.length).toBe(2);
 			const originalCell0Id = model.cells[0].id;
 			const originalCell1Id = model.cells[1].id;
 			const cell0ContentHash = model.cells[0].contentHash;
 			const cell1ContentHash = model.cells[1].contentHash;
 
 			// Simulate having outputs stored for these cells
-			// In the real output manager, this would be: _viewZones.set(cellId, viewZone)
 			const viewZonesByCellId = new Map<string, { cellId: string; contentHash: string }>();
 			viewZonesByCellId.set(originalCell0Id, { cellId: originalCell0Id, contentHash: cell0ContentHash });
 			viewZonesByCellId.set(originalCell1Id, { cellId: originalCell1Id, contentHash: cell1ContentHash });
@@ -75,57 +64,50 @@ y = 2
 			await new Promise(resolve => setTimeout(resolve, 150));
 
 			// Now we have 3 cells
-			assert.strictEqual(model.cells.length, 3);
+			expect(model.cells.length).toBe(3);
 
 			// Simulate what _updateViewZonePositionsImmediate currently does (the buggy behavior):
-			// It looks up cells by their OLD IDs, which no longer exist
 			const removedByBuggyLogic: string[] = [];
 			for (const [cellId, _viewZone] of viewZonesByCellId) {
 				const cell = model.getCellById(cellId);
 				if (!cell) {
-					// BUG: Cell ID changed, so getCellById returns undefined
-					// The buggy logic thinks the cell was deleted and removes the output
 					removedByBuggyLogic.push(cellId);
 				}
 			}
 
 			// The buggy logic incorrectly removes BOTH cells because their IDs changed
-			assert.strictEqual(removedByBuggyLogic.length, 2, 'Buggy logic removes both cells because IDs changed');
-			assert.ok(removedByBuggyLogic.includes(originalCell0Id), 'Original cell 0 is incorrectly removed');
-			assert.ok(removedByBuggyLogic.includes(originalCell1Id), 'Original cell 1 is incorrectly removed');
+			expect(removedByBuggyLogic.length).toBe(2);
+			expect(removedByBuggyLogic.includes(originalCell0Id)).toBeTruthy();
+			expect(removedByBuggyLogic.includes(originalCell1Id)).toBeTruthy();
 
 			// The CORRECT behavior: use content hash to find cells that moved
 			const remappedViewZones = new Map<string, { cellId: string; contentHash: string }>();
 			for (const [cellId, viewZone] of viewZonesByCellId) {
 				const cell = model.getCellById(cellId);
 				if (cell) {
-					// Cell ID still exists - update position normally
 					remappedViewZones.set(cellId, viewZone);
 				} else {
-					// Cell ID doesn't exist - try to find by content hash
 					const cellByHash = model.findCellByContentHash(viewZone.contentHash);
 					if (cellByHash) {
-						// Found the cell - it just moved! Remap to new ID
 						remappedViewZones.set(cellByHash.id, {
 							cellId: cellByHash.id,
 							contentHash: viewZone.contentHash
 						});
 					}
-					// If not found by hash either, THEN the cell was truly deleted
 				}
 			}
 
 			// With correct logic, both view zones should be preserved with new IDs
-			assert.strictEqual(remappedViewZones.size, 2, 'Correct logic preserves both outputs');
+			expect(remappedViewZones.size).toBe(2);
 
 			// The view zones should now be keyed by the NEW cell IDs
 			const newCell0Id = model.cells[1].id; // Original cell 0 is now at index 1
 			const newCell1Id = model.cells[2].id; // Original cell 1 is now at index 2
-			assert.ok(remappedViewZones.has(newCell0Id), 'View zone for original cell 0 should be remapped to new ID');
-			assert.ok(remappedViewZones.has(newCell1Id), 'View zone for original cell 1 should be remapped to new ID');
+			expect(remappedViewZones.has(newCell0Id)).toBeTruthy();
+			expect(remappedViewZones.has(newCell1Id)).toBeTruthy();
 		});
 
-		test('outputs should still be removed when a cell is actually deleted', async () => {
+		it('outputs should still be removed when a cell is actually deleted', async () => {
 			const content = `\`\`\`{python}
 x = 1
 \`\`\`
@@ -155,7 +137,7 @@ y = 2
 				range: {
 					startLineNumber: 1,
 					startColumn: 1,
-					endLineNumber: 5, // Delete the first cell and the blank line after
+					endLineNumber: 5,
 					endColumn: 1
 				},
 				text: ''
@@ -165,10 +147,10 @@ y = 2
 			await new Promise(resolve => setTimeout(resolve, 150));
 
 			// Now we have only 1 cell
-			assert.strictEqual(model.cells.length, 1);
+			expect(model.cells.length).toBe(1);
 
 			// The remaining cell's content hash should match the original second cell
-			assert.strictEqual(model.cells[0].contentHash, cell1ContentHash);
+			expect(model.cells[0].contentHash).toBe(cell1ContentHash);
 
 			// Use the correct remapping logic
 			const remappedViewZones = new Map<string, { cellId: string; contentHash: string }>();
@@ -184,35 +166,20 @@ y = 2
 							contentHash: viewZone.contentHash
 						});
 					}
-					// Cell was truly deleted - don't add to remapped
 				}
 			}
 
 			// Only one view zone should be preserved (the second cell, which is now first)
-			assert.strictEqual(remappedViewZones.size, 1, 'Only one output should be preserved');
+			expect(remappedViewZones.size).toBe(1);
 
 			// The remaining view zone should be for the cell that was originally second
 			const newCellId = model.cells[0].id;
-			assert.ok(remappedViewZones.has(newCellId), 'View zone for surviving cell should be preserved');
+			expect(remappedViewZones.has(newCellId)).toBeTruthy();
 		});
 	});
 
-	suite('HTML Popout', () => {
-		/**
-		 * This test verifies that popping out HTML content (e.g., a DataFrame)
-		 * uses the preview service's openHtmlString method to display the HTML
-		 * directly in the Viewer pane, rather than writing a temp file to disk.
-		 *
-		 * The bug was that _openHtmlInViewer would:
-		 * 1. Write HTML to a .positron-temp-*.html file in the project directory
-		 * 2. Call previewService.openHtml(path) which starts a proxy server
-		 * 3. The proxy server fails, showing "Cannot GET /..."
-		 * 4. The temp file is never cleaned up
-		 *
-		 * The fix: use previewService.openHtmlString(html) which sets HTML
-		 * directly on a webview without needing temp files or proxy servers.
-		 */
-		test('HTML popout should use openHtmlString instead of writing temp files', () => {
+	describe('HTML Popout', () => {
+		it('HTML popout should use openHtmlString instead of writing temp files', () => {
 			// Track calls to the preview service
 			let openHtmlStringCalled = false;
 			let openHtmlStringArgs: { previewId: string; html: string; title: string } | undefined;
@@ -232,30 +199,25 @@ y = 2
 			};
 
 			// Simulate what _openHtmlInViewer should do after the fix:
-			// It should call openHtmlString, NOT writeFile + openHtml
 			const html = '<html><body><h1>DataFrame</h1><table>...</table></body></html>';
 			const cellId = '0-abc12345-unlabeled';
 
-			// This simulates the fixed _openHtmlInViewer logic
 			const previewId = `quartoHtmlOutput.${cellId}`;
 			const docName = 'test.qmd';
 			const title = `Output - ${docName}`;
 			mockPreviewService.openHtmlString!(previewId, html, title);
 
 			// Verify: openHtmlString was called with correct arguments
-			assert.ok(openHtmlStringCalled, 'openHtmlString should be called');
-			assert.strictEqual(openHtmlStringArgs?.previewId, previewId, 'previewId should match');
-			assert.strictEqual(openHtmlStringArgs?.html, html, 'HTML content should be passed directly');
-			assert.strictEqual(openHtmlStringArgs?.title, title, 'title should include doc name');
+			expect(openHtmlStringCalled).toBeTruthy();
+			expect(openHtmlStringArgs?.previewId).toBe(previewId);
+			expect(openHtmlStringArgs?.html).toBe(html);
+			expect(openHtmlStringArgs?.title).toBe(title);
 
 			// Verify: openHtml was NOT called (no file path needed)
-			assert.ok(!openHtmlCalled, 'openHtml should NOT be called (no file path needed)');
+			expect(!openHtmlCalled).toBeTruthy();
 		});
 
-		test('openHtmlString should exist on IPositronPreviewService', () => {
-			// This test verifies the interface contract: IPositronPreviewService
-			// should have an openHtmlString method that accepts HTML content directly.
-			// This is a compile-time check as much as a runtime one.
+		it('openHtmlString should exist on IPositronPreviewService', () => {
 			const mockService: Pick<IPositronPreviewService, 'openHtmlString'> = {
 				openHtmlString(_previewId: string, _html: string, _title: string): PreviewWebview {
 					return {} as PreviewWebview;
@@ -263,8 +225,7 @@ y = 2
 			};
 
 			// Verify the method exists and is callable
-			assert.ok(typeof mockService.openHtmlString === 'function',
-				'openHtmlString should be a function on IPositronPreviewService');
+			expect(typeof mockService.openHtmlString === 'function').toBeTruthy();
 		});
 	});
 });

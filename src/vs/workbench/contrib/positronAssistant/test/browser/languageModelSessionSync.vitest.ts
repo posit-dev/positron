@@ -3,20 +3,21 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as assert from 'assert';
+/// <reference types="vitest/globals" />
+
 import { Emitter } from '../../../../../base/common/event.js';
 import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { AuthenticationSession, AuthenticationSessionsChangeEvent, IAuthenticationService } from '../../../../services/authentication/common/authentication.js';
 import { syncAuthSessions } from '../../browser/languageModelSessionSync.js';
 
-suite('syncAuthSessions', () => {
+describe('syncAuthSessions', () => {
 	const ctx = createTestContainer().build();
 
 	let emitter: Emitter<{ providerId: string; label: string; event: AuthenticationSessionsChangeEvent }>;
 	let sessionsMap: Map<string, AuthenticationSession[]>;
 	let authService: IAuthenticationService;
 
-	setup(() => {
+	beforeEach(() => {
 		emitter = ctx.disposables.add(
 			new Emitter<{ providerId: string; label: string; event: AuthenticationSessionsChangeEvent }>()
 		);
@@ -29,7 +30,7 @@ suite('syncAuthSessions', () => {
 		} as unknown as IAuthenticationService;
 	});
 
-	test('updates signedIn to true when session added for matching provider', async () => {
+	it('updates signedIn to true when session added for matching provider', async () => {
 		const results: { providerId: string; signedIn: boolean }[] = [];
 		ctx.disposables.add(
 			syncAuthSessions(authService, ['anthropic-api'], (providerId, signedIn) => {
@@ -49,12 +50,12 @@ suite('syncAuthSessions', () => {
 		// Allow the async handler to complete
 		await new Promise(resolve => setTimeout(resolve, 0));
 
-		assert.strictEqual(results.length, 1);
-		assert.strictEqual(results[0].providerId, 'anthropic-api');
-		assert.strictEqual(results[0].signedIn, true);
+		expect(results.length).toBe(1);
+		expect(results[0].providerId).toBe('anthropic-api');
+		expect(results[0].signedIn).toBe(true);
 	});
 
-	test('updates signedIn to false when all sessions removed', async () => {
+	it('updates signedIn to false when all sessions removed', async () => {
 		const results: { providerId: string; signedIn: boolean }[] = [];
 		ctx.disposables.add(
 			syncAuthSessions(authService, ['anthropic-api'], (providerId, signedIn) => {
@@ -72,12 +73,12 @@ suite('syncAuthSessions', () => {
 
 		await new Promise(resolve => setTimeout(resolve, 0));
 
-		assert.strictEqual(results.length, 1);
-		assert.strictEqual(results[0].providerId, 'anthropic-api');
-		assert.strictEqual(results[0].signedIn, false);
+		expect(results.length).toBe(1);
+		expect(results[0].providerId).toBe('anthropic-api');
+		expect(results[0].signedIn).toBe(false);
 	});
 
-	test('ignores session changes for non-matching providers', async () => {
+	it('ignores session changes for non-matching providers', async () => {
 		const results: { providerId: string; signedIn: boolean }[] = [];
 		ctx.disposables.add(
 			syncAuthSessions(authService, ['anthropic-api'], (providerId, signedIn) => {
@@ -93,10 +94,10 @@ suite('syncAuthSessions', () => {
 
 		await new Promise(resolve => setTimeout(resolve, 0));
 
-		assert.strictEqual(results.length, 0);
+		expect(results.length).toBe(0);
 	});
 
-	test('disposes listener on cleanup', () => {
+	it('disposes listener on cleanup', () => {
 		const results: { providerId: string; signedIn: boolean }[] = [];
 		const disposable = syncAuthSessions(
 			authService,
@@ -116,6 +117,6 @@ suite('syncAuthSessions', () => {
 			event: { added: [{ id: '1', accessToken: 'key', account: { id: '1', label: 'test' }, scopes: [] }], removed: undefined, changed: undefined },
 		});
 
-		assert.strictEqual(results.length, 0);
+		expect(results.length).toBe(0);
 	});
 });

@@ -3,7 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import assert from 'assert';
+/// <reference types="vitest/globals" />
+
 import sinon from 'sinon';
 import { Emitter } from '../../../../../base/common/event.js';
 import { TableSummaryDataGridInstance } from '../../browser/tableSummaryDataGridInstance.js';
@@ -23,7 +24,7 @@ import {
 import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { getColumnSchema } from '../../common/positronDataExplorerMocks.js';
 
-suite('TableSummaryDataGridInstance', () => {
+describe('TableSummaryDataGridInstance', () => {
 	let instance: TableSummaryDataGridInstance;
 	let mockTableSummaryCache: TableSummaryCache;
 	let originalServices: any;
@@ -79,7 +80,7 @@ suite('TableSummaryDataGridInstance', () => {
 		}
 	};
 
-	setup(() => {
+	beforeEach(() => {
 		// Store original services to restore later
 		originalServices = PositronReactServices.services;
 
@@ -128,7 +129,7 @@ suite('TableSummaryDataGridInstance', () => {
 		);
 	});
 
-	teardown(() => {
+	afterEach(() => {
 		instance.dispose();
 		// Restore original services
 		if (originalServices) {
@@ -136,59 +137,59 @@ suite('TableSummaryDataGridInstance', () => {
 		}
 	});
 
-	test('columns should always return 1', () => {
-		assert.strictEqual(instance.columns, 1);
+	it('columns should always return 1', () => {
+		expect(instance.columns).toBe(1);
 	});
 
-	test('rows should return column count', () => {
-		assert.strictEqual(instance.rows, 10);
+	it('rows should return column count', () => {
+		expect(instance.rows).toBe(10);
 	});
 
-	test('setSearchText should trigger fetchData', async () => {
+	it('setSearchText should trigger fetchData', async () => {
 		const spy = sinon.spy(instance, 'fetchData');
 		await instance.setSearchText('test');
-		assert(spy.called);
+		expect(spy.called).toBeTruthy();
 		spy.restore();
 	});
 
-	test('setSortOption should trigger fetchData', async () => {
+	it('setSortOption should trigger fetchData', async () => {
 		const spy = sinon.spy(instance, 'fetchData');
 		await instance.setSortOption(SearchSchemaSortOrder.DescendingName);
-		assert(spy.called);
+		expect(spy.called).toBeTruthy();
 		spy.restore();
 	});
 
-	test('isColumnExpanded should delegate to cache', () => {
+	it('isColumnExpanded should delegate to cache', () => {
 		isColumnExpandedStub.returns(true);
-		assert.strictEqual(instance.isColumnExpanded(5), true);
-		assert(isColumnExpandedStub.calledWith(5));
+		expect(instance.isColumnExpanded(5)).toBe(true);
+		expect(isColumnExpandedStub.calledWith(5)).toBeTruthy();
 	});
 
-	test('canToggleColumnExpansion should return false for unsupported column types', () => {
+	it('canToggleColumnExpansion should return false for unsupported column types', () => {
 		const unsupportedColumnSchema = getColumnSchema('test', 0, 'unknown', ColumnDisplayType.Unknown);
 		getColumnSchemaStub.returns(unsupportedColumnSchema);
-		assert.strictEqual(instance.canToggleColumnExpansion(0), false);
+		expect(instance.canToggleColumnExpansion(0)).toBe(false);
 	});
 
-	test('canToggleColumnExpansion should return true for supported column types when feature is enabled', () => {
+	it('canToggleColumnExpansion should return true for supported column types when feature is enabled', () => {
 		const supportedColumnSchema = getColumnSchema('test', 0, 'number', ColumnDisplayType.Floating);
 		getColumnSchemaStub.returns(supportedColumnSchema);
-		assert.strictEqual(instance.canToggleColumnExpansion(0), true);
+		expect(instance.canToggleColumnExpansion(0)).toBe(true);
 	});
 
-	test('toggleExpandColumn should update row layout manager', async () => {
+	it('toggleExpandColumn should update row layout manager', async () => {
 		const supportedColumnSchema = getColumnSchema('test', 0, 'number', ColumnDisplayType.Floating);
 		getColumnSchemaStub.returns(supportedColumnSchema);
 		await instance.toggleExpandColumn(0);
-		assert(toggleExpandColumnStub.calledWith(0));
+		expect(toggleExpandColumnStub.calledWith(0)).toBeTruthy();
 	});
 
-	test('getColumnProfileNullCount should delegate to cache', () => {
+	it('getColumnProfileNullCount should delegate to cache', () => {
 		const mockProfile = { null_count: 5 };
 		getColumnProfileStub.returns(mockProfile);
 		const result = instance.getColumnProfileNullCount(0);
-		assert.strictEqual(result, 5);
-		assert(getColumnProfileStub.calledWith(0));
+		expect(result).toBe(5);
+		expect(getColumnProfileStub.calledWith(0)).toBeTruthy();
 	});
 
 	// Ensure that all disposables are cleaned up.

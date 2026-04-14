@@ -3,7 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as assert from 'assert';
+/// <reference types="vitest/globals" />
+
 import * as sinon from 'sinon';
 import { RuntimeState, LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPositronAssistantService, IPositronChatContext, IChatRequestData } from '../../common/interfaces/positronAssistantService.js';
@@ -20,7 +21,7 @@ import { createTestPlotsServiceWithPlots } from '../../../../services/positronPl
 import { URI } from '../../../../../base/common/uri.js';
 import { createTestContainer } from '../../../../../workbench/test/browser/positronTestContainer.js';
 
-suite('PositronAssistantService', () => {
+describe('PositronAssistantService', () => {
 	const ctx = createTestContainer()
 		.withRuntimeServices()
 		.build();
@@ -30,7 +31,7 @@ suite('PositronAssistantService', () => {
 	let testConsoleSession: TestLanguageRuntimeSession;
 	let testNotebookSession: TestLanguageRuntimeSession;
 
-	setup(async () => {
+	beforeEach(async () => {
 		// Create fresh mutable stubs per test to avoid state leakage
 		ctx.instantiationService.stub(IRuntimeStartupService, new TestRuntimeStartupService());
 		testVariablesService = new TestPositronVariablesService();
@@ -77,11 +78,11 @@ suite('PositronAssistantService', () => {
 		positronAssistantService = ctx.disposables.add(ctx.instantiationService.createInstance(PositronAssistantService));
 	});
 
-	teardown(() => {
+	afterEach(() => {
 		sinon.restore();
 	});
 
-	test('getPositronChatContext returns the global context properties', async () => {
+	it('getPositronChatContext returns the global context properties', async () => {
 		// Create a chat request
 		const chatRequest: IChatRequestData = {
 			location: ChatAgentLocation.Chat
@@ -91,12 +92,12 @@ suite('PositronAssistantService', () => {
 		const context: IPositronChatContext = positronAssistantService.getPositronChatContext(chatRequest);
 
 		// Verify the global context properties are present
-		assert.ok(context.currentDate, 'Current date should be present');
-		assert.ok(context.plots, 'Plots information should be present');
-		assert.ok(context.positronVersion, 'Positron version should be present');
+		expect(context.currentDate).toBeTruthy();
+		expect(context.plots).toBeTruthy();
+		expect(context.positronVersion).toBeTruthy();
 	});
 
-	test('getPositronChatContext handles plot information', async () => {
+	it('getPositronChatContext handles plot information', async () => {
 		// Create a chat request
 		const chatRequest: IChatRequestData = {
 			location: ChatAgentLocation.Chat
@@ -106,8 +107,8 @@ suite('PositronAssistantService', () => {
 		const context: IPositronChatContext = positronAssistantService.getPositronChatContext(chatRequest);
 
 		// Verify plot information is included
-		assert.ok(context.plots, 'Plot information should be present');
-		assert.strictEqual(typeof context.plots.hasPlots, 'boolean', 'hasPlots should be a boolean');
+		expect(context.plots).toBeTruthy();
+		expect(typeof context.plots.hasPlots).toBe('boolean');
 	});
 
 });

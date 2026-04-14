@@ -3,7 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import assert from 'assert';
+/// <reference types="vitest/globals" />
+
 import { URI } from '../../../../../base/common/uri.js';
 import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
@@ -53,7 +54,7 @@ function createSessionMetadata(sessionId: string): IRuntimeSessionMetadata {
 	};
 }
 
-suite('QuartoExecutionManager', () => {
+describe('QuartoExecutionManager', () => {
 	const ctx = createTestContainer().build();
 	const logService = new NullLogService();
 
@@ -65,7 +66,7 @@ suite('QuartoExecutionManager', () => {
 	let mockConsoleService: RecordingConsoleService;
 	let mockRuntimeSessionService: MockRuntimeSessionService;
 
-	setup(() => {
+	beforeEach(() => {
 		// Create mock session
 		const metadata = createSessionMetadata('test-session');
 
@@ -100,8 +101,8 @@ suite('QuartoExecutionManager', () => {
 		ctx.disposables.add(executionManager);
 	});
 
-	suite('Execution Options', () => {
-		test('uses RuntimeErrorBehavior.Stop by default for inline execution', async () => {
+	describe('Execution Options', () => {
+		it('uses RuntimeErrorBehavior.Stop by default for inline execution', async () => {
 			const documentUri = URI.file('/test-error-default.qmd');
 			const cell: QuartoCodeCell = {
 				id: 'test-error-default',
@@ -130,10 +131,10 @@ suite('QuartoExecutionManager', () => {
 			});
 			await executionPromise;
 
-			assert.strictEqual(executedErrorBehavior, RuntimeErrorBehavior.Stop);
+			expect(executedErrorBehavior).toBe(RuntimeErrorBehavior.Stop);
 		});
 
-		test('uses RuntimeErrorBehavior.Continue for console execution when error: false', async () => {
+		it('uses RuntimeErrorBehavior.Continue for console execution when error: false', async () => {
 			const documentUri = URI.file('/test-console-error-false.qmd');
 			const cell: QuartoCodeCell = {
 				id: 'test-console-error-false',
@@ -159,7 +160,7 @@ suite('QuartoExecutionManager', () => {
 			const executionPromise = executionManager.executeCell(documentUri, cell);
 			const executionId = await mockConsoleService.waitForExecution();
 
-			assert.strictEqual(mockConsoleService.lastErrorBehavior, RuntimeErrorBehavior.Continue);
+			expect(mockConsoleService.lastErrorBehavior).toBe(RuntimeErrorBehavior.Continue);
 
 			mockSession.receiveStateMessage({
 				parent_id: executionId,
@@ -169,8 +170,8 @@ suite('QuartoExecutionManager', () => {
 		});
 	});
 
-	suite('Output Handling', () => {
-		test('filters out text/plain when text/html is present (DataFrame case)', async () => {
+	describe('Output Handling', () => {
+		it('filters out text/plain when text/html is present (DataFrame case)', async () => {
 			// This test verifies that when both text/html and text/plain are returned
 			// (as happens with pandas DataFrames), only text/html is included in output.
 			const documentUri = URI.file('/test.qmd');
@@ -199,7 +200,7 @@ suite('QuartoExecutionManager', () => {
 			// Wait for the session's execute to fire (TestLanguageRuntimeSession
 			// transitions to Busy then fires onDidExecute on subsequent ticks)
 			const executionId = await mockKernelManager.waitForExecution();
-			assert.ok(executionId, 'Should have captured execution ID');
+			expect(executionId).toBeTruthy();
 
 			// Simulate a pandas DataFrame output that includes both HTML and plain text
 			// This is what pandas sends: both a rich HTML table and a plain text fallback
@@ -221,22 +222,22 @@ suite('QuartoExecutionManager', () => {
 			await executionPromise;
 
 			// VERIFY: Only ONE output should be received (the HTML version)
-			assert.strictEqual(outputsReceived.length, 1, 'Should receive exactly one output');
+			expect(outputsReceived.length).toBe(1);
 
 			// The output should contain HTML but NOT text/plain
 			const output = outputsReceived[0];
 			const mimeTypes = output.items.map(item => item.mime);
 
-			assert.ok(mimeTypes.includes('text/html'), 'Output should include text/html');
-			assert.ok(!mimeTypes.includes('text/plain'), 'Output should NOT include text/plain when HTML is present');
+			expect(mimeTypes.includes('text/html')).toBeTruthy();
+			expect(!mimeTypes.includes('text/plain')).toBeTruthy();
 
 			// Verify the HTML content is correct
 			const htmlItem = output.items.find(item => item.mime === 'text/html');
-			assert.ok(htmlItem, 'Should have HTML item');
-			assert.ok(htmlItem!.data.includes('<table>'), 'HTML should contain table');
+			expect(htmlItem).toBeTruthy();
+			expect(htmlItem!.data.includes('<table>')).toBeTruthy();
 		});
 
-		test('filters out text/plain when image is present', async () => {
+		it('filters out text/plain when image is present', async () => {
 			// This test verifies that when both an image and text/plain are returned
 			// (as happens with matplotlib plots), only the image is included in output.
 			const documentUri = URI.file('/test.qmd');
@@ -264,7 +265,7 @@ suite('QuartoExecutionManager', () => {
 
 			// Wait for the session's execute to fire
 			const executionId = await mockKernelManager.waitForExecution();
-			assert.ok(executionId, 'Should have captured execution ID');
+			expect(executionId).toBeTruthy();
 
 			// Simulate a matplotlib plot output that includes both image and plain text
 			mockSession.receiveOutputMessage({
@@ -285,17 +286,17 @@ suite('QuartoExecutionManager', () => {
 			await executionPromise;
 
 			// VERIFY: Only ONE output should be received
-			assert.strictEqual(outputsReceived.length, 1, 'Should receive exactly one output');
+			expect(outputsReceived.length).toBe(1);
 
 			// The output should contain image/png but NOT text/plain
 			const output = outputsReceived[0];
 			const mimeTypes = output.items.map(item => item.mime);
 
-			assert.ok(mimeTypes.includes('image/png'), 'Output should include image/png');
-			assert.ok(!mimeTypes.includes('text/plain'), 'Output should NOT include text/plain when image is present');
+			expect(mimeTypes.includes('image/png')).toBeTruthy();
+			expect(!mimeTypes.includes('text/plain')).toBeTruthy();
 		});
 
-		test('keeps text/plain when no rich format is present', async () => {
+		it('keeps text/plain when no rich format is present', async () => {
 			// This test verifies that text/plain is kept when it's the only format available
 			const documentUri = URI.file('/test.qmd');
 			const cell: QuartoCodeCell = {
@@ -322,7 +323,7 @@ suite('QuartoExecutionManager', () => {
 
 			// Wait for the session's execute to fire
 			const executionId = await mockKernelManager.waitForExecution();
-			assert.ok(executionId, 'Should have captured execution ID');
+			expect(executionId).toBeTruthy();
 
 			// Simulate a simple text-only result (like from "2 + 3")
 			mockSession.receiveResultMessage({
@@ -342,16 +343,16 @@ suite('QuartoExecutionManager', () => {
 			await executionPromise;
 
 			// VERIFY: Output should be received with text/plain
-			assert.strictEqual(outputsReceived.length, 1, 'Should receive exactly one output');
+			expect(outputsReceived.length).toBe(1);
 
 			const output = outputsReceived[0];
 			const mimeTypes = output.items.map(item => item.mime);
 
-			assert.ok(mimeTypes.includes('text/plain'), 'Output should include text/plain when no rich format is available');
-			assert.strictEqual(output.items[0].data, '5', 'Should have correct text content');
+			expect(mimeTypes.includes('text/plain')).toBeTruthy();
+			expect(output.items[0].data).toBe('5');
 		});
 
-		test('handles both stream output and execute_result output', async () => {
+		it('handles both stream output and execute_result output', async () => {
 			const documentUri = URI.file('/test.qmd');
 			const cell: QuartoCodeCell = {
 				id: 'test-cell-1',
@@ -377,7 +378,7 @@ suite('QuartoExecutionManager', () => {
 
 			// Wait for the session's execute to fire
 			const executionId = await mockKernelManager.waitForExecution();
-			assert.ok(executionId, 'Should have captured execution ID');
+			expect(executionId).toBeTruthy();
 
 			// Simulate stdout stream output (like from print("hello"))
 			mockSession.receiveStreamMessage({
@@ -403,35 +404,19 @@ suite('QuartoExecutionManager', () => {
 
 			// VERIFY BOTH OUTPUTS WERE CAPTURED
 			// The first output should be the stream output (stdout)
-			assert.ok(outputsReceived.length >= 1, 'Should receive at least one output (stream)');
-			assert.strictEqual(outputsReceived[0].items[0].mime, 'application/vnd.code.notebook.stdout');
-			assert.strictEqual(outputsReceived[0].items[0].data, 'hello\n');
+			expect(outputsReceived.length >= 1).toBeTruthy();
+			expect(outputsReceived[0].items[0].mime).toBe('application/vnd.code.notebook.stdout');
+			expect(outputsReceived[0].items[0].data).toBe('hello\n');
 
 			// The second output should be the execute_result output
-			assert.strictEqual(outputsReceived.length, 2, 'Should receive two outputs (stream + execute_result)');
-			assert.strictEqual(outputsReceived[1].items[0].mime, 'text/plain');
-			assert.strictEqual(outputsReceived[1].items[0].data, '5');
+			expect(outputsReceived.length).toBe(2);
+			expect(outputsReceived[1].items[0].mime).toBe('text/plain');
+			expect(outputsReceived[1].items[0].data).toBe('5');
 		});
 	});
 
-	suite('Cell Line Number Tracking', () => {
-		test('uses current cell line numbers when document is edited before execution', async () => {
-			// This test verifies the bug where cell line numbers become stale
-			// when the document is edited between queueing and execution.
-			//
-			// Bug reproduction scenario:
-			// 1. Open a document with a cell at lines 5-7 (code at line 6)
-			// 2. Edit the document, adding 3 lines before the cell
-			// 3. Document re-parses: cell is now at lines 8-10 (code at line 9)
-			// 4. User runs the cell (from UI, which may still have old cell object)
-			//
-			// The bug: When the execution manager receives a cell object with OLD
-			// line numbers (6), it would use those stale numbers instead of looking
-			// up the current line numbers from the re-parsed document model.
-			//
-			// The fix: The execution manager looks up the cell by ID from the
-			// current document model to get fresh line numbers.
-
+	describe('Cell Line Number Tracking', () => {
+		it('uses current cell line numbers when document is edited before execution', async () => {
 			const documentUri = URI.file('/test-line-tracking.qmd');
 
 			// The CURRENT cell state in the model (after re-parsing)
@@ -521,30 +506,14 @@ suite('QuartoExecutionManager', () => {
 
 			// VERIFY: The execution manager should have looked up the cell by ID
 			// and used the CURRENT line numbers (9), not the stale ones (6).
-			// We check the range passed to getValueInRange, which reflects the
-			// code range built from getCellById's result.
-			assert.ok(capturedRange, 'Should have called getValueInRange with a range');
-			assert.strictEqual(
-				capturedRange!.startLineNumber,
-				9,
-				'Should use CURRENT cell line numbers (9), not stale ones (6)'
-			);
-			assert.strictEqual(
-				capturedRange!.endLineNumber,
-				9,
-				'Should use CURRENT cell end line (9), not stale one (6)'
-			);
+			expect(capturedRange).toBeTruthy();
+			expect(capturedRange!.startLineNumber).toBe(9);
+			expect(capturedRange!.endLineNumber).toBe(9);
 		});
 	});
 
-	suite('Queued Range Cleanup', () => {
-		test('clears queued ranges after executeInlineCells with option lines (#12662)', async () => {
-			// When executeInlineCells receives a range that includes Jupyter
-			// code options (e.g. #| label: test), the range is added to the
-			// queue including the option lines. But during execution, the
-			// effective range (excluding options) was used for removal,
-			// causing a mismatch and leaving stale queued decorations.
-
+	describe('Queued Range Cleanup', () => {
+		it('clears queued ranges after executeInlineCells with option lines (#12662)', async () => {
 			const documentUri = URI.file('/test-options-queued.qmd');
 			const cell: QuartoCodeCell = {
 				id: 'test-options',
@@ -611,17 +580,10 @@ suite('QuartoExecutionManager', () => {
 
 			// Queued ranges should be empty after execution completes
 			const queuedRanges = localExecutionManager.getQueuedRanges('test-options');
-			assert.strictEqual(
-				queuedRanges.length, 0,
-				'Queued ranges should be empty after execution completes'
-			);
+			expect(queuedRanges.length).toBe(0);
 
 			// State should not be Queued
-			assert.notStrictEqual(
-				localExecutionManager.getExecutionState('test-options'),
-				CellExecutionState.Queued,
-				'Cell should not be in Queued state after execution'
-			);
+			expect(localExecutionManager.getExecutionState('test-options')).not.toBe(CellExecutionState.Queued);
 		});
 	});
 });

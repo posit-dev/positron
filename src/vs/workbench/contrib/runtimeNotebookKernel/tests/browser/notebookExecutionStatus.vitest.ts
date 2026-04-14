@@ -3,7 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import assert from 'assert';
+/// <reference types="vitest/globals" />
+
 import sinon from 'sinon';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { IStatusbarService, } from '../../../../services/statusbar/browser/statusbar.js';
@@ -13,13 +14,13 @@ import { TestNotebookExecutionService } from '../../../../test/common/positronWo
 import { NotebookExecutionStatus } from '../../browser/notebookExecutionStatus.js';
 import { NOTEBOOK_EXPERIMENTAL_SHOW_EXECUTION_INFO_KEY } from '../../common/runtimeNotebookKernelConfig.js';
 
-suite('NotebookExecutionStatus', () => {
+describe('NotebookExecutionStatus', () => {
 	const ctx = createTestContainer().withWorkbenchServices().build();
 	let configurationService: TestConfigurationService;
 	let notebookExecutionService: TestNotebookExecutionService;
 	let statusbarService: IStatusbarService;
 
-	setup(() => {
+	beforeEach(() => {
 		const accessor = ctx.instantiationService.createInstance(PositronTestServiceAccessor);
 		configurationService = accessor.configurationService;
 		notebookExecutionService = accessor.notebookExecutionService;
@@ -36,16 +37,16 @@ suite('NotebookExecutionStatus', () => {
 	}
 
 	function assertEntryIsVisible(visible: boolean) {
-		assert.strictEqual(statusbarService.isEntryVisible(NotebookExecutionStatus.ID), visible);
+		expect(statusbarService.isEntryVisible(NotebookExecutionStatus.ID)).toBe(visible);
 	}
 
-	test('initially hidden', () => {
+	it('initially hidden', () => {
 		createEntry();
 
 		assertEntryIsVisible(false);
 	});
 
-	test('initially shown', () => {
+	it('initially shown', () => {
 		setShowExecutionInfo(true);
 
 		createEntry();
@@ -53,7 +54,7 @@ suite('NotebookExecutionStatus', () => {
 		assertEntryIsVisible(true);
 	});
 
-	test('show on config enabled', () => {
+	it('show on config enabled', () => {
 		createEntry();
 
 		setShowExecutionInfo(true);
@@ -62,7 +63,7 @@ suite('NotebookExecutionStatus', () => {
 		assertEntryIsVisible(true);
 	});
 
-	test('update on execution start', async () => {
+	it('update on execution start', async () => {
 		const entry = createEntry();
 
 		notebookExecutionService.onDidStartNotebookCellsExecutionEmitter.fire({ cellHandles: [1] });
@@ -75,7 +76,7 @@ suite('NotebookExecutionStatus', () => {
 		});
 	});
 
-	test('update on execution end', async () => {
+	it('update on execution end', async () => {
 		const entry = createEntry();
 
 		notebookExecutionService.onDidEndNotebookCellsExecutionEmitter.fire({ cellHandles: [1], duration: 100 });

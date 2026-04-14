@@ -3,7 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import assert from 'assert';
+/// <reference types="vitest/globals" />
+
 import * as sinon from 'sinon';
 
 import { raceTimeout } from '../../../../../base/common/async.js';
@@ -19,12 +20,12 @@ import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/
 import { PlotSizingPolicyFill } from '../../../../services/positronPlots/common/sizingPolicyFill.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 
-suite('Positron - Plots Service', () => {
+describe('Positron - Plots Service', () => {
 
 	const ctx = createTestContainer().withWorkbenchServices().build();
 	let plotsService: IPositronPlotsService;
 
-	setup(() => {
+	beforeEach(() => {
 		const accessor = ctx.instantiationService.createInstance(PositronTestServiceAccessor);
 		plotsService = accessor.positronPlotsService;
 	});
@@ -47,18 +48,18 @@ suite('Positron - Plots Service', () => {
 		return out;
 	}
 
-	test('history policy: change history policy', () => {
+	it('history policy: change history policy', () => {
 		plotsService.selectHistoryPolicy(HistoryPolicy.AlwaysVisible);
-		assert.strictEqual(plotsService.historyPolicy, HistoryPolicy.AlwaysVisible);
+		expect(plotsService.historyPolicy).toBe(HistoryPolicy.AlwaysVisible);
 
 		plotsService.selectHistoryPolicy(HistoryPolicy.Automatic);
-		assert.strictEqual(plotsService.historyPolicy, HistoryPolicy.Automatic);
+		expect(plotsService.historyPolicy).toBe(HistoryPolicy.Automatic);
 
 		plotsService.selectHistoryPolicy(HistoryPolicy.NeverVisible);
-		assert.strictEqual(plotsService.historyPolicy, HistoryPolicy.NeverVisible);
+		expect(plotsService.historyPolicy).toBe(HistoryPolicy.NeverVisible);
 	});
 
-	test('history policy: change event', async () => {
+	it('history policy: change event', async () => {
 		let historyPolicyChanged = 0;
 
 		const didChangeHistoryPolicy = new Promise<void>((resolve) => {
@@ -75,11 +76,11 @@ suite('Positron - Plots Service', () => {
 		// event occurs when changing to 'AlwaysVisible'
 		plotsService.selectHistoryPolicy(HistoryPolicy.AlwaysVisible);
 
-		await raceTimeout(didChangeHistoryPolicy, 100, () => assert.fail('onDidChangeHistoryPolicy event did not fire'));
-		assert.strictEqual(historyPolicyChanged, 1, 'onDidChangeHistoryPolicy event should fire once');
+		await raceTimeout(didChangeHistoryPolicy, 100, () => expect.unreachable('onDidChangeHistoryPolicy event did not fire'));
+		expect(historyPolicyChanged).toBe(1);
 	});
 
-	test('display location: change event', async () => {
+	it('display location: change event', async () => {
 		let displayLocationChanged = 0;
 		let lastLocation: PlotsDisplayLocation | undefined;
 
@@ -94,17 +95,17 @@ suite('Positron - Plots Service', () => {
 
 		// No event since MainWindow is the default
 		plotsService.setDisplayLocation(PlotsDisplayLocation.MainWindow);
-		assert.strictEqual(displayLocationChanged, 0, 'no event should fire when setting to default value');
+		expect(displayLocationChanged).toBe(0);
 
 		// Event should fire when changing to AuxiliaryWindow
 		plotsService.setDisplayLocation(PlotsDisplayLocation.AuxiliaryWindow);
 
-		await raceTimeout(didChangeDisplayLocation, 100, () => assert.fail('onDidChangeDisplayLocation event did not fire'));
-		assert.strictEqual(displayLocationChanged, 1, 'onDidChangeDisplayLocation event should fire once');
-		assert.strictEqual(lastLocation, PlotsDisplayLocation.AuxiliaryWindow);
+		await raceTimeout(didChangeDisplayLocation, 100, () => expect.unreachable('onDidChangeDisplayLocation event did not fire'));
+		expect(displayLocationChanged).toBe(1);
+		expect(lastLocation).toBe(PlotsDisplayLocation.AuxiliaryWindow);
 	});
 
-	test('display location: no event when setting same location', () => {
+	it('display location: no event when setting same location', () => {
 		let displayLocationChanged = 0;
 
 		const disposable = plotsService.onDidChangeDisplayLocation(() => {
@@ -114,43 +115,43 @@ suite('Positron - Plots Service', () => {
 
 		// Change to AuxiliaryWindow
 		plotsService.setDisplayLocation(PlotsDisplayLocation.AuxiliaryWindow);
-		assert.strictEqual(displayLocationChanged, 1);
+		expect(displayLocationChanged).toBe(1);
 
 		// Set to AuxiliaryWindow again - should not fire event
 		plotsService.setDisplayLocation(PlotsDisplayLocation.AuxiliaryWindow);
-		assert.strictEqual(displayLocationChanged, 1, 'event should not fire when setting to same location');
+		expect(displayLocationChanged).toBe(1);
 	});
 
-	test('sizing policy: check options and change size', () => {
-		assert.throws(() => plotsService.selectSizingPolicy('non-existant sizing policy'));
+	it('sizing policy: check options and change size', () => {
+		expect(() => plotsService.selectSizingPolicy('non-existant sizing policy')).toThrow();
 
-		assert.strictEqual(plotsService.sizingPolicies.length, 6);
+		expect(plotsService.sizingPolicies.length).toBe(6);
 
 		plotsService.selectSizingPolicy('auto');
-		assert.strictEqual(plotsService.selectedSizingPolicy.id, 'auto');
+		expect(plotsService.selectedSizingPolicy.id).toBe('auto');
 
 		plotsService.selectSizingPolicy('fill');
-		assert.strictEqual(plotsService.selectedSizingPolicy.id, 'fill');
+		expect(plotsService.selectedSizingPolicy.id).toBe('fill');
 
 		plotsService.selectSizingPolicy('landscape');
-		assert.strictEqual(plotsService.selectedSizingPolicy.id, 'landscape');
+		expect(plotsService.selectedSizingPolicy.id).toBe('landscape');
 
 		plotsService.selectSizingPolicy('portrait');
-		assert.strictEqual(plotsService.selectedSizingPolicy.id, 'portrait');
+		expect(plotsService.selectedSizingPolicy.id).toBe('portrait');
 
 		plotsService.selectSizingPolicy('square');
-		assert.strictEqual(plotsService.selectedSizingPolicy.id, 'square');
+		expect(plotsService.selectedSizingPolicy.id).toBe('square');
 
 		plotsService.setCustomPlotSize({ width: 100, height: 100 });
-		assert.strictEqual(plotsService.selectedSizingPolicy.id, 'custom');
-		assert.strictEqual(plotsService.sizingPolicies.length, 7);
+		expect(plotsService.selectedSizingPolicy.id).toBe('custom');
+		expect(plotsService.sizingPolicies.length).toBe(7);
 
 		plotsService.clearCustomPlotSize();
-		assert.strictEqual(plotsService.selectedSizingPolicy.id, 'auto');
-		assert.strictEqual(plotsService.sizingPolicies.length, 6);
+		expect(plotsService.selectedSizingPolicy.id).toBe('auto');
+		expect(plotsService.sizingPolicies.length).toBe(6);
 	});
 
-	test('sizing policy: change event', async () => {
+	it('sizing policy: change event', async () => {
 		const plotCommProxyStub = sinon.createStubInstance(PositronPlotCommProxy);
 		// Creates the properties on the stub instance before stubbing them
 		(plotCommProxyStub as any).onDidClose = null;
@@ -175,20 +176,20 @@ suite('Positron - Plots Service', () => {
 
 		plotClientInstance.sizingPolicy = new PlotSizingPolicyFill();
 
-		await raceTimeout(didClosePlot, 100, () => assert.fail('onDidChangeSizingPolicy event did not fire'));
+		await raceTimeout(didClosePlot, 100, () => expect.unreachable('onDidChangeSizingPolicy event did not fire'));
 
-		assert.ok(sizingPolicyChanged, 'onDidChangeSizingPolicy event should fire');
+		expect(sizingPolicyChanged).toBeTruthy();
 
 		sinon.restore();
 	});
 
-	test('selection: select plot', async () => {
+	it('selection: select plot', async () => {
 		const session = await createSession();
 
 		session.session.createClient(RuntimeClientType.Plot, {}, {}, 'plot1');
 		session.session.createClient(RuntimeClientType.Plot, {}, {}, 'plot2');
 
-		assert.strictEqual(plotsService.selectedPlotId, 'plot2');
+		expect(plotsService.selectedPlotId).toBe('plot2');
 
 		let selectPlotCalled = false;
 		const didSelectPlot = new Promise<void>((resolve) => {
@@ -200,13 +201,13 @@ suite('Positron - Plots Service', () => {
 		});
 		plotsService.selectPlot('plot1');
 
-		await raceTimeout(didSelectPlot, 100, () => assert.fail('onDidSelectPlot event did not fire'));
+		await raceTimeout(didSelectPlot, 100, () => expect.unreachable('onDidSelectPlot event did not fire'));
 
-		assert.ok(selectPlotCalled, 'onDidSelectPlot event should fire');
-		assert.strictEqual(plotsService.selectedPlotId, 'plot1');
+		expect(selectPlotCalled).toBeTruthy();
+		expect(plotsService.selectedPlotId).toBe('plot1');
 	});
 
-	test('selection: remove selected plot', async () => {
+	it('selection: remove selected plot', async () => {
 		const session = await createSession();
 
 		session.session.createClient(RuntimeClientType.Plot, {}, {}, 'plot1');
@@ -221,59 +222,59 @@ suite('Positron - Plots Service', () => {
 			ctx.disposables.add(disposable);
 		});
 
-		assert.strictEqual(plotsService.selectedPlotId, 'plot1');
+		expect(plotsService.selectedPlotId).toBe('plot1');
 
 		plotsService.removeSelectedPlot();
 
-		await raceTimeout(didRemovePlot, 100, () => assert.fail('onDidRemovePlot event did not fire'));
+		await raceTimeout(didRemovePlot, 100, () => expect.unreachable('onDidRemovePlot event did not fire'));
 
-		assert.ok(removePlotCalled, 'onDidRemovePlot event should fire');
-		assert.strictEqual(plotsService.positronPlotInstances.length, 0);
-		assert.strictEqual(plotsService.selectedPlotId, undefined);
+		expect(removePlotCalled).toBeTruthy();
+		expect(plotsService.positronPlotInstances.length).toBe(0);
+		expect(plotsService.selectedPlotId).toBe(undefined);
 	});
 
-	test('selection: expect error removing plot when no plot selected', () => {
-		assert.throws(() => plotsService.removeSelectedPlot(), { message: 'No plot is selected' });
+	it('selection: expect error removing plot when no plot selected', () => {
+		expect(() => plotsService.removeSelectedPlot()).toThrow('No plot is selected');
 	});
 
-	test('selection: select previous/next plot', async () => {
+	it('selection: select previous/next plot', async () => {
 		const session = await createSession();
 
 		session.session.createClient(RuntimeClientType.Plot, {}, {}, 'plot1');
 		session.session.createClient(RuntimeClientType.Plot, {}, {}, 'plot2');
 		session.session.createClient(RuntimeClientType.Plot, {}, {}, 'plot3');
 
-		assert.strictEqual(plotsService.selectedPlotId, 'plot3');
+		expect(plotsService.selectedPlotId).toBe('plot3');
 
 		plotsService.selectPreviousPlot();
-		assert.strictEqual(plotsService.selectedPlotId, 'plot2');
+		expect(plotsService.selectedPlotId).toBe('plot2');
 
 		plotsService.selectPreviousPlot();
-		assert.strictEqual(plotsService.selectedPlotId, 'plot1');
+		expect(plotsService.selectedPlotId).toBe('plot1');
 
 		plotsService.selectNextPlot();
-		assert.strictEqual(plotsService.selectedPlotId, 'plot2');
+		expect(plotsService.selectedPlotId).toBe('plot2');
 
 		plotsService.selectNextPlot();
-		assert.strictEqual(plotsService.selectedPlotId, 'plot3');
+		expect(plotsService.selectedPlotId).toBe('plot3');
 	});
 
-	test('plot client: create client event', async () => {
+	it('plot client: create client event', async () => {
 		const session = await createSession();
 
-		assert.strictEqual(plotsService.positronPlotInstances.length, 0);
+		expect(plotsService.positronPlotInstances.length).toBe(0);
 		session.session.createClient(RuntimeClientType.Plot, {}, {}, 'plot1');
 
-		assert.strictEqual(plotsService.selectedPlotId, 'plot1');
-		assert.strictEqual(plotsService.positronPlotInstances.length, 1);
+		expect(plotsService.selectedPlotId).toBe('plot1');
+		expect(plotsService.positronPlotInstances.length).toBe(1);
 	});
 
-	test('render queue: operation queueing and processing', async () => {
+	it('render queue: operation queueing and processing', async () => {
 		const session = await createSession();
 
 		// Create a plot to test with
 		session.session.createClient(RuntimeClientType.Plot, {}, {}, 'plot1');
-		assert.strictEqual(plotsService.positronPlotInstances.length, 1);
+		expect(plotsService.positronPlotInstances.length).toBe(1);
 
 		const plotInstance = plotsService.positronPlotInstances[0] as PlotClientInstance;
 
@@ -312,6 +313,6 @@ suite('Positron - Plots Service', () => {
 
 		// Verify that operations were queued and processed
 		// The second render should cancel the first, so we expect only 1 render call
-		assert.strictEqual(renderCallCount, 1, 'Should have called render only once due to cancellation');
+		expect(renderCallCount).toBe(1);
 	});
 });

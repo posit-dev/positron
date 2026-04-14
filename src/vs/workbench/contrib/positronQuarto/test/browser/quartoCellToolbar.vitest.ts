@@ -3,14 +3,15 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import assert from 'assert';
+/// <reference types="vitest/globals" />
+
 import { URI } from '../../../../../base/common/uri.js';
 import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { createTextModel } from '../../../../../editor/test/common/testTextModel.js';
 import { QuartoDocumentModel } from '../../browser/quartoDocumentModel.js';
 
-suite('QuartoCellToolbar - Position Updates', () => {
+describe('QuartoCellToolbar - Position Updates', () => {
 	const ctx = createTestContainer().build();
 	const logService = new NullLogService();
 
@@ -18,9 +19,9 @@ suite('QuartoCellToolbar - Position Updates', () => {
 	 * Test that verifies the document model fires appropriate events when cells move.
 	 * This is a prerequisite for the toolbar controller to update positions correctly.
 	 */
-	suite('Document Model Events for Cell Movement', () => {
+	describe('Document Model Events for Cell Movement', () => {
 
-		test('inserting text between cells should update cell line numbers', async () => {
+		it('inserting text between cells should update cell line numbers', async () => {
 			// Create a document with two cells
 			const content = `\`\`\`{python}
 x = 1
@@ -36,11 +37,11 @@ y = 2
 			ctx.disposables.add(model);
 
 			// Initial state: verify cell positions
-			assert.strictEqual(model.cells.length, 2);
-			assert.strictEqual(model.cells[0].startLine, 1);
-			assert.strictEqual(model.cells[0].endLine, 3);
-			assert.strictEqual(model.cells[1].startLine, 5);
-			assert.strictEqual(model.cells[1].endLine, 7);
+			expect(model.cells.length).toBe(2);
+			expect(model.cells[0].startLine).toBe(1);
+			expect(model.cells[0].endLine).toBe(3);
+			expect(model.cells[1].startLine).toBe(5);
+			expect(model.cells[1].endLine).toBe(7);
 
 			const originalCell1ContentHash = model.cells[1].contentHash;
 
@@ -59,20 +60,17 @@ y = 2
 			await new Promise(resolve => setTimeout(resolve, 150));
 
 			// After insertion, the second cell should have moved down
-			assert.strictEqual(model.cells.length, 2);
-			assert.strictEqual(model.cells[0].startLine, 1, 'First cell start should not change');
-			assert.strictEqual(model.cells[0].endLine, 3, 'First cell end should not change');
-			assert.strictEqual(model.cells[1].startLine, 7, 'Second cell start should move down by 2 lines');
-			assert.strictEqual(model.cells[1].endLine, 9, 'Second cell end should move down by 2 lines');
+			expect(model.cells.length).toBe(2);
+			expect(model.cells[0].startLine).toBe(1);
+			expect(model.cells[0].endLine).toBe(3);
+			expect(model.cells[1].startLine).toBe(7);
+			expect(model.cells[1].endLine).toBe(9);
 
 			// Content hash should remain the same (content didn't change)
-			assert.strictEqual(model.cells[1].contentHash, originalCell1ContentHash);
-
-			// Note: The cell ID may or may not change depending on implementation
-			// What matters is that the line numbers are updated
+			expect(model.cells[1].contentHash).toBe(originalCell1ContentHash);
 		});
 
-		test('onDidParse should fire when cells move but content stays the same', async () => {
+		it('onDidParse should fire when cells move but content stays the same', async () => {
 			const content = `\`\`\`{python}
 x = 1
 \`\`\`
@@ -105,10 +103,10 @@ y = 2
 			// Wait for debounce
 			await new Promise(resolve => setTimeout(resolve, 150));
 
-			assert.strictEqual(parseEventFired, true, 'onDidParse should fire after text insertion');
+			expect(parseEventFired).toBe(true);
 		});
 
-		test('onDidChangeCells does NOT fire when cells move without content change', async () => {
+		it('onDidChangeCells does NOT fire when cells move without content change', async () => {
 			const content = `\`\`\`{python}
 x = 1
 \`\`\`
@@ -142,18 +140,13 @@ y = 2
 			await new Promise(resolve => setTimeout(resolve, 150));
 
 			// This is the key insight: onDidChangeCells does NOT fire when cells just move
-			// The toolbar controller needs to also listen to onDidParse to update positions
-			assert.strictEqual(changeEventFired, false, 'onDidChangeCells should NOT fire for position-only changes');
+			expect(changeEventFired).toBe(false);
 
 			// But the cells DO have updated positions
-			assert.strictEqual(model.cells[1].startLine, 6, 'Cell should have updated line numbers');
+			expect(model.cells[1].startLine).toBe(6);
 		});
 
-		test('toolbar controller should update positions via onDidParse', async () => {
-			// This test documents what the fix should achieve:
-			// After inserting text between cells, the toolbar positions should update
-			// even if cell content doesn't change
-
+		it('toolbar controller should update positions via onDidParse', async () => {
 			const content = `\`\`\`{python}
 x = 1
 \`\`\`
@@ -197,7 +190,7 @@ y = 2
 			await new Promise(resolve => setTimeout(resolve, 150));
 
 			// onDidParse should always fire after parsing
-			assert.ok(eventsFired.includes('onDidParse'), 'onDidParse should fire after text changes');
+			expect(eventsFired.includes('onDidParse')).toBeTruthy();
 
 			// The second cell should have moved
 			const newPositions = model.cells.map(c => ({
@@ -206,17 +199,10 @@ y = 2
 			}));
 
 			// First cell unchanged
-			assert.strictEqual(newPositions[0].startLine, initialPositions[0].startLine);
+			expect(newPositions[0].startLine).toBe(initialPositions[0].startLine);
 
 			// Second cell moved down by 3 lines
-			assert.strictEqual(
-				newPositions[1].startLine,
-				initialPositions[1].startLine + 3,
-				'Second cell should have moved down'
-			);
-
-			// The key insight: a toolbar controller listening to onDidParse
-			// can refresh cell references and update positions correctly
+			expect(newPositions[1].startLine).toBe(initialPositions[1].startLine + 3);
 		});
 	});
 });

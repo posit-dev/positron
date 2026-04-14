@@ -3,7 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import assert from 'assert';
+/// <reference types="vitest/globals" />
+
 import sinon from 'sinon';
 import { DisposableStore, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { ResourceMap } from '../../../../../base/common/map.js';
@@ -28,7 +29,7 @@ import { INotebookEditorService } from '../../../notebook/browser/services/noteb
 import { NotebookEditorWidget } from '../../../notebook/browser/notebookEditorWidget.js';
 import { NotebookOptions } from '../../../notebook/browser/notebookOptions.js';
 
-suite('Positron - RuntimeNotebookKernel', () => {
+describe('Positron - RuntimeNotebookKernel', () => {
 	const ctx = createTestContainer().withWorkbenchServices().build();
 	let notebookExecutionStateService: TestNotebookExecutionStateService2;
 	let runtimeSessionService: IRuntimeSessionService;
@@ -38,7 +39,7 @@ suite('Positron - RuntimeNotebookKernel', () => {
 	let rawCellIndex: number;
 	let emptyCellIndex: number;
 
-	setup(async () => {
+	beforeEach(async () => {
 		const accessor = ctx.instantiationService.createInstance(PositronTestServiceAccessor);
 
 		runtimeSessionService = accessor.runtimeSessionService;
@@ -113,13 +114,13 @@ suite('Positron - RuntimeNotebookKernel', () => {
 	/** Get a cell execution by cell index. */
 	function getExecution(cellIndex: number) {
 		const cell = notebookDocument.cells[cellIndex];
-		assert.ok(cell);
+		expect(cell).toBeTruthy();
 		const execution = notebookExecutionStateService.executions.get(cell.uri);
-		assert.ok(execution);
-		return { cell, execution };
+		expect(execution).toBeTruthy();
+		return { cell, execution: execution! };
 	}
 
-	test('single cell executes successfully on status idle message', async () => {
+	it('single cell executes successfully on status idle message', async () => {
 		// Start a session.
 		const session = await startSession();
 
@@ -150,7 +151,7 @@ suite('Positron - RuntimeNotebookKernel', () => {
 		sinon.assert.callOrder(execution.update, execution.complete);
 	});
 
-	test('single cell emits execution events', async () => {
+	it('single cell emits execution events', async () => {
 		// Start a session.
 		const session = await startSession();
 
@@ -167,15 +168,15 @@ suite('Positron - RuntimeNotebookKernel', () => {
 		await kernel.executeNotebookCellsRequest(notebookDocument.uri, [0]);
 
 		// Verify the event.
-		assert.ok(event !== undefined);
-		const executed = event as ILanguageRuntimeCodeExecutedEvent;
-		assert.strictEqual(executed.code, 'print(x)');
-		assert.strictEqual(executed.languageId, 'python');
-		assert.strictEqual(executed.attribution.source, CodeAttributionSource.Notebook);
+		expect(event !== undefined).toBeTruthy();
+		const executed = event as unknown as ILanguageRuntimeCodeExecutedEvent;
+		expect(executed.code).toBe('print(x)');
+		expect(executed.languageId).toBe('python');
+		expect(executed.attribution.source).toBe(CodeAttributionSource.Notebook);
 	});
 
 
-	test('single cell passes execution metadata with output_width_px and output_pixel_ratio', async () => {
+	it('single cell passes execution metadata with output_width_px and output_pixel_ratio', async () => {
 		// Start a session.
 		const session = await startSession();
 
@@ -192,22 +193,21 @@ suite('Positron - RuntimeNotebookKernel', () => {
 		sinon.assert.calledOnce(executeSpy);
 		const callArgs = executeSpy.firstCall.args as unknown as unknown[];
 		const executionMetadata = callArgs[5] as Record<string, unknown>;
-		assert.ok(executionMetadata, 'executionMetadata should be provided');
-		assert.strictEqual(typeof executionMetadata.output_width_px, 'number');
-		assert.strictEqual(typeof executionMetadata.output_pixel_ratio, 'number');
+		expect(executionMetadata).toBeTruthy();
+		expect(typeof executionMetadata.output_width_px).toBe('number');
+		expect(typeof executionMetadata.output_pixel_ratio).toBe('number');
 		// The mock widget has width 800, leftMargin 60, rightMargin 16,
 		// so output_width_px should be 800 - 60 - 16 = 724.
-		assert.strictEqual(executionMetadata.output_width_px, 724);
-		assert.ok((executionMetadata.output_pixel_ratio as number) > 0,
-			'output_pixel_ratio should be a positive number');
+		expect(executionMetadata.output_width_px).toBe(724);
+		expect((executionMetadata.output_pixel_ratio as number) > 0).toBeTruthy();
 	});
 
-	test('single cell starts a new session if required', async () => {
+	it('single cell starts a new session if required', async () => {
 		// When a session is started, setup its execute handler to reply with an idle state.
 		ctx.disposables.add(runtimeSessionService.onWillStartSession(({ session }) => {
-			assert.ok(session instanceof TestLanguageRuntimeSession);
+			expect(session instanceof TestLanguageRuntimeSession).toBeTruthy();
 			ctx.disposables.add(session);
-			ctx.disposables.add(session.onDidExecute(parent_id => session.receiveStateMessage({ parent_id, state: RuntimeOnlineState.Idle })));
+			ctx.disposables.add((session as TestLanguageRuntimeSession).onDidExecute(parent_id => (session as TestLanguageRuntimeSession).receiveStateMessage({ parent_id, state: RuntimeOnlineState.Idle })));
 		}));
 
 		// Execute a cell.
@@ -221,7 +221,7 @@ suite('Positron - RuntimeNotebookKernel', () => {
 		});
 	});
 
-	test('single cell executes unsuccessfully on error message', async () => {
+	it('single cell executes unsuccessfully on error message', async () => {
 		// Start a session.
 		const session = await startSession();
 
@@ -251,7 +251,7 @@ suite('Positron - RuntimeNotebookKernel', () => {
 		});
 	});
 
-	test('raw cells are skipped', async () => {
+	it('raw cells are skipped', async () => {
 		// Start a session.
 		await startSession();
 
@@ -264,7 +264,7 @@ suite('Positron - RuntimeNotebookKernel', () => {
 		sinon.assert.notCalled(execution0.complete);
 	});
 
-	test('empty cells are skipped', async () => {
+	it('empty cells are skipped', async () => {
 		// Start a session.
 		await startSession();
 
@@ -277,7 +277,7 @@ suite('Positron - RuntimeNotebookKernel', () => {
 		sinon.assert.notCalled(execution0.complete);
 	});
 
-	test('queued cells are not executed if a preceding cell errors', async () => {
+	it('queued cells are not executed if a preceding cell errors', async () => {
 		// Start a session.
 		const session = await startSession();
 
@@ -301,7 +301,7 @@ suite('Positron - RuntimeNotebookKernel', () => {
 		sinon.assert.notCalled(execution1.complete);
 	});
 
-	test('queued cells execute in order (single execution)', async () => {
+	it('queued cells execute in order (single execution)', async () => {
 		// Start a session.
 		const session = await startSession();
 
@@ -317,7 +317,7 @@ suite('Positron - RuntimeNotebookKernel', () => {
 		sinon.assert.callOrder(execution0.update, execution0.complete, execution1.update, execution1.complete);
 	});
 
-	test('queued cells execute in order (multiple executions)', async () => {
+	it('queued cells execute in order (multiple executions)', async () => {
 		// Start a session.
 		const session = await startSession();
 
@@ -336,7 +336,7 @@ suite('Positron - RuntimeNotebookKernel', () => {
 		sinon.assert.callOrder(execution0.update, execution0.complete, execution1.update, execution1.complete);
 	});
 
-	test('internal state is reset after each execution', async () => {
+	it('internal state is reset after each execution', async () => {
 		// Start a session.
 		const session = await startSession();
 
@@ -353,7 +353,7 @@ suite('Positron - RuntimeNotebookKernel', () => {
 		sinon.assert.callOrder(execution0.update, execution0.complete, execution1.update, execution1.complete);
 	});
 
-	test('interrupt with running session and executing cell', async () => {
+	it('interrupt with running session and executing cell', async () => {
 		// Start a session.
 		const session = await startSession();
 
@@ -387,7 +387,7 @@ suite('Positron - RuntimeNotebookKernel', () => {
 		});
 	});
 
-	test('interrupt with no executing cell', async () => {
+	it('interrupt with no executing cell', async () => {
 		// Start a session.
 		await startSession();
 
@@ -395,7 +395,7 @@ suite('Positron - RuntimeNotebookKernel', () => {
 		await kernel.cancelNotebookCellExecution(notebookDocument.uri, [0]);
 	});
 
-	test('interrupt with no running session', async () => {
+	it('interrupt with no running session', async () => {
 		// Start a session.
 		const session = await startSession();
 

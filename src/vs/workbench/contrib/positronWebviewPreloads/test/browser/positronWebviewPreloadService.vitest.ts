@@ -3,7 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import assert from 'assert';
+/// <reference types="vitest/globals" />
+
 import { timeout } from '../../../../../base/common/async.js';
 import { PositronWebviewPreloadService } from '../../browser/positronWebviewPreloadsService.js';
 import { PositronTestServiceAccessor } from '../../../../test/browser/positronWorkbenchTestServices.js';
@@ -45,12 +46,12 @@ const bokehDisplayMessage = {
 	},
 };
 
-suite('Positron - PositronWebviewPreloadService', () => {
+describe('Positron - PositronWebviewPreloadService', () => {
 	const ctx = createTestContainer().withWorkbenchServices().build();
 
 	let positronWebviewPreloadService: PositronWebviewPreloadService;
 
-	setup(() => {
+	beforeEach(() => {
 		const accessor = ctx.instantiationService.createInstance(PositronTestServiceAccessor);
 		positronWebviewPreloadService = accessor.positronWebviewPreloadService;
 	});
@@ -74,7 +75,7 @@ suite('Positron - PositronWebviewPreloadService', () => {
 		return out;
 	}
 
-	test('console session: dependency messages are absorbed without emitting plot', async () => {
+	it('console session: dependency messages are absorbed without emitting plot', async () => {
 		const consoleSession = await createConsoleSession();
 
 		// Simulate the runtime sending an HoloViews output message.
@@ -82,20 +83,20 @@ suite('Positron - PositronWebviewPreloadService', () => {
 		await timeout(0);
 
 		// No plot should have been emitted.
-		assert(!Boolean(consoleSession.plotClient));
-		assert.equal(positronWebviewPreloadService.sessionInfo(consoleSession.session.sessionId)?.numberOfMessages, 1);
+		expect(Boolean(consoleSession.plotClient)).toBeFalsy();
+		expect(positronWebviewPreloadService.sessionInfo(consoleSession.session.sessionId)?.numberOfMessages).toBe(1);
 
 		// Send another preload message.
 		consoleSession.session.receiveOutputMessage(bokehPreloadMessage);
 		await timeout(0);
-		assert.equal(positronWebviewPreloadService.sessionInfo(consoleSession.session.sessionId)?.numberOfMessages, 2);
+		expect(positronWebviewPreloadService.sessionInfo(consoleSession.session.sessionId)?.numberOfMessages).toBe(2);
 
 		// End the session.
 		consoleSession.session.endSession();
 		await timeout(0);
 	});
 
-	test('console session: Service emits plot client after display message is received', async () => {
+	it('console session: Service emits plot client after display message is received', async () => {
 		const consoleSession = await createConsoleSession();
 
 		// Send one preload message.
@@ -107,16 +108,16 @@ suite('Positron - PositronWebviewPreloadService', () => {
 		await timeout(0);
 
 		// Display message shouldnt have been absorbed into preload messages
-		assert.equal(positronWebviewPreloadService.sessionInfo(consoleSession.session.sessionId)?.numberOfMessages, 1);
+		expect(positronWebviewPreloadService.sessionInfo(consoleSession.session.sessionId)?.numberOfMessages).toBe(1);
 
 		// Plot client should have been emitted and it should be linked to the display message.
-		assert(Boolean(consoleSession.plotClient));
-		assert.strictEqual(consoleSession.plotClient!.id, displayMessageHv.id);
+		expect(Boolean(consoleSession.plotClient)).toBeTruthy();
+		expect(consoleSession.plotClient!.id).toBe(displayMessageHv.id);
 
 		// Emit a bokeh display message and another plot should be created
 		const displayMessageBokeh = consoleSession.session.receiveOutputMessage(bokehDisplayMessage);
 		await timeout(0);
-		assert.strictEqual(consoleSession.plotClient!.id, displayMessageBokeh.id);
+		expect(consoleSession.plotClient!.id).toBe(displayMessageBokeh.id);
 
 		// End the session.
 		consoleSession.session.endSession();
