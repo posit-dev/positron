@@ -11,6 +11,7 @@ import { MarkedFootnoteExtension } from '../../../markdown/common/markedFootnote
 import { TokenMarkdownRenderer } from '../../browser/markdownRenderer.js';
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
 import { ILanguageService } from '../../../../../editor/common/languages/language.js';
+import { NotebookLink } from '../../browser/notebookCells/NotebookLink.js';
 
 type AnyElement = React.ReactElement<any>;
 
@@ -77,7 +78,8 @@ suite('Positron Notebook - TokenMarkdownRenderer Footnotes', () => {
 
 	function findChildAnchor(sup: AnyElement): AnyElement | undefined {
 		return getChildren(sup).find(
-			(c: React.ReactNode) => React.isValidElement(c) && (c as AnyElement).type === 'a'
+			(c: React.ReactNode) => React.isValidElement(c) &&
+				((c as AnyElement).type === 'a' || (c as AnyElement).type === NotebookLink)
 		) as AnyElement | undefined;
 	}
 
@@ -231,5 +233,21 @@ suite('Positron Notebook - TokenMarkdownRenderer Footnotes', () => {
 		assert.ok(anchor1);
 		// The two refs must have different IDs
 		assert.notStrictEqual(anchor0.props.id, anchor1.props.id);
+	});
+
+	test('footnote ref anchors use NotebookLink', () => {
+		const elements = renderTokens('Text[^1]\n\n[^1]: Note.');
+		const refs = findElements(elements, el => el.props.className === 'footnote-ref');
+		assert.strictEqual(refs.length, 1);
+		const anchor = findChildAnchor(refs[0]);
+		assert.ok(anchor);
+		assert.strictEqual(anchor.type, NotebookLink, 'footnote ref should use NotebookLink');
+	});
+
+	test('footnote backref anchors use NotebookLink', () => {
+		const elements = renderTokens('Text[^1]\n\n[^1]: Note.');
+		const backrefs = findElements(elements, el => el.props.className === 'footnote-backref');
+		assert.strictEqual(backrefs.length, 1);
+		assert.strictEqual(backrefs[0].type, NotebookLink, 'backref should use NotebookLink');
 	});
 });

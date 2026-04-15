@@ -626,7 +626,7 @@ export class TokenMarkdownRenderer {
 		const refId = refCount === 1 ? `fnref-${safeId}` : `fnref-${safeId}-${refCount}`;
 		return (
 			<sup key={key} className='footnote-ref'>
-				<a href={`#fn-${safeId}`} id={refId}>{num}</a>
+				<NotebookLink href={`#fn-${safeId}`} id={refId}>{num}</NotebookLink>
 			</sup>
 		);
 	}
@@ -645,7 +645,7 @@ export class TokenMarkdownRenderer {
 									const key = `fn-body-${this.keyCounter++}`;
 									return this.renderToken(token as ExtendedToken, key);
 								})}
-								{wasReferenced && <>{' '}<a className='footnote-backref' href={`#fnref-${safeId}`}>{'\u21a9'}</a></>}
+								{wasReferenced && <>{' '}<NotebookLink className='footnote-backref' href={`#fnref-${safeId}`}>{'\u21a9'}</NotebookLink></>}
 							</li>
 						);
 					})}
