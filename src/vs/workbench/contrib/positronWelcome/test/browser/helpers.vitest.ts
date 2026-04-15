@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/// <reference types="vitest/globals" />
+
 
 import { IPathService } from '../../../../services/path/common/pathService.js';
 import { getCodeSettingsPathNative } from "../../browser/helpers.js";

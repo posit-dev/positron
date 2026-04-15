@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/// <reference types="vitest/globals" />
+
 // This file uses Vitest hooks (beforeEach, ensureNoLeakedDisposables).
 // It is ONLY imported by .vitest.ts files. No Mocha .test.ts or .test.tsx
 // file imports this module. Verified via: grep -rl 'positronTestContainer' --include='*.test.ts' src/vs

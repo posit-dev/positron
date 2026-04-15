@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/// <reference types="vitest/globals" />
+
 
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';

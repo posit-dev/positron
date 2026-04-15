@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/// <reference types="vitest/globals" />
+
 
 import React, { type ReactElement } from 'react';
 import { render, cleanup, type RenderResult } from '@testing-library/react';
