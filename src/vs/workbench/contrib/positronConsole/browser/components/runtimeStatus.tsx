@@ -14,12 +14,7 @@ import { registerIcon } from '../../../../../platform/theme/common/iconRegistry.
 import { localize } from '../../../../../nls.js';
 import { asCssVariable, ColorIdentifier } from '../../../../../platform/theme/common/colorUtils.js';
 import { Icon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
-
-export const enum RuntimeStatus {
-	Active = 'Active',
-	Disconnected = 'Disconnected',
-	Idle = 'Idle'
-}
+import { RuntimeStatus } from '../../common/sessionDisplayUtils.js';
 
 const positronRuntimeStatusActiveIcon = registerIcon(
 	'positron-runtime-status-active',
