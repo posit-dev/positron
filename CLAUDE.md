@@ -115,6 +115,8 @@ it('shows start session', () => {
 
 Use `createTestContainer()` for any test that needs services. Pick the lowest preset, use `.stub()` for extras. For pure logic tests, skip the builder entirely.
 
+The builder handles disposable leak detection automatically -- do NOT add `ensureNoLeakedDisposables()` yourself. It is called internally by `build()`. You only need `ensureNoLeakedDisposables()` in plain tests (no builder) that create disposables directly.
+
 For presets, key rules, and the incremental mocking guide, see the JSDoc on `PositronTestContainerBuilder` in `src/vs/workbench/test/browser/positronTestContainer.ts`.
 
 ### React Component Testing (Vitest + RTL)
