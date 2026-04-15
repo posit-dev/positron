@@ -3,16 +3,17 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/// <reference types="vitest/globals" />
+
 /* eslint-disable no-restricted-syntax */
 
-import assert from 'assert';
 import sinon from 'sinon';
 import { ColumnSummaryCell } from '../../browser/components/columnSummaryCell.js';
 import { getColumnSchema } from '../../common/positronDataExplorerMocks.js';
 import { ColumnDisplayType, SupportStatus, ColumnProfileType, SupportedFeatures } from '../../../languageRuntime/common/positronDataExplorerComm.js';
 import { TableSummaryDataGridInstance } from '../../browser/tableSummaryDataGridInstance.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
-import { setupReactRenderer } from '../../../../../base/test/browser/react.js';
+import { ensureNoLeakedDisposables } from '../../../../../base/test/common/vitestUtils.js';
+import { setupRTLRenderer } from '../../../../../base/test/browser/reactTestingLibrary.js';
 import { PositronActionBarHoverManager } from '../../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 
@@ -93,16 +94,16 @@ function createMockTableSummaryDataGridInstance(overrides: Partial<TableSummaryD
 	return mockTableSummaryDataGridInstance as TableSummaryDataGridInstance;
 }
 
-suite('ColumnSummaryCell', () => {
-	const { render } = setupReactRenderer();
-	ensureNoDisposablesAreLeakedInTestSuite();
+describe('ColumnSummaryCell', () => {
+	ensureNoLeakedDisposables();
+	const rtl = setupRTLRenderer();
 
 	const columnSchema = getColumnSchema('test_column', 0, 'string', ColumnDisplayType.String);
 
 	function renderRoot(
 		mockTableSummaryDataGridInstance: TableSummaryDataGridInstance,
 	) {
-		return render(
+		return rtl.render(
 			<ColumnSummaryCell
 				columnIndex={0}
 				columnSchema={columnSchema}
@@ -112,60 +113,60 @@ suite('ColumnSummaryCell', () => {
 		);
 	}
 
-	teardown(() => {
+	afterEach(() => {
 		sinon.restore();
 	});
 
-	test('displays 0% when getColumnProfileNullPercent return 0', async () => {
+	it('displays 0% when getColumnProfileNullPercent return 0', async () => {
 		const mockTableSummaryDataGridInstance = createMockTableSummaryDataGridInstance({
 			getColumnProfileNullPercent: () => 0,
 			getColumnProfileNullCount: () => 0,
 		});
 
-		const container = renderRoot(mockTableSummaryDataGridInstance);
+		const { container } = renderRoot(mockTableSummaryDataGridInstance);
 
 		const nullPercentElement = container.querySelector('.text-percent');
-		assert.ok(nullPercentElement, 'Expected to find null percent element');
-		assert.strictEqual(nullPercentElement.textContent, '0%', 'Expected to find 0% for 0% input');
+		expect(nullPercentElement).toBeTruthy();
+		expect(nullPercentElement!.textContent).toBe('0%');
 	});
 
-	test('displays <1% when getColumnProfileNullPercent returns 0.5', async () => {
+	it('displays <1% when getColumnProfileNullPercent returns 0.5', async () => {
 		const mockTableSummaryDataGridInstance = createMockTableSummaryDataGridInstance({
 			getColumnProfileNullPercent: () => 0.5,
 			getColumnProfileNullCount: () => 1,
 		});
 
-		const container = renderRoot(mockTableSummaryDataGridInstance);
+		const { container } = renderRoot(mockTableSummaryDataGridInstance);
 
 		const nullPercentElement = container.querySelector('.text-percent');
-		assert.ok(nullPercentElement, 'Expected to find null percent element');
-		assert.strictEqual(nullPercentElement.textContent, '<1%', 'Expected to find <1% for 0.5% input');
+		expect(nullPercentElement).toBeTruthy();
+		expect(nullPercentElement!.textContent).toBe('<1%');
 	});
 
-	test('displays 99% when getColumnProfileNullPercent returns 99.9', async () => {
+	it('displays 99% when getColumnProfileNullPercent returns 99.9', async () => {
 		const mockTableSummaryDataGridInstance = createMockTableSummaryDataGridInstance({
 			getColumnProfileNullPercent: () => 99.9,
 			getColumnProfileNullCount: () => 999,
 		});
 
-		const container = renderRoot(mockTableSummaryDataGridInstance);
+		const { container } = renderRoot(mockTableSummaryDataGridInstance);
 
 		const nullPercentElement = container.querySelector('.text-percent');
-		assert.ok(nullPercentElement, 'Expected to find null percent element');
-		assert.strictEqual(nullPercentElement.textContent, '99%', 'Expected to find 99% for 99.9% input');
+		expect(nullPercentElement).toBeTruthy();
+		expect(nullPercentElement!.textContent).toBe('99%');
 	});
 
-	test('displays 100% when getColumnProfileNullPercent returns 100', async () => {
+	it('displays 100% when getColumnProfileNullPercent returns 100', async () => {
 		const mockTableSummaryDataGridInstance = createMockTableSummaryDataGridInstance({
 			getColumnProfileNullPercent: () => 100,
 			getColumnProfileNullCount: () => 1000,
 		});
 
-		const container = renderRoot(mockTableSummaryDataGridInstance);
+		const { container } = renderRoot(mockTableSummaryDataGridInstance);
 
 		const nullPercentElement = container.querySelector('.text-percent');
-		assert.ok(nullPercentElement, 'Expected to find null percent element');
-		assert.strictEqual(nullPercentElement.textContent, '100%', 'Expected to find 100% for 100% input');
+		expect(nullPercentElement).toBeTruthy();
+		expect(nullPercentElement!.textContent).toBe('100%');
 	});
 
 });

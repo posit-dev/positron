@@ -3,15 +3,16 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/// <reference types="vitest/globals" />
+
 /* eslint-disable no-restricted-syntax */
 /* eslint-disable local/code-no-dangerous-type-assertions */
 
-import assert from 'assert';
 import React from 'react';
 import { mainWindow } from '../../../../../../base/browser/window.js';
 import { Event } from '../../../../../../base/common/event.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../base/test/common/utils.js';
-import { setupReactRenderer } from '../../../../../../base/test/browser/react.js';
+import { ensureNoLeakedDisposables } from '../../../../../../base/test/common/vitestUtils.js';
+import { setupRTLRenderer } from '../../../../../../base/test/browser/reactTestingLibrary.js';
 import { MockContextKeyService } from '../../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { TestInstantiationService } from '../../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { TestCommandService } from '../../../../../../editor/test/browser/editorTestServices.js';
@@ -59,14 +60,14 @@ class CellOutputActionBarFixture {
 	}
 }
 
-suite('CellOutputActionBar', () => {
-	const { render } = setupReactRenderer();
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+describe('CellOutputActionBar', () => {
+	const disposables = ensureNoLeakedDisposables();
+	const rtl = setupRTLRenderer();
 
 	let contextKeyService: MockContextKeyService;
 	let menuActions: [string, (MenuItemAction | SubmenuItemAction)[]][];
 
-	setup(() => {
+	beforeEach(() => {
 		contextKeyService = disposables.add(new MockContextKeyService());
 		menuActions = [];
 	});
@@ -115,33 +116,31 @@ suite('CellOutputActionBar', () => {
 			</PositronReactServicesContext.Provider>
 		);
 
-		// Render twice: once for the initial render, once for the useMenu
-		// effect to create the menu and trigger a re-render. useMenuActions
-		// now uses useMemo so it resolves in the same cycle as useMenu.
-		const container = render(element);
-		render(element);
+		// RTL's act() batches effects, so the menu is created and actions
+		// resolved in a single render pass.
+		const { container } = rtl.render(element);
 		return new CellOutputActionBarFixture(container);
 	}
 
-	test('renders empty toolbar when there are no actions', () => {
+	it('renders empty toolbar when there are no actions', () => {
 		menuActions = [];
 		const fixture = renderActionBar();
 
-		assert.ok(fixture.toolbar);
-		assert.strictEqual(fixture.buttons.length, 0);
+		expect(fixture.toolbar).toBeTruthy();
+		expect(fixture.buttons.length).toBe(0);
 	});
 
-	test('toolbar has an accessible label', () => {
+	it('toolbar has an accessible label', () => {
 		menuActions = [
 			['0_visibility', [mockAction('collapse', 'Collapse', 'chevron-down')]],
 		];
 		const fixture = renderActionBar();
 
-		assert.ok(fixture.toolbar);
-		assert.strictEqual(fixture.toolbar.getAttribute('aria-label'), 'Cell output actions');
+		expect(fixture.toolbar).toBeTruthy();
+		expect(fixture.toolbar!.getAttribute('aria-label')).toBe('Cell output actions');
 	});
 
-	test('renders buttons for a single group', () => {
+	it('renders buttons for a single group', () => {
 		menuActions = [
 			['0_visibility', [
 				mockAction('collapse', 'Collapse', 'chevron-down'),
@@ -150,11 +149,11 @@ suite('CellOutputActionBar', () => {
 		];
 		const fixture = renderActionBar();
 
-		assert.strictEqual(fixture.buttons.length, 2);
-		assert.strictEqual(fixture.separatorButtons.length, 0, 'No separators for a single group');
+		expect(fixture.buttons.length).toBe(2);
+		expect(fixture.separatorButtons.length).toBe(0);
 	});
 
-	test('renders separator before the last group', () => {
+	it('renders separator before the last group', () => {
 		menuActions = [
 			['0_visibility', [
 				mockAction('collapse', 'Collapse', 'chevron-down'),
@@ -166,11 +165,11 @@ suite('CellOutputActionBar', () => {
 		];
 		const fixture = renderActionBar();
 
-		assert.strictEqual(fixture.buttons.length, 3);
-		assert.strictEqual(fixture.separatorButtons.length, 1, 'One separator before the last group');
+		expect(fixture.buttons.length).toBe(3);
+		expect(fixture.separatorButtons.length).toBe(1);
 	});
 
-	test('only shows separator before the last group with three groups', () => {
+	it('only shows separator before the last group with three groups', () => {
 		menuActions = [
 			['0_visibility', [mockAction('collapse', 'Collapse', 'chevron-down')]],
 			['1_middle', [mockAction('middle', 'Middle', 'info')]],
@@ -178,12 +177,12 @@ suite('CellOutputActionBar', () => {
 		];
 		const fixture = renderActionBar();
 
-		assert.strictEqual(fixture.buttons.length, 3);
-		assert.strictEqual(fixture.separatorButtons.length, 1, 'Only one separator before the last group');
+		expect(fixture.buttons.length).toBe(3);
+		expect(fixture.separatorButtons.length).toBe(1);
 	});
 
 	/* Verify the action bar wires up wheel forwarding (detailed behavior tested in useWheelForwarding.test). */
-	test('forwards wheel events to scroll target', () => {
+	it('forwards wheel events to scroll target', () => {
 		menuActions = [
 			['0_visibility', [mockAction('collapse', 'Collapse', 'chevron-down')]],
 		];
@@ -202,13 +201,13 @@ suite('CellOutputActionBar', () => {
 			scrollTargetRef.current = scrollTarget;
 
 			const fixture = renderActionBar(scrollTargetRef);
-			assert.ok(fixture.toolbar);
+			expect(fixture.toolbar).toBeTruthy();
 
 			const event = new WheelEvent('wheel', { deltaY: 50, cancelable: true });
-			fixture.toolbar.dispatchEvent(event);
+			fixture.toolbar!.dispatchEvent(event);
 
-			assert.strictEqual(scrollTarget.scrollTop, 50);
-			assert.strictEqual(event.defaultPrevented, true);
+			expect(scrollTarget.scrollTop).toBe(50);
+			expect(event.defaultPrevented).toBe(true);
 		} finally {
 			scrollTarget.remove();
 		}

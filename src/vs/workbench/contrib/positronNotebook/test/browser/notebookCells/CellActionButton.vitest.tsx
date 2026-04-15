@@ -3,14 +3,15 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/// <reference types="vitest/globals" />
+
 /* eslint-disable no-restricted-syntax */
 /* eslint-disable local/code-no-dangerous-type-assertions */
 
-import assert from 'assert';
 import sinon from 'sinon';
 import { flushSync } from 'react-dom';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../base/test/common/utils.js';
-import { setupReactRenderer } from '../../../../../../base/test/browser/react.js';
+import { ensureNoLeakedDisposables } from '../../../../../../base/test/common/vitestUtils.js';
+import { setupRTLRenderer } from '../../../../../../base/test/browser/reactTestingLibrary.js';
 import { runWithFakedTimers } from '../../../../../../base/test/common/timeTravelScheduler.js';
 import { timeout } from '../../../../../../base/common/async.js';
 import { IPositronNotebookInstance } from '../../../browser/IPositronNotebookInstance.js';
@@ -69,15 +70,15 @@ class CellActionButtonFixture {
 	}
 }
 
-suite('CellActionButton', () => {
-	const { render } = setupReactRenderer();
-	ensureNoDisposablesAreLeakedInTestSuite();
+describe('CellActionButton', () => {
+	ensureNoLeakedDisposables();
+	const rtl = setupRTLRenderer();
 
 	let selectCellStub: sinon.SinonStub;
 	let instance: IPositronNotebookInstance;
 	let cell: IPositronNotebookCell;
 
-	setup(() => {
+	beforeEach(() => {
 		selectCellStub = sinon.stub();
 		instance = {
 			hoverManager: undefined,
@@ -87,7 +88,7 @@ suite('CellActionButton', () => {
 		cell = { id: 'cell-1' } as unknown as IPositronNotebookCell;
 	});
 
-	teardown(() => {
+	afterEach(() => {
 		sinon.restore();
 	});
 
@@ -95,7 +96,7 @@ suite('CellActionButton', () => {
 		action: MenuItemAction | SubmenuItemAction,
 		options?: { showSeparator?: boolean },
 	) {
-		const container = render(
+		const { container } = rtl.render(
 			<NotebookInstanceProvider instance={instance}>
 				<CellActionButton
 					action={action}
@@ -108,45 +109,45 @@ suite('CellActionButton', () => {
 		return new CellActionButtonFixture(button);
 	}
 
-	test('renders with aria-label from action', () => {
+	it('renders with aria-label from action', () => {
 		const action = mockAction({ label: 'Collapse Output' });
 		const fixture = renderButton(action);
 
-		assert.strictEqual(fixture.ariaLabel, action.label);
+		expect(fixture.ariaLabel).toBe(action.label);
 	});
 
-	test('applies separator-after class when showSeparator is true', () => {
+	it('applies separator-after class when showSeparator is true', () => {
 		const fixture = renderButton(mockAction(), { showSeparator: true });
 
-		assert.ok(fixture.hasSeparator);
+		expect(fixture.hasSeparator).toBeTruthy();
 	});
 
-	test('does not apply separator-after class when showSeparator is false', () => {
+	it('does not apply separator-after class when showSeparator is false', () => {
 		const fixture = renderButton(mockAction(), { showSeparator: false });
 
-		assert.ok(!fixture.hasSeparator);
+		expect(!fixture.hasSeparator).toBeTruthy();
 	});
 
-	test('selects cell before running action', () => {
+	it('selects cell before running action', () => {
 		const fixture = renderButton(mockAction());
 
 		fixture.click();
 
-		assert.ok(selectCellStub.calledOnce, 'Expected selectCell to be called');
-		assert.strictEqual(selectCellStub.firstCall.args[1], CellSelectionType.Normal);
+		expect(selectCellStub.calledOnce).toBeTruthy();
+		expect(selectCellStub.firstCall.args[1]).toBe(CellSelectionType.Normal);
 	});
 
-	test('runs the action when clicked', async () => {
+	it('runs the action when clicked', async () => {
 		const runStub = sinon.stub().resolves();
 		const fixture = renderButton(mockAction({ run: runStub }));
 
 		fixture.click();
 
 		await new Promise(resolve => setTimeout(resolve, 0));
-		assert.ok(runStub.calledOnce, 'Expected action.run to be called');
+		expect(runStub.calledOnce).toBeTruthy();
 	});
 
-	test('does not throw when action.run rejects', async () => {
+	it('does not throw when action.run rejects', async () => {
 		const logStub = sinon.stub(console, 'log');
 		const fixture = renderButton(mockAction({
 			run: () => Promise.reject(new Error('action failed')),
@@ -157,19 +158,19 @@ suite('CellActionButton', () => {
 		logStub.restore();
 	});
 
-	test('renders icon when action has one', () => {
+	it('renders icon when action has one', () => {
 		const fixture = renderButton(mockAction({ iconId: 'chevron-down' }));
 
-		assert.strictEqual(fixture.iconClass, 'codicon-chevron-down');
+		expect(fixture.iconClass).toBe('codicon-chevron-down');
 	});
 
-	test('renders DevErrorIcon when action has no icon', () => {
+	it('renders DevErrorIcon when action has no icon', () => {
 		const fixture = renderButton(mockAction({ iconId: undefined }));
 
-		assert.strictEqual(fixture.iconClass, 'codicon-blank', 'Missing developer error icon');
+		expect(fixture.iconClass).toBe('codicon-blank');
 	});
 
-	suite('success feedback', () => {
+	describe('success feedback', () => {
 		function renderSuccessButton(run?: () => Promise<void>) {
 			return renderButton(mockAction({
 				id: PositronNotebookActionId.CopyOutputImage,
@@ -178,12 +179,12 @@ suite('CellActionButton', () => {
 			}));
 		}
 
-		test('momentarily shows feedback after successful action', () => runWithFakedTimers({}, async () => {
+		it('momentarily shows feedback after successful action', () => runWithFakedTimers({}, async () => {
 			const fixture = renderSuccessButton();
 
 			await fixture.clickAndFlush();
 
-			assert.strictEqual(fixture.iconClass, 'codicon-check');
+			expect(fixture.iconClass).toBe('codicon-check');
 
 			// Advance past the 1500ms success feedback duration.
 			await timeout(1500);
@@ -191,10 +192,10 @@ suite('CellActionButton', () => {
 			// Let the set state flush; flushSync does not work here.
 			await timeout(0);
 
-			assert.strictEqual(fixture.iconClass, 'codicon-copy', 'Original icon should be restored');
+			expect(fixture.iconClass).toBe('codicon-copy');
 		}));
 
-		test('does not show check icon for non-opted-in actions', () => runWithFakedTimers({}, async () => {
+		it('does not show check icon for non-opted-in actions', () => runWithFakedTimers({}, async () => {
 			const fixture = renderButton(mockAction({
 				id: 'some-other-action',
 				iconId: 'copy',
@@ -203,16 +204,16 @@ suite('CellActionButton', () => {
 
 			await fixture.clickAndFlush();
 
-			assert.strictEqual(fixture.iconClass, 'codicon-copy');
+			expect(fixture.iconClass).toBe('codicon-copy');
 		}));
 
-		test('does not show check icon when action rejects', () => runWithFakedTimers({}, async () => {
+		it('does not show check icon when action rejects', () => runWithFakedTimers({}, async () => {
 			const logStub = sinon.stub(console, 'log');
 			const fixture = renderSuccessButton(() => Promise.reject(new Error('fail')));
 
 			await fixture.clickAndFlush();
 
-			assert.strictEqual(fixture.iconClass, 'codicon-copy');
+			expect(fixture.iconClass).toBe('codicon-copy');
 			logStub.restore();
 		}));
 	});

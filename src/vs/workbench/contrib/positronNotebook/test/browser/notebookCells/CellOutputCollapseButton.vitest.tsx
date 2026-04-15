@@ -3,19 +3,20 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/// <reference types="vitest/globals" />
+
 /* eslint-disable no-restricted-syntax */
 /* eslint-disable local/code-no-dangerous-type-assertions */
 
-import assert from 'assert';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../base/test/common/utils.js';
-import { setupReactRenderer } from '../../../../../../base/test/browser/react.js';
+import sinon, { SinonStub } from 'sinon';
+import { ensureNoLeakedDisposables } from '../../../../../../base/test/common/vitestUtils.js';
+import { setupRTLRenderer } from '../../../../../../base/test/browser/reactTestingLibrary.js';
 import { CellOutputCollapseButton } from '../../../browser/notebookCells/CellOutputCollapseButton.js';
 import { PositronNotebookCodeCell } from '../../../browser/PositronNotebookCells/PositronNotebookCodeCell.js';
 import { observableValue, ISettableObservable } from '../../../../../../base/common/observable.js';
 import { CellSelectionType } from '../../../browser/selectionMachine.js';
 import { IPositronNotebookInstance } from '../../../browser/IPositronNotebookInstance.js';
 import { NotebookInstanceProvider } from '../../../browser/NotebookInstanceProvider.js';
-import sinon, { SinonStub } from 'sinon';
 
 class CellOutputCollapseButtonFixture {
 	constructor(private readonly container: HTMLElement) { }
@@ -26,20 +27,20 @@ class CellOutputCollapseButtonFixture {
 
 	get button() {
 		const el = this.container.querySelector<HTMLElement>('.cell-output-collapse-button');
-		assert.ok(el, 'Expected to find the collapse/expand button');
-		return el;
+		expect(el).toBeTruthy();
+		return el!;
 	}
 }
 
-suite('CellOutputCollapseButton', () => {
-	const { render } = setupReactRenderer();
-	ensureNoDisposablesAreLeakedInTestSuite();
+describe('CellOutputCollapseButton', () => {
+	ensureNoLeakedDisposables();
+	const rtl = setupRTLRenderer();
 
 	let outputIsCollapsed: ISettableObservable<boolean>;
 	let selectStub: SinonStub;
 	let toggleStub: SinonStub;
 
-	setup(() => {
+	beforeEach(() => {
 		outputIsCollapsed = observableValue('outputIsCollapsed', false);
 		selectStub = sinon.stub();
 		toggleStub = sinon.stub();
@@ -58,7 +59,7 @@ suite('CellOutputCollapseButton', () => {
 			},
 		} as unknown as IPositronNotebookInstance;
 
-		const container = render(
+		const { container } = rtl.render(
 			<NotebookInstanceProvider instance={instance}>
 				<CellOutputCollapseButton cell={cell} />
 			</NotebookInstanceProvider>
@@ -66,26 +67,26 @@ suite('CellOutputCollapseButton', () => {
 		return new CellOutputCollapseButtonFixture(container);
 	}
 
-	test('renders collapse button when not collapsed', () => {
+	it('renders collapse button when not collapsed', () => {
 		const fixture = renderButton();
 
-		assert.strictEqual(fixture.button.getAttribute('aria-label'), 'Collapse Output');
+		expect(fixture.button.getAttribute('aria-label')).toBe('Collapse Output');
 	});
 
-	test('renders expand button when outputs are collapsed', () => {
+	it('renders expand button when outputs are collapsed', () => {
 		outputIsCollapsed.set(true, undefined);
 		const fixture = renderButton();
 
-		assert.strictEqual(fixture.button.getAttribute('aria-label'), 'Expand Output');
+		expect(fixture.button.getAttribute('aria-label')).toBe('Expand Output');
 	});
 
-	test('selects cell and toggles collapse on click', () => {
+	it('selects cell and toggles collapse on click', () => {
 		const fixture = renderButton();
 
 		fixture.button.click();
 
-		assert.strictEqual(selectStub.callCount, 1);
-		assert.strictEqual(selectStub.getCall(0).args[1], CellSelectionType.Normal);
-		assert.strictEqual(toggleStub.callCount, 1);
+		expect(selectStub.callCount).toBe(1);
+		expect(selectStub.getCall(0).args[1]).toBe(CellSelectionType.Normal);
+		expect(toggleStub.callCount).toBe(1);
 	});
 });

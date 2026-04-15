@@ -3,40 +3,41 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/// <reference types="vitest/globals" />
+
 /* eslint-disable no-restricted-syntax */
 
-import assert from 'assert';
 import sinon from 'sinon';
 import { ActionBarWidget } from '../../browser/components/actionBarWidget.js';
 import { IPositronActionBarWidgetDescriptor } from '../../browser/positronActionBarWidgetRegistry.js';
 import { MenuId } from '../../../actions/common/actions.js';
 import { ICommandService, CommandsRegistry } from '../../../commands/common/commands.js';
 import { ServiceIdentifier, ServicesAccessor } from '../../../instantiation/common/instantiation.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
-import { setupReactRenderer } from '../../../../base/test/browser/react.js';
+import { ensureNoLeakedDisposables } from '../../../../base/test/common/vitestUtils.js';
+import { setupRTLRenderer } from '../../../../base/test/browser/reactTestingLibrary.js';
 import { PositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
 import { TestCommandService } from '../../../../editor/test/browser/editorTestServices.js';
 import { TestInstantiationService } from '../../../instantiation/test/common/instantiationServiceMock.js';
 import { Event } from '../../../../base/common/event.js';
 
-suite('ActionBarWidget', () => {
-	const { render } = setupReactRenderer();
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+describe('ActionBarWidget', () => {
+	const disposables = ensureNoLeakedDisposables();
+	const rtl = setupRTLRenderer();
 
 	let mockServicesAccessor: PositronReactServices;
 	let commandService: TestCommandService;
 
 	/** Helper to render ActionBarWidget with context. */
 	function renderWidget(descriptor: IPositronActionBarWidgetDescriptor) {
-		return render(
+		return rtl.render(
 			<PositronReactServicesContext.Provider value={mockServicesAccessor}>
 				<ActionBarWidget descriptor={descriptor} />
 			</PositronReactServicesContext.Provider>
 		);
 	}
 
-	setup(() => {
+	beforeEach(() => {
 		const instantiationService = disposables.add(new TestInstantiationService());
 		commandService = new TestCommandService(instantiationService);
 		mockServicesAccessor = ({
@@ -49,11 +50,11 @@ suite('ActionBarWidget', () => {
 		} satisfies Partial<PositronReactServices>) as PositronReactServices;
 	});
 
-	teardown(() => {
+	afterEach(() => {
 		sinon.restore();
 	});
 
-	test('renders a simple widget component', async () => {
+	it('renders a simple widget component', async () => {
 		const descriptor: IPositronActionBarWidgetDescriptor = {
 			id: 'test.widget',
 			menuId: MenuId.EditorActionsRight,
@@ -61,14 +62,14 @@ suite('ActionBarWidget', () => {
 			componentFactory: () => () => <span className='test-widget-content'>Test Widget</span>
 		};
 
-		const container = renderWidget(descriptor);
+		const { container } = renderWidget(descriptor);
 
 		const widgetContent = container.querySelector('.test-widget-content');
-		assert.ok(widgetContent, 'Expected to find widget content');
-		assert.strictEqual(widgetContent.textContent, 'Test Widget');
+		expect(widgetContent).toBeTruthy();
+		expect(widgetContent!.textContent).toBe('Test Widget');
 	});
 
-	test('widget can access services via accessor', async () => {
+	it('widget can access services via accessor', async () => {
 		let receivedAccessor: ServicesAccessor | undefined;
 
 		const descriptor: IPositronActionBarWidgetDescriptor = {
@@ -83,11 +84,11 @@ suite('ActionBarWidget', () => {
 
 		renderWidget(descriptor);
 
-		assert.ok(receivedAccessor, 'Widget should receive services accessor');
-		assert.strictEqual(receivedAccessor, mockServicesAccessor);
+		expect(receivedAccessor).toBeTruthy();
+		expect(receivedAccessor).toBe(mockServicesAccessor);
 	});
 
-	test('command-driven widget renders as button', async () => {
+	it('command-driven widget renders as button', async () => {
 		const descriptor: IPositronActionBarWidgetDescriptor = {
 			id: 'test.command.widget',
 			menuId: MenuId.EditorActionsRight,
@@ -98,15 +99,15 @@ suite('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Command Widget</span>
 		};
 
-		const container = renderWidget(descriptor);
+		const { container } = renderWidget(descriptor);
 
 		const button = container.querySelector('button.action-bar-widget');
-		assert.ok(button, 'Expected to find button element');
-		assert.strictEqual(button.getAttribute('aria-label'), 'Test Command');
-		assert.strictEqual(button.getAttribute('title'), 'Execute test command');
+		expect(button).toBeTruthy();
+		expect(button!.getAttribute('aria-label')).toBe('Test Command');
+		expect(button!.getAttribute('title')).toBe('Execute test command');
 	});
 
-	test('command-driven widget executes command on click', async () => {
+	it('command-driven widget executes command on click', async () => {
 		// Register a test command
 		disposables.add(CommandsRegistry.registerCommand('test.click.command', () => { }));
 
@@ -120,22 +121,22 @@ suite('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Click Me</span>
 		};
 
-		const container = renderWidget(descriptor);
+		const { container } = renderWidget(descriptor);
 
 		const button = container.querySelector<HTMLButtonElement>('button.action-bar-widget');
-		assert.ok(button, 'Expected to find button');
+		expect(button).toBeTruthy();
 
 		// Simulate click
 		const commandPromise = Event.toPromise(commandService.onWillExecuteCommand);
-		button.click();
+		button!.click();
 
 		// Wait for click handler
 		const command = await commandPromise;
-		assert.strictEqual(command.commandId, 'test.click.command', 'Expected commandId to match');
-		assert.deepStrictEqual(command.args, [{ arg1: 'value1' }], 'Command should be called with correct arguments');
+		expect(command.commandId).toBe('test.click.command');
+		expect(command.args).toEqual([{ arg1: 'value1' }]);
 	});
 
-	test('command-driven widget executes command on Enter key', async () => {
+	it('command-driven widget executes command on Enter key', async () => {
 		// Register a test command
 		disposables.add(CommandsRegistry.registerCommand('test.keyboard.command', () => { }));
 
@@ -148,21 +149,21 @@ suite('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Press Enter</span>
 		};
 
-		const container = renderWidget(descriptor);
+		const { container } = renderWidget(descriptor);
 
 		const button = container.querySelector<HTMLButtonElement>('button.action-bar-widget');
-		assert.ok(button, 'Expected to find button');
+		expect(button).toBeTruthy();
 
 		// Simulate Enter key press
 		const commandPromise = Event.toPromise(commandService.onWillExecuteCommand);
 		const enterEvent = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true });
-		button.dispatchEvent(enterEvent);
+		button!.dispatchEvent(enterEvent);
 
 		const command = await commandPromise;
-		assert.strictEqual(command.commandId, 'test.keyboard.command', 'Command should be executed on Enter');
+		expect(command.commandId).toBe('test.keyboard.command');
 	});
 
-	test('command-driven widget executes command on Space key', async () => {
+	it('command-driven widget executes command on Space key', async () => {
 		// Register a test command
 		disposables.add(CommandsRegistry.registerCommand('test.space.command', () => { }));
 
@@ -175,21 +176,21 @@ suite('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Press Space</span>
 		};
 
-		const container = renderWidget(descriptor);
+		const { container } = renderWidget(descriptor);
 
 		const button = container.querySelector<HTMLButtonElement>('button.action-bar-widget');
-		assert.ok(button, 'Expected to find button');
+		expect(button).toBeTruthy();
 
 		// Simulate Space key press
 		const commandPromise = Event.toPromise(commandService.onWillExecuteCommand);
 		const spaceEvent = new KeyboardEvent('keydown', { key: ' ', bubbles: true });
-		button.dispatchEvent(spaceEvent);
+		button!.dispatchEvent(spaceEvent);
 
 		const command = await commandPromise;
-		assert.strictEqual(command.commandId, 'test.space.command', 'Command should be executed on Space');
+		expect(command.commandId).toBe('test.space.command');
 	});
 
-	test('self-contained widget renders as div (not button)', async () => {
+	it('self-contained widget renders as div (not button)', async () => {
 		const descriptor: IPositronActionBarWidgetDescriptor = {
 			id: 'test.selfcontained.widget',
 			menuId: MenuId.EditorActionsRight,
@@ -198,16 +199,16 @@ suite('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Self Contained</span>
 		};
 
-		const container = renderWidget(descriptor);
+		const { container } = renderWidget(descriptor);
 
 		const div = container.querySelector('div.action-bar-widget');
-		assert.ok(div, 'Expected to find div element');
+		expect(div).toBeTruthy();
 
 		const button = container.querySelector('button.action-bar-widget');
-		assert.strictEqual(button, null, 'Should not render as button when self-contained');
+		expect(button).toBe(null);
 	});
 
-	test('legacy widget (no command, not self-contained) renders as div', async () => {
+	it('legacy widget (no command, not self-contained) renders as div', async () => {
 		const descriptor: IPositronActionBarWidgetDescriptor = {
 			id: 'test.legacy.widget',
 			menuId: MenuId.EditorActionsRight,
@@ -216,16 +217,16 @@ suite('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Legacy Widget</span>
 		};
 
-		const container = renderWidget(descriptor);
+		const { container } = renderWidget(descriptor);
 
 		const div = container.querySelector('div.action-bar-widget');
-		assert.ok(div, 'Expected to find div element for legacy widget');
+		expect(div).toBeTruthy();
 
 		const button = container.querySelector('button.action-bar-widget');
-		assert.strictEqual(button, null, 'Legacy widget should not render as button');
+		expect(button).toBe(null);
 	});
 
-	test('error boundary catches widget errors and shows error indicator', async () => {
+	it('error boundary catches widget errors and shows error indicator', async () => {
 		// Create a component that throws an error
 		const ErrorComponent = () => {
 			throw new Error('Test widget error');
@@ -241,21 +242,21 @@ suite('ActionBarWidget', () => {
 		// Suppress console.error for this test since we expect an error
 		const consoleErrorStub = sinon.stub(console, 'error');
 
-		const container = renderWidget(descriptor);
+		const { container } = renderWidget(descriptor);
 
 		const errorIndicator = container.querySelector('.action-bar-widget-error');
-		assert.ok(errorIndicator, 'Expected to find error indicator');
+		expect(errorIndicator).toBeTruthy();
 
-		const errorIcon = errorIndicator.querySelector('.codicon-error');
-		assert.ok(errorIcon, 'Expected to find error icon');
+		const errorIcon = errorIndicator!.querySelector('.codicon-error');
+		expect(errorIcon).toBeTruthy();
 
 		// Verify error was logged
-		assert.ok(consoleErrorStub.called, 'Error should be logged to console');
+		expect(consoleErrorStub.called).toBeTruthy();
 
 		consoleErrorStub.restore();
 	});
 
-	test('error boundary shows error message in title attribute', async () => {
+	it('error boundary shows error message in title attribute', async () => {
 		const ErrorComponent = () => {
 			throw new Error('Specific error message');
 		};
@@ -270,14 +271,14 @@ suite('ActionBarWidget', () => {
 		// Suppress console.error for this test
 		const consoleErrorStub = sinon.stub(console, 'error');
 
-		const container = renderWidget(descriptor);
+		const { container } = renderWidget(descriptor);
 
 		const errorIndicator = container.querySelector<HTMLElement>('.action-bar-widget-error');
-		assert.ok(errorIndicator, 'Expected to find error indicator');
+		expect(errorIndicator).toBeTruthy();
 
-		const title = errorIndicator.getAttribute('title');
-		assert.ok(title, 'Expected error indicator to have title');
-		assert.ok(title.includes('Specific error message'), 'Title should contain error message');
+		const title = errorIndicator!.getAttribute('title');
+		expect(title).toBeTruthy();
+		expect(title!.includes('Specific error message')).toBeTruthy();
 
 		consoleErrorStub.restore();
 	});

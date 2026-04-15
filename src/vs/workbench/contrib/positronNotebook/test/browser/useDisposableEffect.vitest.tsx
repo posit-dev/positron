@@ -3,18 +3,19 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import assert from 'assert';
+/// <reference types="vitest/globals" />
+
 import sinon from 'sinon';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
-import { setupReactRenderer } from '../../../../../base/test/browser/react.js';
+import { ensureNoLeakedDisposables } from '../../../../../base/test/common/vitestUtils.js';
+import { setupRTLRenderer } from '../../../../../base/test/browser/reactTestingLibrary.js';
 import { useDisposableEffect } from '../../browser/useDisposableEffect.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
 
-suite('useDisposableEffect', () => {
-	const { render, unmount } = setupReactRenderer();
-	ensureNoDisposablesAreLeakedInTestSuite();
+describe('useDisposableEffect', () => {
+	ensureNoLeakedDisposables();
+	const rtl = setupRTLRenderer();
 
-	test('calls effect on mount and disposes on unmount', () => {
+	it('calls effect on mount and disposes on unmount', () => {
 		const dispose = sinon.spy();
 		const effect = sinon.stub().returns({ dispose });
 
@@ -23,7 +24,7 @@ suite('useDisposableEffect', () => {
 			return null;
 		};
 
-		render(<TestComponent />);
+		const { unmount } = rtl.render(<TestComponent />);
 		sinon.assert.calledOnce(effect);
 		sinon.assert.notCalled(dispose);
 
@@ -32,7 +33,7 @@ suite('useDisposableEffect', () => {
 		sinon.assert.calledOnce(dispose);
 	});
 
-	test('disposes when dependencies change', () => {
+	it('disposes when dependencies change', () => {
 		const dispose = sinon.spy();
 
 		const TestComponent = ({ dep }: { dep: number }) => {
@@ -40,33 +41,33 @@ suite('useDisposableEffect', () => {
 			return null;
 		};
 
-		render(<TestComponent dep={0} />);
+		const { rerender } = rtl.render(<TestComponent dep={0} />);
 		sinon.assert.notCalled(dispose);
 
-		render(<TestComponent dep={1} />);
+		rerender(<TestComponent dep={1} />);
 		sinon.assert.calledOnce(dispose);
 
-		render(<TestComponent dep={2} />);
+		rerender(<TestComponent dep={2} />);
 		sinon.assert.calledTwice(dispose);
 	});
 
-	test('handles effect returning undefined', () => {
+	it('handles effect returning undefined', () => {
 		const TestComponent = () => {
 			useDisposableEffect(() => undefined, []);
 			return null;
 		};
 
 		// Should not throw.
-		render(<TestComponent />);
+		rtl.render(<TestComponent />);
 	});
 
-	test('uses latest effect callback via ref', () => {
+	it('uses latest effect callback via ref', () => {
 		// Verifies that the effect ref captures the latest closure, so a
 		// stale closure is never invoked when deps trigger re-execution.
 		const dispose = sinon.spy();
 		const effect = sinon.spy((dep: number): IDisposable => {
 			// If stale closure was used, dep wouldn't match the call index
-			assert.strictEqual(dep, effect.callCount - 1);
+			expect(dep).toBe(effect.callCount - 1);
 			return { dispose };
 		});
 
@@ -75,10 +76,10 @@ suite('useDisposableEffect', () => {
 			return null;
 		};
 
-		render(<TestComponent dep={0} />);
+		const { rerender } = rtl.render(<TestComponent dep={0} />);
 		sinon.assert.calledOnce(effect);
 
-		render(<TestComponent dep={1} />);
+		rerender(<TestComponent dep={1} />);
 		sinon.assert.calledTwice(effect);
 	});
 });

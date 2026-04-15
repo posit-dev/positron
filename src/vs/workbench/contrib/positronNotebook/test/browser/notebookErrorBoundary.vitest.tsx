@@ -3,15 +3,16 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/// <reference types="vitest/globals" />
+
 /* eslint-disable no-restricted-syntax */
 /* eslint-disable local/code-no-dangerous-type-assertions */
 
 import React from 'react';
-import assert from 'assert';
 import sinon from 'sinon';
 import { flushSync } from 'react-dom';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
-import { setupReactRenderer } from '../../../../../base/test/browser/react.js';
+import { ensureNoLeakedDisposables } from '../../../../../base/test/common/vitestUtils.js';
+import { setupRTLRenderer } from '../../../../../base/test/browser/reactTestingLibrary.js';
 import { NotebookErrorBoundary } from '../../browser/NotebookErrorBoundary.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 
@@ -51,47 +52,47 @@ function clickAndFlush(element: HTMLElement): void {
 	flushSync(() => { element.click(); });
 }
 
-suite('NotebookErrorBoundary', () => {
-	const { render } = setupReactRenderer();
-	ensureNoDisposablesAreLeakedInTestSuite();
+describe('NotebookErrorBoundary', () => {
+	ensureNoLeakedDisposables();
+	const rtl = setupRTLRenderer();
 
-	suite('when children render successfully', () => {
-		test('renders children', () => {
+	describe('when children render successfully', () => {
+		it('renders children', () => {
 			const { logService } = createMockLogService();
-			const container = render(
+			const { container } = rtl.render(
 				<NotebookErrorBoundary componentName='Test' level='cell' logService={logService}>
 					<GoodComponent />
 				</NotebookErrorBoundary>
 			);
 
-			assert.ok(container.querySelector<HTMLElement>('.good-component'));
+			expect(container.querySelector<HTMLElement>('.good-component')).toBeTruthy();
 		});
 	});
 
-	suite('when children throw during render', () => {
+	describe('when children throw during render', () => {
 		// React logs console.error when an error boundary catches. The test
 		// runner treats unexpected console output as a failure.
 		let originalConsoleError: typeof console.error;
-		setup(() => {
+		beforeEach(() => {
 			originalConsoleError = console.error;
 			console.error = () => { };
 		});
-		teardown(() => {
+		afterEach(() => {
 			console.error = originalConsoleError;
 		});
 
-		test('displays fallback error UI with role=alert', () => {
+		it('displays fallback error UI with role=alert', () => {
 			const { logService } = createMockLogService();
-			const container = render(
+			const { container } = rtl.render(
 				<NotebookErrorBoundary componentName='TestCell' level='cell' logService={logService}>
 					<ThrowingComponent error={new Error('render failed')} />
 				</NotebookErrorBoundary>
 			);
 
-			assert.ok(container.querySelector<HTMLElement>('[role="alert"]'));
+			expect(container.querySelector<HTMLElement>('[role="alert"]')).toBeTruthy();
 		});
 
-		test('applies level-specific CSS class and message', () => {
+		it('applies level-specific CSS class and message', () => {
 			const cases: Array<{ level: 'output' | 'cell' | 'editor'; message: string }> = [
 				{ level: 'output', message: 'Something went wrong rendering this output.' },
 				{ level: 'cell', message: 'Something went wrong rendering this cell.' },
@@ -100,34 +101,32 @@ suite('NotebookErrorBoundary', () => {
 
 			for (const { level, message } of cases) {
 				const { logService } = createMockLogService();
-				const container = level === 'editor'
-					? render(
+				const { container } = level === 'editor'
+					? rtl.render(
 						<NotebookErrorBoundary componentName='Test' level='editor' logService={logService} onReload={() => { }}>
 							<ThrowingComponent error={new Error('fail')} />
 						</NotebookErrorBoundary>
 					)
-					: render(
+					: rtl.render(
 						<NotebookErrorBoundary componentName='Test' level={level} logService={logService}>
 							<ThrowingComponent error={new Error('fail')} />
 						</NotebookErrorBoundary>
 					);
 
-				assert.ok(
-					container.querySelector<HTMLElement>(`.notebook-error-boundary-${level}`),
-					`Expected CSS class for level "${level}"`
-				);
+				expect(
+					container.querySelector<HTMLElement>(`.notebook-error-boundary-${level}`)
+				).toBeTruthy();
 
 				const header = container.querySelector<HTMLElement>('.notebook-error-boundary-header');
-				assert.ok(
-					header?.textContent?.includes(message),
-					`Expected message for level "${level}"`
-				);
+				expect(
+					header?.textContent?.includes(message)
+				).toBeTruthy();
 			}
 		});
 
-		test('logs error via logService', () => {
+		it('logs error via logService', () => {
 			const { logService, errorSpy } = createMockLogService();
-			render(
+			rtl.render(
 				<NotebookErrorBoundary componentName='MyCell' level='cell' logService={logService}>
 					<ThrowingComponent error={new Error('render failed')} />
 				</NotebookErrorBoundary>
@@ -135,59 +134,59 @@ suite('NotebookErrorBoundary', () => {
 
 			sinon.assert.calledOnce(errorSpy);
 			const logMessage = errorSpy.firstCall.args[0] as string;
-			assert.ok(logMessage.includes('MyCell'), 'Log should include component name');
-			assert.ok(logMessage.includes('cell'), 'Log should include level');
-			assert.ok(logMessage.includes('render failed'), 'Log should include error message');
+			expect(logMessage.includes('MyCell')).toBeTruthy();
+			expect(logMessage.includes('cell')).toBeTruthy();
+			expect(logMessage.includes('render failed')).toBeTruthy();
 		});
 
-		test('handles non-Error thrown values gracefully', () => {
+		it('handles non-Error thrown values gracefully', () => {
 			const { logService, errorSpy } = createMockLogService();
-			const container = render(
+			const { container } = rtl.render(
 				<NotebookErrorBoundary componentName='Test' level='cell' logService={logService}>
 					<ThrowingNonErrorComponent value='string error' />
 				</NotebookErrorBoundary>
 			);
 
 			// Should still show error UI
-			assert.ok(container.querySelector<HTMLElement>('[role="alert"]'));
+			expect(container.querySelector<HTMLElement>('[role="alert"]')).toBeTruthy();
 
 			// Should log safely without crashing
 			sinon.assert.calledOnce(errorSpy);
 			const logMessage = errorSpy.firstCall.args[0] as string;
-			assert.ok(logMessage.includes('string error'), 'Log should include stringified thrown value');
+			expect(logMessage.includes('string error')).toBeTruthy();
 
 			// Details should show the stringified value
 			const { toggleDetails } = getActionButtons(container);
 			clickAndFlush(toggleDetails);
 			const details = container.querySelector<HTMLElement>('.notebook-error-boundary-details');
-			assert.ok(details?.textContent?.includes('string error'), 'Details should show stringified thrown value');
+			expect(details?.textContent?.includes('string error')).toBeTruthy();
 		});
 	});
 
-	suite('Show Details toggle', () => {
+	describe('Show Details toggle', () => {
 		let originalConsoleError: typeof console.error;
-		setup(() => {
+		beforeEach(() => {
 			originalConsoleError = console.error;
 			console.error = () => { };
 		});
-		teardown(() => {
+		afterEach(() => {
 			console.error = originalConsoleError;
 		});
 
-		test('details are hidden by default', () => {
+		it('details are hidden by default', () => {
 			const { logService } = createMockLogService();
-			const container = render(
+			const { container } = rtl.render(
 				<NotebookErrorBoundary componentName='Test' level='cell' logService={logService}>
 					<ThrowingComponent error={new Error('fail')} />
 				</NotebookErrorBoundary>
 			);
 
-			assert.strictEqual(container.querySelector<HTMLElement>('.notebook-error-boundary-details'), null);
+			expect(container.querySelector<HTMLElement>('.notebook-error-boundary-details')).toBe(null);
 		});
 
-		test('clicking toggle reveals error message then hides it', () => {
+		it('clicking toggle reveals error message then hides it', () => {
 			const { logService } = createMockLogService();
-			const container = render(
+			const { container } = rtl.render(
 				<NotebookErrorBoundary componentName='Test' level='cell' logService={logService}>
 					<ThrowingComponent error={new Error('specific error message')} />
 				</NotebookErrorBoundary>
@@ -198,40 +197,40 @@ suite('NotebookErrorBoundary', () => {
 			// Show details
 			clickAndFlush(toggleDetails);
 			const details = container.querySelector<HTMLElement>('.notebook-error-boundary-details');
-			assert.ok(details, 'Details section should be visible after clicking');
-			assert.ok(details!.textContent?.includes('specific error message'), 'Details should contain the error message');
+			expect(details).toBeTruthy();
+			expect(details!.textContent?.includes('specific error message')).toBeTruthy();
 
 			// Hide details
 			clickAndFlush(toggleDetails);
-			assert.strictEqual(container.querySelector<HTMLElement>('.notebook-error-boundary-details'), null);
+			expect(container.querySelector<HTMLElement>('.notebook-error-boundary-details')).toBe(null);
 		});
 	});
 
-	suite('Retry (output and cell levels)', () => {
+	describe('Retry (output and cell levels)', () => {
 		let originalConsoleError: typeof console.error;
-		setup(() => {
+		beforeEach(() => {
 			originalConsoleError = console.error;
 			console.error = () => { };
 		});
-		teardown(() => {
+		afterEach(() => {
 			console.error = originalConsoleError;
 		});
 
-		test('shows Retry button for cell and output levels', () => {
+		it('shows Retry button for cell and output levels', () => {
 			for (const level of ['cell', 'output'] as const) {
 				const { logService } = createMockLogService();
-				const container = render(
+				const { container } = rtl.render(
 					<NotebookErrorBoundary componentName='Test' level={level} logService={logService}>
 						<ThrowingComponent error={new Error('fail')} />
 					</NotebookErrorBoundary>
 				);
 
 				const { action } = getActionButtons(container);
-				assert.ok(action, `Action button should exist for ${level} level`);
+				expect(action).toBeTruthy();
 			}
 		});
 
-		test('clicking Retry re-renders children', () => {
+		it('clicking Retry re-renders children', () => {
 			const { logService } = createMockLogService();
 			let shouldThrow = true;
 
@@ -242,38 +241,38 @@ suite('NotebookErrorBoundary', () => {
 				return <div className='recovered'>Recovered</div>;
 			}
 
-			const container = render(
+			const { container } = rtl.render(
 				<NotebookErrorBoundary componentName='Test' level='cell' logService={logService}>
 					<ConditionallyThrowingComponent />
 				</NotebookErrorBoundary>
 			);
 
-			assert.ok(container.querySelector<HTMLElement>('[role="alert"]'));
+			expect(container.querySelector<HTMLElement>('[role="alert"]')).toBeTruthy();
 
 			// Fix the component and retry
 			shouldThrow = false;
 			const { action } = getActionButtons(container);
 			clickAndFlush(action);
 
-			assert.ok(container.querySelector<HTMLElement>('.recovered'), 'Children should re-render after retry');
-			assert.strictEqual(container.querySelector<HTMLElement>('[role="alert"]'), null, 'Error UI should be gone');
+			expect(container.querySelector<HTMLElement>('.recovered')).toBeTruthy();
+			expect(container.querySelector<HTMLElement>('[role="alert"]')).toBe(null);
 		});
 	});
 
-	suite('Reload (editor level)', () => {
+	describe('Reload (editor level)', () => {
 		let originalConsoleError: typeof console.error;
-		setup(() => {
+		beforeEach(() => {
 			originalConsoleError = console.error;
 			console.error = () => { };
 		});
-		teardown(() => {
+		afterEach(() => {
 			console.error = originalConsoleError;
 		});
 
-		test('clicking Reload calls onReload callback', () => {
+		it('clicking Reload calls onReload callback', () => {
 			const { logService } = createMockLogService();
 			const onReload = sinon.spy();
-			const container = render(
+			const { container } = rtl.render(
 				<NotebookErrorBoundary componentName='Test' level='editor' logService={logService} onReload={onReload}>
 					<ThrowingComponent error={new Error('fail')} />
 				</NotebookErrorBoundary>
@@ -286,19 +285,19 @@ suite('NotebookErrorBoundary', () => {
 		});
 	});
 
-	suite('boundary wrapping providers', () => {
+	describe('boundary wrapping providers', () => {
 		let originalConsoleError: typeof console.error;
-		setup(() => {
+		beforeEach(() => {
 			originalConsoleError = console.error;
 			console.error = () => { };
 		});
-		teardown(() => {
+		afterEach(() => {
 			console.error = originalConsoleError;
 		});
 
-		test('catches errors from provider components when boundary wraps them', () => {
+		it('catches errors from provider components when boundary wraps them', () => {
 			const { logService, errorSpy } = createMockLogService();
-			const container = render(
+			const { container } = rtl.render(
 				<NotebookErrorBoundary componentName='Test' level='editor' logService={logService} onReload={() => { }}>
 					<ThrowingProvider>
 						<GoodComponent />
@@ -306,13 +305,12 @@ suite('NotebookErrorBoundary', () => {
 				</NotebookErrorBoundary>
 			);
 
-			assert.ok(
-				container.querySelector<HTMLElement>('[role="alert"]'),
-				'Error boundary should catch provider errors'
-			);
+			expect(
+				container.querySelector<HTMLElement>('[role="alert"]')
+			).toBeTruthy();
 			sinon.assert.calledOnce(errorSpy);
 			const logMessage = errorSpy.firstCall.args[0] as string;
-			assert.ok(logMessage.includes('provider error'), 'Log should include the provider error message');
+			expect(logMessage.includes('provider error')).toBeTruthy();
 		});
 
 	});

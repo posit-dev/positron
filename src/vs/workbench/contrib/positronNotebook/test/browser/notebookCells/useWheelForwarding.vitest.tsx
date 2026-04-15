@@ -3,11 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import assert from 'assert';
+/// <reference types="vitest/globals" />
+
 import React from 'react';
 import { mainWindow } from '../../../../../../base/browser/window.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../base/test/common/utils.js';
-import { setupReactRenderer } from '../../../../../../base/test/browser/react.js';
+import { ensureNoLeakedDisposables } from '../../../../../../base/test/common/vitestUtils.js';
+import { setupRTLRenderer } from '../../../../../../base/test/browser/reactTestingLibrary.js';
 import { useWheelForwarding } from '../../../browser/notebookCells/useWheelForwarding.js';
 
 /* Minimal wrapper that wires up the hook between a source div and a target ref. */
@@ -19,15 +20,15 @@ function TestComponent({ targetRef }: {
 	return <div ref={sourceRef} />;
 }
 
-suite('useWheelForwarding', () => {
-	const { render } = setupReactRenderer();
-	ensureNoDisposablesAreLeakedInTestSuite();
+describe('useWheelForwarding', () => {
+	ensureNoLeakedDisposables();
+	const rtl = setupRTLRenderer();
 
 	let scrollTarget: HTMLDivElement;
 	let scrollTargetRef: React.RefObject<HTMLElement | null>;
 
 	/* Create a scrollable container (100x50) with oversized content (300x300). */
-	setup(() => {
+	beforeEach(() => {
 		scrollTarget = mainWindow.document.createElement('div');
 		scrollTarget.style.overflow = 'auto';
 		scrollTarget.style.width = '100px';
@@ -42,56 +43,64 @@ suite('useWheelForwarding', () => {
 		scrollTargetRef.current = scrollTarget;
 	});
 
-	teardown(() => {
+	afterEach(() => {
 		scrollTarget.remove();
 	});
 
 	/* Render the hook and return the source element that receives wheel events. */
 	function renderHook() {
-		const container = render(<TestComponent targetRef={scrollTargetRef} />);
+		const { container } = rtl.render(<TestComponent targetRef={scrollTargetRef} />);
 		const source = container.firstElementChild as HTMLDivElement;
-		assert.ok(source);
+		expect(source).toBeTruthy();
 		return source;
 	}
 
-	test('forwards wheel deltaY to scroll target scrollTop', () => {
+	it('forwards wheel deltaY to scroll target scrollTop', () => {
 		const source = renderHook();
-		assert.strictEqual(scrollTarget.scrollTop, 0);
+		expect(scrollTarget.scrollTop).toBe(0);
 
 		source.dispatchEvent(new WheelEvent('wheel', { deltaY: 50, cancelable: true }));
 
-		assert.strictEqual(scrollTarget.scrollTop, 50);
+		expect(scrollTarget.scrollTop).toBe(50);
 	});
 
-	test('forwards wheel deltaX to scroll target scrollLeft', () => {
+	it('forwards wheel deltaX to scroll target scrollLeft', () => {
 		const source = renderHook();
-		assert.strictEqual(scrollTarget.scrollLeft, 0);
+		expect(scrollTarget.scrollLeft).toBe(0);
 
 		source.dispatchEvent(new WheelEvent('wheel', { deltaX: 30, cancelable: true }));
 
-		assert.strictEqual(scrollTarget.scrollLeft, 30);
+		expect(scrollTarget.scrollLeft).toBe(30);
 	});
 
-	test('does not preventDefault at scroll boundary', () => {
-		/* Pin to the bottom so further deltaY has no effect. */
-		scrollTarget.scrollTop = scrollTarget.scrollHeight;
-		const prevTop = scrollTarget.scrollTop;
+	it('does not preventDefault at scroll boundary', () => {
+		// happy-dom has no layout engine, so we mock scroll metrics to
+		// simulate a pinned-to-bottom container where scrollTop is clamped.
+		const maxScroll = 250; // scrollHeight(300) - clientHeight(50)
+		Object.defineProperty(scrollTarget, 'scrollHeight', { value: 300, configurable: true });
+		Object.defineProperty(scrollTarget, 'clientHeight', { value: 50, configurable: true });
+		let internalScrollTop = maxScroll;
+		Object.defineProperty(scrollTarget, 'scrollTop', {
+			get: () => internalScrollTop,
+			set: (v: number) => { internalScrollTop = Math.max(0, Math.min(v, maxScroll)); },
+			configurable: true,
+		});
 		const source = renderHook();
 
 		const event = new WheelEvent('wheel', { deltaY: 50, cancelable: true });
 		source.dispatchEvent(event);
 
-		assert.strictEqual(scrollTarget.scrollTop, prevTop);
-		assert.strictEqual(event.defaultPrevented, false);
+		expect(scrollTarget.scrollTop).toBe(maxScroll);
+		expect(event.defaultPrevented).toBe(false);
 	});
 
-	test('does not throw when scroll target ref is null', () => {
+	it('does not throw when scroll target ref is null', () => {
 		scrollTargetRef.current = null;
 		const source = renderHook();
 
 		const event = new WheelEvent('wheel', { deltaY: 10, cancelable: true });
 		source.dispatchEvent(event);
 
-		assert.strictEqual(event.defaultPrevented, false);
+		expect(event.defaultPrevented).toBe(false);
 	});
 });

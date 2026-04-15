@@ -3,13 +3,14 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/// <reference types="vitest/globals" />
+
 /* eslint-disable local/code-no-dangerous-type-assertions */
 
-import assert from 'assert';
 import sinon from 'sinon';
 import { Emitter } from '../../../../../base/common/event.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
-import { setupReactRenderer } from '../../../../../base/test/browser/react.js';
+import { ensureNoLeakedDisposables } from '../../../../../base/test/common/vitestUtils.js';
+import { setupRTLRenderer } from '../../../../../base/test/browser/reactTestingLibrary.js';
 import { IMenu, IMenuChangeEvent, IMenuService, MenuId, MenuItemAction, SubmenuItemAction } from '../../../../../platform/actions/common/actions.js';
 import { IVersionedMenu, useMenu } from '../../browser/useMenu.js';
 import { useMenuActions } from '../../browser/useMenuActions.js';
@@ -40,22 +41,22 @@ function ComposedHarness({ contextKeyService, onActions }: {
 	return null;
 }
 
-suite('useMenuActions', () => {
-	const { render } = setupReactRenderer();
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+describe('useMenuActions', () => {
+	const disposables = ensureNoLeakedDisposables();
+	const rtl = setupRTLRenderer();
 
 	const action = (id: string) => ({ id }) as MenuItemAction;
 
-	suite('standalone', () => {
-		test('returns empty array when menu.current is undefined', () => {
+	describe('standalone', () => {
+		it('returns empty array when menu.current is undefined', () => {
 			let captured: Actions = [];
 			const menu: IVersionedMenu = { current: undefined, version: 0 };
 
-			render(<UseMenuActionsHarness menu={menu} onActions={a => { captured = a; }} />);
-			assert.deepStrictEqual(captured, []);
+			rtl.render(<UseMenuActionsHarness menu={menu} onActions={a => { captured = a; }} />);
+			expect(captured).toEqual([]);
 		});
 
-		test('returns actions when menu.current is present', () => {
+		it('returns actions when menu.current is present', () => {
 			let captured: Actions = [];
 			const expected: Actions = [['group', [action('a1'), action('a2')]]];
 			const menu: IVersionedMenu = {
@@ -63,11 +64,11 @@ suite('useMenuActions', () => {
 				version: 0,
 			};
 
-			render(<UseMenuActionsHarness menu={menu} onActions={a => { captured = a; }} />);
-			assert.deepStrictEqual(captured, expected);
+			rtl.render(<UseMenuActionsHarness menu={menu} onActions={a => { captured = a; }} />);
+			expect(captured).toEqual(expected);
 		});
 
-		test('updates when version changes', () => {
+		it('updates when version changes', () => {
 			let captured: Actions = [];
 			const actionsV0: Actions = [['g', [action('old')]]];
 			const actionsV1: Actions = [['g', [action('new')]]];
@@ -75,27 +76,27 @@ suite('useMenuActions', () => {
 
 			const mockMenu = { getActions: () => currentActions } as unknown as IMenu;
 
-			render(<UseMenuActionsHarness
+			const { rerender } = rtl.render(<UseMenuActionsHarness
 				menu={{ current: mockMenu, version: 0 }}
 				onActions={a => { captured = a; }}
 			/>);
-			assert.deepStrictEqual(captured, actionsV0);
+			expect(captured).toEqual(actionsV0);
 
 			currentActions = actionsV1;
-			render(<UseMenuActionsHarness
+			rerender(<UseMenuActionsHarness
 				menu={{ current: mockMenu, version: 1 }}
 				onActions={a => { captured = a; }}
 			/>);
-			assert.deepStrictEqual(captured, actionsV1);
+			expect(captured).toEqual(actionsV1);
 		});
 	});
 
-	suite('composed with useMenu', () => {
+	describe('composed with useMenu', () => {
 		let contextKeyService: MockContextKeyService;
 		let menuActions: Actions;
 		let onDidChange: Emitter<IMenuChangeEvent>;
 
-		setup(() => {
+		beforeEach(() => {
 			contextKeyService = disposables.add(new MockContextKeyService());
 			menuActions = [];
 			onDidChange = disposables.add(new Emitter<IMenuChangeEvent>());
@@ -130,7 +131,7 @@ suite('useMenuActions', () => {
 			} as unknown as PositronReactServices;
 		}
 
-		test('resolves actions in the same render as useMenu', () => {
+		it('resolves actions in the same render as useMenu', () => {
 			menuActions = [['g', [action('a1')]]];
 			let captured: Actions = [];
 			const services = createServices();
@@ -144,16 +145,13 @@ suite('useMenuActions', () => {
 				</PositronReactServicesContext.Provider>
 			);
 
-			// Render 1: initial (effect queued, menu undefined)
-			render(element);
-			assert.deepStrictEqual(captured, [], 'no actions before effect settles');
-
-			// Render 2: effect creates menu; useMemo resolves actions in same cycle
-			render(element);
-			assert.deepStrictEqual(captured, [['g', [action('a1')]]]);
+			// RTL's act() batches effects, so the menu is created and actions
+			// resolved in a single render pass.
+			rtl.render(element);
+			expect(captured).toEqual([['g', [action('a1')]]]);
 		});
 
-		test('updates actions when menu fires onDidChange', () => {
+		it('updates actions when menu fires onDidChange', () => {
 			menuActions = [['g', [action('v0')]]];
 			let captured: Actions = [];
 			const services = createServices();
@@ -167,25 +165,24 @@ suite('useMenuActions', () => {
 				</PositronReactServicesContext.Provider>
 			);
 
-			render(element);
-			render(element);
-			assert.deepStrictEqual(captured, [['g', [action('v0')]]]);
+			const { rerender } = rtl.render(element);
+			expect(captured).toEqual([['g', [action('v0')]]]);
 
 			// Simulate menu content change
 			menuActions = [['g', [action('v1')]]];
 			onDidChange.fire({} as IMenuChangeEvent);
 
-			// One render to pick up the version bump
-			render(element);
-			assert.deepStrictEqual(captured, [['g', [action('v1')]]]);
+			// One rerender to pick up the version bump
+			rerender(element);
+			expect(captured).toEqual([['g', [action('v1')]]]);
 		});
 
-		test('clears actions when contextKeyService becomes undefined', () => {
+		it('clears actions when contextKeyService becomes undefined', () => {
 			menuActions = [['g', [action('a1')]]];
 			let captured: Actions = [];
 			const services = createServices();
 
-			const withService = (
+			const { rerender } = rtl.render(
 				<PositronReactServicesContext.Provider value={services}>
 					<ComposedHarness
 						contextKeyService={contextKeyService}
@@ -193,12 +190,10 @@ suite('useMenuActions', () => {
 					/>
 				</PositronReactServicesContext.Provider>
 			);
-			render(withService);
-			render(withService);
-			assert.deepStrictEqual(captured, [['g', [action('a1')]]]);
+			expect(captured).toEqual([['g', [action('a1')]]]);
 
 			// Remove contextKeyService -- actions must clear synchronously
-			render(
+			rerender(
 				<PositronReactServicesContext.Provider value={services}>
 					<ComposedHarness
 						contextKeyService={undefined}
@@ -206,10 +201,10 @@ suite('useMenuActions', () => {
 					/>
 				</PositronReactServicesContext.Provider>
 			);
-			assert.deepStrictEqual(captured, [], 'actions must clear when service disappears');
+			expect(captured).toEqual([]);
 		});
 
-		test('clears stale actions and disposes old menu on contextKeyService identity swap', () => {
+		it('clears stale actions and disposes old menu on contextKeyService identity swap', () => {
 			menuActions = [['g', [action('a1')]]];
 			let captured: Actions = [];
 			const services = createServices();
@@ -218,7 +213,7 @@ suite('useMenuActions', () => {
 			const serviceB = disposables.add(new MockContextKeyService());
 
 			// Mount with service A and settle
-			const withA = (
+			const { rerender } = rtl.render(
 				<PositronReactServicesContext.Provider value={services}>
 					<ComposedHarness
 						contextKeyService={serviceA}
@@ -226,13 +221,12 @@ suite('useMenuActions', () => {
 					/>
 				</PositronReactServicesContext.Provider>
 			);
-			render(withA);
-			render(withA);
-			assert.deepStrictEqual(captured, [['g', [action('a1')]]]);
-			assert.strictEqual(createdMenus.length, 1, 'one menu created for service A');
+			expect(captured).toEqual([['g', [action('a1')]]]);
+			expect(createdMenus.length).toBe(1);
 
-			// Swap to service B -- stale actions must not leak on first render
-			render(
+			// Swap to service B -- rerender triggers the effect cleanup
+			// (disposing old menu) and creates a new menu in the same pass.
+			rerender(
 				<PositronReactServicesContext.Provider value={services}>
 					<ComposedHarness
 						contextKeyService={serviceB}
@@ -240,19 +234,8 @@ suite('useMenuActions', () => {
 					/>
 				</PositronReactServicesContext.Provider>
 			);
-			assert.deepStrictEqual(captured, [], 'stale actions from service A must not appear');
-
-			// Settle the effect for service B
-			render(
-				<PositronReactServicesContext.Provider value={services}>
-					<ComposedHarness
-						contextKeyService={serviceB}
-						onActions={a => { captured = a; }}
-					/>
-				</PositronReactServicesContext.Provider>
-			);
-			assert.deepStrictEqual(captured, [['g', [action('a1')]]], 'actions from service B menu');
-			assert.strictEqual(createdMenus.length, 2, 'a new menu was created for service B');
+			expect(captured).toEqual([['g', [action('a1')]]]);
+			expect(createdMenus.length).toBe(2);
 			sinon.assert.calledOnce(createdMenus[0].dispose);
 		});
 	});

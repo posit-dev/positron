@@ -3,14 +3,15 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/// <reference types="vitest/globals" />
+
 /* eslint-disable no-restricted-syntax */
 /* eslint-disable local/code-no-dangerous-type-assertions */
 
-import assert from 'assert';
 import sinon from 'sinon';
 import { flushSync } from 'react-dom';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../../base/test/common/utils.js';
-import { setupReactRenderer } from '../../../../../../../base/test/browser/react.js';
+import { ensureNoLeakedDisposables } from '../../../../../../../base/test/common/vitestUtils.js';
+import { setupRTLRenderer } from '../../../../../../../base/test/browser/reactTestingLibrary.js';
 import { ISettableObservable, observableValue } from '../../../../../../../base/common/observable.js';
 import { MockContextKeyService } from '../../../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { IContextViewService } from '../../../../../../../platform/contextview/browser/contextView.js';
@@ -23,8 +24,8 @@ class PositronFindWidgetFixture {
 
 	get results() {
 		const el = this.container.querySelector('.results');
-		assert.ok(el, 'Expected results element to exist');
-		return el;
+		expect(el).toBeTruthy();
+		return el!;
 	}
 
 	get navigationButtons() {
@@ -33,20 +34,20 @@ class PositronFindWidgetFixture {
 
 	get previousButton() {
 		const button = this.navigationButtons[0];
-		assert.ok(button, 'Expected previous button to exist');
+		expect(button).toBeTruthy();
 		return button;
 	}
 
 	get nextButton() {
 		const button = this.navigationButtons[1];
-		assert.ok(button, 'Expected next button to exist');
+		expect(button).toBeTruthy();
 		return button;
 	}
 
 	get closeButton() {
 		const button = this.container.querySelector<HTMLButtonElement>('button.close-button');
-		assert.ok(button, 'Expected close button to exist');
-		return button;
+		expect(button).toBeTruthy();
+		return button!;
 	}
 
 	get isVisible() {
@@ -74,9 +75,9 @@ class PositronFindWidgetFixture {
 	}
 }
 
-suite('PositronFindWidget', () => {
-	const { render } = setupReactRenderer();
-	ensureNoDisposablesAreLeakedInTestSuite();
+describe('PositronFindWidget', () => {
+	ensureNoLeakedDisposables();
+	const rtl = setupRTLRenderer();
 
 	// Find props
 	let findText: ISettableObservable<string>;
@@ -100,7 +101,7 @@ suite('PositronFindWidget', () => {
 	let onReplaceInputBlur: sinon.SinonStub;
 
 	function renderWidget({ useReplace } = { useReplace: false }) {
-		const container = render(
+		const { container } = rtl.render(
 			<PositronFindWidget
 				contextKeyService={new MockContextKeyService()}
 				// ContextViewService is only used by FindInput for validation message
@@ -139,11 +140,11 @@ suite('PositronFindWidget', () => {
 			/>
 		);
 		const widgetContainer = container.querySelector<HTMLDivElement>('.positron-find-widget');
-		assert.ok(widgetContainer, 'Expected PositronFindWidget to be rendered');
-		return new PositronFindWidgetFixture(widgetContainer);
+		expect(widgetContainer).toBeTruthy();
+		return new PositronFindWidgetFixture(widgetContainer!);
 	}
 
-	setup(() => {
+	beforeEach(() => {
 		// Find props
 		findText = observableValue('findText', '');
 		matchCase = observableValue('matchCase', false);
@@ -167,176 +168,175 @@ suite('PositronFindWidget', () => {
 		onReplaceInputBlur = sinon.stub();
 	});
 
-	teardown(() => {
+	afterEach(() => {
 		sinon.restore();
 	});
 
-	suite('Find', () => {
-		test('visible when isVisible is true', () => {
+	describe('Find', () => {
+		it('visible when isVisible is true', () => {
 			const widget = renderWidget();
 
-			assert.ok(widget.isVisible, 'Expected find widget to be visible');
+			expect(widget.isVisible).toBeTruthy();
 		});
 
-		test('hidden when isVisible is false', () => {
+		it('hidden when isVisible is false', () => {
 			isVisible.set(false, undefined);
 			const widget = renderWidget();
 
-			assert.ok(!widget.isVisible, 'Expected find widget to be hidden');
+			expect(!widget.isVisible).toBeTruthy();
 		});
 
-		test('focuses find input when becoming visible', () => {
+		it('focuses find input when becoming visible', () => {
 			isVisible.set(false, undefined);
 			const widget = renderWidget();
 
 			flushSync(() => isVisible.set(true, undefined));
 
-			assert.ok(
-				widget.container.contains(document.activeElement),
-				'Expected focus to be inside the find widget',
-			);
+			expect(
+				widget.container.contains(document.activeElement)
+			).toBeTruthy();
 		});
 
-		test('hidden when close button is clicked', () => {
+		it('hidden when close button is clicked', () => {
 			const widget = renderWidget();
 
 			flushSync(() => widget.closeButton.click());
 
-			assert.ok(!widget.isVisible, 'Expected find widget to be hidden after close');
-			assert.ok(!isVisible.get(), 'Expected isVisible observable to be false after close');
+			expect(!widget.isVisible).toBeTruthy();
+			expect(!isVisible.get()).toBeTruthy();
 		});
 
-		test('has no error styling when there is no query', () => {
+		it('has no error styling when there is no query', () => {
 			const widget = renderWidget();
 
-			assert.strictEqual(widget.results.textContent, 'No results');
-			assert.ok(!widget.hasErrorStyling, 'Expected find widget to have no error styling without a query');
+			expect(widget.results.textContent).toBe('No results');
+			expect(!widget.hasErrorStyling).toBeTruthy();
 		});
 
-		test('has error styling when there is a query but no matches', () => {
+		it('has error styling when there is a query but no matches', () => {
 			findText.set('foo', undefined);
 			matchCount.set(0, undefined);
 			const widget = renderWidget();
 
-			assert.strictEqual(widget.results.textContent, 'No results');
-			assert.ok(widget.hasErrorStyling, 'Expected find widget to indicate no results found');
+			expect(widget.results.textContent).toBe('No results');
+			expect(widget.hasErrorStyling).toBeTruthy();
 		});
 
-		test('shows empty results while matchCount is loading', () => {
+		it('shows empty results while matchCount is loading', () => {
 			findText.set('foo', undefined);
 			const widget = renderWidget();
 
-			assert.strictEqual(widget.results.textContent, '');
+			expect(widget.results.textContent).toBe('');
 		});
 
-		test('navigation buttons are disabled when there are no matches', () => {
+		it('navigation buttons are disabled when there are no matches', () => {
 			matchCount.set(0, undefined);
 			const widget = renderWidget();
 
-			assert.ok(widget.previousButton.disabled, 'Expected previous button to be disabled');
-			assert.ok(widget.nextButton.disabled, 'Expected next button to be disabled');
+			expect(widget.previousButton.disabled).toBeTruthy();
+			expect(widget.nextButton.disabled).toBeTruthy();
 		});
 
-		test('previous match button calls onPreviousMatch', () => {
+		it('previous match button calls onPreviousMatch', () => {
 			matchCount.set(3, undefined);
 			const widget = renderWidget();
 
 			widget.previousButton.click();
 
-			assert.ok(onPreviousMatch.calledOnce, 'Expected onPreviousMatch to be called once');
+			expect(onPreviousMatch.calledOnce).toBeTruthy();
 		});
 
-		test('next match button calls onNextMatch', () => {
+		it('next match button calls onNextMatch', () => {
 			matchCount.set(3, undefined);
 			const widget = renderWidget();
 
 			widget.nextButton.click();
 
-			assert.ok(onNextMatch.calledOnce, 'Expected onNextMatch to be called once');
+			expect(onNextMatch.calledOnce).toBeTruthy();
 		});
 
-		test('shows "1 of N" when matchIndex is undefined', () => {
+		it('shows "1 of N" when matchIndex is undefined', () => {
 			findText.set('foo', undefined);
 			matchCount.set(3, undefined);
 			const widget = renderWidget();
 
-			assert.strictEqual(widget.results.textContent, '1 of 3');
+			expect(widget.results.textContent).toBe('1 of 3');
 		});
 
-		test('shows match index and count', () => {
+		it('shows match index and count', () => {
 			findText.set('foo', undefined);
 			matchCount.set(5, undefined);
 			matchIndex.set(2, undefined);
 			const widget = renderWidget();
 
-			assert.strictEqual(widget.results.textContent, '3 of 5');
+			expect(widget.results.textContent).toBe('3 of 5');
 		});
 
-		test('no toggle replace button when useReplace is false', () => {
+		it('no toggle replace button when useReplace is false', () => {
 			const widget = renderWidget();
 
-			assert.strictEqual(widget.toggleReplaceButton, null, 'Expected no toggle replace button');
+			expect(widget.toggleReplaceButton).toBe(null);
 		});
 	});
 
-	suite('Replace', () => {
-		test('hidden when replaceIsVisible is false', () => {
+	describe('Replace', () => {
+		it('hidden when replaceIsVisible is false', () => {
 			const widget = renderWidget({ useReplace: true });
 
-			assert.ok(widget.toggleReplaceButton, 'Expected toggle replace button to exist');
-			assert.strictEqual(widget.replacePart, null, 'Expected replace part to be hidden');
+			expect(widget.toggleReplaceButton).toBeTruthy();
+			expect(widget.replacePart).toBe(null);
 		});
 
-		test('visible when replaceIsVisible is true', () => {
+		it('visible when replaceIsVisible is true', () => {
 			replaceIsVisible.set(true, undefined);
 			const widget = renderWidget({ useReplace: true });
 
-			assert.ok(widget.toggleReplaceButton, 'Expected toggle replace button to exist');
-			assert.ok(widget.replacePart, 'Expected replace part to be visible');
-			assert.ok(widget.replaceButton, 'Expected replace button to exist');
-			assert.ok(widget.replaceAllButton, 'Expected replace all button to exist');
+			expect(widget.toggleReplaceButton).toBeTruthy();
+			expect(widget.replacePart).toBeTruthy();
+			expect(widget.replaceButton).toBeTruthy();
+			expect(widget.replaceAllButton).toBeTruthy();
 		});
 
-		test('expands/collapses when toggle replace button is clicked', () => {
+		it('expands/collapses when toggle replace button is clicked', () => {
 			const widget = renderWidget({ useReplace: true });
 
 			flushSync(() => widget.toggleReplaceButton!.click());
 
-			assert.ok(widget.replacePart, 'Expected replace part to be visible when expanded');
-			assert.ok(replaceIsVisible.get(), 'Expected replaceIsVisible to be true');
+			expect(widget.replacePart).toBeTruthy();
+			expect(replaceIsVisible.get()).toBeTruthy();
 
 			flushSync(() => widget.toggleReplaceButton!.click());
 
-			assert.strictEqual(widget.replacePart, null, 'Expected replace part to be hidden');
-			assert.ok(!replaceIsVisible.get(), 'Expected replaceIsVisible to be false');
+			expect(widget.replacePart).toBe(null);
+			expect(!replaceIsVisible.get()).toBeTruthy();
 		});
 
-		test('replace button calls onReplace', () => {
+		it('replace button calls onReplace', () => {
 			findText.set('foo', undefined);
 			replaceIsVisible.set(true, undefined);
 			const widget = renderWidget({ useReplace: true });
 
 			flushSync(() => widget.replaceButton!.click());
 
-			assert.ok(onReplace.calledOnce, 'Expected onReplace to be called once');
+			expect(onReplace.calledOnce).toBeTruthy();
 		});
 
-		test('replace all button calls onReplaceAll', () => {
+		it('replace all button calls onReplaceAll', () => {
 			replaceIsVisible.set(true, undefined);
 			findText.set('foo', undefined);
 			const widget = renderWidget({ useReplace: true });
 
 			flushSync(() => widget.replaceAllButton!.click());
 
-			assert.ok(onReplaceAll.calledOnce, 'Expected onReplaceAll to be called once');
+			expect(onReplaceAll.calledOnce).toBeTruthy();
 		});
 
-		test('replace buttons are disabled when there is no query', () => {
+		it('replace buttons are disabled when there is no query', () => {
 			replaceIsVisible.set(true, undefined);
 			const widget = renderWidget({ useReplace: true });
 
-			assert.ok(widget.replaceButton!.disabled, 'Expected replace button to be disabled');
-			assert.ok(widget.replaceAllButton!.disabled, 'Expected replace all button to be disabled');
+			expect(widget.replaceButton!.disabled).toBeTruthy();
+			expect(widget.replaceAllButton!.disabled).toBeTruthy();
 		});
 	});
 });
