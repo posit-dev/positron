@@ -109,7 +109,7 @@ jobs:
           find . -type f -o -type l | grep -v "node_modules/" | sort > /tmp/files-after-npm-install.txt
           .github/cache-scripts/check-uncached-artifacts.sh /tmp/files-before-npm-install.txt /tmp/files-after-npm-install.txt
 
-      - name: 🧪 Run Vitest Tests (no compilation needed)
+      - name: 🧪 Run Vitest Tests
         run: npm run test:vitest
 
       - name: Compile Positron and Download Electron
