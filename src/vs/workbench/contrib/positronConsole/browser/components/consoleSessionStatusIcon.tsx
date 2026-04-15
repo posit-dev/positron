@@ -7,42 +7,43 @@
 import { useEffect, useState } from 'react';
 
 // Other dependencies.
-import { IPositronConsoleInstance, PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { RuntimeStatusIcon } from './runtimeStatus.js';
-import { RuntimeStatus } from '../../common/sessionDisplayUtils.js';
-
-const consoleStateToRuntimeStatus = {
-	[PositronConsoleState.Uninitialized]: RuntimeStatus.Disconnected,
-	[PositronConsoleState.Disconnected]: RuntimeStatus.Disconnected,
-	[PositronConsoleState.Starting]: RuntimeStatus.Active,
-	[PositronConsoleState.Busy]: RuntimeStatus.Active,
-	[PositronConsoleState.Ready]: RuntimeStatus.Idle,
-	[PositronConsoleState.Offline]: RuntimeStatus.Disconnected,
-	[PositronConsoleState.Exiting]: RuntimeStatus.Active,
-	[PositronConsoleState.Exited]: RuntimeStatus.Disconnected
-};
+import { runtimeStateToRuntimeStatus } from '../../common/sessionDisplayUtils.js';
 
 interface ConsoleSessionStatusIconProps {
 	readonly positronConsoleInstance: IPositronConsoleInstance;
 }
 
 export const ConsoleSessionStatusIcon = ({ positronConsoleInstance }: ConsoleSessionStatusIconProps) => {
-	// State hooks
-	const [consoleState, setConsoleState] = useState(positronConsoleInstance.state);
+	// Get the initial runtime state from the attached session, or default to
+	// Uninitialized if no session is attached.
+	const getInitialRuntimeState = () =>
+		positronConsoleInstance.attachedRuntimeSession?.getRuntimeState() ?? RuntimeState.Uninitialized;
 
-	// Main useEffect hook.
+	// State hooks
+	const [runtimeState, setRuntimeState] = useState<RuntimeState>(getInitialRuntimeState);
+
+	// Listen for runtime state changes on the attached session.
 	useEffect(() => {
 		const disposableStore = new DisposableStore();
 
-		disposableStore.add(positronConsoleInstance.onDidChangeState(state => {
-			setConsoleState(state);
-		}));
+		const session = positronConsoleInstance.attachedRuntimeSession;
+		if (session) {
+			// Sync state in case it changed between render and effect.
+			setRuntimeState(session.getRuntimeState());
+
+			disposableStore.add(session.onDidChangeRuntimeState(state => {
+				setRuntimeState(state);
+			}));
+		}
 
 		return () => disposableStore.dispose();
-	}, [positronConsoleInstance]);
+	}, [positronConsoleInstance.attachedRuntimeSession]);
 
-	const runtimeStatus = consoleStateToRuntimeStatus[consoleState];
+	const runtimeStatus = runtimeStateToRuntimeStatus[runtimeState];
 
 	return (
 		<RuntimeStatusIcon status={runtimeStatus} />
