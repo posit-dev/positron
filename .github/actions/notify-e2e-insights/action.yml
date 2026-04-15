@@ -24,7 +24,7 @@ inputs:
   hide_skipped:
     description: 'Hide skipped/cancelled jobs from the Slack message'
     required: false
-    default: 'true'
+    default: 'false'
   source_repo:
     description: 'GitHub owner/repo where this workflow runs (auto-detected, only override if needed)'
     required: false

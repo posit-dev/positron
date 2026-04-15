@@ -124,4 +124,3 @@ jobs:
           repo_id: "positron"
           title: "E2E Cross Browser Tests"
           filter_jobs: "(e2e / ([^0-9]*))$"
-          hide_skipped: 'false'
