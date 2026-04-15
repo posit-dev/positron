@@ -157,7 +157,10 @@ it('renders label', () => {
 4. `getByTestId` -- last resort, `data-testid` attribute
 5. `container.querySelector` -- escape hatch for CSS selectors
 
-**Inline snapshots** -- use `toMatchInlineSnapshot()` to capture rendered HTML. Vitest auto-fills on first run with `--update`. Snapshots catch unintended UI regressions.
+**Inline snapshots** -- use `toMatchInlineSnapshot()` to capture rendered HTML. Vitest auto-fills on first run with `--update`. Snapshots catch unintended UI regressions. When a snapshot fails:
+1. Read the diff -- is the change intentional (upstream refactor) or a bug?
+2. If intentional: `npx vitest run --update <file>` to accept the new output, then commit
+3. If a bug: fix the source code, not the snapshot
 
 **When to use which mock utility:**
 - `vi.fn()` -- simple function stubs/spies in Vitest tests. Prefer this for new tests.
