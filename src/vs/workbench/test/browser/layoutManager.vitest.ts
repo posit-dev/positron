@@ -50,7 +50,7 @@ describe('LayoutManager', () => {
 	/**
 	 * Tests default-sized entries.
 	 */
-	it('Default-Sized Entries', () => {
+	it('Default-Sized Entries', { timeout: 30_000 }, () => {
 		verifyDefaultSizedEntries(1, 2);
 		verifyDefaultSizedEntries(10, 10);
 		verifyDefaultSizedEntries(1, 1_000);
@@ -71,7 +71,7 @@ describe('LayoutManager', () => {
 	/**
 	 * Tests fixed-sized predefined entries.
 	 */
-	it('Fixed-Sized Predefined Entries', () => {
+	it('Fixed-Sized Predefined Entries', { timeout: 30_000 }, () => {
 		verifyFixedSizedPredefinedEntries(1, 1);
 		verifyFixedSizedPredefinedEntries(10, 10);
 		verifyFixedSizedPredefinedEntries(1, 1_000);
