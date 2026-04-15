@@ -64,6 +64,58 @@ The deciding question: **does it need Electron?**
 	- positron-python has its own test setup -- see `extensions/positron-python/CLAUDE.md`
 - **E2E tests** (full app, real browser): `npx playwright test test/e2e/tests/<test-name>.test.ts --project e2e-electron --grep '<pattern>'`
 
+### Which test pattern?
+
+Ask two questions about the code you're testing:
+
+1. **Is it a React component?** (a `.tsx` file that renders JSX)
+2. **Does it need VS Code services?** (uses `@IService` decorators or `usePositronReactServicesContext()`)
+
+| Code under test | Pattern | Example |
+|----------------|---------|---------|
+| Pure function or class, no services | **Plain test** -- just import and call | `positronUpdateUtils.vitest.ts` |
+| Service, contribution, or class that needs DI | **Builder** -- `createTestContainer()` | `positronVariablesService.vitest.ts` |
+| React component, props only | **RTL prop-driven** -- `setupRTLRenderer()` | `reactTestingLibrary.vitest.tsx` |
+| React component that calls `usePositronReactServicesContext()` | **RTL service-context** -- `setupRTLRenderer(services)` | `topActionBarSessionManager.vitest.tsx` |
+
+**Plain test** -- no setup needed. Import the function, call it, assert the result:
+```typescript
+it('builds URL with language params', () => {
+	const result = buildUpdateUrl(baseUrl, ['python'], true, undefined);
+	expect(result).toBe(`${baseUrl}?python=1`);
+});
+```
+
+**Builder** -- the builder handles disposable tracking and service setup automatically. You never write `ensureNoLeakedDisposables()` yourself:
+```typescript
+const ctx = createTestContainer().withRuntimeServices().build();
+
+it('starts a session', async () => {
+	const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+	expect(session.getRuntimeState()).toBe(RuntimeState.Starting);
+});
+```
+
+**RTL prop-driven** -- component gets all data via props. No services needed:
+```typescript
+const rtl = setupRTLRenderer();
+
+it('renders the label', () => {
+	rtl.render(<Label text="hello" />).getByText('hello');
+});
+```
+
+**RTL service-context** -- component calls `usePositronReactServicesContext()`. Provide mock services:
+```typescript
+const rtl = setupRTLRenderer({
+	runtimeSessionService: { foregroundSessionDisplayInfo: undefined, activeSessions: [], ... },
+});
+
+it('shows start session', () => {
+	rtl.render(<TopActionBarSessionManager />).getByText('Start Session');
+});
+```
+
 ### The Builder
 
 Use `createTestContainer()` for any test that needs services. Pick the lowest preset, use `.stub()` for extras. For pure logic tests, skip the builder entirely.
