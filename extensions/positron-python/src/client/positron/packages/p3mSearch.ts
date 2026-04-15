@@ -67,6 +67,7 @@ async function searchP3MApi(
     const params = new URLSearchParams({
         name_like: query,
         _limit: String(SEARCH_LIMIT),
+        exact_first: 'true',
     });
     const url = baseUrl + '/__api__/repos/' + PYPI_REPO + '/packages?' + params.toString();
 
