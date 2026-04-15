@@ -10,9 +10,9 @@ import './topActionBarSessionManager.css';
 import { useEffect, useState } from 'react';
 
 // Other dependencies.
-import { basename } from '../../../../../base/common/path.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { IModelService } from '../../../../../editor/common/services/model.js';
 import { LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ActionBarCommandButton } from '../../../../../platform/positronActionBar/browser/components/actionBarCommandButton.js';
 import { CommandCenter } from '../../../../../platform/commandCenter/common/commandCenter.js';
@@ -20,34 +20,29 @@ import { IRuntimeSessionDisplayInfo } from '../../../../services/runtimeSession/
 import { localize } from '../../../../../nls.js';
 import { LANGUAGE_RUNTIME_SELECT_SESSION_ID, LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID } from '../../../../contrib/languageRuntime/browser/languageRuntimeActions.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { getSessionDisplayName, getSessionIcon, getSessionIconStyle } from '../../../../contrib/positronConsole/common/sessionDisplayUtils.js';
 
 const startSession = localize('positron.console.startSession', "Start Session");
 
 /**
- * Gets the label text from session display info.
+ * Gets the label text from session display info, or the default start session
+ * label if no session is active.
  */
-const getDisplayInfoLabel = (info: IRuntimeSessionDisplayInfo | undefined): string => {
+const getLabel = (info: IRuntimeSessionDisplayInfo | undefined, modelService: IModelService): string => {
 	if (!info) {
 		return startSession;
 	}
-	if (info.sessionMode === LanguageRuntimeSessionMode.Notebook && info.notebookUri) {
-		const notebookName = basename(info.notebookUri.path);
-		return `${notebookName} - ${info.sessionName}`;
-	}
-	return info.sessionName;
+	return getSessionDisplayName(info, modelService);
 };
 
 /**
  * Gets the session mode icon from display info.
  */
-const getDisplayInfoIcon = (info: IRuntimeSessionDisplayInfo | undefined) => {
+const getIcon = (info: IRuntimeSessionDisplayInfo | undefined, modelService: IModelService) => {
 	if (!info) {
 		return Codicon.arrowSwap;
 	}
-	if (info.sessionMode === LanguageRuntimeSessionMode.Notebook) {
-		return Codicon.notebook;
-	}
-	return Codicon.positronNewConsole;
+	return getSessionIcon(info, modelService);
 };
 
 /**
@@ -60,9 +55,12 @@ export const TopActionBarSessionManager = () => {
 	const services = usePositronReactServicesContext();
 
 	const [labelText, setLabelText] = useState<string>(
-		getDisplayInfoLabel(services.runtimeSessionService.foregroundSessionDisplayInfo));
+		getLabel(services.runtimeSessionService.foregroundSessionDisplayInfo, services.modelService));
 	const [sessionIcon, setSessionIcon] = useState(
-		getDisplayInfoIcon(services.runtimeSessionService.foregroundSessionDisplayInfo));
+		getIcon(services.runtimeSessionService.foregroundSessionDisplayInfo, services.modelService));
+	const info = services.runtimeSessionService.foregroundSessionDisplayInfo;
+	const [iconStyle, setIconStyle] = useState(
+		info ? getSessionIconStyle(info, services.modelService) : undefined);
 
 	// Check if there are any active console sessions to determine if the
 	// active session picker or the create session picker should be shown.
@@ -83,14 +81,15 @@ export const TopActionBarSessionManager = () => {
 		// notebook session is attempted to be set as the foreground session.
 		disposableStore.add(
 			services.runtimeSessionService.onDidChangeForegroundSessionDisplayInfo(info => {
-				setLabelText(getDisplayInfoLabel(info));
-				setSessionIcon(getDisplayInfoIcon(info));
+				setLabelText(getLabel(info, services.modelService));
+				setSessionIcon(getIcon(info, services.modelService));
+				setIconStyle(info ? getSessionIconStyle(info, services.modelService) : undefined);
 			})
 		);
 
 		// Return the cleanup function that will dispose of the disposables.
 		return () => disposableStore.dispose();
-	}, [services.runtimeSessionService]);
+	}, [services.runtimeSessionService, services.modelService]);
 
 	return (
 		<ActionBarCommandButton
@@ -99,6 +98,7 @@ export const TopActionBarSessionManager = () => {
 			commandId={command}
 			height={24}
 			icon={sessionIcon}
+			iconStyle={iconStyle}
 			label={labelText}
 		/>
 	);

@@ -210,6 +210,31 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		// Disable the notebook console actions setting after this test
 		await settings.remove(['console.showNotebookConsoleActions']);
 	});
+
+	test('Python - console accepts input after notebook cell execution', {
+		tag: [tags.CONSOLE, tags.POSITRON_NOTEBOOKS, tags.WIN],
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/11704' }]
+	}, async function ({ app, sessions }) {
+		const { notebooksPositron, console } = app.workbench;
+		await sessions.start(['python']);
+		await notebooksPositron.newNotebook();
+		await notebooksPositron.kernel.select('Python');
+		await notebooksPositron.addCodeToCell(0, 'import time; time.sleep(6); print("done")', { run: false });
+		await notebooksPositron.runCellButtonAtIndex(0).click();
+
+		// verify the console accepts typed input
+		await console.focus();
+		await console.waitForReady('>>>');
+		await console.typeToConsole('x = 42', true);
+		await console.waitForReady('>>>');
+		await console.typeToConsole('print(x)', true);
+		await console.waitForConsoleContents('42');
+
+		// the notebook cell should still be running; if "done" appeared the test FAILS
+		// idea here is to guarantee that user will always get console ready INSTANTLY, not eventually...
+		await expect(notebooksPositron.cellOutput(0)).not.toContainText('done');
+	});
+
 });
 
 const rDataFrame = `data.frame(
