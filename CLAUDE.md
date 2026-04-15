@@ -38,12 +38,57 @@ Positron forks VSCode. Minimize merge conflicts by isolating Positron code.
 
 ### Where should I put my test?
 
-The deciding question: **does it need Electron?**
+Two questions determine the test runner and pattern:
 
-1. **Vitest tests** (`*.vitest.ts` / `*.vitest.tsx`) -- DEFAULT for new Positron code in `src/`. No Electron or build daemons needed. Covers pure functions, service integration tests, and React component tests. Uses happy-dom.
-2. **Core tests** (`*.test.ts`) -- Legacy Mocha tests for Positron code in `src/`. Existing tests being migrated to Vitest. Still used by upstream VS Code tests and `.test.tsx` React component tests.
-3. **Extension host** (`npm run test-extension`) -- Needs Electron. Only when your test requires activated extensions, workspace APIs, or editor document manipulation.
-4. **E2E** (Playwright) -- Needs the full app. Only for user-visible workflows across multiple systems.
+1. **Does it need Electron?** (activated extensions, workspace APIs, editor document manipulation)
+2. **Is it a React component?** (a `.tsx` file that renders JSX)
+
+| What you're testing | Runner | Pattern | Example |
+|---|---|---|---|
+| Pure function or class, no services | Vitest | **Plain test** -- import and call | `positronUpdateUtils.vitest.ts` |
+| Service or class that needs DI services | Vitest | **Builder** -- `createTestContainer()` | `positronVariablesService.vitest.ts` |
+| React component, props only | Vitest | **RTL prop-driven** -- `setupRTLRenderer()` | `reactTestingLibrary.vitest.tsx` |
+| React component using `usePositronReactServicesContext()` | Vitest | **RTL service-context** -- `setupRTLRenderer(services)` | `topActionBarSessionManager.vitest.tsx` |
+| Code needing activated extensions or workspace APIs | Mocha | **Extension host** -- `npm run test-extension` | |
+| User-visible workflows across multiple systems | Playwright | **E2E** | |
+
+**Plain test** -- no setup needed:
+```typescript
+it('builds URL with language params', () => {
+	const result = buildUpdateUrl(baseUrl, ['python'], true, undefined);
+	expect(result).toBe(`${baseUrl}?python=1`);
+});
+```
+
+**Builder** -- handles disposable tracking and service setup automatically:
+```typescript
+const ctx = createTestContainer().withRuntimeServices().build();
+
+it('starts a session', async () => {
+	const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+	expect(session.getRuntimeState()).toBe(RuntimeState.Starting);
+});
+```
+
+**RTL prop-driven** -- component gets all data via props:
+```typescript
+const rtl = setupRTLRenderer();
+
+it('renders the label', () => {
+	rtl.render(<Label text="hello" />).getByText('hello');
+});
+```
+
+**RTL service-context** -- component reads from context:
+```typescript
+const rtl = setupRTLRenderer({
+	runtimeSessionService: { foregroundSessionDisplayInfo: undefined, activeSessions: [], ... },
+});
+
+it('shows start session', () => {
+	rtl.render(<TopActionBarSessionManager />).getByText('Start Session');
+});
+```
 
 ### Running tests
 
@@ -63,58 +108,6 @@ The deciding question: **does it need Electron?**
 - **Extension tests** (`extensions/<extension-name>/*.test.ts`): `npm run test-extension -- -l <extension-name> --grep <pattern>`
 	- positron-python has its own test setup -- see `extensions/positron-python/CLAUDE.md`
 - **E2E tests** (full app, real browser): `npx playwright test test/e2e/tests/<test-name>.test.ts --project e2e-electron --grep '<pattern>'`
-
-### Which test pattern?
-
-Ask two questions about the code you're testing:
-
-1. **Is it a React component?** (a `.tsx` file that renders JSX)
-2. **Does it need VS Code services?** (uses `@IService` decorators or `usePositronReactServicesContext()`)
-
-| Code under test | Pattern | Example |
-|----------------|---------|---------|
-| Pure function or class, no services | **Plain test** -- just import and call | `positronUpdateUtils.vitest.ts` |
-| Service, contribution, or class that needs DI | **Builder** -- `createTestContainer()` | `positronVariablesService.vitest.ts` |
-| React component, props only | **RTL prop-driven** -- `setupRTLRenderer()` | `reactTestingLibrary.vitest.tsx` |
-| React component that calls `usePositronReactServicesContext()` | **RTL service-context** -- `setupRTLRenderer(services)` | `topActionBarSessionManager.vitest.tsx` |
-
-**Plain test** -- no setup needed. Import the function, call it, assert the result:
-```typescript
-it('builds URL with language params', () => {
-	const result = buildUpdateUrl(baseUrl, ['python'], true, undefined);
-	expect(result).toBe(`${baseUrl}?python=1`);
-});
-```
-
-**Builder** -- the builder handles disposable tracking and service setup automatically. You never write `ensureNoLeakedDisposables()` yourself:
-```typescript
-const ctx = createTestContainer().withRuntimeServices().build();
-
-it('starts a session', async () => {
-	const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
-	expect(session.getRuntimeState()).toBe(RuntimeState.Starting);
-});
-```
-
-**RTL prop-driven** -- component gets all data via props. No services needed:
-```typescript
-const rtl = setupRTLRenderer();
-
-it('renders the label', () => {
-	rtl.render(<Label text="hello" />).getByText('hello');
-});
-```
-
-**RTL service-context** -- component calls `usePositronReactServicesContext()`. Provide mock services:
-```typescript
-const rtl = setupRTLRenderer({
-	runtimeSessionService: { foregroundSessionDisplayInfo: undefined, activeSessions: [], ... },
-});
-
-it('shows start session', () => {
-	rtl.render(<TopActionBarSessionManager />).getByText('Start Session');
-});
-```
 
 ### The Builder
 
