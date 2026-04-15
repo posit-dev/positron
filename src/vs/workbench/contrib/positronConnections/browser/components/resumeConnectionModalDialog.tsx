@@ -13,7 +13,7 @@ import { PropsWithChildren, useRef } from 'react';
 import { localize } from '../../../../../nls.js';
 import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
 import { PositronModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
-import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
+import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import Severity from '../../../../../base/common/severity.js';
 import { SimpleCodeEditor, SimpleCodeEditorWidget } from './simpleCodeEditor.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
@@ -145,38 +145,38 @@ const ResumeConnectionModalDialog = (props: PropsWithChildren<ResumeConnectionMo
 						</div>
 						<div className='buttons'>
 							<div className='top'>
-								<PositronButton
+								<Button
 									className='button action-bar-button'
 									disabled={!code}
 									onPressed={editHandler}
 								>
 									{localize('positron.resumeConnectionModalDialog.edit', "Edit")}
-								</PositronButton>
+								</Button>
 							</div>
 							<div className='bottom'>
-								<PositronButton
+								<Button
 									className='button action-bar-button'
 									disabled={!code}
 									onPressed={copyHandler}
 								>
 									{localize('positron.resumeConnectionModalDialog.copy', "Copy")}
-								</PositronButton>
-								<PositronButton
+								</Button>
+								<Button
 									className='button action-bar-button'
 									onPressed={cancelHandler}
 								>
 									{localize('positron.resumeConnectionModalDialog.cancel', "Cancel")}
-								</PositronButton>
+								</Button>
 							</div>
 						</div>
 						<div className='footer'>
-							<PositronButton
+							<Button
 								className='button action-bar-button default'
 								disabled={!activeInstance.connect}
 								onPressed={resumeHandler}
 							>
 								{localize('positron.resumeConnectionModalDialog.resume', "Resume Connection")}
-							</PositronButton>
+							</Button>
 						</div>
 					</div>
 				</ContentArea>
