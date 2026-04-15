@@ -16,6 +16,8 @@ $ARGUMENTS may contain:
 
 ## Phase 1: Analysis (subagent)
 
+**Shortcut:** If the user points at a specific file or component (e.g., "write tests for emptyConsole.tsx"), skip Phase 1 entirely. Read the source file, determine the pattern from the CLAUDE.md decision table, and go straight to Phase 2.
+
 Spawn an analysis subagent to produce a structured test plan. This keeps the analysis work out of the main agent's context.
 
 ```
@@ -112,6 +114,7 @@ For each approved item:
    - Add `/// <reference types="vitest/globals" />` after the copyright header.
    - Use tabs for indentation. Add the Posit Software copyright header.
    - File name: `<source-name>.vitest.ts` (or `.vitest.tsx` for React components).
+   - Place the test in `test/browser/` adjacent to the source module. If no test directory exists, create `test/browser/`. Some modules use `tests/` (plural) -- match what exists.
    - The builder handles `ensureNoLeakedDisposables()` automatically -- do NOT add it yourself.
    - Use `expect()` assertions, not `assert`.
 

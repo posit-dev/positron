@@ -20,10 +20,20 @@ Positron Vitest tests (`*.vitest.ts` / `*.vitest.tsx`) run via `npx vitest run` 
 
 ## Conventions
 
-- `/// <reference types="vitest/globals" />` after the copyright header
+- `/// <reference types="vitest/globals" />` after the copyright header (required for IDE intellisense -- vitest runs fine without it, but editors won't autocomplete `describe`, `it`, `expect` etc.)
 - Vitest syntax: `describe()`, `it()`, `beforeEach()`, `afterEach()`, `expect()`
 - File extension: `.vitest.ts` (or `.vitest.tsx` for React components)
 - Tabs for indentation
+
+## Where to put the test file
+
+Place tests in the `test/browser/` directory adjacent to the source module. If no test directory exists, create `test/browser/`.
+
+Examples:
+- Source: `src/vs/workbench/contrib/positronConsole/browser/components/emptyConsole.tsx`
+- Test: `src/vs/workbench/contrib/positronConsole/test/browser/emptyConsole.vitest.tsx`
+
+Some modules use `tests/` (plural) -- match what already exists in that directory.
 
 ## The Builder
 
@@ -39,6 +49,22 @@ it('starts a session', async () => {
 ```
 
 For presets, mocking guide, and key rules, see the JSDoc on `PositronTestContainerBuilder` in `src/vs/workbench/test/browser/positronTestContainer.ts`.
+
+**Testing event-driven behavior:** Create an `Emitter` at describe level, pass its `.event` to the stub, then call `.fire()` in your test (wrapped in `act()` for React components):
+
+```typescript
+const onDidChange = new Emitter<string>();
+const ctx = createTestContainer()
+	.withRuntimeServices()
+	.stub(IMyService, { onDidChange: onDidChange.event } as Partial<IMyService>)
+	.build();
+
+it('responds to event', () => {
+	const instance = ctx.disposables.add(ctx.instantiationService.createInstance(MyClass));
+	onDidChange.fire('new value');
+	expect(instance.currentValue).toBe('new value');
+});
+```
 
 ## React Component Testing (RTL)
 
@@ -90,3 +116,12 @@ Use `toMatchInlineSnapshot()` to capture rendered HTML. Vitest auto-fills on fir
 - `vi.spyOn(obj, 'method')` -- spy on existing method while preserving implementation.
 - `Test*` classes / `mock.ts` -- complex state (emitters, observable values). Use when multiple tests need the same mock behavior.
 - `sinon` -- avoid in new Vitest tests.
+
+**The `as Partial<IMyService>` cast:** Every `.stub()` call needs this cast. It's a TypeScript inference limitation, not a code smell. The builder's signature is `stub<T>(id, impl: Partial<T>)` but TS can't infer `T` from a partial object literal. This triggers `local/code-no-dangerous-type-assertions` warnings -- they're expected in test files.
+
+## Working examples
+
+These showcase tests demonstrate the patterns at increasing complexity:
+- `src/vs/workbench/contrib/positronConsole/test/browser/emptyConsole.vitest.tsx` -- simple: one service, one click
+- `src/vs/workbench/browser/parts/positronTopActionBar/test/browser/topActionBarSessionManager.vitest.tsx` -- medium: emitter-driven state, snapshots
+- `src/vs/workbench/contrib/positronConsole/test/browser/startupStatus.vitest.tsx` -- complex: 6-phase state machine, 3 event subscriptions
