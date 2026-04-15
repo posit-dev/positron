@@ -68,8 +68,7 @@ export function PositronNotebookComponent() {
 		notebookInstance.setCellsContainer(node);
 	}, [notebookInstance]);
 
-	// Consume the restored scroll position; cleared on read so error boundary
-	// reloads don't restore a stale position.
+	// Consume the restored scroll position; cleared on read reloads don't restore a stale position.
 	const scrollPositionRef = React.useRef(notebookInstance.consumeRestoredScrollPosition());
 
 	// Callback to calculate the target scroll top from the anchor cell.
