@@ -48,12 +48,12 @@ export interface ButtonProps {
 	readonly style?: CSSProperties | undefined;
 	readonly tabIndex?: number;
 	readonly tooltip?: string | (() => string | undefined);
-	readonly onBlur?: () => void;
-	readonly onFocus?: () => void;
+	readonly onBlur?: (e: HTMLButtonElement) => void;
+	readonly onFocus?: (e: HTMLButtonElement) => void;
 	readonly onKeyDown?: (e: KeyboardEvent<HTMLButtonElement>) => void;
 	readonly onMouseEnter?: () => void;
 	readonly onMouseLeave?: () => void;
-	readonly onPressed?: (e: KeyboardModifiers) => void;
+	readonly onPressed?: (e: KeyboardModifiers, buttonElement: HTMLButtonElement) => void;
 	ref?: React.Ref<HTMLButtonElement>;
 }
 
@@ -95,7 +95,7 @@ export const Button = (props: PropsWithChildren<ButtonProps>) => {
 
 		// Raise the onPressed event if the button isn't disabled.
 		if (!props.disabled && props.onPressed) {
-			props.onPressed(e);
+			props.onPressed(e, buttonRef.current);
 		}
 	};
 
@@ -194,9 +194,9 @@ export const Button = (props: PropsWithChildren<ButtonProps>) => {
 			role={props.role ?? 'button'}
 			style={props.style}
 			tabIndex={props.tabIndex ?? 0}
-			onBlur={props.onBlur}
+			onBlur={() => props.onBlur?.(buttonRef.current)}
 			onClick={clickHandler}
-			onFocus={props.onFocus}
+			onFocus={() => props.onFocus?.(buttonRef.current)}
 			onKeyDown={keyDownHandler}
 			onMouseDown={mouseDownHandler}
 			onMouseEnter={mouseEnterHandler}

@@ -10,7 +10,6 @@ import './selectDataConnectionProvider.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
-import * as DOM from '../../../../../base/browser/dom.js';
 import { localize } from '../../../../../nls.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
@@ -77,12 +76,12 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 
 	/**
 	 * Scrolls the grid container to keep the focused driver card visible with proper padding.
-	 * @param targetCard The driver card that received focus.
+	 * @param targetDriverCard The driver card that received focus.
 	 */
-	const scrollToFocusedDriverCard = useCallback((targetDriverCard: EventTarget) => {
-		// Get the container element and the target driver card. If we can't find it, do nothing.
+	const scrollToFocusedDriverCard = useCallback((targetDriverCard: HTMLButtonElement) => {
+		// Get the container element. If we can't find it, do nothing.
 		const container = gridContainerRef.current;
-		if (!container || !DOM.isHTMLElement(targetDriverCard)) {
+		if (!container) {
 			return;
 		}
 
@@ -136,17 +135,19 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 						)}
 					</div>
 					<div className='driver-grid-clip'>
-						<div ref={gridContainerRef} className='driver-grid-container' role='group' onFocus={(e) => scrollToFocusedDriverCard(e.target)}>
+						<div ref={gridContainerRef} className='driver-grid-container' role='group'>
 							<div className='driver-grid'>
-								{Array.from({ length: 6 }, () => drivers).flat().map((driver, index) => (
+								{drivers.map((driver, index) => (
 									<Button
 										key={`${driver.id}-${index}`}
 										className={positronClassNames(
 											'driver-card',
 											{ 'selected': selectedDriverId === driver.id }
 										)}
-										id={`data-connection-driver-card-${driver.id}`}
-										onPressed={() => {
+										id={`data-connection-driver-card-${driver.id}-${index}`}
+										onFocus={htmlButtonElement => scrollToFocusedDriverCard(htmlButtonElement)}
+										onPressed={(_, htmlButtonElement) => {
+											scrollToFocusedDriverCard(htmlButtonElement);
 											setSelectedDriverId(driver.id);
 											setShowError(false);
 										}}
