@@ -544,8 +544,10 @@ describe('LayoutManager', () => {
 		layoutManager.setEntries(entries);
 
 		// Verify that every entry is correct.
-		// Uses raw comparisons instead of expect() in the hot loop to avoid
-		// assertion overhead (~10M expect() calls for large inputs).
+		// NOTE: Uses raw if-checks instead of expect() here because this loop
+		// runs millions of iterations. Each expect() call creates objects and
+		// tracks state, which adds up to ~50s+ overhead. Raw comparisons bring
+		// it down to ~3s. We still get a clear failure message via expect.unreachable().
 		for (let entry = 0; entry < entries; entry++) {
 			for (let offset = 0; offset < defaultSize; offset++) {
 				const start = defaultSize * entry;
@@ -724,7 +726,11 @@ describe('LayoutManager', () => {
 		const layoutManager = new LayoutManager(entrySize);
 		layoutManager.setEntries(entries, Array.from({ length: entries }, (_, i) => entrySize));
 
-		// Verify that every entry is correct (raw comparisons to avoid expect() overhead).
+		// Verify that every entry is correct.
+		// NOTE: Uses raw if-checks instead of expect() here because this loop
+		// runs millions of iterations. Each expect() call creates objects and
+		// tracks state, which adds up to ~50s+ overhead. Raw comparisons bring
+		// it down to ~3s. We still get a clear failure message via expect.unreachable().
 		for (let entry = 0; entry < entries; entry++) {
 			for (let offset = 0; offset < entrySize; offset++) {
 				const start = entry * entrySize;
@@ -784,7 +790,11 @@ describe('LayoutManager', () => {
 		);
 		layoutManager.setEntries(entries, entrySizes);
 
-		// Verify that every entry is correct (raw comparisons to avoid expect() overhead).
+		// Verify that every entry is correct.
+		// NOTE: Uses raw if-checks instead of expect() here because this loop
+		// runs millions of iterations. Each expect() call creates objects and
+		// tracks state, which adds up to ~50s+ overhead. Raw comparisons bring
+		// it down to ~3s. We still get a clear failure message via expect.unreachable().
 		for (let entry = 0, start = 0; entry < entries; entry++) {
 			const size = entrySizes[entry];
 			for (let offset = 0; offset < size; offset++) {
