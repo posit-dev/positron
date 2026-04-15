@@ -95,15 +95,15 @@ split_extension_id() {
 	NAME="${BASH_REMATCH[2]}"
 }
 
-# Get latest version from Open VSX and detect platform-specific extensions
+# Get latest version from Posit Public Package Manager and detect platform-specific extensions
 get_extension_info() {
 	local publisher="$1"
 	local name="$2"
-	local url="https://open-vsx.org/api/${publisher}/${name}"
+	local url="https://p3m.dev/openvsx/latest/api/${publisher}/${name}"
 	local response
 
 	if ! response=$(curl -s -f "$url" 2>/dev/null); then
-		echo -e "${RED}Error: Failed to fetch extension metadata from Open VSX${NC}" >&2
+		echo -e "${RED}Error: Failed to fetch extension metadata from Posit Public Package Manager${NC}" >&2
 		exit 1
 	fi
 
@@ -145,10 +145,10 @@ download_vsix() {
 	local filename url
 	if [[ -n "$target_platform" && "$target_platform" != "universal" ]]; then
 		filename="${publisher}.${name}-${version}@${target_platform}.vsix"
-		url="https://open-vsx.org/api/${publisher}/${name}/${target_platform}/${version}/file/${filename}"
+		url="https://p3m.dev/openvsx/latest/api/${publisher}/${name}/${target_platform}/${version}/file/${filename}"
 	else
 		filename="${publisher}.${name}-${version}.vsix"
-		url="https://open-vsx.org/api/${publisher}/${name}/${version}/file/${filename}"
+		url="https://p3m.dev/openvsx/latest/api/${publisher}/${name}/${version}/file/${filename}"
 	fi
 
 	local filepath="${VSIX_DIR}/${filename}"
@@ -320,7 +320,7 @@ process_extension() {
 		echo "Using specified version: $VERSION"
 		# For specific versions, we need to determine platform by trying the API
 		# Try to get platform info for the specific version
-		local version_url="https://open-vsx.org/api/${PUBLISHER}/${NAME}/${VERSION}"
+		local version_url="https://p3m.dev/openvsx/latest/api/${PUBLISHER}/${NAME}/${VERSION}"
 		local version_response
 		if version_response=$(curl -s -f "$version_url" 2>/dev/null); then
 			if command -v jq >/dev/null 2>&1; then
