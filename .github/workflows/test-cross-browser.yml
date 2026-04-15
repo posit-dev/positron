@@ -108,3 +108,13 @@ jobs:
           filter_jobs: "(e2e / ([^0-9]*))$"
           include_job_durations: false
           custom_title: "E2E Cross Browser Tests — `main` (commit <https://github.com/posit-dev/positron/commit/${{ github.sha }}|${{ env.SHORT_SHA }}>)"
+
+      - name: Notify E2E Test Insights
+        if: always()
+        uses: posit-dev/e2e-test-insights/.github/actions/notify@main
+        with:
+          webhook_secret: ${{ secrets.E2E_INSIGHTS_WEBHOOK_SECRET }}
+          connect_api_key: ${{ secrets.CONNECT_API_KEY }}
+          repo_id: "positron"
+          title: "E2E Cross Browser Tests"
+          filter_jobs: "(e2e / ([^0-9]*))$"
