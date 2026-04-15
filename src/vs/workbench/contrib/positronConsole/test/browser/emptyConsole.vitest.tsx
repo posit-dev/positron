@@ -1,0 +1,46 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/// <reference types="vitest/globals" />
+
+import React from 'react';
+import { fireEvent } from '@testing-library/react';
+import { ICommandService } from '../../../../../platform/commands/common/commands.js';
+import { setupRTLRenderer } from '../../../../../base/test/browser/reactTestingLibrary.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
+import { EmptyConsole } from '../../browser/components/emptyConsole.js';
+
+describe('EmptyConsole', () => {
+	const ctx = createTestContainer()
+		.withReactServices()
+		.stub(ICommandService, { executeCommand: vi.fn().mockResolvedValue(undefined) } as Partial<ICommandService>)
+		.build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	it('renders the empty state message', () => {
+		const { container } = rtl.render(<EmptyConsole />);
+		expect(container.textContent).toContain('There is no session running.');
+		expect(container.textContent).toContain('Start Session');
+		expect(container.textContent).toContain('to start one.');
+	});
+
+	it('renders a Start Session button', () => {
+		rtl.render(<EmptyConsole />).getByText('Start Session');
+	});
+
+	it('executes startNewConsoleSession command when button is pressed', () => {
+		const { getByText } = rtl.render(<EmptyConsole />);
+		fireEvent.click(getByText('Start Session'));
+
+		expect(ctx.get(ICommandService).executeCommand).toHaveBeenCalledWith(
+			'workbench.action.language.runtime.startNewConsoleSession'
+		);
+	});
+
+	it('snapshot of rendered output', () => {
+		const { container } = rtl.render(<EmptyConsole />);
+		expect(container.innerHTML).toMatchInlineSnapshot(`"<div class="empty-console"><div class="title"><span>There is no session running. Use </span><div class="link" role="button" tabindex="0">Start Session</div><span> to start one.</span></div></div>"`);
+	});
+});
