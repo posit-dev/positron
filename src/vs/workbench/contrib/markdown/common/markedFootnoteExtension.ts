@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type * as marked from '../../../../base/common/marked/marked.js';
+import { htmlAttributeEncodeValue } from '../../../../base/common/strings.js';
 
 /**
  * Marked extension for footnote syntax.
@@ -42,11 +43,6 @@ export namespace MarkedFootnoteExtension {
 	// Continuation lines must start with at least two spaces or a tab (may be empty).
 	const footnoteDefinitionRule = /^\[\^([^\]]+)\]:[ \t]+([^\n]+(?:\n(?:[ \t]{2,}|\t)[^\n]*)*)/;
 
-	/** Escapes a string for safe use in HTML attributes. */
-	function escapeHtmlAttr(s: string): string {
-		return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-	}
-
 	export function extension(): marked.MarkedExtension {
 		return {
 			extensions: [
@@ -77,7 +73,7 @@ export namespace MarkedFootnoteExtension {
 			renderer(token: marked.Tokens.Generic) {
 				// Placeholder -- actual rendering is handled by the React renderer
 				// in markdownRenderer.tsx which has access to footnote numbering context.
-				const safeId = escapeHtmlAttr(token.id);
+				const safeId = htmlAttributeEncodeValue(token.id);
 				return `<sup class="footnote-ref"><a href="#fn-${safeId}" id="fnref-${safeId}">${safeId}</a></sup>`;
 			},
 		};
