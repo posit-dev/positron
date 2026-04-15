@@ -14,7 +14,7 @@ import { useNotebookInstance } from './NotebookInstanceProvider.js';
 import { useObservedValue } from './useObservedValue.js';
 import { KernelStatus } from './IPositronNotebookInstance.js';
 import { RuntimeStatusIcon } from '../../positronConsole/browser/components/runtimeStatus.js';
-import { RuntimeStatus, runtimeStateToRuntimeStatus } from '../../positronConsole/common/sessionDisplayUtils.js';
+import { RuntimeStatus } from '../../positronConsole/common/sessionDisplayUtils.js';
 import { localize } from '../../../../nls.js';
 import { MenuId, MenuItemAction, SubmenuItemAction } from '../../../../platform/actions/common/actions.js';
 import { ActionBarMenuButton } from '../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
