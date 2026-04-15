@@ -101,6 +101,15 @@ jobs:
           include_job_durations: false
           notify_on: "failure"
 
+      - name: Notify E2E Test Insights
+        if: always()
+        uses: posit-dev/e2e-test-insights/.github/actions/notify@main
+        with:
+          webhook_secret: ${{ secrets.E2E_INSIGHTS_WEBHOOK_SECRET }}
+          connect_api_key: ${{ secrets.CONNECT_API_KEY }}
+          repo_id: "positron"
+          filter_jobs: "(e2e / ([^0-9]*)|unit|integration)$"
+
   slack-notify-win-extensions:
     if: ${{ needs.e2e-windows-electron.outputs.extensions_failed == 'true' }}
     needs:

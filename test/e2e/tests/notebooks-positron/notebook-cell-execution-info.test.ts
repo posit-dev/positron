@@ -86,12 +86,12 @@ test.describe('Positron Notebooks: Cell Execution Footer', {
 		// ========================================
 		// Cell 4: Footer visibility based on cell state
 		// ========================================
-		await test.step('Cell 4 - Footer visibility for never-run cell', async () => {
+		await test.step('Cell 4 - Footer hidden for never-run cell', async () => {
 			// Add a new cell but don't run it
 			await notebooksPositron.addCodeToCell(4, 'print("never run")', { run: false });
 
-			// Footer should show "Not run this session" in aria-label
-			await notebooksPositron.expectFooterAriaLabel(4, 'Cell not yet run');
+			// Footer should not be rendered for cells that have never been run
+			await notebooksPositron.expectFooterNotVisible(4);
 		});
 	});
 });

@@ -102,6 +102,7 @@ test.describe('Data Explorer - Python Pandas', {
 		await notebooks.executeCodeInCell();
 
 		// open the DataFrame in data explorer and verify data
+		await variables.expectVariableToBe('df', /11 rows/);
 		await variables.doubleClickVariableRow('df');
 		await editors.verifyTab('Data: df', { isVisible: true });
 		await hotKeys.notebookLayout();
@@ -111,14 +112,11 @@ test.describe('Data Explorer - Python Pandas', {
 		await editors.clickTab(pythonNotebook);
 		await notebooks.selectCellAtIndex(1);
 		await notebooks.executeCodeInCell();
-		await editors.clickTab('Data: df');
+		await variables.expectVariableToBe('df', /12 rows/);
+		await variables.doubleClickVariableRow('df');
 		await dataExplorer.grid.verifyTableDataLength(12);
 
-		// execute the next cell to sort the DataFrame and verify sorted data
-		await editors.clickTab(pythonNotebook);
-		await notebooks.selectCellAtIndex(2);
-		await notebooks.executeCodeInCell();
-		await editors.clickTab('Data: df');
+		// sort the DataFrame and verify sorted data
 		await dataExplorer.grid.sortColumnBy(1, 'Sort Descending');
 		await dataExplorer.grid.verifyTableDataLength(12);
 		await dataExplorer.grid.verifyTableDataRowValue(0, { 'Year': '2025' });

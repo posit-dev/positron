@@ -577,6 +577,10 @@
                   "type": "number",
                   "minimum": 512,
                   "description": "Maximum output tokens for this model"
+                },
+                "promptCaching": {
+                  "type": "boolean",
+                  "description": "Whether this model supports prompt caching. When false, cache breakpoints are not sent to the model. Defaults to auto-detection based on the model identifier."
                 }
               },
               "required": [

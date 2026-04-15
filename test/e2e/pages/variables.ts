@@ -77,7 +77,7 @@ export class Variables {
 	async doubleClickVariableRow(variableName: string) {
 		await test.step(`Double click variable: ${variableName}`, async () => {
 			await this.hotKeys.showSecondarySidebar();
-			const desiredRow = this.code.driver.page.locator(VARIABLES_NAME_COLUMN).filter({ hasText: variableName });
+			const desiredRow = this.code.driver.page.locator(VARIABLES_NAME_COLUMN).getByText(variableName, { exact: true });
 			await desiredRow.dblclick();
 		});
 	}
@@ -180,9 +180,8 @@ export class Variables {
 			await this.focusVariablesView();
 			const variableRow = this.code.driver.page
 				.locator('.variables-instance[style*="z-index: 1"]')
-				.locator('.name-column')
-				.filter({ hasText: variableName })
-				.locator('..');
+				.locator('.variable-item')
+				.filter({ has: this.code.driver.page.locator('.name-column').getByText(variableName, { exact: true }) });
 
 			await expect(variableRow).toBeVisible({ timeout });
 			await expect(variableRow.locator('.details-column .value')).toHaveText(value, { timeout: 3000 });

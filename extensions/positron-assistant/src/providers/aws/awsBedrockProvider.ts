@@ -75,6 +75,12 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 	private _credentialSourcePromise?: Promise<AwsSdkCredentialsFeatures | undefined>;
 
 	/**
+	 * Explicit prompt caching overrides from ModelDefinition config.
+	 * Consulted by supportsPromptCaching() before falling back to auto-detection.
+	 */
+	private _promptCachingModels = new Map<string, boolean>();
+
+	/**
 	 * Supported Bedrock model providers.
 	 * Currently only Anthropic models are supported.
 	 */
@@ -113,6 +119,26 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 	static deriveInferenceProfileRegion(awsRegion: string): string {
 		const prefix = awsRegion.split('-')[0];
 		return this.REGION_PREFIX_MAP[prefix] ?? prefix;
+	}
+
+	/**
+	 * Determines whether a Bedrock model supports prompt caching.
+	 * Checks the per-model map first (populated during model resolution from
+	 * config overrides or auto-detection), then falls back to a heuristic:
+	 * only base Claude 3 models (3-sonnet, 3-haiku, 3-opus) lack prompt caching.
+	 */
+	supportsPromptCaching(modelId: string): boolean {
+		const cached = this._promptCachingModels.get(modelId);
+		if (cached !== undefined) {
+			return cached;
+		}
+		// Base Claude 3 models (claude-3-sonnet, claude-3-haiku, claude-3-opus)
+		// don't support prompt caching. The negative lookahead (?!\d) ensures
+		// that versioned variants like claude-3-5 and claude-3-7 are not excluded.
+		if (/anthropic\.claude-3-(?!\d)/.test(modelId)) {
+			return false;
+		}
+		return true;
 	}
 
 	static source: positron.ai.LanguageModelSource = {
@@ -240,9 +266,9 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 		progress: vscode.Progress<vscode.LanguageModelResponsePart2>,
 		token: vscode.CancellationToken
 	): Promise<void> {
-		// Only select Bedrock models support cache breakpoints
+		// Only select Bedrock models support cache breakpoints.
 		const bedrockCacheBreakpoint = this.providerId === 'amazon-bedrock' &&
-			!model.id.includes('anthropic.claude-3-5');
+			this.supportsPromptCaching(model.id);
 
 		// Provide the response using the base class implementation
 		return super.provideVercelResponse(
@@ -523,8 +549,14 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 
 		this.logger.info(`Using ${configuredModels.length} configured models.`);
 
-		const modelListing = configuredModels.map((modelDef) =>
-			createModelInfo({
+		const modelListing = configuredModels.map((modelDef) => {
+			// Store explicit promptCaching config if set (auto-detection is
+			// handled by supportsPromptCaching's fallback heuristic).
+			if (modelDef.promptCaching !== undefined) {
+				this._promptCachingModels.set(modelDef.identifier, modelDef.promptCaching);
+			}
+
+			return createModelInfo({
 				id: modelDef.identifier,
 				name: modelDef.name,
 				family: 'Amazon Bedrock',
@@ -534,8 +566,8 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 				capabilities: this.capabilities,
 				defaultMaxInput: modelDef.maxInputTokens ?? AWSModelProvider.DEFAULT_MAX_TOKENS_INPUT,
 				defaultMaxOutput: modelDef.maxOutputTokens ?? AWSModelProvider.DEFAULT_MAX_TOKENS_OUTPUT
-			})
-		);
+			});
+		});
 
 		return markDefaultModel(modelListing, this.providerId, this._config.model);
 	}

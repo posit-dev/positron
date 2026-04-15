@@ -7,7 +7,7 @@ import '../../../../browser/contrib/find/positronNotebookFind.contribution.js';
 
 import assert from 'assert';
 import * as sinon from 'sinon';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../../base/test/common/utils.js';
+import { createTestContainer } from '../../../../../../test/browser/positronTestContainer.js';
 import { IModelDecoration, ITextModel } from '../../../../../../../editor/common/model.js';
 import { USUAL_WORD_SEPARATORS } from '../../../../../../../editor/common/core/wordHelper.js';
 import { IBulkEditService, ResourceEdit, ResourceTextEdit } from '../../../../../../../editor/browser/services/bulkEditService.js';
@@ -120,13 +120,13 @@ class TestBulkEditService implements IBulkEditService {
 }
 
 suite('PositronNotebookFindController', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+	const ctx = createTestContainer().build();
 
 	let instantiationService: TestInstantiationService;
 	let bulkEditApplySpy: sinon.SinonSpy;
 
 	setup(() => {
-		instantiationService = positronNotebookInstantiationService(disposables);
+		instantiationService = positronNotebookInstantiationService(ctx.disposables);
 
 		const bulkEditService = new TestBulkEditService(instantiationService.get(IModelService));
 		bulkEditApplySpy = sinon.spy(bulkEditService, 'apply');
@@ -134,7 +134,7 @@ suite('PositronNotebookFindController', () => {
 	});
 
 	function createNotebook(cells: [string, string, CellKind][]) {
-		return instantiateTestNotebookInstance(cells, instantiationService, disposables);
+		return instantiateTestNotebookInstance(cells, instantiationService, ctx.disposables);
 	}
 
 	function findFixture(cells: [string, string, CellKind][]) {

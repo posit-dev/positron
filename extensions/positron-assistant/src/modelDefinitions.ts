@@ -11,6 +11,7 @@ export interface ModelDefinition {
 	identifier: string;
 	maxInputTokens?: number;
 	maxOutputTokens?: number;
+	promptCaching?: boolean;
 }
 
 /**

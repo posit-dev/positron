@@ -159,7 +159,7 @@ jobs:
       - name: Compile Integration Tests
         run: npm run --prefix test/integration/browser compile
 
-      - name: 🧪 Run Integration Tests (Electron)
+      - name: 🧪 Run Extension Host Tests (Electron)
         id: electron-integration-tests
         env:
           PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
@@ -170,14 +170,14 @@ jobs:
             DISPLAY=:10 ./scripts/test-integration.sh
           fi
 
-      - name: 🧪 Run Integration Tests (Remote)
+      - name: 🧪 Run Extension Host Tests (Remote)
         if: ${{ job.status != 'cancelled' && (success() || failure()) }}
         id: electron-remote-integration-tests
         env:
           PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
         run: DISPLAY=:10 ./scripts/test-remote-integration.sh
 
-      - name: 🧪 Run Integration Tests (Browser, Chromium)
+      - name: 🧪 Run Extension Host Tests (Chromium)
         if: ${{ job.status != 'cancelled' && (success() || failure()) }}
         id: browser-integration-tests
         env:

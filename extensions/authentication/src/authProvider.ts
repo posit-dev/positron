@@ -75,8 +75,8 @@ export class AuthProvider
 		return !!this.credentialChain?.preventSignOut;
 	}
 
-	/** Expose session-change events to subclasses. */
-	protected fireSessionsChanged(
+	/** Expose session-change events. */
+	fireSessionsChanged(
 		event: vscode.AuthenticationProviderAuthenticationSessionsChangeEvent
 	): void {
 		this._onDidChangeSessions.fire(event);

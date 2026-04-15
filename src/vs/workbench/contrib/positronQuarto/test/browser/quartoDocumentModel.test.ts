@@ -5,20 +5,20 @@
 
 import assert from 'assert';
 import { URI } from '../../../../../base/common/uri.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { createTextModel } from '../../../../../editor/test/common/testTextModel.js';
 import { QuartoDocumentModel } from '../../browser/quartoDocumentModel.js';
 
 suite('QuartoDocumentModel', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+	const ctx = createTestContainer().build();
 	const logService = new NullLogService();
 
 	function createModel(content: string, uri?: URI): QuartoDocumentModel {
 		const textModel = createTextModel(content, null, undefined, uri ?? URI.file('/test.qmd'));
-		disposables.add(textModel);
+		ctx.disposables.add(textModel);
 		const model = new QuartoDocumentModel(textModel, logService);
-		disposables.add(model);
+		ctx.disposables.add(model);
 		return model;
 	}
 
@@ -152,17 +152,19 @@ x = 1
 		});
 
 		test('extracts kernelspec name', () => {
-			const content = `---
-jupyter:
-  kernelspec:
-    name: ir
-    display_name: R
----
-
-\`\`\`{r}
-x <- 1
-\`\`\`
-`;
+			const content = [
+				'---',
+				'jupyter:',
+				'  kernelspec:',
+				'    name: ir',
+				'    display_name: R',
+				'---',
+				'',
+				'```{r}',
+				'x <- 1',
+				'```',
+				'',
+			].join('\n');
 			const model = createModel(content);
 
 			assert.strictEqual(model.jupyterKernel, 'ir');
@@ -393,9 +395,9 @@ x = 1
 \`\`\`
 `;
 			const textModel = createTextModel(content, null, undefined, URI.file('/test.qmd'));
-			disposables.add(textModel);
+			ctx.disposables.add(textModel);
 			const model = new QuartoDocumentModel(textModel, logService);
-			disposables.add(model);
+			ctx.disposables.add(model);
 
 			// Initial state: cell starts at line 3, ends at line 5
 			assert.strictEqual(model.cells.length, 1);
@@ -433,9 +435,9 @@ x = 1
 \`\`\`
 `;
 			const textModel = createTextModel(content, null, undefined, URI.file('/test.qmd'));
-			disposables.add(textModel);
+			ctx.disposables.add(textModel);
 			const model = new QuartoDocumentModel(textModel, logService);
-			disposables.add(model);
+			ctx.disposables.add(model);
 
 			// Initial state: cell starts at line 1, ends at line 3
 			assert.strictEqual(model.cells.length, 1);
@@ -480,9 +482,9 @@ y = 2
 \`\`\`
 `;
 			const textModel = createTextModel(content, null, undefined, URI.file('/test.qmd'));
-			disposables.add(textModel);
+			ctx.disposables.add(textModel);
 			const model = new QuartoDocumentModel(textModel, logService);
-			disposables.add(model);
+			ctx.disposables.add(model);
 
 			// Initial state: two cells at indices 0 and 1
 			assert.strictEqual(model.cells.length, 2);
@@ -543,12 +545,12 @@ x = 1
 \`\`\`
 `;
 			const textModel = createTextModel(content, null, undefined, URI.file('/test.qmd'));
-			disposables.add(textModel);
+			ctx.disposables.add(textModel);
 			const model = new QuartoDocumentModel(textModel, logService);
-			disposables.add(model);
+			ctx.disposables.add(model);
 
 			let changeEventFired = false;
-			disposables.add(model.onDidChangeCells(() => {
+			ctx.disposables.add(model.onDidChangeCells(() => {
 				changeEventFired = true;
 			}));
 
@@ -576,12 +578,12 @@ x = 1
 \`\`\`
 `;
 			const textModel = createTextModel(content, null, undefined, URI.file('/test.qmd'));
-			disposables.add(textModel);
+			ctx.disposables.add(textModel);
 			const model = new QuartoDocumentModel(textModel, logService);
-			disposables.add(model);
+			ctx.disposables.add(model);
 
 			let newLanguage: string | undefined;
-			disposables.add(model.onDidChangeLanguage(lang => {
+			ctx.disposables.add(model.onDidChangeLanguage(lang => {
 				newLanguage = lang;
 			}));
 

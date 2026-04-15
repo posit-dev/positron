@@ -17,7 +17,7 @@ import { positronClassNames } from '../../../../base/common/positronUtilities.js
  * ActionBarFilterProps interface.
  */
 interface ActionBarFilterProps {
-	width: number;
+	width?: number | string;
 	disabled?: boolean;
 	initialFilterText?: string;
 	placeholder?: string;
