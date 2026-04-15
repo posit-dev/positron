@@ -30,6 +30,7 @@ interface ActionBarFilterProps {
 	initialFilterText?: string;
 	placeholder?: string;
 	clearButtonIcon?: IconType;
+	showClearAlways?: boolean;
 	size?: ActionBarFilterSize;
 	onFilterTextChanged: (filterText: string) => void;
 }
@@ -109,11 +110,11 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 					onFocus={() => setFocused(true)}
 					onKeyDown={inputKeyDownHandler}
 				/>
-				{filterText !== '' && (
+				{(filterText !== '' || props.showClearAlways) && (
 					<button
 						aria-label={localize('positronClearFilter', "Clear filter")}
 						className='clear-button'
-						disabled={props.disabled}
+						disabled={props.disabled || filterText === ''}
 						onClick={buttonClearClickHandler}
 						onKeyDown={buttonClearKeyDownHandler}
 					>

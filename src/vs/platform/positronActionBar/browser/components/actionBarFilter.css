@@ -30,7 +30,7 @@
 }
 
 .action-bar-filter-input.action-bar-filter-input-md {
-	height: 26px;
+	height: 28px;
 }
 
 .action-bar-filter-input.focused {
@@ -68,6 +68,11 @@
 	justify-content: center;
 	background: transparent;
 	animation: positronActionBarFilter-fadeIn 150ms ease-out;
+}
+
+.action-bar-filter-input .clear-button:disabled {
+	cursor: default;
+	opacity: 0.5;
 }
 
 .action-bar-filter-input .clear-button:hover:not(:disabled) {

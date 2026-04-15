@@ -317,6 +317,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 
 			<div className='packages-filter-container'>
 				<ActionBarFilter
+					showClearAlways
 					clearButtonIcon={Codicon.clearAll}
 					placeholder={localize('positronPackages.filterPlaceholder', "Filter packages")}
 					size='md'
@@ -325,7 +326,8 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 			</div>
 			<div className='packages-list-container'>
 				{filteredPackages.length === 0 && debouncedFilterText ? (
-					<div className='packages-empty-message'>
+					<div className='packages-empty-message'
+						style={{ height: height - FILTER_HEIGHT }}>
 						{localize('positronPackages.noPackagesFound', "No packages found.")}
 					</div>
 				) : (
