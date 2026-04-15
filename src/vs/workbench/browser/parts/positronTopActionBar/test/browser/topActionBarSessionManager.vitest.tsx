@@ -16,7 +16,6 @@ import { IRuntimeSessionDisplayInfo, IRuntimeSessionService } from '../../../../
 import { setupRTLRenderer } from '../../../../../../base/test/browser/reactTestingLibrary.js';
 import { TopActionBarSessionManager } from '../../components/topActionBarSessionManager.js';
 import { createTestContainer } from '../../../../../test/browser/positronTestContainer.js';
-import { PositronActionBarContextProvider } from '../../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { CommandCenter } from '../../../../../../platform/commandCenter/common/commandCenter.js';
 import { LANGUAGE_RUNTIME_SELECT_SESSION_ID, LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID } from '../../../../../contrib/languageRuntime/browser/languageRuntimeActions.js';
 import { ICommandService } from '../../../../../../platform/commands/common/commands.js';
@@ -78,9 +77,7 @@ describe('TopActionBarSessionManager', () => {
 
 		it('renders "Start Session" label when no foreground session', () => {
 			const { container } = rtl.render(
-				<PositronActionBarContextProvider>
-					<TopActionBarSessionManager />
-				</PositronActionBarContextProvider>
+				<TopActionBarSessionManager />
 			);
 
 			const label = container.querySelector('.action-bar-button-label');
@@ -89,9 +86,7 @@ describe('TopActionBarSessionManager', () => {
 
 		it('renders arrow-swap icon when no foreground session', () => {
 			const { container } = rtl.render(
-				<PositronActionBarContextProvider>
-					<TopActionBarSessionManager />
-				</PositronActionBarContextProvider>
+				<TopActionBarSessionManager />
 			);
 
 			const icon = container.querySelector('.action-bar-button-icon');
@@ -100,9 +95,7 @@ describe('TopActionBarSessionManager', () => {
 
 		it('renders a button when no active console sessions', () => {
 			const { container } = rtl.render(
-				<PositronActionBarContextProvider>
-					<TopActionBarSessionManager />
-				</PositronActionBarContextProvider>
+				<TopActionBarSessionManager />
 			);
 
 			const button = container.querySelector('button');
@@ -128,9 +121,7 @@ describe('TopActionBarSessionManager', () => {
 
 		it('renders session name as label for console session', () => {
 			const { container } = rtl.render(
-				<PositronActionBarContextProvider>
-					<TopActionBarSessionManager />
-				</PositronActionBarContextProvider>
+				<TopActionBarSessionManager />
 			);
 
 			const label = container.querySelector('.action-bar-button-label');
@@ -139,9 +130,7 @@ describe('TopActionBarSessionManager', () => {
 
 		it('renders positron-new-console icon for console session', () => {
 			const { container } = rtl.render(
-				<PositronActionBarContextProvider>
-					<TopActionBarSessionManager />
-				</PositronActionBarContextProvider>
+				<TopActionBarSessionManager />
 			);
 
 			const icon = container.querySelector('.action-bar-button-icon');
@@ -168,9 +157,7 @@ describe('TopActionBarSessionManager', () => {
 
 		it('renders "notebookName - sessionName" label for notebook session', () => {
 			const { container } = rtl.render(
-				<PositronActionBarContextProvider>
-					<TopActionBarSessionManager />
-				</PositronActionBarContextProvider>
+				<TopActionBarSessionManager />
 			);
 
 			const label = container.querySelector('.action-bar-button-label');
@@ -179,9 +166,7 @@ describe('TopActionBarSessionManager', () => {
 
 		it('renders notebook icon for notebook session', () => {
 			const { container } = rtl.render(
-				<PositronActionBarContextProvider>
-					<TopActionBarSessionManager />
-				</PositronActionBarContextProvider>
+				<TopActionBarSessionManager />
 			);
 
 			const icon = container.querySelector('.action-bar-button-icon');
@@ -208,9 +193,7 @@ describe('TopActionBarSessionManager', () => {
 
 		it('falls through to sessionName when notebook has no URI', () => {
 			const { container } = rtl.render(
-				<PositronActionBarContextProvider>
-					<TopActionBarSessionManager />
-				</PositronActionBarContextProvider>
+				<TopActionBarSessionManager />
 			);
 
 			const label = container.querySelector('.action-bar-button-label');
@@ -232,9 +215,7 @@ describe('TopActionBarSessionManager', () => {
 
 		it('updates label when foreground session changes to a console session', () => {
 			const { container } = rtl.render(
-				<PositronActionBarContextProvider>
-					<TopActionBarSessionManager />
-				</PositronActionBarContextProvider>
+				<TopActionBarSessionManager />
 			);
 
 			expect(container.querySelector('.action-bar-button-label')?.textContent).toMatchInlineSnapshot(`"Start Session"`);
@@ -251,9 +232,7 @@ describe('TopActionBarSessionManager', () => {
 
 		it('updates label when foreground session changes to a notebook session', () => {
 			const { container } = rtl.render(
-				<PositronActionBarContextProvider>
-					<TopActionBarSessionManager />
-				</PositronActionBarContextProvider>
+				<TopActionBarSessionManager />
 			);
 
 			act(() => {
@@ -269,9 +248,7 @@ describe('TopActionBarSessionManager', () => {
 
 		it('updates icon when session changes from none to console', () => {
 			const { container } = rtl.render(
-				<PositronActionBarContextProvider>
-					<TopActionBarSessionManager />
-				</PositronActionBarContextProvider>
+				<TopActionBarSessionManager />
 			);
 
 			expect(container.querySelector('.action-bar-button-icon')?.className).toMatchInlineSnapshot(`"action-bar-button-icon codicon codicon-arrow-swap"`);
@@ -285,9 +262,7 @@ describe('TopActionBarSessionManager', () => {
 
 		it('updates icon when session changes to notebook', () => {
 			const { container } = rtl.render(
-				<PositronActionBarContextProvider>
-					<TopActionBarSessionManager />
-				</PositronActionBarContextProvider>
+				<TopActionBarSessionManager />
 			);
 
 			act(() => {
@@ -302,9 +277,7 @@ describe('TopActionBarSessionManager', () => {
 
 		it('reverts to "Start Session" when session is cleared', () => {
 			const { container } = rtl.render(
-				<PositronActionBarContextProvider>
-					<TopActionBarSessionManager />
-				</PositronActionBarContextProvider>
+				<TopActionBarSessionManager />
 			);
 
 			act(() => {
@@ -320,9 +293,7 @@ describe('TopActionBarSessionManager', () => {
 
 		it('reverts to arrow-swap icon when session is cleared', () => {
 			const { container } = rtl.render(
-				<PositronActionBarContextProvider>
-					<TopActionBarSessionManager />
-				</PositronActionBarContextProvider>
+				<TopActionBarSessionManager />
 			);
 
 			act(() => {
@@ -352,9 +323,7 @@ describe('TopActionBarSessionManager', () => {
 
 		it('uses selectSession command when there are active console sessions', () => {
 			const { container } = rtl.render(
-				<PositronActionBarContextProvider>
-					<TopActionBarSessionManager />
-				</PositronActionBarContextProvider>
+				<TopActionBarSessionManager />
 			);
 
 			const button = container.querySelector('button')!;
@@ -381,9 +350,7 @@ describe('TopActionBarSessionManager', () => {
 
 		it('uses startNewConsoleSession command when no active console sessions', () => {
 			const { container } = rtl.render(
-				<PositronActionBarContextProvider>
-					<TopActionBarSessionManager />
-				</PositronActionBarContextProvider>
+				<TopActionBarSessionManager />
 			);
 
 			const button = container.querySelector('button')!;

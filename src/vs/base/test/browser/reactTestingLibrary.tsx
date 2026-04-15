@@ -8,16 +8,18 @@
 import React, { type ReactElement } from 'react';
 import { render, cleanup, type RenderResult } from '@testing-library/react';
 import { PositronReactServicesContext } from '../../browser/positronReactRendererContext.js';
+import { PositronActionBarContextProvider } from '../../../platform/positronActionBar/browser/positronActionBarContext.js';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type TestServices = Record<string, any>;
 
 /**
- * Sets up an RTL renderer that wraps components in PositronReactServicesContext.
+ * Sets up an RTL renderer that wraps components in the standard Positron
+ * provider tree: PositronReactServicesContext + PositronActionBarContext.
  *
- * Bridges `createTestContainer()` with `@testing-library/react`: pass the
- * services your component needs, and the helper wraps every `render()` call
- * in the context provider.
+ * Bridges `createTestContainer()` with `@testing-library/react`. The
+ * wrapper tree is set up once; every `render()` call automatically gets
+ * the full provider stack. No manual provider wrapping needed in tests.
  *
  * Registers an `afterEach` hook that calls RTL `cleanup()` so React trees
  * are unmounted between tests (required for disposable leak detection).
@@ -57,7 +59,7 @@ export function setupRTLRenderer(services?: TestServices | (() => TestServices))
 
 	return {
 		/**
-		 * Render a React element wrapped in PositronReactServicesContext.
+		 * Render a React element wrapped in the full Positron provider tree.
 		 * Returns the full RTL RenderResult (getByText, getByRole, etc.).
 		 */
 		render(element: ReactElement): RenderResult {
@@ -65,7 +67,9 @@ export function setupRTLRenderer(services?: TestServices | (() => TestServices))
 			const wrapper = resolvedServices
 				? ({ children }: { children: React.ReactNode }) => (
 					<PositronReactServicesContext.Provider value={resolvedServices as any}>
-						{children}
+						<PositronActionBarContextProvider>
+							{children}
+						</PositronActionBarContextProvider>
 					</PositronReactServicesContext.Provider>
 				)
 				: undefined;
