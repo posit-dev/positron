@@ -115,4 +115,111 @@ export async function searchP3MVersions(
     }
 }
 
+const MAX_CONCURRENCY = 10;
+
+// Module-level cache: string = description, null = not found on P3M
+const descriptionCache = new Map<string, string | null>();
+
+export function clearDescriptionCache(): void {
+    descriptionCache.clear();
+}
+
+/**
+ * Fetch descriptions for a list of package names from P3M.
+ * Uses a module-level cache to avoid redundant requests. Null entries in
+ * the cache represent packages confirmed absent from P3M (negative cache).
+ * Uncached names are fetched with a concurrency limit of 10.
+ * Returns a map of package name to description for packages that have one.
+ */
+export async function fetchP3MDescriptions(
+    names: string[],
+    baseUrl: string = DEFAULT_P3M_URL,
+    token?: vscode.CancellationToken,
+): Promise<Map<string, string>> {
+    const results = new Map<string, string>();
+
+    // Collect cached hits and identify uncached names
+    const uncached: string[] = [];
+    for (const name of names) {
+        if (descriptionCache.has(name)) {
+            const cached = descriptionCache.get(name);
+            if (cached !== null) {
+                results.set(name, cached!);
+            }
+            // null = negative cache, skip silently
+        } else {
+            uncached.push(name);
+        }
+    }
+
+    if (uncached.length === 0 || token?.isCancellationRequested) {
+        return results;
+    }
+
+    // Fetch uncached names with concurrency limit
+    const signal = createAbortSignal(token);
+    let active = 0;
+    let index = 0;
+
+    await new Promise<void>((resolve) => {
+        const next = () => {
+            while (active < MAX_CONCURRENCY && index < uncached.length) {
+                if (token?.isCancellationRequested) {
+                    if (active === 0) { resolve(); }
+                    return;
+                }
+                const name = uncached[index++];
+                active++;
+                fetchOne(name, baseUrl, signal).then(
+                    (desc) => {
+                        if (desc !== undefined) {
+                            descriptionCache.set(name, desc);
+                            results.set(name, desc);
+                        } else {
+                            descriptionCache.set(name, null);
+                        }
+                        active--;
+                        if (index >= uncached.length && active === 0) {
+                            resolve();
+                        } else {
+                            next();
+                        }
+                    },
+                );
+            }
+            if (index >= uncached.length && active === 0) {
+                resolve();
+            }
+        };
+        next();
+    });
+
+    return results;
+}
+
+async function fetchOne(
+    name: string,
+    baseUrl: string,
+    signal?: AbortSignal,
+): Promise<string | undefined> {
+    try {
+        const url = `${baseUrl}/__api__/repos/pypi/packages`
+            + `?name=${encodeURIComponent(name)}&_limit=1`;
+        const response = await fetch(url, {
+            headers: { Accept: 'application/json' },
+            signal,
+        });
+        if (!response.ok) {
+            return undefined;
+        }
+        const data = (await response.json()) as P3MPackageSearchResult[];
+        if (data.length > 0 && data[0].info?.summary) {
+            return data[0].info.summary;
+        }
+        return undefined;
+    } catch {
+        return undefined;
+    }
+}
+
 export { DEFAULT_P3M_URL };

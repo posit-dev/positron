@@ -195,7 +195,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	// Item renderer
 	const ItemEntry = (props: { index: number; style: CSSProperties }) => {
 		const itemProps = deduplicatedPackages[props.index];
-		const { id, name, displayName, version } = itemProps;
+		const { id, name, displayName, version, description } = itemProps;
 
 		return (
 			// eslint-disable-next-line jsx-a11y/no-static-element-interactions
@@ -254,6 +254,9 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 			>
 				<div className='packages-list-item-name'>{displayName}</div>
 				<div className='packages-list-item-version'>{version}</div>
+				{description && (
+					<div className='packages-list-item-description'>{description}</div>
+				)}
 			</div >
 		);
 	};

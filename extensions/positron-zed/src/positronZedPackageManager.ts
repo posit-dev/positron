@@ -16,12 +16,15 @@ export class ZedPackageManager implements positron.LanguageRuntimePackageManager
 	 * Current installed packages.
 	 */
 	private _packages: positron.LanguageRuntimePackage[] = [
-		{ name: 'zed-core', version: '1.0.0' },
-		{ name: 'zed-stdlib', version: '1.2.4' },
-		{ name: 'zed-runtime', version: '0.9.8' },
-		{ name: 'zed-io', version: '2.1.0' },
-		{ name: 'zed-net', version: '1.4.2' }
-	].map((pkg) => ({ id: pkg.name, name: pkg.name, displayName: pkg.name, version: pkg.version }));
+		{ name: 'zed-core', version: '1.0.0', description: 'Core Zed runtime library' },
+		{ name: 'zed-stdlib', version: '1.2.4', description: 'Zed standard library' },
+		{ name: 'zed-runtime', version: '0.9.8', description: 'Zed runtime engine' },
+		{ name: 'zed-io', version: '2.1.0', description: 'Zed I/O utilities' },
+		{ name: 'zed-net', version: '1.4.2', description: 'Zed networking primitives' },
+	].map((pkg) => ({
+		id: pkg.name, name: pkg.name, displayName: pkg.name,
+		version: pkg.version, description: pkg.description,
+	}));
 
 	/**
 	 * All available packages in the mock repository.
@@ -126,5 +129,13 @@ export class ZedPackageManager implements positron.LanguageRuntimePackageManager
 		await new Promise((resolve) => setTimeout(resolve, 1_500)); // fake delay
 
 		return ['1.0.0', '1.1.0', '1.2.0', '2.0.0', '2.1.0'];
+	}
+
+	async enrichPackageMetadata(
+		packages: positron.LanguageRuntimePackage[],
+		_token?: import('vscode').CancellationToken,
+	): Promise<positron.LanguageRuntimePackage[]> {
+		// Mock enrichment: packages already have descriptions from getPackages
+		return packages;
 	}
 }

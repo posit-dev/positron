@@ -9,7 +9,7 @@ import * as vscode from 'vscode';
 import { IPythonExecutionFactory, IPythonExecutionService } from '../../common/process/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
-import { searchP3M, searchP3MVersions, DEFAULT_P3M_URL } from './p3mSearch.js';
+import { searchP3M, searchP3MVersions, fetchP3MDescriptions, DEFAULT_P3M_URL } from './p3mSearch.js';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
 
@@ -157,6 +157,36 @@ export class PipPackageManager implements IPackageManager {
             return searchP3MVersions(name, url, token);
         }
         return searchPyPIVersions(name, token);
+    }
+
+    async enrichPackageMetadata(
+        packages: positron.LanguageRuntimePackage[],
+        token?: vscode.CancellationToken,
+    ): Promise<positron.LanguageRuntimePackage[]> {
+        const config = vscode.workspace.getConfiguration('positron.python');
+        const source = config.get<string>('packageMetadataSource', 'p3m');
+        if (source !== 'p3m') {
+            return packages;
+        }
+
+        const url = config.get<string>('packageMetadataUrl', DEFAULT_P3M_URL);
+        const names = packages
+            .filter(pkg => !pkg.description)
+            .map(pkg => pkg.name);
+
+        if (names.length === 0) {
+            return packages;
+        }
+
+        const descriptions = await fetchP3MDescriptions(names, url, token);
+
+        return packages.map(pkg => {
+            const desc = descriptions.get(pkg.name);
+            if (desc && !pkg.description) {
+                return { ...pkg, description: desc };
+            }
+            return pkg;
+        });
     }
 
     // =========================================================================

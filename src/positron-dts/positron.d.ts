@@ -1216,6 +1216,16 @@ declare module 'positron' {
 		 * @param token Optional cancellation token
 		 */
 		searchPackageVersions(name: string, token?: vscode.CancellationToken): Thenable<string[]>;
+
+		/**
+		 * Optionally enrich packages with metadata (descriptions, etc.)
+		 * from an external source. Called after getPackages() to supplement
+		 * kernel-provided data.
+		 */
+		enrichPackageMetadata?(
+			packages: LanguageRuntimePackage[],
+			token?: vscode.CancellationToken,
+		): Thenable<LanguageRuntimePackage[]>;
 	}
 
 	/**

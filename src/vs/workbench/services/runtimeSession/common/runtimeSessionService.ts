@@ -358,6 +358,16 @@ export interface ILanguageRuntimePackageManager {
 	 * @param token Optional cancellation token
 	 */
 	searchPackageVersions(name: string, token?: CancellationToken): Promise<string[]>;
+
+	/**
+	 * Optionally enrich packages with metadata (descriptions, etc.)
+	 * from an external source. Called after getPackages() to supplement
+	 * kernel-provided data.
+	 */
+	enrichPackageMetadata?(
+		packages: ILanguageRuntimePackage[],
+		token?: CancellationToken,
+	): Promise<ILanguageRuntimePackage[]>;
 }
 
 /**

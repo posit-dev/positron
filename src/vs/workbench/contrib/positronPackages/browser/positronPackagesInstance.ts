@@ -8,7 +8,7 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageSpec } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackage, ILanguageRuntimePackageManager, ILanguageRuntimeSession, IPackageSpec } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 
 export interface IPositronPackagesInstance {
 	packages: ILanguageRuntimePackage[];
@@ -119,12 +119,42 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		// Loading
 		this._onDidChangeRefreshState.fire(true);
 		try {
+			// Phase 1: Emit kernel data immediately
 			this._packages = await packageManager.getPackages(effectiveToken);
 			this._onDidRefreshPackagesInstance.fire(this._packages);
+
+			// Phase 2: Enrich with external metadata in the background
+			this._fireEnrichment(packageManager, effectiveToken);
+
 			return this._packages;
 		} finally {
 			this._onDidChangeRefreshState.fire(false);
 		}
+	}
+
+	/**
+	 * Fires background metadata enrichment for the current package list.
+	 * If the package manager supports enrichment, fetches descriptions
+	 * asynchronously and re-emits the package list when done.
+	 */
+	private _fireEnrichment(
+		packageManager: ILanguageRuntimePackageManager,
+		token: CancellationToken,
+	): void {
+		if (!packageManager.enrichPackageMetadata || token.isCancellationRequested) {
+			return;
+		}
+		packageManager.enrichPackageMetadata(this._packages, token).then(
+			(enriched) => {
+				if (!token.isCancellationRequested) {
+					this._packages = enriched;
+					this._onDidRefreshPackagesInstance.fire(this._packages);
+				}
+			},
+			(err) => {
+				this._logService.warn(`[Packages] Metadata enrichment failed: ${err}`);
+			},
+		);
 	}
 
 	async installPackages(packages: IPackageSpec[], token?: CancellationToken): Promise<void> {
@@ -140,6 +170,9 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			// Fire refresh event.
 			this._packages = await packageManager.getPackages(effectiveToken);
 			this._onDidRefreshPackagesInstance.fire(this._packages);
+
+			// Enrich with external metadata in the background.
+			this._fireEnrichment(packageManager, effectiveToken);
 		} finally {
 			// Completed
 			this._onDidChangeInstallState.fire(false);
@@ -159,6 +192,9 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			// Fire refresh event.
 			this._packages = await packageManager.getPackages(effectiveToken);
 			this._onDidRefreshPackagesInstance.fire(this._packages);
+
+			// Enrich with external metadata in the background.
+			this._fireEnrichment(packageManager, effectiveToken);
 		} finally {
 			// Completed
 			this._onDidChangeUninstallState.fire(false);
@@ -181,6 +217,9 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			// Fire refresh event.
 			this._packages = await packageManager.getPackages(effectiveToken);
 			this._onDidRefreshPackagesInstance.fire(this._packages);
+
+			// Enrich with external metadata in the background.
+			this._fireEnrichment(packageManager, effectiveToken);
 		} finally {
 			// Completed
 			this._onDidChangeUpdateState.fire(false);
@@ -203,6 +242,9 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			// Fire refresh event.
 			this._packages = await packageManager.getPackages(effectiveToken);
 			this._onDidRefreshPackagesInstance.fire(this._packages);
+
+			// Enrich with external metadata in the background.
+			this._fireEnrichment(packageManager, effectiveToken);
 		} finally {
 			// Completed
 			this._onDidChangeUpdateAllState.fire(false);

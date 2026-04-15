@@ -78,4 +78,16 @@ export interface IPackageManager {
      * @returns Array of version strings
      */
     searchPackageVersions(name: string, token?: vscode.CancellationToken): Promise<string[]>;
+
+    /**
+     * Optionally enrich packages with metadata (descriptions, etc.) from an external source.
+     * Called after getPackages() to supplement kernel-provided data.
+     * @param packages Array of packages to enrich
+     * @param token Optional cancellation token
+     * @returns Array of packages with additional metadata populated
+     */
+    enrichPackageMetadata?(
+        packages: positron.LanguageRuntimePackage[],
+        token?: vscode.CancellationToken,
+    ): Promise<positron.LanguageRuntimePackage[]>;
 }

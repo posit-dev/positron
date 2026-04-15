@@ -71,3 +71,14 @@
 	color: var(--vscode-list-activeSelectionForeground);
 	background: var(--vscode-list-activeSelectionBackground);
 }
+
+.packages-list-item-description {
+	flex: 1 1 auto;
+	min-width: 0;
+	opacity: 0.5;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	font-size: 0.85em;
+	margin-left: 0.75em;
+}
