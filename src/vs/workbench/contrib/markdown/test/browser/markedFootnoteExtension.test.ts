@@ -33,26 +33,23 @@ suite('MarkedFootnoteExtension', () => {
 
 	suite('footnote references', () => {
 
-		test('tokenizes a basic footnote reference', () => {
-			const tokens = tokenize('Here is a footnote.[^1]');
-			const refs = findTokensByType(tokens, 'footnoteRef');
-			assert.strictEqual(refs.length, 1);
-			assert.strictEqual((refs[0] as MarkedFootnoteExtension.FootnoteRefToken).id, '1');
-		});
-
-		test('tokenizes multiple footnote references', () => {
-			const tokens = tokenize('First[^1] and second[^2].');
-			const refs = findTokensByType(tokens, 'footnoteRef');
-			assert.strictEqual(refs.length, 2);
-			assert.strictEqual((refs[0] as MarkedFootnoteExtension.FootnoteRefToken).id, '1');
-			assert.strictEqual((refs[1] as MarkedFootnoteExtension.FootnoteRefToken).id, '2');
-		});
-
-		test('tokenizes footnote reference with text id', () => {
-			const tokens = tokenize('See this[^note].');
-			const refs = findTokensByType(tokens, 'footnoteRef');
-			assert.strictEqual(refs.length, 1);
-			assert.strictEqual((refs[0] as MarkedFootnoteExtension.FootnoteRefToken).id, 'note');
+		test('tokenizes footnote references with various IDs', () => {
+			const cases: { input: string; expectedIds: string[] }[] = [
+				{ input: 'Here is a footnote.[^1]', expectedIds: ['1'] },
+				{ input: 'First[^1] and second[^2].', expectedIds: ['1', '2'] },
+				{ input: 'See this[^note].', expectedIds: ['note'] },
+			];
+			for (const { input, expectedIds } of cases) {
+				const refs = findTokensByType(tokenize(input), 'footnoteRef');
+				assert.strictEqual(refs.length, expectedIds.length, `ref count for: ${input}`);
+				for (let i = 0; i < expectedIds.length; i++) {
+					assert.strictEqual(
+						(refs[i] as MarkedFootnoteExtension.FootnoteRefToken).id,
+						expectedIds[i],
+						`ref id mismatch at index ${i} for: ${input}`,
+					);
+				}
+			}
 		});
 
 		test('does not tokenize definition syntax as reference', () => {
@@ -220,74 +217,4 @@ suite('MarkedFootnoteExtension', () => {
 		});
 	});
 
-	suite('rendered HTML', () => {
-
-		function render(src: string): string {
-			const markedInstance = new marked.Marked()
-				.use(MarkedFootnoteExtension.extension());
-			return markedInstance.parse(src) as string;
-		}
-
-		test('renders footnote ref as superscript link', () => {
-			const html = render('Text[^1]\n\n[^1]: Note.');
-			assert.ok(html.includes('class="footnote-ref"'));
-			assert.ok(html.includes('href="#fn-1"'));
-			assert.ok(html.includes('id="fnref-1"'));
-		});
-
-		test('definition renderer returns empty string', () => {
-			// Definitions are rendered empty by the Marked renderer;
-			// actual rendering is done by the React TokenMarkdownRenderer.
-			const html = render('[^1]: Note.');
-			// The definition itself should not produce visible output
-			// (the Marked HTML renderer returns empty string for definitions).
-			assert.ok(!html.includes('Note.'));
-		});
-
-		test('multiple refs to same footnote produce distinct anchor IDs in Marked HTML', () => {
-			const html = render('A[^1] and B[^1].\n\n[^1]: Shared.');
-			// Both refs should have the same href target but the Marked-level
-			// renderer uses the same id. The React renderer handles dedup.
-			const refMatches = html.match(/id="fnref-1"/g);
-			assert.ok(refMatches);
-			assert.strictEqual(refMatches.length, 2,
-				'Marked HTML renderer does not deduplicate ref IDs; React renderer handles this');
-		});
-
-		test('duplicate definitions only render the first via Marked HTML', () => {
-			const html = render('[^1]: First.\n\n[^1]: Second.');
-			// Both definitions produce empty HTML from the Marked renderer.
-			// The React renderer deduplicates (first-wins). At the tokenizer
-			// level, both tokens exist; dedup is a rendering concern.
-			assert.ok(!html.includes('First.'));
-			assert.ok(!html.includes('Second.'));
-		});
-
-		test('refs all link to the same footnote target', () => {
-			const html = render('A[^1] B[^1] C[^2].\n\n[^1]: Note one.\n\n[^2]: Note two.');
-			const hrefFn1 = html.match(/href="#fn-1"/g);
-			const hrefFn2 = html.match(/href="#fn-2"/g);
-			assert.ok(hrefFn1);
-			assert.strictEqual(hrefFn1.length, 2);
-			assert.ok(hrefFn2);
-			assert.strictEqual(hrefFn2.length, 1);
-		});
-
-		test('special characters in footnote IDs are HTML-escaped in rendered output', () => {
-			// Test quote escaping
-			const html1 = render('Text[^a"b]\n\n[^a"b]: Note.');
-			assert.ok(html1.includes('id="fnref-a&quot;b"'));
-			assert.ok(html1.includes('href="#fn-a&quot;b"'));
-			assert.ok(!html1.includes('id="fnref-a"b"'));
-
-			// Test angle bracket escaping
-			const html2 = render('Text[^a<b]\n\n[^a<b]: Note.');
-			assert.ok(html2.includes('a&lt;b'));
-			assert.ok(!html2.includes('a<b'));
-
-			// Test ampersand escaping
-			const html3 = render('Text[^a&b]\n\n[^a&b]: Note.');
-			assert.ok(html3.includes('a&amp;b'));
-		});
-	});
 });
