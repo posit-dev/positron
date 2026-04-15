@@ -1,0 +1,13 @@
+{
+	// Vitest-only TypeScript config for intellisense in .vitest.{ts,tsx} files.
+	// Extends the main src tsconfig but adds Vitest global types.
+	// Does NOT affect the main build -- only used by Vitest and IDE language services.
+	"extends": "./src/tsconfig.json",
+	"compilerOptions": {
+		"types": ["vitest/globals"]
+	},
+	"include": [
+		"src/vs/**/*.vitest.ts",
+		"src/vs/**/*.vitest.tsx"
+	]
+}
