@@ -422,6 +422,8 @@ const selectNewLanguageRuntime = async (
 	const contributedItemMap = new Map<string, { contribution: { handle: number; onSelect: (itemId: string) => Promise<string | undefined> }; originalId: string }>();
 
 	// Only show contributed items after discovery is complete
+	// TODO: right now, these are added to the end of the list, but we may want to
+	// group by language in the future
 	if (languageRuntimeService.startupPhase === RuntimeStartupPhase.Complete) {
 		const contributions = languageRuntimeService.getPickerContributions();
 

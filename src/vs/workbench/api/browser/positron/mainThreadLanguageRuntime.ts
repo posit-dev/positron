@@ -2178,6 +2178,10 @@ export class MainThreadLanguageRuntime
 			}
 		});
 
+		// Dispose any remaining picker contributions
+		this._pickerContributionDisposables.forEach((disposable) => disposable.dispose());
+		this._pickerContributionDisposables.clear();
+
 		this._disposables.dispose();
 	}
 
@@ -2307,7 +2311,6 @@ export class MainThreadLanguageRuntime
 
 		const disposable = this._languageRuntimeService.registerPickerContribution(contribution);
 		this._pickerContributionDisposables.set(handle, disposable);
-		this._disposables.add(disposable);
 	}
 
 	/**

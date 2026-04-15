@@ -6,24 +6,23 @@
 import * as vscode from 'vscode';
 import { traceError, traceInfo } from '../../../logging';
 import { exec } from '../externalDependencies';
-import { isUvInstalled, PRERELEASE_REGEX, UV_VERSION_REGEX } from './uv';
+import { isUvInstalled, getAvailablePythonVersions, isWindowsArm64 } from './uv';
 import { Common, InterpreterQuickPickList } from '../../../common/utils/localize';
-import { MINIMUM_PYTHON_VERSION, MAXIMUM_PYTHON_VERSION_EXCLUSIVE } from '../../../common/constants';
 import { getWorkspaceFolders } from '../../../common/vscodeApis/workspaceApis';
 import { createUvVenv } from '../../creation/provider/uvCreationProvider';
 
 /**
- * Information about an available Python version from uv.
+ * Prompts the user for confirmation before installing uv.
+ * @returns true if the user confirmed, false otherwise
  */
-export interface UvAvailablePython {
-    /** The version string in MAJOR.MINOR format (e.g., "3.13") */
-    version: string;
-    /** Whether this version is already installed locally */
-    isInstalled: boolean;
-    /** The path to the Python executable if installed */
-    path?: string;
-    /** The raw identifier from uv (e.g., "cpython-3.13.1-macos-aarch64-none") */
-    identifier: string;
+async function allowUvInstall(): Promise<boolean> {
+    const choice = await vscode.window.showInformationMessage(
+        InterpreterQuickPickList.UvInstall.confirmUvInstallMessage,
+        { modal: true, detail: 'https://docs.astral.sh/uv/getting-started/installation/' },
+        InterpreterQuickPickList.UvInstall.confirmUvInstallYes,
+        InterpreterQuickPickList.UvInstall.confirmUvInstallNo,
+    );
+    return choice === InterpreterQuickPickList.UvInstall.confirmUvInstallYes;
 }
 
 /**
@@ -37,6 +36,13 @@ export interface UvAvailablePython {
  * @returns true if installation succeeded, false otherwise
  */
 async function installUv(): Promise<boolean> {
+
+    const allowInstall = await allowUvInstall();
+    if (!allowInstall) {
+        traceInfo('User declined uv installation');
+        return false;
+    }
+
     traceInfo('Installing uv...');
 
     try {
@@ -59,131 +65,6 @@ async function installUv(): Promise<boolean> {
 }
 
 /**
- * Gets a list of available Python versions from uv.
- * Filters out pre-release versions and returns stable versions only.
- * @returns Array of available Python versions, sorted by version descending
- */
-export async function getAvailablePythonVersions(): Promise<UvAvailablePython[]> {
-    try {
-        // Use `uv python list` to get available versions
-        // Output format:
-        //   cpython-3.13.1-macos-aarch64-none     /Users/.../.local/share/uv/python/cpython-3.13.1.../bin/python3.13
-        //   cpython-3.12.8-macos-aarch64-none     <download available>
-        const result = await exec('uv', ['python', 'list'], { throwOnStdErr: false });
-        const output = result?.stdout.trim();
-
-        if (!output) {
-            return [];
-        }
-
-        const lines = output
-            .split('\n')
-            .map((line) => line.trim())
-            .filter((line) => line.length > 0);
-
-        const versions: UvAvailablePython[] = [];
-        const seenMinorVersions = new Set<string>();
-
-        for (const line of lines) {
-            // Skip non-cpython entries (e.g., pypy)
-            if (!line.startsWith('cpython-')) {
-                continue;
-            }
-
-            const versionMatch = line.match(UV_VERSION_REGEX);
-            if (!versionMatch) {
-                continue;
-            }
-
-            const version = versionMatch[1];
-
-            // Skip pre-release versions
-            if (PRERELEASE_REGEX.test(version)) {
-                continue;
-            }
-
-            // Extract major.minor version (e.g., "3.13" from "3.13.1")
-            const versionParts = version.split('.').map(Number);
-            const majorVersion = versionParts[0];
-            const minorVersionNum = versionParts[1];
-
-            // Skip versions below minimum supported
-            if (
-                majorVersion < MINIMUM_PYTHON_VERSION.major ||
-                (majorVersion === MINIMUM_PYTHON_VERSION.major && minorVersionNum < MINIMUM_PYTHON_VERSION.minor)
-            ) {
-                continue;
-            }
-
-            // Skip versions at or above maximum supported (exclusive)
-            if (
-                majorVersion > MAXIMUM_PYTHON_VERSION_EXCLUSIVE.major ||
-                (majorVersion === MAXIMUM_PYTHON_VERSION_EXCLUSIVE.major &&
-                    minorVersionNum >= MAXIMUM_PYTHON_VERSION_EXCLUSIVE.minor)
-            ) {
-                continue;
-            }
-
-            const minorVersion = `${majorVersion}.${minorVersionNum}`;
-
-            // Only show one entry per minor version
-            if (seenMinorVersions.has(minorVersion)) {
-                continue;
-            }
-            seenMinorVersions.add(minorVersion);
-
-            // Extract the identifier (first column)
-            const columns = line.split(/\s{2,}/);
-            const identifier = columns[0].trim();
-
-            // Check if installed (has a path, not "<download available>")
-            const isInstalled = !line.includes('<download available>');
-
-            let path: string | undefined;
-            if (isInstalled && columns.length >= 2) {
-                let pathColumn = columns[1].trim();
-                // Strip " -> ..." symlink suffix if present
-                const arrowIndex = pathColumn.indexOf(' -> ');
-                if (arrowIndex !== -1) {
-                    pathColumn = pathColumn.substring(0, arrowIndex);
-                }
-                if (pathColumn.length > 0) {
-                    path = pathColumn;
-                }
-            }
-
-            versions.push({
-                version: minorVersion,
-                isInstalled,
-                path,
-                identifier,
-            });
-        }
-
-        // Sort by version descending (newest first)
-        versions.sort((a, b) => {
-            const aParts = a.version.split('.').map(Number);
-            const bParts = b.version.split('.').map(Number);
-
-            // Compare major version
-            if (aParts[0] !== bParts[0]) {
-                return bParts[0] - aParts[0];
-            }
-            // Compare minor version
-            if (aParts[1] !== bParts[1]) {
-                return bParts[1] - aParts[1];
-            }
-            return 0;
-        });
-
-        return versions;
-    } catch (error) {
-        traceError(`Failed to get available Python versions: ${error}`);
-        return [];
-    }
-}
-
-/**
  * Installs a Python version using uv and returns the path to the installed Python.
  * @param version The version to install (e.g., "3.13.1" or "3.13")
  * @returns The path to the installed Python, or undefined if installation failed
@@ -194,7 +75,12 @@ async function installPythonVersionAndGetPath(version: string): Promise<string |
     try {
         // Use exec directly instead of installUvPython to avoid cache issues
         // when uv was just installed in the same session
-        await exec('uv', ['python', 'install', version], { throwOnStdErr: false });
+        // On Windows ARM64, specify the python-platform to get ARM64 builds
+        // See: https://github.com/astral-sh/uv/issues/12906
+        const installArgs = isWindowsArm64()
+            ? ['python', 'install', '--python-platform', 'windows-arm64', version]
+            : ['python', 'install', version];
+        await exec('uv', installArgs, { throwOnStdErr: false });
         traceInfo(`Python ${version} installed successfully`);
 
         // Get the path to the installed Python

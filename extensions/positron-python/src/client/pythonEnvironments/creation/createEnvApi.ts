@@ -13,8 +13,8 @@ import { IInterpreterQuickPick, IPythonPathUpdaterServiceManager } from '../../i
 import { getCreationEvents, handleCreateEnvironmentCommand } from './createEnvironment';
 import { condaCreationProvider } from './provider/condaCreationProvider';
 import { VenvCreationProvider, VenvCreationProviderId } from './provider/venvCreationProvider';
-import { showErrorMessage, showInformationMessage } from '../../common/vscodeApis/windowApis';
-import { CreateEnv, InterpreterQuickPickList } from '../../common/utils/localize';
+import { showInformationMessage } from '../../common/vscodeApis/windowApis';
+import { CreateEnv } from '../../common/utils/localize';
 import {
     CreateEnvironmentProvider,
     CreateEnvironmentOptions,
@@ -46,6 +46,8 @@ import {
 } from '../../positron/createEnvApi';
 import { traceError, traceLog } from '../../logging';
 import { getConfiguration } from '../../common/vscodeApis/workspaceApis';
+import { showErrorMessage } from '../../common/vscodeApis/windowApis';
+import { InterpreterQuickPickList } from '../../common/utils/localize';
 // --- End Positron ---
 
 class CreateEnvironmentProviders {
@@ -220,7 +222,7 @@ export async function registerCreateEnvironmentFeatures(
         ),
         registerCommand(Commands.Get_Conda_Python_Versions, () => getCondaPythonVersions()),
         registerCommand(Commands.Is_Uv_Installed, async () => await isUvInstalled()),
-        registerCommand(Commands.Get_Uv_Python_Versions, () => getUvPythonVersions()),
+        registerCommand(Commands.Get_Uv_Python_Versions, async () => await getUvPythonVersions()),
         registerCommand(Commands.InstallPythonViaUv, async () => {
             try {
                 const result = await installPythonViaUv();
@@ -243,8 +245,8 @@ export async function registerCreateEnvironmentFeatures(
 
             async getItems(): Promise<positron.runtime.RuntimePickerItem[]> {
                 // Check if Python installation via uv is allowed
-                const allowPythonInstall = getConfiguration('python').get<boolean>('allowPythonInstall') ?? true;
-                if (!allowPythonInstall) {
+                const allowUvPythonInstall = getConfiguration('python').get<boolean>('allowUvPythonInstall') ?? true;
+                if (!allowUvPythonInstall) {
                     return [];
                 }
 

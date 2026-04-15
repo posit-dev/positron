@@ -1,14 +1,15 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as path from 'path';
+import * as os from 'os';
 import * as fs from 'fs';
 import { cache } from '../../../common/utils/decorators';
 import { traceError, traceVerbose } from '../../../logging';
 import { exec, pathExists, readFile, resolveSymbolicLink } from '../externalDependencies';
-import { isTestExecution } from '../../../common/constants';
+import { isTestExecution, MINIMUM_PYTHON_VERSION, MAXIMUM_PYTHON_VERSION_EXCLUSIVE } from '../../../common/constants';
 import { getPyvenvConfigPathsFrom } from './simplevirtualenvs';
 import { splitLines } from '../../../common/stringUtils';
 import { CreateEnv } from '../../../common/utils/localize';
@@ -28,7 +29,7 @@ export function isVersionPrerelease(version: string): boolean {
 class UvUtils {
     private static uvPromise: Promise<UvUtils | undefined>;
 
-    constructor(public readonly command: string) {}
+    constructor(public readonly command: string) { }
 
     public static async getUvUtils(): Promise<UvUtils | undefined> {
         if (UvUtils.uvPromise === undefined || isTestExecution()) {
@@ -143,6 +144,15 @@ export async function isUvEnvironment(interpreterPath: string): Promise<boolean>
 export async function isUvInstalled(): Promise<boolean> {
     const uvUtils = await UvUtils.getUvUtils();
     return uvUtils !== undefined;
+}
+
+/**
+ * Check if running on Windows ARM64.
+ * On Windows ARM64, uv defaults to x64 Python which causes architecture mismatch warnings.
+ * See: https://github.com/astral-sh/uv/issues/12906
+ */
+export function isWindowsArm64(): boolean {
+    return process.platform === 'win32' && os.arch() === 'arm64';
 }
 
 /**
@@ -306,7 +316,12 @@ export async function installUvPython(version: string): Promise<boolean> {
 
     try {
         traceVerbose(`Running uv python install ${version}...`);
-        await exec(uvUtils.command, ['python', 'install', version], { throwOnStdErr: false });
+        // On Windows ARM64, specify the python-platform to get ARM64 builds
+        // See: https://github.com/astral-sh/uv/issues/12906
+        const args = isWindowsArm64()
+            ? ['python', 'install', '--python-platform', 'windows-arm64', version]
+            : ['python', 'install', version];
+        await exec(uvUtils.command, args, { throwOnStdErr: false });
         traceVerbose(`uv python install ${version} completed successfully`);
         return true;
     } catch (ex) {
@@ -352,8 +367,7 @@ export async function getStablePythonAfterUpdate(
     if (!stableVersionInfo || stableVersionInfo.isPrerelease) {
         // No stable version available
         traceError(
-            `No stable Python version available for ${requestedVersion}, only pre-release ${
-                stableVersionInfo?.version ?? 'unknown'
+            `No stable Python version available for ${requestedVersion}, only pre-release ${stableVersionInfo?.version ?? 'unknown'
             }`,
         );
         return { success: false, error: 'no_stable_version', version: stableVersionInfo?.version };
@@ -374,6 +388,164 @@ export async function getStablePythonAfterUpdate(
 
     traceVerbose(`Using existing stable Python ${stableVersionInfo.version}`);
     return { success: true, version: stableVersionInfo.version, wasInstalled: false };
+}
+
+/**
+ * Information about an available Python version from uv.
+ */
+export interface UvAvailablePython {
+    /** The version string in MAJOR.MINOR format (e.g., "3.13") */
+    version: string;
+    /** Whether this version is already installed locally */
+    isInstalled: boolean;
+    /** The path to the Python executable if installed */
+    path?: string;
+    /** The raw identifier from uv (e.g., "cpython-3.13.1-macos-aarch64-none") */
+    identifier: string;
+}
+
+/**
+ * Gets a list of available Python versions from uv.
+ * Filters out pre-release versions and returns stable versions only.
+ * @returns Array of available Python versions, sorted by version descending
+ */
+export async function getAvailablePythonVersions(): Promise<UvAvailablePython[]> {
+    const uvUtils = await UvUtils.getUvUtils();
+    if (!uvUtils) {
+        return [];
+    }
+
+    try {
+        // Use `uv python list` to get available versions
+        // Output format:
+        //   cpython-3.13.1-macos-aarch64-none     /Users/.../.local/share/uv/python/cpython-3.13.1.../bin/python3.13
+        //   cpython-3.12.8-macos-aarch64-none     <download available>
+        // On Windows ARM64, use --all-arches to see ARM64 builds (uv defaults to x64)
+        // See: https://github.com/astral-sh/uv/issues/12906
+        const args = isWindowsArm64() ? ['python', 'list', '--all-arches'] : ['python', 'list'];
+        const result = await exec(uvUtils.command, args, { throwOnStdErr: false });
+        const output = result?.stdout.trim();
+
+        if (!output) {
+            return [];
+        }
+
+        const lines = output
+            .split('\n')
+            .map((line) => line.trim())
+            .filter((line) => line.length > 0);
+
+        const versions: UvAvailablePython[] = [];
+        const seenMinorVersions = new Set<string>();
+
+        // On Windows ARM64, we use --all-arches which returns both x64 and arm64 versions.
+        // We need to prefer arm64 versions. The identifier contains the arch, e.g.:
+        //   cpython-3.13.1-windows-x86_64-none
+        //   cpython-3.13.1-windows-aarch64-none (ARM64)
+        const preferArm64 = isWindowsArm64();
+
+        for (const line of lines) {
+            // Skip non-cpython entries (e.g., pypy)
+            if (!line.startsWith('cpython-')) {
+                continue;
+            }
+
+            // On Windows ARM64, skip x86_64 versions if we're looking for ARM64
+            if (preferArm64 && line.includes('-x86_64-')) {
+                continue;
+            }
+
+            const versionMatch = line.match(UV_VERSION_REGEX);
+            if (!versionMatch) {
+                continue;
+            }
+
+            const version = versionMatch[1];
+
+            // Skip pre-release versions
+            if (isVersionPrerelease(version)) {
+                continue;
+            }
+
+            // Extract major.minor version (e.g., "3.13" from "3.13.1")
+            const versionParts = version.split('.').map(Number);
+            const majorVersion = versionParts[0];
+            const minorVersionNum = versionParts[1];
+
+            // Skip versions below minimum supported
+            if (
+                majorVersion < MINIMUM_PYTHON_VERSION.major ||
+                (majorVersion === MINIMUM_PYTHON_VERSION.major && minorVersionNum < MINIMUM_PYTHON_VERSION.minor)
+            ) {
+                continue;
+            }
+
+            // Skip versions at or above maximum supported (exclusive)
+            if (
+                majorVersion > MAXIMUM_PYTHON_VERSION_EXCLUSIVE.major ||
+                (majorVersion === MAXIMUM_PYTHON_VERSION_EXCLUSIVE.major &&
+                    minorVersionNum >= MAXIMUM_PYTHON_VERSION_EXCLUSIVE.minor)
+            ) {
+                continue;
+            }
+
+            const minorVersion = `${majorVersion}.${minorVersionNum}`;
+
+            // Only show one entry per minor version
+            if (seenMinorVersions.has(minorVersion)) {
+                continue;
+            }
+            seenMinorVersions.add(minorVersion);
+
+            // Extract the identifier (first column)
+            const columns = line.split(/\s{2,}/);
+            const identifier = columns[0].trim();
+
+            // Check if installed (has a path, not "<download available>")
+            const isInstalled = !line.includes('<download available>');
+
+            let pythonPath: string | undefined;
+            if (isInstalled && columns.length >= 2) {
+                let pathColumn = columns[1].trim();
+                // Strip " -> ..." symlink suffix if present
+                const arrowIndex = pathColumn.indexOf(' -> ');
+                if (arrowIndex !== -1) {
+                    pathColumn = pathColumn.substring(0, arrowIndex);
+                }
+                if (pathColumn.length > 0) {
+                    pythonPath = pathColumn;
+                }
+            }
+
+            versions.push({
+                version: minorVersion,
+                isInstalled,
+                path: pythonPath,
+                identifier,
+            });
+        }
+
+        // Sort by version descending (newest first)
+        versions.sort((a, b) => {
+            const aParts = a.version.split('.').map(Number);
+            const bParts = b.version.split('.').map(Number);
+
+            // Compare major version
+            if (aParts[0] !== bParts[0]) {
+                return bParts[0] - aParts[0];
+            }
+            // Compare minor version
+            if (aParts[1] !== bParts[1]) {
+                return bParts[1] - aParts[1];
+            }
+            return 0;
+        });
+
+        return versions;
+    } catch (ex) {
+        traceVerbose(`Failed to get available Python versions: ${ex}`);
+        return [];
+    }
 }
 
 /**

@@ -311,6 +311,12 @@ export namespace InterpreterQuickPickList {
             'Failed to create virtual environment. Using installed Python instead.',
         );
         export const installCommandFailed = l10n.t('Failed to install Python');
+        export const confirmUvInstallTitle = l10n.t('Install uv');
+        export const confirmUvInstallMessage = l10n.t(
+            'uv is not installed. Would you like to install it? This will download and run the official installer script from astral.sh.',
+        );
+        export const confirmUvInstallYes = l10n.t('Install uv');
+        export const confirmUvInstallNo = l10n.t('Cancel');
     }
     // --- End Positron ---
 }
