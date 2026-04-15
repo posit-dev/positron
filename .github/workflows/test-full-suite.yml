@@ -365,9 +365,15 @@ jobs:
           include_job_durations: false
           notify_on: ${{ env.notify_on }}
 
+      - name: Checkout
+        if: always()
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/actions/notify-e2e-insights
+
       - name: Notify E2E Test Insights
         if: always()
-        uses: posit-dev/e2e-test-insights/.github/actions/notify@main
+        uses: ./.github/actions/notify-e2e-insights
         with:
           webhook_secret: ${{ secrets.E2E_INSIGHTS_WEBHOOK_SECRET }}
           connect_api_key: ${{ secrets.CONNECT_API_KEY }}
