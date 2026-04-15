@@ -639,13 +639,30 @@ export class TokenMarkdownRenderer {
 					{definitions.map((def) => {
 						const safeId = this.sanitizeFootnoteId(def.id);
 						const wasReferenced = this._footnoteRefCounter.has(def.id);
+						const backref = wasReferenced
+							? <NotebookLink className='footnote-backref' href={`#fnref-${safeId}`}>{'\u21a9'}</NotebookLink>
+							: null;
+
+						const bodyElements = def.tokens.map((token, i) => {
+							const key = `fn-body-${this.keyCounter++}`;
+							const isLastToken = i === def.tokens.length - 1;
+							// Place the backref inside the last paragraph for
+							// correct inline layout, matching standard footnote rendering.
+							if (isLastToken && backref && token.type === 'paragraph') {
+								const para = token as marked.Tokens.Paragraph;
+								return <p key={key}>{this.renderInlineTokens(para.tokens)}{' '}{backref}</p>;
+							}
+							return this.renderToken(token as ExtendedToken, key);
+						});
+
+						// Append backref as sibling when the last token is not a paragraph.
+						const lastToken = def.tokens[def.tokens.length - 1];
+						const backrefAppended = lastToken?.type === 'paragraph';
+
 						return (
 							<li key={`fn-${safeId}`} id={`fn-${safeId}`}>
-								{def.tokens.map((token) => {
-									const key = `fn-body-${this.keyCounter++}`;
-									return this.renderToken(token as ExtendedToken, key);
-								})}
-								{wasReferenced && <>{' '}<NotebookLink className='footnote-backref' href={`#fnref-${safeId}`}>{'\u21a9'}</NotebookLink></>}
+								{bodyElements}
+								{backref && !backrefAppended && <>{' '}{backref}</>}
 							</li>
 						);
 					})}

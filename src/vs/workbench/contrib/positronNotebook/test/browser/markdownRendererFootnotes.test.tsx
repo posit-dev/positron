@@ -213,6 +213,31 @@ suite('Positron Notebook - TokenMarkdownRenderer Footnotes', () => {
 		assert.strictEqual(sections.length, 1);
 	});
 
+	test('backref is placed inside the last paragraph of a footnote definition', () => {
+		const elements = renderTokens('Text[^1]\n\n[^1]: Simple note.');
+		const sections = findElements(elements, el => el.props.className === 'footnotes');
+		assert.strictEqual(sections.length, 1);
+		// The backref should be inside the <p>, not a sibling after it.
+		const paragraphs = findElements([sections[0]], el => el.type === 'p');
+		assert.strictEqual(paragraphs.length, 1);
+		const backrefInParagraph = findElements([paragraphs[0]], el => el.props.className === 'footnote-backref');
+		assert.strictEqual(backrefInParagraph.length, 1, 'backref should be inside the paragraph');
+	});
+
+	test('backref is a sibling when last token is not a paragraph', () => {
+		const elements = renderTokens('Text[^1]\n\n[^1]: intro\n  * item one\n  * item two');
+		const sections = findElements(elements, el => el.props.className === 'footnotes');
+		assert.strictEqual(sections.length, 1);
+		// Last token is a list, so backref should be a sibling, not inside the list.
+		const backrefs = findElements([sections[0]], el => el.props.className === 'footnote-backref');
+		assert.strictEqual(backrefs.length, 1);
+		// The backref should NOT be inside the <ul>
+		const lists = findElements([sections[0]], el => el.type === 'ul');
+		assert.strictEqual(lists.length, 1);
+		const backrefInList = findElements([lists[0]], el => el.props.className === 'footnote-backref');
+		assert.strictEqual(backrefInList.length, 0, 'backref should not be inside the list');
+	});
+
 	test('block content in definitions renders correctly', () => {
 		const elements = renderTokens('Text[^1]\n\n[^1]: intro\n  * item one\n  * item two');
 		const sections = findElements(elements, el => el.props.className === 'footnotes');
