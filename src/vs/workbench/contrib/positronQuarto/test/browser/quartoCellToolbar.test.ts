@@ -5,13 +5,13 @@
 
 import assert from 'assert';
 import { URI } from '../../../../../base/common/uri.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { createTextModel } from '../../../../../editor/test/common/testTextModel.js';
 import { QuartoDocumentModel } from '../../browser/quartoDocumentModel.js';
 
 suite('QuartoCellToolbar - Position Updates', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+	const ctx = createTestContainer().build();
 	const logService = new NullLogService();
 
 	/**
@@ -31,9 +31,9 @@ y = 2
 \`\`\`
 `;
 			const textModel = createTextModel(content, null, undefined, URI.file('/test.qmd'));
-			disposables.add(textModel);
+			ctx.disposables.add(textModel);
 			const model = new QuartoDocumentModel(textModel, logService);
-			disposables.add(model);
+			ctx.disposables.add(model);
 
 			// Initial state: verify cell positions
 			assert.strictEqual(model.cells.length, 2);
@@ -82,12 +82,12 @@ y = 2
 \`\`\`
 `;
 			const textModel = createTextModel(content, null, undefined, URI.file('/test.qmd'));
-			disposables.add(textModel);
+			ctx.disposables.add(textModel);
 			const model = new QuartoDocumentModel(textModel, logService);
-			disposables.add(model);
+			ctx.disposables.add(model);
 
 			let parseEventFired = false;
-			disposables.add(model.onDidParse(() => {
+			ctx.disposables.add(model.onDidParse(() => {
 				parseEventFired = true;
 			}));
 
@@ -118,12 +118,12 @@ y = 2
 \`\`\`
 `;
 			const textModel = createTextModel(content, null, undefined, URI.file('/test.qmd'));
-			disposables.add(textModel);
+			ctx.disposables.add(textModel);
 			const model = new QuartoDocumentModel(textModel, logService);
-			disposables.add(model);
+			ctx.disposables.add(model);
 
 			let changeEventFired = false;
-			disposables.add(model.onDidChangeCells(() => {
+			ctx.disposables.add(model.onDidChangeCells(() => {
 				changeEventFired = true;
 			}));
 
@@ -163,16 +163,16 @@ y = 2
 \`\`\`
 `;
 			const textModel = createTextModel(content, null, undefined, URI.file('/test.qmd'));
-			disposables.add(textModel);
+			ctx.disposables.add(textModel);
 			const model = new QuartoDocumentModel(textModel, logService);
-			disposables.add(model);
+			ctx.disposables.add(model);
 
 			// Track both events
 			const eventsFired: string[] = [];
-			disposables.add(model.onDidChangeCells(() => {
+			ctx.disposables.add(model.onDidChangeCells(() => {
 				eventsFired.push('onDidChangeCells');
 			}));
-			disposables.add(model.onDidParse(() => {
+			ctx.disposables.add(model.onDidParse(() => {
 				eventsFired.push('onDidParse');
 			}));
 

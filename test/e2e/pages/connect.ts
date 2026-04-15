@@ -192,6 +192,11 @@ export class PositConnect {
 			});
 
 			if (!res.ok) {
+				// 409 Conflict means the permission already exists, which is acceptable
+				// since we're making this operation idempotent
+				if (res.status === 409) {
+					return { success: true, alreadyExists: true };
+				}
 				const text = await res.text().catch(() => '');
 				throw new Error(`HTTP ${res.status} ${res.statusText} — ${text}`);
 			}

@@ -5,7 +5,7 @@
 
 import assert from 'assert';
 import { mock } from '../../../../../base/test/common/mock.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { EphemeralStateService } from '../../../../../platform/ephemeralState/common/ephemeralStateService.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { IExtHostContext } from '../../../../services/extensions/common/extHostCustomers.js';
@@ -24,7 +24,7 @@ function createMockWorkspaceContextService(): IWorkspaceContextService {
 
 suite('MainThreadPositronEphemeralStorage', function () {
 
-	ensureNoDisposablesAreLeakedInTestSuite();
+	createTestContainer().build();
 
 	let ephemeralStateService: EphemeralStateService;
 	let storage: MainThreadPositronEphemeralStorage;

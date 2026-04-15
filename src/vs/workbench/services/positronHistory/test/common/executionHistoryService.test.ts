@@ -115,11 +115,10 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 	readonly onDidStartUiClient = this._onDidStartUiClient.event;
 
 	foregroundSession: ILanguageRuntimeSession | undefined;
-	foregroundSessionDisplayInfo: IRuntimeSessionDisplayInfo | undefined;
-
+	foregroundSessionDisplayInfo: IRuntimeSessionDisplayInfo | undefined = undefined;
 	private readonly _onDidChangeForegroundSessionDisplayInfo = new Emitter<IRuntimeSessionDisplayInfo | undefined>();
 	readonly onDidChangeForegroundSessionDisplayInfo = this._onDidChangeForegroundSessionDisplayInfo.event;
-
+	getLastNotebookSessionInfo() { return undefined; }
 	implicitStartupSuppressed = false;
 
 	async updateNotebookSessionUri(oldUri: URI, newUri: URI): Promise<string | undefined> {
@@ -172,10 +171,6 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 		throw new Error('Method not implemented.');
 	}
 
-	getLastNotebookSessionInfo(_notebookUri: URI): IRuntimeSessionDisplayInfo | undefined {
-		return undefined;
-	}
-
 	getActiveSessions(): ActiveRuntimeSession[] {
 		throw new Error('Method not implemented.');
 	}
@@ -225,6 +220,10 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 	}
 
 	shutdownNotebookSession(_notebookUri: any, _exitReason: RuntimeExitReason, _source: string): Promise<void> {
+		throw new Error('Method not implemented.');
+	}
+
+	removeNotebookSessionFromNotebookMap(_notebookUri: any): void {
 		throw new Error('Method not implemented.');
 	}
 
