@@ -13,7 +13,7 @@ import React, { KeyboardEvent, MouseEvent, useEffect, useRef, useState } from 'r
 import { localize } from '../../../../../nls.js';
 import { DisposableStore, IDisposable } from '../../../../../base/common/lifecycle.js';
 import { IConfigurationChangeEvent } from '../../../../../platform/configuration/common/configuration.js';
-import { ConsoleInstanceState } from './consoleInstanceState.js';
+import { ConsoleSessionStatusIcon } from './consoleSessionStatusIcon.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { IPositronConsoleInstance, PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IAction } from '../../../../../base/common/actions.js';
@@ -483,7 +483,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 		>
 			{/* Header row with session info */}
 			<div className='tab-header'>
-				<ConsoleInstanceState positronConsoleInstance={positronConsoleInstance} />
+				<ConsoleSessionStatusIcon positronConsoleInstance={positronConsoleInstance} />
 				<RuntimeIcon
 					base64EncodedIconSvg={positronConsoleInstance.runtimeMetadata.base64EncodedIconSvg}
 					modelService={services.modelService}
