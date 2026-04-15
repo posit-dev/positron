@@ -553,7 +553,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
         // If registration failed, the interpreter might be newly created - trigger a refresh and retry
         if (!metadata) {
             traceInfo(`Runtime not found for ${pythonPath}, triggering interpreter refresh...`);
-            await this.interpreterService.triggerRefresh();
+            await this.triggerInterpreterRefresh();
             metadata = await this.registerLanguageRuntimeFromPath(pythonPath, recreateRuntime);
         }
 
