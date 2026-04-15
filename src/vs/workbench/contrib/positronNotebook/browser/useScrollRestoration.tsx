@@ -15,14 +15,14 @@ import { addDisposableListener, getWindow } from '../../../../base/browser/dom.j
 const STABLE_DURATION_MS = 500;
 
 /** Maximum time (ms) to keep the restoration loop running before giving up. */
-const TIMEOUT_MS = 1000;
+const TIMEOUT_MS = 1500;
 
 /**
  * Restores scroll position by continuously scrolling the container to the
  * target returned by {@link getScrollTop}. A requestAnimationFrame loop
  * runs for up to 1.5 s to accommodate async layout shifts (e.g. from markdown
  * previews and editor model loading). The loop stops early once the position
- * has been stable for 200 ms of wall-clock time, or if the user scrolls
+ * has been stable for 500 ms of wall-clock time, or if the user scrolls
  * (detected via wheel/pointer/keyboard events, since programmatic scrollTop
  * assignments also fire scroll events).
  *
