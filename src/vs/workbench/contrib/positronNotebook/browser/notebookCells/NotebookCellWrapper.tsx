@@ -84,7 +84,7 @@ export function NotebookCellWrapper({ cell, children }: {
 			!wasEditingCodeCell &&
 			// 3. The find widget is focused (to keep focus in the find input)
 			!findWidgetFocused) {
-			cellElement.focus();
+			cellElement.focus({ preventScroll: true });
 		}
 	}, [isActiveCell, selectionStatus, cellElement, cell, notebookInstance]);
 

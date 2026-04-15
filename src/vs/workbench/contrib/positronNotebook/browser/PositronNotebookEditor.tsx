@@ -434,7 +434,16 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 				level='editor'
 				logService={this._logService}
 				onReload={() => {
+					// Snapshot the editor view state before the DOM is unmounted.
+					const viewState = this.notebookInstance?.getEditorViewState();
+
+					// Unmount.
 					this._disposeReactRenderer();
+
+					// Restore the snapshotted editor view state.
+					this.notebookInstance?.restoreEditorViewState(viewState);
+
+					// Rerender.
 					this._renderReact();
 				}}
 			>

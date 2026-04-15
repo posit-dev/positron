@@ -469,17 +469,17 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	getOutputLayoutInfo(): EditorLayoutMetadata | undefined;
 
 	/**
-	 * Returns the top offset of a cell relative to the cells container.
+	 * Returns the top of a cell relative to the cells container.
 	 * Walks up the offsetParent chain to account for positioned wrappers.
 	 * Returns undefined if the cells container or cell element is not mounted.
 	 */
-	getCellOffsetTop(cell: IPositronNotebookCell): number | undefined;
+	getCellTop(cell: IPositronNotebookCell): number | undefined;
 
 	/**
-	 * The resolved scroll position to restore, if any.
-	 * Set by `restoreEditorViewState` and consumed by the React component.
+	 * The scroll position resolved by the last call to `restoreEditorViewState`.
+	 * Read by the React component on mount to restore the scroll position.
 	 */
-	readonly scrollPosition: IPositronNotebookResolvedScrollPosition | undefined;
+	readonly restoredScrollPosition: IPositronNotebookResolvedScrollPosition | undefined;
 
 	/**
 	 * Resolves a persisted view state into a live cell reference and stores

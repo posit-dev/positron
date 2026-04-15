@@ -186,10 +186,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	private readonly _editorContainerListeners = this._register(new DisposableStore());
 
 	/**
-	 * Resolved scroll position to restore when the notebook is next rendered.
-	 * Set by `restoreEditorViewState` and consumed by the React component.
+	 * The scroll position resolved by the last call to `restoreEditorViewState`.
+	 * Read by the React component on mount to restore the scroll position.
 	 */
-	private _scrollPosition: IPositronNotebookResolvedScrollPosition | undefined;
+	private _restoredScrollPosition: IPositronNotebookResolvedScrollPosition | undefined;
 
 	/**
 	 * The DOM element that contains the cells for the notebook.
@@ -348,11 +348,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	/**
-	 * Returns the top offset of a cell relative to the cells container.
+	 * Returns the top of a cell relative to the cells container.
 	 * Walks up the offsetParent chain to account for positioned wrappers
 	 * (e.g. sortable-cell with position: relative).
 	 */
-	getCellOffsetTop(cell: IPositronNotebookCell): number | undefined {
+	getCellTop(cell: IPositronNotebookCell): number | undefined {
 		const container = this._cellsContainer;
 		if (!container || !cell.container) {
 			return undefined;
@@ -1988,11 +1988,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	/**
-	 * The resolved scroll position to restore, if any.
-	 * Read by the React component during mount.
+	 * The scroll position resolved by the last call to `restoreEditorViewState`.
+	 * Read by the React component on mount to restore the scroll position.
 	 */
-	get scrollPosition(): IPositronNotebookResolvedScrollPosition | undefined {
-		return this._scrollPosition;
+	get restoredScrollPosition(): IPositronNotebookResolvedScrollPosition | undefined {
+		return this._restoredScrollPosition;
 	}
 
 	/**
@@ -2002,7 +2002,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	restoreEditorViewState(viewState: IPositronNotebookViewState | undefined): void {
 		const cells = this.cells.get();
 		const anchor = viewState?.scrollPosition;
-		this._scrollPosition = anchor && anchor.cellIndex < cells.length
+		this._restoredScrollPosition = anchor && anchor.cellIndex < cells.length
 			? { cell: cells[anchor.cellIndex], offsetFromCell: anchor.offsetFromCell }
 			: undefined;
 	}
@@ -2038,7 +2038,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			if (!cell.container) {
 				continue;
 			}
-			const cellTop = this.getCellOffsetTop(cell);
+			const cellTop = this.getCellTop(cell);
 			if (cellTop !== undefined && cellTop + cell.container.offsetHeight > scrollTop) {
 				return {
 					cellIndex: i,
@@ -2054,7 +2054,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			if (!cell.container) {
 				continue;
 			}
-			const cellTop = this.getCellOffsetTop(cell);
+			const cellTop = this.getCellTop(cell);
 			if (cellTop !== undefined) {
 				return {
 					cellIndex: i,

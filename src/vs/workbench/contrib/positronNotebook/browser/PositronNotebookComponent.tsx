@@ -68,18 +68,23 @@ export function PositronNotebookComponent() {
 		notebookInstance.setCellsContainer(node);
 	}, [notebookInstance]);
 
-	// Restore the scroll position, if available
-	const scrollPosition = notebookInstance.scrollPosition;
+	// Capture the restored scroll position; we only restore it once.
+	const scrollPositionRef = React.useRef(notebookInstance.restoredScrollPosition);
+
+	// Callback to calculate the target scroll top from the anchor cell.
 	const getScrollTop = React.useCallback(
 		() => {
+			const scrollPosition = scrollPositionRef.current;
 			if (!scrollPosition) { return undefined; }
-			const cellTop = notebookInstance.getCellOffsetTop(scrollPosition.cell);
+			const cellTop = notebookInstance.getCellTop(scrollPosition.cell);
 			if (cellTop === undefined) { return undefined; }
 			return cellTop + scrollPosition.offsetFromCell;
 		},
-		[scrollPosition, notebookInstance]
+		[notebookInstance]
 	);
-	useScrollRestoration(containerRef, scrollPosition ? getScrollTop : undefined, services.logService);
+
+	// Effect to restore the scroll position.
+	useScrollRestoration(containerRef, scrollPositionRef.current ? getScrollTop : undefined, services.logService);
 
 	// Track cell count changes and announce to screen readers
 	React.useEffect(() => {
