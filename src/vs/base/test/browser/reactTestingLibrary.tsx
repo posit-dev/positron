@@ -32,8 +32,8 @@ type TestServices = Record<string, any>;
  * });
  *
  * it('renders session label', () => {
- *     const { getByText } = rtl.render(<MyComponent />);
- *     expect(getByText('Start Session')).toBeDefined();
+ *     // getByText throws if not found -- the call itself is the assertion.
+ *     rtl.render(<MyComponent />).getByText('Start Session');
  * });
  * ```
  *
@@ -42,8 +42,7 @@ type TestServices = Record<string, any>;
  * const rtl = setupRTLRenderer();
  *
  * it('renders prop value', () => {
- *     const { getByText } = rtl.render(<Label text="hello" />);
- *     expect(getByText('hello')).toBeDefined();
+ *     rtl.render(<Label text="hello" />).getByText('hello');
  * });
  * ```
  *
