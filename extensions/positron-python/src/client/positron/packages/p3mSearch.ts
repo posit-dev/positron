@@ -117,17 +117,29 @@ export async function searchP3MVersions(
 
 const MAX_CONCURRENCY = 10;
 
-// Module-level cache: string = description, null = not found on P3M
-const descriptionCache = new Map<string, string | null>();
+// Sentinel for confirmed-missing packages (negative cache).
+const NOT_FOUND = Symbol('NOT_FOUND');
+
+// Module-level cache shared across all callers.
+// string = description, NOT_FOUND = confirmed absent from P3M.
+const descriptionCache = new Map<string, string | typeof NOT_FOUND>();
 
 export function clearDescriptionCache(): void {
     descriptionCache.clear();
 }
 
+/** Outcome of a single package lookup. */
+interface FetchOneResult {
+    /** 'found' = description available, 'not-found' = confirmed absent, 'error' = transient failure */
+    status: 'found' | 'not-found' | 'error';
+    description?: string;
+}
+
 /**
  * Fetch descriptions for a list of package names from P3M.
- * Uses a module-level cache to avoid redundant requests. Null entries in
- * the cache represent packages confirmed absent from P3M (negative cache).
+ * Uses a module-level cache to avoid redundant requests. Confirmed-absent
+ * packages are negative-cached so they aren't re-fetched. Transient failures
+ * (network errors, cancellations) are NOT cached and will be retried.
  * Uncached names are fetched with a concurrency limit of 10.
  * Returns a map of package name to description for packages that have one.
  */
@@ -143,10 +155,10 @@ export async function fetchP3MDescriptions(
     for (const name of names) {
         if (descriptionCache.has(name)) {
             const cached = descriptionCache.get(name);
-            if (cached !== null) {
-                results.set(name, cached!);
+            if (cached !== NOT_FOUND && cached !== undefined) {
+                results.set(name, cached);
             }
-            // null = negative cache, skip silently
+            // NOT_FOUND = negative cache, skip silently
         } else {
             uncached.push(name);
         }
@@ -171,13 +183,14 @@ export async function fetchP3MDescriptions(
                 const name = uncached[index++];
                 active++;
                 fetchOne(name, baseUrl, signal).then(
-                    (desc) => {
-                        if (desc !== undefined) {
-                            descriptionCache.set(name, desc);
-                            results.set(name, desc);
-                        } else {
-                            descriptionCache.set(name, null);
+                    (result) => {
+                        if (result.status === 'found' && result.description) {
+                            descriptionCache.set(name, result.description);
+                            results.set(name, result.description);
+                        } else if (result.status === 'not-found') {
+                            descriptionCache.set(name, NOT_FOUND);
                         }
+                        // 'error': do NOT cache -- will retry on next refresh
                         active--;
                         if (index >= uncached.length && active === 0) {
                             resolve();
@@ -201,7 +214,7 @@ async function fetchOne(
     name: string,
     baseUrl: string,
     signal?: AbortSignal,
-): Promise<string | undefined> {
+): Promise<FetchOneResult> {
     try {
         const url = `${baseUrl}/__api__/repos/pypi/packages`
             + `?name=${encodeURIComponent(name)}&_limit=1`;
@@ -210,15 +223,18 @@ async function fetchOne(
             signal,
         });
         if (!response.ok) {
-            return undefined;
+            // Server error or rate-limit -- transient, don't cache
+            return { status: 'error' };
         }
         const data = (await response.json()) as P3MPackageSearchResult[];
         if (data.length > 0 && data[0].info?.summary) {
-            return data[0].info.summary;
+            return { status: 'found', description: data[0].info.summary };
         }
-        return undefined;
+        // Empty result or no summary -- package confirmed absent
+        return { status: 'not-found' };
     } catch {
-        return undefined;
+        // Network error or abort -- transient, don't cache
+        return { status: 'error' };
     }
 }
 

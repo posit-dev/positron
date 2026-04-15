@@ -42,6 +42,9 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 
 	private _packages: ILanguageRuntimePackage[] = [];
 
+	/** Monotonically increasing counter to detect stale enrichment results. */
+	private _refreshGeneration = 0;
+
 	private readonly _runtimeDisposableStore = this._register(new DisposableStore());
 
 	private readonly _logService: ILogService;
@@ -136,6 +139,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	 * Fires background metadata enrichment for the current package list.
 	 * If the package manager supports enrichment, fetches descriptions
 	 * asynchronously and re-emits the package list when done.
+	 * Uses a generation counter to discard stale results from older refreshes.
 	 */
 	private _fireEnrichment(
 		packageManager: ILanguageRuntimePackageManager,
@@ -144,9 +148,10 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		if (!packageManager.enrichPackageMetadata || token.isCancellationRequested) {
 			return;
 		}
+		const generation = ++this._refreshGeneration;
 		packageManager.enrichPackageMetadata(this._packages, token).then(
 			(enriched) => {
-				if (!token.isCancellationRequested) {
+				if (!token.isCancellationRequested && generation === this._refreshGeneration) {
 					this._packages = enriched;
 					this._onDidRefreshPackagesInstance.fire(this._packages);
 				}
