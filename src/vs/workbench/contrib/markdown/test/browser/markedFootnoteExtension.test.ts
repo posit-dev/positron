@@ -198,7 +198,7 @@ suite('MarkedFootnoteExtension', () => {
 			assert.ok(def.text.includes('continuation after blank.'));
 		});
 
-		test('duplicate definition IDs produce only one definition token each', () => {
+		test('duplicate definition IDs produce separate tokens (dedup at render time)', () => {
 			const input = [
 				'[^1]: First definition.',
 				'',
