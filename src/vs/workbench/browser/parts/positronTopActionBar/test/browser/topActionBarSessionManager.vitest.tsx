@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// eslint-disable-next-line local/code-no-dangerous-type-assertions
+
 /// <reference types="vitest/globals" />
 
 import React from 'react';
@@ -10,13 +12,14 @@ import { act, fireEvent } from '@testing-library/react';
 import { Emitter } from '../../../../../../base/common/event.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { LanguageRuntimeSessionMode, RuntimeState } from '../../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { IRuntimeSessionDisplayInfo } from '../../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeSessionDisplayInfo, IRuntimeSessionService } from '../../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { setupRTLRenderer } from '../../../../../../base/test/browser/reactTestingLibrary.js';
 import { TopActionBarSessionManager } from '../../components/topActionBarSessionManager.js';
-import { ensureNoLeakedDisposables } from '../../../../../../base/test/common/vitestUtils.js';
+import { createTestContainer } from '../../../../../test/browser/positronTestContainer.js';
 import { PositronActionBarContextProvider } from '../../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { CommandCenter } from '../../../../../../platform/commandCenter/common/commandCenter.js';
 import { LANGUAGE_RUNTIME_SELECT_SESSION_ID, LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID } from '../../../../../contrib/languageRuntime/browser/languageRuntimeActions.js';
+import { ICommandService } from '../../../../../../platform/commands/common/commands.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -41,74 +44,6 @@ function makeDisplayInfo(
 	};
 }
 
-/**
- * Creates a mock runtime session service with configurable initial state.
- */
-function createMockRuntimeSessionService(options?: {
-	foregroundInfo?: IRuntimeSessionDisplayInfo;
-	hasActiveConsoleSessions?: boolean;
-}) {
-	const emitter = new Emitter<IRuntimeSessionDisplayInfo | undefined>();
-
-	const activeSessions = options?.hasActiveConsoleSessions
-		? [{ metadata: { sessionMode: LanguageRuntimeSessionMode.Console } }]
-		: [];
-
-	return {
-		service: {
-			foregroundSessionDisplayInfo: options?.foregroundInfo,
-			activeSessions,
-			onDidChangeForegroundSessionDisplayInfo: emitter.event,
-		},
-		emitter,
-	};
-}
-
-/**
- * Creates the full set of mock services needed to render TopActionBarSessionManager.
- *
- * TopActionBarSessionManager uses runtimeSessionService directly.
- * Its child ActionBarCommandButton needs services + PositronActionBarContext.
- * PositronActionBarContextProvider (which provides ActionBarContext) needs:
- *   - configurationService (getValue, onDidChangeConfiguration)
- *   - hoverService (showInstantHover, hideHover, showHover)
- *   - contextKeyService (onDidChangeContext, contextMatchesRules)
- *   - accessibilityService
- * ActionBarCommandButton also needs:
- *   - commandService (executeCommand)
- *   - keybindingService (lookupKeybinding)
- */
-function createTestServices(runtimeSessionService: ReturnType<typeof createMockRuntimeSessionService>['service']) {
-	const configEmitter = new Emitter<{ affectsConfiguration: (key: string) => boolean }>();
-	const contextKeyEmitter = new Emitter<{ affectsSome: (keys: Set<string>) => boolean }>();
-
-	return {
-		runtimeSessionService,
-		configurationService: {
-			getValue: () => 300 as unknown,
-			onDidChangeConfiguration: configEmitter.event,
-		},
-		hoverService: {
-			showInstantHover: () => ({ dispose: () => { } }),
-			showHover: () => ({ dispose: () => { } }),
-			hideHover: () => { },
-		},
-		contextKeyService: {
-			onDidChangeContext: contextKeyEmitter.event,
-			contextMatchesRules: () => true,
-		},
-		accessibilityService: {},
-		commandService: {
-			executeCommand: vi.fn().mockResolvedValue(undefined),
-		},
-		keybindingService: {
-			lookupKeybinding: () => undefined,
-		},
-		_configEmitter: configEmitter,
-		_contextKeyEmitter: contextKeyEmitter,
-	};
-}
-
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -128,18 +63,18 @@ describe('TopActionBarSessionManager', () => {
 			title: 'Start New Console Session',
 		});
 	});
-	const disposables = ensureNoLeakedDisposables();
 
 	describe('no session', () => {
-		const { service, emitter } = createMockRuntimeSessionService();
-		const services = createTestServices(service);
-		const rtl = setupRTLRenderer(services);
-
-		afterAll(() => {
-			emitter.dispose();
-			services._configEmitter.dispose();
-			services._contextKeyEmitter.dispose();
-		});
+		const displayInfoEmitter = new Emitter<IRuntimeSessionDisplayInfo | undefined>();
+		const ctx = createTestContainer()
+			.withReactServices()
+			.stub(IRuntimeSessionService, {
+				foregroundSessionDisplayInfo: undefined,
+				activeSessions: [],
+				onDidChangeForegroundSessionDisplayInfo: displayInfoEmitter.event,
+			} as Partial<IRuntimeSessionService>)
+			.build();
+		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 		it('renders "Start Session" label when no foreground session', () => {
 			const { container } = rtl.render(
@@ -180,18 +115,16 @@ describe('TopActionBarSessionManager', () => {
 			sessionName: 'Python 3.12.1',
 			sessionMode: LanguageRuntimeSessionMode.Console,
 		});
-		const { service, emitter } = createMockRuntimeSessionService({
-			foregroundInfo: consoleInfo,
-			hasActiveConsoleSessions: true,
-		});
-		const services = createTestServices(service);
-		const rtl = setupRTLRenderer(services);
-
-		afterAll(() => {
-			emitter.dispose();
-			services._configEmitter.dispose();
-			services._contextKeyEmitter.dispose();
-		});
+		const displayInfoEmitter = new Emitter<IRuntimeSessionDisplayInfo | undefined>();
+		const ctx = createTestContainer()
+			.withReactServices()
+			.stub(IRuntimeSessionService, {
+				foregroundSessionDisplayInfo: consoleInfo,
+				activeSessions: [{ metadata: { sessionMode: LanguageRuntimeSessionMode.Console } }] as any,
+				onDidChangeForegroundSessionDisplayInfo: displayInfoEmitter.event,
+			} as Partial<IRuntimeSessionService>)
+			.build();
+		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 		it('renders session name as label for console session', () => {
 			const { container } = rtl.render(
@@ -222,18 +155,16 @@ describe('TopActionBarSessionManager', () => {
 			sessionMode: LanguageRuntimeSessionMode.Notebook,
 			notebookUri: URI.file('/workspace/analysis.ipynb'),
 		});
-		const { service, emitter } = createMockRuntimeSessionService({
-			foregroundInfo: notebookInfo,
-			hasActiveConsoleSessions: false,
-		});
-		const services = createTestServices(service);
-		const rtl = setupRTLRenderer(services);
-
-		afterAll(() => {
-			emitter.dispose();
-			services._configEmitter.dispose();
-			services._contextKeyEmitter.dispose();
-		});
+		const displayInfoEmitter = new Emitter<IRuntimeSessionDisplayInfo | undefined>();
+		const ctx = createTestContainer()
+			.withReactServices()
+			.stub(IRuntimeSessionService, {
+				foregroundSessionDisplayInfo: notebookInfo,
+				activeSessions: [],
+				onDidChangeForegroundSessionDisplayInfo: displayInfoEmitter.event,
+			} as Partial<IRuntimeSessionService>)
+			.build();
+		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 		it('renders "notebookName - sessionName" label for notebook session', () => {
 			const { container } = rtl.render(
@@ -264,17 +195,16 @@ describe('TopActionBarSessionManager', () => {
 			sessionMode: LanguageRuntimeSessionMode.Notebook,
 			notebookUri: undefined,
 		});
-		const { service, emitter } = createMockRuntimeSessionService({
-			foregroundInfo: notebookInfoNoUri,
-		});
-		const services = createTestServices(service);
-		const rtl = setupRTLRenderer(services);
-
-		afterAll(() => {
-			emitter.dispose();
-			services._configEmitter.dispose();
-			services._contextKeyEmitter.dispose();
-		});
+		const displayInfoEmitter = new Emitter<IRuntimeSessionDisplayInfo | undefined>();
+		const ctx = createTestContainer()
+			.withReactServices()
+			.stub(IRuntimeSessionService, {
+				foregroundSessionDisplayInfo: notebookInfoNoUri,
+				activeSessions: [],
+				onDidChangeForegroundSessionDisplayInfo: displayInfoEmitter.event,
+			} as Partial<IRuntimeSessionService>)
+			.build();
+		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 		it('falls through to sessionName when notebook has no URI', () => {
 			const { container } = rtl.render(
@@ -289,15 +219,16 @@ describe('TopActionBarSessionManager', () => {
 	});
 
 	describe('session changes via event', () => {
-		const { service, emitter } = createMockRuntimeSessionService();
-		const services = createTestServices(service);
-		const rtl = setupRTLRenderer(services);
-
-		afterAll(() => {
-			emitter.dispose();
-			services._configEmitter.dispose();
-			services._contextKeyEmitter.dispose();
-		});
+		const displayInfoEmitter = new Emitter<IRuntimeSessionDisplayInfo | undefined>();
+		const ctx = createTestContainer()
+			.withReactServices()
+			.stub(IRuntimeSessionService, {
+				foregroundSessionDisplayInfo: undefined,
+				activeSessions: [],
+				onDidChangeForegroundSessionDisplayInfo: displayInfoEmitter.event,
+			} as Partial<IRuntimeSessionService>)
+			.build();
+		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 		it('updates label when foreground session changes to a console session', () => {
 			const { container } = rtl.render(
@@ -308,15 +239,13 @@ describe('TopActionBarSessionManager', () => {
 
 			expect(container.querySelector('.action-bar-button-label')?.textContent).toMatchInlineSnapshot(`"Start Session"`);
 
-			// Fire event with a console session inside act() to flush React state updates
 			act(() => {
-				emitter.fire(makeDisplayInfo({
+				displayInfoEmitter.fire(makeDisplayInfo({
 					sessionName: 'R 4.3.2',
 					sessionMode: LanguageRuntimeSessionMode.Console,
 				}));
 			});
 
-			// Re-query after act to get updated DOM
 			expect(container.querySelector('.action-bar-button-label')?.textContent).toMatchInlineSnapshot(`"R 4.3.2"`);
 		});
 
@@ -328,7 +257,7 @@ describe('TopActionBarSessionManager', () => {
 			);
 
 			act(() => {
-				emitter.fire(makeDisplayInfo({
+				displayInfoEmitter.fire(makeDisplayInfo({
 					sessionName: 'Python 3.12.1',
 					sessionMode: LanguageRuntimeSessionMode.Notebook,
 					notebookUri: URI.file('/workspace/report.ipynb'),
@@ -348,7 +277,7 @@ describe('TopActionBarSessionManager', () => {
 			expect(container.querySelector('.action-bar-button-icon')?.className).toMatchInlineSnapshot(`"action-bar-button-icon codicon codicon-arrow-swap"`);
 
 			act(() => {
-				emitter.fire(makeDisplayInfo());
+				displayInfoEmitter.fire(makeDisplayInfo());
 			});
 
 			expect(container.querySelector('.action-bar-button-icon')?.className).toMatchInlineSnapshot(`"action-bar-button-icon codicon codicon-positron-new-console"`);
@@ -362,7 +291,7 @@ describe('TopActionBarSessionManager', () => {
 			);
 
 			act(() => {
-				emitter.fire(makeDisplayInfo({
+				displayInfoEmitter.fire(makeDisplayInfo({
 					sessionMode: LanguageRuntimeSessionMode.Notebook,
 					notebookUri: URI.file('/workspace/nb.ipynb'),
 				}));
@@ -379,12 +308,12 @@ describe('TopActionBarSessionManager', () => {
 			);
 
 			act(() => {
-				emitter.fire(makeDisplayInfo({ sessionName: 'Python 3.12.1' }));
+				displayInfoEmitter.fire(makeDisplayInfo({ sessionName: 'Python 3.12.1' }));
 			});
 			expect(container.querySelector('.action-bar-button-label')?.textContent).toMatchInlineSnapshot(`"Python 3.12.1"`);
 
 			act(() => {
-				emitter.fire(undefined);
+				displayInfoEmitter.fire(undefined);
 			});
 			expect(container.querySelector('.action-bar-button-label')?.textContent).toMatchInlineSnapshot(`"Start Session"`);
 		});
@@ -397,29 +326,29 @@ describe('TopActionBarSessionManager', () => {
 			);
 
 			act(() => {
-				emitter.fire(makeDisplayInfo());
+				displayInfoEmitter.fire(makeDisplayInfo());
 			});
 			expect(container.querySelector('.action-bar-button-icon')?.className).toMatchInlineSnapshot(`"action-bar-button-icon codicon codicon-positron-new-console"`);
 
 			act(() => {
-				emitter.fire(undefined);
+				displayInfoEmitter.fire(undefined);
 			});
 			expect(container.querySelector('.action-bar-button-icon')?.className).toMatchInlineSnapshot(`"action-bar-button-icon codicon codicon-arrow-swap"`);
 		});
 	});
 
 	describe('command ID selection - with active console sessions', () => {
-		const { service, emitter } = createMockRuntimeSessionService({
-			hasActiveConsoleSessions: true,
-		});
-		const services = createTestServices(service);
-		const rtl = setupRTLRenderer(services);
-
-		afterAll(() => {
-			emitter.dispose();
-			services._configEmitter.dispose();
-			services._contextKeyEmitter.dispose();
-		});
+		const displayInfoEmitter = new Emitter<IRuntimeSessionDisplayInfo | undefined>();
+		const ctx = createTestContainer()
+			.withReactServices()
+			.stub(IRuntimeSessionService, {
+				foregroundSessionDisplayInfo: undefined,
+				activeSessions: [{ metadata: { sessionMode: LanguageRuntimeSessionMode.Console } }] as any,
+				onDidChangeForegroundSessionDisplayInfo: displayInfoEmitter.event,
+			} as Partial<IRuntimeSessionService>)
+			.stub(ICommandService, { executeCommand: vi.fn().mockResolvedValue(undefined) } as Partial<ICommandService>)
+			.build();
+		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 		it('uses selectSession command when there are active console sessions', () => {
 			const { container } = rtl.render(
@@ -431,24 +360,24 @@ describe('TopActionBarSessionManager', () => {
 			const button = container.querySelector('button')!;
 			fireEvent.click(button);
 
-			expect(services.commandService.executeCommand).toHaveBeenCalledWith(
+			expect(ctx.get(ICommandService).executeCommand).toHaveBeenCalledWith(
 				'workbench.action.language.runtime.selectSession'
 			);
 		});
 	});
 
 	describe('command ID selection - without active console sessions', () => {
-		const { service, emitter } = createMockRuntimeSessionService({
-			hasActiveConsoleSessions: false,
-		});
-		const services = createTestServices(service);
-		const rtl = setupRTLRenderer(services);
-
-		afterAll(() => {
-			emitter.dispose();
-			services._configEmitter.dispose();
-			services._contextKeyEmitter.dispose();
-		});
+		const displayInfoEmitter = new Emitter<IRuntimeSessionDisplayInfo | undefined>();
+		const ctx = createTestContainer()
+			.withReactServices()
+			.stub(IRuntimeSessionService, {
+				foregroundSessionDisplayInfo: undefined,
+				activeSessions: [],
+				onDidChangeForegroundSessionDisplayInfo: displayInfoEmitter.event,
+			} as Partial<IRuntimeSessionService>)
+			.stub(ICommandService, { executeCommand: vi.fn().mockResolvedValue(undefined) } as Partial<ICommandService>)
+			.build();
+		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 		it('uses startNewConsoleSession command when no active console sessions', () => {
 			const { container } = rtl.render(
@@ -460,7 +389,7 @@ describe('TopActionBarSessionManager', () => {
 			const button = container.querySelector('button')!;
 			fireEvent.click(button);
 
-			expect(services.commandService.executeCommand).toHaveBeenCalledWith(
+			expect(ctx.get(ICommandService).executeCommand).toHaveBeenCalledWith(
 				'workbench.action.language.runtime.startNewConsoleSession'
 			);
 		});

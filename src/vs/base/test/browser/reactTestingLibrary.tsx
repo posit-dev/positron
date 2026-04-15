@@ -16,28 +16,25 @@ type TestServices = Record<string, any>;
  * Sets up an RTL renderer that wraps components in PositronReactServicesContext.
  *
  * Bridges `createTestContainer()` with `@testing-library/react`: pass the
- * services your component needs as a partial object, and the helper wraps
- * every `render()` call in the context provider.
+ * services your component needs, and the helper wraps every `render()` call
+ * in the context provider.
  *
  * Registers an `afterEach` hook that calls RTL `cleanup()` so React trees
  * are unmounted between tests (required for disposable leak detection).
  *
  * ## Patterns
  *
- * **Service-context pattern** (components that call `usePositronReactServicesContext`):
+ * **Builder + React bridge** (recommended for components using `usePositronReactServicesContext`):
  * ```tsx
- * const ctx = createTestContainer().withRuntimeServices().build();
- * const rtl = setupRTLRenderer({
- *     runtimeSessionService: ctx.get(IRuntimeSessionService),
- * });
+ * const ctx = createTestContainer().withReactServices().build();
+ * const rtl = setupRTLRenderer(() => ctx.reactServices);
  *
  * it('renders session label', () => {
- *     // getByText throws if not found -- the call itself is the assertion.
  *     rtl.render(<MyComponent />).getByText('Start Session');
  * });
  * ```
  *
- * **Prop-driven pattern** (components that receive data via props):
+ * **Prop-driven pattern** (components that receive all data via props):
  * ```tsx
  * const rtl = setupRTLRenderer();
  *
@@ -46,11 +43,14 @@ type TestServices = Record<string, any>;
  * });
  * ```
  *
- * @param services Partial services object. Merged into the context provider
- *   value. Components access these via `usePositronReactServicesContext()`.
+ * @param services Services for the React context. Accepts either:
+ *   - A plain object (static services, resolved immediately)
+ *   - A function returning services (deferred, resolved at render time --
+ *     required when using `ctx.reactServices` from the builder since services
+ *     are created fresh in each `beforeEach`)
  *   Omit for prop-driven components that don't use the context.
  */
-export function setupRTLRenderer(services?: TestServices) {
+export function setupRTLRenderer(services?: TestServices | (() => TestServices)) {
 	afterEach(() => {
 		cleanup();
 	});
@@ -61,9 +61,10 @@ export function setupRTLRenderer(services?: TestServices) {
 		 * Returns the full RTL RenderResult (getByText, getByRole, etc.).
 		 */
 		render(element: ReactElement): RenderResult {
-			const wrapper = services
+			const resolvedServices = typeof services === 'function' ? services() : services;
+			const wrapper = resolvedServices
 				? ({ children }: { children: React.ReactNode }) => (
-					<PositronReactServicesContext.Provider value={services as any}>
+					<PositronReactServicesContext.Provider value={resolvedServices as any}>
 						{children}
 					</PositronReactServicesContext.Provider>
 				)

@@ -79,11 +79,13 @@ it('renders the label', () => {
 });
 ```
 
-**RTL service-context** -- component reads from context:
+**RTL service-context** -- component reads from context. The builder handles all service wiring:
 ```typescript
-const rtl = setupRTLRenderer({
-	runtimeSessionService: { foregroundSessionDisplayInfo: undefined, activeSessions: [], ... },
-});
+const ctx = createTestContainer()
+	.withReactServices()
+	.stub(IRuntimeSessionService, { foregroundSessionDisplayInfo: undefined, activeSessions: [], ... })
+	.build();
+const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 it('shows start session', () => {
 	rtl.render(<TopActionBarSessionManager />).getByText('Start Session');
@@ -119,18 +121,22 @@ For presets, key rules, and the incremental mocking guide, see the JSDoc on `Pos
 
 Two patterns for testing React components:
 
-**Service-context pattern** -- for components that call `usePositronReactServicesContext()`:
+**Service-context pattern** -- for components that call `usePositronReactServicesContext()`.
+Use `withReactServices()` and `ctx.reactServices` to bridge the builder with the React context:
 ```typescript
-const ctx = createTestContainer().withRuntimeServices().build();
-const rtl = setupRTLRenderer({
-	runtimeSessionService: ctx.get(IRuntimeSessionService),
-});
+const ctx = createTestContainer()
+	.withReactServices()
+	.stub(IRuntimeSessionService, { foregroundSessionDisplayInfo: undefined, ... })
+	.build();
+const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 it('renders session info', () => {
 	// getByText throws if not found -- the call itself is the assertion.
 	rtl.render(<MyComponent />).getByText('Start Session');
 });
 ```
+The builder provides all 50+ services that `PositronReactServicesContext` needs.
+Override specific services with `.stub()` -- child component dependencies are handled automatically.
 
 **Prop-driven pattern** -- for components that receive all data via props:
 ```typescript

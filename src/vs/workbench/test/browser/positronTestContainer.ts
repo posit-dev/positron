@@ -35,6 +35,23 @@ import { workbenchInstantiationService as baseWorkbenchInstantiationService } fr
 import { ICodeEditorService } from '../../../editor/browser/services/codeEditorService.js';
 import { IPositronNotebookService } from '../../contrib/positronNotebook/browser/positronNotebookService.js';
 import { IQuartoKernelManager } from '../../contrib/positronQuarto/browser/quartoKernelManager.js';
+import { PositronReactServices } from '../../../base/browser/positronReactServices.js';
+import { IActionWidgetService } from '../../../platform/actionWidget/browser/actionWidget.js';
+import { IClipboardService } from '../../../platform/clipboard/common/clipboardService.js';
+import { IExecutionHistoryService } from '../../services/positronHistory/common/executionHistoryService.js';
+import { ILanguageModelsService } from '../../contrib/chat/common/languageModels.js';
+import { IPositronAssistantService } from '../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
+import { IPositronConnectionsService } from '../../services/positronConnections/common/interfaces/positronConnectionsService.js';
+import { IPositronDataExplorerService } from '../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
+import { IPositronHelpService } from '../../contrib/positronHelp/browser/positronHelpService.js';
+import { IPositronMemoryUsageService } from '../../../platform/positronMemoryUsage/common/positronMemoryUsage.js';
+import { IPositronPackagesService } from '../../contrib/positronPackages/browser/interfaces/positronPackagesService.js';
+import { IPositronPreviewService } from '../../contrib/positronPreview/browser/positronPreviewSevice.js';
+import { IPositronTopActionBarService } from '../../services/positronTopActionBar/browser/positronTopActionBarService.js';
+import { IQuickChatService } from '../../contrib/chat/browser/chat.js';
+import { IResourceUsageHistoryService } from '../../services/positronConsole/browser/resourceUsageHistoryService.js';
+import { ITerminalService } from '../../contrib/terminal/browser/terminal.js';
+import { IViewDescriptorService } from '../../common/views.js';
 
 interface TestContainerResult {
 	/** Retrieve a registered service by its identifier. */
@@ -43,6 +60,12 @@ interface TestContainerResult {
 	instantiationService: TestInstantiationService;
 	/** Disposable store -- auto-cleaned after each test. Pass to helpers that need it. */
 	disposables: Pick<DisposableStore, 'add'>;
+	/**
+	 * Services object for PositronReactServicesContext. Only available with
+	 * `withReactServices()`. Pass to `setupRTLRenderer(() => ctx.reactServices)`.
+	 * Created fresh from the DI container each time it's accessed (after beforeEach).
+	 */
+	reactServices: PositronReactServices;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- service stubs are inherently untyped
@@ -61,6 +84,7 @@ type ServiceStub = { id: ServiceIdentifier<any>; impl: any };
  *   Notebooks      -- runtime + notebook/kernel services (+8)
  *   Workbench      -- full Positron stack (124+)
  *   Contributions  -- workbench + Event.None stubs for editor/notebook lifecycle
+ *   ReactServices  -- workbench + stubs for PositronReactServicesContext (adds ctx.reactServices)
  *
  * When to add a new preset:
  *   - 2+ test files across different directories need the same .stub() set
@@ -136,6 +160,7 @@ class PositronTestContainerBuilder {
 	private _useNotebookServices = false;
 	private _useWorkbenchServices = false;
 	private _useContributionServices = false;
+	private _useReactServices = false;
 	private _stubs: ServiceStub[] = [];
 
 	/** Add the 18 runtime/language services (ILanguageRuntimeService, IRuntimeSessionService, etc.) */
@@ -153,6 +178,16 @@ class PositronTestContainerBuilder {
 	/** Add the full 124+ workbench service stack (includes runtime + notebook services). */
 	withWorkbenchServices(): this {
 		this._useWorkbenchServices = true;
+		return this;
+	}
+
+	/**
+	 * Add workbench services + stubs needed to create PositronReactServicesContext.
+	 * Enables `ctx.reactServices` for use with `setupRTLRenderer(() => ctx.reactServices)`.
+	 * Use this for testing React components that call `usePositronReactServicesContext()`.
+	 */
+	withReactServices(): this {
+		this._useReactServices = true;
 		return this;
 	}
 
@@ -192,12 +227,39 @@ class PositronTestContainerBuilder {
 		const useNotebookServices = this._useNotebookServices;
 		const useWorkbenchServices = this._useWorkbenchServices;
 		const useContributionServices = this._useContributionServices;
+		const useReactServices = this._useReactServices;
 
 		// Mutable slot -- reassigned in beforeEach so each test starts fresh.
 		let _instantiationService: TestInstantiationService;
 
 		beforeEach(() => {
-			if (useContributionServices) {
+			if (useReactServices) {
+				_instantiationService = positronWorkbenchInstantiationService(disposables);
+				// Stub services that PositronReactServices needs but the workbench
+				// preset doesn't provide. Empty stubs are sufficient -- tests override
+				// specific services via .stub() as needed.
+				const emptyStubs: [ServiceIdentifier<any>, any][] = [
+					[IActionWidgetService, {}],
+					[IClipboardService, {}],
+					[IExecutionHistoryService, {}],
+					[ILanguageModelsService, {}],
+					[IPositronAssistantService, {}],
+					[IPositronConnectionsService, {}],
+					[IPositronDataExplorerService, {}],
+					[IPositronHelpService, {}],
+					[IPositronMemoryUsageService, {}],
+					[IPositronPackagesService, {}],
+					[IPositronPreviewService, {}],
+					[IPositronTopActionBarService, {}],
+					[IQuickChatService, {}],
+					[IResourceUsageHistoryService, {}],
+					[ITerminalService, {}],
+					[IViewDescriptorService, {}],
+				];
+				for (const [id, impl] of emptyStubs) {
+					_instantiationService.stub(id, impl);
+				}
+			} else if (useContributionServices) {
 				_instantiationService = positronWorkbenchInstantiationService(disposables);
 				// Event.None stubs for services that contributions subscribe to
 				// in their constructors. Tests can override any of these with .stub().
@@ -250,6 +312,7 @@ class PositronTestContainerBuilder {
 		// This is safe because tests only access these after beforeEach has run.
 		const result: TestContainerResult = {
 			get instantiationService() { return _instantiationService; },
+			get reactServices() { return _instantiationService.createInstance(PositronReactServices); },
 			get<T>(id: ServiceIdentifier<T>) { return _instantiationService.get(id); },
 			disposables,
 		};
