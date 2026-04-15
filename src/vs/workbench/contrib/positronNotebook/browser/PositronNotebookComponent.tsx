@@ -68,8 +68,9 @@ export function PositronNotebookComponent() {
 		notebookInstance.setCellsContainer(node);
 	}, [notebookInstance]);
 
-	// Capture the restored scroll position; we only restore it once.
-	const scrollPositionRef = React.useRef(notebookInstance.restoredScrollPosition);
+	// Consume the restored scroll position; cleared on read so error boundary
+	// reloads don't restore a stale position.
+	const scrollPositionRef = React.useRef(notebookInstance.consumeRestoredScrollPosition());
 
 	// Callback to calculate the target scroll top from the anchor cell.
 	const getScrollTop = React.useCallback(

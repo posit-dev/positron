@@ -476,10 +476,11 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	getCellTop(cell: IPositronNotebookCell): number | undefined;
 
 	/**
-	 * The scroll position resolved by the last call to `restoreEditorViewState`.
-	 * Read by the React component on mount to restore the scroll position.
+	 * Returns the scroll position resolved by the last call to
+	 * `restoreEditorViewState` and clears it so subsequent mounts (e.g. error
+	 * boundary reloads) don't restore a stale position.
 	 */
-	readonly restoredScrollPosition: IPositronNotebookResolvedScrollPosition | undefined;
+	consumeRestoredScrollPosition(): IPositronNotebookResolvedScrollPosition | undefined;
 
 	/**
 	 * Restore editor view state such as scroll position.

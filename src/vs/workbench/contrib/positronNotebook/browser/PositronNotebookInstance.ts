@@ -1988,11 +1988,14 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	/**
-	 * The scroll position resolved by the last call to `restoreEditorViewState`.
-	 * Read by the React component on mount to restore the scroll position.
+	 * Returns the scroll position resolved by the last call to
+	 * `restoreEditorViewState` and clears it so subsequent mounts (e.g. error
+	 * boundary reloads) don't restore a stale position.
 	 */
-	get restoredScrollPosition(): IPositronNotebookResolvedScrollPosition | undefined {
-		return this._restoredScrollPosition;
+	consumeRestoredScrollPosition(): IPositronNotebookResolvedScrollPosition | undefined {
+		const pos = this._restoredScrollPosition;
+		this._restoredScrollPosition = undefined;
+		return pos;
 	}
 
 	/**
