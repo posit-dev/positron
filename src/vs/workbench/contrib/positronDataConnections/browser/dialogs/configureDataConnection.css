@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 .configure-data-connection {
-	gap: 10px;
+	gap: 8px;
 	display: flex;
 	flex-direction: column;
 }
@@ -25,8 +25,8 @@
 	display: flex;
 	flex-shrink: 0;
 	border-radius: 3px;
-	background: #f8f8f8;
 	align-items: center;
+	background: #f8f8f8;
 	justify-content: center;
 	border: 1px solid rgba(128, 128, 128, 0.2);
 }
@@ -43,7 +43,7 @@
 }
 
 .configure-data-connection .parameter-field {
-	/* gap: 4px; */
+	gap: 2px;
 	display: flex;
 	flex-direction: column;
 }
@@ -64,9 +64,15 @@
 	border: 1px solid var(--vscode-input-border);
 }
 
-.configure-data-connection .parameter-input:focus {
-	outline: none;
-	border-color: var(--vscode-focusBorder);
+.configure-data-connection .parameter-input.error {
+	outline: 1px solid var(--vscode-inputValidation-errorBorder);
+	outline-offset: 1px;
+}
+
+.configure-data-connection .parameter-input.error:focus {
+	box-shadow: 0 0 0 1px var(--vscode-focusBorder);
+	outline: 1px solid var(--vscode-inputValidation-errorBorder);
+	outline-offset: 2px;
 }
 
 .configure-data-connection .parameter-select {

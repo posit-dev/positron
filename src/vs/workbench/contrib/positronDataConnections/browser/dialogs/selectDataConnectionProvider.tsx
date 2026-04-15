@@ -137,7 +137,7 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 					<div className='driver-grid-clip'>
 						<div ref={gridContainerRef} className='driver-grid-container' role='group'>
 							<div className='driver-grid'>
-								{drivers.map((driver, index) => (
+								{Array.from({ length: 6 }, () => drivers).flat().map((driver, index) => (
 									<Button
 										key={`${driver.id}-${index}`}
 										className={positronClassNames(

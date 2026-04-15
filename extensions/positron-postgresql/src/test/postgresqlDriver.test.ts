@@ -15,6 +15,7 @@ const TEST_CONFIG: PostgreSQLConnectionConfig = {
 	user: 'testuser',
 	password: 'testpass',
 	ssl: false,
+	readOnly: true
 };
 
 // Creates a mock pg Client with configurable query results.

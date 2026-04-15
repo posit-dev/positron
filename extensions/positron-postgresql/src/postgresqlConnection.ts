@@ -17,6 +17,7 @@ export interface PostgreSQLConnectionConfig {
 	user: string;
 	password: string;
 	ssl: boolean;
+	readOnly: boolean;
 }
 
 /**
@@ -39,6 +40,7 @@ export class PostgreSQLConnection implements positron.DataConnection {
 			user: _config.user,
 			password: _config.password,
 			ssl: _config.ssl ? { rejectUnauthorized: false } : false,
+			options: _config.readOnly ? '-c default_transaction_read_only=on' : undefined,
 		});
 	}
 
@@ -57,9 +59,11 @@ export class PostgreSQLConnection implements positron.DataConnection {
 		}
 	}
 
-	/** PostgreSQL connections are never read-only in this driver. */
+	/**
+	 * Gets a value which indicates whether the connection is read only.
+	 */
 	async isReadOnly(): Promise<boolean> {
-		return false;
+		return this._config.readOnly;
 	}
 
 	/**

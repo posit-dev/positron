@@ -69,23 +69,43 @@ export function createPostgreSQLDriver(
 				type: positron.DataConnectionParameterType.Boolean,
 				defaultValue: false,
 			},
+			{
+				id: 'read-only',
+				label: 'Read only',
+				type: positron.DataConnectionParameterType.Boolean,
+				defaultValue: false,
+			},
 		],
 		async connect(params: positron.DataConnectionParameterValues): Promise<positron.DataConnection> {
+			// Get the parameter values.
 			const host = params.host as string;
 			const port = params.port as number;
 			const database = params.database as string;
 			const user = params.user as string;
 			const password = params.password as string ?? '';
 			const ssl = params.ssl as boolean ?? false;
+			const readOnly = params.readOnly as boolean ?? false;
 
+			// Ensure that the host, database, and user, at lease, are specified.
 			if (!host || !database || !user) {
 				throw new Error('Host, database, and user are required');
 			}
 
+			// Create the connection.
 			const connection = new PostgreSQLConnection({
-				host, port, database, user, password, ssl
+				host,
+				port,
+				database,
+				user,
+				password,
+				ssl,
+				readOnly
 			});
+
+			// Connect the connection.
 			await connection.connect();
+
+			// Return the connection.
 			return connection;
 		},
 	};
