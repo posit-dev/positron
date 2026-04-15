@@ -12,10 +12,10 @@ import { addDisposableListener, getWindow } from '../../../../base/browser/dom.j
  * Wall-clock time (ms) the scroll position must remain stable (no corrections
  * needed) before we consider the layout settled and stop the loop.
  */
-const STABLE_DURATION_MS = 200;
+const STABLE_DURATION_MS = 500;
 
 /** Maximum time (ms) to keep the restoration loop running before giving up. */
-const TIMEOUT_MS = 1500;
+const TIMEOUT_MS = 1000;
 
 /**
  * Restores scroll position by continuously scrolling the container to the
@@ -90,7 +90,7 @@ export function useScrollRestoration(
 				: NaN;
 			const stableSince = performance.now() - lastCorrectionTime;
 			logService.debug(
-				`[scroll-restore] ${reason} +${(performance.now() - startTimestamp).toFixed(0)}ms` +
+				`[scroll-restore] stopped with reason: ${reason} +${(performance.now() - startTimestamp).toFixed(0)}ms` +
 				` (${frameCount} frames, stable ${stableSince.toFixed(0)}ms):` +
 				` final scrollTop=${container.scrollTop}, target=${target}, drift=${drift.toFixed(1)}px`
 			);
