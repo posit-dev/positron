@@ -30,7 +30,10 @@ import { createAsar } from './lib/asar.ts';
 import minimist from 'minimist';
 import { compileBuildWithoutManglingTask, compileBuildWithManglingTask } from './gulpfile.compile.ts';
 import { compileNonNativeExtensionsBuildTask, compileNativeExtensionsBuildTask, compileAllExtensionsBuildTask, compileExtensionMediaBuildTask, cleanExtensionsBuildTask } from './gulpfile.extensions.ts';
-import { copyCodiconsTask } from './lib/compilation.ts';
+// --- Start Positron ---
+// Do not import copyCodiconsTask. Positron maintains a custom codicon.ttf in the repo that
+// includes Positron-specific icons. Copying from the npm package would overwrite these.
+// --- End Positron ---
 import type { EmbeddedProductInfo } from './lib/embeddedType.ts';
 import { useEsbuildTranspile } from './buildConfig.ts';
 import { promisify } from 'util';
@@ -44,6 +47,7 @@ import { getQuartoBinaries } from './lib/quarto.ts';
 import { positronBuildNumber, releaseChannel } from './utils.ts';
 // eslint-disable-next-line no-duplicate-imports
 import { copyExtensionBinariesTask } from './gulpfile.extensions.ts';
+import { getESMPackageDependencies } from './lib/esm-package-dependencies.ts';
 // --- End Positron ---
 
 const glob = promisify(globCallback);
@@ -273,7 +277,10 @@ gulp.task(task.define('core-ci-old', task.series(
 )));
 
 gulp.task(task.define('core-ci', task.series(
-	copyCodiconsTask,
+	// --- Start Positron ---
+	// copyCodiconsTask removed: Positron maintains a custom codicon.ttf in the repo with
+	// Positron-specific icons; copying from npm would overwrite them.
+	// --- End Positron ---
 	compileNonNativeExtensionsBuildTask,
 	compileExtensionMediaBuildTask,
 	writeISODate('out-build'),
@@ -453,8 +460,8 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 		// --- Start Positron ---
 		const license = gulp.src([product.licenseFileName, 'NOTICE', 'ThirdPartyNotices.txt', 'licenses/**'], { base: '.', allowEmpty: true });
 
-		// External modules (React, etc.) - copy from out-build where they were generated.
-		const moduleSources = gulp.src('out-build/esm-package-dependencies/**').pipe(rename(function (p) { p.dirname = path.join('out', 'esm-package-dependencies', p.dirname ?? ''); }));
+		// External modules (React, etc.) - copy directly from .build/ where postinstall generated them.
+		const moduleSources = getESMPackageDependencies('out');
 
 		// Positron API
 		const positronApi = gulp.src('src/positron-dts/positron.d.ts')
@@ -838,7 +845,10 @@ BUILD_TARGETS.forEach(buildTarget => {
 				)
 			);
 			vscodeTask = task.define(`vscode${dashed(platform)}${dashed(arch)}${dashed(minified)}`, task.series(
-				copyCodiconsTask,
+				// --- Start Positron ---
+				// copyCodiconsTask removed: Positron maintains a custom codicon.ttf in the repo with
+				// Positron-specific icons; copying from npm would overwrite them.
+				// --- End Positron ---
 				cleanExtensionsBuildTask,
 				compileNonNativeExtensionsBuildTask,
 				compileExtensionMediaBuildTask,

@@ -830,6 +830,13 @@ ${tslib}`,
 			platform: 'neutral',
 			target: ['es2024'],
 			packages: 'external',
+			// --- Start Positron ---
+			// Use the automatic JSX runtime (matching tsconfig "jsx": "react-jsx") so that
+			// JSX in .tsx files compiles to _jsx() calls from 'react/jsx-runtime' rather than
+			// React.createElement() calls that require 'React' to be explicitly in scope.
+			jsx: 'automatic',
+			jsxImportSource: 'react',
+			// --- End Positron ---
 			sourcemap: 'linked',
 			sourcesContent: true,
 			minify: doMinify,

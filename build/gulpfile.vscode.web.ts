@@ -19,7 +19,10 @@ import { getProductionDependencies } from './lib/dependencies.ts';
 import vfs from 'vinyl-fs';
 import packageJson from '../package.json' with { type: 'json' };
 import { compileBuildWithManglingTask } from './gulpfile.compile.ts';
-import { copyCodiconsTask } from './lib/compilation.ts';
+// --- Start Positron ---
+// Do not import copyCodiconsTask. Positron maintains a custom codicon.ttf in the repo that
+// includes Positron-specific icons. Copying from the npm package would overwrite these.
+// --- End Positron ---
 import * as extensions from './lib/extensions.ts';
 import jsonEditor from 'gulp-json-editor';
 import buildfile from './buildfile.ts';
@@ -260,7 +263,10 @@ const dashed = (str: string) => (str ? `-${str}` : ``);
 	const destinationFolderName = `vscode-web`;
 
 	const vscodeWebTaskCI = task.define(`vscode-web${dashed(minified)}-ci`, task.series(
-		copyCodiconsTask,
+		// --- Start Positron ---
+		// copyCodiconsTask removed: Positron maintains a custom codicon.ttf in the repo with
+		// Positron-specific icons; copying from npm would overwrite them.
+		// --- End Positron ---
 		compileWebExtensionsBuildTask,
 		minified ? esbuildBundleVSCodeWebMinTask : esbuildBundleVSCodeWebTask,
 		util.rimraf(path.join(BUILD_ROOT, destinationFolderName)),
