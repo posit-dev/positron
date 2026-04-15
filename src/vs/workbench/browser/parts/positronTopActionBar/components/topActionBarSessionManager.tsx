@@ -22,8 +22,7 @@ import { LANGUAGE_RUNTIME_SELECT_SESSION_ID, LANGUAGE_RUNTIME_START_NEW_CONSOLE_
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { RuntimeStatus, getSessionDisplayName, getSessionIcon, getSessionIconStyle, runtimeStateToRuntimeStatus } from '../../../../contrib/positronConsole/common/sessionDisplayUtils.js';
 import { RuntimeStatusIcon } from '../../../../contrib/positronConsole/browser/components/runtimeStatus.js';
-import { Icon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
-import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { ActionBarButtonIcon, ActionBarButtonLabel } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 
 const startSession = localize('positron.console.startSession', "Start Session");
 
@@ -119,17 +118,14 @@ export const TopActionBarSessionManager = () => {
 				{runtimeStatus !== undefined &&
 					<RuntimeStatusIcon status={runtimeStatus} />
 				}
-				<Icon
-					className={positronClassNames(
-						'action-bar-button-icon',
-						{ 'custom-icon-color': Boolean(iconStyle) }
-					)}
+				<ActionBarButtonIcon
 					icon={sessionIcon}
 					style={iconStyle}
 				/>
-				<div className='action-bar-button-label'>
-					{labelText}
-				</div>
+				<ActionBarButtonLabel
+					hasIcon={true}
+					label={labelText}
+				/>
 			</div>
 		</ActionBarCommandButton>
 	);
