@@ -7,7 +7,7 @@
 import './actionBarButton.css';
 
 // React.
-import { useRef, PropsWithChildren, useImperativeHandle, forwardRef } from 'react';
+import React, { useRef, PropsWithChildren, useImperativeHandle, forwardRef } from 'react';
 
 // Other dependencies.
 import { Icon as IconType } from '../../../action/common/action.js';
@@ -48,6 +48,7 @@ type ActionBarButtonCommonProps = {
 	readonly dropdownTooltip?: string | (() => string | undefined);
 	readonly fadeIn?: boolean;
 	readonly height?: number;
+	readonly iconStyle?: React.CSSProperties;
 	readonly label?: string;
 	readonly maxTextWidth?: number;
 	readonly mouseTrigger?: MouseTrigger;
@@ -56,14 +57,14 @@ type ActionBarButtonCommonProps = {
 	readonly onMouseEnter?: () => void;
 	readonly onMouseLeave?: () => void;
 	readonly onPressed?: () => void;
-}
+};
 
 /**
  * ActionBarButtonProps type.
  */
 export type ActionBarButtonProps =
 	ActionBarButtonCommonProps &
-	ActionBarButtonIconProps
+	ActionBarButtonIconProps;
 
 /**
  * ActionBarButton component.
@@ -103,9 +104,11 @@ export const ActionBarButton = forwardRef<
 					<Icon
 						className={positronClassNames(
 							'action-bar-button-icon',
-							props.dropdownIndicator
+							props.dropdownIndicator,
+							{ 'custom-icon-color': Boolean(props.iconStyle) }
 						)}
 						icon={props.icon}
+						style={props.iconStyle}
 					/>
 				}
 				{props.iconImageSrc &&
