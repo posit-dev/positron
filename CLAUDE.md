@@ -38,135 +38,32 @@ Positron forks VSCode. Minimize merge conflicts by isolating Positron code.
 
 ### Where should I put my test?
 
-Two questions determine the test runner and pattern:
-
-1. **Does it need Electron?** (activated extensions, workspace APIs, editor document manipulation)
-2. **Is it a React component?** (a `.tsx` file that renders JSX)
-
-| What you're testing | Runner | Pattern | Example |
+| What you're testing | Runner | Pattern | File extension |
 |---|---|---|---|
-| Pure function or class, no services | Vitest | **Plain test** -- import and call | `positronUpdateUtils.vitest.ts` |
-| Service or class that needs DI services | Vitest | **Builder** -- `createTestContainer()` | `positronVariablesService.vitest.ts` |
-| React component, props only | Vitest | **RTL prop-driven** -- `setupRTLRenderer()` | `reactTestingLibrary.vitest.tsx` |
-| React component using `usePositronReactServicesContext()` | Vitest | **RTL service-context** -- `setupRTLRenderer(services)` | `topActionBarSessionManager.vitest.tsx` |
-| Code needing activated extensions or workspace APIs | Mocha | **Extension host** -- `npm run test-extension` | |
-| User-visible workflows across multiple systems | Playwright | **E2E** | |
-
-**Plain test** -- no setup needed:
-```typescript
-it('builds URL with language params', () => {
-	const result = buildUpdateUrl(baseUrl, ['python'], true, undefined);
-	expect(result).toBe(`${baseUrl}?python=1`);
-});
-```
-
-**Builder** -- handles disposable tracking and service setup automatically:
-```typescript
-const ctx = createTestContainer().withRuntimeServices().build();
-
-it('starts a session', async () => {
-	const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
-	expect(session.getRuntimeState()).toBe(RuntimeState.Starting);
-});
-```
-
-**RTL prop-driven** -- component gets all data via props:
-```typescript
-const rtl = setupRTLRenderer();
-
-it('renders the label', () => {
-	rtl.render(<Label text="hello" />).getByText('hello');
-});
-```
-
-**RTL service-context** -- component reads from context. The builder handles all service wiring:
-```typescript
-const ctx = createTestContainer()
-	.withReactServices()
-	.stub(IRuntimeSessionService, { foregroundSessionDisplayInfo: undefined, activeSessions: [], ... })
-	.build();
-const rtl = setupRTLRenderer(() => ctx.reactServices);
-
-it('shows start session', () => {
-	rtl.render(<TopActionBarSessionManager />).getByText('Start Session');
-});
-```
+| Pure function or class, no services | Vitest | **Plain test** | `.vitest.ts` |
+| Service or class that needs DI services | Vitest | **Builder** -- `createTestContainer()` | `.vitest.ts` |
+| React component, props only | Vitest | **RTL prop-driven** -- `setupRTLRenderer()` | `.vitest.tsx` |
+| React component using context | Vitest | **RTL service-context** -- `withReactServices()` | `.vitest.tsx` |
+| Code needing activated extensions or workspace APIs | Mocha | **Extension host** -- `npm run test-extension` | `.test.ts` |
+| User-visible workflows across multiple systems | Playwright | **E2E** | `.test.ts` |
 
 ### Running tests
 
 - **Vitest tests** (`*.vitest.ts` / `*.vitest.tsx`, **no build daemons needed**):
 	- `npm run test:vitest`: run all Vitest tests
 	- `npx vitest run src/path/to/<file>.vitest.ts`: run a specific file
-	- `npx vitest run --reporter=verbose`: run with detailed output
-	- `npx vitest run --coverage --coverage.include='**/myFile.tsx'`: run with scoped coverage
+	- `npx vitest run --coverage --coverage.include='**/myFile.tsx' <test-file>`: scoped coverage
 	- `npx vitest run --update <file>`: update inline snapshots
-	- Vitest compiles TypeScript on-the-fly via esbuild -- no Electron, no `npm run build-start`, no wait. Ideal for rapid iteration and LLM-driven workflows.
 - **Core tests** (`*.test.ts`, requires build daemons):
 	- Ensure build daemons are running first: `npm run build-start && npm run build-check`
 	- `./scripts/test.sh`: run all tests
 	- `./scripts/test.sh --run src/path/to/<file>.test.ts`: run a specific file
-	- `./scripts/test.sh --run src/path/to/<file>.test.ts --grep '<pattern>'`: run specific tests in a file
-	- `./scripts/test.sh --runGlob <glob>.test.js`: run files matching a glob (use `.js` extension with `--runGlob`)
+	- `./scripts/test.sh --runGlob <glob>.test.js`: run files matching a glob (use `.js` extension)
 - **Extension tests** (`extensions/<extension-name>/*.test.ts`): `npm run test-extension -- -l <extension-name> --grep <pattern>`
 	- positron-python has its own test setup -- see `extensions/positron-python/CLAUDE.md`
 - **E2E tests** (full app, real browser): `npx playwright test test/e2e/tests/<test-name>.test.ts --project e2e-electron --grep '<pattern>'`
 
-### The Builder
-
-Use `createTestContainer()` for any test that needs services. Pick the lowest preset, use `.stub()` for extras. For pure logic tests, skip the builder entirely.
-
-The builder handles disposable leak detection automatically -- do NOT add `ensureNoLeakedDisposables()` yourself. It is called internally by `build()`. You only need `ensureNoLeakedDisposables()` in plain tests (no builder) that create disposables directly.
-
-For presets, key rules, and the incremental mocking guide, see the JSDoc on `PositronTestContainerBuilder` in `src/vs/workbench/test/browser/positronTestContainer.ts`.
-
-### React Component Testing (Vitest + RTL)
-
-Two patterns for testing React components:
-
-**Service-context pattern** -- for components that call `usePositronReactServicesContext()`.
-Use `withReactServices()` and `ctx.reactServices` to bridge the builder with the React context:
-```typescript
-const ctx = createTestContainer()
-	.withReactServices()
-	.stub(IRuntimeSessionService, { foregroundSessionDisplayInfo: undefined, ... })
-	.build();
-const rtl = setupRTLRenderer(() => ctx.reactServices);
-
-it('renders session info', () => {
-	// getByText throws if not found -- the call itself is the assertion.
-	rtl.render(<MyComponent />).getByText('Start Session');
-});
-```
-The builder provides all 50+ services that `PositronReactServicesContext` needs.
-Override specific services with `.stub()` -- child component dependencies are handled automatically.
-
-**Prop-driven pattern** -- for components that receive all data via props:
-```typescript
-const rtl = setupRTLRenderer();
-
-it('renders label', () => {
-	// getByText throws if not found -- no expect() wrapper needed.
-	rtl.render(<Label text="hello" />).getByText('hello');
-});
-```
-
-**RTL query priority** (prefer top to bottom):
-1. `getByRole` -- accessible roles (button, heading, etc.)
-2. `getByText` -- visible text content
-3. `getByLabelText` -- form labels
-4. `getByTestId` -- last resort, `data-testid` attribute
-5. `container.querySelector` -- escape hatch for CSS selectors
-
-**Inline snapshots** -- use `toMatchInlineSnapshot()` to capture rendered HTML. Vitest auto-fills on first run with `--update`. Snapshots catch unintended UI regressions. When a snapshot fails:
-1. Read the diff -- is the change intentional (upstream refactor) or a bug?
-2. If intentional: `npx vitest run --update <file>` to accept the new output, then commit
-3. If a bug: fix the source code, not the snapshot
-
-**When to use which mock utility:**
-- `vi.fn()` -- simple function stubs/spies in Vitest tests. Prefer this for new tests.
-- `vi.spyOn(obj, 'method')` -- spy on an existing method while preserving its implementation.
-- Existing `mock.ts` / `Test*` classes -- use when the mock needs complex state (emitters, observable values, multi-method coordination). These exist for services like `TestRuntimeSessionService`.
-- `sinon` -- avoid in new Vitest tests. Use `vi.fn()` instead.
+Detailed patterns, builder presets, RTL setup, and mock guidance are in `.claude/rules/vitest.md` (loaded automatically when editing `.vitest.{ts,tsx}` files).
 
 ## Directory Structure
 
