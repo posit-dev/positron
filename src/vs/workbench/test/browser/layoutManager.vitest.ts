@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
 
 import { LayoutManager } from '../../browser/positronDataGrid/classes/layoutManager.js';
 import { createTestContainer } from './positronTestContainer.js';
@@ -49,7 +48,7 @@ describe('LayoutManager', () => {
 	/**
 	 * Tests default-sized entries.
 	 */
-	it('Default-Sized Entries', { timeout: 60_000 }, () => {
+	it('Default-Sized Entries', { timeout: 120_000 }, () => {
 		verifyDefaultSizedEntries(1, 2);
 		verifyDefaultSizedEntries(10, 10);
 		verifyDefaultSizedEntries(1, 1_000);

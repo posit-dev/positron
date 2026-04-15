@@ -5,7 +5,6 @@
 
 // eslint-disable-next-line local/code-no-dangerous-type-assertions
 
-/// <reference types="vitest/globals" />
 
 import React from 'react';
 import { act } from '@testing-library/react';

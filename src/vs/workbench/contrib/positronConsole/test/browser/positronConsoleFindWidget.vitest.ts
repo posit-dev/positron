@@ -5,7 +5,6 @@
 
 /* eslint-disable local/code-no-any-casts */
 
-/// <reference types="vitest/globals" />
 
 import { ensureNoLeakedDisposables } from '../../../../../base/test/common/vitestUtils.js';
 import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';

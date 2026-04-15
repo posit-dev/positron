@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
 
 import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { isCopyImageMenuArg, toBase64DataUrl } from '../../browser/copyImageUtils.js';
