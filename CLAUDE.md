@@ -82,8 +82,10 @@ const rtl = setupRTLRenderer({
 });
 
 it('renders session info', () => {
+	// getByText throws if not found -- no assertion needed for presence.
+	// Use explicit matchers for non-trivial checks.
 	const { getByText } = rtl.render(<MyComponent />);
-	expect(getByText('Start Session')).toBeTruthy();
+	expect(getByText('Start Session')).toBeDefined();
 });
 ```
 
@@ -93,7 +95,7 @@ const rtl = setupRTLRenderer();
 
 it('renders label', () => {
 	const { getByText } = rtl.render(<Label text="hello" />);
-	expect(getByText('hello')).toBeTruthy();
+	expect(getByText('hello')).toBeDefined();
 });
 ```
 

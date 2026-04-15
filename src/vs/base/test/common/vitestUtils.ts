@@ -41,10 +41,9 @@ export function ensureNoLeakedDisposables(): Pick<DisposableStore, 'add'> {
 	afterEach((ctx) => {
 		store.dispose();
 		setDisposableTracker(null);
-		if (ctx.task.result?.state !== 'fail') {
+		if (ctx?.task?.result?.state !== 'fail') {
 			const result = tracker!.computeLeakingDisposables();
 			if (result) {
-				console.error(result.details);
 				throw new Error(`There are ${result.leaks.length} undisposed disposables!${result.details}`);
 			}
 		}

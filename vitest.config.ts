@@ -11,6 +11,8 @@ export default defineConfig({
 		environment: 'happy-dom',
 		globals: true,
 	},
+	// Vitest 4.x uses oxc by default. Explicit config ensures JSX
+	// automatic runtime (no manual React imports needed in .tsx files).
 	oxc: {
 		jsx: { runtime: 'automatic' },
 	},

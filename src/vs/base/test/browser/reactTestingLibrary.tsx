@@ -33,7 +33,7 @@ type TestServices = Record<string, any>;
  *
  * it('renders session label', () => {
  *     const { getByText } = rtl.render(<MyComponent />);
- *     expect(getByText('Start Session')).toBeTruthy();
+ *     expect(getByText('Start Session')).toBeDefined();
  * });
  * ```
  *
@@ -43,7 +43,7 @@ type TestServices = Record<string, any>;
  *
  * it('renders prop value', () => {
  *     const { getByText } = rtl.render(<Label text="hello" />);
- *     expect(getByText('hello')).toBeTruthy();
+ *     expect(getByText('hello')).toBeDefined();
  * });
  * ```
  *

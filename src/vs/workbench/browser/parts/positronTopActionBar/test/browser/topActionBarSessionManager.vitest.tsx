@@ -113,18 +113,21 @@ function createTestServices(runtimeSessionService: ReturnType<typeof createMockR
 // Tests
 // ---------------------------------------------------------------------------
 
-// Register the commands that TopActionBarSessionManager uses so that
-// ActionBarCommandButton considers them enabled.
-CommandCenter.addCommandInfo({
-	id: LANGUAGE_RUNTIME_SELECT_SESSION_ID,
-	title: 'Select Session',
-});
-CommandCenter.addCommandInfo({
-	id: LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID,
-	title: 'Start New Console Session',
-});
-
 describe('TopActionBarSessionManager', () => {
+	// Register commands in beforeAll so they are set up in a test lifecycle
+	// hook rather than at module scope. CommandCenter has no deregistration
+	// API, but Vitest isolates modules per file so this won't leak to other
+	// test files.
+	beforeAll(() => {
+		CommandCenter.addCommandInfo({
+			id: LANGUAGE_RUNTIME_SELECT_SESSION_ID,
+			title: 'Select Session',
+		});
+		CommandCenter.addCommandInfo({
+			id: LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID,
+			title: 'Start New Console Session',
+		});
+	});
 	const disposables = ensureNoLeakedDisposables();
 
 	describe('no session', () => {
@@ -160,7 +163,7 @@ describe('TopActionBarSessionManager', () => {
 			expect(icon?.className).toMatchInlineSnapshot(`"action-bar-button-icon codicon codicon-arrow-swap"`);
 		});
 
-		it('uses start-new-console-session command when no active console sessions', () => {
+		it('renders a button when no active console sessions', () => {
 			const { container } = rtl.render(
 				<PositronActionBarContextProvider>
 					<TopActionBarSessionManager />
@@ -168,7 +171,7 @@ describe('TopActionBarSessionManager', () => {
 			);
 
 			const button = container.querySelector('button');
-			expect(button).toBeTruthy();
+			expect(button).not.toBeNull();
 		});
 	});
 
