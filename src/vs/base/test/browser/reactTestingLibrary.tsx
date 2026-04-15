@@ -64,6 +64,9 @@ export function setupRTLRenderer(services?: TestServices | (() => TestServices))
 		 */
 		render(element: ReactElement): RenderResult {
 			const resolvedServices = typeof services === 'function' ? services() : services;
+			// Provider tree for Positron React components. Add new providers
+			// here when a component under test needs a context that isn't
+			// provided yet -- all existing tests automatically pick it up.
 			const wrapper = resolvedServices
 				? ({ children }: { children: React.ReactNode }) => (
 					<PositronReactServicesContext.Provider value={resolvedServices as any}>
