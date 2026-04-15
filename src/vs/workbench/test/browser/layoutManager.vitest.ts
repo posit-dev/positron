@@ -50,16 +50,12 @@ describe('LayoutManager', () => {
 	/**
 	 * Tests default-sized entries.
 	 */
-	// Skip: brute-force stress test (~2.5M iterations) exceeds CI timeout.
-	// The logic is covered by the other layout tests; this just checks scale.
-	it.skip('Default-Sized Entries', { timeout: 120_000 }, () => {
+	it('Default-Sized Entries', () => {
 		verifyDefaultSizedEntries(1, 2);
 		verifyDefaultSizedEntries(10, 10);
 		verifyDefaultSizedEntries(1, 1_000);
 		verifyDefaultSizedEntries(19, 1_000);
 		verifyDefaultSizedEntries(127, 20_000);
-		// Too big for CI.
-		// verifyDefaultSizedEntries(23, 500_000);
 	});
 
 	/**
@@ -548,15 +544,17 @@ describe('LayoutManager', () => {
 		layoutManager.setEntries(entries);
 
 		// Verify that every entry is correct.
+		// Uses raw comparisons instead of expect() in the hot loop to avoid
+		// assertion overhead (~10M expect() calls for large inputs).
 		for (let entry = 0; entry < entries; entry++) {
-			// Verify that every offset for every entry is correct.
 			for (let offset = 0; offset < defaultSize; offset++) {
 				const start = defaultSize * entry;
 				const layoutEntry = layoutManager.findFirstUnpinnedLayoutEntry(start + offset);
-				expect(layoutEntry).toBeTruthy();
-				expect(layoutEntry!.index).toBe(entry);
-				expect(layoutEntry!.start).toBe(start);
-				expect(layoutEntry!.end).toBe(start + defaultSize);
+				if (!layoutEntry || layoutEntry.index !== entry || layoutEntry.start !== start || layoutEntry.end !== start + defaultSize) {
+					expect.unreachable(
+						`Entry ${entry} offset ${offset}: expected index=${entry} start=${start} end=${start + defaultSize}, got ${JSON.stringify(layoutEntry)}`
+					);
+				}
 			}
 		}
 
@@ -726,16 +724,16 @@ describe('LayoutManager', () => {
 		const layoutManager = new LayoutManager(entrySize);
 		layoutManager.setEntries(entries, Array.from({ length: entries }, (_, i) => entrySize));
 
-		// Verify that every entry is correct.
+		// Verify that every entry is correct (raw comparisons to avoid expect() overhead).
 		for (let entry = 0; entry < entries; entry++) {
-			// Verify that every offset for every entry is correct.
 			for (let offset = 0; offset < entrySize; offset++) {
 				const start = entry * entrySize;
 				const layoutEntry = layoutManager.findFirstUnpinnedLayoutEntry(start + offset);
-				expect(layoutEntry).toBeTruthy();
-				expect(layoutEntry!.index).toBe(entry);
-				expect(layoutEntry!.start).toBe(start);
-				expect(layoutEntry!.end).toBe(start + entrySize);
+				if (!layoutEntry || layoutEntry.index !== entry || layoutEntry.start !== start || layoutEntry.end !== start + entrySize) {
+					expect.unreachable(
+						`Entry ${entry} offset ${offset}: expected index=${entry} start=${start} end=${start + entrySize}, got ${JSON.stringify(layoutEntry)}`
+					);
+				}
 			}
 		}
 
@@ -786,42 +784,34 @@ describe('LayoutManager', () => {
 		);
 		layoutManager.setEntries(entries, entrySizes);
 
-		// Verify that every entry is correct.
+		// Verify that every entry is correct (raw comparisons to avoid expect() overhead).
 		for (let entry = 0, start = 0; entry < entries; entry++) {
-			// Get the size of the entry.
 			const size = entrySizes[entry];
-
-			// Verify that every offset for every entry is correct.
 			for (let offset = 0; offset < size; offset++) {
 				const layoutEntry = layoutManager.findFirstUnpinnedLayoutEntry(start + offset);
-				expect(layoutEntry).toBeTruthy();
-				expect(layoutEntry!.index).toBe(entry);
-				expect(layoutEntry!.start).toBe(start);
-				expect(layoutEntry!.end).toBe(start + size);
+				if (!layoutEntry || layoutEntry.index !== entry || layoutEntry.start !== start || layoutEntry.end !== start + size) {
+					expect.unreachable(
+						`Entry ${entry} offset ${offset}: expected index=${entry} start=${start} end=${start + size}, got ${JSON.stringify(layoutEntry)}`
+					);
+				}
 			}
-
-			// Adjust the start for the next entry.
 			start += size;
 		}
 
 		// Override the first entry.
 		layoutManager.setSizeOverride(0, 10);
 
-		// Verify that every entry is correct.
+		// Verify that every entry is correct after override.
 		for (let entry = 0, start = 0; entry < entries; entry++) {
-			// Get the size of the entry.
 			const size = !entry ? 10 : entrySizes[entry];
-
-			// Verify that every offset for every entry is correct.
 			for (let offset = 0; offset < size; offset++) {
 				const layoutEntry = layoutManager.findFirstUnpinnedLayoutEntry(start + offset);
-				expect(layoutEntry).toBeTruthy();
-				expect(layoutEntry!.index).toBe(entry);
-				expect(layoutEntry!.start).toBe(start);
-				expect(layoutEntry!.end).toBe(start + size);
+				if (!layoutEntry || layoutEntry.index !== entry || layoutEntry.start !== start || layoutEntry.end !== start + size) {
+					expect.unreachable(
+						`Entry ${entry} offset ${offset}: expected index=${entry} start=${start} end=${start + size}, got ${JSON.stringify(layoutEntry)}`
+					);
+				}
 			}
-
-			// Adjust the start for the next entry.
 			start += size;
 		}
 	};
