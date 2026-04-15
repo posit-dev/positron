@@ -30,6 +30,7 @@ import { ILanguageRuntimePackage } from '../../../../services/runtimeSession/com
 import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progressbar.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { Separator } from '../../../../../base/common/actions.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
 
 const positronUninstallPackage = localize(
 	'positronUninstallPackage',
@@ -310,6 +311,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 
 			<div className='packages-filter-container'>
 				<ActionBarFilter
+					clearButtonIcon={Codicon.clearAll}
 					placeholder={localize('positronPackages.filterPlaceholder', "Filter packages")}
 					onFilterTextChanged={setFilterText}
 				/>

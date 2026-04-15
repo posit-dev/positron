@@ -12,6 +12,9 @@ import React, { ChangeEvent, forwardRef, useImperativeHandle, useRef, useState }
 // Other dependencies.
 import { localize } from '../../../../nls.js';
 import { positronClassNames } from '../../../../base/common/positronUtilities.js';
+import { Icon as IconType } from '../../../action/common/action.js';
+import { Icon } from './icon.js';
+import { Codicon } from '../../../../base/common/codicons.js';
 
 /**
  * ActionBarFilterProps interface.
@@ -21,6 +24,7 @@ interface ActionBarFilterProps {
 	disabled?: boolean;
 	initialFilterText?: string;
 	placeholder?: string;
+	clearButtonIcon?: IconType;
 	onFilterTextChanged: (filterText: string) => void;
 }
 
@@ -105,7 +109,7 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 						onClick={buttonClearClickHandler}
 						onKeyDown={buttonClearKeyDownHandler}
 					>
-						<div className={'codicon codicon-positron-search-cancel'} />
+						<Icon icon={props.clearButtonIcon ?? Codicon.positronSearchCancel} />
 					</button>
 				)}
 			</div>
