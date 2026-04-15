@@ -150,6 +150,12 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	const [filterText, setFilterText] = useState('');
 	const [debouncedFilterText, setDebouncedFilterText] = useState('');
 
+	// Clear selection when filter text changes
+	const handleFilterTextChanged = (text: string) => {
+		setFilterText(text);
+		setSelectedItem(undefined);
+	};
+
 	// Debounce filter text changes (300ms)
 	useEffect(() => {
 		const timeout = setTimeout(() => {
@@ -313,20 +319,27 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 				<ActionBarFilter
 					clearButtonIcon={Codicon.clearAll}
 					placeholder={localize('positronPackages.filterPlaceholder', "Filter packages")}
-					onFilterTextChanged={setFilterText}
+					size='md'
+					onFilterTextChanged={handleFilterTextChanged}
 				/>
 			</div>
 			<div className='packages-list-container'>
-				<List
-					height={height - FILTER_HEIGHT}
-					innerRef={innerRef}
-					itemCount={filteredPackages.length}
-					itemKey={(index) => filteredPackages[index].id}
-					itemSize={26}
-					width={'calc(100% - 2px)'}
-				>
-					{ItemEntry}
-				</List>
+				{filteredPackages.length === 0 && debouncedFilterText ? (
+					<div className='packages-empty-message'>
+						{localize('positronPackages.noPackagesFound', "No packages found.")}
+					</div>
+				) : (
+					<List
+						height={height - FILTER_HEIGHT}
+						innerRef={innerRef}
+						itemCount={filteredPackages.length}
+						itemKey={(index) => filteredPackages[index].id}
+						itemSize={26}
+						width={'calc(100% - 2px)'}
+					>
+						{ItemEntry}
+					</List>
+				)}
 			</div>
 		</div >
 	);

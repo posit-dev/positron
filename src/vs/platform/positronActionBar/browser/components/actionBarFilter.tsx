@@ -17,6 +17,11 @@ import { Icon } from './icon.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 
 /**
+ * ActionBarFilterSize type.
+ */
+type ActionBarFilterSize = 'sm' | 'md';
+
+/**
  * ActionBarFilterProps interface.
  */
 interface ActionBarFilterProps {
@@ -25,6 +30,7 @@ interface ActionBarFilterProps {
 	initialFilterText?: string;
 	placeholder?: string;
 	clearButtonIcon?: IconType;
+	size?: ActionBarFilterSize;
 	onFilterTextChanged: (filterText: string) => void;
 }
 
@@ -85,10 +91,12 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 		}
 	}));
 
+	const sizeClassName = props.size === 'md' ? 'action-bar-filter-input-md' : 'action-bar-filter-input-sm';
+
 	// Render.
 	return (
 		<div className='action-bar-filter-container' style={{ width: props.width }}>
-			<div className={positronClassNames('action-bar-filter-input', { 'focused': focused })}>
+			<div className={positronClassNames('action-bar-filter-input', sizeClassName, 'action-bar-filter-input-sm', { 'focused': focused })}>
 				<input
 					ref={inputRef}
 					className='text-input'
