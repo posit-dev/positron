@@ -27,7 +27,7 @@ Any variables, emitters, or imports declared but never referenced in a test? Sui
 
 ### 2. Builder adoption
 
-Is the test using `createTestContainer()`? Flag any usage of `positronWorkbenchInstantiationService()`, `createRuntimeServices()`, or raw `ensureNoDisposablesAreLeakedInTestSuite()` as a failure. All Positron tests use the builder. The only exception is files in `test/common/` directories that cannot import from the `browser` layer.
+Is the test using `createTestContainer()`? Flag any usage of `positronWorkbenchInstantiationService()`, `createRuntimeServices()`, or raw `ensureNoDisposablesAreLeakedInTestSuite()` / `ensureNoLeakedDisposables()` as a failure. All Positron tests should use the builder -- it calls `ensureNoLeakedDisposables()` internally. The only exception is plain tests (no services) that create disposables directly.
 
 ### 3. Setup weight
 
