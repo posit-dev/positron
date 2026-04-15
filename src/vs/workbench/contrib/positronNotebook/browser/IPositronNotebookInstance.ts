@@ -5,6 +5,7 @@
 
 import { IObservable } from '../../../../base/common/observable.js';
 import { URI } from '../../../../base/common/uri.js';
+import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { CellKind, IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
 import { CellKind as NotebookCellKind, ICellDto2 } from '../../notebook/common/notebookCommon.js';
 import { SelectionStateMachine } from './selectionMachine.js';
@@ -187,6 +188,13 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * react to changes in kernel connectivity.
 	 */
 	readonly kernelStatus: IObservable<KernelStatus>;
+
+	/**
+	 * Observable of the runtime state from the attached session, or undefined
+	 * when no session is attached. Used for status icon display via
+	 * runtimeStateToRuntimeStatus without going through KernelStatus.
+	 */
+	readonly runtimeState: IObservable<RuntimeState | undefined>;
 
 	/**
 	 * Observable of the notebook's selected kernel.

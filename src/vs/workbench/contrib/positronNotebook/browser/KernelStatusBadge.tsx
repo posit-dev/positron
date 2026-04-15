@@ -14,7 +14,7 @@ import { useNotebookInstance } from './NotebookInstanceProvider.js';
 import { useObservedValue } from './useObservedValue.js';
 import { KernelStatus } from './IPositronNotebookInstance.js';
 import { RuntimeStatusIcon } from '../../positronConsole/browser/components/runtimeStatus.js';
-import { RuntimeStatus } from '../../positronConsole/common/sessionDisplayUtils.js';
+import { runtimeStateToRuntimeStatus, RuntimeStatus } from '../../positronConsole/common/sessionDisplayUtils.js';
 import { localize } from '../../../../nls.js';
 import { MenuId, MenuItemAction, SubmenuItemAction } from '../../../../platform/actions/common/actions.js';
 import { ActionBarMenuButton } from '../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
@@ -56,9 +56,16 @@ export function KernelStatusBadge() {
 	const services = usePositronReactServicesContext();
 	const languageRuntimeService = services.get(ILanguageRuntimeService);
 
-	// State
-	const runtimeStatus = useObservedValue(notebookInstance.kernelStatus.map((kernelStatus) =>
-		kernelStatusToRuntimeStatus[kernelStatus]));
+	// State - prefer RuntimeState when a session is attached, fall back to
+	// KernelStatus for pre-session states (Discovering, Unselected).
+	const runtimeStatus = useObservedValue(derived(reader => {
+		const runtimeState = notebookInstance.runtimeState.read(reader);
+		if (runtimeState !== undefined) {
+			return runtimeStateToRuntimeStatus[runtimeState];
+		}
+		const kernelStatus = notebookInstance.kernelStatus.read(reader);
+		return kernelStatusToRuntimeStatus[kernelStatus];
+	}));
 	const startupPhaseObs = observableFromEvent(
 		languageRuntimeService.onDidChangeRuntimeStartupPhase,
 		() => languageRuntimeService.startupPhase,

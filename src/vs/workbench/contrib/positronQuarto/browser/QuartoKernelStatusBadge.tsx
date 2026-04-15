@@ -18,7 +18,8 @@ import { IQuartoKernelManager, QuartoKernelState } from './quartoKernelManager.j
 import { isQuartoDocument } from '../common/positronQuartoConfig.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { RuntimeStatusIcon } from '../../positronConsole/browser/components/runtimeStatus.js';
-import { RuntimeStatus } from '../../positronConsole/common/sessionDisplayUtils.js';
+import { runtimeStateToRuntimeStatus, RuntimeStatus } from '../../positronConsole/common/sessionDisplayUtils.js';
+import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
@@ -101,6 +102,13 @@ export function QuartoKernelStatusBadge({ accessor }: QuartoKernelStatusBadgePro
 		return undefined;
 	});
 
+	const [runtimeState, setRuntimeState] = React.useState<RuntimeState | undefined>(() => {
+		if (documentUri) {
+			return quartoKernelManager.getSessionForDocument(documentUri)?.getRuntimeState();
+		}
+		return undefined;
+	});
+
 	// Set up event listeners
 	React.useEffect(() => {
 		const disposables = new DisposableStore();
@@ -113,10 +121,12 @@ export function QuartoKernelStatusBadge({ accessor }: QuartoKernelStatusBadgePro
 				setKernelState(quartoKernelManager.getKernelState(quartoUri));
 				const session = quartoKernelManager.getSessionForDocument(quartoUri);
 				setRuntimeName(session?.runtimeMetadata.runtimeName);
+				setRuntimeState(session?.getRuntimeState());
 			} else {
 				setDocumentUri(undefined);
 				setKernelState(QuartoKernelState.None);
 				setRuntimeName(undefined);
+				setRuntimeState(undefined);
 			}
 		}));
 
@@ -125,14 +135,28 @@ export function QuartoKernelStatusBadge({ accessor }: QuartoKernelStatusBadgePro
 			if (documentUri && e.documentUri.toString() === documentUri.toString()) {
 				setKernelState(e.newState);
 				setRuntimeName(e.session?.runtimeMetadata.runtimeName);
+				setRuntimeState(e.session?.getRuntimeState());
 			}
 		}));
+
+		// Listen for runtime state changes when a session exists
+		const session = documentUri ? quartoKernelManager.getSessionForDocument(documentUri) : undefined;
+		if (session) {
+			setRuntimeState(session.getRuntimeState());
+			disposables.add(session.onDidChangeRuntimeState(state => {
+				setRuntimeState(state);
+			}));
+		}
 
 		return () => disposables.dispose();
 	}, [editorService, quartoKernelManager, documentUri]);
 
-	// Compute display values
-	const runtimeStatus = quartoStateToRuntimeStatus[kernelState];
+	// Compute display values - prefer RuntimeState when a session is
+	// attached, fall back to QuartoKernelState for pre-session states
+	// (None, Error, Starting before session exists).
+	const runtimeStatus = runtimeState !== undefined
+		? runtimeStateToRuntimeStatus[runtimeState]
+		: quartoStateToRuntimeStatus[kernelState];
 	const label = runtimeName ?? quartoStateToLabel[kernelState] ?? '';
 
 	// Create menu for kernel actions

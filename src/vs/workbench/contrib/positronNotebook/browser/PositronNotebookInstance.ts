@@ -389,6 +389,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	kernelStatus;
 
 	/**
+	 * The runtime state from the attached session, or undefined when no
+	 * session is attached.
+	 */
+	runtimeState;
+
+	/**
 	 * The current selected notebook kernel.
 	 */
 	kernel;
@@ -522,6 +528,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		const { startupPhase } = this._languageRuntimeService;
 		this.kernelStatus = observableValue<KernelStatus>('positronNotebookKernelStatus', RUNTIME_STARTUP_PHASE_TO_KERNEL_STATUS[startupPhase]);
+		this.runtimeState = observableValue<RuntimeState | undefined>('positronNotebookRuntimeState', undefined);
 
 		if (this.kernelStatus.get() === KernelStatus.Discovering) {
 			const d = this._register(new DisposableStore());
@@ -2130,6 +2137,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 
 		this.kernelStatus.set(RUNTIME_STATE_TO_KERNEL_STATUS[session.getRuntimeState()], undefined);
+		this.runtimeState.set(session.getRuntimeState(), undefined);
 
 		const disposables = this._runtimeSessionDisposables.value = new DisposableStore();
 
@@ -2137,10 +2145,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._register(session.onDidEndSession(() => {
 			disposables.dispose();
 			this.kernelStatus.set(KernelStatus.Exited, undefined);
+			this.runtimeState.set(undefined, undefined);
 		}));
 
 		// Listen for runtime state changes and update kernel status accordingly
 		disposables.add(session.onDidChangeRuntimeState((runtimeState) => {
+			this.runtimeState.set(runtimeState, undefined);
+
 			const kernelStatus = this.kernelStatus.get();
 			// Detach if we're switching kernels and the old session starts exiting
 			// We'll update the kernel status when attaching to the new session
@@ -2148,7 +2159,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				(runtimeState === RuntimeState.Exiting ||
 					runtimeState === RuntimeState.Exited ||
 					runtimeState === RuntimeState.Offline ||
-					runtimeState === RuntimeState.Uninitialized)) {
+					runtimeState === RuntimeState.Uninitialized)
+			) {
+				this.runtimeState.set(undefined, undefined);
 				disposables.dispose();
 			} else {
 				const kernelStatus = RUNTIME_STATE_TO_KERNEL_STATUS[runtimeState];
@@ -2156,6 +2169,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 				// Detach when restart sequence starts - ignore intermediate states
 				if (kernelStatus === KernelStatus.Restarting) {
+					this.runtimeState.set(undefined, undefined);
 					disposables.dispose();
 				}
 			}
