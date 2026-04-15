@@ -641,7 +641,10 @@ export class TokenMarkdownRenderer {
 						const wasReferenced = this._footnoteRefCounter.has(def.id);
 						return (
 							<li key={`fn-${safeId}`} id={`fn-${safeId}`}>
-								{this.renderInlineTokens(def.tokens)}
+								{def.tokens.map((token) => {
+									const key = `fn-body-${this.keyCounter++}`;
+									return this.renderToken(token as ExtendedToken, key);
+								})}
 								{wasReferenced && <>{' '}<a className='footnote-backref' href={`#fnref-${safeId}`}>{'\u21a9'}</a></>}
 							</li>
 						);

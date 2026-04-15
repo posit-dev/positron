@@ -49,6 +49,10 @@ suite('Positron Notebook - TokenMarkdownRenderer Footnotes', () => {
 	): AnyElement[] {
 		const results: AnyElement[] = [];
 		for (const node of elements) {
+			if (Array.isArray(node)) {
+				results.push(...findElements(node, predicate));
+				continue;
+			}
 			if (!React.isValidElement(node)) {
 				continue;
 			}
@@ -205,6 +209,14 @@ suite('Positron Notebook - TokenMarkdownRenderer Footnotes', () => {
 		assert.strictEqual(refs.length, 1);
 		const sections = findElements(elements, el => el.props.className === 'footnotes');
 		assert.strictEqual(sections.length, 1);
+	});
+
+	test('block content in definitions renders correctly', () => {
+		const elements = renderTokens('Text[^1]\n\n[^1]: intro\n  * item one\n  * item two');
+		const sections = findElements(elements, el => el.props.className === 'footnotes');
+		assert.strictEqual(sections.length, 1);
+		const lists = findElements([sections[0]], el => el.type === 'ul');
+		assert.strictEqual(lists.length, 1, 'footnote with list content should render a ul');
 	});
 
 	test('undefined ref with colliding sanitized ID does not conflict with defined footnote', () => {

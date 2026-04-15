@@ -94,8 +94,30 @@ suite('MarkedFootnoteExtension', () => {
 			assert.strictEqual(defs.length, 1);
 			const def = defs[0] as MarkedFootnoteExtension.FootnoteDefinitionToken;
 			assert.ok(def.tokens.length > 0);
-			const strongTokens = def.tokens.filter(t => t.type === 'strong');
+			// With block tokenization, bold is nested inside a paragraph token
+			const strongTokens = findTokensByType(def.tokens, 'strong');
 			assert.strictEqual(strongTokens.length, 1);
+		});
+
+		test('multiline definition with list is tokenized as block content', () => {
+			const input = '[^1]: intro\n  * item one\n  * item two';
+			const tokens = tokenize(input);
+			const defs = findTokensByType(tokens, 'footnoteDefinition');
+			assert.strictEqual(defs.length, 1);
+			const def = defs[0] as MarkedFootnoteExtension.FootnoteDefinitionToken;
+			// Block tokenization should produce a list token inside the definition
+			const listTokens = def.tokens.filter(t => t.type === 'list');
+			assert.strictEqual(listTokens.length, 1, 'expected a list token from block tokenization');
+		});
+
+		test('multiline definition with fenced code block is tokenized as block content', () => {
+			const input = '[^1]: intro\n  ```\n  code here\n  ```';
+			const tokens = tokenize(input);
+			const defs = findTokensByType(tokens, 'footnoteDefinition');
+			assert.strictEqual(defs.length, 1);
+			const def = defs[0] as MarkedFootnoteExtension.FootnoteDefinitionToken;
+			const codeTokens = def.tokens.filter(t => t.type === 'code');
+			assert.strictEqual(codeTokens.length, 1, 'expected a code token from block tokenization');
 		});
 	});
 

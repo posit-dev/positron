@@ -29,7 +29,7 @@ export namespace MarkedFootnoteExtension {
 		id: string;
 		/** The raw text content of the footnote definition */
 		text: string;
-		/** Tokenized inline content of the definition */
+		/** Tokenized block content of the definition */
 		tokens: marked.Token[];
 	}
 
@@ -89,14 +89,18 @@ export namespace MarkedFootnoteExtension {
 			tokenizer(this: { lexer: marked.Lexer }, src: string) {
 				const match = src.match(footnoteDefinitionRule);
 				if (match) {
+					const rawBody = match[2];
+					// Strip the leading indentation (2+ spaces or tab) from continuation lines
+					// so the block parser sees them at the correct nesting level.
+					const body = rawBody.replace(/\n(?:  |\t)/g, '\n').trim();
 					const token: FootnoteDefinitionToken = {
 						type: 'footnoteDefinition',
 						raw: match[0],
 						id: match[1],
-						text: match[2].trim(),
+						text: body,
 						tokens: [],
 					};
-					this.lexer.inline(token.text, token.tokens);
+					this.lexer.blockTokens(token.text, token.tokens);
 					return token;
 				}
 				return undefined;
