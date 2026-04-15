@@ -116,6 +116,25 @@ suite('MarkedFootnoteExtension', () => {
 			const codeTokens = def.tokens.filter(t => t.type === 'code');
 			assert.strictEqual(codeTokens.length, 1, 'expected a code token from block tokenization');
 		});
+
+		test('empty first-line body with continuation lines', () => {
+			const input = '[^1]:\n  continuation text.';
+			const tokens = tokenize(input);
+			const defs = findTokensByType(tokens, 'footnoteDefinition');
+			assert.strictEqual(defs.length, 1);
+			const def = defs[0] as MarkedFootnoteExtension.FootnoteDefinitionToken;
+			assert.ok(def.text.includes('continuation text.'));
+		});
+
+		test('empty first-line body with list on continuation lines', () => {
+			const input = '[^1]:\n  * item one\n  * item two';
+			const tokens = tokenize(input);
+			const defs = findTokensByType(tokens, 'footnoteDefinition');
+			assert.strictEqual(defs.length, 1);
+			const def = defs[0] as MarkedFootnoteExtension.FootnoteDefinitionToken;
+			const listTokens = def.tokens.filter(t => t.type === 'list');
+			assert.strictEqual(listTokens.length, 1, 'expected a list token from empty-first-line definition');
+		});
 	});
 
 	suite('full document', () => {

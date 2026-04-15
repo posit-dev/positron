@@ -39,9 +39,10 @@ export namespace MarkedFootnoteExtension {
 	// Must not be followed by a colon (that would be a definition).
 	const footnoteRefRule = /^\[\^([^\]]+)\](?!:)/;
 
-	// Match [^id]: text on a single line, with optional indented continuation lines.
+	// Match [^id]: with optional same-line text and optional indented continuation lines.
 	// Continuation lines must start with at least two spaces or a tab (may be empty).
-	const footnoteDefinitionRule = /^\[\^([^\]]+)\]:[ \t]+([^\n]+(?:\n(?:[ \t]{2,}|\t)[^\n]*)*)/;
+	// The first-line body may be empty (e.g. [^1]:\n  continuation).
+	const footnoteDefinitionRule = /^\[\^([^\]]+)\]:[ \t]*((?:[^\n]+)?(?:\n(?:[ \t]{2,}|\t)[^\n]*)*)/;
 
 	export function extension(): marked.MarkedExtension {
 		return {
