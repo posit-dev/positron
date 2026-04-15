@@ -482,8 +482,7 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	readonly restoredScrollPosition: IPositronNotebookResolvedScrollPosition | undefined;
 
 	/**
-	 * Resolves a persisted view state into a live cell reference and stores
-	 * the result for the React component to consume during mount.
+	 * Restore editor view state such as scroll position.
 	 */
 	restoreEditorViewState(viewState: IPositronNotebookViewState | undefined): void;
 

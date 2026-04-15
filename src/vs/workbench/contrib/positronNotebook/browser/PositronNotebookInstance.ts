@@ -1996,8 +1996,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	/**
-	 * Resolves a persisted view state (cell index) into a live cell reference
-	 * and stores the result for the React component to consume.
+	 * Restore editor view state such as scroll position.
 	 */
 	restoreEditorViewState(viewState: IPositronNotebookViewState | undefined): void {
 		const cells = this.cells.get();
