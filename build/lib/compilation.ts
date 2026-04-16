@@ -76,7 +76,7 @@ export function createCompile(src: string, { build, emitError, transpileOnly, pr
 		//   2. src/vs/test/vitest/ infrastructure directory
 		const isVitestFile = (filePath: string) =>
 			filePath.includes('.vitest.') ||
-			filePath.includes('/test/vitest/');
+			/(\/|\\)test(\/|\\)vitest(\/|\\)/.test(filePath);
 		const tsFilter = util.filter(data => /\.tsx?$/.test(data.path) && !isVitestFile(data.path));
 		const isUtf8Test = (f: File) => /(\/|\\)test(\/|\\).*utf8/.test(f.path);
 		const isRuntimeJs = (f: File) => f.path.endsWith('.js') && !f.path.includes('fixtures');

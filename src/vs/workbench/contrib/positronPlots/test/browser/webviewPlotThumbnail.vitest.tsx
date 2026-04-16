@@ -15,29 +15,20 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { WebviewPlotThumbnail } from '../../browser/components/webviewPlotThumbnail.js';
 import { WebviewPlotClient } from '../../browser/webviewPlotClient.js';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-// Emitter at describe level -- wired into the mock plotClient so .fire()
-// reaches the component's useEffect subscription. See "Common Mistakes"
-// in .claude/rules/vitest.md for why this must NOT be inside it().
-const onDidRenderThumbnail = new Emitter<string>();
-
-function makePlotClient(overrides: Partial<WebviewPlotClient> = {}): WebviewPlotClient {
-	return {
-		id: 'plot-1',
-		thumbnailUri: undefined,
-		onDidRenderThumbnail: onDidRenderThumbnail.event,
-		...overrides,
-	} as unknown as WebviewPlotClient;
-}
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe('WebviewPlotThumbnail', () => {
+	// Emitter at describe level -- wired into the mock plotClient so .fire()
+	// reaches the component's useEffect subscription. See "Common Mistakes"
+	// in .claude/rules/vitest.md for why this must NOT be inside it().
+	const onDidRenderThumbnail = new Emitter<string>();
+
+	function makePlotClient(overrides: Partial<WebviewPlotClient> = {}): WebviewPlotClient {
+		return {
+			id: 'plot-1',
+			thumbnailUri: undefined,
+			onDidRenderThumbnail: onDidRenderThumbnail.event,
+			...overrides,
+		} as unknown as WebviewPlotClient;
+	}
 	const ctx = createTestContainer()
 		.withReactServices()
 		.stub(IPositronPlotsService, { getCachedPlotThumbnailURI: () => undefined })

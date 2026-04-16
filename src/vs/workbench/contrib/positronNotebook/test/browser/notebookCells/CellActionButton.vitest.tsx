@@ -85,6 +85,10 @@ describe('CellActionButton', () => {
 		cell = { id: 'cell-1' } as unknown as IPositronNotebookCell;
 	});
 
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
 	function renderButton(
 		action: MenuItemAction | SubmenuItemAction,
 		options?: { showSeparator?: boolean },

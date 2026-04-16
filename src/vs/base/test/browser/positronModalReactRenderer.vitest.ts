@@ -226,6 +226,7 @@ describe('PositronModalReactRenderer', () => {
 			// Should have logged an error
 			expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
 			expect(consoleErrorSpy).toHaveBeenCalledWith('[PositronModalReactRenderer] Attempted to render a React element when one has already been rendered');
+			consoleErrorSpy.mockRestore();
 
 			renderer.dispose();
 		});
