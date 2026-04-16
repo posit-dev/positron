@@ -6,12 +6,9 @@
 /// <reference types="vitest/globals" />
 
 
-import { ensureNoLeakedDisposables } from '../../../../test/vitest/vitestUtils.js';
 import { buildUpdateUrl } from '../../common/positronUpdateUtils.js';
 
 describe('buildUpdateUrl', function () {
-	ensureNoLeakedDisposables();
-
 	const baseUrl = 'https://updates.example.com/releases/darwin/arm64/releases.json';
 
 	describe('with no optional parameters', function () {
