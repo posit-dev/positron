@@ -338,20 +338,24 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 	override clearInput(): void {
 		this._logService.debug(this._identifier, 'clearInput');
 
-		if (this.notebookInstance) {
-			this.notebookInstance.detachView();
-		}
+		// Capture the notebook instance before super.clearInput() clears this._input.
+		const notebookInstance = this._input?.notebookInstance;
 
-		// Clear the input.
-		this._input = undefined;
+		// Call super first so that AbstractEditorWithViewState can save the
+		// editor view state (e.g. scroll position) while the input and the
+		// DOM are still alive. The base class reads view state via
+		// computeEditorViewState() which needs the notebook instance and
+		// its cells container to still be accessible.
+		super.clearInput();
+
+		// Detach the notebook instance.
+		notebookInstance?.detachView();
 
 		// Clear the editor control.
 		this._control.clear();
 
+		// Unmount the React root.
 		this._disposeReactRenderer();
-
-		// Call the base class's method.
-		super.clearInput();
 	}
 
 	override async setOptions(options: INotebookEditorOptions | undefined): Promise<void> {
