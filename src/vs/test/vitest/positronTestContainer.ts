@@ -132,8 +132,7 @@ type ServiceStub = { id: ServiceIdentifier<any>; impl: any };
  * - Group related tests with nested `describe()` calls, not comment headers.
  * - Prefer events/state to verify behavior (e.g. await
  *   `TestCommandService.onWillExecuteCommand` instead of stubbing
- *   `executeCommand`). Use `vi.fn()`/`vi.spyOn()` for stubs and spies;
- *   avoid sinon in new Vitest tests.
+ *   `executeCommand`). Use `vi.fn()`/`vi.spyOn()` for stubs and spies.
  * - Await events with `Event.toPromise(event)` instead of timeouts.
  * - For debounce/throttle/scheduler logic, use `runWithFakedTimers`.
  *
