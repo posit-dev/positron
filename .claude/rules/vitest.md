@@ -64,15 +64,7 @@ describe('MyComponent', () => {
 
 ## Where to put the test file
 
-Mirror the source file's subdirectory under `test/`. If the source is in `browser/`, the test goes in `test/browser/`. If the source is in `common/`, the test goes in `test/common/`. If no test directory exists, create the matching one.
-
-Examples:
-- Source: `src/vs/workbench/contrib/positronConsole/browser/components/emptyConsole.tsx`
-- Test: `src/vs/workbench/contrib/positronConsole/test/browser/emptyConsole.vitest.tsx`
-- Source: `src/vs/platform/update/common/positronUpdateUtils.ts`
-- Test: `src/vs/platform/update/test/common/positronUpdateUtils.vitest.ts`
-
-Some modules use `tests/` (plural) -- match what already exists in that directory.
+Mirror the source subdirectory under `test/`: `browser/` -> `test/browser/`, `common/` -> `test/common/`. Match `test/` vs `tests/` if the directory already exists.
 
 ## The Builder
 
