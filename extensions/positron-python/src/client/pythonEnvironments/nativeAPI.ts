@@ -563,11 +563,7 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
             if (!old) {
                 // If the 'info' env is not already in the list, check if it is one of the additional env directories,
                 // and if so, check if we have an equivalent env already and determine if we should add the 'info' env.
-                const { reason, existingEnv } = await checkForExistingEnv(
-                    this._envs,
-                    info,
-                    this._resolvedSymlinks,
-                );
+                const { reason, existingEnv } = await checkForExistingEnv(this._envs, info, this._resolvedSymlinks);
                 switch (reason) {
                     case ExistingEnvAction.KeepExistingEnv:
                         // We found an 'old' equivalent env, but it has a shorter path than the equivalent new 'info' env.
