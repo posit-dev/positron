@@ -11,7 +11,16 @@ Positron Vitest tests (`*.vitest.ts` / `*.vitest.tsx`) run via `npx vitest run` 
 
 ## Quick Start
 
-Copy the EmptyConsole test and adapt it:
+**Testing a pure function?** Copy the simplest test and adapt it:
+
+1. Copy `src/vs/platform/update/test/common/positronUpdateUtils.vitest.ts`
+2. Change the import to your function
+3. Change the assertions
+4. Run: `npx vitest run src/vs/path/to/yourTest.vitest.ts`
+
+That's it. No builder, no services, no setup.
+
+**Testing a React component?** Copy the EmptyConsole test:
 
 1. Copy `src/vs/workbench/contrib/positronConsole/test/browser/emptyConsole.vitest.tsx`
 2. Change the component name and import
@@ -19,7 +28,7 @@ Copy the EmptyConsole test and adapt it:
 4. Run: `npx vitest run src/vs/path/to/yourTest.vitest.tsx`
 5. If it fails with "missing service" errors, add more `.stub()` calls
 
-That's it. The builder and RTL renderer handle everything else. For advanced cases (presets, mocking philosophy, event testing), read on.
+The builder and RTL renderer handle everything else. For advanced cases (presets, mocking philosophy, event testing), read on.
 
 ## Run commands
 
@@ -48,6 +57,8 @@ Some modules use `tests/` (plural) -- match what already exists in that director
 ## The Builder
 
 Use `createTestContainer()` for any test needing services. The builder handles `ensureNoLeakedDisposables()` automatically -- do NOT add it yourself.
+
+**Do I need `ensureNoLeakedDisposables()`?** Only if your test creates disposables directly (via `new`). Pure function tests don't need it. When in doubt, leave it out -- the builder adds it automatically, and plain tests that don't create disposables have nothing to leak.
 
 Presets form a hierarchy -- each includes the one above:
 - **Bare** (no preset) -- pure logic, no services
@@ -172,6 +183,6 @@ const ctx = createTestContainer().build();
 ## Working examples
 
 These showcase tests demonstrate the patterns at increasing complexity:
-- `src/vs/workbench/contrib/positronConsole/test/browser/emptyConsole.vitest.tsx` -- simple: one service, one click
-- `src/vs/workbench/browser/parts/positronTopActionBar/test/browser/topActionBarSessionManager.vitest.tsx` -- medium: emitter-driven state, snapshots
-- `src/vs/workbench/contrib/positronConsole/test/browser/startupStatus.vitest.tsx` -- complex: 6-phase state machine, 3 event subscriptions
+- `src/vs/platform/update/test/common/positronUpdateUtils.vitest.ts` -- plain: pure function, no services, no builder
+- `src/vs/workbench/contrib/positronConsole/test/browser/emptyConsole.vitest.tsx` -- React: one service, one click, behavioral assertions
+- `src/vs/workbench/contrib/positronConsole/test/browser/startupStatus.vitest.tsx` -- event-driven: 6-phase state machine, 3 event subscriptions
