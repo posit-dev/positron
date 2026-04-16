@@ -48,23 +48,12 @@ describe('MyComponent', () => {
 3. Run: `npx vitest run src/vs/path/to/yourTest.vitest.tsx`
 4. If it fails with "missing service" errors, add more `.stub()` calls
 
-## Run commands
+## File setup
 
-- `npm run test:vitest` -- run all
-- `npx vitest run <file>` -- run one file
-- `npx vitest run --coverage --coverage.include='**/sourceFile.tsx' <test-file>` -- scoped coverage
-- `npx vitest run --update <file>` -- accept new inline snapshots
-
-## Conventions
-
-- `/// <reference types="vitest/globals" />` after the copyright header (required for IDE intellisense)
-- Vitest syntax: `describe()`, `it()`, `beforeEach()`, `afterEach()`, `expect()`
+- Place test files by mirroring the source subdirectory under `test/`: `browser/` -> `test/browser/`, `common/` -> `test/common/`. Match `test/` vs `tests/` if the directory already exists.
 - File extension: `.vitest.ts` (or `.vitest.tsx` for React components)
+- `/// <reference types="vitest/globals" />` after the copyright header (required for IDE intellisense)
 - Tabs for indentation
-
-## Where to put the test file
-
-Mirror the source subdirectory under `test/`: `browser/` -> `test/browser/`, `common/` -> `test/common/`. Match `test/` vs `tests/` if the directory already exists.
 
 ## The Builder
 
@@ -75,26 +64,22 @@ Use `createTestContainer()` for any test needing services. Pick the lowest prese
 3. A specific method is called -- stub just that method: `.stub(IService, { getDoc: () => undefined })`
 4. Code subscribes to an event you don't need to fire -- use `Event.None`: `.stub(IService, { onDidChange: Event.None })`
 
-**Testing event-driven behavior:** Create an `Emitter` at describe level, pass its `.event` to the stub, then call `.fire()` in your test (wrapped in `act()` for React components). See `webviewPlotThumbnail.vitest.tsx` and `startupStatus.vitest.tsx` in the working examples below.
+**Event-driven behavior:** Create an `Emitter` at describe level, pass its `.event` to the stub, then call `.fire()` in your test (wrapped in `act()` for React components). See `webviewPlotThumbnail.vitest.tsx` and `startupStatus.vitest.tsx` in the working examples below.
 
-## Inline Snapshots
+**Common mistakes:** Don't destructure `ctx` at describe level (`const { instantiationService } = ...` captures `undefined` -- use `ctx.instantiationService` inside `it()` callbacks). Don't create emitters inside `it()` -- they must be at describe level so `.stub()` captures the right `.event` reference.
 
-Use `toMatchInlineSnapshot()` to capture rendered HTML. Vitest auto-fills on first run with `--update`. When a snapshot fails:
-1. Read the diff -- is the change intentional (upstream refactor) or a bug?
-2. If intentional: `npx vitest run --update <file>` to accept the new output, then commit
-3. If a bug: fix the source code, not the snapshot
+## Run commands
 
-## Mock Utilities
+- `npm run test:vitest` -- run all
+- `npx vitest run <file>` -- run one file
+- `npx vitest run --coverage --coverage.include='**/sourceFile.tsx' <test-file>` -- scoped coverage
+- `npx vitest run --update <file>` -- accept new inline snapshots
 
-- `vi.fn()` -- simple stubs/spies. Prefer this for new Vitest tests.
-- `vi.spyOn(obj, 'method')` -- spy on existing method while preserving implementation.
-- `Test*` classes / `mock.ts` -- complex state (emitters, observable values). Use when multiple tests need the same mock behavior.
+## Reference
 
-## Common Mistakes
+**Mock utilities:** `vi.fn()` for stubs/spies, `vi.spyOn(obj, 'method')` to spy while preserving implementation, `Test*` classes / `mock.ts` for complex state (emitters, observable values).
 
-**Destructuring `ctx` at describe level:** `const { instantiationService } = createTestContainer().build()` captures `undefined` because the builder uses lazy getters. Always access via `ctx.instantiationService` inside `it()` callbacks.
-
-**Creating emitters inside `it()`:** An emitter created inside `it()` is a different object than the one `.stub()` captured at describe level -- `.fire()` calls won't reach the component. Always create emitters at describe level.
+**Inline snapshots:** Use `toMatchInlineSnapshot()` for rendered HTML. Vitest auto-fills on first run with `--update`. When a snapshot fails: read the diff, accept with `--update` if intentional, fix the source if it's a bug.
 
 ## Working examples
 
