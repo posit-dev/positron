@@ -64,7 +64,7 @@ Use `createTestContainer()` for any test needing services. Pick the lowest prese
 3. A specific method is called -- stub just that method: `.stub(IService, { getDoc: () => undefined })`
 4. Code subscribes to an event you don't need to fire -- use `Event.None`: `.stub(IService, { onDidChange: Event.None })`
 
-**Event-driven behavior:** Create an `Emitter` at describe level, pass its `.event` to the stub, then call `.fire()` in your test (wrapped in `act()` for React components). See `webviewPlotThumbnail.vitest.tsx` and `startupStatus.vitest.tsx` in the working examples below.
+**Event-driven behavior:** Create an `Emitter` at describe level, pass its `.event` to the stub, then call `.fire()` in your test (wrapped in `act()` for React components). See [webviewPlotThumbnail](../../src/vs/workbench/contrib/positronPlots/test/browser/webviewPlotThumbnail.vitest.tsx) (intro) and [startupStatus](../../src/vs/workbench/contrib/positronConsole/test/browser/startupStatus.vitest.tsx) (advanced).
 
 **Common mistakes:** Don't destructure `ctx` at describe level (`const { instantiationService } = ...` captures `undefined` -- use `ctx.instantiationService` inside `it()` callbacks). Don't create emitters inside `it()` -- they must be at describe level so `.stub()` captures the right `.event` reference.
 
