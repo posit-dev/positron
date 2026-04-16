@@ -3,6 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+.configure-data-connection-container {
+	padding: 16px;
+	border-radius: 6px;
+	border: 1px solid var(--vscode-widget-border);
+}
+
 .configure-data-connection {
 	gap: 8px;
 	display: flex;

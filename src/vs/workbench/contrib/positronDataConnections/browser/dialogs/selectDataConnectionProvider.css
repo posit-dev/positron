@@ -9,14 +9,14 @@
 	color: var(--vscode-descriptionForeground);
 }
 
-.select-data-connection-provider .select-provider-label.error {
-	color: var(--vscode-errorForeground);
-}
-
 .select-data-connection-provider .driver-grid-clip {
 	overflow: hidden;
 	border-radius: 6px;
 	border: 1px solid var(--vscode-widget-border);
+}
+
+.select-data-connection-provider .driver-grid-clip.error {
+	border-color: var(--vscode-errorForeground);
 }
 
 .select-data-connection-provider .driver-grid-container {

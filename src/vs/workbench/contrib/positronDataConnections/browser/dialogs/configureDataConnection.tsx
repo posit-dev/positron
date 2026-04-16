@@ -11,12 +11,11 @@ import { useCallback, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
-import { DataConnectionActionBar } from './dataConnectionActionBar.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
-import { Checkbox } from '../../../../browser/positronComponents/positronModalDialog/components/checkbox.js';
-import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
-import { PositronModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
+import { Checkbox } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/checkbox.js';
+import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
+import { TwoButtonFooter } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/twoButtonFooter.js';
 import { IDataConnectionDriver, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
 
 /**
@@ -61,7 +60,7 @@ interface ConfigureDataConnectionProps {
  */
 export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => {
 	// Destructure props for use in hooks.
-	const { renderer, onBack } = props;
+	const { renderer } = props;
 
 	// Destructure the driver from props for convenience.
 	const { driver } = props;
@@ -132,8 +131,153 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 
 	// Render.
 	return (
-		<PositronModalDialog
-			height={520}
+		<PositronDynamicModalDialog
+			content={
+				<div className='configure-data-connection-container'>
+					<div className='configure-data-connection'>
+						{/* Driver Header. */}
+						<div className='driver-header'>
+							<div className='driver-header-badge'>
+								<img alt='' className='driver-header-icon' src={`data:image/svg+xml;base64,${driver.metadata.iconSvg}`} />
+							</div>
+							<div className='driver-header-name'>{driver.metadata.name}</div>
+						</div>
+
+						{/* Connection Name */}
+						<div className='parameter-field'>
+							<label className='parameter-label'>Connection Name</label>
+							<input
+								className={positronClassNames(
+									'parameter-input', 'text-input',
+									{ 'error': connectionNameError }
+								)}
+								placeholder='connection name'
+								type='text'
+								value={connectionName}
+								onChange={e => {
+									setConnectionName(e.target.value.trim());
+									setConnectionNameError(false);
+								}}
+							/>
+						</div>
+
+						{/* Parameters */}
+						{driver.metadata.parameters.map(parameter => {
+							switch (parameter.type) {
+								// String parameter.
+								case 'string':
+									return (
+										<div key={parameter.id} className='parameter-field'>
+											<label className='parameter-label'>{parameter.label}</label>
+											<input
+												className={positronClassNames(
+													'parameter-input', 'text-input',
+													{ 'error': parameterValues[parameter.id].error }
+												)}
+												placeholder={parameter.placeholder}
+												type='text'
+												value={parameterValues[parameter.id].value as string}
+												onChange={e => setParameterValue(parameter.id, e.target.value.trim() ?? undefined)}
+											/>
+										</div>
+									);
+
+								// Number parameter.
+								case 'number':
+									return (
+										<div key={parameter.id} className='parameter-field'>
+											<label className='parameter-label'>{parameter.label}</label>
+											<input
+												className={positronClassNames(
+													'parameter-input', 'text-input',
+													{ 'error': parameterValues[parameter.id].error }
+												)}
+												inputMode='numeric'
+												placeholder={parameter.placeholder}
+												type='text'
+												value={String(parameterValues[parameter.id].value ?? '')}
+												onChange={e => {
+													// Get the new value, trimming whitespace.
+													const newValue = e.target.value.trim();
+
+													// Parse the value as a number. Number('') === 0, so handle empty string first.
+													const numericValue = newValue !== '' ? Number(newValue) : NaN;
+													setParameterValue(parameter.id, isNaN(numericValue) ? undefined : numericValue);
+												}}
+											/>
+										</div>
+									);
+
+								// Boolean parameter.
+								case 'boolean':
+									return (
+										<div key={parameter.id}>
+											<Checkbox
+												initialChecked={parameterValues[parameter.id].value as boolean}
+												label={parameter.label}
+												onChanged={checked => setParameterValue(parameter.id, checked)}
+											/>
+										</div>
+									);
+
+								// File parameter.
+								case 'file':
+									return (
+										<div key={parameter.id} className='parameter-field'>
+											<label className='parameter-label'>{parameter.label}</label>
+											<input
+												className={positronClassNames(
+													'parameter-input', 'text-input',
+													{ 'error': parameterValues[parameter.id].error }
+												)}
+												placeholder={parameter.placeholder}
+												type='text'
+												value={parameterValues[parameter.id].value as string}
+												onChange={e => setParameterValue(parameter.id, e.target.value.trim())}
+											/>
+										</div>
+									);
+
+								// Option parameter.
+								case 'option':
+									return (
+										<div key={parameter.id} className='parameter-field'>
+											<label className='parameter-label'>{parameter.label}</label>
+											<select
+												className={positronClassNames(
+													'parameter-input', 'parameter-select',
+													{ 'error': parameterValues[parameter.id].error }
+												)}
+												value={parameterValues[parameter.id].value as string}
+												onChange={e => {
+													setParameterValue(parameter.id, e.target.value);
+												}}
+											>
+												{parameter.options?.map(option => (
+													<option key={option} value={option}>{option}</option>
+												))}
+											</select>
+										</div>
+									);
+
+								// Unsupported parameter type.
+								default:
+									console.warn(`Unsupported parameter type '${parameter.type}' for parameter '${parameter.id}' in driver '${driver.id}'.`);
+									return null;
+							}
+						})}
+
+					</div>
+				</div>
+			}
+			footer={
+				<TwoButtonFooter
+					primaryButtonTitle={localize('positron.configureDataConnection.save', "Save")}
+					secondaryButtonTitle={localize('positron.configureDataConnection.cancel', "Cancel")}
+					onPrimaryButton={acceptHandler}
+					onSecondaryButton={cancelHandler}
+				/>
+			}
 			renderer={props.renderer}
 			title={localize(
 				'positron.configureDataConnection.title',
@@ -141,149 +285,6 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 			)}
 			width={600}
 			onCancel={cancelHandler}
-		>
-			<ContentArea>
-				<div className='configure-data-connection'>
-					{/* Driver Header. */}
-					<div className='driver-header'>
-						<div className='driver-header-badge'>
-							<img alt='' className='driver-header-icon' src={`data:image/svg+xml;base64,${driver.metadata.iconSvg}`} />
-						</div>
-						<div className='driver-header-name'>{driver.metadata.name}</div>
-					</div>
-
-					{/* Connection Name */}
-					<div className='parameter-field'>
-						<label className='parameter-label'>Connection Name</label>
-						<input
-							className={positronClassNames(
-								'parameter-input', 'text-input',
-								{ 'error': connectionNameError }
-							)}
-							placeholder='connection name'
-							type='text'
-							value={connectionName}
-							onChange={e => {
-								setConnectionName(e.target.value.trim());
-								setConnectionNameError(false);
-							}}
-						/>
-					</div>
-
-					{/* Parameters */}
-					{driver.metadata.parameters.map(parameter => {
-						switch (parameter.type) {
-							// String parameter.
-							case 'string':
-								return (
-									<div key={parameter.id} className='parameter-field'>
-										<label className='parameter-label'>{parameter.label}</label>
-										<input
-											className={positronClassNames(
-												'parameter-input', 'text-input',
-												{ 'error': parameterValues[parameter.id].error }
-											)}
-											placeholder={parameter.placeholder}
-											type='text'
-											value={parameterValues[parameter.id].value as string}
-											onChange={e => setParameterValue(parameter.id, e.target.value.trim() ?? undefined)}
-										/>
-									</div>
-								);
-
-							// Number parameter.
-							case 'number':
-								return (
-									<div key={parameter.id} className='parameter-field'>
-										<label className='parameter-label'>{parameter.label}</label>
-										<input
-											className={positronClassNames(
-												'parameter-input', 'text-input',
-												{ 'error': parameterValues[parameter.id].error }
-											)}
-											inputMode='numeric'
-											placeholder={parameter.placeholder}
-											type='text'
-											value={String(parameterValues[parameter.id].value ?? '')}
-											onChange={e => {
-												// Get the new value, trimming whitespace.
-												const newValue = e.target.value.trim();
-
-												// Parse the value as a number. Number('') === 0, so handle empty string first.
-												const numericValue = newValue !== '' ? Number(newValue) : NaN;
-												setParameterValue(parameter.id, isNaN(numericValue) ? undefined : numericValue);
-											}}
-										/>
-									</div>
-								);
-
-							// Boolean parameter.
-							case 'boolean':
-								return (
-									<div key={parameter.id}>
-										<Checkbox
-											initialChecked={parameterValues[parameter.id].value as boolean}
-											label={parameter.label}
-											onChanged={checked => setParameterValue(parameter.id, checked)}
-										/>
-									</div>
-								);
-
-							// File parameter.
-							case 'file':
-								return (
-									<div key={parameter.id} className='parameter-field'>
-										<label className='parameter-label'>{parameter.label}</label>
-										<input
-											className={positronClassNames(
-												'parameter-input', 'text-input',
-												{ 'error': parameterValues[parameter.id].error }
-											)}
-											placeholder={parameter.placeholder}
-											type='text'
-											value={parameterValues[parameter.id].value as string}
-											onChange={e => setParameterValue(parameter.id, e.target.value.trim())}
-										/>
-									</div>
-								);
-
-							// Option parameter.
-							case 'option':
-								return (
-									<div key={parameter.id} className='parameter-field'>
-										<label className='parameter-label'>{parameter.label}</label>
-										<select
-											className={positronClassNames(
-												'parameter-input', 'parameter-select',
-												{ 'error': parameterValues[parameter.id].error }
-											)}
-											value={parameterValues[parameter.id].value as string}
-											onChange={e => {
-												setParameterValue(parameter.id, e.target.value);
-											}}
-										>
-											{parameter.options?.map(option => (
-												<option key={option} value={option}>{option}</option>
-											))}
-										</select>
-									</div>
-								);
-
-							// Unsupported parameter type.
-							default:
-								console.warn(`Unsupported parameter type '${parameter.type}' for parameter '${parameter.id}' in driver '${driver.id}'.`);
-								return null;
-						}
-					})}
-
-				</div>
-			</ContentArea>
-			<DataConnectionActionBar
-				acceptLabel={localize('positron.configureDataConnection.save', "Save")}
-				onAccept={acceptHandler}
-				onBack={onBack}
-				onCancel={cancelHandler}
-			/>
-		</PositronModalDialog>
+		/>
 	);
 };

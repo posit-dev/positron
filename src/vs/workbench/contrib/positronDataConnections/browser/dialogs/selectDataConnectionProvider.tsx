@@ -15,9 +15,8 @@ import { positronClassNames } from '../../../../../base/common/positronUtilities
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
-import { PositronModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
-import { OKCancelActionBar } from '../../../../browser/positronComponents/positronModalDialog/components/okCancelActionBar.js';
+import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
+import { TwoButtonFooter } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/twoButtonFooter.js';
 import { IDataConnectionDriverMetadata } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
 
 /**
@@ -113,28 +112,19 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 
 	// Render.
 	return (
-		<PositronModalDialog
-			height={382}
-			renderer={props.renderer}
-			title={localize(
-				'positron.selectDataConnectionProvider.title',
-				"New Data Connection"
-			)}
-			width={492}
-			onCancel={cancelHandler}
-		>
-			<ContentArea>
+		<PositronDynamicModalDialog
+			content={
 				<div className='select-data-connection-provider'>
-					<div className={positronClassNames(
-						'select-provider-label',
-						{ 'error': showError }
-					)}>
+					<div className='select-provider-label'>
 						{localize(
 							'positron.selectDataConnectionProvider.selectProvider',
 							"Select a provider"
 						)}
 					</div>
-					<div className='driver-grid-clip'>
+					<div className={positronClassNames(
+						'driver-grid-clip',
+						{ 'error': showError }
+					)}>
 						<div ref={gridContainerRef} className='driver-grid-container' role='group'>
 							<div className='driver-grid'>
 								{Array.from({ length: 6 }, () => drivers).flat().map((driver, index) => (
@@ -162,12 +152,22 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 						</div>
 					</div>
 				</div>
-			</ContentArea>
-			<OKCancelActionBar
-				okButtonTitle={localize('positron.selectDataConnectionProvider.next', "Next")}
-				onAccept={nextHandler}
-				onCancel={cancelHandler}
-			/>
-		</PositronModalDialog>
+			}
+			footer={
+				<TwoButtonFooter
+					primaryButtonTitle={localize('positron.selectDataConnectionProvider.next', "Next")}
+					secondaryButtonTitle={localize('positron.selectDataConnectionProvider.cancel', "Cancel")}
+					onPrimaryButton={nextHandler}
+					onSecondaryButton={cancelHandler}
+				/>
+			}
+			renderer={props.renderer}
+			title={localize(
+				'positron.selectDataConnectionProvider.title',
+				"New Data Connection"
+			)}
+			width={492}
+			onCancel={cancelHandler}
+		/>
 	);
 };
