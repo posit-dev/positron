@@ -6,8 +6,8 @@
 /// <reference types="vitest/globals" />
 
 import React from 'react';
-import { ensureNoLeakedDisposables } from '../../../../../../base/test/common/vitestUtils.js';
-import { setupRTLRenderer } from '../../../../../../base/test/browser/reactTestingLibrary.js';
+import { ensureNoLeakedDisposables } from '../../../../../../test/vitest/vitestUtils.js';
+import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { runWithFakedTimers } from '../../../../../../base/test/common/timeTravelScheduler.js';
 import { timeout } from '../../../../../../base/common/async.js';
 import { SCROLLING_CSS_CLASS, useScrollingIndicator } from '../../../browser/notebookCells/useScrollingIndicator.js';

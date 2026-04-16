@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 
-import { Disposable } from '../../common/lifecycle.js';
+import { Disposable } from '../../base/common/lifecycle.js';
 import { ensureNoLeakedDisposables } from './vitestUtils.js';
 
 describe('ensureNoLeakedDisposables', () => {

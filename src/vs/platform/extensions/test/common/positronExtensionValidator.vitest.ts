@@ -9,7 +9,7 @@
 import { URI } from '../../../../base/common/uri.js';
 import { IExtensionManifest } from '../../common/extensions.js';
 import { validatePositronExtensionManifest } from '../../common/positronExtensionValidator.js';
-import { ensureNoLeakedDisposables } from '../../../../base/test/common/vitestUtils.js';
+import { ensureNoLeakedDisposables } from '../../../../test/vitest/vitestUtils.js';
 
 /**
  * Positron Extension Validator suite.

@@ -10,7 +10,7 @@ import * as sinon from 'sinon';
 
 import { raceTimeout } from '../../../../../base/common/async.js';
 import { PositronTestServiceAccessor } from '../../../../test/browser/positronWorkbenchTestServices.js';
-import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
+import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { IPositronPlotMetadata, PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { HistoryPolicy, IPositronPlotClient, IPositronPlotsService, PlotsDisplayLocation } from '../../../../services/positronPlots/common/positronPlots.js';
 import { RuntimeClientType } from '../../../../services/runtimeSession/common/runtimeSessionService.js';

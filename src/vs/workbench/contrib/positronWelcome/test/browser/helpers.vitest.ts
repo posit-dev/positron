@@ -8,7 +8,7 @@
 
 import { IPathService } from '../../../../services/path/common/pathService.js';
 import { getCodeSettingsPathNative } from "../../browser/helpers.js";
-import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
+import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { TestPathService } from '../../../../test/browser/workbenchTestServices.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { isLinux, isMacintosh, isWindows, OperatingSystem } from '../../../../../base/common/platform.js';

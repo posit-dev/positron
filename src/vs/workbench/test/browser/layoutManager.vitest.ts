@@ -7,7 +7,7 @@
 
 
 import { LayoutManager } from '../../browser/positronDataGrid/classes/layoutManager.js';
-import { createTestContainer } from './positronTestContainer.js';
+import { createTestContainer } from '../../../test/vitest/positronTestContainer.js';
 
 /**
  * Tests the LayoutManager class.

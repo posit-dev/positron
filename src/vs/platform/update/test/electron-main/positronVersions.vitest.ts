@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 
-import { ensureNoLeakedDisposables } from '../../../../base/test/common/vitestUtils.js';
+import { ensureNoLeakedDisposables } from '../../../../test/vitest/vitestUtils.js';
 import { IUpdate } from '../../common/update.js';
 import * as positronVersion from '../../common/positronVersion.js';
 

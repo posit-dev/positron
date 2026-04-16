@@ -7,8 +7,8 @@
 
 
 import React from 'react';
-import { Emitter } from '../../common/event.js';
-import { usePositronReactServicesContext } from '../../browser/positronReactRendererContext.js';
+import { Emitter } from '../../base/common/event.js';
+import { usePositronReactServicesContext } from '../../base/browser/positronReactRendererContext.js';
 import { setupRTLRenderer } from './reactTestingLibrary.js';
 
 /**

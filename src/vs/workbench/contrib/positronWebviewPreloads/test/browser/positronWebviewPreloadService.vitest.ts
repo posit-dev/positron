@@ -9,7 +9,7 @@
 import { timeout } from '../../../../../base/common/async.js';
 import { PositronWebviewPreloadService } from '../../browser/positronWebviewPreloadsService.js';
 import { PositronTestServiceAccessor } from '../../../../test/browser/positronWorkbenchTestServices.js';
-import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
+import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { RuntimeOutputKind } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { TestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { startTestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';

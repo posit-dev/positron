@@ -10,7 +10,7 @@ import sinon from 'sinon';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { IStatusbarService, } from '../../../../services/statusbar/browser/statusbar.js';
 import { PositronTestServiceAccessor } from '../../../../test/browser/positronWorkbenchTestServices.js';
-import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
+import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { TestNotebookExecutionService } from '../../../../test/common/positronWorkbenchTestServices.js';
 import { NotebookExecutionStatus } from '../../browser/notebookExecutionStatus.js';
 import { NOTEBOOK_EXPERIMENTAL_SHOW_EXECUTION_INFO_KEY } from '../../common/runtimeNotebookKernelConfig.js';

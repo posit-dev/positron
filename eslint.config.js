@@ -1589,7 +1589,10 @@ export default tseslint.config(
 					'allow': [
 						'assert',
 						'sinon',
-						'sinon-test'
+						'sinon-test',
+						// --- Start Positron ---
+						'vs/test/vitest/**', // Vitest infrastructure (builder, RTL helpers, disposable utils)
+						// --- End Positron ---
 					]
 				},
 				// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1978,6 +1981,20 @@ export default tseslint.config(
 				{
 					'target': 'src/positron-dts/**',
 					'restrictions': ['vscode']
+				},
+				{
+					// Vitest infrastructure imports from base, platform, workbench,
+					// and editor to wire up the full DI container for tests.
+					'target': 'src/vs/test/vitest/**',
+					'restrictions': [
+						'vs/nls.js',
+						'vs/amdX.js',
+						'vs/base/**',
+						'vs/platform/**',
+						'vs/editor/**',
+						'vs/workbench/**',
+						'vs/test/vitest/**',
+					]
 				},
 				// --- End Positron ---
 				{

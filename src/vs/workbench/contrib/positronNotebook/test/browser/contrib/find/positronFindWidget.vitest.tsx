@@ -10,8 +10,8 @@
 
 import sinon from 'sinon';
 import { flushSync } from 'react-dom';
-import { ensureNoLeakedDisposables } from '../../../../../../../base/test/common/vitestUtils.js';
-import { setupRTLRenderer } from '../../../../../../../base/test/browser/reactTestingLibrary.js';
+import { ensureNoLeakedDisposables } from '../../../../../../../test/vitest/vitestUtils.js';
+import { setupRTLRenderer } from '../../../../../../../test/vitest/reactTestingLibrary.js';
 import { ISettableObservable, observableValue } from '../../../../../../../base/common/observable.js';
 import { MockContextKeyService } from '../../../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { IContextViewService } from '../../../../../../../platform/contextview/browser/contextView.js';

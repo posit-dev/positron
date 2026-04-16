@@ -9,14 +9,14 @@
 import React from 'react';
 import { fireEvent } from '@testing-library/react';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
-import { setupRTLRenderer } from '../../../../../base/test/browser/reactTestingLibrary.js';
-import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
+import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
+import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { EmptyConsole } from '../../browser/components/emptyConsole.js';
 
 describe('EmptyConsole', () => {
 	const ctx = createTestContainer()
 		.withReactServices()
-		.stub(ICommandService, { executeCommand: vi.fn().mockResolvedValue(undefined) } as Partial<ICommandService>)
+		.stub(ICommandService, { executeCommand: vi.fn().mockResolvedValue(undefined) })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 

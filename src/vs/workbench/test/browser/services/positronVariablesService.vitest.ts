@@ -16,7 +16,7 @@ import { LanguageRuntimeSessionMode } from '../../../services/languageRuntime/co
 import { IPositronVariablesService } from '../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { startTestLanguageRuntimeSession } from '../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
 import { PositronTestServiceAccessor } from '../positronWorkbenchTestServices.js';
-import { createTestContainer } from '../positronTestContainer.js';
+import { createTestContainer } from '../../../../test/vitest/positronTestContainer.js';
 
 interface TestNotebookEditor extends INotebookEditor {
 	changeModel(uri: URI): void;

@@ -8,7 +8,7 @@
 /* eslint-disable local/code-no-any-casts */
 
 
-import { ensureNoLeakedDisposables } from '../../../../../base/test/common/vitestUtils.js';
+import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { workbenchInstantiationService } from '../../../../test/browser/workbenchTestServices.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';

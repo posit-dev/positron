@@ -11,8 +11,8 @@
 import React from 'react';
 import { mainWindow } from '../../../../../../base/browser/window.js';
 import { Event } from '../../../../../../base/common/event.js';
-import { ensureNoLeakedDisposables } from '../../../../../../base/test/common/vitestUtils.js';
-import { setupRTLRenderer } from '../../../../../../base/test/browser/reactTestingLibrary.js';
+import { ensureNoLeakedDisposables } from '../../../../../../test/vitest/vitestUtils.js';
+import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { MockContextKeyService } from '../../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { TestInstantiationService } from '../../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { TestCommandService } from '../../../../../../editor/test/browser/editorTestServices.js';

@@ -8,7 +8,7 @@
 
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
-import { ensureNoLeakedDisposables } from '../../../../base/test/common/vitestUtils.js';
+import { ensureNoLeakedDisposables } from '../../../../test/vitest/vitestUtils.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { PositronWebviewPreloadService } from './positronWebviewPreloadsService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';

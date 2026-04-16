@@ -2,9 +2,7 @@
 paths:
   - src/**/*.vitest.{ts,tsx}
   - vitest.config.ts
-  - src/vs/base/test/browser/reactTestingLibrary.tsx
-  - src/vs/base/test/common/vitestUtils.ts
-  - src/vs/workbench/test/browser/positronTestContainer.ts
+  - src/vs/test/vitest/**
 ---
 
 # Vitest Tests
@@ -51,6 +49,14 @@ Some modules use `tests/` (plural) -- match what already exists in that director
 
 Use `createTestContainer()` for any test needing services. The builder handles `ensureNoLeakedDisposables()` automatically -- do NOT add it yourself.
 
+Presets form a hierarchy -- each includes the one above:
+- **Bare** (no preset) -- pure logic, no services
+- `.withRuntimeServices()` -- language runtime + session services (~18)
+- `.withNotebookServices()` -- runtime + notebook/kernel services (+8)
+- `.withWorkbenchServices()` -- full Positron stack (124+)
+- `.withContributionServices()` -- workbench + Event.None stubs for editor/notebook lifecycle
+- `.withReactServices()` -- workbench + stubs for PositronReactServicesContext (enables `ctx.reactServices`)
+
 ```typescript
 const ctx = createTestContainer().withRuntimeServices().build();
 
@@ -60,7 +66,7 @@ it('starts a session', async () => {
 });
 ```
 
-For presets, mocking guide, and key rules, see the JSDoc on `PositronTestContainerBuilder` in `src/vs/workbench/test/browser/positronTestContainer.ts`.
+For presets, mocking guide, and key rules, see the JSDoc on `PositronTestContainerBuilder` in `src/vs/test/vitest/positronTestContainer.ts`.
 
 **Testing event-driven behavior:** Create an `Emitter` at describe level, pass its `.event` to the stub, then call `.fire()` in your test (wrapped in `act()` for React components):
 
@@ -68,7 +74,7 @@ For presets, mocking guide, and key rules, see the JSDoc on `PositronTestContain
 const onDidChange = new Emitter<string>();
 const ctx = createTestContainer()
 	.withRuntimeServices()
-	.stub(IMyService, { onDidChange: onDidChange.event } as Partial<IMyService>)
+	.stub(IMyService, { onDidChange: onDidChange.event })
 	.build();
 
 it('responds to event', () => {
@@ -125,8 +131,6 @@ Use `toMatchInlineSnapshot()` to capture rendered HTML. Vitest auto-fills on fir
 - `vi.spyOn(obj, 'method')` -- spy on existing method while preserving implementation.
 - `Test*` classes / `mock.ts` -- complex state (emitters, observable values). Use when multiple tests need the same mock behavior.
 - `sinon` -- avoid in new Vitest tests.
-
-**The `as Partial<IMyService>` cast:** Every `.stub()` call needs this cast. It's a TypeScript inference limitation, not a code smell. The builder's signature is `stub<T>(id, impl: Partial<T>)` but TS can't infer `T` from a partial object literal. This triggers `local/code-no-dangerous-type-assertions` warnings -- they're expected in test files.
 
 ## Common Mistakes
 

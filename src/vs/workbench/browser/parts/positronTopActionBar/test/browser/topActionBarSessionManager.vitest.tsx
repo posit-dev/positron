@@ -5,8 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-// eslint-disable-next-line local/code-no-dangerous-type-assertions
-
 
 import React from 'react';
 import { act, fireEvent } from '@testing-library/react';
@@ -14,9 +12,9 @@ import { Emitter } from '../../../../../../base/common/event.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { LanguageRuntimeSessionMode, RuntimeState } from '../../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeSessionDisplayInfo, IRuntimeSessionService } from '../../../../../services/runtimeSession/common/runtimeSessionService.js';
-import { setupRTLRenderer } from '../../../../../../base/test/browser/reactTestingLibrary.js';
+import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { TopActionBarSessionManager } from '../../components/topActionBarSessionManager.js';
-import { createTestContainer } from '../../../../../test/browser/positronTestContainer.js';
+import { createTestContainer } from '../../../../../../test/vitest/positronTestContainer.js';
 import { CommandCenter } from '../../../../../../platform/commandCenter/common/commandCenter.js';
 import { LANGUAGE_RUNTIME_SELECT_SESSION_ID, LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID } from '../../../../../contrib/languageRuntime/browser/languageRuntimeActions.js';
 import { ICommandService } from '../../../../../../platform/commands/common/commands.js';
@@ -72,7 +70,7 @@ describe('TopActionBarSessionManager', () => {
 				foregroundSessionDisplayInfo: undefined,
 				activeSessions: [],
 				onDidChangeForegroundSessionDisplayInfo: displayInfoEmitter.event,
-			} as Partial<IRuntimeSessionService>)
+			})
 			.build();
 		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
@@ -116,7 +114,7 @@ describe('TopActionBarSessionManager', () => {
 				foregroundSessionDisplayInfo: consoleInfo,
 				activeSessions: [{ metadata: { sessionMode: LanguageRuntimeSessionMode.Console } }] as any,
 				onDidChangeForegroundSessionDisplayInfo: displayInfoEmitter.event,
-			} as Partial<IRuntimeSessionService>)
+			})
 			.build();
 		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
@@ -152,7 +150,7 @@ describe('TopActionBarSessionManager', () => {
 				foregroundSessionDisplayInfo: notebookInfo,
 				activeSessions: [],
 				onDidChangeForegroundSessionDisplayInfo: displayInfoEmitter.event,
-			} as Partial<IRuntimeSessionService>)
+			})
 			.build();
 		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
@@ -188,7 +186,7 @@ describe('TopActionBarSessionManager', () => {
 				foregroundSessionDisplayInfo: notebookInfoNoUri,
 				activeSessions: [],
 				onDidChangeForegroundSessionDisplayInfo: displayInfoEmitter.event,
-			} as Partial<IRuntimeSessionService>)
+			})
 			.build();
 		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
@@ -210,7 +208,7 @@ describe('TopActionBarSessionManager', () => {
 				foregroundSessionDisplayInfo: undefined,
 				activeSessions: [],
 				onDidChangeForegroundSessionDisplayInfo: displayInfoEmitter.event,
-			} as Partial<IRuntimeSessionService>)
+			})
 			.build();
 		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
@@ -317,8 +315,8 @@ describe('TopActionBarSessionManager', () => {
 				foregroundSessionDisplayInfo: undefined,
 				activeSessions: [{ metadata: { sessionMode: LanguageRuntimeSessionMode.Console } }] as any,
 				onDidChangeForegroundSessionDisplayInfo: displayInfoEmitter.event,
-			} as Partial<IRuntimeSessionService>)
-			.stub(ICommandService, { executeCommand: vi.fn().mockResolvedValue(undefined) } as Partial<ICommandService>)
+			})
+			.stub(ICommandService, { executeCommand: vi.fn().mockResolvedValue(undefined) })
 			.build();
 		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
@@ -344,8 +342,8 @@ describe('TopActionBarSessionManager', () => {
 				foregroundSessionDisplayInfo: undefined,
 				activeSessions: [],
 				onDidChangeForegroundSessionDisplayInfo: displayInfoEmitter.event,
-			} as Partial<IRuntimeSessionService>)
-			.stub(ICommandService, { executeCommand: vi.fn().mockResolvedValue(undefined) } as Partial<ICommandService>)
+			})
+			.stub(ICommandService, { executeCommand: vi.fn().mockResolvedValue(undefined) })
 			.build();
 		const rtl = setupRTLRenderer(() => ctx.reactServices);
 

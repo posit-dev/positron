@@ -7,7 +7,7 @@
 
 
 import { VSBuffer } from '../../../../../base/common/buffer.js';
-import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
+import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { DATA_EXPLORER_MIME_TYPE, parseOutputData } from '../../browser/getOutputContents.js';
 import { ParsedDataExplorerOutput } from '../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { pickPreferredOutputItem } from '../../browser/PositronNotebookCells/notebookOutputUtils.js';

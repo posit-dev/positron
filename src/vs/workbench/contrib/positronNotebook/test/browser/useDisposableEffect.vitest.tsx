@@ -6,8 +6,8 @@
 /// <reference types="vitest/globals" />
 
 import sinon from 'sinon';
-import { ensureNoLeakedDisposables } from '../../../../../base/test/common/vitestUtils.js';
-import { setupRTLRenderer } from '../../../../../base/test/browser/reactTestingLibrary.js';
+import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
+import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { useDisposableEffect } from '../../browser/useDisposableEffect.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
 

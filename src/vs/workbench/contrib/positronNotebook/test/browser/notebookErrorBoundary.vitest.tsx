@@ -11,8 +11,8 @@
 import React from 'react';
 import sinon from 'sinon';
 import { flushSync } from 'react-dom';
-import { ensureNoLeakedDisposables } from '../../../../../base/test/common/vitestUtils.js';
-import { setupRTLRenderer } from '../../../../../base/test/browser/reactTestingLibrary.js';
+import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
+import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { NotebookErrorBoundary } from '../../browser/NotebookErrorBoundary.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 

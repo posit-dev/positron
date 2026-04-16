@@ -8,8 +8,8 @@
 
 import React, { type ReactElement } from 'react';
 import { render, cleanup, type RenderResult } from '@testing-library/react';
-import { PositronReactServicesContext } from '../../browser/positronReactRendererContext.js';
-import { PositronActionBarContextProvider } from '../../../platform/positronActionBar/browser/positronActionBarContext.js';
+import { PositronReactServicesContext } from '../../base/browser/positronReactRendererContext.js';
+import { PositronActionBarContextProvider } from '../../platform/positronActionBar/browser/positronActionBarContext.js';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type TestServices = Record<string, any>;

@@ -10,7 +10,7 @@
 import '../../../../browser/contrib/find/positronNotebookFind.contribution.js';
 
 import * as sinon from 'sinon';
-import { createTestContainer } from '../../../../../../test/browser/positronTestContainer.js';
+import { createTestContainer } from '../../../../../../../test/vitest/positronTestContainer.js';
 import { IModelDecoration, ITextModel } from '../../../../../../../editor/common/model.js';
 import { USUAL_WORD_SEPARATORS } from '../../../../../../../editor/common/core/wordHelper.js';
 import { IBulkEditService, ResourceEdit, ResourceTextEdit } from '../../../../../../../editor/browser/services/bulkEditService.js';

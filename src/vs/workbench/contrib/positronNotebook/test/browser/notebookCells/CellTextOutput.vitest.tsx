@@ -11,8 +11,8 @@
 import sinon from 'sinon';
 import { flushSync } from 'react-dom';
 import { Emitter } from '../../../../../../base/common/event.js';
-import { ensureNoLeakedDisposables } from '../../../../../../base/test/common/vitestUtils.js';
-import { setupRTLRenderer } from '../../../../../../base/test/browser/reactTestingLibrary.js';
+import { ensureNoLeakedDisposables } from '../../../../../../test/vitest/vitestUtils.js';
+import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { MockContextKeyService } from '../../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { TestConfigurationService } from '../../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { NotebookDisplayOptions, NotebookLayoutConfiguration, NotebookOptions, NotebookOptionsChangeEvent } from '../../../../notebook/browser/notebookOptions.js';

@@ -7,8 +7,8 @@
 
 import React from 'react';
 import { mainWindow } from '../../../../../../base/browser/window.js';
-import { ensureNoLeakedDisposables } from '../../../../../../base/test/common/vitestUtils.js';
-import { setupRTLRenderer } from '../../../../../../base/test/browser/reactTestingLibrary.js';
+import { ensureNoLeakedDisposables } from '../../../../../../test/vitest/vitestUtils.js';
+import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { useWheelForwarding } from '../../../browser/notebookCells/useWheelForwarding.js';
 
 /* Minimal wrapper that wires up the hook between a source div and a target ref. */

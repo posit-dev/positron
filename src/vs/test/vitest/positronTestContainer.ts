@@ -5,54 +5,60 @@
 
 /// <reference types="vitest/globals" />
 
+// MAINTENANCE: This directory (src/vs/test/vitest/) is excluded from tsc
+// compilation via two mechanisms:
+//   - src/tsconfig.json "exclude" array (glob: ./vs/test/vitest/**)
+//   - build/lib/compilation.ts isVitestFile() (path check: /test/vitest/)
+// If you move or rename this directory, update both exclusion sites.
+
 // This file uses Vitest hooks (beforeEach, ensureNoLeakedDisposables).
 // It is ONLY imported by .vitest.ts files. No Mocha .test.ts or .test.tsx
 // file imports this module. Verified via: grep -rl 'positronTestContainer' --include='*.test.ts' src/vs
 
-import { DisposableStore } from '../../../base/common/lifecycle.js';
-import { Event } from '../../../base/common/event.js';
-import { ServiceIdentifier } from '../../../platform/instantiation/common/instantiation.js';
-import { ServiceCollection } from '../../../platform/instantiation/common/serviceCollection.js';
-import { TestInstantiationService } from '../../../platform/instantiation/test/common/instantiationServiceMock.js';
-import { createRuntimeServices } from '../../services/runtimeSession/test/common/testRuntimeSessionService.js';
-import { positronWorkbenchInstantiationService } from './positronWorkbenchTestServices.js';
-import { ensureNoLeakedDisposables } from '../../../base/test/common/vitestUtils.js';
-import { INotebookExecutionService } from '../../contrib/notebook/common/notebookExecutionService.js';
-import { INotebookExecutionStateService } from '../../contrib/notebook/common/notebookExecutionStateService.js';
-import { INotebookRendererMessagingService } from '../../contrib/notebook/common/notebookRendererMessagingService.js';
-import { NotebookRendererMessagingService } from '../../contrib/notebook/browser/services/notebookRendererMessagingServiceImpl.js';
-import { INotebookEditorService } from '../../contrib/notebook/browser/services/notebookEditorService.js';
-import { NotebookEditorWidgetService } from '../../contrib/notebook/browser/services/notebookEditorServiceImpl.js';
-import { INotebookDocumentService, NotebookDocumentWorkbenchService } from '../../services/notebook/common/notebookDocumentService.js';
-import { INotebookService } from '../../contrib/notebook/common/notebookService.js';
-import { NotebookService } from '../../contrib/notebook/browser/services/notebookServiceImpl.js';
-import { INotebookKernelService } from '../../contrib/notebook/common/notebookKernelService.js';
-import { NotebookKernelService } from '../../contrib/notebook/browser/services/notebookKernelServiceImpl.js';
-import { INotebookLoggingService } from '../../contrib/notebook/common/notebookLoggingService.js';
-import { NotebookLoggingService } from '../../contrib/notebook/browser/services/notebookLoggingServiceImpl.js';
-import { TestNotebookExecutionService } from '../../test/common/positronWorkbenchTestServices.js';
-import { TestNotebookExecutionStateService } from '../../contrib/notebook/test/browser/testNotebookEditor.js';
-import { workbenchInstantiationService as baseWorkbenchInstantiationService } from './workbenchTestServices.js';
-import { ICodeEditorService } from '../../../editor/browser/services/codeEditorService.js';
-import { IPositronNotebookService } from '../../contrib/positronNotebook/browser/positronNotebookService.js';
-import { IQuartoKernelManager } from '../../contrib/positronQuarto/browser/quartoKernelManager.js';
-import { PositronReactServices } from '../../../base/browser/positronReactServices.js';
-import { IActionWidgetService } from '../../../platform/actionWidget/browser/actionWidget.js';
-import { IClipboardService } from '../../../platform/clipboard/common/clipboardService.js';
-import { IExecutionHistoryService } from '../../services/positronHistory/common/executionHistoryService.js';
-import { ILanguageModelsService } from '../../contrib/chat/common/languageModels.js';
-import { IPositronAssistantService } from '../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
-import { IPositronConnectionsService } from '../../services/positronConnections/common/interfaces/positronConnectionsService.js';
-import { IPositronDataExplorerService } from '../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
-import { IPositronHelpService } from '../../contrib/positronHelp/browser/positronHelpService.js';
-import { IPositronMemoryUsageService } from '../../../platform/positronMemoryUsage/common/positronMemoryUsage.js';
-import { IPositronPackagesService } from '../../contrib/positronPackages/browser/interfaces/positronPackagesService.js';
-import { IPositronPreviewService } from '../../contrib/positronPreview/browser/positronPreviewSevice.js';
-import { IPositronTopActionBarService } from '../../services/positronTopActionBar/browser/positronTopActionBarService.js';
-import { IQuickChatService } from '../../contrib/chat/browser/chat.js';
-import { IResourceUsageHistoryService } from '../../services/positronConsole/browser/resourceUsageHistoryService.js';
-import { ITerminalService } from '../../contrib/terminal/browser/terminal.js';
-import { IViewDescriptorService } from '../../common/views.js';
+import { DisposableStore } from '../../base/common/lifecycle.js';
+import { Event } from '../../base/common/event.js';
+import { ServiceIdentifier } from '../../platform/instantiation/common/instantiation.js';
+import { ServiceCollection } from '../../platform/instantiation/common/serviceCollection.js';
+import { TestInstantiationService } from '../../platform/instantiation/test/common/instantiationServiceMock.js';
+import { createRuntimeServices } from '../../workbench/services/runtimeSession/test/common/testRuntimeSessionService.js';
+import { positronWorkbenchInstantiationService } from '../../workbench/test/browser/positronWorkbenchTestServices.js';
+import { ensureNoLeakedDisposables } from './vitestUtils.js';
+import { INotebookExecutionService } from '../../workbench/contrib/notebook/common/notebookExecutionService.js';
+import { INotebookExecutionStateService } from '../../workbench/contrib/notebook/common/notebookExecutionStateService.js';
+import { INotebookRendererMessagingService } from '../../workbench/contrib/notebook/common/notebookRendererMessagingService.js';
+import { NotebookRendererMessagingService } from '../../workbench/contrib/notebook/browser/services/notebookRendererMessagingServiceImpl.js';
+import { INotebookEditorService } from '../../workbench/contrib/notebook/browser/services/notebookEditorService.js';
+import { NotebookEditorWidgetService } from '../../workbench/contrib/notebook/browser/services/notebookEditorServiceImpl.js';
+import { INotebookDocumentService, NotebookDocumentWorkbenchService } from '../../workbench/services/notebook/common/notebookDocumentService.js';
+import { INotebookService } from '../../workbench/contrib/notebook/common/notebookService.js';
+import { NotebookService } from '../../workbench/contrib/notebook/browser/services/notebookServiceImpl.js';
+import { INotebookKernelService } from '../../workbench/contrib/notebook/common/notebookKernelService.js';
+import { NotebookKernelService } from '../../workbench/contrib/notebook/browser/services/notebookKernelServiceImpl.js';
+import { INotebookLoggingService } from '../../workbench/contrib/notebook/common/notebookLoggingService.js';
+import { NotebookLoggingService } from '../../workbench/contrib/notebook/browser/services/notebookLoggingServiceImpl.js';
+import { TestNotebookExecutionService } from '../../workbench/test/common/positronWorkbenchTestServices.js';
+import { TestNotebookExecutionStateService } from '../../workbench/contrib/notebook/test/browser/testNotebookEditor.js';
+import { workbenchInstantiationService as baseWorkbenchInstantiationService } from '../../workbench/test/browser/workbenchTestServices.js';
+import { ICodeEditorService } from '../../editor/browser/services/codeEditorService.js';
+import { IPositronNotebookService } from '../../workbench/contrib/positronNotebook/browser/positronNotebookService.js';
+import { IQuartoKernelManager } from '../../workbench/contrib/positronQuarto/browser/quartoKernelManager.js';
+import { PositronReactServices } from '../../base/browser/positronReactServices.js';
+import { IActionWidgetService } from '../../platform/actionWidget/browser/actionWidget.js';
+import { IClipboardService } from '../../platform/clipboard/common/clipboardService.js';
+import { IExecutionHistoryService } from '../../workbench/services/positronHistory/common/executionHistoryService.js';
+import { ILanguageModelsService } from '../../workbench/contrib/chat/common/languageModels.js';
+import { IPositronAssistantService } from '../../workbench/contrib/positronAssistant/common/interfaces/positronAssistantService.js';
+import { IPositronConnectionsService } from '../../workbench/services/positronConnections/common/interfaces/positronConnectionsService.js';
+import { IPositronDataExplorerService } from '../../workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
+import { IPositronHelpService } from '../../workbench/contrib/positronHelp/browser/positronHelpService.js';
+import { IPositronMemoryUsageService } from '../../platform/positronMemoryUsage/common/positronMemoryUsage.js';
+import { IPositronPackagesService } from '../../workbench/contrib/positronPackages/browser/interfaces/positronPackagesService.js';
+import { IPositronPreviewService } from '../../workbench/contrib/positronPreview/browser/positronPreviewSevice.js';
+import { IPositronTopActionBarService } from '../../workbench/services/positronTopActionBar/browser/positronTopActionBarService.js';
+import { IQuickChatService } from '../../workbench/contrib/chat/browser/chat.js';
+import { IResourceUsageHistoryService } from '../../workbench/services/positronConsole/browser/resourceUsageHistoryService.js';
+import { ITerminalService } from '../../workbench/contrib/terminal/browser/terminal.js';
+import { IViewDescriptorService } from '../../workbench/common/views.js';
 
 interface TestContainerResult {
 	/** Retrieve a registered service by its identifier. */
@@ -92,7 +98,7 @@ type ServiceStub = { id: ServiceIdentifier<any>; impl: any };
  *
  * When to add a new preset:
  *   - 2+ test files across different directories need the same .stub() set
- *   - The stubs are non-trivial (emitters, real instances), not just {} as Partial<T>
+ *   - The stubs are non-trivial (emitters, real instances), not just `{}`
  *   - The services map to a recognizable domain (e.g. "Quarto", "Plots")
  *   If only one file needs the combination, use an existing preset + .stub().
  *
@@ -116,20 +122,14 @@ type ServiceStub = { id: ServiceIdentifier<any>; impl: any };
  * 1. Start with a preset and run the test. If it passes, you're done.
  * 2. "X is not a function" or "Cannot read properties of undefined" means
  *    a service is missing. Add an empty stub:
- *    `.stub(IMissingService, {} as Partial<IMissingService>)`
+ *    `.stub(IMissingService, {})`
  * 3. If the code calls a specific method, add just that method:
- *    `.stub(IMissingService, { getDoc: () => undefined } as Partial<IMissingService>)`
+ *    `.stub(IMissingService, { getDoc: () => undefined })`
  * 4. If the code subscribes to an event, add an Emitter:
  *    ```
  *    const onDidChange = new Emitter<void>();
- *    .stub(IService, { onDidChange: onDidChange.event } as Partial<IService>)
+ *    .stub(IService, { onDidChange: onDidChange.event })
  *    ```
- *
- * Cast with `as Partial<T>` -- this matches the method signature and signals
- * the object is intentionally incomplete. This may trigger
- * `local/code-no-dangerous-type-assertions`; add
- * `// eslint-disable local/code-no-dangerous-type-assertions` below the
- * copyright header.
  *
  * ## Disposables
  *
@@ -212,8 +212,14 @@ class PositronTestContainerBuilder {
 		return this;
 	}
 
-	/** Stub a specific service. Applied after presets, so it overrides preset defaults. */
-	stub<T>(id: ServiceIdentifier<T>, impl: Partial<T>): this {
+	/**
+	 * Stub a specific service. Applied after presets, so it overrides preset defaults.
+	 *
+	 * Pass a partial object with only the methods/properties your test needs.
+	 * No `as Partial<T>` cast required -- the builder handles the type boundary.
+	 */
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	stub(id: ServiceIdentifier<any>, impl: object): this {
 		this._stubs.push({ id, impl });
 		return this;
 	}
@@ -278,21 +284,21 @@ class PositronTestContainerBuilder {
 					onDidAddNotebookEditor: Event.None,
 					onDidRemoveNotebookEditor: Event.None,
 					listNotebookEditors: () => [],
-				} as Partial<INotebookEditorService>);
+				});
 				_instantiationService.stub(ICodeEditorService, {
 					onCodeEditorAdd: Event.None,
 					onCodeEditorRemove: Event.None,
 					listCodeEditors: () => [],
 					getActiveCodeEditor: () => null,
-				} as Partial<ICodeEditorService>);
+				});
 				_instantiationService.stub(IPositronNotebookService, {
 					onDidAddNotebookInstance: Event.None,
 					onDidRemoveNotebookInstance: Event.None,
 					listInstances: () => [],
-				} as Partial<IPositronNotebookService>);
+				});
 				_instantiationService.stub(IQuartoKernelManager, {
 					getSessionForDocument: () => undefined,
-				} as Partial<IQuartoKernelManager>);
+				});
 			} else if (useWorkbenchServices) {
 				_instantiationService = positronWorkbenchInstantiationService(disposables);
 			} else if (useNotebookServices) {

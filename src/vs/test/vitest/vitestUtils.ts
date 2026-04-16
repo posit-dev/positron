@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 
-import { DisposableStore, DisposableTracker, IDisposable, setDisposableTracker } from '../../common/lifecycle.js';
+import { DisposableStore, DisposableTracker, IDisposable, setDisposableTracker } from '../../base/common/lifecycle.js';
 
 /**
  * Vitest equivalent of `ensureNoDisposablesAreLeakedInTestSuite()` from `utils.ts`.

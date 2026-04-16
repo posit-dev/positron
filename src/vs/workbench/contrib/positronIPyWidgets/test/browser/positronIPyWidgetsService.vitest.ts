@@ -24,7 +24,7 @@ import { RuntimeClientType } from '../../../../services/runtimeSession/common/ru
 import { TestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { startTestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
 import { PositronTestServiceAccessor } from '../../../../test/browser/positronWorkbenchTestServices.js';
-import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
+import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { INotebookRendererInfo, INotebookStaticPreloadInfo } from '../../../notebook/common/notebookCommon.js';
 import { NotebookOutputRendererInfo } from '../../../notebook/common/notebookOutputRenderer.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';

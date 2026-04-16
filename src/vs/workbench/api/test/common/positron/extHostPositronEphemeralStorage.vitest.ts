@@ -9,7 +9,7 @@
 import { mock } from '../../../../../base/test/common/mock.js';
 import { SingleProxyRPCProtocol } from '../testRPCProtocol.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
-import { ensureNoLeakedDisposables } from '../../../../../base/test/common/vitestUtils.js';
+import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { ExtHostPositronEphemeralStorage } from '../../../common/positron/extHostPositronEphemeralStorage.js';
 import { MainThreadPositronEphemeralStorageShape } from '../../../common/positron/extHost.positron.protocol.js';
 

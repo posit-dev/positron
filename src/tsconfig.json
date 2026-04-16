@@ -42,9 +42,7 @@
 	"exclude": [
 		"./vs/**/*.vitest.ts",
 		"./vs/**/*.vitest.tsx",
-		"./vs/base/test/common/vitestUtils.ts",
-		"./vs/base/test/browser/reactTestingLibrary.tsx",
-		"./vs/workbench/test/browser/positronTestContainer.ts"
+		"./vs/test/vitest/**"
 	]
 	// --- End Positron ---
 }

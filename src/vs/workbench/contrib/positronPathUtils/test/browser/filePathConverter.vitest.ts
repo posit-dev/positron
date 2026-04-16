@@ -7,7 +7,7 @@
 
 
 import { formatPathForCode, convertClipboardFiles } from '../../common/filePathConverter.js';
-import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
+import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { isWindows } from '../../../../../base/common/platform.js';
 import { URI } from '../../../../../base/common/uri.js';
 

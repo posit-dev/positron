@@ -12,8 +12,8 @@ import { ColumnSummaryCell } from '../../browser/components/columnSummaryCell.js
 import { getColumnSchema } from '../../common/positronDataExplorerMocks.js';
 import { ColumnDisplayType, SupportStatus, ColumnProfileType, SupportedFeatures } from '../../../languageRuntime/common/positronDataExplorerComm.js';
 import { TableSummaryDataGridInstance } from '../../browser/tableSummaryDataGridInstance.js';
-import { ensureNoLeakedDisposables } from '../../../../../base/test/common/vitestUtils.js';
-import { setupRTLRenderer } from '../../../../../base/test/browser/reactTestingLibrary.js';
+import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
+import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { PositronActionBarHoverManager } from '../../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 

@@ -13,8 +13,8 @@ import { IPositronActionBarWidgetDescriptor } from '../../browser/positronAction
 import { MenuId } from '../../../actions/common/actions.js';
 import { ICommandService, CommandsRegistry } from '../../../commands/common/commands.js';
 import { ServiceIdentifier, ServicesAccessor } from '../../../instantiation/common/instantiation.js';
-import { ensureNoLeakedDisposables } from '../../../../base/test/common/vitestUtils.js';
-import { setupRTLRenderer } from '../../../../base/test/browser/reactTestingLibrary.js';
+import { ensureNoLeakedDisposables } from '../../../../test/vitest/vitestUtils.js';
+import { setupRTLRenderer } from '../../../../test/vitest/reactTestingLibrary.js';
 import { PositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
 import { TestCommandService } from '../../../../editor/test/browser/editorTestServices.js';

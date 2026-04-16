@@ -16,7 +16,7 @@ import { IRuntimeSessionService } from '../../../../services/runtimeSession/comm
 import { waitForRuntimeState } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { createTestLanguageRuntimeMetadata } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
 import { PositronTestServiceAccessor } from '../../../../test/browser/positronWorkbenchTestServices.js';
-import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
+import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { IPYNB_VIEW_TYPE } from '../../../notebook/browser/notebookBrowser.js';
 import { NotebookKernelService } from '../../../notebook/browser/services/notebookKernelServiceImpl.js';
 import { NotebookTextModel } from '../../../notebook/common/model/notebookTextModel.js';

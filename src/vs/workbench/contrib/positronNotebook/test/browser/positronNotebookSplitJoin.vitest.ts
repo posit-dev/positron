@@ -7,7 +7,7 @@
 
 
 import { VSBuffer } from '../../../../../base/common/buffer.js';
-import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
+import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { createTestPositronNotebookInstance, TestPositronNotebookInstance } from './testPositronNotebookInstance.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { Selection } from '../../../../../editor/common/core/selection.js';

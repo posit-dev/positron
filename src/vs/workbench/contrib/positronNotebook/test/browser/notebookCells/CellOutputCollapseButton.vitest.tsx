@@ -9,8 +9,8 @@
 /* eslint-disable local/code-no-dangerous-type-assertions */
 
 import sinon, { SinonStub } from 'sinon';
-import { ensureNoLeakedDisposables } from '../../../../../../base/test/common/vitestUtils.js';
-import { setupRTLRenderer } from '../../../../../../base/test/browser/reactTestingLibrary.js';
+import { ensureNoLeakedDisposables } from '../../../../../../test/vitest/vitestUtils.js';
+import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { CellOutputCollapseButton } from '../../../browser/notebookCells/CellOutputCollapseButton.js';
 import { PositronNotebookCodeCell } from '../../../browser/PositronNotebookCells/PositronNotebookCodeCell.js';
 import { observableValue, ISettableObservable } from '../../../../../../base/common/observable.js';

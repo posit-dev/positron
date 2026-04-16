@@ -59,7 +59,7 @@ For each new symbol (method, class, interface member) in the diff:
 
 **Step 3: Read the testing guide.**
 
-Read the Testing section of `CLAUDE.md` (the "Where should I put my test?" decision table), `.claude/rules/vitest.md` for patterns, and the JSDoc on `PositronTestContainerBuilder` in `src/vs/workbench/test/browser/positronTestContainer.ts` for presets.
+Read the Testing section of `CLAUDE.md` (the "Where should I put my test?" decision table), `.claude/rules/vitest.md` for patterns, and the JSDoc on `PositronTestContainerBuilder` in `src/vs/test/vitest/positronTestContainer.ts` for presets.
 
 **Step 4: Classify each file.**
 

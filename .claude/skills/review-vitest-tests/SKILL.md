@@ -15,7 +15,7 @@ $ARGUMENTS should contain the test file path(s) to review. For each test file, a
 
 1. Read each test file and its source file.
 2. Read `.claude/rules/vitest.md` for patterns, conventions, and common mistakes.
-3. Read the builder JSDoc: `src/vs/workbench/test/browser/positronTestContainer.ts`
+3. Read the builder JSDoc: `src/vs/test/vitest/positronTestContainer.ts`
 
 ## Checklist (per test file)
 
@@ -35,7 +35,7 @@ Count lines of setup vs number of tests. If the ratio exceeds 10:1, suggest extr
 
 ### 4. Mock minimality
 
-Any stubs that mock more than what the tests actually exercise? Any `as Partial<T>` that could be `{} as T` instead?
+Any stubs that mock more than what the tests actually exercise? Any stub objects with unused properties?
 
 ### 5. Edge case coverage
 

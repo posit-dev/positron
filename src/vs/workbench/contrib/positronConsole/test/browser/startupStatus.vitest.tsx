@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-// eslint-disable-next-line local/code-no-dangerous-type-assertions
+/* eslint-disable local/code-no-dangerous-type-assertions */
 
 
 import React from 'react';
@@ -13,14 +13,16 @@ import { act } from '@testing-library/react';
 import { Emitter } from '../../../../../base/common/event.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeStartupPhase } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeAutoStartEvent, IRuntimeStartupService } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
-import { setupRTLRenderer } from '../../../../../base/test/browser/reactTestingLibrary.js';
-import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
+import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
+import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { StartupStatus } from '../../browser/components/startupStatus.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
+// Emitters must be created at describe level (or in helpers called at describe level),
+// not inside it() -- see "Common Mistakes" in .claude/rules/vitest.md.
 function createMockLanguageRuntimeService(initialPhase: RuntimeStartupPhase = RuntimeStartupPhase.Initializing) {
 	const onDidRegisterRuntime = new Emitter<ILanguageRuntimeMetadata>();
 	const onDidChangeRuntimeStartupPhase = new Emitter<RuntimeStartupPhase>();
@@ -32,7 +34,7 @@ function createMockLanguageRuntimeService(initialPhase: RuntimeStartupPhase = Ru
 			startupPhase: initialPhase,
 			onDidRegisterRuntime: onDidRegisterRuntime.event,
 			onDidChangeRuntimeStartupPhase: onDidChangeRuntimeStartupPhase.event,
-		} as Partial<ILanguageRuntimeService>,
+		},
 		onDidRegisterRuntime,
 		onDidChangeRuntimeStartupPhase,
 		registeredRuntimes,
@@ -44,7 +46,7 @@ function createMockRuntimeStartupService() {
 	return {
 		service: {
 			onWillAutoStartRuntime: onWillAutoStartRuntime.event,
-		} as Partial<IRuntimeStartupService>,
+		},
 		onWillAutoStartRuntime,
 	};
 }

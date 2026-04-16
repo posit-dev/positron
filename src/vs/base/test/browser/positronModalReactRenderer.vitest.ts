@@ -8,7 +8,7 @@
 
 import * as sinon from 'sinon';
 import { PositronModalReactRenderer } from '../../browser/positronModalReactRenderer.js';
-import { ensureNoLeakedDisposables } from '../common/vitestUtils.js';
+import { ensureNoLeakedDisposables } from '../../../test/vitest/vitestUtils.js';
 
 describe('PositronModalReactRenderer', () => {
 	// Disposables.

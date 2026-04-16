@@ -22,7 +22,7 @@ import {
 	SupportStatus,
 	SchemaUpdateEvent
 } from '../../../languageRuntime/common/positronDataExplorerComm.js';
-import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
+import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { getColumnSchema } from '../../common/positronDataExplorerMocks.js';
 
 describe('TableSummaryDataGridInstance', () => {

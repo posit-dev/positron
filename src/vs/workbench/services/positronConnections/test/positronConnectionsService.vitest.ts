@@ -14,7 +14,7 @@ import { IDriver } from '../common/interfaces/positronConnectionsDriver.js';
 import { TestConnectionInstance } from './positronConnectionInstanceMock.js';
 import { TestSecretStorageService } from '../../../../platform/secrets/test/common/testSecretStorageService.js';
 import { ISecretStorageService } from '../../../../platform/secrets/common/secrets.js';
-import { ensureNoLeakedDisposables } from '../../../../base/test/common/vitestUtils.js';
+import { ensureNoLeakedDisposables } from '../../../../test/vitest/vitestUtils.js';
 import { createRuntimeServices, startTestLanguageRuntimeSession } from '../../runtimeSession/test/common/testRuntimeSessionService.js';
 import { RuntimeClientType } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
 

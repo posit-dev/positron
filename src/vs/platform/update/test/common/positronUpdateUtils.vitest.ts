@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 
-import { ensureNoLeakedDisposables } from '../../../../base/test/common/vitestUtils.js';
+import { ensureNoLeakedDisposables } from '../../../../test/vitest/vitestUtils.js';
 import { buildUpdateUrl } from '../../common/positronUpdateUtils.js';
 
 describe('buildUpdateUrl', function () {

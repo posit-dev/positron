@@ -9,8 +9,8 @@
 
 import sinon from 'sinon';
 import { Emitter } from '../../../../../base/common/event.js';
-import { ensureNoLeakedDisposables } from '../../../../../base/test/common/vitestUtils.js';
-import { setupRTLRenderer } from '../../../../../base/test/browser/reactTestingLibrary.js';
+import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
+import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { IMenu, IMenuChangeEvent, IMenuService, MenuId, MenuItemAction, SubmenuItemAction } from '../../../../../platform/actions/common/actions.js';
 import { IVersionedMenu, useMenu } from '../../browser/useMenu.js';
 import { useMenuActions } from '../../browser/useMenuActions.js';
