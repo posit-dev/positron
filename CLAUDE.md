@@ -45,9 +45,9 @@ Positron forks VSCode. Minimize merge conflicts by isolating Positron code.
 | React component, props only | Vitest | **RTL prop-driven** -- `setupRTLRenderer()` | `.vitest.tsx` |
 | React component using services | Vitest | **RTL service-context** -- `withReactServices()` | `.vitest.tsx` |
 | Code needing activated extensions or workspace APIs | Mocha | **Extension host** -- `npm run test-extension` | `.test.ts` |
+| User-visible workflows across multiple systems | Playwright | **E2E** | `.test.ts` |
 
 **React component: prop-driven or service-context?** Grep the component for `usePositronReactServicesContext`. If it appears anywhere in the file (or its child components render via context), use service-context. When in doubt, use service-context -- it works for both.
-| User-visible workflows across multiple systems | Playwright | **E2E** | `.test.ts` |
 
 ### Running tests
 
@@ -65,7 +65,7 @@ Positron forks VSCode. Minimize merge conflicts by isolating Positron code.
 	- positron-python has its own test setup -- see `extensions/positron-python/CLAUDE.md`
 - **E2E tests** (full app, real browser): `npx playwright test test/e2e/tests/<test-name>.test.ts --project e2e-electron --grep '<pattern>'`
 
-Detailed patterns, builder presets, RTL setup, and mock guidance are in `.claude/rules/vitest.md` (loaded automatically when editing `.vitest.{ts,tsx}` files).
+**Writing your first Vitest test?** See the quick start, code examples, and common mistakes in [`.claude/rules/vitest.md`](.claude/rules/vitest.md) -- it's the complete testing guide for both humans and Claude.
 
 ## Directory Structure
 

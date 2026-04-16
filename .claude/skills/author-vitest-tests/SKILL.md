@@ -59,7 +59,7 @@ For each new symbol (method, class, interface member) in the diff:
 
 **Step 3: Read the testing guide.**
 
-Read the Testing section of `CLAUDE.md` (the "Where should I put my test?" decision table and "The Builder" section) and the JSDoc on `PositronTestContainerBuilder` in `src/vs/workbench/test/browser/positronTestContainer.ts` for presets.
+Read the Testing section of `CLAUDE.md` (the "Where should I put my test?" decision table), `.claude/rules/vitest.md` for patterns, and the JSDoc on `PositronTestContainerBuilder` in `src/vs/workbench/test/browser/positronTestContainer.ts` for presets.
 
 **Step 4: Classify each file.**
 
@@ -118,97 +118,21 @@ For each approved item:
 
 1. **Read the source file** and **existing tests in the same directory** for patterns.
 
-2. **Write the test** following the appropriate pattern:
+2. **Read `.claude/rules/vitest.md`** for code examples of all four patterns (plain, builder, RTL prop-driven, RTL service-context), the emitter pattern, inline snapshots, and mock utilities. Also read the "Common Mistakes" section.
 
-   **Common rules for ALL patterns:**
-   - Use Vitest conventions: `describe()`, `it()`, `beforeEach()`, `afterEach()`, `beforeAll()`, `afterAll()`.
-   - Add `/// <reference types="vitest/globals" />` after the copyright header.
-   - Use tabs for indentation. Add the Posit Software copyright header.
+3. **Write the test** following the appropriate pattern from vitest.md and these rules:
+   - Add `/// <reference types="vitest/globals" />` after the Posit Software copyright header.
+   - Use tabs for indentation.
    - File name: `<source-name>.vitest.ts` (or `.vitest.tsx` for React components).
-   - Place the test in `test/browser/` adjacent to the source module. If no test directory exists, create `test/browser/`. Some modules use `tests/` (plural) -- match what exists.
-   - The builder handles `ensureNoLeakedDisposables()` automatically -- do NOT add it yourself.
+   - Place the test in `test/browser/` adjacent to the source module. Match `test/` vs `tests/` if the directory already exists.
    - Use `expect()` assertions, not `assert`.
-
-   **Plain test** (no services):
-   ```typescript
-   describe('buildUpdateUrl', () => {
-       it('includes language params', () => {
-           const result = buildUpdateUrl(baseUrl, ['python'], true, undefined);
-           expect(result).toBe(`${baseUrl}?python=1`);
-       });
-   });
-   ```
-
-   **Builder test** (needs services):
-   ```typescript
-   describe('MyService', () => {
-       const onDidSomething = new Emitter<void>();
-
-       const ctx = createTestContainer()
-           .withWorkbenchServices()
-           .stub(IMyService, {
-               onDidSomething: onDidSomething.event,
-               listItems: () => [],
-           } as Partial<IMyService>)
-           .build();
-
-       it('responds to event', () => {
-           const contribution = ctx.disposables.add(
-               ctx.instantiationService.createInstance(MyContribution));
-           onDidSomething.fire();
-           // assert behavior
-       });
-   });
-   ```
-
-   **RTL prop-driven** (React component with props):
-   ```tsx
-   describe('MyLabel', () => {
-       const rtl = setupRTLRenderer();
-
-       it('renders text', () => {
-           rtl.render(<MyLabel text="hello" />).getByText('hello');
-       });
-   });
-   ```
-
-   **RTL service-context** (React component using `usePositronReactServicesContext()`):
-   ```tsx
-   describe('MyComponent', () => {
-       const emitter = new Emitter<SomeEvent>();
-       const ctx = createTestContainer()
-           .withReactServices()
-           .stub(IMyService, {
-               someProperty: initialValue,
-               onDidChange: emitter.event,
-           } as Partial<IMyService>)
-           .build();
-       const rtl = setupRTLRenderer(() => ctx.reactServices);
-
-       it('renders initial state', () => {
-           const { container } = rtl.render(<MyComponent />);
-           expect(container.textContent).toContain('expected text');
-       });
-
-       it('updates when event fires', () => {
-           const { container } = rtl.render(<MyComponent />);
-           act(() => { emitter.fire(newValue); });
-           expect(container.textContent).toContain('updated text');
-       });
-   });
-   ```
-
-   **How the builder works with `createInstance()`:**
-   The builder's `.stub()` runs inside its `beforeEach()` hook -- all stubs are applied BEFORE your test body runs. When testing a class that subscribes to events in its constructor, call `ctx.instantiationService.createInstance(MyClass)` in the test body. Create emitters at describe level and pass them via `.stub()`.
-
-   **Do NOT assume the builder can't handle your case.** The builder's `beforeEach()` hook creates a fresh instantiation service and applies all stubs before each test.
 
    **Quality checklist:**
    - Each describe block: happy path, boundary case, and at least one negative case
    - Prefer `toMatchInlineSnapshot()` for complex rendered output -- Vitest auto-fills on first run with `--update`
    - If setup exceeds ~20 lines of stubs, extract a helper function
    - **Minimize imports.** If you're importing 5+ service identifiers just for `.stub()` calls, extract a helper. Use `Event.None` for events the test never fires.
-   - For React tests: use RTL queries (`getByText`, `getByRole`) over `container.querySelector` when possible
+   - For React tests: prefer `getByRole`/`getByText` when the component exposes accessible roles or visible text. Many Positron components use internal CSS classes without accessible roles -- `container.querySelector` is acceptable when RTL queries aren't feasible.
 
 3. **Run the test:** `npx vitest run <path-to-test-file>`
 

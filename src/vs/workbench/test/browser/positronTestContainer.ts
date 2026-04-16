@@ -79,17 +79,20 @@ type ServiceStub = { id: ServiceIdentifier<any>; impl: any };
  *
  * ## Presets
  *
- * Each preset includes the one above it:
+ * Presets form a hierarchy (each includes the one above):
  *   Bare           -- no services, for pure logic tests
  *   Runtime        -- language runtime + session services (~18)
  *   Notebooks      -- runtime + notebook/kernel services (+8)
  *   Workbench      -- full Positron stack (124+)
- *   Contributions  -- workbench + Event.None stubs for editor/notebook lifecycle
- *   ReactServices  -- workbench + stubs for PositronReactServicesContext (adds ctx.reactServices)
+ *     Contributions  -- workbench + Event.None stubs for editor/notebook lifecycle
+ *     ReactServices  -- workbench + stubs for PositronReactServicesContext (adds ctx.reactServices)
+ *
+ * Contributions and ReactServices both extend Workbench but are independent
+ * of each other -- using one does not include the other.
  *
  * When to add a new preset:
  *   - 2+ test files across different directories need the same .stub() set
- *   - The stubs are non-trivial (emitters, real instances), not just {} as T
+ *   - The stubs are non-trivial (emitters, real instances), not just {} as Partial<T>
  *   - The services map to a recognizable domain (e.g. "Quarto", "Plots")
  *   If only one file needs the combination, use an existing preset + .stub().
  *
@@ -113,17 +116,18 @@ type ServiceStub = { id: ServiceIdentifier<any>; impl: any };
  * 1. Start with a preset and run the test. If it passes, you're done.
  * 2. "X is not a function" or "Cannot read properties of undefined" means
  *    a service is missing. Add an empty stub:
- *    `.stub(IMissingService, {} as IMissingService)`
+ *    `.stub(IMissingService, {} as Partial<IMissingService>)`
  * 3. If the code calls a specific method, add just that method:
- *    `.stub(IMissingService, { getDoc: () => undefined } as IMissingService)`
+ *    `.stub(IMissingService, { getDoc: () => undefined } as Partial<IMissingService>)`
  * 4. If the code subscribes to an event, add an Emitter:
  *    ```
  *    const onDidChange = new Emitter<void>();
- *    .stub(IService, { onDidChange: onDidChange.event } as IService)
+ *    .stub(IService, { onDidChange: onDidChange.event } as Partial<IService>)
  *    ```
  *
- * Use `Partial<T>` with only the members your test needs, cast with `as T`.
- * This may trigger `local/code-no-dangerous-type-assertions`; add
+ * Cast with `as Partial<T>` -- this matches the method signature and signals
+ * the object is intentionally incomplete. This may trigger
+ * `local/code-no-dangerous-type-assertions`; add
  * `// eslint-disable local/code-no-dangerous-type-assertions` below the
  * copyright header.
  *
@@ -144,7 +148,8 @@ type ServiceStub = { id: ServiceIdentifier<any>; impl: any };
  * - Group related tests with nested `describe()` calls, not comment headers.
  * - Prefer events/state to verify behavior (e.g. await
  *   `TestCommandService.onWillExecuteCommand` instead of stubbing
- *   `executeCommand`). Use sinon only when no observable signal exists.
+ *   `executeCommand`). Use `vi.fn()`/`vi.spyOn()` for stubs and spies;
+ *   avoid sinon in new Vitest tests.
  * - Await events with `Event.toPromise(event)` instead of timeouts.
  * - For debounce/throttle/scheduler logic, use `runWithFakedTimers`.
  *

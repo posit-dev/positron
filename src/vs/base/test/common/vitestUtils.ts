@@ -23,7 +23,7 @@ import { DisposableStore, DisposableTracker, IDisposable, setDisposableTracker }
  * are created but not disposed by the end of a test, the test fails.
  *
  * Returns a disposable store that tests can use to register disposables
- * via `ctx.add(disposable)`.
+ * via `disposables.add(disposable)`.
  *
  * @example
  * ```ts
