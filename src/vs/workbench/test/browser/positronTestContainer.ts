@@ -239,6 +239,11 @@ class PositronTestContainerBuilder {
 				// Stub services that PositronReactServices needs but the workbench
 				// preset doesn't provide. Empty stubs are sufficient -- tests override
 				// specific services via .stub() as needed.
+				//
+				// MAINTENANCE: If a new service is added to PositronReactServices
+				// (src/vs/base/browser/positronReactServices.tsx) and withReactServices()
+				// tests start failing with "missing service" errors, add the service
+				// identifier here with an empty stub.
 				const emptyStubs: [ServiceIdentifier<any>, any][] = [
 					[IActionWidgetService, {}],
 					[IClipboardService, {}],

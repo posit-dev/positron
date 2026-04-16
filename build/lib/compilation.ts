@@ -68,10 +68,19 @@ export function createCompile(src: string, { build, emitError, transpileOnly, pr
 
 		// --- Start Positron ---
 		// Added x? to regexes so that .tsx files are compiled and updated in the same way as .ts files.
-		// Exclude Vitest files -- they are compiled by Vitest's own toolchain (esbuild/oxc), not tsc.
-		// .vitest.{ts,tsx} test files + infrastructure files that use Vitest-only APIs.
-		const vitestInfraFiles = ['vitestUtils.ts', 'reactTestingLibrary.tsx', 'positronTestContainer.ts'];
-		const tsFilter = util.filter(data => /\.tsx?$/.test(data.path) && !data.path.includes('.vitest.') && !vitestInfraFiles.some(f => data.path.endsWith(f)));
+		// Exclude Vitest files from tsc compilation -- they use Vitest-only APIs
+		// (beforeEach, afterEach, expect) that conflict with Mocha types. Vitest
+		// compiles these files itself via esbuild/oxc.
+		// Two exclusions:
+		//   1. .vitest.{ts,tsx} test files (by name convention)
+		//   2. Vitest infrastructure files that use Vitest globals directly.
+		//      These are matched by filename. If you add a new Vitest-only
+		//      infrastructure file, add it here.
+		const vitestInfraFiles = new Set(['vitestUtils.ts', 'reactTestingLibrary.tsx', 'positronTestContainer.ts']);
+		const isVitestFile = (filePath: string) =>
+			filePath.includes('.vitest.') ||
+			vitestInfraFiles.has(filePath.substring(filePath.lastIndexOf('/') + 1));
+		const tsFilter = util.filter(data => /\.tsx?$/.test(data.path) && !isVitestFile(data.path));
 		const isUtf8Test = (f: File) => /(\/|\\)test(\/|\\).*utf8/.test(f.path);
 		const isRuntimeJs = (f: File) => f.path.endsWith('.js') && !f.path.includes('fixtures');
 		const noDeclarationsFilter = util.filter(data => !(/\.d\.tsx?$/.test(data.path)));

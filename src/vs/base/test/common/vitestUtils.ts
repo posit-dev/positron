@@ -9,7 +9,15 @@
 import { DisposableStore, DisposableTracker, IDisposable, setDisposableTracker } from '../../common/lifecycle.js';
 
 /**
- * Vitest equivalent of `ensureNoDisposablesAreLeakedInTestSuite()`.
+ * Vitest equivalent of `ensureNoDisposablesAreLeakedInTestSuite()` from `utils.ts`.
+ *
+ * **Use this in `.vitest.ts` / `.vitest.tsx` files only.** For Mocha `.test.ts`
+ * files, use `ensureNoDisposablesAreLeakedInTestSuite()` from `utils.ts` instead.
+ * The two are NOT interchangeable -- they use different test lifecycle hooks.
+ *
+ * Most tests don't call this directly -- `createTestContainer().build()` calls
+ * it internally. You only need it in plain tests (no builder) that create
+ * disposables directly.
  *
  * Tracks disposable creation/disposal across each test. If any disposables
  * are created but not disposed by the end of a test, the test fails.
