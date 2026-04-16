@@ -9,40 +9,24 @@
 // compilation via two mechanisms:
 //   - src/tsconfig.json "exclude" array (glob: ./vs/test/vitest/**)
 //   - build/lib/compilation.ts isVitestFile() (path check: /test/vitest/)
-// If you move or rename this directory, update both exclusion sites.
+// If you move or rename this directory, update both exclusion sites. Both
+// checks match the whole subtree, so new files under presets/ are covered.
 
 // This file uses Vitest hooks (beforeEach, ensureNoLeakedDisposables).
 // It is ONLY imported by .vitest.ts files. No Mocha .test.ts or .test.tsx
 // file imports this module. Verified via: grep -rl 'positronTestContainer' --include='*.test.ts' src/vs
 
 import { DisposableStore } from '../../base/common/lifecycle.js';
-import { Event } from '../../base/common/event.js';
 import { ServiceIdentifier } from '../../platform/instantiation/common/instantiation.js';
-import { ServiceCollection } from '../../platform/instantiation/common/serviceCollection.js';
 import { TestInstantiationService } from '../../platform/instantiation/test/common/instantiationServiceMock.js';
-import { createRuntimeServices } from '../../workbench/services/runtimeSession/test/common/testRuntimeSessionService.js';
-import { positronWorkbenchInstantiationService } from '../../workbench/test/browser/positronWorkbenchTestServices.js';
-import { ensureNoLeakedDisposables } from './vitestUtils.js';
-import { INotebookExecutionService } from '../../workbench/contrib/notebook/common/notebookExecutionService.js';
-import { INotebookExecutionStateService } from '../../workbench/contrib/notebook/common/notebookExecutionStateService.js';
-import { INotebookRendererMessagingService } from '../../workbench/contrib/notebook/common/notebookRendererMessagingService.js';
-import { NotebookRendererMessagingService } from '../../workbench/contrib/notebook/browser/services/notebookRendererMessagingServiceImpl.js';
-import { INotebookEditorService } from '../../workbench/contrib/notebook/browser/services/notebookEditorService.js';
-import { NotebookEditorWidgetService } from '../../workbench/contrib/notebook/browser/services/notebookEditorServiceImpl.js';
-import { INotebookDocumentService, NotebookDocumentWorkbenchService } from '../../workbench/services/notebook/common/notebookDocumentService.js';
-import { INotebookService } from '../../workbench/contrib/notebook/common/notebookService.js';
-import { NotebookService } from '../../workbench/contrib/notebook/browser/services/notebookServiceImpl.js';
-import { INotebookKernelService } from '../../workbench/contrib/notebook/common/notebookKernelService.js';
-import { NotebookKernelService } from '../../workbench/contrib/notebook/browser/services/notebookKernelServiceImpl.js';
-import { INotebookLoggingService } from '../../workbench/contrib/notebook/common/notebookLoggingService.js';
-import { NotebookLoggingService } from '../../workbench/contrib/notebook/browser/services/notebookLoggingServiceImpl.js';
-import { TestNotebookExecutionService } from '../../workbench/test/common/positronWorkbenchTestServices.js';
-import { TestNotebookExecutionStateService } from '../../workbench/contrib/notebook/test/browser/testNotebookEditor.js';
-import { workbenchInstantiationService as baseWorkbenchInstantiationService } from '../../workbench/test/browser/workbenchTestServices.js';
-import { ICodeEditorService } from '../../editor/browser/services/codeEditorService.js';
-import { IPositronNotebookService } from '../../workbench/contrib/positronNotebook/browser/positronNotebookService.js';
-import { IQuartoKernelManager } from '../../workbench/contrib/positronQuarto/browser/quartoKernelManager.js';
 import { PositronReactServices } from '../../base/browser/positronReactServices.js';
+import { ensureNoLeakedDisposables } from './vitestUtils.js';
+import { createBareContainer } from './presets/bare.js';
+import { createRuntimeContainer } from './presets/runtime.js';
+import { createNotebookContainer } from './presets/notebook.js';
+import { createWorkbenchContainer } from './presets/workbench.js';
+import { stubReactServices } from './presets/reactServices.js';
+import { stubContributionServices } from './presets/contributionServices.js';
 
 interface TestContainerResult {
 	/** Retrieve a registered service by its identifier. */
@@ -63,22 +47,25 @@ interface TestContainerResult {
 type ServiceStub = { id: ServiceIdentifier<any>; impl: any };
 
 /**
- * Fluent builder for test containers. Provides presets for common
- * service groupings. Pick the lowest preset that covers your test's
- * dependencies, then use .stub() for anything extra.
+ * Fluent builder for test containers. Provides presets for common service
+ * groupings. Pick the lowest preset that covers your test's dependencies,
+ * then use .stub() for anything extra.
  *
  * ## Presets
  *
- * Presets form a hierarchy (each includes the one above):
- *   Bare           -- no services, for pure logic tests
- *   Runtime        -- language runtime + session services (~18)
- *   Notebooks      -- runtime + notebook/kernel services (+8)
- *   Workbench      -- full Positron stack (124+)
- *     Contributions  -- workbench + Event.None stubs for editor/notebook lifecycle
- *     ReactServices  -- workbench + stubs for PositronReactServicesContext (adds ctx.reactServices)
+ * Base presets (exactly one runs; the most specific one wins):
+ *   Bare       -- no services, for pure logic tests
+ *   Runtime    -- language runtime + session services (~18)
+ *   Notebook   -- base workbench + runtime + notebook/kernel services (+8)
+ *   Workbench  -- full Positron stack (124+; includes runtime + notebook)
  *
- * Contributions and ReactServices both extend Workbench but are independent
- * of each other -- using one does not include the other.
+ * Stackable layers (applied on top of the base; both can be used together):
+ *   ReactServices        -- enables ctx.reactServices for RTL tests
+ *   ContributionServices -- Event.None stubs for editor/notebook lifecycle events
+ *
+ * Both layers imply the Workbench base. You can chain them:
+ *   `createTestContainer().withReactServices().withContributionServices()`
+ * applies both. Layer order does not matter; user `.stub()` calls always win.
  *
  * When to add a new preset:
  *   - 2+ test files across different directories need the same .stub() set
@@ -86,8 +73,12 @@ type ServiceStub = { id: ServiceIdentifier<any>; impl: any };
  *   - The services map to a recognizable domain (e.g. "Quarto", "Plots")
  *   If only one file needs the combination, use an existing preset + .stub().
  *
- * How to add a new preset: add a boolean flag, a with*() method, and an
- * else-if branch in build(). See withNotebookServices() for an example.
+ * How to add a new preset:
+ *   - For a new base: add a file under presets/, a boolean flag, a with*()
+ *     method, and a branch in build()'s base-selection block.
+ *   - For a new layer: add a file under presets/ exporting a stub*() helper,
+ *     a boolean flag, a with*() method, and an `if (useX) stubX(svc)` line
+ *     in build()'s layer block.
  *
  * ## Test* classes vs .stub()
  *
@@ -171,9 +162,11 @@ class PositronTestContainerBuilder {
 	}
 
 	/**
-	 * Add workbench services + stubs needed to create PositronReactServicesContext.
-	 * Enables `ctx.reactServices` for use with `setupRTLRenderer(() => ctx.reactServices)`.
+	 * Layer: add stubs needed for PositronReactServicesContext. Enables
+	 * `ctx.reactServices` for use with `setupRTLRenderer(() => ctx.reactServices)`.
 	 * Use this for testing React components that call `usePositronReactServicesContext()`.
+	 *
+	 * Implies the Workbench base. Stackable with `.withContributionServices()`.
 	 */
 	withReactServices(): this {
 		this._useReactServices = true;
@@ -181,14 +174,17 @@ class PositronTestContainerBuilder {
 	}
 
 	/**
-	 * Add workbench services + Event.None stubs for editor/notebook lifecycle events.
-	 * Use this when testing workbench contributions that subscribe to editor, notebook,
-	 * and code editor events in their constructors. Provides safe no-op defaults for:
+	 * Layer: add Event.None stubs for editor/notebook lifecycle events. Use
+	 * this when testing workbench contributions that subscribe to editor,
+	 * notebook, and code editor events in their constructors. Provides safe
+	 * no-op defaults for:
 	 *   - INotebookEditorService (onDidAddNotebookEditor, onDidRemoveNotebookEditor)
 	 *   - ICodeEditorService (onCodeEditorAdd, onCodeEditorRemove)
 	 *   - IPositronNotebookService (onDidAddNotebookInstance, onDidRemoveNotebookInstance)
 	 *   - IQuartoKernelManager (getSessionForDocument)
 	 * Override any of these with .stub() for tests that need to control specific events.
+	 *
+	 * Implies the Workbench base. Stackable with `.withReactServices()`.
 	 */
 	withContributionServices(): this {
 		this._useContributionServices = true;
@@ -228,57 +224,30 @@ class PositronTestContainerBuilder {
 		let _instantiationService: TestInstantiationService;
 
 		beforeEach(() => {
-			if (useReactServices) {
-				_instantiationService = positronWorkbenchInstantiationService(disposables);
-				// The workbench preset currently provides all services that
-				// PositronReactServices needs. If a new Positron-specific service
-				// is added to PositronReactServices and the canary test in
-				// positronTestContainer.vitest.ts fails, add an empty stub here:
-				//   _instantiationService.stub(INewService, {});
-			} else if (useContributionServices) {
-				_instantiationService = positronWorkbenchInstantiationService(disposables);
-				// Event.None stubs for services that contributions subscribe to
-				// in their constructors. Tests can override any of these with .stub().
-				_instantiationService.stub(INotebookEditorService, {
-					onDidAddNotebookEditor: Event.None,
-					onDidRemoveNotebookEditor: Event.None,
-					listNotebookEditors: () => [],
-				});
-				_instantiationService.stub(ICodeEditorService, {
-					onCodeEditorAdd: Event.None,
-					onCodeEditorRemove: Event.None,
-					listCodeEditors: () => [],
-					getActiveCodeEditor: () => null,
-				});
-				_instantiationService.stub(IPositronNotebookService, {
-					onDidAddNotebookInstance: Event.None,
-					onDidRemoveNotebookInstance: Event.None,
-					listInstances: () => [],
-				});
-				_instantiationService.stub(IQuartoKernelManager, {
-					getSessionForDocument: () => undefined,
-				});
-			} else if (useWorkbenchServices) {
-				_instantiationService = positronWorkbenchInstantiationService(disposables);
+			// 1. Pick the base. Exactly one runs; most-specific wins. React
+			//    and Contribution layers both imply the Workbench base.
+			const needsWorkbench = useWorkbenchServices || useReactServices || useContributionServices;
+			if (needsWorkbench) {
+				_instantiationService = createWorkbenchContainer(disposables);
 			} else if (useNotebookServices) {
-				// Runtime services + base workbench (for editor/theme deps) + notebook services.
-				_instantiationService = baseWorkbenchInstantiationService(undefined, disposables);
-				createRuntimeServices(_instantiationService, disposables);
-				_instantiationService.stub(INotebookExecutionService, new TestNotebookExecutionService());
-				_instantiationService.stub(INotebookExecutionStateService, _instantiationService.createInstance(TestNotebookExecutionStateService));
-				_instantiationService.stub(INotebookRendererMessagingService, disposables.add(_instantiationService.createInstance(NotebookRendererMessagingService)));
-				_instantiationService.stub(INotebookEditorService, disposables.add(_instantiationService.createInstance(NotebookEditorWidgetService)));
-				_instantiationService.stub(INotebookDocumentService, new NotebookDocumentWorkbenchService());
-				_instantiationService.stub(INotebookService, disposables.add(_instantiationService.createInstance(NotebookService)));
-				_instantiationService.stub(INotebookKernelService, disposables.add(_instantiationService.createInstance(NotebookKernelService)));
-				_instantiationService.stub(INotebookLoggingService, disposables.add(_instantiationService.createInstance(NotebookLoggingService)));
+				_instantiationService = createNotebookContainer(disposables);
 			} else if (useRuntimeServices) {
-				_instantiationService = disposables.add(new TestInstantiationService(new ServiceCollection()));
-				createRuntimeServices(_instantiationService, disposables);
+				_instantiationService = createRuntimeContainer(disposables);
 			} else {
-				_instantiationService = disposables.add(new TestInstantiationService(new ServiceCollection()));
+				_instantiationService = createBareContainer(disposables);
 			}
 
+			// 2. Apply layers additively. Both can run; order doesn't matter
+			//    because they stub disjoint services today. If they ever
+			//    overlap, the later-applied layer wins -- document it then.
+			if (useReactServices) {
+				stubReactServices(_instantiationService);
+			}
+			if (useContributionServices) {
+				stubContributionServices(_instantiationService);
+			}
+
+			// 3. User stubs last -- they always win over preset defaults.
 			for (const { id, impl } of stubs) {
 				_instantiationService.stub(id, impl);
 			}
