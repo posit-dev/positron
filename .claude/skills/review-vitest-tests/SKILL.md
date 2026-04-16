@@ -53,9 +53,9 @@ Any shared mutable state that could leak between tests? Any test that depends on
 
 Are runtimes/sessions created per-test when a shared one would suffice? Or shared when per-test isolation is needed?
 
-### 9. Emitter and ctx scoping
+### 9. Emitter scoping
 
-Any `new Emitter()` created inside an `it()` callback whose `.event` is expected to reach a service wired via `.stub()`? The emitter must be at describe level (or in a helper called at describe level) so `.stub()` captures the correct `.event` reference during `build()`. An emitter inside `it()` is a different object than the one wired into the service -- `.fire()` calls won't reach the component. (Note: `ctx` destructuring at describe level is caught at runtime by the builder's guard -- no need to check for it here.)
+Any `new Emitter()` created inside an `it()` callback whose `.event` is expected to reach a service wired via `.stub()`? The emitter must be at describe level (or in a helper called at describe level) so `.stub()` captures the correct `.event` reference during `build()`.
 
 ### 10. Spy cleanup
 
