@@ -270,9 +270,13 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 		progress: vscode.Progress<vscode.LanguageModelResponsePart2>,
 		token: vscode.CancellationToken
 	): Promise<void> {
-		// Only select Bedrock models support cache breakpoints.
-		const bedrockCacheBreakpoint = this.providerId === 'amazon-bedrock' &&
-			this.supportsPromptCaching(model.id);
+		// Anthropic models are routed through createBedrockAnthropic (native
+		// Anthropic messages API) and need Anthropic-style cache control.
+		// Non-Anthropic models use the Bedrock Converse API cache format.
+		const isAnthropic = model.id.includes('anthropic');
+		const supportsCaching = this.supportsPromptCaching(model.id);
+		const anthropicCacheBreakpoint = isAnthropic && supportsCaching;
+		const bedrockCacheBreakpoint = !isAnthropic && supportsCaching;
 
 		// Provide the response using the base class implementation
 		return super.provideVercelResponse(
@@ -281,7 +285,7 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 			options,
 			progress,
 			token,
-			{ bedrockCacheBreakpoint }
+			{ bedrockCacheBreakpoint, anthropicCacheBreakpoint }
 		);
 	}
 

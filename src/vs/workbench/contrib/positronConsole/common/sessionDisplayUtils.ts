@@ -9,7 +9,7 @@ import { Codicon } from '../../../../base/common/codicons.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
 import { asCssVariable } from '../../../../platform/theme/common/colorUtils.js';
-import { LanguageRuntimeSessionMode } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { LanguageRuntimeSessionMode, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeSessionDisplayInfo } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { POSITRON_QUARTO_ICON } from '../../../common/theme.js';
 import { isQuartoDocument } from '../../positronQuarto/common/positronQuartoConfig.js';
@@ -95,3 +95,31 @@ export function getSessionIconStyle(info: SessionIconInfo, modelService: IModelS
 	}
 	return undefined;
 }
+
+/**
+ * The display status of a runtime session, derived from a RuntimeState
+ */
+export const enum RuntimeStatus {
+	Active = 'Active',
+	Disconnected = 'Disconnected',
+	Idle = 'Idle'
+}
+
+/**
+ * Maps a RuntimeState to a RuntimeStatus. This simplifies the various runtime states into
+ * three main display statuses: active, idle, and disconnected. This mapping is used to
+ * determine which status icon to show for a session.
+ */
+export const runtimeStateToRuntimeStatus: Record<RuntimeState, RuntimeStatus> = {
+	[RuntimeState.Uninitialized]: RuntimeStatus.Disconnected,
+	[RuntimeState.Initializing]: RuntimeStatus.Active,
+	[RuntimeState.Starting]: RuntimeStatus.Active,
+	[RuntimeState.Restarting]: RuntimeStatus.Active,
+	[RuntimeState.Ready]: RuntimeStatus.Idle,
+	[RuntimeState.Idle]: RuntimeStatus.Idle,
+	[RuntimeState.Busy]: RuntimeStatus.Active,
+	[RuntimeState.Interrupting]: RuntimeStatus.Active,
+	[RuntimeState.Exiting]: RuntimeStatus.Active,
+	[RuntimeState.Exited]: RuntimeStatus.Disconnected,
+	[RuntimeState.Offline]: RuntimeStatus.Disconnected,
+};

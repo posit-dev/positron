@@ -32,7 +32,7 @@ type OutputActionBarButtons = 'Collapse Output' | 'Expand Output' | 'Clear Outpu
 export class PositronNotebooks extends Notebooks {
 	// Containers, generic locators
 	private positronNotebook = this.code.driver.currentPage.locator('.positron-notebook').first();
-	private cellsContainer = this.positronNotebook.locator('.positron-notebook-cells-container').first();
+	cellsContainer = this.positronNotebook.locator('.positron-notebook-cells-container').first();
 	private newCellButton = this.code.driver.currentPage.getByLabel(/new code cell/i);
 	private spinner = this.code.driver.currentPage.getByLabel(/cell is executing/i);
 	editorAtIndex = (index: number) => this.cell.nth(index).locator('.monaco-editor :is(.native-edit-context, .inputarea)');
