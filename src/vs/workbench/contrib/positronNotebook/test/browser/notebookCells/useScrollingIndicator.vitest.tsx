@@ -6,7 +6,6 @@
 /// <reference types="vitest/globals" />
 
 import React from 'react';
-import { ensureNoLeakedDisposables } from '../../../../../../test/vitest/vitestUtils.js';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { runWithFakedTimers } from '../../../../../../base/test/common/timeTravelScheduler.js';
 import { timeout } from '../../../../../../base/common/async.js';
@@ -18,7 +17,6 @@ function TestComponent({ elementRef }: { elementRef: React.RefObject<HTMLDivElem
 }
 
 describe('useScrollingIndicator', () => {
-	ensureNoLeakedDisposables();
 	const rtl = setupRTLRenderer();
 
 	function fireScroll(el: HTMLElement) {

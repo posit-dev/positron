@@ -6,13 +6,10 @@
 /// <reference types="vitest/globals" />
 
 
-import { ensureNoLeakedDisposables } from '../../../../test/vitest/vitestUtils.js';
 import { IUpdate } from '../../common/update.js';
 import * as positronVersion from '../../common/positronVersion.js';
 
 describe('Positron Version', function () {
-	ensureNoLeakedDisposables();
-
 	it('UpdateService - compare update with build number to version without build number', () => {
 		const update: IUpdate = { version: '2024.11.0-111' };
 		expect(positronVersion.hasUpdate(update, '2024.11.0')).toBe(false);

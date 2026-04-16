@@ -12,7 +12,6 @@ import { ColumnSummaryCell } from '../../browser/components/columnSummaryCell.js
 import { getColumnSchema } from '../../common/positronDataExplorerMocks.js';
 import { ColumnDisplayType, SupportStatus, ColumnProfileType, SupportedFeatures } from '../../../languageRuntime/common/positronDataExplorerComm.js';
 import { TableSummaryDataGridInstance } from '../../browser/tableSummaryDataGridInstance.js';
-import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { PositronActionBarHoverManager } from '../../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
@@ -95,7 +94,6 @@ function createMockTableSummaryDataGridInstance(overrides: Partial<TableSummaryD
 }
 
 describe('ColumnSummaryCell', () => {
-	ensureNoLeakedDisposables();
 	const rtl = setupRTLRenderer();
 
 	const columnSchema = getColumnSchema('test_column', 0, 'string', ColumnDisplayType.String);

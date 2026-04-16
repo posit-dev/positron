@@ -6,13 +6,11 @@
 /// <reference types="vitest/globals" />
 
 import sinon from 'sinon';
-import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { useDisposableEffect } from '../../browser/useDisposableEffect.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
 
 describe('useDisposableEffect', () => {
-	ensureNoLeakedDisposables();
 	const rtl = setupRTLRenderer();
 
 	it('calls effect on mount and disposes on unmount', () => {

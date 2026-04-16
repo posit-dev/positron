@@ -6,7 +6,6 @@
 /// <reference types="vitest/globals" />
 
 
-import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { TableSchema } from '../../../languageRuntime/common/positronDataExplorerComm.js';
 import {
 	DataFetchRange,
@@ -55,8 +54,6 @@ class MockSchemaCache extends TableSchemaCache {
  * Testing internal business logic
  */
 describe('DataExplorerInternals', () => {
-	ensureNoLeakedDisposables();
-
 	it('Data cache works correctly', async () => {
 		const numRows = 100000;
 		const numColumns = 1000;

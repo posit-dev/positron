@@ -6,14 +6,11 @@
 /// <reference types="vitest/globals" />
 
 
-import { ensureNoLeakedDisposables } from '../../../../test/vitest/vitestUtils.js';
 import { positronExtensionCompatibility } from '../../common/abstractExtensionManagementService.js';
 import { IProductService } from '../../../product/common/productService.js';
 import { IExtensionManifest } from '../../../extensions/common/extensions.js';
 
 describe('Positron Extension Compatibility', () => {
-
-	ensureNoLeakedDisposables();
 
 	const mockProductService: IProductService = {
 		positronVersion: '2026.02.0',

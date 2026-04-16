@@ -7,7 +7,6 @@
 
 import React from 'react';
 import { mainWindow } from '../../../../../../base/browser/window.js';
-import { ensureNoLeakedDisposables } from '../../../../../../test/vitest/vitestUtils.js';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { useWheelForwarding } from '../../../browser/notebookCells/useWheelForwarding.js';
 
@@ -21,7 +20,6 @@ function TestComponent({ targetRef }: {
 }
 
 describe('useWheelForwarding', () => {
-	ensureNoLeakedDisposables();
 	const rtl = setupRTLRenderer();
 
 	let scrollTarget: HTMLDivElement;

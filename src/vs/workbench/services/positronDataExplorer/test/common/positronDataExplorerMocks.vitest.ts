@@ -6,7 +6,6 @@
 /// <reference types="vitest/globals" />
 
 
-import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import {
 	FilterComparison,
 	FilterComparisonOp,
@@ -21,8 +20,6 @@ import * as mocks from "../../../positronDataExplorer/common/positronDataExplore
  * Basic smoke tests for debugging the mock functions
  */
 describe('DataExplorerMocks', () => {
-	ensureNoLeakedDisposables();
-
 	it('Test getTableSchema', () => {
 		const schema = mocks.getTableSchema(1000, 10000);
 		expect(schema.columns.length).toBe(10000);

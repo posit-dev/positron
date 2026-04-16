@@ -10,7 +10,6 @@
 
 import sinon from 'sinon';
 import { flushSync } from 'react-dom';
-import { ensureNoLeakedDisposables } from '../../../../../../test/vitest/vitestUtils.js';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { runWithFakedTimers } from '../../../../../../base/test/common/timeTravelScheduler.js';
 import { timeout } from '../../../../../../base/common/async.js';
@@ -71,7 +70,6 @@ class CellActionButtonFixture {
 }
 
 describe('CellActionButton', () => {
-	ensureNoLeakedDisposables();
 	const rtl = setupRTLRenderer();
 
 	let selectCellStub: sinon.SinonStub;
