@@ -88,9 +88,9 @@ describe('PositronAssistantService', () => {
 		const context: IPositronChatContext = positronAssistantService.getPositronChatContext(chatRequest);
 
 		// Verify the global context properties are present
-		expect(context.currentDate).toBeTruthy();
-		expect(context.plots).toBeTruthy();
-		expect(context.positronVersion).toBeTruthy();
+		expect(context.currentDate).toBeDefined();
+		expect(context.plots).toBeDefined();
+		expect(context.positronVersion).toBeDefined();
 	});
 
 	it('getPositronChatContext handles plot information', async () => {
@@ -103,7 +103,7 @@ describe('PositronAssistantService', () => {
 		const context: IPositronChatContext = positronAssistantService.getPositronChatContext(chatRequest);
 
 		// Verify plot information is included
-		expect(context.plots).toBeTruthy();
+		expect(context.plots).toBeDefined();
 		expect(typeof context.plots.hasPlots).toBe('boolean');
 	});
 

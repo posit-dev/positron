@@ -30,7 +30,7 @@ describe('useScrollingIndicator', () => {
 
 		fireScroll(el);
 
-		expect(el.classList.contains(SCROLLING_CSS_CLASS)).toBeTruthy();
+		expect(el.classList.contains(SCROLLING_CSS_CLASS)).toBe(true);
 	}));
 
 	it('removes is-scrolling class after 500ms timeout', () => runWithFakedTimers({}, async () => {
@@ -39,11 +39,11 @@ describe('useScrollingIndicator', () => {
 		const el = ref.current!;
 
 		fireScroll(el);
-		expect(el.classList.contains(SCROLLING_CSS_CLASS)).toBeTruthy();
+		expect(el.classList.contains(SCROLLING_CSS_CLASS)).toBe(true);
 
 		// Advance past the 500ms hide timeout.
 		await timeout(500);
-		expect(!el.classList.contains(SCROLLING_CSS_CLASS)).toBeTruthy();
+		expect(el.classList.contains(SCROLLING_CSS_CLASS)).toBe(false);
 	}));
 
 	it('resets timeout on subsequent scroll events', () => runWithFakedTimers({}, async () => {
@@ -55,16 +55,16 @@ describe('useScrollingIndicator', () => {
 
 		// Scroll again after 400ms (before the 500ms timeout fires).
 		await timeout(400);
-		expect(el.classList.contains(SCROLLING_CSS_CLASS)).toBeTruthy();
+		expect(el.classList.contains(SCROLLING_CSS_CLASS)).toBe(true);
 		fireScroll(el);
 
 		// 400ms after the second scroll: still within the reset 500ms window.
 		await timeout(400);
-		expect(el.classList.contains(SCROLLING_CSS_CLASS)).toBeTruthy();
+		expect(el.classList.contains(SCROLLING_CSS_CLASS)).toBe(true);
 
 		// 100ms more (500ms total after second scroll): class should be removed.
 		await timeout(100);
-		expect(!el.classList.contains(SCROLLING_CSS_CLASS)).toBeTruthy();
+		expect(el.classList.contains(SCROLLING_CSS_CLASS)).toBe(false);
 	}));
 
 	it('cleans up on unmount', () => runWithFakedTimers({}, async () => {
@@ -73,15 +73,15 @@ describe('useScrollingIndicator', () => {
 		const el = ref.current!;
 
 		fireScroll(el);
-		expect(el.classList.contains(SCROLLING_CSS_CLASS)).toBeTruthy();
+		expect(el.classList.contains(SCROLLING_CSS_CLASS)).toBe(true);
 
 		unmount();
 
 		// Cleanup should remove the class and clear the pending timer.
-		expect(!el.classList.contains(SCROLLING_CSS_CLASS)).toBeTruthy();
+		expect(el.classList.contains(SCROLLING_CSS_CLASS)).toBe(false);
 
 		// The timer should not fire after unmount.
 		await timeout(600);
-		expect(!el.classList.contains(SCROLLING_CSS_CLASS)).toBeTruthy();
+		expect(el.classList.contains(SCROLLING_CSS_CLASS)).toBe(false);
 	}));
 });

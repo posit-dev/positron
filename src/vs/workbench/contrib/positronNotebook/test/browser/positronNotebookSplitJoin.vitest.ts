@@ -25,7 +25,7 @@ function enterEditModeWithCursor(
 	const cell = notebook.cells.get()[cellIndex];
 	notebook.selectionStateMachine.selectCell(cell, CellSelectionType.Edit);
 	const editor = cell.currentEditor!;
-	expect(editor).toBeTruthy();
+	expect(editor).toBeDefined();
 	editor.setSelections(selections);
 }
 
@@ -148,7 +148,7 @@ describe('Split and Join Cells', () => {
 			notebook.splitCell();
 
 			const { textModel } = notebook;
-			expect(textModel).toBeTruthy();
+			expect(textModel).toBeDefined();
 			expect(textModel!.cells[0].outputs.length).toBe(1);
 			expect(textModel!.cells[1].outputs.length).toBe(0);
 		});
@@ -175,7 +175,7 @@ describe('Split and Join Cells', () => {
 			notebook.splitCell();
 
 			const { textModel } = notebook;
-			expect(textModel).toBeTruthy();
+			expect(textModel).toBeDefined();
 			expect(textModel!.cells.length).toBe(2);
 
 			// First cell preserves all state
@@ -337,7 +337,7 @@ describe('Split and Join Cells', () => {
 			notebook.joinSelectedCells();
 
 			const { textModel } = notebook;
-			expect(textModel).toBeTruthy();
+			expect(textModel).toBeDefined();
 			expect(textModel!.cells.length).toBe(1);
 			// The first cell's outputs are preserved
 			expect(textModel!.cells[0].outputs.length).toBe(1);
@@ -378,7 +378,7 @@ describe('Split and Join Cells', () => {
 			notebook.joinSelectedCells();
 
 			const { textModel } = notebook;
-			expect(textModel).toBeTruthy();
+			expect(textModel).toBeDefined();
 			expect(textModel!.cells.length).toBe(1);
 			expect(textModel!.cells[0].mime).toBe('text/x-python');
 			expect(textModel!.cells[0].internalMetadata.executionOrder).toBe(3);
@@ -503,7 +503,7 @@ describe('Split and Join Cells', () => {
 			notebook.joinCellAbove();
 
 			const { textModel } = notebook;
-			expect(textModel).toBeTruthy();
+			expect(textModel).toBeDefined();
 			expect(textModel!.cells.length).toBe(1);
 			expect(textModel!.cells[0].mime).toBe('text/x-python');
 			expect(textModel!.cells[0].internalMetadata.executionOrder).toBe(8);
@@ -601,7 +601,7 @@ describe('Split and Join Cells', () => {
 			notebook.joinCellBelow();
 
 			const { textModel } = notebook;
-			expect(textModel).toBeTruthy();
+			expect(textModel).toBeDefined();
 			expect(textModel!.cells.length).toBe(1);
 			expect(textModel!.cells[0].mime).toBe('text/x-python');
 			expect(textModel!.cells[0].internalMetadata.executionOrder).toBe(10);

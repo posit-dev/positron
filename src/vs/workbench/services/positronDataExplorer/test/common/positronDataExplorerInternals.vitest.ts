@@ -96,7 +96,7 @@ describe('DataExplorerInternals', () => {
 
 		// Now, we'll set the data cache size lower and make a large request to show that we
 		// evict the first two change
-		expect(fetcher.currentCacheSize() < 100000).toBeTruthy();
+		expect(fetcher.currentCacheSize()).toBeLessThan(100000);
 		fetcher.setMaxCacheSize(10000);
 
 		const largeRange: DataFetchRange = {

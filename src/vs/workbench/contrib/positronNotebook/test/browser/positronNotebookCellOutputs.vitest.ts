@@ -43,7 +43,7 @@ describe('Positron Notebook Cell Outputs', () => {
 			const notebook = createTestPositronNotebookInstance([cellWithImageOutput], ctx.disposables);
 			const cell = notebook.cells.get()[0];
 
-			expect(cell.isCodeCell()).toBeTruthy();
+			expect(cell.isCodeCell()).toBe(true);
 			const outputs = cell.outputs.get();
 			expect(outputs.length).toBe(1);
 			expect(outputs[0].parsed.type).toBe('image');
@@ -63,7 +63,7 @@ describe('Positron Notebook Cell Outputs', () => {
 			const notebook = createTestPositronNotebookInstance([cellWithTextOutput], ctx.disposables);
 			const cell = notebook.cells.get()[0];
 
-			expect(cell.isCodeCell()).toBeTruthy();
+			expect(cell.isCodeCell()).toBe(true);
 			const outputs = cell.outputs.get();
 			expect(outputs.length).toBe(1);
 			expect(outputs[0].parsed.type).toBe('stdout');
@@ -83,7 +83,7 @@ describe('Positron Notebook Cell Outputs', () => {
 			const notebook = createTestPositronNotebookInstance([cellWithSvgOutput], ctx.disposables);
 			const cell = notebook.cells.get()[0];
 
-			expect(cell.isCodeCell()).toBeTruthy();
+			expect(cell.isCodeCell()).toBe(true);
 			const outputs = cell.outputs.get();
 			expect(outputs.length).toBe(1);
 			expect(outputs[0].parsed.type).toBe('image');
@@ -96,7 +96,7 @@ describe('Positron Notebook Cell Outputs', () => {
 			);
 			const cell = notebook.cells.get()[0];
 
-			expect(cell.isCodeCell()).toBeTruthy();
+			expect(cell.isCodeCell()).toBe(true);
 			expect(cell.outputs.get().length).toBe(0);
 
 			// Add an image output via the text model
@@ -121,7 +121,7 @@ describe('Positron Notebook Cell Outputs', () => {
 				ctx.disposables
 			);
 			const cell = notebook.cells.get()[0];
-			expect(cell.isCodeCell()).toBeTruthy();
+			expect(cell.isCodeCell()).toBe(true);
 
 			// Add output
 			notebook.textModel!.applyEdits([{
@@ -197,10 +197,10 @@ describe('Positron Notebook Cell Outputs', () => {
 			const notebook = createTestPositronNotebookInstance([cellWithComplexHtml], ctx.disposables);
 			const cell = notebook.cells.get()[0];
 
-			expect(cell.isCodeCell()).toBeTruthy();
+			expect(cell.isCodeCell()).toBe(true);
 			const outputs = cell.outputs.get();
 			expect(outputs.length).toBe(1);
-			expect(outputs[0].preloadMessageResult).toBeTruthy();
+			expect(outputs[0].preloadMessageResult).toBeDefined();
 			expect(outputs[0].preloadMessageResult!.preloadMessageType).toBe('display');
 		});
 
@@ -218,7 +218,7 @@ describe('Positron Notebook Cell Outputs', () => {
 			const notebook = createTestPositronNotebookInstance([cellWithSimpleHtml], ctx.disposables);
 			const cell = notebook.cells.get()[0];
 
-			expect(cell.isCodeCell()).toBeTruthy();
+			expect(cell.isCodeCell()).toBe(true);
 			const outputs = cell.outputs.get();
 			expect(outputs.length).toBe(1);
 			expect(outputs[0].preloadMessageResult).toBe(undefined);

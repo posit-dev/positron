@@ -32,7 +32,7 @@ describe('PositronNotebookInstance', () => {
 			expect(cells[1].model.getValue()).toBe('print("world")');
 
 			const { textModel } = notebook;
-			expect(textModel).toBeTruthy();
+			expect(textModel).toBeDefined();
 			expect(textModel!.cells[0].getValue()).toBe('print("hello")');
 			expect(textModel!.cells[1].getValue()).toBe('print("world")');
 		});

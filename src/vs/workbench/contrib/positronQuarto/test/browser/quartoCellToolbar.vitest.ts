@@ -191,7 +191,7 @@ y = 2
 			await new Promise(resolve => setTimeout(resolve, 150));
 
 			// onDidParse should always fire after parsing
-			expect(eventsFired.includes('onDidParse')).toBeTruthy();
+			expect(eventsFired).toContain('onDidParse');
 
 			// The second cell should have moved
 			const newPositions = model.cells.map(c => ({

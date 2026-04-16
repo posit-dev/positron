@@ -52,7 +52,7 @@ describe('setupRTLRenderer', () => {
 
 		it('provides services via context', () => {
 			const { getByText } = rtl.render(<ServiceLabel />);
-			expect(getByText('hello from context')).toBeTruthy();
+			expect(getByText('hello from context')).toBeDefined();
 		});
 	});
 
@@ -61,7 +61,7 @@ describe('setupRTLRenderer', () => {
 
 		it('renders without services wrapper', () => {
 			const { getByText } = rtl.render(<PropLabel text="hello from props" />);
-			expect(getByText('hello from props')).toBeTruthy();
+			expect(getByText('hello from props')).toBeDefined();
 		});
 	});
 });

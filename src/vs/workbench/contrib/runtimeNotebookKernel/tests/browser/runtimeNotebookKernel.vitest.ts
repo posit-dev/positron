@@ -114,9 +114,9 @@ describe('Positron - RuntimeNotebookKernel', () => {
 	/** Get a cell execution by cell index. */
 	function getExecution(cellIndex: number) {
 		const cell = notebookDocument.cells[cellIndex];
-		expect(cell).toBeTruthy();
+		expect(cell).toBeDefined();
 		const execution = notebookExecutionStateService.executions.get(cell.uri);
-		expect(execution).toBeTruthy();
+		expect(execution).toBeDefined();
 		return { cell, execution: execution! };
 	}
 
@@ -171,7 +171,7 @@ describe('Positron - RuntimeNotebookKernel', () => {
 		await kernel.executeNotebookCellsRequest(notebookDocument.uri, [0]);
 
 		// Verify the event.
-		expect(event !== undefined).toBeTruthy();
+		expect(event).toBeDefined();
 		const executed = event as unknown as ILanguageRuntimeCodeExecutedEvent;
 		expect(executed.code).toBe('print(x)');
 		expect(executed.languageId).toBe('python');
@@ -196,19 +196,19 @@ describe('Positron - RuntimeNotebookKernel', () => {
 		expect(executeSpy).toHaveBeenCalledOnce();
 		const callArgs = executeSpy.mock.calls[0] as unknown as unknown[];
 		const executionMetadata = callArgs[5] as Record<string, unknown>;
-		expect(executionMetadata).toBeTruthy();
+		expect(executionMetadata).toBeDefined();
 		expect(typeof executionMetadata.output_width_px).toBe('number');
 		expect(typeof executionMetadata.output_pixel_ratio).toBe('number');
 		// The mock widget has width 800, leftMargin 60, rightMargin 16,
 		// so output_width_px should be 800 - 60 - 16 = 724.
 		expect(executionMetadata.output_width_px).toBe(724);
-		expect((executionMetadata.output_pixel_ratio as number) > 0).toBeTruthy();
+		expect(executionMetadata.output_pixel_ratio as number).toBeGreaterThan(0);
 	});
 
 	it('single cell starts a new session if required', async () => {
 		// When a session is started, setup its execute handler to reply with an idle state.
 		ctx.disposables.add(runtimeSessionService.onWillStartSession(({ session }) => {
-			expect(session instanceof TestLanguageRuntimeSession).toBeTruthy();
+			expect(session).toBeInstanceOf(TestLanguageRuntimeSession);
 			ctx.disposables.add(session);
 			ctx.disposables.add((session as TestLanguageRuntimeSession).onDidExecute(parent_id => (session as TestLanguageRuntimeSession).receiveStateMessage({ parent_id, state: RuntimeOnlineState.Idle })));
 		}));

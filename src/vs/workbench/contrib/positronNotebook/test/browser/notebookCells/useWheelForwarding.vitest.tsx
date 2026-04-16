@@ -49,7 +49,7 @@ describe('useWheelForwarding', () => {
 	function renderHook() {
 		const { container } = rtl.render(<TestComponent targetRef={scrollTargetRef} />);
 		const source = container.firstElementChild as HTMLDivElement;
-		expect(source).toBeTruthy();
+		expect(source).toBeDefined();
 		return source;
 	}
 

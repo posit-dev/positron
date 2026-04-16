@@ -126,7 +126,7 @@ describe('CellOutputActionBar', () => {
 		menuActions = [];
 		const fixture = renderActionBar();
 
-		expect(fixture.toolbar).toBeTruthy();
+		expect(fixture.toolbar).toBeDefined();
 		expect(fixture.buttons.length).toBe(0);
 	});
 
@@ -136,7 +136,7 @@ describe('CellOutputActionBar', () => {
 		];
 		const fixture = renderActionBar();
 
-		expect(fixture.toolbar).toBeTruthy();
+		expect(fixture.toolbar).toBeDefined();
 		expect(fixture.toolbar!.getAttribute('aria-label')).toBe('Cell output actions');
 	});
 
@@ -201,7 +201,7 @@ describe('CellOutputActionBar', () => {
 			scrollTargetRef.current = scrollTarget;
 
 			const fixture = renderActionBar(scrollTargetRef);
-			expect(fixture.toolbar).toBeTruthy();
+			expect(fixture.toolbar).toBeDefined();
 
 			const event = new WheelEvent('wheel', { deltaY: 50, cancelable: true });
 			fixture.toolbar!.dispatchEvent(event);

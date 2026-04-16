@@ -119,7 +119,7 @@ describe('ColumnSummaryCell', () => {
 		const { container } = renderRoot(mockTableSummaryDataGridInstance);
 
 		const nullPercentElement = container.querySelector('.text-percent');
-		expect(nullPercentElement).toBeTruthy();
+		expect(nullPercentElement).toBeDefined();
 		expect(nullPercentElement!.textContent).toBe('0%');
 	});
 
@@ -132,7 +132,7 @@ describe('ColumnSummaryCell', () => {
 		const { container } = renderRoot(mockTableSummaryDataGridInstance);
 
 		const nullPercentElement = container.querySelector('.text-percent');
-		expect(nullPercentElement).toBeTruthy();
+		expect(nullPercentElement).toBeDefined();
 		expect(nullPercentElement!.textContent).toBe('<1%');
 	});
 
@@ -145,7 +145,7 @@ describe('ColumnSummaryCell', () => {
 		const { container } = renderRoot(mockTableSummaryDataGridInstance);
 
 		const nullPercentElement = container.querySelector('.text-percent');
-		expect(nullPercentElement).toBeTruthy();
+		expect(nullPercentElement).toBeDefined();
 		expect(nullPercentElement!.textContent).toBe('99%');
 	});
 
@@ -158,7 +158,7 @@ describe('ColumnSummaryCell', () => {
 		const { container } = renderRoot(mockTableSummaryDataGridInstance);
 
 		const nullPercentElement = container.querySelector('.text-percent');
-		expect(nullPercentElement).toBeTruthy();
+		expect(nullPercentElement).toBeDefined();
 		expect(nullPercentElement!.textContent).toBe('100%');
 	});
 

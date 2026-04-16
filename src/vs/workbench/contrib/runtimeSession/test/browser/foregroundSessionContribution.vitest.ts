@@ -180,7 +180,7 @@ describe('Positron - ForegroundSessionContribution', () => {
 			// No live session, foreground should be cleared
 			expect(runtimeSessionService.foregroundSession).toBe(undefined);
 			// Cached display info should be set so the interpreter picker shows what was last used
-			expect(runtimeSessionService.foregroundSessionDisplayInfo).toBeTruthy();
+			expect(runtimeSessionService.foregroundSessionDisplayInfo).toBeDefined();
 		});
 	});
 
@@ -363,7 +363,7 @@ describe('Positron - ForegroundSessionContribution', () => {
 			runtimeSessionService.foregroundSession = session;
 
 			// Exit the session first (required before deletion)
-			expect(session instanceof TestLanguageRuntimeSession).toBeTruthy();
+			expect(session).toBeInstanceOf(TestLanguageRuntimeSession);
 			const exitedPromise = waitForRuntimeState(session, RuntimeState.Exited);
 			session.setRuntimeState(RuntimeState.Exited);
 			await exitedPromise;
@@ -374,7 +374,7 @@ describe('Positron - ForegroundSessionContribution', () => {
 			// The foreground should be cleared
 			expect(runtimeSessionService.foregroundSession).toBe(undefined);
 			// Cached display info should be set so the interpreter picker shows last used runtime
-			expect(runtimeSessionService.foregroundSessionDisplayInfo).toBeTruthy();
+			expect(runtimeSessionService.foregroundSessionDisplayInfo).toBeDefined();
 		});
 
 		it('does not clear foreground when a console session is deleted', async () => {
@@ -477,7 +477,7 @@ describe('Positron - ForegroundSessionContribution', () => {
 			// No live session, foreground should be cleared
 			expect(runtimeSessionService.foregroundSession).toBe(undefined);
 			// Cached display info should be set
-			expect(runtimeSessionService.foregroundSessionDisplayInfo).toBeTruthy();
+			expect(runtimeSessionService.foregroundSessionDisplayInfo).toBeDefined();
 		});
 	});
 

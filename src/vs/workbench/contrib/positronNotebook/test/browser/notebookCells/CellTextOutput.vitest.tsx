@@ -27,7 +27,7 @@ class CellTextOutputFixture {
 
 	get outputContainer() {
 		const el = this.container.querySelector<HTMLDivElement>('.positron-notebook-text-output');
-		expect(el).toBeTruthy();
+		expect(el).toBeDefined();
 		return el!;
 	}
 
@@ -112,7 +112,7 @@ describe('CellTextOutput', () => {
 	it('renders short output', () => {
 		const fixture = renderCellTextOutput({ content: 'hello world', type: 'stdout' });
 
-		expect(fixture.outputContainer.textContent?.includes('hello world')).toBeTruthy();
+		expect(fixture.outputContainer.textContent).toContain('hello world');
 		expect(fixture.truncationMessage).toBe(null);
 		expect(fixture.quickFixContainer).toBe(null);
 	});
@@ -124,14 +124,14 @@ describe('CellTextOutput', () => {
 
 		const fixture = renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
 
-		expect(fixture.hasClass('notebook-error')).toBeTruthy();
-		expect(fixture.quickFixContainer).toBeTruthy();
+		expect(fixture.hasClass('notebook-error')).toBe(true);
+		expect(fixture.quickFixContainer).toBeDefined();
 	});
 
 	it('does not render quick-fix for errors when assistant is disabled', () => {
 		const fixture = renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
 
-		expect(fixture.hasClass('notebook-error')).toBeTruthy();
+		expect(fixture.hasClass('notebook-error')).toBe(true);
 		expect(fixture.quickFixContainer).toBe(null);
 	});
 
@@ -161,17 +161,17 @@ describe('CellTextOutput', () => {
 		);
 
 		const message = fixture.truncationMessage;
-		expect(message).toBeTruthy();
-		expect(message!.textContent?.includes('5 more lines')).toBeTruthy();
+		expect(message).toBeDefined();
+		expect(message!.textContent).toContain('5 more lines');
 
 		// 50/50 split: top 15 lines (1-15), bottom 15 lines (21-35), lines 16-20 hidden
 		const text = fixture.outputContainer.textContent ?? '';
-		expect(text.includes('line 1')).toBeTruthy();
-		expect(text.includes('line 15')).toBeTruthy();
-		expect(!text.includes('line 16\n')).toBeTruthy();
-		expect(!text.includes('line 20\n')).toBeTruthy();
-		expect(text.includes('line 21')).toBeTruthy();
-		expect(text.includes('line 35')).toBeTruthy();
+		expect(text).toContain('line 1');
+		expect(text).toContain('line 15');
+		expect(text).not.toContain('line 16\n');
+		expect(text).not.toContain('line 20\n');
+		expect(text).toContain('line 21');
+		expect(text).toContain('line 35');
 
 		message!.click();
 		expect(onShowFullOutput).toHaveBeenCalledOnce();
@@ -184,14 +184,14 @@ describe('CellTextOutput', () => {
 			{ outputLineLimit: 30, outputScrolling: true },
 		);
 
-		expect(fixture.outputContainer.textContent?.includes('line 35')).toBeTruthy();
+		expect(fixture.outputContainer.textContent).toContain('line 35');
 		expect(fixture.truncationMessage).toBe(null);
 	});
 
 	it('does not apply word-wrap class when outputWordWrap is false', () => {
 		const fixture = renderCellTextOutput({ content: 'hello', type: 'stdout' });
 
-		expect(!fixture.hasClass('word-wrap')).toBeTruthy();
+		expect(fixture.hasClass('word-wrap')).toBe(false);
 	});
 
 	it('applies word-wrap class when outputWordWrap is true', () => {
@@ -200,7 +200,7 @@ describe('CellTextOutput', () => {
 			{ outputWordWrap: true },
 		);
 
-		expect(fixture.hasClass('word-wrap')).toBeTruthy();
+		expect(fixture.hasClass('word-wrap')).toBe(true);
 	});
 
 	// TODO: useNotebookOptions has a bug where setNotebookOptions(instance.notebookOptions)
@@ -212,12 +212,12 @@ describe('CellTextOutput', () => {
 			{ content, type: 'stdout' },
 			{ outputLineLimit: 30, outputScrolling: false },
 		);
-		expect(fixture.truncationMessage).toBeTruthy();
+		expect(fixture.truncationMessage).toBeDefined();
 
 		layoutConfig = { ...layoutConfig, outputLineLimit: 50 };
 		flushSync(() => optionsEmitter.fire({ outputLineLimit: true } as NotebookOptionsChangeEvent));
 
 		expect(fixture.truncationMessage).toBe(null);
-		expect(fixture.outputContainer.textContent?.includes('line 35')).toBeTruthy();
+		expect(fixture.outputContainer.textContent).toContain('line 35');
 	});
 });

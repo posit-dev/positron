@@ -78,8 +78,8 @@ y = 2
 
 			// The buggy logic incorrectly removes BOTH cells because their IDs changed
 			expect(removedByBuggyLogic.length).toBe(2);
-			expect(removedByBuggyLogic.includes(originalCell0Id)).toBeTruthy();
-			expect(removedByBuggyLogic.includes(originalCell1Id)).toBeTruthy();
+			expect(removedByBuggyLogic).toContain(originalCell0Id);
+			expect(removedByBuggyLogic).toContain(originalCell1Id);
 
 			// The CORRECT behavior: use content hash to find cells that moved
 			const remappedViewZones = new Map<string, { cellId: string; contentHash: string }>();
@@ -104,8 +104,8 @@ y = 2
 			// The view zones should now be keyed by the NEW cell IDs
 			const newCell0Id = model.cells[1].id; // Original cell 0 is now at index 1
 			const newCell1Id = model.cells[2].id; // Original cell 1 is now at index 2
-			expect(remappedViewZones.has(newCell0Id)).toBeTruthy();
-			expect(remappedViewZones.has(newCell1Id)).toBeTruthy();
+			expect(remappedViewZones.has(newCell0Id)).toBe(true);
+			expect(remappedViewZones.has(newCell1Id)).toBe(true);
 		});
 
 		it('outputs should still be removed when a cell is actually deleted', async () => {
@@ -175,7 +175,7 @@ y = 2
 
 			// The remaining view zone should be for the cell that was originally second
 			const newCellId = model.cells[0].id;
-			expect(remappedViewZones.has(newCellId)).toBeTruthy();
+			expect(remappedViewZones.has(newCellId)).toBe(true);
 		});
 	});
 
@@ -209,13 +209,13 @@ y = 2
 			mockPreviewService.openHtmlString!(previewId, html, title);
 
 			// Verify: openHtmlString was called with correct arguments
-			expect(openHtmlStringCalled).toBeTruthy();
+			expect(openHtmlStringCalled).toBe(true);
 			expect(openHtmlStringArgs?.previewId).toBe(previewId);
 			expect(openHtmlStringArgs?.html).toBe(html);
 			expect(openHtmlStringArgs?.title).toBe(title);
 
 			// Verify: openHtml was NOT called (no file path needed)
-			expect(!openHtmlCalled).toBeTruthy();
+			expect(openHtmlCalled).toBe(false);
 		});
 
 		it('openHtmlString should exist on IPositronPreviewService', () => {
@@ -226,7 +226,7 @@ y = 2
 			};
 
 			// Verify the method exists and is callable
-			expect(typeof mockService.openHtmlString === 'function').toBeTruthy();
+			expect(typeof mockService.openHtmlString).toBe('function');
 		});
 	});
 });

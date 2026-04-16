@@ -29,10 +29,8 @@ describe('Notebook Output Utils', () => {
 			const { dataUrl } = result as { type: 'image'; dataUrl: string };
 			expect(
 				dataUrl.startsWith('data:image/svg+xml,')
-			).toBeTruthy();
-			expect(
-				dataUrl.includes(encodeURIComponent(svg))
-			).toBeTruthy();
+			).toBe(true);
+			expect(dataUrl).toContain(encodeURIComponent(svg));
 		});
 
 		it('parses image/png into an image with a base64 data URL', () => {
@@ -43,7 +41,7 @@ describe('Notebook Output Utils', () => {
 			const { dataUrl } = result as { type: 'image'; dataUrl: string };
 			expect(
 				dataUrl.startsWith('data:image/png;base64,')
-			).toBeTruthy();
+			).toBe(true);
 			// The stub bytes are base64-encoded by parseOutputData, so verify
 			// the full data URL matches the expected encoding of the input bytes.
 			expect(dataUrl).toBe(

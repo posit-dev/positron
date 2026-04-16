@@ -102,7 +102,7 @@ plt.plot([1, 2, 3])
 
 			expect(model.cells.length).toBe(1);
 			expect(model.cells[0].label).toBe('my-plot');
-			expect(model.cells[0].options.includes('fig.width=10')).toBeTruthy();
+			expect(model.cells[0].options).toContain('fig.width=10');
 		});
 
 		it('handles empty cell', () => {
@@ -115,7 +115,7 @@ plt.plot([1, 2, 3])
 			expect(model.cells[0].codeEndLine).toBe(1);
 			expect(model.cells[0].codeStartLine).toBe(2);
 			// Content hash should still be generated for empty content
-			expect(model.cells[0].contentHash.length > 0).toBeTruthy();
+			expect(model.cells[0].contentHash.length).toBeGreaterThan(0);
 		});
 
 		it('ignores non-code blocks', () => {
@@ -239,8 +239,8 @@ import os
 			const model = createModel(content);
 
 			const id = model.cells[0].id;
-			expect(id.startsWith('0-')).toBeTruthy();
-			expect(id.endsWith('-setup')).toBeTruthy();
+			expect(id.startsWith('0-')).toBe(true);
+			expect(id.endsWith('-setup')).toBe(true);
 			expect(id.split('-').length).toBe(3);
 		});
 
@@ -251,7 +251,7 @@ x = 1
 `;
 			const model = createModel(content);
 
-			expect(model.cells[0].id.endsWith('-unlabeled')).toBeTruthy();
+			expect(model.cells[0].id.endsWith('-unlabeled')).toBe(true);
 		});
 	});
 
@@ -268,7 +268,7 @@ y = 2
 			const model = createModel(content);
 
 			const cell = model.getCellById(model.cells[1].id);
-			expect(cell).toBeTruthy();
+			expect(cell).toBeDefined();
 			expect(cell!.label).toBe('plot');
 		});
 
@@ -283,17 +283,17 @@ z = 3
 
 			// Line 1 is opening fence
 			const cellAtFence = model.getCellAtLine(1);
-			expect(cellAtFence).toBeTruthy();
+			expect(cellAtFence).toBeDefined();
 			expect(cellAtFence!.index).toBe(0);
 
 			// Line 3 is in the middle of the code
 			const cellAtCode = model.getCellAtLine(3);
-			expect(cellAtCode).toBeTruthy();
+			expect(cellAtCode).toBeDefined();
 			expect(cellAtCode!.index).toBe(0);
 
 			// Line 5 is closing fence
 			const cellAtEnd = model.getCellAtLine(5);
-			expect(cellAtEnd).toBeTruthy();
+			expect(cellAtEnd).toBeDefined();
 			expect(cellAtEnd!.index).toBe(0);
 
 			// Line 6 is outside any cell
@@ -313,11 +313,11 @@ b = 2
 			const model = createModel(content);
 
 			const cell0 = model.getCellByIndex(0);
-			expect(cell0).toBeTruthy();
+			expect(cell0).toBeDefined();
 			expect(model.getCellCode(cell0!)).toBe('a = 1');
 
 			const cell1 = model.getCellByIndex(1);
-			expect(cell1).toBeTruthy();
+			expect(cell1).toBeDefined();
 			expect(model.getCellCode(cell1!)).toBe('b = 2');
 
 			const cell2 = model.getCellByIndex(2);
@@ -333,7 +333,7 @@ unique_content_12345
 
 			const hash = model.cells[0].contentHash;
 			const found = model.findCellByContentHash(hash);
-			expect(found).toBeTruthy();
+			expect(found).toBeDefined();
 			expect(found!.index).toBe(0);
 		});
 	});
@@ -496,8 +496,8 @@ y = 2
 			const cell1ContentHash = model.cells[1].contentHash;
 
 			// IDs should start with their index
-			expect(originalCell0Id.startsWith('0-')).toBeTruthy();
-			expect(originalCell1Id.startsWith('1-')).toBeTruthy();
+			expect(originalCell0Id.startsWith('0-')).toBe(true);
+			expect(originalCell1Id.startsWith('1-')).toBe(true);
 
 			// Insert a new cell at the top
 			textModel.applyEdits([{
@@ -517,12 +517,12 @@ y = 2
 			expect(model.cells.length).toBe(3);
 
 			// The new cell is at index 0
-			expect(model.cells[0].id.startsWith('0-')).toBeTruthy();
+			expect(model.cells[0].id.startsWith('0-')).toBe(true);
 
 			// The original cells have CHANGED IDs because their indices shifted
 			// This is the root cause of the bug - the output manager can't find cells by their old IDs
-			expect(model.cells[1].id.startsWith('1-')).toBeTruthy();
-			expect(model.cells[2].id.startsWith('2-')).toBeTruthy();
+			expect(model.cells[1].id.startsWith('1-')).toBe(true);
+			expect(model.cells[2].id.startsWith('2-')).toBe(true);
 			expect(model.cells[1].id).not.toBe(originalCell0Id);
 			expect(model.cells[2].id).not.toBe(originalCell1Id);
 
@@ -533,8 +533,8 @@ y = 2
 			// The cells CAN be found by their content hash
 			const foundCell0 = model.findCellByContentHash(cell0ContentHash);
 			const foundCell1 = model.findCellByContentHash(cell1ContentHash);
-			expect(foundCell0).toBeTruthy();
-			expect(foundCell1).toBeTruthy();
+			expect(foundCell0).toBeDefined();
+			expect(foundCell1).toBeDefined();
 			expect(foundCell0!.index).toBe(1);
 			expect(foundCell1!.index).toBe(2);
 		});

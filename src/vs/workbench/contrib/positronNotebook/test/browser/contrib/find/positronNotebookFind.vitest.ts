@@ -33,7 +33,7 @@ import { runWithFakedTimers } from '../../../../../../../base/test/common/timeTr
 /** Get the find controller for a notebook. */
 function getController(notebook: TestPositronNotebookInstance): PositronNotebookFindController {
 	const controller = PositronNotebookFindController.get(notebook);
-	expect(controller).toBeTruthy();
+	expect(controller).toBeDefined();
 	return controller!;
 }
 
@@ -47,7 +47,7 @@ function getOrStartFindInstance(controller: PositronNotebookFindController): Pos
 		find = controller.findInstance;
 	}
 
-	expect(find).toBeTruthy();
+	expect(find).toBeDefined();
 	return find!;
 }
 
@@ -289,9 +289,7 @@ describe('PositronNotebookFindController', () => {
 			const matches = controller.matches.get();
 			expect(matches.length).toBe(2);
 			// First "aa" at column 4, second "aa" at column 10
-			expect(
-				matches[0].cellRange.isBefore(matches[1].cellRange)
-			).toBeTruthy();
+			expect(matches[0].cellRange.isBefore(matches[1].cellRange)).toBe(true);
 		});
 
 		it('reactive: query change triggers research', () => {
@@ -424,7 +422,7 @@ describe('PositronNotebookFindController', () => {
 			// findNext should find the next match after cursor position
 			controller.findNext();
 			const match = controller.currentMatch.get();
-			expect(match).toBeTruthy();
+			expect(match).toBeDefined();
 			// The match at column 7 (second "aa") should be found
 			expect(match!.cellMatch.cellRange.range.startColumn).toBe(7);
 		});
@@ -447,7 +445,7 @@ describe('PositronNotebookFindController', () => {
 
 			controller.findNext();
 			const match = controller.currentMatch.get();
-			expect(match).toBeTruthy();
+			expect(match).toBeDefined();
 			expect(match!.matchIndex).toBe(0);
 			expect(match!.cellMatch.cellRange.range.startColumn).toBe(1);
 		});
@@ -534,7 +532,7 @@ describe('PositronNotebookFindController', () => {
 
 			// Navigation should work on new match set
 			controller.findNext();
-			expect(controller.currentMatch.get()).toBeTruthy();
+			expect(controller.currentMatch.get()).toBeDefined();
 		}));
 
 		it('decorations are cleaned up for deleted cells', () => runWithFakedTimers({}, async () => {
@@ -585,12 +583,12 @@ describe('PositronNotebookFindController', () => {
 
 			controller.findNext(); // match 0
 			const currentDec = getCurrentFindMatchDecoration(cells[0]);
-			expect(currentDec).toBeTruthy();
+			expect(currentDec).toBeDefined();
 			expect(currentDec!.range.startColumn).toBe(1);
 
 			controller.findNext(); // match 1
 			const nextDec = getCurrentFindMatchDecoration(cells[0]);
-			expect(nextDec).toBeTruthy();
+			expect(nextDec).toBeDefined();
 			expect(nextDec!.range.startColumn).toBe(7);
 		});
 
@@ -604,12 +602,12 @@ describe('PositronNotebookFindController', () => {
 			const cells = notebook.cells.get();
 
 			controller.findNext(); // match 0 (cell 0)
-			expect(getCurrentFindMatchDecoration(cells[0])).toBeTruthy();
+			expect(getCurrentFindMatchDecoration(cells[0])).toBeDefined();
 			expect(getCurrentFindMatchDecoration(cells[1])).toBe(undefined);
 
 			controller.findNext(); // match 1 (cell 1)
 			expect(getCurrentFindMatchDecoration(cells[0])).toBe(undefined);
-			expect(getCurrentFindMatchDecoration(cells[1])).toBeTruthy();
+			expect(getCurrentFindMatchDecoration(cells[1])).toBeDefined();
 		});
 
 		it('decorations update when query changes', () => {
@@ -821,13 +819,13 @@ describe('PositronNotebookFindController', () => {
 
 			const find1 = getOrStartFindInstance(controller1);
 			find1.searchString.set('aaa', undefined);
-			expect(getFindMatchDecorations(notebook1.cells.get()[0]).length > 0).toBeTruthy();
+			expect(getFindMatchDecorations(notebook1.cells.get()[0]).length).toBeGreaterThan(0);
 			expect(getFindMatchDecorations(notebook2.cells.get()[0]).length).toBe(0);
 
 			const find2 = getOrStartFindInstance(controller2);
 			find2.searchString.set('bbb', undefined);
-			expect(getFindMatchDecorations(notebook2.cells.get()[0]).length > 0).toBeTruthy();
-			expect(getFindMatchDecorations(notebook1.cells.get()[0]).length > 0).toBeTruthy();
+			expect(getFindMatchDecorations(notebook2.cells.get()[0]).length).toBeGreaterThan(0);
+			expect(getFindMatchDecorations(notebook1.cells.get()[0]).length).toBeGreaterThan(0);
 		});
 
 		it('hiding find in one notebook does not affect the other', () => {
@@ -1077,7 +1075,7 @@ describe('PositronNotebookFindController', () => {
 			await controller.replace();
 			const cell = notebook.cells.get()[0];
 			expect(cell.model.textModel!.getValue()).toBe('hello world hello');
-			expect(controller.currentMatch.get() !== undefined).toBeTruthy();
+			expect(controller.currentMatch.get()).toBeDefined();
 
 			// Second replace() performs the replacement.
 			await controller.replace();
@@ -1312,7 +1310,7 @@ describe('PositronNotebookFindController', () => {
 			// First replace() should navigate to the match (two-step behavior)
 			await controller.replace();
 			expect(cell.model.textModel!.getValue()).toBe('aa bb');
-			expect(controller.currentMatch.get() !== undefined).toBeTruthy();
+			expect(controller.currentMatch.get()).toBeDefined();
 
 			// Second replace() should perform the actual replacement
 			await controller.replace();
@@ -1407,9 +1405,7 @@ describe('PositronNotebookFindController', () => {
 			// replaceAll() should replace ALL 1100, not just the decorated 1000
 			await controller.replaceAll();
 
-			expect(
-				!cell.model.textModel!.getValue().includes('aa')
-			).toBeTruthy();
+			expect(cell.model.textModel!.getValue()).not.toContain('aa');
 
 			await waitForDebounce();
 			expect(find.matchCount.get()).toBe(0);

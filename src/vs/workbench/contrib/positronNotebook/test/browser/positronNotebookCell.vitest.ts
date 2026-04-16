@@ -23,7 +23,7 @@ describe('PositronNotebookCell', () => {
 			[['print("hello")', 'python', CellKind.Code]], ctx.disposables
 		);
 		cell = notebook.cells.get()[0] as PositronNotebookCodeCell;
-		expect(cell.isCodeCell()).toBeTruthy();
+		expect(cell.isCodeCell()).toBe(true);
 	});
 
 	describe('Output scrolling state', () => {
@@ -59,7 +59,7 @@ describe('PositronNotebookCell', () => {
 
 		it('new output resets scrolling state to undefined', () => {
 			const textModel = notebook.textModel;
-			expect(textModel).toBeTruthy();
+			expect(textModel).toBeDefined();
 
 			const applyNewOutput = () => textModel!.applyEdits([{
 				editType: CellEditType.Output,
@@ -97,10 +97,10 @@ describe('PositronNotebookCell Test Harness', () => {
 		);
 
 		const cell = notebook.cells.get()[0];
-		expect(cell.currentEditor).toBeTruthy();
+		expect(cell.currentEditor).toBeDefined();
 
 		const editorModel = cell.currentEditor!.getModel();
-		expect(editorModel).toBeTruthy();
+		expect(editorModel).toBeDefined();
 
 		expect(cell.getContent()).toBe(editorModel!.getValue());
 		expect(cell.model.textModel).toBe(editorModel);
@@ -134,7 +134,7 @@ describe('PositronNotebookCell Test Harness', () => {
 
 		cell.model.textModel!.setValue('new content');
 
-		expect(cellContentFired).toBeTruthy();
-		expect(notebookModelFired).toBeTruthy();
+		expect(cellContentFired).toBe(true);
+		expect(notebookModelFired).toBe(true);
 	});
 });

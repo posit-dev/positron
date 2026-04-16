@@ -67,7 +67,7 @@ describe('ExtHostPositronEphemeralStorage', function () {
 		const storage = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), logService);
 		const result = await storage.initializeEphemeralStorage('test.ext', { fallback: true });
 		expect(result).toEqual({ fallback: true });
-		expect(errors.length > 0).toBeTruthy();
+		expect(errors.length).toBeGreaterThan(0);
 	});
 
 	it('getOrCreateMemento returns same instance for same extensionId', function () {
@@ -157,8 +157,8 @@ describe('EphemeralExtensionMemento', function () {
 		await memento.update('key2', undefined);
 
 		const keys = memento.keys();
-		expect(keys.includes('key1')).toBeTruthy();
-		expect(!keys.includes('key2')).toBeTruthy();
+		expect(keys).toContain('key1');
+		expect(keys).not.toContain('key2');
 	});
 
 	it('update persists to storage', async function () {
@@ -250,7 +250,7 @@ describe('EphemeralExtensionMemento', function () {
 			await memento.whenReady;
 
 			expect(memento.keys()).toEqual([]);
-			expect(errors.length > 0).toBeTruthy();
+			expect(errors.length).toBeGreaterThan(0);
 		}
 	});
 });

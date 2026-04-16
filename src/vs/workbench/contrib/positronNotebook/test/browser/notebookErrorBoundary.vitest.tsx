@@ -62,7 +62,7 @@ describe('NotebookErrorBoundary', () => {
 				</NotebookErrorBoundary>
 			);
 
-			expect(container.querySelector<HTMLElement>('.good-component')).toBeTruthy();
+			expect(container.querySelector<HTMLElement>('.good-component')).toBeDefined();
 		});
 	});
 
@@ -86,7 +86,7 @@ describe('NotebookErrorBoundary', () => {
 				</NotebookErrorBoundary>
 			);
 
-			expect(container.querySelector<HTMLElement>('[role="alert"]')).toBeTruthy();
+			expect(container.querySelector<HTMLElement>('[role="alert"]')).toBeDefined();
 		});
 
 		it('applies level-specific CSS class and message', () => {
@@ -112,12 +112,10 @@ describe('NotebookErrorBoundary', () => {
 
 				expect(
 					container.querySelector<HTMLElement>(`.notebook-error-boundary-${level}`)
-				).toBeTruthy();
+				).toBeDefined();
 
 				const header = container.querySelector<HTMLElement>('.notebook-error-boundary-header');
-				expect(
-					header?.textContent?.includes(message)
-				).toBeTruthy();
+				expect(header?.textContent).toContain(message);
 			}
 		});
 
@@ -131,9 +129,9 @@ describe('NotebookErrorBoundary', () => {
 
 			expect(errorSpy).toHaveBeenCalledOnce();
 			const logMessage = errorSpy.mock.calls[0][0] as string;
-			expect(logMessage.includes('MyCell')).toBeTruthy();
-			expect(logMessage.includes('cell')).toBeTruthy();
-			expect(logMessage.includes('render failed')).toBeTruthy();
+			expect(logMessage).toContain('MyCell');
+			expect(logMessage).toContain('cell');
+			expect(logMessage).toContain('render failed');
 		});
 
 		it('handles non-Error thrown values gracefully', () => {
@@ -145,18 +143,18 @@ describe('NotebookErrorBoundary', () => {
 			);
 
 			// Should still show error UI
-			expect(container.querySelector<HTMLElement>('[role="alert"]')).toBeTruthy();
+			expect(container.querySelector<HTMLElement>('[role="alert"]')).toBeDefined();
 
 			// Should log safely without crashing
 			expect(errorSpy).toHaveBeenCalledOnce();
 			const logMessage = errorSpy.mock.calls[0][0] as string;
-			expect(logMessage.includes('string error')).toBeTruthy();
+			expect(logMessage).toContain('string error');
 
 			// Details should show the stringified value
 			const { toggleDetails } = getActionButtons(container);
 			clickAndFlush(toggleDetails);
 			const details = container.querySelector<HTMLElement>('.notebook-error-boundary-details');
-			expect(details?.textContent?.includes('string error')).toBeTruthy();
+			expect(details?.textContent).toContain('string error');
 		});
 	});
 
@@ -194,8 +192,8 @@ describe('NotebookErrorBoundary', () => {
 			// Show details
 			clickAndFlush(toggleDetails);
 			const details = container.querySelector<HTMLElement>('.notebook-error-boundary-details');
-			expect(details).toBeTruthy();
-			expect(details!.textContent?.includes('specific error message')).toBeTruthy();
+			expect(details).toBeDefined();
+			expect(details!.textContent).toContain('specific error message');
 
 			// Hide details
 			clickAndFlush(toggleDetails);
@@ -223,7 +221,7 @@ describe('NotebookErrorBoundary', () => {
 				);
 
 				const { action } = getActionButtons(container);
-				expect(action).toBeTruthy();
+				expect(action).toBeDefined();
 			}
 		});
 
@@ -244,14 +242,14 @@ describe('NotebookErrorBoundary', () => {
 				</NotebookErrorBoundary>
 			);
 
-			expect(container.querySelector<HTMLElement>('[role="alert"]')).toBeTruthy();
+			expect(container.querySelector<HTMLElement>('[role="alert"]')).toBeDefined();
 
 			// Fix the component and retry
 			shouldThrow = false;
 			const { action } = getActionButtons(container);
 			clickAndFlush(action);
 
-			expect(container.querySelector<HTMLElement>('.recovered')).toBeTruthy();
+			expect(container.querySelector<HTMLElement>('.recovered')).toBeDefined();
 			expect(container.querySelector<HTMLElement>('[role="alert"]')).toBe(null);
 		});
 	});
@@ -304,10 +302,10 @@ describe('NotebookErrorBoundary', () => {
 
 			expect(
 				container.querySelector<HTMLElement>('[role="alert"]')
-			).toBeTruthy();
+			).toBeDefined();
 			expect(errorSpy).toHaveBeenCalledOnce();
 			const logMessage = errorSpy.mock.calls[0][0] as string;
-			expect(logMessage.includes('provider error')).toBeTruthy();
+			expect(logMessage).toContain('provider error');
 		});
 
 	});

@@ -84,7 +84,7 @@ describe('Positron - PositronWebviewPreloadService', () => {
 		await timeout(0);
 
 		// No plot should have been emitted.
-		expect(Boolean(consoleSession.plotClient)).toBeFalsy();
+		expect(consoleSession.plotClient).toBeFalsy();
 		expect(positronWebviewPreloadService.sessionInfo(consoleSession.session.sessionId)?.numberOfMessages).toBe(1);
 
 		// Send another preload message.
@@ -112,7 +112,7 @@ describe('Positron - PositronWebviewPreloadService', () => {
 		expect(positronWebviewPreloadService.sessionInfo(consoleSession.session.sessionId)?.numberOfMessages).toBe(1);
 
 		// Plot client should have been emitted and it should be linked to the display message.
-		expect(Boolean(consoleSession.plotClient)).toBeTruthy();
+		expect(consoleSession.plotClient).toBeDefined();
 		expect(consoleSession.plotClient!.id).toBe(displayMessageHv.id);
 
 		// Emit a bokeh display message and another plot should be created

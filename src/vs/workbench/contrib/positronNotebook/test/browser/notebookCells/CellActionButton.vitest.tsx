@@ -116,13 +116,13 @@ describe('CellActionButton', () => {
 	it('applies separator-after class when showSeparator is true', () => {
 		const fixture = renderButton(mockAction(), { showSeparator: true });
 
-		expect(fixture.hasSeparator).toBeTruthy();
+		expect(fixture.hasSeparator).toBe(true);
 	});
 
 	it('does not apply separator-after class when showSeparator is false', () => {
 		const fixture = renderButton(mockAction(), { showSeparator: false });
 
-		expect(!fixture.hasSeparator).toBeTruthy();
+		expect(fixture.hasSeparator).toBe(false);
 	});
 
 	it('selects cell before running action', () => {

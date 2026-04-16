@@ -27,40 +27,40 @@ describe('copyImageUtils', () => {
 			const svg = '<svg><circle r="10"/></svg>';
 			const input = `data:image/svg+xml,${encodeURIComponent(svg)}`;
 			const result = toBase64DataUrl(input);
-			expect(result.startsWith('data:image/svg+xml;base64,')).toBeTruthy();
-			expect(!result.includes('%3C')).toBeTruthy();
+			expect(result.startsWith('data:image/svg+xml;base64,')).toBe(true);
+			expect(result).not.toContain('%3C');
 		});
 
 		it('handles raw SVG payload with literal percent signs', () => {
 			// Literal '%' that is not valid URL-encoding should not throw
 			const input = 'data:image/svg+xml,<text>100% done</text>';
 			const result = toBase64DataUrl(input);
-			expect(result.startsWith('data:image/svg+xml;base64,')).toBeTruthy();
+			expect(result.startsWith('data:image/svg+xml;base64,')).toBe(true);
 		});
 
 		it('handles SVG with Unicode characters', () => {
 			const svg = '<svg><text>\u00e9\u00e0\u00fc</text></svg>';
 			const input = `data:image/svg+xml,${encodeURIComponent(svg)}`;
 			const result = toBase64DataUrl(input);
-			expect(result.startsWith('data:image/svg+xml;base64,')).toBeTruthy();
+			expect(result.startsWith('data:image/svg+xml;base64,')).toBe(true);
 		});
 	});
 
 	describe('isCopyImageMenuArg', () => {
 		it('returns true for valid arg', () => {
-			expect(isCopyImageMenuArg({ imageDataUrl: 'data:image/png;base64,abc' })).toBeTruthy();
+			expect(isCopyImageMenuArg({ imageDataUrl: 'data:image/png;base64,abc' })).toBe(true);
 		});
 
 		it('returns false for null', () => {
-			expect(!isCopyImageMenuArg(null)).toBeTruthy();
+			expect(isCopyImageMenuArg(null)).toBe(false);
 		});
 
 		it('returns false for missing imageDataUrl', () => {
-			expect(!isCopyImageMenuArg({ other: 'value' })).toBeTruthy();
+			expect(isCopyImageMenuArg({ other: 'value' })).toBe(false);
 		});
 
 		it('returns false for non-string imageDataUrl', () => {
-			expect(!isCopyImageMenuArg({ imageDataUrl: 123 })).toBeTruthy();
+			expect(isCopyImageMenuArg({ imageDataUrl: 123 })).toBe(false);
 		});
 	});
 });

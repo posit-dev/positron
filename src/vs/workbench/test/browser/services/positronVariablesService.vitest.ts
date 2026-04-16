@@ -92,9 +92,9 @@ describe('Positron - PositronVariablesService', () => {
 
 		// Both sessions should have variables instances
 		expect(variablesService.positronVariablesInstances.some(instance =>
-			instance.session.sessionId === notebookSession.sessionId)).toBeTruthy();
+			instance.session.sessionId === notebookSession.sessionId)).toBe(true);
 		expect(variablesService.positronVariablesInstances.some(instance =>
-			instance.session.sessionId === consoleSession.sessionId)).toBeTruthy();
+			instance.session.sessionId === consoleSession.sessionId)).toBe(true);
 	});
 
 	it('should dispose all instances when view becomes hidden', async () => {
@@ -106,9 +106,9 @@ describe('Positron - PositronVariablesService', () => {
 		// Verify instances exist
 		expect(variablesService.positronVariablesInstances.length).toBe(2);
 		expect(variablesService.positronVariablesInstances.some(instance =>
-			instance.session.sessionId === notebookSession.sessionId)).toBeTruthy();
+			instance.session.sessionId === notebookSession.sessionId)).toBe(true);
 		expect(variablesService.positronVariablesInstances.some(instance =>
-			instance.session.sessionId === consoleSession.sessionId)).toBeTruthy();
+			instance.session.sessionId === consoleSession.sessionId)).toBe(true);
 
 		// Hide the view
 		variablesService.setViewVisible(false);
@@ -139,7 +139,7 @@ describe('Positron - PositronVariablesService', () => {
 		// Instance should be recreated for the existing session
 		expect(variablesService.positronVariablesInstances.length).toBe(1);
 		expect(variablesService.positronVariablesInstances.some(instance =>
-			instance.session.sessionId === consoleSession.sessionId)).toBeTruthy();
+			instance.session.sessionId === consoleSession.sessionId)).toBe(true);
 	});
 
 });

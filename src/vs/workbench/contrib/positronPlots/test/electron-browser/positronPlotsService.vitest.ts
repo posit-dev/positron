@@ -176,7 +176,7 @@ describe('Positron - Plots Service', () => {
 
 		await raceTimeout(didClosePlot, 100, () => expect.unreachable('onDidChangeSizingPolicy event did not fire'));
 
-		expect(sizingPolicyChanged).toBeTruthy();
+		expect(sizingPolicyChanged).toBe(true);
 	});
 
 	it('selection: select plot', async () => {
@@ -199,7 +199,7 @@ describe('Positron - Plots Service', () => {
 
 		await raceTimeout(didSelectPlot, 100, () => expect.unreachable('onDidSelectPlot event did not fire'));
 
-		expect(selectPlotCalled).toBeTruthy();
+		expect(selectPlotCalled).toBe(true);
 		expect(plotsService.selectedPlotId).toBe('plot1');
 	});
 
@@ -224,7 +224,7 @@ describe('Positron - Plots Service', () => {
 
 		await raceTimeout(didRemovePlot, 100, () => expect.unreachable('onDidRemovePlot event did not fire'));
 
-		expect(removePlotCalled).toBeTruthy();
+		expect(removePlotCalled).toBe(true);
 		expect(plotsService.positronPlotInstances.length).toBe(0);
 		expect(plotsService.selectedPlotId).toBe(undefined);
 	});

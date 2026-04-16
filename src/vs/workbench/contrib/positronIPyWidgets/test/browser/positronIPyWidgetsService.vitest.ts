@@ -94,8 +94,8 @@ describe('Positron - PositronIPyWidgetsService', () => {
 		const message = await receiveIPyWidgetsResultMessage(session);
 
 		// Check that an instance was created with the expected properties.
-		expect(positronIpywidgetsService.hasConsoleWidgetInstance(message.id)).toBeTruthy();
-		expect(!!plotClient).toBeTruthy();
+		expect(positronIpywidgetsService.hasConsoleWidgetInstance(message.id)).toBe(true);
+		expect(plotClient).toBeDefined();
 		expect(plotClient!.id).toBe(message.id);
 		expect(plotClient!.metadata).toEqual({
 			id: message.id,
@@ -117,7 +117,7 @@ describe('Positron - PositronIPyWidgetsService', () => {
 		await timeout(0);
 
 		// Check that the instance was removed.
-		expect(positronIpywidgetsService.hasConsoleWidgetInstance(plotClient.id)).toBeFalsy();
+		expect(positronIpywidgetsService.hasConsoleWidgetInstance(plotClient.id)).toBe(false);
 	});
 
 	it('console session: respond to result message type and check for memory leaks', async () => {
@@ -133,7 +133,7 @@ describe('Positron - PositronIPyWidgetsService', () => {
 
 		await timeout(0);
 
-		expect(positronIpywidgetsService.hasConsoleWidgetInstance(message.id)).toBeTruthy();
+		expect(positronIpywidgetsService.hasConsoleWidgetInstance(message.id)).toBe(true);
 		// Note that we don't end the session here. This helps us check for memory leaks caused by
 		// improper disposal of listeners
 	});
@@ -144,7 +144,7 @@ describe('Positron - PositronIPyWidgetsService', () => {
 
 		await timeout(0);
 
-		expect(positronIpywidgetsService.hasNotebookWidgetInstance(session.sessionId)).toBeTruthy();
+		expect(positronIpywidgetsService.hasNotebookWidgetInstance(session.sessionId)).toBe(true);
 		// Note that we don't end the session here. This helps us check for memory leaks caused by
 		// improper disposal of listeners
 	});
@@ -171,7 +171,7 @@ describe('Positron - PositronIPyWidgetsService', () => {
 		);
 
 		// Check that an instance was created.
-		expect(positronIpywidgetsService.hasNotebookWidgetInstance(session.sessionId)).toBeTruthy();
+		expect(positronIpywidgetsService.hasNotebookWidgetInstance(session.sessionId)).toBe(true);
 
 		return { session, notebookEditor };
 	}
@@ -180,14 +180,14 @@ describe('Positron - PositronIPyWidgetsService', () => {
 		const { session } = await createNotebookInstance();
 
 		// Check that an instance was created.
-		expect(positronIpywidgetsService.hasNotebookWidgetInstance(session.sessionId)).toBeTruthy();
+		expect(positronIpywidgetsService.hasNotebookWidgetInstance(session.sessionId)).toBe(true);
 
 		// End the session.
 		session.endSession();
 		await timeout(0);
 
 		// Check that the instance was removed.
-		expect(positronIpywidgetsService.hasNotebookWidgetInstance(session.sessionId)).toBeFalsy();
+		expect(positronIpywidgetsService.hasNotebookWidgetInstance(session.sessionId)).toBe(false);
 	});
 
 	it('notebook session: change notebook text model', async () => {
@@ -198,21 +198,21 @@ describe('Positron - PositronIPyWidgetsService', () => {
 		await timeout(0);
 
 		// Check that the instance was removed.
-		expect(positronIpywidgetsService.hasNotebookWidgetInstance(session.sessionId)).toBeFalsy();
+		expect(positronIpywidgetsService.hasNotebookWidgetInstance(session.sessionId)).toBe(false);
 	});
 
 	it('notebook session: remove notebook editor', async () => {
 		const { session, notebookEditor } = await createNotebookInstance();
 
 		// Check that an instance was created.
-		expect(positronIpywidgetsService.hasNotebookWidgetInstance(session.sessionId)).toBeTruthy();
+		expect(positronIpywidgetsService.hasNotebookWidgetInstance(session.sessionId)).toBe(true);
 
 		// Remove notebook editor.
 		notebookEditorService.removeNotebookEditor(notebookEditor);
 		await timeout(0);
 
 		// Check that the instance was removed.
-		expect(positronIpywidgetsService.hasNotebookWidgetInstance(session.sessionId)).toBeFalsy();
+		expect(positronIpywidgetsService.hasNotebookWidgetInstance(session.sessionId)).toBe(false);
 	});
 
 });
@@ -291,14 +291,14 @@ describe('Positron - IPyWidgetsInstance constructor', () => {
 		expect(messaging.messagesToWebview).toEqual([{ type: 'initialize_result' }]);
 
 		// Check that the client was registered.
-		expect(ipywidgetsInstance.hasClient(client.getClientId())).toBeTruthy();
+		expect(ipywidgetsInstance.hasClient(client.getClientId())).toBe(true);
 
 		// Close the client.
 		client.setClientState(RuntimeClientState.Closed);
 		await timeout(0);
 
 		// Check that the client was removed.
-		expect(ipywidgetsInstance.hasClient(client.getClientId())).toBeFalsy();
+		expect(ipywidgetsInstance.hasClient(client.getClientId())).toBe(false);
 	});
 });
 
@@ -346,7 +346,7 @@ describe('Positron - IPyWidgetsInstance', () => {
 		await timeout(0);
 
 		// Check that the client was registered.
-		expect(ipywidgetsInstance.hasClient(clientId)).toBeTruthy();
+		expect(ipywidgetsInstance.hasClient(clientId)).toBe(true);
 	});
 
 	it('from webview: comm_open unrelated type', async () => {
@@ -362,7 +362,7 @@ describe('Positron - IPyWidgetsInstance', () => {
 		await timeout(0);
 
 		// Check that the client was *not* registered.
-		expect(ipywidgetsInstance.hasClient(clientId)).toBeFalsy();
+		expect(ipywidgetsInstance.hasClient(clientId)).toBe(false);
 	});
 
 	it('from webview: get_preferred_renderer', async () => {
@@ -390,7 +390,7 @@ describe('Positron - IPyWidgetsInstance', () => {
 		await timeout(0);
 
 		// Check that the client was registered.
-		expect(ipywidgetsInstance.hasClient(client.getClientId())).toBeTruthy();
+		expect(ipywidgetsInstance.hasClient(client.getClientId())).toBe(true);
 
 		// Check that the comm open message was sent to the webview.
 		expect(messaging.messagesToWebview).toEqual([{
@@ -407,7 +407,7 @@ describe('Positron - IPyWidgetsInstance', () => {
 		await timeout(0);
 
 		// Check that the client was removed.
-		expect(ipywidgetsInstance.hasClient(client.getClientId())).toBeFalsy();
+		expect(ipywidgetsInstance.hasClient(client.getClientId())).toBe(false);
 	});
 
 	it('to webview: kernel_message, display_data', async () => {

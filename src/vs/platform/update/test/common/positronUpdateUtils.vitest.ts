@@ -63,7 +63,7 @@ describe('buildUpdateUrl', function () {
 		it('languages come before uuid in query string', () => {
 			const anonymousId = '12345678-1234-1234-1234-123456789012';
 			const result = buildUpdateUrl(baseUrl, ['python'], true, anonymousId);
-			expect(result.indexOf('python=1') < result.indexOf('uuid=')).toBeTruthy();
+			expect(result.indexOf('python=1')).toBeLessThan(result.indexOf('uuid='));
 		});
 	});
 });

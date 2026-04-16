@@ -78,13 +78,13 @@ describe('Positron Notebook Command Palette Visibility', () => {
 		for (const item of paletteItems) {
 			if (isIMenuItem(item) && HIDDEN_COMMAND_IDS.includes(item.command.id)) {
 				foundCommands.add(item.command.id);
-				expect(item.when).toBeTruthy();
+				expect(item.when).toBeDefined();
 				expect(item.when!.evaluate(positronContext)).toBe(false);
 			}
 		}
 
 		for (const id of HIDDEN_COMMAND_IDS) {
-			expect(foundCommands.has(id)).toBeTruthy();
+			expect(foundCommands.has(id)).toBe(true);
 		}
 	});
 

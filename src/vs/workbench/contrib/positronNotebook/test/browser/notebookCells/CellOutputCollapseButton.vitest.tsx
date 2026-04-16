@@ -25,7 +25,7 @@ class CellOutputCollapseButtonFixture {
 
 	get button() {
 		const el = this.container.querySelector<HTMLElement>('.cell-output-collapse-button');
-		expect(el).toBeTruthy();
+		expect(el).toBeDefined();
 		return el!;
 	}
 }

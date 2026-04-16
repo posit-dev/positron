@@ -135,7 +135,7 @@ describe('Positron Notebook Configuration Handling', () => {
 		// Verify editor is registered
 		let editors = editorResolverService.getEditors();
 		let positronEditor = editors.find(e => e.id === POSITRON_NOTEBOOK_EDITOR_ID);
-		expect(positronEditor).toBeTruthy();
+		expect(positronEditor).toBeDefined();
 
 		// Dispose contribution
 		notebookContribution.dispose();

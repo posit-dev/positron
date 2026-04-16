@@ -201,7 +201,7 @@ describe('QuartoExecutionManager', () => {
 			// Wait for the session's execute to fire (TestLanguageRuntimeSession
 			// transitions to Busy then fires onDidExecute on subsequent ticks)
 			const executionId = await mockKernelManager.waitForExecution();
-			expect(executionId).toBeTruthy();
+			expect(executionId).toBeDefined();
 
 			// Simulate a pandas DataFrame output that includes both HTML and plain text
 			// This is what pandas sends: both a rich HTML table and a plain text fallback
@@ -229,13 +229,13 @@ describe('QuartoExecutionManager', () => {
 			const output = outputsReceived[0];
 			const mimeTypes = output.items.map(item => item.mime);
 
-			expect(mimeTypes.includes('text/html')).toBeTruthy();
-			expect(!mimeTypes.includes('text/plain')).toBeTruthy();
+			expect(mimeTypes).toContain('text/html');
+			expect(mimeTypes).not.toContain('text/plain');
 
 			// Verify the HTML content is correct
 			const htmlItem = output.items.find(item => item.mime === 'text/html');
-			expect(htmlItem).toBeTruthy();
-			expect(htmlItem!.data.includes('<table>')).toBeTruthy();
+			expect(htmlItem).toBeDefined();
+			expect(htmlItem!.data).toContain('<table>');
 		});
 
 		it('filters out text/plain when image is present', async () => {
@@ -266,7 +266,7 @@ describe('QuartoExecutionManager', () => {
 
 			// Wait for the session's execute to fire
 			const executionId = await mockKernelManager.waitForExecution();
-			expect(executionId).toBeTruthy();
+			expect(executionId).toBeDefined();
 
 			// Simulate a matplotlib plot output that includes both image and plain text
 			mockSession.receiveOutputMessage({
@@ -293,8 +293,8 @@ describe('QuartoExecutionManager', () => {
 			const output = outputsReceived[0];
 			const mimeTypes = output.items.map(item => item.mime);
 
-			expect(mimeTypes.includes('image/png')).toBeTruthy();
-			expect(!mimeTypes.includes('text/plain')).toBeTruthy();
+			expect(mimeTypes).toContain('image/png');
+			expect(mimeTypes).not.toContain('text/plain');
 		});
 
 		it('keeps text/plain when no rich format is present', async () => {
@@ -324,7 +324,7 @@ describe('QuartoExecutionManager', () => {
 
 			// Wait for the session's execute to fire
 			const executionId = await mockKernelManager.waitForExecution();
-			expect(executionId).toBeTruthy();
+			expect(executionId).toBeDefined();
 
 			// Simulate a simple text-only result (like from "2 + 3")
 			mockSession.receiveResultMessage({
@@ -349,7 +349,7 @@ describe('QuartoExecutionManager', () => {
 			const output = outputsReceived[0];
 			const mimeTypes = output.items.map(item => item.mime);
 
-			expect(mimeTypes.includes('text/plain')).toBeTruthy();
+			expect(mimeTypes).toContain('text/plain');
 			expect(output.items[0].data).toBe('5');
 		});
 
@@ -379,7 +379,7 @@ describe('QuartoExecutionManager', () => {
 
 			// Wait for the session's execute to fire
 			const executionId = await mockKernelManager.waitForExecution();
-			expect(executionId).toBeTruthy();
+			expect(executionId).toBeDefined();
 
 			// Simulate stdout stream output (like from print("hello"))
 			mockSession.receiveStreamMessage({
@@ -405,7 +405,7 @@ describe('QuartoExecutionManager', () => {
 
 			// VERIFY BOTH OUTPUTS WERE CAPTURED
 			// The first output should be the stream output (stdout)
-			expect(outputsReceived.length >= 1).toBeTruthy();
+			expect(outputsReceived.length).toBeGreaterThanOrEqual(1);
 			expect(outputsReceived[0].items[0].mime).toBe('application/vnd.code.notebook.stdout');
 			expect(outputsReceived[0].items[0].data).toBe('hello\n');
 
@@ -507,7 +507,7 @@ describe('QuartoExecutionManager', () => {
 
 			// VERIFY: The execution manager should have looked up the cell by ID
 			// and used the CURRENT line numbers (9), not the stale ones (6).
-			expect(capturedRange).toBeTruthy();
+			expect(capturedRange).toBeDefined();
 			expect(capturedRange!.startLineNumber).toBe(9);
 			expect(capturedRange!.endLineNumber).toBe(9);
 		});

@@ -102,8 +102,8 @@ describe('LayoutManager', () => {
 		layoutManager.setEntries(10);
 
 		// Test mapping positions to indexes.
-		expect(layoutManager.mapPositionToIndex(-1) === undefined).toBeTruthy();
-		expect(layoutManager.mapPositionToIndex(-10) === undefined).toBeTruthy();
+		expect(layoutManager.mapPositionToIndex(-1)).toBeUndefined();
+		expect(layoutManager.mapPositionToIndex(-10)).toBeUndefined();
 		testMapPositionToIndex(layoutManager, 0, 0);
 		testMapPositionToIndex(layoutManager, 1, 1);
 		testMapPositionToIndex(layoutManager, 2, 2);
@@ -114,12 +114,12 @@ describe('LayoutManager', () => {
 		testMapPositionToIndex(layoutManager, 7, 7);
 		testMapPositionToIndex(layoutManager, 8, 8);
 		testMapPositionToIndex(layoutManager, 9, 9);
-		expect(layoutManager.mapPositionToIndex(10) === undefined).toBeTruthy();
-		expect(layoutManager.mapPositionToIndex(100) === undefined).toBeTruthy();
+		expect(layoutManager.mapPositionToIndex(10)).toBeUndefined();
+		expect(layoutManager.mapPositionToIndex(100)).toBeUndefined();
 
 		// Test mapping indexes to positions.
-		expect(layoutManager.mapIndexToPosition(-1) === undefined).toBeTruthy();
-		expect(layoutManager.mapIndexToPosition(-10) === undefined).toBeTruthy();
+		expect(layoutManager.mapIndexToPosition(-1)).toBeUndefined();
+		expect(layoutManager.mapIndexToPosition(-10)).toBeUndefined();
 		testMapIndexToPosition(layoutManager, 0, 0);
 		testMapIndexToPosition(layoutManager, 1, 1);
 		testMapIndexToPosition(layoutManager, 2, 2);
@@ -130,8 +130,8 @@ describe('LayoutManager', () => {
 		testMapIndexToPosition(layoutManager, 7, 7);
 		testMapIndexToPosition(layoutManager, 8, 8);
 		testMapIndexToPosition(layoutManager, 9, 9);
-		expect(layoutManager.mapIndexToPosition(10) === undefined).toBeTruthy();
-		expect(layoutManager.mapIndexToPosition(100) === undefined).toBeTruthy();
+		expect(layoutManager.mapIndexToPosition(10)).toBeUndefined();
+		expect(layoutManager.mapIndexToPosition(100)).toBeUndefined();
 	});
 
 	/**
@@ -143,8 +143,8 @@ describe('LayoutManager', () => {
 		layoutManager.setEntries(10, undefined, [9, 8, 7, 6, 5, 4, 3, 2, 1, 0]);
 
 		// Test mapping positions to indexes.
-		expect(layoutManager.mapPositionToIndex(-1) === undefined).toBeTruthy();
-		expect(layoutManager.mapPositionToIndex(-10) === undefined).toBeTruthy();
+		expect(layoutManager.mapPositionToIndex(-1)).toBeUndefined();
+		expect(layoutManager.mapPositionToIndex(-10)).toBeUndefined();
 		testMapPositionToIndex(layoutManager, 0, 9);
 		testMapPositionToIndex(layoutManager, 1, 8);
 		testMapPositionToIndex(layoutManager, 2, 7);
@@ -155,12 +155,12 @@ describe('LayoutManager', () => {
 		testMapPositionToIndex(layoutManager, 7, 2);
 		testMapPositionToIndex(layoutManager, 8, 1);
 		testMapPositionToIndex(layoutManager, 9, 0);
-		expect(layoutManager.mapPositionToIndex(10) === undefined).toBeTruthy();
-		expect(layoutManager.mapPositionToIndex(100) === undefined).toBeTruthy();
+		expect(layoutManager.mapPositionToIndex(10)).toBeUndefined();
+		expect(layoutManager.mapPositionToIndex(100)).toBeUndefined();
 
 		// Test mapping indexes to positions.
-		expect(layoutManager.mapIndexToPosition(-1) === undefined).toBeTruthy();
-		expect(layoutManager.mapIndexToPosition(-10) === undefined).toBeTruthy();
+		expect(layoutManager.mapIndexToPosition(-1)).toBeUndefined();
+		expect(layoutManager.mapIndexToPosition(-10)).toBeUndefined();
 		testMapIndexToPosition(layoutManager, 9, 0);
 		testMapIndexToPosition(layoutManager, 8, 1);
 		testMapIndexToPosition(layoutManager, 7, 2);
@@ -171,8 +171,8 @@ describe('LayoutManager', () => {
 		testMapIndexToPosition(layoutManager, 2, 7);
 		testMapIndexToPosition(layoutManager, 1, 8);
 		testMapIndexToPosition(layoutManager, 0, 9);
-		expect(layoutManager.mapIndexToPosition(10) === undefined).toBeTruthy();
-		expect(layoutManager.mapIndexToPosition(100) === undefined).toBeTruthy();
+		expect(layoutManager.mapIndexToPosition(10)).toBeUndefined();
+		expect(layoutManager.mapIndexToPosition(100)).toBeUndefined();
 	});
 
 	/**
@@ -185,8 +185,8 @@ describe('LayoutManager', () => {
 		layoutManager.setPinnedIndexes([3, 2, 0]);
 
 		// Test mapping positions to indexes.
-		expect(layoutManager.mapPositionToIndex(-1) === undefined).toBeTruthy();
-		expect(layoutManager.mapPositionToIndex(-10) === undefined).toBeTruthy();
+		expect(layoutManager.mapPositionToIndex(-1)).toBeUndefined();
+		expect(layoutManager.mapPositionToIndex(-10)).toBeUndefined();
 		testMapPositionToIndex(layoutManager, 0, 3);
 		testMapPositionToIndex(layoutManager, 1, 2);
 		testMapPositionToIndex(layoutManager, 2, 0);
@@ -197,12 +197,12 @@ describe('LayoutManager', () => {
 		testMapPositionToIndex(layoutManager, 7, 7);
 		testMapPositionToIndex(layoutManager, 8, 8);
 		testMapPositionToIndex(layoutManager, 9, 9);
-		expect(layoutManager.mapPositionToIndex(10) === undefined).toBeTruthy();
-		expect(layoutManager.mapPositionToIndex(100) === undefined).toBeTruthy();
+		expect(layoutManager.mapPositionToIndex(10)).toBeUndefined();
+		expect(layoutManager.mapPositionToIndex(100)).toBeUndefined();
 
 		// Test mapping indexes to positions.
-		expect(layoutManager.mapIndexToPosition(-1) === undefined).toBeTruthy();
-		expect(layoutManager.mapIndexToPosition(-10) === undefined).toBeTruthy();
+		expect(layoutManager.mapIndexToPosition(-1)).toBeUndefined();
+		expect(layoutManager.mapIndexToPosition(-10)).toBeUndefined();
 		testMapIndexToPosition(layoutManager, 0, 2);
 		testMapIndexToPosition(layoutManager, 1, 3);
 		testMapIndexToPosition(layoutManager, 2, 1);
@@ -213,8 +213,8 @@ describe('LayoutManager', () => {
 		testMapIndexToPosition(layoutManager, 7, 7);
 		testMapIndexToPosition(layoutManager, 8, 8);
 		testMapIndexToPosition(layoutManager, 9, 9);
-		expect(layoutManager.mapIndexToPosition(10) === undefined).toBeTruthy();
-		expect(layoutManager.mapIndexToPosition(100) === undefined).toBeTruthy();
+		expect(layoutManager.mapIndexToPosition(10)).toBeUndefined();
+		expect(layoutManager.mapIndexToPosition(100)).toBeUndefined();
 	});
 
 	/**
@@ -227,8 +227,8 @@ describe('LayoutManager', () => {
 		layoutManager.setPinnedIndexes([3, 2, 0]);
 
 		// Test mapping positions to indexes.
-		expect(layoutManager.mapPositionToIndex(-1) === undefined).toBeTruthy();
-		expect(layoutManager.mapPositionToIndex(-10) === undefined).toBeTruthy();
+		expect(layoutManager.mapPositionToIndex(-1)).toBeUndefined();
+		expect(layoutManager.mapPositionToIndex(-10)).toBeUndefined();
 		testMapPositionToIndex(layoutManager, 0, 3);
 		testMapPositionToIndex(layoutManager, 1, 2);
 		testMapPositionToIndex(layoutManager, 2, 0);
@@ -239,12 +239,12 @@ describe('LayoutManager', () => {
 		testMapPositionToIndex(layoutManager, 7, 5);
 		testMapPositionToIndex(layoutManager, 8, 4);
 		testMapPositionToIndex(layoutManager, 9, 1);
-		expect(layoutManager.mapPositionToIndex(10) === undefined).toBeTruthy();
-		expect(layoutManager.mapPositionToIndex(100) === undefined).toBeTruthy();
+		expect(layoutManager.mapPositionToIndex(10)).toBeUndefined();
+		expect(layoutManager.mapPositionToIndex(100)).toBeUndefined();
 
 		// Test mapping indexes to positions.
-		expect(layoutManager.mapIndexToPosition(-1) === undefined).toBeTruthy();
-		expect(layoutManager.mapIndexToPosition(-10) === undefined).toBeTruthy();
+		expect(layoutManager.mapIndexToPosition(-1)).toBeUndefined();
+		expect(layoutManager.mapIndexToPosition(-10)).toBeUndefined();
 		testMapIndexToPosition(layoutManager, 3, 0);
 		testMapIndexToPosition(layoutManager, 2, 1);
 		testMapIndexToPosition(layoutManager, 0, 2);
@@ -255,8 +255,8 @@ describe('LayoutManager', () => {
 		testMapIndexToPosition(layoutManager, 5, 7);
 		testMapIndexToPosition(layoutManager, 4, 8);
 		testMapIndexToPosition(layoutManager, 1, 9);
-		expect(layoutManager.mapIndexToPosition(10) === undefined).toBeTruthy();
-		expect(layoutManager.mapIndexToPosition(100) === undefined).toBeTruthy();
+		expect(layoutManager.mapIndexToPosition(10)).toBeUndefined();
+		expect(layoutManager.mapIndexToPosition(100)).toBeUndefined();
 	});
 
 	/**
@@ -358,14 +358,14 @@ describe('LayoutManager', () => {
 
 		// Verify getting the first layout entry.
 		let layoutEntry = layoutManager.getLayoutEntry(0);
-		expect(layoutEntry).toBeTruthy();
+		expect(layoutEntry).toBeDefined();
 		expect(layoutEntry!.index).toBe(0);
 		expect(layoutEntry!.start).toBe(0);
 		expect(layoutEntry!.size).toBe(defaultSize);
 
 		// Verify getting the last layout entry.
 		layoutEntry = layoutManager.getLayoutEntry(entries - 1);
-		expect(layoutEntry).toBeTruthy();
+		expect(layoutEntry).toBeDefined();
 		expect(layoutEntry!.index).toBe(entries - 1);
 		expect(layoutEntry!.start).toBe((entries - 1) * defaultSize);
 		expect(layoutEntry!.size).toBe(defaultSize);
@@ -375,7 +375,7 @@ describe('LayoutManager', () => {
 
 		// Verify getting the first layout entry.
 		layoutEntry = layoutManager.getLayoutEntry(0);
-		expect(layoutEntry).toBeTruthy();
+		expect(layoutEntry).toBeDefined();
 		expect(layoutEntry!.index).toBe(0);
 		expect(layoutEntry!.start).toBe(0);
 		expect(layoutEntry!.size).toBe(defaultSize * 2);
@@ -383,7 +383,7 @@ describe('LayoutManager', () => {
 		// Verify getting the last layout entry.
 		if (entries > 1) {
 			layoutEntry = layoutManager.getLayoutEntry(entries - 1);
-			expect(layoutEntry).toBeTruthy();
+			expect(layoutEntry).toBeDefined();
 			expect(layoutEntry!.index).toBe(entries - 1);
 			expect(layoutEntry!.start).toBe(((entries - 1) * defaultSize) + defaultSize);
 			expect(layoutEntry!.size).toBe(defaultSize);
@@ -394,14 +394,14 @@ describe('LayoutManager', () => {
 
 		// Verify getting the first layout entry.
 		layoutEntry = layoutManager.getLayoutEntry(0);
-		expect(layoutEntry).toBeTruthy();
+		expect(layoutEntry).toBeDefined();
 		expect(layoutEntry!.index).toBe(0);
 		expect(layoutEntry!.start).toBe(0);
 		expect(layoutEntry!.size).toBe(defaultSize);
 
 		// Verify getting the last layout entry.
 		layoutEntry = layoutManager.getLayoutEntry(entries - 1);
-		expect(layoutEntry).toBeTruthy();
+		expect(layoutEntry).toBeDefined();
 		expect(layoutEntry!.index).toBe(entries - 1);
 		expect(layoutEntry!.start).toBe((entries - 1) * defaultSize);
 		expect(layoutEntry!.size).toBe(defaultSize);
@@ -419,14 +419,14 @@ describe('LayoutManager', () => {
 
 		// Verify getting the first layout entry.
 		let layoutEntry = layoutManager.getLayoutEntry(0);
-		expect(layoutEntry).toBeTruthy();
+		expect(layoutEntry).toBeDefined();
 		expect(layoutEntry!.index).toBe(0);
 		expect(layoutEntry!.start).toBe(0);
 		expect(layoutEntry!.size).toBe(entrySize);
 
 		// Verify getting the last layout entry.
 		layoutEntry = layoutManager.getLayoutEntry(entries - 1);
-		expect(layoutEntry).toBeTruthy();
+		expect(layoutEntry).toBeDefined();
 		expect(layoutEntry!.index).toBe(entries - 1);
 		expect(layoutEntry!.start).toBe((entries - 1) * entrySize);
 		expect(layoutEntry!.size).toBe(entrySize);
@@ -436,7 +436,7 @@ describe('LayoutManager', () => {
 
 		// Verify getting the first layout entry.
 		layoutEntry = layoutManager.getLayoutEntry(0);
-		expect(layoutEntry).toBeTruthy();
+		expect(layoutEntry).toBeDefined();
 		expect(layoutEntry!.index).toBe(0);
 		expect(layoutEntry!.start).toBe(0);
 		expect(layoutEntry!.size).toBe(entrySize * 2);
@@ -444,7 +444,7 @@ describe('LayoutManager', () => {
 		// Verify getting the last layout entry.
 		if (entries > 1) {
 			layoutEntry = layoutManager.getLayoutEntry(entries - 1);
-			expect(layoutEntry).toBeTruthy();
+			expect(layoutEntry).toBeDefined();
 			expect(layoutEntry!.index).toBe(entries - 1);
 			expect(layoutEntry!.start).toBe(((entries - 1) * entrySize) + entrySize);
 			expect(layoutEntry!.size).toBe(entrySize);
@@ -455,14 +455,14 @@ describe('LayoutManager', () => {
 
 		// Verify getting the first layout entry.
 		layoutEntry = layoutManager.getLayoutEntry(0);
-		expect(layoutEntry).toBeTruthy();
+		expect(layoutEntry).toBeDefined();
 		expect(layoutEntry!.index).toBe(0);
 		expect(layoutEntry!.start).toBe(0);
 		expect(layoutEntry!.size).toBe(entrySize);
 
 		// Verify getting the last layout entry.
 		layoutEntry = layoutManager.getLayoutEntry(entries - 1);
-		expect(layoutEntry).toBeTruthy();
+		expect(layoutEntry).toBeDefined();
 		expect(layoutEntry!.index).toBe(entries - 1);
 		expect(layoutEntry!.start).toBe((entries - 1) * entrySize);
 		expect(layoutEntry!.size).toBe(entrySize);
@@ -484,14 +484,14 @@ describe('LayoutManager', () => {
 
 		// Verify getting the first layout entry.
 		let layoutEntry = layoutManager.getLayoutEntry(0);
-		expect(layoutEntry).toBeTruthy();
+		expect(layoutEntry).toBeDefined();
 		expect(layoutEntry!.index).toBe(0);
 		expect(layoutEntry!.start).toBe(0);
 		expect(layoutEntry!.size).toBe(entrySizes[0]);
 
 		// Verify getting the last layout entry.
 		layoutEntry = layoutManager.getLayoutEntry(entries - 1);
-		expect(layoutEntry).toBeTruthy();
+		expect(layoutEntry).toBeDefined();
 		expect(layoutEntry!.index).toBe(entries - 1);
 		expect(layoutEntry!.start).toBe(size - entrySizes[entries - 1]);
 		expect(layoutEntry!.size).toBe(entrySizes[entries - 1]);
@@ -501,7 +501,7 @@ describe('LayoutManager', () => {
 
 		// Verify getting the first layout entry.
 		layoutEntry = layoutManager.getLayoutEntry(0);
-		expect(layoutEntry).toBeTruthy();
+		expect(layoutEntry).toBeDefined();
 		expect(layoutEntry!.index).toBe(0);
 		expect(layoutEntry!.start).toBe(0);
 		expect(layoutEntry!.size).toBe(entrySizes[0] * 2);
@@ -509,7 +509,7 @@ describe('LayoutManager', () => {
 		// Verify getting the last layout entry.
 		if (entries > 1) {
 			layoutEntry = layoutManager.getLayoutEntry(entries - 1);
-			expect(layoutEntry).toBeTruthy();
+			expect(layoutEntry).toBeDefined();
 			expect(layoutEntry!.index).toBe(entries - 1);
 			expect(layoutEntry!.start).toBe(size + entrySizes[0] - entrySizes[entries - 1]);
 			expect(layoutEntry!.size).toBe(entrySizes[entries - 1]);
@@ -520,14 +520,14 @@ describe('LayoutManager', () => {
 
 		// Verify getting the first layout entry.
 		layoutEntry = layoutManager.getLayoutEntry(0);
-		expect(layoutEntry).toBeTruthy();
+		expect(layoutEntry).toBeDefined();
 		expect(layoutEntry!.index).toBe(0);
 		expect(layoutEntry!.start).toBe(0);
 		expect(layoutEntry!.size).toBe(entrySizes[0]);
 
 		// Verify getting the last layout entry.
 		layoutEntry = layoutManager.getLayoutEntry(entries - 1);
-		expect(layoutEntry).toBeTruthy();
+		expect(layoutEntry).toBeDefined();
 		expect(layoutEntry!.index).toBe(entries - 1);
 		expect(layoutEntry!.start).toBe(size - entrySizes[entries - 1]);
 		expect(layoutEntry!.size).toBe(entrySizes[entries - 1]);
@@ -608,11 +608,11 @@ describe('LayoutManager', () => {
 		 */
 		const verifyLayoutEntryBeforeOverrides = (index: number) => {
 			// Assert that the index is within the range.
-			expect(index < overridesStartAt).toBeTruthy();
+			expect(index).toBeLessThan(overridesStartAt);
 
 			// Verify the layout entry.
 			let layoutEntry = layoutManager.findFirstUnpinnedLayoutEntry(defaultSize * index);
-			expect(layoutEntry).toBeTruthy();
+			expect(layoutEntry).toBeDefined();
 			expect(layoutEntry!.index).toBe(index);
 			expect(layoutEntry!.start).toBe(defaultSize * index);
 			expect(layoutEntry!.size).toBe(defaultSize);
@@ -621,7 +621,7 @@ describe('LayoutManager', () => {
 			layoutEntry = layoutManager.findFirstUnpinnedLayoutEntry(
 				(defaultSize * index) + Math.floor(defaultSize / 2)
 			);
-			expect(layoutEntry).toBeTruthy();
+			expect(layoutEntry).toBeDefined();
 			expect(layoutEntry!.index).toBe(index);
 			expect(layoutEntry!.start).toBe(defaultSize * index);
 			expect(layoutEntry!.size).toBe(defaultSize);
@@ -644,20 +644,20 @@ describe('LayoutManager', () => {
 			const index = testIndex + overridesStartAt;
 
 			// Assert that the index is within the range.
-			expect(index >= overridesStartAt).toBeTruthy();
-			expect(index < overridesStartAt + overrideEntries).toBeTruthy();
+			expect(index).toBeGreaterThanOrEqual(overridesStartAt);
+			expect(index).toBeLessThan(overridesStartAt + overrideEntries);
 
 			// Verify the layout entry.
 			const start = startingOffset + (testIndex * overrideSize);
 			let layoutEntry = layoutManager.findFirstUnpinnedLayoutEntry(start);
-			expect(layoutEntry).toBeTruthy();
+			expect(layoutEntry).toBeDefined();
 			expect(layoutEntry!.index).toBe(index);
 			expect(layoutEntry!.start).toBe(start);
 			expect(layoutEntry!.size).toBe(overrideSize);
 
 			// Verify the layout entry.
 			layoutEntry = layoutManager.findFirstUnpinnedLayoutEntry(start + Math.floor(overrideSize / 2));
-			expect(layoutEntry).toBeTruthy();
+			expect(layoutEntry).toBeDefined();
 			expect(layoutEntry!.index).toBe(index);
 			expect(layoutEntry!.start).toBe(start);
 			expect(layoutEntry!.size).toBe(overrideSize);
@@ -680,20 +680,20 @@ describe('LayoutManager', () => {
 			const index = testIndex + overridesStartAt + overrideEntries;
 
 			// Assert that the index is within the range.
-			expect(index >= overridesStartAt + overrideEntries).toBeTruthy();
-			expect(index < entries).toBeTruthy();
+			expect(index).toBeGreaterThanOrEqual(overridesStartAt + overrideEntries);
+			expect(index).toBeLessThan(entries);
 
 			// Verify the layout entry.
 			const start = startingOffset + (defaultSize * testIndex);
 			let layoutEntry = layoutManager.findFirstUnpinnedLayoutEntry(start);
-			expect(layoutEntry).toBeTruthy();
+			expect(layoutEntry).toBeDefined();
 			expect(layoutEntry!.index).toBe(index);
 			expect(layoutEntry!.start).toBe(start);
 			expect(layoutEntry!.size).toBe(defaultSize);
 
 			// Verify the layout entry.
 			layoutEntry = layoutManager.findFirstUnpinnedLayoutEntry(start + Math.floor(defaultSize / 2));
-			expect(layoutEntry).toBeTruthy();
+			expect(layoutEntry).toBeDefined();
 			expect(layoutEntry!.index).toBe(index);
 			expect(layoutEntry!.start).toBe(start);
 			expect(layoutEntry!.size).toBe(defaultSize);
@@ -709,11 +709,11 @@ describe('LayoutManager', () => {
 		verifyLayoutEntryAfterOverrides(entries - overridesStartAt - overrideEntries - 1);
 
 		// Verify finding a layout entry that should not be found.
-		expect(!layoutManager.findFirstUnpinnedLayoutEntry(Number.MAX_SAFE_INTEGER)).toBeTruthy();
-		expect(!layoutManager.findFirstUnpinnedLayoutEntry(Number.MIN_SAFE_INTEGER)).toBeTruthy();
+		expect(layoutManager.findFirstUnpinnedLayoutEntry(Number.MAX_SAFE_INTEGER)).toBeUndefined();
+		expect(layoutManager.findFirstUnpinnedLayoutEntry(Number.MIN_SAFE_INTEGER)).toBeUndefined();
 
 		// Verify getting the layout entry past the last index, for coverage.
-		expect(!layoutManager.getLayoutEntry(entries)).toBeTruthy();
+		expect(layoutManager.getLayoutEntry(entries)).toBeUndefined();
 	};
 
 	/**
@@ -744,8 +744,8 @@ describe('LayoutManager', () => {
 		}
 
 		// Verify getting various layout entries.
-		expect(!layoutManager.getLayoutEntry(-1)).toBeTruthy();
-		expect(!layoutManager.getLayoutEntry(entries)).toBeTruthy();
+		expect(layoutManager.getLayoutEntry(-1)).toBeUndefined();
+		expect(layoutManager.getLayoutEntry(entries)).toBeUndefined();
 		expect(
 			layoutManager.getLayoutEntry(0)
 		).toEqual(
@@ -838,10 +838,10 @@ describe('LayoutManager', () => {
 		size: number
 	) => {
 		// Verify that entries outside the range are not found.
-		expect(!layoutManager.findFirstUnpinnedLayoutEntry(-1)).toBeTruthy();
-		expect(!layoutManager.findFirstUnpinnedLayoutEntry(entries * size)).toBeTruthy();
-		expect(!layoutManager.findFirstUnpinnedLayoutEntry((entries * size) + 100)).toBeTruthy();
-		expect(!layoutManager.findFirstUnpinnedLayoutEntry((entries * size) + 1000)).toBeTruthy();
+		expect(layoutManager.findFirstUnpinnedLayoutEntry(-1)).toBeUndefined();
+		expect(layoutManager.findFirstUnpinnedLayoutEntry(entries * size)).toBeUndefined();
+		expect(layoutManager.findFirstUnpinnedLayoutEntry((entries * size) + 100)).toBeUndefined();
+		expect(layoutManager.findFirstUnpinnedLayoutEntry((entries * size) + 1000)).toBeUndefined();
 	};
 
 	/**
@@ -861,7 +861,7 @@ describe('LayoutManager', () => {
 	 */
 	const testMapPositionToIndex = (layoutManager: LayoutManager, position: number, expectedIndex: number) => {
 		const index = layoutManager.mapPositionToIndex(position);
-		expect(index !== undefined).toBeTruthy();
+		expect(index).toBeDefined();
 		expect(index).toBe(expectedIndex);
 	};
 
@@ -873,7 +873,7 @@ describe('LayoutManager', () => {
 	 */
 	const testMapIndexToPosition = (layoutManager: LayoutManager, index: number, expectedPosition: number) => {
 		const position = layoutManager.mapIndexToPosition(index);
-		expect(position !== undefined).toBeTruthy();
+		expect(position).toBeDefined();
 		expect(position).toBe(expectedPosition);
 	};
 

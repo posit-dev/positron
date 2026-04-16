@@ -28,9 +28,9 @@ describe('Positron Extension Compatibility', () => {
 		const result = positronExtensionCompatibility(extension, mockProductService);
 
 		expect(result.compatible).toBe(false);
-		expect(result.reason).toBeTruthy();
-		expect(result.reason!.includes('conflicts with Positron built-in features')).toBeTruthy();
-		expect(result.reason!.includes('Python')).toBeTruthy();
+		expect(result.reason).toBeDefined();
+		expect(result.reason!).toContain('conflicts with Positron built-in features');
+		expect(result.reason!).toContain('Python');
 	});
 
 	it('should accept extension with compatible version requirement', () => {
@@ -65,10 +65,10 @@ describe('Positron Extension Compatibility', () => {
 		const result = positronExtensionCompatibility(extensionManifest, mockProductService);
 
 		expect(result.compatible).toBe(false);
-		expect(result.reason).toBeTruthy();
-		expect(result.reason!.includes('Extension is not compatible with Positron')).toBeTruthy();
-		expect(result.reason!.includes('2026.02.0')).toBeTruthy();
-		expect(result.reason!.includes('2027.01.0')).toBeTruthy();
+		expect(result.reason).toBeDefined();
+		expect(result.reason!).toContain('Extension is not compatible with Positron');
+		expect(result.reason!).toContain('2026.02.0');
+		expect(result.reason!).toContain('2027.01.0');
 	});
 
 	it('should accept extension without engine requirements', () => {
@@ -100,9 +100,9 @@ describe('Positron Extension Compatibility', () => {
 		const result = positronExtensionCompatibility(extensionManifest, mockProductService);
 
 		expect(result.compatible).toBe(false);
-		expect(result.reason).toBeTruthy();
+		expect(result.reason).toBeDefined();
 		// Should contain error about parsing the version
-		expect(result.reason!.includes('Could not parse')).toBeTruthy();
+		expect(result.reason!).toContain('Could not parse');
 	});
 
 	it('should handle missing ProductService gracefully', () => {

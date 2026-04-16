@@ -132,7 +132,7 @@ describe('PositronNotebookOutline', () => {
 			const entries = buildOutlineEntries(cells);
 
 			expect(entries.length).toBe(1);
-			expect(entries[0].label.length > 0).toBeTruthy();
+			expect(entries[0].label.length).toBeGreaterThan(0);
 		});
 
 		it('non-header markdown uses first-line preview', () => {

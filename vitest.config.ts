@@ -10,6 +10,10 @@ export default defineConfig({
 		include: ['src/vs/**/*.vitest.{ts,tsx}'],
 		environment: 'happy-dom',
 		globals: true,
+		// Auto-restore spies (vi.spyOn) between tests so a failed assertion
+		// can't leave console.error/log mocked for the rest of the file.
+		// Does not affect vi.fn() mocks created fresh per test.
+		restoreMocks: true,
 		// Provides Vitest global types (describe, it, expect, vi) for
 		// intellisense in .vitest.{ts,tsx} files without a per-file
 		// /// <reference> directive. Scoped to Vitest only -- does not

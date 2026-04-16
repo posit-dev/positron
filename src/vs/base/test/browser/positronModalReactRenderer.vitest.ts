@@ -201,7 +201,7 @@ describe('PositronModalReactRenderer', () => {
 			renderer.render(createMockReactElement());
 
 			expect(container.children.length).toBe(1);
-			expect(container.querySelector('.positron-modal-overlay')).toBeTruthy();
+			expect(container.querySelector('.positron-modal-overlay')).toBeDefined();
 
 			renderer.dispose();
 		});
@@ -226,9 +226,9 @@ describe('PositronModalReactRenderer', () => {
 			// Should have logged an error
 			expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
 			expect(consoleErrorSpy).toHaveBeenCalledWith('[PositronModalReactRenderer] Attempted to render a React element when one has already been rendered');
-			consoleErrorSpy.mockRestore();
 
 			renderer.dispose();
+			// consoleErrorSpy is auto-restored by restoreMocks: true in vitest.config.ts
 		});
 	});
 
@@ -304,7 +304,7 @@ describe('PositronModalReactRenderer', () => {
 
 			PositronModalReactRenderer.disposeAll();
 
-			expect(callbackFlags.every(f => f)).toBeTruthy();
+			expect(callbackFlags.every(f => f)).toBe(true);
 		});
 
 		it('is a no-op on an empty stack', () => {
@@ -398,7 +398,7 @@ describe('PositronModalReactRenderer', () => {
 			renderer.render(createMockReactElement());
 
 			const overlay = container.querySelector('.positron-modal-overlay') as HTMLElement;
-			expect(overlay).toBeTruthy();
+			expect(overlay).toBeDefined();
 			expect(overlay.style.pointerEvents).toBe('none');
 
 			renderer.dispose();
@@ -410,7 +410,7 @@ describe('PositronModalReactRenderer', () => {
 			renderer.render(createMockReactElement());
 
 			const overlay = container.querySelector('.positron-modal-overlay') as HTMLElement;
-			expect(overlay).toBeTruthy();
+			expect(overlay).toBeDefined();
 			expect(overlay.style.pointerEvents).not.toBe('none');
 
 			renderer.dispose();
