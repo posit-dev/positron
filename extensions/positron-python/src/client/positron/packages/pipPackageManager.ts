@@ -43,7 +43,7 @@ export class PipPackageManager implements IPackageManager {
         for (const [name, metadata] of metadataMap) {
             result.set(name, {
                 description: metadata.summary ?? undefined,
-                license: metadata.license ?? (metadata.licenses?.join(', ') ?? undefined),
+                license: metadata.license ?? metadata.licenses?.join(', ') ?? undefined,
                 latestVersion: metadata.version ?? undefined,
                 availableVersions: metadata.available_versions,
                 packageSize: metadata.package_size ?? undefined,
