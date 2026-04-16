@@ -86,7 +86,7 @@ Use `createTestContainer()` for any test needing services. Pick the lowest prese
 ## Working examples
 
 These showcase tests demonstrate the patterns at increasing complexity:
-- `src/vs/platform/update/test/common/positronUpdateUtils.vitest.ts` -- plain: pure function, no services, no builder
-- `src/vs/workbench/contrib/positronConsole/test/browser/emptyConsole.vitest.tsx` -- React: one service, one click, behavioral assertions
-- `src/vs/workbench/contrib/positronPlots/test/browser/webviewPlotThumbnail.vitest.tsx` -- event-driven intro: one emitter, act(), conditional rendering
-- `src/vs/workbench/contrib/positronConsole/test/browser/startupStatus.vitest.tsx` -- event-driven advanced: 6-phase state machine, 3 event subscriptions
+- [positronUpdateUtils](../../src/vs/platform/update/test/common/positronUpdateUtils.vitest.ts) -- plain: pure function, no services, no builder
+- [emptyConsole](../../src/vs/workbench/contrib/positronConsole/test/browser/emptyConsole.vitest.tsx) -- React: one service, one click, behavioral assertions
+- [webviewPlotThumbnail](../../src/vs/workbench/contrib/positronPlots/test/browser/webviewPlotThumbnail.vitest.tsx) -- event-driven intro: one emitter, act(), conditional rendering
+- [startupStatus](../../src/vs/workbench/contrib/positronConsole/test/browser/startupStatus.vitest.tsx) -- event-driven advanced: 6-phase state machine, 3 event subscriptions
