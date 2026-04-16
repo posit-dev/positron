@@ -8,7 +8,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { traceError, traceInfo } from '../../../logging';
 import { exec } from '../externalDependencies';
-import { isUvInstalled, getAvailablePythonVersions, isWindowsArm64, clearUvCache } from './uv';
+import { isUvInstalled, getAvailablePythonVersions, isWindowsArm64, resetUvCache } from './uv';
 import { Common, InterpreterQuickPickList } from '../../../common/utils/localize';
 import { getWorkspaceFolders } from '../../../common/vscodeApis/workspaceApis';
 import { createUvVenv } from '../../creation/provider/uvCreationProvider';
@@ -45,7 +45,6 @@ async function allowUvInstall(): Promise<boolean> {
  * @returns true if installation succeeded, false otherwise
  */
 async function installUv(): Promise<boolean> {
-
     const allowInstall = await allowUvInstall();
     if (!allowInstall) {
         traceInfo('User declined uv installation');
@@ -66,8 +65,8 @@ async function installUv(): Promise<boolean> {
             await exec('sh', ['-c', 'curl -LsSf https://astral.sh/uv/install.sh | sh']);
         }
         traceInfo('uv installed successfully');
-        // Clear the uv cache so that subsequent calls detect the newly installed uv
-        clearUvCache();
+        // Clear caches so that subsequent calls detect the newly installed uv
+        resetUvCache();
         return true;
     } catch (error) {
         traceError(`Failed to install uv: ${error}`);
@@ -142,9 +141,10 @@ async function createGlobalVenv(
         await exec('uv', args, { throwOnStdErr: false });
 
         // Return the path to the Python executable
-        const pythonPath = process.platform === 'win32'
-            ? path.join(venvPath, 'Scripts', 'python.exe')
-            : path.join(venvPath, 'bin', 'python');
+        const pythonPath =
+            process.platform === 'win32'
+                ? path.join(venvPath, 'Scripts', 'python.exe')
+                : path.join(venvPath, 'bin', 'python');
 
         traceInfo(`Global venv created at ${pythonPath}`);
         return pythonPath;

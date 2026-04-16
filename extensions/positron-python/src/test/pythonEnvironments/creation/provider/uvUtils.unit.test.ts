@@ -8,7 +8,10 @@ import * as sinon from 'sinon';
 import { CancellationTokenSource } from 'vscode';
 import * as windowApis from '../../../../client/common/vscodeApis/windowApis';
 import * as uv from '../../../../client/pythonEnvironments/common/environmentManagers/uv';
-import { pickPythonVersion, getUvPythonVersions } from '../../../../client/pythonEnvironments/creation/provider/uvUtils';
+import {
+    pickPythonVersion,
+    getUvPythonVersions,
+} from '../../../../client/pythonEnvironments/creation/provider/uvUtils';
 
 suite('uv Utils test', () => {
     let showQuickPickWithBackStub: sinon.SinonStub;

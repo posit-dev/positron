@@ -7,6 +7,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
 import { cache } from '../../../common/utils/decorators';
+import { clearCache } from '../../../common/utils/cacheUtils';
 import { traceError, traceVerbose } from '../../../logging';
 import { exec, pathExists, readFile, resolveSymbolicLink } from '../externalDependencies';
 import { isTestExecution, MINIMUM_PYTHON_VERSION, MAXIMUM_PYTHON_VERSION_EXCLUSIVE } from '../../../common/constants';
@@ -29,7 +30,7 @@ export function isVersionPrerelease(version: string): boolean {
 class UvUtils {
     private static uvPromise: Promise<UvUtils | undefined>;
 
-    constructor(public readonly command: string) { }
+    constructor(public readonly command: string) {}
 
     public static async getUvUtils(): Promise<UvUtils | undefined> {
         if (UvUtils.uvPromise === undefined || isTestExecution()) {
@@ -38,12 +39,8 @@ class UvUtils {
         return UvUtils.uvPromise;
     }
 
-    /**
-     * Clears the cached UvUtils instance, forcing re-detection on next call.
-     * Call this after installing uv to ensure it's properly detected.
-     */
-    public static clearCache(): void {
-        UvUtils.uvPromise = undefined as any;
+    public static resetCache(): void {
+        UvUtils.uvPromise = (undefined as unknown) as Promise<UvUtils | undefined>;
     }
 
     private static async locate(): Promise<UvUtils | undefined> {
@@ -80,6 +77,15 @@ class UvUtils {
             return undefined;
         }
     }
+}
+
+/**
+ * Resets all uv-related caches so that a newly installed uv can be detected.
+ * Call this after installing uv.
+ */
+export function resetUvCache(): void {
+    clearCache();
+    UvUtils.resetCache();
 }
 
 /**
@@ -375,7 +381,8 @@ export async function getStablePythonAfterUpdate(
     if (!stableVersionInfo || stableVersionInfo.isPrerelease) {
         // No stable version available
         traceError(
-            `No stable Python version available for ${requestedVersion}, only pre-release ${stableVersionInfo?.version ?? 'unknown'
+            `No stable Python version available for ${requestedVersion}, only pre-release ${
+                stableVersionInfo?.version ?? 'unknown'
             }`,
         );
         return { success: false, error: 'no_stable_version', version: stableVersionInfo?.version };
@@ -585,17 +592,4 @@ export async function getUvDirs(): Promise<Set<string>> {
         }
     }
     return dirs;
-}
-
-/**
- * Clears all uv-related caches. Call this after installing uv to ensure
- * proper detection of the newly installed tool and any installed Python versions.
- */
-export function clearUvCache(): void {
-    UvUtils.clearCache();
-    // Also clear the global cache store which caches @cache decorated method results
-    // like getUvDir() and getUvBinDir()
-    const { clearCache } = require('../../../common/utils/cacheUtils');
-    clearCache();
-    traceVerbose('Cleared uv caches');
 }

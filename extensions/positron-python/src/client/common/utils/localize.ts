@@ -318,8 +318,7 @@ export namespace InterpreterQuickPickList {
         export const confirmUvInstallYes = l10n.t('Install uv');
         export const confirmUvInstallDetail = l10n.t('This will run the official installer script from astral.sh.');
         export const refreshingEnvironments = l10n.t('Refreshing environments');
-        export const globalVenvCreated = (path: string) =>
-            l10n.t('Virtual environment created at {0}', path);
+        export const globalVenvCreated = (path: string) => l10n.t('Virtual environment created at {0}', path);
     }
     // --- End Positron ---
 }

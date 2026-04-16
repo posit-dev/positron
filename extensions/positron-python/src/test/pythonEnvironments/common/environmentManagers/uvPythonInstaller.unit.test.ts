@@ -326,9 +326,9 @@ suite('UV Python Installer Tests', () => {
 
             when(mockedVSCodeNamespaces.window!.showErrorMessage(anything())).thenResolve(undefined);
             // Default: user confirms uv installation when prompted (4 args: message, options, install button, learn more)
-            when(mockedVSCodeNamespaces.window!.showInformationMessage(anything(), anything(), anything(), anything())).thenResolve(
-                InterpreterQuickPickList.UvInstall.confirmUvInstallYes as any,
-            );
+            when(
+                mockedVSCodeNamespaces.window!.showInformationMessage(anything(), anything(), anything(), anything()),
+            ).thenResolve(InterpreterQuickPickList.UvInstall.confirmUvInstallYes as any);
             when(mockedVSCodeNamespaces.window!.showInformationMessage(anything())).thenResolve(undefined);
             when(mockedVSCodeNamespaces.window!.showWarningMessage(anything())).thenResolve(undefined);
 
