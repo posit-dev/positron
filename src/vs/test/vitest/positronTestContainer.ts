@@ -43,22 +43,6 @@ import { ICodeEditorService } from '../../editor/browser/services/codeEditorServ
 import { IPositronNotebookService } from '../../workbench/contrib/positronNotebook/browser/positronNotebookService.js';
 import { IQuartoKernelManager } from '../../workbench/contrib/positronQuarto/browser/quartoKernelManager.js';
 import { PositronReactServices } from '../../base/browser/positronReactServices.js';
-import { IActionWidgetService } from '../../platform/actionWidget/browser/actionWidget.js';
-import { IClipboardService } from '../../platform/clipboard/common/clipboardService.js';
-import { IExecutionHistoryService } from '../../workbench/services/positronHistory/common/executionHistoryService.js';
-import { ILanguageModelsService } from '../../workbench/contrib/chat/common/languageModels.js';
-import { IPositronAssistantService } from '../../workbench/contrib/positronAssistant/common/interfaces/positronAssistantService.js';
-import { IPositronConnectionsService } from '../../workbench/services/positronConnections/common/interfaces/positronConnectionsService.js';
-import { IPositronDataExplorerService } from '../../workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
-import { IPositronHelpService } from '../../workbench/contrib/positronHelp/browser/positronHelpService.js';
-import { IPositronMemoryUsageService } from '../../platform/positronMemoryUsage/common/positronMemoryUsage.js';
-import { IPositronPackagesService } from '../../workbench/contrib/positronPackages/browser/interfaces/positronPackagesService.js';
-import { IPositronPreviewService } from '../../workbench/contrib/positronPreview/browser/positronPreviewSevice.js';
-import { IPositronTopActionBarService } from '../../workbench/services/positronTopActionBar/browser/positronTopActionBarService.js';
-import { IQuickChatService } from '../../workbench/contrib/chat/browser/chat.js';
-import { IResourceUsageHistoryService } from '../../workbench/services/positronConsole/browser/resourceUsageHistoryService.js';
-import { ITerminalService } from '../../workbench/contrib/terminal/browser/terminal.js';
-import { IViewDescriptorService } from '../../workbench/common/views.js';
 
 interface TestContainerResult {
 	/** Retrieve a registered service by its identifier. */
@@ -247,35 +231,11 @@ class PositronTestContainerBuilder {
 		beforeEach(() => {
 			if (useReactServices) {
 				_instantiationService = positronWorkbenchInstantiationService(disposables);
-				// Stub services that PositronReactServices needs but the workbench
-				// preset doesn't provide. Empty stubs are sufficient -- tests override
-				// specific services via .stub() as needed.
-				//
-				// MAINTENANCE: If a new service is added to PositronReactServices
-				// (src/vs/base/browser/positronReactServices.tsx) and withReactServices()
-				// tests start failing with "missing service" errors, add the service
-				// identifier here with an empty stub.
-				const emptyStubs: [ServiceIdentifier<any>, any][] = [
-					[IActionWidgetService, {}],
-					[IClipboardService, {}],
-					[IExecutionHistoryService, {}],
-					[ILanguageModelsService, {}],
-					[IPositronAssistantService, {}],
-					[IPositronConnectionsService, {}],
-					[IPositronDataExplorerService, {}],
-					[IPositronHelpService, {}],
-					[IPositronMemoryUsageService, {}],
-					[IPositronPackagesService, {}],
-					[IPositronPreviewService, {}],
-					[IPositronTopActionBarService, {}],
-					[IQuickChatService, {}],
-					[IResourceUsageHistoryService, {}],
-					[ITerminalService, {}],
-					[IViewDescriptorService, {}],
-				];
-				for (const [id, impl] of emptyStubs) {
-					_instantiationService.stub(id, impl);
-				}
+				// The workbench preset currently provides all services that
+				// PositronReactServices needs. If a new Positron-specific service
+				// is added to PositronReactServices and the canary test in
+				// positronTestContainer.vitest.ts fails, add an empty stub here:
+				//   _instantiationService.stub(INewService, {});
 			} else if (useContributionServices) {
 				_instantiationService = positronWorkbenchInstantiationService(disposables);
 				// Event.None stubs for services that contributions subscribe to
