@@ -22,6 +22,8 @@ That's it. No builder, no services, no setup.
 
 ### Testing a React component?
 
+**Prop-driven or service-context?** Grep the component for `usePositronReactServicesContext`. If it appears anywhere in the file (or a child component rendered via context uses it), use service-context. When in doubt, use service-context -- it works for both.
+
 1. Copy `src/vs/workbench/contrib/positronConsole/test/browser/emptyConsole.vitest.tsx`
 2. Change these 4 things (everything else is boilerplate -- keep it):
 

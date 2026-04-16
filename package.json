@@ -17,6 +17,8 @@
     "test-extension": "vscode-test",
     "test-build-scripts": "cd build && npm run test",
     "test:vitest": "vitest --run",
+    "test:core": "./scripts/test.sh",
+    "test:ext-host": "./scripts/test-integration.sh",
     "postinstall": "node build/npm/postinstall.ts",
     "preinstall": "node build/npm/preinstall.ts",
     "compile": "npm run gulp compile",

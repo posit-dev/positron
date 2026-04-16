@@ -61,9 +61,9 @@ MANDATORY: Always check the `VS Code - Build` watch task output via #runTasks/ge
 
 ### TypeScript validation steps
 - Use the run test tool if you need to run tests. If that tool is not available:
-  - Vitest tests (`.vitest.ts`/`.vitest.tsx`): `npx vitest run <file>` (no build daemons needed)
-  - Unit tests (`.test.ts`): `scripts/test.sh` (or `scripts\test.bat` on Windows), add `--grep <pattern>` to filter
-  - Extension host tests (`.integrationTest.ts` or in `/extensions/`): `scripts/test-integration.sh` (or `scripts\test-integration.bat` on Windows)
+  - Vitest tests (`.vitest.ts` / `.vitest.tsx`, in `src/vs/`): `npx vitest run <file>` (no build daemons needed). Preferred for new Positron code.
+  - Core Mocha tests (`.test.ts` or `.integrationTest.ts` in `src/vs/`): `scripts/test.sh` (or `scripts\test.bat` on Windows), add `--grep <pattern>` to filter. Upstream VS Code's suite.
+  - Extension host tests (in `extensions/<name>/`): `npm run test-extension -- -l <name>`, or `scripts/test-integration.sh` / `scripts\test-integration.bat` for the full driver.
 - Use `npm run valid-layers-check` to check for layering issues
 
 ## Coding Guidelines

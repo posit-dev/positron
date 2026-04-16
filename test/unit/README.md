@@ -1,3 +1,7 @@
+<!-- Start Positron -->
+> **Positron note:** this doc covers the upstream VS Code Mocha suite (what we call "Core Mocha"). For new Positron code, prefer Vitest -- see [`CLAUDE.md`](../../CLAUDE.md#testing) for the decision table and glossary.
+<!-- End Positron -->
+
 # Unit Tests
 
 ## Run (inside Electron)
