@@ -32,14 +32,17 @@ class PositronFindWidgetFixture {
 	}
 
 	get previousButton() {
+		// NodeList indexing returns undefined (not null) when out of bounds,
+		// so assert .toBeDefined() here rather than .not.toBeNull().
 		const button = this.navigationButtons[0];
-		expect(button, 'Expected previous button to exist').not.toBeNull();
+		expect(button, 'Expected previous button to exist').toBeDefined();
 		return button;
 	}
 
 	get nextButton() {
+		// See previousButton above: NodeList miss is undefined, not null.
 		const button = this.navigationButtons[1];
-		expect(button, 'Expected next button to exist').not.toBeNull();
+		expect(button, 'Expected next button to exist').toBeDefined();
 		return button;
 	}
 
