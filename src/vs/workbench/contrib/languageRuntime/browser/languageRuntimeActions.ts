@@ -21,6 +21,8 @@ import { IModelService } from '../../../../editor/common/services/model.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { getSessionDisplayName, getSessionIcon, isQuartoSession } from '../../positronConsole/common/sessionDisplayUtils.js';
 import { RuntimeSessionDisplayInfo } from '../../../services/runtimeSession/common/runtimeSessionDisplayInfo.js';
+import { registerThemingParticipant } from '../../../../platform/theme/common/themeService.js';
+import { POSITRON_QUARTO_ICON } from '../../../common/theme.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { dispose } from '../../../../base/common/lifecycle.js';
@@ -38,6 +40,17 @@ import { getErrorMessage } from '../../../../base/common/errors.js';
 
 // The category for language runtime actions.
 const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Interpreter' };
+
+// Class applied to the Quarto icon in the session quickpick so it picks up the
+// Quarto theme color. IQuickPickItem only accepts a CSS class name (not a React
+// style), so we register a themed rule keyed on this class.
+const QUARTO_QUICKPICK_ICON_CLASS = 'positron-quickpick-quarto-icon';
+registerThemingParticipant((theme, collector) => {
+	const quartoColor = theme.getColor(POSITRON_QUARTO_ICON);
+	if (quartoColor) {
+		collector.addRule(`.quick-input-list-icon.${QUARTO_QUICKPICK_ICON_CLASS}.codicon { color: ${quartoColor}; }`);
+	}
+});
 
 // Quick pick item interfaces.
 interface LanguageRuntimeQuickPickItem extends IQuickPickItem { runtime: ILanguageRuntimeMetadata }
@@ -215,6 +228,26 @@ const selectLanguageRuntimeSession = async (
 				type: 'separator',
 			});
 			quickPickItems.push(...notebookItems);
+		}
+
+		const quartoItems: IQuickPickItem[] = activeNotebookSessions
+			.filter(session => isQuartoSession(session.metadata.notebookUri, modelService))
+			.map(session => ({
+				id: session.sessionId,
+				label: getSessionDisplayName(new RuntimeSessionDisplayInfo(session), modelService),
+				detail: session.runtimeMetadata.runtimePath,
+				description: session.sessionId === foregroundSessionId
+					? localize('positron.languageRuntime.currentlySelected', 'Currently Selected')
+					: undefined,
+				iconClass: `${ThemeIcon.asClassName(getSessionIcon(session.metadata, modelService))} ${QUARTO_QUICKPICK_ICON_CLASS}`,
+			}));
+
+		if (quartoItems.length > 0) {
+			quickPickItems.push({
+				label: localize('positron.languageRuntime.quartoSessions', 'Quarto Sessions'),
+				type: 'separator',
+			});
+			quickPickItems.push(...quartoItems);
 		}
 	}
 
