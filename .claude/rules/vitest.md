@@ -7,7 +7,7 @@ paths:
 
 # Vitest Tests
 
-Positron Vitest tests (`*.vitest.ts` / `*.vitest.tsx`) run via `npx vitest run` with no Electron or build daemons.
+Vitest tests run directly on your source files -- no build daemons, no compilation step, no waiting. Just `npx vitest run <file>` and get results in seconds.
 
 ## Quick Start
 
