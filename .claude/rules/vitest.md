@@ -62,20 +62,9 @@ Use `createTestContainer()` for any test needing services. The builder handles `
 
 **Do I need `ensureNoLeakedDisposables()`?** Only if your test creates disposables directly (via `new`). Pure function tests don't need it. When in doubt, leave it out -- the builder adds it automatically, and plain tests that don't create disposables have nothing to leak.
 
-Pick the lowest preset that covers your test's dependencies:
-
-| Preset | When to use |
-|---|---|
-| *(none)* -- just `createTestContainer().build()` | Class that only needs a bare `TestInstantiationService` |
-| `.withRuntimeServices()` | Needs `ILanguageRuntimeService`, `IRuntimeSessionService`, etc. |
-| `.withNotebookServices()` | Needs runtime + notebook kernel/editor services |
-| `.withWorkbenchServices()` | Needs full DI stack (e.g. `createInstance(MyService)`) |
-| `.withContributionServices()` | Workbench contribution subscribing to editor/notebook lifecycle events |
-| `.withReactServices()` | React component calling `usePositronReactServicesContext()` |
+Pick the lowest preset that covers your test's dependencies. Presets form a hierarchy (each includes the one above) -- see the full list and when to add new ones in the [PositronTestContainerBuilder JSDoc](../../src/vs/test/vitest/positronTestContainer.ts). Start low and let errors guide you up.
 
 **Don't guess -- iterate.** Start with a preset and run the test. If it passes, you're done. If it fails with "X is not a function" or "Cannot read properties of undefined," add `.stub(IMissingService, {})`. Add only the method the error names: `.stub(IService, { getDoc: () => undefined })`. For events the test doesn't fire, use `Event.None`: `.stub(IService, { onDidChange: Event.None })`.
-
-See the full hierarchy and when to add new presets in the [PositronTestContainerBuilder JSDoc](../../src/vs/test/vitest/positronTestContainer.ts).
 
 ```typescript
 const ctx = createTestContainer().withRuntimeServices().build();
