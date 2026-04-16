@@ -60,13 +60,7 @@ Use `createTestContainer()` for any test needing services. The builder handles `
 
 **Do I need `ensureNoLeakedDisposables()`?** Only if your test creates disposables directly (via `new`). Pure function tests don't need it. When in doubt, leave it out -- the builder adds it automatically, and plain tests that don't create disposables have nothing to leak.
 
-Presets form a hierarchy -- each includes the one above:
-- **Bare** (no preset) -- pure logic, no services
-- `.withRuntimeServices()` -- language runtime + session services (~18)
-- `.withNotebookServices()` -- runtime + notebook/kernel services (+8)
-- `.withWorkbenchServices()` -- full Positron stack (124+)
-- `.withContributionServices()` -- workbench + Event.None stubs for editor/notebook lifecycle
-- `.withReactServices()` -- workbench + stubs for PositronReactServicesContext (enables `ctx.reactServices`)
+Pick the lowest preset that covers your test's dependencies. Presets form a hierarchy (each includes the one above) -- see the full list and when to add new ones in the [PositronTestContainerBuilder JSDoc](../../src/vs/test/vitest/positronTestContainer.ts).
 
 ```typescript
 const ctx = createTestContainer().withRuntimeServices().build();
@@ -76,8 +70,6 @@ it('starts a session', async () => {
 	expect(session.getRuntimeState()).toBe(RuntimeState.Starting);
 });
 ```
-
-For presets, mocking guide, and key rules, see the JSDoc on `PositronTestContainerBuilder` in `src/vs/test/vitest/positronTestContainer.ts`.
 
 **Testing event-driven behavior:** Create an `Emitter` at describe level, pass its `.event` to the stub, then call `.fire()` in your test (wrapped in `act()` for React components):
 
