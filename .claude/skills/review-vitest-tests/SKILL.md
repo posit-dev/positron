@@ -27,7 +27,7 @@ Any variables, emitters, or imports declared but never referenced in a test? Sui
 
 ### 2. Builder adoption
 
-Is the test using `createTestContainer()`? Flag any usage of `positronWorkbenchInstantiationService()`, `createRuntimeServices()`, or raw `ensureNoDisposablesAreLeakedInTestSuite()` / `ensureNoLeakedDisposables()` as a failure. All Positron tests should use the builder -- it calls `ensureNoLeakedDisposables()` internally. The only exception is plain tests (no services) that create disposables directly.
+Is the test using `createTestContainer()`? Flag any usage of `positronWorkbenchInstantiationService()` or `createRuntimeServices()` as a failure -- use the builder's presets instead. The only exception is plain tests (no services) that use `ensureNoLeakedDisposables()` directly for disposable tracking.
 
 ### 3. Setup weight
 
@@ -55,7 +55,7 @@ Are runtimes/sessions created per-test when a shared one would suffice? Or share
 
 ### 9. Emitter and ctx scoping
 
-Any `new Emitter()` created inside an `it()` callback whose `.event` is expected to reach a service wired via `.stub()`? The emitter must be at describe level (or in a helper called at describe level) so `.stub()` captures the correct `.event` reference during `build()`. An emitter inside `it()` is a different object than the one wired into the service -- `.fire()` calls won't reach the component. Also check for `ctx` destructuring at describe level (e.g. `const { instantiationService } = createTestContainer().build()`) -- the builder uses lazy getters, so destructuring evaluates immediately before `beforeEach` has run, producing `undefined`.
+Any `new Emitter()` created inside an `it()` callback whose `.event` is expected to reach a service wired via `.stub()`? The emitter must be at describe level (or in a helper called at describe level) so `.stub()` captures the correct `.event` reference during `build()`. An emitter inside `it()` is a different object than the one wired into the service -- `.fire()` calls won't reach the component. (Note: `ctx` destructuring at describe level is caught at runtime by the builder's guard -- no need to check for it here.)
 
 ### 10. Spy cleanup
 
