@@ -290,7 +290,10 @@ function getPlatformDownloads(bootstrap: boolean): string[] {
 }
 
 function createPlatformSpecificUrl(serviceUrl: string, publisher: string, name: string, version: string, platformDownload: string): string {
-	return `${serviceUrl}/${publisher}/${name}/${platformDownload}/${version}/file/${publisher}.${name}-${version}@${platformDownload}.vsix`;
+	// P3M serves platform-specific VSIX downloads at: {asset_base}/{publisher}/{name}/{version}/Microsoft.VisualStudio.Services.VSIXPackage?targetPlatform={platform}
+	// where asset_base is the gallery serviceUrl with "gallery" replaced by "asset".
+	const assetBaseUrl = serviceUrl.replace(/\/gallery$/, '/asset');
+	return `${assetBaseUrl}/${publisher}/${name}/${version}/Microsoft.VisualStudio.Services.VSIXPackage?targetPlatform=${platformDownload}`;
 }
 
 function getArchFromPlatformId(platformId: string): string {
@@ -317,7 +320,10 @@ export function fromMarketplace(serviceUrl: string, { name: extensionName, versi
 		fancyLog('Downloading multi-platform extension:', ansiColors.yellow(`${extensionName}@${version}`),
 			`for ${platformDownloads.join(', ')}...`);
 	} else {
-		urls = [`${serviceUrl}/publishers/${publisher}/vsextensions/${name}/${version}/vspackage`];
+		// P3M serves VSIX downloads at: {asset_base}/{publisher}/{name}/{version}/Microsoft.VisualStudio.Services.VSIXPackage
+		// where asset_base is the gallery serviceUrl with "gallery" replaced by "asset".
+		const assetBaseUrl = serviceUrl.replace(/\/gallery$/, '/asset');
+		urls = [`${assetBaseUrl}/${publisher}/${name}/${version}/Microsoft.VisualStudio.Services.VSIXPackage`];
 		fancyLog('Downloading extension:', ansiColors.yellow(`${extensionName}@${version}`), '...');
 	}
 	// --- End Positron ---

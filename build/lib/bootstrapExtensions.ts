@@ -151,7 +151,9 @@ function isUpToDate(extension: IExtensionDefinition): boolean {
 }
 
 function getExtensionDownloadStream(extension: IExtensionDefinition) {
-	const url = extension.metadata.multiPlatformServiceUrl || productjson.extensionsGallery?.serviceUrl;
+	// Always use the gallery serviceUrl as the base for URL derivation. The multiPlatformServiceUrl
+	// field only signals that the extension has platform-specific builds (handled in fromMarketplace).
+	const url = productjson.extensionsGallery?.serviceUrl;
 	const stream = url ? ext.fromMarketplace(url, extension, true) : ext.fromGithub(extension);
 	return stream.pipe(rename(p => {
 		if (p.basename === 'x64' || p.basename === 'arm64') {
