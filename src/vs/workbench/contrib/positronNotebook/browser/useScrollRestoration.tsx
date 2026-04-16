@@ -85,14 +85,13 @@ export function useScrollRestoration(
 			disposables.dispose();
 
 			const target = getScrollTop();
-			const drift = target !== undefined
-				? container.scrollTop - target
-				: NaN;
+			const drift = target && container.scrollTop - target;
+			const driftString = drift ? `${drift.toFixed(1)}px` : 'N/A (getScrollTop returned undefined)';
 			const stableSince = performance.now() - lastCorrectionTime;
 			logService.debug(
 				`[scroll-restore] stopped with reason: ${reason} +${(performance.now() - startTimestamp).toFixed(0)}ms` +
 				` (${frameCount} frames, stable ${stableSince.toFixed(0)}ms):` +
-				` final scrollTop=${container.scrollTop}, target=${target}, drift=${drift.toFixed(1)}px`
+				` final scrollTop=${container.scrollTop}, target=${target}, drift=${driftString}`
 			);
 		};
 
