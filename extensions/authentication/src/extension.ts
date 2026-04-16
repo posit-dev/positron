@@ -236,10 +236,20 @@ function registerFoundryProvider(context: vscode.ExtensionContext): void {
 	});
 	logger.info('Registered auth provider');
 
+	// Forward Workbench session changes so consumers listening for
+	// ms-foundry events are notified when the managed token arrives.
+	context.subscriptions.push(
+		vscode.authentication.onDidChangeSessions((e) => {
+			if (e.provider.id === FOUNDRY_MANAGED_CREDENTIALS.authProvider.id) {
+				provider.fireSessionsChanged({ added: [], removed: [], changed: [] });
+			}
+		})
+	);
+
 	// Sync Workbench endpoint to auth extension setting
 	if (hasManagedCredentials(FOUNDRY_MANAGED_CREDENTIALS)) {
 		const endpoint = vscode.workspace
-			.getConfiguration('positWorkbench.foundry')
+			.getConfiguration('posit.workbench.foundry')
 			.get<string>('endpoint', '');
 		if (endpoint) {
 			const normalized = normalizeToV1Url(endpoint);

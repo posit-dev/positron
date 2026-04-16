@@ -394,6 +394,14 @@ function registerAssistant(context: vscode.ExtensionContext) {
 					log.warn(`[Auth Startup] Deferred session registration failed for ${providerId}: ${e instanceof Error ? e.message : String(e)}`);
 				}
 			}
+
+			// Register session-backed providers that aren't covered by
+			// queued events (e.g. Workbench-managed credentials).
+			for (const providerId of SESSION_PROVIDERS) {
+				if (!unique.includes(providerId)) {
+					await registerModelsForProvider(context, providerId, providerId);
+				}
+			}
 		})
 		.catch((e) => {
 			initialRegistrationComplete = true;

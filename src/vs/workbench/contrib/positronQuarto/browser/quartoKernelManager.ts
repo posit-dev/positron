@@ -851,8 +851,13 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 				return undefined;
 			}
 
-			// Start the session
-			const sessionName = `Quarto: ${documentUri.path.split('/').pop()}`;
+			// Start the session. Ensure the file name includes an extension for
+			// untitled documents (whose URIs don't include .qmd).
+			let fileName = documentUri.path.split('/').pop() ?? '';
+			if (!isQuartoOrRmdFile(fileName)) {
+				fileName = `${fileName}.qmd`;
+			}
+			const sessionName = `Quarto: ${fileName}`;
 			const sessionId = await this._runtimeSessionService.startNewRuntimeSession(
 				runtime.runtimeId,
 				sessionName,

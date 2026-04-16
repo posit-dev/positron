@@ -74,6 +74,15 @@ export class PositronNotebooks extends Notebooks {
 	outputTruncationMessage = (index: number) => this.cellOutput(index).getByText(/\.\.\. Show [\d,.\s\u00A0]+ more lines/);
 	outputCollapseToggle = (index: number) => this.cell.nth(index).locator('.cell-output-collapse-button-container').getByRole('button');
 
+	// Cell outputs - ipywidgets (rendered inside the notebook webview iframe)
+	widgetSlider = this.frameLocator.locator('[role="slider"]');
+	widgetReadout = this.frameLocator.locator('div.widget-readout');
+
+	async focusWidgetSlider(): Promise<void> {
+		await this.widgetSlider.hover();
+		await this.widgetSlider.focus();
+	}
+
 	// Assistant buttons (shown on error cells when assistant is enabled)
 	private askAssistantButton = this.editorActionBar.getByRole('button', { name: 'Ask Assistant', exact: true });
 	private fixErrorButton = this.code.driver.currentPage.getByRole('button', { name: /Ask assistant to fix/i });

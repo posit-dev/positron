@@ -51,7 +51,7 @@ export const FOUNDRY_MANAGED_CREDENTIALS: AuthTokenCredentialConfig = {
 		scopes: ['msfoundry'],
 	},
 	validator: () => {
-		const config = vscode.workspace.getConfiguration('positWorkbench.foundry');
+		const config = vscode.workspace.getConfiguration('posit.workbench.foundry');
 		return !!config.get<string>('endpoint', '');
 	},
 };

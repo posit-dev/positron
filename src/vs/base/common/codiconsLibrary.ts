@@ -762,4 +762,5 @@ export const codiconsLibrary = {
 	positronClearPlot: register('positron-clear-plot', 0xf297),
 	positronPin: register('positron-pin', 0xf298),
 	positronUnpin: register('positron-unpin', 0xf299),
+	positronQuarto: register('positron-quarto', 0xf29a),
 } as const;
