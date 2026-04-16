@@ -21,7 +21,7 @@ If the user points at a specific file or component (e.g., "write tests for empty
 
 1. Read the source file
 2. Determine the pattern from the CLAUDE.md decision table
-3. Go straight to Phase 2 (Writing)
+3. Go to Phase 2 -- the first step of Phase 2 is a mandatory plan-first check-in with the dev before any code is written
 
 Skip Phase 1 entirely -- no branch analysis needed.
 
@@ -100,6 +100,37 @@ Present the test plan to the dev. Ask: **"Want me to write/extend these tests?"*
 Wait for confirmation before proceeding to Phase 2.
 
 ## Phase 2: Writing
+
+### Draft the test plan and confirm with the dev (MANDATORY)
+
+**Before writing any test code, present a plan and wait for explicit confirmation.** This lets the dev steer scope before effort is sunk -- drop cases they don't care about, add cases you missed, reshape groupings to match how the feature is actually used.
+
+Format the plan like this:
+
+> **Plan for `<file>`:**
+>
+> **Pattern:** <plain / builder / RTL prop-driven / RTL service-context>
+> **Preset:** <bare / runtime / notebook / workbench> + <.withReactServices() / .withContributionServices()> if layered
+> **Stubs:** short list of services you intend to stub, with a one-line reason each
+>
+> **Test cases:**
+> - **<describe block 1>**
+>   - <test name 1>
+>   - <test name 2>
+> - **<describe block 2>**
+>   - <test name 3>
+>   - <test name 4>
+>
+> Total: ~N tests. Anything you want added, dropped, or reshaped before I write?
+
+Then **stop and wait for confirmation** ("looks good", "go ahead", "yes", or a revision request). Do not proceed to write tests until the dev responds.
+
+If the dev asks for changes, revise the plan and re-present. Repeat until confirmed.
+
+**Do not skip this step, even when:**
+- The component looks simple and the cases seem obvious
+- Phase 1 already returned an approved test plan (Phase 1 is file-level scoping; this is case-level)
+- You are running under `/loop` or any autonomous mode -- pause anyway
 
 ### Choosing the right pattern
 
