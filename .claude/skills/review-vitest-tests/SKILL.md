@@ -59,7 +59,7 @@ Any `new Emitter()` created inside an `it()` callback whose `.event` is expected
 
 ### 10. Spy cleanup
 
-Any `vi.spyOn(console, ...)` or `vi.spyOn(obj, 'method')` without a corresponding restore? Check for either `spy.mockRestore()` after use, `afterEach(() => vi.restoreAllMocks())`, or `restoreMocks: true` in vitest config. Without cleanup, mocked `console.error`/`console.log` suppresses output for all subsequent tests in the file.
+Any `vi.spyOn(console, ...)` or `vi.spyOn(obj, 'method')` without a corresponding restore? Accept only `restoreMocks: true` in the vitest config, `afterEach(() => vi.restoreAllMocks())`, or `spy.mockRestore()` inside a `finally` block. Flag inline `mockRestore()` placed after `expect` calls as fragile -- a failing assertion skips it, and the spy leaks into subsequent tests. (Note: the project's `vitest.config.ts` already sets `restoreMocks: true` globally, so most new tests need no per-file cleanup.)
 
 ### 11. RTL query usage (React tests only)
 

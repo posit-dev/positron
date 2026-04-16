@@ -11,6 +11,17 @@ import { Emitter } from '../../base/common/event.js';
 import { usePositronReactServicesContext } from '../../base/browser/positronReactRendererContext.js';
 import { setupRTLRenderer } from './reactTestingLibrary.js';
 
+// Shared emitters for minimalServices(). Declared at module scope and
+// disposed in afterAll so we don't leak emitters per test or per describe
+// block.
+const configChangeEmitter = new Emitter<unknown>();
+const contextChangeEmitter = new Emitter<unknown>();
+
+afterAll(() => {
+	configChangeEmitter.dispose();
+	contextChangeEmitter.dispose();
+});
+
 /**
  * Minimal services needed for the provider tree (PositronActionBarContextProvider
  * reads configurationService, hoverService, contextKeyService, accessibilityService).
@@ -19,7 +30,7 @@ function minimalServices(overrides: Record<string, unknown> = {}): Record<string
 	return {
 		configurationService: {
 			getValue: () => 300 as unknown,
-			onDidChangeConfiguration: new Emitter().event,
+			onDidChangeConfiguration: configChangeEmitter.event,
 		},
 		hoverService: {
 			showInstantHover: () => ({ dispose: () => { } }),
@@ -27,7 +38,7 @@ function minimalServices(overrides: Record<string, unknown> = {}): Record<string
 			hideHover: () => { },
 		},
 		contextKeyService: {
-			onDidChangeContext: new Emitter().event,
+			onDidChangeContext: contextChangeEmitter.event,
 			contextMatchesRules: () => true,
 		},
 		accessibilityService: {},

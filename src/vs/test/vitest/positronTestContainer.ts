@@ -261,7 +261,7 @@ class PositronTestContainerBuilder {
 			if (!_instantiationService) {
 				throw new Error(
 					'ctx properties are not available until beforeEach runs. ' +
-					'Do not destructure ctx at describe level -- use ctx.instantiationService inside it() callbacks.'
+					'Do not destructure ctx at describe level -- access ctx properties (e.g. ctx.instantiationService, ctx.get, ctx.reactServices) inside it() callbacks.'
 				);
 			}
 			return _instantiationService;

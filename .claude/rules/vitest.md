@@ -7,7 +7,7 @@ paths:
 
 # Vitest Tests
 
-Vitest tests run directly on your source files -- no build daemons, no compilation step, no waiting. Just `npx vitest run <file>` and get results in seconds.
+Vitest tests (`*.vitest.ts` / `*.vitest.tsx`) run directly on your source files -- no build daemons, no compilation step, no waiting. Just `npx vitest run <file>` and get results in seconds.
 
 ## Quick Start
 
@@ -52,7 +52,7 @@ describe('MyComponent', () => {
 
 ## File setup
 
-- Place test files next to the source: `browser/` tests go in `test/browser/`, `common/` in `test/common/`. Match `test/` vs `tests/` per existing convention.
+- Place test files next to the source: `browser/` tests go in `test/browser/`, `common/` in `test/common/`. Match `test/` vs `tests/` per existing convention. If no test directory exists yet, create the matching one.
 - File extension: `.vitest.ts` (or `.vitest.tsx` for React components)
 - `/// <reference types="vitest/globals" />` after the copyright header (required for IDE intellisense)
 - Tabs for indentation
@@ -68,7 +68,7 @@ Use `createTestContainer()` for any test needing services. Pick the lowest prese
 
 **Event-driven behavior:** Create an `Emitter` at describe level, pass its `.event` to the stub, then call `.fire()` in your test (wrapped in `act()` for React components). See [webviewPlotThumbnail](../../src/vs/workbench/contrib/positronPlots/test/browser/webviewPlotThumbnail.vitest.tsx) (intro) and [startupStatus](../../src/vs/workbench/contrib/positronConsole/test/browser/startupStatus.vitest.tsx) (advanced).
 
-**Common mistake:** Don't create emitters inside `it()` -- they must be at describe level so `.stub()` captures the right `.event` reference.
+**Common mistake:** Don't create emitters inside `it()` -- they must be at describe level. `.stub()` captures the `.event` reference at describe scope during `build()`, so an emitter created later in `beforeEach` or `it()` is a different object and the stub will never fire.
 
 ## Run commands
 
@@ -79,7 +79,9 @@ Use `createTestContainer()` for any test needing services. Pick the lowest prese
 
 ## Reference
 
-**Mock utilities:** `vi.fn()` for stubs/spies, `vi.spyOn(obj, 'method')` to spy while preserving implementation, `Test*` classes / `mock.ts` for complex state (emitters, observable values).
+**Mock utilities:** Prefer `vi.fn()` for new tests. Use `vi.spyOn(obj, 'method')` to spy while preserving the implementation. Reach for a `Test*` class or `mock.ts` only when the mock needs complex state (emitters, observable values) shared across multiple tests. `restoreMocks: true` and `clearMocks: true` are enabled globally in `vitest.config.ts`, so spies restore and call histories clear between tests automatically -- you don't need per-file `afterEach` cleanup.
+
+**Disposables in plain tests:** The builder handles disposable-leak detection automatically via `createTestContainer().build()`. Plain tests that allocate disposables directly (without the builder) still need `ensureNoLeakedDisposables()` in `beforeEach` -- see [`src/vs/test/vitest/vitestUtils.ts`](../../src/vs/test/vitest/vitestUtils.ts).
 
 **Inline snapshots:** Use `toMatchInlineSnapshot()` for rendered HTML. Vitest auto-fills on first run with `--update`. When a snapshot fails: read the diff, accept with `--update` if intentional, fix the source if it's a bug.
 

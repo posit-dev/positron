@@ -11,6 +11,7 @@ import { fireEvent } from '@testing-library/react';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID } from '../../../languageRuntime/browser/languageRuntimeActions.js';
 import { EmptyConsole } from '../../browser/components/emptyConsole.js';
 
 describe('EmptyConsole', () => {
@@ -36,7 +37,7 @@ describe('EmptyConsole', () => {
 		fireEvent.click(getByText('Start Session'));
 
 		expect(ctx.get(ICommandService).executeCommand).toHaveBeenCalledWith(
-			'workbench.action.language.runtime.startNewConsoleSession'
+			LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID
 		);
 	});
 

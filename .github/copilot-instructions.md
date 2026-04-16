@@ -8,7 +8,7 @@ Visual Studio Code is built with a layered architecture using TypeScript, web AP
 - `src/`: Main TypeScript source code with tests in `src/vs/*/test/` folders (Vitest `.vitest.ts`/`.vitest.tsx` and Mocha `.test.ts`)
 - `build/`: Build scripts and CI/CD tools
 - `extensions/`: Built-in extensions that ship with VS Code
-- `test/`: Integration tests and test infrastructure
+- `test/`: Extension host tests, e2e tests, and shared test infrastructure
 - `scripts/`: Development and build scripts
 - `resources/`: Static resources (icons, themes, etc.)
 - `out/`: Compiled JavaScript output (generated during build)

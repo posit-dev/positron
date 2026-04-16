@@ -12,8 +12,12 @@ export default defineConfig({
 		globals: true,
 		// Auto-restore spies (vi.spyOn) between tests so a failed assertion
 		// can't leave console.error/log mocked for the rest of the file.
-		// Does not affect vi.fn() mocks created fresh per test.
 		restoreMocks: true,
+		// Clear call history on vi.fn() mocks between tests so shared
+		// describe-scope fakes don't accumulate call records across tests
+		// (e.g., toHaveBeenCalledWith wouldn't see stale calls from earlier
+		// tests in the same file).
+		clearMocks: true,
 		// Provides Vitest global types (describe, it, expect, vi) for
 		// intellisense in .vitest.{ts,tsx} files without a per-file
 		// /// <reference> directive. Scoped to Vitest only -- does not
