@@ -33,6 +33,7 @@ import { usePositronPackagesContext } from '../positronPackagesContext.js';
 import { ILanguageRuntimePackage } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progressbar.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { CustomContextMenuItem } from '../../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
 
 
 const positronUninstallPackage = localize(
@@ -358,6 +359,14 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		];
 	};
 
+	// Convert sort actions to overflow menu entries
+	const sortOverflowEntries = () => sortActions().map(action => new CustomContextMenuItem({
+		label: action.label,
+		checked: action.checked,
+		disabled: !action.enabled,
+		onSelected: () => action.run()
+	}));
+
 	// Build left actions for the sort action bar
 	const leftActions: DynamicActionBarAction[] = [
 		{
@@ -371,7 +380,12 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 					label={sortButtonLabel}
 					tooltip={localize('positronPackages.changeSortOrder', "Change how packages are sorted")}
 				/>
-			)
+			),
+			overflowContextMenuSubmenu: {
+				icon: 'arrow-swap-vertical',
+				label: localize('positronPackages.sortLabel', "Sort"),
+				entries: sortOverflowEntries
+			}
 		}
 	];
 
