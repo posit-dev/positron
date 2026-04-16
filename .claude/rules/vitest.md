@@ -86,42 +86,11 @@ Pick the lowest preset that covers your test's dependencies. Presets form a hier
 
 **Don't guess -- iterate.** Start with a preset and run the test. If it passes, you're done. If it fails with "X is not a function" or "Cannot read properties of undefined," add `.stub(IMissingService, {})`. Add only the method the error names: `.stub(IService, { getDoc: () => undefined })`. For events the test doesn't fire, use `Event.None`: `.stub(IService, { onDidChange: Event.None })`.
 
-```typescript
-const ctx = createTestContainer().withRuntimeServices().build();
-
-it('starts a session', async () => {
-	const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
-	expect(session.getRuntimeState()).toBe(RuntimeState.Starting);
-});
-```
-
-**Testing event-driven behavior:** Create an `Emitter` at describe level, pass its `.event` to the stub, then call `.fire()` in your test (wrapped in `act()` for React components):
-
-```typescript
-const onDidChange = new Emitter<string>();
-const ctx = createTestContainer()
-	.withRuntimeServices()
-	.stub(IMyService, { onDidChange: onDidChange.event })
-	.build();
-
-it('responds to event', () => {
-	const instance = ctx.disposables.add(ctx.instantiationService.createInstance(MyClass));
-	onDidChange.fire('new value');
-	expect(instance.currentValue).toBe('new value');
-});
-```
+**Testing event-driven behavior:** Create an `Emitter` at describe level, pass its `.event` to the stub, then call `.fire()` in your test (wrapped in `act()` for React components). See `webviewPlotThumbnail.vitest.tsx` and `startupStatus.vitest.tsx` in the working examples below.
 
 ## React Component Testing (RTL)
 
-The quick start above shows the service-context pattern (most Positron components). For **prop-driven components** (no `usePositronReactServicesContext()`), skip the builder:
-
-```typescript
-const rtl = setupRTLRenderer();
-
-it('renders label', () => {
-	rtl.render(<Label text="hello" />).getByText('hello');
-});
-```
+The quick start above shows the service-context pattern (most Positron components). For **prop-driven components** (no `usePositronReactServicesContext()`), skip the builder -- call `setupRTLRenderer()` with no arguments and render directly.
 
 **RTL queries:** Use `getByRole` or `getByText` when the component exposes accessible roles or visible text. Many Positron components use internal CSS classes without accessible roles -- in that case, `container.querySelector` is the pragmatic choice.
 
@@ -140,29 +109,9 @@ Use `toMatchInlineSnapshot()` to capture rendered HTML. Vitest auto-fills on fir
 
 ## Common Mistakes
 
-**Destructuring `ctx` at describe level:**
-```typescript
-// BUG: captures undefined -- instantiationService isn't set until beforeEach runs
-const { instantiationService } = createTestContainer().build();
+**Destructuring `ctx` at describe level:** `const { instantiationService } = createTestContainer().build()` captures `undefined` because the builder uses lazy getters. Always access via `ctx.instantiationService` inside `it()` callbacks.
 
-// CORRECT: access via ctx inside it() callbacks
-const ctx = createTestContainer().build();
-it('works', () => { ctx.instantiationService.createInstance(...); });
-```
-The builder uses lazy getters. `ctx.instantiationService` resolves at access time (inside `it()`). Destructuring at describe level evaluates the getter immediately, before `beforeEach` has run.
-
-**Creating emitters inside `it()`:**
-```typescript
-// BUG: this emitter isn't the one wired into the service
-it('responds', () => {
-	const emitter = new Emitter<string>();  // wrong -- too late
-	emitter.fire('value');  // nobody is listening
-});
-
-// CORRECT: emitter at describe level, .event passed to .stub()
-const emitter = new Emitter<string>();
-const ctx = createTestContainer().stub(IService, { onDidChange: emitter.event }).build();
-```
+**Creating emitters inside `it()`:** An emitter created inside `it()` is a different object than the one `.stub()` captured at describe level -- `.fire()` calls won't reach the component. Always create emitters at describe level.
 
 ## Working examples
 
