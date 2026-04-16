@@ -97,7 +97,7 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 	// Render.
 	return (
 		<div className='action-bar-filter-container' style={{ width: props.width }}>
-			<div className={positronClassNames('action-bar-filter-input', sizeClassName, 'action-bar-filter-input-sm', { 'focused': focused })}>
+			<div className={positronClassNames('action-bar-filter-input', sizeClassName, { 'focused': focused })}>
 				<input
 					ref={inputRef}
 					className='text-input'
