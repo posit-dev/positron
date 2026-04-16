@@ -219,10 +219,10 @@ export class Code {
 
 	async exit(): Promise<void> {
 		// --- Start Positron ---
-		// On macOS, kill the process tree BEFORE driver.close() to prevent orphaned children
+		// Kill the process tree BEFORE driver.close() to prevent orphaned children
 		// If we wait for the process to exit naturally, children get reparented and we can't kill them
-		if (process.platform === 'darwin' && this.mainProcess?.pid) {
-			this.logger.log('Smoke test exit(): proactively killing process tree on macOS before close');
+		if (this.mainProcess?.pid) {
+			this.logger.log('Smoke test exit(): proactively killing process tree before close');
 			await this.killProcessTree(this.mainProcess.pid);
 		}
 		// --- End Positron ---
@@ -373,24 +373,20 @@ export class Code {
 			return;
 		}
 
-		// Phase 2: Process survived SIGTERM, escalate to SIGKILL (macOS only)
-		if (process.platform === 'darwin') {
-			this.logger.log(`Smoke test killProcessTree(): PID ${pid} still alive after SIGTERM; escalating to SIGKILL`);
-			try {
-				// Kill entire process tree with SIGKILL, not just parent
-				await treeKillAsync(pid, 'SIGKILL');
-			} catch (e) {
-				this.logger.log(`Smoke test killProcessTree(): SIGKILL failed: ${e}`);
-			}
+		// Phase 2: Process survived SIGTERM, escalate to SIGKILL
+		this.logger.log(`Smoke test killProcessTree(): PID ${pid} still alive after SIGTERM; escalating to SIGKILL`);
+		try {
+			// Kill entire process tree with SIGKILL, not just parent
+			await treeKillAsync(pid, 'SIGKILL');
+		} catch (e) {
+			this.logger.log(`Smoke test killProcessTree(): SIGKILL failed: ${e}`);
+		}
 
-			await this.wait(500);
-			if (!isAlive()) {
-				this.logger.log(`Smoke test killProcessTree(): PID ${pid} exited after SIGKILL`);
-			} else {
-				this.logger.log(`Smoke test killProcessTree(): PID ${pid} STILL alive after SIGKILL (unexpected)`);
-			}
+		await this.wait(500);
+		if (!isAlive()) {
+			this.logger.log(`Smoke test killProcessTree(): PID ${pid} exited after SIGKILL`);
 		} else {
-			this.logger.log(`Smoke test killProcessTree(): PID ${pid} survived SIGTERM on non-macOS platform`);
+			this.logger.log(`Smoke test killProcessTree(): PID ${pid} STILL alive after SIGKILL (unexpected)`);
 		}
 
 		// Note: dbus-daemon cleanup removed to prevent interference with parallel tests
