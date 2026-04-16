@@ -43,8 +43,10 @@ Positron forks VSCode. Minimize merge conflicts by isolating Positron code.
 | Pure function or class, no services | Vitest | **Plain test** | `.vitest.ts` |
 | Service or class that needs DI services | Vitest | **Builder** -- `createTestContainer()` | `.vitest.ts` |
 | React component, props only | Vitest | **RTL prop-driven** -- `setupRTLRenderer()` | `.vitest.tsx` |
-| React component using context | Vitest | **RTL service-context** -- `withReactServices()` | `.vitest.tsx` |
+| React component using services | Vitest | **RTL service-context** -- `withReactServices()` | `.vitest.tsx` |
 | Code needing activated extensions or workspace APIs | Mocha | **Extension host** -- `npm run test-extension` | `.test.ts` |
+
+**React component: prop-driven or service-context?** Grep the component for `usePositronReactServicesContext`. If it appears anywhere in the file (or its child components render via context), use service-context. When in doubt, use service-context -- it works for both.
 | User-visible workflows across multiple systems | Playwright | **E2E** | `.test.ts` |
 
 ### Running tests
