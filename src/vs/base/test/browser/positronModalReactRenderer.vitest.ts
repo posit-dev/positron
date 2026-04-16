@@ -6,7 +6,6 @@
 /// <reference types="vitest/globals" />
 
 
-import * as sinon from 'sinon';
 import { PositronModalReactRenderer } from '../../browser/positronModalReactRenderer.js';
 import { ensureNoLeakedDisposables } from '../../../test/vitest/vitestUtils.js';
 
@@ -211,9 +210,8 @@ describe('PositronModalReactRenderer', () => {
 			const container = createMockContainer();
 			const renderer = disposables.add(new PositronModalReactRenderer({ container }));
 
-			// Stub console.error to prevent actual console output in tests
-			const consoleErrorStub = sinon.stub(console, 'error');
-			disposables.add({ dispose: () => consoleErrorStub.restore() });
+			// Spy on console.error to suppress output and verify it was called
+			const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
 
 			renderer.render(createMockReactElement());
 			const firstChild = container.firstChild;
@@ -226,8 +224,8 @@ describe('PositronModalReactRenderer', () => {
 			expect(container.children.length).toBe(1);
 
 			// Should have logged an error
-			expect(consoleErrorStub.callCount).toBe(1);
-			expect(consoleErrorStub.calledWith('[PositronModalReactRenderer] Attempted to render a React element when one has already been rendered')).toBeTruthy();
+			expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+			expect(consoleErrorSpy).toHaveBeenCalledWith('[PositronModalReactRenderer] Attempted to render a React element when one has already been rendered');
 
 			renderer.dispose();
 		});

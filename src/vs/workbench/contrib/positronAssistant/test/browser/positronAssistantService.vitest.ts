@@ -6,7 +6,6 @@
 /// <reference types="vitest/globals" />
 
 
-import * as sinon from 'sinon';
 import { RuntimeState, LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPositronAssistantService, IPositronChatContext, IChatRequestData } from '../../common/interfaces/positronAssistantService.js';
 import { PositronAssistantService } from '../../browser/positronAssistantService.js';
@@ -77,10 +76,6 @@ describe('PositronAssistantService', () => {
 
 		// Create the service under test with all required services
 		positronAssistantService = ctx.disposables.add(ctx.instantiationService.createInstance(PositronAssistantService));
-	});
-
-	afterEach(() => {
-		sinon.restore();
 	});
 
 	it('getPositronChatContext returns the global context properties', async () => {

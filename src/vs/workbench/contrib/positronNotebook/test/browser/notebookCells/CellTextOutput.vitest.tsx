@@ -8,7 +8,6 @@
 /* eslint-disable no-restricted-syntax */
 /* eslint-disable local/code-no-dangerous-type-assertions */
 
-import sinon from 'sinon';
 import { flushSync } from 'react-dom';
 import { Emitter } from '../../../../../../base/common/event.js';
 import { ensureNoLeakedDisposables } from '../../../../../../test/vitest/vitestUtils.js';
@@ -153,7 +152,7 @@ describe('CellTextOutput', () => {
 	});
 
 	it('truncates long output when scrolling is disabled', () => {
-		const onShowFullOutput = sinon.stub();
+		const onShowFullOutput = vi.fn();
 		const content = makeLines(35);
 		const fixture = renderCellTextOutput(
 			{ content, type: 'stdout' },
@@ -175,7 +174,7 @@ describe('CellTextOutput', () => {
 		expect(text.includes('line 35')).toBeTruthy();
 
 		message!.click();
-		expect(onShowFullOutput.calledOnce).toBeTruthy();
+		expect(onShowFullOutput).toHaveBeenCalledOnce();
 	});
 
 	it('does not truncate when scrolling is enabled', () => {

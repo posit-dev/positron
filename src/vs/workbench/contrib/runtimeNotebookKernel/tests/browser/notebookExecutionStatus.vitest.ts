@@ -6,7 +6,6 @@
 /// <reference types="vitest/globals" />
 
 
-import sinon from 'sinon';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { IStatusbarService, } from '../../../../services/statusbar/browser/statusbar.js';
 import { PositronTestServiceAccessor } from '../../../../test/browser/positronWorkbenchTestServices.js';
@@ -30,7 +29,9 @@ describe('NotebookExecutionStatus', () => {
 
 	function createEntry() {
 		const notebookExecutionStatus = ctx.disposables.add(ctx.instantiationService.createInstance(NotebookExecutionStatus));
-		return sinon.spy(notebookExecutionStatus.entry);
+		const entry = notebookExecutionStatus.entry;
+		vi.spyOn(entry, 'update');
+		return entry;
 	}
 
 	function setShowExecutionInfo(value: boolean) {
@@ -70,7 +71,8 @@ describe('NotebookExecutionStatus', () => {
 		notebookExecutionService.onDidStartNotebookCellsExecutionEmitter.fire({ cellHandles: [1] });
 
 		const text = 'Executing 1 cell';
-		sinon.assert.calledOnceWithExactly(entry.update, {
+		expect(entry.update).toHaveBeenCalledOnce();
+		expect(entry.update).toHaveBeenCalledWith({
 			name: NotebookExecutionStatus.NAME,
 			ariaLabel: text,
 			text,
@@ -83,7 +85,8 @@ describe('NotebookExecutionStatus', () => {
 		notebookExecutionService.onDidEndNotebookCellsExecutionEmitter.fire({ cellHandles: [1], duration: 100 });
 
 		const text = 'Executed 1 cell in 100ms';
-		sinon.assert.calledOnceWithExactly(entry.update, {
+		expect(entry.update).toHaveBeenCalledOnce();
+		expect(entry.update).toHaveBeenCalledWith({
 			name: NotebookExecutionStatus.NAME,
 			ariaLabel: text,
 			text,

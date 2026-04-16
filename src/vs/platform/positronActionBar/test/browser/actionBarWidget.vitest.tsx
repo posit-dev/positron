@@ -7,7 +7,6 @@
 
 /* eslint-disable no-restricted-syntax */
 
-import sinon from 'sinon';
 import { ActionBarWidget } from '../../browser/components/actionBarWidget.js';
 import { IPositronActionBarWidgetDescriptor } from '../../browser/positronActionBarWidgetRegistry.js';
 import { MenuId } from '../../../actions/common/actions.js';
@@ -48,10 +47,6 @@ describe('ActionBarWidget', () => {
 				throw new Error(`Service ${serviceId} not mocked`);
 			}
 		} satisfies Partial<PositronReactServices>) as PositronReactServices;
-	});
-
-	afterEach(() => {
-		sinon.restore();
 	});
 
 	it('renders a simple widget component', async () => {
@@ -240,7 +235,7 @@ describe('ActionBarWidget', () => {
 		};
 
 		// Suppress console.error for this test since we expect an error
-		const consoleErrorStub = sinon.stub(console, 'error');
+		const consoleErrorStub = vi.spyOn(console, 'error').mockImplementation(() => { });
 
 		const { container } = renderWidget(descriptor);
 
@@ -251,9 +246,9 @@ describe('ActionBarWidget', () => {
 		expect(errorIcon).toBeTruthy();
 
 		// Verify error was logged
-		expect(consoleErrorStub.called).toBeTruthy();
+		expect(consoleErrorStub).toHaveBeenCalled();
 
-		consoleErrorStub.restore();
+		consoleErrorStub.mockRestore();
 	});
 
 	it('error boundary shows error message in title attribute', async () => {
@@ -269,7 +264,7 @@ describe('ActionBarWidget', () => {
 		};
 
 		// Suppress console.error for this test
-		const consoleErrorStub = sinon.stub(console, 'error');
+		const consoleErrorStub = vi.spyOn(console, 'error').mockImplementation(() => { });
 
 		const { container } = renderWidget(descriptor);
 
@@ -280,6 +275,6 @@ describe('ActionBarWidget', () => {
 		expect(title).toBeTruthy();
 		expect(title!.includes('Specific error message')).toBeTruthy();
 
-		consoleErrorStub.restore();
+		consoleErrorStub.mockRestore();
 	});
 });

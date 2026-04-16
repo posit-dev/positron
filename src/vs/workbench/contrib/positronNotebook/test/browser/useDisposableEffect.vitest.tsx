@@ -5,7 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-import sinon from 'sinon';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { useDisposableEffect } from '../../browser/useDisposableEffect.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
@@ -14,8 +13,8 @@ describe('useDisposableEffect', () => {
 	const rtl = setupRTLRenderer();
 
 	it('calls effect on mount and disposes on unmount', () => {
-		const dispose = sinon.spy();
-		const effect = sinon.stub().returns({ dispose });
+		const dispose = vi.fn();
+		const effect = vi.fn().mockReturnValue({ dispose });
 
 		const TestComponent = () => {
 			useDisposableEffect(effect, []);
@@ -23,16 +22,16 @@ describe('useDisposableEffect', () => {
 		};
 
 		const { unmount } = rtl.render(<TestComponent />);
-		sinon.assert.calledOnce(effect);
-		sinon.assert.notCalled(dispose);
+		expect(effect).toHaveBeenCalledOnce();
+		expect(dispose).not.toHaveBeenCalled();
 
 		unmount();
 
-		sinon.assert.calledOnce(dispose);
+		expect(dispose).toHaveBeenCalledOnce();
 	});
 
 	it('disposes when dependencies change', () => {
-		const dispose = sinon.spy();
+		const dispose = vi.fn();
 
 		const TestComponent = ({ dep }: { dep: number }) => {
 			useDisposableEffect(() => ({ dispose }), [dep]);
@@ -40,13 +39,13 @@ describe('useDisposableEffect', () => {
 		};
 
 		const { rerender } = rtl.render(<TestComponent dep={0} />);
-		sinon.assert.notCalled(dispose);
+		expect(dispose).not.toHaveBeenCalled();
 
 		rerender(<TestComponent dep={1} />);
-		sinon.assert.calledOnce(dispose);
+		expect(dispose).toHaveBeenCalledOnce();
 
 		rerender(<TestComponent dep={2} />);
-		sinon.assert.calledTwice(dispose);
+		expect(dispose).toHaveBeenCalledTimes(2);
 	});
 
 	it('handles effect returning undefined', () => {
@@ -62,10 +61,10 @@ describe('useDisposableEffect', () => {
 	it('uses latest effect callback via ref', () => {
 		// Verifies that the effect ref captures the latest closure, so a
 		// stale closure is never invoked when deps trigger re-execution.
-		const dispose = sinon.spy();
-		const effect = sinon.spy((dep: number): IDisposable => {
+		const dispose = vi.fn();
+		const effect = vi.fn((dep: number): IDisposable => {
 			// If stale closure was used, dep wouldn't match the call index
-			expect(dep).toBe(effect.callCount - 1);
+			expect(dep).toBe(effect.mock.calls.length - 1);
 			return { dispose };
 		});
 
@@ -75,9 +74,9 @@ describe('useDisposableEffect', () => {
 		};
 
 		const { rerender } = rtl.render(<TestComponent dep={0} />);
-		sinon.assert.calledOnce(effect);
+		expect(effect).toHaveBeenCalledOnce();
 
 		rerender(<TestComponent dep={1} />);
-		sinon.assert.calledTwice(effect);
+		expect(effect).toHaveBeenCalledTimes(2);
 	});
 });

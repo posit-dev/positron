@@ -7,7 +7,6 @@
 
 /* eslint-disable no-restricted-syntax */
 
-import sinon from 'sinon';
 import { ColumnSummaryCell } from '../../browser/components/columnSummaryCell.js';
 import { getColumnSchema } from '../../common/positronDataExplorerMocks.js';
 import { ColumnDisplayType, SupportStatus, ColumnProfileType, SupportedFeatures } from '../../../languageRuntime/common/positronDataExplorerComm.js';
@@ -22,8 +21,8 @@ import { IConfigurationService } from '../../../../../platform/configuration/com
 function createMockTableSummaryDataGridInstance(overrides: Partial<TableSummaryDataGridInstance> = {}): TableSummaryDataGridInstance {
 	// Mock the hover manager
 	const mockHoverManager: Partial<PositronActionBarHoverManager> = {
-		showHover: sinon.stub(),
-		hideHover: sinon.stub()
+		showHover: vi.fn(),
+		hideHover: vi.fn()
 	};
 
 	// Mock the configuration service
@@ -110,10 +109,6 @@ describe('ColumnSummaryCell', () => {
 			/>
 		);
 	}
-
-	afterEach(() => {
-		sinon.restore();
-	});
 
 	it('displays 0% when getColumnProfileNullPercent return 0', async () => {
 		const mockTableSummaryDataGridInstance = createMockTableSummaryDataGridInstance({

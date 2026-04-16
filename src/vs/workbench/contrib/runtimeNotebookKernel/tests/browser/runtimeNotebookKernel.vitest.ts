@@ -6,7 +6,6 @@
 /// <reference types="vitest/globals" />
 
 
-import sinon from 'sinon';
 import { DisposableStore, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { ResourceMap } from '../../../../../base/common/map.js';
 import { URI } from '../../../../../base/common/uri.js';
@@ -133,9 +132,10 @@ describe('Positron - RuntimeNotebookKernel', () => {
 
 		// Check that the execution was started and outputs were cleared.
 		const { cell, execution } = getExecution(0);
-		sinon.assert.calledOnceWithExactly(execution.update, [{
+		expect(execution.update).toHaveBeenCalledOnce();
+		expect(execution.update).toHaveBeenCalledWith([{
 			editType: CellExecutionUpdateType.ExecutionState,
-			runStartTime: sinon.match.number,
+			runStartTime: expect.any(Number),
 		}, {
 			editType: CellExecutionUpdateType.Output,
 			cellHandle: cell.handle,
@@ -143,13 +143,15 @@ describe('Positron - RuntimeNotebookKernel', () => {
 		}]);
 
 		// Check that the execution was completed.
-		sinon.assert.calledOnceWithExactly(execution.complete, {
-			runEndTime: sinon.match.number,
+		expect(execution.complete).toHaveBeenCalledOnce();
+		expect(execution.complete).toHaveBeenCalledWith({
+			runEndTime: expect.any(Number),
 			lastRunSuccess: true,
 		});
 
 		// Check that the execution was started before it was completed.
-		sinon.assert.callOrder(execution.update, execution.complete);
+		expect(execution.update.mock.invocationCallOrder[0])
+			.toBeLessThan(execution.complete.mock.invocationCallOrder[0]);
 	});
 
 	it('single cell emits execution events', async () => {
@@ -182,7 +184,7 @@ describe('Positron - RuntimeNotebookKernel', () => {
 		const session = await startSession();
 
 		// Spy on session.execute to capture execution metadata.
-		const executeSpy = sinon.spy(session, 'execute');
+		const executeSpy = vi.spyOn(session, 'execute');
 
 		// On execute, reply with an idle state.
 		ctx.disposables.add(session.onDidExecute(parent_id => session.receiveStateMessage({ parent_id, state: RuntimeOnlineState.Idle })));
@@ -191,8 +193,8 @@ describe('Positron - RuntimeNotebookKernel', () => {
 		await kernel.executeNotebookCellsRequest(notebookDocument.uri, [0]);
 
 		// Verify session.execute was called with executionMetadata.
-		sinon.assert.calledOnce(executeSpy);
-		const callArgs = executeSpy.firstCall.args as unknown as unknown[];
+		expect(executeSpy).toHaveBeenCalledOnce();
+		const callArgs = executeSpy.mock.calls[0] as unknown as unknown[];
 		const executionMetadata = callArgs[5] as Record<string, unknown>;
 		expect(executionMetadata).toBeTruthy();
 		expect(typeof executionMetadata.output_width_px).toBe('number');
@@ -216,8 +218,9 @@ describe('Positron - RuntimeNotebookKernel', () => {
 
 		// Check that the execution completed successfully.
 		const execution = getExecution(0).execution;
-		sinon.assert.calledOnceWithExactly(execution.complete, {
-			runEndTime: sinon.match.number,
+		expect(execution.complete).toHaveBeenCalledOnce();
+		expect(execution.complete).toHaveBeenCalledWith({
+			runEndTime: expect.any(Number),
 			lastRunSuccess: true,
 		});
 	});
@@ -239,8 +242,9 @@ describe('Positron - RuntimeNotebookKernel', () => {
 
 		// Check that the execution was completed with the error.
 		const { cell, execution } = getExecution(0);
-		sinon.assert.calledOnceWithExactly(execution.complete, {
-			runEndTime: sinon.match.number,
+		expect(execution.complete).toHaveBeenCalledOnce();
+		expect(execution.complete).toHaveBeenCalledWith({
+			runEndTime: expect.any(Number),
 			lastRunSuccess: false,
 			error: {
 				name: error.name,
@@ -261,8 +265,8 @@ describe('Positron - RuntimeNotebookKernel', () => {
 
 		// Check that the execution was not started or completed.
 		const execution0 = getExecution(0).execution;
-		sinon.assert.notCalled(execution0.update);
-		sinon.assert.notCalled(execution0.complete);
+		expect(execution0.update).not.toHaveBeenCalled();
+		expect(execution0.complete).not.toHaveBeenCalled();
 	});
 
 	it('empty cells are skipped', async () => {
@@ -274,8 +278,8 @@ describe('Positron - RuntimeNotebookKernel', () => {
 
 		// Check that the execution was not started or completed.
 		const execution0 = getExecution(0).execution;
-		sinon.assert.notCalled(execution0.update);
-		sinon.assert.notCalled(execution0.complete);
+		expect(execution0.update).not.toHaveBeenCalled();
+		expect(execution0.complete).not.toHaveBeenCalled();
 	});
 
 	it('queued cells are not executed if a preceding cell errors', async () => {
@@ -291,15 +295,16 @@ describe('Positron - RuntimeNotebookKernel', () => {
 		// Check that the first execution completed with an error.
 		const execution0 = getExecution(0).execution;
 		const execution1 = getExecution(1).execution;
-		sinon.assert.calledOnceWithExactly(execution0.complete, {
-			runEndTime: sinon.match.number,
+		expect(execution0.complete).toHaveBeenCalledOnce();
+		expect(execution0.complete).toHaveBeenCalledWith({
+			runEndTime: expect.any(Number),
 			lastRunSuccess: false,
-			error: sinon.match.object,
+			error: expect.any(Object),
 		});
 
 		// Check that the second execution never started or completed.
-		sinon.assert.notCalled(execution1.update);
-		sinon.assert.notCalled(execution1.complete);
+		expect(execution1.update).not.toHaveBeenCalled();
+		expect(execution1.complete).not.toHaveBeenCalled();
 	});
 
 	it('queued cells execute in order (single execution)', async () => {
@@ -312,10 +317,15 @@ describe('Positron - RuntimeNotebookKernel', () => {
 		// Execute two cells.
 		await kernel.executeNotebookCellsRequest(notebookDocument.uri, [0, 1]);
 
-		// Check that the second execution started before the first execution completed.
+		// Check that cells executed in order: update0, complete0, update1, complete1.
 		const execution0 = getExecution(0).execution;
 		const execution1 = getExecution(1).execution;
-		sinon.assert.callOrder(execution0.update, execution0.complete, execution1.update, execution1.complete);
+		expect(execution0.update.mock.invocationCallOrder[0])
+			.toBeLessThan(execution0.complete.mock.invocationCallOrder[0]);
+		expect(execution0.complete.mock.invocationCallOrder[0])
+			.toBeLessThan(execution1.update.mock.invocationCallOrder[0]);
+		expect(execution1.update.mock.invocationCallOrder[0])
+			.toBeLessThan(execution1.complete.mock.invocationCallOrder[0]);
 	});
 
 	it('queued cells execute in order (multiple executions)', async () => {
@@ -331,10 +341,15 @@ describe('Positron - RuntimeNotebookKernel', () => {
 			kernel.executeNotebookCellsRequest(notebookDocument.uri, [1]),
 		]);
 
-		// Check that the second execution started before the first execution completed.
+		// Check that cells executed in order: update0, complete0, update1, complete1.
 		const execution0 = getExecution(0).execution;
 		const execution1 = getExecution(1).execution;
-		sinon.assert.callOrder(execution0.update, execution0.complete, execution1.update, execution1.complete);
+		expect(execution0.update.mock.invocationCallOrder[0])
+			.toBeLessThan(execution0.complete.mock.invocationCallOrder[0]);
+		expect(execution0.complete.mock.invocationCallOrder[0])
+			.toBeLessThan(execution1.update.mock.invocationCallOrder[0]);
+		expect(execution1.update.mock.invocationCallOrder[0])
+			.toBeLessThan(execution1.complete.mock.invocationCallOrder[0]);
 	});
 
 	it('internal state is reset after each execution', async () => {
@@ -348,10 +363,15 @@ describe('Positron - RuntimeNotebookKernel', () => {
 		await kernel.executeNotebookCellsRequest(notebookDocument.uri, [0]);
 		await kernel.executeNotebookCellsRequest(notebookDocument.uri, [1]);
 
-		// Check that the second execution started before the first execution completed.
+		// Check that cells executed in order: update0, complete0, update1, complete1.
 		const execution0 = getExecution(0).execution;
 		const execution1 = getExecution(1).execution;
-		sinon.assert.callOrder(execution0.update, execution0.complete, execution1.update, execution1.complete);
+		expect(execution0.update.mock.invocationCallOrder[0])
+			.toBeLessThan(execution0.complete.mock.invocationCallOrder[0]);
+		expect(execution0.complete.mock.invocationCallOrder[0])
+			.toBeLessThan(execution1.update.mock.invocationCallOrder[0]);
+		expect(execution1.update.mock.invocationCallOrder[0])
+			.toBeLessThan(execution1.complete.mock.invocationCallOrder[0]);
 	});
 
 	it('interrupt with running session and executing cell', async () => {
@@ -381,10 +401,11 @@ describe('Positron - RuntimeNotebookKernel', () => {
 
 		// Check that the execution was completed with an error.
 		const execution = getExecution(0).execution;
-		sinon.assert.calledOnceWithExactly(execution.complete, {
-			runEndTime: sinon.match.number,
+		expect(execution.complete).toHaveBeenCalledOnce();
+		expect(execution.complete).toHaveBeenCalledWith({
+			runEndTime: expect.any(Number),
 			lastRunSuccess: false,
-			error: sinon.match.object,
+			error: expect.any(Object),
 		});
 	});
 
@@ -415,7 +436,7 @@ describe('Positron - RuntimeNotebookKernel', () => {
 		await executionStartedPromise;
 
 		// Spy on session.interrupt().
-		const sessionInterruptSpy = sinon.spy(session, 'interrupt');
+		const sessionInterruptSpy = vi.spyOn(session, 'interrupt');
 
 		// Exit the session after the execution started but before the interrupt.
 		await session.shutdown(RuntimeExitReason.Shutdown);
@@ -428,21 +449,22 @@ describe('Positron - RuntimeNotebookKernel', () => {
 		await executionEndedPromise;
 
 		// session.interrupt() should not be called.
-		sinon.assert.notCalled(sessionInterruptSpy);
+		expect(sessionInterruptSpy).not.toHaveBeenCalled();
 
 		// Even though the session was not interrupted, the execution should still end with an error.
 		const execution = getExecution(0).execution;
-		sinon.assert.calledOnceWithExactly(execution.complete, {
-			runEndTime: sinon.match.number,
+		expect(execution.complete).toHaveBeenCalledOnce();
+		expect(execution.complete).toHaveBeenCalledWith({
+			runEndTime: expect.any(Number),
 			lastRunSuccess: false,
-			error: sinon.match.object,
+			error: expect.any(Object),
 		});
 	});
 });
 
 /** A TestNotebookExecutionStateService that spies on cell executions. */
 class TestNotebookExecutionStateService2 extends TestNotebookExecutionStateService {
-	public readonly executions = new ResourceMap<sinon.SinonSpiedInstance<INotebookCellExecution>>();
+	public readonly executions = new ResourceMap<TestCellExecution>();
 
 	override getCellExecution(cellUri: URI): INotebookCellExecution | undefined {
 		const parsedUri = CellUri.parse(cellUri);
@@ -450,13 +472,12 @@ class TestNotebookExecutionStateService2 extends TestNotebookExecutionStateServi
 			throw new Error(`Invalid cell URI: ${cellUri.toString()}`);
 		}
 		const execution = new TestCellExecution(parsedUri.notebook, parsedUri.handle);
-		const spy = sinon.spy(execution);
-		this.executions.set(cellUri, spy);
+		this.executions.set(cellUri, execution);
 		return execution;
 	}
 }
 
-/** An INotebookCellExecution that does nothing. */
+/** An INotebookCellExecution with vi.fn() methods for assertion. */
 class TestCellExecution implements INotebookCellExecution {
 	constructor(
 		readonly notebook: URI,
@@ -468,12 +489,7 @@ class TestCellExecution implements INotebookCellExecution {
 	readonly didPause: boolean = false;
 	readonly isPaused: boolean = false;
 
-	confirm(): void {
-	}
-
-	update(updates: ICellExecuteUpdate[]): void {
-	}
-
-	complete(complete: ICellExecutionComplete): void {
-	}
+	confirm = vi.fn();
+	update = vi.fn<(updates: ICellExecuteUpdate[]) => void>();
+	complete = vi.fn<(complete: ICellExecutionComplete) => void>();
 }

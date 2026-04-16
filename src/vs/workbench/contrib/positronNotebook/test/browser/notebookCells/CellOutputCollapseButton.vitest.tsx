@@ -8,7 +8,6 @@
 /* eslint-disable no-restricted-syntax */
 /* eslint-disable local/code-no-dangerous-type-assertions */
 
-import sinon, { SinonStub } from 'sinon';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { CellOutputCollapseButton } from '../../../browser/notebookCells/CellOutputCollapseButton.js';
 import { PositronNotebookCodeCell } from '../../../browser/PositronNotebookCells/PositronNotebookCodeCell.js';
@@ -35,13 +34,13 @@ describe('CellOutputCollapseButton', () => {
 	const rtl = setupRTLRenderer();
 
 	let outputIsCollapsed: ISettableObservable<boolean>;
-	let selectStub: SinonStub;
-	let toggleStub: SinonStub;
+	let selectStub: ReturnType<typeof vi.fn>;
+	let toggleStub: ReturnType<typeof vi.fn>;
 
 	beforeEach(() => {
 		outputIsCollapsed = observableValue('outputIsCollapsed', false);
-		selectStub = sinon.stub();
-		toggleStub = sinon.stub();
+		selectStub = vi.fn();
+		toggleStub = vi.fn();
 	});
 
 	function renderButton() {
@@ -83,8 +82,8 @@ describe('CellOutputCollapseButton', () => {
 
 		fixture.button.click();
 
-		expect(selectStub.callCount).toBe(1);
-		expect(selectStub.getCall(0).args[1]).toBe(CellSelectionType.Normal);
-		expect(toggleStub.callCount).toBe(1);
+		expect(selectStub).toHaveBeenCalledOnce();
+		expect(selectStub.mock.calls[0][1]).toBe(CellSelectionType.Normal);
+		expect(toggleStub).toHaveBeenCalledOnce();
 	});
 });

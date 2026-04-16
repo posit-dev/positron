@@ -6,8 +6,6 @@
 /// <reference types="vitest/globals" />
 
 
-import * as sinon from 'sinon';
-
 import { raceTimeout } from '../../../../../base/common/async.js';
 import { PositronTestServiceAccessor } from '../../../../test/browser/positronWorkbenchTestServices.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
@@ -153,17 +151,16 @@ describe('Positron - Plots Service', () => {
 	});
 
 	it('sizing policy: change event', async () => {
-		const plotCommProxyStub = sinon.createStubInstance(PositronPlotCommProxy);
-		// Creates the properties on the stub instance before stubbing them
-		(plotCommProxyStub as any).onDidClose = null;
-		(plotCommProxyStub as any).onDidRenderUpdate = null;
-		(plotCommProxyStub as any).onDidShowPlot = null;
+		const plotCommProxyStub = {
+			onDidClose: () => ({ dispose: () => { } }),
+			onDidRenderUpdate: () => ({ dispose: () => { } }),
+			onDidShowPlot: () => ({ dispose: () => { } }),
+			render: vi.fn(),
+			getIntrinsicSize: vi.fn(),
+			dispose: vi.fn(),
+		} as unknown as PositronPlotCommProxy;
 
-		sinon.stub(plotCommProxyStub, 'onDidClose').value(() => { });
-		sinon.stub(plotCommProxyStub, 'onDidRenderUpdate').value(() => { });
-		sinon.stub(plotCommProxyStub, 'onDidShowPlot').value(() => { });
-
-		const plotClientInstance = new PlotClientInstance(plotCommProxyStub as unknown as PositronPlotCommProxy, {} as IConfigurationService, new PlotSizingPolicyAuto(), {} as IPositronPlotMetadata);
+		const plotClientInstance = new PlotClientInstance(plotCommProxyStub, {} as IConfigurationService, new PlotSizingPolicyAuto(), {} as IPositronPlotMetadata);
 		ctx.disposables.add(plotClientInstance);
 
 		let sizingPolicyChanged = false;
@@ -180,8 +177,6 @@ describe('Positron - Plots Service', () => {
 		await raceTimeout(didClosePlot, 100, () => expect.unreachable('onDidChangeSizingPolicy event did not fire'));
 
 		expect(sizingPolicyChanged).toBeTruthy();
-
-		sinon.restore();
 	});
 
 	it('selection: select plot', async () => {
@@ -284,13 +279,13 @@ describe('Positron - Plots Service', () => {
 		let intrinsicSizeCallCount = 0;
 
 		// Create stubs that return promises
-		const renderStub = sinon.stub().callsFake(async () => {
+		const renderStub = vi.fn().mockImplementation(async () => {
 			renderCallCount++;
 			await new Promise(resolve => setTimeout(resolve, 10));
 			return { mime_type: 'image/png', data: 'base64data' };
 		});
 
-		const intrinsicSizeStub = sinon.stub().callsFake(async () => {
+		const intrinsicSizeStub = vi.fn().mockImplementation(async () => {
 			intrinsicSizeCallCount++;
 			await new Promise(resolve => setTimeout(resolve, 10));
 			return { width: 100, height: 100 };

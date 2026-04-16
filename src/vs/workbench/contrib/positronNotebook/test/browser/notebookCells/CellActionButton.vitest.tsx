@@ -8,7 +8,6 @@
 /* eslint-disable no-restricted-syntax */
 /* eslint-disable local/code-no-dangerous-type-assertions */
 
-import sinon from 'sinon';
 import { flushSync } from 'react-dom';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { runWithFakedTimers } from '../../../../../../base/test/common/timeTravelScheduler.js';
@@ -72,22 +71,18 @@ class CellActionButtonFixture {
 describe('CellActionButton', () => {
 	const rtl = setupRTLRenderer();
 
-	let selectCellStub: sinon.SinonStub;
+	let selectCellStub: ReturnType<typeof vi.fn>;
 	let instance: IPositronNotebookInstance;
 	let cell: IPositronNotebookCell;
 
 	beforeEach(() => {
-		selectCellStub = sinon.stub();
+		selectCellStub = vi.fn();
 		instance = {
 			hoverManager: undefined,
 			currentContainer: undefined,
 			selectionStateMachine: { selectCell: selectCellStub },
 		} as unknown as IPositronNotebookInstance;
 		cell = { id: 'cell-1' } as unknown as IPositronNotebookCell;
-	});
-
-	afterEach(() => {
-		sinon.restore();
 	});
 
 	function renderButton(
@@ -131,29 +126,28 @@ describe('CellActionButton', () => {
 
 		fixture.click();
 
-		expect(selectCellStub.calledOnce).toBeTruthy();
-		expect(selectCellStub.firstCall.args[1]).toBe(CellSelectionType.Normal);
+		expect(selectCellStub).toHaveBeenCalledOnce();
+		expect(selectCellStub.mock.calls[0][1]).toBe(CellSelectionType.Normal);
 	});
 
 	it('runs the action when clicked', async () => {
-		const runStub = sinon.stub().resolves();
+		const runStub = vi.fn().mockResolvedValue(undefined);
 		const fixture = renderButton(mockAction({ run: runStub }));
 
 		fixture.click();
 
 		await new Promise(resolve => setTimeout(resolve, 0));
-		expect(runStub.calledOnce).toBeTruthy();
+		expect(runStub).toHaveBeenCalledOnce();
 	});
 
 	it('does not throw when action.run rejects', async () => {
-		const logStub = sinon.stub(console, 'log');
+		vi.spyOn(console, 'log').mockImplementation(() => { });
 		const fixture = renderButton(mockAction({
 			run: () => Promise.reject(new Error('action failed')),
 		}));
 
 		fixture.click();
 		await new Promise(resolve => setTimeout(resolve, 0));
-		logStub.restore();
 	});
 
 	it('renders icon when action has one', () => {
@@ -206,13 +200,12 @@ describe('CellActionButton', () => {
 		}));
 
 		it('does not show check icon when action rejects', () => runWithFakedTimers({}, async () => {
-			const logStub = sinon.stub(console, 'log');
+			vi.spyOn(console, 'log').mockImplementation(() => { });
 			const fixture = renderSuccessButton(() => Promise.reject(new Error('fail')));
 
 			await fixture.clickAndFlush();
 
 			expect(fixture.iconClass).toBe('codicon-copy');
-			logStub.restore();
 		}));
 	});
 });

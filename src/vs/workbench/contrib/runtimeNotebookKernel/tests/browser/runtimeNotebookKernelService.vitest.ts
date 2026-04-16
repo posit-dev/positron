@@ -6,7 +6,6 @@
 /// <reference types="vitest/globals" />
 
 
-import sinon from 'sinon';
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { DisposableStore, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { ResourceMap } from '../../../../../base/common/map.js';
@@ -63,7 +62,7 @@ describe('Positron - RuntimeNotebookKernelService', () => {
 			],
 		).viewModel.notebookDocument;
 		// Stub the notebookType to the value assumed by the kernel matching logic.
-		sinon.stub(notebookDocument, 'notebookType').get(() => IPYNB_VIEW_TYPE);
+		vi.spyOn(notebookDocument, 'notebookType', 'get').mockReturnValue(IPYNB_VIEW_TYPE);
 
 		// Create a test notebook service containing the test notebook document.
 		notebookService = new TestNotebookService([notebookDocument]);

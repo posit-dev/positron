@@ -6,44 +6,33 @@
 /// <reference types="vitest/globals" />
 
 
-import * as sinon from 'sinon';
-import { TestInstantiationService } from '../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { PositronConnectionsService } from '../browser/positronConnectionsService.js';
 import { IPositronConnectionsService } from '../common/interfaces/positronConnectionsService.js';
 import { IDriver } from '../common/interfaces/positronConnectionsDriver.js';
 import { TestConnectionInstance } from './positronConnectionInstanceMock.js';
 import { TestSecretStorageService } from '../../../../platform/secrets/test/common/testSecretStorageService.js';
 import { ISecretStorageService } from '../../../../platform/secrets/common/secrets.js';
-import { ensureNoLeakedDisposables } from '../../../../test/vitest/vitestUtils.js';
-import { createRuntimeServices, startTestLanguageRuntimeSession } from '../../runtimeSession/test/common/testRuntimeSessionService.js';
+import { createTestContainer } from '../../../../test/vitest/positronTestContainer.js';
+import { startTestLanguageRuntimeSession } from '../../runtimeSession/test/common/testRuntimeSessionService.js';
 import { RuntimeClientType } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
 
 
 describe('Positron - Connections Service', () => {
 
-	const disposables = ensureNoLeakedDisposables();
-	let instantiationService: TestInstantiationService;
-	let secretStorageService: TestSecretStorageService;
+	const ctx = createTestContainer()
+		.withRuntimeServices()
+		.stub(ISecretStorageService, new TestSecretStorageService())
+		.build();
 	let connectionsService: IPositronConnectionsService;
 
 	beforeEach(async () => {
-		instantiationService = new TestInstantiationService();
-		createRuntimeServices(instantiationService, disposables);
-
-		secretStorageService = new TestSecretStorageService();
-		instantiationService.stub(ISecretStorageService, secretStorageService);
-
-		connectionsService = disposables.add(instantiationService.createInstance(
+		connectionsService = ctx.disposables.add(ctx.instantiationService.createInstance(
 			PositronConnectionsService
 		));
 	});
 
-	afterEach(() => {
-		sinon.restore();
-	});
-
 	async function createSession() {
-		const session = await startTestLanguageRuntimeSession(instantiationService, disposables);
+		const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
 		return session;
 	}
 
@@ -61,34 +50,34 @@ describe('Positron - Connections Service', () => {
 	}
 
 	it('Add a connection', async () => {
-		const changeConnectionsSpy = sinon.spy();
-		disposables.add(connectionsService.onDidChangeConnections(changeConnectionsSpy));
+		const changeConnectionsSpy = vi.fn();
+		ctx.disposables.add(connectionsService.onDidChangeConnections(changeConnectionsSpy));
 
 		const connectionId = 'test-connection-1';
-		const connectionInstance = disposables.add(new TestConnectionInstance(connectionId));
+		const connectionInstance = ctx.disposables.add(new TestConnectionInstance(connectionId));
 
 		connectionsService.addConnection(connectionInstance);
 		expect(connectionsService.getConnections().length).toBe(1);
-		expect(changeConnectionsSpy.callCount).toBe(1);
+		expect(changeConnectionsSpy).toHaveBeenCalledTimes(1);
 
 		connectionsService.closeConnection('test-connection-1');
-		expect(changeConnectionsSpy.callCount).toBe(2);
+		expect(changeConnectionsSpy).toHaveBeenCalledTimes(2);
 		expect(connectionInstance.disconnectFired).toBe(1);
 		expect(connectionInstance.active).toBe(false);
 		expect(connectionsService.getConnections().length).toBe(1);
 
 		connectionsService.clearAllConnections();
-		expect(changeConnectionsSpy.callCount).toBe(3); // the event fires once per connection
+		expect(changeConnectionsSpy).toHaveBeenCalledTimes(3); // the event fires once per connection
 		expect(connectionsService.getConnections().length).toBe(0);
 	});
 
 	it('Sessions created by runtimes', async () => {
-		const changeConnectionsSpy = sinon.spy();
-		disposables.add(connectionsService.onDidChangeConnections(changeConnectionsSpy));
+		const changeConnectionsSpy = vi.fn();
+		ctx.disposables.add(connectionsService.onDidChangeConnections(changeConnectionsSpy));
 
-		const session = disposables.add(await createSession());
+		const session = ctx.disposables.add(await createSession());
 
-		const client = disposables.add(await session.createClient(RuntimeClientType.Connection, {
+		const client = ctx.disposables.add(await session.createClient(RuntimeClientType.Connection, {
 			name: 'test-connection',
 			language_id: 'test',
 			code: 'hello world'
@@ -118,20 +107,20 @@ describe('Positron - Connections Service', () => {
 		// of a connection instance.
 		// It may take some time though, so we wait for it to complete.
 		await waitUntilOk(() => {
-			expect(changeConnectionsSpy.callCount).toBe(1);
+			expect(changeConnectionsSpy).toHaveBeenCalledTimes(1);
 			expect(connectionsService.getConnections().length).toBe(1);
 		});
 
 		const instance = connectionsService.getConnections()[0];
 		expect(instance.metadata.name).toBe('test-connection');
-		const instanceEntriesChangedSpy = sinon.spy();
-		disposables.add(instance.onDidChangeEntries(instanceEntriesChangedSpy));
+		const instanceEntriesChangedSpy = vi.fn();
+		ctx.disposables.add(instance.onDidChangeEntries(instanceEntriesChangedSpy));
 
 		// Toggle expansion should trigger the connections service
 		// entries to change
 		instance.onToggleExpandEmitter.fire('test-connection');
 		await waitUntilOk(() => {
-			expect(instanceEntriesChangedSpy.callCount).toBe(1);
+			expect(instanceEntriesChangedSpy).toHaveBeenCalledTimes(1);
 		});
 	});
 
@@ -149,27 +138,27 @@ describe('Positron - Connections Service', () => {
 
 		it('registerDriver fires onDidChangeDrivers', () => {
 			const driverManager = connectionsService.driverManager;
-			const changeDriversSpy = sinon.spy();
-			disposables.add(driverManager.onDidChangeDrivers(changeDriversSpy));
+			const changeDriversSpy = vi.fn();
+			ctx.disposables.add(driverManager.onDidChangeDrivers(changeDriversSpy));
 
 			const driver = createTestDriver('driver-1');
 			driverManager.registerDriver(driver);
 
-			expect(changeDriversSpy.callCount).toBe(1);
+			expect(changeDriversSpy).toHaveBeenCalledTimes(1);
 			expect(driverManager.getDrivers().length).toBe(1);
 		});
 
 		it('removeDriver fires onDidChangeDrivers', () => {
 			const driverManager = connectionsService.driverManager;
-			const changeDriversSpy = sinon.spy();
+			const changeDriversSpy = vi.fn();
 
 			const driver = createTestDriver('driver-1');
 			driverManager.registerDriver(driver);
 
-			disposables.add(driverManager.onDidChangeDrivers(changeDriversSpy));
+			ctx.disposables.add(driverManager.onDidChangeDrivers(changeDriversSpy));
 			driverManager.removeDriver('driver-1');
 
-			expect(changeDriversSpy.callCount).toBe(1);
+			expect(changeDriversSpy).toHaveBeenCalledTimes(1);
 			expect(driverManager.getDrivers().length).toBe(0);
 		});
 

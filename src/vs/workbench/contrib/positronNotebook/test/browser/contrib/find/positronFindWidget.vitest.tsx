@@ -8,7 +8,7 @@
 /* eslint-disable no-restricted-syntax */
 /* eslint-disable local/code-no-dangerous-type-assertions */
 
-import sinon from 'sinon';
+import type { Mock } from 'vitest';
 import { flushSync } from 'react-dom';
 import { setupRTLRenderer } from '../../../../../../../test/vitest/reactTestingLibrary.js';
 import { ISettableObservable, observableValue } from '../../../../../../../base/common/observable.js';
@@ -85,18 +85,18 @@ describe('PositronFindWidget', () => {
 	let matchIndex: ISettableObservable<number | undefined>;
 	let matchCount: ISettableObservable<number | undefined>;
 	let isVisible: ISettableObservable<boolean>;
-	let onPreviousMatch: sinon.SinonStub;
-	let onNextMatch: sinon.SinonStub;
-	let onFindInputFocus: sinon.SinonStub;
-	let onFindInputBlur: sinon.SinonStub;
+	let onPreviousMatch: Mock;
+	let onNextMatch: Mock;
+	let onFindInputFocus: Mock;
+	let onFindInputBlur: Mock;
 	// Replace props
 	let replaceIsVisible: ISettableObservable<boolean>;
 	let replaceText: ISettableObservable<string>;
 	let preserveCase: ISettableObservable<boolean>;
-	let onReplace: sinon.SinonStub;
-	let onReplaceAll: sinon.SinonStub;
-	let onReplaceInputFocus: sinon.SinonStub;
-	let onReplaceInputBlur: sinon.SinonStub;
+	let onReplace: Mock;
+	let onReplaceAll: Mock;
+	let onReplaceInputFocus: Mock;
+	let onReplaceInputBlur: Mock;
 
 	function renderWidget({ useReplace } = { useReplace: false }) {
 		const { container } = rtl.render(
@@ -151,23 +151,23 @@ describe('PositronFindWidget', () => {
 		matchIndex = observableValue<number | undefined>('matchIndex', undefined);
 		matchCount = observableValue<number | undefined>('matchCount', undefined);
 		isVisible = observableValue('isVisible', true);
-		onPreviousMatch = sinon.stub();
-		onNextMatch = sinon.stub();
-		onFindInputFocus = sinon.stub();
-		onFindInputBlur = sinon.stub();
+		onPreviousMatch = vi.fn();
+		onNextMatch = vi.fn();
+		onFindInputFocus = vi.fn();
+		onFindInputBlur = vi.fn();
 
 		// Replace props
 		replaceIsVisible = observableValue('replaceIsVisible', false);
 		replaceText = observableValue('replaceText', '');
 		preserveCase = observableValue('preserveCase', false);
-		onReplace = sinon.stub();
-		onReplaceAll = sinon.stub();
-		onReplaceInputFocus = sinon.stub();
-		onReplaceInputBlur = sinon.stub();
+		onReplace = vi.fn();
+		onReplaceAll = vi.fn();
+		onReplaceInputFocus = vi.fn();
+		onReplaceInputBlur = vi.fn();
 	});
 
 	afterEach(() => {
-		sinon.restore();
+		vi.restoreAllMocks();
 	});
 
 	describe('Find', () => {
@@ -241,7 +241,7 @@ describe('PositronFindWidget', () => {
 
 			widget.previousButton.click();
 
-			expect(onPreviousMatch.calledOnce).toBeTruthy();
+			expect(onPreviousMatch).toHaveBeenCalledOnce();
 		});
 
 		it('next match button calls onNextMatch', () => {
@@ -250,7 +250,7 @@ describe('PositronFindWidget', () => {
 
 			widget.nextButton.click();
 
-			expect(onNextMatch.calledOnce).toBeTruthy();
+			expect(onNextMatch).toHaveBeenCalledOnce();
 		});
 
 		it('shows "1 of N" when matchIndex is undefined', () => {
@@ -316,7 +316,7 @@ describe('PositronFindWidget', () => {
 
 			flushSync(() => widget.replaceButton!.click());
 
-			expect(onReplace.calledOnce).toBeTruthy();
+			expect(onReplace).toHaveBeenCalledOnce();
 		});
 
 		it('replace all button calls onReplaceAll', () => {
@@ -326,7 +326,7 @@ describe('PositronFindWidget', () => {
 
 			flushSync(() => widget.replaceAllButton!.click());
 
-			expect(onReplaceAll.calledOnce).toBeTruthy();
+			expect(onReplaceAll).toHaveBeenCalledOnce();
 		});
 
 		it('replace buttons are disabled when there is no query', () => {

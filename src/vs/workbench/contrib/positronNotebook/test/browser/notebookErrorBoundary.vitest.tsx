@@ -9,7 +9,6 @@
 /* eslint-disable local/code-no-dangerous-type-assertions */
 
 import React from 'react';
-import sinon from 'sinon';
 import { flushSync } from 'react-dom';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { NotebookErrorBoundary } from '../../browser/NotebookErrorBoundary.js';
@@ -32,7 +31,7 @@ function ThrowingProvider({ children: _children }: { children: React.ReactNode }
 }
 
 function createMockLogService() {
-	const errorSpy = sinon.spy();
+	const errorSpy = vi.fn();
 	const logService = { error: errorSpy } as unknown as ILogService;
 	return { logService, errorSpy };
 }
@@ -130,8 +129,8 @@ describe('NotebookErrorBoundary', () => {
 				</NotebookErrorBoundary>
 			);
 
-			sinon.assert.calledOnce(errorSpy);
-			const logMessage = errorSpy.firstCall.args[0] as string;
+			expect(errorSpy).toHaveBeenCalledOnce();
+			const logMessage = errorSpy.mock.calls[0][0] as string;
 			expect(logMessage.includes('MyCell')).toBeTruthy();
 			expect(logMessage.includes('cell')).toBeTruthy();
 			expect(logMessage.includes('render failed')).toBeTruthy();
@@ -149,8 +148,8 @@ describe('NotebookErrorBoundary', () => {
 			expect(container.querySelector<HTMLElement>('[role="alert"]')).toBeTruthy();
 
 			// Should log safely without crashing
-			sinon.assert.calledOnce(errorSpy);
-			const logMessage = errorSpy.firstCall.args[0] as string;
+			expect(errorSpy).toHaveBeenCalledOnce();
+			const logMessage = errorSpy.mock.calls[0][0] as string;
 			expect(logMessage.includes('string error')).toBeTruthy();
 
 			// Details should show the stringified value
@@ -269,7 +268,7 @@ describe('NotebookErrorBoundary', () => {
 
 		it('clicking Reload calls onReload callback', () => {
 			const { logService } = createMockLogService();
-			const onReload = sinon.spy();
+			const onReload = vi.fn();
 			const { container } = rtl.render(
 				<NotebookErrorBoundary componentName='Test' level='editor' logService={logService} onReload={onReload}>
 					<ThrowingComponent error={new Error('fail')} />
@@ -279,7 +278,7 @@ describe('NotebookErrorBoundary', () => {
 			const { action } = getActionButtons(container);
 			clickAndFlush(action);
 
-			sinon.assert.calledOnce(onReload);
+			expect(onReload).toHaveBeenCalledOnce();
 		});
 	});
 
@@ -306,8 +305,8 @@ describe('NotebookErrorBoundary', () => {
 			expect(
 				container.querySelector<HTMLElement>('[role="alert"]')
 			).toBeTruthy();
-			sinon.assert.calledOnce(errorSpy);
-			const logMessage = errorSpy.firstCall.args[0] as string;
+			expect(errorSpy).toHaveBeenCalledOnce();
+			const logMessage = errorSpy.mock.calls[0][0] as string;
 			expect(logMessage.includes('provider error')).toBeTruthy();
 		});
 

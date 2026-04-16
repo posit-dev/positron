@@ -6,7 +6,6 @@
 /// <reference types="vitest/globals" />
 
 
-import sinon from 'sinon';
 import { Emitter } from '../../../../../base/common/event.js';
 import { TableSummaryDataGridInstance } from '../../browser/tableSummaryDataGridInstance.js';
 import { TableSummaryCache } from '../../common/tableSummaryCache.js';
@@ -31,10 +30,10 @@ describe('TableSummaryDataGridInstance', () => {
 	let originalServices: any;
 
 	// Pre-configured stubs for easier testing
-	let isColumnExpandedStub: sinon.SinonStub;
-	let getColumnSchemaStub: sinon.SinonStub;
-	let getColumnProfileStub: sinon.SinonStub;
-	let toggleExpandColumnStub: sinon.SinonStub;
+	let isColumnExpandedStub: ReturnType<typeof vi.fn>;
+	let getColumnSchemaStub: ReturnType<typeof vi.fn>;
+	let getColumnProfileStub: ReturnType<typeof vi.fn>;
+	let toggleExpandColumnStub: ReturnType<typeof vi.fn>;
 
 	// Mock backend state
 	const mockBackendState: BackendState = {
@@ -93,20 +92,20 @@ describe('TableSummaryDataGridInstance', () => {
 		PositronReactServices.services = mockServices as PositronReactServices;
 
 		// Create pre-configured stubs
-		isColumnExpandedStub = sinon.stub().returns(false);
-		getColumnSchemaStub = sinon.stub();
-		getColumnProfileStub = sinon.stub();
-		toggleExpandColumnStub = sinon.stub().resolves();
+		isColumnExpandedStub = vi.fn().mockReturnValue(false);
+		getColumnSchemaStub = vi.fn();
+		getColumnProfileStub = vi.fn();
+		toggleExpandColumnStub = vi.fn().mockResolvedValue(undefined);
 
 		// Create mock data explorer client
 		const mockDataExplorerClient: Partial<DataExplorerClientInstance> = {
 			onDidSchemaUpdate: new Emitter<SchemaUpdateEvent>().event,
 			onDidDataUpdate: new Emitter<void>().event,
 			onDidUpdateBackendState: new Emitter<BackendState>().event,
-			getBackendState: sinon.stub().resolves(mockBackendState),
-			searchSchema2: sinon.stub().resolves({ matches: [0, 1, 2] }),
-			getSupportedFeatures: sinon.stub().returns(mockBackendState.supported_features),
-			dispose: sinon.stub()
+			getBackendState: vi.fn().mockResolvedValue(mockBackendState),
+			searchSchema2: vi.fn().mockResolvedValue({ matches: [0, 1, 2] }),
+			getSupportedFeatures: vi.fn().mockReturnValue(mockBackendState.supported_features),
+			dispose: vi.fn()
 		};
 
 		// Create mock table summary cache
@@ -118,8 +117,8 @@ describe('TableSummaryDataGridInstance', () => {
 			getColumnProfile: getColumnProfileStub,
 			toggleExpandColumn: toggleExpandColumnStub,
 			onDidUpdate: new Emitter<void>().event,
-			update: sinon.stub().resolves(),
-			dispose: sinon.stub()
+			update: vi.fn().mockResolvedValue(undefined),
+			dispose: vi.fn()
 		};
 		mockTableSummaryCache = partialMockTableSummaryCache as TableSummaryCache;
 
@@ -147,50 +146,48 @@ describe('TableSummaryDataGridInstance', () => {
 	});
 
 	it('setSearchText should trigger fetchData', async () => {
-		const spy = sinon.spy(instance, 'fetchData');
+		const spy = vi.spyOn(instance, 'fetchData');
 		await instance.setSearchText('test');
-		expect(spy.called).toBeTruthy();
-		spy.restore();
+		expect(spy).toHaveBeenCalled();
 	});
 
 	it('setSortOption should trigger fetchData', async () => {
-		const spy = sinon.spy(instance, 'fetchData');
+		const spy = vi.spyOn(instance, 'fetchData');
 		await instance.setSortOption(SearchSchemaSortOrder.DescendingName);
-		expect(spy.called).toBeTruthy();
-		spy.restore();
+		expect(spy).toHaveBeenCalled();
 	});
 
 	it('isColumnExpanded should delegate to cache', () => {
-		isColumnExpandedStub.returns(true);
+		isColumnExpandedStub.mockReturnValue(true);
 		expect(instance.isColumnExpanded(5)).toBe(true);
-		expect(isColumnExpandedStub.calledWith(5)).toBeTruthy();
+		expect(isColumnExpandedStub).toHaveBeenCalledWith(5);
 	});
 
 	it('canToggleColumnExpansion should return false for unsupported column types', () => {
 		const unsupportedColumnSchema = getColumnSchema('test', 0, 'unknown', ColumnDisplayType.Unknown);
-		getColumnSchemaStub.returns(unsupportedColumnSchema);
+		getColumnSchemaStub.mockReturnValue(unsupportedColumnSchema);
 		expect(instance.canToggleColumnExpansion(0)).toBe(false);
 	});
 
 	it('canToggleColumnExpansion should return true for supported column types when feature is enabled', () => {
 		const supportedColumnSchema = getColumnSchema('test', 0, 'number', ColumnDisplayType.Floating);
-		getColumnSchemaStub.returns(supportedColumnSchema);
+		getColumnSchemaStub.mockReturnValue(supportedColumnSchema);
 		expect(instance.canToggleColumnExpansion(0)).toBe(true);
 	});
 
 	it('toggleExpandColumn should update row layout manager', async () => {
 		const supportedColumnSchema = getColumnSchema('test', 0, 'number', ColumnDisplayType.Floating);
-		getColumnSchemaStub.returns(supportedColumnSchema);
+		getColumnSchemaStub.mockReturnValue(supportedColumnSchema);
 		await instance.toggleExpandColumn(0);
-		expect(toggleExpandColumnStub.calledWith(0)).toBeTruthy();
+		expect(toggleExpandColumnStub).toHaveBeenCalledWith(0);
 	});
 
 	it('getColumnProfileNullCount should delegate to cache', () => {
 		const mockProfile = { null_count: 5 };
-		getColumnProfileStub.returns(mockProfile);
+		getColumnProfileStub.mockReturnValue(mockProfile);
 		const result = instance.getColumnProfileNullCount(0);
 		expect(result).toBe(5);
-		expect(getColumnProfileStub.calledWith(0)).toBeTruthy();
+		expect(getColumnProfileStub).toHaveBeenCalledWith(0);
 	});
 
 	// Ensure that all disposables are cleaned up.

@@ -7,7 +7,6 @@
 
 /* eslint-disable local/code-no-dangerous-type-assertions */
 
-import sinon from 'sinon';
 import { Emitter } from '../../../../../base/common/event.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
@@ -103,14 +102,14 @@ describe('useMenuActions', () => {
 		});
 
 		/** Tracks all menus created by the mock service. */
-		let createdMenus: { menu: IMenu; dispose: sinon.SinonSpy }[];
+		let createdMenus: { menu: IMenu; dispose: ReturnType<typeof vi.fn> }[];
 
 		function createServices(): PositronReactServices {
 			createdMenus = [];
 			const menuService: IMenuService = {
 				_serviceBrand: undefined,
 				createMenu: () => {
-					const dispose = sinon.spy();
+					const dispose = vi.fn();
 					const menu: IMenu = {
 						onDidChange: onDidChange.event,
 						dispose,
@@ -236,7 +235,7 @@ describe('useMenuActions', () => {
 			);
 			expect(captured).toEqual([['g', [action('a1')]]]);
 			expect(createdMenus.length).toBe(2);
-			sinon.assert.calledOnce(createdMenus[0].dispose);
+			expect(createdMenus[0].dispose).toHaveBeenCalledOnce();
 		});
 	});
 });

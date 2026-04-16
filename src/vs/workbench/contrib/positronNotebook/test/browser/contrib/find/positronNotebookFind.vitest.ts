@@ -9,7 +9,7 @@
 // Register the find contribution
 import '../../../../browser/contrib/find/positronNotebookFind.contribution.js';
 
-import * as sinon from 'sinon';
+import type { Mock } from 'vitest';
 import { createTestContainer } from '../../../../../../../test/vitest/positronTestContainer.js';
 import { IModelDecoration, ITextModel } from '../../../../../../../editor/common/model.js';
 import { USUAL_WORD_SEPARATORS } from '../../../../../../../editor/common/core/wordHelper.js';
@@ -126,13 +126,13 @@ describe('PositronNotebookFindController', () => {
 	const ctx = createTestContainer().build();
 
 	let instantiationService: TestInstantiationService;
-	let bulkEditApplySpy: sinon.SinonSpy;
+	let bulkEditApplySpy: Mock;
 
 	beforeEach(() => {
 		instantiationService = positronNotebookInstantiationService(ctx.disposables);
 
 		const bulkEditService = new TestBulkEditService(instantiationService.get(IModelService));
-		bulkEditApplySpy = sinon.spy(bulkEditService, 'apply');
+		bulkEditApplySpy = vi.spyOn(bulkEditService, 'apply');
 		instantiationService.stub(IBulkEditService, bulkEditService);
 	});
 
@@ -971,7 +971,7 @@ describe('PositronNotebookFindController', () => {
 			const cell = notebook.cells.get()[0];
 			expect(cell.model.textModel!.getValue()).toBe('hello world');
 			expect(controller.currentMatch.get()).toBe(undefined);
-			expect(bulkEditApplySpy.notCalled).toBeTruthy();
+			expect(bulkEditApplySpy).not.toHaveBeenCalled();
 		});
 
 		it('replace() uses literal text when regex is off', async () => {
@@ -1030,8 +1030,8 @@ describe('PositronNotebookFindController', () => {
 			controller.findNext();
 			await controller.replace();
 
-			expect(bulkEditApplySpy.calledOnce).toBeTruthy();
-			const edits = bulkEditApplySpy.firstCall.args[0];
+			expect(bulkEditApplySpy).toHaveBeenCalledOnce();
+			const edits = bulkEditApplySpy.mock.calls[0][0];
 			expect(edits.length).toBe(1);
 			expect(edits[0].textEdit.text).toBe('hi');
 			// 'hello' is at [1,1 -> 1,6]
@@ -1040,7 +1040,7 @@ describe('PositronNotebookFindController', () => {
 			expect(edits[0].textEdit.range.endLineNumber).toBe(1);
 			expect(edits[0].textEdit.range.endColumn).toBe(6);
 			// Check options label
-			const options = bulkEditApplySpy.firstCall.args[1];
+			const options = bulkEditApplySpy.mock.calls[0][1];
 			expect(options.quotableLabel).toBe('Notebook Replace');
 		});
 
@@ -1137,10 +1137,10 @@ describe('PositronNotebookFindController', () => {
 
 			await controller.replaceAll();
 
-			expect(bulkEditApplySpy.calledOnce).toBeTruthy();
-			const edits = bulkEditApplySpy.firstCall.args[0];
+			expect(bulkEditApplySpy).toHaveBeenCalledOnce();
+			const edits = bulkEditApplySpy.mock.calls[0][0];
 			expect(edits.length).toBe(2);
-			const options = bulkEditApplySpy.firstCall.args[1];
+			const options = bulkEditApplySpy.mock.calls[0][1];
 			expect(options.quotableLabel).toBe('Notebook Replace All');
 		});
 
@@ -1155,7 +1155,7 @@ describe('PositronNotebookFindController', () => {
 
 			const cell = notebook.cells.get()[0];
 			expect(cell.model.textModel!.getValue()).toBe('hello');
-			expect(bulkEditApplySpy.notCalled).toBeTruthy();
+			expect(bulkEditApplySpy).not.toHaveBeenCalled();
 		});
 
 		it('replaceAll() with regex capture groups builds per-match replacements', async () => {
@@ -1191,7 +1191,7 @@ describe('PositronNotebookFindController', () => {
 
 			const cell = notebook.cells.get()[0];
 			expect(cell.model.textModel!.getValue()).toBe('hello world hello');
-			expect(bulkEditApplySpy.calledOnce).toBeTruthy();
+			expect(bulkEditApplySpy).toHaveBeenCalledOnce();
 
 			// No debounce needed: replace() calls findNext() which sets
 			// currentMatch synchronously. The text didn't change so
