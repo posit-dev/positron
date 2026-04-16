@@ -15,9 +15,18 @@ describe('positronTestContainer', () => {
 		it('creates a PositronReactServices instance without throwing', () => {
 			// This test catches stale stub lists. If a new service is added
 			// to PositronReactServices but not stubbed in withReactServices(),
-			// createInstance() will throw "missing service" here.
-			const services = ctx.reactServices;
-			expect(services).toBeDefined();
+			// createInstance() will throw with the missing service name.
+			try {
+				const services = ctx.reactServices;
+				expect(services).toBeDefined();
+			} catch (e) {
+				throw new Error(
+					`withReactServices() is missing a stub. If you added a service to ` +
+					`PositronReactServices (src/vs/base/browser/positronReactServices.tsx), ` +
+					`add a matching stub in the withReactServices() branch of ` +
+					`src/vs/test/vitest/positronTestContainer.ts.\n\nOriginal error: ${e}`
+				);
+			}
 		});
 	});
 });
