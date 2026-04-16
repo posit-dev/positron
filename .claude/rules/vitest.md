@@ -57,7 +57,7 @@ describe('MyComponent', () => {
 
 ## Conventions
 
-- `/// <reference types="vitest/globals" />` after the copyright header (required for IDE intellisense -- vitest runs fine without it, but editors won't autocomplete `describe`, `it`, `expect` etc.)
+- `/// <reference types="vitest/globals" />` after the copyright header (required for IDE intellisense)
 - Vitest syntax: `describe()`, `it()`, `beforeEach()`, `afterEach()`, `expect()`
 - File extension: `.vitest.ts` (or `.vitest.tsx` for React components)
 - Tabs for indentation
@@ -76,13 +76,14 @@ Some modules use `tests/` (plural) -- match what already exists in that director
 
 ## The Builder
 
-Use `createTestContainer()` for any test needing services. The builder handles `ensureNoLeakedDisposables()` automatically -- do NOT add it yourself.
+Use `createTestContainer()` for any test needing services. The builder handles disposable leak tracking automatically -- do not add `ensureNoLeakedDisposables()` yourself.
 
-**Do I need `ensureNoLeakedDisposables()`?** Only if your test creates disposables directly (via `new`). Pure function tests don't need it. When in doubt, leave it out -- the builder adds it automatically, and plain tests that don't create disposables have nothing to leak.
+Pick the lowest preset that covers your dependencies. See the full preset hierarchy in the [PositronTestContainerBuilder JSDoc](../../src/vs/test/vitest/positronTestContainer.ts). Start low and let errors guide you up:
 
-Pick the lowest preset that covers your test's dependencies. Presets form a hierarchy (each includes the one above) -- see the full list and when to add new ones in the [PositronTestContainerBuilder JSDoc](../../src/vs/test/vitest/positronTestContainer.ts). Start low and let errors guide you up.
-
-**Don't guess -- iterate.** Start with a preset and run the test. If it passes, you're done. If it fails with "X is not a function" or "Cannot read properties of undefined," add `.stub(IMissingService, {})`. Add only the method the error names: `.stub(IService, { getDoc: () => undefined })`. For events the test doesn't fire, use `Event.None`: `.stub(IService, { onDidChange: Event.None })`.
+1. Run the test. If it passes, you're done.
+2. "X is not a function" or "Cannot read properties of undefined" -- add `.stub(IMissingService, {})`
+3. A specific method is called -- stub just that method: `.stub(IService, { getDoc: () => undefined })`
+4. Code subscribes to an event you don't need to fire -- use `Event.None`: `.stub(IService, { onDidChange: Event.None })`
 
 **Testing event-driven behavior:** Create an `Emitter` at describe level, pass its `.event` to the stub, then call `.fire()` in your test (wrapped in `act()` for React components). See `webviewPlotThumbnail.vitest.tsx` and `startupStatus.vitest.tsx` in the working examples below.
 
