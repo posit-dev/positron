@@ -284,12 +284,23 @@ class PositronTestContainerBuilder {
 			}
 		});
 
-		// Return a result object whose properties delegate to the mutable slot.
-		// This is safe because tests only access these after beforeEach has run.
+		// Return a result object with lazy getters that delegate to the mutable slot.
+		// Access these inside it()/beforeEach() callbacks, not at describe level.
+		// Destructuring at describe level (const { instantiationService } = ctx)
+		// evaluates the getter immediately, before beforeEach has run.
+		function assertReady(): TestInstantiationService {
+			if (!_instantiationService) {
+				throw new Error(
+					'ctx properties are not available until beforeEach runs. ' +
+					'Do not destructure ctx at describe level -- use ctx.instantiationService inside it() callbacks.'
+				);
+			}
+			return _instantiationService;
+		}
 		const result: TestContainerResult = {
-			get instantiationService() { return _instantiationService; },
-			get reactServices() { return _instantiationService.createInstance(PositronReactServices); },
-			get<T>(id: ServiceIdentifier<T>) { return _instantiationService.get(id); },
+			get instantiationService() { return assertReady(); },
+			get reactServices() { return assertReady().createInstance(PositronReactServices); },
+			get<T>(id: ServiceIdentifier<T>) { return assertReady().get(id); },
 			disposables,
 		};
 		return result;

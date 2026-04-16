@@ -66,9 +66,7 @@ Use `createTestContainer()` for any test needing services. Pick the lowest prese
 
 **Event-driven behavior:** Create an `Emitter` at describe level, pass its `.event` to the stub, then call `.fire()` in your test (wrapped in `act()` for React components). See [webviewPlotThumbnail](../../src/vs/workbench/contrib/positronPlots/test/browser/webviewPlotThumbnail.vitest.tsx) (intro) and [startupStatus](../../src/vs/workbench/contrib/positronConsole/test/browser/startupStatus.vitest.tsx) (advanced).
 
-**Common mistakes:**
-- Don't destructure `ctx` at describe level -- `const { instantiationService } = ...` captures `undefined`. Use `ctx.instantiationService` inside `it()` callbacks.
-- Don't create emitters inside `it()` -- they must be at describe level so `.stub()` captures the right `.event` reference.
+**Common mistake:** Don't create emitters inside `it()` -- they must be at describe level so `.stub()` captures the right `.event` reference.
 
 ## Run commands
 
