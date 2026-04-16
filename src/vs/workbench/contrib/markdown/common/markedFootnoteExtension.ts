@@ -43,12 +43,16 @@ export namespace MarkedFootnoteExtension {
 	//      may be followed by indented continuation lines
 	//   2. `[^id]:\n  continuation` - empty first line, followed by at least
 	//      one indented continuation line (2+ spaces or a tab)
-	// Continuation lines may be blank (pure whitespace at the required indent).
+	// Continuation lines may be indented lines (2+ spaces or tab) or blank lines
+	// (pure whitespace) that sit between indented blocks. The match ends at the
+	// first non-blank, non-indented line, which keeps the definition from
+	// swallowing the rest of the document.
 	// The bare form `[^id]:text` (no separator) and `[^id]:` alone are
 	// intentionally rejected so the input falls through to plain text.
-	// Limitation: blank-line-separated multi-paragraph definitions (CommonMark-style)
-	// are not supported; the match ends at the first line without indentation.
-	const footnoteDefinitionRule = /^\[\^([^\]]+)\]:(?:[ \t]+([^\n]+(?:\n(?:[ \t]{2,}|\t)[^\n]*)*)|[ \t]*((?:\n(?:[ \t]{2,}|\t)[^\n]*)+))/;
+	const indentedContinuation = /(?:[ \t]*\n)*(?:[ \t]{2,}|\t)[^\n]*/.source;
+	const footnoteDefinitionRule = new RegExp(
+		`^\\[\\^([^\\]]+)\\]:(?:[ \\t]+([^\\n]+(?:\\n${indentedContinuation})*)|[ \\t]*((?:\\n${indentedContinuation})+))`
+	);
 
 	export function extension(): marked.MarkedExtension {
 		return {
