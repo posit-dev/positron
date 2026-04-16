@@ -313,10 +313,13 @@ export namespace InterpreterQuickPickList {
         export const installCommandFailed = l10n.t('Failed to install Python');
         export const confirmUvInstallTitle = l10n.t('Install uv');
         export const confirmUvInstallMessage = l10n.t(
-            'uv is not installed. Would you like to install it? This will download and run the official installer script from astral.sh.',
+            'uv is a tool used for downloading Python. It is currently not installed. Would you like to install uv?',
         );
         export const confirmUvInstallYes = l10n.t('Install uv');
-        export const confirmUvInstallNo = l10n.t('Cancel');
+        export const confirmUvInstallDetail = l10n.t('This will run the official installer script from astral.sh.');
+        export const refreshingEnvironments = l10n.t('Refreshing environments');
+        export const globalVenvCreated = (path: string) =>
+            l10n.t('Virtual environment created at {0}', path);
     }
     // --- End Positron ---
 }

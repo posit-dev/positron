@@ -38,6 +38,14 @@ class UvUtils {
         return UvUtils.uvPromise;
     }
 
+    /**
+     * Clears the cached UvUtils instance, forcing re-detection on next call.
+     * Call this after installing uv to ensure it's properly detected.
+     */
+    public static clearCache(): void {
+        UvUtils.uvPromise = undefined as any;
+    }
+
     private static async locate(): Promise<UvUtils | undefined> {
         const uvPath = 'uv';
         traceVerbose(`Probing uv binary ${uvPath}`);
@@ -577,4 +585,17 @@ export async function getUvDirs(): Promise<Set<string>> {
         }
     }
     return dirs;
+}
+
+/**
+ * Clears all uv-related caches. Call this after installing uv to ensure
+ * proper detection of the newly installed tool and any installed Python versions.
+ */
+export function clearUvCache(): void {
+    UvUtils.clearCache();
+    // Also clear the global cache store which caches @cache decorated method results
+    // like getUvDir() and getUvBinDir()
+    const { clearCache } = require('../../../common/utils/cacheUtils');
+    clearCache();
+    traceVerbose('Cleared uv caches');
 }

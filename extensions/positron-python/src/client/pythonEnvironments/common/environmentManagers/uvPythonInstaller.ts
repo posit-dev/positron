@@ -3,13 +3,16 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as os from 'os';
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { traceError, traceInfo } from '../../../logging';
 import { exec } from '../externalDependencies';
-import { isUvInstalled, getAvailablePythonVersions, isWindowsArm64 } from './uv';
+import { isUvInstalled, getAvailablePythonVersions, isWindowsArm64, clearUvCache } from './uv';
 import { Common, InterpreterQuickPickList } from '../../../common/utils/localize';
 import { getWorkspaceFolders } from '../../../common/vscodeApis/workspaceApis';
 import { createUvVenv } from '../../creation/provider/uvCreationProvider';
+import { refreshEnvironments } from '../../../envExt/api.internal';
 
 /**
  * Prompts the user for confirmation before installing uv.
@@ -18,10 +21,16 @@ import { createUvVenv } from '../../creation/provider/uvCreationProvider';
 async function allowUvInstall(): Promise<boolean> {
     const choice = await vscode.window.showInformationMessage(
         InterpreterQuickPickList.UvInstall.confirmUvInstallMessage,
-        { modal: true, detail: 'https://docs.astral.sh/uv/getting-started/installation/' },
+        { modal: true, detail: InterpreterQuickPickList.UvInstall.confirmUvInstallDetail },
         InterpreterQuickPickList.UvInstall.confirmUvInstallYes,
-        InterpreterQuickPickList.UvInstall.confirmUvInstallNo,
+        Common.learnMore,
     );
+
+    if (choice === Common.learnMore) {
+        vscode.env.openExternal(vscode.Uri.parse('https://docs.astral.sh/uv/getting-started/installation/'));
+        return allowUvInstall();
+    }
+
     return choice === InterpreterQuickPickList.UvInstall.confirmUvInstallYes;
 }
 
@@ -57,6 +66,8 @@ async function installUv(): Promise<boolean> {
             await exec('sh', ['-c', 'curl -LsSf https://astral.sh/uv/install.sh | sh']);
         }
         traceInfo('uv installed successfully');
+        // Clear the uv cache so that subsequent calls detect the newly installed uv
+        clearUvCache();
         return true;
     } catch (error) {
         traceError(`Failed to install uv: ${error}`);
@@ -96,6 +107,49 @@ async function installPythonVersionAndGetPath(version: string): Promise<string |
         return undefined;
     } catch (error) {
         traceError(`Failed to install Python ${version}: ${error}`);
+        return undefined;
+    }
+}
+
+/**
+ * Gets the path to the global venv in the user's home directory.
+ * @returns The path to ~/.venv (or equivalent on Windows)
+ */
+function getGlobalVenvPath(): string {
+    return path.join(os.homedir(), '.venv');
+}
+
+/**
+ * Creates a global virtual environment for use when no workspace is open.
+ * The venv is created at ~/.venv so that `uv pip install` works from the home directory.
+ * @param version The Python version (e.g., "3.13")
+ * @param progress Progress reporter
+ * @returns The path to the venv's Python executable, or undefined if creation failed
+ */
+async function createGlobalVenv(
+    version: string,
+    progress: vscode.Progress<{ message?: string }>,
+): Promise<string | undefined> {
+    const venvPath = getGlobalVenvPath();
+
+    traceInfo(`Creating global venv at ${venvPath}...`);
+    progress.report({ message: InterpreterQuickPickList.UvInstall.creatingVenv });
+
+    try {
+        // Create the venv using uv
+        // --seed installs pip/setuptools for compatibility
+        const args = ['venv', venvPath, '--seed', '-p', version];
+        await exec('uv', args, { throwOnStdErr: false });
+
+        // Return the path to the Python executable
+        const pythonPath = process.platform === 'win32'
+            ? path.join(venvPath, 'Scripts', 'python.exe')
+            : path.join(venvPath, 'bin', 'python');
+
+        traceInfo(`Global venv created at ${pythonPath}`);
+        return pythonPath;
+    } catch (error) {
+        traceError(`Failed to create global venv: ${error}`);
         return undefined;
     }
 }
@@ -156,7 +210,8 @@ export async function installPythonViaUv(): Promise<InstallPythonResult> {
                 if (!(await isUvInstalled())) {
                     progress.report({ message: InterpreterQuickPickList.UvInstall.installingUv });
                     if (!(await installUv())) {
-                        return { success: false, error: InterpreterQuickPickList.UvInstall.uvInstallFailed };
+                        // User declined or installation failed - exit silently
+                        return { success: false };
                     }
                 }
 
@@ -173,9 +228,12 @@ export async function installPythonViaUv(): Promise<InstallPythonResult> {
                     return { success: false, error: InterpreterQuickPickList.UvInstall.installFailed(version) };
                 }
 
-                // Offer to create venv if workspace is open
+                // Create venv - either in workspace or in global location
                 const workspaces = getWorkspaceFolders();
+                let venvPython: string | undefined;
+
                 if (workspaces && workspaces.length > 0) {
+                    // Workspace is open - offer to create venv there
                     const createVenv = await vscode.window.showQuickPick(
                         [
                             { label: InterpreterQuickPickList.UvInstall.yesRecommended, id: 'yes' },
@@ -186,18 +244,37 @@ export async function installPythonViaUv(): Promise<InstallPythonResult> {
 
                     if (createVenv?.id === 'yes') {
                         progress.report({ message: InterpreterQuickPickList.UvInstall.creatingVenv });
-                        const venvPython = await createUvVenv(workspaces[0], version, progress);
+                        venvPython = await createUvVenv(workspaces[0], version, progress);
                         if (venvPython) {
                             vscode.window.showInformationMessage(InterpreterQuickPickList.UvInstall.venvCreated);
-                            return { success: true, pythonPath: venvPython };
+                        } else {
+                            // Venv creation failed - warn the user
+                            vscode.window.showWarningMessage(InterpreterQuickPickList.UvInstall.venvCreationFailed);
                         }
-                        // Venv creation failed - warn the user that we're falling back to base Python
+                    }
+                } else {
+                    // No workspace - create a global venv at ~/.venv
+                    venvPython = await createGlobalVenv(version, progress);
+                    if (venvPython) {
+                        vscode.window.showInformationMessage(
+                            InterpreterQuickPickList.UvInstall.globalVenvCreated(getGlobalVenvPath()),
+                        );
+                    } else {
                         vscode.window.showWarningMessage(InterpreterQuickPickList.UvInstall.venvCreationFailed);
                     }
                 }
 
+                // Trigger a refresh of Python environments so the new interpreter is discovered
+                // and properly identified as uv-managed
+                progress.report({ message: InterpreterQuickPickList.UvInstall.refreshingEnvironments });
+                await refreshEnvironments(undefined).catch((err) => {
+                    traceError(`Failed to refresh environments: ${err}`);
+                });
+
+                // Return the venv Python if created, otherwise fall back to base Python
+                const finalPythonPath = venvPython ?? pythonPath;
                 vscode.window.showInformationMessage(InterpreterQuickPickList.UvInstall.installSuccess(version));
-                return { success: true, pythonPath };
+                return { success: true, pythonPath: finalPythonPath };
             } catch (error) {
                 traceError(`installPythonViaUv failed: ${error}`);
                 return { success: false, error: String(error) };

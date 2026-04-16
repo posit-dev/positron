@@ -4,6 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import * as os from 'os';
+import * as path from 'path';
 import * as sinon from 'sinon';
 import { anything, when, reset } from 'ts-mockito';
 import * as fileUtils from '../../../../client/pythonEnvironments/common/externalDependencies';
@@ -11,10 +13,20 @@ import * as logging from '../../../../client/logging';
 import * as uv from '../../../../client/pythonEnvironments/common/environmentManagers/uv';
 import * as workspaceApis from '../../../../client/common/vscodeApis/workspaceApis';
 import * as uvCreationProvider from '../../../../client/pythonEnvironments/creation/provider/uvCreationProvider';
+import * as apiInternal from '../../../../client/envExt/api.internal';
 import { getAvailablePythonVersions } from '../../../../client/pythonEnvironments/common/environmentManagers/uv';
 import { installPythonViaUv } from '../../../../client/pythonEnvironments/common/environmentManagers/uvPythonInstaller';
 import { mockedVSCodeNamespaces } from '../../../vscode-mock';
 import { InterpreterQuickPickList } from '../../../../client/common/utils/localize';
+
+// Helper to get expected global venv path
+function getExpectedGlobalVenvPython(): string {
+    const homeDir = os.homedir();
+    const venvPath = path.join(homeDir, '.venv');
+    return process.platform === 'win32'
+        ? path.join(venvPath, 'Scripts', 'python.exe')
+        : path.join(venvPath, 'bin', 'python');
+}
 
 suite('UV Python Installer Tests', () => {
     let execStub: sinon.SinonStub;
@@ -288,6 +300,8 @@ suite('UV Python Installer Tests', () => {
             createUvVenvStub = sinon.stub(uvCreationProvider, 'createUvVenv');
             // Stub getAvailablePythonVersions from uv module
             getAvailablePythonVersionsStub = sinon.stub(uv, 'getAvailablePythonVersions');
+            // Stub refreshEnvironments to avoid actual environment refresh
+            sinon.stub(apiInternal, 'refreshEnvironments').resolves();
             sinon.stub(logging, 'traceInfo');
 
             quickPickCallCount = 0;
@@ -311,7 +325,7 @@ suite('UV Python Installer Tests', () => {
             });
 
             when(mockedVSCodeNamespaces.window!.showErrorMessage(anything())).thenResolve(undefined);
-            // Default: user confirms uv installation when prompted
+            // Default: user confirms uv installation when prompted (4 args: message, options, install button, learn more)
             when(mockedVSCodeNamespaces.window!.showInformationMessage(anything(), anything(), anything(), anything())).thenResolve(
                 InterpreterQuickPickList.UvInstall.confirmUvInstallYes as any,
             );
@@ -336,7 +350,7 @@ suite('UV Python Installer Tests', () => {
             assert.strictEqual(result.error, 'Cancelled');
         });
 
-        test('Returns error when uv installation fails', async () => {
+        test('Exits silently when uv installation fails or is declined', async () => {
             // uv not installed initially
             isUvInstalledStub.resolves(false);
             // uv install command fails
@@ -345,14 +359,15 @@ suite('UV Python Installer Tests', () => {
             const result = await installPythonViaUv();
 
             assert.strictEqual(result.success, false);
-            assert.ok(result.error);
+            // Should not have an error message - exit silently
+            assert.strictEqual(result.error, undefined);
         });
 
         test('Continues after uv installation even if PATH not updated in current process', async () => {
             // uv not installed initially
             isUvInstalledStub.onFirstCall().resolves(false);
             // uv install succeeds
-            execStub.onFirstCall().resolves({ stdout: '' }); // uv install
+            execStub.onCall(0).resolves({ stdout: '' }); // uv install
             // After install, getAvailablePythonVersions returns versions
             getAvailablePythonVersionsStub.resolves([
                 { version: '3.13', isInstalled: false, identifier: 'cpython-3.13.1-macos-aarch64-none' },
@@ -360,9 +375,11 @@ suite('UV Python Installer Tests', () => {
             // User selects version
             quickPickResponses = [{ version: '3.13', label: 'Python 3.13' }];
             // uv python install succeeds
-            execStub.onSecondCall().resolves({ stdout: '' });
+            execStub.onCall(1).resolves({ stdout: '' });
             // uv python find returns path
-            execStub.onThirdCall().resolves({ stdout: '/usr/local/bin/python3.13' });
+            execStub.onCall(2).resolves({ stdout: '/usr/local/bin/python3.13' });
+            // uv venv creation succeeds (for global venv)
+            execStub.onCall(3).resolves({ stdout: '' });
             // No workspace
             getWorkspaceFoldersStub.returns(undefined);
 
@@ -399,7 +416,7 @@ suite('UV Python Installer Tests', () => {
             // Error message shown via vscode.window.showErrorMessage
         });
 
-        test('Succeeds without venv when no workspace is open', async () => {
+        test('Creates global venv when no workspace is open', async () => {
             isUvInstalledStub.resolves(true);
             // Return available versions via stub
             getAvailablePythonVersionsStub.resolves([
@@ -411,13 +428,16 @@ suite('UV Python Installer Tests', () => {
             execStub.onFirstCall().resolves({ stdout: '' });
             // uv python find returns path
             execStub.onSecondCall().resolves({ stdout: '/usr/local/bin/python3.13' });
+            // uv venv creation succeeds (for global venv)
+            execStub.onThirdCall().resolves({ stdout: '' });
             // No workspace open
             getWorkspaceFoldersStub.returns(undefined);
 
             const result = await installPythonViaUv();
 
             assert.strictEqual(result.success, true);
-            assert.strictEqual(result.pythonPath, '/usr/local/bin/python3.13');
+            // Should return the global venv path
+            assert.strictEqual(result.pythonPath, getExpectedGlobalVenvPython());
         });
 
         test('Succeeds with venv creation when user accepts', async () => {
@@ -523,6 +543,8 @@ suite('UV Python Installer Tests', () => {
             execStub.onFirstCall().resolves({ stdout: '' });
             // uv python find returns path
             execStub.onSecondCall().resolves({ stdout: '/usr/local/bin/python3.13' });
+            // uv venv creation succeeds (for global venv)
+            execStub.onThirdCall().resolves({ stdout: '' });
             // No workspace
             getWorkspaceFoldersStub.returns(undefined);
 
@@ -536,7 +558,7 @@ suite('UV Python Installer Tests', () => {
             // uv not installed initially
             isUvInstalledStub.onFirstCall().resolves(false);
             // uv install succeeds (sh command)
-            execStub.onFirstCall().resolves({ stdout: '' });
+            execStub.onCall(0).resolves({ stdout: '' });
             // After install, getAvailablePythonVersions returns versions
             getAvailablePythonVersionsStub.resolves([
                 { version: '3.13', isInstalled: false, identifier: 'cpython-3.13.1-macos-aarch64-none' },
@@ -544,30 +566,43 @@ suite('UV Python Installer Tests', () => {
             // User selects version
             quickPickResponses = [{ version: '3.13', label: 'Python 3.13' }];
             // uv python install succeeds
-            execStub.onSecondCall().resolves({ stdout: '' });
+            execStub.onCall(1).resolves({ stdout: '' });
             // uv python find returns path
-            execStub.onThirdCall().resolves({ stdout: '/usr/local/bin/python3.13' });
+            execStub.onCall(2).resolves({ stdout: '/usr/local/bin/python3.13' });
+            // uv venv creation succeeds (for global venv)
+            execStub.onCall(3).resolves({ stdout: '' });
             // No workspace
             getWorkspaceFoldersStub.returns(undefined);
 
             const result = await installPythonViaUv();
 
             assert.strictEqual(result.success, true);
-            assert.strictEqual(result.pythonPath, '/usr/local/bin/python3.13');
+            // Should return the global venv path
+            assert.strictEqual(result.pythonPath, getExpectedGlobalVenvPython());
         });
 
-        test('Returns error when user declines uv installation', async () => {
-            // uv not installed initially
-            isUvInstalledStub.resolves(false);
-            // User declines uv installation
-            when(mockedVSCodeNamespaces.window!.showInformationMessage(anything(), anything(), anything(), anything())).thenResolve(
-                InterpreterQuickPickList.UvInstall.confirmUvInstallNo as any,
-            );
+        test('Falls back to base Python when global venv creation fails', async () => {
+            isUvInstalledStub.resolves(true);
+            // Return available versions via stub
+            getAvailablePythonVersionsStub.resolves([
+                { version: '3.13', isInstalled: false, identifier: 'cpython-3.13.1-macos-aarch64-none' },
+            ]);
+            // User selects version
+            quickPickResponses = [{ version: '3.13', label: 'Python 3.13' }];
+            // uv python install succeeds
+            execStub.onFirstCall().resolves({ stdout: '' });
+            // uv python find returns path
+            execStub.onSecondCall().resolves({ stdout: '/usr/local/bin/python3.13' });
+            // uv venv creation fails
+            execStub.onThirdCall().rejects(new Error('venv creation failed'));
+            // No workspace open
+            getWorkspaceFoldersStub.returns(undefined);
 
             const result = await installPythonViaUv();
 
-            assert.strictEqual(result.success, false);
-            assert.ok(result.error);
+            assert.strictEqual(result.success, true);
+            // Should fall back to base Python path
+            assert.strictEqual(result.pythonPath, '/usr/local/bin/python3.13');
         });
     });
 });
