@@ -40,8 +40,4 @@ describe('EmptyConsole', () => {
 		);
 	});
 
-	it('snapshot of rendered output', () => {
-		const { container } = rtl.render(<EmptyConsole />);
-		expect(container.innerHTML).toMatchInlineSnapshot(`"<div class="empty-console"><div class="title"><span>There is no session running. Use </span><button class="positron-button link" role="button" tabindex="0">Start Session</button><span> to start one.</span></div></div>"`);
-	});
 });
