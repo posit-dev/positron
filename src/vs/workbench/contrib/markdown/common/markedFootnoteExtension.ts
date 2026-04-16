@@ -59,7 +59,7 @@ export namespace MarkedFootnoteExtension {
 		};
 	}
 
-	function footnoteRef(): marked.TokenizerAndRendererExtension {
+	function footnoteRef(): marked.TokenizerExtension {
 		return {
 			name: 'footnoteRef',
 			level: 'inline',
@@ -77,15 +77,10 @@ export namespace MarkedFootnoteExtension {
 				}
 				return undefined;
 			},
-			renderer() {
-				// Unused: the React renderer in markdownRenderer.tsx produces
-				// footnote output since it has cross-token numbering context.
-				return '';
-			},
 		};
 	}
 
-	function footnoteDefinition(): marked.TokenizerAndRendererExtension {
+	function footnoteDefinition(): marked.TokenizerExtension {
 		return {
 			name: 'footnoteDefinition',
 			level: 'block',
@@ -114,11 +109,6 @@ export namespace MarkedFootnoteExtension {
 				return undefined;
 			},
 			childTokens: ['tokens'],
-			renderer() {
-				// Unused: the React renderer groups definitions into a footnote
-				// section; see footnoteRef's renderer for the full rationale.
-				return '';
-			},
 		};
 	}
 }
