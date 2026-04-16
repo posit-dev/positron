@@ -41,7 +41,7 @@ test.describe('Positron Notebooks: Scroll Position', {
 		// Switch back to the notebook tab by clicking it directly.
 		// We can't use editors.selectTab() here because it expects a Monaco
 		// editor to receive focus, but the notebook is a custom editor.
-		await app.code.driver.page.getByRole('tab', { name: NOTEBOOK_FILE }).click();
+		await app.code.driver.currentPage.getByRole('tab', { name: NOTEBOOK_FILE }).click();
 		await notebooksPositron.expectToBeVisible();
 
 		// Verify the scroll position is restored.
