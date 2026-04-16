@@ -296,8 +296,32 @@ export class TokenMarkdownRenderer {
 	 * Footnote definitions are collected and appended as a grouped section at the end.
 	 */
 	render(tokens: ExtendedToken[]): React.ReactElement[] {
-		// First pass: recursively collect all unique footnote IDs (both refs and
-		// definitions) and deduplicate definitions (first-wins).
+		// First pass: walk the token tree to build footnote numbering and
+		// collision-safe anchor IDs for cross-token references.
+		const footnoteDefinitions = this.collectFootnoteContext(tokens);
+
+		// Second pass: render all tokens. Definition tokens produce empty
+		// fragments since they are grouped into the section appended below.
+		const elements = tokens.map((token, i) => this.renderToken(token, `token-${i}`));
+
+		if (footnoteDefinitions.length > 0) {
+			elements.push(this.renderFootnoteSection(footnoteDefinitions));
+		}
+
+		return elements;
+	}
+
+	/**
+	 * Walks the token tree to gather every footnote ID (refs and definitions),
+	 * deduplicates definitions (first-wins), and populates the instance maps
+	 * used by renderFootnoteRef/renderFootnoteSection:
+	 *   - _footnoteSafeIdMap: raw id -> collision-safe DOM id
+	 *   - _footnoteNumberMap: raw id -> sequential footnote number
+	 *   - _footnoteRefCounter: reset here, incremented during rendering
+	 *
+	 * Returns the deduplicated definitions in source order.
+	 */
+	private collectFootnoteContext(tokens: ExtendedToken[]): MarkedFootnoteExtension.FootnoteDefinitionToken[] {
 		const allIds: string[] = [];
 		const seenRawIds = new Set<string>();
 		const seenDefIds = new Set<string>();
@@ -310,7 +334,7 @@ export class TokenMarkdownRenderer {
 			}
 		};
 
-		const collectFromTokens = (tokenList: ExtendedToken[]) => {
+		const walk = (tokenList: ExtendedToken[]) => {
 			for (const token of tokenList) {
 				if (token.type === 'footnoteDefinition') {
 					const def = token as MarkedFootnoteExtension.FootnoteDefinitionToken;
@@ -325,32 +349,32 @@ export class TokenMarkdownRenderer {
 				// Recurse into child tokens (paragraphs, headings, lists, emphasis, etc.)
 				const generic = token as { tokens?: ExtendedToken[]; items?: ExtendedToken[] };
 				if (generic.tokens) {
-					collectFromTokens(generic.tokens);
+					walk(generic.tokens);
 				}
 				if (generic.items) {
-					collectFromTokens(generic.items);
+					walk(generic.items);
 				}
 				// Table tokens store inline content in header/row cells.
 				if (token.type === 'table') {
 					const table = token as marked.Tokens.Table;
 					for (const cell of table.header) {
-						collectFromTokens(cell.tokens as ExtendedToken[]);
+						walk(cell.tokens as ExtendedToken[]);
 					}
 					for (const row of table.rows) {
 						for (const cell of row) {
-							collectFromTokens(cell.tokens as ExtendedToken[]);
+							walk(cell.tokens as ExtendedToken[]);
 						}
 					}
 				}
 			}
 		};
 
-		collectFromTokens(tokens as ExtendedToken[]);
+		walk(tokens);
 
-		// Build collision-safe DOM ID map for ALL referenced and defined IDs.
 		this._footnoteNumberMap = new Map();
 		this._footnoteRefCounter = new Map();
 		this._footnoteSafeIdMap = new Map();
+
 		const usedSafeIds = new Set<string>();
 		for (const id of allIds) {
 			let safeId = id.replace(/[^\w-]/g, '-');
@@ -365,20 +389,11 @@ export class TokenMarkdownRenderer {
 			this._footnoteSafeIdMap.set(id, safeId);
 		}
 
-		// Assign sequential numbers to definitions.
 		for (let i = 0; i < footnoteDefinitions.length; i++) {
 			this._footnoteNumberMap.set(footnoteDefinitions[i].id, i + 1);
 		}
 
-		// Second pass: render all tokens (definitions produce empty fragments).
-		const elements = tokens.map((token, i) => this.renderToken(token, `token-${i}`));
-
-		// Append the footnote section if any definitions exist.
-		if (footnoteDefinitions.length > 0) {
-			elements.push(this.renderFootnoteSection(footnoteDefinitions));
-		}
-
-		return elements;
+		return footnoteDefinitions;
 	}
 
 	/**
@@ -609,12 +624,16 @@ export class TokenMarkdownRenderer {
 	}
 
 	/**
-	 * Returns the collision-safe DOM ID for a footnote.
-	 * Falls back to simple sanitization for IDs not in the map (e.g. refs to
-	 * undefined footnotes).
+	 * Returns the collision-safe DOM ID for a footnote. The id must have been
+	 * registered by collectFootnoteContext, which walks every ref and
+	 * definition before rendering.
 	 */
 	private sanitizeFootnoteId(id: string): string {
-		return this._footnoteSafeIdMap.get(id) ?? id.replace(/[^\w-]/g, '-');
+		const safeId = this._footnoteSafeIdMap.get(id);
+		if (safeId === undefined) {
+			throw new Error(`Footnote id "${id}" was not registered; collectFootnoteContext() must run before rendering footnotes.`);
+		}
+		return safeId;
 	}
 
 	private renderFootnoteRef(token: MarkedFootnoteExtension.FootnoteRefToken, key: string): React.ReactElement {
@@ -639,12 +658,15 @@ export class TokenMarkdownRenderer {
 					{definitions.map((def) => {
 						const safeId = this.sanitizeFootnoteId(def.id);
 						const wasReferenced = this._footnoteRefCounter.has(def.id);
+						// Backref always targets the first ref anchor
+						// (#fnref-<id>); secondary refs (#fnref-<id>-2, ...) get
+						// no dedicated backref by design.
 						const backref = wasReferenced
 							? <NotebookLink className='footnote-backref' href={`#fnref-${safeId}`}>{'\u21a9'}</NotebookLink>
 							: null;
 
 						const bodyElements = def.tokens.map((token, i) => {
-							const key = `fn-body-${this.keyCounter++}`;
+							const key = `fn-body-${safeId}-${i}`;
 							const isLastToken = i === def.tokens.length - 1;
 							// Place the backref inside the last paragraph for
 							// correct inline layout, matching standard footnote rendering.

@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type * as marked from '../../../../base/common/marked/marked.js';
-import { htmlAttributeEncodeValue } from '../../../../base/common/strings.js';
 
 /**
  * Marked extension for footnote syntax.
@@ -42,6 +41,8 @@ export namespace MarkedFootnoteExtension {
 	// Match [^id]: with optional same-line text and optional indented continuation lines.
 	// Continuation lines must start with at least two spaces or a tab (may be empty).
 	// The first-line body may be empty (e.g. [^1]:\n  continuation).
+	// Limitation: blank-line-separated multi-paragraph definitions (CommonMark-style)
+	// are not supported; the match ends at the first line without indentation.
 	const footnoteDefinitionRule = /^\[\^([^\]]+)\]:[ \t]*((?:[^\n]+)?(?:\n(?:[ \t]{2,}|\t)[^\n]*)*)/;
 
 	export function extension(): marked.MarkedExtension {
@@ -71,11 +72,10 @@ export namespace MarkedFootnoteExtension {
 				}
 				return undefined;
 			},
-			renderer(token: marked.Tokens.Generic) {
-				// Placeholder -- actual rendering is handled by the React renderer
-				// in markdownRenderer.tsx which has access to footnote numbering context.
-				const safeId = htmlAttributeEncodeValue(token.id);
-				return `<sup class="footnote-ref"><a href="#fn-${safeId}" id="fnref-${safeId}">${safeId}</a></sup>`;
+			renderer() {
+				// Unused: the React renderer in markdownRenderer.tsx produces
+				// footnote output since it has cross-token numbering context.
+				return '';
 			},
 		};
 	}
@@ -107,8 +107,9 @@ export namespace MarkedFootnoteExtension {
 				return undefined;
 			},
 			childTokens: ['tokens'],
-			renderer(token: marked.Tokens.Generic) {
-				// Placeholder -- actual rendering handled by the React renderer.
+			renderer() {
+				// Unused: the React renderer groups definitions into a footnote
+				// section; see footnoteRef's renderer for the full rationale.
 				return '';
 			},
 		};
