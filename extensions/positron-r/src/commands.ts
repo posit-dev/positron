@@ -522,10 +522,11 @@ export async function getFilePathForLoad(resource?: vscode.Uri): Promise<string 
 	try {
 		await vscode.workspace.fs.stat(vscode.Uri.file(filePath));
 
-		// Format path relative to R's working directory, falling back to home-relative
+		// Format path relative to R's working directory, falling back to absolute.
+		// Do not use home-relative paths: on Windows, os.homedir() differs from
+		// R's path.expand("~"), which would produce doubled path segments.
 		return await positron.paths.formatPathForCode(filePath, {
-			relativeTo: ['session', 'home'],
-			homeUri: vscode.Uri.file(os.homedir())
+			relativeTo: ['session'],
 		});
 	} catch {
 		return undefined;
