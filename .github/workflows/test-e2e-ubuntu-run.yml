@@ -258,7 +258,7 @@ jobs:
       - name: Install Playwright browsers
         env:
           PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
-        run: npx playwright install --with-deps
+        run: npx playwright install
 
       - name: Install Microsoft Edge for e2e-edge project
         if: ${{ inputs.project == 'e2e-edge' }}
