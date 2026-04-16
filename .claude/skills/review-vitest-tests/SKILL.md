@@ -53,7 +53,15 @@ Any shared mutable state that could leak between tests? Any test that depends on
 
 Are runtimes/sessions created per-test when a shared one would suffice? Or shared when per-test isolation is needed?
 
-### 9. RTL query usage (React tests only)
+### 9. Emitter and ctx scoping
+
+Any `new Emitter()` created inside an `it()` callback whose `.event` is expected to reach a service wired via `.stub()`? The emitter must be at describe level (or in a helper called at describe level) so `.stub()` captures the correct `.event` reference during `build()`. An emitter inside `it()` is a different object than the one wired into the service -- `.fire()` calls won't reach the component. Also check for `ctx` destructuring at describe level (e.g. `const { instantiationService } = createTestContainer().build()`) -- the builder uses lazy getters, so destructuring evaluates immediately before `beforeEach` has run, producing `undefined`.
+
+### 10. Spy cleanup
+
+Any `vi.spyOn(console, ...)` or `vi.spyOn(obj, 'method')` without a corresponding restore? Check for either `spy.mockRestore()` after use, `afterEach(() => vi.restoreAllMocks())`, or `restoreMocks: true` in vitest config. Without cleanup, mocked `console.error`/`console.log` suppresses output for all subsequent tests in the file.
+
+### 11. RTL query usage (React tests only)
 
 For `.vitest.tsx` files using `setupRTLRenderer`: are there `container.querySelector` calls that could use `getByRole` or `getByText` instead? Flag cases where the component renders visible text or accessible roles that RTL can query directly. Note: many Positron components use internal CSS classes without accessible roles -- `container.querySelector` is acceptable when RTL queries aren't feasible.
 
