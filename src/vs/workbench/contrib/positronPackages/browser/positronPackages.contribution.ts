@@ -548,7 +548,7 @@ class RefreshMetadataAction extends Action2 {
 			menu: {
 				id: MenuId.ViewTitle,
 				when: PACKAGES_VIEW_VISIBLE,
-				group: 'metadata',
+				group: 'packages_metadata',
 				order: 1
 			}
 		});
