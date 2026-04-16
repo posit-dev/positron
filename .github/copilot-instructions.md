@@ -5,7 +5,7 @@
 Visual Studio Code is built with a layered architecture using TypeScript, web APIs and Electron, combining web technologies with native app capabilities. The codebase is organized into key architectural layers:
 
 ### Root Folders
-- `src/`: Main TypeScript source code with unit tests in `src/vs/*/test/` folders
+- `src/`: Main TypeScript source code with tests in `src/vs/*/test/` folders (Vitest `.vitest.ts`/`.vitest.tsx` and Mocha `.test.ts`)
 - `build/`: Build scripts and CI/CD tools
 - `extensions/`: Built-in extensions that ship with VS Code
 - `test/`: Integration tests and test infrastructure
@@ -60,7 +60,10 @@ MANDATORY: Always check the `VS Code - Build` watch task output via #runTasks/ge
 - Start the task if it's not already running in the background
 
 ### TypeScript validation steps
-- Use the run test tool if you need to run tests. If that tool is not available, then you can use `scripts/test.sh` (or `scripts\test.bat` on Windows) for unit tests (add `--grep <pattern>` to filter tests) or `scripts/test-integration.sh` (or `scripts\test-integration.bat` on Windows) for integration tests (integration tests end with .integrationTest.ts or are in /extensions/).
+- Use the run test tool if you need to run tests. If that tool is not available:
+  - Vitest tests (`.vitest.ts`/`.vitest.tsx`): `npx vitest run <file>` (no build daemons needed)
+  - Unit tests (`.test.ts`): `scripts/test.sh` (or `scripts\test.bat` on Windows), add `--grep <pattern>` to filter
+  - Extension host tests (`.integrationTest.ts` or in `/extensions/`): `scripts/test-integration.sh` (or `scripts\test-integration.bat` on Windows)
 - Use `npm run valid-layers-check` to check for layering issues
 
 ## Coding Guidelines
