@@ -19,7 +19,8 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
-import { getSessionIcon } from '../../positronConsole/common/sessionDisplayUtils.js';
+import { getSessionDisplayName, getSessionIcon, isQuartoSession } from '../../positronConsole/common/sessionDisplayUtils.js';
+import { RuntimeSessionDisplayInfo } from '../../../services/runtimeSession/common/runtimeSessionDisplayInfo.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { dispose } from '../../../../base/common/lifecycle.js';
@@ -121,6 +122,9 @@ async function selectLanguage(accessor: ServicesAccessor) {
  * @param options The options for the quick pick.
  * @param options.allowStartSession Whether to allow the user to start a new session.
  * @param options.title The title of the quick pick.
+ * @param options.includeNotebookSessions Whether to display notebook and quarto
+ *   sessions (disabled) alongside console sessions. Defaults to true; set to
+ *   false for actions that only operate on console sessions.
  * @returns The runtime session the user selected, or undefined, if the user canceled the operation.
  */
 const selectLanguageRuntimeSession = async (
@@ -128,6 +132,7 @@ const selectLanguageRuntimeSession = async (
 	options?: {
 		allowStartSession?: boolean;
 		title?: string;
+		includeNotebookSessions?: boolean;
 	}): Promise<ILanguageRuntimeSession | undefined> => {
 
 	// Constants
@@ -138,6 +143,8 @@ const selectLanguageRuntimeSession = async (
 	const runtimeSessionService = accessor.get(IRuntimeSessionService);
 	const commandService = accessor.get(ICommandService);
 	const modelService = accessor.get(IModelService);
+
+	const includeNotebookSessions = options?.includeNotebookSessions ?? true;
 
 	// Filter active sessions by runtime state (exclude exited/uninitialized sessions).
 	const isActiveState = (session: ILanguageRuntimeSession) => {
@@ -175,19 +182,44 @@ const selectLanguageRuntimeSession = async (
 			picked: session.sessionId === foregroundSessionId,
 		}));
 
-	// Show quick pick to select an active runtime or show all runtimes.
 	const quickPickItems: QuickPickItem[] = [
 		{
 			label: localize('positron.languageRuntime.activeConsoleSessions', 'Console Sessions'),
 			type: 'separator',
 		},
 		...consoleItems,
-		{
-			type: 'separator'
-		}
 	];
 
+	if (includeNotebookSessions) {
+		// Active notebook sessions (includes quarto), sorted by creation time.
+		const activeNotebookSessions = runtimeSessionService.activeSessions
+			.filter(session => session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook)
+			.filter(isActiveState)
+			.sort((a, b) => a.metadata.createdTimestamp - b.metadata.createdTimestamp);
+
+		const notebookItems: IQuickPickItem[] = activeNotebookSessions
+			.filter(session => !isQuartoSession(session.metadata.notebookUri, modelService))
+			.map(session => ({
+				id: session.sessionId,
+				label: getSessionDisplayName(new RuntimeSessionDisplayInfo(session), modelService),
+				detail: session.runtimeMetadata.runtimePath,
+				description: session.sessionId === foregroundSessionId
+					? localize('positron.languageRuntime.currentlySelected', 'Currently Selected')
+					: undefined,
+				iconClass: ThemeIcon.asClassName(getSessionIcon(session.metadata, modelService)),
+			}));
+
+		if (notebookItems.length > 0) {
+			quickPickItems.push({
+				label: localize('positron.languageRuntime.notebookSessions', 'Notebook Sessions'),
+				type: 'separator',
+			});
+			quickPickItems.push(...notebookItems);
+		}
+	}
+
 	if (options?.allowStartSession) {
+		quickPickItems.push({ type: 'separator' });
 		quickPickItems.push({
 			label: localize('positron.languageRuntime.newConsoleSession', 'New Console Session...'),
 			id: startNewRuntimeId,
@@ -743,7 +775,10 @@ export function registerLanguageRuntimeActions() {
 
 			// Prompt the user to select a session they want to rename.
 			const session = await selectLanguageRuntimeSession(
-				accessor, { title: localize('positron.languageRuntime.selectSessionToRename', 'Select Session To Rename') });
+				accessor, {
+				includeNotebookSessions: false,
+				title: localize('positron.languageRuntime.selectSessionToRename', 'Select Session To Rename'),
+			});
 			if (!session) {
 				return;
 			}
