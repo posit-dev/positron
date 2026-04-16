@@ -1198,12 +1198,22 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		models = this.filterAvailableModels(models);
 		// --- End Positron ---
 
+		// --- Start Positron ---
+		// Upstream checks `isDefaultForLocation` here and falls back to cached
+		// models when no default is found.  Positron's `filterAvailableModels`
+		// runs *before* this check (above), so the default model may already
+		// have been removed (e.g. user hid it, or its provider is disabled).
+		// That causes the fallback to permanently replace live models with a
+		// stale cache that never gets updated.  Only fall back when there are
+		// genuinely no live models (e.g. extension not yet activated).
+		// See: https://github.com/posit-dev/positron/discussions/12884
+		//      https://github.com/posit-dev/positron/issues/12572
+		/*
 		if (models.length === 0 || models.some(m => m.metadata.isDefaultForLocation[this.location]) === false) {
-			// --- Start Positron ---
-			// Apply the same filtering to cached models before using them as fallback
-			/*
 			models = cachedModels;
-			*/
+		*/
+		if (models.length === 0) {
+			// Apply the same filtering to cached models before using them as fallback
 			models = this.filterAvailableModels(cachedModels);
 			// --- End Positron ---
 		} else {
