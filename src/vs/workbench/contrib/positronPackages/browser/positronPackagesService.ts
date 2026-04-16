@@ -27,8 +27,6 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 
 	private readonly _onDidStopPositronPackagesInstanceEmitter = this._register(new Emitter<IPositronPackagesInstance>());
 
-	private readonly _onDidChangeSelectedPackage = this._register(new Emitter<string | undefined>());
-
 	private readonly _instancesBySessionId = this._register(new DisposableMap<string, PositronPackagesInstance>());
 
 	private _activeInstance: PositronPackagesInstance | undefined;
@@ -164,8 +162,6 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 
 	readonly onDidStopPackagesInstance = this._onDidStopPositronPackagesInstanceEmitter.event;
 
-	readonly onDidChangeSelectedPackage = this._onDidChangeSelectedPackage.event;
-
 	get activeSession(): ILanguageRuntimeSession | undefined {
 		return this._activeInstance?.session;
 	}
@@ -180,7 +176,6 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 
 	setSelectedPackage(packageName: string | undefined): void {
 		this._selectedPackageContextKey.set(packageName ?? '');
-		this._onDidChangeSelectedPackage.fire(packageName);
 	}
 
 	async refreshPackages(token?: CancellationToken): Promise<ILanguageRuntimePackage[]> {

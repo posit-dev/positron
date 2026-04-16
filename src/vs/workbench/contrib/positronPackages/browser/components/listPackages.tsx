@@ -258,7 +258,10 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	// Item renderer
 	const ItemEntry = (props: { index: number; style: CSSProperties }) => {
 		const itemProps = filteredPackages[props.index];
-		const { id, name, displayName, version } = itemProps;
+		const { id, name, displayName, version, latestVersion } = itemProps;
+
+		// Check if package has an update available
+		const hasUpdate = latestVersion && latestVersion !== version;
 
 		return (
 			// eslint-disable-next-line jsx-a11y/no-static-element-interactions
@@ -317,6 +320,14 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 			>
 				<div className='packages-list-item-name'>{displayName}</div>
 				<div className='packages-list-item-version'>{version}</div>
+				{hasUpdate && (
+					<div
+						className='packages-list-item-update'
+						title={localize('positronPackages.updateAvailable', "Update available: {0}", latestVersion)}
+					>
+						&#x2191;
+					</div>
+				)}
 			</div >
 		);
 	};
