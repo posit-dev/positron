@@ -27,14 +27,14 @@ describe('PositronNotebookInstance', () => {
 			);
 
 			const cells = notebook.cells.get();
-			expect(cells.length).toBe(2);
-			expect(cells[0].model.getValue()).toBe('print("hello")');
-			expect(cells[1].model.getValue()).toBe('print("world")');
+			expect(cells.length, 'Unexpected number of cells in notebook').toBe(2);
+			expect(cells[0].model.getValue(), 'Unexpected content for notebook cell 0').toBe('print("hello")');
+			expect(cells[1].model.getValue(), 'Unexpected content for notebook cell 1').toBe('print("world")');
 
 			const { textModel } = notebook;
-			expect(textModel).toBeDefined();
-			expect(textModel!.cells[0].getValue()).toBe('print("hello")');
-			expect(textModel!.cells[1].getValue()).toBe('print("world")');
+			expect(textModel, 'Notebook should have a text model').toBeDefined();
+			expect(textModel!.cells[0].getValue(), 'Unexpected content for text model cell 0').toBe('print("hello")');
+			expect(textModel!.cells[1].getValue(), 'Unexpected content for text model cell 1').toBe('print("world")');
 		});
 	});
 

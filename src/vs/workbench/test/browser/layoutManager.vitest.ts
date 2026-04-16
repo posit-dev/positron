@@ -56,6 +56,8 @@ describe('LayoutManager', () => {
 		verifyDefaultSizedEntries(1, 1_000);
 		verifyDefaultSizedEntries(19, 1_000);
 		verifyDefaultSizedEntries(127, 20_000);
+		// Too big for CI.
+		// verifyDefaultSizedEntries(23, 500_000);
 	});
 
 	/**

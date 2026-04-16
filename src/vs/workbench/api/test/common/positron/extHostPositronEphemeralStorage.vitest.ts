@@ -67,7 +67,7 @@ describe('ExtHostPositronEphemeralStorage', function () {
 		const storage = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), logService);
 		const result = await storage.initializeEphemeralStorage('test.ext', { fallback: true });
 		expect(result).toEqual({ fallback: true });
-		expect(errors.length).toBeGreaterThan(0);
+		expect(errors.length, 'Expected an error to be logged').toBeGreaterThan(0);
 	});
 
 	it('getOrCreateMemento returns same instance for same extensionId', function () {
@@ -249,8 +249,8 @@ describe('EphemeralExtensionMemento', function () {
 			disposables.add(memento);
 			await memento.whenReady;
 
-			expect(memento.keys()).toEqual([]);
-			expect(errors.length).toBeGreaterThan(0);
+			expect(memento.keys(), `keys should be empty for stored value: ${bad}`).toEqual([]);
+			expect(errors.length, `expected an error to be logged for stored value: ${bad}`).toBeGreaterThan(0);
 		}
 	});
 });

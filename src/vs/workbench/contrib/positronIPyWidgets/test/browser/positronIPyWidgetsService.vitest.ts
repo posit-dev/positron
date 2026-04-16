@@ -273,12 +273,12 @@ describe('Positron - IPyWidgetsInstance constructor', () => {
 		await timeout(0);
 
 		// Sanity check: only one message should be sent.
-		expect(messaging.messagesToWebview.length).toBe(1);
+		expect(messaging.messagesToWebview.length, 'Expected exactly one message (comm_open) to be sent to the webview').toBe(1);
 		const sentMessage = messaging.messagesToWebview[0];
 
 		// The message should be comm_open and contain the correct buffers.
-		expect(sentMessage.type).toBe('comm_open');
-		expect(sentMessage.buffers).toEqual(messageBuffers);
+		expect(sentMessage.type, 'Expected message type to be comm_open').toBe('comm_open');
+		expect(sentMessage.buffers, 'Expected buffers to be passed correctly in the comm_open message').toEqual(messageBuffers);
 	});
 
 	it('initialized session, one ipywidget client', async () => {

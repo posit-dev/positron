@@ -150,7 +150,7 @@ describe('CellOutputActionBar', () => {
 		const fixture = renderActionBar();
 
 		expect(fixture.buttons.length).toBe(2);
-		expect(fixture.separatorButtons.length).toBe(0);
+		expect(fixture.separatorButtons.length, 'No separators for a single group').toBe(0);
 	});
 
 	it('renders separator before the last group', () => {
@@ -166,7 +166,7 @@ describe('CellOutputActionBar', () => {
 		const fixture = renderActionBar();
 
 		expect(fixture.buttons.length).toBe(3);
-		expect(fixture.separatorButtons.length).toBe(1);
+		expect(fixture.separatorButtons.length, 'One separator before the last group').toBe(1);
 	});
 
 	it('only shows separator before the last group with three groups', () => {
@@ -178,7 +178,7 @@ describe('CellOutputActionBar', () => {
 		const fixture = renderActionBar();
 
 		expect(fixture.buttons.length).toBe(3);
-		expect(fixture.separatorButtons.length).toBe(1);
+		expect(fixture.separatorButtons.length, 'Only one separator before the last group').toBe(1);
 	});
 
 	/* Verify the action bar wires up wheel forwarding (detailed behavior tested in useWheelForwarding.test). */

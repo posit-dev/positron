@@ -60,7 +60,7 @@ describe('ActionBarWidget', () => {
 		const { container } = renderWidget(descriptor);
 
 		const widgetContent = container.querySelector('.test-widget-content');
-		expect(widgetContent).toBeDefined();
+		expect(widgetContent, 'Expected to find widget content').toBeDefined();
 		expect(widgetContent!.textContent).toBe('Test Widget');
 	});
 
@@ -79,7 +79,7 @@ describe('ActionBarWidget', () => {
 
 		renderWidget(descriptor);
 
-		expect(receivedAccessor).toBeDefined();
+		expect(receivedAccessor, 'Widget should receive services accessor').toBeDefined();
 		expect(receivedAccessor).toBe(mockServicesAccessor);
 	});
 
@@ -97,7 +97,7 @@ describe('ActionBarWidget', () => {
 		const { container } = renderWidget(descriptor);
 
 		const button = container.querySelector('button.action-bar-widget');
-		expect(button).toBeDefined();
+		expect(button, 'Expected to find button element').toBeDefined();
 		expect(button!.getAttribute('aria-label')).toBe('Test Command');
 		expect(button!.getAttribute('title')).toBe('Execute test command');
 	});
@@ -119,7 +119,7 @@ describe('ActionBarWidget', () => {
 		const { container } = renderWidget(descriptor);
 
 		const button = container.querySelector<HTMLButtonElement>('button.action-bar-widget');
-		expect(button).toBeDefined();
+		expect(button, 'Expected to find button').toBeDefined();
 
 		// Simulate click
 		const commandPromise = Event.toPromise(commandService.onWillExecuteCommand);
@@ -127,8 +127,8 @@ describe('ActionBarWidget', () => {
 
 		// Wait for click handler
 		const command = await commandPromise;
-		expect(command.commandId).toBe('test.click.command');
-		expect(command.args).toEqual([{ arg1: 'value1' }]);
+		expect(command.commandId, 'Expected commandId to match').toBe('test.click.command');
+		expect(command.args, 'Command should be called with correct arguments').toEqual([{ arg1: 'value1' }]);
 	});
 
 	it('command-driven widget executes command on Enter key', async () => {
@@ -147,7 +147,7 @@ describe('ActionBarWidget', () => {
 		const { container } = renderWidget(descriptor);
 
 		const button = container.querySelector<HTMLButtonElement>('button.action-bar-widget');
-		expect(button).toBeDefined();
+		expect(button, 'Expected to find button').toBeDefined();
 
 		// Simulate Enter key press
 		const commandPromise = Event.toPromise(commandService.onWillExecuteCommand);
@@ -155,7 +155,7 @@ describe('ActionBarWidget', () => {
 		button!.dispatchEvent(enterEvent);
 
 		const command = await commandPromise;
-		expect(command.commandId).toBe('test.keyboard.command');
+		expect(command.commandId, 'Command should be executed on Enter').toBe('test.keyboard.command');
 	});
 
 	it('command-driven widget executes command on Space key', async () => {
@@ -174,7 +174,7 @@ describe('ActionBarWidget', () => {
 		const { container } = renderWidget(descriptor);
 
 		const button = container.querySelector<HTMLButtonElement>('button.action-bar-widget');
-		expect(button).toBeDefined();
+		expect(button, 'Expected to find button').toBeDefined();
 
 		// Simulate Space key press
 		const commandPromise = Event.toPromise(commandService.onWillExecuteCommand);
@@ -182,7 +182,7 @@ describe('ActionBarWidget', () => {
 		button!.dispatchEvent(spaceEvent);
 
 		const command = await commandPromise;
-		expect(command.commandId).toBe('test.space.command');
+		expect(command.commandId, 'Command should be executed on Space').toBe('test.space.command');
 	});
 
 	it('self-contained widget renders as div (not button)', async () => {
@@ -197,10 +197,10 @@ describe('ActionBarWidget', () => {
 		const { container } = renderWidget(descriptor);
 
 		const div = container.querySelector('div.action-bar-widget');
-		expect(div).toBeDefined();
+		expect(div, 'Expected to find div element').toBeDefined();
 
 		const button = container.querySelector('button.action-bar-widget');
-		expect(button).toBe(null);
+		expect(button, 'Should not render as button when self-contained').toBe(null);
 	});
 
 	it('legacy widget (no command, not self-contained) renders as div', async () => {
@@ -215,10 +215,10 @@ describe('ActionBarWidget', () => {
 		const { container } = renderWidget(descriptor);
 
 		const div = container.querySelector('div.action-bar-widget');
-		expect(div).toBeDefined();
+		expect(div, 'Expected to find div element for legacy widget').toBeDefined();
 
 		const button = container.querySelector('button.action-bar-widget');
-		expect(button).toBe(null);
+		expect(button, 'Legacy widget should not render as button').toBe(null);
 	});
 
 	it('error boundary catches widget errors and shows error indicator', async () => {
@@ -240,13 +240,13 @@ describe('ActionBarWidget', () => {
 		const { container } = renderWidget(descriptor);
 
 		const errorIndicator = container.querySelector('.action-bar-widget-error');
-		expect(errorIndicator).toBeDefined();
+		expect(errorIndicator, 'Expected to find error indicator').toBeDefined();
 
 		const errorIcon = errorIndicator!.querySelector('.codicon-error');
-		expect(errorIcon).toBeDefined();
+		expect(errorIcon, 'Expected to find error icon').toBeDefined();
 
 		// Verify error was logged
-		expect(consoleErrorStub).toHaveBeenCalled();
+		expect(consoleErrorStub, 'Error should be logged to console').toHaveBeenCalled();
 
 		consoleErrorStub.mockRestore();
 	});
@@ -269,11 +269,11 @@ describe('ActionBarWidget', () => {
 		const { container } = renderWidget(descriptor);
 
 		const errorIndicator = container.querySelector<HTMLElement>('.action-bar-widget-error');
-		expect(errorIndicator).toBeDefined();
+		expect(errorIndicator, 'Expected to find error indicator').toBeDefined();
 
 		const title = errorIndicator!.getAttribute('title');
-		expect(title).toBeDefined();
-		expect(title!).toContain('Specific error message');
+		expect(title, 'Expected error indicator to have title').toBeDefined();
+		expect(title!, 'Title should contain error message').toContain('Specific error message');
 
 		consoleErrorStub.mockRestore();
 	});

@@ -46,9 +46,9 @@ describe('Positron Extension Validator', () => {
 
 					// Check the text result based on the year and month.
 					if (year < 2025 || (year === 2025 && month < 6)) {
-						expect(testResult).not.toBe(0);
+						expect(testResult, `Expected errors for version ${versionUnderTest}`).not.toBe(0);
 					} else {
-						expect(testResult).toBe(0);
+						expect(testResult, `Expected no errors for version ${versionUnderTest}`).toBe(0);
 					}
 				}
 			}

@@ -200,7 +200,7 @@ describe('useMenuActions', () => {
 					/>
 				</PositronReactServicesContext.Provider>
 			);
-			expect(captured).toEqual([]);
+			expect(captured, 'actions must clear when service disappears').toEqual([]);
 		});
 
 		it('clears stale actions and disposes old menu on contextKeyService identity swap', () => {
@@ -221,7 +221,7 @@ describe('useMenuActions', () => {
 				</PositronReactServicesContext.Provider>
 			);
 			expect(captured).toEqual([['g', [action('a1')]]]);
-			expect(createdMenus.length).toBe(1);
+			expect(createdMenus.length, 'one menu created for service A').toBe(1);
 
 			// Swap to service B -- rerender triggers the effect cleanup
 			// (disposing old menu) and creates a new menu in the same pass.
@@ -233,8 +233,8 @@ describe('useMenuActions', () => {
 					/>
 				</PositronReactServicesContext.Provider>
 			);
-			expect(captured).toEqual([['g', [action('a1')]]]);
-			expect(createdMenus.length).toBe(2);
+			expect(captured, 'actions from service B menu').toEqual([['g', [action('a1')]]]);
+			expect(createdMenus.length, 'a new menu was created for service B').toBe(2);
 			expect(createdMenus[0].dispose).toHaveBeenCalledOnce();
 		});
 	});

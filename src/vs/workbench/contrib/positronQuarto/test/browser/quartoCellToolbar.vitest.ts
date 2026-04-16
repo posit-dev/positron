@@ -62,13 +62,16 @@ y = 2
 
 			// After insertion, the second cell should have moved down
 			expect(model.cells.length).toBe(2);
-			expect(model.cells[0].startLine).toBe(1);
-			expect(model.cells[0].endLine).toBe(3);
-			expect(model.cells[1].startLine).toBe(7);
-			expect(model.cells[1].endLine).toBe(9);
+			expect(model.cells[0].startLine, 'First cell start should not change').toBe(1);
+			expect(model.cells[0].endLine, 'First cell end should not change').toBe(3);
+			expect(model.cells[1].startLine, 'Second cell start should move down by 2 lines').toBe(7);
+			expect(model.cells[1].endLine, 'Second cell end should move down by 2 lines').toBe(9);
 
 			// Content hash should remain the same (content didn't change)
 			expect(model.cells[1].contentHash).toBe(originalCell1ContentHash);
+
+			// Note: The cell ID may or may not change depending on implementation
+			// What matters is that the line numbers are updated
 		});
 
 		it('onDidParse should fire when cells move but content stays the same', async () => {
@@ -104,7 +107,7 @@ y = 2
 			// Wait for debounce
 			await new Promise(resolve => setTimeout(resolve, 150));
 
-			expect(parseEventFired).toBe(true);
+			expect(parseEventFired, 'onDidParse should fire after text insertion').toBe(true);
 		});
 
 		it('onDidChangeCells does NOT fire when cells move without content change', async () => {
@@ -141,13 +144,18 @@ y = 2
 			await new Promise(resolve => setTimeout(resolve, 150));
 
 			// This is the key insight: onDidChangeCells does NOT fire when cells just move
-			expect(changeEventFired).toBe(false);
+			// The toolbar controller needs to also listen to onDidParse to update positions
+			expect(changeEventFired, 'onDidChangeCells should NOT fire for position-only changes').toBe(false);
 
 			// But the cells DO have updated positions
-			expect(model.cells[1].startLine).toBe(6);
+			expect(model.cells[1].startLine, 'Cell should have updated line numbers').toBe(6);
 		});
 
 		it('toolbar controller should update positions via onDidParse', async () => {
+			// This test documents what the fix should achieve:
+			// After inserting text between cells, the toolbar positions should update
+			// even if cell content doesn't change
+
 			const content = `\`\`\`{python}
 x = 1
 \`\`\`
@@ -191,7 +199,7 @@ y = 2
 			await new Promise(resolve => setTimeout(resolve, 150));
 
 			// onDidParse should always fire after parsing
-			expect(eventsFired).toContain('onDidParse');
+			expect(eventsFired, 'onDidParse should fire after text changes').toContain('onDidParse');
 
 			// The second cell should have moved
 			const newPositions = model.cells.map(c => ({
@@ -203,7 +211,10 @@ y = 2
 			expect(newPositions[0].startLine).toBe(initialPositions[0].startLine);
 
 			// Second cell moved down by 3 lines
-			expect(newPositions[1].startLine).toBe(initialPositions[1].startLine + 3);
+			expect(newPositions[1].startLine, 'Second cell should have moved down').toBe(initialPositions[1].startLine + 3);
+
+			// The key insight: a toolbar controller listening to onDidParse
+			// can refresh cell references and update positions correctly
 		});
 	});
 });

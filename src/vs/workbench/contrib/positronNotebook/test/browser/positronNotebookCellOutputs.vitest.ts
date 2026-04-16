@@ -43,7 +43,7 @@ describe('Positron Notebook Cell Outputs', () => {
 			const notebook = createTestPositronNotebookInstance([cellWithImageOutput], ctx.disposables);
 			const cell = notebook.cells.get()[0];
 
-			expect(cell.isCodeCell()).toBe(true);
+			expect(cell.isCodeCell(), 'cell should be a code cell').toBe(true);
 			const outputs = cell.outputs.get();
 			expect(outputs.length).toBe(1);
 			expect(outputs[0].parsed.type).toBe('image');
@@ -97,7 +97,7 @@ describe('Positron Notebook Cell Outputs', () => {
 			const cell = notebook.cells.get()[0];
 
 			expect(cell.isCodeCell()).toBe(true);
-			expect(cell.outputs.get().length).toBe(0);
+			expect(cell.outputs.get().length, 'cell should start with no outputs').toBe(0);
 
 			// Add an image output via the text model
 			notebook.textModel!.applyEdits([{
@@ -111,7 +111,7 @@ describe('Positron Notebook Cell Outputs', () => {
 			}], true, undefined, () => undefined, undefined, false);
 
 			const outputs = cell.outputs.get();
-			expect(outputs.length).toBe(1);
+			expect(outputs.length, 'cell should have one output after edit').toBe(1);
 			expect(outputs[0].parsed.type).toBe('image');
 		});
 
@@ -140,7 +140,7 @@ describe('Positron Notebook Cell Outputs', () => {
 			notebook.clearCellOutput(cell);
 
 			expect(cell.outputs.get().length).toBe(0);
-			expect(cell.outputIsCollapsed.get()).toBe(false);
+			expect(cell.outputIsCollapsed.get(), 'collapse state should reset when outputs are cleared').toBe(false);
 		});
 
 		it('outputImageTargeted context key defaults to false and can be set', () => {
@@ -155,7 +155,8 @@ describe('Positron Notebook Cell Outputs', () => {
 
 			// Defaults to false
 			expect(
-				cellContextKeyService.getContextKeyValue(POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.key)
+				cellContextKeyService.getContextKeyValue(POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.key),
+				'outputImageTargeted should not be set by default'
 			).toBe(undefined);
 
 			// Can be bound and set to true (as the context menu handler does)
@@ -163,13 +164,15 @@ describe('Positron Notebook Cell Outputs', () => {
 			outputImageTargeted.set(true);
 
 			expect(
-				cellContextKeyService.getContextKeyValue(POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.key)
+				cellContextKeyService.getContextKeyValue(POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.key),
+				'outputImageTargeted should be true after being set'
 			).toBe(true);
 
 			// Can be set back to false
 			outputImageTargeted.set(false);
 			expect(
-				cellContextKeyService.getContextKeyValue(POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.key)
+				cellContextKeyService.getContextKeyValue(POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.key),
+				'outputImageTargeted should be false after being cleared'
 			).toBe(false);
 		});
 	});
@@ -197,10 +200,10 @@ describe('Positron Notebook Cell Outputs', () => {
 			const notebook = createTestPositronNotebookInstance([cellWithComplexHtml], ctx.disposables);
 			const cell = notebook.cells.get()[0];
 
-			expect(cell.isCodeCell()).toBe(true);
+			expect(cell.isCodeCell(), 'cell should be a code cell').toBe(true);
 			const outputs = cell.outputs.get();
 			expect(outputs.length).toBe(1);
-			expect(outputs[0].preloadMessageResult).toBeDefined();
+			expect(outputs[0].preloadMessageResult, 'should have a preloadMessageResult').toBeDefined();
 			expect(outputs[0].preloadMessageResult!.preloadMessageType).toBe('display');
 		});
 
@@ -221,7 +224,7 @@ describe('Positron Notebook Cell Outputs', () => {
 			expect(cell.isCodeCell()).toBe(true);
 			const outputs = cell.outputs.get();
 			expect(outputs.length).toBe(1);
-			expect(outputs[0].preloadMessageResult).toBe(undefined);
+			expect(outputs[0].preloadMessageResult, 'simple HTML should not have preloadMessageResult').toBe(undefined);
 			expect(outputs[0].parsed.type).toBe('html');
 		});
 	});

@@ -27,7 +27,7 @@ class CellTextOutputFixture {
 
 	get outputContainer() {
 		const el = this.container.querySelector<HTMLDivElement>('.positron-notebook-text-output');
-		expect(el).toBeDefined();
+		expect(el, 'Expected output container to exist').toBeDefined();
 		return el!;
 	}
 
@@ -112,9 +112,9 @@ describe('CellTextOutput', () => {
 	it('renders short output', () => {
 		const fixture = renderCellTextOutput({ content: 'hello world', type: 'stdout' });
 
-		expect(fixture.outputContainer.textContent).toContain('hello world');
-		expect(fixture.truncationMessage).toBe(null);
-		expect(fixture.quickFixContainer).toBe(null);
+		expect(fixture.outputContainer.textContent, 'Expected content').toContain('hello world');
+		expect(fixture.truncationMessage, 'Expected no truncation message').toBe(null);
+		expect(fixture.quickFixContainer, 'Expected no quick-fix').toBe(null);
 	});
 
 	it('renders error output with quick-fix', () => {
@@ -124,29 +124,29 @@ describe('CellTextOutput', () => {
 
 		const fixture = renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
 
-		expect(fixture.hasClass('notebook-error')).toBe(true);
-		expect(fixture.quickFixContainer).toBeDefined();
+		expect(fixture.hasClass('notebook-error'), 'Expected error class').toBe(true);
+		expect(fixture.quickFixContainer, 'Expected quick-fix container for error output').toBeDefined();
 	});
 
 	it('does not render quick-fix for errors when assistant is disabled', () => {
 		const fixture = renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
 
-		expect(fixture.hasClass('notebook-error')).toBe(true);
-		expect(fixture.quickFixContainer).toBe(null);
+		expect(fixture.hasClass('notebook-error'), 'Expected error class').toBe(true);
+		expect(fixture.quickFixContainer, 'Expected no quick-fix when assistant is disabled').toBe(null);
 	});
 
 	it('renders multiline content within limit', () => {
 		const fixture = renderCellTextOutput({ content: '1\n2\n3', type: 'stdout' });
 
-		expect(fixture.outputLines.length).toBe(3);
-		expect(fixture.truncationMessage).toBe(null);
+		expect(fixture.outputLines.length, 'Expected 3 output lines').toBe(3);
+		expect(fixture.truncationMessage, 'Expected no truncation message').toBe(null);
 	});
 
 	it('renders ANSI-colored text', () => {
 		const fixture = renderCellTextOutput({ content: '\x1b[31mred\x1b[0m plain', type: 'stdout' });
 
 		const runs = fixture.outputRuns;
-		expect(runs.length).toBe(2);
+		expect(runs.length, 'Expected two output runs').toBe(2);
 		expect(runs[0].textContent).toBe('red');
 		expect(runs[1].textContent).toBe(' plain');
 	});
@@ -161,20 +161,20 @@ describe('CellTextOutput', () => {
 		);
 
 		const message = fixture.truncationMessage;
-		expect(message).toBeDefined();
-		expect(message!.textContent).toContain('5 more lines');
+		expect(message, 'Expected truncation message').toBeDefined();
+		expect(message!.textContent, 'Expected truncation count').toContain('5 more lines');
 
 		// 50/50 split: top 15 lines (1-15), bottom 15 lines (21-35), lines 16-20 hidden
 		const text = fixture.outputContainer.textContent ?? '';
-		expect(text).toContain('line 1');
-		expect(text).toContain('line 15');
-		expect(text).not.toContain('line 16\n');
-		expect(text).not.toContain('line 20\n');
-		expect(text).toContain('line 21');
-		expect(text).toContain('line 35');
+		expect(text, 'Expected first line to be visible').toContain('line 1');
+		expect(text, 'Expected line 15 (last top line) to be visible').toContain('line 15');
+		expect(text, 'Expected line 16 to be truncated').not.toContain('line 16\n');
+		expect(text, 'Expected line 20 to be truncated').not.toContain('line 20\n');
+		expect(text, 'Expected line 21 (first bottom line) to be visible').toContain('line 21');
+		expect(text, 'Expected last line to be visible').toContain('line 35');
 
 		message!.click();
-		expect(onShowFullOutput).toHaveBeenCalledOnce();
+		expect(onShowFullOutput, 'Expected onShowFullOutput to be called').toHaveBeenCalledOnce();
 	});
 
 	it('does not truncate when scrolling is enabled', () => {
@@ -184,14 +184,14 @@ describe('CellTextOutput', () => {
 			{ outputLineLimit: 30, outputScrolling: true },
 		);
 
-		expect(fixture.outputContainer.textContent).toContain('line 35');
-		expect(fixture.truncationMessage).toBe(null);
+		expect(fixture.outputContainer.textContent, 'Expected all lines rendered').toContain('line 35');
+		expect(fixture.truncationMessage, 'Expected no truncation message').toBe(null);
 	});
 
 	it('does not apply word-wrap class when outputWordWrap is false', () => {
 		const fixture = renderCellTextOutput({ content: 'hello', type: 'stdout' });
 
-		expect(fixture.hasClass('word-wrap')).toBe(false);
+		expect(fixture.hasClass('word-wrap'), 'Expected no word-wrap class').toBe(false);
 	});
 
 	it('applies word-wrap class when outputWordWrap is true', () => {
@@ -200,7 +200,7 @@ describe('CellTextOutput', () => {
 			{ outputWordWrap: true },
 		);
 
-		expect(fixture.hasClass('word-wrap')).toBe(true);
+		expect(fixture.hasClass('word-wrap'), 'Expected word-wrap class').toBe(true);
 	});
 
 	// TODO: useNotebookOptions has a bug where setNotebookOptions(instance.notebookOptions)
@@ -212,12 +212,12 @@ describe('CellTextOutput', () => {
 			{ content, type: 'stdout' },
 			{ outputLineLimit: 30, outputScrolling: false },
 		);
-		expect(fixture.truncationMessage).toBeDefined();
+		expect(fixture.truncationMessage, 'Expected truncation message initially').toBeDefined();
 
 		layoutConfig = { ...layoutConfig, outputLineLimit: 50 };
 		flushSync(() => optionsEmitter.fire({ outputLineLimit: true } as NotebookOptionsChangeEvent));
 
-		expect(fixture.truncationMessage).toBe(null);
-		expect(fixture.outputContainer.textContent).toContain('line 35');
+		expect(fixture.truncationMessage, 'Expected no truncation message after limit increase').toBe(null);
+		expect(fixture.outputContainer.textContent, 'Expected all lines rendered').toContain('line 35');
 	});
 });

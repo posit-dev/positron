@@ -49,19 +49,22 @@ describe('Positron Notebook Command Palette Visibility', () => {
 		expect(
 			POSITRON_NOTEBOOK_IS_NOT_ACTIVE_EDITOR.evaluate(
 				createContext({ activeEditor: POSITRON_NOTEBOOK_EDITOR_ID })
-			)
+			),
+			'should be false when Positron notebook is the active editor'
 		).toBe(false);
 
 		expect(
 			POSITRON_NOTEBOOK_IS_NOT_ACTIVE_EDITOR.evaluate(
 				createContext({ activeEditor: 'workbench.editor.notebook' })
-			)
+			),
+			'should be true when upstream notebook is the active editor'
 		).toBe(true);
 
 		expect(
 			POSITRON_NOTEBOOK_IS_NOT_ACTIVE_EDITOR.evaluate(
 				createContext({})
-			)
+			),
+			'should be true when no editor is active'
 		).toBe(true);
 	});
 
@@ -78,13 +81,16 @@ describe('Positron Notebook Command Palette Visibility', () => {
 		for (const item of paletteItems) {
 			if (isIMenuItem(item) && HIDDEN_COMMAND_IDS.includes(item.command.id)) {
 				foundCommands.add(item.command.id);
-				expect(item.when).toBeDefined();
-				expect(item.when!.evaluate(positronContext)).toBe(false);
+				expect(item.when, `Command '${item.command.id}' should have a 'when' clause`).toBeDefined();
+				expect(
+					item.when!.evaluate(positronContext),
+					`Command '${item.command.id}' should be hidden when Positron notebook editor is active`
+				).toBe(false);
 			}
 		}
 
 		for (const id of HIDDEN_COMMAND_IDS) {
-			expect(foundCommands.has(id)).toBe(true);
+			expect(foundCommands.has(id), `Command '${id}' should be registered in the CommandPalette`).toBe(true);
 		}
 	});
 
@@ -98,7 +104,10 @@ describe('Positron Notebook Command Palette Visibility', () => {
 
 		for (const item of paletteItems) {
 			if (isIMenuItem(item) && HIDDEN_COMMAND_IDS.includes(item.command.id)) {
-				expect(item.when!.evaluate(upstreamContext)).toBe(true);
+				expect(
+					item.when!.evaluate(upstreamContext),
+					`Command '${item.command.id}' should be visible when upstream notebook editor is active`
+				).toBe(true);
 			}
 		}
 	});

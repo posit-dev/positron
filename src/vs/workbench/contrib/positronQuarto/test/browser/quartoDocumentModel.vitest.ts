@@ -239,9 +239,9 @@ import os
 			const model = createModel(content);
 
 			const id = model.cells[0].id;
-			expect(id.startsWith('0-')).toBe(true);
-			expect(id.endsWith('-setup')).toBe(true);
-			expect(id.split('-').length).toBe(3);
+			expect(id.startsWith('0-'), 'ID should start with index').toBe(true);
+			expect(id.endsWith('-setup'), 'ID should end with label').toBe(true);
+			expect(id.split('-').length, 'ID should have 3 parts').toBe(3);
 		});
 
 		it('unlabeled cell has unlabeled in ID', () => {
@@ -424,11 +424,11 @@ x = 1
 
 			// After deleting the line, cell should now start at line 2, end at line 4
 			expect(model.cells.length).toBe(1);
-			expect(model.cells[0].startLine).toBe(2);
-			expect(model.cells[0].endLine).toBe(4);
+			expect(model.cells[0].startLine, 'Cell startLine should shift up after line deletion').toBe(2);
+			expect(model.cells[0].endLine, 'Cell endLine should shift up after line deletion').toBe(4);
 
 			// The cell ID should remain the same (content didn't change)
-			expect(model.cells[0].id).toBe(originalCellId);
+			expect(model.cells[0].id, 'Cell ID should remain stable').toBe(originalCellId);
 		});
 
 		it('cell positions update when line is added above cell', async () => {
@@ -464,11 +464,11 @@ x = 1
 
 			// After adding the line, cell should now start at line 2, end at line 4
 			expect(model.cells.length).toBe(1);
-			expect(model.cells[0].startLine).toBe(2);
-			expect(model.cells[0].endLine).toBe(4);
+			expect(model.cells[0].startLine, 'Cell startLine should shift down after line addition').toBe(2);
+			expect(model.cells[0].endLine, 'Cell endLine should shift down after line addition').toBe(4);
 
 			// The cell ID should remain the same (content didn't change)
-			expect(model.cells[0].id).toBe(originalCellId);
+			expect(model.cells[0].id, 'Cell ID should remain stable').toBe(originalCellId);
 		});
 
 		it('cell ID changes when a new cell is inserted above (but content hash is stable)', async () => {
@@ -496,8 +496,8 @@ y = 2
 			const cell1ContentHash = model.cells[1].contentHash;
 
 			// IDs should start with their index
-			expect(originalCell0Id.startsWith('0-')).toBe(true);
-			expect(originalCell1Id.startsWith('1-')).toBe(true);
+			expect(originalCell0Id.startsWith('0-'), 'First cell ID should start with 0-').toBe(true);
+			expect(originalCell1Id.startsWith('1-'), 'Second cell ID should start with 1-').toBe(true);
 
 			// Insert a new cell at the top
 			textModel.applyEdits([{
@@ -517,26 +517,26 @@ y = 2
 			expect(model.cells.length).toBe(3);
 
 			// The new cell is at index 0
-			expect(model.cells[0].id.startsWith('0-')).toBe(true);
+			expect(model.cells[0].id.startsWith('0-'), 'New cell should be at index 0').toBe(true);
 
 			// The original cells have CHANGED IDs because their indices shifted
 			// This is the root cause of the bug - the output manager can't find cells by their old IDs
-			expect(model.cells[1].id.startsWith('1-')).toBe(true);
-			expect(model.cells[2].id.startsWith('2-')).toBe(true);
-			expect(model.cells[1].id).not.toBe(originalCell0Id);
-			expect(model.cells[2].id).not.toBe(originalCell1Id);
+			expect(model.cells[1].id.startsWith('1-'), 'Original first cell should now be at index 1').toBe(true);
+			expect(model.cells[2].id.startsWith('2-'), 'Original second cell should now be at index 2').toBe(true);
+			expect(model.cells[1].id, 'Original first cell ID should have changed').not.toBe(originalCell0Id);
+			expect(model.cells[2].id, 'Original second cell ID should have changed').not.toBe(originalCell1Id);
 
 			// However, content hashes remain stable
-			expect(model.cells[1].contentHash).toBe(cell0ContentHash);
-			expect(model.cells[2].contentHash).toBe(cell1ContentHash);
+			expect(model.cells[1].contentHash, 'Content hash should be stable').toBe(cell0ContentHash);
+			expect(model.cells[2].contentHash, 'Content hash should be stable').toBe(cell1ContentHash);
 
 			// The cells CAN be found by their content hash
 			const foundCell0 = model.findCellByContentHash(cell0ContentHash);
 			const foundCell1 = model.findCellByContentHash(cell1ContentHash);
-			expect(foundCell0).toBeDefined();
-			expect(foundCell1).toBeDefined();
-			expect(foundCell0!.index).toBe(1);
-			expect(foundCell1!.index).toBe(2);
+			expect(foundCell0, 'Should be able to find original first cell by content hash').toBeDefined();
+			expect(foundCell1, 'Should be able to find original second cell by content hash').toBeDefined();
+			expect(foundCell0!.index, 'Original first cell should now be at index 1').toBe(1);
+			expect(foundCell1!.index, 'Original second cell should now be at index 2').toBe(2);
 		});
 	});
 

@@ -130,7 +130,7 @@ describe('CellActionButton', () => {
 
 		fixture.click();
 
-		expect(selectCellStub).toHaveBeenCalledOnce();
+		expect(selectCellStub, 'Expected selectCell to be called').toHaveBeenCalledOnce();
 		expect(selectCellStub.mock.calls[0][1]).toBe(CellSelectionType.Normal);
 	});
 
@@ -141,7 +141,7 @@ describe('CellActionButton', () => {
 		fixture.click();
 
 		await new Promise(resolve => setTimeout(resolve, 0));
-		expect(runStub).toHaveBeenCalledOnce();
+		expect(runStub, 'Expected action.run to be called').toHaveBeenCalledOnce();
 	});
 
 	it('does not throw when action.run rejects', async () => {
@@ -163,7 +163,7 @@ describe('CellActionButton', () => {
 	it('renders DevErrorIcon when action has no icon', () => {
 		const fixture = renderButton(mockAction({ iconId: undefined }));
 
-		expect(fixture.iconClass).toBe('codicon-blank');
+		expect(fixture.iconClass, 'Missing developer error icon').toBe('codicon-blank');
 	});
 
 	describe('success feedback', () => {
@@ -188,7 +188,7 @@ describe('CellActionButton', () => {
 			// Let the set state flush; flushSync does not work here.
 			await timeout(0);
 
-			expect(fixture.iconClass).toBe('codicon-copy');
+			expect(fixture.iconClass, 'Original icon should be restored').toBe('codicon-copy');
 		}));
 
 		it('does not show check icon for non-opted-in actions', () => runWithFakedTimers({}, async () => {

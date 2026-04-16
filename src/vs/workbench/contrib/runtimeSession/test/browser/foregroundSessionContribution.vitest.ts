@@ -180,7 +180,7 @@ describe('Positron - ForegroundSessionContribution', () => {
 			// No live session, foreground should be cleared
 			expect(runtimeSessionService.foregroundSession).toBe(undefined);
 			// Cached display info should be set so the interpreter picker shows what was last used
-			expect(runtimeSessionService.foregroundSessionDisplayInfo).toBeDefined();
+			expect(runtimeSessionService.foregroundSessionDisplayInfo, 'Expected foregroundSessionDisplayInfo to be set from cached info').toBeDefined();
 		});
 	});
 
@@ -374,7 +374,7 @@ describe('Positron - ForegroundSessionContribution', () => {
 			// The foreground should be cleared
 			expect(runtimeSessionService.foregroundSession).toBe(undefined);
 			// Cached display info should be set so the interpreter picker shows last used runtime
-			expect(runtimeSessionService.foregroundSessionDisplayInfo).toBeDefined();
+			expect(runtimeSessionService.foregroundSessionDisplayInfo, 'Expected foregroundSessionDisplayInfo to be set from cached info after deletion').toBeDefined();
 		});
 
 		it('does not clear foreground when a console session is deleted', async () => {
@@ -477,7 +477,7 @@ describe('Positron - ForegroundSessionContribution', () => {
 			// No live session, foreground should be cleared
 			expect(runtimeSessionService.foregroundSession).toBe(undefined);
 			// Cached display info should be set
-			expect(runtimeSessionService.foregroundSessionDisplayInfo).toBeDefined();
+			expect(runtimeSessionService.foregroundSessionDisplayInfo, 'Expected foregroundSessionDisplayInfo to be set from cached Quarto session info').toBeDefined();
 		});
 	});
 

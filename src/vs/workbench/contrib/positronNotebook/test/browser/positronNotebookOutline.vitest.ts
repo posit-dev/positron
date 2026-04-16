@@ -132,7 +132,7 @@ describe('PositronNotebookOutline', () => {
 			const entries = buildOutlineEntries(cells);
 
 			expect(entries.length).toBe(1);
-			expect(entries[0].label.length).toBeGreaterThan(0);
+			expect(entries[0].label.length, 'Should have a fallback label').toBeGreaterThan(0);
 		});
 
 		it('non-header markdown uses first-line preview', () => {
@@ -187,7 +187,7 @@ describe('PositronNotebookOutline', () => {
 			const flatEntries = buildOutlineEntries(cells);
 			const tree = buildTree(flatEntries);
 
-			expect(tree.length).toBe(1);
+			expect(tree.length, 'Should have 1 root entry').toBe(1);
 			expect(tree[0].label).toBe('H1');
 			const h2Children = Array.from(tree[0].children);
 			expect(h2Children.length).toBe(1);
@@ -220,7 +220,7 @@ describe('PositronNotebookOutline', () => {
 			const flatEntries = buildOutlineEntries(cells);
 			const tree = buildTree(flatEntries);
 
-			expect(tree.length).toBe(3);
+			expect(tree.length, 'All h2s should be roots').toBe(3);
 		});
 
 		it('returns empty array for empty input', () => {

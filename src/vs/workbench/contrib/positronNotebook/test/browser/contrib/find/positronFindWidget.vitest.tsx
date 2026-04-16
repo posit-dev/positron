@@ -23,7 +23,7 @@ class PositronFindWidgetFixture {
 
 	get results() {
 		const el = this.container.querySelector('.results');
-		expect(el).toBeDefined();
+		expect(el, 'Expected results element to exist').toBeDefined();
 		return el!;
 	}
 
@@ -33,19 +33,19 @@ class PositronFindWidgetFixture {
 
 	get previousButton() {
 		const button = this.navigationButtons[0];
-		expect(button).toBeDefined();
+		expect(button, 'Expected previous button to exist').toBeDefined();
 		return button;
 	}
 
 	get nextButton() {
 		const button = this.navigationButtons[1];
-		expect(button).toBeDefined();
+		expect(button, 'Expected next button to exist').toBeDefined();
 		return button;
 	}
 
 	get closeButton() {
 		const button = this.container.querySelector<HTMLButtonElement>('button.close-button');
-		expect(button).toBeDefined();
+		expect(button, 'Expected close button to exist').toBeDefined();
 		return button!;
 	}
 
@@ -138,7 +138,7 @@ describe('PositronFindWidget', () => {
 			/>
 		);
 		const widgetContainer = container.querySelector<HTMLDivElement>('.positron-find-widget');
-		expect(widgetContainer).toBeDefined();
+		expect(widgetContainer, 'Expected PositronFindWidget to be rendered').toBeDefined();
 		return new PositronFindWidgetFixture(widgetContainer!);
 	}
 
@@ -174,14 +174,14 @@ describe('PositronFindWidget', () => {
 		it('visible when isVisible is true', () => {
 			const widget = renderWidget();
 
-			expect(widget.isVisible).toBe(true);
+			expect(widget.isVisible, 'Expected find widget to be visible').toBe(true);
 		});
 
 		it('hidden when isVisible is false', () => {
 			isVisible.set(false, undefined);
 			const widget = renderWidget();
 
-			expect(widget.isVisible).toBe(false);
+			expect(widget.isVisible, 'Expected find widget to be hidden').toBe(false);
 		});
 
 		it('focuses find input when becoming visible', () => {
@@ -191,7 +191,8 @@ describe('PositronFindWidget', () => {
 			flushSync(() => isVisible.set(true, undefined));
 
 			expect(
-				widget.container.contains(document.activeElement)
+				widget.container.contains(document.activeElement),
+				'Expected focus to be inside the find widget',
 			).toBe(true);
 		});
 
@@ -200,15 +201,15 @@ describe('PositronFindWidget', () => {
 
 			flushSync(() => widget.closeButton.click());
 
-			expect(widget.isVisible).toBe(false);
-			expect(isVisible.get()).toBe(false);
+			expect(widget.isVisible, 'Expected find widget to be hidden after close').toBe(false);
+			expect(isVisible.get(), 'Expected isVisible observable to be false after close').toBe(false);
 		});
 
 		it('has no error styling when there is no query', () => {
 			const widget = renderWidget();
 
 			expect(widget.results.textContent).toBe('No results');
-			expect(widget.hasErrorStyling).toBe(false);
+			expect(widget.hasErrorStyling, 'Expected find widget to have no error styling without a query').toBe(false);
 		});
 
 		it('has error styling when there is a query but no matches', () => {
@@ -217,7 +218,7 @@ describe('PositronFindWidget', () => {
 			const widget = renderWidget();
 
 			expect(widget.results.textContent).toBe('No results');
-			expect(widget.hasErrorStyling).toBe(true);
+			expect(widget.hasErrorStyling, 'Expected find widget to indicate no results found').toBe(true);
 		});
 
 		it('shows empty results while matchCount is loading', () => {
@@ -231,8 +232,8 @@ describe('PositronFindWidget', () => {
 			matchCount.set(0, undefined);
 			const widget = renderWidget();
 
-			expect(widget.previousButton.disabled).toBe(true);
-			expect(widget.nextButton.disabled).toBe(true);
+			expect(widget.previousButton.disabled, 'Expected previous button to be disabled').toBe(true);
+			expect(widget.nextButton.disabled, 'Expected next button to be disabled').toBe(true);
 		});
 
 		it('previous match button calls onPreviousMatch', () => {
@@ -241,7 +242,7 @@ describe('PositronFindWidget', () => {
 
 			widget.previousButton.click();
 
-			expect(onPreviousMatch).toHaveBeenCalledOnce();
+			expect(onPreviousMatch, 'Expected onPreviousMatch to be called once').toHaveBeenCalledOnce();
 		});
 
 		it('next match button calls onNextMatch', () => {
@@ -250,7 +251,7 @@ describe('PositronFindWidget', () => {
 
 			widget.nextButton.click();
 
-			expect(onNextMatch).toHaveBeenCalledOnce();
+			expect(onNextMatch, 'Expected onNextMatch to be called once').toHaveBeenCalledOnce();
 		});
 
 		it('shows "1 of N" when matchIndex is undefined', () => {
@@ -273,7 +274,7 @@ describe('PositronFindWidget', () => {
 		it('no toggle replace button when useReplace is false', () => {
 			const widget = renderWidget();
 
-			expect(widget.toggleReplaceButton).toBe(null);
+			expect(widget.toggleReplaceButton, 'Expected no toggle replace button').toBe(null);
 		});
 	});
 
@@ -281,18 +282,18 @@ describe('PositronFindWidget', () => {
 		it('hidden when replaceIsVisible is false', () => {
 			const widget = renderWidget({ useReplace: true });
 
-			expect(widget.toggleReplaceButton).toBeDefined();
-			expect(widget.replacePart).toBe(null);
+			expect(widget.toggleReplaceButton, 'Expected toggle replace button to exist').toBeDefined();
+			expect(widget.replacePart, 'Expected replace part to be hidden').toBe(null);
 		});
 
 		it('visible when replaceIsVisible is true', () => {
 			replaceIsVisible.set(true, undefined);
 			const widget = renderWidget({ useReplace: true });
 
-			expect(widget.toggleReplaceButton).toBeDefined();
-			expect(widget.replacePart).toBeDefined();
-			expect(widget.replaceButton).toBeDefined();
-			expect(widget.replaceAllButton).toBeDefined();
+			expect(widget.toggleReplaceButton, 'Expected toggle replace button to exist').toBeDefined();
+			expect(widget.replacePart, 'Expected replace part to be visible').toBeDefined();
+			expect(widget.replaceButton, 'Expected replace button to exist').toBeDefined();
+			expect(widget.replaceAllButton, 'Expected replace all button to exist').toBeDefined();
 		});
 
 		it('expands/collapses when toggle replace button is clicked', () => {
@@ -300,13 +301,13 @@ describe('PositronFindWidget', () => {
 
 			flushSync(() => widget.toggleReplaceButton!.click());
 
-			expect(widget.replacePart).toBeDefined();
-			expect(replaceIsVisible.get()).toBe(true);
+			expect(widget.replacePart, 'Expected replace part to be visible when expanded').toBeDefined();
+			expect(replaceIsVisible.get(), 'Expected replaceIsVisible to be true').toBe(true);
 
 			flushSync(() => widget.toggleReplaceButton!.click());
 
-			expect(widget.replacePart).toBe(null);
-			expect(replaceIsVisible.get()).toBe(false);
+			expect(widget.replacePart, 'Expected replace part to be hidden').toBe(null);
+			expect(replaceIsVisible.get(), 'Expected replaceIsVisible to be false').toBe(false);
 		});
 
 		it('replace button calls onReplace', () => {
@@ -316,7 +317,7 @@ describe('PositronFindWidget', () => {
 
 			flushSync(() => widget.replaceButton!.click());
 
-			expect(onReplace).toHaveBeenCalledOnce();
+			expect(onReplace, 'Expected onReplace to be called once').toHaveBeenCalledOnce();
 		});
 
 		it('replace all button calls onReplaceAll', () => {
@@ -326,15 +327,15 @@ describe('PositronFindWidget', () => {
 
 			flushSync(() => widget.replaceAllButton!.click());
 
-			expect(onReplaceAll).toHaveBeenCalledOnce();
+			expect(onReplaceAll, 'Expected onReplaceAll to be called once').toHaveBeenCalledOnce();
 		});
 
 		it('replace buttons are disabled when there is no query', () => {
 			replaceIsVisible.set(true, undefined);
 			const widget = renderWidget({ useReplace: true });
 
-			expect(widget.replaceButton!.disabled).toBe(true);
-			expect(widget.replaceAllButton!.disabled).toBe(true);
+			expect(widget.replaceButton!.disabled, 'Expected replace button to be disabled').toBe(true);
+			expect(widget.replaceAllButton!.disabled, 'Expected replace all button to be disabled').toBe(true);
 		});
 	});
 });

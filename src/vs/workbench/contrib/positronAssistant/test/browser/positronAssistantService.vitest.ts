@@ -88,9 +88,9 @@ describe('PositronAssistantService', () => {
 		const context: IPositronChatContext = positronAssistantService.getPositronChatContext(chatRequest);
 
 		// Verify the global context properties are present
-		expect(context.currentDate).toBeDefined();
-		expect(context.plots).toBeDefined();
-		expect(context.positronVersion).toBeDefined();
+		expect(context.currentDate, 'Current date should be present').toBeDefined();
+		expect(context.plots, 'Plots information should be present').toBeDefined();
+		expect(context.positronVersion, 'Positron version should be present').toBeDefined();
 	});
 
 	it('getPositronChatContext handles plot information', async () => {
@@ -103,8 +103,8 @@ describe('PositronAssistantService', () => {
 		const context: IPositronChatContext = positronAssistantService.getPositronChatContext(chatRequest);
 
 		// Verify plot information is included
-		expect(context.plots).toBeDefined();
-		expect(typeof context.plots.hasPlots).toBe('boolean');
+		expect(context.plots, 'Plot information should be present').toBeDefined();
+		expect(typeof context.plots.hasPlots, 'hasPlots should be a boolean').toBe('boolean');
 	});
 
 });

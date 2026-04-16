@@ -173,12 +173,12 @@ describe('PositronModalReactRenderer', () => {
 
 			// Renderers 0-3 should not be disposed
 			for (let i = 0; i < 4; i++) {
-				expect(callbackFlags[i]).toBe(false);
+				expect(callbackFlags[i], `renderer ${i} should not be disposed`).toBe(false);
 			}
 
 			// Renderers 4-9 should be disposed
 			for (let i = 4; i < 10; i++) {
-				expect(callbackFlags[i]).toBe(true);
+				expect(callbackFlags[i], `renderer ${i} should be disposed`).toBe(true);
 			}
 
 			// Clean up remaining renderers
@@ -304,7 +304,7 @@ describe('PositronModalReactRenderer', () => {
 
 			PositronModalReactRenderer.disposeAll();
 
-			expect(callbackFlags.every(f => f)).toBe(true);
+			expect(callbackFlags.every(f => f), 'all onDisposed callbacks should have been called').toBe(true);
 		});
 
 		it('is a no-op on an empty stack', () => {

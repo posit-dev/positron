@@ -196,13 +196,13 @@ describe('Positron - RuntimeNotebookKernel', () => {
 		expect(executeSpy).toHaveBeenCalledOnce();
 		const callArgs = executeSpy.mock.calls[0] as unknown as unknown[];
 		const executionMetadata = callArgs[5] as Record<string, unknown>;
-		expect(executionMetadata).toBeDefined();
+		expect(executionMetadata, 'executionMetadata should be provided').toBeDefined();
 		expect(typeof executionMetadata.output_width_px).toBe('number');
 		expect(typeof executionMetadata.output_pixel_ratio).toBe('number');
 		// The mock widget has width 800, leftMargin 60, rightMargin 16,
 		// so output_width_px should be 800 - 60 - 16 = 724.
 		expect(executionMetadata.output_width_px).toBe(724);
-		expect(executionMetadata.output_pixel_ratio as number).toBeGreaterThan(0);
+		expect(executionMetadata.output_pixel_ratio as number, 'output_pixel_ratio should be a positive number').toBeGreaterThan(0);
 	});
 
 	it('single cell starts a new session if required', async () => {

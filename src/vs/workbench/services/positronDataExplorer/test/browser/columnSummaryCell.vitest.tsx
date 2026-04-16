@@ -119,8 +119,8 @@ describe('ColumnSummaryCell', () => {
 		const { container } = renderRoot(mockTableSummaryDataGridInstance);
 
 		const nullPercentElement = container.querySelector('.text-percent');
-		expect(nullPercentElement).toBeDefined();
-		expect(nullPercentElement!.textContent).toBe('0%');
+		expect(nullPercentElement, 'Expected to find null percent element').toBeDefined();
+		expect(nullPercentElement!.textContent, 'Expected to find 0% for 0% input').toBe('0%');
 	});
 
 	it('displays <1% when getColumnProfileNullPercent returns 0.5', async () => {
@@ -132,8 +132,8 @@ describe('ColumnSummaryCell', () => {
 		const { container } = renderRoot(mockTableSummaryDataGridInstance);
 
 		const nullPercentElement = container.querySelector('.text-percent');
-		expect(nullPercentElement).toBeDefined();
-		expect(nullPercentElement!.textContent).toBe('<1%');
+		expect(nullPercentElement, 'Expected to find null percent element').toBeDefined();
+		expect(nullPercentElement!.textContent, 'Expected to find <1% for 0.5% input').toBe('<1%');
 	});
 
 	it('displays 99% when getColumnProfileNullPercent returns 99.9', async () => {
@@ -145,8 +145,8 @@ describe('ColumnSummaryCell', () => {
 		const { container } = renderRoot(mockTableSummaryDataGridInstance);
 
 		const nullPercentElement = container.querySelector('.text-percent');
-		expect(nullPercentElement).toBeDefined();
-		expect(nullPercentElement!.textContent).toBe('99%');
+		expect(nullPercentElement, 'Expected to find null percent element').toBeDefined();
+		expect(nullPercentElement!.textContent, 'Expected to find 99% for 99.9% input').toBe('99%');
 	});
 
 	it('displays 100% when getColumnProfileNullPercent returns 100', async () => {
@@ -158,8 +158,8 @@ describe('ColumnSummaryCell', () => {
 		const { container } = renderRoot(mockTableSummaryDataGridInstance);
 
 		const nullPercentElement = container.querySelector('.text-percent');
-		expect(nullPercentElement).toBeDefined();
-		expect(nullPercentElement!.textContent).toBe('100%');
+		expect(nullPercentElement, 'Expected to find null percent element').toBeDefined();
+		expect(nullPercentElement!.textContent, 'Expected to find 100% for 100% input').toBe('100%');
 	});
 
 });

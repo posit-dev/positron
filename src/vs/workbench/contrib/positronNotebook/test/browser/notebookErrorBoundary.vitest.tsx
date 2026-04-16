@@ -111,11 +111,12 @@ describe('NotebookErrorBoundary', () => {
 					);
 
 				expect(
-					container.querySelector<HTMLElement>(`.notebook-error-boundary-${level}`)
+					container.querySelector<HTMLElement>(`.notebook-error-boundary-${level}`),
+					`Expected CSS class for level "${level}"`
 				).toBeDefined();
 
 				const header = container.querySelector<HTMLElement>('.notebook-error-boundary-header');
-				expect(header?.textContent).toContain(message);
+				expect(header?.textContent, `Expected message for level "${level}"`).toContain(message);
 			}
 		});
 
@@ -129,9 +130,9 @@ describe('NotebookErrorBoundary', () => {
 
 			expect(errorSpy).toHaveBeenCalledOnce();
 			const logMessage = errorSpy.mock.calls[0][0] as string;
-			expect(logMessage).toContain('MyCell');
-			expect(logMessage).toContain('cell');
-			expect(logMessage).toContain('render failed');
+			expect(logMessage, 'Log should include component name').toContain('MyCell');
+			expect(logMessage, 'Log should include level').toContain('cell');
+			expect(logMessage, 'Log should include error message').toContain('render failed');
 		});
 
 		it('handles non-Error thrown values gracefully', () => {
@@ -148,13 +149,13 @@ describe('NotebookErrorBoundary', () => {
 			// Should log safely without crashing
 			expect(errorSpy).toHaveBeenCalledOnce();
 			const logMessage = errorSpy.mock.calls[0][0] as string;
-			expect(logMessage).toContain('string error');
+			expect(logMessage, 'Log should include stringified thrown value').toContain('string error');
 
 			// Details should show the stringified value
 			const { toggleDetails } = getActionButtons(container);
 			clickAndFlush(toggleDetails);
 			const details = container.querySelector<HTMLElement>('.notebook-error-boundary-details');
-			expect(details?.textContent).toContain('string error');
+			expect(details?.textContent, 'Details should show stringified thrown value').toContain('string error');
 		});
 	});
 
@@ -192,8 +193,8 @@ describe('NotebookErrorBoundary', () => {
 			// Show details
 			clickAndFlush(toggleDetails);
 			const details = container.querySelector<HTMLElement>('.notebook-error-boundary-details');
-			expect(details).toBeDefined();
-			expect(details!.textContent).toContain('specific error message');
+			expect(details, 'Details section should be visible after clicking').toBeDefined();
+			expect(details!.textContent, 'Details should contain the error message').toContain('specific error message');
 
 			// Hide details
 			clickAndFlush(toggleDetails);
@@ -221,7 +222,7 @@ describe('NotebookErrorBoundary', () => {
 				);
 
 				const { action } = getActionButtons(container);
-				expect(action).toBeDefined();
+				expect(action, `Action button should exist for ${level} level`).toBeDefined();
 			}
 		});
 
@@ -249,8 +250,8 @@ describe('NotebookErrorBoundary', () => {
 			const { action } = getActionButtons(container);
 			clickAndFlush(action);
 
-			expect(container.querySelector<HTMLElement>('.recovered')).toBeDefined();
-			expect(container.querySelector<HTMLElement>('[role="alert"]')).toBe(null);
+			expect(container.querySelector<HTMLElement>('.recovered'), 'Children should re-render after retry').toBeDefined();
+			expect(container.querySelector<HTMLElement>('[role="alert"]'), 'Error UI should be gone').toBe(null);
 		});
 	});
 
@@ -301,11 +302,12 @@ describe('NotebookErrorBoundary', () => {
 			);
 
 			expect(
-				container.querySelector<HTMLElement>('[role="alert"]')
+				container.querySelector<HTMLElement>('[role="alert"]'),
+				'Error boundary should catch provider errors'
 			).toBeDefined();
 			expect(errorSpy).toHaveBeenCalledOnce();
 			const logMessage = errorSpy.mock.calls[0][0] as string;
-			expect(logMessage).toContain('provider error');
+			expect(logMessage, 'Log should include the provider error message').toContain('provider error');
 		});
 
 	});

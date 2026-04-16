@@ -222,7 +222,7 @@ describe('Positron - RuntimeNotebookKernelService', () => {
 		const kernelSourceActions = await notebookKernelService.getKernelSourceActions2(notebookDocument);
 
 		// Spot check the kernel source actions.
-		expect(kernelSourceActions.length).toBe(1);
+		expect(kernelSourceActions.length, `Unexpected kernel source actions: ${JSON.stringify(kernelSourceActions)}`).toBe(1);
 		expect(kernelSourceActions[0].label).toBe('Select Environment...');
 	});
 });

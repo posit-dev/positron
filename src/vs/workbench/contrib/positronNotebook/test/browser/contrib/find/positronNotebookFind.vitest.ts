@@ -33,7 +33,7 @@ import { runWithFakedTimers } from '../../../../../../../base/test/common/timeTr
 /** Get the find controller for a notebook. */
 function getController(notebook: TestPositronNotebookInstance): PositronNotebookFindController {
 	const controller = PositronNotebookFindController.get(notebook);
-	expect(controller).toBeDefined();
+	expect(controller, 'Find controller should be registered').toBeDefined();
 	return controller!;
 }
 
@@ -47,7 +47,7 @@ function getOrStartFindInstance(controller: PositronNotebookFindController): Pos
 		find = controller.findInstance;
 	}
 
-	expect(find).toBeDefined();
+	expect(find, 'Unexpected Error: Find instance should exist after controller.start()').toBeDefined();
 	return find!;
 }
 
@@ -240,7 +240,7 @@ describe('PositronNotebookFindController', () => {
 
 			find.searchString.set('a.b', undefined);
 
-			expect(controller.matches.get().length).toBe(1);
+			expect(controller.matches.get().length, 'Should match literal "a.b" only').toBe(1);
 		});
 
 		it('wholeWord=true only matches full words', async () => {
@@ -253,7 +253,7 @@ describe('PositronNotebookFindController', () => {
 				find.searchString.set('cat', tx);
 			});
 
-			expect(controller.matches.get().length).toBe(1);
+			expect(controller.matches.get().length, 'Should match only standalone "cat"').toBe(1);
 		});
 
 		it('wholeWord=false allows partial-word matches', () => {
@@ -261,7 +261,7 @@ describe('PositronNotebookFindController', () => {
 
 			find.searchString.set('cat', undefined);
 
-			expect(controller.matches.get().length).toBe(3);
+			expect(controller.matches.get().length, 'Should match "cat" in all words').toBe(3);
 		});
 
 		it('empty search string returns zero matches', () => {
@@ -289,7 +289,10 @@ describe('PositronNotebookFindController', () => {
 			const matches = controller.matches.get();
 			expect(matches.length).toBe(2);
 			// First "aa" at column 4, second "aa" at column 10
-			expect(matches[0].cellRange.isBefore(matches[1].cellRange)).toBe(true);
+			expect(
+				matches[0].cellRange.isBefore(matches[1].cellRange),
+				'Matches within a cell should be in column order',
+			).toBe(true);
 		});
 
 		it('reactive: query change triggers research', () => {
@@ -307,11 +310,11 @@ describe('PositronNotebookFindController', () => {
 			const { find } = findFixture([['Hello hello', 'python', CellKind.Code]]);
 
 			find.searchString.set('hello', undefined);
-			expect(find.matchCount.get()).toBe(2);
+			expect(find.matchCount.get(), 'case-insensitive should find 2').toBe(2);
 
 			// Toggle matchCase reactively -- autorun fires synchronously
 			find.matchCase.set(true, undefined);
-			expect(find.matchCount.get()).toBe(1);
+			expect(find.matchCount.get(), 'case-sensitive should find 1').toBe(1);
 		});
 	});
 
@@ -441,11 +444,11 @@ describe('PositronNotebookFindController', () => {
 
 			expect(find.matchCount.get()).toBe(1);
 			expect(find.matchIndex.get()).toBe(0);
-			expect(controller.currentMatch.get()).toBe(undefined);
+			expect(controller.currentMatch.get(), 'research sets matchIndex but not currentMatch').toBe(undefined);
 
 			controller.findNext();
 			const match = controller.currentMatch.get();
-			expect(match).toBeDefined();
+			expect(match, 'findNext should wrap to the first match').toBeDefined();
 			expect(match!.matchIndex).toBe(0);
 			expect(match!.cellMatch.cellRange.range.startColumn).toBe(1);
 		});
@@ -583,13 +586,13 @@ describe('PositronNotebookFindController', () => {
 
 			controller.findNext(); // match 0
 			const currentDec = getCurrentFindMatchDecoration(cells[0]);
-			expect(currentDec).toBeDefined();
+			expect(currentDec, 'Should have current match decoration').toBeDefined();
 			expect(currentDec!.range.startColumn).toBe(1);
 
 			controller.findNext(); // match 1
 			const nextDec = getCurrentFindMatchDecoration(cells[0]);
-			expect(nextDec).toBeDefined();
-			expect(nextDec!.range.startColumn).toBe(7);
+			expect(nextDec, 'Should still have current match decoration').toBeDefined();
+			expect(nextDec!.range.startColumn, 'Decoration should move to second "aa"').toBe(7);
 		});
 
 		it('current match decoration moves across cells', () => {
@@ -606,8 +609,8 @@ describe('PositronNotebookFindController', () => {
 			expect(getCurrentFindMatchDecoration(cells[1])).toBe(undefined);
 
 			controller.findNext(); // match 1 (cell 1)
-			expect(getCurrentFindMatchDecoration(cells[0])).toBe(undefined);
-			expect(getCurrentFindMatchDecoration(cells[1])).toBeDefined();
+			expect(getCurrentFindMatchDecoration(cells[0]), 'Cell 0 should lose current decoration').toBe(undefined);
+			expect(getCurrentFindMatchDecoration(cells[1]), 'Cell 1 should gain current decoration').toBeDefined();
 		});
 
 		it('decorations update when query changes', () => {
@@ -645,7 +648,7 @@ describe('PositronNotebookFindController', () => {
 
 			// Hide find widget -- autorun clears matches synchronously
 			controller.hide();
-			expect(getFindMatchDecorations(cells[0]).length).toBe(0);
+			expect(getFindMatchDecorations(cells[0]).length, 'Decorations should clear on hide').toBe(0);
 		});
 
 		it('decoration count matches found matches', () => {
@@ -681,7 +684,7 @@ describe('PositronNotebookFindController', () => {
 			const fi1 = controller.findInstance;
 			controller.start();
 			const fi2 = controller.findInstance;
-			expect(fi1).toBe(fi2);
+			expect(fi1, 'Should reuse same find instance').toBe(fi2);
 			expect(fi1).toBe(find);
 		});
 
@@ -787,12 +790,12 @@ describe('PositronNotebookFindController', () => {
 			const find1 = getOrStartFindInstance(controller1);
 			find1.searchString.set('hello', undefined);
 			expect(find1.matchCount.get()).toBe(1);
-			expect(controller2.findInstance).toBe(undefined);
+			expect(controller2.findInstance, 'nb2 controller should have no find instance yet').toBe(undefined);
 
 			const find2 = getOrStartFindInstance(controller2);
 			find2.searchString.set('world', undefined);
 			expect(find2.matchCount.get()).toBe(1);
-			expect(find1.matchCount.get()).toBe(1);
+			expect(find1.matchCount.get(), 'nb1 match count unchanged').toBe(1);
 		});
 
 		it('matches reference cells from their own notebook', () => {
@@ -819,13 +822,13 @@ describe('PositronNotebookFindController', () => {
 
 			const find1 = getOrStartFindInstance(controller1);
 			find1.searchString.set('aaa', undefined);
-			expect(getFindMatchDecorations(notebook1.cells.get()[0]).length).toBeGreaterThan(0);
-			expect(getFindMatchDecorations(notebook2.cells.get()[0]).length).toBe(0);
+			expect(getFindMatchDecorations(notebook1.cells.get()[0]).length, 'nb1 should have decorations').toBeGreaterThan(0);
+			expect(getFindMatchDecorations(notebook2.cells.get()[0]).length, 'nb2 should have no decorations').toBe(0);
 
 			const find2 = getOrStartFindInstance(controller2);
 			find2.searchString.set('bbb', undefined);
-			expect(getFindMatchDecorations(notebook2.cells.get()[0]).length).toBeGreaterThan(0);
-			expect(getFindMatchDecorations(notebook1.cells.get()[0]).length).toBeGreaterThan(0);
+			expect(getFindMatchDecorations(notebook2.cells.get()[0]).length, 'nb2 should now have decorations').toBeGreaterThan(0);
+			expect(getFindMatchDecorations(notebook1.cells.get()[0]).length, 'nb1 decorations should be unchanged').toBeGreaterThan(0);
 		});
 
 		it('hiding find in one notebook does not affect the other', () => {
@@ -840,8 +843,8 @@ describe('PositronNotebookFindController', () => {
 			find2.searchString.set('foo', undefined);
 
 			controller1.hide();
-			expect(controller1.matches.get().length).toBe(0);
-			expect(find2.matchCount.get()).toBe(1);
+			expect(controller1.matches.get().length, 'nb1 matches should be cleared').toBe(0);
+			expect(find2.matchCount.get(), 'nb2 matches should be unaffected').toBe(1);
 		});
 	});
 
@@ -859,21 +862,21 @@ describe('PositronNotebookFindController', () => {
 			cell.model.textModel!.setValue('hello hello hello');
 
 			// Matches haven't updated yet -- debounce hasn't fired
-			expect(find.matchCount.get()).toBe(1);
+			expect(find.matchCount.get(), 'Should not recompute before debounce fires').toBe(1);
 
 			// Advance past the 20ms debounce
 			await waitForDebounce();
-			expect(find.matchCount.get()).toBe(3);
+			expect(find.matchCount.get(), 'Should have recomputed after debounce').toBe(3);
 		}));
 
 		it('search param change triggers immediate recompute', () => {
 			const { find } = findFixture([['hello Hello HELLO', 'python', CellKind.Code]]);
 			find.searchString.set('hello', undefined);
-			expect(find.matchCount.get()).toBe(3);
+			expect(find.matchCount.get(), 'Case-insensitive finds all').toBe(3);
 
 			// Toggle matchCase -- triggers immediate recompute via autorun (not debounced)
 			find.matchCase.set(true, undefined);
-			expect(find.matchCount.get()).toBe(1);
+			expect(find.matchCount.get(), 'Case-sensitive finds only lowercase').toBe(1);
 		});
 
 		it('rapid content changes settle to correct final state', () => runWithFakedTimers({}, async () => {
@@ -889,7 +892,7 @@ describe('PositronNotebookFindController', () => {
 
 			// Advance past the 20ms debounce -- only final state matters
 			await waitForDebounce();
-			expect(find.matchCount.get()).toBe(1);
+			expect(find.matchCount.get(), 'Should find "final" in final content').toBe(1);
 		}));
 	});
 
@@ -908,7 +911,7 @@ describe('PositronNotebookFindController', () => {
 
 			expect(controller.currentMatch.get()?.matchIndex).toBe(0);
 			const cell = notebook.cells.get()[0];
-			expect(cell.model.textModel!.getValue()).toBe('hello world hello');
+			expect(cell.model.textModel!.getValue(), 'Text should be unchanged').toBe('hello world hello');
 		});
 
 		it('replace() with current match replaces it and advances to next', () => runWithFakedTimers({}, async () => {
@@ -969,7 +972,7 @@ describe('PositronNotebookFindController', () => {
 			const cell = notebook.cells.get()[0];
 			expect(cell.model.textModel!.getValue()).toBe('hello world');
 			expect(controller.currentMatch.get()).toBe(undefined);
-			expect(bulkEditApplySpy).not.toHaveBeenCalled();
+			expect(bulkEditApplySpy, 'IBulkEditService.apply should not be called').not.toHaveBeenCalled();
 		});
 
 		it('replace() uses literal text when regex is off', async () => {
@@ -1028,7 +1031,7 @@ describe('PositronNotebookFindController', () => {
 			controller.findNext();
 			await controller.replace();
 
-			expect(bulkEditApplySpy).toHaveBeenCalledOnce();
+			expect(bulkEditApplySpy, 'apply should be called once').toHaveBeenCalledOnce();
 			const edits = bulkEditApplySpy.mock.calls[0][0];
 			expect(edits.length).toBe(1);
 			expect(edits[0].textEdit.text).toBe('hi');
@@ -1069,17 +1072,17 @@ describe('PositronNotebookFindController', () => {
 				find.replaceText.set('goodbye', tx);
 			});
 			expect(find.matchCount.get()).toBe(2);
-			expect(controller.currentMatch.get()).toBe(undefined);
+			expect(controller.currentMatch.get(), 'currentMatch should be unset after a fresh search').toBe(undefined);
 
 			// First replace() navigates to the first match without replacing.
 			await controller.replace();
 			const cell = notebook.cells.get()[0];
-			expect(cell.model.textModel!.getValue()).toBe('hello world hello');
-			expect(controller.currentMatch.get()).toBeDefined();
+			expect(cell.model.textModel!.getValue(), 'First replace() should navigate, not replace').toBe('hello world hello');
+			expect(controller.currentMatch.get(), 'currentMatch should be set after first replace()').toBeDefined();
 
 			// Second replace() performs the replacement.
 			await controller.replace();
-			expect(cell.model.textModel!.getValue()).toBe('goodbye world hello');
+			expect(cell.model.textModel!.getValue(), 'Second replace() should replace the first match').toBe('goodbye world hello');
 		});
 	});
 
@@ -1135,9 +1138,9 @@ describe('PositronNotebookFindController', () => {
 
 			await controller.replaceAll();
 
-			expect(bulkEditApplySpy).toHaveBeenCalledOnce();
+			expect(bulkEditApplySpy, 'apply should be called exactly once').toHaveBeenCalledOnce();
 			const edits = bulkEditApplySpy.mock.calls[0][0];
-			expect(edits.length).toBe(2);
+			expect(edits.length, 'Should have two ResourceTextEdit objects').toBe(2);
 			const options = bulkEditApplySpy.mock.calls[0][1];
 			expect(options.quotableLabel).toBe('Notebook Replace All');
 		});
@@ -1153,7 +1156,7 @@ describe('PositronNotebookFindController', () => {
 
 			const cell = notebook.cells.get()[0];
 			expect(cell.model.textModel!.getValue()).toBe('hello');
-			expect(bulkEditApplySpy).not.toHaveBeenCalled();
+			expect(bulkEditApplySpy, 'IBulkEditService.apply should not be called').not.toHaveBeenCalled();
 		});
 
 		it('replaceAll() with regex capture groups builds per-match replacements', async () => {
@@ -1189,7 +1192,7 @@ describe('PositronNotebookFindController', () => {
 
 			const cell = notebook.cells.get()[0];
 			expect(cell.model.textModel!.getValue()).toBe('hello world hello');
-			expect(bulkEditApplySpy).toHaveBeenCalledOnce();
+			expect(bulkEditApplySpy, 'apply should still be called').toHaveBeenCalledOnce();
 
 			// No debounce needed: replace() calls findNext() which sets
 			// currentMatch synchronously. The text didn't change so
@@ -1244,7 +1247,7 @@ describe('PositronNotebookFindController', () => {
 			await waitForDebounce();
 
 			const cell = notebook.cells.get()[0];
-			expect(getFindMatchDecorations(cell).length).toBe(1);
+			expect(getFindMatchDecorations(cell).length, 'One remaining match decoration').toBe(1);
 		}));
 
 		it('replaceAll clears all decorations', () => runWithFakedTimers({}, async () => {
@@ -1309,12 +1312,12 @@ describe('PositronNotebookFindController', () => {
 
 			// First replace() should navigate to the match (two-step behavior)
 			await controller.replace();
-			expect(cell.model.textModel!.getValue()).toBe('aa bb');
-			expect(controller.currentMatch.get()).toBeDefined();
+			expect(cell.model.textModel!.getValue(), 'First replace() should navigate, not replace').toBe('aa bb');
+			expect(controller.currentMatch.get(), 'currentMatch should be set after first replace()').toBeDefined();
 
 			// Second replace() should perform the actual replacement
 			await controller.replace();
-			expect(cell.model.textModel!.getValue()).toBe('test bb');
+			expect(cell.model.textModel!.getValue(), 'Second replace() should replace the match').toBe('test bb');
 		});
 
 		// Regression test for: after replace() changes text and research
@@ -1350,11 +1353,11 @@ describe('PositronNotebookFindController', () => {
 
 			// Navigate to match 0 (two-step behavior for fresh search)
 			await controller.replace();
-			expect(cell.model.textModel!.getValue()).toBe('hello world hello');
+			expect(cell.model.textModel!.getValue(), 'First replace() should navigate, not replace').toBe('hello world hello');
 
 			// Replace match 0
 			await controller.replace();
-			expect(cell.model.textModel!.getValue()).toBe('hi world hello');
+			expect(cell.model.textModel!.getValue(), 'Second replace() should replace match 0').toBe('hi world hello');
 
 			// Wait for debounced research to recompute matches.
 			// The remaining 'hello' shifted from column 13 to column 10
@@ -1365,7 +1368,7 @@ describe('PositronNotebookFindController', () => {
 			// This replace() should immediately replace the remaining match
 			// without requiring an extra navigation click
 			await controller.replace();
-			expect(cell.model.textModel!.getValue()).toBe('hi world hi');
+			expect(cell.model.textModel!.getValue(), 'replace() after research should immediately replace, not just navigate').toBe('hi world hi');
 		}));
 	});
 
@@ -1399,13 +1402,13 @@ describe('PositronNotebookFindController', () => {
 			// research() should cap matches for decorations.
 			// The default findMatches limitResultCount is 999.
 			const cell = notebook.cells.get()[0];
-			expect(controller.matches.get().length).toBe(999);
-			expect(getFindMatchDecorations(cell).length).toBe(999);
+			expect(controller.matches.get().length, 'research() should limit matches to 999 for decorations').toBe(999);
+			expect(getFindMatchDecorations(cell).length, 'decorations should be capped at 999').toBe(999);
 
 			// replaceAll() should replace ALL 1100, not just the decorated 1000
 			await controller.replaceAll();
 
-			expect(cell.model.textModel!.getValue()).not.toContain('aa');
+			expect(cell.model.textModel!.getValue(), 'All 1100 matches should be replaced, not just the first 1000').not.toContain('aa');
 
 			await waitForDebounce();
 			expect(find.matchCount.get()).toBe(0);

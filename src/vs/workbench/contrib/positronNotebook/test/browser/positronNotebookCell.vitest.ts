@@ -23,7 +23,7 @@ describe('PositronNotebookCell', () => {
 			[['print("hello")', 'python', CellKind.Code]], ctx.disposables
 		);
 		cell = notebook.cells.get()[0] as PositronNotebookCodeCell;
-		expect(cell.isCodeCell()).toBe(true);
+		expect(cell.isCodeCell(), 'Expected cell to be a code cell').toBe(true);
 	});
 
 	describe('Output scrolling state', () => {
@@ -97,13 +97,13 @@ describe('PositronNotebookCell Test Harness', () => {
 		);
 
 		const cell = notebook.cells.get()[0];
-		expect(cell.currentEditor).toBeDefined();
+		expect(cell.currentEditor, 'Cell should have an auto-attached editor').toBeDefined();
 
 		const editorModel = cell.currentEditor!.getModel();
-		expect(editorModel).toBeDefined();
+		expect(editorModel, 'Cell editor should have a model').toBeDefined();
 
-		expect(cell.getContent()).toBe(editorModel!.getValue());
-		expect(cell.model.textModel).toBe(editorModel);
+		expect(cell.getContent(), 'Cell content should match editor model value').toBe(editorModel!.getValue());
+		expect(cell.model.textModel, 'Cell model should be the editor model').toBe(editorModel);
 	});
 
 	it('setValue propagates through the content change event chain', () => {
@@ -134,7 +134,7 @@ describe('PositronNotebookCell Test Harness', () => {
 
 		cell.model.textModel!.setValue('new content');
 
-		expect(cellContentFired).toBe(true);
-		expect(notebookModelFired).toBe(true);
+		expect(cellContentFired, 'NotebookCellTextModel.onDidChangeContent should fire when textModel.setValue() is called').toBe(true);
+		expect(notebookModelFired, 'NotebookTextModel.onDidChangeContent should fire when textModel.setValue() is called').toBe(true);
 	});
 });

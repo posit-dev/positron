@@ -210,11 +210,11 @@ describe('PositronConsoleFindWidget', () => {
 
 			widget.reveal('secret');
 			let result = await widget.getResultCount();
-			expect(result).toBe(undefined);
+			expect(result, 'should not find text in hidden instance').toBe(undefined);
 
 			widget.reveal('visible');
 			result = await widget.getResultCount();
-			expect(result?.resultCount).toBe(1);
+			expect(result?.resultCount, 'should find text in visible instance').toBe(1);
 		});
 	});
 
@@ -229,7 +229,7 @@ describe('PositronConsoleFindWidget', () => {
 
 			widget.find(false);
 			result = await widget.getResultCount();
-			expect(result?.resultIndex).toBe(0);
+			expect(result?.resultIndex, 'should wrap to first').toBe(0);
 
 			widget.find(false);
 			result = await widget.getResultCount();
@@ -237,7 +237,7 @@ describe('PositronConsoleFindWidget', () => {
 
 			widget.find(false);
 			result = await widget.getResultCount();
-			expect(result?.resultIndex).toBe(2);
+			expect(result?.resultIndex, 'should wrap back to last').toBe(2);
 		});
 
 		it('find(true) goes backward with wrapping', async () => {
@@ -255,7 +255,7 @@ describe('PositronConsoleFindWidget', () => {
 
 			widget.find(true);
 			result = await widget.getResultCount();
-			expect(result?.resultIndex).toBe(2);
+			expect(result?.resultIndex, 'should wrap to last').toBe(2);
 		});
 
 		it('find() is a no-op with no matches', async () => {
@@ -303,11 +303,11 @@ describe('PositronConsoleFindWidget', () => {
 			widget.reveal('text');
 
 			let result = await widget.getResultCount();
-			expect(result?.resultCount).toBe(1);
+			expect(result?.resultCount, 'should have a match before hide').toBe(1);
 
 			widget.hide();
 			result = await widget.getResultCount();
-			expect(result).toBe(undefined);
+			expect(result, 'should have no matches after hide').toBe(undefined);
 			expect(
 				contextKeyService.getContextKeyValue('positronConsoleFindVisible')
 			).toBe(false);

@@ -82,9 +82,9 @@ describe('PositronWebviewPreloadService - addNotebookOutput rawHtml', () => {
 			rawHtml: '<iframe src="map.html"></iframe>',
 		});
 
-		expect(result).toBeDefined();
+		expect(result, 'should return a result').toBeDefined();
 		expect(result!.preloadMessageType).toBe('display');
-		expect('webview' in result!).toBe(true);
+		expect('webview' in result!, 'display result should have a webview').toBe(true);
 		expect(outputWebviewService.rawHtmlCreationCount).toBe(1);
 		expect(outputWebviewService.rawHtmlBaseUris[0]?.toString()).toBe(URI.file('/workspace').toString());
 
@@ -105,7 +105,7 @@ describe('PositronWebviewPreloadService - addNotebookOutput rawHtml', () => {
 			rawHtml: '<iframe src="map.html"></iframe>',
 		});
 
-		expect(result).toBeDefined();
+		expect(result, 'should return a result').toBeDefined();
 		expect(outputWebviewService.rawHtmlBaseUris[0]).toBe(undefined);
 	});
 
@@ -116,7 +116,7 @@ describe('PositronWebviewPreloadService - addNotebookOutput rawHtml', () => {
 			outputs: [{ mime: 'text/html', data: VSBuffer.fromString('<p>simple</p>') }],
 		});
 
-		expect(result).toBe(undefined);
+		expect(result, 'plain HTML should not create a webview').toBe(undefined);
 		expect(outputWebviewService.rawHtmlCreationCount).toBe(0);
 	});
 });

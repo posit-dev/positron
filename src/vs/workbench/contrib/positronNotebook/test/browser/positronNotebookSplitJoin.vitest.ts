@@ -25,7 +25,7 @@ function enterEditModeWithCursor(
 	const cell = notebook.cells.get()[cellIndex];
 	notebook.selectionStateMachine.selectCell(cell, CellSelectionType.Edit);
 	const editor = cell.currentEditor!;
-	expect(editor).toBeDefined();
+	expect(editor, 'Cell should have an editor attached').toBeDefined();
 	editor.setSelections(selections);
 }
 
@@ -48,7 +48,7 @@ describe('Split and Join Cells', () => {
 			notebook.splitCell();
 
 			const cells = notebook.cells.get();
-			expect(cells.length).toBe(2);
+			expect(cells.length, 'Should have 2 cells after split').toBe(2);
 			expect(cells[0].getContent()).toBe('hello');
 			expect(cells[1].getContent()).toBe(' world');
 		});
@@ -68,7 +68,7 @@ describe('Split and Join Cells', () => {
 			notebook.splitCell();
 
 			const cells = notebook.cells.get();
-			expect(cells.length).toBe(2);
+			expect(cells.length, 'Should have 2 cells after split').toBe(2);
 			expect(cells[0].getContent()).toBe('line1\n');
 			expect(cells[1].getContent()).toBe('line2\nline3');
 		});
@@ -88,7 +88,7 @@ describe('Split and Join Cells', () => {
 			notebook.splitCell();
 
 			const cells = notebook.cells.get();
-			expect(cells.length).toBe(3);
+			expect(cells.length, 'Should have 3 cells after multi-cursor split').toBe(3);
 			expect(cells[0].getContent()).toBe('aaa');
 			expect(cells[1].getContent()).toBe('bbb');
 			expect(cells[2].getContent()).toBe('ccc');
@@ -149,8 +149,8 @@ describe('Split and Join Cells', () => {
 
 			const { textModel } = notebook;
 			expect(textModel).toBeDefined();
-			expect(textModel!.cells[0].outputs.length).toBe(1);
-			expect(textModel!.cells[1].outputs.length).toBe(0);
+			expect(textModel!.cells[0].outputs.length, 'First cell should keep outputs').toBe(1);
+			expect(textModel!.cells[1].outputs.length, 'Second cell should have no outputs').toBe(0);
 		});
 
 		it('split preserves mime, internalMetadata, and collapseState on first cell', () => {
@@ -179,15 +179,15 @@ describe('Split and Join Cells', () => {
 			expect(textModel!.cells.length).toBe(2);
 
 			// First cell preserves all state
-			expect(textModel!.cells[0].mime).toBe('text/x-python');
-			expect(textModel!.cells[0].internalMetadata.executionOrder).toBe(5);
-			expect(textModel!.cells[0].internalMetadata.lastRunSuccess).toBe(true);
-			expect(textModel!.cells[0].collapseState).toEqual({ inputCollapsed: false, outputCollapsed: true });
+			expect(textModel!.cells[0].mime, 'First cell should preserve mime').toBe('text/x-python');
+			expect(textModel!.cells[0].internalMetadata.executionOrder, 'First cell should preserve executionOrder').toBe(5);
+			expect(textModel!.cells[0].internalMetadata.lastRunSuccess, 'First cell should preserve lastRunSuccess').toBe(true);
+			expect(textModel!.cells[0].collapseState, 'First cell should preserve collapseState').toEqual({ inputCollapsed: false, outputCollapsed: true });
 
 			// Second cell gets mime but not execution state or collapse
-			expect(textModel!.cells[1].mime).toBe('text/x-python');
-			expect(textModel!.cells[1].internalMetadata.executionOrder).toBe(undefined);
-			expect(textModel!.cells[1].collapseState).toBe(undefined);
+			expect(textModel!.cells[1].mime, 'Second cell should preserve mime').toBe('text/x-python');
+			expect(textModel!.cells[1].internalMetadata.executionOrder, 'Second cell should not inherit executionOrder').toBe(undefined);
+			expect(textModel!.cells[1].collapseState, 'Second cell should not inherit collapseState').toBe(undefined);
 		});
 
 		it('split does nothing when not in edit mode', () => {
@@ -203,7 +203,7 @@ describe('Split and Join Cells', () => {
 			notebook.splitCell();
 
 			const cells = notebook.cells.get();
-			expect(cells.length).toBe(1);
+			expect(cells.length, 'Should not split when not in edit mode').toBe(1);
 		});
 
 		it('split does not affect other cells', () => {
@@ -223,11 +223,11 @@ describe('Split and Join Cells', () => {
 			notebook.splitCell();
 
 			const cells = notebook.cells.get();
-			expect(cells.length).toBe(4);
-			expect(cells[0].getContent()).toBe('cell0');
-			expect(cells[1].getContent()).toBe('hello');
-			expect(cells[2].getContent()).toBe(' world');
-			expect(cells[3].getContent()).toBe('cell2');
+			expect(cells.length, 'Should have 4 cells total').toBe(4);
+			expect(cells[0].getContent(), 'Cell before split target unchanged').toBe('cell0');
+			expect(cells[1].getContent(), 'Split first half').toBe('hello');
+			expect(cells[2].getContent(), 'Split second half').toBe(' world');
+			expect(cells[3].getContent(), 'Cell after split target unchanged').toBe('cell2');
 		});
 	});
 
@@ -249,8 +249,8 @@ describe('Split and Join Cells', () => {
 			notebook.joinSelectedCells();
 
 			const newCells = notebook.cells.get();
-			expect(newCells.length).toBe(1);
-			expect(newCells[0].getContent()).toBe('line1\nline2');
+			expect(newCells.length, 'Should have 1 cell after join').toBe(1);
+			expect(newCells[0].getContent(), 'Content should be merged with newline').toBe('line1\nline2');
 		});
 
 		it('joins three selected cells in document order', () => {
@@ -290,7 +290,7 @@ describe('Split and Join Cells', () => {
 			notebook.joinSelectedCells();
 
 			const newCells = notebook.cells.get();
-			expect(newCells.length).toBe(1);
+			expect(newCells.length, 'Should join with cell below').toBe(1);
 			expect(newCells[0].getContent()).toBe('line1\nline2');
 		});
 
@@ -310,9 +310,9 @@ describe('Split and Join Cells', () => {
 			notebook.joinSelectedCells();
 
 			const newCells = notebook.cells.get();
-			expect(newCells.length).toBe(1);
+			expect(newCells.length, 'Should join mixed cell types').toBe(1);
 			expect(newCells[0].getContent()).toBe('code cell\n# markdown');
-			expect(newCells[0].kind).toBe(CellKind.Code);
+			expect(newCells[0].kind, 'Should use first cell type').toBe(CellKind.Code);
 		});
 
 		it('preserves outputs from first cell', () => {
@@ -380,10 +380,10 @@ describe('Split and Join Cells', () => {
 			const { textModel } = notebook;
 			expect(textModel).toBeDefined();
 			expect(textModel!.cells.length).toBe(1);
-			expect(textModel!.cells[0].mime).toBe('text/x-python');
-			expect(textModel!.cells[0].internalMetadata.executionOrder).toBe(3);
-			expect(textModel!.cells[0].internalMetadata.lastRunSuccess).toBe(true);
-			expect(textModel!.cells[0].collapseState).toEqual({ inputCollapsed: false, outputCollapsed: true });
+			expect(textModel!.cells[0].mime, 'Should preserve mime from first cell').toBe('text/x-python');
+			expect(textModel!.cells[0].internalMetadata.executionOrder, 'Should preserve executionOrder from first cell').toBe(3);
+			expect(textModel!.cells[0].internalMetadata.lastRunSuccess, 'Should preserve lastRunSuccess from first cell').toBe(true);
+			expect(textModel!.cells[0].collapseState, 'Should preserve collapseState from first cell').toEqual({ inputCollapsed: false, outputCollapsed: true });
 		});
 
 		it('joins non-contiguous selection, leaving unselected cells intact', () => {
@@ -447,7 +447,7 @@ describe('Split and Join Cells', () => {
 			notebook.joinCellAbove();
 
 			const newCells = notebook.cells.get();
-			expect(newCells.length).toBe(2);
+			expect(newCells.length, 'Should not join when at first cell').toBe(2);
 		});
 
 		it('joins cells of different types using active cell type', () => {
@@ -465,9 +465,9 @@ describe('Split and Join Cells', () => {
 			notebook.joinCellAbove();
 
 			const newCells = notebook.cells.get();
-			expect(newCells.length).toBe(1);
+			expect(newCells.length, 'Should join different cell types').toBe(1);
 			expect(newCells[0].getContent()).toBe('# markdown\ncode');
-			expect(newCells[0].kind).toBe(CellKind.Code);
+			expect(newCells[0].kind, 'Should use active cell type').toBe(CellKind.Code);
 		});
 
 		it('preserves mime, internalMetadata, and collapseState from active cell', () => {
@@ -505,9 +505,9 @@ describe('Split and Join Cells', () => {
 			const { textModel } = notebook;
 			expect(textModel).toBeDefined();
 			expect(textModel!.cells.length).toBe(1);
-			expect(textModel!.cells[0].mime).toBe('text/x-python');
-			expect(textModel!.cells[0].internalMetadata.executionOrder).toBe(8);
-			expect(textModel!.cells[0].collapseState).toEqual({ inputCollapsed: false, outputCollapsed: true });
+			expect(textModel!.cells[0].mime, 'Should preserve mime from active cell').toBe('text/x-python');
+			expect(textModel!.cells[0].internalMetadata.executionOrder, 'Should preserve executionOrder from active cell').toBe(8);
+			expect(textModel!.cells[0].collapseState, 'Should preserve collapseState from active cell').toEqual({ inputCollapsed: false, outputCollapsed: true });
 		});
 	});
 
@@ -546,7 +546,7 @@ describe('Split and Join Cells', () => {
 			notebook.joinCellBelow();
 
 			const newCells = notebook.cells.get();
-			expect(newCells.length).toBe(2);
+			expect(newCells.length, 'Should not join when at last cell').toBe(2);
 		});
 
 		it('joins cells of different types using active cell type', () => {
@@ -564,9 +564,9 @@ describe('Split and Join Cells', () => {
 			notebook.joinCellBelow();
 
 			const newCells = notebook.cells.get();
-			expect(newCells.length).toBe(1);
+			expect(newCells.length, 'Should join different cell types').toBe(1);
 			expect(newCells[0].getContent()).toBe('code\n# markdown');
-			expect(newCells[0].kind).toBe(CellKind.Code);
+			expect(newCells[0].kind, 'Should use active cell type').toBe(CellKind.Code);
 		});
 
 		it('preserves mime, internalMetadata, and collapseState from active cell', () => {
@@ -603,9 +603,9 @@ describe('Split and Join Cells', () => {
 			const { textModel } = notebook;
 			expect(textModel).toBeDefined();
 			expect(textModel!.cells.length).toBe(1);
-			expect(textModel!.cells[0].mime).toBe('text/x-python');
-			expect(textModel!.cells[0].internalMetadata.executionOrder).toBe(10);
-			expect(textModel!.cells[0].collapseState).toEqual({ inputCollapsed: false, outputCollapsed: true });
+			expect(textModel!.cells[0].mime, 'Should preserve mime from active cell').toBe('text/x-python');
+			expect(textModel!.cells[0].internalMetadata.executionOrder, 'Should preserve executionOrder from active cell').toBe(10);
+			expect(textModel!.cells[0].collapseState, 'Should preserve collapseState from active cell').toEqual({ inputCollapsed: false, outputCollapsed: true });
 		});
 	});
 
@@ -624,7 +624,7 @@ describe('Split and Join Cells', () => {
 			]);
 			notebook.splitCell();
 
-			expect(notebook.cells.get().length).toBe(2);
+			expect(notebook.cells.get().length, 'Should have 2 cells after split').toBe(2);
 			expect(notebook.cells.get()[0].getContent()).toBe('hello');
 			expect(notebook.cells.get()[1].getContent()).toBe(' world');
 
@@ -635,7 +635,7 @@ describe('Split and Join Cells', () => {
 			notebook.joinSelectedCells();
 
 			const newCells = notebook.cells.get();
-			expect(newCells.length).toBe(1);
+			expect(newCells.length, 'Should have 1 cell after join').toBe(1);
 			// Join inserts an EOL between segments, so the content has a newline
 			// where the split was. This is expected: split+join at a mid-line
 			// position turns the split point into a line break.

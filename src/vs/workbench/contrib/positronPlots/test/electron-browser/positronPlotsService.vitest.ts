@@ -76,7 +76,7 @@ describe('Positron - Plots Service', () => {
 		plotsService.selectHistoryPolicy(HistoryPolicy.AlwaysVisible);
 
 		await raceTimeout(didChangeHistoryPolicy, 100, () => expect.unreachable('onDidChangeHistoryPolicy event did not fire'));
-		expect(historyPolicyChanged).toBe(1);
+		expect(historyPolicyChanged, 'onDidChangeHistoryPolicy event should fire once').toBe(1);
 	});
 
 	it('display location: change event', async () => {
@@ -94,13 +94,13 @@ describe('Positron - Plots Service', () => {
 
 		// No event since MainWindow is the default
 		plotsService.setDisplayLocation(PlotsDisplayLocation.MainWindow);
-		expect(displayLocationChanged).toBe(0);
+		expect(displayLocationChanged, 'no event should fire when setting to default value').toBe(0);
 
 		// Event should fire when changing to AuxiliaryWindow
 		plotsService.setDisplayLocation(PlotsDisplayLocation.AuxiliaryWindow);
 
 		await raceTimeout(didChangeDisplayLocation, 100, () => expect.unreachable('onDidChangeDisplayLocation event did not fire'));
-		expect(displayLocationChanged).toBe(1);
+		expect(displayLocationChanged, 'onDidChangeDisplayLocation event should fire once').toBe(1);
 		expect(lastLocation).toBe(PlotsDisplayLocation.AuxiliaryWindow);
 	});
 
@@ -118,7 +118,7 @@ describe('Positron - Plots Service', () => {
 
 		// Set to AuxiliaryWindow again - should not fire event
 		plotsService.setDisplayLocation(PlotsDisplayLocation.AuxiliaryWindow);
-		expect(displayLocationChanged).toBe(1);
+		expect(displayLocationChanged, 'event should not fire when setting to same location').toBe(1);
 	});
 
 	it('sizing policy: check options and change size', () => {
@@ -176,7 +176,7 @@ describe('Positron - Plots Service', () => {
 
 		await raceTimeout(didClosePlot, 100, () => expect.unreachable('onDidChangeSizingPolicy event did not fire'));
 
-		expect(sizingPolicyChanged).toBe(true);
+		expect(sizingPolicyChanged, 'onDidChangeSizingPolicy event should fire').toBe(true);
 	});
 
 	it('selection: select plot', async () => {
@@ -199,7 +199,7 @@ describe('Positron - Plots Service', () => {
 
 		await raceTimeout(didSelectPlot, 100, () => expect.unreachable('onDidSelectPlot event did not fire'));
 
-		expect(selectPlotCalled).toBe(true);
+		expect(selectPlotCalled, 'onDidSelectPlot event should fire').toBe(true);
 		expect(plotsService.selectedPlotId).toBe('plot1');
 	});
 
@@ -224,7 +224,7 @@ describe('Positron - Plots Service', () => {
 
 		await raceTimeout(didRemovePlot, 100, () => expect.unreachable('onDidRemovePlot event did not fire'));
 
-		expect(removePlotCalled).toBe(true);
+		expect(removePlotCalled, 'onDidRemovePlot event should fire').toBe(true);
 		expect(plotsService.positronPlotInstances.length).toBe(0);
 		expect(plotsService.selectedPlotId).toBe(undefined);
 	});
@@ -309,6 +309,6 @@ describe('Positron - Plots Service', () => {
 
 		// Verify that operations were queued and processed
 		// The second render should cancel the first, so we expect only 1 render call
-		expect(renderCallCount).toBe(1);
+		expect(renderCallCount, 'Should have called render only once due to cancellation').toBe(1);
 	});
 });
