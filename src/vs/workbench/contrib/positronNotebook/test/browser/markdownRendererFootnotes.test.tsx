@@ -323,4 +323,28 @@ suite('Positron Notebook - TokenMarkdownRenderer Footnotes', () => {
 		assert.strictEqual(backrefs.length, 1);
 		assert.strictEqual(backrefs[0].type, NotebookLink, 'backref should use NotebookLink');
 	});
+
+	test('footnote ref has doc-noteref role and aria-label with footnote number', () => {
+		const elements = renderTokens('Text[^a] More[^b]\n\n[^a]: First.\n\n[^b]: Second.');
+		const refs = findElements(elements, el => el.props.className === 'footnote-ref');
+		assert.strictEqual(refs.length, 2);
+		const anchor0 = findChildAnchor(refs[0]);
+		const anchor1 = findChildAnchor(refs[1]);
+		assert.ok(anchor0);
+		assert.ok(anchor1);
+		assert.strictEqual(anchor0.props.role, 'doc-noteref');
+		assert.strictEqual(anchor1.props.role, 'doc-noteref');
+		assert.strictEqual(anchor0.props['aria-label'], 'Footnote 1');
+		assert.strictEqual(anchor1.props['aria-label'], 'Footnote 2');
+	});
+
+	test('footnote backref has doc-backlink role and aria-label with footnote number', () => {
+		const elements = renderTokens('Text[^a] More[^b]\n\n[^a]: First.\n\n[^b]: Second.');
+		const backrefs = findElements(elements, el => el.props.className === 'footnote-backref');
+		assert.strictEqual(backrefs.length, 2);
+		assert.strictEqual(backrefs[0].props.role, 'doc-backlink');
+		assert.strictEqual(backrefs[1].props.role, 'doc-backlink');
+		assert.strictEqual(backrefs[0].props['aria-label'], 'Back to content 1');
+		assert.strictEqual(backrefs[1].props['aria-label'], 'Back to content 2');
+	});
 });

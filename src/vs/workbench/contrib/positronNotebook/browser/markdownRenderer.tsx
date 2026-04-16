@@ -642,7 +642,7 @@ export class TokenMarkdownRenderer {
 		const refId = refCount === 1 ? `fnref-${safeId}` : `fnref-${safeId}-${refCount}`;
 		return (
 			<sup key={key} className='footnote-ref'>
-				<NotebookLink href={`#fn-${safeId}`} id={refId}>{num}</NotebookLink>
+				<NotebookLink aria-label={`Footnote ${num}`} href={`#fn-${safeId}`} id={refId} role='doc-noteref'>{num}</NotebookLink>
 			</sup>
 		);
 	}
@@ -655,11 +655,12 @@ export class TokenMarkdownRenderer {
 					{definitions.map((def) => {
 						const safeId = this.sanitizeFootnoteId(def.id);
 						const wasReferenced = this._footnoteRefCounter.has(def.id);
+						const num = this._footnoteNumberMap.get(def.id);
 						// Backref always targets the first ref anchor
 						// (#fnref-<id>); secondary refs (#fnref-<id>-2, ...) get
 						// no dedicated backref by design.
 						const backref = wasReferenced
-							? <NotebookLink className='footnote-backref' href={`#fnref-${safeId}`}>{'\u21a9'}</NotebookLink>
+							? <NotebookLink aria-label={`Back to content ${num}`} className='footnote-backref' href={`#fnref-${safeId}`} role='doc-backlink'>{'\u21a9'}</NotebookLink>
 							: null;
 
 						const bodyElements = def.tokens.map((token, i) => {
