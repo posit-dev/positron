@@ -111,29 +111,9 @@ it('responds to event', () => {
 });
 ```
 
-**Why emitters must be at describe level:** The builder's `.stub()` captures the emitter's `.event` reference during `build()`, which runs at describe level before any `beforeEach`. If you create an `Emitter` inside `it()`, it's a different object than the one wired into the service -- your `.fire()` calls won't reach the component.
-
 ## React Component Testing (RTL)
 
-`setupRTLRenderer()` wraps components in the full Positron provider tree automatically. No manual provider wrapping needed.
-
-**Service-context pattern** -- component calls `usePositronReactServicesContext()`. Use `withReactServices()` to bridge builder services into the React context:
-
-```typescript
-const ctx = createTestContainer()
-	.withReactServices()
-	.stub(IRuntimeSessionService, { foregroundSessionDisplayInfo: undefined, ... })
-	.build();
-const rtl = setupRTLRenderer(() => ctx.reactServices);
-
-it('renders session info', () => {
-	rtl.render(<MyComponent />).getByText('Start Session');
-});
-```
-
-The builder provides all 50+ services that `PositronReactServicesContext` needs. Override specific services with `.stub()` -- child component dependencies are handled automatically.
-
-**Prop-driven pattern** -- component gets all data via props:
+The quick start above shows the service-context pattern (most Positron components). For **prop-driven components** (no `usePositronReactServicesContext()`), skip the builder:
 
 ```typescript
 const rtl = setupRTLRenderer();
@@ -143,7 +123,7 @@ it('renders label', () => {
 });
 ```
 
-**RTL queries:** Use `getByRole` or `getByText` when the component exposes accessible roles or visible text. Many Positron components use internal CSS classes without accessible roles -- in that case, `container.querySelector` is the pragmatic choice. Don't force `getByRole` when the component doesn't support it.
+**RTL queries:** Use `getByRole` or `getByText` when the component exposes accessible roles or visible text. Many Positron components use internal CSS classes without accessible roles -- in that case, `container.querySelector` is the pragmatic choice.
 
 ## Inline Snapshots
 
@@ -157,7 +137,6 @@ Use `toMatchInlineSnapshot()` to capture rendered HTML. Vitest auto-fills on fir
 - `vi.fn()` -- simple stubs/spies. Prefer this for new Vitest tests.
 - `vi.spyOn(obj, 'method')` -- spy on existing method while preserving implementation.
 - `Test*` classes / `mock.ts` -- complex state (emitters, observable values). Use when multiple tests need the same mock behavior.
-- `sinon` -- avoid in new Vitest tests.
 
 ## Common Mistakes
 
@@ -183,17 +162,6 @@ it('responds', () => {
 // CORRECT: emitter at describe level, .event passed to .stub()
 const emitter = new Emitter<string>();
 const ctx = createTestContainer().stub(IService, { onDidChange: emitter.event }).build();
-```
-
-**Using `ensureNoLeakedDisposables()` with the builder:**
-```typescript
-// WRONG: double-tracking -- the builder already calls this internally
-const disposables = ensureNoLeakedDisposables();
-const ctx = createTestContainer().build();
-
-// CORRECT: just use the builder
-const ctx = createTestContainer().build();
-// ctx.disposables.add() if you need to track extra disposables
 ```
 
 ## Working examples
