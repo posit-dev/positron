@@ -190,6 +190,15 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		throw new Error('No active session found.');
 	}
 
+	async refreshMetadata(token?: CancellationToken): Promise<void> {
+		const instance = this._activeInstance;
+		if (instance) {
+			return await instance.refreshMetadata(token);
+		}
+
+		throw new Error('No active session found.');
+	}
+
 	async installPackages(packages: IPackageSpec[], token?: CancellationToken): Promise<void> {
 		const instance = this._activeInstance;
 		if (instance) {

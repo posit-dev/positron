@@ -16,6 +16,7 @@ export interface IPositronPackagesInstance {
 	attachRuntime(): void;
 	detachRuntime(): void;
 	refreshPackages(token?: CancellationToken): Promise<ILanguageRuntimePackage[]>;
+	refreshMetadata(token?: CancellationToken): Promise<void>;
 	installPackages(packages: IPackageSpec[], token?: CancellationToken): Promise<void>;
 	uninstallPackages(packageNames: string[], token?: CancellationToken): Promise<void>;
 	updatePackages(packages: IPackageSpec[], token?: CancellationToken): Promise<void>;
@@ -45,6 +46,9 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 
 	/** Cached metadata from P3M, keyed by lowercase package name */
 	private readonly _metadataCache = new Map<string, Partial<ILanguageRuntimePackage>>();
+
+	/** Guard to prevent concurrent metadata fetch calls */
+	private _metadataFetchInProgress = false;
 
 	private readonly _runtimeDisposableStore = this._register(new DisposableStore());
 
@@ -148,6 +152,24 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	}
 
 	/**
+	 * Force refresh metadata for all packages, clearing the cache first.
+	 */
+	async refreshMetadata(token?: CancellationToken): Promise<void> {
+		const packageManager = this.getPackageManagerOrThrow();
+		const effectiveToken = token ?? CancellationToken.None;
+
+		if (!packageManager.getPackageMetadata || this._packages.length === 0) {
+			return;
+		}
+
+		// Clear the cache to force a full refresh
+		this._metadataCache.clear();
+
+		// Fetch metadata for all packages
+		await this._fetchAndMergeMetadata(packageManager, effectiveToken);
+	}
+
+	/**
 	 * Internal helper to refresh packages with two-stage metadata fetch.
 	 * Stage 1: Get basic packages and fire event immediately (with cached metadata).
 	 * Stage 2: Fetch metadata asynchronously for uncached packages.
@@ -176,6 +198,11 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		packageManager: { getPackageMetadata?: (names: string[], token?: CancellationToken) => Promise<Map<string, Partial<ILanguageRuntimePackage>> | undefined> },
 		token: CancellationToken,
 	): Promise<void> {
+		// Guard against concurrent metadata fetch calls
+		if (this._metadataFetchInProgress) {
+			return;
+		}
+
 		try {
 			// Only fetch metadata for packages not already cached
 			const uncachedPackages = this._packages.filter(
@@ -187,6 +214,8 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 				this._onDidRefreshPackagesInstance.fire(this.packages);
 				return;
 			}
+
+			this._metadataFetchInProgress = true;
 
 			const packageNames = uncachedPackages.map((pkg) => pkg.name);
 			const metadataMap = await packageManager.getPackageMetadata!(packageNames, token);
@@ -205,6 +234,8 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		} catch (err) {
 			// Log but don't throw - metadata is optional enhancement
 			this._logService.warn(`[Packages] Failed to fetch package metadata: ${err}`);
+		} finally {
+			this._metadataFetchInProgress = false;
 		}
 	}
 
