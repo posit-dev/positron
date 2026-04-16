@@ -38,12 +38,17 @@ export namespace MarkedFootnoteExtension {
 	// Must not be followed by a colon (that would be a definition).
 	const footnoteRefRule = /^\[\^([^\]]+)\](?!:)/;
 
-	// Match [^id]: with optional same-line text and optional indented continuation lines.
-	// Continuation lines must start with at least two spaces or a tab (may be empty).
-	// The first-line body may be empty (e.g. [^1]:\n  continuation).
+	// Match [^id]: definition. Two accepted forms:
+	//   1. `[^id]: body` - separator (space/tab) required between `:` and body;
+	//      may be followed by indented continuation lines
+	//   2. `[^id]:\n  continuation` - empty first line, followed by at least
+	//      one indented continuation line (2+ spaces or a tab)
+	// Continuation lines may be blank (pure whitespace at the required indent).
+	// The bare form `[^id]:text` (no separator) and `[^id]:` alone are
+	// intentionally rejected so the input falls through to plain text.
 	// Limitation: blank-line-separated multi-paragraph definitions (CommonMark-style)
 	// are not supported; the match ends at the first line without indentation.
-	const footnoteDefinitionRule = /^\[\^([^\]]+)\]:[ \t]*((?:[^\n]+)?(?:\n(?:[ \t]{2,}|\t)[^\n]*)*)/;
+	const footnoteDefinitionRule = /^\[\^([^\]]+)\]:(?:[ \t]+([^\n]+(?:\n(?:[ \t]{2,}|\t)[^\n]*)*)|[ \t]*((?:\n(?:[ \t]{2,}|\t)[^\n]*)+))/;
 
 	export function extension(): marked.MarkedExtension {
 		return {
@@ -90,7 +95,9 @@ export namespace MarkedFootnoteExtension {
 			tokenizer(this: { lexer: marked.Lexer }, src: string) {
 				const match = src.match(footnoteDefinitionRule);
 				if (match) {
-					const rawBody = match[2];
+					// Either match[2] (same-line body form) or match[3]
+					// (empty-first-line form) holds the body; the other is undefined.
+					const rawBody = match[2] ?? match[3] ?? '';
 					// Strip the leading indentation (2+ spaces or tab) from continuation lines
 					// so the block parser sees them at the correct nesting level.
 					const body = rawBody.replace(/\n(?:  |\t)/g, '\n').trim();

@@ -254,6 +254,28 @@ suite('Positron Notebook - TokenMarkdownRenderer Footnotes', () => {
 		assert.strictEqual(lists.length, 1, 'footnote with list content should render a ul');
 	});
 
+	test('[^id]:\\n  body with empty first line and indented continuation is accepted', () => {
+		const elements = renderTokens('Text[^1]\n\n[^1]:\n  deferred continuation.');
+		const sections = findElements(elements, el => el.props.className === 'footnotes');
+		assert.strictEqual(sections.length, 1, 'empty-first-line def with indented continuation should tokenize');
+		const lis = findElements([sections[0]], el => el.type === 'li');
+		assert.strictEqual(lis.length, 1);
+	});
+
+	test('[^id]:text without a separator is rejected (falls through to plain text)', () => {
+		// Pair the bare form with a real ref so any section that does appear would
+		// be from this definition, not side-effects of the ref alone.
+		const elements = renderTokens('Text[^1]\n\n[^1]:no-separator body.');
+		const sections = findElements(elements, el => el.props.className === 'footnotes');
+		assert.strictEqual(sections.length, 0, '[^id]:text should not tokenize as a definition');
+	});
+
+	test('[^id]: alone with no body or continuation is rejected', () => {
+		const elements = renderTokens('Text[^1]\n\n[^1]:');
+		const sections = findElements(elements, el => el.props.className === 'footnotes');
+		assert.strictEqual(sections.length, 0, 'bare [^id]: should not tokenize as a definition');
+	});
+
 	test('ref to an undefined footnote still renders without a footnote section', () => {
 		const elements = renderTokens('Text[^missing] and more text.');
 		const refs = findElements(elements, el => el.props.className === 'footnote-ref');
