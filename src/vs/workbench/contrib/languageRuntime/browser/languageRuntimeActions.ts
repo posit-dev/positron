@@ -17,6 +17,9 @@ import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessi
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
+import { IModelService } from '../../../../editor/common/services/model.js';
+import { ThemeIcon } from '../../../../base/common/themables.js';
+import { getSessionIcon } from '../../positronConsole/common/sessionDisplayUtils.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { dispose } from '../../../../base/common/lifecycle.js';
@@ -134,45 +137,43 @@ const selectLanguageRuntimeSession = async (
 	const quickInputService = accessor.get(IQuickInputService);
 	const runtimeSessionService = accessor.get(IRuntimeSessionService);
 	const commandService = accessor.get(ICommandService);
+	const modelService = accessor.get(IModelService);
+
+	// Filter active sessions by runtime state (exclude exited/uninitialized sessions).
+	const isActiveState = (session: ILanguageRuntimeSession) => {
+		switch (session.getRuntimeState()) {
+			case RuntimeState.Initializing:
+			case RuntimeState.Starting:
+			case RuntimeState.Ready:
+			case RuntimeState.Idle:
+			case RuntimeState.Busy:
+			case RuntimeState.Restarting:
+			case RuntimeState.Exiting:
+			case RuntimeState.Offline:
+			case RuntimeState.Interrupting:
+				return true;
+			default:
+				return false;
+		}
+	};
+
+	const foregroundSessionId = runtimeSessionService.foregroundSession?.sessionId;
 
 	// Create quick pick items for active console sessions sorted by creation time, oldest to newest.
-	const sortedActiveSessions = runtimeSessionService.activeSessions
+	const consoleItems: IQuickPickItem[] = runtimeSessionService.activeSessions
 		.filter(session => session.metadata.sessionMode === LanguageRuntimeSessionMode.Console)
-		.sort((a, b) => a.metadata.createdTimestamp - b.metadata.createdTimestamp);
-
-	const activeRuntimeItems: IQuickPickItem[] = sortedActiveSessions.filter(
-		(session) => {
-			switch (session.getRuntimeState()) {
-				case RuntimeState.Initializing:
-				case RuntimeState.Starting:
-				case RuntimeState.Ready:
-				case RuntimeState.Idle:
-				case RuntimeState.Busy:
-				case RuntimeState.Restarting:
-				case RuntimeState.Exiting:
-				case RuntimeState.Offline:
-				case RuntimeState.Interrupting:
-					return true;
-				default:
-					return false;
-			}
-		}
-	).map(
-		(session) => {
-			const isForegroundSession =
-				session.sessionId === runtimeSessionService.foregroundSession?.sessionId;
-			return {
-				id: session.sessionId,
-				label: session.dynState.sessionName,
-				detail: session.runtimeMetadata.runtimePath,
-				description: isForegroundSession ? localize('positron.languageRuntime.currentlySelected', 'Currently Selected') : undefined,
-				iconPath: {
-					dark: URI.parse(`data:image/svg+xml;base64, ${session.runtimeMetadata.base64EncodedIconSvg}`),
-				},
-				picked: isForegroundSession,
-			};
-		}
-	);
+		.filter(isActiveState)
+		.sort((a, b) => a.metadata.createdTimestamp - b.metadata.createdTimestamp)
+		.map(session => ({
+			id: session.sessionId,
+			label: session.dynState.sessionName,
+			detail: session.runtimeMetadata.runtimePath,
+			description: session.sessionId === foregroundSessionId
+				? localize('positron.languageRuntime.currentlySelected', 'Currently Selected')
+				: undefined,
+			iconClass: ThemeIcon.asClassName(getSessionIcon(session.metadata, modelService)),
+			picked: session.sessionId === foregroundSessionId,
+		}));
 
 	// Show quick pick to select an active runtime or show all runtimes.
 	const quickPickItems: QuickPickItem[] = [
@@ -180,7 +181,7 @@ const selectLanguageRuntimeSession = async (
 			label: localize('positron.languageRuntime.activeConsoleSessions', 'Console Sessions'),
 			type: 'separator',
 		},
-		...activeRuntimeItems,
+		...consoleItems,
 		{
 			type: 'separator'
 		}
@@ -196,7 +197,7 @@ const selectLanguageRuntimeSession = async (
 	const result = await quickInputService.pick(quickPickItems, {
 		title: options?.title || localize('positron.languageRuntime.selectSession.quickPickTitle', 'Select Interpreter Session'),
 		canPickMany: false,
-		activeItem: activeRuntimeItems.filter(item => item.picked)[0]
+		activeItem: consoleItems.filter(item => item.picked)[0]
 	});
 
 	// Handle the user's selection.
