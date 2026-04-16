@@ -34,24 +34,16 @@ const focusableElementSelectors =
 const kGutter = 40;
 
 /**
- * Common props shared by all modal dialog variants.
+ * PositronModalDialogProps interface.
  */
-interface PositronModalDialogBaseProps {
+export interface PositronModalDialogProps {
 	renderer: PositronModalReactRenderer;
 	title: string;
 	width: number;
+	height: number;
 	closeOnClickOutside?: boolean;
 	onCancel?: () => void;
 }
-
-/**
- * PositronModalDialogProps type. Height is either a fixed pixel value or 'auto'
- * with optional min/max height constraints.
- */
-export type PositronModalDialogProps = PositronModalDialogBaseProps & (
-	| { height: number; minHeight?: never; maxHeight?: never }
-	// | { height: 'auto'; minHeight: number; maxHeight: number }
-);
 
 /**
  * DialogBoxState interface.

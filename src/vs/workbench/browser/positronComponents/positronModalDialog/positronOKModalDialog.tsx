@@ -15,9 +15,9 @@ import { OKActionBar } from './components/okActionBar.js';
 import { PositronModalDialog, PositronModalDialogProps } from './positronModalDialog.js';
 
 /**
- * OKModalDialogProps type.
+ * OKModalDialogProps interface.
  */
-export type OKModalDialogProps = PositronModalDialogProps & {
+export interface OKModalDialogProps extends PositronModalDialogProps {
 	okButtonTitle?: string;
 	onAccept: () => void;
 	/**
@@ -26,7 +26,7 @@ export type OKModalDialogProps = PositronModalDialogProps & {
 	 * However, this can be optionally specified to allow the modal to be closed via the Escape key.
 	 */
 	onCancel?: () => void;
-};
+}
 
 /**
  * OKModalDialog component.
