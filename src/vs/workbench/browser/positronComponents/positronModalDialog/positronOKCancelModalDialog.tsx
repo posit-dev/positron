@@ -16,9 +16,9 @@ import { PositronModalDialog, PositronModalDialogProps } from './positronModalDi
 import { VerticalSpacer } from './components/verticalSpacer.js';
 
 /**
- * OKCancelModalDialogProps interface.
+ * OKCancelModalDialogProps type.
  */
-export interface OKCancelModalDialogProps extends PositronModalDialogProps {
+export type OKCancelModalDialogProps = PositronModalDialogProps & {
 	title: string;
 	okButtonTitle?: string;
 	cancelButtonTitle?: string;
@@ -29,7 +29,7 @@ export interface OKCancelModalDialogProps extends PositronModalDialogProps {
 	 * popup?
 	 */
 	catchErrors?: boolean;
-}
+};
 
 /**
  * OKCancelModalDialog component.

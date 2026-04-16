@@ -18,15 +18,15 @@ import { PositronModalDialog, PositronModalDialogProps } from './positronModalDi
 import { PlatformNativeDialogActionBar } from './components/platformNativeDialogActionBar.js';
 
 /**
- * ConfirmDeleteModalDialogProps interface.
+ * ConfirmDeleteModalDialogProps type.
  */
-export interface ConfirmDeleteModalDialogProps extends PositronModalDialogProps {
+export type ConfirmDeleteModalDialogProps = PositronModalDialogProps & {
 	title: string;
 	cancelButtonTitle?: string;
 	deleteActionTitle?: string;
 	onCancel: () => (void | Promise<void>);
 	onDeleteAction: () => (void | Promise<void>);
-}
+};
 
 /**
  * ConfirmDeleteModalDialog component.
