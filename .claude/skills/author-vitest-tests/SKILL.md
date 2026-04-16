@@ -112,6 +112,19 @@ Use the CLAUDE.md decision table. Summary:
 | React component, props only | RTL prop-driven | `.vitest.tsx` |
 | React component using context | RTL service-context | `.vitest.tsx` |
 
+### Choosing the right preset
+
+Read the builder JSDoc in `src/vs/test/vitest/positronTestContainer.ts` for the full preset hierarchy. Start low and let errors guide you up:
+
+1. **No services?** Skip the builder entirely -- write a plain test.
+2. **Needs runtime/session services?** Start with `.withRuntimeServices()`.
+3. **Needs notebook kernel/editor services?** Use `.withNotebookServices()`.
+4. **Needs full workbench DI (e.g. `createInstance(MyService)`)?** Use `.withWorkbenchServices()`.
+5. **Testing a workbench contribution that subscribes to editor/notebook lifecycle events?** Use `.withContributionServices()`.
+6. **Testing a React component that calls `usePositronReactServicesContext()`?** Use `.withReactServices()`.
+
+**Don't guess -- iterate.** Run the test. If it fails with "X is not a function" or "Cannot read properties of undefined," the service is missing. Add `.stub(IMissingService, {})` and run again. If a specific method is called, stub just that method: `.stub(IService, { getDoc: () => undefined })`. If the code subscribes to an event, stub the event: `.stub(IService, { onDidChange: Event.None })` (use `Event.None` for events the test doesn't fire, or create an `Emitter` at describe level for events it does fire).
+
 ### Writing each test
 
 For each approved item:

@@ -46,11 +46,13 @@ The builder and RTL renderer handle everything else. For advanced cases (presets
 
 ## Where to put the test file
 
-Place tests in the `test/browser/` directory adjacent to the source module. If no test directory exists, create `test/browser/`.
+Mirror the source file's subdirectory under `test/`. If the source is in `browser/`, the test goes in `test/browser/`. If the source is in `common/`, the test goes in `test/common/`. If no test directory exists, create the matching one.
 
 Examples:
 - Source: `src/vs/workbench/contrib/positronConsole/browser/components/emptyConsole.tsx`
 - Test: `src/vs/workbench/contrib/positronConsole/test/browser/emptyConsole.vitest.tsx`
+- Source: `src/vs/platform/update/common/positronUpdateUtils.ts`
+- Test: `src/vs/platform/update/test/common/positronUpdateUtils.vitest.ts`
 
 Some modules use `tests/` (plural) -- match what already exists in that directory.
 
@@ -60,7 +62,20 @@ Use `createTestContainer()` for any test needing services. The builder handles `
 
 **Do I need `ensureNoLeakedDisposables()`?** Only if your test creates disposables directly (via `new`). Pure function tests don't need it. When in doubt, leave it out -- the builder adds it automatically, and plain tests that don't create disposables have nothing to leak.
 
-Pick the lowest preset that covers your test's dependencies. Presets form a hierarchy (each includes the one above) -- see the full list and when to add new ones in the [PositronTestContainerBuilder JSDoc](../../src/vs/test/vitest/positronTestContainer.ts).
+Pick the lowest preset that covers your test's dependencies:
+
+| Preset | When to use |
+|---|---|
+| *(none)* -- just `createTestContainer().build()` | Class that only needs a bare `TestInstantiationService` |
+| `.withRuntimeServices()` | Needs `ILanguageRuntimeService`, `IRuntimeSessionService`, etc. |
+| `.withNotebookServices()` | Needs runtime + notebook kernel/editor services |
+| `.withWorkbenchServices()` | Needs full DI stack (e.g. `createInstance(MyService)`) |
+| `.withContributionServices()` | Workbench contribution subscribing to editor/notebook lifecycle events |
+| `.withReactServices()` | React component calling `usePositronReactServicesContext()` |
+
+**Don't guess -- iterate.** Start with a preset and run the test. If it passes, you're done. If it fails with "X is not a function" or "Cannot read properties of undefined," add `.stub(IMissingService, {})`. Add only the method the error names: `.stub(IService, { getDoc: () => undefined })`. For events the test doesn't fire, use `Event.None`: `.stub(IService, { onDidChange: Event.None })`.
+
+See the full hierarchy and when to add new presets in the [PositronTestContainerBuilder JSDoc](../../src/vs/test/vitest/positronTestContainer.ts).
 
 ```typescript
 const ctx = createTestContainer().withRuntimeServices().build();
@@ -177,4 +192,5 @@ const ctx = createTestContainer().build();
 These showcase tests demonstrate the patterns at increasing complexity:
 - `src/vs/platform/update/test/common/positronUpdateUtils.vitest.ts` -- plain: pure function, no services, no builder
 - `src/vs/workbench/contrib/positronConsole/test/browser/emptyConsole.vitest.tsx` -- React: one service, one click, behavioral assertions
-- `src/vs/workbench/contrib/positronConsole/test/browser/startupStatus.vitest.tsx` -- event-driven: 6-phase state machine, 3 event subscriptions
+- `src/vs/workbench/contrib/positronPlots/test/browser/webviewPlotThumbnail.vitest.tsx` -- event-driven intro: one emitter, act(), conditional rendering
+- `src/vs/workbench/contrib/positronConsole/test/browser/startupStatus.vitest.tsx` -- event-driven advanced: 6-phase state machine, 3 event subscriptions
