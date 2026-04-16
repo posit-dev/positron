@@ -231,12 +231,12 @@ If any new file uses manual instantiation service creation, rewrite it to use `c
 
 ## Phase 3: Independent Review
 
-After all tests pass and builder enforcement is confirmed, spawn **one** review subagent for all new/modified test files. Use the checklist from `.claude/skills/review-unit-tests/SKILL.md`.
+After all tests pass and builder enforcement is confirmed, spawn **one** review subagent for all new/modified test files. Use the checklist from `.claude/skills/review-vitest-tests/SKILL.md`.
 
 ```
 Agent({
   description: "Review all new tests",
-  prompt: "Review these test files using the checklist in .claude/skills/review-unit-tests/SKILL.md:\n\n<list each test file and its source file>"
+  prompt: "Review these test files using the checklist in .claude/skills/review-vitest-tests/SKILL.md:\n\n<list each test file and its source file>"
 })
 ```
 

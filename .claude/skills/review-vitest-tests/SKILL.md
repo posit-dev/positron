@@ -1,11 +1,11 @@
 ---
-name: review-unit-tests
-description: Use when reviewing unit test files for quality, maintainability, and adherence to Positron's testing patterns. Load this skill when test files need a quality check against the builder pattern and project conventions. Not for e2e or Playwright tests.
+name: review-vitest-tests
+description: Use when reviewing Vitest test files for quality, maintainability, and adherence to Positron's testing patterns. Load this skill when test files need a quality check against the builder pattern, RTL patterns, and project conventions. Not for e2e or Playwright tests.
 ---
 
-# Positron Unit Test Review
+# Positron Vitest Test Review
 
-Review unit test files for quality, maintainability, and adherence to the project's testing patterns. Evaluate them on their own merits with no context about why they were written this way.
+Review Vitest test files for quality, maintainability, and adherence to the project's testing patterns. Evaluate them on their own merits with no context about why they were written this way.
 
 ## Arguments
 
@@ -14,8 +14,8 @@ $ARGUMENTS should contain the test file path(s) to review. For each test file, a
 ## Setup
 
 1. Read each test file and its source file.
-2. Read the builder reference: `src/vs/workbench/test/browser/positronTestContainer.ts`
-3. Read the Testing section of `CLAUDE.md`
+2. Read `.claude/rules/vitest.md` for patterns, conventions, and common mistakes.
+3. Read the builder JSDoc: `src/vs/workbench/test/browser/positronTestContainer.ts`
 
 ## Checklist (per test file)
 
