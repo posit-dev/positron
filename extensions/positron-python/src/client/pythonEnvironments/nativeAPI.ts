@@ -368,6 +368,14 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
 
     private _condaEnvDirs: string[] = [];
 
+    // --- Start Positron ---
+    // Cache of resolved symlink paths, keyed by executable filename.
+    // Maintained incrementally in addEnv()/removeEnv() so checkForExistingEnv()
+    // can do O(1) lookups instead of re-resolving all existing envs on every
+    // new env addition (which was O(N^2) total).
+    private _resolvedSymlinks = new Map<string, string>();
+    // --- End Positron ---
+
     constructor(private readonly finder: NativePythonFinder) {
         this._onProgress = new EventEmitter<ProgressNotificationEvent>();
         this._onChanged = new EventEmitter<PythonEnvCollectionChangedEvent>();
@@ -555,7 +563,11 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
             if (!old) {
                 // If the 'info' env is not already in the list, check if it is one of the additional env directories,
                 // and if so, check if we have an equivalent env already and determine if we should add the 'info' env.
-                const { reason, existingEnv } = await checkForExistingEnv(this._envs, info);
+                const { reason, existingEnv } = await checkForExistingEnv(
+                    this._envs,
+                    info,
+                    this._resolvedSymlinks,
+                );
                 switch (reason) {
                     case ExistingEnvAction.KeepExistingEnv:
                         // We found an 'old' equivalent env, but it has a shorter path than the equivalent new 'info' env.
@@ -583,9 +595,20 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
                         break;
                 }
             }
-            // --- End Positron ---
             if (old) {
-                this._envs = this._envs.filter((item) => item.executable.filename !== info.executable.filename);
+                // Remove the replaced env's symlink cache entry. In the
+                // ReplaceExistingEnv case, old's filename differs from info's,
+                // so we also need to filter _envs by old's filename to
+                // actually remove it (not just info's filename, which isn't
+                // in _envs yet).
+                const oldFilename = old.executable.filename;
+                this._resolvedSymlinks.delete(oldFilename);
+                this._envs = this._envs.filter(
+                    (item) =>
+                        item.executable.filename !== info.executable.filename &&
+                        item.executable.filename !== oldFilename,
+                );
+                // --- End Positron ---
                 this._envs.push(info);
                 if (hasChanged(old, info)) {
                     this._onChanged.fire({ type: FileChangeType.Changed, old, new: info, searchLocation });
@@ -603,10 +626,16 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
         if (typeof env === 'string') {
             const old = this._envs.find((item) => item.executable.filename === env);
             this._envs = this._envs.filter((item) => item.executable.filename !== env);
+            // --- Start Positron ---
+            this._resolvedSymlinks.delete(env);
+            // --- End Positron ---
             this._onChanged.fire({ type: FileChangeType.Deleted, old });
             return;
         }
         this._envs = this._envs.filter((item) => item.executable.filename !== env.executable.filename);
+        // --- Start Positron ---
+        this._resolvedSymlinks.delete(env.executable.filename);
+        // --- End Positron ---
         this._onChanged.fire({ type: FileChangeType.Deleted, old: env });
     }
 
@@ -917,7 +946,11 @@ class NativeWithModulesApi implements IDiscoveryAPI, Disposable {
  * @return The result of the check -- how to proceed with the new environment and if found,
  *         the equivalent existing environment.
  */
-async function checkForExistingEnv(envs: PythonEnvInfo[], newEnv: PythonEnvInfo): Promise<ExistingEnvResult> {
+async function checkForExistingEnv(
+    envs: PythonEnvInfo[],
+    newEnv: PythonEnvInfo,
+    resolvedSymlinks: Map<string, string>,
+): Promise<ExistingEnvResult> {
     const additionalEnvDirs = await getAdditionalEnvDirs();
     const isAdditionalEnv = additionalEnvDirs.find((dir) => isParentPath(newEnv.executable.filename, dir));
 
@@ -928,13 +961,18 @@ async function checkForExistingEnv(envs: PythonEnvInfo[], newEnv: PythonEnvInfo)
     }
 
     // Look for an existing environment in the same additional environment directory
-    // as the new env.
+    // as the new env. Use the cached resolved symlinks to avoid an O(N) pass of
+    // resolveSymbolicLink() calls on every invocation.
     const resolvedEnv = await resolveSymbolicLink(newEnv.executable.filename);
     let existingEnv: PythonEnvInfo | undefined;
-    const resolvedItems = await Promise.all(envs.map((item) => resolveSymbolicLink(item.executable.filename)));
-    for (let i = 0; i < envs.length; i++) {
-        if (arePathsSame(resolvedEnv, resolvedItems[i])) {
-            existingEnv = envs[i];
+    for (const item of envs) {
+        let resolvedItem = resolvedSymlinks.get(item.executable.filename);
+        if (resolvedItem === undefined) {
+            resolvedItem = await resolveSymbolicLink(item.executable.filename);
+            resolvedSymlinks.set(item.executable.filename, resolvedItem);
+        }
+        if (arePathsSame(resolvedEnv, resolvedItem)) {
+            existingEnv = item;
             break;
         }
     }
