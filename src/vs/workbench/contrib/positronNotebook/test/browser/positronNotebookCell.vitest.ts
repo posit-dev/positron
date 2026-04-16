@@ -100,7 +100,7 @@ describe('PositronNotebookCell Test Harness', () => {
 		expect(cell.currentEditor, 'Cell should have an auto-attached editor').toBeDefined();
 
 		const editorModel = cell.currentEditor!.getModel();
-		expect(editorModel, 'Cell editor should have a model').toBeDefined();
+		expect(editorModel, 'Cell editor should have a model').not.toBeNull();
 
 		expect(cell.getContent(), 'Cell content should match editor model value').toBe(editorModel!.getValue());
 		expect(cell.model.textModel, 'Cell model should be the editor model').toBe(editorModel);

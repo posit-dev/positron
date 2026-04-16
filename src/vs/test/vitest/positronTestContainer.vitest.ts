@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { Event } from '../../base/common/event.js';
+import { Emitter, Event } from '../../base/common/event.js';
 import { ICodeEditorService } from '../../editor/browser/services/codeEditorService.js';
 import { INotebookEditorService } from '../../workbench/contrib/notebook/browser/services/notebookEditorService.js';
 import { IPositronNotebookService } from '../../workbench/contrib/positronNotebook/browser/positronNotebookService.js';
@@ -78,14 +78,22 @@ describe('positronTestContainer', () => {
 	});
 
 	describe('user .stub() overrides preset stubs', () => {
-		const customEvent = new (class { event = Event.None; })().event;
+		// Use a real Emitter so customEvent is a distinct reference from the
+		// Event.None that the Contribution layer stubs in. If we used a value
+		// equal to Event.None, toBe(customEvent) would pass even if the
+		// override mechanism were broken.
+		const customEmitter = new Emitter<void>();
+		const customEvent = customEmitter.event;
 		const ctx = createTestContainer()
 			.withContributionServices()
 			.stub(INotebookEditorService, { onDidAddNotebookEditor: customEvent })
 			.build();
 
 		it('user .stub() wins over the Contribution layer', () => {
-			expect(ctx.get(INotebookEditorService).onDidAddNotebookEditor).toBe(customEvent);
+			const resolved = ctx.get(INotebookEditorService).onDidAddNotebookEditor;
+			expect(resolved).toBe(customEvent);
+			expect(resolved).not.toBe(Event.None);
+			ctx.disposables.add(customEmitter);
 		});
 	});
 });

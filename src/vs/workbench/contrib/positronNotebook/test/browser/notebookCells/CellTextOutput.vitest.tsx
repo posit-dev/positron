@@ -27,7 +27,7 @@ class CellTextOutputFixture {
 
 	get outputContainer() {
 		const el = this.container.querySelector<HTMLDivElement>('.positron-notebook-text-output');
-		expect(el, 'Expected output container to exist').toBeDefined();
+		expect(el, 'Expected output container to exist').not.toBeNull();
 		return el!;
 	}
 
@@ -125,7 +125,7 @@ describe('CellTextOutput', () => {
 		const fixture = renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
 
 		expect(fixture.hasClass('notebook-error'), 'Expected error class').toBe(true);
-		expect(fixture.quickFixContainer, 'Expected quick-fix container for error output').toBeDefined();
+		expect(fixture.quickFixContainer, 'Expected quick-fix container for error output').not.toBeNull();
 	});
 
 	it('does not render quick-fix for errors when assistant is disabled', () => {
@@ -161,7 +161,7 @@ describe('CellTextOutput', () => {
 		);
 
 		const message = fixture.truncationMessage;
-		expect(message, 'Expected truncation message').toBeDefined();
+		expect(message, 'Expected truncation message').not.toBeNull();
 		expect(message!.textContent, 'Expected truncation count').toContain('5 more lines');
 
 		// 50/50 split: top 15 lines (1-15), bottom 15 lines (21-35), lines 16-20 hidden
@@ -212,7 +212,7 @@ describe('CellTextOutput', () => {
 			{ content, type: 'stdout' },
 			{ outputLineLimit: 30, outputScrolling: false },
 		);
-		expect(fixture.truncationMessage, 'Expected truncation message initially').toBeDefined();
+		expect(fixture.truncationMessage, 'Expected truncation message initially').not.toBeNull();
 
 		layoutConfig = { ...layoutConfig, outputLineLimit: 50 };
 		flushSync(() => optionsEmitter.fire({ outputLineLimit: true } as NotebookOptionsChangeEvent));

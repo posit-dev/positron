@@ -23,7 +23,7 @@ class PositronFindWidgetFixture {
 
 	get results() {
 		const el = this.container.querySelector('.results');
-		expect(el, 'Expected results element to exist').toBeDefined();
+		expect(el, 'Expected results element to exist').not.toBeNull();
 		return el!;
 	}
 
@@ -33,19 +33,19 @@ class PositronFindWidgetFixture {
 
 	get previousButton() {
 		const button = this.navigationButtons[0];
-		expect(button, 'Expected previous button to exist').toBeDefined();
+		expect(button, 'Expected previous button to exist').not.toBeNull();
 		return button;
 	}
 
 	get nextButton() {
 		const button = this.navigationButtons[1];
-		expect(button, 'Expected next button to exist').toBeDefined();
+		expect(button, 'Expected next button to exist').not.toBeNull();
 		return button;
 	}
 
 	get closeButton() {
 		const button = this.container.querySelector<HTMLButtonElement>('button.close-button');
-		expect(button, 'Expected close button to exist').toBeDefined();
+		expect(button, 'Expected close button to exist').not.toBeNull();
 		return button!;
 	}
 
@@ -138,7 +138,7 @@ describe('PositronFindWidget', () => {
 			/>
 		);
 		const widgetContainer = container.querySelector<HTMLDivElement>('.positron-find-widget');
-		expect(widgetContainer, 'Expected PositronFindWidget to be rendered').toBeDefined();
+		expect(widgetContainer, 'Expected PositronFindWidget to be rendered').not.toBeNull();
 		return new PositronFindWidgetFixture(widgetContainer!);
 	}
 
@@ -282,7 +282,7 @@ describe('PositronFindWidget', () => {
 		it('hidden when replaceIsVisible is false', () => {
 			const widget = renderWidget({ useReplace: true });
 
-			expect(widget.toggleReplaceButton, 'Expected toggle replace button to exist').toBeDefined();
+			expect(widget.toggleReplaceButton, 'Expected toggle replace button to exist').not.toBeNull();
 			expect(widget.replacePart, 'Expected replace part to be hidden').toBe(null);
 		});
 
@@ -290,10 +290,10 @@ describe('PositronFindWidget', () => {
 			replaceIsVisible.set(true, undefined);
 			const widget = renderWidget({ useReplace: true });
 
-			expect(widget.toggleReplaceButton, 'Expected toggle replace button to exist').toBeDefined();
-			expect(widget.replacePart, 'Expected replace part to be visible').toBeDefined();
-			expect(widget.replaceButton, 'Expected replace button to exist').toBeDefined();
-			expect(widget.replaceAllButton, 'Expected replace all button to exist').toBeDefined();
+			expect(widget.toggleReplaceButton, 'Expected toggle replace button to exist').not.toBeNull();
+			expect(widget.replacePart, 'Expected replace part to be visible').not.toBeNull();
+			expect(widget.replaceButton, 'Expected replace button to exist').not.toBeNull();
+			expect(widget.replaceAllButton, 'Expected replace all button to exist').not.toBeNull();
 		});
 
 		it('expands/collapses when toggle replace button is clicked', () => {
@@ -301,7 +301,7 @@ describe('PositronFindWidget', () => {
 
 			flushSync(() => widget.toggleReplaceButton!.click());
 
-			expect(widget.replacePart, 'Expected replace part to be visible when expanded').toBeDefined();
+			expect(widget.replacePart, 'Expected replace part to be visible when expanded').not.toBeNull();
 			expect(replaceIsVisible.get(), 'Expected replaceIsVisible to be true').toBe(true);
 
 			flushSync(() => widget.toggleReplaceButton!.click());

@@ -60,7 +60,7 @@ describe('ActionBarWidget', () => {
 		const { container } = renderWidget(descriptor);
 
 		const widgetContent = container.querySelector('.test-widget-content');
-		expect(widgetContent, 'Expected to find widget content').toBeDefined();
+		expect(widgetContent, 'Expected to find widget content').not.toBeNull();
 		expect(widgetContent!.textContent).toBe('Test Widget');
 	});
 
@@ -97,7 +97,7 @@ describe('ActionBarWidget', () => {
 		const { container } = renderWidget(descriptor);
 
 		const button = container.querySelector('button.action-bar-widget');
-		expect(button, 'Expected to find button element').toBeDefined();
+		expect(button, 'Expected to find button element').not.toBeNull();
 		expect(button!.getAttribute('aria-label')).toBe('Test Command');
 		expect(button!.getAttribute('title')).toBe('Execute test command');
 	});
@@ -119,7 +119,7 @@ describe('ActionBarWidget', () => {
 		const { container } = renderWidget(descriptor);
 
 		const button = container.querySelector<HTMLButtonElement>('button.action-bar-widget');
-		expect(button, 'Expected to find button').toBeDefined();
+		expect(button, 'Expected to find button').not.toBeNull();
 
 		// Simulate click
 		const commandPromise = Event.toPromise(commandService.onWillExecuteCommand);
@@ -147,7 +147,7 @@ describe('ActionBarWidget', () => {
 		const { container } = renderWidget(descriptor);
 
 		const button = container.querySelector<HTMLButtonElement>('button.action-bar-widget');
-		expect(button, 'Expected to find button').toBeDefined();
+		expect(button, 'Expected to find button').not.toBeNull();
 
 		// Simulate Enter key press
 		const commandPromise = Event.toPromise(commandService.onWillExecuteCommand);
@@ -174,7 +174,7 @@ describe('ActionBarWidget', () => {
 		const { container } = renderWidget(descriptor);
 
 		const button = container.querySelector<HTMLButtonElement>('button.action-bar-widget');
-		expect(button, 'Expected to find button').toBeDefined();
+		expect(button, 'Expected to find button').not.toBeNull();
 
 		// Simulate Space key press
 		const commandPromise = Event.toPromise(commandService.onWillExecuteCommand);
@@ -197,7 +197,7 @@ describe('ActionBarWidget', () => {
 		const { container } = renderWidget(descriptor);
 
 		const div = container.querySelector('div.action-bar-widget');
-		expect(div, 'Expected to find div element').toBeDefined();
+		expect(div, 'Expected to find div element').not.toBeNull();
 
 		const button = container.querySelector('button.action-bar-widget');
 		expect(button, 'Should not render as button when self-contained').toBe(null);
@@ -215,7 +215,7 @@ describe('ActionBarWidget', () => {
 		const { container } = renderWidget(descriptor);
 
 		const div = container.querySelector('div.action-bar-widget');
-		expect(div, 'Expected to find div element for legacy widget').toBeDefined();
+		expect(div, 'Expected to find div element for legacy widget').not.toBeNull();
 
 		const button = container.querySelector('button.action-bar-widget');
 		expect(button, 'Legacy widget should not render as button').toBe(null);
@@ -240,10 +240,10 @@ describe('ActionBarWidget', () => {
 		const { container } = renderWidget(descriptor);
 
 		const errorIndicator = container.querySelector('.action-bar-widget-error');
-		expect(errorIndicator, 'Expected to find error indicator').toBeDefined();
+		expect(errorIndicator, 'Expected to find error indicator').not.toBeNull();
 
 		const errorIcon = errorIndicator!.querySelector('.codicon-error');
-		expect(errorIcon, 'Expected to find error icon').toBeDefined();
+		expect(errorIcon, 'Expected to find error icon').not.toBeNull();
 
 		// Verify error was logged
 		expect(consoleErrorStub, 'Error should be logged to console').toHaveBeenCalled();
@@ -269,10 +269,10 @@ describe('ActionBarWidget', () => {
 		const { container } = renderWidget(descriptor);
 
 		const errorIndicator = container.querySelector<HTMLElement>('.action-bar-widget-error');
-		expect(errorIndicator, 'Expected to find error indicator').toBeDefined();
+		expect(errorIndicator, 'Expected to find error indicator').not.toBeNull();
 
 		const title = errorIndicator!.getAttribute('title');
-		expect(title, 'Expected error indicator to have title').toBeDefined();
+		expect(title, 'Expected error indicator to have title').not.toBeNull();
 		expect(title!, 'Title should contain error message').toContain('Specific error message');
 
 		consoleErrorStub.mockRestore();
