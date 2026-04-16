@@ -20,13 +20,33 @@ Positron Vitest tests (`*.vitest.ts` / `*.vitest.tsx`) run via `npx vitest run` 
 
 That's it. No builder, no services, no setup.
 
-**Testing a React component?** Copy the EmptyConsole test:
+**Testing a React component?** Copy the EmptyConsole test and change 4 things:
 
 1. Copy `src/vs/workbench/contrib/positronConsole/test/browser/emptyConsole.vitest.tsx`
-2. Change the component name and import
-3. Change the `.stub()` to the service your component uses
-4. Run: `npx vitest run src/vs/path/to/yourTest.vitest.tsx`
-5. If it fails with "missing service" errors, add more `.stub()` calls
+2. Change these 4 things (everything else is boilerplate -- keep it):
+
+```tsx
+// (1) Your component import
+import { MyComponent } from '../../browser/components/myComponent.js';
+// (2) Your service import (only if you need to stub a service)
+import { IMyService } from '...';
+
+describe('MyComponent', () => {
+	const ctx = createTestContainer()
+		.withReactServices()
+		.stub(IMyService, { getData: vi.fn() })  // (3) Your stubs
+		.build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	it('renders', () => {
+		rtl.render(<MyComponent />);              // (4) Your component + assertions
+		// ... your assertions ...
+	});
+});
+```
+
+3. Run: `npx vitest run src/vs/path/to/yourTest.vitest.tsx`
+4. If it fails with "missing service" errors, add more `.stub()` calls
 
 The builder and RTL renderer handle everything else. For advanced cases (presets, mocking philosophy, event testing), read on.
 
