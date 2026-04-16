@@ -11,7 +11,6 @@ import { Logger, measureAndLog } from './logger';
 import { launch as launchPlaywrightBrowser } from './playwrightBrowser';
 import { PlaywrightDriver } from './playwrightDriver';
 import { launch as launchPlaywrightElectron } from './playwrightElectron';
-import { teardown } from './processes';
 import { Quality } from './application';
 
 // --- Start Positron ---
@@ -67,7 +66,17 @@ interface ICodeInstance {
 const instances = new Set<ICodeInstance>();
 
 function registerInstance(process: cp.ChildProcess, logger: Logger, type: 'electron' | 'server'): { safeToKill: Promise<void> } {
-	const instance = { kill: () => teardown(process, logger) };
+	const instance = {
+		kill: async () => {
+			if (process.pid) {
+				try {
+					await treeKillAsync(process.pid, 'SIGKILL');
+				} catch (e) {
+					logger.log(`Failed to kill process tree for PID ${process.pid}: ${e}`);
+				}
+			}
+		}
+	};
 	instances.add(instance);
 
 	const safeToKill = new Promise<void>(resolve => {
@@ -341,7 +350,7 @@ export class Code {
 	/**
 	 * Kill the entire process tree starting from the given PID.
 	 * This ensures child processes (kernels, language servers, etc.) are also terminated.
-	 * Uses two-phase approach: SIGTERM first, then SIGKILL if still alive (macOS only).
+	 * Uses immediate SIGKILL to prevent orphaned children when parent exits.
 	 */
 	private async killProcessTree(pid: number): Promise<void> {
 		const isAlive = () => {
@@ -358,40 +367,21 @@ export class Code {
 			return;
 		}
 
-		// Phase 1: Attempt graceful shutdown with SIGTERM
-		this.logger.log(`Smoke test killProcessTree(): Attempting SIGTERM for PID ${pid}`);
+		// Send SIGKILL immediately to kill parent and children together
+		// This prevents the parent from exiting cleanly and orphaning its children
+		this.logger.log(`Smoke test killProcessTree(): Sending SIGKILL to PID ${pid} and descendants`);
 		try {
-			const processStub: Pick<cp.ChildProcess, 'pid'> = { pid };
-			await teardown(processStub as cp.ChildProcess, this.logger);
-		} catch (e) {
-			this.logger.log(`Smoke test killProcessTree(): teardown failed: ${e}`);
-		}
-
-		await this.wait(500);
-		if (!isAlive()) {
-			this.logger.log(`Smoke test killProcessTree(): PID ${pid} exited after SIGTERM`);
-			return;
-		}
-
-		// Phase 2: Process survived SIGTERM, escalate to SIGKILL
-		this.logger.log(`Smoke test killProcessTree(): PID ${pid} still alive after SIGTERM; escalating to SIGKILL`);
-		try {
-			// Kill entire process tree with SIGKILL, not just parent
 			await treeKillAsync(pid, 'SIGKILL');
 		} catch (e) {
 			this.logger.log(`Smoke test killProcessTree(): SIGKILL failed: ${e}`);
 		}
 
-		await this.wait(500);
+		await this.wait(1000);
 		if (!isAlive()) {
 			this.logger.log(`Smoke test killProcessTree(): PID ${pid} exited after SIGKILL`);
 		} else {
-			this.logger.log(`Smoke test killProcessTree(): PID ${pid} STILL alive after SIGKILL (unexpected)`);
+			this.logger.log(`Smoke test killProcessTree(): WARNING - PID ${pid} still alive after SIGKILL`);
 		}
-
-		// Note: dbus-daemon cleanup removed to prevent interference with parallel tests
-		// The shared dbus session (started in xvfb setup) should handle all Electron instances
-		// Any orphaned dbus-daemon processes will be cleaned up by docker --init zombie reaping
 	}
 	// --- End Positron ---
 
