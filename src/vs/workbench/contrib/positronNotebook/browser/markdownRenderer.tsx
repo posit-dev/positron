@@ -271,13 +271,10 @@ function RawHtml({ html }: { html: string }) {
 }
 
 /**
- * Renderer that converts Marked tokens to React elements.
- * Uses component overrides to handle special cases (complex HTML):
- * - Links: NotebookLink
- * - Images: DeferredImage
- * - Raw HTML: RawHtml with component overrides for links/images
- * - LaTeX math: KatexMath
- * - Syntax-highlighted code blocks: SyntaxHighlightedCode
+ * Renderer that converts Marked tokens to React elements. Most tokens map
+ * directly to JSX; tokens that require notebook-specific behavior (e.g.
+ * links, images, raw HTML, math, highlighted code) dispatch to dedicated
+ * React components defined in this file.
  */
 export class TokenMarkdownRenderer {
 	private keyCounter = 0;
