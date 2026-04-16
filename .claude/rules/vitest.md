@@ -11,7 +11,7 @@ Vitest tests run directly on your source files -- no build daemons, no compilati
 
 ## Quick Start
 
-**Testing a pure function?** Copy the simplest test and adapt it:
+### Testing a pure function?
 
 1. Copy `src/vs/platform/update/test/common/positronUpdateUtils.vitest.ts`
 2. Change the import to your function
@@ -20,7 +20,7 @@ Vitest tests run directly on your source files -- no build daemons, no compilati
 
 That's it. No builder, no services, no setup.
 
-**Testing a React component?** Copy the EmptyConsole test and change 4 things:
+### Testing a React component?
 
 1. Copy `src/vs/workbench/contrib/positronConsole/test/browser/emptyConsole.vitest.tsx`
 2. Change these 4 things (everything else is boilerplate -- keep it):
@@ -68,9 +68,7 @@ Mirror the source subdirectory under `test/`: `browser/` -> `test/browser/`, `co
 
 ## The Builder
 
-Use `createTestContainer()` for any test needing services. The builder handles disposable leak tracking automatically -- do not add `ensureNoLeakedDisposables()` yourself.
-
-Pick the lowest preset that covers your dependencies. See the full preset hierarchy in the [PositronTestContainerBuilder JSDoc](../../src/vs/test/vitest/positronTestContainer.ts). Start low and let errors guide you up:
+Use `createTestContainer()` for any test needing services. Pick the lowest preset that covers your dependencies ([full preset hierarchy](../../src/vs/test/vitest/positronTestContainer.ts)). Start low and let errors guide you up:
 
 1. Run the test. If it passes, you're done.
 2. "X is not a function" or "Cannot read properties of undefined" -- add `.stub(IMissingService, {})`
@@ -78,12 +76,6 @@ Pick the lowest preset that covers your dependencies. See the full preset hierar
 4. Code subscribes to an event you don't need to fire -- use `Event.None`: `.stub(IService, { onDidChange: Event.None })`
 
 **Testing event-driven behavior:** Create an `Emitter` at describe level, pass its `.event` to the stub, then call `.fire()` in your test (wrapped in `act()` for React components). See `webviewPlotThumbnail.vitest.tsx` and `startupStatus.vitest.tsx` in the working examples below.
-
-## React Component Testing (RTL)
-
-The quick start above shows the service-context pattern (most Positron components). For **prop-driven components** (no `usePositronReactServicesContext()`), skip the builder -- call `setupRTLRenderer()` with no arguments and render directly.
-
-**RTL queries:** Use `getByRole` or `getByText` when the component exposes accessible roles or visible text. Many Positron components use internal CSS classes without accessible roles -- in that case, `container.querySelector` is the pragmatic choice.
 
 ## Inline Snapshots
 
