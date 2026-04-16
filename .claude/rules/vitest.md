@@ -50,7 +50,7 @@ describe('MyComponent', () => {
 
 ## File setup
 
-- Place test files by mirroring the source subdirectory under `test/`: `browser/` -> `test/browser/`, `common/` -> `test/common/`. Match `test/` vs `tests/` if the directory already exists.
+- Place test files next to the source: `browser/` tests go in `test/browser/`, `common/` in `test/common/`. Match `test/` vs `tests/` per existing convention.
 - File extension: `.vitest.ts` (or `.vitest.tsx` for React components)
 - `/// <reference types="vitest/globals" />` after the copyright header (required for IDE intellisense)
 - Tabs for indentation
