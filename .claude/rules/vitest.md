@@ -48,8 +48,6 @@ describe('MyComponent', () => {
 3. Run: `npx vitest run src/vs/path/to/yourTest.vitest.tsx`
 4. If it fails with "missing service" errors, add more `.stub()` calls
 
-The builder and RTL renderer handle everything else. For advanced cases (presets, mocking philosophy, event testing), read on.
-
 ## Run commands
 
 - `npm run test:vitest` -- run all
