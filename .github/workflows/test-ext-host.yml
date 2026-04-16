@@ -1,4 +1,4 @@
-name: "Test: Integration"
+name: "Test: Extension Host"
 
 on:
   workflow_call:
@@ -24,8 +24,8 @@ permissions:
   contents: read
 
 jobs:
-  integration-tests:
-    name: integration
+  ext-host-tests:
+    name: ext-host
     runs-on: ubuntu-latest-4x
     timeout-minutes: 60
     env:

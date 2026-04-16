@@ -69,8 +69,8 @@ on:
         required: false
         default: false
         type: boolean
-      run_integration_tests:
-        description: "Integration Tests"
+      run_ext_host_tests:
+        description: "Extension Host Tests"
         required: false
         default: false
         type: boolean
@@ -335,11 +335,11 @@ jobs:
     with:
       commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
 
-  integration-tests:
+  ext-host-tests:
     name: test
     needs: [validate-commit]
-    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_integration_tests) }}
-    uses: ./.github/workflows/test-integration.yml
+    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_ext_host_tests) }}
+    uses: ./.github/workflows/test-ext-host.yml
     secrets: inherit
     with:
       commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
@@ -348,7 +348,7 @@ jobs:
   slack-notify:
     if: always()
     needs:
-      [validate-commit, e2e-electron, e2e-windows, e2e-chromium, e2e-rhel, e2e-chromium-rhel, e2e-suse, e2e-chromium-suse, e2e-sles, e2e-chromium-sles, e2e-debian, e2e-chromium-debian, unit-tests, integration-tests]
+      [validate-commit, e2e-electron, e2e-windows, e2e-chromium, e2e-rhel, e2e-chromium-rhel, e2e-suse, e2e-chromium-suse, e2e-sles, e2e-chromium-sles, e2e-debian, e2e-chromium-debian, unit-tests, ext-host-tests]
     runs-on: ubuntu-latest
     env:
       notify_on: ${{ github.event_name == 'schedule' && 'always' || inputs.notify_on || 'failure' }}
@@ -361,7 +361,7 @@ jobs:
           gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
           slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
           slack_channel: "#positron-test-results"
-          filter_jobs: "(e2e / ([^0-9]*)|unit|integration)$"
+          filter_jobs: "(e2e / ([^0-9]*)|unit|ext-host)$"
           include_job_durations: false
           notify_on: ${{ env.notify_on }}
 
@@ -373,4 +373,4 @@ jobs:
           connect_api_key: ${{ secrets.CONNECT_API_KEY }}
           repo_id: "positron"
           title: "E2E Full Suite Tests"
-          filter_jobs: "(e2e / ([^0-9]*)|unit|integration)$"
+          filter_jobs: "(e2e / ([^0-9]*)|unit|ext-host)$"

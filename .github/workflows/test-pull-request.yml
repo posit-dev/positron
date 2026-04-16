@@ -232,9 +232,9 @@ jobs:
     with:
       save_cache: true  # Only this job saves cache to avoid race conditions
 
-  integration-tests:
+  ext-host-tests:
     name: test
-    uses: ./.github/workflows/test-integration.yml
+    uses: ./.github/workflows/test-ext-host.yml
     secrets: inherit
     with:
       pull_request: true
