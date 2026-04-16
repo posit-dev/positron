@@ -53,7 +53,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.toasts.closeAll();
 
 			// attempt to workaround a flake by letting plot settle
-			await app.code.driver.page.waitForTimeout(1000);
+			await app.code.driver.currentPage.waitForTimeout(1000);
 
 			const buffer = await app.workbench.plots.getCurrentPlotAsBuffer();
 			await compareImages({
@@ -97,7 +97,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.toasts.closeAll();
 
 			// attempt to workaround a flake by letting plot settle
-			await app.code.driver.page.waitForTimeout(1000);
+			await app.code.driver.currentPage.waitForTimeout(1000);
 
 			const buffer = await app.workbench.plots.getCurrentStaticPlotAsBuffer();
 			await compareImages({
@@ -414,7 +414,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.toasts.closeAll();
 
 			// attempt to workaround a flake by letting plot settle
-			await app.code.driver.page.waitForTimeout(1000);
+			await app.code.driver.currentPage.waitForTimeout(1000);
 
 			const buffer = await app.workbench.plots.getCurrentPlotAsBuffer();
 			await compareImages({
