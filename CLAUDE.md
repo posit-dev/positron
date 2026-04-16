@@ -48,26 +48,28 @@ Positron has three test categories:
 
 ### Where should I put my test?
 
+**Test at the lowest level that covers the behavior.** A unit test that runs in milliseconds is better than an E2E test that takes seconds and can flake. Reserve E2E for workflows that genuinely need the full app.
+
 | What you're testing | Runner | Scope / Path | Pattern | File extension |
 |---|---|---|---|---|
 | Pure function or class, no services | Vitest | `src/vs/**` | **Plain test** | `.vitest.ts` |
-| Service or class that needs DI services | Vitest | `src/vs/**` | **Builder** -- `createTestContainer()` | `.vitest.ts` |
-| React component, props only | Vitest | `src/vs/**` | **RTL prop-driven** -- `setupRTLRenderer()` | `.vitest.tsx` |
-| React component using services | Vitest | `src/vs/**` | **RTL service-context** -- `withReactServices()` | `.vitest.tsx` |
-| Existing upstream VS Code test (rare) | Mocha (Electron/Node/Browser) | `src/vs/**/test/` | **Core Mocha** -- `./scripts/test.sh` | `.test.ts` / `.integrationTest.ts` |
-| Code needing activated extensions or workspace APIs | Mocha (ext host) | `extensions/<name>/` | **Extension host** -- `npm run test-extension` | `.test.ts` |
+| Service or class that needs DI services | Vitest | `src/vs/**` | **Builder** <br> `createTestContainer()` | `.vitest.ts` |
+| React component, props only | Vitest | `src/vs/**` | **RTL prop-driven** <br> `setupRTLRenderer()` | `.vitest.tsx` |
+| React component using services | Vitest | `src/vs/**` | **RTL service-context** <br> `withReactServices()` | `.vitest.tsx` |
+| Existing upstream VS Code test (rare) | Mocha (Electron/Node/Browser) | `src/vs/**/test/` | **Core Mocha** <br> `./scripts/test.sh` | `.test.ts` / `.integrationTest.ts` |
+| Code needing activated extensions or workspace APIs | Mocha (ext host) | `extensions/<name>/` | **Extension host** <br> `npm run test-extension` | `.test.ts` |
 | User-visible workflows across multiple systems | Playwright | `test/e2e/` | **E2E** | `.test.ts` |
 
 **Don't create new `.test.ts` in `src/vs/` for Positron code** -- use Vitest. Core Mocha rows are for maintaining existing upstream tests.
 
 ### Running tests
 
-- **Vitest** (`*.vitest.ts` / `*.vitest.tsx`, **no build daemons needed**):
+- **[Vitest](.claude/rules/vitest.md)** (`*.vitest.ts` / `*.vitest.tsx`, **no build daemons needed**):
 	- `npm run test:vitest`: run all
 	- `npx vitest run src/path/to/<file>.vitest.ts`: run a specific file
 	- `npx vitest run --coverage --coverage.include='**/myFile.tsx' <test-file>`: scoped coverage
 	- `npx vitest run --update <file>`: update inline snapshots
-- **Core Mocha** (`*.test.ts` / `*.integrationTest.ts` in `src/vs/`, requires build daemons):
+- **[Core Mocha](.claude/rules/core-tests.md)** (`*.test.ts` / `*.integrationTest.ts` in `src/vs/`, requires build daemons):
 	- Ensure build daemons are running first: `npm run build-start && npm run build-check`
 	- `npm run test:core` (or `./scripts/test.sh`): run all
 	- `./scripts/test.sh --run src/path/to/<file>.test.ts`: run a specific file
@@ -77,8 +79,6 @@ Positron has three test categories:
 	- `npm run test:ext-host` (or `./scripts/test-integration.sh`): run the full CI driver
 	- positron-python has its own test setup -- see `extensions/positron-python/CLAUDE.md`
 - **E2E** (Playwright, full app): `npx playwright test test/e2e/tests/<test-name>.test.ts --project e2e-electron --grep '<pattern>'`
-
-**Writing your first Vitest test?** See the quick start, code examples, and common mistakes in [`.claude/rules/vitest.md`](.claude/rules/vitest.md) -- it's the complete testing guide for both humans and Claude.
 
 ## Directory Structure
 

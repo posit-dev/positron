@@ -103,14 +103,7 @@ Wait for confirmation before proceeding to Phase 2.
 
 ### Choosing the right pattern
 
-Use the CLAUDE.md decision table. Summary:
-
-| What you're testing | Pattern | File extension |
-|---|---|---|
-| Pure function, no services | Plain test | `.vitest.ts` |
-| Service/class needing DI | Builder | `.vitest.ts` |
-| React component, props only | RTL prop-driven | `.vitest.tsx` |
-| React component using context | RTL service-context | `.vitest.tsx` |
+Use the "Where should I put my test?" decision table in [`CLAUDE.md`](../../../CLAUDE.md#testing). It is the single source of truth for pattern selection.
 
 ### Choosing the right preset
 
