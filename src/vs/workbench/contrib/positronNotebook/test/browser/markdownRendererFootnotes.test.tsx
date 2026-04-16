@@ -6,7 +6,6 @@
 import assert from 'assert';
 import React from 'react';
 import * as marked from '../../../../../base/common/marked/marked.js';
-import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { MarkedFootnoteExtension } from '../../../markdown/common/markedFootnoteExtension.js';
 import { TokenMarkdownRenderer } from '../../browser/markdownRenderer.js';
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
@@ -16,13 +15,24 @@ import { NotebookLink } from '../../browser/notebookCells/NotebookLink.js';
 type AnyElement = React.ReactElement<any>;
 
 /**
+ * Returns a stub that throws on any access. Used for services the code under
+ * test must not touch -- a regression that starts calling one produces a
+ * clear error instead of a cryptic null-deref.
+ */
+function throwingServiceStub<T>(name: string): T {
+	return new Proxy({}, {
+		get(_target, prop) {
+			throw new Error(`Unexpected access to ${name}.${String(prop)} in footnote renderer test`);
+		},
+	}) as T;
+}
+
+/**
  * Tests for footnote rendering behavior in TokenMarkdownRenderer.
  * Validates deduplicate-definitions (first-wins), unique ref anchor IDs, and
  * footnote section structure.
  */
 suite('Positron Notebook - TokenMarkdownRenderer Footnotes', () => {
-
-	createTestContainer().build();
 
 	function tokenize(src: string): marked.TokensList {
 		return new marked.Marked()
@@ -30,10 +40,8 @@ suite('Positron Notebook - TokenMarkdownRenderer Footnotes', () => {
 			.lexer(src);
 	}
 
-	// Footnote rendering does not use extension or language services,
-	// so we pass stubs that will never be called.
-	const extensionService: IExtensionService = Object.create(null);
-	const languageService: ILanguageService = Object.create(null);
+	const extensionService = throwingServiceStub<IExtensionService>('IExtensionService');
+	const languageService = throwingServiceStub<ILanguageService>('ILanguageService');
 
 	function renderTokens(src: string): AnyElement[] {
 		const tokens = tokenize(src);
@@ -244,6 +252,24 @@ suite('Positron Notebook - TokenMarkdownRenderer Footnotes', () => {
 		assert.strictEqual(sections.length, 1);
 		const lists = findElements([sections[0]], el => el.type === 'ul');
 		assert.strictEqual(lists.length, 1, 'footnote with list content should render a ul');
+	});
+
+	test('ref to an undefined footnote still renders without a footnote section', () => {
+		const elements = renderTokens('Text[^missing] and more text.');
+		const refs = findElements(elements, el => el.props.className === 'footnote-ref');
+		assert.strictEqual(refs.length, 1);
+
+		const anchor = findChildAnchor(refs[0]);
+		assert.ok(anchor);
+		// With no matching definition, the raw id is used as the ref label and
+		// the href points at the (nonexistent) footnote anchor.
+		assert.strictEqual(anchor.props.children, 'missing');
+		assert.strictEqual(anchor.props.href, '#fn-missing');
+		assert.strictEqual(anchor.props.id, 'fnref-missing');
+
+		// No section should be emitted when there are no definitions.
+		const sections = findElements(elements, el => el.props.className === 'footnotes');
+		assert.strictEqual(sections.length, 0);
 	});
 
 	test('undefined ref with colliding sanitized ID does not conflict with defined footnote', () => {
