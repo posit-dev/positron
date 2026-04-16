@@ -40,7 +40,11 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 
 	private _session: ILanguageRuntimeSession;
 
+	/** Raw package list from the kernel (no metadata) */
 	private _packages: ILanguageRuntimePackage[] = [];
+
+	/** Cached metadata from P3M, keyed by lowercase package name */
+	private readonly _metadataCache = new Map<string, Partial<ILanguageRuntimePackage>>();
 
 	private readonly _runtimeDisposableStore = this._register(new DisposableStore());
 
@@ -81,10 +85,16 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	readonly onDidChangeUpdateAllState = this._onDidChangeUpdateAllState.event;
 
 	/**
-	 * Gets the packages.
+	 * Gets the packages with metadata merged from the cache.
 	 */
 	get packages(): ILanguageRuntimePackage[] {
-		return Array.from(this._packages);
+		return this._packages.map((pkg) => {
+			const metadata = this._metadataCache.get(pkg.name.toLowerCase());
+			if (metadata) {
+				return { ...pkg, ...metadata };
+			}
+			return pkg;
+		});
 	}
 
 	/**
@@ -120,17 +130,18 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		this._onDidChangeRefreshState.fire(true);
 		try {
 			// Stage 1: Get basic package list quickly and fire event
+			// The getter merges cached metadata, so existing metadata is preserved
 			this._packages = await packageManager.getPackages(effectiveToken);
-			this._onDidRefreshPackagesInstance.fire(this._packages);
+			this._onDidRefreshPackagesInstance.fire(this.packages);
 
-			// Stage 2: Fetch metadata asynchronously (don't block the return)
+			// Stage 2: Fetch metadata asynchronously for uncached packages (don't block the return)
 			// Use CancellationToken.None since this runs after the main operation completes
 			// and the original token may be disposed
 			if (packageManager.getPackageMetadata && this._packages.length > 0) {
 				this._fetchAndMergeMetadata(packageManager, CancellationToken.None);
 			}
 
-			return this._packages;
+			return this.packages;
 		} finally {
 			this._onDidChangeRefreshState.fire(false);
 		}
@@ -138,18 +149,18 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 
 	/**
 	 * Internal helper to refresh packages with two-stage metadata fetch.
-	 * Stage 1: Get basic packages and fire event immediately.
-	 * Stage 2: Fetch metadata asynchronously and fire event again when ready.
+	 * Stage 1: Get basic packages and fire event immediately (with cached metadata).
+	 * Stage 2: Fetch metadata asynchronously for uncached packages.
 	 */
 	private async _refreshPackagesInternal(
 		packageManager: ReturnType<typeof this.getPackageManagerOrThrow>,
 		token: CancellationToken,
 	): Promise<void> {
-		// Stage 1: Get basic package list and fire event
+		// Stage 1: Get basic package list and fire event (getter merges cached metadata)
 		this._packages = await packageManager.getPackages(token);
-		this._onDidRefreshPackagesInstance.fire(this._packages);
+		this._onDidRefreshPackagesInstance.fire(this.packages);
 
-		// Stage 2: Fetch metadata asynchronously (don't block)
+		// Stage 2: Fetch metadata asynchronously for uncached packages (don't block)
 		// Use CancellationToken.None since this runs after the main operation completes
 		if (packageManager.getPackageMetadata && this._packages.length > 0) {
 			this._fetchAndMergeMetadata(packageManager, CancellationToken.None);
@@ -157,7 +168,8 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	}
 
 	/**
-	 * Fetch package metadata and merge it into the existing packages.
+	 * Fetch package metadata and store it in the cache.
+	 * Only fetches metadata for packages not already in the cache.
 	 * This runs asynchronously after the initial package list is returned.
 	 */
 	private async _fetchAndMergeMetadata(
@@ -165,24 +177,31 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		token: CancellationToken,
 	): Promise<void> {
 		try {
-			const packageNames = this._packages.map((pkg) => pkg.name);
+			// Only fetch metadata for packages not already cached
+			const uncachedPackages = this._packages.filter(
+				(pkg) => !this._metadataCache.has(pkg.name.toLowerCase())
+			);
+
+			if (uncachedPackages.length === 0) {
+				// All packages already have cached metadata, just fire the event
+				this._onDidRefreshPackagesInstance.fire(this.packages);
+				return;
+			}
+
+			const packageNames = uncachedPackages.map((pkg) => pkg.name);
 			const metadataMap = await packageManager.getPackageMetadata!(packageNames, token);
 
 			if (token.isCancellationRequested || !metadataMap || metadataMap.size === 0) {
 				return;
 			}
 
-			// Merge metadata into packages
-			this._packages = this._packages.map((pkg) => {
-				const metadata = metadataMap.get(pkg.name.toLowerCase());
-				if (metadata) {
-					return { ...pkg, ...metadata };
-				}
-				return pkg;
-			});
+			// Store metadata in the cache
+			for (const [name, metadata] of metadataMap) {
+				this._metadataCache.set(name.toLowerCase(), metadata);
+			}
 
-			// Fire event with enriched packages
-			this._onDidRefreshPackagesInstance.fire(this._packages);
+			// Fire event with enriched packages (getter merges from cache)
+			this._onDidRefreshPackagesInstance.fire(this.packages);
 		} catch (err) {
 			// Log but don't throw - metadata is optional enhancement
 			this._logService.warn(`[Packages] Failed to fetch package metadata: ${err}`);
