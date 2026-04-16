@@ -53,6 +53,10 @@ Any shared mutable state that could leak between tests? Any test that depends on
 
 Are runtimes/sessions created per-test when a shared one would suffice? Or shared when per-test isolation is needed?
 
+### 9. RTL query usage (React tests only)
+
+For `.vitest.tsx` files using `setupRTLRenderer`: are there `container.querySelector` calls that could use `getByRole` or `getByText` instead? Flag cases where the component renders visible text or accessible roles that RTL can query directly. Note: many Positron components use internal CSS classes without accessible roles -- `container.querySelector` is acceptable when RTL queries aren't feasible.
+
 ## Output format
 
 Group findings by test file. For each failing item, report:

@@ -11,6 +11,18 @@ paths:
 
 Positron Vitest tests (`*.vitest.ts` / `*.vitest.tsx`) run via `npx vitest run` with no Electron or build daemons.
 
+## Quick Start
+
+Copy the EmptyConsole test and adapt it:
+
+1. Copy `src/vs/workbench/contrib/positronConsole/test/browser/emptyConsole.vitest.tsx`
+2. Change the component name and import
+3. Change the `.stub()` to the service your component uses
+4. Run: `npx vitest run src/vs/path/to/yourTest.vitest.tsx`
+5. If it fails with "missing service" errors, add more `.stub()` calls
+
+That's it. The builder and RTL renderer handle everything else. For advanced cases (presets, mocking philosophy, event testing), read on.
+
 ## Run commands
 
 - `npm run test:vitest` -- run all
@@ -66,6 +78,8 @@ it('responds to event', () => {
 });
 ```
 
+**Why emitters must be at describe level:** The builder's `.stub()` captures the emitter's `.event` reference during `build()`, which runs at describe level before any `beforeEach`. If you create an `Emitter` inside `it()`, it's a different object than the one wired into the service -- your `.fire()` calls won't reach the component.
+
 ## React Component Testing (RTL)
 
 `setupRTLRenderer()` wraps components in the full Positron provider tree automatically. No manual provider wrapping needed.
@@ -96,12 +110,7 @@ it('renders label', () => {
 });
 ```
 
-**RTL query priority** (prefer top to bottom):
-1. `getByRole` -- accessible roles (button, heading, etc.)
-2. `getByText` -- visible text content
-3. `getByLabelText` -- form labels
-4. `getByTestId` -- last resort, `data-testid` attribute
-5. `container.querySelector` -- escape hatch for CSS selectors
+**RTL queries:** Use `getByRole` or `getByText` when the component exposes accessible roles or visible text. Many Positron components use internal CSS classes without accessible roles -- in that case, `container.querySelector` is the pragmatic choice. Don't force `getByRole` when the component doesn't support it.
 
 ## Inline Snapshots
 
@@ -118,6 +127,43 @@ Use `toMatchInlineSnapshot()` to capture rendered HTML. Vitest auto-fills on fir
 - `sinon` -- avoid in new Vitest tests.
 
 **The `as Partial<IMyService>` cast:** Every `.stub()` call needs this cast. It's a TypeScript inference limitation, not a code smell. The builder's signature is `stub<T>(id, impl: Partial<T>)` but TS can't infer `T` from a partial object literal. This triggers `local/code-no-dangerous-type-assertions` warnings -- they're expected in test files.
+
+## Common Mistakes
+
+**Destructuring `ctx` at describe level:**
+```typescript
+// BUG: captures undefined -- instantiationService isn't set until beforeEach runs
+const { instantiationService } = createTestContainer().build();
+
+// CORRECT: access via ctx inside it() callbacks
+const ctx = createTestContainer().build();
+it('works', () => { ctx.instantiationService.createInstance(...); });
+```
+The builder uses lazy getters. `ctx.instantiationService` resolves at access time (inside `it()`). Destructuring at describe level evaluates the getter immediately, before `beforeEach` has run.
+
+**Creating emitters inside `it()`:**
+```typescript
+// BUG: this emitter isn't the one wired into the service
+it('responds', () => {
+	const emitter = new Emitter<string>();  // wrong -- too late
+	emitter.fire('value');  // nobody is listening
+});
+
+// CORRECT: emitter at describe level, .event passed to .stub()
+const emitter = new Emitter<string>();
+const ctx = createTestContainer().stub(IService, { onDidChange: emitter.event }).build();
+```
+
+**Using `ensureNoLeakedDisposables()` with the builder:**
+```typescript
+// WRONG: double-tracking -- the builder already calls this internally
+const disposables = ensureNoLeakedDisposables();
+const ctx = createTestContainer().build();
+
+// CORRECT: just use the builder
+const ctx = createTestContainer().build();
+// ctx.disposables.add() if you need to track extra disposables
+```
 
 ## Working examples
 

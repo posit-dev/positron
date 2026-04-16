@@ -5,18 +5,29 @@ description: Use when writing, generating, or adding Vitest tests for Positron s
 
 # Positron Vitest Test Authoring
 
-Analyze the dev's branch, recommend which tests to write, write them, and then have them independently reviewed before presenting results.
+Write tests for Positron source code, then have them independently reviewed.
 
 ## Arguments
 
 $ARGUMENTS may contain:
-- `--branch <branch-name>` to analyze a specific branch instead of the current one
+- A file path (e.g., `src/vs/.../myComponent.tsx`) -- write tests for this specific file
+- `--branch <branch-name>` to analyze all changes on a branch
 - A PR number (e.g., `#12242` or `12242`) to analyze a pull request
 - A PR URL (e.g., `https://github.com/posit-dev/positron/pull/12242`)
 
-## Phase 1: Analysis (subagent)
+## Single file (most common)
 
-**Shortcut:** If the user points at a specific file or component (e.g., "write tests for emptyConsole.tsx"), skip Phase 1 entirely. Read the source file, determine the pattern from the CLAUDE.md decision table, and go straight to Phase 2.
+If the user points at a specific file or component (e.g., "write tests for emptyConsole.tsx"):
+
+1. Read the source file
+2. Determine the pattern from the CLAUDE.md decision table
+3. Go straight to Phase 2 (Writing)
+
+Skip Phase 1 entirely -- no branch analysis needed.
+
+## Phase 1: Branch/PR Analysis (only when needed)
+
+Use this when the user provides a branch, PR, or asks "what tests should I write?" without naming a specific file.
 
 Spawn an analysis subagent to produce a structured test plan. This keeps the analysis work out of the main agent's context.
 
