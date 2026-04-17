@@ -148,7 +148,7 @@ For each approved item:
 
 1. **Read the source file** and **existing tests in the same directory** for patterns.
 
-2. **Read `.claude/rules/vitest-tests.md`** for the Quick Start code examples, the builder section, and the showcase-test links covering the four patterns (plain, builder, RTL prop-driven, RTL service-context), plus the emitter pattern, inline snapshots, and mock utilities. Note the `Common mistake:` callout on emitter scoping.
+2. **Read `.claude/rules/vitest-tests.md`** for the Quick Start code examples, the builder section, and the showcase-test links covering the four patterns (plain, builder, RTL prop-driven, RTL service-context), plus the emitter pattern, inline snapshots, and mock utilities. Note the **Common mistakes** list under The Builder.
 
 3. **Write the test** following the appropriate pattern from vitest-tests.md and these rules:
    - Add `/// <reference types="vitest/globals" />` after the Posit Software copyright header.

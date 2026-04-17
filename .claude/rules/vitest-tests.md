@@ -68,9 +68,10 @@ describe('MyComponent', () => {
 
 **Event-driven behavior:** Create an `Emitter` at describe level, pass its `.event` to the stub, then call `.fire()` in your test (wrapped in `act()` for React components). See [webviewPlotThumbnail](../../src/vs/workbench/contrib/positronPlots/test/browser/webviewPlotThumbnail.vitest.tsx) (intro) and [startupStatus](../../src/vs/workbench/contrib/positronConsole/test/browser/startupStatus.vitest.tsx) (advanced).
 
-**Common mistake:** Don't create emitters inside `it()` -- they must be at describe level. `.stub()` captures the `.event` reference at describe scope during `build()`, so an emitter created later in `beforeEach` or `it()` is a different object and the stub will never fire.
+**Common mistakes:**
 
-**Common mistake:** Use `act()` from `@testing-library/react`, not `flushSync` from `react-dom`, to flush React state updates in tests. `act()` wraps the update in React's testing envelope (no warnings) and drains the update queue synchronously; `flushSync` forces a sync render but doesn't wrap, so you'll get noisy "An update to X was not wrapped in act(...)" messages.
+- **Emitters inside `it()`.** Create them at describe level. `.stub()` captures the `.event` reference at describe scope during `build()`, so an emitter created later in `beforeEach` or `it()` is a different object and the stub won't fire.
+- **`flushSync` to flush React state updates.** Use `act()` from `@testing-library/react` instead. `act()` wraps updates in React's testing envelope (no warnings) and drains the queue synchronously; `flushSync` forces a sync render but doesn't wrap, producing "An update to X was not wrapped in act(...)" messages.
 
 ## Run commands
 
