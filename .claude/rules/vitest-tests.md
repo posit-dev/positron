@@ -87,7 +87,7 @@ describe('MyComponent', () => {
 
 **Disposables in plain tests:** The builder handles disposable-leak detection automatically via `createTestContainer().build()`. Plain tests that allocate disposables directly (without the builder) still need `ensureNoLeakedDisposables()` in `beforeEach` -- see [`src/vs/test/vitest/vitestUtils.ts`](../../src/vs/test/vitest/vitestUtils.ts).
 
-**Inline snapshots:** Use `toMatchInlineSnapshot()` for rendered HTML. Vitest auto-fills on first run with `--update`. When a snapshot fails: read the diff, accept with `--update` if intentional, fix the source if it's a bug.
+**Inline snapshots:** Reach for `toMatchInlineSnapshot()` when the output has many related properties to check at once -- parser results, multi-line formatted strings, complex component markup -- and you'd rather diff a known-good shape than maintain many separate assertions. For simple values, prefer `.toBe(...)`; it states intent clearly and resists copy-accept-without-reading reviews. Vitest auto-fills the snapshot on first run with `--update`; when one fails, read the diff, accept with `--update` if intentional, or fix the source if it's a bug.
 
 ## Working examples
 
