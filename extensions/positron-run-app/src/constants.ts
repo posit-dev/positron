@@ -18,7 +18,6 @@ export const IS_POSITRON_WEB = vscode.env.uiKind === vscode.UIKind.Web;
 export const IS_RUNNING_ON_PWB = !!process.env.RS_SERVER_URL && IS_POSITRON_WEB;
 
 // Timeouts.
-export const URL_DETECTION_TIMEOUT = 25_000;
 /** Time to wait for the debug adapter to finish its initial configuration (breakpoints etc.). */
 export const DAP_CONFIGURATION_TIMEOUT = 10_000;
 

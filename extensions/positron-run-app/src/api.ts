@@ -11,7 +11,7 @@ import { log } from './extension';
 import { DebugAppOptions, PositronRunApp, PreviewMode, RunAppOptions, RunConsoleAppOptions } from './positron-run-app';
 import { AppUrlDetector } from './appUrlDetector';
 import { raceTimeout, SequencerByKey } from './utils';
-import { DAP_CONFIGURATION_TIMEOUT, IS_POSITRON_WEB, IS_RUNNING_ON_PWB, SHELL_INTEGRATION_TIMEOUT, URL_DETECTION_TIMEOUT } from './constants.js';
+import { DAP_CONFIGURATION_TIMEOUT, IS_POSITRON_WEB, IS_RUNNING_ON_PWB, SHELL_INTEGRATION_TIMEOUT } from './constants.js';
 import { AppPreviewOptions, Config, PositronProxyInfo } from './types.js';
 import { shouldUsePositronProxy, showShellIntegrationNotSupportedMessage, showEnableShellIntegrationMessage } from './api-utils.js';
 
@@ -26,6 +26,10 @@ function readDefaultPreviewMode(): PreviewMode {
 		default:
 			return 'viewer';
 	}
+}
+
+function readUrlDetectionTimeout(): number {
+	return vscode.workspace.getConfiguration().get<number>(Config.UrlDetectionTimeout, 25) * 1000;
 }
 
 function parsePreviewMode(value: string | undefined): PreviewMode {
@@ -433,7 +437,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 				case 'manual': {
 					const url = await raceTimeout(
 						detector.found,
-						options.urlDetectionTimeout ?? URL_DETECTION_TIMEOUT,
+						options.urlDetectionTimeout ?? readUrlDetectionTimeout(),
 						() => {
 							cancellation.cancel();
 							throw new Error(vscode.l10n.t('Timed out waiting for {0} app URL in console output.', options.name));
@@ -540,7 +544,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 
 		// Create a promise that resolves when the server URL has been previewed,
 		// or an error has occurred, or it times out.
-		const debugPreviewTimeout = (options.urlDetectionTimeout ?? URL_DETECTION_TIMEOUT) + 5_000;
+		const debugPreviewTimeout = (options.urlDetectionTimeout ?? readUrlDetectionTimeout()) + 5_000;
 		const didPreviewUrl = raceTimeout(
 			new Promise<boolean>((resolve) => {
 				let executionDisposable: vscode.Disposable | undefined;
@@ -703,7 +707,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 
 		const url = await raceTimeout(
 			detector.found,
-			options.urlDetectionTimeout ?? URL_DETECTION_TIMEOUT,
+			options.urlDetectionTimeout ?? readUrlDetectionTimeout(),
 			() => log.error('Timed out waiting for server output in terminal'),
 		);
 

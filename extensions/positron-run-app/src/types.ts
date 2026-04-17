@@ -11,6 +11,7 @@ export enum Config {
 	ShowEnableShellIntegrationMessage = 'positron.appLauncher.showEnableShellIntegrationMessage',
 	ShowShellIntegrationNotSupportedMessage = 'positron.appLauncher.showShellIntegrationNotSupportedMessage',
 	PreviewMode = 'positron.runApp.previewMode',
+	UrlDetectionTimeout = 'positron.runApp.urlDetectionTimeout',
 }
 
 export type PositronProxyInfo = {
