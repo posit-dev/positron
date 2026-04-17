@@ -474,6 +474,7 @@ export enum DataConnectionParameterType {
 	File = 'file',
 	Number = 'number',
 	Option = 'option',
+	Password = 'password',
 	String = 'string',
 }
 

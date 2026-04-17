@@ -1736,6 +1736,7 @@ declare module 'positron' {
 		File = 'file',
 		Number = 'number',
 		Option = 'option',
+		Password = 'password',
 		String = 'string',
 	}
 
@@ -1764,16 +1765,6 @@ declare module 'positron' {
 	 */
 	export type DataConnectionParameter = DataConnectionParameterBase & (
 		| {
-			type: DataConnectionParameterType.String;
-			defaultValue?: string;
-			placeholder?: string;
-		}
-		| {
-			type: DataConnectionParameterType.Number;
-			defaultValue?: number;
-			placeholder?: string;
-		}
-		| {
 			type: DataConnectionParameterType.Boolean;
 			defaultValue?: boolean;
 		}
@@ -1783,8 +1774,22 @@ declare module 'positron' {
 			placeholder?: string;
 		}
 		| {
+			type: DataConnectionParameterType.Number;
+			defaultValue?: number;
+			placeholder?: string;
+		}
+		| {
 			type: DataConnectionParameterType.Option;
 			options: string[];
+			defaultValue?: string;
+			placeholder?: string;
+		}
+		| {
+			type: DataConnectionParameterType.Password;
+			placeholder?: string;
+		}
+		| {
+			type: DataConnectionParameterType.String;
 			defaultValue?: string;
 			placeholder?: string;
 		}

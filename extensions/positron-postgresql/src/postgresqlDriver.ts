@@ -59,8 +59,8 @@ export function createPostgreSQLDriver(
 			{
 				id: 'password',
 				label: 'Password',
-				type: positron.DataConnectionParameterType.String,
-				required: false,
+				type: positron.DataConnectionParameterType.Password,
+				required: true,
 				placeholder: '',
 			},
 			{

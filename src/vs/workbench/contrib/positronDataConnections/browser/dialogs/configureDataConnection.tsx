@@ -185,8 +185,20 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 							{/* Parameters */}
 							{props.driver.metadata.parameters.map(parameter => {
 								switch (parameter.type) {
-									// String parameter.
-									case 'string':
+									// Boolean parameter.
+									case 'boolean':
+										return (
+											<div key={parameter.id}>
+												<Checkbox
+													initialChecked={parameterValues[parameter.id].value as boolean}
+													label={parameter.label}
+													onChanged={checked => setParameterValue(parameter.id, checked)}
+												/>
+											</div>
+										);
+
+									// File parameter.
+									case 'file':
 										return (
 											<div key={parameter.id} className='parameter-field'>
 												<label className='parameter-label'>{parameter.label}</label>
@@ -198,7 +210,7 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 													placeholder={parameter.placeholder}
 													type='text'
 													value={parameterValues[parameter.id].value as string}
-													onChange={e => setParameterValue(parameter.id, e.target.value.trim() ?? undefined)}
+													onChange={e => setParameterValue(parameter.id, e.target.value)}
 												/>
 											</div>
 										);
@@ -229,36 +241,6 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 											</div>
 										);
 
-									// Boolean parameter.
-									case 'boolean':
-										return (
-											<div key={parameter.id}>
-												<Checkbox
-													initialChecked={parameterValues[parameter.id].value as boolean}
-													label={parameter.label}
-													onChanged={checked => setParameterValue(parameter.id, checked)}
-												/>
-											</div>
-										);
-
-									// File parameter.
-									case 'file':
-										return (
-											<div key={parameter.id} className='parameter-field'>
-												<label className='parameter-label'>{parameter.label}</label>
-												<input
-													className={positronClassNames(
-														'parameter-input', 'text-input',
-														{ 'error': parameterValues[parameter.id].error }
-													)}
-													placeholder={parameter.placeholder}
-													type='text'
-													value={parameterValues[parameter.id].value as string}
-													onChange={e => setParameterValue(parameter.id, e.target.value.trim())}
-												/>
-											</div>
-										);
-
 									// Option parameter.
 									case 'option':
 										return (
@@ -278,6 +260,42 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 														<option key={option} value={option}>{option}</option>
 													))}
 												</select>
+											</div>
+										);
+
+									// Password parameter.
+									case 'password':
+										return (
+											<div key={parameter.id} className='parameter-field'>
+												<label className='parameter-label'>{parameter.label}</label>
+												<input
+													className={positronClassNames(
+														'parameter-input', 'text-input',
+														{ 'error': parameterValues[parameter.id].error }
+													)}
+													placeholder={parameter.placeholder}
+													type='password'
+													value={parameterValues[parameter.id].value as string}
+													onChange={e => setParameterValue(parameter.id, e.target.value ?? undefined)}
+												/>
+											</div>
+										);
+
+									// String parameter.
+									case 'string':
+										return (
+											<div key={parameter.id} className='parameter-field'>
+												<label className='parameter-label'>{parameter.label}</label>
+												<input
+													className={positronClassNames(
+														'parameter-input', 'text-input',
+														{ 'error': parameterValues[parameter.id].error }
+													)}
+													placeholder={parameter.placeholder}
+													type='text'
+													value={parameterValues[parameter.id].value as string}
+													onChange={e => setParameterValue(parameter.id, e.target.value ?? undefined)}
+												/>
 											</div>
 										);
 
