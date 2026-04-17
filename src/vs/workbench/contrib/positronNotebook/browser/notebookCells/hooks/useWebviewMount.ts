@@ -184,6 +184,19 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 					updateWebviewLayout(true)
 				));
 
+				// Forward wheel events across the iframe boundary so the notebook
+				// scrolls when the cursor is over a webview output (e.g. plotly).
+				// Preloads inside the webview let inner scrollables consume the
+				// wheel first (see eventTargetShouldHandleScroll in webviewPreloads.ts).
+				disposables.add(webviewElement.onDidWheel(e => {
+					const container = notebookInstance.cellsContainer;
+					if (!container) {
+						return;
+					}
+					container.scrollTop += e.deltaY;
+					container.scrollLeft += e.deltaX;
+				}));
+
 				// When focus leaves the notebook container, update layout to ensure correct size
 				if (notebookInstance.cellsContainer) {
 					disposables.add(addDisposableListener(
