@@ -5,7 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-
 import { positronExtensionCompatibility } from '../../common/abstractExtensionManagementService.js';
 import { IProductService } from '../../../product/common/productService.js';
 import { IExtensionManifest } from '../../../extensions/common/extensions.js';

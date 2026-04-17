@@ -5,7 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { CellEditType, CellKind } from '../../../notebook/common/notebookCommon.js';

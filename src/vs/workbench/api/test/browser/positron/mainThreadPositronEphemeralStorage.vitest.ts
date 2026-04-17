@@ -5,7 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-
 import { mock } from '../../../../../base/test/common/mock.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { EphemeralStateService } from '../../../../../platform/ephemeralState/common/ephemeralStateService.js';

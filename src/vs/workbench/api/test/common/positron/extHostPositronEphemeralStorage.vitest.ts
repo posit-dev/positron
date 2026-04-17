@@ -5,7 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-
 import { mock } from '../../../../../base/test/common/mock.js';
 import { SingleProxyRPCProtocol } from '../testRPCProtocol.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';

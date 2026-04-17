@@ -5,7 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-
 import { PositronConnectionsService } from '../browser/positronConnectionsService.js';
 import { IPositronConnectionsService } from '../common/interfaces/positronConnectionsService.js';
 import { IDriver } from '../common/interfaces/positronConnectionsDriver.js';

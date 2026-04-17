@@ -5,7 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-
 import { IPathService } from '../../../../services/path/common/pathService.js';
 import { getCodeSettingsPathNative } from "../../browser/helpers.js";
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';

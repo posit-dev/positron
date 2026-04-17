@@ -5,7 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-
 // Register the find contribution
 import '../../../../browser/contrib/find/positronNotebookFind.contribution.js';
 

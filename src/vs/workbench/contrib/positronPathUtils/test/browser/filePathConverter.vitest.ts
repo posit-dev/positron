@@ -5,7 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-
 import { formatPathForCode, convertClipboardFiles } from '../../common/filePathConverter.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { isWindows } from '../../../../../base/common/platform.js';

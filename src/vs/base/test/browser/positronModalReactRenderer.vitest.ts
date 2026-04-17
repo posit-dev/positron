@@ -5,7 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-
 import { PositronModalReactRenderer } from '../../browser/positronModalReactRenderer.js';
 import { ensureNoLeakedDisposables } from '../../../test/vitest/vitestUtils.js';
 

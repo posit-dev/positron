@@ -5,7 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-
 import React from 'react';
 import { fireEvent } from '@testing-library/react';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';

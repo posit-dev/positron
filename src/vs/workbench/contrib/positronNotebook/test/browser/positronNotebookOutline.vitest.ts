@@ -5,7 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { createTestPositronNotebookInstance } from './testPositronNotebookInstance.js';

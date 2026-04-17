@@ -5,7 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { DisposableStore, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { ResourceMap } from '../../../../../base/common/map.js';

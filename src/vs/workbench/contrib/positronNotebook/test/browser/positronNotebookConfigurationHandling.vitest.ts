@@ -5,7 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';

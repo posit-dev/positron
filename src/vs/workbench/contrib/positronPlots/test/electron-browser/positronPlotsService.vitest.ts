@@ -5,7 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-
 import { raceTimeout } from '../../../../../base/common/async.js';
 import { PositronTestServiceAccessor } from '../../../../test/browser/positronWorkbenchTestServices.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';

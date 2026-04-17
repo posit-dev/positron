@@ -5,7 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-
 /**
  * @fileoverview Tests for Positron Notebook editor resolution logic.
  *

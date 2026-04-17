@@ -5,7 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { ensureNoLeakedDisposables } from '../../../../test/vitest/vitestUtils.js';

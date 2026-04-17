@@ -5,7 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { IStatusbarService, } from '../../../../services/statusbar/browser/statusbar.js';
 import { PositronTestServiceAccessor } from '../../../../test/browser/positronWorkbenchTestServices.js';

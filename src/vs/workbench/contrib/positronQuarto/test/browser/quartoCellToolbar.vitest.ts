@@ -5,7 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-
 import { URI } from '../../../../../base/common/uri.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';

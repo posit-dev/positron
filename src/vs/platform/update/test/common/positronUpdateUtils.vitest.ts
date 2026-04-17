@@ -5,7 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-
 import { buildUpdateUrl } from '../../common/positronUpdateUtils.js';
 
 describe('buildUpdateUrl', function () {

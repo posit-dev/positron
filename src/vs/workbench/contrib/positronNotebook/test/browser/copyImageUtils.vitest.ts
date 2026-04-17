@@ -5,7 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { isCopyImageMenuArg, toBase64DataUrl } from '../../browser/copyImageUtils.js';
 

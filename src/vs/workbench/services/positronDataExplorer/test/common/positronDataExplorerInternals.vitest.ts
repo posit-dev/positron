@@ -5,7 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-
 import { TableSchema } from '../../../languageRuntime/common/positronDataExplorerComm.js';
 import {
 	DataFetchRange,

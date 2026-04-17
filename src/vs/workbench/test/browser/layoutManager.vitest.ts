@@ -5,7 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-
 import { LayoutManager } from '../../browser/positronDataGrid/classes/layoutManager.js';
 import { createTestContainer } from '../../../test/vitest/positronTestContainer.js';
 

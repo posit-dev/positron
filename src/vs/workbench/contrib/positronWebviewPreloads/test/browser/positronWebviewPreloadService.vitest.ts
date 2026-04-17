@@ -5,7 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-
 import { timeout } from '../../../../../base/common/async.js';
 import { PositronWebviewPreloadService } from '../../browser/positronWebviewPreloadsService.js';
 import { PositronTestServiceAccessor } from '../../../../test/browser/positronWorkbenchTestServices.js';

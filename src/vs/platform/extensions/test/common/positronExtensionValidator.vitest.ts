@@ -5,7 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-
 import { URI } from '../../../../base/common/uri.js';
 import { IExtensionManifest } from '../../common/extensions.js';
 import { validatePositronExtensionManifest } from '../../common/positronExtensionValidator.js';

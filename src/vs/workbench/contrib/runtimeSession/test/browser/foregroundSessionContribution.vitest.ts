@@ -5,7 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';

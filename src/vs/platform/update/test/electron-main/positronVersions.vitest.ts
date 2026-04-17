@@ -5,7 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-
 import { IUpdate } from '../../common/update.js';
 import * as positronVersion from '../../common/positronVersion.js';
 

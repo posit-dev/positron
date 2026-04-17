@@ -5,7 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-
 import {
 	FilterComparison,
 	FilterComparisonOp,

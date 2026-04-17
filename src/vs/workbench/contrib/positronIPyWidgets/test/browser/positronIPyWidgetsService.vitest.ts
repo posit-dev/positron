@@ -5,7 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-
 import { timeout } from '../../../../../base/common/async.js';
 import { Emitter } from '../../../../../base/common/event.js';
 import { URI } from '../../../../../base/common/uri.js';
