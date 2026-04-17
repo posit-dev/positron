@@ -10,18 +10,11 @@ export default defineConfig({
 		include: ['src/vs/**/*.vitest.{ts,tsx}'],
 		environment: 'happy-dom',
 		globals: true,
-		// Auto-restore spies (vi.spyOn) between tests so a failed assertion
-		// can't leave console.error/log mocked for the rest of the file.
+		// Auto-restore spies between tests (failed assertion can't leave console mocked).
 		restoreMocks: true,
-		// Clear call history on vi.fn() mocks between tests so shared
-		// describe-scope fakes don't accumulate call records across tests
-		// (e.g., toHaveBeenCalledWith wouldn't see stale calls from earlier
-		// tests in the same file).
+		// Clear vi.fn() call history between tests so shared mocks don't accumulate calls.
 		clearMocks: true,
-		// Provides Vitest global types (describe, it, expect, vi) for
-		// intellisense in .vitest.{ts,tsx} files without a per-file
-		// /// <reference> directive. Scoped to Vitest only -- does not
-		// affect the main tsc compilation or Mocha tests.
+		// Vitest global types for IDE intellisense; scoped to Vitest, doesn't affect main tsc.
 		typecheck: {
 			tsconfig: './vitest.tsconfig.json',
 		},
