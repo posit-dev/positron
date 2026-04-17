@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as xml from '../xml.js';
 import { calculateSlidingWindow, filterNotebookContext, MAX_CELLS_FOR_ALL_CELLS_CONTEXT, getOriginalContentLength } from '../notebookContextFilter.js';
+import { isFileExcludedFromAI } from '../fileExclusion.js';
 import { isRuntimeSessionReference } from '../utils.js';
 import { log } from '../log.js';
 
@@ -627,6 +628,11 @@ async function getRawAttachedNotebookContext(
 		return undefined;
 	}
 
+	// Check if notebook is excluded from AI features
+	if (isFileExcludedFromAI(vscode.Uri.parse(activeContext.uri))) {
+		return undefined;
+	}
+
 	// Extract attached notebook URIs
 	const attachedNotebookUris = extractAttachedNotebookUris(request);
 
@@ -680,6 +686,11 @@ export function hasAttachedNotebookContext(
 	// Check if a Positron notebook editor is currently active
 	const activeEditor = vscode.window.activeNotebookEditor;
 	if (!activeEditor || activeEditor.isPositronNotebook !== true) {
+		return false;
+	}
+
+	// Check if notebook is excluded from AI features
+	if (isFileExcludedFromAI(activeEditor.notebook.uri)) {
 		return false;
 	}
 
