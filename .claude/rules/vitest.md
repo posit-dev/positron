@@ -88,10 +88,6 @@ describe('MyComponent', () => {
 
 **Inline snapshots:** Use `toMatchInlineSnapshot()` for rendered HTML. Vitest auto-fills on first run with `--update`. When a snapshot fails: read the diff, accept with `--update` if intentional, fix the source if it's a bug.
 
-**Environment is happy-dom, not Electron.** Vitest runs tests in [happy-dom](https://github.com/capricorn86/happy-dom) -- fast, covers common browser DOM APIs, but not 100% Electron-compatible. If a test behaves differently than an equivalent Core Mocha test, the DOM environment is the likely cause.
-
-**Some Positron code is still on Mocha.** A subset of `.test.ts` files under `src/vs/` weren't migrated -- they may exercise Electron-only APIs or have other constraints. If you're extending one of these areas, keep it on Mocha for consistency rather than mixing runners in the same module. To migrate one, first run its tests in Vitest locally to confirm compatibility.
-
 ## Working examples
 
 These showcase tests demonstrate the patterns at increasing complexity:
