@@ -70,6 +70,8 @@ Use `createTestContainer()` for any test needing services. Pick the lowest prese
 
 **Common mistake:** Don't create emitters inside `it()` -- they must be at describe level. `.stub()` captures the `.event` reference at describe scope during `build()`, so an emitter created later in `beforeEach` or `it()` is a different object and the stub will never fire.
 
+**Common mistake:** Use `act()` from `@testing-library/react`, not `flushSync` from `react-dom`, to flush React state updates in tests. `act()` wraps the update in React's testing envelope (no warnings) and drains the update queue synchronously; `flushSync` forces a sync render but doesn't wrap, so you'll get noisy "An update to X was not wrapped in act(...)" messages.
+
 ## Run commands
 
 - `npm run test:positron` -- run all
