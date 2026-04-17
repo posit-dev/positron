@@ -46,7 +46,7 @@ suite('Positron Notebook - TokenMarkdownRenderer Footnotes', () => {
 	function renderTokens(src: string): AnyElement[] {
 		const tokens = tokenize(src);
 		const renderer = new TokenMarkdownRenderer(extensionService, languageService);
-		return renderer.render(tokens as (marked.Token | MarkedFootnoteExtension.FootnoteToken)[]) as AnyElement[];
+		return renderer.render(tokens as (marked.MarkedToken | MarkedFootnoteExtension.FootnoteToken)[]) as AnyElement[];
 	}
 
 	/**
