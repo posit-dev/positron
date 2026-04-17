@@ -60,9 +60,7 @@ class CellActionButtonFixture {
 	click() { this.button.click(); }
 
 	async clickAndFlush() {
-		// act() wraps the click + async state update (action.run() resolves
-		// after a microtask) so React's "not wrapped in act" warning doesn't fire
-		// and pending state updates are flushed to the DOM before the assertion.
+		// act() drains the pending microtask so React state settles before the assertion.
 		await act(async () => {
 			this.button.click();
 			await timeout(0);
@@ -184,9 +182,7 @@ describe('CellActionButton', () => {
 
 			expect(fixture.iconClass).toBe('codicon-check');
 
-			// Advance past the 1500ms success feedback duration. The setTimeout
-			// in CellActionButton fires at this point and calls setState to reset
-			// the icon, so the advance must be wrapped in act().
+			// act() wraps the timer advance because the 1500ms setTimeout calls setState to reset the icon.
 			await act(async () => {
 				await timeout(1500);
 				await timeout(0);

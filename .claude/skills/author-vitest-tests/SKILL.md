@@ -117,15 +117,15 @@ Format the plan like this:
 >
 > **Stubs:** short list of services you intend to stub, with a one-line reason each
 >
-> **Test cases:**
+> **Test cases:** (annotate tests that will use `toMatchInlineSnapshot()` with `[snapshot]`)
 > - **<describe block 1>**
 >   - <test name 1>
->   - <test name 2>
+>   - <test name 2> `[snapshot]`
 > - **<describe block 2>**
 >   - <test name 3>
->   - <test name 4>
+>   - <test name 4> `[snapshot]`
 >
-> Total: <bullet count> tests. Anything you want added, dropped, or reshaped before I write?
+> Total: <bullet count> tests (<snapshot count> snapshots). Anything you want added, dropped, or reshaped before I write?
 
 Then **stop and wait for confirmation** ("looks good", "go ahead", "yes", or a revision request). Do not proceed to write tests until the dev responds.
 

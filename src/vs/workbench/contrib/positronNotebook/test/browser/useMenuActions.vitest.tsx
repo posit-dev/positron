@@ -168,8 +168,7 @@ describe('useMenuActions', () => {
 			const { rerender } = rtl.render(element);
 			expect(captured).toEqual([['g', [action('v0')]]]);
 
-			// Simulate menu content change. act() wraps the fire because the
-			// subscriber inside useMenu calls setState.
+			// act() wraps fire() because the useMenu subscriber calls setState.
 			menuActions = [['g', [action('v1')]]];
 			act(() => onDidChange.fire({} as IMenuChangeEvent));
 
