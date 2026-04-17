@@ -148,13 +148,13 @@ For each approved item:
 
 1. **Read the source file** and **existing tests in the same directory** for patterns.
 
-2. **Read `.claude/rules/vitest.md`** for code examples of all four patterns (plain, builder, RTL prop-driven, RTL service-context), the emitter pattern, inline snapshots, and mock utilities. Also read the "Common Mistakes" section.
+2. **Read `.claude/rules/vitest.md`** for the Quick Start code examples, the builder section, and the showcase-test links covering the four patterns (plain, builder, RTL prop-driven, RTL service-context), plus the emitter pattern, inline snapshots, and mock utilities. Note the `Common mistake:` callout on emitter scoping.
 
 3. **Write the test** following the appropriate pattern from vitest.md and these rules:
    - Add `/// <reference types="vitest/globals" />` after the Posit Software copyright header.
    - Use tabs for indentation.
    - File name: `<source-name>.vitest.ts` (or `.vitest.tsx` for React components).
-   - Place the test in `test/browser/` adjacent to the source module. Match `test/` vs `tests/` if the directory already exists.
+   - Place the test in `test/browser/` or `test/common/` adjacent to the source module. Match `test/` vs `tests/` per existing convention. If no test directory exists yet, create the matching one.
    - Use `expect()` assertions, not `assert`.
 
    **Quality checklist:**
@@ -164,14 +164,14 @@ For each approved item:
    - **Minimize imports.** If you're importing 5+ service identifiers just for `.stub()` calls, extract a helper. Use `Event.None` for events the test never fires.
    - For React tests: prefer `getByRole`/`getByText` when the component exposes accessible roles or visible text. Many Positron components use internal CSS classes without accessible roles -- `container.querySelector` is acceptable when RTL queries aren't feasible.
 
-3. **Run the test:** `npx vitest run <path-to-test-file>`
+4. **Run the test:** `npx vitest run <path-to-test-file>`
 
-4. **Check coverage** for React component tests:
+5. **Check coverage** for React component tests:
    `npx vitest run --coverage --coverage.include='**/sourceFile.tsx' <path-to-test-file>`
 
-5. Move to the next file. Do NOT ask the dev after each file.
+6. Move to the next file. Do NOT ask the dev after each file.
 
-6. After all tests pass, run the full Vitest suite: `npx vitest run`
+7. After all tests pass, run the full Vitest suite: `npm run test:positron`
 
 ### Builder enforcement
 
