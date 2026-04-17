@@ -40,15 +40,30 @@ tr:nth-child(even) {
 }
 `;
 
-type HTMLOutputWebviewMessage = {
+type HTMLOutputMetricsMessage = {
 	type: 'webviewMetrics';
 	bodyScrollHeight: number;
 	bodyScrollWidth: number;
 };
 
+type WheelForwardMessage = {
+	type: 'wheelForward';
+	deltaMode: number;
+	deltaY: number;
+};
 
-export function isHTMLOutputWebviewMessage(message: any): message is HTMLOutputWebviewMessage {
-	return message?.type === 'webviewMetrics';
+type HTMLOutputWebviewMessage = HTMLOutputMetricsMessage | WheelForwardMessage;
+
+
+export function isHTMLOutputWebviewMessage(message: unknown): message is HTMLOutputMetricsMessage {
+	return (message as HTMLOutputMetricsMessage | undefined)?.type === 'webviewMetrics';
+}
+
+export function isWheelForwardMessage(message: unknown): message is WheelForwardMessage {
+	const m = message as Partial<WheelForwardMessage> | undefined;
+	return m?.type === 'wheelForward'
+		&& typeof m.deltaMode === 'number'
+		&& typeof m.deltaY === 'number';
 }
 
 // Helper function for TypeScript typing
@@ -87,6 +102,48 @@ function webviewMessageCode() {
 	} catch (e) {
 		console.error('Error observing documentElement', e);
 	}
+
+	// Only forward the wheel event to the host when no ancestor inside the
+	// webview can consume the vertical scroll. Mirrors the pattern used by
+	// the notebook webview preload so scrollable outputs (e.g. overflow
+	// tables) don't double-scroll when they move under the cursor.
+	const canConsumeVerticalWheel = (event: WheelEvent): boolean => {
+		for (let node: Node | null = event.target as Node | null; node; node = node.parentNode) {
+			// eslint-disable-next-line no-restricted-syntax
+			if (!(node instanceof Element) || node === document.body || node === document.documentElement) {
+				return false;
+			}
+			// eslint-disable-next-line no-restricted-globals
+			const style = window.getComputedStyle(node);
+			const overflowY = style.overflowY;
+			if (overflowY !== 'auto' && overflowY !== 'scroll') {
+				continue;
+			}
+			if (node.scrollHeight <= node.clientHeight) {
+				continue;
+			}
+			if (event.deltaY < 0 && node.scrollTop > 0) {
+				return true;
+			}
+			if (event.deltaY > 0 && node.scrollTop + node.clientHeight < node.scrollHeight - 1) {
+				return true;
+			}
+		}
+		return false;
+	};
+
+	// eslint-disable-next-line no-restricted-globals
+	window.addEventListener('wheel', (event: WheelEvent) => {
+		if (event.defaultPrevented || event.deltaY === 0 || canConsumeVerticalWheel(event)) {
+			return;
+		}
+		vscode.postMessage({
+			type: 'wheelForward',
+			deltaMode: event.deltaMode,
+			deltaY: event.deltaY,
+		});
+	}, { passive: true });
+
 	// Send message on load back to Positron
 	// eslint-disable-next-line no-restricted-globals
 	window.onload = sendSizeMessage;
