@@ -125,7 +125,7 @@ Format the plan like this:
 >   - <test name 3>
 >   - <test name 4>
 >
-> Total: ~N tests. Anything you want added, dropped, or reshaped before I write?
+> Total: <bullet count> tests. Anything you want added, dropped, or reshaped before I write?
 
 Then **stop and wait for confirmation** ("looks good", "go ahead", "yes", or a revision request). Do not proceed to write tests until the dev responds.
 
