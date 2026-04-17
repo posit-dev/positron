@@ -64,7 +64,7 @@ Positron has three test categories:
 
 ### Running tests
 
-- **[Vitest](.claude/rules/vitest.md)** (`*.vitest.ts` / `*.vitest.tsx`, **no build daemons needed**):
+- **[Vitest](.claude/rules/vitest-tests.md)** (`*.vitest.ts` / `*.vitest.tsx`, **no build daemons needed**):
 	- `npm run test:positron`: run all
 	- `npx vitest run src/path/to/<file>.vitest.ts`: run a specific file
 	- `npx vitest src/path/to/<file>.vitest.ts`: watch mode (re-runs on save; press `q` to quit, `h` for keyboard help)

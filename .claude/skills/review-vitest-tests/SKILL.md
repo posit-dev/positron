@@ -14,7 +14,7 @@ $ARGUMENTS should contain the test file path(s) to review. For each test file, a
 ## Setup
 
 1. Read each test file and its source file.
-2. Read `.claude/rules/vitest.md` for patterns, conventions, and common mistakes.
+2. Read `.claude/rules/vitest-tests.md` for patterns, conventions, and common mistakes.
 3. Read the builder JSDoc: `src/vs/test/vitest/positronTestContainer.ts`
 
 ## Checklist (per test file)

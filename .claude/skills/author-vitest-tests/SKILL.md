@@ -54,12 +54,12 @@ Analyze the changes from `<PR number, branch, or "current branch">` and produce 
 
 For each new symbol (method, class, interface member) in the diff:
 - `grep -rq "<symbol>" <file>` to confirm it exists in the working tree
-- `git log --oneline --grep="evert" -- <file>` to check for post-merge reverts
+- `git log --oneline --grep="revert" -- <file>` to check for post-merge reverts
 - Skip any file where changes no longer exist
 
 **Step 3: Read the testing guide.**
 
-Read the Testing section of `CLAUDE.md` (the "Where should I put my test?" decision table), `.claude/rules/vitest.md` for patterns, and the JSDoc on `PositronTestContainerBuilder` in `src/vs/test/vitest/positronTestContainer.ts` for presets.
+Read the Testing section of `CLAUDE.md` (the "Where should I put my test?" decision table), `.claude/rules/vitest-tests.md` for patterns, and the JSDoc on `PositronTestContainerBuilder` in `src/vs/test/vitest/positronTestContainer.ts` for presets.
 
 **Step 4: Classify each file.**
 
@@ -148,9 +148,9 @@ For each approved item:
 
 1. **Read the source file** and **existing tests in the same directory** for patterns.
 
-2. **Read `.claude/rules/vitest.md`** for the Quick Start code examples, the builder section, and the showcase-test links covering the four patterns (plain, builder, RTL prop-driven, RTL service-context), plus the emitter pattern, inline snapshots, and mock utilities. Note the `Common mistake:` callout on emitter scoping.
+2. **Read `.claude/rules/vitest-tests.md`** for the Quick Start code examples, the builder section, and the showcase-test links covering the four patterns (plain, builder, RTL prop-driven, RTL service-context), plus the emitter pattern, inline snapshots, and mock utilities. Note the `Common mistake:` callout on emitter scoping.
 
-3. **Write the test** following the appropriate pattern from vitest.md and these rules:
+3. **Write the test** following the appropriate pattern from vitest-tests.md and these rules:
    - Add `/// <reference types="vitest/globals" />` after the Posit Software copyright header.
    - Use tabs for indentation.
    - File name: `<source-name>.vitest.ts` (or `.vitest.tsx` for React components).

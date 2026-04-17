@@ -22,7 +22,7 @@ import { StartupStatus } from '../../browser/components/startupStatus.js';
 // ---------------------------------------------------------------------------
 
 // Emitters must be created at describe level (or in helpers called at describe level),
-// not inside it() -- see the `Common mistake:` callout in .claude/rules/vitest.md.
+// not inside it() -- see the `Common mistake:` callout in .claude/rules/vitest-tests.md.
 function createMockLanguageRuntimeService(initialPhase: RuntimeStartupPhase = RuntimeStartupPhase.Initializing) {
 	const onDidRegisterRuntime = new Emitter<ILanguageRuntimeMetadata>();
 	const onDidChangeRuntimeStartupPhase = new Emitter<RuntimeStartupPhase>();

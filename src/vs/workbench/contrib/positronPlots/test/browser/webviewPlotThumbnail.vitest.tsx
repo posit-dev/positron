@@ -18,7 +18,7 @@ import { WebviewPlotClient } from '../../browser/webviewPlotClient.js';
 describe('WebviewPlotThumbnail', () => {
 	// Emitter at describe level -- wired into the mock plotClient so .fire()
 	// reaches the component's useEffect subscription. See "Common Mistakes"
-	// in .claude/rules/vitest.md for why this must NOT be inside it().
+	// in .claude/rules/vitest-tests.md for why this must NOT be inside it().
 	const onDidRenderThumbnail = new Emitter<string>();
 
 	function makePlotClient(overrides: Partial<WebviewPlotClient> = {}): WebviewPlotClient {
