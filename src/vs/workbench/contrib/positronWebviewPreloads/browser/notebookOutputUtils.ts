@@ -105,63 +105,79 @@ function webviewMessageCode() {
 
 	// Two things can happen when the user wheels over a webview output:
 	//
-	// 1. The output contains a scrollable element (e.g. a big pandas
-	//    DataFrame rendered with its own scrollbar, or a tall raw HTML
-	//    page where the body itself scrolls). The browser scrolls that
-	//    element on its own -- we don't want to also scroll the notebook
-	//    around it, or the whole page lurches with the content.
+	// 1. Something inside the output can still scroll in the current
+	//    direction: a pandas DataFrame with its own scrollbar, a tall
+	//    raw HTML page where the body itself scrolls, etc. The browser
+	//    handles those natively, so we stay out of the way -- otherwise
+	//    the notebook around it lurches along with the content.
 	//
-	// 2. The output has nothing scrollable inside (e.g. a plotly plot,
-	//    a static image). Wheeling does nothing unless we forward the
-	//    event out to the notebook container.
+	// 2. Nothing inside can consume more scroll in this direction.
+	//    That covers outputs with nothing scrollable (a plotly plot, a
+	//    static image) and outputs where an inner scroller has already
+	//    reached its top/bottom edge. In both cases, wheeling should
+	//    move the notebook, so we forward the event.
 	//
-	// So we walk up from the wheel target: if we find an ancestor that
-	// can still scroll in this direction, the browser will handle it and
-	// we stay quiet. Otherwise we forward the event to the host.
-	const canConsumeVerticalWheel = (event: WheelEvent): boolean => {
+	// findVerticalWheelConsumer walks up from the wheel target and
+	// returns the first scrollable ancestor that still has room in the
+	// wheel direction, or null when nothing can consume the scroll.
+	const findVerticalWheelConsumer = (event: WheelEvent): Element | null => {
 		for (let node: Node | null = event.target as Node | null; node; node = node.parentNode) {
 			if (!(node instanceof Element)) {
-				return false;
+				return null;
 			}
 			// eslint-disable-next-line no-restricted-syntax
 			const isBodyOrRoot = node === document.body || node === document.documentElement;
 			// eslint-disable-next-line no-restricted-globals
 			const overflowY = window.getComputedStyle(node).overflowY;
-			// Body and documentElement scroll implicitly when content overflows
-			// the viewport even without an explicit overflow-y style.
-			if (!isBodyOrRoot && overflowY !== 'auto' && overflowY !== 'scroll') {
+			if (isBodyOrRoot) {
+				// Body/root scroll implicitly when content overflows the
+				// viewport, unless the page explicitly disables it with
+				// overflow-y: hidden or clip.
+				if (overflowY === 'hidden' || overflowY === 'clip') {
+					continue;
+				}
+			} else if (overflowY !== 'auto' && overflowY !== 'scroll') {
 				continue;
 			}
 			if (node.scrollHeight <= node.clientHeight) {
 				continue;
 			}
 			if (event.deltaY < 0 && node.scrollTop > 0) {
-				return true;
+				return node;
 			}
 			if (event.deltaY > 0 && node.scrollTop + node.clientHeight < node.scrollHeight - 1) {
-				return true;
+				return node;
 			}
 		}
-		return false;
+		return null;
 	};
 
-	// Trackpad momentum scrolling fires wheel events for a while after the
-	// user's fingers leave the pad. When an inner scroller hits its edge
-	// mid-gesture, the tail events would otherwise leak out and jerk the
-	// notebook. Suppress forwarding briefly after an inner consumer handled
-	// a wheel event so those tail events stay inside the output.
+	// Trackpad momentum scrolling fires wheel events for a while after
+	// the user's fingers leave the pad. When the inner scroller hits its
+	// edge mid-gesture, the tail events would otherwise leak out and
+	// jerk the notebook. Briefly keep routing to the element that last
+	// consumed a wheel event: as long as the cursor is still inside that
+	// element, suppress forwarding so momentum stays with that scroller
+	// rather than the notebook around it. Moving the pointer elsewhere
+	// (or letting the grace window lapse) lets new wheels through.
 	const MOMENTUM_GRACE_MS = 200;
+	let lastConsumer: Element | null = null;
 	let lastConsumedAt = 0;
 	// eslint-disable-next-line no-restricted-globals
 	window.addEventListener('wheel', (event: WheelEvent) => {
 		if (event.defaultPrevented || event.deltaY === 0) {
 			return;
 		}
-		if (canConsumeVerticalWheel(event)) {
+		const consumer = findVerticalWheelConsumer(event);
+		if (consumer) {
+			lastConsumer = consumer;
 			lastConsumedAt = Date.now();
 			return;
 		}
-		if (Date.now() - lastConsumedAt < MOMENTUM_GRACE_MS) {
+		if (lastConsumer
+			&& event.target instanceof Node
+			&& lastConsumer.contains(event.target)
+			&& Date.now() - lastConsumedAt < MOMENTUM_GRACE_MS) {
 			return;
 		}
 		vscode.postMessage({

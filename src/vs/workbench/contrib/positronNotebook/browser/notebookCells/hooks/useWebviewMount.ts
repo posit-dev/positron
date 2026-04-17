@@ -87,11 +87,12 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 			return;
 		}
 
-		// Scroll the notebook when the cursor is over a webview output
-		// that has nothing scrollable inside it (e.g. a plotly plot or a
-		// static image). The preload only forwards wheel events when no
-		// inner element can consume the scroll, so if we got a message
-		// here we know moving the cells container is the right response.
+		// Scroll the notebook when no scrollable element inside the
+		// output can consume more scroll in the wheel direction. That
+		// covers outputs with nothing scrollable (plotly, static images)
+		// and outputs whose inner scroller has exhausted its range. The
+		// preload already ran that check, so any message we see here
+		// should move the cells container.
 		if (isWheelForwardMessage(message)) {
 			const container = notebookInstance.cellsContainer;
 			if (container) {
