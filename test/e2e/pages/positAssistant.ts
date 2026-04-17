@@ -248,7 +248,7 @@ export class PositAssistant {
 	 * them to a canvas taints it cross-origin, so pixel sampling is
 	 * unreliable. Instead, we fetch the PNG bytes directly and check:
 	 *   1. The <img> loaded with non-zero natural dimensions.
-	 *   2. The response is a PNG (magic bytes 89 50 4E 47).
+	 *   2. The response is a PNG (full 8-byte signature: 89 50 4E 47 0D 0A 1A 0A).
 	 *   3. The PNG payload is larger than a blank/empty figure would be.
 	 *
 	 * A real matplotlib/plotnine PNG is typically tens of KB; the "blank
@@ -291,12 +291,22 @@ export class PositAssistant {
 					return { ok: false, reason: `fetch failed: HTTP ${response.status}`, byteLength: 0 };
 				}
 				const bytes = new Uint8Array(await response.arrayBuffer());
+				// Full 8-byte PNG signature: 89 50 4E 47 0D 0A 1A 0A
+				const pngSignature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 				const isPng =
-					bytes.length >= 8 &&
-					bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
+					bytes.length >= pngSignature.length &&
+					pngSignature.every((b, i) => bytes[i] === b);
+				if (!isPng) {
+					return {
+						ok: false,
+						reason: `response is not a PNG (length=${bytes.length}, first bytes=${Array.from(bytes.slice(0, 8)).map(b => b.toString(16).padStart(2, '0')).join(' ')})`,
+						byteLength: bytes.length,
+						isPng,
+					};
+				}
 				return {
 					ok: true,
-					reason: `fetched ${bytes.length} bytes (png=${isPng})`,
+					reason: `fetched ${bytes.length} bytes (png=true)`,
 					byteLength: bytes.length,
 					isPng,
 				};
