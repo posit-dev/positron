@@ -106,9 +106,10 @@ function webviewMessageCode() {
 	// Two things can happen when the user wheels over a webview output:
 	//
 	// 1. The output contains a scrollable element (e.g. a big pandas
-	//    DataFrame rendered with its own scrollbar). The browser scrolls
-	//    that element on its own -- we don't want to also scroll the
-	//    notebook around it, or the whole page lurches with the table.
+	//    DataFrame rendered with its own scrollbar, or a tall raw HTML
+	//    page where the body itself scrolls). The browser scrolls that
+	//    element on its own -- we don't want to also scroll the notebook
+	//    around it, or the whole page lurches with the content.
 	//
 	// 2. The output has nothing scrollable inside (e.g. a plotly plot,
 	//    a static image). Wheeling does nothing unless we forward the
@@ -119,14 +120,16 @@ function webviewMessageCode() {
 	// we stay quiet. Otherwise we forward the event to the host.
 	const canConsumeVerticalWheel = (event: WheelEvent): boolean => {
 		for (let node: Node | null = event.target as Node | null; node; node = node.parentNode) {
-			// eslint-disable-next-line no-restricted-syntax
-			if (!(node instanceof Element) || node === document.body || node === document.documentElement) {
+			if (!(node instanceof Element)) {
 				return false;
 			}
+			// eslint-disable-next-line no-restricted-syntax
+			const isBodyOrRoot = node === document.body || node === document.documentElement;
 			// eslint-disable-next-line no-restricted-globals
-			const style = window.getComputedStyle(node);
-			const overflowY = style.overflowY;
-			if (overflowY !== 'auto' && overflowY !== 'scroll') {
+			const overflowY = window.getComputedStyle(node).overflowY;
+			// Body and documentElement scroll implicitly when content overflows
+			// the viewport even without an explicit overflow-y style.
+			if (!isBodyOrRoot && overflowY !== 'auto' && overflowY !== 'scroll') {
 				continue;
 			}
 			if (node.scrollHeight <= node.clientHeight) {
@@ -142,9 +145,23 @@ function webviewMessageCode() {
 		return false;
 	};
 
+	// Trackpad momentum scrolling fires wheel events for a while after the
+	// user's fingers leave the pad. When an inner scroller hits its edge
+	// mid-gesture, the tail events would otherwise leak out and jerk the
+	// notebook. Suppress forwarding briefly after an inner consumer handled
+	// a wheel event so those tail events stay inside the output.
+	const MOMENTUM_GRACE_MS = 200;
+	let lastConsumedAt = 0;
 	// eslint-disable-next-line no-restricted-globals
 	window.addEventListener('wheel', (event: WheelEvent) => {
-		if (event.defaultPrevented || event.deltaY === 0 || canConsumeVerticalWheel(event)) {
+		if (event.defaultPrevented || event.deltaY === 0) {
+			return;
+		}
+		if (canConsumeVerticalWheel(event)) {
+			lastConsumedAt = Date.now();
+			return;
+		}
+		if (Date.now() - lastConsumedAt < MOMENTUM_GRACE_MS) {
 			return;
 		}
 		vscode.postMessage({
