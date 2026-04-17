@@ -9,7 +9,7 @@
 /* eslint-disable local/code-no-dangerous-type-assertions */
 
 import type { Mock } from 'vitest';
-import { flushSync } from 'react-dom';
+import { act } from '@testing-library/react';
 import { setupRTLRenderer } from '../../../../../../../test/vitest/reactTestingLibrary.js';
 import { ISettableObservable, observableValue } from '../../../../../../../base/common/observable.js';
 import { MockContextKeyService } from '../../../../../../../platform/keybinding/test/common/mockKeybindingService.js';
@@ -191,7 +191,7 @@ describe('PositronFindWidget', () => {
 			isVisible.set(false, undefined);
 			const widget = renderWidget();
 
-			flushSync(() => isVisible.set(true, undefined));
+			act(() => isVisible.set(true, undefined));
 
 			expect(
 				widget.container.contains(document.activeElement),
@@ -202,7 +202,7 @@ describe('PositronFindWidget', () => {
 		it('hidden when close button is clicked', () => {
 			const widget = renderWidget();
 
-			flushSync(() => widget.closeButton.click());
+			act(() => widget.closeButton.click());
 
 			expect(widget.isVisible, 'Expected find widget to be hidden after close').toBe(false);
 			expect(isVisible.get(), 'Expected isVisible observable to be false after close').toBe(false);
@@ -302,12 +302,12 @@ describe('PositronFindWidget', () => {
 		it('expands/collapses when toggle replace button is clicked', () => {
 			const widget = renderWidget({ useReplace: true });
 
-			flushSync(() => widget.toggleReplaceButton!.click());
+			act(() => widget.toggleReplaceButton!.click());
 
 			expect(widget.replacePart, 'Expected replace part to be visible when expanded').not.toBeNull();
 			expect(replaceIsVisible.get(), 'Expected replaceIsVisible to be true').toBe(true);
 
-			flushSync(() => widget.toggleReplaceButton!.click());
+			act(() => widget.toggleReplaceButton!.click());
 
 			expect(widget.replacePart, 'Expected replace part to be hidden').toBe(null);
 			expect(replaceIsVisible.get(), 'Expected replaceIsVisible to be false').toBe(false);
@@ -318,7 +318,7 @@ describe('PositronFindWidget', () => {
 			replaceIsVisible.set(true, undefined);
 			const widget = renderWidget({ useReplace: true });
 
-			flushSync(() => widget.replaceButton!.click());
+			act(() => widget.replaceButton!.click());
 
 			expect(onReplace, 'Expected onReplace to be called once').toHaveBeenCalledOnce();
 		});
@@ -328,7 +328,7 @@ describe('PositronFindWidget', () => {
 			findText.set('foo', undefined);
 			const widget = renderWidget({ useReplace: true });
 
-			flushSync(() => widget.replaceAllButton!.click());
+			act(() => widget.replaceAllButton!.click());
 
 			expect(onReplaceAll, 'Expected onReplaceAll to be called once').toHaveBeenCalledOnce();
 		});

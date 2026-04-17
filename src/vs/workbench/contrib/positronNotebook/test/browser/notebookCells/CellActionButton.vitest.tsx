@@ -8,7 +8,7 @@
 /* eslint-disable no-restricted-syntax */
 /* eslint-disable local/code-no-dangerous-type-assertions */
 
-import { flushSync } from 'react-dom';
+import { act } from '@testing-library/react';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { runWithFakedTimers } from '../../../../../../base/test/common/timeTravelScheduler.js';
 import { timeout } from '../../../../../../base/common/async.js';
@@ -60,11 +60,13 @@ class CellActionButtonFixture {
 	click() { this.button.click(); }
 
 	async clickAndFlush() {
-		this.button.click();
-		// Let the async handler (action.run()) resolve so setState fires.
-		await timeout(0);
-		// Flush React state update to the DOM.
-		flushSync(() => { });
+		// act() wraps the click + async state update (action.run() resolves
+		// after a microtask) so React's "not wrapped in act" warning doesn't fire
+		// and pending state updates are flushed to the DOM before the assertion.
+		await act(async () => {
+			this.button.click();
+			await timeout(0);
+		});
 	}
 }
 
@@ -182,11 +184,13 @@ describe('CellActionButton', () => {
 
 			expect(fixture.iconClass).toBe('codicon-check');
 
-			// Advance past the 1500ms success feedback duration.
-			await timeout(1500);
-
-			// Let the set state flush; flushSync does not work here.
-			await timeout(0);
+			// Advance past the 1500ms success feedback duration. The setTimeout
+			// in CellActionButton fires at this point and calls setState to reset
+			// the icon, so the advance must be wrapped in act().
+			await act(async () => {
+				await timeout(1500);
+				await timeout(0);
+			});
 
 			expect(fixture.iconClass, 'Original icon should be restored').toBe('codicon-copy');
 		}));

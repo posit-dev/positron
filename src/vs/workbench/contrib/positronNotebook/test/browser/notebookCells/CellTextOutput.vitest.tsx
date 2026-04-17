@@ -8,7 +8,7 @@
 /* eslint-disable no-restricted-syntax */
 /* eslint-disable local/code-no-dangerous-type-assertions */
 
-import { flushSync } from 'react-dom';
+import { act } from '@testing-library/react';
 import { Emitter } from '../../../../../../base/common/event.js';
 import { ensureNoLeakedDisposables } from '../../../../../../test/vitest/vitestUtils.js';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
@@ -215,7 +215,7 @@ describe('CellTextOutput', () => {
 		expect(fixture.truncationMessage, 'Expected truncation message initially').not.toBeNull();
 
 		layoutConfig = { ...layoutConfig, outputLineLimit: 50 };
-		flushSync(() => optionsEmitter.fire({ outputLineLimit: true } as NotebookOptionsChangeEvent));
+		act(() => optionsEmitter.fire({ outputLineLimit: true } as NotebookOptionsChangeEvent));
 
 		expect(fixture.truncationMessage, 'Expected no truncation message after limit increase').toBe(null);
 		expect(fixture.outputContainer.textContent, 'Expected all lines rendered').toContain('line 35');

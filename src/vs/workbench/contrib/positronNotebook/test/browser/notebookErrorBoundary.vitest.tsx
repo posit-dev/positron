@@ -9,7 +9,7 @@
 /* eslint-disable local/code-no-dangerous-type-assertions */
 
 import React from 'react';
-import { flushSync } from 'react-dom';
+import { act } from '@testing-library/react';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { NotebookErrorBoundary } from '../../browser/NotebookErrorBoundary.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
@@ -47,7 +47,7 @@ function getActionButtons(container: HTMLElement) {
 
 /** Click a button and flush React state updates synchronously. */
 function clickAndFlush(element: HTMLElement): void {
-	flushSync(() => { element.click(); });
+	act(() => { element.click(); });
 }
 
 describe('NotebookErrorBoundary', () => {

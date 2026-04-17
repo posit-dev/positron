@@ -7,6 +7,7 @@
 
 /* eslint-disable local/code-no-dangerous-type-assertions */
 
+import { act } from '@testing-library/react';
 import { Emitter } from '../../../../../base/common/event.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
@@ -167,9 +168,10 @@ describe('useMenuActions', () => {
 			const { rerender } = rtl.render(element);
 			expect(captured).toEqual([['g', [action('v0')]]]);
 
-			// Simulate menu content change
+			// Simulate menu content change. act() wraps the fire because the
+			// subscriber inside useMenu calls setState.
 			menuActions = [['g', [action('v1')]]];
-			onDidChange.fire({} as IMenuChangeEvent);
+			act(() => onDidChange.fire({} as IMenuChangeEvent));
 
 			// One rerender to pick up the version bump
 			rerender(element);
