@@ -17,6 +17,7 @@ import { Button } from '../../../../../base/browser/ui/positronComponents/button
  * FooterButtonProps interface.
  */
 interface FooterButtonProps {
+	autoFocus?: boolean;
 	default?: boolean;
 	disabled?: boolean;
 	onPressed: () => void;
@@ -30,6 +31,7 @@ interface FooterButtonProps {
 export const FooterButton = (props: PropsWithChildren<FooterButtonProps>) => {
 	return (
 		<Button
+			autoFocus={props.autoFocus}
 			className={positronClassNames(
 				'footer-button',
 				{ 'default': props.default }

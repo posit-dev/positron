@@ -13,7 +13,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { localize } from '../../../../../nls.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
-import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
+import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
 import { TwoButtonFooter } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/twoButtonFooter.js';
@@ -24,7 +24,7 @@ import { IDataConnectionDriverMetadata } from '../../../../services/positronData
  */
 interface SelectDataConnectionProviderProps {
 	// The renderer.
-	renderer: PositronModalReactRenderer;
+	renderer: PositronModalDialogReactRenderer;
 
 	// Called when the user selects a driver and clicks Next.
 	onNext: (driverId: string) => void;
@@ -45,6 +45,10 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 
 	// Refs.
 	const gridContainerRef = useRef<HTMLDivElement>(undefined!);
+
+	// Map of driver card keys to their <button> elements, populated by the Button ref callback below.
+	// Used by scrollToFocusedDriverCard to look up a card by key without reaching into the DOM.
+	const driverCardRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
 
 	// State.
 	const [drivers, setDrivers] = useState<IDataConnectionDriverMetadata[]>([]);
@@ -75,12 +79,13 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 
 	/**
 	 * Scrolls the grid container to keep the focused driver card visible with proper padding.
-	 * @param targetDriverCard The driver card that received focus.
+	 * @param driverCardKey The `${driver.id}-${index}` key of the driver card to scroll into view.
 	 */
-	const scrollToFocusedDriverCard = useCallback((targetDriverCard: HTMLButtonElement) => {
-		// Get the container element. If we can't find it, do nothing.
+	const scrollToFocusedDriverCard = useCallback((driverCardKey: string) => {
+		// Look up the card and the container. If either is missing, do nothing.
+		const targetDriverCard = driverCardRefs.current.get(driverCardKey);
 		const container = gridContainerRef.current;
-		if (!container) {
+		if (!targetDriverCard || !container) {
 			return;
 		}
 
@@ -127,27 +132,37 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 					)}>
 						<div ref={gridContainerRef} className='driver-grid-container' role='group'>
 							<div className='driver-grid'>
-								{Array.from({ length: 6 }, () => drivers).flat().map((driver, index) => (
-									<Button
-										key={`${driver.id}-${index}`}
-										className={positronClassNames(
-											'driver-card',
-											{ 'selected': selectedDriverId === driver.id }
-										)}
-										id={`data-connection-driver-card-${driver.id}-${index}`}
-										onFocus={htmlButtonElement => scrollToFocusedDriverCard(htmlButtonElement)}
-										onPressed={(_, htmlButtonElement) => {
-											scrollToFocusedDriverCard(htmlButtonElement);
-											setSelectedDriverId(driver.id);
-											setShowError(false);
-										}}
-									>
-										<div className='driver-card-badge'>
-											<img alt='' className='driver-card-icon' src={`data:image/svg+xml;base64,${driver.iconSvg}`} />
-										</div>
-										<div className='driver-card-name'>{driver.name}</div>
-									</Button>
-								))}
+								{drivers.map((driver, index) => {
+									const driverCardKey = `${driver.id}-${index}`;
+									return (
+										<Button
+											key={driverCardKey}
+											ref={element => {
+												if (element) {
+													driverCardRefs.current.set(driverCardKey, element);
+												} else {
+													driverCardRefs.current.delete(driverCardKey);
+												}
+											}}
+											className={positronClassNames(
+												'driver-card',
+												{ 'selected': selectedDriverId === driver.id }
+											)}
+											id={`data-connection-driver-card-${driverCardKey}`}
+											onFocus={() => scrollToFocusedDriverCard(driverCardKey)}
+											onPressed={() => {
+												scrollToFocusedDriverCard(driverCardKey);
+												setSelectedDriverId(driver.id);
+												setShowError(false);
+											}}
+										>
+											<div className='driver-card-badge'>
+												<img alt='' className='driver-card-icon' src={`data:image/svg+xml;base64,${driver.iconSvg}`} />
+											</div>
+											<div className='driver-card-name'>{driver.name}</div>
+										</Button>
+									);
+								})}
 							</div>
 						</div>
 					</div>

@@ -13,6 +13,7 @@
 }
 
 .positron-dynamic-modal-dialog-box .title-bar .title-bar-title {
+	cursor: default;
 	overflow: hidden;
 	color: var(--vscode-positronModalDialog-titleBarForeground);
 }

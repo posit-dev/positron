@@ -10,10 +10,9 @@ import './positronDynamicModalDialog.css';
 import { ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 // Other dependencies.
-import * as DOM from '../../../../base/browser/dom.js';
 import { TitleBar } from './components/titleBar.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
-import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
+import { PositronModalDialogReactRenderer } from '../../../../base/browser/positronModalDialogReactRenderer.js';
 
 /**
  * The gutter where the dialog box cannot be moved.
@@ -24,7 +23,7 @@ const kGutter = 40;
  * PositronDynamicModalDialogProps interface.
  */
 export interface PositronDynamicModalDialogProps {
-	renderer: PositronModalReactRenderer;
+	renderer: PositronModalDialogReactRenderer;
 	title: string;
 	width: number;
 	content: ReactNode;
@@ -104,93 +103,10 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 		});
 	}, [props.width]);
 
-	// Focus trap: mark every sibling of the modal overlay as `inert` so the browser refuses focus,
-	// clicks, and selection on anything behind the dialog. This replaces manual Tab-key focus
-	// wrapping - the browser handles it natively.
-	useEffect(() => {
-		// Walk up from the dialog container to find the modal overlay that the
-		// PositronModalReactRenderer mounted us into.
-		let overlay: HTMLElement | null = dialogContainerRef.current;
-		while (overlay && !overlay.classList.contains('positron-modal-overlay')) {
-			overlay = overlay.parentElement;
-		}
-		if (!overlay || !overlay.parentElement) {
-			return;
-		}
-		const resolvedOverlay = overlay;
-
-		// The renderer gives the overlay tabIndex=0 so it can receive initial focus. Leaving it
-		// there means Tab past the last dialog element lands on the overlay itself - a wasted
-		// stop before focus wraps. Swap to -1 (still programmatically focusable) for our lifetime.
-		const previousTabIndex = resolvedOverlay.getAttribute('tabindex');
-		resolvedOverlay.setAttribute('tabindex', '-1');
-
-		// Inert every sibling that isn't already inert (leave stacked modals alone).
-		const inerted: HTMLElement[] = [];
-		for (const sibling of Array.from(resolvedOverlay.parentElement!.children)) {
-			if (sibling !== resolvedOverlay && DOM.isHTMLElement(sibling) && !sibling.hasAttribute('inert')) {
-				sibling.setAttribute('inert', '');
-				inerted.push(sibling);
-			}
-		}
-
-		return () => {
-			if (previousTabIndex !== null) {
-				resolvedOverlay.setAttribute('tabindex', previousTabIndex);
-			} else {
-				resolvedOverlay.removeAttribute('tabindex');
-			}
-			for (const el of inerted) {
-				el.removeAttribute('inert');
-			}
-		};
-	}, []);
-
 	// Set up keyboard and resize event handlers.
 	useEffect(() => {
 		// Create a disposable store for the event handlers we'll add.
 		const disposableStore = new DisposableStore();
-
-		// Add the onKeyDown event handler.
-		disposableStore.add(props.renderer.onKeyDown(e => {
-			/**
-			 * Consumes an event.
-			 */
-			const consumeEvent = () => {
-				e.preventDefault();
-				e.stopPropagation();
-			};
-
-			// Handle the event.
-			switch (e.key) {
-				// Enter clicks the first default button that is not disabled, if there is one.
-				case 'Enter': {
-					// If the active element is a text area, return.
-					const activeElement = DOM.getDocument(dialogBoxRef.current).activeElement;
-					if (DOM.isHTMLTextAreaElement(activeElement)) {
-						return;
-					}
-
-					// Get the first default button that is not disabled. If there is one, click it.
-					// eslint-disable-next-line no-restricted-syntax
-					const defaultButton = dialogBoxRef.current.querySelector<HTMLElement>(
-						'button.default:not([disabled])'
-					);
-					if (defaultButton) {
-						consumeEvent();
-						defaultButton.click();
-					}
-					break;
-				}
-
-				// Escape cancels dialog.
-				case 'Escape': {
-					consumeEvent();
-					props.onCancel?.();
-					break;
-				}
-			}
-		}));
 
 		// Add the onResize event handler.
 		disposableStore.add(props.renderer.onResize(e => {

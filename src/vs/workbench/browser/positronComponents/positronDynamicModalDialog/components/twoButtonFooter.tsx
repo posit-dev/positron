@@ -26,19 +26,15 @@ interface TwoButtonFooterProps {
  * @returns The rendered component.
  */
 export const TwoButtonFooter = (props: TwoButtonFooterProps) => {
-	/**
-	 * The primary footer button.
-	 */
-	const PrimaryFooterButton = () => (
-		<FooterButton default onPressed={props.onPrimaryButton}>
+	// Primary button.
+	const primaryButton = (
+		<FooterButton autoFocus default onPressed={props.onPrimaryButton}>
 			{props.primaryButtonTitle}
 		</FooterButton>
 	);
 
-	/**
-	 * The secondary footer button.
-	 */
-	const SecondaryFooterButton = () => (
+	// Secondary button.
+	const secondaryButton = (
 		<FooterButton onPressed={props.onSecondaryButton}>
 			{props.secondaryButtonTitle}
 		</FooterButton>
@@ -49,8 +45,8 @@ export const TwoButtonFooter = (props: TwoButtonFooterProps) => {
 		<div className='two-button-footer'>
 			{/* On Windows, the primary button comes first; on macOS/Linux, the secondary button comes first. */}
 			{platform.isWindows
-				? <><PrimaryFooterButton /><SecondaryFooterButton /></>
-				: <><SecondaryFooterButton /><PrimaryFooterButton /></>
+				? <>{primaryButton}{secondaryButton}</>
+				: <>{secondaryButton}{primaryButton}</>
 			}
 		</div>
 	);

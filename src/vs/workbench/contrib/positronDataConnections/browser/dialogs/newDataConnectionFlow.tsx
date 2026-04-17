@@ -12,7 +12,7 @@ import { useCallback, useState } from 'react';
 // Other dependencies.
 import { ConfigureDataConnection } from './configureDataConnection.js';
 import { SelectDataConnectionProvider } from './selectDataConnectionProvider.js';
-import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
+import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { IDataConnectionDriver, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
 
@@ -36,7 +36,7 @@ enum NewDataConnectionFlowStep {
  */
 interface NewDataConnectionFlowProps {
 	// The renderer.
-	renderer: PositronModalReactRenderer;
+	renderer: PositronModalDialogReactRenderer;
 }
 
 /**

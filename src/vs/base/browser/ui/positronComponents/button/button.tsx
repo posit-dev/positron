@@ -40,6 +40,7 @@ export interface ButtonProps {
 	readonly ariaHaspopup?: React.AriaAttributes['aria-haspopup'];
 	readonly ariaLabel?: string;
 	readonly ariaSelected?: boolean;
+	readonly autoFocus?: boolean;
 	readonly role?: string;
 	readonly className?: string;
 	readonly disabled?: boolean;
@@ -48,12 +49,12 @@ export interface ButtonProps {
 	readonly style?: CSSProperties | undefined;
 	readonly tabIndex?: number;
 	readonly tooltip?: string | (() => string | undefined);
-	readonly onBlur?: (e: HTMLButtonElement) => void;
-	readonly onFocus?: (e: HTMLButtonElement) => void;
+	readonly onBlur?: () => void;
+	readonly onFocus?: () => void;
 	readonly onKeyDown?: (e: KeyboardEvent<HTMLButtonElement>) => void;
 	readonly onMouseEnter?: () => void;
 	readonly onMouseLeave?: () => void;
-	readonly onPressed?: (e: KeyboardModifiers, buttonElement: HTMLButtonElement) => void;
+	readonly onPressed?: (e: KeyboardModifiers) => void;
 	ref?: React.Ref<HTMLButtonElement>;
 }
 
@@ -95,7 +96,7 @@ export const Button = (props: PropsWithChildren<ButtonProps>) => {
 
 		// Raise the onPressed event if the button isn't disabled.
 		if (!props.disabled && props.onPressed) {
-			props.onPressed(e, buttonRef.current);
+			props.onPressed(e);
 		}
 	};
 
@@ -184,6 +185,7 @@ export const Button = (props: PropsWithChildren<ButtonProps>) => {
 			aria-haspopup={props.ariaHaspopup}
 			aria-label={props.ariaLabel}
 			aria-selected={props.ariaSelected}
+			autoFocus={props.autoFocus}
 			className={positronClassNames(
 				'positron-button',
 				props.className,
@@ -194,9 +196,9 @@ export const Button = (props: PropsWithChildren<ButtonProps>) => {
 			role={props.role ?? 'button'}
 			style={props.style}
 			tabIndex={props.tabIndex ?? 0}
-			onBlur={() => props.onBlur?.(buttonRef.current)}
+			onBlur={props.onBlur}
 			onClick={clickHandler}
-			onFocus={() => props.onFocus?.(buttonRef.current)}
+			onFocus={props.onFocus}
 			onKeyDown={keyDownHandler}
 			onMouseDown={mouseDownHandler}
 			onMouseEnter={mouseEnterHandler}

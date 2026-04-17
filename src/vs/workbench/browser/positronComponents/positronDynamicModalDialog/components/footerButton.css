@@ -43,8 +43,8 @@
 }
 
 .positron-dynamic-modal-dialog-box .footer-button:focus-visible {
-	outline-offset: 2px;
-	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 2px !important;
+	outline: 1px solid var(--vscode-focusBorder) !important;
 }
 
 .positron-dynamic-modal-dialog-box .footer-button:disabled {

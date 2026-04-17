@@ -1,0 +1,214 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+// CSS.
+import './positronModalDialogReactRenderer.css';
+
+// React.
+import { ReactElement } from 'react';
+import { createRoot, Root } from 'react-dom/client';
+
+// Other dependencies.
+import * as DOM from './dom.js';
+import { Emitter } from '../common/event.js';
+import { Disposable } from '../common/lifecycle.js';
+import { StandardKeyboardEvent } from './keyboardEvent.js';
+import { PositronReactServices } from './positronReactServices.js';
+import { PositronReactServicesProvider } from './positronReactRendererContext.js';
+import { ResultKind } from '../../platform/keybinding/common/keybindingResolver.js';
+
+// Commands that are allowed through while a modal is open.
+const ALLOWABLE_COMMANDS = [
+	'copy',
+	'cut',
+	'undo',
+	'redo',
+	'editor.action.selectAll',
+	'editor.action.clipboardCopyAction',
+	'editor.action.clipboardCutAction',
+	'editor.action.clipboardPasteAction',
+	'workbench.action.quit',
+	'workbench.action.reloadWindow'
+];
+
+/**
+ * Options passed to PositronModalDialogReactRenderer. `container` defaults to the active workbench
+ * container; `onDisposed` is invoked after the dialog is closed and removed from the DOM.
+ */
+interface PositronModalDialogReactRendererOptions {
+	container?: HTMLElement;
+	onDisposed?: () => void;
+}
+
+/**
+ * PositronModalDialogReactRenderer. Renderer backed by the native <dialog> element using
+ * showModal().
+ */
+export class PositronModalDialogReactRenderer extends Disposable {
+	// The native <dialog> element we create in render() and close/remove in dispose().
+	private _dialog?: HTMLDialogElement;
+
+	// The React root mounted inside the <dialog>; undefined until render() runs.
+	private _root?: Root;
+
+	// The element that had focus when this renderer was constructed. We restore focus to it on
+	// dispose so closing the dialog returns the user to where they were.
+	private readonly _lastFocusedElement: HTMLElement | undefined;
+
+	// A cleanup function that removes any window-level event listeners we bind in render(). We
+	// invoke this in dispose() to ensure we don't leave dangling listeners. It's set to undefined
+	// when there are no listeners bound.
+	private _eventHandlerCleanup?: () => void;
+
+	// Fires for window resize events while the modal is open. Consumers subscribe via onResize
+	// to reclamp position.
+	private readonly _onResizeEmitter = this._register(new Emitter<UIEvent>());
+
+	// Expose the onResize event for consumers to subscribe to.
+	readonly onResize = this._onResizeEmitter.event;
+
+	/**
+	 * Constructor.
+	 * @param options The PositronModalDialogReactRendererOptions to use when constructing the renderer.
+	 * @returns A new PositronModalDialogReactRenderer instance.
+	 */
+	constructor(private readonly _options: PositronModalDialogReactRendererOptions = {}) {
+		// Call super() to initialize the Disposable base class, which provides the _register() method used for managing disposables.
+		super();
+
+		// If a container isn't provided, default to the active workbench container.
+		if (_options.container === undefined) {
+			_options.container = PositronReactServices.services.workbenchLayoutService.activeContainer;
+		}
+
+		// Store the currently focused element so we can restore focus to it when the dialog is closed.
+		const activeElement = DOM.getActiveWindow().document.activeElement;
+		if (DOM.isHTMLElement(activeElement)) {
+			this._lastFocusedElement = activeElement;
+		}
+	}
+
+	/**
+	 * Disposes the renderer by closing the dialog, unmounting the React root, removing the dialog
+	 * from the DOM, and invoking the onDisposed callback.
+	 */
+	override dispose(): void {
+		// If the dialog us undefined, call super.dispose() and return. This can happen if dispose()
+		// is called before render() for some reason.
+		if (this._dialog === undefined) {
+			super.dispose();
+			return;
+		}
+
+		// Invoke the event cleanup function to remove any window-level listeners we bound in
+		// render() and set it to undefined to indicate we've done so. This ensures we don't leave
+		// dangling listeners.
+		this._eventHandlerCleanup?.();
+		this._eventHandlerCleanup = undefined;
+
+		// Restore focus to the previously focused element if we have one.
+		this._lastFocusedElement?.focus({ preventScroll: true });
+
+		// Close the dialog, if it's open.
+		if (this._dialog.open) {
+			this._dialog.close();
+		}
+
+		// Unmount and clear the React root.
+		this._root?.unmount();
+		this._root = undefined;
+
+		// Remove and clear the dialog.
+		this._dialog.remove();
+		this._dialog = undefined;
+
+		// Call the onDisposed callback, if provided.
+		this._options.onDisposed?.();
+
+		// Finally, call super.dispose() to complete the disposal process.
+		super.dispose();
+	}
+
+	/**
+	 * Gets the PositronReactServices.
+	 */
+	get services(): PositronReactServices {
+		return PositronReactServices.services;
+	}
+
+	/**
+	 * Gets the container element into which this renderer renders its dialog.
+	 */
+	get container() {
+		return this._options.container!;
+	}
+
+	/**
+	 * Renders the given React element inside a modal dialog.
+	 * @param reactElement The React element to render inside the modal dialog.
+	 */
+	render(reactElement: ReactElement) {
+		// If the dialog already exists, log an error and return. This can happen if render() is
+		// called more than once for some reason.
+		if (this._dialog !== undefined) {
+			console.error('[PositronModalDialogReactRenderer] Attempted to render twice');
+			return;
+		}
+
+		// Create the <dialog> element and append it to the container.
+		const dialog = document.createElement('dialog');
+		dialog.classList.add('positron-modal-dialog');
+		this._options.container!.appendChild(dialog);
+		this._dialog = dialog;
+
+		// Mount the React tree inside the dialog.
+		this._root = createRoot(dialog);
+		this._root.render(
+			<PositronReactServicesProvider>
+				{reactElement}
+			</PositronReactServicesProvider>
+		);
+
+		// Show as modal: browser handles focus trap, Escape, backdrop, top-layer stacking.
+		dialog.showModal();
+
+		/**
+		 * Keydown handler. We bind this at the window level in the capture phase so it runs before any
+		 * other handlers and can stop propagation of any events that aren't for allowable commands. This
+		 * is necessary to prevent keybindings from being triggered while the modal is open, which could
+		 * lead to unexpected behavior. We allow certain commands like copy/cut/paste/selectAll so that
+		 * users can use those features in input fields within the modal.
+		 * @param e The KeyboardEvent to handle.
+		 */
+		const keydownHandler = (e: KeyboardEvent) => {
+			const event = new StandardKeyboardEvent(e);
+			const resolutionResult = PositronReactServices.services.keybindingService.softDispatch(
+				event,
+				PositronReactServices.services.workbenchLayoutService.activeContainer
+			);
+			if (resolutionResult.kind === ResultKind.KbFound && resolutionResult.commandId !== null) {
+				if (ALLOWABLE_COMMANDS.indexOf(resolutionResult.commandId) === -1) {
+					DOM.EventHelper.stop(event, true);
+				}
+			}
+		};
+
+		/**
+		 * Resize handler. Fires the onResize event so consumers can respond to window resizes
+		 * while the modal is open, such as by reclamping the dialog position.
+		 */
+		const resizeHandler = (e: UIEvent) => this._onResizeEmitter.fire(e);
+
+		// Use the DOM helper to get the window from the dialog, which is important for iframes.
+		// Then add the event listeners and store a cleanup function that removes them.
+		const window = DOM.getWindow(dialog);
+		window.addEventListener('keydown', keydownHandler, true);
+		window.addEventListener('resize', resizeHandler, false);
+		this._eventHandlerCleanup = () => {
+			window.removeEventListener('keydown', keydownHandler, true);
+			window.removeEventListener('resize', resizeHandler, false);
+		};
+	}
+}

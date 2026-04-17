@@ -1,0 +1,45 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Native <dialog> defaults to a browser-sized, centered box with a border. We want it to fill the
+ * viewport and be transparent so the inner React tree controls its own positioning and visuals,
+ * the backdrop pseudo-element handles the dim.
+ */
+.positron-modal-dialog {
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	margin: 0;
+	padding: 0;
+	border: none;
+	outline: none;
+	max-width: none;
+	max-height: none;
+	overflow: visible;
+	background: transparent;
+}
+
+/*
+ * The dim behind the modal. showModal() renders this pseudo-element in the top layer directly
+ * below the dialog, so no separate overlay div is needed.
+ */
+.positron-modal-dialog::backdrop {
+	background: rgba(0, 0, 0, 0.2);
+	animation: positron-modal-dialog-fade-in 0.1s ease-out;
+}
+
+/*
+ * Fade the backdrop in on open so the dim doesn't snap.
+ */
+@keyframes positron-modal-dialog-fade-in {
+	0% {
+		opacity: 0;
+	}
+
+	100% {
+		opacity: 1;
+	}
+}
