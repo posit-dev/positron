@@ -83,6 +83,12 @@ interface RunAppOptionsBase {
 	 * runtimes without DAP support to avoid a waiting overhead on every run.
 	 */
 	debugAdapterType?: string;
+
+	/**
+	 * Optional timeout in milliseconds for URL detection in application output.
+	 * If not specified, a default timeout is used.
+	 */
+	urlDetectionTimeout?: number;
 }
 
 /**
@@ -160,6 +166,12 @@ export interface DebugAppOptions {
 	 * An optional array of app URI formats to parse the URI from the terminal output.
 	 */
 	appUrlStrings?: string[];
+
+	/**
+	 * Optional timeout in milliseconds for URL detection in application output.
+	 * If not specified, a default timeout is used.
+	 */
+	urlDetectionTimeout?: number;
 }
 
 /**

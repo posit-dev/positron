@@ -26,6 +26,7 @@ export type AppPreviewOptions = {
 	urlPath?: string;
 	appReadyMessage?: string;
 	appUrlStrings?: string[];
+	urlDetectionTimeout?: number;
 };
 
 export type AppLauncherTerminalLink = vscode.TerminalLink & {
