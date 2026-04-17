@@ -240,6 +240,78 @@ export class PositAssistant {
 		await expect(this.frame.locator(INLINE_PLOT).first()).toBeVisible({ timeout });
 	}
 
+	/**
+	 * Verifies the first inline plot image is not blank.
+	 *
+	 * Inline plots are served as vscode-resource PNGs (e.g.
+	 * https://file+.vscode-resource.vscode-cdn.net/.../<hash>.png). Drawing
+	 * them to a canvas taints it cross-origin, so pixel sampling is
+	 * unreliable. Instead, we fetch the PNG bytes directly and check:
+	 *   1. The <img> loaded with non-zero natural dimensions.
+	 *   2. The response is a PNG (magic bytes 89 50 4E 47).
+	 *   3. The PNG payload is larger than a blank/empty figure would be.
+	 *
+	 * A real matplotlib/plotnine PNG is typically tens of KB; the "blank
+	 * Python chat plot" bug produces a very small PNG (empty figure or a
+	 * placeholder). The minBytes threshold targets that.
+	 *
+	 * @param options.timeout Max time to wait for the plot image (default: 30000)
+	 * @param options.minBytes Minimum PNG byte size to consider non-blank (default: 3000)
+	 */
+	async expectInlinePlotNotBlank(options: { timeout?: number; minBytes?: number } = {}): Promise<void> {
+		const { timeout = 30000, minBytes = 3000 } = options;
+		const plot = this.frame.locator(INLINE_PLOT).first();
+		await expect(plot).toBeVisible({ timeout });
+
+		// Wait for the image to finish loading.
+		await plot.evaluate(async (img: HTMLImageElement) => {
+			if (!img.complete) {
+				await new Promise<void>((resolve, reject) => {
+					img.addEventListener('load', () => resolve(), { once: true });
+					img.addEventListener('error', () => reject(new Error('image failed to load')), { once: true });
+				});
+			}
+		});
+
+		const result = await plot.evaluate(async (img: HTMLImageElement) => {
+			const width = img.naturalWidth;
+			const height = img.naturalHeight;
+			const src = img.src;
+
+			if (!width || !height) {
+				return { ok: false, reason: `image has no natural dimensions (${width}x${height})`, byteLength: 0 };
+			}
+			if (!src) {
+				return { ok: false, reason: 'image src is empty', byteLength: 0 };
+			}
+
+			try {
+				const response = await fetch(src);
+				if (!response.ok) {
+					return { ok: false, reason: `fetch failed: HTTP ${response.status}`, byteLength: 0 };
+				}
+				const bytes = new Uint8Array(await response.arrayBuffer());
+				const isPng =
+					bytes.length >= 8 &&
+					bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
+				return {
+					ok: true,
+					reason: `fetched ${bytes.length} bytes (png=${isPng})`,
+					byteLength: bytes.length,
+					isPng,
+				};
+			} catch (e) {
+				return { ok: false, reason: `failed to fetch image src: ${String(e)}`, byteLength: 0 };
+			}
+		});
+
+		expect(result.ok, `Inline plot fetch failed: ${result.reason}`).toBe(true);
+		expect(
+			result.byteLength,
+			`Inline plot appears blank - PNG is only ${result.byteLength} bytes (threshold ${minBytes}). ${result.reason}`,
+		).toBeGreaterThanOrEqual(minBytes);
+	}
+
 	// --- Code block actions ---
 
 	/**
