@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-.tabs-container .tab-button {
+.tab-button {
 	background-color: inherit;
 	/*
 	 * The transparent border allows for a smooth transition when switching tabs.
@@ -27,33 +27,33 @@
 	flex-direction: column;
 }
 
-.tabs-container .tab-button .tab-header {
+.tab-button .tab-header {
 	display: flex;
 	align-items: center;
 	height: 22px;
 	width: 100%;
 }
 
-.tabs-container .tab-button:hover {
+.tab-button:hover {
 	background-color: var(--vscode-list-hoverBackground);
 }
 
-.tabs-container .tab-button--active {
+.tab-button--active {
 	background-color: var(--vscode-list-inactiveSelectionBackground);
 	border-left: 1px solid var(--vscode-panelTitle-activeBorder);
 }
 
-.tabs-container .tab-button--active:hover {
+.tab-button--active:hover {
 	background-color: var(--vscode-list-activeSelectionBackground);
 }
 
-.tabs-container .tab-button .icon {
+.tab-button .icon {
 	height: 15px;
 	width: 15px;
 	margin: 0 6px
 }
 
-.tabs-container .tab-button .session-name {
+.tab-button .session-name {
 	/* Grow items after session name to fill available space */
 	flex: 1;
 
@@ -64,7 +64,7 @@
 	text-overflow: ellipsis;
 }
 
-.tabs-container .tab-button .session-name-input {
+.tab-button .session-name-input {
 	background-color: var(--vscode-input-background);
 	border: 1px solid var(--vscode-input-border);
 	color: var(--vscode-input-foreground);
@@ -73,11 +73,11 @@
 	flex: 1;
 }
 
-.tabs-container .tab-button .session-name-input:focus {
+.tab-button .session-name-input:focus {
 	border-color: var(--vscode-focusBorder);
 }
 
-.tabs-container .tab-button .delete-button {
+.tab-button .delete-button {
 	/* delete button is hidden by default */
 	display: none;
 
@@ -90,55 +90,55 @@
 	border-radius: 5px;
 }
 
-.tabs-container .tab-button:hover .delete-button,
-.tabs-container .tab-button:focus-within .delete-button {
+.tab-button:hover .delete-button,
+.tab-button:focus-within .delete-button {
 	/* Show delete button on hover or when tab has focus */
 	display: unset;
 }
 
-.tabs-container .tab-button .delete-button:hover {
+.tab-button .delete-button:hover {
 	background-color: var(--vscode-toolbar-hoverBackground);
 }
 
-.tabs-container .tab-button .delete-button:focus {
+.tab-button .delete-button:focus {
 	outline: 1px solid var(--vscode-focusBorder);
 }
 
-.tabs-container .tab-button .delete-button .codicon {
+.tab-button .delete-button .codicon {
 	height: 15px;
 	width: 15px;
 	vertical-align: text-bottom;
 }
 
 /* Resource usage section */
-.tabs-container .tab-button .resource-usage-section {
+.tab-button .resource-usage-section {
 	width: 100%;
 	margin-top: 4px;
 }
 
 /* Resource usage graph */
-.tabs-container .tab-button .resource-usage-graph {
+.tab-button .resource-usage-graph {
 	display: block;
 }
 
-.tabs-container .tab-button .resource-usage-line {
+.tab-button .resource-usage-line {
 	fill: none;
 	stroke: var(--vscode-charts-lines, var(--vscode-foreground));
 	stroke-width: 1.5;
 }
 
-.tabs-container .tab-button .resource-usage-fill {
+.tab-button .resource-usage-fill {
 	fill: var(--vscode-charts-lines, var(--vscode-foreground));
 	opacity: 0.2;
 }
 
 /* Resource usage section - enable container queries */
-.tabs-container .tab-button .resource-usage-section {
+.tab-button .resource-usage-section {
 	container-type: inline-size;
 }
 
 /* Resource usage stats */
-.tabs-container .tab-button .resource-usage-stats {
+.tab-button .resource-usage-stats {
 	display: flex;
 	justify-content: space-between;
 	font-size: 9px;
@@ -149,8 +149,8 @@
 	margin-bottom: 0px;
 }
 
-.tabs-container .tab-button .resource-usage-cpu,
-.tabs-container .tab-button .resource-usage-memory {
+.tab-button .resource-usage-cpu,
+.tab-button .resource-usage-memory {
 	white-space: nowrap;
 	display: flex;
 	gap: 4px;
@@ -158,7 +158,7 @@
 }
 
 
-.tabs-container .tab-button .resource-usage-value {
+.tab-button .resource-usage-value {
 	margin: 0px;
 }
 
@@ -176,10 +176,10 @@
  * kept in sync with that constant.
  */
 @container (max-width: 64px) {
-	.tabs-container .tab-button .resource-usage-stats .resource-usage-cpu {
+	.tab-button .resource-usage-stats .resource-usage-cpu {
 		display: none;
 	}
-	.tabs-container .tab-button .resource-usage-stats {
+	.tab-button .resource-usage-stats {
 		justify-content: flex-end;
 	}
 }
