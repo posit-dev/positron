@@ -103,10 +103,20 @@ function webviewMessageCode() {
 		console.error('Error observing documentElement', e);
 	}
 
-	// Only forward the wheel event to the host when no ancestor inside the
-	// webview can consume the vertical scroll. Mirrors the pattern used by
-	// the notebook webview preload so scrollable outputs (e.g. overflow
-	// tables) don't double-scroll when they move under the cursor.
+	// Two things can happen when the user wheels over a webview output:
+	//
+	// 1. The output contains a scrollable element (e.g. a big pandas
+	//    DataFrame rendered with its own scrollbar). The browser scrolls
+	//    that element on its own -- we don't want to also scroll the
+	//    notebook around it, or the whole page lurches with the table.
+	//
+	// 2. The output has nothing scrollable inside (e.g. a plotly plot,
+	//    a static image). Wheeling does nothing unless we forward the
+	//    event out to the notebook container.
+	//
+	// So we walk up from the wheel target: if we find an ancestor that
+	// can still scroll in this direction, the browser will handle it and
+	// we stay quiet. Otherwise we forward the event to the host.
 	const canConsumeVerticalWheel = (event: WheelEvent): boolean => {
 		for (let node: Node | null = event.target as Node | null; node; node = node.parentNode) {
 			// eslint-disable-next-line no-restricted-syntax

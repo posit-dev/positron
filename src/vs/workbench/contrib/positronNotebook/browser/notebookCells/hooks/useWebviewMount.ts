@@ -87,11 +87,11 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 			return;
 		}
 
-		// Forward wheel events across the iframe boundary so the notebook
-		// scrolls when the cursor is over a webview output (e.g. plotly).
-		// The webview preload has already filtered out wheel events that
-		// an inner scrollable element consumed, so every message here is
-		// safe to apply to the cells container.
+		// Scroll the notebook when the cursor is over a webview output
+		// that has nothing scrollable inside it (e.g. a plotly plot or a
+		// static image). The preload only forwards wheel events when no
+		// inner element can consume the scroll, so if we got a message
+		// here we know moving the cells container is the right response.
 		if (isWheelForwardMessage(message)) {
 			const container = notebookInstance.cellsContainer;
 			if (container) {
