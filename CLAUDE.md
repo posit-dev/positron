@@ -43,10 +43,10 @@ Positron has three test categories:
 - **Unit tests** -- exercise modules in isolation. Two runners:
 	- **Vitest** -- fast, no build daemons. Use this for new Positron code.
 	- **Core Mocha** -- upstream VS Code's suite. Slower, needs build daemons. You'll encounter it when touching upstream files; don't start new ones for Positron code.
-- **Extension host tests** -- Mocha tests that need an activated extension host. Historical VS Code docs call these "integration tests"; same thing. Two buckets:
+- **[Extension host tests](test/integration/browser/README.md)** -- Mocha tests that need an activated extension host. Historical VS Code docs call these "integration tests"; same thing. Two buckets:
 	- **API contract tests** -- `extensions/vscode-api-tests/` regressions against the `vscode` API surface.
 	- **Extension-internal tests** -- each extension tests its own features (e.g., `positron-python`, `positron-r`, `git`, `typescript-language-features`).
-- **E2E tests** -- Playwright, exercises the whole app.
+- **[E2E tests](test/e2e/README.md)** -- Playwright, exercises the whole app.
 
 ### Where should I put my test?
 
@@ -58,9 +58,9 @@ Positron has three test categories:
 | Service or class that needs DI services | Vitest | `src/vs/**` | **Builder** <br> `createTestContainer()` | `.vitest.ts` |
 | React component, props only | Vitest | `src/vs/**` | **RTL prop-driven** <br> `setupRTLRenderer()` | `.vitest.tsx` |
 | React component using services | Vitest | `src/vs/**` | **RTL service-context** <br> `withReactServices()` | `.vitest.tsx` |
-| Existing upstream VS Code test (rare) | Mocha (Electron/Node/Browser) | `src/vs/**/test/` | **Core Mocha** <br> `./scripts/test.sh` | `.test.ts` / `.integrationTest.ts` |
-| Code needing activated extensions or workspace APIs | Mocha (ext host) | `extensions/<name>/` | **Extension host** <br> `npm run test-extension` | `.test.ts` |
-| User-visible workflows across multiple systems | Playwright | `test/e2e/` | **E2E** | `.test.ts` |
+| Existing upstream VS Code test (rare) | Mocha (Electron/Node/Browser) | `src/vs/**/test/` | **Match existing** <br> `Mocha suite()/test()` | `.test.ts` / `.integrationTest.ts` |
+| Code needing activated extensions or workspace APIs | Mocha (ext host) | `extensions/<name>/` | **vscode API** <br> `import * as vscode` | `.test.ts` |
+| User-visible workflows across multiple systems | Playwright | `test/e2e/` | **Page Object Model** <br> `app.workbench.*` | `.test.ts` |
 
 **Don't create new `.test.ts` in `src/vs/` for Positron code** -- use Vitest. Core Mocha rows are for maintaining existing upstream tests.
 
@@ -77,11 +77,11 @@ Positron has three test categories:
 	- `npm run test:core` (or `./scripts/test.sh`): run all
 	- `./scripts/test.sh --run src/path/to/<file>.test.ts`: run a specific file
 	- `./scripts/test.sh --runGlob <glob>.test.js`: run files matching a glob (use `.js` extension)
-- **Extension host** (`extensions/<extension-name>/*.test.ts`):
+- **[Extension host](test/integration/browser/README.md)** (`extensions/<extension-name>/*.test.ts`):
 	- `npm run test-extension -- -l <extension-name> --grep <pattern>`: run one extension's tests
 	- `npm run test:ext-host` (or `./scripts/test-integration.sh`): run the full CI driver
 	- positron-python has its own test setup -- see `extensions/positron-python/CLAUDE.md`
-- **E2E** (Playwright, full app): `npx playwright test test/e2e/tests/<test-name>.test.ts --project e2e-electron --grep '<pattern>'`
+- **[E2E](test/e2e/README.md)** (Playwright, full app): `npx playwright test test/e2e/tests/<test-name>.test.ts --project e2e-electron --grep '<pattern>'`
 
 ## Directory Structure
 
