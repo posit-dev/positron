@@ -13,7 +13,7 @@ test.describe('PDF Viewer', {
 	tag: [tags.WEB, tags.WIN, tags.PDF]
 }, () => {
 
-	test('Can open and view PDF file', async function ({ openDataFile, page }) {
+	test('Can open and view PDF file', async function ({ openDataFile, page, app }) {
 		// Open the PDF file
 		await openDataFile('data-files/pdf/sample-local-pdf.pdf');
 
@@ -28,6 +28,13 @@ test.describe('PDF Viewer', {
 		// Find the text "Sample PDF" inside a span in the PDF
 		const sampleText = pdfFrame.locator('span', { hasText: 'Sample PDF' });
 		await expect(sampleText).toBeVisible({ timeout: 30000 });
+
+		// we previously had an issue where commands didn't work after opening a PDF, so verify that the command palette works
+		await app.workbench.quickaccess.runCommand('workbench.action.closeActiveEditor');
+		// Verify the tab closed
+		const filenames = await app.workbench.editor.getMonacoFilenames();
+		expect(filenames.length).toBe(0);
+
 	});
 
 });
