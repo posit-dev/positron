@@ -7,9 +7,8 @@ import assert from 'assert';
 import * as sinon from 'sinon';
 
 import { raceTimeout } from '../../../../../base/common/async.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
-import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
-import { PositronTestServiceAccessor, positronWorkbenchInstantiationService as positronWorkbenchInstantiationService } from '../../../../test/browser/positronWorkbenchTestServices.js';
+import { PositronTestServiceAccessor } from '../../../../test/browser/positronWorkbenchTestServices.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { IPositronPlotMetadata, PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { HistoryPolicy, IPositronPlotClient, IPositronPlotsService, PlotsDisplayLocation } from '../../../../services/positronPlots/common/positronPlots.js';
 import { RuntimeClientType } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -22,18 +21,16 @@ import { IConfigurationService } from '../../../../../platform/configuration/com
 
 suite('Positron - Plots Service', () => {
 
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
-	let instantiationService: TestInstantiationService;
+	const ctx = createTestContainer().withWorkbenchServices().build();
 	let plotsService: IPositronPlotsService;
 
 	setup(() => {
-		instantiationService = positronWorkbenchInstantiationService(disposables);
-		const accessor = instantiationService.createInstance(PositronTestServiceAccessor);
+		const accessor = ctx.instantiationService.createInstance(PositronTestServiceAccessor);
 		plotsService = accessor.positronPlotsService;
 	});
 
 	async function createSession() {
-		const session = await startTestLanguageRuntimeSession(instantiationService, disposables);
+		const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
 
 		const out: {
 			session: TestLanguageRuntimeSession;
@@ -42,7 +39,7 @@ suite('Positron - Plots Service', () => {
 			session, plotClient: undefined,
 		};
 
-		disposables.add(session.onDidCreateClientInstance(client => out.plotClient = {
+		ctx.disposables.add(session.onDidCreateClientInstance(client => out.plotClient = {
 			id: client.client.getClientId(),
 			metadata: {} as IPositronPlotMetadata,
 		} as IPositronPlotClient));
@@ -69,7 +66,7 @@ suite('Positron - Plots Service', () => {
 				historyPolicyChanged++;
 				resolve();
 			});
-			disposables.add(disposable);
+			ctx.disposables.add(disposable);
 		});
 
 		// no event since 'Automatic' is the default
@@ -92,7 +89,7 @@ suite('Positron - Plots Service', () => {
 				lastLocation = location;
 				resolve();
 			});
-			disposables.add(disposable);
+			ctx.disposables.add(disposable);
 		});
 
 		// No event since MainWindow is the default
@@ -113,7 +110,7 @@ suite('Positron - Plots Service', () => {
 		const disposable = plotsService.onDidChangeDisplayLocation(() => {
 			displayLocationChanged++;
 		});
-		disposables.add(disposable);
+		ctx.disposables.add(disposable);
 
 		// Change to AuxiliaryWindow
 		plotsService.setDisplayLocation(PlotsDisplayLocation.AuxiliaryWindow);
@@ -165,7 +162,7 @@ suite('Positron - Plots Service', () => {
 		sinon.stub(plotCommProxyStub, 'onDidShowPlot').value(() => { });
 
 		const plotClientInstance = new PlotClientInstance(plotCommProxyStub as unknown as PositronPlotCommProxy, {} as IConfigurationService, new PlotSizingPolicyAuto(), {} as IPositronPlotMetadata);
-		disposables.add(plotClientInstance);
+		ctx.disposables.add(plotClientInstance);
 
 		let sizingPolicyChanged = false;
 		const didClosePlot = new Promise<void>((resolve) => {
@@ -173,7 +170,7 @@ suite('Positron - Plots Service', () => {
 				sizingPolicyChanged = true;
 				resolve();
 			});
-			disposables.add(disposable);
+			ctx.disposables.add(disposable);
 		});
 
 		plotClientInstance.sizingPolicy = new PlotSizingPolicyFill();
@@ -199,7 +196,7 @@ suite('Positron - Plots Service', () => {
 				selectPlotCalled = true;
 				resolve();
 			});
-			disposables.add(disposable);
+			ctx.disposables.add(disposable);
 		});
 		plotsService.selectPlot('plot1');
 
@@ -221,7 +218,7 @@ suite('Positron - Plots Service', () => {
 				removePlotCalled = true;
 				resolve();
 			});
-			disposables.add(disposable);
+			ctx.disposables.add(disposable);
 		});
 
 		assert.strictEqual(plotsService.selectedPlotId, 'plot1');

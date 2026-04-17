@@ -406,6 +406,7 @@
             "type": "object",
             "default": {},
             "markdownDescription": "%configuration.providerVariables.bedrock.description%",
+            "markdownDeprecationMessage": "This setting has been moved to the Authentication extension. Use `#authentication.aws.credentials#` instead.",
             "properties": {
               "AWS_PROFILE": {
                 "type": "string",
@@ -421,12 +422,14 @@
           "positron.assistant.bedrock.inferenceProfileRegion": {
             "type": "string",
             "default": null,
-            "markdownDescription": "%configuration.bedrock.inferenceProfileRegion.description%"
+            "markdownDescription": "%configuration.bedrock.inferenceProfileRegion.description%",
+            "markdownDeprecationMessage": "This setting has been moved to the Authentication extension. Use `#authentication.aws.inferenceProfileRegion#` instead."
           },
           "positron.assistant.providerVariables.snowflake": {
             "type": "object",
             "default": {},
             "markdownDescription": "%configuration.providerVariables.snowflake.description%",
+            "markdownDeprecationMessage": "This setting has been moved to the Authentication extension. Use `#authentication.snowflake.credentials#` instead.",
             "properties": {
               "SNOWFLAKE_ACCOUNT": {
                 "type": "string",
@@ -470,6 +473,11 @@
             "default": "",
             "markdownDescription": "%configuration.models.preference.snowflakeCortex.description%"
           },
+          "positron.assistant.models.preference.msFoundry": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "%configuration.models.preference.msFoundry.description%"
+          },
           "positron.assistant.models.preference.openAI": {
             "type": "string",
             "default": "",
@@ -483,18 +491,7 @@
           "positron.assistant.models.preference.positAI": {
             "type": "string",
             "default": "",
-            "markdownDescription": "%configuration.models.preference.positAI.description%",
-            "tags": [
-              "advanced"
-            ]
-          },
-          "positron.assistant.models.preference.msFoundry": {
-            "type": "string",
-            "default": "",
-            "markdownDescription": "%configuration.models.preference.msFoundry.description%",
-            "tags": [
-              "advanced"
-            ]
+            "markdownDescription": "%configuration.models.preference.positAI.description%"
           },
           "positron.assistant.models.preference.google": {
             "type": "string",
@@ -580,6 +577,10 @@
                   "type": "number",
                   "minimum": 512,
                   "description": "Maximum output tokens for this model"
+                },
+                "promptCaching": {
+                  "type": "boolean",
+                  "description": "Whether this model supports prompt caching. When false, cache breakpoints are not sent to the model. Defaults to auto-detection based on the model identifier."
                 }
               },
               "required": [
@@ -629,6 +630,38 @@
                 }
               ]
             ]
+          },
+          "positron.assistant.models.overrides.msFoundry": {
+            "type": "array",
+            "default": [],
+            "markdownDescription": "%configuration.models.overrides.msFoundry.description%",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Display name for the model"
+                },
+                "identifier": {
+                  "type": "string",
+                  "description": "Model identifier for API calls"
+                },
+                "maxInputTokens": {
+                  "type": "number",
+                  "minimum": 512,
+                  "description": "Maximum input tokens for this model"
+                },
+                "maxOutputTokens": {
+                  "type": "number",
+                  "minimum": 512,
+                  "description": "Maximum output tokens for this model"
+                }
+              },
+              "required": [
+                "name",
+                "identifier"
+              ]
+            }
           },
           "positron.assistant.models.overrides.openAI": {
             "type": "array",
@@ -716,44 +749,6 @@
             "type": "array",
             "default": [],
             "markdownDescription": "%configuration.models.overrides.positAI.description%",
-            "tags": [
-              "advanced"
-            ],
-            "items": {
-              "type": "object",
-              "properties": {
-                "name": {
-                  "type": "string",
-                  "description": "Display name for the model"
-                },
-                "identifier": {
-                  "type": "string",
-                  "description": "Model identifier for API calls"
-                },
-                "maxInputTokens": {
-                  "type": "number",
-                  "minimum": 512,
-                  "description": "Maximum input tokens for this model"
-                },
-                "maxOutputTokens": {
-                  "type": "number",
-                  "minimum": 512,
-                  "description": "Maximum output tokens for this model"
-                }
-              },
-              "required": [
-                "name",
-                "identifier"
-              ]
-            }
-          },
-          "positron.assistant.models.overrides.msFoundry": {
-            "type": "array",
-            "default": [],
-            "markdownDescription": "%configuration.models.overrides.msFoundry.description%",
-            "tags": [
-              "advanced"
-            ],
             "items": {
               "type": "object",
               "properties": {
@@ -840,30 +835,30 @@
           },
           "positron.assistant.provider.amazonBedrock.enable": {
             "type": "boolean",
-            "default": false,
+            "default": true,
             "markdownDescription": "%configuration.provider.amazonBedrock.enable.description%",
-            "tags": [
-              "preview"
-            ],
             "order": 3
           },
           "positron.assistant.provider.snowflakeCortex.enable": {
             "type": "boolean",
-            "default": false,
+            "default": true,
             "markdownDescription": "%configuration.provider.snowflakeCortex.enable.description%",
-            "tags": [
-              "preview"
-            ],
             "order": 4
           },
-          "positron.assistant.provider.openAI.enable": {
+          "positron.assistant.provider.msFoundry.enable": {
             "type": "boolean",
             "default": false,
-            "markdownDescription": "%configuration.provider.openAI.enable.description%",
+            "markdownDescription": "%configuration.provider.msFoundry.enable.description%",
             "tags": [
               "preview"
             ],
             "order": 5
+          },
+          "positron.assistant.provider.openAI.enable": {
+            "type": "boolean",
+            "default": true,
+            "markdownDescription": "%configuration.provider.openAI.enable.description%",
+            "order": 6
           },
           "positron.assistant.provider.customProvider.enable": {
             "type": "boolean",
@@ -872,25 +867,14 @@
             "tags": [
               "experimental"
             ],
-            "order": 6
+            "order": 7
           },
           "positron.assistant.provider.positAI.enable": {
             "type": "boolean",
-            "default": false,
+            "default": true,
             "markdownDescription": "%configuration.provider.positAI.enable.description%",
             "tags": [
-              "experimental",
-              "advanced"
-            ],
-            "order": 7
-          },
-          "positron.assistant.provider.msFoundry.enable": {
-            "type": "boolean",
-            "default": false,
-            "markdownDescription": "%configuration.provider.msFoundry.enable.description%",
-            "tags": [
-              "experimental",
-              "advanced"
+              "preview"
             ],
             "order": 8
           },
@@ -946,6 +930,11 @@
       {
         "vendor": "snowflake-cortex",
         "displayName": "Snowflake Cortex",
+        "managementCommand": "positron-assistant.configureProviders"
+      },
+      {
+        "vendor": "google",
+        "displayName": "Gemini Code Assist",
         "managementCommand": "positron-assistant.configureProviders"
       }
     ],
@@ -1391,7 +1380,7 @@
     "pretest": "npm run compile"
   },
   "devDependencies": {
-    "@ai-sdk/amazon-bedrock": "^3.0.84",
+    "@ai-sdk/amazon-bedrock": "^3.0.93",
     "@ai-sdk/anthropic": "^2.0.53",
     "@ai-sdk/azure": "^2.0.78",
     "@ai-sdk/google": "^2.0.44",

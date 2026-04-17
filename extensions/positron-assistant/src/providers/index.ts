@@ -30,6 +30,7 @@ import { PositModelProvider } from './posit/positProvider';
 import { ModelProvider } from './base/modelProvider.js';
 import { AutoconfigureResult } from './base/modelProviderTypes.js';
 import { CopilotModelProvider } from '../copilot.js';
+import { isAuthExtProvider } from '../authExtRouting.js';
 
 /**
  * Type for a concrete (non-abstract) model provider constructor with static metadata.
@@ -62,10 +63,47 @@ async function resolveAutoconfigureCredentials(model: ConcreteModelProviderConst
 
 	if (autoconfigure.type === positron.ai.LanguageModelAutoconfigureType.EnvVariable) {
 		const key = autoconfigure.key;
+		const providerId = model.source.provider.id;
+
+		// For providers migrated to the auth extension, credentials
+		// are resolved via credential chain sessions.
+		if (isAuthExtProvider(providerId)) {
+			const session = await vscode.authentication.getSession(
+				providerId, [], { silent: true }
+			);
+			if (session?.accessToken !== undefined && session.id === providerId) {
+				// Map provider IDs to their authentication
+				// configuration section names. Most providers
+				// use their provider ID directly; legacy
+				// providers that predate this convention are
+				// mapped explicitly.
+				const CONFIG_KEY_OVERRIDES: Record<string, string> = {
+					'anthropic-api': 'anthropic',
+				};
+				const configKey = CONFIG_KEY_OVERRIDES[providerId] ?? providerId;
+				const baseUrl = vscode.workspace
+					.getConfiguration(`authentication.${configKey}`)
+					.get<string>('baseUrl') || undefined;
+				return {
+					apiKey: session.accessToken,
+					...(baseUrl && { baseUrl }),
+					autoconfigure: {
+						type: positron.ai.LanguageModelAutoconfigureType.EnvVariable,
+						key,
+						signedIn: true,
+					}
+				};
+			}
+		}
+
+		// Direct env var fallback for non-migrated providers
 		const apiKey = key ? process.env[key] : undefined;
 		if (key && apiKey) {
+			const baseUrlEnvKey = `${key.replace(/_API_KEY$/, '')}_BASE_URL`;
+			const baseUrl = process.env[baseUrlEnvKey];
 			return {
 				apiKey,
+				...(baseUrl && { baseUrl }),
 				autoconfigure: {
 					type: positron.ai.LanguageModelAutoconfigureType.EnvVariable,
 					key,
@@ -149,8 +187,8 @@ export async function createAutomaticModelConfigs(): Promise<ModelConfig[]> {
 				model: model.source.defaults.model,
 				toolCalls: model.source.defaults.toolCalls,
 				completions: model.source.defaults.completions,
-				...(credentials.apiKey && { apiKey: credentials.apiKey }),
-				...(credentials.baseUrl && { baseUrl: credentials.baseUrl }),
+				...(credentials.apiKey !== undefined && { apiKey: credentials.apiKey }),
+				...(credentials.baseUrl !== undefined && { baseUrl: credentials.baseUrl }),
 				autoconfigure: credentials.autoconfigure,
 			};
 			modelConfigs.push(modelConfig);

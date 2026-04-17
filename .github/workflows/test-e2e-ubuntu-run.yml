@@ -98,14 +98,14 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(inputs.matrix) }}
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:100
+      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:116
       options: --user 0:0 --init
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
         password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
     services:
       postgres:
-        image: ghcr.io/posit-dev/positron-postgres-ubuntu24-amd64:64
+        image: ghcr.io/posit-dev/positron-postgres-ubuntu24-amd64:116
         credentials:
           username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
           password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
@@ -258,7 +258,7 @@ jobs:
       - name: Install Playwright browsers
         env:
           PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
-        run: npx playwright install --with-deps
+        run: npx playwright install
 
       - name: Install Microsoft Edge for e2e-edge project
         if: ${{ inputs.project == 'e2e-edge' }}
@@ -279,7 +279,7 @@ jobs:
         env:
           PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
           POSITRON_PY_VER_SEL: "3.10.12"
-          POSITRON_R_VER_SEL: 4.4.0
+          POSITRON_R_VER_SEL: 4.5.2
           POSITRON_PY_ALT_VER_SEL: "3.13.0"
           POSITRON_R_ALT_VER_SEL: 4.4.2
           POSITRON_HIDDEN_PY: "3.12.10 (Conda)"

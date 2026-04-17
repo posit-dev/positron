@@ -12,7 +12,8 @@ import { useEffect, useState } from 'react';
 // Other dependencies.
 import { IPositronConsoleInstance, PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
-import { RuntimeStatus, RuntimeStatusIcon } from './runtimeStatus.js';
+import { RuntimeStatusIcon } from './runtimeStatus.js';
+import { RuntimeStatus } from '../../common/sessionDisplayUtils.js';
 
 const consoleStateToRuntimeStatus = {
 	[PositronConsoleState.Uninitialized]: RuntimeStatus.Disconnected,
@@ -38,7 +39,7 @@ export const ConsoleInstanceState = ({ positronConsoleInstance }: ConsoleInstanc
 		const disposableStore = new DisposableStore();
 
 		disposableStore.add(positronConsoleInstance.onDidChangeState(state => {
-			setConsoleState(state)
+			setConsoleState(state);
 		}));
 
 		return () => disposableStore.dispose();

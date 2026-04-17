@@ -104,13 +104,13 @@ export const ListDriversDetails = (props: PropsWithChildren<ListDriversDetailsPr
 				className='button action-bar-button'
 				onPressed={props.onBack}
 			>
-				{(() => localize('positron.resumeConnectionModalDialog.back', "Back"))()}
+				{localize('positron.resumeConnectionModalDialog.back', "Back")}
 			</Button>
 			<Button
 				className='button action-bar-button right'
 				onPressed={props.onCancel}
 			>
-				{(() => localize('positron.resumeConnectionModalDialog.cancel', "Cancel"))()}
+				{localize('positron.resumeConnectionModalDialog.cancel', "Cancel")}
 			</Button>
 		</div>
 	</div>;

@@ -6,22 +6,21 @@
 // CSS.
 import './CellTextOutput.css';
 
-// React.
-import React from 'react';
-
 // Other dependencies.
 import { ANSIOutput } from '../../../../../base/common/ansiOutput.js';
 import { OutputLines } from '../../../../browser/positronAnsiRenderer/outputLines.js';
 import { ParsedTextOutput } from '../PositronNotebookCells/IPositronNotebookCell.js';
-import { useNotebookOptions } from '../NotebookInstanceProvider.js';
-import { ICommandService } from '../../../../../platform/commands/common/commands.js';
-import { NotebookDisplayOptions } from '../../../notebook/browser/notebookOptions.js';
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { useNotebookInstance, useNotebookOptions } from '../NotebookInstanceProvider.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { localize } from '../../../../../nls.js';
 import { NotebookCellQuickFix } from './NotebookCellQuickFix.js';
+import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 
-export type LongOutputOptions = Pick<NotebookDisplayOptions, 'outputLineLimit' | 'outputScrolling'>;
-
+const showMoreLinesLabel = (n: number) => localize(
+	'positron.notebook.showMoreLines',
+	"... Show {0} more lines",
+	n.toLocaleString()
+);
 type TruncationResult =
 	{ content: string } & (
 		{ mode: 'normal' } |
@@ -32,8 +31,7 @@ type TruncationResult =
 		}
 	);
 
-
-function truncateToNumberOfLines(content: string, { outputScrolling, outputLineLimit: maxLines }: LongOutputOptions): TruncationResult {
+function truncateToNumberOfLines(content: string, outputScrolling: boolean, maxLines: number): TruncationResult {
 	// Trim newline from end of content if it exists.
 	const splitByLine = content.trimEnd().split('\n');
 	const numLines = splitByLine.length;
@@ -44,29 +42,46 @@ function truncateToNumberOfLines(content: string, { outputScrolling, outputLineL
 		return { content, mode: 'normal' };
 	}
 
+	// Split point: 50/50 between top and bottom
+	const topLines = Math.ceil(maxLines / 2);
+	const bottomLines = maxLines - topLines;
+
 	return {
 		mode: 'truncate',
-		content: splitByLine.slice(0, maxLines - 1).join('\n'),
-		contentAfter: splitByLine[splitByLine.length - 1],
-		numLinesTruncated: Math.max(numLines - maxLines, 0),
+		content: splitByLine.slice(0, topLines).join('\n'),
+		contentAfter: splitByLine.slice(numLines - bottomLines).join('\n'),
+		numLinesTruncated: numLines - maxLines,
 	};
 }
 
+export interface CellTextOutputProps extends ParsedTextOutput {
+	outputScrolling: boolean;
+	onShowFullOutput: () => void;
+}
 
-export function CellTextOutput({ content, type }: ParsedTextOutput) {
 
-	const services = usePositronReactServicesContext();
+export function CellTextOutput({
+	content,
+	type,
+	outputScrolling,
+	onShowFullOutput,
+}: CellTextOutputProps) {
+
 	const layoutConfig = useNotebookOptions().getLayoutConfiguration();
-	const truncation = truncateToNumberOfLines(content, layoutConfig);
+	const truncation = truncateToNumberOfLines(content, outputScrolling, layoutConfig.outputLineLimit);
 	const outputWordWrap = layoutConfig.outputWordWrap;
 
 	return <>
-		<div className={positronClassNames(`notebook-${type}`, 'positron-notebook-text-output', { 'word-wrap': outputWordWrap })}>
+		<div className={positronClassNames(
+			`notebook-${type}`,
+			'positron-notebook-text-output',
+			{ 'word-wrap': outputWordWrap },
+		)}>
 			<OutputLines outputLines={ANSIOutput.processOutput(truncation.content)} />
 			{truncation.mode === 'truncate' && <>
 				<TruncationMessage
-					commandService={services.commandService}
 					numLinesTruncated={truncation.numLinesTruncated}
+					onShowFullOutput={onShowFullOutput}
 				/>
 				<OutputLines outputLines={ANSIOutput.processOutput(truncation.contentAfter)} />
 			</>}
@@ -75,26 +90,19 @@ export function CellTextOutput({ content, type }: ParsedTextOutput) {
 	</>;
 }
 
-const TruncationMessage = ({ numLinesTruncated, commandService }: {
+const TruncationMessage = ({ numLinesTruncated, onShowFullOutput }: {
 	numLinesTruncated: number;
-	commandService: ICommandService;
+	onShowFullOutput: () => void;
 }) => {
-	const openSettings = (e: React.MouseEvent<HTMLAnchorElement>) => {
-		// Prevent the anchor from navigating, which would reload the
-		// Electron renderer and hang the window.
-		e.preventDefault();
-		commandService.executeCommand(
-			'workbench.action.openSettings',
-			'notebook.output scroll'
-		);
-	};
-
-	return <i className='notebook-output-truncation-message'>
-		{`... ${numLinesTruncated.toLocaleString()} lines truncated. `}
-		<a
-			aria-label='notebook output settings'
-			href=''
-			onClick={openSettings}
-		>Change behavior.</a>
-	</i>;
+	const instance = useNotebookInstance();
+	const label = showMoreLinesLabel(numLinesTruncated);
+	return <Button
+		ariaLabel={label}
+		className='notebook-output-truncation-message'
+		hoverManager={instance.hoverManager}
+		onPressed={onShowFullOutput}
+	>
+		{label}
+	</Button>;
 };
+

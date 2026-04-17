@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -17,8 +17,7 @@ import { localize } from '../../../../../nls.js';
 import { IPositronConnectionEntry } from '../../../../services/positronConnections/common/interfaces/positronConnectionsInstance.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { usePositronConnectionsContext } from '../positronConnectionsContext.js';
-import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
-import { KeyboardModifiers, PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
+import { Button, KeyboardModifiers } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 
 const DETAILS_BAR_HEIGHT = 26;
 
@@ -170,11 +169,11 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 				}
 
 			</div>
-		</div >
+		</div>
 	);
 };
 
-const NoEntriesMessage = ({ height, error, onTryAgain }: { height: number, error: Error | undefined, onTryAgain: () => void }) => {
+const NoEntriesMessage = ({ height, error, onTryAgain }: { height: number; error: Error | undefined; onTryAgain: () => void }) => {
 	const [failed, setFailed] = useState<boolean>(false);
 
 	useEffect(() => {
@@ -204,7 +203,7 @@ const NoEntriesMessage = ({ height, error, onTryAgain }: { height: number, error
 				</Button> :
 				null
 		}
-	</div >
+	</div>;
 };
 
 interface ItemEntryProps {
@@ -293,7 +292,7 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 		}
 
 		return '';
-	}
+	};
 
 	/*
 	Icon showing the element kind (table, view, schema, etc)
@@ -317,7 +316,7 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 				`codicon-${iconClass(props.item.kind)}`,
 			)}
 		>
-		</div>
+		</div>;
 	});
 
 	const rowMouseDownHandler = (e: MouseEvent<HTMLElement>) => {
@@ -370,7 +369,7 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 			>
 				<div className={className} />
 			</div>
-		)
+		);
 	});
 
 	const PreviewButton = (({ onPreview }: { onPreview: (() => Promise<void>) | undefined }) => {
@@ -385,14 +384,14 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 			}
 		} : undefined;
 
-		return <PositronButton
+		return <Button
 			ariaLabel={localize('positron.schemaNavigation.previewElement', 'Preview element')}
 			className='connections-icon'
 			disabled={onPreview === undefined || showSpinner}
 			onPressed={previewCallback}
 		>
 			{showSpinner ? <div className='codicon codicon-loading animate-spin' /> : <ElementIcon />}
-		</PositronButton>
+		</Button>;
 	});
 
 	return (

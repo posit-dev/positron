@@ -57,10 +57,10 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 	 * @returns An array of renderers and the mime type they are preferred for along with the
 	 * associated output message.
 	 */
-	private _findRenderersForOutputs(outputs: ILanguageRuntimeMessageWebOutput[]): MessageRenderInfo[] {
+	private _findRenderersForOutputs(outputs: ILanguageRuntimeMessageWebOutput[], viewType?: string): MessageRenderInfo[] {
 		return outputs
 			.map(output => {
-				const info = this._findRendererForOutput(output);
+				const info = this._findRendererForOutput(output, viewType);
 				if (!info) {
 					this._logService.warn(
 						'Failed to find renderer for output with mime types: ' +
@@ -113,7 +113,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		viewType?: string;
 	}): Promise<INotebookOutputWebview | undefined> {
 
-		const displayInfo = this._findRendererForOutput(displayMessage);
+		const displayInfo = this._findRendererForOutput(displayMessage, viewType);
 		if (!displayInfo) {
 			this._logService.error(
 				'Failed to find renderer for output message with mime types: ' +
@@ -126,7 +126,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 			id: displayMessage.id,
 			runtimeId,
 			displayMessageInfo: displayInfo,
-			preReqMessagesInfo: this._findRenderersForOutputs(preReqMessages),
+			preReqMessagesInfo: this._findRenderersForOutputs(preReqMessages, viewType),
 			viewType,
 		});
 	}
@@ -378,6 +378,67 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		});
 
 		return notebookOutputWebview;
+	}
+
+	private _buildRawHtmlDocument(html: string, baseUri?: URI): string {
+		// Only inject a <base> tag if the HTML doesn't already define one.
+		// In HTML only the first <base> is honored, so overriding an existing
+		// one would break outputs that set their own base URL.
+		const needsBase = baseUri && !/<base[\s>]/i.test(html);
+		const headContent = [
+			needsBase ? `<base href="${asWebviewUri(baseUri).toString(true)}/">` : '',
+			PositronNotebookOutputWebviewService.CssAddons,
+			`<script>${webviewMessageCodeString}</script>`,
+		].filter(Boolean).join('\n');
+
+		if (/<head[\s>]/i.test(html)) {
+			return html.replace(/<head(\s[^>]*)?>/i, match => `${match}\n${headContent}`);
+		}
+
+		if (/<html[\s>]/i.test(html)) {
+			return html.replace(/<html(\s[^>]*)?>/i, match => `${match}\n<head>\n${headContent}\n</head>`);
+		}
+
+		if (/<body[\s>]/i.test(html)) {
+			return `<html>
+<head>
+${headContent}
+</head>
+${html}
+</html>`;
+		}
+
+		return `<html>
+<head>
+${headContent}
+</head>
+<body>${html}</body>
+</html>`;
+	}
+
+	async createRawHtmlOutputWebview(id: string, html: string, baseUri?: URI): Promise<INotebookOutputWebview> {
+		const webview = this._webviewService.createWebviewOverlay({
+			origin: DOM.getActiveWindow().origin,
+			contentOptions: {
+				allowScripts: true,
+				localResourceRoots: baseUri ? [baseUri] : [],
+			},
+			extension: undefined,
+			options: {
+				retainContextWhenHidden: true,
+			},
+			title: '',
+		});
+
+		// Inject a base URL and sizing script so relative assets resolve and
+		// useWebviewMount receives webviewMetrics messages for layout.
+		webview.setHtml(this._buildRawHtmlDocument(html, baseUri));
+
+		return this._instantiationService.createInstance(NotebookOutputWebview, {
+			id,
+			sessionId: id,
+			webview,
+		});
 	}
 
 	/**

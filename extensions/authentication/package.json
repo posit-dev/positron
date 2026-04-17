@@ -11,16 +11,122 @@
 	"activationEvents": [
 		"onStartupFinished",
 		"onAuthenticationRequest:anthropic-api",
+		"onAuthenticationRequest:posit-ai",
+		"onAuthenticationRequest:ms-foundry",
+		"onAuthenticationRequest:amazon-bedrock",
+		"onAuthenticationRequest:snowflake-cortex",
+		"onAuthenticationRequest:openai-api",
+		"onAuthenticationRequest:openai-compatible",
+		"onAuthenticationRequest:google",
 		"onCommand:authentication.configureProviders",
 		"onCommand:authentication.migrateApiKey"
 	],
 	"main": "./out/extension.js",
+	"dependencies": {
+		"@aws-sdk/credential-providers": "^3.734.0",
+		"@aws-sdk/types": "^3.734.0"
+	},
 	"contributes": {
 		"authentication": [
 			{
 				"id": "anthropic-api",
 				"label": "Anthropic"
+			},
+			{
+				"id": "posit-ai",
+				"label": "Posit AI"
+			},
+			{
+				"id": "ms-foundry",
+				"label": "Microsoft Foundry"
+			},
+			{
+				"id": "amazon-bedrock",
+				"label": "AWS"
+			},
+			{
+				"id": "snowflake-cortex",
+				"label": "Snowflake Cortex"
+			},
+			{
+				"id": "openai-api",
+				"label": "OpenAI"
+			},
+			{
+				"id": "openai-compatible",
+				"label": "Custom Provider"
+			},
+			{
+				"id": "google",
+				"label": "Gemini Code Assist"
 			}
-		]
+		],
+		"configuration": {
+			"title": "Authentication",
+			"properties": {
+				"authentication.aws.credentials": {
+					"type": "object",
+					"default": {},
+					"markdownDescription": "%configuration.aws.credentials.description%",
+					"properties": {
+						"AWS_PROFILE": {
+							"type": "string",
+							"default": null
+						},
+						"AWS_REGION": {
+							"type": "string",
+							"default": null
+						}
+					},
+					"additionalProperties": false
+				},
+				"authentication.aws.inferenceProfileRegion": {
+					"type": "string",
+					"default": null,
+					"markdownDescription": "%configuration.aws.inferenceProfileRegion.description%"
+				},
+				"authentication.snowflake.credentials": {
+					"type": "object",
+					"default": {},
+					"markdownDescription": "%configuration.snowflake.credentials.description%",
+					"properties": {
+						"SNOWFLAKE_ACCOUNT": {
+							"type": "string",
+							"default": null
+						},
+						"SNOWFLAKE_HOME": {
+							"type": "string",
+							"default": null
+						}
+					},
+					"additionalProperties": false
+				},
+				"authentication.anthropic.baseUrl": {
+					"type": "string",
+					"default": "",
+					"description": "%configuration.anthropic.baseUrl.description%"
+				},
+				"authentication.foundry.baseUrl": {
+					"type": "string",
+					"default": "",
+					"description": "%configuration.foundry.baseUrl.description%"
+				},
+				"authentication.openai-api.baseUrl": {
+					"type": "string",
+					"default": "",
+					"description": "%configuration.openai-api.baseUrl.description%"
+				},
+				"authentication.google.baseUrl": {
+					"type": "string",
+					"default": "",
+					"description": "%configuration.google.baseUrl.description%"
+				},
+				"authentication.openai-compatible.baseUrl": {
+					"type": "string",
+					"default": "",
+					"description": "%configuration.openai-compatible.baseUrl.description%"
+				}
+			}
+		}
 	}
 }

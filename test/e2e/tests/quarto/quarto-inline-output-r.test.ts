@@ -77,6 +77,10 @@ test.describe('Quarto - Inline Output: R', {
 		// Verify error message and count
 		await inlineQuarto.expectErrorCount(1);
 		await inlineQuarto.expectOutputContainsText('oh no');
+
+		// Verify error text is not duplicated (regression: name+message
+		// was rendered alongside the full stack trace, doubling the output)
+		await inlineQuarto.expectErrorMaxLines(3);
 	});
 
 	test('R - Verify long text output is truncated with open in editor link', async function ({ app, openFile, r }) {

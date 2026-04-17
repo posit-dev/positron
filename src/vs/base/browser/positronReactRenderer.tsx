@@ -10,8 +10,7 @@ import { createRoot, Root } from 'react-dom/client';
 // Other dependencies.
 import { Event } from '../common/event.js';
 import { Disposable, IDisposable } from '../common/lifecycle.js';
-import { PositronReactServices } from './positronReactServices.js';
-import { PositronReactServicesContext } from './positronReactRendererContext.js';
+import { PositronReactServicesProvider } from './positronReactRendererContext.js';
 
 /**
  * ISize interface.
@@ -119,6 +118,9 @@ export class PositronReactRenderer extends Disposable {
 		super();
 
 		// Create the root.
+		// TODO: Consider passing onUncaughtError/onCaughtError callbacks to
+		// createRoot for better diagnostics when errors escape all error
+		// boundaries. This won't prevent unmounting but would log context.
 		this._root = createRoot(container);
 	}
 
@@ -127,7 +129,7 @@ export class PositronReactRenderer extends Disposable {
 	 */
 	public override dispose(): void {
 		// Unmount and dispose of the root.
-		if (this._root) {
+		if (this._root !== undefined) {
 			this._root.unmount();
 			this._root = undefined;
 		}
@@ -145,11 +147,11 @@ export class PositronReactRenderer extends Disposable {
 	 * @param reactElement The React element.
 	 */
 	public render(reactElement: ReactElement) {
-		if (this._root) {
+		if (this._root !== undefined) {
 			this._root.render(
-				<PositronReactServicesContext.Provider value={PositronReactServices.services}>
+				<PositronReactServicesProvider>
 					{reactElement}
-				</PositronReactServicesContext.Provider>
+				</PositronReactServicesProvider>
 			);
 		}
 	}
@@ -167,7 +169,7 @@ export class PositronReactRenderer extends Disposable {
 	 * @deprecated Use Disposable instead.
 	 */
 	public destroy() {
-		if (this._root) {
+		if (this._root !== undefined) {
 			this._root.unmount();
 			this._root = undefined;
 		}

@@ -161,6 +161,9 @@
 					"include": "#keywords"
 				},
 				{
+					"include": "#namespace-call"
+				},
+				{
 					"include": "#function-call"
 				},
 				{
@@ -360,6 +363,13 @@
 					"match": "(?:(?:\\d+(?:\\.\\d*)?)|(?:\\.\\d+))(?:[eE][+-]?\\d*)?[iL]?"
 				}
 			]
+		},
+		"namespace-call": {
+			"match": "(?<![A-Za-z0-9._])([A-Za-z._][A-Za-z0-9._]*)(:::?)",
+			"captures": {
+				"1": { "name": "entity.name.namespace.r" },
+				"2": { "name": "keyword.operator" }
+			}
 		},
 		"operators": {
 			"name": "keyword.operator",

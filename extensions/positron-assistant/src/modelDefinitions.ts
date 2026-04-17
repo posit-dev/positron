@@ -11,6 +11,7 @@ export interface ModelDefinition {
 	identifier: string;
 	maxInputTokens?: number;
 	maxOutputTokens?: number;
+	promptCaching?: boolean;
 }
 
 /**
@@ -41,28 +42,21 @@ const builtInModelDefinitions = new Map<string, ModelDefinition[]>([
 	['google', [
 		{
 			name: 'Gemini 2.5 Flash',
-			identifier: 'gemini-2.5-pro-exp-03-25',
-			maxOutputTokens: 65_536, // reference: https://ai.google.dev/gemini-api/docs/models#gemini-2.5-flash-preview
+			identifier: 'gemini-2.5-flash',
+			maxOutputTokens: 65_536, // reference: https://ai.google.dev/gemini-api/docs/models/gemini-2.5-flash
 		},
 		{
-			name: 'Gemini 2.0 Flash',
-			identifier: 'gemini-2.0-flash-exp',
-			maxOutputTokens: 8_192, // reference: https://ai.google.dev/gemini-api/docs/models#gemini-2.0-flash
+			name: 'Gemini 2.5 Pro',
+			identifier: 'gemini-2.5-pro',
+			maxOutputTokens: 65_536, // reference: https://ai.google.dev/gemini-api/docs/models/gemini-2.5-pro
 		},
 	]],
-	// Microsoft Foundry models -- common deployments; admins can override via models.overrides.msFoundry
+	// Microsoft Foundry models -- model-router means model routing is handled by Foundry.
+	// Any other models must be configured by user or admin.
 	['ms-foundry', [
 		{
-			name: 'GPT-5.3 Chat',
-			identifier: 'gpt-5.3-chat',
-			maxInputTokens: 1_047_576,
-			maxOutputTokens: 32_768,
-		},
-		{
-			name: 'GPT-4.1',
-			identifier: 'gpt-4.1',
-			maxInputTokens: 1_047_576,
-			maxOutputTokens: 32_768,
+			name: 'Model Router',
+			identifier: 'model-router',
 		},
 	]],
 	// Model listing reference: https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-rest-api#model-availability

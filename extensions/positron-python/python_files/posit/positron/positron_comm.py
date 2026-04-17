@@ -90,7 +90,7 @@ class PositronComm:
         self.send_lock = threading.RLock()
 
     @classmethod
-    def create(cls, target_name: str, comm_id: str) -> PositronComm:
+    def create(cls, target_name: str, comm_id: str, data: JsonRecord | None = None) -> PositronComm:
         """
         Create a Positron comm.
 
@@ -100,13 +100,15 @@ class PositronComm:
             The name of the target for the comm, as defined in the frontend.
         comm_id
             The unique identifier for the comm.
+        data
+            Optional data to send with the comm_open message.
 
         Returns:
         --------
         PositronComm
             The new PositronComm instance.
         """
-        base_comm = comm.create_comm(target_name=target_name, comm_id=comm_id)
+        base_comm = comm.create_comm(target_name=target_name, comm_id=comm_id, data=data)
         return cls(base_comm)
 
     @property
@@ -143,6 +145,16 @@ class PositronComm:
             The Pydantic model to parse the message with.
         """
 
+        def _is_rpc(raw_msg: JsonRecord) -> bool:
+            """JSON-RPC requests have an `id` field; notifications don't."""
+            content = raw_msg.get("content")
+            if not isinstance(content, dict):
+                return False
+            data = content.get("data")
+            if not isinstance(data, dict):
+                return False
+            return "id" in data
+
         def _handle_msg(
             raw_msg: JsonRecord,
         ) -> None:
@@ -160,10 +172,13 @@ class PositronComm:
                         and error["ctx"]["discriminator_key"] == "method"
                     ):
                         method = error["ctx"]["discriminator_value"]
-                        self.send_error(
-                            JsonRpcErrorCode.METHOD_NOT_FOUND,
-                            f"Unknown method '{method}'",
-                        )
+                        if _is_rpc(raw_msg):
+                            self.send_error(
+                                JsonRpcErrorCode.METHOD_NOT_FOUND,
+                                f"Unknown method '{method}'",
+                            )
+                        else:
+                            logger.warning(f"Unknown notification method '{method}'")
                         return
 
                     elif (
@@ -172,16 +187,22 @@ class PositronComm:
                         and error["type"] == "value_error.const"
                     ):
                         method = error["ctx"]["given"]
-                        self.send_error(
-                            JsonRpcErrorCode.METHOD_NOT_FOUND,
-                            f"Unknown method '{method}'",
-                        )
+                        if _is_rpc(raw_msg):
+                            self.send_error(
+                                JsonRpcErrorCode.METHOD_NOT_FOUND,
+                                f"Unknown method '{method}'",
+                            )
+                        else:
+                            logger.warning(f"Unknown notification method '{method}'")
                         return
 
-                self.send_error(
-                    JsonRpcErrorCode.INVALID_REQUEST,
-                    f"Invalid request: {exception}",
-                )
+                if _is_rpc(raw_msg):
+                    self.send_error(
+                        JsonRpcErrorCode.INVALID_REQUEST,
+                        f"Invalid request: {exception}",
+                    )
+                else:
+                    logger.warning(f"Invalid notification: {exception}")
                 return
 
             callback(comm_msg, raw_msg)
@@ -191,10 +212,13 @@ class PositronComm:
                 with self.send_lock:
                     _handle_msg(raw_msg)
             except Exception as exception:
-                self.send_error(
-                    JsonRpcErrorCode.INTERNAL_ERROR,
-                    f"Internal error: {exception}",
-                )
+                if _is_rpc(raw_msg):
+                    self.send_error(
+                        JsonRpcErrorCode.INTERNAL_ERROR,
+                        f"Internal error: {exception}",
+                    )
+                else:
+                    logger.warning(f"Unhandled error in notification handler: {exception}")
 
         self.comm.on_msg(handle_msg)
 

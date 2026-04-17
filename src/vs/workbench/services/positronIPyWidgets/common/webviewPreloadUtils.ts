@@ -136,3 +136,27 @@ export function getWebviewMessageType(outputs: { mime: string }[]): 'widget' | '
 
 	return null;
 }
+
+/**
+ * Checks whether HTML content contains elements that cannot be safely rendered
+ * inline due to Trusted Types / CSP restrictions or because they can load
+ * active external content (scripts, iframes, embeds, full documents).
+ * Such content needs to be routed through a sandboxed webview.
+ *
+ * Uses substring matching rather than word-boundary regex intentionally.
+ * This may over-classify custom elements like `<script-viewer>` as complex,
+ * but a false positive just routes through a webview (safe, still renders).
+ * A false negative would be a security gap. We prefer conservative detection.
+ */
+export function isComplexHtml(html: string): boolean {
+	const lower = html.toLowerCase();
+	return lower.includes('<script') ||
+		lower.includes('<body') ||
+		lower.includes('<html') ||
+		lower.includes('<iframe') ||
+		lower.includes('<object') ||
+		lower.includes('<embed') ||
+		lower.includes('<!doctype') ||
+		lower.includes('javascript:') ||
+		/\son\w+\s*=/i.test(html);
+}

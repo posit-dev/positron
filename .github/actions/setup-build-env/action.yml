@@ -14,10 +14,6 @@ inputs:
     description: "Whether to install Playwright browsers (default: true)"
     required: false
     default: 'true'
-  playwright-with-deps:
-    description: "Whether to use --with-deps when installing Playwright (default: true, set to false for RHEL & SUSE)"
-    required: false
-    default: 'true'
   github-token:
     description: "GitHub token for private package access"
     required: true
@@ -91,6 +87,7 @@ runs:
         retry_on: error
         shell: bash
         command: |
+          set -e
           echo "::group::📦 Install node dependencies"
           if [ -n "$POSITRON_EXTENSIONS_FILTER" ]; then
             echo "📦 Installing with filter: $POSITRON_EXTENSIONS_FILTER"
@@ -127,13 +124,9 @@ runs:
       shell: bash
       run: |
         echo "::group::🎭 Install Playwright browsers"
-        if [[ "${{ inputs.playwright-with-deps }}" == "true" ]]; then
-          npx playwright install --with-deps
-        else
-          # RHEL/SUSE: Don't use --with-deps (uses apt-get which doesn't exist on RHEL/SUSE)
-          # System dependencies should be pre-installed in the Docker container
-          npx playwright install
-        fi
+        # Don't use --with-deps (uses apt-get which doesn't exist on RHEL/SUSE)
+        # System dependencies should be pre-installed in the Docker container
+        npx playwright install
         echo "::endgroup::"
 
     - name: Prelaunch

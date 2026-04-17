@@ -10,32 +10,75 @@ import './topActionBarSessionManager.css';
 import { useEffect, useState } from 'react';
 
 // Other dependencies.
+import { Codicon } from '../../../../../base/common/codicons.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { IModelService } from '../../../../../editor/common/services/model.js';
 import { LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ActionBarCommandButton } from '../../../../../platform/positronActionBar/browser/components/actionBarCommandButton.js';
 import { CommandCenter } from '../../../../../platform/commandCenter/common/commandCenter.js';
-import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeSessionDisplayInfo } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { localize } from '../../../../../nls.js';
 import { LANGUAGE_RUNTIME_SELECT_SESSION_ID, LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID } from '../../../../contrib/languageRuntime/browser/languageRuntimeActions.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { RuntimeStatus, getSessionDisplayName, getSessionIcon, getSessionIconStyle, runtimeStateToRuntimeStatus } from '../../../../contrib/positronConsole/common/sessionDisplayUtils.js';
+import { RuntimeStatusIcon } from '../../../../contrib/positronConsole/browser/components/runtimeStatus.js';
+import { ActionBarButtonIcon, ActionBarButtonLabel } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 
 const startSession = localize('positron.console.startSession', "Start Session");
 
 /**
+ * Gets the label text from session display info, or the default start session
+ * label if no session is active.
+ */
+const getLabel = (info: IRuntimeSessionDisplayInfo | undefined, modelService: IModelService): string => {
+	if (!info) {
+		return startSession;
+	}
+	return getSessionDisplayName(info, modelService);
+};
+
+/**
+ * Gets the session mode icon from display info.
+ */
+const getIcon = (info: IRuntimeSessionDisplayInfo | undefined, modelService: IModelService) => {
+	if (!info) {
+		return Codicon.arrowSwap;
+	}
+	return getSessionIcon(info, modelService);
+};
+
+/**
+ * Gets the runtime status from session display info.
+ * Returns undefined when there is no foreground session.
+ */
+const getRuntimeStatus = (info: IRuntimeSessionDisplayInfo | undefined): RuntimeStatus | undefined => {
+	if (!info) {
+		return undefined;
+	}
+	return runtimeStateToRuntimeStatus[info.sessionState];
+};
+
+/**
  * This component allows users to manage the foreground session.
- * - It displays the current foreground session
- * - It allows users to switch between sessions
- * - It allows the user to start a new session
+ * - displays the current foreground session (console or notebook)
+ * - allows users to switch between console sessions
+ * - allows the user to start a new console session
  */
 export const TopActionBarSessionManager = () => {
 	const services = usePositronReactServicesContext();
 
-	const [activeSession, setActiveSession] = useState<ILanguageRuntimeSession>();
-	const [labelText, setLabelText] = useState<string>(activeSession?.dynState?.sessionName ?? startSession);
+	const [labelText, setLabelText] = useState<string>(
+		getLabel(services.runtimeSessionService.foregroundSessionDisplayInfo, services.modelService));
+	const [sessionIcon, setSessionIcon] = useState(
+		getIcon(services.runtimeSessionService.foregroundSessionDisplayInfo, services.modelService));
+	const info = services.runtimeSessionService.foregroundSessionDisplayInfo;
+	const [iconStyle, setIconStyle] = useState(
+		info ? getSessionIconStyle(info, services.modelService) : undefined);
+	const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatus | undefined>(
+		getRuntimeStatus(services.runtimeSessionService.foregroundSessionDisplayInfo));
 
-	// Check if there are any active console sessions to determine
-	// if the active session picker or the create session picker
-	// should be shown.
+	// Check if there are any active console sessions to determine if the
+	// active session picker or the create session picker should be shown.
 	const hasActiveConsoleSessions = services.runtimeSessionService.activeSessions.find(
 		session => session.metadata.sessionMode === LanguageRuntimeSessionMode.Console);
 	const command = hasActiveConsoleSessions
@@ -47,32 +90,22 @@ export const TopActionBarSessionManager = () => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
-		// Add the onDidChangeForegroundSession event handler.
+		// Use _foregroundSessionDisplayInfo as the single source of truth for
+		// the interpreter. This event should fire when the foreground session
+		// changes, the session's runtime state changes, and when an exited
+		// notebook session is attempted to be set as the foreground session.
 		disposableStore.add(
-			services.runtimeSessionService.onDidChangeForegroundSession(session => {
-				if (session?.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
-					setActiveSession(
-						services.runtimeSessionService.foregroundSession);
-					setLabelText(session.dynState.sessionName);
-				} else if (!session) {
-					setActiveSession(undefined);
-					setLabelText(startSession);
-				}
-			})
-		);
-
-		// Add the onDidUpdateSessionName event handler.
-		disposableStore.add(
-			services.runtimeSessionService.onDidUpdateSessionName(session => {
-				if (session.sessionId === services.runtimeSessionService.foregroundSession?.sessionId) {
-					setLabelText(session.dynState.sessionName);
-				}
+			services.runtimeSessionService.onDidChangeForegroundSessionDisplayInfo(info => {
+				setLabelText(getLabel(info, services.modelService));
+				setSessionIcon(getIcon(info, services.modelService));
+				setIconStyle(info ? getSessionIconStyle(info, services.modelService) : undefined);
+				setRuntimeStatus(getRuntimeStatus(info));
 			})
 		);
 
 		// Return the cleanup function that will dispose of the disposables.
 		return () => disposableStore.dispose();
-	}, [services.runtimeSessionService]);
+	}, [services.runtimeSessionService, services.modelService]);
 
 	return (
 		<ActionBarCommandButton
@@ -80,14 +113,20 @@ export const TopActionBarSessionManager = () => {
 			border={true}
 			commandId={command}
 			height={24}
-			label={labelText}
-			{
-			...(
-				activeSession
-					? { iconImageSrc: `data:image/svg+xml;base64,${activeSession?.runtimeMetadata.base64EncodedIconSvg}` }
-					: { iconId: 'arrow-swap' }
-			)
-			}
-		/>
+		>
+			<div className='top-action-bar-session-manager-face'>
+				{runtimeStatus !== undefined &&
+					<RuntimeStatusIcon status={runtimeStatus} />
+				}
+				<ActionBarButtonIcon
+					icon={sessionIcon}
+					style={iconStyle}
+				/>
+				<ActionBarButtonLabel
+					hasIcon={true}
+					label={labelText}
+				/>
+			</div>
+		</ActionBarCommandButton>
 	);
-}
+};

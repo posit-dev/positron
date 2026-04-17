@@ -115,12 +115,10 @@ suite('CellOutputActionBar', () => {
 			</PositronReactServicesContext.Provider>
 		);
 
-		// TODO: Render three times to settle chained useEffect state updates
-		// in useMenu and useMenuActions. Each hook sets state in an effect,
-		// requiring a separate render cycle to propagate.
-		// https://github.com/posit-dev/positron/issues/12464
+		// Render twice: once for the initial render, once for the useMenu
+		// effect to create the menu and trigger a re-render. useMenuActions
+		// now uses useMemo so it resolves in the same cycle as useMenu.
 		const container = render(element);
-		render(element);
 		render(element);
 		return new CellOutputActionBarFixture(container);
 	}

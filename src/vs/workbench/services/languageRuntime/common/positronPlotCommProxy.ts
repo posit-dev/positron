@@ -6,7 +6,7 @@
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IRuntimeClientInstance, RuntimeClientState } from './languageRuntimeClientInstance.js';
-import { IntrinsicSize, PositronPlotComm, UpdateEvent } from './positronPlotComm.js';
+import { IntrinsicSize, PositronPlotComm, ShowEvent, UpdateEvent } from './positronPlotComm.js';
 import { DeferredRender, PositronPlotRenderQueue } from './positronPlotRenderQueue.js';
 
 
@@ -53,9 +53,10 @@ export class PositronPlotCommProxy extends Disposable {
 
 	/**
 	 * Event that fires when the plot wants to display itself.
+	 * Includes optional pre-rendering data for immediate display.
 	*/
-	onDidShowPlot: Event<void>;
-	private readonly _didShowPlotEmitter = new Emitter<void>();
+	onDidShowPlot: Event<ShowEvent>;
+	private readonly _didShowPlotEmitter = new Emitter<ShowEvent>();
 
 	/**
 	 * Event that fires when the intrinsic size of the plot is set.
@@ -101,8 +102,8 @@ export class PositronPlotCommProxy extends Disposable {
 			this._closeEmitter.fire();
 		}));
 
-		this._register(this._comm.onDidShow(() => {
-			this._didShowPlotEmitter.fire();
+		this._register(this._comm.onDidShow((evt) => {
+			this._didShowPlotEmitter.fire(evt);
 		}));
 
 		this._register(this._comm.onDidUpdate((evt) => {

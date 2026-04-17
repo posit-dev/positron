@@ -176,7 +176,9 @@ def test_subtest_run(mock_send_run_data) -> None:  # noqa: ARG001
             os.fspath(TEST_DATA_PATH),
             "success",
         ),
-        (
+        # --- Start Positron ---
+        # TODO: unskip this test when upstream fixes it
+        pytest.param(
             [
                 "test_scene.TestMathOperations.test_operations(add)",
                 "test_scene.TestMathOperations.test_operations(subtract)",
@@ -185,7 +187,11 @@ def test_subtest_run(mock_send_run_data) -> None:  # noqa: ARG001
             "*",
             os.fspath(TEST_DATA_PATH / "test_scenarios" / "tests"),
             "success",
+            marks=pytest.mark.skip(
+                reason="testscenarios 0.6 dropped testtools from its dependencies",
+            ),
         ),
+        # --- End Positron ---
     ],
 )
 def test_multiple_ids_run(mock_send_run_data, test_ids, pattern, cwd, expected_outcome) -> None:  # noqa: ARG001

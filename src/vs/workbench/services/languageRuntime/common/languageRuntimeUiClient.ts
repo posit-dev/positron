@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -269,6 +269,16 @@ export class UiClientInstance extends Disposable {
 	}
 
 	/**
+	 * Notify the backend that the frontend is ready.
+	 *
+	 * @param startType The type of session start ('new', 'restart', or
+	 * 'reconnect')
+	 */
+	public frontendReady(startType: string): void {
+		this._comm.frontendReady(startType);
+	}
+
+	/**
 	 * Evaluate code silently in the runtime and return a JSON-coerced result.
 	 *
 	 * @param code The code to evaluate
@@ -303,7 +313,7 @@ export class UiClientInstance extends Disposable {
 	 * @param settings Plot rendering settings
 	 *
 	 */
-	public async didChangePlotsRenderSettings(settings: PlotRenderSettings): Promise<void> {
-		await this._comm.didChangePlotsRenderSettings(settings);
+	public didChangePlotsRenderSettings(settings: PlotRenderSettings): void {
+		this._comm.didChangePlotsRenderSettings(settings);
 	}
 }

@@ -58,6 +58,10 @@ import { ILifecycleService, LifecyclePhase } from '../../lifecycle/common/lifecy
 import { IRemoteAgentService } from '../../remote/common/remoteAgentService.js';
 import { IRemoteExplorerService } from '../../remote/common/remoteExplorerService.js';
 import { AsyncIterableEmitter, AsyncIterableProducer } from '../../../../base/common/async.js';
+// --- Start Positron ---
+import { INativeEnvironmentService } from '../../../../platform/environment/common/environment.js'; // eslint-disable-line no-duplicate-imports
+import { ISharedProcessService } from '../../../../platform/ipc/electron-browser/services.js';
+// --- End Positron ---
 
 export class NativeExtensionService extends AbstractExtensionService implements IExtensionService {
 
@@ -87,6 +91,11 @@ export class NativeExtensionService extends AbstractExtensionService implements 
 		@IExtensionGalleryService private readonly _extensionGalleryService: IExtensionGalleryService,
 		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
 		@IDialogService dialogService: IDialogService,
+		// --- Start Positron ---
+		@INativeEnvironmentService private readonly _nativeEnvironmentService: INativeEnvironmentService,
+		@ISharedProcessService private readonly _sharedProcessService: ISharedProcessService,
+		// --- End Positron ---
+
 	) {
 		const extensionsProposedApi = instantiationService.createInstance(ExtensionsProposedApi);
 		const extensionScanner = instantiationService.createInstance(CachedExtensionScanner);
@@ -321,7 +330,63 @@ export class NativeExtensionService extends AbstractExtensionService implements 
 		return new AsyncIterableProducer(emitter => this._doResolveExtensions(emitter));
 	}
 
+	// --- Start Positron ---
+	/**
+	 * Wait for bootstrap extension installation to complete if a version
+	 * mismatch is detected. This prevents the workbench from scanning
+	 * the pre-bootstrap extension profile and then receiving disruptive
+	 * delta-update events when bootstrap finishes.
+	 */
+	private async _waitForBootstrapExtensionsIfNeeded(): Promise<void> {
+		const extensionsPath = this._nativeEnvironmentService.extensionsPath;
+		const versionFileUri = URI.file(`${extensionsPath}/.version`);
+		const currentVersion = `${this._productService.positronVersion}-${this._productService.positronBuildNumber}`;
+
+		let lastKnownVersion = '';
+		const fileExists = await this._fileService.exists(versionFileUri);
+		if (fileExists) {
+			try {
+				const content = await this._fileService.readFile(versionFileUri);
+				lastKnownVersion = content.value.toString().trim();
+			} catch (err) {
+				this._logService.warn(
+					`Failed to read bootstrap version file: ${err}`
+				);
+			}
+		}
+
+		if (lastKnownVersion === currentVersion) {
+			this._logService.info(
+				'Subsequent launch, skipping bootstrap wait'
+			);
+			return;
+		}
+
+		this._logService.info(
+			'Bootstrap version mismatch detected ' +
+			`(installed: "${lastKnownVersion}", current: "${currentVersion}"). ` +
+			'Waiting for shared process bootstrap to complete before scanning extensions...'
+		);
+
+		const channel = this._sharedProcessService.getChannel('extensions');
+		await channel.call('getInstalled', [null]);
+
+		this._logService.info(
+			'Shared process bootstrap complete, proceeding with extension scan'
+		);
+	}
+	// --- End Positron ---
+
 	private async _doResolveExtensions(emitter: AsyncIterableEmitter<ResolvedExtensions>): Promise<void> {
+		// --- Start Positron ---
+		try {
+			await this._waitForBootstrapExtensionsIfNeeded();
+		} catch (err) {
+			this._logService.error(
+				`Bootstrap extension wait failed, proceeding with scan: ${err}`
+			);
+		}
+		// --- End Positron ---
 		this._extensionScanner.startScanningExtensions();
 
 		const remoteAuthority = this._environmentService.remoteAuthority;

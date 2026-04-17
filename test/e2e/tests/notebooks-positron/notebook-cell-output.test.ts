@@ -51,19 +51,75 @@ test.describe('Positron Notebooks: Cell Output', {
 
 		await test.step('Clicking the collapse toggle hides the output', async () => {
 			await notebooksPositron.outputCollapseToggle(0).click();
-			await expect(notebooksPositron.showHiddenOutputButton(0)).toBeVisible();
+			await expect(notebooksPositron.outputCollapsedLabel(0)).toBeVisible();
 			await expect(notebooksPositron.cellOutput(0).getByText('hello world')).toBeHidden();
 		});
 
 		await test.step('Clicking the expand toggle shows the output again', async () => {
 			await notebooksPositron.outputCollapseToggle(0).click();
-			await expect(notebooksPositron.showHiddenOutputButton(0)).toBeHidden();
+			await expect(notebooksPositron.outputCollapsedLabel(0)).toBeHidden();
 			await notebooksPositron.expectOutputAtIndex(0, ['hello world']);
 		});
 
 		await test.step('Clear output removes the output', async () => {
 			await notebooksPositron.triggerCellOutputAction(0, 'Clear Output');
 			await expect(notebooksPositron.cellOutput(0)).toBeEmpty();
+		});
+	});
+
+	test('Toggle long output truncation', async function ({ app, settings }) {
+		const { notebooks, notebooksPositron } = app.workbench;
+
+		// Disable output scrolling so truncation is active.
+		// In non-stable builds (e.g. CI), scrolling defaults to true
+		// (see notebook.contribution.ts NotebookSetting.outputScrolling)
+		// which disables truncation entirely.
+		await settings.set(
+			{ 'notebook.output.scrolling': false },
+		);
+
+		await test.step('Setup: Open a notebook and generate long output', async () => {
+			await notebooks.createNewNotebook();
+			await notebooksPositron.expectCellCountToBe(1);
+			await notebooksPositron.kernel.select('Python');
+
+			// Generate output that exceeds the default 30-line limit
+			await notebooksPositron.addCodeToCell(0, 'for i in range(50): print(f"line {i}")', { run: true });
+			await notebooksPositron.expectOutputAtIndex(0, ['line 0']);
+		});
+
+		const outputTruncationMessage = notebooksPositron.outputTruncationMessage(0);
+
+		await test.step('Long output is truncated with a truncation message', async () => {
+			await expect(outputTruncationMessage).toContainText('more lines');
+		});
+
+		await test.step('Show Full Output via action bar removes truncation', async () => {
+			await notebooksPositron.triggerCellOutputAction(0, 'Show Full Output');
+			await expect(outputTruncationMessage).toBeHidden();
+			// A line hidden during truncation should now be visible.
+			// With 50 lines and a 30-line limit, lines 16-34 are truncated (50/50 split).
+			await notebooksPositron.expectOutputAtIndex(0, ['line 35']);
+		});
+
+		await test.step('Truncate Output via action bar restores truncation', async () => {
+			await notebooksPositron.triggerCellOutputAction(0, 'Truncate Output');
+			await expect(outputTruncationMessage).toBeVisible();
+		});
+
+		await test.step('Clicking the truncation message shows full output', async () => {
+			await notebooksPositron.outputTruncationMessage(0).click();
+			await expect(notebooksPositron.outputTruncationMessage(0)).toBeHidden();
+			await notebooksPositron.expectOutputAtIndex(0, ['line 25']);
+		});
+
+		await test.step('Re-running the cell resets truncation state', async () => {
+			// Currently showing full output (no truncation message).
+			// Re-run the cell - this should reset the per-cell override
+			// back to the global default (truncated).
+			await notebooksPositron.runCodeAtIndex(0);
+
+			await expect(outputTruncationMessage).toBeVisible();
 		});
 	});
 });

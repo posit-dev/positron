@@ -53,7 +53,6 @@ test.describe('Sessions: Management', {
 		{
 			tag: [tags.VARIABLES, tags.PLOTS],
 			annotation: [
-				{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6036' },
 				{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6843' } // <-- main issue for the test, session do not consistently restore
 			]
 		}, async function ({ app, sessions, hotKeys }) {

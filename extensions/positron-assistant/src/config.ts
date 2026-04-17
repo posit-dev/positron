@@ -13,7 +13,6 @@ import { clearTokenUsage } from './tokens.js';
 import { disposeModels, getAutoconfiguredModels, registerModel, removeAutoconfiguredModel } from './modelRegistration.js';
 import { CopilotService } from './copilot.js';
 import { PositronAssistantApi } from './api.js';
-import { PositModelProvider } from './providers/posit/positProvider.js';
 import { PROVIDER_ENABLE_SETTINGS_SEARCH } from './constants.js';
 import { StoredModelConfig, ModelConfig } from './configTypes.js';
 import { isAuthExtProvider, resolveApiKey, delegateConfigDialog } from './authExtRouting.js';
@@ -129,13 +128,46 @@ export async function showConfigurationDialog(
 					// Resolve environment variables
 					if (source.defaults.autoconfigure.type === positron.ai.LanguageModelAutoconfigureType.EnvVariable) {
 						const envVarName = source.defaults.autoconfigure.key;
-						const envVarValue = process.env[envVarName];
+						const providerId = source.provider.id;
+
+						// For providers migrated to the auth extension,
+						// check for a credential chain session.
+						let signedIn = false;
+						let baseUrlValue: string | undefined;
+						if (isAuthExtProvider(providerId)) {
+							try {
+								const session = await vscode.authentication.getSession(
+									providerId, [], { silent: true }
+								);
+								signedIn = !!session?.accessToken
+									&& session.id === providerId;
+							} catch {
+								signedIn = false;
+							}
+							// Map provider IDs to their authentication
+							// configuration section names. Most providers
+							// use their provider ID directly; legacy
+							// providers that predate this convention are
+							// mapped explicitly.
+							const CONFIG_KEY_OVERRIDES: Record<string, string> = {
+								'anthropic-api': 'anthropic',
+							};
+							const configKey = CONFIG_KEY_OVERRIDES[providerId] ?? providerId;
+							baseUrlValue = vscode.workspace
+								.getConfiguration(`authentication.${configKey}`)
+								.get<string>('baseUrl') || undefined;
+						} else {
+							signedIn = !!process.env[envVarName];
+							const baseUrlEnvVar = `${envVarName.replace(/_API_KEY$/, '')}_BASE_URL`;
+							baseUrlValue = process.env[baseUrlEnvVar];
+						}
 
 						return {
 							...source,
 							defaults: {
 								...source.defaults,
-								autoconfigure: { type: positron.ai.LanguageModelAutoconfigureType.EnvVariable, key: envVarName, signedIn: !!envVarValue }
+								...(baseUrlValue && { baseUrl: baseUrlValue }),
+								autoconfigure: { type: positron.ai.LanguageModelAutoconfigureType.EnvVariable, key: envVarName, signedIn }
 							},
 						};
 					} else if (source.defaults.autoconfigure.type === positron.ai.LanguageModelAutoconfigureType.Custom) {
@@ -207,11 +239,68 @@ export async function applyConfigAction(
 			await oauthSignout(config, sources, context);
 			break;
 		case 'cancel':
-			// User cancelled the dialog, clean up any pending operations.
-			PositModelProvider.cancelCurrentSignIn();
+			// No-op for auth-extension-managed providers.
+			// Cancellation handled by the auth extension.
 			break;
 		default:
 			throw new Error(vscode.l10n.t('Invalid Language Model action: {0}', action));
+	}
+}
+
+async function oauthSignin(
+	userConfig: positron.ai.LanguageModelConfig,
+	sources: positron.ai.LanguageModelSource[],
+	context: vscode.ExtensionContext
+) {
+	try {
+		switch (userConfig.provider) {
+			case 'copilot-auth':
+				await CopilotService.instance().signIn();
+				break;
+			default:
+				throw new Error(vscode.l10n.t('OAuth sign-in is not supported for provider {0}', userConfig.provider));
+		}
+
+		if (userConfig.provider !== 'copilot-auth') {
+			await saveModel(userConfig, sources, context);
+		}
+
+		PositronAssistantApi.get().notifySignIn(userConfig.provider);
+
+	} catch (error) {
+		if (error instanceof vscode.CancellationError) {
+			return;
+		}
+
+		const err = error instanceof Error ? error : new Error(JSON.stringify(error));
+		throw new Error(vscode.l10n.t('Failed to sign in to provider {0}: {1}', userConfig.provider, err.message));
+	}
+}
+
+async function oauthSignout(
+	userConfig: positron.ai.LanguageModelConfig,
+	sources: positron.ai.LanguageModelSource[],
+	context: vscode.ExtensionContext
+) {
+	let oauthCompleted = false;
+	try {
+		switch (userConfig.provider) {
+			case 'copilot-auth':
+				oauthCompleted = await CopilotService.instance().signOut();
+				break;
+			default:
+				throw new Error(vscode.l10n.t('OAuth sign-out is not supported for provider {0}', userConfig.provider));
+		}
+
+		if (oauthCompleted) {
+			await deleteConfigurationByProvider(context, userConfig.provider);
+		} else {
+			throw new Error(vscode.l10n.t('OAuth sign-out was not completed successfully.'));
+		}
+
+	} catch (error) {
+		const err = error instanceof Error ? error : new Error(JSON.stringify(error));
+		throw new Error(vscode.l10n.t('Failed to sign out of provider {0}: {1}', userConfig.provider, err.message));
 	}
 }
 
@@ -322,63 +411,6 @@ export async function deleteConfigurationByProvider(context: vscode.ExtensionCon
 	for (const config of targetConfigs) {
 		await deleteConfiguration(context, config.id);
 	}
-}
-
-async function oauthSignin(userConfig: positron.ai.LanguageModelConfig, sources: positron.ai.LanguageModelSource[], context: vscode.ExtensionContext) {
-	try {
-		switch (userConfig.provider) {
-			case 'copilot-auth':
-				await CopilotService.instance().signIn();
-				break;
-			case 'posit-ai':
-				await PositModelProvider.signIn(context);
-				break;
-			default:
-				throw new Error(vscode.l10n.t('OAuth sign-in is not supported for provider {0}', userConfig.provider));
-		}
-
-		// Special case: Copilot handles saving its own configuration internally
-		if (userConfig.provider !== 'copilot-auth') {
-			await saveModel(userConfig, sources, context);
-		}
-
-		PositronAssistantApi.get().notifySignIn(userConfig.provider);
-
-	} catch (error) {
-		if (error instanceof vscode.CancellationError) {
-			return;
-		}
-
-		const err = error instanceof Error ? error : new Error(JSON.stringify(error));
-		throw new Error(vscode.l10n.t(`Failed to sign in to provider {0}: {1}`, userConfig.provider, err.message));
-	}
-}
-
-async function oauthSignout(userConfig: positron.ai.LanguageModelConfig, sources: positron.ai.LanguageModelSource[], context: vscode.ExtensionContext) {
-	let oauthCompleted = false;
-	try {
-		switch (userConfig.provider) {
-			case 'copilot-auth':
-				oauthCompleted = await CopilotService.instance().signOut();
-				break;
-			case 'posit-ai':
-				oauthCompleted = await PositModelProvider.signOut(context);
-				break;
-			default:
-				throw new Error(vscode.l10n.t('OAuth sign-out is not supported for provider {0}', userConfig.provider));
-		}
-
-		if (oauthCompleted) {
-			await deleteConfigurationByProvider(context, userConfig.provider);
-		} else {
-			throw new Error(vscode.l10n.t('OAuth sign-out was not completed successfully.'));
-		}
-
-	} catch (error) {
-		const err = error instanceof Error ? error : new Error(JSON.stringify(error));
-		throw new Error(vscode.l10n.t(`Failed to sign out of provider {0}: {1}`, userConfig.provider, err.message));
-	}
-
 }
 
 /**

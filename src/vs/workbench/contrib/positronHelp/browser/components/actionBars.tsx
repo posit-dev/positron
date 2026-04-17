@@ -176,7 +176,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					{/* <ActionBarSeparator /> */}
 					{/* <ActionBarButton
 						iconId='positron-open-in-new-window'
-						tooltip={(() => localize('positronShowInNewWindow', "Show in new window"))()}
+						tooltip={localize('positronShowInNewWindow', "Show in new window")}
 					/> */}
 
 				</PositronActionBar>

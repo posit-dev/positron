@@ -29,11 +29,13 @@ export class RPackageManager {
 			throw new vscode.CancellationError();
 		}
 
-		const method = await this._getPakMethod();
+		const method = await this._getPackageMethod();
 		const result = await this._callMethod<positron.LanguageRuntimePackage[] | null>(
 			'pkg_list', token, method
-		);
-		return result ?? [];
+		) ?? [];
+		// Result is not sorted, sort packages alphabetically by name (case-insensitive)
+		result.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+		return result;
 	}
 
 	/**
@@ -51,25 +53,34 @@ export class RPackageManager {
 			this._validatePackageName(pkg.name);
 		}
 
-		// If we're installing pak, don't prompt to install pak
-		let method: string;
-		if (packages.some((pkg) => pkg.name === 'pak')) {
-			method = await this._getPakMethod();
-		} else {
-			method = await this._ensurePak();
-		}
+		// Check if we're in an renv project
+		const isRenv = await this._detectRenv();
 
 		let code: string;
-		if (method === 'pak') {
-			// pak supports "pkg@version" syntax directly
+		if (isRenv) {
 			const pkgSpecs = packages.map(p => p.version ? `${p.name}@${p.version}` : p.name);
 			const pkgVector = this._formatRVector(pkgSpecs);
-			code = `pak::pkg_install(${pkgVector}, ask = FALSE)`;
+			code = `renv::install(${pkgVector}, lock = TRUE, prompt = FALSE)`;
 		} else {
-			// base R: version not supported
-			const pkgNames = packages.map(p => p.name);
-			const pkgVector = this._formatRVector(pkgNames);
-			code = `install.packages(${pkgVector})`;
+			// If we're installing pak, don't prompt to install pak
+			let method: string;
+			if (packages.some((pkg) => pkg.name === 'pak')) {
+				method = await this._getPakMethod();
+			} else {
+				method = await this._ensurePak();
+			}
+
+			if (method === 'pak') {
+				// pak supports "pkg@version" syntax directly
+				const pkgSpecs = packages.map(p => p.version ? `${p.name}@${p.version}` : p.name);
+				const pkgVector = this._formatRVector(pkgSpecs);
+				code = `pak::pkg_install(${pkgVector}, ask = FALSE)`;
+			} else {
+				// base R: version not supported
+				const pkgNames = packages.map(p => p.name);
+				const pkgVector = this._formatRVector(pkgNames);
+				code = `install.packages(${pkgVector})`;
+			}
 		}
 
 		await this._execute(code, token);
@@ -91,18 +102,28 @@ export class RPackageManager {
 			this._validatePackageName(pkg.name);
 		}
 
-		const method = await this._ensurePak();
+		const isRenv = await this._detectRenv();
 
 		let code: string;
-		if (method === 'pak') {
+		if (isRenv) {
+			// renv::install supports "pkg@version" syntax
 			const pkgSpecs = packages.map(p => p.version ? `${p.name}@${p.version}` : p.name);
 			const pkgVector = this._formatRVector(pkgSpecs);
-			code = `pak::pkg_install(${pkgVector}, ask = FALSE)`;
+			code = `renv::install(${pkgVector}, lock = TRUE, prompt = FALSE)`;
 		} else {
-			// base R: version not supported
-			const pkgNames = packages.map(p => p.name);
-			const pkgVector = this._formatRVector(pkgNames);
-			code = `install.packages(${pkgVector})`;
+			const method = await this._ensurePak();
+
+			if (method === 'pak') {
+				// pak supports "pkg@version" syntax directly
+				const pkgSpecs = packages.map(p => p.version ? `${p.name}@${p.version}` : p.name);
+				const pkgVector = this._formatRVector(pkgSpecs);
+				code = `pak::pkg_install(${pkgVector}, ask = FALSE)`;
+			} else {
+				// base R: version not supported
+				const pkgNames = packages.map(p => p.name);
+				const pkgVector = this._formatRVector(pkgNames);
+				code = `install.packages(${pkgVector})`;
+			}
 		}
 
 		await this._execute(code, token);
@@ -118,22 +139,28 @@ export class RPackageManager {
 			throw new vscode.CancellationError();
 		}
 
-		const method = await this._ensurePak();
+		// Check if we're in an renv project
+		const isRenv = await this._detectRenv();
 
-		if (method === 'pak') {
-			// Get outdated packages via RPC, then update with pak
-			const outdated = await this._callMethod<string[] | null>(
-				'pkg_outdated', token
-			) ?? [];
-			if (outdated.length > 0) {
-				const pkgVector = this._formatRVector(outdated);
-				await this._execute(`pak::pkg_install(${pkgVector}, ask = FALSE)`, token);
-			} else {
-				// TODO: notify user see https://github.com/posit-dev/positron/issues/11997
-			}
-
+		if (isRenv) {
+			await this._execute(`renv::update(lock = TRUE, prompt = FALSE)`, token);
 		} else {
-			await this._execute(`update.packages(ask = FALSE)`, token);
+			const method = await this._ensurePak();
+
+			if (method === 'pak') {
+				// Get outdated packages via RPC, then update with pak
+				const outdated = await this._callMethod<string[] | null>(
+					'pkg_outdated', token
+				) ?? [];
+				if (outdated.length > 0) {
+					const pkgVector = this._formatRVector(outdated);
+					await this._execute(`pak::pkg_install(${pkgVector}, ask = FALSE)`, token);
+				} else {
+					// TODO: notify user see https://github.com/posit-dev/positron/issues/11997
+				}
+			} else {
+				await this._execute(`update.packages(ask = FALSE)`, token);
+			}
 		}
 
 		this._session.invalidatePackageResourceCaches();
@@ -154,14 +181,21 @@ export class RPackageManager {
 			this._validatePackageName(pkg);
 		}
 
-		const method = await this._getPakMethod();
+		// Check if we're in an renv project
+		const isRenv = await this._detectRenv();
 		const pkgVector = this._formatRVector(packageNames);
 
 		let code: string;
-		if (method === 'pak') {
-			code = `pak::pkg_remove(${pkgVector})`;
+		if (isRenv) {
+			code = `renv::remove(${pkgVector})`;
 		} else {
-			code = `remove.packages(${pkgVector})`;
+			const method = await this._getPakMethod();
+
+			if (method === 'pak') {
+				code = `pak::pkg_remove(${pkgVector})`;
+			} else {
+				code = `remove.packages(${pkgVector})`;
+			}
 		}
 
 		await this._execute(code, token);
@@ -174,6 +208,11 @@ export class RPackageManager {
 			await this._executeSilently(unloadCode);
 		} catch {
 			// Ignore errors from namespace unloading
+		}
+
+		// Update renv lockfile after removal
+		if (isRenv) {
+			await this._executeSilently('renv::snapshot(prompt = FALSE)');
 		}
 
 		this._session.invalidatePackageResourceCaches();
@@ -229,11 +268,33 @@ export class RPackageManager {
 	}
 
 	/**
+	 * Detect if the session is running in an renv project.
+	 */
+	private async _detectRenv(): Promise<boolean> {
+		try {
+			const result = await this._session.evaluate('!is.null(renv::project())');
+			return result.result === true;
+		} catch {
+			return false;
+		}
+	}
+
+	/**
 	 * Get the method string based on pak availability (without prompting).
 	 */
 	private async _getPakMethod(): Promise<string> {
 		const hasPak = await this._detectPak();
 		return hasPak ? 'pak' : 'base';
+	}
+
+	/**
+	 * Get the method string for package listing (renv > pak > base).
+	 */
+	private async _getPackageMethod(): Promise<string> {
+		if (await this._detectRenv()) {
+			return 'renv';
+		}
+		return this._getPakMethod();
 	}
 
 	/**

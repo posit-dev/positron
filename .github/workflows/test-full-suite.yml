@@ -364,3 +364,19 @@ jobs:
           filter_jobs: "(e2e / ([^0-9]*)|unit|integration)$"
           include_job_durations: false
           notify_on: ${{ env.notify_on }}
+
+      - name: Checkout
+        if: always()
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/actions/notify-e2e-insights
+
+      - name: Notify E2E Test Insights
+        if: always()
+        uses: ./.github/actions/notify-e2e-insights
+        with:
+          webhook_secret: ${{ secrets.E2E_INSIGHTS_WEBHOOK_SECRET }}
+          connect_api_key: ${{ secrets.CONNECT_API_KEY }}
+          repo_id: "positron"
+          title: "E2E Full Suite Tests"
+          filter_jobs: "(e2e / ([^0-9]*)|unit|integration)$"

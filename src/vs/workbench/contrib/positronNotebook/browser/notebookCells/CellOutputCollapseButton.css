@@ -22,6 +22,9 @@
 	position: absolute;
 	left: var(--_container-offset-left);
 	width: var(--_container-size);
+	/* Elevate above .cell-drag-zone (z:9) so the collapse toggle
+	 * receives pointer events instead of the drag zone. */
+	z-index: 10;
 
 	/* Span the full height of the output so that hovering anywhere left of the output
 	 * area shows the button. */
@@ -44,6 +47,15 @@
 
 		/* Hidden by default, shown on cell hover/selection or gutter hover. */
 		visibility: hidden;
+
+		/* Animated chevron rotation for collapse/expand. */
+		& .collapse-chevron {
+			transition: transform 0.15s ease;
+		}
+
+		& .collapse-chevron.collapsed {
+			transform: rotate(-90deg);
+		}
 	}
 }
 

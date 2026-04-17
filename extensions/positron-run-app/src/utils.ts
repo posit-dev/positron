@@ -7,15 +7,23 @@
 
 export function raceTimeout<T>(promise: Promise<T>, timeout: number, onTimeout?: () => void): Promise<T | undefined> {
 	let promiseResolve: ((value: T | undefined) => void) | undefined = undefined;
+	let promiseReject: ((reason?: unknown) => void) | undefined = undefined;
 
 	const timer = setTimeout(() => {
-		promiseResolve?.(undefined);
-		onTimeout?.();
+		try {
+			onTimeout?.();
+			promiseResolve?.(undefined);
+		} catch (error) {
+			promiseReject?.(error);
+		}
 	}, timeout);
 
 	return Promise.race([
 		promise.finally(() => clearTimeout(timer)),
-		new Promise<T | undefined>(resolve => promiseResolve = resolve)
+		new Promise<T | undefined>((resolve, reject) => {
+			promiseResolve = resolve;
+			promiseReject = reject;
+		})
 	]);
 }
 
@@ -34,7 +42,8 @@ export class SequencerByKey<TKey> {
 	queue<T>(key: TKey, promiseTask: ITask<Promise<T>>): Promise<T> {
 		const runningPromise = this.promiseMap.get(key) ?? Promise.resolve();
 		const newPromise = runningPromise
-			.catch(() => { })
+			// Swallow unhandled errors from the previous task so the current one still runs.
+			.catch((error) => { console.warn(`[positron-run-app] Previous queued task for key '${key}' failed:`, error); })
 			.then(promiseTask)
 			.finally(() => {
 				if (this.promiseMap.get(key) === newPromise) {

@@ -28,6 +28,7 @@ import {
 	ICellOutputWebviewMetadata,
 	IQuartoExecutionManager,
 	DEFAULT_EXECUTION_CONFIG,
+	DATA_EXPLORER_MIME_TYPE,
 } from '../common/quartoExecutionTypes.js';
 import { RuntimeOnlineState, RuntimeCodeExecutionMode, RuntimeErrorBehavior, ILanguageRuntimeMessageWebOutput } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { getWebviewMessageType } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
@@ -433,9 +434,11 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			return;
 		}
 
-		// Add all ranges to queued state with decorations
+		// Add all ranges to queued state with decorations.
+		// Use effectiveCodeRange (excluding option lines like #| label: ...) so
+		// the queued range matches what _withExecutionTracking will remove later.
 		for (const execution of filteredExecutions) {
-			this._addToQueuedRanges(execution.cell.id, execution.codeRange);
+			this._addToQueuedRanges(execution.cell.id, execution.effectiveCodeRange);
 			this._addToQueue(documentUri, execution.cell.id);
 			// Only set state to Queued if cell is not already running
 			// (if it's running, the queued range decoration will still show)
@@ -465,7 +468,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				if (token?.isCancellationRequested) {
 					// Mark remaining queued ranges as idle
 					for (const e of filteredExecutions) {
-						this._removeFromQueuedRanges(e.cell.id, e.codeRange);
+						this._removeFromQueuedRanges(e.cell.id, e.effectiveCodeRange);
 					}
 					break;
 				}
@@ -478,7 +481,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 					this._logService.debug(
 						`[QuartoExecutionManager] Inline cell ${execution.cell.id} was cancelled while queued (state: ${currentState}), skipping`
 					);
-					this._removeFromQueuedRanges(execution.cell.id, execution.codeRange);
+					this._removeFromQueuedRanges(execution.cell.id, execution.effectiveCodeRange);
 					continue;
 				}
 
@@ -502,7 +505,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 						const currentIndex = filteredExecutions.indexOf(execution);
 						for (let i = currentIndex + 1; i < filteredExecutions.length; i++) {
 							const e = filteredExecutions[i];
-							this._removeFromQueuedRanges(e.cell.id, e.codeRange);
+							this._removeFromQueuedRanges(e.cell.id, e.effectiveCodeRange);
 							this._setCellState(e.cell.id, CellExecutionState.Idle, documentUri);
 						}
 						break;
@@ -520,7 +523,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 						const currentIndex = filteredExecutions.indexOf(execution);
 						for (let i = currentIndex + 1; i < filteredExecutions.length; i++) {
 							const e = filteredExecutions[i];
-							this._removeFromQueuedRanges(e.cell.id, e.codeRange);
+							this._removeFromQueuedRanges(e.cell.id, e.effectiveCodeRange);
 							this._setCellState(e.cell.id, CellExecutionState.Idle, documentUri);
 						}
 						break;
@@ -1789,14 +1792,20 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			'text/plain',
 		];
 
-		// Determine which rich MIME types are present to filter out redundant text/plain
-		// When a richer representation (HTML, images) is available, we should not show
-		// the plain text fallback as it duplicates the content
+		// Determine which rich MIME types are present to filter out redundant text/plain.
+		// When a richer representation (HTML, images) is available, we should not
+		// show the plain text fallback as it duplicates the content.
+		// Exception: when data explorer is present, always keep text/plain. The data
+		// explorer is a live component that won't work after the document is closed
+		// and reopened; text/plain serves as the cache-safe fallback for that case.
 		const hasHtml = 'text/html' in data;
 		const hasImage = mimeOrder.some(mime =>
 			mime.startsWith('image/') && mime in data
 		);
-		const shouldExcludePlainText = hasHtml || hasImage;
+		const hasDataExplorer = Object.keys(data).some(
+			mime => mime === DATA_EXPLORER_MIME_TYPE
+		);
+		const shouldExcludePlainText = (hasHtml || hasImage) && !hasDataExplorer;
 
 		for (const mime of mimeOrder) {
 			// Skip text/plain when a richer representation is available
@@ -1815,11 +1824,13 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		}
 
 		// Handle any remaining MIME types, skipping Positron-internal types
-		// (e.g. application/vnd.positron.dataExplorer+json) that are used for
-		// comm channel metadata and should not be rendered as output.
+		// that are used for comm channel metadata and should not be rendered
+		// as output. The data explorer MIME type is allowed through so it can
+		// be rendered as an inline data grid.
 		for (const [mime, value] of Object.entries(data)) {
 			if (!mimeOrder.includes(mime) && value !== undefined &&
-				!mime.startsWith('application/vnd.positron.')) {
+				(!mime.startsWith('application/vnd.positron.') ||
+					mime === DATA_EXPLORER_MIME_TYPE)) {
 				if (typeof value === 'string') {
 					outputItems.push({ mime, data: value });
 				} else {
@@ -1963,8 +1974,14 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			documentUri,
 		};
 
+		// Set endTime when execution finishes (Completed or Error)
+		const isFinished = state === CellExecutionState.Completed || state === CellExecutionState.Error;
 		this._onDidChangeExecutionState.fire({
-			execution: { ...execution, state },
+			execution: {
+				...execution,
+				state,
+				...(isFinished && !execution.endTime ? { endTime: Date.now() } : {}),
+			},
 			previousState,
 		});
 	}

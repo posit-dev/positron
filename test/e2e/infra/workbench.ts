@@ -46,9 +46,11 @@ import { PositConnect } from '../pages/connect.js';
 import { Notebooks } from '../pages/notebooks.js';
 import { PositronNotebooks } from '../pages/notebooksPositron.js';
 import { VsCodeNotebooks } from '../pages/notebooksVscode.js';
-import { Databot } from '../pages/databot.js';
+import { PositAssistant } from '../pages/positAssistant.js';
 import { InlineDataExplorer } from '../pages/inlineDataExplorer.js';
 import { InlineQuarto } from '../pages/inlineQuarto.js';
+import { Publisher } from '../pages/publisher.js';
+import { Packages } from '../pages/packages.js';
 
 export interface Commands {
 	runCommand(command: string, options?: { exactLabelMatch?: boolean }): Promise<any>;
@@ -97,16 +99,18 @@ export class Workbench {
 	readonly assistant: Assistant;
 	readonly hotKeys: HotKeys;
 	readonly positConnect: PositConnect;
-	readonly databot: Databot;
+	readonly positAssistant: PositAssistant;
 	readonly inlineDataExplorer: InlineDataExplorer;
 	readonly inlineQuarto: InlineQuarto;
+	readonly publisher: Publisher;
+	readonly packages: Packages;
 
 	constructor(code: Code) {
 		this.hotKeys = new HotKeys(code);
 		this.toasts = new Toasts(code);
 		this.popups = new Popups(code);
 		this.contextMenu = new ContextMenu(code);
-		this.variables = new Variables(code, this.hotKeys, this.contextMenu);
+		this.variables = new Variables(code, this.hotKeys);
 		this.dataExplorer = new DataExplorer(code, this);
 		this.sideBar = new SideBar(code);
 		this.plots = new Plots(code, this.contextMenu);
@@ -143,9 +147,11 @@ export class Workbench {
 		this.search = new Search(code);
 		this.assistant = new Assistant(code, this.quickaccess, this.toasts, this.modals);
 		this.positConnect = new PositConnect(code);
-		this.databot = new Databot(code, this.quickaccess);
+		this.positAssistant = new PositAssistant(code);
 		this.inlineDataExplorer = new InlineDataExplorer(code.driver.page);
 		this.inlineQuarto = new InlineQuarto(code, this.quickaccess, this.hotKeys);
+		this.publisher = new Publisher(this.quickInput);
+		this.packages = new Packages(code, this.contextMenu, this.quickInput, this.toasts);
 	}
 }
 

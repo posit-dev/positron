@@ -14,7 +14,7 @@ import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
 import { IPositronNotebookCodeCell, NotebookCellOutputs } from './IPositronNotebookCell.js';
 import { IPositronWebviewPreloadService } from '../../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { pickPreferredOutputItem } from './notebookOutputUtils.js';
-import { getWebviewMessageType } from '../../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
+import { getWebviewMessageType, isComplexHtml } from '../../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { INotebookExecutionStateService } from '../../../notebook/common/notebookExecutionStateService.js';
 import { IPositronCellOutputViewModel } from '../IPositronNotebookEditor.js';
 
@@ -24,6 +24,9 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 
 	// Output collapse state
 	private readonly _outputIsCollapsed: ISettableObservable<boolean>;
+
+	// Per-cell output scrolling override (undefined = use global setting)
+	private readonly _outputScrolling: ISettableObservable<boolean | undefined>;
 
 	// Execution timing observables
 	lastExecutionDuration;
@@ -46,6 +49,12 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 			cellModel.collapseState?.outputCollapsed ?? false
 		);
 
+		// Per-cell output scrolling override (undefined = use global setting)
+		this._outputScrolling = observableValue<boolean | undefined>(
+			'outputScrolling',
+			undefined
+		);
+
 		this._outputs = observableFromEvent(this, Event.any(this.model.onDidChangeOutputs, this.model.onDidChangeOutputItems), () => {
 			/** @description cellOutputs */
 			return this.parseCellOutputs();
@@ -56,6 +65,9 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 			if (this.model.outputs.length === 0) {
 				this._outputIsCollapsed.set(false, undefined);
 			}
+
+			// Reset per-cell scrolling override when outputs change (clear or re-run)
+			this._outputScrolling.set(undefined, undefined);
 		}));
 
 		// Execution timing observables
@@ -95,6 +107,22 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 		this._outputIsCollapsed.set(!this._outputIsCollapsed.get(), undefined);
 	}
 
+	get outputScrolling(): ISettableObservable<boolean | undefined> {
+		return this._outputScrolling;
+	}
+
+	truncateOutput(): void {
+		this._outputScrolling.set(false, undefined);
+	}
+
+	showFullOutput(): void {
+		this._outputScrolling.set(true, undefined);
+	}
+
+	resetOutputScrolling(): void {
+		this._outputScrolling.set(undefined, undefined);
+	}
+
 	/**
 	 * Turn the cell outputs into an array of NotebookCellOutputs objects that we know how to render
 	 * @returns Output list with a prefered output item parsed for rendering
@@ -116,6 +144,7 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 			};
 
 			const preloadMessageType = getWebviewMessageType(outputItems);
+			const rawOutput = preferredOutputItem.data.toString();
 
 			if (preloadMessageType) {
 				parsedOutput.preloadMessageResult = this._webviewPreloadService.addNotebookOutput({
@@ -128,6 +157,16 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 				if (parsedOutput.preloadMessageResult === undefined) {
 					return;
 				}
+			} else if (preferredOutputItem.mime === 'text/html' && isComplexHtml(rawOutput)) {
+				// Complex HTML (scripts, iframes, full documents) can't render
+				// inline due to Trusted Types / CSP restrictions. Route through
+				// an overlay webview where scripts execute in an isolated process.
+				parsedOutput.preloadMessageResult = this._webviewPreloadService.addNotebookOutput({
+					instance: this.instance,
+					outputId: output.outputId,
+					outputs: outputItems,
+					rawHtml: rawOutput,
+				});
 			}
 
 			parsedOutputs.push(parsedOutput);

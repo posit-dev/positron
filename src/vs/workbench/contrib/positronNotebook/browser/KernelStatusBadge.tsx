@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -13,7 +13,8 @@ import React from 'react';
 import { useNotebookInstance } from './NotebookInstanceProvider.js';
 import { useObservedValue } from './useObservedValue.js';
 import { KernelStatus } from './IPositronNotebookInstance.js';
-import { RuntimeStatus, RuntimeStatusIcon } from '../../positronConsole/browser/components/runtimeStatus.js';
+import { RuntimeStatusIcon } from '../../positronConsole/browser/components/runtimeStatus.js';
+import { RuntimeStatus } from '../../positronConsole/common/sessionDisplayUtils.js';
 import { localize } from '../../../../nls.js';
 import { MenuId, MenuItemAction, SubmenuItemAction } from '../../../../platform/actions/common/actions.js';
 import { ActionBarMenuButton } from '../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
@@ -81,7 +82,15 @@ export function KernelStatusBadge() {
 		// This shouldn't happen...
 		return '';
 	}));
-	const menu = useMenu(MenuId.PositronNotebookKernelSubmenu, notebookInstance.scopedContextKeyService);
+	// scopedContextKeyService is only available after attachView() is called.
+	// When a notebook replaces a preview tab, the widget may render before
+	// attachView() completes. Use container (set last in attachView) as the
+	// readiness signal.
+	const container = useObservedValue(notebookInstance.container);
+	const menu = useMenu(
+		MenuId.PositronNotebookKernelSubmenu,
+		container ? notebookInstance.scopedContextKeyService : undefined
+	);
 
 	// Callback to load actions from the menu
 	const getActions = React.useCallback(() => {

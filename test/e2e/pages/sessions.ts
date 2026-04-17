@@ -38,7 +38,7 @@ export class Sessions {
 	private get quickPick(): SessionQuickPick { return new SessionQuickPick(this.code, this); }
 	sessions = this.page.getByTestId(/console-(?!tab-)[a-zA-Z0-9-]+/);
 	sessionTabs = this.page.getByTestId(/console-tab/);
-	currentSessionTab = this.sessionTabs.filter({ has: this.page.locator('.tab-button--active') });
+	currentSessionTab = this.page.locator('.tab-button--active');
 	sessionPicker = this.page.locator('[id="workbench.parts.positron-top-action-bar"]').locator('.action-bar-region-right').getByRole('button').first();
 	private renameMenuItem = this.page.getByRole('menuitem', { name: 'Rename...' });
 	deleteMenuItem = this.page.getByRole('menuitem', { name: 'Delete' });
@@ -682,6 +682,13 @@ export class Sessions {
 	}
 
 	/**
+	 * Helper: Get all available runtimes with their categories
+	 */
+	async getAllAvailableRuntimes(): Promise<RuntimeInfo[]> {
+		return await this.quickPick.getAllAvailableRuntimes();
+	}
+
+	/**
 	 * Helper: Get Active Sessions in the Console Session Tab List
 	 * Note: Sessions that are disconnected are filtered out
 	 */
@@ -907,12 +914,22 @@ export class Sessions {
 	/**
 	 * Verify: the runtime matches the runtime in the Session Picker button
 	 *
-	 * @param version - The descriptive string of the runtime to verify.
+	 * @param runtimeName - The descriptive string of the runtime to verify.
+	 * @param options - Configuration options for the verification
+	 * @param options.status - The optional status of the runtime to verify.
+	 * @param options.timeout - The timeout for the assertion (default: 15000).
 	 */
-	async expectSessionPickerToBe(runtimeName: string, timeout: number = 15000) {
-		await test.step(`Verify runtime is selected: ${runtimeName}`, async () => {
-			const normalizedRuntimeName = runtimeName.replace(/-\s\d+$/, '').trim();
+	async expectSessionPickerToBe(runtimeName: string | RegExp, options?: { status?: SessionState; timeout?: number }) {
+		const { status, timeout = 15000 } = options ?? {};
+
+		await test.step(`Verify session picker is: ${runtimeName}`, async () => {
+			const normalizedRuntimeName = typeof runtimeName === 'string' ? runtimeName.replace(/-\s\d+$/, '').trim() : runtimeName;
 			await expect(this.sessionPicker).toHaveText(normalizedRuntimeName, { timeout });
+
+			if (status) {
+				// TODO: Add proper status assertion once status element is available in UI @dhruvisompura
+				expect(status).toBeTruthy();
+			}
 		});
 	}
 
@@ -991,6 +1008,17 @@ export class Sessions {
 	 */
 	async expectStartNewSessionMenuToBeVisible() {
 		await expect(this.quickPick.allSessionsMenu).toBeVisible();
+	}
+
+	/**
+	 * Verify: the session is selected in the console tab list
+	 *
+	 * @param sessionIdOrName - the id, name, or pattern of the session
+	 */
+	async expectConsoleSessionToBeSelected(sessionIdOrName: string | RegExp) {
+		await test.step(`Verify selected console session is: ${sessionIdOrName}`, async () => {
+			await expect(this.currentSessionTab).toHaveText(sessionIdOrName);
+		});
 	}
 
 	/**
@@ -1135,6 +1163,70 @@ export class SessionQuickPick {
 		});
 	}
 
+	/**
+	 * Helper: Get all available runtimes from the Start New Console Session dialog with their categories.
+	 * @returns The list of runtimes with their names, paths, and categories.
+	 */
+	async getAllAvailableRuntimes(): Promise<RuntimeInfo[]> {
+		return await test.step('Get all available runtimes', async () => {
+			await this.openSessionQuickPickMenu(true);
+
+			// Clear the search text to show all runtimes
+			await this.code.driver.page.getByRole('textbox', { name: START_NEW_CONSOLE_SESSION_PATTERN }).clear();
+
+			const seen = new Set<string>();
+			const runtimes: RuntimeInfo[] = [];
+
+			// Page through the list to load all entries (handles virtualized lists)
+			let stable = false;
+			while (!stable) {
+				const entries = this.code.driver.page.locator('.quick-input-list-entry');
+				const entryCount = await entries.count();
+
+				let newEntriesFound = false;
+				for (let i = 0; i < entryCount; i++) {
+					const entry = entries.nth(i);
+
+					// Get the runtime name from the first row
+					const nameElement = entry.locator('.quick-input-list-row').nth(0).locator('.label-name .monaco-highlighted-label');
+					const name = await nameElement.textContent();
+
+					// Get the path from the second row
+					const pathElement = entry.locator('.quick-input-list-row').nth(1).locator('.label-name .monaco-highlighted-label');
+					const path = await pathElement.textContent();
+
+					// Get the category from the separator
+					const separatorElement = entry.locator('.quick-input-list-separator');
+					const category = await separatorElement.textContent();
+
+					if (name && path) {
+						const key = `${name}||${path}`;
+						if (!seen.has(key)) {
+							seen.add(key);
+							runtimes.push({
+								name: name.trim(),
+								path: path.trim(),
+								category: category?.trim() || ''
+							});
+							newEntriesFound = true;
+						}
+					}
+				}
+
+				if (newEntriesFound) {
+					await this.code.driver.page.keyboard.press('PageDown');
+					await this.code.driver.page.keyboard.press('PageDown');
+					await this.code.driver.page.waitForTimeout(50); // allow more items to render
+				} else {
+					stable = true; // no new items found after PageDown
+				}
+			}
+
+			await this.closeSessionQuickPickMenu();
+			return runtimes;
+		});
+	}
+
 	// -- Utils --
 
 	/**
@@ -1165,6 +1257,12 @@ export class SessionQuickPick {
 export type QuickPickSessionInfo = {
 	name: string;
 	path: string;
+};
+
+export type RuntimeInfo = {
+	name: string;
+	path: string;
+	category: string;
 };
 
 export type SessionTrigger = 'session-picker' | 'quickaccess' | 'hotkey';

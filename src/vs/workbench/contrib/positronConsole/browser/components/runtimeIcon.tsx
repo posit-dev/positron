@@ -7,22 +7,30 @@
 import './runtimeStatus.css';
 
 // Other dependencies.
+import { IModelService } from '../../../../../editor/common/services/model.js';
 import { LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { Codicon } from '../../../../../base/common/codicons.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { getSessionIcon, getSessionIconStyle } from '../../common/sessionDisplayUtils.js';
+import { URI } from '../../../../../base/common/uri.js';
 
 export interface RuntimeIconProps {
 	base64EncodedIconSvg: string | undefined;
 	sessionMode: LanguageRuntimeSessionMode;
+	notebookUri?: URI;
+	modelService: IModelService;
 }
 
-export const RuntimeIcon = ({ base64EncodedIconSvg, sessionMode }: RuntimeIconProps) => {
-	const classNames = ['icon']
+export const RuntimeIcon = ({ base64EncodedIconSvg, sessionMode, notebookUri, modelService }: RuntimeIconProps) => {
+	const classNames = ['icon'];
+
 	if (sessionMode === LanguageRuntimeSessionMode.Notebook) {
-		classNames.push(...ThemeIcon.asClassNameArray(Codicon.notebook));
-		return <span className={positronClassNames(...classNames)}></span>;
+		const icon = getSessionIcon({ sessionMode, notebookUri }, modelService);
+		const style = getSessionIconStyle({ sessionMode, notebookUri }, modelService);
+		classNames.push(...ThemeIcon.asClassNameArray(icon));
+		return <span className={positronClassNames(...classNames)} style={style}></span>;
 	}
+
 	if (base64EncodedIconSvg === undefined) {
 		return null;
 	}

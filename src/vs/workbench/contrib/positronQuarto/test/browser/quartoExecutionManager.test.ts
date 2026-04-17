@@ -6,11 +6,12 @@
 import assert from 'assert';
 import { URI } from '../../../../../base/common/uri.js';
 import { Disposable } from '../../../../../base/common/lifecycle.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { TestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { TestPositronConsoleService } from '../../../../services/positronConsole/test/browser/testPositronConsoleService.js';
-import { ExecutionOutputEvent, ICellOutput } from '../../common/quartoExecutionTypes.js';
+import { CellExecutionState, ExecutionOutputEvent, ICellOutput } from '../../common/quartoExecutionTypes.js';
+import { Range } from '../../../../../editor/common/core/range.js';
 import { RuntimeOnlineState, RuntimeOutputKind, LanguageRuntimeSessionLocation, LanguageRuntimeStartupBehavior, LanguageRuntimeSessionMode, ILanguageRuntimeMetadata, RuntimeErrorBehavior, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { QuartoExecutionManager } from '../../browser/quartoExecutionManager.js';
@@ -53,7 +54,7 @@ function createSessionMetadata(sessionId: string): IRuntimeSessionMetadata {
 }
 
 suite('QuartoExecutionManager', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+	const ctx = createTestContainer().build();
 	const logService = new NullLogService();
 
 	let executionManager: QuartoExecutionManager;
@@ -69,13 +70,13 @@ suite('QuartoExecutionManager', () => {
 		const metadata = createSessionMetadata('test-session');
 
 		mockSession = new TestLanguageRuntimeSession(metadata, TestLanguageRuntimeMetadata);
-		disposables.add(mockSession);
+		ctx.disposables.add(mockSession);
 
 		// Transition session to ready state so execute works
 		mockSession.setRuntimeState(RuntimeState.Ready);
 
 		// Create mock services
-		mockKernelManager = disposables.add(new MockKernelManager(mockSession));
+		mockKernelManager = ctx.disposables.add(new MockKernelManager(mockSession));
 		mockDocumentModelService = new MockDocumentModelService();
 		mockEditorService = new MockEditorService();
 		const mockEphemeralStateService = new MockEphemeralStateService();
@@ -96,7 +97,7 @@ suite('QuartoExecutionManager', () => {
 			mockRuntimeSessionService as unknown as IRuntimeSessionService,
 			mockTerminalService as unknown as ITerminalService,
 		);
-		disposables.add(executionManager);
+		ctx.disposables.add(executionManager);
 	});
 
 	suite('Execution Options', () => {
@@ -119,7 +120,7 @@ suite('QuartoExecutionManager', () => {
 			const executionListener = executionManager.onDidExecuteCode(event => {
 				executedErrorBehavior = event.errorBehavior;
 			});
-			disposables.add(executionListener);
+			ctx.disposables.add(executionListener);
 
 			const executionPromise = executionManager.executeCell(documentUri, cell);
 			const executionId = await mockKernelManager.waitForExecution();
@@ -190,7 +191,7 @@ suite('QuartoExecutionManager', () => {
 			const outputListener = executionManager.onDidReceiveOutput((event: ExecutionOutputEvent) => {
 				outputsReceived.push(event.output);
 			});
-			disposables.add(outputListener);
+			ctx.disposables.add(outputListener);
 
 			// Start execution
 			const executionPromise = executionManager.executeCell(documentUri, cell);
@@ -256,7 +257,7 @@ suite('QuartoExecutionManager', () => {
 			const outputListener = executionManager.onDidReceiveOutput((event: ExecutionOutputEvent) => {
 				outputsReceived.push(event.output);
 			});
-			disposables.add(outputListener);
+			ctx.disposables.add(outputListener);
 
 			// Start execution
 			const executionPromise = executionManager.executeCell(documentUri, cell);
@@ -314,7 +315,7 @@ suite('QuartoExecutionManager', () => {
 			const outputListener = executionManager.onDidReceiveOutput((event: ExecutionOutputEvent) => {
 				outputsReceived.push(event.output);
 			});
-			disposables.add(outputListener);
+			ctx.disposables.add(outputListener);
 
 			// Start execution
 			const executionPromise = executionManager.executeCell(documentUri, cell);
@@ -369,7 +370,7 @@ suite('QuartoExecutionManager', () => {
 			const outputListener = executionManager.onDidReceiveOutput((event: ExecutionOutputEvent) => {
 				outputsReceived.push(event.output);
 			});
-			disposables.add(outputListener);
+			ctx.disposables.add(outputListener);
 
 			// Start execution (but don't await yet)
 			const executionPromise = executionManager.executeCell(documentUri, cell);
@@ -484,7 +485,7 @@ suite('QuartoExecutionManager', () => {
 				new MockRuntimeSessionService() as unknown as IRuntimeSessionService,
 				new MockTerminalService() as unknown as ITerminalService,
 			);
-			disposables.add(executionManagerWithMock);
+			ctx.disposables.add(executionManagerWithMock);
 
 			// Create a STALE cell object (simulating what UI might pass)
 			// This has the OLD line numbers from before the document edit
@@ -532,6 +533,94 @@ suite('QuartoExecutionManager', () => {
 				capturedRange!.endLineNumber,
 				9,
 				'Should use CURRENT cell end line (9), not stale one (6)'
+			);
+		});
+	});
+
+	suite('Queued Range Cleanup', () => {
+		test('clears queued ranges after executeInlineCells with option lines (#12662)', async () => {
+			// When executeInlineCells receives a range that includes Jupyter
+			// code options (e.g. #| label: test), the range is added to the
+			// queue including the option lines. But during execution, the
+			// effective range (excluding options) was used for removal,
+			// causing a mismatch and leaving stale queued decorations.
+
+			const documentUri = URI.file('/test-options-queued.qmd');
+			const cell: QuartoCodeCell = {
+				id: 'test-options',
+				index: 0,
+				language: 'python',
+				startLine: 1,
+				endLine: 5,
+				codeStartLine: 2,
+				codeEndLine: 4,
+				label: undefined,
+				options: '',
+				contentHash: 'options123',
+			};
+
+			const documentLines = [
+				'```{python}',      // Line 1 - fence
+				'#| label: test',   // Line 2 - option line (codeStartLine)
+				'x = 1',            // Line 3 - actual code
+				'print(x)',         // Line 4 - actual code (codeEndLine)
+				'```',              // Line 5 - fence
+			];
+
+			const mockModel = new MockQuartoDocumentModel([cell], documentLines);
+			const localMockDocumentModelService = new MockDocumentModelService();
+			localMockDocumentModelService.setMockModel(mockModel);
+
+			const localMockEditorService = new MockEditorService();
+			localMockEditorService.getValueInRangeCallback = (range: unknown) => {
+				const r = range as { startLineNumber: number; endLineNumber: number };
+				return documentLines.slice(r.startLineNumber - 1, r.endLineNumber).join('\n');
+			};
+
+			const localExecutionManager = new QuartoExecutionManager(
+				mockKernelManager as unknown as IQuartoKernelManager,
+				localMockDocumentModelService as unknown as IQuartoDocumentModelService,
+				localMockEditorService as unknown as IEditorService,
+				new MockEphemeralStateService() as unknown as IEphemeralStateService,
+				new MockWorkspaceContextService() as unknown as IWorkspaceContextService,
+				logService,
+				new TestPositronConsoleService() as unknown as IPositronConsoleService,
+				new MockRuntimeSessionService() as unknown as IRuntimeSessionService,
+				new MockTerminalService() as unknown as ITerminalService,
+			);
+			ctx.disposables.add(localExecutionManager);
+
+			// Execute via executeInlineCells with range that includes option lines
+			const codeRange = new Range(2, 1, 4, 100);
+
+			const executionPromise = localExecutionManager.executeInlineCells(
+				documentUri, [codeRange]
+			);
+
+			// Wait for execution to start (the cell transitions
+			// from Queued to Running as the async setup completes)
+			const executionId = await mockKernelManager.waitForExecution();
+
+			// Complete execution
+			mockSession.receiveStateMessage({
+				parent_id: executionId,
+				state: RuntimeOnlineState.Idle,
+			});
+
+			await executionPromise;
+
+			// Queued ranges should be empty after execution completes
+			const queuedRanges = localExecutionManager.getQueuedRanges('test-options');
+			assert.strictEqual(
+				queuedRanges.length, 0,
+				'Queued ranges should be empty after execution completes'
+			);
+
+			// State should not be Queued
+			assert.notStrictEqual(
+				localExecutionManager.getExecutionState('test-options'),
+				CellExecutionState.Queued,
+				'Cell should not be in Queued state after execution'
 			);
 		});
 	});

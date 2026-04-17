@@ -165,7 +165,7 @@ export class InlineQuarto {
 		});
 	}
 
-	async runCodeAndWaitForOutput({ cellLine, outputLine, timeout = 120000 }: { cellLine: number, outputLine: number, timeout?: number }): Promise<void> {
+	async runCodeAndWaitForOutput({ cellLine, outputLine, timeout = 120000 }: { cellLine: number; outputLine: number; timeout?: number }): Promise<void> {
 		await test.step(`Run code at line ${cellLine} and wait for output at line ${outputLine}`, async () => {
 			await this.gotoLine(cellLine);
 			await this.runCurrentCode();
@@ -290,6 +290,21 @@ export class InlineQuarto {
 		});
 	}
 
+	/**
+	 * Verify that the error output at the given index has at most the
+	 * expected number of rendered lines (div elements inside the pre).
+	 * Catches regressions where error text is duplicated.
+	 */
+	async expectErrorMaxLines(maxLines: number, { index = 0, timeout = 10000 }: { index?: number; timeout?: number } = {}): Promise<void> {
+		await test.step(`Expect error output has at most ${maxLines} lines`, async () => {
+			const errorEl = this.errorOutput.nth(index);
+			await expect(errorEl).toBeVisible({ timeout });
+			// Each ANSI output line is rendered as a <div> inside a <pre>
+			const lineCount = await errorEl.locator('pre > div').count();
+			expect(lineCount, `Expected at most ${maxLines} lines in error, but found ${lineCount}`).toBeLessThanOrEqual(maxLines);
+		});
+	}
+
 	async expectHtmlOutputVisible(): Promise<void> {
 		await test.step('Verify HTML output present', async () => {
 			const htmlCount = await this.htmlOutput.count();
@@ -366,12 +381,13 @@ export class InlineQuarto {
 		});
 	}
 
-	async expectKernelRunning(timeout = 30000): Promise<string> {
+	async expectKernelIdle(timeout = 30000): Promise<string> {
 		let kernelText: string | null = null;
-		await test.step('Verify kernel is running', async () => {
+		await test.step('Verify kernel is idle', async () => {
 			const kernelLabel = this.kernelStatusWidget.locator('.kernel-label');
 			await expect(kernelLabel).toBeVisible({ timeout });
 			await expect(kernelLabel).not.toHaveText(/No Kernel|Starting\.\.\./, { timeout });
+			await expect(this.kernelStatusWidget.locator('.codicon-positron-runtime-status-idle')).toBeVisible();
 		});
 		return kernelText!;
 	}

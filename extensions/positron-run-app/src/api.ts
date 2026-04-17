@@ -8,14 +8,46 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { DebugAdapterTrackerFactory } from './debugAdapterTrackerFactory';
 import { log } from './extension';
-import { DebugAppOptions, PositronRunApp, RunAppOptions } from './positron-run-app';
-import { raceTimeout, removeAnsiEscapeCodes, SequencerByKey } from './utils';
-import { DID_PREVIEW_URL_TIMEOUT, IS_POSITRON_WEB, IS_RUNNING_ON_PWB, SHELL_INTEGRATION_TIMEOUT, TERMINAL_OUTPUT_TIMEOUT } from './constants.js';
+import { DebugAppOptions, PositronRunApp, PreviewMode, RunAppOptions, RunConsoleAppOptions } from './positron-run-app';
+import { AppUrlDetector } from './appUrlDetector';
+import { raceTimeout, SequencerByKey } from './utils';
+import { DAP_CONFIGURATION_TIMEOUT, DID_PREVIEW_URL_TIMEOUT, IS_POSITRON_WEB, IS_RUNNING_ON_PWB, SHELL_INTEGRATION_TIMEOUT, TERMINAL_OUTPUT_TIMEOUT } from './constants.js';
 import { AppPreviewOptions, Config, PositronProxyInfo } from './types.js';
-import { shouldUsePositronProxy, showShellIntegrationNotSupportedMessage, showEnableShellIntegrationMessage, extractAppUrlFromString } from './api-utils.js';
+import { shouldUsePositronProxy, showShellIntegrationNotSupportedMessage, showEnableShellIntegrationMessage } from './api-utils.js';
 
+function readDefaultPreviewMode(): PreviewMode {
+	const setting = vscode.workspace.getConfiguration().get<string>(Config.PreviewMode);
+	switch (setting) {
+		case 'viewer':
+		case 'external':
+		case 'editor':
+		case 'none':
+			return setting;
+		default:
+			return 'viewer';
+	}
+}
+
+function parsePreviewMode(value: string | undefined): PreviewMode {
+	const mode = value ?? 'default';
+	switch (mode) {
+		case 'viewer':
+		case 'external':
+		case 'editor':
+		case 'none':
+		case 'manual':
+			return mode;
+		case 'default':
+			return readDefaultPreviewMode();
+		default:
+			log.warn(`Unknown preview mode '${mode}', falling back to default`);
+			return readDefaultPreviewMode();
+	}
+}
 
 export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable {
+	private static readonly CONSOLE_SESSIONS_KEY = 'consoleSessionsByName';
+
 	private readonly _debugApplicationSequencerByName = new SequencerByKey<string>();
 	private readonly _debugApplicationDisposableByName = new Map<string, vscode.Disposable>();
 	private readonly _runApplicationSequencerByName = new SequencerByKey<string>();
@@ -23,7 +55,9 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 	private readonly _appServers = new Map<string, { terminalPid: number | undefined; proxyUri: vscode.Uri }>();
 
 	constructor(
-		private readonly _globalState: vscode.Memento,
+		// Per-workspace ephemeral storage (positron.context.ephemeralState).
+		// Survives extension host restarts but not process exits.
+		private readonly _state: vscode.Memento,
 		private readonly _debugAdapterTrackerFactory: DebugAdapterTrackerFactory,
 	) { }
 
@@ -33,26 +67,51 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 	}
 
 	private isShellIntegrationSupported(): boolean {
-		return this._globalState.get('shellIntegrationSupported', true);
+		return this._state.get('shellIntegrationSupported', true);
 	}
 
 	public setShellIntegrationSupported(supported: boolean): Thenable<void> {
-		return this._globalState.update('shellIntegrationSupported', supported);
+		return this._state.update('shellIntegrationSupported', supported);
 	}
 
-	public async runApplication(options: RunAppOptions): Promise<void> {
-		// If there's no active text editor, do nothing.
+	public async runApplication(options: RunAppOptions): Promise<vscode.Uri | undefined> {
+		try {
+			const document = this.getDocumentForRun(options.name);
+			if (!document) {
+				return;
+			}
+			return await this.queueRunApplication(options.name, (progress) => this.doRunApplication(document, options, progress));
+		} catch (error) {
+			this.showRunError(options.name, error);
+			return undefined;
+		}
+	}
+
+	public async runApplicationInConsole(options: RunConsoleAppOptions): Promise<vscode.Uri | undefined> {
+		try {
+			const document = this.getDocumentForRun(options.name);
+			if (!document) {
+				return;
+			}
+			return await this.queueRunApplication(options.name, (progress) => this.doRunApplicationInConsole(document, options, progress));
+		} catch (error) {
+			this.showRunError(options.name, error);
+			return undefined;
+		}
+	}
+
+	private getDocumentForRun(appName: string): vscode.TextDocument | undefined {
 		const document = vscode.window.activeTextEditor?.document;
 		if (!document) {
-			return;
+			return undefined;
 		}
 
-		if (this._runApplicationSequencerByName.has(options.name)) {
-			vscode.window.showErrorMessage(vscode.l10n.t('{0} application is already starting.', options.name));
-			return;
+		if (this._runApplicationSequencerByName.has(appName)) {
+			vscode.window.showErrorMessage(vscode.l10n.t('{0} application is already starting.', appName));
+			return undefined;
 		}
 
-		return this.queueRunApplication(document, options);
+		return document;
 	}
 
 	public getProxyServerUri(appUrl: string): vscode.Uri | undefined {
@@ -73,45 +132,23 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		return undefined;
 	}
 
-	private queueRunApplication(document: vscode.TextDocument, options: RunAppOptions): Promise<void> {
+	private queueRunApplication<T>(
+		name: string,
+		task: (progress: vscode.Progress<{ message?: string }>) => Promise<T>,
+	): Promise<T> {
 		return this._runApplicationSequencerByName.queue(
-			options.name,
-			() => Promise.resolve(vscode.window.withProgress({
+			name,
+			async () => vscode.window.withProgress({
 				location: vscode.ProgressLocation.Notification,
-				title: vscode.l10n.t('Running {0} application', options.name),
-			},
-				(progress) => this.doRunApplication(document, options, progress),
-			)),
+				title: vscode.l10n.t('Running {0} application', name),
+			}, task),
 		);
 	}
 
-	private async doRunApplication(document: vscode.TextDocument, options: RunAppOptions, progress: vscode.Progress<{ message?: string }>): Promise<void> {
-		// Dispose existing disposables for the application, if any.
-		this._runApplicationDisposableByName.get(options.name)?.dispose();
-		this._runApplicationDisposableByName.delete(options.name);
-
+	private async doRunApplication(document: vscode.TextDocument, options: RunAppOptions, progress: vscode.Progress<{ message?: string }>): Promise<vscode.Uri | undefined> {
 		progress.report({ message: vscode.l10n.t('Preparing the terminal...') });
 
-		// Save the active document if it's dirty.
-		if (document.isDirty) {
-			await document.save();
-		}
-
-		// Get the preferred runtime for the document's language.
-		const runtime = await this.getPreferredRuntime(document.languageId);
-		if (!runtime) {
-			return;
-		}
-
-		// Set up the proxy server for the application if applicable.
-		let urlPrefix = undefined;
-		let proxyInfo: PositronProxyInfo | undefined;
-		if (shouldUsePositronProxy(options.name)) {
-			// Start the proxy server
-			proxyInfo = await vscode.commands.executeCommand<PositronProxyInfo>('positronProxy.startPendingProxyServer');
-			log.debug(`Proxy started for app at proxy path ${proxyInfo.proxyPath} with uri ${proxyInfo.externalUri.toString()}`);
-			urlPrefix = proxyInfo.proxyPath;
-		}
+		const { runtime, urlPrefix, proxyInfo } = await this.prepareRunApplication(document, options);
 
 		// Get the terminal options for the application.
 		const terminalOptions = await options.getTerminalOptions(runtime, document, urlPrefix);
@@ -123,7 +160,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		// - enabled in the workspace, and
 		// - supported in the terminal.
 		const isShellIntegrationEnabledAndSupported = this.showShellIntegrationMessages(
-			() => this.queueRunApplication(document, options)
+			() => this.queueRunApplication(options.name, (progress) => this.doRunApplication(document, options, progress))
 		);
 
 		// Get existing terminals with the application's name.
@@ -208,6 +245,8 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 
 		progress.report({ message: vscode.l10n.t('Starting application...') });
 
+		const preview = parsePreviewMode(options.preview);
+
 		if (shellIntegration) {
 			log.info('Shell integration is supported. Executing command with shell integration.');
 
@@ -218,16 +257,30 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			const execution = shellIntegration.executeCommand(terminalOptions.commandLine);
 
 			// Wait for the server URL in the execution output.
-			const previewOptions: AppPreviewOptions = {
-				terminalPid: await terminal.processId,
-				proxyInfo,
-				urlPath: options.urlPath,
-				appReadyMessage: options.appReadyMessage,
-				appUrlStrings: options.appUrlStrings,
-			};
-			await this.previewUrlInExecutionOutput(execution, previewOptions);
+			if (preview !== 'none') {
+				const previewOptions: AppPreviewOptions = {
+					preview,
+					terminalPid: await terminal.processId,
+					proxyInfo,
+					urlPath: options.urlPath,
+					appReadyMessage: options.appReadyMessage,
+					appUrlStrings: options.appUrlStrings,
+				};
+
+				const previewUri = await this.previewUrlInExecutionOutput(execution, previewOptions);
+				if (preview === 'manual') {
+					if (!previewUri) {
+						throw new Error(vscode.l10n.t('Failed to detect {0} app URL in terminal output.', options.name));
+					}
+					return previewUri;
+				}
+			}
 		} else {
 			log.info('Shell integration not supported. Executing command without shell integration.');
+
+			if (preview === 'manual') {
+				throw new Error(vscode.l10n.t('Cannot detect {0} app URL without shell integration.', options.name));
+			}
 
 			// TODO: If a port was provided, we could poll the server until it responds,
 			//       then open the URL in the viewer pane.
@@ -243,19 +296,188 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		}
 	}
 
+
+
+	private async doRunApplicationInConsole(
+		document: vscode.TextDocument,
+		options: RunConsoleAppOptions,
+		progress: vscode.Progress<{ message?: string }>,
+	): Promise<vscode.Uri | undefined> {
+		progress.report({ message: vscode.l10n.t('Preparing the console...') });
+
+		const { runtime, urlPrefix, proxyInfo } = await this.prepareRunApplication(document, options);
+
+		// Get the console code for the application.
+		const consoleCode = await options.getConsoleCode(runtime, document, urlPrefix);
+		if (!consoleCode) {
+			return;
+		}
+
+		const cleanup: vscode.Disposable[] = [];
+		try {
+
+			// When breakpoints are set and app runner requests debugger
+			// synchronization, listen for DAP `configurationDone` before starting or
+			// restarting the runtime so we don't miss the event. This ensures
+			// breakpoints are installed in the backend before we execute the app code
+			// (Ark needs to know about breakpoints to inject them while sourcing app
+			// files, e.g. in Shiny). Both start and restart trigger a DAP
+			// reconnection.
+			//
+			// Known issues:
+			// - I noticed that Ark seems to be ready before the configuration listener
+			//   fires, so we probably could optimise startup time when breakpoints are
+			//   set, but likely not in a trivial way.
+			// - The synchronization structure is not great. We're waiting for any
+			//   debug adapter whose session type matches the one we're tracking.
+			//   There could be races when user switches session after starting a
+			//   Shiny app. We'd ideally be more targeted regarding which DAP we're
+			//   waiting on.
+			const shouldSyncDebugger =
+				options.debugAdapterType &&
+				vscode.debug.breakpoints.length > 0;
+			let configurationDone: Promise<void> | undefined;
+
+			if (shouldSyncDebugger) {
+				configurationDone = new Promise<void>(resolve => {
+					const listener = this._debugAdapterTrackerFactory.onDidCompleteConfiguration((session) => {
+						if (session.type !== options.debugAdapterType) {
+							return;
+						}
+						listener.dispose();
+						resolve();
+					});
+					cleanup.push(listener);
+				});
+			}
+
+			// Look up a previously used console session for this app and
+			// check if it's still alive. If so, restart it; otherwise
+			// create a fresh one.
+			let sessionId = await this.findConsoleSession(options.name);
+
+			if (sessionId) {
+				progress.report({ message: vscode.l10n.t('Restarting application...') });
+
+				try {
+					const didRestart = await positron.runtime.restartSession(sessionId);
+					if (!didRestart) {
+						log.debug('Session restart was cancelled');
+						return;
+					}
+				} catch (error) {
+					log.debug(`Could not restart session for ${options.name}, creating a new one: ${error}`);
+					sessionId = undefined;
+				}
+			}
+
+			if (!sessionId) {
+				progress.report({ message: vscode.l10n.t('Starting console session...') });
+
+				const session = await positron.runtime.startLanguageRuntime(
+					runtime.runtimeId,
+					options.name,
+				);
+
+				sessionId = session.metadata.sessionId;
+			}
+
+			this.saveConsoleSession(options.name, sessionId);
+
+			if (configurationDone) {
+				progress.report({ message: vscode.l10n.t('Waiting for debugger initialization...') });
+				await raceTimeout(
+					configurationDone,
+					DAP_CONFIGURATION_TIMEOUT,
+					() => log.warn('Timed out waiting for DAP configurationDone; proceeding without breakpoints'),
+				);
+			}
+
+			positron.runtime.focusSession(sessionId);
+			progress.report({ message: vscode.l10n.t('Starting application...') });
+
+			const preview = parsePreviewMode(options.preview);
+
+			// Set up URL detection via an observer for the output of our execute request.
+			// Always created but only consumed when `preview` is not `'none'`.
+			const detector = new AppUrlDetector(options.appUrlStrings, options.appReadyMessage);
+			const cancellation = new vscode.CancellationTokenSource();
+			cleanup.push(cancellation);
+
+			const observer: positron.runtime.ExecutionObserver = {
+				token: cancellation.token,
+				onOutput: (data) => detector.processOutput(data),
+				onError: (data) => detector.processOutput(data),
+			};
+
+			// Execute the code in the console session.
+			// Don't await: the Thenable resolves only when the app stops.
+			positron.runtime.executeCode(
+				document.languageId,
+				consoleCode.code,
+				true,
+				false,
+				positron.RuntimeCodeExecutionMode.Interactive,
+				positron.RuntimeErrorBehavior.Continue,
+				observer,
+				sessionId,
+			).then(undefined, (error: Error) => {
+				log.error(`Console execution error: ${error.message}`);
+			});
+
+			switch (preview) {
+				case 'viewer':
+				case 'external':
+				case 'editor':
+				case 'manual': {
+					const url = await raceTimeout(
+						detector.found,
+						TERMINAL_OUTPUT_TIMEOUT,
+						() => {
+							cancellation.cancel();
+							throw new Error(vscode.l10n.t('Timed out waiting for {0} app URL in console output.', options.name));
+						},
+					);
+
+					const previewUri = await this.previewApp(url!, {
+						preview,
+						proxyInfo,
+						urlPath: options.urlPath,
+						previewSource: {
+							type: positron.PreviewSourceType.Runtime,
+							id: sessionId,
+						},
+					});
+					if (preview === 'manual') {
+						return previewUri;
+					}
+					break;
+				}
+				case 'none':
+					break;
+			}
+		} finally {
+			cleanup.forEach(d => d.dispose());
+		}
+	}
+
 	public async debugApplication(options: DebugAppOptions): Promise<void> {
-		// If there's no active text editor, do nothing.
-		const document = vscode.window.activeTextEditor?.document;
-		if (!document) {
-			return;
-		}
+		try {
+			// If there's no active text editor, do nothing.
+			const document = vscode.window.activeTextEditor?.document;
+			if (!document) {
+				return;
+			}
 
-		if (this._debugApplicationSequencerByName.has(options.name)) {
-			vscode.window.showErrorMessage(vscode.l10n.t('{0} application is already starting.', options.name));
-			return;
-		}
+			if (this._debugApplicationSequencerByName.has(options.name)) {
+				vscode.window.showErrorMessage(vscode.l10n.t('{0} application is already starting.', options.name));
+				return;
+			}
 
-		return this.queueDebugApplication(document, options);
+			await this.queueDebugApplication(document, options);
+		} catch (error) {
+			this.showRunError(options.name, error);
+		}
 	}
 
 	private queueDebugApplication(document: vscode.TextDocument, options: DebugAppOptions): Promise<void> {
@@ -283,15 +505,11 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		// Get the preferred runtime for the document's language.
 		progress.report({ message: vscode.l10n.t('Getting interpreter information...') });
 		const runtime = await this.getPreferredRuntime(document.languageId);
-		if (!runtime) {
-			return;
-		}
 
 		// Set up the proxy server for the application if applicable.
-		let urlPrefix = undefined;
+		let urlPrefix: string | undefined;
 		let proxyInfo: PositronProxyInfo | undefined;
 		if (shouldUsePositronProxy(options.name)) {
-			// Start the proxy server
 			proxyInfo = await vscode.commands.executeCommand<PositronProxyInfo>('positronProxy.startPendingProxyServer');
 			log.debug(`Proxy started for app at proxy path ${proxyInfo.proxyPath} with uri ${proxyInfo.externalUri.toString()}`);
 			urlPrefix = proxyInfo.proxyPath;
@@ -342,9 +560,8 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 									appReadyMessage: options.appReadyMessage,
 									appUrlStrings: options.appUrlStrings,
 								};
-								const didPreviewUrl = await this.previewUrlInExecutionOutput(e.execution, previewOptions);
-								if (didPreviewUrl) {
-									resolve(didPreviewUrl);
+								if (await this.previewUrlInExecutionOutput(e.execution, previewOptions)) {
+									resolve(true);
 								}
 							}
 						});
@@ -367,20 +584,79 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		}
 	}
 
-	/** Get the preferred runtime for a language; forwarding errors to the UI. */
-	private async getPreferredRuntime(languageId: string): Promise<positron.LanguageRuntimeMetadata | undefined> {
-		try {
-			return await positron.runtime.getPreferredRuntime(languageId);
-		} catch (error) {
-			vscode.window.showErrorMessage(
-				vscode.l10n.t(
-					"Failed to get '{0}' interpreter information. Error: {1}",
-					languageId,
-					JSON.stringify(error)
-				),
-			);
+	private async prepareRunApplication(
+		document: vscode.TextDocument,
+		options: { name: string },
+	): Promise<{
+		runtime: positron.LanguageRuntimeMetadata;
+		urlPrefix: string | undefined;
+		proxyInfo: PositronProxyInfo | undefined;
+	}> {
+		this._runApplicationDisposableByName.get(options.name)?.dispose();
+		this._runApplicationDisposableByName.delete(options.name);
+
+		if (document.isDirty) {
+			await document.save();
 		}
-		return undefined;
+
+		const runtime = await this.getPreferredRuntime(document.languageId);
+
+		let urlPrefix = undefined;
+		let proxyInfo: PositronProxyInfo | undefined;
+		if (shouldUsePositronProxy(options.name)) {
+			proxyInfo = await vscode.commands.executeCommand<PositronProxyInfo>('positronProxy.startPendingProxyServer');
+			log.debug(`Proxy started for app at proxy path ${proxyInfo.proxyPath} with uri ${proxyInfo.externalUri.toString()}`);
+			urlPrefix = proxyInfo.proxyPath;
+		}
+
+		return { runtime, urlPrefix, proxyInfo };
+	}
+
+	private async getPreferredRuntime(languageId: string): Promise<positron.LanguageRuntimeMetadata> {
+		const runtime = await positron.runtime.getPreferredRuntime(languageId);
+		if (!runtime) {
+			throw new Error(vscode.l10n.t("No '{0}' interpreter found.", languageId));
+		}
+		return runtime;
+	}
+
+	// This persists known sessions so we restart apps in the right console
+	// session after an extension host restart or a window reload
+	private saveConsoleSession(name: string, sessionId: string): Thenable<void> {
+		const persisted = this._state.get<Record<string, string>>(
+			PositronRunAppApiImpl.CONSOLE_SESSIONS_KEY, {}
+		);
+		persisted[name] = sessionId;
+		return this._state.update(PositronRunAppApiImpl.CONSOLE_SESSIONS_KEY, persisted);
+	}
+
+	private async findConsoleSession(name: string): Promise<string | undefined> {
+		const persisted = this._state.get<Record<string, string>>(
+			PositronRunAppApiImpl.CONSOLE_SESSIONS_KEY, {}
+		);
+
+		// Prune all stale sessions so the persisted map doesn't grow over time
+		let pruned = false;
+		for (const [key, id] of Object.entries(persisted)) {
+			const session = await positron.runtime.getSession(id);
+			if (!session) {
+				delete persisted[key];
+				pruned = true;
+			}
+		}
+		if (pruned) {
+			await this._state.update(PositronRunAppApiImpl.CONSOLE_SESSIONS_KEY, persisted);
+		}
+
+		return persisted[name];
+	}
+
+	private showRunError(appName: string, error: unknown): void {
+		if (error instanceof Error) {
+			vscode.window.showErrorMessage(error.message);
+		} else {
+			vscode.window.showErrorMessage(vscode.l10n.t('Failed to start {0} application: {1}', appName, String(error)));
+		}
 	}
 
 	private showShellIntegrationMessages(rerunApplicationCallback: () => any): boolean {
@@ -406,67 +682,51 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		return isShellIntegrationEnabled && isShellIntegrationSupported;
 	}
 
-	private async previewUrlInExecutionOutput(execution: vscode.TerminalShellExecution, options: AppPreviewOptions) {
+	private async previewUrlInExecutionOutput(execution: vscode.TerminalShellExecution, options: AppPreviewOptions): Promise<vscode.Uri | undefined> {
 		// Wait for the server URL to appear in the terminal output, or a timeout.
 		const stream = execution.read();
-		const appReadyMessage = options.appReadyMessage?.trim();
+		const detector = new AppUrlDetector(options.appUrlStrings, options.appReadyMessage);
+
+		// Feed the stream into the detector. The loop breaks once the URL is
+		// found, or ends when the terminal process exits.
+		(async () => {
+			for await (const data of stream) {
+				log.trace('Execution:', execution.commandLine.value, data);
+				if (detector.processOutput(data)) {
+					break;
+				}
+			}
+		})();
+
 		const url = await raceTimeout(
-			(async () => {
-				// If an appReadyMessage is not provided, we'll consider the app ready as soon as the URL is found.
-				let appReady = !appReadyMessage;
-				let appUrl = undefined;
-				for await (const data of stream) {
-					log.trace('Execution:', execution.commandLine.value, data);
-
-					// Ansi escape codes seem to mess up the regex match on Windows, so remove them first.
-					const dataCleaned = removeAnsiEscapeCodes(data);
-
-					// Check if the app is ready, if it's not already ready and an appReadyMessage is provided.
-					if (!appReady && appReadyMessage) {
-						appReady = dataCleaned.includes(appReadyMessage);
-						if (appReady) {
-							log.debug(`App is ready - found appReadyMessage: '${appReadyMessage}'`);
-							// If the app URL was already found, we're done!
-							if (appUrl) {
-								return appUrl;
-							}
-						}
-					}
-					// Check if the app url is found in the terminal output.
-					if (!appUrl) {
-						const match = extractAppUrlFromString(dataCleaned, options.appUrlStrings);
-						if (match) {
-							appUrl = new URL(match);
-							log.debug(`Found app URL in terminal output: ${appUrl.toString()}`);
-							// If the app is ready, we're done!
-							if (appReady) {
-								return appUrl;
-							}
-						}
-					}
-				}
-
-				// If we're here, we've reached the end of the stream without finding the app URL and/or
-				// the appReadyMessage.
-				if (!appReady) {
-					// It's possible that the app is ready, but the appReadyMessage was not found, for
-					// example, if the message has changed or was missed somehow. Log a warning.
-					log.warn(`Expected app ready message '${appReadyMessage}' not found in terminal`);
-				}
-				if (!appUrl) {
-					log.error('App URL not found in terminal output');
-				}
-				return appUrl;
-			})(),
+			detector.found,
 			TERMINAL_OUTPUT_TIMEOUT,
 			() => log.error('Timed out waiting for server output in terminal'),
 		);
 
 		if (!url) {
 			log.error('Cannot preview URL. App is not ready or URL not found in terminal output.');
-			return false;
+			return undefined;
 		}
 
+		return this.previewApp(url, {
+			preview: options.preview,
+			proxyInfo: options.proxyInfo,
+			urlPath: options.urlPath,
+			terminalPid: options.terminalPid,
+			previewSource: options.terminalPid !== undefined
+				? { type: positron.PreviewSourceType.Terminal, id: String(options.terminalPid) }
+				: undefined,
+		});
+	}
+
+	private async previewApp(url: URL, options: {
+		preview?: Exclude<PreviewMode, 'none'>;
+		proxyInfo?: PositronProxyInfo;
+		urlPath?: string;
+		terminalPid?: number;
+		previewSource?: positron.PreviewSource;
+	}): Promise<vscode.Uri> {
 		// Example: http://localhost:8500
 		const localBaseUri = vscode.Uri.parse(url.toString());
 
@@ -502,17 +762,26 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			options.terminalPid,
 			previewUri,
 		);
-		// Preview the app in the Viewer.
-		if (options.terminalPid !== undefined) {
-			positron.window.previewUrl(previewUri, {
-				type: positron.PreviewSourceType.Terminal,
-				id: String(options.terminalPid)
-			});
-		} else {
-			positron.window.previewUrl(previewUri);
+
+		switch (options.preview) {
+			case 'viewer':
+			case undefined:
+				positron.window.previewUrl(previewUri, options.previewSource);
+				break;
+			case 'external':
+				await vscode.env.openExternal(previewUri);
+				break;
+			case 'editor':
+				await vscode.commands.executeCommand('simpleBrowser.api.open', previewUri.toString(true), {
+					preserveFocus: true,
+					viewColumn: vscode.ViewColumn.Beside,
+				});
+				break;
+			case 'manual':
+				break;
 		}
 
-		return true;
+		return previewUri;
 	}
 
 	private addAppServer(appUrl: string, terminalPid: number | undefined, proxyUri: vscode.Uri): void {

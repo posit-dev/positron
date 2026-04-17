@@ -155,10 +155,6 @@
 
 /* Error output container (when widget contains non-error outputs too) */
 .quarto-output-error {
-	padding: 8px;
-	background: var(--vscode-inputValidation-errorBackground);
-	border: 1px solid var(--vscode-inputValidation-errorBorder);
-	border-radius: 2px;
 	color: var(--vscode-errorForeground);
 }
 
@@ -170,20 +166,6 @@
 	/* Font is inherited from container which uses editor font settings */
 	user-select: text;
 	-webkit-user-select: text;
-}
-
-/* Widget-level error styling (when only output is an error) */
-.quarto-inline-output.quarto-output-error-only {
-	background: var(--vscode-inputValidation-errorBackground);
-	border-color: var(--vscode-inputValidation-errorBorder);
-}
-
-/* Remove individual error styling when widget has error style */
-.quarto-inline-output.quarto-output-error-only .quarto-output-error {
-	padding: 0;
-	background: transparent;
-	border: none;
-	border-radius: 0;
 }
 
 /* Image output container */
@@ -362,16 +344,135 @@
 	mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.3) 30%, rgba(0, 0, 0, 0.7) 60%, black 100%);
 }
 
-/* Widget-level error styling (when only output is an error) */
-.quarto-inline-output.quarto-output-error-only {
-	background: var(--vscode-inputValidation-errorBackground);
-	border-color: var(--vscode-inputValidation-errorBorder);
+/* Status bar for execution info (duration, timestamp, success/fail).
+   Lives outside the styled output container but inside the view zone wrapper. */
+.quarto-output-status-bar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	height: 20px;
+	margin-top: 4px;
+	margin-bottom: 4px;
+	padding-left: 12px;
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+	cursor: default;
+	user-select: none;
+	-webkit-user-select: none;
 }
 
-/* Remove individual error styling when widget has error style */
-.quarto-inline-output.quarto-output-error-only .quarto-output-error {
-	padding: 0;
-	background: transparent;
-	border: none;
-	border-radius: 0;
+/* Reuse notebook footer icon classes scoped to quarto status bar */
+.quarto-output-status-bar .code-cell-footer-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	width: 16px;
+	height: 16px;
+	font-size: 16px;
+}
+
+.quarto-output-status-bar .codicon.code-cell-footer-icon.success {
+	color: var(--vscode-notebookStatusSuccessIcon-foreground);
+}
+
+.quarto-output-status-bar .codicon.code-cell-footer-icon.error {
+	color: var(--vscode-notebookStatusErrorIcon-foreground);
+}
+
+.quarto-output-status-bar .codicon.code-cell-footer-icon.pending {
+	color: var(--vscode-notebookStatusRunningIcon-foreground);
+}
+
+.quarto-output-status-bar .codicon.code-cell-footer-icon.running {
+	color: var(--vscode-notebookStatusRunningIcon-foreground);
+	animation: quarto-status-spin 1.5s linear infinite;
+}
+
+@keyframes quarto-status-spin {
+	100% {
+		transform: rotate(360deg);
+	}
+}
+
+/* CPU sparkline graph in status bar during execution */
+.quarto-output-status-bar .quarto-output-sparkline {
+	display: flex;
+	align-items: center;
+	flex-shrink: 0;
+	margin-left: auto;
+	height: 16px;
+	opacity: 0;
+	transition: opacity 400ms ease;
+}
+
+.quarto-output-status-bar .quarto-output-sparkline.sparkline-visible {
+	opacity: 1;
+}
+
+.quarto-output-status-bar .quarto-output-sparkline .resource-usage-graph {
+	display: block;
+}
+
+.quarto-output-status-bar .quarto-output-sparkline .resource-usage-line {
+	fill: none;
+	stroke: var(--vscode-charts-lines, var(--vscode-foreground));
+	stroke-width: 1.5;
+}
+
+.quarto-output-status-bar .quarto-output-sparkline .resource-usage-fill {
+	fill: var(--vscode-charts-lines, var(--vscode-foreground));
+	opacity: 0.2;
+}
+
+/* Status text container with duration and timestamp */
+.quarto-output-status-bar .code-cell-footer-text {
+	display: flex;
+	align-items: center;
+	gap: 13px;
+	white-space: nowrap;
+}
+
+/* Duration text with separator */
+.quarto-output-status-bar .code-cell-footer-duration {
+	position: relative;
+}
+
+/* Hide the upstream ::after separator by default (from CodeCellStatusFooter.css) */
+.quarto-output-status-bar .code-cell-footer-duration::after {
+	display: none;
+}
+
+/* Vertical separator between duration and timestamp (only when has-separator class is set) */
+.quarto-output-status-bar .code-cell-footer-duration.has-separator::after {
+	display: block;
+	content: '';
+	position: absolute;
+	right: -7px;
+	top: 1px;
+	bottom: 1px;
+	width: 1px;
+	background-color: var(--vscode-widget-border);
+}
+
+/* CPU percentage label next to sparkline */
+.quarto-output-status-bar .quarto-output-cpu-label {
+	flex-shrink: 0;
+	min-width: 5em;
+	margin-left: 4px;
+	margin-right: 20px;
+	font-variant-numeric: tabular-nums;
+	text-align: right;
+	white-space: nowrap;
+	opacity: 0;
+	transition: opacity 400ms ease;
+}
+
+.quarto-output-status-bar .quarto-output-cpu-label.sparkline-visible {
+	opacity: 1;
+}
+
+/* Status-only view zone: hide the output container entirely, just show the status bar */
+.quarto-inline-output.quarto-output-status-only {
+	display: none;
 }

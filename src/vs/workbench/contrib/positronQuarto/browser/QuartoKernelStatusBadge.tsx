@@ -11,15 +11,15 @@ import React from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../nls.js';
-import { MenuId, MenuItemAction, SubmenuItemAction } from '../../../../platform/actions/common/actions.js';
+import { IMenuService, MenuId, MenuItemAction, SubmenuItemAction } from '../../../../platform/actions/common/actions.js';
 import { ActionBarMenuButton } from '../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IQuartoKernelManager, QuartoKernelState } from './quartoKernelManager.js';
 import { isQuartoDocument } from '../common/positronQuartoConfig.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
-import { RuntimeStatus, RuntimeStatusIcon } from '../../positronConsole/browser/components/runtimeStatus.js';
+import { RuntimeStatusIcon } from '../../positronConsole/browser/components/runtimeStatus.js';
+import { RuntimeStatus } from '../../positronConsole/common/sessionDisplayUtils.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
-import { IMenuService } from '../../../../platform/actions/common/actions.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';

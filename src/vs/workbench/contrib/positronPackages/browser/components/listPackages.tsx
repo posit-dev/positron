@@ -9,8 +9,8 @@ import './listPackages.css';
 // React.
 import React, {
 	CSSProperties,
-	useCallback,
 	useEffect,
+	useMemo,
 	useRef,
 	useState,
 } from 'react';
@@ -21,31 +21,15 @@ import * as DOM from '../../../../../base/browser/dom.js';
 import { isMacintosh } from '../../../../../base/common/platform.js';
 import { useStateRef } from '../../../../../base/browser/ui/react/useStateRef.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
-import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
-import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
-import { ActionBarRegion } from '../../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
-import { PositronActionBar } from '../../../../../platform/positronActionBar/browser/positronActionBar.js';
-import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
+import { ActionBarFilter } from '../../../../../platform/positronActionBar/browser/components/actionBarFilter.js';
 import { ViewsProps } from '../positronPackages.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
-import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { localize } from '../../../../../nls.js';
 import { usePositronPackagesContext } from '../positronPackagesContext.js';
-import { ILanguageRuntimePackage, ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackage } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progressbar.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { Separator } from '../../../../../base/common/actions.js';
-import { PackagesInstanceMenuButton } from './packagesInstanceMenuButton.js';
-
-const positronRefreshPackages = localize(
-	'positronRefreshPackages',
-	'Refresh Packages',
-);
-
-const positronInstallPackage = localize(
-	'positronInstallPackage',
-	'Install Package',
-);
 
 const positronUninstallPackage = localize(
 	'positronUninstallPackage',
@@ -57,15 +41,8 @@ const positronUpdatePackage = localize(
 	'Update Package',
 );
 
-const positronUpdateAllPackages = localize(
-	'positronUpdateAllPackages',
-	'Update All Packages',
-);
-
-const positronPackageActions = localize(
-	'positronPackageActions',
-	'Package Actions',
-);
+// Height of the filter container in pixels
+const FILTER_HEIGHT = 34;
 
 export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	const {
@@ -168,6 +145,44 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		};
 	}, [loading]);
 
+	// Filter state
+	const [filterText, setFilterText] = useState('');
+	const [debouncedFilterText, setDebouncedFilterText] = useState('');
+
+	// Debounce filter text changes (300ms)
+	useEffect(() => {
+		const timeout = setTimeout(() => {
+			setDebouncedFilterText(filterText);
+		}, 300);
+		return () => clearTimeout(timeout);
+	}, [filterText]);
+
+	// Deduplicate packages by name, keeping only the first occurrence.
+	// The same package can exist in multiple library paths (e.g., user and system libraries).
+	// We show only the first one, matching R's library search order.
+	const deduplicatedPackages = useMemo(() => {
+		const seen = new Set<string>();
+		return packages.filter((pkg) => {
+			if (seen.has(pkg.name)) {
+				return false;
+			}
+			seen.add(pkg.name);
+			return true;
+		});
+	}, [packages]);
+
+	// Filter packages based on the debounced filter text (case-insensitive, matches name or displayName)
+	const filteredPackages = useMemo(() => {
+		if (!debouncedFilterText) {
+			return deduplicatedPackages;
+		}
+		const lowerFilter = debouncedFilterText.toLowerCase();
+		return deduplicatedPackages.filter((pkg) =>
+			pkg.name.toLowerCase().includes(lowerFilter) ||
+			pkg.displayName.toLowerCase().includes(lowerFilter)
+		);
+	}, [deduplicatedPackages, debouncedFilterText]);
+
 	// UI State
 	const [focused, setFocused] = useState(false);
 
@@ -207,7 +222,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 
 	// Item renderer
 	const ItemEntry = (props: { index: number; style: CSSProperties }) => {
-		const itemProps = packages[props.index];
+		const itemProps = filteredPackages[props.index];
 		const { id, name, displayName, version } = itemProps;
 
 		return (
@@ -236,7 +251,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 									tooltip: localize('positronPackages.copyAllPackages', 'Copy All'),
 									class: undefined,
 									enabled: true,
-									run: () => services.clipboardService.writeText(packages.map((pkg) => `${pkg.name} (${pkg.version})`).join('\n'))
+									run: () => services.clipboardService.writeText(deduplicatedPackages.map((pkg) => `${pkg.name} (${pkg.version})`).join('\n'))
 								},
 								new Separator(),
 								{
@@ -271,10 +286,15 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		);
 	};
 
-	// Map selected item to package name
-	const getSelectedItemPackageName = useCallback((item: string | undefined) => {
-		return packages.find((pkg) => pkg.id === item)?.name;
-	}, [packages]);
+	// Update selected package in the service when selection changes
+	useEffect(() => {
+		// Find the package name from the selected item id
+		const selectedPackageName = selectedItem
+			? deduplicatedPackages.find((pkg) => pkg.id === selectedItem)?.name
+			: undefined;
+		services.positronPackagesService.setSelectedPackage(selectedPackageName);
+		return () => services.positronPackagesService.setSelectedPackage(undefined);
+	}, [selectedItem, deduplicatedPackages, services.positronPackagesService]);
 
 	return (
 		// eslint-disable-next-line jsx-a11y/no-static-element-interactions
@@ -288,32 +308,18 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		>
 			<div ref={progressRef} id='packages-progress' />
 
-			<ActionBar
-				activeSession={activeInstance?.session}
-				busy={loading}
-				selectedItem={selectedItem}
-				onInstallPackage={() => services.commandService.executeCommand('positronPackages.installPackage')}
-				onRefreshPackages={() => services.commandService.executeCommand('positronPackages.refreshPackages')}
-				onUninstallPackage={() => {
-					const packageName = getSelectedItemPackageName(selectedItem);
-					if (packageName) {
-						services.commandService.executeCommand('positronPackages.uninstallPackage', packageName);
-					}
-				}}
-				onUpdateAllPackages={() => services.commandService.executeCommand('positronPackages.updateAllPackages')}
-				onUpdatePackage={() => {
-					const packageName = getSelectedItemPackageName(selectedItem);
-					if (packageName) {
-						services.commandService.executeCommand('positronPackages.updatePackage', packageName);
-					}
-				}}
-			></ActionBar>
+			<div className='packages-filter-container'>
+				<ActionBarFilter
+					placeholder={localize('positronPackages.filterPlaceholder', "Filter packages")}
+					onFilterTextChanged={setFilterText}
+				/>
+			</div>
 			<div className='packages-list-container'>
 				<List
-					height={height - ACTION_BAR_HEIGHT}
+					height={height - FILTER_HEIGHT}
 					innerRef={innerRef}
-					itemCount={packages.length}
-					itemKey={(index) => packages[index].id}
+					itemCount={filteredPackages.length}
+					itemKey={(index) => filteredPackages[index].id}
 					itemSize={26}
 					width={'calc(100% - 2px)'}
 				>
@@ -321,101 +327,5 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 				</List>
 			</div>
 		</div >
-	);
-};
-
-const ACTION_BAR_PADDING_LEFT = 8;
-const ACTION_BAR_PADDING_RIGHT = 8;
-const ACTION_BAR_HEIGHT = 28;
-
-interface ActionBarProps {
-	busy: boolean;
-	activeSession?: ILanguageRuntimeSession;
-	selectedItem?: string;
-	onInstallPackage: () => void;
-	onRefreshPackages: () => void;
-	onUninstallPackage: () => void;
-	onUpdateAllPackages: () => void;
-	onUpdatePackage: () => void;
-}
-
-const ActionBar = ({
-	busy,
-	activeSession,
-	selectedItem,
-	onInstallPackage,
-	onRefreshPackages,
-	onUpdateAllPackages,
-	onUpdatePackage,
-	onUninstallPackage,
-	...props
-}: React.PropsWithChildren<ActionBarProps>) => {
-	return (
-		<div style={{ height: ACTION_BAR_HEIGHT }}>
-			<PositronActionBarContextProvider {...props}>
-				<PositronActionBar
-					borderBottom={true}
-					borderTop={true}
-					paddingLeft={ACTION_BAR_PADDING_LEFT}
-					paddingRight={ACTION_BAR_PADDING_RIGHT}
-				>
-					<ActionBarRegion location='left'>
-						<PackagesInstanceMenuButton />
-					</ActionBarRegion>
-					<ActionBarRegion location='right'>
-						<ActionBarButton
-							align='right'
-							ariaLabel={positronRefreshPackages}
-							disabled={busy || !activeSession}
-							icon={ThemeIcon.fromId('refresh')}
-							tooltip={positronRefreshPackages}
-							onPressed={onRefreshPackages}
-						/>
-						<ActionBarMenuButton
-							actions={() => [
-								{
-									id: 'positron.packages.installPackage',
-									label: positronInstallPackage,
-									tooltip: positronInstallPackage,
-									class: undefined,
-									enabled: !busy,
-									run: onInstallPackage,
-								},
-								{
-									id: 'positron.packages.updateAllPackages',
-									label: positronUpdateAllPackages,
-									tooltip: positronUpdateAllPackages,
-									class: undefined,
-									enabled: !busy,
-									run: onUpdateAllPackages,
-								},
-								{
-									id: 'positron.packages.updatePackage',
-									label: positronUpdatePackage,
-									tooltip: positronUpdatePackage,
-									class: undefined,
-									enabled: !busy && Boolean(selectedItem),
-									run: onUpdatePackage,
-								},
-								{
-									id: 'positron.packages.uninstallPackage',
-									label: positronUninstallPackage,
-									tooltip: positronUninstallPackage,
-									class: undefined,
-									enabled: !busy && Boolean(selectedItem),
-									run: onUninstallPackage,
-								},
-							]}
-							align='right'
-							ariaLabel={positronPackageActions}
-							disabled={!activeSession}
-							dropdownIndicator='disabled'
-							icon={ThemeIcon.fromId('ellipsis')}
-							tooltip={positronPackageActions}
-						/>
-					</ActionBarRegion>
-				</PositronActionBar>
-			</PositronActionBarContextProvider>
-		</div>
 	);
 };

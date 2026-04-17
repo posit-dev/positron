@@ -7,7 +7,7 @@
 import './CellLeftActionMenu.css';
 
 // Other dependencies.
-import { useObservedValue } from '../useObservedValue.js';
+import { useDebouncedObservedValue } from '../useObservedValue.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
 
 interface CellLeftActionMenuProps {
@@ -19,7 +19,7 @@ interface CellLeftActionMenuProps {
  */
 export function CellLeftActionMenu({ cell }: CellLeftActionMenuProps) {
 	// Observed values
-	const executionOrder = useObservedValue(cell.lastExecutionOrder);
+	const executionOrder = useDebouncedObservedValue(cell.lastExecutionOrder);
 
 	// Determine what to show
 	const showPending = executionOrder === undefined;

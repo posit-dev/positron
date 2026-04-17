@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import path from 'path';
+import { expect } from '@playwright/test';
 import { tags } from '../_test.setup';
 import { test } from './_test.setup.js';
 
@@ -23,7 +24,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 
 		// ensure when no kernel is selected, restart/shutdown are disabled
 		await notebooksPositron.kernel.expectMenuToContain([
-			{ label: 'Change Kernel', enabled: true },
+			{ label: 'Change Kernel...', enabled: true },
 			{ label: 'Restart Kernel', enabled: false },
 			{ label: 'Shutdown Kernel', enabled: false },
 		]);
@@ -64,7 +65,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		await notebooksPositron.kernel.expectMenuToContain([
 			{ label: 'Restart Kernel', enabled: true },
 			{ label: 'Shutdown Kernel', enabled: false },
-			{ label: 'Change Kernel', enabled: true },
+			{ label: 'Change Kernel...', enabled: true },
 		]);
 
 		// re-start kernel from shutdown state and ensure state changes
@@ -76,7 +77,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 	});
 
 	test('ensure variable and output persistence after kernel restart', async function ({ app }) {
-		const { notebooksPositron, variables } = app.workbench;
+		const { notebooksPositron, variables, inlineDataExplorer } = app.workbench;
 
 		// create new notebook
 		await notebooksPositron.newNotebook();
@@ -90,9 +91,11 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		await notebooksPositron.addCodeToCell(1, 'y = 3', { run: true });
 		await variables.expectVariableToBe('y', '3');
 
-		// cell 3: render data frame with HTML
+		// cell 2: render data frame as inline data explorer
 		await notebooksPositron.addCodeToCell(2, rDataFrame, { run: true });
-		await notebooksPositron.expectOutputAtIndex(2, cellOutput);
+		await inlineDataExplorer.expectToBeVisible();
+		await inlineDataExplorer.expectGridToBeReady();
+		await inlineDataExplorer.expectShapeToContain(4, 4);
 
 		// verify execution orders
 		await notebooksPositron.expectExecutionOrder([
@@ -114,8 +117,9 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 			{ index: 1, order: 2 },
 		]);
 
-		// verify html cell output persists and remains unchanged
-		await notebooksPositron.expectOutputAtIndex(2, cellOutput);
+		// verify data explorer cell output persists (may show fallback/disconnected state after restart)
+		await notebooksPositron.cellOutput(2).scrollIntoViewIfNeeded();
+		await expect(notebooksPositron.cellOutput(2)).toBeVisible();
 
 		// run cell 0 again and ensure execution order restarts at 1
 		await notebooksPositron.runCodeAtIndex(1);
@@ -206,6 +210,31 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		// Disable the notebook console actions setting after this test
 		await settings.remove(['console.showNotebookConsoleActions']);
 	});
+
+	test('Python - console accepts input after notebook cell execution', {
+		tag: [tags.CONSOLE, tags.POSITRON_NOTEBOOKS, tags.WIN],
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/11704' }]
+	}, async function ({ app, sessions }) {
+		const { notebooksPositron, console } = app.workbench;
+		await sessions.start(['python']);
+		await notebooksPositron.newNotebook();
+		await notebooksPositron.kernel.select('Python');
+		await notebooksPositron.addCodeToCell(0, 'import time; time.sleep(6); print("done")', { run: false });
+		await notebooksPositron.runCellButtonAtIndex(0).click();
+
+		// verify the console accepts typed input
+		await console.focus();
+		await console.waitForReady('>>>');
+		await console.typeToConsole('x = 42', true);
+		await console.waitForReady('>>>');
+		await console.typeToConsole('print(x)', true);
+		await console.waitForConsoleContents('42');
+
+		// the notebook cell should still be running; if "done" appeared the test FAILS
+		// idea here is to guarantee that user will always get console ready INSTANTLY, not eventually...
+		await expect(notebooksPositron.cellOutput(0)).not.toContainText('done');
+	});
+
 });
 
 const rDataFrame = `data.frame(
@@ -213,11 +242,3 @@ name = c("Alice", "Bob", "Charlie", "Diana"),
 age = c(25, 30, 35, 40),
 city = c("Austin", "Denver", "Chicago", "Seattle"),
 score = c(88, 92, 85, 95)`;
-
-const cellOutput = [
-	'name age city score',
-	'Alice 25 Austin 88',
-	'Bob 30 Denver 92',
-	'Charlie 35 Chicago 85',
-	'Diana 40 Seattle 95',
-];

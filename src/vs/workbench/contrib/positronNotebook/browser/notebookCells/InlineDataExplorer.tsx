@@ -56,7 +56,7 @@ type InlineDataExplorerState =
 /**
  * InlineDataExplorerHeader component.
  */
-function InlineDataExplorerHeader({ title, shape, onOpenInExplorer }: {
+export function InlineDataExplorerHeader({ title, shape, onOpenInExplorer }: {
 	title: string;
 	shape: { rows: number; columns: number };
 	onOpenInExplorer?: () => void;

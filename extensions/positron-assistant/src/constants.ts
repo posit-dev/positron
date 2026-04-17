@@ -33,7 +33,7 @@ export const TOOL_TAG_REQUIRES_WORKSPACE = 'requires-workspace';
  * model-router is a special value for Foundry that indicates the endpoint
  * supports dynamic model selection that will be handled by Foundry
  */
-export const DEFAULT_SELECTABLE_PATTERNS = ['claude', 'gpt', 'model-router'];
+export const DEFAULT_SELECTABLE_PATTERNS = ['claude', 'gpt', 'gemini', 'model-router'];
 
 /** Settings search string for provider enable settings */
 export const PROVIDER_ENABLE_SETTINGS_SEARCH = 'positron.assistant.provider enable';
