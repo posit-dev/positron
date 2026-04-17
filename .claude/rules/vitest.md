@@ -7,7 +7,7 @@ paths:
 
 # Vitest Tests
 
-Vitest tests (`*.vitest.ts` / `*.vitest.tsx`) run directly on your source files -- no build daemons, no compilation step, no waiting. Just `npx vitest run <file>` and get results in seconds.
+Vitest tests (`*.vitest.ts` / `*.vitest.tsx`) run directly on your source files -- no build daemons, no compilation step, no waiting. Run `npx vitest <file>` for watch mode (re-runs on save) or `npx vitest run <file>` for a single pass.
 
 ## Quick Start
 
@@ -59,7 +59,7 @@ describe('MyComponent', () => {
 
 ## The Builder
 
-Use `createTestContainer()` for any test needing services. Pick the lowest preset that covers your dependencies ([full preset hierarchy](../../src/vs/test/vitest/positronTestContainer.ts)). Start low and let errors guide you up:
+`createTestContainer()` is the builder -- a chained API (`.withX().stub().build()`) that wires up the DI services your test needs. Pick the lowest preset that covers your dependencies ([full preset hierarchy](../../src/vs/test/vitest/positronTestContainer.ts)). Start low and let errors guide you up:
 
 1. Run the test. If it passes, you're done.
 2. "X is not a function" or "Cannot read properties of undefined" -- add `.stub(IMissingService, {})`
