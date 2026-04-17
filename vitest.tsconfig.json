@@ -4,7 +4,19 @@
 	// Does NOT affect the main build -- only used by Vitest and IDE language services.
 	"extends": "./src/tsconfig.json",
 	"compilerOptions": {
-		"types": ["vitest/globals"]
+		// TypeScript's "types" field replaces the parent's array rather than
+		// merging, so we re-list the ambient types from src/tsconfig.json that
+		// Vitest tests (or the code they import) might rely on, plus Vitest's
+		// own globals. Omits "mocha" (conflicts with Vitest's describe/it) and
+		// "sinon" (Mocha-era, migrated away from).
+		"types": [
+			"@webgpu/types",
+			"semver",
+			"trusted-types",
+			"winreg",
+			"wicg-file-system-access",
+			"vitest/globals"
+		]
 	},
 	"include": [
 		"src/vs/**/*.vitest.ts",
