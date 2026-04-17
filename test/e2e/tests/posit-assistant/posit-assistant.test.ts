@@ -18,11 +18,15 @@ test.describe('Posit Assistant', {
 
 	for (const provider of POSIT_ASSISTANT_PROVIDERS) {
 		test.describe(provider, () => {
-			test.beforeAll(async function ({ app }) {
+			test.beforeAll(async function ({ app, settings }) {
 				await app.workbench.assistant.loginModelProvider(provider);
 				// Maximize the sidebar so the Posit Assistant webview is not
 				// obscured by outer-page elements on small CI viewports.
 				await app.workbench.quickaccess.runCommand('workbench.action.fullSizedSidebar');
+				// Ensure we're running the latest Posit Assistant dev build.
+				// Enables the auto dev-build update check, triggers the check,
+				// and accepts the resulting "Update Now" / "Reload" toasts.
+				await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess);
 			});
 
 			test.afterAll(async function ({ app }) {

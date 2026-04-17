@@ -5,6 +5,7 @@
 
 import { expect, FrameLocator } from '@playwright/test';
 import { Code } from '../infra/code';
+import { Toasts } from './dialog-toasts';
 
 // Webview frame selectors (Posit Assistant renders inside a VS Code webview)
 const OUTER_FRAME = '.webview';
@@ -297,6 +298,56 @@ export class PositAssistant {
 	 */
 	async declineTool(): Promise<void> {
 		await this.frame.locator(TOOL_DECLINE_BUTTON).click();
+	}
+
+	// --- Dev build update check ---
+
+	/**
+	 * Enables the Posit Assistant auto dev-build update check, triggers the
+	 * `posit-assistant.checkForDevBuildUpdate` command, and drives the resulting
+	 * toast flow: clicks "Update Now" on the first toast, then clicks "Reload"
+	 * on the follow-up toast to reload Positron.
+	 *
+	 * Note: this is for Posit Assistant (not Positron Assistant).
+	 *
+	 * @param settings The settings fixture used to write the user setting.
+	 * @param quickaccess The quickaccess page object used to run the command.
+	 * @param options.toastTimeout Maximum time to wait for each toast (default: 30000).
+	 */
+	async checkForDevBuildUpdate(
+		settings: {
+			set: (
+				settings: Record<string, unknown>,
+				options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }
+			) => Promise<void>;
+		},
+		quickaccess: {
+			runCommand: (command: string, options?: { exactLabelMatch?: boolean }) => Promise<any>;
+		},
+		options: { toastTimeout?: number } = {},
+	): Promise<void> {
+		const { toastTimeout = 30000 } = options;
+
+		// 1. Enable the auto dev-build update check setting.
+		await settings.set({ 'assistant.autoDevBuildUpdateCheck': true });
+
+		// 2. Trigger the dev-build update check command.
+		await quickaccess.runCommand('posit-assistant.checkForDevBuildUpdate');
+
+		const toasts = new Toasts(this.code);
+
+		// 3. Wait for the "newer dev build available" toast and click "Update Now".
+		await toasts.waitForAppear(/newer Posit Assistant dev build is available/i, { timeout: toastTimeout });
+		await toasts.clickButton('Update Now');
+
+		// 4. Wait for the follow-up "reload to apply changes" toast and click "Reload".
+		await toasts.waitForAppear(/Posit Assistant has been updated\. You must reload Positron/i, { timeout: toastTimeout });
+		await toasts.clickButton('Reload');
+
+		// 5. Clicking Reload reloads the window natively. Wait for the
+		//    workbench to come back up.
+		await this.code.driver.page.waitForTimeout(3000);
+		await this.code.driver.page.locator('.monaco-workbench').waitFor({ state: 'visible' });
 	}
 
 }
