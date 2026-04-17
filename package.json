@@ -16,7 +16,7 @@
     "test-node": "mocha test/unit/node/index.js --delay --ui=tdd --timeout=5000 --exit",
     "test-extension": "vscode-test",
     "test-build-scripts": "cd build && npm run test",
-    "test:vitest": "vitest --run",
+    "test:positron": "vitest --run",
     "test:core": "./scripts/test.sh",
     "test:ext-host": "./scripts/test-integration.sh",
     "postinstall": "node build/npm/postinstall.ts",

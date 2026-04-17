@@ -110,7 +110,7 @@ jobs:
           .github/cache-scripts/check-uncached-artifacts.sh /tmp/files-before-npm-install.txt /tmp/files-after-npm-install.txt
 
       - name: 🧪 Run Vitest Tests
-        run: npm run test:vitest
+        run: npm run test:positron
 
       - name: Compile Positron and Download Electron
         run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"

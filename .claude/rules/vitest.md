@@ -72,7 +72,7 @@ Use `createTestContainer()` for any test needing services. Pick the lowest prese
 
 ## Run commands
 
-- `npm run test:vitest` -- run all
+- `npm run test:positron` -- run all
 - `npx vitest run <file>` -- run one file
 - `npx vitest <file>` -- watch mode (re-runs on save; press `q` to quit, `h` for keyboard help)
 - `npx vitest run --coverage --coverage.include='**/sourceFile.tsx' <test-file>` -- scoped coverage
