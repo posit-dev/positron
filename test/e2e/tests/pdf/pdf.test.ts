@@ -67,8 +67,6 @@ test.describe('PDF Viewer', {
 		// Verify the print preparation dialog appears
 		const printDialog = pdfFrame.getByText('Preparing document for printing');
 		await expect(printDialog).toBeVisible({ timeout: 10000 });
-
-		// Test ends here - Playwright will clean up the Electron process and any native dialogs
 	});
 
 	// do not add another test here as it would be blocked by a native dialog (print preview) that cannot be interacted with using Playwright, which would cause the test suite to hang
