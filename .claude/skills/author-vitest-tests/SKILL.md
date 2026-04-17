@@ -163,7 +163,7 @@ For each approved item:
 
    **Quality checklist:**
    - Each describe block: happy path, boundary case, and at least one negative case
-   - Use `toMatchInlineSnapshot()` for output with many related properties (parser results, multi-line strings, complex markup); prefer `.toBe(...)` for simple values
+   - Use `toMatchInlineSnapshot()` for output with many related properties or exact-preservation tests; project structured objects to relevant fields first (`expect({ kind, source }).toMatchInlineSnapshot(...)`). Prefer `.toBe(...)` for simple values
    - If setup exceeds ~20 lines of stubs, extract a helper function
    - **Minimize imports.** If you're importing 5+ service identifiers just for `.stub()` calls, extract a helper. Use `Event.None` for events the test never fires.
    - For React tests: prefer `getByRole`/`getByText` when the component exposes accessible roles or visible text. Many Positron components use internal CSS classes without accessible roles -- `container.querySelector` is acceptable when RTL queries aren't feasible.
