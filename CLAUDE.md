@@ -43,7 +43,9 @@ Positron has three test categories:
 - **Unit tests** -- exercise modules in isolation. Two runners:
 	- **Vitest** -- fast, no build daemons. Use this for new Positron code.
 	- **Core Mocha** -- upstream VS Code's suite. Slower, needs build daemons. You'll encounter it when touching upstream files; don't start new ones for Positron code.
-- **Extension host tests** -- Mocha tests that need an activated extension host. Historical VS Code docs call these "integration tests"; same thing.
+- **Extension host tests** -- Mocha tests that need an activated extension host. Historical VS Code docs call these "integration tests"; same thing. Two buckets:
+	- **API contract tests** -- `extensions/vscode-api-tests/` regressions against the `vscode` API surface.
+	- **Extension-internal tests** -- each extension tests its own features (e.g., `positron-python`, `positron-r`, `git`, `typescript-language-features`).
 - **E2E tests** -- Playwright, exercises the whole app.
 
 ### Where should I put my test?
