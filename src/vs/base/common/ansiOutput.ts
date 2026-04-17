@@ -472,6 +472,13 @@ export class ANSIOutput {
 				break;
 			}
 
+			// FF (form feed) is handled at the service level as a
+			// console clear. Ignore it here so it doesn't render as
+			// visible text.
+			case '\f': {
+				break;
+			}
+
 			// CR flushes the buffer and sets the output column to 0.
 			case '\r': {
 				this.flushBuffer();
