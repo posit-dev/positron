@@ -107,14 +107,18 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 
 	// Accept handler.
 	const acceptHandler = useCallback(() => {
+		// A value which indicates whether any validation errors are present in the form. If true,
+		// the form will not be submitted and error indicators will be shown.
+		let hasErrors = false;
+
 		// Validate the connection name. It is required and must not be empty.
 		if (!connectionName.length) {
+			hasErrors = true;
 			setConnectionNameError(true);
 		}
 
 		// Validate the parameters. Required parameters must not be empty.
 		const newParameterValues = { ...parameterValues };
-		let hasParameterErrors = false;
 		for (const parameter of props.driver.metadata.parameters) {
 			const hasError = parameter.required === true && parameterValues[parameter.id].value === undefined;
 			console.log('Validating parameter', parameter.id, 'value', parameterValues[parameter.id].value, 'hasError', hasError);
@@ -122,14 +126,17 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 				value: parameterValues[parameter.id].value,
 				error: hasError
 			};
-			hasParameterErrors = hasParameterErrors || hasError;
+			hasErrors = hasErrors || hasError;
 		}
 
 		// Set the new parameter values with any error indicators.
 		setParameterValues(newParameterValues);
 
-		// TODO: Save the connection.
-		// renderer.dispose();
+		// If there are no errors, submit the form. More to come.
+		if (!hasErrors) {
+			// TODO: Save the connection.
+			// renderer.dispose();
+		}
 	}, [connectionName.length, props.driver.metadata.parameters, parameterValues]);
 
 	// Handler that runs when the user submits the form (e.g. by pressing Enter in a text field).
