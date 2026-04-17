@@ -109,7 +109,9 @@ Format the plan like this:
 
 > **Plan for `<file>`:**
 >
-> **Pattern:** <plain / builder / RTL prop-driven / RTL service-context>
+> **Pattern: `<plain / builder / RTL prop-driven / RTL service-context>`**
+> <One-sentence reasoning grounded in what you observed in the source file -- e.g., "the component takes `contextMenuService` as a prop and neither it nor its child Button uses `usePositronReactServicesContext`". Cite specific evidence (prop shapes, context-hook usage, service dependencies). Do not give generic reasoning like "this is a React component".>
+>
 > **Preset:** <bare / runtime / notebook / workbench> + <.withReactServices() / .withContributionServices()> if layered
 > **Stubs:** short list of services you intend to stub, with a one-line reason each
 >
