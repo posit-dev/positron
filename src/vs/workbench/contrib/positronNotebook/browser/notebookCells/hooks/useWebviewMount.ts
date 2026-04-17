@@ -12,12 +12,32 @@ import { IOverlayWebview } from '../../../../webview/browser/webview.js';
 import { DisposableStore, toDisposable } from '../../../../../../base/common/lifecycle.js';
 import { useNotebookVisibility } from '../../NotebookVisibilityContext.js';
 import { Event } from '../../../../../../base/common/event.js';
+import { IMouseWheelEvent } from '../../../../../../base/browser/mouseEvent.js';
 import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
 import { autorun } from '../../../../../../base/common/observable.js';
 
 // Constants
 const MAX_OUTPUT_HEIGHT = 1000;
 const EMPTY_OUTPUT_HEIGHT = 150;
+// Approximate line height used when a wheel event reports DOM_DELTA_LINE.
+// Matches the divisor used by StandardWheelEvent's pixel-to-line conversion.
+const WHEEL_LINE_HEIGHT_PX = 40;
+
+/**
+ * Convert a forwarded wheel event's vertical delta into pixels so raw
+ * DOM_DELTA_LINE / DOM_DELTA_PAGE values (e.g. Firefox) don't scroll by
+ * a single pixel per tick.
+ */
+function normalizeWheelDeltaY(e: IMouseWheelEvent, container: HTMLElement): number {
+	switch (e.deltaMode) {
+		case WheelEvent.DOM_DELTA_LINE:
+			return e.deltaY * WHEEL_LINE_HEIGHT_PX;
+		case WheelEvent.DOM_DELTA_PAGE:
+			return e.deltaY * container.clientHeight;
+		default: // DOM_DELTA_PIXEL
+			return e.deltaY;
+	}
+}
 
 /**
  * Custom error class for webview-specific errors
@@ -186,15 +206,15 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 
 				// Forward wheel events across the iframe boundary so the notebook
 				// scrolls when the cursor is over a webview output (e.g. plotly).
-				// Preloads inside the webview let inner scrollables consume the
-				// wheel first (see eventTargetShouldHandleScroll in webviewPreloads.ts).
+				// Only vertical deltas are forwarded; horizontally scrollable
+				// content inside the webview already scrolls natively, and
+				// forwarding deltaX would double-scroll those targets.
 				disposables.add(webviewElement.onDidWheel(e => {
 					const container = notebookInstance.cellsContainer;
 					if (!container) {
 						return;
 					}
-					container.scrollTop += e.deltaY;
-					container.scrollLeft += e.deltaX;
+					container.scrollTop += normalizeWheelDeltaY(e, container);
 				}));
 
 				// When focus leaves the notebook container, update layout to ensure correct size
