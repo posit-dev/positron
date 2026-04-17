@@ -12,7 +12,6 @@ import { IPositronDataConnectionsService } from '../common/interfaces/positronDa
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IDataConnectionDriver, IDataConnectionDriverManager } from '../common/interfaces/positronDataConnectionsDriver.js';
 
-
 /**
  * Service that manages data connection drivers and active connection instances.
  * Drivers are registered by extensions via the ext host RPC pipeline; the UI
@@ -22,7 +21,7 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	// Required by the DI system to make this interface structurally unique.
 	declare readonly _serviceBrand: undefined;
 
-	// Manages registered data connection drivers (register, remove, list, change events).
+	// The driver manager, which manages registered data connection drivers (register, remove, list, change events).
 	readonly driverManager: IDataConnectionDriverManager;
 
 	// Active connection instances, displayed in the UI.
@@ -43,10 +42,13 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 
 	/**
 	 * Constructor.
-	 * @param _logService The log service for trace-level connection lifecycle logging.
+	 * @param _logService The log service.
 	 */
 	constructor(@ILogService private readonly _logService: ILogService) {
+		// Call the base class constructor.
 		super();
+
+		// Create the driver manager.
 		this.driverManager = this._register(new DataConnectionDriverManager());
 	}
 

@@ -28,7 +28,7 @@ export interface IDataConnectionParameterDTO {
 	id: string;
 	label: string;
 	required?: boolean;
-	type: string; // 'string' | 'number' | 'boolean' | 'file' | 'option'
+	type: string; // 'boolean' | 'file' | 'number' | 'option' | 'password' | 'string'
 	defaultValue?: string | number | boolean;
 	placeholder?: string;
 	options?: string[]; // only for 'option' type
@@ -109,9 +109,31 @@ export interface IDataConnectionHandle {
  * Manages registered data connection drivers.
  */
 export interface IDataConnectionDriverManager {
+	/**
+	 * Registers a driver.
+	 * @param driver The driver to register.
+	 */
 	registerDriver(driver: IDataConnectionDriver): void;
+
+	/**
+	 * Removes a driver.
+	 * @param driverId The ID of the driver to remove.
+	 */
 	removeDriver(driverId: string): void;
+
+	/**
+	 * Gets all drivers.
+	 */
 	getDrivers(): IDataConnectionDriver[];
+
+	/**
+	 * Gets a driver.
+	 * @param driverId The driver ID of the driver to get.
+	 */
 	getDriver(driverId: string): IDataConnectionDriver | undefined;
+
+	/**
+	 * Fires whenever a driver is registered or removed.
+	 */
 	onDidChangeDrivers: Event<IDataConnectionDriver[]>;
 }
