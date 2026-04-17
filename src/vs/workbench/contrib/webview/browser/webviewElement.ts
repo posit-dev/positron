@@ -460,6 +460,10 @@ export class WebviewElement extends Disposable implements IWebviewElement, Webvi
 		element.name = this.id;
 		element.className = `webview ${options.customClasses || ''}`;
 		element.sandbox.add('allow-scripts', 'allow-same-origin', 'allow-forms', 'allow-pointer-lock', 'allow-downloads');
+		// --- Start Positron ---
+		// Required for PDF viewer print functionality (window.print() in sandboxed iframes).
+		element.sandbox.add('allow-modals');
+		// --- End Positron ---
 
 		const allowRules = ['cross-origin-isolated', 'autoplay', 'local-network-access'];
 		if (!isFirefox) {

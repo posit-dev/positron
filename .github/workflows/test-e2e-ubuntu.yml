@@ -206,7 +206,7 @@ jobs:
       - name: Install Playwright browsers
         env:
           PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
-        run: npx playwright install --with-deps
+        run: npx playwright install
 
       # Downloads Builtin Extensions (needed for integration & e2e testing)
       - name: Prelaunch
