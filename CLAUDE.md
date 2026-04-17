@@ -40,13 +40,13 @@ Positron forks VSCode. Minimize merge conflicts by isolating Positron code.
 
 Positron has three test categories:
 
-- **Unit tests** -- exercise modules in isolation. Two runners:
-	- **[Vitest](.claude/rules/vitest-tests.md)** -- fast, no build daemons. Use this for new Positron code.
-	- **[Core Mocha](.claude/rules/core-tests.md)** -- upstream VS Code's suite. Slower, needs build daemons. You'll encounter it when touching upstream files; don't start new ones for Positron code.
-- **[Extension host tests](test/integration/browser/README.md)** -- Mocha tests that need an activated extension host. Historical VS Code docs call these "integration tests"; same thing. Two buckets:
-	- **API contract tests** -- `extensions/vscode-api-tests/` regressions against the `vscode` API surface.
-	- **Extension-internal tests** -- each extension tests its own features (e.g., `positron-python`, `positron-r`, `git`, `typescript-language-features`).
-- **[E2E tests](test/e2e/README.md)** -- Playwright, exercises the whole app.
+- **Unit tests**: exercise modules in isolation. Two runners:
+	- **[Positron Vitest](.claude/rules/vitest-tests.md)**: fast, no build daemons. Use this for new Positron code.
+	- **[Core Mocha](.claude/rules/core-tests.md)**: upstream VS Code's suite. Slower, needs build daemons. You'll encounter it when touching upstream files; don't start new ones for Positron code.
+- **[Extension host tests](test/integration/browser/README.md)**: Mocha tests that need an activated extension host. Historical VS Code docs call these "integration tests"; same thing. Two categories:
+	- **API contract tests**: `extensions/vscode-api-tests/` regressions against the `vscode` API surface.
+	- **Extension-internal tests**: each extension tests its own features (e.g., `positron-python`, `positron-r`, `git`, `typescript-language-features`).
+- **[E2E tests](test/e2e/README.md)**: Playwright, exercises the whole app.
 
 ### Where should I put my test?
 
@@ -66,22 +66,22 @@ Positron has three test categories:
 
 ### Running tests
 
-- **[Vitest](.claude/rules/vitest-tests.md)** (`*.vitest.ts` / `*.vitest.tsx`, **no build daemons needed**):
+- **Vitest** (`*.vitest.ts` / `*.vitest.tsx`, **no build daemons needed**):
 	- `npm run test:positron`: run all
 	- `npx vitest run src/path/to/<file>.vitest.ts`: run a specific file
 	- `npx vitest src/path/to/<file>.vitest.ts`: watch mode (re-runs on save; press `q` to quit, `h` for keyboard help)
 	- `npx vitest run --coverage --coverage.include='**/myFile.tsx' <test-file>`: scoped coverage
 	- `npx vitest run --update <file>`: update inline snapshots
-- **[Core Mocha](.claude/rules/core-tests.md)** (`*.test.ts` / `*.integrationTest.ts` in `src/vs/`, requires build daemons):
+- **Core Mocha** (`*.test.ts` / `*.integrationTest.ts` in `src/vs/`, requires build daemons):
 	- Ensure build daemons are running first: `npm run build-start && npm run build-check`
 	- `npm run test:core` (or `./scripts/test.sh`): run all
 	- `./scripts/test.sh --run src/path/to/<file>.test.ts`: run a specific file
 	- `./scripts/test.sh --runGlob <glob>.test.js`: run files matching a glob (use `.js` extension)
-- **[Extension host](test/integration/browser/README.md)** (`extensions/<extension-name>/*.test.ts`):
+- **Extension host** (`extensions/<extension-name>/*.test.ts`):
 	- `npm run test-extension -- -l <extension-name> --grep <pattern>`: run one extension's tests
 	- `npm run test:ext-host` (or `./scripts/test-integration.sh`): run the full CI driver
 	- positron-python has its own test setup -- see `extensions/positron-python/CLAUDE.md`
-- **[E2E](test/e2e/README.md)** (Playwright, full app): `npx playwright test test/e2e/tests/<test-name>.test.ts --project e2e-electron --grep '<pattern>'`
+- **E2E** (Playwright, full app): `npx playwright test test/e2e/tests/<test-name>.test.ts --project e2e-electron --grep '<pattern>'`
 
 ## Directory Structure
 
