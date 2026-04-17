@@ -40,10 +40,10 @@ const MINIMUM_ACTION_CONSOLE_TAB_WIDTH = 110;
  */
 const RESOURCE_GRAPH_HEIGHT = 24;
 
-export interface ConsoleTabProps {
-	positronConsoleInstance: IPositronConsoleInstance;
-	width: number; // The width of the console tab list.
-	onChangeSession: (instance: IPositronConsoleInstance) => void;
+interface ConsoleTabProps {
+	readonly positronConsoleInstance: IPositronConsoleInstance;
+	readonly width: number; // The width of the console tab list.
+	readonly onChangeSession: (instance: IPositronConsoleInstance) => void;
 }
 
 export const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: ConsoleTabProps) => {
