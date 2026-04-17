@@ -80,7 +80,7 @@ describe('TopActionBarSessionManager', () => {
 			);
 
 			const label = container.querySelector('.action-bar-button-label');
-			expect(label?.textContent).toMatchInlineSnapshot(`"Start Session"`);
+			expect(label?.textContent).toBe('Start Session');
 		});
 
 		it('renders arrow-swap icon when no foreground session', () => {
@@ -89,7 +89,7 @@ describe('TopActionBarSessionManager', () => {
 			);
 
 			const icon = container.querySelector('.action-bar-button-icon');
-			expect(icon?.className).toMatchInlineSnapshot(`"action-bar-button-icon codicon codicon-arrow-swap"`);
+			expect(icon?.className).toBe('action-bar-button-icon codicon codicon-arrow-swap');
 		});
 
 		it('renders a button when no active console sessions', () => {
@@ -124,7 +124,7 @@ describe('TopActionBarSessionManager', () => {
 			);
 
 			const label = container.querySelector('.action-bar-button-label');
-			expect(label?.textContent).toMatchInlineSnapshot(`"Python 3.12.1"`);
+			expect(label?.textContent).toBe('Python 3.12.1');
 		});
 
 		it('renders positron-new-console icon for console session', () => {
@@ -133,7 +133,7 @@ describe('TopActionBarSessionManager', () => {
 			);
 
 			const icon = container.querySelector('.action-bar-button-icon');
-			expect(icon?.className).toMatchInlineSnapshot(`"action-bar-button-icon codicon codicon-positron-new-console"`);
+			expect(icon?.className).toBe('action-bar-button-icon codicon codicon-positron-new-console');
 		});
 	});
 
@@ -160,7 +160,7 @@ describe('TopActionBarSessionManager', () => {
 			);
 
 			const label = container.querySelector('.action-bar-button-label');
-			expect(label?.textContent).toMatchInlineSnapshot(`"analysis.ipynb - Python 3.12.1"`);
+			expect(label?.textContent).toBe('analysis.ipynb - Python 3.12.1');
 		});
 
 		it('renders notebook icon for notebook session', () => {
@@ -169,7 +169,7 @@ describe('TopActionBarSessionManager', () => {
 			);
 
 			const icon = container.querySelector('.action-bar-button-icon');
-			expect(icon?.className).toMatchInlineSnapshot(`"action-bar-button-icon codicon codicon-notebook"`);
+			expect(icon?.className).toBe('action-bar-button-icon codicon codicon-notebook');
 		});
 	});
 
@@ -196,7 +196,7 @@ describe('TopActionBarSessionManager', () => {
 			);
 
 			const label = container.querySelector('.action-bar-button-label');
-			expect(label?.textContent).toMatchInlineSnapshot(`"R 4.3.2"`);
+			expect(label?.textContent).toBe('R 4.3.2');
 		});
 	});
 
@@ -217,7 +217,7 @@ describe('TopActionBarSessionManager', () => {
 				<TopActionBarSessionManager />
 			);
 
-			expect(container.querySelector('.action-bar-button-label')?.textContent).toMatchInlineSnapshot(`"Start Session"`);
+			expect(container.querySelector('.action-bar-button-label')?.textContent).toBe('Start Session');
 
 			act(() => {
 				displayInfoEmitter.fire(makeDisplayInfo({
@@ -226,7 +226,7 @@ describe('TopActionBarSessionManager', () => {
 				}));
 			});
 
-			expect(container.querySelector('.action-bar-button-label')?.textContent).toMatchInlineSnapshot(`"R 4.3.2"`);
+			expect(container.querySelector('.action-bar-button-label')?.textContent).toBe('R 4.3.2');
 		});
 
 		it('updates label when foreground session changes to a notebook session', () => {
@@ -242,7 +242,7 @@ describe('TopActionBarSessionManager', () => {
 				}));
 			});
 
-			expect(container.querySelector('.action-bar-button-label')?.textContent).toMatchInlineSnapshot(`"report.ipynb - Python 3.12.1"`);
+			expect(container.querySelector('.action-bar-button-label')?.textContent).toBe('report.ipynb - Python 3.12.1');
 		});
 
 		it('updates icon when session changes from none to console', () => {
@@ -250,13 +250,13 @@ describe('TopActionBarSessionManager', () => {
 				<TopActionBarSessionManager />
 			);
 
-			expect(container.querySelector('.action-bar-button-icon')?.className).toMatchInlineSnapshot(`"action-bar-button-icon codicon codicon-arrow-swap"`);
+			expect(container.querySelector('.action-bar-button-icon')?.className).toBe('action-bar-button-icon codicon codicon-arrow-swap');
 
 			act(() => {
 				displayInfoEmitter.fire(makeDisplayInfo());
 			});
 
-			expect(container.querySelector('.action-bar-button-icon')?.className).toMatchInlineSnapshot(`"action-bar-button-icon codicon codicon-positron-new-console"`);
+			expect(container.querySelector('.action-bar-button-icon')?.className).toBe('action-bar-button-icon codicon codicon-positron-new-console');
 		});
 
 		it('updates icon when session changes to notebook', () => {
@@ -271,7 +271,7 @@ describe('TopActionBarSessionManager', () => {
 				}));
 			});
 
-			expect(container.querySelector('.action-bar-button-icon')?.className).toMatchInlineSnapshot(`"action-bar-button-icon codicon codicon-notebook"`);
+			expect(container.querySelector('.action-bar-button-icon')?.className).toBe('action-bar-button-icon codicon codicon-notebook');
 		});
 
 		it('reverts to "Start Session" when session is cleared', () => {
@@ -282,12 +282,12 @@ describe('TopActionBarSessionManager', () => {
 			act(() => {
 				displayInfoEmitter.fire(makeDisplayInfo({ sessionName: 'Python 3.12.1' }));
 			});
-			expect(container.querySelector('.action-bar-button-label')?.textContent).toMatchInlineSnapshot(`"Python 3.12.1"`);
+			expect(container.querySelector('.action-bar-button-label')?.textContent).toBe('Python 3.12.1');
 
 			act(() => {
 				displayInfoEmitter.fire(undefined);
 			});
-			expect(container.querySelector('.action-bar-button-label')?.textContent).toMatchInlineSnapshot(`"Start Session"`);
+			expect(container.querySelector('.action-bar-button-label')?.textContent).toBe('Start Session');
 		});
 
 		it('reverts to arrow-swap icon when session is cleared', () => {
@@ -298,12 +298,12 @@ describe('TopActionBarSessionManager', () => {
 			act(() => {
 				displayInfoEmitter.fire(makeDisplayInfo());
 			});
-			expect(container.querySelector('.action-bar-button-icon')?.className).toMatchInlineSnapshot(`"action-bar-button-icon codicon codicon-positron-new-console"`);
+			expect(container.querySelector('.action-bar-button-icon')?.className).toBe('action-bar-button-icon codicon codicon-positron-new-console');
 
 			act(() => {
 				displayInfoEmitter.fire(undefined);
 			});
-			expect(container.querySelector('.action-bar-button-icon')?.className).toMatchInlineSnapshot(`"action-bar-button-icon codicon codicon-arrow-swap"`);
+			expect(container.querySelector('.action-bar-button-icon')?.className).toBe('action-bar-button-icon codicon codicon-arrow-swap');
 		});
 	});
 
