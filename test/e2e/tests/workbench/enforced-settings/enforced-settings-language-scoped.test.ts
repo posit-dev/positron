@@ -76,7 +76,7 @@ test.describe('Workbench: Language-scoped enforced settings', {
 
 			// Copy enforced-settings.json into a user-writable location, then sudo-move it to /etc/rstudio.
 			await runDockerCommand(
-				`docker cp ${tmpSettings} test:/tmp/enforced-settings.json`,
+				`docker cp "${tmpSettings}" test:/tmp/enforced-settings.json`,
 				'Copy enforced-settings.json into container'
 			);
 			await runDockerCommand(
@@ -85,7 +85,7 @@ test.describe('Workbench: Language-scoped enforced settings', {
 			);
 
 			await runDockerCommand(
-				`docker cp ${tmpProfiles} test:/tmp/profiles`,
+				`docker cp "${tmpProfiles}" test:/tmp/profiles`,
 				'Copy profiles into container'
 			);
 			await runDockerCommand(
@@ -128,35 +128,39 @@ test.describe('Workbench: Language-scoped enforced settings', {
 	});
 
 	test.afterAll('Remove enforced settings and restart session', async function ({ app, runDockerCommand }) {
-		// Best-effort teardown - don't fail the suite if cleanup hiccups.
+		// Non-critical cleanup: removing temp files. Swallow errors here since a leftover
+		// file in /etc/rstudio or the workspace won't affect other tests once the profile
+		// is restored and the server is restarted.
 		try {
 			await runDockerCommand(
 				`docker exec test sudo rm -f ${ENFORCED_SETTINGS_PATH} ${TEST_FILE_PATH}`,
 				'Remove enforced settings file and test R file'
 			);
-			// Restore original profiles file if we backed one up, otherwise remove ours.
-			await runDockerCommand(
-				`docker exec test bash -lc 'if [ -f ${PROFILES_BACKUP_PATH} ]; then sudo mv ${PROFILES_BACKUP_PATH} ${PROFILES_PATH}; else sudo rm -f ${PROFILES_PATH}; fi'`,
-				'Restore original profiles file'
-			);
-			await runDockerCommand(
-				`docker exec test sudo rstudio-server restart`,
-				'Restart rstudio-server to drop enforced settings'
-			);
-
-			// Reconnect so the worker-scoped teardown (which calls quitSession) has a live session.
-			await app.positWorkbench.dashboard.goTo();
-			try {
-				await app.positWorkbench.dashboard.expectHeaderToBeVisible();
-			} catch {
-				await app.positWorkbench.auth.signIn();
-				await app.positWorkbench.dashboard.expectHeaderToBeVisible();
-			}
-			await app.positWorkbench.dashboard.openSession('qa-example-content');
-			await app.code.driver.page.waitForSelector('.monaco-workbench', { timeout: 60000 });
 		} catch (error) {
-			console.warn('Enforced-settings teardown hit an error (continuing):', error);
+			console.warn('Non-critical teardown cleanup failed (continuing):', error);
 		}
+
+		// Critical cleanup: any failure here leaves the container with enforced settings
+		// active, which will contaminate subsequent test runs. Let these throw.
+		await runDockerCommand(
+			`docker exec test bash -lc 'if [ -f ${PROFILES_BACKUP_PATH} ]; then sudo mv ${PROFILES_BACKUP_PATH} ${PROFILES_PATH}; else sudo rm -f ${PROFILES_PATH}; fi'`,
+			'Restore original profiles file'
+		);
+		await runDockerCommand(
+			`docker exec test sudo rstudio-server restart`,
+			'Restart rstudio-server to drop enforced settings'
+		);
+
+		// Reconnect so the worker-scoped teardown (which calls quitSession) has a live session.
+		await app.positWorkbench.dashboard.goTo();
+		try {
+			await app.positWorkbench.dashboard.expectHeaderToBeVisible();
+		} catch {
+			await app.positWorkbench.auth.signIn();
+			await app.positWorkbench.dashboard.expectHeaderToBeVisible();
+		}
+		await app.positWorkbench.dashboard.openSession('qa-example-content');
+		await app.code.driver.page.waitForSelector('.monaco-workbench', { timeout: 60000 });
 	});
 
 	test('Verify [r]-scoped editor.formatOnSave triggers Air formatter', async function ({ app, runDockerCommand, hotKeys, page }) {
@@ -167,7 +171,7 @@ test.describe('Workbench: Language-scoped enforced settings', {
 			await fs.promises.writeFile(tmpFile, MESSY_R_CONTENT);
 			try {
 				await runDockerCommand(
-					`docker cp ${tmpFile} test:${TEST_FILE_PATH}`,
+					`docker cp "${tmpFile}" test:${TEST_FILE_PATH}`,
 					'Copy messy R file into container'
 				);
 				await runDockerCommand(
