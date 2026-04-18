@@ -6,8 +6,47 @@
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IPositronDataConnectionsService } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
-import { DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionDriverSummaryDTO, IDataConnectionHandle, IDataConnectionNodeDTO } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
+import { DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionParameter } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
+import { IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDTOs.js';
 import { ExtHostDataConnectionsShape, ExtHostPositronContext, MainPositronContext, MainThreadDataConnectionsShape } from '../../common/positron/extHost.positron.protocol.js';
+
+/**
+ * Narrows a wire-format IDataConnectionParameterDTO to the service-level
+ * IDataConnectionParameter discriminated union, picking up only the fields each variant carries.
+ */
+function dtoToServiceParameter(dto: IDataConnectionParameterDTO): IDataConnectionParameter {
+	const base = { id: dto.id, label: dto.label, required: dto.required };
+	switch (dto.type) {
+		case 'boolean':
+			return { ...base, type: 'boolean', defaultValue: dto.defaultValue as boolean | undefined };
+		case 'file':
+			return { ...base, type: 'file', defaultValue: dto.defaultValue as string | undefined, placeholder: dto.placeholder };
+		case 'number':
+			return { ...base, type: 'number', defaultValue: dto.defaultValue as number | undefined, placeholder: dto.placeholder };
+		case 'option':
+			return { ...base, type: 'option', options: dto.options ?? [], defaultValue: dto.defaultValue as string | undefined, placeholder: dto.placeholder };
+		case 'password':
+			return { ...base, type: 'password', placeholder: dto.placeholder };
+		case 'string':
+			return { ...base, type: 'string', defaultValue: dto.defaultValue as string | undefined, placeholder: dto.placeholder };
+		default:
+			throw new Error(`Unknown IDataConnectionParameterDTO type: ${dto.type}`);
+	}
+}
+
+/**
+ * Converts a wire-format driver metadata DTO to the service-level shape.
+ */
+function dtoToServiceMetadata(dto: IDataConnectionDriverMetadataDTO): IDataConnectionDriverMetadata {
+	return {
+		id: dto.id,
+		name: dto.name,
+		description: dto.description,
+		iconSvg: dto.iconSvg,
+		parameters: dto.parameters.map(dtoToServiceParameter),
+		supportedLanguageIds: dto.supportedLanguageIds,
+	};
+}
 
 // Registers this class as a named customer so the extension host manager
 // automatically instantiates it when the extension host connects, wiring up
@@ -49,9 +88,9 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 	 * @param driverId The unique identifier for the driver.
 	 * @param metadata Serializable driver info (name, parameters, supported languages, etc.).
 	 */
-	$registerDataConnectionDriver(driverId: string, metadata: IDataConnectionDriverMetadata): void {
+	$registerDataConnectionDriver(driverId: string, metadata: IDataConnectionDriverMetadataDTO): void {
 		this._dataConnectionsService.driverManager.registerDriver(
-			new MainThreadDataConnectionDriverAdapter(driverId, metadata, this._proxy)
+			new MainThreadDataConnectionDriverAdapter(driverId, dtoToServiceMetadata(metadata), this._proxy)
 		);
 	}
 

@@ -10,10 +10,11 @@ import './newDataConnectionFlow.css';
 import { useCallback, useState } from 'react';
 
 // Other dependencies.
+import { generateUuid } from '../../../../../base/common/uuid.js';
 import { ConfigureDataConnection } from './configureDataConnection.js';
 import { SelectDataConnectionProvider } from './selectDataConnectionProvider.js';
-import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
 import { IDataConnectionDriver, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
 
 /**
@@ -62,6 +63,7 @@ export const NewDataConnectionFlow = (props: NewDataConnectionFlowProps) => {
 
 		// Set the data connection profile.
 		setDataConnectionProfile({
+			id: generateUuid(),
 			connectionName: '',
 			driverId,
 			parameterValues: {}
@@ -76,6 +78,11 @@ export const NewDataConnectionFlow = (props: NewDataConnectionFlowProps) => {
 		// Transition to the select provider step.
 		setStep(NewDataConnectionFlowStep.SelectProvider);
 	}, []);
+
+	// Accept handler. Called when the user clicks the accept button on the configure step.
+	const saveHandler = useCallback(() => {
+		positronDataConnectionsService.addReplaceConnectionProfile(dataConnectionProfile!);
+	}, [positronDataConnectionsService, dataConnectionProfile]);
 
 	// Render the current step.
 	switch (step) {
@@ -96,6 +103,7 @@ export const NewDataConnectionFlow = (props: NewDataConnectionFlowProps) => {
 					profile={dataConnectionProfile!}
 					renderer={props.renderer}
 					onBack={backHandler}
+					onSave={saveHandler}
 				/>
 			);
 	}

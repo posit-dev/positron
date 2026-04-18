@@ -16,20 +16,25 @@ import { PositronModalDialogReactRenderer } from '../../../../../base/browser/po
 import { Checkbox } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/checkbox.js';
 import { TwoButtonFooter } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/twoButtonFooter.js';
 import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
-import { IDataConnectionDriver, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
+import { DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
 
 /**
- * UI-side form state for a single parameter value, pairing the value with an error indicator.
+ * UI-side form state for a single parameter field, pairing the value with an error indicator.
  */
-interface ParameterValueState {
-	value: string | number | boolean | undefined;
+interface ParameterFieldState {
+	// The current value of the parameter. Undefined if no value is set; for required parameters
+	// this indicates an error.
+	value: boolean | number | string | undefined;
+
+	// Whether the parameter currently has a validation error. For required parameters, this is
+	// true when value is undefined.
 	error: boolean;
 }
 
 /**
- * UI-side form state for all parameter values.
+ * UI-side form state for all parameter fields.
  */
-export type ParameterValues = Record<string, ParameterValueState>;
+type ParameterFieldStates = Record<string, ParameterFieldState>;
 
 /**
  * ConfigureDataConnectionProps interface.
@@ -44,12 +49,12 @@ interface ConfigureDataConnectionProps {
 	// The data connection profile being configured.
 	profile: IDataConnectionProfile;
 
-	// Called when the user clicks Back to return to the previous step. If not provided, the Back
+	// Called when the user clicks the Back button to return to the previous step. If not provided, the Back
 	// button will not be shown.
 	onBack?: () => void;
 
-	// Called when the user clicks Create to create the data connection. If not provided, the Create
-	onAccept?: (profile: IDataConnectionProfile) => void;
+	// Called when the user clicks Save to save the connection profile.
+	onSave?: (dataConnectionProfile: IDataConnectionProfile) => void;
 }
 
 /**
@@ -71,29 +76,36 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 	// State.
 	const [connectionName, setConnectionName] = useState(props.profile.connectionName);
 	const [connectionNameError, setConnectionNameError] = useState(false);
-	const [parameterValues, setParameterValues] = useState<ParameterValues>(() => {
-		// Initialize all driver parameters from the profile's existing values, falling back to driver defaults.
-		const initialParameterValues: ParameterValues = {};
+	const [parameterFieldStates, setParameterFieldStates] = useState<ParameterFieldStates>(() => {
+		// Initialize parameter field states.
+		const initialParameterFieldStates: ParameterFieldStates = {};
 		for (const parameter of props.driver.metadata.parameters) {
-			initialParameterValues[parameter.id] = {
-				value: props.profile.parameterValues[parameter.id] ?? parameter.defaultValue ?? undefined,
+			// Get the default value for the parameter. Password parameters never have a default.
+			const defaultValue = parameter.type === 'password' ? undefined : parameter.defaultValue;
+
+			// Set the initial value for the parameter. Use the value from the profile if available;
+			// otherwise fall back to the default value (if any). For required parameters, leaving
+			// the value as undefined will trigger a validation error until the user provides a value.
+			initialParameterFieldStates[parameter.id] = {
+				value: props.profile.parameterValues[parameter.id] ?? defaultValue ?? undefined,
 				error: false
 			};
 		}
 
-		// Return the initial parameter values.
-		return initialParameterValues;
+		// Return the initial parameter field states.
+		return initialParameterFieldStates;
 	});
 
-	// Updates a single parameter value and clears its error.
-	const setParameterValue = useCallback((parameterId: string, value: string | number | boolean | undefined) => {
-		setParameterValues(prev => ({
+	// Updates a single parameter field state.
+	const setParameterFieldState = useCallback((parameterId: string, value: boolean | number | string | undefined) => {
+		// Update the parameter field state.
+		setParameterFieldStates(prev => ({
 			...prev,
 			[parameterId]: {
 				// Set the value, ensuring that an empty string is treated as undefined.
 				value: value === '' ? undefined : value,
 
-				// Clear the error for this parameter when the value changes. We validate on accept.
+				// Clear the error for this parameter field state when the value changes. We validate on accept.
 				error: false
 			}
 		}));
@@ -105,8 +117,8 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 		props.renderer.dispose();
 	}, [props.renderer]);
 
-	// Accept handler.
-	const acceptHandler = useCallback(() => {
+	// Save handler.
+	const saveHandler = useCallback(() => {
 		// A value which indicates whether any validation errors are present in the form. If true,
 		// the form will not be submitted and error indicators will be shown.
 		let hasErrors = false;
@@ -118,26 +130,47 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 		}
 
 		// Validate the parameters. Required parameters must not be empty.
-		const newParameterValues = { ...parameterValues };
+		const updatedParameterFieldStates = { ...parameterFieldStates };
 		for (const parameter of props.driver.metadata.parameters) {
-			const hasError = parameter.required === true && parameterValues[parameter.id].value === undefined;
-			console.log('Validating parameter', parameter.id, 'value', parameterValues[parameter.id].value, 'hasError', hasError);
-			newParameterValues[parameter.id] = {
-				value: parameterValues[parameter.id].value,
+			// Get the current value for this parameter field.
+			const value = parameterFieldStates[parameter.id].value;
+
+			// Determine if there is a validation error for this parameter. For required parameters,
+			// an error exists if the value is undefined.
+			const hasError = parameter.required === true && value === undefined;
+
+			// Update the parameter field state.
+			updatedParameterFieldStates[parameter.id] = {
+				value,
 				error: hasError
 			};
+
+			// If there was an error or is an error, ensure that hasErrors is set to true to prevent
+			// form submission.
 			hasErrors = hasErrors || hasError;
 		}
 
-		// Set the new parameter values with any error indicators.
-		setParameterValues(newParameterValues);
+		// Set the new parameter field states.
+		setParameterFieldStates(updatedParameterFieldStates);
 
-		// If there are no errors, submit the form. More to come.
+		// If there are no errors, submit the form.
 		if (!hasErrors) {
-			// TODO: Save the connection.
-			// renderer.dispose();
+			// Build the parameter values.
+			const parameterValues: DataConnectionParameterValues = {};
+			for (const [id, { value }] of Object.entries(updatedParameterFieldStates)) {
+				if (value !== undefined) {
+					parameterValues[id] = value;
+				}
+			}
+
+			// Call the onSave callback with the connection profile.
+			props.onSave?.({
+				...props.profile,
+				connectionName,
+				parameterValues
+			});
 		}
-	}, [connectionName.length, props.driver.metadata.parameters, parameterValues]);
+	}, [connectionName, parameterFieldStates, props]);
 
 	// Handler that runs when the user submits the form (e.g. by pressing Enter in a text field).
 	const submitHandler = (event: FormEvent) => {
@@ -145,7 +178,7 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 		event.preventDefault();
 
 		// Run the accept handler.
-		acceptHandler();
+		saveHandler();
 	};
 
 	// Render.
@@ -186,74 +219,77 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 							{props.driver.metadata.parameters.map(parameter => {
 								switch (parameter.type) {
 									// Boolean parameter.
-									case 'boolean':
+									case 'boolean': {
 										return (
 											<div key={parameter.id}>
 												<Checkbox
-													initialChecked={parameterValues[parameter.id].value as boolean}
+													initialChecked={parameterFieldStates[parameter.id].value as boolean}
 													label={parameter.label}
-													onChanged={checked => setParameterValue(parameter.id, checked)}
+													onChanged={checked => setParameterFieldState(parameter.id, checked)}
 												/>
 											</div>
 										);
+									}
 
 									// File parameter.
-									case 'file':
+									case 'file': {
 										return (
 											<div key={parameter.id} className='parameter-field'>
 												<label className='parameter-label'>{parameter.label}</label>
 												<input
 													className={positronClassNames(
 														'parameter-input', 'text-input',
-														{ 'error': parameterValues[parameter.id].error }
+														{ 'error': parameterFieldStates[parameter.id].error }
 													)}
 													placeholder={parameter.placeholder}
 													type='text'
-													value={parameterValues[parameter.id].value as string}
-													onChange={e => setParameterValue(parameter.id, e.target.value)}
+													value={parameterFieldStates[parameter.id].value as string}
+													onChange={e => setParameterFieldState(parameter.id, e.target.value)}
 												/>
 											</div>
 										);
+									}
 
 									// Number parameter.
-									case 'number':
+									case 'number': {
 										return (
 											<div key={parameter.id} className='parameter-field'>
 												<label className='parameter-label'>{parameter.label}</label>
 												<input
 													className={positronClassNames(
 														'parameter-input', 'text-input',
-														{ 'error': parameterValues[parameter.id].error }
+														{ 'error': parameterFieldStates[parameter.id].error }
 													)}
 													inputMode='numeric'
 													placeholder={parameter.placeholder}
 													type='text'
-													value={String(parameterValues[parameter.id].value ?? '')}
+													value={String(parameterFieldStates[parameter.id].value ?? '')}
 													onChange={e => {
 														// Get the new value, trimming whitespace.
 														const newValue = e.target.value.trim();
 
 														// Parse the value as a number. Number('') === 0, so handle empty string first.
 														const numericValue = newValue !== '' ? Number(newValue) : NaN;
-														setParameterValue(parameter.id, isNaN(numericValue) ? undefined : numericValue);
+														setParameterFieldState(parameter.id, isNaN(numericValue) ? undefined : numericValue);
 													}}
 												/>
 											</div>
 										);
+									}
 
 									// Option parameter.
-									case 'option':
+									case 'option': {
 										return (
 											<div key={parameter.id} className='parameter-field'>
 												<label className='parameter-label'>{parameter.label}</label>
 												<select
 													className={positronClassNames(
 														'parameter-input', 'parameter-select',
-														{ 'error': parameterValues[parameter.id].error }
+														{ 'error': parameterFieldStates[parameter.id].error }
 													)}
-													value={parameterValues[parameter.id].value as string}
+													value={parameterFieldStates[parameter.id].value as string}
 													onChange={e => {
-														setParameterValue(parameter.id, e.target.value);
+														setParameterFieldState(parameter.id, e.target.value);
 													}}
 												>
 													{parameter.options?.map(option => (
@@ -262,47 +298,45 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 												</select>
 											</div>
 										);
+									}
 
 									// Password parameter.
-									case 'password':
+									case 'password': {
 										return (
 											<div key={parameter.id} className='parameter-field'>
 												<label className='parameter-label'>{parameter.label}</label>
 												<input
 													className={positronClassNames(
 														'parameter-input', 'text-input',
-														{ 'error': parameterValues[parameter.id].error }
+														{ 'error': parameterFieldStates[parameter.id].error }
 													)}
 													placeholder={parameter.placeholder}
 													type='password'
-													value={parameterValues[parameter.id].value as string}
-													onChange={e => setParameterValue(parameter.id, e.target.value ?? undefined)}
+													value={parameterFieldStates[parameter.id].value as string}
+													onChange={e => setParameterFieldState(parameter.id, e.target.value ?? undefined)}
 												/>
 											</div>
 										);
+									}
 
 									// String parameter.
-									case 'string':
+									case 'string': {
 										return (
 											<div key={parameter.id} className='parameter-field'>
 												<label className='parameter-label'>{parameter.label}</label>
 												<input
 													className={positronClassNames(
 														'parameter-input', 'text-input',
-														{ 'error': parameterValues[parameter.id].error }
+														{ 'error': parameterFieldStates[parameter.id].error }
 													)}
 													placeholder={parameter.placeholder}
 													type='text'
-													value={parameterValues[parameter.id].value as string}
-													onChange={e => setParameterValue(parameter.id, e.target.value ?? undefined)}
+													value={parameterFieldStates[parameter.id].value as string}
+													onChange={e => setParameterFieldState(parameter.id, e.target.value ?? undefined)}
 												/>
 											</div>
 										);
-
-									// Unsupported parameter type.
-									default:
-										console.warn(`Unsupported parameter type '${parameter.type}' for parameter '${parameter.id}' in driver '${props.driver.id}'.`);
-										return null;
+									}
 								}
 							})}
 
@@ -316,7 +350,7 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 				<TwoButtonFooter
 					primaryButtonTitle={localize('positron.configureDataConnection.save', "Save")}
 					secondaryButtonTitle={localize('positron.configureDataConnection.cancel', "Cancel")}
-					onPrimaryButton={acceptHandler}
+					onPrimaryButton={saveHandler}
 					onSecondaryButton={cancelHandler}
 				/>
 			}

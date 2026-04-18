@@ -10,6 +10,13 @@ import * as vscode from 'vscode';
 import { PostgreSQLConnection } from './postgresqlConnection.js';
 
 /**
+ * Type guard for a non-empty string.
+ */
+function isNonEmptyString(value: unknown): value is string {
+	return typeof value === 'string' && value.length > 0;
+}
+
+/**
  * Creates the PostgreSQL DataConnectionDriver.
  * @param context The extension context, used to locate the icon asset.
  */
@@ -20,6 +27,7 @@ export function createPostgreSQLDriver(
 	const iconPath = path.join(context.extensionPath, 'media', 'logo', 'postgresql.svg');
 	const iconSvg = readFileSync(iconPath, 'utf-8');
 
+	// Return the driver.
 	return {
 		id: 'positron-postgresql',
 		name: 'PostgreSQL',
@@ -77,18 +85,30 @@ export function createPostgreSQLDriver(
 			},
 		],
 		async connect(params: positron.DataConnectionParameterValues): Promise<positron.DataConnection> {
-			// Get the parameter values.
-			const host = params.host as string;
-			const port = params.port as number;
-			const database = params.database as string;
-			const user = params.user as string;
-			const password = params.password as string ?? '';
+			// Extract parameters.
+			const host = params.host;
+			const port = typeof params.port === 'number' ? params.port : undefined;
+			const database = params.database;
+			const user = params.user;
+			const password = params.password;
 			const ssl = params.ssl as boolean ?? false;
 			const readOnly = params.readOnly as boolean ?? false;
 
-			// Ensure that the host, database, and user, at lease, are specified.
-			if (!host || !database || !user) {
-				throw new Error('Host, database, and user are required');
+			// Validate parameters.
+			if (!isNonEmptyString(host)) {
+				return Promise.reject(new Error('Host is required'));
+			}
+			if (port === undefined) {
+				return Promise.reject(new Error('Port is required'));
+			}
+			if (!isNonEmptyString(database)) {
+				return Promise.reject(new Error('Database is required'));
+			}
+			if (!isNonEmptyString(user)) {
+				return Promise.reject(new Error('User is required'));
+			}
+			if (!isNonEmptyString(password)) {
+				return Promise.reject(new Error('Password is required'));
 			}
 
 			// Create the connection.

@@ -70,6 +70,12 @@
 	border: 1px solid var(--vscode-input-border);
 }
 
+/* Override Chromium's default focus outline (which uses a different color for password fields). */
+.configure-data-connection .parameter-input:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 0;
+}
+
 .configure-data-connection .parameter-input.error {
 	outline: 1px solid var(--vscode-inputValidation-errorBorder);
 	outline-offset: 1px;

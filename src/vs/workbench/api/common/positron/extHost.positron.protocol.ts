@@ -16,7 +16,7 @@ import { INotebookContextDTO, NotebookCellType } from '../../../common/positron/
 import { ActiveRuntimeSessionMetadata, EnvironmentVariableAction, LanguageRuntimeDynState, LanguageRuntimePackage, PackageSpec, RuntimeSessionMetadata, type notebooks } from 'positron';
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
-import { DataConnectionParameterValues, IDataConnectionDriverMetadata, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
+import { DataConnectionParameterValuesDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDTOs.js';
 import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource, IPositronProviderMetadata, IShowLanguageModelConfigOptions } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { IChatAgentData } from '../../../contrib/chat/common/participants/chatAgents.js';
 import { PlotRenderSettings } from '../../../services/positronPlots/common/positronPlots.js';
@@ -195,7 +195,7 @@ export interface MainThreadDataConnectionsShape extends IDisposable {
 	 * @param driverId The unique identifier for the driver.
 	 * @param metadata Serializable driver info (name, parameters, supported languages, etc.).
 	 */
-	$registerDataConnectionDriver(driverId: string, metadata: IDataConnectionDriverMetadata): void;
+	$registerDataConnectionDriver(driverId: string, metadata: IDataConnectionDriverMetadataDTO): void;
 
 	/**
 	 * Called by the ext host when a driver is unregistered (its Disposable was disposed).
@@ -213,7 +213,7 @@ export interface MainThreadDataConnectionsShape extends IDisposable {
 	 * adapter calls back into the ext host via $driverConnect, so the full
 	 * RPC round trip is exercised.
 	 */
-	$connectToDataConnectionDriver(driverId: string, params: DataConnectionParameterValues): Promise<number>;
+	$connectToDataConnectionDriver(driverId: string, params: DataConnectionParameterValuesDTO): Promise<number>;
 
 	/**
 	 * Checks whether a connection is read-only via the main thread service.
@@ -257,7 +257,7 @@ export interface MainThreadDataConnectionsShape extends IDisposable {
  * lifecycle of connections that live in the extension process.
  */
 export interface ExtHostDataConnectionsShape {
-	$driverConnect(driverId: string, params: DataConnectionParameterValues): Promise<number>;
+	$driverConnect(driverId: string, params: DataConnectionParameterValuesDTO): Promise<number>;
 	$connectionIsReadOnly(connectionHandle: number): Promise<boolean>;
 	$connectionGetChildren(connectionHandle: number): Promise<IDataConnectionNodeDTO[]>;
 	$connectionDisconnect(connectionHandle: number): Promise<void>;

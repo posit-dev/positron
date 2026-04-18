@@ -10,7 +10,7 @@ import { DataConnectionDriverManager } from './positronDataConnectionsDriverMana
 import { IDataConnectionInstance } from '../common/interfaces/positronDataConnectionsInstance.js';
 import { IPositronDataConnectionsService } from '../common/interfaces/positronDataConnectionsService.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
-import { IDataConnectionDriver, IDataConnectionDriverManager } from '../common/interfaces/positronDataConnectionsDriver.js';
+import { IDataConnectionDriverManager, IDataConnectionProfile } from '../common/interfaces/positronDataConnectionsDriver.js';
 
 /**
  * Service that manages data connection drivers and active connection instances.
@@ -18,27 +18,37 @@ import { IDataConnectionDriver, IDataConnectionDriverManager } from '../common/i
  * consumes this service to list drivers, connect, and browse schema trees.
  */
 export class PositronDataConnectionsService extends Disposable implements IPositronDataConnectionsService {
+	//#region Public Properties
+
 	// Required by the DI system to make this interface structurally unique.
 	declare readonly _serviceBrand: undefined;
 
 	// The driver manager, which manages registered data connection drivers (register, remove, list, change events).
 	readonly driverManager: IDataConnectionDriverManager;
 
-	// Active connection instances, displayed in the UI.
-	private readonly _connections: IDataConnectionInstance[] = [];
+	//#endregion Public Properties
 
-	// Fires when connections are added or removed.
-	private readonly _onDidChangeConnectionsEmitter = this._register(new Emitter<IDataConnectionInstance[]>());
+	//#region Private Properties
 
-	// Public event consumers subscribe to for connection changes.
-	readonly onDidChangeConnections: Event<IDataConnectionInstance[]> = this._onDidChangeConnectionsEmitter.event;
+	// Saved connection profiles.
+	private readonly _connectionProfiles: IDataConnectionProfile[] = [];
 
-	/**
-	 * Delegate onDidChangeDrivers to the driver manager's onDidChangeDrivers event.
-	 */
-	get onDidChangeDrivers(): Event<IDataConnectionDriver[]> {
-		return this.driverManager.onDidChangeDrivers;
-	}
+	// Active connection instances.
+	private readonly _connectionInstances: IDataConnectionInstance[] = [];
+
+	// Fires when connection profiles are added or removed.
+	private readonly _onDidChangeConnectionProfilesEmitter = this._register(new Emitter<IDataConnectionProfile[]>());
+
+	// Fires when connection instances are added or removed.
+	private readonly _onDidChangeConnectionInstancesEmitter = this._register(new Emitter<IDataConnectionInstance[]>());
+
+	//#endregion Private Properties
+
+	//#region Public Events
+
+	//#endregion Public Events
+
+	//#region Constructor & Dispose
 
 	/**
 	 * Constructor.
@@ -52,32 +62,100 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 		this.driverManager = this._register(new DataConnectionDriverManager());
 	}
 
+	//#endregion Constructor & Dispose
+
+	//#region IPositronDataConnectionsService Implementation
+
+	// Public event consumers subscribe to for connection profile changes.
+	readonly onDidChangeConnectionProfiles: Event<IDataConnectionProfile[]> = this._onDidChangeConnectionProfilesEmitter.event;
+
+	// Public event consumers subscribe to for connection instance changes.
+	readonly onDidChangeConnectionInstances: Event<IDataConnectionInstance[]> = this._onDidChangeConnectionInstancesEmitter.event;
+
 	/**
-	 * Adds or replaces a connection instance and fires a change event.
-	 * @param connection The connection instance to add.
+	 * Adds or replaces a connection profile and fires a change event.
+	 * @param connectionProfile The connection profile to add.
 	 */
-	addConnection(connection: IDataConnectionInstance): void {
-		// Replace or add the connection instance.
-		const index = this._connections.findIndex(c => c.id === connection.id);
+	addReplaceConnectionProfile(connectionProfile: IDataConnectionProfile): void {
+		// Replace or add the connection profile.
+		const index = this._connectionProfiles.findIndex(_ => _.id === connectionProfile.id);
 		if (index >= 0) {
-			this._connections[index] = connection;
+			this._connectionProfiles[index] = connectionProfile;
 		} else {
-			this._connections.push(connection);
+			this._connectionProfiles.push(connectionProfile);
 		}
 
 		// Log the addition.
-		this._logService.trace(`[DataConnections] Added connection: ${connection.id}`);
+		this._logService.trace(`[DataConnections] Added connection profile: ${connectionProfile.id}`);
 
-		// Raise the onDidChangeConnections event.
-		this._onDidChangeConnectionsEmitter.fire([...this._connections]);
+		// Raise the onDidChangeConnectionProfiles event.
+		this._onDidChangeConnectionProfilesEmitter.fire([...this._connectionProfiles]);
+	}
+
+	/**
+	 * Gets all saved connection profiles.
+	 * @returns A shallow copy of the connection profiles array.
+	 */
+	getConnectionProfiles(): IDataConnectionProfile[] {
+		return [...this._connectionProfiles];
+	}
+
+	/**
+	 * Gets a single connection profile by id.
+	 * @param id The connection profile id.
+	 * @returns The matching profile, or undefined if not found.
+	 */
+	getConnectionProfile(id: string): IDataConnectionProfile | undefined {
+		return this._connectionProfiles.find(p => p.id === id);
+	}
+
+	/**
+	 * Removes a connection profile and fires a change event.
+	 * @param id The connection profile id to remove.
+	 */
+	removeConnectionProfile(id: string): void {
+		// Find the index of the connection profile by ID.
+		const index = this._connectionProfiles.findIndex(p => p.id === id);
+
+		// If the connection profile was found, remove it.
+		if (index >= 0) {
+			// Remove the connection profile.
+			this._connectionProfiles.splice(index, 1);
+
+			// Log the removal.
+			this._logService.trace(`[DataConnections] Removed connection profile: ${id}`);
+
+			// Raise the onDidChangeConnectionProfiles event.
+			this._onDidChangeConnectionProfilesEmitter.fire([...this._connectionProfiles]);
+		}
+	}
+
+	/**
+	 * Adds or replaces a connection instance and fires a change event.
+	 * @param connectionInstance The connection instance to add.
+	 */
+	addConnectionInstance(connectionInstance: IDataConnectionInstance): void {
+		// Replace or add the connection instance.
+		const index = this._connectionInstances.findIndex(c => c.id === connectionInstance.id);
+		if (index >= 0) {
+			this._connectionInstances[index] = connectionInstance;
+		} else {
+			this._connectionInstances.push(connectionInstance);
+		}
+
+		// Log the addition.
+		this._logService.trace(`[DataConnections] Added connection instance: ${connectionInstance.id}`);
+
+		// Raise the onDidChangeConnectionInstances event.
+		this._onDidChangeConnectionInstancesEmitter.fire([...this._connectionInstances]);
 	}
 
 	/**
 	 * Gets all active connection instances.
-	 * @returns A shallow copy of the connections array.
+	 * @returns A shallow copy of the connection instances array.
 	 */
-	getConnections(): IDataConnectionInstance[] {
-		return [...this._connections];
+	getConnectionInstances(): IDataConnectionInstance[] {
+		return [...this._connectionInstances];
 	}
 
 	/**
@@ -85,36 +163,38 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	 * @param id The connection instance id.
 	 * @returns The matching instance, or undefined if not found.
 	 */
-	getConnection(id: string): IDataConnectionInstance | undefined {
-		return this._connections.find(c => c.id === id);
+	getConnectionInstance(id: string): IDataConnectionInstance | undefined {
+		return this._connectionInstances.find(c => c.id === id);
 	}
 
 	/**
-	 * Removes a connection, releases its ext host handle, and fires a change event.
+	 * Removes a connection instance, releases its ext host handle, and fires a change event.
 	 * @param id The connection instance id to remove.
 	 */
-	removeConnection(id: string): void {
-		// Find the index of the connection by ID.
-		const index = this._connections.findIndex(c => c.id === id);
+	removeConnectionInstance(id: string): void {
+		// Find the index of the connection instance by ID.
+		const index = this._connectionInstances.findIndex(c => c.id === id);
 
-		// If the connection was found, release its
+		// If the connection instance was found, release its ext host handle and remove it.
 		if (index >= 0) {
-			// get the connection.
-			const connection = this._connections[index];
+			// Get the connection instance.
+			const connectionInstance = this._connectionInstances[index];
 
-			// Rreleases its ext host handle.
-			connection.connectionHandle.release();
+			// Release its ext host handle.
+			connectionInstance.connectionHandle.release();
 
 			// Remove the connection instance.
-			this._connections.splice(index, 1);
+			this._connectionInstances.splice(index, 1);
 
 			// Log the removal.
-			this._logService.trace(`[DataConnections] Removed connection: ${id}`);
+			this._logService.trace(`[DataConnections] Removed connection instance: ${id}`);
 
-			// Raise the onDidChangeConnections event.
-			this._onDidChangeConnectionsEmitter.fire([...this._connections]);
+			// Raise the onDidChangeConnectionInstances event.
+			this._onDidChangeConnectionInstancesEmitter.fire([...this._connectionInstances]);
 		}
 	}
+
+	//#endregion IPositronDataConnectionsService Implementation
 }
 
 // Register as a lazily instantiated singleton with the DI system.

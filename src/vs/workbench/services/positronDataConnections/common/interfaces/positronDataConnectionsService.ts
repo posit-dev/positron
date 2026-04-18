@@ -7,7 +7,7 @@ import { Event } from '../../../../../base/common/event.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { IDataConnectionInstance } from './positronDataConnectionsInstance.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
-import { IDataConnectionDriver, IDataConnectionDriverManager } from './positronDataConnectionsDriver.js';
+import { IDataConnectionDriverManager, IDataConnectionProfile } from './positronDataConnectionsDriver.js';
 
 // DI token used to inject IPositronDataConnectionsService throughout the workbench.
 export const IPositronDataConnectionsService = createDecorator<IPositronDataConnectionsService>('positronDataConnectionsService');
@@ -24,34 +24,59 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	// Manages registered data connection drivers (register, remove, list, change events).
 	readonly driverManager: IDataConnectionDriverManager;
 
+	// Fires when connection instances are added or removed.
+	onDidChangeConnectionInstances: Event<IDataConnectionInstance[]>;
+
+	// Fires when connection profiles are added or removed.
+	onDidChangeConnectionProfiles: Event<IDataConnectionProfile[]>;
+
+	/**
+	 * Adds or replaces a connection profile and fires a change event.
+	 * @param connectionProfile The connection profile to add.
+	 */
+	addReplaceConnectionProfile(connectionProfile: IDataConnectionProfile): void;
+
+	/**
+	 * Gets all saved connection profiles.
+	 * @returns A shallow copy of the connection profiles array.
+	 */
+	getConnectionProfiles(): IDataConnectionProfile[];
+
+	/**
+	 * Gets a single connection profile by id.
+	 * @param id The connection profile id.
+	 * @returns The matching profile, or undefined if not found.
+	 */
+	getConnectionProfile(id: string): IDataConnectionProfile | undefined;
+
+	/**
+	 * Removes a connection profile and fires a change event.
+	 * @param id The connection profile id to remove.
+	 */
+	removeConnectionProfile(id: string): void;
+
 	/**
 	 * Adds or replaces a connection instance and fires a change event.
-	 * @param connection The connection instance to add.
+	 * @param connectionInstance The connection instance to add.
 	 */
-	addConnection(connection: IDataConnectionInstance): void;
+	addConnectionInstance(connectionInstance: IDataConnectionInstance): void;
 
 	/**
 	 * Gets all active connection instances.
-	 * @returns A shallow copy of the connections array.
+	 * @returns A shallow copy of the connection instances array.
 	 */
-	getConnections(): IDataConnectionInstance[];
+	getConnectionInstances(): IDataConnectionInstance[];
 
 	/**
 	 * Gets a single connection instance by id.
 	 * @param id The connection instance id.
 	 * @returns The matching instance, or undefined if not found.
 	 */
-	getConnection(id: string): IDataConnectionInstance | undefined;
+	getConnectionInstance(id: string): IDataConnectionInstance | undefined;
 
 	/**
-	 * Removes a connection, releases its ext host handle, and fires a change event.
+	 * Removes a connection instance, releases its ext host handle, and fires a change event.
 	 * @param id The connection instance id to remove.
 	 */
-	removeConnection(id: string): void;
-
-	// Fires when drivers are registered or removed.
-	onDidChangeDrivers: Event<IDataConnectionDriver[]>;
-
-	// Fires when connections are added or removed.
-	onDidChangeConnections: Event<IDataConnectionInstance[]>;
+	removeConnectionInstance(id: string): void;
 }

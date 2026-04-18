@@ -4,81 +4,83 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from '../../../../../base/common/event.js';
+import { IDataConnectionNodeDTO } from './positronDataConnectionsDTOs.js';
 
-// --- DTOs (JSON-serializable, cross the RPC wire) ---
+// --- Service-level interfaces ---
+//
+// All wire-format types (DTOs) live in positronDataConnectionsDTOs.ts. Consumers here are
+// service/UI code and should not import DTOs directly; the main-thread adapter converts at
+// the RPC boundary. The one exception is IDataConnectionHandle's getChildren methods, which
+// forward raw node DTOs straight from the ext host.
 
 /**
- * Serializable driver metadata sent from the ext host to the main thread
- * when a driver is registered.
+ * Parameter values map. Currently shape-identical to DataConnectionParameterValuesDTO; kept as
+ * a distinct service-level alias so the in-process representation can evolve independently.
  */
-export interface IDataConnectionDriverMetadata {
-	id: string;
-	name: string;
-	description: string;
-	iconSvg: string;
-	parameters: IDataConnectionParameterDTO[];
-	supportedLanguageIds: string[];
-}
+export type DataConnectionParameterValues = Record<string, boolean | number | string>;
 
 /**
- * Serializable parameter definition. The discriminated union from the public
- * API is flattened so it can cross the RPC boundary.
- */
-export interface IDataConnectionParameterDTO {
-	id: string;
-	label: string;
-	required?: boolean;
-	type: string; // 'boolean' | 'file' | 'number' | 'option' | 'password' | 'string'
-	defaultValue?: string | number | boolean;
-	placeholder?: string;
-	options?: string[]; // only for 'option' type
-}
-
-/**
- * Parameter values map, already plain JSON.
- */
-export type DataConnectionParameterValues = Record<string, string | number | boolean>;
-
-/**
- * A saved data connection with its metadata and parameter values.
+ * A data connection profile. A profile has its persistence metadata (id, createdAt, lastUsedAt)
+ * once stored; for a draft (not yet saved) those fields are undefined. Distinct from
+ * IDataConnectionInstance, which represents the live/connected form at runtime.
  */
 export interface IDataConnectionProfile {
-	// The user-chosen name for this connection.
-	connectionName: string;
+	// Stable identifier for the connection. Assigned once at draft creation and preserved
+	// through save; never changes for a given connection.
+	readonly id: string;
+
+	// Epoch millis the connection was saved. Undefined for drafts.
+	readonly createdAt?: number;
+
+	// Epoch millis the connection was last used. Undefined until first use.
+	lastUsedAt?: number;
 
 	// The ID of the driver used for this connection.
 	driverId: string;
+
+	// The user-chosen name for this connection.
+	connectionName: string;
 
 	// The parameter values for this connection.
 	parameterValues: DataConnectionParameterValues;
 }
 
 /**
- * Serializable node returned from getChildren calls. Each node gets a handle
- * so the main thread can call back for child expansion and preview.
+ * Common fields shared by every service-level data connection parameter variant.
  */
-export interface IDataConnectionNodeDTO {
-	nodeHandle: number;
-	name: string;
-	kind: string; // DataConnectionNodeKind value
-	dataType?: string;
-	hasGetChildren: boolean;
-	hasPreview: boolean;
+export interface IDataConnectionParameterBase {
+	id: string;
+	label: string;
+	required?: boolean;
 }
 
 /**
- * A lightweight summary of a registered driver, returned to the ext host
- * for the positron.dataConnections.getDrivers() API.
+ * Service-level data connection parameter. Mirrors the public API's DataConnectionParameter
+ * discriminated union: the `type` discriminant narrows which additional fields are available.
+ * The RPC layer converts IDataConnectionParameterDTO → IDataConnectionParameter at the
+ * main-thread boundary.
  */
-export interface IDataConnectionDriverSummaryDTO {
+export type IDataConnectionParameter = IDataConnectionParameterBase & (
+	| { type: 'boolean'; defaultValue?: boolean }
+	| { type: 'file'; defaultValue?: string; placeholder?: string }
+	| { type: 'number'; defaultValue?: number; placeholder?: string }
+	| { type: 'option'; options: string[]; defaultValue?: string; placeholder?: string }
+	| { type: 'password'; placeholder?: string }
+	| { type: 'string'; defaultValue?: string; placeholder?: string }
+);
+
+/**
+ * Service-level driver metadata. Same shape as IDataConnectionDriverMetadataDTO but with the
+ * richer discriminated parameter type so consumers get narrowed `parameter.type`.
+ */
+export interface IDataConnectionDriverMetadata {
 	id: string;
 	name: string;
 	description: string;
-	parameters: IDataConnectionParameterDTO[];
+	iconSvg: string;
+	parameters: IDataConnectionParameter[];
 	supportedLanguageIds: string[];
 }
-
-// --- Service-level interfaces ---
 
 /**
  * A registered data connection driver as seen by the service layer.

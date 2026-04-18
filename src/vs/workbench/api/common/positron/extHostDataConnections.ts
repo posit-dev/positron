@@ -5,7 +5,7 @@
 
 import * as positron from 'positron';
 import * as extHostProtocol from './extHost.positron.protocol.js';
-import { IDataConnectionDriverMetadata, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
+import { IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDTOs.js';
 import { Disposable } from '../extHostTypes.js';
 
 /**
@@ -69,7 +69,7 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 
 		// Convert the driver's public API shape into a serializable DTO. Base64-encode the SVG so
 		// the UI can use it directly in <img> src attributes.
-		const metadata: IDataConnectionDriverMetadata = {
+		const metadata: IDataConnectionDriverMetadataDTO = {
 			id: driver.id,
 			name: driver.name,
 			description: driver.description,

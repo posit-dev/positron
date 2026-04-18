@@ -10,6 +10,13 @@ import * as vscode from 'vscode';
 import { SQLiteConnection } from './sqliteConnection.js';
 
 /**
+ * Type guard for a non-empty string.
+ */
+function isNonEmptyString(value: unknown): value is string {
+	return typeof value === 'string' && value.length > 0;
+}
+
+/**
  * Creates the SQLite DataConnectionDriver.
  * @param context The extension context, used to locate the icon asset.
  */
@@ -20,6 +27,7 @@ export function createSQLiteDriver(
 	const iconPath = path.join(context.extensionPath, 'media', 'logo', 'sqlite.svg');
 	const iconSvg = readFileSync(iconPath, 'utf-8');
 
+	// Return the driver.
 	return {
 		id: 'positron-sqlite',
 		name: 'SQLite',
@@ -42,13 +50,16 @@ export function createSQLiteDriver(
 			},
 		],
 		connect(params: positron.DataConnectionParameterValues): Thenable<positron.DataConnection> {
-			const databasePath = params.databasePath as string;
+			// Extract parameters.
+			const databasePath = params.databasePath;
 			const readOnly = params.readOnly as boolean ?? false;
 
-			if (!databasePath) {
-				throw new Error('Database file path is required');
+			// Validate parameters.
+			if (!isNonEmptyString(databasePath)) {
+				return Promise.reject(new Error('Database file path is required'));
 			}
 
+			// Return a resolved promise with the new SQLite connection.
 			return Promise.resolve(new SQLiteConnection(databasePath, readOnly));
 		},
 	};
