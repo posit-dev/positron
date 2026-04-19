@@ -18,6 +18,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { test, tags, expect } from '../../_test.setup';
+import { Application } from '../../../infra/application.js';
 
 test.use({
 	suiteId: __filename
@@ -103,15 +104,10 @@ test.describe('Workbench: Language-scoped enforced settings', {
 			'Restart rstudio-server'
 		);
 
-		// Reconnect: the current Positron session is dead after the server restart.
-		await app.positWorkbench.dashboard.goTo();
-		try {
-			await app.positWorkbench.dashboard.expectHeaderToBeVisible();
-		} catch {
-			// Need to re-authenticate.
-			await app.positWorkbench.auth.signIn();
-			await app.positWorkbench.dashboard.expectHeaderToBeVisible();
-		}
+		// `rstudio-server restart` returns before the server is accepting connections again;
+		// poll until the dashboard responds, then reconnect.
+		await waitForRStudioServerReady(runDockerCommand);
+		await reconnectDashboard(app);
 
 		// Quit any leftover session (from before the restart) and open a fresh one,
 		// so the new Positron process inherits POSITRON_ENFORCED_SETTINGS.
@@ -152,13 +148,8 @@ test.describe('Workbench: Language-scoped enforced settings', {
 		);
 
 		// Reconnect so the worker-scoped teardown (which calls quitSession) has a live session.
-		await app.positWorkbench.dashboard.goTo();
-		try {
-			await app.positWorkbench.dashboard.expectHeaderToBeVisible();
-		} catch {
-			await app.positWorkbench.auth.signIn();
-			await app.positWorkbench.dashboard.expectHeaderToBeVisible();
-		}
+		await waitForRStudioServerReady(runDockerCommand);
+		await reconnectDashboard(app);
 		await app.positWorkbench.dashboard.openSession('qa-example-content');
 		await app.code.driver.page.waitForSelector('.monaco-workbench', { timeout: 60000 });
 	});
@@ -215,3 +206,44 @@ test.describe('Workbench: Language-scoped enforced settings', {
 		});
 	});
 });
+
+type RunDockerCommand = (command: string, description: string) => Promise<{ stdout: string; stderr: string }>;
+
+/**
+ * Poll rstudio-server inside the container until it returns a 2xx/3xx for the login page.
+ * `rstudio-server restart` returns before the listener is back, so navigating immediately
+ * yields ERR_CONNECTION_RESET.
+ */
+async function waitForRStudioServerReady(runDockerCommand: RunDockerCommand, timeoutMs = 60000): Promise<void> {
+	const deadline = Date.now() + timeoutMs;
+	let lastError: unknown;
+	while (Date.now() < deadline) {
+		try {
+			const { stdout } = await runDockerCommand(
+				`docker exec test bash -lc 'curl -s -o /dev/null -w "%{http_code}" http://localhost:8787/auth-sign-in || true'`,
+				'Probe rstudio-server readiness'
+			);
+			const code = parseInt(stdout.trim(), 10);
+			if (code >= 200 && code < 400) {
+				return;
+			}
+		} catch (error) {
+			lastError = error;
+		}
+		await new Promise(resolve => setTimeout(resolve, 1000));
+	}
+	throw new Error(`rstudio-server did not become ready within ${timeoutMs}ms${lastError ? `: ${lastError}` : ''}`);
+}
+
+/**
+ * Navigate to the dashboard, signing in if the session was invalidated by a server restart.
+ */
+async function reconnectDashboard(app: Application): Promise<void> {
+	await app.positWorkbench.dashboard.goTo();
+	try {
+		await app.positWorkbench.dashboard.expectHeaderToBeVisible();
+	} catch {
+		await app.positWorkbench.auth.signIn();
+		await app.positWorkbench.dashboard.expectHeaderToBeVisible();
+	}
+}
