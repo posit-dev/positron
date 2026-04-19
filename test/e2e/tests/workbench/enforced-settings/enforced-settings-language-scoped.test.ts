@@ -42,7 +42,7 @@ const MESSY_R_CONTENT = [
 const ENFORCED_SETTINGS_JSON = JSON.stringify({
 	'[r]': {
 		'editor.formatOnSave': true,
-		'editor.defaultFormatter': 'posit.air-vscode',
+		'editor.defaultFormatter': 'Posit.air-vscode',
 	},
 }, null, 2);
 
