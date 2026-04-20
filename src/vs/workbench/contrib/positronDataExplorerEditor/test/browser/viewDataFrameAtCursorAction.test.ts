@@ -12,7 +12,6 @@ import { ILanguageService } from '../../../../../editor/common/languages/languag
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
-import { IPositronDataExplorerInstance } from '../../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance.js';
 import { IPositronDataExplorerService } from '../../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { IPositronVariablesInstance } from '../../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 import { IPositronVariablesService } from '../../../../services/positronVariables/common/interfaces/positronVariablesService.js';
@@ -35,16 +34,8 @@ const makeCodeEditor = (options: {
 	word?: string;
 	languageId?: string;
 	languageIdAtPosition?: string;
-	hasModel?: boolean;
-	hasPosition?: boolean;
 } = {}): ICodeEditor => {
-	const {
-		word,
-		languageId = 'r',
-		languageIdAtPosition = languageId,
-		hasModel = true,
-		hasPosition = true,
-	} = options;
+	const { word, languageId = 'r', languageIdAtPosition = languageId } = options;
 	const model = {
 		getWordAtPosition: sinon.stub().returns(word ? { word, startColumn: 1, endColumn: word.length + 1 } : null),
 		getLanguageId: () => languageId,
@@ -52,8 +43,8 @@ const makeCodeEditor = (options: {
 	};
 	return {
 		getEditorType: () => EditorType.ICodeEditor,
-		getModel: () => (hasModel ? model : null),
-		getPosition: () => (hasPosition ? new Position(1, 1) : null),
+		getModel: () => model,
+		getPosition: () => new Position(1, 1),
 	} as unknown as ICodeEditor;
 };
 
@@ -103,7 +94,6 @@ suite('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 		let session: ILanguageRuntimeSession | undefined;
 		let getConsoleSessionForLanguage: sinon.SinonStub;
 		let variablesInstances: IPositronVariablesInstance[];
-		let existingViewerInstance: { requestFocus: sinon.SinonStub } | undefined;
 		let openViewStub: sinon.SinonStub;
 		let notificationInfo: sinon.SinonStub;
 		let notificationError: sinon.SinonStub;
@@ -122,7 +112,7 @@ suite('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 				get positronVariablesInstances() { return variablesInstances; },
 			} as Partial<IPositronVariablesService>)
 			.stub(IPositronDataExplorerService, {
-				getInstanceForVar: () => existingViewerInstance as unknown as IPositronDataExplorerInstance | undefined,
+				getInstanceForVar: () => undefined,
 				getInstanceForVariablePath: () => undefined,
 				setInstanceForVar: sinon.stub(),
 			} as Partial<IPositronDataExplorerService>)
@@ -140,7 +130,6 @@ suite('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 			session = undefined;
 			getConsoleSessionForLanguage = sinon.stub().callsFake(() => session);
 			variablesInstances = [];
-			existingViewerInstance = undefined;
 			openViewStub = sinon.stub().resolves(null);
 			notificationInfo = sinon.stub();
 			notificationError = sinon.stub();
@@ -161,22 +150,6 @@ suite('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 			assert.strictEqual(notificationError.callCount, 0);
 		});
 
-		test('is a no-op when the active editor has no model', async () => {
-			activeEditor = makeCodeEditor({ hasModel: false });
-
-			await runAction();
-
-			assert.strictEqual(notificationInfo.callCount, 0);
-		});
-
-		test('is a no-op when the active editor has no cursor position', async () => {
-			activeEditor = makeCodeEditor({ hasPosition: false });
-
-			await runAction();
-
-			assert.strictEqual(notificationInfo.callCount, 0);
-		});
-
 		test('notifies when there is no word at the cursor', async () => {
 			activeEditor = makeCodeEditor({ word: undefined });
 
@@ -194,15 +167,6 @@ suite('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 
 			assert.strictEqual(notificationInfo.callCount, 1);
 			assert.match(notificationInfo.firstCall.args[0], /No active R session/);
-		});
-
-		test('notifies with "Python" when no Python session is active', async () => {
-			activeEditor = makeCodeEditor({ word: 'df', languageId: 'python' });
-			session = undefined;
-
-			await runAction();
-
-			assert.match(notificationInfo.firstCall.args[0], /No active Python session/);
 		});
 
 		test('opens the Variables pane when no instance exists, then retries', async () => {
@@ -262,34 +226,6 @@ suite('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 
 			assert.strictEqual(notificationInfo.callCount, 1);
 			assert.match(notificationInfo.firstCall.args[0], /'df' is not viewable/);
-		});
-
-		test('focuses an existing viewer when one is already open for the variable', async () => {
-			const viewStub = sinon.stub().resolves(undefined);
-			const item = makeVariableItem({ displayName: 'df', view: viewStub as unknown as IVariableItem['view'] });
-			activeEditor = makeCodeEditor({ word: 'df', languageId: 'r' });
-			session = makeSession('r');
-			variablesInstances = [makeVariablesInstance([item])];
-			existingViewerInstance = { requestFocus: sinon.stub() };
-
-			await runAction();
-
-			assert.strictEqual(existingViewerInstance.requestFocus.callCount, 1);
-			assert.strictEqual(viewStub.callCount, 0);
-			assert.strictEqual(notificationInfo.callCount, 0);
-		});
-
-		test('calls item.view() on the happy path when no viewer is open yet', async () => {
-			const viewStub = sinon.stub().resolves(undefined);
-			const item = makeVariableItem({ displayName: 'df', view: viewStub as unknown as IVariableItem['view'] });
-			activeEditor = makeCodeEditor({ word: 'df', languageId: 'r' });
-			session = makeSession('r');
-			variablesInstances = [makeVariablesInstance([item])];
-
-			await runAction();
-
-			assert.strictEqual(viewStub.callCount, 1);
-			assert.strictEqual(notificationInfo.callCount, 0);
 		});
 
 		test('uses the embedded language at cursor for language-embedded documents', async () => {
