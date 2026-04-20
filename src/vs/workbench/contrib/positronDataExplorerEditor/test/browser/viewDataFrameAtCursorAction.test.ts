@@ -151,12 +151,13 @@ suite('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 			return ctx.instantiationService.invokeFunction(accessor => action.run(accessor));
 		};
 
-		test('is a no-op when no code editor is active', async () => {
+		test('notifies when no code editor is active', async () => {
 			activeEditor = undefined;
 
 			await runAction();
 
-			assert.strictEqual(notificationInfo.callCount, 0);
+			assert.strictEqual(notificationInfo.callCount, 1);
+			assert.match(notificationInfo.firstCall.args[0], /Place the cursor in the editor/);
 			assert.strictEqual(notificationError.callCount, 0);
 		});
 

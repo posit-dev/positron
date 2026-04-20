@@ -42,11 +42,11 @@ import { CodeSyntaxName } from '../../../services/languageRuntime/common/positro
 import { mainWindow } from '../../../../base/browser/window.js';
 
 /**
- * Positron data explorer action category.
+ * Positron Data Explorer action category.
  */
 const POSITRON_DATA_EXPLORER_ACTION_CATEGORY = localize(
 	'positronDataExplorerCategory',
-	"Positron Data Explorer"
+	"Data Explorer"
 );
 
 /**
@@ -1237,7 +1237,6 @@ export class PositronDataExplorerViewDataFrameAtCursorAction extends Action2 {
 			},
 			category,
 			f1: true,
-			precondition: EditorContextKeys.editorTextFocus,
 			menu: [
 				{
 					id: MenuId.EditorContext,
@@ -1260,6 +1259,10 @@ export class PositronDataExplorerViewDataFrameAtCursorAction extends Action2 {
 
 		const control = editorService.activeTextEditorControl;
 		if (!isCodeEditor(control)) {
+			notificationService.info(localize(
+				'positron.viewDataFrameAtCursor.noEditor',
+				"Place the cursor in the editor on the data frame you'd like to view."
+			));
 			return;
 		}
 		const model = control.getModel();
