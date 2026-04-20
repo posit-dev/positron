@@ -246,9 +246,6 @@ async function waitForRStudioServerReady(runDockerCommand: RunDockerCommand, tim
 }
 
 /**
- * Navigate to the dashboard, signing in if the session was invalidated by a server restart.
- */
-/**
  * Poll the container's user-extensions directory until the Air bootstrap extension shows up.
  * Air is downloaded lazily from the marketplace after container startup and is required for
  * the `posit.air-vscode` formatter to exist.
@@ -278,6 +275,9 @@ async function waitForAirExtensionInstalled(runDockerCommand: RunDockerCommand, 
 	);
 }
 
+/**
+ * Navigate to the dashboard, signing in if the session was invalidated by a server restart.
+ */
 async function reconnectDashboard(app: Application): Promise<void> {
 	await app.positWorkbench.dashboard.goTo();
 	try {
