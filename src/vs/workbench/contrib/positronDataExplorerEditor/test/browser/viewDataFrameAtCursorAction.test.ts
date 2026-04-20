@@ -8,6 +8,7 @@ import sinon from 'sinon';
 import { Position } from '../../../../../editor/common/core/position.js';
 import { EditorType } from '../../../../../editor/common/editorCommon.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
+import { ILanguageService } from '../../../../../editor/common/languages/language.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
@@ -16,11 +17,14 @@ import { IPositronDataExplorerService } from '../../../../services/positronDataE
 import { IPositronVariablesInstance } from '../../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 import { IPositronVariablesService } from '../../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { IVariableItem } from '../../../../services/positronVariables/common/interfaces/variableItem.js';
+import { IViewsService } from '../../../../services/views/common/viewsService.js';
+import { Event } from '../../../../../base/common/event.js';
+import { POSITRON_VARIABLES_VIEW } from '../../../positronVariables/browser/positronVariablesIdentifiers.js';
 import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import {
-	VIEW_DATA_FRAME_AT_CURSOR_ACTION_ID,
+	PositronDataExplorerCommandId,
 	PositronDataExplorerViewDataFrameAtCursorAction,
-} from '../../browser/positronDataExplorerViewDataFrameAtCursorAction.js';
+} from '../../browser/positronDataExplorerActions.js';
 
 const SESSION_ID = 'test-session-id';
 
@@ -30,13 +34,21 @@ const makeSession = (languageId: string): ILanguageRuntimeSession =>
 const makeCodeEditor = (options: {
 	word?: string;
 	languageId?: string;
+	languageIdAtPosition?: string;
 	hasModel?: boolean;
 	hasPosition?: boolean;
 } = {}): ICodeEditor => {
-	const { word, languageId = 'r', hasModel = true, hasPosition = true } = options;
+	const {
+		word,
+		languageId = 'r',
+		languageIdAtPosition = languageId,
+		hasModel = true,
+		hasPosition = true,
+	} = options;
 	const model = {
 		getWordAtPosition: sinon.stub().returns(word ? { word, startColumn: 1, endColumn: word.length + 1 } : null),
 		getLanguageId: () => languageId,
+		getLanguageIdAtPosition: () => languageIdAtPosition,
 	};
 	return {
 		getEditorType: () => EditorType.ICodeEditor,
@@ -62,6 +74,7 @@ const makeVariablesInstance = (
 ({
 	session: { sessionId },
 	variableItems: items,
+	onDidChangeEntries: Event.None,
 } as unknown as IPositronVariablesInstance);
 
 suite('PositronDataExplorerViewDataFrameAtCursorAction', () => {
@@ -70,7 +83,10 @@ suite('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 
 		test('registers with the expected id, f1, and editor context menu', () => {
 			const action = new PositronDataExplorerViewDataFrameAtCursorAction();
-			assert.strictEqual(action.desc.id, VIEW_DATA_FRAME_AT_CURSOR_ACTION_ID);
+			assert.strictEqual(
+				action.desc.id,
+				PositronDataExplorerCommandId.ViewDataFrameAtCursorAction,
+			);
 			assert.strictEqual(action.desc.f1, true);
 			const menus = Array.isArray(action.desc.menu) ? action.desc.menu : [action.desc.menu];
 			assert.ok(
@@ -85,8 +101,10 @@ suite('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 		// invoking the action.
 		let activeEditor: ICodeEditor | undefined;
 		let session: ILanguageRuntimeSession | undefined;
+		let getConsoleSessionForLanguage: sinon.SinonStub;
 		let variablesInstances: IPositronVariablesInstance[];
 		let existingViewerInstance: { requestFocus: sinon.SinonStub } | undefined;
+		let openViewStub: sinon.SinonStub;
 		let notificationInfo: sinon.SinonStub;
 		let notificationError: sinon.SinonStub;
 
@@ -94,8 +112,11 @@ suite('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 			.stub(IEditorService, {
 				get activeTextEditorControl() { return activeEditor; },
 			} as Partial<IEditorService>)
+			.stub(ILanguageService, {
+				getLanguageName: (id: string) => id === 'r' ? 'R' : id === 'python' ? 'Python' : null,
+			} as Partial<ILanguageService>)
 			.stub(IRuntimeSessionService, {
-				getConsoleSessionForLanguage: () => session,
+				getConsoleSessionForLanguage: (id: string) => getConsoleSessionForLanguage(id),
 			} as Partial<IRuntimeSessionService>)
 			.stub(IPositronVariablesService, {
 				get positronVariablesInstances() { return variablesInstances; },
@@ -109,13 +130,18 @@ suite('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 				info: (...args: any[]) => notificationInfo(...args),
 				error: (...args: any[]) => notificationError(...args),
 			} as Partial<INotificationService>)
+			.stub(IViewsService, {
+				openView: (...args: any[]) => openViewStub(...args),
+			} as Partial<IViewsService>)
 			.build();
 
 		setup(() => {
 			activeEditor = undefined;
 			session = undefined;
+			getConsoleSessionForLanguage = sinon.stub().callsFake(() => session);
 			variablesInstances = [];
 			existingViewerInstance = undefined;
+			openViewStub = sinon.stub().resolves(null);
 			notificationInfo = sinon.stub();
 			notificationError = sinon.stub();
 		});
@@ -178,15 +204,39 @@ suite('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 			assert.match(notificationInfo.firstCall.args[0], /No active Python session/);
 		});
 
-		test('notifies when the Variables pane has not initialized for the session', async () => {
+		test('opens the Variables pane when no instance exists, then retries', async () => {
 			activeEditor = makeCodeEditor({ word: 'df', languageId: 'r' });
 			session = makeSession('r');
 			variablesInstances = [];
 
+			const viewStub = sinon.stub().resolves(undefined);
+			const item = makeVariableItem({ displayName: 'df', view: viewStub as unknown as IVariableItem['view'] });
+			openViewStub.callsFake(async () => {
+				// Simulate the pane opening: the instance appears with items
+				// already populated (as if the runtime returned them fast).
+				variablesInstances = [makeVariablesInstance([item])];
+				return null;
+			});
+
 			await runAction();
 
+			assert.strictEqual(openViewStub.callCount, 1);
+			assert.deepStrictEqual(openViewStub.firstCall.args, [POSITRON_VARIABLES_VIEW, false]);
+			assert.strictEqual(viewStub.callCount, 1);
+			assert.strictEqual(notificationInfo.callCount, 0);
+		});
+
+		test('notifies when the Variables pane opens but still has no instance', async () => {
+			activeEditor = makeCodeEditor({ word: 'df', languageId: 'r' });
+			session = makeSession('r');
+			variablesInstances = [];
+			// openViewStub default does not populate variablesInstances.
+
+			await runAction();
+
+			assert.strictEqual(openViewStub.callCount, 1);
 			assert.strictEqual(notificationInfo.callCount, 1);
-			assert.match(notificationInfo.firstCall.args[0], /Open the Variables pane/);
+			assert.match(notificationInfo.firstCall.args[0], /Variables for the active R session/);
 		});
 
 		test('notifies when the symbol is not defined in the session', async () => {
@@ -237,6 +287,29 @@ suite('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 
 			await runAction();
 
+			assert.strictEqual(viewStub.callCount, 1);
+			assert.strictEqual(notificationInfo.callCount, 0);
+		});
+
+		test('uses the embedded language at cursor for language-embedded documents', async () => {
+			const viewStub = sinon.stub().resolves(undefined);
+			const item = makeVariableItem({ displayName: 'df', view: viewStub as unknown as IVariableItem['view'] });
+			const rSession = makeSession('r');
+			// Outer document is Quarto but the cursor sits inside an R chunk.
+			activeEditor = makeCodeEditor({
+				word: 'df',
+				languageId: 'quarto',
+				languageIdAtPosition: 'r',
+			});
+			// The session lookup only returns a session when called with 'r'.
+			getConsoleSessionForLanguage = sinon.stub().callsFake(
+				(id: string) => id === 'r' ? rSession : undefined,
+			);
+			variablesInstances = [makeVariablesInstance([item])];
+
+			await runAction();
+
+			assert.deepStrictEqual(getConsoleSessionForLanguage.firstCall.args, ['r']);
 			assert.strictEqual(viewStub.callCount, 1);
 			assert.strictEqual(notificationInfo.callCount, 0);
 		});
