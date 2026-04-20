@@ -19,7 +19,7 @@ import { IPositronVariablesService } from '../../../../services/positronVariable
 import { IVariableItem } from '../../../../services/positronVariables/common/interfaces/variableItem.js';
 import { IViewsService } from '../../../../services/views/common/viewsService.js';
 import { Event } from '../../../../../base/common/event.js';
-import { POSITRON_VARIABLES_VIEW } from '../../../positronVariables/browser/positronVariablesIdentifiers.js';
+import { POSITRON_VARIABLES_VIEW_ID } from '../../../positronVariables/browser/positronVariables.contribution.js';
 import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import {
 	PositronDataExplorerCommandId,
@@ -222,7 +222,7 @@ suite('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 			await runAction();
 
 			assert.strictEqual(openViewStub.callCount, 1);
-			assert.deepStrictEqual(openViewStub.firstCall.args, [POSITRON_VARIABLES_VIEW, false]);
+			assert.deepStrictEqual(openViewStub.firstCall.args, [POSITRON_VARIABLES_VIEW_ID, false]);
 			assert.strictEqual(viewStub.callCount, 1);
 			assert.strictEqual(notificationInfo.callCount, 0);
 		});

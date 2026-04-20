@@ -21,7 +21,7 @@ import { INotificationService, Severity } from '../../../../platform/notificatio
 import { viewVariableItem } from '../../../services/positronDataExplorer/browser/positronDataExplorerViewVariableItem.js';
 import { IPositronVariablesService } from '../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { IPositronVariablesInstance } from '../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
-import { POSITRON_VARIABLES_VIEW } from '../../positronVariables/browser/positronVariablesIdentifiers.js';
+import { POSITRON_VARIABLES_VIEW_ID } from '../../positronVariables/browser/positronVariables.contribution.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { Event } from '../../../../base/common/event.js';
 import { raceTimeout } from '../../../../base/common/async.js';
@@ -1309,7 +1309,7 @@ export class PositronDataExplorerViewDataFrameAtCursorAction extends Action2 {
 			);
 		let variablesInstance = findInstance();
 		if (!variablesInstance) {
-			await viewsService.openView(POSITRON_VARIABLES_VIEW, false);
+			await viewsService.openView(POSITRON_VARIABLES_VIEW_ID, false);
 			variablesInstance = findInstance();
 		}
 		if (!variablesInstance) {
