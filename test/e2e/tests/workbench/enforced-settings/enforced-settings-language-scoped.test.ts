@@ -10,8 +10,18 @@
  * silently dropped during configuration resolution. Fixed upstream in
  * rstudio/vscode-server#343.
  *
- * Scenario: an admin enforces `editor.formatOnSave` + Air as the default formatter via the
- * `[r]` language scope. Saving a messy `.R` file should trigger the Air formatter.
+ * Enforced config for the whole suite (exercises both coexistence and scope):
+ *   {
+ *     "editor.formatOnSave": false,
+ *     "[r]": { "editor.formatOnSave": true, "editor.defaultFormatter": "Posit.air-vscode" }
+ *   }
+ *
+ * Covers:
+ *   1. Positive scope: saving a messy `.R` file triggers the Air formatter.
+ *   2. Negative scope / coexistence: saving a `.py` file does NOT format (top-level `false`
+ *      still applies; the `[r]` override did not leak globally).
+ *   3. Enforced-wins-over-user: with a conflicting `[r]: { formatOnSave: false }` in the
+ *      user's settings.json, a messy `.R` file still formats on save.
  */
 
 import * as fs from 'fs';
@@ -28,8 +38,8 @@ const ENFORCED_SETTINGS_PATH = '/etc/rstudio/enforced-settings.json';
 const PROFILES_PATH = '/etc/rstudio/profiles';
 const PROFILES_BACKUP_PATH = '/etc/rstudio/profiles.enforced-settings-test.bak';
 const WORKSPACE_PATH = '/home/user1/qa-example-content';
-const TEST_FILE_NAME = 'enforced-settings-format-on-save.R';
-const TEST_FILE_PATH = `${WORKSPACE_PATH}/${TEST_FILE_NAME}`;
+const USER_SETTINGS_PATH = '/home/user1/.positron-server/User/settings.json';
+const USER_SETTINGS_BACKUP_PATH = '/home/user1/.positron-server/User/settings.json.enforced-settings-test.bak';
 
 // Deliberately messy R content that Air will reformat.
 const MESSY_R_CONTENT = [
@@ -39,7 +49,20 @@ const MESSY_R_CONTENT = [
 	'',
 ].join('\n');
 
+// Deliberately messy Python content. We assert this is NOT reformatted on save,
+// so the exact contents don't matter as long as no built-in formatter would touch it.
+const MESSY_PY_CONTENT = [
+	'x=1',
+	'y   =   2',
+	'def f(  x  ):return x+1',
+	'',
+].join('\n');
+
+// Top-level `formatOnSave: false` + `[r]` override. Together these let one config
+// exercise (a) the `[r]` scope applying to R files, (b) the top-level `false` still
+// applying to non-R files - i.e. the `[r]` override did not leak globally.
 const ENFORCED_SETTINGS_JSON = JSON.stringify({
+	'editor.formatOnSave': false,
 	'[r]': {
 		'editor.formatOnSave': true,
 		'editor.defaultFormatter': 'Posit.air-vscode',
@@ -124,13 +147,18 @@ test.describe('Workbench: Language-scoped enforced settings', {
 	});
 
 	test.afterAll('Remove enforced settings and restart session', async function ({ app, runDockerCommand }) {
-		// Non-critical cleanup: removing temp files. Swallow errors here since a leftover
-		// file in /etc/rstudio or the workspace won't affect other tests once the profile
-		// is restored and the server is restarted.
+		// Non-critical cleanup: removing temp files and restoring user settings. Swallow
+		// errors here since a leftover file in /etc/rstudio or the workspace won't affect
+		// other tests once the profile is restored and the server is restarted.
 		try {
 			await runDockerCommand(
-				`docker exec test sudo rm -f ${ENFORCED_SETTINGS_PATH} ${TEST_FILE_PATH}`,
-				'Remove enforced settings file and test R file'
+				`docker exec test bash -lc 'sudo rm -f ${ENFORCED_SETTINGS_PATH}; rm -f ${WORKSPACE_PATH}/enforced-settings-*.R ${WORKSPACE_PATH}/enforced-settings-*.py'`,
+				'Remove enforced settings file and test files'
+			);
+			// Restore user settings.json if we backed one up during a test.
+			await runDockerCommand(
+				`docker exec test bash -lc 'if [ -f ${USER_SETTINGS_BACKUP_PATH} ]; then mv ${USER_SETTINGS_BACKUP_PATH} ${USER_SETTINGS_PATH}; fi'`,
+				'Restore user settings.json (if backup exists)'
 			);
 		} catch (error) {
 			console.warn('Non-critical teardown cleanup failed (continuing):', error);
@@ -156,68 +184,126 @@ test.describe('Workbench: Language-scoped enforced settings', {
 		await waitForRStudioServerReady(runDockerCommand);
 	});
 
-	test('Verify [r]-scoped editor.formatOnSave triggers Air formatter', async function ({ app, runDockerCommand, hotKeys, page }) {
+	test.beforeAll('Wait for Air bootstrap extension to be installed', async function ({ runDockerCommand }) {
+		// Air is a bootstrap extension that is downloaded lazily after container startup
+		// (not bundled in positron-workbench-linux-x64-branch.tar.gz). Without this, the
+		// formatter lookup on save silently no-ops.
+		await waitForAirExtensionInstalled(runDockerCommand);
+	});
 
-		await test.step('Wait for Air bootstrap extension to be installed', async () => {
-			// Air is a bootstrap extension that is downloaded lazily after container startup
-			// (not bundled in positron-workbench-linux-x64-branch.tar.gz). Without this, the
-			// formatter lookup on save silently no-ops.
-			await waitForAirExtensionInstalled(runDockerCommand);
-		});
+	test('`[r]` scope: messy .R file is reformatted by Air on save', async function ({ app, runDockerCommand, hotKeys, page }) {
+		const filePath = await writeOpenAndSave(app, runDockerCommand, hotKeys, page, 'enforced-settings-format-r.R', MESSY_R_CONTENT);
 
-		await test.step('Write messy R file into the workspace', async () => {
-			const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'messy-r-'));
-			const tmpFile = path.join(tmpDir, TEST_FILE_NAME);
-			await fs.promises.writeFile(tmpFile, MESSY_R_CONTENT);
+		await expect(async () => {
+			const saved = await readContainerFile(runDockerCommand, filePath);
+			expect(saved, 'file content should differ from the messy input after formatOnSave').not.toBe(MESSY_R_CONTENT);
+			expect(saved, 'formatter should normalize `x<-1` to `x <- 1`').toContain('x <- 1');
+			expect(saved, 'formatter should normalize `y  <-   2` to `y <- 2`').toContain('y <- 2');
+		}).toPass({ timeout: 15000, intervals: [500, 1000, 2000] });
+	});
+
+	test('`[r]` does not leak globally: messy .py file is NOT reformatted on save', async function ({ app, runDockerCommand, hotKeys, page }) {
+		// Enforced config has top-level `formatOnSave: false` plus a `[r]` override. For a
+		// Python file, formatOnSave should resolve to the top-level `false`. If the fix
+		// regressed and the `[r]` block leaked globally, `formatOnSave: true` + Air as
+		// the default formatter would apply to Python too - a noticeable file change.
+		const filePath = await writeOpenAndSave(app, runDockerCommand, hotKeys, page, 'enforced-settings-no-format-py.py', MESSY_PY_CONTENT);
+
+		const saved = await readContainerFile(runDockerCommand, filePath);
+		expect(saved, 'python file should be unchanged on save (no `[python]` policy; top-level `false` applies)').toBe(MESSY_PY_CONTENT);
+	});
+
+	test('Enforced setting wins over conflicting user setting', async function ({ app, runDockerCommand, hotKeys, page }) {
+		// Write a user setting that attempts to turn formatOnSave off for R. The enforced
+		// `[r]: { formatOnSave: true }` should still win.
+		const userSettings = JSON.stringify({
+			'[r]': { 'editor.formatOnSave': false },
+		}, null, 2);
+
+		await test.step('Back up existing user settings.json and install conflicting user setting', async () => {
+			await runDockerCommand(
+				`docker exec test bash -lc 'if [ -f ${USER_SETTINGS_PATH} ] && [ ! -f ${USER_SETTINGS_BACKUP_PATH} ]; then cp ${USER_SETTINGS_PATH} ${USER_SETTINGS_BACKUP_PATH}; fi'`,
+				'Back up user settings.json (if not already)'
+			);
+
+			const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'user-settings-'));
+			const tmpFile = path.join(tmpDir, 'settings.json');
+			await fs.promises.writeFile(tmpFile, userSettings);
 			try {
 				await runDockerCommand(
-					`docker cp "${tmpFile}" test:${TEST_FILE_PATH}`,
-					'Copy messy R file into container'
-				);
-				await runDockerCommand(
-					`docker exec test chown user1:user1g ${TEST_FILE_PATH}`,
-					'Chown messy R file'
+					`docker cp "${tmpFile}" test:${USER_SETTINGS_PATH}`,
+					'Install conflicting user settings.json'
 				);
 			} finally {
 				await fs.promises.rm(tmpDir, { recursive: true, force: true });
 			}
+
+			// VS Code watches settings.json, but reloading makes the observation deterministic.
+			await hotKeys.reloadWindow();
+			await app.code.driver.page.waitForSelector('.monaco-workbench', { timeout: 60000 });
 		});
 
-		await test.step('Open the R file in Positron', async () => {
-			await app.workbench.quickaccess.openFile(TEST_FILE_PATH);
-			await expect(page.getByRole('tab', { name: TEST_FILE_NAME })).toBeVisible();
-		});
+		const filePath = await writeOpenAndSave(app, runDockerCommand, hotKeys, page, 'enforced-settings-user-conflict.R', MESSY_R_CONTENT);
 
-		await test.step('Save the file to trigger formatOnSave', async () => {
-			// Click the editor to ensure focus, then trigger save.
-			await app.workbench.editor.editorPane.click();
-			// Opening the R file triggers onLanguage:r activation for Air. Give the Air
-			// language server enough time to start and register its formatter before saving.
-			await page.waitForTimeout(5000);
-			await hotKeys.save();
-			// Give the formatter a moment to run and the save to complete.
-			await page.waitForTimeout(2000);
-		});
-
-		await test.step('Verify the file on disk was reformatted by Air', async () => {
-			await expect(async () => {
-				const { stdout } = await runDockerCommand(
-					`docker exec test cat ${TEST_FILE_PATH}`,
-					'Read saved R file'
-				);
-				const saved = stdout;
-
-				// The messy content should no longer be present verbatim - Air normalizes
-				// spacing around `<-` and inside parentheses.
-				expect(saved, 'file content should differ from the messy input after formatOnSave').not.toBe(
-					MESSY_R_CONTENT
-				);
-				expect(saved, 'formatter should normalize `x<-1` to `x <- 1`').toContain('x <- 1');
-				expect(saved, 'formatter should normalize `y  <-   2` to `y <- 2`').toContain('y <- 2');
-			}).toPass({ timeout: 15000, intervals: [500, 1000, 2000] });
-		});
+		await expect(async () => {
+			const saved = await readContainerFile(runDockerCommand, filePath);
+			expect(saved, 'enforced [r] formatOnSave should win over user `[r]: { formatOnSave: false }`').not.toBe(MESSY_R_CONTENT);
+			expect(saved, 'Air should still normalize `x<-1` despite conflicting user setting').toContain('x <- 1');
+		}).toPass({ timeout: 15000, intervals: [500, 1000, 2000] });
 	});
 });
+
+/**
+ * Write a file into the workspace, open it in Positron, and save it. Returns the file's
+ * absolute path in the container.
+ */
+async function writeOpenAndSave(
+	app: Application,
+	runDockerCommand: RunDockerCommand,
+	hotKeys: { save: () => Promise<void> },
+	page: import('@playwright/test').Page,
+	fileName: string,
+	content: string,
+): Promise<string> {
+	const filePath = `${WORKSPACE_PATH}/${fileName}`;
+
+	await test.step(`Write ${fileName} into the workspace`, async () => {
+		const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'enforced-settings-file-'));
+		const tmpFile = path.join(tmpDir, fileName);
+		await fs.promises.writeFile(tmpFile, content);
+		try {
+			await runDockerCommand(`docker cp "${tmpFile}" test:${filePath}`, `Copy ${fileName} into container`);
+			await runDockerCommand(`docker exec test chown user1:user1g ${filePath}`, `Chown ${fileName}`);
+		} finally {
+			await fs.promises.rm(tmpDir, { recursive: true, force: true });
+		}
+	});
+
+	await test.step(`Open ${fileName} in Positron`, async () => {
+		await app.workbench.quickaccess.openFile(filePath);
+		await expect(page.getByRole('tab', { name: fileName })).toBeVisible();
+	});
+
+	await test.step('Save to trigger formatOnSave (if applicable)', async () => {
+		await app.workbench.editor.editorPane.click();
+		// Give language-server-backed formatters (e.g. Air for R) time to activate and
+		// register their formatter before the save keystroke.
+		await page.waitForTimeout(5000);
+		await hotKeys.save();
+		// Give the save (and any format-on-save) a moment to land on disk. For format tests
+		// callers additionally poll with expect.toPass; this baseline wait prevents the
+		// NOT-formatted case from racing and reading an empty / pre-save file.
+		await page.waitForTimeout(2000);
+	});
+
+	return filePath;
+}
+
+/** Read a file from the workbench container via `docker exec cat`. */
+async function readContainerFile(runDockerCommand: RunDockerCommand, filePath: string): Promise<string> {
+	const { stdout } = await runDockerCommand(`docker exec test cat ${filePath}`, `Read ${filePath}`);
+	return stdout;
+}
 
 type RunDockerCommand = (command: string, description: string) => Promise<{ stdout: string; stderr: string }>;
 
