@@ -16,7 +16,7 @@
 }
 
 .horizontal-splitter
-.sizer {
+.sash {
 	top: -2px;
 	height: 5px;
 	z-index: 27;
@@ -26,12 +26,12 @@
 }
 
 .horizontal-splitter
-.sizer.hovering {
+.sash.hovering {
 	transition: background-color 0.1s ease-out;
 	background-color: var(--vscode-sash-hoverBorder);
 }
 
 .horizontal-splitter
-.sizer.resizing {
+.sash.resizing {
 	background-color: var(--vscode-sash-hoverBorder);
 }

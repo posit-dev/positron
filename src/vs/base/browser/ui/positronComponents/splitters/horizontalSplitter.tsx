@@ -108,8 +108,8 @@ export const HorizontalSplitter = (props: {
 
 		// Setup the resize state.
 		const resizeParams = props.onBeginResize();
-		const sizer = e.currentTarget;
-		const body = DOM.getWindow(sizer).document.body;
+		const sash = e.currentTarget;
+		const body = DOM.getWindow(sash).document.body;
 		const clientY = e.clientY;
 		const styleSheet = createStyleSheet(body);
 
@@ -145,7 +145,8 @@ export const HorizontalSplitter = (props: {
 			}
 
 			// Update the style sheet's text content with the desired cursor and
-			// disable text selection during the resize operation.
+			// disable text selection during the resize operation. This is a clever
+			// technique adopted from src/vs/base/browser/ui/sash/sash.ts.
 			styleSheet.textContent = `* { cursor: ${cursor} !important; user-select: none !important; }`;
 
 			// Call the onResize callback.
@@ -165,8 +166,8 @@ export const HorizontalSplitter = (props: {
 			}
 
 			// Remove our pointer event handlers.
-			sizer.removeEventListener('pointermove', pointerMoveHandler);
-			sizer.removeEventListener('lostpointercapture', lostPointerCaptureHandler);
+			sash.removeEventListener('pointermove', pointerMoveHandler);
+			sash.removeEventListener('lostpointercapture', lostPointerCaptureHandler);
 
 			// Remove the style sheet.
 			body.removeChild(styleSheet);
@@ -174,7 +175,7 @@ export const HorizontalSplitter = (props: {
 			// Clear the resizing flag.
 			setResizing(false);
 			hoverDelayerRef.current?.cancel();
-			setHovering(isPointInsideElement(e.clientX, e.clientY, sizer));
+			setHovering(isPointInsideElement(e.clientX, e.clientY, sash));
 		};
 
 		/**
@@ -198,9 +199,9 @@ export const HorizontalSplitter = (props: {
 		setHovering(true);
 
 		// Set pointer capture on the sizer element and add our pointer event handlers.
-		sizer.setPointerCapture(e.pointerId);
-		sizer.addEventListener('pointermove', pointerMoveHandler);
-		sizer.addEventListener('lostpointercapture', lostPointerCaptureHandler);
+		sash.setPointerCapture(e.pointerId);
+		sash.addEventListener('pointermove', pointerMoveHandler);
+		sash.addEventListener('lostpointercapture', lostPointerCaptureHandler);
 	};
 
 	/**
@@ -218,7 +219,7 @@ export const HorizontalSplitter = (props: {
 			{/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
 			<div
 				className={positronClassNames(
-					'sizer',
+					'sash',
 					{ 'hovering': hovering && props.showResizeIndicator },
 					{ 'resizing': resizing && props.showResizeIndicator }
 				)}
