@@ -147,11 +147,13 @@ test.describe('Workbench: Language-scoped enforced settings', {
 			'Restart rstudio-server to drop enforced settings'
 		);
 
-		// Reconnect so the worker-scoped teardown (which calls quitSession) has a live session.
+		// Wait for the server to accept connections again. The worker-scoped teardown
+		// (WorkbenchApp.stop) will then navigate to the dashboard and attempt to quit the
+		// session itself. Its goTo + quitSession are already wrapped in try/catch and just
+		// warn on failure, so we don't need to reopen a session here - doing so would
+		// introduce a UI state (project shown as button after a server restart killed the
+		// session) that openSession's locator chain doesn't handle.
 		await waitForRStudioServerReady(runDockerCommand);
-		await reconnectDashboard(app);
-		await app.positWorkbench.dashboard.openSession('qa-example-content');
-		await app.code.driver.page.waitForSelector('.monaco-workbench', { timeout: 60000 });
 	});
 
 	test('Verify [r]-scoped editor.formatOnSave triggers Air formatter', async function ({ app, runDockerCommand, hotKeys, page }) {
