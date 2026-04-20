@@ -972,7 +972,27 @@ export class NotebookService extends Disposable implements INotebookService {
 
 		const serializer = info.serializer;
 		const outputSizeLimit = this._configurationService.getValue<number>(NotebookSetting.outputBackupSizeLimit) * 1024;
-		const data: NotebookData = model.createSnapshot({ context: context, outputSizeLimit: outputSizeLimit, transientOptions: serializer.options });
+		// --- Start Positron ---
+		// const data: NotebookData = model.createSnapshot({ context: context, outputSizeLimit: outputSizeLimit, transientOptions: serializer.options });
+
+		// Apply options to include/exclude execution information in the serialized file.
+		// Excluding this info leads to more version control friendly notebooks.
+		let transientOptions = serializer.options;
+		// Only apply on save. When a snapshot is created for backup it should keep the original
+		// serializer settings.
+		if (context === SnapshotContext.Save) {
+			const saveOutputs = this._configurationService.getValue<boolean>(NotebookSetting.saveOutputs);
+			const saveExecutionCounts = this._configurationService.getValue<boolean>(NotebookSetting.saveExecutionCounts);
+			transientOptions = {
+				...serializer.options,
+				transientOutputs: !saveOutputs,
+				transientCellMetadata: {
+					execution_count: !saveExecutionCounts,
+				},
+			};
+		}
+		const data: NotebookData = model.createSnapshot({ context: context, outputSizeLimit: outputSizeLimit, transientOptions });
+		// --- End Positron ---
 		const indentAmount = model.metadata.indentAmount;
 		if (typeof indentAmount === 'string' && indentAmount) {
 			// This is required for ipynb serializer to preserve the whitespace in the notebook.

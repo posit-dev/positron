@@ -1348,6 +1348,18 @@ configurationRegistry.registerConfiguration({
 			type: 'string',
 			default: '',
 			scope: ConfigurationScope.RESOURCE
+		},
+		[NotebookSetting.saveOutputs]: {
+			markdownDescription: nls.localize('notebook.saveOutputs', "Save cell outputs to file. Disable to avoid committing outputs to version control. Outputs will be lost when the notebook is closed."),
+			type: 'boolean',
+			default: true,
+			scope: ConfigurationScope.RESOURCE
+		},
+		[NotebookSetting.saveExecutionCounts]: {
+			markdownDescription: nls.localize('notebook.saveExecutionCounts', "Save cell execution counts to file. Disable to avoid committing execution count to version control."),
+			type: 'boolean',
+			default: true,
+			scope: ConfigurationScope.RESOURCE
 		}
 		// --- End Positron ---
 	}

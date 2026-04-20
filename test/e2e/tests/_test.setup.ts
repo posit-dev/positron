@@ -8,6 +8,7 @@ import * as playwright from '@playwright/test';
 const { test: base, expect: playwrightExpect } = playwright;
 
 // Node.js built-in modules
+import fs from 'fs';
 import { join } from 'path';
 
 // Local imports
@@ -198,6 +199,10 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 			await quickInput.waitForQuickInputOpened();
 			await quickInput.type(filePath);
 			await quickInput.clickOkButton();
+			await playwrightExpect.poll(() => fs.existsSync(filePath), {
+				timeout: 10_000,
+				message: `Expected file to exist on disk: ${filePath}`
+			}).toBe(true);
 		});
 	},
 
