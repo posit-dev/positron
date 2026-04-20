@@ -162,14 +162,19 @@ export const VerticalSplitter = ({
 	const [hoverDelay, setHoverDelay] = useState(getHoverDelay(services.configurationService));
 	const [hovering, setHovering] = useState(false);
 	const [highlightExpandCollapse, setHighlightExpandCollapse] = useState(false);
-	const [hoveringDelayer, setHoveringDelayer] = useState<Delayer<void>>(undefined!);
-	const [collapsed, setCollapsed, collapsedRef] = useStateRef(isCollapsed);
+		const [collapsed, setCollapsed, collapsedRef] = useStateRef(isCollapsed);
 	const [resizing, setResizing] = useState(false);
+
+	// Ref hooks.
+	const hoverDelayerRef = useRef<Delayer<void>>(undefined);
 
 	// Main useEffect.
 	useEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
+
+		// Set the hover delayer.
+		hoverDelayerRef.current = disposableStore.add(new Delayer<void>(0));
 
 		// Add the onDidChangeConfiguration event handler.
 		disposableStore.add(
@@ -191,9 +196,6 @@ export const VerticalSplitter = ({
 			})
 		);
 
-		// Set the hover delayer.
-		setHoveringDelayer(disposableStore.add(new Delayer<void>(0)));
-
 		// Return the cleanup function that will dispose of the disposables.
 		return () => disposableStore.dispose();
 	}, [collapsible, services.configurationService]);
@@ -208,7 +210,7 @@ export const VerticalSplitter = ({
 	 * @param e A PointerEvent that describes a user interaction with the pointer.
 	 */
 	const sashPointerEnterHandler = (e: React.PointerEvent<HTMLDivElement>) => {
-		hoveringDelayer.trigger(() => {
+		hoverDelayerRef.current?.trigger(() => {
 			setHovering(true);
 			const rect = sashRef.current.getBoundingClientRect();
 			if (e.clientY >= rect.top + EXPAND_COLLAPSE_BUTTON_TOP &&
@@ -225,7 +227,7 @@ export const VerticalSplitter = ({
 	const sashPointerLeaveHandler = (e: React.PointerEvent<HTMLDivElement>) => {
 		// When not resizing, trigger the delayer.
 		if (!resizing) {
-			hoveringDelayer.trigger(() => setHovering(false), hoverDelay);
+			hoverDelayerRef.current?.trigger(() => setHovering(false), hoverDelay);
 		}
 	};
 
@@ -234,7 +236,7 @@ export const VerticalSplitter = ({
 	 * @param e A PointerEvent that describes a user interaction with the pointer.
 	 */
 	const expandCollapseButtonPointerEnterHandler = (e: React.PointerEvent<HTMLDivElement>) => {
-		hoveringDelayer.cancel();
+		hoverDelayerRef.current?.cancel();
 		setHovering(true);
 		setHighlightExpandCollapse(true);
 	};
@@ -244,7 +246,7 @@ export const VerticalSplitter = ({
 	 * @param e A PointerEvent that describes a user interaction with the pointer.
 	 */
 	const expandCollapseButtonPointerLeaveHandler = (e: React.PointerEvent<HTMLDivElement>) => {
-		hoveringDelayer.trigger(() => setHovering(false), hoverDelay);
+		hoverDelayerRef.current?.trigger(() => setHovering(false), hoverDelay);
 		setHighlightExpandCollapse(false);
 	};
 
@@ -261,7 +263,7 @@ export const VerticalSplitter = ({
 			onCollapsedChanged?.(false);
 		}
 
-		hoveringDelayer.cancel();
+		hoverDelayerRef.current?.cancel();
 		setHovering(false);
 		setHighlightExpandCollapse(false);
 	};
@@ -365,7 +367,7 @@ export const VerticalSplitter = ({
 
 			// Clear the resizing flag.
 			setResizing(false);
-			hoveringDelayer.cancel();
+			hoverDelayerRef.current?.cancel();
 			setHovering(isPointInsideElement(e.clientX, e.clientY, sashRef.current));
 		};
 
