@@ -156,6 +156,13 @@ test.describe('Workbench: Language-scoped enforced settings', {
 
 	test('Verify [r]-scoped editor.formatOnSave triggers Air formatter', async function ({ app, runDockerCommand, hotKeys, page }) {
 
+		await test.step('Wait for Air bootstrap extension to be installed', async () => {
+			// Air is a bootstrap extension that is downloaded lazily after container startup
+			// (not bundled in positron-workbench-linux-x64-branch.tar.gz). Without this, the
+			// formatter lookup on save silently no-ops.
+			await waitForAirExtensionInstalled(runDockerCommand);
+		});
+
 		await test.step('Write messy R file into the workspace', async () => {
 			const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'messy-r-'));
 			const tmpFile = path.join(tmpDir, TEST_FILE_NAME);
@@ -182,6 +189,9 @@ test.describe('Workbench: Language-scoped enforced settings', {
 		await test.step('Save the file to trigger formatOnSave', async () => {
 			// Click the editor to ensure focus, then trigger save.
 			await app.workbench.editor.editorPane.click();
+			// Opening the R file triggers onLanguage:r activation for Air. Give the Air
+			// language server enough time to start and register its formatter before saving.
+			await page.waitForTimeout(5000);
 			await hotKeys.save();
 			// Give the formatter a moment to run and the save to complete.
 			await page.waitForTimeout(2000);
@@ -238,6 +248,36 @@ async function waitForRStudioServerReady(runDockerCommand: RunDockerCommand, tim
 /**
  * Navigate to the dashboard, signing in if the session was invalidated by a server restart.
  */
+/**
+ * Poll the container's user-extensions directory until the Air bootstrap extension shows up.
+ * Air is downloaded lazily from the marketplace after container startup and is required for
+ * the `posit.air-vscode` formatter to exist.
+ */
+async function waitForAirExtensionInstalled(runDockerCommand: RunDockerCommand, timeoutMs = 120000): Promise<void> {
+	const extensionsDir = '/home/user1/.positron-server/extensions';
+	const deadline = Date.now() + timeoutMs;
+	let lastListing = '';
+	while (Date.now() < deadline) {
+		try {
+			const { stdout } = await runDockerCommand(
+				`docker exec test bash -lc 'ls -1 ${extensionsDir} 2>/dev/null || true'`,
+				'List installed extensions'
+			);
+			lastListing = stdout;
+			if (/(^|\n)\s*posit\.air-vscode[^\n]*/i.test(stdout)) {
+				return;
+			}
+		} catch {
+			// ignore and retry
+		}
+		await new Promise(resolve => setTimeout(resolve, 2000));
+	}
+	throw new Error(
+		`Air extension (posit.air-vscode) was not installed in ${extensionsDir} within ${timeoutMs}ms.\n` +
+		`Last directory listing:\n${lastListing}`
+	);
+}
+
 async function reconnectDashboard(app: Application): Promise<void> {
 	await app.positWorkbench.dashboard.goTo();
 	try {
