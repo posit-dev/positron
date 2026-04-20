@@ -71,7 +71,7 @@ export interface VerticalSplitterResizeParams {
  * @param configurationService The configuration service.
  * @returns The sash size.
  */
-const getSashSize = (configurationService: IConfigurationService) =>
+export const getSashSize = (configurationService: IConfigurationService) =>
 	configurationService.getValue<number>('workbench.sash.size');
 
 /**
@@ -79,7 +79,7 @@ const getSashSize = (configurationService: IConfigurationService) =>
  * @param configurationService The configuration service.
  * @returns The hover delay.
  */
-const getHoverDelay = (configurationService: IConfigurationService) =>
+export const getHoverDelay = (configurationService: IConfigurationService) =>
 	configurationService.getValue<number>('workbench.sash.hoverDelay');
 
 
@@ -90,7 +90,7 @@ const getHoverDelay = (configurationService: IConfigurationService) =>
  * @param element The element.
  * @returns true, if the point is inside the specified element; otherwise, false.
  */
-const isPointInsideElement = (x: number, y: number, element?: HTMLElement) => {
+export const isPointInsideElement = (x: number, y: number, element?: HTMLElement) => {
 	if (!element) {
 		return false;
 	}
@@ -369,7 +369,7 @@ setHovering(false);
 			// Clear the resizing flag.
 			setResizing(false);
 			hoverDelayerRef.current?.cancel();
-			setHovering(false);
+			setHovering(isPointInsideElement(e.clientX, e.clientY, sizer));
 		};
 
 		// Set the dragging flag

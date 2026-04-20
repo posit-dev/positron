@@ -17,6 +17,7 @@ import { DisposableStore } from '../../../../common/lifecycle.js';
 import { positronClassNames } from '../../../../common/positronUtilities.js';
 import { createStyleSheet } from '../../../domStylesheets.js';
 import { usePositronReactServicesContext } from '../../../positronReactRendererContext.js';
+import { getHoverDelay, isPointInsideElement } from './verticalSplitter.js';
 
 /**
  * HorizontalSplitterResizeParams interface. This defines the parameters of a resize operation. When
@@ -47,26 +48,30 @@ export const HorizontalSplitter = (props: {
 	// State hooks.
 	const [resizing, setResizing] = useState(false);
 	const [hovering, setHovering] = useState(false);
-	const [hoverDelay, setHoverDelay] = useState(
-		services.configurationService.getValue<number>('workbench.sash.hoverDelay')
-	);
+	const [hoverDelay, setHoverDelay] = useState(getHoverDelay(services.configurationService));
 
 	// Ref hooks.
 	const hoverDelayerRef = useRef<Delayer<void>>(undefined!);
 
-	// Setup the hover delayer and listen for config changes.
+	// Main useEffect.
 	useEffect(() => {
+		// Create the disposable store for cleanup.
 		const disposables = new DisposableStore();
+
+		// Set the hover delayer.
 		hoverDelayerRef.current = disposables.add(new Delayer<void>(0));
 
+		// Add the onDidChangeConfiguration event handler.
 		disposables.add(
 			services.configurationService.onDidChangeConfiguration(e => {
+				// Track changes to workbench.sash.hoverDelay.
 				if (e.affectedKeys.has('workbench.sash.hoverDelay')) {
-					setHoverDelay(services.configurationService.getValue<number>('workbench.sash.hoverDelay'));
+					setHoverDelay(getHoverDelay(services.configurationService));
 				}
 			})
 		);
 
+		// Return the cleanup function that will dispose of the disposables.
 		return () => disposables.dispose();
 	}, [services.configurationService]);
 
@@ -83,7 +88,7 @@ export const HorizontalSplitter = (props: {
 	const pointerLeaveHandler = () => {
 		if (!resizing) {
 			hoverDelayerRef.current?.cancel();
-setHovering(false);
+			setHovering(false);
 		}
 	};
 
@@ -117,7 +122,9 @@ setHovering(false);
 		 * @param e A PointerEvent that describes a user interaction with the pointer.
 		 */
 		const pointerMoveHandler = (e: PointerEvent) => {
+			// The pointer moved, mark as dragging.
 			didDrag = true;
+
 			// Consume the event.
 			e.preventDefault();
 			e.stopPropagation();
