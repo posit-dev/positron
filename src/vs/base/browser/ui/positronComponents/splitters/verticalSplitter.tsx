@@ -7,7 +7,7 @@
 import './verticalSplitter.css';
 
 // React.
-import React, { PointerEvent, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../dom.js';
@@ -294,9 +294,10 @@ setHovering(false);
 		// Setup the resize state.
 		const resizeParams = onBeginResize();
 		const startingWidth = collapsed ? sashWidth : resizeParams.startingWidth;
-		const target = DOM.getWindow(e.currentTarget).document.body;
+		const sizer = e.currentTarget;
+		const body = DOM.getWindow(e.currentTarget).document.body;
 		const clientX = e.clientX;
-		const styleSheet = createStyleSheet(target);
+		const styleSheet = createStyleSheet(body);
 
 		/**
 		 * pointermove event handler.
@@ -359,18 +360,16 @@ setHovering(false);
 			pointerMoveHandler(e);
 
 			// Remove our pointer event handlers.
-			// @ts-ignore
-			target.removeEventListener('pointermove', pointerMoveHandler);
-			// @ts-ignore
-			target.removeEventListener('lostpointercapture', lostPointerCaptureHandler);
+			sizer.removeEventListener('pointermove', pointerMoveHandler);
+			sizer.removeEventListener('lostpointercapture', lostPointerCaptureHandler);
 
 			// Remove the style sheet.
-			target.removeChild(styleSheet);
+			sizer.removeChild(styleSheet);
 
 			// Clear the resizing flag.
 			setResizing(false);
 			hoverDelayerRef.current?.cancel();
-			setHovering(isPointInsideElement(e.clientX, e.clientY, sashRef.current));
+			setHovering(false);
 		};
 
 		// Set the dragging flag
@@ -378,11 +377,9 @@ setHovering(false);
 
 		// Set the capture target of future pointer events to be the current target and add our
 		// pointer event handlers.
-		target.setPointerCapture(e.pointerId);
-		// @ts-ignore
-		target.addEventListener('pointermove', pointerMoveHandler);
-		// @ts-ignore
-		target.addEventListener('lostpointercapture', lostPointerCaptureHandler);
+		sizer.setPointerCapture(e.pointerId);
+		sizer.addEventListener('pointermove', pointerMoveHandler);
+		sizer.addEventListener('lostpointercapture', lostPointerCaptureHandler);
 	};
 
 	// Render.
