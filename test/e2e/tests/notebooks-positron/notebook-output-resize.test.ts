@@ -19,7 +19,7 @@ test.describe('Positron Notebooks: Output Resize', {
 
 		await test.step('Setup: Create notebook with scrollable output', async () => {
 			// Enable output scrolling explicitly - the default differs in dev vs release builds.
-			await settings.set({ 'notebook.output.scrolling': true });
+			await settings.set({ 'notebook.output.scrolling': true }, { reload: 'web' });
 
 			await notebooks.createNewNotebook();
 			await notebooksPositron.expectCellCountToBe(1);
