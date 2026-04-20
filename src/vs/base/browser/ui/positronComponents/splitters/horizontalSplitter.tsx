@@ -196,6 +196,15 @@ setHovering(false);
 		sizer.addEventListener('lostpointercapture', lostPointerCaptureHandler);
 	};
 
+	/**
+	 * onDoubleClick handler.
+	 */
+	const doubleClickHandler = () => {
+		props.onDoubleClick?.();
+		hoverDelayerRef.current?.cancel();
+		setHovering(false);
+	};
+
 	// Render.
 	return (
 		<div className='horizontal-splitter'>
@@ -206,7 +215,7 @@ setHovering(false);
 					{ 'hovering': hovering && props.showResizeIndicator },
 					{ 'resizing': resizing && props.showResizeIndicator }
 				)}
-				onDoubleClick={props.onDoubleClick}
+				onDoubleClick={doubleClickHandler}
 				onPointerDown={pointerDownHandler}
 				onPointerEnter={pointerEnterHandler}
 				onPointerLeave={pointerLeaveHandler}
