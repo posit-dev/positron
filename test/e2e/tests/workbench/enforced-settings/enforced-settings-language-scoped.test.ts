@@ -214,25 +214,34 @@ test.describe('Workbench: Language-scoped enforced settings', {
 	});
 
 	test('Enforced setting wins over conflicting user setting', async function ({ app, runDockerCommand, hotKeys, page }) {
-		// Write a user setting that attempts to turn formatOnSave off for R. The enforced
-		// `[r]: { formatOnSave: true }` should still win.
-		const userSettings = JSON.stringify({
-			'[r]': { 'editor.formatOnSave': false },
-		}, null, 2);
-
-		await test.step('Back up existing user settings.json and install conflicting user setting', async () => {
+		// Merge a conflicting `[r]: { formatOnSave: false }` into the existing user
+		// settings.json. Merging (rather than overwriting) is critical - the workbench
+		// test fixture pre-seeds settings.json with workspace-trust disablers like
+		// `"security.workspace.trust.enabled": false`, and losing those triggers a trust
+		// prompt that blocks the rest of the test.
+		await test.step('Merge a conflicting `[r]` setting into user settings.json', async () => {
 			await runDockerCommand(
 				`docker exec test bash -lc 'if [ -f ${USER_SETTINGS_PATH} ] && [ ! -f ${USER_SETTINGS_BACKUP_PATH} ]; then cp ${USER_SETTINGS_PATH} ${USER_SETTINGS_BACKUP_PATH}; fi'`,
 				'Back up user settings.json (if not already)'
 			);
 
+			const { stdout: currentStr } = await runDockerCommand(
+				`docker exec test bash -lc 'cat ${USER_SETTINGS_PATH} 2>/dev/null || echo "{}"'`,
+				'Read current user settings.json'
+			);
+			const current = currentStr.trim() ? JSON.parse(currentStr) : {};
+			const merged = {
+				...current,
+				'[r]': { ...(current['[r]'] ?? {}), 'editor.formatOnSave': false },
+			};
+
 			const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'user-settings-'));
 			const tmpFile = path.join(tmpDir, 'settings.json');
-			await fs.promises.writeFile(tmpFile, userSettings);
+			await fs.promises.writeFile(tmpFile, JSON.stringify(merged, null, 2));
 			try {
 				await runDockerCommand(
 					`docker cp "${tmpFile}" test:${USER_SETTINGS_PATH}`,
-					'Install conflicting user settings.json'
+					'Install merged user settings.json'
 				);
 			} finally {
 				await fs.promises.rm(tmpDir, { recursive: true, force: true });
