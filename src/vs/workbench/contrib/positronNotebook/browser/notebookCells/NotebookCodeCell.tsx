@@ -235,7 +235,7 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 						))
 					}
 				</div>
-				{outputScrolling && !isCollapsed && outputs.length > 0 &&
+				{outputScrolling && !isCollapsed && hasOutputs &&
 					<HorizontalSplitter
 						showResizeIndicator
 						onBeginResize={onBeginResize}
