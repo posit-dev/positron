@@ -150,8 +150,12 @@ setHovering(false);
 		 * @param e A PointerEvent that describes a user interaction with the pointer.
 		 */
 		const lostPointerCaptureHandler = (e: PointerEvent) => {
-			// Clear the dragging flag.
-			setResizing(false);
+			// Only commit the final height if the user actually dragged.
+			// This avoids interfering with click and double-click interactions.
+			if (didDrag) {
+				// Handle the last possible move change.
+				pointerMoveHandler(e);
+			}
 
 			// Remove our pointer event handlers.
 			sizer.removeEventListener('pointermove', pointerMoveHandler);
@@ -160,26 +164,10 @@ setHovering(false);
 			// Remove the style sheet.
 			body.removeChild(styleSheet);
 
-			// Only commit the final height if the user actually dragged.
-			// This avoids interfering with click and double-click interactions.
-			if (didDrag) {
-				// Calculate the new height.
-				let newHeight = calculateNewHeight(e);
-
-				// Adjust the new height to be within limits.
-				if (newHeight < resizeParams.minimumHeight) {
-					newHeight = resizeParams.minimumHeight;
-				} else if (newHeight > resizeParams.maximumHeight) {
-					newHeight = resizeParams.maximumHeight;
-				}
-
-				// Call the onEndResize callback.
-				props.onResize(newHeight);
-			}
-
-			// Reset hover state based on pointer position.
+			// Clear the resizing flag.
+			setResizing(false);
 			hoverDelayerRef.current?.cancel();
-			setHovering(false);
+			setHovering(isPointInsideElement(e.clientX, e.clientY, sizer));
 		};
 
 		/**
