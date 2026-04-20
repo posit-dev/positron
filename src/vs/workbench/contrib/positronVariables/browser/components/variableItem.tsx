@@ -17,6 +17,7 @@ import { IAction, Separator } from '../../../../../base/common/actions.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
 import { IVariableItem } from '../../../../services/positronVariables/common/interfaces/variableItem.js';
+import { viewVariableItem } from '../../../../services/positronDataExplorer/browser/positronDataExplorerViewVariableItem.js';
 import { VerticalSplitter, VerticalSplitterResizeParams } from '../../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
 import { IPositronVariablesInstance, PositronVariablesSorting } from '../../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 import { POSITRON_VARIABLES_COLLAPSE, POSITRON_VARIABLES_COPY_AS_HTML, POSITRON_VARIABLES_COPY_AS_TEXT, POSITRON_VARIABLES_EXPAND, POSITRON_VARIABLES_VIEW } from '../positronVariablesIdentifiers.js';
@@ -146,46 +147,13 @@ export const VariableItem = (props: VariableItemProps) => {
 	 *
 	 * @param item The variable item to view or open.
 	 */
-	const viewVariableItem = async (item: IVariableItem) => {
-		// Check for an existing viewer instance by variable ID (existing behavior).
-		const explorerService = services.positronDataExplorerService;
-		const instance = explorerService.getInstanceForVar(item.id);
-		if (instance) {
-			instance.requestFocus();
-			return;
-		}
-
-		// Check for an existing viewer by canonical variable path.
-		// This catches instances opened from inline notebook data explorers.
-		const sessionId = props.positronVariablesInstance.session.sessionId;
-		if (item.path.length > 0) {
-			const pathInstance = explorerService.getInstanceForVariablePath(sessionId, item.path);
-			if (pathInstance) {
-				pathInstance.requestFocus();
-				return;
-			}
-		}
-
-		// Open a viewer for the variable item.
-		let viewerId: string | undefined;
-		try {
-			viewerId = await item.view();
-		} catch (err) {
-			services.notificationService.error(localize(
-				'positron.variables.viewerError',
-				"An error occurred while opening the viewer. Try restarting your session."
-			));
-		}
-
-		// If a binding was returned, save the binding between the viewer and the
-		// variable item. Note that it's valid for backends to not return any ID
-		// if no comm was open. This happens with Ark when the user views a
-		// function object: a virtual document is opened in an editor but is not
-		// managed by a comm.
-		if (viewerId) {
-			explorerService.setInstanceForVar(viewerId, item.id);
-		}
-	};
+	const openVariableItemViewer = (item: IVariableItem) =>
+		viewVariableItem(
+			props.positronVariablesInstance.session.sessionId,
+			item,
+			services.positronDataExplorerService,
+			services.notificationService,
+		);
 
 	/**
 	 * onDoubleClick handler.
@@ -203,7 +171,7 @@ export const VariableItem = (props: VariableItemProps) => {
 
 		// If the variable item has a viewer, launch it.
 		if (props.variableItem.hasViewer) {
-			viewVariableItem(props.variableItem);
+			openVariableItemViewer(props.variableItem);
 		}
 	};
 
@@ -297,7 +265,7 @@ export const VariableItem = (props: VariableItemProps) => {
 		e.stopPropagation();
 
 		// Launch the viewer.
-		viewVariableItem(props.variableItem);
+		openVariableItemViewer(props.variableItem);
 	};
 
 	/**
@@ -317,7 +285,7 @@ export const VariableItem = (props: VariableItemProps) => {
 				tooltip: '',
 				class: undefined,
 				enabled: !isViewLoading,
-				run: () => viewVariableItem(props.variableItem)
+				run: () => openVariableItemViewer(props.variableItem)
 			});
 		}
 
