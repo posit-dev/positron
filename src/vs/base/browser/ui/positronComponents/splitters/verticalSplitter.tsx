@@ -307,7 +307,7 @@ export const VerticalSplitter = ({
 			e.stopPropagation();
 
 			// Calculate the delta.
-			const delta = Math.trunc(e.clientX - clientX);
+			const delta = e.clientX - clientX;
 
 			// Calculate the new width.
 			let newWidth = !invert ?
