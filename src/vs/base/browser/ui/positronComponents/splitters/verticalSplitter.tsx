@@ -364,7 +364,7 @@ setHovering(false);
 			sizer.removeEventListener('lostpointercapture', lostPointerCaptureHandler);
 
 			// Remove the style sheet.
-			sizer.removeChild(styleSheet);
+			body.removeChild(styleSheet);
 
 			// Clear the resizing flag.
 			setResizing(false);
