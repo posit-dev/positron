@@ -43,7 +43,7 @@ const POSITRON_DATA_EXPLORER_ACTION_CATEGORY = localize(
  */
 const category: ILocalizedString = {
 	value: POSITRON_DATA_EXPLORER_ACTION_CATEGORY,
-	original: 'Positron Data Explorer'
+	original: 'Data Explorer'
 };
 
 /**
