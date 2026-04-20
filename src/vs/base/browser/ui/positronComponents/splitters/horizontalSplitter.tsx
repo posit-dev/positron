@@ -45,13 +45,12 @@ export const HorizontalSplitter = (props: {
 	// Context hooks.
 	const services = usePositronReactServicesContext();
 
+	// Reference hooks.
+	const hoverDelayerRef = useRef<Delayer<void>>(undefined);
+
 	// State hooks.
 	const [resizing, setResizing] = useState(false);
 	const [hovering, setHovering] = useState(false);
-	const [hoverDelay, setHoverDelay] = useState(getHoverDelay(services.configurationService));
-
-	// Ref hooks.
-	const hoverDelayerRef = useRef<Delayer<void>>(undefined!);
 
 	// Main useEffect.
 	useEffect(() => {
@@ -59,14 +58,15 @@ export const HorizontalSplitter = (props: {
 		const disposables = new DisposableStore();
 
 		// Set the hover delayer.
-		hoverDelayerRef.current = disposables.add(new Delayer<void>(0));
+		const hoverDelay = getHoverDelay(services.configurationService);
+		hoverDelayerRef.current = disposables.add(new Delayer<void>(hoverDelay));
 
 		// Add the onDidChangeConfiguration event handler.
 		disposables.add(
 			services.configurationService.onDidChangeConfiguration(e => {
 				// Track changes to workbench.sash.hoverDelay.
-				if (e.affectedKeys.has('workbench.sash.hoverDelay')) {
-					setHoverDelay(getHoverDelay(services.configurationService));
+				if (e.affectedKeys.has('workbench.sash.hoverDelay') && hoverDelayerRef.current) {
+					hoverDelayerRef.current.defaultDelay = getHoverDelay(services.configurationService);
 				}
 			})
 		);
@@ -79,7 +79,7 @@ export const HorizontalSplitter = (props: {
 	 * onPointerEnter handler.
 	 */
 	const pointerEnterHandler = () => {
-		hoverDelayerRef.current?.trigger(() => setHovering(true), hoverDelay);
+		hoverDelayerRef.current?.trigger(() => setHovering(true));
 	};
 
 	/**

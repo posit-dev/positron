@@ -148,8 +148,8 @@ export const VerticalSplitter = ({
 	const services = usePositronReactServicesContext();
 
 	// Reference hooks.
-	const sashRef = useRef<HTMLDivElement>(undefined!);
 	const expandCollapseButtonRef = useRef<HTMLButtonElement>(undefined!);
+	const hoverDelayerRef = useRef<Delayer<void>>(undefined);
 
 	// State hooks.
 	const [splitterWidth, setSplitterWidth] = useState(
@@ -159,14 +159,10 @@ export const VerticalSplitter = ({
 		calculateSashWidth(services.configurationService, collapsible)
 	);
 	const [sashIndicatorWidth, setSashIndicatorWidth] = useState(getSashSize(services.configurationService));
-	const [hoverDelay, setHoverDelay] = useState(getHoverDelay(services.configurationService));
 	const [hovering, setHovering] = useState(false);
 	const [highlightExpandCollapse, setHighlightExpandCollapse] = useState(false);
-		const [collapsed, setCollapsed, collapsedRef] = useStateRef(isCollapsed);
+	const [collapsed, setCollapsed, collapsedRef] = useStateRef(isCollapsed);
 	const [resizing, setResizing] = useState(false);
-
-	// Ref hooks.
-	const hoverDelayerRef = useRef<Delayer<void>>(undefined);
 
 	// Main useEffect.
 	useEffect(() => {
@@ -174,7 +170,8 @@ export const VerticalSplitter = ({
 		const disposableStore = new DisposableStore();
 
 		// Set the hover delayer.
-		hoverDelayerRef.current = disposableStore.add(new Delayer<void>(0));
+		const hoverDelay = getHoverDelay(services.configurationService);
+		hoverDelayerRef.current = disposableStore.add(new Delayer<void>(hoverDelay));
 
 		// Add the onDidChangeConfiguration event handler.
 		disposableStore.add(
@@ -189,8 +186,8 @@ export const VerticalSplitter = ({
 					}
 
 					// Track changes to workbench.sash.hoverDelay.
-					if (configurationChangeEvent.affectedKeys.has('workbench.sash.hoverDelay')) {
-						setHoverDelay(getHoverDelay(services.configurationService));
+					if (configurationChangeEvent.affectedKeys.has('workbench.sash.hoverDelay') && hoverDelayerRef.current) {
+						hoverDelayerRef.current.defaultDelay = getHoverDelay(services.configurationService);
 					}
 				}
 			})
@@ -210,14 +207,15 @@ export const VerticalSplitter = ({
 	 * @param e A PointerEvent that describes a user interaction with the pointer.
 	 */
 	const sashPointerEnterHandler = (e: React.PointerEvent<HTMLDivElement>) => {
+		const sash = e.currentTarget;
 		hoverDelayerRef.current?.trigger(() => {
 			setHovering(true);
-			const rect = sashRef.current.getBoundingClientRect();
+			const rect = sash.getBoundingClientRect();
 			if (e.clientY >= rect.top + EXPAND_COLLAPSE_BUTTON_TOP &&
 				e.clientY <= rect.top + EXPAND_COLLAPSE_BUTTON_TOP + EXPAND_COLLAPSE_BUTTON_SIZE) {
 				setHighlightExpandCollapse(true);
 			}
-		}, hoverDelay);
+		});
 	};
 
 	/**
@@ -228,7 +226,7 @@ export const VerticalSplitter = ({
 		// When not resizing, unset hover.
 		if (!resizing) {
 			hoverDelayerRef.current?.cancel();
-setHovering(false);
+			setHovering(false);
 		}
 	};
 
@@ -248,7 +246,7 @@ setHovering(false);
 	 */
 	const expandCollapseButtonPointerLeaveHandler = (e: React.PointerEvent<HTMLDivElement>) => {
 		hoverDelayerRef.current?.cancel();
-setHovering(false);
+		setHovering(false);
 		setHighlightExpandCollapse(false);
 	};
 
@@ -294,7 +292,7 @@ setHovering(false);
 		// Setup the resize state.
 		const resizeParams = onBeginResize();
 		const startingWidth = collapsed ? sashWidth : resizeParams.startingWidth;
-		const sizer = e.currentTarget;
+		const sash = e.currentTarget;
 		const body = DOM.getWindow(e.currentTarget).document.body;
 		const clientX = e.clientX;
 		const styleSheet = createStyleSheet(body);
@@ -360,8 +358,8 @@ setHovering(false);
 			pointerMoveHandler(e);
 
 			// Remove our pointer event handlers.
-			sizer.removeEventListener('pointermove', pointerMoveHandler);
-			sizer.removeEventListener('lostpointercapture', lostPointerCaptureHandler);
+			sash.removeEventListener('pointermove', pointerMoveHandler);
+			sash.removeEventListener('lostpointercapture', lostPointerCaptureHandler);
 
 			// Remove the style sheet.
 			body.removeChild(styleSheet);
@@ -369,7 +367,7 @@ setHovering(false);
 			// Clear the resizing flag.
 			setResizing(false);
 			hoverDelayerRef.current?.cancel();
-			setHovering(isPointInsideElement(e.clientX, e.clientY, sizer));
+			setHovering(isPointInsideElement(e.clientX, e.clientY, sash));
 		};
 
 		// Set the dragging flag
@@ -377,9 +375,9 @@ setHovering(false);
 
 		// Set the capture target of future pointer events to be the current target and add our
 		// pointer event handlers.
-		sizer.setPointerCapture(e.pointerId);
-		sizer.addEventListener('pointermove', pointerMoveHandler);
-		sizer.addEventListener('lostpointercapture', lostPointerCaptureHandler);
+		sash.setPointerCapture(e.pointerId);
+		sash.addEventListener('pointermove', pointerMoveHandler);
+		sash.addEventListener('lostpointercapture', lostPointerCaptureHandler);
 	};
 
 	// Render.
@@ -394,7 +392,6 @@ setHovering(false);
 			}}
 		>
 			<div
-				ref={sashRef}
 				className='sash'
 				style={{
 					left: collapsible ? -1 : -(sashWidth / 2),
