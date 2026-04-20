@@ -225,9 +225,10 @@ export const VerticalSplitter = ({
 	 * @param e A PointerEvent that describes a user interaction with the pointer.
 	 */
 	const sashPointerLeaveHandler = (e: React.PointerEvent<HTMLDivElement>) => {
-		// When not resizing, trigger the delayer.
+		// When not resizing, unset hover.
 		if (!resizing) {
-			hoverDelayerRef.current?.trigger(() => setHovering(false), hoverDelay);
+			hoverDelayerRef.current?.cancel();
+setHovering(false);
 		}
 	};
 
@@ -246,7 +247,8 @@ export const VerticalSplitter = ({
 	 * @param e A PointerEvent that describes a user interaction with the pointer.
 	 */
 	const expandCollapseButtonPointerLeaveHandler = (e: React.PointerEvent<HTMLDivElement>) => {
-		hoverDelayerRef.current?.trigger(() => setHovering(false), hoverDelay);
+		hoverDelayerRef.current?.cancel();
+setHovering(false);
 		setHighlightExpandCollapse(false);
 	};
 

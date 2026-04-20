@@ -82,7 +82,8 @@ export const HorizontalSplitter = (props: {
 	 */
 	const pointerLeaveHandler = () => {
 		if (!resizing) {
-			hoverDelayerRef.current?.trigger(() => setHovering(false), hoverDelay);
+			hoverDelayerRef.current?.cancel();
+setHovering(false);
 		}
 	};
 
