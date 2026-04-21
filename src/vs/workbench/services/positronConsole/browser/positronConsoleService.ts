@@ -2541,6 +2541,22 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				);
 			}
 
+			// In R, cat("\014") / cat("\f") clears the console,
+			// matching RStudio behavior. If the R runtime outputs a
+			// form feed character, clear the console and only keep
+			// text after the last form feed.
+			let text = languageRuntimeMessageStream.text;
+			if (this._session?.runtimeMetadata?.languageId === 'r') {
+				const lastFF = text.lastIndexOf('\f');
+				if (lastFF !== -1) {
+					this.clearConsole();
+					text = text.substring(lastFF + 1);
+					if (text.length === 0) {
+						return;
+					}
+				}
+			}
+
 			// Handle stdout and stderr.
 			if (languageRuntimeMessageStream.name === 'stdout') {
 				this.addOrUpdateRuntimeItemActivity(
@@ -2550,7 +2566,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 						languageRuntimeMessageStream.parent_id,
 						new Date(languageRuntimeMessageStream.when),
 						ActivityItemStreamType.OUTPUT,
-						languageRuntimeMessageStream.text
+						text
 					)
 				);
 			} else if (languageRuntimeMessageStream.name === 'stderr') {
@@ -2561,7 +2577,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 						languageRuntimeMessageStream.parent_id,
 						new Date(languageRuntimeMessageStream.when),
 						ActivityItemStreamType.ERROR,
-						languageRuntimeMessageStream.text
+						text
 					)
 				);
 			}

@@ -38,7 +38,7 @@ export namespace MarkedSuperSubExtension {
 		};
 	}
 
-	function superscript(): marked.TokenizerAndRendererExtension {
+	function superscript(): marked.TokenizerExtension {
 		return {
 			name: 'superscript',
 			level: 'inline',
@@ -60,13 +60,10 @@ export namespace MarkedSuperSubExtension {
 				return undefined;
 			},
 			childTokens: ['tokens'],
-			renderer(token: marked.Tokens.Generic) {
-				return `<sup>${this.parser.parseInline(token.tokens ?? [])}</sup>`;
-			},
 		};
 	}
 
-	function subscript(): marked.TokenizerAndRendererExtension {
+	function subscript(): marked.TokenizerExtension {
 		return {
 			name: 'subscript',
 			level: 'inline',
@@ -101,10 +98,7 @@ export namespace MarkedSuperSubExtension {
 				}
 				return undefined;
 			},
-			childTokens: ['tokens'],
-			renderer(token: marked.Tokens.Generic) {
-				return `<sub>${this.parser.parseInline(token.tokens ?? [])}</sub>`;
-			},
+			childTokens: ['tokens']
 		};
 	}
 }

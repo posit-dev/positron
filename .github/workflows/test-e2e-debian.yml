@@ -165,7 +165,6 @@ jobs:
           distro: debian
           skip-cache: ${{ inputs.skip_cache }}
           install-playwright: 'true'
-          playwright-with-deps: 'false'
           github-token: ${{ github.token }}
 
       - name: Move Positron License

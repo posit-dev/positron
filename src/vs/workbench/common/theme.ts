@@ -1653,29 +1653,29 @@ export const POSITRON_CONSOLE_TRACE_BACKGROUND_COLOR = registerColor('positronCo
 	hcLight: '#e5e5e5'
 }, localize('positronConsole.traceBackground', "Positron console trace background color."));
 
-// Positron console active state icon color.
-export const POSITRON_CONSOLE_STATE_ICON_ACTIVE = registerColor('positronConsole.stateIconActive', {
+// Positron runtime active state icon color.
+export const POSITRON_RUNTIME_STATE_ICON_ACTIVE = registerColor('positronRuntime.stateIconActive', {
 	dark: '#afcbe9',
 	light: '#3a79b2',
 	hcDark: '#afcbe9',
 	hcLight: '#3a79b2'
-}, localize('positronConsole.stateIconActive', "Positron console active state icon color."));
+}, localize('positronRuntime.stateIconActive', "Positron runtime active state icon color."));
 
-// Positron console disconnected state icon color.
-export const POSITRON_CONSOLE_STATE_ICON_DISCONNECTED = registerColor('positronConsole.stateIconDisconnected', {
+// Positron runtime disconnected state icon color.
+export const POSITRON_RUNTIME_STATE_ICON_DISCONNECTED = registerColor('positronRuntime.stateIconDisconnected', {
 	dark: '#ea8b8b',
 	light: '#d93939',
 	hcDark: '#ea8b8b',
 	hcLight: '#d93939'
-}, localize('positronConsole.stateIconDisconnected', "Positron console disconnected state icon color."));
+}, localize('positronRuntime.stateIconDisconnected', "Positron runtime disconnected state icon color."));
 
-// Positron console idle state icon color.
-export const POSITRON_CONSOLE_STATE_ICON_IDLE = registerColor('positronConsole.stateIconIdle', {
+// Positron runtime idle state icon color.
+export const POSITRON_RUNTIME_STATE_ICON_IDLE = registerColor('positronRuntime.stateIconIdle', {
 	dark: '#2eb77c',
 	light: '#2eb77c',
 	hcDark: '#2eb77c',
 	hcLight: '#2eb77c'
-}, localize('positronConsole.stateIconIdle', "Positron console idle state icon color."));
+}, localize('positronRuntime.stateIconIdle', "Positron runtime idle state icon color."));
 
 // Positron Quarto icon color.
 export const POSITRON_QUARTO_ICON = registerColor('positronConsole.quartoIcon', {

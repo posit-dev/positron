@@ -23,6 +23,7 @@ import { importAMDNodeModule } from '../../../../amdX.js';
 import { convertDomChildrenToReact } from './domToReact.js';
 import { MarkedKatexExtension } from '../../markdown/common/markedKatexExtension.js';
 import { MarkedSuperSubExtension } from '../../markdown/common/markedSuperSubExtension.js';
+import { MarkedFootnoteExtension } from '../../markdown/common/markedFootnoteExtension.js';
 
 /**
  * Decodes HTML entities in a string
@@ -65,10 +66,15 @@ function decodeHtmlEntities(text: string): string {
  * Type that supports both Marked tokens and KaTeX "tokens"
  * for the purposes of rendering.
  *
+ * Uses `marked.MarkedToken` (concrete variants only) rather than `marked.Token`
+ * so that the switch in renderToken narrows without needing per-case casts;
+ * `marked.Token` also includes `Tokens.Generic` (which has `type: string`),
+ * and a `string` discriminator collapses discriminated-union narrowing.
+ *
  * KatexToken is created by MarkedKatexExtension.ts which
  * parses LaTeX math expressions and creates these tokens.
  */
-type ExtendedToken = marked.Token | MarkedKatexExtension.KatexToken | MarkedSuperSubExtension.SuperSubToken;
+type ExtendedToken = marked.MarkedToken | MarkedKatexExtension.KatexToken | MarkedSuperSubExtension.SuperSubToken | MarkedFootnoteExtension.FootnoteToken;
 
 /**
  * Component that renders LaTeX expressions.
@@ -270,17 +276,17 @@ function RawHtml({ html }: { html: string }) {
 }
 
 /**
- * Renderer that converts Marked tokens to React elements.
- * Uses component overrides to handle special cases (complex HTML):
- * - Links: NotebookLink
- * - Images: DeferredImage
- * - Raw HTML: RawHtml with component overrides for links/images
- * - LaTeX math: KatexMath
- * - Syntax-highlighted code blocks: SyntaxHighlightedCode
+ * Renderer that converts Marked tokens to React elements. Most tokens map
+ * directly to JSX; tokens that require notebook-specific behavior (e.g.
+ * links, images, raw HTML, math, highlighted code) dispatch to dedicated
+ * React components defined in this file.
  */
 export class TokenMarkdownRenderer {
 	private keyCounter = 0;
 	private slugCounter = new Map<string, number>();
+	private _footnoteNumberMap = new Map<string, number>();
+	private _footnoteRefCounter = new Map<string, number>();
+	private _footnoteSafeIdMap = new Map<string, string>();
 
 	constructor(
 		private extensionService: IExtensionService,
@@ -288,10 +294,105 @@ export class TokenMarkdownRenderer {
 	) { }
 
 	/**
-	 * Renders an array of tokens to React elements
+	 * Renders an array of tokens to React elements.
+	 * Footnote definitions are collected and appended as a grouped section at the end.
 	 */
 	render(tokens: ExtendedToken[]): React.ReactElement[] {
-		return tokens.map((token, i) => this.renderToken(token, `token-${i}`));
+		// First pass: walk the token tree to build footnote numbering and
+		// collision-safe anchor IDs for cross-token references.
+		const footnoteDefinitions = this.collectFootnoteContext(tokens);
+
+		// Second pass: render all tokens. Definition tokens produce empty
+		// fragments since they are grouped into the section appended below.
+		const elements = tokens.map((token, i) => this.renderToken(token, `token-${i}`));
+
+		if (footnoteDefinitions.length > 0) {
+			elements.push(this.renderFootnoteSection(footnoteDefinitions));
+		}
+
+		return elements;
+	}
+
+	/**
+	 * Walks the token tree to gather every footnote ID (refs and definitions),
+	 * deduplicates definitions (first-wins), and populates the instance maps
+	 * used by renderFootnoteRef/renderFootnoteSection:
+	 *   - _footnoteSafeIdMap: raw id -> collision-safe DOM id
+	 *   - _footnoteNumberMap: raw id -> sequential footnote number
+	 *   - _footnoteRefCounter: reset here, incremented during rendering
+	 *
+	 * Returns the deduplicated definitions in source order.
+	 */
+	private collectFootnoteContext(tokens: ExtendedToken[]): MarkedFootnoteExtension.FootnoteDefinitionToken[] {
+		const allIds: string[] = [];
+		const seenRawIds = new Set<string>();
+		const seenDefIds = new Set<string>();
+		const footnoteDefinitions: MarkedFootnoteExtension.FootnoteDefinitionToken[] = [];
+
+		const collectId = (id: string) => {
+			if (!seenRawIds.has(id)) {
+				seenRawIds.add(id);
+				allIds.push(id);
+			}
+		};
+
+		const walk = (tokenList: ExtendedToken[]) => {
+			for (const token of tokenList) {
+				if (token.type === 'footnoteDefinition') {
+					collectId(token.id);
+					if (!seenDefIds.has(token.id)) {
+						seenDefIds.add(token.id);
+						footnoteDefinitions.push(token);
+					}
+				} else if (token.type === 'footnoteRef') {
+					collectId(token.id);
+				}
+				// Recurse into child tokens (paragraphs, headings, lists, emphasis, etc.)
+				if ('tokens' in token && token.tokens) {
+					walk(token.tokens as ExtendedToken[]);
+				}
+				if ('items' in token && token.items) {
+					walk(token.items as ExtendedToken[]);
+				}
+				// Table tokens store inline content in header/row cells.
+				if (token.type === 'table') {
+					for (const cell of token.header) {
+						walk(cell.tokens as ExtendedToken[]);
+					}
+					for (const row of token.rows) {
+						for (const cell of row) {
+							walk(cell.tokens as ExtendedToken[]);
+						}
+					}
+				}
+			}
+		};
+
+		walk(tokens);
+
+		this._footnoteNumberMap = new Map();
+		this._footnoteRefCounter = new Map();
+		this._footnoteSafeIdMap = new Map();
+
+		const usedSafeIds = new Set<string>();
+		for (const id of allIds) {
+			let safeId = id.replace(/[^\w-]/g, '-');
+			if (usedSafeIds.has(safeId)) {
+				let suffix = 2;
+				while (usedSafeIds.has(`${safeId}-${suffix}`)) {
+					suffix++;
+				}
+				safeId = `${safeId}-${suffix}`;
+			}
+			usedSafeIds.add(safeId);
+			this._footnoteSafeIdMap.set(id, safeId);
+		}
+
+		for (let i = 0; i < footnoteDefinitions.length; i++) {
+			this._footnoteNumberMap.set(footnoteDefinitions[i].id, i + 1);
+		}
+
+		return footnoteDefinitions;
 	}
 
 	/**
@@ -302,50 +403,56 @@ export class TokenMarkdownRenderer {
 			case 'space':
 				return <React.Fragment key={key} />;
 			case 'code':
-				return this.renderCode(token as marked.Tokens.Code, key);
+				return this.renderCode(token, key);
 			case 'heading':
-				return this.renderHeading(token as marked.Tokens.Heading, key);
+				return this.renderHeading(token, key);
 			case 'table':
-				return this.renderTable(token as marked.Tokens.Table, key);
+				return this.renderTable(token, key);
 			case 'hr':
 				return <hr key={key} />;
 			case 'blockquote':
-				return this.renderBlockquote(token as marked.Tokens.Blockquote, key);
+				return this.renderBlockquote(token, key);
 			case 'list':
-				return this.renderList(token as marked.Tokens.List, key);
+				return this.renderList(token, key);
 			case 'list_item':
-				return this.renderListItem(token as marked.Tokens.ListItem, key);
+				return this.renderListItem(token, key);
 			case 'paragraph':
-				return this.renderParagraph(token as marked.Tokens.Paragraph, key);
+				return this.renderParagraph(token, key);
 			case 'html':
-				return this.renderHtml(token as marked.Tokens.HTML, key);
+				return this.renderHtml(token, key);
 			case 'text':
-				return this.renderText(token as marked.Tokens.Text, key);
+				return this.renderText(token, key);
 			case 'br':
 				return <br key={key} />;
 			case 'escape':
-				return <React.Fragment key={key}>{decodeHtmlEntities((token as marked.Tokens.Escape).text)}</React.Fragment>;
+				return <React.Fragment key={key}>{decodeHtmlEntities(token.text)}</React.Fragment>;
 			case 'link':
-				return this.renderLink(token as marked.Tokens.Link, key);
+				return this.renderLink(token, key);
 			case 'image':
-				return this.renderImage(token as marked.Tokens.Image, key);
+				return this.renderImage(token, key);
 			case 'strong':
-				return this.renderStrong(token as marked.Tokens.Strong, key);
+				return this.renderStrong(token, key);
 			case 'em':
-				return this.renderEm(token as marked.Tokens.Em, key);
+				return this.renderEm(token, key);
 			case 'codespan':
-				return <code key={key}>{decodeHtmlEntities((token as marked.Tokens.Codespan).text)}</code>;
+				return <code key={key}>{decodeHtmlEntities(token.text)}</code>;
 			case 'del':
-				return this.renderDel(token as marked.Tokens.Del, key);
+				return this.renderDel(token, key);
 			// Custom superscript/subscript tokens
 			case 'superscript':
-				return <sup key={key}>{this.renderInlineTokens((token as MarkedSuperSubExtension.SuperSubToken).tokens)}</sup>;
+				return <sup key={key}>{this.renderInlineTokens(token.tokens)}</sup>;
 			case 'subscript':
-				return <sub key={key}>{this.renderInlineTokens((token as MarkedSuperSubExtension.SuperSubToken).tokens)}</sub>;
+				return <sub key={key}>{this.renderInlineTokens(token.tokens)}</sub>;
 			// Custom KaTeX tokens
 			case 'inlineKatex':
 			case 'blockKatex':
-				return this.renderKatex(token as MarkedKatexExtension.KatexToken, key);
+				return this.renderKatex(token, key);
+			// Custom footnote tokens
+			case 'footnoteRef':
+				return this.renderFootnoteRef(token, key);
+			case 'footnoteDefinition':
+				// Definitions are collected and rendered as a group by render().
+				return <React.Fragment key={key} />;
 			default:
 				// Handle unknown token types gracefully
 				return <React.Fragment key={key} />;
@@ -370,7 +477,7 @@ export class TokenMarkdownRenderer {
 		const HeadingTag = `h${token.depth}` as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
 
 		// Generate slugified ID for anchor links
-		const headingText = this.extractTextFromTokens(token.tokens);
+		const headingText = this.extractTextFromTokens(token.tokens as ExtendedToken[]);
 		let slug = slugify(headingText);
 
 		// Handle duplicate headings
@@ -418,7 +525,7 @@ export class TokenMarkdownRenderer {
 	}
 
 	private renderBlockquote(token: marked.Tokens.Blockquote, key: string): React.ReactElement {
-		const children = token.tokens.map((t, i) => this.renderToken(t, `bq-${i}`));
+		const children = (token.tokens as ExtendedToken[]).map((t, i) => this.renderToken(t, `bq-${i}`));
 		return <blockquote key={key}>{children}</blockquote>;
 	}
 
@@ -432,7 +539,7 @@ export class TokenMarkdownRenderer {
 	}
 
 	private renderListItem(token: marked.Tokens.ListItem, key: string): React.ReactElement {
-		const children = token.tokens.map((t, i) => this.renderToken(t, `li-child-${i}`));
+		const children = (token.tokens as ExtendedToken[]).map((t, i) => this.renderToken(t, `li-child-${i}`));
 
 		if (token.task) {
 			return (
@@ -452,12 +559,15 @@ export class TokenMarkdownRenderer {
 		return <p key={key}>{children}</p>;
 	}
 
-	private renderHtml(token: marked.Tokens.HTML, key: string): React.ReactElement {
+	private renderHtml(token: marked.Tokens.HTML | marked.Tokens.Tag, key: string): React.ReactElement {
+		// Tag shares type: "html" with HTML in the marked union; both expose `text`.
 		return <RawHtml key={key} html={token.text} />;
 	}
 
-	private renderText(token: marked.Tokens.Text, key: string): React.ReactElement {
-		if (token.tokens && token.tokens.length > 0) {
+	private renderText(token: marked.Tokens.Text | marked.Tokens.Tag, key: string): React.ReactElement {
+		// Tag shares type: "text" with Text but has no `tokens` field; the
+		// `'tokens' in token` guard narrows both cases safely.
+		if ('tokens' in token && token.tokens && token.tokens.length > 0) {
 			// Text token with nested tokens (e.g., inline formatting)
 			const children = this.renderInlineTokens(token.tokens);
 			return <React.Fragment key={key}>{children}</React.Fragment>;
@@ -516,6 +626,77 @@ export class TokenMarkdownRenderer {
 	}
 
 	/**
+	 * Returns the collision-safe DOM ID for a footnote. The id must have been
+	 * registered by collectFootnoteContext, which walks every ref and
+	 * definition before rendering.
+	 */
+	private sanitizeFootnoteId(id: string): string {
+		const safeId = this._footnoteSafeIdMap.get(id);
+		if (safeId === undefined) {
+			throw new Error(`Footnote id "${id}" was not registered; collectFootnoteContext() must run before rendering footnotes.`);
+		}
+		return safeId;
+	}
+
+	private renderFootnoteRef(token: MarkedFootnoteExtension.FootnoteRefToken, key: string): React.ReactElement {
+		const num = this._footnoteNumberMap.get(token.id) ?? token.id;
+		const safeId = this.sanitizeFootnoteId(token.id);
+		// Generate unique anchor IDs when the same footnote is referenced multiple times.
+		const refCount = (this._footnoteRefCounter.get(token.id) ?? 0) + 1;
+		this._footnoteRefCounter.set(token.id, refCount);
+		const refId = refCount === 1 ? `fnref-${safeId}` : `fnref-${safeId}-${refCount}`;
+		return (
+			<sup key={key} className='footnote-ref'>
+				<NotebookLink aria-label={`Footnote ${num}`} href={`#fn-${safeId}`} id={refId} role='doc-noteref'>{num}</NotebookLink>
+			</sup>
+		);
+	}
+
+	private renderFootnoteSection(definitions: MarkedFootnoteExtension.FootnoteDefinitionToken[]): React.ReactElement {
+		return (
+			<section key='footnotes' className='footnotes'>
+				<hr />
+				<ol>
+					{definitions.map((def) => {
+						const safeId = this.sanitizeFootnoteId(def.id);
+						const wasReferenced = this._footnoteRefCounter.has(def.id);
+						const num = this._footnoteNumberMap.get(def.id);
+						// Backref always targets the first ref anchor
+						// (#fnref-<id>); secondary refs (#fnref-<id>-2, ...) get
+						// no dedicated backref by design.
+						const backref = wasReferenced
+							? <NotebookLink aria-label={`Back to content ${num}`} className='footnote-backref' href={`#fnref-${safeId}`} role='doc-backlink'>{'\u21a9'}</NotebookLink>
+							: null;
+
+						const defTokens = def.tokens as ExtendedToken[];
+						const bodyElements = defTokens.map((token, i) => {
+							const key = `fn-body-${safeId}-${i}`;
+							const isLastToken = i === defTokens.length - 1;
+							// Place the backref inside the last paragraph for
+							// correct inline layout, matching standard footnote rendering.
+							if (isLastToken && backref && token.type === 'paragraph') {
+								return <p key={key}>{this.renderInlineTokens(token.tokens)}{' '}{backref}</p>;
+							}
+							return this.renderToken(token, key);
+						});
+
+						// Append backref as sibling when the last token is not a paragraph.
+						const lastToken = def.tokens[def.tokens.length - 1];
+						const backrefAppended = lastToken?.type === 'paragraph';
+
+						return (
+							<li key={`fn-${safeId}`} id={`fn-${safeId}`}>
+								{bodyElements}
+								{backref && !backrefAppended && <>{' '}{backref}</>}
+							</li>
+						);
+					})}
+				</ol>
+			</section>
+		);
+	}
+
+	/**
 	 * Renders inline tokens (used for paragraph content, link text, etc.)
 	 */
 	private renderInlineTokens(tokens: marked.Token[]): React.ReactNode[] {
@@ -532,18 +713,17 @@ export class TokenMarkdownRenderer {
 		const parts: string[] = [];
 		for (const token of tokens) {
 			if (token.type === 'text') {
-				parts.push((token as marked.Tokens.Text).text);
+				parts.push(token.text);
 			} else if (token.type === 'code' || token.type === 'codespan') {
-				parts.push((token as marked.Tokens.Code | marked.Tokens.Codespan).text);
+				parts.push(token.text);
 			} else if (token.type === 'superscript' || token.type === 'subscript') {
-				const supSubToken = token as MarkedSuperSubExtension.SuperSubToken;
-				if (supSubToken.tokens && supSubToken.tokens.length > 0) {
-					parts.push(this.extractTextFromTokens(supSubToken.tokens));
+				if (token.tokens && token.tokens.length > 0) {
+					parts.push(this.extractTextFromTokens(token.tokens as ExtendedToken[]));
 				} else {
-					parts.push(supSubToken.text);
+					parts.push(token.text);
 				}
 			} else if ('tokens' in token && Array.isArray(token.tokens)) {
-				parts.push(this.extractTextFromTokens(token.tokens));
+				parts.push(this.extractTextFromTokens(token.tokens as ExtendedToken[]));
 			}
 		}
 		return parts.join('');
@@ -578,10 +758,11 @@ export async function renderNotebookMarkdown(
 		{ throwOnError: false }
 	);
 
-	// Create Marked instance with KaTeX and superscript/subscript extensions
+	// Create Marked instance with KaTeX, superscript/subscript, and footnote extensions
 	const markedInstance = new marked.Marked()
 		.use(katexExtension)
-		.use(MarkedSuperSubExtension.extension());
+		.use(MarkedSuperSubExtension.extension())
+		.use(MarkedFootnoteExtension.extension());
 
 	// Tokenize markdown (KaTeX extension creates custom tokens)
 	const tokens = markedInstance.lexer(content) as ExtendedToken[];

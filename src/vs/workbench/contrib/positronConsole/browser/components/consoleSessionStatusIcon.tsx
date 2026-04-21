@@ -3,16 +3,14 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// CSS.
-import './consoleInstanceState.css';
-
 // React.
 import { useEffect, useState } from 'react';
 
 // Other dependencies.
 import { IPositronConsoleInstance, PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
-import { RuntimeStatus, RuntimeStatusIcon } from './runtimeStatus.js';
+import { RuntimeStatusIcon } from './runtimeStatus.js';
+import { RuntimeStatus } from '../../common/sessionDisplayUtils.js';
 
 const consoleStateToRuntimeStatus = {
 	[PositronConsoleState.Uninitialized]: RuntimeStatus.Disconnected,
@@ -25,11 +23,11 @@ const consoleStateToRuntimeStatus = {
 	[PositronConsoleState.Exited]: RuntimeStatus.Disconnected
 };
 
-interface ConsoleInstanceStateProps {
+interface ConsoleSessionStatusIconProps {
 	readonly positronConsoleInstance: IPositronConsoleInstance;
 }
 
-export const ConsoleInstanceState = ({ positronConsoleInstance }: ConsoleInstanceStateProps) => {
+export const ConsoleSessionStatusIcon = ({ positronConsoleInstance }: ConsoleSessionStatusIconProps) => {
 	// State hooks
 	const [consoleState, setConsoleState] = useState(positronConsoleInstance.state);
 
@@ -38,7 +36,7 @@ export const ConsoleInstanceState = ({ positronConsoleInstance }: ConsoleInstanc
 		const disposableStore = new DisposableStore();
 
 		disposableStore.add(positronConsoleInstance.onDidChangeState(state => {
-			setConsoleState(state)
+			setConsoleState(state);
 		}));
 
 		return () => disposableStore.dispose();
@@ -49,4 +47,4 @@ export const ConsoleInstanceState = ({ positronConsoleInstance }: ConsoleInstanc
 	return (
 		<RuntimeStatusIcon status={runtimeStatus} />
 	);
-}
+};
