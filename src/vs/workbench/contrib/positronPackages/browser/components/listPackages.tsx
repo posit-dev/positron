@@ -21,7 +21,7 @@ import * as DOM from '../../../../../base/browser/dom.js';
 import { isMacintosh } from '../../../../../base/common/platform.js';
 import { useStateRef } from '../../../../../base/browser/ui/react/useStateRef.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
-import { ActionBarFilter } from '../../../../../platform/positronActionBar/browser/components/actionBarFilter.js';
+import { ActionBarFilter, ActionBarFilterHandle } from '../../../../../platform/positronActionBar/browser/components/actionBarFilter.js';
 import { ViewsProps } from '../positronPackages.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { Separator } from '../../../../../base/common/actions.js';
@@ -51,6 +51,62 @@ enum PackagesSortOrder {
 	NameAsc = 'name-asc',
 	NameDesc = 'name-desc',
 }
+
+// Token value <-> PackagesSortOrder mapping used to (de)serialize the
+// `@sort:<value>` token in the filter input. Values are the user-facing
+// tokens the input accepts; `name` is the implicit default.
+const SORT_TOKEN_TO_ORDER: Record<string, PackagesSortOrder> = {
+	'name': PackagesSortOrder.NameAsc,
+	'name-desc': PackagesSortOrder.NameDesc,
+};
+
+const SORT_ORDER_TO_TOKEN: Record<PackagesSortOrder, string> = {
+	[PackagesSortOrder.NameAsc]: 'name',
+	[PackagesSortOrder.NameDesc]: 'name-desc',
+};
+
+/**
+ * Parsed representation of the filter input.
+ */
+interface ParsedQuery {
+	/** Free-text portion, with recognized tokens stripped. */
+	readonly text: string;
+	/** Active sort order. */
+	readonly sort: PackagesSortOrder;
+}
+
+/**
+ * Parses the filter input into a free-text portion and the structured tokens
+ * it contains. Unrecognized `@...` tokens are left in the text so the user
+ * sees what they typed.
+ */
+const parseQuery = (query: string): ParsedQuery => {
+	let sort: PackagesSortOrder = PackagesSortOrder.NameAsc;
+
+	// Match @key[:value] tokens (case-insensitive).
+	const text = query.replace(/@(\w+)(?::([\w-]+))?/gi, (match, key: string, value: string | undefined) => {
+		if (key.toLowerCase() === 'sort' && value !== undefined) {
+			const order = SORT_TOKEN_TO_ORDER[value.toLowerCase()];
+			if (order !== undefined) {
+				sort = order;
+				return '';
+			}
+		}
+		return match;
+	}).replace(/\s+/g, ' ').trim();
+
+	return { text, sort };
+};
+
+/**
+ * Returns a new filter input string with any existing `@sort:` token replaced
+ * by the token for the given sort order, preserving surrounding free-text.
+ */
+const applySortToQuery = (query: string, sort: PackagesSortOrder): string => {
+	const stripped = query.replace(/@sort:[\w-]+/gi, '').replace(/\s+/g, ' ').trim();
+	const token = `@sort:${SORT_ORDER_TO_TOKEN[sort]}`;
+	return stripped ? `${token} ${stripped}` : token;
+};
 
 // Height of the filter container in pixels
 const FILTER_HEIGHT = 34;
@@ -156,26 +212,29 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		};
 	}, [loading]);
 
-	// Filter state
-	const [filterText, setFilterText] = useState('');
-	const [debouncedFilterText, setDebouncedFilterText] = useState('');
+	// The filter input is the single source of truth. `queryText` is the raw
+	// input; structured state (sort, free-text filter) is derived from it.
+	const [queryText, setQueryText] = useState('');
+	const [debouncedQueryText, setDebouncedQueryText] = useState('');
+	const filterRef = useRef<ActionBarFilterHandle>(null);
 
-	// Sorting state
-	const [sortOrder, setSortOrder] = useState<PackagesSortOrder>(PackagesSortOrder.NameAsc);
+	// Current sort derived from the immediate (non-debounced) query so the
+	// sort menu's checked state updates without waiting for the debounce.
+	const currentSort = useMemo(() => parseQuery(queryText).sort, [queryText]);
 
-	// Clear selection when filter text changes
+	// Clear selection when filter text changes.
 	const handleFilterTextChanged = (text: string) => {
-		setFilterText(text);
+		setQueryText(text);
 		setSelectedItem(undefined);
 	};
 
-	// Debounce filter text changes (300ms)
+	// Debounce filter text changes (300ms).
 	useEffect(() => {
 		const timeout = setTimeout(() => {
-			setDebouncedFilterText(filterText);
+			setDebouncedQueryText(queryText);
 		}, 300);
 		return () => clearTimeout(timeout);
-	}, [filterText]);
+	}, [queryText]);
 
 	// Deduplicate packages by name, keeping only the first occurrence.
 	// The same package can exist in multiple library paths (e.g., user and system libraries).
@@ -191,27 +250,29 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		});
 	}, [packages]);
 
-	// Filter packages based on the debounced filter text (case-insensitive, matches name or displayName)
+	// Parse the debounced query so filtering and sorting run off the same snapshot.
+	const debouncedQuery = useMemo(() => parseQuery(debouncedQueryText), [debouncedQueryText]);
+
+	// Filter packages based on the debounced free-text (case-insensitive, matches name or displayName)
+	// and sort according to the current sort order.
 	const filteredPackages = useMemo(() => {
 		let result = deduplicatedPackages;
 
-		// Apply filter
-		if (debouncedFilterText) {
-			const lowerFilter = debouncedFilterText.toLowerCase();
+		if (debouncedQuery.text) {
+			const lowerFilter = debouncedQuery.text.toLowerCase();
 			result = result.filter((pkg) =>
 				pkg.name.toLowerCase().includes(lowerFilter) ||
 				pkg.displayName.toLowerCase().includes(lowerFilter)
 			);
 		}
 
-		// Apply sorting
 		result = [...result].sort((a, b) => {
 			const comparison = a.name.localeCompare(b.name);
-			return sortOrder === PackagesSortOrder.NameAsc ? comparison : -comparison;
+			return debouncedQuery.sort === PackagesSortOrder.NameAsc ? comparison : -comparison;
 		});
 
 		return result;
-	}, [deduplicatedPackages, debouncedFilterText, sortOrder]);
+	}, [deduplicatedPackages, debouncedQuery]);
 
 	// UI State
 	const [focused, setFocused] = useState(false);
@@ -326,18 +387,25 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		return () => services.positronPackagesService.setSelectedPackage(undefined);
 	}, [selectedItem, deduplicatedPackages, services.positronPackagesService]);
 
+	// Rewrite the filter input to reflect the selected sort. The input is the
+	// source of truth, so updating it flows back through onFilterTextChanged
+	// and re-derives every dependent state.
+	const selectSort = (sort: PackagesSortOrder) => {
+		filterRef.current?.setFilterText(applySortToQuery(queryText, sort));
+	};
+
 	// Build the Sort submenu entries. Evaluated lazily so the checked state
-	// reflects the current sortOrder when the submenu is opened.
+	// reflects the current input when the submenu is opened.
 	const sortSubmenuEntries = (): CustomContextMenuEntry[] => [
 		new CustomContextMenuItem({
 			label: localize('positronPackages.sortByNameAsc', "Name (A-Z)"),
-			checked: sortOrder === PackagesSortOrder.NameAsc,
-			onSelected: () => setSortOrder(PackagesSortOrder.NameAsc),
+			checked: currentSort === PackagesSortOrder.NameAsc,
+			onSelected: () => selectSort(PackagesSortOrder.NameAsc),
 		}),
 		new CustomContextMenuItem({
 			label: localize('positronPackages.sortByNameDesc', "Name (Z-A)"),
-			checked: sortOrder === PackagesSortOrder.NameDesc,
-			onSelected: () => setSortOrder(PackagesSortOrder.NameDesc),
+			checked: currentSort === PackagesSortOrder.NameDesc,
+			onSelected: () => selectSort(PackagesSortOrder.NameDesc),
 		}),
 	];
 
@@ -372,18 +440,18 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 
 			<div className='packages-filter-container'>
 				<ActionBarFilter
+					ref={filterRef}
 					showClearAlways
 					clearButtonIcon={Codicon.clearAll}
 					filterButtonTooltip={localize('positronPackages.filterOptions', "Filter options")}
 					placeholder={localize('positronPackages.filterPlaceholder', "Filter packages")}
 					size='md'
-					onClearButtonPressed={() => setSortOrder(PackagesSortOrder.NameAsc)}
 					onFilterButtonPressed={showFilterMenu}
 					onFilterTextChanged={handleFilterTextChanged}
 				/>
 			</div>
 			<div className='packages-list-container'>
-				{filteredPackages.length === 0 && debouncedFilterText ? (
+				{filteredPackages.length === 0 && debouncedQuery.text ? (
 					<div className='packages-empty-message'
 						style={{ height: height - FILTER_HEIGHT }}>
 						{localize('positronPackages.noPackagesFound', "No packages found.")}

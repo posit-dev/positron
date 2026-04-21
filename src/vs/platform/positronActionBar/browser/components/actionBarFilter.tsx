@@ -34,12 +34,6 @@ interface ActionBarFilterProps {
 	size?: ActionBarFilterSize;
 	onFilterTextChanged: (filterText: string) => void;
 	/**
-	 * Optional handler invoked when the user activates the clear button,
-	 * in addition to the filter text being reset. Use this to reset any
-	 * external state associated with the filter (e.g., sort order).
-	 */
-	onClearButtonPressed?: () => void;
-	/**
 	 * Optional handler invoked when the filter button is pressed. When provided,
 	 * a filter icon button is rendered to the right of the clear button. The
 	 * anchor element is passed so callers can position a context menu relative
@@ -81,7 +75,6 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 		inputRef.current.value = '';
 		setFilterText('');
 		props.onFilterTextChanged('');
-		props.onClearButtonPressed?.();
 		// Move focus back to the input after clearing the text.
 		inputRef.current.focus();
 	};
