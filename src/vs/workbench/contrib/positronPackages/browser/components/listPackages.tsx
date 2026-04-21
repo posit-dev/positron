@@ -30,6 +30,7 @@ import { ILanguageRuntimePackage } from '../../../../services/runtimeSession/com
 import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progressbar.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { Separator } from '../../../../../base/common/actions.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
 
 const positronUninstallPackage = localize(
 	'positronUninstallPackage',
@@ -148,6 +149,12 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	// Filter state
 	const [filterText, setFilterText] = useState('');
 	const [debouncedFilterText, setDebouncedFilterText] = useState('');
+
+	// Clear selection when filter text changes
+	const handleFilterTextChanged = (text: string) => {
+		setFilterText(text);
+		setSelectedItem(undefined);
+	};
 
 	// Debounce filter text changes (300ms)
 	useEffect(() => {
@@ -310,21 +317,31 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 
 			<div className='packages-filter-container'>
 				<ActionBarFilter
+					showClearAlways
+					clearButtonIcon={Codicon.clearAll}
 					placeholder={localize('positronPackages.filterPlaceholder', "Filter packages")}
-					onFilterTextChanged={setFilterText}
+					size='md'
+					onFilterTextChanged={handleFilterTextChanged}
 				/>
 			</div>
 			<div className='packages-list-container'>
-				<List
-					height={height - FILTER_HEIGHT}
-					innerRef={innerRef}
-					itemCount={filteredPackages.length}
-					itemKey={(index) => filteredPackages[index].id}
-					itemSize={26}
-					width={'calc(100% - 2px)'}
-				>
-					{ItemEntry}
-				</List>
+				{filteredPackages.length === 0 && debouncedFilterText ? (
+					<div className='packages-empty-message'
+						style={{ height: height - FILTER_HEIGHT }}>
+						{localize('positronPackages.noPackagesFound', "No packages found.")}
+					</div>
+				) : (
+					<List
+						height={height - FILTER_HEIGHT}
+						innerRef={innerRef}
+						itemCount={filteredPackages.length}
+						itemKey={(index) => filteredPackages[index].id}
+						itemSize={26}
+						width={'calc(100% - 2px)'}
+					>
+						{ItemEntry}
+					</List>
+				)}
 			</div>
 		</div >
 	);

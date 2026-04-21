@@ -3,9 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// CSS.
-import './consoleInstanceState.css';
-
 // React.
 import { useEffect, useState } from 'react';
 
@@ -26,11 +23,11 @@ const consoleStateToRuntimeStatus = {
 	[PositronConsoleState.Exited]: RuntimeStatus.Disconnected
 };
 
-interface ConsoleInstanceStateProps {
+interface ConsoleSessionStatusIconProps {
 	readonly positronConsoleInstance: IPositronConsoleInstance;
 }
 
-export const ConsoleInstanceState = ({ positronConsoleInstance }: ConsoleInstanceStateProps) => {
+export const ConsoleSessionStatusIcon = ({ positronConsoleInstance }: ConsoleSessionStatusIconProps) => {
 	// State hooks
 	const [consoleState, setConsoleState] = useState(positronConsoleInstance.state);
 
@@ -50,4 +47,4 @@ export const ConsoleInstanceState = ({ positronConsoleInstance }: ConsoleInstanc
 	return (
 		<RuntimeStatusIcon status={runtimeStatus} />
 	);
-}
+};

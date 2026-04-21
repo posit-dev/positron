@@ -5,6 +5,7 @@
 
 import { expect, FrameLocator } from '@playwright/test';
 import { Code } from '../infra/code';
+import { Toasts } from './dialog-toasts';
 
 // Webview frame selectors (Posit Assistant renders inside a VS Code webview)
 const OUTER_FRAME = '.webview';
@@ -239,6 +240,88 @@ export class PositAssistant {
 		await expect(this.frame.locator(INLINE_PLOT).first()).toBeVisible({ timeout });
 	}
 
+	/**
+	 * Verifies the first inline plot image is not blank.
+	 *
+	 * Inline plots are served as vscode-resource PNGs (e.g.
+	 * https://file+.vscode-resource.vscode-cdn.net/.../<hash>.png). Drawing
+	 * them to a canvas taints it cross-origin, so pixel sampling is
+	 * unreliable. Instead, we fetch the PNG bytes directly and check:
+	 *   1. The <img> loaded with non-zero natural dimensions.
+	 *   2. The response is a PNG (full 8-byte signature: 89 50 4E 47 0D 0A 1A 0A).
+	 *   3. The PNG payload is larger than a blank/empty figure would be.
+	 *
+	 * A real matplotlib/plotnine PNG is typically tens of KB; the "blank
+	 * Python chat plot" bug produces a very small PNG (empty figure or a
+	 * placeholder). The minBytes threshold targets that.
+	 *
+	 * @param options.timeout Max time to wait for the plot image (default: 30000)
+	 * @param options.minBytes Minimum PNG byte size to consider non-blank (default: 3000)
+	 */
+	async expectInlinePlotNotBlank(options: { timeout?: number; minBytes?: number } = {}): Promise<void> {
+		const { timeout = 30000, minBytes = 3000 } = options;
+		const plot = this.frame.locator(INLINE_PLOT).first();
+		await expect(plot).toBeVisible({ timeout });
+
+		// Wait for the image to finish loading.
+		await plot.evaluate(async (img: HTMLImageElement) => {
+			if (!img.complete) {
+				await new Promise<void>((resolve, reject) => {
+					img.addEventListener('load', () => resolve(), { once: true });
+					img.addEventListener('error', () => reject(new Error('image failed to load')), { once: true });
+				});
+			}
+		});
+
+		const result = await plot.evaluate(async (img: HTMLImageElement) => {
+			const width = img.naturalWidth;
+			const height = img.naturalHeight;
+			const src = img.src;
+
+			if (!width || !height) {
+				return { ok: false, reason: `image has no natural dimensions (${width}x${height})`, byteLength: 0 };
+			}
+			if (!src) {
+				return { ok: false, reason: 'image src is empty', byteLength: 0 };
+			}
+
+			try {
+				const response = await fetch(src);
+				if (!response.ok) {
+					return { ok: false, reason: `fetch failed: HTTP ${response.status}`, byteLength: 0 };
+				}
+				const bytes = new Uint8Array(await response.arrayBuffer());
+				// Full 8-byte PNG signature: 89 50 4E 47 0D 0A 1A 0A
+				const pngSignature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+				const isPng =
+					bytes.length >= pngSignature.length &&
+					pngSignature.every((b, i) => bytes[i] === b);
+				if (!isPng) {
+					return {
+						ok: false,
+						reason: `response is not a PNG (length=${bytes.length}, first bytes=${Array.from(bytes.slice(0, 8)).map(b => b.toString(16).padStart(2, '0')).join(' ')})`,
+						byteLength: bytes.length,
+						isPng,
+					};
+				}
+				return {
+					ok: true,
+					reason: `fetched ${bytes.length} bytes (png=true)`,
+					byteLength: bytes.length,
+					isPng,
+				};
+			} catch (e) {
+				return { ok: false, reason: `failed to fetch image src: ${String(e)}`, byteLength: 0 };
+			}
+		});
+
+		expect(result.ok, `Inline plot fetch failed: ${result.reason}`).toBe(true);
+		expect(
+			result.byteLength,
+			`Inline plot appears blank - PNG is only ${result.byteLength} bytes (threshold ${minBytes}). ${result.reason}`,
+		).toBeGreaterThanOrEqual(minBytes);
+	}
+
 	// --- Code block actions ---
 
 	/**
@@ -297,6 +380,67 @@ export class PositAssistant {
 	 */
 	async declineTool(): Promise<void> {
 		await this.frame.locator(TOOL_DECLINE_BUTTON).click();
+	}
+
+	// --- Dev build update check ---
+
+	/**
+	 * Enables the Posit Assistant auto dev-build update check, triggers the
+	 * `posit-assistant.checkForDevBuildUpdate` command, and drives the resulting
+	 * toast flow: clicks "Update Now" on the first toast, then clicks "Reload"
+	 * on the follow-up toast to reload Positron.
+	 *
+	 * Note: this is for Posit Assistant (not Positron Assistant).
+	 *
+	 * @param settings The settings fixture used to write the user setting.
+	 * @param quickaccess The quickaccess page object used to run the command.
+	 * @param options.toastTimeout Maximum time to wait for each toast (default: 30000).
+	 */
+	async checkForDevBuildUpdate(
+		settings: {
+			set: (
+				settings: Record<string, unknown>,
+				options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }
+			) => Promise<void>;
+		},
+		quickaccess: {
+			runCommand: (command: string, options?: { exactLabelMatch?: boolean }) => Promise<any>;
+		},
+		options: { toastTimeout?: number } = {},
+	): Promise<void> {
+		const { toastTimeout = 30000 } = options;
+
+		// 1. Enable the auto dev-build update check setting.
+		await settings.set({ 'assistant.autoDevBuildUpdateCheck': true });
+
+		// 2. Trigger the dev-build update check command.
+		await quickaccess.runCommand('posit-assistant.checkForDevBuildUpdate');
+
+		const toasts = new Toasts(this.code);
+
+		// 3. Wait for the "newer dev build available" toast. If it doesn't appear
+		//    (already up to date or update server unreachable), treat as a no-op.
+		let updateAvailable = true;
+		try {
+			await toasts.waitForAppear(/newer Posit Assistant dev build is available/i, { timeout: toastTimeout });
+		} catch {
+			updateAvailable = false;
+		}
+
+		if (!updateAvailable) {
+			return;
+		}
+
+		await toasts.clickButton('Update Now');
+
+		// 4. Wait for the follow-up "reload to apply changes" toast and click "Reload".
+		await toasts.waitForAppear(/Posit Assistant has been updated\. You must reload Positron/i, { timeout: toastTimeout });
+		await toasts.clickButton('Reload');
+
+		// 5. Clicking Reload reloads the window natively. Wait for the
+		//    workbench to come back up.
+		await this.code.driver.page.waitForTimeout(3000);
+		await this.code.driver.page.locator('.monaco-workbench').waitFor({ state: 'visible' });
 	}
 
 }
