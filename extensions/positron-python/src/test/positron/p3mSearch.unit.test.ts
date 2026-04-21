@@ -97,7 +97,15 @@ suite('fetchP3MPackageMetadata', () => {
     test('skips malformed NDJSON lines but keeps the valid ones', async () => {
         const body = ndjson(
             'not-json',
-            { name: 'requests', version: '2.32.0', summary: null, license: 'Apache-2.0', package_date: null, package_size: null, downloads: null },
+            {
+                name: 'requests',
+                version: '2.32.0',
+                summary: null,
+                license: 'Apache-2.0',
+                package_date: null,
+                package_size: null,
+                downloads: null,
+            },
             '{ broken',
         );
         fetchStub.resolves(makeResponse(body));
@@ -111,7 +119,15 @@ suite('fetchP3MPackageMetadata', () => {
     test('skips entries without a name', async () => {
         const body = ndjson(
             { version: '1.0.0', summary: null, license: null, package_date: null, package_size: null, downloads: null },
-            { name: 'requests', version: '2.32.0', summary: null, license: 'Apache-2.0', package_date: null, package_size: null, downloads: null },
+            {
+                name: 'requests',
+                version: '2.32.0',
+                summary: null,
+                license: 'Apache-2.0',
+                package_date: null,
+                package_size: null,
+                downloads: null,
+            },
         );
         fetchStub.resolves(makeResponse(body));
 

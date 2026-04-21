@@ -83,9 +83,8 @@ export async function fetchP3MPackageMetadata(
     };
 
     const controller = token ? new AbortController() : undefined;
-    const cancelSubscription = controller && token
-        ? token.onCancellationRequested(() => controller.abort())
-        : undefined;
+    const cancelSubscription =
+        controller && token ? token.onCancellationRequested(() => controller.abort()) : undefined;
 
     try {
         const response = await fetch('https://p3m.dev/__api__/filter/packages', {
