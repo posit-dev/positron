@@ -22,18 +22,14 @@ import { isMacintosh } from '../../../../../base/common/platform.js';
 import { useStateRef } from '../../../../../base/browser/ui/react/useStateRef.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { ActionBarFilter } from '../../../../../platform/positronActionBar/browser/components/actionBarFilter.js';
-import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
-import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
-import { DynamicActionBarAction, DEFAULT_ACTION_BAR_DROPDOWN_BUTTON_WIDTH, PositronDynamicActionBar } from '../../../../../platform/positronActionBar/browser/positronDynamicActionBar.js';
 import { ViewsProps } from '../positronPackages.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
-import { IAction, Separator } from '../../../../../base/common/actions.js';
 import { localize } from '../../../../../nls.js';
 import { usePositronPackagesContext } from '../positronPackagesContext.js';
 import { ILanguageRuntimePackage } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progressbar.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { CustomContextMenuItem } from '../../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
+import { Separator } from '../../../../../base/common/actions.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
 
 const positronUninstallPackage = localize(
@@ -46,19 +42,8 @@ const positronUpdatePackage = localize(
 	'Update Package',
 );
 
-/**
- * PackagesSortOrder enum.
- */
-enum PackagesSortOrder {
-	NameAsc = 'name-asc',
-	NameDesc = 'name-desc',
-}
-
 // Height of the filter container in pixels
 const FILTER_HEIGHT = 34;
-
-// Height of the sort action bar in pixels
-const SORT_ACTION_BAR_HEIGHT = 26;
 
 export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	const {
@@ -165,9 +150,6 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	const [filterText, setFilterText] = useState('');
 	const [debouncedFilterText, setDebouncedFilterText] = useState('');
 
-	// Sorting state
-	const [sortOrder, setSortOrder] = useState<PackagesSortOrder>(PackagesSortOrder.NameAsc);
-
 	// Clear selection when filter text changes
 	const handleFilterTextChanged = (text: string) => {
 		setFilterText(text);
@@ -198,25 +180,15 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 
 	// Filter packages based on the debounced filter text (case-insensitive, matches name or displayName)
 	const filteredPackages = useMemo(() => {
-		let result = deduplicatedPackages;
-
-		// Apply filter
-		if (debouncedFilterText) {
-			const lowerFilter = debouncedFilterText.toLowerCase();
-			result = result.filter((pkg) =>
-				pkg.name.toLowerCase().includes(lowerFilter) ||
-				pkg.displayName.toLowerCase().includes(lowerFilter)
-			);
+		if (!debouncedFilterText) {
+			return deduplicatedPackages;
 		}
-
-		// Apply sorting
-		result = [...result].sort((a, b) => {
-			const comparison = a.name.localeCompare(b.name);
-			return sortOrder === PackagesSortOrder.NameAsc ? comparison : -comparison;
-		});
-
-		return result;
-	}, [deduplicatedPackages, debouncedFilterText, sortOrder]);
+		const lowerFilter = debouncedFilterText.toLowerCase();
+		return deduplicatedPackages.filter((pkg) =>
+			pkg.name.toLowerCase().includes(lowerFilter) ||
+			pkg.displayName.toLowerCase().includes(lowerFilter)
+		);
+	}, [deduplicatedPackages, debouncedFilterText]);
 
 	// UI State
 	const [focused, setFocused] = useState(false);
@@ -342,119 +314,46 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		return () => services.positronPackagesService.setSelectedPackage(undefined);
 	}, [selectedItem, deduplicatedPackages, services.positronPackagesService]);
 
-	// Compute sort button label
-	const sortButtonLabel = useMemo(() => {
-		switch (sortOrder) {
-			case PackagesSortOrder.NameAsc:
-				return localize('positronPackages.sortNameAsc', "Sort: Name");
-			case PackagesSortOrder.NameDesc:
-				return localize('positronPackages.sortNameDesc', "Sort: Name (Z-A)");
-		}
-	}, [sortOrder]);
-
-	// Build sort menu actions
-	const sortActions = (): IAction[] => {
-		return [
-			{
-				id: 'sortNameAsc',
-				label: localize('positronPackages.sortByNameAsc', "Name (A-Z)"),
-				tooltip: '',
-				class: undefined,
-				enabled: true,
-				checked: sortOrder === PackagesSortOrder.NameAsc,
-				run: () => setSortOrder(PackagesSortOrder.NameAsc)
-			},
-			{
-				id: 'sortNameDesc',
-				label: localize('positronPackages.sortByNameDesc', "Name (Z-A)"),
-				tooltip: '',
-				class: undefined,
-				enabled: true,
-				checked: sortOrder === PackagesSortOrder.NameDesc,
-				run: () => setSortOrder(PackagesSortOrder.NameDesc)
-			}
-		];
-	};
-
-	// Convert sort actions to overflow menu entries
-	const sortOverflowEntries = () => sortActions().map(action => new CustomContextMenuItem({
-		label: action.label,
-		checked: action.checked,
-		disabled: !action.enabled,
-		onSelected: () => action.run()
-	}));
-
-	// Build left actions for the sort action bar
-	const leftActions: DynamicActionBarAction[] = [
-		{
-			fixedWidth: DEFAULT_ACTION_BAR_DROPDOWN_BUTTON_WIDTH + 16,
-			text: sortButtonLabel.replace('Sort: ', ''),
-			separator: false,
-			component: (
-				<ActionBarMenuButton
-					actions={sortActions}
-					dropdownIndicator='enabled'
-					label={sortButtonLabel}
-					tooltip={localize('positronPackages.changeSortOrder', "Change how packages are sorted")}
-				/>
-			),
-			overflowContextMenuSubmenu: {
-				icon: 'arrow-swap-vertical',
-				label: localize('positronPackages.sortLabel', "Sort"),
-				entries: sortOverflowEntries
-			}
-		}
-	];
-
 	return (
-		<PositronActionBarContextProvider>
-			{/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
-			<div
-				className={positronClassNames('positron-packages-list', {
-					focused,
-				})}
-				tabIndex={0}
-				onBlur={() => setFocused(false)}
-				onFocus={() => setFocused(true)}
-			>
-				<div ref={progressRef} id='packages-progress' />
+		// eslint-disable-next-line jsx-a11y/no-static-element-interactions
+		<div
+			className={positronClassNames('positron-packages-list', {
+				focused,
+			})}
+			tabIndex={0}
+			onBlur={() => setFocused(false)}
+			onFocus={() => setFocused(true)}
+		>
+			<div ref={progressRef} id='packages-progress' />
 
-				<div className='packages-filter-container'>
-					<ActionBarFilter
-						showClearAlways
-						clearButtonIcon={Codicon.clearAll}
-						placeholder={localize('positronPackages.filterPlaceholder', "Filter packages")}
-						size='md'
-						onFilterTextChanged={handleFilterTextChanged}
-					/>
-				</div>
-				<PositronDynamicActionBar
-					leftActions={leftActions}
-					nestedActionBar={true}
-					paddingLeft={8}
-					paddingRight={8}
-					rightActions={[]}
+			<div className='packages-filter-container'>
+				<ActionBarFilter
+					showClearAlways
+					clearButtonIcon={Codicon.clearAll}
+					placeholder={localize('positronPackages.filterPlaceholder', "Filter packages")}
+					size='md'
+					onFilterTextChanged={handleFilterTextChanged}
 				/>
-				<div className='packages-list-container'>
-					{filteredPackages.length === 0 && debouncedFilterText ? (
-						<div className='packages-empty-message'
-							style={{ height: height - FILTER_HEIGHT - SORT_ACTION_BAR_HEIGHT }}>
-							{localize('positronPackages.noPackagesFound', "No packages found.")}
-						</div>
-					) : (
-						<List
-							height={height - FILTER_HEIGHT - SORT_ACTION_BAR_HEIGHT}
-							innerRef={innerRef}
-							itemCount={filteredPackages.length}
-							itemKey={(index) => filteredPackages[index].id}
-							itemSize={26}
-							width={'calc(100% - 2px)'}
-						>
-							{ItemEntry}
-						</List>
-					)}
-				</div>
 			</div>
-		</PositronActionBarContextProvider>
+			<div className='packages-list-container'>
+				{filteredPackages.length === 0 && debouncedFilterText ? (
+					<div className='packages-empty-message'
+						style={{ height: height - FILTER_HEIGHT }}>
+						{localize('positronPackages.noPackagesFound', "No packages found.")}
+					</div>
+				) : (
+					<List
+						height={height - FILTER_HEIGHT}
+						innerRef={innerRef}
+						itemCount={filteredPackages.length}
+						itemKey={(index) => filteredPackages[index].id}
+						itemSize={26}
+						width={'calc(100% - 2px)'}
+					>
+						{ItemEntry}
+					</List>
+				)}
+			</div>
+		</div >
 	);
 };
