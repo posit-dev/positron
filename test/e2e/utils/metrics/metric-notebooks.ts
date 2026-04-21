@@ -89,7 +89,7 @@ export async function recordRunCell<T>(
 
 	if (language || additionalContext) {
 		context_json = async () => {
-			let baseContext: MetricContext = {};
+			const baseContext: MetricContext = {};
 
 			if (language) {
 				baseContext.language = language;
