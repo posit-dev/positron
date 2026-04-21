@@ -138,7 +138,6 @@ function webviewMessageCode() {
 		if (effectiveOverflow === 'hidden' || effectiveOverflow === 'clip') {
 			return null;
 		}
-		// eslint-disable-next-line no-restricted-syntax
 		return document.scrollingElement;
 	};
 
