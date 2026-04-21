@@ -1148,26 +1148,14 @@ declare module 'positron' {
 		displayName: string;
 		version: string;
 
-		/** Package description/summary from repository metadata */
-		description?: string;
-
 		/** License information */
 		license?: string;
 
 		/** Latest available version from repository */
 		latestVersion?: string;
 
-		/** Available versions from repository */
-		availableVersions?: string[];
-
-		/** Package size in bytes */
-		packageSize?: number;
-
 		/** Publication/release date */
 		publishedDate?: string;
-
-		/** Download count (may be unavailable) */
-		downloads?: number;
 	}
 
 	/**

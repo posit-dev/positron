@@ -108,13 +108,9 @@ export async function fetchP3MPackageMetadata(
         for (const pkg of packages) {
             if (pkg.name) {
                 result.set(pkg.name.toLowerCase(), {
-                    description: pkg.summary ?? undefined,
                     license: pkg.license ?? pkg.licenses?.join(', ') ?? undefined,
                     latestVersion: pkg.version ?? undefined,
-                    availableVersions: pkg.available_versions,
-                    packageSize: pkg.package_size ?? undefined,
                     publishedDate: pkg.package_date ?? undefined,
-                    downloads: pkg.downloads !== null && pkg.downloads >= 0 ? pkg.downloads : undefined,
                 });
             }
         }
