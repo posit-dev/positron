@@ -31,4 +31,26 @@ test.describe('Sessions: Startup Performance', {
 
 		if (!process.env.CI) { console.log(`[perf] session.start console python: ${duration_ms} ms`); }
 	});
+
+	test('start (notebook): Python cold start', async function ({ app, settings, metric }) {
+		const { notebooks, notebooksPositron } = app.workbench;
+
+		// tests/sessions/ does not enable Positron notebooks by default, so opt in here.
+		await notebooksPositron.enablePositronNotebooks(settings);
+
+		// Fresh untitled Positron notebook so kernel startup happens under test control.
+		await notebooks.createNewNotebook();
+		await notebooksPositron.expectToBeVisible();
+
+		const { duration_ms } = await metric.sessions.start(async () => {
+			await notebooksPositron.kernel.select('Python', { waitForReady: true });
+		}, 'session.python', {
+			sessionMode: 'notebook',
+			cold: true,
+			language: 'Python',
+			description: 'Notebook: Python cold kernel start (select to idle)',
+		});
+
+		if (!process.env.CI) { console.log(`[perf] session.start notebook python: ${duration_ms} ms`); }
+	});
 });
