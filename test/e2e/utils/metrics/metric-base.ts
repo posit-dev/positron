@@ -43,6 +43,7 @@ export type MetricContext = {
 	sort_applied?: boolean;
 	filter_applied?: boolean;
 	preview_enabled?: boolean;
+	cell_count?: number;
 };
 
 export type MetricResult<T> = {
@@ -135,6 +136,9 @@ export type MetricTargetType =
 	// Notebook cells
 	| 'cell.r'                // R notebook cell
 	| 'cell.python'           // Python notebook cell
+
+	// Notebook files
+	| 'file.ipynb'            // Jupyter notebook file
 
 	// Assistant eval categories
 	| 'eval.notebooks'        // Notebook-related assistant evals
