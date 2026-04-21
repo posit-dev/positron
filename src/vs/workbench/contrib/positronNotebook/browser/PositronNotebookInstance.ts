@@ -349,21 +349,16 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	/**
 	 * Returns the top of a cell relative to the cells container.
-	 * Walks up the offsetParent chain to account for positioned wrappers
-	 * (e.g. sortable-cell with position: relative).
 	 */
 	getCellTop(cell: IPositronNotebookCell): number | undefined {
 		const container = this._cellsContainer;
 		if (!container || !cell.container) {
 			return undefined;
 		}
-		let top = 0;
-		let current: HTMLElement | null | undefined = cell.container;
-		while (current && current !== container) {
-			top += current.offsetTop;
-			current = DOM.isHTMLElement(current.offsetParent) ? current.offsetParent : null;
-		}
-		return top;
+		const cellRect = cell.container.getBoundingClientRect();
+		const containerRect = container.getBoundingClientRect();
+		const distance = cellRect.top - containerRect.top;
+		return distance + container.scrollTop;
 	}
 
 	/**

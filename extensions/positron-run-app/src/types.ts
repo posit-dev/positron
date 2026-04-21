@@ -11,6 +11,7 @@ export enum Config {
 	ShowEnableShellIntegrationMessage = 'positron.appLauncher.showEnableShellIntegrationMessage',
 	ShowShellIntegrationNotSupportedMessage = 'positron.appLauncher.showShellIntegrationNotSupportedMessage',
 	PreviewMode = 'positron.runApp.previewMode',
+	UrlDetectionTimeout = 'positron.runApp.urlDetectionTimeout',
 }
 
 export type PositronProxyInfo = {
@@ -26,6 +27,7 @@ export type AppPreviewOptions = {
 	urlPath?: string;
 	appReadyMessage?: string;
 	appUrlStrings?: string[];
+	urlDetectionTimeout?: number;
 };
 
 export type AppLauncherTerminalLink = vscode.TerminalLink & {

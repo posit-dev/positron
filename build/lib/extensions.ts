@@ -338,7 +338,8 @@ export function fromMarketplace(serviceUrl: string, { name: extensionName, versi
 				return fetchUrls('', {
 					base: url,
 					nodeFetchOptions: { headers: baseHeaders },
-					checksumSha256: sha256
+					checksumSha256: sha256,
+					expectZip: true
 				})
 					.pipe(buffer())
 					.pipe(rename(p => {
@@ -352,7 +353,8 @@ export function fromMarketplace(serviceUrl: string, { name: extensionName, versi
 				nodeFetchOptions: {
 					headers: baseHeaders
 				},
-				checksumSha256: sha256
+				checksumSha256: sha256,
+				expectZip: true
 			})
 				.pipe(buffer());
 		}
