@@ -11,7 +11,12 @@ import { createFeatureMetricFactory } from './metric-factory.js';
 // Feature-specific Types
 //-----------------------
 
-export type NotebooksAction = 'run_cell' | 'open_notebook' | 'save_notebook';
+export type NotebooksAction =
+	| 'run_cell'
+	| 'open_notebook'
+	| 'save_notebook'
+	| 'render_on_open'
+	| 'render_on_nav_back';
 
 export type NotebookMetric = BaseMetric & {
 	feature_area: 'notebooks';
@@ -57,6 +62,16 @@ export interface NotebookShortcutOptions {
 }
 
 /**
+ * Options for notebook render-timing shortcuts
+ * (recordRenderOnOpen, recordRenderOnNavBack).
+ */
+export interface NotebookRenderOptions {
+	description?: string;
+	cellCount?: number;
+	additionalContext?: MetricContext | (() => Promise<MetricContext>);
+}
+
+/**
  * Shortcut for recording notebook cell execution with language context
  */
 export async function recordRunCell<T>(
@@ -98,5 +113,67 @@ export async function recordRunCell<T>(
 		target_type: targetType,
 		target_description: description || `Running ${language || targetType} cell`,
 		context_json
+	}, isElectronApp, logger);
+}
+
+/**
+ * Shortcut for recording the time to render a notebook after reopening
+ * it from disk (tab closed, file reopened). Measures the notebook
+ * open + parse + render path, isolated from app-startup noise.
+ */
+export async function recordRenderOnOpen<T>(
+	operation: () => Promise<T>,
+	targetType: MetricTargetType,
+	isElectronApp: boolean,
+	logger: MultiLogger,
+	options: NotebookRenderOptions = {}
+): Promise<MetricResult<T>> {
+	return recordRender('render_on_open', operation, targetType, isElectronApp, logger, options);
+}
+
+/**
+ * Shortcut for recording the time to render a notebook after switching
+ * back to its editor tab from another tab. Matches the bug scenario in
+ * posit-dev/positron#12604 (slow tab-switch-back on large notebooks).
+ */
+export async function recordRenderOnNavBack<T>(
+	operation: () => Promise<T>,
+	targetType: MetricTargetType,
+	isElectronApp: boolean,
+	logger: MultiLogger,
+	options: NotebookRenderOptions = {}
+): Promise<MetricResult<T>> {
+	return recordRender('render_on_nav_back', operation, targetType, isElectronApp, logger, options);
+}
+
+async function recordRender<T>(
+	action: 'render_on_open' | 'render_on_nav_back',
+	operation: () => Promise<T>,
+	targetType: MetricTargetType,
+	isElectronApp: boolean,
+	logger: MultiLogger,
+	options: NotebookRenderOptions
+): Promise<MetricResult<T>> {
+	const { description, cellCount, additionalContext } = options;
+
+	const context_json: (() => Promise<MetricContext>) | undefined =
+		(cellCount !== undefined || additionalContext)
+			? async () => {
+				const base: MetricContext = cellCount !== undefined ? { cell_count: cellCount } : {};
+				if (additionalContext) {
+					const extra = typeof additionalContext === 'function'
+						? await additionalContext()
+						: additionalContext;
+					return { ...base, ...extra };
+				}
+				return base;
+			}
+			: undefined;
+
+	return recordNotebookMetric(operation, {
+		action,
+		target_type: targetType,
+		target_description: description || `${action} ${targetType}`,
+		context_json,
 	}, isElectronApp, logger);
 }
