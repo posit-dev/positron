@@ -98,7 +98,7 @@ export function MetricsFixture(app: Application, logger: MultiLogger): RecordMet
 				options: SessionStartShortcutOptions
 			): Promise<MetricResult<T>> => {
 				return recordSessionStart(operation, targetType, !app.web, logger, options);
-			}
+			},
 		},
 		assistant: {
 			evalResponse: async (
