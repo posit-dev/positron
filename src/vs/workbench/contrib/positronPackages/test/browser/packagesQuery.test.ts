@@ -60,34 +60,40 @@ suite('packagesQuery', () => {
 			assert.strictEqual(result.sort, PackagesSortOrder.NameDesc);
 		});
 
-		test('multiple @sort: tokens: last known value wins for sort, known tokens stripped', () => {
+		test('multiple @sort: tokens: last one wins for sort, all stripped from text', () => {
 			const result = parseQuery('foo @sort:name bar @sort:name-desc baz');
 			assert.strictEqual(result.text, 'foo bar baz');
 			assert.strictEqual(result.sort, PackagesSortOrder.NameDesc);
 		});
 
-		test('unknown @sort: value is left in text and leaves default sort', () => {
+		test('unknown @sort: value is stripped and leaves default sort', () => {
 			const result = parseQuery('foo @sort:bogus bar');
-			assert.strictEqual(result.text, 'foo @sort:bogus bar');
+			assert.strictEqual(result.text, 'foo bar');
 			assert.strictEqual(result.sort, PackagesSortOrder.NameAsc);
 		});
 
-		test('unknown @key token is left in text', () => {
+		test('unknown @key token is stripped from free text', () => {
 			const result = parseQuery('foo @outdated bar');
-			assert.strictEqual(result.text, 'foo @outdated bar');
+			assert.strictEqual(result.text, 'foo bar');
 			assert.strictEqual(result.sort, PackagesSortOrder.NameAsc);
 		});
 
-		test('unknown @key:value token is left in text', () => {
+		test('unknown @key:value token is stripped from free text', () => {
 			const result = parseQuery('foo @author:hadley bar');
-			assert.strictEqual(result.text, 'foo @author:hadley bar');
+			assert.strictEqual(result.text, 'foo bar');
 			assert.strictEqual(result.sort, PackagesSortOrder.NameAsc);
 		});
 
-		test('unknown token alongside known @sort: token', () => {
+		test('unknown token alongside known @sort: token: both stripped', () => {
 			const result = parseQuery('@outdated @sort:name-desc dplyr');
-			assert.strictEqual(result.text, '@outdated dplyr');
+			assert.strictEqual(result.text, 'dplyr');
 			assert.strictEqual(result.sort, PackagesSortOrder.NameDesc);
+		});
+
+		test('bare @key attached to free text is stripped', () => {
+			const result = parseQuery('foo@bar');
+			assert.strictEqual(result.text, 'foo');
+			assert.strictEqual(result.sort, PackagesSortOrder.NameAsc);
 		});
 	});
 

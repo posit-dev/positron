@@ -39,21 +39,21 @@ export interface ParsedQuery {
 
 /**
  * Parses the filter input into a free-text portion and the structured tokens
- * it contains. Unrecognized `@...` tokens are left in the text so the user
- * sees what they typed.
+ * it contains. All `@key[:value]` tokens are consumed, even when unrecognized,
+ * so unknown tokens don't leak into free-text filtering and produce
+ * empty-result-set surprises.
  */
 export const parseQuery = (query: string): ParsedQuery => {
 	let sort: PackagesSortOrder = PackagesSortOrder.NameAsc;
 
-	const text = query.replace(TOKEN_REGEX, (match, key: string, value: string | undefined) => {
+	const text = query.replace(TOKEN_REGEX, (_match, key: string, value: string | undefined) => {
 		if (key.toLowerCase() === 'sort' && value !== undefined) {
 			const order = SORT_TOKEN_TO_ORDER[value.toLowerCase()];
 			if (order !== undefined) {
 				sort = order;
-				return '';
 			}
 		}
-		return match;
+		return '';
 	}).replace(/\s+/g, ' ').trim();
 
 	return { text, sort };
