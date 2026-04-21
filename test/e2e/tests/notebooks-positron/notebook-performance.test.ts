@@ -4,9 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import path from 'path';
-import { tags } from '../_test.setup';
+import { tags, expect } from '../_test.setup';
 import { test } from './_test.setup.js';
-import { expect } from '@playwright/test';
 
 const NOTEBOOK_FILE = 'spotify.ipynb';
 const NOTEBOOK_PATH = path.join('workspaces', 'large_py_notebook', NOTEBOOK_FILE);
@@ -20,8 +19,7 @@ test.describe('Positron Notebooks: Performance', {
 }, () => {
 
 	test.beforeEach(async function ({ app }) {
-		const { notebooksPositron } = app.workbench;
-		await notebooksPositron.openNotebook(NOTEBOOK_PATH);
+		await app.workbench.notebooksPositron.openNotebook(NOTEBOOK_PATH);
 	});
 
 	test('render_on_open: reopen notebook from disk', async function ({ app, hotKeys, runCommand, metric }) {
@@ -30,16 +28,13 @@ test.describe('Positron Notebooks: Performance', {
 		// Close the notebook tab so we can measure the reopen.
 		await hotKeys.closeAllEditors();
 
-		// Use "Reopen Closed Editor" to avoid the Quick Access picker UI
-		// (typing the filename, fuzzy-match, select) that openNotebook
-		// goes through -- that UI latency is noise unrelated to notebook
-		// render time. This restores the most recently closed editor,
-		// which is the notebook opened by beforeEach.
+		// Use "Reopen Closed Editor" to avoid UI latency noise unrelated
+		// to notebook render time.
 		const { duration_ms } = await metric.notebooks.renderOnOpen(async () => {
 			await runCommand('workbench.action.reopenClosedEditor');
 			await expect(notebooksPositron.cell.first()).toBeVisible();
 		}, 'file.ipynb', {
-			description: `Reopen ${NOTEBOOK_FILE} in Positron notebook editor`,
+			description: `Reopen ${NOTEBOOK_FILE} in Positron notebooks`,
 		});
 
 		if (!process.env.CI) { console.log(`[perf] render_on_open: ${duration_ms} ms`); }
