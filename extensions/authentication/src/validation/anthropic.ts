@@ -15,15 +15,40 @@ class ApiKeyValidationError extends Error {
 }
 
 export async function validateAnthropicApiKey(apiKey: string, config: positron.ai.LanguageModelConfig): Promise<void> {
-	const rawBaseUrl = (config.baseUrl ?? 'https://api.anthropic.com')
-		.replace(/\/v1\/?$/, '')
-		.replace(/\/+$/, '');
-	const modelsEndpoint = `${rawBaseUrl}/v1/models`;
+	const baseUrl = (config.baseUrl ?? 'https://api.anthropic.com/v1').replace(/\/+$/, '');
+	const modelsEndpoint = `${baseUrl}/models`;
 
 	const controller = new AbortController();
 	const timeout = setTimeout(() => controller.abort(), KEY_VALIDATION_TIMEOUT_MS);
 	try {
-		const response = await fetch(modelsEndpoint, {
+		let firstResponse: Response | undefined;
+		try {
+			firstResponse = await fetch(modelsEndpoint, {
+				method: 'GET',
+				headers: {
+					'x-api-key': apiKey,
+					'anthropic-version': ANTHROPIC_API_VERSION,
+				},
+				signal: controller.signal,
+			});
+		} catch (err) {
+			if (err instanceof Error && err.name === 'AbortError') {
+				throw new ApiKeyValidationError(vscode.l10n.t('Could not validate Anthropic API key within {0} seconds', String(KEY_VALIDATION_TIMEOUT_MS / 1000)));
+			}
+			// Network error on first attempt: fall through to /v1/ retry below
+		}
+
+		if (firstResponse?.ok) {
+			return;
+		}
+
+		if (firstResponse && (firstResponse.status === 401 || firstResponse.status === 403)) {
+			throw new ApiKeyValidationError(vscode.l10n.t('Invalid Anthropic API key'));
+		}
+
+		// First attempt failed with a non-auth error (HTTP or network). Try with /v1/ appended
+		// in case the user provided a base URL without the API version path segment.
+		const response = await fetch(`${baseUrl}/v1/models`, {
 			method: 'GET',
 			headers: {
 				'x-api-key': apiKey,
