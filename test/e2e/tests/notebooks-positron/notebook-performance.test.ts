@@ -24,45 +24,40 @@ test.describe('Positron Notebooks: Performance', {
 		await notebooksPositron.openNotebook(NOTEBOOK_PATH);
 	});
 
-	test('render_on_open: reopen notebook from disk', async function ({ app, hotKeys, metric }) {
+	test('render_on_open: reopen notebook from disk', async function ({ app, hotKeys, runCommand, metric }) {
 		const { notebooksPositron } = app.workbench;
 
-		// Close the notebook tab so we can measure the reopen from disk.
-		// Note: OS file cache is already warm from beforeEach, so this is
-		// not a true cold open -- it measures the editor open + parse + render
-		// path with a warm OS cache.
+		// Close the notebook tab so we can measure the reopen.
 		await hotKeys.closeAllEditors();
 
+		// Use "Reopen Closed Editor" to avoid the Quick Access picker UI
+		// (typing the filename, fuzzy-match, select) that openNotebook
+		// goes through -- that UI latency is noise unrelated to notebook
+		// render time. This restores the most recently closed editor,
+		// which is the notebook opened by beforeEach.
 		const { duration_ms } = await metric.notebooks.renderOnOpen(async () => {
-			await notebooksPositron.openNotebook(NOTEBOOK_PATH);
-			await notebooksPositron.expectToBeVisible();
+			await runCommand('workbench.action.reopenClosedEditor');
 			await expect(notebooksPositron.cell.first()).toBeVisible();
 		}, 'file.ipynb', {
 			description: `Reopen ${NOTEBOOK_FILE} in Positron notebook editor`,
 		});
 
-		// Pure telemetry for v1: log the duration, no hard assertion.
-		console.log(`[perf] render_on_open: ${duration_ms} ms`);
+		if (!process.env.CI) { console.log(`[perf] render_on_open: ${duration_ms} ms`); }
 	});
 
 	test('render_on_nav_back: switch back to notebook tab', async function ({ app, metric }) {
 		const { notebooksPositron, editors } = app.workbench;
 
-		// Background the notebook by opening a second tab (canonical source tab).
-		// Matches the pattern used by notebook-scroll-position.test.ts.
+		// Background the notebook by opening a second tab
 		await editors.newUntitledFile();
 
 		const { duration_ms } = await metric.notebooks.renderOnNavBack(async () => {
-			// Click the notebook tab directly. We can't use editors.selectTab()
-			// because it expects a Monaco editor to receive focus, but the
-			// Positron notebook is a custom editor.
-			await app.code.driver.page.getByRole('tab', { name: NOTEBOOK_FILE }).click();
-			await notebooksPositron.expectToBeVisible();
+			await editors.clickTab(NOTEBOOK_FILE);
 			await expect(notebooksPositron.cell.first()).toBeVisible();
 		}, 'file.ipynb', {
 			description: `Nav back to ${NOTEBOOK_FILE} from untitled file`,
 		});
 
-		console.log(`[perf] render_on_nav_back: ${duration_ms} ms`);
+		if (!process.env.CI) { console.log(`[perf] render_on_nav_back: ${duration_ms} ms`); }
 	});
 });
