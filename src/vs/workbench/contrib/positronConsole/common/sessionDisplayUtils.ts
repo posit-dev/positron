@@ -41,15 +41,27 @@ export function getNotebookDisplayName(notebookUri: URI, modelService: IModelSer
 }
 
 /**
- * Gets the display label for a session. For notebook sessions, this includes
- * the notebook file name and the runtime name. For Quarto sessions, the
- * runtime name is used instead of the session name (which redundantly
- * contains the file name). For untitled Quarto documents, the .qmd extension
- * is appended since the URI doesn't include it.
+ * Gets the display label for a session.
+ *
+ * For notebook sessions, we show the notebook file name and the runtime
+ * name (e.g., "foo.ipynb - Python 3.12"). For untitled Quarto documents,
+ * the .qmd extension is appended since the URI doesn't include it.
+ *
+ * Pass `short: true` to drop the " - runtime" suffix for notebook sessions.
+ *
+ * For console sessions, we always show the session name (the `short` flag is
+ * ignored).
  */
-export function getSessionDisplayName(info: IRuntimeSessionDisplayInfo, modelService: IModelService): string {
+export function getSessionDisplayName(
+	info: IRuntimeSessionDisplayInfo,
+	modelService: IModelService,
+	short: boolean = false,
+): string {
 	if (info.sessionMode === LanguageRuntimeSessionMode.Notebook && info.notebookUri) {
 		const notebookName = getNotebookDisplayName(info.notebookUri, modelService);
+		if (short) {
+			return notebookName;
+		}
 		// For Quarto sessions, show the underlying runtime name (e.g.
 		// "Python 3.12.11 (Pyenv)") instead of the session name (which is
 		// "Quarto: <file>.qmd" and would duplicate the file name).

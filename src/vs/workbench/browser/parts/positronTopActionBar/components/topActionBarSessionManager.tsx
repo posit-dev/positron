@@ -34,7 +34,7 @@ const getLabel = (info: IRuntimeSessionDisplayInfo | undefined, modelService: IM
 	if (!info) {
 		return startSession;
 	}
-	return getSessionDisplayName(info, modelService);
+	return getSessionDisplayName(info, modelService, true);
 };
 
 /**
