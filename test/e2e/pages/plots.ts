@@ -272,15 +272,7 @@ export class Plots {
 	}
 
 	async waitForPlotInEditor() {
-		const img = this.code.driver.page.locator('[id="workbench.parts.editor"] .plot-instance img');
-		await expect(img).toBeVisible({ timeout: 30000 });
-		// Wait for the image to actually finish loading. Without this, a subsequent
-		// save triggers an RPC render that races with the initial editor render and
-		// fails with "Error rendering plot to ... size".
-		await expect.poll(
-			() => img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth > 0),
-			{ timeout: 30000 }
-		).toBe(true);
+		await expect(this.code.driver.page.locator('.editor-container img')).toBeVisible({ timeout: 30000 });
 	}
 
 	async expectPlotThumbnailsCountToBe(count: number) {

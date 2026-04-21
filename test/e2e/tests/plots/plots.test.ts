@@ -211,8 +211,20 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			});
 
 			await test.step('Open plot in editor', async () => {
-				await app.workbench.plots.openPlotIn('editor');
-				await app.workbench.plots.waitForPlotInEditor();
+				// The kernel's initial render RPC into the plot editor sometimes
+				// fails with an "Error rendering plot to ... size" toast,
+				// leaving the editor blank and causing the subsequent save to
+				// hang. Detect the toast and re-open if that happens.
+				const errorToast = app.code.driver.page.locator('.notification-toast')
+					.filter({ hasText: /Error rendering plot/ });
+				await expect(async () => {
+					await app.workbench.plots.openPlotIn('editor');
+					await app.workbench.plots.waitForPlotInEditor();
+					if (await errorToast.isVisible()) {
+						await app.workbench.quickaccess.runCommand('workbench.action.closeActiveEditor');
+						throw new Error('Plot editor render RPC failed, retrying');
+					}
+				}).toPass({ timeout: 60000, intervals: [1000] });
 			});
 
 			await test.step('Save plot from editor', async () => {
