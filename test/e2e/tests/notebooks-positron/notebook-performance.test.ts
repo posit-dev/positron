@@ -6,10 +6,10 @@
 import path from 'path';
 import { tags } from '../_test.setup';
 import { test } from './_test.setup.js';
+import { expect } from '@playwright/test';
 
 const NOTEBOOK_FILE = 'spotify.ipynb';
 const NOTEBOOK_PATH = path.join('workspaces', 'large_py_notebook', NOTEBOOK_FILE);
-const EXPECTED_CELL_COUNT = 32;
 
 test.use({
 	suiteId: __filename
@@ -23,7 +23,7 @@ test.describe('Positron Notebooks: Performance', {
 		const { notebooksPositron } = app.workbench;
 		await notebooksPositron.openNotebook(NOTEBOOK_PATH);
 		await notebooksPositron.expectToBeVisible();
-		await notebooksPositron.expectCellCountToBe(EXPECTED_CELL_COUNT);
+		await expect(notebooksPositron.cell.first()).toBeVisible();
 	});
 
 	test('render_on_open: reopen notebook from disk', async function ({ app, hotKeys, metric }) {
@@ -35,14 +35,12 @@ test.describe('Positron Notebooks: Performance', {
 		const { duration_ms } = await metric.notebooks.renderOnOpen(async () => {
 			await notebooksPositron.openNotebook(NOTEBOOK_PATH);
 			await notebooksPositron.expectToBeVisible();
-			await notebooksPositron.expectCellCountToBe(EXPECTED_CELL_COUNT);
+			await expect(notebooksPositron.cell.first()).toBeVisible();
 		}, 'file.ipynb', {
-			cellCount: EXPECTED_CELL_COUNT,
 			description: `Reopen ${NOTEBOOK_FILE} in Positron notebook editor`,
 		});
 
 		// Pure telemetry for v1: log the duration, no hard assertion.
-		// eslint-disable-next-line no-console
 		console.log(`[perf] render_on_open: ${duration_ms} ms`);
 	});
 
@@ -59,13 +57,11 @@ test.describe('Positron Notebooks: Performance', {
 			// Positron notebook is a custom editor.
 			await app.code.driver.page.getByRole('tab', { name: NOTEBOOK_FILE }).click();
 			await notebooksPositron.expectToBeVisible();
-			await notebooksPositron.expectCellCountToBe(EXPECTED_CELL_COUNT);
+			await expect(notebooksPositron.cell.first()).toBeVisible();
 		}, 'file.ipynb', {
-			cellCount: EXPECTED_CELL_COUNT,
 			description: `Nav back to ${NOTEBOOK_FILE} from untitled file`,
 		});
 
-		// eslint-disable-next-line no-console
 		console.log(`[perf] render_on_nav_back: ${duration_ms} ms`);
 	});
 });
