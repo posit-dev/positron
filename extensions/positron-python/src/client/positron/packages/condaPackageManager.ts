@@ -9,7 +9,6 @@ import { IProcessServiceFactory } from '../../common/process/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IComponentAdapter, ICondaService } from '../../interpreter/contracts';
 import { IServiceContainer } from '../../ioc/types';
-import { fetchP3MMetadata } from './p3mSearch';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
 
 /** Package info returned by `conda search --json` */
@@ -70,28 +69,6 @@ export class CondaPackageManager implements IPackageManager {
 
     async getPackages(token?: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]> {
         return this._callMethod<positron.LanguageRuntimePackage[]>('getPackagesInstalled', token);
-    }
-
-    async getPackageMetadata(
-        packageNames: string[],
-        token?: vscode.CancellationToken,
-    ): Promise<Map<string, Partial<positron.LanguageRuntimePackage>>> {
-        const metadataMap = await fetchP3MMetadata(packageNames, token);
-        const result = new Map<string, Partial<positron.LanguageRuntimePackage>>();
-
-        for (const [name, metadata] of metadataMap) {
-            result.set(name, {
-                description: metadata.summary ?? undefined,
-                license: metadata.license ?? metadata.licenses?.join(', ') ?? undefined,
-                latestVersion: metadata.version ?? undefined,
-                availableVersions: metadata.available_versions,
-                packageSize: metadata.package_size ?? undefined,
-                publishedDate: metadata.package_date ?? undefined,
-                downloads: metadata.downloads !== null && metadata.downloads >= 0 ? metadata.downloads : undefined,
-            });
-        }
-
-        return result;
     }
 
     /**
