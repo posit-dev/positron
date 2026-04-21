@@ -117,27 +117,55 @@ function webviewMessageCode() {
 	//    reached its top/bottom edge. In both cases, wheeling should
 	//    move the notebook, so we forward the event.
 	//
+	// The viewport has at most one element that scrolls on wheel. This
+	// returns that element when viewport scrolling is enabled, or null
+	// when the page disables it via overflow-y: hidden or clip. CSS
+	// propagates body's overflow to the viewport when html is `visible`
+	// (the default), so the effective overflow is html's unless that is
+	// visible, in which case body's wins.
+	const getViewportScrollConsumer = (): Element | null => {
+		// eslint-disable-next-line no-restricted-syntax
+		const root = document.documentElement;
+		// eslint-disable-next-line no-restricted-syntax
+		const body = document.body;
+		// eslint-disable-next-line no-restricted-globals
+		const rootOverflow = window.getComputedStyle(root).overflowY;
+		let effectiveOverflow = rootOverflow;
+		if (rootOverflow === 'visible' && body) {
+			// eslint-disable-next-line no-restricted-globals
+			effectiveOverflow = window.getComputedStyle(body).overflowY;
+		}
+		if (effectiveOverflow === 'hidden' || effectiveOverflow === 'clip') {
+			return null;
+		}
+		// eslint-disable-next-line no-restricted-syntax
+		return document.scrollingElement;
+	};
+
 	// findVerticalWheelConsumer walks up from the wheel target and
 	// returns the first scrollable ancestor that still has room in the
 	// wheel direction, or null when nothing can consume the scroll.
 	const findVerticalWheelConsumer = (event: WheelEvent): Element | null => {
+		const viewportConsumer = getViewportScrollConsumer();
 		for (let node: Node | null = event.target as Node | null; node; node = node.parentNode) {
 			if (!(node instanceof Element)) {
 				return null;
 			}
 			// eslint-disable-next-line no-restricted-syntax
 			const isBodyOrRoot = node === document.body || node === document.documentElement;
-			// eslint-disable-next-line no-restricted-globals
-			const overflowY = window.getComputedStyle(node).overflowY;
 			if (isBodyOrRoot) {
-				// Body/root scroll implicitly when content overflows the
-				// viewport, unless the page explicitly disables it with
-				// overflow-y: hidden or clip.
-				if (overflowY === 'hidden' || overflowY === 'clip') {
+				// Only the single viewport scroller implicitly scrolls on
+				// wheel -- skip the other of body/documentElement, and
+				// skip both when viewport scrolling is disabled.
+				if (node !== viewportConsumer) {
 					continue;
 				}
-			} else if (overflowY !== 'auto' && overflowY !== 'scroll') {
-				continue;
+			} else {
+				// eslint-disable-next-line no-restricted-globals
+				const overflowY = window.getComputedStyle(node).overflowY;
+				if (overflowY !== 'auto' && overflowY !== 'scroll') {
+					continue;
+				}
 			}
 			if (node.scrollHeight <= node.clientHeight) {
 				continue;
@@ -158,11 +186,15 @@ function webviewMessageCode() {
 	// jerk the notebook. Briefly keep routing to the element that last
 	// consumed a wheel event: as long as the cursor is still inside that
 	// element, suppress forwarding so momentum stays with that scroller
-	// rather than the notebook around it. Moving the pointer elsewhere
-	// (or letting the grace window lapse) lets new wheels through.
+	// rather than the notebook around it. Moving the pointer elsewhere,
+	// letting the grace window lapse, or starting a fresh gesture (a
+	// direction reversal or a sudden jump in |deltaY|, since tail events
+	// decay monotonically) all lift the suppression.
 	const MOMENTUM_GRACE_MS = 200;
+	const NEW_GESTURE_DELTA_JUMP = 8;
 	let lastConsumer: Element | null = null;
 	let lastConsumedAt = 0;
+	let lastSeenDelta = 0;
 	// eslint-disable-next-line no-restricted-globals
 	window.addEventListener('wheel', (event: WheelEvent) => {
 		if (event.defaultPrevented || event.deltaY === 0) {
@@ -172,13 +204,20 @@ function webviewMessageCode() {
 		if (consumer) {
 			lastConsumer = consumer;
 			lastConsumedAt = Date.now();
+			lastSeenDelta = event.deltaY;
 			return;
 		}
 		if (lastConsumer
 			&& event.target instanceof Node
 			&& lastConsumer.contains(event.target)
 			&& Date.now() - lastConsumedAt < MOMENTUM_GRACE_MS) {
-			return;
+			const sameDirection = Math.sign(event.deltaY) === Math.sign(lastSeenDelta);
+			const jumped = Math.abs(event.deltaY) > Math.abs(lastSeenDelta) + NEW_GESTURE_DELTA_JUMP;
+			if (sameDirection && !jumped) {
+				lastSeenDelta = event.deltaY;
+				return;
+			}
+			lastConsumer = null;
 		}
 		vscode.postMessage({
 			type: 'wheelForward',
