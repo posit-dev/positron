@@ -316,7 +316,7 @@
 		"publisherUrl": ""
 	},
 	"linkProtectionTrustedDomains": [
-		"http://open-vsx.org",
+		"https://open-vsx.org",
 		"https://p3m.dev",
 		"https://github.com/posit-dev/positron",
 		"https://positron.posit.co",
