@@ -133,18 +133,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		// Loading
 		this._onDidChangeRefreshState.fire(true);
 		try {
-			// Stage 1: Get basic package list quickly and fire event
-			// The getter merges cached metadata, so existing metadata is preserved
-			this._packages = await packageManager.getPackages(effectiveToken);
-			this._onDidRefreshPackagesInstance.fire(this.packages);
-
-			// Stage 2: Fetch metadata asynchronously for uncached packages (don't block the return)
-			// Use CancellationToken.None since this runs after the main operation completes
-			// and the original token may be disposed
-			if (packageManager.getPackageMetadata && this._packages.length > 0) {
-				this._fetchAndMergeMetadata(packageManager, CancellationToken.None);
-			}
-
+			await this._refreshPackagesInternal(packageManager, effectiveToken);
 			return this.packages;
 		} finally {
 			this._onDidChangeRefreshState.fire(false);
