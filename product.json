@@ -200,8 +200,8 @@
 		},
 		{
 			"name": "meta.pyrefly",
-			"version": "0.61.0",
-			"sha256sum": "ff5d2ce2fbf5e7bf59be94467f5c1bdbd354b5204f4ee4a8f9087951a18cc3b6",
+			"version": "0.62.0",
+			"sha256sum": "58afe841ed2b99157b12c4fde48c62c179fdeea6585727858121159cfa0c7e34",
 			"repo": "https://github.com/facebook/pyrefly",
 			"metadata": {
 				"publisherId": {
@@ -296,8 +296,8 @@
 		},
 		{
 			"name": "posit.assistant",
-			"version": "0.3.1",
-			"sha256": "a2226c4670c2e173da4b918819a06994f7475f44cbcba428fadc878a719d7071",
+			"version": "0.3.2",
+			"sha256": "d6661dc9e5c607a645a65eae56fec210302a5babb2e2af735078e96e448b7c3e",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
 				"displayName": "Posit Assistant"
