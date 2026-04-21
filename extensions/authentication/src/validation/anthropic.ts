@@ -48,6 +48,16 @@ export async function validateAnthropicApiKey(apiKey: string, config: positron.a
 
 		// First attempt failed with a non-auth error (HTTP or network). Try with /v1/ appended
 		// in case the user provided a base URL without the API version path segment.
+		// Skip the retry if the URL already ends with /v1 to avoid /v1/v1/models.
+		if (baseUrl.endsWith('/v1')) {
+			if (firstResponse) {
+				throw new ApiKeyValidationError(vscode.l10n.t(
+					'Unable to validate Anthropic API key (HTTP {0})',
+					String(firstResponse.status)
+				));
+			}
+			throw new ApiKeyValidationError(vscode.l10n.t('Could not validate Anthropic API key. Check your network connection and try again.'));
+		}
 		const response = await fetch(`${baseUrl}/v1/models`, {
 			method: 'GET',
 			headers: {

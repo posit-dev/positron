@@ -120,4 +120,32 @@ suite('validateAnthropicApiKey', () => {
 
 		assert.strictEqual(requestedUrls[0], 'https://api.anthropic.com/v1/models');
 	});
+
+	test('does not append /v1 when baseUrl already ends with /v1', async () => {
+		globalThis.fetch = async (url) => {
+			requestedUrls.push(url as string);
+			return { ok: false, status: 404 } as Response;
+		};
+
+		await assert.rejects(
+			validateAnthropicApiKey('sk-ant-valid', makeConfig('https://api.anthropic.com/v1')),
+			(error: Error) => error.message.includes('404')
+		);
+
+		assert.strictEqual(requestedUrls.length, 1, 'should not retry when URL already has /v1');
+	});
+
+	test('does not append /v1 when baseUrl already ends with /v1/', async () => {
+		globalThis.fetch = async (url) => {
+			requestedUrls.push(url as string);
+			return { ok: false, status: 404 } as Response;
+		};
+
+		await assert.rejects(
+			validateAnthropicApiKey('sk-ant-valid', makeConfig('https://api.anthropic.com/v1/')),
+			(error: Error) => error.message.includes('404')
+		);
+
+		assert.strictEqual(requestedUrls.length, 1, 'should not retry when URL already has /v1/');
+	});
 });
