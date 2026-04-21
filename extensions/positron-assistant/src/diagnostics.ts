@@ -8,6 +8,7 @@ import * as positron from 'positron';
 import { getStoredModels } from './config';
 import { BufferedLogOutputChannel } from './log.js';
 import { getModelProviders } from './providers';
+import { isAuthExtProvider } from './authExtRouting.js';
 
 function formatError(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
@@ -113,14 +114,24 @@ async function getConfiguredProviders(context: vscode.ExtensionContext, log: Buf
 				fields.push(`	- Base URL: ${firstModel.baseUrl}`);
 			}
 
-			// Report if an API key is configured (check first model's ID)
+			// Report credential status -- auth ext providers use vscode.authentication;
+			// legacy providers use the assistant's own secret storage.
 			try {
-				const apiKey = await context.secrets.get(`apiKey-${firstModel.id}`);
-				if (apiKey) {
-					fields.push(`	- API Key: Yes`);
+				if (isAuthExtProvider(provider)) {
+					const accounts = await vscode.authentication.getAccounts(provider);
+					if (accounts.length > 0) {
+						fields.push(`	- Auth Session: Active (${accounts.map(a => a.label).join(', ')})`);
+					} else {
+						fields.push(`	- Auth Session: None`);
+					}
+				} else {
+					const apiKey = await context.secrets.get(`apiKey-${firstModel.id}`);
+					if (apiKey) {
+						fields.push(`	- API Key: Yes`);
+					}
 				}
 			} catch (error) {
-				log.trace(`Failed to check API key for model ${firstModel.id}: ${formatError(error)}`);
+				log.trace(`Failed to check credentials for model ${firstModel.id}: ${formatError(error)}`);
 			}
 
 			return fields.join('\n');
@@ -179,7 +190,7 @@ async function getChatExportInfo(): Promise<string> {
 		// Currently selected mode in the Chat panel
 		const chatMode = await positron.ai.getCurrentChatMode();
 
-		// Cast to access internal structure (API returns object type for stability)
+		// eslint-disable-next-line local/code-no-any-casts -- API returns object type for stability
 		const chatData = chatExport as any;
 
 		if (!chatData.requests || !Array.isArray(chatData.requests)) {
@@ -211,7 +222,9 @@ function getEnvironmentConfiguredModels(): string {
 	const models = getModelProviders();
 	const envModels = models
 		.filter(model => {
+			// eslint-disable-next-line local/code-no-any-casts -- source.defaults shape varies by provider
 			const defaults = model.source.defaults as any;
+			// eslint-disable-next-line local/code-no-in-operator -- narrowing untyped external shape
 			if (!('apiKeyEnvVar' in defaults && defaults.apiKeyEnvVar)) {
 				return false;
 			}
@@ -221,6 +234,7 @@ function getEnvironmentConfiguredModels(): string {
 			return !!process.env[key];
 		})
 		.map(model => {
+			// eslint-disable-next-line local/code-no-any-casts -- source.defaults shape varies by provider
 			const defaults = model.source.defaults as any;
 			const envVarConfig = defaults.apiKeyEnvVar as { key: string; signedIn: boolean };
 			const key = envVarConfig.key;
@@ -240,10 +254,15 @@ function getEnvironmentConfiguredModels(): string {
 
 function getVersionInfo(): string {
 	const assistantExt = vscode.extensions.getExtension('positron.positron-assistant');
+	const authExt = vscode.extensions.getExtension('positron.authentication');
 	const copilotExt = vscode.extensions.getExtension('github.copilot-chat');
 
 	const assistantInfo = assistantExt
 		? `Version ${assistantExt.packageJSON.version}${assistantExt.isActive ? ' (Active)' : ' (Inactive)'}`
+		: 'Not installed';
+
+	const authInfo = authExt
+		? `Version ${authExt.packageJSON.version}${authExt.isActive ? ' (Active)' : ' (Inactive)'}`
 		: 'Not installed';
 
 	const copilotInfo = copilotExt
@@ -251,6 +270,7 @@ function getVersionInfo(): string {
 		: 'Not installed';
 
 	return `- Positron Assistant: ${assistantInfo}
+- Authentication: ${authInfo}
 - GitHub Copilot Chat: ${copilotInfo}
 - Positron: ${positron.version} (build ${positron.buildNumber})
 - Code OSS: ${vscode.version}

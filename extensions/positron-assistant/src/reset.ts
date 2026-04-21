@@ -134,6 +134,11 @@ export async function resetAssistantState(context: vscode.ExtensionContext): Pro
 			// Step 2: Sign out of providers
 			progress.report({ message: vscode.l10n.t('Signing out of providers...') });
 			await CopilotService.instance().signOut();
+			try {
+				await vscode.commands.executeCommand('authentication.signOutAll');
+			} catch (error) {
+				log.trace(`Failed to sign out of auth extension providers: ${formatError(error)}`);
+			}
 
 			// Step 3: Clear Assistant state
 			progress.report({ message: vscode.l10n.t('Clearing Assistant state...') });

@@ -23,24 +23,35 @@ import { AuthProviderLogger } from './authProviderLogger';
 export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(log);
 
-	await registerAnthropicProvider(context);
-	registerPositAIProvider(context);
-	registerFoundryProvider(context);
+	const anthropic = await registerAnthropicProvider(context);
+	const positAI = registerPositAIProvider(context);
+	const foundry = registerFoundryProvider(context);
 
 	// Migrate settings before registering providers so they
 	// read the migrated values during initialization.
-	await registerAwsProvider(context);
+	const aws = await registerAwsProvider(context);
 
 	await migrateSnowflakeSettings().catch(err =>
 		log.error(`Snowflake settings migration failed: ${err}`)
 	);
-	registerSnowflakeProvider(context);
+	const snowflake = registerSnowflakeProvider(context);
 
-	await registerOpenaiProvider(context);
-	await registerGeminiProvider(context);
-	registerCustomProvider(context);
+	const openai = await registerOpenaiProvider(context);
+	const gemini = await registerGeminiProvider(context);
+	const custom = registerCustomProvider(context);
 
 	log.info('Authentication extension activated');
+
+	const providerMap = new Map<string, AuthProvider>([
+		[ANTHROPIC_AUTH_PROVIDER_ID, anthropic],
+		[POSIT_AUTH_PROVIDER_ID, positAI],
+		[FOUNDRY_AUTH_PROVIDER_ID, foundry],
+		[AWS_AUTH_PROVIDER_ID, aws],
+		['snowflake-cortex', snowflake],
+		[OPENAI_AUTH_PROVIDER_ID, openai],
+		[GEMINI_AUTH_PROVIDER_ID, gemini],
+		[CUSTOM_PROVIDER_AUTH_PROVIDER_ID, custom],
+	]);
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
@@ -52,13 +63,28 @@ export async function activate(context: vscode.ExtensionContext) {
 				return showConfigurationDialog(sources ?? [], options);
 			}
 		),
+		vscode.commands.registerCommand(
+			'authentication.signOutAll',
+			async () => {
+				for (const [providerId, provider] of providerMap) {
+					try {
+						const accounts = await vscode.authentication.getAccounts(providerId);
+						for (const account of accounts) {
+							await provider.removeSession(account.id);
+						}
+					} catch (err) {
+						log.error(`Failed to sign out of ${providerId}: ${err}`);
+					}
+				}
+			}
+		),
 	);
 	registerMigrateApiKeyCommand(context);
 }
 
 async function registerAnthropicProvider(
 	context: vscode.ExtensionContext
-): Promise<void> {
+): Promise<AuthProvider> {
 	const logger = new AuthProviderLogger('Anthropic');
 
 	// Sync ANTHROPIC_BASE_URL env var to the config setting before
@@ -130,9 +156,10 @@ async function registerAnthropicProvider(
 	);
 
 	logger.info('Registered auth provider');
+	return provider;
 }
 
-function registerPositAIProvider(context: vscode.ExtensionContext): void {
+function registerPositAIProvider(context: vscode.ExtensionContext): AuthProvider {
 	const logger = new AuthProviderLogger('Posit AI');
 	const provider = new PositOAuthProvider(context);
 	context.subscriptions.push(
@@ -143,11 +170,12 @@ function registerPositAIProvider(context: vscode.ExtensionContext): void {
 	);
 	registerAuthProvider(POSIT_AUTH_PROVIDER_ID, provider);
 	logger.info('Registered auth provider');
+	return provider;
 }
 
 async function registerAwsProvider(
 	context: vscode.ExtensionContext
-): Promise<void> {
+): Promise<AuthProvider> {
 	const logger = new AuthProviderLogger('AWS');
 
 	await migrateAwsSettings().catch(err =>
@@ -204,9 +232,10 @@ async function registerAwsProvider(
 		)
 	);
 	logger.info('Registered auth provider');
+	return provider;
 }
 
-function registerFoundryProvider(context: vscode.ExtensionContext): void {
+function registerFoundryProvider(context: vscode.ExtensionContext): AuthProvider {
 	const logger = new AuthProviderLogger('Microsoft Foundry');
 	const provider = new AuthProvider(
 		FOUNDRY_AUTH_PROVIDER_ID, 'Microsoft Foundry', context,
@@ -261,9 +290,10 @@ function registerFoundryProvider(context: vscode.ExtensionContext): void {
 				);
 		}
 	}
+	return provider;
 }
 
-function registerSnowflakeProvider(context: vscode.ExtensionContext): void {
+function registerSnowflakeProvider(context: vscode.ExtensionContext): AuthProvider {
 	const logger = new AuthProviderLogger('Snowflake Cortex');
 	let lastTomlCheck: number | undefined;
 	let pendingMtime: number | undefined;
@@ -341,11 +371,12 @@ function registerSnowflakeProvider(context: vscode.ExtensionContext): void {
 		)
 	);
 	logger.info('Registered auth provider');
+	return provider;
 }
 
 async function registerOpenaiProvider(
 	context: vscode.ExtensionContext
-): Promise<void> {
+): Promise<AuthProvider> {
 	const envBaseUrl = process.env.OPENAI_BASE_URL;
 	if (envBaseUrl) {
 		await vscode.workspace
@@ -408,11 +439,12 @@ async function registerOpenaiProvider(
 	);
 
 	log.info(`Registered auth provider: ${OPENAI_AUTH_PROVIDER_ID}`);
+	return provider;
 }
 
 async function registerGeminiProvider(
 	context: vscode.ExtensionContext
-): Promise<void> {
+): Promise<AuthProvider> {
 	const envBaseUrl = process.env.GEMINI_BASE_URL;
 	if (envBaseUrl) {
 		await vscode.workspace
@@ -478,11 +510,12 @@ async function registerGeminiProvider(
 	);
 
 	log.info(`Registered auth provider: ${GEMINI_AUTH_PROVIDER_ID}`);
+	return provider;
 }
 
 function registerCustomProvider(
 	context: vscode.ExtensionContext
-): void {
+): AuthProvider {
 	const provider = new AuthProvider(
 		CUSTOM_PROVIDER_AUTH_PROVIDER_ID, 'Custom Provider', context
 	);
@@ -509,4 +542,5 @@ function registerCustomProvider(
 	log.info(
 		`Registered auth provider: ${CUSTOM_PROVIDER_AUTH_PROVIDER_ID}`
 	);
+	return provider;
 }
