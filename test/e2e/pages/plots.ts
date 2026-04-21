@@ -272,7 +272,7 @@ export class Plots {
 	}
 
 	async waitForPlotInEditor() {
-		const img = this.code.driver.page.locator('.editor-container img').first();
+		const img = this.code.driver.page.locator('[id="workbench.parts.editor"] .plot-instance img');
 		await expect(img).toBeVisible({ timeout: 30000 });
 		// Wait for the image to actually finish loading. Without this, a subsequent
 		// save triggers an RPC render that races with the initial editor render and
