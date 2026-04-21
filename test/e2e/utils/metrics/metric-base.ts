@@ -95,7 +95,7 @@ export type RecordMetric = {
 		start: <T>(
 			operation: () => Promise<T>,
 			targetType: MetricTargetType,
-			options?: SessionStartShortcutOptions
+			options: SessionStartShortcutOptions
 		) => Promise<MetricResult<T>>;
 	};
 	assistant: {
