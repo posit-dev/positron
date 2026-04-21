@@ -3,12 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as positron from 'positron';
 import * as vscode from 'vscode';
 
 /**
  * P3M package metadata returned from the API.
  */
-export interface P3MPackageMetadata {
+interface P3MPackageMetadata {
     name: string;
     version: string;
     summary: string | null;
@@ -56,20 +57,21 @@ function parseNDJSON<T>(text: string): T[] {
 }
 
 /**
- * Fetch package metadata from P3M for multiple packages in a single API call.
+ * Fetch package metadata from P3M for multiple packages in a single API call
+ * and map it onto the LanguageRuntimePackage shape consumed by the UI.
  *
  * @param packageNames Array of package names to fetch metadata for
  * @param token Optional cancellation token
- * @returns Map of package name to metadata
+ * @returns Map of lowercase package name to partial package metadata
  */
-export async function fetchP3MMetadata(
+export async function fetchP3MPackageMetadata(
     packageNames: string[],
     token?: vscode.CancellationToken,
-): Promise<Map<string, P3MPackageMetadata>> {
-    const metadataMap = new Map<string, P3MPackageMetadata>();
+): Promise<Map<string, Partial<positron.LanguageRuntimePackage>>> {
+    const result = new Map<string, Partial<positron.LanguageRuntimePackage>>();
 
     if (packageNames.length === 0) {
-        return metadataMap;
+        return result;
     }
 
     const requestBody: P3MFilterRequest = {
@@ -105,7 +107,15 @@ export async function fetchP3MMetadata(
 
         for (const pkg of packages) {
             if (pkg.name) {
-                metadataMap.set(pkg.name.toLowerCase(), pkg);
+                result.set(pkg.name.toLowerCase(), {
+                    description: pkg.summary ?? undefined,
+                    license: pkg.license ?? pkg.licenses?.join(', ') ?? undefined,
+                    latestVersion: pkg.version ?? undefined,
+                    availableVersions: pkg.available_versions,
+                    packageSize: pkg.package_size ?? undefined,
+                    publishedDate: pkg.package_date ?? undefined,
+                    downloads: pkg.downloads !== null && pkg.downloads >= 0 ? pkg.downloads : undefined,
+                });
             }
         }
     } catch (e) {
@@ -118,5 +128,5 @@ export async function fetchP3MMetadata(
         cancelSubscription?.dispose();
     }
 
-    return metadataMap;
+    return result;
 }

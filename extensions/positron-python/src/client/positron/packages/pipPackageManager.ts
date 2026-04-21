@@ -9,7 +9,7 @@ import * as vscode from 'vscode';
 import { IPythonExecutionFactory, IPythonExecutionService } from '../../common/process/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
-import { fetchP3MMetadata } from './p3mSearch';
+import { fetchP3MPackageMetadata } from './p3mSearch';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
 
@@ -37,22 +37,7 @@ export class PipPackageManager implements IPackageManager {
         packageNames: string[],
         token?: vscode.CancellationToken,
     ): Promise<Map<string, Partial<positron.LanguageRuntimePackage>>> {
-        const metadataMap = await fetchP3MMetadata(packageNames, token);
-        const result = new Map<string, Partial<positron.LanguageRuntimePackage>>();
-
-        for (const [name, metadata] of metadataMap) {
-            result.set(name, {
-                description: metadata.summary ?? undefined,
-                license: metadata.license ?? metadata.licenses?.join(', ') ?? undefined,
-                latestVersion: metadata.version ?? undefined,
-                availableVersions: metadata.available_versions,
-                packageSize: metadata.package_size ?? undefined,
-                publishedDate: metadata.package_date ?? undefined,
-                downloads: metadata.downloads !== null && metadata.downloads >= 0 ? metadata.downloads : undefined,
-            });
-        }
-
-        return result;
+        return fetchP3MPackageMetadata(packageNames, token);
     }
 
     /**
