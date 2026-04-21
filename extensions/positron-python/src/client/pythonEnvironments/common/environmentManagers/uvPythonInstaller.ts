@@ -8,7 +8,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { traceError, traceInfo } from '../../../logging';
 import { exec } from '../externalDependencies';
-import { isUvInstalled, getAvailablePythonVersions, resetUvCache } from './uv';
+import { isUvInstalled, getAvailablePythonVersions, resetUvCache, isWindowsArm64 } from './uv';
 import { Common, InterpreterQuickPickList } from '../../../common/utils/localize';
 import { getWorkspaceFolders } from '../../../common/vscodeApis/workspaceApis';
 import { createUvVenv } from '../../creation/provider/uvCreationProvider';
@@ -76,36 +76,28 @@ async function installUv(): Promise<boolean> {
 
 /**
  * Installs a Python version using uv and returns the path to the installed Python.
- * @param identifier The full uv identifier to install (e.g., "cpython-3.13.1-windows-aarch64-none")
- * @param version The display version (e.g., "3.13") for user-facing messages and finding the Python
+ * @param version The version to install (e.g., "3.13.1" or "3.13")
+ * @param identifier Optional full identifier for Windows ARM64 (e.g., "cpython-3.13.1-windows-aarch64-none")
  * @returns The path to the installed Python, or undefined if installation failed
  */
-async function installPythonVersionAndGetPath(identifier: string, version: string): Promise<string | undefined> {
-    traceInfo(`Installing Python ${version} via uv (${identifier})...`);
+async function installPythonVersionAndGetPath(version: string, identifier?: string): Promise<string | undefined> {
+    traceInfo(`Installing Python ${version} via uv...`);
 
     try {
         // Use exec directly instead of installUvPython to avoid cache issues
         // when uv was just installed in the same session.
-        // Use the full identifier (e.g., cpython-3.13.1-windows-aarch64-none) to ensure
-        // we get the correct architecture on Windows ARM64.
+        // On Windows ARM64, use the full identifier to ensure we get ARM64 builds.
+        // uv defaults to x64 on Windows ARM64, and there's no --python-platform flag.
         // See: https://github.com/astral-sh/uv/issues/12906
-        const installResult = await exec('uv', ['python', 'install', identifier], { throwOnStdErr: false });
+        const installTarget = identifier ?? version;
+        await exec('uv', ['python', 'install', installTarget], { throwOnStdErr: false });
 
-        // Check if installation failed by examining stderr
-        // uv writes errors to stderr even when we use throwOnStdErr: false
-        if (installResult?.stderr && installResult.stderr.length > 0) {
-            traceError(`Python installation failed: ${installResult.stderr}`);
-            return undefined;
-        }
-
-        traceInfo(`Python ${version} installed successfully`);
-
-        // Get the path to the installed Python using the version
+        // Get the path to the installed Python
         const result = await exec('uv', ['python', 'find', version], { throwOnStdErr: false });
         const pythonPath = result?.stdout.trim();
 
         if (pythonPath) {
-            traceInfo(`Installed Python path: ${pythonPath}`);
+            traceInfo(`Python ${version} installed successfully at ${pythonPath}`);
             return pythonPath;
         }
 
@@ -163,9 +155,9 @@ async function createGlobalVenv(
 
 /**
  * Shows a quick pick for selecting a Python version to install.
- * @returns An object with the selected version and identifier, or undefined if cancelled
+ * @returns The selected version (and identifier on Windows ARM64), or undefined if cancelled
  */
-async function selectPythonVersion(): Promise<{ version: string; identifier: string } | undefined> {
+async function selectPythonVersion(): Promise<{ version: string; identifier?: string } | undefined> {
     const versions = await getAvailablePythonVersions();
 
     if (versions.length === 0) {
@@ -191,7 +183,15 @@ async function selectPythonVersion(): Promise<{ version: string; identifier: str
         title: InterpreterQuickPickList.UvInstall.selectVersionTitle,
     });
 
-    return selected ? { version: selected.version, identifier: selected.identifier } : undefined;
+    if (!selected) {
+        return undefined;
+    }
+
+    // On Windows ARM64, return the identifier so we can install the correct architecture
+    // On other platforms, just return the version
+    return isWindowsArm64()
+        ? { version: selected.version, identifier: selected.identifier }
+        : { version: selected.version };
 }
 
 /**
@@ -234,7 +234,7 @@ export async function installPythonViaUv(): Promise<InstallPythonResult> {
                 progress.report({
                     message: InterpreterQuickPickList.UvInstall.installingPythonVersion(selected.version),
                 });
-                const pythonPath = await installPythonVersionAndGetPath(selected.identifier, selected.version);
+                const pythonPath = await installPythonVersionAndGetPath(selected.version, selected.identifier);
                 if (!pythonPath) {
                     return {
                         success: false,

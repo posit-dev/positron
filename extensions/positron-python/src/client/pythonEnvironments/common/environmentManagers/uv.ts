@@ -179,8 +179,6 @@ export interface UvPythonVersionInfo {
     isPrerelease: boolean;
     /** The path to the Python executable */
     path?: string;
-    /** The full uv identifier (e.g., "cpython-3.13.7-macos-aarch64-none") */
-    identifier: string;
 }
 
 /**
@@ -264,10 +262,6 @@ export async function getUvPythonVersionInfo(
 
         const isPrerelease = isVersionPrerelease(version);
 
-        // Extract the identifier (first column before any whitespace)
-        const columns = selectedLine.split(/\s{2,}/);
-        const identifier = columns[0].trim();
-
         // Check if this version is locally installed
         const isLocal = !selectedLine.includes('<download available>');
 
@@ -278,6 +272,7 @@ export async function getUvPythonVersionInfo(
             //   "cpython-3.13.7-macos-aarch64-none     /usr/local/bin/python3.13 -> ..."
             //   "cpython-3.13.7-windows-x86_64-none   C:\Program Files\Python\python.exe"
             // Split on 2+ spaces to separate columns, then strip " -> ..." suffix
+            const columns = selectedLine.split(/\s{2,}/);
             if (columns.length >= 2) {
                 let pathColumn = columns[1].trim();
                 const arrowIndex = pathColumn.indexOf(' -> ');
@@ -294,7 +289,6 @@ export async function getUvPythonVersionInfo(
             version,
             isPrerelease,
             path: pythonPath,
-            identifier,
         };
     } catch (ex) {
         traceVerbose(`Error checking uv Python version: ${ex}`);
@@ -325,22 +319,19 @@ export async function updateUv(): Promise<boolean> {
 
 /**
  * Installs a Python version using uv.
- * @param versionOrIdentifier The version to install (e.g., "3.13.7") or full identifier (e.g., "cpython-3.13.7-windows-aarch64-none")
+ * @param version The version to install (e.g., "3.13.7", "3.14")
  * @returns true if the installation succeeded, false otherwise
  */
-export async function installUvPython(versionOrIdentifier: string): Promise<boolean> {
+export async function installUvPython(version: string): Promise<boolean> {
     const uvUtils = await UvUtils.getUvUtils();
     if (!uvUtils) {
         return false;
     }
 
     try {
-        traceVerbose(`Running uv python install ${versionOrIdentifier}...`);
-        // Use the full identifier when provided (e.g., cpython-3.13.7-windows-aarch64-none)
-        // to ensure we get the correct architecture on Windows ARM64.
-        // See: https://github.com/astral-sh/uv/issues/12906
-        await exec(uvUtils.command, ['python', 'install', versionOrIdentifier], { throwOnStdErr: false });
-        traceVerbose(`uv python install ${versionOrIdentifier} completed successfully`);
+        traceVerbose(`Running uv python install ${version}...`);
+        await exec(uvUtils.command, ['python', 'install', version], { throwOnStdErr: false });
+        traceVerbose(`uv python install ${version} completed successfully`);
         return true;
     } catch (ex) {
         traceVerbose(`Error running uv python install: ${ex}`);
@@ -395,8 +386,8 @@ export async function getStablePythonAfterUpdate(
     // Found a stable version - install it if not already local
     if (!stableVersionInfo.path) {
         onProgress?.(CreateEnv.Uv.installingPython(stableVersionInfo.version));
-        traceVerbose(`Installing stable Python ${stableVersionInfo.version} (${stableVersionInfo.identifier})...`);
-        const installSuccess = await installUvPython(stableVersionInfo.identifier);
+        traceVerbose(`Installing Python ${stableVersionInfo.version}...`);
+        const installSuccess = await installUvPython(stableVersionInfo.version);
         if (!installSuccess) {
             traceError(`Failed to install Python ${stableVersionInfo.version}`);
             return { success: false, error: 'install_failed', version: stableVersionInfo.version };
@@ -419,7 +410,7 @@ export interface UvAvailablePython {
     isInstalled: boolean;
     /** The path to the Python executable if installed */
     path?: string;
-    /** The raw identifier from uv (e.g., "cpython-3.13.1-macos-aarch64-none") */
+    /** The raw identifier from uv (e.g., "cpython-3.13.1-macos-aarch64-none"), needed for Windows ARM64 */
     identifier: string;
 }
 
