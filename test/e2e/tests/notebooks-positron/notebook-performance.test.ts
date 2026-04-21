@@ -27,7 +27,10 @@ test.describe('Positron Notebooks: Performance', {
 	test('render_on_open: reopen notebook from disk', async function ({ app, hotKeys, metric }) {
 		const { notebooksPositron } = app.workbench;
 
-		// Close the notebook tab so we can measure the cold reopen.
+		// Close the notebook tab so we can measure the reopen from disk.
+		// Note: OS file cache is already warm from beforeEach, so this is
+		// not a true cold open -- it measures the editor open + parse + render
+		// path with a warm OS cache.
 		await hotKeys.closeAllEditors();
 
 		const { duration_ms } = await metric.notebooks.renderOnOpen(async () => {

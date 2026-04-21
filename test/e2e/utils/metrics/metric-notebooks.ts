@@ -54,18 +54,9 @@ export { recordNotebookMetric };
 //-----------------------
 
 /**
- * Options for notebook shortcut metric functions
+ * Options for notebook shortcut metric functions.
  */
 export interface NotebookShortcutOptions {
-	description?: string;
-	additionalContext?: MetricContext | (() => Promise<MetricContext>);
-}
-
-/**
- * Options for notebook render-timing shortcuts
- * (recordRenderOnOpen, recordRenderOnNavBack).
- */
-export interface NotebookRenderOptions {
 	description?: string;
 	additionalContext?: MetricContext | (() => Promise<MetricContext>);
 }
@@ -125,7 +116,7 @@ export async function recordRenderOnOpen<T>(
 	targetType: MetricTargetType,
 	isElectronApp: boolean,
 	logger: MultiLogger,
-	options: NotebookRenderOptions = {}
+	options: NotebookShortcutOptions = {}
 ): Promise<MetricResult<T>> {
 	return recordRender('render_on_open', operation, targetType, isElectronApp, logger, options);
 }
@@ -140,7 +131,7 @@ export async function recordRenderOnNavBack<T>(
 	targetType: MetricTargetType,
 	isElectronApp: boolean,
 	logger: MultiLogger,
-	options: NotebookRenderOptions = {}
+	options: NotebookShortcutOptions = {}
 ): Promise<MetricResult<T>> {
 	return recordRender('render_on_nav_back', operation, targetType, isElectronApp, logger, options);
 }
@@ -151,7 +142,7 @@ async function recordRender<T>(
 	targetType: MetricTargetType,
 	isElectronApp: boolean,
 	logger: MultiLogger,
-	options: NotebookRenderOptions
+	options: NotebookShortcutOptions
 ): Promise<MetricResult<T>> {
 	const { description, additionalContext } = options;
 
