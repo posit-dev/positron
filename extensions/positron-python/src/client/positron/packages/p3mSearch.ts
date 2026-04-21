@@ -37,18 +37,6 @@ interface P3MFilterRequest {
 }
 
 /**
- * Create an AbortSignal from a CancellationToken for use with fetch.
- */
-function createAbortSignal(token?: vscode.CancellationToken): AbortSignal | undefined {
-    if (!token) {
-        return undefined;
-    }
-    const controller = new AbortController();
-    token.onCancellationRequested(() => controller.abort());
-    return controller.signal;
-}
-
-/**
  * Parse NDJSON (newline-delimited JSON) response into an array of objects.
  * Each line in the response is a separate JSON object.
  */
@@ -92,6 +80,11 @@ export async function fetchP3MMetadata(
         omit_package_details: false,
     };
 
+    const controller = token ? new AbortController() : undefined;
+    const cancelSubscription = controller && token
+        ? token.onCancellationRequested(() => controller.abort())
+        : undefined;
+
     try {
         const response = await fetch('https://p3m.dev/__api__/filter/packages', {
             method: 'POST',
@@ -100,7 +93,7 @@ export async function fetchP3MMetadata(
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify(requestBody),
-            signal: createAbortSignal(token),
+            signal: controller?.signal,
         });
 
         if (!response.ok) {
@@ -121,6 +114,8 @@ export async function fetchP3MMetadata(
         }
         // Log but don't throw - metadata is optional
         console.warn('[P3M] Failed to fetch package metadata:', e);
+    } finally {
+        cancelSubscription?.dispose();
     }
 
     return metadataMap;
