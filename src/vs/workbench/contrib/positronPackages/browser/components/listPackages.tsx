@@ -151,19 +151,33 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 
 	// The filter input is the single source of truth. `queryText` is the raw
 	// input; structured state (sort, free-text filter) is derived from it.
-	const [queryText, setQueryText] = useState('');
-	const [debouncedQueryText, setDebouncedQueryText] = useState('');
+	// Seeded from the active instance so the query survives pane unmounts
+	// and runtime-session switches.
+	const initialFilterQuery = activeInstance?.filterQuery ?? '';
+	const [queryText, setQueryText] = useState(initialFilterQuery);
+	const [debouncedQueryText, setDebouncedQueryText] = useState(initialFilterQuery);
 	const filterRef = useRef<ActionBarFilterHandle>(null);
 
 	// Current sort derived from the immediate (non-debounced) query so the
 	// sort menu's checked state updates without waiting for the debounce.
 	const currentSort = useMemo(() => parseQuery(queryText).sort, [queryText]);
 
-	// Clear selection when filter text changes.
+	// Clear selection when filter text changes and persist the raw query on
+	// the active instance so it survives pane unmounts.
 	const handleFilterTextChanged = (text: string) => {
 		setQueryText(text);
 		setSelectedItem(undefined);
+		activeInstance?.setFilterQuery(text);
 	};
+
+	// When the active instance changes, pull the stored query into the input
+	// and bypass the debounce so filtering reflects the new instance without
+	// a 300ms flash of stale results.
+	useEffect(() => {
+		const stored = activeInstance?.filterQuery ?? '';
+		filterRef.current?.setFilterText(stored);
+		setDebouncedQueryText(stored);
+	}, [activeInstance]);
 
 	// Debounce filter text changes (300ms).
 	useEffect(() => {
@@ -381,6 +395,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 					showClearAlways
 					clearButtonIcon={Codicon.clearAll}
 					filterButtonTooltip={localize('positronPackages.filterOptions', "Filter options")}
+					initialFilterText={initialFilterQuery}
 					placeholder={localize('positronPackages.filterPlaceholder', "Filter packages")}
 					size='md'
 					onFilterButtonPressed={showFilterMenu}

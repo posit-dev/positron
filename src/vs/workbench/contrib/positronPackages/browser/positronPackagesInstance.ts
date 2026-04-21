@@ -13,6 +13,12 @@ import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageSpec } from '
 export interface IPositronPackagesInstance {
 	packages: ILanguageRuntimePackage[];
 	session: ILanguageRuntimeSession;
+	/**
+	 * The raw filter input text for this instance, including any `@...`
+	 * tokens. Persists across pane unmounts and runtime-session switches.
+	 */
+	readonly filterQuery: string;
+	setFilterQuery(query: string): void;
 	attachRuntime(): void;
 	detachRuntime(): void;
 	refreshPackages(token?: CancellationToken): Promise<ILanguageRuntimePackage[]>;
@@ -41,6 +47,8 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	private _session: ILanguageRuntimeSession;
 
 	private _packages: ILanguageRuntimePackage[] = [];
+
+	private _filterQuery: string = '';
 
 	private readonly _runtimeDisposableStore = this._register(new DisposableStore());
 
@@ -92,6 +100,14 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	 */
 	get session(): ILanguageRuntimeSession {
 		return this._session;
+	}
+
+	get filterQuery(): string {
+		return this._filterQuery;
+	}
+
+	setFilterQuery(query: string): void {
+		this._filterQuery = query;
 	}
 
 	/**
