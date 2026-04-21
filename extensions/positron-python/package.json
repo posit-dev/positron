@@ -551,6 +551,12 @@
         ],
         "configuration": {
             "properties": {
+                "positron.python.packageManagerUrl": {
+                    "default": "https://packagemanager.posit.co",
+                    "markdownDescription": "Base URL for the Posit Package Manager (P3M) instance used for Python package search and version lookup. Set this to your organization's PPM URL if you use a private instance.",
+                    "scope": "window",
+                    "type": "string"
+                },
                 "python.activeStateToolPath": {
                     "default": "state",
                     "description": "%python.activeStateToolPath.description%",

@@ -13,7 +13,7 @@ import { IProcessServiceFactory } from '../../common/process/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
 import { isUvInstalled } from '../../pythonEnvironments/common/environmentManagers/uv';
-import { searchPyPI, searchPyPIVersions } from './pypiSearch';
+import { searchP3M, searchP3MVersions } from './p3mSearch';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
 
 /**
@@ -150,11 +150,11 @@ export class UvPackageManager implements IPackageManager {
     }
 
     async searchPackages(query: string, token?: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]> {
-        return searchPyPI(query, token);
+        return searchP3M(query, token);
     }
 
     async searchPackageVersions(name: string, token?: vscode.CancellationToken): Promise<string[]> {
-        return searchPyPIVersions(name, token);
+        return searchP3MVersions(name, token);
     }
 
     // =========================================================================
