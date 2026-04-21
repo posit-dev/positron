@@ -41,7 +41,7 @@ export class NotebookLocationMapper extends Disposable implements LocationMapper
 	 * @returns The client location (cell URI).
 	 */
 	public toClientLocation<T extends Location>(location: T): T {
-		const cellUri = location.source?.path && this._cellUriByRuntimeSourcePath.get(location.source.path);
+		const cellUri = location.source?.path && this._cellUriByRuntimeSourcePath.get(this.normalizeSourcePath(location.source.path));
 		if (!cellUri) {
 			return location;
 		}
@@ -61,7 +61,7 @@ export class NotebookLocationMapper extends Disposable implements LocationMapper
 	 * @returns The runtime location.
 	 */
 	public toRuntimeLocation<T extends Location>(location: T): T {
-		const path = location.source?.path && this._runtimeSourcePathByCellUri.get(location.source.path);
+		const path = location.source?.path && this._runtimeSourcePathByCellUri.get(this.normalizeSourcePath(location.source.path));
 		if (!path) {
 			return location;
 		}
@@ -97,6 +97,18 @@ export class NotebookLocationMapper extends Disposable implements LocationMapper
 			this._cellUriByRuntimeSourcePath.delete(sourcePath);
 			this._runtimeSourcePathByCellUri.delete(cellUri);
 		}
+	}
+
+	/**
+	 * Normalizes a source path for map lookups. The kernel may send paths
+	 * as `file:///` URIs while the PathEncoder produces plain filesystem
+	 * paths. Convert to a consistent form so lookups succeed either way.
+	 */
+	private normalizeSourcePath(path: string): string {
+		if (path.startsWith('file://')) {
+			return vscode.Uri.parse(path, true).fsPath;
+		}
+		return path;
 	}
 
 	/* Rebuilds all entries from current notebook state. */
