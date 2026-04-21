@@ -44,7 +44,6 @@ export type MetricContext = {
 	sort_applied?: boolean;
 	filter_applied?: boolean;
 	preview_enabled?: boolean;
-	cell_count?: number;
 };
 
 export type MetricResult<T> = {

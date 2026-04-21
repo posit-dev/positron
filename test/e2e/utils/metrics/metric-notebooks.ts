@@ -67,7 +67,6 @@ export interface NotebookShortcutOptions {
  */
 export interface NotebookRenderOptions {
 	description?: string;
-	cellCount?: number;
 	additionalContext?: MetricContext | (() => Promise<MetricContext>);
 }
 
@@ -154,26 +153,12 @@ async function recordRender<T>(
 	logger: MultiLogger,
 	options: NotebookRenderOptions
 ): Promise<MetricResult<T>> {
-	const { description, cellCount, additionalContext } = options;
-
-	const context_json: (() => Promise<MetricContext>) | undefined =
-		(cellCount !== undefined || additionalContext)
-			? async () => {
-				const base: MetricContext = cellCount !== undefined ? { cell_count: cellCount } : {};
-				if (additionalContext) {
-					const extra = typeof additionalContext === 'function'
-						? await additionalContext()
-						: additionalContext;
-					return { ...base, ...extra };
-				}
-				return base;
-			}
-			: undefined;
+	const { description, additionalContext } = options;
 
 	return recordNotebookMetric(operation, {
 		action,
 		target_type: targetType,
 		target_description: description || `${action} ${targetType}`,
-		context_json,
+		context_json: additionalContext,
 	}, isElectronApp, logger);
 }

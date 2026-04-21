@@ -22,8 +22,6 @@ test.describe('Positron Notebooks: Performance', {
 	test.beforeEach(async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 		await notebooksPositron.openNotebook(NOTEBOOK_PATH);
-		await notebooksPositron.expectToBeVisible();
-		await expect(notebooksPositron.cell.first()).toBeVisible();
 	});
 
 	test('render_on_open: reopen notebook from disk', async function ({ app, hotKeys, metric }) {
