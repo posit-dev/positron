@@ -108,13 +108,14 @@ export class PositronModalDialogReactRenderer extends Disposable {
 		this._eventHandlerCleanup?.();
 		this._eventHandlerCleanup = undefined;
 
-		// Restore focus to the previously focused element if we have one.
-		this._lastFocusedElement?.focus({ preventScroll: true });
-
-		// Close the dialog, if it's open.
+		// Close the dialog first, if it's open, so its focus trap is released before we restore
+		// focus.
 		if (this._dialog.open) {
 			this._dialog.close();
 		}
+
+		// Restore focus to the previously focused element, if we have one.
+		this._lastFocusedElement?.focus({ preventScroll: true });
 
 		// Unmount and clear the React root.
 		this._root?.unmount();
@@ -201,14 +202,22 @@ export class PositronModalDialogReactRenderer extends Disposable {
 		 */
 		const resizeHandler = (e: UIEvent) => this._onResizeEmitter.fire(e);
 
+		// Close handler. Invokes dispose() when the dialog is closed natively (e.g. by Escape or
+		// by anything that calls dialog.close() directly without going through dispose()). Without
+		// this, the window-level keydown listener would remain bound and continue intercepting
+		// keybindings after the dialog is gone.
+		const closeHandler = () => this.dispose();
+
 		// Use the DOM helper to get the window from the dialog, which is important for iframes.
 		// Then add the event listeners and store a cleanup function that removes them.
 		const window = DOM.getWindow(dialog);
 		window.addEventListener('keydown', keydownHandler, true);
 		window.addEventListener('resize', resizeHandler, false);
+		dialog.addEventListener('close', closeHandler);
 		this._eventHandlerCleanup = () => {
 			window.removeEventListener('keydown', keydownHandler, true);
 			window.removeEventListener('resize', resizeHandler, false);
+			dialog.removeEventListener('close', closeHandler);
 		};
 	}
 }

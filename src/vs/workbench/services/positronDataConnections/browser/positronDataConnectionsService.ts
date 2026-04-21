@@ -85,6 +85,8 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 			this._connectionProfiles.push(connectionProfile);
 		}
 
+		/// SAVE IT!!
+
 		// Log the addition.
 		this._logService.trace(`[DataConnections] Added connection profile: ${connectionProfile.id}`);
 
