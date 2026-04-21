@@ -121,7 +121,7 @@
 		{
 			"name": "ms-toolsai.vscode-jupyter-cell-tags",
 			"version": "0.1.9",
-			"sha256sum": "7cd43af55cf562a001dc475e92d9f3fd4b7173011adca0c02da22fbf891c274b",
+			"sha256": "7cd43af55cf562a001dc475e92d9f3fd4b7173011adca0c02da22fbf891c274b",
 			"repo": "https://github.com/Microsoft/vscode-jupyter-cell-tags",
 			"metadata": {
 				"id": "ab4fb32a-befb-4102-adf9-1652d0cd6a5e",
@@ -137,7 +137,7 @@
 		{
 			"name": "ms-toolsai.jupyter-keymap",
 			"version": "1.1.2",
-			"sha256sum": "3d2998929bb43156f3b428116aee290543c437875df616ec755692219b4afa17",
+			"sha256": "3d2998929bb43156f3b428116aee290543c437875df616ec755692219b4afa17",
 			"repo": "https://github.com/Microsoft/vscode-jupyter-keymap",
 			"metadata": {
 				"id": "9f6dc8db-620c-4844-b8c5-e74914f1be27",
@@ -153,7 +153,7 @@
 		{
 			"name": "ms-toolsai.vscode-jupyter-slideshow",
 			"version": "0.1.6",
-			"sha256sum": "5b8dee0d569b7e0990bb4847c34748cdc0102078779351ed415d9d71cfa3e945",
+			"sha256": "5b8dee0d569b7e0990bb4847c34748cdc0102078779351ed415d9d71cfa3e945",
 			"repo": "https://github.com/Microsoft/vscode-jupyter-slideshow",
 			"metadata": {
 				"id": "e153ca70-b543-4865-b4c5-b31d34185948",
@@ -169,7 +169,7 @@
 		{
 			"name": "ms-toolsai.jupyter-renderers",
 			"version": "1.3.0",
-			"sha256sum": "d09f6c517a8090a932bb4e2c31bcb2de34ddb2a71133477f6c47f28f36eb76ae",
+			"sha256": "d09f6c517a8090a932bb4e2c31bcb2de34ddb2a71133477f6c47f28f36eb76ae",
 			"repo": "https://github.com/Microsoft/vscode-notebook-renderers",
 			"metadata": {
 				"id": "b15c72f8-d5fe-421a-a4f7-27ed9f6addbf",
@@ -185,7 +185,7 @@
 		{
 			"name": "ms-toolsai.jupyter",
 			"version": "2025.9.1",
-			"sha256sum": "110660656944c4ab0ff687db488c2e8c59c67ec121dcf09bcaa54b6edd9ce71f",
+			"sha256": "110660656944c4ab0ff687db488c2e8c59c67ec121dcf09bcaa54b6edd9ce71f",
 			"repo": "https://github.com/Microsoft/vscode-jupyter",
 			"metadata": {
 				"id": "6c2f1801-1e7f-45b2-9b5c-7782f1e076e8",
@@ -201,7 +201,6 @@
 		{
 			"name": "meta.pyrefly",
 			"version": "0.62.0",
-			"sha256sum": "58afe841ed2b99157b12c4fde48c62c179fdeea6585727858121159cfa0c7e34",
 			"repo": "https://github.com/facebook/pyrefly",
 			"metadata": {
 				"publisherId": {
@@ -244,7 +243,7 @@
 		{
 			"name": "quarto.quarto",
 			"version": "1.131.0",
-			"sha256sum": "1fcae21883e96367a6e65a76d84cf8900138c4536774f9a5387f711538389a0c",
+			"sha256": "1fcae21883e96367a6e65a76d84cf8900138c4536774f9a5387f711538389a0c",
 			"repo": "https://github.com/quarto-dev/quarto/tree/main/apps/vscode",
 			"metadata": {
 				"id": "a1be81fc-0f3a-4f2e-92ee-3fdc7ab96c73",
@@ -271,7 +270,7 @@
 		{
 			"name": "posit.shiny",
 			"version": "1.4.0",
-			"sha256sum": "7a71a88360559de5de2da20fd9e508d64c305cb0c2477f8503b8dde77c4f1e05",
+			"sha256": "7a71a88360559de5de2da20fd9e508d64c305cb0c2477f8503b8dde77c4f1e05",
 			"repo": "https://github.com/posit-dev/shiny-vscode",
 			"metadata": {
 				"id": "7ffa9a66-85ab-44de-ab80-2eecce45b0fe",
