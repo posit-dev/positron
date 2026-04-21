@@ -87,7 +87,6 @@ async function installPythonVersionAndGetPath(version: string, identifier?: stri
         // Use exec directly instead of installUvPython to avoid cache issues
         // when uv was just installed in the same session.
         // On Windows ARM64, use the full identifier to ensure we get ARM64 builds.
-        // uv defaults to x64 on Windows ARM64, and there's no --python-platform flag.
         // See: https://github.com/astral-sh/uv/issues/12906
         const installTarget = identifier ?? version;
         await exec('uv', ['python', 'install', installTarget], { throwOnStdErr: false });
