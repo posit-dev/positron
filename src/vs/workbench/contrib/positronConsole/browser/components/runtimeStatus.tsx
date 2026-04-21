@@ -7,19 +7,14 @@
 import './runtimeStatus.css';
 
 // Other dependencies.
-import { POSITRON_CONSOLE_STATE_ICON_ACTIVE, POSITRON_CONSOLE_STATE_ICON_DISCONNECTED, POSITRON_CONSOLE_STATE_ICON_IDLE } from '../../../../common/theme.js';
+import { POSITRON_RUNTIME_STATE_ICON_ACTIVE, POSITRON_RUNTIME_STATE_ICON_DISCONNECTED, POSITRON_RUNTIME_STATE_ICON_IDLE } from '../../../../common/theme.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { registerIcon } from '../../../../../platform/theme/common/iconRegistry.js';
 import { localize } from '../../../../../nls.js';
 import { asCssVariable, ColorIdentifier } from '../../../../../platform/theme/common/colorUtils.js';
 import { Icon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
-
-export const enum RuntimeStatus {
-	Active = 'Active',
-	Disconnected = 'Disconnected',
-	Idle = 'Idle'
-}
+import { RuntimeStatus } from '../../common/sessionDisplayUtils.js';
 
 const positronRuntimeStatusActiveIcon = registerIcon(
 	'positron-runtime-status-active',
@@ -46,9 +41,9 @@ const statusToIcon: Record<RuntimeStatus, ThemeIcon> = {
 };
 
 const statusToIconColor: Record<RuntimeStatus, ColorIdentifier> = {
-	[RuntimeStatus.Active]: POSITRON_CONSOLE_STATE_ICON_ACTIVE,
-	[RuntimeStatus.Disconnected]: POSITRON_CONSOLE_STATE_ICON_DISCONNECTED,
-	[RuntimeStatus.Idle]: POSITRON_CONSOLE_STATE_ICON_IDLE,
+	[RuntimeStatus.Active]: POSITRON_RUNTIME_STATE_ICON_ACTIVE,
+	[RuntimeStatus.Disconnected]: POSITRON_RUNTIME_STATE_ICON_DISCONNECTED,
+	[RuntimeStatus.Idle]: POSITRON_RUNTIME_STATE_ICON_IDLE,
 };
 
 export interface RuntimeStatusIconProps {

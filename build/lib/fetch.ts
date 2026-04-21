@@ -22,6 +22,7 @@ export interface IFetchOptions {
 	checksumSha256?: string;
 	// --- Start Positron ---
 	timeoutSeconds?: number;
+	expectZip?: boolean;
 	// --- End Positron ---
 }
 
@@ -75,6 +76,27 @@ export async function fetchUrl(url: string, options: IFetchOptions, retries = 10
 			}
 			if (response.ok && (response.status >= 200 && response.status < 300)) {
 				const contents = Buffer.from(await response.arrayBuffer());
+				// --- Start Positron ---
+				// When a caller expects a ZIP archive (e.g. a VSIX download), check
+				// the first four bytes against the ZIP local-file-header magic
+				// (PK\x03\x04). This catches cases where the origin returns a 200
+				// with an HTML error body, which would otherwise be silently saved
+				// as the extension file.
+				// See https://github.com/posit-dev/positron-builds/issues/824
+				if (options.expectZip) {
+					const isZip = contents.length >= 4 &&
+						contents[0] === 0x50 && contents[1] === 0x4B &&
+						contents[2] === 0x03 && contents[3] === 0x04;
+					if (!isZip) {
+						const preview = contents.subarray(0, 64).toString('utf8').replace(/\s+/g, ' ').trim();
+						throw new Error(
+							`Response from ${ansiColors.cyan(url)} is not a ZIP archive ` +
+							`(${contents.length} bytes, starts with: ${JSON.stringify(preview)}). ` +
+							`The server may have returned an error page with a 200 status.`
+						);
+					}
+				}
+				// --- End Positron ---
 				if (options.checksumSha256) {
 					const actualSHA256Checksum = crypto.createHash('sha256').update(contents).digest('hex');
 					if (actualSHA256Checksum !== options.checksumSha256) {

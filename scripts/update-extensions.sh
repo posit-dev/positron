@@ -207,9 +207,6 @@ update_product_json() {
 			if echo "$extension_info" | jq -e 'has("sha256")' >/dev/null 2>&1; then
 				current_sha256=$(echo "$extension_info" | jq -r '.sha256 // empty')
 				has_sha256=true
-			elif echo "$extension_info" | jq -e 'has("sha256sum")' >/dev/null 2>&1; then
-				current_sha256=$(echo "$extension_info" | jq -r '.sha256sum // empty')
-				has_sha256=true
 			fi
 		else
 			echo -e "${RED}Error: Extension $extension_id not found in product.json${NC}" >&2
@@ -285,7 +282,7 @@ should_download() {
 	fi
 
 	local current_version=$(echo "$extension_info" | jq -r '.version // empty')
-	local has_sha256=$(echo "$extension_info" | jq -e 'has("sha256") or has("sha256sum")')
+	local has_sha256=$(echo "$extension_info" | jq -e 'has("sha256")')
 
 	# Decision logic:
 	# 1. If versions don't match → need to download
@@ -371,7 +368,6 @@ update_with_jq() {
 					if (.publisher == $pub and .name == $nm) or .name == $id then
 						.version = $ver |
 						if has("sha256") then .sha256 = $hash
-						elif has("sha256sum") then .sha256sum = $hash
 						else . end
 					else
 						with_entries(.value |= update_extension)

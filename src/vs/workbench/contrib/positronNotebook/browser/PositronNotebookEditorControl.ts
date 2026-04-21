@@ -39,10 +39,10 @@ export class PositronNotebookEditorControl extends Disposable implements ICompos
 			const selectionStateMachine = this._notebookInstance.selectionStateMachine;
 			const state = selectionStateMachine.state.read(reader);
 			const activeCell = getActiveCell(state);
-			// Read from the editorObservable to track changes to the editor itself.
+			// Read from the editor observable to track changes to the editor itself.
 			// This ensures we update when the editor is attached/detached (e.g., markdown cells
 			// entering edit mode) - not just when the selection state changes.
-			this._activeCodeEditor = activeCell?.editorObservable.read(reader);
+			this._activeCodeEditor = activeCell?.editor.read(reader);
 		}));
 	}
 

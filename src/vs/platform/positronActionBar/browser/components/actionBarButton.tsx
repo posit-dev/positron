@@ -67,6 +67,58 @@ export type ActionBarButtonProps =
 	ActionBarButtonIconProps;
 
 /**
+ * ActionBarButtonIcon component.
+ *
+ * Renders an icon with the standard action bar button styling.
+ * This is used in ActionBarButtonFace but is exported to allow
+ * you to compose the contents of ActionBarButton if needed when
+ * ActionBarButtonFace isn't sufficient.
+ */
+export const ActionBarButtonIcon = (props: {
+	icon: IconType;
+	style?: React.CSSProperties;
+	dropdownIndicator?: string;
+}) => {
+	return (
+		<Icon
+			className={positronClassNames(
+				'action-bar-button-icon',
+				props.dropdownIndicator,
+				{ 'custom-icon-color': Boolean(props.style) }
+			)}
+			icon={props.icon}
+			style={props.style}
+		/>
+	);
+};
+
+/**
+ * ActionBarButtonLabel component.
+ *
+ * Renders a label with the standard action bar button styling.
+ * This is used in ActionBarButtonFace but is exported to allow
+ * you to compose the contents of ActionBarButton if needed when
+ * ActionBarButtonFace isn't sufficient.
+ */
+export const ActionBarButtonLabel = (props: {
+	label: string;
+	hasIcon?: boolean;
+	maxTextWidth?: number;
+}) => {
+	return (
+		<div
+			className='action-bar-button-label'
+			style={{
+				marginLeft: props.hasIcon ? 0 : 4,
+				maxWidth: optionalValue(props.maxTextWidth, 'none')
+			}}
+		>
+			{props.label}
+		</div>
+	);
+};
+
+/**
  * ActionBarButton component.
  * @param props A PropsWithChildren<ActionBarButtonProps> that contains the component properties.
  * @param ref A ref to the HTMLButtonElement.
@@ -101,12 +153,8 @@ export const ActionBarButton = forwardRef<
 		return (
 			<div aria-hidden='true' className='action-bar-button-face' data-testid={props.dataTestId}>
 				{props.icon &&
-					<Icon
-						className={positronClassNames(
-							'action-bar-button-icon',
-							props.dropdownIndicator,
-							{ 'custom-icon-color': Boolean(props.iconStyle) }
-						)}
+					<ActionBarButtonIcon
+						dropdownIndicator={props.dropdownIndicator}
 						icon={props.icon}
 						style={props.iconStyle}
 					/>
@@ -127,15 +175,11 @@ export const ActionBarButton = forwardRef<
 					</div>
 				}
 				{props.label &&
-					<div
-						className='action-bar-button-label'
-						style={{
-							marginLeft: (props.icon || props.iconImageSrc) ? 0 : 4,
-							maxWidth: optionalValue(props.maxTextWidth, 'none')
-						}}
-					>
-						{props.label}
-					</div>
+					<ActionBarButtonLabel
+						hasIcon={!!(props.icon || props.iconImageSrc)}
+						label={props.label}
+						maxTextWidth={props.maxTextWidth}
+					/>
 				}
 				{props.children}
 				{props.dropdownIndicator === 'enabled' &&

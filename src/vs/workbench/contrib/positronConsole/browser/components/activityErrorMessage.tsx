@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { ConsoleOutputLines } from './consoleOutputLines.js';
-import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
+import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { ActivityItemErrorMessage } from '../../../../services/positronConsole/browser/classes/activityItemErrorMessage.js';
 import { ConsoleQuickFix } from './activityErrorQuickFix.js';
 import { usePositronConfiguration, usePositronContextKey } from '../../../../../base/browser/positronReactHooks.js';
@@ -65,7 +65,7 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 					<div className='traceback'>
 						<div className='actions'>
 							{props.activityItemErrorMessage.tracebackOutputLines.length > 0 &&
-								<PositronButton className='toggle-traceback' onPressed={pressedTracebackHandler}>
+								<Button className='toggle-traceback' onPressed={pressedTracebackHandler}>
 									{showTraceback ?
 										<>
 											<div className='expansion-indicator codicon codicon-positron-triangle-down'></div>
@@ -77,7 +77,7 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 											<div className='link-text'>{localize('positronShowTraceback', "Show Traceback")}</div>
 										</>
 									}
-								</PositronButton>
+								</Button>
 							}
 							{showAssistantActions &&
 								<ConsoleQuickFix outputLines={props.activityItemErrorMessage.messageOutputLines} tracebackLines={props.activityItemErrorMessage.tracebackOutputLines} />

@@ -7,7 +7,7 @@
 import './actionBarCommandButton.css';
 
 // React.
-import { useEffect, useRef, useState } from 'react';
+import { PropsWithChildren, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
@@ -29,7 +29,7 @@ type ActionBarCommandButtonProps = ActionBarButtonProps & {
  * @param props An ActionBarCommandButtonProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ActionBarCommandButton = (props: ActionBarCommandButtonProps) => {
+export const ActionBarCommandButton = (props: PropsWithChildren<ActionBarCommandButtonProps>) => {
 	// Hooks.
 	const services = usePositronReactServicesContext();
 	const positronActionBarContext = usePositronActionBarContext();
@@ -95,6 +95,8 @@ export const ActionBarCommandButton = (props: ActionBarCommandButtonProps) => {
 			onPressed={() =>
 				services.commandService.executeCommand(props.commandId)
 			}
-		/>
+		>
+			{props.children}
+		</ActionBarButton>
 	);
 };

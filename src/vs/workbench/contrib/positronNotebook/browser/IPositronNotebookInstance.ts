@@ -17,6 +17,16 @@ import { IPositronNotebookEditor } from './IPositronNotebookEditor.js';
 import { IHoverManager } from '../../../../platform/hover/browser/hoverManager.js';
 import { IPositronNotebookContribution } from './positronNotebookExtensions.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { IPositronNotebookViewState } from './positronNotebookEditorTypes.js';
+
+/**
+ * A resolved scroll position pointing to a live cell and an offset from that cell.
+ * Produced by resolving a persisted view state against the current cell list.
+ */
+export interface IPositronNotebookResolvedScrollPosition {
+	cell: IPositronNotebookCell;
+	offsetFromCell: number;
+}
 
 /**
  * Metadata about the editor layout that may be relevant for execution, such as
@@ -457,6 +467,25 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * layout cannot be measured.
 	 */
 	getOutputLayoutInfo(): EditorLayoutMetadata | undefined;
+
+	/**
+	 * Returns the top of a cell relative to the cells container.
+	 * Walks up the offsetParent chain to account for positioned wrappers.
+	 * Returns undefined if the cells container or cell element is not mounted.
+	 */
+	getCellTop(cell: IPositronNotebookCell): number | undefined;
+
+	/**
+	 * Returns the scroll position resolved by the last call to
+	 * `restoreEditorViewState` and clears it so subsequent mounts (e.g. error
+	 * boundary reloads) don't restore a stale position.
+	 */
+	consumeRestoredScrollPosition(): IPositronNotebookResolvedScrollPosition | undefined;
+
+	/**
+	 * Restore editor view state such as scroll position.
+	 */
+	restoreEditorViewState(viewState: IPositronNotebookViewState | undefined): void;
 
 	/**
 	 * Fire the scroll event for the cells container.

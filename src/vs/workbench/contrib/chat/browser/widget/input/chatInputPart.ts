@@ -1161,61 +1161,25 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		return !!model.metadata.capabilities?.toolCalling;
 	}
 
-	// --- Start Positron ---
-	/**
-	 * Helper to filter models for user-selectable, mode-supported, and provider-enabled models.
-	 */
-	private filterAvailableModels(models: ILanguageModelChatMetadataAndIdentifier[]): ILanguageModelChatMetadataAndIdentifier[] {
-		return models.filter(entry => {
-			// Must be from an enabled provider
-			if (!this.positronAssistantConfigService.isProviderEnabled(entry.metadata?.vendor)) {
-				return false;
-			}
-			// Must be user-selectable
-			if (!entry.metadata?.isUserSelectable) {
-				return false;
-			}
-			// Must be supported for the current mode/agent
-			if (!this.modelSupportedForDefaultAgent(entry)) {
-				return false;
-			}
-			// Must be supported for inline chat if we're in that context
-			if (!this.modelSupportedForInlineChat(entry)) {
-				return false;
-			}
-			return true;
-		});
-	}
-	// --- End Positron ---
-
 	private getModels(): ILanguageModelChatMetadataAndIdentifier[] {
 		const cachedModels = this.storageService.getObject<ILanguageModelChatMetadataAndIdentifier[]>(CachedLanguageModelsKey, StorageScope.APPLICATION, []);
 		let models = this.languageModelsService.getLanguageModelIds()
 			.map(modelId => ({ identifier: modelId, metadata: this.languageModelsService.lookupLanguageModel(modelId)! }));
 
-		// --- Start Positron ---
-		// Filter for user-selectable models that are supported in the current mode and enabled via config
-		models = this.filterAvailableModels(models);
-		// --- End Positron ---
-
 		if (models.length === 0 || models.some(m => m.metadata.isDefaultForLocation[this.location]) === false) {
-			// --- Start Positron ---
-			// Apply the same filtering to cached models before using them as fallback
-			/*
 			models = cachedModels;
-			*/
-			models = this.filterAvailableModels(cachedModels);
-			// --- End Positron ---
 		} else {
 			this.storageService.store(CachedLanguageModelsKey, models, StorageScope.APPLICATION, StorageTarget.MACHINE);
 		}
 		models.sort((a, b) => a.metadata.name.localeCompare(b.metadata.name));
 		// --- Start Positron ---
-		// Don't re-filter here - we already filtered above
+		// Add isProviderEnabled check so only models from enabled providers appear in the picker.
+		// See: https://github.com/posit-dev/positron/discussions/12884
+		//      https://github.com/posit-dev/positron/issues/12572
+		return models.filter(entry => this.positronAssistantConfigService.isProviderEnabled(entry.metadata?.vendor) && entry.metadata?.isUserSelectable && this.modelSupportedForDefaultAgent(entry) && this.modelSupportedForInlineChat(entry));
 		/*
 		return models.filter(entry => entry.metadata?.isUserSelectable && this.modelSupportedForDefaultAgent(entry) && this.modelSupportedForInlineChat(entry));
 		*/
-		return models;
 		// --- End Positron ---
 	}
 

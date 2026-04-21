@@ -989,16 +989,19 @@ export class Configuration {
 
 	private getConsolidatedConfigurationModel(section: string | undefined, overrides: IConfigurationOverrides, workspace: Workspace | undefined): ConfigurationModel {
 		let configurationModel = this.getConsolidatedConfigurationModelForResource(overrides, workspace);
-		if (overrides.overrideIdentifier) {
-			configurationModel = configurationModel.override(overrides.overrideIdentifier);
-		}
-		if (!this._policyConfiguration.isEmpty() && this._policyConfiguration.getValue(section) !== undefined) {
+		// --- Start PWB: Apply policy before overrides so language-scoped policy keys participate in override flattening ---
+		// if (!this._policyConfiguration.isEmpty() && this._policyConfiguration.getValue(section) !== undefined) {
+		if (!this._policyConfiguration.isEmpty()) {
 			// clone by merging
 			configurationModel = configurationModel.merge();
 			for (const key of this._policyConfiguration.keys) {
 				configurationModel.setValue(key, this._policyConfiguration.getValue(key));
 			}
 		}
+		if (overrides.overrideIdentifier) {
+			configurationModel = configurationModel.override(overrides.overrideIdentifier);
+		}
+		// --- End PWB ---
 		return configurationModel;
 	}
 

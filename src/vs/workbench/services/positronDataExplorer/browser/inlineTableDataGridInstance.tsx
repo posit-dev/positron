@@ -260,6 +260,16 @@ export class InlineTableDataGridInstance extends DataGridInstance {
 		this._columnLayoutManager.setEntries(state.table_shape.num_columns);
 		this._rowLayoutManager.setEntries(state.table_shape.num_rows);
 
+		// Rebuild column sort keys from state so that sort indicators are
+		// preserved when the explorer re-mounts (e.g. after a tab switch).
+		this._columnSortKeys.clear();
+		state.sort_keys.forEach((key, sortIndex) => {
+			this._columnSortKeys.set(
+				key.column_index,
+				new ColumnSortKeyDescriptor(sortIndex, key.column_index, key.ascending)
+			);
+		});
+
 		// Now fetch the actual data
 		await this.fetchData(InvalidateCacheFlags.All);
 	}
