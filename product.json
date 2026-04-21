@@ -115,7 +115,7 @@
 					"flags": "verified"
 				},
 				"publisherDisplayName": "charliermarsh",
-				"multiPlatformServiceUrl": "https://p3m.dev/openvsx/latest/api"
+				"multiPlatformServiceUrl": "https://p3m.dev/openvsx/latest/vscode/asset"
 			}
 		},
 		{
@@ -210,7 +210,7 @@
 					"flags": "verified"
 				},
 				"publisherDisplayName": "meta",
-				"multiPlatformServiceUrl": "https://p3m.dev/openvsx/latest/api"
+				"multiPlatformServiceUrl": "https://p3m.dev/openvsx/latest/vscode/asset"
 			}
 		},
 		{
@@ -226,7 +226,7 @@
 					"flags": "verified"
 				},
 				"publisherdisplayname": "ms-python",
-				"multiPlatformServiceUrl": "https://p3m.dev/openvsx/latest/api"
+				"multiPlatformServiceUrl": "https://p3m.dev/openvsx/latest/vscode/asset"
 			}
 		},
 		{
@@ -237,7 +237,7 @@
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
 				"displayName": "Posit Publisher",
-				"multiPlatformServiceUrl": "https://p3m.dev/openvsx/latest/api"
+				"multiPlatformServiceUrl": "https://p3m.dev/openvsx/latest/vscode/asset"
 			},
 			"publisherDisplayName": "Posit Software, PBC"
 		},
@@ -264,7 +264,7 @@
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
 				"displayName": "Air - R Language Support",
-				"multiPlatformServiceUrl": "https://p3m.dev/openvsx/latest/api"
+				"multiPlatformServiceUrl": "https://p3m.dev/openvsx/latest/vscode/asset"
 			},
 			"publisherDisplayName": "Posit Software, PBC"
 		},
@@ -316,6 +316,7 @@
 		"publisherUrl": ""
 	},
 	"linkProtectionTrustedDomains": [
+		"http://open-vsx.org",
 		"https://p3m.dev",
 		"https://github.com/posit-dev/positron",
 		"https://positron.posit.co",

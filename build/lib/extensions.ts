@@ -315,15 +315,15 @@ export function fromMarketplace(serviceUrl: string, { name: extensionName, versi
 	let platformDownloads: string[] = [];
 
 	if (metadata.multiPlatformServiceUrl) {
+		// multiPlatformServiceUrl is the asset base URL. P3M serves platform-specific VSIX downloads at:
+		// {multiPlatformServiceUrl}/{publisher}/{name}/{platform}/{version}/file/{publisher}.{name}-{version}@{platform}.vsix
 		platformDownloads = getPlatformDownloads(bootstrap);
 		urls = platformDownloads.map(platformDownload => createPlatformSpecificUrl(serviceUrl, publisher, name, version, platformDownload));
 		fancyLog('Downloading multi-platform extension:', ansiColors.yellow(`${extensionName}@${version}`),
 			`for ${platformDownloads.join(', ')}...`);
 	} else {
-		// P3M serves VSIX downloads at: {asset_base}/{publisher}/{name}/{version}/Microsoft.VisualStudio.Services.VSIXPackage
-		// where asset_base is the gallery serviceUrl with "gallery" replaced by "asset".
-		const assetBaseUrl = serviceUrl.replace(/\/gallery$/, '/asset');
-		urls = [`${assetBaseUrl}/${publisher}/${name}/${version}/Microsoft.VisualStudio.Services.VSIXPackage`];
+		// P3M serves VSIX downloads at: {gallery_url}/publishers/{publisher}/vsextensions/{name}/{version}/vspackage
+		urls = [`${serviceUrl}/publishers/${publisher}/vsextensions/${name}/${version}/vspackage`];
 		fancyLog('Downloading extension:', ansiColors.yellow(`${extensionName}@${version}`), '...');
 	}
 	// --- End Positron ---
