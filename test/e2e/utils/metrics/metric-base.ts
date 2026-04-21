@@ -81,6 +81,8 @@ export type RecordMetric = {
 	};
 	notebooks: {
 		runCell: <T>(operation: () => Promise<T>, targetType: MetricTargetType, language?: string, description?: string, context?: MetricContext | (() => Promise<MetricContext>)) => Promise<MetricResult<T>>;
+		renderOnOpen: <T>(operation: () => Promise<T>, targetType: MetricTargetType, options?: { description?: string; additionalContext?: MetricContext | (() => Promise<MetricContext>) }) => Promise<MetricResult<T>>;
+		renderOnNavBack: <T>(operation: () => Promise<T>, targetType: MetricTargetType, options?: { description?: string; additionalContext?: MetricContext | (() => Promise<MetricContext>) }) => Promise<MetricResult<T>>;
 	};
 	assistant: {
 		evalResponse: (input: AssistantEvalMetricInput, durationMs: number) => Promise<void>;
@@ -135,6 +137,9 @@ export type MetricTargetType =
 	// Notebook cells
 	| 'cell.r'                // R notebook cell
 	| 'cell.python'           // Python notebook cell
+
+	// Notebook files
+	| 'file.ipynb'            // Jupyter notebook file
 
 	// Assistant eval categories
 	| 'eval.notebooks'        // Notebook-related assistant evals
