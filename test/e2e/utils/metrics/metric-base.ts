@@ -5,6 +5,7 @@
 
 import os from 'os';
 import { DataExplorerShortcutOptions } from './metric-data-explorer.js';
+import type { NotebookRenderOptions } from './metric-notebooks.js';
 import { getPositronVersion } from '../../infra/test-runner/test-setup.js';
 
 export const CONNECT_API_KEY = process.env.CONNECT_API_KEY!;
@@ -82,6 +83,8 @@ export type RecordMetric = {
 	};
 	notebooks: {
 		runCell: <T>(operation: () => Promise<T>, targetType: MetricTargetType, language?: string, description?: string, context?: MetricContext | (() => Promise<MetricContext>)) => Promise<MetricResult<T>>;
+		renderOnOpen: <T>(operation: () => Promise<T>, targetType: MetricTargetType, options?: NotebookRenderOptions) => Promise<MetricResult<T>>;
+		renderOnNavBack: <T>(operation: () => Promise<T>, targetType: MetricTargetType, options?: NotebookRenderOptions) => Promise<MetricResult<T>>;
 	};
 	assistant: {
 		evalResponse: (input: AssistantEvalMetricInput, durationMs: number) => Promise<void>;
