@@ -418,8 +418,19 @@ export class PositAssistant {
 
 		const toasts = new Toasts(this.code);
 
-		// 3. Wait for the "newer dev build available" toast and click "Update Now".
-		await toasts.waitForAppear(/newer Posit Assistant dev build is available/i, { timeout: toastTimeout });
+		// 3. Wait for the "newer dev build available" toast. If it doesn't appear
+		//    (already up to date or update server unreachable), treat as a no-op.
+		let updateAvailable = true;
+		try {
+			await toasts.waitForAppear(/newer Posit Assistant dev build is available/i, { timeout: toastTimeout });
+		} catch {
+			updateAvailable = false;
+		}
+
+		if (!updateAvailable) {
+			return;
+		}
+
 		await toasts.clickButton('Update Now');
 
 		// 4. Wait for the follow-up "reload to apply changes" toast and click "Reload".
