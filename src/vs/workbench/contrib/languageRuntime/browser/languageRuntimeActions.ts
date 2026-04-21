@@ -645,6 +645,7 @@ export function registerLanguageRuntimeActions() {
 		async accessor => {
 			// Access services.
 			const commandService = accessor.get(ICommandService);
+			const editorService = accessor.get(IEditorService);
 			const runtimeSessionService = accessor.get(IRuntimeSessionService);
 
 			// Prompt the user to select a runtime to use.
@@ -655,11 +656,21 @@ export function registerLanguageRuntimeActions() {
 				}
 			);
 
-			// If the user selected a specific session, set it as the active session if it still exists
-			if (newActiveSession) {
-				// Drive focus into the Positron console.
-				commandService.executeCommand('workbench.panel.positronConsole.focus');
+			if (!newActiveSession) {
+				return;
+			}
+
+			const notebookUri = newActiveSession.metadata.notebookUri;
+			if (notebookUri) {
+				// For notebook sessions, we want to focus the editor
+				// associated with the session's notebook URI when changing
+				// the foreground session.
+				await editorService.openEditor({ resource: notebookUri });
 				runtimeSessionService.foregroundSession = newActiveSession;
+			} else {
+				// For console sessions, drive focus into the console pane
+				runtimeSessionService.foregroundSession = newActiveSession;
+				commandService.executeCommand('workbench.panel.positronConsole.focus');
 			}
 		}
 	);
