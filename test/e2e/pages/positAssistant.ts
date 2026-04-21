@@ -439,8 +439,8 @@ export class PositAssistant {
 
 		// 5. Clicking Reload reloads the window natively. Wait for the
 		//    workbench to come back up.
-		await this.code.driver.page.waitForTimeout(3000);
-		await this.code.driver.page.locator('.monaco-workbench').waitFor({ state: 'visible' });
+		await this.code.driver.currentPage.waitForTimeout(3000);
+		await this.code.driver.currentPage.locator('.monaco-workbench').waitFor({ state: 'visible' });
 	}
 
 }
