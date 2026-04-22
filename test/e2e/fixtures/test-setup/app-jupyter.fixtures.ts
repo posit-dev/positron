@@ -105,10 +105,10 @@ async function setupJupyterEnvironment(): Promise<void> {
 	// Copy settings to container
 	await copyUserSettingsToContainer(
 		'jupyter-test',
-		'/home/jupyter-admin/.positron-server/User/',
+		'/home/jupyter-admin/.positron-server/data/User/',
 		['settings.json', 'settingsDocker.json']
 	);
-	await copyKeyBindingsToContainer('jupyter-test', '/home/jupyter-admin/.positron-server/User/');
+	await copyKeyBindingsToContainer('jupyter-test', '/home/jupyter-admin/.positron-server/data/User/');
 
 	// Fix permissions
 	await runDockerCommand(`docker exec jupyter-test chown -R jupyter-admin:jupyter-admin ${JUPYTER_USER_SERVER_DIR}`, 'Set ownership of server directory');
