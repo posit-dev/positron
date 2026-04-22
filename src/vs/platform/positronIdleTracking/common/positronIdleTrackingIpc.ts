@@ -20,11 +20,7 @@ export class PositronIdleTrackingChannel implements IServerChannel {
 	async call<T>(_ctx: any, command: string, args?: any): Promise<T> {
 		switch (command) {
 			case 'reportActivity': {
-				this.service.reportActivity(args.clientId, args.timestampMs);
-				return undefined as unknown as T;
-			}
-			case 'removeClient': {
-				this.service.removeClient(args.clientId);
+				this.service.reportActivity(args.timestampMs);
 				return undefined as unknown as T;
 			}
 		}
@@ -44,11 +40,7 @@ export class PositronIdleTrackingChannel implements IServerChannel {
 export class PositronIdleTrackingChannelClient {
 	constructor(private readonly _channel: IChannel) { }
 
-	reportActivity(clientId: string, timestampMs: number): Promise<void> {
-		return this._channel.call('reportActivity', { clientId, timestampMs });
-	}
-
-	removeClient(clientId: string): Promise<void> {
-		return this._channel.call('removeClient', { clientId });
+	reportActivity(timestampMs: number): Promise<void> {
+		return this._channel.call('reportActivity', { timestampMs });
 	}
 }

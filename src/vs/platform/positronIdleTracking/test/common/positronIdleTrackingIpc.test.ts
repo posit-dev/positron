@@ -13,20 +13,15 @@ suite('Positron - PositronIdleTrackingChannel (server-side)', () => {
 	ensureNoDisposablesAreLeakedInTestSuite();
 
 	let channel: PositronIdleTrackingChannel;
-	let reportActivityCalls: { clientId: string; timestampMs: number }[];
-	let removeClientCalls: string[];
+	let reportActivityCalls: number[];
 
 	setup(() => {
 		reportActivityCalls = [];
-		removeClientCalls = [];
 
 		const mockService: IPositronIdleTrackingService = {
 			_serviceBrand: undefined,
-			reportActivity(clientId, timestampMs) {
-				reportActivityCalls.push({ clientId, timestampMs });
-			},
-			removeClient(clientId) {
-				removeClientCalls.push(clientId);
+			reportActivity(timestampMs) {
+				reportActivityCalls.push(timestampMs);
 			},
 			getIdleInfo() {
 				throw new Error('not expected in this test');
@@ -37,18 +32,10 @@ suite('Positron - PositronIdleTrackingChannel (server-side)', () => {
 	});
 
 	test('reportActivity delegates to service', async () => {
-		await channel.call(undefined, 'reportActivity', { clientId: 'c1', timestampMs: 12345 });
+		await channel.call(undefined, 'reportActivity', { timestampMs: 12345 });
 
 		assert.strictEqual(reportActivityCalls.length, 1);
-		assert.strictEqual(reportActivityCalls[0].clientId, 'c1');
-		assert.strictEqual(reportActivityCalls[0].timestampMs, 12345);
-	});
-
-	test('removeClient delegates to service', async () => {
-		await channel.call(undefined, 'removeClient', { clientId: 'c1' });
-
-		assert.strictEqual(removeClientCalls.length, 1);
-		assert.strictEqual(removeClientCalls[0], 'c1');
+		assert.strictEqual(reportActivityCalls[0], 12345);
 	});
 
 	test('unknown command throws', async () => {
@@ -97,18 +84,10 @@ suite('Positron - PositronIdleTrackingChannelClient (client-side)', () => {
 	});
 
 	test('reportActivity sends correct command and args', async () => {
-		await client.reportActivity('c1', 99999);
+		await client.reportActivity(99999);
 
 		assert.strictEqual(callLog.length, 1);
 		assert.strictEqual(callLog[0].command, 'reportActivity');
-		assert.deepStrictEqual(callLog[0].arg, { clientId: 'c1', timestampMs: 99999 });
-	});
-
-	test('removeClient sends correct command and args', async () => {
-		await client.removeClient('c1');
-
-		assert.strictEqual(callLog.length, 1);
-		assert.strictEqual(callLog[0].command, 'removeClient');
-		assert.deepStrictEqual(callLog[0].arg, { clientId: 'c1' });
+		assert.deepStrictEqual(callLog[0].arg, { timestampMs: 99999 });
 	});
 });

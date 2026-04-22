@@ -180,7 +180,6 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 			const body = JSON.stringify({
 				seconds_idle: idleInfo.secondsIdle,
 				last_activity_epoch_ms: idleInfo.lastActivityEpochMs,
-				connected_clients: idleInfo.connectedClients,
 			});
 			res.writeHead(200, { 'Content-Type': 'application/json' });
 			return void res.end(body);

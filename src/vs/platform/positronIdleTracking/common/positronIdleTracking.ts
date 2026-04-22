@@ -8,35 +8,28 @@ import { createDecorator } from '../../instantiation/common/instantiation.js';
 export const IPositronIdleTrackingService = createDecorator<IPositronIdleTrackingService>('positronIdleTrackingService');
 
 export interface IPositronIdleInfo {
-	/** Seconds since the last user interaction across all connected clients. */
+	/** Seconds since the last reported user activity. */
 	secondsIdle: number;
-	/** Epoch milliseconds of the last user interaction. */
+	/** Epoch milliseconds of the last reported user activity. */
 	lastActivityEpochMs: number;
-	/** Number of clients that have reported activity (may include disconnected clients not yet cleaned up). */
-	connectedClients: number;
 }
 
 /**
  * Server-side service that tracks user activity reported by browser clients.
  *
- * Browser clients report activity timestamps over IPC. The server aggregates
- * these and exposes idle information via the /idle HTTP endpoint for use by
- * hosting platforms like Posit Cloud.
+ * Browser clients report activity timestamps over IPC. The server keeps the
+ * most recent timestamp seen (monotonic) and exposes idle information via
+ * the /idle HTTP endpoint for use by hosting platforms like Posit Cloud.
  */
 export interface IPositronIdleTrackingService {
 	readonly _serviceBrand: undefined;
 
 	/**
-	 * Report that a client is active.
-	 * @param clientId Unique identifier for the client (e.g., reconnection token).
+	 * Report that a user is active.
 	 * @param timestampMs Epoch milliseconds when activity was detected.
+	 *                    Timestamps older than the current tracked value are ignored.
 	 */
-	reportActivity(clientId: string, timestampMs: number): void;
-
-	/**
-	 * Remove a client from tracking (e.g., on disconnect).
-	 */
-	removeClient(clientId: string): void;
+	reportActivity(timestampMs: number): void;
 
 	/**
 	 * Get the current idle information.

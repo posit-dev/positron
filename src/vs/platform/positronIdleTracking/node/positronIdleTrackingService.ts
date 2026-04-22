@@ -6,45 +6,26 @@
 import { IPositronIdleInfo, IPositronIdleTrackingService } from '../common/positronIdleTracking.js';
 
 /**
- * Server-side implementation that aggregates activity reports from browser
- * clients. Each client is identified by a unique ID (typically the
- * reconnection token) and reports its last-activity timestamp over IPC.
+ * Server-side implementation that tracks the most recent user activity
+ * reported by any browser client. Timestamps advance monotonically: an
+ * older timestamp never overrides a newer one.
  */
 export class PositronIdleTrackingService implements IPositronIdleTrackingService {
 	declare readonly _serviceBrand: undefined;
 
-	/** Map of clientId to last-activity epoch milliseconds. */
-	private readonly _clients = new Map<string, number>();
+	/** Epoch milliseconds of the most recent reported activity. Initialized to server start time. */
+	private _lastActivityEpochMs: number = Date.now();
 
-	/** Epoch milliseconds when the server started, used as fallback. */
-	private readonly _serverStartMs = Date.now();
-
-	reportActivity(clientId: string, timestampMs: number): void {
-		const existing = this._clients.get(clientId);
-		// Only accept timestamps that move forward to avoid clock skew issues.
-		if (existing === undefined || timestampMs > existing) {
-			this._clients.set(clientId, timestampMs);
+	reportActivity(timestampMs: number): void {
+		if (timestampMs > this._lastActivityEpochMs) {
+			this._lastActivityEpochMs = timestampMs;
 		}
-	}
-
-	removeClient(clientId: string): void {
-		this._clients.delete(clientId);
 	}
 
 	getIdleInfo(): IPositronIdleInfo {
-		let lastActivityEpochMs = this._serverStartMs;
-		for (const ts of this._clients.values()) {
-			if (ts > lastActivityEpochMs) {
-				lastActivityEpochMs = ts;
-			}
-		}
-
-		const secondsIdle = Math.max(0, Math.floor((Date.now() - lastActivityEpochMs) / 1000));
-
 		return {
-			secondsIdle,
-			lastActivityEpochMs,
-			connectedClients: this._clients.size,
+			secondsIdle: Math.max(0, Math.floor((Date.now() - this._lastActivityEpochMs) / 1000)),
+			lastActivityEpochMs: this._lastActivityEpochMs,
 		};
 	}
 }

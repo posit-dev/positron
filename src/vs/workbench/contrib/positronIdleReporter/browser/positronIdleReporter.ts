@@ -5,7 +5,6 @@
 
 import { mainWindow } from '../../../../base/browser/window.js';
 import { Disposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
-import { generateUuid } from '../../../../base/common/uuid.js';
 import { POSITRON_IDLE_TRACKING_CHANNEL_NAME, PositronIdleTrackingChannelClient } from '../../../../platform/positronIdleTracking/common/positronIdleTrackingIpc.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { IRemoteAgentService } from '../../../services/remote/common/remoteAgentService.js';
@@ -26,7 +25,6 @@ class PositronIdleReporterContribution extends Disposable implements IWorkbenchC
 
 	static readonly ID = 'workbench.contrib.positronIdleReporter';
 
-	private readonly _clientId = generateUuid();
 	private readonly _heartbeatTimer = this._register(new MutableDisposable());
 
 	constructor(
@@ -47,14 +45,14 @@ class PositronIdleReporterContribution extends Disposable implements IWorkbenchC
 
 		// Report activity immediately on startup since the user just opened the
 		// window (which is itself an activity signal).
-		channel.reportActivity(this._clientId, Date.now());
+		channel.reportActivity(Date.now());
 
 		// When the user becomes active, report it and start periodic heartbeats.
 		// When the user becomes inactive, stop heartbeats (the server's idle
 		// timer will naturally grow from the last reported timestamp).
 		this._register(userActivityService.onDidChangeIsActive(isActive => {
 			if (isActive) {
-				channel.reportActivity(this._clientId, Date.now());
+				channel.reportActivity(Date.now());
 				this._startHeartbeat(channel);
 			} else {
 				this._heartbeatTimer.clear();
@@ -69,7 +67,7 @@ class PositronIdleReporterContribution extends Disposable implements IWorkbenchC
 
 	private _startHeartbeat(channel: PositronIdleTrackingChannelClient): void {
 		const timer = mainWindow.setInterval(() => {
-			channel.reportActivity(this._clientId, Date.now());
+			channel.reportActivity(Date.now());
 		}, HEARTBEAT_INTERVAL_MS);
 
 		this._heartbeatTimer.value = { dispose: () => mainWindow.clearInterval(timer) };
