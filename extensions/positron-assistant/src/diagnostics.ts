@@ -259,6 +259,11 @@ function getVersionInfo(): string {
 - OS: ${process.platform} ${process.arch}${vscode.env.remoteName ? `\n- Remote: ${vscode.env.remoteName}` : ''}`;
 }
 
+function getAuthLogs(): string {
+	const authExt = vscode.extensions.getExtension('positron.authentication');
+	return authExt?.exports?.getLogs?.() ?? 'Authentication extension not available';
+}
+
 export async function generateDiagnosticsContent(context: vscode.ExtensionContext, log: BufferedLogOutputChannel): Promise<string> {
 	return `# Positron Assistant Diagnostics
 
@@ -306,6 +311,14 @@ Recent log entries (last 500):
 
 \`\`\`
 ${log.formatEntriesForDiagnostics()}
+\`\`\`
+
+## Authentication Logs
+
+Recent log entries (last 500):
+
+\`\`\`
+${getAuthLogs()}
 \`\`\`
 
 ---
