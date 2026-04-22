@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import path from 'path';
-import { tags, expect } from '../_test.setup';
-import { test } from './_test.setup.js';
+import { tags, expect } from '../../_test.setup';
+import { test } from '../_test.setup.js';
 
 const NOTEBOOK_FILE = 'spotify.ipynb';
 const NOTEBOOK_PATH = path.join('workspaces', 'large_py_notebook', NOTEBOOK_FILE);
@@ -14,7 +14,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Positron Notebooks: Performance', {
+test.describe('Positron Notebooks: Render', {
 	tag: [tags.WIN, tags.POSITRON_NOTEBOOKS, tags.PERFORMANCE]
 }, () => {
 

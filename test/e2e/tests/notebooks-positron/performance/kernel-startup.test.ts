@@ -3,8 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { tags } from '../_test.setup';
-import { test } from './_test.setup.js';
+import { tags } from '../../_test.setup';
+import { test } from '../_test.setup.js';
 
 const LANGUAGES = [
 	{ lang: 'Python', target: 'notebook.python' },
@@ -19,7 +19,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Sessions: Notebook Kernel Startup Performance', {
+test.describe('Positron Notebooks: Kernel Startup', {
 	tag: [tags.WIN, tags.POSITRON_NOTEBOOKS, tags.SESSIONS, tags.PERFORMANCE]
 }, () => {
 

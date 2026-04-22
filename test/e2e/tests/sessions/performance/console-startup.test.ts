@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, tags } from '../_test.setup';
+import { test, tags } from '../../_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -18,7 +18,7 @@ function parseVersion(text: string | null | undefined): string | undefined {
 	return text?.match(/[\d.]+/)?.[0];
 }
 
-test.describe('Sessions: Console Startup Performance', {
+test.describe('Sessions: Console Startup', {
 	tag: [tags.WIN, tags.SESSIONS, tags.PERFORMANCE]
 }, () => {
 
