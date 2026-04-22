@@ -28,7 +28,7 @@ Two PRs, sequential:
 | PR | Title | Scope |
 |---|---|---|
 | **PR1** | `test: modernize Vitest tests with RTL idioms and builder adoption` | RTL sweep (11 files) + builder cleanup (6 files, 3 overlap) + new "RTL idioms" section in `.claude/rules/vitest-tests.md` + `review-vitest-tests` skill checklist update |
-| **PR2** | `test: finish Positron Mocha → Vitest migration` | 16 trivial+builder-fit migrations + inline investigation of 3 ambiguous files (migrate or document keep-on-Mocha) + 1 deferred with PR-body note |
+| **PR2** | `test: finish Positron Mocha → Vitest migration` | 15 trivial+builder-fit migrations + inline investigation of 2 ambiguous files (migrate or document keep-on-Mocha) + 1 deferred with PR-body note |
 
 PR1 lands first so PR2's migrations follow the new RTL conventions automatically, and the `review-vitest-tests` skill enforces them during review.
 
@@ -101,7 +101,7 @@ Add a new section **"RTL idioms"** between "The Builder" and "Run commands":
 
 Add a showcase entry in the existing "Working examples" list pointing at the rewritten `columnSummaryCell.vitest.tsx` as the canonical small RTL example.
 
-### Skill update — `review-vitest-tests`
+### Skill update — `.claude/skills/review-vitest-tests/SKILL.md`
 
 Add three checks to the skill's review checklist:
 
@@ -126,21 +126,20 @@ Add three checks to the skill's review checklist:
 
 ### Files
 
-**Trivial — 6 files** (rename + `suite/test` → `describe/it` + `assert.X(a,b)` → `expect(a).toX(b)`):
+**Trivial — 5 files** (rename + `suite/test` → `describe/it` + `assert.X(a,b)` → `expect(a).toX(b)`):
 
 - `src/vs/base/test/common/ansiStyles.test.ts` (3 tests)
 - `src/vs/base/test/common/ansiOutput.test.ts` (53 tests)
 - `src/vs/workbench/contrib/positronConsole/test/common/linkDetector.test.ts` (5 tests)
 - `src/vs/workbench/contrib/positronQuarto/test/common/quartoParser.test.ts` (14 tests)
 - `src/vs/workbench/contrib/positronQuarto/test/common/quartoExecutionOptions.test.ts` (11 tests)
-- one slot reserved for anything that reveals itself trivial during execution
 
-**Builder-fit — 12 files** (rename + builder + `sinon` → `vi.fn` / `vi.spyOn`):
+**Builder-fit — 10 files** (rename + builder + `sinon` → `vi.fn` / `vi.spyOn`):
 
 | File | Preset | Notes |
 |---|---|---|
 | `src/vs/editor/contrib/positronStatementRange/test/browser/provideStatementRange.test.ts` | bare | `LanguageFeatureRegistry` stub |
-| `src/vs/workbench/contrib/positronNotebook/test/common/editor/cellEditorPrimitives.test.ts` | bare | re-confirm bucket during pickup |
+| `src/vs/workbench/contrib/positronNotebook/test/common/editor/cellEditorPrimitives.test.ts` | bare | originally ambiguously triaged; re-confirm bucket during pickup and move to investigation if blocked |
 | `src/vs/platform/positronActionBar/test/browser/positronActionBarWidgetRegistry.test.ts` | bare | `IContextKeyService` stub |
 | `src/vs/workbench/services/positronIPyWidgets/test/common/webviewPreloadUtils.test.ts` | bare | pure HTML validation |
 | `src/vs/workbench/services/languageRuntime/test/common/languageRuntime.test.ts` | runtime | `LanguageRuntimeService` + config stubs |
@@ -150,11 +149,12 @@ Add three checks to the skill's review checklist:
 | `src/vs/workbench/contrib/positronQuarto/test/browser/quartoKernelManager.test.ts` *(new)* | runtime | 6 tests, `TestRuntimeStartupService` + `IRuntimeSessionService` |
 | `src/vs/workbench/contrib/runtimeNotebookKernel/tests/browser/activeRuntimeNotebookContextManager.test.ts` *(new)* | workbench | 11 tests, extends upstream `TestEditorService`, `TestInstantiationService` |
 
-**Needs investigation — 3 files** (decide inline during PR2: migrate or document keep-on-Mocha):
+**Needs investigation — 2 files** (decide inline during PR2: migrate or document keep-on-Mocha):
 
 - `src/vs/workbench/contrib/chat/test/browser/chatRuntimeSessionContext.test.ts` — 12+ service mocks, complex Emitter wiring.
 - `src/vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewServiceImpl.test.ts` — uses `WebviewInitInfo` browser API; happy-dom coverage unclear.
-- `src/vs/workbench/contrib/positronNotebook/test/common/editor/cellEditorPrimitives.test.ts` — originally ambiguously triaged. Re-read during pickup. If it lands in builder-fit, drop from this bucket.
+
+(`cellEditorPrimitives.test.ts` could land here instead of builder-fit if pickup reveals blockers — tracked in the builder-fit table note above.)
 
 **Deferred — 1 file:**
 
