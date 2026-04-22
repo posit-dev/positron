@@ -71,8 +71,8 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		this._selectedPackageContextKey = POSITRON_PACKAGES_SELECTED_PACKAGE.bindTo(this._contextKeyService);
 		this._itemSizeContextKey = POSITRON_PACKAGES_ITEM_SIZE.bindTo(this._contextKeyService);
 
-		// Load the item size from global storage, defaulting to 'row'.
-		const stored = this._storageService.get(ITEM_SIZE_STORAGE_KEY, StorageScope.APPLICATION);
+		// Load the item size from profile storage, defaulting to 'row'.
+		const stored = this._storageService.get(ITEM_SIZE_STORAGE_KEY, StorageScope.PROFILE);
 		this._itemSize = stored === 'card' ? 'card' : 'row';
 		this._itemSizeContextKey.set(this._itemSize);
 
@@ -202,7 +202,7 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		}
 		this._itemSize = itemSize;
 		this._itemSizeContextKey.set(itemSize);
-		this._storageService.store(ITEM_SIZE_STORAGE_KEY, itemSize, StorageScope.APPLICATION, StorageTarget.USER);
+		this._storageService.store(ITEM_SIZE_STORAGE_KEY, itemSize, StorageScope.PROFILE, StorageTarget.USER);
 		this._onDidChangeItemSize.fire(itemSize);
 	}
 

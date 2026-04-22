@@ -52,7 +52,8 @@
 .packages-list-item.item-size-card {
 	flex-direction: column;
 	justify-content: center;
-	padding-left: 16px;
+	/* Match the search input's text-start position: filter-container 8px + input border 1px + text-input padding 8px. */
+	padding-left: 10px;
 	padding-right: 11px;
 	padding-top: 6px;
 	padding-bottom: 6px;

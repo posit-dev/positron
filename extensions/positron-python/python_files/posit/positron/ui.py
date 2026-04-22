@@ -8,6 +8,7 @@ import importlib.metadata
 import inspect
 import logging
 import os
+import re
 import sys
 import webbrowser
 from pathlib import Path
@@ -127,14 +128,24 @@ def _get_packages_installed(_kernel: "PositronIPyKernel", _params: List[JsonData
         # Dedupe by canonical name - keeps first occurrence (the one that would be imported)
         if canonical not in packages_dict:
             summary = dist.metadata.get("Summary")
-            author = dist.metadata.get("Author") or dist.metadata.get("Author-email")
+            # Fall back through Author → Author-email → Maintainer → Maintainer-email so
+            # packages that set only a maintainer (e.g. click's `Pallets`) still show one.
+            author = ""
+            for field in ("Author", "Author-email", "Maintainer", "Maintainer-email"):
+                value = dist.metadata.get(field)
+                if value and value != "UNKNOWN":
+                    # Strip trailing email addresses in angle brackets to match the R side.
+                    stripped = re.sub(r"\s*<[^>]+>", "", value).strip()
+                    if stripped:
+                        author = stripped
+                        break
             packages_dict[canonical] = {
                 "id": f"{canonical}-{dist.version}",
                 "name": name,
                 "displayName": canonical,
                 "version": dist.version,
                 "description": summary if summary and summary != "UNKNOWN" else "",
-                "author": author if author and author != "UNKNOWN" else "",
+                "author": author,
             }
     return sorted(packages_dict.values(), key=lambda p: p["displayName"])
 

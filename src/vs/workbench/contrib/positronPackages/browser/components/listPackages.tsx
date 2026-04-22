@@ -203,8 +203,9 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	// Parse the debounced query so filtering and sorting run off the same snapshot.
 	const debouncedQuery = useMemo(() => parseQuery(debouncedQueryText), [debouncedQueryText]);
 
-	// Filter packages based on the debounced free-text (case-insensitive, matches name or displayName)
-	// and sort according to the current sort order.
+	// Filter packages based on the debounced free-text (case-insensitive, matches
+	// name, displayName, description, or author) and sort according to the
+	// current sort order.
 	const filteredPackages = useMemo(() => {
 		let result = deduplicatedPackages;
 
@@ -212,7 +213,9 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 			const lowerFilter = debouncedQuery.text.toLowerCase();
 			result = result.filter((pkg) =>
 				pkg.name.toLowerCase().includes(lowerFilter) ||
-				pkg.displayName.toLowerCase().includes(lowerFilter)
+				pkg.displayName.toLowerCase().includes(lowerFilter) ||
+				(pkg.description?.toLowerCase().includes(lowerFilter) ?? false) ||
+				(pkg.author?.toLowerCase().includes(lowerFilter) ?? false)
 			);
 		}
 
