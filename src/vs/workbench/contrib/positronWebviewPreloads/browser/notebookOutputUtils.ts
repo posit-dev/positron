@@ -147,6 +147,11 @@ function webviewMessageCode() {
 	const findVerticalWheelConsumer = (event: WheelEvent): Element | null => {
 		const viewportConsumer = getViewportScrollConsumer();
 		for (let node: Node | null = event.target as Node | null; node; node = node.parentNode) {
+			// parentNode stops at a ShadowRoot; hop to its host so an
+			// ancestor scroller outside the shadow tree is still reached.
+			if (node instanceof ShadowRoot) {
+				node = node.host;
+			}
 			if (!(node instanceof Element)) {
 				return null;
 			}
