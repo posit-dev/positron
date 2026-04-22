@@ -19,7 +19,9 @@ import { autorun } from '../../../../../../base/common/observable.js';
 const MAX_OUTPUT_HEIGHT = 1000;
 const EMPTY_OUTPUT_HEIGHT = 150;
 // Approximate line height used when a wheel event reports DOM_DELTA_LINE.
-// Matches the divisor used by StandardWheelEvent's pixel-to-line conversion.
+// Matches the divisor in StandardWheelEvent (base/browser/mouseEvent.ts,
+// the `/ 40` in its pixel-to-line conversion), which is not exported.
+// Keep this in sync if that constant moves.
 const WHEEL_LINE_HEIGHT_PX = 40;
 
 /**
