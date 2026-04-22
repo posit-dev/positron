@@ -185,7 +185,7 @@ export const HorizontalSplitter = (props: {
 		 */
 		const calculateNewHeight = (e: PointerEvent) => {
 			// Calculate the delta.
-			const delta = e.clientY - clientY;
+			const delta = Math.trunc(e.clientY - clientY);
 
 			// Calculate the new height.
 			return !resizeParams.invert ?
