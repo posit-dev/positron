@@ -69,7 +69,7 @@ Positron has three test categories:
 - **Vitest** (`*.vitest.ts` / `*.vitest.tsx`, **no build daemons needed**):
 	- `npm run test:positron`: run all
 	- `npx vitest run src/path/to/<file>.vitest.ts`: run a specific file
-	- `npx vitest src/path/to/<file>.vitest.ts`: watch mode (re-runs on save; press `q` to quit, `h` for keyboard help)
+	- `npx vitest --watch src/path/to/<file>.vitest.ts`: watch mode (re-runs on save; press `q` to quit, `h` for keyboard help)
 	- `npx vitest run --coverage --coverage.include='**/myFile.tsx' <test-file>`: scoped coverage
 	- `npx vitest run --update <file>`: update inline snapshots
 - **Core Mocha** (`*.test.ts` / `*.integrationTest.ts` in `src/vs/`, requires build daemons):

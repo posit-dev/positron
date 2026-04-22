@@ -77,7 +77,7 @@ describe('MyComponent', () => {
 
 - `npx vitest run` -- run all
 - `npx vitest run <file>` -- run one file
-- `npx vitest <file>` -- watch mode (re-runs on save; press `q` to quit, `h` for keyboard help)
+- `npx vitest --watch <file>` -- watch mode (re-runs on save; press `q` to quit, `h` for keyboard help)
 - `npx vitest run --coverage --coverage.include='**/sourceFile.tsx' <test-file>` -- scoped coverage
 - `npx vitest run --update <file>` -- accept new inline snapshots
 
