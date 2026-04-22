@@ -207,4 +207,17 @@ suite('Positron Notebook - resolveNotebookLinkTarget', () => {
 		);
 		assert.strictEqual(result, undefined);
 	});
+
+	test('schemed hrefs return undefined so the caller passes them through unchanged', async () => {
+		const nb = URI.parse('file:///a/b/nb.ipynb');
+		for (const href of ['http://example.com', 'https://example.com/p', 'mailto:a@b.c', 'command:foo', 'file:///x/y']) {
+			const result = await resolveNotebookLinkTarget(
+				href,
+				nb,
+				makePathService(),
+				makeWorkspaceContextService(),
+			);
+			assert.strictEqual(result, undefined, `expected undefined for ${href}`);
+		}
+	});
 });

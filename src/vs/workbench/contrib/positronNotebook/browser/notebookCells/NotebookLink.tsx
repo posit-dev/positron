@@ -16,12 +16,16 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 
 const FRAGMENT_REGEX = /^(.*)#([^#]*)$/;
+const SCHEME_REGEX = /^[\w\-]+:/;
 
 /**
  * Resolves a markdown link href against the notebook's location.
  * Mirrors upstream `_handleResourceOpening` in
  * src/vs/workbench/contrib/notebook/browser/view/renderers/backLayerWebView.ts
  * (which is private, so we port the logic locally per upstream-compat policy).
+ *
+ * Returns undefined for hrefs with a scheme (http, mailto, command, file, etc.)
+ * so the caller can pass them through to the opener service unchanged.
  */
 export async function resolveNotebookLinkTarget(
 	href: string,
@@ -29,6 +33,8 @@ export async function resolveNotebookLinkTarget(
 	pathService: IPathService,
 	workspaceContextService: IWorkspaceContextService,
 ): Promise<URI | undefined> {
+	if (SCHEME_REGEX.test(href)) { return undefined; }
+
 	// Separate the fragment so URI.joinPath doesn't URL-encode it.
 	let fragment: string | undefined;
 	const m = FRAGMENT_REGEX.exec(href);
@@ -73,8 +79,6 @@ export async function resolveNotebookLinkTarget(
 interface NotebookLinkProps extends React.ComponentPropsWithoutRef<'a'> {
 }
 
-const SCHEME_REGEX = /^[\w\-]+:/;
-
 function tryDecodeURIComponent(uri: string): string {
 	try { return decodeURIComponent(uri); } catch { return uri; }
 }
@@ -106,17 +110,13 @@ export function NotebookLink(props: NotebookLinkProps) {
 	const activateLink = async (): Promise<void> => {
 		if (!href) { return; }
 		if (href.trim().startsWith('#')) { return; }
-		if (SCHEME_REGEX.test(href)) {
-			services.openerService.open(href);
-			return;
-		}
 		const target = await resolveNotebookLinkTarget(
 			tryDecodeURIComponent(href),
 			instance.uri,
 			services.pathService,
 			services.workspaceContextService,
 		);
-		services.openerService.open(target ?? href);
+		await services.openerService.open(target ?? href);
 	};
 
 	// Heuristic: we'll handle anything non-empty that isn't a pure anchor.
