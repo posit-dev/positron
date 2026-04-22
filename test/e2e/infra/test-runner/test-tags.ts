@@ -41,6 +41,7 @@ export enum TestTags {
 	HTML = '@:html',
 	ASSISTANT_EVAL = '@:assistant-eval',
 	INTERPRETER = '@:interpreter',
+	JUPYTER = '@:jupyter',
 	LAYOUTS = '@:layouts',
 	VIEWER = '@:viewer',
 	EDITOR = '@:editor',

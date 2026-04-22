@@ -9,6 +9,7 @@ import { Logger, measureAndLog } from './logger';
 import { Profiler } from './profiler';
 import { expect } from '@playwright/test';
 import { PositWorkbench } from './workbench-pwb.js';
+import { PositJupyter } from './workbench-jupyter.js';
 
 const LOAD_TIMEOUT = 60000;
 
@@ -38,7 +39,15 @@ export interface ApplicationOptions extends LaunchOptions {
  */
 function createWorkbench(code: Code, options: ApplicationOptions): Workbench {
 	const isWorkbench = options.useExternalServer && options.externalServerUrl?.includes(':8787');
-	return isWorkbench ? new PositWorkbench(code) : new Workbench(code);
+	const isJupyter = options.useExternalServer && options.externalServerUrl?.includes(':8888');
+
+	if (isWorkbench) {
+		return new PositWorkbench(code);
+	} else if (isJupyter) {
+		return new PositJupyter(code);
+	} else {
+		return new Workbench(code);
+	}
 }
 
 export class Application {
@@ -62,6 +71,16 @@ export class Application {
 			return this._workbench;
 		}
 		throw new Error('positWorkbench is only available in e2e-workbench contexts');
+	}
+
+	/**
+	 * Get the Posit Jupyter instance. Only available in e2e-jupyter contexts.
+	 */
+	get positJupyter(): PositJupyter {
+		if (this._workbench instanceof PositJupyter) {
+			return this._workbench;
+		}
+		throw new Error('positJupyter is only available in e2e-jupyter contexts');
 	}
 
 	get logger(): Logger {
@@ -182,6 +201,7 @@ export class Application {
 
 	private async checkWindowReady(code: Code): Promise<void> {
 		const isWorkbench = this.options.useExternalServer && this.options.externalServerUrl?.includes(':8787');
+		const isJupyter = this.options.useExternalServer && this.options.externalServerUrl?.includes(':8888');
 		const isPositronServer = this.options.useExternalServer && this.options.externalServerUrl?.includes(':8080');
 
 		// We need a rendered workbench
@@ -190,6 +210,8 @@ export class Application {
 		// Readiness checks differ based on the type of connection
 		if (isWorkbench) {
 			await measureAndLog(() => this.checkPositWorkbenchReady(code), 'Application#checkPositWorkbenchReady', this.logger);
+		} else if (isJupyter) {
+			await measureAndLog(() => this.checkJupyterReady(code), 'Application#checkJupyterReady', this.logger);
 		} else if (isPositronServer) {
 			await measureAndLog(() => this.checkPositronServerReady(code), 'Application#checkPositronServerReady', this.logger);
 		} else {
@@ -230,6 +252,17 @@ export class Application {
 		await measureAndLog(
 			() => expect(code.driver.page.getByText(READINESS_LOCATORS.positWorkbenchSignIn)).toBeVisible({ timeout: 30000 }),
 			'Application#checkPositWorkbenchReady: wait for sign in prompt',
+			this.logger
+		);
+	}
+
+	/**
+	 * Jupyter readiness checks
+	 */
+	private async checkJupyterReady(code: Code): Promise<void> {
+		await measureAndLog(
+			() => expect(code.driver.page.locator('#username_input')).toBeVisible({ timeout: 30000 }),
+			'Application#checkJupyterReady: wait for login form',
 			this.logger
 		);
 	}
