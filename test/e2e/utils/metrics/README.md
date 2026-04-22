@@ -35,6 +35,7 @@ export { recordMyFeatureMetric };
 // Recordable features
 export * from "./metric-data-explorer.js";
 export * from "./metric-notebooks.js";
+export * from "./metric-sessions.js";
 export * from "./metric-my-feature.js"; // Add this line
 ```
 
@@ -147,3 +148,4 @@ Metrics are logged in the background without affecting test performance.
 - `metric-factory.ts` - The main factory that eliminates boilerplate
 - `metric-base.ts` - Base types and configuration
 - `api.ts` - HTTP client for sending metrics
+- `metric-sessions.ts` - Session/interpreter startup metrics (console + notebook)

@@ -42,6 +42,16 @@ export interface RuntimeInitialState {
 }
 
 
+/**
+ * An item contributed to the runtime picker.
+ */
+export interface IRuntimePickerItem {
+	id: string;
+	label: string;
+	detail?: string;
+	separatorLabel?: string;
+}
+
 // This is the interface that the main process exposes to the extension host
 export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$registerLanguageRuntime(metadata: ILanguageRuntimeMetadata): void;
@@ -75,6 +85,8 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$emitLanguageRuntimeResourceUsage(sessionId: string, usage: ILanguageRuntimeResourceUsage): void;
 	$evaluateCode(languageId: string, sessionId: string | undefined, code: string, evaluationId: string): Promise<EvalResult>;
 	$cancelEvaluation(sessionId: string, evaluationId: string): void;
+	$registerRuntimePickerContribution(handle: number, languageId: string): void;
+	$unregisterRuntimePickerContribution(handle: number): void;
 }
 
 // The interface to the main thread exposed by the extension host
@@ -117,6 +129,8 @@ export interface ExtHostLanguageRuntimeShape {
 	$searchPackages(handle: number, query: string, token: CancellationToken): Promise<LanguageRuntimePackage[]>;
 	$searchPackageVersions(handle: number, name: string, token: CancellationToken): Promise<string[]>;
 	$getPackageMetadata(handle: number, packageNames: string[], token: CancellationToken): Promise<Record<string, Partial<LanguageRuntimePackage>> | undefined>;
+	$getRuntimePickerItems(handle: number): Promise<IRuntimePickerItem[]>;
+	$handleRuntimePickerSelection(handle: number, itemId: string): Promise<string | undefined>;
 }
 
 // This is the interface that the main process exposes to the extension host

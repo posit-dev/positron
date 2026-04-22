@@ -8,7 +8,7 @@ import { Event, Emitter } from '../../../../base/common/event.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { Disposable, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageStartupBehavior, RuntimeStartupPhase, formatLanguageRuntimeMetadata } from './languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimePickerContribution, LanguageStartupBehavior, RuntimeStartupPhase, formatLanguageRuntimeMetadata } from './languageRuntimeService.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { IConfigurationRegistry, Extensions as ConfigurationExtensions, ConfigurationScope, IConfigurationNode, } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { ISettableObservable } from '../../../../base/common/observableInternal/base.js';
@@ -31,6 +31,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 	// The current startup phase; an observeable value.
 	private _startupPhase: ISettableObservable<RuntimeStartupPhase>;
+
+	// Map of picker contributions by handle
+	private readonly _pickerContributions = new Map<number, IRuntimePickerContribution>();
 
 	//#endregion Private Properties
 
@@ -160,6 +163,36 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 */
 	get startupPhase(): RuntimeStartupPhase {
 		return this._startupPhase.get();
+	}
+
+	/**
+	 * Register a runtime picker contribution.
+	 *
+	 * @param contribution The contribution to register
+	 * @returns A disposable that unregisters the contribution when disposed
+	 */
+	registerPickerContribution(contribution: IRuntimePickerContribution): IDisposable {
+		this._pickerContributions.set(contribution.handle, contribution);
+		this._logService.trace(`Picker contribution registered for language '${contribution.languageId}' with handle ${contribution.handle}`);
+
+		return toDisposable(() => {
+			this._pickerContributions.delete(contribution.handle);
+			this._logService.trace(`Picker contribution unregistered with handle ${contribution.handle}`);
+		});
+	}
+
+	/**
+	 * Get all picker contributions for a language.
+	 *
+	 * @param languageId Optional language ID to filter by
+	 * @returns Array of registered contributions
+	 */
+	getPickerContributions(languageId?: string): IRuntimePickerContribution[] {
+		const contributions = Array.from(this._pickerContributions.values());
+		if (languageId) {
+			return contributions.filter(c => c.languageId === languageId);
+		}
+		return contributions;
 	}
 
 	//#endregion ILanguageRuntimeService Implementation

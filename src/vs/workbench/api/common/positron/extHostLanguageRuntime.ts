@@ -312,6 +312,12 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	// Map to track execution observers by execution ID
 	private _executionObservers = new Map<string, ExecutionObserver>();
 
+	// Handle counter for picker contributions
+	private _pickerContributionHandleCounter = 0;
+
+	// Map of handle to picker contribution
+	private readonly _pickerContributions = new Map<number, positron.runtime.RuntimePickerContribution>();
+
 	constructor(
 		mainContext: extHostProtocol.IMainPositronContext,
 		private readonly _logService: ILogService,
@@ -1700,5 +1706,54 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 				}
 			}
 		}
+	}
+
+	/**
+	 * Register a runtime picker contribution.
+	 *
+	 * @param contribution The contribution to register
+	 * @returns A disposable that unregisters the contribution when disposed
+	 */
+	public registerRuntimePickerContribution(
+		contribution: positron.runtime.RuntimePickerContribution
+	): IDisposable {
+		const handle = this._pickerContributionHandleCounter++;
+		this._pickerContributions.set(handle, contribution);
+		this._proxy.$registerRuntimePickerContribution(handle, contribution.languageId);
+
+		return new Disposable(() => {
+			this._pickerContributions.delete(handle);
+			this._proxy.$unregisterRuntimePickerContribution(handle);
+		});
+	}
+
+	/**
+	 * Get runtime picker items from a contribution.
+	 * Called by the main thread.
+	 */
+	async $getRuntimePickerItems(handle: number): Promise<extHostProtocol.IRuntimePickerItem[]> {
+		const contribution = this._pickerContributions.get(handle);
+		if (!contribution) {
+			return [];
+		}
+		const items = await contribution.getItems();
+		return items.map((item: positron.runtime.RuntimePickerItem) => ({
+			id: item.id,
+			label: item.label,
+			detail: item.detail,
+			separatorLabel: item.separatorLabel,
+		}));
+	}
+
+	/**
+	 * Handle a runtime picker selection.
+	 * Called by the main thread when the user selects a contributed item.
+	 */
+	async $handleRuntimePickerSelection(handle: number, itemId: string): Promise<string | undefined> {
+		const contribution = this._pickerContributions.get(handle);
+		if (!contribution) {
+			return undefined;
+		}
+		return contribution.onDidSelectItem(itemId);
 	}
 }

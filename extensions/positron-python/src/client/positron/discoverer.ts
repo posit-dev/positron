@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -35,6 +35,13 @@ export async function* pythonRuntimeDiscoverer(
         const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
         const interpreterSelector = serviceContainer.get<IInterpreterSelector>(IInterpreterSelector);
 
+        // Ensure PET discovery is complete before reading interpreters. If a
+        // refresh is already in progress (started during extension
+        // initialization) triggerRefresh() joins it rather than starting a new
+        // one; if no refresh is running (e.g. user-initiated re-discovery)
+        // this starts a fresh scan.
+        await interpreterService.triggerRefresh().ignoreErrors();
+
         // Get the recommended interpreter
         // NOTE: We may need to pass a resource to getSettings to support multi-root workspaces
         const workspaceUri = vscode.workspace.workspaceFolders?.[0]?.uri;
@@ -47,8 +54,6 @@ export async function* pythonRuntimeDiscoverer(
         }
         traceInfo(`pythonRuntimeDiscoverer: recommended interpreter: ${recommendedInterpreter?.path}`);
 
-        // Discover Python interpreters
-        await interpreterService.triggerRefresh().ignoreErrors();
         let interpreters = interpreterService.getInterpreters();
 
         traceInfo(`pythonRuntimeDiscoverer: discovered ${interpreters.length} Python interpreters`);

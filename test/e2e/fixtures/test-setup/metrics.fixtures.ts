@@ -4,8 +4,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { recordDataFileLoad, recordDataFilter, recordDataSort, recordToCode, type DataExplorerAutoContext, type DataExplorerShortcutOptions } from '../../utils/metrics/metric-data-explorer.js';
-import { recordRunCell, type NotebookShortcutOptions } from '../../utils/metrics/metric-notebooks.js';
+import {
+	recordRunCell,
+	recordRenderOnOpen,
+	recordRenderOnNavBack,
+	type NotebookShortcutOptions,
+} from '../../utils/metrics/metric-notebooks.js';
 import { recordAssistantEval, type AssistantEvalInput } from '../../utils/metrics/metric-assistant.js';
+import {
+	recordSessionStart,
+	type SessionStartShortcutOptions,
+} from '../../utils/metrics/metric-sessions.js';
 import { type RecordMetric, type MetricResult, type MetricContext, type MetricTargetType } from '../../utils/metrics/metric-base.js';
 import { Application, MultiLogger } from '../../infra/index.js';
 
@@ -66,7 +75,30 @@ export function MetricsFixture(app: Application, logger: MultiLogger): RecordMet
 					additionalContext: context
 				};
 				return recordRunCell(operation, targetType, !app.web, logger, language, options);
-			}
+			},
+			renderOnOpen: async <T>(
+				operation: () => Promise<T>,
+				targetType: MetricTargetType,
+				options?: NotebookShortcutOptions
+			): Promise<MetricResult<T>> => {
+				return recordRenderOnOpen(operation, targetType, !app.web, logger, options);
+			},
+			renderOnNavBack: async <T>(
+				operation: () => Promise<T>,
+				targetType: MetricTargetType,
+				options?: NotebookShortcutOptions
+			): Promise<MetricResult<T>> => {
+				return recordRenderOnNavBack(operation, targetType, !app.web, logger, options);
+			},
+		},
+		sessions: {
+			start: async <T>(
+				operation: () => Promise<T>,
+				targetType: MetricTargetType,
+				options?: SessionStartShortcutOptions
+			): Promise<MetricResult<T>> => {
+				return recordSessionStart(operation, targetType, !app.web, logger, options);
+			},
 		},
 		assistant: {
 			evalResponse: async (
