@@ -27,7 +27,16 @@ Any variables, emitters, or imports declared but never referenced in a test? Sui
 
 ### 2. Builder adoption
 
-Is the test using `createTestContainer()`? Flag any usage of `positronWorkbenchInstantiationService()` or `createRuntimeServices()` as a failure -- use the builder's presets instead. The only exception is plain tests (no services) that use `ensureNoLeakedDisposables()` directly for disposable tracking.
+Is the test using `createTestContainer()`? Flag any of these patterns as a failure -- use the builder's presets instead:
+
+- `positronWorkbenchInstantiationService()`
+- `createRuntimeServices()`
+- `TestInstantiationService` (from `src/vs/platform/instantiation/test/common/instantiationServiceMock.ts`)
+- `workbenchInstantiationService()` (the upstream VS Code helper from `src/vs/workbench/test/browser/workbenchTestServices.ts`)
+- Hand-rolled `as unknown as PositronReactServices` accessor casts
+- Direct mutation of `PositronReactServices.services = ...` (use `.stub()` and let `setupRTLRenderer` deliver via context)
+
+The only exception is plain tests (no services) that use `ensureNoLeakedDisposables()` directly for disposable tracking.
 
 ### 3. Setup weight
 
@@ -63,7 +72,18 @@ Any `vi.spyOn(console, ...)` or `vi.spyOn(obj, 'method')` without a correspondin
 
 ### 11. RTL query usage (React tests only)
 
-For `.vitest.tsx` files using `setupRTLRenderer`: are there `container.querySelector` calls that could use `getByRole` or `getByText` instead? Flag cases where the component renders visible text or accessible roles that RTL can query directly. Note: many Positron components use internal CSS classes without accessible roles -- `container.querySelector` is acceptable when RTL queries aren't feasible.
+For `.vitest.tsx` files using `setupRTLRenderer`: flag any `container.querySelector(...)` used as an assertion target. Use the Testing Library query priority instead: `getByRole` > `getByLabelText` > `getByPlaceholderText` > `getByText` > `getByDisplayValue` > `getByAltText` > `getByTitle` > `getByTestId`. The escape hatch `getByText('text', { selector: '.css' })` is acceptable when role/label aren't available -- the file should include a brief inline comment if the choice isn't obvious. See `.claude/rules/vitest-tests.md` "RTL idioms".
+
+### 12. Assertion idioms (React tests only)
+
+For `.vitest.tsx` files: flag these assertion anti-patterns.
+
+- `expect(el).toBeTruthy()` / `expect(el).toBeFalsy()` for DOM presence/absence -- use `toBeInTheDocument()` / `not.toBeInTheDocument()`.
+- `assert.strictEqual(el.textContent, 'x')` -- use `expect(el).toHaveTextContent('x')`.
+- `assert.ok(el)` / `assert.strictEqual(el, null)` -- use `expect()` with a jest-dom matcher.
+- Manual class checks like `el.classList.contains('x')` -- use `expect(el).toHaveClass('x')`.
+
+See `.claude/rules/vitest-tests.md` "RTL idioms" for the full matcher list.
 
 ## Output format
 
