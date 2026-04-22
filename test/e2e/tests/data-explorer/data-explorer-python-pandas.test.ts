@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Data Explorer - Python Pandas', {
-	tag: [tags.WEB, tags.CRITICAL, tags.DATA_EXPLORER, tags.WORKBENCH]
+	tag: [tags.WEB, tags.CRITICAL, tags.DATA_EXPLORER, tags.WORKBENCH, tags.JUPYTER]
 }, () => {
 
 	test.afterEach(async function ({ app, hotKeys }) {

@@ -23,12 +23,12 @@ test.describe('Quarto - R', { tag: [tags.WEB, tags.WIN, tags.QUARTO, tags.ARK] }
 		await cleanup.removeTestFiles(['quarto_basic.pdf', 'quarto_basic.html', 'quarto_basic.docx']);
 	});
 
-	test('Verify Quarto can render html', { tag: [tags.WORKBENCH] }, async function ({ app, runDockerCommand }, testInfo) {
+	test('Verify Quarto can render html', { tag: [tags.WORKBENCH, tags.JUPYTER] }, async function ({ app, runDockerCommand }, testInfo) {
 		await renderQuartoDocument(app, 'html');
 		await expectFileToExist(app, testInfo, runDockerCommand, 'html');
 	});
 
-	test('Verify Quarto can render docx ', { tag: [tags.WORKBENCH] }, async function ({ app, runDockerCommand }, testInfo) {
+	test('Verify Quarto can render docx ', { tag: [tags.WORKBENCH, tags.JUPYTER] }, async function ({ app, runDockerCommand }, testInfo) {
 		await renderQuartoDocument(app, 'docx');
 		await expectFileToExist(app, testInfo, runDockerCommand, 'docx');
 	});
@@ -40,7 +40,7 @@ test.describe('Quarto - R', { tag: [tags.WEB, tags.WIN, tags.QUARTO, tags.ARK] }
 		}).toPass({ timeout: 60000 });
 	});
 
-	test('Verify Quarto can render pdf (typst)', { tag: [tags.WORKBENCH] }, async function ({ app, runDockerCommand }, testInfo) {
+	test('Verify Quarto can render pdf (typst)', { tag: [tags.WORKBENCH, tags.JUPYTER] }, async function ({ app, runDockerCommand }, testInfo) {
 		await renderQuartoDocument(app, 'typst');
 		await expectFileToExist(app, testInfo, runDockerCommand, 'pdf');
 	});

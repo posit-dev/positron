@@ -21,7 +21,7 @@ interface AppTestConfig {
 const appTests: AppTestConfig[] = [
 	{
 		name: 'Dash',
-		tags: [tags.WORKBENCH], // this test is flaky on Windows, so not tagged
+		tags: [tags.WORKBENCH, tags.JUPYTER], // this test is flaky on Windows, so not tagged
 		filePath: 'dash_example/dash_example.py',
 		locator: frame => frame.getByText('Hello World'),
 	},
