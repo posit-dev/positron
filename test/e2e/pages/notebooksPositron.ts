@@ -657,7 +657,6 @@ export class PositronNotebooks extends Notebooks {
 		const startY = box!.y + box!.height / 2;
 
 		// Drag the sash down to grow the output area.
-		// await sash.hover();
 		await page.mouse.move(startX, startY);
 		await page.mouse.down();
 		await page.mouse.move(startX, startY + distance, { steps: 10 });
