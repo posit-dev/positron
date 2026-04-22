@@ -18,7 +18,7 @@ test.describe('Sessions: Startup Performance', {
 		await sessions.deleteDisconnectedSessions();
 	});
 
-	test('start (console): Python', async function ({ sessions, metric }) {
+	test('Console Start: Python', async function ({ sessions, metric }) {
 		// `reuse: false` forces a fresh create path rather than piggybacking on an existing idle session.
 		const { duration_ms } = await metric.sessions.start(async () => {
 			await sessions.start('python', { reuse: false });
@@ -31,7 +31,7 @@ test.describe('Sessions: Startup Performance', {
 		if (!process.env.CI) { console.log(`[perf] session.start console python: ${duration_ms} ms`); }
 	});
 
-	test('start (notebook): Python', async function ({ app, settings, metric }) {
+	test('Notebook Start: Python', async function ({ app, settings, metric }) {
 		const { notebooks, notebooksPositron } = app.workbench;
 
 		// tests/sessions/ does not enable Positron notebooks by default, so opt in here.
@@ -50,5 +50,39 @@ test.describe('Sessions: Startup Performance', {
 		});
 
 		if (!process.env.CI) { console.log(`[perf] session.start notebook python: ${duration_ms} ms`); }
+	});
+
+	test('Console Start: R', async function ({ sessions, metric }) {
+		// `reuse: false` forces a fresh create path rather than piggybacking on an existing idle session.
+		const { duration_ms } = await metric.sessions.start(async () => {
+			await sessions.start('r', { reuse: false });
+		}, 'session.r', {
+			sessionMode: 'console',
+			language: 'R',
+			description: 'Console: R start (picker to idle)',
+		});
+
+		if (!process.env.CI) { console.log(`[perf] session.start console r: ${duration_ms} ms`); }
+	});
+
+	test('Notebook Start: R', async function ({ app, settings, metric }) {
+		const { notebooks, notebooksPositron } = app.workbench;
+
+		// tests/sessions/ does not enable Positron notebooks by default, so opt in here.
+		await notebooksPositron.enablePositronNotebooks(settings);
+
+		// Fresh untitled Positron notebook so kernel startup happens under test control.
+		await notebooks.createNewNotebook();
+		await notebooksPositron.expectToBeVisible();
+
+		const { duration_ms } = await metric.sessions.start(async () => {
+			await notebooksPositron.kernel.select('R', { waitForReady: true });
+		}, 'session.r', {
+			sessionMode: 'notebook',
+			language: 'R',
+			description: 'Notebook: R kernel start (select to idle)',
+		});
+
+		if (!process.env.CI) { console.log(`[perf] session.start notebook r: ${duration_ms} ms`); }
 	});
 });
