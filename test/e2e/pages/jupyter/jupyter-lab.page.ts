@@ -100,8 +100,8 @@ export class JupyterLabPage {
 		// Click File menu
 		await page.locator('div:text("File")').first().click();
 
-		// Click Log Out
-		await page.locator('div:text("Log Out")').click();
+		// Click Log Out (use first() as there may be multiple matches)
+		await page.locator('div:text("Log Out")').nth(1).click();
 
 		// Wait for logout to complete
 		await page.waitForLoadState('networkidle');
