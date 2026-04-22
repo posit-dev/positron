@@ -76,7 +76,7 @@ export interface IQuartoKernelManager {
 	 * @param token Optional cancellation token.
 	 * @returns The session, or undefined if startup failed or was cancelled.
 	 */
-	ensureKernelForDocument(documentUri: URI, token?: CancellationToken): Promise<ILanguageRuntimeSession | undefined>;
+	ensureKernelForDocument(documentUri: URI, token?: CancellationToken, options?: { silent?: boolean }): Promise<ILanguageRuntimeSession | undefined>;
 
 	/**
 	 * Get existing session without starting.
@@ -531,7 +531,8 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 
 	async ensureKernelForDocument(
 		documentUri: URI,
-		token?: CancellationToken
+		token?: CancellationToken,
+		options?: { silent?: boolean }
 	): Promise<ILanguageRuntimeSession | undefined> {
 		// Check for existing session in our tracking
 		const existing = this._documentKernels.get(documentUri);
@@ -561,7 +562,7 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		}
 
 		// Start a new session with retry logic
-		return this._startKernelWithRetry(documentUri, token);
+		return this._startKernelWithRetry(documentUri, token, undefined, options);
 	}
 
 	getSessionForDocument(documentUri: URI): ILanguageRuntimeSession | undefined {
@@ -732,7 +733,8 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 	private async _startKernelWithRetry(
 		documentUri: URI,
 		token?: CancellationToken,
-		runtimeOverride?: ILanguageRuntimeMetadata
+		runtimeOverride?: ILanguageRuntimeMetadata,
+		options?: { silent?: boolean }
 	): Promise<ILanguageRuntimeSession | undefined> {
 		let lastError: Error | undefined;
 
@@ -743,7 +745,7 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 			}
 
 			try {
-				const session = await this._startKernel(documentUri, token, runtimeOverride);
+				const session = await this._startKernel(documentUri, token, runtimeOverride, options);
 				if (session) {
 					return session;
 				}
@@ -777,7 +779,8 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 	private async _startKernel(
 		documentUri: URI,
 		token?: CancellationToken,
-		runtimeOverride?: ILanguageRuntimeMetadata
+		runtimeOverride?: ILanguageRuntimeMetadata,
+		options?: { silent?: boolean }
 	): Promise<ILanguageRuntimeSession | undefined> {
 		// Initialize or get document info
 		let info = this._documentKernels.get(documentUri);
@@ -803,11 +806,18 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 			// Get the document's language from the Quarto document model
 			const language = await this._getDocumentLanguage(documentUri);
 			if (!language) {
-				this._logService.warn(`[QuartoKernelManager] Could not determine language for ${documentUri.toString()}`);
-				this._setKernelState(documentUri, QuartoKernelState.Error);
-				this._notificationService.warn(
-					localize('quartoKernel.noLanguage', "Could not determine language for Quarto document. Ensure the document has code cells with a language specified.")
-				);
+				if (options?.silent) {
+					// Auto-start: silently reset to None so blank documents
+					// don't show an error badge or a warning toast.
+					this._logService.debug(`[QuartoKernelManager] Could not determine language for ${documentUri.toString()}, skipping silent auto-start`);
+					this._setKernelState(documentUri, QuartoKernelState.None);
+				} else {
+					this._logService.warn(`[QuartoKernelManager] Could not determine language for ${documentUri.toString()}`);
+					this._setKernelState(documentUri, QuartoKernelState.Error);
+					this._notificationService.warn(
+						localize('quartoKernel.noLanguage', "Could not determine language for Quarto document. Ensure the document has code cells with a language specified.")
+					);
+				}
 				return undefined;
 			}
 
