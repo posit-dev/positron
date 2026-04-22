@@ -4,8 +4,8 @@ name: "Test: Unit"
 # This workflow has a save_cache parameter to prevent race conditions when multiple jobs
 # try to save the same cache key simultaneously. Only ONE job per calling workflow should
 # set save_cache: true. Examples:
-# - test-pull-request.yml: unit-tests saves, integration-tests and e2e do not
-# - test-merge.yml: unit-tests saves, setup/integration/e2e do not
+# - test-pull-request.yml: unit-tests saves, ext-host-tests and e2e do not
+# - test-merge.yml: unit-tests saves, setup/ext-host/e2e do not
 # - test-full-suite.yml: only restores
 
 on:
@@ -108,6 +108,9 @@ jobs:
         run: |
           find . -type f -o -type l | grep -v "node_modules/" | sort > /tmp/files-after-npm-install.txt
           .github/cache-scripts/check-uncached-artifacts.sh /tmp/files-before-npm-install.txt /tmp/files-after-npm-install.txt
+
+      - name: 🧪 Run Vitest Tests
+        run: npm run test:positron
 
       - name: Compile Positron and Download Electron
         run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
