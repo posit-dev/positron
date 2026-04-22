@@ -8,7 +8,6 @@ import * as playwright from '@playwright/test';
 const { test: base, expect: playwrightExpect } = playwright;
 
 // Node.js built-in modules
-import fs from 'fs';
 import { join } from 'path';
 
 // Local imports
