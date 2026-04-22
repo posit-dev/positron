@@ -20,12 +20,15 @@ test.describe('Sessions: Startup Performance', {
 
 	test('Console Start: Python', async function ({ sessions, metric }) {
 		// `reuse: false` forces a fresh create path rather than piggybacking on an existing idle session.
+		let sessionName = '';
 		const { duration_ms } = await metric.sessions.start(async () => {
-			await sessions.start('python', { reuse: false });
+			const info = await sessions.start('python', { reuse: false });
+			sessionName = info.name;
 		}, 'session.python', {
 			sessionMode: 'console',
 			language: 'Python',
 			description: 'Console: Python start (picker to idle)',
+			additionalContext: async () => ({ runtime_version: sessionName.match(/[\d.]+/)?.[0] }),
 		});
 
 		if (!process.env.CI) { console.log(`[perf] session.start console python: ${duration_ms} ms`); }
@@ -41,12 +44,15 @@ test.describe('Sessions: Startup Performance', {
 		await notebooks.createNewNotebook();
 		await notebooksPositron.expectToBeVisible();
 
+		let badgeText: string | null = null;
 		const { duration_ms } = await metric.sessions.start(async () => {
 			await notebooksPositron.kernel.select('Python', { waitForReady: true });
+			badgeText = await notebooksPositron.kernel.statusBadge.textContent();
 		}, 'session.python', {
 			sessionMode: 'notebook',
 			language: 'Python',
 			description: 'Notebook: Python kernel start (select to idle)',
+			additionalContext: async () => ({ runtime_version: badgeText?.match(/[\d.]+/)?.[0] }),
 		});
 
 		if (!process.env.CI) { console.log(`[perf] session.start notebook python: ${duration_ms} ms`); }
@@ -54,12 +60,15 @@ test.describe('Sessions: Startup Performance', {
 
 	test('Console Start: R', async function ({ sessions, metric }) {
 		// `reuse: false` forces a fresh create path rather than piggybacking on an existing idle session.
+		let sessionName = '';
 		const { duration_ms } = await metric.sessions.start(async () => {
-			await sessions.start('r', { reuse: false });
+			const info = await sessions.start('r', { reuse: false });
+			sessionName = info.name;
 		}, 'session.r', {
 			sessionMode: 'console',
 			language: 'R',
 			description: 'Console: R start (picker to idle)',
+			additionalContext: async () => ({ runtime_version: sessionName.match(/[\d.]+/)?.[0] }),
 		});
 
 		if (!process.env.CI) { console.log(`[perf] session.start console r: ${duration_ms} ms`); }
@@ -75,12 +84,15 @@ test.describe('Sessions: Startup Performance', {
 		await notebooks.createNewNotebook();
 		await notebooksPositron.expectToBeVisible();
 
+		let badgeText: string | null = null;
 		const { duration_ms } = await metric.sessions.start(async () => {
 			await notebooksPositron.kernel.select('R', { waitForReady: true });
+			badgeText = await notebooksPositron.kernel.statusBadge.textContent();
 		}, 'session.r', {
 			sessionMode: 'notebook',
 			language: 'R',
 			description: 'Notebook: R kernel start (select to idle)',
+			additionalContext: async () => ({ runtime_version: badgeText?.match(/[\d.]+/)?.[0] }),
 		});
 
 		if (!process.env.CI) { console.log(`[perf] session.start notebook r: ${duration_ms} ms`); }
