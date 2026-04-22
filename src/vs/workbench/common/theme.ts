@@ -1677,14 +1677,6 @@ export const POSITRON_RUNTIME_STATE_ICON_IDLE = registerColor('positronRuntime.s
 	hcLight: '#2eb77c'
 }, localize('positronRuntime.stateIconIdle', "Positron runtime idle state icon color."));
 
-// Positron Quarto icon color.
-export const POSITRON_QUARTO_ICON = registerColor('positronConsole.quartoIcon', {
-	dark: '#4E97B4',
-	light: '#4E97B4',
-	hcDark: '#4E97B4',
-	hcLight: '#4E97B4'
-}, localize('positronConsole.quartoIcon', "Positron Quarto session icon color."));
-
 //  < --- Positron Data Grid --- >
 
 // Positron data grid background color.
