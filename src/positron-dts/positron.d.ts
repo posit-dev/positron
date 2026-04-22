@@ -1156,6 +1156,9 @@ declare module 'positron' {
 
 		/** Publication/release date */
 		publishedDate?: string;
+
+		/** Optional short description or summary shown in the Packages pane card view. */
+		description?: string;
 	}
 
 	/**

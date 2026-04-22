@@ -8,6 +8,7 @@ import { Event } from '../../../../../base/common/event.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
 import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageSpec } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronPackagesInstance } from '../positronPackagesInstance.js';
+import { PackagesItemSize } from '../positronPackagesContextKeys.js';
 
 // Create the decorator for the Positron packages service (used in dependency injection).
 export const IPositronPackagesService = createDecorator<IPositronPackagesService>('positronPackagesService');
@@ -35,6 +36,22 @@ export interface IPositronPackagesService {
 	 * @param packageName The package name, or undefined to clear selection
 	 */
 	setSelectedPackage(packageName: string | undefined): void;
+
+	/**
+	 * The current item size mode for the packages list.
+	 */
+	readonly itemSize: PackagesItemSize;
+
+	/**
+	 * Sets the item size mode for the packages list. The choice is persisted
+	 * globally (per-user).
+	 */
+	setItemSize(itemSize: PackagesItemSize): void;
+
+	/**
+	 * Fired when the item size mode changes.
+	 */
+	readonly onDidChangeItemSize: Event<PackagesItemSize>;
 
 	/**
 	 * The onDidRefreshPackagesInstance event.

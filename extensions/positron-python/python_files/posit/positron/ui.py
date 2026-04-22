@@ -126,11 +126,15 @@ def _get_packages_installed(_kernel: "PositronIPyKernel", _params: List[JsonData
         canonical = canonicalize_name(name)
         # Dedupe by canonical name - keeps first occurrence (the one that would be imported)
         if canonical not in packages_dict:
+            summary = dist.metadata.get("Summary")
+            author = dist.metadata.get("Author") or dist.metadata.get("Author-email")
             packages_dict[canonical] = {
                 "id": f"{canonical}-{dist.version}",
                 "name": name,
                 "displayName": canonical,
                 "version": dist.version,
+                "description": summary if summary and summary != "UNKNOWN" else "",
+                "author": author if author and author != "UNKNOWN" else "",
             }
     return sorted(packages_dict.values(), key=lambda p: p["displayName"])
 

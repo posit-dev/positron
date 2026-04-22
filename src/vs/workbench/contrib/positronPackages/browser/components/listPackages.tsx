@@ -48,6 +48,10 @@ const positronUpdatePackage = localize(
 // Height of the filter container in pixels
 const FILTER_HEIGHT = 34;
 
+// Row heights for each item size mode.
+const ROW_ITEM_HEIGHT = 26;
+const CARD_ITEM_HEIGHT = 72;
+
 export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	const {
 		activeInstance,
@@ -56,6 +60,15 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	const services = usePositronReactServicesContext();
 
 	const [packages, setPackages] = useState<ILanguageRuntimePackage[]>([]);
+
+	// Item size mode ('card' or 'row'), driven by the packages service.
+	const [itemSize, setItemSize] = useState(() => services.positronPackagesService.itemSize);
+	useEffect(() => {
+		const disposable = services.positronPackagesService.onDidChangeItemSize((size) => {
+			setItemSize(size);
+		});
+		return () => disposable.dispose();
+	}, [services.positronPackagesService]);
 
 	// Progress Bar
 	const progressRef = useRef<HTMLDivElement>(null);
@@ -251,7 +264,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	// Item renderer
 	const ItemEntry = (props: { index: number; style: CSSProperties }) => {
 		const itemProps = filteredPackages[props.index];
-		const { id, name, displayName, version, latestVersion } = itemProps;
+		const { id, name, displayName, version, latestVersion, description, author } = itemProps;
 
 		// Check if package has an update available
 		const hasUpdate = latestVersion && latestVersion !== version;
@@ -259,7 +272,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		return (
 			// eslint-disable-next-line jsx-a11y/no-static-element-interactions
 			<div
-				className={positronClassNames('packages-list-item', {
+				className={positronClassNames('packages-list-item', `item-size-${itemSize}`, {
 					selected: id === selectedItem,
 				})}
 				style={props.style}
@@ -311,15 +324,27 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 					}
 				}}
 			>
-				<div className='packages-list-item-name'>{displayName}</div>
-				<div className='packages-list-item-version'>{version}</div>
-				{hasUpdate && (
-					<div
-						className='packages-list-item-update'
-						title={localize('positronPackages.updateAvailable', "Update available: {0}", latestVersion)}
-					>
-						&#x2191;
-					</div>
+				<div className='packages-list-item-header'>
+					<div className='packages-list-item-name'>{displayName}</div>
+					<div className='packages-list-item-version'>{version}</div>
+					{hasUpdate && (
+						<div
+							className='packages-list-item-update'
+							title={localize('positronPackages.updateAvailable', "Update available: {0}", latestVersion)}
+						>
+							&#x2191;
+						</div>
+					)}
+				</div>
+				{itemSize === 'card' && (
+					<>
+						<div className='packages-list-item-description' title={description ?? ''}>
+							{description ?? ''}
+						</div>
+						<div className='packages-list-item-author' title={author ?? ''}>
+							{author ?? ''}
+						</div>
+					</>
 				)}
 			</div >
 		);
@@ -410,7 +435,8 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 						innerRef={innerRef}
 						itemCount={filteredPackages.length}
 						itemKey={(index) => filteredPackages[index].id}
-						itemSize={26}
+						itemSize={itemSize === 'card' ? CARD_ITEM_HEIGHT : ROW_ITEM_HEIGHT}
+						style={{ overflowX: 'hidden' }}
 						width={'calc(100% - 2px)'}
 					>
 						{ItemEntry}

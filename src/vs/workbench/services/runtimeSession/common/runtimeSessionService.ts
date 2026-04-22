@@ -298,6 +298,9 @@ export interface ILanguageRuntimePackage {
 
 	/** Publication/release date */
 	publishedDate?: string;
+
+	description?: string;
+	author?: string;
 }
 
 /**
