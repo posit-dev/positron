@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { tags } from '../../_test.setup';
+import { expect, tags } from '../../_test.setup';
 import { test } from '../_test.setup.js';
 
 const LANGUAGES = [
@@ -35,16 +35,17 @@ test.describe('Positron Notebooks: Kernel Startup', {
 			await notebooks.createNewNotebook();
 			await notebooksPositron.expectToBeVisible();
 
-			let badgeText: string | null = null;
 			const { duration_ms } = await metric.sessions.start(async () => {
 				await notebooksPositron.kernel.select(lang, { waitForReady: true });
-				badgeText = await notebooksPositron.kernel.statusBadge.textContent();
 			}, target, {
 				language: lang,
 				description: `Notebook: ${lang} kernel start`,
-				additionalContext: async () => ({ runtime_version: parseVersion(badgeText) }),
+				additionalContext: async () => ({
+					runtime_version: parseVersion(await notebooksPositron.kernel.statusBadge.textContent()),
+				}),
 			});
 
+			expect(duration_ms).toBeGreaterThan(0);
 			if (!process.env.CI) { console.log(`[perf] start_session ${target}: ${duration_ms} ms`); }
 		});
 	}

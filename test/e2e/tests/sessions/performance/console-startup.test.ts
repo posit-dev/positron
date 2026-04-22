@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, tags } from '../../_test.setup';
+import { expect, test, tags } from '../../_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -29,6 +29,7 @@ test.describe('Sessions: Console Startup', {
 
 	for (const { lang, runtime, target } of LANGUAGES) {
 		test(`Console Start: ${lang}`, async function ({ sessions, metric }) {
+			// `reuse: false` forces a fresh create path rather than piggybacking on an existing idle session.
 			let sessionName = '';
 
 			const { duration_ms } = await metric.sessions.start(async () => {
@@ -40,6 +41,7 @@ test.describe('Sessions: Console Startup', {
 				additionalContext: async () => ({ runtime_version: parseVersion(sessionName) }),
 			});
 
+			expect(duration_ms).toBeGreaterThan(0);
 			if (!process.env.CI) { console.log(`[perf] start_session ${target}: ${duration_ms} ms`); }
 		});
 	}
