@@ -33,8 +33,6 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 
 	private _activeInstance: PositronPackagesInstance | undefined;
 
-	private _itemSize: PackagesItemSize = 'row';
-
 	// Context keys
 	private readonly _hasActiveSessionContextKey: IContextKey<boolean>;
 	private readonly _isBusyContextKey: IContextKey<boolean>;
@@ -67,7 +65,6 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		this._isBusyContextKey = POSITRON_PACKAGES_IS_BUSY.bindTo(this._contextKeyService);
 		this._selectedPackageContextKey = POSITRON_PACKAGES_SELECTED_PACKAGE.bindTo(this._contextKeyService);
 		this._itemSizeContextKey = POSITRON_PACKAGES_ITEM_SIZE.bindTo(this._contextKeyService);
-		this._itemSizeContextKey.set(this._itemSize);
 
 		// Create new instances
 		this._register(this._runtimeSessionService.onWillStartSession((e) => {
@@ -186,14 +183,13 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 	}
 
 	get itemSize(): PackagesItemSize {
-		return this._itemSize;
+		return this._itemSizeContextKey.get() ?? 'row';
 	}
 
 	setItemSize(itemSize: PackagesItemSize): void {
-		if (this._itemSize === itemSize) {
+		if (this.itemSize === itemSize) {
 			return;
 		}
-		this._itemSize = itemSize;
 		this._itemSizeContextKey.set(itemSize);
 		this._onDidChangeItemSize.fire(itemSize);
 	}
