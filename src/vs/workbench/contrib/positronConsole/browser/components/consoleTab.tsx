@@ -475,11 +475,10 @@ export const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: 
 			onMouseDown={handleMouseDown}
 		>
 			{/* Header row with session info */}
-			<div className='tab-header'>
+			<div className='tab-header show-file-icons'>
 				<ConsoleSessionStatusIcon positronConsoleInstance={positronConsoleInstance} />
 				<RuntimeIcon
-					base64EncodedIconSvg={positronConsoleInstance.runtimeMetadata.base64EncodedIconSvg}
-					modelService={services.modelService}
+					languageId={positronConsoleInstance.runtimeMetadata.languageId}
 					notebookUri={positronConsoleInstance.sessionMetadata.notebookUri}
 					sessionMode={positronConsoleInstance.sessionMetadata.sessionMode}
 				/>

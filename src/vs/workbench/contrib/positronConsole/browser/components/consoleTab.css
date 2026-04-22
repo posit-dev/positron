@@ -47,12 +47,6 @@
 	background-color: var(--vscode-list-activeSelectionBackground);
 }
 
-.tab-button .icon {
-	height: 15px;
-	width: 15px;
-	margin: 0 6px
-}
-
 .tab-button .session-name {
 	/* Grow items after session name to fill available space */
 	flex: 1;
