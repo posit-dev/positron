@@ -49,7 +49,6 @@ export type MetricContext = {
 	session_mode?: 'console' | 'notebook';
 	runtime_version?: string;
 	interpreter_kind?: 'system' | 'venv' | 'conda' | 'uv' | 'renv' | 'other';
-	cold?: boolean;
 };
 
 export type MetricResult<T> = {

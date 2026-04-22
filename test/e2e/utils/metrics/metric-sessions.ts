@@ -45,15 +45,12 @@ export { recordSessionMetric };
  * Options for the `start` session shortcut.
  *
  * `sessionMode` is required so every emitted metric is bucket-able by console vs notebook.
- * `cold` is a leaky label - it records whether this test observed no prior session of this
- * interpreter in the current window, not true kernel-level coldness.
  */
 export interface SessionStartShortcutOptions {
 	sessionMode: 'console' | 'notebook';
 	description?: string;
 	runtimeVersion?: string;
 	interpreterKind?: 'system' | 'venv' | 'conda' | 'uv' | 'renv' | 'other';
-	cold?: boolean;
 	language?: string;
 	additionalContext?: MetricContext | (() => Promise<MetricContext>);
 }
@@ -69,13 +66,12 @@ export async function recordSessionStart<T>(
 	logger: MultiLogger,
 	options: SessionStartShortcutOptions
 ): Promise<MetricResult<T>> {
-	const { sessionMode, description, runtimeVersion, interpreterKind, cold, language, additionalContext } = options;
+	const { sessionMode, description, runtimeVersion, interpreterKind, language, additionalContext } = options;
 
 	const context_json = async (): Promise<MetricContext> => {
 		const base: MetricContext = { session_mode: sessionMode };
 		if (runtimeVersion !== undefined) { base.runtime_version = runtimeVersion; }
 		if (interpreterKind !== undefined) { base.interpreter_kind = interpreterKind; }
-		if (cold !== undefined) { base.cold = cold; }
 		if (language !== undefined) { base.language = language; }
 
 		if (!additionalContext) {

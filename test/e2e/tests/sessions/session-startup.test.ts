@@ -18,22 +18,20 @@ test.describe('Sessions: Startup Performance', {
 		await sessions.deleteDisconnectedSessions();
 	});
 
-	test('start (console): Python cold start', async function ({ sessions, metric }) {
-		// Cold start: no prior session of this interpreter in this test window.
+	test('start (console): Python', async function ({ sessions, metric }) {
 		// `reuse: false` forces a fresh create path rather than piggybacking on an existing idle session.
 		const { duration_ms } = await metric.sessions.start(async () => {
 			await sessions.start('python', { reuse: false });
 		}, 'session.python', {
 			sessionMode: 'console',
-			cold: true,
 			language: 'Python',
-			description: 'Console: Python cold start (picker to idle)',
+			description: 'Console: Python start (picker to idle)',
 		});
 
 		if (!process.env.CI) { console.log(`[perf] session.start console python: ${duration_ms} ms`); }
 	});
 
-	test('start (notebook): Python cold start', async function ({ app, settings, metric }) {
+	test('start (notebook): Python', async function ({ app, settings, metric }) {
 		const { notebooks, notebooksPositron } = app.workbench;
 
 		// tests/sessions/ does not enable Positron notebooks by default, so opt in here.
@@ -47,9 +45,8 @@ test.describe('Sessions: Startup Performance', {
 			await notebooksPositron.kernel.select('Python', { waitForReady: true });
 		}, 'session.python', {
 			sessionMode: 'notebook',
-			cold: true,
 			language: 'Python',
-			description: 'Notebook: Python cold kernel start (select to idle)',
+			description: 'Notebook: Python kernel start (select to idle)',
 		});
 
 		if (!process.env.CI) { console.log(`[perf] session.start notebook python: ${duration_ms} ms`); }
