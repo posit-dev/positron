@@ -8,6 +8,7 @@
 import { usingPositronNotebooks } from '../../../positronNotebook/common/positronNotebookCommon.js';
 import { POSITRON_NOTEBOOK_ENABLED_KEY } from '../../../positronNotebook/common/positronNotebookConfig.js';
 import { IPYNB_VIEW_TYPE } from '../notebookBrowser.js';
+import { resolveNotebookSerializerOptions } from '../contrib/clean/cleanNotebooks.js';
 // --- End Positron ---
 import { localize } from '../../../../../nls.js';
 import { toAction } from '../../../../../base/common/actions.js';
@@ -974,24 +975,19 @@ export class NotebookService extends Disposable implements INotebookService {
 		const outputSizeLimit = this._configurationService.getValue<number>(NotebookSetting.outputBackupSizeLimit) * 1024;
 		// --- Start Positron ---
 		// const data: NotebookData = model.createSnapshot({ context: context, outputSizeLimit: outputSizeLimit, transientOptions: serializer.options });
+		// Resolve options based on user settings.
+		// For example, users may disable saving execution counts for
+		// version control friendly notebooks.
+		const data: NotebookData = model.createSnapshot({
+			context: context,
+			outputSizeLimit: outputSizeLimit,
+			transientOptions: resolveNotebookSerializerOptions(
+				serializer.options,
+				context,
+				this._configurationService
+			)
+		});
 
-		// Apply options to include/exclude execution information in the serialized file.
-		// Excluding this info leads to more version control friendly notebooks.
-		let transientOptions = serializer.options;
-		// Only apply on save. When a snapshot is created for backup it should keep the original
-		// serializer settings.
-		if (context === SnapshotContext.Save) {
-			const saveOutputs = this._configurationService.getValue<boolean>(NotebookSetting.saveOutputs);
-			const saveExecutionCounts = this._configurationService.getValue<boolean>(NotebookSetting.saveExecutionCounts);
-			transientOptions = {
-				...serializer.options,
-				transientOutputs: !saveOutputs,
-				transientCellMetadata: {
-					execution_count: !saveExecutionCounts,
-				},
-			};
-		}
-		const data: NotebookData = model.createSnapshot({ context: context, outputSizeLimit: outputSizeLimit, transientOptions });
 		// --- End Positron ---
 		const indentAmount = model.metadata.indentAmount;
 		if (typeof indentAmount === 'string' && indentAmount) {
