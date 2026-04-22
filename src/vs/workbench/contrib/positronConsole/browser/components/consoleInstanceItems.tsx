@@ -77,15 +77,11 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 	 * @returns The rendered component.
 	 */
 	override render() {
-		console.log(`${Date.now()} ConsoleInstanceItems rendering ${this.props.positronConsoleInstance.runtimeItems.length} runtime items`);
-
-
 		return (
 			<>
 				<div className='top-spacer' />
 				{this.props.positronConsoleInstance.runtimeItems.map(runtimeItem => {
 					if (runtimeItem instanceof RuntimeItemActivity) {
-						console.log(`RuntimeItemActivity rendering ${runtimeItem.activityItems.length} activity items`);
 						return (
 							<RuntimeActivity
 								key={runtimeItem.id}

@@ -286,7 +286,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 		disposableStore.add(props.reactComponentContainer.onSizeChanged(_ => {
 			if (!props.positronConsoleInstance.scrollLocked) {
-				scrollToBottom();
+				// scrollToBottom(); NOOOOO
 			}
 		}));
 
