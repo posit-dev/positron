@@ -373,6 +373,11 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 	 * dispose override method.
 	 */
 	public override dispose(): void {
+		// Clear the focused context key. onDidBlur is not guaranteed to fire
+		// before the webview is torn down, so clear defensively to avoid a
+		// globally stuck positronHelpFocused=true. See issue #9364.
+		this.helpFocusedContextKey.set(false);
+
 		// Clear the set title timeout.
 		if (this._setTitleTimeout) {
 			clearTimeout(this._setTitleTimeout);
@@ -663,6 +668,11 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 	 * @param dispose A value which indicates whether to dispose of the help overlay webiew.
 	 */
 	public hideHelpOverlayWebview(dispose: boolean) {
+		// Clear the focused context key. onDidBlur is not guaranteed to fire
+		// when the webview is released/hidden, so clear defensively to avoid a
+		// globally stuck positronHelpFocused=true. See issue #9364.
+		this.helpFocusedContextKey.set(false);
+
 		if (this._helpOverlayWebview) {
 			this.hideFind();
 			if (this._element) {
