@@ -23,6 +23,8 @@ import * as ws from '../../client/common/vscodeApis/workspaceApis';
 
 // --- Start Positron ---
 import * as uvApi from '../../client/pythonEnvironments/common/environmentManagers/uv';
+import * as externalDeps from '../../client/pythonEnvironments/common/externalDependencies';
+import * as nativeFinder from '../../client/pythonEnvironments/base/locators/common/nativePythonFinder';
 // --- End Positron ---
 
 suite('Native Python API', () => {
@@ -459,6 +461,59 @@ suite('Native Python API', () => {
         assert.isDefined(addedEnv.version.release);
         assert.equal(addedEnv.version.release?.level, 'alpha');
         assert.equal(addedEnv.version.release?.serial, 5);
+    });
+
+    test('ReplaceExistingEnv: shorter-path equivalent env replaces the longer one', async () => {
+        // Two interpreters in an additional env dir that symlink to the same target.
+        // The shorter path should replace the longer one (not be added alongside it).
+        const additionalDir = '/opt/python';
+        const longerPath = '/opt/python/3.10/bin/python3.10';
+        const shorterPath = '/opt/python/3.10/bin/python';
+        const symlinkTarget = '/opt/python/3.10/bin/python3.10';
+
+        sinon.stub(nativeFinder, 'getAdditionalEnvDirs').resolves([additionalDir]);
+        sinon.stub(externalDeps, 'resolveSymbolicLink').callsFake(async (p: string) => {
+            // Both paths resolve to the same underlying binary.
+            if (p === longerPath || p === shorterPath) {
+                return symlinkTarget;
+            }
+            return p;
+        });
+
+        const longerEnv: NativeEnvInfo = {
+            displayName: 'Python 3.10',
+            name: 'python3.10',
+            executable: longerPath,
+            kind: NativePythonEnvironmentKind.LinuxGlobal,
+            version: '3.10.0',
+            prefix: '/opt/python/3.10',
+        };
+        const shorterEnv: NativeEnvInfo = {
+            displayName: 'Python',
+            name: 'python',
+            executable: shorterPath,
+            kind: NativePythonEnvironmentKind.LinuxGlobal,
+            version: '3.10.0',
+            prefix: '/opt/python/3.10',
+        };
+
+        // Yield the longer-path env first, then the shorter-path equivalent.
+        // The shorter one should trigger ReplaceExistingEnv and evict the longer one.
+        mockFinder
+            .setup((f) => f.refresh())
+            .returns(() => {
+                async function* generator() {
+                    yield* [longerEnv, shorterEnv];
+                }
+                return generator();
+            })
+            .verifiable(typemoq.Times.once());
+
+        await api.triggerRefresh();
+
+        const envs = api.getEnvs();
+        assert.equal(envs.length, 1, 'expected exactly one env (longer path should be replaced)');
+        assert.equal(envs[0].executable.filename, shorterPath);
     });
     // --- End Positron ---
 });

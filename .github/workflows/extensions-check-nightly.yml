@@ -29,6 +29,8 @@ jobs:
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Setup build environment
         uses: ./.github/actions/setup-build-env

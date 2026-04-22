@@ -5,16 +5,15 @@
 
 import assert from 'assert';
 import sinon from 'sinon';
-import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { DisposableStore, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { ResourceMap } from '../../../../../base/common/map.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
-import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { ILanguageRuntimeMessageError, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeExitReason, RuntimeOnlineState, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { TestLanguageRuntimeSession, waitForRuntimeState } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
-import { PositronTestServiceAccessor, positronWorkbenchInstantiationService } from '../../../../test/browser/positronWorkbenchTestServices.js';
+import { PositronTestServiceAccessor } from '../../../../test/browser/positronWorkbenchTestServices.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { mock } from '../../../../test/common/workbenchTestServices.js';
 import { NotebookTextModel } from '../../../notebook/common/model/notebookTextModel.js';
 import { CellKind, CellUri, NotebookCellExecutionState } from '../../../notebook/common/notebookCommon.js';
@@ -30,8 +29,7 @@ import { NotebookEditorWidget } from '../../../notebook/browser/notebookEditorWi
 import { NotebookOptions } from '../../../notebook/browser/notebookOptions.js';
 
 suite('Positron - RuntimeNotebookKernel', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
-	let instantiationService: TestInstantiationService;
+	const ctx = createTestContainer().withWorkbenchServices().build();
 	let notebookExecutionStateService: TestNotebookExecutionStateService2;
 	let runtimeSessionService: IRuntimeSessionService;
 	let runtime: ILanguageRuntimeMetadata;
@@ -41,18 +39,17 @@ suite('Positron - RuntimeNotebookKernel', () => {
 	let emptyCellIndex: number;
 
 	setup(async () => {
-		instantiationService = positronWorkbenchInstantiationService(disposables);
-		const accessor = instantiationService.createInstance(PositronTestServiceAccessor);
+		const accessor = ctx.instantiationService.createInstance(PositronTestServiceAccessor);
 
 		runtimeSessionService = accessor.runtimeSessionService;
 
 		notebookExecutionStateService = new TestNotebookExecutionStateService2();
-		instantiationService.stub(INotebookExecutionStateService, notebookExecutionStateService);
+		ctx.instantiationService.stub(INotebookExecutionStateService, notebookExecutionStateService);
 
 		// Create a test notebook document.
 		notebookDocument = createTestNotebookEditor(
-			instantiationService,
-			disposables.add(new DisposableStore()),
+			ctx.instantiationService,
+			ctx.disposables.add(new DisposableStore()),
 			[
 				['print(x)', 'python', CellKind.Code, [], {}],
 				['print(y)', 'python', CellKind.Code, [], {}],
@@ -64,14 +61,14 @@ suite('Positron - RuntimeNotebookKernel', () => {
 		emptyCellIndex = notebookDocument.cells.findIndex(cell => cell.getValue() === '');
 
 		// Stub a mocked notebook service that returns the test notebook document.
-		instantiationService.stub(INotebookService, new class extends mock<INotebookService>() {
+		ctx.instantiationService.stub(INotebookService, new class extends mock<INotebookService>() {
 			override getNotebookTextModel(uri: URI): NotebookTextModel | undefined {
 				return notebookDocument;
 			}
 		});
 
 		// Stub a mocked notebook editor service that returns a widget with layout info.
-		instantiationService.stub(INotebookEditorService, new class extends mock<INotebookEditorService>() {
+		ctx.instantiationService.stub(INotebookEditorService, new class extends mock<INotebookEditorService>() {
 			override retrieveExistingWidgetFromURI(_resource: URI) {
 				const mockNotebookOptions = {
 					getCellEditorContainerLeftMargin: () => 60,
@@ -88,16 +85,21 @@ suite('Positron - RuntimeNotebookKernel', () => {
 			}
 		});
 
+		// Clean up active sessions between tests to prevent leakage.
+		ctx.disposables.add(toDisposable(() => {
+			runtimeSessionService.activeSessions.forEach(s => s.dispose());
+		}));
+
 		// Create a test language runtime.
-		runtime = createTestLanguageRuntimeMetadata(instantiationService, disposables);
+		runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
 
 		// Create the runtime notebook kernel.
-		kernel = disposables.add(instantiationService.createInstance(RuntimeNotebookKernel, runtime));
+		kernel = ctx.disposables.add(ctx.instantiationService.createInstance(RuntimeNotebookKernel, runtime));
 	});
 
 	/** Start a session for the test notebook and wait for it to be ready. */
 	async function startSession() {
-		const session = await startTestLanguageRuntimeSession(instantiationService, disposables, {
+		const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, {
 			runtime,
 			notebookUri: notebookDocument.uri,
 			sessionName: 'test',
@@ -122,7 +124,7 @@ suite('Positron - RuntimeNotebookKernel', () => {
 		const session = await startSession();
 
 		// On execute, reply with an idle state.
-		disposables.add(session.onDidExecute(parent_id => session.receiveStateMessage({ parent_id, state: RuntimeOnlineState.Idle })));
+		ctx.disposables.add(session.onDidExecute(parent_id => session.receiveStateMessage({ parent_id, state: RuntimeOnlineState.Idle })));
 
 		// Execute a cell.
 		await kernel.executeNotebookCellsRequest(notebookDocument.uri, [0]);
@@ -153,11 +155,11 @@ suite('Positron - RuntimeNotebookKernel', () => {
 		const session = await startSession();
 
 		// On execute, reply with an idle state.
-		disposables.add(session.onDidExecute(parent_id => session.receiveStateMessage({ parent_id, state: RuntimeOnlineState.Idle })));
+		ctx.disposables.add(session.onDidExecute(parent_id => session.receiveStateMessage({ parent_id, state: RuntimeOnlineState.Idle })));
 
 		// Establish the event handler.
 		let event: ILanguageRuntimeCodeExecutedEvent | undefined = undefined;
-		disposables.add(kernel.onDidExecuteCode(evt => {
+		ctx.disposables.add(kernel.onDidExecuteCode(evt => {
 			event = evt;
 		}));
 
@@ -181,7 +183,7 @@ suite('Positron - RuntimeNotebookKernel', () => {
 		const executeSpy = sinon.spy(session, 'execute');
 
 		// On execute, reply with an idle state.
-		disposables.add(session.onDidExecute(parent_id => session.receiveStateMessage({ parent_id, state: RuntimeOnlineState.Idle })));
+		ctx.disposables.add(session.onDidExecute(parent_id => session.receiveStateMessage({ parent_id, state: RuntimeOnlineState.Idle })));
 
 		// Execute a cell.
 		await kernel.executeNotebookCellsRequest(notebookDocument.uri, [0]);
@@ -202,10 +204,10 @@ suite('Positron - RuntimeNotebookKernel', () => {
 
 	test('single cell starts a new session if required', async () => {
 		// When a session is started, setup its execute handler to reply with an idle state.
-		disposables.add(runtimeSessionService.onWillStartSession(({ session }) => {
+		ctx.disposables.add(runtimeSessionService.onWillStartSession(({ session }) => {
 			assert.ok(session instanceof TestLanguageRuntimeSession);
-			disposables.add(session);
-			disposables.add(session.onDidExecute(parent_id => session.receiveStateMessage({ parent_id, state: RuntimeOnlineState.Idle })));
+			ctx.disposables.add(session);
+			ctx.disposables.add(session.onDidExecute(parent_id => session.receiveStateMessage({ parent_id, state: RuntimeOnlineState.Idle })));
 		}));
 
 		// Execute a cell.
@@ -229,7 +231,7 @@ suite('Positron - RuntimeNotebookKernel', () => {
 			message: 'An error occurred.',
 			traceback: ['Error: An error occurred.', '    at <anonymous>:1:1'],
 		} satisfies Partial<ILanguageRuntimeMessageError>;
-		disposables.add(session.onDidExecute(parent_id => session.receiveErrorMessage({ ...error, parent_id })));
+		ctx.disposables.add(session.onDidExecute(parent_id => session.receiveErrorMessage({ ...error, parent_id })));
 
 		// Execute a cell.
 		await kernel.executeNotebookCellsRequest(notebookDocument.uri, [0]);
@@ -280,7 +282,7 @@ suite('Positron - RuntimeNotebookKernel', () => {
 		const session = await startSession();
 
 		// On execute, reply with an error.
-		disposables.add(session.onDidExecute(parent_id => session.receiveErrorMessage({ parent_id })));
+		ctx.disposables.add(session.onDidExecute(parent_id => session.receiveErrorMessage({ parent_id })));
 
 		// Execute two cells.
 		await kernel.executeNotebookCellsRequest(notebookDocument.uri, [0, 1]);
@@ -304,7 +306,7 @@ suite('Positron - RuntimeNotebookKernel', () => {
 		const session = await startSession();
 
 		// On execute, reply with an idle state.
-		disposables.add(session.onDidExecute(parent_id => session.receiveStateMessage({ parent_id, state: RuntimeOnlineState.Idle })));
+		ctx.disposables.add(session.onDidExecute(parent_id => session.receiveStateMessage({ parent_id, state: RuntimeOnlineState.Idle })));
 
 		// Execute two cells.
 		await kernel.executeNotebookCellsRequest(notebookDocument.uri, [0, 1]);
@@ -320,7 +322,7 @@ suite('Positron - RuntimeNotebookKernel', () => {
 		const session = await startSession();
 
 		// On execute, reply with an idle state.
-		disposables.add(session.onDidExecute(parent_id => session.receiveStateMessage({ parent_id, state: RuntimeOnlineState.Idle })));
+		ctx.disposables.add(session.onDidExecute(parent_id => session.receiveStateMessage({ parent_id, state: RuntimeOnlineState.Idle })));
 
 		// Execute two cells concurrently.
 		await Promise.all([
@@ -339,7 +341,7 @@ suite('Positron - RuntimeNotebookKernel', () => {
 		const session = await startSession();
 
 		// On execute, reply with an idle state.
-		disposables.add(session.onDidExecute(parent_id => session.receiveStateMessage({ parent_id, state: RuntimeOnlineState.Idle })));
+		ctx.disposables.add(session.onDidExecute(parent_id => session.receiveStateMessage({ parent_id, state: RuntimeOnlineState.Idle })));
 
 		// Execute two cells successively.
 		await kernel.executeNotebookCellsRequest(notebookDocument.uri, [0]);
@@ -359,7 +361,7 @@ suite('Positron - RuntimeNotebookKernel', () => {
 		// Create a promise that resolves when the execution starts.
 		const executionStartedPromise = new Promise<void>(resolve => {
 			// On execute, do nothing, to simulate a long-running execution.
-			disposables.add(session.onDidExecute((_id) => {
+			ctx.disposables.add(session.onDidExecute((_id) => {
 				resolve();
 			}));
 		});
@@ -400,7 +402,7 @@ suite('Positron - RuntimeNotebookKernel', () => {
 		// Create a promise that resolves when the execution starts.
 		const executionStartedPromise = new Promise<void>(resolve => {
 			// On execute, do nothing, to simulate a long-running execution.
-			disposables.add(session.onDidExecute((_id) => {
+			ctx.disposables.add(session.onDidExecute((_id) => {
 				resolve();
 			}));
 		});

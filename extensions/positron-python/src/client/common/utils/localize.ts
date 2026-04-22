@@ -289,6 +289,37 @@ export namespace InterpreterQuickPickList {
     // --- Start Positron ---
     // Add a new tooltip text
     export const unsupportedVersionTooltip = l10n.t('This version of Python is not supported');
+
+    export namespace UvInstall {
+        export const noVersionsAvailable = l10n.t('No Python versions available for installation');
+        export const installed = l10n.t('(installed)');
+        export const selectVersion = l10n.t('Select a Python version to install');
+        export const selectVersionTitle = l10n.t('Install Python via uv');
+        export const installingPython = l10n.t('Installing Python');
+        export const installingUv = l10n.t('Installing uv');
+        export const selectingVersion = l10n.t('Loading available versions');
+        export const pythonVersionLabel = (version: string) => l10n.t('Python {0}', version);
+        export const installingPythonVersion = (version: string) => l10n.t('Installing Python {0}', version);
+        export const installSuccess = (version: string) => l10n.t('Python {0} installed successfully', version);
+        export const installFailed = (version: string) => l10n.t('Failed to install Python {0}', version);
+        export const uvInstallFailed = l10n.t('Failed to install uv');
+        export const createVenvPrompt = l10n.t('Create a virtual environment in your workspace?');
+        export const yesRecommended = l10n.t('Yes (recommended)');
+        export const creatingVenv = l10n.t('Creating virtual environment');
+        export const venvCreated = l10n.t('Virtual environment created');
+        export const venvCreationFailed = l10n.t(
+            'Failed to create virtual environment. Using installed Python instead.',
+        );
+        export const installCommandFailed = l10n.t('Failed to install Python');
+        export const confirmUvInstallTitle = l10n.t('Install uv');
+        export const confirmUvInstallMessage = l10n.t(
+            'uv is a tool used for downloading Python. It is currently not installed. Would you like to install uv?',
+        );
+        export const confirmUvInstallYes = l10n.t('Install uv');
+        export const confirmUvInstallDetail = l10n.t('This will run the official installer script from astral.sh.');
+        export const refreshingEnvironments = l10n.t('Refreshing environments');
+        export const globalVenvCreated = (path: string) => l10n.t('Virtual environment created at {0}', path);
+    }
     // --- End Positron ---
 }
 

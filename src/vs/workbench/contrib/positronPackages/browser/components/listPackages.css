@@ -7,6 +7,10 @@
 	top: 0px;
 }
 
+.packages-filter-container {
+	padding: 4px 8px;
+}
+
 .packages-list-container {
 	height: 100%;
 	position: relative;
@@ -70,4 +74,9 @@
 .positron-packages-list.focused .packages-list-item.selected {
 	color: var(--vscode-list-activeSelectionForeground);
 	background: var(--vscode-list-activeSelectionBackground);
+}
+
+.packages-empty-message {
+	padding: 5px 9px 5px 20px;
+	cursor: default;
 }

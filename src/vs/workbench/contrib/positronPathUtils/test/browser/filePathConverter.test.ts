@@ -5,13 +5,13 @@
 
 import assert from 'assert';
 import { formatPathForCode, convertClipboardFiles } from '../../common/filePathConverter.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { isWindows } from '../../../../../base/common/platform.js';
 import { URI } from '../../../../../base/common/uri.js';
 
 suite('File Path Converter Tests', () => {
 
-	ensureNoDisposablesAreLeakedInTestSuite();
+	createTestContainer().build();
 
 	suite('formatPathForCode', () => {
 

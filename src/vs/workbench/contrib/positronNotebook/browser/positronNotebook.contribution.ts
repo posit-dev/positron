@@ -43,9 +43,9 @@ import { extname, isEqual } from '../../../../base/common/resources.js';
 import { CellKind, CellUri, NotebookWorkingCopyTypeIdentifier } from '../../notebook/common/notebookCommon.js';
 import { registerNotebookWidget } from './registerNotebookWidget.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
-import { INotebookEditorOptions, IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
+import { IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
+import { IPositronNotebookEditorOptions } from './positronNotebookEditorTypes.js';
 import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID, PositronNotebookActionId, PositronNotebookCellActionBarLeftGroup, PositronNotebookCellOutputActionGroup, usingPositronNotebooks } from '../common/positronNotebookCommon.js';
-import { QMD_VIEW_TYPE } from '../../positronQuartoNotebook/common/quartoNotebookConstants.js';
 import { getActiveCell, getSelectedCells, SelectionState } from './selectionMachine.js';
 import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED, POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS, POSITRON_NOTEBOOK_CELL_IMAGE_OUTPUT_COUNT, POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED, POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS, POSITRON_NOTEBOOK_CELL_OUTPUT_SCROLLING, POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED } from './ContextKeysManager.js';
 import './contrib/undoRedo/positronNotebookUndoRedo.js';
@@ -89,11 +89,11 @@ enum PositronNotebookCellActionGroup {
 /**
  * Infer the notebook view type from a resource's file extension.
  */
-function inferViewTypeFromExtension(resource: URI): string {
-	if (extname(resource) === '.qmd') {
-		return QMD_VIEW_TYPE;
+function inferViewTypeFromExtension(resource: URI): string | undefined {
+	if (extname(resource) === '.ipynb') {
+		return IPYNB_VIEW_TYPE;
 	}
-	return IPYNB_VIEW_TYPE;
+	return undefined;
 }
 
 /**
@@ -131,30 +131,15 @@ class PositronNotebookContribution extends Disposable {
 			globPattern: '*.ipynb',
 			viewType: IPYNB_VIEW_TYPE,
 		});
-
-		this.registerNotebookEditor({
-			detail: localize('positronNotebook.qmd.detail', 'Experimental .qmd Support (Alpha)'),
-			extension: '.qmd',
-			globPattern: '*.qmd',
-			viewType: QMD_VIEW_TYPE,
-		});
 	}
 
-	private getPriority(viewType: string): RegisteredEditorPriority {
-		// Always use `option` priority while .qmd support is experimental
-		if (viewType === QMD_VIEW_TYPE) {
-			return RegisteredEditorPriority.option;
-		}
+	private getPriority(): RegisteredEditorPriority {
 		return usingPositronNotebooks(this.configurationService)
 			? RegisteredEditorPriority.default
 			: RegisteredEditorPriority.option;
 	}
 
-	private getCellPriority(viewType: string): RegisteredEditorPriority {
-		// Always use `option` priority while .qmd support is experimental
-		if (viewType === QMD_VIEW_TYPE) {
-			return RegisteredEditorPriority.option;
-		}
+	private getCellPriority(): RegisteredEditorPriority {
 		return usingPositronNotebooks(this.configurationService)
 			? RegisteredEditorPriority.exclusive
 			: RegisteredEditorPriority.option;
@@ -165,18 +150,18 @@ class PositronNotebookContribution extends Disposable {
 			id: POSITRON_NOTEBOOK_EDITOR_ID,
 			label: localize('positronNotebook', "Positron Notebook"),
 			detail: info.detail,
-			priority: this.getPriority(info.viewType),
+			priority: this.getPriority(),
 		};
 		const cellEditorInfo: RegisteredEditorInfo = {
 			...editorInfo,
-			priority: this.getCellPriority(info.viewType),
+			priority: this.getCellPriority(),
 		};
 
 		// Listen for configuration changes to update priorities dynamically
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(POSITRON_NOTEBOOK_ENABLED_KEY)) {
-				editorInfo.priority = this.getPriority(info.viewType);
-				cellEditorInfo.priority = this.getCellPriority(info.viewType);
+				editorInfo.priority = this.getPriority();
+				cellEditorInfo.priority = this.getCellPriority();
 			}
 		}));
 
@@ -282,7 +267,7 @@ class PositronNotebookContribution extends Disposable {
 						info.viewType,
 					);
 					// Create notebook editor options from base text editor options
-					const notebookEditorOptions: INotebookEditorOptions = {
+					const notebookEditorOptions: IPositronNotebookEditorOptions = {
 						...editorInput.options,
 						cellOptions: editorInput,
 						// Override text editor view state - it's not valid for notebook editors
@@ -320,9 +305,9 @@ class PositronNotebookWorkingCopyEditorHandler extends Disposable implements IWo
 	}
 
 	async handles(workingCopy: IWorkingCopyIdentifier): Promise<boolean> {
-		// Handle .ipynb and .qmd files
+		// Handle .ipynb files
 		const path = workingCopy.resource.path;
-		if (!path.endsWith('.ipynb') && !path.endsWith('.qmd')) {
+		if (!path.endsWith('.ipynb')) {
 			return false;
 		}
 
@@ -348,6 +333,9 @@ class PositronNotebookWorkingCopyEditorHandler extends Disposable implements IWo
 
 	createEditor(workingCopy: IWorkingCopyIdentifier): EditorInput {
 		const viewType = this.getViewType(workingCopy) ?? inferViewTypeFromExtension(workingCopy.resource);
+		if (!viewType) {
+			throw new Error(`Unsupported file type for Positron notebook editor: ${workingCopy.resource.toString()}`);
+		}
 		return PositronNotebookEditorInput.getOrCreate(
 			this.instantiationService,
 			workingCopy.resource,
@@ -417,6 +405,9 @@ class PositronNotebookEditorSerializer implements IEditorSerializer {
 		// Use persisted viewType, falling back to extension-based inference
 		// for backwards compatibility with existing serialized data
 		const viewType = data.viewType ?? inferViewTypeFromExtension(resource);
+		if (!viewType) {
+			return undefined;
+		}
 		return PositronNotebookEditorInput.getOrCreate(instantiationService, resource, undefined, viewType, options);
 	}
 }

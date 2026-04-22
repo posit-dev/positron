@@ -17,6 +17,7 @@ export class RuntimeSessionDisplayInfo implements IRuntimeSessionDisplayInfo {
 	public readonly sessionMode: LanguageRuntimeSessionMode;
 	public readonly notebookUri: URI | undefined;
 	public readonly runtimeId: string;
+	public readonly runtimeName: string;
 	public readonly languageName: string;
 	public readonly languageId: string;
 	public readonly base64EncodedIconSvg: string | undefined;
@@ -27,6 +28,7 @@ export class RuntimeSessionDisplayInfo implements IRuntimeSessionDisplayInfo {
 		this.sessionMode = session.metadata.sessionMode;
 		this.notebookUri = session.metadata.notebookUri;
 		this.runtimeId = session.runtimeMetadata.runtimeId;
+		this.runtimeName = session.runtimeMetadata.runtimeName;
 		this.languageName = session.runtimeMetadata.languageName;
 		this.languageId = session.runtimeMetadata.languageId;
 		this.base64EncodedIconSvg = session.runtimeMetadata.base64EncodedIconSvg;

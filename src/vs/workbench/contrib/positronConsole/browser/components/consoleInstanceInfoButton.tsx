@@ -15,7 +15,7 @@ import * as DOM from '../../../../../base/browser/dom.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
-import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
+import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { PositronModalPopup } from '../../../../browser/positronComponents/positronModalPopup/positronModalPopup.js';
@@ -163,13 +163,13 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 				</div>
 				<div className='top-separator actions'>
 					{props.channels.map((channel, index) => (
-						<PositronButton
+						<Button
 							key={`channel-${index}`}
 							className='link'
 							onPressed={() => showKernelOutputChannelClickHandler(channel)}
 						>
 							{localizeShowKernelOutputChannel(OutputChannelNames[channel])}
-						</PositronButton>
+						</Button>
 					))}
 				</div>
 			</div>

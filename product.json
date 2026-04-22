@@ -24,21 +24,21 @@
 	"win32AppId": "{{1CE64477-8EE2-479C-942A-D7B101721AFB}",
 	"win32x64AppId": "{{08FC0438-DEF4-4349-85AE-FA80317766E9}",
 	"win32arm64AppId": "{{17BBF21B-410B-40F4-ACC4-2E9515616AC6}",
-	"win32UserAppId": "{{BA70F482-04D8-4BD6-B6C5-976E94C73E13}",
-	"win32x64UserAppId": "{{D4272F45-0AAB-432E-89DE-DBC7DFA87F7D}",
-	"win32arm64UserAppId": "{{B9BE1090-E373-4510-829E-D98C416CB4D9}",
+	"win32UserAppId": "{{CA791628-3EE5-404F-8BBE-8844E6C04455}",
+	"win32x64UserAppId": "{{5894F169-3C13-4E32-A124-67BDE57636E1}",
+	"win32arm64UserAppId": "{{585852C3-3385-447E-8711-67F60DE17946}",
 	"win32AppUserModelId": "Posit.Positron",
 	"win32ShellNameShort": "&Positron",
-	"win32TunnelServiceMutex": "vscodeoss-tunnelservice",
-	"win32TunnelMutex": "vscodeoss-tunnel",
+	"win32TunnelServiceMutex": "positron-tunnelservice",
+	"win32TunnelMutex": "positrontunnel",
 	"darwinBundleIdentifier": "co.posit.positron",
-	"darwinProfileUUID": "47827DD9-4734-49A0-AF80-7E19B11495CC",
-	"darwinProfilePayloadUUID": "CF808BE7-53F3-46C6-A7E2-7EDB98A5E959",
+	"darwinProfileUUID": "0501C5DF-0DC9-4217-9C18-A5595A125743",
+	"darwinProfilePayloadUUID": "BEA2CCD2-3F74-4174-9C0E-606A6F13B050",
 	"linuxIconName": "co.posit.positron",
 	"licenseFileName": "LICENSE.txt",
-	"reportIssueUrl": "https://github.com/microsoft/vscode/issues/new",
+	"reportIssueUrl": "https://github.com/posit-dev/positron/issues/new",
 	"nodejsRepository": "https://nodejs.org",
-	"urlProtocol": "vscode-server",
+	"urlProtocol": "positron",
 	"webviewContentExternalBaseUrlTemplate": "https://{{uuid}}.vscode-cdn.net/insider/ef65ac1ba57f57f2a3961bfe94aa20481caca4c6/out/vs/workbench/contrib/webview/browser/pre/",
 	"updateUrl": "https://cdn.posit.co/positron",
 	"releaseNotesUrl": "https://cdn.posit.co/positron",
@@ -94,10 +94,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "2026.4.19",
+			"version": "2026.5.2",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web-pwb",
-			"sha256": "2a08a4be73c55170f57fc784f1a47aab1795e9503a973dddee8ee170f2bd58c2",
+			"sha256": "dcab9474334bb9ede3639277c0034baa3d482b12057abba2308d2756e2bc69e1",
 			"metadata": {
 				"publisherDisplayName": "Posit PBC"
 			}
@@ -121,7 +121,7 @@
 		{
 			"name": "ms-toolsai.vscode-jupyter-cell-tags",
 			"version": "0.1.9",
-			"sha256sum": "7cd43af55cf562a001dc475e92d9f3fd4b7173011adca0c02da22fbf891c274b",
+			"sha256": "7cd43af55cf562a001dc475e92d9f3fd4b7173011adca0c02da22fbf891c274b",
 			"repo": "https://github.com/Microsoft/vscode-jupyter-cell-tags",
 			"metadata": {
 				"id": "ab4fb32a-befb-4102-adf9-1652d0cd6a5e",
@@ -137,7 +137,7 @@
 		{
 			"name": "ms-toolsai.jupyter-keymap",
 			"version": "1.1.2",
-			"sha256sum": "3d2998929bb43156f3b428116aee290543c437875df616ec755692219b4afa17",
+			"sha256": "3d2998929bb43156f3b428116aee290543c437875df616ec755692219b4afa17",
 			"repo": "https://github.com/Microsoft/vscode-jupyter-keymap",
 			"metadata": {
 				"id": "9f6dc8db-620c-4844-b8c5-e74914f1be27",
@@ -153,7 +153,7 @@
 		{
 			"name": "ms-toolsai.vscode-jupyter-slideshow",
 			"version": "0.1.6",
-			"sha256sum": "5b8dee0d569b7e0990bb4847c34748cdc0102078779351ed415d9d71cfa3e945",
+			"sha256": "5b8dee0d569b7e0990bb4847c34748cdc0102078779351ed415d9d71cfa3e945",
 			"repo": "https://github.com/Microsoft/vscode-jupyter-slideshow",
 			"metadata": {
 				"id": "e153ca70-b543-4865-b4c5-b31d34185948",
@@ -169,7 +169,7 @@
 		{
 			"name": "ms-toolsai.jupyter-renderers",
 			"version": "1.3.0",
-			"sha256sum": "d09f6c517a8090a932bb4e2c31bcb2de34ddb2a71133477f6c47f28f36eb76ae",
+			"sha256": "d09f6c517a8090a932bb4e2c31bcb2de34ddb2a71133477f6c47f28f36eb76ae",
 			"repo": "https://github.com/Microsoft/vscode-notebook-renderers",
 			"metadata": {
 				"id": "b15c72f8-d5fe-421a-a4f7-27ed9f6addbf",
@@ -185,7 +185,7 @@
 		{
 			"name": "ms-toolsai.jupyter",
 			"version": "2025.9.1",
-			"sha256sum": "110660656944c4ab0ff687db488c2e8c59c67ec121dcf09bcaa54b6edd9ce71f",
+			"sha256": "110660656944c4ab0ff687db488c2e8c59c67ec121dcf09bcaa54b6edd9ce71f",
 			"repo": "https://github.com/Microsoft/vscode-jupyter",
 			"metadata": {
 				"id": "6c2f1801-1e7f-45b2-9b5c-7782f1e076e8",
@@ -200,8 +200,7 @@
 		},
 		{
 			"name": "meta.pyrefly",
-			"version": "0.60.0",
-			"sha256sum": "84de58c36e57d1caea48ad466bfd643113dd5599d04952cfc9cf03cf69d4117f",
+			"version": "0.62.0",
 			"repo": "https://github.com/facebook/pyrefly",
 			"metadata": {
 				"publisherId": {
@@ -243,8 +242,8 @@
 		},
 		{
 			"name": "quarto.quarto",
-			"version": "1.130.0",
-			"sha256sum": "8494b30a7895b2f6f52ef500bb71f64d897f6f6d3ec028ad0082ce11ed239b1e",
+			"version": "1.131.0",
+			"sha256": "1fcae21883e96367a6e65a76d84cf8900138c4536774f9a5387f711538389a0c",
 			"repo": "https://github.com/quarto-dev/quarto/tree/main/apps/vscode",
 			"metadata": {
 				"id": "a1be81fc-0f3a-4f2e-92ee-3fdc7ab96c73",
@@ -271,7 +270,7 @@
 		{
 			"name": "posit.shiny",
 			"version": "1.4.0",
-			"sha256sum": "7a71a88360559de5de2da20fd9e508d64c305cb0c2477f8503b8dde77c4f1e05",
+			"sha256": "7a71a88360559de5de2da20fd9e508d64c305cb0c2477f8503b8dde77c4f1e05",
 			"repo": "https://github.com/posit-dev/shiny-vscode",
 			"metadata": {
 				"id": "7ffa9a66-85ab-44de-ab80-2eecce45b0fe",
@@ -296,8 +295,8 @@
 		},
 		{
 			"name": "posit.assistant",
-			"version": "0.2.1",
-			"sha256": "dd7a821377d62e258079c2e84962b0b7ac1be906c4cf6e5c1fd53f825da17850",
+			"version": "0.3.2",
+			"sha256": "d6661dc9e5c607a645a65eae56fec210302a5babb2e2af735078e96e448b7c3e",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
 				"displayName": "Posit Assistant"

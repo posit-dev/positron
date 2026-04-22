@@ -32,7 +32,7 @@ type OutputActionBarButtons = 'Collapse Output' | 'Expand Output' | 'Clear Outpu
 export class PositronNotebooks extends Notebooks {
 	// Containers, generic locators
 	private positronNotebook = this.code.driver.page.locator('.positron-notebook').first();
-	private cellsContainer = this.positronNotebook.locator('.positron-notebook-cells-container').first();
+	cellsContainer = this.positronNotebook.locator('.positron-notebook-cells-container').first();
 	private newCellButton = this.code.driver.page.getByLabel(/new code cell/i);
 	private spinner = this.code.driver.page.getByLabel(/cell is executing/i);
 	editorAtIndex = (index: number) => this.cell.nth(index).locator('.monaco-editor :is(.native-edit-context, .inputarea)');
@@ -72,6 +72,15 @@ export class PositronNotebooks extends Notebooks {
 	outputCollapsedLabel = (index: number) => this.cellOutput(index).getByText('Output collapsed');
 	outputTruncationMessage = (index: number) => this.cellOutput(index).getByText(/\.\.\. Show [\d,.\s\u00A0]+ more lines/);
 	outputCollapseToggle = (index: number) => this.cell.nth(index).locator('.cell-output-collapse-button-container').getByRole('button');
+
+	// Cell outputs - ipywidgets (rendered inside the notebook webview iframe)
+	widgetSlider = this.frameLocator.locator('[role="slider"]');
+	widgetReadout = this.frameLocator.locator('div.widget-readout');
+
+	async focusWidgetSlider(): Promise<void> {
+		await this.widgetSlider.hover();
+		await this.widgetSlider.focus();
+	}
 
 	// Assistant buttons (shown on error cells when assistant is enabled)
 	private askAssistantButton = this.editorActionBar.getByRole('button', { name: 'Ask Assistant', exact: true });
@@ -251,11 +260,16 @@ export class PositronNotebooks extends Notebooks {
 	 * @param codeCells - Number of code cells to create
 	 * @param markdownCells - Number of markdown cells to create
 	 */
-	async newNotebook({ codeCells = 0, markdownCells = 0 }: { codeCells?: number; markdownCells?: number } = {}): Promise<void> {
+	async newNotebook({ codeCells = 1, markdownCells = 0 }: { codeCells?: number; markdownCells?: number } = {}): Promise<void> {
 		await this.createNewNotebook();
 		await this.expectToBeVisible();
+		await this.expectCellCountToBe(1); // New notebook starts with 1 cell by default
 
-		if (codeCells === 0 && markdownCells === 0) {
+		if (codeCells === 0) {
+			await this.deleteCellWithActionBar(0);
+		}
+
+		if (codeCells <= 1 && markdownCells === 0) {
 			return;
 		}
 
@@ -1137,6 +1151,18 @@ export class PositronNotebooks extends Notebooks {
 		await test.step(`Expect cell footer aria-label to be: ${expectedAriaLabel}`, async () => {
 			const footer = this.cellFooterAtIndex(cellIndex);
 			await expect(footer).toHaveAttribute('aria-label', expectedAriaLabel, { timeout });
+		});
+	}
+
+	/**
+	 * Verify: Cell footer is collapsed (hidden via CSS animation).
+	 * @param cellIndex - The index of the cell whose footer to check.
+	 */
+	async expectFooterNotVisible(cellIndex: number): Promise<void> {
+		await test.step(`Expect cell footer to be collapsed`, async () => {
+			const footer = this.cellFooterAtIndex(cellIndex);
+			await expect(footer).toHaveClass(/\bcollapsed\b/);
+			await expect(footer).not.toBeVisible();
 		});
 	}
 

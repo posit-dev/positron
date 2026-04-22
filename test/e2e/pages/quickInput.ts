@@ -139,6 +139,19 @@ export class QuickInput {
 		return firstMatchResult.trim();
 	}
 
+	async selectQuickInputElementExact(
+		text: string,
+		{ timeout, force = true }: { timeout?: number; force?: boolean } = {},
+	): Promise<void> {
+		await this.waitForQuickInputOpened();
+		const exactMatch = this.code.driver.page
+			.locator(`${QuickInput.QUICK_INPUT_RESULT}[aria-label="${text}"]`)
+			.first();
+		await expect(exactMatch).toBeVisible({ timeout });
+		await exactMatch.click({ force, timeout });
+		await this.code.driver.page.mouse.move(0, 0);
+	}
+
 	async clickOkButton(): Promise<void> {
 		await this.code.driver.page
 			.locator(QuickInput.QUICKINPUT_OK_BUTTON)

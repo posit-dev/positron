@@ -4,11 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { isCopyImageMenuArg, toBase64DataUrl } from '../../browser/copyImageUtils.js';
 
 suite('copyImageUtils', () => {
-	ensureNoDisposablesAreLeakedInTestSuite();
+	createTestContainer().build();
 
 	suite('toBase64DataUrl', () => {
 		test('returns already-base64 data URLs unchanged', () => {

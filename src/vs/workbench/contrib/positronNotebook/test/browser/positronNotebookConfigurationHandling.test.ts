@@ -6,7 +6,7 @@
 import assert from 'assert';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { EditorResolverService } from '../../../../services/editor/browser/editorResolverService.js';
 import { IEditorResolverService, RegisteredEditorPriority } from '../../../../services/editor/common/editorResolverService.js';
@@ -84,7 +84,7 @@ suite('Positron Notebook Configuration Handling', () => {
 
 	teardown(() => disposables.clear());
 
-	ensureNoDisposablesAreLeakedInTestSuite();
+	createTestContainer().build();
 
 	async function createTestServices(): Promise<void> {
 		const services = await createPositronNotebookTestServices(disposables);

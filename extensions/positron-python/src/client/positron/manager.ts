@@ -56,7 +56,8 @@ export interface IPythonRuntimeManager extends positron.LanguageRuntimeManager {
         pythonPath: string,
         recreateRuntime?: boolean,
     ): Promise<positron.LanguageRuntimeMetadata | undefined>;
-    selectLanguageRuntimeFromPath(pythonPath: string, recreateRuntime?: boolean): Promise<void>;
+    selectLanguageRuntimeFromPath(pythonPath: string, recreateRuntime?: boolean): Promise<string | undefined>;
+    triggerInterpreterRefresh(): Promise<void>;
 }
 
 /**
@@ -545,14 +546,31 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
      * @param pythonPath The path to the Python interpreter.
      * @returns Promise that resolves when the runtime is selected.
      */
-    async selectLanguageRuntimeFromPath(pythonPath: string, recreateRuntime?: boolean): Promise<void> {
-        await this.registerLanguageRuntimeFromPath(pythonPath, recreateRuntime);
-        const runtimeMetadata = this.registeredPythonRuntimes.get(pythonPath);
-        if (runtimeMetadata) {
-            await positron.runtime.selectLanguageRuntime(runtimeMetadata.runtimeId);
+    async selectLanguageRuntimeFromPath(pythonPath: string, recreateRuntime?: boolean): Promise<string | undefined> {
+        // Try to register the runtime
+        let metadata = await this.registerLanguageRuntimeFromPath(pythonPath, recreateRuntime);
+
+        // If registration failed, the interpreter might be newly created - trigger a refresh and retry
+        if (!metadata) {
+            traceInfo(`Runtime not found for ${pythonPath}, triggering interpreter refresh...`);
+            await this.triggerInterpreterRefresh();
+            metadata = await this.registerLanguageRuntimeFromPath(pythonPath, recreateRuntime);
+        }
+
+        if (metadata) {
+            await positron.runtime.selectLanguageRuntime(metadata.runtimeId);
+            return metadata.runtimeId;
         } else {
             traceError(`Tried to switch to a language runtime that has not been registered: ${pythonPath}`);
+            return undefined;
         }
+    }
+
+    /**
+     * Triggers a refresh of the interpreter list.
+     */
+    async triggerInterpreterRefresh(): Promise<void> {
+        await this.interpreterService.triggerRefresh();
     }
 }
 

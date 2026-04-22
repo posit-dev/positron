@@ -852,6 +852,26 @@ suite('Configuration', () => {
 		assert.deepStrictEqual(overrideIdentifiers, ['l1', 'l3', 'l4']);
 	});
 
+	// --- Start PWB: Apply policy before overrides so language-scoped policy keys participate in override flattening ---
+	test('getValue applies language-scoped policy overrides', () => {
+		const policyConfigurationModel = parseConfigurationModel({
+			'[r]': { 'editor.formatOnSave': true }
+		});
+		const userConfigurationModel = parseConfigurationModel({
+			'editor.formatOnSave': false
+		});
+		const testObject: Configuration = new TestConfiguration(
+			ConfigurationModel.createEmptyModel(new NullLogService()),
+			policyConfigurationModel,
+			ConfigurationModel.createEmptyModel(new NullLogService()),
+			userConfigurationModel,
+		);
+
+		assert.strictEqual(testObject.getValue('editor.formatOnSave', { overrideIdentifier: 'r' }, undefined), true);
+		assert.strictEqual(testObject.getValue('editor.formatOnSave', {}, undefined), false);
+	});
+	// --- End PWB ---
+
 	test('Test update value', () => {
 		const parser = new ConfigurationModelParser('test', new NullLogService());
 		parser.parse(JSON.stringify({ 'a': 1 }));
