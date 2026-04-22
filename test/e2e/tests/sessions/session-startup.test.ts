@@ -13,7 +13,8 @@ test.describe('Sessions: Startup Performance', {
 	tag: [tags.WIN, tags.SESSIONS, tags.PERFORMANCE]
 }, () => {
 
-	test.afterEach(async function ({ sessions }) {
+	test.afterEach(async function ({ hotKeys, sessions }) {
+		await hotKeys.closeAllEditors();
 		await sessions.deleteDisconnectedSessions();
 	});
 
