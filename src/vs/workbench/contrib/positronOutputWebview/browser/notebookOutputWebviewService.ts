@@ -9,6 +9,7 @@ import { ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageWebOutput } from 
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Event } from '../../../../base/common/event.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
+import { URI } from '../../../../base/common/uri.js';
 
 export const POSITRON_NOTEBOOK_OUTPUT_WEBVIEW_SERVICE_ID = 'positronNotebookOutputWebview';
 
@@ -77,5 +78,19 @@ export interface IPositronNotebookOutputWebviewService {
 			viewType?: string;
 		}): Promise<INotebookOutputWebview | undefined>;
 
-}
+	/**
+	 * Create a new notebook output webview that renders raw HTML content directly.
+	 *
+	 * Used for complex HTML outputs (e.g. folium maps, HTML with scripts/iframes)
+	 * that cannot be safely rendered inline due to Trusted Types / CSP restrictions.
+	 * The webview runs in an isolated Electron process with its own CSP, so embedded
+	 * scripts and iframes execute normally.
+	 *
+	 * @param id A unique ID for this webview; typically the output ID.
+	 * @param html The raw HTML content to render.
+	 * @param baseUri Optional base directory used to resolve relative asset URLs in the HTML.
+	 * @returns A promise that resolves to the new webview.
+	 */
+	createRawHtmlOutputWebview(id: string, html: string, baseUri?: URI): Promise<INotebookOutputWebview>;
 
+}

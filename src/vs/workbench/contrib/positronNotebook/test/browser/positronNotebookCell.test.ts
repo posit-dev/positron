@@ -5,20 +5,20 @@
 
 import * as assert from 'assert';
 import { VSBuffer } from '../../../../../base/common/buffer.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { CellEditType, CellKind, NotebookCellsChangeType } from '../../../notebook/common/notebookCommon.js';
 import { createTestPositronNotebookInstance, TestPositronNotebookInstance } from './testPositronNotebookInstance.js';
 import { PositronNotebookCodeCell } from '../../browser/PositronNotebookCells/PositronNotebookCodeCell.js';
 
 suite('PositronNotebookCell', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+	const ctx = createTestContainer().build();
 
 	let notebook: TestPositronNotebookInstance;
 	let cell: PositronNotebookCodeCell;
 
 	setup(() => {
 		notebook = createTestPositronNotebookInstance(
-			[['print("hello")', 'python', CellKind.Code]], disposables
+			[['print("hello")', 'python', CellKind.Code]], ctx.disposables
 		);
 		cell = notebook.cells.get()[0] as PositronNotebookCodeCell;
 		assert.ok(cell.isCodeCell(), 'Expected cell to be a code cell');
@@ -87,11 +87,11 @@ suite('PositronNotebookCell', () => {
 
 /** Tests to ensure that the test harness is correctly setup, useful for debugging the test harness */
 suite('PositronNotebookCell Test Harness', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+	const ctx = createTestContainer().build();
 
 	test('cells have editors auto-attached', () => {
 		const notebook = createTestPositronNotebookInstance(
-			[['print("hello")', 'python', CellKind.Code]], disposables
+			[['print("hello")', 'python', CellKind.Code]], ctx.disposables
 		);
 
 		const cell = notebook.cells.get()[0];
@@ -106,7 +106,7 @@ suite('PositronNotebookCell Test Harness', () => {
 
 	test('setValue propagates through the content change event chain', () => {
 		const notebook = createTestPositronNotebookInstance(
-			[['original content', 'python', CellKind.Code]], disposables
+			[['original content', 'python', CellKind.Code]], ctx.disposables
 		);
 
 		const cell = notebook.cells.get()[0];
@@ -114,7 +114,7 @@ suite('PositronNotebookCell Test Harness', () => {
 
 		// Link 1: NotebookCellTextModel fires onDidChangeContent when textModel changes
 		let cellContentFired = false;
-		disposables.add(cell.model.onDidChangeContent((e) => {
+		ctx.disposables.add(cell.model.onDidChangeContent((e) => {
 			if (e === 'content' || (typeof e === 'object' && e.type === 'model')) {
 				cellContentFired = true;
 			}
@@ -122,7 +122,7 @@ suite('PositronNotebookCell Test Harness', () => {
 
 		// Link 2: NotebookTextModel fires onDidChangeContent with ChangeCellContent
 		let notebookModelFired = false;
-		disposables.add(notebookModel.onDidChangeContent((e) => {
+		ctx.disposables.add(notebookModel.onDidChangeContent((e) => {
 			if (e.rawEvents.some(
 				event => event.kind === NotebookCellsChangeType.ChangeCellContent ||
 					event.kind === NotebookCellsChangeType.ModelChange)) {

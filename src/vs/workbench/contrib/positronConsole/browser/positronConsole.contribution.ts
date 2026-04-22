@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -8,17 +8,22 @@ import { Codicon } from '../../../../base/common/codicons.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js';
-import { PositronConsoleFocused } from '../../../common/contextkeys.js';
+import { PositronConsoleFocused, PositronConsoleFindInputFocused, PositronConsoleFindVisible } from '../../../common/contextkeys.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
 import { PositronConsoleViewPane } from './positronConsoleView.js';
 import { registerPositronConsoleActions } from './positronConsoleActions.js';
-import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { IConsoleFindWidgetFactory, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ICommandAndKeybindingRule, KeybindingWeight, KeybindingsRegistry } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from '../../../common/views.js';
 import { POSITRON_CONSOLE_COPY, POSITRON_CONSOLE_PASTE, POSITRON_CONSOLE_SELECT_ALL } from './positronConsoleIdentifiers.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
-import { RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
+import { ContextKeyExpr, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
+import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { localize2 } from '../../../../nls.js';
+import { ConsoleFindWidgetFactory, PositronConsoleFindCommandId } from './positronConsoleFind.js';
 
 // The Positron console view icon.
 const positronConsoleViewIcon = registerIcon(
@@ -87,7 +92,7 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 	id: POSITRON_CONSOLE_PASTE,
 	weight: KeybindingWeight.WorkbenchContrib,
 	primary: KeyMod.CtrlCmd | KeyCode.KeyV,
-	when: PositronConsoleFocused,
+	when: ContextKeyExpr.and(PositronConsoleFocused, PositronConsoleFindInputFocused.negate()),
 	handler: async accessor => {
 		const clipboardService = accessor.get(IClipboardService);
 		const consoleService = accessor.get(IPositronConsoleService);
@@ -101,12 +106,95 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 	id: POSITRON_CONSOLE_SELECT_ALL,
 	weight: KeybindingWeight.WorkbenchContrib,
 	primary: KeyMod.CtrlCmd | KeyCode.KeyA,
-	when: PositronConsoleFocused,
+	when: ContextKeyExpr.and(PositronConsoleFocused, PositronConsoleFindInputFocused.negate()),
 	handler: async accessor => {
 		const consoleService = accessor.get(IPositronConsoleService);
 		return consoleService.activePositronConsoleInstance?.selectAll();
 	}
 } satisfies ICommandAndKeybindingRule);
 
+// Register keybinding rule for hiding find (Escape).
+KeybindingsRegistry.registerCommandAndKeybindingRule({
+	id: PositronConsoleFindCommandId.FindHide,
+	weight: KeybindingWeight.WorkbenchContrib,
+	primary: KeyCode.Escape,
+	secondary: [KeyMod.Shift | KeyCode.Escape],
+	when: ContextKeyExpr.and(PositronConsoleFocused, PositronConsoleFindVisible),
+	handler: accessor => {
+		accessor.get(IPositronConsoleService).hideFindWidget();
+	}
+} satisfies ICommandAndKeybindingRule);
+
+// Register keybinding rule for find next.
+KeybindingsRegistry.registerCommandAndKeybindingRule({
+	id: PositronConsoleFindCommandId.FindNext,
+	weight: KeybindingWeight.WorkbenchContrib,
+	primary: KeyCode.F3,
+	mac: { primary: KeyMod.CtrlCmd | KeyCode.KeyG, secondary: [KeyCode.F3] },
+	when: ContextKeyExpr.and(PositronConsoleFocused, PositronConsoleFindVisible),
+	handler: accessor => {
+		accessor.get(IPositronConsoleService).findNext();
+	}
+} satisfies ICommandAndKeybindingRule);
+
+// Register keybinding rule for find next from within the find input (Shift+Enter).
+// In the console, "next" navigates downward (toward newer output).
+KeybindingsRegistry.registerCommandAndKeybindingRule({
+	id: `${PositronConsoleFindCommandId.FindNext}.fromInput`,
+	weight: KeybindingWeight.WorkbenchContrib,
+	primary: KeyMod.Shift | KeyCode.Enter,
+	when: PositronConsoleFindInputFocused,
+	handler: accessor => {
+		accessor.get(IPositronConsoleService).findNext();
+	}
+} satisfies ICommandAndKeybindingRule);
+
+// Register keybinding rule for find previous.
+KeybindingsRegistry.registerCommandAndKeybindingRule({
+	id: PositronConsoleFindCommandId.FindPrevious,
+	weight: KeybindingWeight.WorkbenchContrib,
+	primary: KeyMod.Shift | KeyCode.F3,
+	mac: { primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyG, secondary: [KeyMod.Shift | KeyCode.F3] },
+	when: ContextKeyExpr.and(PositronConsoleFocused, PositronConsoleFindVisible),
+	handler: accessor => {
+		accessor.get(IPositronConsoleService).findPrevious();
+	}
+} satisfies ICommandAndKeybindingRule);
+
+// Register keybinding rule for find previous from within the find input (Enter).
+// In the console, "previous" navigates upward (toward older output), so Enter
+// searches backward which is the natural direction for console history.
+KeybindingsRegistry.registerCommandAndKeybindingRule({
+	id: `${PositronConsoleFindCommandId.FindPrevious}.fromInput`,
+	weight: KeybindingWeight.WorkbenchContrib,
+	primary: KeyCode.Enter,
+	when: PositronConsoleFindInputFocused,
+	handler: accessor => {
+		accessor.get(IPositronConsoleService).findPrevious();
+	}
+} satisfies ICommandAndKeybindingRule);
+
+// Register command palette action for Console: Find.
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: PositronConsoleFindCommandId.FindFocus,
+			title: localize2('positronConsole.find', 'Console: Find'),
+			f1: true,
+			keybinding: {
+				primary: KeyMod.CtrlCmd | KeyCode.KeyF,
+				when: PositronConsoleFocused,
+				weight: KeybindingWeight.WorkbenchContrib,
+			},
+		});
+	}
+	run(accessor: ServicesAccessor) {
+		accessor.get(IPositronConsoleService).revealFindWidget();
+	}
+});
+
 // Register all the Positron console actions.
 registerPositronConsoleActions();
+
+// Singleton to allow service layers to instantiate a find widget.
+registerSingleton(IConsoleFindWidgetFactory, ConsoleFindWidgetFactory, InstantiationType.Delayed);

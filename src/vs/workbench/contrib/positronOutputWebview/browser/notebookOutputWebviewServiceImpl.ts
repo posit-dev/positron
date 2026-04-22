@@ -380,6 +380,67 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		return notebookOutputWebview;
 	}
 
+	private _buildRawHtmlDocument(html: string, baseUri?: URI): string {
+		// Only inject a <base> tag if the HTML doesn't already define one.
+		// In HTML only the first <base> is honored, so overriding an existing
+		// one would break outputs that set their own base URL.
+		const needsBase = baseUri && !/<base[\s>]/i.test(html);
+		const headContent = [
+			needsBase ? `<base href="${asWebviewUri(baseUri).toString(true)}/">` : '',
+			PositronNotebookOutputWebviewService.CssAddons,
+			`<script>${webviewMessageCodeString}</script>`,
+		].filter(Boolean).join('\n');
+
+		if (/<head[\s>]/i.test(html)) {
+			return html.replace(/<head(\s[^>]*)?>/i, match => `${match}\n${headContent}`);
+		}
+
+		if (/<html[\s>]/i.test(html)) {
+			return html.replace(/<html(\s[^>]*)?>/i, match => `${match}\n<head>\n${headContent}\n</head>`);
+		}
+
+		if (/<body[\s>]/i.test(html)) {
+			return `<html>
+<head>
+${headContent}
+</head>
+${html}
+</html>`;
+		}
+
+		return `<html>
+<head>
+${headContent}
+</head>
+<body>${html}</body>
+</html>`;
+	}
+
+	async createRawHtmlOutputWebview(id: string, html: string, baseUri?: URI): Promise<INotebookOutputWebview> {
+		const webview = this._webviewService.createWebviewOverlay({
+			origin: DOM.getActiveWindow().origin,
+			contentOptions: {
+				allowScripts: true,
+				localResourceRoots: baseUri ? [baseUri] : [],
+			},
+			extension: undefined,
+			options: {
+				retainContextWhenHidden: true,
+			},
+			title: '',
+		});
+
+		// Inject a base URL and sizing script so relative assets resolve and
+		// useWebviewMount receives webviewMetrics messages for layout.
+		webview.setHtml(this._buildRawHtmlDocument(html, baseUri));
+
+		return this._instantiationService.createInstance(NotebookOutputWebview, {
+			id,
+			sessionId: id,
+			webview,
+		});
+	}
+
 	/**
 	 * A set of CSS addons to inject into the HTML of the webview. Used to do things like
 	 * hide elements that are not functional in the context of positron such as links to

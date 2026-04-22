@@ -21,7 +21,14 @@ Analyzes Playwright e2e test failures from a GitHub Actions run using JSON repor
 
 ## Helper Scripts
 
-Scripts live alongside this skill in `scripts/`. Use the base directory path shown above when the skill loads (the "Base directory for this skill: ..." line) as `$SKILL_DIR`. Scripts require Node.js and are cross-platform (Windows via Git Bash, macOS, Linux). The `e2e-inspect-blobs.js` script requires `unzip` to be available in PATH (included in Git Bash on Windows).
+Scripts live alongside this skill in `scripts/`. Use the base directory path shown above when the skill loads (the "Base directory for this skill: ..." line) as `$SKILL_DIR`. Scripts require Node.js and are cross-platform (Windows via Git Bash, macOS, Linux). Scripts that extract from zip files require `unzip` to be available in PATH (included in Git Bash on Windows).
+
+### Consolidated scripts (preferred -- fewer tool calls)
+
+- **`e2e-gather-run-info.js`** - Gathers all run metadata, failed jobs, artifacts, non-e2e job log excerpts, and commit info in one call. Replaces multiple `gh api` invocations.
+- **`e2e-process-project.js`** - Processes a merged blob report project end-to-end: extracts failures, scans blobs, extracts/parses traces, extracts screenshots and error-context. Replaces multiple script + unzip invocations.
+
+### Standalone scripts (used by consolidated scripts internally, or for ad-hoc debugging)
 
 - **`e2e-extract-failures.js`** - Extracts failures from a merged Playwright JSON report
 - **`e2e-parse-trace.js`** - Parses a `trace.trace` file into an action timeline with errors and last screenshot hash
@@ -34,116 +41,72 @@ Run ID or URL from either repo:
 - `https://github.com/posit-dev/positron/actions/runs/23610137774`
 - `https://github.com/posit-dev/positron-builds/actions/runs/23938334846`
 
-## Step 1: Parse Input, Enumerate Failed Jobs, and Determine Repo
+## Step 1: Gather Run Info (single script call)
 
-Extract the run ID and repo from the URL. The two repos have different data access patterns:
+The consolidated `e2e-gather-run-info.js` script handles everything: run metadata, failed jobs, blob report artifacts, non-e2e job log excerpts, and commit info.
 
+```bash
+node "$SKILL_DIR/scripts/e2e-gather-run-info.js" <RUN_URL>
+```
+
+Output JSON contains:
+- `repo`, `runId` - parsed from URL
+- `run` - metadata (name, conclusion, html_url, head_sha, branch)
+- `failedJobs` - array of `{id, name, isE2e}` for all failed jobs
+- `nonE2eJobLogs` - map of job ID to failure log excerpts (for non-e2e jobs)
+- `artifacts` - sorted list of blob report artifact names
+- `projects` - unique project names extracted from artifacts (e.g., `e2e-chromium`, `e2e-windows`)
+- `commit` - `{message, author, files}` for the head commit
+
+Use `projects` to determine what to process:
+- If projects list is non-empty -> use **Path A** (positron repo flow) for each project
+- If empty -> use **Path B** (positron-builds flow)
+
+The two repos have different data access patterns:
 - **`posit-dev/positron`**: Uses sharded blob reports uploaded as GitHub artifacts. Requires downloading and merging.
 - **`posit-dev/positron-builds`**: Non-sharded single-job runs. HTML reports uploaded to S3 at CloudFront. No blob report artifacts.
-
-```bash
-# Get run metadata (including branch for history queries)
-gh api repos/<REPO>/actions/runs/<RUN_ID> --jq '{name: .name, conclusion: .conclusion, html_url: .html_url, head_sha: .head_sha, branch: .head_branch}'
-```
-
-### Step 1a: List ALL failed jobs
-
-Before diving into e2e reports, get the full picture of what failed:
-
-```bash
-gh api repos/<REPO>/actions/runs/<RUN_ID>/jobs --paginate \
-  --jq '.jobs[] | select(.conclusion == "failure") | {id: .id, name: .name}'
-```
-
-Categorize each failed job:
-- **e2e jobs** (name contains `e2e`): Analyze with Path A or B below
-- **Non-e2e jobs** (e.g., `test / unit`, `test / integration`, `setup / build`): Report in the summary with a link to the job logs. Extract the failure reason from the job logs:
-  ```bash
-  gh api repos/<REPO>/actions/jobs/<JOB_ID>/logs 2>&1 | grep -E "(FAIL|Error|error:|##\[error\])" | tail -20
-  ```
-
-### Step 1b: Find blob report artifacts for all e2e projects
-
-```bash
-gh api repos/<REPO>/actions/runs/<RUN_ID>/artifacts --jq '.artifacts[] | select(.name | test("^blob-report-")) | .name' | sort
-```
-
-Group by project: extract unique project names from artifact names (e.g., `blob-report-e2e-chromium-1` -> `e2e-chromium`, `blob-report-e2e-windows-1` -> `e2e-windows`). Process **all** projects that have blob reports, not just one.
-
-- If blob reports found -> use **Path A** (positron repo flow) for each project
-- If no blob reports found -> use **Path B** (positron-builds flow)
 
 ---
 
 ## Path A: posit-dev/positron (Sharded Blob Reports)
 
-Repeat the steps below for **each** e2e project that has blob report artifacts (e.g., `e2e-windows`, `e2e-electron`, `e2e-chromium`). Download all projects in parallel, then merge and analyze each.
+### A1+A2: Download, Merge, and Process (single script call)
 
-### A1: Download and Merge Reports
+The `e2e-process-project.js` script handles everything in one call: downloads blob report artifacts, copies shards into a merged directory, runs `npx playwright merge-reports`, then extracts failures, scans blobs, extracts/parses traces, and extracts screenshots. Use `--cleanup` to remove intermediate download/merge artifacts automatically.
 
-```bash
-gh run download <RUN_ID> --repo posit-dev/positron \
-  -p "blob-report-<PROJECT>-*" -D /tmp/blob-reports-<PROJECT>
-
-mkdir -p /tmp/blob-merged-<PROJECT>
-cp /tmp/blob-reports-<PROJECT>/blob-report-<PROJECT>-*/* /tmp/blob-merged-<PROJECT>/
-
-PLAYWRIGHT_JSON_OUTPUT_NAME=/tmp/report-<PROJECT>.json \
-  npx playwright merge-reports --reporter=json /tmp/blob-merged-<PROJECT>
-```
-
-Run downloads in parallel for multiple projects. Merge sequentially (npx changes cwd).
-
-### A2: Extract Failure Details from JSON Report
+For **each** project from Step 1, run:
 
 ```bash
-node "$SKILL_DIR/scripts/e2e-extract-failures.js" /tmp/report-<PROJECT>.json
+node "$SKILL_DIR/scripts/e2e-process-project.js" \
+  --download --run-id <RUN_ID> --repo <REPO> --project <PROJECT> \
+  --output-dir /tmp/e2e-analysis-<PROJECT> --cleanup
 ```
 
-Outputs a JSON array with each failure's title, file, tags, suite, project, and error details.
+If there are multiple projects, run them sequentially (each call uses npx internally).
 
-### A3: Extract Traces, Screenshots, and Logs from Blob Reports
+**Fallback**: If blob reports were already downloaded and merged (e.g., for debugging), you can skip `--download` and pass the directories directly:
 
-Each blob zip contains `report.jsonl` and `resources/*.zip`.
-
-**Find failed tests across all blobs:**
 ```bash
-node "$SKILL_DIR/scripts/e2e-inspect-blobs.js" /tmp/blob-merged-<PROJECT>
+node "$SKILL_DIR/scripts/e2e-process-project.js" \
+  /tmp/blob-merged-<PROJECT> /tmp/report-<PROJECT>.json \
+  --output-dir /tmp/e2e-analysis-<PROJECT>
 ```
 
-This outputs JSON with `failedTests` (testId, title, file, status, blob).
+Output JSON contains:
+- `outputDir` - path where screenshots and error-context files were saved
+- `failures` - array of final failures (tests that failed all retries) with title, file, tags, suite, project, errors
+- `failedTests` - array of all failed test attempts (including those that passed on retry) with testId, title, file, status, blob
+- `testDetails` - array of per-test objects, each containing:
+  - `testId`, `title`, `file`, `status`, `blob`, `attemptCount`
+  - `attempts` - array of per-attempt objects with:
+    - `trace` - parsed trace data: `timeline` (human-readable string), `errors` (array), `lastScreenshotSha1`
+    - `screenshotPath` - path to extracted last screenshot JPEG (view with Read tool)
+    - `errorContextPath` - path to extracted page snapshot markdown (view with Read tool if needed)
+  - `logHashes` - array of `{resourceHash, blob}` for logs (extract manually if needed)
 
-**Find trace/log resource hashes for specific failed test IDs:**
-```bash
-node "$SKILL_DIR/scripts/e2e-inspect-blobs.js" /tmp/blob-merged-<PROJECT> --test-ids <TEST_ID_1>,<TEST_ID_2>
-```
+**IMPORTANT: View screenshots** using the `screenshotPath` fields with the Read tool. You MUST Read **all** screenshots in a **single message** with multiple parallel Read tool calls -- this results in only one approval prompt instead of one per screenshot. View all attempts; comparing across retries reveals whether a failure is consistent or intermittent. Screenshots are the most revealing evidence for diagnosing failures.
 
-This outputs JSON with `attachments` (testId, name, contentType, resourceHash, blob).
-
-**Extract and read trace:**
-```bash
-unzip -o /tmp/blob-merged-<PROJECT>/<BLOB>.zip "resources/<TRACE_HASH>.zip" -d /tmp/trace-extract
-mkdir -p /tmp/trace-contents && cd /tmp/trace-contents
-unzip -o /tmp/trace-extract/resources/<TRACE_HASH>.zip trace.trace
-```
-
-Parse the trace action timeline:
-```bash
-node "$SKILL_DIR/scripts/e2e-parse-trace.js" /tmp/trace-contents/trace.trace
-```
-
-Outputs the last 30 actions with selectors/errors, last screenshot sha1, and error summary. Use `--last N` to adjust.
-
-Extract and view the last screenshot with the Read tool:
-```bash
-unzip -o /tmp/trace-extract/resources/<TRACE_HASH>.zip "resources/<LAST_SCREENSHOT>.jpeg" -d /tmp/trace-contents
-```
-
-**Extract logs:**
-```bash
-unzip -o /tmp/blob-merged-<PROJECT>/<BLOB>.zip "resources/<LOGS_HASH>.zip" -d /tmp/logs-extract
-mkdir -p /tmp/logs-contents && cd /tmp/logs-contents && unzip -o /tmp/logs-extract/resources/<LOGS_HASH>.zip
-```
+**View error context** with the Read tool using `errorContextPath` paths if the screenshot and trace timeline are insufficient for diagnosis.
 
 ---
 
@@ -306,11 +269,7 @@ When analyzing, consider:
 
 ### Check the triggering commit
 
-For tests that **failed all retries** (not just flaky), inspect the head commit (from the `head_sha` in Step 1) to assess whether it could have caused the failure:
-
-```bash
-gh api repos/<REPO>/commits/<HEAD_SHA> --jq '{message: .commit.message, author: .commit.author.name, files: [.files[].filename]}'
-```
+For tests that **failed all retries** (not just flaky), inspect the head commit using the `commit` field from Step 1's `e2e-gather-run-info.js` output (already includes message, author, and changed files).
 
 Compare the changed files against:
 - **The failing test file itself** and its page objects/helpers -- changes here could introduce a test logic bug
@@ -344,7 +303,7 @@ For each failure, include the **platform** (OS and project/browser) where it occ
 
 When multiple projects/platforms are analyzed in a single run, note which platforms each failure occurred on and whether the same test passed on other platforms.
 
-Present the analysis in a summary table that includes columns for: test name, platform, root cause category, and severity. Then provide detailed analysis for each failure below the table.
+Present the analysis in a summary table that includes columns for: test name, platform, root cause category, and severity. In the severity column, clearly distinguish tests that **failed all retries** (hard failures) from tests that **passed on retry** (flaky). This distinction comes from comparing `failures` (final failures after all retries) vs `failedTests` (all attempts including those that recovered). Then provide detailed analysis for each failure below the table.
 
 Include **non-e2e job failures** (unit tests, integration tests, build failures) in the summary table as well, with the job name as the test name and a brief description of the failure extracted from the job logs.
 
@@ -355,6 +314,13 @@ Offer to:
 
 ## Cleanup
 
+**Path A**: If you used `--cleanup` with `e2e-process-project.js`, the download/merge artifacts are already removed. Only the `--output-dir` remains (screenshots and error-context). Remove it with exact paths (no globs):
+
 ```bash
-rm -rf /tmp/blob-reports-* /tmp/blob-merged-* /tmp/blob-jsonl-* /tmp/report-*.json /tmp/trace-extract /tmp/trace-contents /tmp/logs-extract /tmp/logs-contents /tmp/blob-inspect* /tmp/pw-screenshot-* /tmp/pw-trace* /tmp/pw-logs* /tmp/pw-report*
+rm -rf /tmp/e2e-analysis-<PROJECT>
+```
+
+**Path B**: Remove artifacts with exact paths:
+```bash
+rm -rf /tmp/pw-screenshots /tmp/pw-traces /tmp/pw-logs
 ```

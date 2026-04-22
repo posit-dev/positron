@@ -5,7 +5,7 @@
 
 import assert from 'assert';
 import { LayoutManager } from '../../browser/positronDataGrid/classes/layoutManager.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../base/test/common/utils.js';
+import { createTestContainer } from './positronTestContainer.js';
 
 /**
  * Tests the LayoutManager class.
@@ -872,5 +872,5 @@ suite('LayoutManager', () => {
 	};
 
 	// Ensure that all disposables are cleaned up.
-	ensureNoDisposablesAreLeakedInTestSuite();
+	createTestContainer().build();
 });

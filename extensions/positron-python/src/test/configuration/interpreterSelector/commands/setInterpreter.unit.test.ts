@@ -107,7 +107,7 @@ suite('Set Interpreter Command', () => {
         pythonRuntimeManager = TypeMoq.Mock.ofType<IPythonRuntimeManager>();
         pythonRuntimeManager
             .setup((p) => p.selectLanguageRuntimeFromPath(TypeMoq.It.isAny()))
-            .returns(() => Promise.resolve());
+            .returns(() => Promise.resolve(undefined));
         workspaceConfig = TypeMoq.Mock.ofType<WorkspaceConfiguration>();
 
         getConfigurationStub = sinon.stub(workspaceApis, 'getConfiguration');
@@ -1650,7 +1650,7 @@ suite('Set Interpreter Command', () => {
 
             pythonRuntimeManager
                 .setup((p) => p.selectLanguageRuntimeFromPath(selectedItem.path))
-                .returns(() => Promise.resolve())
+                .returns(() => Promise.resolve(undefined))
                 .verifiable(TypeMoq.Times.once());
             commandManager
                 .setup((c) => c.executeCommand(Commands.Focus_Positron_Console))

@@ -155,8 +155,24 @@ export class SessionExecutionHistory extends Disposable {
 		};
 
 		const handleDidReceiveRuntimeMessageStream = (message: ILanguageRuntimeMessageStream) => {
-			// Get the output.
-			const output = message.text;
+			let output = message.text;
+
+			// In R, cat("\014") / cat("\f") clears the console. When
+			// a form feed is present, only record the text after the
+			// last form feed so replay matches what the user saw.
+			if (session.runtimeMetadata.languageId === 'r') {
+				const lastFF = output.lastIndexOf('\f');
+				if (lastFF !== -1) {
+					// Clear previously recorded output for this
+					// execution since the console was cleared.
+					const pending = this._pendingExecutions.get(message.parent_id);
+					if (pending) {
+						pending.output = '';
+					}
+					output = output.substring(lastFF + 1);
+				}
+			}
+
 			if (output) {
 				this.recordOutput(message, output);
 			}

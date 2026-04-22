@@ -1,0 +1,37 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Keep the find widget pinned at the top of the scrollable console instance.
+	sticky positioning keeps it visible while scrolling; height: 0 with
+	overflow: visible makes it out-of-flow so it never allocates vertical
+	space (no whitespace when hidden or visible). margin-left right-aligns
+	since sticky does not support right positioning. */
+.console-core .console-instance > .simple-find-part-wrapper {
+	position: sticky;
+	top: 0;
+	margin-left: auto;
+	/* Override z-index set by terminal.css. */
+	z-index: 100 !important;
+	/* Out-of-flow so it doesn't take up space when visible, while staying sticky.
+		padding: 0 overrides the default 10px from simpleFindWidget.css. */
+	height: 0;
+	padding: 0;
+	overflow: visible;
+}
+
+/* Reset the font inherited from the console instance's monospace editor font
+	(applied via inline styles by FontConfigurationManager). */
+.console-instance .simple-find-part {
+	font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Highlight styles for find matches using the CSS Custom Highlight API */
+::highlight(positron-console-find-match) {
+	background-color: var(--vscode-editor-findMatchHighlightBackground);
+}
+
+::highlight(positron-console-find-match-active) {
+	background-color: var(--vscode-editor-findMatchBackground);
+}

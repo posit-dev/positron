@@ -20,7 +20,6 @@ import { GroupingMenuButton } from './groupingMenuButton.js';
 import { MemoryUsageMeter, MEMORY_METER_FIXED_WIDTH, MEMORY_METER_COMPACT_FIXED_WIDTH } from './memoryUsageMeter.js';
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { usePositronVariablesContext } from '../positronVariablesContext.js';
-import { VariablesInstanceMenuButton } from './variablesInstanceMenuButton.js';
 import { DeleteAllVariablesModalDialog } from '../modalDialogs/deleteAllVariablesModalDialog.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
@@ -293,9 +292,6 @@ export const ActionBars = (props: PropsWithChildren<{}>) => {
 					paddingLeft={kPaddingLeft}
 					paddingRight={kPaddingRight}
 				>
-					<ActionBarRegion location='left'>
-						<VariablesInstanceMenuButton />
-					</ActionBarRegion>
 					<ActionBarRegion location='right'>
 						<ActionBarFilter
 							ref={filterRef}

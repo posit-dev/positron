@@ -4,6 +4,7 @@
 	"configuration.appLauncher.showEnableShellIntegrationMessage": "Show a prompt when shell integration is disabled.",
 	"configuration.appLauncher.showShellIntegrationNotSupportedMessage": "Show a warning when shell integration is not supported by the active terminal.",
 	"configuration.runApp.previewMode": "Where to preview applications by default.",
+	"configuration.runApp.urlDetectionTimeout": "Maximum time in seconds to wait for an application URL to appear in the output.",
 	"configuration.runApp.previewMode.viewer": "Open in the Positron Viewer pane.",
 	"configuration.runApp.previewMode.editor": "Open in an editor tab.",
 	"configuration.runApp.previewMode.external": "Open in an external browser.",

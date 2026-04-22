@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 import { IPathService } from '../../../../services/path/common/pathService.js';
 import { getCodeSettingsPathNative } from "../../browser/helpers.js";
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { TestPathService } from '../../../../test/browser/workbenchTestServices.js';
 import { URI } from '../../../../../base/common/uri.js';
 import assert from 'assert';
@@ -16,7 +16,7 @@ suite('Positron - PositronWelcome Contribution Helpers', () => {
 	const testWindows = isWindows ? test : test.skip;
 	// const testWeb = isWeb ? test : test.skip;
 
-	ensureNoDisposablesAreLeakedInTestSuite();
+	createTestContainer().build();
 
 	testPosix('VSCode settings path: ensure correct Linux', async () => {
 		const oldXdgConfig = process.env.XDG_CONFIG_HOME;

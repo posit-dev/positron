@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -32,25 +32,39 @@ test.describe('Sessions: Delete', {
 	test('Validate session picker and variables after delete', {
 		tag: [tags.VARIABLES]
 	}, async function ({ app, sessions }) {
-		const { variables } = app.workbench;
+		const { console, variables } = app.workbench;
 		await sessions.deleteAll();
 
 		// Ensure sessions exist and are idle
 		const [pySession, rSession] = await sessions.start(['python', 'r']);
 
-		// Delete 1st session and verify active sessions and runtime in session picker
+		// Create variables in each session so we can verify which session the variables pane shows
+		await sessions.select(pySession.id);
+		await console.executeCode('Python', 'x = 1');
+		await variables.expectVariableToBe('x', '1');
+
+		await sessions.select(rSession.id);
+		await console.executeCode('R', 'y <- 2');
+		await variables.expectVariableToBe('y', '2');
+
+		// Switch back to Python so it's the foreground session
+		await sessions.select(pySession.id);
+		await variables.expectVariableToBe('x', '1');
+
+		// Delete Python session and verify the variables pane switches to R
 		await sessions.delete(pySession.id);
 		await sessions.expectSessionPickerToBe(rSession.name);
 		await sessions.expectSessionCountToBe(1);
 		await sessions.expectActiveSessionListsToMatch();
-		await variables.expectRuntimeToBe('visible', rSession.name);
+		await variables.expectVariableToBe('y', '2');
+		await variables.expectVariableToNotExist('x');
 
-		// Delete 2nd session and verify no active sessions or runtime in session picker
+		// Delete R session and verify no active sessions or variables
 		await sessions.delete(rSession.id);
 		await sessions.expectSessionPickerToBe('Start Session');
 		await sessions.expectSessionCountToBe(0);
 		await sessions.expectActiveSessionListsToMatch();
-		await variables.expectRuntimeToBe('not.visible', `${rSession.name}|${pySession.name}|None`);
+		await variables.expectVariableToNotExist('y');
 	});
 
 	test('Python & R - Validate can delete multiple sessions', async function ({ sessions }) {

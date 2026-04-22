@@ -22,13 +22,10 @@
 .split-button .split-button-main {
 	display: flex;
 	align-items: center;
-	cursor: pointer;
 	border-radius: 3px 0 0 3px;
 	padding: 2px 8px;
 	font-size: 11px;
-	background: transparent;
 	color: var(--vscode-foreground);
-	border: none;
 }
 
 .split-button .split-button-main:hover {
@@ -42,7 +39,6 @@
 	justify-content: center;
 	padding: 0 4px;
 	border-left: 1px solid var(--vscode-widget-border);
-	cursor: pointer;
 	user-select: none;
 	align-self: stretch;
 	border-radius: 0 3px 3px 0;

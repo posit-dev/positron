@@ -184,11 +184,19 @@ export class ArkLsp implements vscode.Disposable {
 				// inputs.
 				provideCompletionItem(document, position, context, token, next) {
 					if (!notebookUri) {
-						// Console LSP: skip vdoc files (notebook LSP handles them)
+						// Console LSP: skip vdoc files when inline output
+						// is enabled, because a notebook LSP handles them.
+						// When inline output is disabled, no notebook LSP
+						// exists, so the console LSP must handle vdocs.
 						if (document.uri.scheme === 'file') {
 							const baseName = path.basename(document.uri.fsPath);
 							if (VDOC_PATTERN.test(baseName)) {
-								return undefined;
+								const inlineOutputEnabled = vscode.workspace
+									.getConfiguration('positron.quarto.inlineOutput')
+									.get<boolean>('enabled', false);
+								if (inlineOutputEnabled) {
+									return undefined;
+								}
 							}
 						}
 						// Console LSP: skip notebook console inputs

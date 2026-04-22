@@ -29,19 +29,25 @@ import { useEnvExtension } from '../../envExt/api.internal';
 import { PythonEnvironment } from '../../envExt/types';
 
 // --- Start Positron ---
+// eslint-disable-next-line import/no-unresolved
+import * as positron from 'positron';
 import { getCondaPythonVersions } from './provider/condaUtils';
 import { IPythonRuntimeManager } from '../../positron/manager';
 import { Conda } from '../common/environmentManagers/conda';
 import { getUvPythonVersions } from './provider/uvUtils';
 import { isUvInstalled } from '../common/environmentManagers/uv';
 import { UvCreationProvider } from './provider/uvCreationProvider';
+import { installPythonViaUv, InstallPythonResult } from '../common/environmentManagers/uvPythonInstaller';
 import {
     createEnvironmentAndRegister,
     getCreateEnvironmentProviders,
     isEnvProviderEnabled,
     isGlobalPython,
 } from '../../positron/createEnvApi';
-import { traceLog } from '../../logging';
+import { traceError, traceLog } from '../../logging';
+import { getConfiguration } from '../../common/vscodeApis/workspaceApis';
+import { showErrorMessage } from '../../common/vscodeApis/windowApis';
+import { InterpreterQuickPickList } from '../../common/utils/localize';
 // --- End Positron ---
 
 class CreateEnvironmentProviders {
@@ -99,6 +105,32 @@ export function registerCreateEnvironmentProvider(
 export const { onCreateEnvironmentStarted, onCreateEnvironmentExited, isCreatingEnvironment } = getCreationEvents();
 
 // --- Start Positron ---
+/**
+ * Handles the result of installPythonViaUv by registering the runtime and showing errors.
+ * Returns the runtime ID if successful, undefined otherwise.
+ */
+async function handleInstallPythonResult(
+    result: InstallPythonResult,
+    pythonRuntimeManager: IPythonRuntimeManager,
+): Promise<{ pythonPath: string; runtimeId: string | undefined } | undefined> {
+    if (result.success && result.pythonPath) {
+        // Register the runtime without starting a session - the caller handles that
+        let metadata = await pythonRuntimeManager.registerLanguageRuntimeFromPath(result.pythonPath, true);
+
+        // If registration failed, the interpreter might not be discovered yet - trigger refresh and retry
+        if (!metadata) {
+            await pythonRuntimeManager.triggerInterpreterRefresh();
+            metadata = await pythonRuntimeManager.registerLanguageRuntimeFromPath(result.pythonPath, true);
+        }
+
+        return { pythonPath: result.pythonPath, runtimeId: metadata?.runtimeId };
+    }
+    if (result.error && result.error !== 'Cancelled') {
+        showErrorMessage(result.error);
+    }
+    return undefined;
+}
+
 // Changed this function to be async
 export async function registerCreateEnvironmentFeatures(
     // --- End Positron ---
@@ -190,9 +222,84 @@ export async function registerCreateEnvironmentFeatures(
         ),
         registerCommand(Commands.Get_Conda_Python_Versions, () => getCondaPythonVersions()),
         registerCommand(Commands.Is_Uv_Installed, async () => await isUvInstalled()),
-        registerCommand(Commands.Get_Uv_Python_Versions, () => getUvPythonVersions()),
+        registerCommand(Commands.Get_Uv_Python_Versions, async () => await getUvPythonVersions()),
+        registerCommand(Commands.InstallPythonViaUv, async () => {
+            try {
+                const result = await installPythonViaUv();
+                return await handleInstallPythonResult(result, pythonRuntimeManager);
+            } catch (error) {
+                traceError(`installPythonViaUv command failed: ${error}`);
+                showErrorMessage(InterpreterQuickPickList.UvInstall.installCommandFailed);
+                return undefined;
+            }
+        }),
         registerCommand(Commands.Is_Global_Python, (interpreterPath: string) => isGlobalPython(interpreterPath)),
-        // --- End Positron ---
+    );
+
+    // Register the runtime picker contribution for "Install Python via uv"
+    // we need to guard against older Positron builds that don't have this API for tests
+    // but we can remove this guard once we have a stable Positron release with this API
+    if (typeof positron.runtime.registerRuntimePickerContribution === 'function') {
+        const contribution = positron.runtime.registerRuntimePickerContribution({
+            languageId: 'python',
+
+            async getItems(): Promise<positron.runtime.RuntimePickerItem[]> {
+                // Check if Python installation via uv is allowed
+                const allowUvPythonInstall = getConfiguration('python').get<boolean>('allowUvPythonInstall') ?? true;
+                if (!allowUvPythonInstall) {
+                    return [];
+                }
+
+                // Get all registered runtimes to check what Python interpreters exist
+                const runtimes = await positron.runtime.getRegisteredRuntimes();
+                const pythonRuntimes = runtimes.filter((r) => r.languageId === 'python');
+
+                // Check if we only have system/global Python (no virtual environments)
+                const hasOnlySystemPython =
+                    pythonRuntimes.length > 0 &&
+                    pythonRuntimes.every((r) => ['System', 'Global'].includes(r.runtimeSource));
+
+                // Check if we should always show the option (for testing)
+                const alwaysShow =
+                    getConfiguration('python').get<boolean>('INTERNAL_alwaysShowUvInstallOption') ?? false;
+
+                // Show the install option if:
+                // - Always show is enabled (for testing), OR
+                // - No Python runtimes found, OR
+                // - Only system/global Python found (no virtual environments)
+                if (alwaysShow || pythonRuntimes.length === 0 || hasOnlySystemPython) {
+                    return [
+                        {
+                            id: 'install-python-uv',
+                            label: '$(add) Install Python via uv',
+                            separatorLabel: 'Install Python',
+                        },
+                    ];
+                }
+
+                return [];
+            },
+
+            async onDidSelectItem(itemId: string): Promise<string | undefined> {
+                if (itemId === 'install-python-uv') {
+                    try {
+                        const result = await installPythonViaUv();
+                        const handled = await handleInstallPythonResult(result, pythonRuntimeManager);
+                        return handled?.runtimeId;
+                    } catch (error) {
+                        traceError(`Install Python via uv failed: ${error}`);
+                        showErrorMessage(InterpreterQuickPickList.UvInstall.installCommandFailed);
+                    }
+                }
+                return undefined;
+            },
+        });
+        if (contribution) {
+            disposables.push(contribution);
+        }
+    }
+    // --- End Positron ---
+    disposables.push(
         registerCreateEnvironmentProvider(new VenvCreationProvider(interpreterQuickPick)),
         registerCreateEnvironmentProvider(condaCreationProvider()),
         // --- Start Positron ---

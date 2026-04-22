@@ -20,7 +20,7 @@ import {
 	SupportStatus,
 	SchemaUpdateEvent
 } from '../../../languageRuntime/common/positronDataExplorerComm.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { getColumnSchema } from '../../common/positronDataExplorerMocks.js';
 
 suite('TableSummaryDataGridInstance', () => {
@@ -192,5 +192,5 @@ suite('TableSummaryDataGridInstance', () => {
 	});
 
 	// Ensure that all disposables are cleaned up.
-	ensureNoDisposablesAreLeakedInTestSuite();
+	createTestContainer().build();
 });

@@ -7,32 +7,28 @@ import assert from 'assert';
 import { timeout } from '../../../../base/common/async.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { URI } from '../../../../base/common/uri.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
-import { TestInstantiationService } from '../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { NotebookTextModel } from '../../../contrib/notebook/common/model/notebookTextModel.js';
 import { INotebookEditor } from '../../../contrib/notebook/browser/notebookBrowser.js';
 import { INotebookEditorService } from '../../../contrib/notebook/browser/services/notebookEditorService.js';
 import { LanguageRuntimeSessionMode } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPositronVariablesService } from '../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { startTestLanguageRuntimeSession } from '../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
-import { PositronTestServiceAccessor, positronWorkbenchInstantiationService } from '../positronWorkbenchTestServices.js';
+import { PositronTestServiceAccessor } from '../positronWorkbenchTestServices.js';
+import { createTestContainer } from '../positronTestContainer.js';
 
 interface TestNotebookEditor extends INotebookEditor {
 	changeModel(uri: URI): void;
 }
 
 suite('Positron - PositronVariablesService', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+	const ctx = createTestContainer().withWorkbenchServices().build();
 
-	let instantiationService: TestInstantiationService;
-	let accessor: PositronTestServiceAccessor;
 	let variablesService: IPositronVariablesService;
 	let notebookEditorService: INotebookEditorService;
 
 
 	setup(() => {
-		instantiationService = positronWorkbenchInstantiationService(disposables);
-		accessor = instantiationService.createInstance(PositronTestServiceAccessor);
+		const accessor = ctx.instantiationService.createInstance(PositronTestServiceAccessor);
 		variablesService = accessor.positronVariablesService;
 		notebookEditorService = accessor.notebookEditorService;
 
@@ -44,7 +40,7 @@ suite('Positron - PositronVariablesService', () => {
 		const notebookUri = URI.file('test-notebook.ipynb');
 
 		// Add a mock notebook editor
-		const onDidChangeModel = disposables.add(new Emitter<NotebookTextModel | undefined>());
+		const onDidChangeModel = ctx.disposables.add(new Emitter<NotebookTextModel | undefined>());
 		const notebookEditor = <TestNotebookEditor>{
 			getId() { return 'test-notebook-editor-id'; },
 			onDidChangeModel: onDidChangeModel.event,
@@ -55,8 +51,8 @@ suite('Positron - PositronVariablesService', () => {
 
 		// Start a notebook session
 		const session = await startTestLanguageRuntimeSession(
-			instantiationService,
-			disposables,
+			ctx.instantiationService,
+			ctx.disposables,
 			{
 				sessionMode: LanguageRuntimeSessionMode.Notebook,
 				notebookUri
@@ -73,8 +69,8 @@ suite('Positron - PositronVariablesService', () => {
 	async function createConsoleInstance() {
 		// Start a console session
 		const session = await startTestLanguageRuntimeSession(
-			instantiationService,
-			disposables,
+			ctx.instantiationService,
+			ctx.disposables,
 			{
 				sessionMode: LanguageRuntimeSessionMode.Console
 			}

@@ -1524,6 +1524,9 @@ export class MainThreadLanguageRuntime
 
 	private readonly _registeredRuntimes: Map<string, ILanguageRuntimeMetadata> = new Map();
 
+	/** Tracks disposables for picker contributions by handle, for cleanup on unregister */
+	private readonly _pickerContributionDisposables: Map<number, IDisposable> = new Map();
+
 	/** Per-session evaluation queues for $evaluateCode */
 	private readonly _evaluationQueues: Map<string, EvaluationEntry[]> = new Map();
 
@@ -2175,6 +2178,10 @@ export class MainThreadLanguageRuntime
 			}
 		});
 
+		// Dispose any remaining picker contributions
+		this._pickerContributionDisposables.forEach((disposable) => disposable.dispose());
+		this._pickerContributionDisposables.clear();
+
 		this._disposables.dispose();
 	}
 
@@ -2286,6 +2293,38 @@ export class MainThreadLanguageRuntime
 			this._pathService,
 			this._proxy,
 			this._openerService);
+	}
+
+	/**
+	 * Register a runtime picker contribution from an extension.
+	 *
+	 * @param handle The handle for this contribution
+	 * @param languageId The language ID this contribution applies to
+	 */
+	$registerRuntimePickerContribution(handle: number, languageId: string): void {
+		const contribution = {
+			handle,
+			languageId,
+			getItems: () => this._proxy.$getRuntimePickerItems(handle),
+			onSelect: (itemId: string) => this._proxy.$handleRuntimePickerSelection(handle, itemId),
+		};
+
+		const disposable = this._languageRuntimeService.registerPickerContribution(contribution);
+		this._pickerContributionDisposables.set(handle, disposable);
+	}
+
+	/**
+	 * Unregister a runtime picker contribution.
+	 *
+	 * @param handle The handle of the contribution to unregister
+	 */
+	$unregisterRuntimePickerContribution(handle: number): void {
+		const disposable = this._pickerContributionDisposables.get(handle);
+		if (disposable) {
+			disposable.dispose();
+			this._pickerContributionDisposables.delete(handle);
+			this._logService.trace(`Picker contribution with handle ${handle} unregistered`);
+		}
 	}
 
 	/**

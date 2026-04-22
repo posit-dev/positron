@@ -14,6 +14,7 @@ import { ANSIColor, ANSIFormat, ANSIOutput, ANSIStyle } from '../../common/ansiO
  */
 const BS = '\b';
 const CR = '\r';
+const FF = '\f';
 const LF = '\n';
 const CRLF = `\r\n`;
 const PANGRAM = 'The quick brown fox jumps over the lazy dog';
@@ -680,6 +681,43 @@ suite('ANSIOutput', () => {
 			assert.equal(outputLines[i].outputRuns[0].format, undefined);
 			assert.equal(outputLines[i].outputRuns[0].text, PANGRAM);
 		}
+	});
+
+	test('Test ANSIOutput FF is silently ignored', () => {
+		// Setup.
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(FF);
+		const outputLines = ansiOutput.outputLines;
+
+		// A lone form feed should produce no visible output.
+		assert.equal(outputLines.length, 1);
+		assert.equal(outputLines[0].outputRuns.length, 0);
+	});
+
+	test('Test ANSIOutput FF between text is ignored', () => {
+		// Setup.
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(`Hello${FF}World`);
+		const outputLines = ansiOutput.outputLines;
+
+		// Form feed is stripped; text on either side is concatenated.
+		assert.equal(outputLines.length, 1);
+		assert.equal(outputLines[0].outputRuns.length, 1);
+		assert.equal(outputLines[0].outputRuns[0].text, 'HelloWorld');
+	});
+
+	test('Test ANSIOutput FF with newlines', () => {
+		// Setup.
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(`Line1${LF}${FF}Line2`);
+		const outputLines = ansiOutput.outputLines;
+
+		// Form feed is ignored; the LF still creates a new line.
+		assert.equal(outputLines.length, 2);
+		assert.equal(outputLines[0].outputRuns.length, 1);
+		assert.equal(outputLines[0].outputRuns[0].text, 'Line1');
+		assert.equal(outputLines[1].outputRuns.length, 1);
+		assert.equal(outputLines[1].outputRuns[0].text, 'Line2');
 	});
 
 	test('Test ANSIOutput with 10 lines separated by LF and CRLF', () => {

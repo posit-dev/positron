@@ -5,8 +5,10 @@
 	<meta charset="UTF-8">
 
 	<!-- Start PWB: serve same origin -->
+	<!-- Start Positron -->
 	<meta http-equiv="Content-Security-Policy"
-		content="default-src 'none'; script-src 'sha256-X1zQvQpFh8bFSLkKoLUOK283Zj1CdgZo5Yx6GBb29Ec=' 'self'; frame-src 'self'; style-src 'unsafe-inline';">
+		content="default-src 'none'; script-src 'sha256-j1uPS0qZRnSUxfKTtL2l2BetdVzsO+993hE6uOqT1qk=' 'self'; frame-src 'self'; style-src 'unsafe-inline';">
+    <!-- End Positron -->
 
 	<!-- Disable pinch zooming -->
 	<meta name="viewport"
@@ -1069,6 +1071,10 @@
 					sandboxRules.add('allow-forms');
 				}
 				newFrame.setAttribute('sandbox', Array.from(sandboxRules).join(' '));
+				// --- Start Positron ---
+				// Required for PDF viewer print functionality (window.print() in sandboxed iframes).
+				newFrame.sandbox.add('allow-modals');
+				// --- End Positron ---
 
 				const allowRules = ['cross-origin-isolated;', 'autoplay;', 'local-network-access;'];
 				if (!isFirefox && options.allowScripts) {

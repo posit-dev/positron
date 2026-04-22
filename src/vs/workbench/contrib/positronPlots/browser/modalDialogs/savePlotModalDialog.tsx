@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -16,7 +16,6 @@ import { URI } from '../../../../../base/common/uri.js';
 import { ProgressBar } from '../../../../../base/browser/ui/positronComponents/progressBar.js';
 import { LabeledTextInput } from '../../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js';
 import { LabeledFolderInput } from '../../../../browser/positronComponents/positronModalDialog/components/labeledFolderInput.js';
-import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
 import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
 import { PlatformNativeDialogActionBar } from '../../../../browser/positronComponents/positronModalDialog/components/platformNativeDialogActionBar.js';
 import { PositronModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
@@ -421,9 +420,9 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 
 			<div className='plot-save-dialog-action-bar top-separator'>
 				<div className='left'>
-					<PositronButton className='action-bar-button' onPressed={updatePreview}>
+					<Button className='action-bar-button' onPressed={updatePreview}>
 						{localize('positron.savePlotModalDialog.updatePreview', "Preview")}
-					</PositronButton>
+					</Button>
 				</div>
 				<div className='right'>
 					<PlatformNativeDialogActionBar primaryButton={okButton} secondaryButton={cancelButton} />

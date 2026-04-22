@@ -24,6 +24,46 @@ suite('AWSModelProvider', () => {
 		});
 	});
 
+	suite('supportsPromptCaching', () => {
+		let provider: AWSModelProvider;
+
+		setup(() => {
+			const config: ModelConfig = {
+				id: 'test-bedrock-model',
+				name: 'Test Provider',
+				provider: 'amazon-bedrock',
+				model: 'test-model',
+				apiKey: 'test-key',
+				type: positron.PositronLanguageModelType.Chat
+			};
+			provider = new AWSModelProvider(config);
+		});
+
+		test('returns true for Claude 4+ models', () => {
+			assert.strictEqual(provider.supportsPromptCaching('us.anthropic.claude-sonnet-4-20250514-v1:0'), true);
+			assert.strictEqual(provider.supportsPromptCaching('us.anthropic.claude-opus-4-20250514-v1:0'), true);
+		});
+
+		test('returns true for Claude 3.7 models', () => {
+			assert.strictEqual(provider.supportsPromptCaching('us.anthropic.claude-3-7-sonnet-20250219-v1:0'), true);
+		});
+
+		test('returns true for Claude 3.5 models', () => {
+			assert.strictEqual(provider.supportsPromptCaching('us.anthropic.claude-3-5-haiku-20241022-v1:0'), true);
+			assert.strictEqual(provider.supportsPromptCaching('us.anthropic.claude-3-5-sonnet-20241022-v2:0'), true);
+		});
+
+		test('returns false for Claude 3 (non-3.5) models', () => {
+			assert.strictEqual(provider.supportsPromptCaching('us.anthropic.claude-3-sonnet-20240229-v1:0'), false);
+			assert.strictEqual(provider.supportsPromptCaching('us.anthropic.claude-3-haiku-20240307-v1:0'), false);
+			assert.strictEqual(provider.supportsPromptCaching('us.anthropic.claude-3-opus-20240229-v1:0'), false);
+		});
+
+		test('returns true for non-Anthropic models by default', () => {
+			assert.strictEqual(provider.supportsPromptCaching('us.meta.llama3-1-70b-instruct-v1:0'), true);
+		});
+	});
+
 	suite('parseProviderError', () => {
 		let provider: AWSModelProvider;
 

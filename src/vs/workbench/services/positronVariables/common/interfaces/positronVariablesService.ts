@@ -45,13 +45,6 @@ export interface IPositronVariablesService {
 	readonly onDidChangeActivePositronVariablesInstance: Event<IPositronVariablesInstance | undefined>;
 
 	/**
-	 * Sets the active variables instance to the one with the given session ID.
-	 *
-	 * @param sessionId The session ID.
-	 */
-	setActivePositronVariablesSession(sessionId: string): void;
-
-	/**
 	 * Sets whether the Variables pane is visible.
 	 * When the pane becomes hidden, all instances are disposed.
 	 * When the pane becomes visible, instances are created for active sessions.

@@ -12,15 +12,26 @@ import React, { ChangeEvent, forwardRef, useImperativeHandle, useRef, useState }
 // Other dependencies.
 import { localize } from '../../../../nls.js';
 import { positronClassNames } from '../../../../base/common/positronUtilities.js';
+import { Icon as IconType } from '../../../action/common/action.js';
+import { Icon } from './icon.js';
+import { Codicon } from '../../../../base/common/codicons.js';
+
+/**
+ * ActionBarFilterSize type.
+ */
+type ActionBarFilterSize = 'sm' | 'md';
 
 /**
  * ActionBarFilterProps interface.
  */
 interface ActionBarFilterProps {
-	width: number;
+	width?: number | string;
 	disabled?: boolean;
 	initialFilterText?: string;
 	placeholder?: string;
+	clearButtonIcon?: IconType;
+	showClearAlways?: boolean;
+	size?: ActionBarFilterSize;
 	onFilterTextChanged: (filterText: string) => void;
 }
 
@@ -81,10 +92,12 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 		}
 	}));
 
+	const sizeClassName = props.size === 'md' ? 'action-bar-filter-input-md' : 'action-bar-filter-input-sm';
+
 	// Render.
 	return (
 		<div className='action-bar-filter-container' style={{ width: props.width }}>
-			<div className={positronClassNames('action-bar-filter-input', { 'focused': focused })}>
+			<div className={positronClassNames('action-bar-filter-input', sizeClassName, { 'focused': focused })}>
 				<input
 					ref={inputRef}
 					className='text-input'
@@ -97,15 +110,15 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 					onFocus={() => setFocused(true)}
 					onKeyDown={inputKeyDownHandler}
 				/>
-				{filterText !== '' && (
+				{(filterText !== '' || props.showClearAlways) && (
 					<button
 						aria-label={localize('positronClearFilter', "Clear filter")}
 						className='clear-button'
-						disabled={props.disabled}
+						disabled={props.disabled || filterText === ''}
 						onClick={buttonClearClickHandler}
 						onKeyDown={buttonClearKeyDownHandler}
 					>
-						<div className={'codicon codicon-positron-search-cancel'} />
+						<Icon icon={props.clearButtonIcon ?? Codicon.positronSearchCancel} />
 					</button>
 				)}
 			</div>

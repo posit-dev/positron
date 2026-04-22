@@ -171,4 +171,29 @@
 	ol {
 		margin-bottom: 0.7em;
 	}
+
+	/* Footnotes section rendered at end of a markdown cell. */
+	.footnotes {
+		margin-top: 2em;
+		font-size: 0.9em;
+		color: var(--vscode-descriptionForeground);
+	}
+
+	/* Footnote separator is thinner and muted vs. the default hr. */
+	.footnotes hr {
+		height: 1px;
+		border-bottom-width: 1px;
+		opacity: 0.5;
+		margin-bottom: 0.5em;
+	}
+
+	/* Small gap between backref arrow and the end of the definition text. */
+	.footnote-backref {
+		margin-left: 0.25em;
+	}
+
+	/* Brief highlight when a user clicks a ref and jumps to its definition. */
+	.footnotes ol > li:target {
+		background-color: var(--vscode-editor-findMatchHighlightBackground);
+	}
 }

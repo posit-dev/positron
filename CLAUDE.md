@@ -36,15 +36,31 @@ Positron forks VSCode. Minimize merge conflicts by isolating Positron code.
 
 ## Testing
 
-- Ensure build daemons are running before testing
-- Core tests (`src/**/*.ts`):
+### Where should I put my test?
+
+The deciding question: **does it need Electron?**
+
+1. **Core tests** (`*.test.ts`) -- DEFAULT for Positron code in `src/`. No Electron needed. Covers everything from pure functions to 124-service integration tests. If your code doesn't genuinely need `vscode`/`positron` APIs at runtime, it belongs here.
+2. **Extension host** (`npm run test-extension`) -- Needs Electron. Only when your test requires activated extensions, workspace APIs, or editor document manipulation.
+3. **E2E** (Playwright) -- Needs the full app. Only for user-visible workflows across multiple systems.
+
+### Running tests
+
+- **Core tests** (`*.test.ts`, requires build daemons):
+	- Ensure build daemons are running first: `npm run build-start && npm run build-check`
 	- `./scripts/test.sh`: run all tests
 	- `./scripts/test.sh --run src/path/to/<file>.test.ts`: run a specific file
 	- `./scripts/test.sh --run src/path/to/<file>.test.ts --grep '<pattern>'`: run specific tests in a file
 	- `./scripts/test.sh --runGlob <glob>.test.js`: run files matching a glob (use `.js` extension with `--runGlob`)
-- Extension tests (`extensions/<extension-name>/*.test.ts`, preferred for extension development except positron-python): `npm run test-extension -- -l <extension-name> --grep <pattern>`
-	- For positron-python, see that extension's CLAUDE.md
-- E2E tests (for UI integration testing): `npx playwright test test/e2e/tests/<test-name>.test.ts --project e2e-electron --grep '<pattern>'`
+- **Extension tests** (`extensions/<extension-name>/*.test.ts`): `npm run test-extension -- -l <extension-name> --grep <pattern>`
+	- positron-python has its own test setup -- see `extensions/positron-python/CLAUDE.md`
+- **E2E tests** (full app, real browser): `npx playwright test test/e2e/tests/<test-name>.test.ts --project e2e-electron --grep '<pattern>'`
+
+### The Builder
+
+Use `createTestContainer()` for any test that needs services. Pick the lowest preset, use `.stub()` for extras. For pure logic tests, skip the builder entirely.
+
+For presets, key rules, and the incremental mocking guide, see the JSDoc on `PositronTestContainerBuilder` in `src/vs/workbench/test/browser/positronTestContainer.ts`.
 
 ## Directory Structure
 

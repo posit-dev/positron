@@ -5,7 +5,7 @@
 
 import assert from 'assert';
 import { URI } from '../../../../../base/common/uri.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { createTextModel } from '../../../../../editor/test/common/testTextModel.js';
 import { QuartoDocumentModel } from '../../browser/quartoDocumentModel.js';
@@ -14,7 +14,7 @@ import { IPositronPreviewService } from '../../../positronPreview/browser/positr
 import { PreviewWebview } from '../../../positronPreview/browser/previewWebview.js';
 
 suite('QuartoOutputManager', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+	const ctx = createTestContainer().build();
 	const logService = new NullLogService();
 
 	suite('Output Preservation When Cells Move', () => {
@@ -43,9 +43,9 @@ y = 2
 \`\`\`
 `;
 			const textModel = createTextModel(content, null, undefined, URI.file('/test.qmd'));
-			disposables.add(textModel);
+			ctx.disposables.add(textModel);
 			const model = new QuartoDocumentModel(textModel, logService);
-			disposables.add(model);
+			ctx.disposables.add(model);
 
 			// Initial state: two cells with outputs
 			assert.strictEqual(model.cells.length, 2);
@@ -135,9 +135,9 @@ y = 2
 \`\`\`
 `;
 			const textModel = createTextModel(content, null, undefined, URI.file('/test.qmd'));
-			disposables.add(textModel);
+			ctx.disposables.add(textModel);
 			const model = new QuartoDocumentModel(textModel, logService);
-			disposables.add(model);
+			ctx.disposables.add(model);
 
 			// Initial state: two cells with outputs
 			const originalCell0Id = model.cells[0].id;

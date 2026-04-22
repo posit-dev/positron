@@ -15,7 +15,7 @@ import { EvalTestCase, RunResult } from '../types';
  *
  * This test creates a 1-cell notebook with revenue data and asks the assistant
  * to calculate the total. The assistant should answer correctly using the
- * automatically-provided context, without calling getNotebookCells.
+ * automatically-provided context, without calling getNotebookInfo.
  */
 const prompt = 'What is the total revenue shown in my notebook? Just tell me the answer, don\'t add or modify any cells.';
 const mode = 'Edit';
@@ -60,7 +60,7 @@ export const rNotebookAutomaticContext: EvalTestCase = {
 		required: [
 			'Correctly identifies the total revenue as 145,500 (sum of 45000 + 52000 + 48500)',
 			'Response demonstrates the assistant can READ notebook contents by mentioning at least 2 of: specific revenue values (45000, 52000, 48500), months (January, February, March), or cell reference (cell 0)',
-			'The `editNotebookCells` tool must NOT appear in "Tools Called:" (we asked NOT to edit)',
+			'The `editNotebook` tool must NOT appear in "Tools Called:" (we asked NOT to edit)',
 		],
 		optional: [
 			'Provides a clear, accurate calculation or explanation showing how the total was derived',

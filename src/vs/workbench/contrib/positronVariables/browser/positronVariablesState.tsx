@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -42,12 +42,7 @@ export const usePositronVariablesState = (positronVariablesEnvironment: Positron
 		const disposableStore = new DisposableStore();
 
 		// Add the onDidStartPositronVariablesInstance event handler.
-		disposableStore.add(services.positronVariablesService.onDidStartPositronVariablesInstance(positronVariablesInstance => {
-			if ((positronVariablesInstances.find(i => i.session.sessionId === positronVariablesInstance.session.sessionId)) === undefined) {
-				// if this instance is already known, it's a restart so activate it
-				// activating through the service ensures all listeners are notified
-				services.positronVariablesService.setActivePositronVariablesSession(positronVariablesInstance.session.sessionId);
-			}
+		disposableStore.add(services.positronVariablesService.onDidStartPositronVariablesInstance(() => {
 			setPositronVariablesInstances(services.positronVariablesService.positronVariablesInstances);
 		}));
 

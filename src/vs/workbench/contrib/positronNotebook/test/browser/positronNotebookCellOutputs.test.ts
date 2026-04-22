@@ -5,7 +5,7 @@
 
 import * as assert from 'assert';
 import { VSBuffer } from '../../../../../base/common/buffer.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
 import { CellEditType, CellKind } from '../../../notebook/common/notebookCommon.js';
 import { POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED } from '../../browser/ContextKeysManager.js';
 import { createTestPositronNotebookInstance, TestCellInput } from './testPositronNotebookInstance.js';
@@ -24,7 +24,7 @@ function svgOutputItem() {
 }
 
 suite('Positron Notebook Cell Outputs', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+	const ctx = createTestContainer().build();
 
 	suite('outputs observable', () => {
 		test('cell with image output has parsed type "image"', () => {
@@ -38,7 +38,7 @@ suite('Positron Notebook Cell Outputs', () => {
 					outputs: [pngOutputItem()],
 				}],
 			};
-			const notebook = createTestPositronNotebookInstance([cellWithImageOutput], disposables);
+			const notebook = createTestPositronNotebookInstance([cellWithImageOutput], ctx.disposables);
 			const cell = notebook.cells.get()[0];
 
 			assert.ok(cell.isCodeCell(), 'cell should be a code cell');
@@ -58,7 +58,7 @@ suite('Positron Notebook Cell Outputs', () => {
 					outputs: [textOutputItem('hello')],
 				}],
 			};
-			const notebook = createTestPositronNotebookInstance([cellWithTextOutput], disposables);
+			const notebook = createTestPositronNotebookInstance([cellWithTextOutput], ctx.disposables);
 			const cell = notebook.cells.get()[0];
 
 			assert.ok(cell.isCodeCell());
@@ -78,7 +78,7 @@ suite('Positron Notebook Cell Outputs', () => {
 					outputs: [svgOutputItem()],
 				}],
 			};
-			const notebook = createTestPositronNotebookInstance([cellWithSvgOutput], disposables);
+			const notebook = createTestPositronNotebookInstance([cellWithSvgOutput], ctx.disposables);
 			const cell = notebook.cells.get()[0];
 
 			assert.ok(cell.isCodeCell());
@@ -90,7 +90,7 @@ suite('Positron Notebook Cell Outputs', () => {
 		test('adding image output to cell updates the outputs observable', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['print("hello")', 'python', CellKind.Code]],
-				disposables
+				ctx.disposables
 			);
 			const cell = notebook.cells.get()[0];
 
@@ -116,7 +116,7 @@ suite('Positron Notebook Cell Outputs', () => {
 		test('clearing outputs resets collapse state', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['print("hello")', 'python', CellKind.Code]],
-				disposables
+				ctx.disposables
 			);
 			const cell = notebook.cells.get()[0];
 			assert.ok(cell.isCodeCell());
@@ -144,12 +144,12 @@ suite('Positron Notebook Cell Outputs', () => {
 		test('outputImageTargeted context key defaults to false and can be set', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['print("hello")', 'python', CellKind.Code]],
-				disposables
+				ctx.disposables
 			);
 
 			const cellElement = document.createElement('div');
 			const cellContextKeyService = notebook.scopedContextKeyService.createScoped(cellElement);
-			disposables.add(cellContextKeyService);
+			ctx.disposables.add(cellContextKeyService);
 
 			// Defaults to false
 			assert.strictEqual(
@@ -175,6 +175,58 @@ suite('Positron Notebook Cell Outputs', () => {
 				false,
 				'outputImageTargeted should be false after being cleared'
 			);
+		});
+	});
+
+	suite('complex HTML routing', () => {
+		function complexHtmlOutputItem() {
+			return { mime: 'text/html', data: VSBuffer.fromString('<html><body><iframe src="map.html"></iframe></body></html>') };
+		}
+
+		function simpleHtmlOutputItem() {
+			return { mime: 'text/html', data: VSBuffer.fromString('<p>Hello world</p>') };
+		}
+
+		test('complex HTML output produces a preloadMessageResult with display type', () => {
+			const cellWithComplexHtml: TestCellInput = {
+				source: 'display_map()',
+				language: 'python',
+				mime: undefined,
+				cellKind: CellKind.Code,
+				outputs: [{
+					outputId: 'output-1',
+					outputs: [complexHtmlOutputItem()],
+				}],
+			};
+			const notebook = createTestPositronNotebookInstance([cellWithComplexHtml], ctx.disposables);
+			const cell = notebook.cells.get()[0];
+
+			assert.ok(cell.isCodeCell(), 'cell should be a code cell');
+			const outputs = cell.outputs.get();
+			assert.strictEqual(outputs.length, 1);
+			assert.ok(outputs[0].preloadMessageResult, 'should have a preloadMessageResult');
+			assert.strictEqual(outputs[0].preloadMessageResult.preloadMessageType, 'display');
+		});
+
+		test('simple HTML output renders inline without preloadMessageResult', () => {
+			const cellWithSimpleHtml: TestCellInput = {
+				source: 'display_html()',
+				language: 'python',
+				mime: undefined,
+				cellKind: CellKind.Code,
+				outputs: [{
+					outputId: 'output-1',
+					outputs: [simpleHtmlOutputItem()],
+				}],
+			};
+			const notebook = createTestPositronNotebookInstance([cellWithSimpleHtml], ctx.disposables);
+			const cell = notebook.cells.get()[0];
+
+			assert.ok(cell.isCodeCell());
+			const outputs = cell.outputs.get();
+			assert.strictEqual(outputs.length, 1);
+			assert.strictEqual(outputs[0].preloadMessageResult, undefined, 'simple HTML should not have preloadMessageResult');
+			assert.strictEqual(outputs[0].parsed.type, 'html');
 		});
 	});
 });

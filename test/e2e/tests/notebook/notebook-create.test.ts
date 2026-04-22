@@ -94,9 +94,6 @@ test.describe('Notebooks', {
 			await quickInput.type(path.join(app.workspacePathOrFolder, newFileName));
 			await quickInput.clickOkButton();
 
-			// Verify the variables pane shows the correct notebook name
-			await variables.expectRuntimeToBe('visible', newFileName);
-
 			// Test Flake - seems like kernel might not be ready immediately after saving. Let's explicitly set it to see if this helps.
 			await notebooks.selectInterpreter('Python');
 

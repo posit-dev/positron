@@ -197,17 +197,17 @@ jobs:
             /opt/R
           key: ${{ runner.os }}-r-4.5.2-${{ steps.download-r-desc.outputs.description-hash }}
 
-      - name: 🧪 Run Unit Tests (Electron)
+      - name: 🧪 Run VS Code Tests (Electron)
         id: electron-unit-tests
         run: DISPLAY=:10 ./scripts/test.sh
 
-      - name: 🧪 Run Unit Tests (node.js)
+      - name: 🧪 Run VS Code Tests (Node.js)
         id: nodejs-unit-tests
         env:
           PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
         run: npm run test-node
 
-      - name: 🧪 Run Unit Tests (Browser, Chromium)
+      - name: 🧪 Run VS Code Tests (Chromium)
         id: browser-unit-tests
         env:
           PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers

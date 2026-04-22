@@ -7,14 +7,14 @@ import { TestTags } from '../../../infra';
 import { EvalTestCase, RunResult } from '../types';
 
 /**
- * Test: runNotebookCells tool
+ * Test: executeNotebook tool
  *
- * TOOL: runNotebookCells
+ * TOOL: executeNotebook
  * SCENARIO: When asked to execute notebook cells, the assistant should use
- *           runNotebookCells to run the code. Requires Agent mode.
+ *           executeNotebook to run the code. Requires Agent mode.
  *
  * This test creates a 2-cell notebook with R code (x <- 10 and x + 5).
- * When asked to run cell 2, the assistant MUST call runNotebookCells
+ * When asked to run cell 2, the assistant MUST call executeNotebook
  * and report the output (15).
  */
 const prompt = 'Run cell 2 of my notebook and tell me what the output is.';
@@ -22,7 +22,7 @@ const mode = 'Agent';
 
 export const rNotebookRunCells: EvalTestCase = {
 	id: 'r-notebook-run-cells',
-	description: 'Ensure runNotebookCells is used to execute notebook cells',
+	description: 'Ensure executeNotebook is used to execute notebook cells',
 	prompt,
 	mode,
 	tags: [TestTags.POSITRON_NOTEBOOKS],
@@ -62,13 +62,13 @@ export const rNotebookRunCells: EvalTestCase = {
 
 	evaluationCriteria: {
 		required: [
-			'The `runNotebookCells` tool must appear in the "Tools Called:" section',
+			'The `executeNotebook` tool must appear in the "Tools Called:" section',
 			'Reports the correct output value (15, since x=10 and the code is result <- x + 5)',
 		],
 		optional: [
 			'Explains what the code does (adds x + 5 where x is 10)',
 			'Confirms the cell was executed successfully',
-			'Does not use editNotebookCells when only asked to run (should use runNotebookCells)',
+			'Does not use editNotebook when only asked to run (should use executeNotebook)',
 		],
 	},
 };
