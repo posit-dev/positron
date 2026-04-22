@@ -12,7 +12,7 @@ import re
 import sys
 import webbrowser
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 from urllib.parse import urlparse
 
 from comm.base_comm import BaseComm
@@ -127,12 +127,15 @@ def _get_packages_installed(_kernel: "PositronIPyKernel", _params: List[JsonData
         canonical = canonicalize_name(name)
         # Dedupe by canonical name - keeps first occurrence (the one that would be imported)
         if canonical not in packages_dict:
-            summary = dist.metadata.get("Summary")
+            # PackageMetadata (the 3.14 protocol) doesn't expose .get(), but the
+            # runtime object (email.message.Message) always has it.
+            metadata: Any = dist.metadata
+            summary = metadata.get("Summary")
             # Fall back through Author → Author-email → Maintainer → Maintainer-email so
             # packages that set only a maintainer (e.g. click's `Pallets`) still show one.
             author = ""
             for field in ("Author", "Author-email", "Maintainer", "Maintainer-email"):
-                value = dist.metadata.get(field)
+                value = metadata.get(field)
                 if value and value != "UNKNOWN":
                     # Strip trailing email addresses in angle brackets to match the R side.
                     stripped = re.sub(r"\s*<[^>]+>", "", value).strip()
