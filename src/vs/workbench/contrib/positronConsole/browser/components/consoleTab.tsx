@@ -53,10 +53,10 @@ export const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: 
 	const positronConsoleContext = usePositronConsoleContext();
 
 	// Compute the session display name.
-	const sessionDisplayName = getSessionDisplayName(
-		positronConsoleInstance.sessionMetadata.notebookUri,
-		positronConsoleInstance.sessionName,
-	);
+	const sessionDisplayName = getSessionDisplayName({
+		notebookUri: positronConsoleInstance.sessionMetadata.notebookUri,
+		sessionName: positronConsoleInstance.sessionName,
+	});
 
 	// State
 	const [deleteDisabled, setDeleteDisabled] = useState(false);
@@ -118,10 +118,10 @@ export const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: 
 		disposableStore.add(
 			services.runtimeSessionService.onDidUpdateSessionName(session => {
 				if (session.sessionId === positronConsoleInstance.sessionId) {
-					setSessionName(getSessionDisplayName(
-						session.dynState.currentNotebookUri,
-						session.dynState.sessionName,
-					));
+					setSessionName(getSessionDisplayName({
+						notebookUri: session.dynState.currentNotebookUri,
+						sessionName: session.dynState.sessionName,
+					}));
 				}
 			})
 		);
@@ -143,10 +143,10 @@ export const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: 
 				if (e.sessionId === positronConsoleInstance.sessionId) {
 					const session = services.runtimeSessionService.getActiveSession(positronConsoleInstance.sessionId);
 					if (session) {
-						setSessionName(getSessionDisplayName(
-							session.session.dynState.currentNotebookUri,
-							session.session.dynState.sessionName,
-						));
+						setSessionName(getSessionDisplayName({
+							notebookUri: session.session.dynState.currentNotebookUri,
+							sessionName: session.session.dynState.sessionName,
+						}));
 					}
 				}
 			})

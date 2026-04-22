@@ -19,7 +19,9 @@ import { isQuartoDocument } from '../../positronQuarto/common/positronQuartoConf
  * URI path has .qmd/.rmd) and untitled files (where the model's language ID is
  * set to "quarto" or "rmd" by the Quarto extension).
  */
-export function isQuartoSession(notebookUri: URI | undefined, modelService: IModelService): boolean {
+export function isQuartoSession(
+	{ notebookUri, modelService }: { notebookUri: URI | undefined; modelService: IModelService },
+): boolean {
 	if (!notebookUri) {
 		return false;
 	}
@@ -37,8 +39,7 @@ export function isQuartoSession(notebookUri: URI | undefined, modelService: IMod
  * without a notebook URI (console), returns sessionName.
  */
 export function getSessionDisplayName(
-	notebookUri: URI | undefined,
-	sessionName: string,
+	{ notebookUri, sessionName }: { notebookUri: URI | undefined; sessionName: string },
 ): string {
 	if (!notebookUri) {
 		return sessionName;
@@ -62,7 +63,7 @@ interface SessionIconInfo {
  */
 export function getSessionIcon(info: SessionIconInfo, modelService: IModelService): ThemeIcon {
 	if (info.sessionMode === LanguageRuntimeSessionMode.Notebook) {
-		if (isQuartoSession(info.notebookUri, modelService)) {
+		if (isQuartoSession({ notebookUri: info.notebookUri, modelService })) {
 			return Codicon.positronQuarto;
 		}
 		return Codicon.notebook;
@@ -76,7 +77,7 @@ export function getSessionIcon(info: SessionIconInfo, modelService: IModelServic
  */
 export function getSessionIconStyle(info: SessionIconInfo, modelService: IModelService): React.CSSProperties | undefined {
 	if (info.sessionMode === LanguageRuntimeSessionMode.Notebook &&
-		isQuartoSession(info.notebookUri, modelService)) {
+		isQuartoSession({ notebookUri: info.notebookUri, modelService })) {
 		return { color: asCssVariable(POSITRON_QUARTO_ICON) };
 	}
 	return undefined;

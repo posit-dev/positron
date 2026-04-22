@@ -110,7 +110,10 @@ class RuntimeSessionContextValuePick implements IChatContextPickerItem {
 
 	toPickItem(session: ILanguageRuntimeSession): IChatContextPickerPickItem {
 		return {
-			label: getSessionDisplayName(session.dynState.currentNotebookUri, session.dynState.sessionName),
+			label: getSessionDisplayName({
+				notebookUri: session.dynState.currentNotebookUri,
+				sessionName: session.dynState.sessionName,
+			}),
 			iconClass: session.metadata.sessionMode === LanguageRuntimeSessionMode.Console ?
 				ThemeIcon.asClassName(Codicon.positronNewConsole) :
 				ThemeIcon.asClassName(Codicon.notebook),
@@ -307,7 +310,10 @@ export class ChatRuntimeSessionContext extends Disposable {
 
 	get name(): string {
 		if (this.value) {
-			return getSessionDisplayName(this.value.dynState.currentNotebookUri, this.value.dynState.sessionName);
+			return getSessionDisplayName({
+				notebookUri: this.value.dynState.currentNotebookUri,
+				sessionName: this.value.dynState.sessionName,
+			});
 		} else {
 			return 'runtimeSession';
 		}

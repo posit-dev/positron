@@ -58,7 +58,7 @@ registerThemingParticipant((theme, collector) => {
  */
 function getSessionDisplayNameWithRuntime(session: ILanguageRuntimeSession): string {
 	const notebookUri = session.metadata.notebookUri;
-	const base = getSessionDisplayName(notebookUri, session.dynState.sessionName);
+	const base = getSessionDisplayName({ notebookUri, sessionName: session.dynState.sessionName });
 	// just to be safe, if this is not a notebook session or we don't have a notebook URI, return the base display name.
 	if (session.metadata.sessionMode !== LanguageRuntimeSessionMode.Notebook || !notebookUri) {
 		return base;
@@ -230,7 +230,7 @@ const selectLanguageRuntimeSession = async (
 			.sort((a, b) => a.metadata.createdTimestamp - b.metadata.createdTimestamp);
 
 		const notebookItems: IQuickPickItem[] = activeNotebookSessions
-			.filter(session => !isQuartoSession(session.metadata.notebookUri, modelService))
+			.filter(session => !isQuartoSession({ notebookUri: session.metadata.notebookUri, modelService }))
 			.map(session => ({
 				id: session.sessionId,
 				label: getSessionDisplayNameWithRuntime(session),
@@ -250,7 +250,7 @@ const selectLanguageRuntimeSession = async (
 		}
 
 		const quartoItems: IQuickPickItem[] = activeNotebookSessions
-			.filter(session => isQuartoSession(session.metadata.notebookUri, modelService))
+			.filter(session => isQuartoSession({ notebookUri: session.metadata.notebookUri, modelService }))
 			.map(session => ({
 				id: session.sessionId,
 				label: getSessionDisplayNameWithRuntime(session),

@@ -34,7 +34,7 @@ const getLabel = (info: IRuntimeSessionDisplayInfo | undefined): string => {
 	if (!info) {
 		return startSession;
 	}
-	return getSessionDisplayName(info.notebookUri, info.sessionName);
+	return getSessionDisplayName({ notebookUri: info.notebookUri, sessionName: info.sessionName });
 };
 
 /**
