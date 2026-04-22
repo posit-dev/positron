@@ -6,6 +6,9 @@
 // CSS.
 import './runtimeActivity.css';
 
+// React.
+import { memo } from 'react';
+
 // Other dependencies.
 import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';
 import { ActivityInput } from './activityInput.js';
@@ -30,41 +33,85 @@ import { ActivityItemStream, ActivityItemStreamType } from '../../../../services
 export interface RuntimeActivityProps {
 	fontInfo: FontInfo;
 	runtimeItemActivity: RuntimeItemActivity;
+	version: number;
 	positronConsoleInstance: IPositronConsoleInstance;
 }
 
-/**
- * RuntimeActivity component.
- * @param props A RuntimeActivityProps that contains the component properties.
- * @returns The rendered component.
- */
-export const RuntimeActivity = (props: RuntimeActivityProps) => {
-	// Render.
+// Memoized on a scalar `version` prop that bumps on every mutation affecting
+// this component's render (see RuntimeItemActivity). The version MUST be passed
+// as its own prop - reading it off runtimeItemActivity in the compare function
+// would read the live value from the same mutable instance on both sides, so
+// every comparison would trivially be equal. Per-item state changes that the
+// leaf components subscribe to directly (e.g. ActivityItemInput.onStateChanged)
+// do not need to bump version, because those leaves update themselves without
+// a parent re-render.
+export const RuntimeActivity = memo((props: RuntimeActivityProps) => {
 	return (
 		<div className='runtime-activity' data-execution-id={props.runtimeItemActivity.id}>
-			{props.runtimeItemActivity.activityItems.filter(activityItem => !activityItem.isHidden).map(activityItem => {
-
+			{props.runtimeItemActivity.activityItems.map(activityItem => {
 				if (activityItem instanceof ActivityItemInput) {
-					return <ActivityInput key={activityItem.id} activityItemInput={activityItem} fontInfo={props.fontInfo} positronConsoleInstance={props.positronConsoleInstance} />;
+					return (
+						<ActivityInput
+							key={activityItem.id}
+							activityItemInput={activityItem}
+							fontInfo={props.fontInfo}
+							positronConsoleInstance={props.positronConsoleInstance}
+						/>
+					);
 				} else if (activityItem instanceof ActivityItemStream) {
 					if (activityItem.type === ActivityItemStreamType.OUTPUT) {
-						return <ActivityOutputStream key={activityItem.id} activityItemStream={activityItem} />;
+						return (
+							<ActivityOutputStream
+								key={activityItem.id}
+								activityItemStream={activityItem}
+							/>);
 					} else if (activityItem.type === ActivityItemStreamType.ERROR) {
-						return <ActivityErrorStream key={activityItem.id} activityItemStream={activityItem} />;
+						return (
+							<ActivityErrorStream
+								key={activityItem.id}
+								activityItemStream={activityItem}
+							/>
+						);
 					} else {
 						// This indicates a bug. A new stream type was added but not handled here.
 						return null;
 					}
 				} else if (activityItem instanceof ActivityItemPrompt) {
-					return <ActivityPrompt key={activityItem.id} activityItemPrompt={activityItem} positronConsoleInstance={props.positronConsoleInstance} />;
+					return (
+						<ActivityPrompt
+							key={activityItem.id}
+							activityItemPrompt={activityItem}
+							positronConsoleInstance={props.positronConsoleInstance}
+						/>
+					);
 				} else if (activityItem instanceof ActivityItemOutputHtml) {
-					return <ActivityOutputHtml key={activityItem.id} activityItemOutputHtml={activityItem} />;
+					return (
+						<ActivityOutputHtml
+							key={activityItem.id}
+							activityItemOutputHtml={activityItem}
+						/>
+					);
 				} else if (activityItem instanceof ActivityItemOutputMessage) {
-					return <ActivityOutputMessage key={activityItem.id} activityItemOutputMessage={activityItem} />;
+					return (
+						<ActivityOutputMessage
+							key={activityItem.id}
+							activityItemOutputMessage={activityItem}
+						/>
+					);
 				} else if (activityItem instanceof ActivityItemOutputPlot) {
-					return <ActivityOutputPlot key={activityItem.id} activityItemOutputPlot={activityItem} />;
+					return (
+						<ActivityOutputPlot
+							key={activityItem.id}
+							activityItemOutputPlot={activityItem}
+						/>
+					);
 				} else if (activityItem instanceof ActivityItemErrorMessage) {
-					return <ActivityErrorMessage key={activityItem.id} activityItemErrorMessage={activityItem} />;
+					return (
+						<ActivityErrorMessage
+							key={activityItem.id}
+							activityItemErrorMessage={activityItem}
+						/>
+					);
 				} else {
 					// This indicates a bug. A new activity item was added but not handled here.
 					return null;
@@ -72,4 +119,14 @@ export const RuntimeActivity = (props: RuntimeActivityProps) => {
 			})}
 		</div>
 	);
-};
+}, (prev, next) =>
+	// Skip re-render when the activity instance, its mutation version, and
+	// the other referenced props are all unchanged. `version` is compared as
+	// a scalar snapshot rather than via runtimeItemActivity.version because
+	// prev and next hold the same instance - reading .version off both would
+	// always return the current value and defeat memoization.
+	prev.runtimeItemActivity === next.runtimeItemActivity &&
+	prev.version === next.version &&
+	prev.fontInfo === next.fontInfo &&
+	prev.positronConsoleInstance === next.positronConsoleInstance
+);

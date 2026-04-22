@@ -1319,6 +1319,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		// Initialize the scrollback configuration.
 		this._scrollbackSize = this._configurationService.getValue<number>(scrollbackSizeSettingId);
 
+		console.log(`PositronConsoleInstance created for scrollback size ${this._scrollbackSize}`);
+
 		// Register the onDidChangeConfiguration event handler so we can update the console scrollback
 		// configuration.
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
@@ -3333,9 +3335,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			// Add the activity item to the activity runtime item.
 			runtimeItemActivity.addActivityItem(activityItem);
 
-			// Optimize scrollback.
-			this.optimizeScrollback();
-
 			// Fire the onDidChangeRuntimeItems event.
 			this._onDidChangeRuntimeItemsEmitter.fire();
 		} else {
@@ -3356,21 +3355,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			this._runtimeItemActivities.set(runtimeItem.id, runtimeItem);
 		}
 
-		// Optimize scrollback.
-		this.optimizeScrollback();
-
 		// Fire the onDidChangeRuntimeItems event.
 		this._onDidChangeRuntimeItemsEmitter.fire();
-	}
-
-	/**
-	 * Optimizes scrollback.
-	 */
-	private optimizeScrollback() {
-		// Optimize scrollback for each runtime item in reverse order.
-		for (let scrollbackSize = this._scrollbackSize, i = this._runtimeItems.length - 1; i >= 0; i--) {
-			scrollbackSize = this._runtimeItems[i].optimizeScrollback(scrollbackSize);
-		}
 	}
 
 	//#endregion Private Methods

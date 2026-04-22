@@ -6,6 +6,9 @@
 // CSS.
 import './runtimeStarted.css';
 
+// React.
+import { memo } from 'react';
+
 // Other dependencies.
 import { ConsoleOutputLines } from './consoleOutputLines.js';
 import { RuntimeItemStarted } from '../../../../services/positronConsole/browser/classes/runtimeItemStarted.js';
@@ -15,14 +18,11 @@ export interface RuntimeStartedProps {
 	runtimeItemStarted: RuntimeItemStarted;
 }
 
-/**
- * RuntimeStarted component.
- * @param props A RuntimeStartedProps that contains the component properties.
- * @returns The rendered component.
- */
-export const RuntimeStarted = (props: RuntimeStartedProps) => {
-	// Render.
+// RuntimeItemStarted is write-once after construction, so memo with the default
+// shallow compare on runtimeItemStarted lets us skip re-renders whenever the
+// parent list re-renders (e.g. on every stream chunk).
+export const RuntimeStarted = memo((props: RuntimeStartedProps) => {
 	return (
 		<ConsoleOutputLines outputLines={props.runtimeItemStarted.outputLines} />
 	);
-};
+});

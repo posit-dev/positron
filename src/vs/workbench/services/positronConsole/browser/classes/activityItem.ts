@@ -7,15 +7,6 @@
  * ActivityItem class.
  */
 export abstract class ActivityItem {
-	//#region Private Properties
-
-	/**
-	 * Gets or sets a value which indicates whether the item is hidden.
-	 */
-	private _isHidden = false;
-
-	//#endregion Private Properties
-
 	//#region Constructor
 
 	/**
@@ -29,17 +20,6 @@ export abstract class ActivityItem {
 
 	//#endregion Constructor
 
-	//#region Public Properties
-
-	/**
-	 * Gets a value which indicates whether the item is hidden.
-	 */
-	public get isHidden(): boolean {
-		return this._isHidden;
-	}
-
-	//#endregion Public Properties
-
 	//#region Public Methods
 
 	/**
@@ -48,24 +28,6 @@ export abstract class ActivityItem {
 	 * @returns The clipboard representation of the activity item.
 	 */
 	public abstract getClipboardRepresentation(commentPrefix: string): string[];
-
-	/**
-	 * Optimizes scrollback. This is the default implementation which treats an activity item
-	 * as a single item, so it is either entirely visible or entirely hidden.
-	 * @param scrollbackSize The scrollback size.
-	 * @returns The remaining scrollback size.
-	 */
-	public optimizeScrollback(scrollbackSize: number): number {
-		// If scrollback size is zero, hide the item and return zero.
-		if (!scrollbackSize) {
-			this._isHidden = true;
-			return 0;
-		}
-
-		// Unhide the item and return the scrollback size minus one.
-		this._isHidden = false;
-		return scrollbackSize - 1;
-	}
 
 	//#endregion Public Methods
 }

@@ -127,26 +127,5 @@ export class ActivityItemErrorMessage extends ActivityItem {
 		];
 	}
 
-	/**
-	 * Optimizes scrollback.
-	 * @param scrollbackSize The scrollback size.
-	 * @returns The remaining scrollback size.
-	 */
-	public override optimizeScrollback(scrollbackSize: number) {
-		// Calculate the total number of output lines.
-		const outputLines = this._messageOutputLines.length + this._tracebackOutputLines.length;
-
-		// If there are fewer output lines than the scrollback size, clear the scrollback size
-		// as all of them will be displayed, and return the remaining scrollback size.
-		if (outputLines <= scrollbackSize) {
-			this._scrollbackSize = undefined;
-			return scrollbackSize - outputLines;
-		}
-
-		// Set the scrollback size and return 0
-		this._scrollbackSize = scrollbackSize;
-		return 0;
-	}
-
 	//#endregion Public Methods
 }

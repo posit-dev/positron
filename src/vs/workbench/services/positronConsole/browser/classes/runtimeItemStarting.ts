@@ -18,7 +18,7 @@ export class RuntimeItemStarting extends RuntimeItemStandard {
 	 * @param message The message.
 	 * @param attachMode The attach mode.
 	 */
-	constructor(id: string, message: string, public attachMode: SessionAttachMode) {
+	constructor(id: string, message: string, public readonly attachMode: SessionAttachMode) {
 		// Call the base class's constructor.
 		super(id, message);
 	}

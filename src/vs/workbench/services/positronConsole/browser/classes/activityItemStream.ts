@@ -159,27 +159,6 @@ export class ActivityItemStream extends ActivityItem {
 		return formatOutputLinesForClipboard(this._ansiOutput.outputLines, commentPrefix);
 	}
 
-	/**
-	 * Optimizes scrollback.
-	 * @param scrollbackSize The scrollback size.
-	 * @returns The remaining scrollback size.
-	 */
-	public override optimizeScrollback(scrollbackSize: number) {
-		// Process the activity items streams.
-		this.processActivityItemStreams();
-
-		// If there are fewer output lines than the scrollback size, clear the scrollback size
-		// as all of them will be displayed, and return the remaining scrollback size.
-		if (this._ansiOutput.outputLines.length <= scrollbackSize) {
-			this._scrollbackSize = undefined;
-			return scrollbackSize - this._ansiOutput.outputLines.length;
-		}
-
-		// Set the scrollback size and return 0
-		this._scrollbackSize = scrollbackSize;
-		return 0;
-	}
-
 	//#endregion Public Methods
 
 	//#region Private Methods

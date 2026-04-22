@@ -52,6 +52,14 @@ export class RuntimeItemActivity extends RuntimeItem {
 	 */
 	private _activityItems: ActivityItem[] = [];
 
+	/**
+	 * Monotonically increasing counter bumped on every mutation that affects
+	 * what RuntimeActivity renders (add/replace/stream-merge of activity items,
+	 * and scrollback-driven visibility changes). Used by React.memo to skip
+	 * re-rendering activities whose contents have not changed.
+	 */
+	private _version = 0;
+
 	//#endregion Private Properties
 
 	//#region Public Properties
@@ -61,6 +69,13 @@ export class RuntimeItemActivity extends RuntimeItem {
 	 */
 	public get activityItems() {
 		return this._activityItems;
+	}
+
+	/**
+	 * Gets the current mutation version. See `_version`.
+	 */
+	public get version() {
+		return this._version;
 	}
 
 	//#endregion Public Properties
@@ -89,6 +104,10 @@ export class RuntimeItemActivity extends RuntimeItem {
 	 * @param activityItem The activity item to add.
 	 */
 	public addActivityItem(activityItem: ActivityItem) {
+		// Every path through this method mutates state (push, in-place replace,
+		// or in-place stream merge), so bump the version once up front.
+		this._version++;
+
 		// Perform activity item processing if this is not the first activity item.
 		if (this._activityItems.length) {
 			// If the activity item being added is an ActivityItemStream, see if we can append it to
@@ -151,30 +170,6 @@ export class RuntimeItemActivity extends RuntimeItem {
 		return this._activityItems.flatMap(activityItem =>
 			activityItem.getClipboardRepresentation(commentPrefix)
 		);
-	}
-
-	/**
-	 * Optimizes scrollback.
-	 * @param scrollbackSize The scrollback size.
-	 * @returns The remaining scrollback size.
-	 */
-	public override optimizeScrollback(scrollbackSize: number) {
-		// If scrollback size is zero, hide the item and return zero.
-		if (scrollbackSize === 0) {
-			this._isHidden = true;
-			return 0;
-		}
-
-		// Unhide the item.
-		this._isHidden = false;
-
-		// Optimize scrollback for each activity item in reverse order.
-		for (let i = this._activityItems.length - 1; i >= 0; i--) {
-			scrollbackSize = this._activityItems[i].optimizeScrollback(scrollbackSize);
-		}
-
-		// Return the remaining scrollback size.
-		return scrollbackSize;
 	}
 
 	//#endregion Public Methods

@@ -6,6 +6,9 @@
 // CSS.
 import './runtimeOffline.css';
 
+// React.
+import { memo } from 'react';
+
 // Other dependencies.
 import { ConsoleOutputLines } from './consoleOutputLines.js';
 import { RuntimeItemOffline } from '../../../../services/positronConsole/browser/classes/runtimeItemOffline.js';
@@ -15,16 +18,13 @@ export interface RuntimeOfflineProps {
 	runtimeItemOffline: RuntimeItemOffline;
 }
 
-/**
- * RuntimeOffline component.
- * @param props A RuntimeOfflineProps that contains the component properties.
- * @returns The rendered component.
- */
-export const RuntimeOffline = (props: RuntimeOfflineProps) => {
-	// Render.
+// RuntimeItemOffline is write-once after construction, so memo with the default
+// shallow compare on runtimeItemOffline lets us skip re-renders whenever the
+// parent list re-renders (e.g. on every stream chunk).
+export const RuntimeOffline = memo((props: RuntimeOfflineProps) => {
 	return (
 		<div className='runtime-offline'>
 			<ConsoleOutputLines outputLines={props.runtimeItemOffline.outputLines} />
 		</div>
 	);
-};
+});

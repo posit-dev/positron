@@ -84,23 +84,5 @@ export class ActivityItemOutputMessage extends ActivityItem {
 		return formatOutputLinesForClipboard(this._outputLines, commentPrefix);
 	}
 
-	/**
-	 * Optimizes scrollback.
-	 * @param scrollbackSize The scrollback size.
-	 * @returns The remaining scrollback size.
-	 */
-	public override optimizeScrollback(scrollbackSize: number) {
-		// If there are fewer output lines than the scrollback size, clear the scrollback size
-		// as all of them will be displayed, and return the remaining scrollback size.
-		if (this._outputLines.length <= scrollbackSize) {
-			this._scrollbackSize = undefined;
-			return scrollbackSize - this._outputLines.length;
-		}
-
-		// Set the scrollback size and return 0
-		this._scrollbackSize = scrollbackSize;
-		return 0;
-	}
-
 	//#endregion Public Methods
 }

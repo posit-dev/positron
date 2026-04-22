@@ -6,6 +6,9 @@
 // CSS.
 import './runtimePendingInput.css';
 
+// React.
+import { memo } from 'react';
+
 // Other dependencies.
 import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';
 import { OutputRun } from '../../../../browser/positronAnsiRenderer/outputRun.js';
@@ -17,19 +20,17 @@ export interface RuntimePendingInputProps {
 	runtimeItemPendingInput: RuntimeItemPendingInput;
 }
 
-/**
- * RuntimePendingInput component.
- * @param props A RuntimePendingInputProps that contains the component properties.
- * @returns The rendered component.
- */
-export const RuntimePendingInput = (props: RuntimePendingInputProps) => {
+// RuntimeItemPendingInput is write-once after construction and fontInfo is a
+// stable reference updated only when the font configuration changes, so memo
+// with the default shallow compare lets us skip re-renders whenever the parent
+// list re-renders (e.g. on every stream chunk).
+export const RuntimePendingInput = memo((props: RuntimePendingInputProps) => {
 	// Calculate the prompt width.
 	const promptWidth = Math.ceil(
 		(props.runtimeItemPendingInput.inputPrompt.length + 1) *
 		props.fontInfo.typicalHalfwidthCharacterWidth
 	);
 
-	// Render.
 	return (
 		<div className='pending-input'>
 			{props.runtimeItemPendingInput.outputLines.map((outputLine, index) =>
@@ -44,4 +45,4 @@ export const RuntimePendingInput = (props: RuntimePendingInputProps) => {
 			)}
 		</div>
 	);
-};
+});

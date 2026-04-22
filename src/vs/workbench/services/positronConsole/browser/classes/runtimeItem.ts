@@ -10,15 +10,6 @@ import { ANSIOutput, ANSIOutputLine } from '../../../../../base/common/ansiOutpu
  * RuntimeItem class.
  */
 export class RuntimeItem {
-	//#region Protected Properties
-
-	/**
-	 * Gets or sets a value which indicates whether the item is hidden.
-	 */
-	protected _isHidden = false;
-
-	//#endregion Protected Properties
-
 	//#region Constructor
 
 	/**
@@ -30,17 +21,6 @@ export class RuntimeItem {
 
 	//#endregion Constructor
 
-	//#region Public Properties
-
-	/**
-	 * Gets a value which indicates whether the item is hidden.
-	 */
-	public get isHidden(): boolean {
-		return this._isHidden;
-	}
-
-	//#endregion Public Properties
-
 	//#region Public Methods
 
 	/**
@@ -51,26 +31,6 @@ export class RuntimeItem {
 	 */
 	public getClipboardRepresentation(commentPrefix: string): string[] {
 		return [];
-	}
-
-	/**
-	 * Optimizes scrollback.
-	 * @param scrollbackSize The scrollback size.
-	 * @note The default implementation treats a runtime item as a single item, so it is either
-	 * entirely visible or entirely hidden. Override in derived classes to provide a different
-	 * behavior.
-	 * @returns The remaining scrollback size.
-	 */
-	public optimizeScrollback(scrollbackSize: number) {
-		// If scrollback size is zero, hide the item and return zero.
-		if (!scrollbackSize) {
-			this._isHidden = true;
-			return 0;
-		}
-
-		// Unhide the item and return the scrollback size minus one.
-		this._isHidden = false;
-		return scrollbackSize - 1;
 	}
 
 	//#endregion Public Methods
