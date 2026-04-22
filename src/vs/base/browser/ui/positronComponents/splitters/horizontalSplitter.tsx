@@ -216,14 +216,13 @@ export const HorizontalSplitter = (props: {
 	// Render.
 	return (
 		<div className='horizontal-splitter'>
+			{/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
 			<div
-				aria-orientation='horizontal'
 				className={positronClassNames(
 					'sash',
 					{ 'hovering': hovering && props.showResizeIndicator },
 					{ 'resizing': resizing && props.showResizeIndicator }
 				)}
-				role='separator'
 				onDoubleClick={doubleClickHandler}
 				onPointerDown={pointerDownHandler}
 				onPointerEnter={pointerEnterHandler}

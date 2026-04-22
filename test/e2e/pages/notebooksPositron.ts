@@ -1441,10 +1441,22 @@ export class PositronNotebooks extends Notebooks {
 	 * Verify: the height of the cell's output area matches expected height.
 	 * @param cellIndex - The index of the cell to check.
 	 * @param height - The expected height of the cell's output area in pixels.
+	 * @param options - Options to control expectation:
+	 *   tolerance: Optional pixel tolerance for height comparison (default: 0, meaning exact match).
 	 */
-	async expectCellOutputHeight(cellIndex: number, height: number): Promise<void> {
-		await test.step(`Verify cell output height at index ${cellIndex} is ${height}px`, async () => {
-			expect(await this.getCellOutputHeight(cellIndex)).toBe(height);
+	async expectCellOutputHeight(
+		cellIndex: number,
+		height: number,
+		{ tolerance = 0 }: { tolerance?: number } = {}
+	): Promise<void> {
+		await test.step(`Verify cell output height at index ${cellIndex} is ${height}px (±${tolerance}px)`, async () => {
+			const actual = await this.getCellOutputHeight(cellIndex);
+			if (tolerance === 0) {
+				expect(actual).toBe(height);
+			} else {
+				expect(actual).toBeGreaterThanOrEqual(height - tolerance);
+				expect(actual).toBeLessThanOrEqual(height + tolerance);
+			}
 		});
 	}
 

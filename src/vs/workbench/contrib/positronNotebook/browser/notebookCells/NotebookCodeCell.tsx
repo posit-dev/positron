@@ -40,6 +40,11 @@ import { CellOutputActionBar } from './CellOutputActionBar.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { HorizontalSplitter, HorizontalSplitterResizeParams } from '../../../../../base/browser/ui/positronComponents/splitters/horizontalSplitter.js';
 
+/** The minimum height (pixels) that scrollable outputs can be resized to. */
+const MINIMUM_SCROLLABLE_OUTPUT_HEIGHT = 50;
+/** The maximum height (pixels) that scrollable outputs can be resized to. */
+const MAXIMUM_SCROLLABLE_OUTPUT_HEIGHT = 2000;
+
 const copyOutputTextLabel = localize('positron.notebook.copyOutputText', "Copy Output Text");
 const expandOutputTooltip = localize('positron.notebook.expandOutput', "Click to Expand Output");
 const outputCollapsedLabel = localize('positron.notebook.outputCollapsed', 'Output collapsed');
@@ -88,8 +93,8 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 		const el = outputsInnerRef.current;
 		return {
 			startingHeight: el?.offsetHeight ?? 0,
-			minimumHeight: 50,
-			maximumHeight: 2000,
+			minimumHeight: MINIMUM_SCROLLABLE_OUTPUT_HEIGHT,
+			maximumHeight: MAXIMUM_SCROLLABLE_OUTPUT_HEIGHT,
 		};
 	}, []);
 

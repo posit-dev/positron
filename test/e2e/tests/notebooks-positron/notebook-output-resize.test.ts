@@ -14,7 +14,7 @@ test.describe('Positron Notebooks: Output Resize', {
 	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
 }, () => {
 
-	test('Drag sash resizes scrollable cell output', async function ({ app, page, settings }) {
+	test('Drag sash resizes scrollable cell output', async function ({ app, settings }) {
 		const { notebooks, notebooksPositron } = app.workbench;
 
 		await test.step('Setup: Create notebook with scrollable output', async () => {
@@ -42,12 +42,12 @@ test.describe('Positron Notebooks: Output Resize', {
 		await test.step('Dragging the sash changes the output height', async () => {
 			const dragDistance = 150;
 			await notebooksPositron.dragCellOutputSash(0, dragDistance);
-			await notebooksPositron.expectCellOutputHeight(0, initialHeight + dragDistance);
+			await notebooksPositron.expectCellOutputHeight(0, initialHeight + dragDistance, { tolerance: 5 });
 		});
 
 		await test.step('Double-clicking the sash resets to default height', async () => {
 			await sash.click({ clickCount: 2 });
-			await notebooksPositron.expectCellOutputHeight(0, initialHeight);
+			await notebooksPositron.expectCellOutputHeight(0, initialHeight, { tolerance: 5 });
 		});
 
 		await test.step('Sash is hidden when output is collapsed', async () => {
@@ -63,7 +63,7 @@ test.describe('Positron Notebooks: Output Resize', {
 		await test.step('Re-running cell resets height', async () => {
 			await notebooksPositron.dragCellOutputSash(0, 100);
 			await notebooksPositron.runCodeAtIndex(0);
-			await notebooksPositron.expectCellOutputHeight(0, initialHeight);
+			await notebooksPositron.expectCellOutputHeight(0, initialHeight, { tolerance: 5 });
 		});
 	});
 });

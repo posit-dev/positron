@@ -392,9 +392,7 @@ export const VerticalSplitter = ({
 			}}
 		>
 			<div
-				aria-orientation='vertical'
 				className='sash'
-				role='separator'
 				style={{
 					left: collapsible ? -1 : -(sashWidth / 2),
 					width: collapsible ? sashWidth + 2 : sashWidth
