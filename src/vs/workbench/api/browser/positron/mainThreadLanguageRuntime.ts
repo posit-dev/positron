@@ -45,7 +45,6 @@ import { IPositronWebviewPreloadService } from '../../../services/positronWebvie
 import { IPositronConnectionsService } from '../../../services/positronConnections/common/interfaces/positronConnectionsService.js';
 import { IRuntimeNotebookKernelService } from '../../../contrib/runtimeNotebookKernel/common/interfaces/runtimeNotebookKernelService.js';
 import { LanguageRuntimeSessionChannel } from '../../common/positron/extHostTypes.positron.js';
-import { basename } from '../../../../base/common/resources.js';
 import { RuntimeOnlineState } from '../../common/extHostTypes.js';
 import { Range, IRange } from '../../../../editor/common/core/range.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
@@ -1138,13 +1137,6 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 		}
 	}
 
-	getLabel(): string {
-		// If we're a notebook session, use the notebook name, otherwise use the session name
-		if (this.dynState.currentNotebookUri) {
-			return basename(this.dynState.currentNotebookUri);
-		}
-		return this.dynState.sessionName;
-	}
 	static clientCounter = 0;
 
 	override dispose(): void {

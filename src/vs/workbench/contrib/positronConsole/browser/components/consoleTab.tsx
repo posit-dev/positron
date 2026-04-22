@@ -118,7 +118,10 @@ export const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: 
 		disposableStore.add(
 			services.runtimeSessionService.onDidUpdateSessionName(session => {
 				if (session.sessionId === positronConsoleInstance.sessionId) {
-					setSessionName(session.getLabel());
+					setSessionName(getSessionDisplayName(
+						session.dynState.currentNotebookUri,
+						session.dynState.sessionName,
+					));
 				}
 			})
 		);
@@ -140,7 +143,10 @@ export const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: 
 				if (e.sessionId === positronConsoleInstance.sessionId) {
 					const session = services.runtimeSessionService.getActiveSession(positronConsoleInstance.sessionId);
 					if (session) {
-						setSessionName(session.session.getLabel());
+						setSessionName(getSessionDisplayName(
+							session.session.dynState.currentNotebookUri,
+							session.session.dynState.sessionName,
+						));
 					}
 				}
 			})

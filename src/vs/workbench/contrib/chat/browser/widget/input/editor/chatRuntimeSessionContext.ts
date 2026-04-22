@@ -24,6 +24,7 @@ import { localize } from '../../../../../../../nls.js';
 import { Codicon } from '../../../../../../../base/common/codicons.js';
 import { ThemeIcon } from '../../../../../../../base/common/themables.js';
 import { IQuickPickSeparator } from '../../../../../../../platform/quickinput/common/quickInput.js';
+import { getSessionDisplayName } from '../../../../../positronConsole/common/sessionDisplayUtils.js';
 
 /**
  * A single summarized entry in the execution history provided to the chat model.
@@ -109,7 +110,7 @@ class RuntimeSessionContextValuePick implements IChatContextPickerItem {
 
 	toPickItem(session: ILanguageRuntimeSession): IChatContextPickerPickItem {
 		return {
-			label: session.getLabel(),
+			label: getSessionDisplayName(session.dynState.currentNotebookUri, session.dynState.sessionName),
 			iconClass: session.metadata.sessionMode === LanguageRuntimeSessionMode.Console ?
 				ThemeIcon.asClassName(Codicon.positronNewConsole) :
 				ThemeIcon.asClassName(Codicon.notebook),
@@ -306,7 +307,7 @@ export class ChatRuntimeSessionContext extends Disposable {
 
 	get name(): string {
 		if (this.value) {
-			return this.value.getLabel();
+			return getSessionDisplayName(this.value.dynState.currentNotebookUri, this.value.dynState.sessionName);
 		} else {
 			return 'runtimeSession';
 		}
