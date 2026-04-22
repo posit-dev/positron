@@ -22,7 +22,7 @@ import { isMacintosh } from '../../../../../base/common/platform.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ILanguageRuntimeResourceUsage, LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { RuntimeIcon } from './runtimeIcon.js';
-import { getNotebookDisplayName } from '../../common/sessionDisplayUtils.js';
+import { getSessionDisplayName } from '../../common/sessionDisplayUtils.js';
 import { ResourceUsageGraph } from './resourceUsageGraph.js';
 import { ResourceUsageStats } from './resourceUsageStats.js';
 import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -52,23 +52,11 @@ export const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: 
 	const services = usePositronReactServicesContext();
 	const positronConsoleContext = usePositronConsoleContext();
 
-	/**
-	 * Compute the session display name. For notebook sessions, we
-	 * use getNotebookDisplayName so untitled document names are
-	 * handled correctly (e.g. "Untitled.ipynb" vs "Untitled.qmd").
-	 */
-	const isNotebookSession =
-		positronConsoleInstance.sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook;
-	let sessionDisplayName = '';
-	if (isNotebookSession) {
-		sessionDisplayName = getNotebookDisplayName(
-			positronConsoleInstance.sessionMetadata.notebookUri!, services.modelService);
-	} else {
-		const session = services.runtimeSessionService.getActiveSession(positronConsoleInstance.sessionId);
-		sessionDisplayName = session
-			? session.session.getLabel()
-			: positronConsoleInstance.sessionName;
-	}
+	// Compute the session display name.
+	const sessionDisplayName = getSessionDisplayName(
+		positronConsoleInstance.sessionMetadata.notebookUri,
+		positronConsoleInstance.sessionName,
+	);
 
 	// State
 	const [deleteDisabled, setDeleteDisabled] = useState(false);

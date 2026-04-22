@@ -20,7 +20,6 @@ import { ILanguageService } from '../../../../editor/common/languages/language.j
 import { IModelService } from '../../../../editor/common/services/model.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { getSessionDisplayName, getSessionIcon, isQuartoSession } from '../../positronConsole/common/sessionDisplayUtils.js';
-import { RuntimeSessionDisplayInfo } from '../../../services/runtimeSession/common/runtimeSessionDisplayInfo.js';
 import { registerThemingParticipant } from '../../../../platform/theme/common/themeService.js';
 import { POSITRON_QUARTO_ICON } from '../../../common/theme.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
@@ -51,6 +50,26 @@ registerThemingParticipant((theme, collector) => {
 		collector.addRule(`.quick-input-list-icon.${QUARTO_QUICKPICK_ICON_CLASS}.codicon { color: ${quartoColor}; }`);
 	}
 });
+
+/**
+ * Builds a display label that includes the runtime name for notebook sessions
+ * since the session name for notebooks has no information about the runtime
+ * being used.
+ */
+function getSessionDisplayNameWithRuntime(session: ILanguageRuntimeSession): string {
+	const notebookUri = session.metadata.notebookUri;
+	const base = getSessionDisplayName(notebookUri, session.dynState.sessionName);
+	// just to be safe, if this is not a notebook session or we don't have a notebook URI, return the base display name.
+	if (session.metadata.sessionMode !== LanguageRuntimeSessionMode.Notebook || !notebookUri) {
+		return base;
+	}
+	// For Quarto sessions, sessionName already equals the filename, so using
+	// it as the " - env" suffix would duplicate. Fall back to runtimeName.
+	const env = session.dynState.sessionName === base
+		? session.runtimeMetadata.runtimeName
+		: session.dynState.sessionName;
+	return `${base} - ${env}`;
+}
 
 // Quick pick item interfaces.
 interface LanguageRuntimeQuickPickItem extends IQuickPickItem { runtime: ILanguageRuntimeMetadata }
@@ -214,7 +233,7 @@ const selectLanguageRuntimeSession = async (
 			.filter(session => !isQuartoSession(session.metadata.notebookUri, modelService))
 			.map(session => ({
 				id: session.sessionId,
-				label: getSessionDisplayName(new RuntimeSessionDisplayInfo(session), modelService),
+				label: getSessionDisplayNameWithRuntime(session),
 				detail: session.runtimeMetadata.runtimePath,
 				description: session.sessionId === foregroundSessionId
 					? localize('positron.languageRuntime.currentlySelected', 'Currently Selected')
@@ -234,7 +253,7 @@ const selectLanguageRuntimeSession = async (
 			.filter(session => isQuartoSession(session.metadata.notebookUri, modelService))
 			.map(session => ({
 				id: session.sessionId,
-				label: getSessionDisplayName(new RuntimeSessionDisplayInfo(session), modelService),
+				label: getSessionDisplayNameWithRuntime(session),
 				detail: session.runtimeMetadata.runtimePath,
 				description: session.sessionId === foregroundSessionId
 					? localize('positron.languageRuntime.currentlySelected', 'Currently Selected')

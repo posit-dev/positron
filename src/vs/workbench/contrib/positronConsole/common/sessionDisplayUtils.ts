@@ -4,13 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { URI } from '../../../../base/common/uri.js';
-import { basename } from '../../../../base/common/path.js';
+import { basename, extname } from '../../../../base/common/path.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
 import { asCssVariable } from '../../../../platform/theme/common/colorUtils.js';
 import { LanguageRuntimeSessionMode, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { IRuntimeSessionDisplayInfo } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { POSITRON_QUARTO_ICON } from '../../../common/theme.js';
 import { isQuartoDocument } from '../../positronQuarto/common/positronQuartoConfig.js';
 
@@ -29,48 +28,23 @@ export function isQuartoSession(notebookUri: URI | undefined, modelService: IMod
 }
 
 /**
- * Gets the display name for a notebook file. For untitled Quarto documents,
- * the .qmd extension is appended since the URI doesn't include it.
- */
-export function getNotebookDisplayName(notebookUri: URI, modelService: IModelService): string {
-	let name = basename(notebookUri.path);
-	if (!name.includes('.') && isQuartoSession(notebookUri, modelService)) {
-		name = `${name}.qmd`;
-	}
-	return name;
-}
-
-/**
- * Gets the display label for a session.
+ * Gets the display label for a session given a notebook URI and session name.
+ * This is the canonical way to derive a session's label in UI surfaces.
  *
- * For notebook sessions, we show the notebook file name and the runtime
- * name (e.g., "foo.ipynb - Python 3.12"). For untitled Quarto documents,
- * the .qmd extension is appended since the URI doesn't include it.
- *
- * Pass `short: true` to drop the " - runtime" suffix for notebook sessions.
- *
- * For console sessions, we always show the session name (the `short` flag is
- * ignored).
+ * For notebook sessions, returns the filename from the URI. Untitled Quarto
+ * URIs lack the .qmd extension, so we fall back to sessionName, which the
+ * Quarto kernel manager populates with the filename + extension. For sessions
+ * without a notebook URI (console), returns sessionName.
  */
 export function getSessionDisplayName(
-	info: IRuntimeSessionDisplayInfo,
-	modelService: IModelService,
-	short: boolean = false,
+	notebookUri: URI | undefined,
+	sessionName: string,
 ): string {
-	if (info.sessionMode === LanguageRuntimeSessionMode.Notebook && info.notebookUri) {
-		const notebookName = getNotebookDisplayName(info.notebookUri, modelService);
-		if (short) {
-			return notebookName;
-		}
-		// For Quarto sessions, show the underlying runtime name (e.g.
-		// "Python 3.12.11 (Pyenv)") instead of the session name (which is
-		// "Quarto: <file>.qmd" and would duplicate the file name).
-		const env = isQuartoSession(info.notebookUri, modelService)
-			? info.runtimeName
-			: info.sessionName;
-		return `${notebookName} - ${env}`;
+	if (!notebookUri) {
+		return sessionName;
 	}
-	return info.sessionName;
+	const name = basename(notebookUri.path);
+	return extname(name) ? name : sessionName;
 }
 
 /**
