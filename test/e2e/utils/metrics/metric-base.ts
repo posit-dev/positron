@@ -5,6 +5,7 @@
 
 import os from 'os';
 import { DataExplorerShortcutOptions } from './metric-data-explorer.js';
+import type { SessionStartShortcutOptions } from './metric-sessions.js';
 import { getPositronVersion } from '../../infra/test-runner/test-setup.js';
 
 export const CONNECT_API_KEY = process.env.CONNECT_API_KEY!;
@@ -43,6 +44,10 @@ export type MetricContext = {
 	sort_applied?: boolean;
 	filter_applied?: boolean;
 	preview_enabled?: boolean;
+
+	// Language runtime session fields
+	runtime_version?: string;
+	interpreter_kind?: 'system' | 'venv' | 'conda' | 'uv' | 'renv' | 'other';
 };
 
 export type MetricResult<T> = {
@@ -83,6 +88,13 @@ export type RecordMetric = {
 		runCell: <T>(operation: () => Promise<T>, targetType: MetricTargetType, language?: string, description?: string, context?: MetricContext | (() => Promise<MetricContext>)) => Promise<MetricResult<T>>;
 		renderOnOpen: <T>(operation: () => Promise<T>, targetType: MetricTargetType, options?: { description?: string; additionalContext?: MetricContext | (() => Promise<MetricContext>) }) => Promise<MetricResult<T>>;
 		renderOnNavBack: <T>(operation: () => Promise<T>, targetType: MetricTargetType, options?: { description?: string; additionalContext?: MetricContext | (() => Promise<MetricContext>) }) => Promise<MetricResult<T>>;
+	};
+	sessions: {
+		start: <T>(
+			operation: () => Promise<T>,
+			targetType: MetricTargetType,
+			options?: SessionStartShortcutOptions
+		) => Promise<MetricResult<T>>;
 	};
 	assistant: {
 		evalResponse: (input: AssistantEvalMetricInput, durationMs: number) => Promise<void>;
@@ -145,7 +157,13 @@ export type MetricTargetType =
 	| 'eval.notebooks'        // Notebook-related assistant evals
 	| 'eval.tools'            // Tool usage evals
 	| 'eval.hallucination'    // Hallucination detection evals
-	| 'eval.general';         // General assistant evals
+	| 'eval.general'          // General assistant evals
+
+	// Language runtime sessions
+	| 'console.python'        // Python console session
+	| 'console.r'             // R console session
+	| 'notebook.python'       // Python notebook kernel
+	| 'notebook.r';           // R notebook kernel
 
 export interface BaseMetric {
 	branch?: GhBranch;
