@@ -9,6 +9,15 @@ test.use({
 	suiteId: __filename
 });
 
+const LANGUAGES = [
+	{ lang: 'Python', runtime: 'python', target: 'session.python' },
+	{ lang: 'R', runtime: 'r', target: 'session.r' },
+] as const;
+
+function parseVersion(text: string | null | undefined): string | undefined {
+	return text?.match(/[\d.]+/)?.[0];
+}
+
 test.describe('Sessions: Startup Performance', {
 	tag: [tags.WIN, tags.SESSIONS, tags.PERFORMANCE]
 }, () => {
@@ -18,83 +27,45 @@ test.describe('Sessions: Startup Performance', {
 		await sessions.deleteDisconnectedSessions();
 	});
 
-	test('Console Start: Python', async function ({ sessions, metric }) {
-		// `reuse: false` forces a fresh create path rather than piggybacking on an existing idle session.
-		let sessionName = '';
-		const { duration_ms } = await metric.sessions.start(async () => {
-			const info = await sessions.start('python', { reuse: false });
-			sessionName = info.name;
-		}, 'session.python', {
-			sessionMode: 'console',
-			language: 'Python',
-			description: 'Console: Python start (picker to idle)',
-			additionalContext: async () => ({ runtime_version: sessionName.match(/[\d.]+/)?.[0] }),
+	for (const { lang, runtime, target } of LANGUAGES) {
+		test(`Console Start: ${lang}`, async function ({ sessions, metric }) {
+			// `reuse: false` forces a fresh create path rather than piggybacking on an existing idle session.
+			let sessionName = '';
+			const { duration_ms } = await metric.sessions.start(async () => {
+				const info = await sessions.start(runtime, { reuse: false });
+				sessionName = info.name;
+			}, target, {
+				sessionMode: 'console',
+				language: lang,
+				description: `Console: ${lang} start (picker to idle)`,
+				additionalContext: async () => ({ runtime_version: parseVersion(sessionName) }),
+			});
+
+			if (!process.env.CI) { console.log(`[perf] session.start console ${runtime}: ${duration_ms} ms`); }
 		});
 
-		if (!process.env.CI) { console.log(`[perf] session.start console python: ${duration_ms} ms`); }
-	});
+		test(`Notebook Start: ${lang}`, async function ({ app, settings, metric }) {
+			const { notebooks, notebooksPositron } = app.workbench;
 
-	test('Notebook Start: Python', async function ({ app, settings, metric }) {
-		const { notebooks, notebooksPositron } = app.workbench;
+			// tests/sessions/ does not enable Positron notebooks by default, so opt in here.
+			await notebooksPositron.enablePositronNotebooks(settings);
 
-		// tests/sessions/ does not enable Positron notebooks by default, so opt in here.
-		await notebooksPositron.enablePositronNotebooks(settings);
+			// Fresh untitled Positron notebook so kernel startup happens under test control.
+			await notebooks.createNewNotebook();
+			await notebooksPositron.expectToBeVisible();
 
-		// Fresh untitled Positron notebook so kernel startup happens under test control.
-		await notebooks.createNewNotebook();
-		await notebooksPositron.expectToBeVisible();
+			let badgeText: string | null = null;
+			const { duration_ms } = await metric.sessions.start(async () => {
+				await notebooksPositron.kernel.select(lang, { waitForReady: true });
+				badgeText = await notebooksPositron.kernel.statusBadge.textContent();
+			}, target, {
+				sessionMode: 'notebook',
+				language: lang,
+				description: `Notebook: ${lang} kernel start (select to idle)`,
+				additionalContext: async () => ({ runtime_version: parseVersion(badgeText) }),
+			});
 
-		let badgeText: string | null = null;
-		const { duration_ms } = await metric.sessions.start(async () => {
-			await notebooksPositron.kernel.select('Python', { waitForReady: true });
-			badgeText = await notebooksPositron.kernel.statusBadge.textContent();
-		}, 'session.python', {
-			sessionMode: 'notebook',
-			language: 'Python',
-			description: 'Notebook: Python kernel start (select to idle)',
-			additionalContext: async () => ({ runtime_version: badgeText?.match(/[\d.]+/)?.[0] }),
+			if (!process.env.CI) { console.log(`[perf] session.start notebook ${runtime}: ${duration_ms} ms`); }
 		});
-
-		if (!process.env.CI) { console.log(`[perf] session.start notebook python: ${duration_ms} ms`); }
-	});
-
-	test('Console Start: R', async function ({ sessions, metric }) {
-		// `reuse: false` forces a fresh create path rather than piggybacking on an existing idle session.
-		let sessionName = '';
-		const { duration_ms } = await metric.sessions.start(async () => {
-			const info = await sessions.start('r', { reuse: false });
-			sessionName = info.name;
-		}, 'session.r', {
-			sessionMode: 'console',
-			language: 'R',
-			description: 'Console: R start (picker to idle)',
-			additionalContext: async () => ({ runtime_version: sessionName.match(/[\d.]+/)?.[0] }),
-		});
-
-		if (!process.env.CI) { console.log(`[perf] session.start console r: ${duration_ms} ms`); }
-	});
-
-	test('Notebook Start: R', async function ({ app, settings, metric }) {
-		const { notebooks, notebooksPositron } = app.workbench;
-
-		// tests/sessions/ does not enable Positron notebooks by default, so opt in here.
-		await notebooksPositron.enablePositronNotebooks(settings);
-
-		// Fresh untitled Positron notebook so kernel startup happens under test control.
-		await notebooks.createNewNotebook();
-		await notebooksPositron.expectToBeVisible();
-
-		let badgeText: string | null = null;
-		const { duration_ms } = await metric.sessions.start(async () => {
-			await notebooksPositron.kernel.select('R', { waitForReady: true });
-			badgeText = await notebooksPositron.kernel.statusBadge.textContent();
-		}, 'session.r', {
-			sessionMode: 'notebook',
-			language: 'R',
-			description: 'Notebook: R kernel start (select to idle)',
-			additionalContext: async () => ({ runtime_version: badgeText?.match(/[\d.]+/)?.[0] }),
-		});
-
-		if (!process.env.CI) { console.log(`[perf] session.start notebook r: ${duration_ms} ms`); }
-	});
+	}
 });
