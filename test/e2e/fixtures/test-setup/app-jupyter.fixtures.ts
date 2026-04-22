@@ -36,7 +36,14 @@ export async function JupyterApp(
 		// Open Positron from JupyterLab
 		await app.positJupyter.lab.openPositron();
 
-		// Wait for Positron to be ready
+		// Open the workspace folder
+		await app.workbench.quickaccess.runCommand('workbench.action.files.openFolder');
+		await app.workbench.quickInput.waitForQuickInputOpened();
+		await app.workbench.quickInput.type(JUPYTER_WORKSPACE_PATH);
+		await app.workbench.quickInput.clickOkButton();
+
+		// Wait for the folder to open and Positron to be ready
+		await app.code.driver.page.waitForSelector('.monaco-workbench', { timeout: 60000 });
 		await app.workbench.sessions.expectNoStartUpMessaging();
 		await app.workbench.sessions.deleteAll();
 
@@ -106,7 +113,7 @@ async function setupJupyterEnvironment(): Promise<void> {
 	await copyUserSettingsToContainer(
 		'jupyter-test',
 		'/home/jupyter-admin/.positron-server/data/User/',
-		['settings.json', 'settingsDocker.json']
+		['settings.json', 'settingsDocker.json', 'settingsWorkbench.json']
 	);
 	await copyKeyBindingsToContainer('jupyter-test', '/home/jupyter-admin/.positron-server/data/User/');
 
