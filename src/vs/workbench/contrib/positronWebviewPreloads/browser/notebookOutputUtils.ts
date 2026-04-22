@@ -192,32 +192,40 @@ function webviewMessageCode() {
 	// element, suppress forwarding so momentum stays with that scroller
 	// rather than the notebook around it. Moving the pointer elsewhere,
 	// letting the grace window lapse, or starting a fresh gesture (a
-	// direction reversal or a sudden jump in |deltaY|, since tail events
-	// decay monotonically) all lift the suppression.
+	// direction reversal, a sudden jump in |deltaY|, or a gap between
+	// events longer than momentum cadence -- tail events decay
+	// monotonically and fire densely, so any of these signals a human
+	// input) all lift the suppression.
 	const MOMENTUM_GRACE_MS = 200;
 	const NEW_GESTURE_DELTA_JUMP = 8;
+	const GESTURE_GAP_MS = 50;
 	let lastConsumer: Element | null = null;
 	let lastConsumedAt = 0;
 	let lastSeenDelta = 0;
+	let lastEventAt = 0;
 	// eslint-disable-next-line no-restricted-globals
 	window.addEventListener('wheel', (event: WheelEvent) => {
 		if (event.defaultPrevented || event.deltaY === 0) {
 			return;
 		}
+		const now = Date.now();
+		const gapSincePrev = now - lastEventAt;
+		lastEventAt = now;
 		const consumer = findVerticalWheelConsumer(event);
 		if (consumer) {
 			lastConsumer = consumer;
-			lastConsumedAt = Date.now();
+			lastConsumedAt = now;
 			lastSeenDelta = event.deltaY;
 			return;
 		}
 		if (lastConsumer
 			&& event.target instanceof Node
 			&& lastConsumer.contains(event.target)
-			&& Date.now() - lastConsumedAt < MOMENTUM_GRACE_MS) {
+			&& now - lastConsumedAt < MOMENTUM_GRACE_MS) {
 			const sameDirection = Math.sign(event.deltaY) === Math.sign(lastSeenDelta);
 			const jumped = Math.abs(event.deltaY) > Math.abs(lastSeenDelta) + NEW_GESTURE_DELTA_JUMP;
-			if (sameDirection && !jumped) {
+			const gappedOut = gapSincePrev > GESTURE_GAP_MS;
+			if (sameDirection && !jumped && !gappedOut) {
 				lastSeenDelta = event.deltaY;
 				return;
 			}
