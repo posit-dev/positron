@@ -72,15 +72,15 @@ Any `vi.spyOn(console, ...)` or `vi.spyOn(obj, 'method')` without a correspondin
 
 ### 11. RTL query usage (React tests only)
 
-For `.vitest.tsx` files using `setupRTLRenderer`: flag any `container.querySelector(...)` used as an assertion target. Use the Testing Library query priority instead: `getByRole` > `getByLabelText` > `getByPlaceholderText` > `getByText` > `getByDisplayValue` > `getByAltText` > `getByTitle` > `getByTestId`. The escape hatch `getByText('text', { selector: '.css' })` is acceptable when role/label aren't available -- the file should include a brief inline comment if the choice isn't obvious. See `.claude/rules/vitest-tests.md` "RTL idioms".
+For `.vitest.tsx` files using `setupRTLRenderer`: flag any `container.querySelector(...)` used as an assertion target. Use the Testing Library query priority instead: `getByRole` -> `getByLabelText` -> `getByPlaceholderText` -> `getByText` -> `getByDisplayValue` -> `getByAltText` -> `getByTitle` -> `getByTestId`. Escape hatches: `getByText('text', { selector: '.css' })` when the element has text, or `getByTestId(...)` when it doesn't. If neither fits (e.g., a structural div with no text and no stable role), suggest adding `data-testid` to the source rather than accepting `container.querySelector`. Add a brief inline comment when the escape-hatch choice isn't obvious. See `.claude/rules/vitest-tests.md` "RTL idioms".
 
 ### 12. Assertion idioms (React tests only)
 
 For `.vitest.tsx` files: flag these assertion anti-patterns.
 
-- `expect(el).toBeTruthy()` / `expect(el).toBeFalsy()` for DOM presence/absence -- use `toBeInTheDocument()` / `not.toBeInTheDocument()`.
+- `expect(el).toBeNull()` / `toBeTruthy()` / `toBeFalsy()` for DOM presence/absence -- use `toBeInTheDocument()` / `not.toBeInTheDocument()` (with `queryBy*` for absence).
 - `assert.strictEqual(el.textContent, 'x')` -- use `expect(el).toHaveTextContent('x')`.
-- `assert.ok(el)` / `assert.strictEqual(el, null)` -- use `expect()` with a jest-dom matcher.
+- `assert.ok(el)` / `assert.equal(...)` / `assert.strictEqual(el, null)` -- use `expect()` with a jest-dom matcher.
 - Manual class checks like `el.classList.contains('x')` -- use `expect(el).toHaveClass('x')`.
 
 See `.claude/rules/vitest-tests.md` "RTL idioms" for the full matcher list.
