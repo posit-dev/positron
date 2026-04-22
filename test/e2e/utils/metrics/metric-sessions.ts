@@ -11,7 +11,7 @@ import { createFeatureMetricFactory } from './metric-factory.js';
 // Feature-specific Types
 //-----------------------
 
-export type SessionsAction = 'start';
+export type SessionsAction = 'start_session';
 
 export type SessionMetric = BaseMetric & {
 	feature_area: 'sessions';
@@ -42,12 +42,12 @@ export { recordSessionMetric };
 //-----------------------
 
 /**
- * Options for the `start` session shortcut.
+ * Options for the `start_session` shortcut.
  *
- * `sessionMode` is required so every emitted metric is bucket-able by console vs notebook.
+ * Console vs notebook mode is encoded in `targetType` (e.g. `console.python`,
+ * `notebook.r`) so the terse metric row is self-describing.
  */
 export interface SessionStartShortcutOptions {
-	sessionMode: 'console' | 'notebook';
 	description?: string;
 	runtimeVersion?: string;
 	interpreterKind?: 'system' | 'venv' | 'conda' | 'uv' | 'renv' | 'other';
@@ -64,12 +64,12 @@ export async function recordSessionStart<T>(
 	targetType: MetricTargetType,
 	isElectronApp: boolean,
 	logger: MultiLogger,
-	options: SessionStartShortcutOptions
+	options: SessionStartShortcutOptions = {}
 ): Promise<MetricResult<T>> {
-	const { sessionMode, description, runtimeVersion, interpreterKind, language, additionalContext } = options;
+	const { description, runtimeVersion, interpreterKind, language, additionalContext } = options;
 
 	const context_json = async (): Promise<MetricContext> => {
-		const base: MetricContext = { session_mode: sessionMode };
+		const base: MetricContext = {};
 		if (runtimeVersion !== undefined) { base.runtime_version = runtimeVersion; }
 		if (interpreterKind !== undefined) { base.interpreter_kind = interpreterKind; }
 		if (language !== undefined) { base.language = language; }
@@ -83,9 +83,9 @@ export async function recordSessionStart<T>(
 	};
 
 	return recordSessionMetric(operation, {
-		action: 'start',
+		action: 'start_session',
 		target_type: targetType,
-		target_description: description || `Start ${sessionMode} session (${targetType})`,
+		target_description: description || `Start session: ${targetType}`,
 		context_json,
 	}, isElectronApp, logger);
 }

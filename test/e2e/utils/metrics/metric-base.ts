@@ -46,7 +46,6 @@ export type MetricContext = {
 	preview_enabled?: boolean;
 
 	// Language runtime session fields
-	session_mode?: 'console' | 'notebook';
 	runtime_version?: string;
 	interpreter_kind?: 'system' | 'venv' | 'conda' | 'uv' | 'renv' | 'other';
 };
@@ -94,7 +93,7 @@ export type RecordMetric = {
 		start: <T>(
 			operation: () => Promise<T>,
 			targetType: MetricTargetType,
-			options: SessionStartShortcutOptions
+			options?: SessionStartShortcutOptions
 		) => Promise<MetricResult<T>>;
 	};
 	assistant: {
@@ -161,8 +160,10 @@ export type MetricTargetType =
 	| 'eval.general'          // General assistant evals
 
 	// Language runtime sessions
-	| 'session.python'        // Python interpreter session
-	| 'session.r';            // R interpreter session
+	| 'console.python'        // Python console session
+	| 'console.r'             // R console session
+	| 'notebook.python'       // Python notebook kernel
+	| 'notebook.r';           // R notebook kernel
 
 export interface BaseMetric {
 	branch?: GhBranch;
