@@ -9,7 +9,6 @@ import { Emitter } from '../../../../base/common/event.js';
 import { Disposable, DisposableMap, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { LanguageRuntimeSessionMode } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageSpec, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronPackagesService } from './interfaces/positronPackagesService.js';
@@ -17,7 +16,6 @@ import { PackagesItemSize, POSITRON_PACKAGES_HAS_ACTIVE_SESSION, POSITRON_PACKAG
 import { IPositronPackagesInstance, PositronPackagesInstance } from './positronPackagesInstance.js';
 
 const TIMEOUT_REFRESH_MS = 5_000; // 5 seconds
-const ITEM_SIZE_STORAGE_KEY = 'positronPackages.itemSize';
 
 /**
  * PositronPackagesService class.
@@ -35,7 +33,7 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 
 	private _activeInstance: PositronPackagesInstance | undefined;
 
-	private _itemSize: PackagesItemSize;
+	private _itemSize: PackagesItemSize = 'row';
 
 	// Context keys
 	private readonly _hasActiveSessionContextKey: IContextKey<boolean>;
@@ -60,7 +58,6 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@ILogService private readonly _logService: ILogService,
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
-		@IStorageService private readonly _storageService: IStorageService,
 	) {
 		// Call the disposable constructor.
 		super();
@@ -70,10 +67,6 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		this._isBusyContextKey = POSITRON_PACKAGES_IS_BUSY.bindTo(this._contextKeyService);
 		this._selectedPackageContextKey = POSITRON_PACKAGES_SELECTED_PACKAGE.bindTo(this._contextKeyService);
 		this._itemSizeContextKey = POSITRON_PACKAGES_ITEM_SIZE.bindTo(this._contextKeyService);
-
-		// Load the item size from profile storage, defaulting to 'row'.
-		const stored = this._storageService.get(ITEM_SIZE_STORAGE_KEY, StorageScope.PROFILE);
-		this._itemSize = stored === 'card' ? 'card' : 'row';
 		this._itemSizeContextKey.set(this._itemSize);
 
 		// Create new instances
@@ -202,7 +195,6 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		}
 		this._itemSize = itemSize;
 		this._itemSizeContextKey.set(itemSize);
-		this._storageService.store(ITEM_SIZE_STORAGE_KEY, itemSize, StorageScope.PROFILE, StorageTarget.USER);
 		this._onDidChangeItemSize.fire(itemSize);
 	}
 
