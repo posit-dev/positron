@@ -197,6 +197,7 @@ const selectLanguageRuntimeSession = async (
 	};
 
 	const foregroundSessionId = runtimeSessionService.foregroundSession?.sessionId;
+	const sessionItems: IQuickPickItem[] = [];
 
 	// Create quick pick items for active console sessions sorted by creation time, oldest to newest.
 	const consoleItems: IQuickPickItem[] = runtimeSessionService.activeSessions
@@ -221,6 +222,7 @@ const selectLanguageRuntimeSession = async (
 		},
 		...consoleItems,
 	];
+	sessionItems.push(...consoleItems);
 
 	if (includeNotebookSessions) {
 		// Active notebook sessions (includes quarto), sorted by creation time.
@@ -239,6 +241,7 @@ const selectLanguageRuntimeSession = async (
 					? localize('positron.languageRuntime.currentlySelected', 'Currently Selected')
 					: undefined,
 				iconClass: ThemeIcon.asClassName(getSessionIcon(session.metadata, modelService)),
+				picked: session.sessionId === foregroundSessionId,
 			}));
 
 		if (notebookItems.length > 0) {
@@ -247,6 +250,7 @@ const selectLanguageRuntimeSession = async (
 				type: 'separator',
 			});
 			quickPickItems.push(...notebookItems);
+			sessionItems.push(...notebookItems);
 		}
 
 		const quartoItems: IQuickPickItem[] = activeNotebookSessions
@@ -259,6 +263,7 @@ const selectLanguageRuntimeSession = async (
 					? localize('positron.languageRuntime.currentlySelected', 'Currently Selected')
 					: undefined,
 				iconClass: `${ThemeIcon.asClassName(getSessionIcon(session.metadata, modelService))} ${QUARTO_QUICKPICK_ICON_CLASS}`,
+				picked: session.sessionId === foregroundSessionId,
 			}));
 
 		if (quartoItems.length > 0) {
@@ -267,6 +272,7 @@ const selectLanguageRuntimeSession = async (
 				type: 'separator',
 			});
 			quickPickItems.push(...quartoItems);
+			sessionItems.push(...quartoItems);
 		}
 	}
 
@@ -281,7 +287,7 @@ const selectLanguageRuntimeSession = async (
 	const result = await quickInputService.pick(quickPickItems, {
 		title: options?.title || localize('positron.languageRuntime.selectSession.quickPickTitle', 'Select Interpreter Session'),
 		canPickMany: false,
-		activeItem: consoleItems.filter(item => item.picked)[0]
+		activeItem: sessionItems.find(item => item.picked)
 	});
 
 	// Handle the user's selection.
