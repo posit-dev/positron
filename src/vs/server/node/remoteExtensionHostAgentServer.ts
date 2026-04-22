@@ -49,6 +49,7 @@ import { PositronBootstrapExtensionsInitializer } from '../../platform/extension
 import { INativeEnvironmentService } from '../../platform/environment/common/environment.js';
 import { IExtensionManagementService } from '../../platform/extensionManagement/common/extensionManagement.js';
 import { IFileService } from '../../platform/files/common/files.js';
+import { IPositronIdleTrackingService } from '../../platform/positronIdleTracking/common/positronIdleTracking.js';
 // --- End Positron ---
 
 // --- Start PWB: Server proxy support ---
@@ -95,6 +96,9 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 		@IProductService private readonly _productService: IProductService,
 		@ILogService private readonly _logService: ILogService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
+		// --- Start Positron ---
+		@IPositronIdleTrackingService private readonly _idleTrackingService: IPositronIdleTrackingService,
+		// --- End Positron ---
 	) {
 		super();
 		this._webEndpointOriginChecker = WebEndpointOriginChecker.create(this._productService);
@@ -168,6 +172,20 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 			// invalid connection token
 			return serveError(req, res, 403, `Forbidden.`);
 		}
+
+		// --- Start Positron ---
+		// Idle tracking endpoint for hosting platforms (e.g., Posit Cloud)
+		if (pathname === '/idle') {
+			const idleInfo = this._idleTrackingService.getIdleInfo();
+			const body = JSON.stringify({
+				seconds_idle: idleInfo.secondsIdle,
+				last_activity_epoch_ms: idleInfo.lastActivityEpochMs,
+				connected_clients: idleInfo.connectedClients,
+			});
+			res.writeHead(200, { 'Content-Type': 'application/json' });
+			return void res.end(body);
+		}
+		// --- End Positron ---
 
 		if (pathname === '/vscode-remote-resource') {
 			// Handle HTTP requests for resources rendered in the rich client (images, fonts, etc.)
