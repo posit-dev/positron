@@ -86,6 +86,7 @@ export namespace Commands {
     export const Show_Interpreter_Debug_Info = 'python.interpreters.debugInfo';
     export const Create_Pyproject_Toml = 'python.createPyprojectToml';
     export const InstallPackages = 'python.installPackages';
+    export const InstallPythonViaUv = 'python.installPythonViaUv';
     // --- End Positron ---
     export const InstallJupyter = 'python.installJupyter';
     export const InstallPython = 'python.installPython';

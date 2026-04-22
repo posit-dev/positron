@@ -13,7 +13,7 @@ import { IQuickInputService, IQuickPickItem, QuickPickItem } from '../../../../p
 import { IKeybindingRule, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { LANGUAGE_RUNTIME_ACTION_CATEGORY } from '../common/languageRuntime.js';
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
@@ -53,6 +53,9 @@ export const LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_CONSOLE_SESSION_ID = 'workbench.a
 
 // Notebook Session Specific Action IDs
 export const LANGUAGE_RUNTIME_SELECT_LEGACY_NOTEBOOK_RUNTIME_ID = 'workbench.action.languageRuntime.selectLegacyNotebookRuntime';
+
+// Prefix for contributed picker items
+const CONTRIBUTED_ITEM_PREFIX = '__contributed__';
 
 /**
  * Helper function that askses the user to select a language from the list of registered language
@@ -294,6 +297,7 @@ const selectNewLanguageRuntime = async (
 	const runtimeSessionService = accessor.get(IRuntimeSessionService);
 	const runtimeStartupService = accessor.get(IRuntimeStartupService);
 	const languageRuntimeService = accessor.get(ILanguageRuntimeService);
+	const commandService = accessor.get(ICommandService);
 
 	// Group runtimes by language.
 	const interpreterGroups = createInterpreterGroups(languageRuntimeService, runtimeStartupService);
@@ -413,21 +417,76 @@ const selectNewLanguageRuntime = async (
 		});
 	});
 
-	// Prompt the user to select a runtime to start
-	const selectedRuntime = await quickInputService.pick(
-		runtimeItems,
-		{
-			title: options?.title || localize('positron.languageRuntime.startSession', 'Start New Interpreter Session'),
-			canPickMany: false
-		}
-	);
+	// Get contributed items from extensions (e.g., "Install Python via uv")
+	// Map to track which contribution owns which item
+	const contributedItemMap = new Map<string, { contribution: { handle: number; onSelect: (itemId: string) => Promise<string | undefined> }; originalId: string }>();
 
-	// If the user selected a runtime, return the runtime metadata.
-	if (selectedRuntime?.id) {
-		return languageRuntimeService.getRegisteredRuntime(selectedRuntime.id);
+	// Only show contributed items after discovery is complete
+	// TODO: right now, these are added to the end of the list, but we may want to
+	// group by language in the future
+	if (languageRuntimeService.startupPhase === RuntimeStartupPhase.Complete) {
+		const contributions = languageRuntimeService.getPickerContributions();
+
+		// Fetch items from all contributions in parallel
+		const contributionResults = await Promise.all(
+			contributions.map(async (contribution) => {
+				try {
+					const items = await contribution.getItems();
+					return { contribution, items };
+				} catch (error) {
+					// Log but don't fail if a contribution errors
+					console.error(`Failed to get picker items from contribution: ${error}`);
+					return { contribution, items: [] };
+				}
+			})
+		);
+
+		for (const { contribution, items } of contributionResults) {
+			for (const item of items) {
+				// Create a unique ID for this item that includes the contribution handle
+				const uniqueId = `${CONTRIBUTED_ITEM_PREFIX}${contribution.handle}_${item.id}`;
+				contributedItemMap.set(uniqueId, { contribution, originalId: item.id });
+
+				if (item.separatorLabel) {
+					runtimeItems.push({ type: 'separator', label: item.separatorLabel });
+				}
+				runtimeItems.push({
+					id: uniqueId,
+					label: item.label,
+					detail: item.detail,
+				});
+			}
+		}
 	}
 
-	return undefined;
+	const selectedRuntime = await quickInputService.pick(runtimeItems, {
+		title: options?.title || localize('positron.languageRuntime.startSession', 'Start New Interpreter Session'),
+		canPickMany: false
+	});
+
+	if (!selectedRuntime?.id) {
+		return undefined;
+	}
+
+	// Handle contributed items
+	if (selectedRuntime.id.startsWith(CONTRIBUTED_ITEM_PREFIX)) {
+		const contributedItem = contributedItemMap.get(selectedRuntime.id);
+		if (contributedItem) {
+			try {
+				const runtimeId = await contributedItem.contribution.onSelect(contributedItem.originalId);
+				if (runtimeId) {
+					// Wait for runtime discovery to complete to ensure the new runtime is registered
+					await commandService.executeCommand(LANGUAGE_RUNTIME_DISCOVER_RUNTIMES_ID);
+					return languageRuntimeService.getRegisteredRuntime(runtimeId);
+				}
+			} catch (error) {
+				console.error(`Failed to handle contributed item selection: ${error}`);
+			}
+		}
+		return undefined;
+	}
+
+	return languageRuntimeService.getRegisteredRuntime(selectedRuntime.id);
 };
 
 /**
