@@ -73,6 +73,25 @@ describe('MyComponent', () => {
 - **Emitters inside `it()`.** Create them at describe level. `.stub()` captures the `.event` reference at describe scope during `build()`, so an emitter created later in `beforeEach` or `it()` is a different object and the stub won't fire.
 - **`flushSync` to flush React state updates.** Use `act()` from `@testing-library/react` instead. `act()` wraps updates in React's testing envelope (no warnings) and drains the queue synchronously; `flushSync` forces a sync render but doesn't wrap, producing "An update to X was not wrapped in act(...)" messages.
 
+## RTL idioms
+
+For React component tests using `setupRTLRenderer()`:
+
+**Query priority.** Prefer Testing Library queries in this order: `getByRole` -> `getByLabelText` -> `getByPlaceholderText` -> `getByText` -> `getByDisplayValue` -> `getByAltText` -> `getByTitle` -> `getByTestId`. Use `getByText('text', { selector: '.css' })` or `getByTestId(...)` when role/label aren't available -- add a brief inline comment if the choice isn't obvious.
+
+**Assertions.** Use `@testing-library/jest-dom` matchers:
+
+- `toBeInTheDocument()` over `toBeTruthy()` for presence checks.
+- `not.toBeInTheDocument()` (with `queryBy*`) over `toBeNull()` / `toBeFalsy()` for absence.
+- `toHaveTextContent('x')` over `assert.strictEqual(el.textContent, 'x')`.
+- `toHaveClass(...)`, `toBeDisabled()`, `toBeVisible()`, `toHaveAttribute(...)` -- prefer the dedicated matcher over manual property reads.
+
+**Anti-patterns to avoid:**
+
+- `container.querySelector(...)` as an assertion target -- use a query.
+- `assert.strictEqual` / `assert.ok` / `assert.equal` in `.vitest.tsx` -- use `expect()`.
+- `expect(el).toBeTruthy()` / `toBeFalsy()` for DOM presence/absence -- use `toBeInTheDocument()` / `not.toBeInTheDocument()`.
+
 ## Run commands
 
 - `npx vitest run` -- run all
@@ -96,3 +115,4 @@ These showcase tests demonstrate the patterns at increasing complexity:
 - [emptyConsole](../../src/vs/workbench/contrib/positronConsole/test/browser/emptyConsole.vitest.tsx) -- React: one service, one click, behavioral assertions
 - [webviewPlotThumbnail](../../src/vs/workbench/contrib/positronPlots/test/browser/webviewPlotThumbnail.vitest.tsx) -- event-driven intro: one emitter, act(), conditional rendering
 - [startupStatus](../../src/vs/workbench/contrib/positronConsole/test/browser/startupStatus.vitest.tsx) -- event-driven advanced: 6-phase state machine, 3 event subscriptions
+- [columnSummaryCell](../../src/vs/workbench/services/positronDataExplorer/test/browser/columnSummaryCell.vitest.tsx) -- RTL idioms: `getByText({ selector })`, `toHaveTextContent`, no `querySelector`
