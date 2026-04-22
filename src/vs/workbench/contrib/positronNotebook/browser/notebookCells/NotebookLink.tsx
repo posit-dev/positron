@@ -98,15 +98,17 @@ export function NotebookLink(props: NotebookLinkProps) {
 	const { href, ...otherProps } = props;
 
 	/**
-	 * Activates the link. Returns true if the opener service will handle it,
-	 * false if the browser should (anchors, or unresolvable hrefs).
+	 * Activates the link. Anchors and empty hrefs are left to the browser;
+	 * everything else is passed to openerService. If notebook-relative
+	 * resolution fails, we still open the raw href so the click is not
+	 * silently dropped after the synchronous preventDefault.
 	 */
-	const activateLink = async (): Promise<boolean> => {
-		if (!href) { return false; }
-		if (href.trim().startsWith('#')) { return false; }
+	const activateLink = async (): Promise<void> => {
+		if (!href) { return; }
+		if (href.trim().startsWith('#')) { return; }
 		if (SCHEME_REGEX.test(href)) {
 			services.openerService.open(href);
-			return true;
+			return;
 		}
 		const target = await resolveNotebookLinkTarget(
 			tryDecodeURIComponent(href),
@@ -114,11 +116,7 @@ export function NotebookLink(props: NotebookLinkProps) {
 			services.pathService,
 			services.workspaceContextService,
 		);
-		if (target) {
-			services.openerService.open(target);
-			return true;
-		}
-		return false;
+		services.openerService.open(target ?? href);
 	};
 
 	// Heuristic: we'll handle anything non-empty that isn't a pure anchor.
