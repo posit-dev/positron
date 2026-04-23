@@ -77,7 +77,7 @@ describe('NotebookErrorBoundary', () => {
 				</NotebookErrorBoundary>
 			);
 
-			expect(getByRole('alert')).toBeInTheDocument();
+			getByRole('alert');
 		});
 
 		it('applies level-specific CSS class and message', () => {
@@ -132,7 +132,7 @@ describe('NotebookErrorBoundary', () => {
 			);
 
 			// Should still show error UI
-			expect(getByRole('alert')).toBeInTheDocument();
+			getByRole('alert');
 
 			// Should log safely without crashing
 			expect(errorSpy).toHaveBeenCalledOnce();
@@ -164,7 +164,7 @@ describe('NotebookErrorBoundary', () => {
 			);
 
 			// Toggle button starts in "Show Details" state, meaning details are hidden.
-			expect(getByRole('button', { name: 'Show Details' })).toBeInTheDocument();
+			getByRole('button', { name: 'Show Details' });
 			expect(queryByRole('button', { name: 'Hide Details' })).not.toBeInTheDocument();
 		});
 
@@ -178,12 +178,12 @@ describe('NotebookErrorBoundary', () => {
 
 			// Show details
 			clickAndFlush(getByRole('button', { name: 'Show Details' }));
-			expect(getByRole('button', { name: 'Hide Details' })).toBeInTheDocument();
+			getByRole('button', { name: 'Hide Details' });
 			expect(getByRole('alert')).toHaveTextContent('specific error message');
 
 			// Hide details
 			clickAndFlush(getByRole('button', { name: 'Hide Details' }));
-			expect(getByRole('button', { name: 'Show Details' })).toBeInTheDocument();
+			getByRole('button', { name: 'Show Details' });
 			expect(queryByRole('button', { name: 'Hide Details' })).not.toBeInTheDocument();
 		});
 	});
@@ -232,7 +232,7 @@ describe('NotebookErrorBoundary', () => {
 				</NotebookErrorBoundary>
 			);
 
-			expect(getByRole('alert')).toBeInTheDocument();
+			getByRole('alert');
 
 			// Fix the component and retry
 			shouldThrow = false;

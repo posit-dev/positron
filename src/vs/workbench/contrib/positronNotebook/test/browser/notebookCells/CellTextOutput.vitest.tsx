@@ -47,9 +47,22 @@ describe('CellTextOutput', () => {
 		optionsEmitter = ctx.disposables.add(new Emitter<NotebookOptionsChangeEvent>());
 		layoutConfig = { outputLineLimit: 30, outputScrolling: false, outputWordWrap: false };
 
-		// Reset configuration and context-key state between tests.
-		(configurationService as unknown as { configuration: Record<string, unknown> }).configuration = Object.create(null);
-		(contextKeyService as unknown as { _keys: Map<string, unknown> })._keys.clear();
+		// Reset configuration and context-key state between tests. These cast
+		// through `unknown` to private fields because neither class exposes a
+		// public reset API. If upstream ever renames `configuration` / `_keys`,
+		// the assertions below fail loudly at runtime rather than letting state
+		// silently leak between tests (TypeScript can't catch this otherwise).
+		const configBag = configurationService as unknown as { configuration?: Record<string, unknown> };
+		const keysBag = contextKeyService as unknown as { _keys?: Map<string, unknown> };
+		if (!configBag.configuration || !keysBag._keys) {
+			throw new Error(
+				'CellTextOutput test relies on TestConfigurationService.configuration and ' +
+				'MockContextKeyService._keys to reset state between tests. One of these ' +
+				'fields was renamed upstream; update the reset pattern to match.'
+			);
+		}
+		configBag.configuration = Object.create(null);
+		keysBag._keys.clear();
 	});
 
 	function renderCellTextOutput(

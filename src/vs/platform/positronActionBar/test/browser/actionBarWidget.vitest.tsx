@@ -18,7 +18,9 @@ import { fireEvent } from '@testing-library/react';
 describe('ActionBarWidget', () => {
 	// Minimal ICommandService stub: fires onWillExecuteCommand and resolves the
 	// registered handler. Inlined here to keep tests decoupled from upstream
-	// editor test helpers that require extra plumbing.
+	// editor test helpers that require extra plumbing. Emitters are describe-
+	// scope singletons (the stub captures their .event at build() time, so
+	// they must outlive every test) -- disposed in afterAll below.
 	const onWillExecuteCommand = new Emitter<ICommandEvent>();
 	const onDidExecuteCommand = new Emitter<ICommandEvent>();
 	const commandService = {
@@ -41,6 +43,11 @@ describe('ActionBarWidget', () => {
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
+	afterAll(() => {
+		onWillExecuteCommand.dispose();
+		onDidExecuteCommand.dispose();
+	});
+
 	it('renders a simple widget component', () => {
 		const descriptor: IPositronActionBarWidgetDescriptor = {
 			id: 'test.widget',
@@ -51,7 +58,6 @@ describe('ActionBarWidget', () => {
 
 		const { getByText } = rtl.render(<ActionBarWidget descriptor={descriptor} />);
 
-		expect(getByText('Test Widget')).toBeInTheDocument();
 		expect(getByText('Test Widget')).toHaveClass('test-widget-content');
 	});
 

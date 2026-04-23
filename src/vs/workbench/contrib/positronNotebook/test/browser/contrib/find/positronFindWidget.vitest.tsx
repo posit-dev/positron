@@ -151,7 +151,7 @@ describe('PositronFindWidget', () => {
 		it('has no error styling when there is no query', () => {
 			const { widgetContainer, getByText } = renderWidget();
 
-			expect(getByText('No results')).toBeInTheDocument();
+			getByText('No results');
 			expect(widgetContainer).not.toHaveClass('no-results');
 		});
 
@@ -160,7 +160,7 @@ describe('PositronFindWidget', () => {
 			matchCount.set(0, undefined);
 			const { widgetContainer, getByText } = renderWidget();
 
-			expect(getByText('No results')).toBeInTheDocument();
+			getByText('No results');
 			expect(widgetContainer).toHaveClass('no-results');
 		});
 
@@ -209,7 +209,7 @@ describe('PositronFindWidget', () => {
 			matchCount.set(3, undefined);
 			const { getByText } = renderWidget();
 
-			expect(getByText('1 of 3')).toBeInTheDocument();
+			getByText('1 of 3');
 		});
 
 		it('shows match index and count', () => {
@@ -218,7 +218,7 @@ describe('PositronFindWidget', () => {
 			matchIndex.set(2, undefined);
 			const { getByText } = renderWidget();
 
-			expect(getByText('3 of 5')).toBeInTheDocument();
+			getByText('3 of 5');
 		});
 
 		it('no toggle replace button when useReplace is false', () => {
@@ -232,7 +232,7 @@ describe('PositronFindWidget', () => {
 		it('hidden when replaceIsVisible is false', () => {
 			const { getByRole, queryByRole } = renderWidget({ useReplace: true });
 
-			expect(getByRole('button', { name: 'Toggle Replace' })).toBeInTheDocument();
+			getByRole('button', { name: 'Toggle Replace' });
 			// Replace button (inside the replace part) is the reliable proxy for
 			// replace-part visibility; exact match avoids 'Replace All' collision.
 			expect(queryByRole('button', { name: /^Replace$/ })).not.toBeInTheDocument();
@@ -242,9 +242,9 @@ describe('PositronFindWidget', () => {
 			replaceIsVisible.set(true, undefined);
 			const { getByRole } = renderWidget({ useReplace: true });
 
-			expect(getByRole('button', { name: 'Toggle Replace' })).toBeInTheDocument();
-			expect(getByRole('button', { name: /^Replace$/ })).toBeInTheDocument();
-			expect(getByRole('button', { name: 'Replace All' })).toBeInTheDocument();
+			getByRole('button', { name: 'Toggle Replace' });
+			getByRole('button', { name: /^Replace$/ });
+			getByRole('button', { name: 'Replace All' });
 		});
 
 		it('expands/collapses when toggle replace button is clicked', () => {
