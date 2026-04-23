@@ -48,7 +48,6 @@ const ANTHROPIC_BUTTON = 'button.positron-button.language-model.button:has(#anth
 const AWS_BEDROCK_BUTTON = 'button.positron-button.language-model.button:has(#amazon-bedrock-provider-button)';
 const ECHO_MODEL_BUTTON = 'button.positron-button.language-model.button:has(div.codicon-info)';
 const ERROR_MODEL_BUTTON = 'button.positron-button.language-model.button:has(div.codicon-error)';
-const COPILOT_BUTTON = 'button.positron-button.language-model.button:has(#copilot-auth-provider-button)';
 const OPENAI_BUTTON = 'button.positron-button.language-model.button:has(#openai-api-provider-button)';
 const POSIT_AI_BUTTON = 'button.positron-button.language-model.button:has(#posit-ai-provider-button)';
 
@@ -64,7 +63,6 @@ const POSIT_LOGIN_BUTTON = 'button[type="submit"]:has-text("Log in")';
 export type ModelProvider =
 	| 'anthropic-api'
 	| 'amazon-bedrock'
-	| 'Copilot'
 	| 'echo'
 	| 'error'
 	| 'openai-api'
@@ -205,9 +203,6 @@ export class ModelProviderAuth {
 				break;
 			case 'amazon-bedrock':
 				await this.code.driver.page.locator(AWS_BEDROCK_BUTTON).click();
-				break;
-			case 'copilot':
-				await this.code.driver.page.locator(COPILOT_BUTTON).click();
 				break;
 			case 'echo':
 				await this.code.driver.page.locator(ECHO_MODEL_BUTTON).click();
@@ -370,6 +365,8 @@ export class ModelProviderAuth {
 	 * signing in to the OAuth provider, and entering the verification code.
 	 */
 	async completeOAuthDeviceCodeFlow(config: OAuthDeviceCodeConfig, options: LoginModelProviderOptions = {}) {
+		// The Posit login page does not render in headless Chromium, so the
+		// default is headed. Callers may override per-invocation.
 		const { headless = false } = options;
 
 		await test.step(`Complete OAuth device code flow for ${config.provider}`, async () => {
@@ -426,7 +423,10 @@ export class ModelProviderAuth {
 
 		const codeMatch = modalHtml.match(/<code>([A-Z0-9-]+)<\/code>/i);
 		if (!codeMatch) {
-			throw new Error(`Could not extract verification code from Positron modal: "${modalHtml}"`);
+			// Do not embed modalHtml in the error: it contains the device code
+			// and other auth UI content that would otherwise leak into
+			// Playwright traces and CI logs.
+			throw new Error('Could not extract verification code from Positron device code modal (no <code> element found)');
 		}
 
 		const verificationCode = codeMatch[1];
