@@ -79,20 +79,45 @@ For React component tests using `setupRTLRenderer()`:
 
 **Query priority.** Prefer Testing Library queries in this order: `getByRole` -> `getByLabelText` -> `getByPlaceholderText` -> `getByText` -> `getByDisplayValue` -> `getByAltText` -> `getByTitle` -> `getByTestId`. Use `getByText('text', { selector: '.css' })` or `getByTestId(...)` when role/label aren't available -- add a brief inline comment if the choice isn't obvious.
 
-**Assertions.** Use `@testing-library/jest-dom` matchers:
+**Assertions.** Use `@testing-library/jest-dom` matchers: `toBeInTheDocument`, `toHaveTextContent`, `toHaveClass`, `toBeDisabled`, `toBeVisible`, `toHaveAttribute`, etc. Prefer the dedicated matcher over manual property reads.
 
-- `toBeInTheDocument()` over `toBeTruthy()` for presence checks.
-- `not.toBeInTheDocument()` (with `queryBy*`) over `toBeNull()` / `toBeFalsy()` for absence.
-- `toHaveTextContent('x')` over `assert.strictEqual(el.textContent, 'x')`.
-- `toHaveClass(...)`, `toBeDisabled()`, `toBeVisible()`, `toHaveAttribute(...)` -- prefer the dedicated matcher over manual property reads.
+A bare `getByRole(...)` / `getByText(...)` / `getByAltText(...)` call is itself an assertion -- the query throws when the element isn't found. Don't wrap it in `expect(...).toBeInTheDocument()`; the wrapper adds nothing and can obscure the failure message. Reserve `toBeInTheDocument()` for `queryBy*` / `findBy*` returns where the value may be `null`.
 
-**Anti-patterns to avoid:**
+See **Anti-patterns reference** below for the full table of patterns to avoid and their replacements.
 
-- `container.querySelector(...)` as an assertion target -- use a query.
-- `assert.strictEqual` / `assert.ok` / `assert.equal` -- use `expect()`. (Applies to `.vitest.ts` and `.vitest.tsx`.)
-- `expect(el).toBeTruthy()` / `toBeFalsy()` for DOM presence/absence -- use `toBeInTheDocument()` / `not.toBeInTheDocument()`.
+## Anti-patterns reference
 
-Note: a bare `getByRole(...)` / `getByText(...)` / `getByAltText(...)` call is itself an assertion -- the query throws when the element isn't found. Don't wrap it in `expect(...).toBeInTheDocument()`; the wrapper adds nothing and can obscure the failure message. Use `toBeInTheDocument()` with `queryBy*` / `findBy*` returns where the return value may be `null`.
+One-stop reference. Authors: scan before writing. Reviewers (and the `review-vitest-tests` skill): flag any "Avoid" pattern that isn't covered by the "Exception" column.
+
+### Builder adoption (all `.vitest.*`)
+
+| Avoid | Use instead | Exception |
+|---|---|---|
+| `positronWorkbenchInstantiationService()` | `createTestContainer().withWorkbenchServices().build()` | Inside shared test helpers invoked at test-runtime (inside `beforeEach` / `it`), where describe-scope `.build()` isn't viable |
+| `TestInstantiationService` (the class) | Same | Used solely to bootstrap a test-helper service (e.g. `new TestCommandService(new TestInstantiationService())`) in `beforeEach`, not as a primary DI container |
+| `workbenchInstantiationService()` (upstream helper) | Same | — |
+| `createRuntimeServices()` | `createTestContainer().withRuntimeServices().build()` | — |
+| Hand-rolled `as unknown as PositronReactServices` accessor | `createTestContainer().withReactServices().stub(IService, ...).build()` + `setupRTLRenderer(() => ctx.reactServices)` | — |
+| `PositronReactServices.services = ...` singleton mutation | Same as above (plus drop save/restore in `beforeEach`/`afterEach`) | Source class reads the singleton directly in its constructor; a 1-line bridge `PositronReactServices.services = ctx.reactServices` with an inline comment is acceptable |
+
+### RTL queries + matchers (`.vitest.tsx`)
+
+| Avoid | Use instead | Exception |
+|---|---|---|
+| `container.querySelector(...)` as assertion target | Query by priority: `getByRole` > `getByLabelText` > `getByPlaceholderText` > `getByText` > `getByDisplayValue` > `getByAltText` > `getByTitle` > `getByTestId` | Structural element with no semantic handle: `expect(container.querySelector('.x')).toBeInTheDocument()` + inline comment explaining why no semantic query fits |
+| `expect(el).toBeTruthy()` for DOM presence | bare `getBy*(...)` (the query IS the assertion) | — |
+| `expect(el).toBeFalsy()` / `toBeNull()` for DOM absence | `expect(queryBy*(...)).not.toBeInTheDocument()` | — |
+| `expect(getBy*(...)).toBeInTheDocument()` | bare `getBy*(...)` | Only the wrapped form is meaningful when the inner query is `queryBy*` / `findBy*` (may return `null`) |
+| `assert.strictEqual(el.textContent, 'x')` | `expect(el).toHaveTextContent('x')` | — |
+| `el.classList.contains('x')` | `expect(el).toHaveClass('x')` | — |
+| `el.disabled === true` | `expect(el).toBeDisabled()` | — |
+| `el.getAttribute('aria-x')` | `expect(el).toHaveAttribute('aria-x', '...')` | — |
+
+### Assertion style (all `.vitest.*`)
+
+| Avoid | Use instead |
+|---|---|
+| `assert.ok(x)` / `assert.equal(...)` / `assert.strictEqual(...)` | `expect(x).to*(...)` |
 
 ## Run commands
 
