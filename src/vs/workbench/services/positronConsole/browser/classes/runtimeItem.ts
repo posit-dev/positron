@@ -23,7 +23,7 @@ export abstract class RuntimeItem {
 	/**
 	 * Adjust scrollback.
 	 * @param scrollbackSize A number representing the scrollback size.
-	 * @returns The adjusted scrollback size.
+	 * @returns A number representing the remaining scrollback size.
 	 */
 	public abstract adjustScrollback(scrollbackSize: number): number;
 

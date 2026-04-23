@@ -99,10 +99,6 @@ export class RuntimeItemActivity extends RuntimeItem {
 
 	//#region Public Methods
 
-	public override adjustScrollback(scrollbackSize: number): number {
-		return scrollbackSize - 1;
-	}
-
 	/**
 	 * Adds an activity item.
 	 * @param activityItem The activity item to add.
@@ -163,6 +159,15 @@ export class RuntimeItemActivity extends RuntimeItem {
 
 		// Push the activity item.
 		this._activityItems.push(activityItem);
+	}
+
+	/**
+	 * Adjust scrollback.
+	 * @param scrollbackSize A number representing the scrollback size.
+	 * @returns A number representing the remaining scrollback size.
+	 */
+	public override adjustScrollback(scrollbackSize: number): number {
+		return scrollbackSize - 1;
 	}
 
 	/**

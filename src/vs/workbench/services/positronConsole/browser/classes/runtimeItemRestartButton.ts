@@ -29,6 +29,11 @@ export class RuntimeItemRestartButton extends RuntimeItem {
 
 	//#region Public Methods
 
+	/**
+	 * Adjust scrollback.
+	 * @param scrollbackSize A number representing the scrollback size.
+	 * @returns A number representing the remaining scrollback size.
+	 */
 	public override adjustScrollback(scrollbackSize: number): number {
 		return scrollbackSize - 1;
 	}
