@@ -322,8 +322,9 @@ export function fromMarketplace(serviceUrl: string, { name: extensionName, versi
 		fancyLog('Downloading multi-platform extension:', ansiColors.yellow(`${extensionName}@${version}`),
 			`for ${platformDownloads.join(', ')}...`);
 	} else {
-		// P3M serves VSIX downloads at: {gallery_url}/publishers/{publisher}/vsextensions/{name}/{version}/vspackage
-		urls = [`${serviceUrl}/publishers/${publisher}/vsextensions/${name}/${version}/vspackage`];
+		// P3M serves single-platform VSIX downloads at: {asset_base}/{publisher}/{name}/{version}/Microsoft.VisualStudio.Services.VSIXPackage
+		const assetBaseUrl = serviceUrl.replace(/\/gallery$/, '/asset');
+		urls = [`${assetBaseUrl}/${publisher}/${name}/${version}/Microsoft.VisualStudio.Services.VSIXPackage`];
 		fancyLog('Downloading extension:', ansiColors.yellow(`${extensionName}@${version}`), '...');
 	}
 	// --- End Positron ---
