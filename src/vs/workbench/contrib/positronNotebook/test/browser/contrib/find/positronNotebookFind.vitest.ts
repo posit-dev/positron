@@ -21,9 +21,8 @@ import { CellKind } from '../../../../../notebook/common/notebookCommon.js';
 import { IPositronNotebookCell } from '../../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { PositronNotebookFindController } from '../../../../browser/contrib/find/controller.js';
 import { PositronFindInstance } from '../../../../browser/contrib/find/PositronFindInstance.js';
-import { instantiateTestNotebookInstance, positronNotebookInstantiationService, TestPositronNotebookInstance } from '../../testPositronNotebookInstance.js';
+import { instantiateTestNotebookInstance, TestPositronNotebookInstance } from '../../testPositronNotebookInstance.js';
 import { transaction } from '../../../../../../../base/common/observable.js';
-import { ITestInstantiationService } from '../../../../../../test/browser/workbenchTestServices.js';
 import { IModelService } from '../../../../../../../editor/common/services/model.js';
 import { Disposable, IDisposable } from '../../../../../../../base/common/lifecycle.js';
 import { runWithFakedTimers } from '../../../../../../../base/test/common/timeTravelScheduler.js';
@@ -121,21 +120,20 @@ class TestBulkEditService implements IBulkEditService {
 }
 
 describe('PositronNotebookFindController', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createTestContainer()
+		.withNotebookEditorServices()
+		.build();
 
-	let instantiationService: ITestInstantiationService;
 	let bulkEditApplySpy: ReturnType<typeof vi.spyOn>;
 
 	beforeEach(() => {
-		instantiationService = positronNotebookInstantiationService(ctx.disposables);
-
-		const bulkEditService = new TestBulkEditService(instantiationService.invokeFunction(accessor => accessor.get(IModelService)));
+		const bulkEditService = new TestBulkEditService(ctx.get(IModelService));
 		bulkEditApplySpy = vi.spyOn(bulkEditService, 'apply');
-		instantiationService.stub(IBulkEditService, bulkEditService);
+		ctx.instantiationService.stub(IBulkEditService, bulkEditService);
 	});
 
 	function createNotebook(cells: [string, string, CellKind][]) {
-		return instantiateTestNotebookInstance(cells, instantiationService, ctx.disposables);
+		return instantiateTestNotebookInstance(cells, ctx.instantiationService, ctx.disposables);
 	}
 
 	function findFixture(cells: [string, string, CellKind][]) {

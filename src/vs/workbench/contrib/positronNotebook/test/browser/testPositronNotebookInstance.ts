@@ -14,23 +14,13 @@ import { IPositronNotebookCell } from '../../browser/PositronNotebookCells/IPosi
 import { PositronNotebookInstance } from '../../browser/PositronNotebookInstance.js';
 import { positronWorkbenchInstantiationService } from '../../../../test/browser/positronWorkbenchTestServices.js';
 import { ITestInstantiationService } from '../../../../test/browser/workbenchTestServices.js';
+import { stubNotebookEditorServices } from '../../../../../test/vitest/presets/notebookEditor.js';
 import { instantiateTestCodeEditor } from '../../../../../editor/test/browser/testCodeEditor.js';
 import { ITextBuffer, ITextBufferFactory, ITextModel } from '../../../../../editor/common/model.js';
-import { ICodeEditorService } from '../../../../../editor/browser/services/codeEditorService.js';
-import { TestCodeEditorService } from '../../../../../editor/test/browser/editorTestServices.js';
-import { IEditorWorkerService } from '../../../../../editor/common/services/editorWorker.js';
-import { TestEditorWorkerService } from '../../../../../editor/test/common/services/testEditorWorkerService.js';
-import { ILanguageFeatureDebounceService, LanguageFeatureDebounceService } from '../../../../../editor/common/services/languageFeatureDebounce.js';
-import { ILanguageFeaturesService } from '../../../../../editor/common/services/languageFeatures.js';
-import { LanguageFeaturesService } from '../../../../../editor/common/services/languageFeaturesService.js';
-import { ITreeSitterLibraryService } from '../../../../../editor/common/services/treeSitter/treeSitterLibraryService.js';
-import { TestTreeSitterLibraryService } from '../../../../../editor/test/common/services/testTreeSitterLibraryService.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { IModelService } from '../../../../../editor/common/services/model.js';
 import { ILanguageService } from '../../../../../editor/common/languages/language.js';
 import { PLAINTEXT_LANGUAGE_ID } from '../../../../../editor/common/languages/modesRegistry.js';
-import { Event } from '../../../../../base/common/event.js';
-import { IPositronWebviewPreloadService } from '../../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 
 /**
  * Test subclass of PositronNotebookInstance that exposes disposable registration.
@@ -43,47 +33,15 @@ export class TestPositronNotebookInstance extends PositronNotebookInstance {
 
 /**
  * Creates an instantiation service for Positron notebook tests.
- * Extends positronWorkbenchInstantiationService with editor services
- * required for attaching TestCodeEditor instances to cells.
- *
- * Exported so that multi-instance tests can share a single service
- * (avoiding disposable-tracking conflicts from duplicate global singletons).
+ * Equivalent to `createTestContainer().withNotebookEditorServices().build()`
+ * -- prefer the builder in new tests. Kept for use by
+ * `createTestPositronNotebookInstance()` below.
  */
 export function positronNotebookInstantiationService(
 	disposables: Pick<DisposableStore, 'add'>,
 ): ITestInstantiationService {
 	const instantiationService = positronWorkbenchInstantiationService(disposables);
-
-	// Add editor services required for TestCodeEditor
-	instantiationService.stub(ICodeEditorService, disposables.add(instantiationService.createInstance(TestCodeEditorService)));
-	instantiationService.stub(IEditorWorkerService, new TestEditorWorkerService());
-	instantiationService.stub(ILanguageFeatureDebounceService, instantiationService.createInstance(LanguageFeatureDebounceService));
-	instantiationService.stub(ILanguageFeaturesService, new LanguageFeaturesService());
-	instantiationService.stub(ITreeSitterLibraryService, new TestTreeSitterLibraryService());
-
-	// Override the real webview preload service with a lightweight mock to avoid
-	// creating real webviews (which create undisposed disposables in unit tests).
-	// The mock returns a display-type result for rawHtml outputs and undefined otherwise.
-	// eslint-disable-next-line local/code-no-dangerous-type-assertions
-	instantiationService.stub(IPositronWebviewPreloadService, {
-		initialize: () => { },
-		attachNotebookInstance: () => { },
-		addNotebookOutput: (opts: { outputId: string; rawHtml?: string }) => {
-			if (opts.rawHtml) {
-				return {
-					preloadMessageType: 'display' as const,
-					webview: Promise.resolve({
-						id: opts.outputId,
-						sessionId: opts.outputId,
-						dispose() { },
-						onDidRender: Event.None,
-					}),
-				};
-			}
-			return undefined;
-		},
-	} as Partial<IPositronWebviewPreloadService> as IPositronWebviewPreloadService);
-
+	stubNotebookEditorServices(instantiationService, disposables);
 	return instantiationService;
 }
 
