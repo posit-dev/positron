@@ -101,8 +101,6 @@ Gather the context you need before drafting the plan:
    - Second, within Vitest, use the same table to pick the pattern: plain / builder / RTL prop-driven / RTL service-context.
 3. **Skim the builder JSDoc** in `src/vs/test/vitest/positronTestContainer.ts` for preset method names and hierarchy. Start low and let errors guide you up.
 
-The rules files (`.claude/rules/vitest-tests.md` and, for `.vitest.tsx`, `.claude/rules/vitest-rtl.md`) are referenced throughout the rest of this skill -- Read them when a step points you at a specific section.
-
 ### Draft the test plan and confirm with the dev (MANDATORY)
 
 **Before writing any test code, present a plan and wait for explicit confirmation.** This lets the dev steer scope before effort is sunk -- drop cases they don't care about, add cases you missed, reshape groupings to match how the feature is actually used.
@@ -115,7 +113,7 @@ Format the plan like this:
 >
 > <One-sentence reasoning grounded in what you observed in the source file -- e.g., "the component takes `contextMenuService` as a prop and neither it nor its child Button uses `usePositronReactServicesContext`". Cite specific evidence (prop shapes, context-hook usage, service dependencies). Do not give generic reasoning like "this is a React component".>
 >
-> **Preset:** `createTestContainer()` + preset method from `positronTestContainer.ts` (e.g. `.withRuntimeServices()`, `.withNotebookServices()`, `.withWorkbenchServices()`, or no base call for plain tests), optionally layered with `.withReactServices()` or `.withContributionServices()`.
+> **Preset:** `createTestContainer()` + a preset method from `positronTestContainer.ts` (see JSDoc for the current list; pick the lowest that covers your dependencies).
 >
 > **Stubs:** short list of services you intend to stub, with a one-line reason each
 >
