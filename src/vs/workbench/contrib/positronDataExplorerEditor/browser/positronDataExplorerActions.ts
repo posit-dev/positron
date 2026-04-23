@@ -22,6 +22,8 @@ import { viewVariableItem } from '../../../services/positronDataExplorer/browser
 import { IPositronVariablesService } from '../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { IPositronVariablesInstance } from '../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 import { POSITRON_VARIABLES_VIEW_ID } from '../../positronVariables/browser/positronVariables.contribution.js';
+import { POSITRON_RUNTIME_LANGUAGE_IDS } from '../../languageRuntime/browser/languageRuntimeContextKeys.js';
+import { ResourceContextKey } from '../../../common/contextkeys.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { Event } from '../../../../base/common/event.js';
 import { raceTimeout } from '../../../../base/common/async.js';
@@ -1246,7 +1248,17 @@ export class PositronDataExplorerViewDataFrameAtCursorAction extends Action2 {
 			menu: [
 				{
 					id: MenuId.EditorContext,
-					when: EditorContextKeys.editorTextFocus,
+					// Only show on editors whose language has a registered
+					// Positron runtime. The list is maintained dynamically by
+					// PositronRuntimeLanguagesContextKeyContribution so new
+					// runtimes are picked up without code changes here.
+					when: ContextKeyExpr.and(
+						EditorContextKeys.editorTextFocus,
+						ContextKeyExpr.in(
+							ResourceContextKey.LangId.key,
+							POSITRON_RUNTIME_LANGUAGE_IDS.key,
+						),
+					),
 					group: 'navigation',
 					order: 1.5,
 				},
