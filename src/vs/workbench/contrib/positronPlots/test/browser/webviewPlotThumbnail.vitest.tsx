@@ -35,30 +35,32 @@ describe('WebviewPlotThumbnail', () => {
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 	it('shows placeholder when no thumbnail is available', () => {
-		const { container } = rtl.render(
+		const { container, queryByAltText } = rtl.render(
 			<WebviewPlotThumbnail plotClient={makePlotClient()} />
 		);
-		expect(container.querySelector('.plot-thumbnail-placeholder')).not.toBeNull();
-		expect(container.querySelector('img')).toBeNull();
+		// Placeholder is a structural div with no semantic role/text/label.
+		expect(container.querySelector('.plot-thumbnail-placeholder')).toBeInTheDocument();
+		expect(queryByAltText(/^Plot /)).not.toBeInTheDocument();
 	});
 
 	it('shows image when plotClient already has a thumbnailUri', () => {
 		const plotClient = makePlotClient({ thumbnailUri: 'data:image/png;base64,abc' });
-		const { container } = rtl.render(
+		const { getByAltText } = rtl.render(
 			<WebviewPlotThumbnail plotClient={plotClient} />
 		);
-		const img = container.querySelector('img');
-		expect(img).not.toBeNull();
-		expect(img!.src).toBe('data:image/png;base64,abc');
+		const img = getByAltText('Plot plot-1');
+		expect(img).toBeInTheDocument();
+		expect(img).toHaveAttribute('src', 'data:image/png;base64,abc');
 	});
 
 	it('updates to rendered thumbnail when event fires', () => {
-		const { container } = rtl.render(
+		const { container, getByAltText, queryByAltText } = rtl.render(
 			<WebviewPlotThumbnail plotClient={makePlotClient()} />
 		);
 
-		// Initially shows placeholder.
-		expect(container.querySelector('.plot-thumbnail-placeholder')).not.toBeNull();
+		// Initially shows placeholder (structural div with no semantic handle).
+		expect(container.querySelector('.plot-thumbnail-placeholder')).toBeInTheDocument();
+		expect(queryByAltText(/^Plot /)).not.toBeInTheDocument();
 
 		// Simulate the plot rendering a thumbnail.
 		act(() => {
@@ -66,9 +68,9 @@ describe('WebviewPlotThumbnail', () => {
 		});
 
 		// Now shows the rendered image.
-		const img = container.querySelector('img');
-		expect(img).not.toBeNull();
-		expect(img!.src).toBe('data:image/png;base64,rendered');
-		expect(container.querySelector('.plot-thumbnail-placeholder')).toBeNull();
+		const img = getByAltText('Plot plot-1');
+		expect(img).toBeInTheDocument();
+		expect(img).toHaveAttribute('src', 'data:image/png;base64,rendered');
+		expect(container.querySelector('.plot-thumbnail-placeholder')).not.toBeInTheDocument();
 	});
 });
