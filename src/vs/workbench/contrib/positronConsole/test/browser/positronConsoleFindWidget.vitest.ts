@@ -5,9 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-/* eslint-disable local/code-no-any-casts */
-
-
 import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
@@ -27,6 +24,18 @@ class TestableConsoleFindWidget extends PositronConsoleFindWidget {
 
 	testOnFindInputFocusTrackerBlur() {
 		this._onFindInputFocusTrackerBlur();
+	}
+
+	setCaseSensitive(value: boolean) {
+		this._findInput.setCaseSensitive(value);
+	}
+
+	setWholeWords(value: boolean) {
+		this._findInput.setWholeWords(value);
+	}
+
+	setRegex(value: boolean) {
+		this._findInput.setRegex(value);
 	}
 }
 
@@ -129,7 +138,7 @@ describe('PositronConsoleFindWidget', () => {
 
 		it('case-sensitive when toggled', async () => {
 			createWidget('Hello HELLO hello');
-			(widget as any)._findInput.setCaseSensitive(true);
+			widget.setCaseSensitive(true);
 			widget.reveal('hello');
 			const result = await widget.getResultCount();
 			expect(result?.resultCount).toBe(1);
@@ -137,7 +146,7 @@ describe('PositronConsoleFindWidget', () => {
 
 		it('whole word matching', async () => {
 			createWidget('cat concatenate cat');
-			(widget as any)._findInput.setWholeWords(true);
+			widget.setWholeWords(true);
 			widget.reveal('cat');
 			const result = await widget.getResultCount();
 			expect(result?.resultCount).toBe(2);
@@ -145,7 +154,7 @@ describe('PositronConsoleFindWidget', () => {
 
 		it('regex matching', async () => {
 			createWidget('foo123 bar456 baz');
-			(widget as any)._findInput.setRegex(true);
+			widget.setRegex(true);
 			widget.reveal('[a-z]+\\d+');
 			const result = await widget.getResultCount();
 			expect(result?.resultCount).toBe(2);
@@ -153,7 +162,7 @@ describe('PositronConsoleFindWidget', () => {
 
 		it('invalid regex does not throw', async () => {
 			createWidget('some text');
-			(widget as any)._findInput.setRegex(true);
+			widget.setRegex(true);
 			widget.reveal('[invalid');
 			const result = await widget.getResultCount();
 			expect(result).toBe(undefined);

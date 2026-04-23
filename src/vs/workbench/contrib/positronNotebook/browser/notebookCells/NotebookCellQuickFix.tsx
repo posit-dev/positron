@@ -146,7 +146,7 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 
 	// Render.
 	return (
-		<div className='notebook-cell-quick-fix'>
+		<div className='notebook-cell-quick-fix' data-testid='cell-output-quick-fix'>
 			{/* Fix button with split dropdown */}
 			<SplitButton
 				ariaLabel={fixTooltip}

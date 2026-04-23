@@ -86,6 +86,7 @@ export const ActionBarButtonIcon = (props: {
 				props.dropdownIndicator,
 				{ 'custom-icon-color': Boolean(props.style) }
 			)}
+			data-testid='action-bar-button-icon'
 			icon={props.icon}
 			style={props.style}
 		/>
@@ -108,6 +109,7 @@ export const ActionBarButtonLabel = (props: {
 	return (
 		<div
 			className='action-bar-button-label'
+			data-testid='action-bar-button-label'
 			style={{
 				marginLeft: props.hasIcon ? 0 : 4,
 				maxWidth: optionalValue(props.maxTextWidth, 'none')

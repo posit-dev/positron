@@ -13,6 +13,7 @@ import { ServicesAccessor } from '../../../instantiation/common/instantiation.js
 import { setupRTLRenderer } from '../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../test/vitest/positronTestContainer.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
+import { mainWindow } from '../../../../base/browser/window.js';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
@@ -144,9 +145,13 @@ describe('ActionBarWidget', () => {
 		rtl.render(<ActionBarWidget descriptor={descriptor} />);
 		const button = screen.getByRole('button', { name: 'Keyboard Widget' });
 
-		// Simulate Enter key press
+		// Simulate Enter key press. userEvent.keyboard dispatches to
+		// document.activeElement, so confirm focus took hold before firing
+		// keys -- otherwise a silently-ignored focus() call would make the
+		// test time out on the Event.toPromise race rather than fail cleanly.
 		const user = userEvent.setup();
 		button.focus();
+		expect(mainWindow.document.activeElement).toBe(button);
 		const commandPromise = Event.toPromise(commandService.onWillExecuteCommand);
 		await user.keyboard('{Enter}');
 
@@ -170,9 +175,11 @@ describe('ActionBarWidget', () => {
 		rtl.render(<ActionBarWidget descriptor={descriptor} />);
 		const button = screen.getByRole('button', { name: 'Space Widget' });
 
-		// Simulate Space key press
+		// Simulate Space key press. See the Enter test above for why we
+		// assert focus before dispatching keys.
 		const user = userEvent.setup();
 		button.focus();
+		expect(mainWindow.document.activeElement).toBe(button);
 		const commandPromise = Event.toPromise(commandService.onWillExecuteCommand);
 		await user.keyboard(' ');
 

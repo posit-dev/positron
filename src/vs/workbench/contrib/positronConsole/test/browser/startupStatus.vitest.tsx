@@ -26,7 +26,7 @@ import { StartupStatus } from '../../browser/components/startupStatus.js';
 function createMockLanguageRuntimeService(initialPhase: RuntimeStartupPhase = RuntimeStartupPhase.Initializing) {
 	const onDidRegisterRuntime = new Emitter<ILanguageRuntimeMetadata>();
 	const onDidChangeRuntimeStartupPhase = new Emitter<RuntimeStartupPhase>();
-	let registeredRuntimes: ILanguageRuntimeMetadata[] = [];
+	const registeredRuntimes: ILanguageRuntimeMetadata[] = [];
 
 	return {
 		service: {
@@ -95,7 +95,7 @@ describe('StartupStatus', () => {
 		});
 
 		it('hides the progress bar during AwaitingTrust phase', () => {
-			const { container } = rtl.render(<StartupStatus />);
+			rtl.render(<StartupStatus />);
 
 			act(() => {
 				langMock.onDidChangeRuntimeStartupPhase.fire(RuntimeStartupPhase.AwaitingTrust);
@@ -103,12 +103,8 @@ describe('StartupStatus', () => {
 
 			// Confirm we're in AwaitingTrust state via the user-facing message.
 			expect(screen.getByText(/Cannot start consoles in Restricted Mode/)).toBeInTheDocument();
-			// The progress bar div has no role/text/testid handle; querySelector on
-			// the structural .progress class is the cleanest fallback for asserting
-			// presence + inline display style.
-			const progressBar = container.querySelector<HTMLElement>('.progress');
-			expect(progressBar).toBeInTheDocument();
-			expect(progressBar!.style.display).toBe('none');
+			const progressBar = screen.getByTestId('startup-progress-bar');
+			expect(progressBar).toHaveStyle({ display: 'none' });
 		});
 
 		it('shows "Reconnecting" during Reconnecting phase', () => {

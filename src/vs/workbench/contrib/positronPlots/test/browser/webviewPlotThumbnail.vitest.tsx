@@ -21,6 +21,10 @@ describe('WebviewPlotThumbnail', () => {
 	const onDidRenderThumbnail = new Emitter<string>();
 
 	function makePlotClient(overrides: Partial<WebviewPlotClient> = {}): WebviewPlotClient {
+		// Partial plot-client mock: the component only reads id, thumbnailUri,
+		// and onDidRenderThumbnail. The double-cast is the established test
+		// pattern for partial-object mocks of complex service classes.
+		// eslint-disable-next-line local/code-no-dangerous-type-assertions
 		return {
 			id: 'plot-1',
 			thumbnailUri: undefined,
@@ -35,11 +39,10 @@ describe('WebviewPlotThumbnail', () => {
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 	it('shows placeholder when no thumbnail is available', () => {
-		const { container } = rtl.render(
+		rtl.render(
 			<WebviewPlotThumbnail plotClient={makePlotClient()} />
 		);
-		// Placeholder is a structural div with no semantic role/text/label.
-		expect(container.querySelector('.plot-thumbnail-placeholder')).toBeInTheDocument();
+		expect(screen.getByTestId('plot-thumbnail-placeholder')).toBeInTheDocument();
 		expect(screen.queryByAltText(/^Plot /)).not.toBeInTheDocument();
 	});
 
@@ -54,12 +57,12 @@ describe('WebviewPlotThumbnail', () => {
 	});
 
 	it('updates to rendered thumbnail when event fires', () => {
-		const { container } = rtl.render(
+		rtl.render(
 			<WebviewPlotThumbnail plotClient={makePlotClient()} />
 		);
 
-		// Initially shows placeholder (structural div with no semantic handle).
-		expect(container.querySelector('.plot-thumbnail-placeholder')).toBeInTheDocument();
+		// Initially shows placeholder.
+		expect(screen.getByTestId('plot-thumbnail-placeholder')).toBeInTheDocument();
 		expect(screen.queryByAltText(/^Plot /)).not.toBeInTheDocument();
 
 		// Simulate the plot rendering a thumbnail.
@@ -71,6 +74,6 @@ describe('WebviewPlotThumbnail', () => {
 		const img = screen.getByAltText('Plot plot-1');
 		expect(img).toBeInTheDocument();
 		expect(img).toHaveAttribute('src', 'data:image/png;base64,rendered');
-		expect(container.querySelector('.plot-thumbnail-placeholder')).not.toBeInTheDocument();
+		expect(screen.queryByTestId('plot-thumbnail-placeholder')).not.toBeInTheDocument();
 	});
 });

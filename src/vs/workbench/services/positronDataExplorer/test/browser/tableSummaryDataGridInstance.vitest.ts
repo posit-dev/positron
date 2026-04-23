@@ -135,6 +135,12 @@ describe('TableSummaryDataGridInstance', () => {
 		instance.dispose();
 	});
 
+	afterAll(() => {
+		// Clear the singleton bridged in beforeEach so no disposed reactServices
+		// instance outlives the suite.
+		PositronReactServices.services = undefined!;
+	});
+
 	it('columns should always return 1', () => {
 		expect(instance.columns).toBe(1);
 	});

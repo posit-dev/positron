@@ -28,7 +28,7 @@ Any variables, emitters, or imports declared but never referenced in a test? Sui
 ### 2. Anti-patterns
 
 - **Builder adoption + assertion style:** scan against the "Builder anti-patterns" table in `.claude/rules/vitest-tests.md`. For each match, report `file:line`, the pattern found, and the row's "Use instead" value. Respect the "Exception" column.
-- **RTL rules (`.vitest.tsx` only):** run `npx eslint <file>` -- the `testing-library/*` rules in `eslint.config.js` are the authoritative RTL check (`prefer-explicit-assert`, `prefer-presence-queries`, `prefer-screen-queries`, `prefer-user-event`, etc.). Report any lint errors as findings with the same rule name so the author can look them up.
+- **Lint (all `.vitest.*` files):** run `npx eslint --max-warnings 0 <file>` on every file under review. `--max-warnings 0` is required because the project's pre-commit hook fails only on eslint **errors**, so warnings (querySelector, `as any`, unexternalized strings, prefer-const, testing-library/*, etc.) accumulate silently without it. Report every warning and error as a finding, with `file:line` and the rule name so the author can look it up.
 
 The rules files (`vitest-tests.md`, `vitest-rtl.md`) are the single source of truth; this skill intentionally doesn't duplicate lists so they can't drift.
 

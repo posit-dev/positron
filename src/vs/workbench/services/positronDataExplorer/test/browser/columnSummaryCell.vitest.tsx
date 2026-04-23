@@ -9,6 +9,7 @@ import { ColumnSummaryCell } from '../../browser/components/columnSummaryCell.js
 import { getColumnSchema } from '../../common/positronDataExplorerMocks.js';
 import { ColumnDisplayType, SupportStatus, ColumnProfileType, SupportedFeatures } from '../../../languageRuntime/common/positronDataExplorerComm.js';
 import { TableSummaryDataGridInstance } from '../../browser/tableSummaryDataGridInstance.js';
+import { screen } from '@testing-library/react';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { PositronActionBarHoverManager } from '../../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
@@ -114,10 +115,9 @@ describe('ColumnSummaryCell', () => {
 			getColumnProfileNullCount: () => 0,
 		});
 
-		const { getByText } = renderRoot(mockTableSummaryDataGridInstance);
+		renderRoot(mockTableSummaryDataGridInstance);
 
-		// eslint-disable-next-line testing-library/prefer-screen-queries
-		expect(getByText('0%', { selector: '.text-percent' })).toBeInTheDocument();
+		expect(screen.getByText('0%', { selector: '.text-percent' })).toBeInTheDocument();
 	});
 
 	it('displays <1% when getColumnProfileNullPercent returns 0.5', async () => {
@@ -126,10 +126,9 @@ describe('ColumnSummaryCell', () => {
 			getColumnProfileNullCount: () => 1,
 		});
 
-		const { getByText } = renderRoot(mockTableSummaryDataGridInstance);
+		renderRoot(mockTableSummaryDataGridInstance);
 
-		// eslint-disable-next-line testing-library/prefer-screen-queries
-		expect(getByText('<1%', { selector: '.text-percent' })).toBeInTheDocument();
+		expect(screen.getByText('<1%', { selector: '.text-percent' })).toBeInTheDocument();
 	});
 
 	it('displays 99% when getColumnProfileNullPercent returns 99.9', async () => {
@@ -138,10 +137,9 @@ describe('ColumnSummaryCell', () => {
 			getColumnProfileNullCount: () => 999,
 		});
 
-		const { getByText } = renderRoot(mockTableSummaryDataGridInstance);
+		renderRoot(mockTableSummaryDataGridInstance);
 
-		// eslint-disable-next-line testing-library/prefer-screen-queries
-		expect(getByText('99%', { selector: '.text-percent' })).toBeInTheDocument();
+		expect(screen.getByText('99%', { selector: '.text-percent' })).toBeInTheDocument();
 	});
 
 	it('displays 100% when getColumnProfileNullPercent returns 100', async () => {
@@ -150,10 +148,9 @@ describe('ColumnSummaryCell', () => {
 			getColumnProfileNullCount: () => 1000,
 		});
 
-		const { getByText } = renderRoot(mockTableSummaryDataGridInstance);
+		renderRoot(mockTableSummaryDataGridInstance);
 
-		// eslint-disable-next-line testing-library/prefer-screen-queries
-		expect(getByText('100%', { selector: '.text-percent' })).toBeInTheDocument();
+		expect(screen.getByText('100%', { selector: '.text-percent' })).toBeInTheDocument();
 	});
 
 });

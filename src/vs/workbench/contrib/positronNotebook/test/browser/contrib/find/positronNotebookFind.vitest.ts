@@ -8,7 +8,6 @@
 // Register the find contribution
 import '../../../../browser/contrib/find/positronNotebookFind.contribution.js';
 
-import type { Mock } from 'vitest';
 import { createTestContainer } from '../../../../../../../test/vitest/positronTestContainer.js';
 import { IModelDecoration, ITextModel } from '../../../../../../../editor/common/model.js';
 import { USUAL_WORD_SEPARATORS } from '../../../../../../../editor/common/core/wordHelper.js';
@@ -125,7 +124,7 @@ describe('PositronNotebookFindController', () => {
 	const ctx = createTestContainer().build();
 
 	let instantiationService: ITestInstantiationService;
-	let bulkEditApplySpy: Mock;
+	let bulkEditApplySpy: ReturnType<typeof vi.spyOn>;
 
 	beforeEach(() => {
 		instantiationService = positronNotebookInstantiationService(ctx.disposables);

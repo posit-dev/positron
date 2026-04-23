@@ -47,8 +47,8 @@ function minimalServices(overrides: Record<string, unknown> = {}): Record<string
 
 /** Test component that reads from context. */
 const ServiceLabel = () => {
-	const services = usePositronReactServicesContext();
-	return <span>{(services as any).testValue ?? 'no value'}</span>;
+	const services = usePositronReactServicesContext() as { testValue?: string };
+	return <span>{services.testValue ?? 'no value'}</span>;
 };
 
 /** Test component that takes props. */
@@ -72,7 +72,7 @@ describe('setupRTLRenderer', () => {
 		const rtl = setupRTLRenderer();
 
 		it('renders without services wrapper', () => {
-			const { getByText } = rtl.render(<PropLabel text="hello from props" />);
+			const { getByText } = rtl.render(<PropLabel text='hello from props' />);
 			// showcase for destructure pattern -- this file demonstrates both idioms
 			// eslint-disable-next-line testing-library/prefer-screen-queries
 			expect(getByText('hello from props')).toBeInTheDocument();
