@@ -17,6 +17,11 @@ import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessi
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
+import { IModelService } from '../../../../editor/common/services/model.js';
+import { ThemeIcon } from '../../../../base/common/themables.js';
+import { getSessionDisplayName, getSessionIcon, isQuartoSession } from '../../positronConsole/common/sessionDisplayUtils.js';
+import { registerThemingParticipant } from '../../../../platform/theme/common/themeService.js';
+import { POSITRON_QUARTO_ICON } from '../../../common/theme.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { dispose } from '../../../../base/common/lifecycle.js';
@@ -34,6 +39,37 @@ import { getErrorMessage } from '../../../../base/common/errors.js';
 
 // The category for language runtime actions.
 const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Interpreter' };
+
+// Class applied to the Quarto icon in the session quickpick so it picks up the
+// Quarto theme color. IQuickPickItem only accepts a CSS class name (not a React
+// style), so we register a themed rule keyed on this class.
+const QUARTO_QUICKPICK_ICON_CLASS = 'positron-quickpick-quarto-icon';
+registerThemingParticipant((theme, collector) => {
+	const quartoColor = theme.getColor(POSITRON_QUARTO_ICON);
+	if (quartoColor) {
+		collector.addRule(`.quick-input-list-icon.${QUARTO_QUICKPICK_ICON_CLASS}.codicon { color: ${quartoColor}; }`);
+	}
+});
+
+/**
+ * Builds a display label that includes the runtime name for notebook sessions
+ * since the session name for notebooks has no information about the runtime
+ * being used.
+ */
+function getSessionDisplayNameWithRuntime(session: ILanguageRuntimeSession): string {
+	const notebookUri = session.metadata.notebookUri;
+	const base = getSessionDisplayName({ notebookUri, sessionName: session.dynState.sessionName });
+	// just to be safe, if this is not a notebook session or we don't have a notebook URI, return the base display name.
+	if (session.metadata.sessionMode !== LanguageRuntimeSessionMode.Notebook || !notebookUri) {
+		return base;
+	}
+	// For Quarto sessions, sessionName already equals the filename, so using
+	// it as the " - env" suffix would duplicate. Fall back to runtimeName.
+	const env = session.dynState.sessionName === base
+		? session.runtimeMetadata.runtimeName
+		: session.dynState.sessionName;
+	return `${base} - ${env}`;
+}
 
 // Quick pick item interfaces.
 interface LanguageRuntimeQuickPickItem extends IQuickPickItem { runtime: ILanguageRuntimeMetadata }
@@ -121,6 +157,9 @@ async function selectLanguage(accessor: ServicesAccessor) {
  * @param options The options for the quick pick.
  * @param options.allowStartSession Whether to allow the user to start a new session.
  * @param options.title The title of the quick pick.
+ * @param options.includeNotebookSessions Whether to display notebook and quarto
+ *   sessions (disabled) alongside console sessions. Defaults to true; set to
+ *   false for actions that only operate on console sessions.
  * @returns The runtime session the user selected, or undefined, if the user canceled the operation.
  */
 const selectLanguageRuntimeSession = async (
@@ -128,6 +167,7 @@ const selectLanguageRuntimeSession = async (
 	options?: {
 		allowStartSession?: boolean;
 		title?: string;
+		includeNotebookSessions?: boolean;
 	}): Promise<ILanguageRuntimeSession | undefined> => {
 
 	// Constants
@@ -137,59 +177,110 @@ const selectLanguageRuntimeSession = async (
 	const quickInputService = accessor.get(IQuickInputService);
 	const runtimeSessionService = accessor.get(IRuntimeSessionService);
 	const commandService = accessor.get(ICommandService);
+	const modelService = accessor.get(IModelService);
+
+	const includeNotebookSessions = options?.includeNotebookSessions ?? true;
+
+	// Filter active sessions by runtime state (exclude exited/uninitialized sessions).
+	const isActiveState = (session: ILanguageRuntimeSession) => {
+		switch (session.getRuntimeState()) {
+			case RuntimeState.Initializing:
+			case RuntimeState.Starting:
+			case RuntimeState.Ready:
+			case RuntimeState.Idle:
+			case RuntimeState.Busy:
+			case RuntimeState.Restarting:
+			case RuntimeState.Exiting:
+			case RuntimeState.Offline:
+			case RuntimeState.Interrupting:
+				return true;
+			default:
+				return false;
+		}
+	};
+
+	const foregroundSessionId = runtimeSessionService.foregroundSession?.sessionId;
+	const sessionItems: IQuickPickItem[] = [];
 
 	// Create quick pick items for active console sessions sorted by creation time, oldest to newest.
-	const sortedActiveSessions = runtimeSessionService.activeSessions
+	const consoleItems: IQuickPickItem[] = runtimeSessionService.activeSessions
 		.filter(session => session.metadata.sessionMode === LanguageRuntimeSessionMode.Console)
-		.sort((a, b) => a.metadata.createdTimestamp - b.metadata.createdTimestamp);
+		.filter(isActiveState)
+		.sort((a, b) => a.metadata.createdTimestamp - b.metadata.createdTimestamp)
+		.map(session => ({
+			id: session.sessionId,
+			label: session.dynState.sessionName,
+			detail: session.runtimeMetadata.runtimePath,
+			description: session.sessionId === foregroundSessionId
+				? localize('positron.languageRuntime.currentlySelected', 'Currently Selected')
+				: undefined,
+			iconClass: ThemeIcon.asClassName(getSessionIcon(session.metadata, modelService)),
+			picked: session.sessionId === foregroundSessionId,
+		}));
 
-	const activeRuntimeItems: IQuickPickItem[] = sortedActiveSessions.filter(
-		(session) => {
-			switch (session.getRuntimeState()) {
-				case RuntimeState.Initializing:
-				case RuntimeState.Starting:
-				case RuntimeState.Ready:
-				case RuntimeState.Idle:
-				case RuntimeState.Busy:
-				case RuntimeState.Restarting:
-				case RuntimeState.Exiting:
-				case RuntimeState.Offline:
-				case RuntimeState.Interrupting:
-					return true;
-				default:
-					return false;
-			}
-		}
-	).map(
-		(session) => {
-			const isForegroundSession =
-				session.sessionId === runtimeSessionService.foregroundSession?.sessionId;
-			return {
-				id: session.sessionId,
-				label: session.dynState.sessionName,
-				detail: session.runtimeMetadata.runtimePath,
-				description: isForegroundSession ? localize('positron.languageRuntime.currentlySelected', 'Currently Selected') : undefined,
-				iconPath: {
-					dark: URI.parse(`data:image/svg+xml;base64, ${session.runtimeMetadata.base64EncodedIconSvg}`),
-				},
-				picked: isForegroundSession,
-			};
-		}
-	);
-
-	// Show quick pick to select an active runtime or show all runtimes.
 	const quickPickItems: QuickPickItem[] = [
 		{
 			label: localize('positron.languageRuntime.activeConsoleSessions', 'Console Sessions'),
 			type: 'separator',
 		},
-		...activeRuntimeItems,
-		{
-			type: 'separator'
-		}
+		...consoleItems,
 	];
+	sessionItems.push(...consoleItems);
+
+	if (includeNotebookSessions) {
+		// Active notebook sessions (includes quarto), sorted by creation time.
+		const activeNotebookSessions = runtimeSessionService.activeSessions
+			.filter(session => session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook)
+			.filter(isActiveState)
+			.sort((a, b) => a.metadata.createdTimestamp - b.metadata.createdTimestamp);
+
+		const notebookItems: IQuickPickItem[] = activeNotebookSessions
+			.filter(session => !isQuartoSession({ notebookUri: session.metadata.notebookUri, modelService }))
+			.map(session => ({
+				id: session.sessionId,
+				label: getSessionDisplayNameWithRuntime(session),
+				detail: session.runtimeMetadata.runtimePath,
+				description: session.sessionId === foregroundSessionId
+					? localize('positron.languageRuntime.currentlySelected', 'Currently Selected')
+					: undefined,
+				iconClass: ThemeIcon.asClassName(getSessionIcon(session.metadata, modelService)),
+				picked: session.sessionId === foregroundSessionId,
+			}));
+
+		if (notebookItems.length > 0) {
+			quickPickItems.push({
+				label: localize('positron.languageRuntime.notebookSessions', 'Notebook Sessions'),
+				type: 'separator',
+			});
+			quickPickItems.push(...notebookItems);
+			sessionItems.push(...notebookItems);
+		}
+
+		const quartoItems: IQuickPickItem[] = activeNotebookSessions
+			.filter(session => isQuartoSession({ notebookUri: session.metadata.notebookUri, modelService }))
+			.map(session => ({
+				id: session.sessionId,
+				label: getSessionDisplayNameWithRuntime(session),
+				detail: session.runtimeMetadata.runtimePath,
+				description: session.sessionId === foregroundSessionId
+					? localize('positron.languageRuntime.currentlySelected', 'Currently Selected')
+					: undefined,
+				iconClass: `${ThemeIcon.asClassName(getSessionIcon(session.metadata, modelService))} ${QUARTO_QUICKPICK_ICON_CLASS}`,
+				picked: session.sessionId === foregroundSessionId,
+			}));
+
+		if (quartoItems.length > 0) {
+			quickPickItems.push({
+				label: localize('positron.languageRuntime.quartoSessions', 'Quarto Sessions'),
+				type: 'separator',
+			});
+			quickPickItems.push(...quartoItems);
+			sessionItems.push(...quartoItems);
+		}
+	}
 
 	if (options?.allowStartSession) {
+		quickPickItems.push({ type: 'separator' });
 		quickPickItems.push({
 			label: localize('positron.languageRuntime.newConsoleSession', 'New Console Session...'),
 			id: startNewRuntimeId,
@@ -199,7 +290,7 @@ const selectLanguageRuntimeSession = async (
 	const result = await quickInputService.pick(quickPickItems, {
 		title: options?.title || localize('positron.languageRuntime.selectSession.quickPickTitle', 'Select Interpreter Session'),
 		canPickMany: false,
-		activeItem: activeRuntimeItems.filter(item => item.picked)[0]
+		activeItem: sessionItems.find(item => item.picked)
 	});
 
 	// Handle the user's selection.
@@ -638,21 +729,32 @@ export function registerLanguageRuntimeActions() {
 		async accessor => {
 			// Access services.
 			const commandService = accessor.get(ICommandService);
+			const editorService = accessor.get(IEditorService);
 			const runtimeSessionService = accessor.get(IRuntimeSessionService);
 
 			// Prompt the user to select a runtime to use.
 			const newActiveSession = await selectLanguageRuntimeSession(accessor,
 				{
 					allowStartSession: true,
-					title: localize('positron.languageRuntime.changeForegroundSession.quickPickTitle', 'Interpreter Sessions')
+					title: localize('positron.languageRuntime.changeForegroundSession.quickPickTitle', 'Running Interpreter Sessions')
 				}
 			);
 
-			// If the user selected a specific session, set it as the active session if it still exists
-			if (newActiveSession) {
-				// Drive focus into the Positron console.
-				commandService.executeCommand('workbench.panel.positronConsole.focus');
+			if (!newActiveSession) {
+				return;
+			}
+
+			const notebookUri = newActiveSession.metadata.notebookUri;
+			if (notebookUri) {
+				// For notebook sessions, we want to focus the editor
+				// associated with the session's notebook URI when changing
+				// the foreground session.
+				await editorService.openEditor({ resource: notebookUri });
 				runtimeSessionService.foregroundSession = newActiveSession;
+			} else {
+				// For console sessions, drive focus into the console pane
+				runtimeSessionService.foregroundSession = newActiveSession;
+				commandService.executeCommand('workbench.panel.positronConsole.focus');
 			}
 		}
 	);
@@ -801,7 +903,10 @@ export function registerLanguageRuntimeActions() {
 
 			// Prompt the user to select a session they want to rename.
 			const session = await selectLanguageRuntimeSession(
-				accessor, { title: localize('positron.languageRuntime.selectSessionToRename', 'Select Session To Rename') });
+				accessor, {
+				includeNotebookSessions: false,
+				title: localize('positron.languageRuntime.selectSessionToRename', 'Select Session To Rename'),
+			});
 			if (!session) {
 				return;
 			}

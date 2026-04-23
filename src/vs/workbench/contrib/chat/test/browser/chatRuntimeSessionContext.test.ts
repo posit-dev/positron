@@ -85,7 +85,6 @@ class MockRuntimeSession implements ILanguageRuntimeSession {
 	clientInstances: any[] = [];
 	lastUsed = Date.now();
 
-	getLabel() { return 'Test Python Session'; }
 	getRuntimeState() { return RuntimeState.Ready; }
 	restart() { return Promise.resolve(); }
 	forceQuit() { return Promise.resolve(); }
