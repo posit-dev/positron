@@ -8,6 +8,7 @@
 import { usingPositronNotebooks } from '../../../positronNotebook/common/positronNotebookCommon.js';
 import { POSITRON_NOTEBOOK_ENABLED_KEY } from '../../../positronNotebook/common/positronNotebookConfig.js';
 import { IPYNB_VIEW_TYPE } from '../notebookBrowser.js';
+import { resolveNotebookSerializerOptions } from '../contrib/saveSettings/saveSettings.js';
 // --- End Positron ---
 import { localize } from '../../../../../nls.js';
 import { toAction } from '../../../../../base/common/actions.js';
@@ -972,7 +973,22 @@ export class NotebookService extends Disposable implements INotebookService {
 
 		const serializer = info.serializer;
 		const outputSizeLimit = this._configurationService.getValue<number>(NotebookSetting.outputBackupSizeLimit) * 1024;
-		const data: NotebookData = model.createSnapshot({ context: context, outputSizeLimit: outputSizeLimit, transientOptions: serializer.options });
+		// --- Start Positron ---
+		// const data: NotebookData = model.createSnapshot({ context: context, outputSizeLimit: outputSizeLimit, transientOptions: serializer.options });
+		// Resolve options based on user settings.
+		// For example, users may disable saving execution counts for
+		// version control friendly notebooks.
+		const data: NotebookData = model.createSnapshot({
+			context: context,
+			outputSizeLimit: outputSizeLimit,
+			transientOptions: resolveNotebookSerializerOptions(
+				serializer.options,
+				context,
+				this._configurationService
+			)
+		});
+
+		// --- End Positron ---
 		const indentAmount = model.metadata.indentAmount;
 		if (typeof indentAmount === 'string' && indentAmount) {
 			// This is required for ipynb serializer to preserve the whitespace in the notebook.

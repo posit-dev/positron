@@ -946,6 +946,30 @@ export enum LanguageRuntimeSessionMode {
 }
 
 /**
+ * An item contributed to the runtime picker.
+ */
+export interface IRuntimePickerItem {
+	id: string;
+	label: string;
+	detail?: string;
+	separatorLabel?: string;
+}
+
+/**
+ * A registered runtime picker contribution.
+ */
+export interface IRuntimePickerContribution {
+	/** The handle for this contribution */
+	handle: number;
+	/** The language ID this contribution applies to */
+	languageId: string;
+	/** Get items to show in the picker */
+	getItems(): Promise<IRuntimePickerItem[]>;
+	/** Handle selection of an item; returns the runtime ID to start, or undefined */
+	onSelect(itemId: string): Promise<string | undefined>;
+}
+
+/**
  * The Language Runtime Service manages the discovery and registration of
  * language runtime metadata, which can be thought of as "the interpreters made
  * available by extensions".
@@ -1003,6 +1027,22 @@ export interface ILanguageRuntimeService {
 	 * Returns the current startup phase.
 	 */
 	get startupPhase(): RuntimeStartupPhase;
+
+	/**
+	 * Register a runtime picker contribution.
+	 *
+	 * @param contribution The contribution to register
+	 * @returns A disposable that unregisters the contribution when disposed
+	 */
+	registerPickerContribution(contribution: IRuntimePickerContribution): IDisposable;
+
+	/**
+	 * Get all picker contributions for a language.
+	 *
+	 * @param languageId Optional language ID to filter by
+	 * @returns Array of registered contributions
+	 */
+	getPickerContributions(languageId?: string): IRuntimePickerContribution[];
 }
 
 /**

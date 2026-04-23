@@ -4,13 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { URI } from '../../../../base/common/uri.js';
-import { basename } from '../../../../base/common/path.js';
+import { basename, extname } from '../../../../base/common/path.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
 import { asCssVariable } from '../../../../platform/theme/common/colorUtils.js';
 import { LanguageRuntimeSessionMode, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { IRuntimeSessionDisplayInfo } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { POSITRON_QUARTO_ICON } from '../../../common/theme.js';
 import { isQuartoDocument } from '../../positronQuarto/common/positronQuartoConfig.js';
 
@@ -20,7 +19,9 @@ import { isQuartoDocument } from '../../positronQuarto/common/positronQuartoConf
  * URI path has .qmd/.rmd) and untitled files (where the model's language ID is
  * set to "quarto" or "rmd" by the Quarto extension).
  */
-export function isQuartoSession(notebookUri: URI | undefined, modelService: IModelService): boolean {
+export function isQuartoSession(
+	{ notebookUri, modelService }: { notebookUri: URI | undefined; modelService: IModelService },
+): boolean {
 	if (!notebookUri) {
 		return false;
 	}
@@ -29,36 +30,22 @@ export function isQuartoSession(notebookUri: URI | undefined, modelService: IMod
 }
 
 /**
- * Gets the display name for a notebook file. For untitled Quarto documents,
- * the .qmd extension is appended since the URI doesn't include it.
+ * Gets the display label for a session given a notebook URI and session name.
+ * This is the canonical way to derive a session's label in UI surfaces.
+ *
+ * For notebook sessions, returns the filename from the URI. Untitled Quarto
+ * URIs lack the .qmd extension, so we fall back to sessionName, which the
+ * Quarto kernel manager populates with the filename + extension. For sessions
+ * without a notebook URI (console), returns sessionName.
  */
-export function getNotebookDisplayName(notebookUri: URI, modelService: IModelService): string {
-	let name = basename(notebookUri.path);
-	if (!name.includes('.') && isQuartoSession(notebookUri, modelService)) {
-		name = `${name}.qmd`;
+export function getSessionDisplayName(
+	{ notebookUri, sessionName }: { notebookUri: URI | undefined; sessionName: string },
+): string {
+	if (!notebookUri) {
+		return sessionName;
 	}
-	return name;
-}
-
-/**
- * Gets the display label for a session. For notebook sessions, this includes
- * the notebook file name and the runtime name. For Quarto sessions, the
- * runtime name is used instead of the session name (which redundantly
- * contains the file name). For untitled Quarto documents, the .qmd extension
- * is appended since the URI doesn't include it.
- */
-export function getSessionDisplayName(info: IRuntimeSessionDisplayInfo, modelService: IModelService): string {
-	if (info.sessionMode === LanguageRuntimeSessionMode.Notebook && info.notebookUri) {
-		const notebookName = getNotebookDisplayName(info.notebookUri, modelService);
-		// For Quarto sessions, show the underlying runtime name (e.g.
-		// "Python 3.12.11 (Pyenv)") instead of the session name (which is
-		// "Quarto: <file>.qmd" and would duplicate the file name).
-		const env = isQuartoSession(info.notebookUri, modelService)
-			? info.runtimeName
-			: info.sessionName;
-		return `${notebookName} - ${env}`;
-	}
-	return info.sessionName;
+	const name = basename(notebookUri.path);
+	return extname(name) ? name : sessionName;
 }
 
 /**
@@ -76,7 +63,7 @@ interface SessionIconInfo {
  */
 export function getSessionIcon(info: SessionIconInfo, modelService: IModelService): ThemeIcon {
 	if (info.sessionMode === LanguageRuntimeSessionMode.Notebook) {
-		if (isQuartoSession(info.notebookUri, modelService)) {
+		if (isQuartoSession({ notebookUri: info.notebookUri, modelService })) {
 			return Codicon.positronQuarto;
 		}
 		return Codicon.notebook;
@@ -90,7 +77,7 @@ export function getSessionIcon(info: SessionIconInfo, modelService: IModelServic
  */
 export function getSessionIconStyle(info: SessionIconInfo, modelService: IModelService): React.CSSProperties | undefined {
 	if (info.sessionMode === LanguageRuntimeSessionMode.Notebook &&
-		isQuartoSession(info.notebookUri, modelService)) {
+		isQuartoSession({ notebookUri: info.notebookUri, modelService })) {
 		return { color: asCssVariable(POSITRON_QUARTO_ICON) };
 	}
 	return undefined;

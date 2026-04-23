@@ -9,6 +9,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import { ParticipantService } from './participants.js';
+import { isFileExcludedFromAI } from './fileExclusion.js';
 import { MARKDOWN_DIR } from './constants';
 import { StreamingTagLexer } from './streamingTagLexer.js';
 import { resolveGhostCellSuggestions } from './notebookAssistantMetadata.js';
@@ -78,6 +79,12 @@ export async function generateGhostCellSuggestion(
 
 	if (!notebook) {
 		log.warn('[ghost-cell] Notebook not found:', notebookUri);
+		return null;
+	}
+
+	// Check if notebook is excluded from AI features
+	if (isFileExcludedFromAI(uri)) {
+		log.debug('[ghost-cell] Notebook excluded from AI features by aiExcludes setting');
 		return null;
 	}
 

@@ -18,11 +18,6 @@
     "lint": "eslint src --ext ts"
   },
   "contributes": {
-    "languageRuntimes": [
-      {
-        "languageId": "reticulate"
-      }
-    ],
     "configuration": {
       "type": "object",
       "title": "%configurationTitle%",
@@ -41,10 +36,6 @@
       }
     }
   },
-  "extensionDependencies": [
-    "ms-python.python",
-    "positron.positron-r"
-  ],
   "devDependencies": {
     "@types/glob": "^7.2.0",
     "@types/mocha": "^9.1.0",

@@ -43,6 +43,7 @@
 
 	.positron-notebook-cell-outputs {
 		overflow: hidden;
+		position: relative;
 	}
 
 	.positron-notebook-code-cell-outputs-inner {
@@ -52,6 +53,17 @@
 
 		&.output-scrolling {
 			max-height: var(--vscode-positronNotebook-output-max-height);
+			overflow-y: auto;
+		}
+
+		/*
+		When user has manually resized, the inline style controls height.
+		border-box ensures offsetHeight (used to seed the drag) and
+		style.height (written during drag) are in the same coordinate space,
+		preventing a visual jump at the start of a resize.
+		*/
+		&.height-override {
+			box-sizing: border-box;
 			overflow-y: auto;
 		}
 		overflow-x: auto;

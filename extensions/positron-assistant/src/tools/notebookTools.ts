@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { PositronAssistantToolName } from '../types.js';
 import { log } from '../log.js';
+import { isFileExcludedFromAI } from '../fileExclusion.js';
 import { convertOutputsToLanguageModelParts, formatCells, validateCellIndices, validatePermutation, MAX_CELL_CONTENT_LENGTH, isErrorMime, isTextMime } from './notebookUtils.js';
 import { getChatRequestData } from '../tools.js';
 import type { ParticipantService } from '../participants.js';
@@ -20,6 +21,19 @@ import { resolveShowDiff } from '../notebookAssistantMetadata.js';
 function createNoActiveNotebookErrorResult(): vscode.LanguageModelToolResult {
 	return new vscode.LanguageModelToolResult([
 		new vscode.LanguageModelTextPart('No active notebook found')
+	]);
+}
+
+/**
+ * Creates an error result for when the notebook is excluded from AI features.
+ *
+ * @returns A LanguageModelToolResult indicating the notebook is excluded
+ */
+function createNotebookExcludedErrorResult(): vscode.LanguageModelToolResult {
+	return new vscode.LanguageModelToolResult([
+		new vscode.LanguageModelTextPart(
+			'This notebook is excluded from AI features by the aiExcludes setting.'
+		)
 	]);
 }
 
@@ -156,6 +170,9 @@ export const ExecuteNotebookTool = vscode.lm.registerTool<ExecuteNotebookInput>(
 			const context = await positron.notebooks.getContext();
 			if (!context) {
 				return createNoActiveNotebookErrorResult();
+			}
+			if (isFileExcludedFromAI(vscode.Uri.parse(context.uri))) {
+				return createNotebookExcludedErrorResult();
 			}
 
 			switch (operation) {
@@ -553,6 +570,9 @@ function createEditNotebookTool(participantService: ParticipantService) {
 				if (!context) {
 					return createNoActiveNotebookErrorResult();
 				}
+				if (isFileExcludedFromAI(vscode.Uri.parse(context.uri))) {
+					return createNotebookExcludedErrorResult();
+				}
 
 				switch (operation) {
 					case 'add': {
@@ -914,6 +934,9 @@ export const GetNotebookInfoTool = vscode.lm.registerTool<{
 			const context = await positron.notebooks.getContext();
 			if (!context) {
 				return createNoActiveNotebookErrorResult();
+			}
+			if (isFileExcludedFromAI(vscode.Uri.parse(context.uri))) {
+				return createNotebookExcludedErrorResult();
 			}
 
 			switch (operation) {
