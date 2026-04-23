@@ -106,10 +106,10 @@ One-stop reference. Authors: scan before writing. Reviewers (and the `review-vit
 
 | Avoid | Use instead | Exception |
 |---|---|---|
-| `container.querySelector(...)` as assertion target | Query by priority: `getByRole` > `getByLabelText` > `getByPlaceholderText` > `getByText` > `getByDisplayValue` > `getByAltText` > `getByTitle` > `getByTestId` | Structural element with no semantic handle: `expect(container.querySelector('.x')).toBeInTheDocument()` + inline comment explaining why no semantic query fits |
+| `container.querySelector(...)` as assertion target | Query by priority: `getByRole` > `getByLabelText` > `getByPlaceholderText` > `getByText` > `getByDisplayValue` > `getByAltText` > `getByTitle` > `getByTestId` | Structural element with no semantic handle: `expect(container.querySelector('.x')).toBeInTheDocument()` + inline comment explaining why no semantic query fits. Prefer adding `data-testid` to the source component and using `getByTestId(...)` when touching the source is feasible. |
 | `expect(el).toBeTruthy()` for DOM presence | bare `getBy*(...)` (the query IS the assertion) | — |
 | `expect(el).toBeFalsy()` / `toBeNull()` for DOM absence | `expect(queryBy*(...)).not.toBeInTheDocument()` | — |
-| `expect(getBy*(...)).toBeInTheDocument()` | bare `getBy*(...)` | Only the wrapped form is meaningful when the inner query is `queryBy*` / `findBy*` (may return `null`) |
+| `expect(getBy*(...)).toBeInTheDocument()` | bare `getBy*(...)` | — (for a null-safe check, switch to `queryBy*` / `findBy*` + `toBeInTheDocument()` — that's a different pattern, not an exception to this rule) |
 | `assert.strictEqual(el.textContent, 'x')` | `expect(el).toHaveTextContent('x')` | — |
 | `el.classList.contains('x')` | `expect(el).toHaveClass('x')` | — |
 | `el.disabled === true` | `expect(el).toBeDisabled()` | — |

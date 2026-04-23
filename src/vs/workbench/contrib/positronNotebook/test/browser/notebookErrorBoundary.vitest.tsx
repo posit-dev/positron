@@ -198,19 +198,17 @@ describe('NotebookErrorBoundary', () => {
 			console.error = originalConsoleError;
 		});
 
-		it('shows Retry button for cell and output levels', () => {
-			for (const level of ['cell', 'output'] as const) {
-				const { logService } = createMockLogService();
-				const { getByRole, unmount } = rtl.render(
-					<NotebookErrorBoundary componentName='Test' level={level} logService={logService}>
-						<ThrowingComponent error={new Error('fail')} />
-					</NotebookErrorBoundary>
-				);
+		// it.each so a failure identifies which level regressed
+		// (getByRole throws on miss without naming the iteration variable).
+		it.each(['cell', 'output'] as const)('shows Retry button for %s level', (level) => {
+			const { logService } = createMockLogService();
+			const { getByRole } = rtl.render(
+				<NotebookErrorBoundary componentName='Test' level={level} logService={logService}>
+					<ThrowingComponent error={new Error('fail')} />
+				</NotebookErrorBoundary>
+			);
 
-				// Assertion is the getByRole call itself -- no explicit matcher needed.
-				getByRole('button', { name: 'Retry' });
-				unmount();
-			}
+			getByRole('button', { name: 'Retry' });
 		});
 
 		it('clicking Retry re-renders children', () => {
@@ -236,6 +234,7 @@ describe('NotebookErrorBoundary', () => {
 			shouldThrow = false;
 			clickAndFlush(getByRole('button', { name: 'Retry' }));
 
+			// Children should re-render after retry.
 			getByText('Recovered');
 			expect(queryByRole('alert'), 'Error UI should be gone').not.toBeInTheDocument();
 		});
@@ -286,7 +285,7 @@ describe('NotebookErrorBoundary', () => {
 				</NotebookErrorBoundary>
 			);
 
-			// Assertion is the getByRole call itself; it throws if not found.
+			// Error boundary should catch provider errors.
 			getByRole('alert');
 			expect(errorSpy).toHaveBeenCalledOnce();
 			const logMessage = errorSpy.mock.calls[0][0] as string;
