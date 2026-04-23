@@ -16,15 +16,22 @@
 }
 
 .horizontal-splitter
-.sizer {
+.sash {
 	top: -2px;
 	height: 5px;
 	z-index: 27;
 	width: 100%;
 	position: relative;
+	touch-action: none;
 }
 
 .horizontal-splitter
-.sizer.resizing {
-	background-color: var(--vscode-focusBorder);
+.sash.hovering {
+	transition: background-color 0.1s ease-out;
+	background-color: var(--vscode-sash-hoverBorder);
+}
+
+.horizontal-splitter
+.sash.resizing {
+	background-color: var(--vscode-sash-hoverBorder);
 }
