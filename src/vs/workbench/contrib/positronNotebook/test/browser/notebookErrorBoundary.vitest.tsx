@@ -53,7 +53,7 @@ describe('NotebookErrorBoundary', () => {
 				</NotebookErrorBoundary>
 			);
 
-			expect(getByText('Hello')).toBeInTheDocument();
+			getByText('Hello');
 		});
 	});
 
@@ -238,7 +238,7 @@ describe('NotebookErrorBoundary', () => {
 			shouldThrow = false;
 			clickAndFlush(getByRole('button', { name: 'Retry' }));
 
-			expect(getByText('Recovered'), 'Children should re-render after retry').toBeInTheDocument();
+			getByText('Recovered');
 			expect(queryByRole('alert'), 'Error UI should be gone').not.toBeInTheDocument();
 		});
 	});
