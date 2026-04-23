@@ -7,13 +7,13 @@ import { Disposable, DisposableStore } from '../../../../../base/common/lifecycl
 import { autorun } from '../../../../../base/common/observable.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
-import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { ICellDto2 } from '../../../notebook/common/notebookCommon.js';
 import { NotebookTextModel } from '../../../notebook/common/model/notebookTextModel.js';
 import { MockNotebookCell } from '../../../notebook/test/browser/testNotebookEditor.js';
 import { IPositronNotebookCell } from '../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { PositronNotebookInstance } from '../../browser/PositronNotebookInstance.js';
 import { positronWorkbenchInstantiationService } from '../../../../test/browser/positronWorkbenchTestServices.js';
+import { ITestInstantiationService } from '../../../../test/browser/workbenchTestServices.js';
 import { instantiateTestCodeEditor } from '../../../../../editor/test/browser/testCodeEditor.js';
 import { ITextBuffer, ITextBufferFactory, ITextModel } from '../../../../../editor/common/model.js';
 import { ICodeEditorService } from '../../../../../editor/browser/services/codeEditorService.js';
@@ -38,7 +38,7 @@ import { IPositronWebviewPreloadService } from '../../../../services/positronWeb
  * with the notebook's lifecycle.
  */
 export class TestPositronNotebookInstance extends PositronNotebookInstance {
-	instantiationService!: TestInstantiationService;
+	instantiationService!: ITestInstantiationService;
 }
 
 /**
@@ -51,7 +51,7 @@ export class TestPositronNotebookInstance extends PositronNotebookInstance {
  */
 export function positronNotebookInstantiationService(
 	disposables: Pick<DisposableStore, 'add'>,
-): TestInstantiationService {
+): ITestInstantiationService {
 	const instantiationService = positronWorkbenchInstantiationService(disposables);
 
 	// Add editor services required for TestCodeEditor
@@ -142,7 +142,7 @@ export function createTestPositronNotebookInstance(
  */
 export function instantiateTestNotebookInstance(
 	cells: TestCellInput[],
-	instantiationService: TestInstantiationService,
+	instantiationService: ITestInstantiationService,
 	disposables: Pick<DisposableStore, 'add'>,
 ): TestPositronNotebookInstance {
 	// Create the notebook instance with a unique ID and URI so multiple
