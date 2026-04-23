@@ -1248,15 +1248,26 @@ export class PositronDataExplorerViewDataFrameAtCursorAction extends Action2 {
 			menu: [
 				{
 					id: MenuId.EditorContext,
-					// Only show on editors whose language has a registered
-					// Positron runtime. The list is maintained dynamically by
+					// Show on editors whose language has a registered Positron
+					// runtime. The list is maintained dynamically by
 					// PositronRuntimeLanguagesContextKeyContribution so new
 					// runtimes are picked up without code changes here.
+					//
+					// Quarto is added explicitly: a .qmd document's outer
+					// language is 'quarto', but the command still works
+					// because it resolves the embedded language at the
+					// cursor via getLanguageIdAtPosition.
 					when: ContextKeyExpr.and(
 						EditorContextKeys.editorTextFocus,
-						ContextKeyExpr.in(
-							ResourceContextKey.LangId.key,
-							POSITRON_RUNTIME_LANGUAGE_IDS.key,
+						ContextKeyExpr.or(
+							ContextKeyExpr.in(
+								ResourceContextKey.LangId.key,
+								POSITRON_RUNTIME_LANGUAGE_IDS.key,
+							),
+							ContextKeyExpr.equals(
+								ResourceContextKey.LangId.key,
+								'quarto',
+							),
 						),
 					),
 					group: 'navigation',
