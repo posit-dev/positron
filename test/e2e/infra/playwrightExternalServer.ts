@@ -29,6 +29,8 @@ async function launchBrowser(options: LaunchOptions, serverUrl: string) {
 		headless: headless ?? false,
 		timeout: 0,
 		channel: browserChannel,
+		// Disable popup blocker
+		args: ['--disable-popup-blocking']
 	}), 'playwright#launch', logger) as unknown as playwright.Browser;
 
 	browser.on('disconnected', () => logger.log(`Playwright: browser disconnected`));
