@@ -5,7 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-/* eslint-disable no-restricted-syntax */
 /* eslint-disable local/code-no-dangerous-type-assertions */
 
 import { act } from '@testing-library/react';
@@ -45,27 +44,22 @@ function mockAction(overrides?: Partial<{
 	} as unknown as MenuItemAction;
 }
 
-/* DOM queries and actions for a rendered CellActionButton. */
-class CellActionButtonFixture {
-	constructor(private readonly button: HTMLButtonElement) { }
+/** Returns the `codicon-*` modifier class on the button's icon element. */
+function getIconClass(button: HTMLElement): string | undefined {
+	// Structural lookup: the Icon component renders a <div class="codicon codicon-<id>">
+	// and there's no accessible role/name on it -- the codicon-<id> modifier is the
+	// signal we want to assert on.
+	// eslint-disable-next-line no-restricted-syntax
+	const iconEl = button.querySelector<HTMLElement>('.codicon');
+	return iconEl?.className.split(' ').find(c => c.startsWith('codicon-') && c !== 'codicon');
+}
 
-	get ariaLabel() { return this.button.getAttribute('aria-label'); }
-	get hasSeparator() { return this.button.classList.contains('separator-after'); }
-
-	get iconClass() {
-		return this.button.querySelector<HTMLElement>('.codicon')
-			?.className.split(' ').find(c => c.startsWith('codicon-') && c !== 'codicon');
-	}
-
-	click() { this.button.click(); }
-
-	async clickAndFlush() {
-		// act() drains the pending microtask so React state settles before the assertion.
-		await act(async () => {
-			this.button.click();
-			await timeout(0);
-		});
-	}
+async function clickAndFlush(button: HTMLElement) {
+	// act() drains the pending microtask so React state settles before the assertion.
+	await act(async () => {
+		button.click();
+		await timeout(0);
+	});
 }
 
 describe('CellActionButton', () => {
@@ -85,15 +79,11 @@ describe('CellActionButton', () => {
 		cell = { id: 'cell-1' } as unknown as IPositronNotebookCell;
 	});
 
-	afterEach(() => {
-		vi.restoreAllMocks();
-	});
-
 	function renderButton(
 		action: MenuItemAction | SubmenuItemAction,
 		options?: { showSeparator?: boolean },
 	) {
-		const { container } = rtl.render(
+		const { getByRole } = rtl.render(
 			<NotebookInstanceProvider instance={instance}>
 				<CellActionButton
 					action={action}
@@ -102,33 +92,32 @@ describe('CellActionButton', () => {
 				/>
 			</NotebookInstanceProvider>
 		);
-		const button = container.querySelector<HTMLButtonElement>('button.action-button')!;
-		return new CellActionButtonFixture(button);
+		return getByRole('button', { name: action.label });
 	}
 
 	it('renders with aria-label from action', () => {
 		const action = mockAction({ label: 'Collapse Output' });
-		const fixture = renderButton(action);
+		const button = renderButton(action);
 
-		expect(fixture.ariaLabel).toBe(action.label);
+		expect(button).toHaveAttribute('aria-label', 'Collapse Output');
 	});
 
 	it('applies separator-after class when showSeparator is true', () => {
-		const fixture = renderButton(mockAction(), { showSeparator: true });
+		const button = renderButton(mockAction(), { showSeparator: true });
 
-		expect(fixture.hasSeparator).toBe(true);
+		expect(button).toHaveClass('separator-after');
 	});
 
 	it('does not apply separator-after class when showSeparator is false', () => {
-		const fixture = renderButton(mockAction(), { showSeparator: false });
+		const button = renderButton(mockAction(), { showSeparator: false });
 
-		expect(fixture.hasSeparator).toBe(false);
+		expect(button).not.toHaveClass('separator-after');
 	});
 
 	it('selects cell before running action', () => {
-		const fixture = renderButton(mockAction());
+		const button = renderButton(mockAction());
 
-		fixture.click();
+		button.click();
 
 		expect(selectCellStub, 'Expected selectCell to be called').toHaveBeenCalledOnce();
 		expect(selectCellStub.mock.calls[0][1]).toBe(CellSelectionType.Normal);
@@ -136,9 +125,9 @@ describe('CellActionButton', () => {
 
 	it('runs the action when clicked', async () => {
 		const runStub = vi.fn().mockResolvedValue(undefined);
-		const fixture = renderButton(mockAction({ run: runStub }));
+		const button = renderButton(mockAction({ run: runStub }));
 
-		fixture.click();
+		button.click();
 
 		await new Promise(resolve => setTimeout(resolve, 0));
 		expect(runStub, 'Expected action.run to be called').toHaveBeenCalledOnce();
@@ -146,24 +135,24 @@ describe('CellActionButton', () => {
 
 	it('does not throw when action.run rejects', async () => {
 		vi.spyOn(console, 'log').mockImplementation(() => { });
-		const fixture = renderButton(mockAction({
+		const button = renderButton(mockAction({
 			run: () => Promise.reject(new Error('action failed')),
 		}));
 
-		fixture.click();
+		button.click();
 		await new Promise(resolve => setTimeout(resolve, 0));
 	});
 
 	it('renders icon when action has one', () => {
-		const fixture = renderButton(mockAction({ iconId: 'chevron-down' }));
+		const button = renderButton(mockAction({ iconId: 'chevron-down' }));
 
-		expect(fixture.iconClass).toBe('codicon-chevron-down');
+		expect(getIconClass(button)).toBe('codicon-chevron-down');
 	});
 
 	it('renders DevErrorIcon when action has no icon', () => {
-		const fixture = renderButton(mockAction({ iconId: undefined }));
+		const button = renderButton(mockAction({ iconId: undefined }));
 
-		expect(fixture.iconClass, 'Missing developer error icon').toBe('codicon-blank');
+		expect(getIconClass(button), 'Missing developer error icon').toBe('codicon-blank');
 	});
 
 	describe('success feedback', () => {
@@ -176,11 +165,11 @@ describe('CellActionButton', () => {
 		}
 
 		it('momentarily shows feedback after successful action', () => runWithFakedTimers({}, async () => {
-			const fixture = renderSuccessButton();
+			const button = renderSuccessButton();
 
-			await fixture.clickAndFlush();
+			await clickAndFlush(button);
 
-			expect(fixture.iconClass).toBe('codicon-check');
+			expect(getIconClass(button)).toBe('codicon-check');
 
 			// act() wraps the timer advance because the 1500ms setTimeout calls setState to reset the icon.
 			await act(async () => {
@@ -188,28 +177,28 @@ describe('CellActionButton', () => {
 				await timeout(0);
 			});
 
-			expect(fixture.iconClass, 'Original icon should be restored').toBe('codicon-copy');
+			expect(getIconClass(button), 'Original icon should be restored').toBe('codicon-copy');
 		}));
 
 		it('does not show check icon for non-opted-in actions', () => runWithFakedTimers({}, async () => {
-			const fixture = renderButton(mockAction({
+			const button = renderButton(mockAction({
 				id: 'some-other-action',
 				iconId: 'copy',
 				run: () => Promise.resolve(),
 			}));
 
-			await fixture.clickAndFlush();
+			await clickAndFlush(button);
 
-			expect(fixture.iconClass).toBe('codicon-copy');
+			expect(getIconClass(button)).toBe('codicon-copy');
 		}));
 
 		it('does not show check icon when action rejects', () => runWithFakedTimers({}, async () => {
 			vi.spyOn(console, 'log').mockImplementation(() => { });
-			const fixture = renderSuccessButton(() => Promise.reject(new Error('fail')));
+			const button = renderSuccessButton(() => Promise.reject(new Error('fail')));
 
-			await fixture.clickAndFlush();
+			await clickAndFlush(button);
 
-			expect(fixture.iconClass).toBe('codicon-copy');
+			expect(getIconClass(button)).toBe('codicon-copy');
 		}));
 	});
 });
