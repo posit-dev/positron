@@ -62,14 +62,20 @@ Read [`vitest-rtl.md`](vitest-rtl.md) for query priority, jest-dom matcher selec
 
 Positron-specific rules not covered by a public lint plugin. The `review-vitest-tests` skill scans for these; reviewers flag any "Avoid" match that isn't covered by "Exception."
 
-| Avoid | Use instead | Exception |
-|---|---|---|
-| `positronWorkbenchInstantiationService()` | `createTestContainer().withWorkbenchServices().build()` | Inside shared test helpers invoked at test-runtime (inside `beforeEach` / `it`), where describe-scope `.build()` isn't viable |
-| `TestInstantiationService` (the class) | `createTestContainer().with<preset>().build()` -- pick the lowest preset that covers your services (see `positronTestContainer.ts` JSDoc) | Used solely to bootstrap a test-helper service (e.g. `new TestCommandService(new TestInstantiationService())`) in `beforeEach`, not as a primary DI container |
-| `workbenchInstantiationService()` (upstream VS Code helper) | `createTestContainer().withWorkbenchServices().build()` | — |
-| `createRuntimeServices()` | `createTestContainer().withRuntimeServices().build()` | — |
-| Hand-rolled `as unknown as PositronReactServices` accessor | `createTestContainer().withReactServices().stub(IService, ...).build()` + `setupRTLRenderer(() => ctx.reactServices)` | — |
-| `PositronReactServices.services = ...` singleton mutation | `createTestContainer().withReactServices().stub(...).build()` (and drop the `beforeEach`/`afterEach` save/restore dance) | Source class reads the singleton directly in its constructor; a 1-line bridge `PositronReactServices.services = ctx.reactServices` with an inline comment is acceptable |
+- **Avoid `positronWorkbenchInstantiationService()`** -- use `createTestContainer().withWorkbenchServices().build()`.
+  *Exception:* inside shared test helpers invoked at test-runtime (inside `beforeEach` / `it`), where describe-scope `.build()` isn't viable.
+
+- **Avoid `TestInstantiationService`** (the class) -- use `createTestContainer().with<preset>().build()`. Pick the lowest preset that covers your services (see `positronTestContainer.ts` JSDoc).
+  *Exception:* used solely to bootstrap a test-helper service (e.g. `new TestCommandService(new TestInstantiationService())`) in `beforeEach`, not as a primary DI container.
+
+- **Avoid `workbenchInstantiationService()`** (upstream VS Code helper) -- use `createTestContainer().withWorkbenchServices().build()`.
+
+- **Avoid `createRuntimeServices()`** -- use `createTestContainer().withRuntimeServices().build()`.
+
+- **Avoid hand-rolled `as unknown as PositronReactServices` accessor** -- use `createTestContainer().withReactServices().stub(IService, ...).build()` + `setupRTLRenderer(() => ctx.reactServices)`.
+
+- **Avoid `PositronReactServices.services = ...` singleton mutation** -- use `createTestContainer().withReactServices().stub(...).build()` and drop the `beforeEach`/`afterEach` save/restore dance.
+  *Exception:* source class reads the singleton directly in its constructor; a 1-line bridge `PositronReactServices.services = ctx.reactServices` with an inline comment is acceptable.
 
 **Assertion style** (all `.vitest.*`): use `expect(x).to*(...)`, never `assert.ok` / `assert.equal` / `assert.strictEqual`.
 
