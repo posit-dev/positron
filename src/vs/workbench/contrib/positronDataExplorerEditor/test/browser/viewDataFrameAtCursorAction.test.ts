@@ -8,8 +8,10 @@ import sinon from 'sinon';
 import { Position } from '../../../../../editor/common/core/position.js';
 import { EditorType } from '../../../../../editor/common/editorCommon.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
+import { URI } from '../../../../../base/common/uri.js';
 import { ILanguageService } from '../../../../../editor/common/languages/language.js';
-import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { CellUri } from '../../../notebook/common/notebookCommon.js';
+import { ILanguageRuntimeSession, INotebookLanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { IPositronDataExplorerService } from '../../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
@@ -34,9 +36,16 @@ const makeCodeEditor = (options: {
 	word?: string;
 	languageId?: string;
 	languageIdAtPosition?: string;
+	uri?: URI;
 } = {}): ICodeEditor => {
-	const { word, languageId = 'r', languageIdAtPosition = languageId } = options;
+	const {
+		word,
+		languageId = 'r',
+		languageIdAtPosition = languageId,
+		uri = URI.parse('file:///test.R'),
+	} = options;
 	const model = {
+		uri,
 		getWordAtPosition: sinon.stub().returns(word ? { word, startColumn: 1, endColumn: word.length + 1 } : null),
 		getLanguageId: () => languageId,
 		getLanguageIdAtPosition: () => languageIdAtPosition,
@@ -93,6 +102,7 @@ suite('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 		let activeEditor: ICodeEditor | undefined;
 		let session: ILanguageRuntimeSession | undefined;
 		let getConsoleSessionForLanguage: sinon.SinonStub;
+		let getNotebookSessionForNotebookUri: sinon.SinonStub;
 		let variablesInstances: IPositronVariablesInstance[];
 		let openViewStub: sinon.SinonStub;
 		let notificationInfo: sinon.SinonStub;
@@ -107,6 +117,7 @@ suite('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 			} as Partial<ILanguageService>)
 			.stub(IRuntimeSessionService, {
 				getConsoleSessionForLanguage: (id: string) => getConsoleSessionForLanguage(id),
+				getNotebookSessionForNotebookUri: (uri: URI) => getNotebookSessionForNotebookUri(uri),
 			} as Partial<IRuntimeSessionService>)
 			.stub(IPositronVariablesService, {
 				get positronVariablesInstances() { return variablesInstances; },
@@ -129,6 +140,7 @@ suite('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 			activeEditor = undefined;
 			session = undefined;
 			getConsoleSessionForLanguage = sinon.stub().callsFake(() => session);
+			getNotebookSessionForNotebookUri = sinon.stub().returns(undefined);
 			variablesInstances = [];
 			openViewStub = sinon.stub().resolves(null);
 			notificationInfo = sinon.stub();
@@ -267,6 +279,28 @@ suite('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 			await runAction();
 
 			assert.deepStrictEqual(getConsoleSessionForLanguage.firstCall.args, ['r']);
+			assert.strictEqual(viewStub.callCount, 1);
+			assert.strictEqual(notificationInfo.callCount, 0);
+		});
+
+		test('uses the notebook session when the cursor is inside a notebook cell', async () => {
+			const viewStub = sinon.stub().resolves(undefined);
+			const item = makeVariableItem({ displayName: 'df', view: viewStub as unknown as IVariableItem['view'] });
+			const notebookUri = URI.parse('file:///test.ipynb');
+			// Cell URIs are what cell editors expose; parsing them yields the owning notebook URI.
+			const cellUri = CellUri.generate(notebookUri, 1);
+			const notebookSession = makeSession('python') as unknown as INotebookLanguageRuntimeSession;
+			activeEditor = makeCodeEditor({ word: 'df', languageId: 'python', uri: cellUri });
+			getNotebookSessionForNotebookUri = sinon.stub().callsFake(
+				(uri: URI) => uri.toString() === notebookUri.toString() ? notebookSession : undefined,
+			);
+			variablesInstances = [makeVariablesInstance([item])];
+
+			await runAction();
+
+			assert.strictEqual(getConsoleSessionForLanguage.callCount, 0);
+			assert.strictEqual(getNotebookSessionForNotebookUri.callCount, 1);
+			assert.strictEqual(getNotebookSessionForNotebookUri.firstCall.args[0].toString(), notebookUri.toString());
 			assert.strictEqual(viewStub.callCount, 1);
 			assert.strictEqual(notificationInfo.callCount, 0);
 		});

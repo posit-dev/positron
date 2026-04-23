@@ -23,7 +23,7 @@ import { IPositronVariablesService } from '../../../services/positronVariables/c
 import { IPositronVariablesInstance } from '../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 import { POSITRON_VARIABLES_VIEW_ID } from '../../positronVariables/browser/positronVariables.contribution.js';
 import { POSITRON_RUNTIME_LANGUAGE_IDS } from '../../languageRuntime/browser/languageRuntimeContextKeys.js';
-import { ResourceContextKey } from '../../../common/contextkeys.js';
+import { CellUri } from '../../notebook/common/notebookCommon.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { Event } from '../../../../base/common/event.js';
 import { raceTimeout } from '../../../../base/common/async.js';
@@ -1261,11 +1261,11 @@ export class PositronDataExplorerViewDataFrameAtCursorAction extends Action2 {
 						EditorContextKeys.editorTextFocus,
 						ContextKeyExpr.or(
 							ContextKeyExpr.in(
-								ResourceContextKey.LangId.key,
+								EditorContextKeys.languageId.key,
 								POSITRON_RUNTIME_LANGUAGE_IDS.key,
 							),
 							ContextKeyExpr.equals(
-								ResourceContextKey.LangId.key,
+								EditorContextKeys.languageId.key,
 								'quarto',
 							),
 						),
@@ -1317,7 +1317,13 @@ export class PositronDataExplorerViewDataFrameAtCursorAction extends Action2 {
 			position.column,
 		);
 
-		const session = runtimeSessionService.getConsoleSessionForLanguage(languageId);
+		// Notebook cells run in a per-notebook kernel session, which owns
+		// any variables defined by running the cells. Scripts use the
+		// language's console session instead.
+		const cellInfo = CellUri.parse(model.uri);
+		const session = cellInfo
+			? runtimeSessionService.getNotebookSessionForNotebookUri(cellInfo.notebook)
+			: runtimeSessionService.getConsoleSessionForLanguage(languageId);
 		if (!session) {
 			notificationService.info(localize(
 				'positron.viewDataFrameAtCursor.noSession',
