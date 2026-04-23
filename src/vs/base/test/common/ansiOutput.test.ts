@@ -747,9 +747,9 @@ suite('ANSIOutput', () => {
 		ansiOutput.processOutput(`${makeSGR(SGRParam.ForegroundBlue)}0123456789${makeSGR()}`);
 		ansiOutput.processOutput(`${makeSGR(SGRParam.ForegroundGreen)}0123456789${makeSGR()}`);
 		ansiOutput.processOutput(CR);
-		ansiOutput.processOutput("                              ");
+		ansiOutput.processOutput('                              ');
 		ansiOutput.processOutput(CR);
-		ansiOutput.processOutput("0123456789");
+		ansiOutput.processOutput('0123456789');
 		const outputLines = ansiOutput.outputLines;
 
 		// Test.
@@ -767,9 +767,9 @@ suite('ANSIOutput', () => {
 		ansiOutput.processOutput(`${makeSGR(SGRParam.ForegroundBlue)}0123456789${makeSGR()}`);
 		ansiOutput.processOutput(`${makeSGR(SGRParam.ForegroundGreen)}0123456789${makeSGR()}`);
 		ansiOutput.processOutput(CR);
-		ansiOutput.processOutput("                                        ");
+		ansiOutput.processOutput('                                        ');
 		ansiOutput.processOutput(CR);
-		ansiOutput.processOutput("0123456789");
+		ansiOutput.processOutput('0123456789');
 		const outputLines = ansiOutput.outputLines;
 
 		// Test.
@@ -863,7 +863,7 @@ suite('ANSIOutput', () => {
 	test('Test CUF (Cursor Forward)', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
-		ansiOutput.processOutput("0".repeat(80));
+		ansiOutput.processOutput('0'.repeat(80));
 		ansiOutput.processOutput(makeCUP());
 
 		// Test.
@@ -928,7 +928,7 @@ suite('ANSIOutput', () => {
 		assert.equal(outputLines[0].outputRuns[0].text, '0000000000000000000000000000000000000000000000000000000000000000000000XXXXXXXXXX');
 	});
 
-	test("Tests CUP (Cursor Position)", () => {
+	test('Tests CUP (Cursor Position)', () => {
 		// Setup.
 		const ansiOutput = setupStandardScreen();
 
@@ -943,7 +943,7 @@ suite('ANSIOutput', () => {
 		checkOutputPosition(ansiOutput, 8191, 8191);
 	});
 
-	test("Tests CUU (Cursor Up)", () => {
+	test('Tests CUU (Cursor Up)', () => {
 		// Setup.
 		const ansiOutput = setupStandardScreen();
 
@@ -1057,12 +1057,12 @@ suite('ANSIOutput', () => {
 		}
 	});
 
-	test("Tests EL 0 when there is nothing to clear", () => {
+	test('Tests EL 0 when there is nothing to clear', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
 
 		// Test.
-		ansiOutput.processOutput(makeEL("end-of-line"));
+		ansiOutput.processOutput(makeEL('end-of-line'));
 		assert.equal(ansiOutput.outputLines[0].outputRuns.length, 0);
 	});
 
@@ -1666,7 +1666,7 @@ suite('ANSIOutput', () => {
 		assert.equal(outputLines[0].outputRuns[2].text, '00000000000000000000000000000000000');
 	});
 
-	test("Tests styles", () => {
+	test('Tests styles', () => {
 		const testStyle = (sgr: SGRParam, ansiStyle: ANSIStyle) => {
 			// Setup.
 			const ansiOutput = new ANSIOutput();
