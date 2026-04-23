@@ -399,6 +399,29 @@ export class ANSIOutput {
 		this.flushBuffer();
 	}
 
+	/**
+	 * Scrolls lines off the top of the output.
+	 * @param count The number of lines to scroll off the top of the output.
+	 */
+	public scrollOff(count: number): void {
+		// Sanity check the count.
+		if (count <= 0) {
+			return;
+		}
+
+		// Materialize any buffered characters so `_outputLine` refers to a real line.
+		this.flushBuffer();
+
+		// Only lines above the cursor line are safe to drop.
+		const trimmable = Math.min(count, this._outputLine);
+		if (trimmable === 0) {
+			return;
+		}
+
+		this._outputLines.splice(0, trimmable);
+		this._outputLine -= trimmable;
+	}
+
 	//#endregion Public Methods
 
 	//#region Private Methods

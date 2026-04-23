@@ -146,20 +146,22 @@ export class ActivityItemStream extends ActivityItem {
 	 * @returns A number representing the remaining scrollback size.
 	 */
 	public override trimScrollback(scrollbackSize: number): number {
-		// We should never be called with a scrollback size of 0.
+		// We should never be called with a scrollback size <= 0.
 		if (scrollbackSize <= 0) {
-			// Defensive: if this happens, report the scrollback as fully consumed.
-			console.warn(`ActivityItemStream.trimScrollback called with non-positive scrollbackSize ${scrollbackSize}; doing nothing.`);
 			return 0;
 		}
 
-		// Flush any pending streams so the line count reflects everything received so far.
-		// We report our weight in lines and rely on the containing runtime item to drop us
-		// wholesale if the budget is exhausted; the stream's internal buffer is not trimmed
-		// here because its parser state (cursor, styles) needs to stay consistent with the
-		// lines it has emitted.
-		const lines = this.outputLines;
-		return scrollbackSize - lines.length;
+		// Get the line count. This processes any pending activity item streams.
+		const lineCount = this.outputLines.length;
+
+		// If no trimming is needed, return the remaining scrollback size.
+		if (lineCount <= scrollbackSize) {
+			return scrollbackSize - lineCount;
+		}
+
+		// Otherwise, trim output lines and report the scrollback as fully consumed.
+		this._ansiOutput.scrollOff(lineCount - scrollbackSize);
+		return 0;
 	}
 
 	/**

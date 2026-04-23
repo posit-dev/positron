@@ -172,8 +172,32 @@ export class RuntimeItemActivity extends RuntimeItem {
 			return 0;
 		}
 
-		// Counts as one scrollback item.
-		return scrollbackSize - 1;
+		// Walk from the tail (newest) toward the head (oldest), letting each activity item declare
+		// its weight. Mirrors the outer runtime-item walk in PositronConsoleInstance.trimScrollback.
+		let remainingBudget = scrollbackSize;
+		let firstKeepIndex = 0;
+		for (let i = this._activityItems.length - 1; i >= 0; i--) {
+			// Adjust the scrollback on the activity item, which returns the remaining budget.
+			remainingBudget = this._activityItems[i].trimScrollback(remainingBudget);
+
+			// Adjust the first keep index.
+			firstKeepIndex = i;
+
+			// If the budget is exhausted, break; we will drop everything before the first keep index.
+			if (remainingBudget <= 0) {
+				break;
+			}
+		}
+
+		// Drop anything before the first activity item that still fit. Bump the mutation version so
+		// React.memo drops the cached render for this activity.
+		if (firstKeepIndex > 0) {
+			this._activityItems.splice(0, firstKeepIndex);
+			this._version++;
+		}
+
+		// Return the remaining budget.
+		return Math.max(remainingBudget, 0);
 	}
 
 	/**
