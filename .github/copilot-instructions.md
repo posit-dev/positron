@@ -5,10 +5,10 @@
 Visual Studio Code is built with a layered architecture using TypeScript, web APIs and Electron, combining web technologies with native app capabilities. The codebase is organized into key architectural layers:
 
 ### Root Folders
-- `src/`: Main TypeScript source code with unit tests in `src/vs/*/test/` folders
+- `src/`: Main TypeScript source code with tests in `src/vs/*/test/` folders (Vitest `.vitest.ts`/`.vitest.tsx` and Mocha `.test.ts`)
 - `build/`: Build scripts and CI/CD tools
 - `extensions/`: Built-in extensions that ship with VS Code
-- `test/`: Integration tests and test infrastructure
+- `test/`: Extension host tests, e2e tests, and shared test infrastructure
 - `scripts/`: Development and build scripts
 - `resources/`: Static resources (icons, themes, etc.)
 - `out/`: Compiled JavaScript output (generated during build)
@@ -62,7 +62,10 @@ MANDATORY: Always check for compilation errors before running any tests or valid
 - For TypeScript changes in the `build` folder, you can simply run `npm run typecheck` in the `build` folder.
 
 ### TypeScript validation steps
-- Use the run test tool if you need to run tests. If that tool is not available, then you can use `scripts/test.sh` (or `scripts\test.bat` on Windows) for unit tests (add `--grep <pattern>` to filter tests) or `scripts/test-integration.sh` (or `scripts\test-integration.bat` on Windows) for integration tests (integration tests end with .integrationTest.ts or are in /extensions/).
+- Use the run test tool if you need to run tests. If that tool is not available:
+  - Vitest tests (`.vitest.ts` / `.vitest.tsx`, in `src/vs/`): `npx vitest run <file>` (no build daemons needed). Preferred for new Positron code.
+  - Core Mocha tests (`.test.ts` or `.integrationTest.ts` in `src/vs/`): `scripts/test.sh` (or `scripts\test.bat` on Windows), add `--grep <pattern>` to filter. Upstream VS Code's suite.
+  - Extension host tests (in `extensions/<name>/`): `npm run test-extension -- -l <name>`, or `scripts/test-integration.sh` / `scripts\test-integration.bat` for the full driver.
 - Use `npm run valid-layers-check` to check for layering issues
 
 ## Coding Guidelines

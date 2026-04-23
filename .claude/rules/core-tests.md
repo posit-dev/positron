@@ -3,9 +3,10 @@ paths:
   - src/**/*.{test,integrationTest}.{ts,tsx}
 ---
 
-# Core Tests
+# Core Tests (Mocha)
 
-Core Positron unit/integration tests in `src/`, run via `./scripts/test.sh`.
+Legacy Mocha tests in `src/`, run via `./scripts/test.sh`. Used by upstream VS Code tests.
 
-For authoring guidance (builder pattern, presets, mocking), see the JSDoc on
-`PositronTestContainerBuilder` in `src/vs/workbench/test/browser/positronTestContainer.ts`.
+**Do not create new `.test.ts` files for Positron code.** Use Vitest (`.vitest.ts` / `.vitest.tsx`) instead -- see the decision table in CLAUDE.md and `.claude/rules/vitest-tests.md` for patterns.
+
+If you're modifying an existing Mocha test, match its conventions: `suite()`, `test()`, `assert`, `ensureNoDisposablesAreLeakedInTestSuite()` from `utils.js`.

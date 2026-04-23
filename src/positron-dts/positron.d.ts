@@ -1147,6 +1147,15 @@ declare module 'positron' {
 		name: string;
 		displayName: string;
 		version: string;
+
+		/** License information */
+		license?: string;
+
+		/** Latest available version from repository */
+		latestVersion?: string;
+
+		/** Publication/release date */
+		publishedDate?: string;
 	}
 
 	/**
@@ -1213,6 +1222,19 @@ declare module 'positron' {
 		 * @param token Optional cancellation token
 		 */
 		searchPackageVersions(name: string, token?: vscode.CancellationToken): Thenable<string[]>;
+
+		/**
+		 * Fetch additional metadata for packages from external sources (e.g., P3M).
+		 * This is called separately from getPackages() to allow the UI to display
+		 * the basic package list quickly while metadata loads in the background.
+		 * @param packageNames Array of package names to fetch metadata for
+		 * @param token Optional cancellation token
+		 * @returns Map of package name (lowercase) to partial package metadata
+		 */
+		getPackageMetadata?(
+			packageNames: string[],
+			token?: vscode.CancellationToken,
+		): Thenable<Map<string, Partial<LanguageRuntimePackage>>>;
 	}
 
 	/**
@@ -2350,6 +2372,52 @@ declare module 'positron' {
 		 * An event that fires when code is executed.
 		 */
 		export const onDidExecuteCode: vscode.Event<CodeExecutionEvent>;
+
+		/**
+		 * An item to be shown in the runtime picker quick pick.
+		 */
+		export interface RuntimePickerItem {
+			/** Unique identifier for this item */
+			id: string;
+			/** Label shown in the picker */
+			label: string;
+			/** Optional detail text shown below the label */
+			detail?: string;
+			/** Optional separator label to show before this item */
+			separatorLabel?: string;
+		}
+
+		/**
+		 * A contribution that adds items to the runtime picker.
+		 */
+		export interface RuntimePickerContribution {
+			/** The language ID this contribution applies to (e.g., 'python', 'r') */
+			languageId: string;
+
+			/**
+			 * Called when the runtime picker is about to be shown.
+			 * Return items to add to the picker, or an empty array if none should be shown.
+			 */
+			getItems(): Thenable<RuntimePickerItem[]>;
+
+			/**
+			 * Called when the user selects one of this contribution's items.
+			 * @param itemId The ID of the selected item
+			 * @returns The runtime ID to start, or undefined if no runtime should be started
+			 */
+			onDidSelectItem(itemId: string): Thenable<string | undefined>;
+		}
+
+		/**
+		 * Register a contribution that adds items to the runtime picker.
+		 * Extensions can use this to add custom actions like "Install Python via uv".
+		 *
+		 * @param contribution The contribution to register
+		 * @returns A disposable that unregisters the contribution when disposed
+		 */
+		export function registerRuntimePickerContribution(
+			contribution: RuntimePickerContribution
+		): vscode.Disposable;
 	}
 
 	// FIXME: The current (and clearly not final) state of an experiment to bring in interface(s)

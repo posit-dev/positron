@@ -489,10 +489,6 @@ class TestLanguageRuntimeSession extends Disposable implements ILanguageRuntimeS
 		throw new Error('Method not implemented.');
 	}
 
-	getLabel(): string {
-		return this.dynState.sessionName;
-	}
-
 	isIdle(): boolean {
 		throw new Error('Method not implemented.');
 	}

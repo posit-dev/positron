@@ -21,16 +21,19 @@ import * as DOM from '../../../../../base/browser/dom.js';
 import { isMacintosh } from '../../../../../base/common/platform.js';
 import { useStateRef } from '../../../../../base/browser/ui/react/useStateRef.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
-import { ActionBarFilter } from '../../../../../platform/positronActionBar/browser/components/actionBarFilter.js';
+import { ActionBarFilter, ActionBarFilterHandle } from '../../../../../platform/positronActionBar/browser/components/actionBarFilter.js';
 import { ViewsProps } from '../positronPackages.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { Separator } from '../../../../../base/common/actions.js';
 import { localize } from '../../../../../nls.js';
 import { usePositronPackagesContext } from '../positronPackagesContext.js';
 import { ILanguageRuntimePackage } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progressbar.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { Separator } from '../../../../../base/common/actions.js';
+import { showCustomContextMenu, CustomContextMenuSubmenu, CustomContextMenuEntry } from '../../../../browser/positronComponents/customContextMenu/customContextMenu.js';
+import { CustomContextMenuItem } from '../../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
+import { applySortToQuery, PackagesSortOrder, parseQuery } from './packagesQuery.js';
 
 const positronUninstallPackage = localize(
 	'positronUninstallPackage',
@@ -146,23 +149,29 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		};
 	}, [loading]);
 
-	// Filter state
-	const [filterText, setFilterText] = useState('');
-	const [debouncedFilterText, setDebouncedFilterText] = useState('');
+	// The filter input is the single source of truth. `queryText` is the raw
+	// input; structured state (sort, free-text filter) is derived from it.
+	const [queryText, setQueryText] = useState('');
+	const [debouncedQueryText, setDebouncedQueryText] = useState('');
+	const filterRef = useRef<ActionBarFilterHandle>(null);
 
-	// Clear selection when filter text changes
+	// Current sort derived from the immediate (non-debounced) query so the
+	// sort menu's checked state updates without waiting for the debounce.
+	const currentSort = useMemo(() => parseQuery(queryText).sort, [queryText]);
+
+	// Clear selection when filter text changes.
 	const handleFilterTextChanged = (text: string) => {
-		setFilterText(text);
+		setQueryText(text);
 		setSelectedItem(undefined);
 	};
 
-	// Debounce filter text changes (300ms)
+	// Debounce filter text changes (300ms).
 	useEffect(() => {
 		const timeout = setTimeout(() => {
-			setDebouncedFilterText(filterText);
+			setDebouncedQueryText(queryText);
 		}, 300);
 		return () => clearTimeout(timeout);
-	}, [filterText]);
+	}, [queryText]);
 
 	// Deduplicate packages by name, keeping only the first occurrence.
 	// The same package can exist in multiple library paths (e.g., user and system libraries).
@@ -178,17 +187,29 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		});
 	}, [packages]);
 
-	// Filter packages based on the debounced filter text (case-insensitive, matches name or displayName)
+	// Parse the debounced query so filtering and sorting run off the same snapshot.
+	const debouncedQuery = useMemo(() => parseQuery(debouncedQueryText), [debouncedQueryText]);
+
+	// Filter packages based on the debounced free-text (case-insensitive, matches name or displayName)
+	// and sort according to the current sort order.
 	const filteredPackages = useMemo(() => {
-		if (!debouncedFilterText) {
-			return deduplicatedPackages;
+		let result = deduplicatedPackages;
+
+		if (debouncedQuery.text) {
+			const lowerFilter = debouncedQuery.text.toLowerCase();
+			result = result.filter((pkg) =>
+				pkg.name.toLowerCase().includes(lowerFilter) ||
+				pkg.displayName.toLowerCase().includes(lowerFilter)
+			);
 		}
-		const lowerFilter = debouncedFilterText.toLowerCase();
-		return deduplicatedPackages.filter((pkg) =>
-			pkg.name.toLowerCase().includes(lowerFilter) ||
-			pkg.displayName.toLowerCase().includes(lowerFilter)
-		);
-	}, [deduplicatedPackages, debouncedFilterText]);
+
+		result = [...result].sort((a, b) => {
+			const comparison = a.name.localeCompare(b.name);
+			return debouncedQuery.sort === PackagesSortOrder.NameAsc ? comparison : -comparison;
+		});
+
+		return result;
+	}, [deduplicatedPackages, debouncedQuery]);
 
 	// UI State
 	const [focused, setFocused] = useState(false);
@@ -230,7 +251,10 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	// Item renderer
 	const ItemEntry = (props: { index: number; style: CSSProperties }) => {
 		const itemProps = filteredPackages[props.index];
-		const { id, name, displayName, version } = itemProps;
+		const { id, name, displayName, version, latestVersion } = itemProps;
+
+		// Check if package has an update available
+		const hasUpdate = latestVersion && latestVersion !== version;
 
 		return (
 			// eslint-disable-next-line jsx-a11y/no-static-element-interactions
@@ -289,6 +313,14 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 			>
 				<div className='packages-list-item-name'>{displayName}</div>
 				<div className='packages-list-item-version'>{version}</div>
+				{hasUpdate && (
+					<div
+						className='packages-list-item-update'
+						title={localize('positronPackages.updateAvailable', "Update available: {0}", latestVersion)}
+					>
+						&#x2191;
+					</div>
+				)}
 			</div >
 		);
 	};
@@ -302,6 +334,45 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		services.positronPackagesService.setSelectedPackage(selectedPackageName);
 		return () => services.positronPackagesService.setSelectedPackage(undefined);
 	}, [selectedItem, deduplicatedPackages, services.positronPackagesService]);
+
+	// Rewrite the filter input to reflect the selected sort. The input is the
+	// source of truth, so updating it flows back through onFilterTextChanged
+	// and re-derives every dependent state.
+	const selectSort = (sort: PackagesSortOrder) => {
+		filterRef.current?.setFilterText(applySortToQuery(queryText, sort));
+	};
+
+	// Build the Sort submenu entries. Evaluated lazily so the checked state
+	// reflects the current input when the submenu is opened.
+	const sortSubmenuEntries = (): CustomContextMenuEntry[] => [
+		new CustomContextMenuItem({
+			label: localize('positronPackages.sortByNameAsc', "Name (A-Z)"),
+			checked: currentSort === PackagesSortOrder.NameAsc,
+			onSelected: () => selectSort(PackagesSortOrder.NameAsc),
+		}),
+		new CustomContextMenuItem({
+			label: localize('positronPackages.sortByNameDesc', "Name (Z-A)"),
+			checked: currentSort === PackagesSortOrder.NameDesc,
+			onSelected: () => selectSort(PackagesSortOrder.NameDesc),
+		}),
+	];
+
+	// Open the filter options menu anchored on the filter button.
+	const showFilterMenu = (anchorElement: HTMLElement) => {
+		showCustomContextMenu({
+			anchorElement,
+			popupPosition: 'auto',
+			popupAlignment: 'auto',
+			minWidth: 160,
+			entries: [
+				new CustomContextMenuSubmenu({
+					icon: 'arrow-swap-vertical',
+					label: localize('positronPackages.sortLabel', "Sort"),
+					entries: sortSubmenuEntries,
+				}),
+			],
+		});
+	};
 
 	return (
 		// eslint-disable-next-line jsx-a11y/no-static-element-interactions
@@ -317,15 +388,18 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 
 			<div className='packages-filter-container'>
 				<ActionBarFilter
+					ref={filterRef}
 					showClearAlways
 					clearButtonIcon={Codicon.clearAll}
+					filterButtonTooltip={localize('positronPackages.filterOptions', "Filter options")}
 					placeholder={localize('positronPackages.filterPlaceholder', "Filter packages")}
 					size='md'
+					onFilterButtonPressed={showFilterMenu}
 					onFilterTextChanged={handleFilterTextChanged}
 				/>
 			</div>
 			<div className='packages-list-container'>
-				{filteredPackages.length === 0 && debouncedFilterText ? (
+				{filteredPackages.length === 0 && debouncedQuery.text ? (
 					<div className='packages-empty-message'
 						style={{ height: height - FILTER_HEIGHT }}>
 						{localize('positronPackages.noPackagesFound', "No packages found.")}
@@ -343,6 +417,6 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 					</List>
 				)}
 			</div>
-		</div >
+		</div>
 	);
 };

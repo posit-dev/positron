@@ -476,10 +476,6 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 			session_name: this.dynState.sessionName
 		});
 	}
-
-	getLabel(): string {
-		return this.dynState.sessionName;
-	}
 }
 
 export async function waitForRuntimeState(

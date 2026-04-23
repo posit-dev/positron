@@ -1066,6 +1066,8 @@ export const NotebookSetting = {
 	markupFontFamily: 'notebook.markup.fontFamily',
 	// --- Start Positron ---
 	workingDirectory: 'notebook.workingDirectory',
+	saveExecutionCounts: 'notebook.save.executionCounts',
+	saveOutputs: 'notebook.save.outputs',
 	// --- End Positron ---
 } as const;
 

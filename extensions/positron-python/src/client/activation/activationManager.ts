@@ -94,7 +94,14 @@ export class ExtensionActivationManager implements IExtensionActivationManager {
 
         if (this.workspaceService.isTrusted) {
             // Do not interact with interpreters in a untrusted workspace.
-            await this.autoSelection.autoSelectInterpreter(resource);
+            // --- Start Positron ---
+            // Don't block activation on auto-selection. Positron's runtime
+            // startup uses its own interpreter heuristics and does not depend on
+            // the upstream auto-selection result.
+            //
+            // await this.autoSelection.autoSelectInterpreter(resource);
+            this.autoSelection.autoSelectInterpreter(resource).ignoreErrors();
+            // --- End Positron ---
             await this.interpreterPathService.copyOldInterpreterStorageValuesToNew(resource);
         }
         await sendActivationTelemetry(this.fileSystem, this.workspaceService, resource);

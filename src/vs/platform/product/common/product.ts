@@ -88,6 +88,7 @@ else {
 			serverLicenseUrl: 'https://posit.co/about/eula/',
 			linkProtectionTrustedDomains: [
 				'https://open-vsx.org',
+				'https://p3m.dev',
 				'https://github.com/posit-dev/positron',
 				'https://positron.posit.co',
 				'https://github.com/login/device',

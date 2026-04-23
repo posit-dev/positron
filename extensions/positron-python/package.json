@@ -619,6 +619,12 @@
                     },
                     "additionalProperties": false
                 },
+                "python.allowUvPythonInstall": {
+                    "default": true,
+                    "markdownDescription": "%python.allowUvPythonInstall.markdownDescription%",
+                    "scope": "machine",
+                    "type": "boolean"
+                },
                 "python.defaultInterpreterPath": {
                     "default": "python",
                     "markdownDescription": "%python.defaultInterpreterPath.description%",

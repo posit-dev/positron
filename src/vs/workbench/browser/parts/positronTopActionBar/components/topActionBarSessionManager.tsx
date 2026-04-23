@@ -30,11 +30,11 @@ const startSession = localize('positron.console.startSession', "Start Session");
  * Gets the label text from session display info, or the default start session
  * label if no session is active.
  */
-const getLabel = (info: IRuntimeSessionDisplayInfo | undefined, modelService: IModelService): string => {
+const getLabel = (info: IRuntimeSessionDisplayInfo | undefined): string => {
 	if (!info) {
 		return startSession;
 	}
-	return getSessionDisplayName(info, modelService);
+	return getSessionDisplayName({ notebookUri: info.notebookUri, sessionName: info.sessionName });
 };
 
 /**
@@ -68,7 +68,7 @@ export const TopActionBarSessionManager = () => {
 	const services = usePositronReactServicesContext();
 
 	const [labelText, setLabelText] = useState<string>(
-		getLabel(services.runtimeSessionService.foregroundSessionDisplayInfo, services.modelService));
+		getLabel(services.runtimeSessionService.foregroundSessionDisplayInfo));
 	const [sessionIcon, setSessionIcon] = useState(
 		getIcon(services.runtimeSessionService.foregroundSessionDisplayInfo, services.modelService));
 	const info = services.runtimeSessionService.foregroundSessionDisplayInfo;
@@ -96,7 +96,7 @@ export const TopActionBarSessionManager = () => {
 		// notebook session is attempted to be set as the foreground session.
 		disposableStore.add(
 			services.runtimeSessionService.onDidChangeForegroundSessionDisplayInfo(info => {
-				setLabelText(getLabel(info, services.modelService));
+				setLabelText(getLabel(info));
 				setSessionIcon(getIcon(info, services.modelService));
 				setIconStyle(info ? getSessionIconStyle(info, services.modelService) : undefined);
 				setRuntimeStatus(getRuntimeStatus(info));

@@ -85,6 +85,29 @@ export async function serveFile(filePath: string, cacheControl: CacheControl, lo
 
 		responseHeaders['Content-Type'] = textMimeType[extname(filePath)] || getMediaMime(filePath) || 'text/plain';
 
+		// --- Start PWB: serve pre-compressed .gz sibling when available ---
+		const acceptsGzip = /\bgzip\b/.test(req.headers['accept-encoding'] ?? '');
+		if (acceptsGzip) {
+			try {
+				const gzContents = await promises.readFile(filePath + '.gz');
+				responseHeaders['Content-Encoding'] = 'gzip';
+				const existingVary = responseHeaders['Vary'];
+				responseHeaders['Vary'] = existingVary ? `${existingVary}, Accept-Encoding` : 'Accept-Encoding';
+				// Content-Length must be set explicitly: the C++ proxy (ServerSessionProxy.cpp)
+				// strips Transfer-Encoding: chunked, so omitting it truncates the response.
+				responseHeaders['Content-Length'] = String(gzContents.byteLength);
+				res.writeHead(200, responseHeaders);
+				res.end(gzContents);
+				return;
+			} catch (err: unknown) {
+				if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+					logService.error(err instanceof Error ? err : new Error(String(err)));
+				}
+				// .gz not present - fall through to uncompressed
+			}
+		}
+		// --- End PWB ---
+
 		res.writeHead(200, responseHeaders);
 
 		// Data

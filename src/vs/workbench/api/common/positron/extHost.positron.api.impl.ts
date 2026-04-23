@@ -194,6 +194,11 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 			get onDidExecuteCode() {
 				return extHostLanguageRuntime.onDidExecuteCode;
+			},
+			registerRuntimePickerContribution(
+				contribution: positron.runtime.RuntimePickerContribution
+			): vscode.Disposable {
+				return extHostLanguageRuntime.registerRuntimePickerContribution(contribution);
 			}
 		};
 

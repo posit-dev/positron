@@ -75,7 +75,16 @@ export function createCompile(src: string, { build, emitError, transpileOnly, pr
 
 		// --- Start Positron ---
 		// Added x? to regexes so that .tsx files are compiled and updated in the same way as .ts files.
-		const tsFilter = util.filter(data => /\.tsx?$/.test(data.path));
+		// Exclude Vitest files from tsc compilation -- they use Vitest-only APIs
+		// (beforeEach, afterEach, expect) that conflict with Mocha types. Vitest
+		// compiles these files itself via esbuild/oxc.
+		// Vitest files live in two places:
+		//   1. *.vitest.{ts,tsx} test files (anywhere in src/vs/)
+		//   2. src/vs/test/vitest/ infrastructure directory
+		const isVitestFile = (filePath: string) =>
+			filePath.includes('.vitest.') ||
+			/(\/|\\)test(\/|\\)vitest(\/|\\)/.test(filePath);
+		const tsFilter = util.filter(data => /\.tsx?$/.test(data.path) && !isVitestFile(data.path));
 		const isUtf8Test = (f: File) => /(\/|\\)test(\/|\\).*utf8/.test(f.path);
 		const isRuntimeJs = (f: File) => f.path.endsWith('.js') && !f.path.includes('fixtures');
 		const noDeclarationsFilter = util.filter(data => !(/\.d\.tsx?$/.test(data.path)));

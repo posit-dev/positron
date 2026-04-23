@@ -21,7 +21,7 @@ import {
 } from '../fixtures/test-setup';
 import { loadEnvironmentVars, validateEnvironmentVars } from '../fixtures/load-environment-vars.js';
 import { RecordMetric } from '../utils/metrics/metric-base.js';
-import { runDockerCommand, RunResult } from '../fixtures/test-setup/app-workbench.fixtures.js';
+import { runDockerCommand, RunResult } from '../fixtures/test-setup/docker-utils.js';
 
 // used specifically for app fixture error handling in test.afterAll
 let appFixtureFailed = false;
@@ -44,7 +44,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 			'POSITRON_R_ALT_VER_SEL',
 		], { allowEmpty: false });
 
-		if (projectName === 'e2e-workbench') {
+		if (projectName === 'e2e-workbench' || projectName === 'e2e-jupyter') {
 			validateEnvironmentVars([
 				'POSIT_WORKBENCH_PASSWORD'
 			], { allowEmpty: false });
@@ -210,8 +210,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 	runDockerCommand: async ({ }, use, testInfo) => {
 		await use(async (command: string, description: string) => {
-			if (testInfo.project.name !== 'e2e-workbench' && testInfo.project.name !== 'e2e-remote-ssh') {
-				throw new Error('runDockerCommand is only available in the e2e-workbench & e2e-remote-ssh projects');
+			if (testInfo.project.name !== 'e2e-workbench' && testInfo.project.name !== 'e2e-jupyter' && testInfo.project.name !== 'e2e-remote-ssh') {
+				throw new Error('runDockerCommand is only available in the e2e-workbench, e2e-jupyter & e2e-remote-ssh projects');
 			}
 			return runDockerCommand(command, description); // <-- return result
 		});

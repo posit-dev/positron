@@ -9,3 +9,4 @@ export * from './api.js';
 // Recordable features
 export * from './metric-data-explorer.js';
 export * from './metric-notebooks.js';
+export * from './metric-sessions.js';

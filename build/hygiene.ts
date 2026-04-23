@@ -112,6 +112,19 @@ export function hygiene(some: NodeJS.ReadWriteStream | string[] | undefined, run
 		const lines = file.__lines || file.contents!.toString('utf8').split(/\r\n|\r|\n/);
 		file.__lines = lines;
 
+		// --- Start Positron ---
+		// Vitest's `toMatchInlineSnapshot()` emits multi-line snapshot content via
+		// @vitest/pretty-format, which is architecturally space-indented (2 spaces,
+		// not configurable). That produces tab-indented outer code with 2-space
+		// inner snapshot lines, which trips the tabs-only rule below. Skip the
+		// indentation check for .vitest.{ts,tsx} files only -- every other check
+		// (copyright, formatting, unicode, eslint) still runs on these files.
+		if (/\.vitest\.tsx?$/.test(file.relative)) {
+			this.emit('data', file);
+			return;
+		}
+		// --- End Positron ---
+
 		lines.forEach((line, i) => {
 			if (/^\s*$/.test(line)) {
 				// empty or whitespace lines are OK

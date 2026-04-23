@@ -94,10 +94,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "2026.5.2",
+			"version": "2026.5.4",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web-pwb",
-			"sha256": "dcab9474334bb9ede3639277c0034baa3d482b12057abba2308d2756e2bc69e1",
+			"sha256": "af0786f6732b28c929892c2fbefde5ddf65bb68bb7742c7e1047438068365dc2",
 			"metadata": {
 				"publisherDisplayName": "Posit PBC"
 			}
@@ -115,7 +115,7 @@
 					"flags": "verified"
 				},
 				"publisherDisplayName": "charliermarsh",
-				"multiPlatformServiceUrl": "https://open-vsx.org/api"
+				"multiPlatformServiceUrl": "https://p3m.dev/openvsx/latest/vscode/asset"
 			}
 		},
 		{
@@ -209,7 +209,7 @@
 					"flags": "verified"
 				},
 				"publisherDisplayName": "meta",
-				"multiPlatformServiceUrl": "https://open-vsx.org/api"
+				"multiPlatformServiceUrl": "https://p3m.dev/openvsx/latest/vscode/asset"
 			}
 		},
 		{
@@ -225,7 +225,7 @@
 					"flags": "verified"
 				},
 				"publisherdisplayname": "ms-python",
-				"multiPlatformServiceUrl": "https://open-vsx.org/api"
+				"multiPlatformServiceUrl": "https://p3m.dev/openvsx/latest/vscode/asset"
 			}
 		},
 		{
@@ -236,7 +236,7 @@
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
 				"displayName": "Posit Publisher",
-				"multiPlatformServiceUrl": "https://open-vsx.org/api"
+				"multiPlatformServiceUrl": "https://p3m.dev/openvsx/latest/vscode/asset"
 			},
 			"publisherDisplayName": "Posit Software, PBC"
 		},
@@ -263,14 +263,14 @@
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
 				"displayName": "Air - R Language Support",
-				"multiPlatformServiceUrl": "https://open-vsx.org/api"
+				"multiPlatformServiceUrl": "https://p3m.dev/openvsx/latest/vscode/asset"
 			},
 			"publisherDisplayName": "Posit Software, PBC"
 		},
 		{
 			"name": "posit.shiny",
-			"version": "1.4.0",
-			"sha256": "7a71a88360559de5de2da20fd9e508d64c305cb0c2477f8503b8dde77c4f1e05",
+			"version": "1.4.1",
+			"sha256": "f2562bd08ac9e9c5c8f0d103509f14d638ceb2b58dd6d91c4be96b1e0bcb8a9b",
 			"repo": "https://github.com/posit-dev/shiny-vscode",
 			"metadata": {
 				"id": "7ffa9a66-85ab-44de-ab80-2eecce45b0fe",
@@ -305,17 +305,18 @@
 		}
 	],
 	"extensionsGallery": {
-		"serviceUrl": "https://open-vsx.org/vscode/gallery",
-		"itemUrl": "https://open-vsx.org/vscode/item",
-		"resourceUrlTemplate": "https://open-vsx.org/vscode/asset/{publisher}/{name}/{version}/Microsoft.VisualStudio.Code.WebResources/{path}",
+		"serviceUrl": "https://p3m.dev/openvsx/latest/vscode/gallery",
+		"itemUrl": "https://p3m.dev/openvsx/latest/vscode/item",
+		"resourceUrlTemplate": "https://p3m.dev/openvsx/latest/vscode/asset/{publisher}/{name}/{version}/Microsoft.VisualStudio.Code.WebResources/{path}",
 		"controlUrl": "",
 		"recommendationsUrl": "",
-		"extensionUrlTemplate": "https://open-vsx.org/vscode/gallery/{publisher}/{name}/latest",
+		"extensionUrlTemplate": "https://p3m.dev/openvsx/latest/vscode/gallery/{publisher}/{name}/latest",
 		"nlsBaseUrl": "",
 		"publisherUrl": ""
 	},
 	"linkProtectionTrustedDomains": [
 		"https://open-vsx.org",
+		"https://p3m.dev",
 		"https://github.com/posit-dev/positron",
 		"https://positron.posit.co",
 		"https://github.com/login/device",
