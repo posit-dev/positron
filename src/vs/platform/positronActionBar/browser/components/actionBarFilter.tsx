@@ -33,6 +33,17 @@ interface ActionBarFilterProps {
 	showClearAlways?: boolean;
 	size?: ActionBarFilterSize;
 	onFilterTextChanged: (filterText: string) => void;
+	/**
+	 * Optional handler invoked when the filter button is pressed. When provided,
+	 * a filter icon button is rendered to the right of the clear button. The
+	 * anchor element is passed so callers can position a context menu relative
+	 * to the button.
+	 */
+	onFilterButtonPressed?: (anchorElement: HTMLElement) => void;
+	/**
+	 * Tooltip for the filter button. Only used when onFilterButtonPressed is provided.
+	 */
+	filterButtonTooltip?: string;
 }
 
 export interface ActionBarFilterHandle {
@@ -47,6 +58,7 @@ export interface ActionBarFilterHandle {
 export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilterProps>((props, ref) => {
 	// Reference hooks.
 	const inputRef = useRef<HTMLInputElement>(undefined!);
+	const filterButtonRef = useRef<HTMLButtonElement>(null);
 
 	// State hooks.
 	const [focused, setFocused] = useState(false);
@@ -72,6 +84,21 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 		if (e.code === 'Enter' || e.code === 'Space') {
 			e.preventDefault();
 			buttonClearClickHandler();
+		}
+	};
+
+	// Filter button click handler.
+	const filterButtonClickHandler = () => {
+		if (filterButtonRef.current) {
+			props.onFilterButtonPressed?.(filterButtonRef.current);
+		}
+	};
+
+	// Filter button key down handler.
+	const filterButtonKeyDownHandler = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+		if (e.code === 'Enter' || e.code === 'Space') {
+			e.preventDefault();
+			filterButtonClickHandler();
 		}
 	};
 
@@ -119,6 +146,20 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 						onKeyDown={buttonClearKeyDownHandler}
 					>
 						<Icon icon={props.clearButtonIcon ?? Codicon.positronSearchCancel} />
+					</button>
+				)}
+				{props.onFilterButtonPressed && (
+					<button
+						ref={filterButtonRef}
+						aria-haspopup='menu'
+						aria-label={localize('positronFilterOptions', "Filter options")}
+						className='filter-button'
+						disabled={props.disabled}
+						title={props.filterButtonTooltip}
+						onClick={filterButtonClickHandler}
+						onKeyDown={filterButtonKeyDownHandler}
+					>
+						<Icon icon={Codicon.filter} />
 					</button>
 				)}
 			</div>
