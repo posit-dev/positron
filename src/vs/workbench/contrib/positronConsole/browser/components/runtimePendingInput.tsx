@@ -20,10 +20,11 @@ export interface RuntimePendingInputProps {
 	runtimeItemPendingInput: RuntimeItemPendingInput;
 }
 
-// RuntimeItemPendingInput is write-once after construction and fontInfo is a
-// stable reference updated only when the font configuration changes, so memo
-// with the default shallow compare lets us skip re-renders whenever the parent
-// list re-renders (e.g. on every stream chunk).
+/**
+ * RuntimePendingInput component.
+ * @param props A RuntimePendingInputProps that contains the component properties.
+ * @returns The memoized component.
+ */
 export const RuntimePendingInput = memo((props: RuntimePendingInputProps) => {
 	// Calculate the prompt width.
 	const promptWidth = Math.ceil(

@@ -37,14 +37,11 @@ export interface RuntimeActivityProps {
 	positronConsoleInstance: IPositronConsoleInstance;
 }
 
-// Memoized on a scalar `version` prop that bumps on every mutation affecting
-// this component's render (see RuntimeItemActivity). The version MUST be passed
-// as its own prop - reading it off runtimeItemActivity in the compare function
-// would read the live value from the same mutable instance on both sides, so
-// every comparison would trivially be equal. Per-item state changes that the
-// leaf components subscribe to directly (e.g. ActivityItemInput.onStateChanged)
-// do not need to bump version, because those leaves update themselves without
-// a parent re-render.
+/**
+ * RuntimeActivity component.
+ * @param props A RuntimeActivityProps that contains the component properties.
+ * @returns The memoized component.
+ */
 export const RuntimeActivity = memo((props: RuntimeActivityProps) => {
 	return (
 		<div className='runtime-activity' data-execution-id={props.runtimeItemActivity.id}>

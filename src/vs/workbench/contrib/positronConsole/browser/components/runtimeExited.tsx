@@ -18,9 +18,11 @@ export interface RuntimeExitedProps {
 	runtimeItemExited: RuntimeItemExited;
 }
 
-// RuntimeItemExited is write-once after construction, so memo with the default
-// shallow compare on runtimeItemExited lets us skip re-renders whenever the
-// parent list re-renders (e.g. on every stream chunk).
+/**
+ * RuntimeExited component.
+ * @param props A RuntimeExitedProps that contains the component properties.
+ * @returns The memoized component.
+ */
 export const RuntimeExited = memo((props: RuntimeExitedProps) => {
 	return (
 		<div className='runtime-exited'>

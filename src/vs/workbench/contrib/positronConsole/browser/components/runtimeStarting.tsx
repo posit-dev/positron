@@ -18,10 +18,11 @@ export interface RuntimeStartingProps {
 	runtimeItemStarting: RuntimeItemStarting;
 }
 
-// RuntimeItemStarting is effectively write-once after construction (attachMode
-// is declared public but is never mutated), so memo with the default shallow
-// compare on runtimeItemStarting lets us skip re-renders whenever the parent
-// list re-renders (e.g. on every stream chunk).
+/**
+ * RuntimeStarting component.
+ * @param props A RuntimeStartingProps that contains the component properties.
+ * @returns The memoized component.
+ */
 export const RuntimeStarting = memo((props: RuntimeStartingProps) => {
 	return (
 		<div className='console-item-starting runtime-starting'>

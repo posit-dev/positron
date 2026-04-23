@@ -7,7 +7,7 @@
 import './runtimeRestartButton.css';
 
 // React.
-import React, { useEffect } from 'react';
+import React, { memo, useEffect } from 'react';
 
 // Other dependencies.
 import * as nls from '../../../../../nls.js';
@@ -23,11 +23,10 @@ export interface RuntimeRestartButtonProps {
 
 /**
  * RuntimeRestartButton component.
- *
  * @param props A RuntimeRestartButtonProps that contains the component properties.
- * @returns The rendered component.
+ * @returns The memoized component.
  */
-export const RuntimeRestartButton = (props: RuntimeRestartButtonProps) => {
+export const RuntimeRestartButton = memo((props: RuntimeRestartButtonProps) => {
 
 	const restartRef = React.useRef<HTMLButtonElement>(null);
 	const restartLabel = nls.localize('positron.restartLabel', "Restart {0}", props.runtimeItemRestartButton.languageName);
@@ -63,4 +62,4 @@ export const RuntimeRestartButton = (props: RuntimeRestartButtonProps) => {
 			<span className='label'>{restartLabel}</span>
 		</button>
 	);
-};
+});

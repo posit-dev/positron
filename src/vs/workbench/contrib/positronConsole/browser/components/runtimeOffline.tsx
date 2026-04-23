@@ -18,9 +18,11 @@ export interface RuntimeOfflineProps {
 	runtimeItemOffline: RuntimeItemOffline;
 }
 
-// RuntimeItemOffline is write-once after construction, so memo with the default
-// shallow compare on runtimeItemOffline lets us skip re-renders whenever the
-// parent list re-renders (e.g. on every stream chunk).
+/**
+ * RuntimeOffline component.
+ * @param props A RuntimeOfflineProps that contains the component properties.
+ * @returns The memoized component.
+ */
 export const RuntimeOffline = memo((props: RuntimeOfflineProps) => {
 	return (
 		<div className='runtime-offline'>

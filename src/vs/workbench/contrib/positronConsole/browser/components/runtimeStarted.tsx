@@ -18,9 +18,11 @@ export interface RuntimeStartedProps {
 	runtimeItemStarted: RuntimeItemStarted;
 }
 
-// RuntimeItemStarted is write-once after construction, so memo with the default
-// shallow compare on runtimeItemStarted lets us skip re-renders whenever the
-// parent list re-renders (e.g. on every stream chunk).
+/**
+ * RuntimeStarted component.
+ * @param props A RuntimeStartedProps that contains the component properties.
+ * @returns The memoized component.
+ */
 export const RuntimeStarted = memo((props: RuntimeStartedProps) => {
 	return (
 		<ConsoleOutputLines outputLines={props.runtimeItemStarted.outputLines} />

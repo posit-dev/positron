@@ -29,9 +29,11 @@ const formatTimestamp = (timestamp: Date) => {
 	return `${toTwoDigits(timestamp.getHours())}:${toTwoDigits(timestamp.getMinutes())}:${toTwoDigits(timestamp.getSeconds())}.${toFourDigits(timestamp.getMilliseconds())}`;
 };
 
-// RuntimeItemTrace is write-once after construction, so memo with the default
-// shallow compare on runtimeItemTrace lets us skip re-renders whenever the
-// parent list re-renders (e.g. on every stream chunk).
+/**
+ * RuntimeTrace component.
+ * @param props A RuntimeTraceProps that contains the component properties.
+ * @returns The memoized component.
+ */
 export const RuntimeTrace = memo((props: RuntimeTraceProps) => {
 	return (
 		<div className='runtime-trace'>
