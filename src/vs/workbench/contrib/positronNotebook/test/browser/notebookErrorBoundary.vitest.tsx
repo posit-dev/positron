@@ -9,7 +9,7 @@
 /* eslint-disable local/code-no-dangerous-type-assertions */
 
 import React from 'react';
-import { act } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { NotebookErrorBoundary } from '../../browser/NotebookErrorBoundary.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
@@ -47,13 +47,13 @@ describe('NotebookErrorBoundary', () => {
 	describe('when children render successfully', () => {
 		it('renders children', () => {
 			const { logService } = createMockLogService();
-			const { getByText } = rtl.render(
+			rtl.render(
 				<NotebookErrorBoundary componentName='Test' level='cell' logService={logService}>
 					<GoodComponent />
 				</NotebookErrorBoundary>
 			);
 
-			getByText('Hello');
+			screen.getByText('Hello');
 		});
 	});
 
@@ -71,13 +71,13 @@ describe('NotebookErrorBoundary', () => {
 
 		it('displays fallback error UI with role=alert', () => {
 			const { logService } = createMockLogService();
-			const { getByRole } = rtl.render(
+			rtl.render(
 				<NotebookErrorBoundary componentName='TestCell' level='cell' logService={logService}>
 					<ThrowingComponent error={new Error('render failed')} />
 				</NotebookErrorBoundary>
 			);
 
-			getByRole('alert');
+			screen.getByRole('alert');
 		});
 
 		it('applies level-specific CSS class and message', () => {
@@ -103,7 +103,7 @@ describe('NotebookErrorBoundary', () => {
 
 				// Level-specific class is structural; no semantic handle exposes the level.
 				expect(rendered.container.querySelector(`.notebook-error-boundary-${level}`)).toBeInTheDocument();
-				rendered.getByText(message);
+				screen.getByText(message);
 				rendered.unmount();
 			}
 		});
@@ -125,14 +125,14 @@ describe('NotebookErrorBoundary', () => {
 
 		it('handles non-Error thrown values gracefully', () => {
 			const { logService, errorSpy } = createMockLogService();
-			const { getByRole } = rtl.render(
+			rtl.render(
 				<NotebookErrorBoundary componentName='Test' level='cell' logService={logService}>
 					<ThrowingNonErrorComponent value='string error' />
 				</NotebookErrorBoundary>
 			);
 
 			// Should still show error UI
-			getByRole('alert');
+			screen.getByRole('alert');
 
 			// Should log safely without crashing
 			expect(errorSpy).toHaveBeenCalledOnce();
@@ -140,8 +140,8 @@ describe('NotebookErrorBoundary', () => {
 			expect(logMessage, 'Log should include stringified thrown value').toContain('string error');
 
 			// Details should show the stringified value
-			clickAndFlush(getByRole('button', { name: 'Show Details' }));
-			expect(getByRole('alert')).toHaveTextContent('string error');
+			clickAndFlush(screen.getByRole('button', { name: 'Show Details' }));
+			expect(screen.getByRole('alert')).toHaveTextContent('string error');
 		});
 	});
 
@@ -157,34 +157,34 @@ describe('NotebookErrorBoundary', () => {
 
 		it('details are hidden by default', () => {
 			const { logService } = createMockLogService();
-			const { getByRole, queryByRole } = rtl.render(
+			rtl.render(
 				<NotebookErrorBoundary componentName='Test' level='cell' logService={logService}>
 					<ThrowingComponent error={new Error('fail')} />
 				</NotebookErrorBoundary>
 			);
 
 			// Toggle button starts in "Show Details" state, meaning details are hidden.
-			getByRole('button', { name: 'Show Details' });
-			expect(queryByRole('button', { name: 'Hide Details' })).not.toBeInTheDocument();
+			screen.getByRole('button', { name: 'Show Details' });
+			expect(screen.queryByRole('button', { name: 'Hide Details' })).not.toBeInTheDocument();
 		});
 
 		it('clicking toggle reveals error message then hides it', () => {
 			const { logService } = createMockLogService();
-			const { getByRole, queryByRole } = rtl.render(
+			rtl.render(
 				<NotebookErrorBoundary componentName='Test' level='cell' logService={logService}>
 					<ThrowingComponent error={new Error('specific error message')} />
 				</NotebookErrorBoundary>
 			);
 
 			// Show details
-			clickAndFlush(getByRole('button', { name: 'Show Details' }));
-			getByRole('button', { name: 'Hide Details' });
-			expect(getByRole('alert')).toHaveTextContent('specific error message');
+			clickAndFlush(screen.getByRole('button', { name: 'Show Details' }));
+			screen.getByRole('button', { name: 'Hide Details' });
+			expect(screen.getByRole('alert')).toHaveTextContent('specific error message');
 
 			// Hide details
-			clickAndFlush(getByRole('button', { name: 'Hide Details' }));
-			getByRole('button', { name: 'Show Details' });
-			expect(queryByRole('button', { name: 'Hide Details' })).not.toBeInTheDocument();
+			clickAndFlush(screen.getByRole('button', { name: 'Hide Details' }));
+			screen.getByRole('button', { name: 'Show Details' });
+			expect(screen.queryByRole('button', { name: 'Hide Details' })).not.toBeInTheDocument();
 		});
 	});
 
@@ -202,13 +202,13 @@ describe('NotebookErrorBoundary', () => {
 		// (getByRole throws on miss without naming the iteration variable).
 		it.each(['cell', 'output'] as const)('shows Retry button for %s level', (level) => {
 			const { logService } = createMockLogService();
-			const { getByRole } = rtl.render(
+			rtl.render(
 				<NotebookErrorBoundary componentName='Test' level={level} logService={logService}>
 					<ThrowingComponent error={new Error('fail')} />
 				</NotebookErrorBoundary>
 			);
 
-			getByRole('button', { name: 'Retry' });
+			screen.getByRole('button', { name: 'Retry' });
 		});
 
 		it('clicking Retry re-renders children', () => {
@@ -222,21 +222,21 @@ describe('NotebookErrorBoundary', () => {
 				return <div className='recovered'>Recovered</div>;
 			}
 
-			const { getByRole, getByText, queryByRole } = rtl.render(
+			rtl.render(
 				<NotebookErrorBoundary componentName='Test' level='cell' logService={logService}>
 					<ConditionallyThrowingComponent />
 				</NotebookErrorBoundary>
 			);
 
-			getByRole('alert');
+			screen.getByRole('alert');
 
 			// Fix the component and retry
 			shouldThrow = false;
-			clickAndFlush(getByRole('button', { name: 'Retry' }));
+			clickAndFlush(screen.getByRole('button', { name: 'Retry' }));
 
 			// Children should re-render after retry.
-			getByText('Recovered');
-			expect(queryByRole('alert'), 'Error UI should be gone').not.toBeInTheDocument();
+			screen.getByText('Recovered');
+			expect(screen.queryByRole('alert'), 'Error UI should be gone').not.toBeInTheDocument();
 		});
 	});
 
@@ -253,13 +253,13 @@ describe('NotebookErrorBoundary', () => {
 		it('clicking Reload calls onReload callback', () => {
 			const { logService } = createMockLogService();
 			const onReload = vi.fn();
-			const { getByRole } = rtl.render(
+			rtl.render(
 				<NotebookErrorBoundary componentName='Test' level='editor' logService={logService} onReload={onReload}>
 					<ThrowingComponent error={new Error('fail')} />
 				</NotebookErrorBoundary>
 			);
 
-			clickAndFlush(getByRole('button', { name: 'Reload' }));
+			clickAndFlush(screen.getByRole('button', { name: 'Reload' }));
 
 			expect(onReload).toHaveBeenCalledOnce();
 		});
@@ -277,7 +277,7 @@ describe('NotebookErrorBoundary', () => {
 
 		it('catches errors from provider components when boundary wraps them', () => {
 			const { logService, errorSpy } = createMockLogService();
-			const { getByRole } = rtl.render(
+			rtl.render(
 				<NotebookErrorBoundary componentName='Test' level='editor' logService={logService} onReload={() => { }}>
 					<ThrowingProvider>
 						<GoodComponent />
@@ -286,7 +286,7 @@ describe('NotebookErrorBoundary', () => {
 			);
 
 			// Error boundary should catch provider errors.
-			getByRole('alert');
+			screen.getByRole('alert');
 			expect(errorSpy).toHaveBeenCalledOnce();
 			const logMessage = errorSpy.mock.calls[0][0] as string;
 			expect(logMessage, 'Log should include the provider error message').toContain('provider error');

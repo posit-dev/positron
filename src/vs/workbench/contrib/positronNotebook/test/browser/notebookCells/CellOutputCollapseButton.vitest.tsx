@@ -7,6 +7,7 @@
 
 /* eslint-disable local/code-no-dangerous-type-assertions */
 
+import { screen } from '@testing-library/react';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { CellOutputCollapseButton } from '../../../browser/notebookCells/CellOutputCollapseButton.js';
 import { PositronNotebookCodeCell } from '../../../browser/PositronNotebookCells/PositronNotebookCodeCell.js';
@@ -49,22 +50,22 @@ describe('CellOutputCollapseButton', () => {
 	}
 
 	it('renders collapse button when not collapsed', () => {
-		const { getByRole } = renderButton();
+		renderButton();
 
-		getByRole('button', { name: 'Collapse Output' });
+		screen.getByRole('button', { name: 'Collapse Output' });
 	});
 
 	it('renders expand button when outputs are collapsed', () => {
 		outputIsCollapsed.set(true, undefined);
-		const { getByRole } = renderButton();
+		renderButton();
 
-		getByRole('button', { name: 'Expand Output' });
+		screen.getByRole('button', { name: 'Expand Output' });
 	});
 
 	it('selects cell and toggles collapse on click', () => {
-		const { getByRole } = renderButton();
+		renderButton();
 
-		getByRole('button', { name: 'Collapse Output' }).click();
+		screen.getByRole('button', { name: 'Collapse Output' }).click();
 
 		expect(selectStub).toHaveBeenCalledOnce();
 		expect(selectStub.mock.calls[0][1]).toBe(CellSelectionType.Normal);

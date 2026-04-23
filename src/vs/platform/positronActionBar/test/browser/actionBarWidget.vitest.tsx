@@ -13,7 +13,8 @@ import { ServicesAccessor } from '../../../instantiation/common/instantiation.js
 import { setupRTLRenderer } from '../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../test/vitest/positronTestContainer.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { fireEvent } from '@testing-library/react';
+import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 describe('ActionBarWidget', () => {
 	// Minimal ICommandService stub: fires onWillExecuteCommand and resolves the
@@ -56,9 +57,9 @@ describe('ActionBarWidget', () => {
 			componentFactory: () => () => <span className='test-widget-content'>Test Widget</span>
 		};
 
-		const { getByText } = rtl.render(<ActionBarWidget descriptor={descriptor} />);
+		rtl.render(<ActionBarWidget descriptor={descriptor} />);
 
-		expect(getByText('Test Widget')).toHaveClass('test-widget-content');
+		expect(screen.getByText('Test Widget')).toHaveClass('test-widget-content');
 	});
 
 	it('widget can access services via accessor', () => {
@@ -92,9 +93,9 @@ describe('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Command Widget</span>
 		};
 
-		const { getByRole } = rtl.render(<ActionBarWidget descriptor={descriptor} />);
+		rtl.render(<ActionBarWidget descriptor={descriptor} />);
 
-		const button = getByRole('button', { name: 'Test Command' });
+		const button = screen.getByRole('button', { name: 'Test Command' });
 		expect(button).toHaveClass('action-bar-widget');
 		expect(button).toHaveAttribute('title', 'Execute test command');
 	});
@@ -113,12 +114,13 @@ describe('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Click Me</span>
 		};
 
-		const { getByRole } = rtl.render(<ActionBarWidget descriptor={descriptor} />);
-		const button = getByRole('button', { name: 'Clickable Widget' });
+		rtl.render(<ActionBarWidget descriptor={descriptor} />);
+		const button = screen.getByRole('button', { name: 'Clickable Widget' });
 
 		// Simulate click
+		const user = userEvent.setup();
 		const commandPromise = Event.toPromise(commandService.onWillExecuteCommand);
-		fireEvent.click(button);
+		await user.click(button);
 
 		// Wait for click handler
 		const command = await commandPromise;
@@ -139,12 +141,14 @@ describe('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Press Enter</span>
 		};
 
-		const { getByRole } = rtl.render(<ActionBarWidget descriptor={descriptor} />);
-		const button = getByRole('button', { name: 'Keyboard Widget' });
+		rtl.render(<ActionBarWidget descriptor={descriptor} />);
+		const button = screen.getByRole('button', { name: 'Keyboard Widget' });
 
 		// Simulate Enter key press
+		const user = userEvent.setup();
+		button.focus();
 		const commandPromise = Event.toPromise(commandService.onWillExecuteCommand);
-		fireEvent.keyDown(button, { key: 'Enter' });
+		await user.keyboard('{Enter}');
 
 		const command = await commandPromise;
 		expect(command.commandId).toBe('test.keyboard.command');
@@ -163,12 +167,14 @@ describe('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Press Space</span>
 		};
 
-		const { getByRole } = rtl.render(<ActionBarWidget descriptor={descriptor} />);
-		const button = getByRole('button', { name: 'Space Widget' });
+		rtl.render(<ActionBarWidget descriptor={descriptor} />);
+		const button = screen.getByRole('button', { name: 'Space Widget' });
 
 		// Simulate Space key press
+		const user = userEvent.setup();
+		button.focus();
 		const commandPromise = Event.toPromise(commandService.onWillExecuteCommand);
-		fireEvent.keyDown(button, { key: ' ' });
+		await user.keyboard(' ');
 
 		const command = await commandPromise;
 		expect(command.commandId).toBe('test.space.command');
@@ -183,13 +189,13 @@ describe('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Self Contained</span>
 		};
 
-		const { getByText, queryByRole } = rtl.render(<ActionBarWidget descriptor={descriptor} />);
+		rtl.render(<ActionBarWidget descriptor={descriptor} />);
 
 		// Inner content renders, wrapped in a div (not a button)
-		const inner = getByText('Self Contained');
+		const inner = screen.getByText('Self Contained');
 		expect(inner.parentElement).toHaveClass('action-bar-widget');
 		expect(inner.parentElement!.tagName).toBe('DIV');
-		expect(queryByRole('button')).not.toBeInTheDocument();
+		expect(screen.queryByRole('button')).not.toBeInTheDocument();
 	});
 
 	it('legacy widget (no command, not self-contained) renders as div', () => {
@@ -201,12 +207,12 @@ describe('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Legacy Widget</span>
 		};
 
-		const { getByText, queryByRole } = rtl.render(<ActionBarWidget descriptor={descriptor} />);
+		rtl.render(<ActionBarWidget descriptor={descriptor} />);
 
-		const inner = getByText('Legacy Widget');
+		const inner = screen.getByText('Legacy Widget');
 		expect(inner.parentElement).toHaveClass('action-bar-widget');
 		expect(inner.parentElement!.tagName).toBe('DIV');
-		expect(queryByRole('button')).not.toBeInTheDocument();
+		expect(screen.queryByRole('button')).not.toBeInTheDocument();
 	});
 
 	it('error boundary catches widget errors and shows error indicator', () => {
@@ -228,9 +234,9 @@ describe('ActionBarWidget', () => {
 		// The error boundary renders a div with title="Widget error: ..." and a
 		// codicon-error child; getByTitle reliably finds it. The icon span is
 		// its only child so we read it via firstChild.
-		const { getByTitle } = rtl.render(<ActionBarWidget descriptor={descriptor} />);
+		rtl.render(<ActionBarWidget descriptor={descriptor} />);
 
-		const errorIndicator = getByTitle(/Widget error:/);
+		const errorIndicator = screen.getByTitle(/Widget error:/);
 		expect(errorIndicator).toBeInTheDocument();
 		expect(errorIndicator.firstChild).toHaveClass('codicon-error');
 
@@ -253,8 +259,8 @@ describe('ActionBarWidget', () => {
 		// Suppress console.error for this test
 		vi.spyOn(console, 'error').mockImplementation(() => { });
 
-		const { getByTitle } = rtl.render(<ActionBarWidget descriptor={descriptor} />);
+		rtl.render(<ActionBarWidget descriptor={descriptor} />);
 
-		getByTitle(/Specific error message/);
+		screen.getByTitle(/Specific error message/);
 	});
 });

@@ -116,6 +116,9 @@ describe('ColumnSummaryCell', () => {
 
 		const { getByText } = renderRoot(mockTableSummaryDataGridInstance);
 
+		// Showcase preserves the destructure-from-render pattern (Dhruvi's reviewer
+		// suggestion: query-as-assertion + getByText selector) exactly as recommended.
+		// eslint-disable-next-line testing-library/prefer-screen-queries
 		getByText('0%', { selector: '.text-percent' });
 	});
 
@@ -127,6 +130,9 @@ describe('ColumnSummaryCell', () => {
 
 		const { getByText } = renderRoot(mockTableSummaryDataGridInstance);
 
+		// Showcase preserves the destructure-from-render pattern (Dhruvi's reviewer
+		// suggestion: query-as-assertion + getByText selector) exactly as recommended.
+		// eslint-disable-next-line testing-library/prefer-screen-queries
 		getByText('<1%', { selector: '.text-percent' });
 	});
 
@@ -138,6 +144,9 @@ describe('ColumnSummaryCell', () => {
 
 		const { getByText } = renderRoot(mockTableSummaryDataGridInstance);
 
+		// Showcase preserves the destructure-from-render pattern (Dhruvi's reviewer
+		// suggestion: query-as-assertion + getByText selector) exactly as recommended.
+		// eslint-disable-next-line testing-library/prefer-screen-queries
 		getByText('99%', { selector: '.text-percent' });
 	});
 
@@ -149,6 +158,9 @@ describe('ColumnSummaryCell', () => {
 
 		const { getByText } = renderRoot(mockTableSummaryDataGridInstance);
 
+		// Showcase preserves the destructure-from-render pattern (Dhruvi's reviewer
+		// suggestion: query-as-assertion + getByText selector) exactly as recommended.
+		// eslint-disable-next-line testing-library/prefer-screen-queries
 		getByText('100%', { selector: '.text-percent' });
 	});
 

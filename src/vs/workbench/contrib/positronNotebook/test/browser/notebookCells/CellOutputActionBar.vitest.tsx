@@ -9,6 +9,7 @@
 /* eslint-disable local/code-no-dangerous-type-assertions */
 
 import React from 'react';
+import { screen } from '@testing-library/react';
 import { mainWindow } from '../../../../../../base/browser/window.js';
 import { Event } from '../../../../../../base/common/event.js';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
@@ -86,19 +87,19 @@ describe('CellOutputActionBar', () => {
 
 	it('renders empty toolbar when there are no actions', () => {
 		menuActions = [];
-		const { getByRole, queryAllByRole } = renderActionBar();
+		renderActionBar();
 
-		getByRole('toolbar');
-		expect(queryAllByRole('button')).toHaveLength(0);
+		screen.getByRole('toolbar');
+		expect(screen.queryAllByRole('button')).toHaveLength(0);
 	});
 
 	it('toolbar has an accessible label', () => {
 		menuActions = [
 			['0_visibility', [mockAction('collapse', 'Collapse', 'chevron-down')]],
 		];
-		const { getByRole } = renderActionBar();
+		renderActionBar();
 
-		getByRole('toolbar', { name: 'Cell output actions' });
+		screen.getByRole('toolbar', { name: 'Cell output actions' });
 	});
 
 	it('renders buttons for a single group', () => {
@@ -108,9 +109,9 @@ describe('CellOutputActionBar', () => {
 				mockAction('expand', 'Expand', 'chevron-right'),
 			]],
 		];
-		const { getAllByRole, container } = renderActionBar();
+		const { container } = renderActionBar();
 
-		expect(getAllByRole('button')).toHaveLength(2);
+		expect(screen.getAllByRole('button')).toHaveLength(2);
 		// Separator is a visual style applied via class, not an ARIA role,
 		// so we inspect the DOM directly for the separator-after class.
 		expect(
@@ -129,9 +130,9 @@ describe('CellOutputActionBar', () => {
 				mockAction('clear', 'Clear', 'close'),
 			]],
 		];
-		const { getAllByRole, container } = renderActionBar();
+		const { container } = renderActionBar();
 
-		expect(getAllByRole('button')).toHaveLength(3);
+		expect(screen.getAllByRole('button')).toHaveLength(3);
 		// Separator is a visual style applied via class, not an ARIA role.
 		expect(
 			container.querySelectorAll('.action-button.separator-after'),
@@ -145,9 +146,9 @@ describe('CellOutputActionBar', () => {
 			['1_middle', [mockAction('middle', 'Middle', 'info')]],
 			['2_destructive', [mockAction('clear', 'Clear', 'close')]],
 		];
-		const { getAllByRole, container } = renderActionBar();
+		const { container } = renderActionBar();
 
-		expect(getAllByRole('button')).toHaveLength(3);
+		expect(screen.getAllByRole('button')).toHaveLength(3);
 		// Separator is a visual style applied via class, not an ARIA role.
 		expect(
 			container.querySelectorAll('.action-button.separator-after'),
@@ -174,8 +175,8 @@ describe('CellOutputActionBar', () => {
 			const scrollTargetRef = React.createRef<HTMLElement | null>();
 			scrollTargetRef.current = scrollTarget;
 
-			const { getByRole } = renderActionBar(scrollTargetRef);
-			const toolbar = getByRole('toolbar');
+			renderActionBar(scrollTargetRef);
+			const toolbar = screen.getByRole('toolbar');
 			expect(toolbar).toBeInTheDocument();
 
 			const event = new WheelEvent('wheel', { deltaY: 50, cancelable: true });

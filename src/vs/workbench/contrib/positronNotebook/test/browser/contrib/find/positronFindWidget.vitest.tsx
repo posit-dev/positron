@@ -8,7 +8,7 @@
 /* eslint-disable local/code-no-dangerous-type-assertions */
 
 import type { Mock } from 'vitest';
-import { act } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
 import { setupRTLRenderer } from '../../../../../../../test/vitest/reactTestingLibrary.js';
 import { ISettableObservable, observableValue } from '../../../../../../../base/common/observable.js';
 import { MockContextKeyService } from '../../../../../../../platform/keybinding/test/common/mockKeybindingService.js';
@@ -140,27 +140,27 @@ describe('PositronFindWidget', () => {
 		});
 
 		it('hidden when close button is clicked', () => {
-			const { widgetContainer, getByRole } = renderWidget();
+			const { widgetContainer } = renderWidget();
 
-			act(() => getByRole('button', { name: 'Close' }).click());
+			act(() => screen.getByRole('button', { name: 'Close' }).click());
 
 			expect(widgetContainer).not.toHaveClass('visible');
 			expect(isVisible.get(), 'Expected isVisible observable to be false after close').toBe(false);
 		});
 
 		it('has no error styling when there is no query', () => {
-			const { widgetContainer, getByText } = renderWidget();
+			const { widgetContainer } = renderWidget();
 
-			getByText('No results');
+			screen.getByText('No results');
 			expect(widgetContainer).not.toHaveClass('no-results');
 		});
 
 		it('has error styling when there is a query but no matches', () => {
 			findText.set('foo', undefined);
 			matchCount.set(0, undefined);
-			const { widgetContainer, getByText } = renderWidget();
+			const { widgetContainer } = renderWidget();
 
-			getByText('No results');
+			screen.getByText('No results');
 			expect(widgetContainer).toHaveClass('no-results');
 		});
 
@@ -180,26 +180,26 @@ describe('PositronFindWidget', () => {
 
 		it('navigation buttons are disabled when there are no matches', () => {
 			matchCount.set(0, undefined);
-			const { getByRole } = renderWidget();
+			renderWidget();
 
-			expect(getByRole('button', { name: 'Previous Match' })).toBeDisabled();
-			expect(getByRole('button', { name: 'Next Match' })).toBeDisabled();
+			expect(screen.getByRole('button', { name: 'Previous Match' })).toBeDisabled();
+			expect(screen.getByRole('button', { name: 'Next Match' })).toBeDisabled();
 		});
 
 		it('previous match button calls onPreviousMatch', () => {
 			matchCount.set(3, undefined);
-			const { getByRole } = renderWidget();
+			renderWidget();
 
-			getByRole('button', { name: 'Previous Match' }).click();
+			screen.getByRole('button', { name: 'Previous Match' }).click();
 
 			expect(onPreviousMatch, 'Expected onPreviousMatch to be called once').toHaveBeenCalledOnce();
 		});
 
 		it('next match button calls onNextMatch', () => {
 			matchCount.set(3, undefined);
-			const { getByRole } = renderWidget();
+			renderWidget();
 
-			getByRole('button', { name: 'Next Match' }).click();
+			screen.getByRole('button', { name: 'Next Match' }).click();
 
 			expect(onNextMatch, 'Expected onNextMatch to be called once').toHaveBeenCalledOnce();
 		});
@@ -207,66 +207,66 @@ describe('PositronFindWidget', () => {
 		it('shows "1 of N" when matchIndex is undefined', () => {
 			findText.set('foo', undefined);
 			matchCount.set(3, undefined);
-			const { getByText } = renderWidget();
+			renderWidget();
 
-			getByText('1 of 3');
+			screen.getByText('1 of 3');
 		});
 
 		it('shows match index and count', () => {
 			findText.set('foo', undefined);
 			matchCount.set(5, undefined);
 			matchIndex.set(2, undefined);
-			const { getByText } = renderWidget();
+			renderWidget();
 
-			getByText('3 of 5');
+			screen.getByText('3 of 5');
 		});
 
 		it('no toggle replace button when useReplace is false', () => {
-			const { queryByRole } = renderWidget();
+			renderWidget();
 
-			expect(queryByRole('button', { name: 'Toggle Replace' })).not.toBeInTheDocument();
+			expect(screen.queryByRole('button', { name: 'Toggle Replace' })).not.toBeInTheDocument();
 		});
 	});
 
 	describe('Replace', () => {
 		it('hidden when replaceIsVisible is false', () => {
-			const { getByRole, queryByRole } = renderWidget({ useReplace: true });
+			renderWidget({ useReplace: true });
 
-			getByRole('button', { name: 'Toggle Replace' });
+			screen.getByRole('button', { name: 'Toggle Replace' });
 			// Replace button (inside the replace part) is the reliable proxy for
 			// replace-part visibility; exact match avoids 'Replace All' collision.
-			expect(queryByRole('button', { name: /^Replace$/ })).not.toBeInTheDocument();
+			expect(screen.queryByRole('button', { name: /^Replace$/ })).not.toBeInTheDocument();
 		});
 
 		it('visible when replaceIsVisible is true', () => {
 			replaceIsVisible.set(true, undefined);
-			const { getByRole } = renderWidget({ useReplace: true });
+			renderWidget({ useReplace: true });
 
-			getByRole('button', { name: 'Toggle Replace' });
-			getByRole('button', { name: /^Replace$/ });
-			getByRole('button', { name: 'Replace All' });
+			screen.getByRole('button', { name: 'Toggle Replace' });
+			screen.getByRole('button', { name: /^Replace$/ });
+			screen.getByRole('button', { name: 'Replace All' });
 		});
 
 		it('expands/collapses when toggle replace button is clicked', () => {
-			const { getByRole, queryByRole } = renderWidget({ useReplace: true });
+			renderWidget({ useReplace: true });
 
-			act(() => getByRole('button', { name: 'Toggle Replace' }).click());
+			act(() => screen.getByRole('button', { name: 'Toggle Replace' }).click());
 
-			getByRole('button', { name: /^Replace$/ });
+			screen.getByRole('button', { name: /^Replace$/ });
 			expect(replaceIsVisible.get(), 'Expected replaceIsVisible to be true').toBe(true);
 
-			act(() => getByRole('button', { name: 'Toggle Replace' }).click());
+			act(() => screen.getByRole('button', { name: 'Toggle Replace' }).click());
 
-			expect(queryByRole('button', { name: /^Replace$/ })).not.toBeInTheDocument();
+			expect(screen.queryByRole('button', { name: /^Replace$/ })).not.toBeInTheDocument();
 			expect(replaceIsVisible.get(), 'Expected replaceIsVisible to be false').toBe(false);
 		});
 
 		it('replace button calls onReplace', () => {
 			findText.set('foo', undefined);
 			replaceIsVisible.set(true, undefined);
-			const { getByRole } = renderWidget({ useReplace: true });
+			renderWidget({ useReplace: true });
 
-			act(() => getByRole('button', { name: /^Replace$/ }).click());
+			act(() => screen.getByRole('button', { name: /^Replace$/ }).click());
 
 			expect(onReplace, 'Expected onReplace to be called once').toHaveBeenCalledOnce();
 		});
@@ -274,19 +274,19 @@ describe('PositronFindWidget', () => {
 		it('replace all button calls onReplaceAll', () => {
 			replaceIsVisible.set(true, undefined);
 			findText.set('foo', undefined);
-			const { getByRole } = renderWidget({ useReplace: true });
+			renderWidget({ useReplace: true });
 
-			act(() => getByRole('button', { name: 'Replace All' }).click());
+			act(() => screen.getByRole('button', { name: 'Replace All' }).click());
 
 			expect(onReplaceAll, 'Expected onReplaceAll to be called once').toHaveBeenCalledOnce();
 		});
 
 		it('replace buttons are disabled when there is no query', () => {
 			replaceIsVisible.set(true, undefined);
-			const { getByRole } = renderWidget({ useReplace: true });
+			renderWidget({ useReplace: true });
 
-			expect(getByRole('button', { name: /^Replace$/ })).toBeDisabled();
-			expect(getByRole('button', { name: 'Replace All' })).toBeDisabled();
+			expect(screen.getByRole('button', { name: /^Replace$/ })).toBeDisabled();
+			expect(screen.getByRole('button', { name: 'Replace All' })).toBeDisabled();
 		});
 	});
 });

@@ -7,7 +7,7 @@
 
 /* eslint-disable local/code-no-dangerous-type-assertions */
 
-import { act } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { runWithFakedTimers } from '../../../../../../base/test/common/timeTravelScheduler.js';
 import { timeout } from '../../../../../../base/common/async.js';
@@ -83,7 +83,7 @@ describe('CellActionButton', () => {
 		action: MenuItemAction | SubmenuItemAction,
 		options?: { showSeparator?: boolean },
 	) {
-		const { getByRole } = rtl.render(
+		rtl.render(
 			<NotebookInstanceProvider instance={instance}>
 				<CellActionButton
 					action={action}
@@ -92,7 +92,7 @@ describe('CellActionButton', () => {
 				/>
 			</NotebookInstanceProvider>
 		);
-		return getByRole('button', { name: action.label });
+		return screen.getByRole('button', { name: action.label });
 	}
 
 	it('renders with aria-label from action', () => {

@@ -6,7 +6,8 @@
 /// <reference types="vitest/globals" />
 
 import React from 'react';
-import { fireEvent } from '@testing-library/react';
+import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
@@ -28,12 +29,14 @@ describe('EmptyConsole', () => {
 	});
 
 	it('renders a Start Session button', () => {
-		rtl.render(<EmptyConsole />).getByText('Start Session');
+		rtl.render(<EmptyConsole />);
+		screen.getByText('Start Session');
 	});
 
-	it('executes startNewConsoleSession command when button is pressed', () => {
-		const { getByText } = rtl.render(<EmptyConsole />);
-		fireEvent.click(getByText('Start Session'));
+	it('executes startNewConsoleSession command when button is pressed', async () => {
+		const user = userEvent.setup();
+		rtl.render(<EmptyConsole />);
+		await user.click(screen.getByText('Start Session'));
 
 		expect(ctx.get(ICommandService).executeCommand).toHaveBeenCalledWith(
 			LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID

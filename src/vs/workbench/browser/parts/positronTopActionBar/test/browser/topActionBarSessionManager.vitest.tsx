@@ -6,7 +6,8 @@
 /// <reference types="vitest/globals" />
 
 import React from 'react';
-import { act, fireEvent } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { Emitter } from '../../../../../../base/common/event.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { LanguageRuntimeSessionMode, RuntimeState } from '../../../../../services/languageRuntime/common/languageRuntimeService.js';
@@ -93,11 +94,11 @@ describe('TopActionBarSessionManager', () => {
 		});
 
 		it('renders a button when no active console sessions', () => {
-			const { getByRole } = rtl.render(
+			rtl.render(
 				<TopActionBarSessionManager />
 			);
 
-			getByRole('button');
+			screen.getByRole('button');
 		});
 	});
 
@@ -327,12 +328,13 @@ describe('TopActionBarSessionManager', () => {
 			.build();
 		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-		it('uses selectSession command when there are active console sessions', () => {
-			const { getByRole } = rtl.render(
+		it('uses selectSession command when there are active console sessions', async () => {
+			const user = userEvent.setup();
+			rtl.render(
 				<TopActionBarSessionManager />
 			);
 
-			fireEvent.click(getByRole('button'));
+			await user.click(screen.getByRole('button'));
 
 			expect(ctx.get(ICommandService).executeCommand).toHaveBeenCalledWith(
 				'workbench.action.language.runtime.selectSession'
@@ -353,12 +355,13 @@ describe('TopActionBarSessionManager', () => {
 			.build();
 		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-		it('uses startNewConsoleSession command when no active console sessions', () => {
-			const { getByRole } = rtl.render(
+		it('uses startNewConsoleSession command when no active console sessions', async () => {
+			const user = userEvent.setup();
+			rtl.render(
 				<TopActionBarSessionManager />
 			);
 
-			fireEvent.click(getByRole('button'));
+			await user.click(screen.getByRole('button'));
 
 			expect(ctx.get(ICommandService).executeCommand).toHaveBeenCalledWith(
 				'workbench.action.language.runtime.startNewConsoleSession'

@@ -62,6 +62,8 @@ describe('setupRTLRenderer', () => {
 
 		it('provides services via context', () => {
 			const { getByText } = rtl.render(<ServiceLabel />);
+			// showcase for destructure pattern -- this file demonstrates both idioms
+			// eslint-disable-next-line testing-library/prefer-screen-queries
 			getByText('hello from context');
 		});
 	});
@@ -71,6 +73,8 @@ describe('setupRTLRenderer', () => {
 
 		it('renders without services wrapper', () => {
 			const { getByText } = rtl.render(<PropLabel text="hello from props" />);
+			// showcase for destructure pattern -- this file demonstrates both idioms
+			// eslint-disable-next-line testing-library/prefer-screen-queries
 			getByText('hello from props');
 		});
 	});

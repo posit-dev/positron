@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import React from 'react';
-import { act } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
 import { Emitter } from '../../../../../base/common/event.js';
 import { IPositronPlotsService } from '../../../../services/positronPlots/common/positronPlots.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
@@ -35,32 +35,32 @@ describe('WebviewPlotThumbnail', () => {
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 	it('shows placeholder when no thumbnail is available', () => {
-		const { container, queryByAltText } = rtl.render(
+		const { container } = rtl.render(
 			<WebviewPlotThumbnail plotClient={makePlotClient()} />
 		);
 		// Placeholder is a structural div with no semantic role/text/label.
 		expect(container.querySelector('.plot-thumbnail-placeholder')).toBeInTheDocument();
-		expect(queryByAltText(/^Plot /)).not.toBeInTheDocument();
+		expect(screen.queryByAltText(/^Plot /)).not.toBeInTheDocument();
 	});
 
 	it('shows image when plotClient already has a thumbnailUri', () => {
 		const plotClient = makePlotClient({ thumbnailUri: 'data:image/png;base64,abc' });
-		const { getByAltText } = rtl.render(
+		rtl.render(
 			<WebviewPlotThumbnail plotClient={plotClient} />
 		);
-		const img = getByAltText('Plot plot-1');
+		const img = screen.getByAltText('Plot plot-1');
 		expect(img).toBeInTheDocument();
 		expect(img).toHaveAttribute('src', 'data:image/png;base64,abc');
 	});
 
 	it('updates to rendered thumbnail when event fires', () => {
-		const { container, getByAltText, queryByAltText } = rtl.render(
+		const { container } = rtl.render(
 			<WebviewPlotThumbnail plotClient={makePlotClient()} />
 		);
 
 		// Initially shows placeholder (structural div with no semantic handle).
 		expect(container.querySelector('.plot-thumbnail-placeholder')).toBeInTheDocument();
-		expect(queryByAltText(/^Plot /)).not.toBeInTheDocument();
+		expect(screen.queryByAltText(/^Plot /)).not.toBeInTheDocument();
 
 		// Simulate the plot rendering a thumbnail.
 		act(() => {
@@ -68,7 +68,7 @@ describe('WebviewPlotThumbnail', () => {
 		});
 
 		// Now shows the rendered image.
-		const img = getByAltText('Plot plot-1');
+		const img = screen.getByAltText('Plot plot-1');
 		expect(img).toBeInTheDocument();
 		expect(img).toHaveAttribute('src', 'data:image/png;base64,rendered');
 		expect(container.querySelector('.plot-thumbnail-placeholder')).not.toBeInTheDocument();
