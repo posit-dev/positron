@@ -1210,16 +1210,22 @@ const VARIABLES_LIST_READY_TIMEOUT_MS = 2000;
 /**
  * Waits for the given variables instance to have at least one known variable,
  * up to {@link VARIABLES_LIST_READY_TIMEOUT_MS}. A no-op if the instance
- * already has variables cached.
+ * already has variables cached. Returns whether the wait timed out so callers
+ * can distinguish "the variable really isn't there" from "we gave up waiting".
  */
-const waitForVariables = async (instance: IPositronVariablesInstance): Promise<void> => {
+const waitForVariables = async (
+	instance: IPositronVariablesInstance,
+): Promise<{ timedOut: boolean }> => {
 	if (instance.variableItems.length > 0) {
-		return;
+		return { timedOut: false };
 	}
+	let timedOut = false;
 	await raceTimeout(
 		Event.toPromise(Event.once(instance.onDidChangeEntries)),
 		VARIABLES_LIST_READY_TIMEOUT_MS,
+		() => { timedOut = true; },
 	);
+	return { timedOut };
 };
 
 /**
@@ -1323,15 +1329,28 @@ export class PositronDataExplorerViewDataFrameAtCursorAction extends Action2 {
 
 		// The variable list arrives asynchronously from the runtime, so a
 		// freshly-created instance may not yet have it.
-		await waitForVariables(variablesInstance);
+		const { timedOut } = await waitForVariables(variablesInstance);
 
 		const item = variablesInstance.variableItems.find(v => v.displayName === symbol);
 		if (!item) {
-			notificationService.info(localize(
-				'positron.viewDataFrameAtCursor.notDefined',
-				"'{0}' is not defined in the active session.",
-				symbol,
-			));
+			// If we timed out waiting for the first variable update, the
+			// symbol might actually be defined but the runtime hasn't
+			// reported it yet (e.g. a long-running chunk that assigns the
+			// variable and then keeps running). Tell the user that rather
+			// than flatly claiming the variable doesn't exist.
+			if (timedOut) {
+				notificationService.info(localize(
+					'positron.viewDataFrameAtCursor.variablesTimeout',
+					"The active {0} session is still loading variables. Try again in a moment.",
+					languageService.getLanguageName(languageId) ?? languageId,
+				));
+			} else {
+				notificationService.info(localize(
+					'positron.viewDataFrameAtCursor.notDefined',
+					"'{0}' is not a data frame defined in the active session.",
+					symbol,
+				));
+			}
 			return;
 		}
 		if (!item.hasViewer) {

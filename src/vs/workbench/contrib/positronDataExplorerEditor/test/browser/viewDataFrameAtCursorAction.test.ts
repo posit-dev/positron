@@ -204,7 +204,7 @@ suite('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 			assert.match(notificationInfo.firstCall.args[0], /Variables for the active R session/);
 		});
 
-		test('notifies when the symbol is not defined in the session', async () => {
+		test('notifies when the symbol is not a data frame in the session', async () => {
 			activeEditor = makeCodeEditor({ word: 'missing', languageId: 'r' });
 			session = makeSession('r');
 			variablesInstances = [makeVariablesInstance([makeVariableItem({ displayName: 'df' })])];
@@ -212,7 +212,27 @@ suite('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 			await runAction();
 
 			assert.strictEqual(notificationInfo.callCount, 1);
-			assert.match(notificationInfo.firstCall.args[0], /'missing' is not defined/);
+			assert.match(notificationInfo.firstCall.args[0], /'missing' is not a data frame defined/);
+		});
+
+		test('notifies about a still-loading session when the variables list times out', async () => {
+			const clock = sinon.useFakeTimers();
+			try {
+				activeEditor = makeCodeEditor({ word: 'df', languageId: 'r' });
+				session = makeSession('r');
+				// Empty variableItems + Event.None (never fires) forces the
+				// waitForVariables helper to hit its timeout.
+				variablesInstances = [makeVariablesInstance([])];
+
+				const runPromise = runAction();
+				await clock.tickAsync(5000);
+				await runPromise;
+
+				assert.strictEqual(notificationInfo.callCount, 1);
+				assert.match(notificationInfo.firstCall.args[0], /still loading variables/);
+			} finally {
+				clock.restore();
+			}
 		});
 
 		test('notifies when the symbol exists but is not viewable', async () => {
