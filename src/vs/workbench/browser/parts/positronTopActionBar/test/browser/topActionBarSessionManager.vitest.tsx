@@ -76,12 +76,12 @@ describe('TopActionBarSessionManager', () => {
 
 		it('renders "Start Session" label when no foreground session', () => {
 			rtl.render(<TopActionBarSessionManager />);
-			expect(screen.getByTestId('action-bar-button-label')).toHaveTextContent('Start Session');
+			expect(screen.getByTestId('session-manager-label')).toHaveTextContent('Start Session');
 		});
 
 		it('renders arrow-swap icon when no foreground session', () => {
 			rtl.render(<TopActionBarSessionManager />);
-			expect(screen.getByTestId('action-bar-button-icon')).toHaveClass('codicon', 'codicon-arrow-swap');
+			expect(screen.getByTestId('session-manager-icon')).toHaveClass('codicon', 'codicon-arrow-swap');
 		});
 
 		it('renders a button when no active console sessions', () => {
@@ -108,12 +108,12 @@ describe('TopActionBarSessionManager', () => {
 
 		it('renders session name as label for console session', () => {
 			rtl.render(<TopActionBarSessionManager />);
-			expect(screen.getByTestId('action-bar-button-label')).toHaveTextContent('Python 3.12.1');
+			expect(screen.getByTestId('session-manager-label')).toHaveTextContent('Python 3.12.1');
 		});
 
 		it('renders positron-new-console icon for console session', () => {
 			rtl.render(<TopActionBarSessionManager />);
-			expect(screen.getByTestId('action-bar-button-icon')).toHaveClass('codicon', 'codicon-positron-new-console');
+			expect(screen.getByTestId('session-manager-icon')).toHaveClass('codicon', 'codicon-positron-new-console');
 		});
 	});
 
@@ -136,12 +136,12 @@ describe('TopActionBarSessionManager', () => {
 
 		it('renders notebook filename as label for notebook session', () => {
 			rtl.render(<TopActionBarSessionManager />);
-			expect(screen.getByTestId('action-bar-button-label')).toHaveTextContent('analysis.ipynb');
+			expect(screen.getByTestId('session-manager-label')).toHaveTextContent('analysis.ipynb');
 		});
 
 		it('renders notebook icon for notebook session', () => {
 			rtl.render(<TopActionBarSessionManager />);
-			expect(screen.getByTestId('action-bar-button-icon')).toHaveClass('codicon', 'codicon-notebook');
+			expect(screen.getByTestId('session-manager-icon')).toHaveClass('codicon', 'codicon-notebook');
 		});
 	});
 
@@ -164,7 +164,7 @@ describe('TopActionBarSessionManager', () => {
 
 		it('falls through to sessionName when notebook has no URI', () => {
 			rtl.render(<TopActionBarSessionManager />);
-			expect(screen.getByTestId('action-bar-button-label')).toHaveTextContent('R 4.3.2');
+			expect(screen.getByTestId('session-manager-label')).toHaveTextContent('R 4.3.2');
 		});
 	});
 
@@ -182,7 +182,7 @@ describe('TopActionBarSessionManager', () => {
 
 		it('updates label when foreground session changes to a console session', () => {
 			rtl.render(<TopActionBarSessionManager />);
-			expect(screen.getByTestId('action-bar-button-label')).toHaveTextContent('Start Session');
+			expect(screen.getByTestId('session-manager-label')).toHaveTextContent('Start Session');
 
 			act(() => {
 				displayInfoEmitter.fire(makeDisplayInfo({
@@ -191,7 +191,7 @@ describe('TopActionBarSessionManager', () => {
 				}));
 			});
 
-			expect(screen.getByTestId('action-bar-button-label')).toHaveTextContent('R 4.3.2');
+			expect(screen.getByTestId('session-manager-label')).toHaveTextContent('R 4.3.2');
 		});
 
 		it('updates label when foreground session changes to a notebook session', () => {
@@ -205,18 +205,18 @@ describe('TopActionBarSessionManager', () => {
 				}));
 			});
 
-			expect(screen.getByTestId('action-bar-button-label')).toHaveTextContent('report.ipynb');
+			expect(screen.getByTestId('session-manager-label')).toHaveTextContent('report.ipynb');
 		});
 
 		it('updates icon when session changes from none to console', () => {
 			rtl.render(<TopActionBarSessionManager />);
-			expect(screen.getByTestId('action-bar-button-icon')).toHaveClass('codicon', 'codicon-arrow-swap');
+			expect(screen.getByTestId('session-manager-icon')).toHaveClass('codicon', 'codicon-arrow-swap');
 
 			act(() => {
 				displayInfoEmitter.fire(makeDisplayInfo());
 			});
 
-			expect(screen.getByTestId('action-bar-button-icon')).toHaveClass('codicon', 'codicon-positron-new-console');
+			expect(screen.getByTestId('session-manager-icon')).toHaveClass('codicon', 'codicon-positron-new-console');
 		});
 
 		it('updates icon when session changes to notebook', () => {
@@ -229,7 +229,7 @@ describe('TopActionBarSessionManager', () => {
 				}));
 			});
 
-			expect(screen.getByTestId('action-bar-button-icon')).toHaveClass('codicon', 'codicon-notebook');
+			expect(screen.getByTestId('session-manager-icon')).toHaveClass('codicon', 'codicon-notebook');
 		});
 
 		it('reverts to "Start Session" when session is cleared', () => {
@@ -238,12 +238,12 @@ describe('TopActionBarSessionManager', () => {
 			act(() => {
 				displayInfoEmitter.fire(makeDisplayInfo({ sessionName: 'Python 3.12.1' }));
 			});
-			expect(screen.getByTestId('action-bar-button-label')).toHaveTextContent('Python 3.12.1');
+			expect(screen.getByTestId('session-manager-label')).toHaveTextContent('Python 3.12.1');
 
 			act(() => {
 				displayInfoEmitter.fire(undefined);
 			});
-			expect(screen.getByTestId('action-bar-button-label')).toHaveTextContent('Start Session');
+			expect(screen.getByTestId('session-manager-label')).toHaveTextContent('Start Session');
 		});
 
 		it('reverts to arrow-swap icon when session is cleared', () => {
@@ -252,12 +252,12 @@ describe('TopActionBarSessionManager', () => {
 			act(() => {
 				displayInfoEmitter.fire(makeDisplayInfo());
 			});
-			expect(screen.getByTestId('action-bar-button-icon')).toHaveClass('codicon', 'codicon-positron-new-console');
+			expect(screen.getByTestId('session-manager-icon')).toHaveClass('codicon', 'codicon-positron-new-console');
 
 			act(() => {
 				displayInfoEmitter.fire(undefined);
 			});
-			expect(screen.getByTestId('action-bar-button-icon')).toHaveClass('codicon', 'codicon-arrow-swap');
+			expect(screen.getByTestId('session-manager-icon')).toHaveClass('codicon', 'codicon-arrow-swap');
 		});
 	});
 

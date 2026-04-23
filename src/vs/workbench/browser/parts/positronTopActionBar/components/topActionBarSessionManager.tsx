@@ -119,10 +119,12 @@ export const TopActionBarSessionManager = () => {
 					<RuntimeStatusIcon status={runtimeStatus} />
 				}
 				<ActionBarButtonIcon
+					data-testid='session-manager-icon'
 					icon={sessionIcon}
 					style={iconStyle}
 				/>
 				<ActionBarButtonLabel
+					data-testid='session-manager-label'
 					hasIcon={true}
 					label={labelText}
 				/>
