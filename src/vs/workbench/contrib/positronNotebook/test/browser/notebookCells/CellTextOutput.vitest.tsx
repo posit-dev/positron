@@ -52,7 +52,10 @@ describe('CellTextOutput', () => {
 		// public reset API. If upstream ever renames `configuration` / `_keys`,
 		// the assertions below fail loudly at runtime rather than letting state
 		// silently leak between tests (TypeScript can't catch this otherwise).
-		const configBag = configurationService as unknown as { configuration?: Record<string, unknown> };
+		const configBag = configurationService as unknown as {
+			configuration?: Record<string, unknown>;
+			configurationByRoot?: { clear(): void };
+		};
 		const keysBag = contextKeyService as unknown as { _keys?: Map<string, unknown> };
 		if (!configBag.configuration || !keysBag._keys) {
 			throw new Error(
@@ -62,6 +65,11 @@ describe('CellTextOutput', () => {
 			);
 		}
 		configBag.configuration = Object.create(null);
+		// TestConfigurationService also has a `configurationByRoot` TernarySearchTree
+		// populated by the `setUserConfiguration({ resource, ... })` overload. Clear
+		// it defensively so that overload also resets between tests (currently no
+		// test in this file uses it, but the reset should be complete either way).
+		configBag.configurationByRoot?.clear();
 		keysBag._keys.clear();
 	});
 

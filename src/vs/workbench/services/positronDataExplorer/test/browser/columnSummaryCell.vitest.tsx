@@ -116,9 +116,6 @@ describe('ColumnSummaryCell', () => {
 
 		const { getByText } = renderRoot(mockTableSummaryDataGridInstance);
 
-		// Showcase preserves the destructure-from-render pattern (Dhruvi's reviewer
-		// suggestion) plus the getByText selector form; the result is wrapped in
-		// expect().toBeInTheDocument() per the current explicit-assert convention.
 		// eslint-disable-next-line testing-library/prefer-screen-queries
 		expect(getByText('0%', { selector: '.text-percent' })).toBeInTheDocument();
 	});
@@ -131,9 +128,6 @@ describe('ColumnSummaryCell', () => {
 
 		const { getByText } = renderRoot(mockTableSummaryDataGridInstance);
 
-		// Showcase preserves the destructure-from-render pattern (Dhruvi's reviewer
-		// suggestion) plus the getByText selector form; the result is wrapped in
-		// expect().toBeInTheDocument() per the current explicit-assert convention.
 		// eslint-disable-next-line testing-library/prefer-screen-queries
 		expect(getByText('<1%', { selector: '.text-percent' })).toBeInTheDocument();
 	});
@@ -146,9 +140,6 @@ describe('ColumnSummaryCell', () => {
 
 		const { getByText } = renderRoot(mockTableSummaryDataGridInstance);
 
-		// Showcase preserves the destructure-from-render pattern (Dhruvi's reviewer
-		// suggestion) plus the getByText selector form; the result is wrapped in
-		// expect().toBeInTheDocument() per the current explicit-assert convention.
 		// eslint-disable-next-line testing-library/prefer-screen-queries
 		expect(getByText('99%', { selector: '.text-percent' })).toBeInTheDocument();
 	});
@@ -161,9 +152,6 @@ describe('ColumnSummaryCell', () => {
 
 		const { getByText } = renderRoot(mockTableSummaryDataGridInstance);
 
-		// Showcase preserves the destructure-from-render pattern (Dhruvi's reviewer
-		// suggestion) plus the getByText selector form; the result is wrapped in
-		// expect().toBeInTheDocument() per the current explicit-assert convention.
 		// eslint-disable-next-line testing-library/prefer-screen-queries
 		expect(getByText('100%', { selector: '.text-percent' })).toBeInTheDocument();
 	});
