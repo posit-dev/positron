@@ -153,13 +153,13 @@ describe('TopActionBarSessionManager', () => {
 			.build();
 		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-		it('renders "notebookName - sessionName" label for notebook session', () => {
+		it('renders notebook filename as label for notebook session', () => {
 			const { container } = rtl.render(
 				<TopActionBarSessionManager />
 			);
 
 			const label = container.querySelector('.action-bar-button-label');
-			expect(label?.textContent).toBe('analysis.ipynb - Python 3.12.1');
+			expect(label?.textContent).toBe('analysis.ipynb');
 		});
 
 		it('renders notebook icon for notebook session', () => {
@@ -241,7 +241,7 @@ describe('TopActionBarSessionManager', () => {
 				}));
 			});
 
-			expect(container.querySelector('.action-bar-button-label')?.textContent).toBe('report.ipynb - Python 3.12.1');
+			expect(container.querySelector('.action-bar-button-label')?.textContent).toBe('report.ipynb');
 		});
 
 		it('updates icon when session changes from none to console', () => {
