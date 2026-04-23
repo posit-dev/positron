@@ -255,6 +255,6 @@ describe('ActionBarWidget', () => {
 
 		const { getByTitle } = rtl.render(<ActionBarWidget descriptor={descriptor} />);
 
-		expect(getByTitle(/Specific error message/)).toBeInTheDocument();
+		getByTitle(/Specific error message/);
 	});
 });

@@ -89,6 +89,8 @@ See **Anti-patterns reference** below for the full table of patterns to avoid an
 
 One-stop reference. Authors: scan before writing. Reviewers (and the `review-vitest-tests` skill): flag any "Avoid" pattern that isn't covered by the "Exception" column.
 
+**Most RTL rules below are enforced automatically by `eslint-plugin-testing-library`** (see `eslint.config.js`): `prefer-implicit-assert`, `prefer-presence-queries`, `no-render-in-lifecycle`, `no-debugging-utils`, `no-unnecessary-act`, `await-async-queries`, `await-async-utils`, `no-await-sync-queries`. The tables below document Positron-specific rules (builder adoption, singleton mutation) and serve as pedagogical reference for lint rules.
+
 ### Builder adoption (all `.vitest.*`)
 
 | Avoid | Use instead | Exception |

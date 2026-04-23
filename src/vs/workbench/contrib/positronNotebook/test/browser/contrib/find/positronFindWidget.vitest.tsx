@@ -252,7 +252,7 @@ describe('PositronFindWidget', () => {
 
 			act(() => getByRole('button', { name: 'Toggle Replace' }).click());
 
-			expect(queryByRole('button', { name: /^Replace$/ })).toBeInTheDocument();
+			getByRole('button', { name: /^Replace$/ });
 			expect(replaceIsVisible.get(), 'Expected replaceIsVisible to be true').toBe(true);
 
 			act(() => getByRole('button', { name: 'Toggle Replace' }).click());

@@ -93,11 +93,11 @@ describe('TopActionBarSessionManager', () => {
 		});
 
 		it('renders a button when no active console sessions', () => {
-			const { queryByRole } = rtl.render(
+			const { getByRole } = rtl.render(
 				<TopActionBarSessionManager />
 			);
 
-			expect(queryByRole('button')).toBeInTheDocument();
+			getByRole('button');
 		});
 	});
 

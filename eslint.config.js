@@ -19,6 +19,7 @@ import globals from 'globals';
 import pluginReact from 'eslint-plugin-react';
 import pluginReactHooks from 'eslint-plugin-react-hooks';
 import pluginJsxA11y from 'eslint-plugin-jsx-a11y';
+import pluginTestingLibrary from 'eslint-plugin-testing-library';
 // --- End Positron ---
 
 const ignores = fs.readFileSync(path.join(import.meta.dirname, '.eslint-ignore'), 'utf8')
@@ -187,6 +188,49 @@ export default tseslint.config(
 		rules: {
 			'local/code-setup-react-renderer-before-disposables-check': 'error',
 		}
+	},
+	// Vitest tests -- enforce Testing Library best practices.
+	// Keeps the .claude/rules/vitest-tests.md "Anti-patterns reference" in
+	// sync with actual code via lint rather than via review-time grep
+	// (which misses multi-argument forms like getByRole('button', { name }).
+	{
+		files: [
+			'src/vs/**/*.vitest.ts',
+			'src/vs/**/*.vitest.tsx',
+		],
+		plugins: {
+			'testing-library': pluginTestingLibrary,
+		},
+		rules: {
+			// Flag expect(getBy*(...)).toBeInTheDocument() / .not.toBeNull() --
+			// bare getBy* IS the assertion (Kent C. Dodds). This is the rule
+			// that catches the pattern missed by grep-based review.
+			'testing-library/prefer-implicit-assert': 'error',
+
+			// Flag expect(queryBy*).toBeInTheDocument() -- should use getBy*
+			// since it throws with a better message. And vice versa for absence.
+			'testing-library/prefer-presence-queries': 'error',
+
+			// Note: container.querySelector and raw DOM access are already
+			// flagged by the pre-existing local/no-restricted-syntax rule
+			// (which we disable per-line at documented structural escape
+			// hatches). testing-library/no-node-access would double-flag those
+			// sites; leaving it off avoids churn.
+
+			// Disallow render() inside beforeEach/beforeAll -- leaks state.
+			'testing-library/no-render-in-lifecycle': 'error',
+
+			// Forbid committed screen.debug() / logTestingPlaygroundURL() calls.
+			'testing-library/no-debugging-utils': 'error',
+
+			// Flag unnecessary act() wrapping (RTL auto-wraps render, userEvent, etc.).
+			'testing-library/no-unnecessary-act': 'error',
+
+			// Require `await` on async queries and utilities.
+			'testing-library/await-async-queries': 'error',
+			'testing-library/await-async-utils': 'error',
+			'testing-library/no-await-sync-queries': 'error',
+		},
 	},
 	// --- End Positron ---
 	// TS

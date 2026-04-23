@@ -103,7 +103,7 @@ describe('NotebookErrorBoundary', () => {
 
 				// Level-specific class is structural; no semantic handle exposes the level.
 				expect(rendered.container.querySelector(`.notebook-error-boundary-${level}`)).toBeInTheDocument();
-				expect(rendered.getByText(message)).toBeInTheDocument();
+				rendered.getByText(message);
 				rendered.unmount();
 			}
 		});
@@ -207,10 +207,8 @@ describe('NotebookErrorBoundary', () => {
 					</NotebookErrorBoundary>
 				);
 
-				expect(
-					getByRole('button', { name: 'Retry' }),
-					`Retry button should exist for ${level} level`
-				).toBeInTheDocument();
+				// Assertion is the getByRole call itself -- no explicit matcher needed.
+				getByRole('button', { name: 'Retry' });
 				unmount();
 			}
 		});
@@ -288,10 +286,8 @@ describe('NotebookErrorBoundary', () => {
 				</NotebookErrorBoundary>
 			);
 
-			expect(
-				getByRole('alert'),
-				'Error boundary should catch provider errors'
-			).toBeInTheDocument();
+			// Assertion is the getByRole call itself; it throws if not found.
+			getByRole('alert');
 			expect(errorSpy).toHaveBeenCalledOnce();
 			const logMessage = errorSpy.mock.calls[0][0] as string;
 			expect(logMessage, 'Log should include the provider error message').toContain('provider error');
