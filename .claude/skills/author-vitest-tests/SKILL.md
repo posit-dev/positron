@@ -15,17 +15,11 @@ $ARGUMENTS may contain:
 - A PR number (e.g., `#12242` or `12242`) to analyze a pull request
 - A PR URL (e.g., `https://github.com/posit-dev/positron/pull/12242`)
 
-## Single file vs branch/PR
+## Phase 1: Branch/PR Analysis
 
-If the argument is a specific source file path, skip Phase 1 and go directly to Phase 2 Prepare.
+**Skip this phase** if the argument is a specific source file path -- go directly to Phase 2 Prepare.
 
-If the argument is a branch name, PR number, or PR URL, run Phase 1 first to scope which files need tests, then proceed to Phase 2.
-
-## Phase 1: Branch/PR Analysis (only when needed)
-
-Use this when the user provides a branch, PR, or asks "what tests should I write?" without naming a specific file.
-
-Spawn an analysis subagent to produce a structured test plan. This keeps the analysis work out of the main agent's context.
+Run this phase when the argument is a branch name, PR number, or PR URL, or the user asks "what tests should I write?" without naming a file. Spawn an analysis subagent to produce a structured test plan -- this keeps the analysis work out of the main agent's context.
 
 ```
 Agent({
@@ -102,9 +96,10 @@ Wait for confirmation before proceeding to Phase 2.
 Gather the context you need before drafting the plan:
 
 1. **Read the source file** and 1-2 existing tests in the same directory for patterns.
-2. **Read the rules:** `.claude/rules/vitest-tests.md` (core). For a `.vitest.tsx` source file, also read `.claude/rules/vitest-rtl.md` (React queries, matchers, escape hatches, lint rules).
-3. **Skim the decision table** in [`CLAUDE.md`](../../../CLAUDE.md#testing) -- the "Where should I put my test?" section is the source of truth for pattern selection.
-4. **Skim the builder JSDoc** in `src/vs/test/vitest/positronTestContainer.ts` for the preset hierarchy. Start low and let errors guide you up.
+2. **Skim the decision table** in [`CLAUDE.md`](../../../CLAUDE.md#testing) -- the "Where should I put my test?" section is the source of truth for pattern selection.
+3. **Skim the builder JSDoc** in `src/vs/test/vitest/positronTestContainer.ts` for preset method names and hierarchy. Start low and let errors guide you up.
+
+The rules files (`.claude/rules/vitest-tests.md` and, for `.vitest.tsx`, `.claude/rules/vitest-rtl.md`) are referenced throughout the rest of this skill -- Read them when a step points you at a specific section.
 
 ### Draft the test plan and confirm with the dev (MANDATORY)
 
@@ -118,7 +113,7 @@ Format the plan like this:
 >
 > <One-sentence reasoning grounded in what you observed in the source file -- e.g., "the component takes `contextMenuService` as a prop and neither it nor its child Button uses `usePositronReactServicesContext`". Cite specific evidence (prop shapes, context-hook usage, service dependencies). Do not give generic reasoning like "this is a React component".>
 >
-> **Preset:** <bare / runtime / notebook / workbench> + <.withReactServices() / .withContributionServices()> if layered
+> **Preset:** `createTestContainer()` + preset method from `positronTestContainer.ts` (e.g. `.withRuntimeServices()`, `.withNotebookServices()`, `.withWorkbenchServices()`, or no base call for plain tests), optionally layered with `.withReactServices()` or `.withContributionServices()`.
 >
 > **Stubs:** short list of services you intend to stub, with a one-line reason each
 >
@@ -145,30 +140,20 @@ If the dev asks for changes, revise the plan and re-present. Repeat until confir
 
 For each approved item:
 
-1. **Write the test** following the appropriate pattern from the rules files:
-   - Add `/// <reference types="vitest/globals" />` after the Posit Software copyright header.
-   - Use tabs for indentation.
-   - File name: `<source-name>.vitest.ts` (or `.vitest.tsx` for React components).
-   - Place the test in `test/browser/` or `test/common/` adjacent to the source module. Match `test/` vs `tests/` per existing convention. If no test directory exists yet, create the matching one.
-   - Use `expect()` assertions, not `assert`.
+1. **Write the test** following the conventions in [`.claude/rules/vitest-tests.md`](../../rules/vitest-tests.md) (file layout, `/// <reference>`, assertions, builder usage, inline snapshots). For React tests, also follow [`.claude/rules/vitest-rtl.md`](../../rules/vitest-rtl.md). Authoring-specific quality bar:
+   - Each describe block: happy path, boundary case, and at least one negative case.
+   - If setup exceeds ~20 lines of stubs, extract a helper function.
+   - Minimize imports: if you're importing 5+ service identifiers just for `.stub()` calls, extract a helper.
 
-   **Quality checklist:**
-   - Each describe block: happy path, boundary case, and at least one negative case
-   - Use `toMatchInlineSnapshot()` for output with many related properties or exact-preservation tests; project structured objects to relevant fields first (`expect({ kind, source }).toMatchInlineSnapshot(...)`). Prefer `.toBe(...)` for simple values
-   - If setup exceeds ~20 lines of stubs, extract a helper function
-   - **Minimize imports.** If you're importing 5+ service identifiers just for `.stub()` calls, extract a helper. Use `Event.None` for events the test never fires.
-   - For React tests: follow the query priority + explicit-assertion conventions in `vitest-rtl.md`. Lint (`eslint-plugin-testing-library`) enforces most of them -- run `npx eslint <file>` before considering a test done.
+2. **Run the test:** `npx vitest run <path-to-test-file>`. Iterate on missing stubs per the "start low, let errors guide you up" pattern in the rules file's Builder section.
 
-2. **Run the test:** `npx vitest run <path-to-test-file>`
+3. **Check coverage** for React component tests: `npx vitest run --coverage --coverage.include='**/sourceFile.tsx' <path-to-test-file>`
 
-   **Don't guess -- iterate.** If the test fails with "X is not a function" or "Cannot read properties of undefined," add `.stub(IMissingService, {})` and re-run. Stub just the method actually called (`.stub(IService, { getDoc: () => undefined })`). For events the test doesn't fire, use `Event.None`. For events it fires, create an `Emitter` at describe level.
+4. **For React tests**, run `npx eslint <file>` before considering it done -- `eslint-plugin-testing-library` enforces most of the RTL conventions.
 
-3. **Check coverage** for React component tests:
-   `npx vitest run --coverage --coverage.include='**/sourceFile.tsx' <path-to-test-file>`
+5. Move to the next file. Do NOT ask the dev after each file.
 
-4. Move to the next file. Do NOT ask the dev after each file.
-
-5. After all tests pass, run the full Vitest suite: `npm run test:positron`
+6. After all tests pass, run the full Vitest suite: `npm run test:positron`
 
 ### Builder enforcement
 
