@@ -33,7 +33,11 @@ async function launchBrowser(options: LaunchOptions, serverUrl: string) {
 
 	browser.on('disconnected', () => logger.log(`Playwright: browser disconnected`));
 
-	const context = await measureAndLog(() => browser.newContext(), 'browser.newContext', logger);
+	const context = await measureAndLog(() => browser.newContext({
+		// Allow popups/new tabs (needed for Jupyter launcher interactions)
+		ignoreHTTPSErrors: true,
+		bypassCSP: true
+	}), 'browser.newContext', logger);
 
 	if (tracing) {
 		try {
