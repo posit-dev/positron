@@ -15,15 +15,11 @@ $ARGUMENTS may contain:
 - A PR number (e.g., `#12242` or `12242`) to analyze a pull request
 - A PR URL (e.g., `https://github.com/posit-dev/positron/pull/12242`)
 
-## Single file (most common)
+## Single file vs branch/PR
 
-If the user points at a specific file or component (e.g., "write tests for emptyConsole.tsx"):
+If the argument is a specific source file path, skip Phase 1 and go directly to Phase 2 Prepare.
 
-1. Read the source file
-2. Determine the pattern from the CLAUDE.md decision table
-3. Go to Phase 2 -- the first step of Phase 2 is a mandatory plan-first check-in with the dev before any code is written
-
-Skip Phase 1 entirely -- no branch analysis needed.
+If the argument is a branch name, PR number, or PR URL, run Phase 1 first to scope which files need tests, then proceed to Phase 2.
 
 ## Phase 1: Branch/PR Analysis (only when needed)
 
@@ -147,8 +143,6 @@ If the dev asks for changes, revise the plan and re-present. Repeat until confir
 
 ### Writing each test
 
-**Don't guess -- iterate.** Run the test. If it fails with "X is not a function" or "Cannot read properties of undefined," the service is missing. Add `.stub(IMissingService, {})` and run again. If a specific method is called, stub just that method: `.stub(IService, { getDoc: () => undefined })`. If the code subscribes to an event, stub the event: `.stub(IService, { onDidChange: Event.None })` (use `Event.None` for events the test doesn't fire, or create an `Emitter` at describe level for events it does fire).
-
 For each approved item:
 
 1. **Write the test** following the appropriate pattern from the rules files:
@@ -165,14 +159,16 @@ For each approved item:
    - **Minimize imports.** If you're importing 5+ service identifiers just for `.stub()` calls, extract a helper. Use `Event.None` for events the test never fires.
    - For React tests: follow the query priority + explicit-assertion conventions in `vitest-rtl.md`. Lint (`eslint-plugin-testing-library`) enforces most of them -- run `npx eslint <file>` before considering a test done.
 
-4. **Run the test:** `npx vitest run <path-to-test-file>`
+2. **Run the test:** `npx vitest run <path-to-test-file>`
 
-5. **Check coverage** for React component tests:
+   **Don't guess -- iterate.** If the test fails with "X is not a function" or "Cannot read properties of undefined," add `.stub(IMissingService, {})` and re-run. Stub just the method actually called (`.stub(IService, { getDoc: () => undefined })`). For events the test doesn't fire, use `Event.None`. For events it fires, create an `Emitter` at describe level.
+
+3. **Check coverage** for React component tests:
    `npx vitest run --coverage --coverage.include='**/sourceFile.tsx' <path-to-test-file>`
 
-6. Move to the next file. Do NOT ask the dev after each file.
+4. Move to the next file. Do NOT ask the dev after each file.
 
-7. After all tests pass, run the full Vitest suite: `npm run test:positron`
+5. After all tests pass, run the full Vitest suite: `npm run test:positron`
 
 ### Builder enforcement
 
@@ -207,13 +203,10 @@ Present the dev with a summary:
 - What was fixed
 - Final test results (pass count, coverage if applicable)
 
-## Key Rules
+## Hard rules
 
-- **Show your reasoning** for preset and pattern choices.
-- **Don't over-test.** Public behavior, not implementation details.
-- **Don't over-mock.** Start with the preset, add stubs incrementally.
+- **Don't over-test.** Test public behavior, not implementation details.
 - **Don't export internals for testing.** Test behavior through rendered output or public API.
 - **Don't write E2E tests.** Flag for E2E if needed, but don't write them.
 - **Don't modify upstream VS Code tests.**
 - **Don't auto-commit.**
-- **Don't skip the review.** Phase 3 is not optional.
