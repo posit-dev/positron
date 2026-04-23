@@ -21,8 +21,16 @@ interface P3MPackageMetadata {
     readonly downloads: number | null;
     readonly available_versions?: readonly string[];
     readonly dependencies?: {
-        readonly imports?: ReadonlyArray<{ readonly name: string; readonly version?: string; readonly operator?: string }>;
-        readonly suggests?: ReadonlyArray<{ readonly name: string; readonly version?: string; readonly operator?: string }>;
+        readonly imports?: ReadonlyArray<{
+            readonly name: string;
+            readonly version?: string;
+            readonly operator?: string;
+        }>;
+        readonly suggests?: ReadonlyArray<{
+            readonly name: string;
+            readonly version?: string;
+            readonly operator?: string;
+        }>;
     };
 }
 
