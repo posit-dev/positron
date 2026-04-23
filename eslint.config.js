@@ -205,8 +205,7 @@ export default tseslint.config(
 			// Require `expect(getBy*(...)).toBeInTheDocument()` for pure
 			// existence checks rather than a bare `getBy*(...)` statement.
 			// Every assertion in a test then leads with `expect(`, which
-			// reads more uniformly. Matches Testing Library maintainers'
-			// recommendation and Kent C. Dodds' "Common Mistakes" #18.
+			// reads more uniformly.
 			'testing-library/prefer-explicit-assert': 'error',
 
 			// Flag expect(queryBy*).toBeInTheDocument() -- should use getBy*
@@ -236,13 +235,11 @@ export default tseslint.config(
 			// Prefer @testing-library/user-event over fireEvent -- user-event
 			// fires the full event sequence a real user triggers (e.g. click
 			// fires pointerdown/mousedown/pointerup/mouseup/click), while
-			// fireEvent dispatches one synthetic event. Kent's "Common Mistakes
-			// with React Testing Library" #12.
+			// fireEvent dispatches one synthetic event.
 			'testing-library/prefer-user-event': 'error',
 
-			// Prefer `screen.getByX` over destructuring queries from render.
-			// Kent's "Common Mistakes with React Testing Library" #4 -- avoids
-			// needing to update destructuring as queries change.
+			// Prefer `screen.getByX` over destructuring queries from render --
+			// avoids needing to update destructuring as queries change.
 			'testing-library/prefer-screen-queries': 'error',
 		},
 	},
