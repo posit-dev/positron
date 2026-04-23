@@ -5,51 +5,43 @@
 
 /// <reference types="vitest/globals" />
 
-/* eslint-disable no-restricted-syntax */
-
 import { ActionBarWidget } from '../../browser/components/actionBarWidget.js';
 import { IPositronActionBarWidgetDescriptor } from '../../browser/positronActionBarWidgetRegistry.js';
 import { MenuId } from '../../../actions/common/actions.js';
-import { ICommandService, CommandsRegistry } from '../../../commands/common/commands.js';
-import { ServiceIdentifier, ServicesAccessor } from '../../../instantiation/common/instantiation.js';
-import { ensureNoLeakedDisposables } from '../../../../test/vitest/vitestUtils.js';
+import { ICommandEvent, ICommandService, CommandsRegistry } from '../../../commands/common/commands.js';
+import { ServicesAccessor } from '../../../instantiation/common/instantiation.js';
 import { setupRTLRenderer } from '../../../../test/vitest/reactTestingLibrary.js';
-import { PositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
-import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
-import { TestCommandService } from '../../../../editor/test/browser/editorTestServices.js';
-import { TestInstantiationService } from '../../../instantiation/test/common/instantiationServiceMock.js';
-import { Event } from '../../../../base/common/event.js';
+import { createTestContainer } from '../../../../test/vitest/positronTestContainer.js';
+import { Emitter, Event } from '../../../../base/common/event.js';
+import { fireEvent } from '@testing-library/react';
 
 describe('ActionBarWidget', () => {
-	const disposables = ensureNoLeakedDisposables();
-	const rtl = setupRTLRenderer();
-
-	let mockServicesAccessor: PositronReactServices;
-	let commandService: TestCommandService;
-
-	/** Helper to render ActionBarWidget with context. */
-	function renderWidget(descriptor: IPositronActionBarWidgetDescriptor) {
-		return rtl.render(
-			<PositronReactServicesContext.Provider value={mockServicesAccessor}>
-				<ActionBarWidget descriptor={descriptor} />
-			</PositronReactServicesContext.Provider>
-		);
-	}
-
-	beforeEach(() => {
-		const instantiationService = disposables.add(new TestInstantiationService());
-		commandService = new TestCommandService(instantiationService);
-		mockServicesAccessor = ({
-			get<T>(serviceId: ServiceIdentifier<T>): T {
-				if (serviceId === ICommandService) {
-					return commandService as T;
-				}
-				throw new Error(`Service ${serviceId} not mocked`);
+	// Minimal ICommandService stub: fires onWillExecuteCommand and resolves the
+	// registered handler. Inlined here to keep tests decoupled from upstream
+	// editor test helpers that require extra plumbing.
+	const onWillExecuteCommand = new Emitter<ICommandEvent>();
+	const onDidExecuteCommand = new Emitter<ICommandEvent>();
+	const commandService = {
+		onWillExecuteCommand: onWillExecuteCommand.event,
+		onDidExecuteCommand: onDidExecuteCommand.event,
+		executeCommand: async (id: string, ...args: unknown[]) => {
+			const command = CommandsRegistry.getCommand(id);
+			if (!command) {
+				throw new Error(`command '${id}' not found`);
 			}
-		} satisfies Partial<PositronReactServices>) as PositronReactServices;
-	});
+			onWillExecuteCommand.fire({ commandId: id, args });
+			onDidExecuteCommand.fire({ commandId: id, args });
+			return undefined;
+		},
+	};
 
-	it('renders a simple widget component', async () => {
+	const ctx = createTestContainer()
+		.withReactServices()
+		.stub(ICommandService, commandService)
+		.build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	it('renders a simple widget component', () => {
 		const descriptor: IPositronActionBarWidgetDescriptor = {
 			id: 'test.widget',
 			menuId: MenuId.EditorActionsRight,
@@ -57,14 +49,13 @@ describe('ActionBarWidget', () => {
 			componentFactory: () => () => <span className='test-widget-content'>Test Widget</span>
 		};
 
-		const { container } = renderWidget(descriptor);
+		const { getByText } = rtl.render(<ActionBarWidget descriptor={descriptor} />);
 
-		const widgetContent = container.querySelector('.test-widget-content');
-		expect(widgetContent, 'Expected to find widget content').not.toBeNull();
-		expect(widgetContent!.textContent).toBe('Test Widget');
+		expect(getByText('Test Widget')).toBeInTheDocument();
+		expect(getByText('Test Widget')).toHaveClass('test-widget-content');
 	});
 
-	it('widget can access services via accessor', async () => {
+	it('widget can access services via accessor', () => {
 		let receivedAccessor: ServicesAccessor | undefined;
 
 		const descriptor: IPositronActionBarWidgetDescriptor = {
@@ -77,13 +68,14 @@ describe('ActionBarWidget', () => {
 			}
 		};
 
-		renderWidget(descriptor);
+		rtl.render(<ActionBarWidget descriptor={descriptor} />);
 
 		expect(receivedAccessor, 'Widget should receive services accessor').toBeDefined();
-		expect(receivedAccessor).toBe(mockServicesAccessor);
+		// Verify the accessor resolves the stubbed ICommandService (proves it's the test container).
+		expect(receivedAccessor!.get(ICommandService)).toBe(commandService);
 	});
 
-	it('command-driven widget renders as button', async () => {
+	it('command-driven widget renders as button', () => {
 		const descriptor: IPositronActionBarWidgetDescriptor = {
 			id: 'test.command.widget',
 			menuId: MenuId.EditorActionsRight,
@@ -94,17 +86,16 @@ describe('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Command Widget</span>
 		};
 
-		const { container } = renderWidget(descriptor);
+		const { getByRole } = rtl.render(<ActionBarWidget descriptor={descriptor} />);
 
-		const button = container.querySelector('button.action-bar-widget');
-		expect(button, 'Expected to find button element').not.toBeNull();
-		expect(button!.getAttribute('aria-label')).toBe('Test Command');
-		expect(button!.getAttribute('title')).toBe('Execute test command');
+		const button = getByRole('button', { name: 'Test Command' });
+		expect(button).toHaveClass('action-bar-widget');
+		expect(button).toHaveAttribute('title', 'Execute test command');
 	});
 
 	it('command-driven widget executes command on click', async () => {
 		// Register a test command
-		disposables.add(CommandsRegistry.registerCommand('test.click.command', () => { }));
+		ctx.disposables.add(CommandsRegistry.registerCommand('test.click.command', () => { }));
 
 		const descriptor: IPositronActionBarWidgetDescriptor = {
 			id: 'test.clickable.widget',
@@ -116,24 +107,22 @@ describe('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Click Me</span>
 		};
 
-		const { container } = renderWidget(descriptor);
-
-		const button = container.querySelector<HTMLButtonElement>('button.action-bar-widget');
-		expect(button, 'Expected to find button').not.toBeNull();
+		const { getByRole } = rtl.render(<ActionBarWidget descriptor={descriptor} />);
+		const button = getByRole('button', { name: 'Clickable Widget' });
 
 		// Simulate click
 		const commandPromise = Event.toPromise(commandService.onWillExecuteCommand);
-		button!.click();
+		fireEvent.click(button);
 
 		// Wait for click handler
 		const command = await commandPromise;
-		expect(command.commandId, 'Expected commandId to match').toBe('test.click.command');
-		expect(command.args, 'Command should be called with correct arguments').toEqual([{ arg1: 'value1' }]);
+		expect(command.commandId).toBe('test.click.command');
+		expect(command.args).toEqual([{ arg1: 'value1' }]);
 	});
 
 	it('command-driven widget executes command on Enter key', async () => {
 		// Register a test command
-		disposables.add(CommandsRegistry.registerCommand('test.keyboard.command', () => { }));
+		ctx.disposables.add(CommandsRegistry.registerCommand('test.keyboard.command', () => { }));
 
 		const descriptor: IPositronActionBarWidgetDescriptor = {
 			id: 'test.keyboard.widget',
@@ -144,23 +133,20 @@ describe('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Press Enter</span>
 		};
 
-		const { container } = renderWidget(descriptor);
-
-		const button = container.querySelector<HTMLButtonElement>('button.action-bar-widget');
-		expect(button, 'Expected to find button').not.toBeNull();
+		const { getByRole } = rtl.render(<ActionBarWidget descriptor={descriptor} />);
+		const button = getByRole('button', { name: 'Keyboard Widget' });
 
 		// Simulate Enter key press
 		const commandPromise = Event.toPromise(commandService.onWillExecuteCommand);
-		const enterEvent = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true });
-		button!.dispatchEvent(enterEvent);
+		fireEvent.keyDown(button, { key: 'Enter' });
 
 		const command = await commandPromise;
-		expect(command.commandId, 'Command should be executed on Enter').toBe('test.keyboard.command');
+		expect(command.commandId).toBe('test.keyboard.command');
 	});
 
 	it('command-driven widget executes command on Space key', async () => {
 		// Register a test command
-		disposables.add(CommandsRegistry.registerCommand('test.space.command', () => { }));
+		ctx.disposables.add(CommandsRegistry.registerCommand('test.space.command', () => { }));
 
 		const descriptor: IPositronActionBarWidgetDescriptor = {
 			id: 'test.space.widget',
@@ -171,21 +157,18 @@ describe('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Press Space</span>
 		};
 
-		const { container } = renderWidget(descriptor);
-
-		const button = container.querySelector<HTMLButtonElement>('button.action-bar-widget');
-		expect(button, 'Expected to find button').not.toBeNull();
+		const { getByRole } = rtl.render(<ActionBarWidget descriptor={descriptor} />);
+		const button = getByRole('button', { name: 'Space Widget' });
 
 		// Simulate Space key press
 		const commandPromise = Event.toPromise(commandService.onWillExecuteCommand);
-		const spaceEvent = new KeyboardEvent('keydown', { key: ' ', bubbles: true });
-		button!.dispatchEvent(spaceEvent);
+		fireEvent.keyDown(button, { key: ' ' });
 
 		const command = await commandPromise;
-		expect(command.commandId, 'Command should be executed on Space').toBe('test.space.command');
+		expect(command.commandId).toBe('test.space.command');
 	});
 
-	it('self-contained widget renders as div (not button)', async () => {
+	it('self-contained widget renders as div (not button)', () => {
 		const descriptor: IPositronActionBarWidgetDescriptor = {
 			id: 'test.selfcontained.widget',
 			menuId: MenuId.EditorActionsRight,
@@ -194,16 +177,16 @@ describe('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Self Contained</span>
 		};
 
-		const { container } = renderWidget(descriptor);
+		const { getByText, queryByRole } = rtl.render(<ActionBarWidget descriptor={descriptor} />);
 
-		const div = container.querySelector('div.action-bar-widget');
-		expect(div, 'Expected to find div element').not.toBeNull();
-
-		const button = container.querySelector('button.action-bar-widget');
-		expect(button, 'Should not render as button when self-contained').toBe(null);
+		// Inner content renders, wrapped in a div (not a button)
+		const inner = getByText('Self Contained');
+		expect(inner.parentElement).toHaveClass('action-bar-widget');
+		expect(inner.parentElement!.tagName).toBe('DIV');
+		expect(queryByRole('button')).not.toBeInTheDocument();
 	});
 
-	it('legacy widget (no command, not self-contained) renders as div', async () => {
+	it('legacy widget (no command, not self-contained) renders as div', () => {
 		const descriptor: IPositronActionBarWidgetDescriptor = {
 			id: 'test.legacy.widget',
 			menuId: MenuId.EditorActionsRight,
@@ -212,16 +195,15 @@ describe('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Legacy Widget</span>
 		};
 
-		const { container } = renderWidget(descriptor);
+		const { getByText, queryByRole } = rtl.render(<ActionBarWidget descriptor={descriptor} />);
 
-		const div = container.querySelector('div.action-bar-widget');
-		expect(div, 'Expected to find div element for legacy widget').not.toBeNull();
-
-		const button = container.querySelector('button.action-bar-widget');
-		expect(button, 'Legacy widget should not render as button').toBe(null);
+		const inner = getByText('Legacy Widget');
+		expect(inner.parentElement).toHaveClass('action-bar-widget');
+		expect(inner.parentElement!.tagName).toBe('DIV');
+		expect(queryByRole('button')).not.toBeInTheDocument();
 	});
 
-	it('error boundary catches widget errors and shows error indicator', async () => {
+	it('error boundary catches widget errors and shows error indicator', () => {
 		// Create a component that throws an error
 		const ErrorComponent = () => {
 			throw new Error('Test widget error');
@@ -237,21 +219,20 @@ describe('ActionBarWidget', () => {
 		// Suppress console.error for this test since we expect an error
 		const consoleErrorStub = vi.spyOn(console, 'error').mockImplementation(() => { });
 
-		const { container } = renderWidget(descriptor);
+		// The error boundary renders a div with title="Widget error: ..." and a
+		// codicon-error child; getByTitle reliably finds it. The icon span is
+		// its only child so we read it via firstChild.
+		const { getByTitle } = rtl.render(<ActionBarWidget descriptor={descriptor} />);
 
-		const errorIndicator = container.querySelector('.action-bar-widget-error');
-		expect(errorIndicator, 'Expected to find error indicator').not.toBeNull();
-
-		const errorIcon = errorIndicator!.querySelector('.codicon-error');
-		expect(errorIcon, 'Expected to find error icon').not.toBeNull();
+		const errorIndicator = getByTitle(/Widget error:/);
+		expect(errorIndicator).toBeInTheDocument();
+		expect(errorIndicator.firstChild).toHaveClass('codicon-error');
 
 		// Verify error was logged
-		expect(consoleErrorStub, 'Error should be logged to console').toHaveBeenCalled();
-
-		consoleErrorStub.mockRestore();
+		expect(consoleErrorStub).toHaveBeenCalled();
 	});
 
-	it('error boundary shows error message in title attribute', async () => {
+	it('error boundary shows error message in title attribute', () => {
 		const ErrorComponent = () => {
 			throw new Error('Specific error message');
 		};
@@ -264,17 +245,10 @@ describe('ActionBarWidget', () => {
 		};
 
 		// Suppress console.error for this test
-		const consoleErrorStub = vi.spyOn(console, 'error').mockImplementation(() => { });
+		vi.spyOn(console, 'error').mockImplementation(() => { });
 
-		const { container } = renderWidget(descriptor);
+		const { getByTitle } = rtl.render(<ActionBarWidget descriptor={descriptor} />);
 
-		const errorIndicator = container.querySelector<HTMLElement>('.action-bar-widget-error');
-		expect(errorIndicator, 'Expected to find error indicator').not.toBeNull();
-
-		const title = errorIndicator!.getAttribute('title');
-		expect(title, 'Expected error indicator to have title').not.toBeNull();
-		expect(title!, 'Title should contain error message').toContain('Specific error message');
-
-		consoleErrorStub.mockRestore();
+		expect(getByTitle(/Specific error message/)).toBeInTheDocument();
 	});
 });
