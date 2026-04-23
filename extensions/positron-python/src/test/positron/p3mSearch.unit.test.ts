@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-'use strict';
-
 import { expect } from 'chai';
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';

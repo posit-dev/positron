@@ -3,7 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { CancelablePromise, createCancelablePromise } from '../../../../base/common/async.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
+import { isCancellationError } from '../../../../base/common/errors.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -47,8 +49,8 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	/** Cached metadata from P3M, keyed by lowercase package name */
 	private readonly _metadataCache = new Map<string, Partial<ILanguageRuntimePackage>>();
 
-	/** Guard to prevent concurrent metadata fetch calls */
-	private _metadataFetchInProgress = false;
+	/** Handle to the in-flight metadata fetch so re-entrance can supersede it */
+	private _metadataFetch?: CancelablePromise<void>;
 
 	private readonly _runtimeDisposableStore = this._register(new DisposableStore());
 
@@ -151,10 +153,11 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			return;
 		}
 
-		// Clear the cache to force a full refresh
+		// Cancel any in-flight fetch before clearing the cache so a stale
+		// fetch from refreshPackages can't repopulate it after the clear.
+		this._metadataFetch?.cancel();
 		this._metadataCache.clear();
 
-		// Fetch metadata for all packages
 		await this._fetchAndMergeMetadata(packageManager, effectiveToken);
 	}
 
@@ -185,46 +188,53 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	 */
 	private async _fetchAndMergeMetadata(
 		packageManager: { getPackageMetadata?: (names: string[], token?: CancellationToken) => Promise<Map<string, Partial<ILanguageRuntimePackage>> | undefined> },
-		token: CancellationToken,
+		externalToken: CancellationToken,
 	): Promise<void> {
-		// Guard against concurrent metadata fetch calls
-		if (this._metadataFetchInProgress) {
+		// Cancel any prior in-flight fetch so re-entrance supersedes rather than no-ops
+		this._metadataFetch?.cancel();
+
+		const uncachedPackages = this._packages.filter(
+			(pkg) => !this._metadataCache.has(pkg.name.toLowerCase())
+		);
+
+		if (uncachedPackages.length === 0) {
+			// All packages already have cached metadata, just fire the event
+			this._onDidRefreshPackagesInstance.fire(this.packages);
 			return;
 		}
 
-		try {
-			// Only fetch metadata for packages not already cached
-			const uncachedPackages = this._packages.filter(
-				(pkg) => !this._metadataCache.has(pkg.name.toLowerCase())
-			);
-
-			if (uncachedPackages.length === 0) {
-				// All packages already have cached metadata, just fire the event
-				this._onDidRefreshPackagesInstance.fire(this.packages);
-				return;
-			}
-
-			this._metadataFetchInProgress = true;
-
+		const fetch = createCancelablePromise<void>(async (token) => {
 			const packageNames = uncachedPackages.map((pkg) => pkg.name);
 			const metadataMap = await packageManager.getPackageMetadata!(packageNames, token);
 
+			// Re-check cancellation before writing so a cancelled fetch
+			// can't pollute the cache after a caller has cleared it.
 			if (token.isCancellationRequested || !metadataMap || metadataMap.size === 0) {
 				return;
 			}
 
-			// Store metadata in the cache
 			for (const [name, metadata] of metadataMap) {
 				this._metadataCache.set(name.toLowerCase(), metadata);
 			}
 
-			// Fire event with enriched packages (getter merges from cache)
 			this._onDidRefreshPackagesInstance.fire(this.packages);
+		});
+
+		this._metadataFetch = fetch;
+
+		const cancelSubscription = externalToken.onCancellationRequested(() => fetch.cancel());
+
+		try {
+			await fetch;
 		} catch (err) {
-			// Log but don't throw - metadata is optional enhancement
-			this._logService.warn(`[Packages] Failed to fetch package metadata: ${err}`);
+			if (!isCancellationError(err)) {
+				this._logService.warn(`[Packages] Failed to fetch package metadata: ${err}`);
+			}
 		} finally {
-			this._metadataFetchInProgress = false;
+			cancelSubscription.dispose();
+			if (this._metadataFetch === fetch) {
+				this._metadataFetch = undefined;
+			}
 		}
 	}
 
@@ -367,6 +377,11 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		// Clear all disposables associated with the attached runtime.
 		// We use clear() instead of dispose() to not mark the store as disposed.
 		this._runtimeDisposableStore.clear();
+	}
+
+	override dispose(): void {
+		this._metadataFetch?.cancel();
+		super.dispose();
 	}
 
 }

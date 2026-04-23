@@ -10,19 +10,19 @@ import * as vscode from 'vscode';
  * P3M package metadata returned from the API.
  */
 interface P3MPackageMetadata {
-    name: string;
-    version: string;
-    summary: string | null;
-    license: string | null;
-    licenses?: string[];
-    license_types?: string[];
-    package_date: string | null;
-    package_size: number | null;
-    downloads: number | null;
-    available_versions?: string[];
-    dependencies?: {
-        imports?: Array<{ name: string; version?: string; operator?: string }>;
-        suggests?: Array<{ name: string; version?: string; operator?: string }>;
+    readonly name: string;
+    readonly version: string;
+    readonly summary: string | null;
+    readonly license: string | null;
+    readonly licenses?: readonly string[];
+    readonly license_types?: readonly string[];
+    readonly package_date: string | null;
+    readonly package_size: number | null;
+    readonly downloads: number | null;
+    readonly available_versions?: readonly string[];
+    readonly dependencies?: {
+        readonly imports?: ReadonlyArray<{ readonly name: string; readonly version?: string; readonly operator?: string }>;
+        readonly suggests?: ReadonlyArray<{ readonly name: string; readonly version?: string; readonly operator?: string }>;
     };
 }
 
@@ -30,11 +30,11 @@ interface P3MPackageMetadata {
  * Request body for the P3M filter packages API.
  */
 interface P3MFilterRequest {
-    names: string[];
-    repo: string;
-    omit_downloads?: boolean;
-    omit_dependencies?: boolean;
-    omit_package_details?: boolean;
+    readonly names: readonly string[];
+    readonly repo: string;
+    readonly omit_downloads?: boolean;
+    readonly omit_dependencies?: boolean;
+    readonly omit_package_details?: boolean;
 }
 
 /**
@@ -82,9 +82,8 @@ export async function fetchP3MPackageMetadata(
         omit_package_details: false,
     };
 
-    const controller = token ? new AbortController() : undefined;
-    const cancelSubscription =
-        controller && token ? token.onCancellationRequested(() => controller.abort()) : undefined;
+    const controller = new AbortController();
+    const cancelSubscription = token?.onCancellationRequested(() => controller.abort());
 
     try {
         const response = await fetch('https://p3m.dev/__api__/filter/packages', {
@@ -94,7 +93,7 @@ export async function fetchP3MPackageMetadata(
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify(requestBody),
-            signal: controller?.signal,
+            signal: controller.signal,
         });
 
         if (!response.ok) {
