@@ -26,6 +26,17 @@ export interface IPositronPackagesService {
 	readonly activePackagesInstance: IPositronPackagesInstance | undefined;
 
 	/**
+	 * The currently selected package name in the packages view, if any.
+	 */
+	readonly selectedPackage: string | undefined;
+
+	/**
+	 * Sets the currently selected package.
+	 * @param packageName The package name, or undefined to clear selection
+	 */
+	setSelectedPackage(packageName: string | undefined): void;
+
+	/**
 	 * The onDidRefreshPackagesInstance event.
 	 */
 	readonly onDidChangeActivePackagesInstance: Event<IPositronPackagesInstance | undefined>;
@@ -39,6 +50,12 @@ export interface IPositronPackagesService {
 	 * @param token Optional cancellation token
 	 */
 	refreshPackages(token?: CancellationToken): Promise<ILanguageRuntimePackage[]>;
+
+	/**
+	 * Force refresh package metadata, clearing the cache.
+	 * @param token Optional cancellation token
+	 */
+	refreshMetadata(token?: CancellationToken): Promise<void>;
 
 	/**
 	 * Install packages in the active session.

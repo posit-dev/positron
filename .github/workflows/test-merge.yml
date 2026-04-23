@@ -71,9 +71,9 @@ jobs:
     with:
       save_cache: true  # Saves Ubuntu caches for subsequent runs
 
-  integration-tests:
+  ext-host-tests:
     name: test
-    uses: ./.github/workflows/test-integration.yml
+    uses: ./.github/workflows/test-ext-host.yml
     secrets: inherit
     with:
       pull_request: false
@@ -84,7 +84,7 @@ jobs:
       [
         setup,
         unit-tests,
-        integration-tests,
+        ext-host-tests,
         e2e-electron,
         e2e-windows,
         e2e-ubuntu-chromium,
@@ -97,9 +97,24 @@ jobs:
           gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
           slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
           slack_channel: "#positron-test-results"
-          filter_jobs: "(e2e / ([^0-9]*)|unit|integration)$"
+          filter_jobs: "(e2e / ([^0-9]*)|unit|ext-host)$"
           include_job_durations: false
           notify_on: "failure"
+
+      - name: Checkout
+        if: always()
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: .github/actions/notify-e2e-insights
+
+      - name: Notify E2E Test Insights
+        if: always()
+        uses: ./.github/actions/notify-e2e-insights
+        with:
+          webhook_secret: ${{ secrets.E2E_INSIGHTS_WEBHOOK_SECRET }}
+          connect_api_key: ${{ secrets.CONNECT_API_KEY }}
+          repo_id: "positron"
+          filter_jobs: "(e2e / ([^0-9]*)|unit|ext-host)$"
 
   slack-notify-win-extensions:
     if: ${{ needs.e2e-windows-electron.outputs.extensions_failed == 'true' }}

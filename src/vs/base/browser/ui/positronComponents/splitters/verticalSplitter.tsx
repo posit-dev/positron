@@ -7,7 +7,7 @@
 import './verticalSplitter.css';
 
 // React.
-import React, { PointerEvent, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../dom.js';
@@ -71,7 +71,7 @@ export interface VerticalSplitterResizeParams {
  * @param configurationService The configuration service.
  * @returns The sash size.
  */
-const getSashSize = (configurationService: IConfigurationService) =>
+export const getSashSize = (configurationService: IConfigurationService) =>
 	configurationService.getValue<number>('workbench.sash.size');
 
 /**
@@ -79,7 +79,7 @@ const getSashSize = (configurationService: IConfigurationService) =>
  * @param configurationService The configuration service.
  * @returns The hover delay.
  */
-const getHoverDelay = (configurationService: IConfigurationService) =>
+export const getHoverDelay = (configurationService: IConfigurationService) =>
 	configurationService.getValue<number>('workbench.sash.hoverDelay');
 
 
@@ -90,7 +90,7 @@ const getHoverDelay = (configurationService: IConfigurationService) =>
  * @param element The element.
  * @returns true, if the point is inside the specified element; otherwise, false.
  */
-const isPointInsideElement = (x: number, y: number, element?: HTMLElement) => {
+export const isPointInsideElement = (x: number, y: number, element?: HTMLElement) => {
 	if (!element) {
 		return false;
 	}
@@ -148,8 +148,8 @@ export const VerticalSplitter = ({
 	const services = usePositronReactServicesContext();
 
 	// Reference hooks.
-	const sashRef = useRef<HTMLDivElement>(undefined!);
 	const expandCollapseButtonRef = useRef<HTMLButtonElement>(undefined!);
+	const hoverDelayerRef = useRef<Delayer<void>>(undefined);
 
 	// State hooks.
 	const [splitterWidth, setSplitterWidth] = useState(
@@ -159,10 +159,8 @@ export const VerticalSplitter = ({
 		calculateSashWidth(services.configurationService, collapsible)
 	);
 	const [sashIndicatorWidth, setSashIndicatorWidth] = useState(getSashSize(services.configurationService));
-	const [hoverDelay, setHoverDelay] = useState(getHoverDelay(services.configurationService));
 	const [hovering, setHovering] = useState(false);
 	const [highlightExpandCollapse, setHighlightExpandCollapse] = useState(false);
-	const [hoveringDelayer, setHoveringDelayer] = useState<Delayer<void>>(undefined!);
 	const [collapsed, setCollapsed, collapsedRef] = useStateRef(isCollapsed);
 	const [resizing, setResizing] = useState(false);
 
@@ -170,6 +168,10 @@ export const VerticalSplitter = ({
 	useEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
+
+		// Set the hover delayer.
+		const hoverDelay = getHoverDelay(services.configurationService);
+		hoverDelayerRef.current = disposableStore.add(new Delayer<void>(hoverDelay));
 
 		// Add the onDidChangeConfiguration event handler.
 		disposableStore.add(
@@ -184,15 +186,12 @@ export const VerticalSplitter = ({
 					}
 
 					// Track changes to workbench.sash.hoverDelay.
-					if (configurationChangeEvent.affectedKeys.has('workbench.sash.hoverDelay')) {
-						setHoverDelay(getHoverDelay(services.configurationService));
+					if (configurationChangeEvent.affectedKeys.has('workbench.sash.hoverDelay') && hoverDelayerRef.current) {
+						hoverDelayerRef.current.defaultDelay = getHoverDelay(services.configurationService);
 					}
 				}
 			})
 		);
-
-		// Set the hover delayer.
-		setHoveringDelayer(disposableStore.add(new Delayer<void>(0)));
 
 		// Return the cleanup function that will dispose of the disposables.
 		return () => disposableStore.dispose();
@@ -208,14 +207,15 @@ export const VerticalSplitter = ({
 	 * @param e A PointerEvent that describes a user interaction with the pointer.
 	 */
 	const sashPointerEnterHandler = (e: React.PointerEvent<HTMLDivElement>) => {
-		hoveringDelayer.trigger(() => {
+		const sash = e.currentTarget;
+		hoverDelayerRef.current?.trigger(() => {
 			setHovering(true);
-			const rect = sashRef.current.getBoundingClientRect();
+			const rect = sash.getBoundingClientRect();
 			if (e.clientY >= rect.top + EXPAND_COLLAPSE_BUTTON_TOP &&
 				e.clientY <= rect.top + EXPAND_COLLAPSE_BUTTON_TOP + EXPAND_COLLAPSE_BUTTON_SIZE) {
 				setHighlightExpandCollapse(true);
 			}
-		}, hoverDelay);
+		});
 	};
 
 	/**
@@ -223,9 +223,10 @@ export const VerticalSplitter = ({
 	 * @param e A PointerEvent that describes a user interaction with the pointer.
 	 */
 	const sashPointerLeaveHandler = (e: React.PointerEvent<HTMLDivElement>) => {
-		// When not resizing, trigger the delayer.
+		// When not resizing, unset hover.
 		if (!resizing) {
-			hoveringDelayer.trigger(() => setHovering(false), hoverDelay);
+			hoverDelayerRef.current?.cancel();
+			setHovering(false);
 		}
 	};
 
@@ -234,7 +235,7 @@ export const VerticalSplitter = ({
 	 * @param e A PointerEvent that describes a user interaction with the pointer.
 	 */
 	const expandCollapseButtonPointerEnterHandler = (e: React.PointerEvent<HTMLDivElement>) => {
-		hoveringDelayer.cancel();
+		hoverDelayerRef.current?.cancel();
 		setHovering(true);
 		setHighlightExpandCollapse(true);
 	};
@@ -244,7 +245,8 @@ export const VerticalSplitter = ({
 	 * @param e A PointerEvent that describes a user interaction with the pointer.
 	 */
 	const expandCollapseButtonPointerLeaveHandler = (e: React.PointerEvent<HTMLDivElement>) => {
-		hoveringDelayer.trigger(() => setHovering(false), hoverDelay);
+		hoverDelayerRef.current?.cancel();
+		setHovering(false);
 		setHighlightExpandCollapse(false);
 	};
 
@@ -261,7 +263,7 @@ export const VerticalSplitter = ({
 			onCollapsedChanged?.(false);
 		}
 
-		hoveringDelayer.cancel();
+		hoverDelayerRef.current?.cancel();
 		setHovering(false);
 		setHighlightExpandCollapse(false);
 	};
@@ -290,9 +292,10 @@ export const VerticalSplitter = ({
 		// Setup the resize state.
 		const resizeParams = onBeginResize();
 		const startingWidth = collapsed ? sashWidth : resizeParams.startingWidth;
-		const target = DOM.getWindow(e.currentTarget).document.body;
+		const sash = e.currentTarget;
+		const body = DOM.getWindow(e.currentTarget).document.body;
 		const clientX = e.clientX;
-		const styleSheet = createStyleSheet(target);
+		const styleSheet = createStyleSheet(body);
 
 		/**
 		 * pointermove event handler.
@@ -355,18 +358,16 @@ export const VerticalSplitter = ({
 			pointerMoveHandler(e);
 
 			// Remove our pointer event handlers.
-			// @ts-ignore
-			target.removeEventListener('pointermove', pointerMoveHandler);
-			// @ts-ignore
-			target.removeEventListener('lostpointercapture', lostPointerCaptureHandler);
+			sash.removeEventListener('pointermove', pointerMoveHandler);
+			sash.removeEventListener('lostpointercapture', lostPointerCaptureHandler);
 
 			// Remove the style sheet.
-			target.removeChild(styleSheet);
+			body.removeChild(styleSheet);
 
 			// Clear the resizing flag.
 			setResizing(false);
-			hoveringDelayer.cancel();
-			setHovering(isPointInsideElement(e.clientX, e.clientY, sashRef.current));
+			hoverDelayerRef.current?.cancel();
+			setHovering(isPointInsideElement(e.clientX, e.clientY, sash));
 		};
 
 		// Set the dragging flag
@@ -374,11 +375,9 @@ export const VerticalSplitter = ({
 
 		// Set the capture target of future pointer events to be the current target and add our
 		// pointer event handlers.
-		target.setPointerCapture(e.pointerId);
-		// @ts-ignore
-		target.addEventListener('pointermove', pointerMoveHandler);
-		// @ts-ignore
-		target.addEventListener('lostpointercapture', lostPointerCaptureHandler);
+		sash.setPointerCapture(e.pointerId);
+		sash.addEventListener('pointermove', pointerMoveHandler);
+		sash.addEventListener('lostpointercapture', lostPointerCaptureHandler);
 	};
 
 	// Render.
@@ -393,7 +392,6 @@ export const VerticalSplitter = ({
 			}}
 		>
 			<div
-				ref={sashRef}
 				className='sash'
 				style={{
 					left: collapsible ? -1 : -(sashWidth / 2),

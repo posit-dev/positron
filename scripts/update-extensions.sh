@@ -95,15 +95,15 @@ split_extension_id() {
 	NAME="${BASH_REMATCH[2]}"
 }
 
-# Get latest version from Open VSX and detect platform-specific extensions
+# Get latest version from Posit Public Package Manager and detect platform-specific extensions
 get_extension_info() {
 	local publisher="$1"
 	local name="$2"
-	local url="https://open-vsx.org/api/${publisher}/${name}"
+	local url="https://p3m.dev/__api__/repos/openvsx/packages/${publisher}.${name}"
 	local response
 
 	if ! response=$(curl -s -f "$url" 2>/dev/null); then
-		echo -e "${RED}Error: Failed to fetch extension metadata from Open VSX${NC}" >&2
+		echo -e "${RED}Error: Failed to fetch extension metadata from Posit Public Package Manager${NC}" >&2
 		exit 1
 	fi
 
@@ -111,24 +111,13 @@ get_extension_info() {
 	EXTENSION_TARGET_PLATFORM=""
 
 	if command -v jq >/dev/null 2>&1; then
-		EXTENSION_VERSION=$(echo "$response" | jq -r '.versions[0].version // .version // empty')
-		EXTENSION_TARGET_PLATFORM=$(echo "$response" | jq -r '.versions[0].targetPlatform // .targetPlatform // empty')
+		EXTENSION_VERSION=$(echo "$response" | jq -r '.versions[0].version // empty')
+		EXTENSION_TARGET_PLATFORM=$(echo "$response" | jq -r '.versions[0].target_platform // empty')
 
-		# If no version found, try extracting from download URL
-		if [[ -z "$EXTENSION_VERSION" ]]; then
-			local download_url=$(echo "$response" | jq -r '.files.download // empty')
-			if [[ -n "$download_url" ]]; then
-				EXTENSION_VERSION=$(echo "$download_url" | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+[^/]*' | head -1)
-				# Extract target platform from URL if present
-				if [[ "$download_url" =~ /([^/]+)/[^/]*\.vsix$ && ! "${BASH_REMATCH[1]}" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
-					EXTENSION_TARGET_PLATFORM="${BASH_REMATCH[1]}"
-				fi
-			fi
-		fi
 	else
 		# Fallback parsing without jq
 		EXTENSION_VERSION=$(echo "$response" | grep -o '"version":"[^\"]*"' | head -1 | cut -d'"' -f4)
-		EXTENSION_TARGET_PLATFORM=$(echo "$response" | grep -o '"targetPlatform":"[^\"]*"' | head -1 | cut -d'"' -f4)
+		EXTENSION_TARGET_PLATFORM=$(echo "$response" | grep -o '"target_platform":"[^\"]*"' | head -1 | cut -d'"' -f4)
 	fi
 
 	if [[ -z "$EXTENSION_VERSION" ]]; then
@@ -142,13 +131,20 @@ download_vsix() {
 
 	mkdir -p "$VSIX_DIR"
 
+	# Derive the asset base URL from extensionsGallery.serviceUrl in product.json.
+	# P3M serves VSIX downloads at: {asset_base}/{publisher}/{name}/{version}/Microsoft.VisualStudio.Services.VSIXPackage
+	# where asset_base is the gallery serviceUrl with "gallery" replaced by "asset".
+	local gallery_service_url
+	gallery_service_url=$(jq -r '.extensionsGallery.serviceUrl // empty' "$PRODUCT_JSON")
+	local asset_base="${gallery_service_url%gallery}asset"
+
 	local filename url
 	if [[ -n "$target_platform" && "$target_platform" != "universal" ]]; then
 		filename="${publisher}.${name}-${version}@${target_platform}.vsix"
-		url="https://open-vsx.org/api/${publisher}/${name}/${target_platform}/${version}/file/${filename}"
+		url="${asset_base}/${publisher}/${name}/${version}/Microsoft.VisualStudio.Services.VSIXPackage?targetPlatform=${target_platform}"
 	else
 		filename="${publisher}.${name}-${version}.vsix"
-		url="https://open-vsx.org/api/${publisher}/${name}/${version}/file/${filename}"
+		url="${asset_base}/${publisher}/${name}/${version}/Microsoft.VisualStudio.Services.VSIXPackage"
 	fi
 
 	local filepath="${VSIX_DIR}/${filename}"
@@ -210,9 +206,6 @@ update_product_json() {
 			current_version=$(echo "$extension_info" | jq -r '.version // empty')
 			if echo "$extension_info" | jq -e 'has("sha256")' >/dev/null 2>&1; then
 				current_sha256=$(echo "$extension_info" | jq -r '.sha256 // empty')
-				has_sha256=true
-			elif echo "$extension_info" | jq -e 'has("sha256sum")' >/dev/null 2>&1; then
-				current_sha256=$(echo "$extension_info" | jq -r '.sha256sum // empty')
 				has_sha256=true
 			fi
 		else
@@ -289,7 +282,7 @@ should_download() {
 	fi
 
 	local current_version=$(echo "$extension_info" | jq -r '.version // empty')
-	local has_sha256=$(echo "$extension_info" | jq -e 'has("sha256") or has("sha256sum")')
+	local has_sha256=$(echo "$extension_info" | jq -e 'has("sha256")')
 
 	# Decision logic:
 	# 1. If versions don't match → need to download
@@ -320,13 +313,13 @@ process_extension() {
 		echo "Using specified version: $VERSION"
 		# For specific versions, we need to determine platform by trying the API
 		# Try to get platform info for the specific version
-		local version_url="https://open-vsx.org/api/${PUBLISHER}/${NAME}/${VERSION}"
+		local version_url="https://p3m.dev/__api__/repos/openvsx/packages/${PUBLISHER}.${NAME}"
 		local version_response
 		if version_response=$(curl -s -f "$version_url" 2>/dev/null); then
 			if command -v jq >/dev/null 2>&1; then
-				TARGET_PLATFORM=$(echo "$version_response" | jq -r '.targetPlatform // empty')
+				TARGET_PLATFORM=$(echo "$version_response" | jq -r --arg ver "$VERSION" '.versions[] | select(.version == $ver) | .target_platform // empty' | head -1)
 			else
-				TARGET_PLATFORM=$(echo "$version_response" | grep -o '"targetPlatform":"[^"]*"' | head -1 | cut -d'"' -f4)
+				TARGET_PLATFORM=$(echo "$version_response" | grep -o '"target_platform":"[^"]*"' | head -1 | cut -d'"' -f4)
 			fi
 		else
 			TARGET_PLATFORM=""
@@ -375,7 +368,6 @@ update_with_jq() {
 					if (.publisher == $pub and .name == $nm) or .name == $id then
 						.version = $ver |
 						if has("sha256") then .sha256 = $hash
-						elif has("sha256sum") then .sha256sum = $hash
 						else . end
 					else
 						with_entries(.value |= update_extension)

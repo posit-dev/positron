@@ -32,7 +32,7 @@ type OutputActionBarButtons = 'Collapse Output' | 'Expand Output' | 'Clear Outpu
 export class PositronNotebooks extends Notebooks {
 	// Containers, generic locators
 	private positronNotebook = this.code.driver.page.locator('.positron-notebook').first();
-	private cellsContainer = this.positronNotebook.locator('.positron-notebook-cells-container').first();
+	cellsContainer = this.positronNotebook.locator('.positron-notebook-cells-container').first();
 	private newCellButton = this.code.driver.page.getByLabel(/new code cell/i);
 	private spinner = this.code.driver.page.getByLabel(/cell is executing/i);
 	editorAtIndex = (index: number) => this.cell.nth(index).locator('.monaco-editor :is(.native-edit-context, .inputarea)');
@@ -68,10 +68,20 @@ export class PositronNotebooks extends Notebooks {
 
 	// Cell outputs
 	cellOutput = (index: number) => this.cell.nth(index).getByTestId('cell-output');
+	cellOutputSash = (index: number) => this.cellOutput(index).locator('.horizontal-splitter .sash');
 	private outputActionBar = (index: number) => this.cell.nth(index).locator('.cell-output-action-bar');
 	outputCollapsedLabel = (index: number) => this.cellOutput(index).getByText('Output collapsed');
 	outputTruncationMessage = (index: number) => this.cellOutput(index).getByText(/\.\.\. Show [\d,.\s\u00A0]+ more lines/);
 	outputCollapseToggle = (index: number) => this.cell.nth(index).locator('.cell-output-collapse-button-container').getByRole('button');
+
+	// Cell outputs - ipywidgets (rendered inside the notebook webview iframe)
+	widgetSlider = this.frameLocator.locator('[role="slider"]');
+	widgetReadout = this.frameLocator.locator('div.widget-readout');
+
+	async focusWidgetSlider(): Promise<void> {
+		await this.widgetSlider.hover();
+		await this.widgetSlider.focus();
+	}
 
 	// Assistant buttons (shown on error cells when assistant is enabled)
 	private askAssistantButton = this.editorActionBar.getByRole('button', { name: 'Ask Assistant', exact: true });
@@ -251,11 +261,16 @@ export class PositronNotebooks extends Notebooks {
 	 * @param codeCells - Number of code cells to create
 	 * @param markdownCells - Number of markdown cells to create
 	 */
-	async newNotebook({ codeCells = 0, markdownCells = 0 }: { codeCells?: number; markdownCells?: number } = {}): Promise<void> {
+	async newNotebook({ codeCells = 1, markdownCells = 0 }: { codeCells?: number; markdownCells?: number } = {}): Promise<void> {
 		await this.createNewNotebook();
 		await this.expectToBeVisible();
+		await this.expectCellCountToBe(1); // New notebook starts with 1 cell by default
 
-		if (codeCells === 0 && markdownCells === 0) {
+		if (codeCells === 0) {
+			await this.deleteCellWithActionBar(0);
+		}
+
+		if (codeCells <= 1 && markdownCells === 0) {
 			return;
 		}
 
@@ -621,6 +636,48 @@ export class PositronNotebooks extends Notebooks {
 			await this.cellOutput(cellIndex).hover();
 			await this.outputActionBar(cellIndex).getByRole('button', { name: button }).click();
 		});
+	}
+
+	/**
+	 * Action: Drag the output resize sash for a cell by a given distance.
+	 * @param cellIndex - The index of the cell whose output sash to drag.
+	 * @param distance - The vertical distance in pixels to drag (positive = down).
+	 */
+	async dragCellOutputSash(cellIndex: number, distance: number) {
+		const page = this.code.driver.page;
+		const sash = this.cellOutputSash(cellIndex);
+
+		// Reveal the sash for debugging.
+		await sash.scrollIntoViewIfNeeded();
+
+		// Get the sash's starting position.
+		const box = await sash.boundingBox();
+		expect(box).toBeTruthy();
+		const startX = box!.x + box!.width / 2;
+		const startY = box!.y + box!.height / 2;
+
+		// Drag the sash down to grow the output area.
+		await page.mouse.move(startX, startY);
+		await page.mouse.down();
+		await page.mouse.move(startX, startY + distance, { steps: 10 });
+		await page.mouse.up();
+
+		// Reveal the final sash position for debugging.
+		await sash.scrollIntoViewIfNeeded();
+	}
+
+	/**
+	 * Get the height of a cell's output area.
+	 * @param cellIndex - The index of the cell to measure
+	 * @returns The height of the cell's output area in pixels
+	 */
+	async getCellOutputHeight(cellIndex: number): Promise<number> {
+		const output = this.cellOutput(cellIndex);
+		const box = await output.boundingBox();
+		if (!box) {
+			throw new Error(`Could not get bounding box for cell output at index ${cellIndex}`);
+		}
+		return box.height;
 	}
 
 	/**
@@ -1141,6 +1198,18 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
+	 * Verify: Cell footer is collapsed (hidden via CSS animation).
+	 * @param cellIndex - The index of the cell whose footer to check.
+	 */
+	async expectFooterNotVisible(cellIndex: number): Promise<void> {
+		await test.step(`Expect cell footer to be collapsed`, async () => {
+			const footer = this.cellFooterAtIndex(cellIndex);
+			await expect(footer).toHaveClass(/\bcollapsed\b/);
+			await expect(footer).not.toBeVisible();
+		});
+	}
+
+	/**
 	 * Verify: Cell execution status matches expected status.
 	 * @param cellIndex - The index of the cell to check.
 	 * @param expectedStatus - The expected execution status of the cell.
@@ -1364,6 +1433,29 @@ export class PositronNotebooks extends Notebooks {
 			await expect(this.cellOutput(cellIndex)).toBeVisible();
 			for (const line of lines) {
 				await expect(this.cellOutput(cellIndex).getByText(line)).toBeVisible();
+			}
+		});
+	}
+
+	/**
+	 * Verify: the height of the cell's output area matches expected height.
+	 * @param cellIndex - The index of the cell to check.
+	 * @param height - The expected height of the cell's output area in pixels.
+	 * @param options - Options to control expectation:
+	 *   tolerance: Optional pixel tolerance for height comparison (default: 0, meaning exact match).
+	 */
+	async expectCellOutputHeight(
+		cellIndex: number,
+		height: number,
+		{ tolerance = 0 }: { tolerance?: number } = {}
+	): Promise<void> {
+		await test.step(`Verify cell output height at index ${cellIndex} is ${height}px (±${tolerance}px)`, async () => {
+			const actual = await this.getCellOutputHeight(cellIndex);
+			if (tolerance === 0) {
+				expect(actual).toBe(height);
+			} else {
+				expect(actual).toBeGreaterThanOrEqual(height - tolerance);
+				expect(actual).toBeLessThanOrEqual(height + tolerance);
 			}
 		});
 	}

@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Data Explorer - Python Pandas', {
-	tag: [tags.WEB, tags.CRITICAL, tags.DATA_EXPLORER, tags.WORKBENCH]
+	tag: [tags.WEB, tags.CRITICAL, tags.DATA_EXPLORER, tags.WORKBENCH, tags.JUPYTER]
 }, () => {
 
 	test.afterEach(async function ({ app, hotKeys }) {
@@ -99,9 +99,10 @@ test.describe('Data Explorer - Python Pandas', {
 		await notebooks.openNotebook(join(app.workspacePathOrFolder, 'workspaces', 'data-explorer-update-datasets', pythonNotebook));
 		await notebooks.selectInterpreter('Python', process.env.POSITRON_PY_VER_SEL!);
 		await notebooks.selectCellAtIndex(0);
-		await notebooks.executeActiveCell();
+		await notebooks.executeCodeInCell();
 
 		// open the DataFrame in data explorer and verify data
+		await variables.expectVariableToBe('df', /11 rows/);
 		await variables.doubleClickVariableRow('df');
 		await editors.verifyTab('Data: df', { isVisible: true });
 		await hotKeys.notebookLayout();
@@ -110,15 +111,12 @@ test.describe('Data Explorer - Python Pandas', {
 		// execute the next cell and verify data in the data explorer
 		await editors.clickTab(pythonNotebook);
 		await notebooks.selectCellAtIndex(1);
-		await notebooks.executeActiveCell();
-		await editors.clickTab('Data: df');
+		await notebooks.executeCodeInCell();
+		await variables.expectVariableToBe('df', /12 rows/);
+		await variables.doubleClickVariableRow('df');
 		await dataExplorer.grid.verifyTableDataLength(12);
 
-		// execute the next cell to sort the DataFrame and verify sorted data
-		await editors.clickTab(pythonNotebook);
-		await notebooks.selectCellAtIndex(2);
-		await notebooks.executeActiveCell();
-		await editors.clickTab('Data: df');
+		// sort the DataFrame and verify sorted data
 		await dataExplorer.grid.sortColumnBy(1, 'Sort Descending');
 		await dataExplorer.grid.verifyTableDataLength(12);
 		await dataExplorer.grid.verifyTableDataRowValue(0, { 'Year': '2025' });

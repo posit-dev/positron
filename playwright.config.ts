@@ -197,6 +197,22 @@ export default defineConfig<CustomTestOptions>({
 			},
 			grep: /@:remote-ssh/
 		},
+		{
+			name: 'e2e-jupyter',
+			testIgnore: [
+				'example.test.ts',
+				'**/assistant-eval/**',
+				'**/remote-ssh/**'
+			],
+			use: {
+				artifactDir: 'e2e-jupyter',
+				headless: false,
+				useExternalServer: true,
+				externalServerUrl: 'http://localhost:8888',
+				browserName: 'chromium',
+			},
+			grep: /@:jupyter/
+		},
 	],
 });
 

@@ -1,11 +1,15 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 @keyframes positronActionBarFilter-fadeIn {
-	from { opacity: 0; }
-	to { opacity: 1; }
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
 }
 
 .action-bar-filter-container {
@@ -20,8 +24,13 @@
 	margin-right: 2px;
 	align-items: center;
 	font-size: 12px;
+	box-sizing: border-box;
 	background: var(--vscode-positronActionBar-textInputBackground);
 	border: 1px solid var(--vscode-positronActionBar-textInputBorder);
+}
+
+.action-bar-filter-input.action-bar-filter-input-md {
+	height: 26px;
 }
 
 .action-bar-filter-input.focused {
@@ -48,19 +57,35 @@
 	background: var(--vscode-positronActionBar-textInputSelectionBackground);
 }
 
-.action-bar-filter-input .clear-button {
-	padding: 0;
-	width: 16px;
-	height: 16px;
+.action-bar-filter-input .clear-button,
+.action-bar-filter-input .filter-button {
+	padding: 3px;
 	border: none;
 	display: flex;
 	cursor: pointer;
-	margin: 0 4px 0 0;
+	margin: 0 2px 0 0;
+	border-radius: 5px;
+	align-items: center;
+	justify-content: center;
 	background: transparent;
+}
+
+.action-bar-filter-input .clear-button {
 	animation: positronActionBarFilter-fadeIn 150ms ease-out;
 }
 
-.action-bar-filter-input .clear-button:focus-visible {
-	border-radius: 3px;
+.action-bar-filter-input .clear-button:disabled,
+.action-bar-filter-input .filter-button:disabled {
+	cursor: default;
+	opacity: 0.5;
+}
+
+.action-bar-filter-input .clear-button:hover:not(:disabled),
+.action-bar-filter-input .filter-button:hover:not(:disabled) {
+	background: var(--vscode-toolbar-hoverBackground);
+}
+
+.action-bar-filter-input .clear-button:focus-visible,
+.action-bar-filter-input .filter-button:focus-visible {
 	outline: 1px solid var(--vscode-focusBorder);
 }

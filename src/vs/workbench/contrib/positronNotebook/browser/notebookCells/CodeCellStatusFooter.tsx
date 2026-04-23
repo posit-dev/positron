@@ -12,28 +12,35 @@ import { useEffect, useRef, useState } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import * as DOM from '../../../../../base/browser/dom.js';
-import { useObservedValue } from '../useObservedValue.js';
+import { useObservedValue, useDebouncedObservedValue } from '../useObservedValue.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
+import { ExecutionStatus } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { formatCellDuration, formatTimestamp, getRelativeTime, isMoreThanOneHourAgo } from './cellExecutionUtils.js';
 import { Icon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 
 interface CodeCellStatusFooterProps {
 	cell: PositronNotebookCodeCell;
 	hasError: boolean;
 }
 
+// Defined outside the component so the reference is stable across renders,
+// avoiding memoization invalidation inside useDebouncedObservedValue.
+const isRunningOrPending = (s: ExecutionStatus) => s === 'running' || s === 'pending';
+
 /**
  * Footer component that displays cell execution status information between
  * the editor and outputs sections. Shows execution state, duration, and timestamp.
  */
 export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterProps) {
-	// Observe cell execution state
-	const executionStatus = useObservedValue(cell.executionStatus);
+	// Debounce "clearing" transitions to prevent visual flash during fast re-executions.
+	// Only delay transitions to running/pending/undefined; new values propagate immediately.
+	const executionStatus = useDebouncedObservedValue(cell.executionStatus, isRunningOrPending);
 	const executionOrder = useObservedValue(cell.lastExecutionOrder);
-	const duration = useObservedValue(cell.lastExecutionDuration);
-	const lastRunEndTime = useObservedValue(cell.lastRunEndTime);
-	const lastRunSuccess = useObservedValue(cell.lastRunSuccess);
+	const duration = useDebouncedObservedValue(cell.lastExecutionDuration);
+	const lastRunEndTime = useDebouncedObservedValue(cell.lastRunEndTime);
+	const lastRunSuccess = useDebouncedObservedValue(cell.lastRunSuccess);
 
 	/**
 	 * `lastRunEndTime` doesn't change after execution completes, which means the
@@ -71,12 +78,17 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 	const hasCurrentSessionContent = hasExecutionResult || isCurrentlyRunning || hasTimingInfo;
 
 	// Check if cell has never been run (no execution order and no current session data)
-	const hasNeverBeenRun = !hasExecutionOrder && !hasExecutionResult && !isCurrentlyRunning;
+	const hasNeverBeenRun = !hasExecutionOrder && !hasCurrentSessionContent;
 
 	// Check if we only have execution order from previous session (no current session data)
 	const wasRunInPreviousSession = hasExecutionOrder && !hasCurrentSessionContent;
 
 	const isPending = executionStatus === 'pending';
+
+	// Collapse the footer when there's no execution info to display.
+	// This covers cells that have never been run and cells only run in a previous session.
+	// isPending guard keeps the clock icon visible for queued cells.
+	const isCollapsed = !isPending && !hasCurrentSessionContent;
 
 	const dataExecutionStatus = executionStatus || 'idle';
 
@@ -141,22 +153,24 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 		return null;
 	};
 
-	// Build ARIA label for accessibility
+	// Build ARIA label for accessibility.
+	// Active states (running/pending) take priority over static states so a
+	// queued cell that has never been run is announced as "queued", not "not yet run".
 	const getAriaLabel = () => {
-		if (hasNeverBeenRun) {
-			return localize('cellExecution.notYetRun', 'Cell not yet run');
-		}
-
-		if (wasRunInPreviousSession) {
-			return localize('cellExecution.notRunThisSession', 'Not run this session');
-		}
-
 		if (isCurrentlyRunning) {
 			return localize('cellExecution.running', 'Cell is executing');
 		}
 
 		if (isPending) {
 			return localize('cellExecution.pending', 'Cell is queued for execution');
+		}
+
+		if (hasNeverBeenRun) {
+			return localize('cellExecution.notYetRun', 'Cell not yet run');
+		}
+
+		if (wasRunInPreviousSession) {
+			return localize('cellExecution.notRunThisSession', 'Not run this session');
 		}
 
 		if (hasTimingInfo && duration !== undefined && lastRunEndTime !== undefined) {
@@ -175,9 +189,10 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 	return (
 		<div
 			ref={containerRef}
-			aria-label={getAriaLabel()}
+			aria-hidden={isCollapsed || undefined}
+			aria-label={isCollapsed ? undefined : getAriaLabel()}
 			aria-live={isCurrentlyRunning ? 'polite' : 'off'}
-			className='positron-notebook-code-cell-footer'
+			className={positronClassNames('positron-notebook-code-cell-footer', { 'collapsed': isCollapsed })}
 			data-execution-status={dataExecutionStatus}
 			role='status'
 		>

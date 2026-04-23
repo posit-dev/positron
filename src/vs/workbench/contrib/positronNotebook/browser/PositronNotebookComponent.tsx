@@ -36,7 +36,7 @@ import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebook
 import { IDeletionSentinel } from './IPositronNotebookInstance.js';
 import { NotebookErrorBoundary } from './NotebookErrorBoundary.js';
 import { getSelectedCells } from './selectionMachine.js';
-
+import { useScrollRestoration } from './useScrollRestoration.js';
 
 export function PositronNotebookComponent() {
 	const notebookInstance = useNotebookInstance();
@@ -61,13 +61,30 @@ export function PositronNotebookComponent() {
 		CONTEXT_FIND_WIDGET_VISIBLE
 	);
 
-	React.useEffect(() => {
-		notebookInstance.setCellsContainer(containerRef.current);
-		// Initial scroll check
-		if (containerRef.current) {
-			setIsScrolled(containerRef.current.scrollTop > 0);
-		}
+	// Attach the container in the callback ref so it's available
+	// synchronously during the commit phase, for useScrollRestoration.
+	const containerCallbackRef = React.useCallback((node: HTMLDivElement | null) => {
+		containerRef.current = node;
+		notebookInstance.setCellsContainer(node);
 	}, [notebookInstance]);
+
+	// Consume the restored scroll position. Cleared on read so re-renders don't restore a stale position.
+	const scrollPositionRef = React.useRef(notebookInstance.consumeRestoredScrollPosition());
+
+	// Callback to calculate the target scroll top from the anchor cell.
+	const getScrollTop = React.useCallback(
+		() => {
+			const scrollPosition = scrollPositionRef.current;
+			if (!scrollPosition) { return undefined; }
+			const cellTop = notebookInstance.getCellTop(scrollPosition.cell);
+			if (cellTop === undefined) { return undefined; }
+			return cellTop + scrollPosition.offsetFromCell;
+		},
+		[notebookInstance]
+	);
+
+	// Effect to restore the scroll position.
+	useScrollRestoration(containerRef, scrollPositionRef.current ? getScrollTop : undefined, services.logService);
 
 	// Track cell count changes and announce to screen readers
 	React.useEffect(() => {
@@ -117,7 +134,7 @@ export function PositronNotebookComponent() {
 					role='presentation'
 				/>
 			)}
-			<div ref={containerRef} className='positron-notebook-cells-container positron-notebook-scrollable'>
+			<div ref={containerCallbackRef} className='positron-notebook-cells-container positron-notebook-scrollable'>
 				<SortableCellList
 					cells={notebookCells}
 					getSelectedCells={getSelectedCellsCallback}

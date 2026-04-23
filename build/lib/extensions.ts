@@ -289,8 +289,14 @@ function getPlatformDownloads(bootstrap: boolean): string[] {
 	}
 }
 
-function createPlatformSpecificUrl(serviceUrl: string, publisher: string, name: string, version: string, platformDownload: string): string {
-	return `${serviceUrl}/${publisher}/${name}/${platformDownload}/${version}/file/${publisher}.${name}-${version}@${platformDownload}.vsix`;
+function createPlatformSpecificUrl(resourceUrlTemplate: string, publisher: string, name: string, version: string, platformDownload: string): string {
+	// Construct the platform-specific VSIX URL from the resource URL template, replacing the web resource
+	// path suffix with the VSIX package asset type and appending the target platform query parameter.
+	return resourceUrlTemplate
+		.replace('{publisher}', publisher)
+		.replace('{name}', name)
+		.replace('{version}', version)
+		.replace(/Microsoft\.VisualStudio\.Code\.WebResources\/\{path\}$/, `Microsoft.VisualStudio.Services.VSIXPackage?targetPlatform=${platformDownload}`);
 }
 
 function getArchFromPlatformId(platformId: string): string {
@@ -302,7 +308,7 @@ function getArchFromPlatformId(platformId: string): string {
 	return 'unknown';
 }
 
-export function fromMarketplace(serviceUrl: string, { name: extensionName, version, sha256, metadata }: IExtensionDefinition, bootstrap: boolean = false): Stream {
+export function fromMarketplace(resourceUrlTemplate: string, { name: extensionName, version, sha256, metadata }: IExtensionDefinition, bootstrap: boolean = false): Stream {
 	const json = require('gulp-json-editor') as typeof import('gulp-json-editor');
 
 	// --- End Positron ---
@@ -312,12 +318,19 @@ export function fromMarketplace(serviceUrl: string, { name: extensionName, versi
 	let platformDownloads: string[] = [];
 
 	if (metadata.multiPlatformServiceUrl) {
+		// Download a platform-specific VSIX for each target platform.
 		platformDownloads = getPlatformDownloads(bootstrap);
-		urls = platformDownloads.map(platformDownload => createPlatformSpecificUrl(serviceUrl, publisher, name, version, platformDownload));
+		urls = platformDownloads.map(platformDownload => createPlatformSpecificUrl(resourceUrlTemplate, publisher, name, version, platformDownload));
 		fancyLog('Downloading multi-platform extension:', ansiColors.yellow(`${extensionName}@${version}`),
 			`for ${platformDownloads.join(', ')}...`);
 	} else {
-		urls = [`${serviceUrl}/publishers/${publisher}/vsextensions/${name}/${version}/vspackage`];
+		// Construct the single-platform VSIX URL from the resource URL template.
+		urls = [resourceUrlTemplate
+			.replace('{publisher}', publisher)
+			.replace('{name}', name)
+			.replace('{version}', version)
+			.replace(/Microsoft\.VisualStudio\.Code\.WebResources\/\{path\}$/, 'Microsoft.VisualStudio.Services.VSIXPackage')
+		];
 		fancyLog('Downloading extension:', ansiColors.yellow(`${extensionName}@${version}`), '...');
 	}
 	// --- End Positron ---
@@ -338,7 +351,8 @@ export function fromMarketplace(serviceUrl: string, { name: extensionName, versi
 				return fetchUrls('', {
 					base: url,
 					nodeFetchOptions: { headers: baseHeaders },
-					checksumSha256: sha256
+					checksumSha256: sha256,
+					expectZip: true
 				})
 					.pipe(buffer())
 					.pipe(rename(p => {
@@ -352,7 +366,8 @@ export function fromMarketplace(serviceUrl: string, { name: extensionName, versi
 				nodeFetchOptions: {
 					headers: baseHeaders
 				},
-				checksumSha256: sha256
+				checksumSha256: sha256,
+				expectZip: true
 			})
 				.pipe(buffer());
 		}

@@ -40,6 +40,11 @@ import { positronBuildNumber, releaseChannel } from './utils.ts';
 import { compileBuildWithoutManglingTask } from './gulpfile.compile.ts';
 import { getQuartoBinaries } from './lib/quarto.ts';
 // --- End Positron ---
+// --- Start PWB: build-time gzip compression ---
+import through2 from 'through2';
+import { gzip } from 'zlib';
+import { promisify } from 'util';
+// --- End PWB ---
 
 const REPO_ROOT = path.dirname(import.meta.dirname);
 const commit = getVersion(REPO_ROOT);
@@ -299,6 +304,53 @@ function nodejs(platform: string, arch: string): NodeJS.ReadWriteStream | undefi
 	}
 }
 
+// --- Start PWB: build-time gzip compression ---
+const gzipAsync = promisify(gzip);
+const COMPRESSIBLE = /\.(js|css|json|html|svg|wasm)$/;
+const MIN_SIZE_BYTES = 1024;
+
+function addCompressedSiblings(): NodeJS.ReadWriteStream {
+	let compressed = 0;
+	let skipped = 0;
+
+	return through2.obj(
+		async function (file: File, _enc: BufferEncoding, cb: (err?: Error | null) => void) {
+			this.push(file);
+
+			if (!file.isBuffer() || !COMPRESSIBLE.test(file.path)) { return cb(); }
+			if ((file.contents as Buffer).length < MIN_SIZE_BYTES) { return cb(); }
+
+			try {
+				const gz = await gzipAsync(file.contents as Buffer, { level: 9 });
+				if (gz.length >= (file.contents as Buffer).length) {
+					skipped++;
+					return cb();
+				}
+
+				const gzFile = file.clone({ contents: false });
+				gzFile.path = file.path + '.gz';
+				gzFile.contents = gz;
+				gzFile.stat = Object.assign({}, file.stat ?? {}, {
+					mode: 0o644,
+					mtime: file.stat?.mtime ?? new Date(),
+					atime: file.stat?.atime ?? new Date(),
+				}) as import('fs').Stats;
+
+				this.push(gzFile);
+				compressed++;
+				cb();
+			} catch (err) {
+				cb(err instanceof Error ? err : new Error(String(err)));
+			}
+		},
+		function (cb: () => void) {
+			log(`[compress] ${compressed} files compressed, ${skipped} skipped (already compressed or smaller)`);
+			cb();
+		}
+	);
+}
+// --- End PWB ---
+
 function packageTask(type: string, platform: string, arch: string, sourceFolderName: string, destinationFolderName: string) {
 	const destination = path.join(BUILD_ROOT, destinationFolderName);
 
@@ -547,6 +599,13 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 			productJsonFn: () => productJsonContents
 		});
 
+		// --- Start PWB: build-time gzip compression (web builds only) ---
+		if (isWebType(type)) {
+			return result
+				.pipe(addCompressedSiblings())
+				.pipe(vfs.dest(destination));
+		}
+		// --- End PWB ---
 		return result.pipe(vfs.dest(destination));
 	};
 }

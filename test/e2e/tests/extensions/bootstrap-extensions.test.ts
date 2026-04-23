@@ -17,7 +17,7 @@ const OPTIONAL_MISSING_EXTENSIONS = new Set<string>([
 
 
 test.describe('Bootstrap Extensions', {
-	tag: [tags.EXTENSIONS, tags.WEB, tags.WIN, tags.WORKBENCH, tags.CROSS_BROWSER],
+	tag: [tags.EXTENSIONS, tags.WEB, tags.WIN, tags.WORKBENCH, tags.CROSS_BROWSER, tags.JUPYTER],
 }, () => {
 
 	test.beforeAll('Skip during main run', async function () {
@@ -28,12 +28,19 @@ test.describe('Bootstrap Extensions', {
 
 	test('Verify All Bootstrap extensions are installed', async function ({ options, runDockerCommand }, testInfo) {
 		const extensions = readProductJson();
-		const isWorkbench = testInfo.project.name === 'e2e-workbench';
-		const containerExtensionsPath = '/home/user1/.positron-server/extensions';
+		const projectName = testInfo.project.name;
+		const isDockerProject = projectName === 'e2e-workbench' || projectName === 'e2e-jupyter';
+
+		// Determine container name and user path based on project
+		const containerName = projectName === 'e2e-jupyter' ? 'jupyter-test' : 'test';
+		const userName = projectName === 'e2e-jupyter' ? 'jupyter-admin' : 'user1';
+		const containerExtensionsPath = `/home/${userName}/.positron-server/extensions`;
+
 		await waitForExtensions(
 			extensions,
-			isWorkbench ? containerExtensionsPath : options.extensionsPath!,
-			isWorkbench ? runDockerCommand : undefined
+			isDockerProject ? containerExtensionsPath : options.extensionsPath!,
+			isDockerProject ? runDockerCommand : undefined,
+			containerName
 		);
 	});
 });
@@ -57,18 +64,18 @@ function readProductJson(): { fullName: string; shortName: string; version: stri
 	});
 }
 
-async function getInstalledExtensions(extensionsDir: string, runDockerCommand?: (command: string, description: string) => Promise<{ stdout: string; stderr: string }>): Promise<Map<string, string>> {
+async function getInstalledExtensions(extensionsDir: string, runDockerCommand?: (command: string, description: string) => Promise<{ stdout: string; stderr: string }>, containerName?: string): Promise<Map<string, string>> {
 	const installed = new Map<string, string>();
 
-	// Workbench: read extensions from Docker container
-	if (runDockerCommand) {
+	// Docker projects (Workbench/Jupyter): read extensions from Docker container
+	if (runDockerCommand && containerName) {
 		try {
-			const { stdout } = await runDockerCommand(`docker exec test bash -lc "ls -1 ${extensionsDir} || true"`, 'List extensions in container');
+			const { stdout } = await runDockerCommand(`docker exec ${containerName} bash -lc "ls -1 ${extensionsDir} || true"`, 'List extensions in container');
 			const dirs = stdout.split('\n').map(s => s.trim()).filter(Boolean);
 			for (const extDir of dirs) {
 				try {
 					const remotePkgPath = `${extensionsDir}/${extDir}/package.json`;
-					const { stdout: pkgStr } = await runDockerCommand(`docker exec test cat "${remotePkgPath}"`, `Read package.json for ${extDir}`);
+					const { stdout: pkgStr } = await runDockerCommand(`docker exec ${containerName} cat "${remotePkgPath}"`, `Read package.json for ${extDir}`);
 					const pkg = JSON.parse(pkgStr);
 					if (pkg.name && pkg.version) {
 						installed.set(pkg.name, pkg.version);
@@ -101,14 +108,15 @@ async function waitForExtensions(
 	extensions: { fullName: string; shortName: string; version: string }[],
 	extensionsPath: string,
 	runDockerCommand?: (command: string, description: string) => Promise<{ stdout: string; stderr: string }>,
-	mismatchGraceMs: number = 60_000, // wait up to 1 minute for mismatches to self-resolve
+	containerName?: string,
+	mismatchGraceMs: number = 60_000 // wait up to 1 minute for mismatches to self-resolve
 ) {
 	const missing = new Set(extensions.map(ext => ext.fullName));
 	const mismatched = new Set<string>();
 
 	// Phase 1: wait for all to be installed (mismatches are noted, but we continue)
 	while (missing.size > 0) {
-		const installed = await getInstalledExtensions(extensionsPath, runDockerCommand);
+		const installed = await getInstalledExtensions(extensionsPath, runDockerCommand, containerName);
 
 		for (const ext of extensions) {
 			if (!missing.has(ext.fullName)) {
@@ -150,7 +158,7 @@ async function waitForExtensions(
 
 		while (mismatched.size > 0 && Date.now() < deadline) {
 			await sleep(1000);
-			const installed = await getInstalledExtensions(extensionsPath, runDockerCommand);
+			const installed = await getInstalledExtensions(extensionsPath, runDockerCommand, containerName);
 
 			for (const extFullName of [...mismatched]) {
 				const extMeta = extensions.find(e => e.fullName === extFullName);

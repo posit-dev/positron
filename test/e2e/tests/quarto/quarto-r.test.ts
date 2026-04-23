@@ -23,12 +23,12 @@ test.describe('Quarto - R', { tag: [tags.WEB, tags.WIN, tags.QUARTO, tags.ARK] }
 		await cleanup.removeTestFiles(['quarto_basic.pdf', 'quarto_basic.html', 'quarto_basic.docx']);
 	});
 
-	test('Verify Quarto can render html', { tag: [tags.WORKBENCH] }, async function ({ app, runDockerCommand }, testInfo) {
+	test('Verify Quarto can render html', { tag: [tags.WORKBENCH, tags.JUPYTER] }, async function ({ app, runDockerCommand }, testInfo) {
 		await renderQuartoDocument(app, 'html');
 		await expectFileToExist(app, testInfo, runDockerCommand, 'html');
 	});
 
-	test('Verify Quarto can render docx ', { tag: [tags.WORKBENCH] }, async function ({ app, runDockerCommand }, testInfo) {
+	test('Verify Quarto can render docx ', { tag: [tags.WORKBENCH, tags.JUPYTER] }, async function ({ app, runDockerCommand }, testInfo) {
 		await renderQuartoDocument(app, 'docx');
 		await expectFileToExist(app, testInfo, runDockerCommand, 'docx');
 	});
@@ -40,7 +40,7 @@ test.describe('Quarto - R', { tag: [tags.WEB, tags.WIN, tags.QUARTO, tags.ARK] }
 		}).toPass({ timeout: 60000 });
 	});
 
-	test('Verify Quarto can render pdf (typst)', { tag: [tags.WORKBENCH] }, async function ({ app, runDockerCommand }, testInfo) {
+	test('Verify Quarto can render pdf (typst)', { tag: [tags.WORKBENCH, tags.JUPYTER] }, async function ({ app, runDockerCommand }, testInfo) {
 		await renderQuartoDocument(app, 'typst');
 		await expectFileToExist(app, testInfo, runDockerCommand, 'pdf');
 	});
@@ -76,19 +76,21 @@ const renderQuartoDocument = async (app: Application, fileExtension: string) => 
 };
 
 const expectFileToExist = async (app: Application, testInfo: { project: { name: string } }, runDockerCommand: DockerCommandFn, fileExtension: string) => {
-	const dockerCommand = testInfo.project.name === 'e2e-workbench' ? runDockerCommand : undefined;
+	const isDockerProject = testInfo.project.name === 'e2e-workbench' || testInfo.project.name === 'e2e-jupyter';
+	const dockerCommand = isDockerProject ? runDockerCommand : undefined;
 	await expect(async () => {
-		expect(await fileExists(app, `quarto_basic.${fileExtension}`, dockerCommand)).toBe(true);
+		expect(await fileExists(app, `quarto_basic.${fileExtension}`, dockerCommand, testInfo.project.name)).toBe(true);
 	}).toPass({ timeout: 20000 });
 };
 
-const fileExists = async (app: Application, file: string, runDockerCommand?: DockerCommandFn) => {
-	if (runDockerCommand) {
-		// Check inside the container at the known workbench workspace path
-		const containerPath = `/home/user1/qa-example-content/workspaces/quarto_basic/${file}`;
+const fileExists = async (app: Application, file: string, runDockerCommand?: DockerCommandFn, projectName?: string) => {
+	if (runDockerCommand && projectName) {
+		const containerName = projectName === 'e2e-jupyter' ? 'jupyter-test' : 'test';
+		const userName = projectName === 'e2e-jupyter' ? 'jupyter-admin' : 'user1';
+		const containerPath = `/home/${userName}/qa-example-content/workspaces/quarto_basic/${file}`;
 		try {
 			const { stdout } = await runDockerCommand(
-				`docker exec test bash -lc 'if test -f "${containerPath}"; then echo FOUND; else echo MISSING; fi'`,
+				`docker exec ${containerName} bash -lc 'if test -f "${containerPath}"; then echo FOUND; else echo MISSING; fi'`,
 				`Check existence of ${containerPath}`
 			);
 			return stdout.trim() === 'FOUND';
@@ -97,7 +99,7 @@ const fileExists = async (app: Application, file: string, runDockerCommand?: Doc
 		}
 	}
 
-	// Default: check local filesystem for non-workbench projects
+	// Default: check local filesystem for non-Docker projects
 	const filePath = path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', file);
 	return fs.pathExists(filePath);
 };

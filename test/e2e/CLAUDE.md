@@ -1,6 +1,6 @@
 # E2E Testing
 
-For comprehensive e2e test guidance, use the `positron-e2e-tests` skill which provides:
+For comprehensive e2e test guidance, use the `author-e2e-tests` skill which provides:
 - Test file structure and templates
 - Available fixtures (`python`, `r`, `sessions`, `executeCode`, etc.)
 - Page object documentation (`app.workbench.*`)

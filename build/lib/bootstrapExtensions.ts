@@ -151,8 +151,8 @@ function isUpToDate(extension: IExtensionDefinition): boolean {
 }
 
 function getExtensionDownloadStream(extension: IExtensionDefinition) {
-	const url = extension.metadata.multiPlatformServiceUrl || productjson.extensionsGallery?.serviceUrl;
-	const stream = url ? ext.fromMarketplace(url, extension, true) : ext.fromGithub(extension);
+	const resourceUrlTemplate = productjson.extensionsGallery?.resourceUrlTemplate;
+	const stream = resourceUrlTemplate ? ext.fromMarketplace(resourceUrlTemplate, extension, true) : ext.fromGithub(extension);
 	return stream.pipe(rename(p => {
 		if (p.basename === 'x64' || p.basename === 'arm64') {
 			p.dirname = path.join(p.dirname || '', p.basename);

@@ -1,24 +1,14 @@
 <!-- Start Positron -->
-<!-- If you are seeking the original Vscode README go here: https://github.com/microsoft/vscode/tree/main/test -->
+<!-- Original VS Code README: https://github.com/microsoft/vscode/tree/main/test -->
 
 # Positron Tests
 
-## Contents
+See [`CLAUDE.md`](../CLAUDE.md#testing) for terminology and the "where should I put my test?" decision table. Quick map:
 
-This folder contains the various test runners for Positron. Please refer to the documentation within for how to run them:
-
-* `unit`: our suite of unit tests ([README](unit/README.md))
-* `integration`: our suite of API tests ([README](integration/browser/README.md))
-* `e2e`: our suite of Playwright end-to-end tests ([README](e2e/README.md))
+- **Unit tests**
+	- **Vitest** -- next to source in `src/vs/`.
+	- **Core Mocha** -- upstream VS Code's Mocha suite, in [`unit/`](unit/README.md).
+- **Extension host tests** -- [`integration/`](integration/browser/README.md) (VS Code historically calls these "integration tests").
+- **E2E tests** -- [`e2e/`](e2e/README.md) (Playwright).
 
 <!-- End Positron -->
-# VS Code Tests
-
-## Contents
-
-This folder contains the various test runners for VS Code. Please refer to the documentation within for how to run them:
-
-* `unit`: our suite of unit tests ([README](unit/README.md))
-* `integration`: our suite of API tests ([README](integration/browser/README.md))
-* `smoke`: our suite of automated UI tests ([README](smoke/README.md))
-* `sanity`: release sanity tests ([README](sanity/README.md))

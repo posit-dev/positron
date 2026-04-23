@@ -12,7 +12,7 @@ import { useMemo, useRef } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
-import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
+import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
 
@@ -59,18 +59,18 @@ export const ConsoleQuickFix = (props: ConsoleQuickFixProps) => {
 	// Render.
 	return (
 		<div className='quick-fix'>
-			<PositronButton className='assistant-action' onPressed={pressedFixHandler}>
+			<Button className='assistant-action' onPressed={pressedFixHandler}>
 				<div ref={buttonRef} className='link-text'>
 					<span className='codicon codicon-sparkle' />
 					{localize('positronConsoleAssistantFix', "Fix")}
 				</div>
-			</PositronButton>
-			<PositronButton className='assistant-action' onPressed={pressedExplainHandler}>
+			</Button>
+			<Button className='assistant-action' onPressed={pressedExplainHandler}>
 				<div ref={buttonRef} className='link-text'>
 					<span className='codicon codicon-sparkle' />
 					{localize('positronConsoleAssistantExplain', "Explain")}
 				</div>
-			</PositronButton>
+			</Button>
 		</div>
 	);
 };

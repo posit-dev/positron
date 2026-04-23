@@ -8,6 +8,7 @@ import { Application, ApplicationOptions, MultiLogger } from '../../infra';
 import { ManagedApp } from './app-managed.fixtures';
 import { ExternalPositronServerApp } from './app-external.fixtures';
 import { WorkbenchApp } from './app-workbench.fixtures';
+import { JupyterApp } from './app-jupyter.fixtures';
 
 export interface AppFixtureOptions {
 	options: ApplicationOptions;
@@ -28,6 +29,8 @@ export async function AppFixture(fixtureOptions: AppFixtureOptions): Promise<{
 
 	if (project === 'e2e-workbench') {
 		return await WorkbenchApp(fixtureOptions);
+	} else if (project === 'e2e-jupyter') {
+		return await JupyterApp(fixtureOptions);
 	} else if (project.includes('server')) {
 		return await ExternalPositronServerApp(fixtureOptions);
 	} else {

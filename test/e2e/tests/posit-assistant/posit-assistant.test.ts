@@ -18,11 +18,15 @@ test.describe('Posit Assistant', {
 
 	for (const provider of POSIT_ASSISTANT_PROVIDERS) {
 		test.describe(provider, () => {
-			test.beforeAll(async function ({ app }) {
+			test.beforeAll(async function ({ app, settings }) {
 				await app.workbench.assistant.loginModelProvider(provider);
 				// Maximize the sidebar so the Posit Assistant webview is not
 				// obscured by outer-page elements on small CI viewports.
 				await app.workbench.quickaccess.runCommand('workbench.action.fullSizedSidebar');
+				// Ensure we're running the latest Posit Assistant dev build.
+				// Enables the auto dev-build update check, triggers the check,
+				// and accepts the resulting "Update Now" / "Reload" toasts.
+				await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess);
 			});
 
 			test.afterAll(async function ({ app }) {
@@ -120,8 +124,31 @@ test.describe('Posit Assistant', {
 				await app.workbench.positAssistant.allowToolForSession();
 				await app.workbench.positAssistant.waitForResponseComplete();
 
-				// Verify plot appears inline in the chat
+				// Verify plot appears inline in the chat and has real content
 				await app.workbench.positAssistant.expectInlinePlotVisible();
+				await app.workbench.positAssistant.expectInlinePlotNotBlank();
+
+				// Verify plot appears in the Positron plots pane
+				await app.workbench.plots.waitForCurrentPlot();
+				await sessions.delete(session.id);
+			});
+
+			test.skip(`${provider} - Create data visualization via Posit Assistant (Python)`, {
+				annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/assistant/issues/1064' }],
+			}, async function ({ app, sessions }) {
+				const session = await sessions.start('python', { reuse: false });
+				await app.workbench.plots.clearPlots();
+				await app.workbench.positAssistant.open();
+				await app.workbench.positAssistant.waitForReady();
+
+				await app.workbench.positAssistant.sendMessage('Create a simple data visualization using plotnine', false);
+				await app.workbench.positAssistant.expectToolConfirmVisible();
+				await app.workbench.positAssistant.allowToolForSession();
+				await app.workbench.positAssistant.waitForResponseComplete();
+
+				// Verify plot appears inline in the chat and has real content
+				await app.workbench.positAssistant.expectInlinePlotVisible();
+				await app.workbench.positAssistant.expectInlinePlotNotBlank();
 
 				// Verify plot appears in the Positron plots pane
 				await app.workbench.plots.waitForCurrentPlot();

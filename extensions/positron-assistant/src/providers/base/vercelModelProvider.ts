@@ -397,24 +397,16 @@ export abstract class VercelModelProvider extends ModelProvider {
 		const tokens: TokenUsage = {
 			inputTokens: usage.inputTokens,
 			outputTokens: usage.outputTokens,
-			cachedTokens: 0,
+			cachedTokens: usage.cachedInputTokens || 0,
 			providerMetadata: metadata,
 		};
 
-		// Handle Bedrock-specific usage
-		if (metadata && metadata.bedrock && metadata.bedrock.usage) {
-			const metaUsage = metadata.bedrock.usage as Record<string, any>;
-			tokens.inputTokens += metaUsage.cacheWriteInputTokens || 0;
-			tokens.cachedTokens += metaUsage.cacheReadInputTokens || 0;
-
-			this.logger.debug(`[${model.name}]: Bedrock usage: ${JSON.stringify(usage, null, 2)}`);
-		}
-
-		// Handle Anthropic-specific usage (cache tokens are directly on metadata.anthropic, not nested under usage)
+		// Handle Anthropic-specific usage: cache creation tokens are not included in
+		// usage.inputTokens for Anthropic, so we add them here. Cache read tokens are
+		// already captured in usage.cachedInputTokens by the AI SDK.
 		if (metadata && metadata.anthropic) {
 			const anthropicMeta = metadata.anthropic as Record<string, any>;
 			tokens.inputTokens += anthropicMeta.cacheCreationInputTokens || anthropicMeta.usage?.cache_creation_input_tokens || 0;
-			tokens.cachedTokens += anthropicMeta.cacheReadInputTokens || anthropicMeta.usage?.cache_read_input_tokens || 0;
 
 			this.logger.debug(`[${model.name}]: Anthropic usage: ${JSON.stringify(anthropicMeta, null, 2)}`);
 		}

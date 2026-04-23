@@ -23,12 +23,12 @@ import { IViewContainersRegistry, IViewsRegistry, Extensions as ViewContainerExt
 import { ILanguageRuntimePackage, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { positronSessionViewIcon } from '../../positronSession/browser/positronSessionContainer.js';
 import { IPositronPackagesService } from './interfaces/positronPackagesService.js';
+import { PACKAGES_CAN_RUN_ACTION, PACKAGES_HAS_SELECTION, PACKAGES_VIEW_VISIBLE, POSITRON_PACKAGES_VIEW_ID } from './positronPackagesContextKeys.js';
 import { installPackage, uninstallPackage, updatePackage } from './positronPackagesQuickPick.js';
 import { PositronPackagesService } from './positronPackagesService.js';
 import { PositronPackagesView } from './positronPackagesView.js';
 
 export const POSITRON_PACKAGES_VIEW_CONTAINER_ID = 'workbench.viewContainer.positronPackages';
-export const POSITRON_PACKAGES_VIEW_ID = 'workbench.view.positronPackages.view';
 
 const POSITRON_PACKAGES_ENABLED = ContextKeyExpr.equals('config.positron.environments.enable', true);
 
@@ -73,6 +73,7 @@ export const PACKAGES_UPDATE_COMMAND_ID = 'positronPackages.updatePackage';
 export const PACKAGES_UPDATE_ALL_COMMAND_ID = 'positronPackages.updateAllPackages';
 export const PACKAGES_UNINSTALL_COMMAND_ID = 'positronPackages.uninstallPackage';
 export const PACKAGES_REFRESH_COMMAND_ID = 'positronPackages.refreshPackages';
+export const PACKAGES_REFRESH_METADATA_COMMAND_ID = 'positronPackages.refreshMetadata';
 
 const PACKAGES_CATEGORY = nls.localize2('packages', 'Packages');
 
@@ -183,7 +184,14 @@ class RefreshPackagesAction extends Action2 {
 			title: nls.localize2('refreshPackages', 'Refresh Packages'),
 			category: PACKAGES_CATEGORY,
 			f1: true,
-			precondition: POSITRON_PACKAGES_ENABLED,
+			icon: Codicon.refresh,
+			precondition: ContextKeyExpr.and(POSITRON_PACKAGES_ENABLED, PACKAGES_CAN_RUN_ACTION),
+			menu: {
+				id: MenuId.ViewTitle,
+				when: PACKAGES_VIEW_VISIBLE,
+				group: 'navigation',
+				order: 1
+			}
 		});
 	}
 	override async run(accessor: ServicesAccessor): Promise<ILanguageRuntimePackage[]> {
@@ -221,7 +229,13 @@ class InstallPackageAction extends Action2 {
 			title: nls.localize2('installPackage', 'Install Package'),
 			category: PACKAGES_CATEGORY,
 			f1: true,
-			precondition: POSITRON_PACKAGES_ENABLED,
+			precondition: ContextKeyExpr.and(POSITRON_PACKAGES_ENABLED, PACKAGES_CAN_RUN_ACTION),
+			menu: {
+				id: MenuId.ViewTitle,
+				when: PACKAGES_VIEW_VISIBLE,
+				group: 'packages',
+				order: 1
+			}
 		});
 	}
 	override async run(accessor: ServicesAccessor): Promise<void> {
@@ -287,7 +301,7 @@ class UninstallPackageAction extends Action2 {
 			title: nls.localize2('uninstallPackage', 'Uninstall Package'),
 			category: PACKAGES_CATEGORY,
 			f1: true,
-			precondition: POSITRON_PACKAGES_ENABLED,
+			precondition: ContextKeyExpr.and(POSITRON_PACKAGES_ENABLED, PACKAGES_CAN_RUN_ACTION),
 		});
 	}
 	override async run(accessor: ServicesAccessor, ...args: unknown[]): Promise<void> {
@@ -304,7 +318,7 @@ class UninstallPackageAction extends Action2 {
 				const packages = await service.refreshPackages(cts.token);
 				return packages
 					.map((x) => ({
-						name: x.displayName
+						name: x.name
 					}));
 			};
 
@@ -358,13 +372,7 @@ class UpdatePackageAction extends Action2 {
 			title: nls.localize2('updatePackage', 'Update Package'),
 			category: PACKAGES_CATEGORY,
 			f1: true,
-			precondition: POSITRON_PACKAGES_ENABLED,
-			menu: {
-				id: MenuId.ViewItemContext,
-				when: ContextKeyExpr.equals('view', POSITRON_PACKAGES_VIEW_ID),
-				group: 'navigation',
-				order: 1
-			}
+			precondition: ContextKeyExpr.and(POSITRON_PACKAGES_ENABLED, PACKAGES_CAN_RUN_ACTION),
 		});
 	}
 	override async run(accessor: ServicesAccessor, ...args: unknown[]): Promise<void> {
@@ -382,7 +390,7 @@ class UpdatePackageAction extends Action2 {
 				const packages = await service.refreshPackages(cts.token);
 				return packages
 					.map((x) => ({
-						name: x.displayName
+						name: x.name
 					}));
 			};
 
@@ -431,12 +439,12 @@ class UpdateAllPackagesAction extends Action2 {
 			title: nls.localize2('updateAllPackages', 'Update All Packages'),
 			category: PACKAGES_CATEGORY,
 			f1: true,
-			precondition: POSITRON_PACKAGES_ENABLED,
+			precondition: ContextKeyExpr.and(POSITRON_PACKAGES_ENABLED, PACKAGES_CAN_RUN_ACTION),
 			menu: {
-				id: MenuId.ViewItemContext,
-				when: ContextKeyExpr.equals('view', POSITRON_PACKAGES_VIEW_ID),
-				group: 'navigation',
-				order: 1
+				id: MenuId.ViewTitle,
+				when: PACKAGES_VIEW_VISIBLE,
+				group: 'packages',
+				order: 2
 			}
 		});
 	}
@@ -475,9 +483,109 @@ class UpdateAllPackagesAction extends Action2 {
 	}
 }
 
+/**
+ * Menu wrapper for Update Package that passes the selected package to the main command.
+ */
+class UpdateSelectedPackageAction extends Action2 {
+	constructor() {
+		super({
+			id: 'positronPackages.updateSelectedPackage',
+			title: nls.localize2('updatePackage', 'Update Package'),
+			category: PACKAGES_CATEGORY,
+			precondition: ContextKeyExpr.and(POSITRON_PACKAGES_ENABLED, PACKAGES_CAN_RUN_ACTION, PACKAGES_HAS_SELECTION),
+			menu: {
+				id: MenuId.ViewTitle,
+				when: PACKAGES_VIEW_VISIBLE,
+				group: 'packages',
+				order: 3
+			}
+		});
+	}
+	override async run(accessor: ServicesAccessor): Promise<void> {
+		const service = accessor.get(IPositronPackagesService);
+		const commandService = accessor.get(ICommandService);
+		if (service.selectedPackage) {
+			await commandService.executeCommand(PACKAGES_UPDATE_COMMAND_ID, service.selectedPackage);
+		}
+	}
+}
+
+/**
+ * Menu wrapper for Uninstall Package that passes the selected package to the main command.
+ */
+class UninstallSelectedPackageAction extends Action2 {
+	constructor() {
+		super({
+			id: 'positronPackages.uninstallSelectedPackage',
+			title: nls.localize2('uninstallPackage', 'Uninstall Package'),
+			category: PACKAGES_CATEGORY,
+			precondition: ContextKeyExpr.and(POSITRON_PACKAGES_ENABLED, PACKAGES_CAN_RUN_ACTION, PACKAGES_HAS_SELECTION),
+			menu: {
+				id: MenuId.ViewTitle,
+				when: PACKAGES_VIEW_VISIBLE,
+				group: 'packages',
+				order: 4
+			}
+		});
+	}
+	override async run(accessor: ServicesAccessor): Promise<void> {
+		const service = accessor.get(IPositronPackagesService);
+		const commandService = accessor.get(ICommandService);
+		if (service.selectedPackage) {
+			await commandService.executeCommand(PACKAGES_UNINSTALL_COMMAND_ID, service.selectedPackage);
+		}
+	}
+}
+
+class RefreshMetadataAction extends Action2 {
+	constructor() {
+		super({
+			id: PACKAGES_REFRESH_METADATA_COMMAND_ID,
+			title: nls.localize2('refreshMetadata', 'Refresh Metadata'),
+			category: PACKAGES_CATEGORY,
+			f1: true,
+			precondition: ContextKeyExpr.and(POSITRON_PACKAGES_ENABLED, PACKAGES_CAN_RUN_ACTION),
+			menu: {
+				id: MenuId.ViewTitle,
+				when: PACKAGES_VIEW_VISIBLE,
+				group: 'packages_metadata',
+				order: 1
+			}
+		});
+	}
+	override async run(accessor: ServicesAccessor): Promise<void> {
+		const service = accessor.get<IPositronPackagesService>(IPositronPackagesService);
+		const notifications = accessor.get<INotificationService>(INotificationService);
+		const progress = accessor.get<IProgressService>(IProgressService);
+
+		const cts = new CancellationTokenSource();
+
+		try {
+			await progress.withProgress({
+				title: nls.localize('positronPackages.refreshingMetadata', 'Refreshing Package Metadata...'),
+				location: ProgressLocation.Notification,
+				cancellable: true,
+				delay: 500
+			}, async () => {
+				try {
+					await service.refreshMetadata(cts.token);
+				} catch (error) {
+					notifications.error(cleanErrorMessage(error));
+					throw error;
+				}
+			}, () => cts.cancel());
+		} finally {
+			cts.dispose(true);
+		}
+	}
+}
+
 registerAction2(InstallPackageAction);
 registerAction2(RefreshPackagesAction);
+registerAction2(RefreshMetadataAction);
 registerAction2(UninstallPackageAction);
 registerAction2(UpdatePackageAction);
 registerAction2(UpdateAllPackagesAction);
+registerAction2(UpdateSelectedPackageAction);
+registerAction2(UninstallSelectedPackageAction);
 registerSingleton(IPositronPackagesService, PositronPackagesService, InstantiationType.Delayed);

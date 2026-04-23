@@ -12,16 +12,38 @@ import React, { ChangeEvent, forwardRef, useImperativeHandle, useRef, useState }
 // Other dependencies.
 import { localize } from '../../../../nls.js';
 import { positronClassNames } from '../../../../base/common/positronUtilities.js';
+import { Icon as IconType } from '../../../action/common/action.js';
+import { Icon } from './icon.js';
+import { Codicon } from '../../../../base/common/codicons.js';
+
+/**
+ * ActionBarFilterSize type.
+ */
+type ActionBarFilterSize = 'sm' | 'md';
 
 /**
  * ActionBarFilterProps interface.
  */
 interface ActionBarFilterProps {
-	width: number;
+	width?: number | string;
 	disabled?: boolean;
 	initialFilterText?: string;
 	placeholder?: string;
+	clearButtonIcon?: IconType;
+	showClearAlways?: boolean;
+	size?: ActionBarFilterSize;
 	onFilterTextChanged: (filterText: string) => void;
+	/**
+	 * Optional handler invoked when the filter button is pressed. When provided,
+	 * a filter icon button is rendered to the right of the clear button. The
+	 * anchor element is passed so callers can position a context menu relative
+	 * to the button.
+	 */
+	onFilterButtonPressed?: (anchorElement: HTMLElement) => void;
+	/**
+	 * Tooltip for the filter button. Only used when onFilterButtonPressed is provided.
+	 */
+	filterButtonTooltip?: string;
 }
 
 export interface ActionBarFilterHandle {
@@ -36,6 +58,7 @@ export interface ActionBarFilterHandle {
 export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilterProps>((props, ref) => {
 	// Reference hooks.
 	const inputRef = useRef<HTMLInputElement>(undefined!);
+	const filterButtonRef = useRef<HTMLButtonElement>(null);
 
 	// State hooks.
 	const [focused, setFocused] = useState(false);
@@ -64,6 +87,21 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 		}
 	};
 
+	// Filter button click handler.
+	const filterButtonClickHandler = () => {
+		if (filterButtonRef.current) {
+			props.onFilterButtonPressed?.(filterButtonRef.current);
+		}
+	};
+
+	// Filter button key down handler.
+	const filterButtonKeyDownHandler = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+		if (e.code === 'Enter' || e.code === 'Space') {
+			e.preventDefault();
+			filterButtonClickHandler();
+		}
+	};
+
 	// Input key down handler.
 	const inputKeyDownHandler = (e: React.KeyboardEvent<HTMLInputElement>) => {
 		if (e.key === 'Escape' && filterText !== '') {
@@ -81,10 +119,12 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 		}
 	}));
 
+	const sizeClassName = props.size === 'md' ? 'action-bar-filter-input-md' : 'action-bar-filter-input-sm';
+
 	// Render.
 	return (
 		<div className='action-bar-filter-container' style={{ width: props.width }}>
-			<div className={positronClassNames('action-bar-filter-input', { 'focused': focused })}>
+			<div className={positronClassNames('action-bar-filter-input', sizeClassName, { 'focused': focused })}>
 				<input
 					ref={inputRef}
 					className='text-input'
@@ -97,15 +137,29 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 					onFocus={() => setFocused(true)}
 					onKeyDown={inputKeyDownHandler}
 				/>
-				{filterText !== '' && (
+				{(filterText !== '' || props.showClearAlways) && (
 					<button
 						aria-label={localize('positronClearFilter', "Clear filter")}
 						className='clear-button'
-						disabled={props.disabled}
+						disabled={props.disabled || filterText === ''}
 						onClick={buttonClearClickHandler}
 						onKeyDown={buttonClearKeyDownHandler}
 					>
-						<div className={'codicon codicon-positron-search-cancel'} />
+						<Icon icon={props.clearButtonIcon ?? Codicon.positronSearchCancel} />
+					</button>
+				)}
+				{props.onFilterButtonPressed && (
+					<button
+						ref={filterButtonRef}
+						aria-haspopup='menu'
+						aria-label={localize('positronFilterOptions', "Filter options")}
+						className='filter-button'
+						disabled={props.disabled}
+						title={props.filterButtonTooltip}
+						onClick={filterButtonClickHandler}
+						onKeyDown={filterButtonKeyDownHandler}
+					>
+						<Icon icon={Codicon.filter} />
 					</button>
 				)}
 			</div>

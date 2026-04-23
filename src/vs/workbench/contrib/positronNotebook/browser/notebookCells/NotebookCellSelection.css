@@ -76,6 +76,13 @@
 	border-bottom-color: transparent;
 }
 
+/* When footer is collapsed (cell hasn't been run) and no outputs, editor container needs bottom radius */
+.positron-notebook-code-cell:has(.positron-notebook-outputs-section.no-outputs) .positron-notebook-editor-section:has(.positron-notebook-code-cell-footer.collapsed) .positron-notebook-editor-container {
+	border-bottom-left-radius: var(--vscode-positronNotebook-cell-radius);
+	border-bottom-right-radius: var(--vscode-positronNotebook-cell-radius);
+	transition: border-bottom-left-radius 150ms ease-out, border-bottom-right-radius 150ms ease-out;
+}
+
 /* Update the border color for code cells with no outputs based on the selection state */
 .positron-notebook-cell.selected:has(.positron-notebook-outputs-section.no-outputs) .positron-notebook-editor-section,
 .positron-notebook-cell.editing:has(.positron-notebook-outputs-section.no-outputs) .positron-notebook-editor-section {
@@ -200,5 +207,9 @@
 	.positron-notebook-cell.assistant-highlight::after {
 		animation: none;
 		opacity: 0;
+	}
+
+	.positron-notebook-code-cell:has(.positron-notebook-outputs-section.no-outputs) .positron-notebook-editor-section:has(.positron-notebook-code-cell-footer.collapsed) .positron-notebook-editor-container {
+		transition: none;
 	}
 }

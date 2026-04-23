@@ -9,7 +9,6 @@ import './listPackages.css';
 // React.
 import React, {
 	CSSProperties,
-	useCallback,
 	useEffect,
 	useMemo,
 	useRef,
@@ -22,31 +21,19 @@ import * as DOM from '../../../../../base/browser/dom.js';
 import { isMacintosh } from '../../../../../base/common/platform.js';
 import { useStateRef } from '../../../../../base/browser/ui/react/useStateRef.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
-import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
-import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
-import { ActionBarRegion } from '../../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
-import { PositronActionBar } from '../../../../../platform/positronActionBar/browser/positronActionBar.js';
-import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
+import { ActionBarFilter, ActionBarFilterHandle } from '../../../../../platform/positronActionBar/browser/components/actionBarFilter.js';
 import { ViewsProps } from '../positronPackages.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
-import { ThemeIcon } from '../../../../../base/common/themables.js';
+import { Separator } from '../../../../../base/common/actions.js';
 import { localize } from '../../../../../nls.js';
 import { usePositronPackagesContext } from '../positronPackagesContext.js';
-import { ILanguageRuntimePackage, ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackage } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progressbar.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { Separator } from '../../../../../base/common/actions.js';
-import { PackagesInstanceMenuButton } from './packagesInstanceMenuButton.js';
-
-const positronRefreshPackages = localize(
-	'positronRefreshPackages',
-	'Refresh Packages',
-);
-
-const positronInstallPackage = localize(
-	'positronInstallPackage',
-	'Install Package',
-);
+import { showCustomContextMenu, CustomContextMenuSubmenu, CustomContextMenuEntry } from '../../../../browser/positronComponents/customContextMenu/customContextMenu.js';
+import { CustomContextMenuItem } from '../../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
+import { applySortToQuery, PackagesSortOrder, parseQuery } from './packagesQuery.js';
 
 const positronUninstallPackage = localize(
 	'positronUninstallPackage',
@@ -58,15 +45,8 @@ const positronUpdatePackage = localize(
 	'Update Package',
 );
 
-const positronUpdateAllPackages = localize(
-	'positronUpdateAllPackages',
-	'Update All Packages',
-);
-
-const positronPackageActions = localize(
-	'positronPackageActions',
-	'Package Actions',
-);
+// Height of the filter container in pixels
+const FILTER_HEIGHT = 34;
 
 export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	const {
@@ -169,6 +149,30 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		};
 	}, [loading]);
 
+	// The filter input is the single source of truth. `queryText` is the raw
+	// input; structured state (sort, free-text filter) is derived from it.
+	const [queryText, setQueryText] = useState('');
+	const [debouncedQueryText, setDebouncedQueryText] = useState('');
+	const filterRef = useRef<ActionBarFilterHandle>(null);
+
+	// Current sort derived from the immediate (non-debounced) query so the
+	// sort menu's checked state updates without waiting for the debounce.
+	const currentSort = useMemo(() => parseQuery(queryText).sort, [queryText]);
+
+	// Clear selection when filter text changes.
+	const handleFilterTextChanged = (text: string) => {
+		setQueryText(text);
+		setSelectedItem(undefined);
+	};
+
+	// Debounce filter text changes (300ms).
+	useEffect(() => {
+		const timeout = setTimeout(() => {
+			setDebouncedQueryText(queryText);
+		}, 300);
+		return () => clearTimeout(timeout);
+	}, [queryText]);
+
 	// Deduplicate packages by name, keeping only the first occurrence.
 	// The same package can exist in multiple library paths (e.g., user and system libraries).
 	// We show only the first one, matching R's library search order.
@@ -182,6 +186,30 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 			return true;
 		});
 	}, [packages]);
+
+	// Parse the debounced query so filtering and sorting run off the same snapshot.
+	const debouncedQuery = useMemo(() => parseQuery(debouncedQueryText), [debouncedQueryText]);
+
+	// Filter packages based on the debounced free-text (case-insensitive, matches name or displayName)
+	// and sort according to the current sort order.
+	const filteredPackages = useMemo(() => {
+		let result = deduplicatedPackages;
+
+		if (debouncedQuery.text) {
+			const lowerFilter = debouncedQuery.text.toLowerCase();
+			result = result.filter((pkg) =>
+				pkg.name.toLowerCase().includes(lowerFilter) ||
+				pkg.displayName.toLowerCase().includes(lowerFilter)
+			);
+		}
+
+		result = [...result].sort((a, b) => {
+			const comparison = a.name.localeCompare(b.name);
+			return debouncedQuery.sort === PackagesSortOrder.NameAsc ? comparison : -comparison;
+		});
+
+		return result;
+	}, [deduplicatedPackages, debouncedQuery]);
 
 	// UI State
 	const [focused, setFocused] = useState(false);
@@ -222,8 +250,11 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 
 	// Item renderer
 	const ItemEntry = (props: { index: number; style: CSSProperties }) => {
-		const itemProps = deduplicatedPackages[props.index];
-		const { id, name, displayName, version } = itemProps;
+		const itemProps = filteredPackages[props.index];
+		const { id, name, displayName, version, latestVersion } = itemProps;
+
+		// Check if package has an update available
+		const hasUpdate = latestVersion && latestVersion !== version;
 
 		return (
 			// eslint-disable-next-line jsx-a11y/no-static-element-interactions
@@ -282,14 +313,66 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 			>
 				<div className='packages-list-item-name'>{displayName}</div>
 				<div className='packages-list-item-version'>{version}</div>
+				{hasUpdate && (
+					<div
+						className='packages-list-item-update'
+						title={localize('positronPackages.updateAvailable', "Update available: {0}", latestVersion)}
+					>
+						&#x2191;
+					</div>
+				)}
 			</div >
 		);
 	};
 
-	// Map selected item to package name
-	const getSelectedItemPackageName = useCallback((item: string | undefined) => {
-		return deduplicatedPackages.find((pkg) => pkg.id === item)?.name;
-	}, [deduplicatedPackages]);
+	// Update selected package in the service when selection changes
+	useEffect(() => {
+		// Find the package name from the selected item id
+		const selectedPackageName = selectedItem
+			? deduplicatedPackages.find((pkg) => pkg.id === selectedItem)?.name
+			: undefined;
+		services.positronPackagesService.setSelectedPackage(selectedPackageName);
+		return () => services.positronPackagesService.setSelectedPackage(undefined);
+	}, [selectedItem, deduplicatedPackages, services.positronPackagesService]);
+
+	// Rewrite the filter input to reflect the selected sort. The input is the
+	// source of truth, so updating it flows back through onFilterTextChanged
+	// and re-derives every dependent state.
+	const selectSort = (sort: PackagesSortOrder) => {
+		filterRef.current?.setFilterText(applySortToQuery(queryText, sort));
+	};
+
+	// Build the Sort submenu entries. Evaluated lazily so the checked state
+	// reflects the current input when the submenu is opened.
+	const sortSubmenuEntries = (): CustomContextMenuEntry[] => [
+		new CustomContextMenuItem({
+			label: localize('positronPackages.sortByNameAsc', "Name (A-Z)"),
+			checked: currentSort === PackagesSortOrder.NameAsc,
+			onSelected: () => selectSort(PackagesSortOrder.NameAsc),
+		}),
+		new CustomContextMenuItem({
+			label: localize('positronPackages.sortByNameDesc', "Name (Z-A)"),
+			checked: currentSort === PackagesSortOrder.NameDesc,
+			onSelected: () => selectSort(PackagesSortOrder.NameDesc),
+		}),
+	];
+
+	// Open the filter options menu anchored on the filter button.
+	const showFilterMenu = (anchorElement: HTMLElement) => {
+		showCustomContextMenu({
+			anchorElement,
+			popupPosition: 'auto',
+			popupAlignment: 'auto',
+			minWidth: 160,
+			entries: [
+				new CustomContextMenuSubmenu({
+					icon: 'arrow-swap-vertical',
+					label: localize('positronPackages.sortLabel', "Sort"),
+					entries: sortSubmenuEntries,
+				}),
+			],
+		});
+	};
 
 	return (
 		// eslint-disable-next-line jsx-a11y/no-static-element-interactions
@@ -303,134 +386,37 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		>
 			<div ref={progressRef} id='packages-progress' />
 
-			<ActionBar
-				activeSession={activeInstance?.session}
-				busy={loading}
-				selectedItem={selectedItem}
-				onInstallPackage={() => services.commandService.executeCommand('positronPackages.installPackage')}
-				onRefreshPackages={() => services.commandService.executeCommand('positronPackages.refreshPackages')}
-				onUninstallPackage={() => {
-					const packageName = getSelectedItemPackageName(selectedItem);
-					if (packageName) {
-						services.commandService.executeCommand('positronPackages.uninstallPackage', packageName);
-					}
-				}}
-				onUpdateAllPackages={() => services.commandService.executeCommand('positronPackages.updateAllPackages')}
-				onUpdatePackage={() => {
-					const packageName = getSelectedItemPackageName(selectedItem);
-					if (packageName) {
-						services.commandService.executeCommand('positronPackages.updatePackage', packageName);
-					}
-				}}
-			></ActionBar>
-			<div className='packages-list-container'>
-				<List
-					height={height - ACTION_BAR_HEIGHT}
-					innerRef={innerRef}
-					itemCount={deduplicatedPackages.length}
-					itemKey={(index) => deduplicatedPackages[index].id}
-					itemSize={26}
-					width={'calc(100% - 2px)'}
-				>
-					{ItemEntry}
-				</List>
+			<div className='packages-filter-container'>
+				<ActionBarFilter
+					ref={filterRef}
+					showClearAlways
+					clearButtonIcon={Codicon.clearAll}
+					filterButtonTooltip={localize('positronPackages.filterOptions', "Filter options")}
+					placeholder={localize('positronPackages.filterPlaceholder', "Filter packages")}
+					size='md'
+					onFilterButtonPressed={showFilterMenu}
+					onFilterTextChanged={handleFilterTextChanged}
+				/>
 			</div>
-		</div >
-	);
-};
-
-const ACTION_BAR_PADDING_LEFT = 8;
-const ACTION_BAR_PADDING_RIGHT = 8;
-const ACTION_BAR_HEIGHT = 28;
-
-interface ActionBarProps {
-	busy: boolean;
-	activeSession?: ILanguageRuntimeSession;
-	selectedItem?: string;
-	onInstallPackage: () => void;
-	onRefreshPackages: () => void;
-	onUninstallPackage: () => void;
-	onUpdateAllPackages: () => void;
-	onUpdatePackage: () => void;
-}
-
-const ActionBar = ({
-	busy,
-	activeSession,
-	selectedItem,
-	onInstallPackage,
-	onRefreshPackages,
-	onUpdateAllPackages,
-	onUpdatePackage,
-	onUninstallPackage,
-	...props
-}: React.PropsWithChildren<ActionBarProps>) => {
-	return (
-		<div style={{ height: ACTION_BAR_HEIGHT }}>
-			<PositronActionBarContextProvider {...props}>
-				<PositronActionBar
-					borderBottom={true}
-					borderTop={true}
-					paddingLeft={ACTION_BAR_PADDING_LEFT}
-					paddingRight={ACTION_BAR_PADDING_RIGHT}
-				>
-					<ActionBarRegion location='left'>
-						<PackagesInstanceMenuButton />
-					</ActionBarRegion>
-					<ActionBarRegion location='right'>
-						<ActionBarButton
-							align='right'
-							ariaLabel={positronRefreshPackages}
-							disabled={busy || !activeSession}
-							icon={ThemeIcon.fromId('refresh')}
-							tooltip={positronRefreshPackages}
-							onPressed={onRefreshPackages}
-						/>
-						<ActionBarMenuButton
-							actions={() => [
-								{
-									id: 'positron.packages.installPackage',
-									label: positronInstallPackage,
-									tooltip: positronInstallPackage,
-									class: undefined,
-									enabled: !busy,
-									run: onInstallPackage,
-								},
-								{
-									id: 'positron.packages.updateAllPackages',
-									label: positronUpdateAllPackages,
-									tooltip: positronUpdateAllPackages,
-									class: undefined,
-									enabled: !busy,
-									run: onUpdateAllPackages,
-								},
-								{
-									id: 'positron.packages.updatePackage',
-									label: positronUpdatePackage,
-									tooltip: positronUpdatePackage,
-									class: undefined,
-									enabled: !busy && Boolean(selectedItem),
-									run: onUpdatePackage,
-								},
-								{
-									id: 'positron.packages.uninstallPackage',
-									label: positronUninstallPackage,
-									tooltip: positronUninstallPackage,
-									class: undefined,
-									enabled: !busy && Boolean(selectedItem),
-									run: onUninstallPackage,
-								},
-							]}
-							align='right'
-							ariaLabel={positronPackageActions}
-							disabled={!activeSession}
-							dropdownIndicator='disabled'
-							icon={ThemeIcon.fromId('ellipsis')}
-							tooltip={positronPackageActions}
-						/>
-					</ActionBarRegion>
-				</PositronActionBar>
-			</PositronActionBarContextProvider>
+			<div className='packages-list-container'>
+				{filteredPackages.length === 0 && debouncedQuery.text ? (
+					<div className='packages-empty-message'
+						style={{ height: height - FILTER_HEIGHT }}>
+						{localize('positronPackages.noPackagesFound', "No packages found.")}
+					</div>
+				) : (
+					<List
+						height={height - FILTER_HEIGHT}
+						innerRef={innerRef}
+						itemCount={filteredPackages.length}
+						itemKey={(index) => filteredPackages[index].id}
+						itemSize={26}
+						width={'calc(100% - 2px)'}
+					>
+						{ItemEntry}
+					</List>
+				)}
+			</div>
 		</div>
 	);
 };
