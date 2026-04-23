@@ -168,6 +168,7 @@
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/cookie": "^0.3.3",
     "@types/debug": "^4.1.5",
     "@types/eslint": "^9.6.1",

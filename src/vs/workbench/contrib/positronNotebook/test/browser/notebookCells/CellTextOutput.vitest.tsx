@@ -215,7 +215,7 @@ describe('CellTextOutput', () => {
 			{ content, type: 'stdout' },
 			{ outputLineLimit: 30, outputScrolling: false },
 		);
-		screen.getByRole('button', { name: /more lines/ });
+		expect(screen.getByRole('button', { name: /more lines/ })).toBeInTheDocument();
 
 		layoutConfig = { ...layoutConfig, outputLineLimit: 50 };
 		act(() => optionsEmitter.fire({ outputLineLimit: true } as NotebookOptionsChangeEvent));

@@ -53,7 +53,7 @@ describe('NotebookErrorBoundary', () => {
 				</NotebookErrorBoundary>
 			);
 
-			screen.getByText('Hello');
+			expect(screen.getByText('Hello')).toBeInTheDocument();
 		});
 	});
 
@@ -77,7 +77,7 @@ describe('NotebookErrorBoundary', () => {
 				</NotebookErrorBoundary>
 			);
 
-			screen.getByRole('alert');
+			expect(screen.getByRole('alert')).toBeInTheDocument();
 		});
 
 		it('applies level-specific CSS class and message', () => {
@@ -103,7 +103,7 @@ describe('NotebookErrorBoundary', () => {
 
 				// Level-specific class is structural; no semantic handle exposes the level.
 				expect(rendered.container.querySelector(`.notebook-error-boundary-${level}`)).toBeInTheDocument();
-				screen.getByText(message);
+				expect(screen.getByText(message)).toBeInTheDocument();
 				rendered.unmount();
 			}
 		});
@@ -132,7 +132,7 @@ describe('NotebookErrorBoundary', () => {
 			);
 
 			// Should still show error UI
-			screen.getByRole('alert');
+			expect(screen.getByRole('alert')).toBeInTheDocument();
 
 			// Should log safely without crashing
 			expect(errorSpy).toHaveBeenCalledOnce();
@@ -164,7 +164,7 @@ describe('NotebookErrorBoundary', () => {
 			);
 
 			// Toggle button starts in "Show Details" state, meaning details are hidden.
-			screen.getByRole('button', { name: 'Show Details' });
+			expect(screen.getByRole('button', { name: 'Show Details' })).toBeInTheDocument();
 			expect(screen.queryByRole('button', { name: 'Hide Details' })).not.toBeInTheDocument();
 		});
 
@@ -178,12 +178,12 @@ describe('NotebookErrorBoundary', () => {
 
 			// Show details
 			clickAndFlush(screen.getByRole('button', { name: 'Show Details' }));
-			screen.getByRole('button', { name: 'Hide Details' });
+			expect(screen.getByRole('button', { name: 'Hide Details' })).toBeInTheDocument();
 			expect(screen.getByRole('alert')).toHaveTextContent('specific error message');
 
 			// Hide details
 			clickAndFlush(screen.getByRole('button', { name: 'Hide Details' }));
-			screen.getByRole('button', { name: 'Show Details' });
+			expect(screen.getByRole('button', { name: 'Show Details' })).toBeInTheDocument();
 			expect(screen.queryByRole('button', { name: 'Hide Details' })).not.toBeInTheDocument();
 		});
 	});
@@ -208,7 +208,7 @@ describe('NotebookErrorBoundary', () => {
 				</NotebookErrorBoundary>
 			);
 
-			screen.getByRole('button', { name: 'Retry' });
+			expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
 		});
 
 		it('clicking Retry re-renders children', () => {
@@ -228,14 +228,14 @@ describe('NotebookErrorBoundary', () => {
 				</NotebookErrorBoundary>
 			);
 
-			screen.getByRole('alert');
+			expect(screen.getByRole('alert')).toBeInTheDocument();
 
 			// Fix the component and retry
 			shouldThrow = false;
 			clickAndFlush(screen.getByRole('button', { name: 'Retry' }));
 
 			// Children should re-render after retry.
-			screen.getByText('Recovered');
+			expect(screen.getByText('Recovered')).toBeInTheDocument();
 			expect(screen.queryByRole('alert'), 'Error UI should be gone').not.toBeInTheDocument();
 		});
 	});
@@ -286,7 +286,7 @@ describe('NotebookErrorBoundary', () => {
 			);
 
 			// Error boundary should catch provider errors.
-			screen.getByRole('alert');
+			expect(screen.getByRole('alert')).toBeInTheDocument();
 			expect(errorSpy).toHaveBeenCalledOnce();
 			const logMessage = errorSpy.mock.calls[0][0] as string;
 			expect(logMessage, 'Log should include the provider error message').toContain('provider error');

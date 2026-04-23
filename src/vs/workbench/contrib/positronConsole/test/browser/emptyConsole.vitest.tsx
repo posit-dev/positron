@@ -30,7 +30,7 @@ describe('EmptyConsole', () => {
 
 	it('renders a Start Session button', () => {
 		rtl.render(<EmptyConsole />);
-		screen.getByText('Start Session');
+		expect(screen.getByText('Start Session')).toBeInTheDocument();
 	});
 
 	it('executes startNewConsoleSession command when button is pressed', async () => {

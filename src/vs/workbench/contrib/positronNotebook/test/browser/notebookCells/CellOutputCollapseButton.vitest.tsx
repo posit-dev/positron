@@ -52,14 +52,14 @@ describe('CellOutputCollapseButton', () => {
 	it('renders collapse button when not collapsed', () => {
 		renderButton();
 
-		screen.getByRole('button', { name: 'Collapse Output' });
+		expect(screen.getByRole('button', { name: 'Collapse Output' })).toBeInTheDocument();
 	});
 
 	it('renders expand button when outputs are collapsed', () => {
 		outputIsCollapsed.set(true, undefined);
 		renderButton();
 
-		screen.getByRole('button', { name: 'Expand Output' });
+		expect(screen.getByRole('button', { name: 'Expand Output' })).toBeInTheDocument();
 	});
 
 	it('selects cell and toggles collapse on click', () => {

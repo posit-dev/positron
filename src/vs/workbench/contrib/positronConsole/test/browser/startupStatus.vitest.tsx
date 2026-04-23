@@ -80,9 +80,8 @@ describe('StartupStatus', () => {
 		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 		it('shows "Waiting for extensions" during Initializing phase', () => {
-			// getByText throws if the node isn't found, so the call itself acts as the assertion.
 			rtl.render(<StartupStatus />);
-			screen.getByText(/Waiting for extensions/);
+			expect(screen.getByText(/Waiting for extensions/)).toBeInTheDocument();
 		});
 
 		it('shows "Cannot start consoles in Restricted Mode" during AwaitingTrust phase', () => {
@@ -92,7 +91,7 @@ describe('StartupStatus', () => {
 				langMock.onDidChangeRuntimeStartupPhase.fire(RuntimeStartupPhase.AwaitingTrust);
 			});
 
-			screen.getByText(/Cannot start consoles in Restricted Mode/);
+			expect(screen.getByText(/Cannot start consoles in Restricted Mode/)).toBeInTheDocument();
 		});
 
 		it('hides the progress bar during AwaitingTrust phase', () => {
@@ -103,7 +102,7 @@ describe('StartupStatus', () => {
 			});
 
 			// Confirm we're in AwaitingTrust state via the user-facing message.
-			screen.getByText(/Cannot start consoles in Restricted Mode/);
+			expect(screen.getByText(/Cannot start consoles in Restricted Mode/)).toBeInTheDocument();
 			// The progress bar div has no role/text/testid handle; querySelector on
 			// the structural .progress class is the cleanest fallback for asserting
 			// presence + inline display style.
@@ -119,7 +118,7 @@ describe('StartupStatus', () => {
 				langMock.onDidChangeRuntimeStartupPhase.fire(RuntimeStartupPhase.Reconnecting);
 			});
 
-			screen.getByText(/Reconnecting/);
+			expect(screen.getByText(/Reconnecting/)).toBeInTheDocument();
 		});
 
 		it('shows "Setting up workspace" during NewFolderTasks phase', () => {
@@ -129,7 +128,7 @@ describe('StartupStatus', () => {
 				langMock.onDidChangeRuntimeStartupPhase.fire(RuntimeStartupPhase.NewFolderTasks);
 			});
 
-			screen.getByText(/Setting up workspace/);
+			expect(screen.getByText(/Setting up workspace/)).toBeInTheDocument();
 		});
 
 		it('shows "Starting" during Starting phase', () => {
@@ -139,7 +138,7 @@ describe('StartupStatus', () => {
 				langMock.onDidChangeRuntimeStartupPhase.fire(RuntimeStartupPhase.Starting);
 			});
 
-			screen.getByText(/Starting/);
+			expect(screen.getByText(/Starting/)).toBeInTheDocument();
 		});
 
 		it('shows "Discovering interpreters" during Discovering phase', () => {
@@ -149,7 +148,7 @@ describe('StartupStatus', () => {
 				langMock.onDidChangeRuntimeStartupPhase.fire(RuntimeStartupPhase.Discovering);
 			});
 
-			screen.getByText(/Discovering interpreters/);
+			expect(screen.getByText(/Discovering interpreters/)).toBeInTheDocument();
 		});
 	});
 
@@ -203,8 +202,8 @@ describe('StartupStatus', () => {
 				}));
 			});
 
-			screen.getByText('Python 3.12.1');
-			screen.getByText('Preparing');
+			expect(screen.getByText('Python 3.12.1')).toBeInTheDocument();
+			expect(screen.getByText('Preparing')).toBeInTheDocument();
 		});
 
 		it('shows "Reconnecting" for existing session auto-start', () => {
@@ -217,8 +216,8 @@ describe('StartupStatus', () => {
 				}));
 			});
 
-			screen.getByText('Python 3.12.1');
-			screen.getByText('Reconnecting');
+			expect(screen.getByText('Python 3.12.1')).toBeInTheDocument();
+			expect(screen.getByText('Reconnecting')).toBeInTheDocument();
 		});
 
 		it('ignores auto-start events with activate=false', () => {
@@ -232,21 +231,21 @@ describe('StartupStatus', () => {
 
 			// Should still show the phase text, not the runtime name.
 			expect(screen.queryByText('Python 3.12.1')).not.toBeInTheDocument();
-			screen.getByText(/Starting/);
+			expect(screen.getByText(/Starting/)).toBeInTheDocument();
 		});
 
 		it('suppresses phase text when auto-start event is active', () => {
 			rtl.render(<StartupStatus />);
 
 			// Initially shows "Starting..."
-			screen.getByText(/Starting/);
+			expect(screen.getByText(/Starting/)).toBeInTheDocument();
 
 			act(() => {
 				startupMock.onWillAutoStartRuntime.fire(makeAutoStartEvent());
 			});
 
 			// "Starting" text should be suppressed, replaced by runtime progress.
-			screen.getByText('Python 3.12.1');
+			expect(screen.getByText('Python 3.12.1')).toBeInTheDocument();
 			// The phase-specific text ("Starting...") is hidden when runtimeStartupEvent
 			// is set; the .starting div is no longer rendered.
 			expect(screen.queryByText(/^Starting/)).not.toBeInTheDocument();

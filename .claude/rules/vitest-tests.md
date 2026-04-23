@@ -81,7 +81,7 @@ For React component tests using `setupRTLRenderer()`:
 
 **Assertions.** Use `@testing-library/jest-dom` matchers: `toBeInTheDocument`, `toHaveTextContent`, `toHaveClass`, `toBeDisabled`, `toBeVisible`, `toHaveAttribute`, etc. Prefer the dedicated matcher over manual property reads.
 
-A bare `getByRole(...)` / `getByText(...)` / `getByAltText(...)` call is itself an assertion -- the query throws when the element isn't found. Don't wrap it in `expect(...).toBeInTheDocument()`; the wrapper adds nothing and can obscure the failure message. Reserve `toBeInTheDocument()` for `queryBy*` / `findBy*` returns where the value may be `null`.
+For pure existence checks, wrap in `expect(...).toBeInTheDocument()`: `expect(screen.getByRole('alert')).toBeInTheDocument()`. This matches how Testing Library's maintainers recommend writing it -- every assertion in the test then leads with `expect(`, which reads uniformly. Bare `getBy*` works (the query throws on miss) but doesn't communicate intent. **Use `toBeInTheDocument()` only with `getBy*` for presence or `queryBy*` / `findBy*` for absence; not with `queryBy*` for presence (use `getBy*`) and not with `getBy*` for absence (use `queryBy*`).**
 
 See **Anti-patterns reference** below for the full table of patterns to avoid and their replacements.
 
@@ -89,7 +89,7 @@ See **Anti-patterns reference** below for the full table of patterns to avoid an
 
 One-stop reference. Authors: scan before writing. Reviewers (and the `review-vitest-tests` skill): flag any "Avoid" pattern that isn't covered by the "Exception" column.
 
-**Most RTL rules below are enforced automatically by `eslint-plugin-testing-library`** (see `eslint.config.js`): `prefer-implicit-assert`, `prefer-presence-queries`, `no-render-in-lifecycle`, `no-debugging-utils`, `no-unnecessary-act`, `await-async-queries`, `await-async-utils`, `no-await-sync-queries`. The tables below document Positron-specific rules (builder adoption, singleton mutation) and serve as pedagogical reference for lint rules.
+**Most RTL rules below are enforced automatically by `eslint-plugin-testing-library`** (see `eslint.config.js`): `prefer-explicit-assert`, `prefer-presence-queries`, `no-render-in-lifecycle`, `no-debugging-utils`, `no-unnecessary-act`, `await-async-queries`, `await-async-utils`, `no-await-sync-queries`. The tables below document Positron-specific rules (builder adoption, singleton mutation) and serve as pedagogical reference for lint rules.
 
 ### Builder adoption (all `.vitest.*`)
 
@@ -107,9 +107,9 @@ One-stop reference. Authors: scan before writing. Reviewers (and the `review-vit
 | Avoid | Use instead | Exception |
 |---|---|---|
 | `container.querySelector(...)` as assertion target | Query by priority: `getByRole` > `getByLabelText` > `getByPlaceholderText` > `getByText` > `getByDisplayValue` > `getByAltText` > `getByTitle` > `getByTestId` | Structural element with no semantic handle: `expect(container.querySelector('.x')).toBeInTheDocument()` + inline comment explaining why no semantic query fits. Prefer adding `data-testid` to the source component and using `getByTestId(...)` when touching the source is feasible. |
-| `expect(el).toBeTruthy()` for DOM presence | bare `getBy*(...)` (the query IS the assertion) | — |
+| `expect(el).toBeTruthy()` for DOM presence | `expect(getBy*(...)).toBeInTheDocument()` | — |
 | `expect(el).toBeFalsy()` / `toBeNull()` for DOM absence | `expect(queryBy*(...)).not.toBeInTheDocument()` | — |
-| `expect(getBy*(...)).toBeInTheDocument()` | bare `getBy*(...)` | — (for a null-safe check, switch to `queryBy*` / `findBy*` + `toBeInTheDocument()` — that's a different pattern, not an exception to this rule) |
+| bare `getBy*(...)` statement for pure existence (no subsequent assertion) | `expect(getBy*(...)).toBeInTheDocument()` | — (a bare query on its own line IS an implicit assertion, but explicit `expect(...)` makes intent visible and consistent with other assertions; Testing Library maintainers' preferred form) |
 | `assert.strictEqual(el.textContent, 'x')` | `expect(el).toHaveTextContent('x')` | — |
 | `el.classList.contains('x')` | `expect(el).toHaveClass('x')` | — |
 | `el.disabled === true` | `expect(el).toBeDisabled()` | — |
@@ -144,4 +144,4 @@ These showcase tests demonstrate the patterns at increasing complexity:
 - [emptyConsole](../../src/vs/workbench/contrib/positronConsole/test/browser/emptyConsole.vitest.tsx) -- React: one service, one click, behavioral assertions
 - [webviewPlotThumbnail](../../src/vs/workbench/contrib/positronPlots/test/browser/webviewPlotThumbnail.vitest.tsx) -- event-driven intro: one emitter, act(), conditional rendering
 - [startupStatus](../../src/vs/workbench/contrib/positronConsole/test/browser/startupStatus.vitest.tsx) -- event-driven advanced: 6-phase state machine, 3 event subscriptions
-- [columnSummaryCell](../../src/vs/workbench/services/positronDataExplorer/test/browser/columnSummaryCell.vitest.tsx) -- RTL idioms: `getByText('text', { selector })` (query-as-assertion), no `querySelector`
+- [columnSummaryCell](../../src/vs/workbench/services/positronDataExplorer/test/browser/columnSummaryCell.vitest.tsx) -- RTL idioms: `expect(getByText('text', { selector })).toBeInTheDocument()` (explicit-assert wrap), no `querySelector`

@@ -117,9 +117,10 @@ describe('ColumnSummaryCell', () => {
 		const { getByText } = renderRoot(mockTableSummaryDataGridInstance);
 
 		// Showcase preserves the destructure-from-render pattern (Dhruvi's reviewer
-		// suggestion: query-as-assertion + getByText selector) exactly as recommended.
+		// suggestion) plus the getByText selector form; the result is wrapped in
+		// expect().toBeInTheDocument() per the current explicit-assert convention.
 		// eslint-disable-next-line testing-library/prefer-screen-queries
-		getByText('0%', { selector: '.text-percent' });
+		expect(getByText('0%', { selector: '.text-percent' })).toBeInTheDocument();
 	});
 
 	it('displays <1% when getColumnProfileNullPercent returns 0.5', async () => {
@@ -131,9 +132,10 @@ describe('ColumnSummaryCell', () => {
 		const { getByText } = renderRoot(mockTableSummaryDataGridInstance);
 
 		// Showcase preserves the destructure-from-render pattern (Dhruvi's reviewer
-		// suggestion: query-as-assertion + getByText selector) exactly as recommended.
+		// suggestion) plus the getByText selector form; the result is wrapped in
+		// expect().toBeInTheDocument() per the current explicit-assert convention.
 		// eslint-disable-next-line testing-library/prefer-screen-queries
-		getByText('<1%', { selector: '.text-percent' });
+		expect(getByText('<1%', { selector: '.text-percent' })).toBeInTheDocument();
 	});
 
 	it('displays 99% when getColumnProfileNullPercent returns 99.9', async () => {
@@ -145,9 +147,10 @@ describe('ColumnSummaryCell', () => {
 		const { getByText } = renderRoot(mockTableSummaryDataGridInstance);
 
 		// Showcase preserves the destructure-from-render pattern (Dhruvi's reviewer
-		// suggestion: query-as-assertion + getByText selector) exactly as recommended.
+		// suggestion) plus the getByText selector form; the result is wrapped in
+		// expect().toBeInTheDocument() per the current explicit-assert convention.
 		// eslint-disable-next-line testing-library/prefer-screen-queries
-		getByText('99%', { selector: '.text-percent' });
+		expect(getByText('99%', { selector: '.text-percent' })).toBeInTheDocument();
 	});
 
 	it('displays 100% when getColumnProfileNullPercent returns 100', async () => {
@@ -159,9 +162,10 @@ describe('ColumnSummaryCell', () => {
 		const { getByText } = renderRoot(mockTableSummaryDataGridInstance);
 
 		// Showcase preserves the destructure-from-render pattern (Dhruvi's reviewer
-		// suggestion: query-as-assertion + getByText selector) exactly as recommended.
+		// suggestion) plus the getByText selector form; the result is wrapped in
+		// expect().toBeInTheDocument() per the current explicit-assert convention.
 		// eslint-disable-next-line testing-library/prefer-screen-queries
-		getByText('100%', { selector: '.text-percent' });
+		expect(getByText('100%', { selector: '.text-percent' })).toBeInTheDocument();
 	});
 
 });

@@ -89,7 +89,7 @@ describe('CellOutputActionBar', () => {
 		menuActions = [];
 		renderActionBar();
 
-		screen.getByRole('toolbar');
+		expect(screen.getByRole('toolbar')).toBeInTheDocument();
 		expect(screen.queryAllByRole('button')).toHaveLength(0);
 	});
 
@@ -99,7 +99,7 @@ describe('CellOutputActionBar', () => {
 		];
 		renderActionBar();
 
-		screen.getByRole('toolbar', { name: 'Cell output actions' });
+		expect(screen.getByRole('toolbar', { name: 'Cell output actions' })).toBeInTheDocument();
 	});
 
 	it('renders buttons for a single group', () => {

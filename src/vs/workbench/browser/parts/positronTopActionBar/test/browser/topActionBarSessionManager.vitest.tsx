@@ -98,7 +98,7 @@ describe('TopActionBarSessionManager', () => {
 				<TopActionBarSessionManager />
 			);
 
-			screen.getByRole('button');
+			expect(screen.getByRole('button')).toBeInTheDocument();
 		});
 	});
 

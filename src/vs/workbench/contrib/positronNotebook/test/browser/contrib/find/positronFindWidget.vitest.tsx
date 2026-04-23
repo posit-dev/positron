@@ -151,7 +151,7 @@ describe('PositronFindWidget', () => {
 		it('has no error styling when there is no query', () => {
 			const { widgetContainer } = renderWidget();
 
-			screen.getByText('No results');
+			expect(screen.getByText('No results')).toBeInTheDocument();
 			expect(widgetContainer).not.toHaveClass('no-results');
 		});
 
@@ -160,7 +160,7 @@ describe('PositronFindWidget', () => {
 			matchCount.set(0, undefined);
 			const { widgetContainer } = renderWidget();
 
-			screen.getByText('No results');
+			expect(screen.getByText('No results')).toBeInTheDocument();
 			expect(widgetContainer).toHaveClass('no-results');
 		});
 
@@ -209,7 +209,7 @@ describe('PositronFindWidget', () => {
 			matchCount.set(3, undefined);
 			renderWidget();
 
-			screen.getByText('1 of 3');
+			expect(screen.getByText('1 of 3')).toBeInTheDocument();
 		});
 
 		it('shows match index and count', () => {
@@ -218,7 +218,7 @@ describe('PositronFindWidget', () => {
 			matchIndex.set(2, undefined);
 			renderWidget();
 
-			screen.getByText('3 of 5');
+			expect(screen.getByText('3 of 5')).toBeInTheDocument();
 		});
 
 		it('no toggle replace button when useReplace is false', () => {
@@ -232,7 +232,7 @@ describe('PositronFindWidget', () => {
 		it('hidden when replaceIsVisible is false', () => {
 			renderWidget({ useReplace: true });
 
-			screen.getByRole('button', { name: 'Toggle Replace' });
+			expect(screen.getByRole('button', { name: 'Toggle Replace' })).toBeInTheDocument();
 			// Replace button (inside the replace part) is the reliable proxy for
 			// replace-part visibility; exact match avoids 'Replace All' collision.
 			expect(screen.queryByRole('button', { name: /^Replace$/ })).not.toBeInTheDocument();
@@ -242,9 +242,9 @@ describe('PositronFindWidget', () => {
 			replaceIsVisible.set(true, undefined);
 			renderWidget({ useReplace: true });
 
-			screen.getByRole('button', { name: 'Toggle Replace' });
-			screen.getByRole('button', { name: /^Replace$/ });
-			screen.getByRole('button', { name: 'Replace All' });
+			expect(screen.getByRole('button', { name: 'Toggle Replace' })).toBeInTheDocument();
+			expect(screen.getByRole('button', { name: /^Replace$/ })).toBeInTheDocument();
+			expect(screen.getByRole('button', { name: 'Replace All' })).toBeInTheDocument();
 		});
 
 		it('expands/collapses when toggle replace button is clicked', () => {
@@ -252,7 +252,7 @@ describe('PositronFindWidget', () => {
 
 			act(() => screen.getByRole('button', { name: 'Toggle Replace' }).click());
 
-			screen.getByRole('button', { name: /^Replace$/ });
+			expect(screen.getByRole('button', { name: /^Replace$/ })).toBeInTheDocument();
 			expect(replaceIsVisible.get(), 'Expected replaceIsVisible to be true').toBe(true);
 
 			act(() => screen.getByRole('button', { name: 'Toggle Replace' }).click());
