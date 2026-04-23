@@ -9,6 +9,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import { ParticipantService } from './participants.js';
+import { isFileExcludedFromAI } from './fileExclusion.js';
 import { MARKDOWN_DIR } from './constants';
 import { serializeNotebookContext } from './tools/notebookUtils.js';
 import { StreamingTagLexer } from './streamingTagLexer.js';
@@ -56,6 +57,12 @@ export async function generateNotebookSuggestions(
 	token: vscode.CancellationToken,
 	progressCallbackCommand?: string
 ): Promise<NotebookSuggestionsResult> {
+	// Check if notebook is excluded from AI features
+	if (isFileExcludedFromAI(vscode.Uri.parse(notebookUri))) {
+		log.debug('[notebook-suggestions] Notebook excluded from AI features by aiExcludes setting');
+		return { suggestions: [] };
+	}
+
 	// Get the model to use for generation
 	const model = await getModel(participantService, log);
 
