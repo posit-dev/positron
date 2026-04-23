@@ -65,11 +65,11 @@ Positron-specific rules not covered by a public lint plugin. The `review-vitest-
 | Avoid | Use instead | Exception |
 |---|---|---|
 | `positronWorkbenchInstantiationService()` | `createTestContainer().withWorkbenchServices().build()` | Inside shared test helpers invoked at test-runtime (inside `beforeEach` / `it`), where describe-scope `.build()` isn't viable |
-| `TestInstantiationService` (the class) | Same | Used solely to bootstrap a test-helper service (e.g. `new TestCommandService(new TestInstantiationService())`) in `beforeEach`, not as a primary DI container |
-| `workbenchInstantiationService()` (upstream helper) | Same | — |
+| `TestInstantiationService` (the class) | `createTestContainer().with<preset>().build()` -- pick the lowest preset that covers your services (see `positronTestContainer.ts` JSDoc) | Used solely to bootstrap a test-helper service (e.g. `new TestCommandService(new TestInstantiationService())`) in `beforeEach`, not as a primary DI container |
+| `workbenchInstantiationService()` (upstream VS Code helper) | `createTestContainer().withWorkbenchServices().build()` | — |
 | `createRuntimeServices()` | `createTestContainer().withRuntimeServices().build()` | — |
 | Hand-rolled `as unknown as PositronReactServices` accessor | `createTestContainer().withReactServices().stub(IService, ...).build()` + `setupRTLRenderer(() => ctx.reactServices)` | — |
-| `PositronReactServices.services = ...` singleton mutation | Same as above (plus drop save/restore in `beforeEach`/`afterEach`) | Source class reads the singleton directly in its constructor; a 1-line bridge `PositronReactServices.services = ctx.reactServices` with an inline comment is acceptable |
+| `PositronReactServices.services = ...` singleton mutation | `createTestContainer().withReactServices().stub(...).build()` (and drop the `beforeEach`/`afterEach` save/restore dance) | Source class reads the singleton directly in its constructor; a 1-line bridge `PositronReactServices.services = ctx.reactServices` with an inline comment is acceptable |
 
 **Assertion style** (all `.vitest.*`): use `expect(x).to*(...)`, never `assert.ok` / `assert.equal` / `assert.strictEqual`.
 
