@@ -86,13 +86,8 @@ function getExtensionDownloadStream(extension: IExtensionDefinition) {
 
 	if (extension.vsix) {
 		input = ext.fromVsix(path.join(root, extension.vsix), extension);
-	} else if (productjson.extensionsGallery?.serviceUrl) {
-		input = ext.fromMarketplace(productjson.extensionsGallery.serviceUrl, extension);
-		// --- Start Positron ---
-		if (extension.metadata.multiPlatformServiceUrl) {
-			input = ext.fromMarketplace(productjson.extensionsGallery.serviceUrl, extension);
-		}
-		// --- End Positron ---
+	} else if (productjson.extensionsGallery?.resourceUrlTemplate) {
+		input = ext.fromMarketplace(productjson.extensionsGallery.resourceUrlTemplate, extension);
 	} else {
 		input = ext.fromGithub(extension);
 	}
