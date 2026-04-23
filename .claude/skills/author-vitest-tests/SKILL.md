@@ -59,7 +59,7 @@ For each new symbol (method, class, interface member) in the diff:
 
 **Step 3: Read the testing guide.**
 
-Read the Testing section of `CLAUDE.md` (the "Where should I put my test?" decision table), `.claude/rules/vitest-tests.md` for patterns, and the JSDoc on `PositronTestContainerBuilder` in `src/vs/test/vitest/positronTestContainer.ts` for presets.
+Read the Testing section of `CLAUDE.md` (the "Where should I put my test?" decision table), `.claude/rules/vitest-tests.md` for core patterns, and the JSDoc on `PositronTestContainerBuilder` in `src/vs/test/vitest/positronTestContainer.ts` for presets. For React component work, also read `.claude/rules/vitest-rtl.md`.
 
 **Step 4: Classify each file.**
 
@@ -152,9 +152,9 @@ For each approved item:
 
 1. **Read the source file** and **existing tests in the same directory** for patterns.
 
-2. **Read `.claude/rules/vitest-tests.md`** for the Quick Start code examples, the builder section, and the showcase-test links covering the four patterns (plain, builder, RTL prop-driven, RTL service-context), plus the emitter pattern, inline snapshots, and mock utilities. Note the **Common mistakes** list under The Builder.
+2. **Read `.claude/rules/vitest-tests.md`** for the Quick Start code examples, the builder section, the emitter pattern, inline snapshots, and mock utilities. Note the **Common mistakes** list under The Builder. For React component work, also read `.claude/rules/vitest-rtl.md` (query priority, jest-dom matchers, escape hatches, lint-enforced rules).
 
-3. **Write the test** following the appropriate pattern from vitest-tests.md and these rules:
+3. **Write the test** following the appropriate pattern from the rules files:
    - Add `/// <reference types="vitest/globals" />` after the Posit Software copyright header.
    - Use tabs for indentation.
    - File name: `<source-name>.vitest.ts` (or `.vitest.tsx` for React components).
@@ -166,7 +166,7 @@ For each approved item:
    - Use `toMatchInlineSnapshot()` for output with many related properties or exact-preservation tests; project structured objects to relevant fields first (`expect({ kind, source }).toMatchInlineSnapshot(...)`). Prefer `.toBe(...)` for simple values
    - If setup exceeds ~20 lines of stubs, extract a helper function
    - **Minimize imports.** If you're importing 5+ service identifiers just for `.stub()` calls, extract a helper. Use `Event.None` for events the test never fires.
-   - For React tests: prefer `getByRole`/`getByText` when the component exposes accessible roles or visible text. Many Positron components use internal CSS classes without accessible roles -- `container.querySelector` is acceptable when RTL queries aren't feasible.
+   - For React tests: follow the query priority + explicit-assertion conventions in `vitest-rtl.md`. Lint (`eslint-plugin-testing-library`) enforces most of them -- run `npx eslint <file>` before considering a test done.
 
 4. **Run the test:** `npx vitest run <path-to-test-file>`
 

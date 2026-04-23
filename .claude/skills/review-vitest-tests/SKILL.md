@@ -14,7 +14,7 @@ $ARGUMENTS should contain the test file path(s) to review. For each test file, a
 ## Setup
 
 1. Read each test file and its source file.
-2. Read `.claude/rules/vitest-tests.md` for patterns, conventions, and common mistakes.
+2. Read `.claude/rules/vitest-tests.md` for patterns, conventions, and common mistakes. For any `.vitest.tsx` file under review, also read `.claude/rules/vitest-rtl.md`.
 3. Read the builder JSDoc: `src/vs/test/vitest/positronTestContainer.ts`
 
 ## Checklist (per test file)
@@ -25,11 +25,12 @@ Evaluate each test file against this checklist. Report ONLY items that fail -- d
 
 Any variables, emitters, or imports declared but never referenced in a test? Suite-level `let` variables that only exist for setup wiring should be inlined into the stub objects instead. Also flag excessive imports: if 5+ service identifiers are imported only for `.stub()` calls, suggest extracting the stubs into a helper function to reduce the import block.
 
-### 2. Anti-patterns reference (builder, RTL, assertions)
+### 2. Anti-patterns
 
-For every table in the **Anti-patterns reference** section of `.claude/rules/vitest-tests.md`, scan the test file for each "Avoid" pattern. For each match, report: `file:line`, the pattern found, and the row's "Use instead" value. Respect the "Exception" column -- don't flag matches that clearly fit an exception.
+- **Builder adoption + assertion style:** scan against the "Builder anti-patterns" table in `.claude/rules/vitest-tests.md`. For each match, report `file:line`, the pattern found, and the row's "Use instead" value. Respect the "Exception" column.
+- **RTL rules (`.vitest.tsx` only):** run `npx eslint <file>` -- the `testing-library/*` rules in `eslint.config.js` are the authoritative RTL check (`prefer-explicit-assert`, `prefer-presence-queries`, `prefer-screen-queries`, `prefer-user-event`, etc.). Report any lint errors as findings with the same rule name so the author can look them up.
 
-Covers builder adoption, RTL queries + matchers (`.vitest.tsx`), and assertion style (`.vitest.*`). The rules file is the single source of truth; this skill intentionally doesn't duplicate the list so they can't drift.
+The rules files (`vitest-tests.md`, `vitest-rtl.md`) are the single source of truth; this skill intentionally doesn't duplicate lists so they can't drift.
 
 ### 3. Setup weight
 

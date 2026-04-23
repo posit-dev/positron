@@ -9,9 +9,11 @@ paths:
 
 Vitest tests for Positron code (`*.vitest.ts` / `*.vitest.tsx` in `src/vs/`) run directly on your source files -- no build daemons, no compilation step, no waiting. Run `npx vitest <file>` for watch mode (re-runs on save) or `npx vitest run <file>` for a single pass.
 
+> **Writing a React component test?** Also read [`vitest-rtl.md`](vitest-rtl.md) for query priority, jest-dom matcher selection, and RTL anti-patterns.
+
 ## Quick Start
 
-### Testing a pure function?
+### Testing a pure function
 
 1. Copy `src/vs/platform/update/test/common/positronUpdateUtils.vitest.ts`
 2. Change the import to your function
@@ -20,35 +22,23 @@ Vitest tests for Positron code (`*.vitest.ts` / `*.vitest.tsx` in `src/vs/`) run
 
 That's it. No builder, no services, no setup.
 
-### Testing a React component?
+### Testing a service or class with DI
 
-**Prop-driven or service-context?** Grep the component for `usePositronReactServicesContext`. If it appears anywhere in the file (or a child component rendered via context uses it), use service-context. When in doubt, use service-context -- it works for both.
+Use the builder to wire test services. Pick the lowest preset that covers your dependencies (see `positronTestContainer.ts` JSDoc); start low and let "missing service" errors guide you up.
 
-1. Copy `src/vs/workbench/contrib/positronConsole/test/browser/emptyConsole.vitest.tsx`
-2. Change these 4 things (everything else is boilerplate -- keep it):
+```ts
+describe('MyService', () => {
+    const ctx = createTestContainer()
+        .withRuntimeServices()
+        .stub(IMyService, { getData: vi.fn() })
+        .build();
 
-```tsx
-// (1) Your component import
-import { MyComponent } from '../../browser/components/myComponent.js';
-// (2) Your service import (only if you need to stub a service)
-import { IMyService } from '...';
-
-describe('MyComponent', () => {
-	const ctx = createTestContainer()
-		.withReactServices()
-		.stub(IMyService, { getData: vi.fn() })  // (3) Your stubs
-		.build();
-	const rtl = setupRTLRenderer(() => ctx.reactServices);
-
-	it('renders', () => {
-		rtl.render(<MyComponent />);              // (4) Your component + assertions
-		// ... your assertions ...
-	});
+    it('does the thing', () => {
+        const svc = ctx.instantiationService.createInstance(MyService);
+        expect(svc.doThing()).toBe(true);
+    });
 });
 ```
-
-3. Run: `npx vitest run src/vs/path/to/yourTest.vitest.tsx`
-4. If it fails with "missing service" errors, add more `.stub()` calls
 
 ## File setup
 
@@ -73,25 +63,9 @@ describe('MyComponent', () => {
 - **Emitters inside `it()`.** Create them at describe level. `.stub()` captures the `.event` reference at describe scope during `build()`, so an emitter created later in `beforeEach` or `it()` is a different object and the stub won't fire.
 - **`flushSync` to flush React state updates.** Use `act()` from `@testing-library/react` instead. `act()` wraps updates in React's testing envelope (no warnings) and drains the queue synchronously; `flushSync` forces a sync render but doesn't wrap, producing "An update to X was not wrapped in act(...)" messages.
 
-## RTL idioms
+## Builder anti-patterns
 
-For React component tests using `setupRTLRenderer()`:
-
-**Query priority.** Prefer Testing Library queries in this order: `getByRole` -> `getByLabelText` -> `getByPlaceholderText` -> `getByText` -> `getByDisplayValue` -> `getByAltText` -> `getByTitle` -> `getByTestId`. Use `getByText('text', { selector: '.css' })` or `getByTestId(...)` when role/label aren't available -- add a brief inline comment if the choice isn't obvious.
-
-**Assertions.** Use `@testing-library/jest-dom` matchers: `toBeInTheDocument`, `toHaveTextContent`, `toHaveClass`, `toBeDisabled`, `toBeVisible`, `toHaveAttribute`, etc. Prefer the dedicated matcher over manual property reads.
-
-For pure existence checks, wrap in `expect(...).toBeInTheDocument()`: `expect(screen.getByRole('alert')).toBeInTheDocument()`. This matches how Testing Library's maintainers recommend writing it -- every assertion in the test then leads with `expect(`, which reads uniformly. Bare `getBy*` works (the query throws on miss) but doesn't communicate intent. **Use `toBeInTheDocument()` only with `getBy*` for presence or `queryBy*` / `findBy*` for absence; not with `queryBy*` for presence (use `getBy*`) and not with `getBy*` for absence (use `queryBy*`).**
-
-See **Anti-patterns reference** below for the full table of patterns to avoid and their replacements.
-
-## Anti-patterns reference
-
-One-stop reference. Authors: scan before writing. Reviewers (and the `review-vitest-tests` skill): flag any "Avoid" pattern that isn't covered by the "Exception" column.
-
-**Most RTL rules below are enforced automatically by `eslint-plugin-testing-library`** (see `eslint.config.js`): `prefer-explicit-assert`, `prefer-presence-queries`, `no-render-in-lifecycle`, `no-debugging-utils`, `no-unnecessary-act`, `await-async-queries`, `await-async-utils`, `no-await-sync-queries`. The tables below document Positron-specific rules (builder adoption, singleton mutation) and serve as pedagogical reference for lint rules.
-
-### Builder adoption (all `.vitest.*`)
+Positron-specific rules not covered by a public lint plugin. The `review-vitest-tests` skill scans for these; reviewers flag any "Avoid" match that isn't covered by "Exception."
 
 | Avoid | Use instead | Exception |
 |---|---|---|
@@ -102,24 +76,9 @@ One-stop reference. Authors: scan before writing. Reviewers (and the `review-vit
 | Hand-rolled `as unknown as PositronReactServices` accessor | `createTestContainer().withReactServices().stub(IService, ...).build()` + `setupRTLRenderer(() => ctx.reactServices)` | — |
 | `PositronReactServices.services = ...` singleton mutation | Same as above (plus drop save/restore in `beforeEach`/`afterEach`) | Source class reads the singleton directly in its constructor; a 1-line bridge `PositronReactServices.services = ctx.reactServices` with an inline comment is acceptable |
 
-### RTL queries + matchers (`.vitest.tsx`)
+**Assertion style** (all `.vitest.*`): use `expect(x).to*(...)`, never `assert.ok` / `assert.equal` / `assert.strictEqual`.
 
-| Avoid | Use instead | Exception |
-|---|---|---|
-| `container.querySelector(...)` as assertion target | Query by priority: `getByRole` > `getByLabelText` > `getByPlaceholderText` > `getByText` > `getByDisplayValue` > `getByAltText` > `getByTitle` > `getByTestId` | Structural element with no semantic handle: `expect(container.querySelector('.x')).toBeInTheDocument()` + inline comment explaining why no semantic query fits. Prefer adding `data-testid` to the source component and using `getByTestId(...)` when touching the source is feasible. |
-| `expect(el).toBeTruthy()` for DOM presence | `expect(getBy*(...)).toBeInTheDocument()` | — |
-| `expect(el).toBeFalsy()` / `toBeNull()` for DOM absence | `expect(queryBy*(...)).not.toBeInTheDocument()` | — |
-| bare `getBy*(...)` statement for pure existence (no subsequent assertion) | `expect(getBy*(...)).toBeInTheDocument()` | — (a bare query on its own line IS an implicit assertion, but explicit `expect(...)` makes intent visible and consistent with other assertions; Testing Library maintainers' preferred form) |
-| `assert.strictEqual(el.textContent, 'x')` | `expect(el).toHaveTextContent('x')` | — |
-| `el.classList.contains('x')` | `expect(el).toHaveClass('x')` | — |
-| `el.disabled === true` | `expect(el).toBeDisabled()` | — |
-| `el.getAttribute('aria-x')` | `expect(el).toHaveAttribute('aria-x', '...')` | — |
-
-### Assertion style (all `.vitest.*`)
-
-| Avoid | Use instead |
-|---|---|
-| `assert.ok(x)` / `assert.equal(...)` / `assert.strictEqual(...)` | `expect(x).to*(...)` |
+**RTL-specific rules** are enforced by `eslint-plugin-testing-library` (see `eslint.config.js` for the list). Run `npx eslint <file>` to see violations; [`vitest-rtl.md`](vitest-rtl.md) documents each pattern.
 
 ## Run commands
 
@@ -139,9 +98,8 @@ One-stop reference. Authors: scan before writing. Reviewers (and the `review-vit
 
 ## Working examples
 
-These showcase tests demonstrate the patterns at increasing complexity:
 - [positronUpdateUtils](../../src/vs/platform/update/test/common/positronUpdateUtils.vitest.ts) -- plain: pure function, no services, no builder
-- [emptyConsole](../../src/vs/workbench/contrib/positronConsole/test/browser/emptyConsole.vitest.tsx) -- React: one service, one click, behavioral assertions
-- [webviewPlotThumbnail](../../src/vs/workbench/contrib/positronPlots/test/browser/webviewPlotThumbnail.vitest.tsx) -- event-driven intro: one emitter, act(), conditional rendering
+- [webviewPlotThumbnail](../../src/vs/workbench/contrib/positronPlots/test/browser/webviewPlotThumbnail.vitest.tsx) -- event-driven intro: one emitter, `act()`, conditional rendering
 - [startupStatus](../../src/vs/workbench/contrib/positronConsole/test/browser/startupStatus.vitest.tsx) -- event-driven advanced: 6-phase state machine, 3 event subscriptions
-- [columnSummaryCell](../../src/vs/workbench/services/positronDataExplorer/test/browser/columnSummaryCell.vitest.tsx) -- RTL idioms: `expect(getByText('text', { selector })).toBeInTheDocument()` (explicit-assert wrap), no `querySelector`
+
+For more React/RTL-specific examples see [`vitest-rtl.md`](vitest-rtl.md).
