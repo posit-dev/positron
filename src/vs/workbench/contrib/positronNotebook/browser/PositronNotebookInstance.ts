@@ -142,8 +142,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		const existingInstance = PositronNotebookInstance._instanceMap.get(uri);
 		if (existingInstance) {
-			// Make sure we're starting with a fresh view
-			existingInstance.detachView();
+			// Do NOT detach here. The caller (PositronNotebookEditor.setInput)
+			// calls attachView(), whose internal detachView() handles any
+			// re-attachment to a new pane. Removing the side effect makes the
+			// render cache in PositronNotebookEditor safe to reuse across
+			// setInput/clearInput cycles for the same URI.
 			existingInstance._creationOptions = creationOptions;
 			return existingInstance;
 		}
