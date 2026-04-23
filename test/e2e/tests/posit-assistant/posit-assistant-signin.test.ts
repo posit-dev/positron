@@ -4,14 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test, tags } from '../_test.setup';
-import { ModelProvider } from '../../pages/positronAssistant';
+import { ModelProvider } from '../../pages/modelProviderAuth';
 
 test.use({
 	suiteId: __filename
 });
 
-// Posit Assistant and Positron Assistant share the same model provider
-// configuration and sign-in flow, so we reuse the `ModelProvider` type.
 const POSIT_ASSISTANT_SIGNIN_PROVIDERS: ModelProvider[] = [
 	'anthropic-api',
 	// 'openai-api',
@@ -25,7 +23,7 @@ test.describe('Posit Assistant Sign-in', {
 
 	for (const provider of POSIT_ASSISTANT_SIGNIN_PROVIDERS) {
 		test(`${provider} - Sign in, send hello, sign out`, async function ({ app }) {
-			await app.workbench.assistant.loginModelProvider(provider);
+			await app.workbench.modelProviderAuth.loginModelProvider(provider);
 
 			try {
 				await app.workbench.positAssistant.open();
@@ -37,7 +35,7 @@ test.describe('Posit Assistant Sign-in', {
 				const responseText = await app.workbench.positAssistant.getLastResponseText();
 				test.expect(responseText.length).toBeGreaterThan(0);
 			} finally {
-				await app.workbench.assistant.logoutModelProvider(provider);
+				await app.workbench.modelProviderAuth.logoutModelProvider(provider);
 			}
 		});
 	}
