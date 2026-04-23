@@ -8,9 +8,8 @@
 /* eslint-disable local/code-no-any-casts */
 
 
-import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
-import { workbenchInstantiationService } from '../../../../test/browser/workbenchTestServices.js';
+import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { PositronConsoleFindWidget } from '../../browser/positronConsoleFind.js';
 
@@ -61,7 +60,7 @@ function createConsoleDOM(...lines: (string | string[])[]): HTMLElement {
 }
 
 describe('PositronConsoleFindWidget', () => {
-	const disposables = ensureNoLeakedDisposables();
+	const ctx = createTestContainer().withWorkbenchServices().build();
 
 	let widget: TestableConsoleFindWidget;
 	let consoleContainer: HTMLElement;
@@ -71,10 +70,9 @@ describe('PositronConsoleFindWidget', () => {
 		consoleContainer = createConsoleDOM(...lines);
 		document.body.appendChild(consoleContainer);
 
-		const instantiationService = workbenchInstantiationService(undefined, disposables);
-		contextKeyService = instantiationService.get(IContextKeyService) as MockContextKeyService;
-		widget = disposables.add(
-			instantiationService.createInstance(TestableConsoleFindWidget)
+		contextKeyService = ctx.get(IContextKeyService) as MockContextKeyService;
+		widget = ctx.disposables.add(
+			ctx.instantiationService.createInstance(TestableConsoleFindWidget)
 		);
 		// Attach the widget to the visible console instance element
 		// (mirrors what ConsoleInstance does via useEffect).
@@ -199,10 +197,9 @@ describe('PositronConsoleFindWidget', () => {
 
 			document.body.appendChild(consoleContainer);
 
-			const instantiationService = workbenchInstantiationService(undefined, disposables);
-			contextKeyService = instantiationService.get(IContextKeyService) as MockContextKeyService;
-			widget = disposables.add(
-				instantiationService.createInstance(TestableConsoleFindWidget)
+			contextKeyService = ctx.get(IContextKeyService) as MockContextKeyService;
+			widget = ctx.disposables.add(
+				ctx.instantiationService.createInstance(TestableConsoleFindWidget)
 			);
 			// Attach the widget to the visible instance
 			// (mirrors what ConsoleInstance does via useEffect).
