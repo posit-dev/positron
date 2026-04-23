@@ -19,15 +19,15 @@ Use the builder to wire test services. Pick the lowest preset that covers your d
 
 ```ts
 describe('MyService', () => {
-    const ctx = createTestContainer()
-        .withRuntimeServices()
-        .stub(IMyService, { getData: vi.fn() })
-        .build();
+	const ctx = createTestContainer()
+		.withRuntimeServices()
+		.stub(IMyService, { getData: vi.fn() })
+		.build();
 
-    it('does the thing', () => {
-        const svc = ctx.instantiationService.createInstance(MyService);
-        expect(svc.doThing()).toBe(true);
-    });
+	it('does the thing', () => {
+		const svc = ctx.instantiationService.createInstance(MyService);
+		expect(svc.doThing()).toBe(true);
+	});
 });
 ```
 

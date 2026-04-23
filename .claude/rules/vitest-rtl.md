@@ -16,15 +16,15 @@ import { MyComponent } from '../../browser/components/myComponent.js';
 import { IMyService } from '...';
 
 describe('MyComponent', () => {
-    const ctx = createTestContainer()
-        .withReactServices()
-        .stub(IMyService, { getData: vi.fn() })  // (3) Your stubs
-        .build();
-    const rtl = setupRTLRenderer(() => ctx.reactServices);
+	const ctx = createTestContainer()
+		.withReactServices()
+		.stub(IMyService, { getData: vi.fn() })  // (3) Your stubs
+		.build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-    it('renders', () => {
-        rtl.render(<MyComponent />);              // (4) Your component + assertions
-    });
+	it('renders', () => {
+		rtl.render(<MyComponent />);              // (4) Your component + assertions
+	});
 });
 ```
 
@@ -48,7 +48,7 @@ Prefer `@testing-library/user-event` over `fireEvent` -- user-event fires the fu
 When no semantic query fits (structural div with no role, label, or stable text):
 
 1. **Best:** add `data-testid` to the source component, use `getByTestId(...)`.
-2. **Acceptable** (when touching source isn't feasible): `getByText('text', { selector: '.css' })` if the element has text; otherwise `expect(container.querySelector('.x')).toBeInTheDocument()` paired with a jest-dom matcher and an inline comment explaining why no semantic query fits. `querySelector` is also flagged by `local/no-restricted-syntax` -- disable it per line with `// eslint-disable-next-line no-restricted-syntax` + the comment.
+2. **Acceptable** (when touching source isn't feasible): `getByText('text', { selector: '.css' })` if the element has text; otherwise `expect(container.querySelector('.x')).toBeInTheDocument()` paired with a jest-dom matcher and an inline comment explaining why no semantic query fits. `querySelector` is also flagged by the `no-restricted-syntax` rule -- disable it per line with `// eslint-disable-next-line no-restricted-syntax` + the comment.
 
 ## Enforcement
 
