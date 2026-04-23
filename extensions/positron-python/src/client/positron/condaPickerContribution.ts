@@ -16,6 +16,7 @@ import { EnvironmentType } from '../pythonEnvironments/info';
 import { IPythonRuntimeManager, PythonRuntimeManager, CondaPythonInstallResult } from './manager';
 import { createPythonRuntimeMetadata } from './runtime';
 import { IInstaller, Product, InstallerResponse } from '../common/types';
+import { getCondaPythonPath } from './util';
 
 /**
  * RuntimePickerContribution that provides "Install Python" options for conda environments
@@ -163,30 +164,7 @@ export class CondaPythonPickerContribution implements positron.runtime.RuntimePi
         // function returns a runtime ID, so we don't need to manually trigger refresh
 
         // Get the actual Python path (same logic as original function)
-        const actualPythonPath = this.getCondaPythonPath(interpreter.envPath);
+        const actualPythonPath = getCondaPythonPath(interpreter.envPath);
         return { installed: true, actualPythonPath };
-    }
-
-    /**
-     * Get the actual Python executable path for a conda environment.
-     */
-    private getCondaPythonPath(envPath: string | undefined): string | undefined {
-        if (!envPath) {
-            return undefined;
-        }
-        if (process.platform === 'win32') {
-            const pythonPath = path.join(envPath, 'python.exe');
-            return fs.existsSync(pythonPath) ? pythonPath : undefined;
-        }
-        // On Unix, try 'python' first, then 'python3'
-        const pythonPath = path.join(envPath, 'bin', 'python');
-        if (fs.existsSync(pythonPath)) {
-            return pythonPath;
-        }
-        const python3Path = path.join(envPath, 'bin', 'python3');
-        if (fs.existsSync(python3Path)) {
-            return python3Path;
-        }
-        return undefined;
     }
 }

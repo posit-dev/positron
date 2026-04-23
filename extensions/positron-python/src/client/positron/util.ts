@@ -5,6 +5,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as path from 'path';
+import * as fs from 'fs-extra';
 import { traceVerbose } from '../logging';
 
 export class PromiseHandles<T> {
@@ -42,4 +44,27 @@ export async function hasFiles(includes: string[]): Promise<boolean> {
     traceVerbose(`Found _files_: ${files.map((file) => file.fsPath)}`);
 
     return files.length > 0;
+}
+
+/**
+ * Get the actual Python executable path for a conda environment.
+ */
+export function getCondaPythonPath(envPath: string | undefined): string | undefined {
+    if (!envPath) {
+        return undefined;
+    }
+    if (process.platform === 'win32') {
+        const pythonPath = path.join(envPath, 'python.exe');
+        return fs.existsSync(pythonPath) ? pythonPath : undefined;
+    }
+    // On Unix, try 'python' first, then 'python3'
+    const pythonPath = path.join(envPath, 'bin', 'python');
+    if (fs.existsSync(pythonPath)) {
+        return pythonPath;
+    }
+    const python3Path = path.join(envPath, 'bin', 'python3');
+    if (fs.existsSync(python3Path)) {
+        return python3Path;
+    }
+    return undefined;
 }

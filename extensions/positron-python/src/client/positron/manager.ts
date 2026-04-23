@@ -32,7 +32,7 @@ import { JupyterKernelSpec } from '../positron-supervisor.d';
 import { IEnvironmentVariablesProvider } from '../common/variables/types';
 import { getConfiguration } from '../common/vscodeApis/workspaceApis';
 import { shouldIncludeInterpreter, getUserDefaultInterpreter } from './interpreterSettings';
-import { hasFiles } from './util';
+import { hasFiles, getCondaPythonPath } from './util';
 import { isCondaEnvironment } from '../pythonEnvironments/common/environmentManagers/conda';
 import { IApplicationShell } from '../common/application/types';
 import { Interpreters } from '../common/utils/localize';
@@ -74,19 +74,12 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
 
     private readonly _onDidDiscoverRuntime = new EventEmitter<positron.LanguageRuntimeMetadata>();
 
-    private readonly _onDidUnregisterRuntime = new EventEmitter<string>();
-
     private readonly _onDidCreateSession = new EventEmitter<PythonRuntimeSession>();
 
     /**
      * An event that fires when a new Python language runtime is discovered.
      */
     public readonly onDidDiscoverRuntime = this._onDidDiscoverRuntime.event;
-
-    /**
-     * An event that fires when a Python language runtime should be unregistered.
-     */
-    public readonly onDidUnregisterRuntime = this._onDidUnregisterRuntime.event;
 
     public readonly onDidCreateSession = this._onDidCreateSession.event;
 
@@ -640,27 +633,4 @@ export async function installPythonInCondaEnv(
     // Get the actual Python path
     const actualPythonPath = getCondaPythonPath(interpreter.envPath);
     return { installed: true, actualPythonPath };
-}
-
-/**
- * Get the actual Python executable path for a conda environment.
- */
-function getCondaPythonPath(envPath: string | undefined): string | undefined {
-    if (!envPath) {
-        return undefined;
-    }
-    if (os.platform() === 'win32') {
-        const pythonPath = path.join(envPath, 'python.exe');
-        return fs.existsSync(pythonPath) ? pythonPath : undefined;
-    }
-    // On Unix, try 'python' first, then 'python3'
-    const pythonPath = path.join(envPath, 'bin', 'python');
-    if (fs.existsSync(pythonPath)) {
-        return pythonPath;
-    }
-    const python3Path = path.join(envPath, 'bin', 'python3');
-    if (fs.existsSync(python3Path)) {
-        return python3Path;
-    }
-    return undefined;
 }
