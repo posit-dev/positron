@@ -16,12 +16,12 @@ export class ActivityItemErrorMessage extends ActivityItem {
 	/**
 	 * Gets the message output lines.
 	 */
-	readonly messageOutputLines: ANSIOutputLine[];
+	messageOutputLines: ANSIOutputLine[];
 
 	/**
 	 * Gets the traceback output lines.
 	 */
-	readonly tracebackOutputLines: ANSIOutputLine[];
+	tracebackOutputLines: ANSIOutputLine[];
 
 	//#endregion Public Properties
 
@@ -61,6 +61,21 @@ export class ActivityItemErrorMessage extends ActivityItem {
 	//#endregion Constructor
 
 	//#region Public Methods
+
+	/**
+	 * Trim scrollback.
+	 * @param scrollbackSize A number representing the scrollback size.
+	 * @returns A number representing the remaining scrollback size.
+	 */
+	public override trimScrollback(scrollbackSize: number): number {
+		// We should never be called with a scrollback size <= 0.
+		if (scrollbackSize <= 0) {
+			return 0;
+		}
+
+		// Counts as one scrollback item.
+		return scrollbackSize - 1;
+	}
 
 	/**
 	 * Gets the clipboard representation of the activity item.

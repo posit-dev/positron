@@ -1325,7 +1325,22 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		// configuration.
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(scrollbackSizeSettingId)) {
-				this._scrollbackSize = this._configurationService.getValue<number>(scrollbackSizeSettingId);
+				// Get the new scrollback size from the configuration.
+				const newScrollbackSize = this._configurationService.getValue<number>(
+					scrollbackSizeSettingId
+				);
+
+				// Determine whether or not we need to trim the scrollback.
+				const trimScrollback = newScrollbackSize < this._scrollbackSize;
+
+				// Update the scrollback size.
+				this._scrollbackSize = newScrollbackSize;
+
+				// Trim the scrollback and fire the onDidChangeRuntimeItems event, as needed.
+				if (trimScrollback) {
+					this.trimScrollback();
+					this._onDidChangeRuntimeItemsEmitter.fire();
+				}
 			}
 		}));
 
@@ -1945,6 +1960,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				this._runtimeItems.push(startupItem);
 			}
 		}
+
+		// Trim scrollback now that the batch replay is complete.
+		this.trimScrollback();
 
 		// Enter the reconnecting state.
 		this.emitStartRuntimeItems(SessionAttachMode.Reconnecting);
@@ -3355,8 +3373,52 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			this._runtimeItemActivities.set(runtimeItem.id, runtimeItem);
 		}
 
+		// Trim the scrollback after each runtime item is added.
+		this.trimScrollback();
+
 		// Fire the onDidChangeRuntimeItems event.
 		this._onDidChangeRuntimeItemsEmitter.fire();
+	}
+
+	/**
+	 * Trims the front of _runtimeItems to fit within the current scrollback budget.
+	 *
+	 * Walks the items from tail (most recent) toward head, letting each item declare how much of
+	 * the budget it consumes via trimScrollback(). Once the budget is exhausted, everything before
+	 * the first item that still fit is spliced off.
+	 *
+	 * Callers own firing onDidChangeRuntimeItemsEmitter; this method does not fire it, because the
+	 * trim is typically paired with another mutation and a single emit covers both.
+	 */
+	private trimScrollback(): void {
+		// Set the remaining budget to the configured scrollback size, and the first keep index to
+		// 0 (the head of the list).
+		let remainingBudget = this._scrollbackSize;
+		let firstKeepIndex = 0;
+
+		// Walk from the tail (newest) toward the head (oldest), letting each item declare its weight.
+		for (let i = this._runtimeItems.length - 1; i >= 0; i--) {
+			// Adjust the scrollback on the item, which returns the remaining budget.
+			remainingBudget = this._runtimeItems[i].trimScrollback(remainingBudget);
+
+			// Adjust the first keep index.
+			firstKeepIndex = i;
+
+			// If the budget is exhausted, break; we will drop everything before the first keep index.
+			if (remainingBudget <= 0) {
+				break;
+			}
+		}
+
+		// Drop anything before the first item that still fit, keeping the activity map in sync.
+		if (firstKeepIndex > 0) {
+			const dropped = this._runtimeItems.splice(0, firstKeepIndex);
+			for (const item of dropped) {
+				if (item instanceof RuntimeItemActivity) {
+					this._runtimeItemActivities.delete(item.id);
+				}
+			}
+		}
 	}
 
 	//#endregion Private Methods

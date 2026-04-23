@@ -162,11 +162,17 @@ export class RuntimeItemActivity extends RuntimeItem {
 	}
 
 	/**
-	 * Adjust scrollback.
+	 * Trim scrollback.
 	 * @param scrollbackSize A number representing the scrollback size.
 	 * @returns A number representing the remaining scrollback size.
 	 */
-	public override adjustScrollback(scrollbackSize: number): number {
+	public override trimScrollback(scrollbackSize: number): number {
+		// We should never be called with a scrollback size <= 0.
+		if (scrollbackSize <= 0) {
+			return 0;
+		}
+
+		// Counts as one scrollback item.
 		return scrollbackSize - 1;
 	}
 

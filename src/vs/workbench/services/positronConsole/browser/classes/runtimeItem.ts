@@ -21,21 +21,22 @@ export abstract class RuntimeItem {
 	//#region Public Methods
 
 	/**
-	 * Adjust scrollback.
+	 * Trim scrollback.
 	 * @param scrollbackSize A number representing the scrollback size.
 	 * @returns A number representing the remaining scrollback size.
 	 */
-	public abstract adjustScrollback(scrollbackSize: number): number;
+	public abstract trimScrollback(scrollbackSize: number): number;
 
 	/**
 	 * Gets the clipboard representation of the runtime item.
 	 * @param commentPrefix The comment prefix to use.
-	 * @note Override in derived classes to provide a clipboard representation.
 	 * @returns The clipboard representation of the runtime item.
 	 */
-	public getClipboardRepresentation(commentPrefix: string): string[] {
+	public agetClipboardRepresentation(commentPrefix: string): string[] {
 		return [];
 	}
+
+	public abstract getClipboardRepresentation(commentPrefix: string): string[];
 
 	//#endregion Public Methods
 }

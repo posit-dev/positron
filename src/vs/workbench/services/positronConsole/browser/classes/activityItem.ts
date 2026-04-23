@@ -23,6 +23,13 @@ export abstract class ActivityItem {
 	//#region Public Methods
 
 	/**
+	 * Trim scrollback.
+	 * @param scrollbackSize A number representing the scrollback size.
+	 * @returns A number representing the remaining scrollback size.
+	 */
+	public abstract trimScrollback(scrollbackSize: number): number;
+
+	/**
 	 * Gets the clipboard representation of the activity item.
 	 * @param commentPrefix The comment prefix to use.
 	 * @returns The clipboard representation of the activity item.
