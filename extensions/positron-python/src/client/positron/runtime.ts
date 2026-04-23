@@ -65,16 +65,14 @@ export async function createPythonRuntimeMetadata(
     // NOTE: We may need to pass a resource to getSettings to support multi-root workspaces
     traceInfo('createPythonRuntime: getting extension runtime settings');
 
-    // For conda environments without Python installed, skip ipykernel checks entirely.
-    // Python will be installed when the user selects this runtime.
+    // For conda environments without Python installed, throw error to prevent runtime creation.
+    // These will be handled by CondaPythonPickerContribution instead.
     const isCondaWithoutPython = isProblematicCondaEnvironment(interpreter);
     let ipykernelBundle: IpykernelBundle;
     let hasCompatibleKernel: boolean;
 
     if (isCondaWithoutPython) {
-        traceInfo(`createPythonRuntime: conda env without Python, skipping ipykernel checks`);
-        ipykernelBundle = { disabledReason: 'Python not installed in conda environment' };
-        hasCompatibleKernel = false;
+        throw new Error(`Conda environment without Python should not be registered as runtime: ${interpreter.path}`);
     } else {
         // Check if we should use the bundled ipykernel.
         ipykernelBundle = await getIpykernelBundle(interpreter, serviceContainer, workspaceUri);
@@ -170,11 +168,7 @@ export async function createPythonRuntimeMetadata(
     // --- Start Positron ---
     // Determine the runtime name based on the environment state
     let runtimeName: string;
-    if (isCondaWithoutPython) {
-        // Conda environment without Python - show warning, Python will be installed on selection
-        // Format: "$(warning) No Python (Conda: env-name)"
-        runtimeName = `$(warning) No Python ${runtimeShortName}`;
-    } else if (!isVersionSupported(interpreter.version)) {
+    if (!isVersionSupported(interpreter.version)) {
         runtimeName = `Unsupported: Python ${runtimeShortName}`;
     } else {
         runtimeName = `Python ${runtimeShortName}`;

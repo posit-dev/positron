@@ -11,11 +11,12 @@ import { IInterpreterSelector } from '../interpreter/configuration/types';
 import { IInterpreterService } from '../interpreter/contracts';
 import { IServiceContainer } from '../ioc/types';
 import { traceError, traceInfo } from '../logging';
-import { PythonEnvironment } from '../pythonEnvironments/info';
+import { PythonEnvironment, EnvironmentType } from '../pythonEnvironments/info';
 import { createPythonRuntimeMetadata } from './runtime';
 import { comparePythonVersionDescending } from '../interpreter/configuration/environmentTypeComparer';
 import { shouldIncludeInterpreter } from './interpreterSettings';
 import { hasFiles } from './util';
+import * as fs from 'fs-extra';
 
 /**
  * Provides Python language runtime metadata to Positron; called during the
@@ -58,6 +59,13 @@ export async function* pythonRuntimeDiscoverer(
 
         traceInfo(`pythonRuntimeDiscoverer: discovered ${interpreters.length} Python interpreters`);
 
+        // Log details about conda environments for debugging picker contribution
+        const condaEnvs = interpreters.filter(i => i.envType === EnvironmentType.Conda);
+        traceInfo(`pythonRuntimeDiscoverer: found ${condaEnvs.length} conda environments`);
+        for (const env of condaEnvs) {
+            traceInfo(`  - Conda env: ${env.path}, exists: ${fs.existsSync(env.path)}, envName: ${env.envName}`);
+        }
+
         // Filter out unsupported and user-excluded interpreters
         traceInfo('pythonRuntimeDiscoverer: filtering interpreters');
         interpreters = filterInterpreters(interpreters);
@@ -88,6 +96,12 @@ export async function* pythonRuntimeDiscoverer(
         // Register each interpreter as a language runtime metadata entry
         for (const interpreter of interpreters) {
             try {
+                // Skip conda environments without Python - they'll be handled by PickerContribution
+                if (interpreter.envType === EnvironmentType.Conda && !fs.existsSync(interpreter.path)) {
+                    traceInfo(`pythonRuntimeDiscoverer: skipping runtime registration for conda env without Python: ${interpreter.path}`);
+                    continue;
+                }
+
                 const runtime = await createPythonRuntimeMetadata(
                     interpreter,
                     serviceContainer,
@@ -125,6 +139,13 @@ function filterInterpreters(interpreters: PythonEnvironment[]): PythonEnvironmen
         if (!shouldInclude) {
             traceInfo(`pythonRuntimeDiscoverer: filtering out user-excluded interpreter ${interpreter.path}`);
             return false;
+        }
+
+        // Keep conda environments even if Python doesn't exist - they'll be handled by PickerContribution
+        // but we need them in the interpreter list for discovery
+        if (interpreter.envType === EnvironmentType.Conda && !fs.existsSync(interpreter.path)) {
+            traceInfo(`pythonRuntimeDiscoverer: found conda env without Python (will be handled by picker contribution): ${interpreter.path}`);
+            // Keep it in the list but it will be filtered out of runtime registration
         }
 
         // Otherwise, keep the interpreter!

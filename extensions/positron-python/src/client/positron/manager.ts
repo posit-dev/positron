@@ -41,6 +41,7 @@ import {
     pendingModuleRuntimeRegistrations,
     getEnvironmentModulesApi,
 } from '../pythonEnvironments/base/locators/lowLevel/moduleEnvironmentLocator';
+import { CondaPythonPickerContribution } from './condaPickerContribution';
 
 export const IPythonRuntimeManager = Symbol('IPythonRuntimeManager');
 
@@ -98,6 +99,16 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
 
         this.disposables.push(
             positron.runtime.registerLanguageRuntimeManager('python', this),
+
+            // Register the conda picker contribution for "Install Python" options
+            (() => {
+                traceInfo('Registering CondaPythonPickerContribution');
+                const contribution = new CondaPythonPickerContribution(this.serviceContainer);
+                const disposable = positron.runtime.registerRuntimePickerContribution(contribution);
+                traceInfo('CondaPythonPickerContribution registered successfully');
+                return disposable;
+            })(),
+
             // When an interpreter is added, register a corresponding language runtime.
             interpreterService.onDidChangeInterpreters(async (event) => {
                 if (!event.old && event.new) {
@@ -285,20 +296,13 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
 
         // Extract the extra data from the runtime metadata; it contains the
         // environment ID that was saved when the metadata was created.
-        let extraData: PythonRuntimeExtraData = runtimeMetadata.extraRuntimeData as PythonRuntimeExtraData;
+        const extraData: PythonRuntimeExtraData = runtimeMetadata.extraRuntimeData as PythonRuntimeExtraData;
         if (!extraData || !extraData.pythonPath) {
             throw new Error(`Runtime metadata missing Python path: ${JSON.stringify(extraData)}`);
         }
 
-        // For conda environments without Python, install Python and continue with the new runtime
-        if (extraData.condaEnvWithoutPython) {
-            const installResult = await this.handleCondaPythonInstallation(runtimeMetadata, extraData.pythonPath);
-            if (installResult) {
-                // Python was installed - use the new runtime metadata and extraData for this session
-                runtimeMetadata = installResult.metadata;
-                extraData = runtimeMetadata.extraRuntimeData as PythonRuntimeExtraData;
-            }
-        }
+        // Note: Conda environments without Python are now handled by CondaPythonPickerContribution
+        // and should not reach this point as regular runtime sessions
 
         // Check Python kernel debug and log level settings
         // NOTE: We may need to pass a resource to getSettings to support multi-root workspaces
@@ -587,40 +591,6 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
         await this.interpreterService.triggerRefresh();
     }
 
-    /**
-     * Handle Python installation for conda environments without Python.
-     * Installs Python, unregisters the old runtime, and registers a new runtime.
-     *
-     * @param oldMetadata The metadata for the "No Python" runtime
-     * @param pythonPath The predicted Python path
-     * @returns Object with new metadata and Python path if installed, undefined otherwise
-     */
-    private async handleCondaPythonInstallation(
-        oldMetadata: positron.LanguageRuntimeMetadata,
-        pythonPath: string,
-    ): Promise<{ metadata: positron.LanguageRuntimeMetadata; pythonPath: string } | undefined> {
-        const result = await installPythonInCondaEnv(pythonPath, this.serviceContainer);
-        if (!result.installed || !result.actualPythonPath) {
-            return undefined;
-        }
-
-        // Get the interpreter details for the newly installed Python
-        const interpreter = await this.interpreterService.getInterpreterDetails(result.actualPythonPath);
-        if (!interpreter) {
-            traceError(`Could not find interpreter at ${result.actualPythonPath}`);
-            return undefined;
-        }
-
-        // Unregister the old "No Python" runtime and clean up internal map
-        this._onDidUnregisterRuntime.fire(oldMetadata.runtimeId);
-        this.registeredPythonRuntimes.delete(pythonPath);
-
-        // Register the new runtime with correct Python path
-        const newMetadata = await createPythonRuntimeMetadata(interpreter, this.serviceContainer, false);
-        this.registerLanguageRuntime(newMetadata);
-
-        return { metadata: newMetadata, pythonPath: result.actualPythonPath };
-    }
 }
 
 /**
