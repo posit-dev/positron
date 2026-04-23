@@ -24,7 +24,7 @@ import { PositronNotebookFindController } from '../../../../browser/contrib/find
 import { PositronFindInstance } from '../../../../browser/contrib/find/PositronFindInstance.js';
 import { instantiateTestNotebookInstance, positronNotebookInstantiationService, TestPositronNotebookInstance } from '../../testPositronNotebookInstance.js';
 import { transaction } from '../../../../../../../base/common/observable.js';
-import { TestInstantiationService } from '../../../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
+import { ITestInstantiationService } from '../../../../../../test/browser/workbenchTestServices.js';
 import { IModelService } from '../../../../../../../editor/common/services/model.js';
 import { Disposable, IDisposable } from '../../../../../../../base/common/lifecycle.js';
 import { runWithFakedTimers } from '../../../../../../../base/test/common/timeTravelScheduler.js';
@@ -124,7 +124,7 @@ class TestBulkEditService implements IBulkEditService {
 describe('PositronNotebookFindController', () => {
 	const ctx = createTestContainer().build();
 
-	let instantiationService: TestInstantiationService;
+	let instantiationService: ITestInstantiationService;
 	let bulkEditApplySpy: Mock;
 
 	beforeEach(() => {
