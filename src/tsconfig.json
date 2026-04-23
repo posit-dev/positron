@@ -38,4 +38,11 @@
 		"./vscode-dts/vscode.proposed.*.d.ts",
 		"./vscode-dts/vscode.d.ts"
 	],
+	// --- Start Positron ---
+	"exclude": [
+		"./vs/**/*.vitest.ts",
+		"./vs/**/*.vitest.tsx",
+		"./vs/test/vitest/**"
+	]
+	// --- End Positron ---
 }

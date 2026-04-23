@@ -30,7 +30,7 @@ import { pickPythonVersion } from './uvUtils';
 
 export const UV_PROVIDER_ID = `${PVSC_EXTENSION_ID}:uv`;
 
-async function createUvVenv(
+export async function createUvVenv(
     workspace: WorkspaceFolder,
     version: string,
     progress: CreateEnvironmentProgress,

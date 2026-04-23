@@ -44,6 +44,12 @@
           ],
           "description": "%configuration.runApp.previewMode%"
         },
+        "positron.runApp.urlDetectionTimeout": {
+          "type": "integer",
+          "default": 25,
+          "minimum": 1,
+          "description": "%configuration.runApp.urlDetectionTimeout%"
+        },
         "positron.appLauncher.terminalAppUrlOpenLocation": {
           "type": "string",
           "default": "ask",

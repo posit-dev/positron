@@ -12,7 +12,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Files Pane Refresh', { tag: [tags.WEB, tags.WORKBENCH, tags.CONSOLE] }, () => {
+test.describe('Files Pane Refresh', { tag: [tags.WEB, tags.WORKBENCH, tags.CONSOLE, tags.JUPYTER] }, () => {
 
 	test.afterAll(async ({ cleanup }) => {
 		await cleanup.removeTestFiles(['file.txt']);

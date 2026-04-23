@@ -6,7 +6,7 @@
 import * as React from 'react';
 import { getWindow, addDisposableListener } from '../../../../../../base/browser/dom.js';
 import { INotebookOutputWebview } from '../../../../positronOutputWebview/browser/notebookOutputWebviewService.js';
-import { isHTMLOutputWebviewMessage } from '../../../../positronWebviewPreloads/browser/notebookOutputUtils.js';
+import { isHTMLOutputWebviewMessage, isWheelForwardMessage } from '../../../../positronWebviewPreloads/browser/notebookOutputUtils.js';
 import { useNotebookInstance } from '../../NotebookInstanceProvider.js';
 import { IOverlayWebview } from '../../../../webview/browser/webview.js';
 import { DisposableStore, toDisposable } from '../../../../../../base/common/lifecycle.js';
@@ -18,6 +18,27 @@ import { autorun } from '../../../../../../base/common/observable.js';
 // Constants
 const MAX_OUTPUT_HEIGHT = 1000;
 const EMPTY_OUTPUT_HEIGHT = 150;
+// Approximate line height used when a wheel event reports DOM_DELTA_LINE.
+// Matches the divisor in StandardWheelEvent (base/browser/mouseEvent.ts,
+// the `/ 40` in its pixel-to-line conversion), which is not exported.
+// Keep this in sync if that constant moves.
+const WHEEL_LINE_HEIGHT_PX = 40;
+
+/**
+ * Convert a forwarded wheel event's vertical delta into pixels so raw
+ * DOM_DELTA_LINE / DOM_DELTA_PAGE values (e.g. Firefox) don't scroll by
+ * a single pixel per tick.
+ */
+function normalizeWheelDeltaY(deltaMode: number, deltaY: number, container: HTMLElement): number {
+	switch (deltaMode) {
+		case WheelEvent.DOM_DELTA_LINE:
+			return deltaY * WHEEL_LINE_HEIGHT_PX;
+		case WheelEvent.DOM_DELTA_PAGE:
+			return deltaY * container.clientHeight;
+		default: // DOM_DELTA_PIXEL
+			return deltaY;
+	}
+}
 
 /**
  * Custom error class for webview-specific errors
@@ -58,16 +79,29 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 
 	// Memoize the webview message handler
 	const handleWebviewMessage = React.useCallback(({ message }: { message: unknown }) => {
-		if (!isHTMLOutputWebviewMessage(message) || !containerRef.current) {
+		if (isHTMLOutputWebviewMessage(message) && containerRef.current) {
+			let boundedHeight = Math.min(message.bodyScrollHeight, MAX_OUTPUT_HEIGHT);
+			// Avoid undesired default 150px "empty output" height
+			if (boundedHeight === EMPTY_OUTPUT_HEIGHT) {
+				boundedHeight = 0;
+			}
+			containerRef.current.style.height = `${boundedHeight}px`;
 			return;
 		}
-		let boundedHeight = Math.min(message.bodyScrollHeight, MAX_OUTPUT_HEIGHT);
-		// Avoid undesired default 150px "empty output" height
-		if (boundedHeight === EMPTY_OUTPUT_HEIGHT) {
-			boundedHeight = 0;
+
+		// Scroll the notebook when no scrollable element inside the
+		// output can consume more scroll in the wheel direction. That
+		// covers outputs with nothing scrollable (plotly, static images)
+		// and outputs whose inner scroller has exhausted its range. The
+		// preload already ran that check, so any message we see here
+		// should move the cells container.
+		if (isWheelForwardMessage(message)) {
+			const container = notebookInstance.cellsContainer;
+			if (container) {
+				container.scrollTop += normalizeWheelDeltaY(message.deltaMode, message.deltaY, container);
+			}
 		}
-		containerRef.current.style.height = `${boundedHeight}px`;
-	}, []);
+	}, [notebookInstance]);
 
 	React.useEffect(() => {
 		// Abort controller for canceling ongoing tasks if needed

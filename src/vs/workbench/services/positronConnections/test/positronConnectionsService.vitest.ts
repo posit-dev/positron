@@ -1,0 +1,208 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/// <reference types="vitest/globals" />
+
+import { PositronConnectionsService } from '../browser/positronConnectionsService.js';
+import { IPositronConnectionsService } from '../common/interfaces/positronConnectionsService.js';
+import { IDriver } from '../common/interfaces/positronConnectionsDriver.js';
+import { TestConnectionInstance } from './positronConnectionInstanceMock.js';
+import { TestSecretStorageService } from '../../../../platform/secrets/test/common/testSecretStorageService.js';
+import { ISecretStorageService } from '../../../../platform/secrets/common/secrets.js';
+import { createTestContainer } from '../../../../test/vitest/positronTestContainer.js';
+import { startTestLanguageRuntimeSession } from '../../runtimeSession/test/common/testRuntimeSessionService.js';
+import { RuntimeClientType } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
+
+
+describe('Positron - Connections Service', () => {
+
+	const ctx = createTestContainer()
+		.withRuntimeServices()
+		.stub(ISecretStorageService, new TestSecretStorageService())
+		.build();
+	let connectionsService: IPositronConnectionsService;
+
+	beforeEach(async () => {
+		connectionsService = ctx.disposables.add(ctx.instantiationService.createInstance(
+			PositronConnectionsService
+		));
+	});
+
+	async function createSession() {
+		const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+		return session;
+	}
+
+	async function waitUntilOk(fn: () => void, timeout = 2000, interval = 10) {
+		const start = Date.now();
+		while (true) {
+			try {
+				fn();
+				return;
+			} catch (e) {
+				if (Date.now() - start > timeout) { throw new Error('Timeout waiting for condition'); }
+				await new Promise(r => setTimeout(r, interval));
+			}
+		}
+	}
+
+	it('Add a connection', async () => {
+		const changeConnectionsSpy = vi.fn();
+		ctx.disposables.add(connectionsService.onDidChangeConnections(changeConnectionsSpy));
+
+		const connectionId = 'test-connection-1';
+		const connectionInstance = ctx.disposables.add(new TestConnectionInstance(connectionId));
+
+		connectionsService.addConnection(connectionInstance);
+		expect(connectionsService.getConnections().length).toBe(1);
+		expect(changeConnectionsSpy).toHaveBeenCalledTimes(1);
+
+		connectionsService.closeConnection('test-connection-1');
+		expect(changeConnectionsSpy).toHaveBeenCalledTimes(2);
+		expect(connectionInstance.disconnectFired).toBe(1);
+		expect(connectionInstance.active).toBe(false);
+		expect(connectionsService.getConnections().length).toBe(1);
+
+		connectionsService.clearAllConnections();
+		expect(changeConnectionsSpy).toHaveBeenCalledTimes(3); // the event fires once per connection
+		expect(connectionsService.getConnections().length).toBe(0);
+	});
+
+	it('Sessions created by runtimes', async () => {
+		const changeConnectionsSpy = vi.fn();
+		ctx.disposables.add(connectionsService.onDidChangeConnections(changeConnectionsSpy));
+
+		const session = ctx.disposables.add(await createSession());
+
+		const client = ctx.disposables.add(await session.createClient(RuntimeClientType.Connection, {
+			name: 'test-connection',
+			language_id: 'test',
+			code: 'hello world'
+		}));
+
+		client.rpcHandler = async (request: any) => {
+			if (request.method === "list_objects") {
+				return {
+					'data': {
+						'result': [{
+							'name': 'table1', 'kind': 'table'
+						}]
+					}
+				};
+			} else if (request.method === 'contains_data') {
+				return {
+					'data': {
+						'result': true
+					}
+				};
+			} else {
+				throw new Error(`Unknown method: ${request.method}`);
+			}
+		};
+
+		// When the client is created, a series of events are fired triggering the creation
+		// of a connection instance.
+		// It may take some time though, so we wait for it to complete.
+		await waitUntilOk(() => {
+			expect(changeConnectionsSpy).toHaveBeenCalledTimes(1);
+			expect(connectionsService.getConnections().length).toBe(1);
+		});
+
+		const instance = connectionsService.getConnections()[0];
+		expect(instance.metadata.name).toBe('test-connection');
+		const instanceEntriesChangedSpy = vi.fn();
+		ctx.disposables.add(instance.onDidChangeEntries(instanceEntriesChangedSpy));
+
+		// Toggle expansion should trigger the connections service
+		// entries to change
+		instance.onToggleExpandEmitter.fire('test-connection');
+		await waitUntilOk(() => {
+			expect(instanceEntriesChangedSpy).toHaveBeenCalledTimes(1);
+		});
+	});
+
+	describe('Driver Manager', () => {
+		function createTestDriver(id: string, name: string = 'Test Driver'): IDriver {
+			return {
+				driverId: id,
+				metadata: {
+					languageId: 'test',
+					name,
+					inputs: []
+				}
+			};
+		}
+
+		it('registerDriver fires onDidChangeDrivers', () => {
+			const driverManager = connectionsService.driverManager;
+			const changeDriversSpy = vi.fn();
+			ctx.disposables.add(driverManager.onDidChangeDrivers(changeDriversSpy));
+
+			const driver = createTestDriver('driver-1');
+			driverManager.registerDriver(driver);
+
+			expect(changeDriversSpy).toHaveBeenCalledTimes(1);
+			expect(driverManager.getDrivers().length).toBe(1);
+		});
+
+		it('removeDriver fires onDidChangeDrivers', () => {
+			const driverManager = connectionsService.driverManager;
+			const changeDriversSpy = vi.fn();
+
+			const driver = createTestDriver('driver-1');
+			driverManager.registerDriver(driver);
+
+			ctx.disposables.add(driverManager.onDidChangeDrivers(changeDriversSpy));
+			driverManager.removeDriver('driver-1');
+
+			expect(changeDriversSpy).toHaveBeenCalledTimes(1);
+			expect(driverManager.getDrivers().length).toBe(0);
+		});
+
+		it('removeDriver at index 0 works correctly', () => {
+			const driverManager = connectionsService.driverManager;
+
+			const driver1 = createTestDriver('driver-1');
+			const driver2 = createTestDriver('driver-2');
+			driverManager.registerDriver(driver1);
+			driverManager.registerDriver(driver2);
+
+			expect(driverManager.getDrivers().length).toBe(2);
+
+			// Remove the first driver (index 0)
+			driverManager.removeDriver('driver-1');
+
+			expect(driverManager.getDrivers().length).toBe(1);
+			expect(driverManager.getDrivers()[0].driverId).toBe('driver-2');
+		});
+
+		it('registerDriver replaces existing driver with same id', () => {
+			const driverManager = connectionsService.driverManager;
+
+			const driver1 = createTestDriver('driver-1', 'Original');
+			const driver1Updated = createTestDriver('driver-1', 'Updated');
+
+			driverManager.registerDriver(driver1);
+			expect(driverManager.getDrivers()[0].metadata.name).toBe('Original');
+
+			driverManager.registerDriver(driver1Updated);
+			expect(driverManager.getDrivers().length).toBe(1);
+			expect(driverManager.getDrivers()[0].metadata.name).toBe('Updated');
+		});
+
+		it('registerDriver replaces driver at index 0', () => {
+			const driverManager = connectionsService.driverManager;
+
+			const driver1 = createTestDriver('driver-1', 'Original');
+			driverManager.registerDriver(driver1);
+
+			const driver1Updated = createTestDriver('driver-1', 'Updated');
+			driverManager.registerDriver(driver1Updated);
+
+			expect(driverManager.getDrivers().length).toBe(1);
+			expect(driverManager.getDrivers()[0].metadata.name).toBe('Updated');
+		});
+	});
+});

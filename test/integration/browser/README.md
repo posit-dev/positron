@@ -1,3 +1,7 @@
+<!-- Start Positron -->
+> **Positron note:** these are what we now call "extension host tests." See [`CLAUDE.md`](../../../CLAUDE.md#testing) for the decision table and glossary.
+<!-- End Positron -->
+
 # Integration test
 
 ## Compile
