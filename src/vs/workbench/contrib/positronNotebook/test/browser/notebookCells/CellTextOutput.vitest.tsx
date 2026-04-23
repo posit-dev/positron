@@ -8,49 +8,19 @@
 /* eslint-disable no-restricted-syntax */
 /* eslint-disable local/code-no-dangerous-type-assertions */
 
-import { act } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
 import { Emitter } from '../../../../../../base/common/event.js';
-import { ensureNoLeakedDisposables } from '../../../../../../test/vitest/vitestUtils.js';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
+import { createTestContainer } from '../../../../../../test/vitest/positronTestContainer.js';
+import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
+import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { MockContextKeyService } from '../../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { TestConfigurationService } from '../../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { NotebookDisplayOptions, NotebookLayoutConfiguration, NotebookOptions, NotebookOptionsChangeEvent } from '../../../../notebook/browser/notebookOptions.js';
 import { IPositronNotebookInstance } from '../../../browser/IPositronNotebookInstance.js';
 import { NotebookInstanceProvider } from '../../../browser/NotebookInstanceProvider.js';
-import { PositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
-import { PositronReactServices } from '../../../../../../base/browser/positronReactServices.js';
 import { CellTextOutput } from '../../../browser/notebookCells/CellTextOutput.js';
 import { ParsedTextOutput } from '../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
-
-class CellTextOutputFixture {
-	constructor(private readonly container: HTMLElement) { }
-
-	get outputContainer() {
-		const el = this.container.querySelector<HTMLDivElement>('.positron-notebook-text-output');
-		expect(el, 'Expected output container to exist').not.toBeNull();
-		return el!;
-	}
-
-	get outputLines() {
-		return this.outputContainer.querySelectorAll<HTMLDivElement>(':scope > div');
-	}
-
-	get truncationMessage() {
-		return this.container.querySelector<HTMLElement>('.notebook-output-truncation-message');
-	}
-
-	get quickFixContainer() {
-		return this.container.querySelector<HTMLElement>('.notebook-cell-quick-fix');
-	}
-
-	get outputRuns() {
-		return this.outputContainer.querySelectorAll<HTMLSpanElement>('span.output-run');
-	}
-
-	hasClass(cls: string) {
-		return this.outputContainer.classList.contains(cls);
-	}
-}
 
 /** Generate multiline content with the given number of lines. */
 function makeLines(n: number): string {
@@ -58,20 +28,27 @@ function makeLines(n: number): string {
 }
 
 describe('CellTextOutput', () => {
-	const disposables = ensureNoLeakedDisposables();
-	const rtl = setupRTLRenderer();
+	// Describe-scoped services so the builder's .stub() gets a stable reference.
+	// State is reset in beforeEach to keep tests independent.
+	const configurationService = new TestConfigurationService();
+	const contextKeyService = new MockContextKeyService();
+
+	const ctx = createTestContainer()
+		.withReactServices()
+		.stub(IConfigurationService, configurationService)
+		.stub(IContextKeyService, contextKeyService)
+		.build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 	let optionsEmitter: Emitter<NotebookOptionsChangeEvent>;
 	let layoutConfig: Partial<NotebookLayoutConfiguration & NotebookDisplayOptions>;
-	let configurationService: TestConfigurationService;
-	let contextKeyService: MockContextKeyService;
 
 	beforeEach(() => {
-		optionsEmitter = disposables.add(new Emitter<NotebookOptionsChangeEvent>());
+		optionsEmitter = ctx.disposables.add(new Emitter<NotebookOptionsChangeEvent>());
 		layoutConfig = { outputLineLimit: 30, outputScrolling: false, outputWordWrap: false };
 
-		configurationService = new TestConfigurationService();
-		contextKeyService = disposables.add(new MockContextKeyService());
+		// Reset configuration and context-key state between tests.
+		(configurationService as unknown as { configuration: Record<string, unknown> }).configuration = Object.create(null);
 	});
 
 	function renderCellTextOutput(
@@ -90,31 +67,29 @@ describe('CellTextOutput', () => {
 			notebookOptions,
 			hoverManager: { showHover: () => { }, hideHover: () => { } },
 		} as unknown as IPositronNotebookInstance;
-		const services = {
-			configurationService,
-			contextKeyService,
-		} as unknown as PositronReactServices;
 
-		const { container } = rtl.render(
-			<PositronReactServicesContext.Provider value={services}>
-				<NotebookInstanceProvider instance={instance}>
-					<CellTextOutput
-						{...props}
-						outputScrolling={layoutConfig.outputScrolling ?? false}
-						onShowFullOutput={onShowFullOutput}
-					/>
-				</NotebookInstanceProvider>
-			</PositronReactServicesContext.Provider>
+		return rtl.render(
+			<NotebookInstanceProvider instance={instance}>
+				<CellTextOutput
+					{...props}
+					outputScrolling={layoutConfig.outputScrolling ?? false}
+					onShowFullOutput={onShowFullOutput}
+				/>
+			</NotebookInstanceProvider>
 		);
-		return new CellTextOutputFixture(container);
 	}
 
 	it('renders short output', () => {
-		const fixture = renderCellTextOutput({ content: 'hello world', type: 'stdout' });
+		const { container } = renderCellTextOutput({ content: 'hello world', type: 'stdout' });
 
-		expect(fixture.outputContainer.textContent, 'Expected content').toContain('hello world');
-		expect(fixture.truncationMessage, 'Expected no truncation message').toBe(null);
-		expect(fixture.quickFixContainer, 'Expected no quick-fix').toBe(null);
+		// Structural container class under test.
+		const output = container.querySelector('.positron-notebook-text-output');
+		expect(output).toBeInTheDocument();
+		expect(output).toHaveTextContent('hello world');
+		// Truncation message is a button with the "Show ... more lines" aria-label.
+		expect(screen.queryByRole('button', { name: /more lines/ })).not.toBeInTheDocument();
+		// Quick-fix block is only present for error output.
+		expect(container.querySelector('.notebook-cell-quick-fix')).not.toBeInTheDocument();
 	});
 
 	it('renders error output with quick-fix', () => {
@@ -122,31 +97,41 @@ describe('CellTextOutput', () => {
 		configurationService.setUserConfiguration('positron.notebook.enabled', true);
 		contextKeyService.createKey('positron-assistant.hasChatModels', true);
 
-		const fixture = renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
+		const { container } = renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
 
-		expect(fixture.hasClass('notebook-error'), 'Expected error class').toBe(true);
-		expect(fixture.quickFixContainer, 'Expected quick-fix container for error output').not.toBeNull();
+		// Structural class asserted on the output container: error styling.
+		const output = container.querySelector('.positron-notebook-text-output');
+		expect(output).toHaveClass('notebook-error');
+		// Structural class asserted for the quick-fix block.
+		expect(container.querySelector('.notebook-cell-quick-fix')).toBeInTheDocument();
 	});
 
 	it('does not render quick-fix for errors when assistant is disabled', () => {
-		const fixture = renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
+		const { container } = renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
 
-		expect(fixture.hasClass('notebook-error'), 'Expected error class').toBe(true);
-		expect(fixture.quickFixContainer, 'Expected no quick-fix when assistant is disabled').toBe(null);
+		const output = container.querySelector('.positron-notebook-text-output');
+		expect(output).toHaveClass('notebook-error');
+		expect(container.querySelector('.notebook-cell-quick-fix')).not.toBeInTheDocument();
 	});
 
 	it('renders multiline content within limit', () => {
-		const fixture = renderCellTextOutput({ content: '1\n2\n3', type: 'stdout' });
+		const { container } = renderCellTextOutput({ content: '1\n2\n3', type: 'stdout' });
 
-		expect(fixture.outputLines.length, 'Expected 3 output lines').toBe(3);
-		expect(fixture.truncationMessage, 'Expected no truncation message').toBe(null);
+		const output = container.querySelector('.positron-notebook-text-output')!;
+		// Direct-child divs are the rendered output lines.
+		const lines = output.querySelectorAll(':scope > div');
+		expect(lines).toHaveLength(3);
+		expect(screen.queryByRole('button', { name: /more lines/ })).not.toBeInTheDocument();
 	});
 
 	it('renders ANSI-colored text', () => {
-		const fixture = renderCellTextOutput({ content: '\x1b[31mred\x1b[0m plain', type: 'stdout' });
+		const { container } = renderCellTextOutput({ content: '\x1b[31mred\x1b[0m plain', type: 'stdout' });
 
-		const runs = fixture.outputRuns;
-		expect(runs.length, 'Expected two output runs').toBe(2);
+		// ANSI-rendered runs are emitted as span.output-run -- no role/label available.
+		// Use textContent (not toHaveTextContent) to preserve non-breaking-space
+		// characters that the ANSI renderer emits for leading whitespace.
+		const runs = container.querySelectorAll('span.output-run');
+		expect(runs).toHaveLength(2);
 		expect(runs[0].textContent).toBe('red');
 		expect(runs[1].textContent).toBe(' plain');
 	});
@@ -154,53 +139,57 @@ describe('CellTextOutput', () => {
 	it('truncates long output when scrolling is disabled', () => {
 		const onShowFullOutput = vi.fn();
 		const content = makeLines(35);
-		const fixture = renderCellTextOutput(
+		const { container } = renderCellTextOutput(
 			{ content, type: 'stdout' },
 			{ outputLineLimit: 30, outputScrolling: false },
 			onShowFullOutput,
 		);
 
-		const message = fixture.truncationMessage;
-		expect(message, 'Expected truncation message').not.toBeNull();
-		expect(message!.textContent, 'Expected truncation count').toContain('5 more lines');
+		const message = screen.getByRole('button', { name: /more lines/ });
+		expect(message).toBeInTheDocument();
+		expect(message).toHaveTextContent('5 more lines');
 
-		// 50/50 split: top 15 lines (1-15), bottom 15 lines (21-35), lines 16-20 hidden
-		const text = fixture.outputContainer.textContent ?? '';
-		expect(text, 'Expected first line to be visible').toContain('line 1');
-		expect(text, 'Expected line 15 (last top line) to be visible').toContain('line 15');
-		expect(text, 'Expected line 16 to be truncated').not.toContain('line 16\n');
-		expect(text, 'Expected line 20 to be truncated').not.toContain('line 20\n');
-		expect(text, 'Expected line 21 (first bottom line) to be visible').toContain('line 21');
-		expect(text, 'Expected last line to be visible').toContain('line 35');
+		// 50/50 split: top 15 lines (1-15), bottom 15 lines (21-35), lines 16-20 hidden.
+		const output = container.querySelector('.positron-notebook-text-output')!;
+		const text = output.textContent ?? '';
+		expect(text).toContain('line 1');
+		expect(text).toContain('line 15');
+		expect(text).not.toContain('line 16\n');
+		expect(text).not.toContain('line 20\n');
+		expect(text).toContain('line 21');
+		expect(text).toContain('line 35');
 
-		message!.click();
-		expect(onShowFullOutput, 'Expected onShowFullOutput to be called').toHaveBeenCalledOnce();
+		message.click();
+		expect(onShowFullOutput).toHaveBeenCalledOnce();
 	});
 
 	it('does not truncate when scrolling is enabled', () => {
 		const content = makeLines(35);
-		const fixture = renderCellTextOutput(
+		const { container } = renderCellTextOutput(
 			{ content, type: 'stdout' },
 			{ outputLineLimit: 30, outputScrolling: true },
 		);
 
-		expect(fixture.outputContainer.textContent, 'Expected all lines rendered').toContain('line 35');
-		expect(fixture.truncationMessage, 'Expected no truncation message').toBe(null);
+		const output = container.querySelector('.positron-notebook-text-output')!;
+		expect(output).toHaveTextContent('line 35');
+		expect(screen.queryByRole('button', { name: /more lines/ })).not.toBeInTheDocument();
 	});
 
 	it('does not apply word-wrap class when outputWordWrap is false', () => {
-		const fixture = renderCellTextOutput({ content: 'hello', type: 'stdout' });
+		const { container } = renderCellTextOutput({ content: 'hello', type: 'stdout' });
 
-		expect(fixture.hasClass('word-wrap'), 'Expected no word-wrap class').toBe(false);
+		const output = container.querySelector('.positron-notebook-text-output');
+		expect(output).not.toHaveClass('word-wrap');
 	});
 
 	it('applies word-wrap class when outputWordWrap is true', () => {
-		const fixture = renderCellTextOutput(
+		const { container } = renderCellTextOutput(
 			{ content: 'hello', type: 'stdout' },
 			{ outputWordWrap: true },
 		);
 
-		expect(fixture.hasClass('word-wrap'), 'Expected word-wrap class').toBe(true);
+		const output = container.querySelector('.positron-notebook-text-output');
+		expect(output).toHaveClass('word-wrap');
 	});
 
 	// TODO: useNotebookOptions has a bug where setNotebookOptions(instance.notebookOptions)
@@ -208,16 +197,17 @@ describe('CellTextOutput', () => {
 	// fixed to produce a new reference on change, unskip this test.
 	it.skip('switches from truncated to normal when line limit increases', () => {
 		const content = makeLines(35);
-		const fixture = renderCellTextOutput(
+		const { container } = renderCellTextOutput(
 			{ content, type: 'stdout' },
 			{ outputLineLimit: 30, outputScrolling: false },
 		);
-		expect(fixture.truncationMessage, 'Expected truncation message initially').not.toBeNull();
+		expect(screen.getByRole('button', { name: /more lines/ })).toBeInTheDocument();
 
 		layoutConfig = { ...layoutConfig, outputLineLimit: 50 };
 		act(() => optionsEmitter.fire({ outputLineLimit: true } as NotebookOptionsChangeEvent));
 
-		expect(fixture.truncationMessage, 'Expected no truncation message after limit increase').toBe(null);
-		expect(fixture.outputContainer.textContent, 'Expected all lines rendered').toContain('line 35');
+		expect(screen.queryByRole('button', { name: /more lines/ })).not.toBeInTheDocument();
+		const output = container.querySelector('.positron-notebook-text-output')!;
+		expect(output).toHaveTextContent('line 35');
 	});
 });
