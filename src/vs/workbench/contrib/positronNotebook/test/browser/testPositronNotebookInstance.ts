@@ -72,20 +72,19 @@ function cellToDto(cell: TestCellInput): ICellDto2 {
 }
 
 /**
- * Convenience function: creates both the instantiation service and the notebook
- * instance. Use this for single-instance tests.
+ * Creates a PositronNotebookInstance with editor-attached cells, suitable
+ * for tests that need to exercise the notebook's observable state, cell
+ * model, or view layer.
  *
- * For multi-instance tests (where two notebooks must coexist), create a shared
- * service with {@link positronNotebookInstantiationService} and call
- * {@link instantiateTestNotebookInstance} directly.
+ * Caller provides a test container built with `.withNotebookEditorServices()`
+ * so the instantiation service and disposable store flow through to the
+ * notebook instance.
  */
 export function createTestPositronNotebookInstance(
 	cells: TestCellInput[],
-	disposables: Pick<DisposableStore, 'add'>,
+	ctx: { instantiationService: ITestInstantiationService; disposables: Pick<DisposableStore, 'add'> },
 ): TestPositronNotebookInstance {
-	const instantiationService = positronNotebookInstantiationService(disposables);
-	const notebook = instantiateTestNotebookInstance(cells, instantiationService, disposables);
-	return notebook;
+	return instantiateTestNotebookInstance(cells, ctx.instantiationService, ctx.disposables);
 }
 
 /**
