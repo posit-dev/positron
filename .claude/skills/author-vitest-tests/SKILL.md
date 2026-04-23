@@ -96,7 +96,9 @@ Wait for confirmation before proceeding to Phase 2.
 Gather the context you need before drafting the plan:
 
 1. **Read the source file** and 1-2 existing tests in the same directory for patterns.
-2. **Skim the decision table** in [`CLAUDE.md`](../../../CLAUDE.md#testing) -- the "Where should I put my test?" section is the source of truth for pattern selection.
+2. **Check the "Where should I put my test?" decision table** in [`CLAUDE.md`](../../../CLAUDE.md#testing):
+   - First, confirm Vitest is the right category for this source. If the table points at Core Mocha, Extension Host Mocha, or E2E Playwright, stop -- this skill can't help; tell the dev which test type fits.
+   - Second, within Vitest, use the same table to pick the pattern: plain / builder / RTL prop-driven / RTL service-context.
 3. **Skim the builder JSDoc** in `src/vs/test/vitest/positronTestContainer.ts` for preset method names and hierarchy. Start low and let errors guide you up.
 
 The rules files (`.claude/rules/vitest-tests.md` and, for `.vitest.tsx`, `.claude/rules/vitest-rtl.md`) are referenced throughout the rest of this skill -- Read them when a step points you at a specific section.
