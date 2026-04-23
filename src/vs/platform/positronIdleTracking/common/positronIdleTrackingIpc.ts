@@ -17,10 +17,13 @@ export class PositronIdleTrackingChannel implements IServerChannel {
 	}
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	async call<T>(_ctx: any, command: string, args?: any): Promise<T> {
+	async call<T>(_ctx: any, command: string, _args?: any): Promise<T> {
 		switch (command) {
 			case 'reportActivity': {
-				this.service.reportActivity(args.timestampMs);
+				// Use server-side Date.now() so the tracked timestamp is immune to
+				// browser clock skew (ahead or behind). The client timestamp is not
+				// needed: the server just needs to know "activity arrived now".
+				this.service.reportActivity(Date.now());
 				return undefined as unknown as T;
 			}
 		}

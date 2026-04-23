@@ -31,11 +31,23 @@ suite('Positron - PositronIdleTrackingChannel (server-side)', () => {
 		channel = new PositronIdleTrackingChannel(mockService);
 	});
 
-	test('reportActivity delegates to service', async () => {
+	test('reportActivity delegates to service with server timestamp', async () => {
+		const before = Date.now();
 		await channel.call(undefined, 'reportActivity', { timestampMs: 12345 });
+		const after = Date.now();
 
 		assert.strictEqual(reportActivityCalls.length, 1);
-		assert.strictEqual(reportActivityCalls[0], 12345);
+		// The channel stamps with server Date.now(), not the client-supplied value.
+		assert.ok(reportActivityCalls[0] >= before && reportActivityCalls[0] <= after);
+	});
+
+	test('reportActivity works even with no args (clock-skew fix)', async () => {
+		const before = Date.now();
+		await channel.call(undefined, 'reportActivity');
+		const after = Date.now();
+
+		assert.strictEqual(reportActivityCalls.length, 1);
+		assert.ok(reportActivityCalls[0] >= before && reportActivityCalls[0] <= after);
 	});
 
 	test('unknown command throws', async () => {
