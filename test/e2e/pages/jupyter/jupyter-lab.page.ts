@@ -18,28 +18,32 @@ export class JupyterLabPage {
 	 */
 	async openPositron(): Promise<void> {
 		const page = this.code.driver.page;
-		const context = page.context();
 
-		// Wait for the Positron launcher to be available (ensures Jupyter is ready)
-		const positronLauncher = page.locator('div.jp-LauncherCard-label[title^="Positron"]');
-		await positronLauncher.waitFor({ timeout: 30000 });
+		// Wait for the Positron launcher card to be available (ensures Jupyter is ready)
+		// Click the card itself rather than just the label for better reliability
+		const positronLauncher = page.locator('.jp-LauncherCard', {
+			has: page.locator('.jp-LauncherCard-label[title^="Positron"]')
+		});
+		await positronLauncher.waitFor({ state: 'visible', timeout: 30000 });
 
-		// Click the launcher to open in a new tab
+		// Click the launcher to open in a new tab/popup
+		// Use 'popup' event instead of 'page' - it's specifically for window.open() calls
 		const [newPage] = await Promise.all([
-			context.waitForEvent('page'),
+			page.waitForEvent('popup', { timeout: 45000 }),
 			positronLauncher.click()
 		]);
 
 		// Wait for the new page to load and get its URL
-		await newPage.waitForLoadState('networkidle');
+		// domcontentloaded is faster and more reliable than networkidle
+		await newPage.waitForLoadState('domcontentloaded');
 		const positronUrl = newPage.url();
 
-		// Close the new tab
+		// Close the popup tab
 		await newPage.close();
 
 		// Navigate to the Positron URL in the original tab
 		await page.goto(positronUrl);
-		await page.waitForLoadState('networkidle');
+		await page.waitForLoadState('domcontentloaded');
 
 		// Store the JupyterLab URL to return to later
 		if (this.positJupyter) {
