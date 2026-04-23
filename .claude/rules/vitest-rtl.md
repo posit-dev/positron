@@ -1,9 +1,3 @@
----
-paths:
-  - src/**/*.vitest.tsx
-  - src/vs/test/vitest/reactTestingLibrary.*
----
-
 # Positron Vitest + React Testing Library
 
 For React component tests (`*.vitest.tsx` using `setupRTLRenderer()`). Read alongside [`vitest-tests.md`](vitest-tests.md) for the builder, file layout, and run commands.
@@ -58,16 +52,7 @@ When no semantic query fits (structural div with no role, label, or stable text)
 
 ## Enforcement
 
-Most rules below are enforced by `eslint-plugin-testing-library` (see `eslint.config.js`). Run `npx eslint <file>` when in doubt.
-
-- `prefer-explicit-assert` -- wrap bare `getBy*` in `expect(...).toBeInTheDocument()`
-- `prefer-presence-queries` -- `getBy*` for presence, `queryBy*` for absence
-- `prefer-screen-queries` -- use `screen.getByX(...)` over destructuring queries from `render`
-- `prefer-user-event` -- use `userEvent`, not `fireEvent`
-- `no-render-in-lifecycle` -- no `render()` inside `beforeEach` / `beforeAll`
-- `no-debugging-utils` -- no committed `screen.debug()` or `logTestingPlaygroundURL()`
-- `no-unnecessary-act` -- RTL auto-wraps `render` / `userEvent`; don't wrap again
-- `await-async-queries` / `await-async-utils` / `no-await-sync-queries` -- correct `await` on async queries and utilities
+RTL rules are enforced by `eslint-plugin-testing-library`. See the `testing-library/*` block in [`eslint.config.js`](../../eslint.config.js) for the current list. Run `npx eslint <file>` to check.
 
 ## Showcase tests
 

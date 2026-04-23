@@ -1,10 +1,3 @@
----
-paths:
-  - src/**/*.vitest.{ts,tsx}
-  - vitest.config.ts
-  - src/vs/test/vitest/**
----
-
 # Positron Vitest Tests
 
 Vitest tests for Positron code (`*.vitest.ts` / `*.vitest.tsx` in `src/vs/`) run directly on your source files -- no build daemons, no compilation step, no waiting. Run `npx vitest <file>` for watch mode (re-runs on save) or `npx vitest run <file>` for a single pass.
