@@ -21,11 +21,11 @@ suite('Runtime - Conda Environment Handling', () => {
                     minor: 11,
                     patch: 0,
                     build: [],
-                    prerelease: []
+                    prerelease: [],
                 },
                 sysVersion: '3.11.0 (main, Oct 24 2022, 18:26:48) [MSC v.1933 64 bit (AMD64)]',
                 architecture: Architecture.x64,
-                sysPrefix: '/Users/test/miniconda3/envs/test1'
+                sysPrefix: '/Users/test/miniconda3/envs/test1',
             } as PythonEnvironment;
 
             expect(interpreter.envType).to.equal(EnvironmentType.Conda);
@@ -39,7 +39,7 @@ suite('Runtime - Conda Environment Handling', () => {
             const testCases = [
                 { envName: 'my-ml-project', version: '3.11.5', expected: 'Python 3.11.5 (Conda: my-ml-project)' },
                 { envName: 'test1', version: '3.11.0', expected: 'Python 3.11.0 (Conda: test1)' },
-                { envName: 'project', version: '3.12.0', expected: 'Python 3.12.0 (Conda: project)' }
+                { envName: 'project', version: '3.12.0', expected: 'Python 3.12.0 (Conda: project)' },
             ];
 
             testCases.forEach(({ envName, version, expected }) => {
@@ -61,10 +61,10 @@ suite('Runtime - Conda Environment Handling', () => {
             const testPaths = [
                 '/Users/test/miniconda3/envs/test1/bin/python',
                 '/Users/test/miniconda3/envs/my-ml-project/bin/python',
-                '/Users/test/project/.conda/bin/python'
+                '/Users/test/project/.conda/bin/python',
             ];
 
-            testPaths.forEach(testPath => {
+            testPaths.forEach((testPath) => {
                 expect(typeof testPath).to.equal('string');
                 expect(testPath).to.match(/.*python$/);
             });
@@ -73,7 +73,7 @@ suite('Runtime - Conda Environment Handling', () => {
         test('should extract environment names from paths', () => {
             const testCases = [
                 { envPath: '/Users/test/miniconda3/envs/my-ml-project', expected: 'my-ml-project' },
-                { envPath: '/Users/test/project/.conda', expected: '.conda' }
+                { envPath: '/Users/test/project/.conda', expected: '.conda' },
             ];
 
             testCases.forEach(({ envPath, expected }) => {

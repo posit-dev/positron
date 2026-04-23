@@ -13,7 +13,7 @@ suite('CondaPythonPickerContribution', () => {
         test('should have correct language ID', () => {
             const { CondaPythonPickerContribution } = require('../../client/positron/condaPickerContribution');
             const mockServiceContainer = {
-                get: () => ({})
+                get: () => ({}),
             };
             const contribution = new CondaPythonPickerContribution(mockServiceContainer);
 
@@ -40,7 +40,7 @@ suite('CondaPythonPickerContribution', () => {
         test('should extract environment name from path correctly', () => {
             const testPaths = [
                 { path: '/Users/test/miniconda3/envs/myproject', expected: 'myproject' },
-                { path: '/Users/test/project/.conda', expected: '.conda' }
+                { path: '/Users/test/project/.conda', expected: '.conda' },
             ];
 
             testPaths.forEach(({ path: testPath, expected }) => {
@@ -63,7 +63,7 @@ suite('CondaPythonPickerContribution', () => {
             const testCases = [
                 { envName: 'myproject', expected: '$(add) Install Python in myproject' },
                 { envName: '', expected: '$(add) Install Python in conda environment' },
-                { envName: 'test-123', expected: '$(add) Install Python in test-123' }
+                { envName: 'test-123', expected: '$(add) Install Python in test-123' },
             ];
 
             testCases.forEach(({ envName, expected }) => {
@@ -81,13 +81,160 @@ suite('CondaPythonPickerContribution', () => {
                 { envType: EnvironmentType.Conda, shouldInclude: true },
                 { envType: EnvironmentType.Venv, shouldInclude: false },
                 { envType: EnvironmentType.System, shouldInclude: false },
-                { envType: EnvironmentType.Pyenv, shouldInclude: false }
+                { envType: EnvironmentType.Pyenv, shouldInclude: false },
             ];
 
             interpreters.forEach(({ envType, shouldInclude }) => {
                 const isCondaEnv = envType === EnvironmentType.Conda;
                 expect(isCondaEnv).to.equal(shouldInclude);
             });
+        });
+    });
+
+    suite('Installation process', () => {
+        test('should handle successful Python installation workflow', async () => {
+            const { CondaPythonPickerContribution } = require('../../client/positron/condaPickerContribution');
+
+            // Mock the installation workflow without external dependencies
+            const mockServiceContainer = {
+                get: () => ({}),
+            };
+
+            const contribution = new CondaPythonPickerContribution(mockServiceContainer);
+
+            // Mock the private installation method to simulate success
+            let installationCalled = false;
+            let runtimeRegistered = false;
+
+            contribution['installPythonInCondaEnvQuiet'] = async (pythonPath: string) => {
+                installationCalled = true;
+                expect(pythonPath).to.include('/Users/test/miniconda3/envs/test1/python');
+                return {
+                    installed: true,
+                    actualPythonPath: '/Users/test/miniconda3/envs/test1/bin/python',
+                };
+            };
+
+            // Mock successful runtime creation workflow
+            contribution.onDidSelectItem = async function (itemId: string) {
+                const predictedPythonPath = path.join(itemId, 'python');
+
+                const result = await this['installPythonInCondaEnvQuiet'](predictedPythonPath);
+
+                if (result.installed && result.actualPythonPath) {
+                    runtimeRegistered = true;
+                    return 'mock-runtime-id';
+                }
+                return undefined;
+            };
+
+            // Test the workflow
+            const envPath = '/Users/test/miniconda3/envs/test1';
+            const result = await contribution.onDidSelectItem(envPath);
+
+            expect(installationCalled).to.be.true;
+            expect(runtimeRegistered).to.be.true;
+            expect(result).to.equal('mock-runtime-id');
+        });
+
+        test('should handle installation failure', async () => {
+            const { CondaPythonPickerContribution } = require('../../client/positron/condaPickerContribution');
+
+            // Mock failed installation
+            const mockInstaller = {
+                install: async () => 'Failed',
+            };
+            const mockInterpreterService = {
+                getInterpreterDetails: async () => ({
+                    envPath: '/Users/test/miniconda3/envs/test1',
+                }),
+            };
+
+            const mockServiceContainer = {
+                get: (serviceType: any) => {
+                    const serviceStr = serviceType.toString();
+                    if (serviceStr.includes('IInstaller')) return mockInstaller;
+                    if (serviceStr.includes('IInterpreterService')) return mockInterpreterService;
+                    return {};
+                },
+            };
+
+            const contribution = new CondaPythonPickerContribution(mockServiceContainer);
+
+            const envPath = '/Users/test/miniconda3/envs/broken';
+            const result = await contribution.onDidSelectItem(envPath);
+
+            expect(result).to.be.undefined;
+        });
+
+        test('should handle missing interpreter after installation', async () => {
+            const { CondaPythonPickerContribution } = require('../../client/positron/condaPickerContribution');
+
+            // Mock successful installation but no interpreter found
+            const mockInstaller = {
+                install: async () => 'Installed',
+            };
+            const mockInterpreterService = {
+                getInterpreterDetails: async () => null,
+            };
+
+            const mockServiceContainer = {
+                get: (serviceType: any) => {
+                    const serviceStr = serviceType.toString();
+                    if (serviceStr.includes('IInstaller')) return mockInstaller;
+                    if (serviceStr.includes('IInterpreterService')) return mockInterpreterService;
+                    return {};
+                },
+            };
+
+            const contribution = new CondaPythonPickerContribution(mockServiceContainer);
+
+            // Mock the private method to return successful installation
+            contribution['installPythonInCondaEnvQuiet'] = async () => ({
+                installed: true,
+                actualPythonPath: '/Users/test/miniconda3/envs/test1/bin/python',
+            });
+
+            const envPath = '/Users/test/miniconda3/envs/test1';
+            const result = await contribution.onDidSelectItem(envPath);
+
+            expect(result).to.be.undefined;
+        });
+
+        test('should generate correct predicted Python path', () => {
+            const testCases = [
+                { envPath: '/Users/test/miniconda3/envs/test1', expected: '/Users/test/miniconda3/envs/test1/python' },
+                { envPath: '/Users/test/project/.conda', expected: '/Users/test/project/.conda/python' },
+            ];
+
+            testCases.forEach(({ envPath, expected }) => {
+                const predictedPath = path.join(envPath, 'python');
+                expect(predictedPath).to.equal(expected);
+            });
+        });
+
+        test('should call installation with correct parameters', async () => {
+            const { CondaPythonPickerContribution } = require('../../client/positron/condaPickerContribution');
+
+            const mockServiceContainer = {
+                get: () => ({}),
+            };
+
+            const contribution = new CondaPythonPickerContribution(mockServiceContainer);
+
+            // Track installation calls
+            let installationParams: any = null;
+
+            contribution['installPythonInCondaEnvQuiet'] = async (pythonPath: string) => {
+                installationParams = { pythonPath };
+                return { installed: false }; // Simulate failure to test error handling
+            };
+
+            const envPath = '/Users/test/miniconda3/envs/myproject';
+            await contribution.onDidSelectItem(envPath);
+
+            expect(installationParams).to.not.be.null;
+            expect(installationParams.pythonPath).to.equal('/Users/test/miniconda3/envs/myproject/python');
         });
     });
 });

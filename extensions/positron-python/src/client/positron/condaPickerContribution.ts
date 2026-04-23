@@ -40,7 +40,11 @@ export class CondaPythonPickerContribution implements positron.runtime.RuntimePi
             traceInfo(`Found ${allInterpreters.length} total interpreters`);
 
             for (const interpreter of allInterpreters) {
-                traceInfo(`Checking interpreter: ${interpreter.path}, envType: ${interpreter.envType}, exists: ${fs.existsSync(interpreter.path)}`);
+                traceInfo(
+                    `Checking interpreter: ${interpreter.path}, envType: ${
+                        interpreter.envType
+                    }, exists: ${fs.existsSync(interpreter.path)}`,
+                );
 
                 // Only handle conda environments without Python
                 if (interpreter.envType === EnvironmentType.Conda && !fs.existsSync(interpreter.path)) {
@@ -63,7 +67,7 @@ export class CondaPythonPickerContribution implements positron.runtime.RuntimePi
                         id: envPath, // Use environment path, not predicted python path
                         label: `$(add) Install Python${envName ? ` in ${envName}` : ' in conda environment'}`,
                         detail: `Install Python in conda env: ${envPath}`,
-                        separatorLabel: items.length === 0 ? 'Install Python' : undefined
+                        separatorLabel: items.length === 0 ? 'Install Python' : undefined,
                     };
 
                     traceInfo(`Adding picker item: ${item.label}`);
@@ -107,13 +111,17 @@ export class CondaPythonPickerContribution implements positron.runtime.RuntimePi
                     const newMetadata = await createPythonRuntimeMetadata(interpreter, this.serviceContainer, false);
 
                     // Get the Python runtime manager to register the new runtime
-                    const runtimeManager = this.serviceContainer.get<IPythonRuntimeManager>(IPythonRuntimeManager) as PythonRuntimeManager;
+                    const runtimeManager = this.serviceContainer.get<IPythonRuntimeManager>(
+                        IPythonRuntimeManager,
+                    ) as PythonRuntimeManager;
                     runtimeManager.registerLanguageRuntime(newMetadata);
 
                     traceInfo(`Registered new Python runtime: ${newMetadata.runtimeId}`);
 
                     // Show success notification
-                    vscode.window.showInformationMessage(`✅ Python successfully installed in conda environment: ${envName}`);
+                    vscode.window.showInformationMessage(
+                        `✅ Python successfully installed in conda environment: ${envName}`,
+                    );
 
                     return newMetadata.runtimeId;
                 }
@@ -122,10 +130,11 @@ export class CondaPythonPickerContribution implements positron.runtime.RuntimePi
             traceError('Python installation failed or interpreter not found');
             vscode.window.showErrorMessage(`❌ Failed to install Python in conda environment: ${envName}`);
             return undefined;
-
         } catch (error) {
             traceError(`Failed to install Python: ${error}`);
-            vscode.window.showErrorMessage(`❌ Failed to install Python in conda environment: ${envName}. Error: ${error}`);
+            vscode.window.showErrorMessage(
+                `❌ Failed to install Python in conda environment: ${envName}. Error: ${error}`,
+            );
             return undefined;
         }
     }

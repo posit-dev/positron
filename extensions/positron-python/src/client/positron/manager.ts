@@ -590,7 +590,6 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
     async triggerInterpreterRefresh(): Promise<void> {
         await this.interpreterService.triggerRefresh();
     }
-
 }
 
 /**

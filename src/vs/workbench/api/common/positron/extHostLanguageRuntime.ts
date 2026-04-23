@@ -1289,18 +1289,6 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			}));
 		}
 
-		// Attach an event handler to the onDidUnregisterRuntime event, if
-		// present. This event notifies us when a runtime should be removed
-		// from the runtime picker.
-		if (manager.onDidUnregisterRuntime) {
-			disposables.add(manager.onDidUnregisterRuntime(runtimeId => {
-				// Unregister the runtime from the main thread
-				this._proxy.$unregisterLanguageRuntime(runtimeId);
-				// Remove the runtime from our local map
-				this._runtimeManagersByRuntimeId.delete(runtimeId);
-			}));
-		}
-
 		this._runtimeManagers.push({ manager, languageId, extension });
 
 		return new Disposable(() => {

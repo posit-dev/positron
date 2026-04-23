@@ -60,7 +60,7 @@ export async function* pythonRuntimeDiscoverer(
         traceInfo(`pythonRuntimeDiscoverer: discovered ${interpreters.length} Python interpreters`);
 
         // Log details about conda environments for debugging picker contribution
-        const condaEnvs = interpreters.filter(i => i.envType === EnvironmentType.Conda);
+        const condaEnvs = interpreters.filter((i) => i.envType === EnvironmentType.Conda);
         traceInfo(`pythonRuntimeDiscoverer: found ${condaEnvs.length} conda environments`);
         for (const env of condaEnvs) {
             traceInfo(`  - Conda env: ${env.path}, exists: ${fs.existsSync(env.path)}, envName: ${env.envName}`);
@@ -98,7 +98,9 @@ export async function* pythonRuntimeDiscoverer(
             try {
                 // Skip conda environments without Python - they'll be handled by PickerContribution
                 if (interpreter.envType === EnvironmentType.Conda && !fs.existsSync(interpreter.path)) {
-                    traceInfo(`pythonRuntimeDiscoverer: skipping runtime registration for conda env without Python: ${interpreter.path}`);
+                    traceInfo(
+                        `pythonRuntimeDiscoverer: skipping runtime registration for conda env without Python: ${interpreter.path}`,
+                    );
                     continue;
                 }
 
@@ -144,7 +146,9 @@ function filterInterpreters(interpreters: PythonEnvironment[]): PythonEnvironmen
         // Keep conda environments even if Python doesn't exist - they'll be handled by PickerContribution
         // but we need them in the interpreter list for discovery
         if (interpreter.envType === EnvironmentType.Conda && !fs.existsSync(interpreter.path)) {
-            traceInfo(`pythonRuntimeDiscoverer: found conda env without Python (will be handled by picker contribution): ${interpreter.path}`);
+            traceInfo(
+                `pythonRuntimeDiscoverer: found conda env without Python (will be handled by picker contribution): ${interpreter.path}`,
+            );
             // Keep it in the list but it will be filtered out of runtime registration
         }
 
