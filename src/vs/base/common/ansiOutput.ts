@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -397,27 +397,6 @@ export class ANSIOutput {
 
 		// Flush the buffer at the end of the output.
 		this.flushBuffer();
-	}
-
-	/**
-	 * Truncates the output lines.
-	 * @param maxOutputLines The maximum output lines.
-	 * @returns The truncated output lines.
-	 */
-	truncatedOutputLines(maxOutputLines: number) {
-		// If the max output lines is less than or equal to zero, return an empty array.
-		// (It should never be negative, but check anyway.)
-		if (maxOutputLines <= 0) {
-			return [];
-		}
-
-		// If there are fewer output lines than the max output lines, return the output lines.
-		if (this.outputLines.length <= maxOutputLines) {
-			return this.outputLines;
-		}
-
-		// Truncate the output lines.
-		return this._outputLines.slice(-maxOutputLines);
 	}
 
 	//#endregion Public Methods

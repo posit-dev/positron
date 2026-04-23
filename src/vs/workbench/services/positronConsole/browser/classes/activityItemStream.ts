@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -36,11 +36,6 @@ export class ActivityItemStream extends ActivityItem {
 	 */
 	private _ansiOutput = new ANSIOutput();
 
-	/**
-	 * Gets or sets the scrollback size. This is used to truncate the output lines for display.
-	 */
-	private _scrollbackSize?: number;
-
 	//#endregion Private Properties
 
 	//#region Public Properties
@@ -52,13 +47,8 @@ export class ActivityItemStream extends ActivityItem {
 		// Process the activity items streams.
 		this.processActivityItemStreams();
 
-		// If scrollback size is undefined, return all of the output lines.
-		if (this._scrollbackSize === undefined) {
-			return this._ansiOutput.outputLines;
-		}
-
-		// Return the truncated output lines.
-		return this._ansiOutput.truncatedOutputLines(this._scrollbackSize);
+		// Return the output lines.
+		return this._ansiOutput.outputLines;
 	}
 
 	//#endregion Public Properties

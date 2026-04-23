@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -12,19 +12,14 @@ import { ILanguageRuntimeMessageOutputData } from '../../../languageRuntime/comm
  * ActivityItemOutputMessage class.
  */
 export class ActivityItemOutputMessage extends ActivityItem {
-	//#region Private Properties
+	//#region Public Properties
 
 	/**
-	 * Gets the cached output lines.
+	 * Gets the output lines.
 	 */
-	private readonly _outputLines: readonly ANSIOutputLine[];
+	readonly outputLines: readonly ANSIOutputLine[];
 
-	/**
-	 * Gets or sets the scrollback size. This is used to truncate the output lines for display.
-	 */
-	private _scrollbackSize?: number;
-
-	//#endregion Private Properties
+	//#endregion Public Properties
 
 	//#region Constructor
 
@@ -51,27 +46,10 @@ export class ActivityItemOutputMessage extends ActivityItem {
 
 		// If the output is empty, don't render any output lines; otherwise, process the output into
 		// output lines.
-		this._outputLines = !output ? [] : ANSIOutput.processOutput(output);
+		this.outputLines = !output ? [] : ANSIOutput.processOutput(output);
 	}
 
 	//#endregion Constructor
-
-	//#region Public Properties
-
-	/**
-	 * Gets the output lines.
-	 */
-	get outputLines(): readonly ANSIOutputLine[] {
-		// If scrollback size is undefined, return all of the output lines.
-		if (this._scrollbackSize === undefined) {
-			return this._outputLines;
-		}
-
-		// Truncate the output lines.
-		return this._outputLines.slice(-this._scrollbackSize);
-	}
-
-	//#endregion Public Properties
 
 	//#region Public Methods
 
@@ -81,7 +59,7 @@ export class ActivityItemOutputMessage extends ActivityItem {
 	 * @returns The clipboard representation of the activity item.
 	 */
 	public override getClipboardRepresentation(commentPrefix: string): string[] {
-		return formatOutputLinesForClipboard(this._outputLines, commentPrefix);
+		return formatOutputLinesForClipboard(this.outputLines, commentPrefix);
 	}
 
 	//#endregion Public Methods

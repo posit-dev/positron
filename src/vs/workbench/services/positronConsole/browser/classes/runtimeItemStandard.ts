@@ -39,6 +39,10 @@ export class RuntimeItemStandard extends RuntimeItem {
 
 	//#region Public Methods
 
+	public override adjustScrollback(scrollbackSize: number): number {
+		return scrollbackSize - 1;
+	}
+
 	/**
 	 * Gets the clipboard representation of the activity item.
 	 * @param commentPrefix The comment prefix to use.

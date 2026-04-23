@@ -21,6 +21,13 @@ export abstract class RuntimeItem {
 	//#region Public Methods
 
 	/**
+	 * Adjust scrollback.
+	 * @param scrollbackSize A number representing the scrollback size.
+	 * @returns The adjusted scrollback size.
+	 */
+	public abstract adjustScrollback(scrollbackSize: number): number;
+
+	/**
 	 * Gets the clipboard representation of the runtime item.
 	 * @param commentPrefix The comment prefix to use.
 	 * @note Override in derived classes to provide a clipboard representation.
