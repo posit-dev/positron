@@ -103,12 +103,11 @@ describe('StartupStatus', () => {
 
 			// Confirm we're in AwaitingTrust state via the user-facing message.
 			getByText(/Cannot start consoles in Restricted Mode/);
-			// The progress bar div has no role/text/testid/data attribute; it's the
-			// first child of the .startup-status wrapper and we assert its inline
-			// display style reflects the hidden state.
-			const progressBar = container.firstElementChild?.firstElementChild as HTMLElement | null;
-			expect(progressBar).not.toBeNull();
-			expect(progressBar!.classList.contains('progress')).toBe(true);
+			// The progress bar div has no role/text/testid handle; querySelector on
+			// the structural .progress class is the cleanest fallback for asserting
+			// presence + inline display style.
+			const progressBar = container.querySelector<HTMLElement>('.progress');
+			expect(progressBar).toBeInTheDocument();
 			expect(progressBar!.style.display).toBe('none');
 		});
 
@@ -177,11 +176,9 @@ describe('StartupStatus', () => {
 			});
 
 			// The count is rendered in a sibling <span> of the "Discovering interpreters"
-			// text, so getByText('Discovering interpreters') only matches the text node,
-			// not a wrapper with the (2). Anchor on the .discovery wrapper and check
-			// its combined textContent instead.
-			const discoveryLine = getByText(/Discovering interpreters/);
-			expect(discoveryLine.textContent).toContain('(2)');
+			// text; toHaveTextContent matches against the full normalized textContent
+			// of the element, which includes nested span text.
+			expect(getByText(/Discovering interpreters/)).toHaveTextContent('(2)');
 		});
 	});
 
@@ -233,7 +230,7 @@ describe('StartupStatus', () => {
 			});
 
 			// Should still show the phase text, not the runtime name.
-			expect(queryByText('Python 3.12.1')).toBeNull();
+			expect(queryByText('Python 3.12.1')).not.toBeInTheDocument();
 			getByText(/Starting/);
 		});
 
@@ -251,7 +248,7 @@ describe('StartupStatus', () => {
 			getByText('Python 3.12.1');
 			// The phase-specific text ("Starting...") is hidden when runtimeStartupEvent
 			// is set; the .starting div is no longer rendered.
-			expect(queryByText(/^Starting/)).toBeNull();
+			expect(queryByText(/^Starting/)).not.toBeInTheDocument();
 		});
 	});
 });
