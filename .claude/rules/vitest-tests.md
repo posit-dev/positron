@@ -2,8 +2,6 @@
 
 Vitest tests for Positron code (`*.vitest.ts` / `*.vitest.tsx` in `src/vs/`) run directly on your source files -- no build daemons, no compilation step, no waiting. Run `npx vitest <file>` for watch mode (re-runs on save) or `npx vitest run <file>` for a single pass.
 
-> **Writing a React component test?** Also read [`vitest-rtl.md`](vitest-rtl.md) for query priority, jest-dom matcher selection, and RTL anti-patterns.
-
 ## Quick Start
 
 ### Testing a pure function
@@ -32,6 +30,10 @@ describe('MyService', () => {
     });
 });
 ```
+
+### Testing a React component
+
+Read [`vitest-rtl.md`](vitest-rtl.md) for query priority, jest-dom matcher selection, and RTL anti-patterns. That file has the React Quick Start and the full RTL convention set.
 
 ## File setup
 
