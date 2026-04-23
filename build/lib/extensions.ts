@@ -289,11 +289,14 @@ function getPlatformDownloads(bootstrap: boolean): string[] {
 	}
 }
 
-function createPlatformSpecificUrl(serviceUrl: string, publisher: string, name: string, version: string, platformDownload: string): string {
-	// P3M serves platform-specific VSIX downloads at: {asset_base}/{publisher}/{name}/{version}/Microsoft.VisualStudio.Services.VSIXPackage?targetPlatform={platform}
-	// where asset_base is the gallery serviceUrl with "gallery" replaced by "asset".
-	const assetBaseUrl = serviceUrl.replace(/\/gallery$/, '/asset');
-	return `${assetBaseUrl}/${publisher}/${name}/${version}/Microsoft.VisualStudio.Services.VSIXPackage?targetPlatform=${platformDownload}`;
+function createPlatformSpecificUrl(resourceUrlTemplate: string, publisher: string, name: string, version: string, platformDownload: string): string {
+	// Construct the platform-specific VSIX URL from the resource URL template, replacing the web resource
+	// path suffix with the VSIX package asset type and appending the target platform query parameter.
+	return resourceUrlTemplate
+		.replace('{publisher}', publisher)
+		.replace('{name}', name)
+		.replace('{version}', version)
+		.replace(/Microsoft\.VisualStudio\.Code\.WebResources\/\{path\}$/, `Microsoft.VisualStudio.Services.VSIXPackage?targetPlatform=${platformDownload}`);
 }
 
 function getArchFromPlatformId(platformId: string): string {
@@ -305,7 +308,7 @@ function getArchFromPlatformId(platformId: string): string {
 	return 'unknown';
 }
 
-export function fromMarketplace(serviceUrl: string, { name: extensionName, version, sha256, metadata }: IExtensionDefinition, bootstrap: boolean = false): Stream {
+export function fromMarketplace(resourceUrlTemplate: string, { name: extensionName, version, sha256, metadata }: IExtensionDefinition, bootstrap: boolean = false): Stream {
 	const json = require('gulp-json-editor') as typeof import('gulp-json-editor');
 
 	// --- End Positron ---
@@ -315,16 +318,19 @@ export function fromMarketplace(serviceUrl: string, { name: extensionName, versi
 	let platformDownloads: string[] = [];
 
 	if (metadata.multiPlatformServiceUrl) {
-		// multiPlatformServiceUrl is the asset base URL. P3M serves platform-specific VSIX downloads at:
-		// {multiPlatformServiceUrl}/{publisher}/{name}/{platform}/{version}/file/{publisher}.{name}-{version}@{platform}.vsix
+		// Download a platform-specific VSIX for each target platform.
 		platformDownloads = getPlatformDownloads(bootstrap);
-		urls = platformDownloads.map(platformDownload => createPlatformSpecificUrl(serviceUrl, publisher, name, version, platformDownload));
+		urls = platformDownloads.map(platformDownload => createPlatformSpecificUrl(resourceUrlTemplate, publisher, name, version, platformDownload));
 		fancyLog('Downloading multi-platform extension:', ansiColors.yellow(`${extensionName}@${version}`),
 			`for ${platformDownloads.join(', ')}...`);
 	} else {
-		// P3M serves single-platform VSIX downloads at: {asset_base}/{publisher}/{name}/{version}/Microsoft.VisualStudio.Services.VSIXPackage
-		const assetBaseUrl = serviceUrl.replace(/\/gallery$/, '/asset');
-		urls = [`${assetBaseUrl}/${publisher}/${name}/${version}/Microsoft.VisualStudio.Services.VSIXPackage`];
+		// Construct the single-platform VSIX URL from the resource URL template.
+		urls = [resourceUrlTemplate
+			.replace('{publisher}', publisher)
+			.replace('{name}', name)
+			.replace('{version}', version)
+			.replace(/Microsoft\.VisualStudio\.Code\.WebResources\/\{path\}$/, 'Microsoft.VisualStudio.Services.VSIXPackage')
+		];
 		fancyLog('Downloading extension:', ansiColors.yellow(`${extensionName}@${version}`), '...');
 	}
 	// --- End Positron ---
