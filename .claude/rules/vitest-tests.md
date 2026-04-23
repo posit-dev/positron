@@ -87,6 +87,15 @@ Positron-specific rules not covered by a public lint plugin. The `review-vitest-
 
 **Mock utilities:** Prefer `vi.fn()` for new tests. Use `vi.spyOn(obj, 'method')` to spy while preserving the implementation. Reach for a `Test*` class or `mock.ts` only when the mock needs complex state (emitters, observable values) shared across multiple tests. `restoreMocks: true` and `clearMocks: true` are enabled globally in `vitest.config.ts`, so spies restore and call histories clear between tests automatically -- you don't need per-file `afterEach` cleanup.
 
+**Module-level mocking (`vi.mock`):** reach for this when a function's real implementation pulls in heavy transitive deps (AMD loads, large rendering pipelines, filesystem access) and your test only cares about the function's return shape. Mocking one module is cleaner than deep-stubbing its chain of dependencies. Use `vi.hoisted` to share the mock `vi.fn()` with the test body (`vi.mock` is hoisted above imports, so a top-level `vi.fn()` hits TDZ otherwise):
+
+```tsx
+const { mockRender } = vi.hoisted(() => ({ mockRender: vi.fn() }));
+vi.mock('../path/to/module.js', () => ({ renderFoo: mockRender }));
+```
+
+Prefer `.stub()` via the builder for DI services -- `vi.mock` is the escape hatch for module-level things outside the container.
+
 **Disposables in plain tests:** The builder handles disposable-leak detection automatically via `createTestContainer().build()`. Plain tests that allocate disposables directly (without the builder) still need `ensureNoLeakedDisposables()` in `beforeEach` -- see [`src/vs/test/vitest/vitestUtils.ts`](../../src/vs/test/vitest/vitestUtils.ts).
 
 **Inline snapshots:** Use `toMatchInlineSnapshot()` when you'd rather diff a known-good shape than maintain many separate assertions. Specifically: multi-property output (parser results, component markup), **exact-preservation** tests (round-trip fidelity, character-exact strings), **arrays of structured objects with 3+ entries**, **single objects projected to 3+ fields**, or when you'd otherwise write **3+ separate `.toBe()`/`.toEqual()` assertions against the same object** -- a known-good shape is easier to eyeball than a literal and survives field renames. Project structured objects to the relevant fields first: `expect({ kind, source, language }).toMatchInlineSnapshot(...)` beats snapshotting whole objects with irrelevant nested fields. For simple values, prefer `.toBe(...)`. Vitest fills and updates snapshots with `--update`; when one fails, read the diff before accepting.
