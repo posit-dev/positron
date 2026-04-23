@@ -80,70 +80,76 @@ describe('StartupStatus', () => {
 		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 		it('shows "Waiting for extensions" during Initializing phase', () => {
-			const { container } = rtl.render(<StartupStatus />);
-			expect(container.textContent).toContain('Waiting for extensions');
+			// getByText throws if the node isn't found, so the call itself acts as the assertion.
+			rtl.render(<StartupStatus />).getByText(/Waiting for extensions/);
 		});
 
 		it('shows "Cannot start consoles in Restricted Mode" during AwaitingTrust phase', () => {
-			const { container } = rtl.render(<StartupStatus />);
+			const { getByText } = rtl.render(<StartupStatus />);
 
 			act(() => {
 				langMock.onDidChangeRuntimeStartupPhase.fire(RuntimeStartupPhase.AwaitingTrust);
 			});
 
-			expect(container.textContent).toContain('Cannot start consoles in Restricted Mode');
+			getByText(/Cannot start consoles in Restricted Mode/);
 		});
 
 		it('hides the progress bar during AwaitingTrust phase', () => {
-			const { container } = rtl.render(<StartupStatus />);
+			const { container, getByText } = rtl.render(<StartupStatus />);
 
 			act(() => {
 				langMock.onDidChangeRuntimeStartupPhase.fire(RuntimeStartupPhase.AwaitingTrust);
 			});
 
-			const progressBar = container.querySelector('.progress');
+			// Confirm we're in AwaitingTrust state via the user-facing message.
+			getByText(/Cannot start consoles in Restricted Mode/);
+			// The progress bar div has no role/text/testid/data attribute; it's the
+			// first child of the .startup-status wrapper and we assert its inline
+			// display style reflects the hidden state.
+			const progressBar = container.firstElementChild?.firstElementChild as HTMLElement | null;
 			expect(progressBar).not.toBeNull();
-			expect((progressBar as HTMLElement).style.display).toBe('none');
+			expect(progressBar!.classList.contains('progress')).toBe(true);
+			expect(progressBar!.style.display).toBe('none');
 		});
 
 		it('shows "Reconnecting" during Reconnecting phase', () => {
-			const { container } = rtl.render(<StartupStatus />);
+			const { getByText } = rtl.render(<StartupStatus />);
 
 			act(() => {
 				langMock.onDidChangeRuntimeStartupPhase.fire(RuntimeStartupPhase.Reconnecting);
 			});
 
-			expect(container.textContent).toContain('Reconnecting');
+			getByText(/Reconnecting/);
 		});
 
 		it('shows "Setting up workspace" during NewFolderTasks phase', () => {
-			const { container } = rtl.render(<StartupStatus />);
+			const { getByText } = rtl.render(<StartupStatus />);
 
 			act(() => {
 				langMock.onDidChangeRuntimeStartupPhase.fire(RuntimeStartupPhase.NewFolderTasks);
 			});
 
-			expect(container.textContent).toContain('Setting up workspace');
+			getByText(/Setting up workspace/);
 		});
 
 		it('shows "Starting" during Starting phase', () => {
-			const { container } = rtl.render(<StartupStatus />);
+			const { getByText } = rtl.render(<StartupStatus />);
 
 			act(() => {
 				langMock.onDidChangeRuntimeStartupPhase.fire(RuntimeStartupPhase.Starting);
 			});
 
-			expect(container.textContent).toContain('Starting');
+			getByText(/Starting/);
 		});
 
 		it('shows "Discovering interpreters" during Discovering phase', () => {
-			const { container } = rtl.render(<StartupStatus />);
+			const { getByText } = rtl.render(<StartupStatus />);
 
 			act(() => {
 				langMock.onDidChangeRuntimeStartupPhase.fire(RuntimeStartupPhase.Discovering);
 			});
 
-			expect(container.textContent).toContain('Discovering interpreters');
+			getByText(/Discovering interpreters/);
 		});
 	});
 
@@ -158,7 +164,7 @@ describe('StartupStatus', () => {
 		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 		it('shows the count of discovered interpreters', () => {
-			const { container } = rtl.render(<StartupStatus />);
+			const { getByText } = rtl.render(<StartupStatus />);
 
 			// Simulate discovering 2 runtimes
 			act(() => {
@@ -170,7 +176,12 @@ describe('StartupStatus', () => {
 				langMock.onDidRegisterRuntime.fire({} as ILanguageRuntimeMetadata);
 			});
 
-			expect(container.textContent).toContain('(2)');
+			// The count is rendered in a sibling <span> of the "Discovering interpreters"
+			// text, so getByText('Discovering interpreters') only matches the text node,
+			// not a wrapper with the (2). Anchor on the .discovery wrapper and check
+			// its combined textContent instead.
+			const discoveryLine = getByText(/Discovering interpreters/);
+			expect(discoveryLine.textContent).toContain('(2)');
 		});
 	});
 
@@ -185,7 +196,7 @@ describe('StartupStatus', () => {
 		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 		it('shows runtime name when auto-start event fires with activate=true', () => {
-			const { container } = rtl.render(<StartupStatus />);
+			const { getByText } = rtl.render(<StartupStatus />);
 
 			act(() => {
 				startupMock.onWillAutoStartRuntime.fire(makeAutoStartEvent({
@@ -194,12 +205,12 @@ describe('StartupStatus', () => {
 				}));
 			});
 
-			expect(container.textContent).toContain('Python 3.12.1');
-			expect(container.textContent).toContain('Preparing');
+			getByText('Python 3.12.1');
+			getByText('Preparing');
 		});
 
 		it('shows "Reconnecting" for existing session auto-start', () => {
-			const { container } = rtl.render(<StartupStatus />);
+			const { getByText } = rtl.render(<StartupStatus />);
 
 			act(() => {
 				startupMock.onWillAutoStartRuntime.fire(makeAutoStartEvent({
@@ -208,12 +219,12 @@ describe('StartupStatus', () => {
 				}));
 			});
 
-			expect(container.textContent).toContain('Python 3.12.1');
-			expect(container.textContent).toContain('Reconnecting');
+			getByText('Python 3.12.1');
+			getByText('Reconnecting');
 		});
 
 		it('ignores auto-start events with activate=false', () => {
-			const { container } = rtl.render(<StartupStatus />);
+			const { getByText, queryByText } = rtl.render(<StartupStatus />);
 
 			act(() => {
 				startupMock.onWillAutoStartRuntime.fire(makeAutoStartEvent({
@@ -221,25 +232,26 @@ describe('StartupStatus', () => {
 				}));
 			});
 
-			// Should still show the phase text, not the runtime name
-			expect(container.textContent).not.toContain('Python 3.12.1');
-			expect(container.textContent).toContain('Starting');
+			// Should still show the phase text, not the runtime name.
+			expect(queryByText('Python 3.12.1')).toBeNull();
+			getByText(/Starting/);
 		});
 
 		it('suppresses phase text when auto-start event is active', () => {
-			const { container } = rtl.render(<StartupStatus />);
+			const { getByText, queryByText } = rtl.render(<StartupStatus />);
 
 			// Initially shows "Starting..."
-			expect(container.textContent).toContain('Starting');
+			getByText(/Starting/);
 
 			act(() => {
 				startupMock.onWillAutoStartRuntime.fire(makeAutoStartEvent());
 			});
 
-			// "Starting" text should be suppressed, replaced by runtime progress
-			expect(container.textContent).toContain('Python 3.12.1');
-			// The phase-specific text ("Starting...") is hidden when runtimeStartupEvent is set
-			expect(container.querySelector('.starting')).toBeNull();
+			// "Starting" text should be suppressed, replaced by runtime progress.
+			getByText('Python 3.12.1');
+			// The phase-specific text ("Starting...") is hidden when runtimeStartupEvent
+			// is set; the .starting div is no longer rendered.
+			expect(queryByText(/^Starting/)).toBeNull();
 		});
 	});
 });
