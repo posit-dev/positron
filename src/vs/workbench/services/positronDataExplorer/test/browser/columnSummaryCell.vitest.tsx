@@ -5,8 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-/* eslint-disable no-restricted-syntax */
-
 import { ColumnSummaryCell } from '../../browser/components/columnSummaryCell.js';
 import { getColumnSchema } from '../../common/positronDataExplorerMocks.js';
 import { ColumnDisplayType, SupportStatus, ColumnProfileType, SupportedFeatures } from '../../../languageRuntime/common/positronDataExplorerComm.js';
@@ -116,11 +114,9 @@ describe('ColumnSummaryCell', () => {
 			getColumnProfileNullCount: () => 0,
 		});
 
-		const { container } = renderRoot(mockTableSummaryDataGridInstance);
+		const { getByText } = renderRoot(mockTableSummaryDataGridInstance);
 
-		const nullPercentElement = container.querySelector('.text-percent');
-		expect(nullPercentElement, 'Expected to find null percent element').not.toBeNull();
-		expect(nullPercentElement!.textContent, 'Expected to find 0% for 0% input').toBe('0%');
+		getByText('0%', { selector: '.text-percent' });
 	});
 
 	it('displays <1% when getColumnProfileNullPercent returns 0.5', async () => {
@@ -129,11 +125,9 @@ describe('ColumnSummaryCell', () => {
 			getColumnProfileNullCount: () => 1,
 		});
 
-		const { container } = renderRoot(mockTableSummaryDataGridInstance);
+		const { getByText } = renderRoot(mockTableSummaryDataGridInstance);
 
-		const nullPercentElement = container.querySelector('.text-percent');
-		expect(nullPercentElement, 'Expected to find null percent element').not.toBeNull();
-		expect(nullPercentElement!.textContent, 'Expected to find <1% for 0.5% input').toBe('<1%');
+		getByText('<1%', { selector: '.text-percent' });
 	});
 
 	it('displays 99% when getColumnProfileNullPercent returns 99.9', async () => {
@@ -142,11 +136,9 @@ describe('ColumnSummaryCell', () => {
 			getColumnProfileNullCount: () => 999,
 		});
 
-		const { container } = renderRoot(mockTableSummaryDataGridInstance);
+		const { getByText } = renderRoot(mockTableSummaryDataGridInstance);
 
-		const nullPercentElement = container.querySelector('.text-percent');
-		expect(nullPercentElement, 'Expected to find null percent element').not.toBeNull();
-		expect(nullPercentElement!.textContent, 'Expected to find 99% for 99.9% input').toBe('99%');
+		getByText('99%', { selector: '.text-percent' });
 	});
 
 	it('displays 100% when getColumnProfileNullPercent returns 100', async () => {
@@ -155,11 +147,9 @@ describe('ColumnSummaryCell', () => {
 			getColumnProfileNullCount: () => 1000,
 		});
 
-		const { container } = renderRoot(mockTableSummaryDataGridInstance);
+		const { getByText } = renderRoot(mockTableSummaryDataGridInstance);
 
-		const nullPercentElement = container.querySelector('.text-percent');
-		expect(nullPercentElement, 'Expected to find null percent element').not.toBeNull();
-		expect(nullPercentElement!.textContent, 'Expected to find 100% for 100% input').toBe('100%');
+		getByText('100%', { selector: '.text-percent' });
 	});
 
 });
