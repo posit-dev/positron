@@ -10,6 +10,8 @@ import { TableSummaryDataGridInstance } from '../../browser/tableSummaryDataGrid
 import { TableSummaryCache } from '../../common/tableSummaryCache.js';
 import { DataExplorerClientInstance } from '../../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { NullHoverService } from '../../../../../platform/hover/test/browser/nullHoverService.js';
 import {
@@ -24,9 +26,14 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { getColumnSchema } from '../../common/positronDataExplorerMocks.js';
 
 describe('TableSummaryDataGridInstance', () => {
+	const ctx = createTestContainer()
+		.withReactServices()
+		.stub(IConfigurationService, new TestConfigurationService())
+		.stub(IHoverService, NullHoverService)
+		.build();
+
 	let instance: TableSummaryDataGridInstance;
 	let mockTableSummaryCache: TableSummaryCache;
-	let originalServices: any;
 
 	// Pre-configured stubs for easier testing
 	let isColumnExpandedStub: ReturnType<typeof vi.fn>;
@@ -80,15 +87,11 @@ describe('TableSummaryDataGridInstance', () => {
 	};
 
 	beforeEach(() => {
-		// Store original services to restore later
-		originalServices = PositronReactServices.services;
-
-		// Mock PositronReactServices.services
-		const mockServices: Partial<PositronReactServices> = {
-			configurationService: new TestConfigurationService(),
-			hoverService: NullHoverService
-		};
-		PositronReactServices.services = mockServices as PositronReactServices;
+		// TableSummaryDataGridInstance reads PositronReactServices.services
+		// (static singleton) in its constructor. Bridge the builder-configured
+		// DI container to the singleton so the services stubbed above flow
+		// through to the instance under test.
+		PositronReactServices.services = ctx.reactServices;
 
 		// Create pre-configured stubs
 		isColumnExpandedStub = vi.fn().mockReturnValue(false);
@@ -130,10 +133,6 @@ describe('TableSummaryDataGridInstance', () => {
 
 	afterEach(() => {
 		instance.dispose();
-		// Restore original services
-		if (originalServices) {
-			PositronReactServices.services = originalServices;
-		}
 	});
 
 	it('columns should always return 1', () => {
@@ -189,6 +188,4 @@ describe('TableSummaryDataGridInstance', () => {
 		expect(getColumnProfileStub).toHaveBeenCalledWith(0);
 	});
 
-	// Ensure that all disposables are cleaned up.
-	createTestContainer().build();
 });
