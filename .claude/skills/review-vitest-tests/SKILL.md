@@ -36,7 +36,11 @@ Is the test using `createTestContainer()`? Flag any of these patterns as a failu
 - Hand-rolled `as unknown as PositronReactServices` accessor casts
 - Direct mutation of `PositronReactServices.services = ...` (use `.stub()` and let `setupRTLRenderer` deliver via context)
 
-The only exception is plain tests (no services) that use `ensureNoLeakedDisposables()` directly for disposable tracking.
+Exceptions:
+
+- Plain tests (no services) that use `ensureNoLeakedDisposables()` directly for disposable tracking.
+- A `TestInstantiationService` constructed solely to hand to a test-helper service (e.g., `new TestCommandService(new TestInstantiationService())`) inside `beforeEach`, not used as a primary DI container.
+- Shared test helpers invoked from test-runtime (inside `beforeEach` / `it`) may call `positronWorkbenchInstantiationService` directly, since `createTestContainer().build()` registers a describe-scope hook and can't be invoked from test-runtime. Flag only when the helper itself is consumed at describe scope (where the builder would work).
 
 ### 3. Setup weight
 
@@ -74,14 +78,19 @@ Any `vi.spyOn(console, ...)` or `vi.spyOn(obj, 'method')` without a correspondin
 
 For `.vitest.tsx` files using `setupRTLRenderer`: flag any `container.querySelector(...)` used as an assertion target. Use the Testing Library query priority instead: `getByRole` -> `getByLabelText` -> `getByPlaceholderText` -> `getByText` -> `getByDisplayValue` -> `getByAltText` -> `getByTitle` -> `getByTestId`. Escape hatches: `getByText('text', { selector: '.css' })` when the element has text, or `getByTestId(...)` when it doesn't. If neither fits (e.g., a structural div with no text and no stable role), suggest adding `data-testid` to the source rather than accepting `container.querySelector`. Add a brief inline comment when the escape-hatch choice isn't obvious. See `.claude/rules/vitest-tests.md` "RTL idioms".
 
-### 12. Assertion idioms (React tests only)
+### 12. Assertion idioms
 
-For `.vitest.tsx` files: flag these assertion anti-patterns.
+**DOM-specific (`.vitest.tsx` only):**
 
 - `expect(el).toBeNull()` / `toBeTruthy()` / `toBeFalsy()` for DOM presence/absence -- use `toBeInTheDocument()` / `not.toBeInTheDocument()` (with `queryBy*` for absence).
 - `assert.strictEqual(el.textContent, 'x')` -- use `expect(el).toHaveTextContent('x')`.
-- `assert.ok(el)` / `assert.equal(...)` / `assert.strictEqual(el, null)` -- use `expect()` with a jest-dom matcher.
 - Manual class checks like `el.classList.contains('x')` -- use `expect(el).toHaveClass('x')`.
+
+**All Vitest files (`.vitest.ts` and `.vitest.tsx`):**
+
+- `assert.ok(x)` / `assert.equal(...)` / `assert.strictEqual(...)` -- use `expect()`. Vitest prefers `expect()` across all test files.
+
+Note: a bare `getByRole(...)` / `getByText(...)` / `getByAltText(...)` call IS an assertion -- these query functions throw when the element isn't found. Don't flag them for "missing `expect(...).toBeInTheDocument()`"; wrapping is redundant. Do flag them if the test also has assertions on the returned element that could use jest-dom matchers.
 
 See `.claude/rules/vitest-tests.md` "RTL idioms" for the full matcher list.
 

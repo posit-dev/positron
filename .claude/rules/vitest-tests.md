@@ -89,8 +89,10 @@ For React component tests using `setupRTLRenderer()`:
 **Anti-patterns to avoid:**
 
 - `container.querySelector(...)` as an assertion target -- use a query.
-- `assert.strictEqual` / `assert.ok` / `assert.equal` in `.vitest.tsx` -- use `expect()`.
+- `assert.strictEqual` / `assert.ok` / `assert.equal` -- use `expect()`. (Applies to `.vitest.ts` and `.vitest.tsx`.)
 - `expect(el).toBeTruthy()` / `toBeFalsy()` for DOM presence/absence -- use `toBeInTheDocument()` / `not.toBeInTheDocument()`.
+
+Note: a bare `getByRole(...)` / `getByText(...)` / `getByAltText(...)` call is itself an assertion -- the query throws when the element isn't found. Don't wrap it in `expect(...).toBeInTheDocument()`; the wrapper adds nothing and can obscure the failure message. Use `toBeInTheDocument()` with `queryBy*` / `findBy*` returns where the return value may be `null`.
 
 ## Run commands
 
@@ -115,4 +117,4 @@ These showcase tests demonstrate the patterns at increasing complexity:
 - [emptyConsole](../../src/vs/workbench/contrib/positronConsole/test/browser/emptyConsole.vitest.tsx) -- React: one service, one click, behavioral assertions
 - [webviewPlotThumbnail](../../src/vs/workbench/contrib/positronPlots/test/browser/webviewPlotThumbnail.vitest.tsx) -- event-driven intro: one emitter, act(), conditional rendering
 - [startupStatus](../../src/vs/workbench/contrib/positronConsole/test/browser/startupStatus.vitest.tsx) -- event-driven advanced: 6-phase state machine, 3 event subscriptions
-- [columnSummaryCell](../../src/vs/workbench/services/positronDataExplorer/test/browser/columnSummaryCell.vitest.tsx) -- RTL idioms: `getByText({ selector })`, `toHaveTextContent`, no `querySelector`
+- [columnSummaryCell](../../src/vs/workbench/services/positronDataExplorer/test/browser/columnSummaryCell.vitest.tsx) -- RTL idioms: `getByText('text', { selector })` (query-as-assertion), no `querySelector`

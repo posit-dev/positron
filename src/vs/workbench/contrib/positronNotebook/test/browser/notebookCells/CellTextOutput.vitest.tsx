@@ -49,6 +49,7 @@ describe('CellTextOutput', () => {
 
 		// Reset configuration and context-key state between tests.
 		(configurationService as unknown as { configuration: Record<string, unknown> }).configuration = Object.create(null);
+		(contextKeyService as unknown as { _keys: Map<string, unknown> })._keys.clear();
 	});
 
 	function renderCellTextOutput(

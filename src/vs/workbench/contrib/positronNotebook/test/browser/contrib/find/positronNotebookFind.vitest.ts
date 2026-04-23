@@ -130,7 +130,7 @@ describe('PositronNotebookFindController', () => {
 	beforeEach(() => {
 		instantiationService = positronNotebookInstantiationService(ctx.disposables);
 
-		const bulkEditService = new TestBulkEditService(instantiationService.get(IModelService));
+		const bulkEditService = new TestBulkEditService(instantiationService.invokeFunction(accessor => accessor.get(IModelService)));
 		bulkEditApplySpy = vi.spyOn(bulkEditService, 'apply');
 		instantiationService.stub(IBulkEditService, bulkEditService);
 	});
@@ -244,7 +244,7 @@ describe('PositronNotebookFindController', () => {
 
 		it('wholeWord=true only matches full words', async () => {
 			const { notebook, controller, find } = findFixture([['cat catch category', 'python', CellKind.Code]]);
-			const configService = notebook.instantiationService.get(IConfigurationService) as TestConfigurationService;
+			const configService = notebook.instantiationService.invokeFunction(accessor => accessor.get(IConfigurationService)) as TestConfigurationService;
 			await configService.setUserConfiguration('editor.wordSeparators', USUAL_WORD_SEPARATORS);
 
 			transaction((tx) => {

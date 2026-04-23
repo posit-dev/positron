@@ -165,7 +165,7 @@ export function instantiateTestNotebookInstance(
 	const overlayContainer = document.createElement('div');
 	editorContainer.appendChild(notebookContainer);
 	editorContainer.appendChild(overlayContainer);
-	const scopedContextKeyService = instantiationService.get(IContextKeyService).createScoped(editorContainer);
+	const scopedContextKeyService = instantiationService.invokeFunction(accessor => accessor.get(IContextKeyService)).createScoped(editorContainer);
 	notebook.attachView(editorContainer, scopedContextKeyService, notebookContainer, overlayContainer);
 
 	// Create the notebook text model directly

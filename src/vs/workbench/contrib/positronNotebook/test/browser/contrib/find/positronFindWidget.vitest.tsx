@@ -173,7 +173,9 @@ describe('PositronFindWidget', () => {
 			// eslint-disable-next-line no-restricted-syntax
 			const results = container.querySelector('.results');
 			expect(results).toBeInTheDocument();
-			expect(results).toHaveTextContent('');
+			// toHaveTextContent does substring matching on strings (so '' always matches).
+			// Use a regex for an exact empty-string check.
+			expect(results).toHaveTextContent(/^$/);
 		});
 
 		it('navigation buttons are disabled when there are no matches', () => {

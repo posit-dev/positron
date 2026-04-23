@@ -47,14 +47,13 @@ describe('NotebookErrorBoundary', () => {
 	describe('when children render successfully', () => {
 		it('renders children', () => {
 			const { logService } = createMockLogService();
-			const { container } = rtl.render(
+			const { getByText } = rtl.render(
 				<NotebookErrorBoundary componentName='Test' level='cell' logService={logService}>
 					<GoodComponent />
 				</NotebookErrorBoundary>
 			);
 
-			// Purely structural div with no semantic handle.
-			expect(container.querySelector('.good-component')).toBeInTheDocument();
+			expect(getByText('Hello')).toBeInTheDocument();
 		});
 	});
 
@@ -227,7 +226,7 @@ describe('NotebookErrorBoundary', () => {
 				return <div className='recovered'>Recovered</div>;
 			}
 
-			const { container, getByRole, queryByRole } = rtl.render(
+			const { getByRole, getByText, queryByRole } = rtl.render(
 				<NotebookErrorBoundary componentName='Test' level='cell' logService={logService}>
 					<ConditionallyThrowingComponent />
 				</NotebookErrorBoundary>
@@ -239,8 +238,7 @@ describe('NotebookErrorBoundary', () => {
 			shouldThrow = false;
 			clickAndFlush(getByRole('button', { name: 'Retry' }));
 
-			// Structural div with no semantic handle.
-			expect(container.querySelector('.recovered'), 'Children should re-render after retry').toBeInTheDocument();
+			expect(getByText('Recovered'), 'Children should re-render after retry').toBeInTheDocument();
 			expect(queryByRole('alert'), 'Error UI should be gone').not.toBeInTheDocument();
 		});
 	});
