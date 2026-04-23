@@ -13,6 +13,7 @@ import { IProcessServiceFactory } from '../../common/process/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
 import { isUvInstalled } from '../../pythonEnvironments/common/environmentManagers/uv';
+import { fetchP3MPackageMetadata } from './p3mSearch';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
 
@@ -34,6 +35,13 @@ export class UvPackageManager implements IPackageManager {
 
     async getPackages(token?: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]> {
         return this._callMethod<positron.LanguageRuntimePackage[]>('getPackagesInstalled', token);
+    }
+
+    async getPackageMetadata(
+        packageNames: string[],
+        token?: vscode.CancellationToken,
+    ): Promise<Map<string, Partial<positron.LanguageRuntimePackage>>> {
+        return fetchP3MPackageMetadata(packageNames, token);
     }
 
     /**

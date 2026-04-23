@@ -1147,6 +1147,15 @@ declare module 'positron' {
 		name: string;
 		displayName: string;
 		version: string;
+
+		/** License information */
+		license?: string;
+
+		/** Latest available version from repository */
+		latestVersion?: string;
+
+		/** Publication/release date */
+		publishedDate?: string;
 	}
 
 	/**
@@ -1213,6 +1222,19 @@ declare module 'positron' {
 		 * @param token Optional cancellation token
 		 */
 		searchPackageVersions(name: string, token?: vscode.CancellationToken): Thenable<string[]>;
+
+		/**
+		 * Fetch additional metadata for packages from external sources (e.g., P3M).
+		 * This is called separately from getPackages() to allow the UI to display
+		 * the basic package list quickly while metadata loads in the background.
+		 * @param packageNames Array of package names to fetch metadata for
+		 * @param token Optional cancellation token
+		 * @returns Map of package name (lowercase) to partial package metadata
+		 */
+		getPackageMetadata?(
+			packageNames: string[],
+			token?: vscode.CancellationToken,
+		): Thenable<Map<string, Partial<LanguageRuntimePackage>>>;
 	}
 
 	/**
