@@ -101,6 +101,15 @@ Wait for confirmation before proceeding to Phase 2.
 
 ## Phase 2: Writing
 
+### Prepare
+
+Gather the context you need before drafting the plan:
+
+1. **Read the source file** and 1-2 existing tests in the same directory for patterns.
+2. **Read the rules:** `.claude/rules/vitest-tests.md` (core). For a `.vitest.tsx` source file, also read `.claude/rules/vitest-rtl.md` (React queries, matchers, escape hatches, lint rules).
+3. **Skim the decision table** in [`CLAUDE.md`](../../../CLAUDE.md#testing) -- the "Where should I put my test?" section is the source of truth for pattern selection.
+4. **Skim the builder JSDoc** in `src/vs/test/vitest/positronTestContainer.ts` for the preset hierarchy. Start low and let errors guide you up.
+
 ### Draft the test plan and confirm with the dev (MANDATORY)
 
 **Before writing any test code, present a plan and wait for explicit confirmation.** This lets the dev steer scope before effort is sunk -- drop cases they don't care about, add cases you missed, reshape groupings to match how the feature is actually used.
@@ -136,25 +145,13 @@ If the dev asks for changes, revise the plan and re-present. Repeat until confir
 - Phase 1 already returned an approved test plan (Phase 1 is file-level scoping; this is case-level)
 - You are running under `/loop` or any autonomous mode -- pause anyway
 
-### Choosing the right pattern
-
-Use the "Where should I put my test?" decision table in [`CLAUDE.md`](../../../CLAUDE.md#testing). It is the single source of truth for pattern selection.
-
-### Choosing the right preset
-
-Read the builder JSDoc in `src/vs/test/vitest/positronTestContainer.ts` for the full preset hierarchy. Start low and let errors guide you up.
+### Writing each test
 
 **Don't guess -- iterate.** Run the test. If it fails with "X is not a function" or "Cannot read properties of undefined," the service is missing. Add `.stub(IMissingService, {})` and run again. If a specific method is called, stub just that method: `.stub(IService, { getDoc: () => undefined })`. If the code subscribes to an event, stub the event: `.stub(IService, { onDidChange: Event.None })` (use `Event.None` for events the test doesn't fire, or create an `Emitter` at describe level for events it does fire).
 
-### Writing each test
-
 For each approved item:
 
-1. **Read the source file** and **existing tests in the same directory** for patterns.
-
-2. **Read `.claude/rules/vitest-tests.md`** for the Quick Start code examples, the builder section, the emitter pattern, inline snapshots, and mock utilities. Note the **Common mistakes** list under The Builder. For React component work, also read `.claude/rules/vitest-rtl.md` (query priority, jest-dom matchers, escape hatches, lint-enforced rules).
-
-3. **Write the test** following the appropriate pattern from the rules files:
+1. **Write the test** following the appropriate pattern from the rules files:
    - Add `/// <reference types="vitest/globals" />` after the Posit Software copyright header.
    - Use tabs for indentation.
    - File name: `<source-name>.vitest.ts` (or `.vitest.tsx` for React components).
