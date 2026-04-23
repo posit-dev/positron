@@ -189,10 +189,7 @@ export default tseslint.config(
 			'local/code-setup-react-renderer-before-disposables-check': 'error',
 		}
 	},
-	// Vitest tests -- enforce Testing Library best practices.
-	// Keeps the .claude/rules/vitest-tests.md "Anti-patterns reference" in
-	// sync with actual code via lint rather than via review-time grep
-	// (which misses multi-argument forms like getByRole('button', { name }).
+	// Vitest tests -- enforce Testing Library best practices via lint.
 	{
 		files: [
 			'src/vs/**/*.vitest.ts',
