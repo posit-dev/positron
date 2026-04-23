@@ -1984,7 +1984,8 @@ export default tseslint.config(
 				},
 				{
 					// Vitest infrastructure imports from base, platform, workbench,
-					// and editor to wire up the full DI container for tests.
+					// and editor to wire up the full DI container for tests, plus
+					// Testing Library packages for React component test setup.
 					'target': 'src/vs/test/vitest/**',
 					'restrictions': [
 						'vs/nls.js',
@@ -1994,6 +1995,8 @@ export default tseslint.config(
 						'vs/editor/**',
 						'vs/workbench/**',
 						'vs/test/vitest/**',
+						'@testing-library/jest-dom/vitest',
+						'@testing-library/react',
 					]
 				},
 				// --- End Positron ---
