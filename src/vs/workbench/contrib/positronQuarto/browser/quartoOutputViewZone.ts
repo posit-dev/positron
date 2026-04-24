@@ -228,6 +228,16 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	private readonly _onPopoutRequested = this._register(new Emitter<PopoutRequest>());
 	readonly onPopoutRequested: VSEvent<PopoutRequest> = this._onPopoutRequested.event;
 
+	// Collapse state: when true, outputs are hidden and a textual summary is shown
+	private _isCollapsed = false;
+	// Collapse chevron button (lives outside the styled container, to the left)
+	private readonly _collapseButton: HTMLButtonElement;
+	private _collapseChevronIcon!: HTMLSpanElement;
+	// Summary line element, shown inside the styled container in place of outputs when collapsed
+	private readonly _summaryElement: HTMLElement;
+	// Cached image natural dimensions for summary generation (keyed by outputId)
+	private readonly _imageDimensions = new Map<string, { width: number; height: number }>();
+
 	constructor(
 		private readonly _editor: ICodeEditor,
 		public readonly cellId: string,
@@ -313,6 +323,33 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._outputContainer.className = 'quarto-output-content';
 		this._styledContainer.appendChild(this._outputContainer);
 
+		// Create summary element: hidden when expanded, shown when collapsed in
+		// place of the outputs. Acts as a clickable region to expand.
+		this._summaryElement = document.createElement('div');
+		this._summaryElement.className = 'quarto-output-summary';
+		this._summaryElement.setAttribute('role', 'button');
+		this._summaryElement.setAttribute('tabindex', '0');
+		this._summaryElement.addEventListener('click', (e) => {
+			e.preventDefault();
+			e.stopPropagation();
+			this.setCollapsed(false);
+		});
+		this._summaryElement.addEventListener('keydown', (e) => {
+			if (e.key === 'Enter' || e.key === ' ') {
+				e.preventDefault();
+				e.stopPropagation();
+				this.setCollapsed(false);
+			}
+		});
+		this._styledContainer.appendChild(this._summaryElement);
+
+		// Create the collapse chevron button. Appended to the styled container
+		// (then positioned with a negative `left` via CSS) so that its vertical
+		// position tracks the box's top edge regardless of whether the status
+		// bar above it is visible.
+		this._collapseButton = this._createCollapseButton();
+		this._styledContainer.appendChild(this._collapseButton);
+
 		// Apply editor font to the output container
 		this._applyEditorFont();
 
@@ -349,11 +386,19 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	 * Calculate the width for the view zone content area.
 	 * Uses the content width minus scrollbar to prevent overlap.
 	 */
+	/**
+	 * Horizontal space reserved on the left of the styled output box for the
+	 * collapse chevron. Kept in sync with the `margin-left` declared in
+	 * quartoOutputViewZone.css for `.quarto-inline-output`.
+	 */
+	private static readonly COLLAPSE_CHEVRON_GUTTER = 28;
+
 	private _getWidth(layoutInfo: EditorLayoutInfo): number {
 		// contentWidth is the content area width (excludes line numbers and minimap),
-		// but includes the scrollbar overlay area. Subtract scrollbar width and a small
-		// margin for visual padding.
-		return layoutInfo.contentWidth - layoutInfo.verticalScrollbarWidth - 4;
+		// but includes the scrollbar overlay area. Subtract scrollbar width, a small
+		// margin for visual padding, and the chevron gutter on the left.
+		return layoutInfo.contentWidth - layoutInfo.verticalScrollbarWidth - 4
+			- QuartoOutputViewZone.COLLAPSE_CHEVRON_GUTTER;
 	}
 
 	/**
@@ -806,10 +851,15 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		if (this._isRecomputing) {
 			// Clear old outputs before adding new one
 			this._outputs = [];
+			this._imageDimensions.clear();
 			dom.clearNode(this._outputContainer);
 			this._disposeAllWebviews();
 			this._disposeAllReactRenderers();
 			this.setRecomputing(false);
+			// Fresh outputs on re-execution: expand so the user sees them.
+			if (this._isCollapsed) {
+				this.setCollapsed(false);
+			}
 		}
 
 		// When an error output arrives, remove the preceding stderr output
@@ -835,6 +885,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._outputs.push(output);
 		this._renderOutput(output);
 		this._updateStatusOnlyState();
+		if (this._isCollapsed) {
+			this._summaryElement.textContent = this._buildSummary();
+		}
 		this._updateHeight();
 		this._announceOutput(output);
 	}
@@ -844,7 +897,11 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	 */
 	setOutputs(outputs: ICellOutput[]): void {
 		this._outputs = [...outputs];
+		this._imageDimensions.clear();
 		this._renderAllOutputs();
+		if (this._isCollapsed) {
+			this._summaryElement.textContent = this._buildSummary();
+		}
 		this._updateHeight();
 	}
 
@@ -854,6 +911,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	 */
 	clearOutputs(): void {
 		this._outputs = [];
+		this._imageDimensions.clear();
 		dom.clearNode(this._outputContainer);
 
 		// Dispose all webviews and React renderers
@@ -863,6 +921,16 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		// Reset recomputing state
 		this._isRecomputing = false;
 		this._styledContainer.classList.remove('quarto-output-recomputing');
+
+		// Reset collapse state so the next output starts expanded
+		this._isCollapsed = false;
+		this._styledContainer.classList.remove('quarto-output-collapsed');
+		this._collapseChevronIcon.classList.remove('collapsed');
+		this._collapseButton.classList.remove('always-visible');
+		const collapseLabel = localize('quartoCollapseOutput', 'Collapse Output');
+		this._collapseButton.setAttribute('aria-label', collapseLabel);
+		this._collapseButton.setAttribute('aria-expanded', 'true');
+		this._collapseButton.title = collapseLabel;
 
 		// Hide the status bar and stop any running timer/sparkline.
 		// This is an explicit user action to dismiss the output, so the
@@ -1078,6 +1146,173 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		});
 
 		return button;
+	}
+
+	private _createCollapseButton(): HTMLButtonElement {
+		const button = document.createElement('button');
+		button.className = 'quarto-output-collapse-chevron';
+		const collapseLabel = localize('quartoCollapseOutput', 'Collapse Output');
+		button.setAttribute('aria-label', collapseLabel);
+		button.setAttribute('aria-expanded', 'true');
+		button.title = collapseLabel;
+
+		this._collapseChevronIcon = document.createElement('span');
+		this._collapseChevronIcon.className = `${ThemeIcon.asClassName(Codicon.chevronDown)} collapse-chevron`;
+		button.appendChild(this._collapseChevronIcon);
+
+		button.addEventListener('mousedown', (e) => {
+			e.preventDefault();
+			e.stopPropagation();
+		});
+		button.addEventListener('click', (e) => {
+			e.preventDefault();
+			e.stopPropagation();
+			this.toggleCollapsed();
+		});
+
+		return button;
+	}
+
+	/**
+	 * Toggle the collapsed state of the output.
+	 */
+	toggleCollapsed(): void {
+		this.setCollapsed(!this._isCollapsed);
+	}
+
+	/**
+	 * Set the collapsed state. When collapsed, the output content is hidden
+	 * and a textual summary is shown in its place.
+	 */
+	setCollapsed(collapsed: boolean): void {
+		if (this._isCollapsed === collapsed) {
+			return;
+		}
+		this._isCollapsed = collapsed;
+		this._updateCollapsedState();
+	}
+
+	/**
+	 * Whether the output is currently collapsed.
+	 */
+	get isCollapsed(): boolean {
+		return this._isCollapsed;
+	}
+
+	/**
+	 * Apply the current collapsed state to the DOM: toggle classes, update
+	 * summary text, re-layout webviews, and recompute the view zone height.
+	 */
+	private _updateCollapsedState(): void {
+		this._styledContainer.classList.toggle('quarto-output-collapsed', this._isCollapsed);
+		this._collapseChevronIcon.classList.toggle('collapsed', this._isCollapsed);
+		this._collapseButton.classList.toggle('always-visible', this._isCollapsed);
+
+		const label = this._isCollapsed
+			? localize('quartoExpandOutput', 'Expand Output')
+			: localize('quartoCollapseOutput', 'Collapse Output');
+		this._collapseButton.setAttribute('aria-label', label);
+		this._collapseButton.setAttribute('aria-expanded', this._isCollapsed ? 'false' : 'true');
+		this._collapseButton.title = label;
+
+		if (this._isCollapsed) {
+			this._summaryElement.textContent = this._buildSummary();
+		}
+
+		this._updateHeight();
+
+		// Webviews are absolutely positioned over their container; re-layout so
+		// they either hide (zero rect when collapsed) or reappear (full rect).
+		this._layoutAllWebviews();
+	}
+
+	/**
+	 * Build a localized textual summary of the current outputs for display
+	 * when collapsed. Each output contributes one fragment; fragments are
+	 * joined with a comma.
+	 */
+	private _buildSummary(): string {
+		const parts: string[] = [];
+		for (const output of this._outputs) {
+			const part = this._summarizeOutput(output);
+			if (part) {
+				parts.push(part);
+			}
+		}
+		if (parts.length === 0) {
+			return localize('quartoOutputSummaryGeneric', 'Output');
+		}
+		return parts.join(', ');
+	}
+
+	/**
+	 * Compute a short summary fragment for a single output, picking the
+	 * most representative MIME type.
+	 */
+	private _summarizeOutput(output: ICellOutput): string | undefined {
+		// Data frame (inline data explorer)
+		const dataExplorerItem = output.items.find(
+			item => item.mime === DATA_EXPLORER_MIME_TYPE
+		);
+		if (dataExplorerItem && this._isDataExplorerEnabled()) {
+			try {
+				const payload = JSON.parse(dataExplorerItem.data) as { shape?: { rows: number } };
+				const rows = payload.shape?.rows;
+				if (typeof rows === 'number') {
+					return rows === 1
+						? localize('quartoOutputSummaryDataFrameOne', 'Data frame (1 row)')
+						: localize('quartoOutputSummaryDataFrame', 'Data frame ({0} rows)', rows.toLocaleString());
+				}
+			} catch {
+				// Fall through to other summarizers
+			}
+			return localize('quartoOutputSummaryDataFrameGeneric', 'Data frame');
+		}
+
+		// Interactive output (widget / plotly / viewer)
+		if (output.webviewMetadata?.webviewType) {
+			return localize('quartoOutputSummaryInteractive', 'Interactive output');
+		}
+
+		// Plot / image
+		const imageItem = output.items.find(item => item.mime.startsWith('image/'));
+		if (imageItem) {
+			const dims = this._imageDimensions.get(output.outputId);
+			if (dims) {
+				return localize('quartoOutputSummaryPlot', 'Plot ({0}x{1})', dims.width, dims.height);
+			}
+			return localize('quartoOutputSummaryPlotGeneric', 'Plot');
+		}
+
+		// Error
+		if (output.items.some(item => item.mime === 'application/vnd.code.notebook.error')) {
+			return localize('quartoOutputSummaryError', 'Error');
+		}
+
+		// Markdown
+		if (output.items.some(item => item.mime === 'text/markdown')) {
+			return localize('quartoOutputSummaryMarkdown', 'Markdown');
+		}
+
+		// HTML (non-webview)
+		if (output.items.some(item => item.mime === 'text/html')) {
+			return localize('quartoOutputSummaryHtml', 'HTML');
+		}
+
+		// Text (stdout / stderr / plain)
+		const textItem = output.items.find(item =>
+			item.mime === 'application/vnd.code.notebook.stdout' ||
+			item.mime === 'application/vnd.code.notebook.stderr' ||
+			item.mime === 'text/plain'
+		);
+		if (textItem) {
+			const lines = ANSIOutput.processOutput(textItem.data).length;
+			return lines === 1
+				? localize('quartoOutputSummaryTextOne', 'Text (1 line)')
+				: localize('quartoOutputSummaryText', 'Text ({0} lines)', lines.toLocaleString());
+		}
+
+		return undefined;
 	}
 
 	private _createPopoutButton(): HTMLButtonElement {
@@ -1554,7 +1789,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		}
 
 		if (mime.startsWith('image/')) {
-			return this._renderImage(mime, data);
+			return this._renderImage(mime, data, output.outputId);
 		}
 
 		if (mime === 'text/html') {
@@ -1842,13 +2077,25 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		return container;
 	}
 
-	private _renderImage(mime: string, data: string): HTMLElement {
+	private _renderImage(mime: string, data: string, outputId: string): HTMLElement {
 		const container = document.createElement('div');
 		container.className = 'quarto-output-image-container';
 
 		const img = document.createElement('img');
 		img.className = 'quarto-output-image';
 		img.setAttribute('alt', localize('outputImage', 'Output image'));
+
+		// Cache the natural dimensions once the image loads so the collapse
+		// summary can show "Plot (WxH)".
+		img.addEventListener('load', () => {
+			this._imageDimensions.set(outputId, {
+				width: img.naturalWidth,
+				height: img.naturalHeight,
+			});
+			if (this._isCollapsed) {
+				this._summaryElement.textContent = this._buildSummary();
+			}
+		});
 
 		// Check if data is already a data URL
 		if (data.startsWith('data:')) {
@@ -2191,16 +2438,24 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		// visibility, since the buttons are positioned inside the styled container
 		const containerHeight = this._styledContainer.offsetHeight;
 
-		// Show the Copy button if there's enough room and there's copiable content
-		// Copy is prioritized (shown first) since it's the most common action
-		this._copyButton.style.display = containerHeight > 40 && this.hasCopiableContent() ? 'block' : 'none';
+		if (this._isCollapsed) {
+			// Hide action buttons when collapsed since they operate on the
+			// (now hidden) output content.
+			this._copyButton.style.display = 'none';
+			this._popoutButton.style.display = 'none';
+			this._saveButton.style.display = 'none';
+		} else {
+			// Show the Copy button if there's enough room and there's copiable content
+			// Copy is prioritized (shown first) since it's the most common action
+			this._copyButton.style.display = containerHeight > 40 && this.hasCopiableContent() ? 'block' : 'none';
 
-		// Show the Popout button if there's more room and there's popout content
-		// (not just errors - plot, HTML, or text content)
-		this._popoutButton.style.display = containerHeight > 80 && this.hasPopoutContent() ? 'block' : 'none';
+			// Show the Popout button if there's more room and there's popout content
+			// (not just errors - plot, HTML, or text content)
+			this._popoutButton.style.display = containerHeight > 80 && this.hasPopoutContent() ? 'block' : 'none';
 
-		// Show the Save button if there's even more room and there's exactly one plot
-		this._saveButton.style.display = containerHeight > 100 && this.hasSinglePlot() ? 'block' : 'none';
+			// Show the Save button if there's even more room and there's exactly one plot
+			this._saveButton.style.display = containerHeight > 100 && this.hasSinglePlot() ? 'block' : 'none';
+		}
 
 		// Add margin space (4px top + 4px bottom) plus 5px spacing below the widget
 		const newHeight = Math.max(MIN_VIEW_ZONE_HEIGHT, styledHeight + 13);

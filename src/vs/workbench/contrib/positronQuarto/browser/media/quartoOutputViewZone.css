@@ -27,7 +27,12 @@
 	padding: 8px 12px;
 	padding-right: 32px;
 	/* Space for close button */
-	margin: 4px 0;
+	/*
+	 * Reserve space on the left for the collapse chevron, which overflows the
+	 * styled box to the left. Keep this value in sync with
+	 * QuartoOutputViewZone.COLLAPSE_CHEVRON_GUTTER.
+	 */
+	margin: 4px 0 4px 28px;
 	background: var(--vscode-notebook-cellEditorBackground);
 	border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.35));
 	border-radius: 4px;
@@ -475,4 +480,116 @@
 /* Status-only view zone: hide the output container entirely, just show the status bar */
 .quarto-inline-output.quarto-output-status-only {
 	display: none;
+}
+
+/*
+ * Collapse chevron button. Lives inside the styled container but overflows
+ * to its left (via negative `left`) so it sits in the wrapper's left gutter,
+ * to the left of the outline. Anchored to the styled box so its vertical
+ * position stays correct whether or not the status bar above is visible.
+ * Hidden by default; revealed on wrapper hover / focus, or always shown
+ * when the output is collapsed.
+ */
+.quarto-output-collapse-chevron {
+	position: absolute;
+	/*
+	 * The styled container has margin-left: 28px, so placing this at -26px
+	 * leaves a 2px gap from the wrapper's left edge and a small gap from
+	 * the styled container's border.
+	 */
+	left: -26px;
+	top: 4px;
+	width: 22px;
+	height: 22px;
+	padding: 2px;
+	border: none;
+	background: transparent;
+	color: var(--vscode-foreground);
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 4px;
+	z-index: 10;
+	pointer-events: auto;
+
+	/* Hidden by default; fades in on hover/focus via opacity transition. */
+	opacity: 0;
+	visibility: hidden;
+	transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+
+/* Reveal chevron when hovering or focusing within the view zone wrapper. */
+.quarto-inline-output-wrapper:hover .quarto-output-collapse-chevron,
+.quarto-inline-output-wrapper:focus-within .quarto-output-collapse-chevron {
+	opacity: 1;
+	visibility: visible;
+}
+
+/*
+ * When the output is collapsed, the chevron is the primary affordance for
+ * getting content back, so keep it visible regardless of hover state.
+ */
+.quarto-output-collapse-chevron.always-visible {
+	opacity: 1;
+	visibility: visible;
+}
+
+.quarto-output-collapse-chevron:hover {
+	background: var(--vscode-toolbar-hoverBackground);
+}
+
+.quarto-output-collapse-chevron:focus {
+	opacity: 1;
+	visibility: visible;
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+/* Animated chevron rotation: points down when expanded, left when collapsed. */
+.quarto-output-collapse-chevron .collapse-chevron {
+	transition: transform 0.15s ease;
+}
+
+.quarto-output-collapse-chevron .collapse-chevron.collapsed {
+	transform: rotate(-90deg);
+}
+
+.hc-black .quarto-output-collapse-chevron:focus,
+.hc-light .quarto-output-collapse-chevron:focus {
+	outline-width: 2px;
+}
+
+/*
+ * Summary line shown inside the styled box when the output is collapsed.
+ * Acts as a clickable affordance to expand. Hidden by default.
+ */
+.quarto-output-summary {
+	display: none;
+	font-style: italic;
+	color: var(--vscode-descriptionForeground);
+	cursor: pointer;
+	user-select: none;
+	-webkit-user-select: none;
+	padding: 0;
+}
+
+.quarto-output-summary:hover {
+	color: var(--vscode-textLink-foreground);
+}
+
+.quarto-output-summary:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 2px;
+}
+
+/*
+ * Collapsed state: hide the output content and reveal the summary line.
+ */
+.quarto-inline-output.quarto-output-collapsed .quarto-output-content {
+	display: none;
+}
+
+.quarto-inline-output.quarto-output-collapsed .quarto-output-summary {
+	display: block;
 }
