@@ -376,7 +376,7 @@ const createInterpreterGroups = (
  * @param accessor The service accessor.
  * @returns
  */
-const selectNewLanguageRuntime = async (
+export const selectNewLanguageRuntime = async (
 	accessor: ServicesAccessor,
 	options?: {
 		title?: string;
