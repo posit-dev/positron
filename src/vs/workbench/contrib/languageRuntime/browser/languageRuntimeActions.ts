@@ -21,7 +21,7 @@ import { IModelService } from '../../../../editor/common/services/model.js';
 import { getSessionDisplayName, getSessionIconClasses, isQuartoSession } from '../../positronConsole/common/sessionDisplayUtils.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
-import { dispose } from '../../../../base/common/lifecycle.js';
+import { DisposableStore, dispose } from '../../../../base/common/lifecycle.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { ExplorerFolderContext } from '../../files/common/files.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -386,9 +386,6 @@ export const selectNewLanguageRuntime = async (
 	const runtimeStartupService = accessor.get(IRuntimeStartupService);
 	const languageRuntimeService = accessor.get(ILanguageRuntimeService);
 
-	// Group runtimes by language.
-	const interpreterGroups = createInterpreterGroups(languageRuntimeService, runtimeStartupService);
-
 	// Map to track which contribution owns which item
 	const contributedItemMap = new Map<string, { contribution: IRuntimePickerContribution; originalId: string }>();
 	let contributionResults: { contribution: IRuntimePickerContribution; items: IRuntimePickerItem[] }[] = [];
@@ -420,6 +417,10 @@ export const selectNewLanguageRuntime = async (
 		// Generate quick pick items for runtimes.
 		const items: QuickPickItem[] = [];
 		contributedItemMap.clear();
+
+		// Group runtimes by language. Re-evaluated on each rebuild so newly
+		// registered runtimes show up.
+		const interpreterGroups = createInterpreterGroups(languageRuntimeService, runtimeStartupService);
 
 		// Add separator for suggested runtimes
 		const suggestedRuntimes = interpreterGroups
@@ -535,37 +536,73 @@ export const selectNewLanguageRuntime = async (
 	};
 
 	await fetchContributedItems();
-	const runtimeItems = buildItems();
 
-	const selectedRuntime = await quickInputService.pick(runtimeItems, {
-		title: options?.title || localize('positron.languageRuntime.startSession', 'Start New Interpreter Session'),
-		canPickMany: false
-	});
+	const disposables = new DisposableStore();
+	const quickPick = disposables.add(quickInputService.createQuickPick<IQuickPickItem>({ useSeparators: true }));
+	quickPick.title = options?.title || localize('positron.languageRuntime.startSession', 'Start New Interpreter Session');
+	quickPick.canSelectMany = false;
+	quickPick.items = buildItems();
 
-	if (!selectedRuntime?.id) {
-		return undefined;
-	}
+	// Rebuild when a new runtime registers - covers late initial discovery
+	// and post-startup rediscovery.
+	disposables.add(languageRuntimeService.onDidRegisterRuntime(() => {
+		quickPick.items = buildItems();
+	}));
 
-	// Handle contributed items
-	if (selectedRuntime.id.startsWith(CONTRIBUTED_ITEM_PREFIX)) {
-		const contributedItem = contributedItemMap.get(selectedRuntime.id);
-		if (contributedItem) {
-			try {
-				const runtimeId = await contributedItem.contribution.onSelect(contributedItem.originalId);
-				if (runtimeId) {
-					// Use quiet mode to suppress notifications since the picker
-					// contribution already handled registration.
-					await runtimeStartupService.rediscoverAllRuntimes(/* quiet */ true);
-					return languageRuntimeService.getRegisteredRuntime(runtimeId);
-				}
-			} catch (error) {
-				console.error(`Failed to handle contributed item selection: ${error}`);
-			}
+	// If startup completes while the picker is open, re-fetch contributions
+	// (which we previously skipped) and rebuild.
+	disposables.add(languageRuntimeService.onDidChangeRuntimeStartupPhase(async phase => {
+		if (phase === RuntimeStartupPhase.Complete) {
+			await fetchContributedItems();
+			quickPick.items = buildItems();
 		}
-		return undefined;
-	}
+	}));
 
-	return languageRuntimeService.getRegisteredRuntime(selectedRuntime.id);
+	return new Promise<ILanguageRuntimeMetadata | undefined>(resolve => {
+		let accepted: IQuickPickItem | undefined;
+
+		disposables.add(quickPick.onDidAccept(() => {
+			accepted = quickPick.selectedItems[0];
+			quickPick.hide();
+		}));
+
+		disposables.add(quickPick.onDidHide(async () => {
+			const selectedRuntime = accepted;
+			disposables.dispose();
+
+			if (!selectedRuntime?.id) {
+				resolve(undefined);
+				return;
+			}
+
+			// Handle contributed items
+			if (selectedRuntime.id.startsWith(CONTRIBUTED_ITEM_PREFIX)) {
+				const contributedItem = contributedItemMap.get(selectedRuntime.id);
+				if (!contributedItem) {
+					resolve(undefined);
+					return;
+				}
+				try {
+					const runtimeId = await contributedItem.contribution.onSelect(contributedItem.originalId);
+					if (runtimeId) {
+						// Use quiet mode to suppress notifications since the picker
+						// contribution already handled registration.
+						await runtimeStartupService.rediscoverAllRuntimes(/* quiet */ true);
+						resolve(languageRuntimeService.getRegisteredRuntime(runtimeId));
+						return;
+					}
+				} catch (error) {
+					console.error(`Failed to handle contributed item selection: ${error}`);
+				}
+				resolve(undefined);
+				return;
+			}
+
+			resolve(languageRuntimeService.getRegisteredRuntime(selectedRuntime.id));
+		}));
+
+		quickPick.show();
+	});
 };
 
 /**
