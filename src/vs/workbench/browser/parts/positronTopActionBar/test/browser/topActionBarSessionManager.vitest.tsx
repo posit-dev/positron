@@ -5,7 +5,8 @@
 
 /// <reference types="vitest/globals" />
 
-import { act, fireEvent } from '@testing-library/react';
+import { act } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { Emitter } from '../../../../../../base/common/event.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { LanguageRuntimeSessionMode, RuntimeState } from '../../../../../services/languageRuntime/common/languageRuntimeService.js';
@@ -334,13 +335,14 @@ describe('TopActionBarSessionManager', () => {
 			.build();
 		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-		it('uses selectSession command when there are active console sessions', () => {
+		it('uses selectSession command when there are active console sessions', async () => {
+			const user = userEvent.setup();
 			const { container } = rtl.render(
 				<TopActionBarSessionManager />
 			);
 
 			const button = container.querySelector('button')!;
-			fireEvent.click(button);
+			await user.click(button);
 
 			expect(ctx.get(ICommandService).executeCommand).toHaveBeenCalledWith(
 				'workbench.action.language.runtime.selectSession'
@@ -361,13 +363,14 @@ describe('TopActionBarSessionManager', () => {
 			.build();
 		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-		it('uses startNewConsoleSession command when no active console sessions', () => {
+		it('uses startNewConsoleSession command when no active console sessions', async () => {
+			const user = userEvent.setup();
 			const { container } = rtl.render(
 				<TopActionBarSessionManager />
 			);
 
 			const button = container.querySelector('button')!;
-			fireEvent.click(button);
+			await user.click(button);
 
 			expect(ctx.get(ICommandService).executeCommand).toHaveBeenCalledWith(
 				'workbench.action.language.runtime.startNewConsoleSession'

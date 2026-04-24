@@ -42,8 +42,8 @@ describe('ConsoleTab', () => {
 				createdTimestamp: 0,
 				startReason: 'test',
 			};
-			// Only base64EncodedIconSvg is read off runtimeMetadata by ConsoleTab/RuntimeIcon.
-			const runtimeMetadata = { base64EncodedIconSvg: undefined } as ILanguageRuntimeMetadata;
+			// ConsoleTab/RuntimeIcon read base64EncodedIconSvg and languageId off runtimeMetadata.
+			const runtimeMetadata = { base64EncodedIconSvg: undefined, languageId: 'python' } as ILanguageRuntimeMetadata;
 			const instance = new TestPositronConsoleInstance(
 				sessionId,
 				sessionName,
@@ -71,6 +71,9 @@ describe('ConsoleTab', () => {
 
 			// Right-click on the tab invokes services.contextMenuService.showContextMenu,
 			// which our stub captures so we can drive the Rename action directly.
+			// Use fireEvent.mouseDown: the source listens for mousedown with button===2
+			// directly; user-event's pointer API would layer behavior without value here.
+			// eslint-disable-next-line testing-library/prefer-user-event
 			fireEvent.mouseDown(screen.getByRole('tab', { name: sessionName }), { button: 2 });
 			expect(showContextMenu).toHaveBeenCalledOnce();
 
