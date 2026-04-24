@@ -11,7 +11,8 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ISettableObservable, observableValue } from '../../../../base/common/observable.js';
 import { IViewsService } from '../../views/common/viewsService.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { ConfigurationTarget, IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { RuntimeItem } from './classes/runtimeItem.js';
@@ -186,6 +187,15 @@ const consoleServiceConfigurationBaseNode = Object.freeze<IConfigurationNode>({
  * Console configuration settings.
  */
 export const scrollbackSizeSettingId = 'console.scrollbackSize';
+
+/**
+ * Storage key guarding the one-time migration that clears any pre-existing user override of
+ * `console.scrollbackSize`. The default was raised (thanks to render memoization ) so most
+ * previously-picked values are obsolete; we reset once per profile and then let the user set
+ * whatever they want from there.
+ */
+const scrollbackSizeResetMigrationKey = 'positronConsole.scrollbackSize.resetUserOverride.v1';
+
 configurationRegistry.registerConfiguration({
 	...consoleServiceConfigurationBaseNode,
 	properties: {
@@ -264,9 +274,9 @@ configurationRegistry.registerConfiguration({
 		// Scrollback size.
 		'console.scrollbackSize': {
 			type: 'number',
-			'minimum': 500,
-			'maximum': 5000,
-			'default': 1000,
+			'minimum': 1_000,
+			'maximum': 20_000,
+			'default': 10_000,
 			markdownDescription: localize('console.scrollbackSize', "The number of console output items to display."),
 		},
 		// Whether to automatically create consoles for notebook sessions
@@ -358,19 +368,26 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 * @param _logService The log service service.
 	 * @param _runtimeSessionService The runtime session service.
 	 * @param _runtimeStartupService The runtime affiliation service.
+	 * @param _storageService The storage service.
 	 * @param _viewsService The views service.
+	 * @param _notificationService The notification service.
 	 */
 	constructor(
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IExecutionHistoryService private readonly _executionHistoryService: IExecutionHistoryService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@ILogService private readonly _logService: ILogService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
+		@IStorageService private readonly _storageService: IStorageService,
 		@IViewsService private readonly _viewsService: IViewsService,
 		@INotificationService private readonly _notificationService: INotificationService
 	) {
 		// Call the disposable constructor.
 		super();
+
+		// Run one-time migrations.
+		this.resetScrollbackSizeUserOverrideOnce();
 
 		// Start a Positron console instance for each session that will be restored.
 		//
@@ -1052,6 +1069,37 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		this._onDidChangeActivePositronConsoleInstanceEmitter.fire(positronConsoleInstance);
 	}
 
+	/**
+	 * Clears any pre-existing user override of `console.scrollbackSize` exactly once per profile.
+	 * The default was raised (and rendering was memoized) so previously-picked values are obsolete;
+	 * after this runs, the flag is stored and we never touch the user's setting again.
+	 */
+	private resetScrollbackSizeUserOverrideOnce(): void {
+		// If the flag is already set, we know we've done the reset for this profile before, so we can skip it.
+		if (this._storageService.getBoolean(scrollbackSizeResetMigrationKey, StorageScope.PROFILE, false)) {
+			return;
+		}
+
+		// Otherwise, we need to do the reset. This involves removing any user override of the
+		// setting, which will cause it to fall back to the new default value. We only remove the
+		// user override (as opposed to changing the default) because we don't want to mess with
+		// any workspace or machine overrides that may be in place.
+		this._configurationService.updateValue(
+			scrollbackSizeSettingId,
+			undefined,
+			ConfigurationTarget.USER
+		).then(() => {
+			this._storageService.store(
+				scrollbackSizeResetMigrationKey,
+				true,
+				StorageScope.PROFILE,
+				StorageTarget.MACHINE
+			);
+		}, err => {
+			this._logService.warn(`Failed to reset ${scrollbackSizeSettingId} user override: ${err}`);
+		});
+	}
+
 	//#endregion Private Methods
 }
 
@@ -1318,8 +1366,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// Initialize the scrollback configuration.
 		this._scrollbackSize = this._configurationService.getValue<number>(scrollbackSizeSettingId);
-
-		console.log(`PositronConsoleInstance created for scrollback size ${this._scrollbackSize}`);
 
 		// Register the onDidChangeConfiguration event handler so we can update the console scrollback
 		// configuration.
@@ -3353,9 +3399,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			// Add the activity item to the activity runtime item.
 			runtimeItemActivity.addActivityItem(activityItem);
 
+			// Trim the scrollback after each activity item is added.
+			this.trimScrollback();
+
 			// Fire the onDidChangeRuntimeItems event.
 			this._onDidChangeRuntimeItemsEmitter.fire();
 		} else {
+			// No activity runtime item was found, so create a new one and add the activity item to it.
 			const runtimeItemActivity = new RuntimeItemActivity(parentId, activityItem);
 			this._runtimeItemActivities.set(parentId, runtimeItemActivity);
 			this.addRuntimeItem(runtimeItemActivity);
