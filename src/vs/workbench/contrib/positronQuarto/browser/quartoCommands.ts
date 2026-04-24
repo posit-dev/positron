@@ -220,9 +220,9 @@ registerAction2(class InterruptKernelAction extends Action2 {
 			title: localize2('quarto.interruptKernel', "Interrupt Kernel"),
 			category: QUARTO_CATEGORY,
 			f1: true,
-			precondition: QUARTO_PRECONDITION,
+			precondition: ContextKeyExpr.and(QUARTO_PRECONDITION, QUARTO_KERNEL_BUSY),
 			keybinding: {
-				when: QUARTO_PRECONDITION,
+				when: ContextKeyExpr.and(QUARTO_PRECONDITION, QUARTO_KERNEL_BUSY),
 				weight: KeybindingWeight.WorkbenchContrib,
 				primary: KeyCode.Escape,
 			},
