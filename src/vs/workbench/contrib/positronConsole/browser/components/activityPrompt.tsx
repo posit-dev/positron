@@ -7,7 +7,7 @@
 import './activityPrompt.css';
 
 // React.
-import { KeyboardEvent, useCallback, useEffect, useRef } from 'react';
+import { KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { Emitter } from '../../../../../base/common/event.js';
@@ -61,9 +61,31 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 	const editorContainerRef = useRef<HTMLDivElement>(null);
 	const editorRef = useRef<CodeEditorWidget | null>(null);
 
-	// Whether to use the password input (HTML input) or the editor (CodeEditorWidget).
+	// State hooks.
+	const [state, setState] = useState(props.activityItemPrompt.state);
+
+	// State change useEffect. Subscribes to prompt state changes and updates local state to trigger re-render.
+	useEffect(() => {
+		// Create a disposable store for the prompt state change subscription, and clean it up on unmount or when the prompt changes.
+		const disposableStore = new DisposableStore();
+
+		// Subscribe to prompt state changes and update local state to trigger re-render.
+		disposableStore.add(props.activityItemPrompt.onStateChanged(() => {
+			setState(props.activityItemPrompt.state);
+		}));
+
+		// Re-sync in case the state changed between render and this effect running.
+		setState(props.activityItemPrompt.state);
+
+		// Clean up subscription on unmount or when prompt changes.
+		return () => disposableStore.dispose();
+	}, [props.activityItemPrompt]);
+
+	// A value that indicates whether to use the password input (HTML input) or the editor (CodeEditorWidget).
 	const isPassword = props.activityItemPrompt.password;
-	const isUnanswered = props.activityItemPrompt.state === ActivityItemPromptState.Unanswered;
+
+	// A value that indicates whether the prompt is currently unanswered.
+	const isUnanswered = state === ActivityItemPromptState.Unanswered;
 
 	/**
 	 * Focuses the appropriate input element.
@@ -312,7 +334,7 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 
 	// Determine what to render based on prompt state.
 	let prompt;
-	switch (props.activityItemPrompt.state) {
+	switch (state) {
 		// When the prompt is unanswered, render the appropriate input.
 		case ActivityItemPromptState.Unanswered:
 			if (isPassword) {
