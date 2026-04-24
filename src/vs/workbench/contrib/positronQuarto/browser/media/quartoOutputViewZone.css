@@ -505,22 +505,36 @@
 	z-index: 20;
 	pointer-events: auto;
 
-	/* Hidden by default; fades in when `.visible` or `.always-visible` is set. */
+	/*
+	 * Hidden by default; fades in when `.visible` is set or the button
+	 * receives focus. Match Monaco's folding chevron animation:
+	 * `transition: opacity 0.5s` with the default `ease` curve (see
+	 * `src/vs/editor/contrib/folding/browser/folding.css`). `visibility`
+	 * is toggled with a delayed transition so the element stays in the
+	 * visibility tree during the fade-out, then switches to `hidden` at
+	 * the end (preventing it from capturing clicks once invisible).
+	 */
 	opacity: 0;
 	visibility: hidden;
-	transition: opacity 0.15s ease;
+	transition: opacity 0.5s, visibility 0s 0.5s;
 }
 
-.quarto-output-collapse-chevron.visible {
-	opacity: 1;
-	visibility: visible;
-}
-
+.quarto-output-collapse-chevron.visible,
 .quarto-output-collapse-chevron:focus {
 	opacity: 1;
 	visibility: visible;
+	/* On fade-in, flip visibility immediately so the fade is visible. */
+	transition: opacity 0.5s, visibility 0s 0s;
+}
+
+.quarto-output-collapse-chevron:focus {
 	outline: 1px solid var(--vscode-focusBorder);
 	outline-offset: -1px;
+}
+
+/* Respect the user's reduced-motion preference (same guard Monaco uses). */
+.monaco-reduce-motion .quarto-output-collapse-chevron {
+	transition: initial;
 }
 
 /* Animated chevron rotation: points down when expanded, left when collapsed. */

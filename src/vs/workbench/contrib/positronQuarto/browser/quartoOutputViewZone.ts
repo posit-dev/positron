@@ -8,7 +8,7 @@ import * as dom from '../../../../base/browser/dom.js';
 import { safeSetInnerHtml } from '../../../../base/browser/domSanitize.js';
 import { status as ariaStatus } from '../../../../base/browser/ui/aria/aria.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
-import { ICodeEditor, IViewZone } from '../../../../editor/browser/editorBrowser.js';
+import { ICodeEditor, IViewZone, MouseTargetType } from '../../../../editor/browser/editorBrowser.js';
 import { localize } from '../../../../nls.js';
 import { ICellOutput, ICellOutputItem, DATA_EXPLORER_MIME_TYPE, CellExecutionState } from '../common/quartoExecutionTypes.js';
 import { Codicon } from '../../../../base/common/codicons.js';
@@ -242,6 +242,10 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	// Hover state tracked manually since the chevron lives in a separate DOM subtree
 	private _wrapperHovered = false;
 	private _chevronHovered = false;
+	// True when the mouse is over the editor gutter at the vertical position
+	// of this view zone. Mirrors Monaco's folding-chevron reveal: hovering
+	// anywhere in the gutter next to a foldable region shows its chevron.
+	private _gutterHovered = false;
 	// Short delay before hiding the chevron so moving between wrapper and chevron doesn't flicker
 	private _hideChevronTimeout: ReturnType<typeof setTimeout> | undefined;
 	// Summary line element, shown inside the styled container in place of outputs when collapsed
@@ -419,6 +423,36 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 
 		// Set up mouse event handling for text selection
 		this._setupTextSelection();
+
+		// Reveal the chevron while the pointer is in the editor gutter next
+		// to this view zone, matching Monaco's folding-chevron behavior
+		// (`.margin-view-overlays:hover .codicon` in folding.css). We can't
+		// rely on that CSS rule because our chevron is portaled out of
+		// `.margin-view-overlays`, so track the gutter hover explicitly.
+		this._register(this._editor.onMouseMove((e) => {
+			const t = e.target.type;
+			const isGutter =
+				t === MouseTargetType.GUTTER_GLYPH_MARGIN ||
+				t === MouseTargetType.GUTTER_LINE_NUMBERS ||
+				t === MouseTargetType.GUTTER_LINE_DECORATIONS ||
+				t === MouseTargetType.GUTTER_VIEW_ZONE;
+			let gutterHovered = false;
+			if (isGutter && this._zoneId) {
+				const rect = this.domNode.getBoundingClientRect();
+				const mouseY = e.event.browserEvent.clientY;
+				gutterHovered = mouseY >= rect.top && mouseY <= rect.bottom;
+			}
+			if (gutterHovered !== this._gutterHovered) {
+				this._gutterHovered = gutterHovered;
+				this._updateCollapseButtonVisibility();
+			}
+		}));
+		this._register(this._editor.onMouseLeave(() => {
+			if (this._gutterHovered) {
+				this._gutterHovered = false;
+				this._updateCollapseButtonVisibility();
+			}
+		}));
 
 		// Track wrapper hover for the portaled chevron's visibility.
 		this.domNode.addEventListener('mouseenter', () => {
@@ -1381,9 +1415,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 
 	/**
 	 * Apply the current visibility intent to the chevron. Shown when the
-	 * user is hovering either the view zone wrapper or the chevron itself,
-	 * or when the chevron has keyboard focus - in both expanded and
-	 * collapsed states. A short delay before hiding avoids flicker when
+	 * user is hovering the view zone wrapper, the chevron itself, or the
+	 * editor gutter next to this view zone; or when the chevron has
+	 * keyboard focus. A short delay before hiding avoids flicker when
 	 * moving the pointer across the small gap between the wrapper and the
 	 * chevron (they live in separate DOM subtrees).
 	 */
@@ -1393,6 +1427,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		// the pointer moves away. Keyboard focus still reveals it.
 		const shouldShow = this._wrapperHovered
 			|| this._chevronHovered
+			|| this._gutterHovered
 			|| this._collapseButton.matches(':focus-visible');
 
 		if (shouldShow) {
@@ -1412,6 +1447,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			// Re-check intent at fire time in case state flipped back.
 			const stillShouldShow = this._wrapperHovered
 				|| this._chevronHovered
+				|| this._gutterHovered
 				|| this._collapseButton.matches(':focus-visible');
 			if (!stillShouldShow) {
 				this._collapseButton.classList.remove('visible');
