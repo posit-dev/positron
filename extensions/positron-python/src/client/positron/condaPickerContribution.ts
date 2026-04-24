@@ -12,9 +12,8 @@ import * as path from 'path';
 import { IServiceContainer } from '../ioc/types';
 import { IInterpreterService } from '../interpreter/contracts';
 import { traceInfo, traceError } from '../logging';
-import { EnvironmentType } from '../pythonEnvironments/info';
-import { IPythonRuntimeManager, PythonRuntimeManager, CondaPythonInstallResult } from './manager';
-import { createPythonRuntimeMetadata } from './runtime';
+import { EnvironmentType, PythonEnvironment } from '../pythonEnvironments/info';
+import { CondaPythonInstallResult } from './manager';
 import { IInstaller, Product, InstallerResponse } from '../common/types';
 import { getCondaPythonPath } from './util';
 
@@ -48,7 +47,10 @@ export class CondaPythonPickerContribution implements positron.runtime.RuntimePi
                 );
 
                 // Only handle conda environments without Python
-                if (interpreter.envType === EnvironmentType.Conda && !fs.existsSync(interpreter.path)) {
+                if (
+                    interpreter.envType === EnvironmentType.Conda &&
+                    this.isCondaEnvironmentWithoutPython(interpreter)
+                ) {
                     traceInfo(`Found conda env without Python: ${interpreter.path}`);
 
                     // Get environment name for display
@@ -103,29 +105,23 @@ export class CondaPythonPickerContribution implements positron.runtime.RuntimePi
             if (result.installed && result.actualPythonPath) {
                 traceInfo(`Python installed successfully at: ${result.actualPythonPath}`);
 
-                // Get the interpreter details for the newly installed Python
+                // Show success notification
+                vscode.window.showInformationMessage(
+                    `✅ Python successfully installed in conda environment: ${envName}`,
+                );
+
+                // Trigger interpreter discovery refresh so the newly installed Python gets discovered
                 const interpreterService = this.serviceContainer.get<IInterpreterService>(IInterpreterService);
-                const interpreter = await interpreterService.getInterpreterDetails(result.actualPythonPath);
+                traceInfo('Refreshing interpreter discovery to find newly installed Python');
 
-                if (interpreter) {
-                    // Create and register the new runtime directly
-                    const newMetadata = await createPythonRuntimeMetadata(interpreter, this.serviceContainer, false);
+                // Trigger refresh and let the automatic discovery process handle the new interpreter
+                // The runtime will be created when the interpreter is properly discovered
+                interpreterService.triggerRefresh().catch((error) => {
+                    traceError(`Failed to refresh interpreters after Python installation: ${error}`);
+                });
 
-                    // Get the Python runtime manager to register the new runtime
-                    const runtimeManager = this.serviceContainer.get<IPythonRuntimeManager>(
-                        IPythonRuntimeManager,
-                    ) as PythonRuntimeManager;
-                    runtimeManager.registerLanguageRuntime(newMetadata);
-
-                    traceInfo(`Registered new Python runtime: ${newMetadata.runtimeId}`);
-
-                    // Show success notification
-                    vscode.window.showInformationMessage(
-                        `✅ Python successfully installed in conda environment: ${envName}`,
-                    );
-
-                    return newMetadata.runtimeId;
-                }
+                // Return undefined - let normal discovery create the runtime when ready
+                return undefined;
             }
 
             traceError('Python installation failed or interpreter not found');
@@ -166,5 +162,30 @@ export class CondaPythonPickerContribution implements positron.runtime.RuntimePi
         // Get the actual Python path (same logic as original function)
         const actualPythonPath = getCondaPythonPath(interpreter.envPath);
         return { installed: true, actualPythonPath };
+    }
+
+    /**
+     * Check if a conda environment doesn't have Python installed.
+     * Uses the same logic as isProblematicCondaEnvironment but returns true when Python is NOT installed.
+     */
+    private isCondaEnvironmentWithoutPython(interpreter: PythonEnvironment): boolean {
+        // Check the predicted path first
+        if (fs.existsSync(interpreter.path)) {
+            return false; // Python exists at predicted path
+        }
+
+        // If predicted path doesn't exist, check standard conda installation locations
+        if (interpreter.envPath) {
+            const unixStylePath = path.join(interpreter.envPath, 'bin', 'python');
+            const windowsStylePath = path.join(interpreter.envPath, 'Scripts', 'python.exe');
+
+            // If Python exists at either standard location, it's NOT an environment without Python
+            if (fs.existsSync(unixStylePath) || fs.existsSync(windowsStylePath)) {
+                return false;
+            }
+        }
+
+        // No Python found anywhere
+        return true;
     }
 }

@@ -261,6 +261,17 @@ export function isProblematicCondaEnvironment(environment: PythonEnvironment): b
     }
     // For full paths, check if the file actually exists
     if (executablePath && executablePath !== '' && !pathExistsSync(executablePath)) {
+        // If the predicted path doesn't exist, also check the standard conda installation locations
+        // This handles cases where conda installs Python at <env>/bin/python but we predicted <env>/python
+        if (environment.envPath) {
+            const unixStylePath = path.join(environment.envPath, 'bin', 'python');
+            const windowsStylePath = path.join(environment.envPath, 'Scripts', 'python.exe');
+
+            // If Python exists at either standard location, this is NOT a problematic environment
+            if (pathExistsSync(unixStylePath) || pathExistsSync(windowsStylePath)) {
+                return false;
+            }
+        }
         return true;
     }
     return false;

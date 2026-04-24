@@ -54,7 +54,7 @@ export function getCondaPythonPath(envPath: string | undefined): string | undefi
         return undefined;
     }
     if (process.platform === 'win32') {
-        const pythonPath = path.join(envPath, 'python.exe');
+        const pythonPath = path.join(envPath, 'Scripts', 'python.exe');
         return fs.existsSync(pythonPath) ? pythonPath : undefined;
     }
     // On Unix, try 'python' first, then 'python3'
