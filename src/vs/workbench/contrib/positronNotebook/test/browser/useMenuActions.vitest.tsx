@@ -13,7 +13,7 @@ import { IMenu, IMenuChangeEvent, IMenuService, MenuId, MenuItemAction, SubmenuI
 import { IVersionedMenu, useMenu } from '../../browser/useMenu.js';
 import { useMenuActions } from '../../browser/useMenuActions.js';
 import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
-import { mock } from '../../../../../base/test/common/mock.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 
 type Actions = [string, (MenuItemAction | SubmenuItemAction)[]][];
 
@@ -38,11 +38,7 @@ function ComposedHarness({ contextKeyService, onActions }: {
 	return null;
 }
 
-const action = (id: string) => {
-	const a = new class extends mock<MenuItemAction>() { };
-	Object.assign(a, { id });
-	return a;
-};
+const action = (id: string) => stubInterface<MenuItemAction>({ id });
 
 describe('useMenuActions', () => {
 	describe('standalone', () => {
@@ -63,9 +59,7 @@ describe('useMenuActions', () => {
 			let captured: Actions = [];
 			const expected: Actions = [['group', [action('a1'), action('a2')]]];
 			const menu: IVersionedMenu = {
-				current: new class extends mock<IMenu>() {
-					override getActions = () => expected;
-				},
+				current: stubInterface<IMenu>({ getActions: () => expected }),
 				version: 0,
 			};
 
@@ -79,9 +73,7 @@ describe('useMenuActions', () => {
 			const actionsV1: Actions = [['g', [action('new')]]];
 			let currentActions = actionsV0;
 
-			const mockMenu = new class extends mock<IMenu>() {
-				override getActions = () => currentActions;
-			};
+			const mockMenu = stubInterface<IMenu>({ getActions: () => currentActions });
 
 			const { rerender } = rtl.render(<UseMenuActionsHarness
 				menu={{ current: mockMenu, version: 0 }}
@@ -166,7 +158,7 @@ describe('useMenuActions', () => {
 
 			// act() wraps fire() because the useMenu subscriber calls setState.
 			menuActions = [['g', [action('v1')]]];
-			act(() => onDidChange.fire(new class extends mock<IMenuChangeEvent>() { }));
+			act(() => onDidChange.fire(stubInterface<IMenuChangeEvent>()));
 
 			// One rerender to pick up the version bump
 			rerender(element);

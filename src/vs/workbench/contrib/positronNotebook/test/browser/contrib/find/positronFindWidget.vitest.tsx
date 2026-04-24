@@ -10,7 +10,7 @@ import { act, screen } from '@testing-library/react';
 import { setupRTLRenderer } from '../../../../../../../test/vitest/reactTestingLibrary.js';
 import { ISettableObservable, observableValue } from '../../../../../../../base/common/observable.js';
 import { MockContextKeyService } from '../../../../../../../platform/keybinding/test/common/mockKeybindingService.js';
-import { mock } from '../../../../../../../base/test/common/mock.js';
+import { stubInterface } from '../../../../../../../test/vitest/stubInterface.js';
 import { IContextViewService } from '../../../../../../../platform/contextview/browser/contextView.js';
 import { unthemedInboxStyles } from '../../../../../../../base/browser/ui/inputbox/inputBox.js';
 import { unthemedToggleStyles } from '../../../../../../../base/browser/ui/toggle/toggle.js';
@@ -46,7 +46,7 @@ describe('PositronFindWidget', () => {
 				contextKeyService={new MockContextKeyService()}
 				// ContextViewService is only used by FindInput for validation message
 				// popups, which these tests don't trigger.
-				contextViewService={new class extends mock<IContextViewService>() { }}
+				contextViewService={stubInterface<IContextViewService>()}
 				findInputOptions={{
 					label: 'Find',
 					inputBoxStyles: unthemedInboxStyles,

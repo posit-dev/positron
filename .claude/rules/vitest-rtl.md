@@ -47,8 +47,8 @@ Prefer `@testing-library/user-event` over `fireEvent` -- user-event fires the fu
 
 When no semantic query fits (structural div with no role, label, or stable text):
 
-1. **Best:** add `data-testid` to the source component, use `getByTestId(...)`.
-2. **Acceptable** (when touching source isn't feasible): `getByText('text', { selector: '.css' })` if the element has text; otherwise `expect(container.querySelector('.x')).toBeInTheDocument()` paired with a jest-dom matcher and an inline comment explaining why no semantic query fits. `querySelector` is also flagged by the `no-restricted-syntax` rule -- disable it per line with `// eslint-disable-next-line no-restricted-syntax` + the comment.
+1. **Preferred:** add `data-testid` to the source component, use `getByTestId(...)`. This is the right fix even when a `container.querySelector('.my-class')` *would* compile -- class selectors couple the test to CSS internals, while a testid is an explicit test contract the component author maintains on purpose. Most Positron components are under our control, so the source edit is usually a one-line prop addition. Prefer this over class-based `querySelector` even if it means touching source.
+2. **Fallback** (only when touching source truly isn't feasible, e.g. a third-party renderer or a structural invariant under test): `getByText('text', { selector: '.css' })` if the element has text; otherwise `expect(container.querySelector('.x')).toBeInTheDocument()` paired with a jest-dom matcher and an inline comment explaining why no semantic query or testid is possible. `querySelector` is flagged by the `no-restricted-syntax` rule -- disable per line with `// eslint-disable-next-line no-restricted-syntax -- <reason>`.
 
 ## Enforcement
 

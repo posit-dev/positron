@@ -13,7 +13,7 @@ import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { WebviewPlotThumbnail } from '../../browser/components/webviewPlotThumbnail.js';
 import { WebviewPlotClient } from '../../browser/webviewPlotClient.js';
-import { mock } from '../../../../../base/test/common/mock.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 
 describe('WebviewPlotThumbnail', () => {
 	// Emitter at describe level -- wired into the mock plotClient so .fire()
@@ -23,16 +23,14 @@ describe('WebviewPlotThumbnail', () => {
 
 	function makePlotClient(overrides: Partial<WebviewPlotClient> = {}): WebviewPlotClient {
 		// The component only reads id, thumbnailUri, and onDidRenderThumbnail;
-		// mock<T>() gives a typed stub whose unused members throw if anything
-		// else is accessed, which is exactly what we want.
-		const client = new class extends mock<WebviewPlotClient>() { };
-		Object.assign(client, {
+		// stubInterface gives a typed stub whose unused members throw if
+		// anything else is accessed, which is exactly what we want.
+		return stubInterface<WebviewPlotClient>({
 			id: 'plot-1',
 			thumbnailUri: undefined,
 			onDidRenderThumbnail: onDidRenderThumbnail.event,
 			...overrides,
 		});
-		return client;
 	}
 	const ctx = createTestContainer()
 		.withReactServices()

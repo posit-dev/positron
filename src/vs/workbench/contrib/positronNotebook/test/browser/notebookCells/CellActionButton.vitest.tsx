@@ -17,7 +17,7 @@ import { MenuItemAction, SubmenuItemAction } from '../../../../../../platform/ac
 import { ThemeIcon } from '../../../../../../base/common/themables.js';
 import { CellSelectionType } from '../../../browser/selectionMachine.js';
 import { PositronNotebookActionId } from '../../../common/positronNotebookCommon.js';
-import { mock } from '../../../../../../base/test/common/mock.js';
+import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
 
 function mockAction(overrides?: Partial<{
 	id: string;
@@ -28,8 +28,7 @@ function mockAction(overrides?: Partial<{
 }>): MenuItemAction {
 	const id = overrides?.id ?? 'test-action';
 	const label = overrides?.label ?? 'Test';
-	const action = new class extends mock<MenuItemAction>() { };
-	Object.assign(action, {
+	return stubInterface<MenuItemAction>({
 		id,
 		label,
 		tooltip: overrides?.tooltip ?? '',
@@ -42,7 +41,6 @@ function mockAction(overrides?: Partial<{
 		run: overrides?.run ?? (() => Promise.resolve()),
 		dispose: () => { },
 	});
-	return action;
 }
 
 /** Returns the button's icon element, scoped via the `cell-action-button-icon` testid. */
@@ -67,16 +65,14 @@ describe('CellActionButton', () => {
 
 	beforeEach(() => {
 		selectCellStub = vi.fn();
-		instance = new class extends mock<IPositronNotebookInstance>() {
-			override hoverManager = undefined;
-			override currentContainer = undefined;
-			override selectionStateMachine = new class extends mock<IPositronNotebookInstance['selectionStateMachine']>() {
-				override selectCell = selectCellStub;
-			};
-		};
-		cell = new class extends mock<IPositronNotebookCell>() {
-			override id = 'cell-1';
-		};
+		instance = stubInterface<IPositronNotebookInstance>({
+			hoverManager: undefined,
+			currentContainer: undefined,
+			selectionStateMachine: stubInterface<IPositronNotebookInstance['selectionStateMachine']>({
+				selectCell: selectCellStub,
+			}),
+		});
+		cell = stubInterface<IPositronNotebookCell>({ id: 'cell-1' });
 	});
 
 	function renderButton(

@@ -74,6 +74,9 @@ Positron-specific rules not covered by a public lint plugin. The `review-vitest-
 
 - **Avoid hand-rolled `as unknown as PositronReactServices` accessor** -- use `createTestContainer().withReactServices().stub(IService, ...).build()` + `setupRTLRenderer(() => ctx.reactServices)`.
 
+- **Avoid `{...} as unknown as <Interface>` for wide-interface partial stubs.** Use `stubInterface<T>(overrides)` from [`src/vs/test/vitest/stubInterface.ts`](../../src/vs/test/vitest/stubInterface.ts) instead: `const foo = stubInterface<IFoo>({ bar: ... });`. Unset reads throw with a clear message (instead of silently returning `undefined` through a cast) and the overrides stay typed against the real interface. See the helper's JSDoc for examples. When a purpose-built no-op already exists (e.g. `NullLogService` from `platform/log/common/log.js`, `Test*` classes under `workbench/test/**`), prefer that over `stubInterface`. For *named* test classes with constructors and internal state, the upstream `mock<T>()` helper (`src/vs/base/test/common/mock.ts`) remains the right tool.
+  *Exception:* narrowing casts where the runtime value really is the target type -- `ctx.get(IService) as TestService`, `screen.getByRole('textbox') as HTMLInputElement`, `delegate.getActions() as IAction[]`. These are not wide-interface stubs; they're telling the compiler about a value we already have.
+
 - **Avoid `PositronReactServices.services = ...` singleton mutation** -- use `createTestContainer().withReactServices().stub(...).build()` and drop the `beforeEach`/`afterEach` save/restore dance.
   *Exception:* source class reads the singleton directly in its constructor; a 1-line bridge `PositronReactServices.services = ctx.reactServices` with an inline comment is acceptable.
 

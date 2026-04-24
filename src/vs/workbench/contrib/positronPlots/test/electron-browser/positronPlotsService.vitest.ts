@@ -17,7 +17,7 @@ import { PositronPlotCommProxy } from '../../../../services/languageRuntime/comm
 import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/sizingPolicyAuto.js';
 import { PlotSizingPolicyFill } from '../../../../services/positronPlots/common/sizingPolicyFill.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
-import { mock } from '../../../../../base/test/common/mock.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 
 describe('Positron - Plots Service', () => {
 
@@ -151,14 +151,14 @@ describe('Positron - Plots Service', () => {
 	});
 
 	it('sizing policy: change event', async () => {
-		const plotCommProxyStub = new class extends mock<PositronPlotCommProxy>() {
-			override onDidClose = () => ({ dispose: () => { } });
-			override onDidRenderUpdate = () => ({ dispose: () => { } });
-			override onDidShowPlot = () => ({ dispose: () => { } });
-			override render = vi.fn();
-			override getIntrinsicSize = vi.fn();
-			override dispose = vi.fn();
-		};
+		const plotCommProxyStub = stubInterface<PositronPlotCommProxy>({
+			onDidClose: () => ({ dispose: () => { } }),
+			onDidRenderUpdate: () => ({ dispose: () => { } }),
+			onDidShowPlot: () => ({ dispose: () => { } }),
+			render: vi.fn(),
+			getIntrinsicSize: vi.fn(),
+			dispose: vi.fn(),
+		});
 
 		const plotClientInstance = new PlotClientInstance(plotCommProxyStub, {} as IConfigurationService, new PlotSizingPolicyAuto(), {} as IPositronPlotMetadata);
 		ctx.disposables.add(plotClientInstance);

@@ -20,12 +20,11 @@ import { PositronNotebookCodeCell } from '../../../browser/PositronNotebookCells
 import { IMenu, IMenuService, MenuItemAction, SubmenuItemAction } from '../../../../../../platform/actions/common/actions.js';
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { ThemeIcon } from '../../../../../../base/common/themables.js';
-import { mock } from '../../../../../../base/test/common/mock.js';
+import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
 
 /* Creates a mock MenuItemAction with the minimum fields needed for rendering. */
 function mockAction(id: string, label: string, iconId?: string): MenuItemAction {
-	const action = new class extends mock<MenuItemAction>() { };
-	Object.assign(action, {
+	return stubInterface<MenuItemAction>({
 		id,
 		label,
 		tooltip: '',
@@ -38,7 +37,6 @@ function mockAction(id: string, label: string, iconId?: string): MenuItemAction 
 		run: () => Promise.resolve(),
 		dispose: () => { },
 	});
-	return action;
 }
 
 describe('CellOutputActionBar', () => {
@@ -68,15 +66,16 @@ describe('CellOutputActionBar', () => {
 
 	/* Render the component and return the RTL render result for querying. */
 	function renderActionBar(scrollTargetRef = React.createRef<HTMLElement | null>()) {
-		// The action bar only reads instance.hoverManager from the instance; mock<T>()
-		// gives a typed object and lets unused members throw if anything else is read.
-		const instance = new class extends mock<IPositronNotebookInstance>() {
-			override hoverManager = undefined;
-		};
+		// The action bar only reads instance.hoverManager from the instance;
+		// stubInterface gives a typed object and lets unused members throw if
+		// anything else is read.
+		const instance = stubInterface<IPositronNotebookInstance>({
+			hoverManager: undefined,
+		});
 
 		// The action bar passes the cell through without dereferencing it in this test;
-		// mock<T>() is the typed "never read" stub.
-		const cell = new class extends mock<PositronNotebookCodeCell>() { };
+		// stubInterface gives the typed "never read" stub.
+		const cell = stubInterface<PositronNotebookCodeCell>();
 
 		// RTL's act() batches effects, so the menu is created and actions
 		// resolved in a single render pass.

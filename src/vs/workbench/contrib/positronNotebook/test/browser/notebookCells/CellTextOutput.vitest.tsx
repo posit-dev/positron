@@ -20,7 +20,7 @@ import { IPositronNotebookInstance } from '../../../browser/IPositronNotebookIns
 import { NotebookInstanceProvider } from '../../../browser/NotebookInstanceProvider.js';
 import { CellTextOutput } from '../../../browser/notebookCells/CellTextOutput.js';
 import { ParsedTextOutput } from '../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
-import { mock } from '../../../../../../base/test/common/mock.js';
+import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
 
 /** Generate multiline content with the given number of lines. */
 function makeLines(n: number): string {
@@ -49,17 +49,17 @@ describe('CellTextOutput', () => {
 		if (options !== undefined) {
 			layoutConfig = { ...layoutConfig, ...options };
 		}
-		const notebookOptions = new class extends mock<NotebookOptions>() {
-			override onDidChangeOptions = optionsEmitter.event;
-			override getLayoutConfiguration = () => layoutConfig as NotebookLayoutConfiguration & NotebookDisplayOptions;
-		};
-		const instance = new class extends mock<IPositronNotebookInstance>() {
-			override notebookOptions = notebookOptions;
-			override hoverManager = new class extends mock<IPositronNotebookInstance['hoverManager']>() {
-				override showHover = () => { };
-				override hideHover = () => { };
-			};
-		};
+		const notebookOptions = stubInterface<NotebookOptions>({
+			onDidChangeOptions: optionsEmitter.event,
+			getLayoutConfiguration: () => layoutConfig as NotebookLayoutConfiguration & NotebookDisplayOptions,
+		});
+		const instance = stubInterface<IPositronNotebookInstance>({
+			notebookOptions,
+			hoverManager: stubInterface<IPositronNotebookInstance['hoverManager']>({
+				showHover: () => { },
+				hideHover: () => { },
+			}),
+		});
 
 		return rtl.render(
 			<NotebookInstanceProvider instance={instance}>

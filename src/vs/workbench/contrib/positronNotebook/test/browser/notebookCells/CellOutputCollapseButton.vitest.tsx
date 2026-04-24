@@ -13,7 +13,7 @@ import { observableValue, ISettableObservable } from '../../../../../../base/com
 import { CellSelectionType } from '../../../browser/selectionMachine.js';
 import { IPositronNotebookInstance } from '../../../browser/IPositronNotebookInstance.js';
 import { NotebookInstanceProvider } from '../../../browser/NotebookInstanceProvider.js';
-import { mock } from '../../../../../../base/test/common/mock.js';
+import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
 
 describe('CellOutputCollapseButton', () => {
 	const rtl = setupRTLRenderer();
@@ -29,17 +29,17 @@ describe('CellOutputCollapseButton', () => {
 	});
 
 	function renderButton() {
-		const cell = new class extends mock<PositronNotebookCodeCell>() {
-			override outputIsCollapsed = outputIsCollapsed;
-			override toggleOutputCollapse = toggleStub;
-		};
+		const cell = stubInterface<PositronNotebookCodeCell>({
+			outputIsCollapsed,
+			toggleOutputCollapse: toggleStub,
+		});
 
-		const instance = new class extends mock<IPositronNotebookInstance>() {
-			override hoverManager = undefined;
-			override selectionStateMachine = new class extends mock<IPositronNotebookInstance['selectionStateMachine']>() {
-				override selectCell = selectStub;
-			};
-		};
+		const instance = stubInterface<IPositronNotebookInstance>({
+			hoverManager: undefined,
+			selectionStateMachine: stubInterface<IPositronNotebookInstance['selectionStateMachine']>({
+				selectCell: selectStub,
+			}),
+		});
 
 		return rtl.render(
 			<NotebookInstanceProvider instance={instance}>
