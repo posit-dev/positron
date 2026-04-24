@@ -174,6 +174,14 @@ export const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: 
 		};
 	}, [services.configurationService, services.runtimeSessionService, services.resourceUsageHistoryService, positronConsoleInstance]);
 
+	// When entering rename mode, focus the input and select its text.
+	useEffect(() => {
+		if (isRenamingSession && inputRef.current) {
+			inputRef.current.focus();
+			inputRef.current.select();
+		}
+	}, [isRenamingSession]);
+
 	/**
 	 * Handles the click event for the console tab.
 	 * Changes the active console instance and focuses the tab for keyboard navigation.
@@ -278,13 +286,6 @@ export const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: 
 	const showRenameInputField = async () => {
 		// Show a prompt to rename the console session in the UI
 		setIsRenamingSession(true);
-		// Focus the input field after it renders and select all text
-		setTimeout(() => {
-			if (inputRef.current) {
-				inputRef.current.focus();
-				inputRef.current.select();
-			}
-		}, 0);
 	};
 
 	/**
