@@ -11,12 +11,24 @@ import { RuntimeItem } from './runtimeItem.js';
  * RuntimeItemStandard class.
  */
 export class RuntimeItemStandard extends RuntimeItem {
+	//#region Private Properties
+
+	/**
+	 * The output lines, processed and ready for rendering. Initialized in the constructor and
+	 * mutated by trimScrollback.
+	 */
+	private _outputLines: readonly ANSIOutputLine[];
+
+	//#endregion Private Properties
+
 	//#region Public Properties
 
 	/**
 	 * Gets the output lines.
 	 */
-	outputLines: readonly ANSIOutputLine[];
+	public get outputLines(): readonly ANSIOutputLine[] {
+		return this._outputLines;
+	}
 
 	//#endregion Public Properties
 
@@ -32,7 +44,7 @@ export class RuntimeItemStandard extends RuntimeItem {
 		super(id);
 
 		// Process the message directly into ANSI output lines suitable for rendering.
-		this.outputLines = ANSIOutput.processOutput(message);
+		this._outputLines = ANSIOutput.processOutput(message);
 	}
 
 	//#endregion Constructor
@@ -51,12 +63,12 @@ export class RuntimeItemStandard extends RuntimeItem {
 		}
 
 		// If no trimming is needed, return the remaining scrollback size.
-		if (this.outputLines.length <= scrollbackSize) {
-			return scrollbackSize - this.outputLines.length;
+		if (this._outputLines.length <= scrollbackSize) {
+			return scrollbackSize - this._outputLines.length;
 		}
 
 		// Otherwise, trim output lines and report the scrollback as fully consumed.
-		this.outputLines = this.outputLines.slice(-scrollbackSize);
+		this._outputLines = this._outputLines.slice(-scrollbackSize);
 		return 0;
 	}
 

@@ -165,12 +165,10 @@ export class ActivityItemStream extends ActivityItem {
 			};
 		}
 
-		// Otherwise, scroll lines off the top. scrollOff returns the count actually dropped, which
-		// may be less than requested if the cursor line sits higher than the overshoot; we only
-		// report trimmed=true when something really went.
-		const dropped = this._ansiOutput.scrollOff(lineCount - scrollbackSize);
+		// Otherwise, drop output lines and report the scrollback as fully consumed.
+		const dropCount = this._ansiOutput.dropTop(lineCount - scrollbackSize);
 		return {
-			trimmed: dropped > 0,
+			trimmed: dropCount > 0,
 			remainingScrollbackSize: 0
 		};
 	}

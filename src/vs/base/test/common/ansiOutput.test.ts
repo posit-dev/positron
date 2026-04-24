@@ -1849,24 +1849,24 @@ suite('ANSIOutput', () => {
 		assert.equal(outputLines[3].outputRuns[0].text, PANGRAM);
 	});
 
-	test('scrollOff: no-op for non-positive counts', () => {
+	test('dropTop: no-op for non-positive counts', () => {
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput(`A${LF}B${LF}C`);
 
-		assert.equal(ansiOutput.scrollOff(0), 0);
-		assert.equal(ansiOutput.scrollOff(-5), 0);
+		assert.equal(ansiOutput.dropTop(0), 0);
+		assert.equal(ansiOutput.dropTop(-5), 0);
 		assert.equal(ansiOutput.outputLines.length, 3);
 		checkOutputPosition(ansiOutput, 2, 1);
 	});
 
-	test('scrollOff: drops committed lines above the cursor', () => {
+	test('dropTop: drops lines above the cursor', () => {
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput(`A${LF}B${LF}C${LF}D`);
 		// Four lines: A, B, C, D. Cursor is on line 3 (the "D" line).
 		assert.equal(ansiOutput.outputLines.length, 4);
 		checkOutputPosition(ansiOutput, 3, 1);
 
-		assert.equal(ansiOutput.scrollOff(2), 2);
+		assert.equal(ansiOutput.dropTop(2), 2);
 
 		const remaining = ansiOutput.outputLines;
 		assert.equal(remaining.length, 2);
@@ -1875,14 +1875,14 @@ suite('ANSIOutput', () => {
 		checkOutputPosition(ansiOutput, 1, 1);
 	});
 
-	test('scrollOff: clamps to keep the cursor line', () => {
+	test('dropTop: clamps to keep the cursor line', () => {
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput(`A${LF}B${LF}C`);
 		// Cursor on line 2 ("C"), so at most 2 head lines can be dropped.
 		assert.equal(ansiOutput.outputLines.length, 3);
 		checkOutputPosition(ansiOutput, 2, 1);
 
-		assert.equal(ansiOutput.scrollOff(10), 2);
+		assert.equal(ansiOutput.dropTop(10), 2);
 
 		const remaining = ansiOutput.outputLines;
 		assert.equal(remaining.length, 1);
@@ -1890,24 +1890,24 @@ suite('ANSIOutput', () => {
 		checkOutputPosition(ansiOutput, 0, 1);
 	});
 
-	test('scrollOff: no-op when cursor is already on the first line', () => {
+	test('dropTop: no-op when cursor is already on the first line', () => {
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput('only line');
 		checkOutputPosition(ansiOutput, 0, 9);
 
-		assert.equal(ansiOutput.scrollOff(5), 0);
+		assert.equal(ansiOutput.dropTop(5), 0);
 		assert.equal(ansiOutput.outputLines.length, 1);
 		checkOutputPosition(ansiOutput, 0, 9);
 	});
 
-	test('scrollOff: subsequent input keeps SGR styling after drop', () => {
+	test('dropTop: subsequent input keeps SGR styling after drop', () => {
 		const ansiOutput = new ANSIOutput();
 		// Enter red, write three lines, scroll off, then append another line without a new SGR;
 		// it should still render red because the SGR state is preserved.
 		ansiOutput.processOutput(`${makeSGR(SGRParam.ForegroundRed)}A${LF}B${LF}C`);
 		assert.equal(ansiOutput.outputLines.length, 3);
 
-		ansiOutput.scrollOff(2);
+		ansiOutput.dropTop(2);
 		ansiOutput.processOutput(`${LF}D${makeSGR()}`);
 
 		const lines = ansiOutput.outputLines;
@@ -1918,10 +1918,10 @@ suite('ANSIOutput', () => {
 		assert.equal(lines[1].outputRuns[0].format!.foregroundColor, ANSIColor.Red);
 	});
 
-	test('scrollOff: further appends index correctly relative to the retained tail', () => {
+	test('dropTop: further appends index correctly relative to the retained tail', () => {
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput(`A${LF}B${LF}C`);
-		ansiOutput.scrollOff(2);
+		ansiOutput.dropTop(2);
 		// Now only "C" remains; cursor on line 0 at column 1.
 		ansiOutput.processOutput(`${LF}D${LF}E`);
 

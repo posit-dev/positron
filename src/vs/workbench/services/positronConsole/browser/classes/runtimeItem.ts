@@ -32,10 +32,6 @@ export abstract class RuntimeItem {
 	 * @param commentPrefix The comment prefix to use.
 	 * @returns The clipboard representation of the runtime item.
 	 */
-	public agetClipboardRepresentation(commentPrefix: string): string[] {
-		return [];
-	}
-
 	public abstract getClipboardRepresentation(commentPrefix: string): string[];
 
 	//#endregion Public Methods

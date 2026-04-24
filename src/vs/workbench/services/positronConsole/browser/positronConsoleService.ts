@@ -3467,12 +3467,14 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			}
 		}
 
-		// Drop anything before the first item that still fit, keeping the activity map in sync.
+		// Drop runtime items before the first keep index.
 		if (firstKeepIndex > 0) {
-			const dropped = this._runtimeItems.splice(0, firstKeepIndex);
-			for (const item of dropped) {
-				if (item instanceof RuntimeItemActivity) {
-					this._runtimeItemActivities.delete(item.id);
+			const droppedRuntimeItems = this._runtimeItems.splice(0, firstKeepIndex);
+			for (const runtimeItem of droppedRuntimeItems) {
+				if (runtimeItem instanceof RuntimeItemActivity) {
+					this._runtimeItemActivities.delete(runtimeItem.id);
+				} else if (runtimeItem === this._runtimeItemPendingInput) {
+					this._runtimeItemPendingInput = undefined;
 				}
 			}
 		}

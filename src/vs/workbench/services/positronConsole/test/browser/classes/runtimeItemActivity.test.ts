@@ -5,161 +5,196 @@
 
 import assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../base/test/common/utils.js';
-import { ActivityItem, TrimScrollbackResult } from '../../../browser/classes/activityItem.js';
-import { ActivityItem as ActivityItemUnion, RuntimeItemActivity } from '../../../browser/classes/runtimeItemActivity.js';
+import { ActivityItemErrorMessage } from '../../../browser/classes/activityItemErrorMessage.js';
+import { ActivityItemInput, ActivityItemInputState } from '../../../browser/classes/activityItemInput.js';
+import { ActivityItemOutputMessage } from '../../../browser/classes/activityItemOutputMessage.js';
+import { ActivityItemStream, ActivityItemStreamType } from '../../../browser/classes/activityItemStream.js';
+import { RuntimeItemActivity } from '../../../browser/classes/runtimeItemActivity.js';
 
-/**
- * Minimal ActivityItem subclass for tests. Driven by a `trimFn` that takes the incoming budget
- * and returns a TrimScrollbackResult, so each mock participates in the walk's budget accounting
- * (instead of clobbering it with a static value). Records callCount for walk-shape assertions.
- *
- * Note: the RuntimeItemActivity API is typed against an `ActivityItem` *union* of concrete
- * subclasses (ActivityItemStream | ActivityItemErrorMessage | ...) — not the abstract base.
- * This test item extends the abstract base and is cast through the union at call sites. The
- * cast is safe because trimScrollback only uses the abstract-class methods; the instanceof
- * branches in addActivityItem (stream merge, input replacement) simply don't fire for a
- * TestActivityItem, which is exactly what we want in these tests.
- */
-class TestActivityItem extends ActivityItem {
-	public callCount = 0;
+// A weight-1 activity item that never self-trims. ActivityItemErrorMessage fits: simple
+// constructor, counts as 1 scrollback unit, and has no merge logic in addActivityItem.
+const errItem = (id: string) =>
+	new ActivityItemErrorMessage(id, 'parent', new Date(0), '', 'message', []);
 
-	constructor(
-		id: string,
-		private readonly _trimFn: (budget: number) => TrimScrollbackResult
-	) {
-		super(id, 'parent', new Date(0));
-	}
+// A multi-line activity item that can self-trim. ActivityItemOutputMessage slices its output
+// lines to fit the incoming scrollbackSize, which makes it easy to construct an over-sized
+// item and watch it shrink.
+const linesItem = (id: string, lineCount: number) =>
+	new ActivityItemOutputMessage(
+		id,
+		'parent',
+		new Date(0),
+		{ 'text/plain': Array.from({ length: lineCount }, (_, i) => `line${i}`).join('\n') }
+	);
 
-	public override trimScrollback(scrollbackSize: number): TrimScrollbackResult {
-		this.callCount++;
-		return this._trimFn(scrollbackSize);
-	}
+const stream = (id: string, parentId: string, text: string) =>
+	new ActivityItemStream(id, parentId, new Date(0), ActivityItemStreamType.OUTPUT, text);
 
-	public override getClipboardRepresentation(_commentPrefix: string): string[] {
-		return [];
-	}
-}
-
-/** A weight-only item: declares weight N, never reports trimmed. Matches ActivityItemInput et al. */
-const weightItem = (id: string, weight: number) => new TestActivityItem(id, (budget) => ({
-	trimmed: false,
-	remainingScrollbackSize: Math.max(budget - weight, 0),
-}));
-
-/** A self-trimming item: always reports trimmed:true and consumes the full budget. */
-const selfTrimmingItem = (id: string) => new TestActivityItem(id, (_budget) => ({
-	trimmed: true,
-	remainingScrollbackSize: 0,
-}));
-
-/**
- * Bridges the abstract-class TestActivityItem to the union type the RuntimeItemActivity API
- * expects. Keeps the casts isolated to one place.
- */
-const asUnion = (item: TestActivityItem): ActivityItemUnion => item as unknown as ActivityItemUnion;
-
-/**
- * Reads RuntimeItemActivity._version through the public getter in a way that's stable against
- * future renames — all tests go through this.
- */
-const versionOf = (activity: RuntimeItemActivity): number => activity.version;
+const input = (id: string, parentId: string, state: ActivityItemInputState, code = 'x') =>
+	new ActivityItemInput(id, parentId, new Date(0), state, '>', '+', code);
 
 suite('RuntimeItemActivity.trimScrollback', () => {
 
 	ensureNoDisposablesAreLeakedInTestSuite();
 
-	test('single item that fits without trimming: no version bump, no splice, returns remaining budget', () => {
-		const item = weightItem('a', 1);
-		const activity = new RuntimeItemActivity('activity', asUnion(item));
-		const initialVersion = versionOf(activity);
+	test('single weight-1 item that fits: no version bump, no splice', () => {
+		const item = errItem('a');
+		const activity = new RuntimeItemActivity('activity', item);
+		const initialVersion = activity.version;
 
 		const remaining = activity.trimScrollback(10);
 
-		assert.strictEqual(remaining, 9, 'remaining budget passes through from the item');
-		assert.strictEqual(activity.activityItems.length, 1, 'no splice happened');
-		assert.strictEqual(versionOf(activity), initialVersion, '_version should not bump when nothing trimmed');
-		assert.strictEqual(item.callCount, 1, 'the single item was walked once');
+		assert.strictEqual(remaining, 9, 'weight-1 item consumed one unit out of 10');
+		assert.strictEqual(activity.activityItems.length, 1);
+		assert.strictEqual(activity.version, initialVersion, 'no version bump when nothing trimmed');
 	});
 
-	test('single item reports trimmed: bumps version without a splice', () => {
-		const item = selfTrimmingItem('a');
-		const activity = new RuntimeItemActivity('activity', asUnion(item));
-		const initialVersion = versionOf(activity);
-
-		const remaining = activity.trimScrollback(5);
-
-		assert.strictEqual(remaining, 0);
-		assert.strictEqual(activity.activityItems.length, 1, 'no splice — the trimming item is the only one');
-		assert.strictEqual(versionOf(activity), initialVersion + 1, 'version bumps because the item reported trimmed');
-	});
-
-	test('multiple items all fit with no trimming: no version bump, no splice', () => {
-		// Three weight-1 items. Walk consumes three units of budget; none reports trimmed.
-		const items = [weightItem('a', 1), weightItem('b', 1), weightItem('c', 1)];
-		const activity = new RuntimeItemActivity('activity', asUnion(items[0]));
-		// The constructor added items[0] via addActivityItem (which bumps _version once). Record
-		// that post-construction baseline so we can assert *no further* bumps.
-		activity.addActivityItem(asUnion(items[1]));
-		activity.addActivityItem(asUnion(items[2]));
-		const baselineVersion = versionOf(activity);
-
-		const remaining = activity.trimScrollback(10);
-
-		assert.strictEqual(remaining, 7, 'each of three weight-1 items consumed one unit (10 → 9 → 8 → 7)');
-		assert.strictEqual(activity.activityItems.length, 3, 'no splice');
-		assert.strictEqual(versionOf(activity), baselineVersion, '_version untouched — no trim occurred');
-		assert.strictEqual(items[0].callCount, 1);
-		assert.strictEqual(items[1].callCount, 1);
-		assert.strictEqual(items[2].callCount, 1);
-	});
-
-	test('budget exhausted mid-walk: splices older items and bumps version', () => {
-		// Budget 2, three weight-1 items. Walking tail-first: c fits (budget → 1), b fits
-		// (budget → 0), loop exits without visiting a. firstKeepIndex = 1 → splice(0, 1) drops a.
-		const items = [weightItem('a', 1), weightItem('b', 1), weightItem('c', 1)];
-		const activity = new RuntimeItemActivity('activity', asUnion(items[0]));
-		activity.addActivityItem(asUnion(items[1]));
-		activity.addActivityItem(asUnion(items[2]));
-		const baselineVersion = versionOf(activity);
+	test('single multi-line item that self-trims: bumps version without a splice', () => {
+		// 5 output lines, scrollbackSize 2 -> item trims in place and fills the scrollback.
+		const item = linesItem('a', 5);
+		const activity = new RuntimeItemActivity('activity', item);
+		const initialVersion = activity.version;
 
 		const remaining = activity.trimScrollback(2);
 
-		assert.strictEqual(remaining, 0, 'budget exhausted by b');
-		assert.strictEqual(activity.activityItems.length, 2, 'a was spliced off; b and c remain');
-		assert.strictEqual(activity.activityItems[0].id, 'b');
-		assert.strictEqual(activity.activityItems[1].id, 'c');
-		assert.strictEqual(versionOf(activity), baselineVersion + 1, 'splice forces a version bump');
-		assert.strictEqual(items[0].callCount, 0, 'a was never walked — loop exited first');
-		assert.strictEqual(items[1].callCount, 1);
-		assert.strictEqual(items[2].callCount, 1);
+		assert.strictEqual(remaining, 0, 'over-sized item consumed the full scrollbackSize');
+		assert.strictEqual(activity.activityItems.length, 1, 'no splice - the trimming item is the only one');
+		assert.strictEqual(activity.version, initialVersion + 1, 'version bumps because the item self-trimmed');
+		assert.strictEqual(item.outputLines.length, 2, 'item was trimmed in-place to scrollbackSize');
 	});
 
-	test('item self-trims and exhausts budget: splice AND trim-signal both hit; one bump', () => {
-		// Walking tail-first with budget 3: c fits weight-1 (budget → 2), b self-trims and reports
-		// remaining=0. Loop exits at b (firstKeepIndex = 1) → splice(0, 1) drops a. Both signals
-		// (b.trimmed = true AND splice happened) would independently bump version; assert exactly
-		// one bump.
-		const items = [weightItem('a', 1), selfTrimmingItem('b'), weightItem('c', 1)];
-		const activity = new RuntimeItemActivity('activity', asUnion(items[0]));
-		activity.addActivityItem(asUnion(items[1]));
-		activity.addActivityItem(asUnion(items[2]));
-		const baselineVersion = versionOf(activity);
+	test('multiple items all fit: no version bump, no splice', () => {
+		const items = [errItem('a'), errItem('b'), errItem('c')];
+		const activity = new RuntimeItemActivity('activity', items[0]);
+		activity.addActivityItem(items[1]);
+		activity.addActivityItem(items[2]);
+		const baselineVersion = activity.version;
+
+		const remaining = activity.trimScrollback(10);
+
+		assert.strictEqual(remaining, 7, 'three weight-1 items consumed 3 units out of 10');
+		assert.strictEqual(activity.activityItems.length, 3);
+		assert.strictEqual(activity.version, baselineVersion, 'no trim occurred, no version bump');
+	});
+
+	test('scrollback exhausted mid-walk: splices older items and bumps version', () => {
+		// Walking tail-first with scrollbackSize 2 over 3 weight-1 items: c fits (remaining=1),
+		// b fits (remaining=0), loop exits before visiting a. firstKeepIndex=1 splices a.
+		const items = [errItem('a'), errItem('b'), errItem('c')];
+		const activity = new RuntimeItemActivity('activity', items[0]);
+		activity.addActivityItem(items[1]);
+		activity.addActivityItem(items[2]);
+		const baselineVersion = activity.version;
+
+		const remaining = activity.trimScrollback(2);
+
+		assert.strictEqual(remaining, 0);
+		assert.strictEqual(activity.activityItems.length, 2);
+		assert.strictEqual(activity.activityItems[0].id, 'b', 'a was spliced off');
+		assert.strictEqual(activity.activityItems[1].id, 'c');
+		assert.strictEqual(activity.version, baselineVersion + 1, 'splice forces a version bump');
+	});
+
+	test('item self-trims AND scrollback exhausts: one version bump, not two', () => {
+		// Walking tail-first with scrollbackSize 3: c fits weight-1 (remaining=2), b self-trims
+		// to 2 lines and fills the rest (remaining=0). Loop exits at b; firstKeepIndex=1 splices
+		// a. Both signals (b.trimmed AND splice) would independently bump version - assert
+		// exactly one bump.
+		const b = linesItem('b', 5);
+		const activity = new RuntimeItemActivity('activity', errItem('a'));
+		activity.addActivityItem(b);
+		activity.addActivityItem(errItem('c'));
+		const baselineVersion = activity.version;
 
 		activity.trimScrollback(3);
 
 		assert.strictEqual(activity.activityItems.length, 2, 'a spliced; b and c remain');
 		assert.strictEqual(activity.activityItems[0].id, 'b');
-		assert.strictEqual(versionOf(activity), baselineVersion + 1, 'exactly one bump even though both trim-signal and splice fire');
+		assert.strictEqual(activity.activityItems[1].id, 'c');
+		assert.strictEqual(b.outputLines.length, 2, 'b was trimmed in place');
+		assert.strictEqual(activity.version, baselineVersion + 1, 'exactly one bump');
 	});
 
-	test('non-positive scrollback size short-circuits: returns 0, no work done', () => {
-		const item = selfTrimmingItem('a');
-		const activity = new RuntimeItemActivity('activity', asUnion(item));
-		const baselineVersion = versionOf(activity);
+	test('non-positive scrollback size short-circuits: no work, no version bump', () => {
+		const item = linesItem('a', 5);
+		const activity = new RuntimeItemActivity('activity', item);
+		const baselineVersion = activity.version;
 
 		assert.strictEqual(activity.trimScrollback(0), 0);
 		assert.strictEqual(activity.trimScrollback(-5), 0);
-		assert.strictEqual(item.callCount, 0, 'no item was consulted');
-		assert.strictEqual(versionOf(activity), baselineVersion, 'no version bump on the guard path');
+		assert.strictEqual(item.outputLines.length, 5, 'item untouched on the guard path');
+		assert.strictEqual(activity.version, baselineVersion);
+	});
+});
+
+suite('RuntimeItemActivity.addActivityItem - version bump semantics', () => {
+
+	ensureNoDisposablesAreLeakedInTestSuite();
+
+	test('stream-merge that absorbs (no newline): length unchanged, version still bumps', () => {
+		// The second stream has no newline, so addActivityItemStream on the first returns
+		// undefined and addActivityItem early-returns without pushing. _version must still
+		// advance because content was appended into the existing stream.
+		const first = stream('s1', 'p', 'hello');
+		const activity = new RuntimeItemActivity('activity', first);
+		const baselineVersion = activity.version;
+
+		activity.addActivityItem(stream('s2', 'p', ' world'));
+
+		assert.strictEqual(activity.activityItems.length, 1, 'second stream was absorbed into the first');
+		assert.strictEqual(activity.version, baselineVersion + 1, 'absorbed merges must still bump version');
+	});
+
+	test('stream-merge across different parentIds: pushes as new item, bumps version', () => {
+		const first = stream('s1', 'pA', 'hello');
+		const activity = new RuntimeItemActivity('activity', first);
+		const baselineVersion = activity.version;
+
+		activity.addActivityItem(stream('s2', 'pB', ' world'));
+
+		assert.strictEqual(activity.activityItems.length, 2, 'different parentId - no merge');
+		assert.strictEqual(activity.version, baselineVersion + 1);
+	});
+
+	test('provisional ActivityItemInput replaced by non-provisional: in-place swap, version bumps', () => {
+		const provisional = input('i1', 'p', ActivityItemInputState.Provisional);
+		const activity = new RuntimeItemActivity('activity', provisional);
+		const baselineVersion = activity.version;
+
+		const executing = input('i2', 'p', ActivityItemInputState.Executing);
+		activity.addActivityItem(executing);
+
+		assert.strictEqual(activity.activityItems.length, 1, 'replacement, not append');
+		assert.strictEqual(activity.activityItems[0], executing, 'slot now holds the new input');
+		assert.strictEqual(executing.state, ActivityItemInputState.Executing, 'state not forced - prior was Provisional');
+		assert.strictEqual(activity.version, baselineVersion + 1);
+	});
+
+	test('replacing an already-Completed input forces the new input to Completed', () => {
+		// Simulates idle arriving before the input message: the ActivityItemInput already sitting
+		// in the list is Completed. When the "real" Executing ActivityItemInput arrives later,
+		// the replacement logic propagates the Completed state so the UI doesn't regress to
+		// Executing.
+		const alreadyCompleted = input('i1', 'p', ActivityItemInputState.Completed);
+		const activity = new RuntimeItemActivity('activity', alreadyCompleted);
+		const baselineVersion = activity.version;
+
+		const executing = input('i2', 'p', ActivityItemInputState.Executing);
+		activity.addActivityItem(executing);
+
+		assert.strictEqual(activity.activityItems.length, 1);
+		assert.strictEqual(activity.activityItems[0], executing, 'slot holds the replacement');
+		assert.strictEqual(executing.state, ActivityItemInputState.Completed, 'Completed state propagated to replacement');
+		assert.strictEqual(activity.version, baselineVersion + 1);
+	});
+
+	test('non-provisional input with no matching predecessor: plain append', () => {
+		const activity = new RuntimeItemActivity('activity', stream('s1', 'p', 'hi'));
+		const baselineVersion = activity.version;
+
+		activity.addActivityItem(input('i1', 'p', ActivityItemInputState.Executing));
+
+		assert.strictEqual(activity.activityItems.length, 2);
+		assert.strictEqual(activity.version, baselineVersion + 1);
 	});
 });

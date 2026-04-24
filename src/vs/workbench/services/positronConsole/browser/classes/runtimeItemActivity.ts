@@ -102,8 +102,7 @@ export class RuntimeItemActivity extends RuntimeItem {
 	 * @param activityItem The activity item to add.
 	 */
 	public addActivityItem(activityItem: ActivityItem) {
-		// Every path through this method mutates state (push, in-place replace,
-		// or in-place stream merge), so bump the version once up front.
+		// Bump the version to indicate that a mutation is occurring.
 		this._version++;
 
 		// Perform activity item processing if this is not the first activity item.
