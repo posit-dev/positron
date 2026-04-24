@@ -30,6 +30,7 @@ import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebvi
 import { IQuartoKernelManager } from './quartoKernelManager.js';
 import { ILanguageRuntimeMessageWebOutput, LanguageRuntimeMessageType, RuntimeOutputKind, PositronOutputLocation } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IResourceUsageHistoryService } from '../../../services/positronConsole/browser/resourceUsageHistoryService.js';
+import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 
 export const IQuartoOutputManager = createDecorator<IQuartoOutputManager>('quartoOutputManager');
 
@@ -154,6 +155,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		@IPositronPreviewService private readonly _previewService: IPositronPreviewService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IResourceUsageHistoryService private readonly _resourceUsageHistoryService: IResourceUsageHistoryService,
+		@IHoverService private readonly _hoverService: IHoverService,
 	) {
 		super();
 
@@ -925,6 +927,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			this._documentUri,
 			this._resourceUsageHistoryService,
 			this._timestampTickEmitter.event,
+			this._hoverService,
 		);
 
 		// Set up clear callback

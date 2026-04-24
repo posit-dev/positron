@@ -27,12 +27,7 @@
 	padding: 8px 12px;
 	padding-right: 32px;
 	/* Space for close button */
-	/*
-	 * Reserve space on the left for the collapse chevron, which overflows the
-	 * styled box to the left. Keep this value in sync with
-	 * QuartoOutputViewZone.COLLAPSE_CHEVRON_GUTTER.
-	 */
-	margin: 4px 0 4px 28px;
+	margin: 4px 0;
 	background: var(--vscode-notebook-cellEditorBackground);
 	border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.35));
 	border-radius: 4px;
@@ -483,22 +478,15 @@
 }
 
 /*
- * Collapse chevron button. Lives inside the styled container but overflows
- * to its left (via negative `left`) so it sits in the wrapper's left gutter,
- * to the left of the outline. Anchored to the styled box so its vertical
- * position stays correct whether or not the status bar above is visible.
- * Hidden by default; revealed on wrapper hover / focus, or always shown
- * when the output is collapsed.
+ * Collapse chevron button. Portaled into the editor's root DOM node so it
+ * is not clipped by Monaco's overflow-guard / scrollable container; its
+ * `top` / `left` are set in JS to track the view zone's position.
+ *
+ * Hidden by default; the JS layout logic toggles `.visible` on hover/focus
+ * and `.always-visible` while the output is collapsed.
  */
 .quarto-output-collapse-chevron {
 	position: absolute;
-	/*
-	 * The styled container has margin-left: 28px, so placing this at -26px
-	 * leaves a 2px gap from the wrapper's left edge and a small gap from
-	 * the styled container's border.
-	 */
-	left: -26px;
-	top: 4px;
 	width: 22px;
 	height: 22px;
 	padding: 2px;
@@ -510,26 +498,20 @@
 	align-items: center;
 	justify-content: center;
 	border-radius: 4px;
-	z-index: 10;
+	/*
+	 * Sit above the editor's line-number gutter, which is where this button
+	 * visually lives when positioned to the left of the view zone.
+	 */
+	z-index: 20;
 	pointer-events: auto;
 
-	/* Hidden by default; fades in on hover/focus via opacity transition. */
+	/* Hidden by default; fades in when `.visible` or `.always-visible` is set. */
 	opacity: 0;
 	visibility: hidden;
 	transition: opacity 0.15s ease, background-color 0.15s ease;
 }
 
-/* Reveal chevron when hovering or focusing within the view zone wrapper. */
-.quarto-inline-output-wrapper:hover .quarto-output-collapse-chevron,
-.quarto-inline-output-wrapper:focus-within .quarto-output-collapse-chevron {
-	opacity: 1;
-	visibility: visible;
-}
-
-/*
- * When the output is collapsed, the chevron is the primary affordance for
- * getting content back, so keep it visible regardless of hover state.
- */
+.quarto-output-collapse-chevron.visible,
 .quarto-output-collapse-chevron.always-visible {
 	opacity: 1;
 	visibility: visible;

@@ -33,6 +33,9 @@ import { parseVariablePath } from '../../../services/positronDataExplorer/common
 import { calculateInlineDataExplorerHeight } from './quartoInlineDataExplorerLayout.js';
 import { ResourceUsageGraph } from '../../positronConsole/browser/components/resourceUsageGraph.js';
 import { IResourceUsageHistoryService } from '../../../services/positronConsole/browser/resourceUsageHistoryService.js';
+import { IHoverService } from '../../../../platform/hover/browser/hover.js';
+import { getDefaultHoverDelegate } from '../../../../base/browser/ui/hover/hoverDelegateFactory.js';
+import { IManagedHover } from '../../../../base/browser/ui/hover/hover.js';
 
 /**
  * Minimum height for a view zone in pixels.
@@ -128,6 +131,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	 */
 	public readonly onDomNodeTop = (_top: number): void => {
 		this._layoutAllWebviews();
+		this._layoutCollapseButton();
 	};
 
 	private _zoneId: string | undefined;
@@ -230,13 +234,22 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 
 	// Collapse state: when true, outputs are hidden and a textual summary is shown
 	private _isCollapsed = false;
-	// Collapse chevron button (lives outside the styled container, to the left)
+	// Collapse chevron button (portaled into the editor's container node)
 	private readonly _collapseButton: HTMLButtonElement;
 	private _collapseChevronIcon!: HTMLSpanElement;
+	// Portal parent for the chevron (the editor's container DOM node)
+	private _collapseButtonParent: HTMLElement | undefined;
+	// Hover state tracked manually since the chevron lives in a separate DOM subtree
+	private _wrapperHovered = false;
+	private _chevronHovered = false;
+	// Short delay before hiding the chevron so moving between wrapper and chevron doesn't flicker
+	private _hideChevronTimeout: ReturnType<typeof setTimeout> | undefined;
 	// Summary line element, shown inside the styled container in place of outputs when collapsed
 	private readonly _summaryElement: HTMLElement;
 	// Cached image natural dimensions for summary generation (keyed by outputId)
 	private readonly _imageDimensions = new Map<string, { width: number; height: number }>();
+	// Managed hover for the chevron's "Expand Output" / "Collapse Output" tooltip
+	private _collapseButtonHover: IManagedHover | undefined;
 
 	constructor(
 		private readonly _editor: ICodeEditor,
@@ -249,6 +262,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		documentUri?: URI,
 		private readonly _resourceUsageHistoryService?: IResourceUsageHistoryService,
 		private readonly _onTimestampTick?: VSEvent<void>,
+		private readonly _hoverService?: IHoverService,
 	) {
 		super();
 
@@ -343,12 +357,12 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		});
 		this._styledContainer.appendChild(this._summaryElement);
 
-		// Create the collapse chevron button. Appended to the styled container
-		// (then positioned with a negative `left` via CSS) so that its vertical
-		// position tracks the box's top edge regardless of whether the status
-		// bar above it is visible.
+		// Create the collapse chevron button. It is NOT appended here: Monaco
+		// clips view zone contents horizontally, so to render the chevron
+		// visually outside the styled container's left edge (into the gutter
+		// area), we portal it into the editor's container node in `show()`
+		// and position it via `_layoutCollapseButton()`.
 		this._collapseButton = this._createCollapseButton();
-		this._styledContainer.appendChild(this._collapseButton);
 
 		// Apply editor font to the output container
 		this._applyEditorFont();
@@ -364,6 +378,25 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._register(this._editor.onDidLayoutChange(() => {
 			if (this._zoneId) {
 				this._applyWidth();
+				this._layoutCollapseButton();
+			}
+		}));
+
+		// Backup scroll listener for the chevron position. `onDomNodeTop`
+		// covers normal vertical scroll, but scrolls that don't move this
+		// zone (e.g., horizontal scroll) still need re-layout.
+		this._register(this._editor.onDidScrollChange(() => {
+			if (this._zoneId) {
+				this._layoutCollapseButton();
+			}
+		}));
+
+		// Content size changes happen when view zones are added / resized.
+		// This is the signal that Monaco has recomputed our zone's position,
+		// so the chevron's anchor (styledContainer) has a valid rect now.
+		this._register(this._editor.onDidContentSizeChange(() => {
+			if (this._zoneId) {
+				this._layoutCollapseButton();
 			}
 		}));
 
@@ -372,6 +405,16 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 
 		// Set up mouse event handling for text selection
 		this._setupTextSelection();
+
+		// Track wrapper hover for the portaled chevron's visibility.
+		this.domNode.addEventListener('mouseenter', () => {
+			this._wrapperHovered = true;
+			this._updateCollapseButtonVisibility();
+		});
+		this.domNode.addEventListener('mouseleave', () => {
+			this._wrapperHovered = false;
+			this._updateCollapseButtonVisibility();
+		});
 	}
 
 	/**
@@ -386,19 +429,11 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	 * Calculate the width for the view zone content area.
 	 * Uses the content width minus scrollbar to prevent overlap.
 	 */
-	/**
-	 * Horizontal space reserved on the left of the styled output box for the
-	 * collapse chevron. Kept in sync with the `margin-left` declared in
-	 * quartoOutputViewZone.css for `.quarto-inline-output`.
-	 */
-	private static readonly COLLAPSE_CHEVRON_GUTTER = 28;
-
 	private _getWidth(layoutInfo: EditorLayoutInfo): number {
 		// contentWidth is the content area width (excludes line numbers and minimap),
-		// but includes the scrollbar overlay area. Subtract scrollbar width, a small
-		// margin for visual padding, and the chevron gutter on the left.
-		return layoutInfo.contentWidth - layoutInfo.verticalScrollbarWidth - 4
-			- QuartoOutputViewZone.COLLAPSE_CHEVRON_GUTTER;
+		// but includes the scrollbar overlay area. Subtract scrollbar width and a small
+		// margin for visual padding.
+		return layoutInfo.contentWidth - layoutInfo.verticalScrollbarWidth - 4;
 	}
 
 	/**
@@ -930,7 +965,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		const collapseLabel = localize('quartoCollapseOutput', 'Collapse Output');
 		this._collapseButton.setAttribute('aria-label', collapseLabel);
 		this._collapseButton.setAttribute('aria-expanded', 'true');
-		this._collapseButton.title = collapseLabel;
+		this._collapseButtonHover?.update(collapseLabel);
 
 		// Hide the status bar and stop any running timer/sparkline.
 		// This is an explicit user action to dismiss the output, so the
@@ -995,6 +1030,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 				});
 				// Re-apply width after zone is re-added
 				this._applyWidth();
+				this._layoutCollapseButton();
 			}
 		}
 	}
@@ -1017,6 +1053,10 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 
 		// Set up resize observer after showing
 		this._setupResizeObserver();
+
+		// Portal the chevron into the editor's container node and position it.
+		this._attachCollapseButton();
+		this._updateCollapseButtonVisibility();
 	}
 
 	/**
@@ -1033,6 +1073,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._zoneId = undefined;
 
 		this._disposeResizeObserver();
+		this._detachCollapseButton();
 	}
 
 	/**
@@ -1060,6 +1101,11 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		if (this._copyButtonTimeout) {
 			clearTimeout(this._copyButtonTimeout);
 		}
+		if (this._hideChevronTimeout) {
+			clearTimeout(this._hideChevronTimeout);
+			this._hideChevronTimeout = undefined;
+		}
+		this._detachCollapseButton();
 		super.dispose();
 	}
 
@@ -1154,7 +1200,6 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		const collapseLabel = localize('quartoCollapseOutput', 'Collapse Output');
 		button.setAttribute('aria-label', collapseLabel);
 		button.setAttribute('aria-expanded', 'true');
-		button.title = collapseLabel;
 
 		this._collapseChevronIcon = document.createElement('span');
 		this._collapseChevronIcon.className = `${ThemeIcon.asClassName(Codicon.chevronDown)} collapse-chevron`;
@@ -1169,8 +1214,158 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			e.stopPropagation();
 			this.toggleCollapsed();
 		});
+		button.addEventListener('mouseenter', () => {
+			this._chevronHovered = true;
+			this._updateCollapseButtonVisibility();
+		});
+		button.addEventListener('mouseleave', () => {
+			this._chevronHovered = false;
+			this._updateCollapseButtonVisibility();
+		});
+		button.addEventListener('focus', () => this._updateCollapseButtonVisibility());
+		button.addEventListener('blur', () => this._updateCollapseButtonVisibility());
+
+		// Attach a managed hover so the tooltip matches Positron notebook
+		// styling (same delay, placement, and theming as the "Expand Output"
+		// / "Collapse Output" tooltip on notebook cells).
+		if (this._hoverService) {
+			this._collapseButtonHover = this._hoverService.setupManagedHover(
+				getDefaultHoverDelegate('element'),
+				button,
+				collapseLabel,
+			);
+			this._register(this._collapseButtonHover);
+		}
 
 		return button;
+	}
+
+	/**
+	 * Attach the chevron to the editor's `.overflow-guard` element (portal)
+	 * and position it. Called from `show()`.
+	 *
+	 * `.overflow-guard` is the editor's internal content-bounds container: its
+	 * top-left matches the top-left of the editor's content area. We use it
+	 * instead of `getContainerDomNode()` (which is the consumer-provided
+	 * wrapper and may include surrounding chrome) so that absolutely-positioned
+	 * children land at the right viewport offset.
+	 */
+	private _attachCollapseButton(): void {
+		if (!this._collapseButtonParent) {
+			const container = this._editor.getContainerDomNode();
+			const overflowGuard = container.querySelector('.overflow-guard') as HTMLElement | null;
+			this._collapseButtonParent = overflowGuard ?? container;
+		}
+		if (this._collapseButton.parentElement !== this._collapseButtonParent) {
+			this._collapseButtonParent.appendChild(this._collapseButton);
+		}
+		// Lay out immediately for a fast first paint, then again on the next
+		// frame in case Monaco hasn't positioned the view zone yet.
+		this._layoutCollapseButton();
+		this._scheduleCollapseButtonLayout();
+	}
+
+	/**
+	 * Schedule a deferred `_layoutCollapseButton` call for the next animation
+	 * frame. Used after events where Monaco may not have fully laid out the
+	 * view zone yet (initial show, zone repositioning, etc.).
+	 */
+	private _scheduleCollapseButtonLayout(): void {
+		const win = dom.getWindow(this.domNode);
+		win.requestAnimationFrame(() => this._layoutCollapseButton());
+	}
+
+	/**
+	 * Remove the chevron from its portal parent. Called from `hide()` /
+	 * `dispose()`.
+	 */
+	private _detachCollapseButton(): void {
+		if (this._collapseButton.parentElement) {
+			this._collapseButton.parentElement.removeChild(this._collapseButton);
+		}
+		this._wrapperHovered = false;
+		this._chevronHovered = false;
+		if (this._hideChevronTimeout) {
+			clearTimeout(this._hideChevronTimeout);
+			this._hideChevronTimeout = undefined;
+		}
+	}
+
+	/**
+	 * Position the portaled chevron so it sits just to the left of the
+	 * styled container's top-left corner, in the editor's left gutter.
+	 * Called on show / scroll / layout / height change.
+	 */
+	private _layoutCollapseButton(): void {
+		if (!this._collapseButtonParent || !this._zoneId) {
+			return;
+		}
+		if (this._collapseButton.parentElement !== this._collapseButtonParent) {
+			return;
+		}
+		const parentRect = this._collapseButtonParent.getBoundingClientRect();
+		const styledRect = this._styledContainer.getBoundingClientRect();
+
+		// If the styled container hasn't been sized yet (Monaco hasn't
+		// finished placing the view zone), hide the chevron and retry on the
+		// next frame. Otherwise it would end up at a stale / zero position.
+		if (styledRect.width === 0 || styledRect.height === 0) {
+			this._collapseButton.style.display = 'none';
+			this._scheduleCollapseButtonLayout();
+			return;
+		}
+		this._collapseButton.style.display = '';
+
+		// Position the button so its right edge sits 4px left of the styled
+		// container's left border. The vertical offset is the same regardless
+		// of collapsed state so the chevron stays visually anchored: the box
+		// grows / shrinks downward from this top edge, so a fixed top offset
+		// keeps the chevron aligned with the collapsed summary line while
+		// also sitting near the top-left corner when expanded.
+		const buttonWidth = 22;
+		const left = styledRect.left - parentRect.left - buttonWidth - 4;
+		const top = styledRect.top - parentRect.top + 7;
+		this._collapseButton.style.left = `${left}px`;
+		this._collapseButton.style.top = `${top}px`;
+	}
+
+	/**
+	 * Apply the current visibility intent to the chevron. Shown when the
+	 * output is collapsed (always), when the user is hovering either the
+	 * view zone wrapper or the chevron itself, or when the chevron has
+	 * keyboard focus. A short delay before hiding avoids flicker when
+	 * moving the pointer across the small gap between the wrapper and the
+	 * chevron (they live in separate DOM subtrees).
+	 */
+	private _updateCollapseButtonVisibility(): void {
+		const shouldShow = this._isCollapsed
+			|| this._wrapperHovered
+			|| this._chevronHovered
+			|| this._collapseButton.matches(':focus');
+
+		if (shouldShow) {
+			if (this._hideChevronTimeout) {
+				clearTimeout(this._hideChevronTimeout);
+				this._hideChevronTimeout = undefined;
+			}
+			this._collapseButton.classList.add('visible');
+			return;
+		}
+
+		if (this._hideChevronTimeout) {
+			return;
+		}
+		this._hideChevronTimeout = setTimeout(() => {
+			this._hideChevronTimeout = undefined;
+			// Re-check intent at fire time in case state flipped back.
+			const stillShouldShow = this._isCollapsed
+				|| this._wrapperHovered
+				|| this._chevronHovered
+				|| this._collapseButton.matches(':focus');
+			if (!stillShouldShow) {
+				this._collapseButton.classList.remove('visible');
+			}
+		}, 400);
 	}
 
 	/**
@@ -1213,7 +1408,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			: localize('quartoCollapseOutput', 'Collapse Output');
 		this._collapseButton.setAttribute('aria-label', label);
 		this._collapseButton.setAttribute('aria-expanded', this._isCollapsed ? 'false' : 'true');
-		this._collapseButton.title = label;
+		this._collapseButtonHover?.update(label);
 
 		if (this._isCollapsed) {
 			this._summaryElement.textContent = this._buildSummary();
@@ -1224,6 +1419,11 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		// Webviews are absolutely positioned over their container; re-layout so
 		// they either hide (zero rect when collapsed) or reappear (full rect).
 		this._layoutAllWebviews();
+
+		// Height change shifts the chevron's anchor (it tracks the styled box),
+		// and visibility policy changes when collapsing.
+		this._layoutCollapseButton();
+		this._updateCollapseButtonVisibility();
 	}
 
 	/**
@@ -2471,6 +2671,10 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		} else if (!this._zoneId) {
 			this.heightInPx = newHeight;
 		}
+
+		// The portaled chevron tracks the styled box's top-left; any height
+		// or width change shifts that anchor.
+		this._layoutCollapseButton();
 	}
 
 	private _announceOutput(output: ICellOutput): void {
