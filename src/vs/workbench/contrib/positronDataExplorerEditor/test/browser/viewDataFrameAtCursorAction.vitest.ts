@@ -11,6 +11,7 @@ import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ILanguageService } from '../../../../../editor/common/languages/language.js';
 import { CellUri } from '../../../notebook/common/notebookCommon.js';
+import { LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, INotebookLanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
@@ -34,8 +35,12 @@ const SESSION_ID = 'test-session-id';
 // helpers readable; the trade-off is that a real missing field won't be caught
 // by the compiler -- acceptable for tightly scoped unit tests.
 /* eslint-disable local/code-no-dangerous-type-assertions */
-const makeSession = (languageId: string): ILanguageRuntimeSession =>
-	({ sessionId: SESSION_ID, runtimeMetadata: { languageId } } as unknown as ILanguageRuntimeSession);
+const makeSession = (languageId: string, sessionId = SESSION_ID): ILanguageRuntimeSession =>
+({
+	sessionId,
+	runtimeMetadata: { languageId },
+	metadata: { sessionMode: LanguageRuntimeSessionMode.Console },
+} as unknown as ILanguageRuntimeSession);
 
 const makeCodeEditor = (options: {
 	word?: string;
@@ -101,6 +106,7 @@ describe('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 		// invoking the action.
 		let activeEditor: ICodeEditor | undefined;
 		let session: ILanguageRuntimeSession | undefined;
+		let activeSessions: ILanguageRuntimeSession[];
 		let getConsoleSessionForLanguage: ReturnType<typeof vi.fn<(id: string) => ILanguageRuntimeSession | undefined>>;
 		let getNotebookSessionForNotebookUri: ReturnType<typeof vi.fn<(uri: URI) => INotebookLanguageRuntimeSession | undefined>>;
 		let variablesInstances: IPositronVariablesInstance[];
@@ -118,6 +124,7 @@ describe('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 			.stub(IRuntimeSessionService, {
 				getConsoleSessionForLanguage: (id: string) => getConsoleSessionForLanguage(id),
 				getNotebookSessionForNotebookUri: (uri: URI) => getNotebookSessionForNotebookUri(uri),
+				get activeSessions() { return activeSessions; },
 			})
 			.stub(IPositronVariablesService, {
 				get positronVariablesInstances() { return variablesInstances; },
@@ -139,6 +146,7 @@ describe('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 		beforeEach(() => {
 			activeEditor = undefined;
 			session = undefined;
+			activeSessions = [];
 			getConsoleSessionForLanguage = vi.fn(() => session);
 			getNotebookSessionForNotebookUri = vi.fn().mockReturnValue(undefined);
 			variablesInstances = [];
@@ -179,6 +187,24 @@ describe('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 
 			expect(notificationInfo).toHaveBeenCalledTimes(1);
 			expect(notificationInfo.mock.calls[0][0]).toMatch(/No active R session/);
+		});
+
+		it('falls back to a running console session when no foreground session matches', async () => {
+			// getConsoleSessionForLanguage returns undefined (nothing foregrounded for R),
+			// but a running R console exists in activeSessions. We expect the lookup to
+			// fall through to activeSessions rather than notify "no active R session".
+			const runningRSession = makeSession('r', 'bg-r-session');
+			const viewStub = vi.fn().mockResolvedValue(undefined);
+			const item = makeVariableItem({ displayName: 'df', view: viewStub as unknown as IVariableItem['view'] });
+			activeEditor = makeCodeEditor({ word: 'df', languageId: 'r' });
+			session = undefined;
+			activeSessions = [runningRSession];
+			variablesInstances = [makeVariablesInstance([item], 'bg-r-session')];
+
+			await runAction();
+
+			expect(viewStub).toHaveBeenCalledTimes(1);
+			expect(notificationInfo).not.toHaveBeenCalled();
 		});
 
 		it('opens the Variables pane when no instance exists, then retries', async () => {

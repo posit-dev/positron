@@ -16,6 +16,7 @@ import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.j
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { LanguageRuntimeSessionMode } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { viewVariableItem } from '../../../services/positronDataExplorer/browser/positronDataExplorerViewVariableItem.js';
@@ -1320,10 +1321,22 @@ export class PositronDataExplorerViewDataFrameAtCursorAction extends Action2 {
 		// Notebook cells run in a per-notebook kernel session, which owns
 		// any variables defined by running the cells. Scripts use the
 		// language's console session instead.
+		//
+		// For scripts: getConsoleSessionForLanguage returns the foreground
+		// session (if it matches the language) or the last one brought to
+		// the foreground. A console can be running in the background
+		// without ever having been foregrounded -- fall back to scanning
+		// activeSessions in that case. Mirrors the lookup in
+		// PositronConsoleService.executeCode so "run code" and "view data
+		// frame" agree on which session to use.
 		const cellInfo = CellUri.parse(model.uri);
 		const session = cellInfo
 			? runtimeSessionService.getNotebookSessionForNotebookUri(cellInfo.notebook)
-			: runtimeSessionService.getConsoleSessionForLanguage(languageId);
+			: runtimeSessionService.getConsoleSessionForLanguage(languageId)
+			?? runtimeSessionService.activeSessions.find(s =>
+				s.runtimeMetadata.languageId === languageId &&
+				s.metadata.sessionMode === LanguageRuntimeSessionMode.Console,
+			);
 		if (!session) {
 			notificationService.info(localize(
 				'positron.viewDataFrameAtCursor.noSession',
