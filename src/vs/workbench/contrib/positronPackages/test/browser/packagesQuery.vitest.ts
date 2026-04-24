@@ -10,9 +10,7 @@ import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtil
 
 describe('packagesQuery', () => {
 
-	beforeEach(() => {
-		ensureNoLeakedDisposables();
-	});
+	ensureNoLeakedDisposables();
 
 	describe('parseQuery', () => {
 		it('empty input returns default sort and empty text', () => {

@@ -19,6 +19,8 @@ describe('provideStatementRange', () => {
 	let disposables: DisposableStore;
 	let registry: LanguageFeatureRegistry<StatementRangeProvider>;
 
+	ensureNoLeakedDisposables();
+
 	beforeEach(() => {
 		disposables = new DisposableStore();
 		registry = new LanguageFeatureRegistry<StatementRangeProvider>();
@@ -26,10 +28,6 @@ describe('provideStatementRange', () => {
 
 	afterEach(() => {
 		disposables.dispose();
-	});
-
-	beforeEach(() => {
-		ensureNoLeakedDisposables();
 	});
 
 	it('returns `undefined` when no providers are registered', async () => {
