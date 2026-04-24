@@ -60,6 +60,7 @@ export class JupyterLabPage {
 
 		// Wait for Positron to load
 		await page.waitForSelector('.monaco-workbench', { timeout: 60000 });
+		await this.positJupyter?.sessions.expectNoStartUpMessaging();
 	}
 
 	/**
