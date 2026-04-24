@@ -30,6 +30,7 @@ Every migration applies some subset of these translations. Each task lists which
 | `suiteTeardown(...)` | `afterAll(...)` |
 | `import * as assert from 'assert';` | remove (use `expect`) |
 | `assert.strictEqual(a, b)` | `expect(a).toBe(b)` |
+| `assert.equal(a, b)` | `expect(a).toBe(b)` for primitive values; `expect(a).toEqual(b)` if a/b could be objects |
 | `assert.deepStrictEqual(a, b)` | `expect(a).toEqual(b)` |
 | `assert.ok(x)` | `expect(x).toBeTruthy()` (or a more specific matcher) |
 | `assert.rejects(p, /re/)` | `await expect(p).rejects.toThrow(/re/)` |
