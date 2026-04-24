@@ -96,10 +96,11 @@ suite('Positron - PositronIdleTrackingChannelClient (client-side)', () => {
 	});
 
 	test('reportActivity sends correct command and args', async () => {
-		await client.reportActivity(99999);
+		await client.reportActivity();
 
 		assert.strictEqual(callLog.length, 1);
 		assert.strictEqual(callLog[0].command, 'reportActivity');
-		assert.deepStrictEqual(callLog[0].arg, { timestampMs: 99999 });
+		// Should pass no arguments (timestamp is generated server-side)
+		assert.strictEqual(callLog[0].arg, undefined);
 	});
 });

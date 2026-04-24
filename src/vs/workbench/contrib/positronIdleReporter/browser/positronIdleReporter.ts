@@ -45,14 +45,14 @@ class PositronIdleReporterContribution extends Disposable implements IWorkbenchC
 
 		// Report activity immediately on startup since the user just opened the
 		// window (which is itself an activity signal).
-		channel.reportActivity(Date.now());
+		channel.reportActivity();
 
 		// When the user becomes active, report it and start periodic heartbeats.
 		// When the user becomes inactive, stop heartbeats (the server's idle
 		// timer will naturally grow from the last reported timestamp).
 		this._register(userActivityService.onDidChangeIsActive(isActive => {
 			if (isActive) {
-				channel.reportActivity(Date.now());
+				channel.reportActivity();
 				this._startHeartbeat(channel);
 			} else {
 				this._heartbeatTimer.clear();
@@ -67,7 +67,7 @@ class PositronIdleReporterContribution extends Disposable implements IWorkbenchC
 
 	private _startHeartbeat(channel: PositronIdleTrackingChannelClient): void {
 		const timer = mainWindow.setInterval(() => {
-			channel.reportActivity(Date.now());
+			channel.reportActivity();
 		}, HEARTBEAT_INTERVAL_MS);
 
 		this._heartbeatTimer.value = { dispose: () => mainWindow.clearInterval(timer) };

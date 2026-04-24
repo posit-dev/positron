@@ -41,7 +41,7 @@ export class PositronIdleTrackingChannel implements IServerChannel {
 export class PositronIdleTrackingChannelClient {
 	constructor(private readonly _channel: IChannel) { }
 
-	reportActivity(timestampMs: number): Promise<void> {
-		return this._channel.call('reportActivity', { timestampMs });
+	reportActivity(): Promise<void> {
+		return this._channel.call('reportActivity');
 	}
 }
