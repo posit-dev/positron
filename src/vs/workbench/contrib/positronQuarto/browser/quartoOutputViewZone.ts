@@ -976,7 +976,6 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._isCollapsed = false;
 		this._styledContainer.classList.remove('quarto-output-collapsed');
 		this._collapseChevronIcon.classList.remove('collapsed');
-		this._collapseButton.classList.remove('always-visible');
 		const collapseLabel = localize('quartoCollapseOutput', 'Collapse Output');
 		this._collapseButton.setAttribute('aria-label', collapseLabel);
 		this._collapseButton.setAttribute('aria-expanded', 'true');
@@ -1346,17 +1345,19 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 
 	/**
 	 * Apply the current visibility intent to the chevron. Shown when the
-	 * output is collapsed (always), when the user is hovering either the
-	 * view zone wrapper or the chevron itself, or when the chevron has
-	 * keyboard focus. A short delay before hiding avoids flicker when
+	 * user is hovering either the view zone wrapper or the chevron itself,
+	 * or when the chevron has keyboard focus — in both expanded and
+	 * collapsed states. A short delay before hiding avoids flicker when
 	 * moving the pointer across the small gap between the wrapper and the
 	 * chevron (they live in separate DOM subtrees).
 	 */
 	private _updateCollapseButtonVisibility(): void {
-		const shouldShow = this._isCollapsed
-			|| this._wrapperHovered
+		// Use `:focus-visible` rather than `:focus` so a mouse click (which
+		// briefly focuses the button) doesn't keep the chevron visible after
+		// the pointer moves away. Keyboard focus still reveals it.
+		const shouldShow = this._wrapperHovered
 			|| this._chevronHovered
-			|| this._collapseButton.matches(':focus');
+			|| this._collapseButton.matches(':focus-visible');
 
 		if (shouldShow) {
 			if (this._hideChevronTimeout) {
@@ -1373,10 +1374,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._hideChevronTimeout = setTimeout(() => {
 			this._hideChevronTimeout = undefined;
 			// Re-check intent at fire time in case state flipped back.
-			const stillShouldShow = this._isCollapsed
-				|| this._wrapperHovered
+			const stillShouldShow = this._wrapperHovered
 				|| this._chevronHovered
-				|| this._collapseButton.matches(':focus');
+				|| this._collapseButton.matches(':focus-visible');
 			if (!stillShouldShow) {
 				this._collapseButton.classList.remove('visible');
 			}
@@ -1416,7 +1416,6 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	private _updateCollapsedState(): void {
 		this._styledContainer.classList.toggle('quarto-output-collapsed', this._isCollapsed);
 		this._collapseChevronIcon.classList.toggle('collapsed', this._isCollapsed);
-		this._collapseButton.classList.toggle('always-visible', this._isCollapsed);
 
 		const label = this._isCollapsed
 			? localize('quartoExpandOutput', 'Expand Output')

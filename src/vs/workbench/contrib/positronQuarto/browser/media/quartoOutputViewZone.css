@@ -483,7 +483,7 @@
  * `top` / `left` are set in JS to track the view zone's position.
  *
  * Hidden by default; the JS layout logic toggles `.visible` on hover/focus
- * and `.always-visible` while the output is collapsed.
+ * of the wrapper or the chevron itself.
  */
 .quarto-output-collapse-chevron {
 	position: absolute;
@@ -511,8 +511,7 @@
 	transition: opacity 0.15s ease, background-color 0.15s ease;
 }
 
-.quarto-output-collapse-chevron.visible,
-.quarto-output-collapse-chevron.always-visible {
+.quarto-output-collapse-chevron.visible {
 	opacity: 1;
 	visibility: visible;
 }
