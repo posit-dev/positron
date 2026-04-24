@@ -9,8 +9,8 @@ import { IHeaders } from '../../../../base/parts/request/common/request.js';
 import { localize } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IEnvironmentService } from '../../../../platform/environment/common/environment.js';
-import { IExtensionGalleryManifestService, IExtensionGalleryManifest, ExtensionGalleryServiceUrlConfigKey, ExtensionGalleryManifestStatus } from '../../../../platform/extensionManagement/common/extensionGalleryManifest.js';
-import { ExtensionGalleryManifestService } from '../../../../platform/extensionManagement/common/extensionGalleryManifestService.js';
+import { IExtensionGalleryManifestService, IExtensionGalleryManifest, ExtensionGalleryServiceUrlConfigKey, ExtensionGalleryManifestStatus, PositronGallerySourceConfigKey } from '../../../../platform/extensionManagement/common/extensionGalleryManifest.js';
+import { ExtensionGalleryManifestService, ExtensionGalleryConfig, POSITRON_GALLERY_PRESETS } from '../../../../platform/extensionManagement/common/extensionGalleryManifestService.js';
 import { resolveMarketplaceHeaders } from '../../../../platform/externalServices/common/marketplace.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
@@ -74,6 +74,16 @@ export class WorkbenchExtensionGalleryManifestService extends ExtensionGalleryMa
 		});
 	}
 
+	// --- Start Positron ---
+	protected override getGalleryConfig(): ExtensionGalleryConfig | undefined {
+		const source = this.configurationService.getValue<string>(PositronGallerySourceConfigKey);
+		if (source === 'open-vsx') {
+			return POSITRON_GALLERY_PRESETS['open-vsx'];
+		}
+		return super.getGalleryConfig();
+	}
+	// --- End Positron ---
+
 	private extensionGalleryManifestPromise: Promise<void> | undefined;
 	override async getExtensionGalleryManifest(): Promise<IExtensionGalleryManifest | null> {
 		if (!this.extensionGalleryManifestPromise) {
@@ -99,6 +109,12 @@ export class WorkbenchExtensionGalleryManifestService extends ExtensionGalleryMa
 		}
 
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
+			// --- Start Positron ---
+			if (e.affectsConfiguration(PositronGallerySourceConfigKey)) {
+				this.requestRestart();
+				return;
+			}
+			// --- End Positron ---
 			if (!e.affectsConfiguration(ExtensionGalleryServiceUrlConfigKey)) {
 				return;
 			}

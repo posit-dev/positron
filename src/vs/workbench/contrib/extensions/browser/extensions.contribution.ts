@@ -25,7 +25,7 @@ import { CommandsRegistry, ICommandService } from '../../../../platform/commands
 import { Extensions as ConfigurationExtensions, ConfigurationScope, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { ContextKeyExpr, IContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { IDialogService, IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
-import { ExtensionGalleryManifestStatus, ExtensionGalleryResourceType, ExtensionGalleryServiceUrlConfigKey, getExtensionGalleryManifestResourceUri, IExtensionGalleryManifest, IExtensionGalleryManifestService } from '../../../../platform/extensionManagement/common/extensionGalleryManifest.js';
+import { ExtensionGalleryManifestStatus, ExtensionGalleryResourceType, ExtensionGalleryServiceUrlConfigKey, getExtensionGalleryManifestResourceUri, IExtensionGalleryManifest, IExtensionGalleryManifestService, PositronGallerySourceConfigKey } from '../../../../platform/extensionManagement/common/extensionGalleryManifest.js';
 import { EXTENSION_INSTALL_SOURCE_CONTEXT, ExtensionInstallSource, ExtensionRequestsTimeoutConfigKey, ExtensionsLocalizedLabel, FilterType, IExtensionGalleryService, IExtensionManagementService, PreferencesLocalizedLabel, SortBy, VerifyExtensionSignatureConfigKey } from '../../../../platform/extensionManagement/common/extensionManagement.js';
 import { areSameExtensions, getIdAndVersion } from '../../../../platform/extensionManagement/common/extensionManagementUtil.js';
 import { ExtensionStorageService } from '../../../../platform/extensionManagement/common/extensionStorage.js';
@@ -309,6 +309,24 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 					}
 				},
 			},
+			// --- Start Positron ---
+			[PositronGallerySourceConfigKey]: {
+				type: 'string',
+				enum: ['posit-p3m', 'open-vsx'],
+				enumDescriptions: [
+					localize('positron.extensions.gallerySource.positP3m', "Posit Public Package Manager (p3m.dev) - Posit's curated extension registry (default)"),
+					localize('positron.extensions.gallerySource.openVsx', "Open VSX Registry (open-vsx.org) - the upstream open-source extension registry"),
+				],
+				enumItemLabels: [
+					localize('positron.extensions.gallerySource.positP3m.label', "Posit Public Package Manager"),
+					localize('positron.extensions.gallerySource.openVsx.label', "Open VSX Registry"),
+				],
+				description: localize('positron.extensions.gallerySource', "Choose which extension gallery (marketplace) to use for browsing and installing extensions. Changes require a restart."),
+				default: 'posit-p3m',
+				scope: ConfigurationScope.APPLICATION,
+				tags: ['usesOnlineServices'],
+			},
+			// --- End Positron ---
 			'extensions.supportNodeGlobalNavigator': {
 				type: 'boolean',
 				description: localize('extensionsSupportNodeGlobalNavigator', "When enabled, Node.js navigator object is exposed on the global scope."),
