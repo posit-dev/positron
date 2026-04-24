@@ -9,8 +9,16 @@ import { IHeaders } from '../../../../base/parts/request/common/request.js';
 import { localize } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IEnvironmentService } from '../../../../platform/environment/common/environment.js';
-import { IExtensionGalleryManifestService, IExtensionGalleryManifest, ExtensionGalleryServiceUrlConfigKey, ExtensionGalleryManifestStatus, PositronGallerySourceConfigKey } from '../../../../platform/extensionManagement/common/extensionGalleryManifest.js';
-import { ExtensionGalleryManifestService, ExtensionGalleryConfig, POSITRON_GALLERY_PRESETS } from '../../../../platform/extensionManagement/common/extensionGalleryManifestService.js';
+import { IExtensionGalleryManifestService, IExtensionGalleryManifest, ExtensionGalleryServiceUrlConfigKey, ExtensionGalleryManifestStatus } from '../../../../platform/extensionManagement/common/extensionGalleryManifest.js';
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { PositronGallerySourceConfigKey } from '../../../../platform/extensionManagement/common/extensionGalleryManifest.js';
+// --- End Positron ---
+import { ExtensionGalleryManifestService } from '../../../../platform/extensionManagement/common/extensionGalleryManifestService.js';
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { ExtensionGalleryConfig, POSITRON_GALLERY_PRESETS } from '../../../../platform/extensionManagement/common/extensionGalleryManifestService.js';
+// --- End Positron ---
 import { resolveMarketplaceHeaders } from '../../../../platform/externalServices/common/marketplace.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
@@ -77,8 +85,9 @@ export class WorkbenchExtensionGalleryManifestService extends ExtensionGalleryMa
 	// --- Start Positron ---
 	protected override getGalleryConfig(): ExtensionGalleryConfig | undefined {
 		const source = this.configurationService.getValue<string>(PositronGallerySourceConfigKey);
-		if (source === 'open-vsx') {
-			return POSITRON_GALLERY_PRESETS['open-vsx'];
+		const preset = POSITRON_GALLERY_PRESETS[source];
+		if (preset) {
+			return preset;
 		}
 		return super.getGalleryConfig();
 	}

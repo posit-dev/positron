@@ -9,7 +9,9 @@ import { IProductService } from '../../product/common/productService.js';
 import { ExtensionGalleryResourceType, Flag, IExtensionGalleryManifest, IExtensionGalleryManifestService, ExtensionGalleryManifestStatus } from './extensionGalleryManifest.js';
 import { FilterType, SortBy } from './extensionManagement.js';
 
+// --- Start Positron ---
 export type ExtensionGalleryConfig = {
+	// --- End Positron ---
 	readonly serviceUrl: string;
 	readonly itemUrl: string;
 	readonly publisherUrl: string;
