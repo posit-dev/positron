@@ -12,6 +12,33 @@
 
 ---
 
+## Resume point (as of 2026-04-24, pause)
+
+**Branch HEAD:** `3bbcc151c8` on `mi/vitest-pr2-finish-migration`. Working tree clean.
+
+**Completed:** Tasks 1–4 (8 files migrated across 8 commits; 3 doc/recipe-update commits).
+
+| Task | Status | Commits |
+| --- | --- | --- |
+| 1. `ansiStyles` + `webviewPreloadUtils` | ✅ Done | `0e2f79140b` |
+| 2. `linkDetector` + `notebookOutputWebviewServiceImpl` | ✅ Done | `618cb12dc2` |
+| 3. `packagesQuery` + `provideStatementRange` | ✅ Done (+ 2 fixups) | `1a5fecd293`, `a894ec7a0a`, `60123162c5` |
+| 4. `quartoExecutionOptions` + `quartoParser` | ✅ Done (+ 1 fixup) | `891256587d`, `3bbcc151c8` |
+
+**Recipe updates committed during execution** (`2b512b7175`, `087e67bb5f`): added `assert.equal → toBe` row to recipe A; added explicit warning against the naive substring swap that produces `expect(a, b);` silent no-ops, with a grep guard.
+
+**Next up:** Task 5 — port `src/vs/workbench/contrib/positronQuarto/test/browser/quartoKernelManager.test.ts` (265 lines, pure, own commit).
+
+**Lessons baked into the plan/prompts:**
+- Every implementer must grep for `^\s*expect\([^)]+,\s*[^)]+\);$` after editing and rewrite any match.
+- Every implementer must grep for leftover `suite(` / `setup(` / `teardown(` to catch nested Mocha idioms — Vitest accepts `suite` as an alias so tests pass vacuously.
+- `ensureNoLeakedDisposables()` goes at describe scope, never inside a `beforeEach`.
+- Tasks 1–9 (trivial / trivial+sinon) can use haiku implementer + haiku reviewers. Builder-fit tasks (10–15) should escalate to sonnet for code quality review.
+
+**Branch note:** this branch is stacked on the PR1 branch `mi/vitest-pr1-rtl-modernize`. Do NOT rebase onto `origin/main` while PR1 is open — a previous rebase attempt hit conflicts. Rebase once PR1 merges.
+
+---
+
 ## Migration Recipe (reference for all tasks)
 
 Every migration applies some subset of these translations. Each task lists which translations apply and any file-specific pitfalls.
