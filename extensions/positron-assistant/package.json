@@ -867,9 +867,6 @@
             "type": "boolean",
             "default": true,
             "markdownDescription": "%configuration.provider.positAI.enable.description%",
-            "tags": [
-              "preview"
-            ],
             "order": 8
           },
           "positron.assistant.provider.google.enable": {
