@@ -5,9 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import React from 'react';
-import { act, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { act, fireEvent } from '@testing-library/react';
 import { Emitter } from '../../../../../../base/common/event.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { LanguageRuntimeSessionMode, RuntimeState } from '../../../../../services/languageRuntime/common/languageRuntimeService.js';
@@ -34,6 +32,7 @@ function makeDisplayInfo(
 		sessionMode: LanguageRuntimeSessionMode.Console,
 		notebookUri: undefined,
 		runtimeId: 'python-3.12.1',
+		runtimeName: 'Python',
 		languageName: 'Python',
 		languageId: 'python',
 		base64EncodedIconSvg: undefined,
@@ -75,18 +74,33 @@ describe('TopActionBarSessionManager', () => {
 		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 		it('renders "Start Session" label when no foreground session', () => {
-			rtl.render(<TopActionBarSessionManager />);
-			expect(screen.getByTestId('session-manager-label')).toHaveTextContent('Start Session');
+			const { container } = rtl.render(
+				<TopActionBarSessionManager />
+			);
+
+			const label = container.querySelector('.action-bar-button-label');
+			expect(label?.textContent).toBe('Start Session');
 		});
 
 		it('renders arrow-swap icon when no foreground session', () => {
-			rtl.render(<TopActionBarSessionManager />);
-			expect(screen.getByTestId('session-manager-icon')).toHaveClass('codicon', 'codicon-arrow-swap');
+			const { container } = rtl.render(
+				<TopActionBarSessionManager />
+			);
+
+			// No session => we render <ActionBarButtonIcon icon={Codicon.arrowSwap} />
+			// rather than <RuntimeIcon>, so the session-icon span is absent.
+			expect(container.querySelector('.runtime-session-icon')).toBeNull();
+			const icon = container.querySelector('.action-bar-button-icon');
+			expect(icon?.className).toBe('action-bar-button-icon codicon codicon-arrow-swap');
 		});
 
 		it('renders a button when no active console sessions', () => {
-			rtl.render(<TopActionBarSessionManager />);
-			expect(screen.getByRole('button')).toBeInTheDocument();
+			const { container } = rtl.render(
+				<TopActionBarSessionManager />
+			);
+
+			const button = container.querySelector('button');
+			expect(button).not.toBeNull();
 		});
 	});
 
@@ -100,20 +114,30 @@ describe('TopActionBarSessionManager', () => {
 			.withReactServices()
 			.stub(IRuntimeSessionService, {
 				foregroundSessionDisplayInfo: consoleInfo,
-				activeSessions: [{ metadata: { sessionMode: LanguageRuntimeSessionMode.Console } }],
+				activeSessions: [{ metadata: { sessionMode: LanguageRuntimeSessionMode.Console } }] as any,
 				onDidChangeForegroundSessionDisplayInfo: displayInfoEmitter.event,
 			})
 			.build();
 		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 		it('renders session name as label for console session', () => {
-			rtl.render(<TopActionBarSessionManager />);
-			expect(screen.getByTestId('session-manager-label')).toHaveTextContent('Python 3.12.1');
+			const { container } = rtl.render(
+				<TopActionBarSessionManager />
+			);
+
+			const label = container.querySelector('.action-bar-button-label');
+			expect(label?.textContent).toBe('Python 3.12.1');
 		});
 
-		it('renders positron-new-console icon for console session', () => {
-			rtl.render(<TopActionBarSessionManager />);
-			expect(screen.getByTestId('session-manager-icon')).toHaveClass('codicon', 'codicon-positron-new-console');
+		it('renders a runtime-session-icon with the language class for a console session', () => {
+			const { container } = rtl.render(
+				<TopActionBarSessionManager />
+			);
+
+			const icon = container.querySelector('.runtime-session-icon');
+			expect(icon).not.toBeNull();
+			expect(icon?.classList.contains('file-icon')).toBe(true);
+			expect(icon?.classList.contains('python-lang-file-icon')).toBe(true);
 		});
 	});
 
@@ -135,13 +159,23 @@ describe('TopActionBarSessionManager', () => {
 		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 		it('renders notebook filename as label for notebook session', () => {
-			rtl.render(<TopActionBarSessionManager />);
-			expect(screen.getByTestId('session-manager-label')).toHaveTextContent('analysis.ipynb');
+			const { container } = rtl.render(
+				<TopActionBarSessionManager />
+			);
+
+			const label = container.querySelector('.action-bar-button-label');
+			expect(label?.textContent).toBe('analysis.ipynb');
 		});
 
-		it('renders notebook icon for notebook session', () => {
-			rtl.render(<TopActionBarSessionManager />);
-			expect(screen.getByTestId('session-manager-icon')).toHaveClass('codicon', 'codicon-notebook');
+		it('renders a runtime-session-icon with the file-extension class for a notebook session', () => {
+			const { container } = rtl.render(
+				<TopActionBarSessionManager />
+			);
+
+			const icon = container.querySelector('.runtime-session-icon');
+			expect(icon).not.toBeNull();
+			expect(icon?.classList.contains('file-icon')).toBe(true);
+			expect(icon?.classList.contains('ipynb-ext-file-icon')).toBe(true);
 		});
 	});
 
@@ -163,8 +197,12 @@ describe('TopActionBarSessionManager', () => {
 		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 		it('falls through to sessionName when notebook has no URI', () => {
-			rtl.render(<TopActionBarSessionManager />);
-			expect(screen.getByTestId('session-manager-label')).toHaveTextContent('R 4.3.2');
+			const { container } = rtl.render(
+				<TopActionBarSessionManager />
+			);
+
+			const label = container.querySelector('.action-bar-button-label');
+			expect(label?.textContent).toBe('R 4.3.2');
 		});
 	});
 
@@ -181,21 +219,27 @@ describe('TopActionBarSessionManager', () => {
 		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 		it('updates label when foreground session changes to a console session', () => {
-			rtl.render(<TopActionBarSessionManager />);
-			expect(screen.getByTestId('session-manager-label')).toHaveTextContent('Start Session');
+			const { container } = rtl.render(
+				<TopActionBarSessionManager />
+			);
+
+			expect(container.querySelector('.action-bar-button-label')?.textContent).toBe('Start Session');
 
 			act(() => {
 				displayInfoEmitter.fire(makeDisplayInfo({
 					sessionName: 'R 4.3.2',
+					languageId: 'r',
 					sessionMode: LanguageRuntimeSessionMode.Console,
 				}));
 			});
 
-			expect(screen.getByTestId('session-manager-label')).toHaveTextContent('R 4.3.2');
+			expect(container.querySelector('.action-bar-button-label')?.textContent).toBe('R 4.3.2');
 		});
 
 		it('updates label when foreground session changes to a notebook session', () => {
-			rtl.render(<TopActionBarSessionManager />);
+			const { container } = rtl.render(
+				<TopActionBarSessionManager />
+			);
 
 			act(() => {
 				displayInfoEmitter.fire(makeDisplayInfo({
@@ -205,22 +249,31 @@ describe('TopActionBarSessionManager', () => {
 				}));
 			});
 
-			expect(screen.getByTestId('session-manager-label')).toHaveTextContent('report.ipynb');
+			expect(container.querySelector('.action-bar-button-label')?.textContent).toBe('report.ipynb');
 		});
 
-		it('updates icon when session changes from none to console', () => {
-			rtl.render(<TopActionBarSessionManager />);
-			expect(screen.getByTestId('session-manager-icon')).toHaveClass('codicon', 'codicon-arrow-swap');
+		it('swaps from the arrow-swap fallback to a runtime-session-icon when a console session appears', () => {
+			const { container } = rtl.render(
+				<TopActionBarSessionManager />
+			);
+
+			expect(container.querySelector('.action-bar-button-icon.codicon-arrow-swap')).not.toBeNull();
+			expect(container.querySelector('.runtime-session-icon')).toBeNull();
 
 			act(() => {
 				displayInfoEmitter.fire(makeDisplayInfo());
 			});
 
-			expect(screen.getByTestId('session-manager-icon')).toHaveClass('codicon', 'codicon-positron-new-console');
+			expect(container.querySelector('.action-bar-button-icon.codicon-arrow-swap')).toBeNull();
+			const icon = container.querySelector('.runtime-session-icon');
+			expect(icon).not.toBeNull();
+			expect(icon?.classList.contains('python-lang-file-icon')).toBe(true);
 		});
 
-		it('updates icon when session changes to notebook', () => {
-			rtl.render(<TopActionBarSessionManager />);
+		it('swaps to a runtime-session-icon with the notebook extension class when switching to a notebook session', () => {
+			const { container } = rtl.render(
+				<TopActionBarSessionManager />
+			);
 
 			act(() => {
 				displayInfoEmitter.fire(makeDisplayInfo({
@@ -229,35 +282,42 @@ describe('TopActionBarSessionManager', () => {
 				}));
 			});
 
-			expect(screen.getByTestId('session-manager-icon')).toHaveClass('codicon', 'codicon-notebook');
+			const icon = container.querySelector('.runtime-session-icon');
+			expect(icon).not.toBeNull();
+			expect(icon?.classList.contains('ipynb-ext-file-icon')).toBe(true);
 		});
 
 		it('reverts to "Start Session" when session is cleared', () => {
-			rtl.render(<TopActionBarSessionManager />);
+			const { container } = rtl.render(
+				<TopActionBarSessionManager />
+			);
 
 			act(() => {
 				displayInfoEmitter.fire(makeDisplayInfo({ sessionName: 'Python 3.12.1' }));
 			});
-			expect(screen.getByTestId('session-manager-label')).toHaveTextContent('Python 3.12.1');
+			expect(container.querySelector('.action-bar-button-label')?.textContent).toBe('Python 3.12.1');
 
 			act(() => {
 				displayInfoEmitter.fire(undefined);
 			});
-			expect(screen.getByTestId('session-manager-label')).toHaveTextContent('Start Session');
+			expect(container.querySelector('.action-bar-button-label')?.textContent).toBe('Start Session');
 		});
 
-		it('reverts to arrow-swap icon when session is cleared', () => {
-			rtl.render(<TopActionBarSessionManager />);
+		it('reverts to the arrow-swap fallback icon when session is cleared', () => {
+			const { container } = rtl.render(
+				<TopActionBarSessionManager />
+			);
 
 			act(() => {
 				displayInfoEmitter.fire(makeDisplayInfo());
 			});
-			expect(screen.getByTestId('session-manager-icon')).toHaveClass('codicon', 'codicon-positron-new-console');
+			expect(container.querySelector('.runtime-session-icon')).not.toBeNull();
 
 			act(() => {
 				displayInfoEmitter.fire(undefined);
 			});
-			expect(screen.getByTestId('session-manager-icon')).toHaveClass('codicon', 'codicon-arrow-swap');
+			expect(container.querySelector('.runtime-session-icon')).toBeNull();
+			expect(container.querySelector('.action-bar-button-icon.codicon-arrow-swap')).not.toBeNull();
 		});
 	});
 
@@ -267,20 +327,20 @@ describe('TopActionBarSessionManager', () => {
 			.withReactServices()
 			.stub(IRuntimeSessionService, {
 				foregroundSessionDisplayInfo: undefined,
-				activeSessions: [{ metadata: { sessionMode: LanguageRuntimeSessionMode.Console } }],
+				activeSessions: [{ metadata: { sessionMode: LanguageRuntimeSessionMode.Console } }] as any,
 				onDidChangeForegroundSessionDisplayInfo: displayInfoEmitter.event,
 			})
 			.stub(ICommandService, { executeCommand: vi.fn().mockResolvedValue(undefined) })
 			.build();
 		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-		it('uses selectSession command when there are active console sessions', async () => {
-			const user = userEvent.setup();
-			rtl.render(
+		it('uses selectSession command when there are active console sessions', () => {
+			const { container } = rtl.render(
 				<TopActionBarSessionManager />
 			);
 
-			await user.click(screen.getByRole('button'));
+			const button = container.querySelector('button')!;
+			fireEvent.click(button);
 
 			expect(ctx.get(ICommandService).executeCommand).toHaveBeenCalledWith(
 				'workbench.action.language.runtime.selectSession'
@@ -301,13 +361,13 @@ describe('TopActionBarSessionManager', () => {
 			.build();
 		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-		it('uses startNewConsoleSession command when no active console sessions', async () => {
-			const user = userEvent.setup();
-			rtl.render(
+		it('uses startNewConsoleSession command when no active console sessions', () => {
+			const { container } = rtl.render(
 				<TopActionBarSessionManager />
 			);
 
-			await user.click(screen.getByRole('button'));
+			const button = container.querySelector('button')!;
+			fireEvent.click(button);
 
 			expect(ctx.get(ICommandService).executeCommand).toHaveBeenCalledWith(
 				'workbench.action.language.runtime.startNewConsoleSession'

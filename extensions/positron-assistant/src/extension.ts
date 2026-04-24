@@ -25,7 +25,6 @@ import { PositronAssistantApi } from './api.js';
 import { registerPromptManagement } from './promptRender.js';
 import { collectDiagnostics } from './diagnostics.js';
 import { log } from './log.js';
-import { resetAssistantState } from './reset.js';
 import { performSettingsMigrations } from './providerMigration.js';
 import { addAutoconfiguredModel, disposeModels, getAutoconfiguredModels, registerModelWithAPI, registerModels, registerModelsForProvider } from './modelRegistration';
 import { getModelProviders } from './providers/index.js';
@@ -171,14 +170,6 @@ function registerCollectDiagnosticsCommand(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron-assistant.collectDiagnostics', async () => {
 			await collectDiagnostics(context, log);
-		})
-	);
-}
-
-function registerResetCommand(context: vscode.ExtensionContext) {
-	context.subscriptions.push(
-		vscode.commands.registerCommand('positron-assistant.resetState', async () => {
-			await resetAssistantState(context);
 		})
 	);
 }
@@ -448,7 +439,6 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	registerExportChatCommands(context);
 	registerToggleInlineCompletionsCommand(context);
 	registerCollectDiagnosticsCommand(context);
-	registerResetCommand(context);
 
 	// Register prompt management
 	registerPromptManagement(context);

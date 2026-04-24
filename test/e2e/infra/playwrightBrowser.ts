@@ -149,11 +149,17 @@ async function launchBrowser(options: LaunchOptions, endpoint: string) {
 		headless: headless ?? false,
 		timeout: 0,
 		channel: browserChannel,
+		// Disable popup blocker
+		args: ['--disable-popup-blocking']
 	}), 'playwright#launch', logger) as unknown as playwright.Browser;
 
 	browser.on('disconnected', () => logger.log(`Playwright: browser disconnected`));
 
-	const context = await measureAndLog(() => browser.newContext(), 'browser.newContext', logger);
+	const context = await measureAndLog(() => browser.newContext({
+		// Allow popups/new tabs (needed for Jupyter launcher interactions)
+		ignoreHTTPSErrors: true,
+		bypassCSP: true
+	}), 'browser.newContext', logger);
 
 	if (tracing) {
 		try {

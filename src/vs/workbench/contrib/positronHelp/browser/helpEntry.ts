@@ -24,6 +24,7 @@ import { AnchorAlignment, AnchorAxisAlignment } from '../../../../base/browser/u
 import { POSITRON_HELP_COPY } from './positronHelpIdentifiers.js';
 import { IOverlayWebview, IWebviewService, WebviewContentPurpose } from '../../webview/browser/webview.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
 
 /**
  * Constants.
@@ -356,6 +357,7 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 		@IThemeService private readonly _themeService: IThemeService,
 		@IWebviewService private readonly _webviewService: IWebviewService,
 		@ICommandService private readonly _commandService: ICommandService,
+		@ILogService private readonly _logService: ILogService,
 	) {
 		// Call the base class's constructor.
 		super();
@@ -370,9 +372,29 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 	}
 
 	/**
+	 * Logs and sets the helpFocusedContextKey. Temporary instrumentation for
+	 * issue #9364. The Positron Help copy keybinding mis-targets when this key
+	 * sticks at true, and the failure modes are intermittent. Logs transitions
+	 * to the Window log (View → Output → Window) so affected users can share
+	 * them via issues/discussions.
+	 */
+	private setHelpFocusedContextKey(value: boolean, source: string): void {
+		const previous = this.helpFocusedContextKey.get() ?? false;
+		if (previous !== value) {
+			this._logService.info(`[positronHelpFocused] ${source}: ${previous} -> ${value}`);
+			this.helpFocusedContextKey.set(value);
+		}
+	}
+
+	/**
 	 * dispose override method.
 	 */
 	public override dispose(): void {
+		// Clear the focused context key. onDidBlur is not guaranteed to fire
+		// before the webview is torn down, so clear defensively to avoid a
+		// globally stuck positronHelpFocused=true. See issue #9364.
+		this.setHelpFocusedContextKey(false, 'dispose');
+
 		// Clear the set title timeout.
 		if (this._setTitleTimeout) {
 			clearTimeout(this._setTitleTimeout);
@@ -647,11 +669,11 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 		helpOverlayWebview.layoutWebviewOverElement(element);
 
 		this._register(helpOverlayWebview.onDidFocus(() => {
-			this.helpFocusedContextKey.set(true);
+			this.setHelpFocusedContextKey(true, 'webview.onDidFocus');
 		}));
 
 		this._register(helpOverlayWebview.onDidBlur(() => {
-			this.helpFocusedContextKey.set(false);
+			this.setHelpFocusedContextKey(false, 'webview.onDidBlur');
 		}));
 
 		// Run logic for animating cases.
@@ -663,6 +685,11 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 	 * @param dispose A value which indicates whether to dispose of the help overlay webiew.
 	 */
 	public hideHelpOverlayWebview(dispose: boolean) {
+		// Clear the focused context key. onDidBlur is not guaranteed to fire
+		// when the webview is released/hidden, so clear defensively to avoid a
+		// globally stuck positronHelpFocused=true. See issue #9364.
+		this.setHelpFocusedContextKey(false, `hideHelpOverlayWebview(dispose=${dispose})`);
+
 		if (this._helpOverlayWebview) {
 			this.hideFind();
 			if (this._element) {

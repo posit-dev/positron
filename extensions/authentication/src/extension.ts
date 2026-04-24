@@ -54,6 +54,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		),
 	);
 	registerMigrateApiKeyCommand(context);
+
+	return { getLogs: () => log.formatEntriesForDiagnostics() };
 }
 
 async function registerAnthropicProvider(
