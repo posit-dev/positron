@@ -5,14 +5,11 @@
 
 /// <reference types="vitest/globals" />
 
-/* eslint-disable no-restricted-syntax */
-/* eslint-disable local/code-no-dangerous-type-assertions */
-
 import React from 'react';
 import { act, screen } from '@testing-library/react';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { NotebookErrorBoundary } from '../../browser/NotebookErrorBoundary.js';
-import { ILogService } from '../../../../../platform/log/common/log.js';
+import { NullLogService } from '../../../../../platform/log/common/log.js';
 
 function ThrowingComponent({ error }: { error: Error }): never {
 	throw error;
@@ -31,8 +28,8 @@ function ThrowingProvider({ children: _children }: { children: React.ReactNode }
 }
 
 function createMockLogService() {
-	const errorSpy = vi.fn();
-	const logService = { error: errorSpy } as unknown as ILogService;
+	const logService = new NullLogService();
+	const errorSpy = vi.spyOn(logService, 'error');
 	return { logService, errorSpy };
 }
 
@@ -101,8 +98,7 @@ describe('NotebookErrorBoundary', () => {
 						</NotebookErrorBoundary>
 					);
 
-				// Level-specific class is structural; no semantic handle exposes the level.
-				expect(rendered.container.querySelector(`.notebook-error-boundary-${level}`)).toBeInTheDocument();
+				expect(screen.getByRole('alert')).toHaveClass(`notebook-error-boundary-${level}`);
 				expect(screen.getByText(message)).toBeInTheDocument();
 				rendered.unmount();
 			}

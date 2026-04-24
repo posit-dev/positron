@@ -13,6 +13,7 @@ import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { WebviewPlotThumbnail } from '../../browser/components/webviewPlotThumbnail.js';
 import { WebviewPlotClient } from '../../browser/webviewPlotClient.js';
+import { mock } from '../../../../../base/test/common/mock.js';
 
 describe('WebviewPlotThumbnail', () => {
 	// Emitter at describe level -- wired into the mock plotClient so .fire()
@@ -21,16 +22,17 @@ describe('WebviewPlotThumbnail', () => {
 	const onDidRenderThumbnail = new Emitter<string>();
 
 	function makePlotClient(overrides: Partial<WebviewPlotClient> = {}): WebviewPlotClient {
-		// Partial plot-client mock: the component only reads id, thumbnailUri,
-		// and onDidRenderThumbnail. The double-cast is the established test
-		// pattern for partial-object mocks of complex service classes.
-		// eslint-disable-next-line local/code-no-dangerous-type-assertions
-		return {
+		// The component only reads id, thumbnailUri, and onDidRenderThumbnail;
+		// mock<T>() gives a typed stub whose unused members throw if anything
+		// else is accessed, which is exactly what we want.
+		const client = new class extends mock<WebviewPlotClient>() { };
+		Object.assign(client, {
 			id: 'plot-1',
 			thumbnailUri: undefined,
 			onDidRenderThumbnail: onDidRenderThumbnail.event,
 			...overrides,
-		} as unknown as WebviewPlotClient;
+		});
+		return client;
 	}
 	const ctx = createTestContainer()
 		.withReactServices()

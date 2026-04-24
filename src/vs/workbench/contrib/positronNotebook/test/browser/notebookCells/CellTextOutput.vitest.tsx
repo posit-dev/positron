@@ -20,6 +20,7 @@ import { IPositronNotebookInstance } from '../../../browser/IPositronNotebookIns
 import { NotebookInstanceProvider } from '../../../browser/NotebookInstanceProvider.js';
 import { CellTextOutput } from '../../../browser/notebookCells/CellTextOutput.js';
 import { ParsedTextOutput } from '../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
+import { mock } from '../../../../../../base/test/common/mock.js';
 
 /** Generate multiline content with the given number of lines. */
 function makeLines(n: number): string {
@@ -48,14 +49,17 @@ describe('CellTextOutput', () => {
 		if (options !== undefined) {
 			layoutConfig = { ...layoutConfig, ...options };
 		}
-		const notebookOptions = {
-			onDidChangeOptions: optionsEmitter.event,
-			getLayoutConfiguration: () => layoutConfig,
-		} as unknown as NotebookOptions;
-		const instance = {
-			notebookOptions,
-			hoverManager: { showHover: () => { }, hideHover: () => { } },
-		} as unknown as IPositronNotebookInstance;
+		const notebookOptions = new class extends mock<NotebookOptions>() {
+			override onDidChangeOptions = optionsEmitter.event;
+			override getLayoutConfiguration = () => layoutConfig as NotebookLayoutConfiguration & NotebookDisplayOptions;
+		};
+		const instance = new class extends mock<IPositronNotebookInstance>() {
+			override notebookOptions = notebookOptions;
+			override hoverManager = new class extends mock<IPositronNotebookInstance['hoverManager']>() {
+				override showHover = () => { };
+				override hideHover = () => { };
+			};
+		};
 
 		return rtl.render(
 			<NotebookInstanceProvider instance={instance}>

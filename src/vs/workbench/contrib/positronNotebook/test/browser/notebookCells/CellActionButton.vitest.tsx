@@ -5,9 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-/* eslint-disable local/code-no-dangerous-type-assertions */
-
-import { act, screen } from '@testing-library/react';
+import { act, screen, within } from '@testing-library/react';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { runWithFakedTimers } from '../../../../../../base/test/common/timeTravelScheduler.js';
 import { timeout } from '../../../../../../base/common/async.js';
@@ -19,6 +17,7 @@ import { MenuItemAction, SubmenuItemAction } from '../../../../../../platform/ac
 import { ThemeIcon } from '../../../../../../base/common/themables.js';
 import { CellSelectionType } from '../../../browser/selectionMachine.js';
 import { PositronNotebookActionId } from '../../../common/positronNotebookCommon.js';
+import { mock } from '../../../../../../base/test/common/mock.js';
 
 function mockAction(overrides?: Partial<{
 	id: string;
@@ -29,7 +28,8 @@ function mockAction(overrides?: Partial<{
 }>): MenuItemAction {
 	const id = overrides?.id ?? 'test-action';
 	const label = overrides?.label ?? 'Test';
-	return {
+	const action = new class extends mock<MenuItemAction>() { };
+	Object.assign(action, {
 		id,
 		label,
 		tooltip: overrides?.tooltip ?? '',
@@ -41,17 +41,13 @@ function mockAction(overrides?: Partial<{
 		},
 		run: overrides?.run ?? (() => Promise.resolve()),
 		dispose: () => { },
-	} as unknown as MenuItemAction;
+	});
+	return action;
 }
 
-/** Returns the `codicon-*` modifier class on the button's icon element. */
-function getIconClass(button: HTMLElement): string | undefined {
-	// Structural lookup: the Icon component renders a <div class="codicon codicon-<id>">
-	// and there's no accessible role/name on it -- the codicon-<id> modifier is the
-	// signal we want to assert on.
-	// eslint-disable-next-line no-restricted-syntax
-	const iconEl = button.querySelector<HTMLElement>('.codicon');
-	return iconEl?.className.split(' ').find(c => c.startsWith('codicon-') && c !== 'codicon');
+/** Returns the button's icon element, scoped via the `cell-action-button-icon` testid. */
+function getIcon(button: HTMLElement): HTMLElement {
+	return within(button).getByTestId('cell-action-button-icon');
 }
 
 async function clickAndFlush(button: HTMLElement) {
@@ -71,12 +67,16 @@ describe('CellActionButton', () => {
 
 	beforeEach(() => {
 		selectCellStub = vi.fn();
-		instance = {
-			hoverManager: undefined,
-			currentContainer: undefined,
-			selectionStateMachine: { selectCell: selectCellStub },
-		} as unknown as IPositronNotebookInstance;
-		cell = { id: 'cell-1' } as unknown as IPositronNotebookCell;
+		instance = new class extends mock<IPositronNotebookInstance>() {
+			override hoverManager = undefined;
+			override currentContainer = undefined;
+			override selectionStateMachine = new class extends mock<IPositronNotebookInstance['selectionStateMachine']>() {
+				override selectCell = selectCellStub;
+			};
+		};
+		cell = new class extends mock<IPositronNotebookCell>() {
+			override id = 'cell-1';
+		};
 	});
 
 	function renderButton(
@@ -146,13 +146,13 @@ describe('CellActionButton', () => {
 	it('renders icon when action has one', () => {
 		const button = renderButton(mockAction({ iconId: 'chevron-down' }));
 
-		expect(getIconClass(button)).toBe('codicon-chevron-down');
+		expect(getIcon(button)).toHaveClass('codicon-chevron-down');
 	});
 
 	it('renders DevErrorIcon when action has no icon', () => {
 		const button = renderButton(mockAction({ iconId: undefined }));
 
-		expect(getIconClass(button), 'Missing developer error icon').toBe('codicon-blank');
+		expect(getIcon(button), 'Missing developer error icon').toHaveClass('codicon-blank');
 	});
 
 	describe('success feedback', () => {
@@ -169,7 +169,7 @@ describe('CellActionButton', () => {
 
 			await clickAndFlush(button);
 
-			expect(getIconClass(button)).toBe('codicon-check');
+			expect(getIcon(button)).toHaveClass('codicon-check');
 
 			// act() wraps the timer advance because the 1500ms setTimeout calls setState to reset the icon.
 			await act(async () => {
@@ -177,7 +177,7 @@ describe('CellActionButton', () => {
 				await timeout(0);
 			});
 
-			expect(getIconClass(button), 'Original icon should be restored').toBe('codicon-copy');
+			expect(getIcon(button), 'Original icon should be restored').toHaveClass('codicon-copy');
 		}));
 
 		it('does not show check icon for non-opted-in actions', () => runWithFakedTimers({}, async () => {
@@ -189,7 +189,7 @@ describe('CellActionButton', () => {
 
 			await clickAndFlush(button);
 
-			expect(getIconClass(button)).toBe('codicon-copy');
+			expect(getIcon(button)).toHaveClass('codicon-copy');
 		}));
 
 		it('does not show check icon when action rejects', () => runWithFakedTimers({}, async () => {
@@ -198,7 +198,7 @@ describe('CellActionButton', () => {
 
 			await clickAndFlush(button);
 
-			expect(getIconClass(button)).toBe('codicon-copy');
+			expect(getIcon(button)).toHaveClass('codicon-copy');
 		}));
 	});
 });

@@ -5,8 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-/* eslint-disable local/code-no-dangerous-type-assertions */
-
 import React from 'react';
 import { act, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -18,6 +16,7 @@ import { IPositronConsoleService } from '../../../../services/positronConsole/br
 import { IResourceUsageHistoryService } from '../../../../services/positronConsole/browser/resourceUsageHistoryService.js';
 import { IRuntimeSessionMetadata } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { TestPositronConsoleInstance, TestPositronConsoleService } from '../../../../services/positronConsole/test/browser/testPositronConsoleService.js';
+import { mock } from '../../../../../base/test/common/mock.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { ConsoleTab } from '../../browser/components/consoleTab.js';
@@ -43,7 +42,10 @@ describe('ConsoleTab', () => {
 				startReason: 'test',
 			};
 			// ConsoleTab/RuntimeIcon read base64EncodedIconSvg and languageId off runtimeMetadata.
-			const runtimeMetadata = { base64EncodedIconSvg: undefined, languageId: 'python' } as ILanguageRuntimeMetadata;
+			const runtimeMetadata = new class extends mock<ILanguageRuntimeMetadata>() {
+				override base64EncodedIconSvg = undefined;
+				override languageId = 'python';
+			};
 			const instance = new TestPositronConsoleInstance(
 				sessionId,
 				sessionName,

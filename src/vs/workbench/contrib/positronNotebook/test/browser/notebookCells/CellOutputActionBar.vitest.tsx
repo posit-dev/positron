@@ -5,9 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-/* eslint-disable no-restricted-syntax */
-/* eslint-disable local/code-no-dangerous-type-assertions */
-
 import React from 'react';
 import { screen } from '@testing-library/react';
 import { mainWindow } from '../../../../../../base/browser/window.js';
@@ -23,10 +20,12 @@ import { PositronNotebookCodeCell } from '../../../browser/PositronNotebookCells
 import { IMenu, IMenuService, MenuItemAction, SubmenuItemAction } from '../../../../../../platform/actions/common/actions.js';
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { ThemeIcon } from '../../../../../../base/common/themables.js';
+import { mock } from '../../../../../../base/test/common/mock.js';
 
 /* Creates a mock MenuItemAction with the minimum fields needed for rendering. */
 function mockAction(id: string, label: string, iconId?: string): MenuItemAction {
-	return {
+	const action = new class extends mock<MenuItemAction>() { };
+	Object.assign(action, {
 		id,
 		label,
 		tooltip: '',
@@ -38,7 +37,8 @@ function mockAction(id: string, label: string, iconId?: string): MenuItemAction 
 		},
 		run: () => Promise.resolve(),
 		dispose: () => { },
-	} as unknown as MenuItemAction;
+	});
+	return action;
 }
 
 describe('CellOutputActionBar', () => {
@@ -68,11 +68,15 @@ describe('CellOutputActionBar', () => {
 
 	/* Render the component and return the RTL render result for querying. */
 	function renderActionBar(scrollTargetRef = React.createRef<HTMLElement | null>()) {
-		const instance = {
-			hoverManager: undefined,
-		} as unknown as IPositronNotebookInstance;
+		// The action bar only reads instance.hoverManager from the instance; mock<T>()
+		// gives a typed object and lets unused members throw if anything else is read.
+		const instance = new class extends mock<IPositronNotebookInstance>() {
+			override hoverManager = undefined;
+		};
 
-		const cell = {} as PositronNotebookCodeCell;
+		// The action bar passes the cell through without dereferencing it in this test;
+		// mock<T>() is the typed "never read" stub.
+		const cell = new class extends mock<PositronNotebookCodeCell>() { };
 
 		// RTL's act() batches effects, so the menu is created and actions
 		// resolved in a single render pass.
@@ -102,6 +106,16 @@ describe('CellOutputActionBar', () => {
 		expect(screen.getByRole('toolbar', { name: 'Cell output actions' })).toBeInTheDocument();
 	});
 
+	/**
+	 * Filters rendered buttons down to those marked as group separators.
+	 * The separator is a class-only visual marker applied to the last button
+	 * in a non-final group; it has no role or testid, so we read it off the
+	 * already-semantically-queried button elements.
+	 */
+	function getSeparators(): HTMLElement[] {
+		return screen.getAllByRole('button').filter(b => b.classList.contains('separator-after'));
+	}
+
 	it('renders buttons for a single group', () => {
 		menuActions = [
 			['0_visibility', [
@@ -109,15 +123,10 @@ describe('CellOutputActionBar', () => {
 				mockAction('expand', 'Expand', 'chevron-right'),
 			]],
 		];
-		const { container } = renderActionBar();
+		renderActionBar();
 
 		expect(screen.getAllByRole('button')).toHaveLength(2);
-		// Separator is a visual style applied via class, not an ARIA role,
-		// so we inspect the DOM directly for the separator-after class.
-		expect(
-			container.querySelectorAll('.action-button.separator-after'),
-			'No separators for a single group',
-		).toHaveLength(0);
+		expect(getSeparators(), 'No separators for a single group').toHaveLength(0);
 	});
 
 	it('renders separator before the last group', () => {
@@ -130,14 +139,10 @@ describe('CellOutputActionBar', () => {
 				mockAction('clear', 'Clear', 'close'),
 			]],
 		];
-		const { container } = renderActionBar();
+		renderActionBar();
 
 		expect(screen.getAllByRole('button')).toHaveLength(3);
-		// Separator is a visual style applied via class, not an ARIA role.
-		expect(
-			container.querySelectorAll('.action-button.separator-after'),
-			'One separator before the last group',
-		).toHaveLength(1);
+		expect(getSeparators(), 'One separator before the last group').toHaveLength(1);
 	});
 
 	it('only shows separator before the last group with three groups', () => {
@@ -146,14 +151,10 @@ describe('CellOutputActionBar', () => {
 			['1_middle', [mockAction('middle', 'Middle', 'info')]],
 			['2_destructive', [mockAction('clear', 'Clear', 'close')]],
 		];
-		const { container } = renderActionBar();
+		renderActionBar();
 
 		expect(screen.getAllByRole('button')).toHaveLength(3);
-		// Separator is a visual style applied via class, not an ARIA role.
-		expect(
-			container.querySelectorAll('.action-button.separator-after'),
-			'Only one separator before the last group',
-		).toHaveLength(1);
+		expect(getSeparators(), 'Only one separator before the last group').toHaveLength(1);
 	});
 
 	/* Verify the action bar wires up wheel forwarding (detailed behavior tested in useWheelForwarding.test). */

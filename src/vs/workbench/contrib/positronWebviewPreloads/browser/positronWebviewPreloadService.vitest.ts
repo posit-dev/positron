@@ -8,6 +8,7 @@
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { ensureNoLeakedDisposables } from '../../../../test/vitest/vitestUtils.js';
+import { mock } from '../../../../base/test/common/mock.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { PositronWebviewPreloadService } from './positronWebviewPreloadsService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -59,12 +60,12 @@ describe('PositronWebviewPreloadService - addNotebookOutput rawHtml', () => {
 	beforeEach(() => {
 		outputWebviewService = stubOutputWebviewService();
 
-		const runtimeSessionService = {
-			activeSessions: [],
-			onWillStartSession: Event.None,
-		} as unknown as IRuntimeSessionService;
+		const runtimeSessionService = new class extends mock<IRuntimeSessionService>() {
+			override activeSessions = [];
+			override onWillStartSession = Event.None;
+		};
 
-		const ipyWidgetsService = {} as IPositronIPyWidgetsService;
+		const ipyWidgetsService = new class extends mock<IPositronIPyWidgetsService>() { };
 
 		service = disposables.add(new PositronWebviewPreloadService(
 			runtimeSessionService,

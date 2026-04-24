@@ -5,12 +5,11 @@
 
 /// <reference types="vitest/globals" />
 
-/* eslint-disable local/code-no-dangerous-type-assertions */
-
 
 import React from 'react';
 import { act, screen } from '@testing-library/react';
 import { Emitter } from '../../../../../base/common/event.js';
+import { mock } from '../../../../../base/test/common/mock.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeStartupPhase } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeAutoStartEvent, IRuntimeStartupService } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
@@ -52,11 +51,13 @@ function createMockRuntimeStartupService() {
 }
 
 function makeAutoStartEvent(overrides: Partial<IRuntimeAutoStartEvent> = {}): IRuntimeAutoStartEvent {
+	const runtime = new class extends mock<ILanguageRuntimeMetadata>() { };
+	Object.assign(runtime, {
+		runtimeName: 'Python 3.12.1',
+		base64EncodedIconSvg: 'PHN2Zz48L3N2Zz4=', // <svg></svg>
+	});
 	return {
-		runtime: {
-			runtimeName: 'Python 3.12.1',
-			base64EncodedIconSvg: 'PHN2Zz48L3N2Zz4=', // <svg></svg>
-		} as ILanguageRuntimeMetadata,
+		runtime,
 		newSession: true,
 		activate: true,
 		...overrides,
@@ -162,13 +163,15 @@ describe('StartupStatus', () => {
 			rtl.render(<StartupStatus />);
 
 			// Simulate discovering 2 runtimes
+			const runtime1 = new class extends mock<ILanguageRuntimeMetadata>() { };
+			const runtime2 = new class extends mock<ILanguageRuntimeMetadata>() { };
 			act(() => {
-				langMock.registeredRuntimes.push({} as ILanguageRuntimeMetadata);
-				langMock.onDidRegisterRuntime.fire({} as ILanguageRuntimeMetadata);
+				langMock.registeredRuntimes.push(runtime1);
+				langMock.onDidRegisterRuntime.fire(runtime1);
 			});
 			act(() => {
-				langMock.registeredRuntimes.push({} as ILanguageRuntimeMetadata);
-				langMock.onDidRegisterRuntime.fire({} as ILanguageRuntimeMetadata);
+				langMock.registeredRuntimes.push(runtime2);
+				langMock.onDidRegisterRuntime.fire(runtime2);
 			});
 
 			// The count is rendered in a sibling <span> of the "Discovering interpreters"

@@ -5,13 +5,12 @@
 
 /// <reference types="vitest/globals" />
 
-/* eslint-disable local/code-no-dangerous-type-assertions */
-
 import type { Mock } from 'vitest';
 import { act, screen } from '@testing-library/react';
 import { setupRTLRenderer } from '../../../../../../../test/vitest/reactTestingLibrary.js';
 import { ISettableObservable, observableValue } from '../../../../../../../base/common/observable.js';
 import { MockContextKeyService } from '../../../../../../../platform/keybinding/test/common/mockKeybindingService.js';
+import { mock } from '../../../../../../../base/test/common/mock.js';
 import { IContextViewService } from '../../../../../../../platform/contextview/browser/contextView.js';
 import { unthemedInboxStyles } from '../../../../../../../base/browser/ui/inputbox/inputBox.js';
 import { unthemedToggleStyles } from '../../../../../../../base/browser/ui/toggle/toggle.js';
@@ -47,7 +46,7 @@ describe('PositronFindWidget', () => {
 				contextKeyService={new MockContextKeyService()}
 				// ContextViewService is only used by FindInput for validation message
 				// popups, which these tests don't trigger.
-				contextViewService={{} as IContextViewService}
+				contextViewService={new class extends mock<IContextViewService>() { }}
 				findInputOptions={{
 					label: 'Find',
 					inputBoxStyles: unthemedInboxStyles,
@@ -80,12 +79,8 @@ describe('PositronFindWidget', () => {
 				onPreviousMatch={onPreviousMatch}
 			/>
 		);
-		// Structural root: the component has no landmark role, so a class query
-		// is used to scope the widget element for class-based visibility checks.
-		// eslint-disable-next-line no-restricted-syntax
-		const widgetContainer = result.container.querySelector<HTMLDivElement>('.positron-find-widget');
-		expect(widgetContainer, 'Expected PositronFindWidget to be rendered').toBeInTheDocument();
-		return { ...result, widgetContainer: widgetContainer! };
+		const widgetContainer = screen.getByTestId('positron-find-widget');
+		return { ...result, widgetContainer };
 	}
 
 	beforeEach(() => {
@@ -133,7 +128,6 @@ describe('PositronFindWidget', () => {
 			act(() => isVisible.set(true, undefined));
 
 			expect(
-				// eslint-disable-next-line no-restricted-syntax
 				widgetContainer.contains(document.activeElement),
 				'Expected focus to be inside the find widget',
 			).toBe(true);
@@ -166,13 +160,9 @@ describe('PositronFindWidget', () => {
 
 		it('shows empty results while matchCount is loading', () => {
 			findText.set('foo', undefined);
-			const { container } = renderWidget();
+			renderWidget();
 
-			// Structural: the `.results` div is an empty <div> with no text or role
-			// while matchCount is loading, so no RTL query can find it.
-			// eslint-disable-next-line no-restricted-syntax
-			const results = container.querySelector('.results');
-			expect(results).toBeInTheDocument();
+			const results = screen.getByTestId('positron-find-widget-results');
 			// toHaveTextContent does substring matching on strings (so '' always matches).
 			// Use a regex for an exact empty-string check.
 			expect(results).toHaveTextContent(/^$/);

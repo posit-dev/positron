@@ -5,8 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-/* eslint-disable local/code-no-dangerous-type-assertions */
-
 import { screen } from '@testing-library/react';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { CellOutputCollapseButton } from '../../../browser/notebookCells/CellOutputCollapseButton.js';
@@ -15,6 +13,7 @@ import { observableValue, ISettableObservable } from '../../../../../../base/com
 import { CellSelectionType } from '../../../browser/selectionMachine.js';
 import { IPositronNotebookInstance } from '../../../browser/IPositronNotebookInstance.js';
 import { NotebookInstanceProvider } from '../../../browser/NotebookInstanceProvider.js';
+import { mock } from '../../../../../../base/test/common/mock.js';
 
 describe('CellOutputCollapseButton', () => {
 	const rtl = setupRTLRenderer();
@@ -30,17 +29,17 @@ describe('CellOutputCollapseButton', () => {
 	});
 
 	function renderButton() {
-		const cell = {
-			outputIsCollapsed,
-			toggleOutputCollapse: toggleStub,
-		} as unknown as PositronNotebookCodeCell;
+		const cell = new class extends mock<PositronNotebookCodeCell>() {
+			override outputIsCollapsed = outputIsCollapsed;
+			override toggleOutputCollapse = toggleStub;
+		};
 
-		const instance = {
-			hoverManager: undefined,
-			selectionStateMachine: {
-				selectCell: selectStub,
-			},
-		} as unknown as IPositronNotebookInstance;
+		const instance = new class extends mock<IPositronNotebookInstance>() {
+			override hoverManager = undefined;
+			override selectionStateMachine = new class extends mock<IPositronNotebookInstance['selectionStateMachine']>() {
+				override selectCell = selectStub;
+			};
+		};
 
 		return rtl.render(
 			<NotebookInstanceProvider instance={instance}>

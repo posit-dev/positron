@@ -5,8 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-/* eslint-disable local/code-no-dangerous-type-assertions */
-
 import { act } from '@testing-library/react';
 import { Emitter } from '../../../../../base/common/event.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
@@ -15,6 +13,7 @@ import { IMenu, IMenuChangeEvent, IMenuService, MenuId, MenuItemAction, SubmenuI
 import { IVersionedMenu, useMenu } from '../../browser/useMenu.js';
 import { useMenuActions } from '../../browser/useMenuActions.js';
 import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
+import { mock } from '../../../../../base/test/common/mock.js';
 
 type Actions = [string, (MenuItemAction | SubmenuItemAction)[]][];
 
@@ -39,7 +38,11 @@ function ComposedHarness({ contextKeyService, onActions }: {
 	return null;
 }
 
-const action = (id: string) => ({ id }) as MenuItemAction;
+const action = (id: string) => {
+	const a = new class extends mock<MenuItemAction>() { };
+	Object.assign(a, { id });
+	return a;
+};
 
 describe('useMenuActions', () => {
 	describe('standalone', () => {
@@ -60,7 +63,9 @@ describe('useMenuActions', () => {
 			let captured: Actions = [];
 			const expected: Actions = [['group', [action('a1'), action('a2')]]];
 			const menu: IVersionedMenu = {
-				current: { getActions: () => expected } as unknown as IMenu,
+				current: new class extends mock<IMenu>() {
+					override getActions = () => expected;
+				},
 				version: 0,
 			};
 
@@ -74,7 +79,9 @@ describe('useMenuActions', () => {
 			const actionsV1: Actions = [['g', [action('new')]]];
 			let currentActions = actionsV0;
 
-			const mockMenu = { getActions: () => currentActions } as unknown as IMenu;
+			const mockMenu = new class extends mock<IMenu>() {
+				override getActions = () => currentActions;
+			};
 
 			const { rerender } = rtl.render(<UseMenuActionsHarness
 				menu={{ current: mockMenu, version: 0 }}
@@ -159,7 +166,7 @@ describe('useMenuActions', () => {
 
 			// act() wraps fire() because the useMenu subscriber calls setState.
 			menuActions = [['g', [action('v1')]]];
-			act(() => onDidChange.fire({} as IMenuChangeEvent));
+			act(() => onDidChange.fire(new class extends mock<IMenuChangeEvent>() { }));
 
 			// One rerender to pick up the version bump
 			rerender(element);
