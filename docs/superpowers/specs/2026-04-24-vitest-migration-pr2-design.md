@@ -46,20 +46,22 @@ Three files are large enough to bound how writing-plans splits the work. These a
 - `executionHistoryService.test.ts` (1054 lines) — mechanical once the sinon→vi patterns are established from earlier files.
 - `runtimeSession.test.ts` (1444 lines, 41 sinon calls) — the largest single item. Port last so the sinon translation patterns are well-worn by then.
 
-### 2. Async notebook test helper — keep, rename, document
+### 2. Async notebook test helper — keep, modernize internals, rename, document
 
 `src/vs/workbench/contrib/positronNotebook/test/browser/testUtils.ts` exports `createPositronNotebookTestServices(disposables): Promise<TestServices>`. Two consumer tests (`positronNotebookEditorResolution.vitest.ts`, `positronNotebookConfigurationHandling.vitest.ts`) depend on its `await createEditorPart(...)` to exercise the **real** editor resolver against real editor groups. Mocking `IEditorGroupsService` would reduce those tests to testing our mock.
 
-**Decision: keep the async helper, don't extract a `.withNotebookEditorServices()` preset.**
+**Decision: keep the async helper. Don't make `.build()` async.**
 
 Rationale:
 - The async is load-bearing for 2 tests. The other ~100 notebook tests never need it and shouldn't pay for it.
 - Making `.build()` return a `Promise` to accommodate 2 files forces `await` on every author. That's the opposite of "easy for anyone to write."
 - A narrow async helper alongside the sync builder is the cleanest division of responsibility: the builder handles 99% of cases; the helper handles the editor-resolver case explicitly.
 
-**Polish applied in PR2:**
+**Polish applied in PR2.** The helper currently calls `positronWorkbenchInstantiationService(disposables)` directly — an anti-pattern per PR1's own rules. PR1 added the `.withNotebookEditorServices()` preset (which wires the workbench + editor/language/tree-sitter/webview-preload stubs needed to attach `TestCodeEditor` to notebook cells), so the helper can now compose that preset internally instead.
+
+- **Modernize internals.** Replace `positronWorkbenchInstantiationService(disposables)` with `createTestContainer().withNotebookEditorServices().build()`, then layer the async-only work on top (`await createEditorPart`, real `EditorResolverService`, the handful of notebook-specific service mocks that are unique to these 2 tests).
 - **Rename** `createPositronNotebookTestServices` → `setupNotebookEditorTest`. Verb-first, matches `setupRTLRenderer` naming.
-- **Add a JSDoc block** steering authors away by default: "Use this only when your test needs a real `EditorPart`. Most notebook tests should use `createTestContainer().withNotebookServices()` directly."
+- **Add a JSDoc block** steering authors away by default: "Use this only when your test needs a real `EditorPart`. Most notebook tests should use `createTestContainer().withNotebookEditorServices()` directly."
 - **Colocate** with `setupRTLRenderer` in `src/vs/test/vitest/` so the two test-setup helpers are discoverable together. (Or keep in-tree with a cross-link if the move turns out to pull in workbench-only imports — plan phase decides.)
 - Update the two consumer tests to the new name.
 
@@ -69,7 +71,7 @@ Rationale:
 
 ## Out of scope
 
-- **New preset extraction.** The `setupNotebookEditorTest` helper is not becoming a `.withNotebookEditorServices()` builder preset. Revisit only if a third async-requiring test appears.
+- **Further builder preset extraction.** PR1 already added `.withNotebookServices()` and `.withNotebookEditorServices()`. PR2 uses them, doesn't add more. If a migration needs something neither preset covers, extend via `.stub()` in-test rather than growing the builder.
 - **Extension-host tests** (`extensions/*/src/test/`). Those stay on Mocha by design — they need an activated extension host.
 - **E2E tests.** Out of scope entirely.
 - **Further RTL or builder convention changes.** PR1's conventions are frozen; PR2 applies them, doesn't rewrite them.
