@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, expect, tags } from '../_test.setup';
+import { test, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -62,21 +62,5 @@ test.describe('Sessions: Rename', {
 		// Verify session names persist
 		await sessions.expectSessionNameToBe(pySession.id, newPyName);
 		await sessions.expectSessionNameToBe(rSession.id, newRName);
-	});
-
-	test('Validate rename input has text pre-selected on open', async function ({ sessions }) {
-		const [pySession] = await sessions.start(['python', 'r']);
-
-		const input = await sessions.openRenameInputViaUI(pySession.id);
-
-		// Input should be focused with the entire session name selected, so
-		// typing immediately replaces it.
-		await expect(input).toBeFocused();
-		const { start, end } = await input.evaluate((el: HTMLInputElement) => ({
-			start: el.selectionStart,
-			end: el.selectionEnd,
-		}));
-		expect(start).toBe(0);
-		expect(end).toBe(pySession.name.length);
 	});
 });

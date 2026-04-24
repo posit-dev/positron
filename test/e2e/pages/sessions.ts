@@ -770,29 +770,6 @@ export class Sessions {
 	}
 
 	/**
-	 * Action: Open the rename input for a session via the tab context menu.
-	 * Returns the textbox locator once it is visible. Uses the shared
-	 * ContextMenu helper so it works against both native (macOS/Electron)
-	 * and HTML (web/Linux/Windows) context menus.
-	 *
-	 * @param sessionId - the id of the session
-	 */
-	async openRenameInputViaUI(sessionId: string): Promise<Locator> {
-		const sessionTab = this.getSessionTab(sessionId);
-
-		await this.console.focus();
-		await this.contextMenu.triggerAndClick({
-			menuTrigger: sessionTab,
-			menuTriggerButton: 'right',
-			menuItemLabel: 'Rename...'
-		});
-
-		const input = sessionTab.getByRole('textbox');
-		await expect(input).toBeVisible();
-		return input;
-	}
-
-	/**
 	 * Action: Rename a session via UI
 	 *
 	 * @param sessionId - the id of the session
@@ -800,8 +777,18 @@ export class Sessions {
 	 */
 	async renameViaUI(sessionId: string, newName: string): Promise<void> {
 		await test.step(`Rename session: ${sessionId} to ${newName}`, async () => {
-			const input = await this.openRenameInputViaUI(sessionId);
-			await input.fill(newName);
+			await this.console.focus();
+			const sessionTab = this.getSessionTab(sessionId);
+
+			// open the context menu and select "Rename"
+			await sessionTab.click({ button: 'right' });
+			await this.renameMenuItem.hover();
+			await this.page.waitForTimeout(500);
+			await this.renameMenuItem.click();
+
+			// input the new name
+			await expect(sessionTab.getByRole('textbox')).toBeVisible();
+			await sessionTab.getByRole('textbox').fill(newName);
 			await this.page.keyboard.press('Enter');
 		});
 	}
