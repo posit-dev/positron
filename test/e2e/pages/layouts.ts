@@ -93,6 +93,10 @@ export class Layouts {
 	 * @param layout Known layout to enter.
 	 */
 	async enterLayout(layout: keyof typeof positronLayoutPresets): Promise<void> {
+		const titlebarDragRegion = this.code.driver.page.locator('.titlebar-drag-region');
+		if (await titlebarDragRegion.isVisible()) {
+			await titlebarDragRegion.click();
+		}
 		await this.workbench.quickaccess.runCommand(positronLayoutPresets[layout], { keepOpen: true });
 	}
 
