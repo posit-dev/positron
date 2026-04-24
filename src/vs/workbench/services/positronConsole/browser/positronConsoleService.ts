@@ -1071,11 +1071,18 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 
 	/**
 	 * Clears any pre-existing user override of `console.scrollbackSize` exactly once per profile.
-	 * The default was raised (and rendering was memoized) so previously-picked values are obsolete;
-	 * after this runs, the flag is stored and we never touch the user's setting again.
+	 * The default was raised because of performance improvements, so previously-picked values are
+	 * obsolete. After this runs, the flag is stored and we never touch the user's setting again.
+	 *
+	 * Note: `updateValue` is async, and the flag is stored only after it resolves. Any
+	 * PositronConsoleInstance created in the same tick may observe the old override; each
+	 * instance's `onDidChangeConfiguration` handler reconciles `_scrollbackSize` once the update
+	 * lands. If `updateValue` rejects, the flag is not stored and the migration retries on the
+	 * next startup.
 	 */
 	private resetScrollbackSizeUserOverrideOnce(): void {
-		// If the flag is already set, we know we've done the reset for this profile before, so we can skip it.
+		// If the flag is already set, we know we've done the reset for this profile before, so we
+		// can skip it.
 		if (this._storageService.getBoolean(scrollbackSizeResetMigrationKey, StorageScope.PROFILE, false)) {
 			return;
 		}

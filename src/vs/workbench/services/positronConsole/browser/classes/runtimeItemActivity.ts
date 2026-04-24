@@ -53,10 +53,8 @@ export class RuntimeItemActivity extends RuntimeItem {
 	private _activityItems: ActivityItem[] = [];
 
 	/**
-	 * Monotonically increasing counter bumped on every mutation that affects
-	 * what RuntimeActivity renders (add/replace/stream-merge of activity items,
-	 * and scrollback-driven visibility changes). Used by React.memo to skip
-	 * re-rendering activities whose contents have not changed.
+	 * Monotonically increasing counter that is bumped whenever content rendered by RuntimeActivity
+	 * changes. Used by React.memo to determine whether to re-render or not.
 	 */
 	private _version = 0;
 
@@ -180,7 +178,7 @@ export class RuntimeItemActivity extends RuntimeItem {
 			// Trim scrollback on the activity item.
 			const result = this._activityItems[i].trimScrollback(remainingScrollbackSize);
 
-			// Adjust the first keep index, any trimmed flag, and remaining scrollback size.
+			// Adjust the first keep index, bump version flag, and remaining scrollback size.
 			firstKeepIndex = i;
 			bumpVersion ||= result.trimmed;
 			remainingScrollbackSize = Math.max(result.remainingScrollbackSize, 0);
