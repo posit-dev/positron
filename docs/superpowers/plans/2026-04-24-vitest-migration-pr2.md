@@ -1104,7 +1104,70 @@ git commit --allow-empty -m "test(vitest): document why setupNotebookEditorTest 
 
 ---
 
-## Task 19: Full verification
+## Task 19: Clean up grandfathered lint disables from PR1
+
+PR1 promoted `local/code-no-any-casts` and the selector-family `no-restricted-syntax` rules to `error` for `.vitest.*` files, and landed line-scoped `eslint-disable-next-line` comments on 10 pre-existing violations with a "deferred to follow-up cleanup PR" justification. This task does those real fixes and removes the disables.
+
+**Files + sites (each disable carries a comment starting with "deferred to follow-up cleanup PR"):**
+
+1. `src/vs/workbench/api/test/browser/positron/mainThreadPositronEphemeralStorage.vitest.ts` — 2 sites: `{ id: ..., folders: [] } as any` casting a partial `IWorkspace`. Fix: construct full `IWorkspace` stubs with all 4 fields (`id`, `folders`, `configuration`, `transient`); drop `as any` and drop the two disables.
+2. `src/vs/workbench/contrib/positronConsole/test/browser/positronConsoleFindWidget.vitest.ts` — 2 sites: `consoleContainer.querySelector('.console-instance')!` in test-setup code that builds a fake console container. Fix: change `createConsoleDOM` to return `{ container, instance }` so the test keeps a direct reference to the inner `.console-instance` element instead of re-querying via selector; drop both disables.
+3. `src/vs/workbench/contrib/positronPlots/test/electron-browser/positronPlotsService.vitest.ts` — 1 site: `(plotInstance as any)._commProxy` reaches into a private field to inject stub comms. Fix: add a test-only hook in `PlotClientInstance` source (`setCommProxyForTesting(proxy)` or similar `@internal` method), call that from the test instead; drop the disable.
+4. `src/vs/workbench/contrib/positronWebviewPreloads/browser/positronWebviewPreloadService.vitest.ts` — 3 sites: stub factories returning object literals `as any` because they implement `Partial<IPositronNotebookInstance>` / `Partial<IPositronNotebookOutputWebviewService>` / access a union-typed `result.webview` field. Fix: use `satisfies Partial<...>` where possible (2 sites) and narrow `addNotebookOutput`'s union return via a type guard (1 site); drop all three disables.
+5. `src/vs/workbench/contrib/runtimeNotebookKernel/tests/browser/notebookExecutionStatus.vitest.ts` — 1 site: `{ affectsConfiguration: () => true } as any` is a partial `IConfigurationChangeEvent`. Fix: construct a full stub with `source: ConfigurationTarget.USER`, `affectedKeys: new Set()`, `change: { keys: [], overrides: [] }`, and `affectsConfiguration: () => true`; drop the disable.
+6. `src/vs/workbench/contrib/runtimeNotebookKernel/tests/browser/runtimeNotebookKernelService.vitest.ts` — 1 site: `(notebookDocument.metadata.metadata as any).language_info.name` reads Jupyter notebook metadata shape that is loosely typed. Fix: define a local `NotebookLanguageInfo` interface (`{ language_info: { name: string } }`) and cast to that; drop the disable.
+
+- [ ] **Step 1: Find all grandfathered disables**
+
+```bash
+grep -rnE "eslint-disable-next-line.*-- .*deferred to follow-up cleanup PR" src/vs --include='*.vitest.ts' --include='*.vitest.tsx'
+```
+
+Expected: 10 hits across the 6 files above. This is the worklist.
+
+- [ ] **Step 2: Fix each site**
+
+Work through the 6 files in the order listed above. For each:
+1. Rewrite the cast/querySelector per the fix description.
+2. Delete the `eslint-disable-next-line` comment.
+3. Run `npx vitest run <file>` to confirm the test still passes.
+4. Run `npx eslint --max-warnings 0 <file>` to confirm no regression.
+
+The type-stub expansions (1, 5) need to verify interface shapes against the current source; check imports in the source file before writing the stub. The test-only hook (3) needs a small source change in `PlotClientInstance`.
+
+- [ ] **Step 3: Confirm all disables are gone**
+
+```bash
+grep -rnE "eslint-disable-next-line.*-- .*deferred to follow-up cleanup PR" src/vs --include='*.vitest.ts' --include='*.vitest.tsx'
+```
+
+Expected: no output.
+
+- [ ] **Step 4: Full suite + lint**
+
+```bash
+npm run test:positron
+npx eslint 'src/vs/**/*.vitest.ts' 'src/vs/**/*.vitest.tsx'
+```
+
+Expected: all tests pass; 0 errors on lint.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add -A
+git commit -m "test(vitest): replace grandfathered lint disables with proper fixes
+
+Clears the 10 line-scoped eslint-disable-next-line comments that PR1
+left in place with a 'deferred to follow-up cleanup PR' justification.
+Each site was rewritten with a typed stub, typed narrowing, or a
+test-only source hook so the assertion reads cleanly without the
+disable."
+```
+
+---
+
+## Task 20: Full verification
 
 - [ ] **Step 1: Verify no Positron `.test.ts` files remain in src/vs/**
 
