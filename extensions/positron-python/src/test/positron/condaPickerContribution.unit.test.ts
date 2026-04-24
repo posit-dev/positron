@@ -7,6 +7,7 @@
 
 import { expect } from 'chai';
 import * as path from 'path';
+import * as vscode from 'vscode';
 
 suite('CondaPythonPickerContribution', () => {
     suite('Basic functionality', () => {
@@ -108,7 +109,8 @@ suite('CondaPythonPickerContribution', () => {
 
             contribution['installPythonInCondaEnvQuiet'] = async (pythonPath: string) => {
                 installationCalled = true;
-                expect(pythonPath).to.include('/Users/test/miniconda3/envs/test1/python');
+                const expectedPath = path.normalize('/Users/test/miniconda3/envs/test1/python');
+                expect(path.normalize(pythonPath)).to.equal(expectedPath);
                 return {
                     installed: true,
                     actualPythonPath: '/Users/test/miniconda3/envs/test1/bin/python',
@@ -209,7 +211,8 @@ suite('CondaPythonPickerContribution', () => {
 
             testCases.forEach(({ envPath, expected }) => {
                 const predictedPath = path.join(envPath, 'python');
-                expect(predictedPath).to.equal(expected);
+                const normalizedExpected = path.normalize(expected);
+                expect(path.normalize(predictedPath)).to.equal(normalizedExpected);
             });
         });
 
@@ -234,7 +237,8 @@ suite('CondaPythonPickerContribution', () => {
             await contribution.onDidSelectItem(envPath);
 
             expect(installationParams).to.not.be.null;
-            expect(installationParams.pythonPath).to.equal('/Users/test/miniconda3/envs/myproject/python');
+            const expectedPath = path.normalize('/Users/test/miniconda3/envs/myproject/python');
+            expect(path.normalize(installationParams.pythonPath)).to.equal(expectedPath);
         });
     });
 });
