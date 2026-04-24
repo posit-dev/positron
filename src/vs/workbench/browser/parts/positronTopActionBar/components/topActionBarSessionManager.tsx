@@ -78,13 +78,18 @@ export const TopActionBarSessionManager = () => {
 				}
 				{displayInfo
 					? <RuntimeIcon
+						data-testid='session-manager-icon'
 						languageId={displayInfo.languageId}
 						notebookUri={displayInfo.notebookUri}
 						sessionMode={displayInfo.sessionMode}
 					/>
-					: <ActionBarButtonIcon icon={Codicon.arrowSwap} />
+					: <ActionBarButtonIcon
+						data-testid='session-manager-icon'
+						icon={Codicon.arrowSwap}
+					/>
 				}
 				<ActionBarButtonLabel
+					data-testid='session-manager-label'
 					hasIcon={true}
 					label={labelText}
 				/>
