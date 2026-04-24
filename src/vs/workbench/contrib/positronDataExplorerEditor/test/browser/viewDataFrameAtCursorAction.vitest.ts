@@ -3,8 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import assert from 'assert';
-import sinon from 'sinon';
+/// <reference types="vitest/globals" />
+
 import { Position } from '../../../../../editor/common/core/position.js';
 import { EditorType } from '../../../../../editor/common/editorCommon.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
@@ -21,7 +21,7 @@ import { IVariableItem } from '../../../../services/positronVariables/common/int
 import { IViewsService } from '../../../../services/views/common/viewsService.js';
 import { Event } from '../../../../../base/common/event.js';
 import { POSITRON_VARIABLES_VIEW_ID } from '../../../positronVariables/browser/positronVariables.contribution.js';
-import { createTestContainer } from '../../../../test/browser/positronTestContainer.js';
+import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import {
 	PositronDataExplorerCommandId,
 	PositronDataExplorerViewDataFrameAtCursorAction,
@@ -29,6 +29,11 @@ import {
 
 const SESSION_ID = 'test-session-id';
 
+// Test doubles below use `as unknown as <Service>` because the services have
+// large surface areas we don't exercise. Disabling the rule locally keeps the
+// helpers readable; the trade-off is that a real missing field won't be caught
+// by the compiler -- acceptable for tightly scoped unit tests.
+/* eslint-disable local/code-no-dangerous-type-assertions */
 const makeSession = (languageId: string): ILanguageRuntimeSession =>
 	({ sessionId: SESSION_ID, runtimeMetadata: { languageId } } as unknown as ILanguageRuntimeSession);
 
@@ -46,7 +51,7 @@ const makeCodeEditor = (options: {
 	} = options;
 	const model = {
 		uri,
-		getWordAtPosition: sinon.stub().returns(word ? { word, startColumn: 1, endColumn: word.length + 1 } : null),
+		getWordAtPosition: vi.fn().mockReturnValue(word ? { word, startColumn: 1, endColumn: word.length + 1 } : null),
 		getLanguageId: () => languageId,
 		getLanguageIdAtPosition: () => languageIdAtPosition,
 	};
@@ -63,7 +68,7 @@ const makeVariableItem = (overrides: Partial<IVariableItem> = {}): IVariableItem
 	path: [],
 	hasViewer: true,
 	displayName: 'df',
-	view: sinon.stub().resolves(undefined),
+	view: vi.fn().mockResolvedValue(undefined),
 	...overrides,
 } as unknown as IVariableItem);
 
@@ -76,75 +81,70 @@ const makeVariablesInstance = (
 	variableItems: items,
 	onDidChangeEntries: Event.None,
 } as unknown as IPositronVariablesInstance);
+/* eslint-enable local/code-no-dangerous-type-assertions */
 
-suite('PositronDataExplorerViewDataFrameAtCursorAction', () => {
-	suite('metadata', () => {
+describe('PositronDataExplorerViewDataFrameAtCursorAction', () => {
+	describe('metadata', () => {
 		createTestContainer().build();
 
-		test('registers with the expected id, f1, and editor context menu', () => {
+		it('registers with the expected id, f1, and editor context menu', () => {
 			const action = new PositronDataExplorerViewDataFrameAtCursorAction();
-			assert.strictEqual(
-				action.desc.id,
-				PositronDataExplorerCommandId.ViewDataFrameAtCursorAction,
-			);
-			assert.strictEqual(action.desc.f1, true);
+			expect(action.desc.id).toBe(PositronDataExplorerCommandId.ViewDataFrameAtCursorAction);
+			expect(action.desc.f1).toBe(true);
 			const menus = Array.isArray(action.desc.menu) ? action.desc.menu : [action.desc.menu];
-			assert.ok(
-				menus.some(m => m?.id.id === 'EditorContext'),
-				'action should contribute to the editor context menu',
-			);
+			expect(menus.some(m => m?.id.id === 'EditorContext')).toBe(true);
 		});
 	});
 
-	suite('run()', () => {
-		// Mutable per-test state. Each test configures these via setup hooks before
+	describe('run()', () => {
+		// Mutable per-test state. Each test configures these via beforeEach hooks before
 		// invoking the action.
 		let activeEditor: ICodeEditor | undefined;
 		let session: ILanguageRuntimeSession | undefined;
-		let getConsoleSessionForLanguage: sinon.SinonStub;
-		let getNotebookSessionForNotebookUri: sinon.SinonStub;
+		let getConsoleSessionForLanguage: ReturnType<typeof vi.fn<(id: string) => ILanguageRuntimeSession | undefined>>;
+		let getNotebookSessionForNotebookUri: ReturnType<typeof vi.fn<(uri: URI) => INotebookLanguageRuntimeSession | undefined>>;
 		let variablesInstances: IPositronVariablesInstance[];
-		let openViewStub: sinon.SinonStub;
-		let notificationInfo: sinon.SinonStub;
-		let notificationError: sinon.SinonStub;
+		let openViewStub: ReturnType<typeof vi.fn<(...args: unknown[]) => Promise<unknown>>>;
+		let notificationInfo: ReturnType<typeof vi.fn<(...args: unknown[]) => void>>;
+		let notificationError: ReturnType<typeof vi.fn<(...args: unknown[]) => void>>;
 
 		const ctx = createTestContainer()
 			.stub(IEditorService, {
 				get activeTextEditorControl() { return activeEditor; },
-			} as Partial<IEditorService>)
+			})
 			.stub(ILanguageService, {
 				getLanguageName: (id: string) => id === 'r' ? 'R' : id === 'python' ? 'Python' : null,
-			} as Partial<ILanguageService>)
+			})
 			.stub(IRuntimeSessionService, {
 				getConsoleSessionForLanguage: (id: string) => getConsoleSessionForLanguage(id),
 				getNotebookSessionForNotebookUri: (uri: URI) => getNotebookSessionForNotebookUri(uri),
-			} as Partial<IRuntimeSessionService>)
+			})
 			.stub(IPositronVariablesService, {
 				get positronVariablesInstances() { return variablesInstances; },
-			} as Partial<IPositronVariablesService>)
+			})
 			.stub(IPositronDataExplorerService, {
 				getInstanceForVar: () => undefined,
 				getInstanceForVariablePath: () => undefined,
-				setInstanceForVar: sinon.stub(),
-			} as Partial<IPositronDataExplorerService>)
+				setInstanceForVar: vi.fn(),
+			})
 			.stub(INotificationService, {
-				info: (...args: any[]) => notificationInfo(...args),
-				error: (...args: any[]) => notificationError(...args),
-			} as Partial<INotificationService>)
+				info: (...args: unknown[]) => notificationInfo(...args),
+				error: (...args: unknown[]) => notificationError(...args),
+			})
 			.stub(IViewsService, {
-				openView: (...args: any[]) => openViewStub(...args),
-			} as Partial<IViewsService>)
+				openView: (...args: unknown[]) => openViewStub(...args),
+			})
 			.build();
 
-		setup(() => {
+		beforeEach(() => {
 			activeEditor = undefined;
 			session = undefined;
-			getConsoleSessionForLanguage = sinon.stub().callsFake(() => session);
-			getNotebookSessionForNotebookUri = sinon.stub().returns(undefined);
+			getConsoleSessionForLanguage = vi.fn(() => session);
+			getNotebookSessionForNotebookUri = vi.fn().mockReturnValue(undefined);
 			variablesInstances = [];
-			openViewStub = sinon.stub().resolves(null);
-			notificationInfo = sinon.stub();
-			notificationError = sinon.stub();
+			openViewStub = vi.fn().mockResolvedValue(null);
+			notificationInfo = vi.fn();
+			notificationError = vi.fn();
 		});
 
 		const runAction = () => {
@@ -152,43 +152,43 @@ suite('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 			return ctx.instantiationService.invokeFunction(accessor => action.run(accessor));
 		};
 
-		test('notifies when no code editor is active', async () => {
+		it('notifies when no code editor is active', async () => {
 			activeEditor = undefined;
 
 			await runAction();
 
-			assert.strictEqual(notificationInfo.callCount, 1);
-			assert.match(notificationInfo.firstCall.args[0], /Place the cursor in the editor/);
-			assert.strictEqual(notificationError.callCount, 0);
+			expect(notificationInfo).toHaveBeenCalledTimes(1);
+			expect(notificationInfo.mock.calls[0][0]).toMatch(/Place the cursor in the editor/);
+			expect(notificationError).not.toHaveBeenCalled();
 		});
 
-		test('notifies when there is no word at the cursor', async () => {
+		it('notifies when there is no word at the cursor', async () => {
 			activeEditor = makeCodeEditor({ word: undefined });
 
 			await runAction();
 
-			assert.strictEqual(notificationInfo.callCount, 1);
-			assert.match(notificationInfo.firstCall.args[0], /No symbol at cursor/);
+			expect(notificationInfo).toHaveBeenCalledTimes(1);
+			expect(notificationInfo.mock.calls[0][0]).toMatch(/No symbol at cursor/);
 		});
 
-		test('notifies with "R" when no R session is active', async () => {
+		it('notifies with "R" when no R session is active', async () => {
 			activeEditor = makeCodeEditor({ word: 'df', languageId: 'r' });
 			session = undefined;
 
 			await runAction();
 
-			assert.strictEqual(notificationInfo.callCount, 1);
-			assert.match(notificationInfo.firstCall.args[0], /No active R session/);
+			expect(notificationInfo).toHaveBeenCalledTimes(1);
+			expect(notificationInfo.mock.calls[0][0]).toMatch(/No active R session/);
 		});
 
-		test('opens the Variables pane when no instance exists, then retries', async () => {
+		it('opens the Variables pane when no instance exists, then retries', async () => {
 			activeEditor = makeCodeEditor({ word: 'df', languageId: 'r' });
 			session = makeSession('r');
 			variablesInstances = [];
 
-			const viewStub = sinon.stub().resolves(undefined);
+			const viewStub = vi.fn().mockResolvedValue(undefined);
 			const item = makeVariableItem({ displayName: 'df', view: viewStub as unknown as IVariableItem['view'] });
-			openViewStub.callsFake(async () => {
+			openViewStub.mockImplementation(async () => {
 				// Simulate the pane opening: the instance appears with items
 				// already populated (as if the runtime returned them fast).
 				variablesInstances = [makeVariablesInstance([item])];
@@ -197,13 +197,13 @@ suite('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 
 			await runAction();
 
-			assert.strictEqual(openViewStub.callCount, 1);
-			assert.deepStrictEqual(openViewStub.firstCall.args, [POSITRON_VARIABLES_VIEW_ID, false]);
-			assert.strictEqual(viewStub.callCount, 1);
-			assert.strictEqual(notificationInfo.callCount, 0);
+			expect(openViewStub).toHaveBeenCalledTimes(1);
+			expect(openViewStub.mock.calls[0]).toEqual([POSITRON_VARIABLES_VIEW_ID, false]);
+			expect(viewStub).toHaveBeenCalledTimes(1);
+			expect(notificationInfo).not.toHaveBeenCalled();
 		});
 
-		test('notifies when the Variables pane opens but still has no instance', async () => {
+		it('notifies when the Variables pane opens but still has no instance', async () => {
 			activeEditor = makeCodeEditor({ word: 'df', languageId: 'r' });
 			session = makeSession('r');
 			variablesInstances = [];
@@ -211,24 +211,24 @@ suite('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 
 			await runAction();
 
-			assert.strictEqual(openViewStub.callCount, 1);
-			assert.strictEqual(notificationInfo.callCount, 1);
-			assert.match(notificationInfo.firstCall.args[0], /Variables for the active R session/);
+			expect(openViewStub).toHaveBeenCalledTimes(1);
+			expect(notificationInfo).toHaveBeenCalledTimes(1);
+			expect(notificationInfo.mock.calls[0][0]).toMatch(/Variables for the active R session/);
 		});
 
-		test('notifies when the symbol is not a data frame in the session', async () => {
+		it('notifies when the symbol is not a data frame in the session', async () => {
 			activeEditor = makeCodeEditor({ word: 'missing', languageId: 'r' });
 			session = makeSession('r');
 			variablesInstances = [makeVariablesInstance([makeVariableItem({ displayName: 'df' })])];
 
 			await runAction();
 
-			assert.strictEqual(notificationInfo.callCount, 1);
-			assert.match(notificationInfo.firstCall.args[0], /'missing' is not a data frame defined/);
+			expect(notificationInfo).toHaveBeenCalledTimes(1);
+			expect(notificationInfo.mock.calls[0][0]).toMatch(/'missing' is not a data frame defined/);
 		});
 
-		test('notifies about a still-loading session when the variables list times out', async () => {
-			const clock = sinon.useFakeTimers();
+		it('notifies about a still-loading session when the variables list times out', async () => {
+			vi.useFakeTimers();
 			try {
 				activeEditor = makeCodeEditor({ word: 'df', languageId: 'r' });
 				session = makeSession('r');
@@ -237,17 +237,17 @@ suite('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 				variablesInstances = [makeVariablesInstance([])];
 
 				const runPromise = runAction();
-				await clock.tickAsync(5000);
+				await vi.advanceTimersByTimeAsync(5000);
 				await runPromise;
 
-				assert.strictEqual(notificationInfo.callCount, 1);
-				assert.match(notificationInfo.firstCall.args[0], /still loading variables/);
+				expect(notificationInfo).toHaveBeenCalledTimes(1);
+				expect(notificationInfo.mock.calls[0][0]).toMatch(/still loading variables/);
 			} finally {
-				clock.restore();
+				vi.useRealTimers();
 			}
 		});
 
-		test('notifies when the symbol exists but is not viewable', async () => {
+		it('notifies when the symbol exists but is not viewable', async () => {
 			activeEditor = makeCodeEditor({ word: 'df', languageId: 'r' });
 			session = makeSession('r');
 			variablesInstances = [
@@ -256,12 +256,12 @@ suite('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 
 			await runAction();
 
-			assert.strictEqual(notificationInfo.callCount, 1);
-			assert.match(notificationInfo.firstCall.args[0], /'df' is not viewable/);
+			expect(notificationInfo).toHaveBeenCalledTimes(1);
+			expect(notificationInfo.mock.calls[0][0]).toMatch(/'df' is not viewable/);
 		});
 
-		test('uses the embedded language at cursor for language-embedded documents', async () => {
-			const viewStub = sinon.stub().resolves(undefined);
+		it('uses the embedded language at cursor for language-embedded documents', async () => {
+			const viewStub = vi.fn().mockResolvedValue(undefined);
 			const item = makeVariableItem({ displayName: 'df', view: viewStub as unknown as IVariableItem['view'] });
 			const rSession = makeSession('r');
 			// Outer document is Quarto but the cursor sits inside an R chunk.
@@ -271,38 +271,36 @@ suite('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 				languageIdAtPosition: 'r',
 			});
 			// The session lookup only returns a session when called with 'r'.
-			getConsoleSessionForLanguage = sinon.stub().callsFake(
-				(id: string) => id === 'r' ? rSession : undefined,
-			);
+			getConsoleSessionForLanguage = vi.fn((id: string) => id === 'r' ? rSession : undefined);
 			variablesInstances = [makeVariablesInstance([item])];
 
 			await runAction();
 
-			assert.deepStrictEqual(getConsoleSessionForLanguage.firstCall.args, ['r']);
-			assert.strictEqual(viewStub.callCount, 1);
-			assert.strictEqual(notificationInfo.callCount, 0);
+			expect(getConsoleSessionForLanguage.mock.calls[0]).toEqual(['r']);
+			expect(viewStub).toHaveBeenCalledTimes(1);
+			expect(notificationInfo).not.toHaveBeenCalled();
 		});
 
-		test('uses the notebook session when the cursor is inside a notebook cell', async () => {
-			const viewStub = sinon.stub().resolves(undefined);
+		it('uses the notebook session when the cursor is inside a notebook cell', async () => {
+			const viewStub = vi.fn().mockResolvedValue(undefined);
 			const item = makeVariableItem({ displayName: 'df', view: viewStub as unknown as IVariableItem['view'] });
 			const notebookUri = URI.parse('file:///test.ipynb');
 			// Cell URIs are what cell editors expose; parsing them yields the owning notebook URI.
 			const cellUri = CellUri.generate(notebookUri, 1);
 			const notebookSession = makeSession('python') as unknown as INotebookLanguageRuntimeSession;
 			activeEditor = makeCodeEditor({ word: 'df', languageId: 'python', uri: cellUri });
-			getNotebookSessionForNotebookUri = sinon.stub().callsFake(
+			getNotebookSessionForNotebookUri = vi.fn(
 				(uri: URI) => uri.toString() === notebookUri.toString() ? notebookSession : undefined,
 			);
 			variablesInstances = [makeVariablesInstance([item])];
 
 			await runAction();
 
-			assert.strictEqual(getConsoleSessionForLanguage.callCount, 0);
-			assert.strictEqual(getNotebookSessionForNotebookUri.callCount, 1);
-			assert.strictEqual(getNotebookSessionForNotebookUri.firstCall.args[0].toString(), notebookUri.toString());
-			assert.strictEqual(viewStub.callCount, 1);
-			assert.strictEqual(notificationInfo.callCount, 0);
+			expect(getConsoleSessionForLanguage).not.toHaveBeenCalled();
+			expect(getNotebookSessionForNotebookUri).toHaveBeenCalledTimes(1);
+			expect(getNotebookSessionForNotebookUri.mock.calls[0][0].toString()).toBe(notebookUri.toString());
+			expect(viewStub).toHaveBeenCalledTimes(1);
+			expect(notificationInfo).not.toHaveBeenCalled();
 		});
 	});
 });
