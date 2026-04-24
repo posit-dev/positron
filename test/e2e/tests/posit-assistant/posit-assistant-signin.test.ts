@@ -12,8 +12,8 @@ test.use({
 
 const POSIT_ASSISTANT_SIGNIN_PROVIDERS: ModelProvider[] = [
 	'anthropic-api',
-	// 'openai-api',
-	// 'amazon-bedrock',
+	'openai-api',
+	'amazon-bedrock',
 	'posit-ai',
 ];
 
@@ -28,8 +28,17 @@ test.describe('Posit Assistant Sign-in', {
 			try {
 				await app.workbench.positAssistant.open();
 				await app.workbench.positAssistant.waitForReady();
+				await app.workbench.positAssistant.startNewConversation();
 
-				await app.workbench.positAssistant.sendMessage('Say hello', true, { newConversation: true });
+				if (provider === 'openai-api') {
+					// OpenAI does not auto-select a default model, so pick one
+					// explicitly. `newConversation: false` avoids starting a
+					// fresh chat after model selection, which would drop it.
+					await app.workbench.positAssistant.selectModel('GPT-5.4');
+					await app.workbench.positAssistant.sendMessage('Say hello', true, { newConversation: false });
+				} else {
+					await app.workbench.positAssistant.sendMessage('Say hello', true, { newConversation: true });
+				}
 				await app.workbench.positAssistant.expectResponseVisible();
 
 				const responseText = await app.workbench.positAssistant.getLastResponseText();
