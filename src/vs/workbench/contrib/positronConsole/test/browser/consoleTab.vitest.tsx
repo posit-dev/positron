@@ -42,8 +42,7 @@ describe('ConsoleTab', () => {
 				createdTimestamp: 0,
 				startReason: 'test',
 			};
-			// Only base64EncodedIconSvg is read off runtimeMetadata by ConsoleTab/RuntimeIcon.
-			const runtimeMetadata = { base64EncodedIconSvg: undefined } as ILanguageRuntimeMetadata;
+			const runtimeMetadata = { languageId: 'python', base64EncodedIconSvg: undefined } as ILanguageRuntimeMetadata;
 			const instance = new TestPositronConsoleInstance(
 				sessionId,
 				sessionName,
