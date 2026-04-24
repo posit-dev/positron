@@ -17,7 +17,7 @@ export class HotKeys {
 	}
 
 	private isExternalBrowser(): boolean {
-		return (/(8080|8787)/.test(this.code.driver.page.url()));
+		return (/(8080|8787|8888)/.test(this.code.driver.page.url()));
 	}
 
 	// ----------------------
@@ -264,7 +264,7 @@ export class HotKeys {
 	}
 
 	public async openFolder() {
-		await this.pressHotKeys('Cmd+J Q', 'Open Folder');
+		await this.pressHotKeys('Cmd+J Q', 'Open Folder', true);
 	}
 
 	// -----------------------
