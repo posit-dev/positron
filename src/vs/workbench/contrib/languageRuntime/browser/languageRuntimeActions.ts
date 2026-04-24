@@ -374,12 +374,18 @@ const createInterpreterGroups = (
  * This can be used to start a session for a registered language runtime.
  *
  * @param accessor The service accessor.
- * @returns
+ * @param options Picker options.
+ * @param options.title Title shown in the quickpick header.
+ * @param options.languageId Restricts the runtimes shown in the picker
+ *   to the provided language id. When omittedm all languages are shown.
+ * @returns The selected runtime metadata, or undefined if the user
+ *   cancelled.
  */
 export const selectNewLanguageRuntime = async (
 	accessor: ServicesAccessor,
 	options?: {
 		title?: string;
+		languageId?: string;
 	}): Promise<ILanguageRuntimeMetadata | undefined> => {
 	// Access services.
 	const quickInputService = accessor.get(IQuickInputService);
@@ -397,7 +403,7 @@ export const selectNewLanguageRuntime = async (
 			contributionResults = [];
 			return;
 		}
-		const contributions = languageRuntimeService.getPickerContributions();
+		const contributions = languageRuntimeService.getPickerContributions(options?.languageId);
 		// Fetch items from all contributions in parallel
 		contributionResults = await Promise.all(
 			contributions.map(async (contribution) => {
@@ -419,8 +425,9 @@ export const selectNewLanguageRuntime = async (
 		contributedItemMap.clear();
 
 		// Group runtimes by language. Re-evaluated on each rebuild so newly
-		// registered runtimes show up.
-		const interpreterGroups = createInterpreterGroups(languageRuntimeService, runtimeStartupService);
+		// registered runtimes show up. Restricted to options.languageId when set.
+		const interpreterGroups = createInterpreterGroups(languageRuntimeService, runtimeStartupService)
+			.filter(group => !options?.languageId || group.primaryRuntime.languageId === options.languageId);
 
 		// Add separator for suggested runtimes
 		const suggestedRuntimes = interpreterGroups
