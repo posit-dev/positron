@@ -172,32 +172,34 @@ export class RuntimeItemActivity extends RuntimeItem {
 			return 0;
 		}
 
-		// Walk from the tail (newest) toward the head (oldest), letting each activity item declare
-		// its weight. Mirrors the outer runtime-item walk in PositronConsoleInstance.trimScrollback.
-		let remainingBudget = scrollbackSize;
+		// Walk the activity items in reverse, trimming scrollback.
 		let firstKeepIndex = 0;
-		for (let i = this._activityItems.length - 1; i >= 0; i--) {
-			// Adjust the scrollback on the activity item, which returns the remaining budget.
-			remainingBudget = this._activityItems[i].trimScrollback(remainingBudget);
+		let bumpVersion = false;
+		let remainingScrollbackSize = scrollbackSize;
+		for (let i = this._activityItems.length - 1; remainingScrollbackSize > 0 && i >= 0; i--) {
+			// Trim scrollback on the activity item.
+			const result = this._activityItems[i].trimScrollback(remainingScrollbackSize);
 
-			// Adjust the first keep index.
+			// Adjust the first keep index, any trimmed flag, and remaining scrollback size.
 			firstKeepIndex = i;
-
-			// If the budget is exhausted, break; we will drop everything before the first keep index.
-			if (remainingBudget <= 0) {
-				break;
-			}
+			bumpVersion ||= result.trimmed;
+			remainingScrollbackSize = Math.max(result.remainingScrollbackSize, 0);
 		}
 
-		// Drop anything before the first activity item that still fit. Bump the mutation version so
-		// React.memo drops the cached render for this activity.
+		// Drop activity items before the first activity item.
 		if (firstKeepIndex > 0) {
 			this._activityItems.splice(0, firstKeepIndex);
+			bumpVersion = true;
+		}
+
+		// Bump the render version only when something actually changed so React.memo keeps its
+		// cached render for activities that were walked-but-untouched.
+		if (bumpVersion) {
 			this._version++;
 		}
 
-		// Return the remaining budget.
-		return Math.max(remainingBudget, 0);
+		// Return the remaining scrollback size.
+		return remainingScrollbackSize;
 	}
 
 	/**

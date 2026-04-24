@@ -4,6 +4,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 /**
+ * TrimScrollbackResult interface.
+ */
+export interface TrimScrollbackResult {
+	// A value which indicates whether the item actually trimmed any content.
+	readonly trimmed: boolean;
+
+	// The remaining scrollback size after trimming this item.
+	readonly remainingScrollbackSize: number;
+}
+
+/**
  * ActivityItem class.
  */
 export abstract class ActivityItem {
@@ -25,9 +36,9 @@ export abstract class ActivityItem {
 	/**
 	 * Trim scrollback.
 	 * @param scrollbackSize A number representing the scrollback size.
-	 * @returns A number representing the remaining scrollback size.
+	 * @returns A TrimScrollbackResult indicating the result of the trim scrollback operation.
 	 */
-	public abstract trimScrollback(scrollbackSize: number): number;
+	public abstract trimScrollback(scrollbackSize: number): TrimScrollbackResult;
 
 	/**
 	 * Gets the clipboard representation of the activity item.

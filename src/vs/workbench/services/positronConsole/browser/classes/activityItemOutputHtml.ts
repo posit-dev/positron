@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../../nls.js';
-import { ActivityItem } from './activityItem.js';
+import { ActivityItem, TrimScrollbackResult } from './activityItem.js';
 
 /**
  * Localized strings.
@@ -46,16 +46,22 @@ export class ActivityItemOutputHtml extends ActivityItem {
 	/**
 	 * Trim scrollback.
 	 * @param scrollbackSize A number representing the scrollback size.
-	 * @returns A number representing the remaining scrollback size.
+	 * @returns A TrimScrollbackResult indicating the result of the trim scrollback operation.
 	 */
-	public override trimScrollback(scrollbackSize: number): number {
+	public override trimScrollback(scrollbackSize: number): TrimScrollbackResult {
 		// We should never be called with a scrollback size <= 0.
 		if (scrollbackSize <= 0) {
-			return 0;
+			return {
+				trimmed: false,
+				remainingScrollbackSize: 0
+			};
 		}
 
-		// Counts as one scrollback item.
-		return scrollbackSize - 1;
+		// Counts as one scrollback item; nothing is trimmed in place.
+		return {
+			trimmed: false,
+			remainingScrollbackSize: scrollbackSize - 1
+		};
 	}
 
 	/**

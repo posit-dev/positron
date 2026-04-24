@@ -402,11 +402,12 @@ export class ANSIOutput {
 	/**
 	 * Scrolls lines off the top of the output.
 	 * @param count The number of lines to scroll off the top of the output.
+	 * @returns The number of lines actually dropped (clamped to the number of committed lines above the cursor).
 	 */
-	public scrollOff(count: number): void {
+	public scrollOff(count: number): number {
 		// Sanity check the count.
 		if (count <= 0) {
-			return;
+			return 0;
 		}
 
 		// Materialize any buffered characters so `_outputLine` refers to a real line.
@@ -415,11 +416,13 @@ export class ANSIOutput {
 		// Only lines above the cursor line are safe to drop.
 		const trimmable = Math.min(count, this._outputLine);
 		if (trimmable === 0) {
-			return;
+			return 0;
 		}
 
+		// Scroll lines off the top, adjust the output line, and return the number of lines dropped.
 		this._outputLines.splice(0, trimmable);
 		this._outputLine -= trimmable;
+		return trimmable;
 	}
 
 	//#endregion Public Methods

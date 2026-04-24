@@ -1853,8 +1853,8 @@ suite('ANSIOutput', () => {
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput(`A${LF}B${LF}C`);
 
-		ansiOutput.scrollOff(0);
-		ansiOutput.scrollOff(-5);
+		assert.equal(ansiOutput.scrollOff(0), 0);
+		assert.equal(ansiOutput.scrollOff(-5), 0);
 		assert.equal(ansiOutput.outputLines.length, 3);
 		checkOutputPosition(ansiOutput, 2, 1);
 	});
@@ -1866,7 +1866,7 @@ suite('ANSIOutput', () => {
 		assert.equal(ansiOutput.outputLines.length, 4);
 		checkOutputPosition(ansiOutput, 3, 1);
 
-		ansiOutput.scrollOff(2);
+		assert.equal(ansiOutput.scrollOff(2), 2);
 
 		const remaining = ansiOutput.outputLines;
 		assert.equal(remaining.length, 2);
@@ -1882,7 +1882,7 @@ suite('ANSIOutput', () => {
 		assert.equal(ansiOutput.outputLines.length, 3);
 		checkOutputPosition(ansiOutput, 2, 1);
 
-		ansiOutput.scrollOff(10);
+		assert.equal(ansiOutput.scrollOff(10), 2);
 
 		const remaining = ansiOutput.outputLines;
 		assert.equal(remaining.length, 1);
@@ -1895,7 +1895,7 @@ suite('ANSIOutput', () => {
 		ansiOutput.processOutput('only line');
 		checkOutputPosition(ansiOutput, 0, 9);
 
-		ansiOutput.scrollOff(5);
+		assert.equal(ansiOutput.scrollOff(5), 0);
 		assert.equal(ansiOutput.outputLines.length, 1);
 		checkOutputPosition(ansiOutput, 0, 9);
 	});

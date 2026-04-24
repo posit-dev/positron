@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ActivityItem } from './activityItem.js';
+import { ActivityItem, TrimScrollbackResult } from './activityItem.js';
 import { formatOutputLinesForClipboard } from '../utils/clipboardUtils.js';
 import { ANSIOutput, ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
 import { ILanguageRuntimeMessageOutputData } from '../../../languageRuntime/common/languageRuntimeService.js';
@@ -56,22 +56,31 @@ export class ActivityItemOutputMessage extends ActivityItem {
 	/**
 	 * Trim scrollback.
 	 * @param scrollbackSize A number representing the scrollback size.
-	 * @returns A number representing the remaining scrollback size.
+	 * @returns A TrimScrollbackResult indicating the result of the trim scrollback operation.
 	 */
-	public override trimScrollback(scrollbackSize: number): number {
+	public override trimScrollback(scrollbackSize: number): TrimScrollbackResult {
 		// We should never be called with a scrollback size <= 0.
 		if (scrollbackSize <= 0) {
-			return 0;
+			return {
+				trimmed: false,
+				remainingScrollbackSize: 0
+			};
 		}
 
 		// If no trimming is needed, return the remaining scrollback size.
 		if (this.outputLines.length <= scrollbackSize) {
-			return scrollbackSize - this.outputLines.length;
+			return {
+				trimmed: false,
+				remainingScrollbackSize: scrollbackSize - this.outputLines.length
+			};
 		}
 
 		// Otherwise, trim output lines and report the scrollback as fully consumed.
 		this.outputLines = this.outputLines.slice(-scrollbackSize);
-		return 0;
+		return {
+			trimmed: true,
+			remainingScrollbackSize: 0
+		};
 	}
 
 	/**
