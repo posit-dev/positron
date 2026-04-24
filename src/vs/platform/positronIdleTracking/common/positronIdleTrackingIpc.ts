@@ -16,8 +16,7 @@ export class PositronIdleTrackingChannel implements IServerChannel {
 	constructor(private readonly service: IPositronIdleTrackingService) {
 	}
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	async call<T>(_ctx: any, command: string, _args?: any): Promise<T> {
+	async call<T>(_ctx: unknown, command: string, _args?: unknown): Promise<T> {
 		switch (command) {
 			case 'reportActivity': {
 				// Use server-side Date.now() so the tracked timestamp is immune to
@@ -30,8 +29,7 @@ export class PositronIdleTrackingChannel implements IServerChannel {
 		throw new Error(`Command not found: ${command}`);
 	}
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	listen<T>(_ctx: any, _event: string, _arg?: any): Event<T> {
+	listen<T>(_ctx: unknown, _event: string, _arg?: unknown): Event<T> {
 		throw new Error('Method not implemented.');
 	}
 }
