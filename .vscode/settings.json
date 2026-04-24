@@ -24,7 +24,7 @@
 		"files.insertFinalNewline": false
 	},
 	"[typescript]": {
-		"editor.defaultFormatter": "TypeScriptTeam.native-preview",
+		"editor.defaultFormatter": "vscode.typescript-language-features",
 		"editor.formatOnSave": true
 	},
 	"[javascript]": {
