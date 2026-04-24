@@ -451,7 +451,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 		this._logService.debug(this.id, 'Generating new notebook options');
 
-		this._notebookOptions = this._instantiationService.createInstance(NotebookOptions, DOM.getActiveWindow(), this.isReadOnly, undefined);
+		this._notebookOptions = this._register(
+			this._instantiationService.createInstance(NotebookOptions, DOM.getActiveWindow(), this.isReadOnly, undefined)
+		);
 
 		// Reset per-cell scrolling overrides when the global output scrolling setting
 		// changes so all cells follow the new default.
@@ -2067,14 +2069,30 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	/**
-	 * Detaches the notebook view from its container and cleans up resources.
+	 * Detaches the notebook view from its container so contribution
+	 * lifecycle (find controller, etc.) can observe the detach.
+	 *
+	 * Does NOT dispose _notebookOptions -- those are bound to the instance's
+	 * disposable lifetime (see get notebookOptions) so they survive view
+	 * detach/attach cycles. This matters for the render cache in
+	 * PositronNotebookEditor: a cached React tree retains references to the
+	 * NotebookOptions object, and those references must stay valid while
+	 * the tree is parked off-DOM.
 	 */
 	detachView(): void {
 		this.container.set(undefined, undefined);
 		this._overlayContainer = undefined;
 		this._logService.debug(this.id, 'detachView');
-		this._notebookOptions?.dispose();
-		this._notebookOptions = undefined;
+	}
+
+	/**
+	 * Returns true if this instance's view is currently attached to the given
+	 * container. Used by pane-local eviction guards to avoid tearing down a
+	 * view that has been re-attached to a different pane during a cross-group
+	 * move (target pane attaches before source pane's eviction runs).
+	 */
+	isAttachedTo(container: HTMLElement): boolean {
+		return this.container.get() === container;
 	}
 
 	/**

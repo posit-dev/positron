@@ -76,6 +76,11 @@
 	height: 100%;
 }
 
+.monaco-workbench .positron-notebook-shell {
+	/* Fill parent so the per-entry notebook container inside can also fill. */
+	height: 100%;
+}
+
 /**
 * Override the global keyoard focus outline style for notebook containers.
 * This prevents focus outline from showing when a user clicks on the notebook.
