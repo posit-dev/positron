@@ -3,7 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import assert from 'assert';
+/// <reference types="vitest/globals" />
+
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { errorHandler } from '../../../../../base/common/errors.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
@@ -11,31 +12,33 @@ import { Position } from '../../../../common/core/position.js';
 import { LanguageFeatureRegistry } from '../../../../common/languageFeatureRegistry.js';
 import { StatementRangeKind, StatementRangeProvider, StatementRangeRejectionKind } from '../../../../common/languages.js';
 import { createTextModel } from '../../../../test/common/testTextModel.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { provideStatementRange } from '../../browser/provideStatementRange.js';
+import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 
-suite('provideStatementRange', () => {
+describe('provideStatementRange', () => {
 	let disposables: DisposableStore;
 	let registry: LanguageFeatureRegistry<StatementRangeProvider>;
 
-	setup(() => {
+	beforeEach(() => {
 		disposables = new DisposableStore();
 		registry = new LanguageFeatureRegistry<StatementRangeProvider>();
 	});
 
-	teardown(() => {
+	afterEach(() => {
 		disposables.dispose();
 	});
 
-	ensureNoDisposablesAreLeakedInTestSuite();
-
-	test('returns `undefined` when no providers are registered', async () => {
-		const model = disposables.add(createTextModel('x = 1', 'testLang'));
-		const result = await provideStatementRange(registry, model, new Position(1, 1), CancellationToken.None);
-		assert.strictEqual(result, undefined);
+	beforeEach(() => {
+		ensureNoLeakedDisposables();
 	});
 
-	test('returns a successful result from a provider', async () => {
+	it('returns `undefined` when no providers are registered', async () => {
+		const model = disposables.add(createTextModel('x = 1', 'testLang'));
+		const result = await provideStatementRange(registry, model, new Position(1, 1), CancellationToken.None);
+		expect(result).toBe(undefined);
+	});
+
+	it('returns a successful result from a provider', async () => {
 		disposables.add(registry.register('testLang', {
 			provideStatementRange(_model, _position, _token) {
 				return {
@@ -48,12 +51,12 @@ suite('provideStatementRange', () => {
 		const model = disposables.add(createTextModel('x = 1', 'testLang'));
 		const result = await provideStatementRange(registry, model, new Position(1, 1), CancellationToken.None);
 
-		assert.ok(result);
-		assert.strictEqual(result.kind, StatementRangeKind.Success);
-		assert.deepStrictEqual(result.range, { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 6 });
+		expect(result).toBeTruthy();
+		expect(result.kind).toBe(StatementRangeKind.Success);
+		expect(result.range).toEqual({ startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 6 });
 	});
 
-	test('returns a successful result with `code`', async () => {
+	it('returns a successful result with `code`', async () => {
 		disposables.add(registry.register('testLang', {
 			provideStatementRange(_model, _position, _token) {
 				return {
@@ -67,12 +70,12 @@ suite('provideStatementRange', () => {
 		const model = disposables.add(createTextModel('1 + 1', 'testLang'));
 		const result = await provideStatementRange(registry, model, new Position(1, 1), CancellationToken.None);
 
-		assert.ok(result);
-		assert.strictEqual(result.kind, StatementRangeKind.Success);
-		assert.strictEqual(result.code, '1 + 1');
+		expect(result).toBeTruthy();
+		expect(result.kind).toBe(StatementRangeKind.Success);
+		expect(result.code).toBe('1 + 1');
 	});
 
-	test('returns a syntax rejection from a provider', async () => {
+	it('returns a syntax rejection from a provider', async () => {
 		disposables.add(registry.register('testLang', {
 			provideStatementRange(_model, _position, _token) {
 				return {
@@ -86,13 +89,13 @@ suite('provideStatementRange', () => {
 		const model = disposables.add(createTextModel('x = ', 'testLang'));
 		const result = await provideStatementRange(registry, model, new Position(1, 1), CancellationToken.None);
 
-		assert.ok(result);
-		assert.strictEqual(result.kind, StatementRangeKind.Rejection);
-		assert.strictEqual(result.rejectionKind, StatementRangeRejectionKind.Syntax);
-		assert.strictEqual(result.line, 0);
+		expect(result).toBeTruthy();
+		expect(result.kind, StatementRangeKind.Rejection);
+		expect(result.rejectionKind).toBe(StatementRangeRejectionKind.Syntax);
+		expect(result.line).toBe(0);
 	});
 
-	test('swallows provider error and returns undefined', async () => {
+	it('swallows provider error and returns undefined', async () => {
 		const origErrorHandler = errorHandler.getUnexpectedErrorHandler();
 		errorHandler.setUnexpectedErrorHandler(() => { });
 		try {
@@ -105,13 +108,13 @@ suite('provideStatementRange', () => {
 			const model = disposables.add(createTextModel('x = 1', 'testLang'));
 			const result = await provideStatementRange(registry, model, new Position(1, 1), CancellationToken.None);
 
-			assert.strictEqual(result, undefined);
+			expect(result).toBe(undefined);
 		} finally {
 			errorHandler.setUnexpectedErrorHandler(origErrorHandler);
 		}
 	});
 
-	test('swallows provider error and falls through to next provider', async () => {
+	it('swallows provider error and falls through to next provider', async () => {
 		const origErrorHandler = errorHandler.getUnexpectedErrorHandler();
 		errorHandler.setUnexpectedErrorHandler(() => { });
 		try {
@@ -132,14 +135,14 @@ suite('provideStatementRange', () => {
 			const model = disposables.add(createTextModel('x = 1', 'testLang'));
 			const result = await provideStatementRange(registry, model, new Position(1, 1), CancellationToken.None);
 
-			assert.ok(result);
-			assert.strictEqual(result.kind, StatementRangeKind.Success);
+			expect(result).toBeTruthy();
+			expect(result.kind).toBe(StatementRangeKind.Success);
 		} finally {
 			errorHandler.setUnexpectedErrorHandler(origErrorHandler);
 		}
 	});
 
-	test('does not match providers for a different language', async () => {
+	it('does not match providers for a different language', async () => {
 		disposables.add(registry.register('otherLang', {
 			provideStatementRange(_model, _position, _token) {
 				return {
@@ -152,6 +155,6 @@ suite('provideStatementRange', () => {
 		const model = disposables.add(createTextModel('x = 1', 'testLang'));
 		const result = await provideStatementRange(registry, model, new Position(1, 1), CancellationToken.None);
 
-		assert.strictEqual(result, undefined);
+		expect(result).toBe(undefined);
 	});
 });
