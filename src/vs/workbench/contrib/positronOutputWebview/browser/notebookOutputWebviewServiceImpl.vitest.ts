@@ -3,19 +3,20 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as assert from 'assert';
+/// <reference types="vitest/globals" />
+
 import { Event } from '../../../../base/common/event.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
+import { ensureNoLeakedDisposables } from '../../../../test/vitest/vitestUtils.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { asWebviewUri } from '../../webview/common/webview.js';
 import { WebviewInitInfo } from '../../webview/browser/webview.js';
 import { PositronNotebookOutputWebviewService } from './notebookOutputWebviewServiceImpl.js';
 
-suite('PositronNotebookOutputWebviewService', () => {
-	ensureNoDisposablesAreLeakedInTestSuite();
+describe('PositronNotebookOutputWebviewService', () => {
+	ensureNoLeakedDisposables();
 
-	test('raw HTML webviews use the notebook base URI for relative assets', async () => {
+	it('raw HTML webviews use the notebook base URI for relative assets', async () => {
 		let capturedInitInfo: WebviewInitInfo | undefined;
 		let capturedHtml: string | undefined;
 
@@ -54,10 +55,9 @@ suite('PositronNotebookOutputWebviewService', () => {
 		const baseUri = URI.file('/workspace/maps');
 		await service.createRawHtmlOutputWebview('output-1', '<iframe src="map.html"></iframe>', baseUri);
 
-		assert.deepStrictEqual(
+		expect(
 			capturedInitInfo?.contentOptions.localResourceRoots?.map(root => root.toString()),
-			[baseUri.toString()],
-		);
-		assert.ok(capturedHtml?.includes(`<base href="${asWebviewUri(baseUri).toString(true)}/">`));
+		).toEqual([baseUri.toString()]);
+		expect(capturedHtml?.includes(`<base href="${asWebviewUri(baseUri).toString(true)}/">`)).toBeTruthy();
 	});
 });
