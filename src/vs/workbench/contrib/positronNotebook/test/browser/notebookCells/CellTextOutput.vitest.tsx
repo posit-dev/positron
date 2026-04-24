@@ -117,13 +117,15 @@ describe('CellTextOutput', () => {
 		const { container } = renderCellTextOutput({ content: '\x1b[31mred\x1b[0m plain', type: 'stdout' });
 
 		// ANSI-rendered runs are emitted as span.output-run by the third-party
-		// ANSI renderer -- no role/label available. Use textContent (not
-		// toHaveTextContent) to preserve non-breaking-space characters the
-		// renderer emits for leading whitespace.
+		// ANSI renderer -- no role/label available. Read textContent directly
+		// (not toHaveTextContent) to preserve non-breaking-space characters the
+		// renderer emits for leading whitespace; toHaveTextContent normalizes.
 		// eslint-disable-next-line no-restricted-syntax
 		const runs = container.querySelectorAll('span.output-run');
 		expect(runs).toHaveLength(2);
+		// eslint-disable-next-line jest-dom/prefer-to-have-text-content
 		expect(runs[0].textContent).toBe('red');
+		// eslint-disable-next-line jest-dom/prefer-to-have-text-content
 		expect(runs[1].textContent).toBe(' plain');
 	});
 

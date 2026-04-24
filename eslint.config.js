@@ -20,6 +20,7 @@ import pluginReact from 'eslint-plugin-react';
 import pluginReactHooks from 'eslint-plugin-react-hooks';
 import pluginJsxA11y from 'eslint-plugin-jsx-a11y';
 import pluginTestingLibrary from 'eslint-plugin-testing-library';
+import pluginJestDom from 'eslint-plugin-jest-dom';
 // --- End Positron ---
 
 const ignores = fs.readFileSync(path.join(import.meta.dirname, '.eslint-ignore'), 'utf8')
@@ -197,8 +198,15 @@ export default tseslint.config(
 		],
 		plugins: {
 			'testing-library': pluginTestingLibrary,
+			'jest-dom': pluginJestDom,
 		},
 		rules: {
+			// eslint-plugin-jest-dom: prefer jest-dom matchers over manual DOM
+			// reads (el.classList.contains, el.textContent, document.activeElement,
+			// etc.). Catches what grep can't -- multi-line, multi-argument,
+			// comment-skipping.
+			...pluginJestDom.configs['flat/recommended'].rules,
+
 			// Require `expect(getBy*(...)).toBeInTheDocument()` for pure
 			// existence checks rather than a bare `getBy*(...)` statement.
 			// Every assertion in a test then leads with `expect(`, which

@@ -37,7 +37,7 @@ Prefer Testing Library queries in this order: `getByRole` -> `getByLabelText` ->
 
 ## Assertions
 
-Use `@testing-library/jest-dom` matchers: `toBeInTheDocument`, `toHaveTextContent`, `toHaveClass`, `toBeDisabled`, `toBeVisible`, `toHaveAttribute`, etc. Prefer the dedicated matcher over manual property reads (`el.classList.contains`, `el.textContent`, `el.disabled`, `el.getAttribute`).
+Use `@testing-library/jest-dom` matchers: `toBeInTheDocument`, `toHaveTextContent`, `toHaveClass`, `toHaveFocus`, `toBeDisabled`, `toBeChecked`, `toBeVisible`, `toHaveAttribute`, `toHaveValue`, `toHaveStyle`, etc. Prefer the dedicated matcher over manual property reads (`el.classList.contains`, `el.textContent`, `el.disabled`, `el.checked`, `el.getAttribute`, `el.value`, `document.activeElement`).
 
 For pure existence checks, wrap in `expect(...).toBeInTheDocument()`: `expect(screen.getByRole('alert')).toBeInTheDocument()`. Every assertion then leads with `expect(`, which reads uniformly. **Use `toBeInTheDocument()` with `getBy*` for presence or `queryBy*` / `findBy*` for absence** -- not with `queryBy*` for presence (use `getBy*`) and not with `getBy*` for absence (use `queryBy*`).
 
@@ -52,7 +52,9 @@ When no semantic query fits (structural div with no role, label, or stable text)
 
 ## Enforcement
 
-RTL rules are enforced by `eslint-plugin-testing-library`. See the `testing-library/*` block in [`eslint.config.js`](../../eslint.config.js) for the current list. Run `npx eslint <file>` to check.
+RTL rules are enforced by `eslint-plugin-testing-library` (query/action patterns) and `eslint-plugin-jest-dom` (matcher preferences — AST-level detection of `.classList.contains`, `.textContent`, `document.activeElement`, etc., where a jest-dom matcher is cleaner). See the `testing-library/*` and `jest-dom/*` entries in [`eslint.config.js`](../../eslint.config.js) for the enabled rules. Run `npx eslint --max-warnings 0 <file>` to check.
+
+Treat `// eslint-disable*.*(testing-library|jest-dom)/` as a red flag: each disable needs a one-line comment naming the real constraint (not "async is inconvenient" or "fireEvent works"). The lint rules encode the project's RTL conventions — silencing one without justification reintroduces the anti-pattern the rule was written to prevent.
 
 ## Showcase tests
 

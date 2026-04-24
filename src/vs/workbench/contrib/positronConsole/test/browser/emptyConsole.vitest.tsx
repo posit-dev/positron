@@ -23,9 +23,9 @@ describe('EmptyConsole', () => {
 
 	it('renders the empty state message', () => {
 		const { container } = rtl.render(<EmptyConsole />);
-		expect(container.textContent).toContain('There is no session running.');
-		expect(container.textContent).toContain('Start Session');
-		expect(container.textContent).toContain('to start one.');
+		expect(container).toHaveTextContent(/There is no session running\./);
+		expect(container).toHaveTextContent(/Start Session/);
+		expect(container).toHaveTextContent(/to start one\./);
 	});
 
 	it('renders a Start Session button', () => {
