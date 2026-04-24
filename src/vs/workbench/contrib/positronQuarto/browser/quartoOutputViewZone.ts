@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// eslint-disable-next-line local/code-import-patterns, local/code-amd-node-module
 import * as React from 'react';
 import * as dom from '../../../../base/browser/dom.js';
 import { safeSetInnerHtml } from '../../../../base/browser/domSanitize.js';
@@ -26,8 +27,7 @@ import { ANSIOutput, ANSIOutputLine, ANSIOutputRun } from '../../../../base/comm
 import { computeAnsiStyles, resolveAnsiColor } from '../../../../base/common/ansiStyles.js';
 import { PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY } from '../../positronNotebook/common/positronNotebookConfig.js';
-import { POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_ENABLED_KEY } from '../../positronNotebook/common/positronNotebookConfig.js';
+import { POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_ENABLED_KEY, POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY } from '../../positronNotebook/common/positronNotebookConfig.js';
 import { QuartoInlineDataExplorer } from './quartoInlineDataExplorer.js';
 import { parseVariablePath } from '../../../services/positronDataExplorer/common/utils.js';
 import { calculateInlineDataExplorerHeight } from './quartoInlineDataExplorerLayout.js';
@@ -195,8 +195,8 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	private _sparklineDelayTimeout: ReturnType<typeof setTimeout> | undefined;
 	private _sparklineFadeOutTimeout: ReturnType<typeof setTimeout> | undefined;
 
-	// Live timer interval during execution
-	private _timerInterval: ReturnType<typeof setInterval> | undefined;
+	// Live timer interval during execution (window setInterval handle)
+	private _timerInterval: number | undefined;
 	private _executionStartTime: number | undefined;
 
 	// Subscription to a shared tick event for refreshing the relative timestamp
@@ -688,7 +688,8 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			return `${seconds}.${tenths}s`;
 		};
 
-		this._timerInterval = setInterval(() => {
+		const targetWindow = dom.getWindow(this.domNode);
+		this._timerInterval = targetWindow.setInterval(() => {
 			const elapsed = Date.now() - this._executionStartTime!;
 			durationSpan.textContent = formatElapsed(elapsed);
 		}, 100);
@@ -698,8 +699,8 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	 * Stop the live timer.
 	 */
 	private _stopTimer(): void {
-		if (this._timerInterval) {
-			clearInterval(this._timerInterval);
+		if (this._timerInterval !== undefined) {
+			dom.getWindow(this.domNode).clearInterval(this._timerInterval);
 			this._timerInterval = undefined;
 		}
 		this._executionStartTime = undefined;
@@ -1309,6 +1310,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	private _attachCollapseButton(): void {
 		if (!this._collapseButtonParent) {
 			const container = this._editor.getContainerDomNode();
+			// eslint-disable-next-line no-restricted-syntax -- querying Monaco-rendered DOM, not our own
 			const overflowGuard = container.querySelector('.overflow-guard') as HTMLElement | null;
 			this._collapseButtonParent = overflowGuard ?? container;
 		}
@@ -1403,6 +1405,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	 */
 	private _getFoldChevronCenterX(): number {
 		const editorContainer = this._editor.getContainerDomNode();
+		// eslint-disable-next-line no-restricted-syntax -- querying Monaco-rendered fold icons, not our own DOM
 		const foldIcon = editorContainer.querySelector<HTMLElement>(
 			'.margin-view-overlays .codicon-folding-expanded, '
 			+ '.margin-view-overlays .codicon-folding-collapsed, '
@@ -2661,7 +2664,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			container.removeChild(loadingIndicator);
 			const errorDiv = document.createElement('div');
 			errorDiv.className = 'quarto-output-error';
-			errorDiv.textContent = localize('webviewError', 'Failed to render HTML: {0}', String(error));
+			errorDiv.textContent = localize('webviewHtmlError', 'Failed to render HTML: {0}', String(error));
 			container.appendChild(errorDiv);
 		}
 	}
