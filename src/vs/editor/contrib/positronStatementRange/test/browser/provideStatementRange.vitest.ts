@@ -88,7 +88,7 @@ describe('provideStatementRange', () => {
 		const result = await provideStatementRange(registry, model, new Position(1, 1), CancellationToken.None);
 
 		expect(result).toBeTruthy();
-		expect(result.kind, StatementRangeKind.Rejection);
+		expect(result.kind).toBe(StatementRangeKind.Rejection);
 		expect(result.rejectionKind).toBe(StatementRangeRejectionKind.Syntax);
 		expect(result.line).toBe(0);
 	});

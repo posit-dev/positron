@@ -51,50 +51,50 @@ describe('packagesQuery', () => {
 
 		it('token is stripped from free text', () => {
 			const result = parseQuery('dplyr @sort:name-desc');
-			expect(result.text, 'dplyr');
-			expect(result.sort, PackagesSortOrder.NameDesc);
+			expect(result.text).toBe('dplyr');
+			expect(result.sort).toBe(PackagesSortOrder.NameDesc);
 		});
 
 		it('token surrounded by free text leaves single-spaced text', () => {
 			const result = parseQuery('foo @sort:name-desc bar');
-			expect(result.text, 'foo bar');
-			expect(result.sort, PackagesSortOrder.NameDesc);
+			expect(result.text).toBe('foo bar');
+			expect(result.sort).toBe(PackagesSortOrder.NameDesc);
 		});
 
 		it('multiple @sort: tokens: last one wins for sort, all stripped from text', () => {
 			const result = parseQuery('foo @sort:name bar @sort:name-desc baz');
-			expect(result.text, 'foo bar baz');
-			expect(result.sort, PackagesSortOrder.NameDesc);
+			expect(result.text).toBe('foo bar baz');
+			expect(result.sort).toBe(PackagesSortOrder.NameDesc);
 		});
 
 		it('unknown @sort: value is stripped and leaves default sort', () => {
 			const result = parseQuery('foo @sort:bogus bar');
-			expect(result.text, 'foo bar');
-			expect(result.sort, PackagesSortOrder.NameAsc);
+			expect(result.text).toBe('foo bar');
+			expect(result.sort).toBe(PackagesSortOrder.NameAsc);
 		});
 
 		it('unknown @key token is stripped from free text', () => {
 			const result = parseQuery('foo @outdated bar');
-			expect(result.text, 'foo bar');
-			expect(result.sort, PackagesSortOrder.NameAsc);
+			expect(result.text).toBe('foo bar');
+			expect(result.sort).toBe(PackagesSortOrder.NameAsc);
 		});
 
 		it('unknown @key:value token is stripped from free text', () => {
 			const result = parseQuery('foo @author:hadley bar');
-			expect(result.text, 'foo bar');
-			expect(result.sort, PackagesSortOrder.NameAsc);
+			expect(result.text).toBe('foo bar');
+			expect(result.sort).toBe(PackagesSortOrder.NameAsc);
 		});
 
 		it('unknown token alongside known @sort: token: both stripped', () => {
 			const result = parseQuery('@outdated @sort:name-desc dplyr');
-			expect(result.text, 'dplyr');
-			expect(result.sort, PackagesSortOrder.NameDesc);
+			expect(result.text).toBe('dplyr');
+			expect(result.sort).toBe(PackagesSortOrder.NameDesc);
 		});
 
 		it('bare @key attached to free text is stripped', () => {
 			const result = parseQuery('foo@bar');
-			expect(result.text, 'foo');
-			expect(result.sort, PackagesSortOrder.NameAsc);
+			expect(result.text).toBe('foo');
+			expect(result.sort).toBe(PackagesSortOrder.NameAsc);
 		});
 	});
 
