@@ -1167,7 +1167,94 @@ disable."
 
 ---
 
-## Task 20: Full verification
+## Task 20: Swap PR1's testids for accessibility-first queries where it fits
+
+PR1 added a handful of `data-testid`s to source components under time pressure (see Nathan's review on #13165). Testid is supposed to be last resort in the RTL query ladder; for several of these the component can be made more accessible instead, which is both a better testing handle AND a real a11y improvement.
+
+**Sites to revisit:**
+
+1. **`PositronFindWidget.tsx`** — has `data-testid='positron-find-widget'` on the root and `data-testid='positron-find-widget-results'` on the match-count div.
+   - Root: add `role='search'` + `aria-label` (localized). Tests query via `screen.getByRole('search', { name: /Find/ })`.
+   - Results div: add `role='status'`. Match-count counters are the textbook use of the `status` live region. Tests query via `screen.getByRole('status')`.
+   - Drop both testids once tests migrate.
+
+2. **`topActionBarSessionManager.tsx`** — has `data-testid='session-manager-label'` and `data-testid='session-manager-icon'`. The parent button already has `ariaLabel={CommandCenter.title(command)}`.
+   - Label assertions switch to `getByRole('button', { name: ... })` + `toHaveTextContent(...)` or `within(button).getByText(...)`.
+   - Icon assertions: audit whether specific-class checks (e.g. `python-lang-file-icon`) are genuine behavior or over-specifying. Keep the ones that are real state transitions (arrow-swap ↔ runtime-session-icon); drop the ones that just echo the test fixture.
+   - Drop both testids once tests migrate.
+
+3. **`CellActionButton.tsx`** (+ `DevErrorIcon`, `Icon` in `src/vs/platform/positronActionBar/browser/components/icon.tsx`) — passes `data-testid='cell-action-button-icon'` through to the Icon components. The button already has `ariaLabel={action.label}`.
+   - Audit the 4 `getByTestId('cell-action-button-icon')` sites in `CellActionButton.vitest.tsx`:
+     - "icon exists at all" → drop, button role+label covers it.
+     - "icon becomes `codicon-check` momentarily after success" → keep (real behavior). Query via `within(button).querySelector('.codicon')` with a scoped `// eslint-disable-next-line no-restricted-syntax --` and a comment naming the constraint.
+     - "icon is `codicon-chevron-down` because fixture passed iconId='chevron-down'" → drop, that's testing the fixture.
+   - Remove the `data-testid` prop from `CellActionButton.tsx`, and revert the `data-testid` addition on `Icon` / `DevErrorIcon` — the prop was added specifically for this test and should go away with it.
+
+**Keep:**
+
+- **`positron-modal-overlay`** on `PositronModalReactRenderer.tsx`. The overlay is a structural click-catcher with no user-facing affordance; no accessible role applies.
+
+- [ ] **Step 1: PositronFindWidget — biggest accessibility win**
+
+Edit `src/vs/workbench/contrib/positronNotebook/browser/contrib/find/PositronFindWidget.tsx`:
+- Replace `data-testid='positron-find-widget'` with `role='search' aria-label={findLabel}` (add `findLabel` via `localize('positronNotebook.find.label', "Find in notebook")`).
+- Replace `data-testid='positron-find-widget-results'` with `role='status'` on the `.results` div.
+
+Edit `src/vs/workbench/contrib/positronNotebook/test/browser/contrib/find/positronFindWidget.vitest.tsx`:
+- Swap `screen.getByTestId('positron-find-widget')` for `screen.getByRole('search', { name: /Find/ })`.
+- Swap `screen.getByTestId('positron-find-widget-results')` for `screen.getByRole('status')`.
+
+Run `npx vitest run src/vs/workbench/contrib/positronNotebook/test/browser/contrib/find/positronFindWidget.vitest.tsx`. All tests pass.
+
+- [ ] **Step 2: Audit topActionBarSessionManager assertions**
+
+For each test using `getByTestId('session-manager-label')`: swap to `getByRole('button', { name: ... })` + `toHaveTextContent(...)`.
+
+For `session-manager-icon` assertions: keep the state-transition ones (no-session arrow-swap ↔ session-present runtime-session-icon). Drop the ones that just verify the test fixture's language class passed through.
+
+Remove the two `data-testid` props from `src/vs/workbench/browser/parts/positronTopActionBar/components/topActionBarSessionManager.tsx` once the test file compiles without them.
+
+- [ ] **Step 3: Audit CellActionButton icon assertions**
+
+Walk the 4 `getByTestId('cell-action-button-icon')` sites per the audit rules above. Drop or migrate each.
+
+Then remove:
+- `data-testid='cell-action-button-icon'` from `src/vs/workbench/contrib/positronNotebook/browser/notebookCells/actionBar/CellActionButton.tsx`.
+- The `data-testid` prop plumbing in `src/vs/platform/positronActionBar/browser/components/icon.tsx` (`Icon`, `ThemeIcon`, `URIIcon`, `DevErrorIcon`) — it was added for this test, revert cleanly.
+
+- [ ] **Step 4: Full suite + lint**
+
+```bash
+npm run test:positron
+npx eslint --max-warnings 0 'src/vs/**/*.vitest.ts' 'src/vs/**/*.vitest.tsx'
+```
+
+Expected: all tests pass, 0 lint errors.
+
+- [ ] **Step 5: Update `vitest-rtl.md`** if the steps reveal a pattern worth codifying. Concrete candidate: add "live-region match-count displays use `role='status'`" as an explicit example in the query priority section. Otherwise skip.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add -A
+git commit -m "$(cat <<'EOF'
+test(vitest): prefer accessibility-first queries over testids from PR1
+
+Replaces data-testid additions made under PR1 time pressure with roles
+that make the components more accessible and queryable via getByRole:
+role='search' on the find widget, role='status' on the match-count
+live region, and button aria-label for session manager and cell action
+button assertions. The modal overlay's testid stays - it has no
+user-facing handle to make accessible.
+
+Context: https://github.com/posit-dev/positron/pull/13165#pullrequestreview-<N>
+EOF
+)"
+```
+
+---
+
+## Task 21: Full verification
 
 - [ ] **Step 1: Verify no Positron `.test.ts` files remain in src/vs/**
 
