@@ -382,8 +382,8 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 		const previous = this.helpFocusedContextKey.get() ?? false;
 		if (previous !== value) {
 			this._logService.info(`[positronHelpFocused] ${source}: ${previous} -> ${value}`);
+			this.helpFocusedContextKey.set(value);
 		}
-		this.helpFocusedContextKey.set(value);
 	}
 
 	/**
