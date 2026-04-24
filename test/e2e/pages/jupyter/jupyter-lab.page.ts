@@ -26,10 +26,20 @@ export class JupyterLabPage {
 		});
 		await positronLauncher.waitFor({ state: 'visible', timeout: 30000 });
 
-		// Click the launcher and wait for new page (with token in URL)
-		// The popup contains the authenticated URL we need
-		const popupPromise = context.waitForEvent('page', { timeout: 45000 });
+		// Ensure the launcher is scrolled into view and clickable
+		await positronLauncher.scrollIntoViewIfNeeded();
+
+		// Set up listeners for both popup types (try both event types)
+		const popupPromise = Promise.race([
+			page.waitForEvent('popup', { timeout: 45000 }),
+			context.waitForEvent('page', { timeout: 45000 })
+		]);
+
+		// Perform a trial click to verify the element is actionable, then click for real
+		await positronLauncher.click({ trial: true });
 		await positronLauncher.click();
+
+		// Wait for the popup/new page
 		const newPage = await popupPromise;
 
 		// Get the authenticated URL from the popup
