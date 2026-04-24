@@ -1599,7 +1599,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 
 	/**
 	 * Update the collapsed state for a single cell in the current document
-	 * and write the whole map back to workspace storage.
+	 * and write the change back to workspace storage.
 	 */
 	private _updateCollapsedCell(cellId: string, collapsed: boolean): void {
 		if (!this._documentUri) {
@@ -1625,7 +1625,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 				this._collapsedCellsByUri.delete(uriKey);
 			}
 		}
-		this._persistCollapsedCells();
+		this._persistCellCollapsedChange(uriKey, cellId, collapsed);
 	}
 
 	/**
@@ -1647,21 +1647,52 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	}
 
 	/**
-	 * Serialize the in-memory collapsed-cell map to workspace storage.
+	 * Apply a single cell's collapsed-state change to workspace storage using
+	 * read-modify-write against the on-disk map. Scoped to one cell so
+	 * concurrent toggles from other contributions (different documents, or
+	 * split editors on the same document) don't clobber each other by writing
+	 * stale whole-map snapshots.
 	 */
-	private _persistCollapsedCells(): void {
-		const payload: Record<string, string[]> = {};
-		for (const [uri, cells] of this._collapsedCellsByUri) {
-			if (cells.size > 0) {
-				payload[uri] = Array.from(cells);
+	private _persistCellCollapsedChange(uriKey: string, cellId: string, collapsed: boolean): void {
+		const raw = this._storageService.get(STORAGE_KEY_COLLAPSED_CELLS, StorageScope.WORKSPACE, '{}');
+		let map: Record<string, string[]> = {};
+		try {
+			const parsed = JSON.parse(raw);
+			if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+				// Preserve only well-formed entries; drop anything malformed.
+				for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+					if (Array.isArray(v) && v.every(id => typeof id === 'string')) {
+						map[k] = v as string[];
+					}
+				}
 			}
+		} catch (e) {
+			this._logService.warn('[QuartoOutputContribution] Failed to parse collapsed-cell state on write: ', e);
+			map = {};
 		}
-		this._storageService.store(
-			STORAGE_KEY_COLLAPSED_CELLS,
-			JSON.stringify(payload),
-			StorageScope.WORKSPACE,
-			StorageTarget.MACHINE,
-		);
+
+		const existing = new Set(map[uriKey] ?? []);
+		if (collapsed) {
+			existing.add(cellId);
+		} else {
+			existing.delete(cellId);
+		}
+		if (existing.size > 0) {
+			map[uriKey] = Array.from(existing);
+		} else {
+			delete map[uriKey];
+		}
+
+		if (Object.keys(map).length === 0) {
+			this._storageService.remove(STORAGE_KEY_COLLAPSED_CELLS, StorageScope.WORKSPACE);
+		} else {
+			this._storageService.store(
+				STORAGE_KEY_COLLAPSED_CELLS,
+				JSON.stringify(map),
+				StorageScope.WORKSPACE,
+				StorageTarget.MACHINE,
+			);
+		}
 	}
 }
 

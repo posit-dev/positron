@@ -1362,11 +1362,21 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		const parentRect = this._collapseButtonParent.getBoundingClientRect();
 		const styledRect = this._styledContainer.getBoundingClientRect();
 
-		// If the styled container hasn't been sized yet (Monaco hasn't
-		// finished placing the view zone), hide the chevron and retry on the
-		// next frame. Otherwise it would end up at a stale / zero position.
+		// If the styled container hasn't been sized yet, hide the chevron.
+		// Two cases produce a zero rect:
+		//   1. Monaco hasn't finished placing the view zone (initial show /
+		//      newly-created zone). Reschedule so we pick up the real rect
+		//      on the next frame.
+		//   2. Monaco scrolled the zone off-screen and set display:none on
+		//      our domNode. Rescheduling here would loop every frame until
+		//      the zone is visible again; instead, bail out and rely on the
+		//      scroll / layout / content-size / hover handlers to re-trigger
+		//      layout when the zone comes back.
 		if (styledRect.width === 0 || styledRect.height === 0) {
 			this._collapseButton.style.display = 'none';
+			if (this.domNode.offsetParent === null) {
+				return;
+			}
 			this._scheduleCollapseButtonLayout();
 			return;
 		}
