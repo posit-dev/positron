@@ -12,7 +12,7 @@ import { CellSelectionStatus } from '../../browser/PositronNotebookCells/IPositr
 import { CellSelectionType, getSelectedCells, SelectionState } from '../../browser/selectionMachine.js';
 
 describe('PositronNotebookInstance', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createTestContainer().withNotebookEditorServices().build();
 
 	/** Tests to ensure that the test harness is correctly setup, useful for debugging the test harness */
 	describe('Test Harness', () => {
@@ -22,7 +22,7 @@ describe('PositronNotebookInstance', () => {
 					['print("hello")', 'python', CellKind.Code],
 					['print("world")', 'python', CellKind.Code],
 				],
-				ctx.disposables,
+				ctx,
 			);
 
 			const cells = notebook.cells.get();
@@ -44,7 +44,7 @@ describe('PositronNotebookInstance', () => {
 					['print("code")', 'python', CellKind.Code],
 					['# markdown', 'markdown', CellKind.Markup],
 				],
-				ctx.disposables,
+				ctx,
 			);
 
 			const [codeCell, markdownCell] = notebook.cells.get();
@@ -73,7 +73,7 @@ describe('PositronNotebookInstance', () => {
 		function createFiveCellNotebook() {
 			return createTestPositronNotebookInstance(
 				['A', 'B', 'C', 'D', 'E'].map(v => [v, 'python', CellKind.Code]),
-				ctx.disposables,
+				ctx,
 			);
 		}
 

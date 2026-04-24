@@ -5,9 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-/* eslint-disable no-restricted-syntax */
-/* eslint-disable local/code-no-dangerous-type-assertions */
-
+import { screen } from '@testing-library/react';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { CellOutputCollapseButton } from '../../../browser/notebookCells/CellOutputCollapseButton.js';
 import { PositronNotebookCodeCell } from '../../../browser/PositronNotebookCells/PositronNotebookCodeCell.js';
@@ -15,20 +13,7 @@ import { observableValue, ISettableObservable } from '../../../../../../base/com
 import { CellSelectionType } from '../../../browser/selectionMachine.js';
 import { IPositronNotebookInstance } from '../../../browser/IPositronNotebookInstance.js';
 import { NotebookInstanceProvider } from '../../../browser/NotebookInstanceProvider.js';
-
-class CellOutputCollapseButtonFixture {
-	constructor(private readonly container: HTMLElement) { }
-
-	get root() {
-		return this.container.querySelector<HTMLDivElement>('.cell-output-collapse-button-container');
-	}
-
-	get button() {
-		const el = this.container.querySelector<HTMLElement>('.cell-output-collapse-button');
-		expect(el, 'Expected to find the collapse/expand button').not.toBeNull();
-		return el!;
-	}
-}
+import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
 
 describe('CellOutputCollapseButton', () => {
 	const rtl = setupRTLRenderer();
@@ -44,43 +29,42 @@ describe('CellOutputCollapseButton', () => {
 	});
 
 	function renderButton() {
-		const cell = {
+		const cell = stubInterface<PositronNotebookCodeCell>({
 			outputIsCollapsed,
 			toggleOutputCollapse: toggleStub,
-		} as unknown as PositronNotebookCodeCell;
+		});
 
-		const instance = {
+		const instance = stubInterface<IPositronNotebookInstance>({
 			hoverManager: undefined,
-			selectionStateMachine: {
+			selectionStateMachine: stubInterface<IPositronNotebookInstance['selectionStateMachine']>({
 				selectCell: selectStub,
-			},
-		} as unknown as IPositronNotebookInstance;
+			}),
+		});
 
-		const { container } = rtl.render(
+		return rtl.render(
 			<NotebookInstanceProvider instance={instance}>
 				<CellOutputCollapseButton cell={cell} />
 			</NotebookInstanceProvider>
 		);
-		return new CellOutputCollapseButtonFixture(container);
 	}
 
 	it('renders collapse button when not collapsed', () => {
-		const fixture = renderButton();
+		renderButton();
 
-		expect(fixture.button.getAttribute('aria-label')).toBe('Collapse Output');
+		expect(screen.getByRole('button', { name: 'Collapse Output' })).toBeInTheDocument();
 	});
 
 	it('renders expand button when outputs are collapsed', () => {
 		outputIsCollapsed.set(true, undefined);
-		const fixture = renderButton();
+		renderButton();
 
-		expect(fixture.button.getAttribute('aria-label')).toBe('Expand Output');
+		expect(screen.getByRole('button', { name: 'Expand Output' })).toBeInTheDocument();
 	});
 
 	it('selects cell and toggles collapse on click', () => {
-		const fixture = renderButton();
+		renderButton();
 
-		fixture.button.click();
+		screen.getByRole('button', { name: 'Collapse Output' }).click();
 
 		expect(selectStub).toHaveBeenCalledOnce();
 		expect(selectStub.mock.calls[0][1]).toBe(CellSelectionType.Normal);

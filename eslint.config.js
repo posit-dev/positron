@@ -19,6 +19,8 @@ import globals from 'globals';
 import pluginReact from 'eslint-plugin-react';
 import pluginReactHooks from 'eslint-plugin-react-hooks';
 import pluginJsxA11y from 'eslint-plugin-jsx-a11y';
+import pluginTestingLibrary from 'eslint-plugin-testing-library';
+import pluginJestDom from 'eslint-plugin-jest-dom';
 // --- End Positron ---
 
 const ignores = fs.readFileSync(path.join(import.meta.dirname, '.eslint-ignore'), 'utf8')
@@ -187,6 +189,64 @@ export default tseslint.config(
 		rules: {
 			'local/code-setup-react-renderer-before-disposables-check': 'error',
 		}
+	},
+	// Vitest tests -- enforce Testing Library best practices via lint.
+	{
+		files: [
+			'src/vs/**/*.vitest.ts',
+			'src/vs/**/*.vitest.tsx',
+		],
+		plugins: {
+			'testing-library': pluginTestingLibrary,
+			'jest-dom': pluginJestDom,
+		},
+		rules: {
+			// eslint-plugin-jest-dom: prefer jest-dom matchers over manual DOM
+			// reads (el.classList.contains, el.textContent, document.activeElement,
+			// etc.). Catches what grep can't -- multi-line, multi-argument,
+			// comment-skipping.
+			...pluginJestDom.configs['flat/recommended'].rules,
+
+			// Require `expect(getBy*(...)).toBeInTheDocument()` for pure
+			// existence checks rather than a bare `getBy*(...)` statement.
+			// Every assertion in a test then leads with `expect(`, which
+			// reads more uniformly.
+			'testing-library/prefer-explicit-assert': 'error',
+
+			// Flag expect(queryBy*).toBeInTheDocument() -- should use getBy*
+			// since it throws with a better message. And vice versa for absence.
+			'testing-library/prefer-presence-queries': 'error',
+
+			// Note: container.querySelector and raw DOM access are already
+			// flagged by the pre-existing local/no-restricted-syntax rule
+			// (which we disable per-line at documented structural escape
+			// hatches). testing-library/no-node-access would double-flag those
+			// sites; leaving it off avoids churn.
+
+			// Disallow render() inside beforeEach/beforeAll -- leaks state.
+			'testing-library/no-render-in-lifecycle': 'error',
+
+			// Forbid committed screen.debug() / logTestingPlaygroundURL() calls.
+			'testing-library/no-debugging-utils': 'error',
+
+			// Flag unnecessary act() wrapping (RTL auto-wraps render, userEvent, etc.).
+			'testing-library/no-unnecessary-act': 'error',
+
+			// Require `await` on async queries and utilities.
+			'testing-library/await-async-queries': 'error',
+			'testing-library/await-async-utils': 'error',
+			'testing-library/no-await-sync-queries': 'error',
+
+			// Prefer @testing-library/user-event over fireEvent -- user-event
+			// fires the full event sequence a real user triggers (e.g. click
+			// fires pointerdown/mousedown/pointerup/mouseup/click), while
+			// fireEvent dispatches one synthetic event.
+			'testing-library/prefer-user-event': 'error',
+
+			// Prefer `screen.getByX` over destructuring queries from render --
+			// avoids needing to update destructuring as queries change.
+			'testing-library/prefer-screen-queries': 'error',
+		},
 	},
 	// --- End Positron ---
 	// TS
@@ -1984,7 +2044,8 @@ export default tseslint.config(
 				},
 				{
 					// Vitest infrastructure imports from base, platform, workbench,
-					// and editor to wire up the full DI container for tests.
+					// and editor to wire up the full DI container for tests, plus
+					// Testing Library packages for React component test setup.
 					'target': 'src/vs/test/vitest/**',
 					'restrictions': [
 						'vs/nls.js',
@@ -1994,6 +2055,8 @@ export default tseslint.config(
 						'vs/editor/**',
 						'vs/workbench/**',
 						'vs/test/vitest/**',
+						'@testing-library/jest-dom/vitest',
+						'@testing-library/react',
 					]
 				},
 				// --- End Positron ---
@@ -2242,4 +2305,58 @@ export default tseslint.config(
 			],
 		}
 	},
+	// --- Start Positron ---
+	// Vitest tests: promote RTL-relevant rules to errors so warnings can't
+	// accumulate silently. The review-vitest-tests skill catches these with
+	// `npx eslint --max-warnings 0`, but authors don't always run it; pre-commit
+	// and CI fail on errors but tolerate warnings, so keep the gate at the
+	// authoritative level. Escape hatches still work via line-scoped
+	// // eslint-disable-next-line with a justification comment.
+	{
+		files: [
+			'src/vs/**/*.vitest.ts',
+			'src/vs/**/*.vitest.tsx',
+		],
+		rules: {
+			// Manual type assertions (as any, as T) hide bugs in tests the same
+			// way they do in runtime code. Prefer typed Partial<...> helpers.
+			'local/code-no-any-casts': 'error',
+			// Selector-based DOM queries are the escape hatch (see vitest-rtl.md).
+			// Error-level enforcement forces authors to either add a data-testid
+			// or disable per-line with a justification.
+			'no-restricted-syntax': [
+				'error',
+				{
+					'selector': 'CallExpression[callee.property.name=\'querySelector\']',
+					'message': 'querySelector is an RTL escape hatch: prefer screen.getByRole/getByTestId. If a semantic query genuinely does not fit, disable per line with a justification (see .claude/rules/vitest-rtl.md).'
+				},
+				{
+					'selector': 'CallExpression[callee.property.name=\'querySelectorAll\']',
+					'message': 'querySelectorAll is an RTL escape hatch: prefer screen.getAllByRole/getAllByTestId. If no semantic query fits, disable per line with a justification (see .claude/rules/vitest-rtl.md).'
+				},
+				{
+					'selector': 'CallExpression[callee.property.name=\'getElementById\']',
+					'message': 'getElementById is an RTL escape hatch: prefer screen.getByRole/getByTestId. If no semantic query fits, disable per line with a justification (see .claude/rules/vitest-rtl.md).'
+				},
+				{
+					'selector': 'CallExpression[callee.property.name=\'getElementsByClassName\']',
+					'message': 'getElementsByClassName is an RTL escape hatch: prefer semantic queries. If no semantic query fits, disable per line with a justification (see .claude/rules/vitest-rtl.md).'
+				},
+				{
+					'selector': 'CallExpression[callee.property.name=\'getElementsByTagName\']',
+					'message': 'getElementsByTagName is an RTL escape hatch: prefer semantic queries. If no semantic query fits, disable per line with a justification (see .claude/rules/vitest-rtl.md).'
+				},
+				{
+					'selector': 'CallExpression[callee.property.name=\'getElementsByName\']',
+					'message': 'getElementsByName is an RTL escape hatch: prefer semantic queries. If no semantic query fits, disable per line with a justification (see .claude/rules/vitest-rtl.md).'
+				},
+				// Keep the Intl helper restriction even in tests.
+				{
+					'selector': `NewExpression[callee.object.name='Intl']`,
+					'message': 'Use safeIntl helper instead for safe and lazy use of potentially expensive Intl methods.'
+				},
+			],
+		}
+	},
+	// --- End Positron ---
 );

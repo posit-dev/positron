@@ -29,14 +29,14 @@ function enterEditModeWithCursor(
 }
 
 describe('Split and Join Cells', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createTestContainer().withNotebookEditorServices().build();
 
 	describe('splitCell', () => {
 
 		it('splits cell mid-line', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['hello world', 'python', CellKind.Code]],
-				ctx.disposables,
+				ctx,
 			);
 
 			// Place cursor between "hello" and " world" (column 6)
@@ -55,7 +55,7 @@ describe('Split and Join Cells', () => {
 		it('splits cell at line boundary', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['line1\nline2\nline3', 'python', CellKind.Code]],
-				ctx.disposables,
+				ctx,
 			);
 
 			// Place cursor at start of line 2. The preceding newline
@@ -75,7 +75,7 @@ describe('Split and Join Cells', () => {
 		it('split with multi-cursor creates multiple cells', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['aaabbbccc', 'python', CellKind.Code]],
-				ctx.disposables,
+				ctx,
 			);
 
 			// Place cursors at column 4 and 7 on a single line
@@ -96,7 +96,7 @@ describe('Split and Join Cells', () => {
 		it('split at beginning of cell creates empty first cell', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['hello world', 'python', CellKind.Code]],
-				ctx.disposables,
+				ctx,
 			);
 
 			// Place cursor at very start of cell
@@ -115,7 +115,7 @@ describe('Split and Join Cells', () => {
 		it('split at end of cell creates empty last cell', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['hello world', 'python', CellKind.Code]],
-				ctx.disposables,
+				ctx,
 			);
 
 			// Place cursor at end of content (line 1, after last character)
@@ -137,7 +137,7 @@ describe('Split and Join Cells', () => {
 					outputId: 'test-output',
 					outputs: [{ mime: 'text/plain', data: VSBuffer.alloc(0) }]
 				}]]],
-				ctx.disposables,
+				ctx,
 			);
 
 			enterEditModeWithCursor(notebook, 0, [
@@ -164,7 +164,7 @@ describe('Split and Join Cells', () => {
 					internalMetadata: { executionOrder: 5, lastRunSuccess: true },
 					collapseState: { inputCollapsed: false, outputCollapsed: true },
 				}],
-				ctx.disposables,
+				ctx,
 			);
 
 			enterEditModeWithCursor(notebook, 0, [
@@ -192,7 +192,7 @@ describe('Split and Join Cells', () => {
 		it('split does nothing when not in edit mode', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['line1\nline2', 'python', CellKind.Code]],
-				ctx.disposables,
+				ctx,
 			);
 
 			// Select cell but don't enter edit mode
@@ -212,7 +212,7 @@ describe('Split and Join Cells', () => {
 					['hello world', 'python', CellKind.Code],
 					['cell2', 'python', CellKind.Code],
 				],
-				ctx.disposables,
+				ctx,
 			);
 
 			enterEditModeWithCursor(notebook, 1, [
@@ -237,7 +237,7 @@ describe('Split and Join Cells', () => {
 					['line1', 'python', CellKind.Code],
 					['line2', 'python', CellKind.Code],
 				],
-				ctx.disposables,
+				ctx,
 			);
 
 			// Multi-select both cells
@@ -259,7 +259,7 @@ describe('Split and Join Cells', () => {
 					['b', 'python', CellKind.Code],
 					['c', 'python', CellKind.Code],
 				],
-				ctx.disposables,
+				ctx,
 			);
 
 			const cells = notebook.cells.get();
@@ -280,7 +280,7 @@ describe('Split and Join Cells', () => {
 					['line1', 'python', CellKind.Code],
 					['line2', 'python', CellKind.Code],
 				],
-				ctx.disposables,
+				ctx,
 			);
 
 			const cells = notebook.cells.get();
@@ -299,7 +299,7 @@ describe('Split and Join Cells', () => {
 					['code cell', 'python', CellKind.Code],
 					['# markdown', 'markdown', CellKind.Markup],
 				],
-				ctx.disposables,
+				ctx,
 			);
 
 			const cells = notebook.cells.get();
@@ -326,7 +326,7 @@ describe('Split and Join Cells', () => {
 						outputs: [{ mime: 'text/plain', data: VSBuffer.alloc(0) }]
 					}]],
 				],
-				ctx.disposables,
+				ctx,
 			);
 
 			const cells = notebook.cells.get();
@@ -367,7 +367,7 @@ describe('Split and Join Cells', () => {
 						collapseState: { inputCollapsed: true, outputCollapsed: false },
 					},
 				],
-				ctx.disposables,
+				ctx,
 			);
 
 			const cells = notebook.cells.get();
@@ -392,7 +392,7 @@ describe('Split and Join Cells', () => {
 					['b', 'python', CellKind.Code],
 					['c', 'python', CellKind.Code],
 				],
-				ctx.disposables,
+				ctx,
 			);
 
 			// Select cells 0 and 2, skipping cell 1
@@ -417,7 +417,7 @@ describe('Split and Join Cells', () => {
 					['above', 'python', CellKind.Code],
 					['below', 'python', CellKind.Code],
 				],
-				ctx.disposables,
+				ctx,
 			);
 
 			// Select the second cell
@@ -437,7 +437,7 @@ describe('Split and Join Cells', () => {
 					['first', 'python', CellKind.Code],
 					['second', 'python', CellKind.Code],
 				],
-				ctx.disposables,
+				ctx,
 			);
 
 			const cells = notebook.cells.get();
@@ -455,7 +455,7 @@ describe('Split and Join Cells', () => {
 					['# markdown', 'markdown', CellKind.Markup],
 					['code', 'python', CellKind.Code],
 				],
-				ctx.disposables,
+				ctx,
 			);
 
 			const cells = notebook.cells.get();
@@ -493,7 +493,7 @@ describe('Split and Join Cells', () => {
 						collapseState: { inputCollapsed: false, outputCollapsed: true },
 					},
 				],
-				ctx.disposables,
+				ctx,
 			);
 
 			const cells = notebook.cells.get();
@@ -517,7 +517,7 @@ describe('Split and Join Cells', () => {
 					['above', 'python', CellKind.Code],
 					['below', 'python', CellKind.Code],
 				],
-				ctx.disposables,
+				ctx,
 			);
 
 			const cells = notebook.cells.get();
@@ -536,7 +536,7 @@ describe('Split and Join Cells', () => {
 					['first', 'python', CellKind.Code],
 					['last', 'python', CellKind.Code],
 				],
-				ctx.disposables,
+				ctx,
 			);
 
 			const cells = notebook.cells.get();
@@ -554,7 +554,7 @@ describe('Split and Join Cells', () => {
 					['code', 'python', CellKind.Code],
 					['# markdown', 'markdown', CellKind.Markup],
 				],
-				ctx.disposables,
+				ctx,
 			);
 
 			const cells = notebook.cells.get();
@@ -591,7 +591,7 @@ describe('Split and Join Cells', () => {
 						internalMetadata: { executionOrder: 11 },
 					},
 				],
-				ctx.disposables,
+				ctx,
 			);
 
 			const cells = notebook.cells.get();
@@ -614,7 +614,7 @@ describe('Split and Join Cells', () => {
 			const originalContent = 'hello world';
 			const notebook = createTestPositronNotebookInstance(
 				[[originalContent, 'python', CellKind.Code]],
-				ctx.disposables,
+				ctx,
 			);
 
 			// Split mid-line at column 6

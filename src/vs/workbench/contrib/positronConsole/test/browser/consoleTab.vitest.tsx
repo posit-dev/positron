@@ -5,19 +5,18 @@
 
 /// <reference types="vitest/globals" />
 
-/* eslint-disable local/code-no-dangerous-type-assertions */
-
 import React from 'react';
-import { act, fireEvent, screen } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { IAction } from '../../../../../base/common/actions.js';
 import { IContextMenuService } from '../../../../../platform/contextview/browser/contextView.js';
 import { IContextMenuDelegate } from '../../../../../base/browser/contextmenu.js';
-import { mainWindow } from '../../../../../base/browser/window.js';
 import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IResourceUsageHistoryService } from '../../../../services/positronConsole/browser/resourceUsageHistoryService.js';
 import { IRuntimeSessionMetadata } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { TestPositronConsoleInstance, TestPositronConsoleService } from '../../../../services/positronConsole/test/browser/testPositronConsoleService.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { ConsoleTab } from '../../browser/components/consoleTab.js';
@@ -42,7 +41,11 @@ describe('ConsoleTab', () => {
 				createdTimestamp: 0,
 				startReason: 'test',
 			};
-			const runtimeMetadata = { languageId: 'python', base64EncodedIconSvg: undefined } as ILanguageRuntimeMetadata;
+			// ConsoleTab/RuntimeIcon read base64EncodedIconSvg and languageId off runtimeMetadata.
+			const runtimeMetadata = stubInterface<ILanguageRuntimeMetadata>({
+				base64EncodedIconSvg: undefined,
+				languageId: 'python',
+			});
 			const instance = new TestPositronConsoleInstance(
 				sessionId,
 				sessionName,
@@ -55,6 +58,7 @@ describe('ConsoleTab', () => {
 		}
 
 		it('focuses the input and selects the entire session name when rename action is selected', async () => {
+			const user = userEvent.setup();
 			const sessionName = 'My Python Session';
 			const instance = addActiveConsoleInstance('test-session-1', sessionName);
 
@@ -70,7 +74,10 @@ describe('ConsoleTab', () => {
 
 			// Right-click on the tab invokes services.contextMenuService.showContextMenu,
 			// which our stub captures so we can drive the Rename action directly.
-			fireEvent.mouseDown(screen.getByRole('tab', { name: sessionName }), { button: 2 });
+			await user.pointer({
+				keys: '[MouseRight]',
+				target: screen.getByRole('tab', { name: sessionName }),
+			});
 			expect(showContextMenu).toHaveBeenCalledOnce();
 
 			const delegate = showContextMenu.mock.calls[0][0];
@@ -85,7 +92,7 @@ describe('ConsoleTab', () => {
 			});
 
 			const input = screen.getByRole('textbox') as HTMLInputElement;
-			expect(mainWindow.document.activeElement).toBe(input);
+			expect(input).toHaveFocus();
 			expect(input.selectionStart).toBe(0);
 			expect(input.selectionEnd).toBe(sessionName.length);
 		});
