@@ -35,7 +35,7 @@ describe('parseQuartoDocument', () => {
 		});
 	});
 
-	suite('Frontmatter', () => {
+	describe('Frontmatter', () => {
 		it('extracts raw frontmatter content including delimiters', () => {
 			const content = '---\ntitle: Test\nauthor: Someone\n---\n\nBody text.';
 			const result = parseQuarto(content);
@@ -72,7 +72,7 @@ describe('parseQuartoDocument', () => {
 		});
 	});
 
-	suite('kernelToLanguageId', () => {
+	describe('kernelToLanguageId', () => {
 		it('maps python3 to python', () => {
 			expect(kernelToLanguageId('python3')).toBe('python');
 		});
@@ -94,7 +94,7 @@ describe('parseQuartoDocument', () => {
 		});
 	});
 
-	suite('Code blocks', () => {
+	describe('Code blocks', () => {
 		it('parses a single code block', () => {
 			const content = '```{python}\nx = 1\n```\n';
 			const result = parseQuarto(content);
@@ -158,7 +158,7 @@ describe('parseQuartoDocument', () => {
 		});
 	});
 
-	suite('Options and labels', () => {
+	describe('Options and labels', () => {
 		it('extracts options string', () => {
 			const content = '```{python echo=FALSE, eval=TRUE}\nx = 1\n```\n';
 			const result = parseQuarto(content);
@@ -197,7 +197,7 @@ describe('parseQuartoDocument', () => {
 		});
 	});
 
-	suite('Raw blocks', () => {
+	describe('Raw blocks', () => {
 		it('parses a raw block', () => {
 			const content = '```{=html}\n<b>bold</b>\n```\n';
 			const result = parseQuarto(content);
@@ -219,7 +219,7 @@ describe('parseQuartoDocument', () => {
 
 	});
 
-	suite('Mixed code and raw blocks', () => {
+	describe('Mixed code and raw blocks', () => {
 		it('code and raw blocks interleaved', () => {
 			const content = [
 				'# Title',
@@ -245,7 +245,7 @@ describe('parseQuartoDocument', () => {
 		});
 	});
 
-	suite('Plain fences', () => {
+	describe('Plain fences', () => {
 		it('plain fence is not parsed as a block', () => {
 			const content = '```\nsome code\n```\n';
 			const result = parseQuarto(content);
@@ -277,7 +277,7 @@ describe('parseQuartoDocument', () => {
 		});
 	});
 
-	suite('Lines array', () => {
+	describe('Lines array', () => {
 		it('returns split lines', () => {
 			const content = 'line1\nline2\nline3';
 			const result = parseQuarto(content);
@@ -295,7 +295,7 @@ describe('parseQuartoDocument', () => {
 		});
 	});
 
-	suite('Unclosed fences', () => {
+	describe('Unclosed fences', () => {
 		it('unclosed code block is ignored', () => {
 			const content = '```{python}\nx = 1\ny = 2';
 			const result = parseQuarto(content);
