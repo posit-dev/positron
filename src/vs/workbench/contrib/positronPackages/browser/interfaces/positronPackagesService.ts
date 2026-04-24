@@ -52,6 +52,12 @@ export interface IPositronPackagesService {
 	refreshPackages(token?: CancellationToken): Promise<ILanguageRuntimePackage[]>;
 
 	/**
+	 * Force refresh package metadata, clearing the cache.
+	 * @param token Optional cancellation token
+	 */
+	refreshMetadata(token?: CancellationToken): Promise<void>;
+
+	/**
 	 * Install packages in the active session.
 	 * @param packages Array of package specifications to install
 	 * @param token Optional cancellation token

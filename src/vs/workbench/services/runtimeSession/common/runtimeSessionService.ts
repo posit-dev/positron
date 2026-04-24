@@ -250,9 +250,6 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	/** Show profiler log of the runtime, if supported */
 	showProfile(): Thenable<void>;
 
-	/** Get the label associated with the session. This is a more human-readable name for the session. */
-	getLabel(): string;
-
 	/** Updates the session's name */
 	updateSessionName(sessionName: string): void;
 
@@ -292,6 +289,15 @@ export interface ILanguageRuntimePackage {
 	name: string;
 	displayName: string;
 	version: string;
+
+	/** License information */
+	license?: string;
+
+	/** Latest available version from repository */
+	latestVersion?: string;
+
+	/** Publication/release date */
+	publishedDate?: string;
 }
 
 /**
@@ -356,6 +362,19 @@ export interface ILanguageRuntimePackageManager {
 	 * @param token Optional cancellation token
 	 */
 	searchPackageVersions(name: string, token?: CancellationToken): Promise<string[]>;
+
+	/**
+	 * Fetch additional metadata for packages from external sources (e.g., P3M).
+	 * This is called separately from getPackages() to allow the UI to display
+	 * the basic package list quickly while metadata loads in the background.
+	 * @param packageNames Array of package names to fetch metadata for
+	 * @param token Optional cancellation token
+	 * @returns Map of package name (lowercase) to partial package metadata, or undefined if not supported
+	 */
+	getPackageMetadata?(
+		packageNames: string[],
+		token?: CancellationToken,
+	): Promise<Map<string, Partial<ILanguageRuntimePackage>> | undefined>;
 }
 
 /**

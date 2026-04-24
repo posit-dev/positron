@@ -68,6 +68,7 @@ export class PositronNotebooks extends Notebooks {
 
 	// Cell outputs
 	cellOutput = (index: number) => this.cell.nth(index).getByTestId('cell-output');
+	cellOutputSash = (index: number) => this.cellOutput(index).locator('.horizontal-splitter .sash');
 	private outputActionBar = (index: number) => this.cell.nth(index).locator('.cell-output-action-bar');
 	outputCollapsedLabel = (index: number) => this.cellOutput(index).getByText('Output collapsed');
 	outputTruncationMessage = (index: number) => this.cellOutput(index).getByText(/\.\.\. Show [\d,.\s\u00A0]+ more lines/);
@@ -635,6 +636,48 @@ export class PositronNotebooks extends Notebooks {
 			await this.cellOutput(cellIndex).hover();
 			await this.outputActionBar(cellIndex).getByRole('button', { name: button }).click();
 		});
+	}
+
+	/**
+	 * Action: Drag the output resize sash for a cell by a given distance.
+	 * @param cellIndex - The index of the cell whose output sash to drag.
+	 * @param distance - The vertical distance in pixels to drag (positive = down).
+	 */
+	async dragCellOutputSash(cellIndex: number, distance: number) {
+		const page = this.code.driver.page;
+		const sash = this.cellOutputSash(cellIndex);
+
+		// Reveal the sash for debugging.
+		await sash.scrollIntoViewIfNeeded();
+
+		// Get the sash's starting position.
+		const box = await sash.boundingBox();
+		expect(box).toBeTruthy();
+		const startX = box!.x + box!.width / 2;
+		const startY = box!.y + box!.height / 2;
+
+		// Drag the sash down to grow the output area.
+		await page.mouse.move(startX, startY);
+		await page.mouse.down();
+		await page.mouse.move(startX, startY + distance, { steps: 10 });
+		await page.mouse.up();
+
+		// Reveal the final sash position for debugging.
+		await sash.scrollIntoViewIfNeeded();
+	}
+
+	/**
+	 * Get the height of a cell's output area.
+	 * @param cellIndex - The index of the cell to measure
+	 * @returns The height of the cell's output area in pixels
+	 */
+	async getCellOutputHeight(cellIndex: number): Promise<number> {
+		const output = this.cellOutput(cellIndex);
+		const box = await output.boundingBox();
+		if (!box) {
+			throw new Error(`Could not get bounding box for cell output at index ${cellIndex}`);
+		}
+		return box.height;
 	}
 
 	/**
@@ -1390,6 +1433,29 @@ export class PositronNotebooks extends Notebooks {
 			await expect(this.cellOutput(cellIndex)).toBeVisible();
 			for (const line of lines) {
 				await expect(this.cellOutput(cellIndex).getByText(line)).toBeVisible();
+			}
+		});
+	}
+
+	/**
+	 * Verify: the height of the cell's output area matches expected height.
+	 * @param cellIndex - The index of the cell to check.
+	 * @param height - The expected height of the cell's output area in pixels.
+	 * @param options - Options to control expectation:
+	 *   tolerance: Optional pixel tolerance for height comparison (default: 0, meaning exact match).
+	 */
+	async expectCellOutputHeight(
+		cellIndex: number,
+		height: number,
+		{ tolerance = 0 }: { tolerance?: number } = {}
+	): Promise<void> {
+		await test.step(`Verify cell output height at index ${cellIndex} is ${height}px (±${tolerance}px)`, async () => {
+			const actual = await this.getCellOutputHeight(cellIndex);
+			if (tolerance === 0) {
+				expect(actual).toBe(height);
+			} else {
+				expect(actual).toBeGreaterThanOrEqual(height - tolerance);
+				expect(actual).toBeLessThanOrEqual(height + tolerance);
 			}
 		});
 	}

@@ -58,5 +58,5 @@ export const RuntimeStatusIcon = ({ status }: RuntimeStatusIconProps) => {
 		className={status === RuntimeStatus.Active ? 'animate-spin' : undefined}
 		icon={icon}
 		style={{ color }}
-	/>
+	/>;
 };

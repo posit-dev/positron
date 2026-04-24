@@ -386,7 +386,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 
 	private kernel: JupyterKernel | undefined;
 	public started = new Barrier();
-	private pythonSession: positron.LanguageRuntimeSession;
+	private pythonSession!: positron.LanguageRuntimeSession;
 
 	// To create a reticulate runtime session we need to first create a python
 	// runtime session using the exported interface from the positron-python
@@ -433,11 +433,11 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		// Create the session itself.
 		const session = new ReticulateRuntimeSession(
 			rSession,
-			metadata,
 			sessionMetadata,
 			ReticulateRuntimeSessionType.Create,
 			progress
 		);
+		await session.initializePythonSession(metadata);
 
 		return session;
 	}
@@ -456,11 +456,11 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		// Create the session itself.
 		const session = new ReticulateRuntimeSession(
 			rSession,
-			metadata,
 			sessionMetadata,
 			ReticulateRuntimeSessionType.Restore,
 			progress
 		);
+		await session.initializePythonSession(metadata);
 
 		return session;
 	}
@@ -620,15 +620,21 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 
 	constructor(
 		readonly rSession: positron.LanguageRuntimeSession,
-		runtimeMetadata: positron.LanguageRuntimeMetadata,
 		readonly sessionMetadata: positron.RuntimeSessionMetadata,
 		readonly sessionType: ReticulateRuntimeSessionType,
 		readonly progress: vscode.Progress<{ message?: string; increment?: number }>
 	) {
+		this.onDidReceiveRuntimeMessage = this._messageEmitter.event;
+		this.onDidChangeRuntimeState = this._stateEmitter.event;
+		this.onDidEndSession = this._exitEmitter.event;
+		this.onDidUpdateResourceUsage = this._resourceUsageEmitter.event;
+	}
+
+	private async initializePythonSession(runtimeMetadata: positron.LanguageRuntimeMetadata): Promise<void> {
 		// When the kernelSpec is undefined, the PythonRuntimeSession
 		// will perform a restore session.
 		let kernelSpec: JupyterKernelSpec | undefined = undefined;
-		if (sessionType === ReticulateRuntimeSessionType.Create) {
+		if (this.sessionType === ReticulateRuntimeSessionType.Create) {
 			kernelSpec = {
 				'argv': [],
 				'display_name': "Reticulate Python Session", // eslint-disable-line
@@ -651,16 +657,11 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 			};
 		}
 
-		this.onDidReceiveRuntimeMessage = this._messageEmitter.event;
-		this.onDidChangeRuntimeState = this._stateEmitter.event;
-		this.onDidEndSession = this._exitEmitter.event;
-		this.onDidUpdateResourceUsage = this._resourceUsageEmitter.event;
-
 		this.progress.report({ increment: 10, message: vscode.l10n.t('Creating the Python session') });
 
-		this.pythonSession = this.createPythonRuntimeSession(
+		this.pythonSession = await this.createPythonRuntimeSession(
 			runtimeMetadata,
-			sessionMetadata,
+			this.sessionMetadata,
 			kernelSpec
 		);
 	}
@@ -669,10 +670,13 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		return this.pythonSession.getDynState();
 	}
 
-	createPythonRuntimeSession(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionMetadata: positron.RuntimeSessionMetadata, kernelSpec?: JupyterKernelSpec): positron.LanguageRuntimeSession {
+	async createPythonRuntimeSession(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionMetadata: positron.RuntimeSessionMetadata, kernelSpec?: JupyterKernelSpec): Promise<positron.LanguageRuntimeSession> {
 		const api = vscode.extensions.getExtension('ms-python.python');
 		if (!api) {
 			throw new Error(vscode.l10n.t('Failed to find the Python extension API.'));
+		}
+		if (!api.isActive) {
+			await api.activate();
 		}
 
 		const pythonSession: positron.LanguageRuntimeSession = api.exports.positron.createPythonRuntimeSession(
@@ -875,7 +879,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 					const metadata: positron.RuntimeSessionMetadata = { ...this.sessionMetadata, sessionId: `reticulate-python-${randomId}` };
 
 					// When the R session is ready, we can start a new Reticulate session.
-					this.pythonSession = this.createPythonRuntimeSession(
+					this.pythonSession = await this.createPythonRuntimeSession(
 						this.runtimeMetadata,
 						metadata,
 						kernelSpec

@@ -777,6 +777,24 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return packageManager.searchPackageVersions(name, token);
 	}
 
+	async $getPackageMetadata(
+		handle: number,
+		packageNames: string[],
+		token: CancellationToken,
+	): Promise<Record<string, Partial<positron.LanguageRuntimePackage>> | undefined> {
+		const packageManager = this.getPackageManagerOrThrow(handle, 'get package metadata');
+		// Return undefined if the package manager doesn't implement this optional method
+		if (!packageManager.getPackageMetadata) {
+			return undefined;
+		}
+		const result = await packageManager.getPackageMetadata(packageNames, token);
+		if (!result) {
+			return undefined;
+		}
+		// Convert Map to plain object for IPC serialization
+		return Object.fromEntries(result);
+	}
+
 	async $restartSession(handle: number, workingDirectory?: string): Promise<void> {
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot restart runtime: session handle '${handle}' not found or no longer valid.`);

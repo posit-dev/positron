@@ -78,4 +78,17 @@ export interface IPackageManager {
      * @returns Array of version strings
      */
     searchPackageVersions(name: string, token?: vscode.CancellationToken): Promise<string[]>;
+
+    /**
+     * Fetch additional metadata for packages from external sources (e.g., P3M).
+     * This is called separately from getPackages() to allow the UI to display
+     * the basic package list quickly while metadata loads in the background.
+     * @param packageNames Array of package names to fetch metadata for
+     * @param token Optional cancellation token
+     * @returns Map of package name (lowercase) to partial package metadata
+     */
+    getPackageMetadata?(
+        packageNames: string[],
+        token?: vscode.CancellationToken,
+    ): Promise<Map<string, Partial<positron.LanguageRuntimePackage>>>;
 }

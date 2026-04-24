@@ -7,13 +7,17 @@
 import './horizontalSplitter.css';
 
 // React.
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../dom.js';
+import { Delayer } from '../../../../common/async.js';
 import { isMacintosh } from '../../../../common/platform.js';
+import { DisposableStore } from '../../../../common/lifecycle.js';
 import { positronClassNames } from '../../../../common/positronUtilities.js';
 import { createStyleSheet } from '../../../domStylesheets.js';
+import { usePositronReactServicesContext } from '../../../positronReactRendererContext.js';
+import { getHoverDelay, isPointInsideElement } from './verticalSplitter.js';
 
 /**
  * HorizontalSplitterResizeParams interface. This defines the parameters of a resize operation. When
@@ -36,9 +40,57 @@ export const HorizontalSplitter = (props: {
 	showResizeIndicator?: boolean;
 	onBeginResize: () => HorizontalSplitterResizeParams;
 	onResize: (height: number) => void;
+	onDoubleClick?: () => void;
 }) => {
+	// Context hooks.
+	const services = usePositronReactServicesContext();
+
+	// Reference hooks.
+	const hoverDelayerRef = useRef<Delayer<void>>(undefined);
+
 	// State hooks.
 	const [resizing, setResizing] = useState(false);
+	const [hovering, setHovering] = useState(false);
+
+	// Main useEffect.
+	useEffect(() => {
+		// Create the disposable store for cleanup.
+		const disposables = new DisposableStore();
+
+		// Set the hover delayer.
+		const hoverDelay = getHoverDelay(services.configurationService);
+		hoverDelayerRef.current = disposables.add(new Delayer<void>(hoverDelay));
+
+		// Add the onDidChangeConfiguration event handler.
+		disposables.add(
+			services.configurationService.onDidChangeConfiguration(e => {
+				// Track changes to workbench.sash.hoverDelay.
+				if (e.affectedKeys.has('workbench.sash.hoverDelay') && hoverDelayerRef.current) {
+					hoverDelayerRef.current.defaultDelay = getHoverDelay(services.configurationService);
+				}
+			})
+		);
+
+		// Return the cleanup function that will dispose of the disposables.
+		return () => disposables.dispose();
+	}, [services.configurationService]);
+
+	/**
+	 * onPointerEnter handler.
+	 */
+	const pointerEnterHandler = () => {
+		hoverDelayerRef.current?.trigger(() => setHovering(true));
+	};
+
+	/**
+	 * onPointerLeave handler.
+	 */
+	const pointerLeaveHandler = () => {
+		if (!resizing) {
+			hoverDelayerRef.current?.cancel();
+			setHovering(false);
+		}
+	};
 
 	/**
 	 * onPointerDown handler.
@@ -56,15 +108,23 @@ export const HorizontalSplitter = (props: {
 
 		// Setup the resize state.
 		const resizeParams = props.onBeginResize();
-		const target = DOM.getWindow(e.currentTarget).document.body;
+		const sash = e.currentTarget;
+		const body = DOM.getWindow(sash).document.body;
 		const clientY = e.clientY;
-		const styleSheet = createStyleSheet(target);
+		const styleSheet = createStyleSheet(body);
+
+		// Track whether any meaningful drag occurred, so we can distinguish
+		// a click (or double-click) from a drag on pointer release.
+		let didDrag = false;
 
 		/**
 		 * pointermove event handler.
 		 * @param e A PointerEvent that describes a user interaction with the pointer.
 		 */
 		const pointerMoveHandler = (e: PointerEvent) => {
+			// The pointer moved, mark as dragging.
+			didDrag = true;
+
 			// Consume the event.
 			e.preventDefault();
 			e.stopPropagation();
@@ -84,9 +144,10 @@ export const HorizontalSplitter = (props: {
 				cursor = isMacintosh ? 'row-resize' : 'ns-resize';
 			}
 
-			// Update the style sheet's text content with the desired cursor. This is a clever
+			// Update the style sheet's text content with the desired cursor and
+			// disable text selection during the resize operation. This is a clever
 			// technique adopted from src/vs/base/browser/ui/sash/sash.ts.
-			styleSheet.textContent = `* { cursor: ${cursor} !important; }`;
+			styleSheet.textContent = `* { cursor: ${cursor} !important; user-select: none !important; }`;
 
 			// Call the onResize callback.
 			props.onResize(newHeight);
@@ -97,28 +158,24 @@ export const HorizontalSplitter = (props: {
 		 * @param e A PointerEvent that describes a user interaction with the pointer.
 		 */
 		const lostPointerCaptureHandler = (e: PointerEvent) => {
-			// Clear the dragging flag.
-			setResizing(false);
-
-			// Remove our pointer event handlers.
-			target.removeEventListener('pointermove', pointerMoveHandler);
-			target.removeEventListener('lostpointercapture', lostPointerCaptureHandler);
-
-			// Calculate the new height.
-			let newHeight = calculateNewHeight(e);
-
-			// Adjust the new height to be within limits.
-			if (newHeight < resizeParams.minimumHeight) {
-				newHeight = resizeParams.minimumHeight;
-			} else if (newHeight > resizeParams.maximumHeight) {
-				newHeight = resizeParams.maximumHeight;
+			// Only commit the final height if the user actually dragged.
+			// This avoids interfering with click and double-click interactions.
+			if (didDrag) {
+				// Handle the last possible move change.
+				pointerMoveHandler(e);
 			}
 
-			// Remove the style sheet.
-			target.removeChild(styleSheet);
+			// Remove our pointer event handlers.
+			sash.removeEventListener('pointermove', pointerMoveHandler);
+			sash.removeEventListener('lostpointercapture', lostPointerCaptureHandler);
 
-			// Call the onEndResize callback.
-			props.onResize(newHeight);
+			// Remove the style sheet.
+			body.removeChild(styleSheet);
+
+			// Clear the resizing flag.
+			setResizing(false);
+			hoverDelayerRef.current?.cancel();
+			setHovering(isPointInsideElement(e.clientX, e.clientY, sash));
 		};
 
 		/**
@@ -136,25 +193,40 @@ export const HorizontalSplitter = (props: {
 				resizeParams.startingHeight - delta;
 		};
 
-		// Set the dragging flag.
+		// Set the dragging flag and show hover indicator immediately.
 		setResizing(true);
+		hoverDelayerRef.current?.cancel();
+		setHovering(true);
 
-		// Set the capture target of future pointer events to be the current target and add our
-		// pointer event handlers.
-		target.setPointerCapture(e.pointerId);
-		target.addEventListener('pointermove', pointerMoveHandler);
-		target.addEventListener('lostpointercapture', lostPointerCaptureHandler);
+		// Set pointer capture on the sizer element and add our pointer event handlers.
+		sash.setPointerCapture(e.pointerId);
+		sash.addEventListener('pointermove', pointerMoveHandler);
+		sash.addEventListener('lostpointercapture', lostPointerCaptureHandler);
+	};
+
+	/**
+	 * onDoubleClick handler.
+	 */
+	const doubleClickHandler = () => {
+		props.onDoubleClick?.();
+		hoverDelayerRef.current?.cancel();
+		setHovering(false);
 	};
 
 	// Render.
 	return (
 		<div className='horizontal-splitter'>
+			{/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
 			<div
 				className={positronClassNames(
-					'sizer',
+					'sash',
+					{ 'hovering': hovering && props.showResizeIndicator },
 					{ 'resizing': resizing && props.showResizeIndicator }
 				)}
+				onDoubleClick={doubleClickHandler}
 				onPointerDown={pointerDownHandler}
+				onPointerEnter={pointerEnterHandler}
+				onPointerLeave={pointerLeaveHandler}
 			/>
 		</div>
 	);
