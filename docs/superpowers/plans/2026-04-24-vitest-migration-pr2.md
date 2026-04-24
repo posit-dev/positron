@@ -36,6 +36,8 @@ Every migration applies some subset of these translations. Each task lists which
 | `assert.rejects(p, /re/)` | `await expect(p).rejects.toThrow(/re/)` |
 | `assert.throws(() => f(), /re/)` | `expect(() => f()).toThrow(/re/)` |
 
+**Critical anti-pattern:** Do not do a substring swap `assert.strictEqual(` → `expect(` — that produces `expect(a, b);` which is a silent no-op (returns an assertion object, never runs a matcher, tests pass vacuously). Every translated line MUST end with a matcher call: `expect(a).toBe(b)`, not `expect(a, b)`. After editing, grep each file for `^\s*expect\([^)]+,\s*[^)]+\);$` — any match is a silent no-op and must be rewritten.
+
 ### B. File layout (every file)
 
 - Rename `foo.test.ts` → `foo.vitest.ts` (or `.vitest.tsx` for React).
