@@ -5,13 +5,15 @@
 
 import { mainWindow } from '../../../../base/browser/window.js';
 import { Disposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
+import * as platform from '../../../../base/common/platform.js';
 import { POSITRON_IDLE_TRACKING_CHANNEL_NAME, PositronIdleTrackingChannelClient } from '../../../../platform/positronIdleTracking/common/positronIdleTrackingIpc.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { IRemoteAgentService } from '../../../services/remote/common/remoteAgentService.js';
 import { IUserActivityService } from '../../../services/userActivity/common/userActivityService.js';
+import { UIKind } from '../../../services/extensions/common/extensionHostProtocol.js';
 
 /** Interval at which heartbeats are sent while the user is active. */
-const HEARTBEAT_INTERVAL_MS = 30_000;
+const HEARTBEAT_INTERVAL_MS = 300_000;
 
 /**
  * Browser workbench contribution that forwards user activity state to the
@@ -36,6 +38,15 @@ class PositronIdleReporterContribution extends Disposable implements IWorkbenchC
 		const connection = remoteAgentService.getConnection();
 		if (!connection) {
 			// Not in a remote/server context; nothing to do.
+			return;
+		}
+
+		// Check if running on PWB (Posit Workbench) - PWB has its own polling
+		// eslint-disable-next-line local/code-no-any-casts
+		const isRunningOnPWB = !!(globalThis as any).RS_SERVER_URL &&
+			(platform.isWeb ? UIKind.Web : UIKind.Desktop) === UIKind.Web;
+		if (isRunningOnPWB) {
+			// Running on PWB which does its own polling; nothing to do.
 			return;
 		}
 
