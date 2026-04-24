@@ -85,6 +85,7 @@ describe('PositronConsoleFindWidget', () => {
 		);
 		// Attach the widget to the visible console instance element
 		// (mirrors what ConsoleInstance does via useEffect).
+		// eslint-disable-next-line no-restricted-syntax -- finding the mount point in a test-constructed container; refactoring to keep a direct reference deferred to follow-up cleanup PR
 		const instance = consoleContainer.querySelector('.console-instance')!;
 		instance.appendChild(widget.getDomNode());
 	}
@@ -326,6 +327,7 @@ describe('PositronConsoleFindWidget', () => {
 			expect(result?.resultCount).toBe(1);
 
 			// Add another line with the search term
+			// eslint-disable-next-line no-restricted-syntax -- re-finding the mount point to append a new search target; direct reference deferred to follow-up cleanup PR
 			const instance = consoleContainer.querySelector('.console-instance')!;
 			const newLine = document.createElement('div');
 			newLine.textContent = 'word';

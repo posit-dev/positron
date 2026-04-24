@@ -18,6 +18,7 @@ const TEST_WORKSPACE_ID = 'test-workspace-id';
 function createMockWorkspaceContextService(): IWorkspaceContextService {
 	return new class extends mock<IWorkspaceContextService>() {
 		override getWorkspace() {
+			// eslint-disable-next-line local/code-no-any-casts -- partial IWorkspace for test; full stub deferred to follow-up cleanup PR
 			return { id: TEST_WORKSPACE_ID, folders: [] } as any;
 		}
 	};
@@ -91,6 +92,7 @@ describe('MainThreadPositronEphemeralStorage', function () {
 		// Create a second storage instance with a different workspace ID
 		const otherWorkspaceService = new class extends mock<IWorkspaceContextService>() {
 			override getWorkspace() {
+				// eslint-disable-next-line local/code-no-any-casts -- partial IWorkspace for test; full stub deferred to follow-up cleanup PR
 				return { id: 'other-workspace-id', folders: [] } as any;
 			}
 		};

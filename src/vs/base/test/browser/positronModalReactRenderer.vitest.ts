@@ -200,7 +200,7 @@ describe('PositronModalReactRenderer', () => {
 			renderer.render(createMockReactElement());
 
 			expect(container.children.length).toBe(1);
-			expect(container.querySelector('.positron-modal-overlay')).not.toBeNull();
+			expect(container.firstElementChild).toHaveAttribute('data-testid', 'positron-modal-overlay');
 
 			renderer.dispose();
 		});
@@ -396,8 +396,7 @@ describe('PositronModalReactRenderer', () => {
 			}));
 			renderer.render(createMockReactElement());
 
-			const overlay = container.querySelector('.positron-modal-overlay') as HTMLElement;
-			expect(overlay).not.toBeNull();
+			const overlay = container.firstElementChild as HTMLElement;
 			expect(overlay).toHaveStyle({ pointerEvents: 'none' });
 
 			renderer.dispose();
@@ -408,8 +407,7 @@ describe('PositronModalReactRenderer', () => {
 			const renderer = disposables.add(new PositronModalReactRenderer({ container }));
 			renderer.render(createMockReactElement());
 
-			const overlay = container.querySelector('.positron-modal-overlay') as HTMLElement;
-			expect(overlay).not.toBeNull();
+			const overlay = container.firstElementChild as HTMLElement;
 			expect(overlay).not.toHaveStyle({ pointerEvents: 'none' });
 
 			renderer.dispose();

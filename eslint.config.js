@@ -2305,4 +2305,58 @@ export default tseslint.config(
 			],
 		}
 	},
+	// --- Start Positron ---
+	// Vitest tests: promote RTL-relevant rules to errors so warnings can't
+	// accumulate silently. The review-vitest-tests skill catches these with
+	// `npx eslint --max-warnings 0`, but authors don't always run it; pre-commit
+	// and CI fail on errors but tolerate warnings, so keep the gate at the
+	// authoritative level. Escape hatches still work via line-scoped
+	// // eslint-disable-next-line with a justification comment.
+	{
+		files: [
+			'src/vs/**/*.vitest.ts',
+			'src/vs/**/*.vitest.tsx',
+		],
+		rules: {
+			// Manual type assertions (as any, as T) hide bugs in tests the same
+			// way they do in runtime code. Prefer typed Partial<...> helpers.
+			'local/code-no-any-casts': 'error',
+			// Selector-based DOM queries are the escape hatch (see vitest-rtl.md).
+			// Error-level enforcement forces authors to either add a data-testid
+			// or disable per-line with a justification.
+			'no-restricted-syntax': [
+				'error',
+				{
+					'selector': 'CallExpression[callee.property.name=\'querySelector\']',
+					'message': 'querySelector is an RTL escape hatch: prefer screen.getByRole/getByTestId. If a semantic query genuinely does not fit, disable per line with a justification (see .claude/rules/vitest-rtl.md).'
+				},
+				{
+					'selector': 'CallExpression[callee.property.name=\'querySelectorAll\']',
+					'message': 'querySelectorAll is an RTL escape hatch: prefer screen.getAllByRole/getAllByTestId. If no semantic query fits, disable per line with a justification (see .claude/rules/vitest-rtl.md).'
+				},
+				{
+					'selector': 'CallExpression[callee.property.name=\'getElementById\']',
+					'message': 'getElementById is an RTL escape hatch: prefer screen.getByRole/getByTestId. If no semantic query fits, disable per line with a justification (see .claude/rules/vitest-rtl.md).'
+				},
+				{
+					'selector': 'CallExpression[callee.property.name=\'getElementsByClassName\']',
+					'message': 'getElementsByClassName is an RTL escape hatch: prefer semantic queries. If no semantic query fits, disable per line with a justification (see .claude/rules/vitest-rtl.md).'
+				},
+				{
+					'selector': 'CallExpression[callee.property.name=\'getElementsByTagName\']',
+					'message': 'getElementsByTagName is an RTL escape hatch: prefer semantic queries. If no semantic query fits, disable per line with a justification (see .claude/rules/vitest-rtl.md).'
+				},
+				{
+					'selector': 'CallExpression[callee.property.name=\'getElementsByName\']',
+					'message': 'getElementsByName is an RTL escape hatch: prefer semantic queries. If no semantic query fits, disable per line with a justification (see .claude/rules/vitest-rtl.md).'
+				},
+				// Keep the Intl helper restriction even in tests.
+				{
+					'selector': `NewExpression[callee.object.name='Intl']`,
+					'message': 'Use safeIntl helper instead for safe and lazy use of potentially expensive Intl methods.'
+				},
+			],
+		}
+	},
+	// --- End Positron ---
 );

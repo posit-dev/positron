@@ -291,6 +291,7 @@ describe('Positron - Plots Service', () => {
 		});
 
 		// Replace the comm methods via the proxy
+		// eslint-disable-next-line local/code-no-any-casts -- reaching into private _commProxy to inject stub comms; exposing a test hook in the source class is deferred to follow-up cleanup PR
 		const commProxy = (plotInstance as any)._commProxy;
 		if (commProxy && commProxy._comm) {
 			commProxy._comm.render = renderStub;
