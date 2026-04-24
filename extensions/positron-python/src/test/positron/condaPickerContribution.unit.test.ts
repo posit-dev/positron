@@ -7,7 +7,6 @@
 
 import { expect } from 'chai';
 import * as path from 'path';
-import * as vscode from 'vscode';
 
 suite('CondaPythonPickerContribution', () => {
     suite('Basic functionality', () => {
