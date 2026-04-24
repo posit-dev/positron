@@ -383,32 +383,11 @@ export const selectNewLanguageRuntime = async (
 	}): Promise<ILanguageRuntimeMetadata | undefined> => {
 	// Access services.
 	const quickInputService = accessor.get(IQuickInputService);
-	const runtimeSessionService = accessor.get(IRuntimeSessionService);
 	const runtimeStartupService = accessor.get(IRuntimeStartupService);
 	const languageRuntimeService = accessor.get(ILanguageRuntimeService);
 
 	// Group runtimes by language.
 	const interpreterGroups = createInterpreterGroups(languageRuntimeService, runtimeStartupService);
-
-	// Grab the current runtime.
-	const currentRuntime = runtimeSessionService.foregroundSession?.runtimeMetadata;
-
-	// Grab the active runtimes.
-	const activeRuntimes = runtimeSessionService.activeSessions
-		// Sort by last used, descending.
-		.sort((a, b) => b.lastUsed - a.lastUsed)
-		// Map from session to runtime metadata.
-		.map(session => session.runtimeMetadata)
-		// Remove duplicates, and current runtime.
-		.filter((runtime, index, runtimes) =>
-			runtime.runtimeId !== currentRuntime?.runtimeId && runtimes.findIndex(r => r.runtimeId === runtime.runtimeId) === index
-		);
-
-	// Add current runtime first, if present.
-	// Allows for "plus" + enter behavior to clone session.
-	if (currentRuntime) {
-		activeRuntimes.unshift(currentRuntime);
-	}
 
 	// Generate quick pick items for runtimes.
 	const runtimeItems: QuickPickItem[] = [];
@@ -497,7 +476,6 @@ export const selectNewLanguageRuntime = async (
 						iconPath: {
 							dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
 						},
-						picked: (runtime.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId),
 						neverShowWhenFiltered: false
 					});
 				});
