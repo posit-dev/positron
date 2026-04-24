@@ -1526,16 +1526,35 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	/**
 	 * Build a localized textual summary of the current outputs for display
 	 * when collapsed. Each output contributes one fragment; fragments are
-	 * joined with a comma.
+	 * joined with a comma. Consecutive text outputs are merged into a single
+	 * fragment with their line counts summed.
 	 */
 	private _buildSummary(): string {
 		const parts: string[] = [];
-		for (const output of this._outputs) {
-			const part = this._summarizeOutput(output);
-			if (part) {
-				parts.push(part);
+		let pendingTextLines = 0;
+		const flushTextRun = () => {
+			if (pendingTextLines > 0) {
+				parts.push(pendingTextLines === 1
+					? localize('quartoOutputSummaryTextOne', 'Text (1 line)')
+					: localize('quartoOutputSummaryText', 'Text ({0} lines)', pendingTextLines.toLocaleString()));
+				pendingTextLines = 0;
 			}
+		};
+
+		for (const output of this._outputs) {
+			const summary = this._summarizeOutput(output);
+			if (!summary) {
+				continue;
+			}
+			if (summary.kind === 'text') {
+				pendingTextLines += summary.lines;
+				continue;
+			}
+			flushTextRun();
+			parts.push(summary.text);
 		}
+		flushTextRun();
+
 		if (parts.length === 0) {
 			return localize('quartoOutputSummaryGeneric', 'Output');
 		}
@@ -1544,9 +1563,11 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 
 	/**
 	 * Compute a short summary fragment for a single output, picking the
-	 * most representative MIME type.
+	 * most representative MIME type. Text outputs return their line count so
+	 * the caller can merge consecutive runs; everything else returns a
+	 * pre-localized string.
 	 */
-	private _summarizeOutput(output: ICellOutput): string | undefined {
+	private _summarizeOutput(output: ICellOutput): { kind: 'text'; lines: number } | { kind: 'other'; text: string } | undefined {
 		// Data frame (inline data explorer)
 		const dataExplorerItem = output.items.find(
 			item => item.mime === DATA_EXPLORER_MIME_TYPE
@@ -1556,19 +1577,22 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 				const payload = JSON.parse(dataExplorerItem.data) as { shape?: { rows: number } };
 				const rows = payload.shape?.rows;
 				if (typeof rows === 'number') {
-					return rows === 1
-						? localize('quartoOutputSummaryDataFrameOne', 'Data frame (1 row)')
-						: localize('quartoOutputSummaryDataFrame', 'Data frame ({0} rows)', rows.toLocaleString());
+					return {
+						kind: 'other',
+						text: rows === 1
+							? localize('quartoOutputSummaryDataFrameOne', 'Data frame (1 row)')
+							: localize('quartoOutputSummaryDataFrame', 'Data frame ({0} rows)', rows.toLocaleString()),
+					};
 				}
 			} catch {
 				// Fall through to other summarizers
 			}
-			return localize('quartoOutputSummaryDataFrameGeneric', 'Data frame');
+			return { kind: 'other', text: localize('quartoOutputSummaryDataFrameGeneric', 'Data frame') };
 		}
 
 		// Interactive output (widget / plotly / viewer)
 		if (output.webviewMetadata?.webviewType) {
-			return localize('quartoOutputSummaryInteractive', 'Interactive output');
+			return { kind: 'other', text: localize('quartoOutputSummaryInteractive', 'Interactive output') };
 		}
 
 		// Plot / image
@@ -1576,24 +1600,24 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		if (imageItem) {
 			const dims = this._imageDimensions.get(output.outputId);
 			if (dims) {
-				return localize('quartoOutputSummaryPlot', 'Plot ({0}x{1})', dims.width, dims.height);
+				return { kind: 'other', text: localize('quartoOutputSummaryPlot', 'Plot ({0}\u00D7{1})', dims.width, dims.height) };
 			}
-			return localize('quartoOutputSummaryPlotGeneric', 'Plot');
+			return { kind: 'other', text: localize('quartoOutputSummaryPlotGeneric', 'Plot') };
 		}
 
 		// Error
 		if (output.items.some(item => item.mime === 'application/vnd.code.notebook.error')) {
-			return localize('quartoOutputSummaryError', 'Error');
+			return { kind: 'other', text: localize('quartoOutputSummaryError', 'Error') };
 		}
 
 		// Markdown
 		if (output.items.some(item => item.mime === 'text/markdown')) {
-			return localize('quartoOutputSummaryMarkdown', 'Markdown');
+			return { kind: 'other', text: localize('quartoOutputSummaryMarkdown', 'Markdown') };
 		}
 
 		// HTML (non-webview)
 		if (output.items.some(item => item.mime === 'text/html')) {
-			return localize('quartoOutputSummaryHtml', 'HTML');
+			return { kind: 'other', text: localize('quartoOutputSummaryHtml', 'HTML') };
 		}
 
 		// Text (stdout / stderr / plain)
@@ -1603,10 +1627,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			item.mime === 'text/plain'
 		);
 		if (textItem) {
-			const lines = ANSIOutput.processOutput(textItem.data).length;
-			return lines === 1
-				? localize('quartoOutputSummaryTextOne', 'Text (1 line)')
-				: localize('quartoOutputSummaryText', 'Text ({0} lines)', lines.toLocaleString());
+			return { kind: 'text', lines: ANSIOutput.processOutput(textItem.data).length };
 		}
 
 		return undefined;
