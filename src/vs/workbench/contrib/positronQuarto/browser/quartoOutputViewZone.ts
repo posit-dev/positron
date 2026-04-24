@@ -250,6 +250,10 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	private readonly _imageDimensions = new Map<string, { width: number; height: number }>();
 	// Managed hover for the chevron's "Expand Output" / "Collapse Output" tooltip
 	private _collapseButtonHover: IManagedHover | undefined;
+	// Fires whenever the collapsed state changes. Used by the output manager
+	// to persist the state to workspace storage.
+	private readonly _onDidChangeCollapsed = this._register(new Emitter<boolean>());
+	readonly onDidChangeCollapsed: VSEvent<boolean> = this._onDidChangeCollapsed.event;
 
 	constructor(
 		private readonly _editor: ICodeEditor,
@@ -973,6 +977,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._styledContainer.classList.remove('quarto-output-recomputing');
 
 		// Reset collapse state so the next output starts expanded
+		const wasCollapsed = this._isCollapsed;
 		this._isCollapsed = false;
 		this._styledContainer.classList.remove('quarto-output-collapsed');
 		this._collapseChevronIcon.classList.remove('collapsed');
@@ -980,6 +985,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._collapseButton.setAttribute('aria-label', collapseLabel);
 		this._collapseButton.setAttribute('aria-expanded', 'true');
 		this._collapseButtonHover?.update(collapseLabel);
+		if (wasCollapsed) {
+			this._onDidChangeCollapsed.fire(false);
+		}
 
 		// Hide the status bar and stop any running timer/sparkline.
 		// This is an explicit user action to dismiss the output, so the
@@ -1346,7 +1354,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	/**
 	 * Apply the current visibility intent to the chevron. Shown when the
 	 * user is hovering either the view zone wrapper or the chevron itself,
-	 * or when the chevron has keyboard focus — in both expanded and
+	 * or when the chevron has keyboard focus - in both expanded and
 	 * collapsed states. A short delay before hiding avoids flicker when
 	 * moving the pointer across the small gap between the wrapper and the
 	 * chevron (they live in separate DOM subtrees).
@@ -1400,6 +1408,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		}
 		this._isCollapsed = collapsed;
 		this._updateCollapsedState();
+		this._onDidChangeCollapsed.fire(collapsed);
 	}
 
 	/**

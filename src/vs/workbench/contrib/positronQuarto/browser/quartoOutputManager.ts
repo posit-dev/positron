@@ -31,6 +31,12 @@ import { IQuartoKernelManager } from './quartoKernelManager.js';
 import { ILanguageRuntimeMessageWebOutput, LanguageRuntimeMessageType, RuntimeOutputKind, PositronOutputLocation } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IResourceUsageHistoryService } from '../../../services/positronConsole/browser/resourceUsageHistoryService.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
+
+// Workspace storage key for collapsed inline outputs. Value is JSON:
+// `{ [documentUri]: string[] }` - each entry is the list of cell IDs whose
+// output view zones were collapsed when the user last interacted with them.
+const STORAGE_KEY_COLLAPSED_CELLS = 'positron.quarto.collapsedCells';
 
 export const IQuartoOutputManager = createDecorator<IQuartoOutputManager>('quartoOutputManager');
 
@@ -132,6 +138,12 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	private readonly _onDidChangeOutputs = this._register(new Emitter<OutputChangeEvent>());
 	readonly onDidChangeOutputs = this._onDidChangeOutputs.event;
 
+	// In-memory mirror of the persisted collapsed-cell map. Keyed by document
+	// URI string; each value is the set of cell IDs whose view zones are
+	// collapsed for that document. Populated from storage in the constructor
+	// and kept in sync with storage via `_persistCollapsedCells()`.
+	private readonly _collapsedCellsByUri: Map<string, Set<string>>;
+
 	// Shared tick emitter for refreshing relative timestamps across all view zones.
 	// A single 30-second interval drives all cells instead of one timer per cell.
 	private readonly _timestampTickEmitter = this._register(new Emitter<void>());
@@ -156,8 +168,12 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IResourceUsageHistoryService private readonly _resourceUsageHistoryService: IResourceUsageHistoryService,
 		@IHoverService private readonly _hoverService: IHoverService,
+		@IStorageService private readonly _storageService: IStorageService,
 	) {
 		super();
+
+		// Restore the persisted collapsed-cell map from workspace storage.
+		this._collapsedCellsByUri = this._loadCollapsedCells();
 
 		// Start a shared 30-second timer for refreshing relative timestamps
 		this._timestampTickInterval = setInterval(() => {
@@ -409,6 +425,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			if (this._featureEnabled && this._documentUri &&
 				documentUri.toString() === this._documentUri.toString()) {
 				this.clearAllOutputs();
+				this._clearCollapsedStateForDocument(documentUri);
 			}
 		}));
 
@@ -416,6 +433,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		this._outputHandlingDisposables.add(this._outputManager.onDidRequestClearAll(() => {
 			if (this._featureEnabled) {
 				this.clearAllOutputs();
+				this._clearAllCollapsedState();
 			}
 		}));
 	}
@@ -968,6 +986,24 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		const executionState = this._executionManager.getExecutionState(cellId);
 		viewZone.setExecuting(executionState === CellExecutionState.Running);
 
+		// Restore a previously persisted collapsed state before subscribing so
+		// this initial application doesn't re-trigger the persist path, and
+		// before `show()` so the view zone paints in its collapsed form
+		// without flashing expanded.
+		if (this._documentUri) {
+			const collapsedCells = this._collapsedCellsByUri.get(this._documentUri.toString());
+			if (collapsedCells?.has(cellId)) {
+				viewZone.setCollapsed(true);
+			}
+		}
+
+		// Persist collapsed state to workspace storage whenever the user
+		// toggles it. Stored per document URI + cell ID so the state survives
+		// window reloads; discarded when the cell is edited (cell ID changes).
+		this._outputHandlingDisposables.add(viewZone.onDidChangeCollapsed(collapsed => {
+			this._updateCollapsedCell(cellId, collapsed);
+		}));
+
 		// Show the view zone
 		viewZone.show();
 
@@ -1492,6 +1528,103 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		}
 		this._viewZones.clear();
 	}
+
+	/**
+	 * Read the collapsed-cell map from workspace storage. Returns an empty
+	 * map on first run or if the stored value is malformed.
+	 */
+	private _loadCollapsedCells(): Map<string, Set<string>> {
+		const result = new Map<string, Set<string>>();
+		const raw = this._storageService.get(STORAGE_KEY_COLLAPSED_CELLS, StorageScope.WORKSPACE, '{}');
+		try {
+			const parsed = JSON.parse(raw);
+			if (parsed && typeof parsed === 'object') {
+				for (const [uri, cellIds] of Object.entries(parsed as Record<string, unknown>)) {
+					if (Array.isArray(cellIds)) {
+						const set = new Set<string>();
+						for (const id of cellIds) {
+							if (typeof id === 'string') {
+								set.add(id);
+							}
+						}
+						if (set.size > 0) {
+							result.set(uri, set);
+						}
+					}
+				}
+			}
+		} catch (e) {
+			this._logService.warn('[QuartoOutputContribution] Failed to parse collapsed-cell state: ', e);
+		}
+		return result;
+	}
+
+	/**
+	 * Update the collapsed state for a single cell in the current document
+	 * and write the whole map back to workspace storage.
+	 */
+	private _updateCollapsedCell(cellId: string, collapsed: boolean): void {
+		if (!this._documentUri) {
+			return;
+		}
+		const uriKey = this._documentUri.toString();
+		let cells = this._collapsedCellsByUri.get(uriKey);
+		if (collapsed) {
+			if (!cells) {
+				cells = new Set<string>();
+				this._collapsedCellsByUri.set(uriKey, cells);
+			}
+			if (cells.has(cellId)) {
+				return;
+			}
+			cells.add(cellId);
+		} else {
+			if (!cells?.has(cellId)) {
+				return;
+			}
+			cells.delete(cellId);
+			if (cells.size === 0) {
+				this._collapsedCellsByUri.delete(uriKey);
+			}
+		}
+		this._persistCollapsedCells();
+	}
+
+	/**
+	 * Drop the in-memory collapsed-cell entry for a single document. The
+	 * backing storage is cleared by `QuartoOutputManagerService` so even
+	 * documents with no open editor are cleaned up; this mirrors the change
+	 * here so our cached copy can't re-persist stale data.
+	 */
+	private _clearCollapsedStateForDocument(documentUri: URI): void {
+		this._collapsedCellsByUri.delete(documentUri.toString());
+	}
+
+	/**
+	 * Drop the whole in-memory collapsed-cell map. Paired with the service
+	 * clearing `STORAGE_KEY_COLLAPSED_CELLS` in workspace storage.
+	 */
+	private _clearAllCollapsedState(): void {
+		this._collapsedCellsByUri.clear();
+	}
+
+	/**
+	 * Serialize the in-memory collapsed-cell map to workspace storage.
+	 */
+	private _persistCollapsedCells(): void {
+		const payload: Record<string, string[]> = {};
+		for (const [uri, cells] of this._collapsedCellsByUri) {
+			if (cells.size > 0) {
+				payload[uri] = Array.from(cells);
+			}
+		}
+		this._storageService.store(
+			STORAGE_KEY_COLLAPSED_CELLS,
+			JSON.stringify(payload),
+			StorageScope.WORKSPACE,
+			StorageTarget.MACHINE,
+		);
+	}
 }
 
 /**
@@ -1516,6 +1649,7 @@ export class QuartoOutputManagerService extends Disposable implements IQuartoOut
 		@IQuartoExecutionManager private readonly _executionManager: IQuartoExecutionManager,
 		@IQuartoOutputCacheService private readonly _cacheService: IQuartoOutputCacheService,
 		@ILogService private readonly _logService: ILogService,
+		@IStorageService private readonly _storageService: IStorageService,
 	) {
 		super();
 
@@ -1610,6 +1744,11 @@ export class QuartoOutputManagerService extends Disposable implements IQuartoOut
 			});
 		}
 
+		// Drop this document's collapsed-cell entry from workspace storage.
+		// Must happen before firing the clear event so per-editor contributions
+		// clearing their in-memory state don't re-persist stale data.
+		this._removeCollapsedStateForDocument(documentUri);
+
 		// Fire document-level clear event so per-editor contributions also
 		// clear view zones for cached outputs that the service does not track.
 		this._onDidRequestClearDocument.fire(documentUri);
@@ -1622,9 +1761,50 @@ export class QuartoOutputManagerService extends Disposable implements IQuartoOut
 		// Clear our internal state
 		this._outputsByCell.clear();
 
+		// Wipe the persisted collapsed-cell map. Must happen before firing the
+		// clear event so per-editor contributions clearing their in-memory
+		// state don't re-persist stale data.
+		this._storageService.remove(STORAGE_KEY_COLLAPSED_CELLS, StorageScope.WORKSPACE);
+
 		// Fire event to notify all contributions to clear their outputs
 		// This is needed because contributions may have outputs loaded from cache
 		// that were never registered with the service
 		this._onDidRequestClearAll.fire();
+	}
+
+	/**
+	 * Remove a single document's entry from the persisted collapsed-cell map.
+	 * Rewrites the whole JSON payload; if no other documents have collapsed
+	 * cells, the key is removed.
+	 */
+	private _removeCollapsedStateForDocument(documentUri: URI): void {
+		const raw = this._storageService.get(STORAGE_KEY_COLLAPSED_CELLS, StorageScope.WORKSPACE);
+		if (!raw) {
+			return;
+		}
+		try {
+			const parsed = JSON.parse(raw);
+			if (!parsed || typeof parsed !== 'object') {
+				return;
+			}
+			const map = parsed as Record<string, unknown>;
+			const uriKey = documentUri.toString();
+			if (!(uriKey in map)) {
+				return;
+			}
+			delete map[uriKey];
+			if (Object.keys(map).length === 0) {
+				this._storageService.remove(STORAGE_KEY_COLLAPSED_CELLS, StorageScope.WORKSPACE);
+			} else {
+				this._storageService.store(
+					STORAGE_KEY_COLLAPSED_CELLS,
+					JSON.stringify(map),
+					StorageScope.WORKSPACE,
+					StorageTarget.MACHINE,
+				);
+			}
+		} catch (e) {
+			this._logService.warn('[QuartoOutputManagerService] Failed to update collapsed-cell state: ', e);
+		}
 	}
 }
