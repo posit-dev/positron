@@ -13,7 +13,7 @@ import { IQuickInputService, IQuickPickItem, QuickPickItem } from '../../../../p
 import { IKeybindingRule, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { LANGUAGE_RUNTIME_ACTION_CATEGORY } from '../common/languageRuntime.js';
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimePickerContribution, IRuntimePickerItem, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
@@ -389,112 +389,20 @@ export const selectNewLanguageRuntime = async (
 	// Group runtimes by language.
 	const interpreterGroups = createInterpreterGroups(languageRuntimeService, runtimeStartupService);
 
-	// Generate quick pick items for runtimes.
-	const runtimeItems: QuickPickItem[] = [];
-
-	// Add separator for suggested runtimes
-	const suggestedRuntimes = interpreterGroups
-		.map(group => group.primaryRuntime);
-
-	if (suggestedRuntimes.length > 0) {
-		runtimeItems.push({
-			type: 'separator',
-			label: localize('positron.languageRuntime.suggestedRuntimes', 'Suggested')
-		});
-
-		suggestedRuntimes.forEach(runtime => {
-			runtimeItems.push({
-				id: runtime.runtimeId,
-				label: runtime.runtimeName,
-				detail: runtime.runtimePath,
-				iconPath: {
-					dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
-				},
-				neverShowWhenFiltered: true
-			});
-		});
-	}
-
-
-	interpreterGroups.forEach(group => {
-		// Group runtimes by environment type
-		const runtimesByEnvType = new Map<string, ILanguageRuntimeMetadata[]>();
-		const allRuntimes = [group.primaryRuntime, ...group.alternateRuntimes];
-
-		allRuntimes.forEach(runtime => {
-			const envType = `${runtime.runtimeSource}`;
-			if (!runtimesByEnvType.has(envType)) {
-				runtimesByEnvType.set(envType, []);
-			}
-			runtimesByEnvType.get(envType)!.push(runtime);
-
-		});
-
-		const envTypes = Array.from(runtimesByEnvType.keys());
-
-		// Sort runtimes by version (decreasing), then alphabetically
-		envTypes.forEach(envType => {
-			runtimeItems.push({ type: 'separator', label: envType });
-			runtimesByEnvType.get(envType)!
-				.sort((a, b) => {
-					// If both have version numbers, compare them
-					if (a.languageVersion && b.languageVersion) {
-						const aVersion = a.languageVersion.split('.').map(Number);
-						const bVersion = b.languageVersion.split('.').map(Number);
-
-						// Always list unsupported versions last
-						if (!(a.extraRuntimeData as { supported?: boolean })?.supported) {
-							return 1;
-						}
-						if (!(b.extraRuntimeData as { supported?: boolean })?.supported) {
-							return -1;
-						}
-						// Compare major version
-						if (aVersion[0] !== bVersion[0]) {
-							return bVersion[0] - aVersion[0];
-						}
-
-						// Compare minor version
-						if (aVersion[1] !== bVersion[1]) {
-							return bVersion[1] - aVersion[1];
-						}
-
-						// Compare patch version
-						if (aVersion[2] !== bVersion[2]) {
-							return bVersion[2] - aVersion[2];
-						}
-					}
-
-					// If versions are equal or not found, sort alphabetically
-					return a.runtimeName.localeCompare(b.runtimeName);
-				})
-				.forEach(runtime => {
-					runtimeItems.push({
-						id: runtime.runtimeId,
-						label: runtime.runtimeName,
-						detail: runtime.runtimePath,
-						iconPath: {
-							dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
-						},
-						neverShowWhenFiltered: false
-					});
-				});
-
-		});
-	});
-
-	// Get contributed items from extensions (e.g., "Install Python via uv")
 	// Map to track which contribution owns which item
-	const contributedItemMap = new Map<string, { contribution: { handle: number; onSelect: (itemId: string) => Promise<string | undefined> }; originalId: string }>();
+	const contributedItemMap = new Map<string, { contribution: IRuntimePickerContribution; originalId: string }>();
+	let contributionResults: { contribution: IRuntimePickerContribution; items: IRuntimePickerItem[] }[] = [];
 
-	// Only show contributed items after discovery is complete
-	// TODO: right now, these are added to the end of the list, but we may want to
-	// group by language in the future
-	if (languageRuntimeService.startupPhase === RuntimeStartupPhase.Complete) {
+	// Get contributed items from extensions (e.g., "Install Python via uv").
+	// Only show contributed items after discovery is complete.
+	const fetchContributedItems = async () => {
+		if (languageRuntimeService.startupPhase !== RuntimeStartupPhase.Complete) {
+			contributionResults = [];
+			return;
+		}
 		const contributions = languageRuntimeService.getPickerContributions();
-
 		// Fetch items from all contributions in parallel
-		const contributionResults = await Promise.all(
+		contributionResults = await Promise.all(
 			contributions.map(async (contribution) => {
 				try {
 					const items = await contribution.getItems();
@@ -506,24 +414,128 @@ export const selectNewLanguageRuntime = async (
 				}
 			})
 		);
+	};
 
-		for (const { contribution, items } of contributionResults) {
-			for (const item of items) {
+	const buildItems = (): QuickPickItem[] => {
+		// Generate quick pick items for runtimes.
+		const items: QuickPickItem[] = [];
+		contributedItemMap.clear();
+
+		// Add separator for suggested runtimes
+		const suggestedRuntimes = interpreterGroups
+			.map(group => group.primaryRuntime);
+
+		if (suggestedRuntimes.length > 0) {
+			items.push({
+				type: 'separator',
+				label: localize('positron.languageRuntime.suggestedRuntimes', 'Suggested')
+			});
+
+			suggestedRuntimes.forEach(runtime => {
+				items.push({
+					id: runtime.runtimeId,
+					label: runtime.runtimeName,
+					detail: runtime.runtimePath,
+					iconPath: {
+						dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
+					},
+					neverShowWhenFiltered: true
+				});
+			});
+		}
+
+
+		interpreterGroups.forEach(group => {
+			// Group runtimes by environment type
+			const runtimesByEnvType = new Map<string, ILanguageRuntimeMetadata[]>();
+			const allRuntimes = [group.primaryRuntime, ...group.alternateRuntimes];
+
+			allRuntimes.forEach(runtime => {
+				const envType = `${runtime.runtimeSource}`;
+				if (!runtimesByEnvType.has(envType)) {
+					runtimesByEnvType.set(envType, []);
+				}
+				runtimesByEnvType.get(envType)!.push(runtime);
+
+			});
+
+			const envTypes = Array.from(runtimesByEnvType.keys());
+
+			// Sort runtimes by version (decreasing), then alphabetically
+			envTypes.forEach(envType => {
+				items.push({ type: 'separator', label: envType });
+				runtimesByEnvType.get(envType)!
+					.sort((a, b) => {
+						// If both have version numbers, compare them
+						if (a.languageVersion && b.languageVersion) {
+							const aVersion = a.languageVersion.split('.').map(Number);
+							const bVersion = b.languageVersion.split('.').map(Number);
+
+							// Always list unsupported versions last
+							if (!(a.extraRuntimeData as { supported?: boolean })?.supported) {
+								return 1;
+							}
+							if (!(b.extraRuntimeData as { supported?: boolean })?.supported) {
+								return -1;
+							}
+							// Compare major version
+							if (aVersion[0] !== bVersion[0]) {
+								return bVersion[0] - aVersion[0];
+							}
+
+							// Compare minor version
+							if (aVersion[1] !== bVersion[1]) {
+								return bVersion[1] - aVersion[1];
+							}
+
+							// Compare patch version
+							if (aVersion[2] !== bVersion[2]) {
+								return bVersion[2] - aVersion[2];
+							}
+						}
+
+						// If versions are equal or not found, sort alphabetically
+						return a.runtimeName.localeCompare(b.runtimeName);
+					})
+					.forEach(runtime => {
+						items.push({
+							id: runtime.runtimeId,
+							label: runtime.runtimeName,
+							detail: runtime.runtimePath,
+							iconPath: {
+								dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
+							},
+							neverShowWhenFiltered: false
+						});
+					});
+
+			});
+		});
+
+		// TODO: right now, these are added to the end of the list, but we may want to
+		// group by language in the future
+		for (const { contribution, items: contribItems } of contributionResults) {
+			for (const item of contribItems) {
 				// Create a unique ID for this item that includes the contribution handle
 				const uniqueId = `${CONTRIBUTED_ITEM_PREFIX}${contribution.handle}_${item.id}`;
 				contributedItemMap.set(uniqueId, { contribution, originalId: item.id });
 
 				if (item.separatorLabel) {
-					runtimeItems.push({ type: 'separator', label: item.separatorLabel });
+					items.push({ type: 'separator', label: item.separatorLabel });
 				}
-				runtimeItems.push({
+				items.push({
 					id: uniqueId,
 					label: item.label,
 					detail: item.detail,
 				});
 			}
 		}
-	}
+
+		return items;
+	};
+
+	await fetchContributedItems();
+	const runtimeItems = buildItems();
 
 	const selectedRuntime = await quickInputService.pick(runtimeItems, {
 		title: options?.title || localize('positron.languageRuntime.startSession', 'Start New Interpreter Session'),
