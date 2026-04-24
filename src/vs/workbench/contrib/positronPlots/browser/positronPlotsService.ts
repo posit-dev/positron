@@ -1641,8 +1641,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// Get the default sizing policy from configuration
 		let defaultSizingPolicy = this.getDefaultSizingPolicy();
 
-		// for Python plots, use intrinsic sizing policy as default if configured policy is auto
-		if (metadata.language === 'python' && defaultSizingPolicy.id === 'auto') {
+		// Prefer the intrinsic sizing policy when the configured default is auto;
+		// runtimes without an intrinsic size fall back to auto in dynamicPlotInstance.
+		if (defaultSizingPolicy.id === 'auto') {
 			defaultSizingPolicy = this._intrinsicSizingPolicy;
 		}
 
