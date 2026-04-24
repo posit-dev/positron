@@ -400,6 +400,16 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			}
 		}));
 
+		// Folding / unfolding above the zone changes its visual position
+		// without necessarily firing onDomNodeTop, so re-layout the chevron
+		// when hidden areas change.
+		this._register(this._editor.onDidChangeHiddenAreas(() => {
+			if (this._zoneId) {
+				this._layoutCollapseButton();
+				this._scheduleCollapseButtonLayout();
+			}
+		}));
+
 		// Set up keyboard navigation
 		this._setupKeyboardNavigation();
 
@@ -409,6 +419,11 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		// Track wrapper hover for the portaled chevron's visibility.
 		this.domNode.addEventListener('mouseenter', () => {
 			this._wrapperHovered = true;
+			// Re-layout on hover: Monaco events for view-zone repositioning
+			// (folding collapse/expand above this zone, for example) don't
+			// always trigger our other layout hooks, so resync the chevron
+			// position right before it becomes visible.
+			this._layoutCollapseButton();
 			this._updateCollapseButtonVisibility();
 		});
 		this.domNode.addEventListener('mouseleave', () => {
