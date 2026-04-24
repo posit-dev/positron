@@ -5,12 +5,11 @@
 
 import { URI } from '../../../../base/common/uri.js';
 import { basename, extname } from '../../../../base/common/path.js';
-import { Codicon } from '../../../../base/common/codicons.js';
-import { ThemeIcon } from '../../../../base/common/themables.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
-import { asCssVariable } from '../../../../platform/theme/common/colorUtils.js';
+import { ILanguageService } from '../../../../editor/common/languages/language.js';
+import { getIconClasses, getIconClassesForLanguageId } from '../../../../editor/common/services/getIconClasses.js';
+import { FileKind } from '../../../../platform/files/common/files.js';
 import { LanguageRuntimeSessionMode, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { POSITRON_QUARTO_ICON } from '../../../common/theme.js';
 import { isQuartoDocument } from '../../positronQuarto/common/positronQuartoConfig.js';
 
 /**
@@ -49,38 +48,29 @@ export function getSessionDisplayName(
 }
 
 /**
- * The subset of session display info needed to determine the session icon.
+ * The subset of session info needed to determine the session icon.
  */
 interface SessionIconInfo {
 	readonly sessionMode: LanguageRuntimeSessionMode;
 	readonly notebookUri?: URI;
+	readonly languageId: string;
 }
 
 /**
- * Gets the icon for a session based on its mode. Returns the Quarto icon for
- * Quarto notebook sessions, the notebook icon for other notebook sessions,
- * and the console icon for console sessions.
+ * Resolves the CSS classes used to render a session's icon via the file icon.
+ * Notebook sessions (including Quarto) match against the notebook
+ * URI so the session picks up the same glyph the Explorer shows for that file.
+ * Console sessions match against the runtime language id (python / r / etc).
  */
-export function getSessionIcon(info: SessionIconInfo, modelService: IModelService): ThemeIcon {
-	if (info.sessionMode === LanguageRuntimeSessionMode.Notebook) {
-		if (isQuartoSession({ notebookUri: info.notebookUri, modelService })) {
-			return Codicon.positronQuarto;
-		}
-		return Codicon.notebook;
+export function getSessionIconClasses(
+	info: SessionIconInfo,
+	modelService: IModelService,
+	languageService: ILanguageService,
+): string[] {
+	if (info.sessionMode === LanguageRuntimeSessionMode.Notebook && info.notebookUri) {
+		return getIconClasses(modelService, languageService, info.notebookUri, FileKind.FILE);
 	}
-	return Codicon.positronNewConsole;
-}
-
-/**
- * Gets the icon style for a session. Returns a color style for Quarto
- * sessions and undefined for all other sessions.
- */
-export function getSessionIconStyle(info: SessionIconInfo, modelService: IModelService): React.CSSProperties | undefined {
-	if (info.sessionMode === LanguageRuntimeSessionMode.Notebook &&
-		isQuartoSession({ notebookUri: info.notebookUri, modelService })) {
-		return { color: asCssVariable(POSITRON_QUARTO_ICON) };
-	}
-	return undefined;
+	return getIconClassesForLanguageId(info.languageId);
 }
 
 /**

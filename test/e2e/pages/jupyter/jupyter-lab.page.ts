@@ -20,26 +20,38 @@ export class JupyterLabPage {
 		const page = this.code.driver.currentPage;
 		const context = page.context();
 
-		// Wait for the Positron launcher to be available (ensures Jupyter is ready)
-		const positronLauncher = page.locator('div.jp-LauncherCard-label[title^="Positron"]');
-		await positronLauncher.waitFor({ timeout: 30000 });
+		// Wait for JupyterLab to be ready by checking for the Positron launcher
+		const positronLauncher = page.locator('.jp-LauncherCard', {
+			has: page.locator('.jp-LauncherCard-label[title^="Positron"]')
+		});
+		await positronLauncher.waitFor({ state: 'visible', timeout: 30000 });
 
-		// Click the launcher to open in a new tab
-		const [newPage] = await Promise.all([
-			context.waitForEvent('page'),
-			positronLauncher.click()
+		// Ensure the launcher is scrolled into view and clickable
+		await positronLauncher.scrollIntoViewIfNeeded();
+
+		// Set up listeners for both popup types (try both event types)
+		const popupPromise = Promise.race([
+			page.waitForEvent('popup', { timeout: 45000 }),
+			context.waitForEvent('page', { timeout: 45000 })
 		]);
 
-		// Wait for the new page to load and get its URL
-		await newPage.waitForLoadState('networkidle');
-		const positronUrl = newPage.url();
+		// Perform a trial click to verify the element is actionable, then click for real
+		await positronLauncher.click({ trial: true });
+		await positronLauncher.click();
 
-		// Close the new tab
+		// Wait for the popup/new page
+		const newPage = await popupPromise;
+
+		// Get the authenticated URL from the popup
+		await newPage.waitForLoadState('domcontentloaded');
+		const authenticatedUrl = newPage.url();
+
+		// Close the popup
 		await newPage.close();
 
-		// Navigate to the Positron URL in the original tab
-		await page.goto(positronUrl);
-		await page.waitForLoadState('networkidle');
+		// Navigate to the authenticated URL in the original tab
+		await page.goto(authenticatedUrl);
+		await page.waitForLoadState('domcontentloaded');
 
 		// Store the JupyterLab URL to return to later
 		if (this.positJupyter) {
@@ -48,6 +60,7 @@ export class JupyterLabPage {
 
 		// Wait for Positron to load
 		await page.waitForSelector('.monaco-workbench', { timeout: 60000 });
+		await this.positJupyter?.sessions.expectNoStartUpMessaging();
 	}
 
 	/**

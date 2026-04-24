@@ -5,7 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-import React from 'react';
 import { act, fireEvent } from '@testing-library/react';
 import { Emitter } from '../../../../../../base/common/event.js';
 import { URI } from '../../../../../../base/common/uri.js';
@@ -33,6 +32,7 @@ function makeDisplayInfo(
 		sessionMode: LanguageRuntimeSessionMode.Console,
 		notebookUri: undefined,
 		runtimeId: 'python-3.12.1',
+		runtimeName: 'Python',
 		languageName: 'Python',
 		languageId: 'python',
 		base64EncodedIconSvg: undefined,
@@ -87,6 +87,9 @@ describe('TopActionBarSessionManager', () => {
 				<TopActionBarSessionManager />
 			);
 
+			// No session => we render <ActionBarButtonIcon icon={Codicon.arrowSwap} />
+			// rather than <RuntimeIcon>, so the session-icon span is absent.
+			expect(container.querySelector('.runtime-session-icon')).toBeNull();
 			const icon = container.querySelector('.action-bar-button-icon');
 			expect(icon?.className).toBe('action-bar-button-icon codicon codicon-arrow-swap');
 		});
@@ -126,13 +129,15 @@ describe('TopActionBarSessionManager', () => {
 			expect(label?.textContent).toBe('Python 3.12.1');
 		});
 
-		it('renders positron-new-console icon for console session', () => {
+		it('renders a runtime-session-icon with the language class for a console session', () => {
 			const { container } = rtl.render(
 				<TopActionBarSessionManager />
 			);
 
-			const icon = container.querySelector('.action-bar-button-icon');
-			expect(icon?.className).toBe('action-bar-button-icon codicon codicon-positron-new-console');
+			const icon = container.querySelector('.runtime-session-icon');
+			expect(icon).not.toBeNull();
+			expect(icon?.classList.contains('file-icon')).toBe(true);
+			expect(icon?.classList.contains('python-lang-file-icon')).toBe(true);
 		});
 	});
 
@@ -162,13 +167,15 @@ describe('TopActionBarSessionManager', () => {
 			expect(label?.textContent).toBe('analysis.ipynb');
 		});
 
-		it('renders notebook icon for notebook session', () => {
+		it('renders a runtime-session-icon with the file-extension class for a notebook session', () => {
 			const { container } = rtl.render(
 				<TopActionBarSessionManager />
 			);
 
-			const icon = container.querySelector('.action-bar-button-icon');
-			expect(icon?.className).toBe('action-bar-button-icon codicon codicon-notebook');
+			const icon = container.querySelector('.runtime-session-icon');
+			expect(icon).not.toBeNull();
+			expect(icon?.classList.contains('file-icon')).toBe(true);
+			expect(icon?.classList.contains('ipynb-ext-file-icon')).toBe(true);
 		});
 	});
 
@@ -221,6 +228,7 @@ describe('TopActionBarSessionManager', () => {
 			act(() => {
 				displayInfoEmitter.fire(makeDisplayInfo({
 					sessionName: 'R 4.3.2',
+					languageId: 'r',
 					sessionMode: LanguageRuntimeSessionMode.Console,
 				}));
 			});
@@ -244,21 +252,25 @@ describe('TopActionBarSessionManager', () => {
 			expect(container.querySelector('.action-bar-button-label')?.textContent).toBe('report.ipynb');
 		});
 
-		it('updates icon when session changes from none to console', () => {
+		it('swaps from the arrow-swap fallback to a runtime-session-icon when a console session appears', () => {
 			const { container } = rtl.render(
 				<TopActionBarSessionManager />
 			);
 
-			expect(container.querySelector('.action-bar-button-icon')?.className).toBe('action-bar-button-icon codicon codicon-arrow-swap');
+			expect(container.querySelector('.action-bar-button-icon.codicon-arrow-swap')).not.toBeNull();
+			expect(container.querySelector('.runtime-session-icon')).toBeNull();
 
 			act(() => {
 				displayInfoEmitter.fire(makeDisplayInfo());
 			});
 
-			expect(container.querySelector('.action-bar-button-icon')?.className).toBe('action-bar-button-icon codicon codicon-positron-new-console');
+			expect(container.querySelector('.action-bar-button-icon.codicon-arrow-swap')).toBeNull();
+			const icon = container.querySelector('.runtime-session-icon');
+			expect(icon).not.toBeNull();
+			expect(icon?.classList.contains('python-lang-file-icon')).toBe(true);
 		});
 
-		it('updates icon when session changes to notebook', () => {
+		it('swaps to a runtime-session-icon with the notebook extension class when switching to a notebook session', () => {
 			const { container } = rtl.render(
 				<TopActionBarSessionManager />
 			);
@@ -270,7 +282,9 @@ describe('TopActionBarSessionManager', () => {
 				}));
 			});
 
-			expect(container.querySelector('.action-bar-button-icon')?.className).toBe('action-bar-button-icon codicon codicon-notebook');
+			const icon = container.querySelector('.runtime-session-icon');
+			expect(icon).not.toBeNull();
+			expect(icon?.classList.contains('ipynb-ext-file-icon')).toBe(true);
 		});
 
 		it('reverts to "Start Session" when session is cleared', () => {
@@ -289,7 +303,7 @@ describe('TopActionBarSessionManager', () => {
 			expect(container.querySelector('.action-bar-button-label')?.textContent).toBe('Start Session');
 		});
 
-		it('reverts to arrow-swap icon when session is cleared', () => {
+		it('reverts to the arrow-swap fallback icon when session is cleared', () => {
 			const { container } = rtl.render(
 				<TopActionBarSessionManager />
 			);
@@ -297,12 +311,13 @@ describe('TopActionBarSessionManager', () => {
 			act(() => {
 				displayInfoEmitter.fire(makeDisplayInfo());
 			});
-			expect(container.querySelector('.action-bar-button-icon')?.className).toBe('action-bar-button-icon codicon codicon-positron-new-console');
+			expect(container.querySelector('.runtime-session-icon')).not.toBeNull();
 
 			act(() => {
 				displayInfoEmitter.fire(undefined);
 			});
-			expect(container.querySelector('.action-bar-button-icon')?.className).toBe('action-bar-button-icon codicon codicon-arrow-swap');
+			expect(container.querySelector('.runtime-session-icon')).toBeNull();
+			expect(container.querySelector('.action-bar-button-icon.codicon-arrow-swap')).not.toBeNull();
 		});
 	});
 
