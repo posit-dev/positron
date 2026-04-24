@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import { usePositronReactServicesContext } from './positronReactRendererContext.js';
 import { ContextKeyValue } from '../../platform/contextkey/common/contextkey.js';
+import { ExtensionIdentifier } from '../../platform/extensions/common/extensions.js';
 
 
 /**
@@ -30,6 +31,36 @@ export const usePositronConfiguration = <T,>(key: string, watch: boolean = true)
 
 	return value;
 }
+
+/**
+ * usePositronExtensionInstalled hook.
+ *
+ * Returns true only when the extension is both installed and enabled.
+ * `IExtensionService.extensions` lists registered extensions, and the
+ * extension host filters out disabled ones before registering (via
+ * `filterEnabledExtensions` in abstractExtensionService.ts). The value
+ * updates on install, uninstall, enable, and disable.
+ *
+ * @param extensionId The identifier of the extension, either as a string
+ *   (e.g. 'posit.assistant') or an `ExtensionIdentifier`.
+ * @returns True if the extension is installed and enabled.
+ */
+export const usePositronExtensionInstalled = (extensionId: string | ExtensionIdentifier): boolean => {
+	const { extensionService } = usePositronReactServicesContext();
+	const key = ExtensionIdentifier.toKey(extensionId);
+	const [installed, setInstalled] = useState(() =>
+		extensionService.extensions.some(e => ExtensionIdentifier.toKey(e.identifier) === key)
+	);
+
+	useEffect(() => {
+		const disposable = extensionService.onDidChangeExtensions(() => {
+			setInstalled(extensionService.extensions.some(e => ExtensionIdentifier.toKey(e.identifier) === key));
+		});
+		return () => disposable.dispose();
+	}, [extensionService, key]);
+
+	return installed;
+};
 
 /**
  * usePositronContextKey hook.
