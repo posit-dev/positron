@@ -1390,7 +1390,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		// from layout info when none is currently visible.
 		const buttonWidth = 22;
 		const foldChevronCenterX = this._getFoldChevronCenterX();
-		const left = foldChevronCenterX - parentRect.left - buttonWidth / 2;
+		const left = foldChevronCenterX - parentRect.left - buttonWidth / 2 + 1;
 		const top = styledRect.top - parentRect.top + 7;
 		this._collapseButton.style.left = `${left}px`;
 		this._collapseButton.style.top = `${top}px`;
@@ -1971,6 +1971,26 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 						e.preventDefault();
 					}
 					break;
+				case 'c':
+				case 'C': {
+					// Bare 'c' toggles collapsed. Skip when any modifier is held
+					// so Ctrl/Cmd+C copy still works, and skip when focus is in
+					// an input-like element so typing isn't hijacked.
+					if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) {
+						break;
+					}
+					const target = e.target as HTMLElement | null;
+					if (target && (
+						target.tagName === 'INPUT' ||
+						target.tagName === 'TEXTAREA' ||
+						target.isContentEditable
+					)) {
+						break;
+					}
+					this.toggleCollapsed();
+					e.preventDefault();
+					break;
+				}
 			}
 		});
 	}
