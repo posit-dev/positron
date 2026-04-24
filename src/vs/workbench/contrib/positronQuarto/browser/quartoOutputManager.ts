@@ -1237,6 +1237,44 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	}
 
 	/**
+	 * Set the collapsed state on every output view zone in this document.
+	 * Used by the "Expand All Outputs" / "Collapse All Outputs" commands.
+	 * Per-cell persistence is driven by each view zone's change event, so no
+	 * extra bookkeeping is needed here.
+	 */
+	setAllOutputsCollapsed(collapsed: boolean): void {
+		for (const viewZone of this._viewZones.values()) {
+			viewZone.setCollapsed(collapsed);
+		}
+	}
+
+	/**
+	 * Toggle the collapsed state of the output view zone for the cell at the
+	 * given line number. Returns true if a view zone was toggled, false if
+	 * the line is not in a cell or the cell has no output view zone.
+	 */
+	toggleOutputCollapseForCellAtLine(lineNumber: number): boolean {
+		const model = this._editor.getModel();
+		if (!model) {
+			return false;
+		}
+
+		const quartoModel = this._documentModelService.getModel(model);
+		const cell = quartoModel.getCellAtLine(lineNumber);
+		if (!cell) {
+			return false;
+		}
+
+		const viewZone = this._viewZones.get(cell.id);
+		if (!viewZone) {
+			return false;
+		}
+
+		viewZone.toggleCollapsed();
+		return true;
+	}
+
+	/**
 	 * Save a plot to a file.
 	 * @param dataUrl The data URL of the image
 	 * @param mimeType The MIME type of the image
