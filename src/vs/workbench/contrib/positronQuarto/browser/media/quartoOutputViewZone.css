@@ -508,16 +508,12 @@
 	/* Hidden by default; fades in when `.visible` or `.always-visible` is set. */
 	opacity: 0;
 	visibility: hidden;
-	transition: opacity 0.15s ease, background-color 0.15s ease;
+	transition: opacity 0.15s ease;
 }
 
 .quarto-output-collapse-chevron.visible {
 	opacity: 1;
 	visibility: visible;
-}
-
-.quarto-output-collapse-chevron:hover {
-	background: var(--vscode-toolbar-hoverBackground);
 }
 
 .quarto-output-collapse-chevron:focus {

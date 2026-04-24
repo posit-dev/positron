@@ -1338,17 +1338,45 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		}
 		this._collapseButton.style.display = '';
 
-		// Position the button so its right edge sits 4px left of the styled
-		// container's left border. The vertical offset is the same regardless
-		// of collapsed state so the chevron stays visually anchored: the box
-		// grows / shrinks downward from this top edge, so a fixed top offset
-		// keeps the chevron aligned with the collapsed summary line while
-		// also sitting near the top-left corner when expanded.
+		// Horizontally stack our chevron under Monaco's own fold chevron so
+		// the two line up as a single column. Prefer querying the real
+		// rendered fold icon (pixel-perfect) and fall back to computing
+		// from layout info when none is currently visible.
 		const buttonWidth = 22;
-		const left = styledRect.left - parentRect.left - buttonWidth - 4;
+		const foldChevronCenterX = this._getFoldChevronCenterX();
+		const left = foldChevronCenterX - parentRect.left - buttonWidth / 2;
 		const top = styledRect.top - parentRect.top + 7;
 		this._collapseButton.style.left = `${left}px`;
 		this._collapseButton.style.top = `${top}px`;
+	}
+
+	/**
+	 * Return the client-X center of Monaco's fold chevron column. Queries the
+	 * first rendered `.codicon-folding-*` in the editor's margin overlays for
+	 * pixel-perfect alignment; if none is currently rendered, falls back to
+	 * computing from the editor's layout info (fold icons live in the
+	 * line-decorations slot, shifted right 2px by `margin-left` in folding.css).
+	 */
+	private _getFoldChevronCenterX(): number {
+		const editorContainer = this._editor.getContainerDomNode();
+		const foldIcon = editorContainer.querySelector<HTMLElement>(
+			'.margin-view-overlays .codicon-folding-expanded, '
+			+ '.margin-view-overlays .codicon-folding-collapsed, '
+			+ '.margin-view-overlays .codicon-folding-manual-expanded, '
+			+ '.margin-view-overlays .codicon-folding-manual-collapsed'
+		);
+		if (foldIcon) {
+			const r = foldIcon.getBoundingClientRect();
+			if (r.width > 0) {
+				return r.left + r.width / 2;
+			}
+		}
+		const layoutInfo = this._editor.getLayoutInfo();
+		const editorRect = editorContainer.getBoundingClientRect();
+		return editorRect.left
+			+ layoutInfo.decorationsLeft
+			+ layoutInfo.decorationsWidth / 2
+			+ 1;
 	}
 
 	/**
