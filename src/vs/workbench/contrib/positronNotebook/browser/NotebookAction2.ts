@@ -69,5 +69,7 @@ export abstract class NotebookAction2 extends Action2 {
 		}
 	}
 
-	protected abstract runNotebookAction(notebook: IPositronNotebookInstance, accessor: ServicesAccessor, ...args: unknown[]): Promise<void> | void;
+	// Public so tests can invoke action behavior directly without standing up an
+	// active editor pane. Production callers should still go through `run()`.
+	public abstract runNotebookAction(notebook: IPositronNotebookInstance, accessor: ServicesAccessor, ...args: unknown[]): Promise<void> | void;
 }
