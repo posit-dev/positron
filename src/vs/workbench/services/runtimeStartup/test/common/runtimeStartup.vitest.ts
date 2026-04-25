@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { Emitter } from '../../../../../base/common/event.js';
+import { Emitter, Event } from '../../../../../base/common/event.js';
 import { isWeb } from '../../../../../base/common/platform.js';
 import { arch as systemArch } from '../../../../../base/common/process.js';
 import { INotificationService, IPromptChoice, IPromptOptions, Severity } from '../../../../../platform/notification/common/notification.js';
@@ -32,11 +32,11 @@ describe('Positron - RuntimeStartupService Architecture Mismatch', () => {
 				setItem: () => Promise.resolve(),
 			})
 			.stub(ILifecycleService, {
-				onBeforeShutdown: new Emitter<BeforeShutdownEvent>().event,
-				onWillShutdown: new Emitter<WillShutdownEvent>().event,
+				onBeforeShutdown: Event.None,
+				onWillShutdown: Event.None,
 			})
 			.stub(IPositronNewFolderService, {
-				onDidChangeNewFolderStartupPhase: new Emitter<NewFolderStartupPhase>().event,
+				onDidChangeNewFolderStartupPhase: Event.None,
 				startupPhase: NewFolderStartupPhase.Complete,
 			})
 			.stub(IProgressService, {})
@@ -109,11 +109,11 @@ describe('Positron - RuntimeStartupService Architecture Mismatch', () => {
 				setItem: () => Promise.resolve(),
 			})
 			.stub(ILifecycleService, {
-				onBeforeShutdown: new Emitter<BeforeShutdownEvent>().event,
-				onWillShutdown: new Emitter<WillShutdownEvent>().event,
+				onBeforeShutdown: Event.None,
+				onWillShutdown: Event.None,
 			})
 			.stub(IPositronNewFolderService, {
-				onDidChangeNewFolderStartupPhase: new Emitter<NewFolderStartupPhase>().event,
+				onDidChangeNewFolderStartupPhase: Event.None,
 				startupPhase: NewFolderStartupPhase.Complete,
 			})
 			.stub(IProgressService, {})
