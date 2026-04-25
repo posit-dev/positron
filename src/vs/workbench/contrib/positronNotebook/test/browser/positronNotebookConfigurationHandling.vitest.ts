@@ -14,7 +14,7 @@ import { IEditorResolverService, RegisteredEditorPriority } from '../../../../se
 import { ITestInstantiationService } from '../../../../test/browser/workbenchTestServices.js';
 import { PositronNotebookEditorInput } from '../../browser/PositronNotebookEditorInput.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID, usingPositronNotebooks } from '../../common/positronNotebookCommon.js';
-import { createPositronNotebookTestServices } from './testUtils.js';
+import { setupNotebookEditorTest } from './testUtils.js';
 import { IPYNB_VIEW_TYPE } from '../../../notebook/browser/notebookBrowser.js';
 
 // Mock implementation for testing static editor registration
@@ -84,7 +84,7 @@ describe('Positron Notebook Configuration Handling', () => {
 	let notebookContribution: MockPositronNotebookContribution;
 
 	async function createTestServices(): Promise<void> {
-		const services = await createPositronNotebookTestServices(ctx.disposables);
+		const services = await setupNotebookEditorTest(ctx.disposables);
 		instantiationService = services.instantiationService;
 		configurationService = services.configurationService;
 		editorResolverService = services.editorResolverService;

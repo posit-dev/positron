@@ -144,16 +144,15 @@ const mockPreloadService: Partial<IPositronWebviewPreloadService> = {
 // ---------------------------------------------------------------------------
 
 /**
- * Creates a complete set of test services for Positron Notebook testing.
- * This includes all necessary mocks and service stubs.
+ * Sets up a notebook test with a real `EditorPart` and `EditorResolverService`.
  *
- * This helper is called at test-runtime (inside `it()` callbacks), so the
- * describe-scope `.build()` builder cannot be used here -- that is the
- * documented exception in vitest-tests.md for shared helpers. Instead we call
- * `createWorkbenchContainer` + `stubNotebookEditorServices` directly and layer
- * the notebook-specific overrides on top.
+ * Use this **only when a test needs a real `EditorPart`** (typically to exercise
+ * editor resolution). Most notebook tests should use
+ * `createTestContainer().withNotebookEditorServices()` directly -- it's
+ * synchronous and covers every notebook-editor case that doesn't depend on
+ * `IEditorGroupsService` being a real instance.
  */
-export async function createPositronNotebookTestServices(disposables: DisposableStore): Promise<TestServices> {
+export async function setupNotebookEditorTest(disposables: DisposableStore): Promise<TestServices> {
 	const configurationService = new TestConfigurationService();
 
 	// Build the workbench + notebook-editor-services layer directly (builder

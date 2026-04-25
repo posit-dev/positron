@@ -42,7 +42,7 @@ import { ITestInstantiationService } from '../../../../test/browser/workbenchTes
 import { EditorPart } from '../../../../browser/parts/editor/editorPart.js';
 import { PositronNotebookEditorInput } from '../../browser/PositronNotebookEditorInput.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../common/positronNotebookCommon.js';
-import { createPositronNotebookTestServices } from './testUtils.js';
+import { setupNotebookEditorTest } from './testUtils.js';
 import { IPYNB_VIEW_TYPE } from '../../../notebook/browser/notebookBrowser.js';
 
 describe.skip('Positron Notebook Editor Resolution', () => {
@@ -59,7 +59,7 @@ describe.skip('Positron Notebook Editor Resolution', () => {
 	createTestContainer().build();
 
 	async function createTestServices(): Promise<void> {
-		const services = await createPositronNotebookTestServices(disposables);
+		const services = await setupNotebookEditorTest(disposables);
 		instantiationService = services.instantiationService;
 		editorResolverService = services.editorResolverService;
 		part = services.part;
