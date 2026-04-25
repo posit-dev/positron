@@ -377,7 +377,10 @@ const createInterpreterGroups = (
  * @param options Picker options.
  * @param options.title Title shown in the quickpick header.
  * @param options.languageId Restricts the runtimes shown in the picker
- *   to the provided language id. When omittedm all languages are shown.
+ *   to the provided language id. When omitted all languages are shown.
+ * @param options.currentRuntimeId Runtime id to focus when the picker
+ *   opens initially. Only applied to the initial list so subsequent
+ *   rebuilds don't overwrite the user's keyboard navigation.
  * @returns The selected runtime metadata, or undefined if the user
  *   cancelled.
  */
@@ -386,6 +389,7 @@ export const selectNewLanguageRuntime = async (
 	options?: {
 		title?: string;
 		languageId?: string;
+		currentRuntimeId?: string;
 	}): Promise<ILanguageRuntimeMetadata | undefined> => {
 	// Access services.
 	const quickInputService = accessor.get(IQuickInputService);
@@ -548,12 +552,42 @@ export const selectNewLanguageRuntime = async (
 	const quickPick = disposables.add(quickInputService.createQuickPick<IQuickPickItem>({ useSeparators: true }));
 	quickPick.title = options?.title || localize('positron.languageRuntime.startSession', 'Start New Interpreter Session');
 	quickPick.canSelectMany = false;
+
+	// Reassigning quickPick.items resets activeItems to the first row, so
+	// rebuilds via this helper preserve the previously focused item (whether
+	// it was the caller's currentRuntimeId or a row the user keyboard-
+	// navigated to). Falls back to the default reset if the previous item
+	// is no longer present.
+	const rebuildItems = () => {
+		const previouslyActiveId = quickPick.activeItems[0]?.id;
+		quickPick.items = buildItems();
+		if (previouslyActiveId) {
+			const stillPresent = quickPick.items.find(
+				(item): item is IQuickPickItem => item.type !== 'separator' && item.id === previouslyActiveId
+			);
+			if (stillPresent) {
+				quickPick.activeItems = [stillPresent];
+			}
+		}
+	};
+
 	quickPick.items = buildItems();
+
+	// Pre-focus the caller-supplied current runtime, if any. Subsequent
+	// rebuilds carry this forward via rebuildItems' restore logic.
+	if (options?.currentRuntimeId) {
+		const currentItem = quickPick.items.find(
+			(item): item is IQuickPickItem => item.type !== 'separator' && item.id === options.currentRuntimeId
+		);
+		if (currentItem) {
+			quickPick.activeItems = [currentItem];
+		}
+	}
 
 	// Rebuild when a new runtime registers - covers late initial discovery
 	// and post-startup rediscovery.
 	disposables.add(languageRuntimeService.onDidRegisterRuntime(() => {
-		quickPick.items = buildItems();
+		rebuildItems();
 	}));
 
 	// If startup completes while the picker is open, re-fetch contributions
@@ -561,7 +595,7 @@ export const selectNewLanguageRuntime = async (
 	disposables.add(languageRuntimeService.onDidChangeRuntimeStartupPhase(async phase => {
 		if (phase === RuntimeStartupPhase.Complete) {
 			await fetchContributedItems();
-			quickPick.items = buildItems();
+			rebuildItems();
 		}
 	}));
 
