@@ -25,7 +25,6 @@ interface IconProps {
 	readonly icon: IconType;
 	readonly className?: string;
 	readonly style?: React.CSSProperties;
-	readonly 'data-testid'?: string;
 }
 
 /**
@@ -35,7 +34,6 @@ interface ThemeIconProps {
 	readonly icon: ThemeIconClass;
 	readonly className?: string;
 	readonly style?: React.CSSProperties;
-	readonly 'data-testid'?: string;
 }
 
 /**
@@ -45,7 +43,6 @@ interface URIIconProps {
 	readonly icon: { dark?: URI; light?: URI };
 	readonly className?: string;
 	readonly style?: React.CSSProperties;
-	readonly 'data-testid'?: string;
 }
 
 /**
@@ -59,7 +56,6 @@ export const ThemeIcon = (props: ThemeIconProps) => {
 	return (
 		<div
 			className={positronClassNames(props.className, ...iconClassNames)}
-			data-testid={props['data-testid']}
 			style={props.style}
 		/>
 	);
@@ -102,7 +98,6 @@ export const URIIcon = (props: URIIconProps) => {
 	return (
 		<div
 			className={props.className}
-			data-testid={props['data-testid']}
 			style={{ ...props.style, ...iconStyle }}
 		/>
 	);
@@ -118,14 +113,12 @@ export const Icon = (props: IconProps) => {
 	if (ThemeIconClass.isThemeIcon(props.icon)) {
 		return <ThemeIcon
 			className={props.className}
-			data-testid={props['data-testid']}
 			icon={props.icon}
 			style={props.style}
 		/>;
 	} else {
 		return <URIIcon
 			className={props.className}
-			data-testid={props['data-testid']}
 			icon={props.icon}
 			style={props.style}
 		/>;
@@ -133,10 +126,9 @@ export const Icon = (props: IconProps) => {
 };
 
 /** An icon representing a developer error. */
-export const DevErrorIcon = (props: { 'data-testid'?: string } = {}) => {
+export const DevErrorIcon = () => {
 	// Blank icon with an easy-to-catch background color for debugging
 	return <Icon
-		data-testid={props['data-testid']}
 		icon={Codicon.blank}
 		style={{ backgroundColor: asCssVariable(editorErrorForeground) }}
 	/>;

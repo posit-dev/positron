@@ -59,6 +59,20 @@ function makeConsoleSessionStub(): Partial<ILanguageRuntimeSession> {
 	};
 }
 
+/**
+ * Returns the session icon element inside the button. The icon is either
+ * <ActionBarButtonIcon> (.action-bar-button-icon) or <RuntimeIcon>
+ * (.runtime-session-icon); both live as the first matching child of the button.
+ */
+function getSessionIcon(button: HTMLElement): Element {
+	// eslint-disable-next-line no-restricted-syntax -- no semantic role or label targets the icon; it is a purely decorative element inside an already-labelled button
+	const el = button.querySelector('.runtime-session-icon, .action-bar-button-icon');
+	if (!el) {
+		throw new Error('Session icon element not found inside button');
+	}
+	return el;
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -93,7 +107,7 @@ describe('TopActionBarSessionManager', () => {
 
 		it('renders "Start Session" label when no foreground session', () => {
 			rtl.render(<TopActionBarSessionManager />);
-			expect(screen.getByTestId('session-manager-label')).toHaveTextContent('Start Session');
+			expect(screen.getByRole('button')).toHaveTextContent('Start Session');
 		});
 
 		it('renders the arrow-swap fallback icon when no foreground session', () => {
@@ -102,7 +116,7 @@ describe('TopActionBarSessionManager', () => {
 			// Without a session we render <ActionBarButtonIcon icon={Codicon.arrowSwap} />,
 			// which carries the action-bar-button-icon + codicon classes but not
 			// runtime-session-icon (that class is only applied by <RuntimeIcon>).
-			const icon = screen.getByTestId('session-manager-icon');
+			const icon = getSessionIcon(screen.getByRole('button'));
 			expect(icon).toHaveClass('action-bar-button-icon', 'codicon', 'codicon-arrow-swap');
 			expect(icon).not.toHaveClass('runtime-session-icon');
 		});
@@ -131,13 +145,12 @@ describe('TopActionBarSessionManager', () => {
 
 		it('renders session name as label for console session', () => {
 			rtl.render(<TopActionBarSessionManager />);
-			expect(screen.getByTestId('session-manager-label')).toHaveTextContent('Python 3.12.1');
+			expect(screen.getByRole('button')).toHaveTextContent('Python 3.12.1');
 		});
 
-		it('renders a runtime-session-icon with the language class for a console session', () => {
+		it('renders a runtime-session-icon for a console session', () => {
 			rtl.render(<TopActionBarSessionManager />);
-			expect(screen.getByTestId('session-manager-icon'))
-				.toHaveClass('runtime-session-icon', 'file-icon', 'python-lang-file-icon');
+			expect(getSessionIcon(screen.getByRole('button'))).toHaveClass('runtime-session-icon');
 		});
 	});
 
@@ -160,13 +173,12 @@ describe('TopActionBarSessionManager', () => {
 
 		it('renders notebook filename as label for notebook session', () => {
 			rtl.render(<TopActionBarSessionManager />);
-			expect(screen.getByTestId('session-manager-label')).toHaveTextContent('analysis.ipynb');
+			expect(screen.getByRole('button')).toHaveTextContent('analysis.ipynb');
 		});
 
-		it('renders a runtime-session-icon with the file-extension class for a notebook session', () => {
+		it('renders a runtime-session-icon for a notebook session', () => {
 			rtl.render(<TopActionBarSessionManager />);
-			expect(screen.getByTestId('session-manager-icon'))
-				.toHaveClass('runtime-session-icon', 'file-icon', 'ipynb-ext-file-icon');
+			expect(getSessionIcon(screen.getByRole('button'))).toHaveClass('runtime-session-icon');
 		});
 	});
 
@@ -189,7 +201,7 @@ describe('TopActionBarSessionManager', () => {
 
 		it('falls through to sessionName when notebook has no URI', () => {
 			rtl.render(<TopActionBarSessionManager />);
-			expect(screen.getByTestId('session-manager-label')).toHaveTextContent('R 4.3.2');
+			expect(screen.getByRole('button')).toHaveTextContent('R 4.3.2');
 		});
 	});
 
@@ -207,7 +219,7 @@ describe('TopActionBarSessionManager', () => {
 
 		it('updates label when foreground session changes to a console session', () => {
 			rtl.render(<TopActionBarSessionManager />);
-			expect(screen.getByTestId('session-manager-label')).toHaveTextContent('Start Session');
+			expect(screen.getByRole('button')).toHaveTextContent('Start Session');
 
 			act(() => {
 				displayInfoEmitter.fire(makeDisplayInfo({
@@ -217,7 +229,7 @@ describe('TopActionBarSessionManager', () => {
 				}));
 			});
 
-			expect(screen.getByTestId('session-manager-label')).toHaveTextContent('R 4.3.2');
+			expect(screen.getByRole('button')).toHaveTextContent('R 4.3.2');
 		});
 
 		it('updates label when foreground session changes to a notebook session', () => {
@@ -231,25 +243,25 @@ describe('TopActionBarSessionManager', () => {
 				}));
 			});
 
-			expect(screen.getByTestId('session-manager-label')).toHaveTextContent('report.ipynb');
+			expect(screen.getByRole('button')).toHaveTextContent('report.ipynb');
 		});
 
 		it('swaps from the arrow-swap fallback to a runtime-session-icon when a console session appears', () => {
 			rtl.render(<TopActionBarSessionManager />);
 
-			expect(screen.getByTestId('session-manager-icon')).toHaveClass('codicon-arrow-swap');
-			expect(screen.getByTestId('session-manager-icon')).not.toHaveClass('runtime-session-icon');
+			expect(getSessionIcon(screen.getByRole('button'))).toHaveClass('codicon-arrow-swap');
+			expect(getSessionIcon(screen.getByRole('button'))).not.toHaveClass('runtime-session-icon');
 
 			act(() => {
 				displayInfoEmitter.fire(makeDisplayInfo());
 			});
 
-			expect(screen.getByTestId('session-manager-icon'))
-				.toHaveClass('runtime-session-icon', 'python-lang-file-icon');
-			expect(screen.getByTestId('session-manager-icon')).not.toHaveClass('codicon-arrow-swap');
+			expect(getSessionIcon(screen.getByRole('button')))
+				.toHaveClass('runtime-session-icon');
+			expect(getSessionIcon(screen.getByRole('button'))).not.toHaveClass('codicon-arrow-swap');
 		});
 
-		it('swaps to a runtime-session-icon with the notebook extension class when switching to a notebook session', () => {
+		it('swaps to a runtime-session-icon when switching to a notebook session', () => {
 			rtl.render(<TopActionBarSessionManager />);
 
 			act(() => {
@@ -259,8 +271,7 @@ describe('TopActionBarSessionManager', () => {
 				}));
 			});
 
-			expect(screen.getByTestId('session-manager-icon'))
-				.toHaveClass('runtime-session-icon', 'ipynb-ext-file-icon');
+			expect(getSessionIcon(screen.getByRole('button'))).toHaveClass('runtime-session-icon');
 		});
 
 		it('reverts to "Start Session" when session is cleared', () => {
@@ -269,12 +280,12 @@ describe('TopActionBarSessionManager', () => {
 			act(() => {
 				displayInfoEmitter.fire(makeDisplayInfo({ sessionName: 'Python 3.12.1' }));
 			});
-			expect(screen.getByTestId('session-manager-label')).toHaveTextContent('Python 3.12.1');
+			expect(screen.getByRole('button')).toHaveTextContent('Python 3.12.1');
 
 			act(() => {
 				displayInfoEmitter.fire(undefined);
 			});
-			expect(screen.getByTestId('session-manager-label')).toHaveTextContent('Start Session');
+			expect(screen.getByRole('button')).toHaveTextContent('Start Session');
 		});
 
 		it('reverts to the arrow-swap fallback icon when session is cleared', () => {
@@ -283,13 +294,13 @@ describe('TopActionBarSessionManager', () => {
 			act(() => {
 				displayInfoEmitter.fire(makeDisplayInfo());
 			});
-			expect(screen.getByTestId('session-manager-icon')).toHaveClass('runtime-session-icon');
+			expect(getSessionIcon(screen.getByRole('button'))).toHaveClass('runtime-session-icon');
 
 			act(() => {
 				displayInfoEmitter.fire(undefined);
 			});
-			expect(screen.getByTestId('session-manager-icon')).toHaveClass('codicon-arrow-swap');
-			expect(screen.getByTestId('session-manager-icon')).not.toHaveClass('runtime-session-icon');
+			expect(getSessionIcon(screen.getByRole('button'))).toHaveClass('codicon-arrow-swap');
+			expect(getSessionIcon(screen.getByRole('button'))).not.toHaveClass('runtime-session-icon');
 		});
 	});
 

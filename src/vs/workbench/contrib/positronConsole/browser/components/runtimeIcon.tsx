@@ -17,15 +17,14 @@ export interface RuntimeIconProps {
 	sessionMode: LanguageRuntimeSessionMode;
 	notebookUri?: URI;
 	languageId: string;
-	'data-testid'?: string;
 }
 
-export const RuntimeIcon = ({ sessionMode, notebookUri, languageId, 'data-testid': dataTestId }: RuntimeIconProps) => {
+export const RuntimeIcon = ({ sessionMode, notebookUri, languageId }: RuntimeIconProps) => {
 	const services = usePositronReactServicesContext();
 	const iconClasses = getSessionIconClasses(
 		{ sessionMode, notebookUri, languageId },
 		services.modelService,
 		services.languageService,
 	);
-	return <span className={positronClassNames('runtime-session-icon', ...iconClasses)} data-testid={dataTestId}></span>;
+	return <span className={positronClassNames('runtime-session-icon', ...iconClasses)}></span>;
 };

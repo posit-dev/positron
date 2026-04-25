@@ -24,6 +24,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import { KeyCode, KeyMod } from '../../../../../../base/common/keyCodes.js';
 
 // Localized strings
+const findLabel = localize('positronNotebook.find.label', "Find in notebook");
 const previousMatchLabel = localize('positronNotebook.find.previousMatch', "Previous Match");
 const nextMatchLabel = localize('positronNotebook.find.nextMatch', "Next Match");
 const closeLabel = localize('positronNotebook.find.close', "Close");
@@ -238,8 +239,9 @@ export const PositronFindWidget = forwardRef<PositronFindWidgetHandle, PositronF
 
 	return (
 		<div
+			aria-label={findLabel}
 			className={`positron-find-widget${isVisible ? ' visible' : ''}${hasNoResults ? ' no-results' : ''}`}
-			data-testid='positron-find-widget'
+			role='search'
 		>
 			{props.replace && (
 				<ActionButton
@@ -304,19 +306,19 @@ interface FindResultProps {
 const FindResult = ({ findText, matchIndex, matchCount }: FindResultProps) => {
 	// Case 1: No find text - show "No results" in ordinary color
 	if (!findText) {
-		return <div className='results' data-testid='positron-find-widget-results'>{noResultsLabel}</div>;
+		return <div className='results' role='status'>{noResultsLabel}</div>;
 	}
 
 	// Case 2: Find text but matchCount not yet calculated
 	if (matchCount === undefined) {
-		return <div className='results' data-testid='positron-find-widget-results'></div>;
+		return <div className='results' role='status'></div>;
 	}
 
 	// Case 3: Find text but no matches found - color handled by widget.no-results class
 	if (matchCount === 0) {
-		return <div className='results' data-testid='positron-find-widget-results'>{noResultsLabel}</div>;
+		return <div className='results' role='status'>{noResultsLabel}</div>;
 	}
 
 	// Case 4: Matches found - show count
-	return <div className='results' data-testid='positron-find-widget-results'>{matchCountLabel((matchIndex ?? 0) + 1, matchCount)}</div>;
+	return <div className='results' role='status'>{matchCountLabel((matchIndex ?? 0) + 1, matchCount)}</div>;
 };

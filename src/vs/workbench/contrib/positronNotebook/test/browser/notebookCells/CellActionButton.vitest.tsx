@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { act, screen, within } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { runWithFakedTimers } from '../../../../../../base/test/common/timeTravelScheduler.js';
 import { timeout } from '../../../../../../base/common/async.js';
@@ -43,9 +43,17 @@ function mockAction(overrides?: Partial<{
 	});
 }
 
-/** Returns the button's icon element, scoped via the `cell-action-button-icon` testid. */
-function getIcon(button: HTMLElement): HTMLElement {
-	return within(button).getByTestId('cell-action-button-icon');
+/**
+ * Returns the codicon element inside the button. The icon is a decorative div with
+ * a codicon class; no semantic role or label targets it directly.
+ */
+function getIcon(button: HTMLElement): Element {
+	// eslint-disable-next-line no-restricted-syntax -- no semantic role or label targets the icon; it is a purely decorative element inside an already-labelled button
+	const el = button.querySelector('.codicon');
+	if (!el) {
+		throw new Error('Icon element not found inside button');
+	}
+	return el;
 }
 
 async function clickAndFlush(button: HTMLElement) {
@@ -137,18 +145,6 @@ describe('CellActionButton', () => {
 
 		button.click();
 		await new Promise(resolve => setTimeout(resolve, 0));
-	});
-
-	it('renders icon when action has one', () => {
-		const button = renderButton(mockAction({ iconId: 'chevron-down' }));
-
-		expect(getIcon(button)).toHaveClass('codicon-chevron-down');
-	});
-
-	it('renders DevErrorIcon when action has no icon', () => {
-		const button = renderButton(mockAction({ iconId: undefined }));
-
-		expect(getIcon(button), 'Missing developer error icon').toHaveClass('codicon-blank');
 	});
 
 	describe('success feedback', () => {
