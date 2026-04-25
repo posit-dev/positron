@@ -3,37 +3,47 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import assert from 'assert';
+/// <reference types="vitest/globals" />
+
 import { raceTimeout } from '../../../../../base/common/async.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
-import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
+import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ILogService, NullLogger } from '../../../../../platform/log/common/log.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { LanguageRuntimeService } from '../../common/languageRuntime.js';
 import { ILanguageRuntimeMetadata, LanguageStartupBehavior } from '../../common/languageRuntimeService.js';
 
-suite('Positron - LanguageRuntimeService', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
-	let instantiationService: TestInstantiationService;
+describe('Positron - LanguageRuntimeService', () => {
+	const ctx = createTestContainer()
+		.withRuntimeServices()
+		.stub(ILogService, new NullLogger())
+		.stub(IConfigurationService, new TestConfigurationService())
+		.build();
 
-	setup(async () => {
-		instantiationService = disposables.add(new TestInstantiationService());
-		instantiationService.stub(ILogService, new NullLogger());
-		instantiationService.stub(IConfigurationService, new TestConfigurationService());
-	});
-
-	test('register and unregister a runtime', async () => {
-		const languageRuntimeService = disposables.add(instantiationService.createInstance(LanguageRuntimeService));
+	it('register and unregister a runtime', async () => {
+		const languageRuntimeService = ctx.disposables.add(ctx.instantiationService.createInstance(LanguageRuntimeService));
 
 		// No runtimes registered initially.
-		assert.strictEqual(languageRuntimeService.registeredRuntimes.length, 0);
+		expect(languageRuntimeService.registeredRuntimes.length).toBe(0);
 
 		// Mock runtime metadata.
-		const metadata = <ILanguageRuntimeMetadata>{
+		const metadata = stubInterface<ILanguageRuntimeMetadata>({
 			runtimeId: 'testRuntimeId',
 			languageId: 'testLanguageId',
-		};
+			runtimePath: '',
+			languageName: 'testLanguage',
+			languageVersion: '1.0.0',
+			base64EncodedIconSvg: undefined,
+			runtimeName: 'testRuntime',
+			runtimeShortName: 'test',
+			runtimeVersion: '1.0.0',
+			runtimeSource: 'test',
+			startupBehavior: 0,
+			sessionLocation: 0,
+			extensionId: { value: 'test' },
+			extraRuntimeData: {},
+		});
 
 		// Promise that resolves when the onDidRegisterRuntime event is fired with the expected runtimeId.
 		const didRegisterRuntime = new Promise<void>((resolve) => {
@@ -51,22 +61,22 @@ suite('Positron - LanguageRuntimeService', () => {
 		// Check that the onDidRegisterRuntime event was fired.
 		let timedOut = false;
 		await raceTimeout(didRegisterRuntime, 10, () => timedOut = true);
-		assert(!timedOut, 'Awaiting onDidRegisterRuntime event timed out');
+		expect(!timedOut).toBeTruthy();
 
 		// Check that the runtime was registered.
-		assert.deepStrictEqual(languageRuntimeService.registeredRuntimes, [metadata]);
+		expect(languageRuntimeService.registeredRuntimes).toEqual([metadata]);
 
 		// Unregister the runtime.
 		languageRuntimeService.unregisterRuntime(metadata.runtimeId);
 
 		// Check that the runtime was unregistered.
-		assert.strictEqual(languageRuntimeService.registeredRuntimes.length, 0);
+		expect(languageRuntimeService.registeredRuntimes.length).toBe(0);
 
 		// No-op since we already unregistered the runtime.
 		runtimeDisposable.dispose();
 	});
 
-	test('ensure a runtime that is disabled in configuration cannot be registered', async () => {
+	it('ensure a runtime that is disabled in configuration cannot be registered', async () => {
 		// Mock configuration service that returns 'Disabled' for a specific language ID
 		const disabledLanguageId = 'disabledLanguage';
 
@@ -79,22 +89,34 @@ suite('Positron - LanguageRuntimeService', () => {
 		});
 
 		// Register it with the instantiation service
-		instantiationService.stub(IConfigurationService, configService);
+		ctx.instantiationService.stub(IConfigurationService, configService);
 
-		const languageRuntimeService = disposables.add(instantiationService.createInstance(LanguageRuntimeService));
+		const languageRuntimeService = ctx.disposables.add(ctx.instantiationService.createInstance(LanguageRuntimeService));
 
 		// Create mock metadata for a runtime with the disabled language
-		const metadata = <ILanguageRuntimeMetadata>{
+		const metadata = stubInterface<ILanguageRuntimeMetadata>({
 			runtimeId: 'disabledRuntimeId',
-			languageId: disabledLanguageId
-		};
-
-		// Attempt to register the runtime - this should throw an error
-		assert.throws(() => {
-			languageRuntimeService.registerRuntime(metadata);
+			languageId: disabledLanguageId,
+			runtimePath: '',
+			languageName: 'testLanguage',
+			languageVersion: '1.0.0',
+			base64EncodedIconSvg: undefined,
+			runtimeName: 'testRuntime',
+			runtimeShortName: 'test',
+			runtimeVersion: '1.0.0',
+			runtimeSource: 'test',
+			startupBehavior: 0,
+			sessionLocation: 0,
+			extensionId: { value: 'test' },
+			extraRuntimeData: {},
 		});
 
+		// Attempt to register the runtime - this should throw an error
+		expect(() => {
+			languageRuntimeService.registerRuntime(metadata);
+		}).toThrow();
+
 		// Verify that no runtimes were registered
-		assert.strictEqual(languageRuntimeService.registeredRuntimes.length, 0);
+		expect(languageRuntimeService.registeredRuntimes.length).toBe(0);
 	});
 });
