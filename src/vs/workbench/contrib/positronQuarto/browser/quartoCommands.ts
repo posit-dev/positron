@@ -13,10 +13,9 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { ITextModel } from '../../../../editor/common/model.js';
 import { IQuartoExecutionManager, IQuartoOutputCacheService } from '../common/quartoExecutionTypes.js';
 import { IQuartoKernelManager } from './quartoKernelManager.js';
-import { IQuartoOutputManager } from './quartoOutputManager.js';
+import { IQuartoOutputManager, QuartoOutputContribution } from './quartoOutputManager.js';
 import { IS_QUARTO_DOCUMENT, QUARTO_INLINE_OUTPUT_ENABLED, QUARTO_KERNEL_BUSY, QUARTO_KERNEL_RUNNING, isQuartoDocument } from '../common/positronQuartoConfig.js';
-import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
-import { QuartoOutputContribution } from './quartoOutputManager.js';
+import { ICodeEditor, isCodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
@@ -68,13 +67,12 @@ function getQuartoContext(editorService: IEditorService): {
 	textModel: ITextModel;
 	documentUri: import('../../../../base/common/uri.js').URI;
 } | undefined {
-	const activeEditor = editorService.activeTextEditorControl;
+	const editor = editorService.activeTextEditorControl;
 
-	if (!activeEditor || !('getModel' in activeEditor)) {
+	if (!isCodeEditor(editor)) {
 		return undefined;
 	}
 
-	const editor = activeEditor as ICodeEditor;
 	const textModel = editor.getModel();
 	if (!textModel) {
 		return undefined;
