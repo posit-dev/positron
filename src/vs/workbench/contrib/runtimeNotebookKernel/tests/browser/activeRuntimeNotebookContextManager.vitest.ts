@@ -53,7 +53,7 @@ class MockRuntimeSession extends mock<ILanguageRuntimeSession>() {
 	private _onDidCompleteStartup = this._disposables.add(new Emitter<ILanguageRuntimeInfo>());
 	private _onDidEndSession = this._disposables.add(new Emitter<ILanguageRuntimeExit>());
 	metadata: IRuntimeSessionMetadata;
-	dynState: ILanguageRuntimeSessionState = stubInterface<ILanguageRuntimeSessionState>({ currentWorkingDirectory: undefined as unknown as string });
+	dynState: ILanguageRuntimeSessionState = stubInterface<ILanguageRuntimeSessionState>({ currentWorkingDirectory: '' });
 	onDidChangeRuntimeState = this._onDidChangeRuntimeState.event;
 	onDidCompleteStartup = this._onDidCompleteStartup.event;
 	onDidEndSession = this._onDidEndSession.event;
