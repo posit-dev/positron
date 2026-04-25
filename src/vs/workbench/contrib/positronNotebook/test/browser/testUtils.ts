@@ -151,6 +151,12 @@ const mockPreloadService: Partial<IPositronWebviewPreloadService> = {
  * `createTestContainer().withNotebookEditorServices()` directly -- it's
  * synchronous and covers every notebook-editor case that doesn't depend on
  * `IEditorGroupsService` being a real instance.
+ *
+ * This helper lives in the notebook test directory rather than alongside
+ * `setupRTLRenderer` in `src/vs/test/vitest/` because it depends on
+ * workbench-only types (`EditorPart`, `EditorResolverService`,
+ * `createEditorPart`, `INotebookService`, etc.) that aren't available to the
+ * platform-layer test infrastructure.
  */
 export async function setupNotebookEditorTest(disposables: DisposableStore): Promise<TestServices> {
 	const configurationService = new TestConfigurationService();
