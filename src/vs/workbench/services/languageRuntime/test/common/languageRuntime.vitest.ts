@@ -12,111 +12,112 @@ import { ILogService, NullLogger } from '../../../../../platform/log/common/log.
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { LanguageRuntimeService } from '../../common/languageRuntime.js';
-import { ILanguageRuntimeMetadata, LanguageStartupBehavior } from '../../common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, LanguageRuntimeSessionLocation, LanguageRuntimeStartupBehavior, LanguageStartupBehavior } from '../../common/languageRuntimeService.js';
+
+/**
+ * Shared metadata fields for test stubs. Both tests use the same base shape;
+ * only runtimeId and languageId differ.
+ */
+function makeTestMetadata(overrides: Partial<ILanguageRuntimeMetadata>): ILanguageRuntimeMetadata {
+	return stubInterface<ILanguageRuntimeMetadata>({
+		runtimeId: 'testRuntimeId',
+		languageId: 'testLanguageId',
+		runtimePath: '',
+		languageName: 'testLanguage',
+		languageVersion: '1.0.0',
+		base64EncodedIconSvg: undefined,
+		runtimeName: 'testRuntime',
+		runtimeShortName: 'test',
+		runtimeVersion: '1.0.0',
+		runtimeSource: 'test',
+		startupBehavior: LanguageRuntimeStartupBehavior.Explicit,
+		sessionLocation: LanguageRuntimeSessionLocation.Workspace,
+		extensionId: { value: 'test' },
+		extraRuntimeData: {},
+		...overrides,
+	});
+}
 
 describe('Positron - LanguageRuntimeService', () => {
-	const ctx = createTestContainer()
-		.withRuntimeServices()
-		.stub(ILogService, new NullLogger())
-		.stub(IConfigurationService, new TestConfigurationService())
-		.build();
+	describe('default configuration', () => {
+		const ctx = createTestContainer()
+			.withRuntimeServices()
+			.stub(ILogService, new NullLogger())
+			.stub(IConfigurationService, new TestConfigurationService())
+			.build();
 
-	it('register and unregister a runtime', async () => {
-		const languageRuntimeService = ctx.disposables.add(ctx.instantiationService.createInstance(LanguageRuntimeService));
+		it('register and unregister a runtime', async () => {
+			const languageRuntimeService = ctx.disposables.add(ctx.instantiationService.createInstance(LanguageRuntimeService));
 
-		// No runtimes registered initially.
-		expect(languageRuntimeService.registeredRuntimes.length).toBe(0);
+			// No runtimes registered initially.
+			expect(languageRuntimeService.registeredRuntimes.length).toBe(0);
 
-		// Mock runtime metadata.
-		const metadata = stubInterface<ILanguageRuntimeMetadata>({
-			runtimeId: 'testRuntimeId',
-			languageId: 'testLanguageId',
-			runtimePath: '',
-			languageName: 'testLanguage',
-			languageVersion: '1.0.0',
-			base64EncodedIconSvg: undefined,
-			runtimeName: 'testRuntime',
-			runtimeShortName: 'test',
-			runtimeVersion: '1.0.0',
-			runtimeSource: 'test',
-			startupBehavior: 0,
-			sessionLocation: 0,
-			extensionId: { value: 'test' },
-			extraRuntimeData: {},
-		});
-
-		// Promise that resolves when the onDidRegisterRuntime event is fired with the expected runtimeId.
-		const didRegisterRuntime = new Promise<void>((resolve) => {
-			const disposable = languageRuntimeService.onDidRegisterRuntime((e) => {
-				if (e.runtimeId === metadata.runtimeId) {
-					disposable.dispose();
-					resolve();
-				}
+			// Mock runtime metadata.
+			const metadata = makeTestMetadata({
+				runtimeId: 'testRuntimeId',
+				languageId: 'testLanguageId',
 			});
+
+			// Promise that resolves when the onDidRegisterRuntime event is fired with the expected runtimeId.
+			const didRegisterRuntime = new Promise<void>((resolve) => {
+				const disposable = languageRuntimeService.onDidRegisterRuntime((e) => {
+					if (e.runtimeId === metadata.runtimeId) {
+						disposable.dispose();
+						resolve();
+					}
+				});
+			});
+
+			// Register the runtime.
+			const runtimeDisposable = languageRuntimeService.registerRuntime(metadata);
+
+			// Check that the onDidRegisterRuntime event was fired.
+			let timedOut = false;
+			await raceTimeout(didRegisterRuntime, 10, () => timedOut = true);
+			expect(timedOut, 'Awaiting onDidRegisterRuntime event timed out').toBe(false);
+
+			// Check that the runtime was registered.
+			expect(languageRuntimeService.registeredRuntimes).toEqual([metadata]);
+
+			// Unregister the runtime.
+			languageRuntimeService.unregisterRuntime(metadata.runtimeId);
+
+			// Check that the runtime was unregistered.
+			expect(languageRuntimeService.registeredRuntimes.length).toBe(0);
+
+			// No-op since we already unregistered the runtime.
+			runtimeDisposable.dispose();
 		});
-
-		// Register the runtime.
-		const runtimeDisposable = languageRuntimeService.registerRuntime(metadata);
-
-		// Check that the onDidRegisterRuntime event was fired.
-		let timedOut = false;
-		await raceTimeout(didRegisterRuntime, 10, () => timedOut = true);
-		expect(!timedOut).toBeTruthy();
-
-		// Check that the runtime was registered.
-		expect(languageRuntimeService.registeredRuntimes).toEqual([metadata]);
-
-		// Unregister the runtime.
-		languageRuntimeService.unregisterRuntime(metadata.runtimeId);
-
-		// Check that the runtime was unregistered.
-		expect(languageRuntimeService.registeredRuntimes.length).toBe(0);
-
-		// No-op since we already unregistered the runtime.
-		runtimeDisposable.dispose();
 	});
 
-	it('ensure a runtime that is disabled in configuration cannot be registered', async () => {
-		// Mock configuration service that returns 'Disabled' for a specific language ID
-		const disabledLanguageId = 'disabledLanguage';
-
-		// Create a TestConfigurationService and configure it
+	describe('disabled language', () => {
 		const configService = new TestConfigurationService();
-
-		// Set up the configuration to return 'Disabled'
 		configService.setUserConfiguration('interpreters', {
-			startupBehavior: LanguageStartupBehavior.Disabled
+			startupBehavior: LanguageStartupBehavior.Disabled,
 		});
 
-		// Register it with the instantiation service
-		ctx.instantiationService.stub(IConfigurationService, configService);
+		const ctx = createTestContainer()
+			.withRuntimeServices()
+			.stub(ILogService, new NullLogger())
+			.stub(IConfigurationService, configService)
+			.build();
 
-		const languageRuntimeService = ctx.disposables.add(ctx.instantiationService.createInstance(LanguageRuntimeService));
+		it('cannot register a runtime when the language is disabled in configuration', async () => {
+			const languageRuntimeService = ctx.disposables.add(ctx.instantiationService.createInstance(LanguageRuntimeService));
 
-		// Create mock metadata for a runtime with the disabled language
-		const metadata = stubInterface<ILanguageRuntimeMetadata>({
-			runtimeId: 'disabledRuntimeId',
-			languageId: disabledLanguageId,
-			runtimePath: '',
-			languageName: 'testLanguage',
-			languageVersion: '1.0.0',
-			base64EncodedIconSvg: undefined,
-			runtimeName: 'testRuntime',
-			runtimeShortName: 'test',
-			runtimeVersion: '1.0.0',
-			runtimeSource: 'test',
-			startupBehavior: 0,
-			sessionLocation: 0,
-			extensionId: { value: 'test' },
-			extraRuntimeData: {},
+			// Create mock metadata for a runtime with the disabled language.
+			const metadata = makeTestMetadata({
+				runtimeId: 'disabledRuntimeId',
+				languageId: 'disabledLanguage',
+			});
+
+			// Attempt to register the runtime - this should throw an error.
+			expect(() => {
+				languageRuntimeService.registerRuntime(metadata);
+			}).toThrow();
+
+			// Verify that no runtimes were registered.
+			expect(languageRuntimeService.registeredRuntimes.length).toBe(0);
 		});
-
-		// Attempt to register the runtime - this should throw an error
-		expect(() => {
-			languageRuntimeService.registerRuntime(metadata);
-		}).toThrow();
-
-		// Verify that no runtimes were registered
-		expect(languageRuntimeService.registeredRuntimes.length).toBe(0);
 	});
 });
