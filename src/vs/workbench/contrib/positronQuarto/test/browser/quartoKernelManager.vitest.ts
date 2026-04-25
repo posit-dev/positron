@@ -5,27 +5,30 @@
 
 /// <reference types="vitest/globals" />
 
-/* eslint-disable local/code-no-dangerous-type-assertions, @typescript-eslint/no-explicit-any, local/code-no-any-casts */
-
 import { URI } from '../../../../../base/common/uri.js';
 import { Event } from '../../../../../base/common/event.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { InMemoryStorageService } from '../../../../../platform/storage/common/storage.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { TestRuntimeStartupService } from '../../../../services/runtimeStartup/test/common/testRuntimeStartupService.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, LanguageRuntimeSessionLocation, RuntimeExitReason, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IQuartoDocumentModel } from '../../common/quartoTypes.js';
 import { IQuartoDocumentModelService } from '../../browser/quartoDocumentModelService.js';
 import { IQuartoOutputCacheService } from '../../common/quartoExecutionTypes.js';
 import { QuartoKernelManager, QuartoKernelState } from '../../browser/quartoKernelManager.js';
+import { IEditorIdentifier, IEditorCloseEvent } from '../../../../common/editor.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
+import { EditorInput } from '../../../../common/editor/editorInput.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 
 function makeRuntime(id: string, languageId: string, name: string): ILanguageRuntimeMetadata {
 	return {
 		base64EncodedIconSvg: '',
-		extensionId: { value: 'test.extension' } as ExtensionIdentifier,
+		extensionId: new ExtensionIdentifier('test.extension'),
 		extraRuntimeData: {},
 		languageId,
 		runtimeId: id,
@@ -82,7 +85,7 @@ describe('QuartoKernelManager', () => {
 		primaryLanguage = 'python';
 		registeredRuntimes = [pythonRuntime1, pythonRuntime2, rRuntime1];
 
-		const mockRuntimeSessionService: Partial<IRuntimeSessionService> = {
+		const mockRuntimeSessionService = stubInterface<IRuntimeSessionService>({
 			async startNewRuntimeSession(runtimeId: string, _name: string, _mode: LanguageRuntimeSessionMode, _notebookUri?: URI) {
 				startedRuntimeIds.push(runtimeId);
 				return `session-${nextSessionId++}`;
@@ -90,7 +93,7 @@ describe('QuartoKernelManager', () => {
 			getSession(_id: string) {
 				// Return a minimal session that passes the _waitForSessionReady check
 				// by being already idle, and supports shutdown/state queries.
-				return {
+				return stubInterface<ILanguageRuntimeSession>({
 					sessionId: `session-${nextSessionId - 1}`,
 					runtimeMetadata: startedRuntimeIds.length > 0
 						? findRuntimeById(startedRuntimeIds[startedRuntimeIds.length - 1])
@@ -101,54 +104,53 @@ describe('QuartoKernelManager', () => {
 					onDidEncounterStartupFailure: Event.None,
 					onDidEndSession: Event.None,
 					async shutdown(_reason: RuntimeExitReason) { /* no-op */ },
-				} as any;
+				});
 			},
 			getNotebookSessionForNotebookUri(_uri: URI) { return undefined; },
 			getActiveSessions() { return []; },
 			async shutdownNotebookSession(uri: URI) { shutdownUris.push(uri); },
 			onDidStartRuntime: Event.None,
-		};
+		});
 
-		const mockLanguageRuntimeService: Partial<ILanguageRuntimeService> = {
+		const mockLanguageRuntimeService = stubInterface<ILanguageRuntimeService>({
 			get registeredRuntimes() {
 				return registeredRuntimes;
 			},
-		};
+		});
 
-		const mockDocModelService: Partial<IQuartoDocumentModelService> = {
-			getModel(_textModel: any) {
-				return { primaryLanguage, cells: [] } as any;
+		const mockDocModelService = stubInterface<IQuartoDocumentModelService>({
+			getModel(_textModel) {
+				return stubInterface<IQuartoDocumentModel>({ primaryLanguage, cells: [] });
 			},
-		};
+		});
 
-		const mockEditorService: Partial<IEditorService> = {
-			findEditors(_uri: any) {
-				return [{
-					editor: {
-						async resolve() {
-							return {
-								textEditorModel: { uri: docUri, getLanguageId: () => 'quarto' },
-							};
-						},
-					},
-				}] as any;
+		const mockEditorService = stubInterface<IEditorService>({
+			findEditors(_uri) {
+				return [stubInterface<IEditorIdentifier>({
+					editor: stubInterface<EditorInput>({
+						resolve: async () => ({
+							textEditorModel: { uri: docUri, getLanguageId: () => 'quarto' },
+							dispose() { },
+						}),
+					}),
+				})];
 			},
-			onDidCloseEditor: Event.None as any,
-		};
+			onDidCloseEditor: Event.None as Event<IEditorCloseEvent>,
+		});
 
-		const mockCacheService: Partial<IQuartoOutputCacheService> = {};
+		const mockCacheService = stubInterface<IQuartoOutputCacheService>({});
 
 		kernelManager = disposables.add(new QuartoKernelManager(
-			mockRuntimeSessionService as IRuntimeSessionService,
+			mockRuntimeSessionService,
 			runtimeStartupService,
-			mockLanguageRuntimeService as ILanguageRuntimeService,
-			mockDocModelService as IQuartoDocumentModelService,
-			mockEditorService as IEditorService,
+			mockLanguageRuntimeService,
+			mockDocModelService,
+			mockEditorService,
 			new NullLogService(),
-			{ warn() { }, notify() { }, info() { } } as any,
-			new TestConfigurationService() as any,
+			stubInterface<INotificationService>({ warn: vi.fn(), info: vi.fn(), notify: vi.fn() }),
+			new TestConfigurationService(),
 			storageService,
-			mockCacheService as IQuartoOutputCacheService,
+			mockCacheService,
 		));
 	});
 
@@ -190,13 +192,13 @@ describe('QuartoKernelManager', () => {
 		// Create a fresh manager using the same storage
 		startedRuntimeIds.length = 0;
 
-		const mockRuntimeSessionService2: Partial<IRuntimeSessionService> = {
+		const mockRuntimeSessionService2 = stubInterface<IRuntimeSessionService>({
 			async startNewRuntimeSession(runtimeId: string) {
 				startedRuntimeIds.push(runtimeId);
 				return `session-${nextSessionId++}`;
 			},
 			getSession() {
-				return {
+				return stubInterface<ILanguageRuntimeSession>({
 					sessionId: `session-${nextSessionId - 1}`,
 					runtimeMetadata: pythonRuntime2,
 					getRuntimeState() { return RuntimeState.Idle; },
@@ -205,25 +207,37 @@ describe('QuartoKernelManager', () => {
 					onDidEncounterStartupFailure: Event.None,
 					onDidEndSession: Event.None,
 					async shutdown() { },
-				} as any;
+				});
 			},
 			getNotebookSessionForNotebookUri() { return undefined; },
 			getActiveSessions() { return []; },
 			async shutdownNotebookSession() { },
 			onDidStartRuntime: Event.None,
-		};
+		});
 
 		const km2 = disposables.add(new QuartoKernelManager(
-			mockRuntimeSessionService2 as IRuntimeSessionService,
+			mockRuntimeSessionService2,
 			runtimeStartupService,
-			{ get registeredRuntimes() { return [pythonRuntime1, pythonRuntime2]; } } as ILanguageRuntimeService,
-			{ getModel() { return { primaryLanguage: 'python', cells: [] }; } } as any,
-			{ findEditors() { return [{ editor: { async resolve() { return { textEditorModel: { uri: docUri, getLanguageId: () => 'quarto' } }; } } }]; }, onDidCloseEditor: Event.None } as any,
+			stubInterface<ILanguageRuntimeService>({ get registeredRuntimes() { return [pythonRuntime1, pythonRuntime2]; } }),
+			stubInterface<IQuartoDocumentModelService>({ getModel() { return stubInterface<IQuartoDocumentModel>({ primaryLanguage: 'python', cells: [] }); } }),
+			stubInterface<IEditorService>({
+				findEditors() {
+					return [stubInterface<IEditorIdentifier>({
+						editor: stubInterface<EditorInput>({
+							resolve: async () => ({
+								textEditorModel: { uri: docUri, getLanguageId: () => 'quarto' },
+								dispose() { },
+							}),
+						}),
+					})];
+				},
+				onDidCloseEditor: Event.None as Event<IEditorCloseEvent>,
+			}),
 			new NullLogService(),
-			{ warn() { }, notify() { }, info() { } } as any,
-			new TestConfigurationService() as any,
+			stubInterface<INotificationService>({ warn: vi.fn(), info: vi.fn(), notify: vi.fn() }),
+			new TestConfigurationService(),
 			storageService, // same storage
-			{} as IQuartoOutputCacheService,
+			stubInterface<IQuartoOutputCacheService>({}),
 		));
 
 		await km2.ensureKernelForDocument(docUri);
