@@ -527,6 +527,14 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	}
 
 	/**
+	 * @internal Test-only: exposes the comm proxy for stub injection in tests.
+	 * Do not use outside of test files.
+	 */
+	get commProxyForTesting(): PositronPlotCommProxy {
+		return this._commProxy;
+	}
+
+	/**
 	 * Returns the intrinsic size of the plot, if known.
 	 */
 	get intrinsicSize(): IntrinsicSize | undefined {

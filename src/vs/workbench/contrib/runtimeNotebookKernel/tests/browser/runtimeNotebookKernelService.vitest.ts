@@ -27,6 +27,11 @@ import { RuntimeNotebookKernelService } from '../../browser/runtimeNotebookKerne
 import { POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../../common/runtimeNotebookKernelConfig.js';
 import { mock } from '../../../../../base/test/common/mock.js';
 
+/** Shape of Jupyter notebook metadata set by RuntimeNotebookKernelService when a kernel is selected. */
+interface NotebookLanguageInfo {
+	readonly language_info: { readonly name: string };
+}
+
 describe('Positron - RuntimeNotebookKernelService', () => {
 	const ctx = createTestContainer().withWorkbenchServices().build();
 	let accessor: PositronTestServiceAccessor;
@@ -119,8 +124,7 @@ describe('Positron - RuntimeNotebookKernelService', () => {
 		notebookKernelService.selectKernelForNotebook(kernel, notebookDocument);
 
 		// Check the language in the notebook document metadata.
-		// eslint-disable-next-line local/code-no-any-casts -- accessing Jupyter notebook metadata.metadata.language_info.name which is loosely typed; defining a shape type is deferred to follow-up cleanup PR
-		expect((notebookDocument.metadata.metadata as any).language_info.name).toBe(runtime.languageId);
+		expect((notebookDocument.metadata.metadata as NotebookLanguageInfo).language_info.name).toBe(runtime.languageId);
 
 		// Check each cell's language.
 		for (const cell of notebookDocument.cells) {

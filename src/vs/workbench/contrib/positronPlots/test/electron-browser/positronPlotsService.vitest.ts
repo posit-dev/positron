@@ -291,13 +291,10 @@ describe('Positron - Plots Service', () => {
 			return { width: 100, height: 100 };
 		});
 
-		// Replace the comm methods via the proxy
-		// eslint-disable-next-line local/code-no-any-casts -- reaching into private _commProxy to inject stub comms; exposing a test hook in the source class is deferred to follow-up cleanup PR
-		const commProxy = (plotInstance as any)._commProxy;
-		if (commProxy && commProxy._comm) {
-			commProxy._comm.render = renderStub;
-			commProxy._comm.getIntrinsicSize = intrinsicSizeStub;
-		}
+		// Replace the comm methods via the proxy test hooks.
+		const comm = plotInstance.commProxyForTesting.commForTesting;
+		comm.render = renderStub;
+		comm.getIntrinsicSize = intrinsicSizeStub;
 
 		// Start multiple render operations simultaneously
 		const render1Promise = plotInstance.render({ width: 100, height: 100 }, 1.0).catch(() => {
