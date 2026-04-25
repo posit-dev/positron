@@ -13,6 +13,8 @@ import { ExtensionIdentifier } from '../../../../../platform/extensions/common/e
 import { IConfigurationService, ConfigurationTarget } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { ChatRuntimeSessionContext, ChatRuntimeSessionContextContribution } from '../../browser/widget/input/editor/chatRuntimeSessionContext.js';
+import { ChatInputPart } from '../../browser/widget/input/chatInputPart.js';
+import { IChatViewModel } from '../../common/model/chatViewModel.js';
 import { IRuntimeSessionService, ILanguageRuntimeSession, IRuntimeSessionMetadata, ILanguageRuntimeSessionState } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronVariablesService } from '../../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { IPositronVariablesInstance } from '../../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
@@ -62,7 +64,6 @@ class MockRuntimeSession extends mock<ILanguageRuntimeSession>() {
 
 	dynState: ILanguageRuntimeSessionState = stubInterface<ILanguageRuntimeSessionState>({
 		sessionName: 'Test Python Session',
-		currentExecution: undefined,
 		currentWorkingDirectory: '/home/user',
 		currentNotebookUri: undefined,
 		busy: false,
@@ -196,10 +197,8 @@ class MockExecutionHistoryService extends mock<IExecutionHistoryService>() {
 // Mock chat widget -- only the fields production code accesses
 class MockChatWidget extends mock<IChatWidget>() {
 	override location: IChatWidget['location'] = 'panel' as IChatWidget['location'];
-	// eslint-disable-next-line local/code-no-dangerous-type-assertions -- ChatInputPart has a large surface; only runtimeContext is accessed by the code under test
-	override input = { runtimeContext: undefined as ChatRuntimeSessionContext | undefined } as unknown as IChatWidget['input'];
-	// eslint-disable-next-line local/code-no-dangerous-type-assertions -- IChatViewModel has a large surface; only getItems() is accessed by the code under test
-	override viewModel = { getItems: () => [] } as unknown as IChatWidget['viewModel'];
+	override input = stubInterface<ChatInputPart>({ runtimeContext: undefined });
+	override viewModel = stubInterface<IChatViewModel>({ getItems: () => [] });
 }
 
 // Mock chat widget service
@@ -216,8 +215,7 @@ class MockChatWidgetService extends mock<IChatWidgetService>() {
 
 	addWidget() {
 		const widget = new MockChatWidget();
-		// eslint-disable-next-line local/code-no-dangerous-type-assertions -- ChatInputPart has a large surface; only runtimeContext is accessed by the code under test
-		widget.input = { runtimeContext: new ChatRuntimeSessionContext() } as unknown as IChatWidget['input'];
+		widget.input = stubInterface<ChatInputPart>({ runtimeContext: new ChatRuntimeSessionContext() });
 		this._contextDisposables.push(widget.input.runtimeContext!);
 		this._widgets.push(widget);
 		this._onDidAddWidget.fire(widget);
