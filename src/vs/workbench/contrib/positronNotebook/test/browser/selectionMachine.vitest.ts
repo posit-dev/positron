@@ -7,8 +7,7 @@
 
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { createTestPositronNotebookInstance } from './testPositronNotebookInstance.js';
-import { CellKind } from '../../../notebook/common/notebookCommon.js';
+import { createLabelledTestNotebook, createTestPositronNotebookInstance } from './testPositronNotebookInstance.js';
 import { CellSelectionStatus, IPositronNotebookCell } from '../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 import {
 	CellSelectionType,
@@ -22,15 +21,6 @@ import {
 describe('SelectionStateMachine', () => {
 	const ctx = createTestContainer().withNotebookEditorServices().build();
 
-	/** Build an N-cell notebook labelled A, B, C, ... for selection-machine tests. */
-	function createNotebookWithNCells(n: number) {
-		const labels = Array.from({ length: n }, (_, i) => String.fromCharCode(65 + i));
-		return createTestPositronNotebookInstance(
-			labels.map(v => [v, 'python', CellKind.Code]),
-			ctx,
-		);
-	}
-
 	describe('initial state', () => {
 		it('empty notebook is in NoCells state', () => {
 			const notebook = createTestPositronNotebookInstance([], ctx);
@@ -38,7 +28,7 @@ describe('SelectionStateMachine', () => {
 		});
 
 		it('populated notebook auto-selects the first cell after model is set', () => {
-			const notebook = createNotebookWithNCells(3);
+			const notebook = createLabelledTestNotebook(3, ctx);
 			const cells = notebook.cells.get();
 			const state = notebook.selectionStateMachine.state.get();
 			expect(state.type).toBe(SelectionState.SingleSelection);
@@ -48,7 +38,7 @@ describe('SelectionStateMachine', () => {
 
 	describe('selectCell', () => {
 		it('Normal: single-selects the given cell', () => {
-			const notebook = createNotebookWithNCells(3);
+			const notebook = createLabelledTestNotebook(3, ctx);
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[1], CellSelectionType.Normal);
 			const state = notebook.selectionStateMachine.state.get();
@@ -59,7 +49,7 @@ describe('SelectionStateMachine', () => {
 		});
 
 		it('Edit: enters editing state for the given cell', () => {
-			const notebook = createNotebookWithNCells(3);
+			const notebook = createLabelledTestNotebook(3, ctx);
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[2], CellSelectionType.Edit);
 			const state = notebook.selectionStateMachine.state.get();
@@ -70,7 +60,7 @@ describe('SelectionStateMachine', () => {
 		});
 
 		it('Add from SingleSelection: expands to MultiSelection with new cell as active', () => {
-			const notebook = createNotebookWithNCells(3);
+			const notebook = createLabelledTestNotebook(3, ctx);
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
 			notebook.selectionStateMachine.selectCell(cells[1], CellSelectionType.Add);
@@ -81,7 +71,7 @@ describe('SelectionStateMachine', () => {
 		});
 
 		it('Add from EditingSelection: transitions to MultiSelection and clears editing on prior cell', () => {
-			const notebook = createNotebookWithNCells(3);
+			const notebook = createLabelledTestNotebook(3, ctx);
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Edit);
 			notebook.selectionStateMachine.selectCell(cells[1], CellSelectionType.Add);
@@ -93,16 +83,48 @@ describe('SelectionStateMachine', () => {
 		});
 
 		it('Add with the same editing cell is a no-op', () => {
-			const notebook = createNotebookWithNCells(3);
+			const notebook = createLabelledTestNotebook(3, ctx);
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Edit);
 			notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Add);
 			const state = notebook.selectionStateMachine.state.get();
 			expect(state.type).toBe(SelectionState.EditingSelection);
+			expect(getActiveCell(state)).toBe(cells[0]);
+			expect(cells[0].selectionStatus.get()).toBe(CellSelectionStatus.Editing);
+		});
+
+		it('Normal from EditingSelection: transitions to SingleSelection and clears editing status', () => {
+			const notebook = createLabelledTestNotebook(3, ctx);
+			const cells = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Edit);
+			notebook.selectionStateMachine.selectCell(cells[1], CellSelectionType.Normal);
+			const state = notebook.selectionStateMachine.state.get();
+			expect(state.type).toBe(SelectionState.SingleSelection);
+			expect(getActiveCell(state)).toBe(cells[1]);
+			expect(cells[0].selectionStatus.get()).toBe(CellSelectionStatus.Unselected);
+			expect(cells[1].selectionStatus.get()).toBe(CellSelectionStatus.Selected);
+		});
+
+		it('Normal on the active cell from MultiSelection collapses to SingleSelection', () => {
+			// Mirrors the Escape keybinding's `selectCell(state.active)` call --
+			// see positronNotebook.contribution.ts "Reduce Selection to Active Cell".
+			const notebook = createLabelledTestNotebook(3, ctx);
+			const cells = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
+			notebook.selectionStateMachine.selectCell(cells[1], CellSelectionType.Add);
+			notebook.selectionStateMachine.selectCell(cells[2], CellSelectionType.Add);
+			// Active is cells[2]; collapsing to active should leave cells[2] as the only selection.
+			notebook.selectionStateMachine.selectCell(cells[2], CellSelectionType.Normal);
+			const state = notebook.selectionStateMachine.state.get();
+			expect(state.type).toBe(SelectionState.SingleSelection);
+			expect(getActiveCell(state)).toBe(cells[2]);
+			expect(cells[0].selectionStatus.get()).toBe(CellSelectionStatus.Unselected);
+			expect(cells[1].selectionStatus.get()).toBe(CellSelectionStatus.Unselected);
+			expect(cells[2].selectionStatus.get()).toBe(CellSelectionStatus.Selected);
 		});
 
 		it('Add for an already-selected cell in Multi is a no-op', () => {
-			const notebook = createNotebookWithNCells(3);
+			const notebook = createLabelledTestNotebook(3, ctx);
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
 			notebook.selectionStateMachine.selectCell(cells[1], CellSelectionType.Add);
@@ -117,7 +139,7 @@ describe('SelectionStateMachine', () => {
 
 	describe('deselectCell', () => {
 		it('deselecting the active SingleSelection cell selects the first cell', () => {
-			const notebook = createNotebookWithNCells(3);
+			const notebook = createLabelledTestNotebook(3, ctx);
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[2], CellSelectionType.Normal);
 			notebook.selectionStateMachine.deselectCell(cells[2]);
@@ -127,7 +149,7 @@ describe('SelectionStateMachine', () => {
 		});
 
 		it('deselecting a non-active Multi cell reduces selection but keeps active', () => {
-			const notebook = createNotebookWithNCells(3);
+			const notebook = createLabelledTestNotebook(3, ctx);
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
 			notebook.selectionStateMachine.selectCell(cells[1], CellSelectionType.Add);
@@ -141,7 +163,7 @@ describe('SelectionStateMachine', () => {
 		});
 
 		it('deselecting the active Multi cell promotes the last remaining selected cell to active', () => {
-			const notebook = createNotebookWithNCells(3);
+			const notebook = createLabelledTestNotebook(3, ctx);
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
 			notebook.selectionStateMachine.selectCell(cells[1], CellSelectionType.Add);
@@ -155,7 +177,7 @@ describe('SelectionStateMachine', () => {
 		});
 
 		it('deselecting from Multi until one cell remains transitions to SingleSelection', () => {
-			const notebook = createNotebookWithNCells(3);
+			const notebook = createLabelledTestNotebook(3, ctx);
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
 			notebook.selectionStateMachine.selectCell(cells[1], CellSelectionType.Add);
@@ -166,7 +188,7 @@ describe('SelectionStateMachine', () => {
 		});
 
 		it('deselecting an unselected cell is a no-op', () => {
-			const notebook = createNotebookWithNCells(3);
+			const notebook = createLabelledTestNotebook(3, ctx);
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
 			notebook.selectionStateMachine.deselectCell(cells[2]);
@@ -178,7 +200,7 @@ describe('SelectionStateMachine', () => {
 
 	describe('moveSelection (no addMode)', () => {
 		it('moveSelectionDown moves to next cell from SingleSelection', () => {
-			const notebook = createNotebookWithNCells(3);
+			const notebook = createLabelledTestNotebook(3, ctx);
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
 			notebook.selectionStateMachine.moveSelectionDown(false);
@@ -188,7 +210,7 @@ describe('SelectionStateMachine', () => {
 		});
 
 		it('moveSelectionUp moves to previous cell from SingleSelection', () => {
-			const notebook = createNotebookWithNCells(3);
+			const notebook = createLabelledTestNotebook(3, ctx);
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[2], CellSelectionType.Normal);
 			notebook.selectionStateMachine.moveSelectionUp(false);
@@ -198,7 +220,7 @@ describe('SelectionStateMachine', () => {
 		});
 
 		it('moveSelectionUp at first cell is a no-op', () => {
-			const notebook = createNotebookWithNCells(3);
+			const notebook = createLabelledTestNotebook(3, ctx);
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
 			notebook.selectionStateMachine.moveSelectionUp(false);
@@ -207,7 +229,7 @@ describe('SelectionStateMachine', () => {
 		});
 
 		it('moveSelectionDown at last cell is a no-op', () => {
-			const notebook = createNotebookWithNCells(3);
+			const notebook = createLabelledTestNotebook(3, ctx);
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[2], CellSelectionType.Normal);
 			notebook.selectionStateMachine.moveSelectionDown(false);
@@ -216,7 +238,7 @@ describe('SelectionStateMachine', () => {
 		});
 
 		it('moveSelectionDown from MultiSelection collapses to next cell', () => {
-			const notebook = createNotebookWithNCells(4);
+			const notebook = createLabelledTestNotebook(4, ctx);
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
 			notebook.selectionStateMachine.selectCell(cells[1], CellSelectionType.Add);
@@ -227,7 +249,7 @@ describe('SelectionStateMachine', () => {
 		});
 
 		it('moveSelection while editing is a no-op', () => {
-			const notebook = createNotebookWithNCells(3);
+			const notebook = createLabelledTestNotebook(3, ctx);
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[1], CellSelectionType.Edit);
 			notebook.selectionStateMachine.moveSelectionDown(false);
@@ -239,7 +261,7 @@ describe('SelectionStateMachine', () => {
 
 	describe('moveSelection (addMode)', () => {
 		it('moveSelectionDown with addMode from SingleSelection grows to MultiSelection', () => {
-			const notebook = createNotebookWithNCells(3);
+			const notebook = createLabelledTestNotebook(3, ctx);
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
 			notebook.selectionStateMachine.moveSelectionDown(true);
@@ -250,7 +272,7 @@ describe('SelectionStateMachine', () => {
 		});
 
 		it('moveSelectionUp with addMode from SingleSelection grows to MultiSelection (reversed)', () => {
-			const notebook = createNotebookWithNCells(3);
+			const notebook = createLabelledTestNotebook(3, ctx);
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[2], CellSelectionType.Normal);
 			notebook.selectionStateMachine.moveSelectionUp(true);
@@ -261,7 +283,7 @@ describe('SelectionStateMachine', () => {
 		});
 
 		it('moveSelectionDown with addMode further grows MultiSelection', () => {
-			const notebook = createNotebookWithNCells(4);
+			const notebook = createLabelledTestNotebook(4, ctx);
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
 			notebook.selectionStateMachine.moveSelectionDown(true);
@@ -273,7 +295,7 @@ describe('SelectionStateMachine', () => {
 		});
 
 		it('moveSelectionUp with addMode shrinks MultiSelection when next cell is already selected', () => {
-			const notebook = createNotebookWithNCells(4);
+			const notebook = createLabelledTestNotebook(4, ctx);
 			const cells = notebook.cells.get();
 			// Build [0,1,2] with active=cells[2]
 			notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
@@ -288,7 +310,7 @@ describe('SelectionStateMachine', () => {
 		});
 
 		it('moveSelectionUp with addMode at first cell is a no-op', () => {
-			const notebook = createNotebookWithNCells(3);
+			const notebook = createLabelledTestNotebook(3, ctx);
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
 			notebook.selectionStateMachine.moveSelectionUp(true);
@@ -298,7 +320,7 @@ describe('SelectionStateMachine', () => {
 		});
 
 		it('moveSelectionDown with addMode at last cell is a no-op', () => {
-			const notebook = createNotebookWithNCells(3);
+			const notebook = createLabelledTestNotebook(3, ctx);
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[2], CellSelectionType.Normal);
 			notebook.selectionStateMachine.moveSelectionDown(true);
@@ -310,7 +332,7 @@ describe('SelectionStateMachine', () => {
 
 	describe('enterEditor / exitEditor', () => {
 		it('enterEditor on the active cell transitions to EditingSelection', async () => {
-			const notebook = createNotebookWithNCells(3);
+			const notebook = createLabelledTestNotebook(3, ctx);
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[1], CellSelectionType.Normal);
 			await notebook.selectionStateMachine.enterEditor();
@@ -320,7 +342,7 @@ describe('SelectionStateMachine', () => {
 		});
 
 		it('enterEditor with explicit cell switches editing target', async () => {
-			const notebook = createNotebookWithNCells(3);
+			const notebook = createLabelledTestNotebook(3, ctx);
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Edit);
 			await notebook.selectionStateMachine.enterEditor(cells[2]);
@@ -330,7 +352,7 @@ describe('SelectionStateMachine', () => {
 		});
 
 		it('exitEditor returns to SingleSelection on the same cell', () => {
-			const notebook = createNotebookWithNCells(3);
+			const notebook = createLabelledTestNotebook(3, ctx);
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[1], CellSelectionType.Edit);
 			notebook.selectionStateMachine.exitEditor();
@@ -340,7 +362,7 @@ describe('SelectionStateMachine', () => {
 		});
 
 		it('exitEditor with mismatched cell does not exit (race-condition guard)', () => {
-			const notebook = createNotebookWithNCells(3);
+			const notebook = createLabelledTestNotebook(3, ctx);
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[1], CellSelectionType.Edit);
 			// Pretend a focus event for cells[2] arrived while we're editing cells[1]
@@ -351,7 +373,7 @@ describe('SelectionStateMachine', () => {
 		});
 
 		it('exitEditor when not editing is a no-op', () => {
-			const notebook = createNotebookWithNCells(3);
+			const notebook = createLabelledTestNotebook(3, ctx);
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[1], CellSelectionType.Normal);
 			notebook.selectionStateMachine.exitEditor();
@@ -363,7 +385,7 @@ describe('SelectionStateMachine', () => {
 
 	describe('cell array changes', () => {
 		it('deleting the editing cell selects a neighboring cell', () => {
-			const notebook = createNotebookWithNCells(3);
+			const notebook = createLabelledTestNotebook(3, ctx);
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[1], CellSelectionType.Edit);
 			notebook.deleteCell(cells[1]);
@@ -375,7 +397,7 @@ describe('SelectionStateMachine', () => {
 		});
 
 		it('deleting the only selected cell when others remain promotes a neighbor', () => {
-			const notebook = createNotebookWithNCells(3);
+			const notebook = createLabelledTestNotebook(3, ctx);
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[2], CellSelectionType.Normal);
 			notebook.deleteCell(cells[2]);
@@ -387,7 +409,7 @@ describe('SelectionStateMachine', () => {
 		});
 
 		it('deleting a cell from MultiSelection retains remaining selected cells', () => {
-			const notebook = createNotebookWithNCells(4);
+			const notebook = createLabelledTestNotebook(4, ctx);
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
 			notebook.selectionStateMachine.selectCell(cells[1], CellSelectionType.Add);
@@ -401,7 +423,7 @@ describe('SelectionStateMachine', () => {
 		});
 
 		it('deleting all cells transitions to NoCells', () => {
-			const notebook = createNotebookWithNCells(2);
+			const notebook = createLabelledTestNotebook(2, ctx);
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
 			notebook.deleteCells([cells[0], cells[1]]);
@@ -471,6 +493,13 @@ describe('SelectionStateMachine', () => {
 			const fakeCell = stubInterface<IPositronNotebookCell>({ index: 3 });
 			expect(toCellRanges({ type: SelectionState.SingleSelection, active: fakeCell })).toEqual([
 				{ start: 3, end: 4 },
+			]);
+		});
+
+		it('toCellRanges returns single range for EditingSelection', () => {
+			const fakeCell = stubInterface<IPositronNotebookCell>({ index: 5 });
+			expect(toCellRanges({ type: SelectionState.EditingSelection, active: fakeCell })).toEqual([
+				{ start: 5, end: 6 },
 			]);
 		});
 	});

@@ -12,13 +12,12 @@ import { observableValue } from '../../../../../base/common/observable.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { CellSelectionStatus } from '../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { CellSelectionType } from '../../browser/selectionMachine.js';
 import { NotebookCellWrapper } from '../../browser/notebookCells/NotebookCellWrapper.js';
 import { NotebookInstanceProvider } from '../../browser/NotebookInstanceProvider.js';
 import { EnvironentProvider } from '../../browser/EnvironmentProvider.js';
-import { createTestPositronNotebookInstance, TestPositronNotebookInstance } from './testPositronNotebookInstance.js';
+import { createLabelledTestNotebook, TestPositronNotebookInstance } from './testPositronNotebookInstance.js';
 import { ISize } from '../../../../../base/browser/positronReactRenderer.js';
 import { IScopedContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 
@@ -45,14 +44,6 @@ describe('NotebookCellWrapper onClick', () => {
 	const ctx = createTestContainer().withNotebookEditorServices().withReactServices().build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	function createNotebook(numCells = 2): TestPositronNotebookInstance {
-		const labels = Array.from({ length: numCells }, (_, i) => String.fromCharCode(65 + i));
-		return createTestPositronNotebookInstance(
-			labels.map(v => [v, 'python', CellKind.Code]),
-			ctx,
-		);
-	}
-
 	function renderCell(notebook: TestPositronNotebookInstance, cellIndex = 0, children: React.ReactNode = null) {
 		const cell = notebook.cells.get()[cellIndex];
 		const environmentBundle = {
@@ -73,7 +64,7 @@ describe('NotebookCellWrapper onClick', () => {
 	}
 
 	it('default click on cell body invokes selectCell(Normal)', async () => {
-		const notebook = createNotebook(2);
+		const notebook = createLabelledTestNotebook(2, ctx);
 		const cells = notebook.cells.get();
 		// Move the active selection away so clicking cells[1] is a state change.
 		notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
@@ -87,7 +78,7 @@ describe('NotebookCellWrapper onClick', () => {
 	});
 
 	it('shift-click invokes selectCell(Add)', async () => {
-		const notebook = createNotebook(2);
+		const notebook = createLabelledTestNotebook(2, ctx);
 		const cells = notebook.cells.get();
 		notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
 		const spy = vi.spyOn(notebook.selectionStateMachine, 'selectCell');
@@ -102,7 +93,7 @@ describe('NotebookCellWrapper onClick', () => {
 	});
 
 	it('meta-click (Cmd) invokes selectCell(Add)', async () => {
-		const notebook = createNotebook(2);
+		const notebook = createLabelledTestNotebook(2, ctx);
 		const cells = notebook.cells.get();
 		notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
 		const spy = vi.spyOn(notebook.selectionStateMachine, 'selectCell');
@@ -117,7 +108,7 @@ describe('NotebookCellWrapper onClick', () => {
 	});
 
 	it('click inside .positron-cell-editor-monaco-widget descendant is a no-op', async () => {
-		const notebook = createNotebook(2);
+		const notebook = createLabelledTestNotebook(2, ctx);
 		const cells = notebook.cells.get();
 		notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
 		const spy = vi.spyOn(notebook.selectionStateMachine, 'selectCell');
@@ -137,7 +128,7 @@ describe('NotebookCellWrapper onClick', () => {
 	});
 
 	it('click on an <a> link descendant is a no-op (lets navigation proceed)', async () => {
-		const notebook = createNotebook(2);
+		const notebook = createLabelledTestNotebook(2, ctx);
 		const cells = notebook.cells.get();
 		notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
 		const spy = vi.spyOn(notebook.selectionStateMachine, 'selectCell');
@@ -154,7 +145,7 @@ describe('NotebookCellWrapper onClick', () => {
 	});
 
 	it('click outside the editor while editing exits edit mode', async () => {
-		const notebook = createNotebook(2);
+		const notebook = createLabelledTestNotebook(2, ctx);
 		const cells = notebook.cells.get();
 		notebook.selectionStateMachine.selectCell(cells[1], CellSelectionType.Edit);
 		expect(cells[1].selectionStatus.get()).toBe(CellSelectionStatus.Editing);
@@ -171,7 +162,7 @@ describe('NotebookCellWrapper onClick', () => {
 	});
 
 	it('click on already-selected cell in SingleSelection is a no-op', async () => {
-		const notebook = createNotebook(2);
+		const notebook = createLabelledTestNotebook(2, ctx);
 		const cells = notebook.cells.get();
 		notebook.selectionStateMachine.selectCell(cells[1], CellSelectionType.Normal);
 		const spy = vi.spyOn(notebook.selectionStateMachine, 'selectCell');
@@ -184,7 +175,7 @@ describe('NotebookCellWrapper onClick', () => {
 	});
 
 	it('click on a Multi-selected cell collapses to selectCell(Normal)', async () => {
-		const notebook = createNotebook(3);
+		const notebook = createLabelledTestNotebook(3, ctx);
 		const cells = notebook.cells.get();
 		notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
 		notebook.selectionStateMachine.selectCell(cells[1], CellSelectionType.Add);
