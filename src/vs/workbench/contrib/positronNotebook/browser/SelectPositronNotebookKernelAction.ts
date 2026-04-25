@@ -48,8 +48,14 @@ class SelectPositronNotebookKernelAction extends Action2 {
 			return false;
 		}
 
+		const selectedKernel = notebookKernelService.getMatchingKernel(notebook).selected;
+		const currentRuntimeId = selectedKernel?.extension.value === POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID
+			? selectedKernel.id.slice(POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID.length + 1)
+			: undefined;
+
 		const runtime = await selectNewLanguageRuntime(accessor, {
 			title: localize('positronNotebookActions.selectKernel.title', 'Select Positron Notebook Kernel'),
+			currentRuntimeId,
 		});
 
 		if (!runtime) {

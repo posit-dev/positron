@@ -332,6 +332,7 @@ registerAction2(class ChangeKernelAction extends Action2 {
 			selectNewLanguageRuntime(accessor, {
 				title: localize('quarto.changeKernel.title', "Select Quarto Kernel"),
 				languageId: language,
+				currentRuntimeId,
 			})
 		);
 
