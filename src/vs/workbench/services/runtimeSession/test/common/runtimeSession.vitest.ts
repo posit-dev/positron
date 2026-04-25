@@ -405,12 +405,12 @@ describe('Positron - RuntimeSessionService', () => {
 				expect(session.getRuntimeState()).toBe(RuntimeState.Starting);
 			});
 
-			it(`${action} ${mode} encounters session.start() error`, async () => {
+			it(`${action} ${mode} encounters session.start() error`, async ({ skip }) => {
 				// TODO: This test currently fails because selecting the runtime exits early
 				//       if a session already exists for the runtime, even if the session is exited
 				//       or uninitialized. Is that the expected behavior?
 				if (action === 'select' && mode === LanguageRuntimeSessionMode.Console) {
-					return;
+					skip();
 				}
 
 				// Listen to the onWillStartSession event and stub session.start() to throw an error.
@@ -468,10 +468,10 @@ describe('Positron - RuntimeSessionService', () => {
 				expect(session2.getRuntimeState()).toBe(RuntimeState.Starting);
 			});
 
-			it(`${action} ${mode} concurrently encounters session.start() error`, async () => {
+			it(`${action} ${mode} concurrently encounters session.start() error`, async ({ skip }) => {
 				// TODO: Post multisession, concurrently restoring console sessions has undefined behavior.
 				if ((action === 'restore' && mode === LanguageRuntimeSessionMode.Console)) {
-					return;
+					skip();
 				}
 				// Listen to the onWillStartSession event and stub session.start() to throw an error.
 				const willStartSession = vi.fn((e: IRuntimeSessionWillStartEvent) => {
@@ -541,10 +541,10 @@ describe('Positron - RuntimeSessionService', () => {
 				}
 			});
 
-			it(`${action} ${mode} concurrently`, async () => {
+			it(`${action} ${mode} concurrently`, async ({ skip }) => {
 				// TODO: Post multisession, concurrently restoring console sessions has undefined behavior.
 				if ((action === 'restore' && mode === LanguageRuntimeSessionMode.Console)) {
-					return;
+					skip();
 				}
 				const [session1, session2, session3] = await Promise.all([start(runtime), start(runtime), start(runtime)]);
 
@@ -1241,11 +1241,8 @@ describe('Positron - RuntimeSessionService', () => {
 			const workingDir = '/workspace/folder';
 			configService.setUserConfiguration(NotebookSetting.workingDirectory, workingDir);
 
-			// Create a mock that actually resolves variables.
-			// Cast to a mutable record to add the resolveAsync stub to the service instance.
-			const mockConfigResolver = configurationResolverService as unknown as Record<string, unknown>;
-			const resolveAsyncSpy = vi.fn().mockResolvedValue('/resolved/workspace/folder');
-			mockConfigResolver['resolveAsync'] = resolveAsyncSpy;
+			// Spy on resolveAsync to track calls during resolution.
+			const resolveAsyncSpy = vi.spyOn(configurationResolverService, 'resolveAsync').mockResolvedValue('/resolved/workspace/folder');
 
 			const session = await startNotebook(runtime);
 
@@ -1257,11 +1254,8 @@ describe('Positron - RuntimeSessionService', () => {
 			const workingDir = '/workspace/folder';
 			configService.setUserConfiguration(NotebookSetting.workingDirectory, workingDir);
 
-			// Create a mock that throws an error during resolution.
-			// Cast to a mutable record to add the resolveAsync stub to the service instance.
-			const mockConfigResolver = configurationResolverService as unknown as Record<string, unknown>;
-			const resolveAsyncSpy = vi.fn().mockRejectedValue(new Error('Resolution failed'));
-			mockConfigResolver['resolveAsync'] = resolveAsyncSpy;
+			// Spy on resolveAsync to fail during resolution.
+			const resolveAsyncSpy = vi.spyOn(configurationResolverService, 'resolveAsync').mockRejectedValue(new Error('Resolution failed'));
 
 			const session = await startNotebook(runtime);
 
