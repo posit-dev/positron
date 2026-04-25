@@ -3,12 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/* eslint-disable local/code-no-dangerous-type-assertions */
+/// <reference types="vitest/globals" />
 
-import assert from 'assert';
+/* eslint-disable local/code-no-dangerous-type-assertions, @typescript-eslint/no-explicit-any, local/code-no-any-casts */
+
 import { URI } from '../../../../../base/common/uri.js';
 import { Event } from '../../../../../base/common/event.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { InMemoryStorageService } from '../../../../../platform/storage/common/storage.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
@@ -46,8 +47,8 @@ const rRuntime1 = makeRuntime('r-4.4', 'r', 'R 4.4');
 
 const docUri = URI.file('/test/doc.qmd');
 
-suite('QuartoKernelManager', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+describe('QuartoKernelManager', () => {
+	const disposables = ensureNoLeakedDisposables();
 
 	let kernelManager: QuartoKernelManager;
 	let runtimeStartupService: TestRuntimeStartupService;
@@ -68,7 +69,7 @@ suite('QuartoKernelManager', () => {
 		return allRuntimes.find(r => r.runtimeId === id) ?? pythonRuntime1;
 	}
 
-	setup(() => {
+	beforeEach(() => {
 		runtimeStartupService = new TestRuntimeStartupService();
 		runtimeStartupService.setPreferredRuntime('python', pythonRuntime1);
 		runtimeStartupService.setPreferredRuntime('r', rRuntime1);
@@ -151,23 +152,23 @@ suite('QuartoKernelManager', () => {
 		));
 	});
 
-	test('ensureKernelForDocument uses preferred runtime by default', async () => {
+	it('ensureKernelForDocument uses preferred runtime by default', async () => {
 		await kernelManager.ensureKernelForDocument(docUri);
-		assert.deepStrictEqual(startedRuntimeIds, ['python-3.11']);
+		expect(startedRuntimeIds).toEqual(['python-3.11']);
 	});
 
-	test('changeKernelForDocument shuts down old session and starts new runtime', async () => {
+	it('changeKernelForDocument shuts down old session and starts new runtime', async () => {
 		await kernelManager.ensureKernelForDocument(docUri);
 		startedRuntimeIds.length = 0;
 
 		await kernelManager.changeKernelForDocument(docUri, pythonRuntime2.runtimeId);
 
-		assert.strictEqual(shutdownUris.length, 1);
-		assert.strictEqual(shutdownUris[0].toString(), docUri.toString());
-		assert.deepStrictEqual(startedRuntimeIds, ['python-3.12']);
+		expect(shutdownUris.length).toBe(1);
+		expect(shutdownUris[0].toString()).toBe(docUri.toString());
+		expect(startedRuntimeIds).toEqual(['python-3.12']);
 	});
 
-	test('persisted binding is used on next ensureKernelForDocument', async () => {
+	it('persisted binding is used on next ensureKernelForDocument', async () => {
 		// Change to runtime2, which persists the choice
 		await kernelManager.ensureKernelForDocument(docUri);
 		await kernelManager.changeKernelForDocument(docUri, pythonRuntime2.runtimeId);
@@ -179,10 +180,10 @@ suite('QuartoKernelManager', () => {
 		await kernelManager.ensureKernelForDocument(docUri);
 
 		// Should start runtime2, not the preferred runtime1
-		assert.deepStrictEqual(startedRuntimeIds, ['python-3.12']);
+		expect(startedRuntimeIds).toEqual(['python-3.12']);
 	});
 
-	test('persisted binding survives new manager instance (storage round-trip)', async () => {
+	it('persisted binding survives new manager instance (storage round-trip)', async () => {
 		await kernelManager.ensureKernelForDocument(docUri);
 		await kernelManager.changeKernelForDocument(docUri, pythonRuntime2.runtimeId);
 
@@ -226,10 +227,10 @@ suite('QuartoKernelManager', () => {
 		));
 
 		await km2.ensureKernelForDocument(docUri);
-		assert.deepStrictEqual(startedRuntimeIds, ['python-3.12']);
+		expect(startedRuntimeIds).toEqual(['python-3.12']);
 	});
 
-	test('persisted binding is cleared when document language changes', async () => {
+	it('persisted binding is cleared when document language changes', async () => {
 		// Start with Python and persist a binding to python-3.12
 		await kernelManager.ensureKernelForDocument(docUri);
 		await kernelManager.changeKernelForDocument(docUri, pythonRuntime2.runtimeId);
@@ -242,10 +243,10 @@ suite('QuartoKernelManager', () => {
 		await kernelManager.ensureKernelForDocument(docUri);
 
 		// Should start the R runtime, not the stale Python binding
-		assert.deepStrictEqual(startedRuntimeIds, ['r-4.4']);
+		expect(startedRuntimeIds).toEqual(['r-4.4']);
 	});
 
-	test('changeKernelForDocument fires state change events', async () => {
+	it('changeKernelForDocument fires state change events', async () => {
 		await kernelManager.ensureKernelForDocument(docUri);
 
 		const states: QuartoKernelState[] = [];
@@ -258,8 +259,8 @@ suite('QuartoKernelManager', () => {
 		await kernelManager.changeKernelForDocument(docUri, pythonRuntime2.runtimeId);
 
 		// Should see shutdown states then startup states
-		assert.ok(states.includes(QuartoKernelState.None), 'should transition through None on shutdown');
-		assert.ok(states.includes(QuartoKernelState.Starting), 'should transition through Starting');
-		assert.ok(states.includes(QuartoKernelState.Ready), 'should reach Ready');
+		expect(states).toContain(QuartoKernelState.None);
+		expect(states).toContain(QuartoKernelState.Starting);
+		expect(states).toContain(QuartoKernelState.Ready);
 	});
 });
