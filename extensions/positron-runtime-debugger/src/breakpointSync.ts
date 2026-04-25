@@ -16,6 +16,12 @@ import { log } from './extension.js';
 // handled by the Jupyter transport layer, not DAP.
 const PLACEHOLDER_SEQ = 0;
 
+// Tag reported by kernels that support proactive breakpoint syncing (i.e.
+// breakpoints sent outside of debug sessions). Currently only Ark reports this
+// so breakpoints can be injected at parse time during normal cell execution
+// outside of debug sessions.
+const PROACTIVE_BREAKPOINTS_FEATURE = 'proactive breakpoints';
+
 /**
  * Keeps the kernel's breakpoint table in sync with the editor's breakpoints
  * at all times, not only during debug sessions. Communicates with the kernel
@@ -111,6 +117,13 @@ export class BreakpointSyncService extends Disposable {
 
 		const runtimeSession = await getNotebookSession(notebookUri);
 		if (!runtimeSession) {
+			return;
+		}
+
+		// Only sync breakpoints to kernels that support proactive
+		// breakpoint syncing (parse-time breakpoint injection).
+		const features = runtimeSession.runtimeInfo?.supported_features ?? [];
+		if (!features.includes(PROACTIVE_BREAKPOINTS_FEATURE)) {
 			return;
 		}
 		const sessionId = runtimeSession.metadata.sessionId;
