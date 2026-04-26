@@ -6,13 +6,12 @@
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { Event } from '../../../../../base/common/event.js';
-import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
-import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { EditorResolverService } from '../../../../services/editor/browser/editorResolverService.js';
 import { IEditorResolverService } from '../../../../services/editor/common/editorResolverService.js';
 import { IEditorGroupsService } from '../../../../services/editor/common/editorGroupsService.js';
-import { createEditorPart, ITestInstantiationService } from '../../../../test/browser/workbenchTestServices.js';
+import { createEditorPart } from '../../../../test/browser/workbenchTestServices.js';
+import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { EditorPart } from '../../../../browser/parts/editor/editorPart.js';
 import { INotebookService } from '../../../notebook/common/notebookService.js';
 import { INotebookEditorModelResolverService } from '../../../notebook/common/notebookEditorModelResolverService.js';
@@ -21,16 +20,7 @@ import { INotebookExecutionService } from '../../../notebook/common/notebookExec
 import { INotebookExecutionStateService } from '../../../notebook/common/notebookExecutionStateService.js';
 import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronNotebookService } from '../../browser/positronNotebookService.js';
-import { IPositronWebviewPreloadService } from '../../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
-import { createWorkbenchContainer } from '../../../../../test/vitest/presets/workbench.js';
-import { stubNotebookEditorServices } from '../../../../../test/vitest/presets/notebookEditor.js';
-
-export interface TestServices {
-	instantiationService: ITestInstantiationService;
-	configurationService: TestConfigurationService;
-	editorResolverService: EditorResolverService;
-	part: EditorPart;
-}
+import { createTestContainer, PositronTestContainerBuilder } from '../../../../../test/vitest/positronTestContainer.js';
 
 // ---------------------------------------------------------------------------
 // Named mock constants — lifted to file scope so the .stub() chain reads cleanly.
@@ -117,79 +107,61 @@ const mockPositronNotebookService: Partial<IPositronNotebookService> = {
 	unregisterInstance: () => { },
 };
 
-// withNotebookEditorServices() already stubs IPositronWebviewPreloadService with
-// a lightweight display-type mock (see presets/notebookEditor.ts). This override
-// keeps the exact same behavior to preserve the contract these tests expect.
-const mockPreloadService: Partial<IPositronWebviewPreloadService> = {
-	initialize: () => { },
-	attachNotebookInstance: () => { },
-	addNotebookOutput: (opts) => {
-		if (opts.rawHtml) {
-			const onDidRender = Event.None;
-			return {
-				preloadMessageType: 'display' as const,
-				webview: Promise.resolve({
-					id: opts.outputId,
-					sessionId: opts.outputId,
-					dispose() { },
-					onDidRender,
-				}),
-			};
-		}
-		return undefined;
-	},
-};
-
 // ---------------------------------------------------------------------------
 
 /**
- * Sets up a notebook test with a real `EditorPart` and `EditorResolverService`.
+ * Returns a chained builder pre-loaded with the notebook editor services preset
+ * and all file-scope service mocks. Use at describe scope -- call .build() after
+ * adding any per-test stubs:
  *
- * Use this **only when a test needs a real `EditorPart`** (typically to exercise
- * editor resolution). Most notebook tests should use
- * `createTestContainer().withNotebookEditorServices()` directly -- it's
- * synchronous and covers every notebook-editor case that doesn't depend on
- * `IEditorGroupsService` being a real instance.
+ * ```ts
+ * const ctx = notebookTestBuilder().build();
+ * const ctx2 = notebookTestBuilder().stub(IConfigurationService, myService).build();
+ * ```
  *
- * This helper lives in the notebook test directory rather than alongside
- * `setupRTLRenderer` in `src/vs/test/vitest/` because it depends on
- * workbench-only types (`EditorPart`, `EditorResolverService`,
- * `createEditorPart`, `INotebookService`, etc.) that aren't available to the
- * platform-layer test infrastructure.
+ * The preset already stubs IPositronWebviewPreloadService with a lightweight
+ * display-type mock (see presets/notebookEditor.ts), so no override is needed.
  */
-export async function setupNotebookEditorTest(disposables: DisposableStore): Promise<TestServices> {
-	const configurationService = new TestConfigurationService();
+export function notebookTestBuilder(): PositronTestContainerBuilder {
+	return createTestContainer()
+		.withNotebookEditorServices()
+		.stub(INotebookService, mockNotebookService)
+		.stub(INotebookEditorModelResolverService, mockModelResolverService)
+		.stub(INotebookKernelService, mockKernelService)
+		.stub(INotebookExecutionService, mockExecutionService)
+		.stub(INotebookExecutionStateService, mockExecutionStateService)
+		.stub(ICommandService, mockCommandService)
+		.stub(IRuntimeSessionService, mockRuntimeSessionService)
+		.stub(IPositronNotebookService, mockPositronNotebookService);
+}
 
-	// Build the workbench + notebook-editor-services layer directly (builder
-	// exception: this function is invoked at test-runtime, not describe scope).
-	const instantiationService = createWorkbenchContainer(disposables);
-	stubNotebookEditorServices(instantiationService, disposables);
+export interface AttachedEditor {
+	part: EditorPart;
+	editorResolverService: EditorResolverService;
+}
 
-	instantiationService.stub(IConfigurationService, configurationService);
-
-	// Override the preset defaults with shapes these notebook tests rely on
-	// (e.g. resolving the jupyter-notebook view type).
-	instantiationService.stub(INotebookService, mockNotebookService);
-	instantiationService.stub(INotebookEditorModelResolverService, mockModelResolverService);
-	instantiationService.stub(INotebookKernelService, mockKernelService);
-	instantiationService.stub(INotebookExecutionService, mockExecutionService);
-	instantiationService.stub(INotebookExecutionStateService, mockExecutionStateService);
-	instantiationService.stub(ICommandService, mockCommandService);
-	instantiationService.stub(IRuntimeSessionService, mockRuntimeSessionService);
-	instantiationService.stub(IPositronNotebookService, mockPositronNotebookService);
-	instantiationService.stub(IPositronWebviewPreloadService, mockPreloadService);
-
-	// Async layer: real EditorPart + EditorResolverService.
-	const part = await createEditorPart(instantiationService, disposables);
+/**
+ * Creates a real EditorPart and EditorResolverService and stubs them into the
+ * provided instantiation service. Use inside beforeEach -- this is async work
+ * that cannot live at describe scope.
+ *
+ * ```ts
+ * beforeEach(async () => {
+ *     ({ part, editorResolverService } = await attachEditorPart(
+ *         ctx.instantiationService,
+ *         ctx.disposables,
+ *     ));
+ * });
+ * ```
+ */
+export async function attachEditorPart(
+	instantiationService: TestInstantiationService,
+	disposables: Pick<DisposableStore, 'add'>,
+): Promise<AttachedEditor> {
+	const part = await createEditorPart(instantiationService, disposables as DisposableStore);
 	instantiationService.stub(IEditorGroupsService, part);
 	const editorResolverService = instantiationService.createInstance(EditorResolverService);
 	instantiationService.stub(IEditorResolverService, editorResolverService);
 	disposables.add(editorResolverService);
-
-	return {
-		instantiationService: instantiationService as unknown as ITestInstantiationService,
-		configurationService,
-		editorResolverService,
-		part,
-	};
+	return { part, editorResolverService };
 }
