@@ -95,7 +95,7 @@ const mockExecutionService: Partial<INotebookExecutionService> = {
 };
 
 const mockExecutionStateService: Partial<INotebookExecutionStateService> = {
-	onDidChangeCellExecution: Event.None,
+	onDidChangeExecution: Event.None,
 	getCellExecution: () => undefined
 };
 
@@ -115,7 +115,6 @@ const mockRuntimeSessionService: Partial<IRuntimeSessionService> = {
 const mockPositronNotebookService: Partial<IPositronNotebookService> = {
 	registerInstance: () => { },
 	unregisterInstance: () => { },
-	getNotebookInstance: () => undefined
 };
 
 // withNotebookEditorServices() already stubs IPositronWebviewPreloadService with
