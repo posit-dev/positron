@@ -79,7 +79,7 @@ describe('CellTextOutput', () => {
 		expect(output).toHaveTextContent('hello world');
 		// Truncation message is a button with the "Show ... more lines" aria-label.
 		expect(screen.queryByRole('button', { name: /more lines/ })).not.toBeInTheDocument();
-		expect(screen.queryByRole('toolbar', { name: /quick fix/i })).not.toBeInTheDocument();
+		expect(screen.queryByRole('group', { name: /quick fix/i })).not.toBeInTheDocument();
 	});
 
 	it('renders error output with quick-fix', () => {
@@ -95,14 +95,14 @@ describe('CellTextOutput', () => {
 		renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
 
 		expect(screen.getByTestId('cell-text-output')).toHaveClass('notebook-error');
-		expect(screen.getByRole('toolbar', { name: /quick fix/i })).toBeInTheDocument();
+		expect(screen.getByRole('group', { name: /quick fix/i })).toBeInTheDocument();
 	});
 
 	it('does not render quick-fix for errors when assistant is disabled', () => {
 		renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
 
 		expect(screen.getByTestId('cell-text-output')).toHaveClass('notebook-error');
-		expect(screen.queryByRole('toolbar', { name: /quick fix/i })).not.toBeInTheDocument();
+		expect(screen.queryByRole('group', { name: /quick fix/i })).not.toBeInTheDocument();
 	});
 
 	it('renders multiline content within limit', () => {

@@ -106,6 +106,18 @@ describe('CellActionButton', () => {
 		expect(button).toHaveAttribute('aria-label', 'Collapse Output');
 	});
 
+	it('renders the icon class from action.iconId', () => {
+		const button = renderButton(mockAction({ iconId: 'chevron-down' }));
+
+		expect(getIcon(button)).toHaveClass('codicon-chevron-down');
+	});
+
+	it('renders DevErrorIcon (codicon-blank) when action has no icon', () => {
+		const button = renderButton(mockAction({ iconId: undefined }));
+
+		expect(getIcon(button)).toHaveClass('codicon-blank');
+	});
+
 	it('applies separator-after class when showSeparator is true', () => {
 		const button = renderButton(mockAction(), { showSeparator: true });
 
