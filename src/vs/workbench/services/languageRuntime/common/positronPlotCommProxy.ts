@@ -114,14 +114,6 @@ export class PositronPlotCommProxy extends Disposable {
 	}
 
 	/**
-	 * @internal Test-only: exposes the underlying comm for stub injection in tests.
-	 * Do not use outside of test files.
-	 */
-	get commForTesting(): PositronPlotComm {
-		return this._comm;
-	}
-
-	/**
 	 * Returns the intrinsic size of the plot, if known.
 	 */
 	get intrinsicSize(): IntrinsicSize | undefined {
