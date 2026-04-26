@@ -282,13 +282,14 @@ describe('ChatRuntimeSessionContext', () => {
 	let editorService: MockEditorService;
 	let contextPickService: MockContextPickService;
 
+	afterEach(() => chatWidgetService.dispose());
+
 	beforeEach(() => {
 		configurationService = new TestConfigurationService();
 		runtimeSessionService = new MockRuntimeSessionService();
 		variablesService = new MockPositronVariablesService();
 		executionHistoryService = new MockExecutionHistoryService();
 		chatWidgetService = new MockChatWidgetService();
-		ctx.disposables.add({ dispose: () => chatWidgetService.dispose() });
 		chatService = new MockChatService();
 		editorService = new MockEditorService();
 		contextPickService = new MockContextPickService();

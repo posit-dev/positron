@@ -496,7 +496,7 @@ describe('ANSIOutput', () => {
 
 		// Tests.
 		expect(outputLines.length).toBe(1);
-		expect(outputLines[0].id.length >= 1).toBeTruthy();
+		expect(outputLines[0].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[0].outputRuns.length).toBe(0);
 	});
 
@@ -506,7 +506,7 @@ describe('ANSIOutput', () => {
 
 		// Tests.
 		expect(outputLines.length).toBe(1);
-		expect(outputLines[0].id.length >= 1).toBeTruthy();
+		expect(outputLines[0].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[0].outputRuns.length).toBe(1);
 		expect(outputLines[0].outputRuns[0].text).toBe(PANGRAM);
 	});
@@ -553,7 +553,7 @@ describe('ANSIOutput', () => {
 		const expectedOutput = 'Hello World';
 		expect(outputLines.length).toBe(1);
 		expect(outputLines[0].outputRuns.length).toBe(1);
-		expect(outputLines[0].outputRuns[0].id.length >= 1).toBeTruthy();
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[0].outputRuns[0].format).toBe(undefined);
 		expect(outputLines[0].outputRuns[0].text).toBe(expectedOutput);
 	});
@@ -568,7 +568,7 @@ describe('ANSIOutput', () => {
 		const expectedOutput = 'Hello World';
 		expect(outputLines.length).toBe(1);
 		expect(outputLines[0].outputRuns.length).toBe(1);
-		expect(outputLines[0].outputRuns[0].id.length >= 1).toBeTruthy();
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[0].outputRuns[0].format).toBe(undefined);
 		expect(outputLines[0].outputRuns[0].text).toBe(expectedOutput);
 	});
@@ -583,7 +583,7 @@ describe('ANSIOutput', () => {
 		const expectedOutput = 'Hello World';
 		expect(outputLines.length).toBe(1);
 		expect(outputLines[0].outputRuns.length).toBe(1);
-		expect(outputLines[0].outputRuns[0].id.length >= 1).toBeTruthy();
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[0].outputRuns[0].format).toBe(undefined);
 		expect(outputLines[0].outputRuns[0].text).toBe(expectedOutput);
 	});
@@ -598,7 +598,7 @@ describe('ANSIOutput', () => {
 		const expectedOutput = 'Hello World';
 		expect(outputLines.length).toBe(1);
 		expect(outputLines[0].outputRuns.length).toBe(1);
-		expect(outputLines[0].outputRuns[0].id.length >= 1).toBeTruthy();
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[0].outputRuns[0].format).toBe(undefined);
 		expect(outputLines[0].outputRuns[0].text).toBe(expectedOutput);
 	});
@@ -613,10 +613,10 @@ describe('ANSIOutput', () => {
 		// Test
 		expect(outputLines.length).toBe(1);
 		expect(outputLines[0].outputRuns.length).toBe(2);
-		expect(outputLines[0].outputRuns[0].id.length >= 1).toBeTruthy();
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[0].outputRuns[0].format!.foregroundColor).toBe(ANSIColor.Red);
 		expect(outputLines[0].outputRuns[0].text).toBe(testText);
-		expect(outputLines[0].outputRuns[1].id.length >= 1).toBeTruthy();
+		expect(outputLines[0].outputRuns[1].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[0].outputRuns[1].format!.foregroundColor).toBe(ANSIColor.Blue);
 		expect(outputLines[0].outputRuns[1].text).toBe(testText);
 	});
@@ -631,10 +631,10 @@ describe('ANSIOutput', () => {
 		// Test
 		expect(outputLines.length).toBe(1);
 		expect(outputLines[0].outputRuns.length).toBe(2);
-		expect(outputLines[0].outputRuns[0].id.length >= 1).toBeTruthy();
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[0].outputRuns[0].format!.foregroundColor).toBe(ANSIColor.Blue);
 		expect(outputLines[0].outputRuns[0].text).toBe(testText);
-		expect(outputLines[0].outputRuns[1].id.length >= 1).toBeTruthy();
+		expect(outputLines[0].outputRuns[1].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[0].outputRuns[1].format!.foregroundColor).toBe(ANSIColor.Green);
 		expect(outputLines[0].outputRuns[1].text).toBe(testText);
 	});
@@ -647,7 +647,7 @@ describe('ANSIOutput', () => {
 
 		// Tests.
 		expect(outputLines.length).toBe(1);
-		expect(outputLines[0].id.length >= 1).toBeTruthy();
+		expect(outputLines[0].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[0].outputRuns.length).toBe(1);
 		expect(outputLines[0].outputRuns[0].text).toBe(PANGRAM);
 	});
@@ -662,7 +662,7 @@ describe('ANSIOutput', () => {
 		expect(outputLines.length).toBe(2);
 		for (let i = 0; i < outputLines.length; i++) {
 			expect(outputLines[i].outputRuns.length).toBe(1);
-			expect(outputLines[i].outputRuns[0].id.length >= 1).toBeTruthy();
+			expect(outputLines[i].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
 			expect(outputLines[i].outputRuns[0].format).toBe(undefined);
 			expect(outputLines[i].outputRuns[0].text).toBe(PANGRAM);
 		}
@@ -678,7 +678,7 @@ describe('ANSIOutput', () => {
 		expect(outputLines.length).toBe(2);
 		for (let i = 0; i < outputLines.length; i++) {
 			expect(outputLines[i].outputRuns.length).toBe(1);
-			expect(outputLines[i].outputRuns[0].id.length >= 1).toBeTruthy();
+			expect(outputLines[i].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
 			expect(outputLines[i].outputRuns[0].format).toBe(undefined);
 			expect(outputLines[i].outputRuns[0].text).toBe(PANGRAM);
 		}
@@ -756,7 +756,7 @@ describe('ANSIOutput', () => {
 		// Test.
 		expect(outputLines.length).toBe(1);
 		expect(outputLines[0].outputRuns.length).toBe(1);
-		expect(outputLines[0].outputRuns[0].id.length >= 1).toBeTruthy();
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[0].outputRuns[0].format).toBe(undefined);
 		expect(outputLines[0].outputRuns[0].text).toBe('0123456789                    ');
 	});
@@ -776,7 +776,7 @@ describe('ANSIOutput', () => {
 		// Test.
 		expect(outputLines.length).toBe(1);
 		expect(outputLines[0].outputRuns.length).toBe(1);
-		expect(outputLines[0].outputRuns[0].id.length >= 1).toBeTruthy();
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[0].outputRuns[0].format).toBe(undefined);
 		expect(outputLines[0].outputRuns[0].text).toBe('0123456789                              ');
 	});
@@ -808,7 +808,7 @@ describe('ANSIOutput', () => {
 		// Test.
 		expect(outputLines.length).toBe(1);
 		expect(outputLines[0].outputRuns.length).toBe(1);
-		expect(outputLines[0].outputRuns[0].id.length >= 1).toBeTruthy();
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[0].outputRuns[0].format).toBe(undefined);
 		expect(outputLines[0].outputRuns[0].text).toBe('XXXXXXXXXX0000000000000000000000000000000000000000000000000000000000000000000000');
 	});
@@ -824,7 +824,7 @@ describe('ANSIOutput', () => {
 		// Test.
 		expect(outputLines.length).toBe(1);
 		expect(outputLines[0].outputRuns.length).toBe(1);
-		expect(outputLines[0].outputRuns[0].id.length >= 1).toBeTruthy();
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[0].outputRuns[0].format).toBe(undefined);
 		expect(outputLines[0].outputRuns[0].text).toBe('00000000000000000000000000000000000XXXXXXXXXX00000000000000000000000000000000000');
 	});
@@ -840,7 +840,7 @@ describe('ANSIOutput', () => {
 		// Test.
 		expect(outputLines.length).toBe(1);
 		expect(outputLines[0].outputRuns.length).toBe(1);
-		expect(outputLines[0].outputRuns[0].id.length >= 1).toBeTruthy();
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[0].outputRuns[0].format).toBe(undefined);
 		expect(outputLines[0].outputRuns[0].text).toBe('0000000000000000000000000000000000000000000000000000000000000000000000XXXXXXXXXX');
 	});
@@ -890,7 +890,7 @@ describe('ANSIOutput', () => {
 		// Test.
 		expect(outputLines.length).toBe(1);
 		expect(outputLines[0].outputRuns.length).toBe(1);
-		expect(outputLines[0].outputRuns[0].id.length >= 1).toBeTruthy();
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[0].outputRuns[0].format).toBe(undefined);
 		expect(outputLines[0].outputRuns[0].text).toBe('0XXXXXXXXXX000000000000000000000000000000000000000000000000000000000000000000000');
 	});
@@ -907,7 +907,7 @@ describe('ANSIOutput', () => {
 		// Test.
 		expect(outputLines.length).toBe(1);
 		expect(outputLines[0].outputRuns.length).toBe(1);
-		expect(outputLines[0].outputRuns[0].id.length >= 1).toBeTruthy();
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[0].outputRuns[0].format).toBe(undefined);
 		expect(outputLines[0].outputRuns[0].text).toBe('00000000000000000000000000000000000XXXXXXXXXX00000000000000000000000000000000000');
 	});
@@ -924,7 +924,7 @@ describe('ANSIOutput', () => {
 		// Test.
 		expect(outputLines.length).toBe(1);
 		expect(outputLines[0].outputRuns.length).toBe(1);
-		expect(outputLines[0].outputRuns[0].id.length >= 1).toBeTruthy();
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[0].outputRuns[0].format).toBe(undefined);
 		expect(outputLines[0].outputRuns[0].text).toBe('0000000000000000000000000000000000000000000000000000000000000000000000XXXXXXXXXX');
 	});
@@ -1637,7 +1637,7 @@ describe('ANSIOutput', () => {
 		expect(outputLines[0].outputRuns.length).toBe(3);
 
 		// First red segment.
-		expect(outputLines[0].outputRuns[0].id.length >= 1).toBeTruthy();
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[0].outputRuns[0].format).not.toBe(undefined);
 		expect(outputLines[0].outputRuns[0].format!.styles).toBe(undefined);
 		expect(outputLines[0].outputRuns[0].format!.foregroundColor).toBe(ANSIColor.Red);
@@ -1647,7 +1647,7 @@ describe('ANSIOutput', () => {
 		expect(outputLines[0].outputRuns[0].text).toBe('00000000000000000000000000000000000');
 
 		// Inserted blue segment.
-		expect(outputLines[0].outputRuns[1].id.length >= 1).toBeTruthy();
+		expect(outputLines[0].outputRuns[1].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[0].outputRuns[1].format).not.toBe(undefined);
 		expect(outputLines[0].outputRuns[1].format!.styles).toBe(undefined);
 		expect(outputLines[0].outputRuns[1].format!.foregroundColor).toBe(ANSIColor.Blue);
@@ -1657,7 +1657,7 @@ describe('ANSIOutput', () => {
 		expect(outputLines[0].outputRuns[1].text).toBe('XXXXXXXXXX');
 
 		// Second red segment.
-		expect(outputLines[0].outputRuns[2].id.length >= 1).toBeTruthy();
+		expect(outputLines[0].outputRuns[2].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[0].outputRuns[2].format).not.toBe(undefined);
 		expect(outputLines[0].outputRuns[2].format!.styles).toBe(undefined);
 		expect(outputLines[0].outputRuns[2].format!.foregroundColor).toBe(ANSIColor.Red);
@@ -1675,7 +1675,7 @@ describe('ANSIOutput', () => {
 			const outputLines = ansiOutput.outputLines;
 			expect(outputLines.length).toBe(1);
 			expect(outputLines[0].outputRuns.length).toBe(1);
-			expect(outputLines[0].outputRuns[0].id.length >= 1).toBeTruthy();
+			expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
 			expect(outputLines[0].outputRuns[0].format).not.toBe(undefined);
 			expect(outputLines[0].outputRuns[0].format!.styles!.length).toBe(1);
 			expect(outputLines[0].outputRuns[0].format!.styles![0]).toBe(ansiStyle);
@@ -1714,7 +1714,7 @@ describe('ANSIOutput', () => {
 
 		// Test.
 		expect(outputLines.length).toBe(1);
-		expect(outputLines[0].id.length >= 1).toBeTruthy();
+		expect(outputLines[0].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[0].outputRuns.length).toBe(1);
 		expect(outputLines[0].outputRuns[0].format).toBe(undefined);
 		expect(outputLines[0].outputRuns[0].hyperlink).not.toBe(undefined);
@@ -1737,22 +1737,22 @@ describe('ANSIOutput', () => {
 		// Test.
 		expect(outputLines.length).toBe(1);
 
-		expect(outputLines[0].id.length >= 1).toBeTruthy();
+		expect(outputLines[0].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[0].outputRuns.length).toBe(3);
 
-		expect(outputLines[0].outputRuns[0].id.length >= 1).toBeTruthy();
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[0].outputRuns[0].format).toBe(undefined);
 		expect(outputLines[0].outputRuns[0].hyperlink).toBe(undefined);
 		expect(outputLines[0].outputRuns[0].text).toBe(PANGRAM);
 
-		expect(outputLines[0].outputRuns[1].id.length >= 1).toBeTruthy();
+		expect(outputLines[0].outputRuns[1].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[0].outputRuns[1].format).toBe(undefined);
 		expect(outputLines[0].outputRuns[1].hyperlink).not.toBe(undefined);
 		expect(outputLines[0].outputRuns[1].hyperlink!.url).toBe(linkURL);
 		expect(outputLines[0].outputRuns[1].hyperlink!.params).toBe(undefined);
 		expect(outputLines[0].outputRuns[1].text).toBe(linkText);
 
-		expect(outputLines[0].outputRuns[2].id.length >= 1).toBeTruthy();
+		expect(outputLines[0].outputRuns[2].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[0].outputRuns[2].format).toBe(undefined);
 		expect(outputLines[0].outputRuns[2].hyperlink).toBe(undefined);
 		expect(outputLines[0].outputRuns[2].text).toBe(PANGRAM);
@@ -1772,33 +1772,33 @@ describe('ANSIOutput', () => {
 		// Test.
 		expect(outputLines.length).toBe(4);
 
-		expect(outputLines[0].id.length >= 1).toBeTruthy();
+		expect(outputLines[0].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[0].outputRuns.length).toBe(1);
-		expect(outputLines[0].outputRuns[0].id.length >= 1).toBeTruthy();
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[0].outputRuns[0].format).toBe(undefined);
 		expect(outputLines[0].outputRuns[0].text).toBe(PANGRAM);
 
-		expect(outputLines[1].id.length >= 1).toBeTruthy();
+		expect(outputLines[1].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[1].outputRuns.length).toBe(1);
-		expect(outputLines[1].outputRuns[0].id.length >= 1).toBeTruthy();
+		expect(outputLines[1].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[1].outputRuns[0].format).toBe(undefined);
 		expect(outputLines[1].outputRuns[0].hyperlink).not.toBe(undefined);
 		expect(outputLines[1].outputRuns[0].hyperlink!.url).toBe(linkURL);
 		expect(outputLines[1].outputRuns[0].hyperlink!.params).toBe(undefined);
 		expect(outputLines[1].outputRuns[0].text).toBe(linkText);
 
-		expect(outputLines[2].id.length >= 1).toBeTruthy();
+		expect(outputLines[2].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[2].outputRuns.length).toBe(1);
-		expect(outputLines[2].outputRuns[0].id.length >= 1).toBeTruthy();
+		expect(outputLines[2].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[2].outputRuns[0].format).toBe(undefined);
 		expect(outputLines[2].outputRuns[0].hyperlink).not.toBe(undefined);
 		expect(outputLines[2].outputRuns[0].hyperlink!.url).toBe(linkURL);
 		expect(outputLines[1].outputRuns[0].hyperlink!.params).toBe(undefined);
 		expect(outputLines[2].outputRuns[0].text).toBe(linkText);
 
-		expect(outputLines[3].id.length >= 1).toBeTruthy();
+		expect(outputLines[3].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[3].outputRuns.length).toBe(1);
-		expect(outputLines[3].outputRuns[0].id.length >= 1).toBeTruthy();
+		expect(outputLines[3].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[3].outputRuns[0].format).toBe(undefined);
 		expect(outputLines[3].outputRuns[0].text).toBe(PANGRAM);
 	});
@@ -1817,15 +1817,15 @@ describe('ANSIOutput', () => {
 		// Test.
 		expect(outputLines.length).toBe(4);
 
-		expect(outputLines[0].id.length >= 1).toBeTruthy();
+		expect(outputLines[0].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[0].outputRuns.length).toBe(1);
-		expect(outputLines[0].outputRuns[0].id.length >= 1).toBeTruthy();
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[0].outputRuns[0].format).toBe(undefined);
 		expect(outputLines[0].outputRuns[0].text).toBe(PANGRAM);
 
-		expect(outputLines[1].id.length >= 1).toBeTruthy();
+		expect(outputLines[1].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[1].outputRuns.length).toBe(1);
-		expect(outputLines[1].outputRuns[0].id.length >= 1).toBeTruthy();
+		expect(outputLines[1].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[1].outputRuns[0].format).not.toBe(undefined);
 		expect(outputLines[1].outputRuns[0].format!.foregroundColor).toBe(ANSIColor.Red);
 		expect(outputLines[1].outputRuns[0].hyperlink).not.toBe(undefined);
@@ -1833,9 +1833,9 @@ describe('ANSIOutput', () => {
 		expect(outputLines[1].outputRuns[0].hyperlink!.params).toBe(undefined);
 		expect(outputLines[1].outputRuns[0].text).toBe(linkText);
 
-		expect(outputLines[2].id.length >= 1).toBeTruthy();
+		expect(outputLines[2].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[2].outputRuns.length).toBe(1);
-		expect(outputLines[2].outputRuns[0].id.length >= 1).toBeTruthy();
+		expect(outputLines[2].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[2].outputRuns[0].format).not.toBe(undefined);
 		expect(outputLines[2].outputRuns[0].format!.foregroundColor).toBe(ANSIColor.Red);
 		expect(outputLines[2].outputRuns[0].hyperlink).not.toBe(undefined);
@@ -1843,9 +1843,9 @@ describe('ANSIOutput', () => {
 		expect(outputLines[2].outputRuns[0].hyperlink!.params).toBe(undefined);
 		expect(outputLines[2].outputRuns[0].text).toBe(linkText);
 
-		expect(outputLines[3].id.length >= 1).toBeTruthy();
+		expect(outputLines[3].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[3].outputRuns.length).toBe(1);
-		expect(outputLines[3].outputRuns[0].id.length >= 1).toBeTruthy();
+		expect(outputLines[3].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[3].outputRuns[0].format).toBe(undefined);
 		expect(outputLines[3].outputRuns[0].text).toBe(PANGRAM);
 	});
@@ -1863,7 +1863,7 @@ describe('ANSIOutput', () => {
 			if (!lines[i].length) {
 				expect(outputLines[i].outputRuns.length).toBe(0);
 			} else {
-				expect(outputLines[i].id.length >= 1).toBeTruthy();
+				expect(outputLines[i].id.length).toBeGreaterThanOrEqual(1);
 				expect(outputLines[i].outputRuns.length).toBe(1);
 				expect(outputLines[i].outputRuns[0].text.length).toBe(lines[i].length);
 			}

@@ -36,17 +36,15 @@ describe('PositronNotebookOutputWebviewService', () => {
 
 		const webviewService = stubInterface<IWebviewService>({ createWebviewOverlay });
 
-		const instantiationService = {
-			createInstance(_ctor: unknown, options: { id: string; sessionId: string; webview: unknown }) {
-				return {
-					id: options.id,
-					sessionId: options.sessionId,
-					webview: options.webview,
-					onDidRender: Event.None,
-					dispose() { },
-				};
-			},
-		} as Partial<IInstantiationService> as IInstantiationService;
+		const instantiationService = stubInterface<IInstantiationService>({
+			createInstance: ((_ctor: unknown, options: { id: string; sessionId: string; webview: unknown }) => ({
+				id: options.id,
+				sessionId: options.sessionId,
+				webview: options.webview,
+				onDidRender: Event.None,
+				dispose() { },
+			})) as IInstantiationService['createInstance'],
+		});
 
 		const service = new PositronNotebookOutputWebviewService(
 			webviewService,
