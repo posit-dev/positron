@@ -8,7 +8,8 @@
 import { KeyCode } from '../../../../../base/common/keyCodes.js';
 import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { CellSelectionType, SelectionState } from '../../browser/selectionMachine.js';
+import { IPositronNotebookInstance } from '../../browser/IPositronNotebookInstance.js';
+import { CellSelectionType, getActiveCell, SelectionState } from '../../browser/selectionMachine.js';
 import {
 	POSITRON_NOTEBOOK_COMMAND_MODE,
 	ReduceSelectionToActiveCellAction,
@@ -32,9 +33,31 @@ import { createLabelledTestNotebook } from './testPositronNotebookInstance.js';
 describe('Notebook selection keybinding actions', () => {
 	const ctx = createTestContainer().withNotebookEditorServices().build();
 
+	// Test-only subclasses that expose the protected `runNotebookAction` so we
+	// can invoke action behavior without standing up an active editor pane.
+	// Keeping the parent method protected preserves the production API boundary
+	// (production callers must still go through `run()`).
+	class TestableSelectUpAction extends SelectUpAction {
+		public testRun(notebook: IPositronNotebookInstance, accessor: ServicesAccessor) {
+			return this.runNotebookAction(notebook, accessor);
+		}
+	}
+	class TestableSelectDownAction extends SelectDownAction {
+		public testRun(notebook: IPositronNotebookInstance, accessor: ServicesAccessor) {
+			return this.runNotebookAction(notebook, accessor);
+		}
+	}
+	class TestableReduceSelectionToActiveCellAction extends ReduceSelectionToActiveCellAction {
+		public testRun(notebook: IPositronNotebookInstance, accessor: ServicesAccessor) {
+			return this.runNotebookAction(notebook, accessor);
+		}
+	}
+
 	// runNotebookAction takes a ServicesAccessor that these actions never read.
-	// Pass a sentinel so any accidental .get() call would fail loudly.
-	const unusedAccessor = undefined as unknown as ServicesAccessor;
+	// Pass a stub that throws clearly if any future implementation reaches for it.
+	const unusedAccessor: ServicesAccessor = {
+		get() { throw new Error('ServicesAccessor must not be used in this action test'); },
+	};
 
 	describe('SelectUpAction (ArrowUp / K)', () => {
 		it('declares ArrowUp keybinding scoped to command mode', () => {
@@ -50,11 +73,11 @@ describe('Notebook selection keybinding actions', () => {
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[2], CellSelectionType.Normal);
 
-			new SelectUpAction().runNotebookAction(notebook, unusedAccessor);
+			new TestableSelectUpAction().testRun(notebook, unusedAccessor);
 
 			const state = notebook.selectionStateMachine.state.get();
 			expect(state.type).toBe(SelectionState.SingleSelection);
-			expect(state.type === SelectionState.SingleSelection && state.active).toBe(cells[1]);
+			expect(getActiveCell(state)).toBe(cells[1]);
 		});
 	});
 
@@ -72,11 +95,11 @@ describe('Notebook selection keybinding actions', () => {
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
 
-			new SelectDownAction().runNotebookAction(notebook, unusedAccessor);
+			new TestableSelectDownAction().testRun(notebook, unusedAccessor);
 
 			const state = notebook.selectionStateMachine.state.get();
 			expect(state.type).toBe(SelectionState.SingleSelection);
-			expect(state.type === SelectionState.SingleSelection && state.active).toBe(cells[1]);
+			expect(getActiveCell(state)).toBe(cells[1]);
 		});
 	});
 
@@ -95,11 +118,11 @@ describe('Notebook selection keybinding actions', () => {
 			notebook.selectionStateMachine.selectCell(cells[1], CellSelectionType.Add);
 			notebook.selectionStateMachine.selectCell(cells[2], CellSelectionType.Add);
 
-			new ReduceSelectionToActiveCellAction().runNotebookAction(notebook, unusedAccessor);
+			new TestableReduceSelectionToActiveCellAction().testRun(notebook, unusedAccessor);
 
 			const state = notebook.selectionStateMachine.state.get();
 			expect(state.type).toBe(SelectionState.SingleSelection);
-			expect(state.type === SelectionState.SingleSelection && state.active).toBe(cells[2]);
+			expect(getActiveCell(state)).toBe(cells[2]);
 		});
 
 		it('is a no-op in SingleSelection', () => {
@@ -107,11 +130,11 @@ describe('Notebook selection keybinding actions', () => {
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[1], CellSelectionType.Normal);
 
-			new ReduceSelectionToActiveCellAction().runNotebookAction(notebook, unusedAccessor);
+			new TestableReduceSelectionToActiveCellAction().testRun(notebook, unusedAccessor);
 
 			const state = notebook.selectionStateMachine.state.get();
 			expect(state.type).toBe(SelectionState.SingleSelection);
-			expect(state.type === SelectionState.SingleSelection && state.active).toBe(cells[1]);
+			expect(getActiveCell(state)).toBe(cells[1]);
 		});
 	});
 });
