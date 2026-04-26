@@ -109,7 +109,7 @@ describe('TopActionBarSessionManager', () => {
 
 		it('renders a button when no active console sessions', () => {
 			rtl.render(<TopActionBarSessionManager />);
-			expect(screen.getByRole('button')).toBeInTheDocument();
+			expect(screen.getByRole('button', { name: 'Start New Console Session' })).toBeInTheDocument();
 		});
 	});
 
@@ -310,7 +310,7 @@ describe('TopActionBarSessionManager', () => {
 			const user = userEvent.setup();
 			rtl.render(<TopActionBarSessionManager />);
 
-			await user.click(screen.getByRole('button'));
+			await user.click(screen.getByRole('button', { name: 'Select Session' }));
 
 			expect(ctx.get(ICommandService).executeCommand).toHaveBeenCalledWith(
 				'workbench.action.language.runtime.selectSession'
@@ -335,7 +335,7 @@ describe('TopActionBarSessionManager', () => {
 			const user = userEvent.setup();
 			rtl.render(<TopActionBarSessionManager />);
 
-			await user.click(screen.getByRole('button'));
+			await user.click(screen.getByRole('button', { name: 'Start New Console Session' }));
 
 			expect(ctx.get(ICommandService).executeCommand).toHaveBeenCalledWith(
 				'workbench.action.language.runtime.startNewConsoleSession'
