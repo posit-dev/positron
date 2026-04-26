@@ -459,7 +459,7 @@ export class SelectDownAction extends NotebookAction2 {
 }
 registerAction2(SelectDownAction);
 
-registerAction2(class extends NotebookAction2 {
+export class AddSelectionDownAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.addSelectionDown',
@@ -476,9 +476,10 @@ registerAction2(class extends NotebookAction2 {
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.selectionStateMachine.moveSelectionDown(true);
 	}
-});
+}
+registerAction2(AddSelectionDownAction);
 
-registerAction2(class extends NotebookAction2 {
+export class AddSelectionUpAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.addSelectionUp',
@@ -495,7 +496,8 @@ registerAction2(class extends NotebookAction2 {
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.selectionStateMachine.moveSelectionUp(true);
 	}
-});
+}
+registerAction2(AddSelectionUpAction);
 
 // Enter key: Enter edit mode when cell is selected but NOT editing
 registerAction2(class extends NotebookAction2 {

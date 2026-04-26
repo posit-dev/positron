@@ -5,12 +5,14 @@
 
 /// <reference types="vitest/globals" />
 
-import { KeyCode } from '../../../../../base/common/keyCodes.js';
+import { KeyCode, KeyMod } from '../../../../../base/common/keyCodes.js';
 import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { IPositronNotebookInstance } from '../../browser/IPositronNotebookInstance.js';
-import { CellSelectionType, getActiveCell, SelectionState } from '../../browser/selectionMachine.js';
+import { CellSelectionType, getActiveCell, getSelectedCells, SelectionState } from '../../browser/selectionMachine.js';
 import {
+	AddSelectionDownAction,
+	AddSelectionUpAction,
 	POSITRON_NOTEBOOK_COMMAND_MODE,
 	ReduceSelectionToActiveCellAction,
 	SelectDownAction,
@@ -48,6 +50,16 @@ describe('Notebook selection keybinding actions', () => {
 		}
 	}
 	class TestableReduceSelectionToActiveCellAction extends ReduceSelectionToActiveCellAction {
+		public testRun(notebook: IPositronNotebookInstance, accessor: ServicesAccessor) {
+			return this.runNotebookAction(notebook, accessor);
+		}
+	}
+	class TestableAddSelectionDownAction extends AddSelectionDownAction {
+		public testRun(notebook: IPositronNotebookInstance, accessor: ServicesAccessor) {
+			return this.runNotebookAction(notebook, accessor);
+		}
+	}
+	class TestableAddSelectionUpAction extends AddSelectionUpAction {
 		public testRun(notebook: IPositronNotebookInstance, accessor: ServicesAccessor) {
 			return this.runNotebookAction(notebook, accessor);
 		}
@@ -134,6 +146,52 @@ describe('Notebook selection keybinding actions', () => {
 
 			const state = notebook.selectionStateMachine.state.get();
 			expect(state.type).toBe(SelectionState.SingleSelection);
+			expect(getActiveCell(state)).toBe(cells[1]);
+		});
+	});
+
+	describe('AddSelectionDownAction (Shift+ArrowDown / Shift+J)', () => {
+		it('declares Shift+ArrowDown keybinding scoped to command mode', () => {
+			const action = new AddSelectionDownAction();
+			expect(action.desc.id).toBe('positronNotebook.addSelectionDown');
+			expect(action.desc.keybinding?.primary).toBe(KeyMod.Shift | KeyCode.DownArrow);
+			expect(action.desc.keybinding?.secondary).toEqual([KeyMod.Shift | KeyCode.KeyJ]);
+			expect(action.desc.keybinding?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
+		});
+
+		it('calls moveSelectionDown(true) -- grows MultiSelection downward', () => {
+			const notebook = createLabelledTestNotebook(3, ctx);
+			const cells = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
+
+			new TestableAddSelectionDownAction().testRun(notebook, unusedAccessor);
+
+			const state = notebook.selectionStateMachine.state.get();
+			expect(state.type).toBe(SelectionState.MultiSelection);
+			expect(getSelectedCells(state)).toEqual([cells[0], cells[1]]);
+			expect(getActiveCell(state)).toBe(cells[1]);
+		});
+	});
+
+	describe('AddSelectionUpAction (Shift+ArrowUp / Shift+K)', () => {
+		it('declares Shift+ArrowUp keybinding scoped to command mode', () => {
+			const action = new AddSelectionUpAction();
+			expect(action.desc.id).toBe('positronNotebook.addSelectionUp');
+			expect(action.desc.keybinding?.primary).toBe(KeyMod.Shift | KeyCode.UpArrow);
+			expect(action.desc.keybinding?.secondary).toEqual([KeyMod.Shift | KeyCode.KeyK]);
+			expect(action.desc.keybinding?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
+		});
+
+		it('calls moveSelectionUp(true) -- grows MultiSelection upward', () => {
+			const notebook = createLabelledTestNotebook(3, ctx);
+			const cells = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cells[2], CellSelectionType.Normal);
+
+			new TestableAddSelectionUpAction().testRun(notebook, unusedAccessor);
+
+			const state = notebook.selectionStateMachine.state.get();
+			expect(state.type).toBe(SelectionState.MultiSelection);
+			expect(getSelectedCells(state)).toEqual([cells[1], cells[2]]);
 			expect(getActiveCell(state)).toBe(cells[1]);
 		});
 	});
