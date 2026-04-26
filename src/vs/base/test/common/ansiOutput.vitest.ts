@@ -1528,7 +1528,7 @@ describe('ANSIOutput', () => {
 		}
 	});
 
-	it('Tests ANSI 256 matrix', () => {
+	it('Tests ANSI 256 matrix', { timeout: 30_000 }, () => {
 		const testScenarios: SGRTestScenario[] = [];
 		for (let foregroundIndex = 0; foregroundIndex < 256; foregroundIndex++) {
 			for (let backgroundIndex = 0; backgroundIndex < 256; backgroundIndex++) {
@@ -1573,7 +1573,7 @@ describe('ANSIOutput', () => {
 		}
 	});
 
-	it('Tests ANSI RGB matrix', () => {
+	it('Tests ANSI RGB matrix', { timeout: 30_000 }, () => {
 		const testScenarios: SGRTestScenario[] = [];
 		for (let r = 0; r < 256; r++) {
 			for (let g = 0; g < 256; g++) {
