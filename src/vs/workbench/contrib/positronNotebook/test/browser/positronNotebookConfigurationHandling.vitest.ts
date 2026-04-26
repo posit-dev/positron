@@ -106,10 +106,7 @@ describe('Positron Notebook Configuration Handling', () => {
 	});
 
 	describe('editor registration cleanup', () => {
-		const configurationService = new TestConfigurationService();
-		const ctx = notebookTestBuilder()
-			.stub(IConfigurationService, configurationService)
-			.build();
+		const ctx = notebookTestBuilder().build();
 
 		let editorResolverService: EditorResolverService;
 		let notebookContribution: MockPositronNotebookContribution;
