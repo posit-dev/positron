@@ -78,6 +78,10 @@ export function CellTextOutput({
 				'positron-notebook-text-output',
 				{ 'word-wrap': outputWordWrap },
 			)}
+			// Structural container for cell text output. Tests assert on its
+			// classes (notebook-error, word-wrap) and text content; no clean
+			// ARIA role applies (role='log' would change live-region behavior
+			// for screen readers in a way that isn't desirable here).
 			data-testid='cell-text-output'
 		>
 			<OutputLines outputLines={ANSIOutput.processOutput(truncation.content)} />

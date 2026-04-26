@@ -107,6 +107,7 @@ export const StartupStatus = () => {
 	// it is hidden during the AwaitingTrust phase via display:none.
 	return (
 		<div className='startup-status'>
+			{/* Mount-point wrapper for the imperative ProgressBar component, which provides its own role='progressbar' on its inner DOM. The outer div carries the visibility toggle and is queried via testid in tests that assert on its display style. */}
 			<div ref={progressRef} className='progress' data-testid='startup-progress-bar'
 				style={isAwaitingTrust ? { display: 'none' } : undefined}></div>
 			{runtimeStartupEvent &&
