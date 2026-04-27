@@ -68,6 +68,13 @@ interface IAffiliatedRuntimeMetadata {
  */
 const PERSISTENT_WORKSPACE_SESSIONS = 'positron.workspaceSessionList.v3';
 
+/**
+ * Storage key for the count of runtimes registered at the end of the last
+ * completed discovery pass. Used to drive a determinate progress bar in the
+ * console "Discovering interpreters" UI.
+ */
+const LAST_DISCOVERY_RUNTIME_COUNT_KEY = 'positron.runtime.lastDiscoveryRuntimeCount';
+
 const languageRuntimeExtPoint =
 	ExtensionsRegistry.registerExtensionPoint<ILanguageRuntimeProviderMetadata[]>({
 		extensionPoint: 'languageRuntimes',
@@ -115,6 +122,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 	// The current startup phase
 	private _startupPhase: RuntimeStartupPhase;
+
+	// Cached count of runtimes registered at the end of the last completed
+	// discovery pass. Loaded from storage at construction; written when phase
+	// transitions to Complete.
+	private _lastDiscoveryRuntimeCount: number = 0;
 
 	// Whether a background full-discovery / revalidation pass is currently
 	// running. Tracked separately from `_startupPhase` because the cache plan
@@ -189,6 +201,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		this._startupPhase = _languageRuntimeService.startupPhase;
 		perf.mark(`code/positron/runtimeStartupPhase/${this._startupPhase}`);
+
+		this._lastDiscoveryRuntimeCount = this._storageService.getNumber(
+			LAST_DISCOVERY_RUNTIME_COUNT_KEY, StorageScope.APPLICATION, 0);
 		this._register(
 			this._languageRuntimeService.onDidChangeRuntimeStartupPhase(
 				(phase) => {
@@ -283,6 +298,15 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// auto-start a runtime.
 		this._register(this._languageRuntimeService.onDidChangeRuntimeStartupPhase(phase => {
 			if (phase === RuntimeStartupPhase.Complete) {
+
+				// Persist the count of registered runtimes so the next session
+				// can show a determinate progress bar during discovery.
+				const count = this._languageRuntimeService.registeredRuntimes.length;
+				if (count > 0 && count !== this._lastDiscoveryRuntimeCount) {
+					this._lastDiscoveryRuntimeCount = count;
+					this._storageService.store(LAST_DISCOVERY_RUNTIME_COUNT_KEY, count,
+						StorageScope.APPLICATION, StorageTarget.MACHINE);
+				}
 
 				// Check to see if every single language runtime has been disabled.
 				const languageIds = this._languagePacks.keys();
@@ -509,6 +533,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 	public get backgroundDiscoveryInProgress(): boolean {
 		return this._backgroundDiscoveryInProgress;
+	}
+
+	public get lastDiscoveryRuntimeCount(): number {
+		return this._lastDiscoveryRuntimeCount;
 	}
 
 	/**

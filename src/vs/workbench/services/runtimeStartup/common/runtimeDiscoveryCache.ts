@@ -88,7 +88,23 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 		@IPathService private readonly _pathService: IPathService,
 	) {
 		super();
-		this._loadFromStorage();
+		this._reloadFromStorage();
+
+		// Pick up writes from sibling Positron windows. The cache lives in
+		// APPLICATION-scope storage, which is shared across all windows on the
+		// machine, so without this listener two windows would silently clobber
+		// each other on every persist (last-writer-wins on the full JSON blob).
+		// `external: true` filters out our own in-process writes.
+		this._register(this._storageService.onDidChangeValue(
+			StorageScope.APPLICATION,
+			RUNTIME_DISCOVERY_CACHE_STORAGE_KEY,
+			this._store,
+		)(e => {
+			if (!e.external) {
+				return;
+			}
+			this._reloadFromStorage();
+		}));
 	}
 
 	// --- Public API ---------------------------------------------------------
@@ -302,7 +318,10 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 		return p;
 	}
 
-	private _loadFromStorage(): void {
+	private _reloadFromStorage(): void {
+		// Replace in-memory state wholesale: this is called on initial load
+		// AND whenever a sibling window writes the cache, so we can't append.
+		this._buckets.clear();
 		const raw = this._storageService.get(RUNTIME_DISCOVERY_CACHE_STORAGE_KEY, StorageScope.APPLICATION);
 		if (!raw) {
 			return;

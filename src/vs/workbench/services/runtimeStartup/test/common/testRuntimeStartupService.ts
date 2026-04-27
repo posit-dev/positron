@@ -24,6 +24,7 @@ export class TestRuntimeStartupService implements IRuntimeStartupService {
 
 	public startupPhase: RuntimeStartupPhase = RuntimeStartupPhase.Complete;
 	public backgroundDiscoveryInProgress: boolean = false;
+	public lastDiscoveryRuntimeCount: number = 0;
 
 	constructor() { }
 

@@ -156,8 +156,6 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 				md.blank();
 				this._addAffiliatedRuntimes(md);
 				md.blank();
-				this._addDiscoveryCache(md);
-				md.blank();
 				this._addActiveRuntimes(md);
 				md.blank();
 				this._addTimeToFirstRuntime(md);
@@ -175,6 +173,8 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 				await this._addSessionLaunchInfo(md);
 				md.blank();
 				this._addDiscoveredRuntimes(md);
+				md.blank();
+				this._addDiscoveryCache(md);
 				md.blank();
 				await this._addOutputChannels(md);
 
@@ -500,15 +500,6 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 		md.heading(2, 'Discovery Cache');
 
 		const enabled = this._configurationService.getValue<boolean>(RUNTIME_DISCOVERY_CACHE_ENABLED_SETTING);
-		const enabledStr = enabled === false ? 'no'
-			: enabled === true ? 'yes'
-				: 'yes (default)';
-
-		md.li(`\`${RUNTIME_DISCOVERY_CACHE_ENABLED_SETTING}\`: ${enabledStr}`);
-		md.li(`Schema/storage key: \`${RUNTIME_DISCOVERY_CACHE_STORAGE_KEY}\``);
-		md.li(`Storage scope: \`APPLICATION\`/\`MACHINE\``);
-		md.li(`Current startup phase: \`${this._runtimeStartupService.startupPhase}\``);
-		md.li(`Background discovery in progress: ${this._runtimeStartupService.backgroundDiscoveryInProgress ? 'yes' : 'no'}`);
 
 		if (enabled === false) {
 			md.blank();

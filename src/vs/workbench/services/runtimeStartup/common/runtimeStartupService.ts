@@ -176,4 +176,12 @@ export interface IRuntimeStartupService {
 	 * design lets a background pass run after `Complete` (warm starts).
 	 */
 	readonly backgroundDiscoveryInProgress: boolean;
+
+	/**
+	 * Number of runtimes registered at the end of the last completed discovery
+	 * pass (persisted across sessions). Returns 0 if no prior discovery has
+	 * completed on this machine. UIs can use this as a hint for showing
+	 * determinate progress during a fresh discovery pass.
+	 */
+	readonly lastDiscoveryRuntimeCount: number;
 }

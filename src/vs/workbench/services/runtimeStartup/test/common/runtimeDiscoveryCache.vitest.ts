@@ -358,4 +358,94 @@ describe('RuntimeDiscoveryCache', () => {
 			expect(cache2.getEntries('ms.python', 'python')).toEqual([]);
 		});
 	});
+
+	describe('cross-window updates', () => {
+		// APPLICATION-scope storage is shared across all Positron windows on
+		// the machine. Without the storage-change listener, two windows would
+		// last-writer-wins each other's persisted state. These tests verify
+		// the listener picks up sibling writes (`external: true`).
+		const PY_ENTRY = {
+			fingerprint: { size: 100, mtimeMs: 1000, ctimeMs: 1000 },
+			resolvedPath: PY_PATH,
+		};
+
+		function siblingWrite(entries: Array<{ runtimePath: string; runtimeId: string } & typeof PY_ENTRY>, lastFullDiscovery = 0): void {
+			const now = Date.now();
+			storage.store(
+				RUNTIME_DISCOVERY_CACHE_STORAGE_KEY,
+				JSON.stringify({
+					schemaVersion: 1,
+					buckets: {
+						'ms.python::python': {
+							entries: entries.map(e => ({
+								metadata: metadata({ runtimePath: e.runtimePath, runtimeId: e.runtimeId }),
+								fingerprint: e.fingerprint,
+								resolvedPath: e.resolvedPath,
+								firstSeen: now,
+								lastValidated: now,
+							})),
+							lastFullDiscovery,
+						},
+					},
+				}),
+				StorageScope.APPLICATION,
+				StorageTarget.MACHINE,
+				/* external */ true,
+			);
+		}
+
+		it('reloads when a sibling window writes the cache', () => {
+			const cache = makeCache();
+			expect(cache.getEntries('ms.python', 'python')).toEqual([]);
+
+			siblingWrite([{ runtimePath: PY_PATH, runtimeId: 'rt-1', ...PY_ENTRY }], 12345);
+
+			const entries = cache.getEntries('ms.python', 'python');
+			expect(entries).toHaveLength(1);
+			expect(entries[0].metadata.runtimeId).toBe('rt-1');
+			expect(cache.getLastFullDiscovery('ms.python', 'python')).toBe(12345);
+		});
+
+		it('drops local-only entries that the sibling write does not contain', async () => {
+			const cache = makeCache();
+			await cache.upsert(metadata({ runtimePath: PY_PATH, runtimeId: 'local-1' }));
+			expect(cache.getEntries('ms.python', 'python')).toHaveLength(1);
+
+			// Sibling persisted a different runtime at a different path.
+			const altPath = '/opt/python/bin/python3';
+			files.files.set(altPath, { resolved: altPath, size: 50, mtime: 5, ctime: 5 });
+			siblingWrite([{
+				runtimePath: altPath,
+				runtimeId: 'sibling-1',
+				fingerprint: { size: 50, mtimeMs: 5, ctimeMs: 5 },
+				resolvedPath: altPath,
+			}]);
+
+			const entries = cache.getEntries('ms.python', 'python');
+			expect(entries).toHaveLength(1);
+			expect(entries[0].metadata.runtimeId).toBe('sibling-1');
+		});
+
+		it('empties in-memory state when a sibling window clears storage', async () => {
+			const cache = makeCache();
+			await cache.upsert(metadata({ runtimePath: PY_PATH }));
+			expect(cache.getEntries('ms.python', 'python')).toHaveLength(1);
+
+			storage.remove(RUNTIME_DISCOVERY_CACHE_STORAGE_KEY, StorageScope.APPLICATION, /* external */ true);
+
+			expect(cache.getEntries('ms.python', 'python')).toEqual([]);
+			expect(cache.getAllBuckets()).toEqual([]);
+		});
+
+		it('ignores in-process change events from its own writes', async () => {
+			// If the listener didn't filter out non-external events, our own
+			// _persist would re-trigger _reloadFromStorage during upsert and we
+			// could miss the just-set firstSeen. Verify firstSeen is preserved
+			// across a re-upsert (which goes through two _persist calls).
+			const cache = makeCache();
+			const first = await cache.upsert(metadata({ runtimePath: PY_PATH }));
+			const second = await cache.upsert(metadata({ runtimePath: PY_PATH }));
+			expect(second?.firstSeen).toBe(first?.firstSeen);
+		});
+	});
 });

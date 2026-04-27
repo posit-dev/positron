@@ -304,6 +304,7 @@ class TestRuntimeStartupService implements IRuntimeStartupService {
 
 	startupPhase: RuntimeStartupPhase = RuntimeStartupPhase.Complete;
 	backgroundDiscoveryInProgress: boolean = false;
+	lastDiscoveryRuntimeCount: number = 0;
 
 	setRestoredSessions(sessions: SerializedSessionMetadata[]): void {
 		this._storedSessions.length = 0;
