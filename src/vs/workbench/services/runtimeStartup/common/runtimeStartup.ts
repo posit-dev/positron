@@ -15,7 +15,7 @@ import { IEphemeralStateService } from '../../../../platform/ephemeralState/comm
 import { IExtensionService } from '../../extensions/common/extensions.js';
 import { ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimeManager, LanguageRuntimeArchitecture, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata } from '../../languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from './runtimeStartupService.js';
-import { IRuntimeDiscoveryCache, IRuntimeFingerprint } from './runtimeDiscoveryCacheService.js';
+import { IRuntimeDiscoveryCache, IRuntimeFingerprint, RUNTIME_DISCOVERY_PERIODIC_REFRESH_MS } from './runtimeDiscoveryCacheService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 import { ExtensionsRegistry } from '../../extensions/common/extensionsRegistry.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
@@ -995,10 +995,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					this._discoveryCompleteByExtHostId.set(manager.id, true);
 				}
 			}
+			const reason = options.bypassCache
+				? 'user-triggered'
+				: this._lastFullDiscoveryReason;
 			for (const manager of managersNeedingFullDiscovery) {
 				this._discoveryCache.recordFullDiscoveryRun(
-					/* extensionId */ '*', /* languageId */ '*',
-					options.bypassCache ? 'user-triggered' : 'cold-start');
+					/* extensionId */ '*', /* languageId */ '*', reason);
 				manager.discoverAllRuntimes(disabledLanguages);
 			}
 		}
@@ -1067,7 +1069,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	/**
 	 * Decide which managers still need a real enumeration. A manager needs
 	 * full discovery if the cache is disabled, the cache has zero entries
-	 * attributable to it, or all its attributable buckets are empty.
+	 * attributable to it, all its attributable buckets are empty, or any
+	 * attributable bucket's `lastFullDiscovery` timestamp is older than the
+	 * periodic-refresh cap (the warm-start "every N hours" trigger).
 	 *
 	 * Attribution uses `manager.managesRuntime(...)` against a representative
 	 * metadata blob from each bucket.
@@ -1081,15 +1085,25 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			return this._runtimeManagers.slice();
 		}
 
-		// For each manager, find at least one bucket it manages.
+		// Buckets whose last full pass is older than the periodic cap (or that
+		// have never had one recorded) trigger a refresh on this open.
+		const periodicCutoff = Date.now() - RUNTIME_DISCOVERY_PERIODIC_REFRESH_MS;
+		this._lastFullDiscoveryReason = 'cold-start';
+
+		// For each manager, find at least one bucket it manages and check
+		// whether any of those buckets are stale.
 		const needsFull: IRuntimeManager[] = [];
 		await Promise.all(this._runtimeManagers.map(async manager => {
 			let owns = false;
+			let stale = false;
 			for (const bucket of buckets) {
 				try {
 					if (await manager.managesRuntime(bucket.entries[0].metadata)) {
 						owns = true;
-						break;
+						if (bucket.lastFullDiscovery === 0
+							|| bucket.lastFullDiscovery < periodicCutoff) {
+							stale = true;
+						}
 					}
 				} catch (err) {
 					this._logService.trace(`[Runtime startup] managesRuntime threw for manager ${manager.id}: ${err}`);
@@ -1097,10 +1111,22 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			}
 			if (!owns) {
 				needsFull.push(manager);
+			} else if (stale) {
+				needsFull.push(manager);
+				this._lastFullDiscoveryReason = 'periodic';
 			}
 		}));
 		return needsFull;
 	}
+
+	/**
+	 * Reason classification set as a side-effect of the most recent
+	 * `managersNeedingFullDiscovery()` call. The per-manager iteration already
+	 * walks the buckets we'd need to inspect for this, so caching the result
+	 * here is cheaper than a sibling helper that re-walks them. `bypassCache`
+	 * paths overwrite this with `'user-triggered'` at the call site.
+	 */
+	private _lastFullDiscoveryReason: 'cold-start' | 'periodic' = 'cold-start';
 
 	/**
 	 * Run cached-entry revalidations in batches of at most 4 concurrent
@@ -1186,6 +1212,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				this._logService.warn(
 					`[Runtime startup] Failed to cache runtime ${formatLanguageRuntimeMetadata(metadata)}: ${err}`);
 			});
+			// Stamp the bucket's last-full-discovery time only on a foreground
+			// `Discovering` pass: that's the path that ran a real enumeration.
+			// Background revalidations also flow through here but they're a
+			// per-entry refresh, not a fresh enumeration of the bucket.
+			if (this._startupPhase === RuntimeStartupPhase.Discovering) {
+				this._discoveryCache.setLastFullDiscovery(metadata.extensionId.value, metadata.languageId);
+			}
 		}
 
 		// The remaining work is the affiliated-runtime auto-start. We act in

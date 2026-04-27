@@ -20,10 +20,9 @@ import {
 	IRuntimeFingerprint,
 	RUNTIME_DISCOVERY_CACHE_ENABLED_SETTING,
 	RUNTIME_DISCOVERY_CACHE_MAX_AGE_MS,
+	RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION,
 	RUNTIME_DISCOVERY_CACHE_STORAGE_KEY,
 } from './runtimeDiscoveryCacheService.js';
-
-const SCHEMA_VERSION = 1;
 
 /**
  * On-disk JSON shape. The `schemaVersion` is checked on load; any mismatch
@@ -334,9 +333,9 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 			this._storageService.remove(RUNTIME_DISCOVERY_CACHE_STORAGE_KEY, StorageScope.APPLICATION);
 			return;
 		}
-		if (!parsed || parsed.schemaVersion !== SCHEMA_VERSION || !parsed.buckets) {
+		if (!parsed || parsed.schemaVersion !== RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION || !parsed.buckets) {
 			this._logService.info(
-				`[Runtime cache] schema mismatch (got ${parsed?.schemaVersion}, expected ${SCHEMA_VERSION}); wiping cache.`,
+				`[Runtime cache] schema mismatch (got ${parsed?.schemaVersion}, expected ${RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION}); wiping cache.`,
 			);
 			this._storageService.remove(RUNTIME_DISCOVERY_CACHE_STORAGE_KEY, StorageScope.APPLICATION);
 			return;
@@ -367,7 +366,7 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 			};
 		}
 		const payload: IPersistedCache = {
-			schemaVersion: SCHEMA_VERSION,
+			schemaVersion: RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION,
 			buckets,
 		};
 		this._storageService.store(

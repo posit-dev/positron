@@ -17,10 +17,17 @@ export const IRuntimeDiscoveryCache =
 export const RUNTIME_DISCOVERY_CACHE_ENABLED_SETTING = 'interpreters.discoveryCache.enabled';
 
 /**
- * Storage key under which all cache state is persisted. The trailing `.v1`
- * is the schema version: bumping it transparently wipes the prior cache.
+ * On-disk schema version. Bumped when the persisted entry shape changes;
+ * a mismatch on load causes the persisted blob to be discarded and re-seeded.
  */
-export const RUNTIME_DISCOVERY_CACHE_STORAGE_KEY = 'positron.discoveryCache.v1';
+export const RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION = 1;
+
+/**
+ * Storage key under which all cache state is persisted. Embeds the schema
+ * version (e.g. `.v1`) so a schema bump is also a transparent key bump.
+ */
+export const RUNTIME_DISCOVERY_CACHE_STORAGE_KEY =
+	`positron.discoveryCache.v${RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION}`;
 
 /**
  * Hard cap on cache entry age. Even on a healthy machine, an entry must be
@@ -28,6 +35,13 @@ export const RUNTIME_DISCOVERY_CACHE_STORAGE_KEY = 'positron.discoveryCache.v1';
  * eventually pick up binary-identical replacements that preserve fingerprint.
  */
 export const RUNTIME_DISCOVERY_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+
+/**
+ * Soft cap on bucket-level full-discovery age. After this, a warm start treats
+ * an otherwise-cached bucket as needing a fresh full pass. This is the
+ * "periodic refresh" trigger.,
+ */
+export const RUNTIME_DISCOVERY_PERIODIC_REFRESH_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Cheap fingerprint of an on-disk binary. Together (size, mtimeMs, ctimeMs)
