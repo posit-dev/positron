@@ -13,6 +13,7 @@ import { IProcessServiceFactory } from '../../common/process/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
 import { isUvInstalled } from '../../pythonEnvironments/common/environmentManagers/uv';
+import { loadPythonPackage } from './loadHelper';
 import { fetchP3MPackageMetadata } from './p3mSearch';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
@@ -155,6 +156,10 @@ export class UvPackageManager implements IPackageManager {
             const args = ['pip', 'install', '--upgrade', '--python', this._pythonPath, ...packageNames];
             await this._executeUvInTerminal(args, token);
         }
+    }
+
+    async loadPackage(packageName: string, token?: vscode.CancellationToken): Promise<void> {
+        return loadPythonPackage(packageName, token);
     }
 
     async searchPackages(query: string, token?: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]> {

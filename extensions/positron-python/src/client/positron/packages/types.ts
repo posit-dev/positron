@@ -64,6 +64,14 @@ export interface IPackageManager {
     updateAllPackages(token?: vscode.CancellationToken): Promise<void>;
 
     /**
+     * Attach a package to the runtime session via `import`.
+     * Runs in Interactive mode so the call appears in the console history.
+     * @param packageName Import name to load (e.g. "PIL" for Pillow)
+     * @param token Optional cancellation token
+     */
+    loadPackage(packageName: string, token?: vscode.CancellationToken): Promise<void>;
+
+    /**
      * Search for packages matching a query.
      * @param query Search query string
      * @param token Optional cancellation token

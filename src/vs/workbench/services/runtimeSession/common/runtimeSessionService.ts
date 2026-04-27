@@ -307,6 +307,13 @@ export interface ILanguageRuntimePackage {
 
 	/** Source the package was installed from (e.g. CRAN, Bioconductor, R for base packages). */
 	installedFrom?: string;
+
+	/**
+	 * The name to pass to the runtime's load command, when it differs from
+	 * the distribution name (e.g. for Python's Pillow → PIL,
+	 * scikit-learn → sklearn). Defaults to `name` when omitted.
+	 */
+	importName?: string;
 }
 
 /**

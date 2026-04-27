@@ -15,6 +15,11 @@ import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageSpec } from '
 export interface IPositronPackagesInstance {
 	packages: ILanguageRuntimePackage[];
 	session: ILanguageRuntimeSession;
+	/**
+	 * True when the runtime can unload as well as load packages. Python's
+	 * package manager only supports load (no clean unload story).
+	 */
+	canUnloadPackages: boolean;
 	attachRuntime(): void;
 	detachRuntime(): void;
 	refreshPackages(token?: CancellationToken): Promise<ILanguageRuntimePackage[]>;
@@ -110,6 +115,16 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	 */
 	get session(): ILanguageRuntimeSession {
 		return this._session;
+	}
+
+	/**
+	 * True when the runtime's package manager exposes an unloadPackage method.
+	 * Used by the UI to render the loaded indicator as non-interactive when
+	 * the runtime can only load (e.g. Python).
+	 */
+	get canUnloadPackages(): boolean {
+		const packageManager = this._session.getPackageManager?.();
+		return !!packageManager?.unloadPackage;
 	}
 
 	/**

@@ -77,6 +77,9 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	 */
 	const [optimisticLoaded, setOptimisticLoaded] = useState<Map<string, boolean>>(new Map());
 
+	// Whether the active runtime supports unloading (R does, Python doesn't).
+	const canUnload = activeInstance?.canUnloadPackages ?? false;
+
 	// Item size mode ('card' or 'row'), driven by the packages service.
 	const [itemSize, setItemSize] = useState(() => services.positronPackagesService.itemSize);
 	useEffect(() => {
@@ -294,11 +297,19 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	// Toggle the loaded state for a package: optimistically flip the dot,
 	// fire the load/unload via the service, and rely on the next refresh to
 	// confirm. On error, revert and show the kernel's message as a toast.
+	// `importName` is preferred for the runtime call (Python's Pillow → PIL).
 	const toggleLoaded = async (pkg: ILanguageRuntimePackage) => {
 		if (isProtectedPackage(pkg)) {
 			return;
 		}
-		const next = !(pkg.loaded ?? false);
+		// Python doesn't expose unloadPackage; clicking a loaded Python row
+		// is a no-op. R supports both directions.
+		const isLoaded = pkg.loaded ?? false;
+		if (isLoaded && !canUnload) {
+			return;
+		}
+		const next = !isLoaded;
+		const loadName = pkg.importName ?? pkg.name;
 		setOptimisticLoaded((prev) => {
 			const updated = new Map(prev);
 			updated.set(pkg.name, next);
@@ -306,9 +317,9 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		});
 		try {
 			if (next) {
-				await services.positronPackagesService.loadPackage(pkg.name);
+				await services.positronPackagesService.loadPackage(loadName);
 			} else {
-				await services.positronPackagesService.unloadPackage(pkg.name);
+				await services.positronPackagesService.unloadPackage(loadName);
 			}
 		} catch (err) {
 			// Revert just this package's optimistic entry; refresh will re-sync.
@@ -390,38 +401,45 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 					}
 				}}
 			>
-				{loaded !== undefined && (
-					<button
-						aria-label={loaded
-							? localize('positronPackages.loadedAriaLabel', "{0} is loaded; click to unload", name)
-							: localize('positronPackages.notLoadedAriaLabel', "{0} is not loaded; click to load", name)}
-						className={positronClassNames(
-							'packages-list-item-loaded',
-							{ loaded, protected: protectedPkg },
-						)}
-						disabled={protectedPkg}
-						title={protectedPkg
-							? localize('positronPackages.protectedTooltip', "Base R package (always loaded)")
+				{loaded !== undefined && (() => {
+					// Loaded + can't unload (Python) = status only, no click affordance.
+					const interactive = !protectedPkg && !(loaded && !canUnload);
+					const tooltip = protectedPkg
+						? localize('positronPackages.protectedTooltip', "Base R package (always loaded)")
+						: loaded && !canUnload
+							? localize('positronPackages.loadedReadOnlyTooltip', "{0} is loaded", name)
 							: loaded
 								? localize('positronPackages.unloadTooltip', "Click to unload {0}", name)
-								: localize('positronPackages.loadTooltip', "Click to load {0}", name)}
-						type='button'
-						onClick={(e) => {
-							if (protectedPkg) {
-								return;
-							}
-							// Don't let the click bubble into the row's
-							// onMouseDown selection / context-menu logic.
-							e.stopPropagation();
-							toggleLoaded(itemProps);
-						}}
-						onMouseDown={(e) => {
-							// Prevent the parent's mousedown from running (which
-							// would change selection or open the context menu).
-							e.stopPropagation();
-						}}
-					/>
-				)}
+								: localize('positronPackages.loadTooltip', "Click to load {0}", name);
+					return (
+						<button
+							aria-label={loaded
+								? localize('positronPackages.loadedAriaLabel', "{0} is loaded", name)
+								: localize('positronPackages.notLoadedAriaLabel', "{0} is not loaded; click to load", name)}
+							className={positronClassNames(
+								'packages-list-item-loaded',
+								{ loaded, protected: protectedPkg, 'read-only': loaded && !canUnload },
+							)}
+							disabled={!interactive}
+							title={tooltip}
+							type='button'
+							onClick={(e) => {
+								if (!interactive) {
+									return;
+								}
+								// Don't let the click bubble into the row's
+								// onMouseDown selection / context-menu logic.
+								e.stopPropagation();
+								toggleLoaded(itemProps);
+							}}
+							onMouseDown={(e) => {
+								// Prevent the parent's mousedown from running (which
+								// would change selection or open the context menu).
+								e.stopPropagation();
+							}}
+						/>
+					);
+				})()}
 				<div className='packages-list-item-body'>
 					<div className='packages-list-item-header'>
 						<div className='packages-list-item-name'>{displayName}</div>

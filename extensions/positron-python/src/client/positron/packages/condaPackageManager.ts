@@ -9,6 +9,7 @@ import { IProcessServiceFactory } from '../../common/process/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IComponentAdapter, ICondaService } from '../../interpreter/contracts';
 import { IServiceContainer } from '../../ioc/types';
+import { loadPythonPackage } from './loadHelper';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
 
 /** Package info returned by `conda search --json` */
@@ -135,6 +136,10 @@ export class CondaPackageManager implements IPackageManager {
         const args = ['update', '--prefix', envPrefix, '--all', '-y'];
 
         await this._executeCondaInTerminal(args, token);
+    }
+
+    async loadPackage(packageName: string, token?: vscode.CancellationToken): Promise<void> {
+        return loadPythonPackage(packageName, token);
     }
 
     async searchPackages(query: string, token?: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]> {

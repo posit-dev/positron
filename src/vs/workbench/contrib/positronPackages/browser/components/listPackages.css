@@ -124,7 +124,8 @@
 	border-color: #89d185;
 }
 
-.packages-list-item-loaded.protected {
+.packages-list-item-loaded.protected,
+.packages-list-item-loaded.read-only {
 	cursor: default;
 }
 
@@ -132,7 +133,7 @@
 	opacity: 0.4;
 }
 
-.packages-list-item-loaded:hover:not(.protected)::before {
+.packages-list-item-loaded:hover:not(.protected):not(.read-only)::before {
 	border-color: #89d185;
 }
 
