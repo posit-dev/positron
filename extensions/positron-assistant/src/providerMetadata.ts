@@ -77,6 +77,11 @@ export const PROVIDER_METADATA = {
 		displayName: 'Custom Provider',
 		settingName: 'customProvider',
 	},
+	deepseek: {
+		id: 'deepseek',
+		displayName: 'DeepSeek',
+		settingName: 'deepseek',
+	},
 	echo: {
 		id: 'echo',
 		displayName: 'Echo',
