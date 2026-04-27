@@ -79,6 +79,7 @@ describe('ConsoleTab', () => {
 			const delegate = showContextMenu.mock.calls.at(-1)![0];
 			const renameAction = (delegate.getActions() as IAction[])
 				.find(a => a.id === 'workbench.action.positronConsole.renameConsoleSession');
+			expect(renameAction, 'rename action should be in the tab context menu').toBeDefined();
 
 			// Invoking the rename action flips isRenamingSession to true, which mounts
 			// the input and fires the useEffect that focuses + selects its text.
@@ -93,9 +94,8 @@ describe('ConsoleTab', () => {
 			const sessionName = 'My Python Session';
 			const instance = addActiveConsoleInstance('test-session-1', sessionName);
 
-			const { renameAction } = await openRenameInput(instance, sessionName);
+			await openRenameInput(instance, sessionName);
 			expect(showContextMenu).toHaveBeenCalledOnce();
-			expect(renameAction).toBeDefined();
 
 			const input = screen.getByRole('textbox') as HTMLInputElement;
 			expect(input).toHaveFocus();
