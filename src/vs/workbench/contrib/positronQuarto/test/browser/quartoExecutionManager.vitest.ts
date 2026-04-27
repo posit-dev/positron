@@ -610,6 +610,114 @@ describe('QuartoExecutionManager', () => {
 			expect(localExecutionManager.getExecutionState('test-options'), 'Cell should not be in Queued state after execution').not.toBe(CellExecutionState.Queued);
 		});
 	});
+
+	describe('Cell Options as Execution Metadata', () => {
+		// Helper that runs a cell with the given chunk options and returns the
+		// executionMetadata argument the kernel session received.
+		async function runCellAndCaptureMetadata(documentLines: string[], cellRange: Range) {
+			const documentUri = URI.file('/test-cell-metadata.qmd');
+			const cell: QuartoCodeCell = {
+				id: 'cell-metadata',
+				index: 0,
+				language: 'python',
+				startLine: 1,
+				endLine: documentLines.length,
+				codeStartLine: 2,
+				codeEndLine: documentLines.length - 1,
+				label: undefined,
+				options: '',
+				contentHash: 'metadata123',
+			};
+			const mockModel = new MockQuartoDocumentModel([cell], documentLines);
+			mockDocumentModelService.setMockModel(mockModel);
+			mockEditorService.getValueInRangeCallback = (range: unknown) => {
+				const r = range as { startLineNumber: number; endLineNumber: number };
+				return documentLines.slice(r.startLineNumber - 1, r.endLineNumber).join('\n');
+			};
+
+			const executeSpy = vi.spyOn(mockSession, 'execute');
+
+			const executionPromise = executionManager.executeInlineCells(documentUri, [cellRange]);
+			const executionId = await mockKernelManager.waitForExecution();
+			mockSession.receiveStateMessage({
+				parent_id: executionId,
+				state: RuntimeOnlineState.Idle,
+			});
+			await executionPromise;
+
+			expect(executeSpy).toHaveBeenCalledOnce();
+			// session.execute(code, id, mode, errorBehavior, _attribution, executionMetadata)
+			return executeSpy.mock.calls[0][5] as Record<string, unknown> | undefined;
+		}
+
+		it('passes fig-width and fig-height from chunk options to session.execute', async () => {
+			const metadata = await runCellAndCaptureMetadata(
+				[
+					'```{python}',          // 1: fence
+					'#| fig-width: 4',      // 2: option
+					'#| fig-height: 3',     // 3: option
+					'plot()',               // 4: code
+					'```',                  // 5: fence
+				],
+				new Range(2, 1, 4, 100)
+			);
+
+			expect(metadata).toBeDefined();
+			expect(metadata!['fig-width']).toBe(4);
+			expect(metadata!['fig-height']).toBe(3);
+		});
+
+		it('passes a non-execution option like label as metadata', async () => {
+			const metadata = await runCellAndCaptureMetadata(
+				[
+					'```{python}',
+					'#| label: my-cell',
+					'x = 1',
+					'```',
+				],
+				new Range(2, 1, 3, 100)
+			);
+
+			expect(metadata).toBeDefined();
+			expect(metadata!['label']).toBe('my-cell');
+		});
+
+		it('does not include execution-control options (eval, error) in metadata', async () => {
+			// `eval` and `error` are EXECUTION_OPTION_KEYS handled separately;
+			// they should not leak into the metadata payload sent to the kernel.
+			const metadata = await runCellAndCaptureMetadata(
+				[
+					'```{python}',
+					'#| eval: true',
+					'#| error: false',
+					'#| fig-width: 5',
+					'x = 1',
+					'```',
+				],
+				new Range(2, 1, 5, 100)
+			);
+
+			expect(metadata).toBeDefined();
+			expect(metadata!['fig-width']).toBe(5);
+			expect(metadata!['eval']).toBeUndefined();
+			expect(metadata!['error']).toBeUndefined();
+		});
+
+		it('passes undefined when there are no chunk options and no layout metadata', async () => {
+			const metadata = await runCellAndCaptureMetadata(
+				[
+					'```{python}',
+					'x = 1',
+					'```',
+				],
+				new Range(2, 1, 2, 100)
+			);
+
+			// With no cell options and no editor (so no layoutMetadata),
+			// session.execute should receive undefined for executionMetadata.
+			expect(metadata).toBeUndefined();
+		});
+	});
 });
 
 // Mock implementations
