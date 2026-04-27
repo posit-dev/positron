@@ -533,7 +533,8 @@
 }
 
 /* Respect the user's reduced-motion preference (same guard Monaco uses). */
-.monaco-reduce-motion .quarto-output-collapse-chevron {
+.monaco-reduce-motion .quarto-output-collapse-chevron,
+.monaco-reduce-motion .quarto-output-collapse-chevron .collapse-chevron {
 	transition: initial;
 }
 
