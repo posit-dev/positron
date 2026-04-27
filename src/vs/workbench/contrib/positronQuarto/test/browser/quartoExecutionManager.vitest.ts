@@ -1036,7 +1036,6 @@ function asTerminalService(mock: MockTerminalService): ITerminalService {
 
 function asConsoleService(mock: RecordingConsoleService): IPositronConsoleService {
 	// RecordingConsoleService extends TestPositronConsoleService which already
-	// implements the full interface; we wrap with stubInterface only for
-	// uniformity with the other Mock adapters.
+	// implements the full IPositronConsoleService interface; no adapter needed.
 	return mock;
 }
