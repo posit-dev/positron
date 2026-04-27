@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { ANTHROPIC_API_VERSION, KEY_VALIDATION_TIMEOUT_MS } from '../constants';
+import { KEY_VALIDATION_TIMEOUT_MS } from '../constants';
 
 class ApiKeyValidationError extends Error {
 	constructor(message: string) {
@@ -16,9 +16,10 @@ class ApiKeyValidationError extends Error {
 
 export async function validateDeepseekApiKey(apiKey: string, config: positron.ai.LanguageModelConfig): Promise<void> {
 	const rawBaseUrl = (config.baseUrl ?? 'https://api.deepseek.com')
+		.replace(/\/anthropic\/?$/, '')
 		.replace(/\/v1\/?$/, '')
 		.replace(/\/+$/, '');
-	const modelsEndpoint = `${rawBaseUrl}/v1/models`;
+	const modelsEndpoint = `${rawBaseUrl}/models`;
 
 	const controller = new AbortController();
 	const timeout = setTimeout(() => controller.abort(), KEY_VALIDATION_TIMEOUT_MS);
@@ -26,8 +27,8 @@ export async function validateDeepseekApiKey(apiKey: string, config: positron.ai
 		const response = await fetch(modelsEndpoint, {
 			method: 'GET',
 			headers: {
-				'x-api-key': apiKey,
-				'anthropic-version': ANTHROPIC_API_VERSION,
+				'Authorization': `Bearer ${apiKey}`,
+				'Accept': 'application/json',
 			},
 			signal: controller.signal,
 		});
