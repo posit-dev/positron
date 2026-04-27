@@ -47,8 +47,7 @@ export function ensureNoLeakedDisposables(): Pick<DisposableStore, 'add'> {
 		setDisposableTracker(tracker);
 	});
 
-	// Narrow ctx shape inline so this file type-checks even when pulled into the
-	// main src/ compile (which doesn't have Vitest's afterEach context types).
+	// Narrow ctx so this file type-checks when pulled into the main src/ compile (no Vitest globals).
 	type AfterEachContext = { task?: { result?: { state?: string } } } | undefined;
 	afterEach((ctx) => {
 		store.dispose();
