@@ -14,10 +14,10 @@ export const DEFAULT_DEEPSEEK_MODEL_NAME = 'DeepSeek-V4-Pro';
 export const DEFAULT_DEEPSEEK_MODEL_MATCH = 'deepseek-v4-pro';
 
 /**
- * Fetches models from the Anthropic API with pagination support.
+ * Fetches models from the Deepseek API with pagination support.
  *
- * @param client - The Anthropic client instance
- * @param providerId - The provider identifier (e.g., 'anthropic-api')
+ * @param client - The Deepseek (Anthropic) client instance
+ * @param providerId - The provider identifier (e.g., 'deepseek-api')
  * @param providerName - The display name of the provider
  * @param capabilities - The model capabilities to include in model info
  * @param logger - Logger for debug/trace messages
@@ -67,7 +67,7 @@ export async function fetchDeepseekModelsFromApi(
 			}
 		}
 
-		return markDefaultModel(modelListing, providerId, DEFAULT_ANTHROPIC_MODEL_MATCH);
+		return markDefaultModel(modelListing, providerId, DEFAULT_DEEPSEEK_MODEL_MATCH);
 	} catch (error) {
 		logger.warn(`Failed to fetch models from Anthropic API: ${error}`);
 		return undefined;
