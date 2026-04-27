@@ -9,6 +9,7 @@ import './contrib/assistant/positronNotebookAssistant.contribution.js';
 import './contrib/ghostCell/positronNotebookGhostCell.contribution.js';
 import './contrib/outline/positronNotebookOutline.contribution.js';
 import './contrib/dataExplorer/positronNotebookDataExplorer.contribution.js';
+import './contrib/translate/positronNotebookTranslate.contribution.js';
 
 import { isCopyImageMenuArg, toBase64DataUrl } from './copyImageUtils.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
