@@ -1793,7 +1793,7 @@ describe('ANSIOutput', () => {
 		expect(outputLines[2].outputRuns[0].format).toBe(undefined);
 		expect(outputLines[2].outputRuns[0].hyperlink).not.toBe(undefined);
 		expect(outputLines[2].outputRuns[0].hyperlink!.url).toBe(linkURL);
-		expect(outputLines[1].outputRuns[0].hyperlink!.params).toBe(undefined);
+		expect(outputLines[2].outputRuns[0].hyperlink!.params).toBe(undefined);
 		expect(outputLines[2].outputRuns[0].text).toBe(linkText);
 
 		expect(outputLines[3].id.length).toBeGreaterThanOrEqual(1);

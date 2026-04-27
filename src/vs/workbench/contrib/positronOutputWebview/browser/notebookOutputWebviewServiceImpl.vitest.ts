@@ -61,6 +61,7 @@ describe('PositronNotebookOutputWebviewService', () => {
 		expect(
 			capturedInitInfo?.contentOptions.localResourceRoots?.map(root => root.toString()),
 		).toEqual([baseUri.toString()]);
-		expect(capturedHtml?.includes(`<base href="${asWebviewUri(baseUri).toString(true)}/">`)).toBeTruthy();
+		expect(capturedHtml).toBeDefined();
+		expect(capturedHtml).toContain(`<base href="${asWebviewUri(baseUri).toString(true)}/">`);
 	});
 });
