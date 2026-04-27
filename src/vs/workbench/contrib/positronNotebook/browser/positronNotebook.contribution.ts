@@ -1544,7 +1544,7 @@ registerAction2(class extends NotebookAction2 {
 });
 
 // Truncate output
-registerAction2(class extends NotebookAction2 {
+export class TruncateOutputAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.truncateOutput',
@@ -1584,10 +1584,11 @@ registerAction2(class extends NotebookAction2 {
 			cell.truncateOutput();
 		}
 	}
-});
+}
+registerAction2(TruncateOutputAction);
 
 // Show full output
-registerAction2(class extends NotebookAction2 {
+export class ShowFullOutputAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.showFullOutput',
@@ -1627,7 +1628,8 @@ registerAction2(class extends NotebookAction2 {
 			cell.showFullOutput();
 		}
 	}
-});
+}
+registerAction2(ShowFullOutputAction);
 
 // Collapse all outputs for a cell
 registerAction2(class extends NotebookAction2 {
