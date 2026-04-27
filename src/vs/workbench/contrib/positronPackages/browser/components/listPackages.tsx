@@ -45,6 +45,15 @@ const positronUpdatePackage = localize(
 	'Update Package',
 );
 
+/**
+ * Base/recommended R packages are reported with installedFrom === 'R' by Ark
+ * (priority "base" or "recommended"). They're effectively always attached and
+ * unloading them can crash the session, so we render the indicator as
+ * non-interactive for those rows.
+ */
+const isProtectedPackage = (pkg: ILanguageRuntimePackage): boolean =>
+	pkg.installedFrom === 'R';
+
 // Height of the filter container in pixels
 const FILTER_HEIGHT = 34;
 
@@ -60,6 +69,13 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	const services = usePositronReactServicesContext();
 
 	const [packages, setPackages] = useState<ILanguageRuntimePackage[]>([]);
+
+	/**
+	 * Optimistic overrides for the loaded indicator, keyed by package name.
+	 * Set on click before the kernel call returns, then cleared on the next
+	 * refresh so the UI snaps back to the truth.
+	 */
+	const [optimisticLoaded, setOptimisticLoaded] = useState<Map<string, boolean>>(new Map());
 
 	// Item size mode ('card' or 'row'), driven by the packages service.
 	const [itemSize, setItemSize] = useState(() => services.positronPackagesService.itemSize);
@@ -91,6 +107,8 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		const disposables = new DisposableStore();
 		disposables.add(activeInstance.onDidRefreshPackagesInstance((packages) => {
 			setPackages(packages);
+			// Refresh just delivered ground truth; drop optimistic overrides.
+			setOptimisticLoaded(new Map());
 		}));
 		disposables.add(activeInstance.onDidChangeRefreshState((isLoading) => {
 			setRefreshLoading(isLoading);
@@ -186,28 +204,37 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		return () => clearTimeout(timeout);
 	}, [queryText]);
 
-	// Deduplicate packages by name, keeping only the first occurrence.
-	// The same package can exist in multiple library paths (e.g., user and system libraries).
-	// We show only the first one, matching R's library search order.
+	// Deduplicate packages by name, keeping only the first occurrence, and
+	// overlay any optimistic `loaded` overrides so the dot reflects the
+	// pending click before the next refresh confirms it.
 	const deduplicatedPackages = useMemo(() => {
 		const seen = new Set<string>();
-		return packages.filter((pkg) => {
-			if (seen.has(pkg.name)) {
-				return false;
-			}
-			seen.add(pkg.name);
-			return true;
-		});
-	}, [packages]);
+		return packages
+			.filter((pkg) => {
+				if (seen.has(pkg.name)) {
+					return false;
+				}
+				seen.add(pkg.name);
+				return true;
+			})
+			.map((pkg) => {
+				const override = optimisticLoaded.get(pkg.name);
+				return override === undefined ? pkg : { ...pkg, loaded: override };
+			});
+	}, [packages, optimisticLoaded]);
 
 	// Parse the debounced query so filtering and sorting run off the same snapshot.
 	const debouncedQuery = useMemo(() => parseQuery(debouncedQueryText), [debouncedQueryText]);
 
 	// Filter packages based on the debounced free-text (case-insensitive, matches
 	// name, displayName, description, or author) and sort according to the
-	// current sort order.
+	// current sort order. `@loaded` narrows to attached packages only.
 	const filteredPackages = useMemo(() => {
 		let result = deduplicatedPackages;
+
+		if (debouncedQuery.loadedOnly) {
+			result = result.filter((pkg) => pkg.loaded === true);
+		}
 
 		if (debouncedQuery.text) {
 			const lowerFilter = debouncedQuery.text.toLowerCase();
@@ -264,10 +291,46 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		return () => disposableStore.dispose();
 	}, [reactComponentContainer, scrollStateRef, setScrollState]);
 
+	// Toggle the loaded state for a package: optimistically flip the dot,
+	// fire the load/unload via the service, and rely on the next refresh to
+	// confirm. On error, revert and show the kernel's message as a toast.
+	const toggleLoaded = async (pkg: ILanguageRuntimePackage) => {
+		if (isProtectedPackage(pkg)) {
+			return;
+		}
+		const next = !(pkg.loaded ?? false);
+		setOptimisticLoaded((prev) => {
+			const updated = new Map(prev);
+			updated.set(pkg.name, next);
+			return updated;
+		});
+		try {
+			if (next) {
+				await services.positronPackagesService.loadPackage(pkg.name);
+			} else {
+				await services.positronPackagesService.unloadPackage(pkg.name);
+			}
+		} catch (err) {
+			// Revert just this package's optimistic entry; refresh will re-sync.
+			setOptimisticLoaded((prev) => {
+				const updated = new Map(prev);
+				updated.delete(pkg.name);
+				return updated;
+			});
+			const message = err instanceof Error ? err.message : String(err);
+			services.notificationService.error(
+				next
+					? localize('positronPackages.loadFailed', "Failed to load package '{0}': {1}", pkg.name, message)
+					: localize('positronPackages.unloadFailed', "Failed to unload package '{0}': {1}", pkg.name, message),
+			);
+		}
+	};
+
 	// Item renderer
 	const ItemEntry = (props: { index: number; style: CSSProperties }) => {
 		const itemProps = filteredPackages[props.index];
-		const { id, name, displayName, version, latestVersion, description, author } = itemProps;
+		const { id, name, displayName, version, latestVersion, description, author, loaded } = itemProps;
+		const protectedPkg = isProtectedPackage(itemProps);
 
 		// Check if package has an update available
 		const hasUpdate = latestVersion && latestVersion !== version;
@@ -327,28 +390,62 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 					}
 				}}
 			>
-				<div className='packages-list-item-header'>
-					<div className='packages-list-item-name'>{displayName}</div>
-					<div className='packages-list-item-version'>{version}</div>
-					{hasUpdate && (
-						<div
-							className='packages-list-item-update'
-							title={localize('positronPackages.updateAvailable', "Update available: {0}", latestVersion)}
-						>
-							&#x2191;
-						</div>
+				{loaded !== undefined && (
+					<div
+						aria-disabled={protectedPkg}
+						aria-label={loaded
+							? localize('positronPackages.loadedAriaLabel', "{0} is loaded; click to unload", name)
+							: localize('positronPackages.notLoadedAriaLabel', "{0} is not loaded; click to load", name)}
+						className={positronClassNames(
+							'packages-list-item-loaded',
+							{ loaded, protected: protectedPkg },
+						)}
+						role={protectedPkg ? 'img' : 'button'}
+						title={protectedPkg
+							? localize('positronPackages.protectedTooltip', "Base R package (always loaded)")
+							: loaded
+								? localize('positronPackages.unloadTooltip', "Click to unload {0}", name)
+								: localize('positronPackages.loadTooltip', "Click to load {0}", name)}
+						onClick={(e) => {
+							if (protectedPkg) {
+								return;
+							}
+							// Don't let the click bubble into the row's
+							// onMouseDown selection / context-menu logic.
+							e.stopPropagation();
+							toggleLoaded(itemProps);
+						}}
+						onMouseDown={(e) => {
+							// Prevent the parent's mousedown from running (which
+							// would change selection or open the context menu).
+							e.stopPropagation();
+						}}
+					/>
+				)}
+				<div className='packages-list-item-body'>
+					<div className='packages-list-item-header'>
+						<div className='packages-list-item-name'>{displayName}</div>
+						<div className='packages-list-item-version'>{version}</div>
+						{hasUpdate && (
+							<div
+								className='packages-list-item-update'
+								title={localize('positronPackages.updateAvailable', "Update available: {0}", latestVersion)}
+							>
+								&#x2191;
+							</div>
+						)}
+					</div>
+					{itemSize === 'card' && (
+						<>
+							<div className='packages-list-item-description' title={description ?? ''}>
+								{description ?? ''}
+							</div>
+							<div className='packages-list-item-author' title={author ?? ''}>
+								{author ?? ''}
+							</div>
+						</>
 					)}
 				</div>
-				{itemSize === 'card' && (
-					<>
-						<div className='packages-list-item-description' title={description ?? ''}>
-							{description ?? ''}
-						</div>
-						<div className='packages-list-item-author' title={author ?? ''}>
-							{author ?? ''}
-						</div>
-					</>
-				)}
 			</div >
 		);
 	};

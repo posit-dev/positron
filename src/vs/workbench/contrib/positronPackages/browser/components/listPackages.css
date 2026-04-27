@@ -50,13 +50,31 @@
 }
 
 .packages-list-item.item-size-card {
-	flex-direction: column;
-	justify-content: center;
+	flex-direction: row;
+	/*
+	 * Anchor the dot to the title row by aligning the body's first line
+	 * with the dot rather than centering vertically over a multi-line card.
+	 */
+	align-items: flex-start;
 	/* Match the search input's text-start position: filter-container 8px + input border 1px + text-input padding 8px. */
 	padding-left: 10px;
 	padding-right: 11px;
 	padding-top: 6px;
 	padding-bottom: 6px;
+}
+
+.packages-list-item-body {
+	flex: 1 1 auto;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+.packages-list-item.item-size-row .packages-list-item-body {
+	/* Row mode is single-line; let the body act like the header used to. */
+	flex-direction: row;
+	align-items: center;
 }
 
 .packages-list-item-header {
@@ -69,6 +87,53 @@
 
 .packages-list-item.item-size-row .packages-list-item-header {
 	flex: 1 1 auto;
+}
+
+/*
+ * 7x7 dot rendered with a CSS pseudo-element so the click target can be the
+ * larger surrounding box (~16x16) without changing the visual size. Unloaded
+ * is a 1px ring; loaded fills with green. Size of the visual dot is the same
+ * either way so the package name doesn't shift on toggle.
+ */
+.packages-list-item-loaded {
+	flex: 0 0 auto;
+	width: 16px;
+	height: 16px;
+	margin-right: 2px;
+	padding: 0;
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.packages-list-item-loaded::before {
+	content: '';
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	box-sizing: border-box;
+	border: 1px solid var(--vscode-descriptionForeground);
+	background: transparent;
+}
+
+.packages-list-item-loaded.loaded::before {
+	background: #89d185;
+	border-color: #89d185;
+}
+
+.packages-list-item-loaded.protected {
+	cursor: default;
+}
+
+.packages-list-item-loaded.protected::before {
+	opacity: 0.4;
+}
+
+.packages-list-item-loaded:hover:not(.protected)::before {
+	border-color: #89d185;
 }
 
 .packages-list-item-name {

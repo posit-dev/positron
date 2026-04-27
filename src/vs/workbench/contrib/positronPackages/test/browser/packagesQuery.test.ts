@@ -16,6 +16,7 @@ suite('packagesQuery', () => {
 			const result = parseQuery('');
 			assert.strictEqual(result.text, '');
 			assert.strictEqual(result.sort, PackagesSortOrder.NameAsc);
+			assert.strictEqual(result.loadedOnly, false);
 		});
 
 		test('whitespace-only input returns default sort and empty text', () => {
@@ -94,6 +95,41 @@ suite('packagesQuery', () => {
 			const result = parseQuery('foo@bar');
 			assert.strictEqual(result.text, 'foo');
 			assert.strictEqual(result.sort, PackagesSortOrder.NameAsc);
+		});
+
+		test('@loaded sets loadedOnly and is stripped from text', () => {
+			const result = parseQuery('@loaded');
+			assert.strictEqual(result.text, '');
+			assert.strictEqual(result.loadedOnly, true);
+		});
+
+		test('@loaded surrounded by free text leaves single-spaced text', () => {
+			const result = parseQuery('foo @loaded bar');
+			assert.strictEqual(result.text, 'foo bar');
+			assert.strictEqual(result.loadedOnly, true);
+		});
+
+		test('@loaded is case-insensitive', () => {
+			const result = parseQuery('@LOADED');
+			assert.strictEqual(result.loadedOnly, true);
+		});
+
+		test('@loaded with a value is treated as unknown and does not set the flag', () => {
+			const result = parseQuery('@loaded:true dplyr');
+			assert.strictEqual(result.text, 'dplyr');
+			assert.strictEqual(result.loadedOnly, false);
+		});
+
+		test('@loaded composes with @sort: in either order', () => {
+			const a = parseQuery('@loaded @sort:name-desc dplyr');
+			assert.strictEqual(a.text, 'dplyr');
+			assert.strictEqual(a.sort, PackagesSortOrder.NameDesc);
+			assert.strictEqual(a.loadedOnly, true);
+
+			const b = parseQuery('@sort:name-desc @loaded dplyr');
+			assert.strictEqual(b.text, 'dplyr');
+			assert.strictEqual(b.sort, PackagesSortOrder.NameDesc);
+			assert.strictEqual(b.loadedOnly, true);
 		});
 	});
 

@@ -219,6 +219,41 @@ export class RPackageManager {
 	}
 
 	/**
+	 * Attach a package to the R session via library().
+	 * Runs in Interactive mode so the call appears in the console and history,
+	 * and focuses the console so the user sees the echoed call.
+	 * @param packageName Name of the package to load
+	 * @param token Optional cancellation token
+	 */
+	async loadPackage(packageName: string, token?: vscode.CancellationToken): Promise<void> {
+		if (token?.isCancellationRequested) {
+			throw new vscode.CancellationError();
+		}
+		this._validatePackageName(packageName);
+		vscode.commands.executeCommand('workbench.panel.positronConsole.focus');
+		await this._executeInteractive(`library(${packageName})`, token);
+	}
+
+	/**
+	 * Detach a package from the R session via detach('package:...', unload = TRUE).
+	 * Runs in Interactive mode so the call appears in the console and history,
+	 * and focuses the console so the user sees the echoed call.
+	 * @param packageName Name of the package to unload
+	 * @param token Optional cancellation token
+	 */
+	async unloadPackage(packageName: string, token?: vscode.CancellationToken): Promise<void> {
+		if (token?.isCancellationRequested) {
+			throw new vscode.CancellationError();
+		}
+		this._validatePackageName(packageName);
+		vscode.commands.executeCommand('workbench.panel.positronConsole.focus');
+		await this._executeInteractive(
+			`detach("package:${packageName}", unload = TRUE)`,
+			token,
+		);
+	}
+
+	/**
 	 * Search repo for packages matching the query.
 	 * @param query Search query string
 	 * @param token Optional cancellation token
@@ -360,12 +395,37 @@ export class RPackageManager {
 	}
 
 	/**
+	 * Execute R code in Interactive mode so the call appears in the console
+	 * and command history. Used for user-driven actions like library()/detach()
+	 * where the user expects to see and replay the command.
+	 */
+	private async _executeInteractive(code: string, token?: vscode.CancellationToken): Promise<void> {
+		return this._executeWithMode(
+			code,
+			positron.RuntimeCodeExecutionMode.Interactive,
+			token,
+		);
+	}
+
+	/**
 	 * Execute R code in the console and wait for completion.
 	 * Uses NonInteractive mode so output appears in the console.
 	 * @param code The R code to execute
 	 * @param token Optional cancellation token - if cancelled, interrupts the R session
 	 */
 	private async _execute(code: string, token?: vscode.CancellationToken): Promise<void> {
+		return this._executeWithMode(
+			code,
+			positron.RuntimeCodeExecutionMode.NonInteractive,
+			token,
+		);
+	}
+
+	private async _executeWithMode(
+		code: string,
+		mode: positron.RuntimeCodeExecutionMode,
+		token?: vscode.CancellationToken,
+	): Promise<void> {
 		const id = randomUUID();
 
 		const promise = new Promise<void>((resolve, reject) => {
@@ -402,7 +462,7 @@ export class RPackageManager {
 		this._session.execute(
 			code,
 			id,
-			positron.RuntimeCodeExecutionMode.NonInteractive,
+			mode,
 			positron.RuntimeErrorBehavior.Continue
 		);
 

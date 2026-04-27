@@ -102,6 +102,20 @@ export interface IPositronPackagesService {
 	updateAllPackages(token?: CancellationToken): Promise<void>;
 
 	/**
+	 * Attach a package in the active session (e.g. R's library()).
+	 * @param packageName Name of the package to load
+	 * @param token Optional cancellation token
+	 */
+	loadPackage(packageName: string, token?: CancellationToken): Promise<void>;
+
+	/**
+	 * Detach a package in the active session (e.g. R's detach()).
+	 * @param packageName Name of the package to unload
+	 * @param token Optional cancellation token
+	 */
+	unloadPackage(packageName: string, token?: CancellationToken): Promise<void>;
+
+	/**
 	 * Search for packages matching a query.
 	 * @param query Search query
 	 * @param token Optional cancellation token

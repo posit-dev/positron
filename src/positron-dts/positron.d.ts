@@ -1161,6 +1161,10 @@ declare module 'positron' {
 		description?: string;
 		/** Optional author shown in the Packages pane card view. */
 		author?: string;
+		/** Whether the package is currently attached to the runtime's search path. */
+		loaded?: boolean;
+		/** Source the package was installed from (e.g. CRAN, Bioconductor, R for base packages). */
+		installedFrom?: string;
 	}
 
 	/**
@@ -1213,6 +1217,20 @@ declare module 'positron' {
 		 * @param token Optional cancellation token
 		 */
 		updateAllPackages(token?: vscode.CancellationToken): Thenable<void>;
+
+		/**
+		 * Attach a package to the session (e.g. R's library()).
+		 * @param packageName Name of the package to load
+		 * @param token Optional cancellation token
+		 */
+		loadPackage?(packageName: string, token?: vscode.CancellationToken): Thenable<void>;
+
+		/**
+		 * Detach a package from the session (e.g. R's detach('package:...')).
+		 * @param packageName Name of the package to unload
+		 * @param token Optional cancellation token
+		 */
+		unloadPackage?(packageName: string, token?: vscode.CancellationToken): Thenable<void>;
 
 		/**
 		 * Search a repository for packages matching the query.

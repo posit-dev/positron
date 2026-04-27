@@ -126,6 +126,8 @@ export interface ExtHostLanguageRuntimeShape {
 	$uninstallPackages(handle: number, packageNames: string[], token: CancellationToken): Promise<void>;
 	$updatePackages(handle: number, packages: PackageSpec[], token: CancellationToken): Promise<void>;
 	$updateAllPackages(handle: number, token: CancellationToken): Promise<void>;
+	$loadPackage(handle: number, packageName: string, token: CancellationToken): Promise<void>;
+	$unloadPackage(handle: number, packageName: string, token: CancellationToken): Promise<void>;
 	$searchPackages(handle: number, query: string, token: CancellationToken): Promise<LanguageRuntimePackage[]>;
 	$searchPackageVersions(handle: number, name: string, token: CancellationToken): Promise<string[]>;
 	$getPackageMetadata(handle: number, packageNames: string[], token: CancellationToken): Promise<Record<string, Partial<LanguageRuntimePackage>> | undefined>;

@@ -23,6 +23,8 @@ export interface IPositronPackagesInstance {
 	uninstallPackages(packageNames: string[], token?: CancellationToken): Promise<void>;
 	updatePackages(packages: IPackageSpec[], token?: CancellationToken): Promise<void>;
 	updateAllPackages(token?: CancellationToken): Promise<void>;
+	loadPackage(packageName: string, token?: CancellationToken): Promise<void>;
+	unloadPackage(packageName: string, token?: CancellationToken): Promise<void>;
 	searchPackages(name: string, token?: CancellationToken): Promise<ILanguageRuntimePackage[]>;
 	searchPackageVersions(name: string, token?: CancellationToken): Promise<string[]>;
 
@@ -313,6 +315,37 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		} finally {
 			// Completed
 			this._onDidChangeUpdateAllState.fire(false);
+		}
+	}
+
+	async loadPackage(packageName: string, token?: CancellationToken): Promise<void> {
+		const packageManager = this.getPackageManagerOrThrow();
+		const effectiveToken = token ?? CancellationToken.None;
+
+		if (!packageManager.loadPackage) {
+			throw new Error('Package loading is not supported by this runtime.');
+		}
+
+		try {
+			await packageManager.loadPackage(packageName, effectiveToken);
+		} finally {
+			// Refresh after either success or failure so the indicator reflects truth.
+			await this._refreshPackagesInternal(packageManager, effectiveToken);
+		}
+	}
+
+	async unloadPackage(packageName: string, token?: CancellationToken): Promise<void> {
+		const packageManager = this.getPackageManagerOrThrow();
+		const effectiveToken = token ?? CancellationToken.None;
+
+		if (!packageManager.unloadPackage) {
+			throw new Error('Package unloading is not supported by this runtime.');
+		}
+
+		try {
+			await packageManager.unloadPackage(packageName, effectiveToken);
+		} finally {
+			await this._refreshPackagesInternal(packageManager, effectiveToken);
 		}
 	}
 

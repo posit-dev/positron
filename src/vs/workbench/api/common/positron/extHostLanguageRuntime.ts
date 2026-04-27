@@ -767,6 +767,22 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return packageManager.updateAllPackages(token);
 	}
 
+	async $loadPackage(handle: number, packageName: string, token: CancellationToken): Promise<void> {
+		const packageManager = this.getPackageManagerOrThrow(handle, 'load package');
+		if (!packageManager.loadPackage) {
+			throw new Error(`Cannot load package: this runtime does not support package loading.`);
+		}
+		return packageManager.loadPackage(packageName, token);
+	}
+
+	async $unloadPackage(handle: number, packageName: string, token: CancellationToken): Promise<void> {
+		const packageManager = this.getPackageManagerOrThrow(handle, 'unload package');
+		if (!packageManager.unloadPackage) {
+			throw new Error(`Cannot unload package: this runtime does not support package unloading.`);
+		}
+		return packageManager.unloadPackage(packageName, token);
+	}
+
 	async $searchPackages(handle: number, query: string, token: CancellationToken): Promise<positron.LanguageRuntimePackage[]> {
 		const packageManager = this.getPackageManagerOrThrow(handle, 'search packages');
 		return packageManager.searchPackages(query, token);

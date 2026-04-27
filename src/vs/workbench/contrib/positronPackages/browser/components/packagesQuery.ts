@@ -35,6 +35,8 @@ export interface ParsedQuery {
 	readonly text: string;
 	/** Active sort order. */
 	readonly sort: PackagesSortOrder;
+	/** When true, restrict results to packages currently attached to the runtime. */
+	readonly loadedOnly: boolean;
 }
 
 /**
@@ -45,18 +47,22 @@ export interface ParsedQuery {
  */
 export const parseQuery = (query: string): ParsedQuery => {
 	let sort: PackagesSortOrder = PackagesSortOrder.NameAsc;
+	let loadedOnly = false;
 
 	const text = query.replace(TOKEN_REGEX, (_match, key: string, value: string | undefined) => {
-		if (key.toLowerCase() === 'sort' && value !== undefined) {
+		const lowerKey = key.toLowerCase();
+		if (lowerKey === 'sort' && value !== undefined) {
 			const order = SORT_TOKEN_TO_ORDER[value.toLowerCase()];
 			if (order !== undefined) {
 				sort = order;
 			}
+		} else if (lowerKey === 'loaded' && value === undefined) {
+			loadedOnly = true;
 		}
 		return '';
 	}).replace(/\s+/g, ' ').trim();
 
-	return { text, sort };
+	return { text, sort, loadedOnly };
 };
 
 /**

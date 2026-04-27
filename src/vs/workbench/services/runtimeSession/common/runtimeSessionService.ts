@@ -301,6 +301,12 @@ export interface ILanguageRuntimePackage {
 
 	description?: string;
 	author?: string;
+
+	/** Whether the package is currently attached to the runtime's search path. */
+	loaded?: boolean;
+
+	/** Source the package was installed from (e.g. CRAN, Bioconductor, R for base packages). */
+	installedFrom?: string;
 }
 
 /**
@@ -351,6 +357,20 @@ export interface ILanguageRuntimePackageManager {
 	 * @param token Optional cancellation token
 	 */
 	updateAllPackages(token?: CancellationToken): Promise<void>;
+
+	/**
+	 * Attach a package to the session (e.g. R's library()).
+	 * @param packageName Name of the package to load
+	 * @param token Optional cancellation token
+	 */
+	loadPackage?(packageName: string, token?: CancellationToken): Promise<void>;
+
+	/**
+	 * Detach a package from the session (e.g. R's detach('package:...')).
+	 * @param packageName Name of the package to unload
+	 * @param token Optional cancellation token
+	 */
+	unloadPackage?(packageName: string, token?: CancellationToken): Promise<void>;
 
 	/**
 	 * Search a repository for packages matching the query.
