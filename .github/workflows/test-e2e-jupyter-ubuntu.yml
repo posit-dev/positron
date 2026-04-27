@@ -47,8 +47,6 @@ jobs:
       E2E_POSTGRES_DB: ${{ secrets.E2E_POSTGRES_DB }}
       JUPYTER_PASSWORD: ${{ secrets.JUPYTER_PASSWORD }}
       CONNECT_BOOTSTRAP_SECRETKEY: ${{ secrets.CONNECT_BOOTSTRAP_SECRETKEY }}
-      E2E_CONNECT_SERVER: http://localhost:3939
-      E2E_CONNECT_APIKEY: ${{ secrets.E2E_CONNECT_APIKEY }}
       HOME: /home/runner
       AWS_S3_BUCKET: positron-test-reports
       R_LIBS_SITE: /usr/local/lib/R/site-library
