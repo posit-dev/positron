@@ -78,6 +78,7 @@ export const ActionBarButtonIcon = (props: {
 	icon: IconType;
 	style?: React.CSSProperties;
 	dropdownIndicator?: string;
+	dataTestId?: string;
 }) => {
 	return (
 		<Icon
@@ -86,6 +87,7 @@ export const ActionBarButtonIcon = (props: {
 				props.dropdownIndicator,
 				{ 'custom-icon-color': Boolean(props.style) }
 			)}
+			dataTestId={props.dataTestId}
 			icon={props.icon}
 			style={props.style}
 		/>

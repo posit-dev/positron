@@ -25,6 +25,7 @@ interface IconProps {
 	readonly icon: IconType;
 	readonly className?: string;
 	readonly style?: React.CSSProperties;
+	readonly dataTestId?: string;
 }
 
 /**
@@ -34,6 +35,7 @@ interface ThemeIconProps {
 	readonly icon: ThemeIconClass;
 	readonly className?: string;
 	readonly style?: React.CSSProperties;
+	readonly dataTestId?: string;
 }
 
 /**
@@ -43,6 +45,7 @@ interface URIIconProps {
 	readonly icon: { dark?: URI; light?: URI };
 	readonly className?: string;
 	readonly style?: React.CSSProperties;
+	readonly dataTestId?: string;
 }
 
 /**
@@ -56,6 +59,7 @@ export const ThemeIcon = (props: ThemeIconProps) => {
 	return (
 		<div
 			className={positronClassNames(props.className, ...iconClassNames)}
+			data-testid={props.dataTestId}
 			style={props.style}
 		/>
 	);
@@ -98,6 +102,7 @@ export const URIIcon = (props: URIIconProps) => {
 	return (
 		<div
 			className={props.className}
+			data-testid={props.dataTestId}
 			style={{ ...props.style, ...iconStyle }}
 		/>
 	);
@@ -113,12 +118,14 @@ export const Icon = (props: IconProps) => {
 	if (ThemeIconClass.isThemeIcon(props.icon)) {
 		return <ThemeIcon
 			className={props.className}
+			dataTestId={props.dataTestId}
 			icon={props.icon}
 			style={props.style}
 		/>;
 	} else {
 		return <URIIcon
 			className={props.className}
+			dataTestId={props.dataTestId}
 			icon={props.icon}
 			style={props.style}
 		/>;
