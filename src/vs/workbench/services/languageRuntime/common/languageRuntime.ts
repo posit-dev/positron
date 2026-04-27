@@ -253,6 +253,15 @@ configurationRegistry.registerConfiguration({
 				'positron.runtime.automaticStartup',
 				"How interpreters are started in new Positron windows."),
 			tags: ['interpreterSettings']
+		},
+		'interpreters.discoveryCache.enabled': {
+			scope: ConfigurationScope.APPLICATION_MACHINE,
+			type: 'boolean',
+			default: true,
+			description: nls.localize(
+				'positron.runtime.discoveryCache.enabled',
+				"When enabled, system-scoped interpreters discovered in one Positron window are reused on warm starts of other windows, skipping a full discovery pass when nothing has changed. Turn off to restore the pre-cache behavior of running full discovery on every open."),
+			tags: ['interpreterSettings']
 		}
 	}
 });

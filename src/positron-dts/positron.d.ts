@@ -674,6 +674,15 @@ declare module 'positron' {
 		 * notifications to the backend via the UI client.
 		 */
 		uiSubscriptions?: UiRuntimeNotifications[];
+
+		/**
+		 * Whether this runtime is eligible to be stored in Positron's cross-window
+		 * discovery cache. Defaults to `false` when omitted. Set to `true` only for
+		 * system-scoped runtimes whose `runtimePath` resolves to a real on-disk
+		 * executable and whose behavior is not bound to a specific workspace
+		 * (i.e. not a venv, renv library, pyenv/asdf shim, or proxy/remote runtime).
+		 */
+		cacheable?: boolean;
 	}
 
 	/**

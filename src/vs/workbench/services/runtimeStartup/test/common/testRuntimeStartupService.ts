@@ -5,7 +5,7 @@
 
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
-import { ILanguageRuntimeMetadata, IRuntimeManager } from '../../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, IRuntimeManager, RuntimeStartupPhase } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from '../../common/runtimeStartupService.js';
 
 /**
@@ -21,6 +21,9 @@ export class TestRuntimeStartupService implements IRuntimeStartupService {
 	private _affiliatedRuntimes = new Map<string, ILanguageRuntimeMetadata>();
 	private _restoredSessions: SerializedSessionMetadata[] = [];
 	private _runtimeManagers: IRuntimeManager[] = [];
+
+	public startupPhase: RuntimeStartupPhase = RuntimeStartupPhase.Complete;
+	public backgroundDiscoveryInProgress: boolean = false;
 
 	constructor() { }
 

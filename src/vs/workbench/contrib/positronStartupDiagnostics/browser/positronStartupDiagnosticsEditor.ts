@@ -26,6 +26,11 @@ import { getWorkbenchContribution } from '../../../common/contributions.js';
 import { ICustomEditorLabelService } from '../../../services/editor/common/customEditorLabelService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
+import {
+	IRuntimeDiscoveryCache,
+	RUNTIME_DISCOVERY_CACHE_ENABLED_SETTING,
+	RUNTIME_DISCOVERY_CACHE_STORAGE_KEY,
+} from '../../../services/runtimeStartup/common/runtimeDiscoveryCacheService.js';
 import { ILanguageRuntimeService, ILanguageRuntimeLaunchInfo } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IOutputService } from '../../../services/output/common/output.js';
@@ -120,6 +125,7 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 		@IOutputService private readonly _outputService: IOutputService,
 		@ITextModelService private readonly _textModelService: ITextModelService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
+		@IRuntimeDiscoveryCache private readonly _discoveryCache: IRuntimeDiscoveryCache,
 	) { }
 
 	provideTextContent(resource: URI): Promise<ITextModel> {
@@ -149,6 +155,8 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 				this._addSystemInfo(md);
 				md.blank();
 				this._addAffiliatedRuntimes(md);
+				md.blank();
+				this._addDiscoveryCache(md);
 				md.blank();
 				this._addActiveRuntimes(md);
 				md.blank();
@@ -486,6 +494,86 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 			]);
 		}
 		md.table(['Name', 'Language', 'Version', 'Source', 'Has Session', 'Session ID(s)'], table);
+	}
+
+	private _addDiscoveryCache(md: MarkdownBuilder): void {
+		md.heading(2, 'Discovery Cache');
+
+		const enabled = this._configurationService.getValue<boolean>(RUNTIME_DISCOVERY_CACHE_ENABLED_SETTING);
+		const enabledStr = enabled === false ? 'no'
+			: enabled === true ? 'yes'
+				: 'yes (default)';
+
+		md.li(`\`${RUNTIME_DISCOVERY_CACHE_ENABLED_SETTING}\`: ${enabledStr}`);
+		md.li(`Schema/storage key: \`${RUNTIME_DISCOVERY_CACHE_STORAGE_KEY}\``);
+		md.li(`Storage scope: \`APPLICATION\`/\`MACHINE\``);
+		md.li(`Current startup phase: \`${this._runtimeStartupService.startupPhase}\``);
+		md.li(`Background discovery in progress: ${this._runtimeStartupService.backgroundDiscoveryInProgress ? 'yes' : 'no'}`);
+
+		if (enabled === false) {
+			md.blank();
+			md.li('_Discovery cache disabled by setting -- no entries are read or written this session._');
+			return;
+		}
+
+		const counters = this._discoveryCache.sessionCounters;
+		md.blank();
+		md.heading(3, 'This-session counters');
+		md.li(`Foreground cache-hit registrations: ${counters.foregroundHits}`);
+		md.li(`Background revalidations attempted / succeeded / failed: ${counters.revalidationsAttempted} / ${counters.revalidationsSucceeded} / ${counters.revalidationsFailed}`);
+		md.li(`Evictions this session: ${counters.evictions}`);
+		md.li(`Full-discovery passes this session: ${counters.fullDiscoveryRuns.length}`);
+		if (counters.fullDiscoveryRuns.length > 0) {
+			const reasonTable: Array<Array<string>> = counters.fullDiscoveryRuns.map(r => [
+				r.extensionId, r.languageId, r.reason, new Date(r.at).toISOString(),
+			]);
+			md.table(['Extension', 'Language', 'Reason', 'At'], reasonTable);
+		}
+
+		const buckets = this._discoveryCache.getAllBuckets();
+		md.blank();
+		md.heading(3, 'Per-bucket state');
+		if (buckets.length === 0) {
+			md.li('No cached entries.');
+			return;
+		}
+
+		const fmtAge = (ts: number): string => {
+			if (!ts) { return '-'; }
+			const ageMs = Date.now() - ts;
+			if (ageMs < 0) { return '-'; }
+			const days = Math.floor(ageMs / (24 * 60 * 60 * 1000));
+			const hours = Math.floor((ageMs % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+			if (days > 0) { return `${days}d ${hours}h ago`; }
+			if (hours > 0) { return `${hours}h ago`; }
+			const minutes = Math.floor(ageMs / (60 * 1000));
+			return `${minutes}m ago`;
+		};
+
+		const rows: Array<Array<string>> = [];
+		for (const bucket of buckets) {
+			let oldestFirstSeen = 0;
+			let newestValidated = 0;
+			for (const entry of bucket.entries) {
+				if (oldestFirstSeen === 0 || entry.firstSeen < oldestFirstSeen) {
+					oldestFirstSeen = entry.firstSeen;
+				}
+				if (entry.lastValidated > newestValidated) {
+					newestValidated = entry.lastValidated;
+				}
+			}
+			rows.push([
+				bucket.extensionId,
+				bucket.languageId,
+				String(bucket.entries.length),
+				fmtAge(oldestFirstSeen),
+				fmtAge(newestValidated),
+				fmtAge(bucket.lastFullDiscovery),
+			]);
+		}
+		md.table(
+			['Extension', 'Language', 'Entries', 'Oldest firstSeen', 'Newest lastValidated', 'lastFullDiscovery'],
+			rows);
 	}
 
 	private _addDiscoveredRuntimes(md: MarkdownBuilder): void {

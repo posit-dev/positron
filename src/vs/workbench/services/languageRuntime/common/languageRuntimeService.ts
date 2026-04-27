@@ -777,15 +777,31 @@ export enum RuntimeStartupPhase {
 	Starting = 'starting',
 
 	/**
-	 * Phase 6: Positron is discovering all the runtimes on the machine. This
-	 * can take a while, but does precede startup for workspaces that have no
-	 * affiliated runtimes (so we don't know what to start yet).
+	 * Phase 6: Positron is loading system-scoped runtimes from the cross-window
+	 * discovery cache. Each cached entry is fingerprint-checked (`stat` and
+	 * compare) and registered if it passes. Skipped entirely when the cache is
+	 * disabled or empty for every (extension, language) bucket. Entries whose
+	 * fingerprint changed are queued for background revalidation rather than
+	 * blocking startup. This phase is a strict subset of `Discovering`: it
+	 * never invokes a manager's full enumeration (filesystem walks, registry
+	 * scans, etc.).
+	 */
+	LoadingCache = 'loadingCache',
+
+	/**
+	 * Phase 7: Positron is running a full discovery pass against each language
+	 * runtime manager. Only entered when a manager actually needs to enumerate
+	 * (cold start, periodic refresh, user-triggered rediscovery, or cache
+	 * disabled). On warm starts where the cache satisfies every bucket, this
+	 * phase is skipped.
 	 */
 	Discovering = 'discovering',
 
 	/**
-	 * Phase 7: Startup is complete. In this phase, we start any runtimes
-	 * recommended by extensions if nothing was started in previous phases.
+	 * Phase 8: Startup is complete. User-visible startup work is done and
+	 * auto-start has been decided. Background discovery (e.g. revalidation of
+	 * cache entries whose fingerprint changed) may still be running. See
+	 * IRuntimeStartupService for the background-in-progress signal.
 	 */
 	Complete = 'complete',
 }
@@ -864,6 +880,15 @@ export interface ILanguageRuntimeMetadata {
 	 * notifications to the backend via the UI client.
 	 */
 	readonly uiSubscriptions?: UiRuntimeNotifications[];
+
+	/**
+	 * Whether this runtime is eligible to be stored in the cross-window discovery
+	 * cache. Extensions opt in per-runtime; defaults to `false` when omitted, so a
+	 * runtime is only cached when its extension explicitly asserts it is system-
+	 * scoped, has a real on-disk binary at `runtimePath`, and is not project-bound
+	 * (e.g. a venv, renv library, or pyenv/asdf shim).
+	 */
+	readonly cacheable?: boolean;
 }
 
 /**
@@ -891,6 +916,21 @@ export interface IRuntimeManager {
 	 * @returns A list of recommended runtimes, asynchronously.
 	 */
 	recommendWorkspaceRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]>;
+
+	/**
+	 * Whether this manager is responsible for the given runtime. Used by the
+	 * discovery-cache layer to attribute cached entries to the right manager
+	 * before invoking `validateMetadata` on it.
+	 */
+	managesRuntime(metadata: ILanguageRuntimeMetadata): Promise<boolean>;
+
+	/**
+	 * Re-validate runtime metadata against the live extension. Throws if the
+	 * runtime is no longer valid (binary moved, version changed in a way the
+	 * extension can't reconcile, etc.). Returns possibly-updated metadata
+	 * (e.g. with a fresh `runtimeId` if the path was relocated).
+	 */
+	validateMetadata(metadata: ILanguageRuntimeMetadata): Promise<ILanguageRuntimeMetadata>;
 }
 
 export interface ILangaugeRuntimeDynState {

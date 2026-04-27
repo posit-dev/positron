@@ -99,6 +99,7 @@ const RUNTIME_STARTUP_PHASE_TO_KERNEL_STATUS: Record<RuntimeStartupPhase, Kernel
 	[RuntimeStartupPhase.NewFolderTasks]: KernelStatus.Discovering,
 	[RuntimeStartupPhase.Reconnecting]: KernelStatus.Discovering,
 	[RuntimeStartupPhase.Starting]: KernelStatus.Discovering,
+	[RuntimeStartupPhase.LoadingCache]: KernelStatus.Discovering,
 	[RuntimeStartupPhase.Discovering]: KernelStatus.Unselected,
 	[RuntimeStartupPhase.Complete]: KernelStatus.Unselected,
 } as const;

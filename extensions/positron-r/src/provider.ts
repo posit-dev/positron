@@ -258,6 +258,74 @@ function deduplicateRBinaries(binaries: RBinary[]) {
 	return Array.from(binariesMap.values());
 }
 
+/**
+ * Reasons that mean the R binary's behavior depends on per-workspace state we
+ * can't fingerprint from disk: Pixi envs are project-local, and Module-managed
+ * binaries depend on environment-modules state loaded at session start.
+ */
+const NON_CACHEABLE_REASONS: ReadonlySet<ReasonDiscovered> = new Set([
+	ReasonDiscovered.PIXI,
+	ReasonDiscovered.MODULE,
+]);
+
+/**
+ * Reasons that identify a binary as a real, system-scoped R installation that
+ * is safe to persist across sessions in the discovery cache.
+ */
+const SYSTEM_REASONS: ReadonlySet<ReasonDiscovered> = new Set([
+	ReasonDiscovered.HQ,
+	ReasonDiscovered.CONDA,
+	ReasonDiscovered.PATH,
+	ReasonDiscovered.RVERSIONS,
+	ReasonDiscovered.registry,
+	ReasonDiscovered.userSetting,
+	ReasonDiscovered.server,
+]);
+
+/**
+ * Decide whether this R installation should be eligible for Positron's cross-window
+ * discovery cache. Cacheable runtimes are persisted across windows and short-circuit
+ * full discovery on warm starts; project-bound, dynamic, or proxy runtimes must be
+ * rediscovered every open and so are excluded.
+ */
+function isRRuntimeCacheable(rInst: RInstallation): boolean {
+	// Need a real on-disk binary to fingerprint.
+	if (!rInst.binpath) {
+		return false;
+	}
+
+	const reasons = rInst.reasonDiscovered;
+	if (!reasons || reasons.length === 0) {
+		return false;
+	}
+
+	// Pixi/Module reasons disqualify regardless of any other reason on the
+	// merged binary record.
+	for (const r of reasons) {
+		if (NON_CACHEABLE_REASONS.has(r)) {
+			return false;
+		}
+	}
+
+	// At least one reason must be a recognized system-scoped source. adHoc and
+	// affiliated alone aren't enough -- they're rediscovery markers.
+	if (!reasons.some((r) => SYSTEM_REASONS.has(r))) {
+		return false;
+	}
+
+	// Anything inside a workspace folder is project-scoped (e.g. an R install
+	// dropped under the project tree), regardless of how it was discovered.
+	const folders = vscode.workspace.workspaceFolders ?? [];
+	for (const folder of folders) {
+		const folderPath = folder.uri.fsPath;
+		if (folderPath && (rInst.binpath === folderPath || rInst.binpath.startsWith(folderPath + path.sep))) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
 export async function makeMetadata(
 	rInst: RInstallation,
 	startupBehavior: positron.LanguageRuntimeStartupBehavior = positron.LanguageRuntimeStartupBehavior.Implicit,
@@ -358,6 +426,8 @@ export async function makeMetadata(
 	// Subscribe to UI notifications of interest
 	const uiSubscriptions = [positron.UiRuntimeNotifications.DidChangePlotsRenderSettings];
 
+	const cacheable = isRRuntimeCacheable(rInst);
+
 	const metadata: positron.LanguageRuntimeMetadata = {
 		runtimeId,
 		runtimeName,
@@ -375,7 +445,8 @@ export async function makeMetadata(
 		sessionLocation,
 		startupBehavior,
 		uiSubscriptions,
-		extraRuntimeData
+		extraRuntimeData,
+		cacheable,
 	};
 
 	return metadata;

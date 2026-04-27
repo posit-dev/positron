@@ -33,6 +33,7 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { IPathService } from '../../path/common/pathService.js';
 import { resolveNotebookWorkingDirectory } from '../../../contrib/notebook/common/notebookWorkingDirectoryUtils.js';
 import { isEqual } from '../../../../base/common/resources.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
 
 /**
  * Get a map key corresponding to a session.
@@ -189,6 +190,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		@IFileService private readonly _fileService: IFileService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IPathService private readonly _pathService: IPathService,
+		@ICommandService private readonly _commandService: ICommandService,
 	) {
 
 		super();
@@ -1633,6 +1635,33 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 							this._logService.info(
 								`Replacing runtime ${formatLanguageRuntimeMetadata(metadata)} => `
 								+ `${formatLanguageRuntimeMetadata(validated)}`);
+						}
+
+						// If the runtime we were asked for was system-scoped (cacheable),
+						// the substitution is most likely cache drift -- the on-disk binary
+						// changed since the cache was populated. Surface this to the user
+						// with a one-click recovery action.
+						if (metadata.cacheable === true) {
+							this._notificationService.notify({
+								severity: Severity.Info,
+								message: localize(
+									'positron.runtimeSession.cacheDriftSubstitution',
+									"{0} at {1} is no longer available; starting {2} instead.",
+									metadata.runtimeName, metadata.runtimePath, validated.runtimeName),
+								actions: {
+									primary: [
+										{
+											id: 'positron.runtimeSession.discoverAllInterpreters',
+											label: localize('positron.runtimeSession.discoverAllInterpreters', "Discover All Interpreters"),
+											tooltip: '',
+											class: undefined,
+											enabled: true,
+											run: () => this._commandService.executeCommand(
+												'workbench.action.language.runtime.discoverAllRuntimes'),
+										}
+									]
+								}
+							});
 						}
 					}
 				}
