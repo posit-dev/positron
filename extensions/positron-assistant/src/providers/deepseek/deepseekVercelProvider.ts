@@ -79,7 +79,7 @@ export class DeepseekAIModelProvider extends VercelModelProvider implements posi
 
 	get baseUrl(): string | undefined {
 		return (this._config.baseUrl
-			?? AnthropicAIModelProvider.source.defaults.baseUrl)
+			?? DeepseekAIModelProvider.source.defaults.baseUrl)
 			?.replace(/\/v1\/?$/, '')
 			.replace(/\/+$/, '');
 	}
@@ -131,7 +131,7 @@ export class DeepseekAIModelProvider extends VercelModelProvider implements posi
 	 */
 	protected override initializeProvider() {
 		// Vercel SDK expects baseURL to include /v1
-		// (default is https://api.anthropic.com/v1)
+		// (default is https://api.deepseek.com/anthropic/v1)
 		this.aiProvider = createAnthropic({
 			apiKey: this._config.apiKey,
 			baseURL: `${this.baseUrl}/v1`,
@@ -142,7 +142,7 @@ export class DeepseekAIModelProvider extends VercelModelProvider implements posi
 	 * Retrieves models from user configuration for Anthropic providers.
 	 */
 	protected override retrieveModelsFromConfig() {
-		return getAnthropicModelsFromConfig(
+		return getDeepseekModelsFromConfig(
 			this.providerId,
 			this.providerName,
 			this.capabilities,
@@ -154,7 +154,7 @@ export class DeepseekAIModelProvider extends VercelModelProvider implements posi
 	 * Fetches models from the Anthropic API with pagination support.
 	 */
 	protected override async retrieveModelsFromApi(_token: vscode.CancellationToken) {
-		return fetchAnthropicModelsFromApi(
+		return fetchDeepseekModelsFromApi(
 			this._client,
 			this.providerId,
 			this.providerName,
@@ -173,8 +173,8 @@ export class DeepseekAIModelProvider extends VercelModelProvider implements posi
 		const aiModel = this.aiProvider(model.id);
 
 		// Only Anthropic currently supports experimental_content in tool results
-		const toolResultExperimentalContent = this.providerId === 'anthropic-api' ||
-			aiModel.modelId.includes('anthropic');
+		const toolResultExperimentalContent = this.providerId === 'deepseek' ||
+			aiModel.modelId.includes('deepseek');
 
 		// Provide the response using the base class implementation
 		return super.provideVercelResponse(
