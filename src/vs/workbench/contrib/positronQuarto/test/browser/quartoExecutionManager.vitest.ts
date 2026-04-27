@@ -29,7 +29,7 @@ import { ITerminalService } from '../../../terminal/browser/terminal.js';
 
 const TestLanguageRuntimeMetadata: ILanguageRuntimeMetadata = {
 	base64EncodedIconSvg: '',
-	extensionId: { value: 'test.extension' } as ExtensionIdentifier,
+	extensionId: new ExtensionIdentifier('test.extension'),
 	extraRuntimeData: {},
 	languageId: 'python',
 	runtimeId: 'test.runtime',
@@ -613,8 +613,14 @@ describe('QuartoExecutionManager', () => {
 
 	describe('Cell Options as Execution Metadata', () => {
 		// Helper that runs a cell with the given chunk options and returns the
-		// executionMetadata argument the kernel session received.
-		async function runCellAndCaptureMetadata(documentLines: string[], cellRange: Range) {
+		// executionMetadata argument the kernel session received. Optionally
+		// passes external per-range metadata to executeInlineCells -- the same
+		// channel the Quarto extension uses to inject viewport sizing.
+		async function runCellAndCaptureMetadata(
+			documentLines: string[],
+			cellRange: Range,
+			externalMetadata?: Record<string, unknown>[],
+		) {
 			const documentUri = URI.file('/test-cell-metadata.qmd');
 			const cell: QuartoCodeCell = {
 				id: 'cell-metadata',
@@ -637,7 +643,7 @@ describe('QuartoExecutionManager', () => {
 
 			const executeSpy = vi.spyOn(mockSession, 'execute');
 
-			const executionPromise = executionManager.executeInlineCells(documentUri, [cellRange]);
+			const executionPromise = executionManager.executeInlineCells(documentUri, [cellRange], undefined, externalMetadata);
 			const executionId = await mockKernelManager.waitForExecution();
 			mockSession.receiveStateMessage({
 				parent_id: executionId,
@@ -716,6 +722,25 @@ describe('QuartoExecutionManager', () => {
 			// With no cell options and no editor (so no layoutMetadata),
 			// session.execute should receive undefined for executionMetadata.
 			expect(metadata).toBeUndefined();
+		});
+
+		it('cell options take precedence over external metadata on key conflicts', async () => {
+			// Both cell and external set fig-width; cell should win.
+			// External-only keys flow through to the kernel.
+			const metadata = await runCellAndCaptureMetadata(
+				[
+					'```{python}',
+					'#| fig-width: 4',
+					'plot()',
+					'```',
+				],
+				new Range(2, 1, 3, 100),
+				[{ 'fig-width': 99, 'output_pixel_ratio': 2 }],
+			);
+
+			expect(metadata).toBeDefined();
+			expect(metadata!['fig-width'], 'cell value should win').toBe(4);
+			expect(metadata!['output_pixel_ratio'], 'external-only key should pass through').toBe(2);
 		});
 	});
 });
