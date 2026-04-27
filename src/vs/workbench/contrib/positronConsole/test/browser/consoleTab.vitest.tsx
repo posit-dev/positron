@@ -87,7 +87,14 @@ describe('ConsoleTab', () => {
 				await renameAction!.run();
 			});
 
-			return { user, renameAction };
+			return user;
+		}
+
+		function spyOnUpdateSessionName() {
+			return vi.spyOn(
+				ctx.reactServices.runtimeSessionService,
+				'updateSessionName'
+			).mockImplementation(() => { });
 		}
 
 		it('focuses the input and selects the entire session name when rename action is selected', async () => {
@@ -107,16 +114,9 @@ describe('ConsoleTab', () => {
 			const sessionName = 'My Python Session';
 			const newName = 'Pleasure meeting you here. 👋';
 			const instance = addActiveConsoleInstance('test-session-2', sessionName);
+			const updateSessionName = spyOnUpdateSessionName();
 
-			// Spy on updateSessionName -- the rename commit path -- without
-			// stubbing the whole runtime session service (consoleTab subscribes
-			// to several events on it).
-			const updateSessionName = vi.spyOn(
-				ctx.reactServices.runtimeSessionService,
-				'updateSessionName'
-			).mockImplementation(() => { });
-
-			const { user } = await openRenameInput(instance, sessionName);
+			const user = await openRenameInput(instance, sessionName);
 
 			// The input mounts with its existing name selected, so typing
 			// replaces the selection.
@@ -124,6 +124,84 @@ describe('ConsoleTab', () => {
 			await user.keyboard('{Enter}');
 
 			expect(updateSessionName).toHaveBeenCalledWith('test-session-2', newName);
+		});
+
+		it('submits the rename on blur', async () => {
+			const sessionName = 'My Python Session';
+			const newName = 'Renamed via blur';
+			const instance = addActiveConsoleInstance('test-session-3', sessionName);
+			const updateSessionName = spyOnUpdateSessionName();
+
+			const user = await openRenameInput(instance, sessionName);
+
+			await user.keyboard(newName);
+			await user.tab(); // moves focus off the input -> fires onBlur -> handleRenameSubmit
+
+			expect(updateSessionName).toHaveBeenCalledWith('test-session-3', newName);
+		});
+
+		it('cancels the rename on Escape without calling updateSessionName', async () => {
+			const sessionName = 'My Python Session';
+			const instance = addActiveConsoleInstance('test-session-4', sessionName);
+			const updateSessionName = spyOnUpdateSessionName();
+
+			const user = await openRenameInput(instance, sessionName);
+
+			await user.keyboard('Some new name the user typed but does not want');
+			await user.keyboard('{Escape}');
+
+			expect(updateSessionName).not.toHaveBeenCalled();
+			// Input is unmounted; the tab shows the original name.
+			expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+			expect(screen.getByRole('tab', { name: sessionName })).toBeInTheDocument();
+		});
+
+		it('does not call updateSessionName when the trimmed input is empty', async () => {
+			const sessionName = 'My Python Session';
+			const instance = addActiveConsoleInstance('test-session-5', sessionName);
+			const updateSessionName = spyOnUpdateSessionName();
+
+			const user = await openRenameInput(instance, sessionName);
+
+			// Replace the selected name with whitespace, then submit.
+			await user.keyboard('   ');
+			await user.keyboard('{Enter}');
+
+			expect(updateSessionName).not.toHaveBeenCalled();
+			// Tab shows the original name; rename input is dismissed.
+			expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+			expect(screen.getByRole('tab', { name: sessionName })).toBeInTheDocument();
+		});
+
+		it('does not call updateSessionName when the input is unchanged', async () => {
+			const sessionName = 'My Python Session';
+			const instance = addActiveConsoleInstance('test-session-6', sessionName);
+			const updateSessionName = spyOnUpdateSessionName();
+
+			const user = await openRenameInput(instance, sessionName);
+
+			// Submit immediately -- name still equals the original.
+			await user.keyboard('{Enter}');
+
+			expect(updateSessionName).not.toHaveBeenCalled();
+		});
+
+		it('shows a notification and restores the original name when updateSessionName throws', async () => {
+			const sessionName = 'My Python Session';
+			const newName = 'New name';
+			const instance = addActiveConsoleInstance('test-session-7', sessionName);
+			vi.spyOn(ctx.reactServices.runtimeSessionService, 'updateSessionName')
+				.mockImplementation(() => { throw new Error('rename failed'); });
+			const notify = vi.spyOn(ctx.reactServices.notificationService, 'error');
+
+			const user = await openRenameInput(instance, sessionName);
+
+			await user.keyboard(newName);
+			await user.keyboard('{Enter}');
+
+			expect(notify).toHaveBeenCalledOnce();
+			// Tab still shows the original name.
+			expect(screen.getByRole('tab', { name: sessionName })).toBeInTheDocument();
 		});
 	});
 });
