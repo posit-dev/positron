@@ -41,14 +41,7 @@ class PositronIdleReporterContribution extends Disposable implements IWorkbenchC
 			return;
 		}
 
-		// Check if running on PWB (Posit Workbench) - PWB has its own polling
-		// eslint-disable-next-line local/code-no-any-casts
-		const isRunningOnPWB = !!(globalThis as any).RS_SERVER_URL &&
-			(platform.isWeb ? UIKind.Web : UIKind.Desktop) === UIKind.Web;
-		if (isRunningOnPWB) {
-			// Running on PWB which does its own polling; nothing to do.
-			return;
-		}
+		// TODO : Return early if we're running on Workbench
 
 		const channel = new PositronIdleTrackingChannelClient(
 			connection.getChannel(POSITRON_IDLE_TRACKING_CHANNEL_NAME)

@@ -178,9 +178,10 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 		if (pathname === '/idle') {
 			const idleInfo = this._idleTrackingService.getIdleInfo();
 			const body = JSON.stringify({
+			const body = JSON.stringify({
 				seconds_idle: idleInfo.secondsIdle,
 				last_activity_epoch_ms: idleInfo.lastActivityEpochMs,
-				connections: this._extHostConnections.length
+				connections: Object.keys(this._extHostConnections).length
 			});
 			res.writeHead(200, { 'Content-Type': 'application/json' });
 			return void res.end(body);
