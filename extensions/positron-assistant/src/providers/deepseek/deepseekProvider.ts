@@ -71,7 +71,7 @@ export class DeepseekModelProvider extends ModelProvider implements positron.ai.
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
 		provider: PROVIDER_METADATA.deepseek,
-		supportedOptions: ['apiKey', 'baseUrl', 'autoconfigure'],
+		supportedOptions: ['apiKey', 'baseUrl'],
 		defaults: {
 			name: DEFAULT_DEEPSEEK_MODEL_NAME,
 			model: DEFAULT_DEEPSEEK_MODEL_MATCH + '-latest',
