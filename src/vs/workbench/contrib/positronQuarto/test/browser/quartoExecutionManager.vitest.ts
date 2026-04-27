@@ -26,6 +26,8 @@ import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ITerminalService } from '../../../terminal/browser/terminal.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
+import { Event } from '../../../../../base/common/event.js';
 
 const TestLanguageRuntimeMetadata: ILanguageRuntimeMetadata = {
 	base64EncodedIconSvg: '',
@@ -88,15 +90,15 @@ describe('QuartoExecutionManager', () => {
 
 		// Create execution manager
 		executionManager = new QuartoExecutionManager(
-			mockKernelManager as unknown as IQuartoKernelManager,
-			mockDocumentModelService as unknown as IQuartoDocumentModelService,
-			mockEditorService as unknown as IEditorService,
-			mockEphemeralStateService as unknown as IEphemeralStateService,
-			mockWorkspaceContextService as unknown as IWorkspaceContextService,
+			asKernelManager(mockKernelManager),
+			asDocumentModelService(mockDocumentModelService),
+			asEditorService(mockEditorService),
+			asEphemeralStateService(mockEphemeralStateService),
+			asWorkspaceContextService(mockWorkspaceContextService),
 			logService,
-			mockConsoleService as unknown as IPositronConsoleService,
-			mockRuntimeSessionService as unknown as IRuntimeSessionService,
-			mockTerminalService as unknown as ITerminalService,
+			asConsoleService(mockConsoleService),
+			asRuntimeSessionService(mockRuntimeSessionService),
+			asTerminalService(mockTerminalService),
 		);
 		ctx.disposables.add(executionManager);
 	});
@@ -476,15 +478,15 @@ describe('QuartoExecutionManager', () => {
 
 			// Create execution manager with the mock model service
 			const executionManagerWithMock = new QuartoExecutionManager(
-				mockKernelManager as unknown as IQuartoKernelManager,
-				mockDocumentModelService as unknown as IQuartoDocumentModelService,
-				trackingEditorService as unknown as IEditorService,
-				new MockEphemeralStateService() as unknown as IEphemeralStateService,
-				new MockWorkspaceContextService() as unknown as IWorkspaceContextService,
+				asKernelManager(mockKernelManager),
+				asDocumentModelService(mockDocumentModelService),
+				asEditorService(trackingEditorService),
+				asEphemeralStateService(new MockEphemeralStateService()),
+				asWorkspaceContextService(new MockWorkspaceContextService()),
 				logService,
-				new TestPositronConsoleService() as unknown as IPositronConsoleService,
-				new MockRuntimeSessionService() as unknown as IRuntimeSessionService,
-				new MockTerminalService() as unknown as ITerminalService,
+				new TestPositronConsoleService(),
+				asRuntimeSessionService(new MockRuntimeSessionService()),
+				asTerminalService(new MockTerminalService()),
 			);
 			ctx.disposables.add(executionManagerWithMock);
 
@@ -571,15 +573,15 @@ describe('QuartoExecutionManager', () => {
 			};
 
 			const localExecutionManager = new QuartoExecutionManager(
-				mockKernelManager as unknown as IQuartoKernelManager,
-				localMockDocumentModelService as unknown as IQuartoDocumentModelService,
-				localMockEditorService as unknown as IEditorService,
-				new MockEphemeralStateService() as unknown as IEphemeralStateService,
-				new MockWorkspaceContextService() as unknown as IWorkspaceContextService,
+				asKernelManager(mockKernelManager),
+				asDocumentModelService(localMockDocumentModelService),
+				asEditorService(localMockEditorService),
+				asEphemeralStateService(new MockEphemeralStateService()),
+				asWorkspaceContextService(new MockWorkspaceContextService()),
 				logService,
-				new TestPositronConsoleService() as unknown as IPositronConsoleService,
-				new MockRuntimeSessionService() as unknown as IRuntimeSessionService,
-				new MockTerminalService() as unknown as ITerminalService,
+				new TestPositronConsoleService(),
+				asRuntimeSessionService(new MockRuntimeSessionService()),
+				asTerminalService(new MockTerminalService()),
 			);
 			ctx.disposables.add(localExecutionManager);
 
@@ -804,6 +806,13 @@ class MockKernelManager extends Disposable {
 	}
 }
 
+function asKernelManager(mock: MockKernelManager): IQuartoKernelManager {
+	return stubInterface<IQuartoKernelManager>({
+		ensureKernelForDocument: mock.ensureKernelForDocument.bind(mock),
+		interruptKernelForDocument: mock.interruptKernelForDocument.bind(mock),
+	});
+}
+
 class RecordingConsoleService extends TestPositronConsoleService {
 	lastErrorBehavior: RuntimeErrorBehavior | undefined;
 	lastExecutionId: string | undefined;
@@ -869,6 +878,15 @@ class MockDocumentModelService {
 	}
 }
 
+function asDocumentModelService(mock: MockDocumentModelService): IQuartoDocumentModelService {
+	return stubInterface<IQuartoDocumentModelService>({
+		// Cast: the mock's getModel returns a structurally-compatible model
+		// but isn't typed as the full QuartoDocumentModel because we don't
+		// want to depend on its concrete type in the mock layer.
+		getModel: mock.getModel.bind(mock) as IQuartoDocumentModelService['getModel'],
+	});
+}
+
 /**
  * Mock Quarto document model that allows simulating document edits
  * by updating cell line numbers.
@@ -930,6 +948,18 @@ class MockEditorService {
 	}
 }
 
+function asEditorService(mock: MockEditorService): IEditorService {
+	return stubInterface<IEditorService>({
+		// Cast: findEditors has overloaded signatures that we can't easily
+		// model in the mock; we narrow at the boundary.
+		findEditors: mock.findEditors.bind(mock) as IEditorService['findEditors'],
+		// activeTextEditorControl is a getter, not a method -- production
+		// reads it to derive layout metadata when an editor is active. The
+		// existing tests don't activate an editor, so undefined is correct.
+		activeTextEditorControl: undefined,
+	});
+}
+
 class MockEphemeralStateService {
 	private _store = new Map<string, unknown>();
 
@@ -946,10 +976,22 @@ class MockEphemeralStateService {
 	}
 }
 
+function asEphemeralStateService(mock: MockEphemeralStateService): IEphemeralStateService {
+	return stubInterface<IEphemeralStateService>({
+		setItem: mock.setItem.bind(mock),
+	});
+}
+
 class MockWorkspaceContextService {
 	getWorkspace(): unknown {
 		return { id: 'test-workspace' };
 	}
+}
+
+function asWorkspaceContextService(mock: MockWorkspaceContextService): IWorkspaceContextService {
+	return stubInterface<IWorkspaceContextService>({
+		getWorkspace: mock.getWorkspace.bind(mock) as IWorkspaceContextService['getWorkspace'],
+	});
 }
 
 class MockRuntimeSessionService {
@@ -966,14 +1008,35 @@ class MockRuntimeSessionService {
 	setConsoleSessionForLanguage(languageId: string, session: ILanguageRuntimeSession): void {
 		this._consoleSessions.set(languageId, session);
 	}
+}
 
-	onDidStartRuntime(): { dispose(): void } {
-		return { dispose() { } };
-	}
+function asRuntimeSessionService(mock: MockRuntimeSessionService): IRuntimeSessionService {
+	return stubInterface<IRuntimeSessionService>({
+		getConsoleSessionForLanguage: mock.getConsoleSessionForLanguage.bind(mock),
+		// Production subscribes to onDidStartRuntime but never fires it from
+		// the test side; Event.None is the documented no-op event.
+		onDidStartRuntime: Event.None,
+	});
 }
 
 class MockTerminalService {
 	async getActiveOrCreateInstance() {
 		return undefined;
 	}
+}
+
+function asTerminalService(mock: MockTerminalService): ITerminalService {
+	return stubInterface<ITerminalService>({
+		// Cast: the mock's return type is loose; production expects an
+		// ITerminalInstance. None of the cell-metadata tests hit shell
+		// languages, so this branch is never exercised in this file.
+		getActiveOrCreateInstance: mock.getActiveOrCreateInstance.bind(mock) as ITerminalService['getActiveOrCreateInstance'],
+	});
+}
+
+function asConsoleService(mock: RecordingConsoleService): IPositronConsoleService {
+	// RecordingConsoleService extends TestPositronConsoleService which already
+	// implements the full interface; we wrap with stubInterface only for
+	// uniformity with the other Mock adapters.
+	return mock;
 }
