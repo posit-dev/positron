@@ -79,6 +79,10 @@ if echo "$PR_BODY" | grep -q "@:workbench"; then
 	echo "Found workbench tag in PR body. Setting to run workbench tests."
 	echo "workbench_tag_found=true" >> "$GITHUB_OUTPUT"
 fi
+if echo "$PR_BODY" | grep -q "@:jupyter"; then
+	echo "Found jupyter tag in PR body. Setting to run jupyter tests."
+	echo "jupyter_tag_found=true" >> "$GITHUB_OUTPUT"
+fi
 
 # Check if @:all is present in the PR body
 if echo "$PR_BODY" | grep -q "@:all"; then
