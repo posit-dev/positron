@@ -97,6 +97,7 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 			return (
 				<Icon
 					className='code-cell-footer-icon running'
+					data-testid='cell-status-footer-icon'
 					icon={Codicon.sync}
 				/>
 			);
@@ -106,6 +107,7 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 			return (
 				<Icon
 					className='code-cell-footer-icon pending'
+					data-testid='cell-status-footer-icon'
 					icon={Codicon.clock}
 				/>
 			);
@@ -116,6 +118,7 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 				return (
 					<Icon
 						className='code-cell-footer-icon error'
+						data-testid='cell-status-footer-icon'
 						icon={Codicon.error}
 					/>
 				);
@@ -123,6 +126,7 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 				return (
 					<Icon
 						className='code-cell-footer-icon success'
+						data-testid='cell-status-footer-icon'
 						icon={Codicon.check}
 					/>
 				);

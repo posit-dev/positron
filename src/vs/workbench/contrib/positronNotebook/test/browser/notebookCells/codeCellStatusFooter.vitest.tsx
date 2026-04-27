@@ -119,36 +119,36 @@ describe('CodeCellStatusFooter', () => {
 	});
 
 	describe('icon variant', () => {
-		// Icons are decorative (no role/label), so we identify them via DOM
-		// traversal -- footer.firstElementChild is the icon when present --
-		// and snapshot the className. Any unexpected change to icon-class
-		// composition will diff and force a manual review.
-		function iconClass(state: CellState, hasError = false) {
-			renderFooter(state, hasError);
-			return getFooter().firstElementChild?.className;
+		// Icons are decorative (no semantic role/label), so we identify them via
+		// data-testid -- the documented fallback in vitest-rtl.md when no
+		// semantic query fits. The Icon component already forwards data-testid.
+		function getIcon() {
+			return screen.getByTestId('cell-status-footer-icon');
 		}
 
-		it('succeeded -> success icon', () => {
-			expect(iconClass({ ...completedState, executionStatus: 'idle', lastRunSuccess: true }))
-				.toMatchInlineSnapshot(`"code-cell-footer-icon success codicon codicon-check"`);
+		it('succeeded state renders the success icon', () => {
+			renderFooter({ ...completedState, executionStatus: 'idle', lastRunSuccess: true });
+			expect(getIcon()).toHaveClass('success');
 		});
 
-		it('failed (lastRunSuccess=false) -> error icon', () => {
-			expect(iconClass({ ...completedState, executionStatus: 'idle', lastRunSuccess: false }))
-				.toMatchInlineSnapshot(`"code-cell-footer-icon error codicon codicon-error"`);
+		it('failed state (lastRunSuccess=false) renders the error icon', () => {
+			renderFooter({ ...completedState, executionStatus: 'idle', lastRunSuccess: false });
+			expect(getIcon()).toHaveClass('error');
 		});
 
-		it('failed (hasError prop) -> error icon', () => {
-			expect(iconClass({ ...completedState, executionStatus: 'idle', lastRunSuccess: true }, true))
-				.toMatchInlineSnapshot(`"code-cell-footer-icon error codicon codicon-error"`);
+		it('failed state (hasError prop) renders the error icon', () => {
+			renderFooter({ ...completedState, executionStatus: 'idle', lastRunSuccess: true }, /* hasError */ true);
+			expect(getIcon()).toHaveClass('error');
 		});
 
-		it('running -> running icon', () => {
-			expect(iconClass({ executionStatus: 'running' })).toMatchInlineSnapshot(`"code-cell-footer-icon running codicon codicon-sync"`);
+		it('running state renders the running icon', () => {
+			renderFooter({ executionStatus: 'running' });
+			expect(getIcon()).toHaveClass('running');
 		});
 
-		it('pending -> pending icon', () => {
-			expect(iconClass({ executionStatus: 'pending' })).toMatchInlineSnapshot(`"code-cell-footer-icon pending codicon codicon-clock"`);
+		it('pending state renders the pending icon', () => {
+			renderFooter({ executionStatus: 'pending' });
+			expect(getIcon()).toHaveClass('pending');
 		});
 	});
 });
