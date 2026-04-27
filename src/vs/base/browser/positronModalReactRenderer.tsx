@@ -358,7 +358,7 @@ export class PositronModalReactRenderer extends Disposable {
 		// Create the overlay element in the container and the root element in the overlay
 		// element.
 		this._overlay = this._options.container!.appendChild(
-			DOM.$('.positron-modal-overlay', { tabIndex: 0 })
+			DOM.$('.positron-modal-overlay', { tabIndex: 0, 'data-testid': 'positron-modal-overlay' })
 		);
 
 		// When pointer passthrough is enabled, allow mouse events to pass through the overlay

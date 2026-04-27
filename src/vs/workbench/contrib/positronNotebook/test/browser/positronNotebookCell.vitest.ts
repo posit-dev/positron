@@ -12,14 +12,14 @@ import { createTestPositronNotebookInstance, TestPositronNotebookInstance } from
 import { PositronNotebookCodeCell } from '../../browser/PositronNotebookCells/PositronNotebookCodeCell.js';
 
 describe('PositronNotebookCell', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createTestContainer().withNotebookEditorServices().build();
 
 	let notebook: TestPositronNotebookInstance;
 	let cell: PositronNotebookCodeCell;
 
 	beforeEach(() => {
 		notebook = createTestPositronNotebookInstance(
-			[['print("hello")', 'python', CellKind.Code]], ctx.disposables
+			[['print("hello")', 'python', CellKind.Code]], ctx
 		);
 		cell = notebook.cells.get()[0] as PositronNotebookCodeCell;
 		expect(cell.isCodeCell(), 'Expected cell to be a code cell').toBe(true);
@@ -88,11 +88,11 @@ describe('PositronNotebookCell', () => {
 
 /** Tests to ensure that the test harness is correctly setup, useful for debugging the test harness */
 describe('PositronNotebookCell Test Harness', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createTestContainer().withNotebookEditorServices().build();
 
 	it('cells have editors auto-attached', () => {
 		const notebook = createTestPositronNotebookInstance(
-			[['print("hello")', 'python', CellKind.Code]], ctx.disposables
+			[['print("hello")', 'python', CellKind.Code]], ctx
 		);
 
 		const cell = notebook.cells.get()[0];
@@ -107,8 +107,7 @@ describe('PositronNotebookCell Test Harness', () => {
 
 	it('setValue propagates through the content change event chain', () => {
 		const notebook = createTestPositronNotebookInstance(
-			[['original content', 'python', CellKind.Code]], ctx.disposables
-		);
+			[['original content', 'python', CellKind.Code]], ctx);
 
 		const cell = notebook.cells.get()[0];
 		const notebookModel = notebook.textModel!;

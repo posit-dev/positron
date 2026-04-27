@@ -26,6 +26,13 @@ import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IHostService } from '../../host/browser/host.js';
 import { IDefaultAccount } from '../../../../base/common/defaultAccount.js';
 
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { PositronGallerySourceConfigKey } from '../../../../platform/extensionManagement/common/extensionGalleryManifest.js';
+// eslint-disable-next-line no-duplicate-imports
+import { ExtensionGalleryConfig, POSITRON_GALLERY_PRESETS } from '../../../../platform/extensionManagement/common/extensionGalleryManifestService.js';
+// --- End Positron ---
+
 export class WorkbenchExtensionGalleryManifestService extends ExtensionGalleryManifestService implements IExtensionGalleryManifestService {
 
 	private readonly commonHeadersPromise: Promise<IHeaders>;
@@ -74,6 +81,17 @@ export class WorkbenchExtensionGalleryManifestService extends ExtensionGalleryMa
 		});
 	}
 
+	// --- Start Positron ---
+	protected override getGalleryConfig(): ExtensionGalleryConfig | undefined {
+		const source = this.configurationService.getValue<string>(PositronGallerySourceConfigKey);
+		const preset = POSITRON_GALLERY_PRESETS[source];
+		if (preset) {
+			return preset;
+		}
+		return super.getGalleryConfig();
+	}
+	// --- End Positron ---
+
 	private extensionGalleryManifestPromise: Promise<void> | undefined;
 	override async getExtensionGalleryManifest(): Promise<IExtensionGalleryManifest | null> {
 		if (!this.extensionGalleryManifestPromise) {
@@ -99,6 +117,12 @@ export class WorkbenchExtensionGalleryManifestService extends ExtensionGalleryMa
 		}
 
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
+			// --- Start Positron ---
+			if (e.affectsConfiguration(PositronGallerySourceConfigKey)) {
+				this.requestRestart();
+				return;
+			}
+			// --- End Positron ---
 			if (!e.affectsConfiguration(ExtensionGalleryServiceUrlConfigKey)) {
 				return;
 			}

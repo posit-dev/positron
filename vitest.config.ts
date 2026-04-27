@@ -10,6 +10,8 @@ export default defineConfig({
 		include: ['src/vs/**/*.vitest.{ts,tsx}'],
 		environment: 'happy-dom',
 		globals: true,
+		// Registers @testing-library/jest-dom matchers (toBeInTheDocument, toHaveTextContent, etc.).
+		setupFiles: ['./src/vs/test/vitest/setup.ts'],
 		// Auto-restore spies between tests (failed assertion can't leave console mocked).
 		restoreMocks: true,
 		// Clear vi.fn() call history between tests so shared mocks don't accumulate calls.

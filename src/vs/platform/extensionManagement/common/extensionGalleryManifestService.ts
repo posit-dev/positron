@@ -9,7 +9,9 @@ import { IProductService } from '../../product/common/productService.js';
 import { ExtensionGalleryResourceType, Flag, IExtensionGalleryManifest, IExtensionGalleryManifestService, ExtensionGalleryManifestStatus } from './extensionGalleryManifest.js';
 import { FilterType, SortBy } from './extensionManagement.js';
 
-type ExtensionGalleryConfig = {
+// --- Start Positron ---
+export type ExtensionGalleryConfig = {
+	// --- End Positron ---
 	readonly serviceUrl: string;
 	readonly itemUrl: string;
 	readonly publisherUrl: string;
@@ -18,6 +20,30 @@ type ExtensionGalleryConfig = {
 	readonly controlUrl: string;
 	readonly nlsBaseUrl: string;
 };
+
+// --- Start Positron ---
+export const POSITRON_GALLERY_PRESETS: Record<string, ExtensionGalleryConfig> = {
+	'posit-p3m': {
+		serviceUrl: 'https://p3m.dev/openvsx/latest/vscode/gallery',
+		itemUrl: 'https://p3m.dev/openvsx/latest/vscode/item',
+		resourceUrlTemplate: 'https://p3m.dev/openvsx/latest/vscode/asset/{publisher}/{name}/{version}/Microsoft.VisualStudio.Code.WebResources/{path}',
+		controlUrl: '',
+		extensionUrlTemplate: 'https://p3m.dev/openvsx/latest/vscode/gallery/{publisher}/{name}/latest',
+		nlsBaseUrl: '',
+		publisherUrl: '',
+	},
+	'open-vsx': {
+		serviceUrl: 'https://open-vsx.org/vscode/gallery',
+		itemUrl: 'https://open-vsx.org/vscode/item',
+		resourceUrlTemplate: 'https://open-vsx.org/vscode/asset/{publisher}/{name}/{version}/Microsoft.VisualStudio.Code.WebResources/{path}',
+		controlUrl: '',
+		extensionUrlTemplate: 'https://open-vsx.org/vscode/gallery/{publisher}/{name}/latest',
+		nlsBaseUrl: '',
+		publisherUrl: '',
+	},
+};
+
+// --- End Positron ---
 
 export class ExtensionGalleryManifestService extends Disposable implements IExtensionGalleryManifestService {
 
@@ -35,8 +61,16 @@ export class ExtensionGalleryManifestService extends Disposable implements IExte
 		super();
 	}
 
+	// --- Start Positron ---
+	protected getGalleryConfig(): ExtensionGalleryConfig | undefined {
+		return this.productService.extensionsGallery as ExtensionGalleryConfig | undefined;
+	}
+	// --- End Positron ---
+
 	async getExtensionGalleryManifest(): Promise<IExtensionGalleryManifest | null> {
-		const extensionsGallery = this.productService.extensionsGallery as ExtensionGalleryConfig | undefined;
+		// --- Start Positron ---
+		const extensionsGallery = this.getGalleryConfig();
+		// --- End Positron ---
 		if (!extensionsGallery?.serviceUrl) {
 			return null;
 		}

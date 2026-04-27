@@ -59,6 +59,7 @@ describe('NotebookExecutionStatus', () => {
 		createEntry();
 
 		setShowExecutionInfo(true);
+		// eslint-disable-next-line local/code-no-any-casts -- partial IConfigurationChangeEvent; typed stub (source/affectedKeys/change) deferred to follow-up cleanup PR
 		configurationService.onDidChangeConfigurationEmitter.fire({ affectsConfiguration: () => true } as any);
 
 		assertEntryIsVisible(true);

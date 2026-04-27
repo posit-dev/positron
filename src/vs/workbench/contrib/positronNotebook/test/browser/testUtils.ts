@@ -10,7 +10,8 @@ import { IConfigurationService } from '../../../../../platform/configuration/com
 import { EditorResolverService } from '../../../../services/editor/browser/editorResolverService.js';
 import { IEditorResolverService } from '../../../../services/editor/common/editorResolverService.js';
 import { IEditorGroupsService } from '../../../../services/editor/common/editorGroupsService.js';
-import { createEditorPart, ITestInstantiationService, workbenchInstantiationService } from '../../../../test/browser/workbenchTestServices.js';
+import { createEditorPart, ITestInstantiationService } from '../../../../test/browser/workbenchTestServices.js';
+import { positronWorkbenchInstantiationService } from '../../../../test/browser/positronWorkbenchTestServices.js';
 import { EditorPart } from '../../../../browser/parts/editor/editorPart.js';
 import { INotebookService } from '../../../notebook/common/notebookService.js';
 import { INotebookEditorModelResolverService } from '../../../notebook/common/notebookEditorModelResolverService.js';
@@ -33,9 +34,15 @@ export interface TestServices {
 /**
  * Creates a complete set of test services for Positron Notebook testing.
  * This includes all necessary mocks and service stubs.
+ *
+ * Uses `positronWorkbenchInstantiationService` -- the same Positron service
+ * stack that `createTestContainer().withWorkbenchServices()` wires up. The
+ * lightweight partial stubs layered on top override the preset's real
+ * service instances with test-focused mocks that support the behavior these
+ * notebook tests rely on (e.g. resolving the `jupyter-notebook` view type).
  */
 export async function createPositronNotebookTestServices(disposables: DisposableStore): Promise<TestServices> {
-	const instantiationService = workbenchInstantiationService(undefined, disposables);
+	const instantiationService = positronWorkbenchInstantiationService(disposables);
 
 	// Create configuration service with test defaults
 	const configurationService = new TestConfigurationService();

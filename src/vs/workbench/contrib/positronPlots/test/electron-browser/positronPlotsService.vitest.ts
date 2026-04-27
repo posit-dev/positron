@@ -17,6 +17,7 @@ import { PositronPlotCommProxy } from '../../../../services/languageRuntime/comm
 import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/sizingPolicyAuto.js';
 import { PlotSizingPolicyFill } from '../../../../services/positronPlots/common/sizingPolicyFill.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 
 describe('Positron - Plots Service', () => {
 
@@ -150,14 +151,14 @@ describe('Positron - Plots Service', () => {
 	});
 
 	it('sizing policy: change event', async () => {
-		const plotCommProxyStub = {
+		const plotCommProxyStub = stubInterface<PositronPlotCommProxy>({
 			onDidClose: () => ({ dispose: () => { } }),
 			onDidRenderUpdate: () => ({ dispose: () => { } }),
 			onDidShowPlot: () => ({ dispose: () => { } }),
 			render: vi.fn(),
 			getIntrinsicSize: vi.fn(),
 			dispose: vi.fn(),
-		} as unknown as PositronPlotCommProxy;
+		});
 
 		const plotClientInstance = new PlotClientInstance(plotCommProxyStub, {} as IConfigurationService, new PlotSizingPolicyAuto(), {} as IPositronPlotMetadata);
 		ctx.disposables.add(plotClientInstance);
@@ -291,6 +292,7 @@ describe('Positron - Plots Service', () => {
 		});
 
 		// Replace the comm methods via the proxy
+		// eslint-disable-next-line local/code-no-any-casts -- reaching into private _commProxy to inject stub comms; exposing a test hook in the source class is deferred to follow-up cleanup PR
 		const commProxy = (plotInstance as any)._commProxy;
 		if (commProxy && commProxy._comm) {
 			commProxy._comm.render = renderStub;

@@ -8,6 +8,7 @@
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { ensureNoLeakedDisposables } from '../../../../test/vitest/vitestUtils.js';
+import { stubInterface } from '../../../../test/vitest/stubInterface.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { PositronWebviewPreloadService } from './positronWebviewPreloadsService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -19,6 +20,7 @@ import { URI } from '../../../../base/common/uri.js';
 
 /** Minimal stub for IPositronNotebookInstance */
 function stubNotebookInstance(id: string, uri = URI.file('/workspace/notebook.ipynb')): IPositronNotebookInstance {
+	// eslint-disable-next-line local/code-no-any-casts -- test fixture: IPositronNotebookInstance has many fields; typed stub deferred to follow-up cleanup PR
 	return { getId: () => id, uri } as any;
 }
 
@@ -26,6 +28,7 @@ function stubNotebookInstance(id: string, uri = URI.file('/workspace/notebook.ip
 function stubOutputWebviewService(): IPositronNotebookOutputWebviewService & { rawHtmlCreationCount: number; rawHtmlBaseUris: (URI | undefined)[] } {
 	let count = 0;
 	const rawHtmlBaseUris: (URI | undefined)[] = [];
+	// eslint-disable-next-line local/code-no-any-casts -- test fixture: IPositronNotebookOutputWebviewService is wide; typed stub deferred to follow-up cleanup PR
 	return {
 		_serviceBrand: undefined,
 		get rawHtmlCreationCount() { return count; },
@@ -57,12 +60,12 @@ describe('PositronWebviewPreloadService - addNotebookOutput rawHtml', () => {
 	beforeEach(() => {
 		outputWebviewService = stubOutputWebviewService();
 
-		const runtimeSessionService = {
+		const runtimeSessionService = stubInterface<IRuntimeSessionService>({
 			activeSessions: [],
 			onWillStartSession: Event.None,
-		} as unknown as IRuntimeSessionService;
+		});
 
-		const ipyWidgetsService = {} as IPositronIPyWidgetsService;
+		const ipyWidgetsService = stubInterface<IPositronIPyWidgetsService>();
 
 		service = disposables.add(new PositronWebviewPreloadService(
 			runtimeSessionService,
@@ -88,6 +91,7 @@ describe('PositronWebviewPreloadService - addNotebookOutput rawHtml', () => {
 		expect(outputWebviewService.rawHtmlBaseUris[0]?.toString()).toBe(URI.file('/workspace').toString());
 
 		// Resolve the webview promise to check the ID
+		// eslint-disable-next-line local/code-no-any-casts -- addNotebookOutput's result is a union and we're narrowing to the display variant's webview field; typed narrowing deferred to follow-up cleanup PR
 		const webview = await (result as any).webview;
 		expect(webview.id).toBe('out-1');
 		webview.dispose();

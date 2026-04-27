@@ -57,6 +57,7 @@ test/e2e/tests/assistant-eval/_results/
 vsix-cache/
 product.json.backup
 *.lic
+.superset/
 # --- End Positron ---
 test-output.json
 test/componentFixtures/.screenshots/*

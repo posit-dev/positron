@@ -48,6 +48,7 @@ interface ActionBarFilterProps {
 
 export interface ActionBarFilterHandle {
 	setFilterText: (text: string) => void;
+	focus: () => void;
 }
 
 /**
@@ -116,6 +117,9 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 			setFilterText(text);
 			inputRef.current.value = text;
 			props.onFilterTextChanged(text);
+		},
+		focus: () => {
+			inputRef.current.focus();
 		}
 	}));
 
