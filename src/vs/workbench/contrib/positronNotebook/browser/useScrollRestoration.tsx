@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { RefObject, useLayoutEffect } from 'react';
-import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { DisposableStore, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { addDisposableListener, getWindow } from '../../../../base/browser/dom.js';
 
@@ -18,13 +18,141 @@ const STABLE_DURATION_MS = 500;
 const TIMEOUT_MS = 1500;
 
 /**
+ * Drive a scroll restoration loop on the given container. A
+ * requestAnimationFrame loop runs for up to 1.5 s to accommodate async
+ * layout shifts (e.g. from markdown previews and editor model loading).
+ * The loop stops early once the position has been stable for 500 ms of
+ * wall-clock time, or if the user scrolls (detected via wheel/pointer/
+ * keyboard events, since programmatic scrollTop assignments also fire
+ * scroll events).
+ *
+ * Performs an initial synchronous correction so callers in pre-paint
+ * positions (useLayoutEffect, or imperative call right after a DOM
+ * reattach) avoid a frame at the wrong scrollTop.
+ *
+ * @returns A disposable that cancels the loop and removes its listeners.
+ */
+export function startScrollRestorationLoop(
+	container: HTMLElement,
+	getScrollTop: () => number | undefined,
+	logService: ILogService
+): IDisposable {
+	const initialScrollTop = container.scrollTop;
+	const initialTarget = getScrollTop();
+	logService.debug(
+		`[scroll-restore] starting: initialScrollTop=${initialScrollTop}, target=${initialTarget}`
+	);
+
+	// Synchronous initial correction. This avoids a paint at the wrong
+	// scrollTop between the caller and the first rAF callback (matters for
+	// the imperative cache-hit path, where appendChild has just reset
+	// scrollTop to 0).
+	if (initialTarget !== undefined && Math.abs(container.scrollTop - initialTarget) >= 1) {
+		container.scrollTop = initialTarget;
+	}
+
+	const startTimestamp = performance.now();
+	const targetWindow = getWindow(container);
+	const disposables = new DisposableStore();
+	let running = true;
+	let pendingFrame: number | undefined;
+	let frameCount = 0;
+
+	/** Wall-clock time of the last correction. Used for time-based stability
+	 *  detection. We declare stable once no correction has been needed for
+	 *  STABLE_DURATION_MS of real elapsed time. */
+	let lastCorrectionTime = startTimestamp;
+
+	/** Stop the restoration loop and log the final state. */
+	const stop = (reason: string) => {
+		if (!running) {
+			return;
+		}
+		running = false;
+
+		if (pendingFrame !== undefined) {
+			targetWindow.cancelAnimationFrame(pendingFrame);
+			pendingFrame = undefined;
+		}
+		disposables.dispose();
+
+		const target = getScrollTop();
+		const drift = target && container.scrollTop - target;
+		const driftString = drift ? `${drift.toFixed(1)}px` : 'N/A (getScrollTop returned undefined)';
+		const stableSince = performance.now() - lastCorrectionTime;
+		logService.debug(
+			`[scroll-restore] stopped with reason: ${reason} +${(performance.now() - startTimestamp).toFixed(0)}ms` +
+			` (${frameCount} frames, stable ${stableSince.toFixed(0)}ms):` +
+			` final scrollTop=${container.scrollTop}, target=${target}, drift=${driftString}`
+		);
+	};
+
+	/** Schedule a scroll position correction for the next frame. */
+	const scheduleUpdate = () => {
+		if (!running) {
+			return;
+		}
+
+		pendingFrame = targetWindow.requestAnimationFrame(() => {
+			pendingFrame = undefined;
+			frameCount++;
+
+			const target = getScrollTop();
+
+			if (target === undefined) {
+				logService.debug(`[scroll-restore] target became undefined on frame ${frameCount}`);
+				stop('no-target');
+				return;
+			}
+
+			if (Math.abs(container.scrollTop - target) < 1) {
+				// Close enough. If no correction has been needed for
+				// STABLE_DURATION_MS of wall-clock time, the layout has
+				// settled and we can stop.
+				if (performance.now() - lastCorrectionTime >= STABLE_DURATION_MS) {
+					stop('stable');
+					return;
+				}
+			} else {
+				// Still drifting (e.g. async content is shifting layout).
+				// Record the correction time and fix the scroll position.
+				logService.debug(
+					`[scroll-restore] correcting frame ${frameCount}:` +
+					` scrollTop=${container.scrollTop} -> target=${target}, delta=${(container.scrollTop - target).toFixed(1)}`
+				);
+				lastCorrectionTime = performance.now();
+				container.scrollTop = target;
+			}
+
+			// Check the timeout inside the rAF callback so the last
+			// frame always gets a correction attempt before we stop.
+			if (performance.now() - startTimestamp > TIMEOUT_MS) {
+				stop('timeout');
+				return;
+			}
+
+			scheduleUpdate();
+		});
+	};
+
+	// Kick off the loop.
+	scheduleUpdate();
+
+	// Cancel restoration on user-initiated scroll input. We listen for
+	// specific input events rather than the generic 'scroll' event because
+	// our own programmatic scrollTop assignments also fire 'scroll'.
+	disposables.add(addDisposableListener(container, 'wheel', () => stop('wheel')));
+	disposables.add(addDisposableListener(container, 'pointerdown', () => stop('pointerdown')));
+	disposables.add(addDisposableListener(container, 'keydown', () => stop('keydown')));
+
+	return toDisposable(() => stop('disposed'));
+}
+
+/**
  * Restores scroll position by continuously scrolling the container to the
- * target returned by {@link getScrollTop}. A requestAnimationFrame loop
- * runs for up to 1.5 s to accommodate async layout shifts (e.g. from markdown
- * previews and editor model loading). The loop stops early once the position
- * has been stable for 500 ms of wall-clock time, or if the user scrolls
- * (detected via wheel/pointer/keyboard events, since programmatic scrollTop
- * assignments also fire scroll events).
+ * target returned by {@link getScrollTop}. Wraps {@link startScrollRestorationLoop}
+ * in a useLayoutEffect so the restoration runs after React commits the
+ * containing tree but before the browser paints.
  *
  * @param containerRef Ref to the scrollable container element.
  * @param getScrollTop Callback returning the target scrollTop, or undefined
@@ -53,108 +181,7 @@ export function useScrollRestoration(
 			return;
 		}
 
-		const initialScrollTop = container.scrollTop;
-		const initialTarget = getScrollTop();
-		logService.debug(
-			`[scroll-restore] starting: initialScrollTop=${initialScrollTop}, target=${initialTarget}`
-		);
-
-		const startTimestamp = performance.now();
-		const targetWindow = getWindow(container);
-		const disposables = new DisposableStore();
-		let running = true;
-		let pendingFrame: number | undefined;
-		let frameCount = 0;
-
-		/** Wall-clock time of the last correction. Used for time-based stability
-		 *  detection. We declare stable once no correction has been needed for
-		 *  STABLE_DURATION_MS of real elapsed time. */
-		let lastCorrectionTime = startTimestamp;
-
-		/** Stop the restoration loop and log the final state. */
-		const stop = (reason: string) => {
-			if (!running) {
-				return;
-			}
-			running = false;
-
-			if (pendingFrame !== undefined) {
-				targetWindow.cancelAnimationFrame(pendingFrame);
-				pendingFrame = undefined;
-			}
-			disposables.dispose();
-
-			const target = getScrollTop();
-			const drift = target && container.scrollTop - target;
-			const driftString = drift ? `${drift.toFixed(1)}px` : 'N/A (getScrollTop returned undefined)';
-			const stableSince = performance.now() - lastCorrectionTime;
-			logService.debug(
-				`[scroll-restore] stopped with reason: ${reason} +${(performance.now() - startTimestamp).toFixed(0)}ms` +
-				` (${frameCount} frames, stable ${stableSince.toFixed(0)}ms):` +
-				` final scrollTop=${container.scrollTop}, target=${target}, drift=${driftString}`
-			);
-		};
-
-		/** Schedule a scroll position correction for the next frame. */
-		const scheduleUpdate = () => {
-			if (!running) {
-				return;
-			}
-
-			pendingFrame = targetWindow.requestAnimationFrame(() => {
-				pendingFrame = undefined;
-				frameCount++;
-
-				const target = getScrollTop();
-
-				if (target === undefined) {
-					logService.debug(`[scroll-restore] target became undefined on frame ${frameCount}`);
-					stop('no-target');
-					return;
-				}
-
-				if (Math.abs(container.scrollTop - target) < 1) {
-					// Close enough. If no correction has been needed for
-					// STABLE_DURATION_MS of wall-clock time, the layout has
-					// settled and we can stop.
-					if (performance.now() - lastCorrectionTime >= STABLE_DURATION_MS) {
-						stop('stable');
-						return;
-					}
-				} else {
-					// Still drifting (e.g. async content is shifting layout).
-					// Record the correction time and fix the scroll position.
-					logService.debug(
-						`[scroll-restore] correcting frame ${frameCount}:` +
-						` scrollTop=${container.scrollTop} -> target=${target}, delta=${(container.scrollTop - target).toFixed(1)}`
-					);
-					lastCorrectionTime = performance.now();
-					container.scrollTop = target;
-				}
-
-				// Check the timeout inside the rAF callback so the last
-				// frame always gets a correction attempt before we stop.
-				if (performance.now() - startTimestamp > TIMEOUT_MS) {
-					stop('timeout');
-					return;
-				}
-
-				scheduleUpdate();
-			});
-		};
-
-		// Kick off the loop.
-		scheduleUpdate();
-
-		// Cancel restoration on user-initiated scroll input. We listen for
-		// specific input events rather than the generic 'scroll' event because
-		// our own programmatic scrollTop assignments also fire 'scroll'.
-		disposables.add(addDisposableListener(container, 'wheel', () => stop('wheel')));
-		disposables.add(addDisposableListener(container, 'pointerdown', () => stop('pointerdown')));
-		disposables.add(addDisposableListener(container, 'keydown', () => stop('keydown')));
-
-		return () => {
-			stop('unmount');
-		};
+		const disposable = startScrollRestorationLoop(container, getScrollTop, logService);
+		return () => disposable.dispose();
 	}, [getScrollTop, logService, containerRef]);
 }

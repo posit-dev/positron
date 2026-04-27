@@ -18,6 +18,7 @@ import { IHoverManager } from '../../../../platform/hover/browser/hoverManager.j
 import { IPositronNotebookContribution } from './positronNotebookExtensions.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IPositronNotebookViewState } from './positronNotebookEditorTypes.js';
+import { IDisposable } from '../../../../base/common/lifecycle.js';
 
 /**
  * A resolved scroll position pointing to a live cell and an offset from that cell.
@@ -486,6 +487,16 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * Restore editor view state such as scroll position.
 	 */
 	restoreEditorViewState(viewState: IPositronNotebookViewState | undefined): void;
+
+	/**
+	 * Imperatively drive a scroll restoration loop using the position last
+	 * set by `restoreEditorViewState`. Used by the editor's cache-hit path,
+	 * where the React tree is reused and `useScrollRestoration`'s
+	 * mount-time consume does not re-run. Returns a disposable that
+	 * cancels the loop, or undefined if there is no restored position or
+	 * the cells container is not currently set.
+	 */
+	applyRestoredScrollPosition(): IDisposable | undefined;
 
 	/**
 	 * Fire the scroll event for the cells container.

@@ -8,7 +8,7 @@ import * as DOM from '../../../../base/browser/dom.js';
 import { ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Emitter } from '../../../../base/common/event.js';
-import { DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
+import { DisposableStore, IDisposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { ITextResourceConfigurationService } from '../../../../editor/common/services/textResourceConfiguration.js';
 import { localize } from '../../../../nls.js';
 import { IContextKeyService, IScopedContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
@@ -102,6 +102,15 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 	private readonly _instanceDisposableStore = this._register(
 		new DisposableStore()
 	);
+
+	/**
+	 * Active scroll restoration loop, if any. Set on cache-hit setInput
+	 * (where the React tree is reused and useScrollRestoration's mount-time
+	 * consume does not re-run). Auto-disposed when replaced by the next
+	 * setInput, when clearInput parks the cached container off-DOM, or
+	 * when the editor itself is disposed.
+	 */
+	private readonly _scrollRestoration = this._register(new MutableDisposable<IDisposable>());
 
 	protected override _input: PositronNotebookEditorInput | undefined;
 
@@ -343,6 +352,10 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 				this._editorContainer,
 			);
 			notebookInstance.restoreEditorViewState(viewState);
+			// Reattaching the cached container resets its scrollTop. The cached
+			// React tree does not re-mount, so useScrollRestoration's mount-time
+			// consume does not re-run -- drive restoration imperatively.
+			this._scrollRestoration.value = notebookInstance.applyRestoredScrollPosition();
 			return;
 		}
 
@@ -375,6 +388,11 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		// computeEditorViewState() which needs the notebook instance and
 		// its cells container to still be accessible.
 		super.clearInput();
+
+		// Stop any in-flight scroll restoration before parking the container.
+		// Otherwise the loop keeps running and writing scrollTop on a
+		// detached element until it times out.
+		this._scrollRestoration.clear();
 
 		// Park the cached container off-DOM. The React tree and Monaco editors
 		// inside it stay alive; we only remove the container from its parent

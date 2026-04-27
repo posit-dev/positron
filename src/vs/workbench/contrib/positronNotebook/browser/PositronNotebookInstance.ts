@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { Disposable, DisposableMap, DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableMap, DisposableStore, IDisposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -44,6 +44,7 @@ import { IClipboardService } from '../../../../platform/clipboard/common/clipboa
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { isNotebookLanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSession.js';
 import { RuntimeNotebookKernel } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernel.js';
+import { startScrollRestorationLoop } from './useScrollRestoration.js';
 import { ICellRange } from '../../notebook/common/notebookRange.js';
 import { IExtensionApiCellViewModel, IContextKeysNotebookViewCellsUpdateEvent, ContextKeysNotebookViewCellsSplice, IPositronCellViewModel, IPositronActiveNotebookEditor, IChatEditingNotebookViewModel, IChatEditingCellViewModel } from './IPositronNotebookEditor.js';
 import { IPosition } from '../../../../editor/common/core/position.js';
@@ -2007,6 +2008,35 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._restoredScrollPosition = anchor && anchor.cellIndex < cells.length
 			? { cell: cells[anchor.cellIndex], offsetFromCell: anchor.offsetFromCell }
 			: undefined;
+	}
+
+	/**
+	 * Imperatively drive a scroll restoration loop using the position last
+	 * set by `restoreEditorViewState`. The editor's cache-hit path uses this
+	 * because the cached React tree is reused -- `useScrollRestoration`'s
+	 * mount-time `consumeRestoredScrollPosition` only runs at first mount,
+	 * so a fresh restored position would otherwise sit unread.
+	 *
+	 * Consumes `_restoredScrollPosition` and runs an rAF correction loop
+	 * directly on the cells container. Returns undefined when there is
+	 * nothing to restore or the cells container is not currently set
+	 * (e.g. React has not yet mounted, or the view is detached).
+	 */
+	applyRestoredScrollPosition(): IDisposable | undefined {
+		const container = this._cellsContainer;
+		if (!container) {
+			return undefined;
+		}
+		const scrollPosition = this.consumeRestoredScrollPosition();
+		if (!scrollPosition) {
+			return undefined;
+		}
+		const getScrollTop = (): number | undefined => {
+			const cellTop = this.getCellTop(scrollPosition.cell);
+			if (cellTop === undefined) { return undefined; }
+			return cellTop + scrollPosition.offsetFromCell;
+		};
+		return startScrollRestorationLoop(container, getScrollTop, this._logService);
 	}
 
 	/**
