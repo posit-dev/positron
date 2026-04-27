@@ -24,7 +24,7 @@ import {
 	fetchDeepseekModelsFromApi,
 	getDeepseekModelsFromConfig
 } from './deepseekModelUtils.js';
-import { handleVercelSdkRateLimitError } from '../anthropic/anthropicModelUtils.js';
+import { handleNativeSdkRateLimitError } from '../anthropic/anthropicModelUtils.js';
 
 // Re-export for consumers that import from this file
 export { DEFAULT_DEEPSEEK_MODEL_NAME, DEFAULT_DEEPSEEK_MODEL_MATCH };
@@ -48,44 +48,41 @@ type CacheControllableBlockParam = Anthropic.TextBlockParam |
 /**
  * Anthropic Claude model provider implementation using native SDK.
  *
- * This provider integrates Anthropic's Claude models using the native `@anthropic-ai/sdk`
+ * This provider integrates Deepseek's models using the native `@anthropic-ai/sdk`
  * package directly (not through Vercel AI SDK). It provides more control and supports
  * Anthropic-specific features:
- * - All Claude model variants
- * - Vision capabilities (image inputs)
+ * - All model variants
  * - Tool/function calling
  * - Streaming responses with request IDs
  * - Prompt caching with detailed control
  * - Native token counting via Anthropic SDK
  *
  * **Configuration:**
- * - Provider ID: `anthropic-api` (not `anthropic` which is used by Copilot Chat)
+ * - Provider ID: `deepseek`
  * - Required: API key from Anthropic Console
  * - Optional: Base URL (for custom deployments/proxies), model selection, tool calling toggle
- * - Supports: Environment variable autoconfiguration (ANTHROPIC_API_KEY, ANTHROPIC_BASE_URL)
  *
  * @see {@link ModelProvider} for base class documentation
- * @see https://docs.anthropic.com/ for Anthropic API documentation
+ * @see https://api-docs.deepseek.com/ for Anthropic API documentation
  */
-export class AnthropicModelProvider extends ModelProvider implements positron.ai.LanguageModelChatProvider {
+export class DeepseekModelProvider extends ModelProvider implements positron.ai.LanguageModelChatProvider {
 	private readonly _client: Anthropic;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
-		provider: PROVIDER_METADATA.anthropic,
+		provider: PROVIDER_METADATA.deepseek,
 		supportedOptions: ['apiKey', 'baseUrl', 'autoconfigure'],
 		defaults: {
-			name: DEFAULT_ANTHROPIC_MODEL_NAME,
-			model: DEFAULT_ANTHROPIC_MODEL_MATCH + '-latest',
-			baseUrl: 'https://api.anthropic.com',
+			name: DEFAULT_DEEPSEEK_MODEL_NAME,
+			model: DEFAULT_DEEPSEEK_MODEL_MATCH + '-latest',
+			baseUrl: 'https://api.deepseek.com/anthropic',
 			toolCalls: true,
-			autoconfigure: { type: positron.ai.LanguageModelAutoconfigureType.EnvVariable, key: 'ANTHROPIC_API_KEY', signedIn: false }
 		},
 	};
 
 	get baseUrl(): string | undefined {
 		return (this._config.baseUrl
-			?? AnthropicModelProvider.source.defaults.baseUrl)
+			?? DeepseekModelProvider.source.defaults.baseUrl)
 			?.replace(/\/v1\/?$/, '')
 			.replace(/\/+$/, '');
 	}
@@ -114,7 +111,7 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 	}
 
 	protected override getDefaultMatch(): string {
-		return DEFAULT_ANTHROPIC_MODEL_MATCH;
+		return DEFAULT_DEEPSEEK_MODEL_MATCH;
 	}
 
 	override async resolveConnection(token: vscode.CancellationToken) {
@@ -144,7 +141,7 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 	}
 
 	protected override retrieveModelsFromConfig() {
-		return getAnthropicModelsFromConfig(
+		return getDeepseekModelsFromConfig(
 			this.providerId,
 			this.providerName,
 			this.capabilities,
@@ -153,7 +150,7 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 	}
 
 	protected override async retrieveModelsFromApi(_token: vscode.CancellationToken) {
-		return fetchAnthropicModelsFromApi(
+		return fetchDeepseekModelsFromApi(
 			this._client,
 			this.providerId,
 			this.providerName,
@@ -178,10 +175,10 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 		const systemMessages = messages.filter(m => m.role === vscode.LanguageModelChatMessageRole.System);
 		const otherMessages = messages.filter(m => m.role !== vscode.LanguageModelChatMessageRole.System);
 
-		// Convert messages with system role into a anthropic system prompt
+		// Convert messages with system role into a deepseek system prompt
 		const system = toAnthropicSystem(systemMessages, cacheControlOptions?.system, options.modelOptions?.system, this.logger);
 
-		// Convert the remaining messages into anthropic user and assistant messages.
+		// Convert the remaining messages into deepseek user and assistant messages.
 		const anthropicMessages = toAnthropicMessages(otherMessages);
 
 		const body: Anthropic.MessageStreamParams = {
