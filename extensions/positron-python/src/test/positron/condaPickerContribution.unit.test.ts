@@ -6,6 +6,7 @@
 'use strict';
 
 import { expect } from 'chai';
+import * as path from 'path';
 import * as sinon from 'sinon';
 import { EnvironmentType, PythonEnvironment } from '../../client/pythonEnvironments/info';
 import { InstallerResponse } from '../../client/common/types';
@@ -179,7 +180,10 @@ suite('CondaPythonPickerContribution', () => {
             const fsExtra = require('fs-extra');
 
             const envPath = '/Users/test/miniconda3/envs/test1';
-            const actualPythonPath = `${envPath}/bin/python`;
+            const actualPythonPath =
+                process.platform === 'win32'
+                    ? path.join(envPath, 'Scripts', 'python.exe')
+                    : path.join(envPath, 'bin', 'python');
 
             // Stub fs.existsSync so getCondaPythonPath finds the python binary
             const existsSyncStub = sinon.stub(fsExtra, 'existsSync');

@@ -93,16 +93,12 @@ export class CondaPythonPickerContribution implements positron.runtime.RuntimePi
 
                     // Refresh so the interpreter service picks up the newly installed Python
                     // and returns fresh details (version, path) instead of stale cached data.
-                    const interpreterService =
-                        this.serviceContainer.get<IInterpreterService>(IInterpreterService);
+                    const interpreterService = this.serviceContainer.get<IInterpreterService>(IInterpreterService);
                     await interpreterService.triggerRefresh();
                     await interpreterService.refreshPromise;
 
-                    const runtimeManager =
-                        this.serviceContainer.get<IPythonRuntimeManager>(IPythonRuntimeManager);
-                    const metadata = await runtimeManager.registerLanguageRuntimeFromPath(
-                        result.actualPythonPath,
-                    );
+                    const runtimeManager = this.serviceContainer.get<IPythonRuntimeManager>(IPythonRuntimeManager);
+                    const metadata = await runtimeManager.registerLanguageRuntimeFromPath(result.actualPythonPath);
 
                     if (metadata) {
                         return metadata.runtimeId;
