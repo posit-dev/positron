@@ -85,13 +85,13 @@ export function CellActionButton({ action, cell, hoverManager, showSeparator }: 
 
 	const getIcon = () => {
 		if (showSuccess) {
-			return <Icon icon={Codicon.check} />;
+			return <Icon data-testid='cell-action-button-icon' icon={Codicon.check} />;
 		}
 		if (action.item.icon) {
-			return <Icon icon={action.item.icon} />;
+			return <Icon data-testid='cell-action-button-icon' icon={action.item.icon} />;
 		}
 		// Cell actions should have icons; this is a developer error
-		return <DevErrorIcon />;
+		return <DevErrorIcon data-testid='cell-action-button-icon' />;
 	};
 	const icon = getIcon();
 

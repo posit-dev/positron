@@ -5,12 +5,8 @@
 
 /// <reference types="vitest/globals" />
 
-/* eslint-disable local/code-no-any-casts */
-
-
-import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
-import { workbenchInstantiationService } from '../../../../test/browser/workbenchTestServices.js';
+import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { PositronConsoleFindWidget } from '../../browser/positronConsoleFind.js';
 
@@ -28,6 +24,18 @@ class TestableConsoleFindWidget extends PositronConsoleFindWidget {
 
 	testOnFindInputFocusTrackerBlur() {
 		this._onFindInputFocusTrackerBlur();
+	}
+
+	setCaseSensitive(value: boolean) {
+		this._findInput.setCaseSensitive(value);
+	}
+
+	setWholeWords(value: boolean) {
+		this._findInput.setWholeWords(value);
+	}
+
+	setRegex(value: boolean) {
+		this._findInput.setRegex(value);
 	}
 }
 
@@ -61,7 +69,7 @@ function createConsoleDOM(...lines: (string | string[])[]): HTMLElement {
 }
 
 describe('PositronConsoleFindWidget', () => {
-	const disposables = ensureNoLeakedDisposables();
+	const ctx = createTestContainer().withWorkbenchServices().build();
 
 	let widget: TestableConsoleFindWidget;
 	let consoleContainer: HTMLElement;
@@ -71,13 +79,13 @@ describe('PositronConsoleFindWidget', () => {
 		consoleContainer = createConsoleDOM(...lines);
 		document.body.appendChild(consoleContainer);
 
-		const instantiationService = workbenchInstantiationService(undefined, disposables);
-		contextKeyService = instantiationService.get(IContextKeyService) as MockContextKeyService;
-		widget = disposables.add(
-			instantiationService.createInstance(TestableConsoleFindWidget)
+		contextKeyService = ctx.get(IContextKeyService) as MockContextKeyService;
+		widget = ctx.disposables.add(
+			ctx.instantiationService.createInstance(TestableConsoleFindWidget)
 		);
 		// Attach the widget to the visible console instance element
 		// (mirrors what ConsoleInstance does via useEffect).
+		// eslint-disable-next-line no-restricted-syntax -- finding the mount point in a test-constructed container; refactoring to keep a direct reference deferred to follow-up cleanup PR
 		const instance = consoleContainer.querySelector('.console-instance')!;
 		instance.appendChild(widget.getDomNode());
 	}
@@ -131,7 +139,7 @@ describe('PositronConsoleFindWidget', () => {
 
 		it('case-sensitive when toggled', async () => {
 			createWidget('Hello HELLO hello');
-			(widget as any)._findInput.setCaseSensitive(true);
+			widget.setCaseSensitive(true);
 			widget.reveal('hello');
 			const result = await widget.getResultCount();
 			expect(result?.resultCount).toBe(1);
@@ -139,7 +147,7 @@ describe('PositronConsoleFindWidget', () => {
 
 		it('whole word matching', async () => {
 			createWidget('cat concatenate cat');
-			(widget as any)._findInput.setWholeWords(true);
+			widget.setWholeWords(true);
 			widget.reveal('cat');
 			const result = await widget.getResultCount();
 			expect(result?.resultCount).toBe(2);
@@ -147,7 +155,7 @@ describe('PositronConsoleFindWidget', () => {
 
 		it('regex matching', async () => {
 			createWidget('foo123 bar456 baz');
-			(widget as any)._findInput.setRegex(true);
+			widget.setRegex(true);
 			widget.reveal('[a-z]+\\d+');
 			const result = await widget.getResultCount();
 			expect(result?.resultCount).toBe(2);
@@ -155,7 +163,7 @@ describe('PositronConsoleFindWidget', () => {
 
 		it('invalid regex does not throw', async () => {
 			createWidget('some text');
-			(widget as any)._findInput.setRegex(true);
+			widget.setRegex(true);
 			widget.reveal('[invalid');
 			const result = await widget.getResultCount();
 			expect(result).toBe(undefined);
@@ -199,10 +207,9 @@ describe('PositronConsoleFindWidget', () => {
 
 			document.body.appendChild(consoleContainer);
 
-			const instantiationService = workbenchInstantiationService(undefined, disposables);
-			contextKeyService = instantiationService.get(IContextKeyService) as MockContextKeyService;
-			widget = disposables.add(
-				instantiationService.createInstance(TestableConsoleFindWidget)
+			contextKeyService = ctx.get(IContextKeyService) as MockContextKeyService;
+			widget = ctx.disposables.add(
+				ctx.instantiationService.createInstance(TestableConsoleFindWidget)
 			);
 			// Attach the widget to the visible instance
 			// (mirrors what ConsoleInstance does via useEffect).
@@ -320,6 +327,7 @@ describe('PositronConsoleFindWidget', () => {
 			expect(result?.resultCount).toBe(1);
 
 			// Add another line with the search term
+			// eslint-disable-next-line no-restricted-syntax -- re-finding the mount point to append a new search target; direct reference deferred to follow-up cleanup PR
 			const instance = consoleContainer.querySelector('.console-instance')!;
 			const newLine = document.createElement('div');
 			newLine.textContent = 'word';

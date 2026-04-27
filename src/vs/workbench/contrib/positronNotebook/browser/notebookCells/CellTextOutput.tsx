@@ -72,11 +72,14 @@ export function CellTextOutput({
 	const outputWordWrap = layoutConfig.outputWordWrap;
 
 	return <>
-		<div className={positronClassNames(
-			`notebook-${type}`,
-			'positron-notebook-text-output',
-			{ 'word-wrap': outputWordWrap },
-		)}>
+		<div
+			className={positronClassNames(
+				`notebook-${type}`,
+				'positron-notebook-text-output',
+				{ 'word-wrap': outputWordWrap },
+			)}
+			data-testid='cell-text-output'
+		>
 			<OutputLines outputLines={ANSIOutput.processOutput(truncation.content)} />
 			{truncation.mode === 'truncate' && <>
 				<TruncationMessage

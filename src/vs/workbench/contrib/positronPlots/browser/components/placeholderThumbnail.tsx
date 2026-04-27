@@ -8,7 +8,7 @@ import './placeholderThumbnail.css';
 
 export const PlaceholderThumbnail = () => {
 	return (
-		<div className='plot-thumbnail-placeholder'>
+		<div className='plot-thumbnail-placeholder' data-testid='plot-thumbnail-placeholder'>
 			<span className='codicon codicon-graph' />
 		</div>
 	);

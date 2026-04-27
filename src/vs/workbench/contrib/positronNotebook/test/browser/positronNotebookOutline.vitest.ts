@@ -16,7 +16,7 @@ import {
 } from '../../browser/contrib/outline/positronNotebookOutline.contribution.js';
 
 describe('PositronNotebookOutline', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createTestContainer().withNotebookEditorServices().build();
 
 	describe('getFirstNonEmptyLine', () => {
 		it('returns first non-empty line', () => {
@@ -69,7 +69,7 @@ describe('PositronNotebookOutline', () => {
 		it('builds entries from markdown headers', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['# Title\n## Section', 'markdown', CellKind.Markup]],
-				ctx.disposables,
+				ctx,
 			);
 			const cells = notebook.cells.get();
 			const entries = buildOutlineEntries(cells);
@@ -84,7 +84,7 @@ describe('PositronNotebookOutline', () => {
 		it('builds entries from code cells', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['print("hello")', 'python', CellKind.Code]],
-				ctx.disposables,
+				ctx,
 			);
 			const cells = notebook.cells.get();
 			const entries = buildOutlineEntries(cells);
@@ -97,7 +97,7 @@ describe('PositronNotebookOutline', () => {
 		it('skips raw cells', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['raw content', 'raw', CellKind.Code]],
-				ctx.disposables,
+				ctx,
 			);
 			const cells = notebook.cells.get();
 			const entries = buildOutlineEntries(cells);
@@ -111,7 +111,7 @@ describe('PositronNotebookOutline', () => {
 				['x = 1', 'python', CellKind.Code],
 				['## Analysis', 'markdown', CellKind.Markup],
 				['plot(x)', 'python', CellKind.Code],
-			], ctx.disposables);
+			], ctx);
 			const cells = notebook.cells.get();
 			const entries = buildOutlineEntries(cells);
 
@@ -125,7 +125,7 @@ describe('PositronNotebookOutline', () => {
 		it('empty markdown cell shows fallback label', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['', 'markdown', CellKind.Markup]],
-				ctx.disposables,
+				ctx,
 			);
 			const cells = notebook.cells.get();
 			const entries = buildOutlineEntries(cells);
@@ -137,7 +137,7 @@ describe('PositronNotebookOutline', () => {
 		it('non-header markdown uses first-line preview', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['Some paragraph text\nMore text here', 'markdown', CellKind.Markup]],
-				ctx.disposables,
+				ctx,
 			);
 			const cells = notebook.cells.get();
 			const entries = buildOutlineEntries(cells);
@@ -151,7 +151,7 @@ describe('PositronNotebookOutline', () => {
 		it('de-duplicates heading IDs within a cell', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['## Details\n## Details\n## Details', 'markdown', CellKind.Markup]],
-				ctx.disposables,
+				ctx,
 			);
 			const cells = notebook.cells.get();
 			const entries = buildOutlineEntries(cells);
@@ -166,7 +166,7 @@ describe('PositronNotebookOutline', () => {
 			const notebook = createTestPositronNotebookInstance([
 				['## Details', 'markdown', CellKind.Markup],
 				['## Details', 'markdown', CellKind.Markup],
-			], ctx.disposables);
+			], ctx);
 			const cells = notebook.cells.get();
 			const entries = buildOutlineEntries(cells);
 
@@ -181,7 +181,7 @@ describe('PositronNotebookOutline', () => {
 		it('nests entries by header level', () => {
 			const notebook = createTestPositronNotebookInstance([
 				['# H1\n## H2\n### H3', 'markdown', CellKind.Markup],
-			], ctx.disposables);
+			], ctx);
 			const cells = notebook.cells.get();
 			const flatEntries = buildOutlineEntries(cells);
 			const tree = buildTree(flatEntries);
@@ -200,7 +200,7 @@ describe('PositronNotebookOutline', () => {
 			const notebook = createTestPositronNotebookInstance([
 				['# Title', 'markdown', CellKind.Markup],
 				['x = 1', 'python', CellKind.Code],
-			], ctx.disposables);
+			], ctx);
 			const cells = notebook.cells.get();
 			const flatEntries = buildOutlineEntries(cells);
 			const tree = buildTree(flatEntries);
@@ -214,7 +214,7 @@ describe('PositronNotebookOutline', () => {
 		it('sibling headers stay at same level', () => {
 			const notebook = createTestPositronNotebookInstance([
 				['## A\n## B\n## C', 'markdown', CellKind.Markup],
-			], ctx.disposables);
+			], ctx);
 			const cells = notebook.cells.get();
 			const flatEntries = buildOutlineEntries(cells);
 			const tree = buildTree(flatEntries);

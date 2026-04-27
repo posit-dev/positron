@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { Emitter, Event } from '../../../../../base/common/event.js';
-import { DisposableStore, toDisposable } from '../../../../../base/common/lifecycle.js';
+import { DisposableStore, IDisposable, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { ResourceMap } from '../../../../../base/common/map.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ILanguageRuntimeMetadata, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
@@ -71,7 +71,7 @@ describe('Positron - RuntimeNotebookKernelService', () => {
 		// before instantiating a new one with our custom INotebookService stub.
 		const existingService = ctx.instantiationService.get(IRuntimeNotebookKernelService);
 		if (existingService && 'dispose' in existingService) {
-			(existingService as any).dispose();
+			(existingService as IDisposable).dispose();
 		}
 
 		// Instantiate the runtime notebook kernel service BEFORE registering runtimes,
@@ -119,6 +119,7 @@ describe('Positron - RuntimeNotebookKernelService', () => {
 		notebookKernelService.selectKernelForNotebook(kernel, notebookDocument);
 
 		// Check the language in the notebook document metadata.
+		// eslint-disable-next-line local/code-no-any-casts -- accessing Jupyter notebook metadata.metadata.language_info.name which is loosely typed; defining a shape type is deferred to follow-up cleanup PR
 		expect((notebookDocument.metadata.metadata as any).language_info.name).toBe(runtime.languageId);
 
 		// Check each cell's language.

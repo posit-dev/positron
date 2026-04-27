@@ -6,13 +6,14 @@
 /// <reference types="vitest/globals" />
 
 import React from 'react';
-import { act } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
 import { Emitter } from '../../../../../base/common/event.js';
 import { IPositronPlotsService } from '../../../../services/positronPlots/common/positronPlots.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { WebviewPlotThumbnail } from '../../browser/components/webviewPlotThumbnail.js';
 import { WebviewPlotClient } from '../../browser/webviewPlotClient.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 
 describe('WebviewPlotThumbnail', () => {
 	// Emitter at describe level -- wired into the mock plotClient so .fire()
@@ -21,12 +22,15 @@ describe('WebviewPlotThumbnail', () => {
 	const onDidRenderThumbnail = new Emitter<string>();
 
 	function makePlotClient(overrides: Partial<WebviewPlotClient> = {}): WebviewPlotClient {
-		return {
+		// The component only reads id, thumbnailUri, and onDidRenderThumbnail;
+		// stubInterface gives a typed stub whose unused members throw if
+		// anything else is accessed, which is exactly what we want.
+		return stubInterface<WebviewPlotClient>({
 			id: 'plot-1',
 			thumbnailUri: undefined,
 			onDidRenderThumbnail: onDidRenderThumbnail.event,
 			...overrides,
-		} as unknown as WebviewPlotClient;
+		});
 	}
 	const ctx = createTestContainer()
 		.withReactServices()
@@ -35,30 +39,31 @@ describe('WebviewPlotThumbnail', () => {
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 	it('shows placeholder when no thumbnail is available', () => {
-		const { container } = rtl.render(
+		rtl.render(
 			<WebviewPlotThumbnail plotClient={makePlotClient()} />
 		);
-		expect(container.querySelector('.plot-thumbnail-placeholder')).not.toBeNull();
-		expect(container.querySelector('img')).toBeNull();
+		expect(screen.getByTestId('plot-thumbnail-placeholder')).toBeInTheDocument();
+		expect(screen.queryByAltText(/^Plot /)).not.toBeInTheDocument();
 	});
 
 	it('shows image when plotClient already has a thumbnailUri', () => {
 		const plotClient = makePlotClient({ thumbnailUri: 'data:image/png;base64,abc' });
-		const { container } = rtl.render(
+		rtl.render(
 			<WebviewPlotThumbnail plotClient={plotClient} />
 		);
-		const img = container.querySelector('img');
-		expect(img).not.toBeNull();
-		expect(img!.src).toBe('data:image/png;base64,abc');
+		const img = screen.getByAltText('Plot plot-1');
+		expect(img).toBeInTheDocument();
+		expect(img).toHaveAttribute('src', 'data:image/png;base64,abc');
 	});
 
 	it('updates to rendered thumbnail when event fires', () => {
-		const { container } = rtl.render(
+		rtl.render(
 			<WebviewPlotThumbnail plotClient={makePlotClient()} />
 		);
 
 		// Initially shows placeholder.
-		expect(container.querySelector('.plot-thumbnail-placeholder')).not.toBeNull();
+		expect(screen.getByTestId('plot-thumbnail-placeholder')).toBeInTheDocument();
+		expect(screen.queryByAltText(/^Plot /)).not.toBeInTheDocument();
 
 		// Simulate the plot rendering a thumbnail.
 		act(() => {
@@ -66,9 +71,9 @@ describe('WebviewPlotThumbnail', () => {
 		});
 
 		// Now shows the rendered image.
-		const img = container.querySelector('img');
-		expect(img).not.toBeNull();
-		expect(img!.src).toBe('data:image/png;base64,rendered');
-		expect(container.querySelector('.plot-thumbnail-placeholder')).toBeNull();
+		const img = screen.getByAltText('Plot plot-1');
+		expect(img).toBeInTheDocument();
+		expect(img).toHaveAttribute('src', 'data:image/png;base64,rendered');
+		expect(screen.queryByTestId('plot-thumbnail-placeholder')).not.toBeInTheDocument();
 	});
 });

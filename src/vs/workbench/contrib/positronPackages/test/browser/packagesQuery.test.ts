@@ -5,7 +5,7 @@
 
 import assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
-import { applySortToQuery, PackagesSortOrder, parseQuery } from '../../browser/components/packagesQuery.js';
+import { applyFilterToQuery, applySortToQuery, PackagesFilter, PackagesSortOrder, parseQuery } from '../../browser/components/packagesQuery.js';
 
 suite('packagesQuery', () => {
 
@@ -132,6 +132,90 @@ suite('packagesQuery', () => {
 			const parsed = parseQuery(applied);
 			assert.strictEqual(parsed.text, 'dplyr');
 			assert.strictEqual(parsed.sort, PackagesSortOrder.NameDesc);
+		});
+	});
+
+	suite('parseQuery filter', () => {
+		test('empty input returns default All filter', () => {
+			const result = parseQuery('');
+			assert.strictEqual(result.filter, PackagesFilter.All);
+		});
+
+		test('@filter:outdated sets Outdated filter', () => {
+			const result = parseQuery('@filter:outdated');
+			assert.strictEqual(result.text, '');
+			assert.strictEqual(result.filter, PackagesFilter.Outdated);
+		});
+
+		test('@filter:all explicitly sets All filter', () => {
+			const result = parseQuery('@filter:all');
+			assert.strictEqual(result.text, '');
+			assert.strictEqual(result.filter, PackagesFilter.All);
+		});
+
+		test('filter token matching is case-insensitive', () => {
+			const result = parseQuery('@FILTER:OUTDATED');
+			assert.strictEqual(result.filter, PackagesFilter.Outdated);
+		});
+
+		test('filter token is stripped from free text', () => {
+			const result = parseQuery('dplyr @filter:outdated');
+			assert.strictEqual(result.text, 'dplyr');
+			assert.strictEqual(result.filter, PackagesFilter.Outdated);
+		});
+
+		test('unknown @filter: value is stripped and leaves default filter', () => {
+			const result = parseQuery('foo @filter:bogus bar');
+			assert.strictEqual(result.text, 'foo bar');
+			assert.strictEqual(result.filter, PackagesFilter.All);
+		});
+
+		test('filter and sort tokens coexist', () => {
+			const result = parseQuery('@filter:outdated @sort:name-desc dplyr');
+			assert.strictEqual(result.text, 'dplyr');
+			assert.strictEqual(result.filter, PackagesFilter.Outdated);
+			assert.strictEqual(result.sort, PackagesSortOrder.NameDesc);
+		});
+
+		test('multiple @filter: tokens: last one wins, all stripped', () => {
+			const result = parseQuery('foo @filter:all bar @filter:outdated baz');
+			assert.strictEqual(result.text, 'foo bar baz');
+			assert.strictEqual(result.filter, PackagesFilter.Outdated);
+		});
+	});
+
+	suite('applyFilterToQuery', () => {
+		test('default All filter strips any existing token and returns bare text', () => {
+			assert.strictEqual(applyFilterToQuery('', PackagesFilter.All), '');
+			assert.strictEqual(applyFilterToQuery('dplyr', PackagesFilter.All), 'dplyr');
+			assert.strictEqual(applyFilterToQuery('@filter:outdated dplyr', PackagesFilter.All), 'dplyr');
+		});
+
+		test('Outdated filter on empty input produces a bare token', () => {
+			assert.strictEqual(applyFilterToQuery('', PackagesFilter.Outdated), '@filter:outdated');
+		});
+
+		test('Outdated filter with free text prepends the token', () => {
+			assert.strictEqual(applyFilterToQuery('dplyr', PackagesFilter.Outdated), '@filter:outdated dplyr');
+		});
+
+		test('existing @filter: token is replaced', () => {
+			assert.strictEqual(applyFilterToQuery('@filter:all dplyr', PackagesFilter.Outdated), '@filter:outdated dplyr');
+		});
+
+		test('replacement is case-insensitive on existing @filter: token', () => {
+			assert.strictEqual(applyFilterToQuery('@FILTER:ALL dplyr', PackagesFilter.Outdated), '@filter:outdated dplyr');
+		});
+
+		test('non-@filter tokens are preserved', () => {
+			assert.strictEqual(applyFilterToQuery('@sort:name-desc dplyr', PackagesFilter.Outdated), '@filter:outdated @sort:name-desc dplyr');
+		});
+
+		test('round-trip: applyFilterToQuery then parseQuery yields the same filter', () => {
+			const applied = applyFilterToQuery('dplyr', PackagesFilter.Outdated);
+			const parsed = parseQuery(applied);
+			assert.strictEqual(parsed.text, 'dplyr');
+			assert.strictEqual(parsed.filter, PackagesFilter.Outdated);
 		});
 	});
 });

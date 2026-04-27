@@ -107,7 +107,7 @@ export const StartupStatus = () => {
 	// it is hidden during the AwaitingTrust phase via display:none.
 	return (
 		<div className='startup-status'>
-			<div ref={progressRef} className='progress'
+			<div ref={progressRef} className='progress' data-testid='startup-progress-bar'
 				style={isAwaitingTrust ? { display: 'none' } : undefined}></div>
 			{runtimeStartupEvent &&
 				<RuntimeStartupProgress evt={runtimeStartupEvent} />
