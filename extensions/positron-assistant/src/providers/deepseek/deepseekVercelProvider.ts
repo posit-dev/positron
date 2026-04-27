@@ -11,19 +11,19 @@ import { VercelModelProvider } from '../base/vercelModelProvider';
 import { ModelConfig } from '../../configTypes.js';
 import { getProviderTimeoutMs } from '../../providerConfig.js';
 import {
-	DEFAULT_ANTHROPIC_MODEL_NAME,
-	DEFAULT_ANTHROPIC_MODEL_MATCH,
-	fetchAnthropicModelsFromApi,
-	getAnthropicModelsFromConfig,
-	handleVercelSdkRateLimitError
+	DEFAULT_DEEPSEEK_MODEL_NAME,
+	DEFAULT_DEEPSEEK_MODEL_MATCH,
+	fetchDeepseekModelsFromApi,
+	getDeepseekModelsFromConfig
 } from './deepseekModelUtils.js';
+import { handleVercelSdkRateLimitError } from '../anthropic/anthropicModelUtils.js';
 import { PROVIDER_METADATA } from '../../providerMetadata.js';
 
 /**
- * Anthropic Claude model provider implementation.
+ * Deepseek model provider implementation.
  *
- * This provider integrates Anthropic's Claude models (e.g., Claude 3.5 Sonnet,
- * Claude 3 Opus) using the Vercel AI SDK's Anthropic adapter. It supports:
+ * This provider integrates Deepseek's models (e.g., DeepSeek-V4-Flash,
+ * DeepSeek-V4-Pro) using the Vercel AI SDK's Anthropic adapter. It supports:
  * - All Claude model variants
  * - Vision capabilities (image inputs)
  * - Tool/function calling
@@ -31,25 +31,25 @@ import { PROVIDER_METADATA } from '../../providerMetadata.js';
  * - Prompt caching for reduced costs
  *
  * **Configuration:**
- * - Provider ID: `anthropic-api` (not `anthropic` which is used by Copilot Chat)
- * - Required: API key from Anthropic Console
+ * - Provider ID: `deepseek-api`
+ * - Required: API key from Deepseek
  * - Optional: Model selection, tool calling toggle
  * - Supports: Environment variable autoconfiguration (ANTHROPIC_API_KEY)
  *
  * @example
  * ```typescript
  * const config: ModelConfig = {
- *   id: 'claude-3-5-sonnet',
- *   name: 'Claude 3.5 Sonnet',
- *   provider: 'anthropic-api',
+ *   id: 'deepseek-v4-pro',
+ *   name: 'DeepSeek-V4-Pro',
+ *   provider: 'deepseek',
  *   apiKey: 'sk-ant-...',
- *   model: 'claude-3-5-sonnet-20241022',
+ *   model: 'deepseek-v4-pro',
  *   toolCalls: true
- * };  * const provider = new AnthropicAIModelProvider(config, context);
+ * };  * const provider = new DeepseekAIModelProvider(config, context);
  * ```
  *
  * @see {@link ModelProvider} for base class documentation
- * @see https://docs.anthropic.com/ for Anthropic API documentation
+ * @see https://api-docs.deepseek.com/ for Anthropic API documentation
  */
 export class AnthropicAIModelProvider extends VercelModelProvider implements positron.ai.LanguageModelChatProvider {
 	/**
