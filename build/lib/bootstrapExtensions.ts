@@ -6,7 +6,6 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import rimraf from 'rimraf';
 import es from 'event-stream';
 import vfs from 'vinyl-fs';
 import * as ext from './extensions.ts';
@@ -48,21 +47,6 @@ function isUpToDate(extension: IExtensionDefinition): boolean {
 	}
 
 	const regex = getExtensionFileNameRegex(extension.name);
-
-	// Clean up any leftover architecture directories from the old universal build system
-	const archDirs = ['arm64', 'x64'];
-	for (const arch of archDirs) {
-		const archDir = path.join(bootstrapDir, arch);
-		if (fs.existsSync(archDir)) {
-			const archFiles = fs.readdirSync(archDir);
-			const matchingArchFiles = archFiles.filter(f => regex.test(f));
-
-			for (const vsixPath of matchingArchFiles) {
-				log(`[extensions]`, `Outdated version detected, deleting ${vsixPath}`);
-				fs.unlinkSync(path.join(archDir, vsixPath));
-			}
-		}
-	}
 
 	const files = fs.readdirSync(bootstrapDir);
 	const matchingFiles = files.filter(f => regex.test(f));
@@ -185,16 +169,6 @@ function writeControlFile(control: IControlFile): void {
 }
 
 export function getBootstrapExtensions(): Promise<void> {
-
-	// Clean up any leftover architecture directories from the old universal build system
-	const archDirs = ['arm64', 'x64'];
-	for (const arch of archDirs) {
-		const archDir = path.join(getBootstrapDir(), arch);
-		if (fs.existsSync(archDir)) {
-			log(`[extensions]`, `Removing architecture folder ${archDir}`);
-			rimraf.sync(archDir);
-		}
-	}
 
 	const control = readControlFile();
 	const streams: Stream[] = [];
