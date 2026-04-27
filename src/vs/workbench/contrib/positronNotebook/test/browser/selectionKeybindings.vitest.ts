@@ -80,7 +80,7 @@ describe('Notebook selection keybinding actions', () => {
 			expect(action.desc.keybinding?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
 		});
 
-		it('calls moveSelectionUp(false) on the active notebook', () => {
+		it('moves selection up by one cell from SingleSelection', () => {
 			const notebook = createLabelledTestNotebook(3, ctx);
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[2], CellSelectionType.Normal);
