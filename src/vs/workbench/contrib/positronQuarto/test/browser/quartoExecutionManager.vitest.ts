@@ -961,18 +961,8 @@ function asEditorService(mock: MockEditorService): IEditorService {
 }
 
 class MockEphemeralStateService {
-	private _store = new Map<string, unknown>();
-
-	async getItem<T>(key: string): Promise<T | undefined> {
-		return this._store.get(key) as T | undefined;
-	}
-
-	async setItem(key: string, value: unknown): Promise<void> {
-		this._store.set(key, value);
-	}
-
-	async removeItem(key: string): Promise<void> {
-		this._store.delete(key);
+	async setItem(_key: string, _value: unknown): Promise<void> {
+		// No-op: production calls setItem for queue persistence; tests don't read it back.
 	}
 }
 
