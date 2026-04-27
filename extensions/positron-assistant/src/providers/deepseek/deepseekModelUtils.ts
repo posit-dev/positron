@@ -17,7 +17,7 @@ export const DEFAULT_DEEPSEEK_MODEL_MATCH = 'deepseek-v4-pro';
  * Fetches models from the Deepseek API with pagination support.
  *
  * @param client - The Deepseek (Anthropic) client instance
- * @param providerId - The provider identifier (e.g., 'deepseek-api')
+ * @param providerId - The provider identifier (e.g., 'deepseek')
  * @param providerName - The display name of the provider
  * @param capabilities - The model capabilities to include in model info
  * @param logger - Logger for debug/trace messages
@@ -77,7 +77,7 @@ export async function fetchDeepseekModelsFromApi(
 /**
  * Retrieves models from user configuration for Deepseek providers.
  *
- * @param providerId - The provider identifier (e.g., 'deepseek-api')
+ * @param providerId - The provider identifier (e.g., 'deepseek')
  * @param providerName - The display name of the provider
  * @param capabilities - The model capabilities to include in model info
  * @param logger - Logger for debug/trace messages
