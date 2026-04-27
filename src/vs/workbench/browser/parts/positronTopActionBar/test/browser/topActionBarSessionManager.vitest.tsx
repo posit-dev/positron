@@ -137,9 +137,9 @@ describe('TopActionBarSessionManager', () => {
 			expect(screen.getByRole('button', { name: SESSION_BUTTON_NAME })).toHaveTextContent('Python 3.12.1');
 		});
 
-		it('renders a runtime-session-icon for a console session', () => {
+		it('renders a runtime-session-icon with the language class for a console session', () => {
 			rtl.render(<TopActionBarSessionManager />);
-			expect(screen.getByTestId('session-manager-icon')).toHaveClass('runtime-session-icon', 'file-icon', 'python-lang-file-icon');
+			expect(screen.getByTestId('session-manager-icon')).toHaveClass('runtime-session-icon', 'python-lang-file-icon');
 		});
 	});
 
@@ -165,9 +165,9 @@ describe('TopActionBarSessionManager', () => {
 			expect(screen.getByRole('button', { name: SESSION_BUTTON_NAME })).toHaveTextContent('analysis.ipynb');
 		});
 
-		it('renders a runtime-session-icon for a notebook session', () => {
+		it('renders a runtime-session-icon with the file-extension class for a notebook session', () => {
 			rtl.render(<TopActionBarSessionManager />);
-			expect(screen.getByTestId('session-manager-icon')).toHaveClass('runtime-session-icon', 'file-icon', 'ipynb-ext-file-icon');
+			expect(screen.getByTestId('session-manager-icon')).toHaveClass('runtime-session-icon', 'ipynb-ext-file-icon');
 		});
 	});
 
@@ -246,11 +246,11 @@ describe('TopActionBarSessionManager', () => {
 			});
 
 			expect(screen.getByTestId('session-manager-icon'))
-				.toHaveClass('runtime-session-icon', 'file-icon', 'python-lang-file-icon');
+				.toHaveClass('runtime-session-icon', 'python-lang-file-icon');
 			expect(screen.getByTestId('session-manager-icon')).not.toHaveClass('codicon-arrow-swap');
 		});
 
-		it('swaps to a runtime-session-icon when switching to a notebook session', () => {
+		it('swaps to a runtime-session-icon with the notebook extension class when switching to a notebook session', () => {
 			rtl.render(<TopActionBarSessionManager />);
 
 			act(() => {
@@ -260,7 +260,7 @@ describe('TopActionBarSessionManager', () => {
 				}));
 			});
 
-			expect(screen.getByTestId('session-manager-icon')).toHaveClass('runtime-session-icon', 'file-icon', 'ipynb-ext-file-icon');
+			expect(screen.getByTestId('session-manager-icon')).toHaveClass('runtime-session-icon', 'ipynb-ext-file-icon');
 		});
 
 		it('reverts to "Start Session" when session is cleared', () => {
