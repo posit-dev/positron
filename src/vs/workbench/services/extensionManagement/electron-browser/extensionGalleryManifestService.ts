@@ -10,15 +10,7 @@ import { localize } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IEnvironmentService } from '../../../../platform/environment/common/environment.js';
 import { IExtensionGalleryManifestService, IExtensionGalleryManifest, ExtensionGalleryServiceUrlConfigKey, ExtensionGalleryManifestStatus } from '../../../../platform/extensionManagement/common/extensionGalleryManifest.js';
-// --- Start Positron ---
-// eslint-disable-next-line no-duplicate-imports
-import { PositronGallerySourceConfigKey } from '../../../../platform/extensionManagement/common/extensionGalleryManifest.js';
-// --- End Positron ---
 import { ExtensionGalleryManifestService } from '../../../../platform/extensionManagement/common/extensionGalleryManifestService.js';
-// --- Start Positron ---
-// eslint-disable-next-line no-duplicate-imports
-import { ExtensionGalleryConfig, POSITRON_GALLERY_PRESETS } from '../../../../platform/extensionManagement/common/extensionGalleryManifestService.js';
-// --- End Positron ---
 import { resolveMarketplaceHeaders } from '../../../../platform/externalServices/common/marketplace.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
@@ -33,6 +25,13 @@ import { IRemoteAgentService } from '../../remote/common/remoteAgentService.js';
 import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IHostService } from '../../host/browser/host.js';
 import { IDefaultAccount } from '../../../../base/common/defaultAccount.js';
+
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { PositronGallerySourceConfigKey } from '../../../../platform/extensionManagement/common/extensionGalleryManifest.js';
+// eslint-disable-next-line no-duplicate-imports
+import { ExtensionGalleryConfig, POSITRON_GALLERY_PRESETS } from '../../../../platform/extensionManagement/common/extensionGalleryManifestService.js';
+// --- End Positron ---
 
 export class WorkbenchExtensionGalleryManifestService extends ExtensionGalleryManifestService implements IExtensionGalleryManifestService {
 
