@@ -297,7 +297,6 @@ const selectNewLanguageRuntime = async (
 	const runtimeSessionService = accessor.get(IRuntimeSessionService);
 	const runtimeStartupService = accessor.get(IRuntimeStartupService);
 	const languageRuntimeService = accessor.get(ILanguageRuntimeService);
-	const commandService = accessor.get(ICommandService);
 
 	// Group runtimes by language.
 	const interpreterGroups = createInterpreterGroups(languageRuntimeService, runtimeStartupService);
@@ -475,8 +474,9 @@ const selectNewLanguageRuntime = async (
 			try {
 				const runtimeId = await contributedItem.contribution.onSelect(contributedItem.originalId);
 				if (runtimeId) {
-					// Wait for runtime discovery to complete to ensure the new runtime is registered
-					await commandService.executeCommand(LANGUAGE_RUNTIME_DISCOVER_RUNTIMES_ID);
+					// Use quiet mode to suppress notifications since the picker
+					// contribution already handled registration.
+					await runtimeStartupService.rediscoverAllRuntimes(/* quiet */ true);
 					return languageRuntimeService.getRegisteredRuntime(runtimeId);
 				}
 			} catch (error) {

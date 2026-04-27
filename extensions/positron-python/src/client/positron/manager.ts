@@ -17,25 +17,16 @@ import { IServiceContainer } from '../ioc/types';
 import { pythonRuntimeDiscoverer } from './discoverer';
 import { IInterpreterService } from '../interpreter/contracts';
 import { traceError, traceInfo } from '../logging';
-import {
-    IConfigurationService,
-    IDisposable,
-    IDisposableRegistry,
-    IInstaller,
-    InstallerResponse,
-    Product,
-} from '../common/types';
+import { IConfigurationService, IDisposable, IDisposableRegistry } from '../common/types';
 import { PythonRuntimeSession } from './session';
 import { createPythonRuntimeMetadata, PythonRuntimeExtraData } from './runtime';
-import { Commands, EXTENSION_ROOT_DIR } from '../common/constants';
+import { EXTENSION_ROOT_DIR } from '../common/constants';
 import { JupyterKernelSpec } from '../positron-supervisor.d';
 import { IEnvironmentVariablesProvider } from '../common/variables/types';
 import { getConfiguration } from '../common/vscodeApis/workspaceApis';
 import { shouldIncludeInterpreter, getUserDefaultInterpreter } from './interpreterSettings';
-import { hasFiles, getCondaPythonPath } from './util';
+import { hasFiles } from './util';
 import { isCondaEnvironment } from '../pythonEnvironments/common/environmentManagers/conda';
-import { IApplicationShell } from '../common/application/types';
-import { Interpreters } from '../common/utils/localize';
 import { untildify } from '../common/helpers';
 import {
     pendingModuleRuntimeRegistrations,
@@ -93,14 +84,9 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
         this.disposables.push(
             positron.runtime.registerLanguageRuntimeManager('python', this),
 
-            // Register the conda picker contribution for "Install Python" options
-            (() => {
-                traceInfo('Registering CondaPythonPickerContribution');
-                const contribution = new CondaPythonPickerContribution(this.serviceContainer);
-                const disposable = positron.runtime.registerRuntimePickerContribution(contribution);
-                traceInfo('CondaPythonPickerContribution registered successfully');
-                return disposable;
-            })(),
+            positron.runtime.registerRuntimePickerContribution(
+                new CondaPythonPickerContribution(this.serviceContainer),
+            ),
 
             // When an interpreter is added, register a corresponding language runtime.
             interpreterService.onDidChangeInterpreters(async (event) => {
@@ -293,9 +279,6 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
         if (!extraData || !extraData.pythonPath) {
             throw new Error(`Runtime metadata missing Python path: ${JSON.stringify(extraData)}`);
         }
-
-        // Note: Conda environments without Python are now handled by CondaPythonPickerContribution
-        // and should not reach this point as regular runtime sessions
 
         // Check Python kernel debug and log level settings
         // NOTE: We may need to pass a resource to getSettings to support multi-root workspaces
@@ -583,54 +566,4 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
     async triggerInterpreterRefresh(): Promise<void> {
         await this.interpreterService.triggerRefresh();
     }
-}
-
-/**
- * Result of installing Python in a conda environment.
- */
-export interface CondaPythonInstallResult {
-    installed: boolean;
-    actualPythonPath?: string;
-}
-
-/**
- * Install Python in a conda environment.
- *
- * @param pythonPath The predicted Python interpreter path
- * @param serviceContainer The service container
- * @returns Result indicating if Python was installed and the actual path
- */
-export async function installPythonInCondaEnv(
-    pythonPath: string,
-    serviceContainer: IServiceContainer,
-): Promise<CondaPythonInstallResult> {
-    const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
-    const interpreter = await interpreterService.getInterpreterDetails(pythonPath);
-
-    if (!interpreter?.envPath) {
-        return { installed: false };
-    }
-
-    const installer = serviceContainer.get<IInstaller>(IInstaller);
-    const shell = serviceContainer.get<IApplicationShell>(IApplicationShell);
-    const progressOptions: vscode.ProgressOptions = {
-        location: vscode.ProgressLocation.Window,
-        title: `[${Interpreters.installingPython}](command:${Commands.ViewOutput})`,
-    };
-
-    const installResult = await shell.withProgress(progressOptions, async () => {
-        return installer.install(Product.python, interpreter);
-    });
-
-    if (installResult !== InstallerResponse.Installed) {
-        return { installed: false };
-    }
-
-    // Refresh interpreter service to pick up newly installed Python
-    await interpreterService.triggerRefresh();
-    await interpreterService.refreshPromise;
-
-    // Get the actual Python path
-    const actualPythonPath = getCondaPythonPath(interpreter.envPath);
-    return { installed: true, actualPythonPath };
 }
