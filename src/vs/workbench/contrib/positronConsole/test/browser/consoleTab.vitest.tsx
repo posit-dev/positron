@@ -57,11 +57,8 @@ describe('ConsoleTab', () => {
 			return instance;
 		}
 
-		it('focuses the input and selects the entire session name when rename action is selected', async () => {
+		async function openRenameInput(instance: TestPositronConsoleInstance, sessionName: string) {
 			const user = userEvent.setup();
-			const sessionName = 'My Python Session';
-			const instance = addActiveConsoleInstance('test-session-1', sessionName);
-
 			rtl.render(
 				<PositronConsoleContextProvider>
 					<ConsoleTab
@@ -78,23 +75,55 @@ describe('ConsoleTab', () => {
 				keys: '[MouseRight]',
 				target: screen.getByRole('tab', { name: sessionName }),
 			});
-			expect(showContextMenu).toHaveBeenCalledOnce();
 
-			const delegate = showContextMenu.mock.calls[0][0];
+			const delegate = showContextMenu.mock.calls.at(-1)![0];
 			const renameAction = (delegate.getActions() as IAction[])
 				.find(a => a.id === 'workbench.action.positronConsole.renameConsoleSession');
-			expect(renameAction).toBeDefined();
 
 			// Invoking the rename action flips isRenamingSession to true, which mounts
 			// the input and fires the useEffect that focuses + selects its text.
 			await act(async () => {
-				await renameAction?.run();
+				await renameAction!.run();
 			});
+
+			return { user, renameAction };
+		}
+
+		it('focuses the input and selects the entire session name when rename action is selected', async () => {
+			const sessionName = 'My Python Session';
+			const instance = addActiveConsoleInstance('test-session-1', sessionName);
+
+			const { renameAction } = await openRenameInput(instance, sessionName);
+			expect(showContextMenu).toHaveBeenCalledOnce();
+			expect(renameAction).toBeDefined();
 
 			const input = screen.getByRole('textbox') as HTMLInputElement;
 			expect(input).toHaveFocus();
 			expect(input.selectionStart).toBe(0);
 			expect(input.selectionEnd).toBe(sessionName.length);
+		});
+
+		it('submits the rename via Enter and persists the new name through runtimeSessionService', async () => {
+			const sessionName = 'My Python Session';
+			const newName = 'Pleasure meeting you here. 👋';
+			const instance = addActiveConsoleInstance('test-session-2', sessionName);
+
+			// Spy on updateSessionName -- the rename commit path -- without
+			// stubbing the whole runtime session service (consoleTab subscribes
+			// to several events on it).
+			const updateSessionName = vi.spyOn(
+				ctx.reactServices.runtimeSessionService,
+				'updateSessionName'
+			).mockImplementation(() => { });
+
+			const { user } = await openRenameInput(instance, sessionName);
+
+			// The input mounts with its existing name selected, so typing
+			// replaces the selection.
+			await user.keyboard(newName);
+			await user.keyboard('{Enter}');
+
+			expect(updateSessionName).toHaveBeenCalledWith('test-session-2', newName);
 		});
 	});
 });
