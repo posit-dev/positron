@@ -25,12 +25,14 @@ async function launchBrowser(options: LaunchOptions, serverUrl: string) {
 	const { logger, workspacePath, tracing, snapshots, headless } = options;
 
 	const [browserType, browserChannel] = (options.browser ?? 'chromium').split('-');
+	// WebKit doesn't support --disable-popup-blocking, but Chromium/Firefox do
+	const args = browserType === 'webkit' ? [] : ['--disable-popup-blocking'];
 	const browser = await measureAndLog(() => playwright[browserType as unknown as 'chromium' | 'webkit' | 'firefox' | 'edge'].launch({
 		headless: headless ?? false,
 		timeout: 0,
 		channel: browserChannel,
-		// Disable popup blocker
-		args: ['--disable-popup-blocking']
+		// Disable popup blocker (needed for Jupyter launcher interactions)
+		args
 	}), 'playwright#launch', logger) as unknown as playwright.Browser;
 
 	browser.on('disconnected', () => logger.log(`Playwright: browser disconnected`));
