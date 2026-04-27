@@ -243,7 +243,7 @@ describe('TopActionBarSessionManager', () => {
 			});
 
 			expect(screen.getByTestId('session-manager-icon'))
-				.toHaveClass('runtime-session-icon');
+				.toHaveClass('runtime-session-icon', 'file-icon', 'python-lang-file-icon');
 			expect(screen.getByTestId('session-manager-icon')).not.toHaveClass('codicon-arrow-swap');
 		});
 
@@ -257,7 +257,7 @@ describe('TopActionBarSessionManager', () => {
 				}));
 			});
 
-			expect(screen.getByTestId('session-manager-icon')).toHaveClass('runtime-session-icon');
+			expect(screen.getByTestId('session-manager-icon')).toHaveClass('runtime-session-icon', 'file-icon', 'ipynb-ext-file-icon');
 		});
 
 		it('reverts to "Start Session" when session is cleared', () => {
