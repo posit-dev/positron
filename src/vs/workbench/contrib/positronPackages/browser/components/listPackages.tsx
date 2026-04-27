@@ -391,8 +391,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 				}}
 			>
 				{loaded !== undefined && (
-					<div
-						aria-disabled={protectedPkg}
+					<button
 						aria-label={loaded
 							? localize('positronPackages.loadedAriaLabel', "{0} is loaded; click to unload", name)
 							: localize('positronPackages.notLoadedAriaLabel', "{0} is not loaded; click to load", name)}
@@ -400,12 +399,13 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 							'packages-list-item-loaded',
 							{ loaded, protected: protectedPkg },
 						)}
-						role={protectedPkg ? 'img' : 'button'}
+						disabled={protectedPkg}
 						title={protectedPkg
 							? localize('positronPackages.protectedTooltip', "Base R package (always loaded)")
 							: loaded
 								? localize('positronPackages.unloadTooltip', "Click to unload {0}", name)
 								: localize('positronPackages.loadTooltip', "Click to load {0}", name)}
+						type='button'
 						onClick={(e) => {
 							if (protectedPkg) {
 								return;
