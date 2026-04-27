@@ -34,7 +34,6 @@ import { PROVIDER_METADATA } from '../../providerMetadata.js';
  * - Provider ID: `deepseek-api`
  * - Required: API key from Deepseek
  * - Optional: Model selection, tool calling toggle
- * - Supports: Environment variable autoconfiguration (ANTHROPIC_API_KEY)
  *
  * @example
  * ```typescript
@@ -51,7 +50,7 @@ import { PROVIDER_METADATA } from '../../providerMetadata.js';
  * @see {@link ModelProvider} for base class documentation
  * @see https://api-docs.deepseek.com/ for Anthropic API documentation
  */
-export class AnthropicAIModelProvider extends VercelModelProvider implements positron.ai.LanguageModelChatProvider {
+export class DeepseekAIModelProvider extends VercelModelProvider implements positron.ai.LanguageModelChatProvider {
 	/**
 	 * The Anthropic provider instance from Vercel AI SDK.
 	 */
@@ -68,14 +67,13 @@ export class AnthropicAIModelProvider extends VercelModelProvider implements pos
 	 */
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
-		provider: PROVIDER_METADATA.anthropic,
+		provider: PROVIDER_METADATA.deepseek,
 		supportedOptions: ['apiKey', 'baseUrl', 'autoconfigure'],
 		defaults: {
-			name: DEFAULT_ANTHROPIC_MODEL_NAME,
-			model: DEFAULT_ANTHROPIC_MODEL_MATCH + '-latest',
-			baseUrl: 'https://api.anthropic.com',
+			name: DEFAULT_DEEPSEEK_MODEL_NAME,
+			model: DEFAULT_DEEPSEEK_MODEL_MATCH + '-latest',
+			baseUrl: 'https://api.deepseek.com/anthropic',
 			toolCalls: true,
-			autoconfigure: { type: positron.ai.LanguageModelAutoconfigureType.EnvVariable, key: 'ANTHROPIC_API_KEY', signedIn: false },
 		},
 	};
 
