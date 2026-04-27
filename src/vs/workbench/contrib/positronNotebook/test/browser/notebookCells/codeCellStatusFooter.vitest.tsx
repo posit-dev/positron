@@ -119,9 +119,6 @@ describe('CodeCellStatusFooter', () => {
 	});
 
 	describe('icon variant', () => {
-		// Icons are decorative (no semantic role/label), so we identify them via
-		// data-testid -- the documented fallback in vitest-rtl.md when no
-		// semantic query fits. The Icon component already forwards data-testid.
 		function getIcon() {
 			return screen.getByTestId('cell-status-footer-icon');
 		}
