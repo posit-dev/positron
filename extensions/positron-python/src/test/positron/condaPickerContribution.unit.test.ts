@@ -177,18 +177,10 @@ suite('CondaPythonPickerContribution', () => {
 
         test('should return installed:true with actual path when installer succeeds', async () => {
             const { CondaPythonPickerContribution } = require('../../client/positron/condaPickerContribution');
-            const fsExtra = require('fs-extra');
 
             const envPath = '/Users/test/miniconda3/envs/test1';
-            const actualPythonPath =
-                process.platform === 'win32'
-                    ? path.join(envPath, 'Scripts', 'python.exe')
-                    : path.join(envPath, 'bin', 'python');
-
-            // Stub fs.existsSync so getCondaPythonPath finds the python binary
-            const existsSyncStub = sinon.stub(fsExtra, 'existsSync');
-            existsSyncStub.withArgs(actualPythonPath).returns(true);
-            existsSyncStub.callThrough();
+            const expectedPythonPath =
+                process.platform === 'win32' ? path.join(envPath, 'python.exe') : path.join(envPath, 'bin', 'python');
 
             const mockInterpreterService = {
                 getInterpreterDetails: async () => ({ envPath }),
@@ -211,9 +203,7 @@ suite('CondaPythonPickerContribution', () => {
             const result = await contribution['installPythonInCondaEnv']('/fake/path/python');
 
             expect(result.installed).to.be.true;
-            expect(result.actualPythonPath).to.equal(actualPythonPath);
-
-            existsSyncStub.restore();
+            expect(result.actualPythonPath).to.equal(expectedPythonPath);
         });
     });
 });

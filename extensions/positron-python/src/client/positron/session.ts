@@ -805,15 +805,6 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     }
 
     updateSessionName(sessionName: string): void {
-        // Don't overwrite a valid Python name with a placeholder name.
-        // This happens when Python is installed in a conda env during session creation -
-        // we set the correct name, but Positron tries to update it with the old placeholder.
-        // The $(warning) icon prefix indicates a placeholder "No Python" name.
-        const isPlaceholderName = sessionName.startsWith('$(warning)');
-        const currentIsValid = !this.dynState.sessionName.startsWith('$(warning)');
-        if (isPlaceholderName && currentIsValid) {
-            return;
-        }
         this.dynState.sessionName = sessionName;
         this._kernel?.updateSessionName(sessionName);
     }

@@ -14,7 +14,7 @@ import { traceInfo, traceError } from '../logging';
 import { EnvironmentType } from '../pythonEnvironments/info';
 import { isProblematicCondaEnvironment } from '../interpreter/configuration/environmentTypeComparer';
 import { IInstaller, Product, InstallerResponse } from '../common/types';
-import { getCondaPythonPath } from './util';
+import { getCondaInterpreterPath } from '../pythonEnvironments/common/environmentManagers/conda';
 import { IPythonRuntimeManager } from './manager';
 
 interface CondaPythonInstallResult {
@@ -137,8 +137,7 @@ export class CondaPythonPickerContribution implements positron.runtime.RuntimePi
         // Note: Positron will automatically call "Discover All Interpreters" after this
         // function returns a runtime ID, so we don't need to manually trigger refresh
 
-        // Get the actual Python path (same logic as original function)
-        const actualPythonPath = getCondaPythonPath(interpreter.envPath);
+        const actualPythonPath = getCondaInterpreterPath(interpreter.envPath);
         return { installed: true, actualPythonPath };
     }
 }
