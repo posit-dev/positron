@@ -82,5 +82,6 @@
 	"configuration.models.custom.deprecated.markdownDeprecationMessage": "This setting has been deprecated. Please use the [individual provider settings](command:workbench.action.openSettings?%5B%22positron.assistant.models.overrides%22%5D) instead.",
 	"configuration.models.custom.deprecated.description": "Deprecated. Use 'positron.assistant.models.overrides' settings instead.",
 	"configuration.models.preference.byProvider.deprecated.markdownDeprecationMessage": "This setting has been deprecated. Please use the [individual provider settings](command:workbench.action.openSettings?%5B%22positron.assistant.models.preference%22%5D) instead.",
-	"configuration.models.preference.byProvider.deprecated.description": "Deprecated. Use 'positron.assistant.models.preference' settings instead."
+	"configuration.models.preference.byProvider.deprecated.description": "Deprecated. Use 'positron.assistant.models.preference' settings instead.",
+	"configuration.provider.deepseek.enable.description": "Enable DeepSeek as a language model provider for Positron Assistant.\n\nRestart Positron for the changes to take effect. Then, authenticate to the provider in the [language model provider dialog](command:positron-assistant.configureProviders?%5B%22deepseek%22%5D)."
 }

@@ -19,3 +19,4 @@ export const FOUNDRY_AUTH_PROVIDER_ID = 'ms-foundry';
 export const OPENAI_AUTH_PROVIDER_ID = 'openai-api';
 export const CUSTOM_PROVIDER_AUTH_PROVIDER_ID = 'openai-compatible';
 export const GEMINI_AUTH_PROVIDER_ID = 'google';
+export const DEEPSEEK_AUTH_PROVIDER_ID = 'deepseek';

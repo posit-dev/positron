@@ -440,6 +440,12 @@
             "type": "boolean",
             "default": false,
             "description": "%configuration.alwaysEnableApplyInEditorAction.description%"
+          },
+          "positron.assistant.provider.deepseek.enable": {
+            "type": "boolean",
+            "default": true,
+            "markdownDescription": "%configuration.provider.deepseek.enable.description%",
+            "order": 10
           }
         }
       },
