@@ -128,7 +128,12 @@
 					"type": "string",
 					"default": "",
 					"description": "%configuration.openai-compatible.baseUrl.description%"
-				}
+				},
+        "authentication.deepseek.baseUrl": {
+          "type": "string",
+          "default": "",
+          "description": "%configuration.deepseek.baseUrl.description%"
+        }
 			}
 		}
 	}
