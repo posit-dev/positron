@@ -44,6 +44,7 @@ import { IPositronPreviewService } from '../../workbench/contrib/positronPreview
 import { IPositronNewFolderService } from '../../workbench/services/positronNewFolder/common/positronNewFolder.js';
 import { ILanguageRuntimeService } from '../../workbench/services/languageRuntime/common/languageRuntimeService.js';
 import { IExecutionHistoryService } from '../../workbench/services/positronHistory/common/executionHistoryService.js';
+import { IExtensionService } from '../../workbench/services/extensions/common/extensions.js';
 import { IPositronMemoryUsageService } from '../../platform/positronMemoryUsage/common/positronMemoryUsage.js';
 import { IPositronModalDialogsService } from '../../workbench/services/positronModalDialogs/common/positronModalDialogs.js';
 import { IPositronConsoleService } from '../../workbench/services/positronConsole/browser/interfaces/positronConsoleService.js';
@@ -94,6 +95,7 @@ export class PositronReactServices {
 		@IContextMenuService public readonly contextMenuService: IContextMenuService,
 		@IEditorService public readonly editorService: IEditorService,
 		@IExecutionHistoryService public readonly executionHistoryService: IExecutionHistoryService,
+		@IExtensionService public readonly extensionService: IExtensionService,
 		@IFileService public readonly fileService: IFileService,
 		@IFileDialogService public readonly fileDialogService: IFileDialogService,
 		@IHoverService public readonly hoverService: IHoverService,

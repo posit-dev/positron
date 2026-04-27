@@ -7,7 +7,7 @@ import { Disposable, DisposableStore } from '../../../../../base/common/lifecycl
 import { autorun } from '../../../../../base/common/observable.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
-import { ICellDto2 } from '../../../notebook/common/notebookCommon.js';
+import { CellKind, ICellDto2 } from '../../../notebook/common/notebookCommon.js';
 import { NotebookTextModel } from '../../../notebook/common/model/notebookTextModel.js';
 import { MockNotebookCell } from '../../../notebook/test/browser/testNotebookEditor.js';
 import { IPositronNotebookCell } from '../../browser/PositronNotebookCells/IPositronNotebookCell.js';
@@ -85,6 +85,22 @@ export function createTestPositronNotebookInstance(
 	ctx: { instantiationService: ITestInstantiationService; disposables: Pick<DisposableStore, 'add'> },
 ): TestPositronNotebookInstance {
 	return instantiateTestNotebookInstance(cells, ctx.instantiationService, ctx.disposables);
+}
+
+/**
+ * Creates an N-cell Python code notebook with cells labelled A, B, C, ...
+ * Convenience wrapper over {@link createTestPositronNotebookInstance} for
+ * tests that only care about cell ordering and identity, not content.
+ */
+export function createLabelledTestNotebook(
+	n: number,
+	ctx: { instantiationService: ITestInstantiationService; disposables: Pick<DisposableStore, 'add'> },
+): TestPositronNotebookInstance {
+	const labels = Array.from({ length: n }, (_, i) => String.fromCharCode(65 + i));
+	return createTestPositronNotebookInstance(
+		labels.map(v => [v, 'python', CellKind.Code]),
+		ctx,
+	);
 }
 
 /**

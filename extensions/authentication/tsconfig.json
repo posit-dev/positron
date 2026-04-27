@@ -9,7 +9,7 @@
 		"strict": true,
 		"skipLibCheck": true,
 		"rootDir": "src",
-		"types": ["node"]
+		"types": ["mocha", "node"]
 	},
 	"include": [
 		"src/**/*",

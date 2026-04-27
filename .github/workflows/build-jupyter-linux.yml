@@ -1,0 +1,71 @@
+name: "Build: Positron Server (Linux x64)"
+
+on:
+  workflow_call:
+    outputs:
+      artifact-name:
+        description: "Name of the server artifact uploaded"
+        value: ${{ jobs.build-server.outputs.artifact-name }}
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  build-server:
+    name: Build Positron Server Linux x64
+    runs-on: ubuntu-latest-8x
+    timeout-minutes: 180
+    outputs:
+      artifact-name: positron-server-linux-x64
+    container:
+      image: ghcr.io/posit-dev/positron-builds-rocky8:2
+      credentials:
+        username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
+        password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+
+      - name: Configure Git safe directory
+        run: |
+          git config --global --add safe.directory '*'
+          git rev-parse --show-toplevel
+
+      - name: Install build dependencies
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          npm_config_arch: x64
+        shell: scl enable gcc-toolset-14 -- bash -eo pipefail {0}
+        run: |
+          npm install --prefix build --fetch-timeout 120000
+          npm ci --fetch-timeout 120000
+
+      - name: Build Positron Server
+        env:
+          npm_config_arch: x64
+          MANGLER_WORKER_POOL_SIZE: 1
+        run: |
+          npm run gulp vscode-reh-web-linux-x64
+
+      - name: Package server tar.gz
+        run: |
+          cd ..
+          tar czvf positron/positron-server-linux-x64-branch.tar.gz vscode-reh-web-linux-x64
+
+      - name: Upload server artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: positron-server-linux-x64
+          path: positron-server-linux-x64-branch.tar.gz
+          retention-days: 1
