@@ -47,10 +47,13 @@ export function ensureNoLeakedDisposables(): Pick<DisposableStore, 'add'> {
 		setDisposableTracker(tracker);
 	});
 
+	// Narrow ctx shape inline so this file type-checks even when pulled into the
+	// main src/ compile (which doesn't have Vitest's afterEach context types).
+	type AfterEachContext = { task?: { result?: { state?: string } } } | undefined;
 	afterEach((ctx) => {
 		store.dispose();
 		setDisposableTracker(null);
-		if (ctx?.task?.result?.state !== 'fail') {
+		if ((ctx as AfterEachContext)?.task?.result?.state !== 'fail') {
 			const result = tracker!.computeLeakingDisposables();
 			if (result) {
 				throw new Error(`There are ${result.leaks.length} undisposed disposables!${result.details}`);
