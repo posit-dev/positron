@@ -29,6 +29,7 @@ jobs:
       debian_web_tag_found: ${{ steps.pr-tags.outputs.debian_web_tag_found }}
       pyrefly_tag_found: ${{ steps.pr-tags.outputs.pyrefly_tag_found }}
       workbench_tag_found: ${{ steps.pr-tags.outputs.workbench_tag_found }}
+      jupyter_tag_found: ${{ steps.pr-tags.outputs.jupyter_tag_found }}
 
     steps:
       - uses: actions/checkout@v6
@@ -221,6 +222,26 @@ jobs:
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "workbench"
       install_license: false
+      upload_logs: false
+      allow_soft_fail: false
+    secrets: inherit
+
+  build-jupyter:
+    needs: pr-tags
+    if: ${{ needs.pr-tags.outputs.jupyter_tag_found == 'true' }}
+    name: build
+    uses: ./.github/workflows/build-jupyter-linux.yml
+    secrets: inherit
+
+  e2e-jupyter:
+    needs: [pr-tags, build-jupyter]
+    if: ${{ needs.pr-tags.outputs.jupyter_tag_found == 'true' }}
+    name: e2e
+    uses: ./.github/workflows/test-e2e-jupyter-ubuntu.yml
+    with:
+      grep: ${{ needs.pr-tags.outputs.tags }}
+      display_name: "jupyter"
+      install_license: true
       upload_logs: false
       allow_soft_fail: false
     secrets: inherit
