@@ -19,15 +19,15 @@ import { LanguageModelDataPartMimeType } from '../../types.js';
 import { ModelProviderLogger } from '../base/modelProviderLogger.js';
 import { PROVIDER_METADATA } from '../../providerMetadata.js';
 import {
-	DEFAULT_ANTHROPIC_MODEL_NAME,
-	DEFAULT_ANTHROPIC_MODEL_MATCH,
-	fetchAnthropicModelsFromApi,
-	getAnthropicModelsFromConfig,
-	handleNativeSdkRateLimitError
+	DEFAULT_DEEPSEEK_MODEL_NAME,
+	DEFAULT_DEEPSEEK_MODEL_MATCH,
+	fetchDeepseekModelsFromApi,
+	getDeepseekModelsFromConfig
 } from './deepseekModelUtils.js';
+import { handleVercelSdkRateLimitError } from '../anthropic/anthropicModelUtils.js';
 
 // Re-export for consumers that import from this file
-export { DEFAULT_ANTHROPIC_MODEL_NAME, DEFAULT_ANTHROPIC_MODEL_MATCH };
+export { DEFAULT_DEEPSEEK_MODEL_NAME, DEFAULT_DEEPSEEK_MODEL_MATCH };
 
 /**
  * Options for controlling cache behavior in the Anthropic language model.
