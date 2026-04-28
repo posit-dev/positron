@@ -7,9 +7,14 @@
 
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { KeyCode } from '../../../../../base/common/keyCodes.js';
+import { observableValue } from '../../../../../base/common/observable.js';
 import { ILanguageService } from '../../../../../editor/common/languages/language.js';
+import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
+import { RuntimeNotebookKernel } from '../../../runtimeNotebookKernel/browser/runtimeNotebookKernel.js';
+import { IPositronNotebookInstance } from '../../browser/IPositronNotebookInstance.js';
 import {
 	ChangeToCodeAction,
 	ChangeToMarkdownAction,
@@ -33,6 +38,11 @@ import { CellSelectionType } from '../../browser/selectionMachine.js';
  * The keybinding/wiring path for these actions is left to the upstream
  * registerAction2 plumbing -- their `runNotebookAction` bodies are 1-line
  * calls into changeCellType, which is what the tests here cover.
+ *
+ * Known coverage gap: the view-layer output re-render across cell-kind
+ * changes (cells observable -> rendered output DOM) is asserted by the
+ * remaining notebook-cell-output e2e but not at unit level here. The
+ * changeCellType branch on the underlying text model is fully covered.
  */
 describe('PositronNotebookInstance.changeCellType', () => {
 	const ctx = createTestContainer().withNotebookEditorServices().build();
@@ -178,6 +188,9 @@ describe('PositronNotebookInstance.changeCellType', () => {
 			expect(textModel!.cells[0].language).toBe('raw');
 			// The notebook-level cell view exposes raw cells via isRawCell().
 			expect(notebook.cells.get()[0].isRawCell()).toBe(true);
+			// Same instance reference -- proves the CellEditType.CellLanguage
+			// path (language-only edit, kind unchanged) ran, not Replace.
+			expect(notebook.cells.get()[0]).toBe(cellsBefore[0]);
 		});
 
 		it('explicit cellToConvert arg targets a non-active cell', () => {
@@ -211,11 +224,41 @@ describe('PositronNotebookInstance.changeCellType', () => {
 		// are 1-line passthroughs into changeCellType (already covered by the
 		// model-method describes above).
 
+		// Test-only subclass that exposes the protected `runNotebookAction` so
+		// we can invoke the action's body without standing up an active editor
+		// pane. Same pattern as notebookDelete.vitest.ts.
+		class TestableChangeToCodeAction extends ChangeToCodeAction {
+			public testRun(notebook: IPositronNotebookInstance, accessor: ServicesAccessor) {
+				return this.runNotebookAction(notebook, accessor);
+			}
+		}
+
+		// runNotebookAction takes a ServicesAccessor that this action never reads.
+		const unusedAccessor: ServicesAccessor = {
+			get() { throw new Error('ServicesAccessor must not be used in this action test'); },
+		};
+
 		it('ChangeToCodeAction declares Y scoped to command mode', () => {
 			const action = new ChangeToCodeAction();
 			expect(action.desc.id).toBe('positronNotebook.cell.changeToCode');
 			expect(action.desc.keybinding?.primary).toBe(KeyCode.KeyY);
 			expect(action.desc.keybinding?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
+		});
+
+		it('ChangeToCodeAction.runNotebookAction passes undefined language when kernel.get() is null', () => {
+			// Branch coverage: the action derives `kernelLanguage` from
+			// `notebook.kernel.get()?.supportedLanguages?.[0]`. With no kernel
+			// attached, that resolves to undefined and is forwarded to
+			// changeCellType as the language argument.
+			const changeCellType = vi.fn();
+			const notebook = stubInterface<IPositronNotebookInstance>({
+				kernel: observableValue<RuntimeNotebookKernel | undefined>('kernel', undefined),
+				changeCellType,
+			});
+
+			new TestableChangeToCodeAction().testRun(notebook, unusedAccessor);
+
+			expect(changeCellType).toHaveBeenCalledWith(CellKind.Code, undefined);
 		});
 
 		it('ChangeToMarkdownAction declares M scoped to command mode', () => {

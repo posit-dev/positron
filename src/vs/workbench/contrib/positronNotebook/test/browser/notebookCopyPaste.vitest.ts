@@ -197,8 +197,8 @@ describe('PositronNotebookInstance.copy/cut/paste*', () => {
 			const notebook = createLabelledTestNotebook(3, ctx);
 			const cellsBefore = notebook.cells.get();
 			notebook.copyCells([cellsBefore[2]]);
-			// Ensure no active cell so getInsertionIndex() would otherwise pick
-			// the end -- we want to verify the explicit-index path takes precedence.
+			// With cell 0 active, getInsertionIndex() would default to 1 (after
+			// active cell). Passing 0 explicitly overrides this and inserts at 0.
 			notebook.selectionStateMachine.selectCell(cellsBefore[0], CellSelectionType.Normal);
 
 			notebook.pasteCells(0);
@@ -218,6 +218,31 @@ describe('PositronNotebookInstance.copy/cut/paste*', () => {
 			expect(() => notebook.pasteCells()).not.toThrow();
 
 			expect(notebook.cells.get().map(c => c.getContent())).toEqual(before);
+		});
+
+		it('copy + paste round-trip restores outputs on the underlying text model', () => {
+			// Mirrors the e2e parity for outputs: a cell carrying an output is
+			// copied (DTO retains outputs, see "preserves outputs on the
+			// clipboard DTO" above) and pasted; the newly-inserted cell on the
+			// underlying text model carries the same output.
+			const notebook = createTestPositronNotebookInstance(
+				[['print("hello")', 'python', CellKind.Code, [{
+					outputId: 'test-output',
+					outputs: [{ mime: 'text/plain', data: VSBuffer.fromString('hello') }],
+				}]]],
+				ctx,
+			);
+			const cellsBefore = notebook.cells.get();
+			notebook.copyCells([cellsBefore[0]]);
+
+			notebook.pasteCells(1);
+
+			const { textModel } = notebook;
+			expect(textModel).toBeDefined();
+			expect(textModel!.cells.length).toBe(2);
+			// The pasted cell at index 1 carries the same output as the source.
+			expect(textModel!.cells[1].outputs.length).toBe(1);
+			expect(textModel!.cells[1].outputs[0].outputId).toBe('test-output');
 		});
 	});
 

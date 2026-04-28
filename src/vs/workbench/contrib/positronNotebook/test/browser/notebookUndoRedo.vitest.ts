@@ -14,6 +14,7 @@ import { IEditorPane } from '../../../../common/editor.js';
 import { POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../browser/ContextKeysManager.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../common/positronNotebookCommon.js';
 import { handleNotebookRedo, handleNotebookUndo } from '../../browser/contrib/undoRedo/positronNotebookUndoRedo.js';
+import { NotebookOperationType } from '../../browser/IPositronNotebookInstance.js';
 import {
 	createTestPositronNotebookInstance,
 	TestPositronNotebookInstance,
@@ -297,7 +298,7 @@ describe('PositronNotebookInstance undo/redo', () => {
 			const result = await handleNotebookUndo(editorService, ctx.get(IUndoRedoService));
 
 			// Yield not taken: handler claimed the operation.
-			expect(result).not.toBe(false);
+			expect(result).toBeUndefined();
 
 			// Model unwound through the focus-gated path.
 			const cells = notebook.cells.get();
@@ -306,7 +307,7 @@ describe('PositronNotebookInstance undo/redo', () => {
 
 			// Handler flagged the operation as Undo before dispatching, so
 			// _syncCells can distinguish undo-restored cells from a fresh add.
-			expect(setOpSpy).toHaveBeenCalled();
+			expect(setOpSpy).toHaveBeenCalledWith(NotebookOperationType.Undo);
 		});
 	});
 });

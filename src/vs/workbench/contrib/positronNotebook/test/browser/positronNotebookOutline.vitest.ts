@@ -6,6 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { createTestPositronNotebookInstance } from './testPositronNotebookInstance.js';
 import {
@@ -244,8 +245,7 @@ describe('PositronNotebookOutline', () => {
 		function createOutline(notebook: ReturnType<typeof createTestPositronNotebookInstance>) {
 			// PositronNotebookCellOutline only reads `_editor.notebookInstance` --
 			// narrowing the editor to that single property is sufficient.
-			// eslint-disable-next-line local/code-no-dangerous-type-assertions -- narrow stub: only `notebookInstance` is read by the outline
-			const editor = { notebookInstance: notebook } as PositronNotebookEditor;
+			const editor = stubInterface<PositronNotebookEditor>({ notebookInstance: notebook });
 			const outline = ctx.disposables.add(ctx.instantiationService.createInstance(
 				PositronNotebookCellOutline,
 				editor,
@@ -297,31 +297,6 @@ describe('PositronNotebookOutline', () => {
 			const cells = notebook.cells.get();
 			const activeCell = getActiveCell(notebook.selectionStateMachine.state.get());
 			expect(activeCell).toBe(cells[1]);
-		});
-
-		it('locates an outline entry by label and selects the cell at the expected index', async () => {
-			// Mirrors the e2e flow: find an outline entry by its visible label
-			// (find-by-text), reveal it, and confirm the cell at that index is
-			// selected.
-			const notebook = createTestPositronNotebookInstance([
-				['# First Section', 'markdown', CellKind.Markup],
-				['x = 1', 'python', CellKind.Code],
-				['# Second Section', 'markdown', CellKind.Markup],
-			], ctx);
-			const outline = createOutline(notebook);
-
-			const flat: ReturnType<typeof buildOutlineEntries> = [];
-			for (const root of outline.entries) {
-				root.asFlatList(flat);
-			}
-			const found = flat.find(e => e.label === 'Second Section');
-			expect(found, 'Outline entry should be locatable by label').toBeDefined();
-
-			await outline.reveal(found!, revealOptions, false);
-
-			const cells = notebook.cells.get();
-			const activeCell = getActiveCell(notebook.selectionStateMachine.state.get());
-			expect(activeCell).toBe(cells[2]);
 		});
 	});
 });

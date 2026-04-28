@@ -103,6 +103,9 @@ describe('PositronNotebookInstance.delete*', () => {
 			const cellsAfter = notebook.cells.get();
 			expect(cellsAfter.length).toBe(2);
 			expect(cellsAfter.map(c => c.getContent())).not.toContain(targetContent);
+			const state = notebook.selectionStateMachine.state.get();
+			expect(state.type).toBe(SelectionState.SingleSelection);
+			expect(getActiveCell(state)).toBe(cellsAfter[1]); // next cell after deleted index 1
 		});
 
 		it('deleteCell() is a no-op on an empty notebook', () => {
