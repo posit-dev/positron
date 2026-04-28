@@ -4,9 +4,9 @@
 
 **Goal:** Audit all 182 Positron e2e tests against the 92 Vitest tests, identify migration candidates and coverage gaps, and execute the top 5 high-confidence migrations end-to-end (write vitest, delete e2e, commit).
 
-**Architecture:** Two phases. Phase 1 (Tasks 1–5): dispatch 9 parallel audit subagents, synthesize their bucket outputs into a single report, rank candidates by a fixed scoring rubric, write and commit the report. Phase 2 (Tasks 6–10): execute the 5 selected migrations, one task per migration, each producing one atomic commit. Tasks 6–10 are parameterized templates — the candidate paths are filled in from Task 5 output before each migration task executes.
+**Architecture:** Two phases. Phase 1 (Tasks 1–5): dispatch 9 parallel audit subagents (each calibrated by reading `vitest-tests.md`, `vitest-rtl.md`, and the `author-e2e-tests` SKILL), synthesize their bucket outputs into a single report, rank candidates by a fixed scoring rubric, write and commit the report. Phase 2 (Tasks 6–10): execute the 5 selected migrations by invoking the `author-vitest-tests` skill (which has its own mandatory user-confirmation gate for the test plan and dispatches `review-vitest-tests` for independent review), then deleting the e2e and committing. Tasks 6–10 are parameterized templates — the candidate paths are filled in from Task 5 output before each migration task executes.
 
-**Tech Stack:** Playwright (e2e, deleted), Vitest (target), React Testing Library, builder-pattern DI (`createTestContainer()`), `stubInterface<T>()`, ESLint with `eslint-plugin-testing-library` and `eslint-plugin-jest-dom`.
+**Tech Stack:** Playwright (e2e, deleted), Vitest (target), React Testing Library, builder-pattern DI (`createTestContainer()`), `stubInterface<T>()`, ESLint with `eslint-plugin-testing-library` and `eslint-plugin-jest-dom`. Skills: `author-vitest-tests`, `review-vitest-tests`, `author-e2e-tests`.
 
 **Spec:** `docs/superpowers/specs/2026-04-28-e2e-vitest-audit-design.md`
 
@@ -64,6 +64,27 @@ against a fixed rubric and produce one row per file in the output.
 (Read the file at /tmp/vitest-inventory.txt for the full list of 92 vitest
 paths. Use this list to find counterparts for the e2e tests you audit.)
 
+## Required reading — do this ONCE before classifying any files
+
+Read these in order. They calibrate your judgment on what really needs
+full-app behavior vs what can be a vitest, and on what good vitest
+counterparts look like.
+
+1. `.claude/rules/vitest-tests.md` — Vitest patterns, presets, anti-
+   patterns, and the builder. This is what a "good vitest counterpart"
+   looks like.
+2. `.claude/rules/vitest-rtl.md` — RTL conventions for `.vitest.tsx`
+   tests. Helps you spot React-component e2e tests that are really
+   prop-driven render tests.
+3. `.claude/skills/author-e2e-tests/SKILL.md` — Positron's e2e fixture
+   system, page object model, what "real e2e behavior" looks like.
+   Tests that lean heavily on `app.workbench.*` page-object methods,
+   `python` / `r` / `sessions` fixtures for runtime startup, or
+   `executeCode` are usually `Keep`. Tests that only assert on text /
+   structure that could be unit-tested are usually migratable.
+4. `CLAUDE.md` (Testing section, "Where should I put my test?" table) —
+   the canonical decision table.
+
 ## Process — for each e2e file in your bucket
 
 1. Read the e2e test file in full.
@@ -71,7 +92,10 @@ paths. Use this list to find counterparts for the e2e tests you audit.)
    and key functions it asserts on).
 3. Search /tmp/vitest-inventory.txt for any vitest that targets the same
    source. If a candidate exists, read it in full to compare assertions.
-4. Apply the rubric below and emit one row.
+4. Apply the rubric below and emit one row. The required-reading items
+   inform your verdict — if a test uses real interpreter fixtures or
+   multi-pane page-object workflows, it's `Keep`; if it asserts on logic
+   the source exposes synchronously, it's `Strong-migrate` or `Dupe`.
 
 DO NOT classify from the filename alone. Read the file.
 
@@ -413,124 +437,103 @@ Expected: commit succeeds; pre-commit hook passes (Markdown only).
 
 ## Migration tasks 6–10 — template
 
-> Tasks 6 through 10 are five instances of the same template. Before each one starts, fill in the placeholders from `/tmp/audit-top5.md`:
+> Tasks 6 through 10 are five instances of the same template. Before each one starts, fill in these placeholders from `/tmp/audit-top5.md`:
 >
 > - `<E2E_PATH>` — e.g. `test/e2e/tests/console/console-ansi.test.ts`
 > - `<E2E_NAME>` — basename without extension, e.g. `console-ansi`
 > - `<SOURCE_PATH>` — e.g. `src/vs/workbench/services/positronConsole/browser/classes/runtimeItemActivity.ts`
-> - `<VITEST_PATH>` — new file path, e.g. `src/vs/workbench/services/positronConsole/test/browser/classes/runtimeItemActivity.vitest.ts`
-> - `<PATTERN>` — one of: `plain` / `builder` / `rtl-prop` / `rtl-service`
+> - `<E2E_ASSERTIONS>` — bullet list of every assertion in the e2e (gathered in Step 1)
+> - `<VITEST_PATH>` — new vitest file (decided by `author-vitest-tests` skill in Step 2)
 >
-> File-extension rule: `.vitest.tsx` only when `<PATTERN>` is `rtl-prop` or `rtl-service` (or any test that imports JSX); otherwise `.vitest.ts`.
+> The migration tasks invoke the project's `author-vitest-tests` skill rather than open-coding the vitest creation. The skill enforces the project's authoring conventions, includes a **mandatory user-confirmation gate** for the test plan, and runs an independent review subagent (`review-vitest-tests`) before considering the test done. Only after the skill completes do we delete the e2e and commit.
 
 ## Task 6: Migration 1 (top-ranked candidate from Task 5)
 
 **Files:**
-- Create: `<VITEST_PATH>`
+- Create: `<VITEST_PATH>` (path determined during Step 2 by the skill)
 - Delete: `<E2E_PATH>`
 - Reference: `<SOURCE_PATH>`
 
-- [ ] **Step 1: Read the e2e and source**
+- [ ] **Step 1: Read the e2e and capture assertions**
 
-Use `Read` on `<E2E_PATH>` (full file) and `<SOURCE_PATH>` (full file). If the audit named a `vitest_counterpart`, `Read` that too.
+Use `Read` on `<E2E_PATH>` (full file). Write a bullet list of every assertion the e2e makes — these are the behaviors the new vitest must reproduce (coverage parity). Save them to `<E2E_ASSERTIONS>` (a scratch variable for use in Step 4 commit message and the user-facing test plan).
 
-Note every assertion in the e2e — you must reproduce equivalent assertions in the vitest (coverage parity).
+Also note: which fixtures does the e2e use (`app`, `python`, `r`, `sessions`, `executeCode`)? If the e2e relies on a runtime fixture for the assertions to even fire, the audit was wrong — demote this candidate, pick the next from `/tmp/audit-ranked.md`, and restart Task 6 with the new candidate.
 
-- [ ] **Step 2: Confirm pattern choice**
-
-`<PATTERN>` was set from the audit. Verify by inspecting the source:
-
-- `plain`: source is a pure function or a class with no DI dependencies. → Copy `src/vs/platform/update/test/common/positronUpdateUtils.vitest.ts` as the template.
-- `builder`: source is a service / class that takes injected services. → Use `createTestContainer().withRuntimeServices()` (or the lowest preset that compiles). Reference: `.claude/rules/vitest-tests.md`.
-- `rtl-prop`: React component receives data via props, no service context. → Use `setupRTLRenderer()` only. Reference: `.claude/rules/vitest-rtl.md`.
-- `rtl-service`: React component reads from `usePositronReactServicesContext`. → Use `createTestContainer().withReactServices().stub(...).build()` + `setupRTLRenderer(() => ctx.reactServices)`. Reference: `src/vs/workbench/contrib/positronConsole/test/browser/emptyConsole.vitest.tsx`.
-
-If your inspection contradicts the chosen pattern, override and document why in the commit message.
-
-- [ ] **Step 3: Write the vitest**
-
-Use `Write` to create `<VITEST_PATH>`. Include:
-
-- Standard copyright header (copy from any existing vitest in the area).
-- `/// <reference types="vitest/globals" />` after the header.
-- One `describe` block named for the source under test.
-- One `it` block per assertion in the deleted e2e (coverage parity).
-- Tabs for indentation (project rule).
-- Anti-pattern compliance from `vitest-tests.md`:
-  - No `positronWorkbenchInstantiationService()`, no direct `TestInstantiationService`, no wide `as unknown as <Interface>` casts. Use `stubInterface<T>()` from `src/vs/test/vitest/stubInterface.ts` for partial stubs.
-  - For event-driven sources, create the `Emitter` at `describe` scope, not inside `it()` or `beforeEach`.
-  - For React state updates, use `act()` from `@testing-library/react`, not `flushSync`.
-  - Use `expect(...).to*(...)`. Never `assert.ok` / `assert.equal`.
-
-- [ ] **Step 4: Run the vitest**
+- [ ] **Step 2: Invoke the `author-vitest-tests` skill**
 
 Run:
 
-```bash
-npx vitest run <VITEST_PATH>
+```
+Skill({ skill: "author-vitest-tests", args: "<SOURCE_PATH>" })
 ```
 
-Expected: all assertions pass. If a test fails:
-- Read the error.
-- Compare against the e2e's actual behavior (not what you assumed).
-- If the test reveals a real bug, stop and surface it (do not paper over).
-- If your stubs are too narrow, widen them or move to a higher preset (`withWorkbenchServices()` is the highest before reaching for full bootstrapping).
-- If you need to mock 5+ services to compile, **stop**: this is the entanglement stop condition from the design. Demote this candidate to a follow-up note and pick the next ranked one.
+Pass `<SOURCE_PATH>` (the source file under test) as `$ARGUMENTS`, not the e2e path. The skill will:
 
-- [ ] **Step 5: Lint the vitest**
+1. Skip Phase 1 (we're not analyzing a branch — we have a specific source file).
+2. Run Phase 2 Prepare (read source, check decision table, skim builder JSDoc).
+3. Run Phase 2 Draft test plan and **STOP for user confirmation**. This is the mandatory gate. The skill will present a plan with: pattern choice, preset, stubs, test cases. You must wait for the user to approve before proceeding.
 
-Run:
+When the skill presents its draft plan, augment your message to the user with the e2e context so they can sanity-check coverage parity:
 
-```bash
-npx eslint --max-warnings 0 <VITEST_PATH>
-```
+> The author-vitest-tests skill has drafted the above plan. For coverage parity, here are the assertions in the e2e being replaced:
+>
+> <paste E2E_ASSERTIONS bullet list>
+>
+> Confirm the test plan covers these, or request additions before I write.
 
-Expected: zero warnings, zero errors. If `eslint-plugin-testing-library` or `eslint-plugin-jest-dom` flags an anti-pattern:
-- Fix the test, do not suppress the rule.
-- An `eslint-disable` is acceptable only with a one-line comment naming the real constraint (per `vitest-rtl.md`).
+If the user requests changes, relay them to the skill and let it revise.
 
-- [ ] **Step 6: Format the vitest**
+- [ ] **Step 3: Skill writes, lints, runs, and reviews**
 
-Run:
+Once the user confirms, the skill continues autonomously through:
 
-```bash
-node scripts/format.mts <VITEST_PATH>
-```
+- Phase 2 Writing: creates the vitest at `<VITEST_PATH>` (skill-determined), runs `npx vitest run`, runs `npx eslint`, iterates until green.
+- Builder enforcement: greps for `positronWorkbenchInstantiationService` / `new TestInstantiationService` and rewrites if found.
+- Phase 3 Independent Review: dispatches a `review-vitest-tests` subagent, applies its fixes, re-runs.
 
-Expected: file passes formatter (may rewrite indentation/spacing in place).
+You don't drive these steps — the skill does. Wait for it to return with a final summary.
 
-- [ ] **Step 7: Delete the e2e and verify no orphans**
+If the skill hits a hard blocker (test won't pass without 5+ stubs, source genuinely needs a runtime, etc.), capture the reason, demote this candidate, and pick the next ranked from `/tmp/audit-ranked.md`. Restart Task 6 with the new candidate.
+
+- [ ] **Step 4: Coverage parity check**
+
+The skill doesn't know about the e2e being replaced. Manually verify:
+
+1. `Read` the new vitest at `<VITEST_PATH>`.
+2. For each bullet in `<E2E_ASSERTIONS>`, find the matching `it()` block or assertion in the new vitest.
+3. Any e2e assertion with no vitest equivalent must be added now: revise the vitest, re-run `npx vitest run <VITEST_PATH>`, re-run `npx eslint --max-warnings 0 <VITEST_PATH>`.
+
+Do not proceed to deletion until every e2e assertion has a vitest counterpart.
+
+- [ ] **Step 5: Delete the e2e and verify no orphans**
 
 Run:
 
 ```bash
 git rm <E2E_PATH>
-```
-
-Then check for orphaned references to the deleted basename:
-
-```bash
 grep -rn "<E2E_NAME>" test/e2e/ src/ --include="*.ts" --include="*.tsx" --include="*.json" || echo "no orphans"
 ```
 
 Expected: "no orphans". If any results show up, decide each one:
-- Imports of helpers from the deleted file → move the helper to the new vitest or to a shared `test/e2e/.../helpers/` file. (Most e2e tests do not export helpers; this is rare.)
+- Imports of helpers from the deleted file → move the helper to a shared `test/e2e/.../helpers/` file (do not move e2e helpers into the vitest directory).
 - References in `package.json`, `playwright.config.ts`, or tag lists → remove the entry.
 - References in CI config → remove the entry.
 
-If anything orphaned is non-trivial (e.g. shared helper used by other e2es), unstage the delete (`git restore --staged <E2E_PATH>`), keep the e2e, demote this candidate, and pick the next ranked.
+If anything orphaned is non-trivial (shared helper used by other e2es), unstage the delete (`git restore --staged <E2E_PATH>`), keep the e2e, demote this candidate, pick the next ranked.
 
-- [ ] **Step 8: Run precommit**
+- [ ] **Step 6: Format and precommit**
 
 Run:
 
 ```bash
+node scripts/format.mts <VITEST_PATH>
 npm run precommit -- <VITEST_PATH> <E2E_PATH>
 ```
 
-Expected: zero issues (formatting, copyright header, ASCII punctuation, ESLint).
+Expected: zero issues. The skill should have produced a clean file already; this is a final guard.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add <VITEST_PATH>
@@ -549,9 +552,11 @@ EOF
 )"
 ```
 
-Replace `<E2E_NAME>`, the assertion bullets, and the reason with concrete values from this migration. Expected: one commit containing the new vitest and the deleted e2e.
+Replace `<E2E_NAME>`, the assertion bullets (from `<E2E_ASSERTIONS>`), and the reason with concrete values. Expected: one commit containing the new vitest and the deleted e2e.
 
-- [ ] **Step 10: Verify commit shape**
+The `author-vitest-tests` skill's hard rule is "Don't auto-commit" — that rule is about the skill itself not committing during its run. Committing here, *after* the skill completes and the user has confirmed the test plan, is consistent with the spec's authorized commit cadence.
+
+- [ ] **Step 8: Verify commit shape**
 
 Run:
 
@@ -566,70 +571,58 @@ Expected: exactly one file added (vitest), exactly one file deleted (e2e). If an
 ## Task 7: Migration 2 (rank-2 candidate from Task 5)
 
 > Fill placeholders from rank 2 of `/tmp/audit-top5.md` before starting:
-> `<E2E_PATH>`, `<E2E_NAME>`, `<SOURCE_PATH>`, `<VITEST_PATH>`, `<PATTERN>`.
+> `<E2E_PATH>`, `<E2E_NAME>`, `<SOURCE_PATH>`, `<E2E_ASSERTIONS>`, `<VITEST_PATH>`.
 
 **Files:**
-- Create: `<VITEST_PATH>`
+- Create: `<VITEST_PATH>` (path determined during Step 2 by the skill)
 - Delete: `<E2E_PATH>`
 - Reference: `<SOURCE_PATH>`
 
-- [ ] **Step 1: Read the e2e and source**
+- [ ] **Step 1: Read the e2e and capture assertions**
 
-Use `Read` on `<E2E_PATH>` (full file) and `<SOURCE_PATH>` (full file). If the audit named a `vitest_counterpart`, `Read` that too. Note every assertion in the e2e — the new vitest must reproduce equivalent assertions.
+Use `Read` on `<E2E_PATH>` (full file). Write a bullet list of every assertion the e2e makes — these are the behaviors the new vitest must reproduce (coverage parity). Save them to `<E2E_ASSERTIONS>`.
 
-- [ ] **Step 2: Confirm pattern choice**
+Also note: which fixtures does the e2e use (`app`, `python`, `r`, `sessions`, `executeCode`)? If the e2e relies on a runtime fixture for the assertions to even fire, the audit was wrong — demote this candidate, pick the next from `/tmp/audit-ranked.md`, and restart Task 7 with the new candidate.
 
-`<PATTERN>` was set from the audit. Verify by inspecting the source:
-
-- `plain`: pure function or class with no DI. → Template: `src/vs/platform/update/test/common/positronUpdateUtils.vitest.ts`.
-- `builder`: service / class taking injected services. → `createTestContainer().withRuntimeServices()` (or lowest preset that compiles). Reference: `.claude/rules/vitest-tests.md`.
-- `rtl-prop`: React component, props-only. → `setupRTLRenderer()` only. Reference: `.claude/rules/vitest-rtl.md`.
-- `rtl-service`: React component reads `usePositronReactServicesContext`. → `createTestContainer().withReactServices().stub(...).build()` + `setupRTLRenderer(() => ctx.reactServices)`. Reference: `src/vs/workbench/contrib/positronConsole/test/browser/emptyConsole.vitest.tsx`.
-
-If inspection contradicts the chosen pattern, override and document why in the commit message.
-
-- [ ] **Step 3: Write the vitest**
-
-Use `Write` to create `<VITEST_PATH>`. Include:
-
-- Standard copyright header (copy from any existing vitest in the area).
-- `/// <reference types="vitest/globals" />` after the header.
-- One `describe` block named for the source under test.
-- One `it` block per assertion in the deleted e2e (coverage parity).
-- Tabs for indentation.
-- Anti-pattern compliance from `vitest-tests.md`: no `positronWorkbenchInstantiationService()`, no direct `TestInstantiationService`, no wide `as unknown as <Interface>` casts (use `stubInterface<T>()` from `src/vs/test/vitest/stubInterface.ts`). Create `Emitter`s at `describe` scope, not inside `it()`. Use `act()` from `@testing-library/react` for React state updates, not `flushSync`. Use `expect(...).to*(...)`. Never `assert.ok` / `assert.equal`.
-
-- [ ] **Step 4: Run the vitest**
+- [ ] **Step 2: Invoke the `author-vitest-tests` skill**
 
 Run:
 
-```bash
-npx vitest run <VITEST_PATH>
+```
+Skill({ skill: "author-vitest-tests", args: "<SOURCE_PATH>" })
 ```
 
-Expected: all assertions pass. If a test fails: read the error; compare against the e2e's actual behavior; if the test reveals a real bug, stop and surface it; if stubs are too narrow, widen or move to a higher preset; if you need 5+ services to compile, **stop** — demote this candidate per the design's stop condition and pick the next ranked one.
+Pass `<SOURCE_PATH>` (the source file under test) as `$ARGUMENTS`. The skill will: skip Phase 1; run Phase 2 Prepare; run Phase 2 Draft test plan and **STOP for user confirmation** (mandatory gate).
 
-- [ ] **Step 5: Lint the vitest**
+When the skill presents its draft plan, augment your message to the user:
 
-Run:
+> The author-vitest-tests skill has drafted the above plan. For coverage parity, here are the assertions in the e2e being replaced:
+>
+> <paste E2E_ASSERTIONS bullet list>
+>
+> Confirm the test plan covers these, or request additions before I write.
 
-```bash
-npx eslint --max-warnings 0 <VITEST_PATH>
-```
+If the user requests changes, relay them to the skill and let it revise.
 
-Expected: zero warnings, zero errors. Fix violations rather than suppressing rules. An `eslint-disable` is acceptable only with a one-line comment naming the real constraint.
+- [ ] **Step 3: Skill writes, lints, runs, and reviews**
 
-- [ ] **Step 6: Format the vitest**
+Once confirmed, the skill runs Phase 2 Writing (creates vitest at `<VITEST_PATH>`, runs `npx vitest`, runs `npx eslint`, iterates), Builder enforcement (greps for forbidden DI patterns), and Phase 3 Independent Review (dispatches `review-vitest-tests` subagent, applies fixes, re-runs).
 
-Run:
+You don't drive these — the skill does. Wait for it to return.
 
-```bash
-node scripts/format.mts <VITEST_PATH>
-```
+If the skill hits a hard blocker (5+ stubs needed, source needs runtime, etc.), capture the reason, demote this candidate, pick the next ranked from `/tmp/audit-ranked.md`. Restart Task 7 with the new candidate.
 
-Expected: file passes formatter.
+- [ ] **Step 4: Coverage parity check**
 
-- [ ] **Step 7: Delete the e2e and verify no orphans**
+The skill doesn't know about the e2e. Manually verify:
+
+1. `Read` the new vitest at `<VITEST_PATH>`.
+2. For each bullet in `<E2E_ASSERTIONS>`, find the matching `it()` block.
+3. Any e2e assertion with no vitest equivalent must be added now: revise the vitest, re-run `npx vitest run <VITEST_PATH>`, re-run `npx eslint --max-warnings 0 <VITEST_PATH>`.
+
+Do not proceed to deletion until every e2e assertion has a vitest counterpart.
+
+- [ ] **Step 5: Delete the e2e and verify no orphans**
 
 Run:
 
@@ -638,19 +631,20 @@ git rm <E2E_PATH>
 grep -rn "<E2E_NAME>" test/e2e/ src/ --include="*.ts" --include="*.tsx" --include="*.json" || echo "no orphans"
 ```
 
-Expected: "no orphans". If any references show up: helpers used elsewhere → move them; references in `package.json` / `playwright.config.ts` / CI config / tag lists → remove; if anything is non-trivial, unstage the delete (`git restore --staged <E2E_PATH>`), keep the e2e, demote, pick next.
+Expected: "no orphans". If references show up: helpers used elsewhere → move them; references in `package.json` / `playwright.config.ts` / CI config / tag lists → remove; if anything non-trivial, unstage the delete, keep the e2e, demote, pick next.
 
-- [ ] **Step 8: Run precommit**
+- [ ] **Step 6: Format and precommit**
 
 Run:
 
 ```bash
+node scripts/format.mts <VITEST_PATH>
 npm run precommit -- <VITEST_PATH> <E2E_PATH>
 ```
 
 Expected: zero issues.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add <VITEST_PATH>
@@ -669,9 +663,9 @@ EOF
 )"
 ```
 
-Replace `<E2E_NAME>`, the assertion bullets, and the reason with concrete values.
+Replace `<E2E_NAME>`, the assertion bullets (from `<E2E_ASSERTIONS>`), and the reason with concrete values.
 
-- [ ] **Step 10: Verify commit shape**
+- [ ] **Step 8: Verify commit shape**
 
 Run:
 
@@ -686,70 +680,58 @@ Expected: exactly one file added (vitest), exactly one file deleted (e2e). If an
 ## Task 8: Migration 3 (rank-3 candidate from Task 5)
 
 > Fill placeholders from rank 3 of `/tmp/audit-top5.md` before starting:
-> `<E2E_PATH>`, `<E2E_NAME>`, `<SOURCE_PATH>`, `<VITEST_PATH>`, `<PATTERN>`.
+> `<E2E_PATH>`, `<E2E_NAME>`, `<SOURCE_PATH>`, `<E2E_ASSERTIONS>`, `<VITEST_PATH>`.
 
 **Files:**
-- Create: `<VITEST_PATH>`
+- Create: `<VITEST_PATH>` (path determined during Step 2 by the skill)
 - Delete: `<E2E_PATH>`
 - Reference: `<SOURCE_PATH>`
 
-- [ ] **Step 1: Read the e2e and source**
+- [ ] **Step 1: Read the e2e and capture assertions**
 
-Use `Read` on `<E2E_PATH>` (full file) and `<SOURCE_PATH>` (full file). If the audit named a `vitest_counterpart`, `Read` that too. Note every assertion in the e2e — the new vitest must reproduce equivalent assertions.
+Use `Read` on `<E2E_PATH>` (full file). Write a bullet list of every assertion the e2e makes — these are the behaviors the new vitest must reproduce (coverage parity). Save them to `<E2E_ASSERTIONS>`.
 
-- [ ] **Step 2: Confirm pattern choice**
+Also note: which fixtures does the e2e use (`app`, `python`, `r`, `sessions`, `executeCode`)? If the e2e relies on a runtime fixture for the assertions to even fire, the audit was wrong — demote this candidate, pick the next from `/tmp/audit-ranked.md`, and restart Task 8 with the new candidate.
 
-`<PATTERN>` was set from the audit. Verify by inspecting the source:
-
-- `plain`: pure function or class with no DI. → Template: `src/vs/platform/update/test/common/positronUpdateUtils.vitest.ts`.
-- `builder`: service / class taking injected services. → `createTestContainer().withRuntimeServices()` (or lowest preset that compiles). Reference: `.claude/rules/vitest-tests.md`.
-- `rtl-prop`: React component, props-only. → `setupRTLRenderer()` only. Reference: `.claude/rules/vitest-rtl.md`.
-- `rtl-service`: React component reads `usePositronReactServicesContext`. → `createTestContainer().withReactServices().stub(...).build()` + `setupRTLRenderer(() => ctx.reactServices)`. Reference: `src/vs/workbench/contrib/positronConsole/test/browser/emptyConsole.vitest.tsx`.
-
-If inspection contradicts the chosen pattern, override and document why in the commit message.
-
-- [ ] **Step 3: Write the vitest**
-
-Use `Write` to create `<VITEST_PATH>`. Include:
-
-- Standard copyright header (copy from any existing vitest in the area).
-- `/// <reference types="vitest/globals" />` after the header.
-- One `describe` block named for the source under test.
-- One `it` block per assertion in the deleted e2e (coverage parity).
-- Tabs for indentation.
-- Anti-pattern compliance from `vitest-tests.md`: no `positronWorkbenchInstantiationService()`, no direct `TestInstantiationService`, no wide `as unknown as <Interface>` casts (use `stubInterface<T>()` from `src/vs/test/vitest/stubInterface.ts`). Create `Emitter`s at `describe` scope, not inside `it()`. Use `act()` from `@testing-library/react` for React state updates, not `flushSync`. Use `expect(...).to*(...)`. Never `assert.ok` / `assert.equal`.
-
-- [ ] **Step 4: Run the vitest**
+- [ ] **Step 2: Invoke the `author-vitest-tests` skill**
 
 Run:
 
-```bash
-npx vitest run <VITEST_PATH>
+```
+Skill({ skill: "author-vitest-tests", args: "<SOURCE_PATH>" })
 ```
 
-Expected: all assertions pass. If a test fails: read the error; compare against the e2e's actual behavior; if the test reveals a real bug, stop and surface it; if stubs are too narrow, widen or move to a higher preset; if you need 5+ services to compile, **stop** — demote this candidate per the design's stop condition and pick the next ranked one.
+Pass `<SOURCE_PATH>` (the source file under test) as `$ARGUMENTS`. The skill will: skip Phase 1; run Phase 2 Prepare; run Phase 2 Draft test plan and **STOP for user confirmation** (mandatory gate).
 
-- [ ] **Step 5: Lint the vitest**
+When the skill presents its draft plan, augment your message to the user:
 
-Run:
+> The author-vitest-tests skill has drafted the above plan. For coverage parity, here are the assertions in the e2e being replaced:
+>
+> <paste E2E_ASSERTIONS bullet list>
+>
+> Confirm the test plan covers these, or request additions before I write.
 
-```bash
-npx eslint --max-warnings 0 <VITEST_PATH>
-```
+If the user requests changes, relay them to the skill and let it revise.
 
-Expected: zero warnings, zero errors. Fix violations rather than suppressing rules. An `eslint-disable` is acceptable only with a one-line comment naming the real constraint.
+- [ ] **Step 3: Skill writes, lints, runs, and reviews**
 
-- [ ] **Step 6: Format the vitest**
+Once confirmed, the skill runs Phase 2 Writing (creates vitest at `<VITEST_PATH>`, runs `npx vitest`, runs `npx eslint`, iterates), Builder enforcement (greps for forbidden DI patterns), and Phase 3 Independent Review (dispatches `review-vitest-tests` subagent, applies fixes, re-runs).
 
-Run:
+You don't drive these — the skill does. Wait for it to return.
 
-```bash
-node scripts/format.mts <VITEST_PATH>
-```
+If the skill hits a hard blocker (5+ stubs needed, source needs runtime, etc.), capture the reason, demote this candidate, pick the next ranked from `/tmp/audit-ranked.md`. Restart Task 8 with the new candidate.
 
-Expected: file passes formatter.
+- [ ] **Step 4: Coverage parity check**
 
-- [ ] **Step 7: Delete the e2e and verify no orphans**
+The skill doesn't know about the e2e. Manually verify:
+
+1. `Read` the new vitest at `<VITEST_PATH>`.
+2. For each bullet in `<E2E_ASSERTIONS>`, find the matching `it()` block.
+3. Any e2e assertion with no vitest equivalent must be added now: revise the vitest, re-run `npx vitest run <VITEST_PATH>`, re-run `npx eslint --max-warnings 0 <VITEST_PATH>`.
+
+Do not proceed to deletion until every e2e assertion has a vitest counterpart.
+
+- [ ] **Step 5: Delete the e2e and verify no orphans**
 
 Run:
 
@@ -758,19 +740,20 @@ git rm <E2E_PATH>
 grep -rn "<E2E_NAME>" test/e2e/ src/ --include="*.ts" --include="*.tsx" --include="*.json" || echo "no orphans"
 ```
 
-Expected: "no orphans". If any references show up: helpers used elsewhere → move them; references in `package.json` / `playwright.config.ts` / CI config / tag lists → remove; if anything is non-trivial, unstage the delete (`git restore --staged <E2E_PATH>`), keep the e2e, demote, pick next.
+Expected: "no orphans". If references show up: helpers used elsewhere → move them; references in `package.json` / `playwright.config.ts` / CI config / tag lists → remove; if anything non-trivial, unstage the delete, keep the e2e, demote, pick next.
 
-- [ ] **Step 8: Run precommit**
+- [ ] **Step 6: Format and precommit**
 
 Run:
 
 ```bash
+node scripts/format.mts <VITEST_PATH>
 npm run precommit -- <VITEST_PATH> <E2E_PATH>
 ```
 
 Expected: zero issues.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add <VITEST_PATH>
@@ -789,9 +772,9 @@ EOF
 )"
 ```
 
-Replace `<E2E_NAME>`, the assertion bullets, and the reason with concrete values.
+Replace `<E2E_NAME>`, the assertion bullets (from `<E2E_ASSERTIONS>`), and the reason with concrete values.
 
-- [ ] **Step 10: Verify commit shape**
+- [ ] **Step 8: Verify commit shape**
 
 Run:
 
@@ -806,70 +789,58 @@ Expected: exactly one file added (vitest), exactly one file deleted (e2e). If an
 ## Task 9: Migration 4 (rank-4 candidate from Task 5)
 
 > Fill placeholders from rank 4 of `/tmp/audit-top5.md` before starting:
-> `<E2E_PATH>`, `<E2E_NAME>`, `<SOURCE_PATH>`, `<VITEST_PATH>`, `<PATTERN>`.
+> `<E2E_PATH>`, `<E2E_NAME>`, `<SOURCE_PATH>`, `<E2E_ASSERTIONS>`, `<VITEST_PATH>`.
 
 **Files:**
-- Create: `<VITEST_PATH>`
+- Create: `<VITEST_PATH>` (path determined during Step 2 by the skill)
 - Delete: `<E2E_PATH>`
 - Reference: `<SOURCE_PATH>`
 
-- [ ] **Step 1: Read the e2e and source**
+- [ ] **Step 1: Read the e2e and capture assertions**
 
-Use `Read` on `<E2E_PATH>` (full file) and `<SOURCE_PATH>` (full file). If the audit named a `vitest_counterpart`, `Read` that too. Note every assertion in the e2e — the new vitest must reproduce equivalent assertions.
+Use `Read` on `<E2E_PATH>` (full file). Write a bullet list of every assertion the e2e makes — these are the behaviors the new vitest must reproduce (coverage parity). Save them to `<E2E_ASSERTIONS>`.
 
-- [ ] **Step 2: Confirm pattern choice**
+Also note: which fixtures does the e2e use (`app`, `python`, `r`, `sessions`, `executeCode`)? If the e2e relies on a runtime fixture for the assertions to even fire, the audit was wrong — demote this candidate, pick the next from `/tmp/audit-ranked.md`, and restart Task 9 with the new candidate.
 
-`<PATTERN>` was set from the audit. Verify by inspecting the source:
-
-- `plain`: pure function or class with no DI. → Template: `src/vs/platform/update/test/common/positronUpdateUtils.vitest.ts`.
-- `builder`: service / class taking injected services. → `createTestContainer().withRuntimeServices()` (or lowest preset that compiles). Reference: `.claude/rules/vitest-tests.md`.
-- `rtl-prop`: React component, props-only. → `setupRTLRenderer()` only. Reference: `.claude/rules/vitest-rtl.md`.
-- `rtl-service`: React component reads `usePositronReactServicesContext`. → `createTestContainer().withReactServices().stub(...).build()` + `setupRTLRenderer(() => ctx.reactServices)`. Reference: `src/vs/workbench/contrib/positronConsole/test/browser/emptyConsole.vitest.tsx`.
-
-If inspection contradicts the chosen pattern, override and document why in the commit message.
-
-- [ ] **Step 3: Write the vitest**
-
-Use `Write` to create `<VITEST_PATH>`. Include:
-
-- Standard copyright header (copy from any existing vitest in the area).
-- `/// <reference types="vitest/globals" />` after the header.
-- One `describe` block named for the source under test.
-- One `it` block per assertion in the deleted e2e (coverage parity).
-- Tabs for indentation.
-- Anti-pattern compliance from `vitest-tests.md`: no `positronWorkbenchInstantiationService()`, no direct `TestInstantiationService`, no wide `as unknown as <Interface>` casts (use `stubInterface<T>()` from `src/vs/test/vitest/stubInterface.ts`). Create `Emitter`s at `describe` scope, not inside `it()`. Use `act()` from `@testing-library/react` for React state updates, not `flushSync`. Use `expect(...).to*(...)`. Never `assert.ok` / `assert.equal`.
-
-- [ ] **Step 4: Run the vitest**
+- [ ] **Step 2: Invoke the `author-vitest-tests` skill**
 
 Run:
 
-```bash
-npx vitest run <VITEST_PATH>
+```
+Skill({ skill: "author-vitest-tests", args: "<SOURCE_PATH>" })
 ```
 
-Expected: all assertions pass. If a test fails: read the error; compare against the e2e's actual behavior; if the test reveals a real bug, stop and surface it; if stubs are too narrow, widen or move to a higher preset; if you need 5+ services to compile, **stop** — demote this candidate per the design's stop condition and pick the next ranked one.
+Pass `<SOURCE_PATH>` (the source file under test) as `$ARGUMENTS`. The skill will: skip Phase 1; run Phase 2 Prepare; run Phase 2 Draft test plan and **STOP for user confirmation** (mandatory gate).
 
-- [ ] **Step 5: Lint the vitest**
+When the skill presents its draft plan, augment your message to the user:
 
-Run:
+> The author-vitest-tests skill has drafted the above plan. For coverage parity, here are the assertions in the e2e being replaced:
+>
+> <paste E2E_ASSERTIONS bullet list>
+>
+> Confirm the test plan covers these, or request additions before I write.
 
-```bash
-npx eslint --max-warnings 0 <VITEST_PATH>
-```
+If the user requests changes, relay them to the skill and let it revise.
 
-Expected: zero warnings, zero errors. Fix violations rather than suppressing rules. An `eslint-disable` is acceptable only with a one-line comment naming the real constraint.
+- [ ] **Step 3: Skill writes, lints, runs, and reviews**
 
-- [ ] **Step 6: Format the vitest**
+Once confirmed, the skill runs Phase 2 Writing (creates vitest at `<VITEST_PATH>`, runs `npx vitest`, runs `npx eslint`, iterates), Builder enforcement (greps for forbidden DI patterns), and Phase 3 Independent Review (dispatches `review-vitest-tests` subagent, applies fixes, re-runs).
 
-Run:
+You don't drive these — the skill does. Wait for it to return.
 
-```bash
-node scripts/format.mts <VITEST_PATH>
-```
+If the skill hits a hard blocker (5+ stubs needed, source needs runtime, etc.), capture the reason, demote this candidate, pick the next ranked from `/tmp/audit-ranked.md`. Restart Task 9 with the new candidate.
 
-Expected: file passes formatter.
+- [ ] **Step 4: Coverage parity check**
 
-- [ ] **Step 7: Delete the e2e and verify no orphans**
+The skill doesn't know about the e2e. Manually verify:
+
+1. `Read` the new vitest at `<VITEST_PATH>`.
+2. For each bullet in `<E2E_ASSERTIONS>`, find the matching `it()` block.
+3. Any e2e assertion with no vitest equivalent must be added now: revise the vitest, re-run `npx vitest run <VITEST_PATH>`, re-run `npx eslint --max-warnings 0 <VITEST_PATH>`.
+
+Do not proceed to deletion until every e2e assertion has a vitest counterpart.
+
+- [ ] **Step 5: Delete the e2e and verify no orphans**
 
 Run:
 
@@ -878,19 +849,20 @@ git rm <E2E_PATH>
 grep -rn "<E2E_NAME>" test/e2e/ src/ --include="*.ts" --include="*.tsx" --include="*.json" || echo "no orphans"
 ```
 
-Expected: "no orphans". If any references show up: helpers used elsewhere → move them; references in `package.json` / `playwright.config.ts` / CI config / tag lists → remove; if anything is non-trivial, unstage the delete (`git restore --staged <E2E_PATH>`), keep the e2e, demote, pick next.
+Expected: "no orphans". If references show up: helpers used elsewhere → move them; references in `package.json` / `playwright.config.ts` / CI config / tag lists → remove; if anything non-trivial, unstage the delete, keep the e2e, demote, pick next.
 
-- [ ] **Step 8: Run precommit**
+- [ ] **Step 6: Format and precommit**
 
 Run:
 
 ```bash
+node scripts/format.mts <VITEST_PATH>
 npm run precommit -- <VITEST_PATH> <E2E_PATH>
 ```
 
 Expected: zero issues.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add <VITEST_PATH>
@@ -909,9 +881,9 @@ EOF
 )"
 ```
 
-Replace `<E2E_NAME>`, the assertion bullets, and the reason with concrete values.
+Replace `<E2E_NAME>`, the assertion bullets (from `<E2E_ASSERTIONS>`), and the reason with concrete values.
 
-- [ ] **Step 10: Verify commit shape**
+- [ ] **Step 8: Verify commit shape**
 
 Run:
 
@@ -926,70 +898,58 @@ Expected: exactly one file added (vitest), exactly one file deleted (e2e). If an
 ## Task 10: Migration 5 (rank-5 candidate from Task 5)
 
 > Fill placeholders from rank 5 of `/tmp/audit-top5.md` before starting:
-> `<E2E_PATH>`, `<E2E_NAME>`, `<SOURCE_PATH>`, `<VITEST_PATH>`, `<PATTERN>`.
+> `<E2E_PATH>`, `<E2E_NAME>`, `<SOURCE_PATH>`, `<E2E_ASSERTIONS>`, `<VITEST_PATH>`.
 
 **Files:**
-- Create: `<VITEST_PATH>`
+- Create: `<VITEST_PATH>` (path determined during Step 2 by the skill)
 - Delete: `<E2E_PATH>`
 - Reference: `<SOURCE_PATH>`
 
-- [ ] **Step 1: Read the e2e and source**
+- [ ] **Step 1: Read the e2e and capture assertions**
 
-Use `Read` on `<E2E_PATH>` (full file) and `<SOURCE_PATH>` (full file). If the audit named a `vitest_counterpart`, `Read` that too. Note every assertion in the e2e — the new vitest must reproduce equivalent assertions.
+Use `Read` on `<E2E_PATH>` (full file). Write a bullet list of every assertion the e2e makes — these are the behaviors the new vitest must reproduce (coverage parity). Save them to `<E2E_ASSERTIONS>`.
 
-- [ ] **Step 2: Confirm pattern choice**
+Also note: which fixtures does the e2e use (`app`, `python`, `r`, `sessions`, `executeCode`)? If the e2e relies on a runtime fixture for the assertions to even fire, the audit was wrong — demote this candidate, pick the next from `/tmp/audit-ranked.md`, and restart Task 10 with the new candidate.
 
-`<PATTERN>` was set from the audit. Verify by inspecting the source:
-
-- `plain`: pure function or class with no DI. → Template: `src/vs/platform/update/test/common/positronUpdateUtils.vitest.ts`.
-- `builder`: service / class taking injected services. → `createTestContainer().withRuntimeServices()` (or lowest preset that compiles). Reference: `.claude/rules/vitest-tests.md`.
-- `rtl-prop`: React component, props-only. → `setupRTLRenderer()` only. Reference: `.claude/rules/vitest-rtl.md`.
-- `rtl-service`: React component reads `usePositronReactServicesContext`. → `createTestContainer().withReactServices().stub(...).build()` + `setupRTLRenderer(() => ctx.reactServices)`. Reference: `src/vs/workbench/contrib/positronConsole/test/browser/emptyConsole.vitest.tsx`.
-
-If inspection contradicts the chosen pattern, override and document why in the commit message.
-
-- [ ] **Step 3: Write the vitest**
-
-Use `Write` to create `<VITEST_PATH>`. Include:
-
-- Standard copyright header (copy from any existing vitest in the area).
-- `/// <reference types="vitest/globals" />` after the header.
-- One `describe` block named for the source under test.
-- One `it` block per assertion in the deleted e2e (coverage parity).
-- Tabs for indentation.
-- Anti-pattern compliance from `vitest-tests.md`: no `positronWorkbenchInstantiationService()`, no direct `TestInstantiationService`, no wide `as unknown as <Interface>` casts (use `stubInterface<T>()` from `src/vs/test/vitest/stubInterface.ts`). Create `Emitter`s at `describe` scope, not inside `it()`. Use `act()` from `@testing-library/react` for React state updates, not `flushSync`. Use `expect(...).to*(...)`. Never `assert.ok` / `assert.equal`.
-
-- [ ] **Step 4: Run the vitest**
+- [ ] **Step 2: Invoke the `author-vitest-tests` skill**
 
 Run:
 
-```bash
-npx vitest run <VITEST_PATH>
+```
+Skill({ skill: "author-vitest-tests", args: "<SOURCE_PATH>" })
 ```
 
-Expected: all assertions pass. If a test fails: read the error; compare against the e2e's actual behavior; if the test reveals a real bug, stop and surface it; if stubs are too narrow, widen or move to a higher preset; if you need 5+ services to compile, **stop** — demote this candidate per the design's stop condition and pick the next ranked one.
+Pass `<SOURCE_PATH>` (the source file under test) as `$ARGUMENTS`. The skill will: skip Phase 1; run Phase 2 Prepare; run Phase 2 Draft test plan and **STOP for user confirmation** (mandatory gate).
 
-- [ ] **Step 5: Lint the vitest**
+When the skill presents its draft plan, augment your message to the user:
 
-Run:
+> The author-vitest-tests skill has drafted the above plan. For coverage parity, here are the assertions in the e2e being replaced:
+>
+> <paste E2E_ASSERTIONS bullet list>
+>
+> Confirm the test plan covers these, or request additions before I write.
 
-```bash
-npx eslint --max-warnings 0 <VITEST_PATH>
-```
+If the user requests changes, relay them to the skill and let it revise.
 
-Expected: zero warnings, zero errors. Fix violations rather than suppressing rules. An `eslint-disable` is acceptable only with a one-line comment naming the real constraint.
+- [ ] **Step 3: Skill writes, lints, runs, and reviews**
 
-- [ ] **Step 6: Format the vitest**
+Once confirmed, the skill runs Phase 2 Writing (creates vitest at `<VITEST_PATH>`, runs `npx vitest`, runs `npx eslint`, iterates), Builder enforcement (greps for forbidden DI patterns), and Phase 3 Independent Review (dispatches `review-vitest-tests` subagent, applies fixes, re-runs).
 
-Run:
+You don't drive these — the skill does. Wait for it to return.
 
-```bash
-node scripts/format.mts <VITEST_PATH>
-```
+If the skill hits a hard blocker (5+ stubs needed, source needs runtime, etc.), capture the reason, demote this candidate, pick the next ranked from `/tmp/audit-ranked.md`. Restart Task 10 with the new candidate.
 
-Expected: file passes formatter.
+- [ ] **Step 4: Coverage parity check**
 
-- [ ] **Step 7: Delete the e2e and verify no orphans**
+The skill doesn't know about the e2e. Manually verify:
+
+1. `Read` the new vitest at `<VITEST_PATH>`.
+2. For each bullet in `<E2E_ASSERTIONS>`, find the matching `it()` block.
+3. Any e2e assertion with no vitest equivalent must be added now: revise the vitest, re-run `npx vitest run <VITEST_PATH>`, re-run `npx eslint --max-warnings 0 <VITEST_PATH>`.
+
+Do not proceed to deletion until every e2e assertion has a vitest counterpart.
+
+- [ ] **Step 5: Delete the e2e and verify no orphans**
 
 Run:
 
@@ -998,19 +958,20 @@ git rm <E2E_PATH>
 grep -rn "<E2E_NAME>" test/e2e/ src/ --include="*.ts" --include="*.tsx" --include="*.json" || echo "no orphans"
 ```
 
-Expected: "no orphans". If any references show up: helpers used elsewhere → move them; references in `package.json` / `playwright.config.ts` / CI config / tag lists → remove; if anything is non-trivial, unstage the delete (`git restore --staged <E2E_PATH>`), keep the e2e, demote, pick next.
+Expected: "no orphans". If references show up: helpers used elsewhere → move them; references in `package.json` / `playwright.config.ts` / CI config / tag lists → remove; if anything non-trivial, unstage the delete, keep the e2e, demote, pick next.
 
-- [ ] **Step 8: Run precommit**
+- [ ] **Step 6: Format and precommit**
 
 Run:
 
 ```bash
+node scripts/format.mts <VITEST_PATH>
 npm run precommit -- <VITEST_PATH> <E2E_PATH>
 ```
 
 Expected: zero issues.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add <VITEST_PATH>
@@ -1029,9 +990,9 @@ EOF
 )"
 ```
 
-Replace `<E2E_NAME>`, the assertion bullets, and the reason with concrete values.
+Replace `<E2E_NAME>`, the assertion bullets (from `<E2E_ASSERTIONS>`), and the reason with concrete values.
 
-- [ ] **Step 10: Verify commit shape**
+- [ ] **Step 8: Verify commit shape**
 
 Run:
 
