@@ -177,7 +177,6 @@ describe('PositronNotebookOutline', () => {
 			const entries = buildOutlineEntries(cells);
 
 			expect(entries.length).toBe(2);
-			// Each cell gets its own slug counter, so both are "details"
 			expect(entries[0].headingId).toBe('details');
 			expect(entries[1].headingId).toBe('details');
 		});
@@ -235,16 +234,12 @@ describe('PositronNotebookOutline', () => {
 	});
 
 	describe('reveal selects the corresponding cell', () => {
-		// The IOutline.reveal() method is what the workbench tree's click handler
-		// binds to, so testing it directly covers the click-to-navigate behavior
-		// without standing up the workbench tree. The PositronNotebookEditor is
-		// narrowed to its `notebookInstance` getter, which is the only field the
-		// outline reads from the editor.
+		// Drive IOutline.reveal() directly: it's what the workbench tree's click
+		// handler binds to, so this covers click-to-navigate without standing up
+		// the tree.
 		const revealOptions: IEditorOptions = {};
 
 		function createOutline(notebook: ReturnType<typeof createTestPositronNotebookInstance>) {
-			// PositronNotebookCellOutline only reads `_editor.notebookInstance` --
-			// narrowing the editor to that single property is sufficient.
 			const editor = stubInterface<PositronNotebookEditor>({ notebookInstance: notebook });
 			const outline = ctx.disposables.add(ctx.instantiationService.createInstance(
 				PositronNotebookCellOutline,
@@ -262,7 +257,6 @@ describe('PositronNotebookOutline', () => {
 			], ctx);
 			const outline = createOutline(notebook);
 
-			// Flatten the tree to find the entry for "Second Section".
 			const flat: ReturnType<typeof buildOutlineEntries> = [];
 			for (const root of outline.entries) {
 				root.asFlatList(flat);

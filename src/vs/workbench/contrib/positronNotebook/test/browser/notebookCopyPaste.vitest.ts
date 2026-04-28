@@ -30,21 +30,6 @@ import {
 	createTestPositronNotebookInstance,
 } from './testPositronNotebookInstance.js';
 
-/**
- * Verifies the copy/cut/paste API on PositronNotebookInstance and the
- * keyboard-binding wiring that drives it.
- *
- * Mirrors the pre-migration e2e (notebook-copy-paste.test.ts) which exercised:
- *  - Copy a single cell, paste at a later index.
- *  - Cut a single cell, paste at a different index.
- *  - Clipboard persistence: copy once, paste multiple times.
- *  - Cut and paste at the beginning of a notebook.
- *  - Multiselect cut from the top + paste at the bottom.
- *
- * The action keybinding describe block at the bottom replaces the e2e's
- * keyboard-shortcut path (the e2e drove the action bar via performCellAction,
- * but the keybindings themselves were not asserted at any level).
- */
 describe('PositronNotebookInstance.copy/cut/paste*', () => {
 	const ctx = createTestContainer()
 		.withNotebookEditorServices()
@@ -53,9 +38,6 @@ describe('PositronNotebookInstance.copy/cut/paste*', () => {
 
 	describe('copyCells', () => {
 		it('copies the given cell into the notebook-service clipboard and writes its content to the system clipboard', () => {
-			// Mirrors e2e Test 1 setup: copying a single code cell stores a DTO
-			// for within-window paste AND writes the cell text to the system
-			// clipboard so other editors can paste it as plain text.
 			const notebook = createTestPositronNotebookInstance([
 				['# Cell 0', 'python', CellKind.Code],
 				['# Cell 1', 'python', CellKind.Code],
@@ -75,8 +57,6 @@ describe('PositronNotebookInstance.copy/cut/paste*', () => {
 		});
 
 		it('preserves outputs on the clipboard DTO', () => {
-			// Outputs ride along on the clipboard DTO so that pasting restores
-			// the cell with its prior output state.
 			const notebook = createTestPositronNotebookInstance(
 				[['print("hello")', 'python', CellKind.Code, [{
 					outputId: 'test-output',
@@ -95,9 +75,6 @@ describe('PositronNotebookInstance.copy/cut/paste*', () => {
 		});
 
 		it('copyCells() with no argument copies the currently selected cells', () => {
-			// Default-arg branch: omitting the cells argument falls back to
-			// getSelectedCells(state) so copying after a Normal selection still
-			// works without callers having to plumb the active cell through.
 			const notebook = createLabelledTestNotebook(3, ctx);
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[1], CellSelectionType.Normal);
@@ -110,10 +87,8 @@ describe('PositronNotebookInstance.copy/cut/paste*', () => {
 		});
 
 		it('copyCells() is a no-op with empty selection', () => {
-			// Guard: nothing to copy, no argument -- the method returns early
-			// and never touches either clipboard. An empty notebook is the only
-			// way to reach the NoCells selection state where getSelectedCells()
-			// returns []; populated notebooks auto-select cell 0.
+			// An empty notebook is the only way into the NoCells selection
+			// state -- populated notebooks auto-select cell 0.
 			const notebook = createTestPositronNotebookInstance([], ctx);
 			const writeTextSpy = vi.spyOn(ctx.get(IClipboardService), 'writeText');
 			ctx.get(IPositronNotebookService).clearClipboard();
@@ -127,9 +102,6 @@ describe('PositronNotebookInstance.copy/cut/paste*', () => {
 
 	describe('pasteCells', () => {
 		it('copy index 2 then paste with active index 4 inserts at index 5', () => {
-			// Mirrors e2e Test 1, sub-step a: 5-cell notebook, copy index 2,
-			// active cell at index 4, paste -- inserts after the active cell so
-			// index 5 holds a duplicate of index 2.
 			const notebook = createTestPositronNotebookInstance([
 				['# Cell 0', 'python', CellKind.Code],
 				['# Cell 1', 'python', CellKind.Code],
@@ -156,10 +128,6 @@ describe('PositronNotebookInstance.copy/cut/paste*', () => {
 		});
 
 		it('clipboard persists across multiple pastes from a single copy', () => {
-			// Mirrors e2e Test 1, sub-step c: copying once and pasting twice at
-			// different positions duplicates the cell into both spots (the
-			// notebook-service clipboard is not cleared by paste). The explicit
-			// index argument is the insert position itself.
 			const notebook = createTestPositronNotebookInstance([
 				['# Cell 0', 'python', CellKind.Code],
 				['# Cell 1', 'python', CellKind.Code],
@@ -168,8 +136,6 @@ describe('PositronNotebookInstance.copy/cut/paste*', () => {
 			const cellsBefore = notebook.cells.get();
 			notebook.copyCells([cellsBefore[0]]);
 
-			// First paste at index 2 -> inserts AT index 2 (the existing cell
-			// at 2 shifts down).
 			notebook.pasteCells(2);
 			expect(notebook.cells.get().map(c => c.getContent())).toEqual([
 				'# Cell 0',
@@ -178,8 +144,6 @@ describe('PositronNotebookInstance.copy/cut/paste*', () => {
 				'# Cell 2',
 			]);
 
-			// Second paste at index 4 -> inserts AT index 4 (end). The
-			// clipboard still holds the original cell.
 			notebook.pasteCells(4);
 			expect(notebook.cells.get().map(c => c.getContent())).toEqual([
 				'# Cell 0',
@@ -191,14 +155,11 @@ describe('PositronNotebookInstance.copy/cut/paste*', () => {
 		});
 
 		it('pasteCells(explicitIndex) inserts at the given index', () => {
-			// Explicit-index branch: passing an index bypasses the active-cell
-			// fallback in getInsertionIndex(), inserting precisely at the index
-			// regardless of selection state.
 			const notebook = createLabelledTestNotebook(3, ctx);
 			const cellsBefore = notebook.cells.get();
 			notebook.copyCells([cellsBefore[2]]);
 			// With cell 0 active, getInsertionIndex() would default to 1 (after
-			// active cell). Passing 0 explicitly overrides this and inserts at 0.
+			// the active cell). Passing 0 must override that.
 			notebook.selectionStateMachine.selectCell(cellsBefore[0], CellSelectionType.Normal);
 
 			notebook.pasteCells(0);
@@ -209,8 +170,6 @@ describe('PositronNotebookInstance.copy/cut/paste*', () => {
 		});
 
 		it('pasteCells() is a no-op when the clipboard is empty', () => {
-			// canPaste() guard: with no clipboard cells, paste returns early and
-			// the notebook stays untouched.
 			const notebook = createLabelledTestNotebook(3, ctx);
 			ctx.get(IPositronNotebookService).clearClipboard();
 			const before = notebook.cells.get().map(c => c.getContent());
@@ -221,10 +180,6 @@ describe('PositronNotebookInstance.copy/cut/paste*', () => {
 		});
 
 		it('copy + paste round-trip restores outputs on the underlying text model', () => {
-			// Mirrors the e2e parity for outputs: a cell carrying an output is
-			// copied (DTO retains outputs, see "preserves outputs on the
-			// clipboard DTO" above) and pasted; the newly-inserted cell on the
-			// underlying text model carries the same output.
 			const notebook = createTestPositronNotebookInstance(
 				[['print("hello")', 'python', CellKind.Code, [{
 					outputId: 'test-output',
@@ -240,7 +195,6 @@ describe('PositronNotebookInstance.copy/cut/paste*', () => {
 			const { textModel } = notebook;
 			expect(textModel).toBeDefined();
 			expect(textModel!.cells.length).toBe(2);
-			// The pasted cell at index 1 carries the same output as the source.
 			expect(textModel!.cells[1].outputs.length).toBe(1);
 			expect(textModel!.cells[1].outputs[0].outputId).toBe('test-output');
 		});
@@ -248,9 +202,6 @@ describe('PositronNotebookInstance.copy/cut/paste*', () => {
 
 	describe('cutCells', () => {
 		it('cut + paste-elsewhere moves the cell to the new position', () => {
-			// Mirrors e2e Test 1, sub-step b: cut "# Cell 1" from index 1, paste
-			// after index 3 (now index 2 since the cut shifted indices). The
-			// cell ends up at the new position; the notebook size is restored.
 			const notebook = createTestPositronNotebookInstance([
 				['# Cell 0', 'python', CellKind.Code],
 				['# Cell 1', 'python', CellKind.Code],
@@ -266,7 +217,6 @@ describe('PositronNotebookInstance.copy/cut/paste*', () => {
 				'# Cell 3',
 			]);
 
-			// Paste after index 2 -> insert at index 3 (end of the 3-cell notebook).
 			const cellsAfterCut = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cellsAfterCut[2], CellSelectionType.Normal);
 			notebook.pasteCells();
@@ -280,8 +230,6 @@ describe('PositronNotebookInstance.copy/cut/paste*', () => {
 		});
 
 		it('cutCells() with no argument cuts the currently selected cells', () => {
-			// Default-arg branch mirrors copyCells(): falls back to the active
-			// selection so keyboard-driven cut works without an explicit cell arg.
 			const notebook = createLabelledTestNotebook(3, ctx);
 			const cellsBefore = notebook.cells.get();
 			const targetContent = cellsBefore[1].getContent();
@@ -292,16 +240,12 @@ describe('PositronNotebookInstance.copy/cut/paste*', () => {
 			const cellsAfter = notebook.cells.get();
 			expect(cellsAfter.length).toBe(2);
 			expect(cellsAfter.map(c => c.getContent())).not.toContain(targetContent);
-			// And the cut cell is sitting on the clipboard ready to paste.
 			const clipboardCells = ctx.get(IPositronNotebookService).getClipboardCells();
 			expect(clipboardCells.length).toBe(1);
 			expect(clipboardCells[0].source).toBe(targetContent);
 		});
 
 		it('cutCells() is a no-op with empty selection', () => {
-			// Guard: nothing to cut, no argument -- the method returns before
-			// touching either the notebook or the clipboard. An empty notebook
-			// is the only way to reach the NoCells selection state.
 			const notebook = createTestPositronNotebookInstance([], ctx);
 			ctx.get(IPositronNotebookService).clearClipboard();
 
@@ -314,9 +258,6 @@ describe('PositronNotebookInstance.copy/cut/paste*', () => {
 
 	describe('pasteCellsAbove', () => {
 		it('inserts at the active cell index (above, not below)', () => {
-			// pasteCellsAbove is the Shift+V counterpart -- it passes the active
-			// cell's own index to pasteCells, so the new cell takes that index
-			// and the previously-active cell shifts down.
 			const notebook = createTestPositronNotebookInstance([
 				['# Cell 0', 'python', CellKind.Code],
 				['# Cell 1', 'python', CellKind.Code],
@@ -339,11 +280,9 @@ describe('PositronNotebookInstance.copy/cut/paste*', () => {
 		});
 
 		it('with no active cell falls back to index 0', () => {
-			// Branch coverage: pasteCellsAbove() pastes at 0 when getActiveCell()
-			// returns null. The only way to hit that branch is the NoCells state
-			// (an empty notebook), so we copy from a populated source notebook
-			// and paste into an empty target -- the notebook-service clipboard
-			// is process-wide, so the cells flow across instances.
+			// Reaching the null-active-cell branch requires an empty notebook,
+			// so copy from a populated source and paste into an empty target;
+			// the notebook-service clipboard is process-wide.
 			const source = createLabelledTestNotebook(3, ctx);
 			const target = createTestPositronNotebookInstance([], ctx);
 			const sourceCells = source.cells.get();
@@ -360,11 +299,6 @@ describe('PositronNotebookInstance.copy/cut/paste*', () => {
 
 	describe('Multi-cell copy/cut/paste', () => {
 		it('multiselect cut at top + paste at bottom preserves cell kinds and ordering', () => {
-			// Mirrors e2e Test 2: 5-cell notebook (2 code + 3 markdown), cut
-			// indices 0-2 (mixed code+markdown), then paste below the new last
-			// cell. Final order matches the e2e: ### Cell 3, ### Cell 4,
-			// # Cell 0, # Cell 1, ### Cell 2 -- confirming both the cut path
-			// preserves kind and the paste path preserves order.
 			const notebook = createTestPositronNotebookInstance([
 				['# Cell 0', 'python', CellKind.Code],
 				['# Cell 1', 'python', CellKind.Code],
@@ -384,7 +318,6 @@ describe('PositronNotebookInstance.copy/cut/paste*', () => {
 				'### Cell 4',
 			]);
 
-			// Select the new last cell (### Cell 4) and paste below.
 			const cellsAfterCut = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cellsAfterCut[1], CellSelectionType.Normal);
 			notebook.pasteCells();
@@ -397,8 +330,6 @@ describe('PositronNotebookInstance.copy/cut/paste*', () => {
 				'# Cell 1',
 				'### Cell 2',
 			]);
-			// Kinds survive the round trip: original code cells are still code,
-			// original markdown cells are still markup.
 			expect(cellsAfter.map(c => c.kind)).toEqual([
 				CellKind.Markup,
 				CellKind.Markup,
@@ -410,9 +341,8 @@ describe('PositronNotebookInstance.copy/cut/paste*', () => {
 	});
 
 	describe('Action wiring (clipboard keybindings)', () => {
-		// Test-only subclasses that expose protected `runNotebookAction` so we
-		// can invoke action bodies without an active editor pane. Same pattern
-		// as selectionKeybindings.vitest.ts and notebookDelete.vitest.ts.
+		// Test-only subclasses expose protected `runNotebookAction` so we can
+		// invoke action bodies without an active editor pane.
 		class TestableCopyCellsAction extends CopyCellsAction {
 			public testRun(notebook: IPositronNotebookInstance, accessor: ServicesAccessor) {
 				return this.runNotebookAction(notebook, accessor);

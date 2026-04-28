@@ -24,33 +24,13 @@ import {
 import { createTestPositronNotebookInstance } from './testPositronNotebookInstance.js';
 import { CellSelectionType } from '../../browser/selectionMachine.js';
 
-/**
- * Verifies the cell-type conversion API on PositronNotebookInstance.
- *
- * Mirrors the pre-migration e2e (notebook-cell-type.test.ts) which exercised
- * the command-mode keyboard shortcuts for code <-> markdown round-trip,
- * confirming that:
- *  - Cell content is preserved across kind conversions.
- *  - Outputs survive on the underlying text model across a code <-> markdown
- *    <-> code round trip (the e2e watched the output re-render after
- *    converting back to code).
- *
- * The keybinding/wiring path for these actions is left to the upstream
- * registerAction2 plumbing -- their `runNotebookAction` bodies are 1-line
- * calls into changeCellType, which is what the tests here cover.
- *
- * Known coverage gap: the view-layer output re-render across cell-kind
- * changes (cells observable -> rendered output DOM) is asserted by the
- * remaining notebook-cell-output e2e but not at unit level here. The
- * changeCellType branch on the underlying text model is fully covered.
- */
+// View-layer output re-render across cell-kind changes is covered by the
+// notebook-cell-output e2e; this file covers the model-level changeCellType.
 describe('PositronNotebookInstance.changeCellType', () => {
 	const ctx = createTestContainer().withNotebookEditorServices().build();
 
 	describe('code <-> markdown conversion', () => {
 		it('code -> markdown preserves cell content', () => {
-			// Mirrors e2e step "Convert to markdown" + "Verify cell is markdown
-			// and content preserved". Active-cell selection drives the conversion.
 			const code = 'print("hello")';
 			const notebook = createTestPositronNotebookInstance(
 				[[code, 'python', CellKind.Code]],
@@ -68,9 +48,8 @@ describe('PositronNotebookInstance.changeCellType', () => {
 		});
 
 		it('code -> markdown preserves outputs on the underlying text model', () => {
-			// Outputs survive a kind change at the model level even though
-			// markdown cells do not render outputs. This is what enables the
-			// round-trip restoration in the next test.
+			// Markdown cells don't render outputs, but outputs persist on the
+			// text model so a round-trip back to code can restore them.
 			const code = 'print("hello")';
 			const notebook = createTestPositronNotebookInstance(
 				[[code, 'python', CellKind.Code, [{
@@ -93,8 +72,6 @@ describe('PositronNotebookInstance.changeCellType', () => {
 		});
 
 		it('code -> markdown -> code round-trip restores outputs', () => {
-			// Mirrors the full e2e flow: convert to markdown then back to code,
-			// content stays intact and the original output is still on the model.
 			const code = 'print("hello")';
 			const notebook = createTestPositronNotebookInstance(
 				[[code, 'python', CellKind.Code, [{
@@ -107,8 +84,8 @@ describe('PositronNotebookInstance.changeCellType', () => {
 			notebook.selectionStateMachine.selectCell(cellsBefore[0], CellSelectionType.Normal);
 
 			notebook.changeCellType(CellKind.Markup);
-			// After the first conversion the cell instance is replaced; reselect
-			// the new active cell so the second changeCellType() call resolves it.
+			// Conversion replaces the cell instance, so reselect before the
+			// second changeCellType() can resolve an active cell.
 			const cellsAfterMarkdown = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cellsAfterMarkdown[0], CellSelectionType.Normal);
 			notebook.changeCellType(CellKind.Code, 'python');
@@ -129,8 +106,6 @@ describe('PositronNotebookInstance.changeCellType', () => {
 
 	describe('changeCellType edge cases', () => {
 		it('is a no-op on an empty notebook', () => {
-			// No active cell, no cellToConvert arg -- the method returns early
-			// before touching the text model.
 			const notebook = createTestPositronNotebookInstance([], ctx);
 
 			expect(() => notebook.changeCellType(CellKind.Markup)).not.toThrow();
@@ -139,9 +114,8 @@ describe('PositronNotebookInstance.changeCellType', () => {
 		});
 
 		it('is a no-op when target kind and language match the current cell', () => {
-			// Same kind, same language: changeCellType returns before applying
-			// any edits. Verify by snapshotting the cell instance identity --
-			// an applied edit would replace the cell with a new instance.
+			// Asserted via instance identity below: an applied Replace edit
+			// would swap in a new cell instance.
 			const notebook = createTestPositronNotebookInstance(
 				[['code', 'python', CellKind.Code]],
 				ctx,
@@ -153,21 +127,18 @@ describe('PositronNotebookInstance.changeCellType', () => {
 
 			const cellsAfter = notebook.cells.get();
 			expect(cellsAfter.length).toBe(1);
-			// Same instance reference -- proves no Replace edit ran.
 			expect(cellsAfter[0]).toBe(cellsBefore[0]);
 			expect(cellsAfter[0].getContent()).toBe('code');
 		});
 
 		it('changeCellType to raw uses Code kind with raw language', () => {
-			// Raw cells are stored as Code cells with language='raw' in the
-			// underlying VS Code model -- mirrors ChangeToRawAction's body,
-			// which calls notebook.changeCellType(CellKind.Code, 'raw') from a
-			// code cell. This exercises the CellEditType.CellLanguage branch
-			// (language-only change, kind unchanged).
+			// Raw cells are stored as Code cells with language='raw' -- this
+			// exercises the CellEditType.CellLanguage branch (language-only
+			// edit, kind unchanged).
 			//
-			// Register 'python' and 'raw' so getLanguageIdByLanguageName()
-			// resolves them; otherwise NotebookCellTextModel._setLanguageInternal
-			// short-circuits on null and the cell language never updates.
+			// 'python' and 'raw' must be registered with the language service
+			// or NotebookCellTextModel._setLanguageInternal short-circuits on
+			// null and the cell language never updates.
 			const languageService = ctx.get(ILanguageService);
 			ctx.disposables.add(languageService.registerLanguage({ id: 'python', aliases: ['python'] }));
 			ctx.disposables.add(languageService.registerLanguage({ id: 'raw', aliases: ['raw'] }));
@@ -186,16 +157,13 @@ describe('PositronNotebookInstance.changeCellType', () => {
 			expect(textModel!.cells.length).toBe(1);
 			expect(textModel!.cells[0].cellKind).toBe(CellKind.Code);
 			expect(textModel!.cells[0].language).toBe('raw');
-			// The notebook-level cell view exposes raw cells via isRawCell().
 			expect(notebook.cells.get()[0].isRawCell()).toBe(true);
-			// Same instance reference -- proves the CellEditType.CellLanguage
-			// path (language-only edit, kind unchanged) ran, not Replace.
+			// Same instance reference proves the CellLanguage path ran (not
+			// Replace, which would swap the cell instance).
 			expect(notebook.cells.get()[0]).toBe(cellsBefore[0]);
 		});
 
 		it('explicit cellToConvert arg targets a non-active cell', () => {
-			// The active cell is index 0, but we pass cell at index 2 explicitly
-			// -- only that cell is converted, regardless of the selection state.
 			const notebook = createTestPositronNotebookInstance(
 				[
 					['cell0', 'python', CellKind.Code],
@@ -219,21 +187,14 @@ describe('PositronNotebookInstance.changeCellType', () => {
 	});
 
 	describe('Action wiring (cell-type keybindings)', () => {
-		// Keybinding-metadata-only tests, matching the Migration 5 pattern in
-		// notebookCopyPaste.vitest.ts for similarly-thin actions whose bodies
-		// are 1-line passthroughs into changeCellType (already covered by the
-		// model-method describes above).
-
-		// Test-only subclass that exposes the protected `runNotebookAction` so
-		// we can invoke the action's body without standing up an active editor
-		// pane. Same pattern as notebookDelete.vitest.ts.
+		// Test-only subclass exposes the protected `runNotebookAction` so we can
+		// invoke the action body without standing up an active editor pane.
 		class TestableChangeToCodeAction extends ChangeToCodeAction {
 			public testRun(notebook: IPositronNotebookInstance, accessor: ServicesAccessor) {
 				return this.runNotebookAction(notebook, accessor);
 			}
 		}
 
-		// runNotebookAction takes a ServicesAccessor that this action never reads.
 		const unusedAccessor: ServicesAccessor = {
 			get() { throw new Error('ServicesAccessor must not be used in this action test'); },
 		};
@@ -246,10 +207,6 @@ describe('PositronNotebookInstance.changeCellType', () => {
 		});
 
 		it('ChangeToCodeAction.runNotebookAction passes undefined language when no kernel is attached', () => {
-			// Branch coverage: the action derives `kernelLanguage` from
-			// `notebook.kernel.get()?.supportedLanguages?.[0]`. With no kernel
-			// attached, that resolves to undefined and is forwarded to
-			// changeCellType as the language argument.
 			const changeCellType = vi.fn();
 			const notebook = stubInterface<IPositronNotebookInstance>({
 				kernel: observableValue<RuntimeNotebookKernel | undefined>('kernel', undefined),
