@@ -273,11 +273,7 @@ const baseHeaders = {
 
 // --- Start Positron ---
 
-function getPlatformDownloads(bootstrap: boolean): string[] {
-	// return both architectures for mac universal installer
-	if (bootstrap && process.platform === 'darwin' && !process.env['VSCODE_DEV']) {
-		return ['darwin-x64', 'darwin-arm64'];
-	}
+function getPlatformDownloads(): string[] {
 	switch (os.arch()) {
 		case 'arm64':
 			return [`${process.platform}-arm64`];
@@ -299,15 +295,6 @@ function createPlatformSpecificUrl(resourceUrlTemplate: string, publisher: strin
 		.replace(/Microsoft\.VisualStudio\.Code\.WebResources\/\{path\}$/, `Microsoft.VisualStudio.Services.VSIXPackage?targetPlatform=${platformDownload}`);
 }
 
-function getArchFromPlatformId(platformId: string): string {
-	if (platformId.includes('arm64')) {
-		return 'arm64';
-	} else if (platformId.includes('x64')) {
-		return 'x64';
-	}
-	return 'unknown';
-}
-
 export function fromMarketplace(resourceUrlTemplate: string, { name: extensionName, version, sha256, metadata }: IExtensionDefinition, bootstrap: boolean = false): Stream {
 	const json = require('gulp-json-editor') as typeof import('gulp-json-editor');
 
@@ -319,7 +306,7 @@ export function fromMarketplace(resourceUrlTemplate: string, { name: extensionNa
 
 	if (metadata.multiPlatformServiceUrl) {
 		// Download a platform-specific VSIX for each target platform.
-		platformDownloads = getPlatformDownloads(bootstrap);
+		platformDownloads = getPlatformDownloads();
 		urls = platformDownloads.map(platformDownload => createPlatformSpecificUrl(resourceUrlTemplate, publisher, name, version, platformDownload));
 		fancyLog('Downloading multi-platform extension:', ansiColors.yellow(`${extensionName}@${version}`),
 			`for ${platformDownloads.join(', ')}...`);
@@ -340,37 +327,15 @@ export function fromMarketplace(resourceUrlTemplate: string, { name: extensionNa
 
 	// --- Start Positron ---
 	if (bootstrap) {
-		if (urls.length > 1) {
-			if (process.platform !== 'darwin') {
-				fancyLog('Developer error: Unexpected number of URLS for bootstrap extension.');
-			}
-			return es.merge(...urls.map((url, index) => {
-				const platformId = platformDownloads[index];
-				const arch = getArchFromPlatformId(platformId);
-
-				return fetchUrls('', {
-					base: url,
-					nodeFetchOptions: { headers: baseHeaders },
-					checksumSha256: sha256,
-					expectZip: true
-				})
-					.pipe(buffer())
-					.pipe(rename(p => {
-						// Add architecture folder to the path
-						p.dirname = arch;
-					}));
-			}));
-		} else {
-			return fetchUrls('', {
-				base: urls[0],
-				nodeFetchOptions: {
-					headers: baseHeaders
-				},
-				checksumSha256: sha256,
-				expectZip: true
-			})
-				.pipe(buffer());
-		}
+		return fetchUrls('', {
+			base: urls[0],
+			nodeFetchOptions: {
+				headers: baseHeaders
+			},
+			checksumSha256: sha256,
+			expectZip: true
+		})
+			.pipe(buffer());
 	} else {
 		if (urls.length > 1) {
 			fancyLog(`Developer error: Unexpected number of URLS for built-in extension.`);
@@ -380,7 +345,8 @@ export function fromMarketplace(resourceUrlTemplate: string, { name: extensionNa
 			nodeFetchOptions: {
 				headers: baseHeaders
 			},
-			checksumSha256: sha256
+			checksumSha256: sha256,
+			expectZip: true
 		})
 			.pipe(vzip.src())
 			.pipe(filter('extension/**'))

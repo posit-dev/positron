@@ -150,7 +150,7 @@ async function downloadAndReplaceKallichore(version: string,
 			let os: string;
 			switch (currentPlatform) {
 				case 'win32': os = (currentArch === 'arm64' ? 'windows-arm64' : 'windows-x64'); break;
-				case 'darwin': os = 'darwin-universal'; break;
+				case 'darwin': os = (currentArch === 'arm64' ? 'darwin-arm64' : 'darwin-x64'); break;
 				case 'linux': os = (currentArch === 'arm64' ? 'linux-arm64' : 'linux-x64'); break;
 				default: {
 					throw new Error(`Unsupported platform ${currentPlatform}.`);

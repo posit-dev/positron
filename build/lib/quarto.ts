@@ -141,6 +141,19 @@ export function getQuartoBinaries(): Stream {
 			}
 		}))
 
+		// On macOS, filter out the opposite-arch tools directory. 
+		.pipe(es.mapSync((f: any) => {
+			if (process.platform !== 'darwin') {
+				return f;
+			}
+			const targetArch = process.env['npm_config_arch'];
+			const excludeDir = path.join('quarto', 'bin', 'tools', targetArch === 'arm64' ? 'x86_64' : 'aarch64');
+			if (f.dirname && (f.dirname === excludeDir || f.dirname.startsWith(excludeDir + path.sep))) {
+				return;
+			}
+			return f;
+		}))
+
 		// Restore the executable bit on the Quarto binaries. (It's very
 		// unfortunate that gulp doesn't preserve the executable bit when
 		// copying files.)

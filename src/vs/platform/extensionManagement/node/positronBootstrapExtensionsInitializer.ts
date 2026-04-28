@@ -13,7 +13,6 @@ import { FileOperationResult, IFileService, IFileStat, toFileOperationResult } f
 import { getErrorMessage } from '../../../base/common/errors.js';
 import { existsSync, readFileSync, writeFileSync, accessSync, constants as fsConstants } from 'fs';
 import { Disposable } from '../../../base/common/lifecycle.js';
-import { getSystemArchitecture } from '../../../base/node/arch.js';
 import { DeferredPromise } from '../../../base/common/async.js';
 import * as perf from '../../../base/common/performance.js';
 
@@ -97,18 +96,12 @@ export class PositronBootstrapExtensionsInitializer extends Disposable {
 
 	async installVSIXOnStartup(): Promise<void> {
 		await this.installDefaultVSIX();
-		await this.installArchitectureSpecificVSIX();
 		await this.installCustomVSIX();
 	}
 
 	private async installDefaultVSIX(): Promise<void> {
 		const extensionsLocation = this.getSystemVSIXPath();
 		await this.installVSIXFromLocation(extensionsLocation, 'default');
-	}
-
-	private async installArchitectureSpecificVSIX(): Promise<void> {
-		const archLocation = this.getArchSpecificVSIXPath();
-		await this.installVSIXFromLocation(archLocation, 'arch-specific');
 	}
 
 	private async installCustomVSIX(): Promise<void> {
@@ -180,11 +173,6 @@ export class PositronBootstrapExtensionsInitializer extends Disposable {
 		return process.env['VSCODE_DEV']
 			? URI.file(join(this.environmentService.appRoot, '.build', 'bootstrapExtensions'))
 			: URI.file(join(this.environmentService.appRoot, 'extensions', 'bootstrap'));
-	}
-
-	private getArchSpecificVSIXPath(): URI {
-		const arch = getSystemArchitecture();
-		return URI.file(join(this.getSystemVSIXPath().fsPath, arch));
 	}
 
 	private getCustomVSIXPath(): URI | undefined {
