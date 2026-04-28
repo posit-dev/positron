@@ -20,8 +20,10 @@ import { DropDownListBox, DropDownListBoxEntry } from '../../../../../browser/po
 import { DropDownListBoxItem } from '../../../../../browser/positronComponents/dropDownListBox/dropDownListBoxItem.js';
 import { DropDownListBoxSeparator } from '../../../../../browser/positronComponents/dropDownListBox/dropDownListBoxSeparator.js';
 import { positronClassNames } from '../../../../../../base/common/positronUtilities.js';
+import { URI } from '../../../../../../base/common/uri.js';
 import { ChartType, codeSnippetToCellSource, generateVizCode, isValidDataFrameExpr, VizAnswers, VizLibrary } from './generateVizCode.js';
 import { InsertMode } from './applyVisualizeResult.js';
+import { VisualizePreview } from './visualizePreview.js';
 
 export type { InsertMode };
 
@@ -101,6 +103,7 @@ export const showVisualizeModalDialog = (
 	initialDfName: string,
 	columns: DataFrameColumn[] = [],
 	suggestionPromise?: Promise<VisualizationSuggestion | null>,
+	notebookUri?: URI,
 ): Promise<VisualizeResult | undefined> => {
 	return new Promise(resolve => {
 		const renderer = new PositronModalReactRenderer();
@@ -115,6 +118,7 @@ export const showVisualizeModalDialog = (
 			<VisualizeModalDialog
 				columns={columns}
 				initialDfName={initialDfName}
+				notebookUri={notebookUri}
 				renderer={renderer}
 				suggestionPromise={suggestionPromise}
 				onCancel={() => finish(undefined)}
@@ -128,6 +132,7 @@ interface Props {
 	renderer: PositronModalReactRenderer;
 	initialDfName: string;
 	columns: DataFrameColumn[];
+	notebookUri?: URI;
 	suggestionPromise?: Promise<VisualizationSuggestion | null>;
 	onCancel: () => void;
 	onFinish: (r: VisualizeResult) => void;
@@ -272,6 +277,7 @@ const VisualizeModalDialog = (props: Props) => {
 	};
 
 	const generatedSource = codeSnippetToCellSource(generateVizCode(answers));
+	const previewReady = answers.x.trim().length > 0;
 
 	return (
 		<PositronModalDialog
@@ -282,114 +288,124 @@ const VisualizeModalDialog = (props: Props) => {
 			onCancel={props.onCancel}
 		>
 			<ContentArea>
-				<div className='visualize-modal-content'>
-					<StepIndicator currentIdx={currentIdx} total={STEP_ORDER.length} />
+				<div className='visualize-split'>
+					<div className='visualize-modal-content'>
+						<StepIndicator currentIdx={currentIdx} total={STEP_ORDER.length} />
 
-					{step === 'library' && (
-						<StepBody
-							subtitle={localize('positron.notebook.visualize.step.library.subtitle', 'We will generate code using the library you pick.')}
-							title={localize('positron.notebook.visualize.step.library.title', 'Choose a plotting library')}
-						>
-							<SuggestionBanner
-								reasoning={suggestion?.reasoning.library}
-								state={suggestionState}
-								suggestedLabel={suggestion && LIBRARY_CHOICES.find(c => c.id === suggestion.library)?.title}
-							/>
-							<ChoiceGrid
-								choices={LIBRARY_CHOICES}
-								selectedId={library}
-								suggestedId={suggestion?.library}
-								onSelect={onLibraryChange}
-							/>
-						</StepBody>
-					)}
+						{step === 'library' && (
+							<StepBody
+								subtitle={localize('positron.notebook.visualize.step.library.subtitle', 'We will generate code using the library you pick.')}
+								title={localize('positron.notebook.visualize.step.library.title', 'Choose a plotting library')}
+							>
+								<SuggestionBanner
+									reasoning={suggestion?.reasoning.library}
+									state={suggestionState}
+									suggestedLabel={suggestion && LIBRARY_CHOICES.find(c => c.id === suggestion.library)?.title}
+								/>
+								<ChoiceGrid
+									choices={LIBRARY_CHOICES}
+									selectedId={library}
+									suggestedId={suggestion?.library}
+									onSelect={onLibraryChange}
+								/>
+							</StepBody>
+						)}
 
-					{step === 'chart' && (
-						<StepBody
-							subtitle={localize('positron.notebook.visualize.step.chart.subtitle', 'Pick the shape that best fits your data.')}
-							title={localize('positron.notebook.visualize.step.chart.title', 'What kind of chart?')}
-						>
-							<SuggestionBanner
-								reasoning={suggestion?.reasoning.chartType}
-								state={suggestionState}
-								suggestedLabel={suggestion && CHART_CHOICES.find(c => c.id === suggestion.chartType)?.title}
-							/>
-							<ChoiceGrid
-								choices={CHART_CHOICES}
-								selectedId={chartType}
-								suggestedId={suggestion?.chartType}
-								onSelect={onChartChange}
-							/>
-						</StepBody>
-					)}
+						{step === 'chart' && (
+							<StepBody
+								subtitle={localize('positron.notebook.visualize.step.chart.subtitle', 'Pick the shape that best fits your data.')}
+								title={localize('positron.notebook.visualize.step.chart.title', 'What kind of chart?')}
+							>
+								<SuggestionBanner
+									reasoning={suggestion?.reasoning.chartType}
+									state={suggestionState}
+									suggestedLabel={suggestion && CHART_CHOICES.find(c => c.id === suggestion.chartType)?.title}
+								/>
+								<ChoiceGrid
+									choices={CHART_CHOICES}
+									selectedId={chartType}
+									suggestedId={suggestion?.chartType}
+									onSelect={onChartChange}
+								/>
+							</StepBody>
+						)}
 
-					{step === 'columns' && (
-						<StepBody
-							subtitle={props.columns.length
-								? localize('positron.notebook.visualize.step.columns.subtitle.withColumns', 'Pick columns from your dataframe.')
-								: localize('positron.notebook.visualize.step.columns.subtitle.noColumns', 'Enter column names from your dataframe.')}
-							title={localize('positron.notebook.visualize.step.columns.title', 'Map your columns')}
-						>
-							<SuggestionBanner
-								reasoning={suggestion?.reasoning.columns}
-								state={suggestionState}
-								suggestedLabel={suggestion
-									? `x: ${suggestion.xCol}${suggestion.yCol ? `, y: ${suggestion.yCol}` : ''}`
-									: undefined}
-							/>
-							<div className='visualize-columns-form'>
-								<LabeledTextInput
-									error={trimmedDfName.length > 0 && !dfNameValid}
-									errorMsg={trimmedDfName.length > 0 && !dfNameValid
-										? localize('positron.notebook.visualize.dfName.invalid', 'Must be a Python name like "df" or "self.data".')
+						{step === 'columns' && (
+							<StepBody
+								subtitle={props.columns.length
+									? localize('positron.notebook.visualize.step.columns.subtitle.withColumns', 'Pick columns from your dataframe.')
+									: localize('positron.notebook.visualize.step.columns.subtitle.noColumns', 'Enter column names from your dataframe.')}
+								title={localize('positron.notebook.visualize.step.columns.title', 'Map your columns')}
+							>
+								<SuggestionBanner
+									reasoning={suggestion?.reasoning.columns}
+									state={suggestionState}
+									suggestedLabel={suggestion
+										? `x: ${suggestion.xCol}${suggestion.yCol ? `, y: ${suggestion.yCol}` : ''}`
 										: undefined}
-									label={localize('positron.notebook.visualize.dfName.label', 'DataFrame variable')}
-									value={dfName}
-									onChange={(e) => setDfName(e.target.value)}
 								/>
-								<ColumnPicker
-									autoFocus
-									columns={props.columns}
-									label={localize('positron.notebook.visualize.xColumn.label', 'X column')}
-									value={xCol}
-									onChange={onXChange}
-								/>
-								{chartType !== 'histogram' && (
-									<ColumnPicker
-										allowClear
-										columns={props.columns}
-										label={localize('positron.notebook.visualize.yColumn.label', 'Y column (optional)')}
-										value={yCol}
-										onChange={onYChange}
+								<div className='visualize-columns-form'>
+									<LabeledTextInput
+										error={trimmedDfName.length > 0 && !dfNameValid}
+										errorMsg={trimmedDfName.length > 0 && !dfNameValid
+											? localize('positron.notebook.visualize.dfName.invalid', 'Must be a Python name like "df" or "self.data".')
+											: undefined}
+										label={localize('positron.notebook.visualize.dfName.label', 'DataFrame variable')}
+										value={dfName}
+										onChange={(e) => setDfName(e.target.value)}
 									/>
-								)}
-							</div>
-						</StepBody>
-					)}
+									<ColumnPicker
+										autoFocus
+										columns={props.columns}
+										label={localize('positron.notebook.visualize.xColumn.label', 'X column')}
+										value={xCol}
+										onChange={onXChange}
+									/>
+									{chartType !== 'histogram' && (
+										<ColumnPicker
+											allowClear
+											columns={props.columns}
+											label={localize('positron.notebook.visualize.yColumn.label', 'Y column (optional)')}
+											value={yCol}
+											onChange={onYChange}
+										/>
+									)}
+								</div>
+							</StepBody>
+						)}
 
-					{step === 'insert' && (
-						<StepBody
-							subtitle={localize('positron.notebook.visualize.step.insert.subtitle', 'Review the code and choose where it should land.')}
-							title={localize('positron.notebook.visualize.step.insert.title', 'Ready to visualize')}
-						>
-							<CodePreview source={generatedSource} />
-							<div className='visualize-insert-mode'>
-								<InsertModeOption
-									description={localize('positron.notebook.visualize.insertMode.newCell.description', 'Keep your exploration cell unchanged.')}
-									icon='codicon-add'
-									selected={insertMode === 'newCell'}
-									title={localize('positron.notebook.visualize.insertMode.newCell.title', 'Insert as new cell below')}
-									onSelect={() => setInsertMode('newCell')}
-								/>
-								<InsertModeOption
-									description={localize('positron.notebook.visualize.insertMode.append.description', 'Add the plot to the end of the current cell.')}
-									icon='codicon-arrow-down'
-									selected={insertMode === 'append'}
-									title={localize('positron.notebook.visualize.insertMode.append.title', 'Append to this cell')}
-									onSelect={() => setInsertMode('append')}
-								/>
-							</div>
-						</StepBody>
+						{step === 'insert' && (
+							<StepBody
+								subtitle={localize('positron.notebook.visualize.step.insert.subtitle', 'Review the code and choose where it should land.')}
+								title={localize('positron.notebook.visualize.step.insert.title', 'Ready to visualize')}
+							>
+								<CodePreview source={generatedSource} />
+								<div className='visualize-insert-mode'>
+									<InsertModeOption
+										description={localize('positron.notebook.visualize.insertMode.newCell.description', 'Keep your exploration cell unchanged.')}
+										icon='codicon-add'
+										selected={insertMode === 'newCell'}
+										title={localize('positron.notebook.visualize.insertMode.newCell.title', 'Insert as new cell below')}
+										onSelect={() => setInsertMode('newCell')}
+									/>
+									<InsertModeOption
+										description={localize('positron.notebook.visualize.insertMode.append.description', 'Add the plot to the end of the current cell.')}
+										icon='codicon-arrow-down'
+										selected={insertMode === 'append'}
+										title={localize('positron.notebook.visualize.insertMode.append.title', 'Append to this cell')}
+										onSelect={() => setInsertMode('append')}
+									/>
+								</div>
+							</StepBody>
+						)}
+					</div>
+					{props.notebookUri && (
+						<div className='visualize-split-preview'>
+							<VisualizePreview
+								code={previewReady ? generatedSource : ''}
+								notebookUri={props.notebookUri}
+							/>
+						</div>
 					)}
 				</div>
 			</ContentArea>

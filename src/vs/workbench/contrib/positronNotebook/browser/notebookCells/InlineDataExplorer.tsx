@@ -277,7 +277,7 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 					.then((r) => validateVisualizationSuggestion(r))
 					.catch(() => null);
 
-				const result = await showVisualizeModalDialog(initialDfName, columns, suggestionPromise);
+				const result = await showVisualizeModalDialog(initialDfName, columns, suggestionPromise, notebookInstance.uri);
 				if (!result) { return; }
 				const snippet = generateVizCode(result.answers);
 				await applyVisualizeResult(notebookInstance, cell, snippet, result.mode);
