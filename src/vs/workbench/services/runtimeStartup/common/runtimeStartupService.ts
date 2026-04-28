@@ -164,16 +164,15 @@ export interface IRuntimeStartupService {
 	/**
 	 * Current startup phase. Equivalent to ILanguageRuntimeService.startupPhase
 	 * but exposed here so diagnostics consumers don't need to plumb both
-	 * services. Note that under the cache-aware model, `Complete` can coexist
-	 * with a background pass -- consult `backgroundDiscoveryInProgress` to
-	 * disambiguate.
+	 * services. `Complete` can coexist with a background revalidation pass --
+	 * consult `backgroundDiscoveryInProgress` to disambiguate.
 	 */
 	readonly startupPhase: RuntimeStartupPhase;
 
 	/**
 	 * Whether a background full / revalidation pass is currently in flight.
-	 * Tracked separately from `startupPhase` because the discovery-cache
-	 * design lets a background pass run after `Complete` (warm starts).
+	 * Tracked separately from `startupPhase` because a background pass can
+	 * run after the phase has reached `Complete` (warm starts).
 	 */
 	readonly backgroundDiscoveryInProgress: boolean;
 

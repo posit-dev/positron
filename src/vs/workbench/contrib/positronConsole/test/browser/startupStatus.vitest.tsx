@@ -168,8 +168,6 @@ describe('StartupStatus', () => {
 				langMock.onDidRegisterRuntime.fire(runtime);
 			});
 
-			// The "(N)" suffix used to live next to "Discovering interpreters";
-			// the new UI shows a progress bar and path instead.
 			expect(screen.getByText(/Discovering interpreters/)).not.toHaveTextContent(/\(\d+\)/);
 		});
 

@@ -513,9 +513,9 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 	describe('rediscoverAllRuntimes precondition', () => {
 		it('refuses to run while a background discovery pass is already in flight', async () => {
 			const svc = makeService();
-			// Force the service into Complete + background-in-flight, the precondition
-			// the new cache-aware guard refuses on. Notification service captures the
-			// "already running" message instead of kicking off a second pass.
+			// Force the service into Complete + background-in-flight; rediscover
+			// should refuse and surface an "already running" notification rather
+			// than kicking off a second concurrent pass.
 			(svc as unknown as { _startupPhase: RuntimeStartupPhase })._startupPhase = RuntimeStartupPhase.Complete;
 			(svc as unknown as { _backgroundDiscoveryInProgress: boolean })._backgroundDiscoveryInProgress = true;
 

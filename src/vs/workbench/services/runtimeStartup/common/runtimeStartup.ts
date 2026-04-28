@@ -129,9 +129,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	private _lastDiscoveryRuntimeCount: number = 0;
 
 	// Whether a background full-discovery / revalidation pass is currently
-	// running. Tracked separately from `_startupPhase` because the cache plan
-	// allows a background pass to coexist with `Complete` (warm starts surface
-	// "ready for input" before all I/O has settled).
+	// running. Tracked separately from `_startupPhase` because a background
+	// pass can coexist with `Complete`: warm starts surface "ready for input"
+	// before cache revalidation I/O has settled.
 	private _backgroundDiscoveryInProgress = false;
 
 	// Whether we are shutting down
@@ -790,9 +790,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 *
 	 * Bypasses the discovery cache: every manager runs a fresh full pass and
 	 * the resulting `cacheable: true` metadata re-seeds the cache. Refuses to
-	 * run if a background pass is already in flight, since under the cache
-	 * model `Complete` can coexist with one (the old guard would have allowed
-	 * a second concurrent pass).
+	 * run if a background revalidation pass is already in flight, since
+	 * `Complete` can coexist with one and we want to avoid a second concurrent
+	 * pass racing against it.
 	 */
 	public async rediscoverAllRuntimes(): Promise<void> {
 
@@ -803,7 +803,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		}
 
 		// Refuse if a background full / revalidation pass is already running.
-		// Surfacing this is more useful than silently no-op'ing (per the plan).
+		// Notify the user rather than silently no-op'ing so it's clear why
+		// the command appeared to do nothing.
 		if (this._backgroundDiscoveryInProgress) {
 			this._logService.info('[Runtime startup] Runtime discovery refresh skipped: a background pass is already in progress.');
 			this._notificationService.info(nls.localize('positron.runtimeStartupService.discoveryAlreadyRunning',

@@ -107,7 +107,8 @@ export interface IDiscoveryCacheBucket {
 }
 
 /**
- * Counters reset at service-construction time, used by Phase 4 diagnostics.
+ * Counters scoped to the lifetime of the cache service instance. Surfaced via
+ * the startup-diagnostics editor.
  */
 export interface IDiscoveryCacheSessionCounters {
 	foregroundHits: number;
@@ -214,14 +215,14 @@ export interface IRuntimeDiscoveryCache {
 	setDiscoveryRootSignature(extensionId: string, languageId: string, signature: IRuntimeRootSignature): void;
 
 	/**
-	 * Wipe all entries and metadata. Drives the "Clear Interpreter Cache"
-	 * command in Phase 4. Bumps in-session evictions counter for diagnostics.
+	 * Wipe all entries and metadata. Backs the "Clear Interpreter Cache"
+	 * command. Bumps the in-session evictions counter for diagnostics.
 	 */
 	clear(): void;
 
 	/**
-	 * Note that a full discovery pass started for a (ext, lang) bucket.
-	 * Surfaced in Phase 4 diagnostics.
+	 * Note that a full discovery pass started for a (ext, lang) bucket. Visible
+	 * in the startup-diagnostics editor.
 	 */
 	recordFullDiscoveryRun(extensionId: string, languageId: string, reason: string): void;
 
