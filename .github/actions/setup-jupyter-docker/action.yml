@@ -2,9 +2,6 @@ name: 'Setup Jupyter Docker'
 description: 'Start Docker Compose services and install Jupyter with Positron in container'
 
 inputs:
-  jupyter-password:
-    description: 'Jupyter admin password'
-    required: true
   github-token:
     description: 'GitHub token for authentication'
     required: true
