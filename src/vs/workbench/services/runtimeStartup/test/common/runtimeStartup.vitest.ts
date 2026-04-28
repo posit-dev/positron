@@ -1,0 +1,578 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/// <reference types="vitest/globals" />
+
+import { Emitter } from '../../../../../base/common/event.js';
+import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+import { IEphemeralStateService } from '../../../../../platform/ephemeralState/common/ephemeralState.js';
+import { INotificationService } from '../../../../../platform/notification/common/notification.js';
+import { TestNotificationService } from '../../../../../platform/notification/test/common/testNotificationService.js';
+import { IProgressService } from '../../../../../platform/progress/common/progress.js';
+import { BeforeShutdownEvent, ILifecycleService, WillShutdownEvent } from '../../../lifecycle/common/lifecycle.js';
+import { IPositronNewFolderService, NewFolderStartupPhase } from '../../../positronNewFolder/common/positronNewFolder.js';
+import { IWorkbenchEnvironmentService } from '../../../environment/common/environmentService.js';
+import {
+	ILanguageRuntimeMetadata,
+	IRuntimeManager,
+	IRuntimeRootSignature,
+	LanguageRuntimeSessionLocation,
+	LanguageRuntimeStartupBehavior,
+	RuntimeStartupPhase,
+} from '../../../languageRuntime/common/languageRuntimeService.js';
+import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { RuntimeStartupService } from '../../common/runtimeStartup.js';
+import {
+	ICachedRuntime,
+	IDiscoveryCacheBucket,
+	IDiscoveryCacheSessionCounters,
+	IRuntimeDiscoveryCache,
+	IRuntimeFingerprint,
+} from '../../common/runtimeDiscoveryCacheService.js';
+
+/**
+ * Hand-rolled discovery-cache fake. We don't use the real `RuntimeDiscoveryCache`
+ * because pre-populating it requires a stat-able file service stub, and the
+ * decision logic we're testing only consults the read methods on this interface.
+ * Test cases populate `buckets` directly via `setBucket()`.
+ */
+class FakeDiscoveryCache implements IRuntimeDiscoveryCache {
+	declare readonly _serviceBrand: undefined;
+	private _enabled = true;
+	private _buckets = new Map<string, IDiscoveryCacheBucket>();
+
+	readonly sessionCounters: IDiscoveryCacheSessionCounters = {
+		foregroundHits: 0,
+		revalidationsAttempted: 0,
+		revalidationsSucceeded: 0,
+		revalidationsFailed: 0,
+		evictions: 0,
+		rootsChangedFullDiscoveries: 0,
+		fullDiscoveryRuns: [],
+	};
+
+	setEnabled(enabled: boolean): void {
+		this._enabled = enabled;
+	}
+
+	setBucket(bucket: IDiscoveryCacheBucket): void {
+		this._buckets.set(`${bucket.extensionId}::${bucket.languageId}`, bucket);
+	}
+
+	isEnabled(): boolean {
+		return this._enabled;
+	}
+
+	async statRuntimePath(): Promise<{ resolvedPath: string; fingerprint: IRuntimeFingerprint } | undefined> {
+		return undefined;
+	}
+
+	getEntries(extensionId: string, languageId: string): readonly ICachedRuntime[] {
+		if (!this._enabled) { return []; }
+		return this._buckets.get(`${extensionId}::${languageId}`)?.entries ?? [];
+	}
+
+	getAllBuckets(): readonly IDiscoveryCacheBucket[] {
+		if (!this._enabled) { return []; }
+		return Array.from(this._buckets.values());
+	}
+
+	async upsert(): Promise<ICachedRuntime | undefined> {
+		return undefined;
+	}
+
+	invalidate(): void { /* no-op */ }
+	markValidated(): boolean { return false; }
+
+	getLastFullDiscovery(extensionId: string, languageId: string): number | undefined {
+		const b = this._buckets.get(`${extensionId}::${languageId}`);
+		return b && b.lastFullDiscovery !== 0 ? b.lastFullDiscovery : undefined;
+	}
+
+	setLastFullDiscovery(): void { /* no-op */ }
+
+	getDiscoveryRootSignature(extensionId: string, languageId: string): IRuntimeRootSignature | undefined {
+		return this._buckets.get(`${extensionId}::${languageId}`)?.discoveryRootSignature;
+	}
+
+	setDiscoveryRootSignature(): void { /* no-op */ }
+
+	clear(): void {
+		this._buckets.clear();
+	}
+
+	recordFullDiscoveryRun(extensionId: string, languageId: string, reason: string): void {
+		(this.sessionCounters.fullDiscoveryRuns as { extensionId: string; languageId: string; reason: string; at: number }[])
+			.push({ extensionId, languageId, reason, at: Date.now() });
+	}
+}
+
+/**
+ * Manager test double. Each piece of behavior is configurable per test.
+ */
+interface IManagerOptions {
+	id: number;
+	owns: ILanguageRuntimeMetadata[];
+	rootSignatureByLanguage?: Record<string, IRuntimeRootSignature>;
+	rootSignatureBehavior?: 'normal' | 'throws' | 'never-resolves';
+}
+
+function makeManager(opts: IManagerOptions): IRuntimeManager {
+	const ownsByPath = new Map(opts.owns.map(m => [m.runtimePath, m]));
+	return {
+		id: opts.id,
+		discoverAllRuntimes: async () => { /* no-op for unit test */ },
+		recommendWorkspaceRuntimes: async () => [],
+		managesRuntime: async (metadata) => ownsByPath.has(metadata.runtimePath),
+		validateMetadata: async (m) => m,
+		getDiscoveryRootSignature: async (languageId: string) => {
+			if (opts.rootSignatureBehavior === 'throws') {
+				throw new Error('boom');
+			}
+			if (opts.rootSignatureBehavior === 'never-resolves') {
+				return new Promise<IRuntimeRootSignature | undefined>(() => { /* never */ });
+			}
+			return opts.rootSignatureByLanguage?.[languageId];
+		},
+	};
+}
+
+function metadata(overrides: {
+	extensionId?: string;
+	languageId?: string;
+	runtimePath?: string;
+	runtimeId?: string;
+	cacheable?: boolean;
+} = {}): ILanguageRuntimeMetadata {
+	return {
+		runtimePath: overrides.runtimePath ?? '/usr/bin/python3',
+		runtimeId: overrides.runtimeId ?? 'rt-1',
+		languageName: 'Python',
+		languageId: overrides.languageId ?? 'python',
+		languageVersion: '3.12.0',
+		base64EncodedIconSvg: undefined,
+		runtimeName: 'Python 3.12',
+		runtimeShortName: '3.12',
+		runtimeVersion: '0.1',
+		runtimeSource: 'System',
+		startupBehavior: LanguageRuntimeStartupBehavior.Implicit,
+		sessionLocation: LanguageRuntimeSessionLocation.Workspace,
+		extensionId: new ExtensionIdentifier(overrides.extensionId ?? 'ms.python'),
+		extraRuntimeData: {},
+		cacheable: overrides.cacheable ?? true,
+	};
+}
+
+function makeBucket(opts: {
+	extensionId: string;
+	languageId: string;
+	runtimePath: string;
+	lastFullDiscovery?: number;
+	signature?: IRuntimeRootSignature;
+}): IDiscoveryCacheBucket {
+	const md = metadata({
+		extensionId: opts.extensionId,
+		languageId: opts.languageId,
+		runtimePath: opts.runtimePath,
+	});
+	const entry: ICachedRuntime = {
+		metadata: md,
+		fingerprint: { size: 1, mtimeMs: 1, ctimeMs: 1 },
+		resolvedPath: opts.runtimePath,
+		firstSeen: Date.now(),
+		lastValidated: Date.now(),
+	};
+	return {
+		extensionId: opts.extensionId,
+		languageId: opts.languageId,
+		entries: [entry],
+		lastFullDiscovery: opts.lastFullDiscovery ?? 0,
+		discoveryRootSignature: opts.signature,
+	};
+}
+
+const sig = (entries: Array<[string, boolean, number]>, opaque?: string): IRuntimeRootSignature => ({
+	entries: entries.map(([path, exists, mtimeMs]) => ({ path, exists, mtimeMs })),
+	opaque,
+});
+
+describe('RuntimeStartupService - cache-aware discovery', () => {
+
+	let cache: FakeDiscoveryCache = undefined!;
+	let config: TestConfigurationService = undefined!;
+
+	const ctx = createTestContainer()
+		.withRuntimeServices()
+		.stub(IEphemeralStateService, {
+			getItem: () => Promise.resolve(undefined),
+			setItem: () => Promise.resolve(),
+		})
+		.stub(ILifecycleService, {
+			onBeforeShutdown: new Emitter<BeforeShutdownEvent>().event,
+			onWillShutdown: new Emitter<WillShutdownEvent>().event,
+		})
+		.stub(IPositronNewFolderService, {
+			onDidChangeNewFolderStartupPhase: new Emitter<NewFolderStartupPhase>().event,
+			startupPhase: NewFolderStartupPhase.Complete,
+		})
+		.stub(IProgressService, {})
+		.stub(IWorkbenchEnvironmentService, { remoteAuthority: undefined })
+		.stub(INotificationService, new TestNotificationService())
+		.stub(IRuntimeDiscoveryCache, {})
+		.build();
+
+	beforeEach(() => {
+		// Replace the cache stub with a fresh fake. The builder runs *its* beforeEach
+		// before this one, so our override here wins for the duration of the test.
+		cache = new FakeDiscoveryCache();
+		config = new TestConfigurationService({});
+		ctx.instantiationService.stub(IRuntimeDiscoveryCache, cache);
+		ctx.instantiationService.stub(IConfigurationService, config);
+	});
+
+	function makeService(): RuntimeStartupService {
+		return ctx.disposables.add(ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
+	}
+
+	// `managersNeedingFullDiscovery` is private; test through string-index access.
+	// The decision logic is the load-bearing part of the warm-start fast path,
+	// and the public `discoverAllRuntimes` entry point would require simulating
+	// the full startup phase machine just to get here.
+	function managersNeedingFullDiscovery(svc: RuntimeStartupService): Promise<IRuntimeManager[]> {
+		return (svc as unknown as { managersNeedingFullDiscovery: () => Promise<IRuntimeManager[]> })
+			.managersNeedingFullDiscovery();
+	}
+
+	function lastFullDiscoveryReason(svc: RuntimeStartupService): string {
+		return (svc as unknown as { _lastFullDiscoveryReason: string })._lastFullDiscoveryReason;
+	}
+
+	describe('when the cache is disabled', () => {
+		it('returns every registered manager regardless of cache state', async () => {
+			cache.setEnabled(false);
+			const svc = makeService();
+			const m1 = makeManager({ id: 1, owns: [] });
+			const m2 = makeManager({ id: 2, owns: [] });
+			ctx.disposables.add(svc.registerRuntimeManager(m1));
+			ctx.disposables.add(svc.registerRuntimeManager(m2));
+
+			const result = await managersNeedingFullDiscovery(svc);
+			expect(result).toEqual([m1, m2]);
+		});
+	});
+
+	describe('cold-start path', () => {
+		it('returns every manager when no buckets are cached', async () => {
+			const svc = makeService();
+			const m1 = makeManager({ id: 1, owns: [] });
+			ctx.disposables.add(svc.registerRuntimeManager(m1));
+
+			const result = await managersNeedingFullDiscovery(svc);
+			expect(result).toEqual([m1]);
+			expect(lastFullDiscoveryReason(svc)).toBe('cold-start');
+		});
+
+		it('flags a manager that owns none of the cached buckets', async () => {
+			// Cache has a Python bucket, but our manager doesn't claim Python.
+			cache.setBucket(makeBucket({
+				extensionId: 'ms.python',
+				languageId: 'python',
+				runtimePath: '/usr/bin/python3',
+				lastFullDiscovery: Date.now(),
+				signature: sig([['/usr/bin', true, 1000]]),
+			}));
+			const svc = makeService();
+			const rManager = makeManager({ id: 2, owns: [] });
+			ctx.disposables.add(svc.registerRuntimeManager(rManager));
+
+			const result = await managersNeedingFullDiscovery(svc);
+			expect(result).toEqual([rManager]);
+			expect(lastFullDiscoveryReason(svc)).toBe('cold-start');
+		});
+	});
+
+	describe('warm-start fast path', () => {
+		it('skips a manager whose bucket is fresh and signature matches', async () => {
+			const rootSig = sig([['/usr/bin', true, 1000]]);
+			const bucket = makeBucket({
+				extensionId: 'ms.python',
+				languageId: 'python',
+				runtimePath: '/usr/bin/python3',
+				lastFullDiscovery: Date.now(),
+				signature: rootSig,
+			});
+			cache.setBucket(bucket);
+
+			const svc = makeService();
+			const pyManager = makeManager({
+				id: 1,
+				owns: [bucket.entries[0].metadata],
+				rootSignatureByLanguage: { python: rootSig },
+			});
+			ctx.disposables.add(svc.registerRuntimeManager(pyManager));
+
+			const result = await managersNeedingFullDiscovery(svc);
+			expect(result).toEqual([]);
+		});
+	});
+
+	describe('periodic refresh', () => {
+		it('flags a manager whose bucket has a never-recorded last-full-discovery', async () => {
+			const rootSig = sig([['/usr/bin', true, 1000]]);
+			const bucket = makeBucket({
+				extensionId: 'ms.python',
+				languageId: 'python',
+				runtimePath: '/usr/bin/python3',
+				lastFullDiscovery: 0, // never recorded
+				signature: rootSig,
+			});
+			cache.setBucket(bucket);
+
+			const svc = makeService();
+			const pyManager = makeManager({
+				id: 1,
+				owns: [bucket.entries[0].metadata],
+				rootSignatureByLanguage: { python: rootSig },
+			});
+			ctx.disposables.add(svc.registerRuntimeManager(pyManager));
+
+			const result = await managersNeedingFullDiscovery(svc);
+			expect(result).toEqual([pyManager]);
+			expect(lastFullDiscoveryReason(svc)).toBe('periodic');
+		});
+
+		it('flags a manager whose last-full-discovery is older than the periodic cap', async () => {
+			const rootSig = sig([['/usr/bin', true, 1000]]);
+			const longAgo = Date.now() - (25 * 60 * 60 * 1000); // 25h ago, beyond the 24h cap
+			const bucket = makeBucket({
+				extensionId: 'ms.python',
+				languageId: 'python',
+				runtimePath: '/usr/bin/python3',
+				lastFullDiscovery: longAgo,
+				signature: rootSig,
+			});
+			cache.setBucket(bucket);
+
+			const svc = makeService();
+			const pyManager = makeManager({
+				id: 1,
+				owns: [bucket.entries[0].metadata],
+				rootSignatureByLanguage: { python: rootSig },
+			});
+			ctx.disposables.add(svc.registerRuntimeManager(pyManager));
+
+			const result = await managersNeedingFullDiscovery(svc);
+			expect(result).toEqual([pyManager]);
+			expect(lastFullDiscoveryReason(svc)).toBe('periodic');
+		});
+	});
+
+	describe('root-signature change detection', () => {
+		it('flags a manager whose signature differs from the persisted one', async () => {
+			const persistedSig = sig([['/usr/bin', true, 1000]]);
+			const currentSig = sig([['/usr/bin', true, 2000]]); // mtime moved
+			const bucket = makeBucket({
+				extensionId: 'ms.python',
+				languageId: 'python',
+				runtimePath: '/usr/bin/python3',
+				lastFullDiscovery: Date.now(),
+				signature: persistedSig,
+			});
+			cache.setBucket(bucket);
+
+			const svc = makeService();
+			const pyManager = makeManager({
+				id: 1,
+				owns: [bucket.entries[0].metadata],
+				rootSignatureByLanguage: { python: currentSig },
+			});
+			ctx.disposables.add(svc.registerRuntimeManager(pyManager));
+
+			const result = await managersNeedingFullDiscovery(svc);
+			expect(result).toEqual([pyManager]);
+			expect(lastFullDiscoveryReason(svc)).toBe('roots-changed');
+		});
+
+		it('treats an undefined signature (manager opted out) as "fall back to periodic"', async () => {
+			// Bucket is fresh and has no persisted signature. Manager returns undefined
+			// from getDiscoveryRootSignature (didn't implement / no support for this lang).
+			// Expectation: signature comparison contributes nothing; periodic-only logic
+			// applies. Bucket is fresh -> no full pass needed.
+			const bucket = makeBucket({
+				extensionId: 'ms.python',
+				languageId: 'python',
+				runtimePath: '/usr/bin/python3',
+				lastFullDiscovery: Date.now(),
+			});
+			cache.setBucket(bucket);
+
+			const svc = makeService();
+			const pyManager = makeManager({
+				id: 1,
+				owns: [bucket.entries[0].metadata],
+				rootSignatureByLanguage: {}, // returns undefined for python
+			});
+			ctx.disposables.add(svc.registerRuntimeManager(pyManager));
+
+			const result = await managersNeedingFullDiscovery(svc);
+			expect(result).toEqual([]);
+		});
+
+		it('falls back to periodic when getDiscoveryRootSignature throws', async () => {
+			// Periodic-stale bucket. If signature check throws, we shouldn't crash --
+			// we should fall through to the periodic decision (which will flag it).
+			const bucket = makeBucket({
+				extensionId: 'ms.python',
+				languageId: 'python',
+				runtimePath: '/usr/bin/python3',
+				lastFullDiscovery: 0,
+			});
+			cache.setBucket(bucket);
+
+			const svc = makeService();
+			const pyManager = makeManager({
+				id: 1,
+				owns: [bucket.entries[0].metadata],
+				rootSignatureBehavior: 'throws',
+			});
+			ctx.disposables.add(svc.registerRuntimeManager(pyManager));
+
+			const result = await managersNeedingFullDiscovery(svc);
+			expect(result).toEqual([pyManager]);
+			expect(lastFullDiscoveryReason(svc)).toBe('periodic');
+		});
+
+		it('falls back to periodic when getDiscoveryRootSignature exceeds its 500ms timeout', async () => {
+			// Stale bucket so periodic fires regardless. The point of this test is
+			// that a never-resolving signature call doesn't hang the warm-start
+			// decision; the 500ms timeout returns undefined -> periodic logic runs.
+			const bucket = makeBucket({
+				extensionId: 'ms.python',
+				languageId: 'python',
+				runtimePath: '/usr/bin/python3',
+				lastFullDiscovery: 0,
+			});
+			cache.setBucket(bucket);
+
+			const svc = makeService();
+			const pyManager = makeManager({
+				id: 1,
+				owns: [bucket.entries[0].metadata],
+				rootSignatureBehavior: 'never-resolves',
+			});
+			ctx.disposables.add(svc.registerRuntimeManager(pyManager));
+
+			vi.useFakeTimers();
+			try {
+				const promise = managersNeedingFullDiscovery(svc);
+				// Drive the 500ms timeout. The full call still awaits the timeout
+				// resolution, so we need to advance and then drain the microtask
+				// queue between awaits.
+				await vi.advanceTimersByTimeAsync(600);
+				const result = await promise;
+				expect(result).toEqual([pyManager]);
+				expect(lastFullDiscoveryReason(svc)).toBe('periodic');
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+	});
+
+	describe('reason precedence (cold-start > roots-changed > periodic)', () => {
+		it('roots-changed beats periodic when both fire across managers', async () => {
+			// Manager A: stale + signature unchanged -> periodic.
+			// Manager B: fresh + signature changed -> roots-changed.
+			// The reason field should be the more specific 'roots-changed'.
+			const stableSig = sig([['/usr/bin', true, 1000]]);
+			const aBucket = makeBucket({
+				extensionId: 'ms.python',
+				languageId: 'python',
+				runtimePath: '/usr/bin/python3',
+				lastFullDiscovery: 0, // periodic-stale
+				signature: stableSig,
+			});
+			const bBucket = makeBucket({
+				extensionId: 'posit.r',
+				languageId: 'r',
+				runtimePath: '/usr/local/bin/R',
+				lastFullDiscovery: Date.now(), // fresh
+				signature: stableSig,
+			});
+			cache.setBucket(aBucket);
+			cache.setBucket(bBucket);
+
+			const svc = makeService();
+			ctx.disposables.add(svc.registerRuntimeManager(makeManager({
+				id: 1,
+				owns: [aBucket.entries[0].metadata],
+				rootSignatureByLanguage: { python: stableSig }, // matches -> no roots-changed
+			})));
+			ctx.disposables.add(svc.registerRuntimeManager(makeManager({
+				id: 2,
+				owns: [bBucket.entries[0].metadata],
+				rootSignatureByLanguage: {
+					r: sig([['/usr/local/bin', true, 9999]]), // differs from stableSig
+				},
+			})));
+
+			const result = await managersNeedingFullDiscovery(svc);
+			expect(result).toHaveLength(2);
+			expect(lastFullDiscoveryReason(svc)).toBe('roots-changed');
+		});
+
+		it('cold-start beats roots-changed when both fire across managers', async () => {
+			// Manager A: cold-start (no buckets it owns).
+			// Manager B: fresh + signature changed -> roots-changed.
+			// The reason field should be the more specific 'cold-start'.
+			const persistedSig = sig([['/usr/bin', true, 1000]]);
+			const bBucket = makeBucket({
+				extensionId: 'posit.r',
+				languageId: 'r',
+				runtimePath: '/usr/local/bin/R',
+				lastFullDiscovery: Date.now(),
+				signature: persistedSig,
+			});
+			cache.setBucket(bBucket);
+
+			const svc = makeService();
+			ctx.disposables.add(svc.registerRuntimeManager(makeManager({
+				id: 1,
+				owns: [], // owns nothing -> cold-start
+			})));
+			ctx.disposables.add(svc.registerRuntimeManager(makeManager({
+				id: 2,
+				owns: [bBucket.entries[0].metadata],
+				rootSignatureByLanguage: {
+					r: sig([['/usr/local/bin', true, 9999]]), // differs
+				},
+			})));
+
+			const result = await managersNeedingFullDiscovery(svc);
+			expect(result).toHaveLength(2);
+			expect(lastFullDiscoveryReason(svc)).toBe('cold-start');
+		});
+	});
+
+	describe('rediscoverAllRuntimes precondition', () => {
+		it('refuses to run while a background discovery pass is already in flight', async () => {
+			const svc = makeService();
+			// Force the service into Complete + background-in-flight, the precondition
+			// the new cache-aware guard refuses on. Notification service captures the
+			// "already running" message instead of kicking off a second pass.
+			(svc as unknown as { _startupPhase: RuntimeStartupPhase })._startupPhase = RuntimeStartupPhase.Complete;
+			(svc as unknown as { _backgroundDiscoveryInProgress: boolean })._backgroundDiscoveryInProgress = true;
+
+			const notification = ctx.get(INotificationService) as TestNotificationService;
+			const infoSpy = vi.spyOn(notification, 'info');
+
+			await svc.rediscoverAllRuntimes();
+
+			expect(infoSpy).toHaveBeenCalledOnce();
+			expect(infoSpy.mock.calls[0][0]).toContain('already running');
+		});
+	});
+});
