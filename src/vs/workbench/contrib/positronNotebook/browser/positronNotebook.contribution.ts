@@ -1900,7 +1900,10 @@ registerAction2(class extends NotebookAction2 {
 				)
 			},
 			keybinding: {
-				when: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+				when: ContextKeyExpr.and(
+					ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+					NOTEBOOK_HAS_SOMETHING_RUNNING.toNegated()
+				),
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Enter
 			}

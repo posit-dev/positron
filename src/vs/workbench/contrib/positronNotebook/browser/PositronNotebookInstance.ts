@@ -1109,12 +1109,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		await this._runCells(this.cells.get());
 	}
 
-	cancelExecution(): void {
+	async cancelExecution(): Promise<void> {
 		this._assertTextModel();
 		const cells = this.cells.get();
 		const executingCells = cells.filter(cell => Boolean(this.notebookExecutionStateService.getCellExecution(cell.uri)));
 		if (executingCells.length > 0) {
-			this.notebookExecutionService.cancelNotebookCells(this.textModel, executingCells.map(c => c.model as NotebookCellTextModel));
+			await this.notebookExecutionService.cancelNotebookCells(this.textModel, executingCells.map(c => c.model as NotebookCellTextModel));
 		}
 	}
 
