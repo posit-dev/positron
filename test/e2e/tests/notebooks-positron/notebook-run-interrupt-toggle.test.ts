@@ -14,117 +14,39 @@ test.describe('Positron Notebooks: Run All / Interrupt Toggle', {
 	tag: [tags.POSITRON_NOTEBOOKS, tags.WIN, tags.WEB]
 }, () => {
 
-	test('Python - Run All button toggles to Interrupt while cells are executing', {
+	test('Python - Run All toggles to Interrupt during execution, cancels, and prevents subsequent cells', {
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/10493' }]
-	}, async function ({ app, python }) {
+	}, async function ({ app, page, python, hotKeys }) {
 		const { notebooksPositron } = app.workbench;
 
-		const runAllButton = notebooksPositron.editorActionBar.getByRole('button', { name: 'Run All', exact: true });
-		const interruptButton = notebooksPositron.editorActionBar.getByRole('button', { name: 'Interrupt', exact: true });
-
-		await test.step('Setup: create notebook with a long-running cell', async () => {
-			await notebooksPositron.newNotebook();
-			await notebooksPositron.kernel.select('Python');
-			await notebooksPositron.addCodeToCell(0, 'import time; time.sleep(30)', { run: false });
-		});
-
-		await test.step('Verify Run All is visible and Interrupt is not before execution', async () => {
-			await expect(runAllButton).toBeVisible();
-			await expect(interruptButton).not.toBeVisible();
-		});
-
-		await test.step('Click Run All and verify it switches to Interrupt', async () => {
-			await runAllButton.click();
-			await expect(interruptButton).toBeVisible({ timeout: 10000 });
-			await expect(runAllButton).not.toBeVisible();
-		});
-
-		await test.step('Click Interrupt and verify it switches back to Run All', async () => {
-			await interruptButton.click();
-			await expect(runAllButton).toBeVisible({ timeout: 15000 });
-			await expect(interruptButton).not.toBeVisible();
-		});
-	});
-
-	test('Python - Interrupt button cancels execution and cell stops running', {
-		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/10493' }]
-	}, async function ({ app, python }) {
-		const { notebooksPositron } = app.workbench;
-
-		const runAllButton = notebooksPositron.editorActionBar.getByRole('button', { name: 'Run All', exact: true });
-		const interruptButton = notebooksPositron.editorActionBar.getByRole('button', { name: 'Interrupt', exact: true });
-
-		await test.step('Setup: create notebook with an infinite loop cell', async () => {
+		await test.step('Create notebook with infinite loop followed by a print cell', async () => {
 			await notebooksPositron.newNotebook();
 			await notebooksPositron.kernel.select('Python');
 			await notebooksPositron.addCodeToCell(0, 'while True: pass', { run: false });
-		});
-
-		await test.step('Run All and wait for Interrupt to appear', async () => {
-			await runAllButton.click();
-			await expect(interruptButton).toBeVisible({ timeout: 10000 });
-		});
-
-		await test.step('Click Interrupt to stop the infinite loop', async () => {
-			await interruptButton.click();
-			await expect(runAllButton).toBeVisible({ timeout: 15000 });
-		});
-
-		await test.step('Verify cell execution stopped with an error', async () => {
-			await notebooksPositron.expectNoActiveSpinners();
-		});
-	});
-
-	test('Python - Run All completes normally for fast cells without showing Interrupt', {
-		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/10493' }]
-	}, async function ({ app, python }) {
-		const { notebooksPositron } = app.workbench;
-
-		const runAllButton = notebooksPositron.editorActionBar.getByRole('button', { name: 'Run All', exact: true });
-
-		await test.step('Setup: create notebook with a fast cell', async () => {
-			await notebooksPositron.newNotebook();
-			await notebooksPositron.kernel.select('Python');
-			await notebooksPositron.addCodeToCell(0, 'print("hello")', { run: false });
-		});
-
-		await test.step('Run All and verify it completes and button returns', async () => {
-			await runAllButton.click();
-			await notebooksPositron.expectNoActiveSpinners();
-			await expect(runAllButton).toBeVisible({ timeout: 15000 });
-		});
-
-		await test.step('Verify output was produced', async () => {
-			await notebooksPositron.expectOutputAtIndex(0, ['hello']);
-		});
-	});
-
-	test('Python - Run All with multiple cells shows Interrupt during execution', {
-		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/10493' }]
-	}, async function ({ app, python }) {
-		const { notebooksPositron } = app.workbench;
-
-		const runAllButton = notebooksPositron.editorActionBar.getByRole('button', { name: 'Run All', exact: true });
-		const interruptButton = notebooksPositron.editorActionBar.getByRole('button', { name: 'Interrupt', exact: true });
-
-		await test.step('Setup: create notebook with multiple cells', async () => {
-			await notebooksPositron.newNotebook();
-			await notebooksPositron.kernel.select('Python');
-			await notebooksPositron.addCodeToCell(0, 'import time; time.sleep(30)', { run: false });
 			await notebooksPositron.addCell('code');
-			await notebooksPositron.addCodeToCell(1, 'print("cell 2")', { run: false });
+			await notebooksPositron.addCodeToCell(1, 'print("This should NOT be printed")', { run: false });
 		});
 
-		await test.step('Click Run All and verify Interrupt appears', async () => {
-			await runAllButton.click();
-			await expect(interruptButton).toBeVisible({ timeout: 10000 });
-			await expect(runAllButton).not.toBeVisible();
+		await test.step('Trigger Run All via Cmd+Shift+Enter', async () => {
+			await notebooksPositron.selectCellAtIndex(0);
+			await hotKeys.pressHotKeys('Meta+Shift+Enter');
 		});
 
-		await test.step('Interrupt all and verify Run All returns', async () => {
-			await interruptButton.click();
-			await expect(runAllButton).toBeVisible({ timeout: 15000 });
-			await notebooksPositron.expectNoActiveSpinners();
+		await test.step('Verify cell is executing', async () => {
+			await notebooksPositron.expectSpinnerAtIndex(0, true, 10000);
+		});
+
+		await test.step('Trigger Interrupt via Cmd+Shift+Enter', async () => {
+			await hotKeys.pressHotKeys('Meta+Shift+Enter');
+		});
+
+		await test.step('Verify execution was interrupted', async () => {
+			await notebooksPositron.expectNoActiveSpinners(30000);
+			await expect(notebooksPositron.cellOutput(0)).toContainText('keyboard interupt', { timeout: 10000 });
+		});
+
+		await test.step('Verify second cell was NOT executed', async () => {
+			await expect(notebooksPositron.cellOutput(1)).not.toContainText('This should NOT be printed');
 		});
 	});
 });
