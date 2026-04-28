@@ -229,6 +229,8 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		undefined,
 	);
 	const innerRef = useRef<HTMLElement>(undefined!);
+
+	const [visible, setVisible] = useState(true);
 	useEffect(() => {
 		const disposableStore = new DisposableStore();
 		disposableStore.add(
@@ -443,11 +445,13 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 					</div>
 				) : (
 					<List
+						key={visible ? 'visible' : 'hidden'}
 						height={height - FILTER_HEIGHT}
 						innerRef={innerRef}
 						itemCount={filteredPackages.length}
 						itemKey={(index) => filteredPackages[index].id}
 						itemSize={26}
+						overscanCount={10}
 						width={'calc(100% - 2px)'}
 					>
 						{ItemEntry}
