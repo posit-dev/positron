@@ -7,7 +7,7 @@ import { localize } from '../../../../../nls.js';
 import { Action2, MenuId, registerAction2 } from '../../../../../platform/actions/common/actions.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
-import { TableDataDataGridInstance } from '../../../../services/positronDataExplorer/browser/tableDataDataGridInstance.js';
+import { InlineTableDataGridInstance } from '../../../../services/positronDataExplorer/browser/inlineTableDataGridInstance.js';
 import { IPositronNotebookCodeCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { IPositronNotebookInstance } from '../IPositronNotebookInstance.js';
 
@@ -27,7 +27,7 @@ export interface IInlineDataExplorerActionContext {
 	variablePath: string[] | undefined;
 	title: string;
 	shape: { rows: number; columns: number };
-	gridInstance: TableDataDataGridInstance | undefined;
+	gridInstance: InlineTableDataGridInstance | undefined;
 }
 
 export class OpenInDataExplorerAction extends Action2 {
