@@ -20,11 +20,23 @@ import { useObservedValue } from '../useObservedValue.js';
 import { NotebookCellActionBar } from './NotebookCellActionBar.js';
 import { useCellContextKeys } from './useCellContextKeys.js';
 import { CellScopedContextKeyServiceProvider } from './CellContextKeyServiceProvider.js';
+import { CellProvider } from './CellProvider.js';
 import { ScreenReaderOnly } from '../../../../../base/browser/ui/positronComponents/ScreenReaderOnly.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { NotebookErrorBoundary } from '../NotebookErrorBoundary.js';
 import { CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_REPLACE_INPUT_FOCUSED } from '../../../../../editor/contrib/find/browser/findModel.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+
+/**
+ * Wraps children in a {@link CellProvider} when the cell is a code cell, so descendants
+ * can resolve it via {@link useCell}. Markdown and raw cells render without the provider.
+ */
+function MaybeCellProvider({ cell, children }: { cell: IPositronNotebookCell; children: React.ReactNode }) {
+	if (cell.isCodeCell()) {
+		return <CellProvider cell={cell}>{children}</CellProvider>;
+	}
+	return <>{children}</>;
+}
 
 export function NotebookCellWrapper({ cell, children }: {
 	cell: IPositronNotebookCell;
@@ -202,16 +214,18 @@ export function NotebookCellWrapper({ cell, children }: {
 		}}
 	>
 		<CellScopedContextKeyServiceProvider service={scopedContextKeyService}>
-			<div className='positron-notebooks-cell-action-bar-container'>
-				<NotebookCellActionBar cell={cell} />
-			</div>
-			<NotebookErrorBoundary
-				componentName={`Cell[${cellTypeLower}]`}
-				level='cell'
-				logService={services.logService}
-			>
-				{children}
-			</NotebookErrorBoundary>
+			<MaybeCellProvider cell={cell}>
+				<div className='positron-notebooks-cell-action-bar-container'>
+					<NotebookCellActionBar cell={cell} />
+				</div>
+				<NotebookErrorBoundary
+					componentName={`Cell[${cellTypeLower}]`}
+					level='cell'
+					logService={services.logService}
+				>
+					{children}
+				</NotebookErrorBoundary>
+			</MaybeCellProvider>
 		</CellScopedContextKeyServiceProvider>
 		<ScreenReaderOnly>
 			{announcement}
