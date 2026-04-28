@@ -245,7 +245,7 @@ describe('PositronNotebookInstance.changeCellType', () => {
 			expect(action.desc.keybinding?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
 		});
 
-		it('ChangeToCodeAction.runNotebookAction passes undefined language when kernel.get() is null', () => {
+		it('ChangeToCodeAction.runNotebookAction passes undefined language when no kernel is attached', () => {
 			// Branch coverage: the action derives `kernelLanguage` from
 			// `notebook.kernel.get()?.supportedLanguages?.[0]`. With no kernel
 			// attached, that resolves to undefined and is forwarded to
