@@ -10,7 +10,7 @@ import { ModelProvider } from '../base/modelProvider';
 import { getProviderTimeoutMs } from '../../providerConfig.js';
 import { ModelConfig } from '../../configTypes.js';
 import { isChatImagePart, isCacheBreakpointPart, parseCacheBreakpoint, processMessages, promptTsxPartToString } from '../../utils.js';
-import { DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants.js';
+import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants.js';
 import { log } from '../../log.js';
 import { TokenUsage, recordTokenUsage, recordRequestTokenUsage } from '../../tokens.js';
 import { getAllModelDefinitions } from '../../modelDefinitions.js';
@@ -21,7 +21,6 @@ import { PROVIDER_METADATA } from '../../providerMetadata.js';
 import {
 	DEFAULT_DEEPSEEK_MODEL_NAME,
 	DEFAULT_DEEPSEEK_MODEL_MATCH,
-	fetchDeepseekModelsFromApi,
 	getDeepseekModelsFromConfig
 } from './deepseekModelUtils.js';
 import { handleNativeSdkRateLimitError } from '../anthropic/anthropicModelUtils.js';
@@ -87,6 +86,13 @@ export class DeepseekModelProvider extends ModelProvider implements positron.ai.
 			.replace(/\/+$/, '');
 	}
 
+	/**
+	 * Get the API root URL (without /anthropic suffix) for OpenAI-compatible endpoints.
+	 */
+	private get apiRoot(): string {
+		return this.baseUrl?.replace(/\/anthropic\/?$/, '') ?? 'https://api.deepseek.com';
+	}
+
 	constructor(
 		_config: ModelConfig,
 		_context?: vscode.ExtensionContext,
@@ -107,7 +113,7 @@ export class DeepseekModelProvider extends ModelProvider implements positron.ai.
 		if (this._config.baseUrl) {
 			return true;
 		}
-		return this._config.apiKey.startsWith('sk-ant-');
+		return this._config.apiKey.startsWith('sk-');
 	}
 
 	protected override getDefaultMatch(): string {
@@ -115,16 +121,52 @@ export class DeepseekModelProvider extends ModelProvider implements positron.ai.
 	}
 
 	override async resolveConnection(token: vscode.CancellationToken) {
-		// Keep custom implementation for API-specific connection testing
+		// Use direct fetch to test connection (Anthropic SDK doesn't work for DeepSeek)
+		const apiRoot = this.apiRoot;
+		const modelsUrl = `${apiRoot}/models`;
 		const timeoutMs = getProviderTimeoutMs();
+
+		this.logger.info(`Testing connection to ${modelsUrl}`);
+
+		const controller = new AbortController();
+		const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
 		try {
-			await this._client.withOptions({ timeout: timeoutMs }).models.list();
+			const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+			if (this._config.apiKey) {
+				headers['Authorization'] = `Bearer ${this._config.apiKey}`;
+				this.logger.info(`API key is set (prefix: ${this._config.apiKey.substring(0, 8)}...), including in request`);
+			} else {
+				this.logger.warn('API key is NOT set!');
+			}
+
+			this.logger.debug(`Request headers: ${JSON.stringify({ ...headers, Authorization: headers.Authorization ? '[REDACTED]' : undefined })}`);
+
+			const response = await fetch(modelsUrl, {
+				method: 'GET',
+				headers,
+				signal: controller.signal,
+			});
+
+			this.logger.info(`Connection response: ${response.status} ${response.statusText}`);
+
+			// Log response body for error cases to help diagnose issues
+			if (!response.ok) {
+				const errorBody = await response.text().catch(() => 'Unable to read response body');
+				this.logger.error(`Connection error response body: ${errorBody}`);
+			}
+
+			if (!response.ok && response.status !== 404) {
+				return new Error(`Connection failed: ${response.status} ${response.statusText}`);
+			}
 		} catch (error) {
-			// Custom endpoints may not expose /v1/models; treat 404 as connected
-			if (this._config.baseUrl && error instanceof Anthropic.APIError && error.status === 404) {
-				return;
+			this.logger.error(`Connection error: ${error}`);
+			if (error instanceof Error && error.name === 'AbortError') {
+				return new Error('Connection timed out');
 			}
 			return error as Error;
+		} finally {
+			clearTimeout(timeout);
 		}
 	}
 
@@ -150,13 +192,76 @@ export class DeepseekModelProvider extends ModelProvider implements positron.ai.
 	}
 
 	protected override async retrieveModelsFromApi(_token: vscode.CancellationToken) {
-		return fetchDeepseekModelsFromApi(
-			this._client,
-			this.providerId,
-			this.providerName,
-			this.capabilities,
-			this.logger
-		);
+		return this.fetchModelsFromApi();
+	}
+
+	/**
+	 * Fetches models from the DeepSeek API using direct fetch.
+	 * DeepSeek uses an OpenAI-compatible /models endpoint.
+	 */
+	private async fetchModelsFromApi(): Promise<vscode.LanguageModelChatInformation[] | undefined> {
+		// DeepSeek uses /anthropic for chat but /models at the root
+		const apiRoot = this.apiRoot;
+		const modelsUrl = `${apiRoot}/models`;
+		this.logger.info(`Fetching models from ${modelsUrl}...`);
+
+		const headers: Record<string, string> = {
+			'Content-Type': 'application/json',
+		};
+		if (this._config.apiKey) {
+			headers['Authorization'] = `Bearer ${this._config.apiKey}`;
+			this.logger.debug(`API key present (prefix: ${this._config.apiKey.substring(0, 8)}...)`);
+		} else {
+			this.logger.warn('No API key available for model fetching');
+		}
+
+		try {
+			const response = await fetch(modelsUrl, {
+				method: 'GET',
+				headers,
+			});
+
+			this.logger.info(`Models API response: ${response.status} ${response.statusText}`);
+
+			if (!response.ok) {
+				const errorBody = await response.text().catch(() => 'Unable to read response body');
+				this.logger.error(`Error fetching models: ${response.status} ${response.statusText}. Body: ${errorBody}`);
+				return undefined;
+			}
+
+			const data = await response.json();
+
+			if (data?.error) {
+				this.logger.error(`API error: ${JSON.stringify(data.error)}`);
+				return undefined;
+			}
+
+			if (!data?.data || !Array.isArray(data.data)) {
+				this.logger.info('Request was successful, but no models were returned.');
+				return undefined;
+			}
+
+			this.logger.info(`Successfully fetched ${data.data.length} models.`);
+
+			const models = data.data.map((model: any) =>
+				createModelInfo({
+					id: model.id,
+					name: model.id,
+					family: this.providerId,
+					version: model.id,
+					provider: this.providerId,
+					providerName: this.providerName,
+					capabilities: this.capabilities,
+					defaultMaxInput: model.maxInputTokens ?? DEFAULT_MAX_TOKEN_INPUT,
+					defaultMaxOutput: model.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT
+				})
+			);
+
+			return markDefaultModel(models, this.providerId, DEFAULT_DEEPSEEK_MODEL_MATCH);
+		} catch (error) {
+			this.logger.warn('Failed to fetch models from DeepSeek API', error);
+			return undefined;
+		}
 	}
 
 	override async provideLanguageModelChatResponse(

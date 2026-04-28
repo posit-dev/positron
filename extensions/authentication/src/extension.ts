@@ -8,7 +8,7 @@ import * as positron from 'positron';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { ANTHROPIC_AUTH_PROVIDER_ID, AWS_AUTH_PROVIDER_ID, CREDENTIAL_REFRESH_INTERVAL_MS, CUSTOM_PROVIDER_AUTH_PROVIDER_ID, DEEPSEEK_AUTH_PROVIDER_ID, FOUNDRY_AUTH_PROVIDER_ID, GEMINI_AUTH_PROVIDER_ID, OPENAI_AUTH_PROVIDER_ID, POSIT_AUTH_PROVIDER_ID } from './constants';
 import { AuthProvider } from './authProvider';
-import { registerAuthProvider, showConfigurationDialog } from './configDialog';
+import { registerAuthProvider, showConfigurationDialog, getAuthProvider } from './configDialog';
 import { normalizeToV1Url, validateAnthropicApiKey, validateCustomProviderApiKey, validateDeepseekApiKey, validateFoundryApiKey, validateGeminiApiKey, validateOpenaiApiKey, validateSnowflakeApiKey } from './validation';
 import { FOUNDRY_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
 import { detectSnowflakeCredentials, getSnowflakeConnectionsTomlPath } from './snowflakeCredentials';
@@ -42,6 +42,27 @@ export async function activate(context: vscode.ExtensionContext) {
 	registerDeepseekProvider(context);
 
 	log.info('Authentication extension activated');
+	// Register command to get sessions for a provider (used by positron-assistant)
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'authentication.getSessions',
+			async (providerId: string) => {
+				const provider = getAuthProvider(providerId);
+				if (!provider) {
+					log.warn(`[getSessions] No provider found for ${providerId}`);
+					return [];
+				}
+				try {
+					const sessions = await provider.getSessions();
+					log.info(`[getSessions] provider=${providerId}, count=${sessions.length}`);
+					return sessions;
+				} catch (err) {
+					log.error(`[getSessions] Error for ${providerId}: ${err}`);
+					return [];
+				}
+			}
+		),
+	);
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
@@ -516,8 +537,27 @@ function registerCustomProvider(
 function registerDeepseekProvider(
 	context: vscode.ExtensionContext
 ): void {
+	const envBaseUrl = process.env.DEEPSEEK_BASE_URL;
+	if (envBaseUrl) {
+		vscode.workspace
+			.getConfiguration(`authentication.${DEEPSEEK_AUTH_PROVIDER_ID}`)
+			.update(
+				'baseUrl', envBaseUrl,
+				vscode.ConfigurationTarget.Global
+			).then(undefined, err =>
+				log.error(`Failed to sync DeepSeek base URL: ${err}`)
+			);
+	}
+
+	// Note: DeepSeek does NOT use a credential chain because:
+	// 1. getSessions must not throw when env var is missing - it should gracefully
+	//    return stored credentials instead. A throwing resolve breaks the entire
+	//    auth flow for manually configured API keys.
+	// 2. DeepSeek credentials are always stored via storeKey(), not env vars.
 	const provider = new AuthProvider(
-		DEEPSEEK_AUTH_PROVIDER_ID, 'DeepSeek', context
+		DEEPSEEK_AUTH_PROVIDER_ID, 'DeepSeek', context,
+		undefined,
+		undefined  // No credentialChain - credentials come from stored API keys only
 	);
 	context.subscriptions.push(
 		vscode.authentication.registerAuthenticationProvider(
