@@ -1360,7 +1360,7 @@ registerAction2(class extends NotebookAction2 {
 });
 
 // Change to Code cell - y key (Jupyter-style)
-registerAction2(class extends NotebookAction2 {
+export class ChangeToCodeAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.changeToCode',
@@ -1390,10 +1390,11 @@ registerAction2(class extends NotebookAction2 {
 		const kernelLanguage = notebook.kernel.get()?.supportedLanguages?.[0];
 		notebook.changeCellType(CellKind.Code, kernelLanguage);
 	}
-});
+}
+registerAction2(ChangeToCodeAction);
 
 // Change to Markdown cell - m key (Jupyter-style)
-registerAction2(class extends NotebookAction2 {
+export class ChangeToMarkdownAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.changeToMarkdown',
@@ -1421,10 +1422,11 @@ registerAction2(class extends NotebookAction2 {
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.changeCellType(CellKind.Markup);
 	}
-});
+}
+registerAction2(ChangeToMarkdownAction);
 
 // Change to Raw cell - r key (Jupyter-style)
-registerAction2(class extends NotebookAction2 {
+export class ChangeToRawAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.changeToRaw',
@@ -1452,7 +1454,8 @@ registerAction2(class extends NotebookAction2 {
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.changeCellType(CellKind.Code, 'raw');
 	}
-});
+}
+registerAction2(ChangeToRawAction);
 
 // Split cell at cursor position(s)
 registerAction2(class extends NotebookAction2 {
