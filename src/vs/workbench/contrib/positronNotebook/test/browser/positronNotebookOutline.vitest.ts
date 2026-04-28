@@ -13,7 +13,12 @@ import {
 	buildTree,
 	getMarkdownHeaders,
 	getFirstNonEmptyLine,
+	PositronNotebookCellOutline,
 } from '../../browser/contrib/outline/positronNotebookOutline.contribution.js';
+import { PositronNotebookEditor } from '../../browser/PositronNotebookEditor.js';
+import { OutlineTarget } from '../../../../services/outline/browser/outline.js';
+import { getActiveCell } from '../../browser/selectionMachine.js';
+import { IEditorOptions } from '../../../../../platform/editor/common/editor.js';
 
 describe('PositronNotebookOutline', () => {
 	const ctx = createTestContainer().withNotebookEditorServices().build();
@@ -225,6 +230,98 @@ describe('PositronNotebookOutline', () => {
 		it('returns empty array for empty input', () => {
 			const tree = buildTree([]);
 			expect(tree.length).toBe(0);
+		});
+	});
+
+	describe('reveal selects the corresponding cell', () => {
+		// The IOutline.reveal() method is what the workbench tree's click handler
+		// binds to, so testing it directly covers the click-to-navigate behavior
+		// without standing up the workbench tree. The PositronNotebookEditor is
+		// narrowed to its `notebookInstance` getter, which is the only field the
+		// outline reads from the editor.
+		const revealOptions: IEditorOptions = {};
+
+		function createOutline(notebook: ReturnType<typeof createTestPositronNotebookInstance>) {
+			// PositronNotebookCellOutline only reads `_editor.notebookInstance` --
+			// narrowing the editor to that single property is sufficient.
+			// eslint-disable-next-line local/code-no-dangerous-type-assertions -- narrow stub: only `notebookInstance` is read by the outline
+			const editor = { notebookInstance: notebook } as PositronNotebookEditor;
+			const outline = ctx.disposables.add(ctx.instantiationService.createInstance(
+				PositronNotebookCellOutline,
+				editor,
+				OutlineTarget.OutlinePane,
+			));
+			return outline;
+		}
+
+		it('reveals a markdown-header entry and selects that header\'s cell', async () => {
+			const notebook = createTestPositronNotebookInstance([
+				['# First Section', 'markdown', CellKind.Markup],
+				['x = 1', 'python', CellKind.Code],
+				['# Second Section', 'markdown', CellKind.Markup],
+			], ctx);
+			const outline = createOutline(notebook);
+
+			// Flatten the tree to find the entry for "Second Section".
+			const flat: ReturnType<typeof buildOutlineEntries> = [];
+			for (const root of outline.entries) {
+				root.asFlatList(flat);
+			}
+			const secondSection = flat.find(e => e.label === 'Second Section');
+			expect(secondSection, 'Second Section entry should exist').toBeDefined();
+
+			await outline.reveal(secondSection!, revealOptions, false);
+
+			const cells = notebook.cells.get();
+			const activeCell = getActiveCell(notebook.selectionStateMachine.state.get());
+			expect(activeCell).toBe(cells[2]);
+		});
+
+		it('reveals a code-cell entry and selects that code cell', async () => {
+			const notebook = createTestPositronNotebookInstance([
+				['# Title', 'markdown', CellKind.Markup],
+				['x = 1', 'python', CellKind.Code],
+				['# Analysis', 'markdown', CellKind.Markup],
+			], ctx);
+			const outline = createOutline(notebook);
+
+			const flat: ReturnType<typeof buildOutlineEntries> = [];
+			for (const root of outline.entries) {
+				root.asFlatList(flat);
+			}
+			const codeEntry = flat.find(e => e.label === 'x = 1');
+			expect(codeEntry, 'Code-cell entry should exist').toBeDefined();
+
+			await outline.reveal(codeEntry!, revealOptions, false);
+
+			const cells = notebook.cells.get();
+			const activeCell = getActiveCell(notebook.selectionStateMachine.state.get());
+			expect(activeCell).toBe(cells[1]);
+		});
+
+		it('locates an outline entry by label and selects the cell at the expected index', async () => {
+			// Mirrors the e2e flow: find an outline entry by its visible label
+			// (find-by-text), reveal it, and confirm the cell at that index is
+			// selected.
+			const notebook = createTestPositronNotebookInstance([
+				['# First Section', 'markdown', CellKind.Markup],
+				['x = 1', 'python', CellKind.Code],
+				['# Second Section', 'markdown', CellKind.Markup],
+			], ctx);
+			const outline = createOutline(notebook);
+
+			const flat: ReturnType<typeof buildOutlineEntries> = [];
+			for (const root of outline.entries) {
+				root.asFlatList(flat);
+			}
+			const found = flat.find(e => e.label === 'Second Section');
+			expect(found, 'Outline entry should be locatable by label').toBeDefined();
+
+			await outline.reveal(found!, revealOptions, false);
+
+			const cells = notebook.cells.get();
+			const activeCell = getActiveCell(notebook.selectionStateMachine.state.get());
+			expect(activeCell).toBe(cells[2]);
 		});
 	});
 });
