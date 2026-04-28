@@ -17,6 +17,7 @@ const LicError = {
 	FAIL: 1,
 	TRIAL_EXPIRED: 2,
 	VM: 3,
+	ALREADY_ACTIVATED: 4,
 } as const;
 
 interface LicenseCommandResult {
@@ -43,6 +44,12 @@ function validatedResult(result: LicenseCommandResult): ILicenseValidationResult
 	return { valid: true, licensee: result.licensee };
 }
 
+// The `verify` command prefixes its JSON output with a signature hash line.
+function extractJson(stdout: string): string {
+	const jsonStart = stdout.indexOf('{');
+	return jsonStart > 0 ? stdout.slice(jsonStart) : stdout;
+}
+
 /**
  * Wrapper for executing license-manager binary commands.
  */
@@ -67,7 +74,8 @@ class LicenseManager {
 				console.warn(`license-manager stderr: ${stderr}`);
 			}
 
-			const parsed = JSON.parse(stdout);
+			const jsonStr = extractJson(stdout);
+			const parsed = JSON.parse(jsonStr);
 			if (!Object.values(LicError).includes(parsed?.result)) {
 				throw new Error(`Invalid license-manager response: ${stdout}`);
 			}
@@ -76,7 +84,8 @@ class LicenseManager {
 			const execError = error as { stdout?: string; message?: string };
 			if (execError.stdout) {
 				try {
-					const parsed = JSON.parse(execError.stdout);
+					const jsonStr = extractJson(execError.stdout);
+					const parsed = JSON.parse(jsonStr);
 					if (Object.values(LicError).includes(parsed?.result)) {
 						return parsed;
 					}
@@ -85,6 +94,13 @@ class LicenseManager {
 			}
 			throw new Error(execError.message || 'Unknown error');
 		}
+	}
+
+	private async verifyLicense(): Promise<ILicenseValidationResult> {
+		const result = await this.runJsonCommand('verify');
+		const validated = validatedResult(result);
+		console.log(`Positron license verified: ${JSON.stringify(result)}`);
+		return validated;
 	}
 
 	async activateLicenseFile(licenseFilePath: string): Promise<ILicenseValidationResult> {
@@ -99,15 +115,13 @@ class LicenseManager {
 
 		if (verifyResult.initialized) {
 			try {
-				const verified = validatedResult(verifyResult);
-				console.log(`Positron license verified: ${JSON.stringify(verifyResult)}`);
-				return verified;
+				return await this.verifyLicense();
 			} catch {
 				console.log('Existing license verification failed, proceeding to activation...');
 			}
 		} else {
 			console.log('Initializing license system...');
-			const initResult = await this.runJsonCommand('initialize', ['--userspace']);
+			const initResult = await this.runJsonCommand('initialize');
 			if (initResult.result !== LicError.OK &&
 				initResult.result !== LicError.TRIAL_EXPIRED &&
 				initResult.result !== LicError.VM) {
@@ -118,13 +132,15 @@ class LicenseManager {
 		console.log('Activating license file...');
 		const result = await this.runJsonCommand('activate-file', [licenseFilePath]);
 
+		if (result.result === LicError.ALREADY_ACTIVATED) {
+			return await this.verifyLicense();
+		}
+
 		if (result.result !== LicError.OK) {
 			throw new Error(result.message || `Activation failed with code ${result.result}`);
 		}
 
-		const activated = validatedResult(result);
-		console.log(`Successfully activated Positron license: ${JSON.stringify(result)}`);
-		return activated;
+		return validatedResult(result);
 	}
 }
 
