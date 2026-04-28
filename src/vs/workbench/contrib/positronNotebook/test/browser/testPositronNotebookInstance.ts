@@ -185,6 +185,15 @@ function createTestNotebookCellTextModel(accessor: ServicesAccessor, cell: IPosi
 		languageService.getLanguageIdByLanguageName(cell.model.language) ?? PLAINTEXT_LANGUAGE_ID
 	);
 
+	// Reuse an existing model if the URI is already registered. This happens
+	// when a deleted cell is restored via undo: a fresh IPositronNotebookCell
+	// instance is created with the same URI as the original cell, and
+	// ModelService throws if we try to add a second model for that URI.
+	const existing = modelService.getModel(cell.uri);
+	if (existing) {
+		return existing;
+	}
+
 	const bufferFactory: ITextBufferFactory = {
 		create: (_defaultEOL) => ({
 			textBuffer: cell.model.textBuffer as ITextBuffer,

@@ -12,7 +12,7 @@ import { IEditorService } from '../../../../../services/editor/common/editorServ
 import { getNotebookInstanceFromActiveEditorPane } from '../../notebookUtils.js';
 import { NotebookOperationType } from '../../IPositronNotebookInstance.js';
 
-class PositronNotebookUndoRedoContribution extends Disposable {
+export class PositronNotebookUndoRedoContribution extends Disposable {
 
 	static readonly ID = 'workbench.contrib.positronNotebookUndoRedo';
 
