@@ -70,6 +70,7 @@ import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
 import { PositronNotebookPromptContribution } from './positronNotebookPrompt.js';
 import { ActiveNotebookHasRunningRuntime } from '../../runtimeNotebookKernel/common/activeRuntimeNotebookContextManager.js';
+import { NOTEBOOK_HAS_SOMETHING_RUNNING } from '../../notebook/common/notebookContextKeys.js';
 import { NotebookAction2 } from './NotebookAction2.js';
 import './AskAssistantAction.js'; // Register AskAssistantAction
 import { CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_REPLACE_INPUT_FOCUSED } from '../../../../editor/contrib/find/browser/findModel.js';
@@ -1893,7 +1894,10 @@ registerAction2(class extends NotebookAction2 {
 				id: MenuId.EditorActionsLeft,
 				group: 'navigation',
 				order: 10,
-				when: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID)
+				when: ContextKeyExpr.and(
+					ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+					NOTEBOOK_HAS_SOMETHING_RUNNING.toNegated()
+				)
 			},
 			keybinding: {
 				when: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
@@ -1905,6 +1909,44 @@ registerAction2(class extends NotebookAction2 {
 
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.runAllCells();
+	}
+});
+
+// Interrupt Execution - Stops all currently running cells
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.interruptExecution',
+			title: localize2('interruptExecution', 'Interrupt'),
+			icon: ThemeIcon.fromId('notebook-stop'),
+			f1: true,
+			category: POSITRON_NOTEBOOK_CATEGORY,
+			positronActionBarOptions: {
+				controlType: 'button',
+				displayTitle: false
+			},
+			menu: {
+				id: MenuId.EditorActionsLeft,
+				group: 'navigation',
+				order: 10,
+				when: ContextKeyExpr.and(
+					ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+					NOTEBOOK_HAS_SOMETHING_RUNNING
+				)
+			},
+			keybinding: {
+				when: ContextKeyExpr.and(
+					ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+					NOTEBOOK_HAS_SOMETHING_RUNNING
+				),
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Enter
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.cancelExecution();
 	}
 });
 

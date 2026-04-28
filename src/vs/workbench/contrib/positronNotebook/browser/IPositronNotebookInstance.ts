@@ -251,6 +251,11 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	runAllCells(): Promise<void>;
 
 	/**
+	 * Cancels all currently executing cells in the notebook.
+	 */
+	cancelExecution(): void;
+
+	/**
 	 * Clears the output of a specific cell, or the active cell if none is provided.
 	 */
 	clearCellOutput(cell?: IPositronNotebookCell, skipContentEvent?: boolean): void;
