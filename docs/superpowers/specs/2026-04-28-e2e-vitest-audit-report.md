@@ -23,18 +23,26 @@ Migration candidates (Dupe + Strong-migrate): **12**.
 
 All 5 are notebook-related (cohesive single-themed PR). All use the builder pattern (`createTestPositronNotebookInstance`).
 
-| rank | test_file | verdict | confidence | lines | pattern | commit |
-|---|---|---|---|---|---|---|
-| 1 | test/e2e/tests/notebooks-positron/notebook-outline.test.ts | Dupe | High | 51 | builder (extend existing vitest) | _pending_ |
-| 2 | test/e2e/tests/notebooks-positron/notebook-delete.test.ts | Strong-migrate | High | 64 | builder | _pending_ |
-| 3 | test/e2e/tests/notebooks-positron/notebook-undo-redo.test.ts | Strong-migrate | High | 65 | builder | _pending_ |
-| 4 | test/e2e/tests/notebooks-positron/notebook-cell-type.test.ts | Strong-migrate | Med | 50 | builder | _pending_ |
-| 5 | test/e2e/tests/notebooks-positron/notebook-copy-paste.test.ts | Strong-migrate | Med | 133 | builder | _pending_ |
+| rank | test_file | verdict | confidence | lines | pattern | commit | result |
+|---|---|---|---|---|---|---|---|
+| 1 | test/e2e/tests/notebooks-positron/notebook-outline.test.ts | Dupe | High | 51 | builder (extended existing vitest) | `be5d03fff6` | Migrated. 3 tests added; bug surfaced + fixed in same commit (unhandled Delayer rejection on outline disposal). |
+| 2 | test/e2e/tests/notebooks-positron/notebook-delete.test.ts | Strong-migrate | High | 64 | builder | `9048909869` | Migrated. 10 tests (8 model + 2 keyboard-binding). `DeleteCellAction` promoted from anonymous to named export. |
+| 3 | test/e2e/tests/notebooks-positron/notebook-undo-redo.test.ts | Strong-migrate | High | 65 | builder | `7b63f2b8e7` + `b4b574eaec` (refactor) | Migrated. 9 tests including contribution-handler wiring. Follow-up commit refactored `handleUndo`/`handleRedo` to free exported functions to remove a private-method test-seam. |
+| 4 | test/e2e/tests/notebooks-positron/notebook-cell-type.test.ts | Strong-migrate | Med | 50 | builder | `5c6e26ca9f` + `17fc54195e` (path fix) | Migrated. 7 tests. 3 cell-type actions promoted to named exports. Follow-up commit registered `'python'`/`'raw'` languages so the `CellEditType.CellLanguage` branch is actually exercised. |
+| 5 | test/e2e/tests/notebooks-positron/notebook-copy-paste.test.ts | Strong-migrate | Med | 133 | builder | `1d0af810c8` | Migrated. 18 tests (model methods + system-clipboard write + multiselect + keybindings). 4 clipboard actions promoted to named exports. |
 
 Adjustments from initial ranking:
 - `search.test.ts` demoted on sanity check (assertions depend on real `IFileSearchService` backend; mocking is heavy and not in scope).
 - `top-action-bar-save.test.ts` moved to backlog for a follow-up PR — it's a different domain (rtl-service for top-action-bar), worth its own change.
 - `notebook-copy-paste.test.ts` promoted from backlog so all 5 migrations are notebook-related and ship as one cohesive PR.
+
+### Outcomes
+
+- 67 tests pass across the 5 vitests in 8.93s (vs. minutes per e2e).
+- 5 e2e files deleted (-364 lines of e2e). Net new vitest code: ~1,000 lines (covers more behavior than the e2es did).
+- 1 production bug surfaced and fixed (Migration 1's Delayer rejection).
+- New rule codified: `vitest-tests.md` and `review-vitest-tests` SKILL now warn against private-method test-seams (`as TypeWithPrivates`). Commit `4c51e6b43a`.
+- 8 anonymous action classes promoted to named exports (`DeleteCellAction`, `ChangeToCodeAction`, `ChangeToMarkdownAction`, `ChangeToRawAction`, `CopyCellsAction`, `CutCellsAction`, `PasteCellsAction`, `PasteCellsAboveAction`) for testability and consistency with `selectionKeybindings.ts`.
 
 ## Backlog: Dupe / Strong-migrate not selected this session
 
