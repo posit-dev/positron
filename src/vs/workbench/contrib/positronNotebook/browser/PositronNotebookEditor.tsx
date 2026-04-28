@@ -6,6 +6,7 @@
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
 import { ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
+import { NotebookRenderCache } from './notebookRenderCache.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { DisposableStore, IDisposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
@@ -48,18 +49,8 @@ import { PositronNotebookInstance } from './PositronNotebookInstance.js';
 const POSITRON_NOTEBOOK_EDITOR_VIEW_STATE_PREFERENCE_KEY =
 	'PositronNotebookEditorViewState';
 
-/**
- * A single cached notebook render belonging to one PositronNotebookEditor pane.
- * Holds the DOM container that React was mounted into and the renderer that
- * owns that mount. The container is reparented in and out of the pane's shell
- * on setInput/clearInput; the renderer is only disposed when the entry is
- * evicted (notebook tab closed, cache miss, or pane dispose).
- */
-interface CachedNotebookRender {
-	readonly uri: URI;
-	readonly container: HTMLElement;
-	readonly renderer: PositronReactRenderer;
-}
+/** Maximum number of notebook renders cached per pane. */
+const MAX_CACHED_RENDERS = 3;
 
 
 export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositronNotebookViewState> {
@@ -151,9 +142,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 			if (!(e.editor instanceof PositronNotebookEditorInput)) {
 				return;
 			}
-			if (this._cachedRender && isEqual(this._cachedRender.uri, e.editor.resource)) {
-				this._disposeCachedRender();
-			}
+			this._renderCache.removeByUri(e.editor.resource);
 		}));
 
 		this._logService.debug('PositronNotebookEditor created.');
@@ -343,10 +332,11 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 
 		// Cache hit: reuse the existing renderer + container + live Monaco editors.
 		// This is the fast path that skips all editor recreation.
-		if (this._cachedRender && isEqual(this._cachedRender.uri, input.resource)) {
-			this._notebookShell!.appendChild(this._cachedRender.container);
+		const cachedRender = this._renderCache.get(input.resource);
+		if (cachedRender) {
+			this._notebookShell!.appendChild(cachedRender.container);
 			notebookInstance.attachView(
-				this._cachedRender.container,
+				cachedRender.container,
 				this._containerScopedContextKeyService!,
 				this._overlayContainer!,
 				this._editorContainer,
@@ -359,8 +349,8 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 			return;
 		}
 
-		// Cache miss: dispose any stale entry, then render fresh.
-		this._disposeCachedRender();
+		// Cache miss: render fresh. The cache evicts the least-recently-used
+		// entry on add() if it is already at capacity.
 		this._renderFreshForInput(input);
 		notebookInstance.restoreEditorViewState(viewState);
 	}
@@ -394,11 +384,11 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		// detached element until it times out.
 		this._scrollRestoration.clear();
 
-		// Park the cached container off-DOM. The React tree and Monaco editors
-		// inside it stay alive; we only remove the container from its parent
+		// Park all cached containers off-DOM. The React trees and Monaco editors
+		// inside them stay alive; we only remove the containers from their parents
 		// so the pane looks empty.
-		if (this._cachedRender) {
-			this._cachedRender.container.remove();
+		for (const entry of this._renderCache.entries()) {
+			entry.container.remove();
 		}
 
 		// Detach the notebook instance so contributions (e.g. the find
@@ -427,38 +417,22 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 	}
 
 	/**
-	 * The single cached notebook render for this pane, if any. On clearInput
-	 * the active container is parked off-DOM but the entry stays in this field.
-	 * On setInput the field is checked first; a URI match reuses the entry,
-	 * otherwise the entry is disposed and a fresh one is created.
+	 * The per-pane notebook render cache. Each evicted entry has its renderer
+	 * disposed and container removed from the DOM. The shared
+	 * PositronNotebookInstance is detached only when its container observable
+	 * still points at the evicted entry's container -- this guards against
+	 * cross-group moves where the target pane has already re-attached the
+	 * shared instance to its own container before the source pane's eviction
+	 * runs.
 	 */
-	private _cachedRender: CachedNotebookRender | undefined;
-
-	/**
-	 * Dispose the single cached notebook render. Safe to call when no cache
-	 * entry exists (returns immediately).
-	 *
-	 * The shared PositronNotebookInstance may have been re-attached to a
-	 * different pane between this pane's clearInput and the eviction call (for
-	 * example, during a cross-group drag). We only call detachView() when the
-	 * instance's container observable still points at this entry's container,
-	 * so the destination pane's freshly-attached view is never torn down.
-	 */
-	private _disposeCachedRender(): void {
-		const entry = this._cachedRender;
-		if (!entry) {
-			return;
-		}
-		this._cachedRender = undefined;
-
+	private readonly _renderCache = new NotebookRenderCache(MAX_CACHED_RENDERS, entry => {
 		entry.renderer.dispose();
 		entry.container.remove();
-
 		const instance = PositronNotebookInstance._instanceMap.get(entry.uri);
 		if (instance && instance.isAttachedTo(entry.container)) {
 			instance.detachView();
 		}
-	}
+	});
 
 	/**
 	 * Render the Positron notebook component tree into the given renderer.
@@ -490,10 +464,10 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 				level='editor'
 				logService={this._logService}
 				onReload={() => {
-					// Evict the broken cache entry entirely and force the next
-					// setInput to render fresh. Any state inside the React tree
-					// is gone by definition when the user asked to reload.
-					this._disposeCachedRender();
+					// Evict all cache entries and force the next setInput to
+					// render fresh. Any state inside the React trees is gone by
+					// definition when the user asked to reload.
+					this._renderCache.clear();
 					if (this._input) {
 						this._renderFreshForInput(this._input);
 					}
@@ -546,7 +520,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		);
 
 		const renderer = new PositronReactRenderer(container);
-		this._cachedRender = { uri: input.resource, container, renderer };
+		this._renderCache.add({ uri: input.resource, container, renderer });
 		this._renderNotebookInto(renderer);
 	}
 
@@ -557,7 +531,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 	public override dispose(): void {
 		this._logService.debug(this._identifier, 'dispose');
 
-		this._disposeCachedRender();
+		this._renderCache.clear();
 
 		// Call the base class's dispose method.
 		super.dispose();
