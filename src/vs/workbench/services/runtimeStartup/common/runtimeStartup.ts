@@ -13,7 +13,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IEphemeralStateService } from '../../../../platform/ephemeralState/common/ephemeralState.js';
 import { IExtensionService } from '../../extensions/common/extensions.js';
-import { ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimeManager, LanguageRuntimeArchitecture, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata } from '../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimeManager, IRuntimeRootSignature, LanguageRuntimeArchitecture, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata, signaturesEqual } from '../../languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from './runtimeStartupService.js';
 import { IRuntimeDiscoveryCache, IRuntimeFingerprint, RUNTIME_DISCOVERY_PERIODIC_REFRESH_MS } from './runtimeDiscoveryCacheService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
@@ -999,8 +999,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				? 'user-triggered'
 				: this._lastFullDiscoveryReason;
 			for (const manager of managersNeedingFullDiscovery) {
-				this._discoveryCache.recordFullDiscoveryRun(
-					/* extensionId */ '*', /* languageId */ '*', reason);
+				// Capture-then-discover. The signature is recorded *before*
+				// the manager starts walking the filesystem so a new install
+				// that lands during this pass shows up as a delta on the next
+				// warm start, rather than being baked into a post-discovery
+				// snapshot and missed forever.
+				await this._captureSignaturesAtDiscoveryStart(manager, reason);
 				manager.discoverAllRuntimes(disabledLanguages);
 			}
 		}
@@ -1088,35 +1092,212 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// Buckets whose last full pass is older than the periodic cap (or that
 		// have never had one recorded) trigger a refresh on this open.
 		const periodicCutoff = Date.now() - RUNTIME_DISCOVERY_PERIODIC_REFRESH_MS;
-		this._lastFullDiscoveryReason = 'cold-start';
 
-		// For each manager, find at least one bucket it manages and check
-		// whether any of those buckets are stale.
+		// Reason precedence: cold-start > roots-changed > periodic. Track the
+		// most-specific reason observed across all managers needing discovery.
+		const reasonRank: Record<'cold-start' | 'roots-changed' | 'periodic', number> = {
+			'cold-start': 0,
+			'roots-changed': 1,
+			'periodic': 2,
+		};
+		let observedReason: 'cold-start' | 'roots-changed' | 'periodic' | undefined;
+		const promote = (r: 'cold-start' | 'roots-changed' | 'periodic') => {
+			if (observedReason === undefined || reasonRank[r] < reasonRank[observedReason]) {
+				observedReason = r;
+			}
+		};
+
+		// For each manager, find which buckets it owns and decide whether any
+		// of them warrant a fresh full pass.
 		const needsFull: IRuntimeManager[] = [];
 		await Promise.all(this._runtimeManagers.map(async manager => {
-			let owns = false;
-			let stale = false;
+			const ownedBuckets: typeof buckets = [];
 			for (const bucket of buckets) {
 				try {
 					if (await manager.managesRuntime(bucket.entries[0].metadata)) {
-						owns = true;
-						if (bucket.lastFullDiscovery === 0
-							|| bucket.lastFullDiscovery < periodicCutoff) {
-							stale = true;
-						}
+						ownedBuckets.push(bucket);
 					}
 				} catch (err) {
 					this._logService.trace(`[Runtime startup] managesRuntime threw for manager ${manager.id}: ${err}`);
 				}
 			}
-			if (!owns) {
+
+			if (ownedBuckets.length === 0) {
+				// Cold-start case: this manager has never produced any cached
+				// runtimes, so we have to enumerate to find out what it owns.
 				needsFull.push(manager);
-			} else if (stale) {
+				promote('cold-start');
+				return;
+			}
+
+			// Periodic check: any owned bucket older than the refresh cap.
+			const periodicStale = ownedBuckets.some(b =>
+				b.lastFullDiscovery === 0 || b.lastFullDiscovery < periodicCutoff);
+
+			// Root-change check: ask the manager for its current signature for
+			// each language we have a bucket for, and compare to the persisted
+			// one. A delta in any owned (ext, lang) triggers full discovery for
+			// the whole manager (we can't discover a subset of languages).
+			const checkedLanguages = new Set<string>();
+			let rootsChanged = false;
+			for (const bucket of ownedBuckets) {
+				if (rootsChanged || checkedLanguages.has(bucket.languageId)) {
+					continue;
+				}
+				checkedLanguages.add(bucket.languageId);
+				const current = await this._safeGetRootSignature(manager, bucket.languageId);
+				if (current === undefined) {
+					// Manager doesn't implement the API or it timed out / threw.
+					// Fall back to periodic for this language; don't penalize the
+					// rest of the manager's languages.
+					continue;
+				}
+				if (!signaturesEqual(bucket.discoveryRootSignature, current)) {
+					rootsChanged = true;
+				}
+			}
+
+			if (rootsChanged) {
 				needsFull.push(manager);
-				this._lastFullDiscoveryReason = 'periodic';
+				promote('roots-changed');
+			} else if (periodicStale) {
+				needsFull.push(manager);
+				promote('periodic');
 			}
 		}));
+
+		this._lastFullDiscoveryReason = observedReason ?? 'cold-start';
 		return needsFull;
+	}
+
+	/**
+	 * Capture and persist the manager's current root signature for every
+	 * (extensionId, languageId) bucket the manager will produce results for,
+	 * and record a per-bucket full-discovery diagnostic stamp. Called once
+	 * per manager at the moment we kick off `manager.discoverAllRuntimes()`.
+	 *
+	 * Why this ordering: the signature is captured *before* the manager
+	 * starts walking the filesystem so that an interpreter installed during
+	 * the discovery pass shows up as a delta on the next warm start, rather
+	 * than being baked into a post-discovery snapshot and missed forever.
+	 *
+	 * Two attribution paths:
+	 *   1. For each existing cache bucket the manager owns (per
+	 *      `managesRuntime`), record per (extensionId, languageId) directly.
+	 *   2. For every contributed language pack the manager actually responds
+	 *      to (`getDiscoveryRootSignature` returns non-undefined), record per
+	 *      (extensionId, languageId) for each extension in that language
+	 *      pack. This covers the cold-start case where the manager has no
+	 *      prior bucket to attribute against.
+	 */
+	private async _captureSignaturesAtDiscoveryStart(
+		manager: IRuntimeManager,
+		reason: string,
+	): Promise<void> {
+		// Collect (ext, lang) pairs from existing buckets the manager owns.
+		const buckets = this._discoveryCache.getAllBuckets();
+		const ownedBuckets: { extensionId: string; languageId: string }[] = [];
+		for (const bucket of buckets) {
+			if (bucket.entries.length === 0) {
+				continue;
+			}
+			try {
+				if (await manager.managesRuntime(bucket.entries[0].metadata)) {
+					ownedBuckets.push({ extensionId: bucket.extensionId, languageId: bucket.languageId });
+				}
+			} catch (err) {
+				this._logService.trace(
+					`[Runtime startup] managesRuntime threw while capturing signatures: ${err}`);
+			}
+		}
+
+		// Fetch one signature per languageId we might care about: every
+		// language with an existing owned bucket, plus every contributed
+		// language pack (handles cold start). Managers return undefined for
+		// languages they don't handle; that filters cleanly here.
+		const knownLanguages = new Set(ownedBuckets.map(b => b.languageId));
+		const candidateLanguages = new Set<string>([...knownLanguages, ...this._languagePacks.keys()]);
+		const sigByLanguage = new Map<string, IRuntimeRootSignature>();
+		await Promise.all(Array.from(candidateLanguages).map(async languageId => {
+			const sig = await this._safeGetRootSignature(manager, languageId);
+			if (sig !== undefined) {
+				sigByLanguage.set(languageId, sig);
+			}
+		}));
+
+		const recordedKeys = new Set<string>();
+
+		// Path 1: existing buckets with known (ext, lang) attribution.
+		for (const { extensionId, languageId } of ownedBuckets) {
+			const key = `${extensionId}::${languageId}`;
+			if (recordedKeys.has(key)) { continue; }
+			recordedKeys.add(key);
+			this._discoveryCache.recordFullDiscoveryRun(extensionId, languageId, reason);
+			const sig = sigByLanguage.get(languageId);
+			if (sig !== undefined) {
+				this._discoveryCache.setDiscoveryRootSignature(extensionId, languageId, sig);
+			}
+		}
+
+		// Path 2: cold-start. For languages the manager actually responds
+		// to, record per-extension via the language pack contribution map.
+		for (const [languageId, sig] of sigByLanguage) {
+			if (knownLanguages.has(languageId)) { continue; }
+			const extensionIds = this._languagePacks.get(languageId);
+			if (!extensionIds) { continue; }
+			for (const ext of extensionIds) {
+				const key = `${ext.value}::${languageId}`;
+				if (recordedKeys.has(key)) { continue; }
+				recordedKeys.add(key);
+				this._discoveryCache.recordFullDiscoveryRun(ext.value, languageId, reason);
+				this._discoveryCache.setDiscoveryRootSignature(ext.value, languageId, sig);
+			}
+		}
+
+		// Manager that doesn't implement the API and has no prior bucket:
+		// session counter still needs a stamp so diagnostics show *something*
+		// ran. Falls back to periodic-refresh from here on out.
+		if (recordedKeys.size === 0) {
+			this._discoveryCache.recordFullDiscoveryRun('*', '*', reason);
+		}
+	}
+
+	/**
+	 * Call `manager.getDiscoveryRootSignature(languageId)` defensively:
+	 * timeout-bound the call, swallow throws, and treat both as "no signature
+	 * available" so the caller falls back to the periodic-refresh trigger.
+	 */
+	private async _safeGetRootSignature(
+		manager: IRuntimeManager,
+		languageId: string,
+	): Promise<IRuntimeRootSignature | undefined> {
+		try {
+			let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+			const timeoutPromise = new Promise<undefined>(resolve => {
+				timeoutHandle = setTimeout(() => {
+					this._logService.warn(
+						`[Runtime startup] getDiscoveryRootSignature(${languageId}) timed out ` +
+						`for manager ${manager.id}; falling back to periodic refresh.`);
+					resolve(undefined);
+				}, RuntimeStartupService.ROOT_SIGNATURE_TIMEOUT_MS);
+			});
+			try {
+				const result = await Promise.race([
+					manager.getDiscoveryRootSignature(languageId),
+					timeoutPromise,
+				]);
+				return result;
+			} finally {
+				if (timeoutHandle !== undefined) {
+					clearTimeout(timeoutHandle);
+				}
+			}
+		} catch (err) {
+			this._logService.warn(
+				`[Runtime startup] getDiscoveryRootSignature(${languageId}) threw ` +
+				`for manager ${manager.id}; falling back to periodic refresh: ${err}`);
+			return undefined;
+		}
 	}
 
 	/**
@@ -1125,8 +1306,22 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * walks the buckets we'd need to inspect for this, so caching the result
 	 * here is cheaper than a sibling helper that re-walks them. `bypassCache`
 	 * paths overwrite this with `'user-triggered'` at the call site.
+	 *
+	 * Precedence (most-specific wins): `cold-start` > `roots-changed` >
+	 * `periodic`. `cold-start` covers managers that never produced any cached
+	 * runtimes; `roots-changed` covers warm starts where a scan-root mtime
+	 * moved (a new interpreter likely showed up); `periodic` covers warm
+	 * starts where the bucket simply aged past the refresh cap.
 	 */
-	private _lastFullDiscoveryReason: 'cold-start' | 'periodic' = 'cold-start';
+	private _lastFullDiscoveryReason: 'cold-start' | 'roots-changed' | 'periodic' = 'cold-start';
+
+	/**
+	 * Per-manager budget for `getDiscoveryRootSignature`. The call should be
+	 * a handful of stats and complete in single-digit milliseconds; if it
+	 * doesn't, log and treat as "no signature" (fall back to periodic) rather
+	 * than blocking warm-start latency on a slow extension.
+	 */
+	private static readonly ROOT_SIGNATURE_TIMEOUT_MS = 500;
 
 	/**
 	 * Run cached-entry revalidations in batches of at most 4 concurrent

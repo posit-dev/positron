@@ -27,6 +27,7 @@ import {
 } from '../common/types';
 import { PythonRuntimeSession } from './session';
 import { createPythonRuntimeMetadata, PythonRuntimeExtraData } from './runtime';
+import { getPythonDiscoveryRootSignature } from './discoveryRootSignature';
 import { Commands, EXTENSION_ROOT_DIR } from '../common/constants';
 import { JupyterKernelSpec } from '../positron-supervisor.d';
 import { IEnvironmentVariablesProvider } from '../common/variables/types';
@@ -187,6 +188,16 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             isImmediate = false;
         }
         return { path: interpreterPath, isImmediate };
+    }
+
+    /**
+     * Snapshot the directories this extension scans for Python interpreters.
+     * Used by Positron to detect newly-installed Python interpreters between
+     * startups without having to rerun a full discovery pass. See
+     * `getPythonDiscoveryRootSignature` for the source list and what's excluded.
+     */
+    async getDiscoveryRootSignature(): Promise<positron.RuntimeRootSignature> {
+        return getPythonDiscoveryRootSignature();
     }
 
     /**

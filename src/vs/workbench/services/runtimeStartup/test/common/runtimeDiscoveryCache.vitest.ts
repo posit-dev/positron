@@ -22,9 +22,12 @@ import { TestStorageService } from '../../../../test/common/workbenchTestService
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { RuntimeDiscoveryCache } from '../../common/runtimeDiscoveryCache.js';
 import {
+	IRuntimeRootSignature,
 	RUNTIME_DISCOVERY_CACHE_ENABLED_SETTING,
 	RUNTIME_DISCOVERY_CACHE_MAX_AGE_MS,
+	RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION,
 	RUNTIME_DISCOVERY_CACHE_STORAGE_KEY,
+	signaturesEqual,
 } from '../../common/runtimeDiscoveryCacheService.js';
 
 interface IFakeFile {
@@ -318,6 +321,147 @@ describe('RuntimeDiscoveryCache', () => {
 		});
 	});
 
+	describe('discovery root signature', () => {
+		const sig = (entries: Array<[string, boolean, number]>, opaque?: string): IRuntimeRootSignature => ({
+			entries: entries.map(([path, exists, mtimeMs]) => ({ path, exists, mtimeMs })),
+			opaque,
+		});
+
+		it('returns undefined before anything is set', () => {
+			const cache = makeCache();
+			expect(cache.getDiscoveryRootSignature('ms.python', 'python')).toBeUndefined();
+		});
+
+		it('round-trips set/get for an empty (no entries) bucket', () => {
+			const cache = makeCache();
+			const s = sig([['/usr/bin', true, 1000]]);
+
+			cache.setDiscoveryRootSignature('ms.python', 'python', s);
+
+			const read = cache.getDiscoveryRootSignature('ms.python', 'python');
+			expect(read).toEqual(s);
+		});
+
+		it('survives a process restart by reloading from storage', () => {
+			const cache1 = makeCache();
+			const s = sig([
+				['/usr/local/bin', true, 5000],
+				['/opt/homebrew/bin', false, 0],
+			], 'v1');
+			cache1.setDiscoveryRootSignature('ms.python', 'python', s);
+
+			const cache2 = makeCache();
+			expect(cache2.getDiscoveryRootSignature('ms.python', 'python')).toEqual(s);
+		});
+
+		it('coexists with cached entries on the same bucket', async () => {
+			const cache = makeCache();
+			await cache.upsert(metadata({ runtimePath: PY_PATH }));
+
+			const s = sig([['/usr/bin', true, 1000]]);
+			cache.setDiscoveryRootSignature('ms.python', 'python', s);
+
+			expect(cache.getEntries('ms.python', 'python')).toHaveLength(1);
+			expect(cache.getDiscoveryRootSignature('ms.python', 'python')).toEqual(s);
+		});
+
+		it('does not write when the cache is disabled', async () => {
+			await config.setUserConfiguration(RUNTIME_DISCOVERY_CACHE_ENABLED_SETTING, false);
+			const cache = makeCache();
+
+			cache.setDiscoveryRootSignature('ms.python', 'python', sig([['/usr/bin', true, 1000]]));
+
+			// Disabled -> getAllBuckets returns empty, but the in-memory state
+			// also shouldn't have absorbed the write.
+			expect(cache.getDiscoveryRootSignature('ms.python', 'python')).toBeUndefined();
+		});
+	});
+
+	describe('signaturesEqual', () => {
+		it('returns false when either side is undefined', () => {
+			const s = { entries: [{ path: '/a', exists: true, mtimeMs: 1 }] };
+			expect(signaturesEqual(undefined, s)).toBe(false);
+			expect(signaturesEqual(s, undefined)).toBe(false);
+			expect(signaturesEqual(undefined, undefined)).toBe(false);
+		});
+
+		it('treats empty signatures as equal to themselves', () => {
+			const a = { entries: [] };
+			const b = { entries: [] };
+			expect(signaturesEqual(a, b)).toBe(true);
+		});
+
+		it('detects differing length', () => {
+			const a = { entries: [{ path: '/a', exists: true, mtimeMs: 1 }] };
+			const b = { entries: [] };
+			expect(signaturesEqual(a, b)).toBe(false);
+		});
+
+		it('detects mtime delta on a single entry', () => {
+			const a = { entries: [{ path: '/a', exists: true, mtimeMs: 1 }] };
+			const b = { entries: [{ path: '/a', exists: true, mtimeMs: 2 }] };
+			expect(signaturesEqual(a, b)).toBe(false);
+		});
+
+		it('detects exists flip on a single entry', () => {
+			const a = { entries: [{ path: '/a', exists: false, mtimeMs: 0 }] };
+			const b = { entries: [{ path: '/a', exists: true, mtimeMs: 1 }] };
+			expect(signaturesEqual(a, b)).toBe(false);
+		});
+
+		it('detects path reorder', () => {
+			const a = {
+				entries: [
+					{ path: '/a', exists: true, mtimeMs: 1 },
+					{ path: '/b', exists: true, mtimeMs: 2 },
+				]
+			};
+			const b = {
+				entries: [
+					{ path: '/b', exists: true, mtimeMs: 2 },
+					{ path: '/a', exists: true, mtimeMs: 1 },
+				]
+			};
+			// Order is part of the signature; reordering is a delta.
+			expect(signaturesEqual(a, b)).toBe(false);
+		});
+
+		it('detects opaque blob delta', () => {
+			const a = { entries: [], opaque: 'v1' };
+			const b = { entries: [], opaque: 'v2' };
+			expect(signaturesEqual(a, b)).toBe(false);
+		});
+
+		it('returns true when entries and opaque are deep-equal', () => {
+			const a = {
+				entries: [
+					{ path: '/a', exists: true, mtimeMs: 1 },
+					{ path: '/b', exists: false, mtimeMs: 0 },
+				], opaque: 'v1'
+			};
+			const b = {
+				entries: [
+					{ path: '/a', exists: true, mtimeMs: 1 },
+					{ path: '/b', exists: false, mtimeMs: 0 },
+				], opaque: 'v1'
+			};
+			expect(signaturesEqual(a, b)).toBe(true);
+		});
+	});
+
+	describe('rootsChanged session counter', () => {
+		it('increments only on root-triggered full discoveries', () => {
+			const cache = makeCache();
+			cache.recordFullDiscoveryRun('ms.python', 'python', 'cold-start');
+			cache.recordFullDiscoveryRun('ms.python', 'python', 'periodic');
+			expect(cache.sessionCounters.rootsChangedFullDiscoveries).toBe(0);
+
+			cache.recordFullDiscoveryRun('ms.python', 'python', 'roots-changed');
+			cache.recordFullDiscoveryRun('ms.python', 'python', 'roots-changed');
+			expect(cache.sessionCounters.rootsChangedFullDiscoveries).toBe(2);
+		});
+	});
+
 	describe('clear', () => {
 		it('wipes all entries and removes the persisted blob', async () => {
 			const cache = makeCache();
@@ -374,7 +518,7 @@ describe('RuntimeDiscoveryCache', () => {
 			storage.store(
 				RUNTIME_DISCOVERY_CACHE_STORAGE_KEY,
 				JSON.stringify({
-					schemaVersion: 1,
+					schemaVersion: RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION,
 					buckets: {
 						'ms.python::python': {
 							entries: entries.map(e => ({

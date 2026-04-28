@@ -28,8 +28,7 @@ import { IRuntimeSessionService } from '../../../services/runtimeSession/common/
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import {
 	IRuntimeDiscoveryCache,
-	RUNTIME_DISCOVERY_CACHE_ENABLED_SETTING,
-	RUNTIME_DISCOVERY_CACHE_STORAGE_KEY,
+	RUNTIME_DISCOVERY_CACHE_ENABLED_SETTING
 } from '../../../services/runtimeStartup/common/runtimeDiscoveryCacheService.js';
 import { ILanguageRuntimeService, ILanguageRuntimeLaunchInfo } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -514,6 +513,7 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 		md.li(`Background revalidations attempted / succeeded / failed: ${counters.revalidationsAttempted} / ${counters.revalidationsSucceeded} / ${counters.revalidationsFailed}`);
 		md.li(`Evictions this session: ${counters.evictions}`);
 		md.li(`Full-discovery passes this session: ${counters.fullDiscoveryRuns.length}`);
+		md.li(`Full-discovery passes triggered by root changes: ${counters.rootsChangedFullDiscoveries}`);
 		if (counters.fullDiscoveryRuns.length > 0) {
 			const reasonTable: Array<Array<string>> = counters.fullDiscoveryRuns.map(r => [
 				r.extensionId, r.languageId, r.reason, new Date(r.at).toISOString(),
@@ -565,6 +565,31 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 		md.table(
 			['Extension', 'Language', 'Entries', 'Oldest firstSeen', 'Newest lastValidated', 'lastFullDiscovery'],
 			rows);
+
+		// Per-bucket root-signature breakdown. Renders the persisted snapshot
+		// of "the directories this manager scans for interpreters" so support
+		// can see whether a warm-start root-change check would have fired.
+		md.blank();
+		md.heading(3, 'Discovery Root Signatures');
+		const bucketsWithSignatures = buckets.filter(b => b.discoveryRootSignature);
+		if (bucketsWithSignatures.length === 0) {
+			md.li('No persisted root signatures. Either the cache predates the v2 schema, or no manager implements `getDiscoveryRootSignature`.');
+		} else {
+			for (const bucket of bucketsWithSignatures) {
+				const sig = bucket.discoveryRootSignature!;
+				md.blank();
+				md.heading(4, `${bucket.extensionId} / ${bucket.languageId}`);
+				md.li(`Roots: ${sig.entries.length}${sig.opaque ? ' (with opaque blob)' : ''}`);
+				if (sig.entries.length > 0) {
+					const sigRows: Array<Array<string>> = sig.entries.map(e => [
+						e.path,
+						e.exists ? 'yes' : 'no',
+						e.exists ? new Date(e.mtimeMs).toISOString() : '-',
+					]);
+					md.table(['Path', 'Exists', 'mtime'], sigRows);
+				}
+			}
+		}
 	}
 
 	private _addDiscoveredRuntimes(md: MarkdownBuilder): void {

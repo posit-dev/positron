@@ -822,6 +822,67 @@ export interface ILanguageRuntimeMessageError extends ILanguageRuntimeMessage {
 	traceback: Array<string>;
 }
 /**
+ * One root that a runtime manager scans for interpreters. The `path` is
+ * resolved (symlinks followed) before being reported; `mtimeMs` is 0 when
+ * `exists` is false. Direct equality of this struct determines whether a
+ * change has occurred since the last full discovery.
+ */
+export interface IRuntimeRootEntry {
+	/** Resolved absolute path of the directory or file. */
+	readonly path: string;
+	/** Whether the path resolved to anything stat-able. */
+	readonly exists: boolean;
+	/** mtime in ms since epoch; 0 if `exists` is false. */
+	readonly mtimeMs: number;
+}
+
+/**
+ * Fingerprint of every root directory a runtime manager watches for
+ * interpreters. Cheap to compute (one stat per root) and cheap to compare;
+ * persisted with the cache bucket so warm starts can detect "a new
+ * interpreter showed up somewhere we scan" without running a full discovery.
+ */
+export interface IRuntimeRootSignature {
+	/** Roots in stable insertion order. Order is part of the signature. */
+	readonly entries: readonly IRuntimeRootEntry[];
+	/**
+	 * Optional opaque blob folded into equality. Lets a manager mix in
+	 * non-stat-able state (env-modules version, conda config hash) without
+	 * teaching the cache layer about it.
+	 */
+	readonly opaque?: string;
+}
+
+/**
+ * Element-by-element comparison of two root signatures. `undefined` on either
+ * side counts as a mismatch (no signal to compare against).
+ */
+export function signaturesEqual(
+	a: IRuntimeRootSignature | undefined,
+	b: IRuntimeRootSignature | undefined,
+): boolean {
+	if (!a || !b) {
+		return false;
+	}
+	if (a.opaque !== b.opaque) {
+		return false;
+	}
+	if (a.entries.length !== b.entries.length) {
+		return false;
+	}
+	for (let i = 0; i < a.entries.length; i++) {
+		const ae = a.entries[i];
+		const be = b.entries[i];
+		if (ae.path !== be.path
+			|| ae.exists !== be.exists
+			|| ae.mtimeMs !== be.mtimeMs) {
+			return false;
+		}
+	}
+	return true;
+}
+
+/**
  * ILanguageRuntimeMetadata contains information about a language runtime that is known
  * before the runtime is started.
  */
@@ -923,6 +984,18 @@ export interface IRuntimeManager {
 	 * before invoking `validateMetadata` on it.
 	 */
 	managesRuntime(metadata: ILanguageRuntimeMetadata): Promise<boolean>;
+
+	/**
+	 * Snapshot the directories this manager scans for interpreters, for the
+	 * given language. Called on every warm start to detect newly-installed
+	 * interpreters before deciding whether to skip full discovery.
+	 *
+	 * Returns `undefined` when the manager (or the per-language
+	 * implementation) does not implement the API; the cache layer treats that
+	 * as "fall back to the periodic-refresh trigger" and never spuriously
+	 * triggers via this path.
+	 */
+	getDiscoveryRootSignature(languageId: string): Promise<IRuntimeRootSignature | undefined>;
 
 	/**
 	 * Re-validate runtime metadata against the live extension. Throws if the

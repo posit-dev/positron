@@ -5,7 +5,7 @@
 
 import type * as positron from 'positron';
 import { debounce } from '../../../../base/common/decorators.js';
-import { ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageState, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageError, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageState, ILanguageRuntimeMetadata, IRuntimeRootSignature, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageError, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import * as extHostProtocol from './extHost.positron.protocol.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
@@ -947,6 +947,21 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 					reject(err);
 				});
 		});
+	}
+
+	/**
+	 * Compute the root signature for the manager registered against the
+	 * given language ID. Returns `undefined` when no manager is registered
+	 * for the language or when the registered manager does not implement
+	 * `getDiscoveryRootSignature`. Errors thrown by the manager propagate to
+	 * the caller, which in turn drops back to the periodic-refresh trigger.
+	 */
+	public async $getDiscoveryRootSignature(languageId: string): Promise<IRuntimeRootSignature | undefined> {
+		const m = this._runtimeManagers.find(m => m.languageId === languageId);
+		if (!m || !m.manager.getDiscoveryRootSignature) {
+			return undefined;
+		}
+		return m.manager.getDiscoveryRootSignature();
 	}
 
 	public async $recommendWorkspaceRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]> {

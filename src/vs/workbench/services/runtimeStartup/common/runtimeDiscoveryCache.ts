@@ -18,6 +18,7 @@ import {
 	IDiscoveryCacheSessionCounters,
 	IRuntimeDiscoveryCache,
 	IRuntimeFingerprint,
+	IRuntimeRootSignature,
 	RUNTIME_DISCOVERY_CACHE_ENABLED_SETTING,
 	RUNTIME_DISCOVERY_CACHE_MAX_AGE_MS,
 	RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION,
@@ -36,6 +37,7 @@ interface IPersistedCache {
 interface IPersistedBucket {
 	entries: ICachedRuntime[];
 	lastFullDiscovery: number;
+	discoveryRootSignature?: IRuntimeRootSignature;
 }
 
 const BUCKET_SEPARATOR = '::';
@@ -62,6 +64,7 @@ function unpackBucketKey(key: string): { extensionId: string; languageId: string
 interface IInternalBucket {
 	entries: Map<string, ICachedRuntime>;
 	lastFullDiscovery: number;
+	discoveryRootSignature?: IRuntimeRootSignature;
 }
 
 export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscoveryCache {
@@ -76,6 +79,7 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 		revalidationsSucceeded: 0,
 		revalidationsFailed: 0,
 		evictions: 0,
+		rootsChangedFullDiscoveries: 0,
 		fullDiscoveryRuns: [],
 	};
 
@@ -167,6 +171,7 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 				languageId: parsed.languageId,
 				entries: this._freshEntries(bucket),
 				lastFullDiscovery: bucket.lastFullDiscovery,
+				discoveryRootSignature: bucket.discoveryRootSignature,
 			});
 		}
 		return out;
@@ -196,7 +201,7 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 		const key = bucketKey(metadata.extensionId.value, metadata.languageId);
 		let bucket = this._buckets.get(key);
 		if (!bucket) {
-			bucket = { entries: new Map(), lastFullDiscovery: 0 };
+			bucket = { entries: new Map(), lastFullDiscovery: 0, discoveryRootSignature: undefined };
 			this._buckets.set(key, bucket);
 		}
 		const existing = bucket.entries.get(metadata.runtimePath);
@@ -223,7 +228,9 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 		}
 		if (bucket.entries.delete(runtimePath)) {
 			this.sessionCounters.evictions++;
-			if (bucket.entries.size === 0 && bucket.lastFullDiscovery === 0) {
+			if (bucket.entries.size === 0
+				&& bucket.lastFullDiscovery === 0
+				&& !bucket.discoveryRootSignature) {
 				this._buckets.delete(key);
 			}
 			this._persist();
@@ -266,16 +273,38 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 		const key = bucketKey(extensionId, languageId);
 		let bucket = this._buckets.get(key);
 		if (!bucket) {
-			bucket = { entries: new Map(), lastFullDiscovery: 0 };
+			bucket = { entries: new Map(), lastFullDiscovery: 0, discoveryRootSignature: undefined };
 			this._buckets.set(key, bucket);
 		}
 		bucket.lastFullDiscovery = timestamp;
 		this._persist();
 	}
 
+	public getDiscoveryRootSignature(extensionId: string, languageId: string): IRuntimeRootSignature | undefined {
+		const bucket = this._buckets.get(bucketKey(extensionId, languageId));
+		return bucket?.discoveryRootSignature;
+	}
+
+	public setDiscoveryRootSignature(extensionId: string, languageId: string, signature: IRuntimeRootSignature): void {
+		if (!this.isEnabled()) {
+			return;
+		}
+		const key = bucketKey(extensionId, languageId);
+		let bucket = this._buckets.get(key);
+		if (!bucket) {
+			bucket = { entries: new Map(), lastFullDiscovery: 0, discoveryRootSignature: undefined };
+			this._buckets.set(key, bucket);
+		}
+		bucket.discoveryRootSignature = signature;
+		this._persist();
+	}
+
 	public recordFullDiscoveryRun(extensionId: string, languageId: string, reason: string): void {
 		(this.sessionCounters.fullDiscoveryRuns as { extensionId: string; languageId: string; reason: string; at: number }[])
 			.push({ extensionId, languageId, reason, at: Date.now() });
+		if (reason === 'roots-changed') {
+			this.sessionCounters.rootsChangedFullDiscoveries++;
+		}
 	}
 
 	public clear(): void {
@@ -350,6 +379,7 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 			this._buckets.set(key, {
 				entries,
 				lastFullDiscovery: bucket.lastFullDiscovery ?? 0,
+				discoveryRootSignature: bucket.discoveryRootSignature,
 			});
 		}
 	}
@@ -357,12 +387,15 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 	private _persist(): void {
 		const buckets: Record<string, IPersistedBucket> = {};
 		for (const [key, bucket] of this._buckets) {
-			if (bucket.entries.size === 0 && bucket.lastFullDiscovery === 0) {
+			if (bucket.entries.size === 0
+				&& bucket.lastFullDiscovery === 0
+				&& !bucket.discoveryRootSignature) {
 				continue;
 			}
 			buckets[key] = {
 				entries: Array.from(bucket.entries.values()),
 				lastFullDiscovery: bucket.lastFullDiscovery,
+				discoveryRootSignature: bucket.discoveryRootSignature,
 			};
 		}
 		const payload: IPersistedCache = {

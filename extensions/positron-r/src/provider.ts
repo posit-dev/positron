@@ -57,6 +57,127 @@ export enum RRuntimeSource {
 }
 
 /**
+ * Hard-coded server-installation root directories that the R discoverer
+ * (see `discoverServerBinaries`) walks on POSIX. Listed here so the warm-start
+ * root-signature snapshot covers the same surface the discoverer does.
+ *
+ * Conda/Pixi/Module roots are intentionally excluded: those discovery paths
+ * use subprocess calls or per-project state that can't be fingerprinted with
+ * a cheap directory stat. They fall back to the periodic-refresh trigger.
+ */
+const R_SERVER_ROOTS_POSIX: readonly string[] = [
+	'/usr/lib/R',
+	'/usr/lib64/R',
+	'/usr/local/lib/R',
+	'/usr/local/lib64/R',
+	'/opt/local/lib/R',
+	'/opt/local/lib64/R',
+	'/opt/local/R',
+];
+
+/**
+ * Hard-coded ad-hoc R binary paths that `getBinaries()` walks regardless of
+ * platform. Mirrors the list passed to `discoverAdHocBinaries` in
+ * `getBinaries()`. Listed here so the warm-start root-signature snapshot
+ * covers them too.
+ */
+const R_AD_HOC_BINARIES: readonly string[] = [
+	'/usr/bin/R',
+	'/usr/local/bin/R',
+	'/opt/local/bin/R',
+	'/opt/homebrew/bin/R',
+];
+
+/**
+ * One root that contributes to the R discovery-root signature. The path is
+ * resolved (symlinks followed) before being reported; `mtimeMs` is 0 when
+ * `exists` is false.
+ */
+interface RRootEntry {
+	path: string;
+	exists: boolean;
+	mtimeMs: number;
+}
+
+/**
+ * Snapshot the directories and files this extension scans for R installations.
+ * Cheap (one stat per root); used by Positron's discovery cache to decide
+ * whether a warm start needs a full discovery pass to pick up newly-installed
+ * R binaries.
+ *
+ * Sources covered:
+ *   - System headquarters (`rHeadquarters()`).
+ *   - User-specified `positron.r.customRootFolders`.
+ *   - User-specified `positron.r.customBinaries`.
+ *   - User-specified `positron.r.interpreters.override`.
+ *   - Hard-coded server-installation roots (POSIX only).
+ *   - Hard-coded ad-hoc binary paths.
+ *
+ * Sources intentionally excluded (fall back to the periodic-refresh trigger):
+ *   - Conda environments (require `conda env list`).
+ *   - Pixi environments (per-project store).
+ *   - Module-managed binaries (depend on env-modules state at session start).
+ *   - Windows registry (not statable; an `opaque` digest could be added later).
+ */
+export async function getRDiscoveryRootSignature(): Promise<positron.RuntimeRootSignature> {
+	// Compose the full ordered list of root paths. Order is part of the
+	// signature, so we keep it stable across runs to avoid spurious deltas.
+	const candidates: string[] = [];
+	const addAll = (paths: readonly string[]) => {
+		for (const p of paths) {
+			if (p) {
+				candidates.push(p);
+			}
+		}
+	};
+	addAll(rHeadquarters());
+	addAll(userRHeadquarters());
+	addAll(userRBinaries());
+	addAll(getInterpreterOverridePaths());
+	if (process.platform !== 'win32') {
+		addAll(R_SERVER_ROOTS_POSIX);
+	}
+	addAll(R_AD_HOC_BINARIES);
+
+	// Dedupe by resolved path -- two different settings may both point at the
+	// same on-disk location (e.g. /opt/local/bin and a symlink to it). We keep
+	// the first occurrence's input path as the entry path, so the signature
+	// remains stable regardless of which alias the user wrote first.
+	const seen = new Set<string>();
+	const entries: RRootEntry[] = [];
+	for (const candidate of candidates) {
+		let resolved = candidate;
+		let exists = false;
+		let mtimeMs = 0;
+		try {
+			const st = fs.statSync(candidate);
+			// Follow symlinks before recording the resolved path so that
+			// distinct settings pointing at the same physical directory
+			// collapse to one entry.
+			try {
+				resolved = fs.realpathSync(candidate);
+			} catch {
+				resolved = candidate;
+			}
+			exists = true;
+			mtimeMs = st.mtimeMs;
+		} catch {
+			// ENOENT (or any other stat failure): treat as non-existent. The
+			// path still contributes to the signature -- if it later starts
+			// existing, that flips `exists` to true and triggers discovery.
+			resolved = candidate;
+		}
+		if (seen.has(resolved)) {
+			continue;
+		}
+		seen.add(resolved);
+		entries.push({ path: resolved, exists, mtimeMs });
+	}
+
+	return { entries };
+}
+
+/**
  * Discovers R language runtimes for Positron; implements positron.LanguageRuntimeDiscoverer.
  *
  * @param context The extension context.

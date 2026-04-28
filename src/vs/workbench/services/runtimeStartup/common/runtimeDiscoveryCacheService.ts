@@ -4,7 +4,22 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
-import { ILanguageRuntimeMetadata } from '../../languageRuntime/common/languageRuntimeService.js';
+import {
+	ILanguageRuntimeMetadata,
+	IRuntimeRootEntry,
+	IRuntimeRootSignature,
+	signaturesEqual,
+} from '../../languageRuntime/common/languageRuntimeService.js';
+
+// Re-export the root-signature types so consumers of the cache API can pull
+// everything they need from a single import. The types themselves live next
+// to `IRuntimeManager` to avoid a cycle between the cache service and the
+// runtime service.
+export {
+	IRuntimeRootEntry,
+	IRuntimeRootSignature,
+	signaturesEqual,
+};
 
 export const IRuntimeDiscoveryCache =
 	createDecorator<IRuntimeDiscoveryCache>('runtimeDiscoveryCache');
@@ -19,8 +34,11 @@ export const RUNTIME_DISCOVERY_CACHE_ENABLED_SETTING = 'interpreters.discoveryCa
 /**
  * On-disk schema version. Bumped when the persisted entry shape changes;
  * a mismatch on load causes the persisted blob to be discarded and re-seeded.
+ *
+ * v2 added per-bucket `discoveryRootSignature` so warm starts can detect newly
+ * installed interpreters by re-statting the directories the extension scans.
  */
-export const RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION = 1;
+export const RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION = 2;
 
 /**
  * Storage key under which all cache state is persisted. Embeds the schema
@@ -54,6 +72,7 @@ export interface IRuntimeFingerprint {
 	readonly ctimeMs: number;
 }
 
+
 /**
  * One cached runtime entry. Keyed (within a bucket) by `metadata.runtimePath`.
  */
@@ -79,6 +98,12 @@ export interface IDiscoveryCacheBucket {
 	readonly entries: readonly ICachedRuntime[];
 	/** Wall-clock time of the last successful full discovery for this bucket. */
 	readonly lastFullDiscovery: number;
+	/**
+	 * Snapshot of the manager's discovery roots taken at the start of the most
+	 * recent full discovery pass. Compared against a freshly-computed signature
+	 * on warm start; a delta triggers another full pass for this bucket.
+	 */
+	readonly discoveryRootSignature?: IRuntimeRootSignature;
 }
 
 /**
@@ -90,6 +115,14 @@ export interface IDiscoveryCacheSessionCounters {
 	revalidationsSucceeded: number;
 	revalidationsFailed: number;
 	evictions: number;
+	/**
+	 * Number of full-discovery runs this session that were triggered by a
+	 * change in the manager's root signature (i.e. a new interpreter appeared
+	 * in a known scan root). Distinct from cold-start and periodic-refresh
+	 * triggers; useful for diagnostics to confirm warm-start root checks are
+	 * doing their job.
+	 */
+	rootsChangedFullDiscoveries: number;
 	fullDiscoveryRuns: ReadonlyArray<{ extensionId: string; languageId: string; reason: string; at: number }>;
 }
 
@@ -164,6 +197,21 @@ export interface IRuntimeDiscoveryCache {
 
 	/** Record that a full discovery just completed for this bucket. */
 	setLastFullDiscovery(extensionId: string, languageId: string, timestamp?: number): void;
+
+	/**
+	 * The root signature stored from the most recent full discovery for this
+	 * bucket. Returns `undefined` if the bucket has no signature on file
+	 * (e.g. cold cache, or a manager that does not implement the API yet).
+	 */
+	getDiscoveryRootSignature(extensionId: string, languageId: string): IRuntimeRootSignature | undefined;
+
+	/**
+	 * Persist a fresh root signature for this bucket. Should be called at the
+	 * start of a full discovery pass (so a new install during the pass shows
+	 * up as a delta on the next warm start, rather than being baked into the
+	 * post-discovery signature and missed forever).
+	 */
+	setDiscoveryRootSignature(extensionId: string, languageId: string, signature: IRuntimeRootSignature): void;
 
 	/**
 	 * Wipe all entries and metadata. Drives the "Clear Interpreter Cache"

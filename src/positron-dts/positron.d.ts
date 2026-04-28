@@ -693,6 +693,34 @@ declare module 'positron' {
 		DidChangePlotsRenderSettings = 'did_change_plots_render_settings',
 	}
 
+	/**
+	 * One root that a `LanguageRuntimeManager` scans for interpreters. The
+	 * `path` should be resolved (symlinks followed) before being reported;
+	 * `mtimeMs` is 0 when the path does not exist.
+	 */
+	export interface RuntimeRootEntry {
+		readonly path: string;
+		readonly exists: boolean;
+		readonly mtimeMs: number;
+	}
+
+	/**
+	 * Fingerprint of every directory a `LanguageRuntimeManager` scans for
+	 * interpreters. Returned by `getDiscoveryRootSignature` to let Positron
+	 * detect newly-installed interpreters between startups without rerunning
+	 * full discovery.
+	 */
+	export interface RuntimeRootSignature {
+		/** Roots in stable insertion order. Order is part of the signature. */
+		readonly entries: readonly RuntimeRootEntry[];
+		/**
+		 * Optional opaque blob folded into equality. Lets a manager mix in
+		 * non-stat-able state (env-modules version, conda config hash) without
+		 * exposing the details to Positron.
+		 */
+		readonly opaque?: string;
+	}
+
 	export interface RuntimeSessionMetadata {
 		/** The ID of this session */
 		readonly sessionId: string;
@@ -1036,6 +1064,23 @@ declare module 'positron' {
 		 * default without starting it.
 		 */
 		recommendedWorkspaceRuntime(): Thenable<LanguageRuntimeMetadata | undefined>;
+
+		/**
+		 * An optional snapshot of the directories this manager scans for
+		 * interpreters. Called on every warm start to detect newly-installed
+		 * interpreters before deciding whether to skip full discovery.
+		 *
+		 * The snapshot must be cheap to compute -- on the order of one stat
+		 * per scan root. Implementations whose discovery sources cannot be
+		 * fingerprinted that cheaply (e.g. those that need to invoke a
+		 * subprocess like `conda env list`) should not implement this method;
+		 * the periodic-refresh cap will catch their changes within ~24h.
+		 *
+		 * Returning `{ entries: [] }` is a valid stable signature and means
+		 * "I have no stat-able roots." Throwing or rejecting causes the
+		 * manager to fall back to the periodic-refresh trigger.
+		 */
+		getDiscoveryRootSignature?(): Thenable<RuntimeRootSignature>;
 
 		/**
 		 * An optional event that fires when a new runtime is discovered.
