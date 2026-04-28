@@ -260,7 +260,27 @@ configurationRegistry.registerConfiguration({
 			default: true,
 			description: nls.localize(
 				'positron.runtime.discoveryCache.enabled',
-				"When enabled, system-scoped interpreters discovered in one Positron window are reused on warm starts of other windows, skipping a full discovery pass when nothing has changed. Turn off to restore the pre-cache behavior of running full discovery on every open."),
+				"Reuse previously discovered interpreters to speed up Positron startup."),
+			tags: ['interpreterSettings']
+		},
+		'interpreters.discoveryCache.maxAgeDays': {
+			scope: ConfigurationScope.APPLICATION_MACHINE,
+			type: 'number',
+			default: 30,
+			minimum: 1,
+			description: nls.localize(
+				'positron.runtime.discoveryCache.maxAgeDays',
+				"Number of days a cached interpreter is reused before it is rediscovered."),
+			tags: ['interpreterSettings']
+		},
+		'interpreters.discoveryCache.refreshIntervalDays': {
+			scope: ConfigurationScope.APPLICATION_MACHINE,
+			type: 'number',
+			default: 1,
+			minimum: 1,
+			description: nls.localize(
+				'positron.runtime.discoveryCache.refreshIntervalDays',
+				"How often (in days) to run a full interpreter discovery to detect newly installed interpreters."),
 			tags: ['interpreterSettings']
 		}
 	}

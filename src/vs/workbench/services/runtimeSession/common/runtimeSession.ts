@@ -33,7 +33,6 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { IPathService } from '../../path/common/pathService.js';
 import { resolveNotebookWorkingDirectory } from '../../../contrib/notebook/common/notebookWorkingDirectoryUtils.js';
 import { isEqual } from '../../../../base/common/resources.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
 
 /**
  * Get a map key corresponding to a session.
@@ -189,8 +188,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
 		@IFileService private readonly _fileService: IFileService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
-		@IPathService private readonly _pathService: IPathService,
-		@ICommandService private readonly _commandService: ICommandService,
+		@IPathService private readonly _pathService: IPathService
 	) {
 
 		super();

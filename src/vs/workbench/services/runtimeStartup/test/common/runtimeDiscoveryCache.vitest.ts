@@ -24,11 +24,13 @@ import { RuntimeDiscoveryCache } from '../../common/runtimeDiscoveryCache.js';
 import {
 	IRuntimeRootSignature,
 	RUNTIME_DISCOVERY_CACHE_ENABLED_SETTING,
-	RUNTIME_DISCOVERY_CACHE_MAX_AGE_MS,
+	RUNTIME_DISCOVERY_CACHE_MAX_AGE_DAYS_DEFAULT,
 	RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION,
 	RUNTIME_DISCOVERY_CACHE_STORAGE_KEY,
 	signaturesEqual,
 } from '../../common/runtimeDiscoveryCacheService.js';
+
+const MAX_AGE_MS = RUNTIME_DISCOVERY_CACHE_MAX_AGE_DAYS_DEFAULT * 24 * 60 * 60 * 1000;
 
 interface IFakeFile {
 	resolved: string;
@@ -269,7 +271,7 @@ describe('RuntimeDiscoveryCache', () => {
 			expect(cache.getEntries('ms.python', 'python')).toHaveLength(1);
 
 			vi.useFakeTimers();
-			vi.setSystemTime(Date.now() + RUNTIME_DISCOVERY_CACHE_MAX_AGE_MS + 1);
+			vi.setSystemTime(Date.now() + MAX_AGE_MS + 1);
 			try {
 				expect(cache.getEntries('ms.python', 'python')).toEqual([]);
 			} finally {

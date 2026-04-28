@@ -15,7 +15,7 @@ import { IEphemeralStateService } from '../../../../platform/ephemeralState/comm
 import { IExtensionService } from '../../extensions/common/extensions.js';
 import { ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimeManager, IRuntimeRootSignature, LanguageRuntimeArchitecture, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata, signaturesEqual } from '../../languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from './runtimeStartupService.js';
-import { IRuntimeDiscoveryCache, IRuntimeFingerprint, RUNTIME_DISCOVERY_PERIODIC_REFRESH_MS } from './runtimeDiscoveryCacheService.js';
+import { IRuntimeDiscoveryCache, IRuntimeFingerprint, RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_DEFAULT, RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_SETTING } from './runtimeDiscoveryCacheService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 import { ExtensionsRegistry } from '../../extensions/common/extensionsRegistry.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
@@ -1118,7 +1118,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		// Buckets whose last full pass is older than the periodic cap (or that
 		// have never had one recorded) trigger a refresh on this open.
-		const periodicCutoff = Date.now() - RUNTIME_DISCOVERY_PERIODIC_REFRESH_MS;
+		const refreshDays = this._configurationService.getValue<number>(RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_SETTING)
+			?? RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_DEFAULT;
+		const periodicCutoff = Date.now() - refreshDays * 24 * 60 * 60 * 1000;
 
 		// Reason precedence: cold-start > roots-changed > periodic. Track the
 		// most-specific reason observed across all managers needing discovery.

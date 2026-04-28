@@ -32,6 +32,27 @@ export const IRuntimeDiscoveryCache =
 export const RUNTIME_DISCOVERY_CACHE_ENABLED_SETTING = 'interpreters.discoveryCache.enabled';
 
 /**
+ * Setting key for the hard cap on cache entry age (in days). Even on a healthy
+ * machine, an entry must be re-validated by a real discovery pass at least
+ * once every {@link RUNTIME_DISCOVERY_CACHE_MAX_AGE_DAYS_DEFAULT} days so we
+ * eventually pick up binary-identical replacements that preserve fingerprint.
+ */
+export const RUNTIME_DISCOVERY_CACHE_MAX_AGE_DAYS_SETTING = 'interpreters.discoveryCache.maxAgeDays';
+
+/**
+ * Setting key for the soft cap on bucket-level full-discovery age (in days).
+ * After this, a warm start treats an otherwise-cached bucket as needing a
+ * fresh full pass. This is the "periodic refresh" trigger.
+ */
+export const RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_SETTING = 'interpreters.discoveryCache.refreshIntervalDays';
+
+/** Default for {@link RUNTIME_DISCOVERY_CACHE_MAX_AGE_DAYS_SETTING}. */
+export const RUNTIME_DISCOVERY_CACHE_MAX_AGE_DAYS_DEFAULT = 30;
+
+/** Default for {@link RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_SETTING}. */
+export const RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_DEFAULT = 1;
+
+/**
  * On-disk schema version. Bumped when the persisted entry shape changes;
  * a mismatch on load causes the persisted blob to be discarded and re-seeded.
  *
@@ -46,20 +67,6 @@ export const RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION = 2;
  */
 export const RUNTIME_DISCOVERY_CACHE_STORAGE_KEY =
 	`positron.discoveryCache.v${RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION}`;
-
-/**
- * Hard cap on cache entry age. Even on a healthy machine, an entry must be
- * re-validated by a real discovery pass at least once every 30 days so we
- * eventually pick up binary-identical replacements that preserve fingerprint.
- */
-export const RUNTIME_DISCOVERY_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
-
-/**
- * Soft cap on bucket-level full-discovery age. After this, a warm start treats
- * an otherwise-cached bucket as needing a fresh full pass. This is the
- * "periodic refresh" trigger.,
- */
-export const RUNTIME_DISCOVERY_PERIODIC_REFRESH_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Cheap fingerprint of an on-disk binary. Together (size, mtimeMs, ctimeMs)

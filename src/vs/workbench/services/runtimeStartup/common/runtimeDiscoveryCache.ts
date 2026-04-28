@@ -20,10 +20,13 @@ import {
 	IRuntimeFingerprint,
 	IRuntimeRootSignature,
 	RUNTIME_DISCOVERY_CACHE_ENABLED_SETTING,
-	RUNTIME_DISCOVERY_CACHE_MAX_AGE_MS,
+	RUNTIME_DISCOVERY_CACHE_MAX_AGE_DAYS_DEFAULT,
+	RUNTIME_DISCOVERY_CACHE_MAX_AGE_DAYS_SETTING,
 	RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION,
 	RUNTIME_DISCOVERY_CACHE_STORAGE_KEY,
 } from './runtimeDiscoveryCacheService.js';
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /**
  * On-disk JSON shape. The `schemaVersion` is checked on load; any mismatch
@@ -355,7 +358,9 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 	// --- Internals ----------------------------------------------------------
 
 	private _freshEntries(bucket: IInternalBucket): ICachedRuntime[] {
-		const cutoff = Date.now() - RUNTIME_DISCOVERY_CACHE_MAX_AGE_MS;
+		const days = this._configurationService.getValue<number>(RUNTIME_DISCOVERY_CACHE_MAX_AGE_DAYS_SETTING)
+			?? RUNTIME_DISCOVERY_CACHE_MAX_AGE_DAYS_DEFAULT;
+		const cutoff = Date.now() - days * MS_PER_DAY;
 		const out: ICachedRuntime[] = [];
 		for (const entry of bucket.entries.values()) {
 			if (entry.firstSeen >= cutoff) {
