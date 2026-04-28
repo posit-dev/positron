@@ -539,6 +539,11 @@ export namespace CreateEnv {
         export const upgradingPip = l10n.t('Upgrading pip...');
         export const installingPackages = l10n.t('Installing packages...');
         export const errorCreatingEnvironment = l10n.t('Error while creating virtual environment.');
+        // --- Start Positron ---
+        export const errorInstallingPackages = l10n.t(
+            'Failed to install packages. The virtual environment was created but some dependencies may be missing.',
+        );
+        // --- End Positron ---
         export const selectPythonPlaceHolder = l10n.t('Select a Python installation to create the virtual environment');
         // --- Start Positron ---
         // export const providerDescription = l10n.t('Creates a `.venv` virtual environment in the current workspace');
@@ -620,6 +625,17 @@ export namespace CreateEnv {
         export const globalPipInstallTriggerMessage = l10n.t(
             'You may have installed Python packages into your global environment, which can cause conflicts between package versions. Would you like to create a virtual environment with these packages to isolate your dependencies?',
         );
+
+        // --- Start Positron ---
+        export const autoCreateMessage = (depFiles: string, tool: string) =>
+            l10n.t(
+                'This project has {0} but no virtual environment. Use {1} to create a .venv and install these requirements?',
+                depFiles,
+                tool,
+            );
+        export const installingDeps = l10n.t('Installing dependencies...');
+        export const selectDepSource = l10n.t('Select which dependencies to install');
+        // --- End Positron ---
     }
 }
 

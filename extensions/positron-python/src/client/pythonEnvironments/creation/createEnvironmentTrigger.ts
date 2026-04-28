@@ -1,11 +1,14 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-import { Disposable, Uri, WorkspaceFolder } from 'vscode';
+import { Disposable, Uri } from 'vscode';
 import {
     fileContainsInlineDependencies,
     hasKnownFiles,
     hasRequirementFiles,
+    // --- Start Positron ---
+    hasPyprojectToml,
+    // --- End Positron ---
     isGlobalPythonSelected,
     shouldPromptToCreateEnv,
     isCreateEnvWorkspaceCheckNotRun,
@@ -15,12 +18,22 @@ import { getWorkspaceFolder } from '../../common/vscodeApis/workspaceApis';
 import { traceError, traceInfo, traceVerbose } from '../../logging';
 import { hasPrefixCondaEnv, hasVenv } from './common/commonUtils';
 import { showInformationMessage } from '../../common/vscodeApis/windowApis';
+// --- Start Positron ---
 import { Common, CreateEnv } from '../../common/utils/localize';
-import { executeCommand, registerCommand } from '../../common/vscodeApis/commandApis';
+// --- End Positron ---
+import { registerCommand } from '../../common/vscodeApis/commandApis';
 import { Commands } from '../../common/constants';
 import { Resource } from '../../common/types';
 import { sendTelemetryEvent } from '../../telemetry';
 import { EventName } from '../../telemetry/constants';
+// --- Start Positron ---
+import {
+    autoCreateVenvWithDeps,
+    detectAutoCreateContext,
+    describeDepFiles,
+    describeTool,
+} from './provider/autoCreateVenv';
+// --- End Positron ---
 
 export enum CreateEnvironmentCheckKind {
     /**
@@ -45,26 +58,24 @@ async function createEnvironmentCheckForWorkspace(uri: Uri): Promise<void> {
         return;
     }
 
-    const missingRequirements = async (workspaceFolder: WorkspaceFolder) =>
-        !(await hasRequirementFiles(workspaceFolder));
-
-    const isNonGlobalPythonSelected = async (workspaceFolder: WorkspaceFolder) =>
-        !(await isGlobalPythonSelected(workspaceFolder));
-
+    // --- Start Positron ---
     // Skip showing the Create Environment prompt if one of the following is True:
     // 1. The workspace already has a ".venv" or ".conda" env
-    // 2. The workspace does NOT have "requirements.txt" or "requirements/*.txt" files
+    // 2. The workspace does NOT have "requirements.txt", "requirements/*.txt", or "pyproject.toml"
     // 3. The workspace has known files for other environment types like environment.yml, conda.yml, poetry.lock, etc.
     // 4. The selected python is NOT classified as a global python interpreter
-    const skipPrompt: boolean = (
-        await Promise.all([
-            hasVenv(workspace),
-            hasPrefixCondaEnv(workspace),
-            missingRequirements(workspace),
-            hasKnownFiles(workspace),
-            isNonGlobalPythonSelected(workspace),
-        ])
-    ).some((r) => r);
+    const [venvExists, condaExists, hasReqs, hasPyproject, knownFiles, nonGlobalPython] = await Promise.all([
+        hasVenv(workspace),
+        hasPrefixCondaEnv(workspace),
+        hasRequirementFiles(workspace),
+        hasPyprojectToml(workspace),
+        hasKnownFiles(workspace),
+        isGlobalPythonSelected(workspace).then((isGlobal) => !isGlobal),
+    ]);
+
+    const hasDepFiles = hasReqs || hasPyproject;
+    const skipPrompt = venvExists || condaExists || !hasDepFiles || knownFiles || nonGlobalPython;
+    // --- End Positron ---
 
     if (skipPrompt) {
         sendTelemetryEvent(EventName.ENVIRONMENT_CHECK_RESULT, undefined, { result: 'criteria-not-met' });
@@ -72,22 +83,33 @@ async function createEnvironmentCheckForWorkspace(uri: Uri): Promise<void> {
         return;
     }
 
+    // --- Start Positron ---
+    const ctx = await detectAutoCreateContext(workspace);
+    const depFilesLabel = describeDepFiles(ctx);
+    const toolLabel = describeTool(ctx);
+
     sendTelemetryEvent(EventName.ENVIRONMENT_CHECK_RESULT, undefined, { result: 'criteria-met' });
     const selection = await showInformationMessage(
-        CreateEnv.Trigger.workspaceTriggerMessage,
-        CreateEnv.Trigger.createEnvironment,
+        CreateEnv.Trigger.autoCreateMessage(depFilesLabel, toolLabel),
+        Common.bannerLabelYes,
+        Common.notNow,
         Common.doNotShowAgain,
     );
 
-    if (selection === CreateEnv.Trigger.createEnvironment) {
+    if (selection === Common.bannerLabelYes) {
         try {
-            await executeCommand(Commands.Create_Environment);
+            await autoCreateVenvWithDeps(workspace, ctx);
         } catch (error) {
-            traceError('CreateEnv Trigger - Error while creating environment: ', error);
+            if (error === 'Back' || error === 'Cancel') {
+                traceInfo('CreateEnv Trigger - User cancelled auto-create flow');
+            } else {
+                traceError('CreateEnv Trigger - Error while auto-creating environment: ', error);
+            }
         }
     } else if (selection === Common.doNotShowAgain) {
         disableCreateEnvironmentTrigger();
     }
+    // --- End Positron ---
 }
 
 function runOnceWorkspaceCheck(uri: Uri, options: CreateEnvironmentTriggerOptions = {}): Promise<void> {

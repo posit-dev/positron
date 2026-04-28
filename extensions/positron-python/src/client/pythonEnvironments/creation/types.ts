@@ -17,6 +17,7 @@ export interface CreateEnvironmentOptionsInternal {
     condaPythonVersion?: string;
     uvPythonVersion?: string;
     envName?: string;
+    depInstallArgs?: string[];
     // --- End Positron ---
     interpreter?: string;
 }

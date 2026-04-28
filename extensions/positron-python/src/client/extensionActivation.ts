@@ -39,7 +39,13 @@ import { IDebugSessionEventHandlers } from './debugger/extension/hooks/types';
 import { WorkspaceService } from './common/application/workspace';
 import { IInterpreterQuickPick, IPythonPathUpdaterServiceManager } from './interpreter/configuration/types';
 import { registerAllCreateEnvironmentFeatures } from './pythonEnvironments/creation/registrations';
-import { registerCreateEnvironmentTriggers } from './pythonEnvironments/creation/createEnvironmentTrigger';
+import {
+    registerCreateEnvironmentTriggers,
+    // --- Start Positron ---
+    CreateEnvironmentCheckKind,
+    triggerCreateEnvironmentCheckNonBlocking,
+    // --- End Positron ---
+} from './pythonEnvironments/creation/createEnvironmentTrigger';
 import { initializePersistentStateForTriggers } from './common/persistentState';
 import { DebuggerTypeName } from './debugger/constants';
 import { StopWatch } from './common/utils/stopWatch';
@@ -120,6 +126,17 @@ export async function activateFeatures(ext: ExtensionState, _components: Compone
         pythonRuntimeManager,
         // --- End Positron ---
     );
+
+    // --- Start Positron ---
+    // Trigger the create-environment check on workspace open, after providers
+    // are registered so the fallback Create_Environment command can find them.
+    const workspaceService = new WorkspaceService();
+    const firstFolder = workspaceService.workspaceFolders?.[0];
+    if (firstFolder) {
+        triggerCreateEnvironmentCheckNonBlocking(CreateEnvironmentCheckKind.Workspace, firstFolder.uri);
+    }
+    // --- End Positron ---
+
     const executionHelper = ext.legacyIOC.serviceContainer.get<ICodeExecutionHelper>(ICodeExecutionHelper);
     const commandManager = ext.legacyIOC.serviceContainer.get<ICommandManager>(ICommandManager);
     registerTriggerForTerminalREPL(ext.disposables);

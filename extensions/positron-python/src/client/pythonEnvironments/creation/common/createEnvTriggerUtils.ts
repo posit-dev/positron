@@ -31,6 +31,17 @@ export async function hasRequirementFiles(workspace: WorkspaceFolder): Promise<b
     return found;
 }
 
+// --- Start Positron ---
+export async function hasPyprojectToml(workspace: WorkspaceFolder): Promise<boolean> {
+    const tomlPath = path.join(workspace.uri.fsPath, 'pyproject.toml');
+    const found = await fsapi.pathExists(tomlPath);
+    if (found) {
+        traceVerbose(`Found pyproject.toml: ${workspace.uri.fsPath}`);
+    }
+    return found;
+}
+// --- End Positron ---
+
 export async function hasKnownFiles(workspace: WorkspaceFolder): Promise<boolean> {
     const filePaths: string[] = [
         'poetry.lock',
