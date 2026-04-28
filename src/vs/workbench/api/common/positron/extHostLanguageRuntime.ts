@@ -8,7 +8,7 @@ import { debounce } from '../../../../base/common/decorators.js';
 import { ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageState, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageError, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import * as extHostProtocol from './extHost.positron.protocol.js';
 import { Emitter } from '../../../../base/common/event.js';
-import { DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable as LifecycleDisposable, DisposableMap, DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
 import { Disposable, LanguageRuntimeMessageType } from '../extHostTypes.js';
 import { RuntimeClientState, RuntimeClientType } from './extHostTypes.positron.js';
 import { ExtHostRuntimeClientInstance } from './extHostClientInstance.js';
@@ -257,7 +257,7 @@ export class ExtHostRuntimeSessionProxy
 	}
 }
 
-export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRuntimeShape {
+export class ExtHostLanguageRuntime extends LifecycleDisposable implements extHostProtocol.ExtHostLanguageRuntimeShape {
 
 	private readonly _proxy: extHostProtocol.MainThreadLanguageRuntimeShape;
 
@@ -269,6 +269,11 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 	// A list of active sessions owned by this extension host
 	private readonly _runtimeSessions = new Array<positron.LanguageRuntimeSession>();
+
+	// Per-session listener disposables, keyed by handle. Disposed when the
+	// session is disposed via $disposeLanguageRuntime, or when this ext host
+	// itself is disposed.
+	private readonly _sessionDisposables = this._register(new DisposableMap<number, DisposableStore>());
 
 	// A list of runtime proxies to sessions owned by other extension hosts; map of
 	// session ID to proxy
@@ -322,6 +327,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		mainContext: extHostProtocol.IMainPositronContext,
 		private readonly _logService: ILogService,
 	) {
+		super();
 		// Trigger creation of the proxy
 		this._proxy = mainContext.getProxy(extHostProtocol.MainPositronContext.MainThreadLanguageRuntime);
 	}
@@ -576,8 +582,19 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	private attachToSession(session: positron.LanguageRuntimeSession): number {
 		const sessionId = session.metadata.sessionId;
 
+		// Register the runtime first so that `handle` is stable before we wire
+		// listeners that close over it.
+		const handle = this._runtimeSessions.length;
+		this._runtimeSessions.push(session);
+		this._eventClocks.push(0);
+
+		// Per-session disposables; cleaned up in detachFromSession (called
+		// from $disposeLanguageRuntime).
+		const disposables = new DisposableStore();
+		this._sessionDisposables.set(handle, disposables);
+
 		// Wire event handlers for state changes and messages
-		session.onDidChangeRuntimeState(state => {
+		disposables.add(session.onDidChangeRuntimeState(state => {
 			const tick = this._eventClocks[handle] = this._eventClocks[handle] + 1;
 			this._proxy.$emitLanguageRuntimeState(sessionId, tick, state);
 
@@ -601,9 +618,9 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 					}
 				});
 			}
-		});
+		}));
 
-		session.onDidReceiveRuntimeMessage(message => {
+		disposables.add(session.onDidReceiveRuntimeMessage(message => {
 			const tick = this._eventClocks[handle] = this._eventClocks[handle] + 1;
 			// Amend the message with the event clock for ordering
 			const runtimeMessage: ILanguageRuntimeMessage = {
@@ -644,10 +661,10 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 					this._proxy.$emitLanguageRuntimeMessage(sessionId, false, new SerializableObjectWithBuffers(runtimeMessage));
 					break;
 			}
-		});
+		}));
 
 		// Hook up the session end (exit) handler
-		session.onDidEndSession(exit => {
+		disposables.add(session.onDidEndSession(exit => {
 			// Notify the main thread that the session has ended
 			this._proxy.$emitLanguageRuntimeExit(session.metadata.sessionId, exit);
 
@@ -658,20 +675,25 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			// that would invalidate the handles of all subsequent sessions
 			// since we store them in an array. The session remains in an inert
 			// state.
-		});
+		}));
 
 		// Hook up the resource usage update handler
-		session.onDidUpdateResourceUsage(usage => {
+		disposables.add(session.onDidUpdateResourceUsage(usage => {
 			this._proxy.$emitLanguageRuntimeResourceUsage(session.metadata.sessionId, usage);
-		});
-
-		// Register the runtime
-		const handle = this._runtimeSessions.length;
-		this._runtimeSessions.push(session);
-
-		this._eventClocks.push(0);
+		}));
 
 		return handle;
+	}
+
+	/**
+	 * Detach from a language runtime session: dispose all listeners
+	 * registered against it in attachToSession and handleCommOpen.
+	 *
+	 * The session itself is left in the _runtimeSessions array (in an inert
+	 * state) so that handles of subsequent sessions remain stable.
+	 */
+	private detachFromSession(handle: number): void {
+		this._sessionDisposables.deleteAndDispose(handle);
 	}
 
 	async $interruptLanguageRuntime(handle: number): Promise<void> {
@@ -831,6 +853,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		}
 		// Dispose session to cleanup kernel, LSP, etc.
 		await this._runtimeSessions[handle].dispose();
+		this.detachFromSession(handle);
 	}
 
 	$showOutputLanguageRuntime(handle: number, channel?: positron.LanguageRuntimeSessionChannel): void {
@@ -1604,14 +1627,14 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			});
 
 		// Dispose the client instance when the runtime exits
-		this._runtimeSessions[handle].onDidChangeRuntimeState(state => {
+		this._sessionDisposables.get(handle)?.add(this._runtimeSessions[handle].onDidChangeRuntimeState(state => {
 			if (state === RuntimeState.Exited) {
 				// Mark the client instance as already closed so disposal
 				// doesn't try to close it
 				clientInstance.setClientState(RuntimeClientState.Closed);
 				clientInstance.dispose();
 			}
-		});
+		}));
 
 		// See if one of the registered client handlers wants to handle this
 		let handled = false;
