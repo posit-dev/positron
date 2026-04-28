@@ -6,9 +6,16 @@
 /// <reference types="vitest/globals" />
 
 import { VSBuffer } from '../../../../../base/common/buffer.js';
+import { KeyCode } from '../../../../../base/common/keyCodes.js';
 import { ILanguageService } from '../../../../../editor/common/languages/language.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
+import {
+	ChangeToCodeAction,
+	ChangeToMarkdownAction,
+	ChangeToRawAction,
+	POSITRON_NOTEBOOK_COMMAND_MODE,
+} from '../../browser/positronNotebook.contribution.js';
 import { createTestPositronNotebookInstance } from './testPositronNotebookInstance.js';
 import { CellSelectionType } from '../../browser/selectionMachine.js';
 
@@ -195,6 +202,34 @@ describe('PositronNotebookInstance.changeCellType', () => {
 			expect(cellsAfter[1].kind).toBe(CellKind.Code);
 			expect(cellsAfter[2].kind).toBe(CellKind.Markup);
 			expect(cellsAfter[2].getContent()).toBe('cell2');
+		});
+	});
+
+	describe('Action wiring (cell-type keybindings)', () => {
+		// Keybinding-metadata-only tests, matching the Migration 5 pattern in
+		// notebookCopyPaste.vitest.ts for similarly-thin actions whose bodies
+		// are 1-line passthroughs into changeCellType (already covered by the
+		// model-method describes above).
+
+		it('ChangeToCodeAction declares Y scoped to command mode', () => {
+			const action = new ChangeToCodeAction();
+			expect(action.desc.id).toBe('positronNotebook.cell.changeToCode');
+			expect(action.desc.keybinding?.primary).toBe(KeyCode.KeyY);
+			expect(action.desc.keybinding?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
+		});
+
+		it('ChangeToMarkdownAction declares M scoped to command mode', () => {
+			const action = new ChangeToMarkdownAction();
+			expect(action.desc.id).toBe('positronNotebook.cell.changeToMarkdown');
+			expect(action.desc.keybinding?.primary).toBe(KeyCode.KeyM);
+			expect(action.desc.keybinding?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
+		});
+
+		it('ChangeToRawAction declares R scoped to command mode', () => {
+			const action = new ChangeToRawAction();
+			expect(action.desc.id).toBe('positronNotebook.cell.changeToRaw');
+			expect(action.desc.keybinding?.primary).toBe(KeyCode.KeyR);
+			expect(action.desc.keybinding?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
 		});
 	});
 });

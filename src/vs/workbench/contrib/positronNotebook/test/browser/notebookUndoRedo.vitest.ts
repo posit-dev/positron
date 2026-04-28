@@ -13,7 +13,7 @@ import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { IEditorPane } from '../../../../common/editor.js';
 import { POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../browser/ContextKeysManager.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../common/positronNotebookCommon.js';
-import { handleNotebookUndo } from '../../browser/contrib/undoRedo/positronNotebookUndoRedo.js';
+import { handleNotebookRedo, handleNotebookUndo } from '../../browser/contrib/undoRedo/positronNotebookUndoRedo.js';
 import {
 	createTestPositronNotebookInstance,
 	TestPositronNotebookInstance,
@@ -254,6 +254,30 @@ describe('PositronNotebookInstance undo/redo', () => {
 
 			expect(result).toBe(false);
 			expect(notebook.cells.get().length).toBe(2);
+		});
+
+		it('handleNotebookRedo returns false and leaves the model untouched when the notebook editor is not focused', async () => {
+			// Symmetric to the handleNotebookUndo focus-gate test above:
+			// without POSITRON_NOTEBOOK_EDITOR_FOCUSED set, the redo handler
+			// must yield (return false) so the next priority handler can take
+			// the command, and the model must not advance through redo.
+			const notebook = createTestPositronNotebookInstance([
+				['# Cell 0', 'python', CellKind.Code],
+			], ctx);
+			notebook.addCell(CellKind.Code, 1, false, '# Cell 1');
+			// Stage a redo entry: undo the add so the redo stack has work to do.
+			await ctx.get(IUndoRedoService).undo(notebook.uri);
+			expect(notebook.cells.get().length).toBe(1);
+
+			const editorService = stubInterface<IEditorService>({
+				activeEditorPane: makeNotebookEditorPane(notebook),
+			});
+			POSITRON_NOTEBOOK_EDITOR_FOCUSED.bindTo(notebook.scopedContextKeyService).set(false);
+
+			const result = handleNotebookRedo(editorService, ctx.get(IUndoRedoService));
+
+			expect(result).toBe(false);
+			expect(notebook.cells.get().length).toBe(1);
 		});
 
 		it('handleNotebookUndo routes through to the model and sets the Undo operation flag when focus is set', async () => {
