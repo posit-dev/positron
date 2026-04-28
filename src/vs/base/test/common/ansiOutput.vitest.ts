@@ -3,8 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as assert from 'assert';
-import { ensureNoDisposablesAreLeakedInTestSuite } from './utils.js';
+/// <reference types="vitest/globals" />
+
+import { ensureNoLeakedDisposables } from '../../../test/vitest/vitestUtils.js';
 import { ANSIColor, ANSIFormat, ANSIOutput, ANSIStyle } from '../../common/ansiOutput.js';
 
 //#region Test Helpers
@@ -488,61 +489,61 @@ export const twoDigitHex = (value: number) => {
 /**
  * ANSIOutput suite.
  */
-suite('ANSIOutput', () => {
-	test('Test ANSIOutput.processOutput with empty string', () => {
+describe('ANSIOutput', () => {
+	it('Test ANSIOutput.processOutput with empty string', () => {
 		// Setup.
 		const outputLines = ANSIOutput.processOutput('');
 
 		// Tests.
-		assert.equal(outputLines.length, 1);
-		assert.ok(outputLines[0].id.length >= 1);
-		assert.equal(outputLines[0].outputRuns.length, 0);
+		expect(outputLines.length).toBe(1);
+		expect(outputLines[0].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[0].outputRuns.length).toBe(0);
 	});
 
-	test('Test ANSIOutput.processOutput with PANGRAM', () => {
+	it('Test ANSIOutput.processOutput with PANGRAM', () => {
 		// Setup.
 		const outputLines = ANSIOutput.processOutput(PANGRAM);
 
 		// Tests.
-		assert.equal(outputLines.length, 1);
-		assert.ok(outputLines[0].id.length >= 1);
-		assert.equal(outputLines[0].outputRuns.length, 1);
-		assert.equal(outputLines[0].outputRuns[0].text, PANGRAM);
+		expect(outputLines.length).toBe(1);
+		expect(outputLines[0].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[0].outputRuns.length).toBe(1);
+		expect(outputLines[0].outputRuns[0].text).toBe(PANGRAM);
 	});
 
-	test('Test ANSIOutput with no output', () => {
+	it('Test ANSIOutput with no output', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
 		const outputLines = ansiOutput.outputLines;
 
 		// Tests.
-		assert.equal(outputLines.length, 1);
-		assert.equal(outputLines[0].outputRuns.length, 0);
+		expect(outputLines.length).toBe(1);
+		expect(outputLines[0].outputRuns.length).toBe(0);
 	});
 
-	test('Test ANSIOutput BS "[BS]"', () => {
+	it('Test ANSIOutput BS "[BS]"', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput(BS);
 		const outputLines = ansiOutput.outputLines;
 
 		// Test
-		assert.equal(outputLines.length, 1);
-		assert.equal(outputLines[0].outputRuns.length, 0);
+		expect(outputLines.length).toBe(1);
+		expect(outputLines[0].outputRuns.length).toBe(0);
 	});
 
-	test('Test ANSIOutput BS "[BS][BS][BS][BS][BS][BS][BS][BS][BS][BS]"', () => {
+	it('Test ANSIOutput BS "[BS][BS][BS][BS][BS][BS][BS][BS][BS][BS]"', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput(BS.repeat(10));
 		const outputLines = ansiOutput.outputLines;
 
 		// Test
-		assert.equal(outputLines.length, 1);
-		assert.equal(outputLines[0].outputRuns.length, 0);
+		expect(outputLines.length).toBe(1);
+		expect(outputLines[0].outputRuns.length).toBe(0);
 	});
 
-	test('Test ANSIOutput BS "Hello X[BS]World"', () => {
+	it('Test ANSIOutput BS "Hello X[BS]World"', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput(`Hello X${BS}World`);
@@ -550,14 +551,14 @@ suite('ANSIOutput', () => {
 
 		// Test
 		const expectedOutput = 'Hello World';
-		assert.equal(outputLines.length, 1);
-		assert.equal(outputLines[0].outputRuns.length, 1);
-		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
-		assert.equal(outputLines[0].outputRuns[0].format, undefined);
-		assert.equal(outputLines[0].outputRuns[0].text, expectedOutput);
+		expect(outputLines.length).toBe(1);
+		expect(outputLines[0].outputRuns.length).toBe(1);
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[0].outputRuns[0].format).toBe(undefined);
+		expect(outputLines[0].outputRuns[0].text).toBe(expectedOutput);
 	});
 
-	test('Test ANSIOutput BS "Hello XXXX[BS][BS][BS][BS]World"', () => {
+	it('Test ANSIOutput BS "Hello XXXX[BS][BS][BS][BS]World"', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput(`Hello XXXX${BS.repeat(4)}World`);
@@ -565,14 +566,14 @@ suite('ANSIOutput', () => {
 
 		// Test
 		const expectedOutput = 'Hello World';
-		assert.equal(outputLines.length, 1);
-		assert.equal(outputLines[0].outputRuns.length, 1);
-		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
-		assert.equal(outputLines[0].outputRuns[0].format, undefined);
-		assert.equal(outputLines[0].outputRuns[0].text, expectedOutput);
+		expect(outputLines.length).toBe(1);
+		expect(outputLines[0].outputRuns.length).toBe(1);
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[0].outputRuns[0].format).toBe(undefined);
+		expect(outputLines[0].outputRuns[0].text).toBe(expectedOutput);
 	});
 
-	test('Test ANSIOutput BS "HelloXXXXX[BS][BS][BS][BS][BS] World"', () => {
+	it('Test ANSIOutput BS "HelloXXXXX[BS][BS][BS][BS][BS] World"', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput(`HelloXXXXX${BS.repeat(5)} World`);
@@ -580,14 +581,14 @@ suite('ANSIOutput', () => {
 
 		// Test
 		const expectedOutput = 'Hello World';
-		assert.equal(outputLines.length, 1);
-		assert.equal(outputLines[0].outputRuns.length, 1);
-		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
-		assert.equal(outputLines[0].outputRuns[0].format, undefined);
-		assert.equal(outputLines[0].outputRuns[0].text, expectedOutput);
+		expect(outputLines.length).toBe(1);
+		expect(outputLines[0].outputRuns.length).toBe(1);
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[0].outputRuns[0].format).toBe(undefined);
+		expect(outputLines[0].outputRuns[0].text).toBe(expectedOutput);
 	});
 
-	test('Test ANSIOutput BS "HelloXXXXX[BS][BS][BS][BS][BS][BS][BS][BS][BS][BS] World"', () => {
+	it('Test ANSIOutput BS "HelloXXXXX[BS][BS][BS][BS][BS][BS][BS][BS][BS][BS] World"', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput(`HelloXXXXX${BS.repeat(10)}Hello World`);
@@ -595,14 +596,14 @@ suite('ANSIOutput', () => {
 
 		// Test
 		const expectedOutput = 'Hello World';
-		assert.equal(outputLines.length, 1);
-		assert.equal(outputLines[0].outputRuns.length, 1);
-		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
-		assert.equal(outputLines[0].outputRuns[0].format, undefined);
-		assert.equal(outputLines[0].outputRuns[0].text, expectedOutput);
+		expect(outputLines.length).toBe(1);
+		expect(outputLines[0].outputRuns.length).toBe(1);
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[0].outputRuns[0].format).toBe(undefined);
+		expect(outputLines[0].outputRuns[0].text).toBe(expectedOutput);
 	});
 
-	test('Test ANSIOutput BS RED GREEN BLUE becomes RED BLUE', () => {
+	it('Test ANSIOutput BS RED GREEN BLUE becomes RED BLUE', () => {
 		// Setup.
 		const testText = 'This is some text for testing purposes';
 		const ansiOutput = new ANSIOutput();
@@ -610,17 +611,17 @@ suite('ANSIOutput', () => {
 		const outputLines = ansiOutput.outputLines;
 
 		// Test
-		assert.equal(outputLines.length, 1);
-		assert.equal(outputLines[0].outputRuns.length, 2);
-		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
-		assert.equal(outputLines[0].outputRuns[0].format!.foregroundColor, ANSIColor.Red);
-		assert.equal(outputLines[0].outputRuns[0].text, testText);
-		assert.ok(outputLines[0].outputRuns[1].id.length >= 1);
-		assert.equal(outputLines[0].outputRuns[1].format!.foregroundColor, ANSIColor.Blue);
-		assert.equal(outputLines[0].outputRuns[1].text, testText);
+		expect(outputLines.length).toBe(1);
+		expect(outputLines[0].outputRuns.length).toBe(2);
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[0].outputRuns[0].format!.foregroundColor).toBe(ANSIColor.Red);
+		expect(outputLines[0].outputRuns[0].text).toBe(testText);
+		expect(outputLines[0].outputRuns[1].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[0].outputRuns[1].format!.foregroundColor).toBe(ANSIColor.Blue);
+		expect(outputLines[0].outputRuns[1].text).toBe(testText);
 	});
 
-	test('Test ANSIOutput BS RED GREEN BLUE becomes BLUE GREEN', () => {
+	it('Test ANSIOutput BS RED GREEN BLUE becomes BLUE GREEN', () => {
 		// Setup.
 		const testText = 'This is some text for testing purposes';
 		const ansiOutput = new ANSIOutput();
@@ -628,119 +629,119 @@ suite('ANSIOutput', () => {
 		const outputLines = ansiOutput.outputLines;
 
 		// Test
-		assert.equal(outputLines.length, 1);
-		assert.equal(outputLines[0].outputRuns.length, 2);
-		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
-		assert.equal(outputLines[0].outputRuns[0].format!.foregroundColor, ANSIColor.Blue);
-		assert.equal(outputLines[0].outputRuns[0].text, testText);
-		assert.ok(outputLines[0].outputRuns[1].id.length >= 1);
-		assert.equal(outputLines[0].outputRuns[1].format!.foregroundColor, ANSIColor.Green);
-		assert.equal(outputLines[0].outputRuns[1].text, testText);
+		expect(outputLines.length).toBe(1);
+		expect(outputLines[0].outputRuns.length).toBe(2);
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[0].outputRuns[0].format!.foregroundColor).toBe(ANSIColor.Blue);
+		expect(outputLines[0].outputRuns[0].text).toBe(testText);
+		expect(outputLines[0].outputRuns[1].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[0].outputRuns[1].format!.foregroundColor).toBe(ANSIColor.Green);
+		expect(outputLines[0].outputRuns[1].text).toBe(testText);
 	});
 
-	test('Test ANSIOutput with PANGRAM', () => {
+	it('Test ANSIOutput with PANGRAM', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput(PANGRAM);
 		const outputLines = ansiOutput.outputLines;
 
 		// Tests.
-		assert.equal(outputLines.length, 1);
-		assert.ok(outputLines[0].id.length >= 1);
-		assert.equal(outputLines[0].outputRuns.length, 1);
-		assert.equal(outputLines[0].outputRuns[0].text, PANGRAM);
+		expect(outputLines.length).toBe(1);
+		expect(outputLines[0].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[0].outputRuns.length).toBe(1);
+		expect(outputLines[0].outputRuns[0].text).toBe(PANGRAM);
 	});
 
-	test('Test ANSIOutput with two lines separated by LF', () => {
+	it('Test ANSIOutput with two lines separated by LF', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput(`${PANGRAM}${LF}${PANGRAM}`);
 		const outputLines = ansiOutput.outputLines;
 
 		// Test
-		assert.equal(outputLines.length, 2);
+		expect(outputLines.length).toBe(2);
 		for (let i = 0; i < outputLines.length; i++) {
-			assert.equal(outputLines[i].outputRuns.length, 1);
-			assert.ok(outputLines[i].outputRuns[0].id.length >= 1);
-			assert.equal(outputLines[i].outputRuns[0].format, undefined);
-			assert.equal(outputLines[i].outputRuns[0].text, PANGRAM);
+			expect(outputLines[i].outputRuns.length).toBe(1);
+			expect(outputLines[i].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
+			expect(outputLines[i].outputRuns[0].format).toBe(undefined);
+			expect(outputLines[i].outputRuns[0].text).toBe(PANGRAM);
 		}
 	});
 
-	test('Test ANSIOutput with two lines separated by CRLF', () => {
+	it('Test ANSIOutput with two lines separated by CRLF', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput(`${PANGRAM}${CRLF}${PANGRAM}`);
 		const outputLines = ansiOutput.outputLines;
 
 		// Test
-		assert.equal(outputLines.length, 2);
+		expect(outputLines.length).toBe(2);
 		for (let i = 0; i < outputLines.length; i++) {
-			assert.equal(outputLines[i].outputRuns.length, 1);
-			assert.ok(outputLines[i].outputRuns[0].id.length >= 1);
-			assert.equal(outputLines[i].outputRuns[0].format, undefined);
-			assert.equal(outputLines[i].outputRuns[0].text, PANGRAM);
+			expect(outputLines[i].outputRuns.length).toBe(1);
+			expect(outputLines[i].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
+			expect(outputLines[i].outputRuns[0].format).toBe(undefined);
+			expect(outputLines[i].outputRuns[0].text).toBe(PANGRAM);
 		}
 	});
 
-	test('Test ANSIOutput FF is silently ignored', () => {
+	it('Test ANSIOutput FF is silently ignored', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput(FF);
 		const outputLines = ansiOutput.outputLines;
 
 		// A lone form feed should produce no visible output.
-		assert.equal(outputLines.length, 1);
-		assert.equal(outputLines[0].outputRuns.length, 0);
+		expect(outputLines.length).toBe(1);
+		expect(outputLines[0].outputRuns.length).toBe(0);
 	});
 
-	test('Test ANSIOutput FF between text is ignored', () => {
+	it('Test ANSIOutput FF between text is ignored', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput(`Hello${FF}World`);
 		const outputLines = ansiOutput.outputLines;
 
 		// Form feed is stripped; text on either side is concatenated.
-		assert.equal(outputLines.length, 1);
-		assert.equal(outputLines[0].outputRuns.length, 1);
-		assert.equal(outputLines[0].outputRuns[0].text, 'HelloWorld');
+		expect(outputLines.length).toBe(1);
+		expect(outputLines[0].outputRuns.length).toBe(1);
+		expect(outputLines[0].outputRuns[0].text).toBe('HelloWorld');
 	});
 
-	test('Test ANSIOutput FF with newlines', () => {
+	it('Test ANSIOutput FF with newlines', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput(`Line1${LF}${FF}Line2`);
 		const outputLines = ansiOutput.outputLines;
 
 		// Form feed is ignored; the LF still creates a new line.
-		assert.equal(outputLines.length, 2);
-		assert.equal(outputLines[0].outputRuns.length, 1);
-		assert.equal(outputLines[0].outputRuns[0].text, 'Line1');
-		assert.equal(outputLines[1].outputRuns.length, 1);
-		assert.equal(outputLines[1].outputRuns[0].text, 'Line2');
+		expect(outputLines.length).toBe(2);
+		expect(outputLines[0].outputRuns.length).toBe(1);
+		expect(outputLines[0].outputRuns[0].text).toBe('Line1');
+		expect(outputLines[1].outputRuns.length).toBe(1);
+		expect(outputLines[1].outputRuns[0].text).toBe('Line2');
 	});
 
-	test('Test ANSIOutput with 10 lines separated by LF and CRLF', () => {
+	it('Test ANSIOutput with 10 lines separated by LF and CRLF', () => {
 		testOutputLines(10, LF);
 		testOutputLines(10, CRLF);
 	});
 
-	test('Test ANSIOutput with 100 lines separated by LF and CRLF', () => {
+	it('Test ANSIOutput with 100 lines separated by LF and CRLF', () => {
 		testOutputLines(100, LF);
 		testOutputLines(100, CRLF);
 	});
 
-	test('Test ANSIOutput with 2,500 output lines separated by LF and CRLF', () => {
+	it('Test ANSIOutput with 2,500 output lines separated by LF and CRLF', () => {
 		testOutputLines(2500, LF);
 		testOutputLines(2500, CRLF);
 	});
 
-	test('Test ANSIOutput with 10,000 output lines separated by LF and CRLF', () => {
+	it('Test ANSIOutput with 10,000 output lines separated by LF and CRLF', () => {
 		testOutputLines(10000, LF);
 		testOutputLines(10000, CRLF);
 	});
 
-	test('Text that exactly overwriting output runs to the right works', () => {
+	it('Text that exactly overwriting output runs to the right works', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput(`${makeSGR(SGRParam.ForegroundRed)}0123456789${makeSGR()}`);
@@ -753,14 +754,14 @@ suite('ANSIOutput', () => {
 		const outputLines = ansiOutput.outputLines;
 
 		// Test.
-		assert.equal(outputLines.length, 1);
-		assert.equal(outputLines[0].outputRuns.length, 1);
-		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
-		assert.equal(outputLines[0].outputRuns[0].format, undefined);
-		assert.equal(outputLines[0].outputRuns[0].text, '0123456789                    ');
+		expect(outputLines.length).toBe(1);
+		expect(outputLines[0].outputRuns.length).toBe(1);
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[0].outputRuns[0].format).toBe(undefined);
+		expect(outputLines[0].outputRuns[0].text).toBe('0123456789                    ');
 	});
 
-	test('Text that over overwriting output runs to the right works', () => {
+	it('Text that over overwriting output runs to the right works', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput(`${makeSGR(SGRParam.ForegroundRed)}0123456789${makeSGR()}`);
@@ -773,14 +774,14 @@ suite('ANSIOutput', () => {
 		const outputLines = ansiOutput.outputLines;
 
 		// Test.
-		assert.equal(outputLines.length, 1);
-		assert.equal(outputLines[0].outputRuns.length, 1);
-		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
-		assert.equal(outputLines[0].outputRuns[0].format, undefined);
-		assert.equal(outputLines[0].outputRuns[0].text, '0123456789                              ');
+		expect(outputLines.length).toBe(1);
+		expect(outputLines[0].outputRuns.length).toBe(1);
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[0].outputRuns[0].format).toBe(undefined);
+		expect(outputLines[0].outputRuns[0].text).toBe('0123456789                              ');
 	});
 
-	test('Test CUB (Cursor Backward)', () => {
+	it('Test CUB (Cursor Backward)', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput('0'.repeat(80));
@@ -796,7 +797,7 @@ suite('ANSIOutput', () => {
 		checkOutputPosition(ansiOutput, 0, 0);
 	});
 
-	test('Test CUB (Cursor Backward) to start of line', () => {
+	it('Test CUB (Cursor Backward) to start of line', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput('0'.repeat(80));
@@ -805,14 +806,14 @@ suite('ANSIOutput', () => {
 		const outputLines = ansiOutput.outputLines;
 
 		// Test.
-		assert.equal(outputLines.length, 1);
-		assert.equal(outputLines[0].outputRuns.length, 1);
-		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
-		assert.equal(outputLines[0].outputRuns[0].format, undefined);
-		assert.equal(outputLines[0].outputRuns[0].text, 'XXXXXXXXXX0000000000000000000000000000000000000000000000000000000000000000000000');
+		expect(outputLines.length).toBe(1);
+		expect(outputLines[0].outputRuns.length).toBe(1);
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[0].outputRuns[0].format).toBe(undefined);
+		expect(outputLines[0].outputRuns[0].text).toBe('XXXXXXXXXX0000000000000000000000000000000000000000000000000000000000000000000000');
 	});
 
-	test('Test CUB (Cursor Backward) to middle of line', () => {
+	it('Test CUB (Cursor Backward) to middle of line', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput('0'.repeat(80));
@@ -821,14 +822,14 @@ suite('ANSIOutput', () => {
 		const outputLines = ansiOutput.outputLines;
 
 		// Test.
-		assert.equal(outputLines.length, 1);
-		assert.equal(outputLines[0].outputRuns.length, 1);
-		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
-		assert.equal(outputLines[0].outputRuns[0].format, undefined);
-		assert.equal(outputLines[0].outputRuns[0].text, '00000000000000000000000000000000000XXXXXXXXXX00000000000000000000000000000000000');
+		expect(outputLines.length).toBe(1);
+		expect(outputLines[0].outputRuns.length).toBe(1);
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[0].outputRuns[0].format).toBe(undefined);
+		expect(outputLines[0].outputRuns[0].text).toBe('00000000000000000000000000000000000XXXXXXXXXX00000000000000000000000000000000000');
 	});
 
-	test('Test CUB (Cursor Backward) to end of line', () => {
+	it('Test CUB (Cursor Backward) to end of line', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput('0'.repeat(80));
@@ -837,14 +838,14 @@ suite('ANSIOutput', () => {
 		const outputLines = ansiOutput.outputLines;
 
 		// Test.
-		assert.equal(outputLines.length, 1);
-		assert.equal(outputLines[0].outputRuns.length, 1);
-		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
-		assert.equal(outputLines[0].outputRuns[0].format, undefined);
-		assert.equal(outputLines[0].outputRuns[0].text, '0000000000000000000000000000000000000000000000000000000000000000000000XXXXXXXXXX');
+		expect(outputLines.length).toBe(1);
+		expect(outputLines[0].outputRuns.length).toBe(1);
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[0].outputRuns[0].format).toBe(undefined);
+		expect(outputLines[0].outputRuns[0].text).toBe('0000000000000000000000000000000000000000000000000000000000000000000000XXXXXXXXXX');
 	});
 
-	test('Test CUD (Cursor Down)', () => {
+	it('Test CUD (Cursor Down)', () => {
 		// Setup.
 		const ansiOutput = setupStandardScreen();
 		ansiOutput.processOutput(makeCUP());
@@ -860,7 +861,7 @@ suite('ANSIOutput', () => {
 		checkOutputPosition(ansiOutput, 112, 0);
 	});
 
-	test('Test CUF (Cursor Forward)', () => {
+	it('Test CUF (Cursor Forward)', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput('0'.repeat(80));
@@ -877,7 +878,7 @@ suite('ANSIOutput', () => {
 		checkOutputPosition(ansiOutput, 0, 112);
 	});
 
-	test('Test CUF (Cursor Forward) to start of line', () => {
+	it('Test CUF (Cursor Forward) to start of line', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput('0'.repeat(80));
@@ -887,14 +888,14 @@ suite('ANSIOutput', () => {
 		const outputLines = ansiOutput.outputLines;
 
 		// Test.
-		assert.equal(outputLines.length, 1);
-		assert.equal(outputLines[0].outputRuns.length, 1);
-		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
-		assert.equal(outputLines[0].outputRuns[0].format, undefined);
-		assert.equal(outputLines[0].outputRuns[0].text, '0XXXXXXXXXX000000000000000000000000000000000000000000000000000000000000000000000');
+		expect(outputLines.length).toBe(1);
+		expect(outputLines[0].outputRuns.length).toBe(1);
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[0].outputRuns[0].format).toBe(undefined);
+		expect(outputLines[0].outputRuns[0].text).toBe('0XXXXXXXXXX000000000000000000000000000000000000000000000000000000000000000000000');
 	});
 
-	test('Test CUF (Cursor Forward) to middle of line', () => {
+	it('Test CUF (Cursor Forward) to middle of line', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput('0'.repeat(80));
@@ -904,14 +905,14 @@ suite('ANSIOutput', () => {
 		const outputLines = ansiOutput.outputLines;
 
 		// Test.
-		assert.equal(outputLines.length, 1);
-		assert.equal(outputLines[0].outputRuns.length, 1);
-		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
-		assert.equal(outputLines[0].outputRuns[0].format, undefined);
-		assert.equal(outputLines[0].outputRuns[0].text, '00000000000000000000000000000000000XXXXXXXXXX00000000000000000000000000000000000');
+		expect(outputLines.length).toBe(1);
+		expect(outputLines[0].outputRuns.length).toBe(1);
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[0].outputRuns[0].format).toBe(undefined);
+		expect(outputLines[0].outputRuns[0].text).toBe('00000000000000000000000000000000000XXXXXXXXXX00000000000000000000000000000000000');
 	});
 
-	test('Test CUF (Cursor Forward) to end of line', () => {
+	it('Test CUF (Cursor Forward) to end of line', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput('0'.repeat(80));
@@ -921,14 +922,14 @@ suite('ANSIOutput', () => {
 		const outputLines = ansiOutput.outputLines;
 
 		// Test.
-		assert.equal(outputLines.length, 1);
-		assert.equal(outputLines[0].outputRuns.length, 1);
-		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
-		assert.equal(outputLines[0].outputRuns[0].format, undefined);
-		assert.equal(outputLines[0].outputRuns[0].text, '0000000000000000000000000000000000000000000000000000000000000000000000XXXXXXXXXX');
+		expect(outputLines.length).toBe(1);
+		expect(outputLines[0].outputRuns.length).toBe(1);
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[0].outputRuns[0].format).toBe(undefined);
+		expect(outputLines[0].outputRuns[0].text).toBe('0000000000000000000000000000000000000000000000000000000000000000000000XXXXXXXXXX');
 	});
 
-	test('Tests CUP (Cursor Position)', () => {
+	it('Tests CUP (Cursor Position)', () => {
 		// Setup.
 		const ansiOutput = setupStandardScreen();
 
@@ -943,7 +944,7 @@ suite('ANSIOutput', () => {
 		checkOutputPosition(ansiOutput, 8191, 8191);
 	});
 
-	test('Tests CUU (Cursor Up)', () => {
+	it('Tests CUU (Cursor Up)', () => {
 		// Setup.
 		const ansiOutput = setupStandardScreen();
 
@@ -958,7 +959,7 @@ suite('ANSIOutput', () => {
 		checkOutputPosition(ansiOutput, 0, 80);
 	});
 
-	test('Tests end of screen ED using implicit 0', () => {
+	it('Tests end of screen ED using implicit 0', () => {
 		// Setup.
 		const ansiOutput = setupStandardScreen();
 		ansiOutput.processOutput(makeCUP(13, 41));
@@ -967,20 +968,20 @@ suite('ANSIOutput', () => {
 		ansiOutput.processOutput(makeED('end-of-screen'));
 		const zeros = '0'.repeat(80);
 		for (let i = 0; i < 12; i++) {
-			assert.equal(ansiOutput.outputLines[i].outputRuns.length, 1);
-			assert.equal(ansiOutput.outputLines[i].outputRuns[0].text, zeros);
+			expect(ansiOutput.outputLines[i].outputRuns.length).toBe(1);
+			expect(ansiOutput.outputLines[i].outputRuns[0].text).toBe(zeros);
 		}
-		assert.equal(ansiOutput.outputLines[12].outputRuns.length, 2);
-		assert.equal(ansiOutput.outputLines[12].outputRuns[0].text, '0000000000000000000000000000000000000000');
-		assert.equal(ansiOutput.outputLines[12].outputRuns[1].text, '                                        ');
+		expect(ansiOutput.outputLines[12].outputRuns.length).toBe(2);
+		expect(ansiOutput.outputLines[12].outputRuns[0].text).toBe('0000000000000000000000000000000000000000');
+		expect(ansiOutput.outputLines[12].outputRuns[1].text).toBe('                                        ');
 		const spaces = ' '.repeat(80);
 		for (let i = 13; i < 24; i++) {
-			assert.equal(ansiOutput.outputLines[i].outputRuns.length, 1);
-			assert.equal(ansiOutput.outputLines[i].outputRuns[0].text, spaces);
+			expect(ansiOutput.outputLines[i].outputRuns.length).toBe(1);
+			expect(ansiOutput.outputLines[i].outputRuns[0].text).toBe(spaces);
 		}
 	});
 
-	test('Tests end of screen ED using explicit 0', () => {
+	it('Tests end of screen ED using explicit 0', () => {
 		// Setup.
 		const ansiOutput = setupStandardScreen();
 		ansiOutput.processOutput(makeCUP(13, 41));
@@ -990,20 +991,20 @@ suite('ANSIOutput', () => {
 		ansiOutput.processOutput(makeED('end-of-screen-explicit-0'));
 		const zeros = '0'.repeat(80);
 		for (let i = 0; i < 12; i++) {
-			assert.equal(ansiOutput.outputLines[i].outputRuns.length, 1);
-			assert.equal(ansiOutput.outputLines[i].outputRuns[0].text, zeros);
+			expect(ansiOutput.outputLines[i].outputRuns.length).toBe(1);
+			expect(ansiOutput.outputLines[i].outputRuns[0].text).toBe(zeros);
 		}
-		assert.equal(ansiOutput.outputLines[12].outputRuns.length, 2);
-		assert.equal(ansiOutput.outputLines[12].outputRuns[0].text, '0000000000000000000000000000000000000000');
-		assert.equal(ansiOutput.outputLines[12].outputRuns[1].text, '                                        ');
+		expect(ansiOutput.outputLines[12].outputRuns.length).toBe(2);
+		expect(ansiOutput.outputLines[12].outputRuns[0].text).toBe('0000000000000000000000000000000000000000');
+		expect(ansiOutput.outputLines[12].outputRuns[1].text).toBe('                                        ');
 		const spaces = ' '.repeat(80);
 		for (let i = 13; i < 24; i++) {
-			assert.equal(ansiOutput.outputLines[i].outputRuns.length, 1);
-			assert.equal(ansiOutput.outputLines[i].outputRuns[0].text, spaces);
+			expect(ansiOutput.outputLines[i].outputRuns.length).toBe(1);
+			expect(ansiOutput.outputLines[i].outputRuns[0].text).toBe(spaces);
 		}
 	});
 
-	test('Tests ED 1', () => {
+	it('Tests ED 1', () => {
 		// Setup.
 		const ansiOutput = setupStandardScreen();
 		ansiOutput.processOutput(makeCUP(13, 41));
@@ -1013,35 +1014,35 @@ suite('ANSIOutput', () => {
 		ansiOutput.processOutput(makeED('beginning-of-screen'));
 		const spaces = ' '.repeat(80);
 		for (let i = 0; i < 12; i++) {
-			assert.equal(ansiOutput.outputLines[i].outputRuns.length, 1);
-			assert.equal(ansiOutput.outputLines[i].outputRuns[0].text, spaces);
+			expect(ansiOutput.outputLines[i].outputRuns.length).toBe(1);
+			expect(ansiOutput.outputLines[i].outputRuns[0].text).toBe(spaces);
 		}
-		assert.equal(ansiOutput.outputLines[12].outputRuns.length, 2);
-		assert.equal(ansiOutput.outputLines[12].outputRuns[0].text, '                                        ');
-		assert.equal(ansiOutput.outputLines[12].outputRuns[1].text, '0000000000000000000000000000000000000000');
+		expect(ansiOutput.outputLines[12].outputRuns.length).toBe(2);
+		expect(ansiOutput.outputLines[12].outputRuns[0].text).toBe('                                        ');
+		expect(ansiOutput.outputLines[12].outputRuns[1].text).toBe('0000000000000000000000000000000000000000');
 		const zeros = '0'.repeat(80);
 		for (let i = 13; i < 24; i++) {
-			assert.equal(ansiOutput.outputLines[i].outputRuns.length, 1);
-			assert.equal(ansiOutput.outputLines[i].outputRuns[0].text, zeros);
+			expect(ansiOutput.outputLines[i].outputRuns.length).toBe(1);
+			expect(ansiOutput.outputLines[i].outputRuns[0].text).toBe(zeros);
 		}
 	});
 
-	test('Tests ED 2 from the bottom', () => {
+	it('Tests ED 2 from the bottom', () => {
 		// Setup.
 		const ansiOutput = setupStandardScreen();
 
 		// Test.
 		ansiOutput.processOutput(makeED('entire-screen'));
 		checkOutputPosition(ansiOutput, 24, 80);
-		assert.equal(ansiOutput.outputLines.length, 25);
+		expect(ansiOutput.outputLines.length).toBe(25);
 		const spaces = ' '.repeat(80);
 		for (let i = 0; i < 25; i++) {
-			assert.equal(ansiOutput.outputLines[i].outputRuns.length, 1);
-			assert.equal(ansiOutput.outputLines[i].outputRuns[0].text, spaces);
+			expect(ansiOutput.outputLines[i].outputRuns.length).toBe(1);
+			expect(ansiOutput.outputLines[i].outputRuns[0].text).toBe(spaces);
 		}
 	});
 
-	test('Tests ED 2 from the top', () => {
+	it('Tests ED 2 from the top', () => {
 		// Setup.
 		const ansiOutput = setupStandardScreen();
 		ansiOutput.processOutput(makeCUP());
@@ -1049,24 +1050,24 @@ suite('ANSIOutput', () => {
 		// Test.
 		ansiOutput.processOutput(makeED('entire-screen'));
 		checkOutputPosition(ansiOutput, 0, 0);
-		assert.equal(ansiOutput.outputLines.length, 25);
+		expect(ansiOutput.outputLines.length).toBe(25);
 		const spaces = ' '.repeat(80);
 		for (let i = 0; i < 25; i++) {
-			assert.equal(ansiOutput.outputLines[i].outputRuns.length, 1);
-			assert.equal(ansiOutput.outputLines[i].outputRuns[0].text, spaces);
+			expect(ansiOutput.outputLines[i].outputRuns.length).toBe(1);
+			expect(ansiOutput.outputLines[i].outputRuns[0].text).toBe(spaces);
 		}
 	});
 
-	test('Tests EL 0 when there is nothing to clear', () => {
+	it('Tests EL 0 when there is nothing to clear', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
 
 		// Test.
 		ansiOutput.processOutput(makeEL('end-of-line'));
-		assert.equal(ansiOutput.outputLines[0].outputRuns.length, 0);
+		expect(ansiOutput.outputLines[0].outputRuns.length).toBe(0);
 	});
 
-	test('Tests EL 0 using implicit 0', () => {
+	it('Tests EL 0 using implicit 0', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput('0'.repeat(80));
@@ -1074,11 +1075,11 @@ suite('ANSIOutput', () => {
 
 		// Test.
 		ansiOutput.processOutput(makeEL('end-of-line'));
-		assert.equal(ansiOutput.outputLines[0].outputRuns.length, 1);
-		assert.equal(ansiOutput.outputLines[0].outputRuns[0].text, ' '.repeat(80));
+		expect(ansiOutput.outputLines[0].outputRuns.length).toBe(1);
+		expect(ansiOutput.outputLines[0].outputRuns[0].text).toBe(' '.repeat(80));
 	});
 
-	test('Tests EL 0 using explicit 0', () => {
+	it('Tests EL 0 using explicit 0', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput('0'.repeat(80));
@@ -1086,22 +1087,22 @@ suite('ANSIOutput', () => {
 
 		// Test.
 		ansiOutput.processOutput(makeEL('end-of-line-explicit-0'));
-		assert.equal(ansiOutput.outputLines[0].outputRuns.length, 1);
-		assert.equal(ansiOutput.outputLines[0].outputRuns[0].text, ' '.repeat(80));
+		expect(ansiOutput.outputLines[0].outputRuns.length).toBe(1);
+		expect(ansiOutput.outputLines[0].outputRuns[0].text).toBe(' '.repeat(80));
 	});
 
-	test('Tests EL 1', () => {
+	it('Tests EL 1', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput('0'.repeat(80));
 
 		// Test.
 		ansiOutput.processOutput(makeEL('beginning-of-line'));
-		assert.equal(ansiOutput.outputLines[0].outputRuns.length, 1);
-		assert.equal(ansiOutput.outputLines[0].outputRuns[0].text, ' '.repeat(80));
+		expect(ansiOutput.outputLines[0].outputRuns.length).toBe(1);
+		expect(ansiOutput.outputLines[0].outputRuns[0].text).toBe(' '.repeat(80));
 	});
 
-	test('Tests EL 2', () => {
+	it('Tests EL 2', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput('0'.repeat(80));
@@ -1109,11 +1110,11 @@ suite('ANSIOutput', () => {
 
 		// Test.
 		ansiOutput.processOutput(makeEL('entire-line'));
-		assert.equal(ansiOutput.outputLines[0].outputRuns.length, 1);
-		assert.equal(ansiOutput.outputLines[0].outputRuns[0].text, ' '.repeat(80));
+		expect(ansiOutput.outputLines[0].outputRuns.length).toBe(1);
+		expect(ansiOutput.outputLines[0].outputRuns[0].text).toBe(' '.repeat(80));
 	});
 
-	test('Tests foreground colors with no background colors', () => {
+	it('Tests foreground colors with no background colors', () => {
 		// Create the test scenarios.
 		const testScenarios: SGRTestScenario[] = [
 			{
@@ -1254,23 +1255,23 @@ suite('ANSIOutput', () => {
 			const outputLines = ansiOutput.outputLines;
 
 			// Tests that there's one output line and one output run in it.
-			assert.equal(outputLines.length, 1);
-			assert.equal(outputLines[0].outputRuns.length, 1);
+			expect(outputLines.length).toBe(1);
+			expect(outputLines[0].outputRuns.length).toBe(1);
 
 			// Test that the output run text is correct.
-			assert.equal(outputLines[0].outputRuns[0].text, PANGRAM);
+			expect(outputLines[0].outputRuns[0].text).toBe(PANGRAM);
 
 			// Test that the output format is correct.
-			assert.notEqual(outputLines[0].outputRuns[0].format, undefined);
-			assert.equal(outputLines[0].outputRuns[0].format!.styles, testScenario.ansiFormat.styles);
-			assert.equal(outputLines[0].outputRuns[0].format!.foregroundColor, testScenario.ansiFormat.foregroundColor);
-			assert.equal(outputLines[0].outputRuns[0].format!.backgroundColor, testScenario.ansiFormat.backgroundColor);
-			assert.equal(outputLines[0].outputRuns[0].format!.underlinedColor, testScenario.ansiFormat.underlinedColor);
-			assert.equal(outputLines[0].outputRuns[0].format!.font, testScenario.ansiFormat.font);
+			expect(outputLines[0].outputRuns[0].format).not.toBe(undefined);
+			expect(outputLines[0].outputRuns[0].format!.styles).toBe(testScenario.ansiFormat.styles);
+			expect(outputLines[0].outputRuns[0].format!.foregroundColor).toBe(testScenario.ansiFormat.foregroundColor);
+			expect(outputLines[0].outputRuns[0].format!.backgroundColor).toBe(testScenario.ansiFormat.backgroundColor);
+			expect(outputLines[0].outputRuns[0].format!.underlinedColor).toBe(testScenario.ansiFormat.underlinedColor);
+			expect(outputLines[0].outputRuns[0].format!.font).toBe(testScenario.ansiFormat.font);
 		}
 	});
 
-	test('Tests background colors and automatically contrasting foreground colors', () => {
+	it('Tests background colors and automatically contrasting foreground colors', () => {
 		// Create the test scenarios.
 		const testScenarios: SGRTestScenario[] = [
 			{
@@ -1427,23 +1428,23 @@ suite('ANSIOutput', () => {
 			const outputLines = ansiOutput.outputLines;
 
 			// Tests that there's one output line and one output run in it.
-			assert.equal(outputLines.length, 1);
-			assert.equal(outputLines[0].outputRuns.length, 1);
+			expect(outputLines.length).toBe(1);
+			expect(outputLines[0].outputRuns.length).toBe(1);
 
 			// Test that the output run text is correct.
-			assert.equal(outputLines[0].outputRuns[0].text, PANGRAM);
+			expect(outputLines[0].outputRuns[0].text).toBe(PANGRAM);
 
 			// Test that the output format is correct.
-			assert.notEqual(outputLines[0].outputRuns[0].format, undefined);
-			assert.equal(outputLines[0].outputRuns[0].format!.styles, testScenario.ansiFormat.styles);
-			assert.equal(outputLines[0].outputRuns[0].format!.foregroundColor, testScenario.ansiFormat.foregroundColor);
-			assert.equal(outputLines[0].outputRuns[0].format!.backgroundColor, testScenario.ansiFormat.backgroundColor);
-			assert.equal(outputLines[0].outputRuns[0].format!.underlinedColor, testScenario.ansiFormat.underlinedColor);
-			assert.equal(outputLines[0].outputRuns[0].format!.font, testScenario.ansiFormat.font);
+			expect(outputLines[0].outputRuns[0].format).not.toBe(undefined);
+			expect(outputLines[0].outputRuns[0].format!.styles).toBe(testScenario.ansiFormat.styles);
+			expect(outputLines[0].outputRuns[0].format!.foregroundColor).toBe(testScenario.ansiFormat.foregroundColor);
+			expect(outputLines[0].outputRuns[0].format!.backgroundColor).toBe(testScenario.ansiFormat.backgroundColor);
+			expect(outputLines[0].outputRuns[0].format!.underlinedColor).toBe(testScenario.ansiFormat.underlinedColor);
+			expect(outputLines[0].outputRuns[0].format!.font).toBe(testScenario.ansiFormat.font);
 		}
 	});
 
-	test('Tests ANSI 16 matrix', () => {
+	it('Tests ANSI 16 matrix', () => {
 		/**
 		 * SGRToAnsiColorMap type.
 		 */
@@ -1511,23 +1512,23 @@ suite('ANSIOutput', () => {
 			const outputLines = ansiOutput.outputLines;
 
 			// Tests that there's one output line and one output run in it.
-			assert.equal(outputLines.length, 1);
-			assert.equal(outputLines[0].outputRuns.length, 1);
+			expect(outputLines.length).toBe(1);
+			expect(outputLines[0].outputRuns.length).toBe(1);
 
 			// Test that the output run text is correct.
-			assert.equal(outputLines[0].outputRuns[0].text, PANGRAM);
+			expect(outputLines[0].outputRuns[0].text).toBe(PANGRAM);
 
 			// Test that the output format is correct.
-			assert.notEqual(outputLines[0].outputRuns[0].format, undefined);
-			assert.equal(outputLines[0].outputRuns[0].format!.styles, testScenario.ansiFormat.styles);
-			assert.equal(outputLines[0].outputRuns[0].format!.foregroundColor, testScenario.ansiFormat.foregroundColor);
-			assert.equal(outputLines[0].outputRuns[0].format!.backgroundColor, testScenario.ansiFormat.backgroundColor);
-			assert.equal(outputLines[0].outputRuns[0].format!.underlinedColor, testScenario.ansiFormat.underlinedColor);
-			assert.equal(outputLines[0].outputRuns[0].format!.font, testScenario.ansiFormat.font);
+			expect(outputLines[0].outputRuns[0].format).not.toBe(undefined);
+			expect(outputLines[0].outputRuns[0].format!.styles).toBe(testScenario.ansiFormat.styles);
+			expect(outputLines[0].outputRuns[0].format!.foregroundColor).toBe(testScenario.ansiFormat.foregroundColor);
+			expect(outputLines[0].outputRuns[0].format!.backgroundColor).toBe(testScenario.ansiFormat.backgroundColor);
+			expect(outputLines[0].outputRuns[0].format!.underlinedColor).toBe(testScenario.ansiFormat.underlinedColor);
+			expect(outputLines[0].outputRuns[0].format!.font).toBe(testScenario.ansiFormat.font);
 		}
 	});
 
-	test('Tests ANSI 256 matrix', () => {
+	it('Tests ANSI 256 matrix', { timeout: 30_000 }, () => {
 		const testScenarios: SGRTestScenario[] = [];
 		for (let foregroundIndex = 0; foregroundIndex < 256; foregroundIndex++) {
 			for (let backgroundIndex = 0; backgroundIndex < 256; backgroundIndex++) {
@@ -1556,23 +1557,23 @@ suite('ANSIOutput', () => {
 			const outputLines = ansiOutput.outputLines;
 
 			// Tests that there's one output line and one output run in it.
-			assert.equal(outputLines.length, 1);
-			assert.equal(outputLines[0].outputRuns.length, 1);
+			expect(outputLines.length).toBe(1);
+			expect(outputLines[0].outputRuns.length).toBe(1);
 
 			// Test that the output run text is correct.
-			assert.equal(outputLines[0].outputRuns[0].text, PANGRAM);
+			expect(outputLines[0].outputRuns[0].text).toBe(PANGRAM);
 
 			// Test that the output format is correct.
-			assert.notEqual(outputLines[0].outputRuns[0].format, undefined);
-			assert.equal(outputLines[0].outputRuns[0].format!.styles, testScenario.ansiFormat.styles);
-			assert.equal(outputLines[0].outputRuns[0].format!.foregroundColor, testScenario.ansiFormat.foregroundColor);
-			assert.equal(outputLines[0].outputRuns[0].format!.backgroundColor, testScenario.ansiFormat.backgroundColor);
-			assert.equal(outputLines[0].outputRuns[0].format!.underlinedColor, testScenario.ansiFormat.underlinedColor);
-			assert.equal(outputLines[0].outputRuns[0].format!.font, testScenario.ansiFormat.font);
+			expect(outputLines[0].outputRuns[0].format).not.toBe(undefined);
+			expect(outputLines[0].outputRuns[0].format!.styles).toBe(testScenario.ansiFormat.styles);
+			expect(outputLines[0].outputRuns[0].format!.foregroundColor).toBe(testScenario.ansiFormat.foregroundColor);
+			expect(outputLines[0].outputRuns[0].format!.backgroundColor).toBe(testScenario.ansiFormat.backgroundColor);
+			expect(outputLines[0].outputRuns[0].format!.underlinedColor).toBe(testScenario.ansiFormat.underlinedColor);
+			expect(outputLines[0].outputRuns[0].format!.font).toBe(testScenario.ansiFormat.font);
 		}
 	});
 
-	test('Tests ANSI RGB matrix', () => {
+	it('Tests ANSI RGB matrix', { timeout: 30_000 }, () => {
 		const testScenarios: SGRTestScenario[] = [];
 		for (let r = 0; r < 256; r++) {
 			for (let g = 0; g < 256; g++) {
@@ -1605,23 +1606,23 @@ suite('ANSIOutput', () => {
 			const outputLines = ansiOutput.outputLines;
 
 			// Tests that there's one output line and one output run in it.
-			assert.equal(outputLines.length, 1);
-			assert.equal(outputLines[0].outputRuns.length, 1);
+			expect(outputLines.length).toBe(1);
+			expect(outputLines[0].outputRuns.length).toBe(1);
 
 			// Test that the output run text is correct.
-			assert.equal(outputLines[0].outputRuns[0].text, PANGRAM);
+			expect(outputLines[0].outputRuns[0].text).toBe(PANGRAM);
 
 			// Test that the output format is correct.
-			assert.notEqual(outputLines[0].outputRuns[0].format, undefined);
-			assert.equal(outputLines[0].outputRuns[0].format!.styles, testScenario.ansiFormat.styles);
-			assert.equal(outputLines[0].outputRuns[0].format!.foregroundColor, testScenario.ansiFormat.foregroundColor);
-			assert.equal(outputLines[0].outputRuns[0].format!.backgroundColor, testScenario.ansiFormat.backgroundColor);
-			assert.equal(outputLines[0].outputRuns[0].format!.underlinedColor, testScenario.ansiFormat.underlinedColor);
-			assert.equal(outputLines[0].outputRuns[0].format!.font, testScenario.ansiFormat.font);
+			expect(outputLines[0].outputRuns[0].format).not.toBe(undefined);
+			expect(outputLines[0].outputRuns[0].format!.styles).toBe(testScenario.ansiFormat.styles);
+			expect(outputLines[0].outputRuns[0].format!.foregroundColor).toBe(testScenario.ansiFormat.foregroundColor);
+			expect(outputLines[0].outputRuns[0].format!.backgroundColor).toBe(testScenario.ansiFormat.backgroundColor);
+			expect(outputLines[0].outputRuns[0].format!.underlinedColor).toBe(testScenario.ansiFormat.underlinedColor);
+			expect(outputLines[0].outputRuns[0].format!.font).toBe(testScenario.ansiFormat.font);
 		}
 	});
 
-	test('Tests insertion of blue text into an output run of red text', () => {
+	it('Tests insertion of blue text into an output run of red text', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
 		// Create a red output run.
@@ -1632,57 +1633,57 @@ suite('ANSIOutput', () => {
 		const outputLines = ansiOutput.outputLines;
 
 		// Test.
-		assert.equal(outputLines.length, 1);
-		assert.equal(outputLines[0].outputRuns.length, 3);
+		expect(outputLines.length).toBe(1);
+		expect(outputLines[0].outputRuns.length).toBe(3);
 
 		// First red segment.
-		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
-		assert.notEqual(outputLines[0].outputRuns[0].format, undefined);
-		assert.equal(outputLines[0].outputRuns[0].format!.styles, undefined);
-		assert.equal(outputLines[0].outputRuns[0].format!.foregroundColor, ANSIColor.Red);
-		assert.equal(outputLines[0].outputRuns[0].format!.backgroundColor, undefined);
-		assert.equal(outputLines[0].outputRuns[0].format!.underlinedColor, undefined);
-		assert.equal(outputLines[0].outputRuns[0].format!.font, undefined);
-		assert.equal(outputLines[0].outputRuns[0].text, '00000000000000000000000000000000000');
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[0].outputRuns[0].format).not.toBe(undefined);
+		expect(outputLines[0].outputRuns[0].format!.styles).toBe(undefined);
+		expect(outputLines[0].outputRuns[0].format!.foregroundColor).toBe(ANSIColor.Red);
+		expect(outputLines[0].outputRuns[0].format!.backgroundColor).toBe(undefined);
+		expect(outputLines[0].outputRuns[0].format!.underlinedColor).toBe(undefined);
+		expect(outputLines[0].outputRuns[0].format!.font).toBe(undefined);
+		expect(outputLines[0].outputRuns[0].text).toBe('00000000000000000000000000000000000');
 
 		// Inserted blue segment.
-		assert.ok(outputLines[0].outputRuns[1].id.length >= 1);
-		assert.notEqual(outputLines[0].outputRuns[1].format, undefined);
-		assert.equal(outputLines[0].outputRuns[1].format!.styles, undefined);
-		assert.equal(outputLines[0].outputRuns[1].format!.foregroundColor, ANSIColor.Blue);
-		assert.equal(outputLines[0].outputRuns[1].format!.backgroundColor, undefined);
-		assert.equal(outputLines[0].outputRuns[1].format!.underlinedColor, undefined);
-		assert.equal(outputLines[0].outputRuns[1].format!.font, undefined);
-		assert.equal(outputLines[0].outputRuns[1].text, 'XXXXXXXXXX');
+		expect(outputLines[0].outputRuns[1].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[0].outputRuns[1].format).not.toBe(undefined);
+		expect(outputLines[0].outputRuns[1].format!.styles).toBe(undefined);
+		expect(outputLines[0].outputRuns[1].format!.foregroundColor).toBe(ANSIColor.Blue);
+		expect(outputLines[0].outputRuns[1].format!.backgroundColor).toBe(undefined);
+		expect(outputLines[0].outputRuns[1].format!.underlinedColor).toBe(undefined);
+		expect(outputLines[0].outputRuns[1].format!.font).toBe(undefined);
+		expect(outputLines[0].outputRuns[1].text).toBe('XXXXXXXXXX');
 
 		// Second red segment.
-		assert.ok(outputLines[0].outputRuns[2].id.length >= 1);
-		assert.notEqual(outputLines[0].outputRuns[2].format, undefined);
-		assert.equal(outputLines[0].outputRuns[2].format!.styles, undefined);
-		assert.equal(outputLines[0].outputRuns[2].format!.foregroundColor, ANSIColor.Red);
-		assert.equal(outputLines[0].outputRuns[2].format!.backgroundColor, undefined);
-		assert.equal(outputLines[0].outputRuns[2].format!.underlinedColor, undefined);
-		assert.equal(outputLines[0].outputRuns[2].format!.font, undefined);
-		assert.equal(outputLines[0].outputRuns[2].text, '00000000000000000000000000000000000');
+		expect(outputLines[0].outputRuns[2].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[0].outputRuns[2].format).not.toBe(undefined);
+		expect(outputLines[0].outputRuns[2].format!.styles).toBe(undefined);
+		expect(outputLines[0].outputRuns[2].format!.foregroundColor).toBe(ANSIColor.Red);
+		expect(outputLines[0].outputRuns[2].format!.backgroundColor).toBe(undefined);
+		expect(outputLines[0].outputRuns[2].format!.underlinedColor).toBe(undefined);
+		expect(outputLines[0].outputRuns[2].format!.font).toBe(undefined);
+		expect(outputLines[0].outputRuns[2].text).toBe('00000000000000000000000000000000000');
 	});
 
-	test('Tests styles', () => {
+	it('Tests styles', () => {
 		const testStyle = (sgr: SGRParam, ansiStyle: ANSIStyle) => {
 			// Setup.
 			const ansiOutput = new ANSIOutput();
 			ansiOutput.processOutput(`${makeSGR(sgr)}${'0'.repeat(80)}${makeSGR()}`);
 			const outputLines = ansiOutput.outputLines;
-			assert.equal(outputLines.length, 1);
-			assert.equal(outputLines[0].outputRuns.length, 1);
-			assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
-			assert.notEqual(outputLines[0].outputRuns[0].format, undefined);
-			assert.equal(outputLines[0].outputRuns[0].format!.styles!.length, 1);
-			assert.equal(outputLines[0].outputRuns[0].format!.styles![0], ansiStyle);
-			assert.equal(outputLines[0].outputRuns[0].format!.foregroundColor, undefined);
-			assert.equal(outputLines[0].outputRuns[0].format!.backgroundColor, undefined);
-			assert.equal(outputLines[0].outputRuns[0].format!.underlinedColor, undefined);
-			assert.equal(outputLines[0].outputRuns[0].format!.font, undefined);
-			assert.equal(outputLines[0].outputRuns[0].text, '0'.repeat(80));
+			expect(outputLines.length).toBe(1);
+			expect(outputLines[0].outputRuns.length).toBe(1);
+			expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
+			expect(outputLines[0].outputRuns[0].format).not.toBe(undefined);
+			expect(outputLines[0].outputRuns[0].format!.styles!.length).toBe(1);
+			expect(outputLines[0].outputRuns[0].format!.styles![0]).toBe(ansiStyle);
+			expect(outputLines[0].outputRuns[0].format!.foregroundColor).toBe(undefined);
+			expect(outputLines[0].outputRuns[0].format!.backgroundColor).toBe(undefined);
+			expect(outputLines[0].outputRuns[0].format!.underlinedColor).toBe(undefined);
+			expect(outputLines[0].outputRuns[0].format!.font).toBe(undefined);
+			expect(outputLines[0].outputRuns[0].text).toBe('0'.repeat(80));
 		};
 
 		testStyle(SGRParam.Bold, ANSIStyle.Bold);
@@ -1703,7 +1704,91 @@ suite('ANSIOutput', () => {
 		// testStyle(SGRParam.Subscript, ANSIStyle.Subscript);
 	});
 
-	test('Tests OSC 8 scenario 1', () => {
+	it('dropTop: no-op for non-positive counts', () => {
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(`A${LF}B${LF}C`);
+
+		expect(ansiOutput.dropTop(0)).toBe(0);
+		expect(ansiOutput.dropTop(-5)).toBe(0);
+		expect(ansiOutput.outputLines.length).toBe(3);
+		checkOutputPosition(ansiOutput, 2, 1);
+	});
+
+	it('dropTop: drops lines above the cursor', () => {
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(`A${LF}B${LF}C${LF}D`);
+		// Four lines: A, B, C, D. Cursor is on line 3 (the "D" line).
+		expect(ansiOutput.outputLines.length).toBe(4);
+		checkOutputPosition(ansiOutput, 3, 1);
+
+		expect(ansiOutput.dropTop(2)).toBe(2);
+
+		const remaining = ansiOutput.outputLines;
+		expect(remaining.length).toBe(2);
+		expect(remaining[0].outputRuns[0].text).toBe('C');
+		expect(remaining[1].outputRuns[0].text).toBe('D');
+		checkOutputPosition(ansiOutput, 1, 1);
+	});
+
+	it('dropTop: clamps to keep the cursor line', () => {
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(`A${LF}B${LF}C`);
+		// Cursor on line 2 ("C"), so at most 2 head lines can be dropped.
+		expect(ansiOutput.outputLines.length).toBe(3);
+		checkOutputPosition(ansiOutput, 2, 1);
+
+		expect(ansiOutput.dropTop(10)).toBe(2);
+
+		const remaining = ansiOutput.outputLines;
+		expect(remaining.length).toBe(1);
+		expect(remaining[0].outputRuns[0].text).toBe('C');
+		checkOutputPosition(ansiOutput, 0, 1);
+	});
+
+	it('dropTop: no-op when cursor is already on the first line', () => {
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput('only line');
+		checkOutputPosition(ansiOutput, 0, 9);
+
+		expect(ansiOutput.dropTop(5)).toBe(0);
+		expect(ansiOutput.outputLines.length).toBe(1);
+		checkOutputPosition(ansiOutput, 0, 9);
+	});
+
+	it('dropTop: subsequent input keeps SGR styling after drop', () => {
+		const ansiOutput = new ANSIOutput();
+		// Enter red, write three lines, scroll off, then append another line without a new SGR;
+		// it should still render red because the SGR state is preserved.
+		ansiOutput.processOutput(`${makeSGR(SGRParam.ForegroundRed)}A${LF}B${LF}C`);
+		expect(ansiOutput.outputLines.length).toBe(3);
+
+		ansiOutput.dropTop(2);
+		ansiOutput.processOutput(`${LF}D${makeSGR()}`);
+
+		const lines = ansiOutput.outputLines;
+		expect(lines.length).toBe(2);
+		expect(lines[0].outputRuns[0].text).toBe('C');
+		expect(lines[0].outputRuns[0].format!.foregroundColor).toBe(ANSIColor.Red);
+		expect(lines[1].outputRuns[0].text).toBe('D');
+		expect(lines[1].outputRuns[0].format!.foregroundColor).toBe(ANSIColor.Red);
+	});
+
+	it('dropTop: further appends index correctly relative to the retained tail', () => {
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(`A${LF}B${LF}C`);
+		ansiOutput.dropTop(2);
+		// Now only "C" remains; cursor on line 0 at column 1.
+		ansiOutput.processOutput(`${LF}D${LF}E`);
+
+		const lines = ansiOutput.outputLines;
+		expect(lines.length).toBe(3);
+		expect(lines[0].outputRuns[0].text).toBe('C');
+		expect(lines[1].outputRuns[0].text).toBe('D');
+		expect(lines[2].outputRuns[0].text).toBe('E');
+		checkOutputPosition(ansiOutput, 2, 1);
+	});
+
+	it('Tests OSC 8 scenario 1', () => {
 		// Setup.
 		const linkText = 'This is POSIT!!!';
 		const linkURL = 'http://www.posit.co';
@@ -1712,17 +1797,17 @@ suite('ANSIOutput', () => {
 		const outputLines = ansiOutput.outputLines;
 
 		// Test.
-		assert.equal(outputLines.length, 1);
-		assert.ok(outputLines[0].id.length >= 1);
-		assert.equal(outputLines[0].outputRuns.length, 1);
-		assert.equal(outputLines[0].outputRuns[0].format, undefined);
-		assert.notEqual(outputLines[0].outputRuns[0].hyperlink, undefined);
-		assert.equal(outputLines[0].outputRuns[0].hyperlink!.url, linkURL);
-		assert.equal(outputLines[0].outputRuns[0].hyperlink!.params, undefined);
-		assert.equal(outputLines[0].outputRuns[0].text, linkText);
+		expect(outputLines.length).toBe(1);
+		expect(outputLines[0].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[0].outputRuns.length).toBe(1);
+		expect(outputLines[0].outputRuns[0].format).toBe(undefined);
+		expect(outputLines[0].outputRuns[0].hyperlink).not.toBe(undefined);
+		expect(outputLines[0].outputRuns[0].hyperlink!.url).toBe(linkURL);
+		expect(outputLines[0].outputRuns[0].hyperlink!.params).toBe(undefined);
+		expect(outputLines[0].outputRuns[0].text).toBe(linkText);
 	});
 
-	test('Tests OSC 8 scenario 2', () => {
+	it('Tests OSC 8 scenario 2', () => {
 		// Setup.
 		const linkText = 'This is POSIT!!!';
 		const linkURL = 'http://www.posit.co';
@@ -1734,30 +1819,30 @@ suite('ANSIOutput', () => {
 		const outputLines = ansiOutput.outputLines;
 
 		// Test.
-		assert.equal(outputLines.length, 1);
+		expect(outputLines.length).toBe(1);
 
-		assert.ok(outputLines[0].id.length >= 1);
-		assert.equal(outputLines[0].outputRuns.length, 3);
+		expect(outputLines[0].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[0].outputRuns.length).toBe(3);
 
-		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
-		assert.equal(outputLines[0].outputRuns[0].format, undefined);
-		assert.equal(outputLines[0].outputRuns[0].hyperlink, undefined);
-		assert.equal(outputLines[0].outputRuns[0].text, PANGRAM);
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[0].outputRuns[0].format).toBe(undefined);
+		expect(outputLines[0].outputRuns[0].hyperlink).toBe(undefined);
+		expect(outputLines[0].outputRuns[0].text).toBe(PANGRAM);
 
-		assert.ok(outputLines[0].outputRuns[1].id.length >= 1);
-		assert.equal(outputLines[0].outputRuns[1].format, undefined);
-		assert.notEqual(outputLines[0].outputRuns[1].hyperlink, undefined);
-		assert.equal(outputLines[0].outputRuns[1].hyperlink!.url, linkURL);
-		assert.equal(outputLines[0].outputRuns[1].hyperlink!.params, undefined);
-		assert.equal(outputLines[0].outputRuns[1].text, linkText);
+		expect(outputLines[0].outputRuns[1].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[0].outputRuns[1].format).toBe(undefined);
+		expect(outputLines[0].outputRuns[1].hyperlink).not.toBe(undefined);
+		expect(outputLines[0].outputRuns[1].hyperlink!.url).toBe(linkURL);
+		expect(outputLines[0].outputRuns[1].hyperlink!.params).toBe(undefined);
+		expect(outputLines[0].outputRuns[1].text).toBe(linkText);
 
-		assert.ok(outputLines[0].outputRuns[2].id.length >= 1);
-		assert.equal(outputLines[0].outputRuns[2].format, undefined);
-		assert.equal(outputLines[0].outputRuns[2].hyperlink, undefined);
-		assert.equal(outputLines[0].outputRuns[2].text, PANGRAM);
+		expect(outputLines[0].outputRuns[2].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[0].outputRuns[2].format).toBe(undefined);
+		expect(outputLines[0].outputRuns[2].hyperlink).toBe(undefined);
+		expect(outputLines[0].outputRuns[2].text).toBe(PANGRAM);
 	});
 
-	test('Tests OSC 8 scenario 3', () => {
+	it('Tests OSC 8 scenario 3', () => {
 		// Setup.
 		const linkText = 'This is POSIT!!!';
 		const linkURL = 'http://www.posit.co';
@@ -1769,40 +1854,40 @@ suite('ANSIOutput', () => {
 		const outputLines = ansiOutput.outputLines;
 
 		// Test.
-		assert.equal(outputLines.length, 4);
+		expect(outputLines.length).toBe(4);
 
-		assert.ok(outputLines[0].id.length >= 1);
-		assert.equal(outputLines[0].outputRuns.length, 1);
-		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
-		assert.equal(outputLines[0].outputRuns[0].format, undefined);
-		assert.equal(outputLines[0].outputRuns[0].text, PANGRAM);
+		expect(outputLines[0].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[0].outputRuns.length).toBe(1);
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[0].outputRuns[0].format).toBe(undefined);
+		expect(outputLines[0].outputRuns[0].text).toBe(PANGRAM);
 
-		assert.ok(outputLines[1].id.length >= 1);
-		assert.equal(outputLines[1].outputRuns.length, 1);
-		assert.ok(outputLines[1].outputRuns[0].id.length >= 1);
-		assert.equal(outputLines[1].outputRuns[0].format, undefined);
-		assert.notEqual(outputLines[1].outputRuns[0].hyperlink, undefined);
-		assert.equal(outputLines[1].outputRuns[0].hyperlink!.url, linkURL);
-		assert.equal(outputLines[1].outputRuns[0].hyperlink!.params, undefined);
-		assert.equal(outputLines[1].outputRuns[0].text, linkText);
+		expect(outputLines[1].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[1].outputRuns.length).toBe(1);
+		expect(outputLines[1].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[1].outputRuns[0].format).toBe(undefined);
+		expect(outputLines[1].outputRuns[0].hyperlink).not.toBe(undefined);
+		expect(outputLines[1].outputRuns[0].hyperlink!.url).toBe(linkURL);
+		expect(outputLines[1].outputRuns[0].hyperlink!.params).toBe(undefined);
+		expect(outputLines[1].outputRuns[0].text).toBe(linkText);
 
-		assert.ok(outputLines[2].id.length >= 1);
-		assert.equal(outputLines[2].outputRuns.length, 1);
-		assert.ok(outputLines[2].outputRuns[0].id.length >= 1);
-		assert.equal(outputLines[2].outputRuns[0].format, undefined);
-		assert.notEqual(outputLines[2].outputRuns[0].hyperlink, undefined);
-		assert.equal(outputLines[2].outputRuns[0].hyperlink!.url, linkURL);
-		assert.equal(outputLines[1].outputRuns[0].hyperlink!.params, undefined);
-		assert.equal(outputLines[2].outputRuns[0].text, linkText);
+		expect(outputLines[2].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[2].outputRuns.length).toBe(1);
+		expect(outputLines[2].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[2].outputRuns[0].format).toBe(undefined);
+		expect(outputLines[2].outputRuns[0].hyperlink).not.toBe(undefined);
+		expect(outputLines[2].outputRuns[0].hyperlink!.url).toBe(linkURL);
+		expect(outputLines[2].outputRuns[0].hyperlink!.params).toBe(undefined);
+		expect(outputLines[2].outputRuns[0].text).toBe(linkText);
 
-		assert.ok(outputLines[3].id.length >= 1);
-		assert.equal(outputLines[3].outputRuns.length, 1);
-		assert.ok(outputLines[3].outputRuns[0].id.length >= 1);
-		assert.equal(outputLines[3].outputRuns[0].format, undefined);
-		assert.equal(outputLines[3].outputRuns[0].text, PANGRAM);
+		expect(outputLines[3].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[3].outputRuns.length).toBe(1);
+		expect(outputLines[3].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[3].outputRuns[0].format).toBe(undefined);
+		expect(outputLines[3].outputRuns[0].text).toBe(PANGRAM);
 	});
 
-	test('Tests OSC 8 scenario 4', () => {
+	it('Tests OSC 8 scenario 4', () => {
 		// Setup.
 		const linkText = 'This is POSIT!!!';
 		const linkURL = 'http://www.posit.co';
@@ -1814,39 +1899,39 @@ suite('ANSIOutput', () => {
 		const outputLines = ansiOutput.outputLines;
 
 		// Test.
-		assert.equal(outputLines.length, 4);
+		expect(outputLines.length).toBe(4);
 
-		assert.ok(outputLines[0].id.length >= 1);
-		assert.equal(outputLines[0].outputRuns.length, 1);
-		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
-		assert.equal(outputLines[0].outputRuns[0].format, undefined);
-		assert.equal(outputLines[0].outputRuns[0].text, PANGRAM);
+		expect(outputLines[0].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[0].outputRuns.length).toBe(1);
+		expect(outputLines[0].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[0].outputRuns[0].format).toBe(undefined);
+		expect(outputLines[0].outputRuns[0].text).toBe(PANGRAM);
 
-		assert.ok(outputLines[1].id.length >= 1);
-		assert.equal(outputLines[1].outputRuns.length, 1);
-		assert.ok(outputLines[1].outputRuns[0].id.length >= 1);
-		assert.notEqual(outputLines[1].outputRuns[0].format, undefined);
-		assert.equal(outputLines[1].outputRuns[0].format!.foregroundColor, ANSIColor.Red);
-		assert.notEqual(outputLines[1].outputRuns[0].hyperlink, undefined);
-		assert.equal(outputLines[1].outputRuns[0].hyperlink!.url, linkURL);
-		assert.equal(outputLines[1].outputRuns[0].hyperlink!.params, undefined);
-		assert.equal(outputLines[1].outputRuns[0].text, linkText);
+		expect(outputLines[1].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[1].outputRuns.length).toBe(1);
+		expect(outputLines[1].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[1].outputRuns[0].format).not.toBe(undefined);
+		expect(outputLines[1].outputRuns[0].format!.foregroundColor).toBe(ANSIColor.Red);
+		expect(outputLines[1].outputRuns[0].hyperlink).not.toBe(undefined);
+		expect(outputLines[1].outputRuns[0].hyperlink!.url).toBe(linkURL);
+		expect(outputLines[1].outputRuns[0].hyperlink!.params).toBe(undefined);
+		expect(outputLines[1].outputRuns[0].text).toBe(linkText);
 
-		assert.ok(outputLines[2].id.length >= 1);
-		assert.equal(outputLines[2].outputRuns.length, 1);
-		assert.ok(outputLines[2].outputRuns[0].id.length >= 1);
-		assert.notEqual(outputLines[2].outputRuns[0].format, undefined);
-		assert.equal(outputLines[2].outputRuns[0].format!.foregroundColor, ANSIColor.Red);
-		assert.notEqual(outputLines[2].outputRuns[0].hyperlink, undefined);
-		assert.equal(outputLines[2].outputRuns[0].hyperlink!.url, linkURL);
-		assert.equal(outputLines[2].outputRuns[0].hyperlink!.params, undefined);
-		assert.equal(outputLines[2].outputRuns[0].text, linkText);
+		expect(outputLines[2].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[2].outputRuns.length).toBe(1);
+		expect(outputLines[2].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[2].outputRuns[0].format).not.toBe(undefined);
+		expect(outputLines[2].outputRuns[0].format!.foregroundColor).toBe(ANSIColor.Red);
+		expect(outputLines[2].outputRuns[0].hyperlink).not.toBe(undefined);
+		expect(outputLines[2].outputRuns[0].hyperlink!.url).toBe(linkURL);
+		expect(outputLines[2].outputRuns[0].hyperlink!.params).toBe(undefined);
+		expect(outputLines[2].outputRuns[0].text).toBe(linkText);
 
-		assert.ok(outputLines[3].id.length >= 1);
-		assert.equal(outputLines[3].outputRuns.length, 1);
-		assert.ok(outputLines[3].outputRuns[0].id.length >= 1);
-		assert.equal(outputLines[3].outputRuns[0].format, undefined);
-		assert.equal(outputLines[3].outputRuns[0].text, PANGRAM);
+		expect(outputLines[3].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[3].outputRuns.length).toBe(1);
+		expect(outputLines[3].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
+		expect(outputLines[3].outputRuns[0].format).toBe(undefined);
+		expect(outputLines[3].outputRuns[0].text).toBe(PANGRAM);
 	});
 
 	test('dropTop: no-op for non-positive counts', () => {
@@ -1941,14 +2026,14 @@ suite('ANSIOutput', () => {
 		const outputLines = ansiOutput.outputLines;
 
 		// Tests.
-		assert.equal(outputLines.length, lines.length);
+		expect(outputLines.length).toBe(lines.length);
 		for (let i = 0; i < outputLines.length; i++) {
 			if (!lines[i].length) {
-				assert.equal(outputLines[i].outputRuns.length, 0);
+				expect(outputLines[i].outputRuns.length).toBe(0);
 			} else {
-				assert.ok(outputLines[i].id.length >= 1);
-				assert.equal(outputLines[i].outputRuns.length, 1);
-				assert.equal(outputLines[i].outputRuns[0].text.length, lines[i].length);
+				expect(outputLines[i].id.length).toBeGreaterThanOrEqual(1);
+				expect(outputLines[i].outputRuns.length).toBe(1);
+				expect(outputLines[i].outputRuns[0].text.length).toBe(lines[i].length);
 			}
 		}
 	};
@@ -1960,12 +2045,12 @@ suite('ANSIOutput', () => {
 	 * @param outputColumn The expected output column.
 	 */
 	const checkOutputPosition = (ansiOutput: ANSIOutput, outputLine: number, outputColumn: number) => {
-		assert.equal(ansiOutput['_outputLine' as keyof ANSIOutput] as unknown as number, outputLine);
-		assert.equal(ansiOutput['_outputColumn' as keyof ANSIOutput] as unknown as number, outputColumn);
+		expect(ansiOutput['_outputLine' as keyof ANSIOutput] as unknown as number).toBe(outputLine);
+		expect(ansiOutput['_outputColumn' as keyof ANSIOutput] as unknown as number).toBe(outputColumn);
 	};
 
 	// Ensure that no disposables are leaked.
-	ensureNoDisposablesAreLeakedInTestSuite();
+	ensureNoLeakedDisposables();
 });
 
 //#endregion Test Suite

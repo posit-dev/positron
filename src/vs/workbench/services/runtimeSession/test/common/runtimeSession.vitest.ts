@@ -3,33 +3,35 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as assert from 'assert';
-import * as sinon from 'sinon';
+/// <reference types="vitest/globals" />
+
 import { timeout } from '../../../../../base/common/async.js';
 import { Event } from '../../../../../base/common/event.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
-import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { IWorkspaceTrustManagementService } from '../../../../../platform/workspace/common/workspaceTrust.js';
 import { formatLanguageRuntimeMetadata, formatLanguageRuntimeSession, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, LanguageStartupBehavior, RuntimeExitReason, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeClientType, RuntimeStartMode } from '../../common/runtimeSessionService.js';
 import { TestLanguageRuntimeSession, waitForRuntimeState } from './testLanguageRuntimeSession.js';
-import { createRuntimeServices, createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from './testRuntimeSessionService.js';
+import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from './testRuntimeSessionService.js';
 import { TestRuntimeSessionManager } from '../../../../test/common/positronWorkbenchTestServices.js';
 import { TestWorkspaceTrustManagementService } from '../../../../test/common/workbenchTestServices.js';
 import { IConfigurationResolverService } from '../../../configurationResolver/common/configurationResolver.js';
 import { NotebookSetting } from '../../../../contrib/notebook/common/notebookCommon.js';
+import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 
 type IStartSessionTask = (runtime: ILanguageRuntimeMetadata) => Promise<TestLanguageRuntimeSession>;
 
-suite('Positron - RuntimeSessionService', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+describe('Positron - RuntimeSessionService', () => {
 	const startReason = 'Test requested to start a runtime session';
 	const notebookUri = URI.file('/path/to/notebook');
 	const notebookParent = '/path/to';
-	let instantiationService: TestInstantiationService;
+
+	const ctx = createTestContainer()
+		.withRuntimeServices()
+		.build();
+
 	let languageRuntimeService: ILanguageRuntimeService;
 	let runtimeSessionService: IRuntimeSessionService;
 	let configService: TestConfigurationService;
@@ -41,28 +43,27 @@ suite('Positron - RuntimeSessionService', () => {
 	let sessionName: string;
 	let unregisteredRuntime: ILanguageRuntimeMetadata;
 
-	setup(() => {
-		instantiationService = disposables.add(new TestInstantiationService());
-		createRuntimeServices(instantiationService, disposables);
-		languageRuntimeService = instantiationService.get(ILanguageRuntimeService);
-		runtimeSessionService = instantiationService.get(IRuntimeSessionService);
-		configService = instantiationService.get(IConfigurationService) as TestConfigurationService;
-		workspaceTrustManagementService = instantiationService.get(IWorkspaceTrustManagementService) as TestWorkspaceTrustManagementService;
-		configurationResolverService = instantiationService.get(IConfigurationResolverService);
+	beforeEach(() => {
+		languageRuntimeService = ctx.instantiationService.get(ILanguageRuntimeService);
+		runtimeSessionService = ctx.instantiationService.get(IRuntimeSessionService);
+		configService = ctx.instantiationService.get(IConfigurationService) as TestConfigurationService;
+		workspaceTrustManagementService = ctx.instantiationService.get(IWorkspaceTrustManagementService) as TestWorkspaceTrustManagementService;
+		configurationResolverService = ctx.instantiationService.get(IConfigurationResolverService);
 		manager = TestRuntimeSessionManager.instance;
 
-		// Dispose all sessions on teardown.
+		// Dispose all sessions when test ends.
 		// TODO: Should this happen in RuntimeSessionService.dispose() instead?
-		disposables.add({
+		ctx.disposables.add({
 			dispose() {
 				runtimeSessionService.activeSessions.forEach(session => session.dispose());
 			}
 		});
 
-		runtime = createTestLanguageRuntimeMetadata(instantiationService, disposables);
-		anotherRuntime = createTestLanguageRuntimeMetadata(instantiationService, disposables);
+		runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+		anotherRuntime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
 		sessionName = runtime.runtimeName;
-		unregisteredRuntime = { runtimeId: 'unregistered-runtime-id' } as ILanguageRuntimeMetadata;
+		// eslint-disable-next-line local/code-no-dangerous-type-assertions
+		unregisteredRuntime = { runtimeId: 'unregistered-runtime-id' } as unknown as ILanguageRuntimeMetadata;
 
 		// Enable automatic startup.
 		configService.setUserConfiguration('interpreters.startupBehavior', LanguageStartupBehavior.Auto);
@@ -77,8 +78,8 @@ suite('Positron - RuntimeSessionService', () => {
 		notebookUri?: URI,
 	) {
 		return startTestLanguageRuntimeSession(
-			instantiationService,
-			disposables,
+			ctx.instantiationService,
+			ctx.disposables,
 			{
 				runtime,
 				sessionName,
@@ -100,7 +101,7 @@ suite('Positron - RuntimeSessionService', () => {
 	function assertActiveSessions(expected: ILanguageRuntimeSession[]) {
 		const actualSessionIds = runtimeSessionService.activeSessions.map(session => session.sessionId);
 		const expectedSessionIds = expected.map(session => session.sessionId);
-		assert.deepStrictEqual(actualSessionIds, expectedSessionIds, 'Unexpected active sessions');
+		expect(actualSessionIds, 'Unexpected active sessions').toEqual(expectedSessionIds);
 	}
 
 	function assertConsoleSessionForLanguage(languageId: string, expected: ILanguageRuntimeSession | undefined) {
@@ -108,7 +109,7 @@ suite('Positron - RuntimeSessionService', () => {
 		const message = expected ?
 			`Unexpected last used console session for language '${languageId}'` :
 			`Expected no last used console session for language '${languageId}'`;
-		assert.strictEqual(actual?.sessionId, expected?.sessionId, message);
+		expect(actual?.sessionId, message).toBe(expected?.sessionId);
 	}
 
 	function assertConsoleSessionForRuntime(
@@ -119,7 +120,7 @@ suite('Positron - RuntimeSessionService', () => {
 		const message = expected ?
 			`Unexpected last used console session for runtime '${runtimeId}'` :
 			`Expected no last used console session for runtime '${runtimeId}'`;
-		assert.strictEqual(actual?.sessionId, expected?.sessionId, message);
+		expect(actual?.sessionId, message).toBe(expected?.sessionId);
 	}
 
 	function assertHasStartingOrRunningConsole(expected: boolean) {
@@ -127,7 +128,7 @@ suite('Positron - RuntimeSessionService', () => {
 		const message = expected ?
 			'Expected a starting or running console session but there was none' :
 			'Expected no starting or running console session but there was one';
-		assert.strictEqual(actual, expected, message);
+		expect(actual, message).toBe(expected);
 	}
 
 	function assertNotebookSessionForNotebookUri(
@@ -138,7 +139,7 @@ suite('Positron - RuntimeSessionService', () => {
 		const message = expected ?
 			`Unexpected notebook session for notebook URI '${notebookUri.toString()}'` :
 			`Expected no notebook session for notebook URI '${notebookUri.toString()}'`;
-		assert.strictEqual(actual?.sessionId, expected?.sessionId, message);
+		expect(actual?.sessionId, message).toBe(expected?.sessionId);
 	}
 
 	function assertSessionWillStart(
@@ -187,10 +188,10 @@ suite('Positron - RuntimeSessionService', () => {
 
 		// Ensure that the session gets disposed after the test.
 		const session = runtimeSessionService.getSession(sessionMetadata.sessionId);
-		assert.ok(session instanceof TestLanguageRuntimeSession);
-		disposables.add(session);
+		expect(session instanceof TestLanguageRuntimeSession).toBe(true);
+		ctx.disposables.add(session as TestLanguageRuntimeSession);
 
-		return session;
+		return session as TestLanguageRuntimeSession;
 	}
 
 	function restoreConsole(runtime: ILanguageRuntimeMetadata) {
@@ -217,11 +218,11 @@ suite('Positron - RuntimeSessionService', () => {
 
 	async function autoStartSession(runtime: ILanguageRuntimeMetadata) {
 		const sessionId = await runtimeSessionService.autoStartRuntime(runtime, startReason, true);
-		assert.ok(sessionId);
+		expect(sessionId).toBeTruthy();
 		const session = runtimeSessionService.getSession(sessionId);
-		assert.ok(session instanceof TestLanguageRuntimeSession);
-		disposables.add(session);
-		return session;
+		expect(session instanceof TestLanguageRuntimeSession).toBe(true);
+		ctx.disposables.add(session as TestLanguageRuntimeSession);
+		return session as TestLanguageRuntimeSession;
 	}
 
 	async function selectRuntime(runtime: ILanguageRuntimeMetadata, notebookUri?: URI) {
@@ -232,9 +233,9 @@ suite('Positron - RuntimeSessionService', () => {
 		} else {
 			session = runtimeSessionService.getConsoleSessionForRuntime(runtime.runtimeId);
 		}
-		assert.ok(session instanceof TestLanguageRuntimeSession, 'No session found after selecting runtime');
-		disposables.add(session);
-		return session;
+		expect(session instanceof TestLanguageRuntimeSession, 'No session found after selecting runtime').toBe(true);
+		ctx.disposables.add(session as TestLanguageRuntimeSession);
+		return session as TestLanguageRuntimeSession;
 	}
 
 	const data: { action: string; startConsole: IStartSessionTask; startNotebook?: IStartSessionTask }[] = [
@@ -251,23 +252,23 @@ suite('Positron - RuntimeSessionService', () => {
 				continue;
 			}
 
-			test(`${action} ${mode} returns the expected session`, async () => {
+			it(`${action} ${mode} returns the expected session`, async () => {
 				const session = await start(runtime);
 
-				assert.strictEqual(session.getRuntimeState(), RuntimeState.Starting);
-				assert.strictEqual(session.dynState.sessionName, sessionName);
-				assert.strictEqual(session.metadata.sessionMode, mode);
-				assert.strictEqual(session.metadata.startReason, startReason);
-				assert.strictEqual(session.runtimeMetadata, runtime);
+				expect(session.getRuntimeState()).toBe(RuntimeState.Starting);
+				expect(session.dynState.sessionName).toBe(sessionName);
+				expect(session.metadata.sessionMode).toBe(mode);
+				expect(session.metadata.startReason).toBe(startReason);
+				expect(session.runtimeMetadata).toBe(runtime);
 
 				if (mode === LanguageRuntimeSessionMode.Console) {
-					assert.strictEqual(session.metadata.notebookUri, undefined);
+					expect(session.metadata.notebookUri).toBe(undefined);
 				} else {
-					assert.strictEqual(session.metadata.notebookUri, notebookUri);
+					expect(session.metadata.notebookUri).toBe(notebookUri);
 				}
 			});
 
-			test(`${action} ${mode} sets the expected service state`, async () => {
+			it(`${action} ${mode} sets the expected service state`, async () => {
 				// Check the initial state.
 				assertActiveSessions([]);
 				assertConsoleSessionForLanguage(runtime.languageId, undefined);
@@ -285,41 +286,41 @@ suite('Positron - RuntimeSessionService', () => {
 				// Check the state after awaiting the promise.
 				assertActiveSessions([session]);
 				assertCurrentSession(runtime, notebookUri, session);
-				assert.strictEqual(session.getRuntimeState(), RuntimeState.Starting);
+				expect(session.getRuntimeState()).toBe(RuntimeState.Starting);
 			});
 
-			test(`${action} ${mode} fires onWillStartSession`, async function () {
+			it(`${action} ${mode} fires onWillStartSession`, async () => {
 				let error: Error | undefined;
-				const onWillStartSessionSpy = sinon.spy(({ session }: IRuntimeSessionWillStartEvent) => {
+				const onWillStartSessionSpy = vi.fn(({ session }: IRuntimeSessionWillStartEvent) => {
 					try {
-						assert.strictEqual(session.getRuntimeState(), RuntimeState.Uninitialized);
+						expect(session.getRuntimeState()).toBe(RuntimeState.Uninitialized);
 
 						// Check the service state when the event is fired.
 						assertSessionWillStart(runtime, mode, action);
 					} catch (e) {
-						error = e;
+						error = e as Error;
 					}
 				});
-				disposables.add(runtimeSessionService.onWillStartSession(onWillStartSessionSpy));
+				ctx.disposables.add(runtimeSessionService.onWillStartSession(onWillStartSessionSpy));
 				const session = await start(runtime);
 
-				sinon.assert.calledOnce(onWillStartSessionSpy);
+				expect(onWillStartSessionSpy).toHaveBeenCalledOnce();
 
-				const event = onWillStartSessionSpy.getCall(0).args[0];
+				const event = onWillStartSessionSpy.mock.calls[0][0];
 				if (action === 'restore') {
-					assert.strictEqual(event.startMode, RuntimeStartMode.Reconnecting);
+					expect(event.startMode).toBe(RuntimeStartMode.Reconnecting);
 				} else {
-					assert.strictEqual(event.startMode, RuntimeStartMode.Starting);
+					expect(event.startMode).toBe(RuntimeStartMode.Starting);
 				}
-				assert.strictEqual(event.session.sessionId, session.sessionId);
-				assert.strictEqual(event.activate, true);
+				expect(event.session.sessionId).toBe(session.sessionId);
+				expect(event.activate).toBe(true);
 
-				assert.ifError(error);
+				if (error) { throw error; }
 			});
 
-			test(`${action} ${mode} fires onDidStartRuntime`, async function () {
+			it(`${action} ${mode} fires onDidStartRuntime`, async () => {
 				let error: Error | undefined;
-				const onDidStartRuntimeSpy = sinon.stub<[e: ILanguageRuntimeSession]>().callsFake(session => {
+				const onDidStartRuntimeSpy = vi.fn((session: ILanguageRuntimeSession) => {
 					try {
 						// Check the service state when the event is fired.
 						assertActiveSessions([session]);
@@ -337,103 +338,102 @@ suite('Positron - RuntimeSessionService', () => {
 							assertHasStartingOrRunningConsole(false);
 							assertNotebookSessionForNotebookUri(notebookUri, session);
 						}
-						assert.strictEqual(session.getRuntimeState(), RuntimeState.Starting);
+						expect(session.getRuntimeState()).toBe(RuntimeState.Starting);
 					} catch (e) {
-						error = e;
+						error = e as Error;
 					}
 				});
-				disposables.add(runtimeSessionService.onDidStartRuntime(onDidStartRuntimeSpy));
+				ctx.disposables.add(runtimeSessionService.onDidStartRuntime(onDidStartRuntimeSpy));
 
 				const session = await start(runtime);
 
-				sinon.assert.calledOnce(onDidStartRuntimeSpy);
+				expect(onDidStartRuntimeSpy).toHaveBeenCalledOnce();
 
-				const actualSession = onDidStartRuntimeSpy.getCall(0).args[0];
-				assert.strictEqual(actualSession.sessionId, session.sessionId);
+				const actualSession = onDidStartRuntimeSpy.mock.calls[0][0];
+				expect(actualSession.sessionId).toBe(session.sessionId);
 
-				assert.ifError(error);
+				if (error) { throw error; }
 			});
 
-			test(`${action} ${mode} fires events in order`, async () => {
-				const willStartSession = sinon.spy();
-				disposables.add(runtimeSessionService.onWillStartSession(willStartSession));
+			it(`${action} ${mode} fires events in order`, async () => {
+				const willStartSession = vi.fn();
+				ctx.disposables.add(runtimeSessionService.onWillStartSession(willStartSession));
 
-				const didStartRuntime = sinon.spy();
-				disposables.add(runtimeSessionService.onDidStartRuntime(didStartRuntime));
+				const didStartRuntime = vi.fn();
+				ctx.disposables.add(runtimeSessionService.onDidStartRuntime(didStartRuntime));
 
 				await start(runtime);
 
-				sinon.assert.callOrder(willStartSession, didStartRuntime);
+				expect(willStartSession.mock.invocationCallOrder[0]).toBeLessThan(didStartRuntime.mock.invocationCallOrder[0]);
 			});
 
 			if (mode === LanguageRuntimeSessionMode.Console) {
-				test(`${action} ${mode} sets foregroundSession`, async () => {
-					const onDidChangeForegroundSessionSpy = sinon.spy();
-					disposables.add(runtimeSessionService.onDidChangeForegroundSession(onDidChangeForegroundSessionSpy));
+				it(`${action} ${mode} sets foregroundSession`, async () => {
+					const onDidChangeForegroundSessionSpy = vi.fn();
+					ctx.disposables.add(runtimeSessionService.onDidChangeForegroundSession(onDidChangeForegroundSessionSpy));
 
 					const session = await start(runtime);
 
-					assert.strictEqual(runtimeSessionService.foregroundSession?.sessionId, session.sessionId);
+					expect(runtimeSessionService.foregroundSession?.sessionId).toBe(session.sessionId);
 
 					await waitForRuntimeState(session, RuntimeState.Ready);
 
-					sinon.assert.called(onDidChangeForegroundSessionSpy);
+					expect(onDidChangeForegroundSessionSpy).toHaveBeenCalled();
 				});
 			}
 
 			if (action === 'start' || action === 'select') {
-				test(`${action} ${mode} throws for unknown runtime`, async () => {
+				it(`${action} ${mode} throws for unknown runtime`, async () => {
 					const runtimeId = 'unknown-runtime-id';
-					await assert.rejects(
-						start({ runtimeId } as ILanguageRuntimeMetadata,),
-						new Error(`No language runtime with id '${runtimeId}' was found.`),
-					);
+					await expect(
+						start({ runtimeId } as unknown as ILanguageRuntimeMetadata), // eslint-disable-line local/code-no-dangerous-type-assertions
+					).rejects.toThrow(`No language runtime with id '${runtimeId}' was found.`);
 				});
 			}
 
 			const createOrRestoreMethod = action === 'restore' ? 'restoreSession' : 'createSession';
-			test(`${action} ${mode} encounters ${createOrRestoreMethod}() error`, async () => {
+			it(`${action} ${mode} encounters ${createOrRestoreMethod}() error`, async () => {
 				const error = new Error('Failed to create session');
-				const stub = sinon.stub(manager, createOrRestoreMethod).rejects(error);
+				const stub = vi.spyOn(manager, createOrRestoreMethod as 'createSession' | 'restoreSession').mockRejectedValue(error);
 
-				await assert.rejects(start(runtime), error);
+				await expect(start(runtime)).rejects.toThrow(error.message);
 
 				// If we start now, without createOrRestoreMethod rejecting, it should work.
-				stub.restore();
+				stub.mockRestore();
 				const session = await start(runtime);
 
-				assert.strictEqual(session.getRuntimeState(), RuntimeState.Starting);
+				expect(session.getRuntimeState()).toBe(RuntimeState.Starting);
 			});
 
-			test(`${action} ${mode} encounters session.start() error`, async function () {
+			it(`${action} ${mode} encounters session.start() error`, async ({ skip }) => {
 				// TODO: This test currently fails because selecting the runtime exits early
 				//       if a session already exists for the runtime, even if the session is exited
 				//       or uninitialized. Is that the expected behavior?
 				if (action === 'select' && mode === LanguageRuntimeSessionMode.Console) {
-					this.skip();
+					skip();
 				}
 
 				// Listen to the onWillStartSession event and stub session.start() to throw an error.
-				const willStartSession = sinon.spy((e: IRuntimeSessionWillStartEvent) => {
-					sinon.stub(e.session, 'start').rejects(new Error('Session failed to start'));
+				const willStartSession = vi.fn((e: IRuntimeSessionWillStartEvent) => {
+					vi.spyOn(e.session, 'start').mockRejectedValue(new Error('Session failed to start'));
 				});
 				const willStartSessionDisposable = runtimeSessionService.onWillStartSession(willStartSession);
 
-				const didFailStartRuntime = sinon.spy();
-				disposables.add(runtimeSessionService.onDidFailStartRuntime(didFailStartRuntime));
+				const didFailStartRuntime = vi.fn();
+				ctx.disposables.add(runtimeSessionService.onDidFailStartRuntime(didFailStartRuntime));
 
-				const didStartRuntime = sinon.spy();
-				disposables.add(runtimeSessionService.onDidStartRuntime(didStartRuntime));
+				const didStartRuntime = vi.fn();
+				ctx.disposables.add(runtimeSessionService.onDidStartRuntime(didStartRuntime));
 
 				// Start the session. It should error.
-				await assert.rejects(start(runtime), new Error('Session failed to start'));
+				await expect(start(runtime)).rejects.toThrow('Session failed to start');
 
 				// The session should still be created.
-				assert.equal(runtimeSessionService.activeSessions.length, 1);
+				expect(runtimeSessionService.activeSessions.length).toBe(1);
 				const session1 = runtimeSessionService.activeSessions[0];
-				disposables.add(session1);
+				ctx.disposables.add(session1);
 
-				assert.strictEqual(session1.getRuntimeState(), RuntimeState.Uninitialized);
+				expect(session1.getRuntimeState()).toBe(RuntimeState.Uninitialized);
 
 				// The session should not be returned by any service methods
 				// but is still considered an active session.
@@ -448,9 +448,9 @@ suite('Positron - RuntimeSessionService', () => {
 				assertHasStartingOrRunningConsole(false);
 				assertNotebookSessionForNotebookUri(notebookUri, undefined);
 
-				sinon.assert.calledOnceWithExactly(didFailStartRuntime, session1);
-				sinon.assert.callOrder(willStartSession, didFailStartRuntime);
-				sinon.assert.notCalled(didStartRuntime);
+				expect(didFailStartRuntime).toHaveBeenCalledExactlyOnceWith(session1);
+				expect(willStartSession.mock.invocationCallOrder[0]).toBeLessThan(didFailStartRuntime.mock.invocationCallOrder[0]);
+				expect(didStartRuntime).not.toHaveBeenCalled();
 
 				// If we start now, without session.start() rejecting, it should work.
 				willStartSessionDisposable.dispose();
@@ -465,57 +465,56 @@ suite('Positron - RuntimeSessionService', () => {
 				}
 
 				assertCurrentSession(runtime, notebookUri, session2);
-				assert.strictEqual(session2.getRuntimeState(), RuntimeState.Starting);
+				expect(session2.getRuntimeState()).toBe(RuntimeState.Starting);
 			});
 
-			test(`${action} ${mode} concurrently encounters session.start() error`, async function () {
+			it(`${action} ${mode} concurrently encounters session.start() error`, async ({ skip }) => {
 				// TODO: Post multisession, concurrently restoring console sessions has undefined behavior.
 				if ((action === 'restore' && mode === LanguageRuntimeSessionMode.Console)) {
-					this.skip();
+					skip();
 				}
 				// Listen to the onWillStartSession event and stub session.start() to throw an error.
-				const willStartSession = sinon.spy((e: IRuntimeSessionWillStartEvent) => {
-					sinon.stub(e.session, 'start').rejects(new Error('Session failed to start'));
+				const willStartSession = vi.fn((e: IRuntimeSessionWillStartEvent) => {
+					vi.spyOn(e.session, 'start').mockRejectedValue(new Error('Session failed to start'));
 				});
-				disposables.add(runtimeSessionService.onWillStartSession(willStartSession));
+				ctx.disposables.add(runtimeSessionService.onWillStartSession(willStartSession));
 
 				// Start twice concurrently. Both should error.
 				await Promise.all([
-					assert.rejects(start(runtime)),
-					assert.rejects(start(runtime)),
+					expect(start(runtime)).rejects.toThrow(),
+					expect(start(runtime)).rejects.toThrow(),
 				]);
 			});
 
 			if (mode === LanguageRuntimeSessionMode.Notebook) {
-				test(`${action} ${mode} throws if another runtime is starting for the language`, async () => {
+				it(`${action} ${mode} throws if another runtime is starting for the language`, async () => {
 					const error = new Error(`Session for language runtime ${formatLanguageRuntimeMetadata(anotherRuntime)} cannot ` +
 						`be started because language runtime ${formatLanguageRuntimeMetadata(runtime)} ` +
 						`is already starting for the notebook ${notebookUri.toString()}.`
 						+ (action !== 'restore' ? ` Request source: ${startReason}` : ''));
 
-					await assert.rejects(
+					await expect(
 						Promise.all([
 							start(runtime),
 							start(anotherRuntime),
 						]),
-						error);
+					).rejects.toThrow(error.message);
 				});
 
-				test(`${action} ${mode} throws if another runtime is running for the language`, async () => {
+				it(`${action} ${mode} throws if another runtime is running for the language`, async () => {
 					const error = new Error(`A notebook for ${formatLanguageRuntimeMetadata(anotherRuntime)} cannot ` +
 						`be started because a notebook for ${formatLanguageRuntimeMetadata(runtime)} ` +
 						`is already running for the URI ${notebookUri.toString()}.` +
 						(action !== 'restore' ? ` Request source: ${startReason}` : ''));
 
 					await start(runtime);
-					await assert.rejects(
+					await expect(
 						start(anotherRuntime),
-						error,
-					);
+					).rejects.toThrow(error.message);
 				});
 			}
 
-			test(`${action} ${mode} successively`, async () => {
+			it(`${action} ${mode} successively`, async () => {
 				const session1 = await start(runtime);
 				const session2 = await start(runtime);
 				const session3 = await start(runtime);
@@ -524,42 +523,42 @@ suite('Positron - RuntimeSessionService', () => {
 					// Restoring/selecting a console any number of times should return the same session.
 					|| (mode === LanguageRuntimeSessionMode.Console
 						&& (action === 'restore' || action === 'select'))) {
-					assert.strictEqual(session1.sessionId, session2.sessionId);
-					assert.strictEqual(session2.sessionId, session3.sessionId);
+					expect(session1.sessionId).toBe(session2.sessionId);
+					expect(session2.sessionId).toBe(session3.sessionId);
 
 					assertActiveSessions([session1]);
 					assertCurrentSession(runtime, notebookUri, session1);
-					assert.strictEqual(session1.getRuntimeState(), RuntimeState.Starting);
+					expect(session1.getRuntimeState()).toBe(RuntimeState.Starting);
 				} else if (mode === LanguageRuntimeSessionMode.Console) {
-					assert.notStrictEqual(session1.sessionId, session2.sessionId);
-					assert.notStrictEqual(session2.sessionId, session3.sessionId);
+					expect(session1.sessionId).not.toBe(session2.sessionId);
+					expect(session2.sessionId).not.toBe(session3.sessionId);
 
 					assertActiveSessions([session1, session2, session3]);
 					assertCurrentSession(runtime, notebookUri, session3);
-					assert.strictEqual(session1.getRuntimeState(), RuntimeState.Starting);
-					assert.strictEqual(session2.getRuntimeState(), RuntimeState.Starting);
-					assert.strictEqual(session3.getRuntimeState(), RuntimeState.Starting);
+					expect(session1.getRuntimeState()).toBe(RuntimeState.Starting);
+					expect(session2.getRuntimeState()).toBe(RuntimeState.Starting);
+					expect(session3.getRuntimeState()).toBe(RuntimeState.Starting);
 				}
 			});
 
-			test(`${action} ${mode} concurrently`, async function () {
+			it(`${action} ${mode} concurrently`, async ({ skip }) => {
 				// TODO: Post multisession, concurrently restoring console sessions has undefined behavior.
 				if ((action === 'restore' && mode === LanguageRuntimeSessionMode.Console)) {
-					this.skip();
+					skip();
 				}
 				const [session1, session2, session3] = await Promise.all([start(runtime), start(runtime), start(runtime)]);
 
-				assert.strictEqual(session1.sessionId, session2.sessionId);
-				assert.strictEqual(session2.sessionId, session3.sessionId);
+				expect(session1.sessionId).toBe(session2.sessionId);
+				expect(session2.sessionId).toBe(session3.sessionId);
 
 				assertActiveSessions([session1]);
 				assertCurrentSession(runtime, notebookUri, session1);
-				assert.strictEqual(session1.getRuntimeState(), RuntimeState.Starting);
+				expect(session1.getRuntimeState()).toBe(RuntimeState.Starting);
 			});
 
 			if (mode === LanguageRuntimeSessionMode.Console) {
-				test(`${action} console concurrently with no session manager for runtime (#5615)`, async () => {
-					sinon.stub(manager, 'managesRuntime').resolves(false);
+				it(`${action} console concurrently with no session manager for runtime (#5615)`, async () => {
+					vi.spyOn(manager, 'managesRuntime').mockResolvedValue(false);
 
 					// Start twice concurrently.
 					const promise1 = start(runtime);
@@ -568,22 +567,22 @@ suite('Positron - RuntimeSessionService', () => {
 					// Both promises should reject.
 					// This was not previously the case since the second call returns a deferred
 					// promise that does not necessarily resolve/reject with the first call.
-					await assert.rejects(promise1);
-					await assert.rejects(promise2);
+					await expect(promise1).rejects.toThrow();
+					await expect(promise2).rejects.toThrow();
 				});
 			}
 		}
 
 		if (startNotebook) {
-			test(`${action} console and notebook from the same runtime concurrently`, async () => {
+			it(`${action} console and notebook from the same runtime concurrently`, async () => {
 				// Consoles and notebooks shouldn't interfere with each other, even for the same runtime.
 				const [consoleSession, notebookSession] = await Promise.all([
 					startConsole(runtime),
 					startNotebook(runtime),
 				]);
 
-				assert.strictEqual(consoleSession.getRuntimeState(), RuntimeState.Starting);
-				assert.strictEqual(notebookSession.getRuntimeState(), RuntimeState.Starting);
+				expect(consoleSession.getRuntimeState()).toBe(RuntimeState.Starting);
+				expect(notebookSession.getRuntimeState()).toBe(RuntimeState.Starting);
 
 				assertActiveSessions([consoleSession, notebookSession]);
 				assertConsoleSessionForLanguage(runtime.languageId, consoleSession);
@@ -594,26 +593,25 @@ suite('Positron - RuntimeSessionService', () => {
 		}
 	}
 
-	test(`start notebook without notebook uri`, async () => {
-		await assert.rejects(
+	it(`start notebook without notebook uri`, async () => {
+		await expect(
 			startSession(runtime, LanguageRuntimeSessionMode.Notebook, undefined),
-			new Error('A notebook URI must be provided when starting a notebook session.'),
-		);
+		).rejects.toThrow('A notebook URI must be provided when starting a notebook session.');
 	});
 
-	test('restore console registers runtime if unregistered', async () => {
+	it('restore console registers runtime if unregistered', async () => {
 		// The runtime should not yet be registered.
-		assert.strictEqual(languageRuntimeService.getRegisteredRuntime(unregisteredRuntime.runtimeId), undefined);
+		expect(languageRuntimeService.getRegisteredRuntime(unregisteredRuntime.runtimeId)).toBe(undefined);
 
 		await restoreConsole(unregisteredRuntime);
 
 		// The runtime should now be registered.
-		assert.strictEqual(languageRuntimeService.getRegisteredRuntime(unregisteredRuntime.runtimeId), unregisteredRuntime);
+		expect(languageRuntimeService.getRegisteredRuntime(unregisteredRuntime.runtimeId)).toBe(unregisteredRuntime);
 	});
 
-	test('auto start validates runtime if unregistered', async () => {
+	it('auto start validates runtime if unregistered', async () => {
 		// The runtime should not yet be registered.
-		assert.strictEqual(languageRuntimeService.getRegisteredRuntime(unregisteredRuntime.runtimeId), undefined);
+		expect(languageRuntimeService.getRegisteredRuntime(unregisteredRuntime.runtimeId)).toBe(undefined);
 
 		// Update the validator to add extra runtime data.
 		const validatedMetadata: Partial<ILanguageRuntimeMetadata> = {
@@ -626,15 +624,14 @@ suite('Positron - RuntimeSessionService', () => {
 		await autoStartSession(unregisteredRuntime);
 
 		// The validated metadata should now be registered.
-		assert.deepStrictEqual(
+		expect(
 			languageRuntimeService.getRegisteredRuntime(unregisteredRuntime.runtimeId),
-			{ ...unregisteredRuntime, ...validatedMetadata }
-		);
+		).toEqual({ ...unregisteredRuntime, ...validatedMetadata });
 	});
 
-	test('auto start throws if runtime validation errors', async () => {
+	it('auto start throws if runtime validation errors', async () => {
 		// The runtime should not yet be registered.
-		assert.strictEqual(languageRuntimeService.getRegisteredRuntime(unregisteredRuntime.runtimeId), undefined);
+		expect(languageRuntimeService.getRegisteredRuntime(unregisteredRuntime.runtimeId)).toBe(undefined);
 
 		// Update the validator to throw.
 		const error = new Error('Failed to validate runtime metadata');
@@ -642,18 +639,18 @@ suite('Positron - RuntimeSessionService', () => {
 			throw error;
 		});
 
-		await assert.rejects(autoStartSession(unregisteredRuntime), error);
+		await expect(autoStartSession(unregisteredRuntime)).rejects.toThrow(error.message);
 
 		// The runtime should remain unregistered.
-		assert.strictEqual(languageRuntimeService.getRegisteredRuntime(unregisteredRuntime.runtimeId), undefined);
+		expect(languageRuntimeService.getRegisteredRuntime(unregisteredRuntime.runtimeId)).toBe(undefined);
 	});
 
-	test('auto start console does nothing if automatic startup is disabled', async () => {
+	it('auto start console does nothing if automatic startup is disabled', async () => {
 		configService.setUserConfiguration('interpreters.startupBehavior', LanguageStartupBehavior.Disabled);
 
 		const sessionId = await runtimeSessionService.autoStartRuntime(runtime, startReason, true);
 
-		assert.strictEqual(sessionId, '');
+		expect(sessionId).toBe('');
 
 		assertActiveSessions([]);
 		assertHasStartingOrRunningConsole(false);
@@ -663,7 +660,7 @@ suite('Positron - RuntimeSessionService', () => {
 	});
 
 	for (const action of ['auto start', 'start']) {
-		test(`${action} console in an untrusted workspace defers until trust is granted`, async () => {
+		it(`${action} console in an untrusted workspace defers until trust is granted`, async () => {
 			workspaceTrustManagementService.setWorkspaceTrust(false);
 
 			let sessionId: string;
@@ -674,7 +671,7 @@ suite('Positron - RuntimeSessionService', () => {
 					runtime.runtimeId, sessionName, LanguageRuntimeSessionMode.Console, undefined, startReason, RuntimeStartMode.Starting, true);
 			}
 
-			assert.strictEqual(sessionId, '');
+			expect(sessionId).toBe('');
 
 			assertActiveSessions([]);
 			assertConsoleSessionForLanguage(runtime.languageId, undefined);
@@ -686,18 +683,18 @@ suite('Positron - RuntimeSessionService', () => {
 
 			// The session should eventually start.
 			const session = await Event.toPromise(runtimeSessionService.onDidStartRuntime);
-			disposables.add(session);
+			ctx.disposables.add(session);
 
 			assertActiveSessions([session]);
 			assertCurrentSession(runtime, notebookUri, session);
-			assert.strictEqual(session.getRuntimeState(), RuntimeState.Starting);
+			expect(session.getRuntimeState()).toBe(RuntimeState.Starting);
 		});
 	}
 
-	test('start notebook in an untrusted workspace throws', async () => {
+	it('start notebook in an untrusted workspace throws', async () => {
 		workspaceTrustManagementService.setWorkspaceTrust(false);
 
-		await assert.rejects(startNotebook(runtime), new Error('Cannot start a notebook session in an untrusted workspace.'));
+		await expect(startNotebook(runtime)).rejects.toThrow('Cannot start a notebook session in an untrusted workspace.');
 	});
 
 	for (const state of [RuntimeState.Exited, RuntimeState.Uninitialized]) {
@@ -705,7 +702,7 @@ suite('Positron - RuntimeSessionService', () => {
 		//       This is because selecting the runtime exits early if a session already
 		//       exists for the runtime, even if the session is exited or uninitialized.
 		//       Is that the expected behavior?
-		test.skip(`select console in '${state}' state`, async () => {
+		it.skip(`select console in '${state}' state`, async () => {
 			// Start a console and override its state for this test.
 			const session = await startConsole(runtime);
 			if (session.getRuntimeState() !== state) {
@@ -720,51 +717,51 @@ suite('Positron - RuntimeSessionService', () => {
 			assertConsoleSessionForRuntime(runtime.runtimeId, session);
 			assertHasStartingOrRunningConsole(true);
 			assertNotebookSessionForNotebookUri(notebookUri, undefined);
-			assert.strictEqual(session.getRuntimeState(), RuntimeState.Starting);
+			expect(session.getRuntimeState()).toBe(RuntimeState.Starting);
 		});
 	}
 
-	test('select console while another runtime is running for the language', async () => {
+	it('select console while another runtime is running for the language', async () => {
 		const session1 = await startConsole(anotherRuntime);
 		await waitForRuntimeState(session1, RuntimeState.Ready);
 		const session2 = await selectRuntime(runtime);
 
-		assert.notStrictEqual(session1.sessionId, session2.sessionId);
+		expect(session1.sessionId).not.toBe(session2.sessionId);
 
 		assertActiveSessions([session1, session2]);
 		assertConsoleSessionForLanguage(runtime.languageId, session2);
 		assertConsoleSessionForRuntime(runtime.runtimeId, session2);
 		assertConsoleSessionForRuntime(anotherRuntime.runtimeId, session1);
 		assertHasStartingOrRunningConsole(true);
-		assert.strictEqual(session1.getRuntimeState(), RuntimeState.Ready);
-		assert.strictEqual(session2.getRuntimeState(), RuntimeState.Starting);
+		expect(session1.getRuntimeState()).toBe(RuntimeState.Ready);
+		expect(session2.getRuntimeState()).toBe(RuntimeState.Starting);
 	});
 
-	test('select console while another runtime is starting for the language', async () => {
+	it('select console while another runtime is starting for the language', async () => {
 		const [session1, session2] = await Promise.all([
 			startConsole(anotherRuntime),
 			selectRuntime(runtime),
 		]);
-		assert.notStrictEqual(session1.sessionId, session2.sessionId);
+		expect(session1.sessionId).not.toBe(session2.sessionId);
 
 		assertActiveSessions([session1, session2]);
 		assertConsoleSessionForLanguage(runtime.languageId, session2);
 		assertConsoleSessionForRuntime(runtime.runtimeId, session2);
 		assertConsoleSessionForRuntime(anotherRuntime.runtimeId, session1);
 		assertHasStartingOrRunningConsole(true);
-		assert.strictEqual(session1.getRuntimeState(), RuntimeState.Starting);
-		assert.strictEqual(session2.getRuntimeState(), RuntimeState.Starting);
+		expect(session1.getRuntimeState()).toBe(RuntimeState.Starting);
+		expect(session2.getRuntimeState()).toBe(RuntimeState.Starting);
 	});
 
-	test('select console to the same runtime sets the foreground session', async () => {
+	it('select console to the same runtime sets the foreground session', async () => {
 		const session1 = await startConsole(runtime);
 
 		runtimeSessionService.foregroundSession = undefined;
 
 		const session2 = await selectRuntime(runtime);
 
-		assert.strictEqual(session1, session2);
-		assert.strictEqual(runtimeSessionService.foregroundSession, session1);
+		expect(session1).toBe(session2);
+		expect(runtimeSessionService.foregroundSession).toBe(session1);
 	});
 
 	function restartSession(sessionId: string) {
@@ -775,16 +772,15 @@ suite('Positron - RuntimeSessionService', () => {
 		{ mode: LanguageRuntimeSessionMode.Console, start: startConsole },
 		{ mode: LanguageRuntimeSessionMode.Notebook, start: startNotebook },
 	]) {
-		test(`restart ${mode} throws if session not found`, async () => {
+		it(`restart ${mode} throws if session not found`, async () => {
 			const sessionId = 'unknown-session-id';
-			assert.rejects(
+			expect(
 				restartSession(sessionId),
-				new Error(`No session with ID '${sessionId}' was found.`),
-			);
+			).rejects.toThrow(`No session with ID '${sessionId}' was found.`);
 		});
 
 		for (const state of [RuntimeState.Busy, RuntimeState.Idle, RuntimeState.Ready, RuntimeState.Exited]) {
-			test(`restart ${mode} in '${state}' state`, async () => {
+			it(`restart ${mode} in '${state}' state`, async () => {
 				// Start the session and wait for it to be ready.
 				const session = await start(runtime);
 				await waitForRuntimeState(session, RuntimeState.Ready);
@@ -794,24 +790,25 @@ suite('Positron - RuntimeSessionService', () => {
 					session.setRuntimeState(state);
 				}
 
-				const willStartSession = sinon.spy();
-				disposables.add(runtimeSessionService.onWillStartSession(willStartSession));
+				const willStartSession = vi.fn();
+				ctx.disposables.add(runtimeSessionService.onWillStartSession(willStartSession));
 
 				await restartSession(session.sessionId);
 
 				assertActiveSessions([session]);
 				assertCurrentSession(runtime, notebookUri, session);
-				assert.strictEqual(session.getRuntimeState(), RuntimeState.Ready);
+				expect(session.getRuntimeState()).toBe(RuntimeState.Ready);
 
-				sinon.assert.calledOnceWithMatch(willStartSession, {
+				expect(willStartSession).toHaveBeenCalledOnce();
+				expect(willStartSession).toHaveBeenCalledWith(expect.objectContaining({
 					session,
 					startMode: RuntimeStartMode.Restarting,
 					hasConsole: mode === LanguageRuntimeSessionMode.Console,
 					activate: false
-				});
+				}));
 			});
 
-			test(`restart ${mode} in '${state}' state encounters session.restart() error`, async () => {
+			it(`restart ${mode} in '${state}' state encounters session.restart() error`, async () => {
 				// Start the session and wait for it to be ready.
 				const session = await start(runtime);
 				await waitForRuntimeState(session, RuntimeState.Ready);
@@ -822,30 +819,30 @@ suite('Positron - RuntimeSessionService', () => {
 				}
 
 				// Stub session.restart() to reject.
-				let restartStub;
+				let restartStub: ReturnType<typeof vi.spyOn>;
 				if (state === RuntimeState.Exited) {
 					// When in an exited state, we actually call session.start() instead of session.restart().
-					restartStub = sinon.stub(session, 'start').rejects(new Error('Session failed to restart'));
+					restartStub = vi.spyOn(session, 'start').mockRejectedValue(new Error('Session failed to restart'));
 				} else {
-					restartStub = sinon.stub(session, 'restart').rejects(new Error('Session failed to restart'));
+					restartStub = vi.spyOn(session, 'restart').mockRejectedValue(new Error('Session failed to restart'));
 				}
 
 				// Restart the session. It should error.
-				await assert.rejects(restartSession(session.sessionId));
+				await expect(restartSession(session.sessionId)).rejects.toThrow();
 
 				// The session's state should not have changed.
-				assert.strictEqual(session.getRuntimeState(), state);
+				expect(session.getRuntimeState()).toBe(state);
 
 				// If we restart now, without session.restart() rejecting, it should work.
-				restartStub.restore();
+				restartStub.mockRestore();
 				await restartSession(session.sessionId);
 
 				assertActiveSessions([session]);
 				assertCurrentSession(runtime, notebookUri, session);
-				assert.strictEqual(session.getRuntimeState(), RuntimeState.Ready);
+				expect(session.getRuntimeState()).toBe(RuntimeState.Ready);
 			});
 
-			test(`restart ${mode} in '${state}' state and session never reaches ready state`, async () => {
+			it(`restart ${mode} in '${state}' state and session never reaches ready state`, async () => {
 				// Start the session and wait for it to be ready.
 				const session = await start(runtime);
 				await waitForRuntimeState(session, RuntimeState.Ready);
@@ -856,49 +853,59 @@ suite('Positron - RuntimeSessionService', () => {
 				}
 
 				// Stub onDidChangeRuntimeState to never fire, causing the restart to time out.
-				sinon.stub(session, 'onDidChangeRuntimeState').returns({ dispose: () => { } });
+				// onDidChangeRuntimeState is a plain property on TestLanguageRuntimeSession (not a getter),
+				// so we assign directly on the concrete type to replace it with a no-op.
+				const sessionAsMutable = session as { onDidChangeRuntimeState: unknown };
+				const originalOnDidChangeRuntimeState = session.onDidChangeRuntimeState;
+				sessionAsMutable.onDidChangeRuntimeState = (_listener: unknown) => ({ dispose: () => { } });
 
-				// Use a fake timer to avoid actually having to wait for the timeout.
-				const clock = sinon.useFakeTimers();
-				const promise = assert.rejects(restartSession(session.sessionId), new Error(`Timed out waiting for runtime ` +
-					`${formatLanguageRuntimeSession(session)} to be 'ready'.`));
-				await clock.tickAsync(10_000);
+				// Use fake timers to avoid actually having to wait for the timeout.
+				vi.useFakeTimers();
+				const promise = expect(restartSession(session.sessionId)).rejects.toThrow(
+					`Timed out waiting for runtime ` +
+					`${formatLanguageRuntimeSession(session)} to be 'ready'.`
+				);
+				await vi.advanceTimersByTimeAsync(10_000);
+				vi.useRealTimers();
 				await promise;
+
+				// Restore the original property.
+				sessionAsMutable.onDidChangeRuntimeState = originalOnDidChangeRuntimeState;
 			});
 		}
 
-		test(`restart ${mode} in 'uninitialized' state`, async () => {
+		it(`restart ${mode} in 'uninitialized' state`, async () => {
 			// Get a session to the uninitialized state.
 			const state = RuntimeState.Uninitialized;
 
 			// Set up console configuration for consistent test behavior
 			configService.setUserConfiguration('console.showNotebookConsoles', false);
 
-			const willStartSession = sinon.spy((e: IRuntimeSessionWillStartEvent) => {
-				sinon.stub(e.session, 'start').rejects(new Error('Session failed to start'));
+			const willStartSession = vi.fn((e: IRuntimeSessionWillStartEvent) => {
+				vi.spyOn(e.session, 'start').mockRejectedValue(new Error('Session failed to start'));
 			});
 			const willStartSessionDisposable = runtimeSessionService.onWillStartSession(willStartSession);
 
-			await assert.rejects(start(runtime), new Error('Session failed to start'));
+			await expect(start(runtime)).rejects.toThrow('Session failed to start');
 
-			assert.equal(runtimeSessionService.activeSessions.length, 1);
+			expect(runtimeSessionService.activeSessions.length).toBe(1);
 			const session = runtimeSessionService.activeSessions[0];
-			disposables.add(session);
+			ctx.disposables.add(session);
 
-			assert.strictEqual(session.getRuntimeState(), state);
+			expect(session.getRuntimeState()).toBe(state);
 
 			// Set the state to the desired state.
 			willStartSessionDisposable.dispose();
 
-			const willStartSession2 = sinon.spy();
-			disposables.add(
+			const willStartSession2 = vi.fn();
+			ctx.disposables.add(
 				runtimeSessionService.onWillStartSession(willStartSession2)
 			);
 
 			await restartSession(session.sessionId);
 
 			// The existing session should remain exited.
-			assert.strictEqual(session.getRuntimeState(), state);
+			expect(session.getRuntimeState()).toBe(state);
 
 			// A new session should be starting.
 			let newSession: ILanguageRuntimeSession | undefined;
@@ -907,61 +914,61 @@ suite('Positron - RuntimeSessionService', () => {
 			} else {
 				newSession = runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
 			}
-			assert.ok(newSession);
-			disposables.add(newSession);
+			expect(newSession).toBeTruthy();
+			ctx.disposables.add(newSession!);
 
-			sinon.assert.calledOnce(willStartSession2);
-			const event = willStartSession2.getCall(0).args[0];
-			assert.strictEqual(event.session, newSession);
+			expect(willStartSession2).toHaveBeenCalledOnce();
+			const event = willStartSession2.mock.calls[0][0];
+			expect(event.session).toBe(newSession);
 			// Since we restarted from an uninitialized state, the start mode is 'starting'.
-			assert.strictEqual(event.startMode, RuntimeStartMode.Starting);
-			assert.strictEqual(event.hasConsole, mode === LanguageRuntimeSessionMode.Console);
-			assert.strictEqual(event.activate, true);
+			expect(event.startMode).toBe(RuntimeStartMode.Starting);
+			expect(event.hasConsole).toBe(mode === LanguageRuntimeSessionMode.Console);
+			expect(event.activate).toBe(true);
 
-			assert.strictEqual(newSession.dynState.sessionName, session.dynState.sessionName);
-			assert.strictEqual(newSession.metadata.sessionMode, session.metadata.sessionMode);
-			assert.strictEqual(newSession.metadata.notebookUri, session.metadata.notebookUri);
-			assert.strictEqual(newSession.runtimeMetadata, session.runtimeMetadata);
+			expect(newSession!.dynState.sessionName).toBe(session.dynState.sessionName);
+			expect(newSession!.metadata.sessionMode).toBe(session.metadata.sessionMode);
+			expect(newSession!.metadata.notebookUri).toBe(session.metadata.notebookUri);
+			expect(newSession!.runtimeMetadata).toBe(session.runtimeMetadata);
 
-			assertActiveSessions([session, newSession]);
-			assertCurrentSession(runtime, notebookUri, newSession);
-			assert.strictEqual(newSession.getRuntimeState(), RuntimeState.Starting);
+			assertActiveSessions([session, newSession!]);
+			assertCurrentSession(runtime, notebookUri, newSession!);
+			expect(newSession!.getRuntimeState()).toBe(RuntimeState.Starting);
 		});
 
-		test(`restart ${mode} in 'starting' state`, async () => {
+		it(`restart ${mode} in 'starting' state`, async () => {
 			const session = await start(runtime);
-			assert.strictEqual(session.getRuntimeState(), RuntimeState.Starting);
+			expect(session.getRuntimeState()).toBe(RuntimeState.Starting);
 
 			await restartSession(session.sessionId);
 
 			assertActiveSessions([session]);
 			assertCurrentSession(runtime, notebookUri, session);
-			assert.strictEqual(session.getRuntimeState(), RuntimeState.Ready);
+			expect(session.getRuntimeState()).toBe(RuntimeState.Ready);
 		});
 
-		test(`restart ${mode} in 'restarting' state`, async () => {
+		it(`restart ${mode} in 'restarting' state`, async () => {
 			const session = await start(runtime);
 			await waitForRuntimeState(session, RuntimeState.Ready);
 
 			session.restart();
-			assert.strictEqual(session.getRuntimeState(), RuntimeState.Restarting);
+			expect(session.getRuntimeState()).toBe(RuntimeState.Restarting);
 
-			const target = sinon.spy(session, 'restart');
+			const target = vi.spyOn(session, 'restart');
 
 			await restartSession(session.sessionId);
 
 			assertActiveSessions([session]);
 			assertCurrentSession(runtime, notebookUri, session);
-			assert.strictEqual(session.getRuntimeState(), RuntimeState.Ready);
+			expect(session.getRuntimeState()).toBe(RuntimeState.Ready);
 
-			sinon.assert.notCalled(target);
+			expect(target).not.toHaveBeenCalled();
 		});
 
-		test(`restart ${mode} concurrently`, async () => {
+		it(`restart ${mode} concurrently`, async () => {
 			const session = await start(runtime);
 			await waitForRuntimeState(session, RuntimeState.Ready);
 
-			const target = sinon.spy(session, 'restart');
+			const target = vi.spyOn(session, 'restart');
 
 			await Promise.all([
 				restartSession(session.sessionId),
@@ -971,16 +978,16 @@ suite('Positron - RuntimeSessionService', () => {
 
 			assertActiveSessions([session]);
 			assertCurrentSession(runtime, notebookUri, session);
-			assert.strictEqual(session.getRuntimeState(), RuntimeState.Ready);
+			expect(session.getRuntimeState()).toBe(RuntimeState.Ready);
 
-			sinon.assert.calledOnce(target);
+			expect(target).toHaveBeenCalledOnce();
 		});
 
-		test(`restart ${mode} successively`, async () => {
+		it(`restart ${mode} successively`, async () => {
 			const session = await start(runtime);
 			await waitForRuntimeState(session, RuntimeState.Ready);
 
-			const target = sinon.spy(session, 'restart');
+			const target = vi.spyOn(session, 'restart');
 
 			await restartSession(session.sessionId);
 			await restartSession(session.sessionId);
@@ -988,12 +995,12 @@ suite('Positron - RuntimeSessionService', () => {
 
 			assertActiveSessions([session]);
 			assertCurrentSession(runtime, notebookUri, session);
-			assert.strictEqual(session.getRuntimeState(), RuntimeState.Ready);
+			expect(session.getRuntimeState()).toBe(RuntimeState.Ready);
 
-			sinon.assert.calledThrice(target);
+			expect(target).toHaveBeenCalledTimes(3);
 		});
 
-		test(`restart ${mode} while 'ready', then start successively`, async function () {
+		it(`restart ${mode} while 'ready', then start successively`, async () => {
 			const session = await start(runtime);
 			await waitForRuntimeState(session, RuntimeState.Ready);
 
@@ -1002,21 +1009,21 @@ suite('Positron - RuntimeSessionService', () => {
 
 			if (mode === LanguageRuntimeSessionMode.Notebook) {
 				// The existing session for the notebook should be reused.
-				assert.strictEqual(session.sessionId, newSession.sessionId);
+				expect(session.sessionId).toBe(newSession.sessionId);
 				assertActiveSessions([session]);
 				assertCurrentSession(runtime, notebookUri, session);
-				assert.strictEqual(session.getRuntimeState(), RuntimeState.Ready);
+				expect(session.getRuntimeState()).toBe(RuntimeState.Ready);
 			} else if (mode === LanguageRuntimeSessionMode.Console) {
 				// A new console session should be created.
-				assert.notStrictEqual(session.sessionId, newSession.sessionId);
+				expect(session.sessionId).not.toBe(newSession.sessionId);
 				assertActiveSessions([session, newSession]);
 				assertCurrentSession(runtime, notebookUri, newSession);
-				assert.strictEqual(session.getRuntimeState(), RuntimeState.Ready);
-				assert.strictEqual(newSession.getRuntimeState(), RuntimeState.Starting);
+				expect(session.getRuntimeState()).toBe(RuntimeState.Ready);
+				expect(newSession.getRuntimeState()).toBe(RuntimeState.Starting);
 			}
 		});
 
-		test(`restart ${mode} while 'ready', then start concurrently`, async () => {
+		it(`restart ${mode} while 'ready', then start concurrently`, async () => {
 			const session = await start(runtime);
 			await waitForRuntimeState(session, RuntimeState.Ready);
 
@@ -1024,10 +1031,10 @@ suite('Positron - RuntimeSessionService', () => {
 
 			// TODO: Perhaps a new console should be started in this case?
 			// The existing session is reused.
-			assert.strictEqual(session.sessionId, newSession.sessionId);
+			expect(session.sessionId).toBe(newSession.sessionId);
 			assertActiveSessions([newSession]);
 			assertCurrentSession(runtime, notebookUri, newSession);
-			assert.strictEqual(newSession.getRuntimeState(), RuntimeState.Ready);
+			expect(newSession.getRuntimeState()).toBe(RuntimeState.Ready);
 		});
 	}
 
@@ -1037,7 +1044,7 @@ suite('Positron - RuntimeSessionService', () => {
 		);
 	}
 
-	test('shutdown notebook', async () => {
+	it('shutdown notebook', async () => {
 		const session = await startNotebook(runtime);
 		await waitForRuntimeState(session, RuntimeState.Ready);
 
@@ -1045,10 +1052,10 @@ suite('Positron - RuntimeSessionService', () => {
 
 		assertActiveSessions([]);
 		assertNotebookSessionForNotebookUri(notebookUri, undefined);
-		assert.strictEqual(session.getRuntimeState(), RuntimeState.Exited);
+		expect(session.getRuntimeState()).toBe(RuntimeState.Exited);
 	});
 
-	test('select notebook while shutting down notebook', async () => {
+	it('select notebook while shutting down notebook', async () => {
 		const session = await startNotebook(runtime);
 		await waitForRuntimeState(session, RuntimeState.Ready);
 
@@ -1059,11 +1066,11 @@ suite('Positron - RuntimeSessionService', () => {
 
 		assertActiveSessions([newSession]);
 		assertNotebookSessionForNotebookUri(notebookUri, newSession);
-		assert.strictEqual(session.getRuntimeState(), RuntimeState.Exited);
-		assert.strictEqual(newSession.getRuntimeState(), RuntimeState.Starting);
+		expect(session.getRuntimeState()).toBe(RuntimeState.Exited);
+		expect(newSession.getRuntimeState()).toBe(RuntimeState.Starting);
 	});
 
-	test('shutdown notebook while selecting notebook', async () => {
+	it('shutdown notebook while selecting notebook', async () => {
 		const [session,] = await Promise.all([
 			selectRuntime(runtime, notebookUri),
 			shutdownNotebook(),
@@ -1071,10 +1078,10 @@ suite('Positron - RuntimeSessionService', () => {
 
 		assertActiveSessions([]);
 		assertNotebookSessionForNotebookUri(notebookUri, undefined);
-		assert.strictEqual(session.getRuntimeState(), RuntimeState.Exited);
+		expect(session.getRuntimeState()).toBe(RuntimeState.Exited);
 	});
 
-	test(`only one UI comm is created`, async () => {
+	it(`only one UI comm is created`, async () => {
 		// Create the session
 		const session = await startConsole(runtime);
 
@@ -1083,7 +1090,7 @@ suite('Positron - RuntimeSessionService', () => {
 
 		// At this point, it should have exactly one UI comm
 		const uiCommsBefore = await session.listClients(RuntimeClientType.Ui);
-		assert.strictEqual(uiCommsBefore.length, 1);
+		expect(uiCommsBefore.length).toBe(1);
 
 		// Put the session back into the Ready state. This typically triggers
 		// the creation of the UI comm as a side effect, but since the UI comm
@@ -1095,10 +1102,10 @@ suite('Positron - RuntimeSessionService', () => {
 
 		// We should still have exactly one UI comm
 		const uiCommsAfter = await session.listClients(RuntimeClientType.Ui);
-		assert.strictEqual(uiCommsAfter.length, 1);
+		expect(uiCommsAfter.length).toBe(1);
 	});
 
-	test(`can set the working directory`, async () => {
+	it(`can set the working directory`, async () => {
 		// Create the session
 		const session = await startConsole(runtime);
 		await timeout(0);
@@ -1106,10 +1113,10 @@ suite('Positron - RuntimeSessionService', () => {
 		const dir = '/foo/bar/baz';
 		session.setWorkingDirectory(dir);
 
-		assert.strictEqual(session.getWorkingDirectory(), dir);
+		expect(session.getWorkingDirectory()).toBe(dir);
 	});
 
-	test(`working directory sticks after a restart`, async () => {
+	it(`working directory sticks after a restart`, async () => {
 		// Create the session
 		const session = await startConsole(runtime);
 		await timeout(0);
@@ -1125,10 +1132,10 @@ suite('Positron - RuntimeSessionService', () => {
 		await runtimeSessionService.restartSession(session.sessionId, startReason);
 		await timeout(0);
 
-		assert.strictEqual(session.getWorkingDirectory(), dir);
+		expect(session.getWorkingDirectory()).toBe(dir);
 	});
 
-	test('updateNotebookSessionUri updates URI mapping correctly', async () => {
+	it('updateNotebookSessionUri updates URI mapping correctly', async () => {
 		// Create an untitled notebook URI (simulating new untitled notebook)
 		const untitledUri = URI.parse('untitled:notebook.ipynb');
 
@@ -1141,29 +1148,29 @@ suite('Positron - RuntimeSessionService', () => {
 
 		// Ensure the session is retrievable with the untitled URI
 		const sessionBeforeUpdate = runtimeSessionService.getNotebookSessionForNotebookUri(untitledUri);
-		assert.strictEqual(sessionBeforeUpdate, session, 'Session should be accessible via untitled URI before update');
+		expect(sessionBeforeUpdate, 'Session should be accessible via untitled URI before update').toBe(session);
 
 		// Update the session's URI
 		const returnedSessionId = await runtimeSessionService.updateNotebookSessionUri(untitledUri, savedUri);
 
 		// Verify returned sessionId matches the session's ID
-		assert.strictEqual(returnedSessionId, session.sessionId, 'Function should return the correct session ID');
+		expect(returnedSessionId, 'Function should return the correct session ID').toBe(session.sessionId);
 
 		// Verify the session is no longer accessible via the old URI
 		const oldUriSession = runtimeSessionService.getNotebookSessionForNotebookUri(untitledUri);
-		assert.strictEqual(oldUriSession, undefined, 'Session should no longer be accessible via old URI');
+		expect(oldUriSession, 'Session should no longer be accessible via old URI').toBe(undefined);
 
 		// Verify the session is accessible via the new URI
 		const newUriSession = runtimeSessionService.getNotebookSessionForNotebookUri(savedUri);
-		assert.strictEqual(newUriSession, session, 'Session should be accessible via new URI');
+		expect(newUriSession, 'Session should be accessible via new URI').toBe(session);
 
 		// Verify the working directory has not changed
 		// This is the expected behavior because not all users want the working directory for the notebook session
 		// to change automatically. There is a different process for updating the working directory
-		assert.strictEqual(session.getWorkingDirectory(), '', 'Working directory should NOT update to new URI parent folder');
+		expect(session.getWorkingDirectory(), 'Working directory should NOT update to new URI parent folder').toBe('');
 	});
 
-	test('updateNotebookSessionUri returns undefined when session not found', async () => {
+	it('updateNotebookSessionUri returns undefined when session not found', async () => {
 		// Create URIs that don't have associated sessions
 		const nonExistentUri = URI.file('/path/to/nonexistent/notebook.ipynb');
 		const newUri = URI.file('/path/to/new/notebook.ipynb');
@@ -1172,11 +1179,10 @@ suite('Positron - RuntimeSessionService', () => {
 		const returnedSessionId = await runtimeSessionService.updateNotebookSessionUri(nonExistentUri, newUri);
 
 		// Verify no session ID is returned
-		assert.strictEqual(returnedSessionId, undefined,
-			'Function should return undefined when no session exists for the old URI');
+		expect(returnedSessionId, 'Function should return undefined when no session exists for the old URI').toBe(undefined);
 	});
 
-	test('updateSessionName updates session name correctly', async () => {
+	it('updateSessionName updates session name correctly', async () => {
 		// Create a new session
 		const session = await startConsole(runtime);
 		const otherSession = await startConsole(runtime);
@@ -1184,100 +1190,98 @@ suite('Positron - RuntimeSessionService', () => {
 		await waitForRuntimeState(session, RuntimeState.Ready);
 		await waitForRuntimeState(otherSession, RuntimeState.Ready);
 
-		assert.strictEqual(session.dynState.sessionName, runtime.runtimeName, 'Initial session name should match');
-		assert.strictEqual(otherSession.dynState.sessionName, runtime.runtimeName, 'Initial session name should match');
+		expect(session.dynState.sessionName, 'Initial session name should match').toBe(runtime.runtimeName);
+		expect(otherSession.dynState.sessionName, 'Initial session name should match').toBe(runtime.runtimeName);
 
 		// Set a new name for the session
 		const newName = 'updated-session-name';
 		runtimeSessionService.updateSessionName(session.sessionId, newName);
 
 		// Verify the session's name has been updated
-		assert.strictEqual(session.dynState.sessionName, newName, 'Session name should be updated correctly');
-		assert.strictEqual(otherSession.dynState.sessionName, runtime.runtimeName, 'Other session name should remain unchanged');
+		expect(session.dynState.sessionName, 'Session name should be updated correctly').toBe(newName);
+		expect(otherSession.dynState.sessionName, 'Other session name should remain unchanged').toBe(runtime.runtimeName);
 	});
 
-	suite('Working Directory Configuration', () => {
-		test('working directory is applied to notebook sessions when configured', async () => {
+	describe('Working Directory Configuration', () => {
+		it('working directory is applied to notebook sessions when configured', async () => {
 			const workingDir = '/custom/working/directory';
 			configService.setUserConfiguration(NotebookSetting.workingDirectory, workingDir);
 
 			const session = await startNotebook(runtime);
 
-			assert.strictEqual(session.metadata.workingDirectory, workingDir, 'Working directory should be set for notebook sessions');
+			expect(session.metadata.workingDirectory, 'Working directory should be set for notebook sessions').toBe(workingDir);
 		});
 
-		test('working directory is default for console sessions even when notebook working directory is configured', async () => {
+		it('working directory is default for console sessions even when notebook working directory is configured', async () => {
 			const workingDir = '/custom/working/directory';
 			configService.setUserConfiguration(NotebookSetting.workingDirectory, workingDir);
 
 			const session = await startConsole(runtime);
 
-			assert.strictEqual(session.metadata.workingDirectory, undefined, 'Working directory should be undefined for console sessions');
+			expect(session.metadata.workingDirectory, 'Working directory should be undefined for console sessions').toBe(undefined);
 		});
 
-		test('working directory is default when configuration is empty string', async () => {
+		it('working directory is default when configuration is empty string', async () => {
 			configService.setUserConfiguration(NotebookSetting.workingDirectory, '');
 
 			const session = await startNotebook(runtime);
 
-			assert.strictEqual(session.metadata.workingDirectory, notebookParent, 'Working directory should be default for empty string');
+			expect(session.metadata.workingDirectory, 'Working directory should be default for empty string').toBe(notebookParent);
 		});
 
-		test('working directory is default when configuration is whitespace only', async () => {
+		it('working directory is default when configuration is whitespace only', async () => {
 			configService.setUserConfiguration(NotebookSetting.workingDirectory, '   ');
 
 			const session = await startNotebook(runtime);
 
-			assert.strictEqual(session.metadata.workingDirectory, notebookParent, 'Working directory should be default for whitespace only');
+			expect(session.metadata.workingDirectory, 'Working directory should be default for whitespace only').toBe(notebookParent);
 		});
 
-		test('working directory supports variable resolution for notebook sessions', async () => {
+		it('working directory supports variable resolution for notebook sessions', async () => {
 			const workingDir = '/workspace/folder';
 			configService.setUserConfiguration(NotebookSetting.workingDirectory, workingDir);
 
-			// Create a mock that actually resolves variables
-			const mockConfigResolver = configurationResolverService as any;
-			mockConfigResolver.resolveAsync = sinon.stub().resolves('/resolved/workspace/folder');
+			// Spy on resolveAsync to track calls during resolution.
+			const resolveAsyncSpy = vi.spyOn(configurationResolverService, 'resolveAsync').mockResolvedValue('/resolved/workspace/folder');
 
 			const session = await startNotebook(runtime);
 
-			assert.strictEqual(session.metadata.workingDirectory, '/resolved/workspace/folder', 'Working directory should be resolved');
-			sinon.assert.calledOnce(mockConfigResolver.resolveAsync);
+			expect(session.metadata.workingDirectory, 'Working directory should be resolved').toBe('/resolved/workspace/folder');
+			expect(resolveAsyncSpy).toHaveBeenCalledOnce();
 		});
 
-		test('working directory falls back to default when resolution fails for notebook sessions', async () => {
+		it('working directory falls back to default when resolution fails for notebook sessions', async () => {
 			const workingDir = '/workspace/folder';
 			configService.setUserConfiguration(NotebookSetting.workingDirectory, workingDir);
 
-			// Create a mock that throws an error during resolution
-			const mockConfigResolver = configurationResolverService as any;
-			mockConfigResolver.resolveAsync = sinon.stub().rejects(new Error('Resolution failed'));
+			// Spy on resolveAsync to fail during resolution.
+			const resolveAsyncSpy = vi.spyOn(configurationResolverService, 'resolveAsync').mockRejectedValue(new Error('Resolution failed'));
 
 			const session = await startNotebook(runtime);
 
-			assert.strictEqual(session.metadata.workingDirectory, notebookParent, 'Working directory should fall back to default');
-			sinon.assert.calledOnce(mockConfigResolver.resolveAsync);
+			expect(session.metadata.workingDirectory, 'Working directory should fall back to default').toBe(notebookParent);
+			expect(resolveAsyncSpy).toHaveBeenCalledOnce();
 		});
 
-		test('working directory falls back to default when it doesnt exist', async () => {
+		it('working directory falls back to default when it doesnt exist', async () => {
 			const workingDir = '/non/existent/directory';
 			configService.setUserConfiguration(NotebookSetting.workingDirectory, workingDir);
 
 			const session = await startNotebook(runtime);
 
-			assert.strictEqual(session.metadata.workingDirectory, notebookParent, 'Working directory should fall back to default for non-existent directory');
+			expect(session.metadata.workingDirectory, 'Working directory should fall back to default for non-existent directory').toBe(notebookParent);
 		});
 
-		test('working directory is resource-scoped for notebook sessions', async () => {
+		it('working directory is resource-scoped for notebook sessions', async () => {
 			const workingDir = '/notebook/specific/directory';
 			await configService.setUserConfiguration(NotebookSetting.workingDirectory, workingDir, notebookUri);
 
 			const session = await startNotebook(runtime);
 
-			assert.strictEqual(session.metadata.workingDirectory, workingDir, 'Working directory should be resource-scoped');
+			expect(session.metadata.workingDirectory, 'Working directory should be resource-scoped').toBe(workingDir);
 		});
 
-		test('working directory differs between console and notebook sessions', async () => {
+		it('working directory differs between console and notebook sessions', async () => {
 			const consoleWorkingDir = '/console/directory';
 			const notebookWorkingDir = '/notebook/directory';
 
@@ -1287,57 +1291,53 @@ suite('Positron - RuntimeSessionService', () => {
 			const consoleSession = await startConsole(runtime);
 			const notebookSession = await startNotebook(runtime);
 
-			assert.strictEqual(consoleSession.metadata.workingDirectory, undefined, 'Console session should not use working directory configuration');
-			assert.strictEqual(notebookSession.metadata.workingDirectory, notebookWorkingDir, 'Notebook session should use resource-scoped configuration');
+			expect(consoleSession.metadata.workingDirectory, 'Console session should not use working directory configuration').toBe(undefined);
+			expect(notebookSession.metadata.workingDirectory, 'Notebook session should use resource-scoped configuration').toBe(notebookWorkingDir);
 		});
 	});
 
-	suite('getLastActiveConsoleSession', () => {
-		test('returns undefined when no console session has been foreground', () => {
-			assert.strictEqual(
+	describe('getLastActiveConsoleSession', () => {
+		it('returns undefined when no console session has been foreground', () => {
+			expect(
 				runtimeSessionService.getLastActiveConsoleSession(),
-				undefined,
 				'Expected no last active console session initially'
-			);
+			).toBe(undefined);
 		});
 
-		test('tracks the last console session set as foreground', async () => {
+		it('tracks the last console session set as foreground', async () => {
 			const session = await startConsole(runtime);
 			runtimeSessionService.foregroundSession = session;
 
-			assert.strictEqual(
+			expect(
 				runtimeSessionService.getLastActiveConsoleSession()?.sessionId,
-				session.sessionId,
 				'Expected last active console session to match'
-			);
+			).toBe(session.sessionId);
 		});
 
-		test('tracks the most recent console session across languages', async () => {
+		it('tracks the most recent console session across languages', async () => {
 			const sessionA = await startConsole(runtime);
 			runtimeSessionService.foregroundSession = sessionA;
 
 			const sessionB = await startConsole(anotherRuntime);
 			runtimeSessionService.foregroundSession = sessionB;
 
-			assert.strictEqual(
+			expect(
 				runtimeSessionService.getLastActiveConsoleSession()?.sessionId,
-				sessionB.sessionId,
 				'Expected last active console session to be the most recently set'
-			);
+			).toBe(sessionB.sessionId);
 		});
 
-		test('does not track notebook sessions', async () => {
+		it('does not track notebook sessions', async () => {
 			const notebookSession = await startNotebook(runtime);
 			runtimeSessionService.foregroundSession = notebookSession;
 
-			assert.strictEqual(
+			expect(
 				runtimeSessionService.getLastActiveConsoleSession(),
-				undefined,
 				'Expected notebook session not to be tracked as last active console'
-			);
+			).toBe(undefined);
 		});
 
-		test('is cleared when the console session is deleted', async () => {
+		it('is cleared when the console session is deleted', async () => {
 			const session = await startConsole(runtime);
 			runtimeSessionService.foregroundSession = session;
 
@@ -1347,38 +1347,36 @@ suite('Positron - RuntimeSessionService', () => {
 			await exitedPromise;
 			await runtimeSessionService.deleteSession(session.sessionId);
 
-			assert.strictEqual(
+			expect(
 				runtimeSessionService.getLastActiveConsoleSession(),
-				undefined,
 				'Expected last active console session to be cleared after deletion'
-			);
+			).toBe(undefined);
 		});
 	});
 
-	suite('foregroundSessionDisplayInfo', () => {
-		test('syncs with foreground session when set', async () => {
+	describe('foregroundSessionDisplayInfo', () => {
+		it('syncs with foreground session when set', async () => {
 			const session = await startConsole(runtime);
 			runtimeSessionService.foregroundSession = session;
 
 			const displayInfo = runtimeSessionService.foregroundSessionDisplayInfo;
-			assert.ok(displayInfo, 'Expected display info to be set when foreground session is set');
-			assert.strictEqual(displayInfo.sessionName, session.dynState.sessionName);
+			expect(displayInfo, 'Expected display info to be set when foreground session is set').toBeTruthy();
+			expect(displayInfo!.sessionName).toBe(session.dynState.sessionName);
 		});
 
-		test('is cleared when foreground session is cleared', async () => {
+		it('is cleared when foreground session is cleared', async () => {
 			const session = await startConsole(runtime);
 			runtimeSessionService.foregroundSession = session;
-			assert.ok(runtimeSessionService.foregroundSessionDisplayInfo);
+			expect(runtimeSessionService.foregroundSessionDisplayInfo).toBeTruthy();
 
 			runtimeSessionService.foregroundSession = undefined;
-			assert.strictEqual(
+			expect(
 				runtimeSessionService.foregroundSessionDisplayInfo,
-				undefined,
 				'Expected display info to be cleared when foreground session is cleared'
-			);
+			).toBe(undefined);
 		});
 
-		test('can be set independently for cached notebook info', async () => {
+		it('can be set independently for cached notebook info', async () => {
 			const session = await startNotebook(runtime);
 			const sessionNotebookUri = session.metadata.notebookUri!;
 
@@ -1390,30 +1388,28 @@ suite('Positron - RuntimeSessionService', () => {
 			// Clear foreground and set cached display info directly
 			runtimeSessionService.foregroundSession = undefined;
 			const cachedInfo = runtimeSessionService.getLastNotebookSessionInfo(sessionNotebookUri);
-			assert.ok(cachedInfo);
-			runtimeSessionService.foregroundSessionDisplayInfo = cachedInfo;
+			expect(cachedInfo).toBeTruthy();
+			runtimeSessionService.foregroundSessionDisplayInfo = cachedInfo!;
 
 			// Display info should be set even though no foreground session
-			assert.strictEqual(runtimeSessionService.foregroundSession, undefined);
-			assert.ok(runtimeSessionService.foregroundSessionDisplayInfo);
-			assert.strictEqual(
-				runtimeSessionService.foregroundSessionDisplayInfo.sessionName,
-				session.dynState.sessionName
-			);
+			expect(runtimeSessionService.foregroundSession).toBe(undefined);
+			expect(runtimeSessionService.foregroundSessionDisplayInfo).toBeTruthy();
+			expect(
+				runtimeSessionService.foregroundSessionDisplayInfo!.sessionName,
+			).toBe(session.dynState.sessionName);
 		});
 	});
 
-	suite('getLastNotebookSessionInfo', () => {
-		test('returns undefined for an unknown notebook URI', () => {
+	describe('getLastNotebookSessionInfo', () => {
+		it('returns undefined for an unknown notebook URI', () => {
 			const unknownUri = URI.file('/path/to/unknown.ipynb');
-			assert.strictEqual(
+			expect(
 				runtimeSessionService.getLastNotebookSessionInfo(unknownUri),
-				undefined,
 				'Expected no session info for unknown URI'
-			);
+			).toBe(undefined);
 		});
 
-		test('returns cached display info after notebook session exits', async () => {
+		it('returns cached display info after notebook session exits', async () => {
 			const session = await startNotebook(runtime);
 			const sessionNotebookUri = session.metadata.notebookUri!;
 
@@ -1423,11 +1419,11 @@ suite('Positron - RuntimeSessionService', () => {
 			await exitedPromise;
 
 			const info = runtimeSessionService.getLastNotebookSessionInfo(sessionNotebookUri);
-			assert.ok(info, 'Expected cached session info after exit');
-			assert.strictEqual(info.sessionName, session.dynState.sessionName, 'Expected session name to match');
+			expect(info, 'Expected cached session info after exit').toBeTruthy();
+			expect(info!.sessionName, 'Expected session name to match').toBe(session.dynState.sessionName);
 		});
 
-		test('persists after the session is deleted', async () => {
+		it('persists after the session is deleted', async () => {
 			const session = await startNotebook(runtime);
 			const sessionNotebookUri = session.metadata.notebookUri!;
 
@@ -1438,7 +1434,7 @@ suite('Positron - RuntimeSessionService', () => {
 			await runtimeSessionService.deleteSession(session.sessionId);
 
 			const info = runtimeSessionService.getLastNotebookSessionInfo(sessionNotebookUri);
-			assert.ok(info, 'Expected cached session info to persist after deletion');
+			expect(info, 'Expected cached session info to persist after deletion').toBeTruthy();
 		});
 	});
 });

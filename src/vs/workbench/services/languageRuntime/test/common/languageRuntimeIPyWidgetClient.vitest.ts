@@ -3,18 +3,19 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import assert from 'assert';
+/// <reference types="vitest/globals" />
+
 import { timeout } from '../../../../../base/common/async.js';
 import { VSBuffer } from '../../../../../base/common/buffer.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
-import { ILogService, NullLogger } from '../../../../../platform/log/common/log.js';
+import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
+import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { RuntimeClientState, RuntimeClientType } from '../../common/languageRuntimeClientInstance.js';
 import { IPyWidgetClientInstance } from '../../common/languageRuntimeIPyWidgetClient.js';
 import { TestIPyWidgetsWebviewMessaging } from './testIPyWidgetsWebviewMessaging.js';
 import { TestRuntimeClientInstance } from './testRuntimeClientInstance.js';
 
-suite('Positron - IPyWidgetClientInstance', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+describe('Positron - IPyWidgetClientInstance', () => {
+	const disposables = ensureNoLeakedDisposables();
 
 	const rpcMethod = 'test-rpc-method';
 
@@ -22,8 +23,8 @@ suite('Positron - IPyWidgetClientInstance', () => {
 	let messaging: TestIPyWidgetsWebviewMessaging;
 	let ipywidgetClient: IPyWidgetClientInstance;
 
-	setup(async () => {
-		const logService = new NullLogger() as unknown as ILogService;
+	beforeEach(async () => {
+		const logService = new NullLogService();
 		client = disposables.add(new TestRuntimeClientInstance(
 			'test-client-id', RuntimeClientType.IPyWidget
 		));
@@ -33,16 +34,16 @@ suite('Positron - IPyWidgetClientInstance', () => {
 		));
 	});
 
-	test('from webview: ignore message with no comm_id', async () => {
+	it('from webview: ignore message with no comm_id', async () => {
 		// Simulate a message from the webview with no comm_id.
 		messaging.receiveMessage({ type: 'initialize' });
 		await timeout(0);
 
 		// Check that no replies were sent.
-		assert.deepStrictEqual(messaging.messagesToWebview, []);
+		expect(messaging.messagesToWebview).toEqual([]);
 	});
 
-	test('from webview: ignore message to a different comm_id', async () => {
+	it('from webview: ignore message to a different comm_id', async () => {
 		// Simulate a message from the webview with a different comm_id.
 		messaging.receiveMessage({
 			type: 'comm_msg',
@@ -53,10 +54,10 @@ suite('Positron - IPyWidgetClientInstance', () => {
 		await timeout(0);
 
 		// Check that no replies were sent.
-		assert.deepStrictEqual(messaging.messagesToWebview, []);
+		expect(messaging.messagesToWebview).toEqual([]);
 	});
 
-	test('from webview: fire-and-forget comm_msg', async () => {
+	it('from webview: fire-and-forget comm_msg', async () => {
 		// Listen to messages sent to the client.
 		const messagesToClient = new Array<unknown>();
 		disposables.add(client.onDidSendMessage(message => messagesToClient.push(message)));
@@ -72,15 +73,15 @@ suite('Positron - IPyWidgetClientInstance', () => {
 		await timeout(0);
 
 		// Check that the message's data was forwarded to the client.
-		assert.strictEqual(messagesToClient.length, 1, 'Expected one message to be sent to the client');
+		expect(messagesToClient.length).toBe(1);
 
 		// Extract the message and verify its structure
 		const message = messagesToClient[0] as { data: unknown; buffers?: unknown };
-		assert.deepStrictEqual(message.data, data, 'Expected message data to match the original data');
+		expect(message.data).toEqual(data);
 		// We don't check the exact value of buffers, just that the message has the right structure
 	});
 
-	test('from webview: rpc comm_msg', async () => {
+	it('from webview: rpc comm_msg', async () => {
 		// Setup a static RPC handler.
 		const reply = {
 			buffers: [VSBuffer.wrap(new Uint8Array([1, 2, 3]))],
@@ -101,7 +102,7 @@ suite('Positron - IPyWidgetClientInstance', () => {
 		await timeout(0);
 
 		// Check that the reply was sent to the webview.
-		assert.deepStrictEqual(messaging.messagesToWebview, [{
+		expect(messaging.messagesToWebview).toEqual([{
 			type: 'comm_msg',
 			comm_id: client.getClientId(),
 			data: reply.data,
@@ -110,7 +111,7 @@ suite('Positron - IPyWidgetClientInstance', () => {
 		}]);
 	});
 
-	test('from webview: comm_close', async () => {
+	it('from webview: comm_close', async () => {
 		// Track the client's disposed state.
 		let disposed = false;
 		disposables.add(client.onDidDispose(() => disposed = true));
@@ -123,26 +124,26 @@ suite('Positron - IPyWidgetClientInstance', () => {
 		await timeout(0);
 
 		// Check that the client was disposed.
-		assert(disposed);
+		expect(disposed).toBeTruthy();
 	});
 
-	test('to webview: ignore message with unknown method', async () => {
+	it('to webview: ignore message with unknown method', async () => {
 		// Simulate a message from the client with an unknown method.
 		client.receiveData({ data: { method: 'unknown-method' } });
 		await timeout(0);
 
 		// Check that no messages were sent to the webview.
-		assert.deepStrictEqual(messaging.messagesToWebview, []);
+		expect(messaging.messagesToWebview).toEqual([]);
 	});
 
-	test('to webview: comm_msg update', async () => {
+	it('to webview: comm_msg update', async () => {
 		// Simulate an 'update' message from the client.
 		const event = { data: { method: 'update', some_key: 'some_value' } };
 		client.receiveData(event);
 		await timeout(0);
 
 		// Check that the message was forwarded to the webview.
-		assert.deepStrictEqual(messaging.messagesToWebview, [{
+		expect(messaging.messagesToWebview).toEqual([{
 			type: 'comm_msg',
 			comm_id: client.getClientId(),
 			data: event.data,
@@ -151,7 +152,7 @@ suite('Positron - IPyWidgetClientInstance', () => {
 		}]);
 	});
 
-	test('to webview: comm_msg custom with buffers', async () => {
+	it('to webview: comm_msg custom with buffers', async () => {
 		// Simulate a 'custom' message from the client with buffers.
 		const event = {
 			data: { method: 'update', some_key: 'some_value' },
@@ -161,7 +162,7 @@ suite('Positron - IPyWidgetClientInstance', () => {
 		await timeout(0);
 
 		// Check that the message was forwarded to the webview.
-		assert.deepStrictEqual(messaging.messagesToWebview, [{
+		expect(messaging.messagesToWebview).toEqual([{
 			type: 'comm_msg',
 			comm_id: client.getClientId(),
 			data: event.data,
@@ -170,7 +171,7 @@ suite('Positron - IPyWidgetClientInstance', () => {
 		}]);
 	});
 
-	test('to webview: comm_close', async () => {
+	it('to webview: comm_close', async () => {
 		// Track the IPyWidget client's closed state.
 		let closed = false;
 		disposables.add(ipywidgetClient.onDidClose(() => closed = true));
@@ -180,17 +181,17 @@ suite('Positron - IPyWidgetClientInstance', () => {
 		await timeout(0);
 
 		// Check that the comm_close message was forwarded to the webview.
-		assert.deepStrictEqual(messaging.messagesToWebview, [{
+		expect(messaging.messagesToWebview).toEqual([{
 			type: 'comm_close',
 			comm_id: client.getClientId(),
 		}]);
 
 		// Check that the IPyWidget client was closed.
-		assert(closed);
+		expect(closed).toBeTruthy();
 	});
 
 	// Add a test to verify buffers from the webview are preserved when forwarded to the client.
-	test('from webview: fire-and-forget comm_msg with buffers', async () => {
+	it('from webview: fire-and-forget comm_msg with buffers', async () => {
 		// Listen to messages sent to the client.
 		const messagesToClient: Array<{ data: unknown; buffers?: VSBuffer[] }> = [];
 		disposables.add(client.onDidSendMessage(message => messagesToClient.push(message)));
@@ -209,14 +210,14 @@ suite('Positron - IPyWidgetClientInstance', () => {
 		await timeout(0);
 
 		// Check that one message was forwarded.
-		assert.strictEqual(messagesToClient.length, 1, 'Expected one message to be sent to the client');
+		expect(messagesToClient.length).toBe(1);
 
 		// Verify the forwarded message's data and buffers.
 		const message = messagesToClient[0] as { data: unknown; buffers?: VSBuffer[] };
-		assert.deepStrictEqual(message.data, data, 'Expected message data to match the original data');
-		assert(message.buffers && message.buffers.length === 2, 'Expected two buffers to be forwarded');
+		expect(message.data).toEqual(data);
+		expect(message.buffers && message.buffers.length === 2).toBeTruthy();
 		// Confirm buffer contents are preserved.
-		assert.deepStrictEqual(new Uint8Array(message.buffers![0].buffer), buffer1, 'Expected first buffer to match original');
-		assert.deepStrictEqual(new Uint8Array(message.buffers![1].buffer), buffer2, 'Expected second buffer to match original');
+		expect(new Uint8Array(message.buffers![0].buffer)).toEqual(buffer1);
+		expect(new Uint8Array(message.buffers![1].buffer)).toEqual(buffer2);
 	});
 });

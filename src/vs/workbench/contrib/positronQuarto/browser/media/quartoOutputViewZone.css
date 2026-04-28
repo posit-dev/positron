@@ -345,7 +345,8 @@
 }
 
 /* Status bar for execution info (duration, timestamp, success/fail).
-   Lives outside the styled output container but inside the view zone wrapper. */
+ * Lives outside the styled output container but inside the view zone wrapper.
+ */
 .quarto-output-status-bar {
 	display: flex;
 	align-items: center;
