@@ -26,10 +26,12 @@ import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ITerminalService } from '../../../terminal/browser/terminal.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
+import { Event } from '../../../../../base/common/event.js';
 
 const TestLanguageRuntimeMetadata: ILanguageRuntimeMetadata = {
 	base64EncodedIconSvg: '',
-	extensionId: { value: 'test.extension' } as ExtensionIdentifier,
+	extensionId: new ExtensionIdentifier('test.extension'),
 	extraRuntimeData: {},
 	languageId: 'python',
 	runtimeId: 'test.runtime',
@@ -88,15 +90,15 @@ describe('QuartoExecutionManager', () => {
 
 		// Create execution manager
 		executionManager = new QuartoExecutionManager(
-			mockKernelManager as unknown as IQuartoKernelManager,
-			mockDocumentModelService as unknown as IQuartoDocumentModelService,
-			mockEditorService as unknown as IEditorService,
-			mockEphemeralStateService as unknown as IEphemeralStateService,
-			mockWorkspaceContextService as unknown as IWorkspaceContextService,
+			asKernelManager(mockKernelManager),
+			asDocumentModelService(mockDocumentModelService),
+			asEditorService(mockEditorService),
+			asEphemeralStateService(mockEphemeralStateService),
+			asWorkspaceContextService(mockWorkspaceContextService),
 			logService,
-			mockConsoleService as unknown as IPositronConsoleService,
-			mockRuntimeSessionService as unknown as IRuntimeSessionService,
-			mockTerminalService as unknown as ITerminalService,
+			asConsoleService(mockConsoleService),
+			asRuntimeSessionService(mockRuntimeSessionService),
+			asTerminalService(mockTerminalService),
 		);
 		ctx.disposables.add(executionManager);
 	});
@@ -476,15 +478,15 @@ describe('QuartoExecutionManager', () => {
 
 			// Create execution manager with the mock model service
 			const executionManagerWithMock = new QuartoExecutionManager(
-				mockKernelManager as unknown as IQuartoKernelManager,
-				mockDocumentModelService as unknown as IQuartoDocumentModelService,
-				trackingEditorService as unknown as IEditorService,
-				new MockEphemeralStateService() as unknown as IEphemeralStateService,
-				new MockWorkspaceContextService() as unknown as IWorkspaceContextService,
+				asKernelManager(mockKernelManager),
+				asDocumentModelService(mockDocumentModelService),
+				asEditorService(trackingEditorService),
+				asEphemeralStateService(new MockEphemeralStateService()),
+				asWorkspaceContextService(new MockWorkspaceContextService()),
 				logService,
-				new TestPositronConsoleService() as unknown as IPositronConsoleService,
-				new MockRuntimeSessionService() as unknown as IRuntimeSessionService,
-				new MockTerminalService() as unknown as ITerminalService,
+				new TestPositronConsoleService(),
+				asRuntimeSessionService(new MockRuntimeSessionService()),
+				asTerminalService(new MockTerminalService()),
 			);
 			ctx.disposables.add(executionManagerWithMock);
 
@@ -571,15 +573,15 @@ describe('QuartoExecutionManager', () => {
 			};
 
 			const localExecutionManager = new QuartoExecutionManager(
-				mockKernelManager as unknown as IQuartoKernelManager,
-				localMockDocumentModelService as unknown as IQuartoDocumentModelService,
-				localMockEditorService as unknown as IEditorService,
-				new MockEphemeralStateService() as unknown as IEphemeralStateService,
-				new MockWorkspaceContextService() as unknown as IWorkspaceContextService,
+				asKernelManager(mockKernelManager),
+				asDocumentModelService(localMockDocumentModelService),
+				asEditorService(localMockEditorService),
+				asEphemeralStateService(new MockEphemeralStateService()),
+				asWorkspaceContextService(new MockWorkspaceContextService()),
 				logService,
-				new TestPositronConsoleService() as unknown as IPositronConsoleService,
-				new MockRuntimeSessionService() as unknown as IRuntimeSessionService,
-				new MockTerminalService() as unknown as ITerminalService,
+				new TestPositronConsoleService(),
+				asRuntimeSessionService(new MockRuntimeSessionService()),
+				asTerminalService(new MockTerminalService()),
 			);
 			ctx.disposables.add(localExecutionManager);
 
@@ -608,6 +610,139 @@ describe('QuartoExecutionManager', () => {
 
 			// State should not be Queued
 			expect(localExecutionManager.getExecutionState('test-options'), 'Cell should not be in Queued state after execution').not.toBe(CellExecutionState.Queued);
+		});
+	});
+
+	describe('Cell Options as Execution Metadata', () => {
+		// Helper that runs a cell with the given chunk options and returns the
+		// executionMetadata argument the kernel session received. Optionally
+		// passes external per-range metadata to executeInlineCells -- the same
+		// channel the Quarto extension uses to inject viewport sizing.
+		async function runCellAndCaptureMetadata(
+			documentLines: string[],
+			cellRange: Range,
+			externalMetadata?: Record<string, unknown>[],
+		) {
+			const documentUri = URI.file('/test-cell-metadata.qmd');
+			const cell: QuartoCodeCell = {
+				id: 'cell-metadata',
+				index: 0,
+				language: 'python',
+				startLine: 1,
+				endLine: documentLines.length,
+				codeStartLine: 2,
+				codeEndLine: documentLines.length - 1,
+				label: undefined,
+				options: '',
+				contentHash: 'metadata123',
+			};
+			const mockModel = new MockQuartoDocumentModel([cell], documentLines);
+			mockDocumentModelService.setMockModel(mockModel);
+			mockEditorService.getValueInRangeCallback = (range: unknown) => {
+				const r = range as { startLineNumber: number; endLineNumber: number };
+				return documentLines.slice(r.startLineNumber - 1, r.endLineNumber).join('\n');
+			};
+
+			const executeSpy = vi.spyOn(mockSession, 'execute');
+
+			const executionPromise = executionManager.executeInlineCells(documentUri, [cellRange], undefined, externalMetadata);
+			const executionId = await mockKernelManager.waitForExecution();
+			mockSession.receiveStateMessage({
+				parent_id: executionId,
+				state: RuntimeOnlineState.Idle,
+			});
+			await executionPromise;
+
+			expect(executeSpy).toHaveBeenCalledOnce();
+			// session.execute(code, id, mode, errorBehavior, _attribution, executionMetadata)
+			return executeSpy.mock.calls[0][5] as Record<string, unknown> | undefined;
+		}
+
+		it('passes fig-width and fig-height from chunk options to session.execute', async () => {
+			const metadata = await runCellAndCaptureMetadata(
+				[
+					'```{python}',          // 1: fence
+					'#| fig-width: 4',      // 2: option
+					'#| fig-height: 3',     // 3: option
+					'plot()',               // 4: code
+					'```',                  // 5: fence
+				],
+				new Range(2, 1, 4, 100)
+			);
+
+			expect(metadata).toBeDefined();
+			expect(metadata!['fig-width']).toBe(4);
+			expect(metadata!['fig-height']).toBe(3);
+		});
+
+		it('passes a non-execution option like label as metadata', async () => {
+			const metadata = await runCellAndCaptureMetadata(
+				[
+					'```{python}',
+					'#| label: my-cell',
+					'x = 1',
+					'```',
+				],
+				new Range(2, 1, 3, 100)
+			);
+
+			expect(metadata).toBeDefined();
+			expect(metadata!['label']).toBe('my-cell');
+		});
+
+		it('does not include execution-control options (eval, error) in metadata', async () => {
+			// `eval` and `error` are EXECUTION_OPTION_KEYS handled separately;
+			// they should not leak into the metadata payload sent to the kernel.
+			const metadata = await runCellAndCaptureMetadata(
+				[
+					'```{python}',
+					'#| eval: true',
+					'#| error: false',
+					'#| fig-width: 5',
+					'x = 1',
+					'```',
+				],
+				new Range(2, 1, 5, 100)
+			);
+
+			expect(metadata).toBeDefined();
+			expect(metadata!['fig-width']).toBe(5);
+			expect(metadata!['eval']).toBeUndefined();
+			expect(metadata!['error']).toBeUndefined();
+		});
+
+		it('passes undefined when there are no chunk options and no layout metadata', async () => {
+			const metadata = await runCellAndCaptureMetadata(
+				[
+					'```{python}',
+					'x = 1',
+					'```',
+				],
+				new Range(2, 1, 2, 100)
+			);
+
+			// With no cell options and no editor (so no layoutMetadata),
+			// session.execute should receive undefined for executionMetadata.
+			expect(metadata).toBeUndefined();
+		});
+
+		it('cell options take precedence over external metadata on key conflicts', async () => {
+			// Both cell and external set fig-width; cell should win.
+			// External-only keys flow through to the kernel.
+			const metadata = await runCellAndCaptureMetadata(
+				[
+					'```{python}',
+					'#| fig-width: 4',
+					'plot()',
+					'```',
+				],
+				new Range(2, 1, 3, 100),
+				[{ 'fig-width': 99, 'output_pixel_ratio': 2 }],
+			);
+
+			expect(metadata).toBeDefined();
+			expect(metadata!['fig-width'], 'cell value should win').toBe(4);
+			expect(metadata!['output_pixel_ratio'], 'external-only key should pass through').toBe(2);
 		});
 	});
 });
@@ -669,6 +804,13 @@ class MockKernelManager extends Disposable {
 	interruptKernelForDocument(_documentUri: URI): void {
 		// No-op
 	}
+}
+
+function asKernelManager(mock: MockKernelManager): IQuartoKernelManager {
+	return stubInterface<IQuartoKernelManager>({
+		ensureKernelForDocument: mock.ensureKernelForDocument.bind(mock),
+		interruptKernelForDocument: mock.interruptKernelForDocument.bind(mock),
+	});
 }
 
 class RecordingConsoleService extends TestPositronConsoleService {
@@ -736,6 +878,15 @@ class MockDocumentModelService {
 	}
 }
 
+function asDocumentModelService(mock: MockDocumentModelService): IQuartoDocumentModelService {
+	return stubInterface<IQuartoDocumentModelService>({
+		// Cast: the mock's getModel returns a structurally-compatible model
+		// but isn't typed as the full QuartoDocumentModel because we don't
+		// want to depend on its concrete type in the mock layer.
+		getModel: mock.getModel.bind(mock) as IQuartoDocumentModelService['getModel'],
+	});
+}
+
 /**
  * Mock Quarto document model that allows simulating document edits
  * by updating cell line numbers.
@@ -797,26 +948,40 @@ class MockEditorService {
 	}
 }
 
+function asEditorService(mock: MockEditorService): IEditorService {
+	return stubInterface<IEditorService>({
+		// Cast: findEditors has overloaded signatures that we can't easily
+		// model in the mock; we narrow at the boundary.
+		findEditors: mock.findEditors.bind(mock) as IEditorService['findEditors'],
+		// activeTextEditorControl is a getter, not a method -- production
+		// reads it to derive layout metadata when an editor is active. The
+		// existing tests don't activate an editor, so undefined is correct.
+		activeTextEditorControl: undefined,
+	});
+}
+
 class MockEphemeralStateService {
-	private _store = new Map<string, unknown>();
-
-	async getItem<T>(key: string): Promise<T | undefined> {
-		return this._store.get(key) as T | undefined;
+	async setItem(_key: string, _value: unknown): Promise<void> {
+		// No-op: production calls setItem for queue persistence; tests don't read it back.
 	}
+}
 
-	async setItem(key: string, value: unknown): Promise<void> {
-		this._store.set(key, value);
-	}
-
-	async removeItem(key: string): Promise<void> {
-		this._store.delete(key);
-	}
+function asEphemeralStateService(mock: MockEphemeralStateService): IEphemeralStateService {
+	return stubInterface<IEphemeralStateService>({
+		setItem: mock.setItem.bind(mock),
+	});
 }
 
 class MockWorkspaceContextService {
 	getWorkspace(): unknown {
 		return { id: 'test-workspace' };
 	}
+}
+
+function asWorkspaceContextService(mock: MockWorkspaceContextService): IWorkspaceContextService {
+	return stubInterface<IWorkspaceContextService>({
+		getWorkspace: mock.getWorkspace.bind(mock) as IWorkspaceContextService['getWorkspace'],
+	});
 }
 
 class MockRuntimeSessionService {
@@ -833,14 +998,34 @@ class MockRuntimeSessionService {
 	setConsoleSessionForLanguage(languageId: string, session: ILanguageRuntimeSession): void {
 		this._consoleSessions.set(languageId, session);
 	}
+}
 
-	onDidStartRuntime(): { dispose(): void } {
-		return { dispose() { } };
-	}
+function asRuntimeSessionService(mock: MockRuntimeSessionService): IRuntimeSessionService {
+	return stubInterface<IRuntimeSessionService>({
+		getConsoleSessionForLanguage: mock.getConsoleSessionForLanguage.bind(mock),
+		// Production subscribes to onDidStartRuntime but never fires it from
+		// the test side; Event.None is the documented no-op event.
+		onDidStartRuntime: Event.None,
+	});
 }
 
 class MockTerminalService {
 	async getActiveOrCreateInstance() {
 		return undefined;
 	}
+}
+
+function asTerminalService(mock: MockTerminalService): ITerminalService {
+	return stubInterface<ITerminalService>({
+		// Cast: the mock's return type is loose; production expects an
+		// ITerminalInstance. None of the cell-metadata tests hit shell
+		// languages, so this branch is never exercised in this file.
+		getActiveOrCreateInstance: mock.getActiveOrCreateInstance.bind(mock) as ITerminalService['getActiveOrCreateInstance'],
+	});
+}
+
+function asConsoleService(mock: RecordingConsoleService): IPositronConsoleService {
+	// RecordingConsoleService extends TestPositronConsoleService which already
+	// implements the full IPositronConsoleService interface; no adapter needed.
+	return mock;
 }
