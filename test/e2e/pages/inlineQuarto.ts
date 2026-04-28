@@ -20,6 +20,8 @@ const OUTPUT_CLOSE = '.quarto-output-close';
 const OUTPUT_COPY = '.quarto-output-copy';
 const OUTPUT_SAVE = '.quarto-output-save';
 const OUTPUT_POPOUT = '.quarto-output-popout';
+const OUTPUT_COLLAPSE_CHEVRON = '.quarto-output-collapse-chevron';
+const OUTPUT_COLLAPSED_CLASS = /quarto-output-collapsed/;
 const OUTPUT_STDOUT = '.quarto-output-stdout';
 const OUTPUT_HTML = '.quarto-output-html';
 const OUTPUT_IMAGE = '.quarto-output-image';
@@ -53,6 +55,7 @@ export class InlineQuarto {
 	readonly copyButton: Locator;
 	readonly saveButton: Locator;
 	readonly popoutButton: Locator;
+	readonly collapseChevron: Locator;
 	readonly stdoutOutput: Locator;
 	readonly htmlOutput: Locator;
 	readonly imageOutput: Locator;
@@ -83,6 +86,9 @@ export class InlineQuarto {
 		this.copyButton = page.locator(`${INLINE_OUTPUT} ${OUTPUT_COPY}`);
 		this.saveButton = page.locator(`${INLINE_OUTPUT} ${OUTPUT_SAVE}`);
 		this.popoutButton = page.locator(`${INLINE_OUTPUT} ${OUTPUT_POPOUT}`);
+		// Chevron is portaled into the editor's overflow-guard, so it's not a
+		// descendant of `.quarto-inline-output` and must be located on the page.
+		this.collapseChevron = page.locator(OUTPUT_COLLAPSE_CHEVRON);
 		this.stdoutOutput = page.locator(`${INLINE_OUTPUT} ${OUTPUT_STDOUT}`);
 		this.htmlOutput = page.locator(`${INLINE_OUTPUT} ${OUTPUT_HTML}`);
 		this.imageOutput = page.locator(`${INLINE_OUTPUT} ${OUTPUT_IMAGE}`);
@@ -214,6 +220,15 @@ export class InlineQuarto {
 		});
 	}
 
+	async clickCollapseChevron(index = 0): Promise<void> {
+		await test.step(`Click collapse chevron on output ${index}`, async () => {
+			// Hover the wrapper to reveal the portaled chevron.
+			await this.getInlineOutputAt(index).hover();
+			await expect(this.collapseChevron.nth(index)).toBeVisible({ timeout: 5000 });
+			await this.collapseChevron.nth(index).click();
+		});
+	}
+
 	async runPopoutCommand(): Promise<void> {
 		await test.step('Run popout output command', async () => {
 			await this.quickaccess.runCommand('positronQuarto.popoutOutput');
@@ -266,6 +281,18 @@ export class InlineQuarto {
 	async expectOutputVisible({ index = 0, timeout = 30000 }: { index?: number; timeout?: number } = {}): Promise<void> {
 		await test.step(`Expect output at index ${index} visible on screen`, async () => {
 			await expect(this.getOutputContentAt(index)).toBeVisible({ timeout });
+		});
+	}
+
+	async expectOutputCollapsed({ index = 0, timeout = 5000 }: { index?: number; timeout?: number } = {}): Promise<void> {
+		await test.step(`Expect output at index ${index} collapsed`, async () => {
+			await expect(this.getInlineOutputAt(index)).toHaveClass(OUTPUT_COLLAPSED_CLASS, { timeout });
+		});
+	}
+
+	async expectOutputExpanded({ index = 0, timeout = 5000 }: { index?: number; timeout?: number } = {}): Promise<void> {
+		await test.step(`Expect output at index ${index} expanded`, async () => {
+			await expect(this.getInlineOutputAt(index)).not.toHaveClass(OUTPUT_COLLAPSED_CLASS, { timeout });
 		});
 	}
 

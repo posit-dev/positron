@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -26,4 +26,32 @@ export class RuntimeItemRestartButton extends RuntimeItem {
 	}
 
 	//#endregion Constructor
+
+	//#region Public Methods
+
+	/**
+	 * Trim scrollback.
+	 * @param scrollbackSize A number representing the scrollback size.
+	 * @returns A number representing the remaining scrollback size.
+	 */
+	public override trimScrollback(scrollbackSize: number): number {
+		// We should never be called with a scrollback size <= 0.
+		if (scrollbackSize <= 0) {
+			return 0;
+		}
+
+		// Counts as one scrollback item.
+		return scrollbackSize - 1;
+	}
+
+	/**
+	 * Gets the clipboard representation of the runtime item.
+	 * @param commentPrefix The comment prefix to use.
+	 * @returns The clipboard representation of the runtime item.
+	 */
+	public override getClipboardRepresentation(commentPrefix: string): string[] {
+		return [];
+	}
+
+	//#endregion Public Methods
 }

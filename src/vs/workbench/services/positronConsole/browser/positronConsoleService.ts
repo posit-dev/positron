@@ -11,7 +11,8 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ISettableObservable, observableValue } from '../../../../base/common/observable.js';
 import { IViewsService } from '../../views/common/viewsService.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { ConfigurationTarget, IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { RuntimeItem } from './classes/runtimeItem.js';
@@ -186,6 +187,15 @@ const consoleServiceConfigurationBaseNode = Object.freeze<IConfigurationNode>({
  * Console configuration settings.
  */
 export const scrollbackSizeSettingId = 'console.scrollbackSize';
+
+/**
+ * Storage key guarding the one-time migration that clears any pre-existing user override of
+ * `console.scrollbackSize`. The default was raised (thanks to render memoization ) so most
+ * previously-picked values are obsolete; we reset once per profile and then let the user set
+ * whatever they want from there.
+ */
+const scrollbackSizeResetMigrationKey = 'positronConsole.scrollbackSize.resetUserOverride.v1';
+
 configurationRegistry.registerConfiguration({
 	...consoleServiceConfigurationBaseNode,
 	properties: {
@@ -264,9 +274,9 @@ configurationRegistry.registerConfiguration({
 		// Scrollback size.
 		'console.scrollbackSize': {
 			type: 'number',
-			'minimum': 500,
-			'maximum': 5000,
-			'default': 1000,
+			'minimum': 1_000,
+			'maximum': 20_000,
+			'default': 10_000,
 			markdownDescription: localize('console.scrollbackSize', "The number of console output items to display."),
 		},
 		// Whether to automatically create consoles for notebook sessions
@@ -358,19 +368,26 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 * @param _logService The log service service.
 	 * @param _runtimeSessionService The runtime session service.
 	 * @param _runtimeStartupService The runtime affiliation service.
+	 * @param _storageService The storage service.
 	 * @param _viewsService The views service.
+	 * @param _notificationService The notification service.
 	 */
 	constructor(
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IExecutionHistoryService private readonly _executionHistoryService: IExecutionHistoryService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@ILogService private readonly _logService: ILogService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
+		@IStorageService private readonly _storageService: IStorageService,
 		@IViewsService private readonly _viewsService: IViewsService,
 		@INotificationService private readonly _notificationService: INotificationService
 	) {
 		// Call the disposable constructor.
 		super();
+
+		// Run one-time migrations.
+		this.resetScrollbackSizeUserOverrideOnce();
 
 		// Start a Positron console instance for each session that will be restored.
 		//
@@ -1052,6 +1069,44 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		this._onDidChangeActivePositronConsoleInstanceEmitter.fire(positronConsoleInstance);
 	}
 
+	/**
+	 * Clears any pre-existing user override of `console.scrollbackSize` exactly once per profile.
+	 * The default was raised because of performance improvements, so previously-picked values are
+	 * obsolete. After this runs, the flag is stored and we never touch the user's setting again.
+	 *
+	 * Note: `updateValue` is async, and the flag is stored only after it resolves. Any
+	 * PositronConsoleInstance created in the same tick may observe the old override; each
+	 * instance's `onDidChangeConfiguration` handler reconciles `_scrollbackSize` once the update
+	 * lands. If `updateValue` rejects, the flag is not stored and the migration retries on the
+	 * next startup.
+	 */
+	private resetScrollbackSizeUserOverrideOnce(): void {
+		// If the flag is already set, we know we've done the reset for this profile before, so we
+		// can skip it.
+		if (this._storageService.getBoolean(scrollbackSizeResetMigrationKey, StorageScope.PROFILE, false)) {
+			return;
+		}
+
+		// Otherwise, we need to do the reset. This involves removing any user override of the
+		// setting, which will cause it to fall back to the new default value. We only remove the
+		// user override (as opposed to changing the default) because we don't want to mess with
+		// any workspace or machine overrides that may be in place.
+		this._configurationService.updateValue(
+			scrollbackSizeSettingId,
+			undefined,
+			ConfigurationTarget.USER
+		).then(() => {
+			this._storageService.store(
+				scrollbackSizeResetMigrationKey,
+				true,
+				StorageScope.PROFILE,
+				StorageTarget.MACHINE
+			);
+		}, err => {
+			this._logService.warn(`Failed to reset ${scrollbackSizeSettingId} user override: ${err}`);
+		});
+	}
+
 	//#endregion Private Methods
 }
 
@@ -1323,7 +1378,22 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		// configuration.
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(scrollbackSizeSettingId)) {
-				this._scrollbackSize = this._configurationService.getValue<number>(scrollbackSizeSettingId);
+				// Get the new scrollback size from the configuration.
+				const newScrollbackSize = this._configurationService.getValue<number>(
+					scrollbackSizeSettingId
+				);
+
+				// Determine whether or not we need to trim the scrollback.
+				const trimScrollback = newScrollbackSize < this._scrollbackSize;
+
+				// Update the scrollback size.
+				this._scrollbackSize = newScrollbackSize;
+
+				// Trim the scrollback and fire the onDidChangeRuntimeItems event, as needed.
+				if (trimScrollback) {
+					this.trimScrollback();
+					this._onDidChangeRuntimeItemsEmitter.fire();
+				}
 			}
 		}));
 
@@ -1943,6 +2013,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				this._runtimeItems.push(startupItem);
 			}
 		}
+
+		// Trim scrollback now that the batch replay is complete.
+		this.trimScrollback();
 
 		// Enter the reconnecting state.
 		this.emitStartRuntimeItems(SessionAttachMode.Reconnecting);
@@ -3333,12 +3406,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			// Add the activity item to the activity runtime item.
 			runtimeItemActivity.addActivityItem(activityItem);
 
-			// Optimize scrollback.
-			this.optimizeScrollback();
+			// Trim the scrollback after each activity item is added.
+			this.trimScrollback();
 
 			// Fire the onDidChangeRuntimeItems event.
 			this._onDidChangeRuntimeItemsEmitter.fire();
 		} else {
+			// No activity runtime item was found, so create a new one and add the activity item to it.
 			const runtimeItemActivity = new RuntimeItemActivity(parentId, activityItem);
 			this._runtimeItemActivities.set(parentId, runtimeItemActivity);
 			this.addRuntimeItem(runtimeItemActivity);
@@ -3356,20 +3430,53 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			this._runtimeItemActivities.set(runtimeItem.id, runtimeItem);
 		}
 
-		// Optimize scrollback.
-		this.optimizeScrollback();
+		// Trim the scrollback after each runtime item is added.
+		this.trimScrollback();
 
 		// Fire the onDidChangeRuntimeItems event.
 		this._onDidChangeRuntimeItemsEmitter.fire();
 	}
 
 	/**
-	 * Optimizes scrollback.
+	 * Trims the front of _runtimeItems to fit within the current scrollback budget.
+	 *
+	 * Walks the items from tail (most recent) toward head, letting each item declare how much of
+	 * the budget it consumes via trimScrollback(). Once the budget is exhausted, everything before
+	 * the first item that still fit is spliced off.
+	 *
+	 * Callers own firing onDidChangeRuntimeItemsEmitter; this method does not fire it, because the
+	 * trim is typically paired with another mutation and a single emit covers both.
 	 */
-	private optimizeScrollback() {
-		// Optimize scrollback for each runtime item in reverse order.
-		for (let scrollbackSize = this._scrollbackSize, i = this._runtimeItems.length - 1; i >= 0; i--) {
-			scrollbackSize = this._runtimeItems[i].optimizeScrollback(scrollbackSize);
+	private trimScrollback(): void {
+		// Set the remaining budget to the configured scrollback size, and the first keep index to
+		// 0 (the head of the list).
+		let remainingBudget = this._scrollbackSize;
+		let firstKeepIndex = 0;
+
+		// Walk from the tail (newest) toward the head (oldest), letting each item declare its weight.
+		for (let i = this._runtimeItems.length - 1; i >= 0; i--) {
+			// Adjust the scrollback on the item, which returns the remaining budget.
+			remainingBudget = this._runtimeItems[i].trimScrollback(remainingBudget);
+
+			// Adjust the first keep index.
+			firstKeepIndex = i;
+
+			// If the budget is exhausted, break; we will drop everything before the first keep index.
+			if (remainingBudget <= 0) {
+				break;
+			}
+		}
+
+		// Drop runtime items before the first keep index.
+		if (firstKeepIndex > 0) {
+			const droppedRuntimeItems = this._runtimeItems.splice(0, firstKeepIndex);
+			for (const runtimeItem of droppedRuntimeItems) {
+				if (runtimeItem instanceof RuntimeItemActivity) {
+					this._runtimeItemActivities.delete(runtimeItem.id);
+				} else if (runtimeItem === this._runtimeItemPendingInput) {
+					this._runtimeItemPendingInput = undefined;
+				}
+			}
 		}
 	}
 

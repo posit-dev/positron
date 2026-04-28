@@ -105,6 +105,9 @@ import { PositronMemoryUsageServerService } from '../../platform/positronMemoryU
 import { POSITRON_MEMORY_INFO_CHANNEL_NAME, PositronMemoryInfoChannel } from '../../platform/positronMemoryUsage/common/positronMemoryUsageIpc.js';
 // eslint-disable-next-line no-duplicate-imports
 import { IPositronLicenseeInfo } from '../../platform/remote/common/remoteAgentEnvironment.js';
+import { IPositronIdleTrackingService } from '../../platform/positronIdleTracking/common/positronIdleTracking.js';
+import { PositronIdleTrackingService } from '../../platform/positronIdleTracking/node/positronIdleTrackingService.js';
+import { POSITRON_IDLE_TRACKING_CHANNEL_NAME, PositronIdleTrackingChannel } from '../../platform/positronIdleTracking/common/positronIdleTrackingIpc.js';
 // --- End Positron ---
 
 const eventPrefix = 'monacoworkbench';
@@ -262,6 +265,8 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
 	// --- Start Positron ---
 	const ephemeralStateService = new EphemeralStateService();
 	services.set(IEphemeralStateService, ephemeralStateService);
+	const idleTrackingService = new PositronIdleTrackingService();
+	services.set(IPositronIdleTrackingService, idleTrackingService);
 	// --- End Positron ---
 
 	instantiationService.invokeFunction(accessor => {
@@ -305,6 +310,10 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
 		const memoryUsageServerService = new PositronMemoryUsageServerService();
 		const memoryInfoChannel = new PositronMemoryInfoChannel(memoryUsageServerService);
 		socketServer.registerChannel(POSITRON_MEMORY_INFO_CHANNEL_NAME, memoryInfoChannel);
+
+		// Idle Tracking
+		const idleTrackingChannel = new PositronIdleTrackingChannel(accessor.get(IPositronIdleTrackingService));
+		socketServer.registerChannel(POSITRON_IDLE_TRACKING_CHANNEL_NAME, idleTrackingChannel);
 		// --- End Positron ---
 		// clean up extensions folder
 		remoteExtensionsScanner.whenExtensionsReady().then(() => extensionManagementService.cleanUp());

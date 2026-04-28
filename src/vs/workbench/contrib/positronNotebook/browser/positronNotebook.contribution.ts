@@ -419,7 +419,7 @@ Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory).registerEdit
 
 
 //#region Notebook Commands
-registerAction2(class extends NotebookAction2 {
+export class SelectUpAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.selectUp',
@@ -436,9 +436,10 @@ registerAction2(class extends NotebookAction2 {
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.selectionStateMachine.moveSelectionUp(false);
 	}
-});
+}
+registerAction2(SelectUpAction);
 
-registerAction2(class extends NotebookAction2 {
+export class SelectDownAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.selectDown',
@@ -455,9 +456,10 @@ registerAction2(class extends NotebookAction2 {
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.selectionStateMachine.moveSelectionDown(false);
 	}
-});
+}
+registerAction2(SelectDownAction);
 
-registerAction2(class extends NotebookAction2 {
+export class AddSelectionDownAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.addSelectionDown',
@@ -474,9 +476,10 @@ registerAction2(class extends NotebookAction2 {
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.selectionStateMachine.moveSelectionDown(true);
 	}
-});
+}
+registerAction2(AddSelectionDownAction);
 
-registerAction2(class extends NotebookAction2 {
+export class AddSelectionUpAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.addSelectionUp',
@@ -493,7 +496,8 @@ registerAction2(class extends NotebookAction2 {
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.selectionStateMachine.moveSelectionUp(true);
 	}
-});
+}
+registerAction2(AddSelectionUpAction);
 
 // Enter key: Enter edit mode when cell is selected but NOT editing
 registerAction2(class extends NotebookAction2 {
@@ -561,7 +565,7 @@ registerAction2(class extends NotebookAction2 {
  * Escape key: Reduce multi-selection to just the active cell when in command mode.
  * This allows users to quickly collapse a multi-selection back to a single cell.
  */
-registerAction2(class extends NotebookAction2 {
+export class ReduceSelectionToActiveCellAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.reduceSelectionToActiveCell',
@@ -582,7 +586,8 @@ registerAction2(class extends NotebookAction2 {
 			notebook.selectionStateMachine.selectCell(state.active);
 		}
 	}
-});
+}
+registerAction2(ReduceSelectionToActiveCellAction);
 
 // Z key: Undo in command mode (Jupyter-style)
 // Adds keybinding to existing 'undo' command that's handled by contrib/undoRedo/positronNotebookUndoRedo.ts

@@ -6,6 +6,9 @@
 // CSS.
 import './runtimeExited.css';
 
+// React.
+import { memo } from 'react';
+
 // Other dependencies.
 import { ConsoleOutputLines } from './consoleOutputLines.js';
 import { RuntimeItemExited } from '../../../../services/positronConsole/browser/classes/runtimeItemExited.js';
@@ -18,13 +21,12 @@ export interface RuntimeExitedProps {
 /**
  * RuntimeExited component.
  * @param props A RuntimeExitedProps that contains the component properties.
- * @returns The rendered component.
+ * @returns The memoized component.
  */
-export const RuntimeExited = (props: RuntimeExitedProps) => {
-	// Render.
+export const RuntimeExited = memo((props: RuntimeExitedProps) => {
 	return (
 		<div className='runtime-exited'>
 			<ConsoleOutputLines outputLines={props.runtimeItemExited.outputLines} />
 		</div>
 	);
-};
+});

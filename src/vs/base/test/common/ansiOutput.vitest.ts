@@ -748,9 +748,9 @@ describe('ANSIOutput', () => {
 		ansiOutput.processOutput(`${makeSGR(SGRParam.ForegroundBlue)}0123456789${makeSGR()}`);
 		ansiOutput.processOutput(`${makeSGR(SGRParam.ForegroundGreen)}0123456789${makeSGR()}`);
 		ansiOutput.processOutput(CR);
-		ansiOutput.processOutput("                              ");
+		ansiOutput.processOutput('                              ');
 		ansiOutput.processOutput(CR);
-		ansiOutput.processOutput("0123456789");
+		ansiOutput.processOutput('0123456789');
 		const outputLines = ansiOutput.outputLines;
 
 		// Test.
@@ -768,9 +768,9 @@ describe('ANSIOutput', () => {
 		ansiOutput.processOutput(`${makeSGR(SGRParam.ForegroundBlue)}0123456789${makeSGR()}`);
 		ansiOutput.processOutput(`${makeSGR(SGRParam.ForegroundGreen)}0123456789${makeSGR()}`);
 		ansiOutput.processOutput(CR);
-		ansiOutput.processOutput("                                        ");
+		ansiOutput.processOutput('                                        ');
 		ansiOutput.processOutput(CR);
-		ansiOutput.processOutput("0123456789");
+		ansiOutput.processOutput('0123456789');
 		const outputLines = ansiOutput.outputLines;
 
 		// Test.
@@ -864,7 +864,7 @@ describe('ANSIOutput', () => {
 	it('Test CUF (Cursor Forward)', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
-		ansiOutput.processOutput("0".repeat(80));
+		ansiOutput.processOutput('0'.repeat(80));
 		ansiOutput.processOutput(makeCUP());
 
 		// Test.
@@ -929,7 +929,7 @@ describe('ANSIOutput', () => {
 		expect(outputLines[0].outputRuns[0].text).toBe('0000000000000000000000000000000000000000000000000000000000000000000000XXXXXXXXXX');
 	});
 
-	it("Tests CUP (Cursor Position)", () => {
+	it('Tests CUP (Cursor Position)', () => {
 		// Setup.
 		const ansiOutput = setupStandardScreen();
 
@@ -944,7 +944,7 @@ describe('ANSIOutput', () => {
 		checkOutputPosition(ansiOutput, 8191, 8191);
 	});
 
-	it("Tests CUU (Cursor Up)", () => {
+	it('Tests CUU (Cursor Up)', () => {
 		// Setup.
 		const ansiOutput = setupStandardScreen();
 
@@ -1058,12 +1058,12 @@ describe('ANSIOutput', () => {
 		}
 	});
 
-	it("Tests EL 0 when there is nothing to clear", () => {
+	it('Tests EL 0 when there is nothing to clear', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
 
 		// Test.
-		ansiOutput.processOutput(makeEL("end-of-line"));
+		ansiOutput.processOutput(makeEL('end-of-line'));
 		expect(ansiOutput.outputLines[0].outputRuns.length).toBe(0);
 	});
 
@@ -1667,7 +1667,7 @@ describe('ANSIOutput', () => {
 		expect(outputLines[0].outputRuns[2].text).toBe('00000000000000000000000000000000000');
 	});
 
-	it("Tests styles", () => {
+	it('Tests styles', () => {
 		const testStyle = (sgr: SGRParam, ansiStyle: ANSIStyle) => {
 			// Setup.
 			const ansiOutput = new ANSIOutput();
@@ -1702,6 +1702,90 @@ describe('ANSIOutput', () => {
 		// testStyle(SGRParam.Overlined, ANSIStyle.Overlined);
 		// testStyle(SGRParam.Superscript, ANSIStyle.Superscript);
 		// testStyle(SGRParam.Subscript, ANSIStyle.Subscript);
+	});
+
+	it('dropTop: no-op for non-positive counts', () => {
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(`A${LF}B${LF}C`);
+
+		expect(ansiOutput.dropTop(0)).toBe(0);
+		expect(ansiOutput.dropTop(-5)).toBe(0);
+		expect(ansiOutput.outputLines.length).toBe(3);
+		checkOutputPosition(ansiOutput, 2, 1);
+	});
+
+	it('dropTop: drops lines above the cursor', () => {
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(`A${LF}B${LF}C${LF}D`);
+		// Four lines: A, B, C, D. Cursor is on line 3 (the "D" line).
+		expect(ansiOutput.outputLines.length).toBe(4);
+		checkOutputPosition(ansiOutput, 3, 1);
+
+		expect(ansiOutput.dropTop(2)).toBe(2);
+
+		const remaining = ansiOutput.outputLines;
+		expect(remaining.length).toBe(2);
+		expect(remaining[0].outputRuns[0].text).toBe('C');
+		expect(remaining[1].outputRuns[0].text).toBe('D');
+		checkOutputPosition(ansiOutput, 1, 1);
+	});
+
+	it('dropTop: clamps to keep the cursor line', () => {
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(`A${LF}B${LF}C`);
+		// Cursor on line 2 ("C"), so at most 2 head lines can be dropped.
+		expect(ansiOutput.outputLines.length).toBe(3);
+		checkOutputPosition(ansiOutput, 2, 1);
+
+		expect(ansiOutput.dropTop(10)).toBe(2);
+
+		const remaining = ansiOutput.outputLines;
+		expect(remaining.length).toBe(1);
+		expect(remaining[0].outputRuns[0].text).toBe('C');
+		checkOutputPosition(ansiOutput, 0, 1);
+	});
+
+	it('dropTop: no-op when cursor is already on the first line', () => {
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput('only line');
+		checkOutputPosition(ansiOutput, 0, 9);
+
+		expect(ansiOutput.dropTop(5)).toBe(0);
+		expect(ansiOutput.outputLines.length).toBe(1);
+		checkOutputPosition(ansiOutput, 0, 9);
+	});
+
+	it('dropTop: subsequent input keeps SGR styling after drop', () => {
+		const ansiOutput = new ANSIOutput();
+		// Enter red, write three lines, scroll off, then append another line without a new SGR;
+		// it should still render red because the SGR state is preserved.
+		ansiOutput.processOutput(`${makeSGR(SGRParam.ForegroundRed)}A${LF}B${LF}C`);
+		expect(ansiOutput.outputLines.length).toBe(3);
+
+		ansiOutput.dropTop(2);
+		ansiOutput.processOutput(`${LF}D${makeSGR()}`);
+
+		const lines = ansiOutput.outputLines;
+		expect(lines.length).toBe(2);
+		expect(lines[0].outputRuns[0].text).toBe('C');
+		expect(lines[0].outputRuns[0].format!.foregroundColor).toBe(ANSIColor.Red);
+		expect(lines[1].outputRuns[0].text).toBe('D');
+		expect(lines[1].outputRuns[0].format!.foregroundColor).toBe(ANSIColor.Red);
+	});
+
+	it('dropTop: further appends index correctly relative to the retained tail', () => {
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(`A${LF}B${LF}C`);
+		ansiOutput.dropTop(2);
+		// Now only "C" remains; cursor on line 0 at column 1.
+		ansiOutput.processOutput(`${LF}D${LF}E`);
+
+		const lines = ansiOutput.outputLines;
+		expect(lines.length).toBe(3);
+		expect(lines[0].outputRuns[0].text).toBe('C');
+		expect(lines[1].outputRuns[0].text).toBe('D');
+		expect(lines[2].outputRuns[0].text).toBe('E');
+		checkOutputPosition(ansiOutput, 2, 1);
 	});
 
 	it('Tests OSC 8 scenario 1', () => {
@@ -1848,6 +1932,90 @@ describe('ANSIOutput', () => {
 		expect(outputLines[3].outputRuns[0].id.length).toBeGreaterThanOrEqual(1);
 		expect(outputLines[3].outputRuns[0].format).toBe(undefined);
 		expect(outputLines[3].outputRuns[0].text).toBe(PANGRAM);
+	});
+
+	test('dropTop: no-op for non-positive counts', () => {
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(`A${LF}B${LF}C`);
+
+		assert.equal(ansiOutput.dropTop(0), 0);
+		assert.equal(ansiOutput.dropTop(-5), 0);
+		assert.equal(ansiOutput.outputLines.length, 3);
+		checkOutputPosition(ansiOutput, 2, 1);
+	});
+
+	test('dropTop: drops lines above the cursor', () => {
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(`A${LF}B${LF}C${LF}D`);
+		// Four lines: A, B, C, D. Cursor is on line 3 (the "D" line).
+		assert.equal(ansiOutput.outputLines.length, 4);
+		checkOutputPosition(ansiOutput, 3, 1);
+
+		assert.equal(ansiOutput.dropTop(2), 2);
+
+		const remaining = ansiOutput.outputLines;
+		assert.equal(remaining.length, 2);
+		assert.equal(remaining[0].outputRuns[0].text, 'C');
+		assert.equal(remaining[1].outputRuns[0].text, 'D');
+		checkOutputPosition(ansiOutput, 1, 1);
+	});
+
+	test('dropTop: clamps to keep the cursor line', () => {
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(`A${LF}B${LF}C`);
+		// Cursor on line 2 ("C"), so at most 2 head lines can be dropped.
+		assert.equal(ansiOutput.outputLines.length, 3);
+		checkOutputPosition(ansiOutput, 2, 1);
+
+		assert.equal(ansiOutput.dropTop(10), 2);
+
+		const remaining = ansiOutput.outputLines;
+		assert.equal(remaining.length, 1);
+		assert.equal(remaining[0].outputRuns[0].text, 'C');
+		checkOutputPosition(ansiOutput, 0, 1);
+	});
+
+	test('dropTop: no-op when cursor is already on the first line', () => {
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput('only line');
+		checkOutputPosition(ansiOutput, 0, 9);
+
+		assert.equal(ansiOutput.dropTop(5), 0);
+		assert.equal(ansiOutput.outputLines.length, 1);
+		checkOutputPosition(ansiOutput, 0, 9);
+	});
+
+	test('dropTop: subsequent input keeps SGR styling after drop', () => {
+		const ansiOutput = new ANSIOutput();
+		// Enter red, write three lines, scroll off, then append another line without a new SGR;
+		// it should still render red because the SGR state is preserved.
+		ansiOutput.processOutput(`${makeSGR(SGRParam.ForegroundRed)}A${LF}B${LF}C`);
+		assert.equal(ansiOutput.outputLines.length, 3);
+
+		ansiOutput.dropTop(2);
+		ansiOutput.processOutput(`${LF}D${makeSGR()}`);
+
+		const lines = ansiOutput.outputLines;
+		assert.equal(lines.length, 2);
+		assert.equal(lines[0].outputRuns[0].text, 'C');
+		assert.equal(lines[0].outputRuns[0].format!.foregroundColor, ANSIColor.Red);
+		assert.equal(lines[1].outputRuns[0].text, 'D');
+		assert.equal(lines[1].outputRuns[0].format!.foregroundColor, ANSIColor.Red);
+	});
+
+	test('dropTop: further appends index correctly relative to the retained tail', () => {
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(`A${LF}B${LF}C`);
+		ansiOutput.dropTop(2);
+		// Now only "C" remains; cursor on line 0 at column 1.
+		ansiOutput.processOutput(`${LF}D${LF}E`);
+
+		const lines = ansiOutput.outputLines;
+		assert.equal(lines.length, 3);
+		assert.equal(lines[0].outputRuns[0].text, 'C');
+		assert.equal(lines[1].outputRuns[0].text, 'D');
+		assert.equal(lines[2].outputRuns[0].text, 'E');
+		checkOutputPosition(ansiOutput, 2, 1);
 	});
 
 	const testOutputLines = (count: number, terminator: string) => {

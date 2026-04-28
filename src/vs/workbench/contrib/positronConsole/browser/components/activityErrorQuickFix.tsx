@@ -15,17 +15,54 @@ import { localize } from '../../../../../nls.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
+import { encodeBase64, VSBuffer } from '../../../../../base/common/buffer.js';
+// --- Start Quick Chat fallback ---
+import { usePositronConfiguration } from '../../../../../base/browser/positronReactHooks.js';
+// --- End Quick Chat fallback ---
 
-const fixPrompt = '/fix';
-const explainPrompt = '/explain';
+const fixPrompt = localize('positronConsoleAssistantFixPrompt', "Fix this console error.");
+const explainPrompt = localize('positronConsoleAssistantExplainPrompt', "Explain this console error.");
+
+const NEW_CHAT_COMMAND = 'posit-assistant.newChat';
+const ATTACHMENT_NAME = 'console-error.txt';
+
+// --- Start Quick Chat fallback ---
+const quickChatFixPrompt = '/fix';
+const quickChatExplainPrompt = '/explain';
+const SIDEBAR_VIEW_SETTING = 'assistant.sidebarView';
+// --- End Quick Chat fallback ---
 
 interface ConsoleQuickFixProps {
 	outputLines: ANSIOutputLine[];
 	tracebackLines: ANSIOutputLine[];
 }
 
+interface NewChatFile {
+	uri: string;
+	name: string;
+}
+
+interface NewChatOptions {
+	prompt: string;
+	files?: NewChatFile[];
+	target: 'auto' | 'new';
+	behavior: 'submit' | 'prefill';
+}
+
 const formatOutput = (outputLines: ANSIOutputLine[], tracebackLines: ANSIOutputLine[]) => {
-	return outputLines.map(line => line.outputRuns.map(run => run.text).join('')).join('\n') + '\n' + tracebackLines.map(line => line.outputRuns.map(run => run.text).join('')).join('\n');
+	const lineText = (lines: ANSIOutputLine[]) =>
+		lines.map(line => line.outputRuns.map(run => run.text).join('')).join('\n');
+	const message = lineText(outputLines);
+	const traceback = lineText(tracebackLines);
+	return traceback ? `${message}\n${traceback}` : message;
+};
+
+const buildAttachment = (text: string): NewChatFile | undefined => {
+	if (!text) {
+		return undefined;
+	}
+	const base64 = encodeBase64(VSBuffer.fromString(text));
+	return { uri: `data:text/plain;base64,${base64}`, name: ATTACHMENT_NAME };
 };
 
 /**
@@ -34,26 +71,62 @@ const formatOutput = (outputLines: ANSIOutputLine[], tracebackLines: ANSIOutputL
  */
 export const ConsoleQuickFix = (props: ConsoleQuickFixProps) => {
 	const buttonRef = useRef<HTMLDivElement>(undefined!);
-	const { quickChatService } = usePositronReactServicesContext();
+	const services = usePositronReactServicesContext();
+	const { commandService, notificationService } = services;
+	// --- Start Quick Chat fallback ---
+	const { quickChatService } = services;
+	const sidebarViewEnabled = usePositronConfiguration<boolean>(SIDEBAR_VIEW_SETTING);
+	// --- End Quick Chat fallback ---
 
-	const formattedOutput = useMemo(() => {
-		return formatOutput(props.outputLines, props.tracebackLines);
-	}, [props.outputLines, props.tracebackLines]);
-	/**
-	 * onClick handlers.
-	 */
-	const pressedFixHandler = async () => {
-		// Handle console quick fix action.
-		quickChatService.open({
-			query: props.outputLines ? `${fixPrompt}\n\`\`\`${formattedOutput}\`\`\`` : fixPrompt
-		});
+	const attachment = useMemo(
+		() => buildAttachment(formatOutput(props.outputLines, props.tracebackLines)),
+		[props.outputLines, props.tracebackLines]
+	);
+
+	const runNewChat = async (prompt: string) => {
+		const options: NewChatOptions = {
+			prompt,
+			target: 'auto',
+			behavior: 'submit',
+			...(attachment && { files: [attachment] }),
+		};
+		try {
+			await commandService.executeCommand(NEW_CHAT_COMMAND, options);
+		} catch {
+			notificationService.error(
+				localize(
+					'positronConsoleAssistantUnavailable',
+					"Posit Assistant is not available. Install the Posit Assistant extension to use Fix and Explain."
+				)
+			);
+		}
 	};
 
-	const pressedExplainHandler = async () => {
-		// Handle console quick explain action.
+	// --- Start Quick Chat fallback ---
+	const runQuickChat = (slashPrompt: string) => {
+		const formatted = formatOutput(props.outputLines, props.tracebackLines);
 		quickChatService.open({
-			query: props.outputLines ? `${explainPrompt}\n\`\`\`${formattedOutput}\`\`\`` : explainPrompt
+			query: formatted ? `${slashPrompt}\n\`\`\`${formatted}\`\`\`` : slashPrompt,
 		});
+	};
+	// --- End Quick Chat fallback ---
+
+	const pressedFixHandler = () => {
+		// --- Start Quick Chat fallback ---
+		if (!sidebarViewEnabled) {
+			return runQuickChat(quickChatFixPrompt);
+		}
+		// --- End Quick Chat fallback ---
+		return runNewChat(fixPrompt);
+	};
+
+	const pressedExplainHandler = () => {
+		// --- Start Quick Chat fallback ---
+		if (!sidebarViewEnabled) {
+			return runQuickChat(quickChatExplainPrompt);
+		}
+		// --- End Quick Chat fallback ---
+		return runNewChat(explainPrompt);
 	};
 
 	// Render.
