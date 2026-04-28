@@ -247,9 +247,36 @@ function isBaseCondaEnvironment(environment: PythonEnvironment): boolean {
     );
 }
 
+// --- Start Positron ---
 export function isProblematicCondaEnvironment(environment: PythonEnvironment): boolean {
-    return environment.envType === EnvironmentType.Conda && environment.path === 'python';
+    if (environment.envType !== EnvironmentType.Conda) {
+        return false;
+    }
+    // Check if Python is not installed in the conda environment:
+    // - JS locator case: path is just 'python'
+    // - Native locator case: path is a predicted full path that doesn't exist
+    const executablePath = environment.path;
+    if (executablePath === 'python') {
+        return true;
+    }
+    // For full paths, check if the file actually exists
+    if (executablePath && executablePath !== '' && !pathExistsSync(executablePath)) {
+        // If the predicted path doesn't exist, also check the standard conda installation locations
+        // This handles cases where conda installs Python at <env>/bin/python but we predicted <env>/python
+        if (environment.envPath) {
+            const unixStylePath = path.join(environment.envPath, 'bin', 'python');
+            const windowsStylePath = path.join(environment.envPath, 'Scripts', 'python.exe');
+
+            // If Python exists at either standard location, this is NOT a problematic environment
+            if (pathExistsSync(unixStylePath) || pathExistsSync(windowsStylePath)) {
+                return false;
+            }
+        }
+        return true;
+    }
+    return false;
 }
+// --- End Positron ---
 
 /**
  * Compare 2 Python versions in decending order, most recent one comes first.

@@ -140,8 +140,10 @@ export interface IRuntimeStartupService {
 
 	/**
 	 * Kick off a user-driven refresh of runtime discovery, after the initial discovery.
+	 *
+	 * @param quiet If true, suppress notification toasts about discovery results.
 	 */
-	rediscoverAllRuntimes(): Promise<void>;
+	rediscoverAllRuntimes(quiet?: boolean): Promise<void>;
 
 	/**
 	 * Get the sessions that were (or will be) restored into this window.
