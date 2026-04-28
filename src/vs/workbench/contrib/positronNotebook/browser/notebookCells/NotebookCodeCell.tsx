@@ -232,6 +232,7 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 							>
 								<CellOutput
 									{...output}
+									cell={cell}
 									outputScrolling={outputScrolling}
 									onShowFullOutput={() => cell.showFullOutput()}
 								/>
@@ -293,6 +294,7 @@ export const NotebookCodeCell = React.memo(function NotebookCodeCell({ cell }: {
 interface CellOutputProps extends NotebookCellOutputs {
 	outputScrolling: boolean;
 	onShowFullOutput: () => void;
+	cell: PositronNotebookCodeCell;
 }
 
 const CellOutput = React.memo(function CellOutput(output: CellOutputProps) {
@@ -300,7 +302,7 @@ const CellOutput = React.memo(function CellOutput(output: CellOutputProps) {
 		return <PreloadMessageOutput preloadMessageResult={output.preloadMessageResult} />;
 	}
 
-	const { parsed, outputs, outputScrolling, onShowFullOutput } = output;
+	const { parsed, outputs, outputScrolling, onShowFullOutput, cell } = output;
 
 	if (isParsedTextOutput(parsed)) {
 		return <CellTextOutput
@@ -322,7 +324,7 @@ const CellOutput = React.memo(function CellOutput(output: CellOutputProps) {
 		case 'markdown':
 			return <Markdown content={parsed.content} />;
 		case 'dataExplorer':
-			return <DataExplorerCellOutput outputs={outputs} parsed={parsed} />;
+			return <DataExplorerCellOutput cell={cell} outputs={outputs} parsed={parsed} />;
 		case 'unknown':
 			return <div className='unknown-mime-type'>
 				{parsed.content}
@@ -332,7 +334,8 @@ const CellOutput = React.memo(function CellOutput(output: CellOutputProps) {
 	// Reference equality on parsed is correct - new execution creates new parsed objects
 	return prevProps.outputId === nextProps.outputId &&
 		prevProps.parsed === nextProps.parsed &&
-		prevProps.outputScrolling === nextProps.outputScrolling;
+		prevProps.outputScrolling === nextProps.outputScrolling &&
+		prevProps.cell === nextProps.cell;
 });
 
 const CollapsedOutputLabel = ({ onExpand }: { onExpand: () => void }) => {

@@ -32,6 +32,12 @@
 	gap: 8px;
 }
 
+.inline-data-explorer-header-actions {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
 .inline-data-explorer-title {
 	font-weight: 500;
 	color: var(--vscode-foreground);
