@@ -47,6 +47,10 @@ interface PositronModalDialogReactRendererOptions {
  * showModal().
  */
 export class PositronModalDialogReactRenderer extends Disposable {
+	// The number of dialogs currently rendered. Used to detect nested dialogs so we can suppress
+	// the backdrop on all but the bottom-most, avoiding compounded dimming.
+	private static _openDialogCount = 0;
+
 	// The native <dialog> element we create in render() and close/remove in dispose().
 	private _dialog?: HTMLDialogElement;
 
@@ -125,6 +129,9 @@ export class PositronModalDialogReactRenderer extends Disposable {
 		this._dialog.remove();
 		this._dialog = undefined;
 
+		// Decrement the open dialog count.
+		PositronModalDialogReactRenderer._openDialogCount--;
+
 		// Call the onDisposed callback, if provided.
 		this._options.onDisposed?.();
 
@@ -161,6 +168,16 @@ export class PositronModalDialogReactRenderer extends Disposable {
 		// Create the <dialog> element and append it to the container.
 		const dialog = document.createElement('dialog');
 		dialog.classList.add('positron-modal-dialog');
+
+		// If another modal dialog is already open, mark this one as nested so its ::backdrop is
+		// suppressed and we don't compound the dimming.
+		if (PositronModalDialogReactRenderer._openDialogCount > 0) {
+			dialog.classList.add('nested');
+		}
+
+		// Increment the open dialog count.
+		PositronModalDialogReactRenderer._openDialogCount++;
+
 		this._options.container!.appendChild(dialog);
 		this._dialog = dialog;
 

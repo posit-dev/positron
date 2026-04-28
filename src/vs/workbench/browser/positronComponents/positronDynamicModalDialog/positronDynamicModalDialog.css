@@ -3,12 +3,14 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/* Backdrop */
+/*
+ * Container that fills the host <dialog>. The native <dialog>'s ::backdrop provides the dimming,
+ * so this layer must stay transparent because adding a background here would compound the dimming.
+ */
 .positron-dynamic-modal-dialog-box-container {
 	inset: 0;
 	position: absolute;
 	outline: none !important;
-	background: rgba(0, 0, 0, 0.2);
 }
 
 /* Positron Modal Dialog - flex column layout */

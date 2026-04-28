@@ -6,7 +6,7 @@
 /*
  * Native <dialog> defaults to a browser-sized, centered box with a border. We want it to fill the
  * viewport and be transparent so the inner React tree controls its own positioning and visuals,
- * the backdrop pseudo-element handles the dim.
+ * the backdrop pseudo-element handles the dimming.
  */
 .positron-modal-dialog {
 	inset: 0;
@@ -23,12 +23,23 @@
 }
 
 /*
- * The dim behind the modal. showModal() renders this pseudo-element in the top layer directly
+ * The dimming behind the modal. showModal() renders this pseudo-element in the top layer directly
  * below the dialog, so no separate overlay div is needed.
  */
 .positron-modal-dialog::backdrop {
 	background: rgba(0, 0, 0, 0.2);
 	animation: positron-modal-dialog-fade-in 0.1s ease-out;
+}
+
+/*
+ * When dialogs are stacked (a dialog opens another dialog), each native <dialog> would paint its
+ * own ::backdrop, which compounds the dimming. Dialogs that open while another dialog is already
+ * open are tagged with .nested so we can suppress their backdrop, leaving only the bottom-most
+ * dialog's backdrop visible.
+ */
+.positron-modal-dialog.nested::backdrop {
+	background: transparent;
+	animation: none;
 }
 
 /*
