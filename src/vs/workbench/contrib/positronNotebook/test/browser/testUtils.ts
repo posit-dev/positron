@@ -156,11 +156,9 @@ export interface AttachedEditor {
  */
 export async function attachEditorPart(
 	instantiationService: TestInstantiationService,
-	disposables: Pick<DisposableStore, 'add'>,
+	disposables: DisposableStore,
 ): Promise<AttachedEditor> {
-	// createEditorPart's signature asks for DisposableStore but only calls .add() internally
-	// (workbenchTestServices.ts:1701), so the narrowed `disposables` is sufficient at runtime.
-	const part = await createEditorPart(instantiationService, disposables as DisposableStore);
+	const part = await createEditorPart(instantiationService, disposables);
 	instantiationService.stub(IEditorGroupsService, part);
 	const editorResolverService = instantiationService.createInstance(EditorResolverService);
 	instantiationService.stub(IEditorResolverService, editorResolverService);
