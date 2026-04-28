@@ -5,7 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-import { IContextKey } from '../../../../../platform/contextkey/common/contextkey.js';
 import { IUndoRedoService } from '../../../../../platform/undoRedo/common/undoRedo.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
@@ -14,7 +13,7 @@ import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { IEditorPane } from '../../../../common/editor.js';
 import { POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../browser/ContextKeysManager.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../common/positronNotebookCommon.js';
-import { PositronNotebookUndoRedoContribution } from '../../browser/contrib/undoRedo/positronNotebookUndoRedo.js';
+import { handleNotebookUndo } from '../../browser/contrib/undoRedo/positronNotebookUndoRedo.js';
 import {
 	createTestPositronNotebookInstance,
 	TestPositronNotebookInstance,
@@ -211,21 +210,16 @@ describe('PositronNotebookInstance undo/redo', () => {
 		});
 	});
 
-	describe('PositronNotebookUndoRedoContribution wiring', () => {
-		// The contribution registers a priority handler against UndoCommand
-		// that routes to the active notebook only when the notebook editor is
-		// focused. The model-level describes above cannot reach this layer:
-		// they call IUndoRedoService.undo(uri) directly and skip the
-		// shouldHandleUndoRedo() focus-key gate plus the
-		// setCurrentOperation(NotebookOperationType.Undo) flag the
-		// contribution sets before dispatching.
-		//
-		// We instantiate the contribution against a stubbed IEditorService
-		// whose activeEditorPane resolves to the test notebook, then call the
-		// contribution's handleUndo method directly. handleUndo is the body
-		// of the addImplementation handler registered against UndoCommand --
-		// driving it directly tests the same code path UndoCommand would hit
-		// without standing up a global keybinding/dispatcher harness.
+	describe('handleNotebookUndo wiring', () => {
+		// `handleNotebookUndo` is the body of the UndoCommand handler the
+		// contribution registers (`() => handleNotebookUndo(editorService,
+		// undoRedoService)`). The model-level describes above cannot reach
+		// this layer: they call IUndoRedoService.undo(uri) directly and skip
+		// the shouldHandleUndoRedo() focus-key gate plus the
+		// setCurrentOperation(NotebookOperationType.Undo) flag the handler
+		// sets before dispatching. Driving the free function directly tests
+		// the same code path UndoCommand would hit without standing up a
+		// global keybinding/dispatcher harness.
 
 		function makeNotebookEditorPane(notebook: TestPositronNotebookInstance): IEditorPane {
 			// Minimal IEditorPane shape used by the contribution path:
@@ -243,57 +237,40 @@ describe('PositronNotebookInstance undo/redo', () => {
 			return stubInterface<IEditorPane>(overrides);
 		}
 
-		// Test seam: handleUndo is private; expose it via a typed accessor.
-		// The contribution's addImplementation handler is `() => this.handleUndo()`,
-		// so calling handleUndo directly exercises the same code path the
-		// global UndoCommand dispatcher would hit.
-		type ContributionWithPrivates = PositronNotebookUndoRedoContribution & {
-			handleUndo(): boolean | Promise<void>;
-			handleRedo(): boolean | Promise<void>;
-		};
-
-		it('handleUndo returns false and leaves the model untouched when the notebook editor is not focused', () => {
+		it('handleNotebookUndo returns false and leaves the model untouched when the notebook editor is not focused', () => {
 			const notebook = createTestPositronNotebookInstance([
 				['# Cell 0', 'python', CellKind.Code],
 			], ctx);
 			notebook.addCell(CellKind.Code, 1, false, '# Cell 1');
-			ctx.instantiationService.stub(IEditorService, stubInterface<IEditorService>({
+			const editorService = stubInterface<IEditorService>({
 				activeEditorPane: makeNotebookEditorPane(notebook),
-			}));
+			});
 			// Focus key is unset by default; bind it to the scoped CK service
 			// (mirroring what ContextKeysManager does in production) and leave
 			// it false to assert the gate.
 			POSITRON_NOTEBOOK_EDITOR_FOCUSED.bindTo(notebook.scopedContextKeyService).set(false);
 
-			const contribution = ctx.disposables.add(
-				ctx.instantiationService.createInstance(PositronNotebookUndoRedoContribution),
-			) as ContributionWithPrivates;
-
-			const result = contribution.handleUndo();
+			const result = handleNotebookUndo(editorService, ctx.get(IUndoRedoService));
 
 			expect(result).toBe(false);
 			expect(notebook.cells.get().length).toBe(2);
 		});
 
-		it('handleUndo routes through to the model and sets the Undo operation flag when focus is set', async () => {
+		it('handleNotebookUndo routes through to the model and sets the Undo operation flag when focus is set', async () => {
 			const notebook = createTestPositronNotebookInstance([
 				['# Cell 0', 'python', CellKind.Code],
 			], ctx);
 			notebook.addCell(CellKind.Code, 1, false, '# Cell 1');
 			expect(notebook.cells.get().length).toBe(2);
 
-			ctx.instantiationService.stub(IEditorService, stubInterface<IEditorService>({
+			const editorService = stubInterface<IEditorService>({
 				activeEditorPane: makeNotebookEditorPane(notebook),
-			}));
+			});
 			POSITRON_NOTEBOOK_EDITOR_FOCUSED.bindTo(notebook.scopedContextKeyService).set(true);
 
 			const setOpSpy = vi.spyOn(notebook, 'setCurrentOperation');
 
-			const contribution = ctx.disposables.add(
-				ctx.instantiationService.createInstance(PositronNotebookUndoRedoContribution),
-			) as ContributionWithPrivates;
-
-			const result = await contribution.handleUndo();
+			const result = await handleNotebookUndo(editorService, ctx.get(IUndoRedoService));
 
 			// Yield not taken: handler claimed the operation.
 			expect(result).not.toBe(false);
@@ -303,7 +280,7 @@ describe('PositronNotebookInstance undo/redo', () => {
 			expect(cells.length).toBe(1);
 			expect(cells[0].getContent()).toBe('# Cell 0');
 
-			// Contribution flagged the operation as Undo before dispatching, so
+			// Handler flagged the operation as Undo before dispatching, so
 			// _syncCells can distinguish undo-restored cells from a fresh add.
 			expect(setOpSpy).toHaveBeenCalled();
 		});
