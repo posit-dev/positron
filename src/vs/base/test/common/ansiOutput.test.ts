@@ -747,9 +747,9 @@ suite('ANSIOutput', () => {
 		ansiOutput.processOutput(`${makeSGR(SGRParam.ForegroundBlue)}0123456789${makeSGR()}`);
 		ansiOutput.processOutput(`${makeSGR(SGRParam.ForegroundGreen)}0123456789${makeSGR()}`);
 		ansiOutput.processOutput(CR);
-		ansiOutput.processOutput("                              ");
+		ansiOutput.processOutput('                              ');
 		ansiOutput.processOutput(CR);
-		ansiOutput.processOutput("0123456789");
+		ansiOutput.processOutput('0123456789');
 		const outputLines = ansiOutput.outputLines;
 
 		// Test.
@@ -767,9 +767,9 @@ suite('ANSIOutput', () => {
 		ansiOutput.processOutput(`${makeSGR(SGRParam.ForegroundBlue)}0123456789${makeSGR()}`);
 		ansiOutput.processOutput(`${makeSGR(SGRParam.ForegroundGreen)}0123456789${makeSGR()}`);
 		ansiOutput.processOutput(CR);
-		ansiOutput.processOutput("                                        ");
+		ansiOutput.processOutput('                                        ');
 		ansiOutput.processOutput(CR);
-		ansiOutput.processOutput("0123456789");
+		ansiOutput.processOutput('0123456789');
 		const outputLines = ansiOutput.outputLines;
 
 		// Test.
@@ -863,7 +863,7 @@ suite('ANSIOutput', () => {
 	test('Test CUF (Cursor Forward)', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
-		ansiOutput.processOutput("0".repeat(80));
+		ansiOutput.processOutput('0'.repeat(80));
 		ansiOutput.processOutput(makeCUP());
 
 		// Test.
@@ -928,7 +928,7 @@ suite('ANSIOutput', () => {
 		assert.equal(outputLines[0].outputRuns[0].text, '0000000000000000000000000000000000000000000000000000000000000000000000XXXXXXXXXX');
 	});
 
-	test("Tests CUP (Cursor Position)", () => {
+	test('Tests CUP (Cursor Position)', () => {
 		// Setup.
 		const ansiOutput = setupStandardScreen();
 
@@ -943,7 +943,7 @@ suite('ANSIOutput', () => {
 		checkOutputPosition(ansiOutput, 8191, 8191);
 	});
 
-	test("Tests CUU (Cursor Up)", () => {
+	test('Tests CUU (Cursor Up)', () => {
 		// Setup.
 		const ansiOutput = setupStandardScreen();
 
@@ -1057,12 +1057,12 @@ suite('ANSIOutput', () => {
 		}
 	});
 
-	test("Tests EL 0 when there is nothing to clear", () => {
+	test('Tests EL 0 when there is nothing to clear', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
 
 		// Test.
-		ansiOutput.processOutput(makeEL("end-of-line"));
+		ansiOutput.processOutput(makeEL('end-of-line'));
 		assert.equal(ansiOutput.outputLines[0].outputRuns.length, 0);
 	});
 
@@ -1666,7 +1666,7 @@ suite('ANSIOutput', () => {
 		assert.equal(outputLines[0].outputRuns[2].text, '00000000000000000000000000000000000');
 	});
 
-	test("Tests styles", () => {
+	test('Tests styles', () => {
 		const testStyle = (sgr: SGRParam, ansiStyle: ANSIStyle) => {
 			// Setup.
 			const ansiOutput = new ANSIOutput();
@@ -1847,6 +1847,90 @@ suite('ANSIOutput', () => {
 		assert.ok(outputLines[3].outputRuns[0].id.length >= 1);
 		assert.equal(outputLines[3].outputRuns[0].format, undefined);
 		assert.equal(outputLines[3].outputRuns[0].text, PANGRAM);
+	});
+
+	test('dropTop: no-op for non-positive counts', () => {
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(`A${LF}B${LF}C`);
+
+		assert.equal(ansiOutput.dropTop(0), 0);
+		assert.equal(ansiOutput.dropTop(-5), 0);
+		assert.equal(ansiOutput.outputLines.length, 3);
+		checkOutputPosition(ansiOutput, 2, 1);
+	});
+
+	test('dropTop: drops lines above the cursor', () => {
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(`A${LF}B${LF}C${LF}D`);
+		// Four lines: A, B, C, D. Cursor is on line 3 (the "D" line).
+		assert.equal(ansiOutput.outputLines.length, 4);
+		checkOutputPosition(ansiOutput, 3, 1);
+
+		assert.equal(ansiOutput.dropTop(2), 2);
+
+		const remaining = ansiOutput.outputLines;
+		assert.equal(remaining.length, 2);
+		assert.equal(remaining[0].outputRuns[0].text, 'C');
+		assert.equal(remaining[1].outputRuns[0].text, 'D');
+		checkOutputPosition(ansiOutput, 1, 1);
+	});
+
+	test('dropTop: clamps to keep the cursor line', () => {
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(`A${LF}B${LF}C`);
+		// Cursor on line 2 ("C"), so at most 2 head lines can be dropped.
+		assert.equal(ansiOutput.outputLines.length, 3);
+		checkOutputPosition(ansiOutput, 2, 1);
+
+		assert.equal(ansiOutput.dropTop(10), 2);
+
+		const remaining = ansiOutput.outputLines;
+		assert.equal(remaining.length, 1);
+		assert.equal(remaining[0].outputRuns[0].text, 'C');
+		checkOutputPosition(ansiOutput, 0, 1);
+	});
+
+	test('dropTop: no-op when cursor is already on the first line', () => {
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput('only line');
+		checkOutputPosition(ansiOutput, 0, 9);
+
+		assert.equal(ansiOutput.dropTop(5), 0);
+		assert.equal(ansiOutput.outputLines.length, 1);
+		checkOutputPosition(ansiOutput, 0, 9);
+	});
+
+	test('dropTop: subsequent input keeps SGR styling after drop', () => {
+		const ansiOutput = new ANSIOutput();
+		// Enter red, write three lines, scroll off, then append another line without a new SGR;
+		// it should still render red because the SGR state is preserved.
+		ansiOutput.processOutput(`${makeSGR(SGRParam.ForegroundRed)}A${LF}B${LF}C`);
+		assert.equal(ansiOutput.outputLines.length, 3);
+
+		ansiOutput.dropTop(2);
+		ansiOutput.processOutput(`${LF}D${makeSGR()}`);
+
+		const lines = ansiOutput.outputLines;
+		assert.equal(lines.length, 2);
+		assert.equal(lines[0].outputRuns[0].text, 'C');
+		assert.equal(lines[0].outputRuns[0].format!.foregroundColor, ANSIColor.Red);
+		assert.equal(lines[1].outputRuns[0].text, 'D');
+		assert.equal(lines[1].outputRuns[0].format!.foregroundColor, ANSIColor.Red);
+	});
+
+	test('dropTop: further appends index correctly relative to the retained tail', () => {
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(`A${LF}B${LF}C`);
+		ansiOutput.dropTop(2);
+		// Now only "C" remains; cursor on line 0 at column 1.
+		ansiOutput.processOutput(`${LF}D${LF}E`);
+
+		const lines = ansiOutput.outputLines;
+		assert.equal(lines.length, 3);
+		assert.equal(lines[0].outputRuns[0].text, 'C');
+		assert.equal(lines[1].outputRuns[0].text, 'D');
+		assert.equal(lines[2].outputRuns[0].text, 'E');
+		checkOutputPosition(ansiOutput, 2, 1);
 	});
 
 	const testOutputLines = (count: number, terminator: string) => {

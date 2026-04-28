@@ -79,7 +79,7 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 
 		// Initialize the width for the console pane and console tab list if it hasn't been
 		if (consoleWidth === 0) {
-			setConsoleTabListWidth(MAXIMUM_CONSOLE_TAB_LIST_WIDTH)
+			setConsoleTabListWidth(MAXIMUM_CONSOLE_TAB_LIST_WIDTH);
 			// Allocate the remaining width to the console pane
 			setConsolePaneWidth(props.width - MAXIMUM_CONSOLE_TAB_LIST_WIDTH);
 		} else if (props.width >= consoleWidth) {
@@ -89,7 +89,7 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 			const newConsolePaneWidth = props.width - consoleTabListWidth;
 			// Decrease the console pane width first as long as we have not hit the minimum width
 			if (newConsolePaneWidth >= MINIMUM_CONSOLE_PANE_WIDTH) {
-				setConsolePaneWidth(newConsolePaneWidth)
+				setConsolePaneWidth(newConsolePaneWidth);
 			} else {
 				// Decrease the tab list width when the console pane can no longer be decreased in width
 				setConsoleTabListWidth(Math.max(props.width - consolePaneWidth, MINIMUM_CONSOLE_TAB_LIST_WIDTH));
@@ -97,8 +97,8 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 		}
 
 		// Track the console width to accurately resize in future
-		setConsoleWidth(props.width)
-	}, [consolePaneWidth, consoleTabListWidth, consoleWidth, props.width, positronConsoleContext.consoleSessionListCollapsed])
+		setConsoleWidth(props.width);
+	}, [consolePaneWidth, consoleTabListWidth, consoleWidth, props.width, positronConsoleContext.consoleSessionListCollapsed]);
 
 	/**
 	 * onBeginResize handler.

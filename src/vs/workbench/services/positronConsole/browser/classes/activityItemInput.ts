@@ -1,9 +1,9 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ActivityItem } from './activityItem.js';
+import { ActivityItem, TrimScrollbackResult } from './activityItem.js';
 import { Emitter } from '../../../../../base/common/event.js';
 import { formatOutputLinesForClipboard } from '../utils/clipboardUtils.js';
 import { ANSIOutput, ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
@@ -32,7 +32,7 @@ export class ActivityItemInput extends ActivityItem {
 	/**
 	 * Gets the code output lines.
 	 */
-	private readonly _codeOutputLines: readonly ANSIOutputLine[] = [];
+	private _codeOutputLines: ANSIOutputLine[] = [];
 
 	/**
 	 * onStateChanged event emitter.
@@ -111,6 +111,27 @@ export class ActivityItemInput extends ActivityItem {
 	//#endregion Constructor
 
 	//#region Public Methods
+
+	/**
+	 * Trim scrollback.
+	 * @param scrollbackSize A number representing the scrollback size.
+	 * @returns A TrimScrollbackResult indicating the result of the trim scrollback operation.
+	 */
+	public override trimScrollback(scrollbackSize: number): TrimScrollbackResult {
+		// We should never be called with a scrollback size <= 0.
+		if (scrollbackSize <= 0) {
+			return {
+				trimmed: false,
+				remainingScrollbackSize: 0
+			};
+		}
+
+		// Counts as one scrollback item; nothing is trimmed in place.
+		return {
+			trimmed: false,
+			remainingScrollbackSize: scrollbackSize - 1
+		};
+	}
 
 	/**
 	 * Gets the clipboard representation of the activity item.
