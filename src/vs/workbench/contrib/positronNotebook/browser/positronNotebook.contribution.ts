@@ -780,7 +780,7 @@ registerAction2(class extends NotebookAction2 {
 	}
 });
 
-registerAction2(class extends NotebookAction2 {
+export class DeleteCellAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.delete',
@@ -803,7 +803,8 @@ registerAction2(class extends NotebookAction2 {
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.deleteCells();
 	}
-});
+}
+registerAction2(DeleteCellAction);
 
 // Make sure the run and stop commands are in the same place so they replace one another.
 registerAction2(class extends NotebookAction2 {
