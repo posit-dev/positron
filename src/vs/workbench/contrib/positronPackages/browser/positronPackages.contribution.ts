@@ -10,6 +10,7 @@ import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import * as nls from '../../../../nls.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { Extensions as ConfigurationExtensions, ConfigurationScope, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
@@ -67,6 +68,21 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 	],
 	viewContainer
 );
+
+Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration({
+	id: 'packages',
+	order: 100,
+	type: 'object',
+	title: nls.localize('packagesConfigurationTitle', 'Packages'),
+	properties: {
+		'positron.environments.enable': {
+			type: 'boolean',
+			default: true,
+			scope: ConfigurationScope.APPLICATION,
+			description: nls.localize('positron.environments.enable', 'Show the Packages pane.'),
+		}
+	}
+});
 
 export const PACKAGES_INSTALL_COMMAND_ID = 'positronPackages.installPackage';
 export const PACKAGES_UPDATE_COMMAND_ID = 'positronPackages.updatePackage';
