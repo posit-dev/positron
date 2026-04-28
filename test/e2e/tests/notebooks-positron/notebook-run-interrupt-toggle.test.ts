@@ -19,6 +19,8 @@ test.describe('Positron Notebooks: Run All / Interrupt Toggle', {
 	}, async function ({ app, python }) {
 		const { notebooksPositron } = app.workbench;
 		const keyboard = app.code.driver.page.keyboard;
+		const mod = process.platform === 'darwin' ? 'Meta' : 'Control';
+		const runAllOrInterrupt = `${mod}+Shift+Enter`;
 
 		await test.step('Create notebook with infinite loop followed by a print cell', async () => {
 			await notebooksPositron.newNotebook();
@@ -28,17 +30,17 @@ test.describe('Positron Notebooks: Run All / Interrupt Toggle', {
 			await notebooksPositron.addCodeToCell(1, 'print("This should NOT be printed")', { run: false });
 		});
 
-		await test.step('Trigger Run All via Cmd+Shift+Enter', async () => {
+		await test.step('Trigger Run All via keyboard shortcut', async () => {
 			await notebooksPositron.selectCellAtIndex(0);
-			await keyboard.press('Meta+Shift+Enter');
+			await keyboard.press(runAllOrInterrupt);
 		});
 
 		await test.step('Verify cell is executing', async () => {
 			await notebooksPositron.expectSpinnerAtIndex(0, true, 10000);
 		});
 
-		await test.step('Trigger Interrupt via Cmd+Shift+Enter', async () => {
-			await keyboard.press('Meta+Shift+Enter');
+		await test.step('Trigger Interrupt via keyboard shortcut', async () => {
+			await keyboard.press(runAllOrInterrupt);
 		});
 
 		await test.step('Verify execution was interrupted', async () => {
