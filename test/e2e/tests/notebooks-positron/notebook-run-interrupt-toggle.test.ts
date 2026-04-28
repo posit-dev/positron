@@ -16,8 +16,9 @@ test.describe('Positron Notebooks: Run All / Interrupt Toggle', {
 
 	test('Python - Run All toggles to Interrupt during execution, cancels, and prevents subsequent cells', {
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/10493' }]
-	}, async function ({ app, page, python, hotKeys }) {
+	}, async function ({ app, python }) {
 		const { notebooksPositron } = app.workbench;
+		const keyboard = app.code.driver.page.keyboard;
 
 		await test.step('Create notebook with infinite loop followed by a print cell', async () => {
 			await notebooksPositron.newNotebook();
@@ -29,7 +30,7 @@ test.describe('Positron Notebooks: Run All / Interrupt Toggle', {
 
 		await test.step('Trigger Run All via Cmd+Shift+Enter', async () => {
 			await notebooksPositron.selectCellAtIndex(0);
-			await hotKeys.pressHotKeys('Meta+Shift+Enter');
+			await keyboard.press('Meta+Shift+Enter');
 		});
 
 		await test.step('Verify cell is executing', async () => {
@@ -37,7 +38,7 @@ test.describe('Positron Notebooks: Run All / Interrupt Toggle', {
 		});
 
 		await test.step('Trigger Interrupt via Cmd+Shift+Enter', async () => {
-			await hotKeys.pressHotKeys('Meta+Shift+Enter');
+			await keyboard.press('Meta+Shift+Enter');
 		});
 
 		await test.step('Verify execution was interrupted', async () => {
