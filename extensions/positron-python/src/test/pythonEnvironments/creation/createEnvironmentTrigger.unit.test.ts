@@ -14,8 +14,10 @@ import {
 } from '../../../client/pythonEnvironments/creation/createEnvironmentTrigger';
 import * as workspaceApis from '../../../client/common/vscodeApis/workspaceApis';
 import * as commandApis from '../../../client/common/vscodeApis/commandApis';
-import { Commands } from '../../../client/common/constants';
-import { Common, CreateEnv } from '../../../client/common/utils/localize';
+import { Common } from '../../../client/common/utils/localize';
+// --- Start Positron ---
+import * as autoCreateVenv from '../../../client/pythonEnvironments/creation/provider/autoCreateVenv';
+// --- End Positron ---
 
 suite('Create Environment Trigger', () => {
     let shouldPromptToCreateEnvStub: sinon.SinonStub;
@@ -27,8 +29,10 @@ suite('Create Environment Trigger', () => {
     let showInformationMessageStub: sinon.SinonStub;
     let isCreateEnvWorkspaceCheckNotRunStub: sinon.SinonStub;
     let getWorkspaceFolderStub: sinon.SinonStub;
-    let executeCommandStub: sinon.SinonStub;
     let disableCreateEnvironmentTriggerStub: sinon.SinonStub;
+    // --- Start Positron ---
+    let autoCreateVenvWithDepsStub: sinon.SinonStub;
+    // --- End Positron ---
 
     const workspace1 = {
         uri: Uri.file(path.join(EXTENSION_ROOT_DIR_FOR_TESTS, 'src', 'testMultiRootWkspc', 'workspace1')),
@@ -41,6 +45,9 @@ suite('Create Environment Trigger', () => {
         hasVenvStub = sinon.stub(commonUtils, 'hasVenv');
         hasPrefixCondaEnvStub = sinon.stub(commonUtils, 'hasPrefixCondaEnv');
         hasRequirementFilesStub = sinon.stub(triggerUtils, 'hasRequirementFiles');
+        // --- Start Positron ---
+        sinon.stub(triggerUtils, 'hasPyprojectToml').resolves(false);
+        // --- End Positron ---
         hasKnownFilesStub = sinon.stub(triggerUtils, 'hasKnownFiles');
         isGlobalPythonSelectedStub = sinon.stub(triggerUtils, 'isGlobalPythonSelected');
         showInformationMessageStub = sinon.stub(windowApis, 'showInformationMessage');
@@ -51,8 +58,18 @@ suite('Create Environment Trigger', () => {
         getWorkspaceFolderStub = sinon.stub(workspaceApis, 'getWorkspaceFolder');
         getWorkspaceFolderStub.returns(workspace1);
 
-        executeCommandStub = sinon.stub(commandApis, 'executeCommand');
+        sinon.stub(commandApis, 'executeCommand');
         disableCreateEnvironmentTriggerStub = sinon.stub(triggerUtils, 'disableCreateEnvironmentTrigger');
+
+        // --- Start Positron ---
+        sinon
+            .stub(autoCreateVenv, 'detectAutoCreateContext')
+            .resolves({ hasRequirements: true, hasPyprojectToml: false, uvAvailable: true });
+        sinon.stub(autoCreateVenv, 'describeDepFiles').returns('requirements.txt');
+        sinon.stub(autoCreateVenv, 'describeTool').returns('uv');
+        autoCreateVenvWithDepsStub = sinon.stub(autoCreateVenv, 'autoCreateVenvWithDeps');
+        autoCreateVenvWithDepsStub.resolves(undefined);
+        // --- End Positron ---
     });
 
     teardown(() => {
@@ -201,7 +218,9 @@ suite('Create Environment Trigger', () => {
         sinon.assert.calledOnce(isGlobalPythonSelectedStub);
         sinon.assert.calledOnce(showInformationMessageStub);
 
-        sinon.assert.notCalled(executeCommandStub);
+        // --- Start Positron ---
+        sinon.assert.notCalled(autoCreateVenvWithDepsStub);
+        // --- End Positron ---
         sinon.assert.notCalled(disableCreateEnvironmentTriggerStub);
     });
 
@@ -213,7 +232,9 @@ suite('Create Environment Trigger', () => {
         hasKnownFilesStub.resolves(false);
         isGlobalPythonSelectedStub.resolves(true);
 
-        showInformationMessageStub.resolves(CreateEnv.Trigger.createEnvironment);
+        // --- Start Positron ---
+        showInformationMessageStub.resolves(Common.bannerLabelYes);
+        // --- End Positron ---
         await triggerCreateEnvironmentCheck(CreateEnvironmentCheckKind.Workspace, workspace1.uri);
 
         sinon.assert.calledOnce(shouldPromptToCreateEnvStub);
@@ -224,7 +245,9 @@ suite('Create Environment Trigger', () => {
         sinon.assert.calledOnce(isGlobalPythonSelectedStub);
         sinon.assert.calledOnce(showInformationMessageStub);
 
-        sinon.assert.calledOnceWithExactly(executeCommandStub, Commands.Create_Environment);
+        // --- Start Positron ---
+        sinon.assert.calledOnce(autoCreateVenvWithDepsStub);
+        // --- End Positron ---
         sinon.assert.notCalled(disableCreateEnvironmentTriggerStub);
     });
 
@@ -247,7 +270,9 @@ suite('Create Environment Trigger', () => {
         sinon.assert.calledOnce(isGlobalPythonSelectedStub);
         sinon.assert.calledOnce(showInformationMessageStub);
 
-        sinon.assert.notCalled(executeCommandStub);
+        // --- Start Positron ---
+        sinon.assert.notCalled(autoCreateVenvWithDepsStub);
+        // --- End Positron ---
         sinon.assert.calledOnce(disableCreateEnvironmentTriggerStub);
     });
 });

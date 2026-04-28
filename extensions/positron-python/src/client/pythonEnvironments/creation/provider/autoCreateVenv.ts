@@ -26,14 +26,20 @@ export interface AutoCreateVenvContext {
 }
 
 export async function detectAutoCreateContext(workspace: WorkspaceFolder): Promise<AutoCreateVenvContext> {
+    const tomlPath = path.join(workspace.uri.fsPath, 'pyproject.toml');
     const [reqFiles, uvAvailable, tomlExists] = await Promise.all([
         getPipRequirementsFiles(workspace),
         isUvInstalled(),
-        fsapi.pathExists(path.join(workspace.uri.fsPath, 'pyproject.toml')),
+        fsapi.pathExists(tomlPath),
     ]);
+    let pipInstallableToml = false;
+    if (tomlExists) {
+        const content = await fsapi.readFile(tomlPath, 'utf-8');
+        pipInstallableToml = isPipInstallableToml(content);
+    }
     return {
         hasRequirements: (reqFiles?.length ?? 0) > 0,
-        hasPyprojectToml: tomlExists,
+        hasPyprojectToml: pipInstallableToml,
         uvAvailable,
     };
 }

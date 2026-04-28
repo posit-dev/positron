@@ -4,7 +4,7 @@
 import * as path from 'path';
 import { ConfigurationTarget, Uri, WorkspaceFolder } from 'vscode';
 import * as fsapi from '../../../common/platform/fs-paths';
-import { getPipRequirementsFiles } from '../provider/venvUtils';
+import { getPipRequirementsFiles, isPipInstallableToml } from '../provider/venvUtils';
 import { getExtension } from '../../../common/vscodeApis/extensionsApi';
 import { PVSC_EXTENSION_ID } from '../../../common/constants';
 import { PythonExtension } from '../../../api/types';
@@ -34,11 +34,15 @@ export async function hasRequirementFiles(workspace: WorkspaceFolder): Promise<b
 // --- Start Positron ---
 export async function hasPyprojectToml(workspace: WorkspaceFolder): Promise<boolean> {
     const tomlPath = path.join(workspace.uri.fsPath, 'pyproject.toml');
-    const found = await fsapi.pathExists(tomlPath);
-    if (found) {
-        traceVerbose(`Found pyproject.toml: ${workspace.uri.fsPath}`);
+    if (!(await fsapi.pathExists(tomlPath))) {
+        return false;
     }
-    return found;
+    const content = await fsapi.readFile(tomlPath, 'utf-8');
+    const installable = isPipInstallableToml(content);
+    if (installable) {
+        traceVerbose(`Found pip-installable pyproject.toml: ${workspace.uri.fsPath}`);
+    }
+    return installable;
 }
 // --- End Positron ---
 
