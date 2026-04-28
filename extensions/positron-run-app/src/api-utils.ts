@@ -156,10 +156,12 @@ export function extractAppUrlFromString(str: string, appUrlStrings?: string[]) {
 				return match[1];
 			}
 		}
+
+		return undefined;
 	}
 
-	// Fall back to the default URL regex if no appUrlStrings were provided or matched.
-	log.debug('No appUrlStrings matched. Falling back to default URL regex to match URL.');
+	// Fall back to the default URL regex only when no appUrlStrings were provided.
+	log.debug('No appUrlStrings provided. Falling back to default URL regex to match URL.');
 	return str.match(HTTP_URL_REGEX)?.[0];
 }
 
