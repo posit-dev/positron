@@ -42,7 +42,7 @@ describe('WebviewPlotThumbnail', () => {
 		rtl.render(
 			<WebviewPlotThumbnail plotClient={makePlotClient()} />
 		);
-		expect(screen.getByTestId('plot-thumbnail-placeholder')).toBeInTheDocument();
+		expect(screen.getByRole('img', { name: /placeholder/i })).toBeInTheDocument();
 		expect(screen.queryByAltText(/^Plot /)).not.toBeInTheDocument();
 	});
 
@@ -62,7 +62,7 @@ describe('WebviewPlotThumbnail', () => {
 		);
 
 		// Initially shows placeholder.
-		expect(screen.getByTestId('plot-thumbnail-placeholder')).toBeInTheDocument();
+		expect(screen.getByRole('img', { name: /placeholder/i })).toBeInTheDocument();
 		expect(screen.queryByAltText(/^Plot /)).not.toBeInTheDocument();
 
 		// Simulate the plot rendering a thumbnail.
@@ -74,6 +74,6 @@ describe('WebviewPlotThumbnail', () => {
 		const img = screen.getByAltText('Plot plot-1');
 		expect(img).toBeInTheDocument();
 		expect(img).toHaveAttribute('src', 'data:image/png;base64,rendered');
-		expect(screen.queryByTestId('plot-thumbnail-placeholder')).not.toBeInTheDocument();
+		expect(screen.queryByRole('img', { name: /placeholder/i })).not.toBeInTheDocument();
 	});
 });

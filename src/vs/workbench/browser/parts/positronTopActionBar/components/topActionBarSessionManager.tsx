@@ -89,7 +89,6 @@ export const TopActionBarSessionManager = () => {
 					/>
 				}
 				<ActionBarButtonLabel
-					data-testid='session-manager-label'
 					hasIcon={true}
 					label={labelText}
 				/>

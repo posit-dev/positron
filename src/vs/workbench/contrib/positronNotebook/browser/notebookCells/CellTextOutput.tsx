@@ -78,6 +78,7 @@ export function CellTextOutput({
 				'positron-notebook-text-output',
 				{ 'word-wrap': outputWordWrap },
 			)}
+			// No ARIA role - role='log' would add unwanted live-region behavior for screen readers.
 			data-testid='cell-text-output'
 		>
 			<OutputLines outputLines={ANSIOutput.processOutput(truncation.content)} />

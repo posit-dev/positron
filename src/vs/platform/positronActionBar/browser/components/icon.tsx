@@ -133,10 +133,9 @@ export const Icon = (props: IconProps) => {
 };
 
 /** An icon representing a developer error. */
-export const DevErrorIcon = (props: { 'data-testid'?: string } = {}) => {
+export const DevErrorIcon = () => {
 	// Blank icon with an easy-to-catch background color for debugging
 	return <Icon
-		data-testid={props['data-testid']}
 		icon={Codicon.blank}
 		style={{ backgroundColor: asCssVariable(editorErrorForeground) }}
 	/>;

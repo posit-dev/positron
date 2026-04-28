@@ -138,7 +138,7 @@ type ServiceStub = { id: ServiceIdentifier<any>; impl: any };
  *     ctx.instantiationService, ctx.disposables);
  * ```
  */
-class PositronTestContainerBuilder {
+export class PositronTestContainerBuilder {
 	private _useRuntimeServices = false;
 	private _useNotebookServices = false;
 	private _useWorkbenchServices = false;
