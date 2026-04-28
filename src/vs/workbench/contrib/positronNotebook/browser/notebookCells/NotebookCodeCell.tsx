@@ -16,6 +16,7 @@ import { useObservedValue, useDebouncedObservedValue } from '../useObservedValue
 import { CellEditorMonacoWidget } from './CellEditorMonacoWidget.js';
 import { localize } from '../../../../../nls.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { removeAnsiEscapeCodes } from '../../../../../base/common/strings.js';
 import { CellTextOutput } from './CellTextOutput.js';
 import { NotebookCellWrapper } from './NotebookCellWrapper.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
@@ -182,7 +183,7 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 								// Fall back to copying all text output from the cell
 								const textContent = outputs
 									.filter(o => isParsedTextOutput(o.parsed))
-									.map(o => (o.parsed as ParsedTextOutput).content)
+									.map(o => removeAnsiEscapeCodes((o.parsed as ParsedTextOutput).content))
 									.join('\n');
 								services.clipboardService.writeText(textContent);
 							}
