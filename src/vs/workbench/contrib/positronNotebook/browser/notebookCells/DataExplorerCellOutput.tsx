@@ -9,6 +9,7 @@ import React, { useState, useCallback } from 'react';
 // Other dependencies.
 import { IOutputItemDto } from '../../../notebook/common/notebookCommon.js';
 import { ParsedDataExplorerOutput } from '../PositronNotebookCells/IPositronNotebookCell.js';
+import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
 import { parseOutputData } from '../getOutputContents.js';
 import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
 import { InlineDataExplorer } from './InlineDataExplorer.js';
@@ -20,9 +21,10 @@ import { POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_ENABLED_KEY } from '../../common
  * Wrapper component for data explorer outputs that handles fallback to HTML
  * when the data explorer comm is unavailable (e.g. after notebook reload).
  */
-export const DataExplorerCellOutput = React.memo(function DataExplorerCellOutput({ parsed, outputs }: {
+export const DataExplorerCellOutput = React.memo(function DataExplorerCellOutput({ parsed, outputs, cell }: {
 	parsed: ParsedDataExplorerOutput;
 	outputs: IOutputItemDto[];
+	cell?: PositronNotebookCodeCell;
 }) {
 	const services = PositronReactServices.services;
 	const enabled = services.configurationService.getValue<boolean>(
@@ -68,9 +70,10 @@ export const DataExplorerCellOutput = React.memo(function DataExplorerCellOutput
 		</div>;
 	}
 
-	return <InlineDataExplorer {...parsed} onFallback={handleFallback} />;
+	return <InlineDataExplorer {...parsed} cell={cell} onFallback={handleFallback} />;
 }, (prevProps, nextProps) => {
-	// Custom comparison: only rerender if commId changes or outputs change
+	// Custom comparison: only rerender if commId, outputs, or cell changes
 	return prevProps.parsed.commId === nextProps.parsed.commId &&
-		prevProps.outputs === nextProps.outputs;
+		prevProps.outputs === nextProps.outputs &&
+		prevProps.cell === nextProps.cell;
 });

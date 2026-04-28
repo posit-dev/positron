@@ -17,9 +17,13 @@ import { TableDataCache } from '../../../../services/positronDataExplorer/common
 import { PositronDataGrid } from '../../../../browser/positronDataGrid/positronDataGrid.js';
 import { ParsedDataExplorerOutput } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
-import { POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY } from '../../common/positronNotebookConfig.js';
+import { POSITRON_NOTEBOOK_EXPERIMENTAL_KEY, POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY } from '../../common/positronNotebookConfig.js';
 import { isMacintosh } from '../../../../../base/common/platform.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
+import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
+import { showVisualizeModalDialog } from '../contrib/visualize/visualizeModalDialog.js';
+import { generateVizCode, isValidDataFrameExpr } from '../contrib/visualize/generateVizCode.js';
+import { applyVisualizeResult } from '../contrib/visualize/applyVisualizeResult.js';
 
 // Height calculation constants (from inlineTableDataGridInstance.tsx constructor options)
 const HEADER_HEIGHT = 28;  // columnHeadersHeight
@@ -42,6 +46,8 @@ interface InlineDataExplorerProps extends ParsedDataExplorerOutput {
 	/** Called when the data explorer instance can't be found quickly, signaling
 	 *  the parent to render a fallback (e.g. HTML table) instead. */
 	onFallback?: () => void;
+	/** The cell this output belongs to. Used to wire up the Visualize button. */
+	cell?: PositronNotebookCodeCell;
 }
 
 /**
@@ -56,10 +62,11 @@ type InlineDataExplorerState =
 /**
  * InlineDataExplorerHeader component.
  */
-export function InlineDataExplorerHeader({ title, shape, onOpenInExplorer }: {
+export function InlineDataExplorerHeader({ title, shape, onOpenInExplorer, onVisualize }: {
 	title: string;
 	shape: { rows: number; columns: number };
 	onOpenInExplorer?: () => void;
+	onVisualize?: () => void;
 }) {
 	return (
 		<div className='inline-data-explorer-header'>
@@ -69,16 +76,29 @@ export function InlineDataExplorerHeader({ title, shape, onOpenInExplorer }: {
 					{shape.rows.toLocaleString()} {localize('rows', 'rows')} x {shape.columns.toLocaleString()} {localize('columns', 'columns')}
 				</span>
 			</div>
-			{onOpenInExplorer && (
-				<button
-					className='inline-data-explorer-open-button'
-					title={localize('openInDataExplorer', 'Open in Data Explorer')}
-					onClick={onOpenInExplorer}
-				>
-					<span className='codicon codicon-go-to-file' />
-					{localize('openInDataExplorer', 'Open in Data Explorer')}
-				</button>
-			)}
+			<div className='inline-data-explorer-header-actions'>
+				{onVisualize && (
+					<button
+						className='inline-data-explorer-open-button'
+						title={localize('positron.notebook.visualize.inlineButton', 'Visualize...')}
+						type='button'
+						onClick={onVisualize}
+					>
+						<span className='codicon codicon-graph' />
+						{localize('positron.notebook.visualize.inlineButton', 'Visualize...')}
+					</button>
+				)}
+				{onOpenInExplorer && (
+					<button
+						className='inline-data-explorer-open-button'
+						title={localize('openInDataExplorer', 'Open in Data Explorer')}
+						onClick={onOpenInExplorer}
+					>
+						<span className='codicon codicon-go-to-file' />
+						{localize('openInDataExplorer', 'Open in Data Explorer')}
+					</button>
+				)}
+			</div>
 		</div>
 	);
 }
@@ -89,10 +109,21 @@ export function InlineDataExplorerHeader({ title, shape, onOpenInExplorer }: {
  * Renders a simplified data explorer inline in notebook cell outputs.
  */
 export function InlineDataExplorer(props: InlineDataExplorerProps) {
-	const { commId, shape, title, variablePath, onFallback } = props;
+	const { commId, shape, title, variablePath, onFallback, cell } = props;
 	const services = PositronReactServices.services;
 	const notebookInstance = useNotebookInstance();
 	const [state, setState] = useState<InlineDataExplorerState>({ status: 'loading' });
+	const [experimentalEnabled, setExperimentalEnabled] = useState(() =>
+		services.configurationService.getValue<boolean>(POSITRON_NOTEBOOK_EXPERIMENTAL_KEY) ?? false
+	);
+
+	useEffect(() => {
+		const listener = services.configurationService.onDidChangeConfiguration(e => {
+			if (!e.affectsConfiguration(POSITRON_NOTEBOOK_EXPERIMENTAL_KEY)) { return; }
+			setExperimentalEnabled(services.configurationService.getValue<boolean>(POSITRON_NOTEBOOK_EXPERIMENTAL_KEY) ?? false);
+		});
+		return () => listener.dispose();
+	}, [services.configurationService]);
 	const containerRef = useRef<HTMLDivElement>(null);
 	// Don't create DisposableStore in useRef - it will leak on remount.
 	// The store is created in the effect below.
@@ -210,6 +241,31 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 		});
 	};
 
+	const handleVisualize = async () => {
+		try {
+			if (!cell) { return; }
+			const columns: { name: string; type: string }[] = [];
+			if (state.status === 'connected') {
+				for (let i = 0; i < state.gridInstance.columns; i++) {
+					const col = state.gridInstance.column(i);
+					if (col) {
+						columns.push({ name: col.name, type: col.description });
+					}
+				}
+			}
+
+			const initialDfName = variablePath && variablePath.length > 0 && isValidDataFrameExpr(title)
+				? title
+				: '';
+			const result = await showVisualizeModalDialog(initialDfName, columns);
+			if (!result) { return; }
+			const snippet = generateVizCode(result.answers);
+			await applyVisualizeResult(notebookInstance, cell, snippet, result.mode);
+		} catch (err) {
+			console.error('handleVisualize failed', err);
+		}
+	};
+
 	// Check if grid instance has become stale (no data but still "connected")
 	const isGridStale = state.status === 'connected' &&
 		(state.gridInstance.columns === 0 || state.gridInstance.rows === 0);
@@ -236,6 +292,7 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 				shape={shape}
 				title={title}
 				onOpenInExplorer={state.status === 'connected' && !isGridStale ? handleOpenInExplorer : undefined}
+				onVisualize={experimentalEnabled && state.status === 'connected' && !isGridStale && cell && cell.model.language === 'python' ? handleVisualize : undefined}
 			/>
 			<div className='inline-data-explorer-content' onKeyDownCapture={handleKeyDown}>
 				{state.status === 'loading' && (
