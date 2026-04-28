@@ -21,7 +21,8 @@ import { POSITRON_NOTEBOOK_EXPERIMENTAL_KEY, POSITRON_NOTEBOOK_INLINE_DATA_EXPLO
 import { isMacintosh } from '../../../../../base/common/platform.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
-import { showVisualizeModalDialog } from '../contrib/visualize/visualizeModalDialog.js';
+import { showVisualizeModalDialog, validateVisualizationSuggestion } from '../contrib/visualize/visualizeModalDialog.js';
+import { CancellationTokenSource } from '../../../../../base/common/cancellation.js';
 import { generateVizCode, isValidDataFrameExpr } from '../contrib/visualize/generateVizCode.js';
 import { applyVisualizeResult } from '../contrib/visualize/applyVisualizeResult.js';
 
@@ -257,10 +258,33 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 			const initialDfName = variablePath && variablePath.length > 0 && isValidDataFrameExpr(title)
 				? title
 				: '';
-			const result = await showVisualizeModalDialog(initialDfName, columns);
-			if (!result) { return; }
-			const snippet = generateVizCode(result.answers);
-			await applyVisualizeResult(notebookInstance, cell, snippet, result.mode);
+			// Fire the LLM suggestion request in parallel with the dialog so the
+			// user sees it populate without having to wait. Cancels if the dialog
+			// closes before the request resolves. Positional args match the
+			// `positron-assistant.suggestVisualization` command signature, with
+			// the cancellation token as the trailing optional arg.
+			const suggestionCts = new CancellationTokenSource();
+			try {
+				const suggestionPromise = services.commandService
+					.executeCommand<unknown>(
+						'positron-assistant.suggestVisualization',
+						notebookInstance.uri.toString(),
+						cell.index,
+						initialDfName,
+						columns,
+						suggestionCts.token,
+					)
+					.then((r) => validateVisualizationSuggestion(r))
+					.catch(() => null);
+
+				const result = await showVisualizeModalDialog(initialDfName, columns, suggestionPromise);
+				if (!result) { return; }
+				const snippet = generateVizCode(result.answers);
+				await applyVisualizeResult(notebookInstance, cell, snippet, result.mode);
+			} finally {
+				suggestionCts.cancel();
+				suggestionCts.dispose();
+			}
 		} catch (err) {
 			console.error('handleVisualize failed', err);
 		}
