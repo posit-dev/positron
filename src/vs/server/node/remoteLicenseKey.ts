@@ -173,8 +173,8 @@ async function validateAndMaybeDeleteFile(
 	}
 	try {
 		fs.unlinkSync(licenseFile);
-	} catch (e: any) {
-		if (e && e.code === 'ENOENT') {
+	} catch (e) {
+		if ((e as NodeJS.ErrnoException)?.code === 'ENOENT') {
 			// Already gone -- the desired post-condition is satisfied.
 			return result;
 		}

@@ -9,6 +9,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import { join } from '../../../base/common/path.js';
 import { FileAccess } from '../../../base/common/network.js';
+import { URI } from '../../../base/common/uri.js';
 import { ServerParsedArgs } from '../../node/serverEnvironmentService.js';
 
 // Mock the license-manager binary wrapper -- we never want to invoke the real
@@ -33,6 +34,17 @@ const RSA_RESULT = { valid: true, licensee: 'Test Licensee' };
 
 const { validateLicenseKey } = await import('../../node/remoteLicenseKey.js');
 
+const buildArgs = (overrides: Partial<ServerParsedArgs> = {}): ServerParsedArgs => ({
+	'accept-server-license-terms': false,
+	workspace: '',
+	folder: '',
+	help: false,
+	version: false,
+	compatibility: '',
+	_: [],
+	...overrides,
+});
+
 describe('validateLicenseKey delete-after-use', () => {
 	const originalEnvKey = process.env.POSITRON_LICENSE_KEY;
 	const originalEnvFile = process.env.POSITRON_LICENSE_KEY_FILE;
@@ -44,7 +56,7 @@ describe('validateLicenseKey delete-after-use', () => {
 		vi.spyOn(console, 'log').mockImplementation(() => { });
 		// FileAccess.asFileUri('') throws in plain-Node test contexts (no AMD
 		// loader). Stub it so the RSA branch can compute its installPath.
-		vi.spyOn(FileAccess, 'asFileUri').mockReturnValue({ fsPath: '/fake/install/path' } as any);
+		vi.spyOn(FileAccess, 'asFileUri').mockReturnValue(URI.file('/fake/install/path'));
 		delete process.env.POSITRON_LICENSE_KEY;
 		delete process.env.POSITRON_LICENSE_KEY_FILE;
 		delete process.env.POSITRON_LICENSE_KEY_FILE_DELETE_AFTER_USE;
@@ -71,10 +83,10 @@ describe('validateLicenseKey delete-after-use', () => {
 
 	it('deletes the file when arg flag is set + --license-key-file is the source', async () => {
 		const file = writeRsaFile();
-		const result = await validateLicenseKey('token', {
+		const result = await validateLicenseKey('token', buildArgs({
 			'license-key-file': file,
 			'license-key-file-delete-after-use': true,
-		} as ServerParsedArgs);
+		}));
 		expect(result).toEqual(RSA_RESULT);
 		expect(fs.existsSync(file)).toBe(false);
 	});
@@ -83,16 +95,16 @@ describe('validateLicenseKey delete-after-use', () => {
 		const file = writeRsaFile();
 		process.env.POSITRON_LICENSE_KEY_FILE = file;
 		process.env.POSITRON_LICENSE_KEY_FILE_DELETE_AFTER_USE = '1';
-		const result = await validateLicenseKey('token', {} as ServerParsedArgs);
+		const result = await validateLicenseKey('token', buildArgs());
 		expect(result).toEqual(RSA_RESULT);
 		expect(fs.existsSync(file)).toBe(false);
 	});
 
 	it('does not delete the file when no flag is set', async () => {
 		const file = writeRsaFile();
-		const result = await validateLicenseKey('token', {
+		const result = await validateLicenseKey('token', buildArgs({
 			'license-key-file': file,
-		} as ServerParsedArgs);
+		}));
 		expect(result).toEqual(RSA_RESULT);
 		expect(fs.existsSync(file)).toBe(true);
 	});
@@ -101,17 +113,17 @@ describe('validateLicenseKey delete-after-use', () => {
 		// Inline content goes through validateLicense (JSON-only); '{...' is
 		// enough to take that branch -- we only care that no file delete is
 		// attempted, regardless of validation outcome.
-		await validateLicenseKey('token', {
+		await validateLicenseKey('token', buildArgs({
 			'license-key': '{}',
 			'license-key-file-delete-after-use': true,
-		} as ServerParsedArgs);
+		}));
 		expect(vi.mocked(fs.unlinkSync)).not.toHaveBeenCalled();
 	});
 
 	it('does not call unlink when the source is inline POSITRON_LICENSE_KEY', async () => {
 		process.env.POSITRON_LICENSE_KEY = '{}';
 		process.env.POSITRON_LICENSE_KEY_FILE_DELETE_AFTER_USE = '1';
-		await validateLicenseKey('token', {} as ServerParsedArgs);
+		await validateLicenseKey('token', buildArgs());
 		expect(vi.mocked(fs.unlinkSync)).not.toHaveBeenCalled();
 	});
 
@@ -120,10 +132,10 @@ describe('validateLicenseKey delete-after-use', () => {
 		// delete-after-use even when the flag is set.
 		const file = join(tmpDir, 'license-key');
 		fs.writeFileSync(file, RSA_LICENSE_CONTENT);
-		const result = await validateLicenseKey('token', {
+		const result = await validateLicenseKey('token', buildArgs({
 			'user-data-dir': tmpDir,
 			'license-key-file-delete-after-use': true,
-		} as ServerParsedArgs);
+		}));
 		expect(result).toEqual(RSA_RESULT);
 		expect(fs.existsSync(file)).toBe(true);
 	});
@@ -133,10 +145,10 @@ describe('validateLicenseKey delete-after-use', () => {
 		// ephemeral and must be cleaned up.
 		const file = join(tmpDir, 'license.lic');
 		fs.writeFileSync(file, '{ not valid json');
-		const result = await validateLicenseKey('token', {
+		const result = await validateLicenseKey('token', buildArgs({
 			'license-key-file': file,
 			'license-key-file-delete-after-use': true,
-		} as ServerParsedArgs);
+		}));
 		expect(result).toEqual({ valid: false });
 		expect(fs.existsSync(file)).toBe(false);
 	});
@@ -147,10 +159,10 @@ describe('validateLicenseKey delete-after-use', () => {
 		const accessError: NodeJS.ErrnoException = Object.assign(new Error('EACCES'), { code: 'EACCES' });
 		vi.mocked(fs.unlinkSync).mockImplementationOnce(() => { throw accessError; });
 
-		const result = await validateLicenseKey('token', {
+		const result = await validateLicenseKey('token', buildArgs({
 			'license-key-file': file,
 			'license-key-file-delete-after-use': true,
-		} as ServerParsedArgs);
+		}));
 
 		expect(result).toEqual({ valid: false });
 		expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('FATAL'));
@@ -162,10 +174,10 @@ describe('validateLicenseKey delete-after-use', () => {
 		const enoentError: NodeJS.ErrnoException = Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
 		vi.mocked(fs.unlinkSync).mockImplementationOnce(() => { throw enoentError; });
 
-		const result = await validateLicenseKey('token', {
+		const result = await validateLicenseKey('token', buildArgs({
 			'license-key-file': file,
 			'license-key-file-delete-after-use': true,
-		} as ServerParsedArgs);
+		}));
 
 		expect(result).toEqual(RSA_RESULT);
 	});
@@ -173,9 +185,9 @@ describe('validateLicenseKey delete-after-use', () => {
 	it('cross-source: arg sets flag, env var sets file path', async () => {
 		const file = writeRsaFile();
 		process.env.POSITRON_LICENSE_KEY_FILE = file;
-		const result = await validateLicenseKey('token', {
+		const result = await validateLicenseKey('token', buildArgs({
 			'license-key-file-delete-after-use': true,
-		} as ServerParsedArgs);
+		}));
 		expect(result).toEqual(RSA_RESULT);
 		expect(fs.existsSync(file)).toBe(false);
 	});
@@ -183,9 +195,9 @@ describe('validateLicenseKey delete-after-use', () => {
 	it('cross-source: env var sets flag, arg sets file path', async () => {
 		const file = writeRsaFile();
 		process.env.POSITRON_LICENSE_KEY_FILE_DELETE_AFTER_USE = '1';
-		const result = await validateLicenseKey('token', {
+		const result = await validateLicenseKey('token', buildArgs({
 			'license-key-file': file,
-		} as ServerParsedArgs);
+		}));
 		expect(result).toEqual(RSA_RESULT);
 		expect(fs.existsSync(file)).toBe(false);
 	});
@@ -200,9 +212,9 @@ describe('validateLicenseKey delete-after-use', () => {
 			async (value) => {
 				const file = writeRsaFile();
 				process.env.POSITRON_LICENSE_KEY_FILE_DELETE_AFTER_USE = value;
-				await validateLicenseKey('token', {
+				await validateLicenseKey('token', buildArgs({
 					'license-key-file': file,
-				} as ServerParsedArgs);
+				}));
 				expect(fs.existsSync(file)).toBe(false);
 			},
 		);
@@ -212,9 +224,9 @@ describe('validateLicenseKey delete-after-use', () => {
 			async (value) => {
 				const file = writeRsaFile();
 				process.env.POSITRON_LICENSE_KEY_FILE_DELETE_AFTER_USE = value;
-				await validateLicenseKey('token', {
+				await validateLicenseKey('token', buildArgs({
 					'license-key-file': file,
-				} as ServerParsedArgs);
+				}));
 				expect(fs.existsSync(file)).toBe(true);
 			},
 		);
