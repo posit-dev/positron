@@ -6,6 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { VSBuffer } from '../../../../../base/common/buffer.js';
+import { ILanguageService } from '../../../../../editor/common/languages/language.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { createTestPositronNotebookInstance } from './testPositronNotebookInstance.js';
@@ -142,14 +143,20 @@ describe('PositronNotebookInstance.changeCellType', () => {
 
 		it('changeCellType to raw uses Code kind with raw language', () => {
 			// Raw cells are stored as Code cells with language='raw' in the
-			// underlying VS Code model -- mirrors ChangeToRawAction's body.
-			// Start from a markdown cell so a kind change is required, taking
-			// the Replace edit path (which preserves Code kind + raw language)
-			// rather than the language-only path that NotebookCellTextModel's
-			// language setter can short-circuit on test text models without
-			// registered languages.
+			// underlying VS Code model -- mirrors ChangeToRawAction's body,
+			// which calls notebook.changeCellType(CellKind.Code, 'raw') from a
+			// code cell. This exercises the CellEditType.CellLanguage branch
+			// (language-only change, kind unchanged).
+			//
+			// Register 'python' and 'raw' so getLanguageIdByLanguageName()
+			// resolves them; otherwise NotebookCellTextModel._setLanguageInternal
+			// short-circuits on null and the cell language never updates.
+			const languageService = ctx.get(ILanguageService);
+			ctx.disposables.add(languageService.registerLanguage({ id: 'python', aliases: ['python'] }));
+			ctx.disposables.add(languageService.registerLanguage({ id: 'raw', aliases: ['raw'] }));
+
 			const notebook = createTestPositronNotebookInstance(
-				[['some text', 'markdown', CellKind.Markup]],
+				[['some text', 'python', CellKind.Code]],
 				ctx,
 			);
 			const cellsBefore = notebook.cells.get();
