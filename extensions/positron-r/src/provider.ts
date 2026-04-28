@@ -16,7 +16,7 @@ import { RInstallation, RMetadataExtra, getRHomePath, ReasonDiscovered, friendly
 import { LOGGER } from './extension';
 import { EXTENSION_ROOT_DIR, MINIMUM_R_VERSION } from './constants';
 import { getInterpreterOverridePaths, printInterpreterSettingsInfo, userRBinaries, userRHeadquarters } from './interpreter-settings.js';
-import { isDirectory, isFile } from './path-utils.js';
+import { arePathsSame, isDirectory, isFile, isParentPath } from './path-utils.js';
 import { discoverCondaBinaries } from './provider-conda.js';
 import { discoverPixiBinaries } from './provider-pixi.js';
 import { discoverModuleBinaries, getEnvironmentModulesApi } from './provider-module.js';
@@ -436,10 +436,12 @@ function isRRuntimeCacheable(rInst: RInstallation): boolean {
 
 	// Anything inside a workspace folder is project-scoped (e.g. an R install
 	// dropped under the project tree), regardless of how it was discovered.
+	// `isParentPath` / `arePathsSame` normalize case so this works on Windows
+	// where the user may have typed a drive letter in either case.
 	const folders = vscode.workspace.workspaceFolders ?? [];
 	for (const folder of folders) {
 		const folderPath = folder.uri.fsPath;
-		if (folderPath && (rInst.binpath === folderPath || rInst.binpath.startsWith(folderPath + path.sep))) {
+		if (folderPath && (arePathsSame(rInst.binpath, folderPath) || isParentPath(rInst.binpath, folderPath))) {
 			return false;
 		}
 	}

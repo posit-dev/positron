@@ -25,90 +25,43 @@ import {
 	RuntimeStartupPhase,
 } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { RuntimeStartupService } from '../../common/runtimeStartup.js';
 import {
 	ICachedRuntime,
 	IDiscoveryCacheBucket,
-	IDiscoveryCacheSessionCounters,
 	IRuntimeDiscoveryCache,
-	IRuntimeFingerprint,
 } from '../../common/runtimeDiscoveryCacheService.js';
 
 /**
- * Hand-rolled discovery-cache fake. We don't use the real `RuntimeDiscoveryCache`
- * because pre-populating it requires a stat-able file service stub, and the
- * decision logic we're testing only consults the read methods on this interface.
- * Test cases populate `buckets` directly via `setBucket()`.
+ * Test-only extension to `IRuntimeDiscoveryCache` so test code can populate
+ * buckets and toggle the enabled flag without colliding with the interface.
  */
-class FakeDiscoveryCache implements IRuntimeDiscoveryCache {
-	declare readonly _serviceBrand: undefined;
-	private _enabled = true;
-	private _buckets = new Map<string, IDiscoveryCacheBucket>();
+interface ITestDiscoveryCache extends IRuntimeDiscoveryCache {
+	setBucket(bucket: IDiscoveryCacheBucket): void;
+	setEnabled(enabled: boolean): void;
+}
 
-	readonly sessionCounters: IDiscoveryCacheSessionCounters = {
-		foregroundHits: 0,
-		revalidationsAttempted: 0,
-		revalidationsSucceeded: 0,
-		revalidationsFailed: 0,
-		evictions: 0,
-		rootsChangedFullDiscoveries: 0,
-		fullDiscoveryRuns: [],
-	};
-
-	setEnabled(enabled: boolean): void {
-		this._enabled = enabled;
-	}
-
-	setBucket(bucket: IDiscoveryCacheBucket): void {
-		this._buckets.set(`${bucket.extensionId}::${bucket.languageId}`, bucket);
-	}
-
-	isEnabled(): boolean {
-		return this._enabled;
-	}
-
-	async statRuntimePath(): Promise<{ resolvedPath: string; fingerprint: IRuntimeFingerprint } | undefined> {
-		return undefined;
-	}
-
-	getEntries(extensionId: string, languageId: string): readonly ICachedRuntime[] {
-		if (!this._enabled) { return []; }
-		return this._buckets.get(`${extensionId}::${languageId}`)?.entries ?? [];
-	}
-
-	getAllBuckets(): readonly IDiscoveryCacheBucket[] {
-		if (!this._enabled) { return []; }
-		return Array.from(this._buckets.values());
-	}
-
-	async upsert(): Promise<ICachedRuntime | undefined> {
-		return undefined;
-	}
-
-	invalidate(): void { /* no-op */ }
-	markValidated(): boolean { return false; }
-
-	getLastFullDiscovery(extensionId: string, languageId: string): number | undefined {
-		const b = this._buckets.get(`${extensionId}::${languageId}`);
-		return b && b.lastFullDiscovery !== 0 ? b.lastFullDiscovery : undefined;
-	}
-
-	setLastFullDiscovery(): void { /* no-op */ }
-
-	getDiscoveryRootSignature(extensionId: string, languageId: string): IRuntimeRootSignature | undefined {
-		return this._buckets.get(`${extensionId}::${languageId}`)?.discoveryRootSignature;
-	}
-
-	setDiscoveryRootSignature(): void { /* no-op */ }
-
-	clear(): void {
-		this._buckets.clear();
-	}
-
-	recordFullDiscoveryRun(extensionId: string, languageId: string, reason: string): void {
-		(this.sessionCounters.fullDiscoveryRuns as { extensionId: string; languageId: string; reason: string; at: number }[])
-			.push({ extensionId, languageId, reason, at: Date.now() });
-	}
+/**
+ * Build a discovery-cache stub for the warm-start decision tests. The stub
+ * only implements the methods the code paths under test actually consult --
+ * `stubInterface` throws on unset reads, which surfaces "test grew a new
+ * dependency" failures with a clear message instead of `undefined is not a
+ * function`. Add overrides here when tests need a new method.
+ */
+function createTestCache(): ITestDiscoveryCache {
+	const buckets = new Map<string, IDiscoveryCacheBucket>();
+	let enabled = true;
+	return stubInterface<ITestDiscoveryCache>({
+		isEnabled: () => enabled,
+		getAllBuckets: () => enabled ? Array.from(buckets.values()) : [],
+		setBucket(bucket: IDiscoveryCacheBucket) {
+			buckets.set(`${bucket.extensionId}::${bucket.languageId}`, bucket);
+		},
+		setEnabled(value: boolean) {
+			enabled = value;
+		},
+	});
 }
 
 /**
@@ -202,7 +155,7 @@ const sig = (entries: Array<[string, boolean, number]>, opaque?: string): IRunti
 
 describe('RuntimeStartupService - cache-aware discovery', () => {
 
-	let cache: FakeDiscoveryCache = undefined!;
+	let cache: ITestDiscoveryCache = undefined!;
 	let config: TestConfigurationService = undefined!;
 
 	const ctx = createTestContainer()
@@ -228,7 +181,7 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 	beforeEach(() => {
 		// Replace the cache stub with a fresh fake. The builder runs *its* beforeEach
 		// before this one, so our override here wins for the duration of the test.
-		cache = new FakeDiscoveryCache();
+		cache = createTestCache();
 		config = new TestConfigurationService({});
 		ctx.instantiationService.stub(IRuntimeDiscoveryCache, cache);
 		ctx.instantiationService.stub(IConfigurationService, config);

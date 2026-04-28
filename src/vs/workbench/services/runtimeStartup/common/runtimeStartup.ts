@@ -29,7 +29,7 @@ import { IPositronNewFolderService } from '../../positronNewFolder/common/positr
 import { IWorkbenchEnvironmentService } from '../../environment/common/environmentService.js';
 import { isWeb } from '../../../../base/common/platform.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { Barrier } from '../../../../base/common/async.js';
+import { Barrier, Limiter, raceTimeout } from '../../../../base/common/async.js';
 import { arch as systemArch } from '../../../../base/common/process.js';
 
 interface ILanguageRuntimeProviderMetadata {
@@ -1070,7 +1070,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					continue;
 				}
 				this._languageRuntimeService.registerRuntime(entry.metadata);
-				(this._discoveryCache.sessionCounters.foregroundHits as number)++;
+				this._discoveryCache.sessionCounters.foregroundHits++;
 
 				const fp = probe.fingerprint;
 				const same = fp.size === entry.fingerprint.size
@@ -1300,26 +1300,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		languageId: string,
 	): Promise<IRuntimeRootSignature | undefined> {
 		try {
-			let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
-			const timeoutPromise = new Promise<undefined>(resolve => {
-				timeoutHandle = setTimeout(() => {
-					this._logService.warn(
-						`[Runtime startup] getDiscoveryRootSignature(${languageId}) timed out ` +
-						`for manager ${manager.id}; falling back to periodic refresh.`);
-					resolve(undefined);
-				}, RuntimeStartupService.ROOT_SIGNATURE_TIMEOUT_MS);
-			});
-			try {
-				const result = await Promise.race([
-					manager.getDiscoveryRootSignature(languageId),
-					timeoutPromise,
-				]);
-				return result;
-			} finally {
-				if (timeoutHandle !== undefined) {
-					clearTimeout(timeoutHandle);
-				}
-			}
+			return await raceTimeout(
+				manager.getDiscoveryRootSignature(languageId),
+				RuntimeStartupService.ROOT_SIGNATURE_TIMEOUT_MS,
+				() => this._logService.warn(
+					`[Runtime startup] getDiscoveryRootSignature(${languageId}) timed out ` +
+					`for manager ${manager.id}; falling back to periodic refresh.`),
+			);
 		} catch (err) {
 			this._logService.warn(
 				`[Runtime startup] getDiscoveryRootSignature(${languageId}) threw ` +
@@ -1357,23 +1344,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * cached metadata + fingerprint and re-register if the runtime ID changed.
 	 */
 	private async runBackgroundRevalidations(tasks: ICacheRevalidationTask[]): Promise<void> {
-		const concurrency = 4;
-		const queue = tasks.slice();
-		const workers: Promise<void>[] = [];
-		for (let i = 0; i < concurrency; i++) {
-			workers.push((async () => {
-				while (true) {
-					const task = queue.shift();
-					if (!task) { return; }
-					await this.revalidateOne(task);
-				}
-			})());
-		}
-		await Promise.all(workers);
+		const limiter = new Limiter<void>(4);
+		await Promise.all(tasks.map(task => limiter.queue(() => this.revalidateOne(task))));
 	}
 
 	private async revalidateOne(task: ICacheRevalidationTask): Promise<void> {
-		(this._discoveryCache.sessionCounters.revalidationsAttempted as number)++;
+		this._discoveryCache.sessionCounters.revalidationsAttempted++;
 		// Find the manager that owns this runtime.
 		let owner: IRuntimeManager | undefined;
 		for (const manager of this._runtimeManagers) {
@@ -1387,13 +1363,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			}
 		}
 		if (!owner) {
-			(this._discoveryCache.sessionCounters.revalidationsFailed as number)++;
+			this._discoveryCache.sessionCounters.revalidationsFailed++;
 			this._discoveryCache.invalidate(task.extensionId, task.languageId, task.metadata.runtimePath);
 			return;
 		}
 		try {
 			const validated = await owner.validateMetadata(task.metadata);
-			(this._discoveryCache.sessionCounters.revalidationsSucceeded as number)++;
+			this._discoveryCache.sessionCounters.revalidationsSucceeded++;
 			// Registry swap: if the validator returned different metadata,
 			// register it (the registry tolerates re-registration on the same
 			// path with a new runtimeId, mirroring the affiliated-cache path).
@@ -1408,7 +1384,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// and the fresh fingerprint we already captured.
 			await this._discoveryCache.upsert(validated);
 		} catch (err) {
-			(this._discoveryCache.sessionCounters.revalidationsFailed as number)++;
+			this._discoveryCache.sessionCounters.revalidationsFailed++;
 			this._logService.info(
 				`[Runtime startup] Cache revalidation failed for ` +
 				`${formatLanguageRuntimeMetadata(task.metadata)}; evicting: ${err}`);
