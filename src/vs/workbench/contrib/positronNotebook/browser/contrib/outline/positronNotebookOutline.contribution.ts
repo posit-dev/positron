@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { isHTMLElement } from '../../../../../../base/browser/dom.js';
+import { onUnexpectedError } from '../../../../../../base/common/errors.js';
 import { Emitter, Event } from '../../../../../../base/common/event.js';
 import { Disposable, DisposableStore, IDisposable, toDisposable } from '../../../../../../base/common/lifecycle.js';
 import { IInstantiationService } from '../../../../../../platform/instantiation/common/instantiation.js';
@@ -477,11 +478,7 @@ export class PositronNotebookCellOutline extends Disposable implements IOutline<
 	}
 
 	private _delayedRecomputeState(): void {
-		// Delayer.trigger returns a Promise that rejects on dispose. We don't
-		// await the promise (the side effect is what matters), so attach a
-		// no-op catch to avoid an unhandled rejection if dispose fires before
-		// the delay elapses.
-		this._delayerRecomputeState.trigger(() => this._recomputeState()).catch(() => { });
+		this._delayerRecomputeState.trigger(() => this._recomputeState()).catch(onUnexpectedError);
 	}
 
 	private _recomputeState(): void {
