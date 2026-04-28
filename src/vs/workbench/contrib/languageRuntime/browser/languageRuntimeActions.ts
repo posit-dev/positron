@@ -603,7 +603,11 @@ export const selectNewLanguageRuntime = async (
 		let accepted: IQuickPickItem | undefined;
 
 		disposables.add(quickPick.onDidAccept(() => {
-			accepted = quickPick.selectedItems[0];
+			const selected = quickPick.activeItems[0];
+			if (!selected) {
+				return;
+			}
+			accepted = selected;
 			quickPick.hide();
 		}));
 
