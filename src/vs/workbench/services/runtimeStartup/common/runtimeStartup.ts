@@ -1004,7 +1004,20 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				// that lands during this pass shows up as a delta on the next
 				// warm start, rather than being baked into a post-discovery
 				// snapshot and missed forever.
-				await this._captureSignaturesAtDiscoveryStart(manager, reason);
+				const ownedBuckets = await this._captureSignaturesAtDiscoveryStart(manager, reason);
+				// Wipe the manager's owned buckets so the about-to-run pass is
+				// the sole source of truth: anything it doesn't yield (e.g. a
+				// path now matched by `interpreters.exclude` / narrowed
+				// `interpreters.override`) just won't come back. Cheaper than
+				// post-hoc reconciliation, and the foreground load already
+				// registered survivors with the runtime service so the user
+				// doesn't see a flash of empty pickers. The pass will repopulate
+				// the cache via `onDidRegisterRuntime`.
+				for (const { extensionId, languageId } of ownedBuckets) {
+					for (const entry of this._discoveryCache.getEntries(extensionId, languageId)) {
+						this._discoveryCache.invalidate(extensionId, languageId, entry.metadata.runtimePath);
+					}
+				}
 				manager.discoverAllRuntimes(disabledLanguages);
 			}
 		}
@@ -1032,7 +1045,14 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		if (!this._discoveryCache.isEnabled()) {
 			return;
 		}
-		const buckets = this._discoveryCache.getAllBuckets();
+		// Skip buckets for languages whose startup behavior is `Disabled`. Without
+		// this filter the foreground cache pass would re-register cached runtimes
+		// for a disabled language on every warm start, surfacing them in pickers
+		// and the registered-runtimes list -- the no-cache path filters disabled
+		// languages out of `enabledLanguages` before activating extensions, so
+		// no runtimes would have been registered without the cache.
+		const buckets = this._discoveryCache.getAllBuckets()
+			.filter(b => this.getStartupBehavior(b.languageId) !== LanguageStartupBehavior.Disabled);
 		if (buckets.every(b => b.entries.length === 0)) {
 			return;
 		}
@@ -1084,7 +1104,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		if (!this._discoveryCache.isEnabled()) {
 			return this._runtimeManagers.slice();
 		}
-		const buckets = this._discoveryCache.getAllBuckets().filter(b => b.entries.length > 0);
+		// Ignore buckets for disabled languages: their cache hits won't be
+		// replayed in the foreground, and their managers would skip them on a
+		// full pass anyway. Treat such buckets as if they didn't exist so we
+		// don't trigger a needless full-discovery cycle.
+		const buckets = this._discoveryCache.getAllBuckets()
+			.filter(b => b.entries.length > 0)
+			.filter(b => this.getStartupBehavior(b.languageId) !== LanguageStartupBehavior.Disabled);
 		if (buckets.length === 0) {
 			return this._runtimeManagers.slice();
 		}
@@ -1193,7 +1219,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	private async _captureSignaturesAtDiscoveryStart(
 		manager: IRuntimeManager,
 		reason: string,
-	): Promise<void> {
+	): Promise<ReadonlyArray<{ extensionId: string; languageId: string }>> {
 		// Collect (ext, lang) pairs from existing buckets the manager owns.
 		const buckets = this._discoveryCache.getAllBuckets();
 		const ownedBuckets: { extensionId: string; languageId: string }[] = [];
@@ -1260,6 +1286,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		if (recordedKeys.size === 0) {
 			this._discoveryCache.recordFullDiscoveryRun('*', '*', reason);
 		}
+
+		return ownedBuckets;
 	}
 
 	/**
