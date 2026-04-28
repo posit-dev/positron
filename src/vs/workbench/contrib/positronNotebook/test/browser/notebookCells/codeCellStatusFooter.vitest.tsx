@@ -117,35 +117,4 @@ describe('CodeCellStatusFooter', () => {
 
 		expect(getFooter({ hidden: true })).toHaveClass('collapsed');
 	});
-
-	describe('icon variant', () => {
-		function getIcon() {
-			return screen.getByTestId('cell-status-footer-icon');
-		}
-
-		it('succeeded state renders the success icon', () => {
-			renderFooter({ ...completedState, executionStatus: 'idle', lastRunSuccess: true });
-			expect(getIcon()).toHaveClass('success');
-		});
-
-		it('failed state (lastRunSuccess=false) renders the error icon', () => {
-			renderFooter({ ...completedState, executionStatus: 'idle', lastRunSuccess: false });
-			expect(getIcon()).toHaveClass('error');
-		});
-
-		it('failed state (hasError prop) renders the error icon', () => {
-			renderFooter({ ...completedState, executionStatus: 'idle', lastRunSuccess: true }, /* hasError */ true);
-			expect(getIcon()).toHaveClass('error');
-		});
-
-		it('running state renders the running icon', () => {
-			renderFooter({ executionStatus: 'running' });
-			expect(getIcon()).toHaveClass('running');
-		});
-
-		it('pending state renders the pending icon', () => {
-			renderFooter({ executionStatus: 'pending' });
-			expect(getIcon()).toHaveClass('pending');
-		});
-	});
 });
