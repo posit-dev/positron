@@ -1639,29 +1639,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 						// If the runtime we were asked for was system-scoped (cacheable),
 						// the substitution is most likely cache drift -- the on-disk binary
-						// changed since the cache was populated. Surface this to the user
-						// with a one-click recovery action.
+						// changed since the cache was populated.
 						if (metadata.cacheable === true) {
-							this._notificationService.notify({
-								severity: Severity.Info,
-								message: localize(
-									'positron.runtimeSession.cacheDriftSubstitution',
-									"{0} at {1} is no longer available; starting {2} instead.",
-									metadata.runtimeName, metadata.runtimePath, validated.runtimeName),
-								actions: {
-									primary: [
-										{
-											id: 'positron.runtimeSession.discoverAllInterpreters',
-											label: localize('positron.runtimeSession.discoverAllInterpreters', "Discover All Interpreters"),
-											tooltip: '',
-											class: undefined,
-											enabled: true,
-											run: () => this._commandService.executeCommand(
-												'workbench.action.language.runtime.discoverAllRuntimes'),
-										}
-									]
-								}
-							});
+							this._logService.info(
+								`Cache drift: ${metadata.runtimeName} at ${metadata.runtimePath} ` +
+								`is no longer available; starting ${validated.runtimeName} instead.`);
 						}
 					}
 				}

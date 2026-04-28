@@ -67,6 +67,45 @@ interface IInternalBucket {
 	discoveryRootSignature?: IRuntimeRootSignature;
 }
 
+/**
+ * Persistent, cross-window cache of runtime discovery results.
+ *
+ * Discovering interpreters is expensive: each runtime manager (Python, R, ...)
+ * shells out to `pyenv`/`conda`/`rig`, walks `PATH` and system locations, and
+ * probes binaries for version metadata. In a configuration with many
+ * environments this can take several minutes per language on every cold
+ * start. This cache stores the result so that the *next* window can skip the
+ * work entirely when nothing on disk has changed.
+ *
+ * The model is "remembered facts about the host machine, not the workspace":
+ * the cache lives in `APPLICATION`/`MACHINE`-scoped storage so every Positron
+ * window sees the same view, and entries are partitioned into buckets keyed
+ * by `(extensionId, languageId)`. Each cached runtime carries a cheap
+ * fingerprint of its on-disk binary (size + mtime + ctime); a fingerprint
+ * match means "same binary as before" and lets us trust the cached metadata
+ * without re-probing. A mismatch evicts the entry and forces the owning
+ * extension to re-discover.
+ *
+ * The cache only *short-circuits* discovery -- it never replaces it. Every
+ * cached entry is revalidated in the background by the runtime startup
+ * service, and a separate root-signature mechanism (snapshots of the
+ * directories the manager scans) detects new installs that would otherwise
+ * be invisible to fingerprint checks. Hard caps on entry age and bucket
+ * freshness guarantee a real discovery pass runs periodically regardless.
+ *
+ * Two implementation notes worth knowing about:
+ *
+ * - **Cross-window writes.** The persisted blob is one JSON document under a
+ *   single storage key, so concurrent windows would silently clobber each
+ *   other. We subscribe to external storage changes and reload wholesale on
+ *   sibling writes; the resulting last-writer-wins behavior can drop an
+ *   in-flight entry but never serves a wrong runtime, and any loss is
+ *   recovered on the next discovery or revalidation pass.
+ *
+ * - **Disable switch.** {@link RUNTIME_DISCOVERY_CACHE_ENABLED_SETTING} gates
+ *   everything: when off, reads return empty and writes no-op, restoring
+ *   pre-cache cold-start behavior with no other code paths to touch.
+ */
 export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscoveryCache {
 
 	declare readonly _serviceBrand: undefined;
