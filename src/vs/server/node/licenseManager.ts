@@ -32,7 +32,7 @@ interface LicenseCommandResult {
 	expiration?: number;
 }
 
-function validateLicenseStatus(result: LicenseCommandResult): void {
+function validatedResult(result: LicenseCommandResult): ILicenseValidationResult {
 	const status = result.status?.toLowerCase() || '';
 	if (status === 'expired') {
 		throw new Error('License has expired. Please renew your license.');
@@ -40,6 +40,7 @@ function validateLicenseStatus(result: LicenseCommandResult): void {
 	if (status !== 'activated' && status !== 'evaluation') {
 		throw new Error(`Invalid license result: ${JSON.stringify(result)}`);
 	}
+	return { valid: true, licensee: result.licensee };
 }
 
 /**
@@ -92,7 +93,19 @@ class LicenseManager {
 		}
 
 		const verifyResult = await this.runJsonCommand('get-verify');
-		if (verifyResult.result === LicError.OK && !verifyResult.initialized) {
+		if (verifyResult.result !== LicError.OK) {
+			throw new Error(`License system check failed: ${verifyResult.message || `code ${verifyResult.result}`}`);
+		}
+
+		if (verifyResult.initialized) {
+			try {
+				const verified = validatedResult(verifyResult);
+				console.log(`Positron license verified: ${JSON.stringify(verifyResult)}`);
+				return verified;
+			} catch {
+				console.log('Existing license verification failed, proceeding to activation...');
+			}
+		} else {
 			console.log('Initializing license system...');
 			const initResult = await this.runJsonCommand('initialize', ['--userspace']);
 			if (initResult.result !== LicError.OK &&
@@ -109,14 +122,9 @@ class LicenseManager {
 			throw new Error(result.message || `Activation failed with code ${result.result}`);
 		}
 
-		validateLicenseStatus(result);
-
+		const activated = validatedResult(result);
 		console.log(`Successfully activated Positron license: ${JSON.stringify(result)}`);
-
-		return {
-			valid: true,
-			licensee: result.licensee
-		};
+		return activated;
 	}
 }
 
