@@ -58,10 +58,18 @@ export function activate(context: vscode.ExtensionContext): PositronSupervisorAp
 }
 
 export async function deactivate(): Promise<void> {
-	// Shut down the Kallichore server if it exists. This sends a shutdown
-	// request to kcserver so it terminates its child processes (e.g. ark.exe
-	// on Windows) before Positron exits, preventing orphaned kernel processes.
-	if (API_INSTANCE) {
+	if (!API_INSTANCE) {
+		return;
+	}
+
+	// On Windows, shut down the Kallichore server so kcserver terminates its
+	// child processes (e.g. ark.exe) before Positron exits and avoids orphaned
+	// kernel processes. On other platforms, just dispose connections so the
+	// server stays running and sessions can be reconnected after a window
+	// reload (the server's idle timeout cleans it up on actual quit).
+	if (os.platform() === 'win32') {
 		await API_INSTANCE.shutdown();
+	} else {
+		API_INSTANCE.dispose();
 	}
 }
