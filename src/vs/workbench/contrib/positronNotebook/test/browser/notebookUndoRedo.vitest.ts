@@ -254,5 +254,32 @@ describe('PositronNotebookInstance undo/redo', () => {
 			// distinguish undo-restored cells from a fresh add.
 			expect(setOpSpy).toHaveBeenCalledWith(NotebookOperationType.Undo);
 		});
+
+		it('handleNotebookRedo routes through to the model and sets the Redo operation flag when focus is set', async () => {
+			const notebook = createTestPositronNotebookInstance([
+				['# Cell 0', 'python', CellKind.Code],
+			], ctx);
+			notebook.addCell(CellKind.Code, 1, false, '# Cell 1');
+			// Stage a redo entry by undoing first.
+			await ctx.get(IUndoRedoService).undo(notebook.uri);
+			expect(notebook.cells.get().length).toBe(1);
+
+			const editorService = stubInterface<IEditorService>({
+				activeEditorPane: makeNotebookEditorPane(notebook),
+			});
+			POSITRON_NOTEBOOK_EDITOR_FOCUSED.bindTo(notebook.scopedContextKeyService).set(true);
+
+			const setOpSpy = vi.spyOn(notebook, 'setCurrentOperation');
+
+			const result = await handleNotebookRedo(editorService, ctx.get(IUndoRedoService));
+
+			expect(result).toBeUndefined();
+
+			const cells = notebook.cells.get();
+			expect(cells.length).toBe(2);
+			expect(cells[1].getContent()).toBe('# Cell 1');
+
+			expect(setOpSpy).toHaveBeenCalledWith(NotebookOperationType.Redo);
+		});
 	});
 });
