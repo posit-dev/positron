@@ -10,6 +10,9 @@ import './contrib/ghostCell/positronNotebookGhostCell.contribution.js';
 import './contrib/outline/positronNotebookOutline.contribution.js';
 import './contrib/dataExplorer/positronNotebookDataExplorer.contribution.js';
 
+// Self-registering Action2 contributions
+import './notebookCells/InlineDataExplorerActions.js';
+
 import { isCopyImageMenuArg, toBase64DataUrl } from './copyImageUtils.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Schemas } from '../../../../base/common/network.js';
