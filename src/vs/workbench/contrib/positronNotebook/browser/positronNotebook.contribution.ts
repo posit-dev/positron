@@ -1911,7 +1911,7 @@ registerAction2(class extends NotebookAction2 {
 	}
 
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
-		notebook.runAllCells();
+		return notebook.runAllCells();
 	}
 });
 
@@ -1949,7 +1949,7 @@ registerAction2(class extends NotebookAction2 {
 	}
 
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
-		notebook.cancelExecution();
+		return notebook.cancelExecution();
 	}
 });
 
