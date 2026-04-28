@@ -476,3 +476,112 @@
 .quarto-inline-output.quarto-output-status-only {
 	display: none;
 }
+
+/*
+ * Collapse chevron button. Portaled into the editor's root DOM node so it
+ * is not clipped by Monaco's overflow-guard / scrollable container; its
+ * `top` / `left` are set in JS to track the view zone's position.
+ *
+ * Hidden by default; the JS layout logic toggles `.visible` on hover/focus
+ * of the wrapper or the chevron itself.
+ */
+.quarto-output-collapse-chevron {
+	position: absolute;
+	width: 22px;
+	height: 22px;
+	padding: 2px;
+	border: none;
+	background: transparent;
+	color: var(--vscode-foreground);
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 4px;
+	/*
+	 * Sit above the editor's line-number gutter, which is where this button
+	 * visually lives when positioned to the left of the view zone.
+	 */
+	z-index: 20;
+	pointer-events: auto;
+
+	/*
+	 * Hidden by default; fades in when `.visible` is set or the button
+	 * receives focus. Match Monaco's folding chevron animation:
+	 * `transition: opacity 0.5s` with the default `ease` curve (see
+	 * `src/vs/editor/contrib/folding/browser/folding.css`). `visibility`
+	 * is toggled with a delayed transition so the element stays in the
+	 * visibility tree during the fade-out, then switches to `hidden` at
+	 * the end (preventing it from capturing clicks once invisible).
+	 */
+	opacity: 0;
+	visibility: hidden;
+	transition: opacity 0.5s, visibility 0s 0.5s;
+}
+
+.quarto-output-collapse-chevron.visible,
+.quarto-output-collapse-chevron:focus {
+	opacity: 1;
+	visibility: visible;
+	/* On fade-in, flip visibility immediately so the fade is visible. */
+	transition: opacity 0.5s, visibility 0s 0s;
+}
+
+.quarto-output-collapse-chevron:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+/* Respect the user's reduced-motion preference (same guard Monaco uses). */
+.monaco-reduce-motion .quarto-output-collapse-chevron,
+.monaco-reduce-motion .quarto-output-collapse-chevron .collapse-chevron {
+	transition: initial;
+}
+
+/* Animated chevron rotation: points down when expanded, left when collapsed. */
+.quarto-output-collapse-chevron .collapse-chevron {
+	transition: transform 0.15s ease;
+}
+
+.quarto-output-collapse-chevron .collapse-chevron.collapsed {
+	transform: rotate(-90deg);
+}
+
+.hc-black .quarto-output-collapse-chevron:focus,
+.hc-light .quarto-output-collapse-chevron:focus {
+	outline-width: 2px;
+}
+
+/*
+ * Summary line shown inside the styled box when the output is collapsed.
+ * Acts as a clickable affordance to expand. Hidden by default.
+ */
+.quarto-output-summary {
+	display: none;
+	font-style: italic;
+	color: var(--vscode-descriptionForeground);
+	cursor: pointer;
+	user-select: none;
+	-webkit-user-select: none;
+	padding: 0;
+}
+
+.quarto-output-summary:hover {
+	color: var(--vscode-textLink-foreground);
+}
+
+.quarto-output-summary:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 2px;
+}
+
+/*
+ * Collapsed state: hide the output content and reveal the summary line.
+ */
+.quarto-inline-output.quarto-output-collapsed .quarto-output-content {
+	display: none;
+}
+
+.quarto-inline-output.quarto-output-collapsed .quarto-output-summary {
+	display: block;
+}
