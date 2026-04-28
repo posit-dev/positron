@@ -6,6 +6,9 @@
 // CSS.
 import './runtimeStartup.css';
 
+// React.
+import { memo } from 'react';
+
 // Other dependencies.
 import { ConsoleOutputLines } from './consoleOutputLines.js';
 import { RuntimeItemStartup } from '../../../../services/positronConsole/browser/classes/runtimeItemStartup.js';
@@ -18,11 +21,10 @@ export interface RuntimeStartupProps {
 /**
  * RuntimeStartup component.
  * @param props A RuntimeStartupProps that contains the component properties.
- * @returns The rendered component.
+ * @returns The memoized component.
  */
-export const RuntimeStartup = (props: RuntimeStartupProps) => {
-	// Render.
+export const RuntimeStartup = memo((props: RuntimeStartupProps) => {
 	return (
 		<ConsoleOutputLines outputLines={props.runtimeItemStartup.outputLines} />
 	);
-};
+});

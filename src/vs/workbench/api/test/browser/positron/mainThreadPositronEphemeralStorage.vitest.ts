@@ -8,7 +8,7 @@
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { EphemeralStateService } from '../../../../../platform/ephemeralState/common/ephemeralStateService.js';
-import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
+import { IWorkspace, IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { IExtHostContext } from '../../../../services/extensions/common/extHostCustomers.js';
 import { MainThreadPositronEphemeralStorage } from '../../../browser/positron/mainThreadPositronEphemeralStorage.js';
 
@@ -17,8 +17,7 @@ const TEST_WORKSPACE_ID = 'test-workspace-id';
 
 function createMockWorkspaceContextService(): IWorkspaceContextService {
 	return stubInterface<IWorkspaceContextService>({
-		// eslint-disable-next-line local/code-no-any-casts -- partial IWorkspace for test; full stub deferred to follow-up cleanup PR
-		getWorkspace: () => ({ id: TEST_WORKSPACE_ID, folders: [] } as any),
+		getWorkspace: () => stubInterface<IWorkspace>({ id: TEST_WORKSPACE_ID, folders: [] }),
 	});
 }
 
@@ -89,8 +88,7 @@ describe('MainThreadPositronEphemeralStorage', function () {
 
 		// Create a second storage instance with a different workspace ID
 		const otherWorkspaceService = stubInterface<IWorkspaceContextService>({
-			// eslint-disable-next-line local/code-no-any-casts -- partial IWorkspace for test; full stub deferred to follow-up cleanup PR
-			getWorkspace: () => ({ id: 'other-workspace-id', folders: [] } as any),
+			getWorkspace: () => stubInterface<IWorkspace>({ id: 'other-workspace-id', folders: [] }),
 		});
 		const storage2 = new MainThreadPositronEphemeralStorage(mockExtHostContext, ephemeralStateService, otherWorkspaceService);
 

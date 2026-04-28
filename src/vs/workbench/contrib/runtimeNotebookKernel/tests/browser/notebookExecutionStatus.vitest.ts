@@ -5,10 +5,12 @@
 
 /// <reference types="vitest/globals" />
 
+import { IConfigurationChangeEvent } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { IStatusbarService, } from '../../../../services/statusbar/browser/statusbar.js';
 import { PositronTestServiceAccessor } from '../../../../test/browser/positronWorkbenchTestServices.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { TestNotebookExecutionService } from '../../../../test/common/positronWorkbenchTestServices.js';
 import { NotebookExecutionStatus } from '../../browser/notebookExecutionStatus.js';
 import { NOTEBOOK_EXPERIMENTAL_SHOW_EXECUTION_INFO_KEY } from '../../common/runtimeNotebookKernelConfig.js';
@@ -59,8 +61,7 @@ describe('NotebookExecutionStatus', () => {
 		createEntry();
 
 		setShowExecutionInfo(true);
-		// eslint-disable-next-line local/code-no-any-casts -- partial IConfigurationChangeEvent; typed stub (source/affectedKeys/change) deferred to follow-up cleanup PR
-		configurationService.onDidChangeConfigurationEmitter.fire({ affectsConfiguration: () => true } as any);
+		configurationService.onDidChangeConfigurationEmitter.fire(stubInterface<IConfigurationChangeEvent>({ affectsConfiguration: () => true }));
 
 		assertEntryIsVisible(true);
 	});

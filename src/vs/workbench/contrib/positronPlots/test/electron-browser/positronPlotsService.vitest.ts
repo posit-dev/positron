@@ -291,13 +291,14 @@ describe('Positron - Plots Service', () => {
 			return { width: 100, height: 100 };
 		});
 
-		// Replace the comm methods via the proxy
-		// eslint-disable-next-line local/code-no-any-casts -- reaching into private _commProxy to inject stub comms; exposing a test hook in the source class is deferred to follow-up cleanup PR
-		const commProxy = (plotInstance as any)._commProxy;
-		if (commProxy && commProxy._comm) {
-			commProxy._comm.render = renderStub;
-			commProxy._comm.getIntrinsicSize = intrinsicSizeStub;
-		}
+		// Replace the live comm's methods to drive the render-concurrency test.
+		// Reaching into the private _commProxy/_comm fields keeps the test hook out of
+		// production source; exposing them via @internal getters would still surface in
+		// IDE autocomplete since stripInternal isn't enabled.
+		// eslint-disable-next-line local/code-no-any-casts -- private field access for stub injection in test only
+		const comm = (plotInstance as any)._commProxy._comm;
+		comm.render = renderStub;
+		comm.getIntrinsicSize = intrinsicSizeStub;
 
 		// Start multiple render operations simultaneously
 		const render1Promise = plotInstance.render({ width: 100, height: 100 }, 1.0).catch(() => {

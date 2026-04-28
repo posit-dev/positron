@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -52,6 +52,12 @@ export class RuntimeItemActivity extends RuntimeItem {
 	 */
 	private _activityItems: ActivityItem[] = [];
 
+	/**
+	 * Monotonically increasing counter that is bumped whenever content rendered by RuntimeActivity
+	 * changes. Used by React.memo to determine whether to re-render or not.
+	 */
+	private _version = 0;
+
 	//#endregion Private Properties
 
 	//#region Public Properties
@@ -61,6 +67,13 @@ export class RuntimeItemActivity extends RuntimeItem {
 	 */
 	public get activityItems() {
 		return this._activityItems;
+	}
+
+	/**
+	 * Gets the current mutation version. See `_version`.
+	 */
+	public get version() {
+		return this._version;
 	}
 
 	//#endregion Public Properties
@@ -89,6 +102,9 @@ export class RuntimeItemActivity extends RuntimeItem {
 	 * @param activityItem The activity item to add.
 	 */
 	public addActivityItem(activityItem: ActivityItem) {
+		// Bump the version to indicate that a mutation is occurring.
+		this._version++;
+
 		// Perform activity item processing if this is not the first activity item.
 		if (this._activityItems.length) {
 			// If the activity item being added is an ActivityItemStream, see if we can append it to
@@ -143,6 +159,47 @@ export class RuntimeItemActivity extends RuntimeItem {
 	}
 
 	/**
+	 * Trim scrollback.
+	 * @param scrollbackSize A number representing the scrollback size.
+	 * @returns A number representing the remaining scrollback size.
+	 */
+	public override trimScrollback(scrollbackSize: number): number {
+		// We should never be called with a scrollback size <= 0.
+		if (scrollbackSize <= 0) {
+			return 0;
+		}
+
+		// Walk the activity items in reverse, trimming scrollback.
+		let firstKeepIndex = 0;
+		let bumpVersion = false;
+		let remainingScrollbackSize = scrollbackSize;
+		for (let i = this._activityItems.length - 1; remainingScrollbackSize > 0 && i >= 0; i--) {
+			// Trim scrollback on the activity item.
+			const result = this._activityItems[i].trimScrollback(remainingScrollbackSize);
+
+			// Adjust the first keep index, bump version flag, and remaining scrollback size.
+			firstKeepIndex = i;
+			bumpVersion ||= result.trimmed;
+			remainingScrollbackSize = Math.max(result.remainingScrollbackSize, 0);
+		}
+
+		// Drop activity items before the first activity item.
+		if (firstKeepIndex > 0) {
+			this._activityItems.splice(0, firstKeepIndex);
+			bumpVersion = true;
+		}
+
+		// Bump the render version only when something actually changed so React.memo keeps its
+		// cached render for activities that were walked-but-untouched.
+		if (bumpVersion) {
+			this._version++;
+		}
+
+		// Return the remaining scrollback size.
+		return remainingScrollbackSize;
+	}
+
+	/**
 	 * Gets the clipboard representation of the runtime item.
 	 * @param commentPrefix The comment prefix to use.
 	 * @returns The clipboard representation of the runtime item.
@@ -151,30 +208,6 @@ export class RuntimeItemActivity extends RuntimeItem {
 		return this._activityItems.flatMap(activityItem =>
 			activityItem.getClipboardRepresentation(commentPrefix)
 		);
-	}
-
-	/**
-	 * Optimizes scrollback.
-	 * @param scrollbackSize The scrollback size.
-	 * @returns The remaining scrollback size.
-	 */
-	public override optimizeScrollback(scrollbackSize: number) {
-		// If scrollback size is zero, hide the item and return zero.
-		if (scrollbackSize === 0) {
-			this._isHidden = true;
-			return 0;
-		}
-
-		// Unhide the item.
-		this._isHidden = false;
-
-		// Optimize scrollback for each activity item in reverse order.
-		for (let i = this._activityItems.length - 1; i >= 0; i--) {
-			scrollbackSize = this._activityItems[i].optimizeScrollback(scrollbackSize);
-		}
-
-		// Return the remaining scrollback size.
-		return scrollbackSize;
 	}
 
 	//#endregion Public Methods

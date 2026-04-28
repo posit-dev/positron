@@ -128,14 +128,6 @@ configurationRegistry.registerConfiguration({
 				localize('detailed', "The status bar entry is shown for all update states including progress.")
 			]
 		},
-		'update.systemArchitecture': {
-			type: 'string',
-			default: 'auto',
-			scope: ConfigurationScope.APPLICATION,
-			description: localize('systemArchitecture', "Configure the system architecture for macOS updates."),
-			included: isMacintosh && !isWeb,
-			deprecationMessage: localize('systemArchitectureDeprecated', "This setting is deprecated. The system architecture is now automatically detected.")
-		}
 	}
 	// --- End Positron ---
 });

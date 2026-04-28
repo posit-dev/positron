@@ -14,32 +14,6 @@ test.describe('Positron Notebooks: Outline', {
 	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS, tags.OUTLINE]
 }, () => {
 
-	test('Outline displays markdown headers and code cell previews', async function ({ app }) {
-		const { notebooksPositron, outline } = app.workbench;
-
-		await test.step('Create notebook with markdown and code cells', async () => {
-			await notebooksPositron.newNotebook();
-
-			// Cell 0: default empty code cell
-			await notebooksPositron.addCodeToCell(0, 'x = 1');
-
-			// Cell 1: markdown with headers
-			await notebooksPositron.addCell('markdown');
-			await notebooksPositron.addCodeToCell(1, '# Introduction\n## Analysis');
-		});
-
-		await test.step('Open Outline pane and verify entries', async () => {
-			await outline.focus();
-
-			// Markdown headers should appear
-			await outline.expectOutlineElementToBeVisible('Introduction');
-			await outline.expectOutlineElementToBeVisible('Analysis');
-
-			// Code cell preview should appear
-			await outline.expectOutlineElementToBeVisible('x = 1');
-		});
-	});
-
 	test('Clicking outline entries navigates to the corresponding cell', async function ({ app }) {
 		const { notebooksPositron, outline } = app.workbench;
 

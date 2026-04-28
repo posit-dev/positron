@@ -1,9 +1,10 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ActivityItem } from './activityItem.js';
+import { Emitter } from '../../../../../base/common/event.js';
+import { ActivityItem, TrimScrollbackResult } from './activityItem.js';
 import { formatOutputLinesForClipboard } from '../utils/clipboardUtils.js';
 import { ANSIOutput, ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
 
@@ -20,7 +21,38 @@ export const enum ActivityItemPromptState {
  * ActivityItemPrompt class.
  */
 export class ActivityItemPrompt extends ActivityItem {
+	//#region Private Properties
+
+	/**
+	 * The state of the prompt.
+	 */
+	private _state = ActivityItemPromptState.Unanswered;
+
+	/**
+	 * An emitter that fires when the state of the prompt changes.
+	 */
+	private readonly _onStateChangedEmitter = new Emitter<void>();
+
+	//#endregion Private Properties
+
 	//#region Public Properties
+
+	/**
+	 * Gets the state.
+	 */
+	get state() {
+		return this._state;
+	}
+
+	/**
+	 * Sets the state.
+	 */
+	set state(state: ActivityItemPromptState) {
+		if (state !== this._state) {
+			this._state = state;
+			this._onStateChangedEmitter.fire();
+		}
+	}
 
 	/**
 	 * Gets the output lines.
@@ -28,16 +60,20 @@ export class ActivityItemPrompt extends ActivityItem {
 	readonly outputLines: readonly ANSIOutputLine[];
 
 	/**
-	 * Gets or sets the state.
-	 */
-	state = ActivityItemPromptState.Unanswered;
-
-	/**
 	 * Gets or sets the answer.
 	 */
 	answer?: string = undefined;
 
 	//#endregion Public Properties
+
+	//#region Public Events
+
+	/**
+	 * An event that fires when the state changes.
+	 */
+	public onStateChanged = this._onStateChangedEmitter.event;
+
+	//#endregion Public Events
 
 	//#region Constructor
 
@@ -66,6 +102,27 @@ export class ActivityItemPrompt extends ActivityItem {
 	//#endregion Constructor
 
 	//#region Public Methods
+
+	/**
+	 * Trim scrollback.
+	 * @param scrollbackSize A number representing the scrollback size.
+	 * @returns A TrimScrollbackResult indicating the result of the trim scrollback operation.
+	 */
+	public override trimScrollback(scrollbackSize: number): TrimScrollbackResult {
+		// We should never be called with a scrollback size <= 0.
+		if (scrollbackSize <= 0) {
+			return {
+				trimmed: false,
+				remainingScrollbackSize: 0
+			};
+		}
+
+		// Counts as one scrollback item; nothing is trimmed in place.
+		return {
+			trimmed: false,
+			remainingScrollbackSize: scrollbackSize - 1
+		};
+	}
 
 	/**
 	 * Gets the clipboard representation of the activity item.

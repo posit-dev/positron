@@ -6,6 +6,9 @@
 // CSS.
 import './runtimeStartupFailure.css';
 
+// React.
+import { memo } from 'react';
+
 // Other dependencies.
 import { ConsoleOutputLines } from './consoleOutputLines.js';
 import { RuntimeItemStartupFailure } from '../../../../services/positronConsole/browser/classes/runtimeItemStartupFailure.js';
@@ -18,14 +21,13 @@ export interface RuntimeStartupFailureProps {
 /**
  * RuntimeStartupFailure component.
  * @param props A RuntimeStartupFailureProps that contains the component properties.
- * @returns The rendered component.
+ * @returns The memoized component.
  */
-export const RuntimeStartupFailure = (props: RuntimeStartupFailureProps) => {
-	// Render.
+export const RuntimeStartupFailure = memo((props: RuntimeStartupFailureProps) => {
 	return (
 		<div className='runtime-startup-failure'>
 			<div className='message'>{props.runtimeItemStartupFailure.message}</div>
 			<ConsoleOutputLines outputLines={props.runtimeItemStartupFailure.outputLines} />
 		</div>
 	);
-};
+});

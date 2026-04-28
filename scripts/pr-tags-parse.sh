@@ -96,9 +96,9 @@ else
 	if [[ ! "$TAGS" =~ "@:critical" ]]; then
 		if [[ -n "$TAGS" ]]; then
 			TAGS="@:critical,$TAGS"
-	else
-		TAGS="@:critical"
-	fi
+		else
+			TAGS="@:critical"
+		fi
 	fi
 
 	# Output the tags

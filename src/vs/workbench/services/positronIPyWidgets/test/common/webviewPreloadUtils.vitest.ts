@@ -3,12 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as assert from 'assert';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+/// <reference types="vitest/globals" />
+
+import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { isComplexHtml } from '../../common/webviewPreloadUtils.js';
 
-suite('isComplexHtml', () => {
-	ensureNoDisposablesAreLeakedInTestSuite();
+describe('isComplexHtml', () => {
+	ensureNoLeakedDisposables();
 
 	// Each entry exercises a distinct detection branch in isComplexHtml().
 	const complexCases: [string, string][] = [
@@ -23,16 +24,16 @@ suite('isComplexHtml', () => {
 		['event handler', '<img src="x" onerror="alert(1)">'],
 	];
 	for (const [label, html] of complexCases) {
-		test(`detects ${label}`, () => {
-			assert.strictEqual(isComplexHtml(html), true);
+		it(`detects ${label}`, () => {
+			expect(isComplexHtml(html)).toBe(true);
 		});
 	}
 
-	test('data attributes containing "on" prefix are not complex', () => {
-		assert.strictEqual(isComplexHtml('<div data-onclick="value">test</div>'), false);
+	it('data attributes containing "on" prefix are not complex', () => {
+		expect(isComplexHtml('<div data-onclick="value">test</div>')).toBe(false);
 	});
 
-	test('simple HTML is not complex', () => {
-		assert.strictEqual(isComplexHtml('<p>Hello world</p>'), false);
+	it('simple HTML is not complex', () => {
+		expect(isComplexHtml('<p>Hello world</p>')).toBe(false);
 	});
 });

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -400,24 +400,29 @@ export class ANSIOutput {
 	}
 
 	/**
-	 * Truncates the output lines.
-	 * @param maxOutputLines The maximum output lines.
-	 * @returns The truncated output lines.
+	 * Drops lines from the top of the output.
+	 * @param count The number of lines to drop from the top of the output.
+	 * @returns The number of lines actually dropped (clamped to the number of lines above the cursor).
 	 */
-	truncatedOutputLines(maxOutputLines: number) {
-		// If the max output lines is less than or equal to zero, return an empty array.
-		// (It should never be negative, but check anyway.)
-		if (maxOutputLines <= 0) {
-			return [];
+	public dropTop(count: number): number {
+		// Sanity check the count.
+		if (count <= 0) {
+			return 0;
 		}
 
-		// If there are fewer output lines than the max output lines, return the output lines.
-		if (this.outputLines.length <= maxOutputLines) {
-			return this.outputLines;
+		// Materialize any buffered characters so `_outputLine` refers to a real line.
+		this.flushBuffer();
+
+		// Only lines above the cursor line are safe to drop.
+		const dropCount = Math.min(count, this._outputLine);
+		if (dropCount === 0) {
+			return 0;
 		}
 
-		// Truncate the output lines.
-		return this._outputLines.slice(-maxOutputLines);
+		// Drop the lines from the top, adjust the output line, and return the number of lines dropped.
+		this._outputLines.splice(0, dropCount);
+		this._outputLine -= dropCount;
+		return dropCount;
 	}
 
 	//#endregion Public Methods

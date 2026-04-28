@@ -515,5 +515,125 @@ suite('Native Python API', () => {
         assert.equal(envs.length, 1, 'expected exactly one env (longer path should be replaced)');
         assert.equal(envs[0].executable.filename, shorterPath);
     });
+
+    // Regression tests for issue #12500: `resolveEnv` must not pin an
+    // `undefined` resolution for 30s when PET is still discovering the env.
+    suite('resolveEnv caching', () => {
+        const pythonPath = '/usr/bin/python';
+
+        setup(() => {
+            // basicEnv (path /usr/bin/python) is not under any additional env
+            // dir, but checkForExistingEnv unconditionally awaits this list
+            // when addEnv runs. Return [] so the test doesn't depend on the
+            // real vscode-configuration lookups.
+            sinon.stub(nativeFinder, 'getAdditionalEnvDirs').resolves([]);
+        });
+
+        test('does not cache undefined resolutions', async () => {
+            let resolveCount = 0;
+            mockFinder
+                .setup((f) => f.resolve(pythonPath))
+                // The typemoq setup types `resolve` as `Promise<NativeEnvInfo>`,
+                // but the runtime path treats undefined as "not yet resolved",
+                // which is exactly what we're regression-testing.
+                .returns(() => {
+                    resolveCount += 1;
+                    return Promise.resolve(resolveCount === 1 ? ((undefined as unknown) as NativeEnvInfo) : basicEnv);
+                });
+
+            const first = await api.resolveEnv(pythonPath);
+            assert.isUndefined(first, 'first call should reflect the undefined resolution');
+
+            const second = await api.resolveEnv(pythonPath);
+            assert.isDefined(second, 'second call should return the now-resolved env');
+            assert.equal(second?.executable.filename, pythonPath);
+            assert.equal(resolveCount, 2, 'finder.resolve should be called twice (undefined is not cached)');
+        });
+
+        test('caches successful resolutions under the executable path', async () => {
+            let resolveCount = 0;
+            mockFinder
+                .setup((f) => f.resolve(pythonPath))
+                .returns(() => {
+                    resolveCount += 1;
+                    return Promise.resolve(basicEnv);
+                });
+
+            const first = await api.resolveEnv(pythonPath);
+            const second = await api.resolveEnv(pythonPath);
+            assert.deepEqual(first, expectedBasicEnv);
+            assert.deepEqual(second, expectedBasicEnv);
+            assert.equal(resolveCount, 1, 'second call should hit the cache and skip finder.resolve');
+        });
+
+        test('triggerRefresh refreshes the resolveEnv cache entry (late uv classification)', async () => {
+            let resolveCount = 0;
+            mockFinder
+                .setup((f) => f.resolve(pythonPath))
+                .returns(() => {
+                    resolveCount += 1;
+                    return Promise.resolve(basicEnv);
+                });
+            mockFinder
+                .setup((f) => f.refresh())
+                .returns(() => {
+                    async function* generator() {
+                        yield* [basicEnv];
+                    }
+                    return generator();
+                });
+
+            // Warm the cache while isUvEnvironment returns falsy (default stub behavior).
+            const warm = await api.resolveEnv(pythonPath);
+            assert.equal(warm?.kind, PythonEnvKind.System);
+
+            // Reclassify the same executable as uv before the next refresh.
+            isUvEnvironmentStub.withArgs(pythonPath).resolves(true);
+            await api.triggerRefresh();
+
+            // triggerRefresh routes the env through addEnv, which overwrites the
+            // cache entry with the uv-classified info. Next resolveEnv should see
+            // the updated kind without spawning another finder.resolve.
+            const refreshed = await api.resolveEnv(pythonPath);
+            assert.equal(refreshed?.kind, PythonEnvKind.Uv);
+            assert.equal(resolveCount, 1, 'cache update via addEnv should not trigger another finder.resolve');
+        });
+
+        test('removeEnv invalidates the resolveEnv cache', async () => {
+            let resolveCount = 0;
+            let yieldEnv = false;
+            mockFinder
+                .setup((f) => f.resolve(pythonPath))
+                .returns(() => {
+                    resolveCount += 1;
+                    return Promise.resolve(basicEnv);
+                });
+            mockFinder
+                .setup((f) => f.refresh())
+                .returns(() => {
+                    async function* generator() {
+                        if (yieldEnv) {
+                            yield* [basicEnv];
+                        }
+                    }
+                    return generator();
+                });
+
+            // Warm the cache via resolveEnv; addEnv also pushes into _envs.
+            await api.resolveEnv(pythonPath);
+            assert.equal(resolveCount, 1);
+            assert.equal(api.getEnvs().length, 1);
+
+            // Refresh yields nothing, so basicEnv falls off _envs via removeEnv,
+            // which must also drop the cache entry.
+            yieldEnv = false;
+            await api.triggerRefresh();
+            assert.equal(api.getEnvs().length, 0);
+
+            // With the cache cleared, the next resolveEnv must call finder.resolve again.
+            await api.resolveEnv(pythonPath);
+            assert.equal(resolveCount, 2, 'cache should be cleared by removeEnv');
+        });
+    });
     // --- End Positron ---
 });

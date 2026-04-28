@@ -80,29 +80,79 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 		return (
 			<>
 				<div className='top-spacer' />
-				{this.props.positronConsoleInstance.runtimeItems.filter(runtimeItem => !runtimeItem.isHidden).map(runtimeItem => {
+				{this.props.positronConsoleInstance.runtimeItems.map(runtimeItem => {
 					if (runtimeItem instanceof RuntimeItemActivity) {
-						return <RuntimeActivity key={runtimeItem.id} fontInfo={this.props.fontInfo} positronConsoleInstance={this.props.positronConsoleInstance} runtimeItemActivity={runtimeItem} />;
+						return (
+							<RuntimeActivity
+								key={runtimeItem.id}
+								fontInfo={this.props.fontInfo}
+								positronConsoleInstance={this.props.positronConsoleInstance}
+								runtimeItemActivity={runtimeItem}
+								version={runtimeItem.version}
+							/>);
 					} else if (runtimeItem instanceof RuntimeItemPendingInput) {
-						return <RuntimePendingInput key={runtimeItem.id} fontInfo={this.props.fontInfo} runtimeItemPendingInput={runtimeItem} />;
+						return (
+							<RuntimePendingInput
+								key={runtimeItem.id}
+								fontInfo={this.props.fontInfo}
+								runtimeItemPendingInput={runtimeItem}
+							/>);
 					} else if (runtimeItem instanceof RuntimeItemStartup) {
-						return <RuntimeStartup key={runtimeItem.id} runtimeItemStartup={runtimeItem} />;
+						return (
+							<RuntimeStartup
+								key={runtimeItem.id}
+								runtimeItemStartup={runtimeItem}
+							/>
+						);
 					} else if (runtimeItem instanceof RuntimeItemReconnected) {
+						// Not rendered.
 						return null;
 					} else if (runtimeItem instanceof RuntimeItemStarting) {
-						return <RuntimeStarting key={runtimeItem.id} runtimeItemStarting={runtimeItem} />;
+						return (
+							<RuntimeStarting
+								key={runtimeItem.id}
+								runtimeItemStarting={runtimeItem} />
+						);
 					} else if (runtimeItem instanceof RuntimeItemStarted) {
-						return <RuntimeStarted key={runtimeItem.id} runtimeItemStarted={runtimeItem} />;
+						return (
+							<RuntimeStarted
+								key={runtimeItem.id}
+								runtimeItemStarted={runtimeItem}
+							/>
+						);
 					} else if (runtimeItem instanceof RuntimeItemOffline) {
-						return <RuntimeOffline key={runtimeItem.id} runtimeItemOffline={runtimeItem} />;
+						return (
+							<RuntimeOffline
+								key={runtimeItem.id}
+								runtimeItemOffline={runtimeItem} />
+						);
 					} else if (runtimeItem instanceof RuntimeItemExited) {
-						return <RuntimeExited key={runtimeItem.id} runtimeItemExited={runtimeItem} />;
+						return (
+							<RuntimeExited
+								key={runtimeItem.id}
+								runtimeItemExited={runtimeItem} />
+						);
 					} else if (runtimeItem instanceof RuntimeItemRestartButton) {
-						return <RuntimeRestartButton key={runtimeItem.id} positronConsoleInstance={this.props.positronConsoleInstance} runtimeItemRestartButton={runtimeItem} />;
+						return (
+							<RuntimeRestartButton
+								key={runtimeItem.id}
+								positronConsoleInstance={this.props.positronConsoleInstance}
+								runtimeItemRestartButton={runtimeItem}
+							/>);
 					} else if (runtimeItem instanceof RuntimeItemStartupFailure) {
-						return <RuntimeStartupFailure key={runtimeItem.id} runtimeItemStartupFailure={runtimeItem} />;
+						return (
+							<RuntimeStartupFailure
+								key={runtimeItem.id}
+								runtimeItemStartupFailure={runtimeItem}
+							/>
+						);
 					} else if (runtimeItem instanceof RuntimeItemTrace) {
-						return this.props.trace && <RuntimeTrace key={runtimeItem.id} runtimeItemTrace={runtimeItem} />;
+						return this.props.trace && (
+							<RuntimeTrace
+								key={runtimeItem.id}
+								runtimeItemTrace={runtimeItem}
+							/>
+						);
 					} else {
 						// This indicates a bug. A new runtime item was added but not handled here.
 						return null;
