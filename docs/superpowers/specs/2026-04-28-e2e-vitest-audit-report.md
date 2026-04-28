@@ -21,21 +21,26 @@ Migration candidates (Dupe + Strong-migrate): **12**.
 
 ## Top 5 selected for migration this session
 
+All 5 are notebook-related (cohesive single-themed PR). All use the builder pattern (`createTestPositronNotebookInstance`).
+
 | rank | test_file | verdict | confidence | lines | pattern | commit |
 |---|---|---|---|---|---|---|
 | 1 | test/e2e/tests/notebooks-positron/notebook-outline.test.ts | Dupe | High | 51 | builder (extend existing vitest) | _pending_ |
 | 2 | test/e2e/tests/notebooks-positron/notebook-delete.test.ts | Strong-migrate | High | 64 | builder | _pending_ |
 | 3 | test/e2e/tests/notebooks-positron/notebook-undo-redo.test.ts | Strong-migrate | High | 65 | builder | _pending_ |
-| 4 | test/e2e/tests/top-action-bar/top-action-bar-save.test.ts | Strong-migrate | High | 97 | rtl-service | _pending_ |
-| 5 | test/e2e/tests/notebooks-positron/notebook-cell-type.test.ts | Strong-migrate | Med | 50 | builder | _pending_ |
+| 4 | test/e2e/tests/notebooks-positron/notebook-cell-type.test.ts | Strong-migrate | Med | 50 | builder | _pending_ |
+| 5 | test/e2e/tests/notebooks-positron/notebook-copy-paste.test.ts | Strong-migrate | Med | 133 | builder | _pending_ |
 
-Search.test.ts ranked above cell-type but was demoted on sanity check: assertions like `'8 results in 2 files'` depend on real IFileSearchService backend; mocking that is heavy and not in scope this session. Keep as e2e.
+Adjustments from initial ranking:
+- `search.test.ts` demoted on sanity check (assertions depend on real `IFileSearchService` backend; mocking is heavy and not in scope).
+- `top-action-bar-save.test.ts` moved to backlog for a follow-up PR — it's a different domain (rtl-service for top-action-bar), worth its own change.
+- `notebook-copy-paste.test.ts` promoted from backlog so all 5 migrations are notebook-related and ship as one cohesive PR.
 
 ## Backlog: Dupe / Strong-migrate not selected this session
 
 | test_file | verdict | confidence | vitest_counterpart | source_under_test | why_e2e_unnecessary | notes |
 |---|---|---|---|---|---|---|
-| test/e2e/tests/notebooks-positron/notebook-copy-paste.test.ts | Strong-migrate | Med | none | src/vs/workbench/contrib/positronNotebook/browser (cell copy / cut / paste) | Cell-level copy/cut/paste is pure model manipulation against the notebook instance; selectionMachine + positronNotebookInstance harnesses already support similar flows so a vitest can cover all 4 sub-scenarios. | Pure structural manipulation; no runtime needed |
+| test/e2e/tests/top-action-bar/top-action-bar-save.test.ts | Strong-migrate | High | none | src/vs/workbench/browser/parts/positronTopActionBar | Pure UI state logic: button enabled/disabled based on editor dirty state | rtl-service pattern; strong follow-up PR candidate |
 | test/e2e/tests/notebooks-positron/notebook-cut-paste-multiselect.test.ts | Strong-migrate | Med | none | src/vs/workbench/contrib/positronNotebook/browser (multi-select cut/paste, undo/redo) | Multi-cell cut/paste/undo/redo is model-level logic that the createTestPositronNotebookInstance harness already exercises elsewhere; full e2e is overkill for the cell-array assertions. | All assertions are on cell counts/contents/types |
 | test/e2e/tests/notebooks-positron/notebook-empty.test.ts | Strong-migrate | Med | none | src/vs/workbench/contrib/positronNotebook/browser (delete-all + undo/redo + paste-into-empty) | Empty-state delete/cut/paste/undo/redo is pure cell-array model logic; createTestPositronNotebookInstance can drive this without a kernel. | Assertions purely on cell count/contents |
 | test/e2e/tests/notebooks-positron/notebook-markdown.test.ts | Strong-migrate | Med | none | src/vs/workbench/contrib/positronNotebook/browser (markdown cell render / preview toggle) | Markdown cell type assertion + tag rendering is a React component test; no kernel needed and existing CellTextOutput pattern fits. | Pure render + edit/preview toggle |
@@ -44,6 +49,7 @@ Search.test.ts ranked above cell-type but was demoted on sanity check: assertion
 | test/e2e/tests/search/search.test.ts | Strong-migrate | Med | none | src/vs/workbench/contrib/search/browser/searchViewlet, src/vs/workbench/contrib/search/browser/searchView | Pure text search UI: open viewlet, type query, verify counts and filters | No runtime, no cross-pane complexity, deterministic search results |
 
 Notes on the backlog:
+- `top-action-bar-save` (Strong-migrate High, 97 lines) — moved here for a follow-up PR (rtl-service pattern, different domain than the notebook cluster). Strong candidate for the next migration pass.
 - `notebook-cut-paste-multiselect` (221 lines) is the only candidate over 150 lines. Larger scope, follow-up worthy.
 - `notebook-markdown` is React component territory — straightforward but RTL-heavy.
 - `notebook-execution-metadata` and `quarto-inline-output-cell-metadata` already have vitest counterparts; extension is small.
