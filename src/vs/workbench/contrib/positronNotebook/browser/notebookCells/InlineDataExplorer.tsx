@@ -87,10 +87,10 @@ export function InlineDataExplorerHeader({ title, shape, actionContext }: {
 			</div>
 			<div className='inline-data-explorer-header-actions'>
 				{actionContext && actionGroups.flatMap(([_group, actions]) =>
-					actions.filter((a): a is MenuItemAction => a instanceof MenuItemAction).map(action => (
+					actions.map(action => (
 						<InlineDataExplorerActionButton
 							key={action.id}
-							action={action}
+							action={action as MenuItemAction}
 							context={actionContext}
 						/>
 					))
