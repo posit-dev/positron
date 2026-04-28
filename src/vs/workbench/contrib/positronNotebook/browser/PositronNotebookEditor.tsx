@@ -7,6 +7,7 @@
 import * as DOM from '../../../../base/browser/dom.js';
 import { ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { NotebookRenderCache } from './notebookRenderCache.js';
+import { disposeNotebookRenderCacheEntry } from './notebookRenderCacheDispose.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { DisposableStore, IDisposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
@@ -40,7 +41,6 @@ import { URI } from '../../../../base/common/uri.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
-import { PositronNotebookInstance } from './PositronNotebookInstance.js';
 
 
 /**
@@ -417,22 +417,15 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 	}
 
 	/**
-	 * The per-pane notebook render cache. Each evicted entry has its renderer
-	 * disposed and container removed from the DOM. The shared
-	 * PositronNotebookInstance is detached only when its container observable
-	 * still points at the evicted entry's container -- this guards against
-	 * cross-group moves where the target pane has already re-attached the
-	 * shared instance to its own container before the source pane's eviction
-	 * runs.
+	 * The per-pane notebook render cache. The dispose policy
+	 * (`disposeNotebookRenderCacheEntry`) is implemented in its own module so
+	 * its detach-only-when-still-attached cross-group safety guarantee can be
+	 * unit tested directly, instead of via a shadow function in tests.
 	 */
-	private readonly _renderCache = new NotebookRenderCache(MAX_CACHED_RENDERS, entry => {
-		entry.renderer.dispose();
-		entry.container.remove();
-		const instance = PositronNotebookInstance._instanceMap.get(entry.uri);
-		if (instance && instance.isAttachedTo(entry.container)) {
-			instance.detachView();
-		}
-	});
+	private readonly _renderCache = new NotebookRenderCache(
+		MAX_CACHED_RENDERS,
+		disposeNotebookRenderCacheEntry,
+	);
 
 	/**
 	 * Render the Positron notebook component tree into the given renderer.
