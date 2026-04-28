@@ -33,37 +33,30 @@
  * @see {@link EditorResolverService} - Core service for editor resolution
  */
 
-import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { EditorResolverService } from '../../../../services/editor/browser/editorResolverService.js';
 import { RegisteredEditorPriority, ResolvedStatus } from '../../../../services/editor/common/editorResolverService.js';
-import { ITestInstantiationService } from '../../../../test/browser/workbenchTestServices.js';
 import { EditorPart } from '../../../../browser/parts/editor/editorPart.js';
 import { PositronNotebookEditorInput } from '../../browser/PositronNotebookEditorInput.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../common/positronNotebookCommon.js';
-import { createPositronNotebookTestServices } from './testUtils.js';
+import { notebookTestBuilder, attachEditorPart } from './testUtils.js';
 import { IPYNB_VIEW_TYPE } from '../../../notebook/browser/notebookBrowser.js';
 
 describe.skip('Positron Notebook Editor Resolution', () => {
 	// Suite skipped: Positron notebook editor is behind feature flag (positron.notebook.enabled=false by default)
 	// These tests assume the editor is registered, which won't happen when the flag is disabled
 
-	const disposables = new DisposableStore();
-	let instantiationService: ITestInstantiationService;
-	let editorResolverService: EditorResolverService;
+	const ctx = notebookTestBuilder().build();
+
 	let part: EditorPart;
+	let editorResolverService: EditorResolverService;
 
-	afterEach(() => disposables.clear());
-
-	createTestContainer().build();
-
-	async function createTestServices(): Promise<void> {
-		const services = await createPositronNotebookTestServices(disposables);
-		instantiationService = services.instantiationService;
-		editorResolverService = services.editorResolverService;
-		part = services.part;
-	}
+	beforeEach(async () => {
+		({ part, editorResolverService } = await attachEditorPart(
+			ctx.instantiationService,
+			ctx.disposables,
+		));
+	});
 
 	function registerPositronNotebookEditor(priority: RegisteredEditorPriority): void {
 		const registration = editorResolverService.registerEditor(
@@ -82,7 +75,7 @@ describe.skip('Positron Notebook Editor Resolution', () => {
 			{
 				createEditorInput: async ({ resource }) => {
 					const editorInput = PositronNotebookEditorInput.getOrCreate(
-						instantiationService,
+						ctx.instantiationService,
 						resource,
 						undefined,
 						IPYNB_VIEW_TYPE,
@@ -92,13 +85,11 @@ describe.skip('Positron Notebook Editor Resolution', () => {
 				}
 			}
 		);
-		disposables.add(registration);
+		ctx.disposables.add(registration);
 	}
 
 
 	it('Editor is registered with static option priority', async () => {
-		await createTestServices();
-
 		// Register with option priority (static registration)
 		registerPositronNotebookEditor(RegisteredEditorPriority.option);
 
@@ -115,8 +106,6 @@ describe.skip('Positron Notebook Editor Resolution', () => {
 	});
 
 	it('Editor registration pattern matches only ipynb files', async () => {
-		await createTestServices();
-
 		registerPositronNotebookEditor(RegisteredEditorPriority.option);
 
 		// Test .ipynb file - should return NONE (allowing default resolution) when no association is set
@@ -139,8 +128,6 @@ describe.skip('Positron Notebook Editor Resolution', () => {
 	});
 
 	it('Editor registration supports file scheme resources', async () => {
-		await createTestServices();
-
 		registerPositronNotebookEditor(RegisteredEditorPriority.option);
 
 		// Test file:// scheme - with option priority and no editor association, should return NONE
@@ -163,8 +150,6 @@ describe.skip('Positron Notebook Editor Resolution', () => {
 	});
 
 	it('Editor registration behavior with option priority', async () => {
-		await createTestServices();
-
 		registerPositronNotebookEditor(RegisteredEditorPriority.option);
 
 		const resource = URI.file('/test/notebook.ipynb');
@@ -190,8 +175,6 @@ describe.skip('Positron Notebook Editor Resolution', () => {
 	});
 
 	it('Static registration allows editor to be available in Open With menu', async () => {
-		await createTestServices();
-
 		// Register with option priority - this makes the editor available as an option
 		// but doesn't make it the default unless configured via workbench.editorAssociations
 		registerPositronNotebookEditor(RegisteredEditorPriority.option);

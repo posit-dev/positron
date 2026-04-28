@@ -7,18 +7,19 @@
 
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { EditorResolverService } from '../../../../services/editor/browser/editorResolverService.js';
 import { IEditorResolverService, RegisteredEditorPriority } from '../../../../services/editor/common/editorResolverService.js';
 import { ITestInstantiationService } from '../../../../test/browser/workbenchTestServices.js';
 import { PositronNotebookEditorInput } from '../../browser/PositronNotebookEditorInput.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID, usingPositronNotebooks } from '../../common/positronNotebookCommon.js';
-import { createPositronNotebookTestServices } from './testUtils.js';
+import { notebookTestBuilder, attachEditorPart } from './testUtils.js';
 import { IPYNB_VIEW_TYPE } from '../../../notebook/browser/notebookBrowser.js';
 
 // Mock implementation for testing static editor registration
 class MockPositronNotebookContribution extends DisposableStore {
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	private _currentRegistration: any;
 	private _registrationCount = 0;
 
@@ -76,72 +77,68 @@ class MockPositronNotebookContribution extends DisposableStore {
 
 describe('Positron Notebook Configuration Handling', () => {
 
-	const ctx = createTestContainer().build();
-	let instantiationService: ITestInstantiationService;
-	let configurationService: TestConfigurationService;
-	let editorResolverService: EditorResolverService;
+	describe('usingPositronNotebooks', () => {
+		// These tests only need configurationService -- no EditorPart needed.
+		const configurationService = new TestConfigurationService();
+		const ctx = notebookTestBuilder()
+			.stub(IConfigurationService, configurationService)
+			.build();
 
-	let notebookContribution: MockPositronNotebookContribution;
+		// Reset the configuration before each test so they don't bleed into each other.
+		beforeEach(() => {
+			configurationService.setUserConfiguration('positron.notebook.enabled', undefined);
+		});
 
-	async function createTestServices(): Promise<void> {
-		const services = await createPositronNotebookTestServices(ctx.disposables);
-		instantiationService = services.instantiationService;
-		configurationService = services.configurationService;
-		editorResolverService = services.editorResolverService;
+		it('returns true when positron.notebook.enabled is true', () => {
+			configurationService.setUserConfiguration('positron.notebook.enabled', true);
+			expect(usingPositronNotebooks(configurationService)).toBe(true);
+		});
 
-		// Create mock notebook contribution that handles registration
-		notebookContribution = new MockPositronNotebookContribution(
-			editorResolverService,
-			instantiationService
-		);
-		ctx.disposables.add(notebookContribution);
-	}
+		it('returns false when positron.notebook.enabled is not set', () => {
+			// No configuration set (defaults to undefined, which is falsy)
+			expect(!!usingPositronNotebooks(configurationService)).toBe(false);
+		});
 
-	it('usingPositronNotebooks returns true when positron.notebook.enabled is true', async () => {
-		await createTestServices();
-
-		// Enable Positron notebooks via configuration setting
-		configurationService.setUserConfiguration('positron.notebook.enabled', true);
-
-		const isUsing = usingPositronNotebooks(configurationService);
-		expect(isUsing).toBe(true);
+		it('returns false when positron.notebook.enabled is false', () => {
+			configurationService.setUserConfiguration('positron.notebook.enabled', false);
+			expect(usingPositronNotebooks(configurationService)).toBe(false);
+		});
 	});
 
-	it('usingPositronNotebooks returns false when positron.notebook.enabled is not set', async () => {
-		await createTestServices();
+	describe('editor registration cleanup', () => {
+		const ctx = notebookTestBuilder().build();
 
-		// No configuration set (defaults to false/undefined, both are falsy)
-		const isUsing = usingPositronNotebooks(configurationService);
-		expect(!!isUsing).toBe(false);
-	});
+		let editorResolverService: EditorResolverService;
+		let notebookContribution: MockPositronNotebookContribution;
 
-	it('usingPositronNotebooks returns false when positron.notebook.enabled is false', async () => {
-		await createTestServices();
+		beforeEach(async () => {
+			({ editorResolverService } = await attachEditorPart(
+				ctx.instantiationService,
+				ctx.disposables,
+			));
+			notebookContribution = new MockPositronNotebookContribution(
+				editorResolverService,
+				ctx.instantiationService as unknown as ITestInstantiationService,
+			);
+			ctx.disposables.add(notebookContribution);
+		});
 
-		// Explicitly disable Positron notebooks
-		configurationService.setUserConfiguration('positron.notebook.enabled', false);
+		it.skip('Cleanup disposes editor registrations properly', () => {
+			// Skipped: Positron notebook editor is behind feature flag (positron.notebook.enabled=false by default)
+			// This test assumes the editor is registered by MockPositronNotebookContribution, which won't happen when the flag is disabled
 
-		const isUsing = usingPositronNotebooks(configurationService);
-		expect(isUsing).toBe(false);
-	});
+			// Verify editor is registered
+			let editors = editorResolverService.getEditors();
+			let positronEditor = editors.find(e => e.id === POSITRON_NOTEBOOK_EDITOR_ID);
+			expect(positronEditor).toBeDefined();
 
+			// Dispose contribution
+			notebookContribution.dispose();
 
-	it.skip('Cleanup disposes editor registrations properly', async () => {
-		// Skipped: Positron notebook editor is behind feature flag (positron.notebook.enabled=false by default)
-		// This test assumes the editor is registered by MockPositronNotebookContribution, which won't happen when the flag is disabled
-		await createTestServices();
-
-		// Verify editor is registered
-		let editors = editorResolverService.getEditors();
-		let positronEditor = editors.find(e => e.id === POSITRON_NOTEBOOK_EDITOR_ID);
-		expect(positronEditor).toBeDefined();
-
-		// Dispose contribution
-		notebookContribution.dispose();
-
-		// Verify editor is no longer registered
-		editors = editorResolverService.getEditors();
-		positronEditor = editors.find(e => e.id === POSITRON_NOTEBOOK_EDITOR_ID);
-		expect(positronEditor).toBe(undefined);
+			// Verify editor is no longer registered
+			editors = editorResolverService.getEditors();
+			positronEditor = editors.find(e => e.id === POSITRON_NOTEBOOK_EDITOR_ID);
+			expect(positronEditor).toBe(undefined);
+		});
 	});
 });

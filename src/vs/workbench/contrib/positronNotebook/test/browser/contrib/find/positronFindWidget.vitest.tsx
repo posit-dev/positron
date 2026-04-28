@@ -79,7 +79,7 @@ describe('PositronFindWidget', () => {
 				onPreviousMatch={onPreviousMatch}
 			/>
 		);
-		const widgetContainer = screen.getByTestId('positron-find-widget');
+		const widgetContainer = screen.getByRole('search', { name: /Find/ });
 		return { ...result, widgetContainer };
 	}
 
@@ -162,7 +162,7 @@ describe('PositronFindWidget', () => {
 			findText.set('foo', undefined);
 			renderWidget();
 
-			const results = screen.getByTestId('positron-find-widget-results');
+			const results = screen.getByRole('status');
 			// toHaveTextContent does substring matching on strings (so '' always matches).
 			// Use a regex for an exact empty-string check.
 			expect(results).toHaveTextContent(/^$/);
