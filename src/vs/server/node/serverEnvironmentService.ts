@@ -111,6 +111,7 @@ export const serverOptions: OptionDescriptions<Required<ServerParsedArgs>> = {
 	// --- Start Positron ---
 	'license-key-file': { type: 'string', description: nls.localize('license-key-file', "Path to a file that contains the license key.") },
 	'license-key': { type: 'string', description: nls.localize('license-key', "A license key") },
+	'license-key-file-delete-after-use': { type: 'boolean', description: nls.localize('license-key-file-delete-after-use', "If set, delete the license key file after reading it. Applies only to files supplied via --license-key-file or POSITRON_LICENSE_KEY_FILE. The directory containing the file must be writable by the server process; an unsuccessful delete will abort server startup. Equivalent env var POSITRON_LICENSE_KEY_FILE_DELETE_AFTER_USE enables deletion with '1', 'true', 'yes', or 'on'.") },
 	// --- End Positron ---
 
 	_: OPTIONS['_']
@@ -268,6 +269,7 @@ export interface ServerParsedArgs {
 	// authorized (licensed) source.
 	'license-key-file'?: string;
 	'license-key'?: string;
+	'license-key-file-delete-after-use'?: boolean;
 	// --- End Positron ---
 }
 

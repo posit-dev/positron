@@ -79,6 +79,16 @@ vAb1iFBg5jrsvhZzzZbIah1XHYAT+X43WaExwme18pzBAgMBAAE=
 -----END PUBLIC KEY-----`;
 
 /**
+ * Strict env-var boolean parse. Mirrors systemd / Go's `strconv.ParseBool` --
+ * everything else (including `0`, `false`, `no`, `off`, garbage, or unset)
+ * reads as `false`. Keeps `=0` from being silently truthy.
+ */
+function isTruthyEnvValue(value: string | undefined): boolean {
+	if (value === undefined) { return false; }
+	return ['1', 'true', 'yes', 'on'].includes(value.trim().toLowerCase());
+}
+
+/**
  * Validates a license key. If any errors are encountered, they are logged to
  * the console.
  *
@@ -94,6 +104,14 @@ vAb1iFBg5jrsvhZzzZbIah1XHYAT+X43WaExwme18pzBAgMBAAE=
  */
 export async function validateLicenseKey(connectionToken: string, args: ServerParsedArgs): Promise<ILicenseValidationResult> {
 
+	// Set via --license-key-file-delete-after-use or
+	// POSITRON_LICENSE_KEY_FILE_DELETE_AFTER_USE. Applies only to the two
+	// file-based sources below; the user-data-dir fallback is the persistent
+	// store and is intentionally exempt.
+	const shouldDelete =
+		!!args['license-key-file-delete-after-use'] ||
+		isTruthyEnvValue(process.env.POSITRON_LICENSE_KEY_FILE_DELETE_AFTER_USE);
+
 	// Check the command-line arguments for a license key.
 	if (args['license-key']) {
 		console.log('Checking Positron license key from the --license-key argument.');
@@ -104,7 +122,7 @@ export async function validateLicenseKey(connectionToken: string, args: ServerPa
 	// argument.
 	if (args['license-key-file']) {
 		console.log('Checking Positron license key from the file in the --license-key-file argument.');
-		return validateLicenseFile(connectionToken, args['license-key-file']);
+		return validateAndMaybeDeleteFile(connectionToken, args['license-key-file'], shouldDelete);
 	}
 
 	// Check the POSITRON_LICENSE_KEY environment variable.
@@ -116,7 +134,7 @@ export async function validateLicenseKey(connectionToken: string, args: ServerPa
 	// Check the POSITRON_LICENSE_KEY_FILE environment variable.
 	if (process.env.POSITRON_LICENSE_KEY_FILE) {
 		console.log('Checking Positron license key from the file in the POSITRON_LICENSE_KEY_FILE environment variable.');
-		return validateLicenseFile(connectionToken, process.env.POSITRON_LICENSE_KEY_FILE);
+		return validateAndMaybeDeleteFile(connectionToken, process.env.POSITRON_LICENSE_KEY_FILE, shouldDelete);
 	}
 
 	// If none of these were specified, check the user data directory for a
@@ -132,6 +150,42 @@ export async function validateLicenseKey(connectionToken: string, args: ServerPa
 	console.error('No license key provided. A license key is required to use Positron in a hosted environment. Provide a license key with the --license-key or --license-key-file command-line arguments, or set the POSITRON_LICENSE_KEY or POSITRON_LICENSE_KEY_FILE environment variables.');
 
 	return { valid: false };
+}
+
+/**
+ * Validates the license at `licenseFile`, then (if `shouldDelete`) removes the
+ * file. Used only for the ephemeral arg/env-var file sources, never for the
+ * user-data-dir persistent store.
+ *
+ * If deletion fails (other than ENOENT), the failure is treated as a policy
+ * violation: the validation result is collapsed to `{ valid: false }` so that
+ * the caller's `process.exit(1)` path triggers, even when the underlying
+ * license itself was valid.
+ */
+async function validateAndMaybeDeleteFile(
+	connectionToken: string,
+	licenseFile: string,
+	shouldDelete: boolean,
+): Promise<ILicenseValidationResult> {
+	const result = await validateLicenseFile(connectionToken, licenseFile);
+	if (!shouldDelete) {
+		return result;
+	}
+	try {
+		fs.unlinkSync(licenseFile);
+	} catch (e: any) {
+		if (e && e.code === 'ENOENT') {
+			// Already gone -- the desired post-condition is satisfied.
+			return result;
+		}
+		console.error(
+			`FATAL: Failed to delete license key file '${licenseFile}' after use. ` +
+			`Refusing to start because delete-after-use is required.`
+		);
+		console.error(e);
+		return { valid: false };
+	}
+	return result;
 }
 
 /**
