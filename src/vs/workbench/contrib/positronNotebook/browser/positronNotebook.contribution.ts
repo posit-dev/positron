@@ -1195,7 +1195,7 @@ registerAction2(class extends NotebookAction2 {
 });
 
 // Copy cells command - C (Jupyter-style)
-registerAction2(class extends NotebookAction2 {
+export class CopyCellsAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.copyCells',
@@ -1221,10 +1221,11 @@ registerAction2(class extends NotebookAction2 {
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.copyCells();
 	}
-});
+}
+registerAction2(CopyCellsAction);
 
 // Cut cells command - X (Jupyter-style)
-registerAction2(class extends NotebookAction2 {
+export class CutCellsAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cutCells',
@@ -1249,10 +1250,11 @@ registerAction2(class extends NotebookAction2 {
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.cutCells();
 	}
-});
+}
+registerAction2(CutCellsAction);
 
 // Paste cells command - V (Jupyter-style)
-registerAction2(class extends NotebookAction2 {
+export class PasteCellsAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.pasteCells',
@@ -1277,10 +1279,11 @@ registerAction2(class extends NotebookAction2 {
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.pasteCells();
 	}
-});
+}
+registerAction2(PasteCellsAction);
 
 // Paste cells above command - Shift+V (Jupyter-style)
-registerAction2(class extends NotebookAction2 {
+export class PasteCellsAboveAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.pasteCellsAbove',
@@ -1305,7 +1308,8 @@ registerAction2(class extends NotebookAction2 {
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.pasteCellsAbove();
 	}
-});
+}
+registerAction2(PasteCellsAboveAction);
 
 // Move selected cells up
 registerAction2(class extends NotebookAction2 {
