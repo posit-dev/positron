@@ -156,20 +156,44 @@ describe('ConsoleTab', () => {
 			expect(screen.getByRole('tab', { name: sessionName })).toBeInTheDocument();
 		});
 
+		// Whitespace-only submit: production trims, finds an empty name, and
+		// silently dismisses the input without calling the service. Each
+		// observable contract is asserted in its own test so a future shift
+		// (e.g., "show inline error and keep input open") fails with a name
+		// that pinpoints which guarantee drifted.
 		it('does not call updateSessionName when the trimmed input is empty', async () => {
 			const sessionName = 'My Python Session';
 			const instance = addActiveConsoleInstance('test-session-5', sessionName);
 			const updateSessionName = spyOnUpdateSessionName();
 
 			const user = await openRenameInput(instance, sessionName);
-
-			// Replace the selected name with whitespace, then submit.
 			await user.keyboard('   ');
 			await user.keyboard('{Enter}');
 
 			expect(updateSessionName).not.toHaveBeenCalled();
-			// Tab shows the original name; rename input is dismissed.
+		});
+
+		it('dismisses the rename input when the trimmed input is empty', async () => {
+			const sessionName = 'My Python Session';
+			const instance = addActiveConsoleInstance('test-session-5b', sessionName);
+			spyOnUpdateSessionName();
+
+			const user = await openRenameInput(instance, sessionName);
+			await user.keyboard('   ');
+			await user.keyboard('{Enter}');
+
 			expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+		});
+
+		it('keeps the original session name when the trimmed input is empty', async () => {
+			const sessionName = 'My Python Session';
+			const instance = addActiveConsoleInstance('test-session-5c', sessionName);
+			spyOnUpdateSessionName();
+
+			const user = await openRenameInput(instance, sessionName);
+			await user.keyboard('   ');
+			await user.keyboard('{Enter}');
+
 			expect(screen.getByRole('tab', { name: sessionName })).toBeInTheDocument();
 		});
 
@@ -196,11 +220,17 @@ describe('ConsoleTab', () => {
 
 			const user = await openRenameInput(instance, sessionName);
 
+			// While typing, the input shows the new name -- proving we
+			// observe the in-flight state before submission.
 			await user.keyboard(newName);
+			expect(screen.getByRole('textbox')).toHaveValue(newName);
+
 			await user.keyboard('{Enter}');
 
+			// After the failed submit: notification fired, the new name is
+			// gone from the DOM, and the original name is back on the tab.
 			expect(notify).toHaveBeenCalledOnce();
-			// Tab still shows the original name.
+			expect(screen.queryByRole('tab', { name: newName })).not.toBeInTheDocument();
 			expect(screen.getByRole('tab', { name: sessionName })).toBeInTheDocument();
 		});
 	});
