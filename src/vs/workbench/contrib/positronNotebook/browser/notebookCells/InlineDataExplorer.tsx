@@ -267,7 +267,7 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 
 	// Render based on state
 	return (
-		<div ref={containerRef} className='inline-data-explorer-container' style={{ height: `${dynamicHeight}px` }}>
+		<div ref={containerRef} className='inline-data-explorer-container inline-data-explorer-container--clears-output-actions' style={{ height: `${dynamicHeight}px` }}>
 			<InlineDataExplorerHeader
 				actionContext={actionContext}
 				shape={shape}

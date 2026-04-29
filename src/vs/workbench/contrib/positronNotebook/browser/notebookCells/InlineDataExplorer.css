@@ -20,13 +20,17 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	/* Right padding clears the floating .cell-output-action-bar on hover. */
-	padding: 0 44px 0 8px;
+	padding: 0 8px;
 	/* If you change the height or border, update TOOLBAR_HEIGHT in quartoInlineDataExplorerLayout.ts */
 	height: 24px; /* Match .positron-notebook-code-cell-footer height */
 	background-color: var(--vscode-editorWidget-background);
 	border-bottom: 1px solid var(--vscode-panel-border);
 	flex-shrink: 0;
+}
+
+/* Reserve right padding to clear the floating .cell-output-action-bar that sits over notebook cells on hover. Quarto inline outputs have no such overlay, so they leave the modifier off and use the symmetric default. */
+.inline-data-explorer-container--clears-output-actions .inline-data-explorer-header {
+	padding-right: 44px;
 }
 
 .inline-data-explorer-info {
