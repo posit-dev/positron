@@ -504,6 +504,36 @@ describe('PositronNotebookInstance.copy/cut/paste*', () => {
 				'A', 'B', 'C', 'D', 'E',
 			]);
 		});
+
+		it('cut-all then paste-into-empty then undo then redo preserves cell kinds and content', async () => {
+			const notebook = createTestPositronNotebookInstance([
+				['# Cell 0', 'python', CellKind.Code],
+				['# Cell 1', 'python', CellKind.Code],
+				['### Cell 2', 'markdown', CellKind.Markup],
+				['### Cell 3', 'markdown', CellKind.Markup],
+			], ctx);
+			const cellsBefore = notebook.cells.get();
+			const originalContents = ['# Cell 0', '# Cell 1', '### Cell 2', '### Cell 3'];
+			const originalKinds = [CellKind.Code, CellKind.Code, CellKind.Markup, CellKind.Markup];
+
+			notebook.cutCells(cellsBefore);
+			expect(notebook.cells.get().length).toBe(0);
+			expect(ctx.get(IPositronNotebookService).getClipboardCells().length).toBe(4);
+
+			notebook.pasteCells();
+			const afterPaste = notebook.cells.get();
+			expect(afterPaste.map(c => c.getContent())).toEqual(originalContents);
+			expect(afterPaste.map(c => c.kind)).toEqual(originalKinds);
+
+			const undoRedo = ctx.get(IUndoRedoService);
+			await undoRedo.undo(notebook.uri);
+			expect(notebook.cells.get().length).toBe(0);
+
+			await undoRedo.redo(notebook.uri);
+			const afterRedo = notebook.cells.get();
+			expect(afterRedo.map(c => c.getContent())).toEqual(originalContents);
+			expect(afterRedo.map(c => c.kind)).toEqual(originalKinds);
+		});
 	});
 
 	describe('Action wiring (clipboard keybindings)', () => {
