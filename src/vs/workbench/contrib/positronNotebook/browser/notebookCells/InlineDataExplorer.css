@@ -28,7 +28,11 @@
 	flex-shrink: 0;
 }
 
-/* Reserve right padding to clear the floating .cell-output-action-bar that sits over notebook cells on hover. Quarto inline outputs have no such overlay, so they leave the modifier off and use the symmetric default. TODO(#13012): drop this modifier once the notebook output action bar is replaced with the Quarto-style overlay layout. */
+/* Reserve right padding to clear the floating .cell-output-action-bar that sits
+over notebook cells on hover. Quarto inline outputs have no such overlay, so
+they leave the modifier off and use the symmetric default.
+TODO(#13012): drop this modifier once the notebook output action bar is replaced
+with the Quarto-style overlay layout. */
 .inline-data-explorer-container--clears-output-actions .inline-data-explorer-header {
 	padding-right: 44px;
 }
