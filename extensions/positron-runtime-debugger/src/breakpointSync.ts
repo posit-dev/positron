@@ -86,17 +86,23 @@ export class BreakpointSyncService extends Disposable {
 	private enqueueSync(notebookUri: vscode.Uri): void {
 		const key = notebookUri.toString();
 		const previous = this._pendingSync.get(key) ?? Promise.resolve();
-		const next = previous.then(() =>
-			this.syncNotebookBreakpoints(notebookUri).catch((error) => {
+
+		let next!: Promise<void>;
+		next = (async () => {
+			try {
+				await previous;
+				await this.syncNotebookBreakpoints(notebookUri);
+			} catch (error) {
 				log.error(`[breakpoint-sync] Failed to sync breakpoints for ${key}:`, error);
-			})
-		).then(() => {
-			// Clean up once the chain settles, but only if we're still the
-			// latest entry (a newer sync may have chained on in the meantime).
-			if (this._pendingSync.get(key) === next) {
-				this._pendingSync.delete(key);
+			} finally {
+				// Clean up once the chain settles, but only if we're still the
+				// latest entry (a newer sync may have chained on in the meantime).
+				if (this._pendingSync.get(key) === next) {
+					this._pendingSync.delete(key);
+				}
 			}
-		});
+		})();
+
 		this._pendingSync.set(key, next);
 	}
 
