@@ -456,7 +456,6 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 						itemCount={filteredPackages.length}
 						itemKey={(index) => filteredPackages[index].id}
 						itemSize={26}
-						overscanCount={10}
 						width={'calc(100% - 2px)'}
 					>
 						{ItemEntry}
