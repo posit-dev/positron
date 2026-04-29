@@ -9,9 +9,10 @@ import inspect
 import logging
 import os
 import sys
+import types
 import webbrowser
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set, Union
 from urllib.parse import urlparse
 
 from comm.base_comm import BaseComm
@@ -136,7 +137,19 @@ def _import_names_for_dist(dist: importlib.metadata.Distribution, canonical: str
 
 # Get all installed packages
 def _get_packages_installed(kernel: "PositronIPyKernel", _params: List[JsonData]) -> JsonData:
-    user_ns = kernel.shell.user_ns
+    # `attached` mirrors R's search()-membership semantics: true when the
+    # user explicitly bound the package in the REPL. We walk user_ns once
+    # to find every module the user has bound, by *any* name -- this
+    # catches `import x`, `import x as y`, `import x.sub` (binds x), and
+    # `from pkg import sub` when sub is a module. Transitive sys.modules
+    # entries pulled in by other packages are deliberately ignored.
+    user_top_levels: Set[str] = set()
+    for value in kernel.shell.user_ns.values():
+        if isinstance(value, types.ModuleType):
+            module_name = getattr(value, "__name__", None)
+            if module_name:
+                user_top_levels.add(module_name.partition(".")[0])
+
     packages_dict = {}
     for dist in importlib.metadata.distributions():
         name = dist.metadata["Name"]
@@ -145,16 +158,8 @@ def _get_packages_installed(kernel: "PositronIPyKernel", _params: List[JsonData]
         canonical = canonicalize_name(name)
         # Dedupe by canonical name - keeps first occurrence (the one that would be imported)
         if canonical not in packages_dict:
-            # `attached` mirrors R's search()-membership semantics: true
-            # when the user explicitly bound the package in the REPL via
-            # `import x`. We check IPython's user_ns rather than sys.modules
-            # so transitive imports (numpy pulled in by pandas) don't show
-            # as attached.
             import_names = _import_names_for_dist(dist, canonical)
-            attached = any(
-                isinstance(user_ns.get(import_name), type(sys))
-                for import_name in import_names
-            )
+            attached = any(import_name in user_top_levels for import_name in import_names)
             packages_dict[canonical] = {
                 "id": f"{canonical}-{dist.version}",
                 "name": name,

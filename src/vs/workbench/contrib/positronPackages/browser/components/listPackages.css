@@ -70,8 +70,8 @@
 }
 
 .packages-list-item-attached.attached::before {
-	background: #89d185;
-	border-color: #89d185;
+	background: var(--vscode-charts-green);
+	border-color: var(--vscode-charts-green);
 }
 
 .packages-list-item-name {
