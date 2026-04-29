@@ -325,7 +325,9 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 		// appropriately (e.g. for plot rendering).
 		const executionMetadata = this._getExecutionMetadata(notebook.uri);
 
-		// Execute the code.
+		// Execute the code. Include `cellId` in execution metadata so the
+		// kernel can identify this as a notebook cell execution and look up
+		// breakpoints via the Jupyter Debug Protocol's temp file mapping.
 		try {
 			session.execute(
 				code,
@@ -333,7 +335,7 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 				RuntimeCodeExecutionMode.Interactive,
 				errorBehavior,
 				undefined,
-				{ ...executionMetadata },
+				{ ...executionMetadata, cellId: cell.uri.toString() },
 			);
 		} catch (err) {
 			execution.error(err);

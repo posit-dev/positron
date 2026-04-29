@@ -567,9 +567,8 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 
 		let codeLocation: ICodeLocation | undefined = undefined;
 
-		// For now we only provide source locations for scripts, but we might be
-		// able to provide it for notebooks as well
-		if (attribution?.source === CodeAttributionSource.Script) {
+		if (attribution?.source === CodeAttributionSource.Script ||
+			attribution?.source === CodeAttributionSource.Notebook) {
 			codeLocation = attribution.metadata?.codeLocation;
 		}
 
