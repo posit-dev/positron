@@ -11,7 +11,7 @@ import userEvent from '@testing-library/user-event';
 import { Event } from '../../../../../../base/common/event.js';
 import { ThemeIcon } from '../../../../../../base/common/themables.js';
 import { URI } from '../../../../../../base/common/uri.js';
-import { IMenu, IMenuService, MenuItemAction, SubmenuItemAction } from '../../../../../../platform/actions/common/actions.js';
+import { IMenu, IMenuService, MenuId, MenuItemAction, SubmenuItemAction } from '../../../../../../platform/actions/common/actions.js';
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { MockContextKeyService } from '../../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { createTestContainer } from '../../../../../../test/vitest/positronTestContainer.js';
@@ -23,7 +23,7 @@ import type { IInlineDataExplorerActionContext } from '../../../browser/notebook
 
 /** Minimal MenuItemAction stub for rendering and click dispatch. */
 function mockAction(id: string, label: string, iconId: string, run: (...args: unknown[]) => Promise<unknown> = () => Promise.resolve()): MenuItemAction {
-	return stubInterface<MenuItemAction>({
+	const action = stubInterface<MenuItemAction>({
 		id,
 		label,
 		tooltip: '',
@@ -34,6 +34,11 @@ function mockAction(id: string, label: string, iconId: string, run: (...args: un
 		},
 		run,
 	});
+	// The header filters action entries with `instanceof MenuItemAction` so non-leaf
+	// menu entries (e.g. submenus) don't reach the leaf-only button renderer; the
+	// stub must identify as the class for that filter to keep it.
+	Object.setPrototypeOf(action, MenuItemAction.prototype);
+	return action;
 }
 
 function buildActionContext(): IInlineDataExplorerActionContext {
@@ -119,6 +124,23 @@ describe('InlineDataExplorerHeader', () => {
 		menuActions = [['navigation', [mockAction('test.openExplorer', 'Open in Data Explorer', 'go-to-file')]]];
 		renderHeader(undefined);
 		expect(screen.queryByRole('button', { name: /Open in Data Explorer/ })).not.toBeInTheDocument();
+	});
+
+	// Guards against a future contributor wiring a submenu against the header menu id;
+	// InlineDataExplorerActionButton only knows how to render MenuItemAction.
+	it('skips non-MenuItemAction entries (e.g. submenu items)', () => {
+		const submenuAction = new SubmenuItemAction(
+			{ title: 'Sub Menu', submenu: new MenuId('TestInlineDataExplorerSubmenu') },
+			undefined,
+			[],
+		);
+		menuActions = [['navigation', [
+			mockAction('test.openExplorer', 'Open in Data Explorer', 'go-to-file'),
+			submenuAction,
+		]]];
+		renderHeader(buildActionContext());
+		expect(screen.getByRole('button', { name: /Open in Data Explorer/ })).toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: /Sub Menu/ })).not.toBeInTheDocument();
 	});
 
 	it('invokes action.run with the provided context on click', async () => {
