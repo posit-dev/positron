@@ -8,7 +8,7 @@
 import React from 'react';
 import { screen } from '@testing-library/react';
 import { ISize } from '../../../../../base/browser/positronReactRenderer.js';
-import { ISettableObservable, observableValue } from '../../../../../base/common/observable.js';
+import { observableValue } from '../../../../../base/common/observable.js';
 import { assertDefined } from '../../../../../base/common/types.js';
 import { IScopedContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
@@ -18,7 +18,7 @@ import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { EnvironentProvider } from '../../browser/EnvironmentProvider.js';
 import { NotebookInstanceProvider } from '../../browser/NotebookInstanceProvider.js';
 import { NotebookMarkdownCell } from '../../browser/notebookCells/NotebookMarkdownCell.js';
-import { IPositronNotebookMarkdownCell } from '../../browser/PositronNotebookCells/IPositronNotebookCell.js';
+import { PositronNotebookMarkdownCell } from '../../browser/PositronNotebookCells/PositronNotebookMarkdownCell.js';
 import { createTestPositronNotebookInstance, TestPositronNotebookInstance } from './testPositronNotebookInstance.js';
 
 // Module mocks must be hoisted above the source imports they intercept.
@@ -54,17 +54,20 @@ describe('NotebookMarkdownCell', () => {
 	const ctx = createTestContainer().withNotebookEditorServices().withReactServices().build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	function renderMarkdownCell(content: string, editorShown: boolean): { cell: IPositronNotebookMarkdownCell; notebook: TestPositronNotebookInstance } {
+	function renderMarkdownCell(content: string, editorShown: boolean): { cell: PositronNotebookMarkdownCell; notebook: TestPositronNotebookInstance } {
 		const notebook = createTestPositronNotebookInstance(
 			[[content, 'markdown', CellKind.Markup]],
 			ctx,
 		);
 		const cell = notebook.cells.get()[0];
 		assertDefined(cell, 'cell at index 0');
-		expect(cell.isMarkdownCell()).toBe(true);
-		const markdownCell = cell as IPositronNotebookMarkdownCell;
-		// Concrete class uses observableValue, so the cast is safe at runtime.
-		(markdownCell.editorShown as ISettableObservable<boolean>).set(editorShown, undefined);
+		expect(cell).toBeInstanceOf(PositronNotebookMarkdownCell);
+		// Narrowing cast: the toBeInstanceOf assertion above guarantees the
+		// runtime type. The interface getter (isMarkdownCell()) only narrows
+		// to IPositronNotebookMarkdownCell, but the concrete class is needed
+		// to match the prop type on <NotebookMarkdownCell>.
+		const markdownCell = cell as unknown as PositronNotebookMarkdownCell;
+		markdownCell.editorShown.set(editorShown, undefined);
 
 		const environmentBundle = {
 			size: observableValue<ISize>('test-size', { width: 800, height: 600 }),
@@ -84,8 +87,12 @@ describe('NotebookMarkdownCell', () => {
 	it('preview mode passes the cell content through to the Markdown renderer', () => {
 		renderMarkdownCell('# Heading\n\n**Bold**', false);
 
-		expect(mockedMarkdown).toHaveBeenCalled();
-		expect(mockedMarkdown.mock.calls[0][0]).toMatchObject({ content: '# Heading\n\n**Bold**' });
+		// React passes `undefined` as the second arg to plain function components;
+		// expect.anything() does not match undefined, so spell it out.
+		expect(mockedMarkdown).toHaveBeenCalledWith(
+			expect.objectContaining({ content: '# Heading\n\n**Bold**' }),
+			undefined,
+		);
 		expect(mockedCellEditorMonacoWidget).not.toHaveBeenCalled();
 	});
 
