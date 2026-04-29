@@ -146,3 +146,27 @@ When any of these hit, surface the candidate with verdict `Move up -> <bucket>` 
 - **high** - verdict is structural. Ownership-verified `Keep`. All-assertions-trace `Move down`. Clearly Vitest-shaped `Add`. Mechanical `Skip` / `Delete`.
 - **medium** - verdict involves judgment. `Split` where assertions span layers cleanly but the boundary needs a human eye. `Add` where the bucket is fuzzy. Most `Move up` cases.
 - **low** - verdict is technically defensible but payoff is small. Often surfaces as "low-confidence flag" the dev can ignore.
+
+### Step 5. Present the report and gate on dev feedback
+
+Output the report using the Output format template below. Then ask exactly two questions:
+
+1. *"For each item above: approve / change bucket / skip? Reply per-line (e.g., `approve all except 3,7`) or 'approve all'."*
+2. *"Any testable behavior I missed?"*
+
+Stop. Wait for the dev. Do not proceed without a response.
+
+### Step 6. Opt-in handoff
+
+After the dev's response at step 5, ask:
+
+> *"Want me to invoke `/author-vitest-tests` for approved Vitest items and `/author-e2e-tests` for approved E2E items? (yes / no / partial: list IDs). Move proposals get a separate yes/no per move."*
+
+- **No** -> end. The report is the deliverable.
+- **Yes / partial** -> iterate approved items. **Per-file handoff only** - never pass a PR number or branch to `author-vitest-tests` (would re-run its Phase 1 and drift from the plan). Stop between handoffs and summarize what was produced before starting the next.
+- **Ext-host items** are never auto-invoked; surfaced with pattern hints only.
+- **Move proposals (e2e -> Vitest):** each gets its own explicit confirmation: *"Draft the replacement Vitest test via `/author-vitest-tests` and flag the original e2e for deletion?"* - yes/no per move. Deletions are never performed by this skill.
+
+**Context carry-forward on handoff:**
+- For new additions: pass just the file path. `author-vitest-tests`' Phase 2 plan-first gate is where test cases are chosen.
+- For e2e -> Vitest move proposals: pass the file path plus a one-line behavioral hint as free-form prose in `$ARGUMENTS`, e.g., *"Covers behaviors currently asserted in `test/e2e/.../console-clear.test.ts`: detects `\f` trigger, no-ops on partial sequence."*
