@@ -472,6 +472,11 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 
 			this.logger.debug(`[deepseek] Finished streaming, ${chunkCount} chunks received`);
 
+			// Log the complete reasoning content from thinking mode
+			if (this.lastReasoningContent) {
+				this.logger.trace(`[deepseek] Reasoning (complete): ${this.lastReasoningContent}`);
+			}
+
 			// Handle remaining buffer
 			if (buffer.trim() && buffer.startsWith('data: ')) {
 				const data = buffer.slice(6);
