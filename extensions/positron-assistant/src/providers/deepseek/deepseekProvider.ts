@@ -125,6 +125,7 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 				model: modelId,
 				messages: [{ role: 'user', content: 'Respond with just the word "hello".' }],
 				max_tokens: 10,
+				thinking: { type: 'disabled' },
 			}),
 			signal: AbortSignal.timeout(getProviderTimeoutMs()),
 		});
@@ -134,12 +135,22 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 			throw new Error(`DeepSeek API error: ${response.status} ${response.statusText} - ${errorText}`);
 		}
 
-		const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
-		if (!data.choices?.[0]?.message?.content) {
-			throw new Error('Invalid response from DeepSeek API');
+		const data = await response.json() as {
+			choices?: Array<{
+				message?: {
+					content?: string | null;
+					reasoning_content?: string | null;
+				};
+			}>;
+		};
+		// Prefer content for the answer, fall back to reasoning_content
+		const message = data.choices?.[0]?.message;
+		const content = message?.content ?? message?.reasoning_content;
+		if (!content) {
+			throw new Error(`Invalid response from DeepSeek API: ${JSON.stringify(data)}`);
 		}
 
-		return { text: data.choices[0].message.content };
+		return { text: content };
 	}
 
 	/**
