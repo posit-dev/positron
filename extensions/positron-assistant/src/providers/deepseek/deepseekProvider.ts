@@ -230,8 +230,8 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 	/**
 	 * Sets up tools (function calling) for the chat request.
 	 */
-	protected setupTools(tools: vscode.LanguageModelChatTool[]): Record<string, ai.Tool> {
-		return tools.reduce((acc: Record<string, ai.Tool>, tool: vscode.LanguageModelChatTool) => {
+	protected setupTools(tools: vscode.LanguageModelChatTool[]): Record<string, { description: string; inputSchema: Record<string, any> }> {
+		return tools.reduce((acc, tool: vscode.LanguageModelChatTool) => {
 			const baseSchema = tool.inputSchema as Record<string, any> ?? {};
 			const missingFields: string[] = [];
 
@@ -249,7 +249,8 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 				this.logger.debug(`Tool '${tool.name}' missing fields: ${missingFields.join(', ')}. Adding defaults.`);
 			}
 
-			const input_schema: Record<string, any> = {
+			// DeepSeek requires a plain JSON Schema with type: "object"
+			const inputSchema: Record<string, any> = {
 				...baseSchema,
 				type: baseSchema.type ?? 'object',
 				properties: baseSchema.properties ?? {},
@@ -258,10 +259,10 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 
 			acc[tool.name] = {
 				description: tool.description || '',
-				inputSchema: ai.jsonSchema(input_schema),
+				inputSchema,
 			};
 			return acc;
-		}, {});
+		}, {} as Record<string, { description: string; inputSchema: Record<string, any> }>);
 	}
 
 	/**
@@ -301,10 +302,9 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 		const aiMessages: ai.ModelMessage[] = toAIMessage(processedMessages, true, undefined);
 
 		// Set up tools if provided
-		let toolsRecord: Record<string, ai.Tool> | undefined;
-		if (options.tools && options.tools.length > 0 && this._config.toolCalls) {
-			toolsRecord = this.setupTools([...options.tools]);
-		}
+		const toolsRecord = options.tools && options.tools.length > 0 && this._config.toolCalls
+			? this.setupTools([...options.tools])
+			: undefined;
 
 		const requestId = modelOptions.requestId;
 		this.logger.debug(`[deepseek] Start request ${requestId} to ${model.name} [${model.id}]: ${aiMessages.length} messages`);
@@ -314,6 +314,7 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 				model: modelId,
 				messages: aiMessages.map(msg => this.toDeepSeekMessage(msg)),
 				stream: true,
+				// Keep thinking enabled for coding assistance
 			};
 
 			if (toolsRecord) {
@@ -349,8 +350,10 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 				signal,
 			});
 
+			this.logger.debug(`[deepseek] Response status: ${response.status}`);
 			if (!response.ok) {
 				const errorText = await response.text();
+				this.logger.error(`[deepseek] Error response body: ${errorText}`);
 				throw new Error(`DeepSeek API error: ${response.status} ${response.statusText} - ${errorText}`);
 			}
 
@@ -361,6 +364,7 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 			const reader = response.body.getReader();
 			const decoder = new TextDecoder();
 			let buffer = '';
+			let chunkCount = 0;
 
 			while (true) {
 				const { done, value } = await reader.read();
@@ -372,10 +376,19 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 
 				for (const line of lines) {
 					const trimmed = line.trim();
-					if (!trimmed || !trimmed.startsWith('data: ')) continue;
+					if (!trimmed || !trimmed.startsWith('data: ')) {
+						this.logger.debug(`[deepseek] Skipping line: ${trimmed.substring(0, 100)}`);
+						continue;
+					}
 
 					const data = trimmed.slice(6);
-					if (data === '[DONE]') continue;
+					if (data === '[DONE]') {
+						this.logger.debug(`[deepseek] Received [DONE]`);
+						continue;
+					}
+
+					chunkCount++;
+					this.logger.debug(`[deepseek] Chunk ${chunkCount}: ${data.substring(0, 200)}`);
 
 					try {
 						const parsed = JSON.parse(data) as {
@@ -396,39 +409,38 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 						if (!choice?.delta) continue;
 
 						// Handle reasoning content (DeepSeek v4 thinking mode)
+						// Skip reporting reasoning - it will confuse the output
+						// The actual answer comes in content field
 						if (choice.delta.reasoning_content) {
-							progress.report({
-								kind: 'content',
-								abstract: choice.delta.reasoning_content,
-							} as unknown as vscode.LanguageModelResponsePart2);
+							this.logger.trace(`[deepseek] Reasoning (not displayed): ${choice.delta.reasoning_content.substring(0, 100)}...`);
 						}
 
 						// Handle tool calls
 						if (choice.delta.tool_calls) {
 							for (const toolCall of choice.delta.tool_calls) {
 								if (toolCall.id && toolCall.function) {
-									progress.report({
-										kind: 'toolCall',
-										toolCallId: toolCall.id,
-										name: toolCall.function.name ?? '',
-										input: toolCall.function.arguments ?? '{}',
-									} as unknown as vscode.LanguageModelResponsePart2);
+									this.logger.debug(`[deepseek] Reporting tool call: ${toolCall.id} (${toolCall.function.name})`);
+									progress.report(new vscode.LanguageModelToolCallPart(
+										toolCall.id,
+										toolCall.function.name ?? '',
+										JSON.parse(toolCall.function.arguments ?? '{}')
+									));
 								}
 							}
 						}
 
 						// Handle regular content
 						if (choice.delta.content) {
-							progress.report({
-								kind: 'content',
-								content: [{ type: 'text', text: choice.delta.content }],
-							} as unknown as vscode.LanguageModelResponsePart2);
+							this.logger.debug(`[deepseek] Reporting content: ${choice.delta.content.substring(0, 100)}...`);
+							progress.report(new vscode.LanguageModelTextPart(choice.delta.content));
 						}
 					} catch {
 						// Skip malformed JSON
 					}
 				}
 			}
+
+			this.logger.debug(`[deepseek] Finished streaming, ${chunkCount} chunks received`);
 
 			// Handle remaining buffer
 			if (buffer.trim() && buffer.startsWith('data: ')) {
@@ -438,10 +450,8 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 						const parsed = JSON.parse(data);
 						const choice = parsed.choices?.[0];
 						if (choice?.delta?.content) {
-							progress.report({
-								kind: 'content',
-								content: [{ type: 'text', text: choice.delta.content }],
-							} as unknown as vscode.LanguageModelResponsePart2);
+							this.logger.debug(`[deepseek] Reporting remaining content: ${choice.delta.content}`);
+							progress.report(new vscode.LanguageModelTextPart(choice.delta.content));
 						}
 					} catch {
 						// Skip
