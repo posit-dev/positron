@@ -406,14 +406,8 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 						const choice = parsed.choices?.[0];
 						if (!choice?.delta) continue;
 
-						// Handle reasoning content (DeepSeek v4 thinking mode)
-						// Skip reporting reasoning - it will confuse the output
-						// The actual answer comes in content field
-						if (choice.delta.reasoning_content) {
-							this.logger.trace(`[deepseek] Reasoning (not displayed): ${choice.delta.reasoning_content.substring(0, 100)}...`);
-						}
-
-						// Handle tool calls
+						// Handle tool calls - buffer them until arguments are complete
+						// Tool calls can come in multiple chunks: first ID/name, then arguments
 						if (choice.delta.tool_calls) {
 							for (const toolCall of choice.delta.tool_calls) {
 								if (toolCall.id && toolCall.function) {
@@ -429,7 +423,6 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 
 						// Handle regular content
 						if (choice.delta.content) {
-							this.logger.debug(`[deepseek] Reporting content: ${choice.delta.content.substring(0, 100)}...`);
 							progress.report(new vscode.LanguageModelTextPart(choice.delta.content));
 						}
 					} catch {
