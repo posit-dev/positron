@@ -133,6 +133,56 @@ def test_open_editor_preview(ui_service: UiService, ui_comm: DummyComm) -> None:
     ]
 
 
+@pytest.mark.parametrize(
+    ("binding_name", "binding_target", "expected_attached"),
+    [
+        # `import numpy` -- binds 'numpy' to the numpy module. This case
+        # also stands in for `import numpy.linalg`, which binds the same
+        # 'numpy' top-level (the submodule is reachable as an attribute).
+        ("numpy", "numpy", True),
+        # `import numpy as np` -- binds 'np' to the numpy module
+        # (module's __name__ is still 'numpy').
+        ("np", "numpy", True),
+        # `from numpy import linalg` -- binds 'linalg' to the numpy.linalg
+        # submodule. The submodule's __name__ is 'numpy.linalg', so the
+        # detector's top-level extraction matches numpy.
+        ("linalg", "numpy.linalg", True),
+        # Defensive: a non-module value bound under the same name as a
+        # distribution must not produce a false positive.
+        ("numpy", "not-a-module", False),
+    ],
+    ids=["import-x", "import-x-as-y", "from-pkg-import-sub", "non-module-value"],
+)
+def test_get_packages_installed_attached(
+    kernel: PositronIPyKernel,
+    shell: PositronShell,
+    binding_name: str,
+    binding_target: str,
+    expected_attached: bool,  # noqa: FBT001
+) -> None:
+    """Verify `attached` detection across the import patterns we document.
+
+    Covers `import x`, `import x as y`, and `from pkg import sub` (when
+    sub is a module), and asserts that a non-module value bound under a
+    distribution name does not falsely trigger the indicator.
+    """
+    import importlib
+
+    from positron.ui import _get_packages_installed
+
+    if binding_target == "not-a-module":
+        value: object = "not a module"
+    else:
+        value = importlib.import_module(binding_target)
+    shell.user_ns[binding_name] = value
+
+    result = _get_packages_installed(kernel, [])
+    assert isinstance(result, list)
+    numpy_entry = next((pkg for pkg in result if pkg["displayName"] == "numpy"), None)  # type: ignore[union-attr]
+    assert numpy_entry is not None, "numpy distribution should be present in the test environment"
+    assert numpy_entry["attached"] is expected_attached
+
+
 def test_is_module_loaded(ui_comm: DummyComm) -> None:
     """Test the `isModuleLoaded` RPC method called from Positron."""
     module = "fallingStars"

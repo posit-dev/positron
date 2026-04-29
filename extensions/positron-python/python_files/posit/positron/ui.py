@@ -118,9 +118,9 @@ def _set_console_width(_kernel: "PositronIPyKernel", params: List[JsonData]) -> 
 
 
 def _import_names_for_dist(dist: importlib.metadata.Distribution, canonical: str) -> List[str]:
-    """
-    Best-effort list of names a user would `import` to bring this distribution
-    in. Wheels typically ship a `top_level.txt`; when missing, fall back to the
+    """Best-effort list of names a user would `import` to bring this distribution in.
+
+    Wheels typically ship a `top_level.txt`; when missing, fall back to the
     distribution's canonical name with hyphens turned into underscores
     (matches the convention for most pure-Python packages).
     """
