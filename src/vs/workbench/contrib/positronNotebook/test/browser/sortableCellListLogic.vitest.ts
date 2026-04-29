@@ -198,12 +198,16 @@ describe('computeDropIndex', () => {
 });
 
 describe('resolveDraggedCells', () => {
-	it('returns the sorted multi-selection when the dragged cell is part of it', () => {
+	it.each([
+		{ name: 'first', dragIndex: 1 },
+		{ name: 'middle', dragIndex: 2 },
+		{ name: 'last', dragIndex: 3 },
+	])('returns the sorted multi-selection regardless of which $name cell is dragged', ({ dragIndex }) => {
 		const cells = makeCells(5);
 		// Selection given out of order to verify the helper sorts by index.
 		const selection = [cells[3], cells[1], cells[2]];
 
-		const result = resolveDraggedCells(cells[2], selection);
+		const result = resolveDraggedCells(cells[dragIndex], selection);
 
 		expect(result).toEqual([cells[1], cells[2], cells[3]]);
 	});

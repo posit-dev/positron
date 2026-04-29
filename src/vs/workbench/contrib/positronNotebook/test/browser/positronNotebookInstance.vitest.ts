@@ -177,6 +177,18 @@ describe('PositronNotebookInstance', () => {
 
 			expect(getCellValues(notebook)).toEqual(['A', 'B', 'C', 'D', 'E']);
 		});
+
+		it('is a no-op when nothing is selected (empty notebook -> NoCells state)', () => {
+			// getSelectedCells returns [] only in the NoCells state, which is
+			// reached only via an empty notebook (a populated notebook always
+			// auto-selects the first cell). This drives the early-return on
+			// `cellsToMove.length === 0` in moveCellsUp.
+			const notebook = createTestPositronNotebookInstance([], ctx);
+
+			notebook.moveCellsUp();
+
+			expect(notebook.cells.get()).toEqual([]);
+		});
 	});
 
 	describe('moveCellsDown', () => {
@@ -198,6 +210,14 @@ describe('PositronNotebookInstance', () => {
 			notebook.moveCellsDown();
 
 			expect(getCellValues(notebook)).toEqual(['A', 'B', 'C', 'D', 'E']);
+		});
+
+		it('is a no-op when nothing is selected (empty notebook -> NoCells state)', () => {
+			const notebook = createTestPositronNotebookInstance([], ctx);
+
+			notebook.moveCellsDown();
+
+			expect(notebook.cells.get()).toEqual([]);
 		});
 
 		it('moves a multi-selection block down as a group', () => {
