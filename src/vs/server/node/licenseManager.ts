@@ -14,6 +14,12 @@ const execFileAsync = promisify(execFile);
 
 const LicError = {
 	OK: 0,
+	FAIL: 1,
+	TRIAL_EXPIRED: 2,
+	VM: 3,
+	ALREADY_ACTIVATED: 4,
+	FILE_NOT_FOUND: 41,
+	ROOT_REQUIRED: 44,
 } as const;
 
 interface LicenseCommandResult {
@@ -40,6 +46,12 @@ function validatedResult(result: LicenseCommandResult): ILicenseValidationResult
 	return { valid: true, licensee: result.licensee };
 }
 
+type LicErrorCode = typeof LicError[keyof typeof LicError];
+const knownResultCodes: Set<number> = new Set(Object.values(LicError));
+function knownResultCode(code: unknown): code is LicErrorCode {
+	return typeof code === 'number' && knownResultCodes.has(code);
+}
+
 // The `verify` command prefixes its JSON output with a signature hash line.
 function extractJson(stdout: string): string {
 	const jsonStart = stdout.indexOf('{');
@@ -59,37 +71,31 @@ class LicenseManager {
 			LD_LIBRARY_PATH: licenseManagerDir,
 		};
 
+		let stdout: string;
 		try {
-			const { stdout, stderr } = await execFileAsync(
+			const result = await execFileAsync(
 				this.licenseManagerPath,
 				[command, ...args, '--output=json'],
 				{ maxBuffer: 1024 * 1024, timeout: 10000, env }
 			);
-
-			if (stderr && stderr.length > 0) {
-				console.warn(`license-manager stderr: ${stderr}`);
+			if (result.stderr && result.stderr.length > 0) {
+				console.warn(`license-manager stderr: ${result.stderr}`);
 			}
-
-			const jsonStr = extractJson(stdout);
-			const parsed = JSON.parse(jsonStr);
-			if (typeof parsed?.result !== 'number') {
-				throw new Error(`Invalid license-manager response: ${stdout}`);
-			}
-			return parsed;
+			stdout = result.stdout;
 		} catch (error) {
 			const execError = error as { stdout?: string; message?: string };
-			if (execError.stdout) {
-				try {
-					const jsonStr = extractJson(execError.stdout);
-					const parsed = JSON.parse(jsonStr);
-					if (typeof parsed?.result === 'number') {
-						return parsed;
-					}
-				} catch { /* fall through */ }
-				throw new Error(`Invalid license-manager response: ${execError.stdout}`);
+			stdout = execError.stdout ?? '';
+			if (!stdout) {
+				throw new Error(execError.message || 'Unknown error');
 			}
-			throw new Error(execError.message || 'Unknown error');
 		}
+
+		const jsonStr = extractJson(stdout);
+		const parsed = JSON.parse(jsonStr);
+		if (!knownResultCode(parsed?.result)) {
+			throw new Error(`Unexpected license-manager response: ${stdout}`);
+		}
+		return parsed;
 	}
 
 	async verify(): Promise<ILicenseValidationResult> {
