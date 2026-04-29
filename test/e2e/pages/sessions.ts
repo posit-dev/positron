@@ -1107,6 +1107,12 @@ export class SessionQuickPick {
 					await this.sessions.sessionPicker.click();
 				}
 
+				// Wait for the menu to actually render before callers query
+				// its contents -- otherwise getActiveSessions can race against
+				// rendering and read stale `.quick-input-list-rows` left in
+				// DOM (display:none) by the previously-open menu.
+				await expect(this.sessionQuickMenu).toBeVisible({ timeout: 1000 });
+
 				if (viewAllRuntimes) {
 					await this.code.driver.page.getByRole('textbox', { name: SESSION_QUICK_MENU_PATTERN }).fill('New Session');
 					await this.code.driver.page.keyboard.press('Enter');
