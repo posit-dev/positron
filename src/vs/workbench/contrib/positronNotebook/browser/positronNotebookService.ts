@@ -4,11 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
+import { IObservable } from '../../../../base/common/observable.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
+import { observableConfigValue } from '../../../../platform/observable/common/platformObservableUtils.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
+import { POSITRON_NOTEBOOK_EXPERIMENTAL_KEY } from '../common/positronNotebookConfig.js';
 import { usingPositronNotebooks as utilUsingPositronNotebooks } from '../common/positronNotebookCommon.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
@@ -30,6 +33,13 @@ export interface IPositronNotebookService {
 	 * Event that fires when a notebook instance is removed.
 	 */
 	readonly onDidRemoveNotebookInstance: Event<IPositronNotebookInstance>;
+
+	/**
+	 * Observable mirroring the `positron.notebook.experimental` configuration.
+	 * Lets non-UI code gate on the experimental flag; UI code should prefer the
+	 * `usePositronNotebookExperimental` hook (backed by a context key).
+	 */
+	readonly experimentsEnabled: IObservable<boolean>;
 
 	/**
 	 * Placeholder that gets called to "initialize" the PositronNotebookService.
@@ -102,11 +112,20 @@ export class PositronNotebookService extends Disposable implements IPositronNote
 	private _clipboardCells: ICellDto2[] = [];
 	//#endregion Private Properties
 
+	//#region Public Observables
+	readonly experimentsEnabled: IObservable<boolean>;
+	//#endregion Public Observables
+
 	//#region Constructor & Dispose
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService
 	) {
 		super();
+		this.experimentsEnabled = observableConfigValue(
+			POSITRON_NOTEBOOK_EXPERIMENTAL_KEY,
+			false,
+			this._configurationService,
+		);
 	}
 
 	public override dispose(): void {
