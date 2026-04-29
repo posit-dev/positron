@@ -81,6 +81,11 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	min-width: 0;
+	user-select: none;
+}
+
+.inline-data-explorer-open-button > * {
+	cursor: pointer;
 }
 
 .inline-data-explorer-open-button > .codicon {
