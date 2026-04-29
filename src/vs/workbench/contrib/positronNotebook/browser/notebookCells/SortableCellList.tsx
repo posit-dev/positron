@@ -18,7 +18,6 @@ import {
 	CollisionDetection,
 	DragStartEvent,
 	DragEndEvent,
-	UniqueIdentifier,
 	MeasuringStrategy,
 } from '@dnd-kit/core';
 import {
@@ -28,6 +27,7 @@ import {
 } from '@dnd-kit/sortable';
 import * as DOM from '../../../../../base/browser/dom.js';
 import { IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
+import { computeDropIndex, resolveDraggedCells } from './sortableCellListLogic.js';
 
 /** Minimum pointer distance (px) before a drag activates. Exported so e2e tests can reference the same value. */
 export const DRAG_ACTIVATION_DISTANCE_PX = 10;
@@ -96,11 +96,10 @@ export function SortableCellList({
 		})
 	);
 
-	// Pointer-based collision detection using containment. Returns the cell
-	// the pointer is inside (or nearest to), and computes the drop indicator
-	// index based on which half of that cell the pointer occupies:
-	//   - Top half  -> indicator in the gap ABOVE the cell (index = cellIndex)
-	//   - Bottom half -> indicator in the gap BELOW the cell (index = cellIndex + 1)
+	// Pointer-based collision detection using containment. The pure logic
+	// (closest-cell + drop-half + no-op detection) lives in computeDropIndex;
+	// this callback adapts it to dnd-kit's CollisionDetection contract and
+	// pushes results into React state.
 	const collisionDetection = React.useCallback<CollisionDetection>((args) => {
 		const { pointerCoordinates, droppableRects, droppableContainers } = args;
 
@@ -108,71 +107,28 @@ export function SortableCellList({
 			return closestCenter(args);
 		}
 
-		// Exclude active item and secondary drag participants
-		const excludeHandles = new Set(activeCellsRef.current.map(c => c.handle));
-		const candidates = droppableContainers.filter(
-			c => !excludeHandles.has(c.id as number)
-		);
+		const result = computeDropIndex({
+			pointerCoordinates,
+			droppableContainers,
+			droppableRects,
+			activeCells: activeCellsRef.current,
+			allCells: cellsRef.current,
+		});
 
-		// Find the cell the pointer is inside (distance 0) or nearest to
-		let closestId: UniqueIdentifier | null = null;
-		let closestDist = Infinity;
-
-		for (const container of candidates) {
-			const rect = droppableRects.get(container.id);
-			if (!rect) { continue; }
-
-			const top = rect.top;
-			const bottom = rect.top + rect.height;
-			let dist: number;
-
-			if (pointerCoordinates.y < top) {
-				dist = top - pointerCoordinates.y;
-			} else if (pointerCoordinates.y > bottom) {
-				dist = pointerCoordinates.y - bottom;
-			} else {
-				dist = 0;
-			}
-
-			if (dist < closestDist) {
-				closestDist = dist;
-				closestId = container.id;
-			}
+		if (!result) {
+			return [];
 		}
 
-		// Compute drop indicator index from pointer position within the cell
-		if (closestId !== null) {
-			const overRect = droppableRects.get(closestId);
-			const overCellIndex = cellsRef.current.findIndex(c => c.handle === closestId);
-
-			if (overRect && overCellIndex !== -1) {
-				const midY = overRect.top + overRect.height / 2;
-				const newIdx = pointerCoordinates.y < midY
-					? overCellIndex       // top half: gap above cell
-					: overCellIndex + 1;  // bottom half: gap below cell
-
-				// Detect no-op positions (dropping the cell back where it
-				// started). Any target from the first dragged index through
-				// lastDraggedIndex + 1 produces no movement.
-				const dragged = activeCellsRef.current;
-				const minIdx = dragged.length > 0 ? dragged[0].index : -1;
-				const maxIdx = dragged.length > 0 ? dragged[dragged.length - 1].index : -1;
-				const noOp = newIdx >= minIdx && newIdx <= maxIdx + 1;
-
-				if (noOp !== isDropNoOpRef.current) {
-					isDropNoOpRef.current = noOp;
-					setIsDropNoOp(noOp);
-				}
-				if (newIdx !== dropIndicatorRef.current) {
-					dropIndicatorRef.current = newIdx;
-					setDropIndicatorIndex(newIdx);
-				}
-			}
-
-			return [{ id: closestId }];
+		if (result.isNoOp !== isDropNoOpRef.current) {
+			isDropNoOpRef.current = result.isNoOp;
+			setIsDropNoOp(result.isNoOp);
+		}
+		if (result.dropIndex !== dropIndicatorRef.current) {
+			dropIndicatorRef.current = result.dropIndex;
+			setDropIndicatorIndex(result.dropIndex);
 		}
 
-		return [];
+		return [{ id: result.closestId }];
 	}, []);
 
 	const handleDragStart = React.useCallback((event: DragStartEvent) => {
@@ -192,26 +148,10 @@ export function SortableCellList({
 			return;
 		}
 
-		// Check if this cell is part of a multi-selection
-		if (getSelectedCells) {
-			const selectedCells = getSelectedCells();
-			// Only use multi-drag if:
-			// 1. There are multiple cells selected
-			// 2. The dragged cell is part of the selection (compare by handle for robustness)
-			const isDraggedCellSelected = selectedCells.some(c => c.handle === draggedCell.handle);
-			if (selectedCells.length > 1 && isDraggedCellSelected) {
-				// Sort by index to maintain relative order
-				const sortedCells = [...selectedCells].sort((a, b) => a.index - b.index);
-				activeCellsRef.current = sortedCells;
-				setActiveCells(sortedCells);
-				DOM.getActiveWindow().document.body.classList.add('dragging-notebook-cell');
-				return;
-			}
-		}
-
-		// Single cell drag (either no multi-selection or dragging an unselected cell)
-		activeCellsRef.current = [draggedCell];
-		setActiveCells([draggedCell]);
+		const selectedCells = getSelectedCells ? getSelectedCells() : [];
+		const draggedCells = resolveDraggedCells(draggedCell, selectedCells);
+		activeCellsRef.current = draggedCells;
+		setActiveCells(draggedCells);
 		DOM.getActiveWindow().document.body.classList.add('dragging-notebook-cell');
 	}, [cells, getSelectedCells]);
 

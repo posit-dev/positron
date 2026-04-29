@@ -1312,7 +1312,7 @@ export class PasteCellsAboveAction extends NotebookAction2 {
 registerAction2(PasteCellsAboveAction);
 
 // Move selected cells up
-registerAction2(class extends NotebookAction2 {
+export class MoveCellUpAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.moveUp',
@@ -1335,10 +1335,11 @@ registerAction2(class extends NotebookAction2 {
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.moveCellsUp();
 	}
-});
+}
+registerAction2(MoveCellUpAction);
 
 // Move selected cells down
-registerAction2(class extends NotebookAction2 {
+export class MoveCellDownAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.moveDown',
@@ -1361,7 +1362,8 @@ registerAction2(class extends NotebookAction2 {
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.moveCellsDown();
 	}
-});
+}
+registerAction2(MoveCellDownAction);
 
 // Change to Code cell - y key (Jupyter-style)
 export class ChangeToCodeAction extends NotebookAction2 {
