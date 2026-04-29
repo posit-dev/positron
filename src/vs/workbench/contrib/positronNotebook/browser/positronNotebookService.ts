@@ -7,9 +7,11 @@ import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IObservable } from '../../../../base/common/observable.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
-import { observableConfigValue } from '../../../../platform/observable/common/platformObservableUtils.js';
+import { bindContextKey, observableConfigValue } from '../../../../platform/observable/common/platformObservableUtils.js';
+import { POSITRON_NOTEBOOK_EXPERIMENTAL } from './ContextKeysManager.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 import { POSITRON_NOTEBOOK_EXPERIMENTAL_KEY } from '../common/positronNotebookConfig.js';
 import { usingPositronNotebooks as utilUsingPositronNotebooks } from '../common/positronNotebookCommon.js';
@@ -37,7 +39,9 @@ export interface IPositronNotebookService {
 	/**
 	 * Observable mirroring the `positron.notebook.experimental` configuration.
 	 * Lets non-UI code gate on the experimental flag; UI code should prefer the
-	 * `usePositronNotebookExperimental` hook (backed by a context key).
+	 * `usePositronNotebookExperimental` hook (backed by the
+	 * `positronNotebook.experimental` context key, which the service binds in
+	 * its constructor).
 	 */
 	readonly experimentsEnabled: IObservable<boolean>;
 
@@ -118,7 +122,8 @@ export class PositronNotebookService extends Disposable implements IPositronNote
 
 	//#region Constructor & Dispose
 	constructor(
-		@IConfigurationService private readonly _configurationService: IConfigurationService
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IContextKeyService contextKeyService: IContextKeyService,
 	) {
 		super();
 		this.experimentsEnabled = observableConfigValue(
@@ -126,6 +131,11 @@ export class PositronNotebookService extends Disposable implements IPositronNote
 			false,
 			this._configurationService,
 		);
+		this._register(bindContextKey(
+			POSITRON_NOTEBOOK_EXPERIMENTAL,
+			contextKeyService,
+			reader => this.experimentsEnabled.read(reader),
+		));
 	}
 
 	public override dispose(): void {
