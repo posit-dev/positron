@@ -52,13 +52,14 @@ function buildActionContext(): IInlineDataExplorerActionContext {
 
 describe('InlineDataExplorerHeader', () => {
 	let menuActions: [string, (MenuItemAction | SubmenuItemAction)[]][] = [];
+	const getActions = vi.fn(() => menuActions);
 
 	// Closes over menuActions which is reassigned per-test; getActions resolves
 	// the live binding at render time.
 	const menu: IMenu = {
 		onDidChange: Event.None,
 		dispose: () => { },
-		getActions: () => menuActions,
+		getActions,
 	};
 
 	const contextKeyService = new MockContextKeyService();
@@ -114,5 +115,13 @@ describe('InlineDataExplorerHeader', () => {
 		await user.click(screen.getByRole('button', { name: /Open in Data Explorer/ }));
 
 		expect(run).toHaveBeenCalledWith(actionCtx);
+	});
+
+	// Regression: MenuItemAction.run drops caller-supplied args unless
+	// shouldForwardArgs is set on the menu options. Without this, ctx never
+	// reaches the registered Action2 and run() throws on `ctx.commId`.
+	it('requests menu actions with shouldForwardArgs so ctx flows through', () => {
+		renderHeader(undefined);
+		expect(getActions).toHaveBeenCalledWith(expect.objectContaining({ shouldForwardArgs: true }));
 	});
 });

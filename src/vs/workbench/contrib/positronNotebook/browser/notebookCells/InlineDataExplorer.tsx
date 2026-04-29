@@ -60,6 +60,11 @@ type InlineDataExplorerState =
 	| { status: 'disconnected' }
 	| { status: 'error'; message: string };
 
+// MenuItemAction.run drops caller-supplied args unless shouldForwardArgs is set;
+// without this, the rich IInlineDataExplorerActionContext we pass at click time
+// never reaches the registered Action2.
+const HEADER_MENU_OPTIONS = { shouldForwardArgs: true } as const;
+
 /**
  * InlineDataExplorerHeader component.
  *
@@ -75,7 +80,7 @@ export function InlineDataExplorerHeader({ title, shape, actionContext }: {
 }) {
 	const contextKeyService = useCellScopedContextKeyService();
 	const menu = useMenu(MenuId.PositronNotebookInlineDataExplorerHeader, contextKeyService);
-	const actionGroups = useMenuActions(menu);
+	const actionGroups = useMenuActions(menu, HEADER_MENU_OPTIONS);
 
 	return (
 		<div className='inline-data-explorer-header'>
