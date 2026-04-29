@@ -39,7 +39,7 @@ describe('OpenInDataExplorerAction', () => {
 		const action = new OpenInDataExplorerAction();
 		const actionCtx = buildContext();
 
-		await action.run({ get: <T,>(svc: any) => ctx.get(svc) } as any, actionCtx);
+		await ctx.instantiationService.invokeFunction(accessor => action.run(accessor, actionCtx));
 
 		expect(executeCommand).toHaveBeenCalledWith('positron-data-explorer.openFromInline', {
 			commId: 'comm-123',
@@ -57,7 +57,7 @@ describe('OpenInDataExplorerAction', () => {
 			notebookInstance: undefined,
 		});
 
-		await action.run({ get: <T,>(svc: any) => ctx.get(svc) } as any, actionCtx);
+		await ctx.instantiationService.invokeFunction(accessor => action.run(accessor, actionCtx));
 
 		expect(executeCommand).toHaveBeenCalledWith('positron-data-explorer.openFromInline', expect.objectContaining({
 			notebookUri: actionCtx.documentUri,
