@@ -36,9 +36,7 @@ export const PositronDataConnections = (props: PositronDataConnectionsProps) => 
 				onDataTabChanged={(dataTab: DataConnectionsTab) => setSelectedDataTab(dataTab)}
 			/>
 			<div className='panels'>
-				<DataConnectionsPanel
-					active={selectedDataTab === DataConnectionsTab.DataConnections}
-				/>
+				<DataConnectionsPanel active={selectedDataTab === DataConnectionsTab.DataConnections} />
 				<DataConnectionsExplorerPanel active={selectedDataTab === DataConnectionsTab.DataConnectionsExplorer} />
 			</div>
 		</div>

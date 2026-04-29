@@ -3,6 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+.select-data-connection-provider .driver-grid-placeholder {
+	padding: 8px;
+	color: var(--vscode-descriptionForeground);
+}
+
 .select-data-connection-provider .select-provider-label {
 	font-size: 13px;
 	margin-bottom: 6px;

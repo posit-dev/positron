@@ -212,7 +212,7 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 									type='text'
 									value={connectionName}
 									onChange={e => {
-										setConnectionName(e.target.value.trim());
+										setConnectionName(e.target.value);
 										setConnectionNameError(false);
 									}}
 								/>

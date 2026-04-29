@@ -6,14 +6,19 @@
 // CSS.
 import './dataConnectionsPanel.css';
 
+// React.
+import { useEffect, useState } from 'react';
+
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
-import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { NewDataConnectionFlow } from '../dialogs/newDataConnectionFlow.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
+import { IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
 import { DEFAULT_ACTION_BAR_BUTTON_WIDTH, DynamicActionBarAction, PositronDynamicActionBar } from '../../../../../platform/positronActionBar/browser/positronDynamicActionBar.js';
 
 /**
@@ -34,6 +39,22 @@ interface DataConnectionsPanelProps {
  * DataConnectionsPanel component.
  */
 export const DataConnectionsPanel = ({ active }: DataConnectionsPanelProps) => {
+	// Access the Positron data connections service.
+	const { positronDataConnectionsService } = usePositronReactServicesContext();
+
+	// Track the data connection profiles so the panel re-renders when they change.
+	const [profiles, setProfiles] = useState<readonly IDataConnectionProfile[]>(
+		() => positronDataConnectionsService.getProfiles()
+	);
+
+	// Listen for changes to the data connection profiles and update state accordingly.
+	useEffect(() => {
+		const disposable = positronDataConnectionsService.onDidChangeProfiles(updatedProfiles => {
+			setProfiles(updatedProfiles);
+		});
+		return () => disposable.dispose();
+	}, [positronDataConnectionsService]);
+
 	// Left action bar actions.
 	const leftActions: DynamicActionBarAction[] = [];
 
@@ -72,7 +93,6 @@ export const DataConnectionsPanel = ({ active }: DataConnectionsPanelProps) => {
 			)}
 			id='data-connections-panel'
 			role='tabpanel'
-
 		>
 			<PositronActionBarContextProvider>
 				<PositronDynamicActionBar
@@ -84,7 +104,15 @@ export const DataConnectionsPanel = ({ active }: DataConnectionsPanelProps) => {
 					rightActions={rightActions}
 				/>
 			</PositronActionBarContextProvider>
-			<div className='temporary-label'>Data Connections Panel</div>
+
+			{/* Render the data connection profiles. */}
+			<div className='data-connection-profiles'>
+				{profiles.map(profile => (
+					<div key={profile.id} className='data-connection-profile'>
+						{profile.connectionName}
+					</div>
+				))}
+			</div>
 		</div>
 	);
 };
