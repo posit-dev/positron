@@ -50,12 +50,15 @@ describe('VisualizeDataFrameAction', () => {
 	});
 
 	function fakeGrid(): InlineTableDataGridInstance {
+		// VisualizeAction only reads .name and .description off each column;
+		// stubInterface narrows the column shape to those two fields.
+		const fakeColumn = (i: number) => stubInterface<NonNullable<ReturnType<InlineTableDataGridInstance['column']>>>({
+			name: `col${i}`,
+			description: 'int',
+		});
 		return stubInterface<InlineTableDataGridInstance>({
 			columns: 2,
-			column: (i: number) => ({
-				name: `col${i}`,
-				description: 'int',
-			} as ReturnType<InlineTableDataGridInstance['column']>),
+			column: fakeColumn,
 		});
 	}
 
