@@ -449,6 +449,17 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	}
 
 	/**
+	 * Forwarded from the main thread whenever a runtime is registered with
+	 * `ILanguageRuntimeService`. This is the single source of truth for
+	 * `positron.runtime.onDidRegisterRuntime`: registrations from this ext
+	 * host's own extensions, from other ext hosts, and from main-thread-only
+	 * paths (e.g. the discovery cache loader) all flow through here.
+	 */
+	$onDidRegisterLanguageRuntime(metadata: ILanguageRuntimeMetadata): void {
+		this._onDidRegisterRuntimeEmitter.fire(metadata);
+	}
+
+	/**
 	 * Restores a language runtime session.
 	 *
 	 * @param runtimeMetadata The metadata for the language runtime.
@@ -1351,12 +1362,16 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		manager: positron.LanguageRuntimeManager,
 		runtime: positron.LanguageRuntimeMetadata): IDisposable {
 
-		// Register the runtime with the main thread
+		// Register the runtime with the main thread. The main thread will
+		// broadcast back via `$onDidRegisterLanguageRuntime`, which is what
+		// fires `onDidRegisterRuntime` for listeners. We deliberately don't
+		// fire the local emitter here -- the round-trip is the single source
+		// of truth so cache-loaded runtimes (registered main-thread-only) and
+		// extension-driven runtimes both flow through the same path.
 		this._proxy.$registerLanguageRuntime({
 			extensionId: extension.identifier,
 			...runtime
 		});
-		this._onDidRegisterRuntimeEmitter.fire(runtime);
 
 		// Save the manager associated with this runtime, too; we'll need to use
 		// it to create a runtime session later

@@ -1590,6 +1590,17 @@ export class MainThreadLanguageRuntime
 			this._runtimeStartupService.registerRuntimeManager(this)
 		);
 
+		// Forward every runtime registration to the extension host so that
+		// `positron.runtime.onDidRegisterRuntime` mirrors the main-thread
+		// truth. Without this, runtimes registered by the discovery cache
+		// (or by any other main-thread-only path) would be invisible to
+		// extensions, since the ext-host emitter would only fire for
+		// extension-driven `registerLanguageRuntime` calls.
+		this._disposables.add(
+			this._languageRuntimeService.onDidRegisterRuntime(metadata => {
+				this._proxy.$onDidRegisterLanguageRuntime(metadata);
+			}));
+
 		// Track code execution events in the Console and Notebooks and forward
 		// them to the event host
 		this._disposables.add(
@@ -1746,7 +1757,13 @@ export class MainThreadLanguageRuntime
 
 	// Called by the extension host to get a list of all registered runtimes
 	$getRegisteredRuntimes(): Promise<ILanguageRuntimeMetadata[]> {
-		return Promise.resolve(Array.from(this._registeredRuntimes.values()));
+		// Return the full registry, not just the runtimes that this ext host
+		// happens to have registered itself. The discovery cache and other
+		// main-thread paths register runtimes directly on
+		// `ILanguageRuntimeService` without round-tripping through
+		// `$registerLanguageRuntime`, so the local `_registeredRuntimes`
+		// map is incomplete by design.
+		return Promise.resolve(this._languageRuntimeService.registeredRuntimes);
 	}
 
 	// Called by the extension host to start a previously registered language runtime

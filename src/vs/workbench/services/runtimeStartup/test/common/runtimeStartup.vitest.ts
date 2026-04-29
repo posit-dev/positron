@@ -8,39 +8,28 @@
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { isWeb } from '../../../../../base/common/platform.js';
 import { arch as systemArch } from '../../../../../base/common/process.js';
-import { INotificationService, IPromptChoice, IPromptOptions, Severity } from '../../../../../platform/notification/common/notification.js';
-import { ILanguageRuntimeMetadata, LanguageRuntimeArchitecture } from '../../../languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession } from '../../../runtimeSession/common/runtimeSessionService.js';
-import { RuntimeStartupService } from '../../common/runtimeStartup.js';
-import { IEphemeralStateService } from '../../../../../platform/ephemeralState/common/ephemeralState.js';
-import { BeforeShutdownEvent, ILifecycleService, WillShutdownEvent } from '../../../lifecycle/common/lifecycle.js';
-import { IPositronNewFolderService, NewFolderStartupPhase } from '../../../positronNewFolder/common/positronNewFolder.js';
-import { IProgressService } from '../../../../../platform/progress/common/progress.js';
-import { IWorkbenchEnvironmentService } from '../../../environment/common/environmentService.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-
-import { Emitter } from '../../../../../base/common/event.js';
-import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { IEphemeralStateService } from '../../../../../platform/ephemeralState/common/ephemeralState.js';
-import { INotificationService } from '../../../../../platform/notification/common/notification.js';
+import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
+import { INotificationService, IPromptChoice, IPromptOptions, Severity } from '../../../../../platform/notification/common/notification.js';
 import { TestNotificationService } from '../../../../../platform/notification/test/common/testNotificationService.js';
 import { IProgressService } from '../../../../../platform/progress/common/progress.js';
-import { BeforeShutdownEvent, ILifecycleService, WillShutdownEvent } from '../../../lifecycle/common/lifecycle.js';
-import { IPositronNewFolderService, NewFolderStartupPhase } from '../../../positronNewFolder/common/positronNewFolder.js';
+import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IWorkbenchEnvironmentService } from '../../../environment/common/environmentService.js';
 import {
 	ILanguageRuntimeMetadata,
 	IRuntimeManager,
 	IRuntimeRootSignature,
+	LanguageRuntimeArchitecture,
 	LanguageRuntimeSessionLocation,
 	LanguageRuntimeStartupBehavior,
 	RuntimeStartupPhase,
 } from '../../../languageRuntime/common/languageRuntimeService.js';
-import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
+import { BeforeShutdownEvent, ILifecycleService, WillShutdownEvent } from '../../../lifecycle/common/lifecycle.js';
+import { IPositronNewFolderService, NewFolderStartupPhase } from '../../../positronNewFolder/common/positronNewFolder.js';
+import { ILanguageRuntimeSession } from '../../../runtimeSession/common/runtimeSessionService.js';
 import { RuntimeStartupService } from '../../common/runtimeStartup.js';
 import {
 	ICachedRuntime,
