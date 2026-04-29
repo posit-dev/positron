@@ -12,6 +12,8 @@
 	overflow: hidden;
 	/* height is set via inline style from configuration */
 	margin: 4px 0;
+	/* Drives the @container query that collapses header buttons to icon-only. */
+	container-type: inline-size;
 }
 
 .inline-data-explorer-header {
@@ -90,6 +92,13 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	min-width: 0;
+}
+
+/* Collapse header action buttons to icon-only when the container is narrow. */
+@container (max-width: 400px) {
+	.inline-data-explorer-open-button-label {
+		display: none;
+	}
 }
 
 .inline-data-explorer-open-button:hover {

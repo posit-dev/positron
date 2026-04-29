@@ -20,6 +20,7 @@ export function InlineDataExplorerActionButton({ action, context }: {
 	const iconId = ThemeIcon.isThemeIcon(action.item.icon) ? action.item.icon.id : undefined;
 	return (
 		<button
+			aria-label={action.label}
 			className='inline-data-explorer-open-button'
 			title={action.tooltip && action.tooltip.length > 0 ? action.tooltip : action.label}
 			type='button'
