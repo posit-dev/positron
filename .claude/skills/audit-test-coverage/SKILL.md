@@ -342,7 +342,16 @@ Each item below uses the same compact layout. Path on its own line, verdict on t
 **Formatting rules:**
 
 **Top-level structure:**
-- Always lead with `## TL;DR` (1-3 sentence narrative recommendation) and `## At a glance` (markdown table with columns: ID / Test :: scenario / Verdict / Conf. / Why). The dev should be able to make 80% of their decisions from these two sections without scrolling further.
+- Always lead with `## TL;DR` (1-3 sentence narrative recommendation) and `## At a glance`. The dev should be able to make 80% of their decisions from these two sections without scrolling further.
+- **`## At a glance` MUST be a real GFM markdown table** with `|` separators and a `|---|---|...|` separator row. Never substitute a bulleted list, definition list, labeled `Field: value` blocks, or any other format. If the Why column gets long, that's fine — markdown tables wrap; do NOT bail out of the table format because a row is wide. The literal shape required:
+
+  ```
+  | ID  | Test :: scenario | Verdict | Conf. | Why |
+  |-----|------------------|---------|-------|-----|
+  | [1] | ...              | ...     | ...   | ... |
+  ```
+
+- Columns are exactly: `ID` / `Test :: scenario` / `Verdict` / `Conf.` / `Why`. No extra columns, no fewer.
 - The at-a-glance table uses the test-file basename + describe/it scenario as the row label (`notebook-cell-action-bar :: Cell deletion`), not the full path. Full paths only in the per-item detail.
 - The `Why` column is one short phrase per row (e.g., *"already covered in notebookDelete.vitest.ts"*, *"webview-rendered"*, *"cross-pane workflow"*). Keep it scannable.
 - Detailed sections follow in pyramid order (Core Mocha -> Vitest -> Ext host -> E2E), Existing coverage before New coverage needed.
