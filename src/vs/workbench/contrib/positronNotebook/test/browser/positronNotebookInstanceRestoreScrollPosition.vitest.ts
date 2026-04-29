@@ -103,13 +103,19 @@ describe('PositronNotebookInstance scroll position restore contract', () => {
 			notebook.setCellsContainer(cellsContainer);
 			notebook.cells.get()[0].attachContainer(cellElement);
 
+			// Stub geometry so cellTop is non-zero -- without this jsdom returns
+			// all zeros and a buggy `scrollTop = offsetFromCell` would still pass.
+			vi.spyOn(cellsContainer, 'getBoundingClientRect').mockReturnValue({ top: 200, left: 0, right: 0, bottom: 0, width: 0, height: 0, x: 0, y: 0, toJSON: () => ({}) });
+			vi.spyOn(cellElement, 'getBoundingClientRect').mockReturnValue({ top: 250, left: 0, right: 0, bottom: 0, width: 0, height: 0, x: 0, y: 0, toJSON: () => ({}) });
+
 			notebook.restoreEditorViewState({ scrollPosition: { cellIndex: 0, offsetFromCell: 100 } });
 
 			notebook.snapToRestoredScrollPosition();
 
-			// jsdom getBoundingClientRect returns zeros, so cellTop resolves to 0
-			// and final scrollTop is just offsetFromCell.
-			expect(cellsContainer.scrollTop).toBe(100);
+			// cellTop = (cellRect.top - containerRect.top) + container.scrollTop
+			//         = (250 - 200) + 0 = 50
+			// scrollTop = cellTop + offsetFromCell = 50 + 100 = 150
+			expect(cellsContainer.scrollTop).toBe(150);
 		});
 
 		it('does not consume the restored position', () => {
