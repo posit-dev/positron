@@ -3,10 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as assert from 'assert';
-import * as sinon from 'sinon';
+/// <reference types="vitest/globals" />
+
 import { Disposable, IDisposable } from '../../../../../base/common/lifecycle.js';
-import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeStartMode, ILanguageRuntimeSessionStateEvent, ILanguageRuntimeGlobalEvent, IRuntimeSessionMetadata, IRuntimeSessionWillStartEvent, INotebookSessionUriChangedEvent, INotebookLanguageRuntimeSession, IRuntimeSessionDisplayInfo } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -17,7 +16,6 @@ import { ExecutionHistoryService } from '../../common/executionHistory.js';
 import { IWorkspace, IWorkspaceContextService, IWorkspaceFoldersWillChangeEvent } from '../../../../../platform/workspace/common/workspace.js';
 import { ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState, IRuntimeManager, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { Emitter } from '../../../../../base/common/event.js';
 import { TestStorageService } from '../../../../test/common/workbenchTestServices.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
@@ -26,6 +24,7 @@ import { ActiveRuntimeSession } from '../../../runtimeSession/common/activeRunti
 import { UiClientInstance } from '../../../languageRuntime/common/languageRuntimeUiClient.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
+import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 
 class TestWorkspaceContextService implements IWorkspaceContextService {
 	private readonly _onWillChangeWorkspaceFolders = new Emitter<IWorkspaceFoldersWillChangeEvent>();
@@ -615,49 +614,49 @@ class TestLanguageRuntimeSession extends Disposable implements ILanguageRuntimeS
 	}
 }
 
-suite('ExecutionHistoryService', () => {
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
-	let instantiationService: TestInstantiationService;
+describe('ExecutionHistoryService', () => {
 	let runtimeSessionService: TestRuntimeSessionService;
 	let runtimeStartupService: TestRuntimeStartupService;
 	let storageService: TestStorageService;
 	let configurationService: TestConfigurationService;
 	let executionHistoryService: IExecutionHistoryService;
 
-	setup(() => {
-		instantiationService = new TestInstantiationService();
+	// Build at describe scope -- the builder registers its own beforeEach to
+	// create a fresh instantiation service each test. We re-stub with fresh
+	// mock instances in the following beforeEach, which runs after the builder's.
+	const ctx = createTestContainer()
+		.withRuntimeServices()
+		.build();
 
+	beforeEach(() => {
 		runtimeSessionService = new TestRuntimeSessionService();
 		runtimeStartupService = new TestRuntimeStartupService();
 		storageService = new TestStorageService();
 		configurationService = new TestConfigurationService();
 
-		instantiationService.stub(IRuntimeSessionService, runtimeSessionService);
-		instantiationService.stub(IRuntimeStartupService, runtimeStartupService);
-		instantiationService.stub(IStorageService, storageService);
-		instantiationService.stub(ILogService, new NullLogService());
-		instantiationService.stub(IConfigurationService, configurationService);
-		instantiationService.stub(IWorkspaceContextService, new TestWorkspaceContextService());
-		instantiationService.stub(IContextKeyService, new MockContextKeyService());
+		// Re-stub with fresh instances each test (overrides builder defaults).
+		ctx.instantiationService.stub(IRuntimeSessionService, runtimeSessionService);
+		ctx.instantiationService.stub(IRuntimeStartupService, runtimeStartupService);
+		ctx.instantiationService.stub(IStorageService, storageService);
+		ctx.instantiationService.stub(ILogService, new NullLogService());
+		ctx.instantiationService.stub(IConfigurationService, configurationService);
+		ctx.instantiationService.stub(IWorkspaceContextService, new TestWorkspaceContextService());
+		ctx.instantiationService.stub(IContextKeyService, new MockContextKeyService());
 
-		executionHistoryService = instantiationService.createInstance(ExecutionHistoryService);
-		disposables.add(executionHistoryService);
-		disposables.add(storageService);
-	});
-
-	teardown(() => {
-		sinon.restore();
+		executionHistoryService = ctx.instantiationService.createInstance(ExecutionHistoryService);
+		ctx.disposables.add(executionHistoryService);
+		ctx.disposables.add(storageService);
 	});
 
 	function createSession(sessionId: string): TestLanguageRuntimeSession {
 		const session = new TestLanguageRuntimeSession(sessionId);
 		runtimeSessionService.sessions.set(sessionId, session);
 		runtimeSessionService.activeSessions.push(session);
-		disposables.add(session);
+		ctx.disposables.add(session);
 		return session;
 	}
 
-	test('should create execution history for a session', () => {
+	it('should create execution history for a session', () => {
 		const session = createSession('test-session-1');
 
 		// Simulate session start
@@ -670,10 +669,10 @@ suite('ExecutionHistoryService', () => {
 
 		// Verify execution history exists
 		const entries = executionHistoryService.getExecutionEntries('test-session-1');
-		assert.strictEqual(entries.length, 0);
+		expect(entries.length).toBe(0);
 	});
 
-	test('should record startup banner when session starts', () => {
+	it('should record startup banner when session starts', () => {
 		const session = createSession('test-session-2');
 
 		// Simulate session start
@@ -690,12 +689,12 @@ suite('ExecutionHistoryService', () => {
 
 		// Verify startup banner was recorded
 		const entries = executionHistoryService.getExecutionEntries('test-session-2');
-		assert.strictEqual(entries.length, 1);
-		assert.strictEqual(entries[0].outputType, ExecutionEntryType.Startup);
-		assert.deepStrictEqual(entries[0].output, runtimeInfo);
+		expect(entries.length).toBe(1);
+		expect(entries[0].outputType).toBe(ExecutionEntryType.Startup);
+		expect(entries[0].output).toEqual(runtimeInfo);
 	});
 
-	test('should record code execution', () => {
+	it('should record code execution', () => {
 		const session = createSession('test-session-3');
 
 		// Simulate session start
@@ -739,15 +738,15 @@ suite('ExecutionHistoryService', () => {
 
 		// Verify execution was recorded
 		const entries = executionHistoryService.getExecutionEntries('test-session-3');
-		assert.strictEqual(entries.length, 1); // Input and output joined to a single message
+		expect(entries.length).toBe(1); // Input and output joined to a single message
 
 		// Check execution entry
 		const execEntry = entries.find(e => e.id === executionId)!;
-		assert.strictEqual(execEntry.input, code);
-		assert.strictEqual(execEntry.output, 'Hello');
+		expect(execEntry.input).toBe(code);
+		expect(execEntry.output).toBe('Hello');
 	});
 
-	test('should record error during execution', () => {
+	it('should record error during execution', () => {
 		const session = createSession('test-session-4');
 
 		// Simulate session start
@@ -794,12 +793,12 @@ suite('ExecutionHistoryService', () => {
 
 		// Check execution entry
 		const execEntry = entries.find(e => e.id === executionId)!;
-		assert.strictEqual(execEntry.input, code);
-		assert.ok(execEntry.error);
-		assert.strictEqual(execEntry.error?.name, 'NameError');
+		expect(execEntry.input).toBe(code);
+		expect(execEntry.error).toBeTruthy();
+		expect(execEntry.error?.name).toBe('NameError');
 	});
 
-	test('should store and retrieve input history for a session', () => {
+	it('should store and retrieve input history for a session', () => {
 		const session = createSession('test-session-5');
 
 		// Simulate session start
@@ -849,12 +848,12 @@ suite('ExecutionHistoryService', () => {
 
 		// Verify input history
 		const inputEntries = executionHistoryService.getSessionInputEntries('test-session-5');
-		assert.strictEqual(inputEntries.length, 2);
-		assert.strictEqual(inputEntries[0].input, code1);
-		assert.strictEqual(inputEntries[1].input, code2);
+		expect(inputEntries.length).toBe(2);
+		expect(inputEntries[0].input).toBe(code1);
+		expect(inputEntries[1].input).toBe(code2);
 	});
 
-	test('should clear execution history', () => {
+	it('should clear execution history', () => {
 		const session = createSession('test-session-6');
 
 		// Simulate session start
@@ -887,17 +886,17 @@ suite('ExecutionHistoryService', () => {
 
 		// Verify execution was recorded
 		let entries = executionHistoryService.getExecutionEntries('test-session-6');
-		assert.ok(entries.length > 0);
+		expect(entries.length).toBeGreaterThan(0);
 
 		// Clear history
 		executionHistoryService.clearExecutionEntries('test-session-6');
 
 		// Verify history was cleared
 		entries = executionHistoryService.getExecutionEntries('test-session-6');
-		assert.strictEqual(entries.length, 0);
+		expect(entries.length).toBe(0);
 	});
 
-	test('should clear input history', () => {
+	it('should clear input history', () => {
 		const session = createSession('test-session-7');
 
 		// Simulate session start
@@ -930,17 +929,17 @@ suite('ExecutionHistoryService', () => {
 
 		// Verify input was recorded
 		let inputEntries = executionHistoryService.getSessionInputEntries('test-session-7');
-		assert.strictEqual(inputEntries.length, 1);
+		expect(inputEntries.length).toBe(1);
 
 		// Clear history
 		executionHistoryService.clearSessionInputEntries('test-session-7');
 
 		// Verify history was cleared
 		inputEntries = executionHistoryService.getSessionInputEntries('test-session-7');
-		assert.strictEqual(inputEntries.length, 0);
+		expect(inputEntries.length).toBe(0);
 	});
 
-	test('should delete session history when session ends with shutdown reason', () => {
+	it('should delete session history when session ends with shutdown reason', () => {
 		const session = createSession('test-session-8');
 
 		// Simulate session start
@@ -971,8 +970,8 @@ suite('ExecutionHistoryService', () => {
 			when: now
 		});
 
-		// Verify history exists
-		const storageSpy = sinon.spy(storageService, 'store');
+		// Verify history exists, then spy on storage
+		const storageSpy = vi.spyOn(storageService, 'store');
 
 		// End session with shutdown reason
 		session.onDidEndSessionEmitter.fire({
@@ -983,12 +982,13 @@ suite('ExecutionHistoryService', () => {
 			reason: RuntimeExitReason.Shutdown
 		});
 
-		// Verify storage.store was called with null to delete the histories
-		assert.ok(storageSpy.calledWith(sinon.match(/positron\.executionHistory\.test-session-8/), null));
-		assert.ok(storageSpy.calledWith(sinon.match(/positron\.inputHistory\.test-session-8/), null));
+		// Verify storage.store was called with null to delete the histories.
+		// store() signature is (key, value, scope, target) -- match scope/target with expect.any(Number).
+		expect(storageSpy).toHaveBeenCalledWith(expect.stringMatching(/positron\.executionHistory\.test-session-8/), null, expect.any(Number), expect.any(Number));
+		expect(storageSpy).toHaveBeenCalledWith(expect.stringMatching(/positron\.inputHistory\.test-session-8/), null, expect.any(Number), expect.any(Number));
 	});
 
-	test('should prune storage for inactive sessions', () => {
+	it('should prune storage for inactive sessions', () => {
 		// Setup restored sessions
 		const activeSessionId = 'active-session';
 		const inactiveSessionId = 'inactive-session';
@@ -1019,7 +1019,7 @@ suite('ExecutionHistoryService', () => {
 		storageService.store(inactiveKey, '[]', StorageScope.WORKSPACE, StorageTarget.MACHINE);
 
 		// Create a spy on remove
-		const removeSpy = sinon.spy(storageService, 'remove');
+		const removeSpy = vi.spyOn(storageService, 'remove');
 
 		// Call prune storage
 		(executionHistoryService as ExecutionHistoryService).pruneStorage([
@@ -1027,11 +1027,11 @@ suite('ExecutionHistoryService', () => {
 		]);
 
 		// Verify inactive session storage was removed but active was kept
-		assert.ok(removeSpy.calledWith(inactiveKey, StorageScope.WORKSPACE));
-		assert.ok(!removeSpy.calledWith(activeKey, StorageScope.WORKSPACE));
+		expect(removeSpy).toHaveBeenCalledWith(inactiveKey, StorageScope.WORKSPACE);
+		expect(removeSpy).not.toHaveBeenCalledWith(activeKey, StorageScope.WORKSPACE);
 	});
 
-	test('should delete session history on restore failure', () => {
+	it('should delete session history on restore failure', () => {
 		// Create session
 		const sessionId = 'failed-session';
 		createSession(sessionId);
@@ -1046,13 +1046,14 @@ suite('ExecutionHistoryService', () => {
 		const key = `positron.executionHistory.${sessionId}`;
 		storageService.store(key, '[]', StorageScope.WORKSPACE, StorageTarget.MACHINE);
 
-		// Create a spy on remove
-		const removeSpy = sinon.spy(storageService, 'remove');
+		// Spy on store -- deleteSessionHistory() calls store(key, null, ...) to wipe entries.
+		const storeSpy = vi.spyOn(storageService, 'store');
 
 		// Simulate restore failure
 		runtimeStartupService.onSessionRestoreFailureEmitter.fire({ sessionId, error: new Error('Restore failed') });
 
-		// Verify storage was removed
-		assert.ok(removeSpy.calledWith(sinon.match(new RegExp(`positron\\..*\\.${sessionId}`)), StorageScope.WORKSPACE));
+		// Verify storage was nulled out (store(key, null, ...)) to delete the histories.
+		// store() signature is (key, value, scope, target) -- match scope/target with expect.any(Number).
+		expect(storeSpy).toHaveBeenCalledWith(expect.stringMatching(new RegExp(`positron\\..*\\.${sessionId}`)), null, expect.any(Number), expect.any(Number));
 	});
 });

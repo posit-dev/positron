@@ -10,7 +10,7 @@ import { buildPythonExecInfo } from '../../exec';
 import { traceError, traceVerbose, traceWarn } from '../../../logging';
 import { Conda, CONDA_ACTIVATION_TIMEOUT, isCondaEnvironment } from '../../common/environmentManagers/conda';
 import { PythonEnvInfo, PythonEnvKind } from '.';
-import { normCasePath } from '../../common/externalDependencies';
+import { normCasePath, pathExists } from '../../common/externalDependencies';
 import { OUTPUT_MARKER_SCRIPT } from '../../../common/process/internal/scripts';
 import { Architecture } from '../../../common/utils/platform';
 import { getEmptyVersion } from './pythonVersion';
@@ -122,20 +122,29 @@ class EnvironmentInfoService implements IEnvironmentInfoService {
         priority?: EnvironmentInfoServiceQueuePriority,
         retryOnce = true,
     ): Promise<InterpreterInformation | undefined> {
-        if (env.kind === PythonEnvKind.Conda && env.executable.filename === 'python') {
+        // --- Start Positron ---
+        // Check for conda environments without Python installed.
+        // This handles both:
+        // - JS locator case: executable.filename === 'python'
+        // - Native locator case: executable.filename is a predicted path that doesn't exist
+        const executablePath = env.executable.filename;
+        const isJustPythonName = executablePath === 'python';
+        const executableMissing = !isJustPythonName && executablePath !== '' && !(await pathExists(executablePath));
+        if (env.kind === PythonEnvKind.Conda && (isJustPythonName || executableMissing)) {
             const emptyInterpreterInfo: InterpreterInformation = {
                 arch: Architecture.Unknown,
                 executable: {
-                    filename: 'python',
+                    filename: executablePath,
                     ctime: -1,
                     mtime: -1,
-                    sysPrefix: '',
+                    sysPrefix: env.location || '',
                 },
                 version: getEmptyVersion(),
             };
 
             return emptyInterpreterInfo;
         }
+        // --- End Positron ---
         if (this.workerPool === undefined) {
             this.workerPool = createRunningWorkerPool<PythonEnvInfo, InterpreterInformation | undefined>(
                 buildEnvironmentInfo,

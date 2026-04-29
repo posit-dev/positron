@@ -116,14 +116,6 @@ configurationRegistry.registerConfiguration({
 			description: localize('showReleaseNotes', "Show Release Notes after an update."),
 			tags: ['usesOnlineServices'],
 		},
-		'update.systemArchitecture': {
-			type: 'string',
-			default: 'auto',
-			scope: ConfigurationScope.APPLICATION,
-			description: localize('systemArchitecture', "Configure the system architecture for macOS updates."),
-			included: isMacintosh && !isWeb,
-			deprecationMessage: localize('systemArchitectureDeprecated', "This setting is deprecated. The system architecture is now automatically detected.")
-		}
 	}
 	// --- End Positron ---
 });

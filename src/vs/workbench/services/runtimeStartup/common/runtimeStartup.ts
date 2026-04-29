@@ -794,7 +794,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * `Complete` can coexist with one and we want to avoid a second concurrent
 	 * pass racing against it.
 	 */
-	public async rediscoverAllRuntimes(): Promise<void> {
+	public async rediscoverAllRuntimes(quiet?: boolean): Promise<void> {
 
 		// If we haven't completed discovery once already, don't do anything.
 		if (this._startupPhase !== RuntimeStartupPhase.Complete) {
@@ -834,22 +834,23 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			await new Promise<void>((resolve) => {
 				const disposable = this._languageRuntimeService.onDidChangeRuntimeStartupPhase(phase => {
 					if (phase === RuntimeStartupPhase.Complete) {
-						const newRuntimes = this._languageRuntimeService.registeredRuntimes;
-						const addedRuntimes = newRuntimes.filter(newRuntime => {
-							return !oldRuntimes.some(oldRuntime => {
-								return oldRuntime.runtimeId === newRuntime.runtimeId;
+						if (!quiet) {
+							const newRuntimes = this._languageRuntimeService.registeredRuntimes;
+							const addedRuntimes = newRuntimes.filter(newRuntime => {
+								return !oldRuntimes.some(oldRuntime => {
+									return oldRuntime.runtimeId === newRuntime.runtimeId;
+								});
 							});
-						});
-						// Use addedRuntimes here and resolve the promise
-						if (addedRuntimes.length > 0) {
-							this._notificationService.info(nls.localize('positron.runtimeStartupService.runtimesAddedMessage',
-								"Found {0} new interpreter{1}: {2}.",
-								addedRuntimes.length,
-								addedRuntimes.length > 1 ? 's' : '',
-								addedRuntimes.map(runtime => { return runtime.runtimeName; }).join(', ')));
-						} else {
-							this._notificationService.info(nls.localize('positron.runtimeStartupService.noNewRuntimesMessage',
-								"No new interpreters found."));
+							if (addedRuntimes.length > 0) {
+								this._notificationService.info(nls.localize('positron.runtimeStartupService.runtimesAddedMessage',
+									"Found {0} new interpreter{1}: {2}.",
+									addedRuntimes.length,
+									addedRuntimes.length > 1 ? 's' : '',
+									addedRuntimes.map(runtime => { return runtime.runtimeName; }).join(', ')));
+							} else {
+								this._notificationService.info(nls.localize('positron.runtimeStartupService.noNewRuntimesMessage',
+									"No new interpreters found."));
+							}
 						}
 						resolve();
 						disposable.dispose();

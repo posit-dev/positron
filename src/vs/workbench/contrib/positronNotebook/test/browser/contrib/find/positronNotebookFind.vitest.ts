@@ -1411,4 +1411,62 @@ describe('PositronNotebookFindController', () => {
 		}));
 	});
 
+	describe('Undo', () => {
+
+		it('undoes a single replace, reverting the cell content', () => runWithFakedTimers({}, async () => {
+			const { notebook, controller, find } = findFixture([
+				['# Cell 0', 'python', CellKind.Code],
+				['# Cell 1', 'python', CellKind.Code],
+				['# Cell 2', 'python', CellKind.Code],
+			]);
+			transaction((tx) => {
+				find.searchString.set('Cell', tx);
+				find.replaceText.set('Replaced', tx);
+			});
+
+			controller.findNext();
+			await controller.replace();
+
+			const cells = notebook.cells.get();
+			expect(cells[0].model.textModel!.getValue()).toBe('# Replaced 0');
+
+			cells[0].model.textModel!.undo();
+			expect(cells[0].model.textModel!.getValue()).toBe('# Cell 0');
+		}));
+
+		it('undoes replaceAll, reverting all changed cells', () => runWithFakedTimers({}, async () => {
+			const { notebook, controller, find } = findFixture([
+				['# Cell 0', 'python', CellKind.Code],
+				['# Cell 1', 'python', CellKind.Code],
+				['# Cell 2', 'python', CellKind.Code],
+			]);
+			transaction((tx) => {
+				find.searchString.set('Cell', tx);
+				find.replaceText.set('New', tx);
+			});
+
+			await controller.replaceAll();
+
+			const cells = notebook.cells.get();
+			expect(cells[0].model.textModel!.getValue()).toBe('# New 0');
+			expect(cells[1].model.textModel!.getValue()).toBe('# New 1');
+			expect(cells[2].model.textModel!.getValue()).toBe('# New 2');
+
+			// Production BulkEditService groups edits across resources so a
+			// single editor undo reverts the whole group; TestBulkEditService
+			// applies edits per-model, so we undo each model independently.
+			// What this test asserts is that every cell's replace IS undoable
+			// (the find controller passed edits through pushEditOperations,
+			// not destructive applyEdits).
+			cells[0].model.textModel!.undo();
+			cells[1].model.textModel!.undo();
+			cells[2].model.textModel!.undo();
+
+			expect(cells[0].model.textModel!.getValue()).toBe('# Cell 0');
+			expect(cells[1].model.textModel!.getValue()).toBe('# Cell 1');
+			expect(cells[2].model.textModel!.getValue()).toBe('# Cell 2');
+		}));
+
+	});
+
 });

@@ -3,34 +3,31 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import assert from 'assert';
-import sinon from 'sinon';
+/// <reference types="vitest/globals" />
+
 import { MenuId } from '../../../actions/common/actions.js';
 import { ContextKeyExpr, IContextKeyService } from '../../../contextkey/common/contextkey.js';
 import { PositronActionBarWidgetRegistryImpl, IPositronActionBarWidgetDescriptor } from '../../browser/positronActionBarWidgetRegistry.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
+import { ensureNoLeakedDisposables } from '../../../../test/vitest/vitestUtils.js';
+import { stubInterface } from '../../../../test/vitest/stubInterface.js';
 
-suite('PositronActionBarWidgetRegistry', () => {
+describe('PositronActionBarWidgetRegistry', () => {
 	let registry: PositronActionBarWidgetRegistryImpl;
 	let contextKeyService: IContextKeyService;
-	let contextMatchesRulesStub: sinon.SinonStub;
+	let contextMatchesRulesStub: ReturnType<typeof vi.fn>;
 
-	setup(() => {
+	beforeEach(() => {
 		// Create a fresh registry instance for each test to ensure isolation
 		registry = new PositronActionBarWidgetRegistryImpl();
 
 		// Create a mock context key service
-		contextMatchesRulesStub = sinon.stub().returns(true);
-		contextKeyService = {
+		contextMatchesRulesStub = vi.fn().mockReturnValue(true);
+		contextKeyService = stubInterface<IContextKeyService>({
 			contextMatchesRules: contextMatchesRulesStub
-		} as unknown as IContextKeyService;
+		});
 	});
 
-	teardown(() => {
-		sinon.restore();
-	});
-
-	test('registerWidget adds a widget to the registry', () => {
+	it('registerWidget adds a widget to the registry', () => {
 		const descriptor: IPositronActionBarWidgetDescriptor = {
 			id: 'test.widget',
 			menuId: MenuId.EditorActionsRight,
@@ -45,13 +42,13 @@ suite('PositronActionBarWidgetRegistry', () => {
 			contextKeyService
 		);
 
-		assert.strictEqual(widgets.length, 1);
-		assert.strictEqual(widgets[0].id, 'test.widget');
+		expect(widgets.length).toBe(1);
+		expect(widgets[0].id).toBe('test.widget');
 
 		disposable.dispose();
 	});
 
-	test('disposing registration removes widget from registry', () => {
+	it('disposing registration removes widget from registry', () => {
 		const descriptor: IPositronActionBarWidgetDescriptor = {
 			id: 'test.disposable',
 			menuId: MenuId.EditorActionsRight,
@@ -66,7 +63,7 @@ suite('PositronActionBarWidgetRegistry', () => {
 			MenuId.EditorActionsRight,
 			contextKeyService
 		);
-		assert.strictEqual(widgets.length, 1);
+		expect(widgets.length).toBe(1);
 
 		// Dispose and verify it's gone
 		disposable.dispose();
@@ -74,10 +71,10 @@ suite('PositronActionBarWidgetRegistry', () => {
 			MenuId.EditorActionsRight,
 			contextKeyService
 		);
-		assert.strictEqual(widgets.length, 0);
+		expect(widgets.length).toBe(0);
 	});
 
-	test('getWidgets filters by MenuId', () => {
+	it('getWidgets filters by MenuId', () => {
 		const leftWidget: IPositronActionBarWidgetDescriptor = {
 			id: 'left.widget',
 			menuId: MenuId.EditorActionsLeft,
@@ -100,22 +97,22 @@ suite('PositronActionBarWidgetRegistry', () => {
 			MenuId.EditorActionsLeft,
 			contextKeyService
 		);
-		assert.strictEqual(leftWidgets.length, 1);
-		assert.strictEqual(leftWidgets[0].id, 'left.widget');
+		expect(leftWidgets.length).toBe(1);
+		expect(leftWidgets[0].id).toBe('left.widget');
 
 		// Should only get right widget
 		const rightWidgets = registry.getWidgets(
 			MenuId.EditorActionsRight,
 			contextKeyService
 		);
-		assert.strictEqual(rightWidgets.length, 1);
-		assert.strictEqual(rightWidgets[0].id, 'right.widget');
+		expect(rightWidgets.length).toBe(1);
+		expect(rightWidgets[0].id).toBe('right.widget');
 
 		disposable1.dispose();
 		disposable2.dispose();
 	});
 
-	test('getWidgets filters by context key expression', () => {
+	it('getWidgets filters by context key expression', () => {
 		const alwaysVisible: IPositronActionBarWidgetDescriptor = {
 			id: 'always.visible',
 			menuId: MenuId.EditorActionsRight,
@@ -135,7 +132,7 @@ suite('PositronActionBarWidgetRegistry', () => {
 		const disposable2 = registry.registerWidget(conditionalWidget);
 
 		// Mock context key service to return false for conditional widget
-		contextMatchesRulesStub.callsFake((expr: any) => {
+		contextMatchesRulesStub.mockImplementation((expr: unknown) => {
 			return expr === undefined; // Only match widgets without 'when' clause
 		});
 
@@ -145,14 +142,14 @@ suite('PositronActionBarWidgetRegistry', () => {
 		);
 
 		// Should only get the always-visible widget
-		assert.strictEqual(widgets.length, 1);
-		assert.strictEqual(widgets[0].id, 'always.visible');
+		expect(widgets.length).toBe(1);
+		expect(widgets[0].id).toBe('always.visible');
 
 		disposable1.dispose();
 		disposable2.dispose();
 	});
 
-	test('getWidgets includes widget when context matches', () => {
+	it('getWidgets includes widget when context matches', () => {
 		const descriptor: IPositronActionBarWidgetDescriptor = {
 			id: 'contextual.widget',
 			menuId: MenuId.EditorActionsRight,
@@ -164,20 +161,20 @@ suite('PositronActionBarWidgetRegistry', () => {
 		const disposable = registry.registerWidget(descriptor);
 
 		// Mock context key service to return true (context matches)
-		contextMatchesRulesStub.returns(true);
+		contextMatchesRulesStub.mockReturnValue(true);
 
 		const widgets = registry.getWidgets(
 			MenuId.EditorActionsRight,
 			contextKeyService
 		);
 
-		assert.strictEqual(widgets.length, 1);
-		assert.strictEqual(widgets[0].id, 'contextual.widget');
+		expect(widgets.length).toBe(1);
+		expect(widgets[0].id).toBe('contextual.widget');
 
 		disposable.dispose();
 	});
 
-	test('getWidgets sorts by order ascending', () => {
+	it('getWidgets sorts by order ascending', () => {
 		const widget300: IPositronActionBarWidgetDescriptor = {
 			id: 'widget.300',
 			menuId: MenuId.EditorActionsRight,
@@ -208,17 +205,17 @@ suite('PositronActionBarWidgetRegistry', () => {
 			contextKeyService
 		);
 
-		assert.strictEqual(widgets.length, 3);
-		assert.strictEqual(widgets[0].id, 'widget.100');
-		assert.strictEqual(widgets[1].id, 'widget.200');
-		assert.strictEqual(widgets[2].id, 'widget.300');
+		expect(widgets.length).toBe(3);
+		expect(widgets[0].id).toBe('widget.100');
+		expect(widgets[1].id).toBe('widget.200');
+		expect(widgets[2].id).toBe('widget.300');
 
 		disposable1.dispose();
 		disposable2.dispose();
 		disposable3.dispose();
 	});
 
-	test('multiple widgets can be registered to same menuId', () => {
+	it('multiple widgets can be registered to same menuId', () => {
 		const widget1: IPositronActionBarWidgetDescriptor = {
 			id: 'widget.1',
 			menuId: MenuId.EditorActionsRight,
@@ -249,22 +246,22 @@ suite('PositronActionBarWidgetRegistry', () => {
 			contextKeyService
 		);
 
-		assert.strictEqual(widgets.length, 3);
+		expect(widgets.length).toBe(3);
 
 		disposable1.dispose();
 		disposable2.dispose();
 		disposable3.dispose();
 	});
 
-	test('getWidgets returns empty array for menuId with no widgets', () => {
+	it('getWidgets returns empty array for menuId with no widgets', () => {
 		const widgets = registry.getWidgets(
 			MenuId.EditorActionsRight,
 			contextKeyService
 		);
 
-		assert.strictEqual(widgets.length, 0);
+		expect(widgets.length).toBe(0);
 	});
 
 	// Ensure that all disposables are cleaned up.
-	ensureNoDisposablesAreLeakedInTestSuite();
+	ensureNoLeakedDisposables();
 });

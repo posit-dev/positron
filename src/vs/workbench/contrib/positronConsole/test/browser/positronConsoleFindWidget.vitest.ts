@@ -46,7 +46,7 @@ class TestableConsoleFindWidget extends PositronConsoleFindWidget {
  * Each line can be a string (single text node) or an array of strings
  * (multiple span elements within one div, for cross-node matching tests).
  */
-function createConsoleDOM(...lines: (string | string[])[]): HTMLElement {
+function createConsoleDOM(...lines: (string | string[])[]): { container: HTMLElement; instance: HTMLElement } {
 	const container = document.createElement('div');
 	const instance = document.createElement('div');
 	instance.className = 'console-instance';
@@ -65,7 +65,7 @@ function createConsoleDOM(...lines: (string | string[])[]): HTMLElement {
 		instance.appendChild(div);
 	}
 	container.appendChild(instance);
-	return container;
+	return { container, instance };
 }
 
 describe('PositronConsoleFindWidget', () => {
@@ -73,10 +73,11 @@ describe('PositronConsoleFindWidget', () => {
 
 	let widget: TestableConsoleFindWidget;
 	let consoleContainer: HTMLElement;
+	let consoleInstance: HTMLElement;
 	let contextKeyService: MockContextKeyService;
 
 	function createWidget(...lines: (string | string[])[]) {
-		consoleContainer = createConsoleDOM(...lines);
+		({ container: consoleContainer, instance: consoleInstance } = createConsoleDOM(...lines));
 		document.body.appendChild(consoleContainer);
 
 		contextKeyService = ctx.get(IContextKeyService) as MockContextKeyService;
@@ -85,9 +86,7 @@ describe('PositronConsoleFindWidget', () => {
 		);
 		// Attach the widget to the visible console instance element
 		// (mirrors what ConsoleInstance does via useEffect).
-		// eslint-disable-next-line no-restricted-syntax -- finding the mount point in a test-constructed container; refactoring to keep a direct reference deferred to follow-up cleanup PR
-		const instance = consoleContainer.querySelector('.console-instance')!;
-		instance.appendChild(widget.getDomNode());
+		consoleInstance.appendChild(widget.getDomNode());
 	}
 
 	afterEach(() => {
@@ -327,11 +326,9 @@ describe('PositronConsoleFindWidget', () => {
 			expect(result?.resultCount).toBe(1);
 
 			// Add another line with the search term
-			// eslint-disable-next-line no-restricted-syntax -- re-finding the mount point to append a new search target; direct reference deferred to follow-up cleanup PR
-			const instance = consoleContainer.querySelector('.console-instance')!;
 			const newLine = document.createElement('div');
 			newLine.textContent = 'word';
-			instance.appendChild(newLine);
+			consoleInstance.appendChild(newLine);
 
 			widget.refreshSearch();
 			result = await widget.getResultCount();

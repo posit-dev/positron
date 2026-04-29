@@ -6,7 +6,6 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import rimraf from 'rimraf';
 import es from 'event-stream';
 import vfs from 'vinyl-fs';
 import * as ext from './extensions.ts';
@@ -47,116 +46,34 @@ function isUpToDate(extension: IExtensionDefinition): boolean {
 		return false;
 	}
 
-	// Production builds for macOS are universal and require packaging for both arm64 and x64.
-	// For these builds, multi-arch extensions are stored in separate directories ./arm64 and ./x64.
-	// We need to make sure both directories are up to date, and otherwise return false.
-	// For non production and non-macOS builds, we only package one extension and therefore only need
-	// to check the main directory
-
-	const isMultiArch = !process.env['VSCODE_DEV'] && process.platform === 'darwin' && extension.metadata?.multiPlatformServiceUrl;
 	const regex = getExtensionFileNameRegex(extension.name);
 
-	if (isMultiArch) {
-		// First, remove all versions of the extension from the main directory
-		const files = fs.readdirSync(bootstrapDir);
-		const matchingFiles = files.filter(f => regex.test(f));
+	const files = fs.readdirSync(bootstrapDir);
+	const matchingFiles = files.filter(f => regex.test(f));
 
-		for (const vsixPath of matchingFiles) {
-			log(`[extensions]`, `Outdated version detected, deleting ${vsixPath}`);
-			fs.unlinkSync(path.join(bootstrapDir, vsixPath));
+	for (const vsixPath of matchingFiles) {
+		try {
+			const match = vsixPath.match(regex);
+			const diskVersion = match ? match[1] : null;
+
+			if (diskVersion !== extension.version) {
+				log(`[extensions]`, `Outdated version detected, deleting ${vsixPath}`);
+				fs.unlinkSync(path.join(bootstrapDir, vsixPath));
+			} else {
+				return true;
+			}
+		} catch (err) {
+			log(`[extensions]`, `Error checking version of ${vsixPath}`, err);
+			return false;
 		}
-
-		// Now check the architecture directories
-		const archDirs = ['arm64', 'x64'];
-		for (const arch of archDirs) {
-			const archDir = path.join(bootstrapDir, arch);
-
-			if (!fs.existsSync(archDir)) {
-				log(`[extensions]`, `Architecture folder ${archDir} does not exist`);
-				return false;
-			}
-
-			const archFiles = fs.readdirSync(archDir);
-			const matchingArchFiles = archFiles.filter(f => regex.test(f));
-
-			if (matchingArchFiles.length === 0) {
-				log(`[extensions]`, `No matching extensions in ${arch} directory`);
-				return false;
-			}
-
-			let archUpToDate = false;
-
-			for (const vsixPath of matchingArchFiles) {
-				try {
-					const match = vsixPath.match(regex);
-					const diskVersion = match ? match[1] : null;
-
-					if (diskVersion !== extension.version) {
-						log(`[extensions]`, `Outdated version detected in ${arch}, deleting ${vsixPath}`);
-						fs.unlinkSync(path.join(archDir, vsixPath));
-					} else {
-						log(`[extensions]`, `Found up-to-date extension in ${arch}: ${vsixPath}`);
-						archUpToDate = true;
-					}
-				} catch (err) {
-					log(`[extensions]`, `Error checking version of ${vsixPath} in ${arch}`, err);
-					return false;
-				}
-			}
-
-			if (!archUpToDate) {
-				return false;
-			}
-		}
-
-		return true;
-	} else {
-		// First, remove from any architecture directories
-		const archDirs = ['arm64', 'x64'];
-		for (const arch of archDirs) {
-			const archDir = path.join(bootstrapDir, arch);
-			if (fs.existsSync(archDir)) {
-				const archFiles = fs.readdirSync(archDir);
-				const matchingArchFiles = archFiles.filter(f => regex.test(f));
-
-				for (const vsixPath of matchingArchFiles) {
-					log(`[extensions]`, `Outdated version detected, deleting ${vsixPath}`);
-					fs.unlinkSync(path.join(archDir, vsixPath));
-				}
-			}
-		}
-
-		// Now check the main directory
-		const files = fs.readdirSync(bootstrapDir);
-		const matchingFiles = files.filter(f => regex.test(f));
-
-		for (const vsixPath of matchingFiles) {
-			try {
-				const match = vsixPath.match(regex);
-				const diskVersion = match ? match[1] : null;
-
-				if (diskVersion !== extension.version) {
-					log(`[extensions]`, `Outdated version detected, deleting ${vsixPath}`);
-					fs.unlinkSync(path.join(bootstrapDir, vsixPath));
-				} else {
-					return true;
-				}
-			} catch (err) {
-				log(`[extensions]`, `Error checking version of ${vsixPath}`, err);
-				return false;
-			}
-		}
-		return false;
 	}
+	return false;
 }
 
 function getExtensionDownloadStream(extension: IExtensionDefinition) {
 	const resourceUrlTemplate = productjson.extensionsGallery?.resourceUrlTemplate;
 	const stream = resourceUrlTemplate ? ext.fromMarketplace(resourceUrlTemplate, extension, true) : ext.fromGithub(extension);
 	return stream.pipe(rename(p => {
-		if (p.basename === 'x64' || p.basename === 'arm64') {
-			p.dirname = path.join(p.dirname || '', p.basename);
-		}
 		p.basename = `${extension.name}-${extension.version}.vsix`;
 	}));
 }
@@ -252,18 +169,6 @@ function writeControlFile(control: IControlFile): void {
 }
 
 export function getBootstrapExtensions(): Promise<void> {
-
-	// Clean up and remove any architecture folders if they exist and aren't necessary
-	if (process.env['VSCODE_DEV'] || process.platform !== 'darwin') {
-		const archDirs = ['arm64', 'x64'];
-		for (const arch of archDirs) {
-			const archDir = path.join(getBootstrapDir(), arch);
-			if (fs.existsSync(archDir)) {
-				log(`[extensions]`, `Removing architecture folder ${archDir}`);
-				rimraf.sync(archDir);
-			}
-		}
-	}
 
 	const control = readControlFile();
 	const streams: Stream[] = [];

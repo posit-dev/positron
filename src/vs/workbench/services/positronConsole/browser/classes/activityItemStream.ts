@@ -1,9 +1,9 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ActivityItem } from './activityItem.js';
+import { ActivityItem, TrimScrollbackResult } from './activityItem.js';
 import { formatOutputLinesForClipboard } from '../utils/clipboardUtils.js';
 import { ANSIOutput, ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
 
@@ -36,11 +36,6 @@ export class ActivityItemStream extends ActivityItem {
 	 */
 	private _ansiOutput = new ANSIOutput();
 
-	/**
-	 * Gets or sets the scrollback size. This is used to truncate the output lines for display.
-	 */
-	private _scrollbackSize?: number;
-
 	//#endregion Private Properties
 
 	//#region Public Properties
@@ -52,13 +47,8 @@ export class ActivityItemStream extends ActivityItem {
 		// Process the activity items streams.
 		this.processActivityItemStreams();
 
-		// If scrollback size is undefined, return all of the output lines.
-		if (this._scrollbackSize === undefined) {
-			return this._ansiOutput.outputLines;
-		}
-
-		// Return the truncated output lines.
-		return this._ansiOutput.truncatedOutputLines(this._scrollbackSize);
+		// Return the output lines.
+		return this._ansiOutput.outputLines;
 	}
 
 	//#endregion Public Properties
@@ -151,33 +141,45 @@ export class ActivityItemStream extends ActivityItem {
 	}
 
 	/**
+	 * Trim scrollback.
+	 * @param scrollbackSize A number representing the scrollback size.
+	 * @returns A TrimScrollbackResult indicating the result of the trim scrollback operation.
+	 */
+	public override trimScrollback(scrollbackSize: number): TrimScrollbackResult {
+		// We should never be called with a scrollback size <= 0.
+		if (scrollbackSize <= 0) {
+			return {
+				trimmed: false,
+				remainingScrollbackSize: 0
+			};
+		}
+
+		// Get the line count. This processes any pending activity item streams.
+		const lineCount = this.outputLines.length;
+
+		// If no trimming is needed, return the remaining scrollback size.
+		if (lineCount <= scrollbackSize) {
+			return {
+				trimmed: false,
+				remainingScrollbackSize: scrollbackSize - lineCount
+			};
+		}
+
+		// Otherwise, drop output lines and report the scrollback as fully consumed.
+		const dropCount = this._ansiOutput.dropTop(lineCount - scrollbackSize);
+		return {
+			trimmed: dropCount > 0,
+			remainingScrollbackSize: 0
+		};
+	}
+
+	/**
 	 * Gets the clipboard representation of the activity item.
 	 * @param commentPrefix The comment prefix to use.
 	 * @returns The clipboard representation of the activity item.
 	 */
 	public override getClipboardRepresentation(commentPrefix: string): string[] {
 		return formatOutputLinesForClipboard(this._ansiOutput.outputLines, commentPrefix);
-	}
-
-	/**
-	 * Optimizes scrollback.
-	 * @param scrollbackSize The scrollback size.
-	 * @returns The remaining scrollback size.
-	 */
-	public override optimizeScrollback(scrollbackSize: number) {
-		// Process the activity items streams.
-		this.processActivityItemStreams();
-
-		// If there are fewer output lines than the scrollback size, clear the scrollback size
-		// as all of them will be displayed, and return the remaining scrollback size.
-		if (this._ansiOutput.outputLines.length <= scrollbackSize) {
-			this._scrollbackSize = undefined;
-			return scrollbackSize - this._ansiOutput.outputLines.length;
-		}
-
-		// Set the scrollback size and return 0
-		this._scrollbackSize = scrollbackSize;
-		return 0;
 	}
 
 	//#endregion Public Methods

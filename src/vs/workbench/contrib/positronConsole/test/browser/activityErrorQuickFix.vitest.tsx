@@ -6,7 +6,8 @@
 /// <reference types="vitest/globals" />
 
 import React from 'react';
-import { fireEvent, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
@@ -14,6 +15,11 @@ import { decodeBase64, VSBuffer } from '../../../../../base/common/buffer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { ConsoleQuickFix } from '../../browser/components/activityErrorQuickFix.js';
+// --- Start Quick Chat fallback ---
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { IQuickChatService } from '../../../../../workbench/contrib/chat/browser/chat.js';
+import { Event } from '../../../../../base/common/event.js';
+// --- End Quick Chat fallback ---
 
 const line = (id: string, text: string): ANSIOutputLine => ({
 	id,
@@ -34,19 +40,35 @@ const decodeDataUri = (uri: string): string => {
 describe('ConsoleQuickFix', () => {
 	const executeCommand = vi.fn().mockResolvedValue(undefined);
 	const notifyError = vi.fn();
+	// --- Start Quick Chat fallback ---
+	const openQuickChat = vi.fn();
+	let sidebarViewEnabled = true;
+	// --- End Quick Chat fallback ---
 
 	const ctx = createTestContainer()
 		.withReactServices()
 		.stub(ICommandService, { executeCommand })
 		.stub(INotificationService, { error: notifyError })
+		// --- Start Quick Chat fallback ---
+		.stub(IQuickChatService, { open: openQuickChat })
+		.stub(IConfigurationService, {
+			getValue: (key: string) => key === 'assistant.sidebarView' ? sidebarViewEnabled : undefined,
+			onDidChangeConfiguration: Event.None,
+		})
+		// --- End Quick Chat fallback ---
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
+	// --- Start Quick Chat fallback ---
+	beforeEach(() => {
+		sidebarViewEnabled = true;
+	});
+	// --- End Quick Chat fallback ---
+
 	it('dispatches posit-assistant.newChat with a fix prompt and the error as a data URI attachment when Fix is clicked', async () => {
-		const { getByText } = rtl.render(
-			<ConsoleQuickFix outputLines={outputLines} tracebackLines={tracebackLines} />
-		);
-		fireEvent.click(getByText('Fix'));
+		const user = userEvent.setup();
+		rtl.render(<ConsoleQuickFix outputLines={outputLines} tracebackLines={tracebackLines} />);
+		await user.click(screen.getByText('Fix'));
 
 		await waitFor(() => expect(executeCommand).toHaveBeenCalledTimes(1));
 		const [cmd, payload] = executeCommand.mock.calls[0];
@@ -62,10 +84,9 @@ describe('ConsoleQuickFix', () => {
 	});
 
 	it('dispatches posit-assistant.newChat with an explain prompt when Explain is clicked', async () => {
-		const { getByText } = rtl.render(
-			<ConsoleQuickFix outputLines={outputLines} tracebackLines={tracebackLines} />
-		);
-		fireEvent.click(getByText('Explain'));
+		const user = userEvent.setup();
+		rtl.render(<ConsoleQuickFix outputLines={outputLines} tracebackLines={tracebackLines} />);
+		await user.click(screen.getByText('Explain'));
 
 		await waitFor(() => expect(executeCommand).toHaveBeenCalledTimes(1));
 		const [, payload] = executeCommand.mock.calls[0];
@@ -75,10 +96,9 @@ describe('ConsoleQuickFix', () => {
 	});
 
 	it('omits the attachment when there is no error output', async () => {
-		const { getByText } = rtl.render(
-			<ConsoleQuickFix outputLines={[]} tracebackLines={[]} />
-		);
-		fireEvent.click(getByText('Fix'));
+		const user = userEvent.setup();
+		rtl.render(<ConsoleQuickFix outputLines={[]} tracebackLines={[]} />);
+		await user.click(screen.getByText('Fix'));
 
 		await waitFor(() => expect(executeCommand).toHaveBeenCalledTimes(1));
 		const [, payload] = executeCommand.mock.calls[0];
@@ -88,12 +108,51 @@ describe('ConsoleQuickFix', () => {
 	it('surfaces a notification when the command throws (extension missing)', async () => {
 		executeCommand.mockRejectedValueOnce(new Error('command not found'));
 
-		const { getByText } = rtl.render(
-			<ConsoleQuickFix outputLines={outputLines} tracebackLines={tracebackLines} />
-		);
-		fireEvent.click(getByText('Fix'));
+		const user = userEvent.setup();
+		rtl.render(<ConsoleQuickFix outputLines={outputLines} tracebackLines={tracebackLines} />);
+		await user.click(screen.getByText('Fix'));
 
 		await waitFor(() => expect(notifyError).toHaveBeenCalledTimes(1));
 		expect(notifyError.mock.calls[0][0]).toMatch(/Posit Assistant is not available/);
 	});
+
+	// --- Start Quick Chat fallback ---
+	describe('with assistant.sidebarView disabled', () => {
+		beforeEach(() => {
+			sidebarViewEnabled = false;
+		});
+
+		it('opens the quick chat with the /fix slash command and fenced error block when Fix is clicked', async () => {
+			const user = userEvent.setup();
+			rtl.render(<ConsoleQuickFix outputLines={outputLines} tracebackLines={tracebackLines} />);
+			await user.click(screen.getByText('Fix'));
+
+			expect(openQuickChat).toHaveBeenCalledTimes(1);
+			const [options] = openQuickChat.mock.calls[0];
+			expect(options.query).toBe(`/fix\n\`\`\`${expectedAttachmentText}\`\`\``);
+			expect(executeCommand).not.toHaveBeenCalled();
+		});
+
+		it('opens the quick chat with the /explain slash command when Explain is clicked', async () => {
+			const user = userEvent.setup();
+			rtl.render(<ConsoleQuickFix outputLines={outputLines} tracebackLines={tracebackLines} />);
+			await user.click(screen.getByText('Explain'));
+
+			expect(openQuickChat).toHaveBeenCalledTimes(1);
+			const [options] = openQuickChat.mock.calls[0];
+			expect(options.query).toBe(`/explain\n\`\`\`${expectedAttachmentText}\`\`\``);
+			expect(executeCommand).not.toHaveBeenCalled();
+		});
+
+		it('opens the quick chat with just the slash command when there is no error output', async () => {
+			const user = userEvent.setup();
+			rtl.render(<ConsoleQuickFix outputLines={[]} tracebackLines={[]} />);
+			await user.click(screen.getByText('Fix'));
+
+			expect(openQuickChat).toHaveBeenCalledTimes(1);
+			const [options] = openQuickChat.mock.calls[0];
+			expect(options.query).toBe('/fix');
+		});
+	});
+	// --- End Quick Chat fallback ---
 });

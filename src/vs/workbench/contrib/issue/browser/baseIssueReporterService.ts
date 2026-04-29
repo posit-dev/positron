@@ -102,7 +102,6 @@ export class BaseIssueReporterService extends Disposable {
 			versionInfo: {
 				// --- Start Positron ---
 				positronVersion: `${product.nameShort} ${product.positronVersion}+${product.positronBuildNumber}`
-					+ `${!!product.darwinUniversalAssetId ? ' (Universal)' : ''}`
 					+ ` (${product.commit || 'Commit unknown'}, ${product.date || 'Date unknown'})`,
 				// Simplified the VS Code version string to just the version number, since the other version info is for Positron
 				// vscodeVersion: `${product.nameShort} ${!!product.darwinUniversalAssetId ? `${product.version} (Universal)` : product.version} (${product.commit || 'Commit unknown'}, ${product.date || 'Date unknown'})`,

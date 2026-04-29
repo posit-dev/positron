@@ -297,6 +297,11 @@ export const VerticalSplitter = ({
 		const clientX = e.clientX;
 		const styleSheet = createStyleSheet(body);
 
+		// Track the last cursor we wrote to the global stylesheet. Rewriting `* { cursor }`
+		// on every pointermove invalidates style on every element in the document, which is
+		// the dominant cost during drag when the document tree is large. Only write on change.
+		let currentCursor: string | undefined = undefined;
+
 		/**
 		 * pointermove event handler.
 		 * @param e A PointerEvent that describes a user interaction with the pointer.
@@ -334,8 +339,11 @@ export const VerticalSplitter = ({
 				cursor = isMacintosh ? 'col-resize' : 'ew-resize';
 			}
 
-			// Set the cursor.
-			if (cursor) {
+			// Set the cursor only when it changes. Writing to the stylesheet invalidates
+			// style on every element matching `*` (the whole document), so this must not
+			// run every pointermove.
+			if (cursor && cursor !== currentCursor) {
+				currentCursor = cursor;
 				styleSheet.textContent = `* { cursor: ${cursor} !important; }`;
 			}
 
