@@ -32,7 +32,9 @@ A test coverage audit the dev has reviewed, with each item carrying an explicit 
 
 ## Workflow
 
-### Step 1. Resolve input -> concrete subject (silent)
+### Step 1. Resolve input -> concrete subject
+
+(No clarifying questions during this step except the one allowed for ambiguous freeform feature areas. Output the one-line summary at the end.)
 
 - **Source file** -> read it directly. Subject = the source file.
 - **Test file** -> read it directly. Subject = the test file. Workflow shifts: skip Step 2; Step 4 is the deliverable.
@@ -50,6 +52,8 @@ Report a one-line summary of what was gathered, including which entry-point shap
 For source-file / branch / PR / feature-area inputs: for each changed file/symbol, list discrete behaviors that merit a test. Skip: pure renames, type-only edits, comment-only changes, trivial glue, config, docs, action-only files, files with reverted changes.
 
 ### Step 3. Classify each behavior into a bucket
+
+(Skip this step if the input is a test file or test directory - there are no enumerated behaviors to classify; go straight to Step 4.)
 
 Read the Testing section of `CLAUDE.md` at the start of every run. It is the single source of truth for the decision table. Apply the table in order; stop at the first match.
 
@@ -188,19 +192,19 @@ Analyzed: <N source files>, <M existing test files>
 - `src/vs/editor/.../anotherUpstream.test.ts` - references `<changed-file>`; asserts `<one-line summary>`. No overlap with proposed coverage.
 
 ### Vitest (Positron unit) - N items
-- `<path>` - Keep (confidence: high). <one-line why>.
+- [1] `<path>` - Keep (confidence: high). <one-line why>.
 
 (Vitest is the pyramid floor for Positron code - no Move-down category.)
 
-#### `<path>` - Move up -> Ext host (confidence: medium) [rare]
+#### [2] `<path>` - Move up -> Ext host (confidence: medium) [rare]
 Stubs `ICommandService`, `IRuntimeSessionService`, `IExtensionService`, `INotificationService`, `IConfigurationService`. Assertions are about end-to-end command dispatch, not the orchestrator's internal state.
 Alternative: rewrite this Vitest with less mocking if the orchestrator's behavior in isolation is what's worth testing. Dev decides.
 
 ### Extension host (Mocha) - N items
 
-- `<path>` - Keep (confidence: high). Uses `vscode.workspace.openTextDocument`, legitimately ext host.
+- [3] `<path>` - Keep (confidence: high). Uses `vscode.workspace.openTextDocument`, legitimately ext host.
 
-#### `<path>` - Move down -> Vitest (confidence: high)
+#### [4] `<path>` - Move down -> Vitest (confidence: high)
 Assertions (all move):
 - L18 `expect(fmt.render(...)).toBe(...)` -> traces to `fmt.render()` - Vitest plain
 
@@ -209,16 +213,16 @@ Original: flag for deletion after replacement verified by dev.
 
 ### E2E (Playwright) - N items
 
-- `<path>` - Keep (confidence: high). Cross-pane workflow (console -> variables -> data explorer).
+- [5] `<path>` - Keep (confidence: high). Cross-pane workflow (console -> variables -> data explorer).
 
-- `editor-action-bar-document-files.test.ts` - Keep (confidence: high). Hypothesis-verification trace:
+- [6] `editor-action-bar-document-files.test.ts` - Keep (confidence: high). Hypothesis-verification trace:
   - "Preview" button -> `markdown-language-features` extension (webview)
   - "Open in viewer" -> `positron-viewer` (webview)
   - "Split editor" -> upstream `editorCommands.ts` (`file-origin: upstream`)
   - "Move into new window" -> `IWindowsMainService` (multi-window)
   Every assertion is e2e-only by construction.
 
-#### `<path>` - Move down -> Vitest (confidence: high, full move)
+#### [7] `<path>` - Move down -> Vitest (confidence: high, full move)
 Assertions (all move):
 - L23 `expect(parser.detect(...)).toBe(...)` -> traces to `clearHandler.detect()` - Vitest plain
 - L41 `expect(consoleState).toBe('cleared')` -> traces to `consoleReducer` - Vitest builder
@@ -226,7 +230,7 @@ Assertions (all move):
 Proposed replacement: Vitest test for `src/vs/.../clearHandler.ts` covering both assertions.
 Original: flag for deletion after replacement verified by dev.
 
-#### `<path>` - Split (confidence: medium)
+#### [8] `<path>` - Split (confidence: medium)
 Assertions that move -> Vitest:
 - L15 `expect(formatter.format(...)).toBe(...)` -> Vitest plain
 Assertions that stay (e2e):
@@ -234,21 +238,21 @@ Assertions that stay (e2e):
 Proposed: draft Vitest for the formatter; trim e2e to the cross-pane subset.
 
 ### Low-confidence flags (FYI, ignore freely) - N items
-- [ext host -> vitest] `<path>` - Move down (confidence: low). Only one weak signal, listed for awareness.
+- [9] [ext host -> vitest] `<path>` - Move down (confidence: low). Only one weak signal, listed for awareness.
 
 ## New coverage needed
 
 ### Vitest (Positron unit) - N items
-- `src/vs/.../<file>.ts` :: <behavior> - Add (confidence: high). <pattern hint: plain / builder / RTL>, <one-line reason>.
+- [10] `src/vs/.../<file>.ts` :: <behavior> - Add (confidence: high). <pattern hint: plain / builder / RTL>, <one-line reason>.
 
 ### Extension host (flag only, no auto-handoff) - N items
-- `extensions/<name>/...` :: <behavior> - Add (confidence: high). <pattern: mirror sibling test in <path>>.
+- [11] `extensions/<name>/...` :: <behavior> - Add (confidence: high). <pattern: mirror sibling test in <path>>.
 
 ### E2E - N items
-- `<user workflow>` - Add (confidence: high). <reason this belongs in e2e>.
+- [12] `<user workflow>` - Add (confidence: high). <reason this belongs in e2e>.
 
 ## Skip
-- `<file>` - Skip (confidence: high). Docs-only / type-only / reverted / upstream / action-only.
+- [13] `<file>` - Skip (confidence: high). Docs-only / type-only / reverted / upstream / action-only.
 
 ---
 
