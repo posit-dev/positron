@@ -8,6 +8,7 @@ import { ContextKeyExpr } from '../../../../../../platform/contextkey/common/con
 import { localize } from '../../../../../../nls.js';
 import { Action2, MenuId, registerAction2 } from '../../../../../../platform/actions/common/actions.js';
 import { ICommandService } from '../../../../../../platform/commands/common/commands.js';
+import { INotificationService, Severity } from '../../../../../../platform/notification/common/notification.js';
 import { ServicesAccessor } from '../../../../../../platform/instantiation/common/instantiation.js';
 import type { PositronNotebookCodeCell } from '../../PositronNotebookCells/PositronNotebookCodeCell.js';
 import type { IInlineDataExplorerActionContext } from '../../notebookCells/InlineDataExplorerActions.js';
@@ -26,7 +27,14 @@ export class VisualizeDataFrameAction extends Action2 {
 			f1: false,
 			menu: {
 				id: MenuId.PositronNotebookInlineDataExplorerHeader,
-				when: ContextKeyExpr.has('positronNotebook.experimental'),
+				// `positronNotebookCellIsCode` is bound only on the cell-scoped
+				// context key service (see useCellContextKeys). Quarto inline data
+				// explorers render with the global service, so this gate hides the
+				// button there -- visualize today only inserts into notebook cells.
+				when: ContextKeyExpr.and(
+					ContextKeyExpr.has('positronNotebook.experimental'),
+					ContextKeyExpr.has('positronNotebookCellIsCode'),
+				),
 				group: 'navigation',
 				order: 10,
 			},
@@ -44,6 +52,7 @@ export class VisualizeDataFrameAction extends Action2 {
 		if (!ctx.cell || !ctx.notebookInstance) { return; }
 
 		const commandService = accessor.get(ICommandService);
+		const notificationService = accessor.get(INotificationService);
 
 		const columns: DataFrameColumn[] = [];
 		for (let i = 0; i < ctx.gridInstance.columns; i++) {
@@ -53,9 +62,12 @@ export class VisualizeDataFrameAction extends Action2 {
 			}
 		}
 
-		const initialDfName = ctx.variablePath && ctx.variablePath.length > 0 && isValidDataFrameExpr(ctx.title)
-			? ctx.title
+		// Prefill from the variable expression that produced the inline grid;
+		// `title` is display-oriented and isn't always a valid Python expression.
+		const candidateDfName = ctx.variablePath && ctx.variablePath.length > 0
+			? ctx.variablePath.join('.')
 			: '';
+		const initialDfName = isValidDataFrameExpr(candidateDfName) ? candidateDfName : '';
 
 		// Fire the LLM suggestion request in parallel with the dialog so the
 		// user sees fields populate without waiting. Cancel if the dialog
@@ -79,7 +91,23 @@ export class VisualizeDataFrameAction extends Action2 {
 			const snippet = generateVizCode(result.answers);
 			// applyVisualizeResult needs the concrete class (model + getTextEditorModel);
 			// the inline data explorer only mounts inside a real notebook so this is safe.
-			await applyVisualizeResult(ctx.notebookInstance, ctx.cell as PositronNotebookCodeCell, snippet, result.mode);
+			try {
+				await applyVisualizeResult(ctx.notebookInstance, ctx.cell as PositronNotebookCodeCell, snippet, result.mode);
+			} catch (err) {
+				// Surface insertion failures (e.g. the cell model couldn't be
+				// resolved) instead of swallowing them silently. The user has
+				// already committed via the modal so a notification is the
+				// right channel for the failure signal.
+				const message = err instanceof Error ? err.message : String(err);
+				notificationService.notify({
+					severity: Severity.Error,
+					message: localize(
+						'positron.notebook.visualize.insertFailed',
+						"Couldn't insert visualization code: {0}",
+						message,
+					),
+				});
+			}
 		} finally {
 			suggestionCts.cancel();
 			suggestionCts.dispose();

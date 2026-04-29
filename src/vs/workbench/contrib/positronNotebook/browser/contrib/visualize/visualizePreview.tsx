@@ -16,6 +16,7 @@ import {
 	RuntimeErrorBehavior,
 } from '../../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { StorageScope, StorageTarget } from '../../../../../../platform/storage/common/storage.js';
+import { VizLibrary } from './generateVizCode.js';
 
 // Workspace-scoped key for the live preview on/off preference. Lives in
 // IStorageService so flipping the toggle does not dirty the notebook file.
@@ -27,6 +28,7 @@ const CLEANUP_TIMEOUT_MS = 15_000;
 type PreviewState =
 	| { status: 'idle' }
 	| { status: 'disabled' }
+	| { status: 'unsupported-library' }
 	| { status: 'no-runtime' }
 	| { status: 'loading' }
 	| { status: 'success'; mime: 'text/html' | 'image/png' | 'image/svg+xml'; data: string }
@@ -37,11 +39,22 @@ interface Props {
 	code: string;
 	/** The notebook's URI, used to find the runtime session. */
 	notebookUri: URI;
+	/**
+	 * Library the user picked. Plotly emits an `application/vnd.plotly.v1+json`
+	 * mime bundle that the simple iframe path here doesn't render, so we
+	 * surface a clear "not supported" state instead of leaving the user on
+	 * "Rendering preview..." until the cleanup timer fires.
+	 */
+	library: VizLibrary;
 }
 
-export function VisualizePreview({ code, notebookUri }: Props) {
+export function VisualizePreview({ code, notebookUri, library }: Props) {
 	const services = usePositronReactServicesContext();
 	const [state, setState] = useState<PreviewState>({ status: 'idle' });
+	// Bumped when a runtime session for `notebookUri` becomes available, so
+	// the main effect re-runs and we transition out of `no-runtime` instead
+	// of staying stuck after a kernel attaches mid-dialog.
+	const [sessionAttachTick, setSessionAttachTick] = useState(0);
 	const latestExecIdRef = useRef<string>('');
 	// Track the in-flight subscription store and its auto-dispose timer so
 	// effect re-runs (rapid edits, code cleared) tear them down immediately
@@ -67,9 +80,29 @@ export function VisualizePreview({ code, notebookUri }: Props) {
 		);
 	};
 
+	// While we don't have a runtime session attached, listen for one starting
+	// against this notebookUri and bump a tick so the main effect re-evaluates.
+	// Doing it in its own effect (rather than reaching into the main effect's
+	// state) keeps the subscription scope independent of debounce/cleanup.
+	useEffect(() => {
+		const disposable = services.runtimeSessionService.onDidStartRuntime((session) => {
+			if (session.metadata.notebookUri?.toString() === notebookUri.toString()) {
+				setSessionAttachTick(t => t + 1);
+			}
+		});
+		return () => disposable.dispose();
+	}, [services.runtimeSessionService, notebookUri]);
+
 	useEffect(() => {
 		if (!enabled) {
 			setState({ status: 'disabled' });
+			return;
+		}
+		if (library === 'plotly') {
+			// Plotly's renderer emits a non-HTML mime bundle that we don't
+			// route through a webview yet. Bail out before scheduling the
+			// kernel run -- the result wouldn't be displayable.
+			setState({ status: 'unsupported-library' });
 			return;
 		}
 		if (!code.trim()) {
@@ -165,7 +198,7 @@ export function VisualizePreview({ code, notebookUri }: Props) {
 			activeDisposablesRef.current = null;
 			latestExecIdRef.current = '';
 		};
-	}, [code, notebookUri, services.runtimeSessionService, enabled]);
+	}, [code, notebookUri, services.runtimeSessionService, enabled, library, sessionAttachTick]);
 
 	return (
 		<div className='visualize-preview'>
@@ -230,6 +263,14 @@ function renderBody(state: PreviewState, onToggle: () => void) {
 					hint={localize('positron.notebook.visualize.preview.noRuntime.hint', 'Start a kernel for this notebook and try again.')}
 					icon='codicon-debug-disconnect'
 					title={localize('positron.notebook.visualize.preview.noRuntime.title', 'No runtime attached')}
+				/>
+			);
+		case 'unsupported-library':
+			return (
+				<PreviewMessage
+					hint={localize('positron.notebook.visualize.preview.unsupportedLibrary.hint', 'Live preview is only available for Matplotlib and Seaborn right now. Inserting still works.')}
+					icon='codicon-info'
+					title={localize('positron.notebook.visualize.preview.unsupportedLibrary.title', 'Preview not available for this library')}
 				/>
 			);
 		case 'loading':

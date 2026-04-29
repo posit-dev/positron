@@ -403,6 +403,7 @@ const VisualizeModalDialog = (props: Props) => {
 						<div className='visualize-split-preview'>
 							<VisualizePreview
 								code={previewReady ? generatedSource : ''}
+								library={library}
 								notebookUri={props.notebookUri}
 							/>
 						</div>
