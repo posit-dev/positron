@@ -197,7 +197,12 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await verifyPlotInNewWindow(app, 'Python', pythonDynamicPlot);
 		});
 
-		test('Python - Verify saving a Python plot', { tag: [tags.WIN, tags.CRITICAL] }, async function ({ app }) {
+		test.skip('Python - Verify saving a Python plot', {
+			annotation: {
+				type: 'issue', description: 'https://github.com/posit-dev/positron/issues/13066'
+			},
+			tag: [tags.WIN, tags.CRITICAL]
+		}, async function ({ app }) {
 			await test.step('Sending code to console to create plot', async () => {
 				await app.workbench.console.executeCode('Python', pythonDynamicPlot);
 				await app.workbench.plots.waitForCurrentPlot();
