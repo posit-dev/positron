@@ -5,6 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
+import { mainWindow } from '../../../../../base/browser/window.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { startScrollRestorationLoop } from '../../browser/scrollRestorationLoop.js';
 
@@ -37,8 +38,8 @@ describe('startScrollRestorationLoop', () => {
 
 		container.remove();
 
-		await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
-		await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+		await new Promise<void>(resolve => mainWindow.requestAnimationFrame(() => resolve()));
+		await new Promise<void>(resolve => mainWindow.requestAnimationFrame(() => resolve()));
 
 		const writesBefore = container.scrollTop;
 		await new Promise<void>(resolve => setTimeout(resolve, 50));
