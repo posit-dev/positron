@@ -83,6 +83,7 @@ function makeManager(opts: IManagerOptions): IRuntimeManager {
 	return {
 		id: opts.id,
 		discoverAllRuntimes: async () => { /* no-op for unit test */ },
+		markDiscoveryComplete: () => { /* no-op for unit test */ },
 		recommendWorkspaceRuntimes: async () => [],
 		managesRuntime: async (metadata) => ownsByPath.has(metadata.runtimePath),
 		validateMetadata: async (m) => m,

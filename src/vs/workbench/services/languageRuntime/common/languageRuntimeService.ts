@@ -970,6 +970,16 @@ export interface IRuntimeManager {
 	discoverAllRuntimes(disabledLanguageIds: string[]): Promise<void>;
 
 	/**
+	 * Mark the manager's discovery-complete flag without running a real
+	 * enumeration. Used by the warm-start fast path: the discovery cache
+	 * already satisfied every bucket, so no manager needs to enumerate, but
+	 * the ext host still needs to know that initial discovery is over so
+	 * runtime managers registered later (via `registerLanguageRuntimeManager`)
+	 * self-trigger their own discovery.
+	 */
+	markDiscoveryComplete(): void;
+
+	/**
 	 * Recommend runtimes for this specific workspace.
 	 *
 	 * @param disabledLanguageIds Languages for which no recommendations should

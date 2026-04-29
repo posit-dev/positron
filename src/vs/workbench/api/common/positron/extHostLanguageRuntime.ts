@@ -1037,6 +1037,18 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	}
 
 	/**
+	 * Set the discovery-complete flag without running an enumeration. Called
+	 * by the main thread on the warm-start fast path, where the discovery
+	 * cache has satisfied every manager and no real enumeration is needed.
+	 * Without this, late-registered runtime managers (those registered via
+	 * `registerLanguageRuntimeManager` after initial discovery) would never
+	 * see the flag flip and so would never self-discover.
+	 */
+	public $markRuntimeDiscoveryComplete(): void {
+		this._runtimeDiscoveryComplete = true;
+	}
+
+	/**
 	 * Notifies the extension host that the foreground session has changed.
 	 * This is forwarding the event from the main thread to the extension host.
 	 *

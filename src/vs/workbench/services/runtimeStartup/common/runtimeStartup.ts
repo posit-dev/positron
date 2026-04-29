@@ -981,9 +981,15 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		if (managersNeedingFullDiscovery.length === 0) {
 			// Warm-start fast path. No manager has any work to do; transition
 			// straight to Complete. Mark every ext host's discovery flag true
-			// so the next rediscover invocation isn't fighting stale state.
+			// so the next rediscover invocation isn't fighting stale state, and
+			// signal each ext host that initial discovery is over so any
+			// runtime manager registered later (via the public
+			// `registerLanguageRuntimeManager` API) self-triggers its own
+			// discovery -- the IIFE inside the ext host is gated on a flag
+			// that, without this signal, would never flip on a warm start.
 			for (const manager of this._runtimeManagers) {
 				this._discoveryCompleteByExtHostId.set(manager.id, true);
+				manager.markDiscoveryComplete();
 			}
 			this.setStartupPhase(RuntimeStartupPhase.Complete);
 		} else {

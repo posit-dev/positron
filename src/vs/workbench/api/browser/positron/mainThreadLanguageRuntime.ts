@@ -1641,6 +1641,17 @@ export class MainThreadLanguageRuntime
 	}
 
 	/**
+	 * Tell the extension host that initial discovery is over without asking
+	 * it to enumerate. Used by the warm-start fast path in
+	 * `RuntimeStartupService.discoverAllRuntimes`.
+	 *
+	 * (part of implementation of IRuntimeManager)
+	 */
+	markDiscoveryComplete(): void {
+		this._proxy.$markRuntimeDiscoveryComplete();
+	}
+
+	/**
 	 * Return a list of runtimes that are recommended for the current workspace.
 	 *
 	 * (part of implementation of IRuntimeManager)
