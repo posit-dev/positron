@@ -80,6 +80,7 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			default: true,
 			scope: ConfigurationScope.APPLICATION,
 			description: nls.localize('positron.environments.enable', 'Show the Packages pane.'),
+			tags: ['preview'],
 		}
 	}
 });
