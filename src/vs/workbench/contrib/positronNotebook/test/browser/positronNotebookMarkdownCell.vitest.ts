@@ -7,9 +7,15 @@
 
 import { ISettableObservable } from '../../../../../base/common/observable.js';
 import { assertDefined } from '../../../../../base/common/types.js';
+import { MenuId } from '../../../../../platform/actions/common/actions.js';
+import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
+import { IPositronNotebookInstance } from '../../browser/IPositronNotebookInstance.js';
+import { OpenMarkdownEditorAction, ViewMarkdownAction } from '../../browser/positronNotebook.contribution.js';
 import { IPositronNotebookMarkdownCell } from '../../browser/PositronNotebookCells/IPositronNotebookCell.js';
+import { PositronNotebookMarkdownCell } from '../../browser/PositronNotebookCells/PositronNotebookMarkdownCell.js';
+import { CellSelectionType } from '../../browser/selectionMachine.js';
 import { createTestPositronNotebookInstance } from './testPositronNotebookInstance.js';
 
 describe('PositronNotebookMarkdownCell', () => {
@@ -99,6 +105,80 @@ describe('PositronNotebookMarkdownCell', () => {
 			await cell.toggleEditor();
 
 			expect(enterEditorSpy).toHaveBeenCalledWith(cell);
+		});
+	});
+
+	describe('Action wiring (markdown editor toggle)', () => {
+		// Test-only subclasses expose the protected runNotebookAction so the
+		// action body can be invoked without standing up an active editor pane.
+		class TestableOpenMarkdownEditorAction extends OpenMarkdownEditorAction {
+			public testRun(notebook: IPositronNotebookInstance, accessor: ServicesAccessor) {
+				return this.runNotebookAction(notebook, accessor);
+			}
+		}
+		class TestableViewMarkdownAction extends ViewMarkdownAction {
+			public testRun(notebook: IPositronNotebookInstance, accessor: ServicesAccessor) {
+				return this.runNotebookAction(notebook, accessor);
+			}
+		}
+
+		const unusedAccessor: ServicesAccessor = {
+			get() { throw new Error('ServicesAccessor must not be used in this action test'); },
+		};
+
+		it('OpenMarkdownEditorAction declares its action-bar binding', () => {
+			const action = new OpenMarkdownEditorAction();
+			expect(action.desc.id).toBe('positronNotebook.cell.openMarkdownEditor');
+			expect(action.desc.menu).toMatchObject({ id: MenuId.PositronNotebookCellActionBarLeft });
+		});
+
+		it('ViewMarkdownAction declares its action-bar binding', () => {
+			const action = new ViewMarkdownAction();
+			expect(action.desc.id).toBe('positronNotebook.cell.viewMarkdown');
+			expect(action.desc.menu).toMatchObject({ id: MenuId.PositronNotebookCellActionBarLeft });
+		});
+
+		it('OpenMarkdownEditorAction.runNotebookAction calls toggleEditor on the active markdown cell', () => {
+			const notebook = createTestPositronNotebookInstance([
+				['# Heading', 'markdown', CellKind.Markup],
+			], ctx);
+			const cell = getMarkdownCell(notebook, 0);
+			notebook.selectionStateMachine.selectCell(cell, CellSelectionType.Normal);
+			// vi.spyOn refuses readonly methods on interfaces; the concrete class
+			// guarded by toBeInstanceOf inside getMarkdownCell makes this safe.
+			const toggleEditorSpy = vi.spyOn(cell as PositronNotebookMarkdownCell, 'toggleEditor')
+				.mockResolvedValue(undefined);
+
+			new TestableOpenMarkdownEditorAction().testRun(notebook, unusedAccessor);
+
+			expect(toggleEditorSpy).toHaveBeenCalledTimes(1);
+		});
+
+		it('ViewMarkdownAction.runNotebookAction calls toggleEditor on the active markdown cell', () => {
+			const notebook = createTestPositronNotebookInstance([
+				['# Heading', 'markdown', CellKind.Markup],
+			], ctx);
+			const cell = getMarkdownCell(notebook, 0);
+			notebook.selectionStateMachine.selectCell(cell, CellSelectionType.Normal);
+			const toggleEditorSpy = vi.spyOn(cell as PositronNotebookMarkdownCell, 'toggleEditor')
+				.mockResolvedValue(undefined);
+
+			new TestableViewMarkdownAction().testRun(notebook, unusedAccessor);
+
+			expect(toggleEditorSpy).toHaveBeenCalledTimes(1);
+		});
+
+		it('OpenMarkdownEditorAction is a no-op when the active cell is not a markdown cell', () => {
+			// Both actions share the `if (cell && cell.isMarkdownCell())` guard,
+			// so testing one covers both negative paths.
+			const notebook = createTestPositronNotebookInstance([
+				['print("hi")', 'python', CellKind.Code],
+			], ctx);
+			const codeCell = notebook.cells.get()[0];
+			assertDefined(codeCell, 'cell at index 0');
+			notebook.selectionStateMachine.selectCell(codeCell, CellSelectionType.Normal);
+
+			expect(() => new TestableOpenMarkdownEditorAction().testRun(notebook, unusedAccessor)).not.toThrow();
 		});
 	});
 });

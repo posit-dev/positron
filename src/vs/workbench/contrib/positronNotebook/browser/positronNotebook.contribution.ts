@@ -993,7 +993,7 @@ registerAction2(class extends NotebookAction2 {
 });
 
 // Open markdown editor (For action bar)
-registerAction2(class extends NotebookAction2 {
+export class OpenMarkdownEditorAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.openMarkdownEditor',
@@ -1019,7 +1019,8 @@ registerAction2(class extends NotebookAction2 {
 			cell.toggleEditor();
 		}
 	}
-});
+}
+registerAction2(OpenMarkdownEditorAction);
 
 /**
  * View markdown (For action bar)
@@ -1029,7 +1030,7 @@ registerAction2(class extends NotebookAction2 {
  * action bar. We should keep both commands in sync to
  * ensure consistent behavior.
  */
-registerAction2(class extends NotebookAction2 {
+export class ViewMarkdownAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.viewMarkdown',
@@ -1055,7 +1056,8 @@ registerAction2(class extends NotebookAction2 {
 			cell.toggleEditor();
 		}
 	}
-});
+}
+registerAction2(ViewMarkdownAction);
 
 
 // Keyboard shortcut commands. These are not shown in the action bar.
