@@ -151,4 +151,43 @@ describe('VisualizeDataFrameAction', () => {
 			expect.anything(),
 		);
 	});
+
+	describe('dataframe prefill', () => {
+		// Capture what the action passes to the dialog as `initialDfName`
+		// without depending on its exact argument index.
+		function getInitialDfName(): string {
+			const call = mockShowVisualizeModalDialog.mock.calls[0];
+			return call[0] as string;
+		}
+
+		beforeEach(() => {
+			mockShowVisualizeModalDialog.mockResolvedValue(undefined);
+		});
+
+		it('prefers a valid single-segment variablePath over a different valid title', async () => {
+			// Display title is syntactically valid but points at a different
+			// object; source-path metadata is authoritative.
+			await run(buildContext({ title: 'main', variablePath: ['df'] }));
+
+			expect(getInitialDfName()).toBe('df');
+		});
+
+		it('leaves prefill empty for multi-segment variablePath even when title is valid', async () => {
+			await run(buildContext({ title: 'main', variablePath: ['frames', 'main'] }));
+
+			expect(getInitialDfName()).toBe('');
+		});
+
+		it('falls back to title when variablePath is missing and title is valid', async () => {
+			await run(buildContext({ title: 'df', variablePath: undefined }));
+
+			expect(getInitialDfName()).toBe('df');
+		});
+
+		it('leaves prefill empty when neither variablePath nor a valid title is available', async () => {
+			await run(buildContext({ title: 'data (1000 rows)', variablePath: undefined }));
+
+			expect(getInitialDfName()).toBe('');
+		});
+	});
 });

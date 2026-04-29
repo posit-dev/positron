@@ -62,21 +62,23 @@ export class VisualizeDataFrameAction extends Action2 {
 			}
 		}
 
-		// Pick a Python-valid prefill for the dataframe field. `title` from the
-		// inline grid metadata is usually the variable name itself for top-level
-		// frames (e.g. "df"), so try it first. Fall back to a single-segment
-		// `variablePath` for the case where the kernel set a display-only title
-		// but still tagged the source variable. We deliberately don't synthesize
-		// from multi-segment paths -- they're runtime access keys (dict/list
-		// indices, attribute lookups), not Python syntax, and joining them with
-		// "." would generate code that targets the wrong object.
-		let candidateDfName = '';
-		if (isValidDataFrameExpr(ctx.title)) {
-			candidateDfName = ctx.title;
-		} else if (ctx.variablePath && ctx.variablePath.length === 1 && isValidDataFrameExpr(ctx.variablePath[0])) {
-			candidateDfName = ctx.variablePath[0];
+		// Prefer source-path metadata over display title for the dataframe
+		// prefill. `variablePath` identifies the actual variable behind the
+		// inline grid, while `title` is display-oriented and can be valid Python
+		// but point at a different object. Only single-segment paths are usable
+		// as Python expressions; multi-segment paths are runtime access keys
+		// (dict/list indices, attribute lookups) that we can't reconstruct
+		// safely, so we leave the field empty rather than fall back to title in
+		// that case -- the source-path metadata told us we don't have a valid
+		// expression.
+		let initialDfName = '';
+		if (ctx.variablePath && ctx.variablePath.length > 0) {
+			if (ctx.variablePath.length === 1 && isValidDataFrameExpr(ctx.variablePath[0])) {
+				initialDfName = ctx.variablePath[0];
+			}
+		} else if (isValidDataFrameExpr(ctx.title)) {
+			initialDfName = ctx.title;
 		}
-		const initialDfName = candidateDfName;
 
 		// Fire the LLM suggestion request in parallel with the dialog so the
 		// user sees fields populate without waiting. Cancel if the dialog
