@@ -340,6 +340,171 @@ describe('PositronNotebookInstance.copy/cut/paste*', () => {
 			]);
 		});
 
+		it('cut from middle leaves leading and trailing cells intact and preserves cell kinds', () => {
+			const notebook = createTestPositronNotebookInstance([
+				['# Cell 0', 'python', CellKind.Code],
+				['# Cell 1', 'python', CellKind.Code],
+				['### Cell 2', 'markdown', CellKind.Markup],
+				['### Cell 3', 'markdown', CellKind.Markup],
+				['# Cell 4', 'python', CellKind.Code],
+			], ctx);
+			const cellsBefore = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cellsBefore[1], CellSelectionType.Normal);
+			notebook.selectionStateMachine.selectCell(cellsBefore[2], CellSelectionType.Add);
+			notebook.selectionStateMachine.selectCell(cellsBefore[3], CellSelectionType.Add);
+
+			notebook.cutCells();
+			expect(notebook.cells.get().map(c => c.getContent())).toEqual([
+				'# Cell 0',
+				'# Cell 4',
+			]);
+
+			const cellsAfterCut = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cellsAfterCut[1], CellSelectionType.Normal);
+			notebook.pasteCells();
+
+			const cellsAfter = notebook.cells.get();
+			expect(cellsAfter.map(c => c.getContent())).toEqual([
+				'# Cell 0',
+				'# Cell 4',
+				'# Cell 1',
+				'### Cell 2',
+				'### Cell 3',
+			]);
+			expect(cellsAfter.map(c => c.kind)).toEqual([
+				CellKind.Code,
+				CellKind.Code,
+				CellKind.Code,
+				CellKind.Markup,
+				CellKind.Markup,
+			]);
+		});
+
+		it('cut from end leaves leading cells intact and pastes after the first remaining cell', () => {
+			const notebook = createLabelledTestNotebook(5, ctx);
+			const cellsBefore = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cellsBefore[2], CellSelectionType.Normal);
+			notebook.selectionStateMachine.selectCell(cellsBefore[3], CellSelectionType.Add);
+			notebook.selectionStateMachine.selectCell(cellsBefore[4], CellSelectionType.Add);
+
+			notebook.cutCells();
+			expect(notebook.cells.get().map(c => c.getContent())).toEqual(['A', 'B']);
+
+			const cellsAfterCut = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cellsAfterCut[0], CellSelectionType.Normal);
+			notebook.pasteCells();
+
+			expect(notebook.cells.get().map(c => c.getContent())).toEqual([
+				'A',
+				'C',
+				'D',
+				'E',
+				'B',
+			]);
+		});
+
+		it('second multi-cell cut/paste operates on state from first', () => {
+			const notebook = createLabelledTestNotebook(6, ctx);
+
+			const cellsBefore = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cellsBefore[1], CellSelectionType.Normal);
+			notebook.selectionStateMachine.selectCell(cellsBefore[2], CellSelectionType.Add);
+			notebook.cutCells();
+
+			const cellsAfterFirstCut = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cellsAfterFirstCut[3], CellSelectionType.Normal);
+			notebook.pasteCells();
+			expect(notebook.cells.get().map(c => c.getContent())).toEqual([
+				'A', 'D', 'E', 'F', 'B', 'C',
+			]);
+
+			const cellsAfterFirstPaste = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cellsAfterFirstPaste[0], CellSelectionType.Normal);
+			notebook.selectionStateMachine.selectCell(cellsAfterFirstPaste[1], CellSelectionType.Add);
+			notebook.cutCells();
+
+			const cellsAfterSecondCut = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cellsAfterSecondCut[1], CellSelectionType.Normal);
+			notebook.pasteCells();
+			expect(notebook.cells.get().map(c => c.getContent())).toEqual([
+				'E', 'F', 'A', 'D', 'B', 'C',
+			]);
+		});
+	});
+
+	describe('Multi-cell cut/paste undo/redo', () => {
+		it('undo restores cells removed by multi-select cut', async () => {
+			const notebook = createLabelledTestNotebook(5, ctx);
+			const cellsBefore = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cellsBefore[1], CellSelectionType.Normal);
+			notebook.selectionStateMachine.selectCell(cellsBefore[2], CellSelectionType.Add);
+			notebook.selectionStateMachine.selectCell(cellsBefore[3], CellSelectionType.Add);
+			notebook.cutCells();
+			expect(notebook.cells.get().length).toBe(2);
+
+			await ctx.get(IUndoRedoService).undo(notebook.uri);
+
+			expect(notebook.cells.get().map(c => c.getContent())).toEqual([
+				'A', 'B', 'C', 'D', 'E',
+			]);
+		});
+
+		it('redo re-applies multi-select cut after undo', async () => {
+			const notebook = createLabelledTestNotebook(5, ctx);
+			const cellsBefore = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cellsBefore[1], CellSelectionType.Normal);
+			notebook.selectionStateMachine.selectCell(cellsBefore[2], CellSelectionType.Add);
+			notebook.selectionStateMachine.selectCell(cellsBefore[3], CellSelectionType.Add);
+			notebook.cutCells();
+			const undoRedo = ctx.get(IUndoRedoService);
+			await undoRedo.undo(notebook.uri);
+			expect(notebook.cells.get().map(c => c.getContent())).toEqual([
+				'A', 'B', 'C', 'D', 'E',
+			]);
+
+			await undoRedo.redo(notebook.uri);
+
+			expect(notebook.cells.get().map(c => c.getContent())).toEqual(['A', 'E']);
+		});
+
+		it('undo of paste after multi-select cut leaves notebook in cut state', async () => {
+			const notebook = createLabelledTestNotebook(5, ctx);
+			const cellsBefore = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cellsBefore[1], CellSelectionType.Normal);
+			notebook.selectionStateMachine.selectCell(cellsBefore[2], CellSelectionType.Add);
+			notebook.selectionStateMachine.selectCell(cellsBefore[3], CellSelectionType.Add);
+			notebook.cutCells();
+			const cellsAfterCut = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cellsAfterCut[0], CellSelectionType.Normal);
+			notebook.pasteCells();
+			expect(notebook.cells.get().length).toBe(5);
+
+			await ctx.get(IUndoRedoService).undo(notebook.uri);
+
+			expect(notebook.cells.get().map(c => c.getContent())).toEqual(['A', 'E']);
+		});
+
+		it('redo re-applies multi-select paste after undo', async () => {
+			const notebook = createLabelledTestNotebook(5, ctx);
+			const cellsBefore = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cellsBefore[1], CellSelectionType.Normal);
+			notebook.selectionStateMachine.selectCell(cellsBefore[2], CellSelectionType.Add);
+			notebook.selectionStateMachine.selectCell(cellsBefore[3], CellSelectionType.Add);
+			notebook.cutCells();
+			const cellsAfterCut = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cellsAfterCut[0], CellSelectionType.Normal);
+			notebook.pasteCells();
+			const undoRedo = ctx.get(IUndoRedoService);
+			await undoRedo.undo(notebook.uri);
+			expect(notebook.cells.get().map(c => c.getContent())).toEqual(['A', 'E']);
+
+			await undoRedo.redo(notebook.uri);
+
+			expect(notebook.cells.get().map(c => c.getContent())).toEqual([
+				'A', 'B', 'C', 'D', 'E',
+			]);
+		});
+
 		it('cut-all then paste-into-empty then undo then redo preserves cell kinds and content', async () => {
 			const notebook = createTestPositronNotebookInstance([
 				['# Cell 0', 'python', CellKind.Code],
