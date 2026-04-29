@@ -106,8 +106,8 @@ If any check hits, set verdict = `Keep` with `confidence: high` and record the o
 **Cluster-detection rule for anonymous action classes.** When a trace lands on an anonymous `registerAction2(class extends Action2 { ... })` block (no exported class name), do NOT stop at the single class the e2e exercises. Grep the same file for ALL `registerAction2` calls and identify sibling anonymous actions with the same shape (same MenuId, same ID prefix, same group). All siblings share the same coverage gap; surface them as a single Add cluster, not just the ones the e2e happened to hit. Example: an e2e exercising `insertCodeCellAbove` should cause the skill to enumerate `insertCodeCellAbove`, `insertCodeCellBelow`, `insertMarkdownCellAbove`, `insertMarkdownCellBelow`, `insertRawCellAbove`, `insertRawCellBelow` if they are registered in the same file with the same pattern. The Add verdict's "What changes" line should mention the cluster ("promote 6 anonymous Insert{Code,Markdown,Raw}Cell{Above,Below} actions to named exports + add wiring vitests"), not just the single action.
 
 **Report-side wording (do NOT use "4B-verify" in the user-facing report):**
-- For `Keep` verdicts produced by ownership check: label the section **"Why it stays:"** and write **one summary line** describing where ownership lands (e.g., *"8 assertions, all owned by markdown-language-features (webview)"*). Show full per-assertion trace only if the dev replies `expand <N>`.
-- For `Move down` / `Split` / `Move up` verdicts: label the section **"Trace:"** and show the per-assertion enumeration in full. The dev needs the detail to judge the move.
+- For `Keep` verdicts (whether produced by ownership check or anything else): the at-a-glance table's `Why` column carries the entire treatment - ONE short phrase per row (e.g., *"popup menu UI not happy-dom-friendly"*, *"already covered in notebookDelete.vitest.ts"*). NO per-item block below the table. Only render a per-item block for a Keep verdict if the dev explicitly replies `details N`.
+- For `Move down` / `Split` / `Move up` verdicts: render a per-item block. Label the trace section **"Trace:"** and show the per-assertion enumeration (compressed: 2 representatives + tail).
 
 Why: source-pattern matching produces false positives - `MenuId.X` mentions in a Positron source file do not necessarily correspond to the buttons the e2e clicks. Ownership verification turns the most common Partial-overlap mistake into a correct `Keep` verdict.
 
@@ -217,40 +217,31 @@ Example: *3 items audited. Recommendation: move down 2 to Vitest (medium confide
 
 (Use the test-file's basename + describe/it scenario as the row label so the table stays scannable. Long full paths belong only in the per-item detail below.)
 
-After the table, only **action items** (`Move down` / `Move up` / `Split` / `Add`) need a per-item display. `Keep` / `Skip` / `Delete` verdicts are conveyed by the table alone and auto-approved; the dev can `details N` if they want to challenge one. Display mode for action items depends on count (Step 5 governs this):
-- 1-2 action items -> inline-dump (show all; one gate question at the end).
-- 3+ action items -> step-through (one item per turn).
+**HARD RULE:** After the table, ONLY action items (`Move down` / `Move up` / `Split` / `Add`) appear in per-item form. **`Keep`, `Skip`, and `Delete` verdicts NEVER get a per-item block.** They live in the at-a-glance table — the `Why` column is their entire treatment. Do not render them again below. The dev can reply `details N` if they want to challenge one specifically.
+
+Display mode for action items (Step 5 governs):
+- 1-2 action items -> inline-dump (show those action items only; one gate question at the end).
+- 3+ action items -> step-through (one action item per turn, trace hidden).
 
 ## Existing coverage
 
 ### Core Mocha (upstream, awareness only, read-only) - N items
-- `src/vs/platform/.../someUpstreamThing.test.ts` - references `<changed-file>`; asserts `<one-line summary>`. **Overlaps** with proposed Vitest item #7 (`detects \f trigger`). Dev decides whether the Vitest test is still needed.
+
+(Awareness-only one-line bullets; never per-item blocks.)
+
+- `src/vs/platform/.../someUpstreamThing.test.ts` - references `<changed-file>`; asserts `<one-line summary>`. **Overlaps** with proposed Vitest item #4. Dev decides whether the Vitest test is still needed.
 - `src/vs/editor/.../anotherUpstream.test.ts` - references `<changed-file>`; asserts `<one-line summary>`. No overlap with proposed coverage.
 
-Each item below uses the same compact layout. Path on its own line, verdict on the next, then sub-detail. Items are separated by `---` for scannability.
+### Action items (per-item blocks below)
 
-### Vitest (Positron unit) - N items
+The per-item blocks follow the compact layout: path on line 1, `**Verdict:**` on line 2, then `**Why:**` / `**Trace:**` / `**Moves to Vitest:** + **Stays in e2e:**` per verdict, then `**What changes:**`. Items separated by `---`. The numbered IDs (`[1]`, `[2]`, ...) cover ALL items in the at-a-glance table; per-item blocks below skip the IDs assigned to Keep / Skip / Delete verdicts.
 
-**[1]** `<path>`
-**Verdict:** Keep (confidence: high)
-**Why it stays:** <one-line reason>
+Example of the per-item layouts (only verdicts that get a block — `Move down`, `Move up`, `Split`, `Add`):
 
----
-
-(Vitest is the pyramid floor for Positron code - no Move-down category.)
-
-**[2]** `<path>`
+**[2]** `src/vs/.../<path>`
 **Verdict:** Move up -> Ext host (confidence: medium) [rare]
-**Why:** Stubs 5+ fundamental services; assertions are about cross-service dispatch, not the unit's own outputs.
+**Why:** stubs 5+ fundamental services; assertions are about cross-service dispatch, not the unit's own outputs.
 **Alternative:** rewrite this Vitest with less mocking if orchestrator-in-isolation is what's worth testing.
-
----
-
-### Extension host (Mocha) - N items
-
-**[3]** `<path>`
-**Verdict:** Keep (confidence: high)
-**Why it stays:** uses `vscode.workspace.openTextDocument`, legitimately ext host.
 
 ---
 
@@ -258,21 +249,7 @@ Each item below uses the same compact layout. Path on its own line, verdict on t
 **Verdict:** Move down -> Vitest (confidence: high)
 **Trace** (1 of 1 shown):
 - L18 expect(fmt.render(...)) -> `fmt.render()` (Vitest plain)
-**What changes:** add Vitest test for `src/vs/.../fmt.ts`; delete original ext-host test after replacement verified.
-
----
-
-### E2E (Playwright) - N items
-
-**[5]** `<path>`
-**Verdict:** Keep (confidence: high)
-**Why it stays:** cross-pane workflow (console -> variables -> data explorer).
-
----
-
-**[6]** `editor-action-bar-document-files.test.ts`
-**Verdict:** Keep (confidence: high)
-**Why it stays:** 4 helpers, all owned by webview / upstream / multi-window code. (Reply `expand 6` for full trace.)
+**What changes:** add Vitest test for `src/vs/.../fmt.ts`; delete original after replacement verified by dev.
 
 ---
 
@@ -374,15 +351,17 @@ Each item below uses the same compact layout. Path on its own line, verdict on t
 - `Keep` / `Skip` / `Delete` verdicts are NEVER shown in per-item form by default — the table conveys them. The dev can request `details N` for one of them if they want to challenge it.
 - Dev can override mode with `dump all` or `step through` at any point. `dump all` from step-through mode shows the remaining items inline with full trace; `step through` from inline-dump returns to one-per-turn (trace-hidden).
 
-**Per-item layout:**
-- Each item uses bold `**[N]**` + path on line 1, then `**Verdict:**`, then ONE of `**Why it stays:**` / `**Why:**` / `**Trace:**`, then `**What changes:**` (for Move/Split/Add). Items are separated by `---`.
+**Per-item layout (action items only):**
+- ONLY action items (`Move down`, `Move up`, `Split`, `Add`) get per-item blocks. **`Keep`, `Skip`, `Delete` are table-only — never rendered per-item. The at-a-glance `Why` column is their entire treatment.**
+- Each per-item block uses bold `**[N]**` + path on line 1, then `**Verdict:**`, then ONE of `**Why:**` / `**Trace:**` / `**Moves to Vitest:**` + `**Stays in e2e:**`, then `**What changes:**`. Items separated by `---`.
 - Long source paths go on their own line (`**[N]** `path``), NEVER in an H3 header. Keep H3s at the section level (Vitest / Extension host / E2E), not per-item.
 - Line-number references (`L23`) only when the test file has actually been read.
 - Paths are project-relative, no leading `./`.
-- Every item carries an explicit verdict (`Keep` / `Move down` / `Move up` / `Split` / `Add` / `Delete` / `Skip`) and a confidence band (`high` / `medium` / `low`). No verdict-less items.
+- Every row in the at-a-glance table carries an explicit verdict (`Keep` / `Move down` / `Move up` / `Split` / `Add` / `Delete` / `Skip`) and a confidence band (`high` / `medium` / `low`). No verdict-less rows.
 
-**Trace compression (the load-bearing readability rule):**
-- **`Keep` verdicts produced by ownership check:** show ONE summary line under `**Why it stays:**` describing where ownership lands (e.g., *"4 helpers, all owned by webview / upstream / multi-window code"*). Do NOT enumerate per-assertion. End with `(Reply `expand <N>` for full trace.)`.
+**If the dev replies `details N` on a Keep verdict:** re-render that item with the full hypothesis-verification trace (the per-helper ownership trace from 4B-verify). This is the ONLY case where a Keep gets a per-item block.
+
+**Trace compression (load-bearing readability rule for action items):**
 - **`Move down` / `Move up` / `Add` (with traces):** show at most **2 representative assertions** under `**Trace:**`, then a tail line: *"... and N more, all hitting <shared-layer-description>"*. Always end the trace block with `(2 of M shown; reply `expand <N>` for full)` if M > 2.
 - **`Split`:** keep the bifurcated `**Moves to Vitest:**` / `**Stays in e2e:**` structure, but apply the same 2-assertion compression to each side.
 - **`Add`** items with no existing trace: just show `**Why:**` (one line). No trace block.
