@@ -951,6 +951,11 @@
         "managementCommand": "positron-assistant.configureProviders"
       },
       {
+        "vendor": "deepseek",
+        "displayName": "DeepSeek",
+        "managementCommand": "positron-assistant.configureProviders"
+      },
+      {
         "vendor": "google",
         "displayName": "Gemini Code Assist",
         "managementCommand": "positron-assistant.configureProviders"
