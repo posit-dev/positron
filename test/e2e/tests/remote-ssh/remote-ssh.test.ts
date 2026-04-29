@@ -153,12 +153,13 @@ test.describe('Remote SSH', {
 
 			await sshWorkbench.editors.newUntitledFile();
 			await sshWorkbench.editor.selectTabAndType(fileName, flaskAppCode);
-			await sshWin.keyboard.press('Enter');
 
 			await sshWorkbench.topActionBar.saveButton.click();
 
 			await sshWorkbench.quickInput.waitForQuickInputOpened();
-			await sshWin.keyboard.press('Backspace'); // clear any pre-filled text
+			// Clear any pre-filled text deterministically (single Backspace only deletes one char)
+			await sshWorkbench.hotKeys.selectAll();
+			await sshWin.keyboard.press('Delete');
 			await sshWorkbench.quickInput.type('test.py');
 
 			await expect(async () => {
@@ -166,7 +167,7 @@ test.describe('Remote SSH', {
 				await sshWorkbench.quickInput.waitForQuickInputClosed();
 			}).toPass({ timeout: 60000 });
 
-			await sshWin.waitForTimeout(3000); // wait for file to be saved
+			await sshWorkbench.editors.waitForTab('test.py', false);
 
 			await sshWorkbench.editor.pressPlay();
 
@@ -191,8 +192,8 @@ app = Flask(__name__)
 
 @app.route('/')
 def hello():
-    return 'Hello, World!'
+	return 'Hello, World!'
 
 if __name__ == '__main__':
-    app.run(debug=True)
+	app.run(debug=True)
 `;
