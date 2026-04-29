@@ -5,6 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
+import { ISettableObservable } from '../../../../../base/common/observable.js';
 import { assertDefined } from '../../../../../base/common/types.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
@@ -61,7 +62,10 @@ describe('PositronNotebookMarkdownCell', () => {
 				['# Heading', 'markdown', CellKind.Markup],
 			], ctx);
 			const cell = getMarkdownCell(notebook, 0);
-			cell.editorShown.set(true, undefined);
+			// IPositronNotebookMarkdownCell exposes editorShown as IObservable
+			// (read-only); the concrete class uses observableValue, so the cast
+			// to ISettableObservable is safe at runtime.
+			(cell.editorShown as ISettableObservable<boolean>).set(true, undefined);
 			const exitEditorSpy = vi.spyOn(notebook.selectionStateMachine, 'exitEditor');
 
 			await cell.toggleEditor();
