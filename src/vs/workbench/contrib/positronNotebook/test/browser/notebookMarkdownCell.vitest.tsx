@@ -7,6 +7,7 @@
 
 import React from 'react';
 import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { ISize } from '../../../../../base/browser/positronReactRenderer.js';
 import { observableValue } from '../../../../../base/common/observable.js';
 import { assertDefined } from '../../../../../base/common/types.js';
@@ -54,7 +55,7 @@ describe('NotebookMarkdownCell', () => {
 	const ctx = createTestContainer().withNotebookEditorServices().withReactServices().build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	function renderMarkdownCell(content: string, editorShown: boolean): void {
+	function renderMarkdownCell(content: string, editorShown: boolean): PositronNotebookMarkdownCell {
 		const notebook = createTestPositronNotebookInstance(
 			[[content, 'markdown', CellKind.Markup]],
 			ctx,
@@ -80,6 +81,8 @@ describe('NotebookMarkdownCell', () => {
 				</EnvironentProvider>
 			</NotebookInstanceProvider>
 		);
+
+		return markdownCell;
 	}
 
 	it('preview mode passes the cell content through to the Markdown renderer', () => {
@@ -106,5 +109,15 @@ describe('NotebookMarkdownCell', () => {
 
 		expect(mockedCellEditorMonacoWidget).toHaveBeenCalled();
 		expect(mockedMarkdown).not.toHaveBeenCalled();
+	});
+
+	it('double-clicking the rendered markdown section calls cell.toggleEditor()', async () => {
+		const cell = renderMarkdownCell('# Heading', false);
+		const toggleEditorSpy = vi.spyOn(cell, 'toggleEditor').mockResolvedValue(undefined);
+
+		const user = userEvent.setup();
+		await user.dblClick(screen.getByRole('region', { name: 'Rendered markdown content' }));
+
+		expect(toggleEditorSpy).toHaveBeenCalledTimes(1);
 	});
 });
