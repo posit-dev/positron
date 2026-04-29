@@ -62,12 +62,21 @@ export class VisualizeDataFrameAction extends Action2 {
 			}
 		}
 
-		// Prefill from the variable expression that produced the inline grid;
-		// `title` is display-oriented and isn't always a valid Python expression.
-		const candidateDfName = ctx.variablePath && ctx.variablePath.length > 0
-			? ctx.variablePath.join('.')
-			: '';
-		const initialDfName = isValidDataFrameExpr(candidateDfName) ? candidateDfName : '';
+		// Pick a Python-valid prefill for the dataframe field. `title` from the
+		// inline grid metadata is usually the variable name itself for top-level
+		// frames (e.g. "df"), so try it first. Fall back to a single-segment
+		// `variablePath` for the case where the kernel set a display-only title
+		// but still tagged the source variable. We deliberately don't synthesize
+		// from multi-segment paths -- they're runtime access keys (dict/list
+		// indices, attribute lookups), not Python syntax, and joining them with
+		// "." would generate code that targets the wrong object.
+		let candidateDfName = '';
+		if (isValidDataFrameExpr(ctx.title)) {
+			candidateDfName = ctx.title;
+		} else if (ctx.variablePath && ctx.variablePath.length === 1 && isValidDataFrameExpr(ctx.variablePath[0])) {
+			candidateDfName = ctx.variablePath[0];
+		}
+		const initialDfName = candidateDfName;
 
 		// Fire the LLM suggestion request in parallel with the dialog so the
 		// user sees fields populate without waiting. Cancel if the dialog
