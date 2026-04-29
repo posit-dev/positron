@@ -178,7 +178,14 @@ def test_get_packages_installed_attached(
 
     result = _get_packages_installed(kernel, [])
     assert isinstance(result, list)
-    numpy_entry = next((pkg for pkg in result if pkg["displayName"] == "numpy"), None)  # type: ignore[union-attr]
+    numpy_entry = next(
+        (
+            pkg
+            for pkg in result
+            if isinstance(pkg, dict) and pkg.get("displayName") == "numpy"
+        ),
+        None,
+    )
     assert numpy_entry is not None, "numpy distribution should be present in the test environment"
     assert numpy_entry["attached"] is expected_attached
 
