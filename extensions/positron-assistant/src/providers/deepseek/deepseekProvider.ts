@@ -53,6 +53,12 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 	protected deepSeekProvider: DeepSeekProvider;
 
 	/**
+	 * Stores the reasoning_content from the last streaming response.
+	 * Required for DeepSeek thinking mode when tool calls are used.
+	 */
+	private lastReasoningContent: string | undefined;
+
+	/**
 	 * Model name patterns to filter out (case-insensitive).
 	 */
 	public static readonly FILTERED_MODEL_PATTERNS = [
@@ -365,6 +371,9 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 			const decoder = new TextDecoder();
 			let buffer = '';
 			let chunkCount = 0;
+			let bufferedToolCalls = new Map<string, { name: string; args: string }>();
+			// Clear reasoning content from previous requests - will be populated during streaming
+			this.lastReasoningContent = undefined;
 
 			while (true) {
 				const { done, value } = await reader.read();
@@ -406,17 +415,47 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 						const choice = parsed.choices?.[0];
 						if (!choice?.delta) continue;
 
+						// Capture reasoning_content from streaming for use in follow-up requests
+						if (choice.delta.reasoning_content) {
+							this.lastReasoningContent = (this.lastReasoningContent ?? '') + choice.delta.reasoning_content;
+						}
+
 						// Handle tool calls - buffer them until arguments are complete
 						// Tool calls can come in multiple chunks: first ID/name, then arguments
 						if (choice.delta.tool_calls) {
-							for (const toolCall of choice.delta.tool_calls) {
-								if (toolCall.id && toolCall.function) {
-									this.logger.debug(`[deepseek] Reporting tool call: ${toolCall.id} (${toolCall.function.name})`);
-									progress.report(new vscode.LanguageModelToolCallPart(
-										toolCall.id,
-										toolCall.function.name ?? '',
-										JSON.parse(toolCall.function.arguments ?? '{}')
-									));
+							for (const toolCallDelta of choice.delta.tool_calls) {
+								const id = toolCallDelta.id ?? '';
+								const name = toolCallDelta.function?.name ?? '';
+								const args = toolCallDelta.function?.arguments ?? '';
+
+								if (id || name) {
+									// New tool call or continuation with ID/name
+									const existing = bufferedToolCalls.get(id) ?? { name: '', args: '' };
+									bufferedToolCalls.set(id, {
+										name: name || existing.name,
+										args: existing.args + args
+									});
+								} else if (args) {
+									// Just arguments - append to first buffered tool call
+									for (const [existingId, tc] of bufferedToolCalls.entries()) {
+										tc.args += args;
+										bufferedToolCalls.set(existingId, tc);
+										break;
+									}
+								}
+							}
+
+							// Try to report any tool calls that have complete data
+							for (const [id, tc] of bufferedToolCalls.entries()) {
+								if (tc.name && tc.args && tc.args.trim()) {
+									try {
+										const parsedArgs = JSON.parse(tc.args);
+										this.logger.debug(`[deepseek] Reporting tool call: ${id} (${tc.name})`);
+										progress.report(new vscode.LanguageModelToolCallPart(id, tc.name, parsedArgs));
+										bufferedToolCalls.delete(id);
+									} catch {
+										// JSON not complete yet, keep buffering
+									}
 								}
 							}
 						}
@@ -500,15 +539,18 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 		}
 		if (msg.role === 'assistant') {
 			const deepseekContent: any[] = [];
-			let reasoningContent: string | undefined;
+			const toolCalls: any[] = [];
+			// Use the reasoning_content captured from the last streaming response
+			const reasoningContent = this.lastReasoningContent;
 
 			for (const part of content) {
 				if (part.type === 'text') {
 					deepseekContent.push({ type: 'text', text: part.text });
 				} else if (part.type === 'tool-call') {
-					deepseekContent.push({
-						type: 'tool_call',
+					// DeepSeek expects tool calls in a separate array, not in content
+					toolCalls.push({
 						id: part.toolCallId,
+						type: 'function',
 						function: {
 							name: part.toolName,
 							arguments: typeof part.input === 'string' ? part.input : JSON.stringify(part.input),
@@ -517,17 +559,56 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 				}
 			}
 
-			const result: Record<string, any> = { role: 'assistant', content: deepseekContent };
+			const result: Record<string, any> = { role: 'assistant' };
+			// DeepSeek requires content to be present (even if null or empty array)
+			if (deepseekContent.length > 0) {
+				result.content = deepseekContent;
+			} else {
+				result.content = null;
+			}
+			// Add tool_calls array if there are tool calls
+			if (toolCalls.length > 0) {
+				this.logger.debug(`[deepseek] Sending ${toolCalls.length} tool calls: ${toolCalls.map((tc: any) => tc.function.name).join(', ')}`);
+				result.tool_calls = toolCalls;
+			}
+			// Pass back reasoning_content for DeepSeek thinking mode
 			if (reasoningContent) {
 				result.reasoning_content = reasoningContent;
 			}
 			return result;
 		}
 		if (msg.role === 'tool') {
+			// AI SDK ToolModelMessage structure:
+			// { role: 'tool', content: [{ type: 'tool-result', toolCallId: string, toolName: string, output: ... }] }
+			const contentArray = Array.isArray(content) ? content : [];
+			let toolCallId: string | undefined;
+			let textContent = '';
+
+			for (const part of contentArray) {
+				if (part?.type === 'tool-result') {
+					toolCallId = part.toolCallId;
+					if (typeof part.output === 'string') {
+						textContent = part.output;
+					} else if (part.output?.value !== undefined) {
+						textContent = String(part.output.value);
+					} else if (part.output?.text !== undefined) {
+						textContent = String(part.output.text);
+					}
+					break; // Use first tool result
+				}
+			}
+
+			if (!toolCallId) {
+				this.logger.error('[deepseek] Tool message missing toolCallId');
+				return { role: 'tool', content: '', tool_call_id: 'unknown' };
+			}
+
+			this.logger.debug(`[deepseek] Sending tool result: ${toolCallId}, content length: ${textContent.length}`);
+
 			return {
 				role: 'tool',
-				content: this.extractTextContent(content),
-				tool_call_id: (msg as any).toolCallId,
+				content: textContent,
+				tool_call_id: toolCallId,
 			};
 		}
 		// All other roles are handled above (system, user, assistant, tool)
