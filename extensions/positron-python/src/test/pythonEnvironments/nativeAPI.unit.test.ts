@@ -634,6 +634,24 @@ suite('Native Python API', () => {
             await api.resolveEnv(pythonPath);
             assert.equal(resolveCount, 2, 'cache should be cleared by removeEnv');
         });
+
+        test('concurrent resolveEnv calls share a single PET round-trip', async () => {
+            let resolveCount = 0;
+            mockFinder
+                .setup((f) => f.resolve(pythonPath))
+                .returns(() => {
+                    resolveCount += 1;
+                    return Promise.resolve(basicEnv);
+                });
+
+            // Fire two concurrent calls for the same path.
+            const [first, second] = await Promise.all([api.resolveEnv(pythonPath), api.resolveEnv(pythonPath)]);
+            assert.isDefined(first);
+            assert.isDefined(second);
+            assert.equal(first?.executable.filename, pythonPath);
+            assert.equal(second?.executable.filename, pythonPath);
+            assert.equal(resolveCount, 1, 'concurrent calls should share a single finder.resolve');
+        });
     });
     // --- End Positron ---
 });

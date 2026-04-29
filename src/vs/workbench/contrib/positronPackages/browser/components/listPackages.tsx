@@ -199,6 +199,8 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 
 		if (debouncedQuery.filter === PackagesFilter.Outdated) {
 			result = result.filter((pkg) => pkg.latestVersion && pkg.latestVersion !== pkg.version);
+		} else if (debouncedQuery.filter === PackagesFilter.Attached) {
+			result = result.filter((pkg) => pkg.attached === true);
 		}
 
 		if (debouncedQuery.text) {
@@ -229,6 +231,8 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		undefined,
 	);
 	const innerRef = useRef<HTMLElement>(undefined!);
+
+	const [visible, setVisible] = useState(true);
 	useEffect(() => {
 		const disposableStore = new DisposableStore();
 		disposableStore.add(
@@ -251,13 +255,18 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 				}
 			}),
 		);
+		disposableStore.add(
+			reactComponentContainer.onVisibilityChanged((isVisible) => {
+				setVisible(isVisible);
+			}),
+		);
 		return () => disposableStore.dispose();
 	}, [reactComponentContainer, scrollStateRef, setScrollState]);
 
 	// Item renderer
 	const ItemEntry = (props: { index: number; style: CSSProperties }) => {
 		const itemProps = filteredPackages[props.index];
-		const { id, name, displayName, version, latestVersion } = itemProps;
+		const { id, name, displayName, version, latestVersion, attached } = itemProps;
 
 		// Check if package has an update available
 		const hasUpdate = latestVersion && latestVersion !== version;
@@ -317,6 +326,18 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 					}
 				}}
 			>
+				{attached !== undefined && (
+					<span
+						aria-label={attached
+							? localize('positronPackages.attachedAriaLabel', "{0} is attached", name)
+							: localize('positronPackages.notAttachedAriaLabel', "{0} is not attached", name)}
+						className={positronClassNames('packages-list-item-attached', { attached })}
+						role='img'
+						title={attached
+							? localize('positronPackages.attachedTooltip', "{0} is attached", name)
+							: localize('positronPackages.notAttachedTooltip', "{0} is not attached", name)}
+					/>
+				)}
 				<div className='packages-list-item-name'>{displayName}</div>
 				<div className='packages-list-item-version'>{version}</div>
 				{hasUpdate && (
@@ -371,6 +392,11 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 			label: localize('positronPackages.filterByOutdated', "Outdated"),
 			checked: currentFilter === PackagesFilter.Outdated,
 			onSelected: () => selectFilter(PackagesFilter.Outdated),
+		}),
+		new CustomContextMenuItem({
+			label: localize('positronPackages.filterByAttached', "Attached"),
+			checked: currentFilter === PackagesFilter.Attached,
+			onSelected: () => selectFilter(PackagesFilter.Attached),
 		}),
 	];
 
@@ -443,6 +469,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 					</div>
 				) : (
 					<List
+						key={visible ? 'visible' : 'hidden'}
 						height={height - FILTER_HEIGHT}
 						innerRef={innerRef}
 						itemCount={filteredPackages.length}

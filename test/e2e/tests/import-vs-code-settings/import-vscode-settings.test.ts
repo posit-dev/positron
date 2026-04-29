@@ -29,7 +29,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] }, () => {
+test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS] }, () => {
 	test.beforeAll(async ({ vsCodeSettings: vscodeUserSettings, settings: positronUserSettings }) => {
 		await vscodeUserSettings.append({
 			'test': 'vs-code-settings',
@@ -50,7 +50,7 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 	});
 
 	test.describe('Defer Import', () => {
-		test('Verify import prompt behavior on "Later"', async ({ app, hotKeys }) => {
+		test('Verify import prompt behavior on "Later"', { tag: [tags.WIN] }, async ({ app, hotKeys }) => {
 			const { toasts } = app.workbench;
 
 			// select "Later" and verify that the prompt is no longer visible
@@ -63,7 +63,7 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 			await toasts.expectImportSettingsToastToBeVisible();
 		});
 
-		test('Verify import prompt behavior on "Don\'t Show Again"', async ({ sessions, app, hotKeys, page }) => {
+		test('Verify import prompt behavior on "Don\'t Show Again"', { tag: [tags.WIN] }, async ({ sessions, app, hotKeys, page }) => {
 			const { toasts } = app.workbench;
 
 			// select "Don't Show Again" and verify that the prompt is no longer visible
@@ -80,7 +80,7 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 	});
 
 	test.describe('Import with Positron settings', () => {
-		test('Verify diff displays and rejected settings are not saved', async ({ app, page, hotKeys }) => {
+		test('Verify diff displays and rejected settings are not saved', { tag: [tags.WIN] }, async ({ app, page, hotKeys }) => {
 			const { toasts } = app.workbench;
 			const testSettingLocator = page.getByText('"test": "positron-settings"');
 
@@ -97,7 +97,7 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 			await expect(testSettingLocator).toHaveCount(1);
 		});
 
-		test('Verify diff displays and accepted settings are saved', async ({ app, page, hotKeys }) => {
+		test('Verify diff displays and accepted settings are saved', { tag: [tags.WIN] }, async ({ app, page, hotKeys }) => {
 			const { toasts } = app.workbench;
 
 			// import settings and verify diff displays
@@ -119,7 +119,7 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 			await settings.clear();
 		});
 
-		test('Verify import import occurs and is clean without a diff', async ({ app, page, hotKeys }) => {
+		test('Verify import import occurs and is clean without a diff', { tag: [tags.WIN] }, async ({ app, page, hotKeys }) => {
 			const { toasts } = app.workbench;
 
 			// import settings

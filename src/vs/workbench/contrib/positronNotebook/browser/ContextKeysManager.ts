@@ -21,6 +21,12 @@ export const POSITRON_NOTEBOOK_EDITOR_FOCUSED = new RawContextKey<boolean>('posi
  */
 export const POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED = new RawContextKey<boolean>('positronNotebookCellEditorFocused', false, localize('positronNotebookCellEditorFocused', "Whether a code editor within a Positron notebook cell is focused"));
 
+/**
+ * Context key mirroring the `positron.notebook.experimental` configuration.
+ * Used to gate experimental notebook features in `when:` clauses.
+ */
+export const POSITRON_NOTEBOOK_EXPERIMENTAL = new RawContextKey<boolean>('positronNotebook.experimental', false, localize('positronNotebookExperimental', "Whether experimental Positron Notebook features are enabled"));
+
 // Cell state context keys
 export const POSITRON_NOTEBOOK_CELL_IS_CODE = new RawContextKey<boolean>('positronNotebookCellIsCode', false);
 export const POSITRON_NOTEBOOK_CELL_IS_MARKDOWN = new RawContextKey<boolean>('positronNotebookCellIsMarkdown', false);

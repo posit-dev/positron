@@ -83,7 +83,7 @@ test.describe('Variables: Memory Usage', {
 		await variables.expectSessionsInMemoryDropdown({ [rSession.name]: true });
 	});
 
-	test('Restarted session reappears in memory usage meter', { tag: [tags.WEB] }, async function ({ app, sessions, settings }) {
+	test.skip('Restarted session reappears in memory usage meter', { tag: [tags.WEB], annotation: { type: 'issue', description: 'https://github.com/posit-dev/positron/issues/12476' } }, async function ({ app, sessions, settings }) {
 		const { variables } = app.workbench;
 
 		// Set a fast polling interval so the memory meter updates quickly

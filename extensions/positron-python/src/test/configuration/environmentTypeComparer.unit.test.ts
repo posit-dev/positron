@@ -13,6 +13,7 @@ import {
     EnvironmentTypeComparer,
     EnvLocationHeuristic,
     getEnvLocationHeuristic,
+    isProblematicCondaEnvironment,
 } from '../../client/interpreter/configuration/environmentTypeComparer';
 import { IInterpreterHelper } from '../../client/interpreter/contracts';
 import { PythonEnvType } from '../../client/pythonEnvironments/base/info';
@@ -557,5 +558,150 @@ suite('getEnvTypeHeuristic tests', () => {
 
             assert.strictEqual(envTypeHeuristic, EnvLocationHeuristic.Global);
         });
+    });
+});
+
+suite('isProblematicCondaEnvironment tests', () => {
+    let pathExistsSyncStub: sinon.SinonStub;
+
+    setup(() => {
+        pathExistsSyncStub = sinon.stub(externalDependencies, 'pathExistsSync');
+        // By default, return false for any path not explicitly configured
+        pathExistsSyncStub.returns(false);
+    });
+
+    teardown(() => {
+        pathExistsSyncStub.restore();
+    });
+
+    test('Non-conda environment should not be problematic', () => {
+        const environment = {
+            envType: EnvironmentType.Venv,
+            path: '/path/to/venv/bin/python',
+            version: { major: 3, minor: 10, patch: 2 },
+        } as PythonEnvironment;
+
+        const result = isProblematicCondaEnvironment(environment);
+        assert.strictEqual(result, false);
+    });
+
+    test('Conda environment with path "python" should be problematic', () => {
+        const environment = {
+            envType: EnvironmentType.Conda,
+            path: 'python',
+            version: { major: 3, minor: 10, patch: 2 },
+        } as PythonEnvironment;
+
+        const result = isProblematicCondaEnvironment(environment);
+        assert.strictEqual(result, true);
+    });
+
+    test('Conda environment with existing predicted path should not be problematic', () => {
+        const predictedPath = '/path/to/miniforge3/envs/testenvtestenv1234/python';
+        pathExistsSyncStub.withArgs(predictedPath).returns(true);
+
+        const environment = {
+            envType: EnvironmentType.Conda,
+            path: predictedPath,
+            envPath: '/path/to/miniforge3/envs/testenvtestenv1234',
+            version: { major: 3, minor: 10, patch: 2 },
+        } as PythonEnvironment;
+
+        const result = isProblematicCondaEnvironment(environment);
+        assert.strictEqual(result, false);
+    });
+
+    test('Conda environment with non-existent predicted path but existing Unix python should not be problematic', () => {
+        const predictedPath = '/path/to/miniforge3/envs/testenvtestenv1234/python';
+        const envPath = 'test/miniforge3/envs/testenv1234';
+        const unixPath = path.join(envPath, 'bin', 'python');
+        const windowsPath = path.join(envPath, 'Scripts', 'python.exe');
+
+        pathExistsSyncStub.withArgs(predictedPath).returns(false);
+        pathExistsSyncStub.withArgs(unixPath).returns(true);
+        pathExistsSyncStub.withArgs(windowsPath).returns(false);
+
+        const environment = {
+            envType: EnvironmentType.Conda,
+            path: predictedPath,
+            envPath: envPath,
+            version: { major: 3, minor: 10, patch: 2 },
+        } as PythonEnvironment;
+
+        const result = isProblematicCondaEnvironment(environment);
+        assert.strictEqual(result, false);
+    });
+
+    test('Conda environment with non-existent predicted path but existing Windows python should not be problematic', () => {
+        const predictedPath = 'C:\\Users\\test\\miniforge3\\envs\\testenv1234\\python.exe';
+        const envPath = 'C:\\Users\\test\\miniforge3\\envs\\testenv1234';
+        // The actual paths that path.join() will generate (mixed separators due to running on Unix)
+        const unixPath = path.join(envPath, 'bin', 'python');
+        const windowsPath = path.join(envPath, 'Scripts', 'python.exe');
+
+        pathExistsSyncStub.withArgs(predictedPath).returns(false);
+        pathExistsSyncStub.withArgs(unixPath).returns(false);
+        pathExistsSyncStub.withArgs(windowsPath).returns(true);
+
+        const environment = {
+            envType: EnvironmentType.Conda,
+            path: predictedPath,
+            envPath: envPath,
+            version: { major: 3, minor: 10, patch: 2 },
+        } as PythonEnvironment;
+
+        const result = isProblematicCondaEnvironment(environment);
+        assert.strictEqual(result, false);
+    });
+
+    test('Conda environment with non-existent predicted path and no python anywhere should be problematic', () => {
+        const predictedPath = '/path/to/miniforge3/envs/testenvtestenv1234/python';
+        const envPath = '/path/to/miniforge3/envs/testenvtestenv1234';
+        const unixPath = path.join(envPath, 'bin', 'python');
+        const windowsPath = path.join(envPath, 'Scripts', 'python.exe');
+
+        pathExistsSyncStub.withArgs(predictedPath).returns(false);
+        pathExistsSyncStub.withArgs(unixPath).returns(false);
+        pathExistsSyncStub.withArgs(windowsPath).returns(false);
+
+        const environment = {
+            envType: EnvironmentType.Conda,
+            path: predictedPath,
+            envPath: envPath,
+            version: { major: 3, minor: 10, patch: 2 },
+        } as PythonEnvironment;
+
+        const result = isProblematicCondaEnvironment(environment);
+        assert.strictEqual(result, true);
+    });
+
+    test('Conda environment without envPath should be problematic if predicted path does not exist', () => {
+        const predictedPath = '/path/to/miniforge3/envs/testenvtestenv1234/python';
+        pathExistsSyncStub.withArgs(predictedPath).returns(false);
+
+        const environment = {
+            envType: EnvironmentType.Conda,
+            path: predictedPath,
+            // No envPath provided
+            version: { major: 3, minor: 10, patch: 2 },
+        } as PythonEnvironment;
+
+        const result = isProblematicCondaEnvironment(environment);
+        assert.strictEqual(result, true);
+    });
+
+    test('Conda environment with actual bin/python path should not be problematic', () => {
+        const actualPath = '/path/to/miniforge3/envs/testenvtestenv1234/bin/python';
+        pathExistsSyncStub.withArgs(actualPath).returns(true);
+
+        const environment = {
+            envType: EnvironmentType.Conda,
+            path: actualPath,
+            envPath: '/path/to/miniforge3/envs/testenvtestenv1234',
+            version: { major: 3, minor: 10, patch: 2 },
+        } as PythonEnvironment;
+
+        const result = isProblematicCondaEnvironment(environment);
+        assert.strictEqual(result, false);
     });
 });

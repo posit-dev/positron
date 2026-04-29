@@ -13,7 +13,10 @@ import { IServiceContainer } from '../ioc/types';
 import { traceError, traceInfo } from '../logging';
 import { PythonEnvironment } from '../pythonEnvironments/info';
 import { createPythonRuntimeMetadata } from './runtime';
-import { comparePythonVersionDescending } from '../interpreter/configuration/environmentTypeComparer';
+import {
+    comparePythonVersionDescending,
+    isProblematicCondaEnvironment,
+} from '../interpreter/configuration/environmentTypeComparer';
 import { shouldIncludeInterpreter } from './interpreterSettings';
 import { hasFiles } from './util';
 
@@ -88,6 +91,14 @@ export async function* pythonRuntimeDiscoverer(
         // Register each interpreter as a language runtime metadata entry
         for (const interpreter of interpreters) {
             try {
+                // Skip conda environments without Python - they'll be handled by PickerContribution
+                if (isProblematicCondaEnvironment(interpreter)) {
+                    traceInfo(
+                        `pythonRuntimeDiscoverer: skipping conda env without Python (handled by picker): ${interpreter.path}`,
+                    );
+                    continue;
+                }
+
                 const runtime = await createPythonRuntimeMetadata(
                     interpreter,
                     serviceContainer,
