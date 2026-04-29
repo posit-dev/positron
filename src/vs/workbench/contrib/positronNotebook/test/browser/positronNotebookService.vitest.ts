@@ -7,8 +7,6 @@
 
 import { Event } from '../../../../../base/common/event.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
-import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
-import { POSITRON_NOTEBOOK_EXPERIMENTAL } from '../../browser/ContextKeysManager.js';
 import { POSITRON_NOTEBOOK_EXPERIMENTAL_KEY } from '../../common/positronNotebookConfig.js';
 import { PositronNotebookService } from '../../browser/positronNotebookService.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
@@ -22,9 +20,8 @@ describe('PositronNotebookService experimental gate', () => {
 		})
 		.build();
 
-	it('wires experimental config to observable and context key', () => {
+	it('mirrors experimental config to observable', () => {
 		const service = ctx.disposables.add(ctx.instantiationService.createInstance(PositronNotebookService));
 		expect(service.experimentsEnabled.get()).toBe(true);
-		expect(POSITRON_NOTEBOOK_EXPERIMENTAL.getValue(ctx.get(IContextKeyService))).toBe(true);
 	});
 });
