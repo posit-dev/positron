@@ -458,6 +458,9 @@ describe('PositronNotebookInstance.copy/cut/paste*', () => {
 			notebook.cutCells();
 			const undoRedo = ctx.get(IUndoRedoService);
 			await undoRedo.undo(notebook.uri);
+			expect(notebook.cells.get().map(c => c.getContent())).toEqual([
+				'A', 'B', 'C', 'D', 'E',
+			]);
 
 			await undoRedo.redo(notebook.uri);
 
