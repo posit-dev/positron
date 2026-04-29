@@ -212,6 +212,11 @@ export const tocData: ITOCEntry<string> = {
 					label: localize('environment', "Environment"),
 					settings: ['environment.*']
 				},
+				{
+					id: 'features/packages',
+					label: localize('packages', "Packages"),
+					settings: ['positron.environments.*']
+				},
 				// --- End Positron ---
 				{
 					id: 'features/testing',
