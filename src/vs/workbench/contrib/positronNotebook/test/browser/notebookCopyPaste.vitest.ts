@@ -380,7 +380,7 @@ describe('PositronNotebookInstance.copy/cut/paste*', () => {
 			]);
 		});
 
-		it('cut from end leaves leading cells intact and pastes back at the front', () => {
+		it('cut from end leaves leading cells intact and pastes after the first remaining cell', () => {
 			const notebook = createLabelledTestNotebook(5, ctx);
 			const cellsBefore = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cellsBefore[2], CellSelectionType.Normal);
@@ -493,6 +493,7 @@ describe('PositronNotebookInstance.copy/cut/paste*', () => {
 			notebook.pasteCells();
 			const undoRedo = ctx.get(IUndoRedoService);
 			await undoRedo.undo(notebook.uri);
+			expect(notebook.cells.get().map(c => c.getContent())).toEqual(['A', 'E']);
 
 			await undoRedo.redo(notebook.uri);
 
