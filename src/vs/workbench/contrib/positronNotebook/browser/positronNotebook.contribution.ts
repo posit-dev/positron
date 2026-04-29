@@ -119,9 +119,14 @@ class PositronNotebookContribution extends Disposable {
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IFileService private readonly fileService: IFileService,
 		@INotebookService private readonly notebookService: INotebookService,
-		@IPositronNotebookService _positronNotebookService: IPositronNotebookService,
+		@IPositronNotebookService positronNotebookService: IPositronNotebookService,
 	) {
 		super();
+
+		// Force instantiation of the delayed singleton so its constructor-side
+		// effects (binding `positronNotebook.experimental` to the config
+		// observable) run at workbench startup rather than on first use.
+		positronNotebookService.initialize();
 
 		this.registerEditor();
 	}
