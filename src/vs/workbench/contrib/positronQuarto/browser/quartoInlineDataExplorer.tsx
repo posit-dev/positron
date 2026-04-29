@@ -205,6 +205,7 @@ export function QuartoInlineDataExplorer(props: QuartoInlineDataExplorerProps) {
 		<div className='inline-data-explorer-container' style={{ height: `${dynamicHeight}px` }}>
 			<InlineDataExplorerHeader
 				actionContext={actionContext}
+				contextKeyService={services.contextKeyService}
 				shape={shape}
 				title={title}
 			/>

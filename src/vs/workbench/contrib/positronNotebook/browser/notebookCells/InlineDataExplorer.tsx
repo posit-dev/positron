@@ -21,6 +21,7 @@ import { POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY } from '../../com
 import { isMacintosh } from '../../../../../base/common/platform.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { MenuId, MenuItemAction } from '../../../../../platform/actions/common/actions.js';
+import type { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { useMenu } from '../useMenu.js';
 import { useMenuActions } from '../useMenuActions.js';
 import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
@@ -73,12 +74,14 @@ const HEADER_MENU_OPTIONS = { shouldForwardArgs: true } as const;
  * only when the parent provides an `actionContext` -- typically when the inline
  * grid is connected and not stale.
  */
-export function InlineDataExplorerHeader({ title, shape, actionContext }: {
+export function InlineDataExplorerHeader({ title, shape, actionContext, contextKeyService: providedContextKeyService }: {
 	title: string;
 	shape: { rows: number; columns: number };
 	actionContext: IInlineDataExplorerActionContext | undefined;
+	contextKeyService?: IContextKeyService;
 }) {
-	const contextKeyService = useCellScopedContextKeyService();
+	const cellScopedContextKeyService = useCellScopedContextKeyService();
+	const contextKeyService = providedContextKeyService ?? cellScopedContextKeyService;
 	const menu = useMenu(MenuId.PositronNotebookInlineDataExplorerHeader, contextKeyService);
 	const actionGroups = useMenuActions(menu, HEADER_MENU_OPTIONS);
 

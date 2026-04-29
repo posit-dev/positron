@@ -73,14 +73,26 @@ describe('InlineDataExplorerHeader', () => {
 		menuActions = [];
 	});
 
-	function renderHeader(actionContext: IInlineDataExplorerActionContext | undefined) {
+	function renderHeader(actionContext: IInlineDataExplorerActionContext | undefined, options?: {
+		contextKeyService?: IContextKeyService;
+		withCellProvider?: boolean;
+	}) {
+		const header = (
+			<InlineDataExplorerHeader
+				actionContext={actionContext}
+				contextKeyService={options?.contextKeyService}
+				shape={{ rows: 1234, columns: 5 }}
+				title='df'
+			/>
+		);
+
+		if (options?.withCellProvider === false) {
+			return rtl.render(header);
+		}
+
 		return rtl.render(
 			<CellScopedContextKeyServiceProvider service={contextKeyService}>
-				<InlineDataExplorerHeader
-					actionContext={actionContext}
-					shape={{ rows: 1234, columns: 5 }}
-					title='df'
-				/>
+				{header}
 			</CellScopedContextKeyServiceProvider>
 		);
 	}
@@ -94,6 +106,12 @@ describe('InlineDataExplorerHeader', () => {
 	it('renders registered menu actions when actionContext is provided', () => {
 		menuActions = [['navigation', [mockAction('test.openExplorer', 'Open in Data Explorer', 'go-to-file')]]];
 		renderHeader(buildActionContext());
+		expect(screen.getByRole('button', { name: /Open in Data Explorer/ })).toBeInTheDocument();
+	});
+
+	it('renders registered menu actions with an explicit context service outside a cell provider', () => {
+		menuActions = [['navigation', [mockAction('test.openExplorer', 'Open in Data Explorer', 'go-to-file')]]];
+		renderHeader(buildActionContext(), { contextKeyService, withCellProvider: false });
 		expect(screen.getByRole('button', { name: /Open in Data Explorer/ })).toBeInTheDocument();
 	});
 
