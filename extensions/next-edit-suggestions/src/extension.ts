@@ -491,6 +491,8 @@ function selectModel(models: CompletionModel[]): CompletionModel {
 	return models[models.length - 1];
 }
 
+let selectedModel: CompletionModel | null = null;
+
 async function getGatewayCompletionModel(baseUrl: string, accessToken: string): Promise<CompletionModel> {
 	if (!cachedCompletionModels || Date.now() - cachedCompletionModelsTimestamp > MODEL_CACHE_TTL_MS) {
 		cachedCompletionModels = null;
@@ -509,11 +511,12 @@ async function getGatewayCompletionModel(baseUrl: string, accessToken: string): 
 			cachedCompletionModels = [DEFAULT_COMPLETION_MODEL];
 			cachedCompletionModelsTimestamp = Date.now();
 		}
+
+		selectedModel = selectModel(cachedCompletionModels);
+		log.info(`Selected completion model: ${selectedModel.id} (endpoint: ${selectedModel.endpointPath})`);
 	}
 
-	const model = selectModel(cachedCompletionModels);
-	log.debug(`Selected completion model: ${model.id} (endpoint: ${model.endpointPath})`);
-	return model;
+	return selectedModel!;
 }
 
 async function getLLMConfiguration(): Promise<LLMConfig | null> {
