@@ -144,8 +144,8 @@ describe('PositronNotebookMarkdownCell', () => {
 			], ctx);
 			const cell = getMarkdownCell(notebook, 0);
 			notebook.selectionStateMachine.selectCell(cell, CellSelectionType.Normal);
-			// vi.spyOn refuses readonly methods on interfaces; the concrete class
-			// guarded by toBeInstanceOf inside getMarkdownCell makes this safe.
+			// getMarkdownCell asserts cell.isMarkdownCell() before returning, so
+			// the cast to the concrete class is safe.
 			const toggleEditorSpy = vi.spyOn(cell as PositronNotebookMarkdownCell, 'toggleEditor')
 				.mockResolvedValue(undefined);
 
