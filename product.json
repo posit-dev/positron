@@ -689,6 +689,7 @@
 		],
 		"posit-ai": [
 			"positron.authentication",
+			"positron.next-edit-suggestions",
 			"positron.positron-assistant",
 			"posit.assistant"
 		],

@@ -1,0 +1,70 @@
+{
+	"name": "next-edit-suggestions",
+	"displayName": "Next Edit Suggestions",
+	"description": "Inline next edit suggestions powered by Posit AI",
+	"publisher": "positron",
+	"license": "SEE LICENSE IN LICENSE",
+	"private": true,
+	"version": "0.0.1",
+	"engines": {
+		"vscode": "^1.108.0"
+	},
+	"categories": [
+		"Other"
+	],
+	"activationEvents": [
+		"onStartupFinished",
+		"onAuthenticationRequest:posit-ai",
+		"onCommand:authentication.configureProviders"
+	],
+	"main": "./out/extension.js",
+	"enabledApiProposals": [
+		"inlineCompletionsAdditions"
+	],
+	"extensionDependencies": [
+		"positron.authentication"
+	],
+	"contributes": {
+		"commands": [
+			{
+				"command": "next-edit-suggestions.learnMore",
+				"title": "Posit AI: Learn more"
+			},
+			{
+				"command": "next-edit-suggestions.restartLsp",
+				"title": "Next Edit Suggestions: Restart LSP Server"
+			}
+		],
+		"configuration": {
+			"title": "Next Edit Suggestions",
+			"properties": {
+				"nextEditSuggestions.enable": {
+					"type": "object",
+					"default": {
+						"*": true,
+						"plaintext": false,
+						"markdown": false,
+						"scminput": false
+					},
+					"description": "Control which file types receive next edit suggestions. Use '*' for the default, and specify language IDs (e.g., 'python', 'markdown') to override. Set to { \"*\": false } to disable completely."
+				},
+				"nextEditSuggestions.selectedCompletionModel": {
+					"type": "string",
+					"default": "",
+					"description": "Model ID to use for suggestions. Leave empty for automatic model selection."
+				}
+			}
+		}
+	},
+	"scripts": {
+		"compile": "gulp compile-extension:next-edit-suggestions",
+		"watch": "gulp watch-extension:next-edit-suggestions"
+	},
+	"dependencies": {
+		"vscode-languageclient": "^9.0.1"
+	},
+	"devDependencies": {
+		"@types/node": "^20.19.24",
+		"@types/vscode": "^1.108.0"
+	}
+}

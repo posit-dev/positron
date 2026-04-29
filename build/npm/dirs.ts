@@ -19,6 +19,7 @@ export let dirs = [
 	'extensions',
 	// --- Start Positron ---
 	'extensions/authentication',
+	'extensions/next-edit-suggestions',
 	'extensions/open-remote-ssh',
 	'extensions/positron-assistant',
 	'extensions/positron-catalog-explorer',
