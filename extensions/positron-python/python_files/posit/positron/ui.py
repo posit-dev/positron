@@ -116,8 +116,27 @@ def _set_console_width(_kernel: "PositronIPyKernel", params: List[JsonData]) -> 
         torch.set_printoptions(linewidth=width)
 
 
+def _import_names_for_dist(dist: importlib.metadata.Distribution, canonical: str) -> List[str]:
+    """
+    Best-effort list of names a user would `import` to bring this distribution
+    in. Wheels typically ship a `top_level.txt`; when missing, fall back to the
+    distribution's canonical name with hyphens turned into underscores
+    (matches the convention for most pure-Python packages).
+    """
+    try:
+        top_level = dist.read_text("top_level.txt")
+    except (FileNotFoundError, OSError):
+        top_level = None
+    if top_level:
+        names = [line.strip() for line in top_level.splitlines() if line.strip()]
+        if names:
+            return names
+    return [canonical.replace("-", "_")]
+
+
 # Get all installed packages
-def _get_packages_installed(_kernel: "PositronIPyKernel", _params: List[JsonData]) -> JsonData:
+def _get_packages_installed(kernel: "PositronIPyKernel", _params: List[JsonData]) -> JsonData:
+    user_ns = kernel.shell.user_ns
     packages_dict = {}
     for dist in importlib.metadata.distributions():
         name = dist.metadata["Name"]
@@ -126,11 +145,22 @@ def _get_packages_installed(_kernel: "PositronIPyKernel", _params: List[JsonData
         canonical = canonicalize_name(name)
         # Dedupe by canonical name - keeps first occurrence (the one that would be imported)
         if canonical not in packages_dict:
+            # `attached` mirrors R's search()-membership semantics: true
+            # when the user explicitly bound the package in the REPL via
+            # `import x`. We check IPython's user_ns rather than sys.modules
+            # so transitive imports (numpy pulled in by pandas) don't show
+            # as attached.
+            import_names = _import_names_for_dist(dist, canonical)
+            attached = any(
+                isinstance(user_ns.get(import_name), type(sys))
+                for import_name in import_names
+            )
             packages_dict[canonical] = {
                 "id": f"{canonical}-{dist.version}",
                 "name": name,
                 "displayName": canonical,
                 "version": dist.version,
+                "attached": attached,
             }
     return sorted(packages_dict.values(), key=lambda p: p["displayName"])
 

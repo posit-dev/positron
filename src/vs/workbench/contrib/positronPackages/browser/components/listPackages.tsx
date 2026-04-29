@@ -257,7 +257,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	// Item renderer
 	const ItemEntry = (props: { index: number; style: CSSProperties }) => {
 		const itemProps = filteredPackages[props.index];
-		const { id, name, displayName, version, latestVersion } = itemProps;
+		const { id, name, displayName, version, latestVersion, attached } = itemProps;
 
 		// Check if package has an update available
 		const hasUpdate = latestVersion && latestVersion !== version;
@@ -317,6 +317,18 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 					}
 				}}
 			>
+				{attached !== undefined && (
+					<span
+						aria-label={attached
+							? localize('positronPackages.attachedAriaLabel', "{0} is attached", name)
+							: localize('positronPackages.notAttachedAriaLabel', "{0} is not attached", name)}
+						className={positronClassNames('packages-list-item-attached', { attached })}
+						role='img'
+						title={attached
+							? localize('positronPackages.attachedTooltip', "{0} is attached", name)
+							: localize('positronPackages.notAttachedTooltip', "{0} is not attached", name)}
+					/>
+				)}
 				<div className='packages-list-item-name'>{displayName}</div>
 				<div className='packages-list-item-version'>{version}</div>
 				{hasUpdate && (
