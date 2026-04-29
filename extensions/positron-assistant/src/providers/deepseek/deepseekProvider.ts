@@ -377,7 +377,6 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 				for (const line of lines) {
 					const trimmed = line.trim();
 					if (!trimmed || !trimmed.startsWith('data: ')) {
-						this.logger.debug(`[deepseek] Skipping line: ${trimmed.substring(0, 100)}`);
 						continue;
 					}
 
@@ -388,7 +387,6 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 					}
 
 					chunkCount++;
-					this.logger.debug(`[deepseek] Chunk ${chunkCount}: ${data.substring(0, 200)}`);
 
 					try {
 						const parsed = JSON.parse(data) as {
