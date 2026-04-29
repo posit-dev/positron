@@ -53,10 +53,7 @@ export interface PythonRuntimeExtraData {
  * full discovery on warm starts; project-bound or proxy/shim interpreters must be
  * rediscovered every open and so are excluded.
  */
-function isPythonRuntimeCacheable(
-    interpreter: PythonEnvironment,
-    workspaceFolderPaths: string[],
-): boolean {
+function isPythonRuntimeCacheable(interpreter: PythonEnvironment, workspaceFolderPaths: string[]): boolean {
     // Need a real on-disk binary to fingerprint.
     if (!interpreter.path) {
         return false;
@@ -83,8 +80,11 @@ function isPythonRuntimeCacheable(
     // Anything under a workspace folder is project-scoped (covers conda envs created
     // with `--prefix ./conda`, in-tree Pythons, etc.) regardless of envType.
     for (const folder of workspaceFolderPaths) {
-        if (folder && (isParentPath(interpreter.path, folder) ||
-            (interpreter.envPath && isParentPath(interpreter.envPath, folder)))) {
+        if (
+            folder &&
+            (isParentPath(interpreter.path, folder) ||
+                (interpreter.envPath && isParentPath(interpreter.envPath, folder)))
+        ) {
             return false;
         }
     }
@@ -235,9 +235,7 @@ export async function createPythonRuntimeMetadata(
             : positron.LanguageRuntimeSessionLocation.Workspace;
 
     // Determine whether this runtime is eligible for the discovery cache.
-    const workspaceFolderPaths = (workspaceService.workspaceFolders ?? [])
-        .map((f) => f.uri.fsPath)
-        .filter((p) => !!p);
+    const workspaceFolderPaths = (workspaceService.workspaceFolders ?? []).map((f) => f.uri.fsPath).filter((p) => !!p);
     const cacheable = isPythonRuntimeCacheable(interpreter, workspaceFolderPaths);
 
     // Create the metadata for the language runtime
