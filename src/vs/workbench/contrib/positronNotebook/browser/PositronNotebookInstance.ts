@@ -2017,6 +2017,23 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	/**
+	 * Synchronously snap scrollTop to the position last set by
+	 * `restoreEditorViewState`, without consuming it. The editor calls this
+	 * on the cache-hit reattach path so the user never sees a paint at
+	 * scrollTop=0 between appendChild and the React layout effect that
+	 * runs the rAF refinement loop.
+	 */
+	snapToRestoredScrollPosition(): void {
+		const container = this._cellsContainer;
+		if (!container) { return; }
+		const scrollPosition = this._restoredScrollPosition;
+		if (!scrollPosition) { return; }
+		const cellTop = this.getCellTop(scrollPosition.cell);
+		if (cellTop === undefined) { return; }
+		container.scrollTop = cellTop + scrollPosition.offsetFromCell;
+	}
+
+	/**
 	 * Gets the current state of the editor. This should
 	 * fully determine the view we see.
 	 */

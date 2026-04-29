@@ -318,7 +318,8 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		// Cache hit: reuse the existing renderer, container, and live Monaco
 		// editors -- the fast path that skips editor recreation. The component
 		// re-runs its scroll-restoration layout effect via the observable
-		// bumped by restoreEditorViewState below.
+		// bumped by restoreEditorViewState; the snap below covers the gap
+		// before React commits so we never paint at scrollTop=0.
 		const cachedRender = this._renderCache.get(input.resource);
 		if (cachedRender) {
 			this._notebookShell!.appendChild(cachedRender.container);
@@ -329,6 +330,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 				this._editorContainer,
 			);
 			notebookInstance.restoreEditorViewState(viewState);
+			notebookInstance.snapToRestoredScrollPosition();
 			return;
 		}
 

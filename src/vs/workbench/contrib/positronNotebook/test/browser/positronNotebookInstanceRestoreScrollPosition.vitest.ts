@@ -90,4 +90,45 @@ describe('PositronNotebookInstance scroll position restore contract', () => {
 			expect(notebook.restoreScrollPositionRequest.get()).toBeGreaterThan(before);
 		});
 	});
+
+	describe('snapToRestoredScrollPosition', () => {
+		it('does not consume the restored position', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[['print("a")', 'python', CellKind.Code]],
+				ctx,
+			);
+			const cellsContainer = document.createElement('div');
+			notebook.setCellsContainer(cellsContainer);
+			notebook.restoreEditorViewState({ scrollPosition: { cellIndex: 0, offsetFromCell: 100 } });
+
+			notebook.snapToRestoredScrollPosition();
+
+			expect(notebook.consumeRestoredScrollPosition()).toBeDefined();
+		});
+
+		it('is a no-op when no cells container is set', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[['print("a")', 'python', CellKind.Code]],
+				ctx,
+			);
+			notebook.restoreEditorViewState({ scrollPosition: { cellIndex: 0, offsetFromCell: 100 } });
+
+			expect(() => notebook.snapToRestoredScrollPosition()).not.toThrow();
+			expect(notebook.consumeRestoredScrollPosition()).toBeDefined();
+		});
+
+		it('is a no-op when no scroll position has been restored', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[['print("a")', 'python', CellKind.Code]],
+				ctx,
+			);
+			const cellsContainer = document.createElement('div');
+			cellsContainer.scrollTop = 42;
+			notebook.setCellsContainer(cellsContainer);
+
+			notebook.snapToRestoredScrollPosition();
+
+			expect(cellsContainer.scrollTop).toBe(42);
+		});
+	});
 });

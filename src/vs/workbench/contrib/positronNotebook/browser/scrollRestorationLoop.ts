@@ -79,6 +79,14 @@ export function startScrollRestorationLoop(
 			pendingFrame = undefined;
 			frameCount++;
 
+			// Container parked off-DOM (e.g. clearInput on a cached notebook):
+			// scrollTop writes are useless and we should stop instead of
+			// burning rAF until the timeout.
+			if (!container.isConnected) {
+				stop('detached');
+				return;
+			}
+
 			const target = getScrollTop();
 
 			if (target === undefined) {
