@@ -47,12 +47,13 @@ function validatedResult(result: LicenseCommandResult): ILicenseValidationResult
 }
 
 type LicErrorCode = typeof LicError[keyof typeof LicError];
-const knownResultCodes: Set<number> = new Set(Object.values(LicError));
+const knownResultCodes = new Set(Object.values(LicError) as LicErrorCode[]);
 function knownResultCode(code: unknown): code is LicErrorCode {
-	return typeof code === 'number' && knownResultCodes.has(code);
+	return typeof code === 'number' && knownResultCodes.has(code as LicErrorCode);
 }
 
 // The `verify` command prefixes its JSON output with a signature hash line.
+// If stdout contains no '{', returns as-is; JSON.parse will throw upstream.
 function extractJson(stdout: string): string {
 	const jsonStart = stdout.indexOf('{');
 	return jsonStart > 0 ? stdout.slice(jsonStart) : stdout;
@@ -71,7 +72,7 @@ class LicenseManager {
 			LD_LIBRARY_PATH: licenseManagerDir,
 		};
 
-		let stdout: string;
+		let stdout = '';
 		try {
 			const result = await execFileAsync(
 				this.licenseManagerPath,
@@ -112,9 +113,18 @@ class LicenseManager {
 	async activateLicenseFile(licenseFilePath: string): Promise<ILicenseValidationResult> {
 		const licenseManagerDir = path.dirname(this.licenseManagerPath);
 
-		// Check for a .lic file next to the license-manager binary first.
-		const localLic = fs.readdirSync(licenseManagerDir).find(f => f.endsWith('.lic'));
-		if (!localLic) {
+		let localLic: string | undefined;
+		try {
+			localLic = fs.readdirSync(licenseManagerDir).find(f => f.endsWith('.lic'));
+		} catch {
+			throw new Error(`Cannot read license-manager directory: ${licenseManagerDir}`);
+		}
+
+		if (localLic) {
+			// A .lic file already exists next to the binary; the provided
+			// licenseFilePath is not copied. Verify the existing one.
+			console.log(`Using existing license file: ${path.join(licenseManagerDir, localLic)}`);
+		} else {
 			// No .lic next to the binary -- copy the provided file there.
 			if (!fs.existsSync(licenseFilePath)) {
 				throw new Error(`License file not found: ${licenseFilePath}`);
@@ -153,7 +163,12 @@ export async function verifyLocalLicense(
 	}
 
 	const licenseManagerDir = path.dirname(licenseManagerPath);
-	const localLic = fs.readdirSync(licenseManagerDir).find(f => f.endsWith('.lic'));
+	let localLic: string | undefined;
+	try {
+		localLic = fs.readdirSync(licenseManagerDir).find(f => f.endsWith('.lic'));
+	} catch {
+		return undefined;
+	}
 	if (!localLic) {
 		return undefined;
 	}
