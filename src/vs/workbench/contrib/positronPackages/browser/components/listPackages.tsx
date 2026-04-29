@@ -229,6 +229,8 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		undefined,
 	);
 	const innerRef = useRef<HTMLElement>(undefined!);
+
+	const [visible, setVisible] = useState(true);
 	useEffect(() => {
 		const disposableStore = new DisposableStore();
 		disposableStore.add(
@@ -249,6 +251,11 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 					}
 					setScrollState(undefined);
 				}
+			}),
+		);
+		disposableStore.add(
+			reactComponentContainer.onVisibilityChanged((isVisible) => {
+				setVisible(isVisible);
 			}),
 		);
 		return () => disposableStore.dispose();
@@ -443,6 +450,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 					</div>
 				) : (
 					<List
+						key={visible ? 'visible' : 'hidden'}
 						height={height - FILTER_HEIGHT}
 						innerRef={innerRef}
 						itemCount={filteredPackages.length}
