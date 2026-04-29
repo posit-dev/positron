@@ -7,9 +7,11 @@ import * as vscode from 'vscode';
 
 import {
 	CompletionTriggerKind,
+	type CompletionModel,
 	type InlineEditParams,
 	type InlineEditResult,
 	type LLMConfig,
+	type ModelsResponse,
 	type SubmitCompletionFeedbackParams,
 	type SubmitCompletionFeedbackResponse,
 } from './types.js';
@@ -418,17 +420,100 @@ async function getEnclosingBlocks(document: vscode.TextDocument, position: vscod
 
 const DEFAULT_BASE_URL = 'https://gateway.posit.ai';
 
-const DEFAULT_COMPLETION_MODEL = {
+const DEFAULT_COMPLETION_MODEL: CompletionModel = {
 	id: 'qwen3-8b',
+	displayName: 'Qwen3-8B',
 	endpointPath: '/completions/qwen3-8b/predict',
+	protocol: 'qwen3-8b',
+	weight: 1.0,
 };
 
+let cachedCompletionModels: CompletionModel[] | null = null;
+let cachedCompletionModelsTimestamp = 0;
+const MODEL_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+
 async function fetchCompletionModels(
-	_baseUrl: string,
-	_accessToken: string,
-	_userAgent?: string,
-): Promise<{ id: string; endpointPath: string }> {
-	return DEFAULT_COMPLETION_MODEL;
+	baseUrl: string,
+	accessToken: string,
+	userAgent?: string,
+): Promise<CompletionModel[]> {
+	const headers: Record<string, string> = {
+		'Authorization': `Bearer ${accessToken}`,
+		'Content-Type': 'application/json',
+	};
+	if (userAgent) {
+		headers['User-Agent'] = userAgent;
+	}
+
+	const response = await fetch(`${baseUrl}/models`, {
+		method: 'GET',
+		headers,
+	});
+
+	if (!response.ok) {
+		throw new Error(`Failed to fetch models: ${response.status} ${response.statusText}`);
+	}
+
+	const data = (await response.json()) as ModelsResponse;
+
+	if (!data.completions || data.completions.length === 0) {
+		return [];
+	}
+
+	return data.completions.map((model) => ({
+		id: model.id,
+		displayName: model.display_name,
+		endpointPath: model.endpoints[0]?.path ?? '',
+		protocol: model.endpoints[0]?.protocol ?? '',
+		weight: model.weight,
+	}));
+}
+
+function selectModel(models: CompletionModel[]): CompletionModel {
+	if (models.length === 0) {
+		throw new Error('No completion models available');
+	}
+
+	if (models.length === 1) {
+		return models[0];
+	}
+
+	const totalWeight = models.reduce((sum, m) => sum + m.weight, 0);
+	let random = Math.random() * totalWeight;
+
+	for (const model of models) {
+		random -= model.weight;
+		if (random <= 0) {
+			return model;
+		}
+	}
+
+	return models[models.length - 1];
+}
+
+async function getGatewayCompletionModel(baseUrl: string, accessToken: string): Promise<CompletionModel> {
+	if (!cachedCompletionModels || Date.now() - cachedCompletionModelsTimestamp > MODEL_CACHE_TTL_MS) {
+		cachedCompletionModels = null;
+		try {
+			const models = await fetchCompletionModels(baseUrl, accessToken, getUserAgent());
+			if (models.length > 0) {
+				cachedCompletionModels = models;
+				cachedCompletionModelsTimestamp = Date.now();
+			}
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			log.warn(`Failed to fetch completion models, falling back to default: ${message}`);
+		}
+
+		if (!cachedCompletionModels) {
+			cachedCompletionModels = [DEFAULT_COMPLETION_MODEL];
+			cachedCompletionModelsTimestamp = Date.now();
+		}
+	}
+
+	const model = selectModel(cachedCompletionModels);
+	log.debug(`Selected completion model: ${model.id} (endpoint: ${model.endpointPath})`);
+	return model;
 }
 
 async function getLLMConfiguration(): Promise<LLMConfig | null> {
@@ -437,32 +522,28 @@ async function getLLMConfiguration(): Promise<LLMConfig | null> {
 		return null;
 	}
 
-	const config = vscode.workspace.getConfiguration('nextEditSuggestions');
-	const selectedModel = config.get<string>('selectedCompletionModel') || '';
-
 	const baseUrl = vscode.workspace
 		.getConfiguration('authentication.positai')
 		.inspect<string>('baseUrl')?.globalValue
 		?? DEFAULT_BASE_URL;
 
-	const userAgent = getUserAgent();
+	const selectedModelId = vscode.workspace
+		.getConfiguration('nextEditSuggestions')
+		.get<string>('selectedCompletionModel') || '';
 
-	const llmConfig: LLMConfig = {
-		modelId: selectedModel,
+	const model = selectedModelId
+		? cachedCompletionModels?.find((m) => m.id === selectedModelId)
+		: await getGatewayCompletionModel(baseUrl, session.accessToken);
+
+	return {
+		modelId: model?.id ?? DEFAULT_COMPLETION_MODEL.id,
+		endpointPath: model?.endpointPath ?? DEFAULT_COMPLETION_MODEL.endpointPath,
 		accessToken: session.accessToken,
 		baseUrl,
 		maxContextTokens: 5000,
 		maxOutputTokens: 256,
-		options: { userAgent },
+		options: { userAgent: getUserAgent() },
 	};
-
-	if (!selectedModel && session?.accessToken) {
-		const model = await fetchCompletionModels(baseUrl, session.accessToken, userAgent);
-		llmConfig.modelId = model.id;
-		llmConfig.endpointPath = model.endpointPath;
-	}
-
-	return llmConfig;
 }
 
 export function deactivate(): void { }

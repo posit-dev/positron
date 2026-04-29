@@ -81,3 +81,27 @@ export interface VariablesContext {
 	languageId: string;
 	variables: Variable[];
 }
+
+export interface CompletionModel {
+	id: string;
+	displayName: string;
+	endpointPath: string;
+	protocol: string;
+	weight: number;
+}
+
+export interface ModelsResponseEndpoint {
+	path: string;
+	protocol: string;
+}
+
+export interface ModelsResponseCompletionModel {
+	id: string;
+	display_name: string;
+	endpoints: ModelsResponseEndpoint[];
+	weight: number;
+}
+
+export interface ModelsResponse {
+	completions?: ModelsResponseCompletionModel[];
+}
