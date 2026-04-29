@@ -27,24 +27,29 @@ export function createSQLiteDriver(
 	const iconPath = path.join(context.extensionPath, 'media', 'logo', 'sqlite.svg');
 	const iconSvg = readFileSync(iconPath, 'utf-8');
 
+	const isWindows = process.platform === 'win32';
+	const databasePathPlaceholder = isWindows
+		? vscode.l10n.t('example: C:\\path\\to\\database.sqlite')
+		: vscode.l10n.t('example: /path/to/database.sqlite');
+
 	// Return the driver.
 	return {
 		id: 'positron-sqlite',
 		name: 'SQLite',
-		description: 'Connect to a local SQLite database file',
+		description: vscode.l10n.t('Connect to a local SQLite database file'),
 		iconSvg,
 		supportedLanguageIds: [],
 		parameters: [
 			{
 				id: 'databasePath',
-				label: 'Database File',
+				label: vscode.l10n.t('Database File'),
 				type: positron.DataConnectionParameterType.File,
 				required: true,
-				placeholder: '/path/to/database.sqlite',
+				placeholder: databasePathPlaceholder,
 			},
 			{
 				id: 'readOnly',
-				label: 'Read Only',
+				label: vscode.l10n.t('Read Only'),
 				type: positron.DataConnectionParameterType.Boolean,
 				defaultValue: false,
 			},
@@ -56,7 +61,7 @@ export function createSQLiteDriver(
 
 			// Validate parameters.
 			if (!isNonEmptyString(databasePath)) {
-				return Promise.reject(new Error('Database file path is required'));
+				return Promise.reject(new Error(vscode.l10n.t('Database file path is required')));
 			}
 
 			// Return a resolved promise with the new SQLite connection.

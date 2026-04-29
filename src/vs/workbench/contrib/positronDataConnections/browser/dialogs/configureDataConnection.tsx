@@ -80,8 +80,11 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 		// Initialize parameter field states.
 		const initialParameterFieldStates: ParameterFieldStates = {};
 		for (const parameter of props.driver.metadata.parameters) {
-			// Get the default value for the parameter. Password parameters never have a default.
-			const defaultValue = parameter.type === 'password' ? undefined : parameter.defaultValue;
+			// Get the default value for the parameter. Password parameters and secret string
+			// parameters do not have a default value in the type system.
+			const defaultValue = parameter.type === 'password' || (parameter.type === 'string' && parameter.secret)
+				? undefined
+				: parameter.defaultValue;
 
 			// Set the initial value for the parameter. Use the value from the profile if available;
 			// otherwise fall back to the default value (if any). For required parameters, leaving
@@ -198,14 +201,14 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 
 							{/* Connection Name */}
 							<div className='parameter-field'>
-								<label className='parameter-label'>Connection Name</label>
+								<label className='parameter-label'>{localize('positron.connectionName', 'Connection Name')}</label>
 								<input
 									ref={connectionNameInputRef}
 									className={positronClassNames(
 										'parameter-input', 'text-input',
 										{ 'error': connectionNameError }
 									)}
-									placeholder='connection name'
+									placeholder={localize('positron.connectionNamePlaceholder', 'e.g. My Connection')}
 									type='text'
 									value={connectionName}
 									onChange={e => {

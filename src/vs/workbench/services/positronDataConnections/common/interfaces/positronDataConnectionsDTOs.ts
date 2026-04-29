@@ -17,6 +17,7 @@
 export interface IDataConnectionParameterDTO {
 	id: string;
 	label: string;
+	secret?: boolean;
 	required?: boolean;
 	type: string; // 'boolean' | 'file' | 'number' | 'option' | 'password' | 'string'
 	defaultValue?: string | number | boolean;

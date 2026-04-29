@@ -31,55 +31,52 @@ export function createPostgreSQLDriver(
 	return {
 		id: 'positron-postgresql',
 		name: 'PostgreSQL',
-		description: 'Connect to a PostgreSQL database server',
+		description: vscode.l10n.t('Connect to a PostgreSQL database server'),
 		iconSvg,
 		supportedLanguageIds: [],
 		parameters: [
 			{
 				id: 'host',
-				label: 'Host',
+				label: vscode.l10n.t('Host'),
 				type: positron.DataConnectionParameterType.String,
 				required: true,
-				placeholder: 'localhost',
 				defaultValue: 'localhost',
 			},
 			{
 				id: 'port',
-				label: 'Port',
+				label: vscode.l10n.t('Port'),
 				type: positron.DataConnectionParameterType.Number,
 				required: true,
 				defaultValue: 5432,
 			},
 			{
 				id: 'database',
-				label: 'Database',
+				label: vscode.l10n.t('Database'),
 				type: positron.DataConnectionParameterType.String,
 				required: true,
-				placeholder: 'postgres',
 			},
 			{
 				id: 'user',
-				label: 'User',
+				label: vscode.l10n.t('User'),
 				type: positron.DataConnectionParameterType.String,
 				required: true,
-				placeholder: 'postgres',
 			},
 			{
 				id: 'password',
-				label: 'Password',
+				label: vscode.l10n.t('Password'),
 				type: positron.DataConnectionParameterType.Password,
+				secret: true,
 				required: true,
-				placeholder: '',
 			},
 			{
 				id: 'ssl',
-				label: 'Use SSL',
+				label: vscode.l10n.t('Use SSL'),
 				type: positron.DataConnectionParameterType.Boolean,
 				defaultValue: false,
 			},
 			{
 				id: 'read-only',
-				label: 'Read only',
+				label: vscode.l10n.t('Read only'),
 				type: positron.DataConnectionParameterType.Boolean,
 				defaultValue: false,
 			},
@@ -96,19 +93,19 @@ export function createPostgreSQLDriver(
 
 			// Validate parameters.
 			if (!isNonEmptyString(host)) {
-				return Promise.reject(new Error('Host is required'));
+				return Promise.reject(new Error(vscode.l10n.t('Host is required')));
 			}
 			if (port === undefined) {
-				return Promise.reject(new Error('Port is required'));
+				return Promise.reject(new Error(vscode.l10n.t('Port is required')));
 			}
 			if (!isNonEmptyString(database)) {
-				return Promise.reject(new Error('Database is required'));
+				return Promise.reject(new Error(vscode.l10n.t('Database is required')));
 			}
 			if (!isNonEmptyString(user)) {
-				return Promise.reject(new Error('User is required'));
+				return Promise.reject(new Error(vscode.l10n.t('User is required')));
 			}
 			if (!isNonEmptyString(password)) {
-				return Promise.reject(new Error('Password is required'));
+				return Promise.reject(new Error(vscode.l10n.t('Password is required')));
 			}
 
 			// Create the connection.

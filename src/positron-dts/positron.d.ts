@@ -1761,7 +1761,8 @@ declare module 'positron' {
 	}
 
 	/**
-	 * A data connection parameter. The `type` discriminant determines which additional fields are available.
+	 * A data connection parameter. The `type` discriminant determines which additional fields are
+	 * available.
 	 */
 	export type DataConnectionParameter = DataConnectionParameterBase & (
 		| {
@@ -1785,12 +1786,22 @@ declare module 'positron' {
 			placeholder?: string;
 		}
 		| {
+			// Password fields are always secret and cannot have a default value.
 			type: DataConnectionParameterType.Password;
+			secret: true;
 			placeholder?: string;
 		}
 		| {
+			// Non-secret strings can have a default value.
 			type: DataConnectionParameterType.String;
+			secret?: false;
 			defaultValue?: string;
+			placeholder?: string;
+		}
+		| {
+			// Secret strings cannot have a default value.
+			type: DataConnectionParameterType.String;
+			secret: true;
 			placeholder?: string;
 		}
 	);

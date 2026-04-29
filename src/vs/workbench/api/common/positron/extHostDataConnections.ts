@@ -274,6 +274,13 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 		};
 		switch (p.type) {
 			case 'string':
+				dto.placeholder = p.placeholder;
+				if (p.secret) {
+					dto.secret = true;
+				} else {
+					dto.defaultValue = p.defaultValue;
+				}
+				break;
 			case 'number':
 			case 'file':
 				dto.defaultValue = p.defaultValue;
@@ -286,6 +293,10 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 				dto.defaultValue = p.defaultValue;
 				dto.placeholder = p.placeholder;
 				dto.options = p.options;
+				break;
+			case 'password':
+				dto.secret = p.secret;
+				dto.placeholder = p.placeholder;
 				break;
 		}
 		return dto;

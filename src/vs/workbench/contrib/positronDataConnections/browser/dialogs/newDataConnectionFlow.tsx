@@ -90,8 +90,8 @@ export const NewDataConnectionFlow = (props: NewDataConnectionFlowProps) => {
 					renderer={props.renderer}
 					onBack={() => setStep(NewDataConnectionFlowStep.SelectProvider)}
 					onSave={updatedDataConnectionProfile => {
-						// Add or replace the connection profile in the service.
-						positronDataConnectionsService.addReplaceConnectionProfile(updatedDataConnectionProfile);
+						// Add the connection profile in the service.
+						positronDataConnectionsService.addUpdateProfile(updatedDataConnectionProfile);
 
 						// Dispose the renderer to close the dialog.
 						props.renderer.dispose();

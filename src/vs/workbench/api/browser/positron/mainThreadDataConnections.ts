@@ -26,9 +26,12 @@ function dtoToServiceParameter(dto: IDataConnectionParameterDTO): IDataConnectio
 		case 'option':
 			return { ...base, type: 'option', options: dto.options ?? [], defaultValue: dto.defaultValue as string | undefined, placeholder: dto.placeholder };
 		case 'password':
-			return { ...base, type: 'password', placeholder: dto.placeholder };
+			return { ...base, type: 'password', secret: true, placeholder: dto.placeholder };
 		case 'string':
-			return { ...base, type: 'string', defaultValue: dto.defaultValue as string | undefined, placeholder: dto.placeholder };
+			if (dto.secret) {
+				return { ...base, type: 'string', secret: true, placeholder: dto.placeholder };
+			}
+			return { ...base, type: 'string', secret: false, defaultValue: dto.defaultValue as string | undefined, placeholder: dto.placeholder };
 		default:
 			throw new Error(`Unknown IDataConnectionParameterDTO type: ${dto.type}`);
 	}

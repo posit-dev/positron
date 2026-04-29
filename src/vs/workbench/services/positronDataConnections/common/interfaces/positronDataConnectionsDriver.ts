@@ -56,17 +56,18 @@ export interface IDataConnectionParameterBase {
 
 /**
  * Service-level data connection parameter. Mirrors the public API's DataConnectionParameter
- * discriminated union: the `type` discriminant narrows which additional fields are available.
- * The RPC layer converts IDataConnectionParameterDTO → IDataConnectionParameter at the
- * main-thread boundary.
+ * discriminated union: `secret` lives only on `password` and `string` variants, and a `string`
+ * marked `secret: true` cannot carry a `defaultValue`. The RPC layer converts
+ * IDataConnectionParameterDTO → IDataConnectionParameter at the main-thread boundary.
  */
 export type IDataConnectionParameter = IDataConnectionParameterBase & (
 	| { type: 'boolean'; defaultValue?: boolean }
 	| { type: 'file'; defaultValue?: string; placeholder?: string }
 	| { type: 'number'; defaultValue?: number; placeholder?: string }
 	| { type: 'option'; options: string[]; defaultValue?: string; placeholder?: string }
-	| { type: 'password'; placeholder?: string }
-	| { type: 'string'; defaultValue?: string; placeholder?: string }
+	| { type: 'password'; secret: true; placeholder?: string }
+	| { type: 'string'; secret?: false; defaultValue?: string; placeholder?: string }
+	| { type: 'string'; secret: true; placeholder?: string }
 );
 
 /**
