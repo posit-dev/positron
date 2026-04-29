@@ -20,8 +20,6 @@ import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
 import { CellScopedContextKeyServiceProvider } from '../../../browser/notebookCells/CellContextKeyServiceProvider.js';
 import { InlineDataExplorerHeader } from '../../../browser/notebookCells/InlineDataExplorer.js';
 import type { IInlineDataExplorerActionContext } from '../../../browser/notebookCells/InlineDataExplorerActions.js';
-import { IPositronNotebookCodeCell } from '../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
-import { IPositronNotebookInstance } from '../../../browser/IPositronNotebookInstance.js';
 
 /** Minimal MenuItemAction stub for rendering and click dispatch. */
 function mockAction(id: string, label: string, iconId: string, run: (...args: unknown[]) => Promise<unknown> = () => Promise.resolve()): MenuItemAction {
@@ -40,8 +38,8 @@ function mockAction(id: string, label: string, iconId: string, run: (...args: un
 
 function buildActionContext(): IInlineDataExplorerActionContext {
 	return {
-		cell: stubInterface<IPositronNotebookCodeCell>({}),
-		notebookInstance: stubInterface<IPositronNotebookInstance>({ uri: URI.parse('file:///nb.ipynb') }),
+		documentUri: URI.parse('file:///nb.ipynb'),
+		sourceLanguage: 'python',
 		commId: 'comm-1',
 		variablePath: ['df'],
 		title: 'df',

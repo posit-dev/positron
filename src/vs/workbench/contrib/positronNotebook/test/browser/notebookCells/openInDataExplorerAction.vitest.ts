@@ -7,10 +7,7 @@
 
 import { URI } from '../../../../../../base/common/uri.js';
 import { ICommandService } from '../../../../../../platform/commands/common/commands.js';
-import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
 import { createTestContainer } from '../../../../../../test/vitest/positronTestContainer.js';
-import { IPositronNotebookCodeCell } from '../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
-import { IPositronNotebookInstance } from '../../../browser/IPositronNotebookInstance.js';
 import { OpenInDataExplorerAction, type IInlineDataExplorerActionContext } from '../../../browser/notebookCells/InlineDataExplorerActions.js';
 
 describe('OpenInDataExplorerAction', () => {
@@ -25,24 +22,45 @@ describe('OpenInDataExplorerAction', () => {
 		ctx.instantiationService.stub(ICommandService, { executeCommand });
 	});
 
-	it('dispatches positron-data-explorer.openFromInline with commId, variablePath, notebookUri', async () => {
-		const action = new OpenInDataExplorerAction();
-		const actionCtx: IInlineDataExplorerActionContext = {
-			cell: stubInterface<IPositronNotebookCodeCell>({}),
-			notebookInstance: stubInterface<IPositronNotebookInstance>({ uri: URI.parse('file:///nb.ipynb') }),
+	function buildContext(overrides: Partial<IInlineDataExplorerActionContext> = {}): IInlineDataExplorerActionContext {
+		return {
+			documentUri: URI.parse('file:///nb.ipynb'),
+			sourceLanguage: 'python',
 			commId: 'comm-123',
 			variablePath: ['df'],
 			title: 'df',
 			shape: { rows: 10, columns: 5 },
 			gridInstance: undefined,
+			...overrides,
 		};
+	}
+
+	it('dispatches positron-data-explorer.openFromInline with documentUri', async () => {
+		const action = new OpenInDataExplorerAction();
+		const actionCtx = buildContext();
 
 		await action.run({ get: <T,>(svc: any) => ctx.get(svc) } as any, actionCtx);
 
 		expect(executeCommand).toHaveBeenCalledWith('positron-data-explorer.openFromInline', {
 			commId: 'comm-123',
 			variablePath: ['df'],
-			notebookUri: actionCtx.notebookInstance.uri,
+			notebookUri: actionCtx.documentUri,
 		});
+	});
+
+	it('works for surfaces without notebook context (e.g. Quarto)', async () => {
+		const action = new OpenInDataExplorerAction();
+		const actionCtx = buildContext({
+			documentUri: URI.parse('file:///doc.qmd'),
+			sourceLanguage: '',
+			cell: undefined,
+			notebookInstance: undefined,
+		});
+
+		await action.run({ get: <T,>(svc: any) => ctx.get(svc) } as any, actionCtx);
+
+		expect(executeCommand).toHaveBeenCalledWith('positron-data-explorer.openFromInline', expect.objectContaining({
+			notebookUri: actionCtx.documentUri,
+		}));
 	});
 });

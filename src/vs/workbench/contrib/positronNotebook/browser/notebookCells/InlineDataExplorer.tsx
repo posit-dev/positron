@@ -235,13 +235,15 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 	const actionContext: IInlineDataExplorerActionContext | undefined =
 		cell && state.status === 'connected' && !isGridStale
 			? {
-				cell,
-				notebookInstance,
+				documentUri: notebookInstance.uri,
+				sourceLanguage: cell.model.language,
 				commId,
 				variablePath,
 				title,
 				shape,
 				gridInstance: state.gridInstance,
+				cell,
+				notebookInstance,
 			}
 			: undefined;
 
