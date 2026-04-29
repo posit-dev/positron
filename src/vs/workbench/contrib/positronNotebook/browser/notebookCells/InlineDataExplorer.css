@@ -85,7 +85,8 @@
 }
 
 .inline-data-explorer-open-button > * {
-	cursor: pointer;
+	/* Make the button the sole hover target so cursor: pointer applies. */
+	pointer-events: none;
 }
 
 .inline-data-explorer-open-button > .codicon {
