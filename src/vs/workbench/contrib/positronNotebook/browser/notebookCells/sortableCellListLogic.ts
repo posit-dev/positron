@@ -51,9 +51,12 @@ export function computeDropIndex(args: {
 }): { closestId: UniqueIdentifier; dropIndex: number | null; isNoOp: boolean } | null {
 	const { pointerCoordinates, droppableContainers, droppableRects, activeCells, allCells } = args;
 
+	// Exclude active item and secondary drag participants -- dropping onto
+	// the cell being dragged shouldn't count as a target.
 	const excludeHandles = new Set(activeCells.map(c => c.handle));
 	const candidates = droppableContainers.filter(c => !excludeHandles.has(c.id as number));
 
+	// Find the cell the pointer is inside (distance 0) or nearest to.
 	let closestId: UniqueIdentifier | null = null;
 	let closestRect: ClientRect | null = null;
 	let closestDist = Infinity;
@@ -92,9 +95,12 @@ export function computeDropIndex(args: {
 
 	const midY = closestRect.top + closestRect.height / 2;
 	const dropIndex = pointerCoordinates.y < midY
-		? overCellIndex
-		: overCellIndex + 1;
+		? overCellIndex       // top half: gap ABOVE the cell
+		: overCellIndex + 1;  // bottom half: gap BELOW the cell
 
+	// Detect no-op positions: dropping the cell back where it started. Any
+	// target from the first dragged index through lastDraggedIndex + 1
+	// produces no movement.
 	const minIdx = activeCells.length > 0 ? activeCells[0].index : -1;
 	const maxIdx = activeCells.length > 0 ? activeCells[activeCells.length - 1].index : -1;
 	const isNoOp = dropIndex >= minIdx && dropIndex <= maxIdx + 1;
@@ -113,9 +119,14 @@ export function resolveDraggedCells<T extends CellRef>(
 	draggedCell: T,
 	selectedCells: readonly T[]
 ): T[] {
+	// Only use multi-drag if (1) more than one cell is selected and (2) the
+	// dragged cell is part of the selection. Compare by handle rather than
+	// reference so re-rendered cell instances still match.
 	const isDraggedCellSelected = selectedCells.some(c => c.handle === draggedCell.handle);
 	if (selectedCells.length > 1 && isDraggedCellSelected) {
+		// Sort by index to preserve relative cell order in the drag set.
 		return [...selectedCells].sort((a, b) => a.index - b.index);
 	}
+	// Single-cell drag: either no multi-selection or dragging an unselected cell.
 	return [draggedCell];
 }
