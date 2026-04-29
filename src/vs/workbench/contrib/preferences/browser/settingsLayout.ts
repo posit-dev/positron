@@ -287,6 +287,11 @@ export const tocData: ITOCEntry<string> = {
 				},
 				// --- Start Positron ---
 				{
+					id: 'features/packages',
+					label: localize('packages', "Packages"),
+					settings: ['positron.packages.*']
+				},
+				{
 					id: 'features/plots',
 					label: localize('plots', 'Plots'),
 					settings: ['plots.*']
