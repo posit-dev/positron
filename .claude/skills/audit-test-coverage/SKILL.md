@@ -175,7 +175,7 @@ After the dev's response at step 5, ask:
 
 The report is ordered bottom-up through the test pyramid (Core Mocha -> Vitest -> Extension host -> E2E) in both sections. This mirrors how the dev should think about coverage: "what do we already have at the cheapest level?" before "what do we need higher up?"
 
-````
+```
 # Test coverage audit - <scope summary>
 
 Gathered: <PR/branch/files summary, one line>
@@ -261,7 +261,7 @@ Proposed: draft Vitest for the formatter; trim e2e to the cross-pane subset.
 - Delete / Skip: <N>
 - Upstream awareness: <U items, X overlaps>
 - Total dev decisions at the gate: <sum of approvals needed>
-````
+```
 
 **Formatting rules:**
 - Line-number references (`L23`) only when the test file has actually been read.
