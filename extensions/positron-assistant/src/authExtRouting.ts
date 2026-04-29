@@ -29,7 +29,6 @@ const AUTH_EXT_PROVIDERS = new Set<string>([
 	'openai-api',
 	'openai-compatible',
 	'google',
-	'deepseek',
 ]);
 
 export function isAuthExtProvider(providerId: string): boolean {
