@@ -157,10 +157,19 @@ When any of these hit, surface the candidate with verdict `Move up -> <bucket>` 
 
 ### Step 5. Present the report and gate on dev feedback
 
-Output the report using the Output format template below. Then ask exactly two questions:
+Output the report using the Output format template below. The presentation mode depends on **action-item count** (Move down / Move up / Split / Add — NOT Keep / Skip / Delete, which the table already conveys):
 
-1. *"For each item above: approve / change bucket / skip? Reply per-line (e.g., `approve all except 3,7`) or 'approve all'."*
-2. *"Any testable behavior I missed?"*
+- **1-2 action items:** "inline-dump" mode. After the at-a-glance table, render all action items in compact form, then ask the gate questions once.
+- **3+ action items:** "step-through" mode. After the at-a-glance table, render action items one at a time. For each: show the compact item block + ask `approve / change <verdict> / skip / expand ?`. Wait for the reply before showing the next item. After the last action item, summarize decisions ("3/3 processed: 3 approved, 0 changed, 0 skipped"), then ask any global gate questions.
+
+Mode is auto-selected from the action-item count. The dev can override at any point:
+- `dump all` — switch from step-through to inline-dump (show remaining items at once).
+- `step through` — switch from inline-dump to step-through.
+- `approve all remaining` (in step-through mode) — auto-approve everything that hasn't been visited yet.
+
+In both modes, end with the same global question:
+
+> *"Any testable behavior I missed?"*
 
 Stop. Wait for the dev. Do not proceed without a response.
 
@@ -197,15 +206,17 @@ Example: *3 items audited. Recommendation: move down 2 to Vitest (medium confide
 
 ## At a glance
 
-| ID  | Test :: scenario                          | Verdict             | Conf.  |
-|-----|-------------------------------------------|---------------------|--------|
-| [1] | <test-file-shortname> :: <scenario>       | Move down -> Vitest | medium |
-| [2] | <test-file-shortname> :: <scenario>       | Move down -> Vitest | medium |
-| [3] | <test-file-shortname> :: <scenario>       | Keep                | high   |
+| ID  | Test :: scenario                          | Verdict             | Conf.  | Why                                                |
+|-----|-------------------------------------------|---------------------|--------|----------------------------------------------------|
+| [1] | <test-file-shortname> :: <scenario>       | Move down -> Vitest | high   | already covered in `notebookDelete.vitest.ts`      |
+| [2] | <test-file-shortname> :: <scenario>       | Split               | medium | clipboard half is e2e; rest covered                |
+| [3] | <test-file-shortname> :: <scenario>       | Keep                | high   | webview-rendered (markdown-language-features)      |
 
 (Use the test-file's basename + describe/it scenario as the row label so the table stays scannable. Long full paths belong only in the per-item detail below.)
 
-The detailed sections that follow are ordered bottom-up through the test pyramid (Core Mocha -> Vitest -> Extension host -> E2E). Items separated by `---`. Drill in only on items where the at-a-glance verdict surprises you.
+After the table, only **action items** (`Move down` / `Move up` / `Split` / `Add`) need a per-item display. `Keep` / `Skip` / `Delete` verdicts are conveyed by the table alone and auto-approved; the dev can `details N` if they want to challenge one. Display mode for action items depends on count (Step 5 governs this):
+- 1-2 action items -> inline-dump (show all; one gate question at the end).
+- 3+ action items -> step-through (one item per turn).
 
 ## Existing coverage
 
@@ -331,9 +342,17 @@ Each item below uses the same compact layout. Path on its own line, verdict on t
 **Formatting rules:**
 
 **Top-level structure:**
-- Always lead with `## TL;DR` (1-3 sentence narrative recommendation) and `## At a glance` (markdown table). The dev should be able to make 80% of their decisions from these two sections without scrolling further.
+- Always lead with `## TL;DR` (1-3 sentence narrative recommendation) and `## At a glance` (markdown table with columns: ID / Test :: scenario / Verdict / Conf. / Why). The dev should be able to make 80% of their decisions from these two sections without scrolling further.
 - The at-a-glance table uses the test-file basename + describe/it scenario as the row label (`notebook-cell-action-bar :: Cell deletion`), not the full path. Full paths only in the per-item detail.
+- The `Why` column is one short phrase per row (e.g., *"already covered in notebookDelete.vitest.ts"*, *"webview-rendered"*, *"cross-pane workflow"*). Keep it scannable.
 - Detailed sections follow in pyramid order (Core Mocha -> Vitest -> Ext host -> E2E), Existing coverage before New coverage needed.
+
+**Display mode (governed by Step 5):**
+- The skill auto-selects display mode based on **action-item count** (Move down / Move up / Split / Add — NOT Keep / Skip / Delete).
+- 1-2 action items -> inline-dump. After the at-a-glance table, render all action items in compact form back-to-back (existing per-item layout). Then ask the gate question once.
+- 3+ action items -> step-through. After the at-a-glance table, render one action item, ask `approve / change <verdict> / skip / expand ?`, wait for the dev. Repeat for next. After the last, summarize ("3/3 processed: 3 approved").
+- `Keep` / `Skip` / `Delete` verdicts are NEVER shown in per-item form by default — the table conveys them. The dev can request `details N` for one of them if they want to challenge it.
+- Dev can override mode with `dump all` or `step through` at any point.
 
 **Per-item layout:**
 - Each item uses bold `**[N]**` + path on line 1, then `**Verdict:**`, then ONE of `**Why it stays:**` / `**Why:**` / `**Trace:**`, then `**What changes:**` (for Move/Split/Add). Items are separated by `---`.
