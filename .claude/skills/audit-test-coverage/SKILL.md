@@ -270,3 +270,26 @@ Proposed: draft Vitest for the formatter; trim e2e to the cross-pane subset.
 - Hypothesis-verification trace is shown inline for any `Keep` produced by 4B-verify so the dev can spot-check.
 - Low-confidence flags are listed under their own heading and called out as optional.
 - Items are numbered across the whole report (`1`...`N`) so the dev can reply `approve all except 3,7,12`.
+
+## Guardrails
+
+Hard rules the skill never violates:
+
+- Do NOT write, edit, move, rename, or delete test files directly. All writes go through `author-*` skills; deletions are dev-driven.
+- Do NOT run direct TypeScript compilation (`npx tsc`, `tsc --noEmit`, etc.) - per Positron's `CLAUDE.md`.
+- Do NOT start build daemons unless the dev explicitly asks (e.g., `npm run build-start`).
+- Do NOT run tests (Vitest, Playwright, ext-host).
+- Do NOT ask more than 2 clarifying questions before presenting the report.
+- Do NOT chain handoffs silently - stop after each `author-*` invocation and summarize.
+- Do NOT pass a PR number or branch to `author-vitest-tests` during handoff - always per-file.
+- Do NOT propose moves, deletions, or modifications to upstream Core Mocha tests (`src/vs/**/test/**/*.test.ts` without Positron copyright headers). They are read-only; surface them for awareness only.
+- If the dev response at step 5 is ambiguous, ask once for clarification; if still ambiguous, default to "skip everything not clearly approved."
+
+## Notes / references
+
+- **`CLAUDE.md` Testing section** - decision table is source of truth; the skill re-reads it at the start of every run.
+- **`.claude/rules/vitest-tests.md`** - Vitest patterns and conventions.
+- **`src/vs/test/vitest/positronTestContainer.ts`** - JSDoc on `PositronTestContainerBuilder` covers preset hierarchy.
+- **`./scripts/file-origin.sh`** - used in 4B-verify to determine Positron vs upstream ownership of a code path.
+- **Sibling skills this one coordinates with:** `author-vitest-tests`, `review-vitest-tests`, `author-e2e-tests`.
+- **Prior art:** the 2026-04-28 one-off e2e -> Vitest audit (tracking docs at `~/.claude/projects/-Users-marieidleman-Develop-positron/migration-tracking/`) is the manual version of what this skill operationalizes. The audit's methodology, findings, and reusable migration recipe inform 4B-verify and the verdict vocabulary.
