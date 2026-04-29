@@ -42,7 +42,8 @@ import { IExtensionService } from '../../../services/extensions/common/extension
 import { extname, isEqual } from '../../../../base/common/resources.js';
 import { CellKind, CellUri, NotebookWorkingCopyTypeIdentifier } from '../../notebook/common/notebookCommon.js';
 import { registerNotebookWidget } from './registerNotebookWidget.js';
-import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
+import { ContextKeyExpr, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { mirrorExperimentalConfigToContextKey } from './positronNotebookExperimentalMirror.js';
 import { IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
 import { IPositronNotebookEditorOptions } from './positronNotebookEditorTypes.js';
 import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID, PositronNotebookActionId, PositronNotebookCellActionBarLeftGroup, PositronNotebookCellOutputActionGroup, usingPositronNotebooks } from '../common/positronNotebookCommon.js';
@@ -118,9 +119,11 @@ class PositronNotebookContribution extends Disposable {
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IFileService private readonly fileService: IFileService,
 		@INotebookService private readonly notebookService: INotebookService,
+		@IContextKeyService contextKeyService: IContextKeyService,
 	) {
 		super();
 
+		this._register(mirrorExperimentalConfigToContextKey(contextKeyService, this.configurationService));
 		this.registerEditor();
 	}
 
