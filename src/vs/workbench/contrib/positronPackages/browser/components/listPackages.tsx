@@ -253,6 +253,11 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 				}
 			}),
 		);
+		disposableStore.add(
+			reactComponentContainer.onVisibilityChanged((isVisible) => {
+				setVisible(isVisible);
+			}),
+		);
 		return () => disposableStore.dispose();
 	}, [reactComponentContainer, scrollStateRef, setScrollState]);
 
