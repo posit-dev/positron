@@ -130,7 +130,8 @@ describe('InlineDataExplorerHeader', () => {
 	// InlineDataExplorerActionButton only knows how to render MenuItemAction.
 	it('skips non-MenuItemAction entries (e.g. submenu items)', () => {
 		const submenuAction = new SubmenuItemAction(
-			{ title: 'Sub Menu', submenu: new MenuId('TestInlineDataExplorerSubmenu') },
+			// MenuId is globally registered; .for() returns the existing instance on retries instead of throwing.
+			{ title: 'Sub Menu', submenu: MenuId.for('TestInlineDataExplorerSubmenu') },
 			undefined,
 			[],
 		);
