@@ -250,5 +250,23 @@ describe('PositronNotebookInstance', () => {
 			notebook.moveCellsDown();
 			expect(getCellValues(notebook)).toEqual(['B', 'C', 'D', 'A', 'E']);
 		});
+
+		it('sequential multi-block moves keep the selection grouped across calls', () => {
+			// Multi-cell selection persistence is structurally distinct from
+			// single-cell because the state machine has to keep both cells in
+			// MultiSelection after the move. A bug that downgraded to
+			// SingleSelection mid-sequence would let the second moveCellsDown
+			// only move one cell.
+			const notebook = createFiveCellNotebook();
+			const cells = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cells[1], CellSelectionType.Normal);
+			notebook.selectionStateMachine.selectCell(cells[2], CellSelectionType.Add);
+
+			notebook.moveCellsDown();
+			expect(getCellValues(notebook)).toEqual(['A', 'D', 'B', 'C', 'E']);
+
+			notebook.moveCellsDown();
+			expect(getCellValues(notebook)).toEqual(['A', 'D', 'E', 'B', 'C']);
+		});
 	});
 });
