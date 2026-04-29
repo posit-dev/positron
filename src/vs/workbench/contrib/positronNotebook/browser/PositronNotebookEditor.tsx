@@ -10,7 +10,7 @@ import { NotebookRenderCache } from './notebookRenderCache.js';
 import { disposeNotebookRenderCacheEntry } from './notebookRenderCacheDispose.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Emitter } from '../../../../base/common/event.js';
-import { DisposableStore, IDisposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
+import { DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { ITextResourceConfigurationService } from '../../../../editor/common/services/textResourceConfiguration.js';
 import { localize } from '../../../../nls.js';
 import { IContextKeyService, IScopedContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
@@ -90,13 +90,6 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 	private readonly _instanceDisposableStore = this._register(
 		new DisposableStore()
 	);
-
-	/**
-	 * Active scroll restoration loop on the cache-hit path, where the cached
-	 * React tree is reused and useScrollRestoration's mount-time consume
-	 * does not re-run.
-	 */
-	private readonly _scrollRestoration = this._register(new MutableDisposable<IDisposable>());
 
 	protected override _input: PositronNotebookEditorInput | undefined;
 
@@ -323,7 +316,9 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		);
 
 		// Cache hit: reuse the existing renderer, container, and live Monaco
-		// editors -- the fast path that skips editor recreation.
+		// editors -- the fast path that skips editor recreation. The component
+		// re-runs its scroll-restoration layout effect via the observable
+		// bumped by restoreEditorViewState below.
 		const cachedRender = this._renderCache.get(input.resource);
 		if (cachedRender) {
 			this._notebookShell!.appendChild(cachedRender.container);
@@ -334,9 +329,6 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 				this._editorContainer,
 			);
 			notebookInstance.restoreEditorViewState(viewState);
-			// appendChild reset scrollTop to 0 and the React tree did not
-			// re-mount, so drive scroll restoration imperatively.
-			this._scrollRestoration.value = notebookInstance.applyRestoredScrollPosition();
 			return;
 		}
 
@@ -367,10 +359,6 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		// computeEditorViewState() which needs the notebook instance and
 		// its cells container to still be accessible.
 		super.clearInput();
-
-		// Stop the loop before parking the container -- otherwise it keeps
-		// writing scrollTop on a detached element until it times out.
-		this._scrollRestoration.clear();
 
 		// Park cached containers off-DOM; their React trees and Monaco editors
 		// stay alive so the next setInput hit is fast.

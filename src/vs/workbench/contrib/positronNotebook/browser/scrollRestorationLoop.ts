@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { RefObject, useLayoutEffect } from 'react';
 import { DisposableStore, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { addDisposableListener, getWindow } from '../../../../base/browser/dom.js';
@@ -124,29 +123,3 @@ export function startScrollRestorationLoop(
 	return toDisposable(() => stop('disposed'));
 }
 
-/**
- * Wraps {@link startScrollRestorationLoop} in a useLayoutEffect so restoration
- * runs after React commits the tree but before the browser paints. Pass
- * `getScrollTop` as `undefined` to skip restoration.
- */
-export function useScrollRestoration(
-	containerRef: RefObject<HTMLElement | null>,
-	getScrollTop: (() => number | undefined) | undefined,
-	logService: ILogService
-) {
-	return useLayoutEffect(() => {
-		if (!getScrollTop) {
-			logService.debug('[scroll-restore] skipped: no getScrollTop callback');
-			return;
-		}
-
-		const container = containerRef.current;
-		if (!container) {
-			logService.debug('[scroll-restore] skipped: container not in DOM');
-			return;
-		}
-
-		const disposable = startScrollRestorationLoop(container, getScrollTop, logService);
-		return () => disposable.dispose();
-	}, [getScrollTop, logService, containerRef]);
-}

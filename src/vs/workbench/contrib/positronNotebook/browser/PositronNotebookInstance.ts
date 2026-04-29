@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { Disposable, DisposableMap, DisposableStore, IDisposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableMap, DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -36,7 +36,7 @@ import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../servic
 import { ILanguageRuntimeService, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
-import { autorunDelta, observableFromEvent, observableValue, runOnChange } from '../../../../base/common/observable.js';
+import { autorunDelta, IObservable, observableFromEvent, observableValue, runOnChange } from '../../../../base/common/observable.js';
 import { ResourceMap } from '../../../../base/common/map.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { cellToCellDto2 } from './cellClipboardUtils.js';
@@ -44,7 +44,6 @@ import { IClipboardService } from '../../../../platform/clipboard/common/clipboa
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { isNotebookLanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSession.js';
 import { RuntimeNotebookKernel } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernel.js';
-import { startScrollRestorationLoop } from './useScrollRestoration.js';
 import { ICellRange } from '../../notebook/common/notebookRange.js';
 import { IExtensionApiCellViewModel, IContextKeysNotebookViewCellsUpdateEvent, ContextKeysNotebookViewCellsSplice, IPositronCellViewModel, IPositronActiveNotebookEditor, IChatEditingNotebookViewModel, IChatEditingCellViewModel } from './IPositronNotebookEditor.js';
 import { IPosition } from '../../../../editor/common/core/position.js';
@@ -192,6 +191,14 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Read by the React component on mount to restore the scroll position.
 	 */
 	private _restoredScrollPosition: IPositronNotebookResolvedScrollPosition | undefined;
+
+	/**
+	 * Bumped on every `restoreEditorViewState` call. The notebook React
+	 * component subscribes to this so its scroll-restoration layout effect
+	 * re-fires on cache-hit setInput, where the React tree is reused.
+	 */
+	private readonly _restoreScrollPositionRequest = observableValue<number>('restoreScrollPositionRequest', 0);
+	readonly restoreScrollPositionRequest: IObservable<number> = this._restoreScrollPositionRequest;
 
 	/**
 	 * The DOM element that contains the cells for the notebook.
@@ -2006,29 +2013,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._restoredScrollPosition = anchor && anchor.cellIndex < cells.length
 			? { cell: cells[anchor.cellIndex], offsetFromCell: anchor.offsetFromCell }
 			: undefined;
-	}
-
-	/**
-	 * Imperatively run scroll restoration using the position last set by
-	 * `restoreEditorViewState`. Used by the editor's cache-hit path, where
-	 * the React tree is reused and `useScrollRestoration`'s mount-time
-	 * consume does not re-run.
-	 */
-	applyRestoredScrollPosition(): IDisposable | undefined {
-		const container = this._cellsContainer;
-		if (!container) {
-			return undefined;
-		}
-		const scrollPosition = this.consumeRestoredScrollPosition();
-		if (!scrollPosition) {
-			return undefined;
-		}
-		const getScrollTop = (): number | undefined => {
-			const cellTop = this.getCellTop(scrollPosition.cell);
-			if (cellTop === undefined) { return undefined; }
-			return cellTop + scrollPosition.offsetFromCell;
-		};
-		return startScrollRestorationLoop(container, getScrollTop, this._logService);
+		this._restoreScrollPositionRequest.set(this._restoreScrollPositionRequest.get() + 1, undefined);
 	}
 
 	/**
