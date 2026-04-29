@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
@@ -21,6 +21,14 @@ describe('SortableCellList', () => {
 			stubInterface<IPositronNotebookCell>({ handle: i, index: i })
 		);
 	}
+
+	// handleDragCancel removes the body class inside requestAnimationFrame
+	// (SortableCellList.tsx). If the rAF doesn't drain before the test ends,
+	// the class leaks onto document.body and any future test that checks it
+	// gets a stale state. Belt-and-suspenders cleanup.
+	afterEach(() => {
+		document.body.classList.remove('dragging-notebook-cell');
+	});
 
 	it('Escape during a keyboard drag cancels without invoking onReorder', async () => {
 		const onReorder = vi.fn();
@@ -52,9 +60,14 @@ describe('SortableCellList', () => {
 		expect(document.body).toHaveClass('dragging-notebook-cell');
 
 		// Escape routes through dnd-kit's onDragCancel -> handleDragCancel,
-		// which clears state without dispatching onReorder.
+		// which clears state without dispatching onReorder. The cleanup runs
+		// inside requestAnimationFrame, so wait for the class to be removed
+		// before asserting -- a stronger assertion than just "no reorder".
 		await user.keyboard('{Escape}');
 
 		expect(onReorder).not.toHaveBeenCalled();
+		await waitFor(() => {
+			expect(document.body).not.toHaveClass('dragging-notebook-cell');
+		});
 	});
 });

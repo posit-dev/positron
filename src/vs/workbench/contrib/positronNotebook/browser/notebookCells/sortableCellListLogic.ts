@@ -22,8 +22,15 @@ interface CellRef {
 
 /**
  * Computes the drop indicator index (where the dragged cells will land) given
- * the current pointer position. Returns `null` when no candidate cell is found
- * -- the caller falls back to dnd-kit's built-in collision detection.
+ * the current pointer position. Returns `null` when no candidate cell can be
+ * found at all -- the caller falls back to dnd-kit's built-in collision
+ * detection.
+ *
+ * When a closest cell is found but cannot be resolved to an index in
+ * `allCells` (transient state during cell removal: a droppable is registered
+ * for a cell that's mid-unmount), the helper returns `{ closestId, dropIndex:
+ * null, isNoOp: false }`. The caller then surfaces `closestId` to dnd-kit so
+ * the over container stays tracked, but skips the indicator state update.
  *
  * The drop index splits each cell into top and bottom halves: a pointer in the
  * top half targets the gap *above* that cell (`overCellIndex`); a pointer in
@@ -41,13 +48,14 @@ export function computeDropIndex(args: {
 	droppableRects: Map<UniqueIdentifier, ClientRect>;
 	activeCells: readonly CellRef[];
 	allCells: readonly CellRef[];
-}): { closestId: UniqueIdentifier; dropIndex: number; isNoOp: boolean } | null {
+}): { closestId: UniqueIdentifier; dropIndex: number | null; isNoOp: boolean } | null {
 	const { pointerCoordinates, droppableContainers, droppableRects, activeCells, allCells } = args;
 
 	const excludeHandles = new Set(activeCells.map(c => c.handle));
 	const candidates = droppableContainers.filter(c => !excludeHandles.has(c.id as number));
 
 	let closestId: UniqueIdentifier | null = null;
+	let closestRect: ClientRect | null = null;
 	let closestDist = Infinity;
 
 	for (const container of candidates) {
@@ -69,20 +77,20 @@ export function computeDropIndex(args: {
 		if (dist < closestDist) {
 			closestDist = dist;
 			closestId = container.id;
+			closestRect = rect;
 		}
 	}
 
-	if (closestId === null) {
+	if (closestId === null || closestRect === null) {
 		return null;
 	}
 
-	const overRect = droppableRects.get(closestId);
 	const overCellIndex = allCells.findIndex(c => c.handle === closestId);
-	if (!overRect || overCellIndex === -1) {
-		return null;
+	if (overCellIndex === -1) {
+		return { closestId, dropIndex: null, isNoOp: false };
 	}
 
-	const midY = overRect.top + overRect.height / 2;
+	const midY = closestRect.top + closestRect.height / 2;
 	const dropIndex = pointerCoordinates.y < midY
 		? overCellIndex
 		: overCellIndex + 1;

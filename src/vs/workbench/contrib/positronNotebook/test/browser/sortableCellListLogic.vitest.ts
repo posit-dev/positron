@@ -105,11 +105,11 @@ describe('computeDropIndex', () => {
 	});
 
 	it('cells in the active drag set are excluded from candidates', () => {
-		// Pointer at y=150 is midline of cell 1 -- excluding it forces the
-		// match onto cell 0 or cell 2 (equidistant). The loop keeps the first
-		// equally-close match, so closestId is cell 0.
+		// Pointer at y=50 is inside cell 0 (dist=0). Cell 1 would be the
+		// nearest if it weren't excluded; with [cells[1]] in activeCells the
+		// loop never considers it and falls onto cell 0 unambiguously.
 		const result = computeDropIndex({
-			pointerCoordinates: { x: 50, y: 150 },
+			pointerCoordinates: { x: 50, y: 50 },
 			droppableContainers: containers,
 			droppableRects: rects,
 			activeCells: [cells[1]],
@@ -118,6 +118,27 @@ describe('computeDropIndex', () => {
 
 		assertDefined(result, 'computeDropIndex should resolve a candidate');
 		expect(result.closestId).toBe(0);
+	});
+
+	it('returns dropIndex=null when closestId resolves but the cell is missing from allCells', () => {
+		// Mid-removal state: container is registered (with rect) but the cell
+		// has already left allCells. The helper still surfaces closestId so
+		// dnd-kit can keep tracking the over container; dropIndex stays null
+		// to signal "skip indicator state update".
+		const orphanCells = [cells[0], cells[2]];
+
+		const result = computeDropIndex({
+			pointerCoordinates: { x: 50, y: 110 },
+			droppableContainers: containers,
+			droppableRects: rects,
+			activeCells: [],
+			allCells: orphanCells,
+		});
+
+		assertDefined(result, 'computeDropIndex should resolve the closest container');
+		expect(result.closestId).toBe(1);
+		expect(result.dropIndex).toBeNull();
+		expect(result.isNoOp).toBe(false);
 	});
 
 	it('containers without a measurable rect are skipped, falling back to the next nearest', () => {

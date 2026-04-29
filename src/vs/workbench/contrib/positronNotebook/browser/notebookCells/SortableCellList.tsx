@@ -119,13 +119,18 @@ export function SortableCellList({
 			return [];
 		}
 
-		if (result.isNoOp !== isDropNoOpRef.current) {
-			isDropNoOpRef.current = result.isNoOp;
-			setIsDropNoOp(result.isNoOp);
-		}
-		if (result.dropIndex !== dropIndicatorRef.current) {
-			dropIndicatorRef.current = result.dropIndex;
-			setDropIndicatorIndex(result.dropIndex);
+		// `dropIndex: null` means closestId resolved but the cell is no longer
+		// in `allCells` (transient cell-removal state). Surface the over to
+		// dnd-kit but skip the indicator state update.
+		if (result.dropIndex !== null) {
+			if (result.isNoOp !== isDropNoOpRef.current) {
+				isDropNoOpRef.current = result.isNoOp;
+				setIsDropNoOp(result.isNoOp);
+			}
+			if (result.dropIndex !== dropIndicatorRef.current) {
+				dropIndicatorRef.current = result.dropIndex;
+				setDropIndicatorIndex(result.dropIndex);
+			}
 		}
 
 		return [{ id: result.closestId }];
