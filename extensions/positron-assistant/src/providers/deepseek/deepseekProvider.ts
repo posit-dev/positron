@@ -1,246 +1,173 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as positron from 'positron';
 import * as vscode from 'vscode';
-import Anthropic from '@anthropic-ai/sdk';
+import * as positron from 'positron';
+import * as ai from 'ai';
+import { createDeepSeek, DeepSeekProvider } from '@ai-sdk/deepseek';
 import { ModelProvider } from '../base/modelProvider';
-import { getProviderTimeoutMs } from '../../providerConfig.js';
 import { ModelConfig } from '../../configTypes.js';
-import { isChatImagePart, isCacheBreakpointPart, parseCacheBreakpoint, processMessages, promptTsxPartToString } from '../../utils.js';
-import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants.js';
-import { log } from '../../log.js';
-import { TokenUsage, recordTokenUsage, recordRequestTokenUsage } from '../../tokens.js';
-import { getAllModelDefinitions } from '../../modelDefinitions.js';
-import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers.js';
-import { LanguageModelDataPartMimeType } from '../../types.js';
-import { ModelProviderLogger } from '../base/modelProviderLogger.js';
+import { createOpenAICompatibleFetch } from '../../openai-fetch-utils';
+import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers';
+import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants';
+import { applyModelFilters } from '../../modelFilters';
 import { PROVIDER_METADATA } from '../../providerMetadata.js';
-import {
-	DEFAULT_DEEPSEEK_MODEL_NAME,
-	DEFAULT_DEEPSEEK_MODEL_MATCH,
-	getDeepseekModelsFromConfig
-} from './deepseekModelUtils.js';
-import { handleNativeSdkRateLimitError } from '../anthropic/anthropicModelUtils.js';
-
-// Re-export for consumers that import from this file
-export { DEFAULT_DEEPSEEK_MODEL_NAME, DEFAULT_DEEPSEEK_MODEL_MATCH };
+import { getProviderTimeoutMs } from '../../providerConfig.js';
+import { processMessages, toAIMessage } from '../../utils';
 
 /**
- * Options for controlling cache behavior in the Anthropic language model.
- */
-export interface CacheControlOptions {
-	/** Add a cache breakpoint to the system prompt (default: true). */
-	system?: boolean;
-}
-
-/**
- * Block params that set cache breakpoints.
- */
-type CacheControllableBlockParam = Anthropic.TextBlockParam |
-	Anthropic.ImageBlockParam |
-	Anthropic.ToolUseBlockParam |
-	Anthropic.ToolResultBlockParam;
-
-/**
- * Anthropic Claude model provider implementation using native SDK.
+ * DeepSeek model provider implementation.
  *
- * This provider integrates Deepseek's models using the native `@anthropic-ai/sdk`
- * package directly (not through Vercel AI SDK). It provides more control and supports
- * Anthropic-specific features:
- * - All model variants
- * - Tool/function calling
- * - Streaming responses with request IDs
- * - Prompt caching with detailed control
- * - Native token counting via Anthropic SDK
+ * Uses @ai-sdk/deepseek for message conversion and direct API calls for
+ * chat responses to support LanguageModelV3 (DeepSeek v4) which isn't
+ * compatible with AI SDK 5's v2-only streamText/generateText.
  *
  * **Configuration:**
  * - Provider ID: `deepseek`
- * - Required: API key from Anthropic Console
- * - Optional: Base URL (for custom deployments/proxies), model selection, tool calling toggle
+ * - Required: API key from DeepSeek Platform
+ * - Optional: Base URL (for custom deployments), model selection
+ * - Supports: Dynamic model listing from API
+ *
+ * @example
+ * ```typescript
+ * const config: ModelConfig = {
+ *   id: 'deepseek-v4-pro',
+ *   name: 'DeepSeek V4 Pro',
+ *   provider: 'deepseek',
+ *   apiKey: 'sk-...',
+ *   model: 'deepseek-v4-pro',
+ *   baseUrl: 'https://api.deepseek.com'
+ * };
+ * const provider = new DeepSeekModelProvider(config, context);
+ * ```
  *
  * @see {@link ModelProvider} for base class documentation
- * @see https://api-docs.deepseek.com/ for Anthropic API documentation
  */
-export class DeepseekModelProvider extends ModelProvider implements positron.ai.LanguageModelChatProvider {
-	private readonly _client: Anthropic;
+export class DeepSeekModelProvider extends ModelProvider implements positron.ai.LanguageModelChatProvider {
+	/**
+	 * The DeepSeek provider instance from Vercel AI SDK.
+	 * Used for message conversion utilities.
+	 */
+	protected deepSeekProvider: DeepSeekProvider;
+
+	/**
+	 * Model name patterns to filter out (case-insensitive).
+	 */
+	public static readonly FILTERED_MODEL_PATTERNS = [
+		'audio',
+		'image',
+		'moderation',
+		'realtime',
+		'search',
+		'transcribe',
+		'dall-e',
+	] as const;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
 		provider: PROVIDER_METADATA.deepseek,
-		supportedOptions: ['apiKey', 'baseUrl'],
+		supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
 		defaults: {
-			name: DEFAULT_DEEPSEEK_MODEL_NAME,
-			model: DEFAULT_DEEPSEEK_MODEL_MATCH + '-latest',
-			baseUrl: 'https://api.deepseek.com/anthropic',
-			toolCalls: true,
+			name: 'DeepSeek',
+			model: 'deepseek-v4-pro',
+			baseUrl: 'https://api.deepseek.com',
+			toolCalls: true
 		},
 	};
 
-	get baseUrl(): string | undefined {
-		return (this._config.baseUrl
-			?? DeepseekModelProvider.source.defaults.baseUrl)
-			?.replace(/\/v1\/?$/, '')
-			.replace(/\/+$/, '');
+	/**
+	 * Creates a new DeepSeek provider instance.
+	 */
+	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
+		super(_config, _context);
+		this.initializeProvider();
 	}
 
 	/**
-	 * Get the API root URL (without /anthropic suffix) for OpenAI-compatible endpoints.
+	 * Initializes the DeepSeek provider using the Vercel AI SDK.
 	 */
-	private get apiRoot(): string {
-		return this.baseUrl?.replace(/\/anthropic\/?$/, '') ?? 'https://api.deepseek.com';
-	}
-
-	constructor(
-		_config: ModelConfig,
-		_context?: vscode.ExtensionContext,
-		client?: Anthropic, // For testing only - production uses constructor initialization
-	) {
-		super(_config, _context);
-		this._client = client ?? new Anthropic({
-			apiKey: _config.apiKey,
+	protected initializeProvider() {
+		this.deepSeekProvider = createDeepSeek({
+			apiKey: this._config.apiKey,
 			baseURL: this.baseUrl,
+			fetch: createOpenAICompatibleFetch(this.providerName, this._config.apiKey)
 		});
 	}
 
-	protected override async validateCredentials() {
-		if (!this._config.apiKey?.trim()) {
-			return false;
-		}
-		// Custom endpoints may use non-standard key formats
-		if (this._config.baseUrl) {
-			return true;
-		}
-		return this._config.apiKey.startsWith('sk-');
-	}
-
-	protected override getDefaultMatch(): string {
-		return DEFAULT_DEEPSEEK_MODEL_MATCH;
-	}
-
-	override async resolveConnection(token: vscode.CancellationToken) {
-		// Use direct fetch to test connection (Anthropic SDK doesn't work for DeepSeek)
-		const apiRoot = this.apiRoot;
-		const modelsUrl = `${apiRoot}/models`;
-		const timeoutMs = getProviderTimeoutMs();
-
-		this.logger.info(`Testing connection to ${modelsUrl}`);
-
-		const controller = new AbortController();
-		const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
-		try {
-			const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-			if (this._config.apiKey) {
-				headers['Authorization'] = `Bearer ${this._config.apiKey}`;
-				this.logger.info(`API key is set (prefix: ${this._config.apiKey.substring(0, 8)}...), including in request`);
-			} else {
-				this.logger.warn('API key is NOT set!');
-			}
-
-			this.logger.debug(`Request headers: ${JSON.stringify({ ...headers, Authorization: headers.Authorization ? '[REDACTED]' : undefined })}`);
-
-			const response = await fetch(modelsUrl, {
-				method: 'GET',
-				headers,
-				signal: controller.signal,
-			});
-
-			this.logger.info(`Connection response: ${response.status} ${response.statusText}`);
-
-			// Log response body for error cases to help diagnose issues
-			if (!response.ok) {
-				const errorBody = await response.text().catch(() => 'Unable to read response body');
-				this.logger.error(`Connection error response body: ${errorBody}`);
-			}
-
-			if (!response.ok && response.status !== 404) {
-				return new Error(`Connection failed: ${response.status} ${response.statusText}`);
-			}
-		} catch (error) {
-			this.logger.error(`Connection error: ${error}`);
-			if (error instanceof Error && error.name === 'AbortError') {
-				return new Error('Connection timed out');
-			}
-			return error as Error;
-		} finally {
-			clearTimeout(timeout);
-		}
+	/**
+	 * Gets the base URL for the DeepSeek API.
+	 */
+	get baseUrl() {
+		return (this._config.baseUrl ?? DeepSeekModelProvider.source.defaults.baseUrl)?.replace(/\/+$/, '');
 	}
 
 	/**
-	 * Sends a test message to verify model connectivity.
-	 * Uses the native Anthropic SDK to test the connection.
+	 * Sends a test message using direct API calls instead of AI SDK.
+	 *
+	 * Overrides the base implementation because AI SDK 5's generateText
+	 * doesn't support LanguageModelV3 (DeepSeek v4).
 	 */
 	protected override async sendTestMessage(modelId: string) {
-		return this._client.messages.create({
-			model: modelId,
-			max_tokens: 10,
-			messages: [{ role: 'user', content: 'Hello' }]
-		});
-	}
-
-	protected override retrieveModelsFromConfig() {
-		return getDeepseekModelsFromConfig(
-			this.providerId,
-			this.providerName,
-			this.capabilities,
-			this.logger
-		);
-	}
-
-	protected override async retrieveModelsFromApi(_token: vscode.CancellationToken) {
-		return this.fetchModelsFromApi();
-	}
-
-	/**
-	 * Fetches models from the DeepSeek API using direct fetch.
-	 * DeepSeek uses an OpenAI-compatible /models endpoint.
-	 */
-	private async fetchModelsFromApi(): Promise<vscode.LanguageModelChatInformation[] | undefined> {
-		// DeepSeek uses /anthropic for chat but /models at the root
-		const apiRoot = this.apiRoot;
-		const modelsUrl = `${apiRoot}/models`;
-		this.logger.info(`Fetching models from ${modelsUrl}...`);
-
+		const url = `${this.baseUrl}/chat/completions`;
 		const headers: Record<string, string> = {
 			'Content-Type': 'application/json',
 		};
 		if (this._config.apiKey) {
 			headers['Authorization'] = `Bearer ${this._config.apiKey}`;
-			this.logger.debug(`API key present (prefix: ${this._config.apiKey.substring(0, 8)}...)`);
-		} else {
-			this.logger.warn('No API key available for model fetching');
+		}
+
+		const response = await fetch(url, {
+			method: 'POST',
+			headers,
+			body: JSON.stringify({
+				model: modelId,
+				messages: [{ role: 'user', content: 'Respond with just the word "hello".' }],
+				max_tokens: 10,
+			}),
+			signal: AbortSignal.timeout(getProviderTimeoutMs()),
+		});
+
+		if (!response.ok) {
+			const errorText = await response.text();
+			throw new Error(`DeepSeek API error: ${response.status} ${response.statusText} - ${errorText}`);
+		}
+
+		const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+		if (!data.choices?.[0]?.message?.content) {
+			throw new Error('Invalid response from DeepSeek API');
+		}
+
+		return { text: data.choices[0].message.content };
+	}
+
+	/**
+	 * Provides language model chat information for available models.
+	 */
+	override async provideLanguageModelChatInformation(options: { silent: boolean }, token: vscode.CancellationToken) {
+		this.logger.debug('Preparing language model chat information...');
+		const models = await this.resolveModels(token) ?? [];
+		this.logger.debug(`Resolved ${models.length} models.`);
+		return this.filterModels(models);
+	}
+
+	/**
+	 * Resolves available models from configuration or API.
+	 */
+	override async resolveModels(token: vscode.CancellationToken) {
+		const configuredModels = this.retrieveModelsFromConfig();
+		if (configuredModels) {
+			return configuredModels;
 		}
 
 		try {
-			const response = await fetch(modelsUrl, {
-				method: 'GET',
-				headers,
-			});
-
-			this.logger.info(`Models API response: ${response.status} ${response.statusText}`);
-
-			if (!response.ok) {
-				const errorBody = await response.text().catch(() => 'Unable to read response body');
-				this.logger.error(`Error fetching models: ${response.status} ${response.statusText}. Body: ${errorBody}`);
-				return undefined;
-			}
-
-			const data = await response.json();
-
-			if (data?.error) {
-				this.logger.error(`API error: ${JSON.stringify(data.error)}`);
-				return undefined;
-			}
-
+			this.logger.info('No configured models found, attempting to fetch from API...');
+			const data = await this.fetchModelsFromAPI();
 			if (!data?.data || !Array.isArray(data.data)) {
 				this.logger.info('Request was successful, but no models were returned.');
 				return undefined;
 			}
-
 			this.logger.info(`Successfully fetched ${data.data.length} models.`);
 
 			const models = data.data.map((model: any) =>
@@ -257,13 +184,80 @@ export class DeepseekModelProvider extends ModelProvider implements positron.ai.
 				})
 			);
 
-			return markDefaultModel(models, this.providerId, DEFAULT_DEEPSEEK_MODEL_MATCH);
+			return markDefaultModel(models, this.providerId, this._config.model);
 		} catch (error) {
-			this.logger.warn('Failed to fetch models from DeepSeek API', error);
+			this.logger.warn('Failed to fetch models from API', error);
 			return undefined;
 		}
 	}
 
+	/**
+	 * Filters models to remove incompatible ones.
+	 */
+	override filterModels(models: vscode.LanguageModelChatInformation[]) {
+		const removedModels: string[] = [];
+		const filteredModels = applyModelFilters(models, this.providerId, this.providerName)
+			.filter((model: any) => {
+				const modelName = model.id.toLowerCase();
+				const shouldRemove = DeepSeekModelProvider.FILTERED_MODEL_PATTERNS.some(pattern => {
+					const regex = new RegExp(`\\b${pattern.toLowerCase()}\\b`, 'i');
+					return regex.test(modelName);
+				});
+				if (shouldRemove) {
+					removedModels.push(model.id);
+				}
+				return !shouldRemove;
+			});
+
+		if (removedModels.length > 0) {
+			this.logger.debug(`Removed ${removedModels.length} incompatible models: ${removedModels.join(', ')}`);
+		}
+
+		return filteredModels;
+	}
+
+	/**
+	 * Sets up tools (function calling) for the chat request.
+	 */
+	protected setupTools(tools: vscode.LanguageModelChatTool[]): Record<string, ai.Tool> {
+		return tools.reduce((acc: Record<string, ai.Tool>, tool: vscode.LanguageModelChatTool) => {
+			const baseSchema = tool.inputSchema as Record<string, any> ?? {};
+			const missingFields: string[] = [];
+
+			if (!baseSchema.type) {
+				missingFields.push('type');
+			}
+			if (!baseSchema.properties) {
+				missingFields.push('properties');
+			}
+			if (!baseSchema.required) {
+				missingFields.push('required');
+			}
+
+			if (missingFields.length > 0) {
+				this.logger.debug(`Tool '${tool.name}' missing fields: ${missingFields.join(', ')}. Adding defaults.`);
+			}
+
+			const input_schema: Record<string, any> = {
+				...baseSchema,
+				type: baseSchema.type ?? 'object',
+				properties: baseSchema.properties ?? {},
+				required: baseSchema.required ?? [],
+			};
+
+			acc[tool.name] = {
+				description: tool.description || '',
+				inputSchema: ai.jsonSchema(input_schema),
+			};
+			return acc;
+		}, {});
+	}
+
+	/**
+	 * Provides chat response using direct API calls.
+	 *
+	 * Bypasses AI SDK 5's v2 model validation to support DeepSeek v4 (v3 spec).
+	 */
 	override async provideLanguageModelChatResponse(
 		model: vscode.LanguageModelChatInformation,
 		messages: vscode.LanguageModelChatMessage2[],
@@ -271,525 +265,282 @@ export class DeepseekModelProvider extends ModelProvider implements positron.ai.
 		progress: vscode.Progress<vscode.LanguageModelResponsePart2>,
 		token: vscode.CancellationToken
 	) {
-		const cacheControlOptions = isCacheControlOptions(options.modelOptions?.cacheControl)
-			? options.modelOptions.cacheControl
-			: undefined;
-		const tools = options.tools && toAnthropicTools(options.tools);
-		const tool_choice = options.toolMode && toAnthropicToolChoice(options.toolMode);
+		const modelId = model.id;
+		const modelOptions = options.modelOptions ?? {};
 
-		const systemMessages = messages.filter(m => m.role === vscode.LanguageModelChatMessageRole.System);
-		const otherMessages = messages.filter(m => m.role !== vscode.LanguageModelChatMessageRole.System);
-
-		// Convert messages with system role into a deepseek system prompt
-		const system = toAnthropicSystem(systemMessages, cacheControlOptions?.system, options.modelOptions?.system, this.logger);
-
-		// Convert the remaining messages into deepseek user and assistant messages.
-		const anthropicMessages = toAnthropicMessages(otherMessages);
-
-		const body: Anthropic.MessageStreamParams = {
-			model: model.id,
-			max_tokens: options.modelOptions?.maxTokens ?? (this._config.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT),
-			tools,
-			tool_choice,
-			system,
-			messages: anthropicMessages,
-		};
-
-		const stream = this._client.messages.stream(body);
-
-		// Log request information - the request ID is only available upon connection.
-		stream.on('connect', () => {
-			this.logger.info(`Start request ${stream.request_id} to ${model.id}: ${anthropicMessages.length} messages`);
-			if (log.logLevel <= vscode.LogLevel.Trace) {
-				this.logger.trace(`SEND messages.stream [${stream.request_id}]: ${JSON.stringify(body, null, 2)}`);
-			} else {
-				const userMessages = body.messages.filter(m => m.role === 'user');
-				const assistantMessages = body.messages.filter(m => m.role === 'assistant');
-				this.logger.debug(
-					`SEND messages.stream [${stream.request_id}]: ` +
-					`model: ${body.model}; ` +
-					`cache options: ${cacheControlOptions ? JSON.stringify(cacheControlOptions) : 'default'}; ` +
-					`tools: ${body.tools?.map(t => t.name).sort().join(', ') ?? 'none'}; ` +
-					`tool choice: ${body.tool_choice ? JSON.stringify(body.tool_choice) : 'default'}; ` +
-					`system chars: ${body.system ? JSON.stringify(body.system).length : 0}; ` +
-					`user messages: ${userMessages.length}; ` +
-					`user message characters: ${JSON.stringify(userMessages).length}; ` +
-					`assistant messages: ${assistantMessages.length}; ` +
-					`assistant message characters: ${JSON.stringify(assistantMessages).length}`
-				);
-			}
-		});
+		const controller = new AbortController();
+		const signal = controller.signal;
 
 		token.onCancellationRequested(() => {
-			stream.abort();
+			controller.abort();
 		});
 
-		stream.on('contentBlock', (contentBlock) => {
-			this.onContentBlock(contentBlock, progress);
-		});
+		// Ensure all messages have content
+		const processedMessages = processMessages(messages);
 
-		stream.on('text', (textDelta) => {
-			this.onText(textDelta, progress);
-		});
+		// Add system prompt from modelOptions.system, if provided
+		if (modelOptions.system) {
+			processedMessages.unshift(new vscode.LanguageModelChatMessage(
+				vscode.LanguageModelChatMessageRole.System,
+				modelOptions.system
+			));
+		}
 
-		// Report token usage information as part of the output stream.
-		stream.on('streamEvent', (event) => {
-			if (event.type === 'message_start' || event.type === 'message_delta') {
-				const usage = event.type === 'message_start' ? event.message.usage : event.usage;
-				const part: any = vscode.LanguageModelDataPart.json({
-					type: 'usage',
-					data: toTokenUsage(usage)
-				});
-				// Report usage data as a data part so it conforms to LanguageModelResponsePart2
-				progress.report(part);
-			}
-		});
+		// Convert messages to AI SDK format
+		const aiMessages: ai.ModelMessage[] = toAIMessage(processedMessages, true, undefined);
+
+		// Set up tools if provided
+		let toolsRecord: Record<string, ai.Tool> | undefined;
+		if (options.tools && options.tools.length > 0 && this._config.toolCalls) {
+			toolsRecord = this.setupTools([...options.tools]);
+		}
+
+		const requestId = modelOptions.requestId;
+		this.logger.debug(`[deepseek] Start request ${requestId} to ${model.name} [${model.id}]: ${aiMessages.length} messages`);
 
 		try {
-			await stream.done();
+			const requestBody: Record<string, any> = {
+				model: modelId,
+				messages: aiMessages.map(msg => this.toDeepSeekMessage(msg)),
+				stream: true,
+			};
+
+			if (toolsRecord) {
+				requestBody.tools = Object.entries(toolsRecord).map(([name, tool]) => ({
+					type: 'function',
+					function: {
+						name,
+						description: tool.description,
+						parameters: tool.inputSchema,
+					},
+				}));
+			}
+
+			if (modelOptions.temperature !== undefined) {
+				requestBody.temperature = modelOptions.temperature;
+			}
+			if (modelOptions.maxTokens !== undefined) {
+				requestBody.max_tokens = modelOptions.maxTokens;
+			}
+
+			const url = `${this.baseUrl}/chat/completions`;
+			const headers: Record<string, string> = {
+				'Content-Type': 'application/json',
+			};
+			if (this._config.apiKey) {
+				headers['Authorization'] = `Bearer ${this._config.apiKey}`;
+			}
+
+			const response = await fetch(url, {
+				method: 'POST',
+				headers,
+				body: JSON.stringify(requestBody),
+				signal,
+			});
+
+			if (!response.ok) {
+				const errorText = await response.text();
+				throw new Error(`DeepSeek API error: ${response.status} ${response.statusText} - ${errorText}`);
+			}
+
+			if (!response.body) {
+				throw new Error('No response body from DeepSeek API');
+			}
+
+			const reader = response.body.getReader();
+			const decoder = new TextDecoder();
+			let buffer = '';
+
+			while (true) {
+				const { done, value } = await reader.read();
+				if (done) break;
+
+				buffer += decoder.decode(value, { stream: true });
+				const lines = buffer.split('\n');
+				buffer = lines.pop() ?? '';
+
+				for (const line of lines) {
+					const trimmed = line.trim();
+					if (!trimmed || !trimmed.startsWith('data: ')) continue;
+
+					const data = trimmed.slice(6);
+					if (data === '[DONE]') continue;
+
+					try {
+						const parsed = JSON.parse(data) as {
+							choices?: Array<{
+								delta?: {
+									content?: string;
+									reasoning_content?: string;
+									tool_calls?: Array<{
+										id?: string;
+										function?: { name?: string; arguments?: string };
+									}>;
+								};
+								finish_reason?: string;
+							}>;
+						};
+
+						const choice = parsed.choices?.[0];
+						if (!choice?.delta) continue;
+
+						// Handle reasoning content (DeepSeek v4 thinking mode)
+						if (choice.delta.reasoning_content) {
+							progress.report({
+								kind: 'content',
+								abstract: choice.delta.reasoning_content,
+							} as unknown as vscode.LanguageModelResponsePart2);
+						}
+
+						// Handle tool calls
+						if (choice.delta.tool_calls) {
+							for (const toolCall of choice.delta.tool_calls) {
+								if (toolCall.id && toolCall.function) {
+									progress.report({
+										kind: 'toolCall',
+										toolCallId: toolCall.id,
+										name: toolCall.function.name ?? '',
+										input: toolCall.function.arguments ?? '{}',
+									} as unknown as vscode.LanguageModelResponsePart2);
+								}
+							}
+						}
+
+						// Handle regular content
+						if (choice.delta.content) {
+							progress.report({
+								kind: 'content',
+								content: [{ type: 'text', text: choice.delta.content }],
+							} as unknown as vscode.LanguageModelResponsePart2);
+						}
+					} catch {
+						// Skip malformed JSON
+					}
+				}
+			}
+
+			// Handle remaining buffer
+			if (buffer.trim() && buffer.startsWith('data: ')) {
+				const data = buffer.slice(6);
+				if (data !== '[DONE]') {
+					try {
+						const parsed = JSON.parse(data);
+						const choice = parsed.choices?.[0];
+						if (choice?.delta?.content) {
+							progress.report({
+								kind: 'content',
+								content: [{ type: 'text', text: choice.delta.content }],
+							} as unknown as vscode.LanguageModelResponsePart2);
+						}
+					} catch {
+						// Skip
+					}
+				}
+			}
 		} catch (error) {
-			if (error instanceof Anthropic.APIError) {
-				this.logger.warn(`Error in messages.stream [${stream.request_id}]: ${error.message}`);
-
-				// Check for rate limit error with retry-after header
-				handleNativeSdkRateLimitError(error, this.providerName);
-
-				let data: any;
-				try {
-					data = JSON.parse(error.message);
-				} catch {
-					// Ignore JSON parse errors.
-				}
-				if (data?.error?.type === 'overloaded_error') {
-					throw new Error(`[${this.providerName}] API is temporarily overloaded.`);
-				}
-			} else if (error instanceof Anthropic.AnthropicError) {
-				this.logger.warn(`Error in messages.stream [${stream.request_id}]: ${error.message}`);
-				// This can happen if the API key was not persisted correctly.
-				if (error.message.startsWith('Could not resolve authentication method')) {
-					throw new Error(`[${this.providerName}] Something went wrong when storing the Anthropic API key. ` +
-						'Please delete and recreate the model configuration.');
-				}
+			if (error instanceof Error && error.name === 'AbortError') {
+				throw new vscode.CancellationError();
 			}
 			throw error;
 		}
-
-		// Log usage information.
-		const message = await stream.finalMessage();
-		if (log.logLevel <= vscode.LogLevel.Trace) {
-			this.logger.trace(`RECV messages.stream [${stream.request_id}]: ${JSON.stringify(message, null, 2)}`);
-		} else {
-			this.logger.debug(`RECV messages.stream [${stream.request_id}]`);
-			this.logger.info(`Finished request ${stream.request_id}; usage: ${JSON.stringify(message.usage)}`);
-		}
-
-		// Report finish reason so consumers can detect truncated responses
-		if (message.stop_reason) {
-			progress.report(vscode.LanguageModelDataPart.json({
-				type: 'finishReason',
-				data: message.stop_reason,
-				maxOutputTokens: body.max_tokens,
-			}));
-		}
-
-		// Record token usage
-		if (message.usage) {
-			const tokens = toTokenUsage(message.usage);
-			recordTokenUsage(this.providerId, tokens);
-
-			// Also record token usage by request ID if available
-			const requestId = (options.modelOptions as any)?.requestId;
-			if (requestId) {
-				recordRequestTokenUsage(requestId, this.providerId, tokens);
-			}
-		}
 	}
 
-	override async parseProviderError(error: any) {
-		if (error instanceof Anthropic.APIError) {
-			// Handle Anthropic-specific errors
-			try {
-				const data = JSON.parse(error.message);
-				if (data?.error?.type === 'overloaded_error') {
-					return `API is temporarily overloaded.`;
-				}
-			} catch { /* ignore */ }
-		} else if (error instanceof Anthropic.AnthropicError) {
-			if (error.message.startsWith('Could not resolve authentication method')) {
-				return `Something went wrong when storing the Anthropic API key. Please delete and recreate the model configuration.`;
-			}
-		}
-		return super.parseProviderError(error); // Delegate to base class
-	}
+	/**
+	 * Fetches models from the DeepSeek API.
+	 */
+	private async fetchModelsFromAPI(): Promise<any> {
+		const modelsUrl = `${this.baseUrl}/models`;
+		this.logger.info(`Fetching models from ${modelsUrl}...`);
 
-	private onContentBlock(block: Anthropic.ContentBlock, progress: vscode.Progress<vscode.LanguageModelResponsePart2>): void {
-		switch (block.type) {
-			case 'tool_use':
-				return this.onToolUseBlock(block, progress);
-		}
-	}
-
-	private onToolUseBlock(block: Anthropic.ToolUseBlock, progress: vscode.Progress<vscode.LanguageModelResponsePart2>): void {
-		progress.report(new vscode.LanguageModelToolCallPart(block.id, block.name, block.input as any));
-	}
-
-	private onText(textDelta: string, progress: vscode.Progress<vscode.LanguageModelResponsePart2>): void {
-		progress.report(new vscode.LanguageModelTextPart(textDelta));
-	}
-
-	override async provideTokenCount(model: vscode.LanguageModelChatInformation, text: string | vscode.LanguageModelChatMessage2, token: vscode.CancellationToken) {
-		const messages: Anthropic.MessageParam[] = [];
-		if (typeof text === 'string') {
-			// For empty string, return 0 tokens
-			if (text.trim() === '') {
-				return 0;
-			}
-			// Otherwise, treat it as a user message
-			messages.push({
-				role: 'user',
-				content: [
-					{
-						type: 'text',
-						text,
-					},
-				],
-			});
-		} else {
-			// For LanguageModelChatMessage, ensure it has non-empty message content
-			messages.push(...toAnthropicMessages([text]));
-			if (messages.length === 0) {
-				return 0;
-			}
-		}
-		const result = await this._client.messages.countTokens({
-			model: model.id,
-			messages,
-		});
-		return result.input_tokens;
-	}
-}
-
-export function toTokenUsage(usage: Anthropic.MessageDeltaUsage): TokenUsage {
-	const input = usage.input_tokens || 0;
-	const output = usage.output_tokens || 0;
-	const cache_creation = usage.cache_creation_input_tokens || 0;
-	const cache_read = usage.cache_read_input_tokens || 0;
-
-	return {
-		inputTokens: input + cache_creation,
-		outputTokens: output,
-		cachedTokens: cache_read,
-		providerMetadata: {
-			anthropic: usage,
-		}
-	};
-}
-
-export function toAnthropicMessages(messages: vscode.LanguageModelChatMessage2[]): Anthropic.MessageParam[] {
-	let userMessageIndex = 0;
-	let assistantMessageIndex = 0;
-	const anthropicMessages = processMessages(messages).map((message) => {
-		const source = message.role === vscode.LanguageModelChatMessageRole.User ?
-			`User message ${userMessageIndex++}` :
-			`Assistant message ${assistantMessageIndex++}`;
-		return toAnthropicMessage(message, source);
-	});
-	return anthropicMessages;
-}
-
-function toAnthropicMessage(message: vscode.LanguageModelChatMessage2, source: string): Anthropic.MessageParam {
-	switch (message.role) {
-		case vscode.LanguageModelChatMessageRole.Assistant:
-			return toAnthropicAssistantMessage(message, source);
-		case vscode.LanguageModelChatMessageRole.User:
-			return toAnthropicUserMessage(message, source);
-		default:
-			// System messages should be filtered and instead handled elsewhere.
-			throw new Error(`[Anthropic] Unsupported message role: ${message.role}`);
-	}
-}
-
-function toAnthropicAssistantMessage(message: vscode.LanguageModelChatMessage2, source: string): Anthropic.MessageParam {
-	const content: Anthropic.ContentBlockParam[] = [];
-	for (let i = 0; i < message.content.length; i++) {
-		const [part, nextPart] = [message.content[i], message.content[i + 1]];
-		const dataPart = nextPart instanceof vscode.LanguageModelDataPart ? nextPart : undefined;
-		if (part instanceof vscode.LanguageModelTextPart) {
-			content.push(toAnthropicTextBlock(part, source, dataPart));
-		} else if (part instanceof vscode.LanguageModelToolCallPart) {
-			content.push(toAnthropicToolUseBlock(part, source, dataPart));
-		} else if (part instanceof vscode.LanguageModelDataPart) {
-			// Skip extra data parts. They're handled in part conversion.
-		} else {
-			throw new Error('[Anthropic] Unsupported part type on assistant message');
-		}
-	}
-	return {
-		role: 'assistant',
-		content,
-	};
-}
-
-function toAnthropicUserMessage(message: vscode.LanguageModelChatMessage2, source: string): Anthropic.MessageParam {
-	const content: Anthropic.ContentBlockParam[] = [];
-	for (let i = 0; i < message.content.length; i++) {
-		const [part, nextPart] = [message.content[i], message.content[i + 1]];
-		const dataPart = nextPart instanceof vscode.LanguageModelDataPart ? nextPart : undefined;
-		if (part instanceof vscode.LanguageModelTextPart) {
-			content.push(toAnthropicTextBlock(part, source, dataPart));
-		} else if (part instanceof vscode.LanguageModelToolResultPart) {
-			content.push(toAnthropicToolResultBlock(part, source, dataPart));
-		} else if (part instanceof vscode.LanguageModelToolResultPart2) {
-			content.push(toAnthropicToolResultBlock(part, source, dataPart));
-		} else if (part instanceof vscode.LanguageModelDataPart) {
-			if (isChatImagePart(part)) {
-				content.push(chatImagePartToAnthropicImageBlock(part, source, dataPart));
-			} else {
-				// Skip other data parts.
-				if (part.mimeType !== LanguageModelDataPartMimeType.CacheControl) {
-					log.debug(`Skipping unsupported part in user message: ${JSON.stringify(part, null, 2)}`);
-				}
-			}
-		} else {
-			throw new Error(`[Anthropic] Unsupported part type on user message: ${JSON.stringify(part, null, 2)}`);
-		}
-	}
-	return {
-		role: 'user',
-		content,
-	};
-}
-
-function toAnthropicTextBlock(
-	part: vscode.LanguageModelTextPart,
-	source: string,
-	dataPart?: vscode.LanguageModelDataPart,
-): Anthropic.TextBlockParam {
-	return withCacheControl(
-		{
-			type: 'text',
-			text: part.value,
-		},
-		source,
-		dataPart,
-	);
-}
-
-function toAnthropicToolUseBlock(
-	part: vscode.LanguageModelToolCallPart,
-	source: string,
-	dataPart?: vscode.LanguageModelDataPart,
-): Anthropic.ToolUseBlockParam {
-	return withCacheControl(
-		{
-			type: 'tool_use',
-			id: part.callId,
-			name: part.name,
-			input: part.input,
-		},
-		source,
-		dataPart,
-	);
-}
-
-function toAnthropicToolResultBlock(
-	part: vscode.LanguageModelToolResultPart,
-	source: string,
-	dataPart?: vscode.LanguageModelDataPart,
-): Anthropic.ToolResultBlockParam {
-	const content: Anthropic.ToolResultBlockParam['content'] = [];
-	for (let i = 0; i < part.content.length; i++) {
-		const [resultPart, resultNextPart] = [part.content[i], part.content[i + 1]];
-		const resultDataPart = resultNextPart instanceof vscode.LanguageModelDataPart ? resultNextPart : undefined;
-		if (resultPart instanceof vscode.LanguageModelTextPart) {
-			content.push(toAnthropicTextBlock(resultPart, source, resultDataPart));
-		} else if (resultPart instanceof vscode.LanguageModelDataPart) {
-			if (isChatImagePart(resultPart)) {
-				content.push(chatImagePartToAnthropicImageBlock(resultPart, source, resultDataPart));
-			} else {
-				// Skip other data parts.
-				log.debug(`Skipping unsupported data part in tool result: ${JSON.stringify(resultPart, null, 2)}`);
-			}
-		} else if (resultPart instanceof vscode.LanguageModelPromptTsxPart) {
-			content.push(languageModelPromptTsxPartToAnthropicBlock(resultPart, source, resultDataPart));
-		} else {
-			throw new Error(`[Anthropic] Unsupported part type on tool result part content: ${JSON.stringify(resultPart)}`);
-		}
-	}
-	return withCacheControl(
-		{
-			type: 'tool_result',
-			tool_use_id: part.callId,
-			content,
-		},
-		source,
-		dataPart,
-	);
-}
-
-function chatImagePartToAnthropicImageBlock(
-	part: vscode.LanguageModelDataPart,
-	source: string,
-	dataPart?: vscode.LanguageModelDataPart,
-): Anthropic.ImageBlockParam {
-	return withCacheControl(
-		{
-			type: 'image',
-			source: {
-				type: 'base64',
-				// We may pass an unsupported mime type; let Anthropic throw the error.
-				media_type: part.mimeType as Anthropic.Base64ImageSource['media_type'],
-				data: Buffer.from(part.data).toString('base64'),
-			},
-		},
-		source,
-		dataPart,
-	);
-}
-
-function languageModelPromptTsxPartToAnthropicBlock(
-	part: vscode.LanguageModelPromptTsxPart,
-	source: string,
-	dataPart?: vscode.LanguageModelDataPart,
-): Anthropic.TextBlockParam {
-	// Convert the prompt TSX part to a string representation using the shared utility
-	const text = promptTsxPartToString(part);
-
-	return withCacheControl(
-		{
-			type: 'text',
-			text,
-		},
-		source,
-		dataPart,
-	);
-}
-
-export function toAnthropicTools(tools: readonly vscode.LanguageModelChatTool[]): Anthropic.ToolUnion[] {
-	if (tools.length === 0) {
-		return [];
-	}
-	const anthropicTools = tools.map(tool => toAnthropicTool(tool));
-
-	// Ensure a stable sort order for prompt caching.
-	anthropicTools.sort((a, b) => a.name.localeCompare(b.name));
-
-	return anthropicTools;
-}
-
-function toAnthropicTool(tool: vscode.LanguageModelChatTool): Anthropic.ToolUnion {
-	// Anthropic requires a type for all tools; default to 'object' if not provided.
-	const input_schema = tool.inputSchema as Anthropic.Tool.InputSchema ?? {
-		type: 'object',
-		properties: {},
-		required: []
-	};
-	if (!input_schema.type) {
-		log.warn(`Tool '${tool.name}' is missing input schema type; defaulting to 'object'`);
-		input_schema.type = 'object';
-	}
-	return {
-		name: tool.name,
-		description: tool.description,
-		input_schema,
-	};
-}
-
-export function toAnthropicToolChoice(toolMode: vscode.LanguageModelChatToolMode): Anthropic.ToolChoice | undefined {
-	switch (toolMode) {
-		case vscode.LanguageModelChatToolMode.Auto:
-			return {
-				type: 'auto',
-			};
-		case vscode.LanguageModelChatToolMode.Required:
-			return {
-				type: 'any',
-			};
-		default:
-			// Should not happen.
-			throw new Error(`[Anthropic] Unsupported tool mode: ${toolMode}`);
-	}
-}
-
-/**
- * Convert a set of system messages into an anthropic system prompt.
- */
-export function toAnthropicSystem(
-	messages: vscode.LanguageModelChatMessage2[],
-	cacheSystem = true,
-	system?: string | vscode.LanguageModelTextPart[],
-	logger?: ModelProviderLogger
-): Anthropic.MessageCreateParams['system'] {
-	// Append system prompt from `modelOptions.system`, if provided.
-	// TODO: Once extensions such as databot no longer use `modelOptions.system`,
-	// we can remove the `system` parameter and use the given system messages only.
-	if (system) {
-		messages.push(
-			new vscode.LanguageModelChatMessage2(vscode.LanguageModelChatMessageRole.System, system)
-		);
-	}
-
-	// Convert each system message to anthropic text blocks
-	const anthropicSystem = messages.flatMap((message, idx) => {
-		return toAnthropicSystemParts(message, `System message ${idx}`);
-	});
-
-	if (anthropicSystem.length === 0) {
-		return undefined;
-	} else if (cacheSystem) {
-		// Add a cache breakpoint to the last system prompt block.
-		const lastSystemBlock = anthropicSystem[anthropicSystem.length - 1];
-		lastSystemBlock.cache_control = { type: 'ephemeral' };
-		logger?.debug(`Adding cache breakpoint to system prompt`);
-	}
-
-	return anthropicSystem;
-}
-
-function toAnthropicSystemParts(message: vscode.LanguageModelChatMessage2, source: string): Anthropic.TextBlockParam[] {
-	const content: Anthropic.TextBlockParam[] = [];
-	for (let i = 0; i < message.content.length; i++) {
-		const part = message.content[i];
-		if (part instanceof vscode.LanguageModelTextPart) {
-			content.push(toAnthropicTextBlock(part, source));
-		} else if (part instanceof vscode.LanguageModelPromptTsxPart) {
-			content.push(languageModelPromptTsxPartToAnthropicBlock(part, source));
-		} else {
-			throw new Error('[Anthropic] Unsupported part type on system message');
-		}
-	}
-	return content;
-}
-
-export function isCacheControlOptions(options: unknown): options is CacheControlOptions {
-	if (typeof options !== 'object' || options === null) {
-		return false;
-	}
-	const cacheControlOptions = options as CacheControlOptions;
-	return cacheControlOptions.system === undefined || typeof cacheControlOptions.system === 'boolean';
-}
-
-function withCacheControl<T extends CacheControllableBlockParam>(
-	part: T,
-	source: string,
-	dataPart: vscode.LanguageModelDataPart | undefined,
-): T {
-	if (!isCacheBreakpointPart(dataPart)) {
-		return part;
-	}
-
-	try {
-		const cacheBreakpoint = parseCacheBreakpoint(dataPart);
-		// Cache control added
-		log.debug(`Adding cache breakpoint to ${part.type} part. Source: ${source}`);
-		return {
-			...part,
-			cache_control: cacheBreakpoint,
+		const headers: Record<string, string> = {
+			'Content-Type': 'application/json',
 		};
-	} catch (error) {
-		// Failed to parse cache breakpoint
-		log.error(`Failed to parse cache breakpoint: ${error}`);
+		if (this._config.apiKey) {
+			headers['Authorization'] = `Bearer ${this._config.apiKey}`;
+		}
+		const response = await fetch(modelsUrl, {
+			method: 'GET',
+			headers,
+		});
 
-		return part;
+		const data = await response.json();
+
+		if (!response.ok || data?.error) {
+			this.logger.error(`Error fetching models: ${response.status} ${response.statusText} - ${JSON.stringify(data?.error?.code)}`);
+			const errorMsg = `Error fetching models: ${response.status} ${response.statusText} - ${data?.error?.code || JSON.stringify(data?.error)}`;
+			throw new Error(errorMsg);
+		}
+
+		return data;
+	}
+
+	/**
+	 * Converts an AI SDK ModelMessage to DeepSeek API format.
+	 */
+	private toDeepSeekMessage(msg: ai.ModelMessage): Record<string, any> {
+		const content = msg.content as any;
+
+		if (msg.role === 'system') {
+			return { role: 'system', content: this.extractTextContent(content) };
+		}
+		if (msg.role === 'user') {
+			return { role: 'user', content: this.extractUserContent(content) };
+		}
+		if (msg.role === 'assistant') {
+			const deepseekContent: any[] = [];
+			let reasoningContent: string | undefined;
+
+			for (const part of content) {
+				if (part.type === 'text') {
+					deepseekContent.push({ type: 'text', text: part.text });
+				} else if (part.type === 'tool-call') {
+					deepseekContent.push({
+						type: 'tool_call',
+						id: part.toolCallId,
+						function: {
+							name: part.toolName,
+							arguments: typeof part.input === 'string' ? part.input : JSON.stringify(part.input),
+						},
+					});
+				}
+			}
+
+			const result: Record<string, any> = { role: 'assistant', content: deepseekContent };
+			if (reasoningContent) {
+				result.reasoning_content = reasoningContent;
+			}
+			return result;
+		}
+		if (msg.role === 'tool') {
+			return {
+				role: 'tool',
+				content: this.extractTextContent(content),
+				tool_call_id: (msg as any).toolCallId,
+			};
+		}
+		// All other roles are handled above (system, user, assistant, tool)
+		return { role: 'user', content: '' };
+	}
+
+	/**
+	 * Extracts text content from AI SDK message parts.
+	 */
+	private extractTextContent(content: any): string {
+		if (typeof content === 'string') {
+			return content;
+		}
+		const parts = Array.isArray(content) ? content.filter((p: any) => p.type === 'text') : [];
+		return parts.map((p: any) => p.text).join('');
+	}
+
+	/**
+	 * Extracts text content from user content (which may include images).
+	 */
+	private extractUserContent(content: any): string {
+		if (typeof content === 'string') {
+			return content;
+		}
+		const parts = Array.isArray(content) ? content.filter((p: any) => p.type === 'text') : [];
+		return parts.map((p: any) => p.text).join('');
 	}
 }

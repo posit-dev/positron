@@ -27,7 +27,7 @@ import { GoogleModelProvider } from './google/googleProvider';
 import { SnowflakeModelProvider } from './snowflake/snowflakeProvider';
 import { AWSModelProvider } from './aws/awsBedrockProvider';
 import { PositModelProvider } from './posit/positProvider';
-import { DeepseekModelProvider } from './deepseek/deepseekProvider';
+import { DeepSeekModelProvider } from './deepseek/deepseekProvider';
 import { ModelProvider } from './base/modelProvider.js';
 import { AutoconfigureResult } from './base/modelProviderTypes.js';
 import { CopilotModelProvider } from '../copilot.js';
@@ -151,7 +151,7 @@ export function getModelProviders(): ConcreteModelProviderConstructor[] {
 		...testProviders,
 		anthropicClass,
 		AWSModelProvider,
-		DeepseekModelProvider,
+		DeepSeekModelProvider,
 		FoundryModelProvider,
 		CopilotModelProvider,
 		GoogleModelProvider,
