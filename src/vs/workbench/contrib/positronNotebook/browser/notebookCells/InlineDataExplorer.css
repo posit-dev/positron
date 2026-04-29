@@ -18,7 +18,8 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 0 8px;
+	/* Right padding clears the floating .cell-output-action-bar on hover. */
+	padding: 0 44px 0 8px;
 	/* If you change the height or border, update TOOLBAR_HEIGHT in quartoInlineDataExplorerLayout.ts */
 	height: 24px; /* Match .positron-notebook-code-cell-footer height */
 	background-color: var(--vscode-editorWidget-background);
