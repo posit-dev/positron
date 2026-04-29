@@ -26,7 +26,7 @@ export function InlineDataExplorerActionButton({ action, context }: {
 			onClick={() => action.run(context)}
 		>
 			{iconId && <span className={`codicon codicon-${iconId}`} />}
-			{action.label}
+			<span className='inline-data-explorer-open-button-label'>{action.label}</span>
 		</button>
 	);
 }

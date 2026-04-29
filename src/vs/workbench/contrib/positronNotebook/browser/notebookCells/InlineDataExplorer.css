@@ -31,17 +31,32 @@
 	display: flex;
 	align-items: center;
 	gap: 8px;
+	/* Allow flex children to shrink so the spans below can ellipsis-truncate. */
+	min-width: 0;
+	flex: 1 1 auto;
 }
 
 .inline-data-explorer-header-actions {
 	display: flex;
 	align-items: center;
 	gap: 4px;
+	/* Cap actions at 50% so the title side keeps a useful slice when narrow. */
+	max-width: 50%;
+	flex-shrink: 1;
+}
+
+.inline-data-explorer-title,
+.inline-data-explorer-shape {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	min-width: 0;
 }
 
 .inline-data-explorer-title {
 	font-weight: 500;
 	color: var(--vscode-foreground);
+	flex-shrink: 0;
 }
 
 .inline-data-explorer-shape {
@@ -60,6 +75,21 @@
 	cursor: pointer;
 	font-size: 12px;
 	border-radius: 2px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	min-width: 0;
+}
+
+.inline-data-explorer-open-button > .codicon {
+	flex-shrink: 0;
+}
+
+.inline-data-explorer-open-button-label {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	min-width: 0;
 }
 
 .inline-data-explorer-open-button:hover {
