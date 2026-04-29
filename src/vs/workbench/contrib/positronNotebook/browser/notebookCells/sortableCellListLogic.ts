@@ -21,26 +21,15 @@ interface CellRef {
 }
 
 /**
- * Computes the drop indicator index (where the dragged cells will land) given
- * the current pointer position. Returns `null` when no candidate cell can be
- * found at all -- the caller falls back to dnd-kit's built-in collision
- * detection.
- *
- * When a closest cell is found but cannot be resolved to an index in
- * `allCells` (transient state during cell removal: a droppable is registered
- * for a cell that's mid-unmount), the helper returns `{ closestId, dropIndex:
- * null, isNoOp: false }`. The caller then surfaces `closestId` to dnd-kit so
- * the over container stays tracked, but skips the indicator state update.
- *
- * The drop index splits each cell into top and bottom halves: a pointer in the
- * top half targets the gap *above* that cell (`overCellIndex`); a pointer in
- * the bottom half targets the gap *below* (`overCellIndex + 1`). Cells in the
- * active drag set are excluded from the candidate pool -- dropping onto a cell
- * that is itself being dragged should not count as a target.
- *
- * `isNoOp` flags target positions that would leave the dragged cells in place
- * (any index from the first dragged index through `lastDraggedIndex + 1`); the
- * caller uses it to draw a disabled-style indicator.
+ * Computes where the dragged cells will land given the current pointer
+ * position. Three return shapes:
+ *  - `null` -- no candidate cell found; caller falls back to dnd-kit's
+ *    built-in collision detection.
+ *  - `{ closestId, dropIndex: null, isNoOp: false }` -- closest cell found
+ *    but missing from `allCells` (transient state during cell removal).
+ *    Caller surfaces `closestId` to keep dnd-kit's over tracking, but skips
+ *    indicator state updates.
+ *  - `{ closestId, dropIndex, isNoOp }` -- normal case.
  */
 export function computeDropIndex(args: {
 	pointerCoordinates: { x: number; y: number };
@@ -109,11 +98,8 @@ export function computeDropIndex(args: {
 }
 
 /**
- * Decides which cells participate in a drag based on whether the user grabbed
- * a cell that is part of an existing multi-selection. Multi-drag activates
- * only when (a) more than one cell is selected and (b) the grabbed cell is
- * one of them -- grabbing an unselected cell ignores the selection and drags
- * just that cell.
+ * Resolves the cell set for a drag: the full multi-selection if the grabbed
+ * cell is part of it, otherwise just the grabbed cell.
  */
 export function resolveDraggedCells<T extends CellRef>(
 	draggedCell: T,
