@@ -160,7 +160,7 @@ When any of these hit, surface the candidate with verdict `Move up -> <bucket>` 
 Output the report using the Output format template below. The presentation mode depends on **action-item count** (Move down / Move up / Split / Add — NOT Keep / Skip / Delete, which the table already conveys):
 
 - **1-2 action items:** "inline-dump" mode. After the at-a-glance table, render all action items in compact form, then ask the gate questions once.
-- **3+ action items:** "step-through" mode. After the at-a-glance table, render action items one at a time. For each: show the compact item block + ask `approve / change <verdict> / skip / expand ?`. Wait for the reply before showing the next item. After the last action item, summarize decisions ("3/3 processed: 3 approved, 0 changed, 0 skipped"), then ask any global gate questions.
+- **3+ action items:** "step-through" mode. After the at-a-glance table, render action items one at a time in **trace-hidden form** (4 lines: ID + path, Verdict, What changes, prompt). Ask `approve / change <verdict> / skip / expand <N> ?`. If the dev replies `expand <N>`, re-render that item with the full trace block, then re-ask. Otherwise advance to the next item. After the last action item, summarize decisions ("3/3 processed: 3 approved, 0 changed, 0 skipped"), then ask any global gate questions.
 
 Mode is auto-selected from the action-item count. The dev can override at any point:
 - `dump all` — switch from step-through to inline-dump (show remaining items at once).
@@ -349,10 +349,18 @@ Each item below uses the same compact layout. Path on its own line, verdict on t
 
 **Display mode (governed by Step 5):**
 - The skill auto-selects display mode based on **action-item count** (Move down / Move up / Split / Add — NOT Keep / Skip / Delete).
-- 1-2 action items -> inline-dump. After the at-a-glance table, render all action items in compact form back-to-back (existing per-item layout). Then ask the gate question once.
-- 3+ action items -> step-through. After the at-a-glance table, render one action item, ask `approve / change <verdict> / skip / expand ?`, wait for the dev. Repeat for next. After the last, summarize ("3/3 processed: 3 approved").
+- 1-2 action items -> inline-dump. After the at-a-glance table, render all action items in compact form back-to-back (full per-item layout including trace). Then ask the gate question once.
+- 3+ action items -> step-through. After the at-a-glance table, render one action item per turn in **trace-hidden form** (Verdict + What changes only — NO trace block). Ask `approve / change <verdict> / skip / expand <N> ?`, wait for the dev. If the dev replies `expand <N>`, re-render that item with the full trace, then re-ask. After the last item, summarize ("3/3 processed: 3 approved").
+- Trace-hidden step-through item template (4 lines per turn):
+  ```
+  [N] <test-file basename> :: <scenario>
+  Verdict: <Move down -> Vitest> (<confidence>)
+  What changes: <one-line action>
+
+  approve / change <verdict> / skip / expand <N> ?
+  ```
 - `Keep` / `Skip` / `Delete` verdicts are NEVER shown in per-item form by default — the table conveys them. The dev can request `details N` for one of them if they want to challenge it.
-- Dev can override mode with `dump all` or `step through` at any point.
+- Dev can override mode with `dump all` or `step through` at any point. `dump all` from step-through mode shows the remaining items inline with full trace; `step through` from inline-dump returns to one-per-turn (trace-hidden).
 
 **Per-item layout:**
 - Each item uses bold `**[N]**` + path on line 1, then `**Verdict:**`, then ONE of `**Why it stays:**` / `**Why:**` / `**Trace:**`, then `**What changes:**` (for Move/Split/Add). Items are separated by `---`.
