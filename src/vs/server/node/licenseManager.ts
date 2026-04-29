@@ -92,19 +92,7 @@ class LicenseManager {
 		}
 	}
 
-	async activateLicenseFile(licenseFilePath: string): Promise<ILicenseValidationResult> {
-		if (!fs.existsSync(licenseFilePath)) {
-			throw new Error(`License file not found: ${licenseFilePath}`);
-		}
-
-		// Place the license file next to the binary so the license manager
-		// picks it up without needing initialize or activate-file.
-		const licenseManagerDir = path.dirname(this.licenseManagerPath);
-		const targetPath = path.join(licenseManagerDir, 'license.lic');
-		if (!fs.existsSync(targetPath)) {
-			fs.copyFileSync(licenseFilePath, targetPath);
-		}
-
+	async verify(): Promise<ILicenseValidationResult> {
 		const result = await this.runJsonCommand('verify');
 		if (result.result !== LicError.OK) {
 			throw new Error(`License verification failed: ${result.message || `code ${result.result}`}`);
@@ -114,11 +102,26 @@ class LicenseManager {
 		console.log(`Positron license verified: ${JSON.stringify(result)}`);
 		return validated;
 	}
+
+	async activateLicenseFile(licenseFilePath: string): Promise<ILicenseValidationResult> {
+		const licenseManagerDir = path.dirname(this.licenseManagerPath);
+
+		// Check for a .lic file next to the license-manager binary first.
+		const localLic = fs.readdirSync(licenseManagerDir).find(f => f.endsWith('.lic'));
+		if (!localLic) {
+			// No .lic next to the binary -- copy the provided file there.
+			if (!fs.existsSync(licenseFilePath)) {
+				throw new Error(`License file not found: ${licenseFilePath}`);
+			}
+			fs.copyFileSync(licenseFilePath, path.join(licenseManagerDir, path.basename(licenseFilePath)));
+		}
+
+		return this.verify();
+	}
 }
 
 /**
  * Activates a Positron Server license file using the license-manager binary.
- * This installs the license into the system.
  */
 export async function activateWithManager(
 	installPath: string,
@@ -127,6 +130,30 @@ export async function activateWithManager(
 	const licenseManagerPath = findLicenseManagerPath(installPath);
 	const licenseManager = new LicenseManager(licenseManagerPath);
 	return licenseManager.activateLicenseFile(licenseFilePath);
+}
+
+/**
+ * Checks for a .lic file next to the license-manager binary and verifies it.
+ * Returns undefined if no .lic file is found or the binary doesn't exist.
+ */
+export async function verifyLocalLicense(
+	installPath: string,
+): Promise<ILicenseValidationResult | undefined> {
+	let licenseManagerPath: string;
+	try {
+		licenseManagerPath = findLicenseManagerPath(installPath);
+	} catch {
+		return undefined;
+	}
+
+	const licenseManagerDir = path.dirname(licenseManagerPath);
+	const localLic = fs.readdirSync(licenseManagerDir).find(f => f.endsWith('.lic'));
+	if (!localLic) {
+		return undefined;
+	}
+
+	const licenseManager = new LicenseManager(licenseManagerPath);
+	return licenseManager.verify();
 }
 
 /**
