@@ -8,6 +8,7 @@
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { KeyCode } from '../../../../../base/common/keyCodes.js';
 import { observableValue } from '../../../../../base/common/observable.js';
+import { assertDefined } from '../../../../../base/common/types.js';
 import { ILanguageService } from '../../../../../editor/common/languages/language.js';
 import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
@@ -64,11 +65,11 @@ describe('PositronNotebookInstance.changeCellType', () => {
 			notebook.changeCellType(CellKind.Markup);
 
 			const { textModel } = notebook;
-			expect(textModel).toBeDefined();
-			expect(textModel!.cells.length).toBe(1);
-			expect(textModel!.cells[0].cellKind).toBe(CellKind.Markup);
-			expect(textModel!.cells[0].outputs.length).toBe(1);
-			expect(textModel!.cells[0].outputs[0].outputId).toBe('test-output');
+			assertDefined(textModel, 'textModel');
+			expect(textModel.cells.length).toBe(1);
+			expect(textModel.cells[0].cellKind).toBe(CellKind.Markup);
+			expect(textModel.cells[0].outputs.length).toBe(1);
+			expect(textModel.cells[0].outputs[0].outputId).toBe('test-output');
 		});
 
 		it('code -> markdown -> code round-trip restores outputs', () => {
@@ -96,11 +97,11 @@ describe('PositronNotebookInstance.changeCellType', () => {
 			expect(cellsAfter[0].getContent()).toBe(code);
 
 			const { textModel } = notebook;
-			expect(textModel).toBeDefined();
-			expect(textModel!.cells[0].cellKind).toBe(CellKind.Code);
-			expect(textModel!.cells[0].language).toBe('python');
-			expect(textModel!.cells[0].outputs.length).toBe(1);
-			expect(textModel!.cells[0].outputs[0].outputId).toBe('test-output');
+			assertDefined(textModel, 'textModel');
+			expect(textModel.cells[0].cellKind).toBe(CellKind.Code);
+			expect(textModel.cells[0].language).toBe('python');
+			expect(textModel.cells[0].outputs.length).toBe(1);
+			expect(textModel.cells[0].outputs[0].outputId).toBe('test-output');
 		});
 	});
 
@@ -153,10 +154,10 @@ describe('PositronNotebookInstance.changeCellType', () => {
 			notebook.changeCellType(CellKind.Code, 'raw');
 
 			const { textModel } = notebook;
-			expect(textModel).toBeDefined();
-			expect(textModel!.cells.length).toBe(1);
-			expect(textModel!.cells[0].cellKind).toBe(CellKind.Code);
-			expect(textModel!.cells[0].language).toBe('raw');
+			assertDefined(textModel, 'textModel');
+			expect(textModel.cells.length).toBe(1);
+			expect(textModel.cells[0].cellKind).toBe(CellKind.Code);
+			expect(textModel.cells[0].language).toBe('raw');
 			expect(notebook.cells.get()[0].isRawCell()).toBe(true);
 			// Same instance reference proves the CellLanguage path ran (not
 			// Replace, which would swap the cell instance).
