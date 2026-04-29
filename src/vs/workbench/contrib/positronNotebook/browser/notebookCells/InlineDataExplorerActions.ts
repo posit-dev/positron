@@ -29,6 +29,12 @@ import { IPositronNotebookInstance } from '../IPositronNotebookInstance.js';
  * caller can leave them undefined. Actions that need notebook-specific state
  * (e.g. visualize, which inserts code into a cell) check for these and skip
  * when absent.
+ *
+ * Future direction: if this object grows further or a non-renderer caller
+ * needs to invoke these actions, replace it with a lightweight key (commId or
+ * document URI) and have actions look up the live inline-explorer instance
+ * from a registry. That trades the closure-over-state ergonomics here for
+ * call-site portability and a smaller serialized argument.
  */
 export interface IInlineDataExplorerActionContext {
 	/** URI of the document or notebook this output belongs to. */
