@@ -92,6 +92,26 @@ describe('PositronNotebookInstance scroll position restore contract', () => {
 	});
 
 	describe('snapToRestoredScrollPosition', () => {
+		it('writes scrollTop to (cellTop + offsetFromCell) on the cells container', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[['print("a")', 'python', CellKind.Code]],
+				ctx,
+			);
+			const cellsContainer = document.createElement('div');
+			const cellElement = document.createElement('div');
+			cellsContainer.appendChild(cellElement);
+			notebook.setCellsContainer(cellsContainer);
+			notebook.cells.get()[0].attachContainer(cellElement);
+
+			notebook.restoreEditorViewState({ scrollPosition: { cellIndex: 0, offsetFromCell: 100 } });
+
+			notebook.snapToRestoredScrollPosition();
+
+			// jsdom getBoundingClientRect returns zeros, so cellTop resolves to 0
+			// and final scrollTop is just offsetFromCell.
+			expect(cellsContainer.scrollTop).toBe(100);
+		});
+
 		it('does not consume the restored position', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['print("a")', 'python', CellKind.Code]],
