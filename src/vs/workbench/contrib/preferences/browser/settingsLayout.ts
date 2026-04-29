@@ -212,11 +212,6 @@ export const tocData: ITOCEntry<string> = {
 					label: localize('environment', "Environment"),
 					settings: ['environment.*']
 				},
-				{
-					id: 'features/packages',
-					label: localize('packages', "Packages"),
-					settings: ['positron.environments.*']
-				},
 				// --- End Positron ---
 				{
 					id: 'features/testing',
@@ -291,6 +286,11 @@ export const tocData: ITOCEntry<string> = {
 					settings: ['chat.*', 'inlineChat.*', 'mcp']
 				},
 				// --- Start Positron ---
+				{
+					id: 'features/packages',
+					label: localize('packages', "Packages"),
+					settings: ['positron.environments.*']
+				},
 				{
 					id: 'features/plots',
 					label: localize('plots', 'Plots'),
