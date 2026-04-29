@@ -56,3 +56,93 @@ Read the Testing section of `CLAUDE.md` at the start of every run. It is the sin
 Tiebreakers beyond the table:
 - **Lowest bucket that covers the behavior wins.**
 - **If in doubt between two buckets, pick the lower one** and note the reasoning. The dev can override at the gate.
+
+### Step 4. Audit existing coverage
+
+**Scoping the audit.** Scope depends on entry point:
+
+- **Source / branch / PR / feature-area input:** "Existing tests in the area under review" = test files that reference any source file in the changeset (grep for import paths or symbol names), plus test files co-located with the changed source files.
+- **Test-file input:** scope is exactly that one test file. Audit it as the subject.
+- **Test-directory input:** scope is every test file in the directory. Audit each.
+
+Four test surfaces to scan (when source-driven):
+
+- Vitest: `src/**/*.vitest.ts`, `src/**/*.vitest.tsx` - Positron unit, first-class audit target.
+- E2E Playwright: `test/e2e/tests/**/*.test.ts` - first-class audit target for move proposals.
+- Extension host Mocha: `extensions/<name>/src/test/**/*.test.ts` - first-class audit target for move proposals.
+- **Upstream Core Mocha: `src/vs/**/test/**/*.test.ts` and `*.integrationTest.ts` without Positron copyright headers - awareness-only.** Never propose moves, deletions, or modifications. Surface for duplication/gap detection only.
+
+If scope expands beyond ~20 test files, paginate: audit the closest-matching 20 first and note that wider audit is available on request. If no tests are found in scope, omit the Existing coverage section of the report.
+
+**Upstream coverage awareness.** For each upstream Core Mocha test in scope, record: path, which changed source files it references, and a one-line summary of what it asserts. If a proposed Vitest item's behavior overlaps an upstream assertion, flag the overlap inline (e.g., "upstream already asserts X at `<path>:L42`") so the dev can decide whether the Vitest test is redundant, complementary, or Positron-specific.
+
+**Central question for every Positron-authored e2e or ext-host test in scope:**
+
+> **"What is this test actually asserting, and COULD/SHOULD that assertion be made directly against the underlying unit?"**
+
+**Step 4A. Enumerate assertions.** Read the test file; list each `expect()`, `toHaveText`, `toBeVisible`, `toBe` call at the assertion level, not the test level.
+
+**Step 4B. Trace each assertion to the code responsible for it.**
+- A text-match on formatted output -> the formatter function.
+- A visibility assertion that depends on component state -> the component's render logic.
+- A value in a data structure -> the service method or reducer that produced it.
+- A UI path that boils down to "this function returned X" -> the function itself.
+
+**Step 4B-verify. Confirm ownership of the traced code.** This substep is the most reliable false-positive filter the skill has - apply it to every traced code path before counting it as unit-testable.
+
+For each path the trace lands on:
+
+1. **`./scripts/file-origin.sh <path>`** - if the file is upstream-owned (no Positron copyright header), verdict is `Keep` with reason "upstream behavior, upstream's tests."
+2. **Webview ownership** - grep the file/area for `registerWebviewViewProvider`, `WebviewView`, `iframe`, or check whether the assertion's UI is contributed by a webview-rendering extension (e.g., `markdown-language-features`, `positron-viewer`, external Quarto extension). If yes, verdict is `Keep` with reason "webview content cannot render in happy-dom."
+3. **Multi-window markers** - calls into `IWindowsMainService`, `auxiliaryWindow`, or test descriptions like "open in new window" / "move to new window." If yes, verdict is `Keep` with reason "inherently e2e."
+
+If any check hits, set verdict = `Keep` with `confidence: high` and record the ownership reason inline in the report. Show the trace + reason so the dev can spot-check.
+
+Why: source-pattern matching produces false positives - `MenuId.X` mentions in a Positron source file do not necessarily correspond to the buttons the e2e clicks. Ownership verification turns the most common Partial-overlap mistake into a correct `Keep` verdict.
+
+**Step 4C. Apply COULD and SHOULD per assertion.**
+
+*COULD it move down?* Is the responsible unit reachable in the lower bucket?
+- Pure function -> yes, Vitest plain.
+- Service with DI -> yes, Vitest builder.
+- React render -> yes, Vitest RTL.
+- Component that only fires inside a full app via OS-level keyboard + focus state -> no, legitimately e2e.
+
+*SHOULD it move down?* Concrete cost signals at the current placement:
+- Runtime cost: the e2e spins a whole session/window to assert one value check.
+- Flakiness exposure: timing-sensitive UI waits for what is deterministic at the unit level.
+- Coverage redundancy: a unit test already exists - the e2e duplicates that assertion through a ~10x slower path.
+- Assertion is about data shape/format, not user experience.
+
+**Step 4D. Classify the test as a whole.**
+- **Move down fully** - every assertion could and should move lower. Propose a replacement at the lower bucket; flag the original for deletion (dev-driven).
+- **Move up** - *rare.* The current bucket can't faithfully exercise what the test asserts; the test belongs higher. Almost always confidence `medium` or `low` because move-up is detected from negative signals (heavy stubbing, mismatch between assertions and unit behavior). Always paired with an "alternative" line in the report - sometimes the right fix is to rewrite at the current bucket with less mocking, not to move up.
+- **Split** - some assertions are genuinely cross-system, others are unit-level value checks. Propose moving the unit-level subset down; keep the cross-system subset.
+- **Keep** - assertions genuinely depend on full-app integration, OS-level input, multi-pane state, or real runtime output not reproducible under unit conditions.
+- **Delete** - test asserts upstream Monaco/VS Code behavior, or duplicates coverage that already exists at the right level.
+
+**Signals an assertion may belong UP a bucket** (rare, weak signals):
+- Vitest test stubs >=5 fundamental services (`ICommandService`, `IRuntimeSessionService`, `IExtensionService`, etc.) and the assertions are about cross-service interactions, not the unit's own outputs.
+- RTL test asserts behavior that depends on real browser semantics: native drag-drop, focus traversal across multiple elements, multi-window, real timer-driven UX, scroll-into-view, IntersectionObserver.
+- Ext-host test uses `vscode.window.createWindow` / asserts cross-pane workflows that span the chrome.
+- The test passes today but a known bug in the same code path doesn't reproduce - strong hint the test isn't really exercising the integration.
+
+When any of these hit, surface the candidate with verdict `Move up -> <bucket>` AND an alternative ("rewrite at current bucket with less mocking" / "delete and write at higher bucket"). Confidence rarely exceeds `medium`.
+
+**Signals an assertion SHOULD move down:** test/describe names include "validates", "parses", "formats", "transforms", "computes", "renders when", "returns", "detects"; assertions compare strings, numbers, or small structures; a unit test already covers the same behavior; the assertion has nothing to do with user perception.
+
+**Signals an assertion legitimately STAYS in e2e:** user-visible cross-pane outcomes; real runtime output not mockable at the unit level; OS/window-level behavior (focus, keyboard shortcuts, file watcher races); documented regressions that only reproduce full-stack.
+
+**Verdict vocabulary** (used on every item in the report):
+- `Keep` - coverage is correctly placed at this level. Includes ownership-verified Keeps from 4B-verify.
+- `Move down -> <bucket>` - coverage belongs lower; full move proposed.
+- `Move up -> <bucket>` - coverage belongs higher (rare). Always paired with an alternative.
+- `Split` - some assertions move, some stay.
+- `Add` - new coverage needed at this level.
+- `Delete` - duplicate or upstream-owned; no replacement needed.
+- `Skip` - not worth testing (docs, glue, reverted, type-only).
+
+**Confidence per verdict** (applies to every verdict, not just moves):
+- **high** - verdict is structural. Ownership-verified `Keep`. All-assertions-trace `Move down`. Clearly Vitest-shaped `Add`. Mechanical `Skip` / `Delete`.
+- **medium** - verdict involves judgment. `Split` where assertions span layers cleanly but the boundary needs a human eye. `Add` where the bucket is fuzzy. Most `Move up` cases.
+- **low** - verdict is technically defensible but payoff is small. Often surfaces as "low-confidence flag" the dev can ignore.
