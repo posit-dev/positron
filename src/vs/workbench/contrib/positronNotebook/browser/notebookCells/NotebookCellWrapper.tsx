@@ -41,7 +41,8 @@ export function NotebookCellWrapper({ cell, children }: {
 	const [cellElement, setCellElement] = React.useState<HTMLDivElement | null>(null);
 
 	// Attach the container in the callback ref so cell.container is available
-	// synchronously during the commit phase, for useScrollRestoration.
+	// synchronously during the commit phase, before the scroll-restoration
+	// layout effect reads it via getCellTop.
 	const cellRef = React.useCallback((node: HTMLDivElement | null) => {
 		setCellElement(node);
 		if (node) {

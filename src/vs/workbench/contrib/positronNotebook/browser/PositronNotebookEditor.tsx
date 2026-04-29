@@ -6,6 +6,8 @@
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
 import { ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
+import { NotebookRenderCache } from './notebookRenderCache.js';
+import { disposeNotebookRenderCacheEntry } from './notebookRenderCacheDispose.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
@@ -47,6 +49,8 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 const POSITRON_NOTEBOOK_EDITOR_VIEW_STATE_PREFERENCE_KEY =
 	'PositronNotebookEditorViewState';
 
+/** Maximum number of notebook renders cached per pane. */
+const MAX_CACHED_RENDERS = 3;
 
 
 export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositronNotebookViewState> {
@@ -65,15 +69,16 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 	private _editorContainer: HTMLElement | undefined;
 
 	/**
-	 * Container for the notebook content - also a React root.
-	 * Child of _editorContainer.
+	 * Stable shell element that hosts the active per-entry notebook container.
+	 * Lives for the life of the pane; per-entry containers (which hold the
+	 * React tree) are reparented in and out of it on setInput/clearInput.
 	 */
-	private _notebookContainer: HTMLElement | undefined;
+	private _notebookShell: HTMLElement | undefined;
 
 	/**
 	 * Overlay container for contributions (like find widget) to render into,
 	 * allowing them to maintain their own separate React roots.
-	 * Sibling to _notebookContainer, child of _editorContainer.
+	 * Sibling to _notebookShell, child of _editorContainer.
 	 * Inherits scoped context keys from _editorContainer.
 	 * Hidden when switching notebooks to prevent stale widgets from showing.
 	 */
@@ -120,6 +125,13 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 			editorService,
 			editorGroupService,
 		);
+
+		this._register(this._group.onDidCloseEditor(e => {
+			if (!(e.editor instanceof PositronNotebookEditorInput)) {
+				return;
+			}
+			this._renderCache.remove(e.editor.resource);
+		}));
 
 		this._logService.debug('PositronNotebookEditor created.');
 
@@ -218,10 +230,10 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		this._editorContainer = DOM.$('.positron-notebook-editor');
 		parent.appendChild(this._editorContainer);
 
-		// Create the notebook container (focusable so it can maintain focus when empty)
-		this._notebookContainer = DOM.$('.positron-notebook-container');
-		this._notebookContainer.tabIndex = -1;
-		this._editorContainer.appendChild(this._notebookContainer);
+		// Stable shell; per-entry containers are created lazily on cache miss
+		// (see _renderFreshForInput) and reparented in/out of this shell.
+		this._notebookShell = DOM.$('.positron-notebook-shell');
+		this._editorContainer.appendChild(this._notebookShell);
 
 		// Create the overlay container for widgets (find, etc)
 		this._overlayContainer = DOM.$('.positron-notebook-overlay-container');
@@ -254,9 +266,6 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 
 
 		this._input = input;
-		// Eventually this will probably need to be implemented like the vs notebooks
-		// which uses a notebookWidgetService to manage the instances. For now, we'll
-		// just create the instance directly.
 		if (this._editorContainer === undefined) {
 			throw new Error(
 				'Editor container is undefined. This should have been created in createEditor.'
@@ -306,25 +315,27 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 			)
 		);
 
-		// Get the scoped context key service before rendering.
-		const scopedContextKeyService = this._containerScopedContextKeyService;
-		if (!scopedContextKeyService) {
-			throw new Error('Scoped context key service is not set.');
+		// Cache hit: reuse the existing renderer, container, and live Monaco
+		// editors -- the fast path that skips editor recreation. The component
+		// re-runs its scroll-restoration layout effect via the observable
+		// bumped by restoreEditorViewState; the snap below covers the gap
+		// before React commits so we never paint at scrollTop=0.
+		const cachedRender = this._renderCache.get(input.resource);
+		if (cachedRender) {
+			this._notebookShell!.appendChild(cachedRender.container);
+			notebookInstance.attachView(
+				cachedRender.container,
+				this._containerScopedContextKeyService!,
+				this._overlayContainer!,
+				this._editorContainer,
+			);
+			notebookInstance.restoreEditorViewState(viewState);
+			notebookInstance.snapToRestoredScrollPosition();
+			return;
 		}
 
-		// Attach the view first so that React components can access scopedContextKeyService during render.
-		notebookInstance.attachView(
-			this._notebookContainer!,
-			scopedContextKeyService,
-			this._overlayContainer!,
-			this._editorContainer!
-		);
-
-		// Resolve the scroll position before rendering so the component can read it from the instance.
+		this._renderFreshForInput(input);
 		notebookInstance.restoreEditorViewState(viewState);
-
-		// Now render the React component tree.
-		this._renderReact();
 	}
 
 	/**
@@ -342,7 +353,6 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 	override clearInput(): void {
 		this._logService.debug(this._identifier, 'clearInput');
 
-		// Capture the notebook instance before super.clearInput() clears this._input.
 		const notebookInstance = this._input?.notebookInstance;
 
 		// Call super first so that AbstractEditorWithViewState can save the
@@ -352,13 +362,16 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		// its cells container to still be accessible.
 		super.clearInput();
 
-		// Detach the notebook instance.
+		// Park cached containers off-DOM; their React trees and Monaco editors
+		// stay alive so the next setInput hit is fast.
+		for (const entry of this._renderCache.entries()) {
+			entry.container.remove();
+		}
+
+		// Contributions (e.g. find controller) rely on observing detach.
 		notebookInstance?.detachView();
 
-		// Clear the editor control.
 		this._control.clear();
-
-		this._disposeReactRenderer();
 	}
 
 	override async setOptions(options: INotebookEditorOptions | undefined): Promise<void> {
@@ -378,25 +391,13 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		return this._control.value;
 	}
 
-	/**
-	 * Gets or sets the PositronReactRenderer for the PositronNotebook component.
-	 */
-	private _positronReactRenderer?: PositronReactRenderer;
+	private readonly _renderCache = new NotebookRenderCache(
+		MAX_CACHED_RENDERS,
+		disposeNotebookRenderCacheEntry,
+	);
 
-	/**
-	 * Disposes the PositronReactRenderer for the PositronNotebook component.
-	 */
-	private _disposeReactRenderer() {
-		this._logService.debug(this._identifier, 'disposeReactRenderer');
-
-		if (this._positronReactRenderer) {
-			this._positronReactRenderer.dispose();
-			this._positronReactRenderer = undefined;
-		}
-	}
-
-	private _renderReact(): void {
-		this._logService.debug(this._identifier, 'renderReact');
+	private _renderNotebookInto(renderer: PositronReactRenderer): void {
+		this._logService.debug(this._identifier, 'renderNotebook');
 
 		if (!this.notebookInstance) {
 			throw new Error('Notebook instance is not set.');
@@ -404,14 +405,6 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 
 		if (!this._editorContainer) {
 			throw new Error('Editor container is not set.');
-		}
-
-		if (!this._notebookContainer) {
-			throw new Error('Notebook container is not set.');
-		}
-
-		if (!this._overlayContainer) {
-			throw new Error('Overlay container is not set.');
 		}
 
 		const scopedContextKeyService = this._containerScopedContextKeyService;
@@ -422,20 +415,16 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		// Set the editor container for focus tracking.
 		this.notebookInstance.setEditorContainer(this._editorContainer);
 
-		// Create renderer if it doesn't exist, otherwise reuse existing renderer.
-		if (!this._positronReactRenderer) {
-			this._positronReactRenderer = new PositronReactRenderer(this._notebookContainer);
-		}
-		const reactRenderer = this._positronReactRenderer;
-
-		reactRenderer.render(
+		renderer.render(
 			<NotebookErrorBoundary
 				componentName='PositronNotebookComponent'
 				level='editor'
 				logService={this._logService}
 				onReload={() => {
-					this._disposeReactRenderer();
-					this._renderReact();
+					this._renderCache.clear();
+					if (this._input) {
+						this._renderFreshForInput(this._input);
+					}
 				}}
 			>
 				<NotebookVisibilityProvider isVisible={this._isVisible}>
@@ -452,15 +441,45 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		);
 	}
 
+	/** Create a fresh cache entry, attach the shared notebook instance, and render. */
+	private _renderFreshForInput(input: PositronNotebookEditorInput): void {
+		if (!this._notebookShell) {
+			throw new Error('Notebook shell is not set.');
+		}
+		if (!this._containerScopedContextKeyService) {
+			throw new Error('Scoped context key service is not set.');
+		}
+		if (!this._editorContainer) {
+			throw new Error('Editor container is not set.');
+		}
+		if (!this._overlayContainer) {
+			throw new Error('Overlay container is not set.');
+		}
+
+		const container = DOM.$('.positron-notebook-container');
+		container.tabIndex = -1;
+		this._notebookShell.appendChild(container);
+
+		input.notebookInstance.attachView(
+			container,
+			this._containerScopedContextKeyService,
+			this._overlayContainer,
+			this._editorContainer,
+		);
+
+		const renderer = new PositronReactRenderer(container);
+		this._renderCache.add({ uri: input.resource, container, renderer });
+		this._renderNotebookInto(renderer);
+	}
+
 
 	/**
 	 * dispose override method.
 	 */
 	public override dispose(): void {
 		this._logService.debug(this._identifier, 'dispose');
-		this.notebookInstance?.detachView();
 
-		this._disposeReactRenderer();
+		this._renderCache.clear();
 
 		// Call the base class's dispose method.
 		super.dispose();
