@@ -189,6 +189,24 @@ The report is ordered bottom-up through the test pyramid (Core Mocha -> Vitest -
 Gathered: <PR/branch/files summary, one line>
 Analyzed: <N source files>, <M existing test files>
 
+## TL;DR
+
+<1-3 sentence narrative recommendation. State the bottom line: how many items, what verdict pattern dominates, and what they all share.>
+
+Example: *3 items audited. Recommendation: move down 2 to Vitest (medium confidence), keep 1. All move-down candidates trace to NotebookInstance model state; would extend `notebookCells.vitest.ts`.*
+
+## At a glance
+
+| ID  | Test :: scenario                          | Verdict             | Conf.  |
+|-----|-------------------------------------------|---------------------|--------|
+| [1] | <test-file-shortname> :: <scenario>       | Move down -> Vitest | medium |
+| [2] | <test-file-shortname> :: <scenario>       | Move down -> Vitest | medium |
+| [3] | <test-file-shortname> :: <scenario>       | Keep                | high   |
+
+(Use the test-file's basename + describe/it scenario as the row label so the table stays scannable. Long full paths belong only in the per-item detail below.)
+
+The detailed sections that follow are ordered bottom-up through the test pyramid (Core Mocha -> Vitest -> Extension host -> E2E). Items separated by `---`. Drill in only on items where the at-a-glance verdict surprises you.
+
 ## Existing coverage
 
 ### Core Mocha (upstream, awareness only, read-only) - N items
@@ -224,11 +242,9 @@ Each item below uses the same compact layout. Path on its own line, verdict on t
 
 **[4]** `<path>`
 **Verdict:** Move down -> Vitest (confidence: high)
-**Trace:**
-- L18 `expect(fmt.render(...)).toBe(...)` -> `fmt.render()` (Vitest plain)
-
-**Replacement:** Vitest test for `src/vs/.../fmt.ts` covering the assertion above.
-**Action:** delete original after replacement verified by dev.
+**Trace** (1 of 1 shown):
+- L18 expect(fmt.render(...)) -> `fmt.render()` (Vitest plain)
+**What changes:** add Vitest test for `src/vs/.../fmt.ts`; delete original ext-host test after replacement verified.
 
 ---
 
@@ -248,23 +264,21 @@ Each item below uses the same compact layout. Path on its own line, verdict on t
 
 **[7]** `<path>`
 **Verdict:** Move down -> Vitest (confidence: high, full move)
-**Trace:**
-- L23 `expect(parser.detect(...)).toBe(...)` -> `clearHandler.detect()` (Vitest plain)
-- L41 `expect(consoleState).toBe('cleared')` -> `consoleReducer` (Vitest builder)
-
-**Replacement:** Vitest test for `src/vs/.../clearHandler.ts` covering both assertions.
-**Action:** delete original after replacement verified by dev.
+**Trace** (2 of 6 shown; reply `expand 7` for full):
+- L23 expect(parser.detect(...)) -> `clearHandler.detect()` (Vitest plain)
+- L41 expect(consoleState).toBe('cleared') -> `consoleReducer` (Vitest builder)
+- ...4 more, all hitting the parser + reducer layer.
+**What changes:** add Vitest test for `src/vs/.../clearHandler.ts` covering parser + reducer behaviors; delete original e2e after replacement verified.
 
 ---
 
 **[8]** `<path>`
 **Verdict:** Split (confidence: medium)
-**Trace - move down -> Vitest:**
-- L15 `expect(formatter.format(...)).toBe(...)` (Vitest plain)
-**Trace - stay (e2e):**
+**Moves to Vitest:**
+- L15 expect(formatter.format(...)) -> `formatter.format()` (Vitest plain)
+**Stays in e2e:**
 - L32 cross-pane check (console -> variables)
-
-**Action:** draft Vitest for the formatter; trim e2e to the cross-pane subset.
+**What changes:** add Vitest test for the formatter; trim e2e to cover only the cross-pane assertion.
 
 ---
 
@@ -315,18 +329,37 @@ Each item below uses the same compact layout. Path on its own line, verdict on t
 ```
 
 **Formatting rules:**
-- Each item uses the compact layout: bold `**[N]**` + path on line 1, `**Verdict:**` line, then `**Why:**` / `**Why it stays:**` / `**Trace:**` lines. Items are separated by `---`.
+
+**Top-level structure:**
+- Always lead with `## TL;DR` (1-3 sentence narrative recommendation) and `## At a glance` (markdown table). The dev should be able to make 80% of their decisions from these two sections without scrolling further.
+- The at-a-glance table uses the test-file basename + describe/it scenario as the row label (`notebook-cell-action-bar :: Cell deletion`), not the full path. Full paths only in the per-item detail.
+- Detailed sections follow in pyramid order (Core Mocha -> Vitest -> Ext host -> E2E), Existing coverage before New coverage needed.
+
+**Per-item layout:**
+- Each item uses bold `**[N]**` + path on line 1, then `**Verdict:**`, then ONE of `**Why it stays:**` / `**Why:**` / `**Trace:**`, then `**What changes:**` (for Move/Split/Add). Items are separated by `---`.
 - Long source paths go on their own line (`**[N]** `path``), NEVER in an H3 header. Keep H3s at the section level (Vitest / Extension host / E2E), not per-item.
 - Line-number references (`L23`) only when the test file has actually been read.
 - Paths are project-relative, no leading `./`.
 - Every item carries an explicit verdict (`Keep` / `Move down` / `Move up` / `Split` / `Add` / `Delete` / `Skip`) and a confidence band (`high` / `medium` / `low`). No verdict-less items.
-- **Keep verdicts produced by ownership check (4B-verify):** show ONE summary line under `**Why it stays:**` describing where ownership lands. Do NOT enumerate per-assertion. End the line with `(Reply `expand <N>` for full trace.)` so the dev can opt in.
-- **Move down / Move up / Split verdicts:** show the full per-assertion `**Trace:**` enumeration. The dev needs detail to judge.
+
+**Trace compression (the load-bearing readability rule):**
+- **`Keep` verdicts produced by ownership check:** show ONE summary line under `**Why it stays:**` describing where ownership lands (e.g., *"4 helpers, all owned by webview / upstream / multi-window code"*). Do NOT enumerate per-assertion. End with `(Reply `expand <N>` for full trace.)`.
+- **`Move down` / `Move up` / `Add` (with traces):** show at most **2 representative assertions** under `**Trace:**`, then a tail line: *"... and N more, all hitting <shared-layer-description>"*. Always end the trace block with `(2 of M shown; reply `expand <N>` for full)` if M > 2.
+- **`Split`:** keep the bifurcated `**Moves to Vitest:**` / `**Stays in e2e:**` structure, but apply the same 2-assertion compression to each side.
+- **`Add`** items with no existing trace: just show `**Why:**` (one line). No trace block.
+
+**What changes line (one of these per Move/Split/Add):**
+- For `Move down`: *"add Vitest test for `<path>`; delete original after replacement verified"*.
+- For `Move up`: *"rewrite at higher bucket OR rewrite current Vitest with less mocking"* + a one-line characterization.
+- For `Split`: *"add Vitest for <subset>; trim original e2e to <remaining-cross-system-subset>"*.
+- For `Add`: *"add <pattern> Vitest at `<path>` covering <one-line behavior>"*.
+
+**Other rules:**
 - Low-confidence flags are listed under their own heading and called out as optional, in compact one-line form (path + verdict + reason; no `Why` / `Trace` block).
 - Items are numbered across the whole report (`[1]`...`[N]`) so the dev can reply `approve all except 3,7,12` or `expand 6`.
 
 **Handling `expand <N>` requests:**
-If the dev replies `expand <N>` (or `expand 6, 8`), reissue just those items with the full per-assertion trace shown under `**Trace:**`. Don't reprint the rest of the report.
+If the dev replies `expand <N>` (or `expand 6, 8`), reissue just those items with the full per-assertion trace shown under `**Trace:**` (no compression). Don't reprint the rest of the report.
 
 ## Guardrails
 
