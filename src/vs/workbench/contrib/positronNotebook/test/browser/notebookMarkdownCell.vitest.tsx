@@ -19,7 +19,7 @@ import { EnvironentProvider } from '../../browser/EnvironmentProvider.js';
 import { NotebookInstanceProvider } from '../../browser/NotebookInstanceProvider.js';
 import { NotebookMarkdownCell } from '../../browser/notebookCells/NotebookMarkdownCell.js';
 import { PositronNotebookMarkdownCell } from '../../browser/PositronNotebookCells/PositronNotebookMarkdownCell.js';
-import { createTestPositronNotebookInstance, TestPositronNotebookInstance } from './testPositronNotebookInstance.js';
+import { createTestPositronNotebookInstance } from './testPositronNotebookInstance.js';
 
 // Module mocks must be hoisted above the source imports they intercept.
 const { mockedMarkdown, mockedCellEditorMonacoWidget } = vi.hoisted(() => ({
@@ -54,7 +54,7 @@ describe('NotebookMarkdownCell', () => {
 	const ctx = createTestContainer().withNotebookEditorServices().withReactServices().build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	function renderMarkdownCell(content: string, editorShown: boolean): { cell: PositronNotebookMarkdownCell; notebook: TestPositronNotebookInstance } {
+	function renderMarkdownCell(content: string, editorShown: boolean): void {
 		const notebook = createTestPositronNotebookInstance(
 			[[content, 'markdown', CellKind.Markup]],
 			ctx,
@@ -80,8 +80,6 @@ describe('NotebookMarkdownCell', () => {
 				</EnvironentProvider>
 			</NotebookInstanceProvider>
 		);
-
-		return { cell: markdownCell, notebook };
 	}
 
 	it('preview mode passes the cell content through to the Markdown renderer', () => {
