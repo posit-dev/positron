@@ -6,6 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { createTestPositronNotebookInstance } from './testPositronNotebookInstance.js';
 import {
@@ -13,7 +14,12 @@ import {
 	buildTree,
 	getMarkdownHeaders,
 	getFirstNonEmptyLine,
+	PositronNotebookCellOutline,
 } from '../../browser/contrib/outline/positronNotebookOutline.contribution.js';
+import { PositronNotebookEditor } from '../../browser/PositronNotebookEditor.js';
+import { OutlineTarget } from '../../../../services/outline/browser/outline.js';
+import { getActiveCell } from '../../browser/selectionMachine.js';
+import { IEditorOptions } from '../../../../../platform/editor/common/editor.js';
 
 describe('PositronNotebookOutline', () => {
 	const ctx = createTestContainer().withNotebookEditorServices().build();
@@ -171,7 +177,6 @@ describe('PositronNotebookOutline', () => {
 			const entries = buildOutlineEntries(cells);
 
 			expect(entries.length).toBe(2);
-			// Each cell gets its own slug counter, so both are "details"
 			expect(entries[0].headingId).toBe('details');
 			expect(entries[1].headingId).toBe('details');
 		});
@@ -225,6 +230,67 @@ describe('PositronNotebookOutline', () => {
 		it('returns empty array for empty input', () => {
 			const tree = buildTree([]);
 			expect(tree.length).toBe(0);
+		});
+	});
+
+	describe('reveal selects the corresponding cell', () => {
+		// Drive IOutline.reveal() directly: it's what the workbench tree's click
+		// handler binds to, so this covers click-to-navigate without standing up
+		// the tree.
+		const revealOptions: IEditorOptions = {};
+
+		function createOutline(notebook: ReturnType<typeof createTestPositronNotebookInstance>) {
+			const editor = stubInterface<PositronNotebookEditor>({ notebookInstance: notebook });
+			const outline = ctx.disposables.add(ctx.instantiationService.createInstance(
+				PositronNotebookCellOutline,
+				editor,
+				OutlineTarget.OutlinePane,
+			));
+			return outline;
+		}
+
+		it('reveals a markdown-header entry and selects that header\'s cell', async () => {
+			const notebook = createTestPositronNotebookInstance([
+				['# First Section', 'markdown', CellKind.Markup],
+				['x = 1', 'python', CellKind.Code],
+				['# Second Section', 'markdown', CellKind.Markup],
+			], ctx);
+			const outline = createOutline(notebook);
+
+			const flat: ReturnType<typeof buildOutlineEntries> = [];
+			for (const root of outline.entries) {
+				root.asFlatList(flat);
+			}
+			const secondSection = flat.find(e => e.label === 'Second Section');
+			expect(secondSection, 'Second Section entry should exist').toBeDefined();
+
+			await outline.reveal(secondSection!, revealOptions, false);
+
+			const cells = notebook.cells.get();
+			const activeCell = getActiveCell(notebook.selectionStateMachine.state.get());
+			expect(activeCell).toBe(cells[2]);
+		});
+
+		it('reveals a code-cell entry and selects that code cell', async () => {
+			const notebook = createTestPositronNotebookInstance([
+				['# Title', 'markdown', CellKind.Markup],
+				['x = 1', 'python', CellKind.Code],
+				['# Analysis', 'markdown', CellKind.Markup],
+			], ctx);
+			const outline = createOutline(notebook);
+
+			const flat: ReturnType<typeof buildOutlineEntries> = [];
+			for (const root of outline.entries) {
+				root.asFlatList(flat);
+			}
+			const codeEntry = flat.find(e => e.label === 'x = 1');
+			expect(codeEntry, 'Code-cell entry should exist').toBeDefined();
+
+			await outline.reveal(codeEntry!, revealOptions, false);
+
+			const cells = notebook.cells.get();
+			const activeCell = getActiveCell(notebook.selectionStateMachine.state.get());
+			expect(activeCell).toBe(cells[1]);
 		});
 	});
 });
