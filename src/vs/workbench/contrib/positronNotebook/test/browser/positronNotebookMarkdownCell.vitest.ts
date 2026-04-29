@@ -54,6 +54,19 @@ describe('PositronNotebookMarkdownCell', () => {
 			const newCell = getMarkdownCell(notebook, 1);
 			expect(enterEditorSpy).toHaveBeenCalledWith(newCell);
 		});
+
+		it('with enterEditMode=false does NOT route to selectionStateMachine.enterEditor', async () => {
+			const notebook = createTestPositronNotebookInstance([
+				['# Cell 0', 'python', CellKind.Code],
+			], ctx);
+			const enterEditorSpy = vi.spyOn(notebook.selectionStateMachine, 'enterEditor')
+				.mockResolvedValue(undefined);
+
+			notebook.addCell(CellKind.Markup, 1, false);
+			await new Promise(resolve => setTimeout(resolve, 0));
+
+			expect(enterEditorSpy).not.toHaveBeenCalled();
+		});
 	});
 
 	describe('toggleEditor', () => {

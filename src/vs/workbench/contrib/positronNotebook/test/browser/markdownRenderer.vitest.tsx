@@ -44,4 +44,18 @@ describe('TokenMarkdownRenderer', () => {
 		expect(screen.getByText('bold', { selector: 'strong' })).toBeInTheDocument();
 		expect(screen.getByText('italic', { selector: 'em' })).toBeInTheDocument();
 	});
+
+	it('produces no headings when content is empty', () => {
+		renderMarkdown('');
+
+		expect(screen.queryByRole('heading')).not.toBeInTheDocument();
+	});
+
+	it('renders plain text without inserting strong or em tags', () => {
+		renderMarkdown('This is just plain text.');
+
+		expect(screen.getByText('This is just plain text.')).toBeInTheDocument();
+		expect(screen.queryByText('This is just plain text.', { selector: 'strong' })).not.toBeInTheDocument();
+		expect(screen.queryByText('This is just plain text.', { selector: 'em' })).not.toBeInTheDocument();
+	});
 });
