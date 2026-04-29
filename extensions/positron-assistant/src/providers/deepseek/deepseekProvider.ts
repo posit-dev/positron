@@ -313,7 +313,7 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 			: undefined;
 
 		const requestId = modelOptions.requestId;
-		this.logger.debug(`[deepseek] Start request ${requestId} to ${model.name} [${model.id}]: ${aiMessages.length} messages`);
+		this.logger.debug(`Start request ${requestId} to ${model.name} [${model.id}]: ${aiMessages.length} messages`);
 
 		try {
 			const requestBody: Record<string, any> = {
@@ -356,10 +356,10 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 				signal,
 			});
 
-			this.logger.debug(`[deepseek] Response status: ${response.status}`);
+			this.logger.debug(`Response status: ${response.status}`);
 			if (!response.ok) {
 				const errorText = await response.text();
-				this.logger.error(`[deepseek] Error response body: ${errorText}`);
+				this.logger.error(`Error response body: ${errorText}`);
 				throw new Error(`DeepSeek API error: ${response.status} ${response.statusText} - ${errorText}`);
 			}
 
@@ -391,7 +391,7 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 
 					const data = trimmed.slice(6);
 					if (data === '[DONE]') {
-						this.logger.debug(`[deepseek] Received [DONE]`);
+						this.logger.debug(`Received [DONE]`);
 						continue;
 					}
 
@@ -450,7 +450,7 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 								if (tc.name && tc.args && tc.args.trim()) {
 									try {
 										const parsedArgs = JSON.parse(tc.args);
-										this.logger.debug(`[deepseek] Reporting tool call: ${id} (${tc.name})`);
+										this.logger.debug(`Reporting tool call: ${id} (${tc.name})`);
 										progress.report(new vscode.LanguageModelToolCallPart(id, tc.name, parsedArgs));
 										bufferedToolCalls.delete(id);
 									} catch {
@@ -470,11 +470,11 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 				}
 			}
 
-			this.logger.debug(`[deepseek] Finished streaming, ${chunkCount} chunks received`);
+			this.logger.debug(`Finished streaming, ${chunkCount} chunks received`);
 
 			// Log the complete reasoning content from thinking mode
 			if (this.lastReasoningContent) {
-				this.logger.trace(`[deepseek] Reasoning (complete): ${this.lastReasoningContent}`);
+				this.logger.trace(`Reasoning (complete): ${this.lastReasoningContent}`);
 			}
 
 			// Handle remaining buffer
@@ -485,7 +485,7 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 						const parsed = JSON.parse(data);
 						const choice = parsed.choices?.[0];
 						if (choice?.delta?.content) {
-							this.logger.debug(`[deepseek] Reporting remaining content: ${choice.delta.content}`);
+							this.logger.debug(`Reporting remaining content: ${choice.delta.content}`);
 							progress.report(new vscode.LanguageModelTextPart(choice.delta.content));
 						}
 					} catch {
@@ -573,7 +573,7 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 			}
 			// Add tool_calls array if there are tool calls
 			if (toolCalls.length > 0) {
-				this.logger.debug(`[deepseek] Sending ${toolCalls.length} tool calls: ${toolCalls.map((tc: any) => tc.function.name).join(', ')}`);
+				this.logger.debug(`Sending ${toolCalls.length} tool calls: ${toolCalls.map((tc: any) => tc.function.name).join(', ')}`);
 				result.tool_calls = toolCalls;
 			}
 			// Pass back reasoning_content for DeepSeek thinking mode
@@ -604,11 +604,11 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 			}
 
 			if (!toolCallId) {
-				this.logger.error('[deepseek] Tool message missing toolCallId');
+				this.logger.error('Tool message missing toolCallId');
 				return { role: 'tool', content: '', tool_call_id: 'unknown' };
 			}
 
-			this.logger.debug(`[deepseek] Sending tool result: ${toolCallId}, content length: ${textContent.length}`);
+			this.logger.debug(`Sending tool result: ${toolCallId}, content length: ${textContent.length}`);
 
 			return {
 				role: 'tool',
