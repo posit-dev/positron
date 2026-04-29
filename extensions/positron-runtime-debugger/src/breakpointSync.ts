@@ -102,8 +102,9 @@ export class BreakpointSyncService extends Disposable {
 
 	private async syncNotebookBreakpoints(notebookUri: vscode.Uri): Promise<void> {
 		// During an active debug session the RuntimeDebugAdapter handles
-		// `setBreakpoints`. Sending them here as well would race and cause
-		// breakpoint ID churn. See `breakpoint-sync-followups.md`.
+		// `setBreakpoints`. Sending them here as well would collide. For Ark in
+		// console mode, we'll probably want a single source of truth with BP sync
+		// via Jupyter.
 		if (this.hasActiveDebugSession(notebookUri)) {
 			return;
 		}
