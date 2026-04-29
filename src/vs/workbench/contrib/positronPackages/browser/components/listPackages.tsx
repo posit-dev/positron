@@ -199,6 +199,8 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 
 		if (debouncedQuery.filter === PackagesFilter.Outdated) {
 			result = result.filter((pkg) => pkg.latestVersion && pkg.latestVersion !== pkg.version);
+		} else if (debouncedQuery.filter === PackagesFilter.Attached) {
+			result = result.filter((pkg) => pkg.attached === true);
 		}
 
 		if (debouncedQuery.text) {
@@ -383,6 +385,11 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 			label: localize('positronPackages.filterByOutdated', "Outdated"),
 			checked: currentFilter === PackagesFilter.Outdated,
 			onSelected: () => selectFilter(PackagesFilter.Outdated),
+		}),
+		new CustomContextMenuItem({
+			label: localize('positronPackages.filterByAttached', "Attached"),
+			checked: currentFilter === PackagesFilter.Attached,
+			onSelected: () => selectFilter(PackagesFilter.Attached),
 		}),
 	];
 
