@@ -80,6 +80,10 @@ Positron-specific rules not covered by a public lint plugin. The `review-vitest-
 - **Avoid `PositronReactServices.services = ...` singleton mutation** -- use `createTestContainer().withReactServices().stub(...).build()` and drop the `beforeEach`/`afterEach` save/restore dance.
   *Exception:* source class reads the singleton directly in its constructor; a 1-line bridge `PositronReactServices.services = ctx.reactServices` with an inline comment is acceptable.
 
+- **Avoid private-method test-seams** (`as TypeWithPrivates` casts that reach into a class's private members to invoke them from a test). The test couples to internal structure — renaming or splitting the private method breaks the test even when behavior is unchanged. Two cleaner alternatives, depending on the source shape:
+  - **Extract the private logic to a free exported function** the class calls. The class's closure or method becomes `() => extractedFunction(this.dep1, this.dep2)`. Tests import the function and call it directly.
+  - **If the source is an anonymous class registered with `registerAction2(class extends ... {...})`**, promote it to a named exported class. Match the pattern of nearby named action classes (e.g. `selectionKeybindings.ts`'s `SelectUpAction` / `SelectDownAction`). The body stays identical; only the structural seam changes. Tests can then construct or import the action directly.
+
 **Assertion style** (all `.vitest.*`): use `expect(x).to*(...)`, never `assert.ok` / `assert.equal` / `assert.strictEqual`.
 
 **RTL-specific rules** are enforced by `eslint-plugin-testing-library` (see `eslint.config.js` for the list). Run `npx eslint <file>` to see violations; [`vitest-rtl.md`](vitest-rtl.md) documents each pattern.

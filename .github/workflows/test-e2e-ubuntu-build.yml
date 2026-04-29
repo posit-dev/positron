@@ -54,8 +54,6 @@ jobs:
       E2E_POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
       E2E_POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
       E2E_POSTGRES_DB: ${{ secrets.E2E_POSTGRES_DB }}
-      E2E_CONNECT_SERVER: ${{ secrets.E2E_CONNECT_SERVER}}
-      E2E_CONNECT_APIKEY: ${{ secrets.E2E_CONNECT_APIKEY}}
       R_LIBS_SITE: /usr/local/lib/R/site-library
       R_LIBS_USER: /usr/local/lib/R/site-library
       SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}

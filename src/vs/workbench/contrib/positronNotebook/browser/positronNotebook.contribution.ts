@@ -780,7 +780,7 @@ registerAction2(class extends NotebookAction2 {
 	}
 });
 
-registerAction2(class extends NotebookAction2 {
+export class DeleteCellAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.delete',
@@ -803,7 +803,8 @@ registerAction2(class extends NotebookAction2 {
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.deleteCells();
 	}
-});
+}
+registerAction2(DeleteCellAction);
 
 // Make sure the run and stop commands are in the same place so they replace one another.
 registerAction2(class extends NotebookAction2 {
@@ -1194,7 +1195,7 @@ registerAction2(class extends NotebookAction2 {
 });
 
 // Copy cells command - C (Jupyter-style)
-registerAction2(class extends NotebookAction2 {
+export class CopyCellsAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.copyCells',
@@ -1220,10 +1221,11 @@ registerAction2(class extends NotebookAction2 {
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.copyCells();
 	}
-});
+}
+registerAction2(CopyCellsAction);
 
 // Cut cells command - X (Jupyter-style)
-registerAction2(class extends NotebookAction2 {
+export class CutCellsAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cutCells',
@@ -1248,10 +1250,11 @@ registerAction2(class extends NotebookAction2 {
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.cutCells();
 	}
-});
+}
+registerAction2(CutCellsAction);
 
 // Paste cells command - V (Jupyter-style)
-registerAction2(class extends NotebookAction2 {
+export class PasteCellsAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.pasteCells',
@@ -1276,10 +1279,11 @@ registerAction2(class extends NotebookAction2 {
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.pasteCells();
 	}
-});
+}
+registerAction2(PasteCellsAction);
 
 // Paste cells above command - Shift+V (Jupyter-style)
-registerAction2(class extends NotebookAction2 {
+export class PasteCellsAboveAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.pasteCellsAbove',
@@ -1304,7 +1308,8 @@ registerAction2(class extends NotebookAction2 {
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.pasteCellsAbove();
 	}
-});
+}
+registerAction2(PasteCellsAboveAction);
 
 // Move selected cells up
 registerAction2(class extends NotebookAction2 {
@@ -1359,7 +1364,7 @@ registerAction2(class extends NotebookAction2 {
 });
 
 // Change to Code cell - y key (Jupyter-style)
-registerAction2(class extends NotebookAction2 {
+export class ChangeToCodeAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.changeToCode',
@@ -1389,10 +1394,11 @@ registerAction2(class extends NotebookAction2 {
 		const kernelLanguage = notebook.kernel.get()?.supportedLanguages?.[0];
 		notebook.changeCellType(CellKind.Code, kernelLanguage);
 	}
-});
+}
+registerAction2(ChangeToCodeAction);
 
 // Change to Markdown cell - m key (Jupyter-style)
-registerAction2(class extends NotebookAction2 {
+export class ChangeToMarkdownAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.changeToMarkdown',
@@ -1420,10 +1426,11 @@ registerAction2(class extends NotebookAction2 {
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.changeCellType(CellKind.Markup);
 	}
-});
+}
+registerAction2(ChangeToMarkdownAction);
 
 // Change to Raw cell - r key (Jupyter-style)
-registerAction2(class extends NotebookAction2 {
+export class ChangeToRawAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.changeToRaw',
@@ -1451,7 +1458,8 @@ registerAction2(class extends NotebookAction2 {
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.changeCellType(CellKind.Code, 'raw');
 	}
-});
+}
+registerAction2(ChangeToRawAction);
 
 // Split cell at cursor position(s)
 registerAction2(class extends NotebookAction2 {

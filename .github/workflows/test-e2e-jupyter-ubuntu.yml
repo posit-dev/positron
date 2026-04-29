@@ -45,10 +45,8 @@ jobs:
       E2E_POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
       E2E_POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
       E2E_POSTGRES_DB: ${{ secrets.E2E_POSTGRES_DB }}
-      JUPYTER_PASSWORD: ${{ secrets.JUPYTER_PASSWORD }}
+      POSIT_WORKBENCH_PASSWORD: ${{ secrets.WB_PASSWORD }}
       CONNECT_BOOTSTRAP_SECRETKEY: ${{ secrets.CONNECT_BOOTSTRAP_SECRETKEY }}
-      E2E_CONNECT_SERVER: http://localhost:3939
-      E2E_CONNECT_APIKEY: ${{ secrets.E2E_CONNECT_APIKEY }}
       HOME: /home/runner
       AWS_S3_BUCKET: positron-test-reports
       R_LIBS_SITE: /usr/local/lib/R/site-library
@@ -112,7 +110,6 @@ jobs:
       - name: Setup Jupyter Docker Environment
         uses: ./.github/actions/setup-jupyter-docker
         with:
-          jupyter-password: ${{ secrets.JUPYTER_PASSWORD }}
           github-token: ${{ steps.access-token.outputs.token }}
           run-id: ${{ github.run_id }}
           positron-license: ${{ secrets.POSITRON_LICENSE }}
