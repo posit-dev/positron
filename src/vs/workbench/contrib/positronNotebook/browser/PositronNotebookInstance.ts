@@ -143,11 +143,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		const existingInstance = PositronNotebookInstance._instanceMap.get(uri);
 		if (existingInstance) {
-			// Do NOT detach here. The caller (PositronNotebookEditor.setInput)
-			// calls attachView(), whose internal detachView() handles any
-			// re-attachment to a new pane. Removing the side effect makes the
-			// render cache in PositronNotebookEditor safe to reuse across
-			// setInput/clearInput cycles for the same URI.
+			// Do NOT detach here -- attachView's internal detachView handles
+			// any re-attachment, and the unconditional detach this used to do
+			// would tear down a render cached in PositronNotebookEditor.
 			existingInstance._creationOptions = creationOptions;
 			return existingInstance;
 		}
@@ -2011,16 +2009,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	/**
-	 * Imperatively drive a scroll restoration loop using the position last
-	 * set by `restoreEditorViewState`. The editor's cache-hit path uses this
-	 * because the cached React tree is reused -- `useScrollRestoration`'s
-	 * mount-time `consumeRestoredScrollPosition` only runs at first mount,
-	 * so a fresh restored position would otherwise sit unread.
-	 *
-	 * Consumes `_restoredScrollPosition` and runs an rAF correction loop
-	 * directly on the cells container. Returns undefined when there is
-	 * nothing to restore or the cells container is not currently set
-	 * (e.g. React has not yet mounted, or the view is detached).
+	 * Imperatively run scroll restoration using the position last set by
+	 * `restoreEditorViewState`. Used by the editor's cache-hit path, where
+	 * the React tree is reused and `useScrollRestoration`'s mount-time
+	 * consume does not re-run.
 	 */
 	applyRestoredScrollPosition(): IDisposable | undefined {
 		const container = this._cellsContainer;
@@ -2099,15 +2091,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	/**
-	 * Detaches the notebook view from its container so contribution
-	 * lifecycle (find controller, etc.) can observe the detach.
-	 *
-	 * Does NOT dispose _notebookOptions -- those are bound to the instance's
-	 * disposable lifetime (see get notebookOptions) so they survive view
-	 * detach/attach cycles. This matters for the render cache in
-	 * PositronNotebookEditor: a cached React tree retains references to the
-	 * NotebookOptions object, and those references must stay valid while
-	 * the tree is parked off-DOM.
+	 * Detach the view so contribution lifecycle (find, etc.) sees the
+	 * detach. Does NOT dispose _notebookOptions -- a cached React tree
+	 * retains references to it that must stay valid while parked off-DOM.
 	 */
 	detachView(): void {
 		this.container.set(undefined, undefined);
@@ -2115,12 +2101,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._logService.debug(this.id, 'detachView');
 	}
 
-	/**
-	 * Returns true if this instance's view is currently attached to the given
-	 * container. Used by pane-local eviction guards to avoid tearing down a
-	 * view that has been re-attached to a different pane during a cross-group
-	 * move (target pane attaches before source pane's eviction runs).
-	 */
+	/** Whether this instance's view is currently attached to `container`. */
 	isAttachedTo(container: HTMLElement): boolean {
 		return this.container.get() === container;
 	}

@@ -489,12 +489,10 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	restoreEditorViewState(viewState: IPositronNotebookViewState | undefined): void;
 
 	/**
-	 * Imperatively drive a scroll restoration loop using the position last
-	 * set by `restoreEditorViewState`. Used by the editor's cache-hit path,
-	 * where the React tree is reused and `useScrollRestoration`'s
-	 * mount-time consume does not re-run. Returns a disposable that
-	 * cancels the loop, or undefined if there is no restored position or
-	 * the cells container is not currently set.
+	 * Imperatively run scroll restoration using the position last set by
+	 * `restoreEditorViewState`. Used by the editor's cache-hit path, where
+	 * the React tree is reused and `useScrollRestoration`'s mount-time
+	 * consume does not re-run.
 	 */
 	applyRestoredScrollPosition(): IDisposable | undefined;
 

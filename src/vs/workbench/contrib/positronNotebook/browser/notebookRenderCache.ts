@@ -7,12 +7,7 @@ import { PositronReactRenderer } from '../../../../base/browser/positronReactRen
 import { isEqual } from '../../../../base/common/resources.js';
 import { URI } from '../../../../base/common/uri.js';
 
-/**
- * One cached notebook render. Holds the DOM container that React was mounted
- * into and the renderer that owns that mount. The container is reparented in
- * and out of the host's shell on setInput/clearInput; the renderer is only
- * disposed when the entry is evicted.
- */
+/** One cached notebook render: the DOM container plus the renderer that owns its React mount. */
 export interface ICachedNotebookRender {
 	readonly uri: URI;
 	readonly container: HTMLElement;
@@ -20,11 +15,8 @@ export interface ICachedNotebookRender {
 }
 
 /**
- * Bounded LRU cache of notebook renders keyed by URI. The cache is policy-
- * only: it holds entries in least-recently-used to most-recently-used order
- * and invokes the supplied `onEvict` callback when an entry leaves the cache.
- * Disposal of the renderer, DOM container, and shared notebook instance is
- * the caller's responsibility, performed inside `onEvict`.
+ * Bounded LRU cache of notebook renders keyed by URI. Disposal of evicted
+ * entries is delegated to the `onEvict` callback supplied by the caller.
  */
 export class NotebookRenderCache {
 	private _entries: ICachedNotebookRender[] = [];
@@ -43,10 +35,7 @@ export class NotebookRenderCache {
 		return this._entries;
 	}
 
-	/**
-	 * Look up an entry by URI. On hit, the entry is moved to the most-
-	 * recently-used position and returned. On miss, returns undefined.
-	 */
+	/** Lookup by URI; on hit, promotes the entry to most-recently-used. */
 	get(uri: URI): ICachedNotebookRender | undefined {
 		const idx = this._entries.findIndex(e => isEqual(e.uri, uri));
 		if (idx === -1) {
@@ -59,11 +48,8 @@ export class NotebookRenderCache {
 	}
 
 	/**
-	 * Append a new entry as most-recently-used. If the cache is already at
-	 * capacity, the least-recently-used entry is evicted first.
-	 *
-	 * Caller contract: the URI must not already be present (call `get` first
-	 * and only `add` on miss).
+	 * Append a new entry as most-recently-used, evicting the LRU entry first
+	 * if at capacity. Caller must ensure the URI is not already present.
 	 */
 	add(entry: ICachedNotebookRender): void {
 		if (this._entries.length >= this._capacity) {
@@ -73,10 +59,7 @@ export class NotebookRenderCache {
 		this._entries.push(entry);
 	}
 
-	/**
-	 * Remove and dispose the entry matching the URI, if any. No-op when no
-	 * entry matches.
-	 */
+	/** Remove and evict the entry matching the URI, if any. */
 	remove(uri: URI): void {
 		const idx = this._entries.findIndex(e => isEqual(e.uri, uri));
 		if (idx === -1) {
@@ -86,10 +69,7 @@ export class NotebookRenderCache {
 		this._onEvict(entry);
 	}
 
-	/**
-	 * Dispose all entries. Eviction order is most-recently-used first so the
-	 * caller can rely on a deterministic teardown sequence.
-	 */
+	/** Evict all entries in MRU-first order so callers get a deterministic teardown sequence. */
 	clear(): void {
 		const drained = this._entries.slice().reverse();
 		this._entries.length = 0;

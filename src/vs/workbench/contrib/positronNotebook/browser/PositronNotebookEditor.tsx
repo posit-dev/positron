@@ -69,12 +69,9 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 	private _editorContainer: HTMLElement | undefined;
 
 	/**
-	 * Stable "shell" element that hosts the currently-active per-entry notebook
-	 * container. Created once in createEditor() and reused for the life of the
-	 * pane. The actual React tree is rendered into a per-entry child container
-	 * that is reparented in and out of this shell as the pane receives
-	 * setInput/clearInput.
-	 * Child of _editorContainer.
+	 * Stable shell element that hosts the active per-entry notebook container.
+	 * Lives for the life of the pane; per-entry containers (which hold the
+	 * React tree) are reparented in and out of it on setInput/clearInput.
 	 */
 	private _notebookShell: HTMLElement | undefined;
 
@@ -95,11 +92,9 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 	);
 
 	/**
-	 * Active scroll restoration loop, if any. Set on cache-hit setInput
-	 * (where the React tree is reused and useScrollRestoration's mount-time
-	 * consume does not re-run). Auto-disposed when replaced by the next
-	 * setInput, when clearInput parks the cached container off-DOM, or
-	 * when the editor itself is disposed.
+	 * Active scroll restoration loop on the cache-hit path, where the cached
+	 * React tree is reused and useScrollRestoration's mount-time consume
+	 * does not re-run.
 	 */
 	private readonly _scrollRestoration = this._register(new MutableDisposable<IDisposable>());
 
@@ -242,11 +237,8 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		this._editorContainer = DOM.$('.positron-notebook-editor');
 		parent.appendChild(this._editorContainer);
 
-		// Create the stable shell that hosts the active per-entry notebook
-		// container. The shell stays in the DOM for the life of the pane; the
-		// per-entry container is reparented in and out of it. The per-entry
-		// container itself is created lazily by _renderFreshForInput() on
-		// cache miss, so we don't create one here.
+		// Stable shell; per-entry containers are created lazily on cache miss
+		// (see _renderFreshForInput) and reparented in/out of this shell.
 		this._notebookShell = DOM.$('.positron-notebook-shell');
 		this._editorContainer.appendChild(this._notebookShell);
 
@@ -330,8 +322,8 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 			)
 		);
 
-		// Cache hit: reuse the existing renderer + container + live Monaco editors.
-		// This is the fast path that skips all editor recreation.
+		// Cache hit: reuse the existing renderer, container, and live Monaco
+		// editors -- the fast path that skips editor recreation.
 		const cachedRender = this._renderCache.get(input.resource);
 		if (cachedRender) {
 			this._notebookShell!.appendChild(cachedRender.container);
@@ -342,15 +334,12 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 				this._editorContainer,
 			);
 			notebookInstance.restoreEditorViewState(viewState);
-			// Reattaching the cached container resets its scrollTop. The cached
-			// React tree does not re-mount, so useScrollRestoration's mount-time
-			// consume does not re-run -- drive restoration imperatively.
+			// appendChild reset scrollTop to 0 and the React tree did not
+			// re-mount, so drive scroll restoration imperatively.
 			this._scrollRestoration.value = notebookInstance.applyRestoredScrollPosition();
 			return;
 		}
 
-		// Cache miss: render fresh. The cache evicts the least-recently-used
-		// entry on add() if it is already at capacity.
 		this._renderFreshForInput(input);
 		notebookInstance.restoreEditorViewState(viewState);
 	}
@@ -379,21 +368,17 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		// its cells container to still be accessible.
 		super.clearInput();
 
-		// Stop any in-flight scroll restoration before parking the container.
-		// Otherwise the loop keeps running and writing scrollTop on a
-		// detached element until it times out.
+		// Stop the loop before parking the container -- otherwise it keeps
+		// writing scrollTop on a detached element until it times out.
 		this._scrollRestoration.clear();
 
-		// Park all cached containers off-DOM. The React trees and Monaco editors
-		// inside them stay alive; we only remove the containers from their parents
-		// so the pane looks empty.
+		// Park cached containers off-DOM; their React trees and Monaco editors
+		// stay alive so the next setInput hit is fast.
 		for (const entry of this._renderCache.entries()) {
 			entry.container.remove();
 		}
 
-		// Detach the notebook instance so contributions (e.g. the find
-		// controller) still see the attach/detach lifecycle transitions they
-		// rely on today.
+		// Contributions (e.g. find controller) rely on observing detach.
 		notebookInstance?.detachView();
 
 		this._control.clear();
@@ -416,22 +401,11 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		return this._control.value;
 	}
 
-	/**
-	 * The per-pane notebook render cache. The dispose policy
-	 * (`disposeNotebookRenderCacheEntry`) is implemented in its own module so
-	 * its detach-only-when-still-attached cross-group safety guarantee can be
-	 * unit tested directly, instead of via a shadow function in tests.
-	 */
 	private readonly _renderCache = new NotebookRenderCache(
 		MAX_CACHED_RENDERS,
 		disposeNotebookRenderCacheEntry,
 	);
 
-	/**
-	 * Render the Positron notebook component tree into the given renderer.
-	 * The renderer is owned by the cache entry; this helper only performs the
-	 * React render call itself.
-	 */
 	private _renderNotebookInto(renderer: PositronReactRenderer): void {
 		this._logService.debug(this._identifier, 'renderNotebook');
 
@@ -457,9 +431,6 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 				level='editor'
 				logService={this._logService}
 				onReload={() => {
-					// Evict all cache entries and force the next setInput to
-					// render fresh. Any state inside the React trees is gone by
-					// definition when the user asked to reload.
 					this._renderCache.clear();
 					if (this._input) {
 						this._renderFreshForInput(this._input);
@@ -480,13 +451,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		);
 	}
 
-	/**
-	 * Create a fresh cache entry (DOM container + renderer + React mount) for
-	 * the given input, attach the shared notebook instance to the new
-	 * container, and install the entry as the current cached render.
-	 *
-	 * Callers must have already disposed any existing cache entry.
-	 */
+	/** Create a fresh cache entry, attach the shared notebook instance, and render. */
 	private _renderFreshForInput(input: PositronNotebookEditorInput): void {
 		if (!this._notebookShell) {
 			throw new Error('Notebook shell is not set.');
