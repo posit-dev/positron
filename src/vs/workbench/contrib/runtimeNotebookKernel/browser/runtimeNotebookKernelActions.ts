@@ -22,6 +22,7 @@ import { NOTEBOOK_KERNEL } from '../../notebook/common/notebookContextKeys.js';
 import { IPositronNotebookInstance } from '../../positronNotebook/browser/IPositronNotebookInstance.js';
 import { POSITRON_NOTEBOOK_COMMAND_MODE } from '../../positronNotebook/browser/positronNotebook.contribution.js';
 import { PositronNotebookInstance } from '../../positronNotebook/browser/PositronNotebookInstance.js';
+import { IPositronNotebookService } from '../../positronNotebook/browser/positronNotebookService.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID, usingPositronNotebooks } from '../../positronNotebook/common/positronNotebookCommon.js';
 import { ActiveNotebookHasRunningRuntime, isNotebookEditorInput } from '../common/activeRuntimeNotebookContextManager.js';
 import { IRuntimeNotebookKernelService } from '../common/interfaces/runtimeNotebookKernelService.js';
@@ -110,6 +111,7 @@ abstract class BaseRuntimeNotebookKernelAction extends Action2 {
 				debugMessage: `User clicked ${this.desc.id} button in Positron notebook editor action bar`,
 			};
 			notebookUri = context;
+			accessor.get(IPositronNotebookService).listInstances(notebookUri)[0]?.grabFocus();
 		} else {
 			source = {
 				id: 'command',
