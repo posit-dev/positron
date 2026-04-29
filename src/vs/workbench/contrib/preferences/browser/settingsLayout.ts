@@ -289,7 +289,7 @@ export const tocData: ITOCEntry<string> = {
 				{
 					id: 'features/packages',
 					label: localize('packages', "Packages"),
-					settings: ['positron.environments.*']
+					settings: ['positron.packages.*']
 				},
 				{
 					id: 'features/plots',
