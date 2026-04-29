@@ -170,3 +170,103 @@ After the dev's response at step 5, ask:
 **Context carry-forward on handoff:**
 - For new additions: pass just the file path. `author-vitest-tests`' Phase 2 plan-first gate is where test cases are chosen.
 - For e2e -> Vitest move proposals: pass the file path plus a one-line behavioral hint as free-form prose in `$ARGUMENTS`, e.g., *"Covers behaviors currently asserted in `test/e2e/.../console-clear.test.ts`: detects `\f` trigger, no-ops on partial sequence."*
+
+## Output format
+
+The report is ordered bottom-up through the test pyramid (Core Mocha -> Vitest -> Extension host -> E2E) in both sections. This mirrors how the dev should think about coverage: "what do we already have at the cheapest level?" before "what do we need higher up?"
+
+````
+# Test coverage audit - <scope summary>
+
+Gathered: <PR/branch/files summary, one line>
+Analyzed: <N source files>, <M existing test files>
+
+## Existing coverage
+
+### Core Mocha (upstream, awareness only, read-only) - N items
+- `src/vs/platform/.../someUpstreamThing.test.ts` - references `<changed-file>`; asserts `<one-line summary>`. **Overlaps** with proposed Vitest item #7 (`detects \f trigger`). Dev decides whether the Vitest test is still needed.
+- `src/vs/editor/.../anotherUpstream.test.ts` - references `<changed-file>`; asserts `<one-line summary>`. No overlap with proposed coverage.
+
+### Vitest (Positron unit) - N items
+- `<path>` - Keep (confidence: high). <one-line why>.
+
+(Vitest is the pyramid floor for Positron code - no Move-down category.)
+
+#### `<path>` - Move up -> Ext host (confidence: medium) [rare]
+Stubs `ICommandService`, `IRuntimeSessionService`, `IExtensionService`, `INotificationService`, `IConfigurationService`. Assertions are about end-to-end command dispatch, not the orchestrator's internal state.
+Alternative: rewrite this Vitest with less mocking if the orchestrator's behavior in isolation is what's worth testing. Dev decides.
+
+### Extension host (Mocha) - N items
+
+- `<path>` - Keep (confidence: high). Uses `vscode.workspace.openTextDocument`, legitimately ext host.
+
+#### `<path>` - Move down -> Vitest (confidence: high)
+Assertions (all move):
+- L18 `expect(fmt.render(...)).toBe(...)` -> traces to `fmt.render()` - Vitest plain
+
+Proposed replacement: Vitest test for `src/vs/.../fmt.ts` covering the assertion above.
+Original: flag for deletion after replacement verified by dev.
+
+### E2E (Playwright) - N items
+
+- `<path>` - Keep (confidence: high). Cross-pane workflow (console -> variables -> data explorer).
+
+- `editor-action-bar-document-files.test.ts` - Keep (confidence: high). Hypothesis-verification trace:
+  - "Preview" button -> `markdown-language-features` extension (webview)
+  - "Open in viewer" -> `positron-viewer` (webview)
+  - "Split editor" -> upstream `editorCommands.ts` (`file-origin: upstream`)
+  - "Move into new window" -> `IWindowsMainService` (multi-window)
+  Every assertion is e2e-only by construction.
+
+#### `<path>` - Move down -> Vitest (confidence: high, full move)
+Assertions (all move):
+- L23 `expect(parser.detect(...)).toBe(...)` -> traces to `clearHandler.detect()` - Vitest plain
+- L41 `expect(consoleState).toBe('cleared')` -> traces to `consoleReducer` - Vitest builder
+
+Proposed replacement: Vitest test for `src/vs/.../clearHandler.ts` covering both assertions.
+Original: flag for deletion after replacement verified by dev.
+
+#### `<path>` - Split (confidence: medium)
+Assertions that move -> Vitest:
+- L15 `expect(formatter.format(...)).toBe(...)` -> Vitest plain
+Assertions that stay (e2e):
+- L32 cross-pane check (console -> variables) - legitimate e2e
+Proposed: draft Vitest for the formatter; trim e2e to the cross-pane subset.
+
+### Low-confidence flags (FYI, ignore freely) - N items
+- [ext host -> vitest] `<path>` - Move down (confidence: low). Only one weak signal, listed for awareness.
+
+## New coverage needed
+
+### Vitest (Positron unit) - N items
+- `src/vs/.../<file>.ts` :: <behavior> - Add (confidence: high). <pattern hint: plain / builder / RTL>, <one-line reason>.
+
+### Extension host (flag only, no auto-handoff) - N items
+- `extensions/<name>/...` :: <behavior> - Add (confidence: high). <pattern: mirror sibling test in <path>>.
+
+### E2E - N items
+- `<user workflow>` - Add (confidence: high). <reason this belongs in e2e>.
+
+## Skip
+- `<file>` - Skip (confidence: high). Docs-only / type-only / reverted / upstream / action-only.
+
+---
+
+## Summary
+- Add: <V vitest, E ext-host-flag, 2 e2e>
+- Move down: <H high, M medium, L low>
+- Move up: <N> (rare; review carefully)
+- Split: <N>
+- Keep: <N> (of which X verified via hypothesis-verification trace)
+- Delete / Skip: <N>
+- Upstream awareness: <U items, X overlaps>
+- Total dev decisions at the gate: <sum of approvals needed>
+````
+
+**Formatting rules:**
+- Line-number references (`L23`) only when the test file has actually been read.
+- Paths are project-relative, no leading `./`.
+- Every line carries an explicit verdict (`Keep` / `Move down` / `Move up` / `Split` / `Add` / `Delete` / `Skip`) and a confidence band (`high` / `medium` / `low`). No verdict-less items.
+- Hypothesis-verification trace is shown inline for any `Keep` produced by 4B-verify so the dev can spot-check.
+- Low-confidence flags are listed under their own heading and called out as optional.
+- Items are numbered across the whole report (`1`...`N`) so the dev can reply `approve all except 3,7,12`.
