@@ -100,7 +100,11 @@ For each path the trace lands on:
 2. **Webview ownership** - grep the file/area for `registerWebviewViewProvider`, `WebviewView`, `iframe`, or check whether the assertion's UI is contributed by a webview-rendering extension (e.g., `markdown-language-features`, `positron-viewer`, external Quarto extension). If yes, verdict is `Keep` with reason "webview content cannot render in happy-dom."
 3. **Multi-window markers** - calls into `IWindowsMainService`, `auxiliaryWindow`, or test descriptions like "open in new window" / "move to new window." If yes, verdict is `Keep` with reason "inherently e2e."
 
-If any check hits, set verdict = `Keep` with `confidence: high` and record the ownership reason inline in the report. Show the trace + reason so the dev can spot-check.
+If any check hits, set verdict = `Keep` with `confidence: high` and record the ownership reason inline in the report.
+
+**Report-side wording (do NOT use "4B-verify" in the user-facing report):**
+- For `Keep` verdicts produced by ownership check: label the section **"Why it stays:"** and write **one summary line** describing where ownership lands (e.g., *"8 assertions, all owned by markdown-language-features (webview)"*). Show full per-assertion trace only if the dev replies `expand <N>`.
+- For `Move down` / `Split` / `Move up` verdicts: label the section **"Trace:"** and show the per-assertion enumeration in full. The dev needs the detail to judge the move.
 
 Why: source-pattern matching produces false positives - `MenuId.X` mentions in a Positron source file do not necessarily correspond to the buttons the e2e clicks. Ownership verification turns the most common Partial-overlap mistake into a correct `Keep` verdict.
 
@@ -191,68 +195,111 @@ Analyzed: <N source files>, <M existing test files>
 - `src/vs/platform/.../someUpstreamThing.test.ts` - references `<changed-file>`; asserts `<one-line summary>`. **Overlaps** with proposed Vitest item #7 (`detects \f trigger`). Dev decides whether the Vitest test is still needed.
 - `src/vs/editor/.../anotherUpstream.test.ts` - references `<changed-file>`; asserts `<one-line summary>`. No overlap with proposed coverage.
 
+Each item below uses the same compact layout. Path on its own line, verdict on the next, then sub-detail. Items are separated by `---` for scannability.
+
 ### Vitest (Positron unit) - N items
-- [1] `<path>` - Keep (confidence: high). <one-line why>.
+
+**[1]** `<path>`
+**Verdict:** Keep (confidence: high)
+**Why it stays:** <one-line reason>
+
+---
 
 (Vitest is the pyramid floor for Positron code - no Move-down category.)
 
-#### [2] `<path>` - Move up -> Ext host (confidence: medium) [rare]
-Stubs `ICommandService`, `IRuntimeSessionService`, `IExtensionService`, `INotificationService`, `IConfigurationService`. Assertions are about end-to-end command dispatch, not the orchestrator's internal state.
-Alternative: rewrite this Vitest with less mocking if the orchestrator's behavior in isolation is what's worth testing. Dev decides.
+**[2]** `<path>`
+**Verdict:** Move up -> Ext host (confidence: medium) [rare]
+**Why:** Stubs 5+ fundamental services; assertions are about cross-service dispatch, not the unit's own outputs.
+**Alternative:** rewrite this Vitest with less mocking if orchestrator-in-isolation is what's worth testing.
+
+---
 
 ### Extension host (Mocha) - N items
 
-- [3] `<path>` - Keep (confidence: high). Uses `vscode.workspace.openTextDocument`, legitimately ext host.
+**[3]** `<path>`
+**Verdict:** Keep (confidence: high)
+**Why it stays:** uses `vscode.workspace.openTextDocument`, legitimately ext host.
 
-#### [4] `<path>` - Move down -> Vitest (confidence: high)
-Assertions (all move):
-- L18 `expect(fmt.render(...)).toBe(...)` -> traces to `fmt.render()` - Vitest plain
+---
 
-Proposed replacement: Vitest test for `src/vs/.../fmt.ts` covering the assertion above.
-Original: flag for deletion after replacement verified by dev.
+**[4]** `<path>`
+**Verdict:** Move down -> Vitest (confidence: high)
+**Trace:**
+- L18 `expect(fmt.render(...)).toBe(...)` -> `fmt.render()` (Vitest plain)
+
+**Replacement:** Vitest test for `src/vs/.../fmt.ts` covering the assertion above.
+**Action:** delete original after replacement verified by dev.
+
+---
 
 ### E2E (Playwright) - N items
 
-- [5] `<path>` - Keep (confidence: high). Cross-pane workflow (console -> variables -> data explorer).
+**[5]** `<path>`
+**Verdict:** Keep (confidence: high)
+**Why it stays:** cross-pane workflow (console -> variables -> data explorer).
 
-- [6] `editor-action-bar-document-files.test.ts` - Keep (confidence: high). Hypothesis-verification trace:
-  - "Preview" button -> `markdown-language-features` extension (webview)
-  - "Open in viewer" -> `positron-viewer` (webview)
-  - "Split editor" -> upstream `editorCommands.ts` (`file-origin: upstream`)
-  - "Move into new window" -> `IWindowsMainService` (multi-window)
-  Every assertion is e2e-only by construction.
+---
 
-#### [7] `<path>` - Move down -> Vitest (confidence: high, full move)
-Assertions (all move):
-- L23 `expect(parser.detect(...)).toBe(...)` -> traces to `clearHandler.detect()` - Vitest plain
-- L41 `expect(consoleState).toBe('cleared')` -> traces to `consoleReducer` - Vitest builder
+**[6]** `editor-action-bar-document-files.test.ts`
+**Verdict:** Keep (confidence: high)
+**Why it stays:** 4 helpers, all owned by webview / upstream / multi-window code. (Reply `expand 6` for full trace.)
 
-Proposed replacement: Vitest test for `src/vs/.../clearHandler.ts` covering both assertions.
-Original: flag for deletion after replacement verified by dev.
+---
 
-#### [8] `<path>` - Split (confidence: medium)
-Assertions that move -> Vitest:
-- L15 `expect(formatter.format(...)).toBe(...)` -> Vitest plain
-Assertions that stay (e2e):
-- L32 cross-pane check (console -> variables) - legitimate e2e
-Proposed: draft Vitest for the formatter; trim e2e to the cross-pane subset.
+**[7]** `<path>`
+**Verdict:** Move down -> Vitest (confidence: high, full move)
+**Trace:**
+- L23 `expect(parser.detect(...)).toBe(...)` -> `clearHandler.detect()` (Vitest plain)
+- L41 `expect(consoleState).toBe('cleared')` -> `consoleReducer` (Vitest builder)
+
+**Replacement:** Vitest test for `src/vs/.../clearHandler.ts` covering both assertions.
+**Action:** delete original after replacement verified by dev.
+
+---
+
+**[8]** `<path>`
+**Verdict:** Split (confidence: medium)
+**Trace - move down -> Vitest:**
+- L15 `expect(formatter.format(...)).toBe(...)` (Vitest plain)
+**Trace - stay (e2e):**
+- L32 cross-pane check (console -> variables)
+
+**Action:** draft Vitest for the formatter; trim e2e to the cross-pane subset.
+
+---
 
 ### Low-confidence flags (FYI, ignore freely) - N items
-- [9] [ext host -> vitest] `<path>` - Move down (confidence: low). Only one weak signal, listed for awareness.
+
+**[9]** `<path>` - Move down (confidence: low). Only one weak signal, listed for awareness.
 
 ## New coverage needed
 
 ### Vitest (Positron unit) - N items
-- [10] `src/vs/.../<file>.ts` :: <behavior> - Add (confidence: high). <pattern hint: plain / builder / RTL>, <one-line reason>.
+
+**[10]** `src/vs/.../<file>.ts` :: <behavior>
+**Verdict:** Add (confidence: high) - <pattern: plain / builder / RTL>
+**Why:** <one-line reason>
+
+---
 
 ### Extension host (flag only, no auto-handoff) - N items
-- [11] `extensions/<name>/...` :: <behavior> - Add (confidence: high). <pattern: mirror sibling test in <path>>.
+
+**[11]** `extensions/<name>/...` :: <behavior>
+**Verdict:** Add (confidence: high) - mirror sibling test in `<path>`
+
+---
 
 ### E2E - N items
-- [12] `<user workflow>` - Add (confidence: high). <reason this belongs in e2e>.
+
+**[12]** `<user workflow>`
+**Verdict:** Add (confidence: high)
+**Why:** <reason this belongs in e2e>
+
+---
 
 ## Skip
-- [13] `<file>` - Skip (confidence: high). Docs-only / type-only / reverted / upstream / action-only.
+
+**[13]** `<file>` - Skip (confidence: high). Docs-only / type-only / reverted / upstream / action-only.
 
 ---
 
@@ -268,12 +315,18 @@ Proposed: draft Vitest for the formatter; trim e2e to the cross-pane subset.
 ```
 
 **Formatting rules:**
+- Each item uses the compact layout: bold `**[N]**` + path on line 1, `**Verdict:**` line, then `**Why:**` / `**Why it stays:**` / `**Trace:**` lines. Items are separated by `---`.
+- Long source paths go on their own line (`**[N]** `path``), NEVER in an H3 header. Keep H3s at the section level (Vitest / Extension host / E2E), not per-item.
 - Line-number references (`L23`) only when the test file has actually been read.
 - Paths are project-relative, no leading `./`.
-- Every line carries an explicit verdict (`Keep` / `Move down` / `Move up` / `Split` / `Add` / `Delete` / `Skip`) and a confidence band (`high` / `medium` / `low`). No verdict-less items.
-- Hypothesis-verification trace is shown inline for any `Keep` produced by 4B-verify so the dev can spot-check.
-- Low-confidence flags are listed under their own heading and called out as optional.
-- Items are numbered across the whole report (`1`...`N`) so the dev can reply `approve all except 3,7,12`.
+- Every item carries an explicit verdict (`Keep` / `Move down` / `Move up` / `Split` / `Add` / `Delete` / `Skip`) and a confidence band (`high` / `medium` / `low`). No verdict-less items.
+- **Keep verdicts produced by ownership check (4B-verify):** show ONE summary line under `**Why it stays:**` describing where ownership lands. Do NOT enumerate per-assertion. End the line with `(Reply `expand <N>` for full trace.)` so the dev can opt in.
+- **Move down / Move up / Split verdicts:** show the full per-assertion `**Trace:**` enumeration. The dev needs detail to judge.
+- Low-confidence flags are listed under their own heading and called out as optional, in compact one-line form (path + verdict + reason; no `Why` / `Trace` block).
+- Items are numbered across the whole report (`[1]`...`[N]`) so the dev can reply `approve all except 3,7,12` or `expand 6`.
+
+**Handling `expand <N>` requests:**
+If the dev replies `expand <N>` (or `expand 6, 8`), reissue just those items with the full per-assertion trace shown under `**Trace:**`. Don't reprint the rest of the report.
 
 ## Guardrails
 
