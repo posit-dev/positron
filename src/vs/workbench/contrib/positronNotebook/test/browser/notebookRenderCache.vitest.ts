@@ -84,13 +84,13 @@ describe('NotebookRenderCache', () => {
 		});
 	});
 
-	describe('removeByUri', () => {
+	describe('remove', () => {
 		it('is a no-op when no entry matches', () => {
 			const onEvict = vi.fn();
 			const cache = new NotebookRenderCache(3, onEvict);
 			cache.add(makeEntry('a'));
 
-			cache.removeByUri(URI.parse('test:///missing.ipynb'));
+			cache.remove(URI.parse('test:///missing.ipynb'));
 
 			expect(onEvict).not.toHaveBeenCalled();
 			expect(cache.size).toBe(1);
@@ -106,7 +106,7 @@ describe('NotebookRenderCache', () => {
 			cache.add(b);
 			cache.add(c);
 
-			cache.removeByUri(b.uri);
+			cache.remove(b.uri);
 
 			expect(onEvict).toHaveBeenCalledTimes(1);
 			expect(onEvict).toHaveBeenCalledWith(b);

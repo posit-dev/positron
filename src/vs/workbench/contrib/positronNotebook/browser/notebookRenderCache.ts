@@ -77,7 +77,7 @@ export class NotebookRenderCache {
 	 * Remove and dispose the entry matching the URI, if any. No-op when no
 	 * entry matches.
 	 */
-	removeByUri(uri: URI): void {
+	remove(uri: URI): void {
 		const idx = this._entries.findIndex(e => isEqual(e.uri, uri));
 		if (idx === -1) {
 			return;

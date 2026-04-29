@@ -142,7 +142,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 			if (!(e.editor instanceof PositronNotebookEditorInput)) {
 				return;
 			}
-			this._renderCache.removeByUri(e.editor.resource);
+			this._renderCache.remove(e.editor.resource);
 		}));
 
 		this._logService.debug('PositronNotebookEditor created.');
