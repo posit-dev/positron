@@ -15,6 +15,7 @@ import { positronClassNames } from '../../../../../base/common/positronUtilities
 import OpenAI from '../icons/openai.js';
 import Snowflake from '../icons/snowflake.js';
 import MicrosoftFoundry from '../icons/microsoftFoundry.js';
+import DeepSeek from '../icons/deepseek.js';
 
 interface LanguageModelButtonProps {
 	identifier: string;
@@ -67,6 +68,8 @@ export const LanguageModelIcon = (props: { provider: string }) => {
 				return <div className={`language-model icon button-icon codicon codicon-positron-assistant`} />;
 			case 'snowflake-cortex':
 				return <Snowflake className='language-model icon' />;
+			case 'deepseek':
+				return <DeepSeek className='language-model icon' />;
 			case 'error':
 				return <div className={`language-model icon button-icon codicon codicon-error`} />;
 			case 'echo':
