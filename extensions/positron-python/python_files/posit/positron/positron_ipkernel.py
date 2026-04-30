@@ -113,9 +113,9 @@ class PositronIPythonInspector(oinspect.Inspector):
     pinfo.__doc__ = oinspect.Inspector.pinfo.__doc__
 
 
-def _is_module_on_disk(oname: str) -> bool:
-    """Return True if the top-level package of `oname` is installed on disk."""
-    top_level = oname.split(".", 1)[0]
+def _is_module_on_disk(name: str) -> bool:
+    """Return True if the top-level package of `name` is installed on disk."""
+    top_level = name.split(".", 1)[0]
     if not top_level.isidentifier():
         return False
     try:
