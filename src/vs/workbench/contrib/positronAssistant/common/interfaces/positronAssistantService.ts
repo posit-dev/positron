@@ -125,6 +125,15 @@ export interface IPositronAssistantConfigurationService {
 	readonly _serviceBrand: undefined;
 
 	/**
+	 * Whether Positron Assistant is currently gating providers. False when no
+	 * provider metadata has been registered (i.e., the Positron Assistant
+	 * extension is disabled or not installed); in that case `copilotEnabled`
+	 * and `isProviderEnabled` pass through so the upstream Copilot Chat path
+	 * is not gated.
+	 */
+	readonly isActive: boolean;
+
+	/**
 	 * Flag indicating whether GitHub Copilot is enabled (via disabled extension, or lack of authentication).
 	 */
 	readonly copilotEnabled: boolean;

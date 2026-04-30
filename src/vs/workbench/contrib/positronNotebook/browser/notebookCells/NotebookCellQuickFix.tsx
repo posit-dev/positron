@@ -13,6 +13,7 @@ import { useCallback, useMemo } from 'react';
 import { localize } from '../../../../../nls.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { usePositronConfiguration, usePositronContextKey } from '../../../../../base/browser/positronReactHooks.js';
+import { POSIT_ASSISTANT_AVAILABLE } from '../../../positAssistant/common/positAssistantContextKeys.js';
 import { IAction } from '../../../../../base/common/actions.js';
 import { removeAnsiEscapeCodes } from '../../../../../base/common/strings.js';
 import { CHAT_OPEN_ACTION_ID, ACTION_ID_NEW_CHAT } from '../../../chat/browser/actions/chatActions.js';
@@ -42,12 +43,12 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 	const { commandService, contextMenuService } = services;
 
 	// Configuration hooks to conditionally show the quick-fix buttons
-	const enableAssistant = usePositronConfiguration<boolean>('positron.assistant.enable');
+	const positAssistantAvailable = usePositronContextKey<boolean>(POSIT_ASSISTANT_AVAILABLE.key);
 	const enableNotebookMode = usePositronConfiguration<boolean>(POSITRON_NOTEBOOK_ENABLED_KEY);
 	const hasChatModels = usePositronContextKey<boolean>('positron-assistant.hasChatModels');
 
-	// Only show buttons if assistant is enabled, notebook mode is enabled, and chat models are available
-	const showQuickFix = enableAssistant && enableNotebookMode && hasChatModels;
+	// Only show buttons if Posit Assistant is available, notebook mode is enabled, and chat models are available
+	const showQuickFix = positAssistantAvailable && enableNotebookMode && hasChatModels;
 
 	/**
 	 * Builds a query string for asking the assistant to fix the erroring cell.

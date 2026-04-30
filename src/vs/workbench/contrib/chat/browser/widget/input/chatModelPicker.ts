@@ -171,23 +171,9 @@ export function buildModelPickerItems(
 				const vendorCmp = a.metadata.vendor.localeCompare(b.metadata.vendor);
 				return vendorCmp !== 0 ? vendorCmp : a.metadata.name.localeCompare(b.metadata.name);
 			});
-		// --- Start Positron ---
-		// Group models by vendor and add provider separators
-		let lastVendor: string | undefined;
 		for (const model of sortedModels) {
-			if (model.metadata.vendor !== lastVendor) {
-				lastVendor = model.metadata.vendor;
-				const providerIcon = getProviderIcon(model.metadata.vendor);
-				const providerLabel = model.metadata.auth?.providerLabel ?? vendorDisplayNames?.get(model.metadata.vendor) ?? model.metadata.vendor;
-				items.push({
-					kind: ActionListItemKind.Separator,
-					label: providerLabel,
-					group: providerIcon ? { title: providerLabel, icon: providerIcon.themeIcon } : { title: providerLabel }
-				});
-			}
 			items.push(createModelItem(createModelAction(model, selectedModelId, onSelect), model));
 		}
-		// --- End Positron ---
 		return items;
 	}
 
@@ -223,23 +209,17 @@ export function buildModelPickerItems(
 			return 'admin';
 		};
 
-		// --- Start Positron ---
 		// --- 1. Auto ---
 		const autoModel = models.find(m => m.metadata.id === 'auto' && m.metadata.vendor === 'copilot');
-		// Auto model is not promoted to the first position in Positron - it appears with other models grouped by provider
-		/*
 		if (autoModel) {
 			markPlaced(autoModel.identifier, autoModel.metadata.id);
 			items.push(createModelItem(createModelAction(autoModel, selectedModelId, onSelect), autoModel));
 		}
-		*/
 
 		// --- 2. Promoted section (selected + recently used + featured) ---
-		// Add vendor field to PromotedItem for grouping with provider separators
 		type PromotedItem =
-			| { kind: 'available'; model: ILanguageModelChatMetadataAndIdentifier; vendor: string; providerLabel: string }
-			| { kind: 'unavailable'; id: string; entry: IModelControlEntry; reason: 'upgrade' | 'update' | 'admin'; vendor: string; providerLabel: string };
-		// --- End Positron ---
+			| { kind: 'available'; model: ILanguageModelChatMetadataAndIdentifier }
+			| { kind: 'unavailable'; id: string; entry: IModelControlEntry; reason: 'upgrade' | 'update' | 'admin' };
 
 		const promotedItems: PromotedItem[] = [];
 
@@ -252,14 +232,10 @@ export function buildModelPickerItems(
 			if (model && !placed.has(model.identifier)) {
 				markPlaced(model.identifier, model.metadata.id);
 				const entry = controlModels[model.metadata.id];
-				// --- Start Positron ---
-				const vendor = model.metadata.vendor;
-				const providerLabel = model.metadata.auth?.providerLabel ?? vendorDisplayNames?.get(vendor) ?? vendor;
-				// --- End Positron ---
 				if (entry?.minVSCodeVersion && !isVersionAtLeast(currentVSCodeVersion, entry.minVSCodeVersion)) {
-					promotedItems.push({ kind: 'unavailable', id: model.metadata.id, entry, reason: 'update', vendor, providerLabel });
+					promotedItems.push({ kind: 'unavailable', id: model.metadata.id, entry, reason: 'update' });
 				} else {
-					promotedItems.push({ kind: 'available', model, vendor, providerLabel });
+					promotedItems.push({ kind: 'available', model });
 				}
 				return true;
 			}
@@ -267,10 +243,7 @@ export function buildModelPickerItems(
 				const entry = controlModels[id];
 				if (entry && !entry.exists) {
 					markPlaced(id);
-					// --- Start Positron ---
-					// For unavailable models without a resolved model, use 'unknown' as vendor
-					promotedItems.push({ kind: 'unavailable', id, entry, reason: getUnavailableReason(entry), vendor: 'unknown', providerLabel: 'Unknown' });
-					// --- End Positron ---
+					promotedItems.push({ kind: 'unavailable', id, entry, reason: getUnavailableReason(entry) });
 					return true;
 				}
 			}
@@ -295,56 +268,31 @@ export function buildModelPickerItems(
 			const model = resolveModel(entryId);
 			if (model && !placed.has(model.identifier)) {
 				markPlaced(model.identifier, model.metadata.id);
-				// --- Start Positron ---
-				const vendor = model.metadata.vendor;
-				const providerLabel = model.metadata.auth?.providerLabel ?? vendorDisplayNames?.get(vendor) ?? vendor;
-				// --- End Positron ---
 				if (entry.minVSCodeVersion && !isVersionAtLeast(currentVSCodeVersion, entry.minVSCodeVersion)) {
-					promotedItems.push({ kind: 'unavailable', id: entryId, entry, reason: 'update', vendor, providerLabel });
+					promotedItems.push({ kind: 'unavailable', id: entryId, entry, reason: 'update' });
 				} else {
-					promotedItems.push({ kind: 'available', model, vendor, providerLabel });
+					promotedItems.push({ kind: 'available', model });
 				}
 			} else if (!model && !entry.exists) {
 				markPlaced(entryId);
-				// --- Start Positron ---
-				promotedItems.push({ kind: 'unavailable', id: entryId, entry, reason: getUnavailableReason(entry), vendor: 'unknown', providerLabel: 'Unknown' });
-				// --- End Positron ---
+				promotedItems.push({ kind: 'unavailable', id: entryId, entry, reason: getUnavailableReason(entry) });
 			}
 		}
 
-		// --- Start Positron ---
-		// Render promoted section: group by vendor with separators, then by availability, then alphabetically
+		// Render promoted section: available first, then sorted alphabetically by name
 		if (promotedItems.length > 0) {
 			promotedItems.sort((a, b) => {
-				// Sort by vendor first
-				const vendorCmp = a.vendor.localeCompare(b.vendor);
-				if (vendorCmp !== 0) {
-					return vendorCmp;
-				}
-				// Then by availability
 				const aAvail = a.kind === 'available' ? 0 : 1;
 				const bAvail = b.kind === 'available' ? 0 : 1;
 				if (aAvail !== bAvail) {
 					return aAvail - bAvail;
 				}
-				// Then alphabetically by name
 				const aName = a.kind === 'available' ? a.model.metadata.name : a.entry.label;
 				const bName = b.kind === 'available' ? b.model.metadata.name : b.entry.label;
 				return aName.localeCompare(bName);
 			});
 
-			let promotedLastVendor: string | undefined;
 			for (const item of promotedItems) {
-				// Add provider separator when vendor changes
-				if (item.vendor !== promotedLastVendor && item.vendor !== 'unknown') {
-					promotedLastVendor = item.vendor;
-					const providerIcon = getProviderIcon(item.vendor);
-					items.push({
-						kind: ActionListItemKind.Separator,
-						label: item.providerLabel,
-						group: providerIcon ? { title: item.providerLabel, icon: providerIcon.themeIcon } : { title: item.providerLabel }
-					});
-				}
 				if (item.kind === 'available') {
 					items.push(createModelItem(createModelAction(item.model, selectedModelId, onSelect), item.model));
 				} else {
@@ -352,7 +300,6 @@ export function buildModelPickerItems(
 				}
 			}
 		}
-		// --- End Positron ---
 
 		// --- 3. Other Models (collapsible) ---
 		otherModels = models
@@ -365,14 +312,11 @@ export function buildModelPickerItems(
 				if (aAvail !== bAvail) {
 					return aAvail - bAvail;
 				}
-				// --- Start Positron ---
-				// Prioritize posit-ai models first
-				const aPosit = a.metadata.vendor === 'posit-ai' ? 0 : 1;
-				const bPosit = b.metadata.vendor === 'posit-ai' ? 0 : 1;
-				if (aPosit !== bPosit) {
-					return aPosit - bPosit;
+				const aCopilot = a.metadata.vendor === 'copilot' ? 0 : 1;
+				const bCopilot = b.metadata.vendor === 'copilot' ? 0 : 1;
+				if (aCopilot !== bCopilot) {
+					return aCopilot - bCopilot;
 				}
-				// --- End Positron ---
 				const vendorCmp = a.metadata.vendor.localeCompare(b.metadata.vendor);
 				return vendorCmp !== 0 ? vendorCmp : a.metadata.name.localeCompare(b.metadata.name);
 			});
@@ -398,25 +342,7 @@ export function buildModelPickerItems(
 				section: ModelPickerSection.Other,
 				isSectionToggle: true,
 			});
-			// --- Start Positron ---
-			// Group models by vendor and add provider separators
-			let otherLastVendor: string | undefined;
-			// --- End Positron ---
 			for (const model of otherModels) {
-				// --- Start Positron ---
-				// Add provider separator when vendor changes
-				if (model.metadata.vendor !== otherLastVendor) {
-					otherLastVendor = model.metadata.vendor;
-					const providerIcon = getProviderIcon(model.metadata.vendor);
-					const providerLabel = model.metadata.auth?.providerLabel ?? vendorDisplayNames?.get(model.metadata.vendor) ?? model.metadata.vendor;
-					items.push({
-						kind: ActionListItemKind.Separator,
-						label: providerLabel,
-						group: providerIcon ? { title: providerLabel, icon: providerIcon.themeIcon } : { title: providerLabel },
-						section: ModelPickerSection.Other,
-					});
-				}
-				// --- End Positron ---
 				const entry = controlModels[model.metadata.id] ?? controlModels[model.identifier];
 				if (entry?.minVSCodeVersion && !isVersionAtLeast(currentVSCodeVersion, entry.minVSCodeVersion)) {
 					items.push(createUnavailableModelItem(model.metadata.id, entry, 'update', manageSettingsUrl, updateStateType, ModelPickerSection.Other));
@@ -428,10 +354,6 @@ export function buildModelPickerItems(
 	}
 
 	if (
-		// --- Start Positron ---
-		// In Positron, we want to show "Manage Models" to all users regardless of entitlement
-		chatEntitlementService.entitlement === ChatEntitlement.Unknown ||
-		// --- End Positron ---
 		chatEntitlementService.entitlement === ChatEntitlement.Free ||
 		chatEntitlementService.entitlement === ChatEntitlement.Pro ||
 		chatEntitlementService.entitlement === ChatEntitlement.ProPlus ||
@@ -439,8 +361,7 @@ export function buildModelPickerItems(
 		chatEntitlementService.entitlement === ChatEntitlement.Enterprise ||
 		chatEntitlementService.isInternal
 	) {
-		// Modified from upstream to always show separator
-		items.push({ kind: ActionListItemKind.Separator });
+		items.push({ kind: ActionListItemKind.Separator, section: otherModels.length ? ModelPickerSection.Other : undefined });
 		items.push({
 			item: {
 				id: 'manageModels',
@@ -455,31 +376,10 @@ export function buildModelPickerItems(
 			label: localize('chat.manageModels', "Manage Models..."),
 			group: { title: '', icon: Codicon.blank },
 			hideIcon: false,
-			// In Positron, "Manage Models" is not placed in the Other collapsible section - it is always visible in the footer
-			// section: otherModels.length ? ModelPickerSection.Other : undefined,
+			section: otherModels.length ? ModelPickerSection.Other : undefined,
 			showAlways: true,
 		});
 	}
-
-	// --- Start Positron ---
-	// Add footer actions for Positron
-	items.push({
-		item: {
-			id: 'configureProviders',
-			enabled: true,
-			checked: false,
-			class: undefined,
-			tooltip: localize('chat.configureProviders.tooltip', "Add and Configure Language Model Providers"),
-			label: localize('chat.configureProviders', "Configure Model Providers..."),
-			run: () => { commandService.executeCommand('positron-assistant.configureProviders'); }
-		},
-		kind: ActionListItemKind.Action,
-		label: localize('chat.configureProviders', "Configure Model Providers..."),
-		group: { title: '', icon: Codicon.blank },
-		hideIcon: false,
-		showAlways: true,
-	});
-	// --- End Positron ---
 
 	return items;
 }

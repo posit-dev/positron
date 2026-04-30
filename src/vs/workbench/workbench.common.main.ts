@@ -478,6 +478,7 @@ import './contrib/opener/browser/opener.contribution.js';
 
 // Contributions
 import './contrib/positronAssistant/browser/positronAssistant.contribution.js';
+import './contrib/positAssistant/browser/positAssistant.contribution.js';
 import './contrib/positronConsole/browser/positronConsole.contribution.js';
 import './contrib/positronConsole/browser/positronConsoleView.js';
 import './contrib/positronDataExplorerEditor/browser/positronDataExplorerEditor.contribution.js';

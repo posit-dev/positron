@@ -91,6 +91,7 @@ suite('ChatAgents', function () {
 	let contextKeyService: TestingContextKeyService;
 	// --- Start Positron ---
 	let configurationService: TestConfigurationService;
+	let positronAssistantConfigurationService: TestPositronAssistantConfigurationService;
 	// --- End Positron ---
 	setup(() => {
 		contextKeyService = new TestingContextKeyService();
@@ -99,8 +100,7 @@ suite('ChatAgents', function () {
 		configurationService = new TestConfigurationService();
 		const logService = new NullLogService();
 		const languageModelsService = new TestLanguageModelsService();
-		const positronAssistantConfigurationService = new TestPositronAssistantConfigurationService();
-		configurationService.setUserConfiguration('positron.assistant.enable', true);
+		positronAssistantConfigurationService = new TestPositronAssistantConfigurationService();
 		chatAgentService = store.add(new ChatAgentService(contextKeyService, configurationService, logService, languageModelsService, positronAssistantConfigurationService));
 		// --- End Positron ---
 	});
@@ -168,4 +168,31 @@ suite('ChatAgents', function () {
 			assert.throws(() => chatAgentService.registerAgentImplementation(testAgentId, agentImpl));
 		});
 	});
+
+	// --- Start Positron ---
+	suite('Copilot Chat participant gating', function () {
+		const copilotAgentId = 'copilotAgent';
+		const copilotAgentData: IChatAgentData = {
+			...testAgentData,
+			id: copilotAgentId,
+			extensionId: new ExtensionIdentifier('github.copilot-chat'),
+		};
+
+		test('Copilot participant is bypassed when Positron Assistant is inactive', () => {
+			positronAssistantConfigurationService.isActive = false;
+			positronAssistantConfigurationService.copilotEnabled = false;
+			store.add(chatAgentService.registerAgent(copilotAgentId, copilotAgentData));
+
+			assert.ok(chatAgentService.getAgent(copilotAgentId), 'Copilot agent should be enabled when Positron Assistant is inactive, regardless of copilotEnabled');
+		});
+
+		test('Copilot participant is filtered out when Positron Assistant is active and Copilot is disabled', () => {
+			positronAssistantConfigurationService.isActive = true;
+			positronAssistantConfigurationService.copilotEnabled = false;
+			store.add(chatAgentService.registerAgent(copilotAgentId, copilotAgentData));
+
+			assert.strictEqual(chatAgentService.getAgent(copilotAgentId), undefined, 'Copilot agent should be filtered when Positron Assistant gates it');
+		});
+	});
+	// --- End Positron ---
 });

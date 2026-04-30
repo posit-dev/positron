@@ -364,19 +364,8 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 		let extensionAgentRegistered = false;
 		let defaultAgentRegistered = false;
 		let toolsAgentRegistered = false;
-		// --- Start Positron ---
-		let testAgentRegistered = false;
-		// --- End Positron ---
 		for (const agent of this.getAgents()) {
-			// --- Start Positron ---
-			if (agent.extensionId.value === 'vscode.vscode-api-tests') {
-				testAgentRegistered = true;
-			}
-			// --- End Positron ---
 			if (agent.isDefault) {
-				// --- Start Positron ---
-				defaultAgentRegistered = true;
-				// --- End Positron ---
 				if (!agent.isCore) {
 					extensionAgentRegistered = true;
 				}
@@ -388,14 +377,7 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 				}
 			}
 		}
-		// --- Start Positron ---
-		// Do not register default agents when Assistant is disabled, except for
-		// the API test agent from upstream.
-		// this._defaultAgentRegistered.set(defaultAgentRegistered);
-		if (testAgentRegistered || this.configurationService.getValue('positron.assistant.enable')) {
-			this._defaultAgentRegistered.set(defaultAgentRegistered);
-		}
-		// --- End Positron ---
+		this._defaultAgentRegistered.set(defaultAgentRegistered);
 		this._extensionAgentRegistered.set(extensionAgentRegistered);
 		if (toolsAgentRegistered !== this._hasToolsAgent) {
 			this._hasToolsAgent = toolsAgentRegistered;
@@ -536,9 +518,12 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 	private _agentIsEnabled(idOrAgent: string | IChatAgentEntry): boolean {
 		const entry = typeof idOrAgent === 'string' ? this._agents.get(idOrAgent) : idOrAgent;
 		// --- Start Positron ---
-		// Special handling for Copilot Chat participants
+		// Special handling for Copilot Chat participants when Positron Assistant
+		// is gating providers. When Positron Assistant isn't running (no
+		// provider metadata registered), this filter is bypassed so that
+		// Copilot Chat participants pass through normally.
 		const isCopilotParticipant = ExtensionIdentifier.equals(entry?.data.extensionId, COPILOT_CHAT_EXTENSION_ID);
-		if (isCopilotParticipant) {
+		if (isCopilotParticipant && this.positronAssistantConfigurationService.isActive) {
 			// Disable Copilot Chat agent if Copilot is not enabled
 			const isCopilotEnabled = this.positronAssistantConfigurationService.copilotEnabled;
 			if (!isCopilotEnabled) {

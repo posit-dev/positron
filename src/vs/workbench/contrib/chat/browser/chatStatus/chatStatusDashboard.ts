@@ -196,10 +196,7 @@ export class ChatStatusDashboard extends DomWidget {
 			}
 
 			if (this.chatEntitlementService.entitlement === ChatEntitlement.Free && (Number(chatQuota?.percentRemaining) <= 25 || Number(completionsQuota?.percentRemaining) <= 25)) {
-				// --- Start Positron ---
-				// Add configuration service param to `canUseChat` call
-				const upgradeProButton = this._store.add(new Button(this.element, { ...defaultButtonStyles, hoverDelegate: nativeHoverDelegate, secondary: this.canUseChat(this.configurationService, this.chatEntitlementService) /* use secondary color when chat can still be used */ }));
-				// --- End Positron ---
+				const upgradeProButton = this._store.add(new Button(this.element, { ...defaultButtonStyles, hoverDelegate: nativeHoverDelegate, secondary: this.canUseChat() /* use secondary color when chat can still be used */ }));
 				upgradeProButton.label = localize('upgradeToCopilotPro', "Upgrade to GitHub Copilot Pro");
 				this._store.add(upgradeProButton.onDidClick(() => this.runCommandAndClose('workbench.action.chat.upgradePlan')));
 			}
@@ -454,13 +451,10 @@ export class ChatStatusDashboard extends DomWidget {
 		}
 
 		// Completions Snooze
-		// --- Start Positron ---
-		// Add configuration service param to `canUseChat` call
-		if (this.canUseChat(this.configurationService, this.chatEntitlementService)) {
+		if (this.canUseChat()) {
 			const snooze = append(this.element, $('div.snooze-completions'));
 			this.createCompletionsSnooze(snooze, localize('settings.snooze', "Snooze"), this._store);
 		}
-		// --- End Positron ---
 
 		// New to Chat / Signed out
 		// --- Start Positron ---
@@ -521,15 +515,7 @@ export class ChatStatusDashboard extends DomWidget {
 		}
 	}
 
-	// --- Start Positron ---
-	// Add config service param and consider
-	private canUseChat(configService: IConfigurationService, chatEntitlementService: IChatEntitlementService): boolean {
-		// If Assistant is explicitly enabled, allow chat usage
-		const result = !!configService.getValue<boolean>('positron.assistant.enable');
-		if (result) {
-			return true;
-		}
-
+	private canUseChat(): boolean {
 		if (!this.chatEntitlementService.sentiment.installed || this.chatEntitlementService.sentiment.disabled || this.chatEntitlementService.sentiment.untrusted) {
 			return false; // chat not installed or not enabled
 		}
@@ -544,7 +530,6 @@ export class ChatStatusDashboard extends DomWidget {
 
 		return true;
 	}
-	// --- End Positron ---
 
 	private getUsageTitle(): string {
 		const planName = getChatPlanName(this.chatEntitlementService.entitlement);
@@ -743,7 +728,7 @@ export class ChatStatusDashboard extends DomWidget {
 			}
 		}));
 
-		if (!this.canUseChat(this.configurationService, this.chatEntitlementService)) {
+		if (!this.canUseChat()) {
 			container.classList.add('disabled');
 			checkbox.disable();
 			checkbox.checked = false;
@@ -809,7 +794,7 @@ export class ChatStatusDashboard extends DomWidget {
 
 		disposables.add(this.configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(completionsSettingId)) {
-				if (completionsSettingAccessor.readSetting() && this.canUseChat(this.configurationService, this.chatEntitlementService)) {
+				if (completionsSettingAccessor.readSetting() && this.canUseChat()) {
 					checkbox.enable();
 					container.classList.remove('disabled');
 				} else {

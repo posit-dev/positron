@@ -292,6 +292,7 @@ export { TestPositronConsoleService, TestPositronConsoleInstance } from '../../s
 export class TestPositronAssistantConfigurationService implements IPositronAssistantConfigurationService {
 	_serviceBrand: undefined;
 
+	isActive = false;
 	copilotEnabled = true;
 	onChangeCopilotEnabled = Event.None;
 	onChangeEnabledProviders = Event.None;

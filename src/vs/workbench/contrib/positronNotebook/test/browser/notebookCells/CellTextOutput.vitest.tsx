@@ -20,6 +20,7 @@ import { IPositronNotebookInstance } from '../../../browser/IPositronNotebookIns
 import { NotebookInstanceProvider } from '../../../browser/NotebookInstanceProvider.js';
 import { CellTextOutput } from '../../../browser/notebookCells/CellTextOutput.js';
 import { ParsedTextOutput } from '../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
+import { POSIT_ASSISTANT_AVAILABLE } from '../../../../positAssistant/common/positAssistantContextKeys.js';
 import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
 
 /** Generate multiline content with the given number of lines. */
@@ -88,8 +89,8 @@ describe('CellTextOutput', () => {
 		// here gives isolated state without any manual reset.
 		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
 		const contextKeyService = ctx.get(IContextKeyService) as MockContextKeyService;
-		configurationService.setUserConfiguration('positron.assistant.enable', true);
 		configurationService.setUserConfiguration('positron.notebook.enabled', true);
+		contextKeyService.createKey(POSIT_ASSISTANT_AVAILABLE.key, true);
 		contextKeyService.createKey('positron-assistant.hasChatModels', true);
 
 		renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
@@ -98,7 +99,7 @@ describe('CellTextOutput', () => {
 		expect(screen.getByRole('group', { name: /quick fix/i })).toBeInTheDocument();
 	});
 
-	it('does not render quick-fix for errors when assistant is disabled', () => {
+	it('does not render quick-fix for errors when Posit Assistant is not available', () => {
 		renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
 
 		expect(screen.getByTestId('cell-text-output')).toHaveClass('notebook-error');

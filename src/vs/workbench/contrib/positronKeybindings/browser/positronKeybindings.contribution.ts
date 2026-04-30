@@ -14,6 +14,11 @@ import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keyb
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
+import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
+import { IExtensionService } from '../../../services/extensions/common/extensions.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+
+const COPILOT_CHAT_EXTENSION_ID = 'github.copilot-chat';
 
 const configurationRegistry = Registry.as<IConfigurationRegistry>(
 	Extensions.Configuration
@@ -37,7 +42,9 @@ class PositronKeybindingsContribution extends Disposable {
 	private readonly _registrations: DisposableStore = new DisposableStore();
 
 	constructor(
-		@IConfigurationService private readonly _configurationService: IConfigurationService
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IExtensionService private readonly _extensionService: IExtensionService,
+		@ILogService private readonly _logService: ILogService,
 	) {
 		super();
 
@@ -237,18 +244,9 @@ class PositronKeybindingsContribution extends Disposable {
 			primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Enter
 		}));
 
-		// Reindent selected lines. We only bind this if Assistant is not enabled,
-		// since this binding is used to invoke inline chat with Assistant.
-		const positronAssistantEnabled =
-			this._configurationService.getValue('positron.assistant.enable');
-		if (!positronAssistantEnabled) {
-			this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
-				id: 'editor.action.reindentselectedlines',
-				weight: KeybindingWeight.BuiltinExtension,
-				when: EditorContextKeys.editorTextFocus,
-				primary: KeyMod.CtrlCmd | KeyCode.KeyI
-			}));
-		}
+		// Reindent selected lines. We only bind this if Copilot Chat is not
+		// installed/enabled, since Cmd+I is reserved for inline chat there.
+		this._registerReindentIfCopilotChatAbsent().catch(err => this._logService.error(err));
 
 		// Format selection
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
@@ -334,6 +332,21 @@ class PositronKeybindingsContribution extends Disposable {
 			id: 'workbench.action.setWorkingDirectory',
 			weight: KeybindingWeight.BuiltinExtension,
 			primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyH
+		}));
+	}
+
+	private async _registerReindentIfCopilotChatAbsent(): Promise<void> {
+		await this._extensionService.whenInstalledExtensionsRegistered();
+		const copilotChatPresent = this._extensionService.extensions.some(
+			e => ExtensionIdentifier.equals(e.identifier, COPILOT_CHAT_EXTENSION_ID));
+		if (copilotChatPresent) {
+			return;
+		}
+		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
+			id: 'editor.action.reindentselectedlines',
+			weight: KeybindingWeight.BuiltinExtension,
+			when: EditorContextKeys.editorTextFocus,
+			primary: KeyMod.CtrlCmd | KeyCode.KeyI
 		}));
 	}
 }

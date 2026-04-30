@@ -59,7 +59,22 @@ export class PositronAssistantConfigurationService extends Disposable implements
 		this._providerMetadata.set(metadata.id, metadata);
 	}
 
+	/**
+	 * Positron Assistant is "active" once at least one provider has been
+	 * registered. Until then the extension is either disabled or hasn't
+	 * activated yet, and gating callers should pass through to the upstream
+	 * Copilot Chat path rather than apply Positron's provider rules.
+	 */
+	get isActive(): boolean {
+		return this._providerMetadata.size > 0;
+	}
+
 	get copilotEnabled(): boolean {
+		// When inactive, treat Copilot as enabled so the upstream Copilot Chat
+		// path is not gated.
+		if (!this.isActive) {
+			return true;
+		}
 		return this._copilotEnabled;
 	}
 
@@ -83,6 +98,11 @@ export class PositronAssistantConfigurationService extends Disposable implements
 	}
 
 	isProviderEnabled(providerId: string): boolean {
+		// When inactive, treat all providers as enabled so the upstream model
+		// picker behavior applies.
+		if (!this.isActive) {
+			return true;
+		}
 		const enabledProviders = this.getEnabledProviders();
 		return enabledProviders.includes(providerId) ||
 			// Special case: 'copilot' vendor is enabled via 'copilot-auth' provider id's setting
