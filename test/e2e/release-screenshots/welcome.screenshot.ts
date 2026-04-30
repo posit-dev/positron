@@ -12,23 +12,37 @@ test.use({
 	suiteId: __filename,
 });
 
-test.describe('Release screenshots - Welcome', () => {
-	test('welcome page', async ({ app, page, openFolder, openFile, hotKeys, python }) => {
-		// Reproduce the hero shot at https://positron.posit.co/: an open Python
-		// file plotting Galactocentric ring orbits, with the resulting plot in
-		// the Plots pane and the produced variables in the Variables pane.
-		test.slow();
+/**
+ * Screenshot: a Python file plotting Galactocentric ring orbits with a plot and variables
+ * Path: https://positron.posit.co/images/astropy.png
+ */
+test.describe('Release Screenshots', () => {
+	test('Welcome Page', async ({ app, page, openFolder, openFile, hotKeys }) => {
+		const { sessions, editor, editors, plots, variables, quickaccess } = app.workbench;
 
+		// open workspace
 		await openFolder('qa-example-content/workspaces/astropy-testing');
-		await app.workbench.console.waitForReady('>>>', 30000);
+		await page.waitForTimeout(3000); // allow time for window to close and re-open
+		await page.locator('.monaco-workbench').waitFor({ state: 'visible' });
+		await sessions.expectAllSessionsToBeReady();
 
+		// open python file that plots galactocentric ring orbits
 		await openFile(join('workspaces', 'astropy-testing', 'plot_galactocentric_frame.py'));
-		await hotKeys.runFileInConsole();
+		await editors.waitForActiveTab('plot_galactocentric_frame.py');
 
-		await app.workbench.plots.waitForCurrentStaticPlot();
-		await app.workbench.variables.waitForVariableRow('gal_rings');
+		// run the file and wait for the plot
+		await editor.playButton.click();
+		await plots.waitForCurrentPlot();
 
+		// setup scroll position and expand variable for screenshot
+		await hotKeys.closePrimarySidebar();
+		await quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type(String(88));
+		await page.keyboard.press('Enter');
+		await variables.toggleVariable({ variableName: 'gc_frame', action: 'expand' });
+
+		// capture screenshot
 		await prepareForScreenshot(app, page);
-		await captureFullWindow(page, 'welcome.png');
+		await captureFullWindow(page, 'astropy.png');
 	});
 });
