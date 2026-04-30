@@ -13,12 +13,12 @@ test.use({
 });
 
 /**
- * Screenshot: a Python file plotting Galactocentric ring orbits with a plot and variables
- * Path: https://positron.posit.co/images/astropy.png
+ * Img Path: https://positron.posit.co/images/astropy.png
  */
-test.describe('Release Screenshots', () => {
-	test('Welcome Page', async ({ app, page, openFolder, openFile, hotKeys }) => {
-		const { sessions, editor, editors, plots, variables, quickaccess } = app.workbench;
+test.describe('Release Screenshots - Welcome Page', () => {
+	test('Standard Data View', async ({ app, page, openFolder, openFile, hotKeys }) => {
+		const { sessions, editor, editors, plots, variables, quickaccess } =
+			app.workbench;
 
 		// open workspace
 		await openFolder('qa-example-content/workspaces/astropy-testing');
@@ -27,7 +27,9 @@ test.describe('Release Screenshots', () => {
 		await sessions.expectAllSessionsToBeReady();
 
 		// open python file that plots galactocentric ring orbits
-		await openFile(join('workspaces', 'astropy-testing', 'plot_galactocentric_frame.py'));
+		await openFile(
+			join('workspaces', 'astropy-testing', 'plot_galactocentric_frame.py'),
+		);
 		await editors.waitForActiveTab('plot_galactocentric_frame.py');
 
 		// run the file and wait for the plot
@@ -36,10 +38,15 @@ test.describe('Release Screenshots', () => {
 
 		// setup scroll position and expand variable for screenshot
 		await hotKeys.closePrimarySidebar();
-		await quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await quickaccess.runCommand('workbench.action.gotoLine', {
+			keepOpen: true,
+		});
 		await page.keyboard.type(String(88));
 		await page.keyboard.press('Enter');
-		await variables.toggleVariable({ variableName: 'gc_frame', action: 'expand' });
+		await variables.toggleVariable({
+			variableName: 'gc_frame',
+			action: 'expand',
+		});
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);

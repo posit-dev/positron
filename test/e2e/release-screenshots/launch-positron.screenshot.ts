@@ -13,23 +13,22 @@ test.use({
 });
 
 /**
- * Screenshot: positron path command palette option
- * Path: https://positron.posit.co/launch-positron-from-terminal.html.
+ * Img Path: https://positron.posit.co/images/positron-path.png
  */
-
-test.describe('Release screenshots - Launch Positron', () => {
+test.describe('Release Screenshots - Launch Positron', () => {
 	test('positron path command palette', async ({ app, page, hotKeys }) => {
-		// Reproduces the "positron path" command-palette closeup at
-		// https://positron.posit.co/launch-positron-from-terminal.html.
-		// The Windows installer screenshot on that same page is OS-level and
-		// out of scope for this pipeline (manual).
+		// open the command palette and search for the positron path command
 		await hotKeys.openCommandPalette();
 		await page.keyboard.type('positron command path');
 
+		// ensure the command is visible in the palette
 		const palette = page.locator('.quick-input-widget');
 		await expect(palette).toBeVisible();
-		await expect(palette.getByText(`Shell Command: Install 'positron' command in PATH`)).toBeVisible();
+		await expect(
+			palette.getByText(`Shell Command: Install 'positron' command in PATH`),
+		).toBeVisible();
 
+		// capture screenshot
 		await prepareForScreenshot(app, page);
 		await capturePanel(palette, 'positron-path.png');
 	});

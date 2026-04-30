@@ -13,31 +13,44 @@ test.use({
 });
 
 /**
- * Screenshot: Data Explorer open with a DataFrame of flight data, with an active filter and summary panel open
- * Path: https://positron.posit.co/images/data-explorer.png
+ * Img Path: https://positron.posit.co/images/data-explorer.png
  */
-test.describe('Release screenshots - Data Explorer', () => {
-	test('main panel', async ({ app, page, executeCode, python }) => {
+test.describe('Release Screenshots - Data Explorer', () => {
+	test('Data Explorer with Flight Data', async ({ app, page, executeCode, python }) => {
 		const { dataExplorer, variables } = app.workbench;
 
 		// open the flights dataset in the data explorer
 		const parquetPath = join(
 			app.workspacePathOrFolder,
-			'data-files', 'flights', 'flights.parquet',
+			'data-files',
+			'flights',
+			'flights.parquet',
 		);
-		await executeCode('Python', `
+		await executeCode(
+			'Python',
+			`
 import pandas as pd
 flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
-`.trim());
+`.trim(),
+		);
 		await variables.waitForVariableRow('flights');
 		await variables.doubleClickVariableRow('flights');
 		await dataExplorer.maximize(true);
 		await dataExplorer.waitForIdle();
 
-		// apply filters: dep_time is not missing AND month > 1
-		await dataExplorer.filters.add({ columnName: 'dep_time', condition: 'is not missing' });
+		// apply filter: dep_time is not missin
+		await dataExplorer.filters.add({
+			columnName: 'dep_time',
+			condition: 'is not missing',
+		});
 		await dataExplorer.waitForIdle();
-		await dataExplorer.filters.add({ columnName: 'month', condition: 'is greater than', value: '1' });
+
+		// apply filter: month is greater than 1
+		await dataExplorer.filters.add({
+			columnName: 'month',
+			condition: 'is greater than',
+			value: '1',
+		});
 		await dataExplorer.waitForIdle();
 
 		// Sort by month descending. columnIndex is 1-based; month is column 2.
@@ -49,9 +62,9 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);
-		// .editor-group-container includes the tab strip ('Data: flights' tab)
-		// plus the editor body. .positron-data-explorer alone starts below the
-		// tab strip and crops it off.
-		await capturePanel(page.locator('.part.editor .editor-group-container'), 'data-explorer.png');
+		await capturePanel(
+			page.locator('.part.editor .editor-group-container'),
+			'data-explorer.png',
+		);
 	});
 });
