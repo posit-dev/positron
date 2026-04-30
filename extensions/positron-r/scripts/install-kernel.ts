@@ -22,6 +22,11 @@
  *   4. Download the most recent earlier prebuild (with a stderr note)
  *   5. Build from source via `cargo build --release` (if rust is installed)
  *   6. Helpful error
+ *
+ * In CI (detected via `CI=true`), steps 4 and 5 are swapped: we prefer
+ * building from source over a stale fallback prebuild, so a PR that bumps
+ * the ark submodule actually tests against the new ark. CI runners for the
+ * common platforms have rust pre-installed.
  */
 
 import decompress from 'decompress';
@@ -550,6 +555,12 @@ async function main(): Promise<void> {
 
 	const targets = getDownloadTargets(platform() as NodeJS.Platform, arch());
 
+	// In CI we prefer correctness over speed: if the exact prebuild is missing,
+	// build from source rather than silently using an older fallback prebuild.
+	// Otherwise (local dev), the fallback is fast and almost always good enough.
+	// `CI=true` is set by GitHub Actions and most other CI providers.
+	const inCi = process.env.CI === 'true';
+
 	// 1. Local cargo build in the submodule wins.
 	if (await tryUseLocalBuild()) {
 		return;
@@ -572,6 +583,18 @@ async function main(): Promise<void> {
 		console.warn(`Could not download exact prebuild: ${err}`);
 	}
 
+	// In CI: build from source before falling back to an older prebuild, so
+	// PRs that bump the ark submodule actually test against the new ark.
+	if (inCi) {
+		try {
+			if (await tryCargoBuild(info)) {
+				return;
+			}
+		} catch (err) {
+			console.warn(`cargo build failed: ${err}`);
+		}
+	}
+
 	// 4. Fallback to most recent earlier prebuild.
 	try {
 		if (await tryDownloadFallbackPrebuild(info, targets, githubPat)) {
@@ -581,9 +604,10 @@ async function main(): Promise<void> {
 		console.warn(`Could not download fallback prebuild: ${err}`);
 	}
 
-	// 5. Build from source.
+	// 5. Build from source (skipped above in CI, so this is the local-dev path
+	// when both prebuild lookups failed).
 	try {
-		if (await tryCargoBuild(info)) {
+		if (!inCi && await tryCargoBuild(info)) {
 			return;
 		}
 	} catch (err) {
