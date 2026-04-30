@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -46,7 +46,7 @@ test.describe('Notebook Cell Reordering', {
 
 	test('Keyboard: swap 1st and 2nd cell', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
-		const keyboard = app.code.driver.page.keyboard;
+		const keyboard = app.code.driver.currentPage.keyboard;
 
 		// Setup: Create notebook with 3 cells
 		await notebooksPositron.newNotebook({ codeCells: 3 });
@@ -66,7 +66,7 @@ test.describe('Notebook Cell Reordering', {
 
 	test('Boundaries: first-up and last-down are no-ops', async ({ app }) => {
 		const { notebooksPositron } = app.workbench;
-		const keyboard = app.code.driver.page.keyboard;
+		const keyboard = app.code.driver.currentPage.keyboard;
 
 		await notebooksPositron.newNotebook({ codeCells: 3 });
 		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', '# Cell 2']);
@@ -86,7 +86,7 @@ test.describe('Notebook Cell Reordering', {
 
 	test('Multi-move: move first to end then one up', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
-		const keyboard = app.code.driver.page.keyboard;
+		const keyboard = app.code.driver.currentPage.keyboard;
 
 		// Setup: Create notebook with 4 cells
 		await notebooksPositron.newNotebook({ codeCells: 4 });
@@ -110,7 +110,7 @@ test.describe('Notebook Cell Reordering', {
 
 	test('Undo/redo cell move operation', async function ({ app, hotKeys }) {
 		const { notebooksPositron } = app.workbench;
-		const keyboard = app.code.driver.page.keyboard;
+		const keyboard = app.code.driver.currentPage.keyboard;
 
 		// Setup: Create notebook with 3 cells
 		await notebooksPositron.newNotebook({ codeCells: 3 });
@@ -132,7 +132,7 @@ test.describe('Notebook Cell Reordering', {
 
 	test('Multiselect: move multiple cells', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
-		const keyboard = app.code.driver.page.keyboard;
+		const keyboard = app.code.driver.currentPage.keyboard;
 
 		// Create notebook with 5 cells
 		await notebooksPositron.newNotebook({ codeCells: 2, markdownCells: 3 });
@@ -273,7 +273,7 @@ test.describe('Notebook Cell Reordering', {
 
 	test('Drag-and-drop: escape cancels drag operation', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
-		const keyboard = app.code.driver.page.keyboard;
+		const keyboard = app.code.driver.currentPage.keyboard;
 
 		await notebooksPositron.newNotebook({ codeCells: 3 });
 		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', '# Cell 2']);
@@ -288,7 +288,7 @@ test.describe('Notebook Cell Reordering', {
 
 	test('Drag-and-drop: auto-scroll when dragging in long notebook', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
-		const page = app.code.driver.page;
+		const page = app.code.driver.currentPage;
 
 		// Ensure mouse is in a clean state (not pressed from a previous failed test)
 		await page.mouse.up();
@@ -328,7 +328,7 @@ test.describe('Notebook Cell Reordering', {
 
 	test('Multi-drag: drag multiple selected cells together', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
-		const keyboard = app.code.driver.page.keyboard;
+		const keyboard = app.code.driver.currentPage.keyboard;
 
 		// Create notebook with 5 cells
 		await notebooksPositron.newNotebook({ codeCells: 5 });
@@ -351,7 +351,7 @@ test.describe('Notebook Cell Reordering', {
 
 	test('Multi-drag: single cell drag ignores multi-selection when dragging unselected cell', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
-		const keyboard = app.code.driver.page.keyboard;
+		const keyboard = app.code.driver.currentPage.keyboard;
 
 		// Create notebook with 5 cells
 		await notebooksPositron.newNotebook({ codeCells: 5 });
@@ -375,7 +375,7 @@ test.describe('Notebook Cell Reordering', {
 
 	test('Multi-drag: undo/redo multi-cell drag operation', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
-		const keyboard = app.code.driver.page.keyboard;
+		const keyboard = app.code.driver.currentPage.keyboard;
 
 		// Create notebook with 4 cells
 		await notebooksPositron.newNotebook({ codeCells: 4 });
@@ -406,7 +406,7 @@ test.describe('Notebook Cell Reordering', {
 
 	test('Multi-drag: drag three cells to beginning of notebook', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
-		const keyboard = app.code.driver.page.keyboard;
+		const keyboard = app.code.driver.currentPage.keyboard;
 
 		// Create notebook with 6 cells
 		await notebooksPositron.newNotebook({ codeCells: 6 });

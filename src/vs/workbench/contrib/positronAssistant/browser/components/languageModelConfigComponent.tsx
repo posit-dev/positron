@@ -139,7 +139,9 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 	const { apiKey } = config;
 	const apiKeyInputRef = React.useRef<HTMLInputElement | null>(null);
 
-	const hasAutoconfigure = !!source.defaults.autoconfigure && source.defaults.autoconfigure.signedIn;
+	// hasAutoconfigure should only be true if the provider was autoconfigured AND the user is currently signed in.
+	// When the user signs out, we need to show the Sign In button even if autoconfigure.signedIn is still true.
+	const hasAutoconfigure = !!source.defaults.autoconfigure && source.defaults.autoconfigure.signedIn && authStatus === AuthStatus.SIGNED_IN;
 	const showApiKeyInput = authMethod === AuthMethod.API_KEY && authStatus !== AuthStatus.SIGNED_IN && !hasAutoconfigure;
 	const showCancelButton = authMethod === AuthMethod.OAUTH && authStatus === AuthStatus.SIGNING_IN && !hasAutoconfigure;
 	const showBaseUrl = authMethod === AuthMethod.API_KEY && source.supportedOptions?.includes('baseUrl') && !hasAutoconfigure;

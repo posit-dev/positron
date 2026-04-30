@@ -44,6 +44,36 @@
 	overflow: hidden;
 }
 
+/*
+ * 7x7 status dot inside a 16x16 box so the visual aligns with surrounding
+ * controls. Detached is a 1px ring; attached fills with green. The
+ * indicator is a non-interactive read-only status (no hover, no pointer).
+ */
+.packages-list-item-attached {
+	flex: 0 0 auto;
+	width: 16px;
+	height: 16px;
+	margin-right: 2px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.packages-list-item-attached::before {
+	content: '';
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	box-sizing: border-box;
+	border: 1px solid var(--vscode-descriptionForeground);
+	background: transparent;
+}
+
+.packages-list-item-attached.attached::before {
+	background: var(--vscode-charts-green);
+	border-color: var(--vscode-charts-green);
+}
+
 .packages-list-item-name {
 	flex: 0 0 auto;
 	white-space: nowrap;

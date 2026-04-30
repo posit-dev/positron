@@ -98,14 +98,8 @@ export let dirs = [
 	// --- End Positron ---
 	'.vscode/extensions/vscode-selfhost-import-aid',
 	'.vscode/extensions/vscode-selfhost-test-provider',
+	'.vscode/extensions/vscode-extras',
 ];
-
-// --- Start Positron ---
-// Add the open-remote-wsl extension on Windows
-if (process.platform === 'win32') {
-	dirs.push('extensions/open-remote-wsl');
-}
-// --- End Positron ---
 
 // --- Start Positron ---
 // Add the open-remote-wsl extension on Windows

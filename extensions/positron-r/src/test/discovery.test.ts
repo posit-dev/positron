@@ -12,14 +12,14 @@ import { currentRBinaryFromPATHWindows } from '../provider';
 import path = require('path');
 
 function createReadFileSyncStub(returnValue: string | Buffer): Sinon.SinonStub {
-	return Sinon.stub(Fs, "readFileSync").callsFake((path: number | Fs.PathLike, options?: any): string | Buffer => {
+	return Sinon.stub(Fs, "readFileSync").callsFake(((path: number | Fs.PathLike, options?: any): string | Buffer => {
 		if (typeof options === 'string' || options === null || options === undefined) {
 			return returnValue as string;
 		} else if (options && typeof options === 'object' && 'encoding' in options) {
 			return returnValue as string;
 		}
 		return Buffer.from(returnValue as string);
-	});
+	}) as any);
 }
 
 // These fail randomly when run with "npm run".  They were fine when run with "yarn"

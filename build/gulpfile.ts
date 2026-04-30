@@ -3,6 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import { EventEmitter } from 'events';
+EventEmitter.defaultMaxListeners = 100;
+
 import glob from 'glob';
 import gulp from 'gulp';
 import { createRequire } from 'node:module';
@@ -11,19 +13,19 @@ import { compileExtensionMediaTask, compileExtensionsTask, watchExtensionsTask }
 import * as compilation from './lib/compilation.ts';
 import * as task from './lib/task.ts';
 import * as util from './lib/util.ts';
+import { useEsbuildTranspile } from './buildConfig.ts';
 // --- Start Positron ---
 import { getESMPackageDependencies } from './lib/esm-package-dependencies.ts';
 // --- End Positron ---
 
-EventEmitter.defaultMaxListeners = 100;
+// Extension point names
+gulp.task(compilation.compileExtensionPointNamesTask);
 
 const require = createRequire(import.meta.url);
 
-const { transpileTask, compileTask, watchTask, compileApiProposalNamesTask, watchApiProposalNamesTask } = compilation;
-
 // API proposal names
-gulp.task(compileApiProposalNamesTask);
-gulp.task(watchApiProposalNamesTask);
+gulp.task(compilation.compileApiProposalNamesTask);
+gulp.task(compilation.watchApiProposalNamesTask);
 
 // --- Start Positron ---
 // ESM package dependencies copy task for development builds - copies from .build/ to out/.
@@ -32,20 +34,22 @@ const copyESMPackageDependenciesTask = task.define('copy-esm-package-dependencie
 });
 
 // SWC Client Transpile
-const transpileClientSWCTask = task.define('transpile-client-esbuild', task.series(util.rimraf('out'), copyESMPackageDependenciesTask, transpileTask('src', 'out', true)));
+const transpileClientSWCTask = task.define('transpile-client-esbuild', task.series(util.rimraf('out'), copyESMPackageDependenciesTask, compilation.transpileTask('src', 'out', true)));
 gulp.task(transpileClientSWCTask);
 
 // Transpile only
-const transpileClientTask = task.define('transpile-client', task.series(util.rimraf('out'), copyESMPackageDependenciesTask, transpileTask('src', 'out')));
+const transpileClientTask = task.define('transpile-client', task.series(util.rimraf('out'), copyESMPackageDependenciesTask, compilation.transpileTask('src', 'out')));
 gulp.task(transpileClientTask);
 
 // Fast compile for development time
 // Remove copy codicons since we maintain a custom codicon.ttf in the repo that includes Positron-specific icons. Copying from the npm package would overwrite these with the standard font that lacks Positron icons.
-const compileClientTask = task.define('compile-client', task.series(util.rimraf('out'), copyESMPackageDependenciesTask, compileApiProposalNamesTask, compileTask('src', 'out', false)));
+const compileClientTask = task.define('compile-client', task.series(util.rimraf('out'), copyESMPackageDependenciesTask, compilation.compileApiProposalNamesTask, compilation.compileExtensionPointNamesTask, compilation.compileTask('src', 'out', false)));
 gulp.task(compileClientTask);
 
 // Remove watch codicons since we maintain a custom codicon.ttf in the repo that includes Positron-specific icons. Copying from the npm package would overwrite these with the standard font that lacks Positron icons.
-const watchClientTask = task.define('watch-client', task.series(util.rimraf('out'), copyESMPackageDependenciesTask, task.parallel(watchTask('out', false), watchApiProposalNamesTask)));
+const watchClientTask = useEsbuildTranspile
+	? task.define('watch-client', task.parallel(compilation.watchTask('out', false, 'src', { noEmit: true }), copyESMPackageDependenciesTask, compilation.watchApiProposalNamesTask, compilation.watchExtensionPointNamesTask))
+	: task.define('watch-client', task.series(util.rimraf('out'), copyESMPackageDependenciesTask, task.parallel(compilation.watchTask('out', false), compilation.watchApiProposalNamesTask, compilation.watchExtensionPointNamesTask)));
 gulp.task(watchClientTask);
 
 // --- End Positron ---

@@ -24,13 +24,13 @@ test('example', async function ({ app }) {
 	const workspacePath = app.workspacePathOrFolder;
 
 	// Access page directly
-	const page = app.code.driver.page;
+	const page = app.code.driver.currentPage;
 });
 ```
 
 ### page (Test-scoped)
 
-Shorthand for `app.code.driver.page`. Direct Playwright Page access.
+Shorthand for `app.code.driver.currentPage`. Direct Playwright Page access.
 
 ```typescript
 test('example', async function ({ page }) {
@@ -340,7 +340,7 @@ Some fixtures depend on others:
 
 ```
 app
- ├── page (derived from app.code.driver.page)
+ ├── currentPage (derived from app.code.driver.currentPage)
  ├── sessions (derived from app.workbench.sessions)
  ├── hotKeys (derived from app.workbench.hotKeys)
  ├── executeCode (uses app.workbench.console)

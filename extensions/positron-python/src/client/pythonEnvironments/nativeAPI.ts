@@ -383,6 +383,12 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
     // immediately supersedes any cached state.
     private _resolveEnvCache = new Map<string, { info: PythonEnvInfo; expiry: number }>();
 
+    // In-flight promise deduplication for resolveEnv(). Concurrent callers for
+    // the same envPath share a single PET round-trip. The entry is cleared on
+    // settle so undefined results are never pinned (unlike the old @cache
+    // decorator whose cachePromise=true mode cached the promise itself).
+    private _resolveEnvInFlight = new Map<string, Promise<PythonEnvInfo | undefined>>();
+
     private static readonly _resolveEnvCacheMs = 30_000;
     // --- End Positron ---
 
@@ -662,6 +668,7 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
     // This decorator stored the pending promise immediately, so an undefined resolution
     // was pinned for 30s even after PET had since discovered the env. Use an explicit cache
     // that only caches successful resolutions and is invalidated on addEnv()/removeEnv().
+    // The in-flight map deduplicates concurrent callers without caching undefined results.
     // @cache(30_000, true)
     // --- End Positron ---
     async resolveEnv(envPath?: string): Promise<PythonEnvInfo | undefined> {
@@ -673,6 +680,24 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
         if (cached && cached.expiry > Date.now()) {
             return cached.info;
         }
+
+        const inFlight = this._resolveEnvInFlight.get(envPath);
+        if (inFlight) {
+            return inFlight;
+        }
+
+        const promise = this._doResolveEnv(envPath);
+        this._resolveEnvInFlight.set(envPath, promise);
+        try {
+            return await promise;
+        } finally {
+            this._resolveEnvInFlight.delete(envPath);
+        }
+        // --- End Positron ---
+    }
+
+    // --- Start Positron ---
+    private async _doResolveEnv(envPath: string): Promise<PythonEnvInfo | undefined> {
         // --- End Positron ---
         try {
             const native = await this.finder.resolve(envPath);

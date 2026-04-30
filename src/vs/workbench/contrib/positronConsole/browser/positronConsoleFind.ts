@@ -15,6 +15,8 @@ import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IConsoleFindWidgetFactory } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { PositronConsoleFindInputFocused, PositronConsoleFindVisible } from '../../../common/contextkeys.js';
+import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 
 export const enum PositronConsoleFindCommandId {
 	FindFocus = 'workbench.action.positronConsole.findFocus',
@@ -69,6 +71,8 @@ export class PositronConsoleFindWidget extends SimpleFindWidget {
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IHoverService hoverService: IHoverService,
 		@IKeybindingService keybindingService: IKeybindingService,
+		@IConfigurationService configurationService: IConfigurationService,
+		@IAccessibilityService accessibilityService: IAccessibilityService,
 	) {
 		super({
 			showCommonFindToggles: true,
@@ -83,7 +87,7 @@ export class PositronConsoleFindWidget extends SimpleFindWidget {
 			nextMatchActionId: PositronConsoleFindCommandId.FindNext,
 			closeWidgetActionId: PositronConsoleFindCommandId.FindHide,
 			matchesLimit: MATCHES_LIMIT,
-		}, contextViewService, contextKeyService, hoverService, keybindingService);
+		}, contextViewService, contextKeyService, hoverService, keybindingService, configurationService, accessibilityService);
 
 		this._findInputFocused = PositronConsoleFindInputFocused.bindTo(contextKeyService);
 		this._findWidgetVisible = PositronConsoleFindVisible.bindTo(contextKeyService);

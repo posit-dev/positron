@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -39,7 +39,7 @@ test.describe('R Fast Execution', { tag: [tags.WEB, tags.EDITOR, tags.WIN] }, ()
 
 			previousTop = currentTop;
 
-			await app.code.driver.page.keyboard.press('Control+Enter');
+			await app.code.driver.currentPage.keyboard.press('Control+Enter');
 		}
 
 		await app.workbench.variables.waitForVariableRow('c');

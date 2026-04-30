@@ -3,8 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { createReadStream, existsSync, promises } from 'fs';
-import * as http from 'http';
+import { createReadStream, promises } from 'fs';
+import type * as http from 'http';
 import * as url from 'url';
 import * as cookie from 'cookie';
 import * as crypto from 'crypto';
@@ -33,6 +33,8 @@ import { ICSSDevelopmentService } from '../../platform/cssDev/node/cssDevService
 // eslint-disable-next-line local/code-import-patterns
 import httpProxy from 'http-proxy';
 import { kProxyRegex } from './pwbConstants.js';
+// eslint-disable-next-line no-duplicate-imports
+import { existsSync } from 'fs';
 // --- End PWB ---
 
 const textMimeType: { [ext: string]: string | undefined } = {

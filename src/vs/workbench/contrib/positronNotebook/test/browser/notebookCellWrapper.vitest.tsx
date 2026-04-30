@@ -15,11 +15,13 @@ import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { CellSelectionStatus } from '../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { CellSelectionType } from '../../browser/selectionMachine.js';
 import { NotebookCellWrapper } from '../../browser/notebookCells/NotebookCellWrapper.js';
+import { useCell } from '../../browser/notebookCells/CellProvider.js';
 import { NotebookInstanceProvider } from '../../browser/NotebookInstanceProvider.js';
 import { EnvironentProvider } from '../../browser/EnvironmentProvider.js';
-import { createLabelledTestNotebook, TestPositronNotebookInstance } from './testPositronNotebookInstance.js';
+import { createLabelledTestNotebook, createTestPositronNotebookInstance, TestPositronNotebookInstance } from './testPositronNotebookInstance.js';
 import { ISize } from '../../../../../base/browser/positronReactRenderer.js';
 import { IScopedContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
+import { CellKind } from '../../../notebook/common/notebookCommon.js';
 
 // Each mock isolates the click-routing logic from a child that pulls in
 // heavy transitive deps. `.stub()` via the builder can't reach inside React
@@ -187,5 +189,59 @@ describe('NotebookCellWrapper onClick', () => {
 		await user.click(screen.getByRole('article'));
 
 		expect(spy).toHaveBeenCalledWith(cells[1], CellSelectionType.Normal);
+	});
+});
+
+describe('NotebookCellWrapper MaybeCellProvider', () => {
+	const ctx = createTestContainer().withNotebookEditorServices().withReactServices().build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	function CellSpy() {
+		const cell = useCell();
+		return <div data-testid='cell-spy'>{cell ? 'defined' : 'undefined'}</div>;
+	}
+
+	function renderWithSpy(notebook: TestPositronNotebookInstance) {
+		const cell = notebook.cells.get()[0];
+		const environmentBundle = {
+			size: observableValue<ISize>('test-size', { width: 800, height: 600 }),
+			scopedContextKeyProviderCallback: () => stubInterface<IScopedContextKeyService>({}),
+		};
+		rtl.render(
+			<NotebookInstanceProvider instance={notebook}>
+				<EnvironentProvider environmentBundle={environmentBundle}>
+					<NotebookCellWrapper cell={cell}>
+						<CellSpy />
+					</NotebookCellWrapper>
+				</EnvironentProvider>
+			</NotebookInstanceProvider>
+		);
+	}
+
+	it('exposes the cell to descendants for code cells', () => {
+		const notebook = createTestPositronNotebookInstance(
+			[['x', 'python', CellKind.Code]],
+			ctx,
+		);
+		renderWithSpy(notebook);
+		expect(screen.getByTestId('cell-spy')).toHaveTextContent('defined');
+	});
+
+	it('keeps useCell() undefined for markdown cells', () => {
+		const notebook = createTestPositronNotebookInstance(
+			[['# md', 'markdown', CellKind.Markup]],
+			ctx,
+		);
+		renderWithSpy(notebook);
+		expect(screen.getByTestId('cell-spy')).toHaveTextContent('undefined');
+	});
+
+	it('keeps useCell() undefined for raw cells', () => {
+		const notebook = createTestPositronNotebookInstance(
+			[['raw content', 'raw', CellKind.Code]],
+			ctx,
+		);
+		renderWithSpy(notebook);
+		expect(screen.getByTestId('cell-spy')).toHaveTextContent('undefined');
 	});
 });

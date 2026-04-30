@@ -196,8 +196,8 @@ export class ExtHostOutputService implements ExtHostOutputServiceShape {
 	// Compared to a normal `LogOutputChannel`, this doesn't add timestamps or info
 	// level. It's meant for extensions that create fully formed log lines but still
 	// want to benefit from the colourised rendering of log output channels.
-	createRawLogOutputChannel(name: string, extension: IExtensionDescription): vscode.OutputChannel {
-		const channel = this.createOutputChannel(name, { log: true }, extension);
+	createRawLogOutputChannel(name: string, extension: IExtensionDescription): vscode.LogOutputChannel {
+		const channel = this.createOutputChannel(name, { log: true }, extension) as vscode.LogOutputChannel;
 
 		// Set our custom raw log
 		const channelUnchecked = channel as any;

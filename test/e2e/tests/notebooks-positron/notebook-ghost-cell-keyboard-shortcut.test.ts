@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -57,7 +57,7 @@ test.describe('Notebook: Ghost Cell Keyboard Shortcut', {
 		await notebooksPositron.expectToBeVisible();
 
 		// Wait for kernel to be ready
-		await app.code.driver.page.waitForTimeout(5000);
+		await app.code.driver.currentPage.waitForTimeout(5000);
 
 		// Add and execute a simple cell to provide context for ghost cell suggestions
 		// Using comment which works in both Python and R
@@ -66,7 +66,7 @@ test.describe('Notebook: Ghost Cell Keyboard Shortcut', {
 
 		// In on-demand mode, after cell execution, ghost cell should show "AI suggestion available on request"
 		// Wait for debounce delay (default 2 seconds)
-		await app.code.driver.page.waitForTimeout(2500);
+		await app.code.driver.currentPage.waitForTimeout(2500);
 		await notebooksPositron.expectGhostCellAwaitingRequest();
 
 		// Select cell in command mode (required for keyboard shortcut)
@@ -77,7 +77,7 @@ test.describe('Notebook: Ghost Cell Keyboard Shortcut', {
 
 		// Note: "Generating suggestion..." appears too quickly to reliably wait for
 		// Instead, verify the ghost cell UI elements are present
-		const page = app.code.driver.page;
+		const page = app.code.driver.currentPage;
 
 		// Verify Get Suggestion button is visible
 		await page.getByRole('button', { name: 'Get Suggestion' }).waitFor({ timeout: 10000 });

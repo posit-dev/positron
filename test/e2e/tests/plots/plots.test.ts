@@ -53,7 +53,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.toasts.closeAll();
 
 			// attempt to workaround a flake by letting plot settle
-			await app.code.driver.page.waitForTimeout(1000);
+			await app.code.driver.currentPage.waitForTimeout(1000);
 
 			const buffer = await app.workbench.plots.getCurrentPlotAsBuffer();
 			await compareImages({
@@ -97,7 +97,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.toasts.closeAll();
 
 			// attempt to workaround a flake by letting plot settle
-			await app.code.driver.page.waitForTimeout(1000);
+			await app.code.driver.currentPage.waitForTimeout(1000);
 
 			const buffer = await app.workbench.plots.getCurrentStaticPlotAsBuffer();
 			await compareImages({
@@ -197,7 +197,12 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await verifyPlotInNewWindow(app, 'Python', pythonDynamicPlot);
 		});
 
-		test('Python - Verify saving a Python plot', { tag: [tags.WIN, tags.CRITICAL] }, async function ({ app }) {
+		test.skip('Python - Verify saving a Python plot', {
+			annotation: {
+				type: 'issue', description: 'https://github.com/posit-dev/positron/issues/13066'
+			},
+			tag: [tags.WIN, tags.CRITICAL]
+		}, async function ({ app }) {
 			await test.step('Sending code to console to create plot', async () => {
 				await app.workbench.console.executeCode('Python', pythonDynamicPlot);
 				await app.workbench.plots.waitForCurrentPlot();
@@ -414,7 +419,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.toasts.closeAll();
 
 			// attempt to workaround a flake by letting plot settle
-			await app.code.driver.page.waitForTimeout(1000);
+			await app.code.driver.currentPage.waitForTimeout(1000);
 
 			const buffer = await app.workbench.plots.getCurrentPlotAsBuffer();
 			await compareImages({

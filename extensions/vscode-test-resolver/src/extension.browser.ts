@@ -98,7 +98,7 @@ class OpeningManagedMessagePassing {
 		this.socket.addEventListener('open', () => {
 			while (this.bufferedData.length > 0) {
 				const first = this.bufferedData.shift()!;
-				this.socket.send(first);
+				this.socket.send(first as Uint8Array<ArrayBuffer>);
 			}
 			this.isOpen = true;
 
@@ -124,7 +124,7 @@ class OpeningManagedMessagePassing {
 			this.bufferedData.push(d);
 			return;
 		}
-		this.socket.send(d);
+		this.socket.send(d as Uint8Array<ArrayBuffer>);
 	}
 
 	public end(): void {

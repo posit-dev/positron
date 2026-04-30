@@ -17,6 +17,9 @@ const LicError = {
 	FAIL: 1,
 	TRIAL_EXPIRED: 2,
 	VM: 3,
+	ALREADY_ACTIVATED: 4,
+	FILE_NOT_FOUND: 41,
+	ROOT_REQUIRED: 44,
 } as const;
 
 interface LicenseCommandResult {
@@ -32,7 +35,7 @@ interface LicenseCommandResult {
 	expiration?: number;
 }
 
-function validateLicenseStatus(result: LicenseCommandResult): void {
+function validatedResult(result: LicenseCommandResult): ILicenseValidationResult {
 	const status = result.status?.toLowerCase() || '';
 	if (status === 'expired') {
 		throw new Error('License has expired. Please renew your license.');
@@ -40,6 +43,20 @@ function validateLicenseStatus(result: LicenseCommandResult): void {
 	if (status !== 'activated' && status !== 'evaluation') {
 		throw new Error(`Invalid license result: ${JSON.stringify(result)}`);
 	}
+	return { valid: true, licensee: result.licensee };
+}
+
+type LicErrorCode = typeof LicError[keyof typeof LicError];
+const knownResultCodes = new Set(Object.values(LicError) as LicErrorCode[]);
+function knownResultCode(code: unknown): code is LicErrorCode {
+	return typeof code === 'number' && knownResultCodes.has(code as LicErrorCode);
+}
+
+// The `verify` command prefixes its JSON output with a signature hash line.
+// If stdout contains no '{', returns as-is; JSON.parse will throw upstream.
+function extractJson(stdout: string): string {
+	const jsonStart = stdout.indexOf('{');
+	return jsonStart > 0 ? stdout.slice(jsonStart) : stdout;
 }
 
 /**
@@ -55,74 +72,72 @@ class LicenseManager {
 			LD_LIBRARY_PATH: licenseManagerDir,
 		};
 
+		let stdout = '';
 		try {
-			const { stdout, stderr } = await execFileAsync(
+			const result = await execFileAsync(
 				this.licenseManagerPath,
 				[command, ...args, '--output=json'],
 				{ maxBuffer: 1024 * 1024, timeout: 10000, env }
 			);
-
-			if (stderr && stderr.length > 0) {
-				console.warn(`license-manager stderr: ${stderr}`);
+			if (result.stderr && result.stderr.length > 0) {
+				console.warn(`license-manager stderr: ${result.stderr}`);
 			}
-
-			const parsed = JSON.parse(stdout);
-			if (!Object.values(LicError).includes(parsed?.result)) {
-				throw new Error(`Invalid license-manager response: ${stdout}`);
-			}
-			return parsed;
+			stdout = result.stdout;
 		} catch (error) {
 			const execError = error as { stdout?: string; message?: string };
-			if (execError.stdout) {
-				try {
-					const parsed = JSON.parse(execError.stdout);
-					if (Object.values(LicError).includes(parsed?.result)) {
-						return parsed;
-					}
-				} catch { /* fall through */ }
-				throw new Error(`Invalid license-manager response: ${execError.stdout}`);
+			stdout = execError.stdout ?? '';
+			if (!stdout) {
+				throw new Error(execError.message || 'Unknown error');
 			}
-			throw new Error(execError.message || 'Unknown error');
 		}
+
+		const jsonStr = extractJson(stdout);
+		const parsed = JSON.parse(jsonStr);
+		if (!knownResultCode(parsed?.result)) {
+			throw new Error(`Unexpected license-manager response: ${stdout}`);
+		}
+		return parsed;
+	}
+
+	async verify(): Promise<ILicenseValidationResult> {
+		const result = await this.runJsonCommand('verify');
+		if (result.result !== LicError.OK) {
+			throw new Error(`License verification failed: ${result.message || `code ${result.result}`}`);
+		}
+
+		const validated = validatedResult(result);
+		console.log(`Positron license verified: ${JSON.stringify(result)}`);
+		return validated;
 	}
 
 	async activateLicenseFile(licenseFilePath: string): Promise<ILicenseValidationResult> {
-		if (!fs.existsSync(licenseFilePath)) {
-			throw new Error(`License file not found: ${licenseFilePath}`);
+		const licenseManagerDir = path.dirname(this.licenseManagerPath);
+
+		let localLic: string | undefined;
+		try {
+			localLic = fs.readdirSync(licenseManagerDir).find(f => f.endsWith('.lic'));
+		} catch {
+			throw new Error(`Cannot read license-manager directory: ${licenseManagerDir}`);
 		}
 
-		const verifyResult = await this.runJsonCommand('get-verify');
-		if (verifyResult.result === LicError.OK && !verifyResult.initialized) {
-			console.log('Initializing license system...');
-			const initResult = await this.runJsonCommand('initialize', ['--userspace']);
-			if (initResult.result !== LicError.OK &&
-				initResult.result !== LicError.TRIAL_EXPIRED &&
-				initResult.result !== LicError.VM) {
-				throw new Error(`Failed to initialize license system: ${initResult.message || 'Unknown error'}`);
+		if (localLic) {
+			// A .lic file already exists next to the binary; the provided
+			// licenseFilePath is not copied. Verify the existing one.
+			console.log(`Using existing license file: ${path.join(licenseManagerDir, localLic)}`);
+		} else {
+			// No .lic next to the binary -- copy the provided file there.
+			if (!fs.existsSync(licenseFilePath)) {
+				throw new Error(`License file not found: ${licenseFilePath}`);
 			}
+			fs.copyFileSync(licenseFilePath, path.join(licenseManagerDir, path.basename(licenseFilePath)));
 		}
 
-		console.log('Activating license file...');
-		const result = await this.runJsonCommand('activate-file', [licenseFilePath]);
-
-		if (result.result !== LicError.OK) {
-			throw new Error(result.message || `Activation failed with code ${result.result}`);
-		}
-
-		validateLicenseStatus(result);
-
-		console.log(`Successfully activated Positron license: ${JSON.stringify(result)}`);
-
-		return {
-			valid: true,
-			licensee: result.licensee
-		};
+		return this.verify();
 	}
 }
 
 /**
  * Activates a Positron Server license file using the license-manager binary.
- * This installs the license into the system.
  */
 export async function activateWithManager(
 	installPath: string,
@@ -131,6 +146,35 @@ export async function activateWithManager(
 	const licenseManagerPath = findLicenseManagerPath(installPath);
 	const licenseManager = new LicenseManager(licenseManagerPath);
 	return licenseManager.activateLicenseFile(licenseFilePath);
+}
+
+/**
+ * Checks for a .lic file next to the license-manager binary and verifies it.
+ * Returns undefined if no .lic file is found or the binary doesn't exist.
+ */
+export async function verifyLocalLicense(
+	installPath: string,
+): Promise<ILicenseValidationResult | undefined> {
+	let licenseManagerPath: string;
+	try {
+		licenseManagerPath = findLicenseManagerPath(installPath);
+	} catch {
+		return undefined;
+	}
+
+	const licenseManagerDir = path.dirname(licenseManagerPath);
+	let localLic: string | undefined;
+	try {
+		localLic = fs.readdirSync(licenseManagerDir).find(f => f.endsWith('.lic'));
+	} catch {
+		return undefined;
+	}
+	if (!localLic) {
+		return undefined;
+	}
+
+	const licenseManager = new LicenseManager(licenseManagerPath);
+	return licenseManager.verify();
 }
 
 /**

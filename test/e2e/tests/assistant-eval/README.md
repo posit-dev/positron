@@ -1,6 +1,6 @@
 # Positron: LLM Eval Test Catalog
 
-> 9 test cases · Auto-generated on 2026-04-13T11:49:32.378Z
+> 9 test cases · Auto-generated on 2026-04-13T19:39:41.142Z
 
 ## Hallucination
 
@@ -38,7 +38,7 @@ Extract the animal's primary color from their physical characteristics.
 </details>
 
 <details>
-<summary><strong>r-forested-hallucination</strong> · Ask · Ensure LLM does not hallucinate column names fo...</summary>
+<summary><strong>r-forested-hallucination</strong> · Agent · Ensure LLM does not hallucinate column names fo...</summary>
 
 ### Intent
 
@@ -73,7 +73,7 @@ Load the forested package and make some plots of the forested data
 ## Notebooks
 
 <details>
-<summary><strong>py-notebook-get-cells</strong> · Edit · Ensure getNotebookInfo is called for large note...</summary>
+<summary><strong>py-notebook-get-cells</strong> · Agent · Ensure getNotebookInfo is called for large note...</summary>
 
 ### Intent
 
@@ -101,7 +101,7 @@ What is the value calculated in cell 21 (index 20) of my notebook?
 </details>
 
 <details>
-<summary><strong>r-notebook-automatic-context</strong> · Edit · Ensure small notebooks have automatic context w...</summary>
+<summary><strong>r-notebook-automatic-context</strong> · Agent · Ensure small notebooks have automatic context w...</summary>
 
 ### Intent
 
@@ -129,7 +129,7 @@ What is the total revenue shown in my notebook? Just tell me the answer, don't a
 </details>
 
 <details>
-<summary><strong>r-notebook-create</strong> · Edit · Ensure createNotebook tool is used to create ne...</summary>
+<summary><strong>r-notebook-create</strong> · Agent · Ensure createNotebook tool is used to create ne...</summary>
 
 ### Intent
 
@@ -157,7 +157,7 @@ Create a new R notebook for me.
 </details>
 
 <details>
-<summary><strong>r-notebook-edit-cells</strong> · Edit · Ensure editNotebook is used when editing notebo...</summary>
+<summary><strong>r-notebook-edit-cells</strong> · Agent · Ensure editNotebook is used when editing notebo...</summary>
 
 ### Intent
 
@@ -220,7 +220,7 @@ Run cell 2 of my notebook and tell me what the output is.
 ## Tools
 
 <details>
-<summary><strong>python-edit-file</strong> · Edit · Ensure editFile tool is called when editing files</summary>
+<summary><strong>python-edit-file</strong> · Agent · Ensure editFile tool is called when editing files</summary>
 
 ### Intent
 
@@ -248,7 +248,7 @@ Add a method to return today's date.
 </details>
 
 <details>
-<summary><strong>python-table-summary</strong> · Ask · Ensure getTableSummary tool is called when summ...</summary>
+<summary><strong>python-table-summary</strong> · Agent · Ensure getTableSummary tool is called when summ...</summary>
 
 ### Intent
 

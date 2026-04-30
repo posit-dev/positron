@@ -54,7 +54,7 @@ export abstract class VercelModelProvider extends ModelProvider {
 	 * This function creates a language model instance given a model ID and optional configuration.
 	 * Subclasses must set this in their {@link initializeProvider} method.
 	 */
-	protected aiProvider: (id: string, options?: Record<string, any>) => ai.LanguageModel;
+	protected declare aiProvider: (id: string, options?: Record<string, any>) => ai.LanguageModel;
 
 	/**
 	 * Additional options passed to the AI provider when creating model instances.

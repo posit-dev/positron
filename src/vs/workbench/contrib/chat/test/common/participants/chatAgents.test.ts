@@ -11,11 +11,12 @@ import { MockContextKeyService } from '../../../../../../platform/keybinding/tes
 import { ChatAgentService, IChatAgentData, IChatAgentImplementation } from '../../../common/participants/chatAgents.js';
 import { TestConfigurationService } from '../../../../../../platform/configuration/test/common/testConfigurationService.js';
 // --- Start Positron ---
-import { ILanguageModelChatProvider, ILanguageModelsChangeEvent, ILanguageModelsService, ILanguageModelProviderDescriptor, ILanguageModelsGroup } from '../../../common/languageModels.js';
+import { ILanguageModelChatProvider, ILanguageModelsChangeEvent, ILanguageModelsService, ILanguageModelProviderDescriptor, ILanguageModelsGroup, IModelsControlManifest } from '../../../common/languageModels.js';
 import { Emitter, Event } from '../../../../../../base/common/event.js';
 import { NullLogService } from '../../../../../../platform/log/common/log.js';
 import { Disposable, IDisposable } from '../../../../../../base/common/lifecycle.js';
 import { TestPositronAssistantConfigurationService } from '../../../../../test/common/positronWorkbenchTestServices.js';
+import { observableValue } from '../../../../../../base/common/observable.js';
 // --- End Positron ---
 
 const testAgentId = 'testAgent';
@@ -51,6 +52,8 @@ class TestLanguageModelsService implements ILanguageModelsService {
 	onDidChangeLanguageModels = new Emitter<any>().event;
 	onDidChangeLanguageModelVendors = new Emitter<readonly string[]>().event;
 	onDidChangeCurrentProvider = new Emitter<string | undefined>().event;
+	onDidChangeModelsControlManifest = new Emitter<IModelsControlManifest>().event;
+	restrictedChatParticipants = observableValue<{ [name: string]: string[] }>('restrictedChatParticipants', {});
 	get currentProvider() { return undefined; }
 	set currentProvider(_provider: any) { }
 	getLanguageModelProviders() { return []; }
@@ -74,6 +77,10 @@ class TestLanguageModelsService implements ILanguageModelsService {
 	async removeLanguageModelsProviderGroup(): Promise<void> { }
 	async configureLanguageModelsProviderGroup(): Promise<void> { }
 	async migrateLanguageModelsProviderGroup(): Promise<void> { }
+	getRecentlyUsedModelIds(): string[] { return []; }
+	addToRecentlyUsedList(_modelIdentifier: string): void { }
+	clearRecentlyUsedList(): void { }
+	getModelsControlManifest(): IModelsControlManifest { return { free: {}, paid: {} }; }
 }
 // --- End Positron ---
 

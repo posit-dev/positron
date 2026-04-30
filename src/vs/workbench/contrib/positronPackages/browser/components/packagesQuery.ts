@@ -17,6 +17,7 @@ export enum PackagesSortOrder {
 export enum PackagesFilter {
 	All = 'all',
 	Outdated = 'outdated',
+	Attached = 'attached',
 }
 
 // Token value <-> PackagesSortOrder mapping used to (de)serialize the
@@ -36,11 +37,13 @@ const SORT_ORDER_TO_TOKEN: Record<PackagesSortOrder, string> = {
 // `all` is the implicit default and is never serialized into the input.
 const FILTER_TOKEN_TO_FILTER: Record<string, PackagesFilter> = {
 	'outdated': PackagesFilter.Outdated,
+	'attached': PackagesFilter.Attached,
 };
 
 const FILTER_TO_TOKEN: Record<PackagesFilter, string> = {
 	[PackagesFilter.All]: 'all',
 	[PackagesFilter.Outdated]: 'outdated',
+	[PackagesFilter.Attached]: 'attached',
 };
 
 /** Matches `@key` or `@key:value` tokens in the filter input. */

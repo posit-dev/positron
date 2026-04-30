@@ -298,6 +298,14 @@ export interface ILanguageRuntimePackage {
 
 	/** Publication/release date */
 	publishedDate?: string;
+
+	/**
+	 * Whether the package is currently attached to the runtime's search path.
+	 * In R, this is `paste0("package:", name) %in% search()` - distinct from
+	 * "loaded" (loadedNamespaces()), which is a strict superset that includes
+	 * transitively loaded dependencies.
+	 */
+	attached?: boolean;
 }
 
 /**

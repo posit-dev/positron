@@ -8,7 +8,9 @@ import './contrib/find/positronNotebookFind.contribution.js';
 import './contrib/assistant/positronNotebookAssistant.contribution.js';
 import './contrib/ghostCell/positronNotebookGhostCell.contribution.js';
 import './contrib/outline/positronNotebookOutline.contribution.js';
-import './contrib/dataExplorer/positronNotebookDataExplorer.contribution.js';
+
+// Self-registering Action2 contributions
+import './notebookCells/InlineDataExplorerActions.js';
 
 import { isCopyImageMenuArg, toBase64DataUrl } from './copyImageUtils.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
@@ -1003,7 +1005,7 @@ registerAction2(class extends NotebookAction2 {
 });
 
 // Open markdown editor (For action bar)
-registerAction2(class extends NotebookAction2 {
+export class OpenMarkdownEditorAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.openMarkdownEditor',
@@ -1029,7 +1031,8 @@ registerAction2(class extends NotebookAction2 {
 			cell.toggleEditor();
 		}
 	}
-});
+}
+registerAction2(OpenMarkdownEditorAction);
 
 /**
  * View markdown (For action bar)
@@ -1039,7 +1042,7 @@ registerAction2(class extends NotebookAction2 {
  * action bar. We should keep both commands in sync to
  * ensure consistent behavior.
  */
-registerAction2(class extends NotebookAction2 {
+export class ViewMarkdownAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.viewMarkdown',
@@ -1065,7 +1068,8 @@ registerAction2(class extends NotebookAction2 {
 			cell.toggleEditor();
 		}
 	}
-});
+}
+registerAction2(ViewMarkdownAction);
 
 
 // Keyboard shortcut commands. These are not shown in the action bar.

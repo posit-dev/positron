@@ -221,7 +221,7 @@ export class Application {
 		// Remote but not web: wait for a remote connection state change
 		if (this.remote) {
 			await measureAndLog(
-				() => expect(code.driver.page.locator(READINESS_LOCATORS.remoteHost)).not.toContainText('Opening Remote'),
+				() => expect(code.driver.currentPage.locator(READINESS_LOCATORS.remoteHost)).not.toContainText('Opening Remote'),
 				'Application#checkWindowReady: wait for remote indicator',
 				this.logger
 			);
@@ -233,13 +233,13 @@ export class Application {
 	 */
 	private async checkPositronReady(code: Code): Promise<void> {
 		await measureAndLog(
-			() => expect(code.driver.page.locator(READINESS_LOCATORS.monacoWorkbench)).toBeVisible({ timeout: 30000 }),
+			() => expect(code.driver.currentPage.locator(READINESS_LOCATORS.monacoWorkbench)).toBeVisible({ timeout: 30000 }),
 			'Application#checkPositronReady: wait for monaco workbench',
 			this.logger
 		);
 		await measureAndLog(() => code.whenWorkbenchRestored(), 'Application#checkPositronReady: wait for workbench restored', this.logger);
 		await measureAndLog(
-			() => expect(code.driver.page.locator(READINESS_LOCATORS.explorerFoldersView)).toBeVisible({ timeout: LOAD_TIMEOUT }),
+			() => expect(code.driver.currentPage.locator(READINESS_LOCATORS.explorerFoldersView)).toBeVisible({ timeout: LOAD_TIMEOUT }),
 			'Application#checkPositronReady: wait for explorer view',
 			this.logger
 		);
@@ -250,7 +250,7 @@ export class Application {
 	 */
 	private async checkPositWorkbenchReady(code: Code): Promise<void> {
 		await measureAndLog(
-			() => expect(code.driver.page.getByText(READINESS_LOCATORS.positWorkbenchSignIn)).toBeVisible({ timeout: 30000 }),
+			() => expect(code.driver.currentPage.getByText(READINESS_LOCATORS.positWorkbenchSignIn)).toBeVisible({ timeout: 30000 }),
 			'Application#checkPositWorkbenchReady: wait for sign in prompt',
 			this.logger
 		);
@@ -261,7 +261,7 @@ export class Application {
 	 */
 	private async checkJupyterReady(code: Code): Promise<void> {
 		await measureAndLog(
-			() => expect(code.driver.page.locator('#username_input')).toBeVisible({ timeout: 30000 }),
+			() => expect(code.driver.currentPage.locator('#username_input')).toBeVisible({ timeout: 30000 }),
 			'Application#checkJupyterReady: wait for login form',
 			this.logger
 		);
@@ -272,22 +272,22 @@ export class Application {
 	 */
 	private async checkPositronServerReady(code: Code): Promise<void> {
 		await measureAndLog(
-			() => expect(code.driver.page.locator(READINESS_LOCATORS.monacoWorkbench)).toBeVisible({ timeout: 30000 }),
+			() => expect(code.driver.currentPage.locator(READINESS_LOCATORS.monacoWorkbench)).toBeVisible({ timeout: 30000 }),
 			'Application#checkPositronServerReady: wait for monaco workbench',
 			this.logger
 		);
 		await measureAndLog(
-			() => expect(code.driver.page.locator(READINESS_LOCATORS.explorerFoldersView)).toBeVisible({ timeout: LOAD_TIMEOUT }),
+			() => expect(code.driver.currentPage.locator(READINESS_LOCATORS.explorerFoldersView)).toBeVisible({ timeout: LOAD_TIMEOUT }),
 			'Application#checkPositronServerReady: wait for explorer view',
 			this.logger
 		);
 		await measureAndLog(
-			() => expect(code.driver.page.locator(READINESS_LOCATORS.activityBar)).toBeVisible({ timeout: 30000 }),
+			() => expect(code.driver.currentPage.locator(READINESS_LOCATORS.activityBar)).toBeVisible({ timeout: 30000 }),
 			'Application#checkPositronServerReady: wait for activity bar',
 			this.logger
 		);
 		await measureAndLog(
-			() => expect(code.driver.page.locator(READINESS_LOCATORS.statusBar)).toBeVisible({ timeout: 30000 }),
+			() => expect(code.driver.currentPage.locator(READINESS_LOCATORS.statusBar)).toBeVisible({ timeout: 30000 }),
 			'Application#checkPositronServerReady: wait for status bar',
 			this.logger
 		);

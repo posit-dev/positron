@@ -1210,6 +1210,14 @@ declare module 'positron' {
 
 		/** Publication/release date */
 		publishedDate?: string;
+
+		/**
+		 * Whether the package is currently attached to the runtime's search
+		 * path (e.g. R's `search()`, Python's bound names in the user
+		 * namespace). Distinct from "loaded" in R parlance, where a package
+		 * can be loaded as a transitive dependency without being attached.
+		 */
+		attached?: boolean;
 	}
 
 	/**
@@ -1992,7 +2000,7 @@ declare module 'positron' {
 		 *
 		 * @return New log output channel.
 		 */
-		export function createRawLogOutputChannel(name: string): vscode.OutputChannel;
+		export function createRawLogOutputChannel(name: string): vscode.LogOutputChannel;
 
 		/**
 		 * Create and show a simple modal dialog prompt.

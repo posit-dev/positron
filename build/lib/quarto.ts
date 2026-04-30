@@ -13,7 +13,6 @@ import rename from 'gulp-rename';
 import path from 'path';
 import unzip from 'gulp-unzip';
 import gunzip from 'gulp-gunzip';
-import untar from 'gulp-untar';
 
 /**
  * Get the base URL for the quarto download
@@ -55,7 +54,7 @@ function getQuartoMacOS(version: string): Stream {
 	})
 		// Unzip, then untar
 		.pipe(gunzip())
-		.pipe(untar());
+		.pipe(util.untar());
 }
 
 /**
@@ -76,7 +75,7 @@ function getQuartoLinux(version: string): Stream {
 	})
 		// Unzip, then untar
 		.pipe(gunzip())
-		.pipe(untar())
+		.pipe(util.untar())
 		// Remove the leading directory from the path
 		.pipe(rename((path: any) => {
 			if (path.dirname.startsWith(`quarto-${version}`)) {

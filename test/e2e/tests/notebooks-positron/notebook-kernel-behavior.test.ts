@@ -22,17 +22,17 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		// create new notebook
 		await notebooksPositron.newNotebook();
 
-		// ensure when no kernel is selected, restart/shutdown are disabled
+		// ensure when no kernel is selected, restart toolbar button and shutdown menu item are disabled
+		await expect(notebooksPositron.kernel.restartButton).toBeDisabled();
 		await notebooksPositron.kernel.expectMenuToContain([
 			{ label: 'Change Kernel...', enabled: true },
-			{ label: 'Restart Kernel', enabled: false },
 			{ label: 'Shutdown Kernel', enabled: false },
 		]);
 
-		// select kernel and ensure while starting, restart is enabled & shutdown is disabled
+		// select kernel and ensure while starting, restart toolbar button is enabled & shutdown menu item is disabled
 		await notebooksPositron.kernel.select('Python', { waitForReady: false });
+		await expect(notebooksPositron.kernel.restartButton).toBeEnabled();
 		await notebooksPositron.kernel.expectMenuToContain([
-			{ label: 'Restart Kernel', enabled: true },
 			{ label: 'Shutdown Kernel', enabled: false },
 		]);
 
@@ -56,14 +56,14 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 			status: 'idle'
 		});
 
-		// shut down kernel and ensure menu options
+		// shut down kernel and ensure restart toolbar button stays enabled, shutdown menu item is disabled
 		await notebooksPositron.kernel.shutdown();
 		await notebooksPositron.kernel.expectKernelToBe({
 			kernelGroup: 'Python',
 			status: 'disconnected'
 		});
+		await expect(notebooksPositron.kernel.restartButton).toBeEnabled();
 		await notebooksPositron.kernel.expectMenuToContain([
-			{ label: 'Restart Kernel', enabled: true },
 			{ label: 'Shutdown Kernel', enabled: false },
 			{ label: 'Change Kernel...', enabled: true },
 		]);
