@@ -1093,9 +1093,6 @@
     "url": "https://github.com/posit-dev/positron"
   },
   "positron": {
-    "binaryDependencies": {
-      "ark": "0.1.251"
-    },
     "minimumRVersion": "4.2.0",
     "minimumRenvVersion": "1.0.9"
   }

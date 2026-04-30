@@ -43,9 +43,10 @@ const commsFiles = comms.map(comm => comm + '.json');
 const tsOutputDir = `${commsDir}/../../src/vs/workbench/services/languageRuntime/common`;
 
 /// The directory to write the generated Rust files to
-/// By default, presumes that the ark repo is cloned into the same parent directory as the
-/// positron repo. Can be overridden with the ARK_DIRECTORY environment variable.
-const arkDirectory = process.env.ARK_DIRECTORY || `${commsDir}/../../../ark`;
+/// By default, points at the ark git submodule under positron-r. Can be
+/// overridden with the ARK_DIRECTORY environment variable (useful when working
+/// against a sibling clone of ark).
+const arkDirectory = process.env.ARK_DIRECTORY || `${commsDir}/../../extensions/positron-r/ark`;
 const rustOutputDir = `${arkDirectory}/crates/amalthea/src/comm`;
 
 /// The directory to write the generated Python files to
@@ -1801,11 +1802,11 @@ async function createCommInterface() {
 
 // Check prerequisites
 
-// Check that the ark repo is cloned
+// Check that the ark submodule is initialized (or ARK_DIRECTORY points at a clone).
 if (!existsSync(rustOutputDir)) {
-	console.error('The ark repo must be cloned into the same parent directory as the ' +
-		'Positron repo, or the ARK_DIRECTORY environment variable must be set to the path ' +
-		'of the ark repo, so that Rust output types can be written.\n' +
+	console.error('The ark submodule must be initialized (`git submodule update --init ' +
+		'--recursive`), or the ARK_DIRECTORY environment variable must point at an ark ' +
+		'clone, so that Rust output types can be written.\n' +
 		`Expected Rust output directory: ${rustOutputDir}`);
 	process.exit(1);
 }
