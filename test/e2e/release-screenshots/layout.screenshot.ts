@@ -27,7 +27,7 @@ test.describe('Release screenshots - Layout', () => {
 
 		await prepareForScreenshot(app, page);
 		await annotate(page, [
-			{ selector: '.activitybar', label: 'Activity bar', color: '#16a34a' },
+			{ selector: '.activitybar', label: 'Activity bar', color: '#22c55e' },
 			{ selector: '.part.sidebar', label: 'Primary side bar', color: '#ca8a04', labelPosition: 'top-center' },
 			{ selector: '.part.editor', label: 'Editor', color: '#7c3aed' },
 			{ selector: '.part.auxiliarybar', label: 'Secondary side bar', color: '#ea580c' },
