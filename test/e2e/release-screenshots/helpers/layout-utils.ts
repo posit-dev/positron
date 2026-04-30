@@ -10,9 +10,14 @@ import { Application } from '../../infra';
  * Hide any visible notification toasts. Toasts appear from many normal
  * interactions (interpreter started, file opened, etc.) and would otherwise
  * leak into screenshots.
+ *
+ * Uses the Toasts POM directly rather than the command palette: the
+ * `notifications.hideToasts` command works, but routing it through
+ * `quickaccess.runCommand` opens the command palette, which restores
+ * focus to the primary sidebar on close.
  */
 export async function hideToasts(app: Application): Promise<void> {
-	await app.workbench.quickaccess.runCommand('notifications.hideToasts');
+	await app.workbench.toasts.closeAll();
 }
 
 /**
