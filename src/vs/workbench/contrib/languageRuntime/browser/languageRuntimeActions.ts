@@ -19,6 +19,7 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
 import { getSessionDisplayName, getSessionIconClasses, isQuartoSession } from '../../positronConsole/common/sessionDisplayUtils.js';
+import { SELECT_KERNEL_ID_POSITRON } from '../../positronNotebook/browser/SelectPositronNotebookKernelAction.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { DisposableStore, dispose } from '../../../../base/common/lifecycle.js';
@@ -148,7 +149,7 @@ async function selectLanguage(accessor: ServicesAccessor) {
  *   false for actions that only operate on console sessions.
  * @returns The runtime session the user selected, or undefined, if the user canceled the operation.
  */
-const selectLanguageRuntimeSession = async (
+export const selectLanguageRuntimeSession = async (
 	accessor: ServicesAccessor,
 	options?: {
 		allowStartSession?: boolean;
@@ -158,6 +159,7 @@ const selectLanguageRuntimeSession = async (
 
 	// Constants
 	const startNewRuntimeId = generateUuid();
+	const changeNotebookSessionId = generateUuid();
 
 	// Access services.
 	const quickInputService = accessor.get(IQuickInputService);
@@ -277,12 +279,31 @@ const selectLanguageRuntimeSession = async (
 		}
 	}
 
-	if (options?.allowStartSession) {
+	const foregroundForChange = runtimeSessionService.foregroundSession;
+	const showChangeNotebookSession =
+		includeNotebookSessions
+		&& foregroundForChange?.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook
+		&& foregroundForChange.metadata.notebookUri !== undefined
+		&& !isQuartoSession({
+			notebookUri: foregroundForChange.metadata.notebookUri,
+			modelService,
+		});
+
+	if (showChangeNotebookSession || options?.allowStartSession) {
 		quickPickItems.push({ type: 'separator' });
+	}
+	if (options?.allowStartSession) {
 		quickPickItems.push({
 			label: localize('positron.languageRuntime.newConsoleSession', 'New Console Session...'),
 			id: startNewRuntimeId,
-			alwaysShow: true
+			alwaysShow: true,
+		});
+	}
+	if (showChangeNotebookSession) {
+		quickPickItems.push({
+			label: localize('positron.languageRuntime.changeNotebookSession', 'Change Notebook Session...'),
+			id: changeNotebookSessionId,
+			alwaysShow: true,
 		});
 	}
 	const result = await quickInputService.pick(quickPickItems, {
@@ -298,6 +319,9 @@ const selectLanguageRuntimeSession = async (
 		if (sessionId) {
 			return runtimeSessionService.activeSessions.find(session => session.sessionId === sessionId);
 		}
+	} else if (result?.id === changeNotebookSessionId) {
+		await commandService.executeCommand(SELECT_KERNEL_ID_POSITRON);
+		return undefined;
 	} else if (result?.id) {
 		const session = runtimeSessionService.activeSessions
 			.find(session => session.sessionId === result.id);

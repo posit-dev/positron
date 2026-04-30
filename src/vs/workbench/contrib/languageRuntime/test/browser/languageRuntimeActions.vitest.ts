@@ -6,13 +6,19 @@
 /// <reference types="vitest/globals" />
 
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
-import { IQuickInputService, IQuickPickItem, QuickInputHideReason } from '../../../../../platform/quickinput/common/quickInput.js';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimePickerContribution, LanguageRuntimeSessionLocation, LanguageRuntimeStartupBehavior, RuntimeStartupPhase } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IQuickInputService, IQuickPickItem, QuickInputHideReason, QuickPickItem } from '../../../../../platform/quickinput/common/quickInput.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimePickerContribution, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeStartupPhase } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeStartupService } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { TestQuickPick } from '../../../../../test/vitest/testQuickPick.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { selectNewLanguageRuntime } from '../../browser/languageRuntimeActions.js';
+import { selectLanguageRuntimeSession, selectNewLanguageRuntime } from '../../browser/languageRuntimeActions.js';
+import { Emitter } from '../../../../../base/common/event.js';
+import { URI } from '../../../../../base/common/uri.js';
+import { ICommandService } from '../../../../../platform/commands/common/commands.js';
+import { IModelService } from '../../../../../editor/common/services/model.js';
+import { IRuntimeSessionService, ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { SELECT_KERNEL_ID_POSITRON } from '../../../positronNotebook/browser/SelectPositronNotebookKernelAction.js';
 
 function makeRuntime(overrides: Partial<ILanguageRuntimeMetadata> = {}): ILanguageRuntimeMetadata {
 	const languageId = overrides.languageId ?? 'python';
@@ -59,7 +65,6 @@ describe('selectNewLanguageRuntime', () => {
 	beforeEach(() => {
 		preferredByLanguage = new Map();
 		pick = ctx.disposables.add(new TestQuickPick<IQuickPickItem>());
-		// Default to Complete so contribution-fetching path runs unless a test overrides.
 		ctx.get(ILanguageRuntimeService).setStartupPhase(RuntimeStartupPhase.Complete);
 	});
 
@@ -397,5 +402,121 @@ describe('selectNewLanguageRuntime', () => {
 			pick.cancel(QuickInputHideReason.Gesture);
 			await promise;
 		});
+	});
+});
+
+describe('selectLanguageRuntimeSession - change notebook session', () => {
+	const changeNotebookSessionLabel = 'Change Notebook Session...';
+
+	let pickItems: QuickPickItem[] = [];
+	const pickFn = vi.fn(async (items: QuickPickItem[]): Promise<QuickPickItem | undefined> => {
+		pickItems = items;
+		return undefined; // user cancels by default; specific tests override
+	});
+	const executeCommand = vi.fn(async () => undefined);
+	const onDidChangeForegroundSession = new Emitter<ILanguageRuntimeSession | undefined>();
+
+	let foregroundSession: ILanguageRuntimeSession | undefined;
+
+	const ctx = createTestContainer()
+		.withRuntimeServices()
+		.stub(IRuntimeSessionService, stubInterface<IRuntimeSessionService>({
+			get foregroundSession() { return foregroundSession; },
+			activeSessions: [] as ILanguageRuntimeSession[],
+			onDidChangeForegroundSession: onDidChangeForegroundSession.event,
+		}))
+		.stub(ICommandService, { executeCommand })
+		.stub(IModelService, { getModel: () => null })
+		.stub(IQuickInputService, stubInterface<IQuickInputService>({
+			pick: pickFn,
+		}))
+		.build();
+
+	function makeNotebookSession(uri: URI): ILanguageRuntimeSession {
+		return stubInterface<ILanguageRuntimeSession>({
+			sessionId: 'notebook-session-1',
+			metadata: {
+				sessionId: 'notebook-session-1',
+				sessionMode: LanguageRuntimeSessionMode.Notebook,
+				notebookUri: uri,
+				createdTimestamp: 0,
+				startReason: 'test',
+			},
+		});
+	}
+
+	function makeConsoleSession(): ILanguageRuntimeSession {
+		return stubInterface<ILanguageRuntimeSession>({
+			sessionId: 'console-session-1',
+			metadata: {
+				sessionId: 'console-session-1',
+				sessionMode: LanguageRuntimeSessionMode.Console,
+				notebookUri: undefined,
+				createdTimestamp: 0,
+				startReason: 'test',
+			},
+		});
+	}
+
+	beforeEach(() => {
+		foregroundSession = undefined;
+		pickItems = [];
+	});
+
+	afterAll(() => {
+		onDidChangeForegroundSession.dispose();
+	});
+
+	function openInterpreterPicker(options?: Parameters<typeof selectLanguageRuntimeSession>[1]) {
+		return ctx.instantiationService.invokeFunction(accessor =>
+			selectLanguageRuntimeSession(accessor, options));
+	}
+
+	function hasChangeNotebookItem(): boolean {
+		return pickItems.some(item => item.label === changeNotebookSessionLabel);
+	}
+
+	it('shows the item when foreground is an .ipynb notebook session', async () => {
+		foregroundSession = makeNotebookSession(URI.file('/path/to/notebook.ipynb'));
+		await openInterpreterPicker();
+		expect(hasChangeNotebookItem()).toBe(true);
+	});
+
+	it('hides the item when foreground is a console session', async () => {
+		foregroundSession = makeConsoleSession();
+		await openInterpreterPicker();
+		expect(hasChangeNotebookItem()).toBe(false);
+	});
+
+	it('hides the item when foreground is a Quarto session', async () => {
+		// .qmd extension makes isQuartoDocument(path, ...) return true regardless of model.
+		foregroundSession = makeNotebookSession(URI.file('/path/to/document.qmd'));
+		await openInterpreterPicker();
+		expect(hasChangeNotebookItem()).toBe(false);
+	});
+
+	it('hides the item when there is no foreground session', async () => {
+		foregroundSession = undefined;
+		await openInterpreterPicker();
+		expect(hasChangeNotebookItem()).toBe(false);
+	});
+
+	it('hides the item when caller passes includeNotebookSessions: false', async () => {
+		foregroundSession = makeNotebookSession(URI.file('/path/to/notebook.ipynb'));
+		await openInterpreterPicker({ includeNotebookSessions: false });
+		expect(hasChangeNotebookItem()).toBe(false);
+	});
+
+	it('dispatches SELECT_KERNEL_ID_POSITRON when the item is selected', async () => {
+		foregroundSession = makeNotebookSession(URI.file('/path/to/notebook.ipynb'));
+		// Override pickFn for this test: return the change-notebook item.
+		pickFn.mockImplementationOnce(async (items: QuickPickItem[]) => {
+			pickItems = items;
+			return items.find(item => item.label === changeNotebookSessionLabel);
+		});
+
+		const result = await openInterpreterPicker();
+		expect(executeCommand).toHaveBeenCalledWith(SELECT_KERNEL_ID_POSITRON);
+		expect(result).toBeUndefined();
 	});
 });
