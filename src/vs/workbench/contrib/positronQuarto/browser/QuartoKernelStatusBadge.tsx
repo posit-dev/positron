@@ -18,22 +18,22 @@ import { IQuartoKernelManager, QuartoKernelState } from './quartoKernelManager.j
 import { isQuartoDocument } from '../common/positronQuartoConfig.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { RuntimeStatusIcon } from '../../positronConsole/browser/components/runtimeStatus.js';
-import { RuntimeStatus } from '../../positronConsole/common/sessionDisplayUtils.js';
+import { runtimeStateToRuntimeStatus, RuntimeStatus } from '../../positronConsole/common/sessionDisplayUtils.js';
+import { useSessionRuntimeState } from '../../positronConsole/browser/components/useSessionRuntimeState.js';
+import { type ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 
 /**
- * Map QuartoKernelState to RuntimeStatus for icon display.
+ * Fallback RuntimeStatus for pre-session kernel states. Once a session is
+ * attached, its RuntimeState is authoritative, so only the cases where no
+ * session exists (None, Error) need a fallback here.
  */
-const quartoStateToRuntimeStatus: Record<QuartoKernelState, RuntimeStatus> = {
+const quartoStateToRuntimeStatus: Partial<Record<QuartoKernelState, RuntimeStatus>> = {
 	[QuartoKernelState.None]: RuntimeStatus.Disconnected,
-	[QuartoKernelState.Starting]: RuntimeStatus.Active,
-	[QuartoKernelState.Ready]: RuntimeStatus.Idle,
-	[QuartoKernelState.Busy]: RuntimeStatus.Active,
 	[QuartoKernelState.Error]: RuntimeStatus.Disconnected,
-	[QuartoKernelState.ShuttingDown]: RuntimeStatus.Active,
 };
 
 /**
@@ -74,6 +74,9 @@ function getQuartoDocumentFromEditor(editorService: IEditorService): URI | undef
 /**
  * React component that displays Quarto kernel status in the editor action bar.
  * Shows the current kernel state with an appropriate status icon and label.
+ * Derives display status from the session's RuntimeState (via useSessionRuntimeState)
+ * when a session is attached, falling back to the QuartoKernelState enum only for
+ * pre-session cases (None, Error).
  */
 export function QuartoKernelStatusBadge({ accessor }: QuartoKernelStatusBadgeProps) {
 	// Get services
@@ -83,23 +86,15 @@ export function QuartoKernelStatusBadge({ accessor }: QuartoKernelStatusBadgePro
 	const contextKeyService = accessor.get(IContextKeyService);
 
 	// State
-	const [documentUri, setDocumentUri] = React.useState<URI | undefined>(() => {
-		return getQuartoDocumentFromEditor(editorService);
-	});
+	const [documentUri, setDocumentUri] = React.useState<URI | undefined>(() =>
+		getQuartoDocumentFromEditor(editorService));
+	const [kernelState, setKernelState] = React.useState<QuartoKernelState>(() =>
+		documentUri ? quartoKernelManager.getKernelState(documentUri) : QuartoKernelState.None);
+	const [session, setSession] = React.useState<ILanguageRuntimeSession | undefined>(() =>
+		documentUri ? quartoKernelManager.getSessionForDocument(documentUri) : undefined);
 
-	const [kernelState, setKernelState] = React.useState<QuartoKernelState>(() => {
-		if (documentUri) {
-			return quartoKernelManager.getKernelState(documentUri);
-		}
-		return QuartoKernelState.None;
-	});
-
-	const [runtimeName, setRuntimeName] = React.useState<string | undefined>(() => {
-		if (documentUri) {
-			return quartoKernelManager.getSessionForDocument(documentUri)?.runtimeMetadata.runtimeName;
-		}
-		return undefined;
-	});
+	// Subscribe to the session's runtime state via the shared hook.
+	const runtimeState = useSessionRuntimeState(session);
 
 	// Set up event listeners
 	React.useEffect(() => {
@@ -111,12 +106,11 @@ export function QuartoKernelStatusBadge({ accessor }: QuartoKernelStatusBadgePro
 			if (quartoUri) {
 				setDocumentUri(quartoUri);
 				setKernelState(quartoKernelManager.getKernelState(quartoUri));
-				const session = quartoKernelManager.getSessionForDocument(quartoUri);
-				setRuntimeName(session?.runtimeMetadata.runtimeName);
+				setSession(quartoKernelManager.getSessionForDocument(quartoUri));
 			} else {
 				setDocumentUri(undefined);
 				setKernelState(QuartoKernelState.None);
-				setRuntimeName(undefined);
+				setSession(undefined);
 			}
 		}));
 
@@ -124,16 +118,21 @@ export function QuartoKernelStatusBadge({ accessor }: QuartoKernelStatusBadgePro
 		disposables.add(quartoKernelManager.onDidChangeKernelState(e => {
 			if (documentUri && e.documentUri.toString() === documentUri.toString()) {
 				setKernelState(e.newState);
-				setRuntimeName(e.session?.runtimeMetadata.runtimeName);
+				setSession(e.session);
 			}
 		}));
 
 		return () => disposables.dispose();
 	}, [editorService, quartoKernelManager, documentUri]);
 
-	// Compute display values
-	const runtimeStatus = quartoStateToRuntimeStatus[kernelState];
-	const label = runtimeName ?? quartoStateToLabel[kernelState] ?? '';
+	// Prefer the session's runtime state. Fall back to the manager's
+	// pre-session kernel state (None / Error) when no session exists.
+	const runtimeStatus = runtimeState !== undefined
+		? runtimeStateToRuntimeStatus[runtimeState]
+		: quartoStateToRuntimeStatus[kernelState] ?? RuntimeStatus.Disconnected;
+	const label = session?.runtimeMetadata.runtimeName
+		?? quartoStateToLabel[kernelState]
+		?? '';
 
 	// Create menu for kernel actions
 	const menu = React.useMemo(() => {
