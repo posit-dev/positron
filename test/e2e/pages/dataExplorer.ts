@@ -152,7 +152,18 @@ export class Filters {
 		this.addFilterButton = this.code.driver.currentPage.getByRole('button', { name: 'Add Filter' });
 		this.selectColumnButton = this.code.driver.currentPage.getByRole('button', { name: 'Select Column' });
 		this.selectConditionButton = this.code.driver.currentPage.getByRole('button', { name: 'Select Condition' });
-		this.selectFilterModalValue = (value: string) => this.code.driver.currentPage.locator('.positron-modal-popup').getByRole('button', { name: value, exact: true });
+		this.selectFilterModalValue = (value: string) => {
+			// Column buttons render with a leading type-icon character (so the
+			// accessible name is "<icon> dep_time"), while condition buttons
+			// are plain text ("is not missing"). The regex anchors the value
+			// at the end of the name and requires either string-start or
+			// whitespace before it - so 'dep_time' matches "<icon> dep_time"
+			// without also matching "<icon> sched_dep_time".
+			const escaped = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+			return this.code.driver.currentPage
+				.locator('.positron-modal-popup')
+				.getByRole('button', { name: new RegExp(`(?:^|\\s)${escaped}$`) });
+		};
 		this.applyFilterButton = this.code.driver.currentPage.getByRole('button', { name: 'Apply Filter' });
 		// this.filteringMenu = this.code.driver.currentPage.getByRole('button', { name: 'Filtering' });
 		// this.menuItemClearFilters = this.code.driver.currentPage.getByRole('button', { name: 'Clear Filters' });
