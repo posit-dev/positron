@@ -206,7 +206,7 @@
     "@types/yazl": "^2.4.2",
     "@typescript-eslint/utils": "^8.45.0",
     "@typescript/native-preview": "7.0.0-dev.20260220.1",
-    "@vscode/component-explorer": "^0.1.1-19",
+    "@vscode/component-explorer": "^0.2.0",
     "@vscode/component-explorer-cli": "^0.1.1-15",
     "@vscode/gulp-electron": "1.40.1",
     "@vitest/coverage-v8": "^4.1.4",
