@@ -21,10 +21,12 @@ test.describe('Release screenshots - Data Explorer', () => {
 		const { dataExplorer, variables } = app.workbench;
 
 		// Load the parquet via an absolute path so we don't need to openFolder
-		// (which would reload the app and restart the interpreter).
+		// (which would reload the app and restart the interpreter). The data
+		// file lives at the qa-example-content root, not inside the workspace
+		// folder.
 		const parquetPath = join(
 			app.workspacePathOrFolder,
-			'workspaces', 'nyc-flights-data-py', 'data-files', 'flights', 'flights.parquet',
+			'data-files', 'flights', 'flights.parquet',
 		);
 		await executeCode('Python', `
 import pandas as pd
