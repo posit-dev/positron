@@ -5,7 +5,7 @@
 
 import { join } from 'path';
 import { test } from '../tests/_test.setup';
-import { captureFullWindow } from './helpers/screenshot-utils';
+import { capturePanel } from './helpers/screenshot-utils';
 import { prepareForScreenshot } from './helpers/layout-utils';
 
 test.use({
@@ -50,6 +50,6 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		await dataExplorer.summaryPanel.expandColumnProfile(8);
 
 		await prepareForScreenshot(app, page);
-		await captureFullWindow(page, 'data-explorer.png');
+		await capturePanel(page.locator('.positron-data-explorer'), 'data-explorer.png');
 	});
 });
