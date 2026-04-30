@@ -37,8 +37,8 @@ A test coverage audit the dev has reviewed, with each item carrying an explicit 
 (No clarifying questions during this step except the one allowed for ambiguous freeform feature areas. Output the one-line summary at the end.)
 
 - **Source file** -> read it directly. Subject = the source file.
-- **Test file** -> read it directly. Subject = the test file. Workflow shifts: skip Step 2; Step 4 is the deliverable.
-- **Test directory** -> list test files in the directory. Subject = the set of test files. Workflow shifts as for test-file, repeated.
+- **Test file** -> read it directly. Subject = the test file. (Skip-Step-2 / Step-4-is-deliverable rules live in Step 2 and Step 3.)
+- **Test directory** -> list test files in the directory. Subject = the set of test files.
 - **PR** -> `gh pr view <n> --json files,title,body`, then `gh pr diff <n>`. Subject = changed source files.
 - **`--branch <name>`** -> `git fetch origin <name> && git diff main...origin/<name>`. Subject = changed source files.
 - **Freeform feature area** -> search for anchor files (Glob/Grep); if ambiguous, ask the dev. Resolves to one of the above. Counts as 1 of 2 clarifying questions.
@@ -53,9 +53,9 @@ For source-file / branch / PR / feature-area inputs: for each changed file/symbo
 
 ### Step 3. Classify each behavior into a bucket
 
-(Skip this step if the input is a test file or test directory - there are no enumerated behaviors to classify; go straight to Step 4.)
+(Skip if the input is a test file or test directory - no enumerated behaviors to classify; go to Step 4.)
 
-Read the Testing section of `CLAUDE.md` at the start of every run. It is the single source of truth for the decision table. Apply the table in order; stop at the first match.
+Apply the CLAUDE.md Testing decision table (already read per Starting state). Apply rows in order; stop at the first match.
 
 Tiebreakers beyond the table:
 - **Lowest bucket that covers the behavior wins.**
@@ -127,7 +127,7 @@ Why: source-pattern matching produces false positives - `MenuId.X` mentions in a
 
 **Step 4D. Classify the test as a whole.**
 - **Move down fully** - every assertion could and should move lower. Propose a replacement at the lower bucket; flag the original for deletion (dev-driven).
-- **Move up** - *rare.* The current bucket can't faithfully exercise what the test asserts; the test belongs higher. Almost always confidence `medium` or `low` because move-up is detected from negative signals (heavy stubbing, mismatch between assertions and unit behavior). Always paired with an "alternative" line in the report - sometimes the right fix is to rewrite at the current bucket with less mocking, not to move up.
+- **Move up** - *rare.* The current bucket can't faithfully exercise what the test asserts; the test belongs higher. Always paired with an alternative line in the report. See "Signals an assertion may belong UP a bucket" below for detection criteria + confidence rules.
 - **Split** - some assertions are genuinely cross-system, others are unit-level value checks. Propose moving the unit-level subset down; keep the cross-system subset.
 - **Keep** - assertions genuinely depend on full-app integration, OS-level input, multi-pane state, or real runtime output not reproducible under unit conditions.
 - **Delete** - test asserts upstream Monaco/VS Code behavior, or duplicates coverage that already exists at the right level.
@@ -220,7 +220,7 @@ Example: *3 items audited. Recommendation: move down 2 to Vitest (medium confide
 
 **HARD RULE:** After the table, ONLY action items (`Move down` / `Move up` / `Split` / `Add`) appear in per-item form. **`Keep`, `Skip`, and `Delete` verdicts NEVER get a per-item block.** They live in the at-a-glance table — the `Why` column is their entire treatment. Do not render them again below. The dev can reply `details N` if they want to challenge one specifically.
 
-Display mode (governed by Step 5): **always step through action items one at a time, regardless of count.** Even a single action item gets its own turn. No threshold, no inline dump by default. The dev can override with `dump all` if they want to scan everything at once.
+(Display mode is governed by Step 5: always step through action items one at a time.)
 
 ## Existing coverage
 
@@ -335,29 +335,14 @@ Example of the per-item layouts (only verdicts that get a block — `Move down`,
 - The `Why` column is one short phrase per row (e.g., *"already covered in notebookDelete.vitest.ts"*, *"webview-rendered"*, *"cross-pane workflow"*). Keep it scannable.
 - Detailed sections follow in pyramid order (Core Mocha -> Vitest -> Ext host -> E2E), Existing coverage before New coverage needed.
 
-**Display mode (governed by Step 5):**
-- **Always step through action items one at a time, regardless of count.** Even a single action item gets its own turn with the prompt - never inline-dump by default. (Removed the prior 1-2 vs 3+ threshold; it caused inconsistent behavior.)
-- After the at-a-glance table, render one action item per turn in **trace-hidden form** (Verdict + What changes only — NO trace block). Ask `approve / change <verdict> / skip / expand <N> ?`, wait for the dev. If the dev replies `expand <N>`, re-render that item with the full trace, then re-ask. After the last item, summarize ("N/N processed: X approved").
-- Trace-hidden step-through item template (4 lines per turn):
-  ```
-  [N] <test-file basename> :: <scenario>
-  Verdict: <Move down -> Vitest> (<confidence>)
-  What changes: <one-line action>
+**Display mode + per-item layout:** governed by Step 5 (display mode, step-through, trace-hidden template) and the Output format template above (per-item layout shape). Do not duplicate those rules here.
 
-  approve / change <verdict> / skip / expand <N> ?
-  ```
-- `Keep` / `Skip` / `Delete` verdicts are NEVER shown in per-item form — the table conveys them. The dev can request `details N` for one of them if they want to challenge it.
-- Dev can override the step-through with `dump all` (escape hatch: render remaining items inline with full trace) or `approve all remaining`.
+Reminders worth repeating:
+- Long source paths go on their own line (`**[N]** `path``), NEVER in an H3 header. Keep H3s at section level (Vitest / Extension host / E2E), not per-item.
+- Line-number references (`L23`) only when the test file has actually been read. Paths are project-relative, no leading `./`.
+- Every row in the at-a-glance table carries an explicit verdict and confidence band.
 
-**Per-item layout (action items only):**
-- ONLY action items (`Move down`, `Move up`, `Split`, `Add`) get per-item blocks. **`Keep`, `Skip`, `Delete` are table-only — never rendered per-item. The at-a-glance `Why` column is their entire treatment.**
-- Each per-item block uses bold `**[N]**` + path on line 1, then `**Verdict:**`, then ONE of `**Why:**` / `**Trace:**` / `**Moves to Vitest:**` + `**Stays in e2e:**`, then `**What changes:**`. Items separated by `---`.
-- Long source paths go on their own line (`**[N]** `path``), NEVER in an H3 header. Keep H3s at the section level (Vitest / Extension host / E2E), not per-item.
-- Line-number references (`L23`) only when the test file has actually been read.
-- Paths are project-relative, no leading `./`.
-- Every row in the at-a-glance table carries an explicit verdict (`Keep` / `Move down` / `Move up` / `Split` / `Add` / `Delete` / `Skip`) and a confidence band (`high` / `medium` / `low`). No verdict-less rows.
-
-**If the dev replies `details N` on a Keep verdict:** re-render that item with the full hypothesis-verification trace (the per-helper ownership trace from 4B-verify). This is the ONLY case where a Keep gets a per-item block.
+**`details N` on a Keep verdict:** re-render that item with the full hypothesis-verification trace (the per-helper ownership trace from 4B-verify). This is the ONLY case where a Keep gets a per-item block.
 
 **Trace compression (load-bearing readability rule for action items):**
 - **`Move down` / `Move up` / `Add` (with traces):** show at most **2 representative assertions** under `**Trace:**`, then a tail line: *"... and N more, all hitting <shared-layer-description>"*. Always end the trace block with `(2 of M shown; reply `expand <N>` for full)` if M > 2.
