@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import enum
+import importlib.util
 import json
 import logging
 import os
@@ -110,6 +111,17 @@ class PositronIPythonInspector(oinspect.Inspector):
         return None
 
     pinfo.__doc__ = oinspect.Inspector.pinfo.__doc__
+
+
+def _is_module_on_disk(oname: str) -> bool:
+    """Return True if the top-level package of `oname` is installed on disk."""
+    top_level = oname.split(".", 1)[0]
+    if not top_level.isidentifier():
+        return False
+    try:
+        return importlib.util.find_spec(top_level) is not None
+    except (ImportError, ValueError):
+        return False
 
 
 @magics_class
@@ -461,6 +473,19 @@ class PositronShell(ZMQInteractiveShell):
     def init_display_formatter(self):
         self.display_formatter = PositronDisplayFormatter(parent=self)
         self.configurables.append(self.display_formatter)  # type: ignore IPython type annotation is wrong
+
+    def _inspect(self, meth, oname, namespaces=None, **kw):
+        result = super()._inspect(meth, oname, namespaces, **kw)
+
+        # When IPython can't find the name in the user namespace and the user
+        # asked for `?name` (pinfo), fall back to the help service if the name
+        # is an installed module on disk. This makes `?pandas` work when
+        # pandas is installed but not yet imported.
+        if result == "not found" and meth == "pinfo" and _is_module_on_disk(oname):
+            self.kernel.help_service.show_help(oname)
+            return None
+
+        return result
 
     def _handle_pre_run_cell(self, info: ExecutionInfo) -> None:
         """Prior to execution, reset the user environment watch state."""
