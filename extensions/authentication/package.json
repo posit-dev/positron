@@ -26,6 +26,9 @@
 		"@aws-sdk/credential-providers": "^3.734.0",
 		"@aws-sdk/types": "^3.734.0"
 	},
+	"devDependencies": {
+		"@types/node": "22.x"
+	},
 	"contributes": {
 		"authentication": [
 			{

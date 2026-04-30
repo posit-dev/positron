@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -142,7 +142,7 @@ async function scrollEditorUntilVisible(
 	target: Locator,
 	maxSteps = 25,
 ): Promise<void> {
-	const editor = app.code.driver.page.locator(
+	const editor = app.code.driver.currentPage.locator(
 		'.monaco-editor[data-uri*="settings.json"]',
 	);
 
@@ -154,19 +154,19 @@ async function scrollEditorUntilVisible(
 		if (await target.isVisible()) { return; }
 
 		// Scroll down a bit
-		await app.code.driver.page.mouse.wheel(0, 300);
+		await app.code.driver.currentPage.mouse.wheel(0, 300);
 		// Give Monaco a moment to render new lines
-		await app.code.driver.page.waitForTimeout(50);
+		await app.code.driver.currentPage.waitForTimeout(50);
 	}
 
 	throw new Error('Target text not visible after scrolling');
 }
 
 export async function expectDiffToBeVisible(app: Application, visible = true) {
-	const editor = app.code.driver.page.locator(
+	const editor = app.code.driver.currentPage.locator(
 		'.monaco-editor[data-uri*="settings.json"]',
 	);
-	const settingsTab = app.code.driver.page.getByRole('tab', { name: 'settings.json' });
+	const settingsTab = app.code.driver.currentPage.getByRole('tab', { name: 'settings.json' });
 
 	const existingStart = editor.getByText('<<<<<<< Existing', { exact: true }).first();
 	const incomingEnd = editor.getByText('>>>>>>> Incoming', { exact: true }).first();

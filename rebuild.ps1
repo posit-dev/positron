@@ -14,7 +14,7 @@ Once this script is done, launch the build tasks using Ctrl+Shift+B on Windows.
 "@
 
 $confirmation = Read-Host "Do you want to proceed? [y/N]"
-if ($confirmation -eq 'n') {
+if ($confirmation -notmatch '^[yY]') {
 	Write-Host "Operation aborted."
     Exit 0
 }
@@ -22,8 +22,7 @@ if ($confirmation -eq 'n') {
 # Kill any running deemons.
 if (Test-Path node_modules\deemon) {
 	Write-Host "Killing build daemons..."
-	npm run kill-watchd
-	npm run kill-watch-webd
+	npm run kill-watch-client-transpiled
 	npm run kill-watch-clientd
 	npm run kill-watch-extensionsd
 	npm run kill-watch-e2ed

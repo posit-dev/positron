@@ -11,10 +11,10 @@ import { EvalTestCase, RunResult } from '../types';
  * Test: getTableSummary tool usage
  *
  * Verifies that the getTableSummary tool is called when summarizing
- * a dataframe in Ask mode.
+ * a dataframe in Agent mode.
  */
 const prompt = 'Summarize my table df.';
-const mode = 'Ask';
+const mode = 'Agent';
 
 export const pythonTableSummary: EvalTestCase = {
 	id: 'python-table-summary',

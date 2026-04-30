@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -45,7 +45,7 @@ async function openAndCommonValidations(app: Application, helper: string) {
 		await app.workbench.editor.clickOnTerm(helper, 'add', 1, true);
 
 		await test.step('Open references view', async () => {
-			await app.code.driver.page.keyboard.press('Shift+F12');
+			await app.code.driver.currentPage.keyboard.press('Shift+F12');
 
 			await app.workbench.references.waitUntilOpen();
 		});

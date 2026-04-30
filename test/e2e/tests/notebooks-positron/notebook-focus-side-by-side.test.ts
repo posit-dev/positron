@@ -42,7 +42,7 @@ test.describe('Notebook Side-by-Side Focus', {
 			await notebooksPositron.kernel.select('Python');
 			await notebooksPositron.kernel.expectStatusToBe('idle');
 			// Press Escape to exit markdown edit mode and render the cell
-			await app.code.driver.page.keyboard.press('Escape');
+			await app.code.driver.currentPage.keyboard.press('Escape');
 
 			// Split notebooks side-by-side
 			await runCommand('workbench.action.moveEditorToNextGroup');
@@ -154,7 +154,7 @@ test.describe('Notebook Side-by-Side Focus', {
 			await moreActionsButton.click();
 
 			// Select "Insert Code Cell Below" from the context menu
-			const insertOption = app.code.driver.page.locator(
+			const insertOption = app.code.driver.currentPage.locator(
 				'button.custom-context-menu-item',
 				{ hasText: 'Insert Code Cell Below' }
 			);

@@ -136,13 +136,13 @@ export class Workbench {
 		this.welcome = new Welcome(code);
 		this.terminal = new Terminal(code, this.quickaccess, this.clipboard);
 		this.viewer = new Viewer(code);
-		this.editor = new Editor(code);
+		this.editor = new Editor(code, this.toasts);
 		this.testExplorer = new TestExplorer(code);
 		this.outline = new Outline(code, this.quickaccess);
 		this.extensions = new Extensions(code, this.quickaccess);
 		this.settings = new UserSettings(code, this.hotKeys);
 		this.debug = new Debug(code, this.hotKeys, this.quickaccess);
-		this.editorActionBar = new EditorActionBar(code.driver.page, this.viewer, this.quickaccess);
+		this.editorActionBar = new EditorActionBar(code.driver.currentPage, this.viewer, this.quickaccess);
 		this.problems = new Problems(code, this.quickaccess);
 		this.references = new References(code);
 		this.scm = new SCM(code, this.layouts);
@@ -151,7 +151,7 @@ export class Workbench {
 		this.positConnect = new PositConnect(code);
 		this.positAssistant = new PositAssistant(code);
 		this.modelProviderAuth = new ModelProviderAuth(code, this.modals);
-		this.inlineDataExplorer = new InlineDataExplorer(code.driver.page);
+		this.inlineDataExplorer = new InlineDataExplorer(code.driver.currentPage);
 		this.inlineQuarto = new InlineQuarto(code, this.quickaccess, this.hotKeys);
 		this.publisher = new Publisher(this.quickInput);
 		this.packages = new Packages(code, this.contextMenu, this.quickInput, this.toasts);

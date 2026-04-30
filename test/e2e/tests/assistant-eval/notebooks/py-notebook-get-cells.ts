@@ -18,7 +18,7 @@ import { EvalTestCase, RunResult } from '../types';
  * When asked about cell 21 (index 20), the assistant MUST call getNotebookInfo to fetch it.
  */
 const prompt = 'What is the value calculated in cell 21 (index 20) of my notebook?';
-const mode = 'Edit';
+const mode = 'Agent';
 
 export const pyNotebookGetCells: EvalTestCase = {
 	id: 'py-notebook-get-cells',

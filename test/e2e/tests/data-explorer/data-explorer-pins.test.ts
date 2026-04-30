@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -149,7 +149,7 @@ for (const { env, data, rowIndexOffset: indexOffset } of testCases) {
 
 		test(`${env} - Cell navigation works with pinned columns and rows`, async function ({ app }) {
 			const { dataExplorer } = app.workbench;
-			const { keyboard } = app.code.driver.page;
+			const { keyboard } = app.code.driver.currentPage;
 
 			// pin column 2
 			await dataExplorer.grid.pinColumn(2);

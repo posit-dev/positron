@@ -16,7 +16,7 @@ export class JupyterAuthPage {
 	 * Sign in to JupyterHub
 	 */
 	async signIn(): Promise<void> {
-		const page = this.code.driver.page;
+		const page = this.code.driver.currentPage;
 
 		// Wait for login form to be visible
 		await page.waitForSelector('#username_input', { timeout: 30000 });

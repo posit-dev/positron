@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -23,13 +23,13 @@ test.describe('Snowflake Connection', {
 
 		await app.workbench.console.pasteCodeToConsole(connectionCode, true);
 
-		await app.code.driver.page.locator('.codicon-arrow-circle-right').click({ timeout: 60000 });
+		await app.code.driver.currentPage.locator('.codicon-arrow-circle-right').click({ timeout: 60000 });
 
 		await app.workbench.connections.expandConnectionDetails('FINANCIAL__ECONOMIC_ESSENTIALS');
 
 		await app.workbench.connections.expandConnectionDetails('CYBERSYN');
 
-		await app.code.driver.page.locator('.codicon-positron-view-connection').first().click();
+		await app.code.driver.currentPage.locator('.codicon-positron-view-connection').first().click();
 
 		await app.workbench.dataExplorer.summaryPanel.expectColumnNameToBe(0, 'VARIABLE');
 

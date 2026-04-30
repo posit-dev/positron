@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -55,9 +55,9 @@ test.describe('R Code Actions', { tag: [tags.EDITOR, tags.WIN, tags.WEB, tags.AR
 
 		await termLocator.hover();
 
-		await app.code.driver.page.locator('.codicon-light-bulb').click();
+		await app.code.driver.currentPage.locator('.codicon-light-bulb').click();
 
-		const generateTemplate = app.code.driver.page.getByText('Generate a roxygen template');
+		const generateTemplate = app.code.driver.currentPage.getByText('Generate a roxygen template');
 
 		await expect(async () => {
 
@@ -66,7 +66,7 @@ test.describe('R Code Actions', { tag: [tags.EDITOR, tags.WIN, tags.WEB, tags.AR
 				await generateTemplate.click({ timeout: 2000 });
 			} catch (e) {
 				// workaround for click problem
-				await app.code.driver.page.mouse.move(0, 0);
+				await app.code.driver.currentPage.mouse.move(0, 0);
 				throw e;
 			}
 		}).toPass({ timeout: 30000 });
@@ -102,27 +102,27 @@ test.describe('R Code Actions', { tag: [tags.EDITOR, tags.WIN, tags.WEB, tags.AR
 
 		await test.step('Single hash collpase', async () => {
 			// Scroll to top of file to ensure folding glyphs are rendered
-			await app.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+ArrowUp' : 'Control+Home');
+			await app.code.driver.currentPage.keyboard.press(process.platform === 'darwin' ? 'Meta+ArrowUp' : 'Control+Home');
 
-			await app.code.driver.page.locator('.codicon-folding-expanded').first().click();
+			await app.code.driver.currentPage.locator('.codicon-folding-expanded').first().click();
 
-			await expect(app.code.driver.page.locator('.codicon-folding-collapsed')).toHaveCount(1);
+			await expect(app.code.driver.currentPage.locator('.codicon-folding-collapsed')).toHaveCount(1);
 
 			try {
 				const line2 = await app.workbench.editor.getLine(fileName, 2);
 				fail(`Expected line 2 to be folded, but got: ${line2}`);
 			} catch { } // expected error when line is folded
 
-			await app.code.driver.page.locator('.codicon-folding-collapsed').first().click();
+			await app.code.driver.currentPage.locator('.codicon-folding-collapsed').first().click();
 
-			await expect(app.code.driver.page.locator('.codicon-folding-expanded')).toHaveCount(4);
+			await expect(app.code.driver.currentPage.locator('.codicon-folding-expanded')).toHaveCount(4);
 		});
 
 		await test.step('Double hash collpase', async () => {
 
-			await app.code.driver.page.locator('.codicon-folding-expanded').nth(1).click();
+			await app.code.driver.currentPage.locator('.codicon-folding-expanded').nth(1).click();
 
-			await expect(app.code.driver.page.locator('.codicon-folding-collapsed')).toHaveCount(1);
+			await expect(app.code.driver.currentPage.locator('.codicon-folding-collapsed')).toHaveCount(1);
 
 			try {
 				const line4 = await app.workbench.editor.getLine(fileName, 4);
@@ -132,24 +132,24 @@ test.describe('R Code Actions', { tag: [tags.EDITOR, tags.WIN, tags.WEB, tags.AR
 			const line9 = await app.workbench.editor.getLine(fileName, 9);
 			expect(line9).toBe('## Section 1.2 ----');
 
-			await app.code.driver.page.locator('.codicon-folding-collapsed').first().click();
+			await app.code.driver.currentPage.locator('.codicon-folding-collapsed').first().click();
 
-			await expect(app.code.driver.page.locator('.codicon-folding-expanded')).toHaveCount(4);
+			await expect(app.code.driver.currentPage.locator('.codicon-folding-expanded')).toHaveCount(4);
 		});
 
 		await test.step('Triple hash collpase', async () => {
-			await app.code.driver.page.locator('.codicon-folding-expanded').nth(2).click();
+			await app.code.driver.currentPage.locator('.codicon-folding-expanded').nth(2).click();
 
-			await expect(app.code.driver.page.locator('.codicon-folding-collapsed')).toHaveCount(1);
+			await expect(app.code.driver.currentPage.locator('.codicon-folding-collapsed')).toHaveCount(1);
 
 			try {
 				const line6 = await app.workbench.editor.getLine(fileName, 6);
 				fail(`Expected line 6 to be folded, but got: ${line6}`);
 			} catch { } // expected error when line is folded
 
-			await app.code.driver.page.locator('.codicon-folding-collapsed').first().click();
+			await app.code.driver.currentPage.locator('.codicon-folding-collapsed').first().click();
 
-			await expect(app.code.driver.page.locator('.codicon-folding-expanded')).toHaveCount(4);
+			await expect(app.code.driver.currentPage.locator('.codicon-folding-expanded')).toHaveCount(4);
 
 			const line7 = await app.workbench.editor.getLine(fileName, 7);
 			expect(line7).toBe('#### Section 1.1.1.1 ----');

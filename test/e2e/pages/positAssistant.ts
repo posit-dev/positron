@@ -71,7 +71,7 @@ export class PositAssistant {
 	 * All UI elements live inside this nested iframe.
 	 */
 	get frame(): FrameLocator {
-		return this.code.driver.page.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME);
+		return this.code.driver.currentPage.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME);
 	}
 
 	/**
@@ -79,7 +79,7 @@ export class PositAssistant {
 	 * Clicks the activity bar icon if it is not already selected.
 	 */
 	async open(): Promise<void> {
-		const button = this.code.driver.page.locator(ACTIVITY_BAR_BUTTON);
+		const button = this.code.driver.currentPage.locator(ACTIVITY_BAR_BUTTON);
 		const isSelected = await button.locator('..').getAttribute('aria-selected');
 		if (isSelected !== 'true') {
 			await button.click();
@@ -484,8 +484,8 @@ export class PositAssistant {
 
 		// 5. Clicking Reload reloads the window natively. Wait for the
 		//    workbench to come back up.
-		await this.code.driver.page.waitForTimeout(3000);
-		await this.code.driver.page.locator('.monaco-workbench').waitFor({ state: 'visible' });
+		await this.code.driver.currentPage.waitForTimeout(3000);
+		await this.code.driver.currentPage.locator('.monaco-workbench').waitFor({ state: 'visible' });
 	}
 
 }

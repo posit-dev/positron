@@ -470,4 +470,5 @@ export class StatementRangeSyntaxError extends Error {
 }
 
 export { UiRuntimeNotifications } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-export { PlotRenderSettings, PlotRenderFormat } from '../../../services/positronPlots/common/positronPlots.js';
+export type { PlotRenderSettings } from '../../../services/positronPlots/common/positronPlots.js';
+export { PlotRenderFormat } from '../../../services/positronPlots/common/positronPlots.js';

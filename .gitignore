@@ -14,6 +14,7 @@ extensions/**/dist/
 /out*/
 /extensions/**/out/
 build/node_modules
+build/darwin/.dmgbuild
 coverage/
 test_data/
 test-results/
@@ -59,3 +60,6 @@ product.json.backup
 .superset/
 # --- End Positron ---
 test-output.json
+test/componentFixtures/.screenshots/*
+!test/componentFixtures/.screenshots/baseline/
+dist

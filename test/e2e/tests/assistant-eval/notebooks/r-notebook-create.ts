@@ -17,7 +17,7 @@ import { EvalTestCase, RunResult } from '../types';
  * a new R notebook. The assistant MUST call createNotebook with R as the language.
  */
 const prompt = 'Create a new R notebook for me.';
-const mode = 'Edit';
+const mode = 'Agent';
 
 export const rNotebookCreate: EvalTestCase = {
 	id: 'r-notebook-create',

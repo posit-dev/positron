@@ -13,7 +13,7 @@ import { EvalTestCase, RunResult } from '../types';
  * data from the forested package without first exploring it.
  */
 const prompt = 'Load the forested package and make some plots of the forested data';
-const mode = 'Ask';
+const mode = 'Agent';
 
 export const rForestedHallucination: EvalTestCase = {
 	id: 'r-forested-hallucination',

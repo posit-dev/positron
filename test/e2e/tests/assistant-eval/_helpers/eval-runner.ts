@@ -149,6 +149,10 @@ export function evalTests(
 				test(`${testCase.id}: ${testCase.description}`,
 					{ tag: testCase.tags ?? [] },
 					async ({ app, sessions, hotKeys, cleanup, settings, logger }) => {
+						if (testCase.fixme) {
+							test.fixme(true, testCase.fixme);
+							return;
+						}
 						await runEvalTest(testCase, modelKey, modelConfig.displayName, category, {
 							app, sessions, hotKeys, cleanup, settings, logger
 						});

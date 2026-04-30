@@ -16,12 +16,12 @@ test.describe('Workbench Extension', {
 
 	test('Verify Posit Workbench status bar item', async function ({ app }) {
 
-		const workbenchStatusItem = app.code.driver.page.locator('a.statusbar-item-label[aria-label*="Posit Workbench"]');
+		const workbenchStatusItem = app.code.driver.currentPage.locator('a.statusbar-item-label[aria-label*="Posit Workbench"]');
 
 		await expect(workbenchStatusItem).toBeVisible();
 
 		// Wait for new page to open when clicking the status bar item
-		const pagePromise = app.code.driver.page.context().waitForEvent('page');
+		const pagePromise = app.code.driver.currentPage.context().waitForEvent('page');
 		await workbenchStatusItem.click();
 		const workbenchPage = await pagePromise;
 

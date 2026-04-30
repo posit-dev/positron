@@ -35,8 +35,8 @@ const NOTEBOOK_REPL_PATTERN = /^\/notebook-repl-/;
  * all LSP sessions. Watch out for session start log messages to find the
  * relevant section of the log.
  */
-let _lspOutputChannel: vscode.OutputChannel | undefined;
-function getLspOutputChannel(): vscode.OutputChannel {
+let _lspOutputChannel: vscode.LogOutputChannel | undefined;
+function getLspOutputChannel(): vscode.LogOutputChannel {
     if (!_lspOutputChannel) {
         _lspOutputChannel = positron.window.createRawLogOutputChannel('Python Language Server');
     }
@@ -65,7 +65,7 @@ export class PythonLsp implements vscode.Disposable {
     /** Promise that resolves after initialization is complete */
     private _initializing?: Promise<void>;
 
-    private _outputChannel: vscode.OutputChannel;
+    private _outputChannel: vscode.LogOutputChannel;
 
     /** Disposable for per-activation items */
     private activationDisposables: vscode.Disposable[] = [];
