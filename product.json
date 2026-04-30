@@ -295,8 +295,8 @@
 		},
 		{
 			"name": "posit.assistant",
-			"version": "0.3.2",
-			"sha256": "d6661dc9e5c607a645a65eae56fec210302a5babb2e2af735078e96e448b7c3e",
+			"version": "0.4.2",
+			"sha256": "9375eedf32d0e5e0de6f08369ea32fd30072f068d14ab3e276c362663b64d828",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
 				"displayName": "Posit Assistant"
