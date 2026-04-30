@@ -160,17 +160,18 @@ When any of these hit, surface the candidate with verdict `Move up -> <bucket>` 
 
 ### Step 5. Present the report and gate on dev feedback
 
-Output the report using the Output format template below. The presentation mode depends on **action-item count** (Move down / Move up / Split / Add — NOT Keep / Skip / Delete, which the table already conveys):
+Output the report using the Output format template below. **Always step through action items one at a time** (Move down / Move up / Split / Add — NOT Keep / Skip / Delete, which the table already conveys). No threshold-based mode switching, no inline dump by default - even with a single action item, present it on its own turn and wait for the dev's reply.
 
-- **1-2 action items:** "inline-dump" mode. After the at-a-glance table, render all action items in compact form, then ask the gate questions once.
-- **3+ action items:** "step-through" mode. After the at-a-glance table, render action items one at a time in **trace-hidden form** (4 lines: ID + path, Verdict, What changes, prompt). Ask `approve / change <verdict> / skip / expand <N> ?`. If the dev replies `expand <N>`, re-render that item with the full trace block, then re-ask. Otherwise advance to the next item. After the last action item, summarize decisions ("3/3 processed: 3 approved, 0 changed, 0 skipped"), then ask any global gate questions.
+Step-through behavior:
+- After the at-a-glance table, render ONE action item per turn in **trace-hidden form** (4 lines: ID + path, Verdict, What changes, prompt).
+- Ask `approve / change <verdict> / skip / expand <N> ?`. If the dev replies `expand <N>`, re-render that item with the full trace block, then re-ask. Otherwise advance to the next item.
+- After the last action item, summarize decisions ("N/N processed: X approved, Y changed, Z skipped"), then ask any global gate questions.
 
-Mode is auto-selected from the action-item count. The dev can override at any point:
-- `dump all` — switch from step-through to inline-dump (show remaining items at once).
-- `step through` — switch from inline-dump to step-through.
-- `approve all remaining` (in step-through mode) — auto-approve everything that hasn't been visited yet.
+Dev overrides:
+- `dump all` — escape hatch: render all remaining action items at once with full trace.
+- `approve all remaining` — auto-approve everything that hasn't been visited yet.
 
-In both modes, end with the same global question:
+End with the global question:
 
 > *"Any testable behavior I missed?"*
 
@@ -219,9 +220,7 @@ Example: *3 items audited. Recommendation: move down 2 to Vitest (medium confide
 
 **HARD RULE:** After the table, ONLY action items (`Move down` / `Move up` / `Split` / `Add`) appear in per-item form. **`Keep`, `Skip`, and `Delete` verdicts NEVER get a per-item block.** They live in the at-a-glance table — the `Why` column is their entire treatment. Do not render them again below. The dev can reply `details N` if they want to challenge one specifically.
 
-Display mode for action items (Step 5 governs):
-- 1-2 action items -> inline-dump (show those action items only; one gate question at the end).
-- 3+ action items -> step-through (one action item per turn, trace hidden).
+Display mode (governed by Step 5): **always step through action items one at a time, regardless of count.** Even a single action item gets its own turn. No threshold, no inline dump by default. The dev can override with `dump all` if they want to scan everything at once.
 
 ## Existing coverage
 
@@ -323,7 +322,7 @@ Example of the per-item layouts (only verdicts that get a block — `Move down`,
 
 **Top-level structure:**
 - Always lead with `## TL;DR` (1-3 sentence narrative recommendation) and `## At a glance`. The dev should be able to make 80% of their decisions from these two sections without scrolling further.
-- **`## At a glance` MUST be a real GFM markdown table** with `|` separators and a `|---|---|...|` separator row. Never substitute a bulleted list, definition list, labeled `Field: value` blocks, or any other format. If the Why column gets long, that's fine — markdown tables wrap; do NOT bail out of the table format because a row is wide. The literal shape required:
+- **`## At a glance` MUST be a real GFM markdown table** with `|` separators and a `|---|---|...|` separator row. Render it EXACTLY ONCE. Never substitute or precede it with a bulleted list, definition list, labeled `ID: ... / Test: ... / Verdict: ...` blocks, or any other format. Do NOT render two versions (table + labeled blocks) - the table is the only allowed rendering. If the Why column gets long, that's fine; markdown tables wrap. The literal shape required:
 
   ```
   | ID  | Test :: scenario | Verdict | Conf. | Why |
@@ -337,9 +336,8 @@ Example of the per-item layouts (only verdicts that get a block — `Move down`,
 - Detailed sections follow in pyramid order (Core Mocha -> Vitest -> Ext host -> E2E), Existing coverage before New coverage needed.
 
 **Display mode (governed by Step 5):**
-- The skill auto-selects display mode based on **action-item count** (Move down / Move up / Split / Add — NOT Keep / Skip / Delete).
-- 1-2 action items -> inline-dump. After the at-a-glance table, render all action items in compact form back-to-back (full per-item layout including trace). Then ask the gate question once.
-- 3+ action items -> step-through. After the at-a-glance table, render one action item per turn in **trace-hidden form** (Verdict + What changes only — NO trace block). Ask `approve / change <verdict> / skip / expand <N> ?`, wait for the dev. If the dev replies `expand <N>`, re-render that item with the full trace, then re-ask. After the last item, summarize ("3/3 processed: 3 approved").
+- **Always step through action items one at a time, regardless of count.** Even a single action item gets its own turn with the prompt - never inline-dump by default. (Removed the prior 1-2 vs 3+ threshold; it caused inconsistent behavior.)
+- After the at-a-glance table, render one action item per turn in **trace-hidden form** (Verdict + What changes only — NO trace block). Ask `approve / change <verdict> / skip / expand <N> ?`, wait for the dev. If the dev replies `expand <N>`, re-render that item with the full trace, then re-ask. After the last item, summarize ("N/N processed: X approved").
 - Trace-hidden step-through item template (4 lines per turn):
   ```
   [N] <test-file basename> :: <scenario>
@@ -348,8 +346,8 @@ Example of the per-item layouts (only verdicts that get a block — `Move down`,
 
   approve / change <verdict> / skip / expand <N> ?
   ```
-- `Keep` / `Skip` / `Delete` verdicts are NEVER shown in per-item form by default — the table conveys them. The dev can request `details N` for one of them if they want to challenge it.
-- Dev can override mode with `dump all` or `step through` at any point. `dump all` from step-through mode shows the remaining items inline with full trace; `step through` from inline-dump returns to one-per-turn (trace-hidden).
+- `Keep` / `Skip` / `Delete` verdicts are NEVER shown in per-item form — the table conveys them. The dev can request `details N` for one of them if they want to challenge it.
+- Dev can override the step-through with `dump all` (escape hatch: render remaining items inline with full trace) or `approve all remaining`.
 
 **Per-item layout (action items only):**
 - ONLY action items (`Move down`, `Move up`, `Split`, `Add`) get per-item blocks. **`Keep`, `Skip`, `Delete` are table-only — never rendered per-item. The at-a-glance `Why` column is their entire treatment.**
