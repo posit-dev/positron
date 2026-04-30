@@ -11,27 +11,41 @@ test.use({
 	suiteId: __filename,
 });
 
-const SETUP_CODE = `
+const LOAD_FLIGHTS = `
 import pandas as pd
-
-df = pd.DataFrame({
-	'name':   ['Jai', 'Princi', 'Gaurav', 'Anuj', 'Ada', 'Linus', 'Grace'],
-	'age':    [27, 24, 22, 32, 28, 30, 26],
-	'city':   ['Delhi', 'Kanpur', 'Allahabad', 'Kannauj', 'London', 'Helsinki', 'New York'],
-	'salary': [55000, 48000, 51000, 60000, 72000, 95000, 68000],
-})
+import os
+flights = pd.read_parquet(os.path.join(os.getcwd(), 'data-files', 'flights', 'flights.parquet'), engine='pyarrow')
 `.trim();
 
 test.describe('Release screenshots - Data Explorer', () => {
-	test('main panel', async ({ app, page, executeCode, python }) => {
+	test('main panel', async ({ app, page, openFolder, executeCode, python }) => {
+		// Reproduces the hero shot at https://positron.posit.co/data-explorer.html:
+		// NYC flights DataFrame opened in a maximized Data Explorer with the
+		// Summary panel visible, a "dep_time is not missing" filter applied,
+		// month sorted descending, and arr_delay's column profile expanded.
+		test.slow();
 		const { dataExplorer, variables } = app.workbench;
 
-		await executeCode('Python', SETUP_CODE);
-		await variables.doubleClickVariableRow('df');
+		await openFolder('qa-example-content/workspaces/nyc-flights-data-py');
+		await app.workbench.console.waitForReady('>>>', 30000);
 
-		// Maximize the editor area so the screenshot focuses on the explorer.
+		await executeCode('Python', LOAD_FLIGHTS);
+		await variables.waitForVariableRow('flights');
+		await variables.doubleClickVariableRow('flights');
 		await dataExplorer.maximize(true);
 		await dataExplorer.waitForIdle();
+
+		await dataExplorer.filters.add({ columnName: 'dep_time', condition: 'is not missing' });
+		await dataExplorer.waitForIdle();
+
+		// Sort by month descending. columnIndex is 1-based; month is column 2.
+		await dataExplorer.grid.sortColumnBy(2, 'Sort Descending');
+		await dataExplorer.waitForIdle();
+
+		// Expand the arr_delay column profile in the summary panel.
+		// Column order in summary panel matches DataFrame order; arr_delay is
+		// the 9th column (0-based index 8).
+		await dataExplorer.summaryPanel.expandColumnProfile(8);
 
 		await prepareForScreenshot(app, page);
 		await captureFullWindow(page, 'data-explorer.png');
