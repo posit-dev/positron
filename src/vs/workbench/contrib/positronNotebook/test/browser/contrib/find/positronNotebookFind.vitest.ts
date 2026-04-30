@@ -8,7 +8,6 @@
 // Register the find contribution
 import '../../../../browser/contrib/find/positronNotebookFind.contribution.js';
 
-import type { Mock } from 'vitest';
 import { createTestContainer } from '../../../../../../../test/vitest/positronTestContainer.js';
 import { IModelDecoration, ITextModel } from '../../../../../../../editor/common/model.js';
 import { USUAL_WORD_SEPARATORS } from '../../../../../../../editor/common/core/wordHelper.js';
@@ -22,9 +21,8 @@ import { CellKind } from '../../../../../notebook/common/notebookCommon.js';
 import { IPositronNotebookCell } from '../../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { PositronNotebookFindController } from '../../../../browser/contrib/find/controller.js';
 import { PositronFindInstance } from '../../../../browser/contrib/find/PositronFindInstance.js';
-import { instantiateTestNotebookInstance, positronNotebookInstantiationService, TestPositronNotebookInstance } from '../../testPositronNotebookInstance.js';
+import { instantiateTestNotebookInstance, TestPositronNotebookInstance } from '../../testPositronNotebookInstance.js';
 import { transaction } from '../../../../../../../base/common/observable.js';
-import { TestInstantiationService } from '../../../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { IModelService } from '../../../../../../../editor/common/services/model.js';
 import { Disposable, IDisposable } from '../../../../../../../base/common/lifecycle.js';
 import { runWithFakedTimers } from '../../../../../../../base/test/common/timeTravelScheduler.js';
@@ -122,21 +120,20 @@ class TestBulkEditService implements IBulkEditService {
 }
 
 describe('PositronNotebookFindController', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createTestContainer()
+		.withNotebookEditorServices()
+		.build();
 
-	let instantiationService: TestInstantiationService;
-	let bulkEditApplySpy: Mock;
+	let bulkEditApplySpy: ReturnType<typeof vi.spyOn>;
 
 	beforeEach(() => {
-		instantiationService = positronNotebookInstantiationService(ctx.disposables);
-
-		const bulkEditService = new TestBulkEditService(instantiationService.get(IModelService));
+		const bulkEditService = new TestBulkEditService(ctx.get(IModelService));
 		bulkEditApplySpy = vi.spyOn(bulkEditService, 'apply');
-		instantiationService.stub(IBulkEditService, bulkEditService);
+		ctx.instantiationService.stub(IBulkEditService, bulkEditService);
 	});
 
 	function createNotebook(cells: [string, string, CellKind][]) {
-		return instantiateTestNotebookInstance(cells, instantiationService, ctx.disposables);
+		return instantiateTestNotebookInstance(cells, ctx.instantiationService, ctx.disposables);
 	}
 
 	function findFixture(cells: [string, string, CellKind][]) {
@@ -244,7 +241,7 @@ describe('PositronNotebookFindController', () => {
 
 		it('wholeWord=true only matches full words', async () => {
 			const { notebook, controller, find } = findFixture([['cat catch category', 'python', CellKind.Code]]);
-			const configService = notebook.instantiationService.get(IConfigurationService) as TestConfigurationService;
+			const configService = notebook.instantiationService.invokeFunction(accessor => accessor.get(IConfigurationService)) as TestConfigurationService;
 			await configService.setUserConfiguration('editor.wordSeparators', USUAL_WORD_SEPARATORS);
 
 			transaction((tx) => {
@@ -1412,6 +1409,64 @@ describe('PositronNotebookFindController', () => {
 			await waitForDebounce();
 			expect(find.matchCount.get()).toBe(0);
 		}));
+	});
+
+	describe('Undo', () => {
+
+		it('undoes a single replace, reverting the cell content', () => runWithFakedTimers({}, async () => {
+			const { notebook, controller, find } = findFixture([
+				['# Cell 0', 'python', CellKind.Code],
+				['# Cell 1', 'python', CellKind.Code],
+				['# Cell 2', 'python', CellKind.Code],
+			]);
+			transaction((tx) => {
+				find.searchString.set('Cell', tx);
+				find.replaceText.set('Replaced', tx);
+			});
+
+			controller.findNext();
+			await controller.replace();
+
+			const cells = notebook.cells.get();
+			expect(cells[0].model.textModel!.getValue()).toBe('# Replaced 0');
+
+			cells[0].model.textModel!.undo();
+			expect(cells[0].model.textModel!.getValue()).toBe('# Cell 0');
+		}));
+
+		it('undoes replaceAll, reverting all changed cells', () => runWithFakedTimers({}, async () => {
+			const { notebook, controller, find } = findFixture([
+				['# Cell 0', 'python', CellKind.Code],
+				['# Cell 1', 'python', CellKind.Code],
+				['# Cell 2', 'python', CellKind.Code],
+			]);
+			transaction((tx) => {
+				find.searchString.set('Cell', tx);
+				find.replaceText.set('New', tx);
+			});
+
+			await controller.replaceAll();
+
+			const cells = notebook.cells.get();
+			expect(cells[0].model.textModel!.getValue()).toBe('# New 0');
+			expect(cells[1].model.textModel!.getValue()).toBe('# New 1');
+			expect(cells[2].model.textModel!.getValue()).toBe('# New 2');
+
+			// Production BulkEditService groups edits across resources so a
+			// single editor undo reverts the whole group; TestBulkEditService
+			// applies edits per-model, so we undo each model independently.
+			// What this test asserts is that every cell's replace IS undoable
+			// (the find controller passed edits through pushEditOperations,
+			// not destructive applyEdits).
+			cells[0].model.textModel!.undo();
+			cells[1].model.textModel!.undo();
+			cells[2].model.textModel!.undo();
+
+			expect(cells[0].model.textModel!.getValue()).toBe('# Cell 0');
+			expect(cells[1].model.textModel!.getValue()).toBe('# Cell 1');
+			expect(cells[2].model.textModel!.getValue()).toBe('# Cell 2');
+		}));
+
 	});
 
 });

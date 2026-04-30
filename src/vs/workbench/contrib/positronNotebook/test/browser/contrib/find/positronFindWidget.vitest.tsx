@@ -5,77 +5,16 @@
 
 /// <reference types="vitest/globals" />
 
-/* eslint-disable no-restricted-syntax */
-/* eslint-disable local/code-no-dangerous-type-assertions */
-
 import type { Mock } from 'vitest';
-import { act } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
 import { setupRTLRenderer } from '../../../../../../../test/vitest/reactTestingLibrary.js';
 import { ISettableObservable, observableValue } from '../../../../../../../base/common/observable.js';
 import { MockContextKeyService } from '../../../../../../../platform/keybinding/test/common/mockKeybindingService.js';
+import { stubInterface } from '../../../../../../../test/vitest/stubInterface.js';
 import { IContextViewService } from '../../../../../../../platform/contextview/browser/contextView.js';
 import { unthemedInboxStyles } from '../../../../../../../base/browser/ui/inputbox/inputBox.js';
 import { unthemedToggleStyles } from '../../../../../../../base/browser/ui/toggle/toggle.js';
 import { PositronFindWidget } from '../../../../browser/contrib/find/PositronFindWidget.js';
-
-class PositronFindWidgetFixture {
-	constructor(public readonly container: HTMLDivElement) { }
-
-	get results() {
-		const el = this.container.querySelector('.results');
-		expect(el, 'Expected results element to exist').not.toBeNull();
-		return el!;
-	}
-
-	get navigationButtons() {
-		return this.container.querySelectorAll<HTMLButtonElement>('.navigation-buttons button');
-	}
-
-	get previousButton() {
-		// NodeList indexing returns undefined (not null) when out of bounds,
-		// so assert .toBeDefined() here rather than .not.toBeNull().
-		const button = this.navigationButtons[0];
-		expect(button, 'Expected previous button to exist').toBeDefined();
-		return button;
-	}
-
-	get nextButton() {
-		// See previousButton above: NodeList miss is undefined, not null.
-		const button = this.navigationButtons[1];
-		expect(button, 'Expected next button to exist').toBeDefined();
-		return button;
-	}
-
-	get closeButton() {
-		const button = this.container.querySelector<HTMLButtonElement>('button.close-button');
-		expect(button, 'Expected close button to exist').not.toBeNull();
-		return button!;
-	}
-
-	get isVisible() {
-		return this.container.classList.contains('visible');
-	}
-
-	get hasErrorStyling() {
-		return this.container.classList.contains('no-results');
-	}
-
-	get toggleReplaceButton() {
-		return this.container.querySelector<HTMLButtonElement>('button.toggle-replace');
-	}
-
-	get replacePart() {
-		return this.container.querySelector('.replace-part');
-	}
-
-	get replaceButton() {
-		return this.container.querySelector<HTMLButtonElement>('button.replace-button');
-	}
-
-	get replaceAllButton() {
-		return this.container.querySelector<HTMLButtonElement>('button.replace-all-button');
-	}
-}
 
 describe('PositronFindWidget', () => {
 	const rtl = setupRTLRenderer();
@@ -102,12 +41,12 @@ describe('PositronFindWidget', () => {
 	let onReplaceInputBlur: Mock;
 
 	function renderWidget({ useReplace } = { useReplace: false }) {
-		const { container } = rtl.render(
+		const result = rtl.render(
 			<PositronFindWidget
 				contextKeyService={new MockContextKeyService()}
 				// ContextViewService is only used by FindInput for validation message
 				// popups, which these tests don't trigger.
-				contextViewService={{} as IContextViewService}
+				contextViewService={stubInterface<IContextViewService>()}
 				findInputOptions={{
 					label: 'Find',
 					inputBoxStyles: unthemedInboxStyles,
@@ -140,9 +79,8 @@ describe('PositronFindWidget', () => {
 				onPreviousMatch={onPreviousMatch}
 			/>
 		);
-		const widgetContainer = container.querySelector<HTMLDivElement>('.positron-find-widget');
-		expect(widgetContainer, 'Expected PositronFindWidget to be rendered').not.toBeNull();
-		return new PositronFindWidgetFixture(widgetContainer!);
+		const widgetContainer = screen.getByRole('search', { name: /Find/ });
+		return { ...result, widgetContainer };
 	}
 
 	beforeEach(() => {
@@ -169,90 +107,89 @@ describe('PositronFindWidget', () => {
 		onReplaceInputBlur = vi.fn();
 	});
 
-	afterEach(() => {
-		vi.restoreAllMocks();
-	});
-
 	describe('Find', () => {
 		it('visible when isVisible is true', () => {
-			const widget = renderWidget();
+			const { widgetContainer } = renderWidget();
 
-			expect(widget.isVisible, 'Expected find widget to be visible').toBe(true);
+			expect(widgetContainer).toHaveClass('visible');
 		});
 
 		it('hidden when isVisible is false', () => {
 			isVisible.set(false, undefined);
-			const widget = renderWidget();
+			const { widgetContainer } = renderWidget();
 
-			expect(widget.isVisible, 'Expected find widget to be hidden').toBe(false);
+			expect(widgetContainer).not.toHaveClass('visible');
 		});
 
 		it('focuses find input when becoming visible', () => {
 			isVisible.set(false, undefined);
-			const widget = renderWidget();
+			const { widgetContainer } = renderWidget();
 
 			act(() => isVisible.set(true, undefined));
 
 			expect(
-				widget.container.contains(document.activeElement),
+				widgetContainer.contains(document.activeElement),
 				'Expected focus to be inside the find widget',
 			).toBe(true);
 		});
 
 		it('hidden when close button is clicked', () => {
-			const widget = renderWidget();
+			const { widgetContainer } = renderWidget();
 
-			act(() => widget.closeButton.click());
+			act(() => screen.getByRole('button', { name: 'Close' }).click());
 
-			expect(widget.isVisible, 'Expected find widget to be hidden after close').toBe(false);
+			expect(widgetContainer).not.toHaveClass('visible');
 			expect(isVisible.get(), 'Expected isVisible observable to be false after close').toBe(false);
 		});
 
 		it('has no error styling when there is no query', () => {
-			const widget = renderWidget();
+			const { widgetContainer } = renderWidget();
 
-			expect(widget.results.textContent).toBe('No results');
-			expect(widget.hasErrorStyling, 'Expected find widget to have no error styling without a query').toBe(false);
+			expect(screen.getByText('No results')).toBeInTheDocument();
+			expect(widgetContainer).not.toHaveClass('no-results');
 		});
 
 		it('has error styling when there is a query but no matches', () => {
 			findText.set('foo', undefined);
 			matchCount.set(0, undefined);
-			const widget = renderWidget();
+			const { widgetContainer } = renderWidget();
 
-			expect(widget.results.textContent).toBe('No results');
-			expect(widget.hasErrorStyling, 'Expected find widget to indicate no results found').toBe(true);
+			expect(screen.getByText('No results')).toBeInTheDocument();
+			expect(widgetContainer).toHaveClass('no-results');
 		});
 
 		it('shows empty results while matchCount is loading', () => {
 			findText.set('foo', undefined);
-			const widget = renderWidget();
+			renderWidget();
 
-			expect(widget.results.textContent).toBe('');
+			const results = screen.getByRole('status');
+			// toHaveTextContent does substring matching on strings (so '' always matches).
+			// Use a regex for an exact empty-string check.
+			expect(results).toHaveTextContent(/^$/);
 		});
 
 		it('navigation buttons are disabled when there are no matches', () => {
 			matchCount.set(0, undefined);
-			const widget = renderWidget();
+			renderWidget();
 
-			expect(widget.previousButton.disabled, 'Expected previous button to be disabled').toBe(true);
-			expect(widget.nextButton.disabled, 'Expected next button to be disabled').toBe(true);
+			expect(screen.getByRole('button', { name: 'Previous Match' })).toBeDisabled();
+			expect(screen.getByRole('button', { name: 'Next Match' })).toBeDisabled();
 		});
 
 		it('previous match button calls onPreviousMatch', () => {
 			matchCount.set(3, undefined);
-			const widget = renderWidget();
+			renderWidget();
 
-			widget.previousButton.click();
+			screen.getByRole('button', { name: 'Previous Match' }).click();
 
 			expect(onPreviousMatch, 'Expected onPreviousMatch to be called once').toHaveBeenCalledOnce();
 		});
 
 		it('next match button calls onNextMatch', () => {
 			matchCount.set(3, undefined);
-			const widget = renderWidget();
+			renderWidget();
 
-			widget.nextButton.click();
+			screen.getByRole('button', { name: 'Next Match' }).click();
 
 			expect(onNextMatch, 'Expected onNextMatch to be called once').toHaveBeenCalledOnce();
 		});
@@ -260,65 +197,66 @@ describe('PositronFindWidget', () => {
 		it('shows "1 of N" when matchIndex is undefined', () => {
 			findText.set('foo', undefined);
 			matchCount.set(3, undefined);
-			const widget = renderWidget();
+			renderWidget();
 
-			expect(widget.results.textContent).toBe('1 of 3');
+			expect(screen.getByText('1 of 3')).toBeInTheDocument();
 		});
 
 		it('shows match index and count', () => {
 			findText.set('foo', undefined);
 			matchCount.set(5, undefined);
 			matchIndex.set(2, undefined);
-			const widget = renderWidget();
+			renderWidget();
 
-			expect(widget.results.textContent).toBe('3 of 5');
+			expect(screen.getByText('3 of 5')).toBeInTheDocument();
 		});
 
 		it('no toggle replace button when useReplace is false', () => {
-			const widget = renderWidget();
+			renderWidget();
 
-			expect(widget.toggleReplaceButton, 'Expected no toggle replace button').toBe(null);
+			expect(screen.queryByRole('button', { name: 'Toggle Replace' })).not.toBeInTheDocument();
 		});
 	});
 
 	describe('Replace', () => {
 		it('hidden when replaceIsVisible is false', () => {
-			const widget = renderWidget({ useReplace: true });
+			renderWidget({ useReplace: true });
 
-			expect(widget.toggleReplaceButton, 'Expected toggle replace button to exist').not.toBeNull();
-			expect(widget.replacePart, 'Expected replace part to be hidden').toBe(null);
+			expect(screen.getByRole('button', { name: 'Toggle Replace' })).toBeInTheDocument();
+			// Replace button (inside the replace part) is the reliable proxy for
+			// replace-part visibility; exact match avoids 'Replace All' collision.
+			expect(screen.queryByRole('button', { name: /^Replace$/ })).not.toBeInTheDocument();
 		});
 
 		it('visible when replaceIsVisible is true', () => {
 			replaceIsVisible.set(true, undefined);
-			const widget = renderWidget({ useReplace: true });
+			renderWidget({ useReplace: true });
 
-			expect(widget.toggleReplaceButton, 'Expected toggle replace button to exist').not.toBeNull();
-			expect(widget.replacePart, 'Expected replace part to be visible').not.toBeNull();
-			expect(widget.replaceButton, 'Expected replace button to exist').not.toBeNull();
-			expect(widget.replaceAllButton, 'Expected replace all button to exist').not.toBeNull();
+			expect(screen.getByRole('button', { name: 'Toggle Replace' })).toBeInTheDocument();
+			expect(screen.getByRole('button', { name: /^Replace$/ })).toBeInTheDocument();
+			expect(screen.getByRole('button', { name: 'Replace All' })).toBeInTheDocument();
 		});
 
 		it('expands/collapses when toggle replace button is clicked', () => {
-			const widget = renderWidget({ useReplace: true });
+			renderWidget({ useReplace: true });
 
-			act(() => widget.toggleReplaceButton!.click());
+			act(() => screen.getByRole('button', { name: 'Toggle Replace' }).click());
 
-			expect(widget.replacePart, 'Expected replace part to be visible when expanded').not.toBeNull();
+			expect(screen.getByRole('button', { name: /^Replace$/ })).toBeInTheDocument();
 			expect(replaceIsVisible.get(), 'Expected replaceIsVisible to be true').toBe(true);
 
-			act(() => widget.toggleReplaceButton!.click());
+			act(() => screen.getByRole('button', { name: 'Toggle Replace' }).click());
 
-			expect(widget.replacePart, 'Expected replace part to be hidden').toBe(null);
+			expect(screen.queryByRole('button', { name: /^Replace$/ })).not.toBeInTheDocument();
 			expect(replaceIsVisible.get(), 'Expected replaceIsVisible to be false').toBe(false);
 		});
 
 		it('replace button calls onReplace', () => {
 			findText.set('foo', undefined);
 			replaceIsVisible.set(true, undefined);
-			const widget = renderWidget({ useReplace: true });
+			renderWidget({ useReplace: true });
 
-			act(() => widget.replaceButton!.click());
+			act(() => screen.getByRole('button', { name: /^Replace$/ }).click());
 
 			expect(onReplace, 'Expected onReplace to be called once').toHaveBeenCalledOnce();
 		});
@@ -326,19 +264,19 @@ describe('PositronFindWidget', () => {
 		it('replace all button calls onReplaceAll', () => {
 			replaceIsVisible.set(true, undefined);
 			findText.set('foo', undefined);
-			const widget = renderWidget({ useReplace: true });
+			renderWidget({ useReplace: true });
 
-			act(() => widget.replaceAllButton!.click());
+			act(() => screen.getByRole('button', { name: 'Replace All' }).click());
 
 			expect(onReplaceAll, 'Expected onReplaceAll to be called once').toHaveBeenCalledOnce();
 		});
 
 		it('replace buttons are disabled when there is no query', () => {
 			replaceIsVisible.set(true, undefined);
-			const widget = renderWidget({ useReplace: true });
+			renderWidget({ useReplace: true });
 
-			expect(widget.replaceButton!.disabled, 'Expected replace button to be disabled').toBe(true);
-			expect(widget.replaceAllButton!.disabled, 'Expected replace all button to be disabled').toBe(true);
+			expect(screen.getByRole('button', { name: /^Replace$/ })).toBeDisabled();
+			expect(screen.getByRole('button', { name: 'Replace All' })).toBeDisabled();
 		});
 	});
 });

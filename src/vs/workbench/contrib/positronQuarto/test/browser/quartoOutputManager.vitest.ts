@@ -228,7 +228,7 @@ y = 2
 				},
 				async openHtml(_previewId: string, _extension: unknown, _path: string) {
 					openHtmlCalled = true;
-					return {} as any;
+					return {} as PreviewWebview;
 				},
 			};
 

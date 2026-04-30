@@ -26,6 +26,10 @@ import { Extensions as ConfigurationExtensions, ConfigurationScope, IConfigurati
 import { ContextKeyExpr, IContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { IDialogService, IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { ExtensionGalleryManifestStatus, ExtensionGalleryResourceType, ExtensionGalleryServiceUrlConfigKey, getExtensionGalleryManifestResourceUri, IExtensionGalleryManifest, IExtensionGalleryManifestService } from '../../../../platform/extensionManagement/common/extensionGalleryManifest.js';
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { PositronGallerySourceConfigKey } from '../../../../platform/extensionManagement/common/extensionGalleryManifest.js';
+// --- End Positron ---
 import { EXTENSION_INSTALL_SOURCE_CONTEXT, ExtensionInstallSource, ExtensionRequestsTimeoutConfigKey, ExtensionsLocalizedLabel, FilterType, IExtensionGalleryService, IExtensionManagementService, PreferencesLocalizedLabel, SortBy, VerifyExtensionSignatureConfigKey } from '../../../../platform/extensionManagement/common/extensionManagement.js';
 import { areSameExtensions, getIdAndVersion } from '../../../../platform/extensionManagement/common/extensionManagementUtil.js';
 import { ExtensionStorageService } from '../../../../platform/extensionManagement/common/extensionStorage.js';
@@ -271,6 +275,15 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 				description: localize('extensionsInQuickAccess', "When enabled, extensions can be searched for via Quick Access and report issues from there."),
 				default: true
 			},
+			'extensions.allowOpenInModalEditor': {
+				type: 'boolean',
+				description: localize('extensions.allowOpenInModalEditor', "Controls whether extensions and MCP servers open in a modal editor overlay."),
+				default: false, // TODO@bpasero figure out the default for stable and retire this setting
+				tags: ['experimental'],
+				experiment: {
+					mode: 'auto'
+				}
+			},
 			[VerifyExtensionSignatureConfigKey]: {
 				type: 'boolean',
 				description: localize('extensions.verifySignature', "When enabled, extensions are verified to be signed before getting installed."),
@@ -309,6 +322,24 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 					}
 				},
 			},
+			// --- Start Positron ---
+			[PositronGallerySourceConfigKey]: {
+				type: 'string',
+				enum: ['posit-p3m', 'open-vsx'],
+				enumDescriptions: [
+					localize('positron.extensions.gallerySource.positP3m', "Posit Public Package Manager (p3m.dev) - Posit's curated extension registry (default)"),
+					localize('positron.extensions.gallerySource.openVsx', "Open VSX Registry (open-vsx.org) - the upstream open-source extension registry"),
+				],
+				enumItemLabels: [
+					localize('positron.extensions.gallerySource.positP3m.label', "Posit Public Package Manager"),
+					localize('positron.extensions.gallerySource.openVsx.label', "Open VSX Registry"),
+				],
+				description: localize('positron.extensions.gallerySource', "Choose which extension gallery (marketplace) to use for browsing and installing extensions. Changes require a restart."),
+				default: 'posit-p3m',
+				scope: ConfigurationScope.APPLICATION,
+				tags: ['usesOnlineServices'],
+			},
+			// --- End Positron ---
 			'extensions.supportNodeGlobalNavigator': {
 				type: 'boolean',
 				description: localize('extensionsSupportNodeGlobalNavigator', "When enabled, Node.js navigator object is exposed on the global scope."),

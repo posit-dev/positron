@@ -40,6 +40,9 @@ export const enum QuartoCommandId {
 	CopyOutput = 'positronQuarto.copyOutput',
 	SaveCellPlot = 'positronQuarto.saveCellPlot',
 	PopoutOutput = 'positronQuarto.popoutOutput',
+	ExpandAllOutputs = 'positronQuarto.expandAllOutputs',
+	CollapseAllOutputs = 'positronQuarto.collapseAllOutputs',
+	ToggleOutputCollapse = 'positronQuarto.toggleOutputCollapse',
 }
 
 /**
@@ -220,9 +223,9 @@ registerAction2(class InterruptKernelAction extends Action2 {
 			title: localize2('quarto.interruptKernel', "Interrupt Kernel"),
 			category: QUARTO_CATEGORY,
 			f1: true,
-			precondition: QUARTO_PRECONDITION,
+			precondition: ContextKeyExpr.and(QUARTO_PRECONDITION, QUARTO_KERNEL_BUSY),
 			keybinding: {
-				when: QUARTO_PRECONDITION,
+				when: ContextKeyExpr.and(QUARTO_PRECONDITION, QUARTO_KERNEL_BUSY),
 				weight: KeybindingWeight.WorkbenchContrib,
 				primary: KeyCode.Escape,
 			},
@@ -697,5 +700,102 @@ registerAction2(class PopoutOutputAction extends Action2 {
 		}
 
 		return true;
+	}
+});
+
+/**
+ * Expand all collapsed output view zones in the current Quarto document.
+ */
+registerAction2(class ExpandAllOutputsAction extends Action2 {
+	constructor() {
+		super({
+			id: QuartoCommandId.ExpandAllOutputs,
+			title: localize2('quarto.expandAllOutputs', "Expand All Outputs"),
+			category: QUARTO_CATEGORY,
+			f1: true,
+			precondition: QUARTO_PRECONDITION,
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const editorService = accessor.get(IEditorService);
+
+		const context = getQuartoContext(editorService);
+		if (!context) {
+			return;
+		}
+
+		const contribution = context.editor.getContribution<QuartoOutputContribution>(QuartoOutputContribution.ID);
+		contribution?.setAllOutputsCollapsed(false);
+	}
+});
+
+/**
+ * Collapse all output view zones in the current Quarto document.
+ */
+registerAction2(class CollapseAllOutputsAction extends Action2 {
+	constructor() {
+		super({
+			id: QuartoCommandId.CollapseAllOutputs,
+			title: localize2('quarto.collapseAllOutputs', "Collapse All Outputs"),
+			category: QUARTO_CATEGORY,
+			f1: true,
+			precondition: QUARTO_PRECONDITION,
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const editorService = accessor.get(IEditorService);
+
+		const context = getQuartoContext(editorService);
+		if (!context) {
+			return;
+		}
+
+		const contribution = context.editor.getContribution<QuartoOutputContribution>(QuartoOutputContribution.ID);
+		contribution?.setAllOutputsCollapsed(true);
+	}
+});
+
+/**
+ * Toggle the collapsed state of the output view zone for the cell at the
+ * current cursor position. No-op if the cursor is outside a code cell or
+ * the cell has no output view zone.
+ */
+registerAction2(class ToggleOutputCollapseAction extends Action2 {
+	constructor() {
+		super({
+			id: QuartoCommandId.ToggleOutputCollapse,
+			title: localize2('quarto.toggleOutputCollapse', "Toggle Output Collapse"),
+			category: QUARTO_CATEGORY,
+			f1: true,
+			precondition: QUARTO_PRECONDITION,
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const editorService = accessor.get(IEditorService);
+		const notificationService = accessor.get(INotificationService);
+
+		const context = getQuartoContext(editorService);
+		if (!context) {
+			return;
+		}
+
+		const { editor } = context;
+		const position = editor.getPosition();
+		if (!position) {
+			return;
+		}
+
+		const contribution = editor.getContribution<QuartoOutputContribution>(QuartoOutputContribution.ID);
+		if (!contribution) {
+			return;
+		}
+
+		const toggled = contribution.toggleOutputCollapseForCellAtLine(position.lineNumber);
+		if (!toggled) {
+			notificationService.warn(localize('quarto.toggleOutputCollapse.noOutput', "No output to collapse or expand at the current position"));
+		}
 	}
 });

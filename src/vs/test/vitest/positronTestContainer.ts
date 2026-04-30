@@ -27,6 +27,7 @@ import { createNotebookContainer } from './presets/notebook.js';
 import { createWorkbenchContainer } from './presets/workbench.js';
 import { stubReactServices } from './presets/reactServices.js';
 import { stubContributionServices } from './presets/contributionServices.js';
+import { stubNotebookEditorServices } from './presets/notebookEditor.js';
 
 interface TestContainerResult {
 	/** Retrieve a registered service by its identifier. */
@@ -59,11 +60,13 @@ type ServiceStub = { id: ServiceIdentifier<any>; impl: any };
  *   Notebook   -- base workbench + runtime + notebook/kernel services (+8)
  *   Workbench  -- full Positron stack (124+; includes runtime + notebook)
  *
- * Stackable layers (applied on top of the base; both can be used together):
- *   ReactServices        -- enables ctx.reactServices for RTL tests
- *   ContributionServices -- Event.None stubs for editor/notebook lifecycle events
+ * Stackable layers (applied on top of the base; all can be used together):
+ *   ReactServices         -- enables ctx.reactServices for RTL tests
+ *   ContributionServices  -- Event.None stubs for editor/notebook lifecycle events
+ *   NotebookEditorServices -- editor/language/tree-sitter/webview-preload stubs
+ *                            needed to attach TestCodeEditor to notebook cells
  *
- * Both layers imply the Workbench base. You can chain them:
+ * All layers imply the Workbench base. You can chain them:
  *   `createTestContainer().withReactServices().withContributionServices()`
  * applies both. Layer order does not matter; user `.stub()` calls always win.
  *
@@ -135,12 +138,13 @@ type ServiceStub = { id: ServiceIdentifier<any>; impl: any };
  *     ctx.instantiationService, ctx.disposables);
  * ```
  */
-class PositronTestContainerBuilder {
+export class PositronTestContainerBuilder {
 	private _useRuntimeServices = false;
 	private _useNotebookServices = false;
 	private _useWorkbenchServices = false;
 	private _useContributionServices = false;
 	private _useReactServices = false;
+	private _useNotebookEditorServices = false;
 	private _stubs: ServiceStub[] = [];
 
 	/** Add the 18 runtime/language services (ILanguageRuntimeService, IRuntimeSessionService, etc.) */
@@ -192,6 +196,19 @@ class PositronTestContainerBuilder {
 	}
 
 	/**
+	 * Layer: add the editor/language/tree-sitter/webview-preload services
+	 * required to attach TestCodeEditor instances to notebook cells. Use
+	 * this for tests that instantiate a PositronNotebookInstance via
+	 * `instantiateTestNotebookInstance()`.
+	 *
+	 * Implies the Workbench base. Stackable with the other layers.
+	 */
+	withNotebookEditorServices(): this {
+		this._useNotebookEditorServices = true;
+		return this;
+	}
+
+	/**
 	 * Stub a specific service. Applied after presets, so it overrides preset defaults.
 	 *
 	 * Pass a partial object with only the methods/properties your test needs.
@@ -219,14 +236,15 @@ class PositronTestContainerBuilder {
 		const useWorkbenchServices = this._useWorkbenchServices;
 		const useContributionServices = this._useContributionServices;
 		const useReactServices = this._useReactServices;
+		const useNotebookEditorServices = this._useNotebookEditorServices;
 
 		// Mutable slot -- reassigned in beforeEach so each test starts fresh.
 		let _instantiationService: TestInstantiationService;
 
 		beforeEach(() => {
-			// 1. Pick the base. Exactly one runs; most-specific wins. React
-			//    and Contribution layers both imply the Workbench base.
-			const needsWorkbench = useWorkbenchServices || useReactServices || useContributionServices;
+			// 1. Pick the base. Exactly one runs; most-specific wins. React,
+			//    Contribution, and NotebookEditor layers all imply the Workbench base.
+			const needsWorkbench = useWorkbenchServices || useReactServices || useContributionServices || useNotebookEditorServices;
 			if (needsWorkbench) {
 				_instantiationService = createWorkbenchContainer(disposables);
 			} else if (useNotebookServices) {
@@ -237,7 +255,7 @@ class PositronTestContainerBuilder {
 				_instantiationService = createBareContainer(disposables);
 			}
 
-			// 2. Apply layers additively. Both can run; order doesn't matter
+			// 2. Apply layers additively. Any can run; order doesn't matter
 			//    because they stub disjoint services today. If they ever
 			//    overlap, the later-applied layer wins -- document it then.
 			if (useReactServices) {
@@ -245,6 +263,9 @@ class PositronTestContainerBuilder {
 			}
 			if (useContributionServices) {
 				stubContributionServices(_instantiationService);
+			}
+			if (useNotebookEditorServices) {
+				stubNotebookEditorServices(_instantiationService, disposables);
 			}
 
 			// 3. User stubs last -- they always win over preset defaults.

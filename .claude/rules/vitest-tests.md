@@ -1,17 +1,10 @@
----
-paths:
-  - src/**/*.vitest.{ts,tsx}
-  - vitest.config.ts
-  - src/vs/test/vitest/**
----
-
 # Positron Vitest Tests
 
 Vitest tests for Positron code (`*.vitest.ts` / `*.vitest.tsx` in `src/vs/`) run directly on your source files -- no build daemons, no compilation step, no waiting. Run `npx vitest <file>` for watch mode (re-runs on save) or `npx vitest run <file>` for a single pass.
 
 ## Quick Start
 
-### Testing a pure function?
+### Testing a pure function
 
 1. Copy `src/vs/platform/update/test/common/positronUpdateUtils.vitest.ts`
 2. Change the import to your function
@@ -20,35 +13,27 @@ Vitest tests for Positron code (`*.vitest.ts` / `*.vitest.tsx` in `src/vs/`) run
 
 That's it. No builder, no services, no setup.
 
-### Testing a React component?
+### Testing a service or class with DI
 
-**Prop-driven or service-context?** Grep the component for `usePositronReactServicesContext`. If it appears anywhere in the file (or a child component rendered via context uses it), use service-context. When in doubt, use service-context -- it works for both.
+Use the builder to wire test services. Pick the lowest preset that covers your dependencies (see `positronTestContainer.ts` JSDoc); start low and let "missing service" errors guide you up.
 
-1. Copy `src/vs/workbench/contrib/positronConsole/test/browser/emptyConsole.vitest.tsx`
-2. Change these 4 things (everything else is boilerplate -- keep it):
-
-```tsx
-// (1) Your component import
-import { MyComponent } from '../../browser/components/myComponent.js';
-// (2) Your service import (only if you need to stub a service)
-import { IMyService } from '...';
-
-describe('MyComponent', () => {
+```ts
+describe('MyService', () => {
 	const ctx = createTestContainer()
-		.withReactServices()
-		.stub(IMyService, { getData: vi.fn() })  // (3) Your stubs
+		.withRuntimeServices()
+		.stub(IMyService, { getData: vi.fn() })
 		.build();
-	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	it('renders', () => {
-		rtl.render(<MyComponent />);              // (4) Your component + assertions
-		// ... your assertions ...
+	it('does the thing', () => {
+		const svc = ctx.instantiationService.createInstance(MyService);
+		expect(svc.doThing()).toBe(true);
 	});
 });
 ```
 
-3. Run: `npx vitest run src/vs/path/to/yourTest.vitest.tsx`
-4. If it fails with "missing service" errors, add more `.stub()` calls
+### Testing a React component
+
+Read [`vitest-rtl.md`](vitest-rtl.md) for query priority, jest-dom matcher selection, and RTL anti-patterns. That file has the React Quick Start and the full RTL convention set.
 
 ## File setup
 
@@ -73,6 +58,36 @@ describe('MyComponent', () => {
 - **Emitters inside `it()`.** Create them at describe level. `.stub()` captures the `.event` reference at describe scope during `build()`, so an emitter created later in `beforeEach` or `it()` is a different object and the stub won't fire.
 - **`flushSync` to flush React state updates.** Use `act()` from `@testing-library/react` instead. `act()` wraps updates in React's testing envelope (no warnings) and drains the queue synchronously; `flushSync` forces a sync render but doesn't wrap, producing "An update to X was not wrapped in act(...)" messages.
 
+## Builder anti-patterns
+
+Positron-specific rules not covered by a public lint plugin. The `review-vitest-tests` skill scans for these; reviewers flag any "Avoid" match that isn't covered by "Exception."
+
+- **Avoid `positronWorkbenchInstantiationService()`** -- use `createTestContainer().withWorkbenchServices().build()`.
+  *Exception:* inside shared test helpers invoked at test-runtime (inside `beforeEach` / `it`), where describe-scope `.build()` isn't viable.
+
+- **Avoid `TestInstantiationService`** (the class) -- use `createTestContainer().with<preset>().build()`. Pick the lowest preset that covers your services (see `positronTestContainer.ts` JSDoc).
+  *Exception:* used solely to bootstrap a test-helper service (e.g. `new TestCommandService(new TestInstantiationService())`) in `beforeEach`, not as a primary DI container.
+
+- **Avoid `workbenchInstantiationService()`** (upstream VS Code helper) -- use `createTestContainer().withWorkbenchServices().build()`.
+
+- **Avoid `createRuntimeServices()`** -- use `createTestContainer().withRuntimeServices().build()`.
+
+- **Avoid hand-rolled `as unknown as PositronReactServices` accessor** -- use `createTestContainer().withReactServices().stub(IService, ...).build()` + `setupRTLRenderer(() => ctx.reactServices)`.
+
+- **Avoid `{...} as unknown as <Interface>` for wide-interface partial stubs.** Use `stubInterface<T>(overrides)` from [`src/vs/test/vitest/stubInterface.ts`](../../src/vs/test/vitest/stubInterface.ts) instead: `const foo = stubInterface<IFoo>({ bar: ... });`. Unset reads throw with a clear message (instead of silently returning `undefined` through a cast) and the overrides stay typed against the real interface. See the helper's JSDoc for examples. When a purpose-built no-op already exists (e.g. `NullLogService` from `platform/log/common/log.js`, `Test*` classes under `workbench/test/**`), prefer that over `stubInterface`. For *named* test classes with constructors and internal state, the upstream `mock<T>()` helper (`src/vs/base/test/common/mock.ts`) remains the right tool.
+  *Exception:* narrowing casts where the runtime value really is the target type -- `ctx.get(IService) as TestService`, `screen.getByRole('textbox') as HTMLInputElement`, `delegate.getActions() as IAction[]`. These are not wide-interface stubs; they're telling the compiler about a value we already have.
+
+- **Avoid `PositronReactServices.services = ...` singleton mutation** -- use `createTestContainer().withReactServices().stub(...).build()` and drop the `beforeEach`/`afterEach` save/restore dance.
+  *Exception:* source class reads the singleton directly in its constructor; a 1-line bridge `PositronReactServices.services = ctx.reactServices` with an inline comment is acceptable.
+
+- **Avoid private-method test-seams** (`as TypeWithPrivates` casts that reach into a class's private members to invoke them from a test). The test couples to internal structure — renaming or splitting the private method breaks the test even when behavior is unchanged. Two cleaner alternatives, depending on the source shape:
+  - **Extract the private logic to a free exported function** the class calls. The class's closure or method becomes `() => extractedFunction(this.dep1, this.dep2)`. Tests import the function and call it directly.
+  - **If the source is an anonymous class registered with `registerAction2(class extends ... {...})`**, promote it to a named exported class. Match the pattern of nearby named action classes (e.g. `selectionKeybindings.ts`'s `SelectUpAction` / `SelectDownAction`). The body stays identical; only the structural seam changes. Tests can then construct or import the action directly.
+
+**Assertion style** (all `.vitest.*`): use `expect(x).to*(...)`, never `assert.ok` / `assert.equal` / `assert.strictEqual`.
+
+**RTL-specific rules** are enforced by `eslint-plugin-testing-library` (see `eslint.config.js` for the list). Run `npx eslint <file>` to see violations; [`vitest-rtl.md`](vitest-rtl.md) documents each pattern.
+
 ## Run commands
 
 - `npx vitest run` -- run all
@@ -85,14 +100,23 @@ describe('MyComponent', () => {
 
 **Mock utilities:** Prefer `vi.fn()` for new tests. Use `vi.spyOn(obj, 'method')` to spy while preserving the implementation. Reach for a `Test*` class or `mock.ts` only when the mock needs complex state (emitters, observable values) shared across multiple tests. `restoreMocks: true` and `clearMocks: true` are enabled globally in `vitest.config.ts`, so spies restore and call histories clear between tests automatically -- you don't need per-file `afterEach` cleanup.
 
+**Module-level mocking (`vi.mock`):** reach for this when a function's real implementation pulls in heavy transitive deps (AMD loads, large rendering pipelines, filesystem access) and your test only cares about the function's return shape. Mocking one module is cleaner than deep-stubbing its chain of dependencies. Use `vi.hoisted` to share the mock `vi.fn()` with the test body (`vi.mock` is hoisted above imports, so a top-level `vi.fn()` hits TDZ otherwise):
+
+```tsx
+const { mockRender } = vi.hoisted(() => ({ mockRender: vi.fn() }));
+vi.mock('../path/to/module.js', () => ({ renderFoo: mockRender }));
+```
+
+Prefer `.stub()` via the builder for DI services -- `vi.mock` is the escape hatch for module-level things outside the container.
+
 **Disposables in plain tests:** The builder handles disposable-leak detection automatically via `createTestContainer().build()`. Plain tests that allocate disposables directly (without the builder) still need `ensureNoLeakedDisposables()` in `beforeEach` -- see [`src/vs/test/vitest/vitestUtils.ts`](../../src/vs/test/vitest/vitestUtils.ts).
 
 **Inline snapshots:** Use `toMatchInlineSnapshot()` when you'd rather diff a known-good shape than maintain many separate assertions. Specifically: multi-property output (parser results, component markup), **exact-preservation** tests (round-trip fidelity, character-exact strings), **arrays of structured objects with 3+ entries**, **single objects projected to 3+ fields**, or when you'd otherwise write **3+ separate `.toBe()`/`.toEqual()` assertions against the same object** -- a known-good shape is easier to eyeball than a literal and survives field renames. Project structured objects to the relevant fields first: `expect({ kind, source, language }).toMatchInlineSnapshot(...)` beats snapshotting whole objects with irrelevant nested fields. For simple values, prefer `.toBe(...)`. Vitest fills and updates snapshots with `--update`; when one fails, read the diff before accepting.
 
 ## Working examples
 
-These showcase tests demonstrate the patterns at increasing complexity:
 - [positronUpdateUtils](../../src/vs/platform/update/test/common/positronUpdateUtils.vitest.ts) -- plain: pure function, no services, no builder
-- [emptyConsole](../../src/vs/workbench/contrib/positronConsole/test/browser/emptyConsole.vitest.tsx) -- React: one service, one click, behavioral assertions
-- [webviewPlotThumbnail](../../src/vs/workbench/contrib/positronPlots/test/browser/webviewPlotThumbnail.vitest.tsx) -- event-driven intro: one emitter, act(), conditional rendering
+- [webviewPlotThumbnail](../../src/vs/workbench/contrib/positronPlots/test/browser/webviewPlotThumbnail.vitest.tsx) -- event-driven intro: one emitter, `act()`, conditional rendering
 - [startupStatus](../../src/vs/workbench/contrib/positronConsole/test/browser/startupStatus.vitest.tsx) -- event-driven advanced: 6-phase state machine, 3 event subscriptions
+
+For more React/RTL-specific examples see [`vitest-rtl.md`](vitest-rtl.md).

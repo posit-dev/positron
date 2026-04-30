@@ -146,7 +146,11 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 
 	// Render.
 	return (
-		<div className='notebook-cell-quick-fix'>
+		<div
+			aria-label={localize('positron.notebook.quickFixGroup', "Cell output quick fix actions")}
+			className='notebook-cell-quick-fix'
+			role='group'
+		>
 			{/* Fix button with split dropdown */}
 			<SplitButton
 				ariaLabel={fixTooltip}

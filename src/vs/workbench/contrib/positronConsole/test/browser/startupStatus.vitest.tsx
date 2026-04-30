@@ -5,12 +5,11 @@
 
 /// <reference types="vitest/globals" />
 
-/* eslint-disable local/code-no-dangerous-type-assertions */
-
 
 import React from 'react';
-import { act } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
 import { Emitter } from '../../../../../base/common/event.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeStartupPhase } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeAutoStartEvent, IRuntimeStartupService } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
@@ -26,7 +25,7 @@ import { StartupStatus } from '../../browser/components/startupStatus.js';
 function createMockLanguageRuntimeService(initialPhase: RuntimeStartupPhase = RuntimeStartupPhase.Initializing) {
 	const onDidRegisterRuntime = new Emitter<ILanguageRuntimeMetadata>();
 	const onDidChangeRuntimeStartupPhase = new Emitter<RuntimeStartupPhase>();
-	let registeredRuntimes: ILanguageRuntimeMetadata[] = [];
+	const registeredRuntimes: ILanguageRuntimeMetadata[] = [];
 
 	return {
 		service: {
@@ -52,11 +51,12 @@ function createMockRuntimeStartupService() {
 }
 
 function makeAutoStartEvent(overrides: Partial<IRuntimeAutoStartEvent> = {}): IRuntimeAutoStartEvent {
+	const runtime = stubInterface<ILanguageRuntimeMetadata>({
+		runtimeName: 'Python 3.12.1',
+		base64EncodedIconSvg: 'PHN2Zz48L3N2Zz4=', // <svg></svg>
+	});
 	return {
-		runtime: {
-			runtimeName: 'Python 3.12.1',
-			base64EncodedIconSvg: 'PHN2Zz48L3N2Zz4=', // <svg></svg>
-		} as ILanguageRuntimeMetadata,
+		runtime,
 		newSession: true,
 		activate: true,
 		...overrides,
@@ -80,70 +80,71 @@ describe('StartupStatus', () => {
 		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 		it('shows "Waiting for extensions" during Initializing phase', () => {
-			const { container } = rtl.render(<StartupStatus />);
-			expect(container.textContent).toContain('Waiting for extensions');
+			rtl.render(<StartupStatus />);
+			expect(screen.getByText(/Waiting for extensions/)).toBeInTheDocument();
 		});
 
 		it('shows "Cannot start consoles in Restricted Mode" during AwaitingTrust phase', () => {
-			const { container } = rtl.render(<StartupStatus />);
+			rtl.render(<StartupStatus />);
 
 			act(() => {
 				langMock.onDidChangeRuntimeStartupPhase.fire(RuntimeStartupPhase.AwaitingTrust);
 			});
 
-			expect(container.textContent).toContain('Cannot start consoles in Restricted Mode');
+			expect(screen.getByText(/Cannot start consoles in Restricted Mode/)).toBeInTheDocument();
 		});
 
 		it('hides the progress bar during AwaitingTrust phase', () => {
-			const { container } = rtl.render(<StartupStatus />);
+			rtl.render(<StartupStatus />);
 
 			act(() => {
 				langMock.onDidChangeRuntimeStartupPhase.fire(RuntimeStartupPhase.AwaitingTrust);
 			});
 
-			const progressBar = container.querySelector('.progress');
-			expect(progressBar).not.toBeNull();
-			expect((progressBar as HTMLElement).style.display).toBe('none');
+			// Confirm we're in AwaitingTrust state via the user-facing message.
+			expect(screen.getByText(/Cannot start consoles in Restricted Mode/)).toBeInTheDocument();
+			const progressBar = screen.getByTestId('startup-progress-bar');
+			expect(progressBar).toHaveStyle({ display: 'none' });
 		});
 
 		it('shows "Reconnecting" during Reconnecting phase', () => {
-			const { container } = rtl.render(<StartupStatus />);
+			rtl.render(<StartupStatus />);
 
 			act(() => {
 				langMock.onDidChangeRuntimeStartupPhase.fire(RuntimeStartupPhase.Reconnecting);
 			});
 
-			expect(container.textContent).toContain('Reconnecting');
+			expect(screen.getByText(/Reconnecting/)).toBeInTheDocument();
 		});
 
 		it('shows "Setting up workspace" during NewFolderTasks phase', () => {
-			const { container } = rtl.render(<StartupStatus />);
+			rtl.render(<StartupStatus />);
 
 			act(() => {
 				langMock.onDidChangeRuntimeStartupPhase.fire(RuntimeStartupPhase.NewFolderTasks);
 			});
 
-			expect(container.textContent).toContain('Setting up workspace');
+			expect(screen.getByText(/Setting up workspace/)).toBeInTheDocument();
 		});
 
 		it('shows "Starting" during Starting phase', () => {
-			const { container } = rtl.render(<StartupStatus />);
+			rtl.render(<StartupStatus />);
 
 			act(() => {
 				langMock.onDidChangeRuntimeStartupPhase.fire(RuntimeStartupPhase.Starting);
 			});
 
-			expect(container.textContent).toContain('Starting');
+			expect(screen.getByText(/Starting/)).toBeInTheDocument();
 		});
 
 		it('shows "Discovering interpreters" during Discovering phase', () => {
-			const { container } = rtl.render(<StartupStatus />);
+			rtl.render(<StartupStatus />);
 
 			act(() => {
 				langMock.onDidChangeRuntimeStartupPhase.fire(RuntimeStartupPhase.Discovering);
 			});
 
-			expect(container.textContent).toContain('Discovering interpreters');
+			expect(screen.getByText(/Discovering interpreters/)).toBeInTheDocument();
 		});
 	});
 
@@ -158,19 +159,24 @@ describe('StartupStatus', () => {
 		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 		it('shows the count of discovered interpreters', () => {
-			const { container } = rtl.render(<StartupStatus />);
+			rtl.render(<StartupStatus />);
 
 			// Simulate discovering 2 runtimes
+			const runtime1 = stubInterface<ILanguageRuntimeMetadata>();
+			const runtime2 = stubInterface<ILanguageRuntimeMetadata>();
 			act(() => {
-				langMock.registeredRuntimes.push({} as ILanguageRuntimeMetadata);
-				langMock.onDidRegisterRuntime.fire({} as ILanguageRuntimeMetadata);
+				langMock.registeredRuntimes.push(runtime1);
+				langMock.onDidRegisterRuntime.fire(runtime1);
 			});
 			act(() => {
-				langMock.registeredRuntimes.push({} as ILanguageRuntimeMetadata);
-				langMock.onDidRegisterRuntime.fire({} as ILanguageRuntimeMetadata);
+				langMock.registeredRuntimes.push(runtime2);
+				langMock.onDidRegisterRuntime.fire(runtime2);
 			});
 
-			expect(container.textContent).toContain('(2)');
+			// The count is rendered in a sibling <span> of the "Discovering interpreters"
+			// text; toHaveTextContent matches against the full normalized textContent
+			// of the element, which includes nested span text.
+			expect(screen.getByText(/Discovering interpreters/)).toHaveTextContent('(2)');
 		});
 	});
 
@@ -185,7 +191,7 @@ describe('StartupStatus', () => {
 		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 		it('shows runtime name when auto-start event fires with activate=true', () => {
-			const { container } = rtl.render(<StartupStatus />);
+			rtl.render(<StartupStatus />);
 
 			act(() => {
 				startupMock.onWillAutoStartRuntime.fire(makeAutoStartEvent({
@@ -194,12 +200,12 @@ describe('StartupStatus', () => {
 				}));
 			});
 
-			expect(container.textContent).toContain('Python 3.12.1');
-			expect(container.textContent).toContain('Preparing');
+			expect(screen.getByText('Python 3.12.1')).toBeInTheDocument();
+			expect(screen.getByText('Preparing')).toBeInTheDocument();
 		});
 
 		it('shows "Reconnecting" for existing session auto-start', () => {
-			const { container } = rtl.render(<StartupStatus />);
+			rtl.render(<StartupStatus />);
 
 			act(() => {
 				startupMock.onWillAutoStartRuntime.fire(makeAutoStartEvent({
@@ -208,12 +214,12 @@ describe('StartupStatus', () => {
 				}));
 			});
 
-			expect(container.textContent).toContain('Python 3.12.1');
-			expect(container.textContent).toContain('Reconnecting');
+			expect(screen.getByText('Python 3.12.1')).toBeInTheDocument();
+			expect(screen.getByText('Reconnecting')).toBeInTheDocument();
 		});
 
 		it('ignores auto-start events with activate=false', () => {
-			const { container } = rtl.render(<StartupStatus />);
+			rtl.render(<StartupStatus />);
 
 			act(() => {
 				startupMock.onWillAutoStartRuntime.fire(makeAutoStartEvent({
@@ -221,25 +227,26 @@ describe('StartupStatus', () => {
 				}));
 			});
 
-			// Should still show the phase text, not the runtime name
-			expect(container.textContent).not.toContain('Python 3.12.1');
-			expect(container.textContent).toContain('Starting');
+			// Should still show the phase text, not the runtime name.
+			expect(screen.queryByText('Python 3.12.1')).not.toBeInTheDocument();
+			expect(screen.getByText(/Starting/)).toBeInTheDocument();
 		});
 
 		it('suppresses phase text when auto-start event is active', () => {
-			const { container } = rtl.render(<StartupStatus />);
+			rtl.render(<StartupStatus />);
 
 			// Initially shows "Starting..."
-			expect(container.textContent).toContain('Starting');
+			expect(screen.getByText(/Starting/)).toBeInTheDocument();
 
 			act(() => {
 				startupMock.onWillAutoStartRuntime.fire(makeAutoStartEvent());
 			});
 
-			// "Starting" text should be suppressed, replaced by runtime progress
-			expect(container.textContent).toContain('Python 3.12.1');
-			// The phase-specific text ("Starting...") is hidden when runtimeStartupEvent is set
-			expect(container.querySelector('.starting')).toBeNull();
+			// "Starting" text should be suppressed, replaced by runtime progress.
+			expect(screen.getByText('Python 3.12.1')).toBeInTheDocument();
+			// The phase-specific text ("Starting...") is hidden when runtimeStartupEvent
+			// is set; the .starting div is no longer rendered.
+			expect(screen.queryByText(/^Starting/)).not.toBeInTheDocument();
 		});
 	});
 });

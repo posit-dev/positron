@@ -15,3 +15,17 @@
 	font-family: var(--vscode-font-family);
 	font-size: var(--vscode-font-size);
 }
+
+/*
+ * The shared .inline-data-explorer-container has margin: 4px 0 and a 1px
+ * border with default content-box sizing, which makes its visual height
+ * exceed the configured pixel height (the value calculated by
+ * quartoInlineDataExplorerLayout.ts and applied to both this element and
+ * its overflow:hidden wrapper). The notebook usage works around this with
+ * negative margins; in Quarto we instead drop the margin and use border-box
+ * so the box's rendered height matches the wrapper exactly.
+ */
+.quarto-output-data-explorer .inline-data-explorer-container {
+	box-sizing: border-box;
+	margin: 0;
+}

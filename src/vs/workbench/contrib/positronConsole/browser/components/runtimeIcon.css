@@ -1,4 +1,31 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+
+.runtime-session-icon {
+	display: inline-flex;
+	align-items: center;
+	flex-shrink: 0;
+	width: 20px;
+	height: 20px;
+}
+
+/**
+ * File icon themes scope all their CSS to `.show-file-icons`.
+ * Without this class nothing renders. Each surface using RuntimeIcon
+ * has to add the class to its container.
+ *
+ * The sizing strategy used here matches IconLabel (see iconLabel.css)
+ * so Seti font glyphs and language-contributed SVGs end up the same
+ * visual size.
+ */
+.show-file-icons .runtime-session-icon::before {
+	display: inline-block;
+	font-size: 20px !important; /* override the show-file-icons default font size */
+	line-height: 20px;
+	background-size: 16px;
+	background-position: left center;
+	background-repeat: no-repeat;
+	flex-shrink: 0;
+}

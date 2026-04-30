@@ -8,7 +8,8 @@
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { ensureNoLeakedDisposables } from '../../../../test/vitest/vitestUtils.js';
-import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
+import { stubInterface } from '../../../../test/vitest/stubInterface.js';
+import { IPositronWebviewPreloadService, NotebookPreloadOutputResults } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { PositronWebviewPreloadService } from './positronWebviewPreloadsService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronNotebookOutputWebviewService, INotebookOutputWebview } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
@@ -19,7 +20,7 @@ import { URI } from '../../../../base/common/uri.js';
 
 /** Minimal stub for IPositronNotebookInstance */
 function stubNotebookInstance(id: string, uri = URI.file('/workspace/notebook.ipynb')): IPositronNotebookInstance {
-	return { getId: () => id, uri } as any;
+	return stubInterface<IPositronNotebookInstance>({ getId: () => id, uri });
 }
 
 /** Counts raw HTML webview creations */
@@ -44,7 +45,7 @@ function stubOutputWebviewService(): IPositronNotebookOutputWebviewService & { r
 		},
 		createNotebookOutputWebview: () => Promise.resolve(undefined),
 		createMultiMessageWebview: () => Promise.resolve(undefined),
-	} as any;
+	} satisfies IPositronNotebookOutputWebviewService & { rawHtmlCreationCount: number; rawHtmlBaseUris: (URI | undefined)[] };
 }
 
 describe('PositronWebviewPreloadService - addNotebookOutput rawHtml', () => {
@@ -57,12 +58,12 @@ describe('PositronWebviewPreloadService - addNotebookOutput rawHtml', () => {
 	beforeEach(() => {
 		outputWebviewService = stubOutputWebviewService();
 
-		const runtimeSessionService = {
+		const runtimeSessionService = stubInterface<IRuntimeSessionService>({
 			activeSessions: [],
 			onWillStartSession: Event.None,
-		} as unknown as IRuntimeSessionService;
+		});
 
-		const ipyWidgetsService = {} as IPositronIPyWidgetsService;
+		const ipyWidgetsService = stubInterface<IPositronIPyWidgetsService>();
 
 		service = disposables.add(new PositronWebviewPreloadService(
 			runtimeSessionService,
@@ -87,8 +88,8 @@ describe('PositronWebviewPreloadService - addNotebookOutput rawHtml', () => {
 		expect(outputWebviewService.rawHtmlCreationCount).toBe(1);
 		expect(outputWebviewService.rawHtmlBaseUris[0]?.toString()).toBe(URI.file('/workspace').toString());
 
-		// Resolve the webview promise to check the ID
-		const webview = await (result as any).webview;
+		// Resolve the webview promise to check the ID; narrow to the 'display' variant of the union.
+		const webview = await (result as Extract<NotebookPreloadOutputResults, { preloadMessageType: 'display' }>).webview;
 		expect(webview.id).toBe('out-1');
 		webview.dispose();
 	});

@@ -171,7 +171,12 @@ export class ActiveRuntimeSession extends Disposable {
 	private async startUiClientImpl(): Promise<string> {
 		// Pass initial state in the comm_open data so the backend can
 		// act on it as soon as the UI comm is established.
-		const consoleWidth = this._consoleService?.getConsoleWidth() ?? 80;
+		let consoleWidth = 80;
+		try {
+			consoleWidth = this._consoleService?.getConsoleWidth() ?? 80;
+		} catch {
+			// No active console instance; use the default width.
+		}
 		const startType = this.getStartType();
 		const commOpenData = {
 			console_width: consoleWidth,

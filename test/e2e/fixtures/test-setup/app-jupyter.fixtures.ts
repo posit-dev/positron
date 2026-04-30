@@ -5,6 +5,7 @@
 
 import * as os from 'os';
 import { join } from 'path';
+import * as playwright from '@playwright/test';
 import { Application, createApp } from '../../infra';
 import { AppFixtureOptions } from './app.fixtures';
 import { runDockerCommand, copyUserSettingsToContainer, copyKeyBindingsToContainer, RunResult } from './docker-utils';
@@ -37,13 +38,49 @@ export async function JupyterApp(
 		await app.positJupyter.lab.openPositron();
 
 		// Open the workspace folder
-		await app.workbench.quickaccess.runCommand('workbench.action.files.openFolder');
+		await app.workbench.hotKeys.openFolder();
 		await app.workbench.quickInput.waitForQuickInputOpened();
-		await app.workbench.quickInput.type(JUPYTER_WORKSPACE_PATH);
+		await playwright.expect(app.workbench.quickInput.quickInputList.locator('a').filter({ hasText: '..' })).toBeVisible();
+
+		// Navigate folder-by-folder: /home/jupyter-admin/qa-example-content/
+		// Split by '/' and filter out empty strings
+		// Skip first 2 items (home, jupyter-admin) since the picker opens to /home/jupyter-admin by default
+		const folderNames = JUPYTER_WORKSPACE_PATH.split('/').filter(part => part.length > 0).slice(2);
+
+		for (const folderName of folderNames) {
+			const quickInputOption = app.workbench.quickInput.quickInputResult.getByText(folderName);
+
+			// Ensure we are ready to select the next folder
+			const timeoutMs = 30000;
+			const retryInterval = 2000;
+			const maxRetries = Math.ceil(timeoutMs / retryInterval);
+
+			for (let i = 0; i < maxRetries; i++) {
+				try {
+					await playwright.expect(quickInputOption).toBeVisible({ timeout: retryInterval });
+					// Success — exit loop
+					break;
+				} catch (error) {
+					// Press PageDown if not found
+					await app.code.driver.currentPage.keyboard.press('PageDown');
+
+					// If last attempt, rethrow
+					if (i === maxRetries - 1) {
+						throw error;
+					}
+				}
+			}
+
+			await app.workbench.quickInput.quickInput.pressSequentially(folderName + '/');
+
+			// Ensure next folder is no longer visible
+			await playwright.expect(quickInputOption).not.toBeVisible();
+		}
+
 		await app.workbench.quickInput.clickOkButton();
 
 		// Wait for the folder to open and Positron to be ready
-		await app.code.driver.page.waitForSelector('.monaco-workbench', { timeout: 60000 });
+		await app.code.driver.currentPage.waitForSelector('.monaco-workbench', { timeout: 60000 });
 		await app.workbench.sessions.expectNoStartUpMessaging();
 		await app.workbench.sessions.deleteAll();
 

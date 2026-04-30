@@ -582,6 +582,11 @@ export const PANEL_STICKY_SCROLL_BORDER = registerColor('panelStickyScroll.borde
 export const PANEL_STICKY_SCROLL_SHADOW = registerColor('panelStickyScroll.shadow', scrollbarShadow, localize('panelStickyScrollShadow', "Shadow color of sticky scroll in the panel."));
 
 
+// < --- Browser --- >
+
+export const BROWSER_BORDER = registerColor('browser.border', TAB_BORDER, localize('browserBorder', "Border color for integrated browser pages."));
+
+
 // < --- Profiles --- >
 
 export const PROFILE_BADGE_BACKGROUND = registerColor('profileBadge.background', {
@@ -1676,14 +1681,6 @@ export const POSITRON_RUNTIME_STATE_ICON_IDLE = registerColor('positronRuntime.s
 	hcDark: '#2eb77c',
 	hcLight: '#2eb77c'
 }, localize('positronRuntime.stateIconIdle', "Positron runtime idle state icon color."));
-
-// Positron Quarto icon color.
-export const POSITRON_QUARTO_ICON = registerColor('positronConsole.quartoIcon', {
-	dark: '#4E97B4',
-	light: '#4E97B4',
-	hcDark: '#4E97B4',
-	hcLight: '#4E97B4'
-}, localize('positronConsole.quartoIcon', "Positron Quarto session icon color."));
 
 //  < --- Positron Data Grid --- >
 

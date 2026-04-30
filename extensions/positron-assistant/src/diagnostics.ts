@@ -113,14 +113,15 @@ async function getConfiguredProviders(context: vscode.ExtensionContext, log: Buf
 				fields.push(`	- Base URL: ${firstModel.baseUrl}`);
 			}
 
-			// Report if an API key is configured (check first model's ID)
 			try {
-				const apiKey = await context.secrets.get(`apiKey-${firstModel.id}`);
-				if (apiKey) {
-					fields.push(`	- API Key: Yes`);
+				const accounts = await vscode.authentication.getAccounts(provider);
+				if (accounts.length > 0) {
+					fields.push(`	- Auth Session: Active (${accounts.map(a => a.label).join(', ')})`);
+				} else {
+					fields.push(`	- Auth Session: None`);
 				}
 			} catch (error) {
-				log.trace(`Failed to check API key for model ${firstModel.id}: ${formatError(error)}`);
+				log.trace(`Failed to check credentials for model ${firstModel.id}: ${formatError(error)}`);
 			}
 
 			return fields.join('\n');
@@ -258,6 +259,11 @@ function getVersionInfo(): string {
 - OS: ${process.platform} ${process.arch}${vscode.env.remoteName ? `\n- Remote: ${vscode.env.remoteName}` : ''}`;
 }
 
+function getAuthLogs(): string {
+	const authExt = vscode.extensions.getExtension('positron.authentication');
+	return authExt?.exports?.getLogs?.() ?? 'Authentication extension not available';
+}
+
 export async function generateDiagnosticsContent(context: vscode.ExtensionContext, log: BufferedLogOutputChannel): Promise<string> {
 	return `# Positron Assistant Diagnostics
 
@@ -305,6 +311,14 @@ Recent log entries (last 500):
 
 \`\`\`
 ${log.formatEntriesForDiagnostics()}
+\`\`\`
+
+## Authentication Logs
+
+Recent log entries (last 500):
+
+\`\`\`
+${getAuthLogs()}
 \`\`\`
 
 ---

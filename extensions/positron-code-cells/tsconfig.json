@@ -2,11 +2,13 @@
 	"extends": "../tsconfig.base.json",
 	"compilerOptions": {
 		"outDir": "./out",
+		"rootDir": "./src",
 		// Exclude enclosing folders' types
 		"typeRoots": [
 			"./node_modules/@types"
 		],
 		"strict": true,
+		"skipLibCheck": true
 	},
 	"include": [
 		"src/**/*",

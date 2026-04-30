@@ -218,12 +218,6 @@
         "enablement": "config.positron.assistant.enable"
       },
       {
-        "command": "positron-assistant.resetState",
-        "title": "%commands.resetState.title%",
-        "category": "%commands.category%",
-        "enablement": "config.positron.assistant.enable"
-      },
-      {
         "command": "positron-assistant.selectGhostCellModel",
         "title": "%commands.selectGhostCellModel.title%",
         "category": "%commands.category%",
@@ -463,6 +457,11 @@
             "default": "",
             "markdownDescription": "%configuration.models.preference.anthropic.description%"
           },
+          "positron.assistant.models.preference.githubCopilot": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "%configuration.models.preference.githubCopilot.description%"
+          },
           "positron.assistant.models.preference.amazonBedrock": {
             "type": "string",
             "default": "",
@@ -497,6 +496,22 @@
             "type": "string",
             "default": "",
             "markdownDescription": "%configuration.models.preference.google.description%",
+            "tags": [
+              "advanced"
+            ]
+          },
+          "positron.assistant.models.preference.echo": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "%configuration.models.preference.echo.description%",
+            "tags": [
+              "advanced"
+            ]
+          },
+          "positron.assistant.models.preference.error": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "%configuration.models.preference.error.description%",
             "tags": [
               "advanced"
             ]
@@ -873,9 +888,6 @@
             "type": "boolean",
             "default": true,
             "markdownDescription": "%configuration.provider.positAI.enable.description%",
-            "tags": [
-              "preview"
-            ],
             "order": 8
           },
           "positron.assistant.provider.google.enable": {

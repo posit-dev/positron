@@ -24,7 +24,9 @@ import {
 import { createDeferred, Deferred } from '../common/utils/async';
 import { Architecture, getPathEnvVariable, getUserHomeDir } from '../common/utils/platform';
 import { getShortVersionString, parseVersion } from './base/info/pythonVersion';
-import { cache } from '../common/utils/decorators';
+// --- Start Positron ---
+// import { cache } from '../common/utils/decorators';
+// --- End Positron ---
 import { traceError, traceInfo, traceLog, traceVerbose, traceWarn } from '../logging';
 import { StopWatch } from '../common/utils/stopWatch';
 import { FileChangeType } from '../common/platform/fileSystemWatcher';
@@ -374,6 +376,20 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
     // can do O(1) lookups instead of re-resolving all existing envs on every
     // new env addition (which was O(N^2) total).
     private _resolvedSymlinks = new Map<string, string>();
+
+    // Cache of resolved environments, keyed by the executable path passed to
+    // resolveEnv(). Only successful resolutions are cached. Entries are
+    // invalidated in addEnv()/removeEnv() so a late-arriving discovery
+    // immediately supersedes any cached state.
+    private _resolveEnvCache = new Map<string, { info: PythonEnvInfo; expiry: number }>();
+
+    // In-flight promise deduplication for resolveEnv(). Concurrent callers for
+    // the same envPath share a single PET round-trip. The entry is cleared on
+    // settle so undefined results are never pinned (unlike the old @cache
+    // decorator whose cachePromise=true mode cached the promise itself).
+    private _resolveEnvInFlight = new Map<string, Promise<PythonEnvInfo | undefined>>();
+
+    private static readonly _resolveEnvCacheMs = 30_000;
     // --- End Positron ---
 
     constructor(private readonly finder: NativePythonFinder) {
@@ -599,6 +615,9 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
                 // in _envs yet).
                 const oldFilename = old.executable.filename;
                 this._resolvedSymlinks.delete(oldFilename);
+                // Drop any stale resolveEnv cache entry for the replaced path
+                // so late callers don't see the superseded env.
+                this._resolveEnvCache.delete(oldFilename);
                 this._envs = this._envs.filter(
                     (item) =>
                         item.executable.filename !== info.executable.filename &&
@@ -613,6 +632,14 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
                 this._envs.push(info);
                 this._onChanged.fire({ type: FileChangeType.Created, new: info, searchLocation });
             }
+            // --- Start Positron ---
+            // Publish the freshly resolved env to the resolveEnv cache so later
+            // callers hit it without spawning another PET round-trip.
+            this._resolveEnvCache.set(info.executable.filename, {
+                info,
+                expiry: Date.now() + NativePythonEnvironments._resolveEnvCacheMs,
+            });
+            // --- End Positron ---
         }
 
         return info;
@@ -624,6 +651,7 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
             this._envs = this._envs.filter((item) => item.executable.filename !== env);
             // --- Start Positron ---
             this._resolvedSymlinks.delete(env);
+            this._resolveEnvCache.delete(env);
             // --- End Positron ---
             this._onChanged.fire({ type: FileChangeType.Deleted, old });
             return;
@@ -631,15 +659,46 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
         this._envs = this._envs.filter((item) => item.executable.filename !== env.executable.filename);
         // --- Start Positron ---
         this._resolvedSymlinks.delete(env.executable.filename);
+        this._resolveEnvCache.delete(env.executable.filename);
         // --- End Positron ---
         this._onChanged.fire({ type: FileChangeType.Deleted, old: env });
     }
 
-    @cache(30_000, true)
+    // --- Start Positron ---
+    // This decorator stored the pending promise immediately, so an undefined resolution
+    // was pinned for 30s even after PET had since discovered the env. Use an explicit cache
+    // that only caches successful resolutions and is invalidated on addEnv()/removeEnv().
+    // The in-flight map deduplicates concurrent callers without caching undefined results.
+    // @cache(30_000, true)
+    // --- End Positron ---
     async resolveEnv(envPath?: string): Promise<PythonEnvInfo | undefined> {
         if (envPath === undefined) {
             return undefined;
         }
+        // --- Start Positron ---
+        const cached = this._resolveEnvCache.get(envPath);
+        if (cached && cached.expiry > Date.now()) {
+            return cached.info;
+        }
+
+        const inFlight = this._resolveEnvInFlight.get(envPath);
+        if (inFlight) {
+            return inFlight;
+        }
+
+        const promise = this._doResolveEnv(envPath);
+        this._resolveEnvInFlight.set(envPath, promise);
+        try {
+            return await promise;
+        } finally {
+            this._resolveEnvInFlight.delete(envPath);
+        }
+        // --- End Positron ---
+    }
+
+    // --- Start Positron ---
+    private async _doResolveEnv(envPath: string): Promise<PythonEnvInfo | undefined> {
+        // --- End Positron ---
         try {
             const native = await this.finder.resolve(envPath);
             if (native) {

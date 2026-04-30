@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -18,7 +18,7 @@ test.describe('Tasks', {
 
 		await openFile(join('workspaces', 'nyc-flights-data-py', 'flights-data-frame.py'));
 
-		await app.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+Shift+B' : 'Control+Shift+B');
+		await app.code.driver.currentPage.keyboard.press(process.platform === 'darwin' ? 'Meta+Shift+B' : 'Control+Shift+B');
 
 		await app.workbench.quickInput.waitForQuickInputOpened();
 		await app.workbench.quickInput.selectQuickInputElementContaining('Run Python File');
@@ -34,7 +34,7 @@ test.describe('Tasks', {
 
 		await openFile(join('workspaces', 'nyc-flights-data-r', 'flights-data-frame.r'));
 
-		await app.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+Shift+B' : 'Control+Shift+B');
+		await app.code.driver.currentPage.keyboard.press(process.platform === 'darwin' ? 'Meta+Shift+B' : 'Control+Shift+B');
 
 		await app.workbench.quickInput.waitForQuickInputOpened();
 		await app.workbench.quickInput.selectQuickInputElementContaining('Run R File');

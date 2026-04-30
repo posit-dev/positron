@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -17,7 +17,7 @@ export class HotKeys {
 	}
 
 	private isExternalBrowser(): boolean {
-		return (/(8080|8787)/.test(this.code.driver.page.url()));
+		return (/(8080|8787|8888)/.test(this.code.driver.currentPage.url()));
 	}
 
 	// ----------------------
@@ -62,7 +62,7 @@ export class HotKeys {
 
 	public async runLineOfCode() {
 		await this.pressHotKeys('Cmd+Enter', 'Run line of code');
-		await this.code.driver.page.waitForTimeout(500); // Wait for the console to process the command
+		await this.code.driver.currentPage.waitForTimeout(500); // Wait for the console to process the command
 	}
 
 	public async selectNotebookKernel() {
@@ -110,7 +110,7 @@ export class HotKeys {
 	public async closeAllEditors() {
 		await this.pressHotKeys('Cmd+K Cmd+W', 'Close all editors');
 		if (this.isExternalBrowser()) {
-			const dontSaveButton = this.code.driver.page.getByRole('button', { name: 'Don\'t Save' });
+			const dontSaveButton = this.code.driver.currentPage.getByRole('button', { name: 'Don\'t Save' });
 			if (await dontSaveButton.isVisible()) {
 				await dontSaveButton.click();
 			}
@@ -133,7 +133,7 @@ export class HotKeys {
 		const platform = process.platform;
 
 		if (platform === 'win32' || platform === 'linux') {
-			await this.code.driver.page.keyboard.press('Home');
+			await this.code.driver.currentPage.keyboard.press('Home');
 		} else {
 			await this.pressHotKeys('Cmd+ArrowUp', 'Scroll to top');
 		}
@@ -221,7 +221,7 @@ export class HotKeys {
 
 	public async closeWorkspace() {
 		await this.pressHotKeys('Cmd+J W', 'Close workspace');
-		await expect(this.code.driver.page.locator('.explorer-folders-view')).not.toBeVisible();
+		await expect(this.code.driver.currentPage.locator('.explorer-folders-view')).not.toBeVisible();
 	}
 
 	public async importSettings() {
@@ -248,10 +248,10 @@ export class HotKeys {
 		await this.pressHotKeys('Cmd+R R', 'Reload window');
 
 		// wait for workbench to disappear, reappear and be ready
-		await this.code.driver.page.waitForTimeout(3000);
-		await this.code.driver.page.locator('.monaco-workbench').waitFor({ state: 'visible' });
+		await this.code.driver.currentPage.waitForTimeout(3000);
+		await this.code.driver.currentPage.locator('.monaco-workbench').waitFor({ state: 'visible' });
 		if (waitForReady) {
-			await expect(this.code.driver.page.locator('text=/^Waiting for extensions|^Starting|^Preparing|Reconnecting|^Reactivating|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
+			await expect(this.code.driver.currentPage.locator('text=/^Waiting for extensions|^Starting|^Preparing|Reconnecting|^Reactivating|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
 		}
 	}
 
@@ -264,7 +264,7 @@ export class HotKeys {
 	}
 
 	public async openFolder() {
-		await this.pressHotKeys('Cmd+J Q', 'Open Folder');
+		await this.pressHotKeys('Cmd+J Q', 'Open Folder', true);
 	}
 
 	// -----------------------
@@ -288,7 +288,7 @@ export class HotKeys {
 	// -----------------------
 
 	public configureProviders() {
-		return this.pressHotKeys('Cmd+L B', 'Configure Language Model Providers');
+		return this.pressHotKeys('Cmd+J R', 'Configure Language Model Providers');
 	}
 
 	// -----------------------
@@ -361,7 +361,7 @@ export class HotKeys {
 		await stepWrapper(stepDescription, async () => {
 			// For external browser testing, first click on the titlebar to ensure focus
 			if (this.isExternalBrowser() && needsFocusFirst) {
-				const titlebarDragRegion = this.code.driver.page.locator('.titlebar-drag-region');
+				const titlebarDragRegion = this.code.driver.currentPage.locator('.titlebar-drag-region');
 				if (await titlebarDragRegion.isVisible()) {
 					await titlebarDragRegion.click();
 				}
@@ -376,9 +376,9 @@ export class HotKeys {
 			});
 
 			// Hacky solution to get shortcut to show up as an action in the trace
-			if (!this.code.driver.page.isClosed()) {
+			if (!this.code.driver.currentPage.isClosed()) {
 				try {
-					await this.code.driver.page.evaluate(msg => {
+					await this.code.driver.currentPage.evaluate(msg => {
 					}, `Shortcut: ${description}`);
 				} catch (e) {
 					// Ignore - context may not be ready after navigation
@@ -386,7 +386,7 @@ export class HotKeys {
 			}
 
 			for (const key of keySequences) {
-				await this.code.driver.page.keyboard.press(key);
+				await this.code.driver.currentPage.keyboard.press(key);
 			}
 		});
 	}

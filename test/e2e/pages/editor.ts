@@ -1,10 +1,11 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import test, { expect, FrameLocator, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
+import { Toasts } from './dialog-toasts';
 
 // currently a dupe of declaration in ../editor.ts but trying not to modify that file
 const EDITOR = (filename: string) => `.monaco-editor[data-uri$="${filename}"]`;
@@ -17,15 +18,15 @@ const LINE_NUMBERS = (filename: string) => `${EDITOR(filename)} .margin .margin-
 
 export class Editor {
 
-	get viewerFrame(): FrameLocator { return this.code.driver.page.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME); }
-	get playButton(): Locator { return this.code.driver.page.locator(PLAY_BUTTON); }
-	get editorPane(): Locator { return this.code.driver.page.locator('[id="workbench.parts.editor"]'); }
+	get viewerFrame(): FrameLocator { return this.code.driver.currentPage.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME); }
+	get playButton(): Locator { return this.code.driver.currentPage.locator(PLAY_BUTTON); }
+	get editorPane(): Locator { return this.code.driver.currentPage.locator('[id="workbench.parts.editor"]'); }
 
 	getEditorViewerFrame(): FrameLocator {
 		return this.viewerFrame;
 	}
 
-	constructor(private code: Code) { }
+	constructor(private code: Code, private toasts: Toasts) { }
 
 	/**
 	 * Wait for content to be visible in the editor viewer frame.
@@ -59,7 +60,7 @@ export class Editor {
 	 */
 	async selectTab(filename: string): Promise<void> {
 		await test.step(`Select tab ${filename}`, async () => {
-			await this.code.driver.page.getByRole('tab', { name: filename }).click();
+			await this.code.driver.currentPage.getByRole('tab', { name: filename }).click();
 		});
 	}
 
@@ -77,13 +78,17 @@ export class Editor {
 
 	async pressPlay(skipToastVerification: boolean = false): Promise<void> {
 		await test.step('Press play button', async () => {
-			await this.code.driver.page.locator(PLAY_BUTTON).click();
-
+			await this.code.driver.currentPage.locator(PLAY_BUTTON).click();
 			if (!skipToastVerification) {
-				// await appearance and disappearance of the toast
-				const appRunningToast = this.code.driver.page.locator('.notifications-toasts').getByText(/Running.*application:/);
-				await expect(appRunningToast).toBeVisible({ timeout: 30000 });
-				await expect(appRunningToast).not.toBeVisible({ timeout: 45000 });
+				// In smoke test mode (--enable-smoke-test-driver), toasts are suppressed to prevent
+				// covering UI elements (upstream change in 1.111.0). Check the notification center instead.
+				await this.toasts.openNotificationCenter();
+				const appRunningNotification = this.toasts.notificationsCenter
+					.locator('.notification-list-item')
+					.getByText(/Running.*application:/);
+				await expect(appRunningNotification).toBeVisible({ timeout: 30000 });
+				await expect(appRunningNotification).not.toBeVisible({ timeout: 45000 });
+				await this.toasts.closeNotificationCenter();
 			}
 		});
 	}
@@ -92,7 +97,7 @@ export class Editor {
 		const editor = EDITOR(filename);
 		const line = `${editor} .view-lines > .view-line:nth-child(${lineNumber})`;
 
-		const lineLocator = this.code.driver.page.locator(line);
+		const lineLocator = this.code.driver.currentPage.locator(line);
 
 		await lineLocator.press(press);
 	}
@@ -109,7 +114,7 @@ export class Editor {
 		let retries = 20;
 		let topValue: number = NaN;
 
-		const currentLine = this.code.driver.page.locator(CURRENT_LINE);
+		const currentLine = this.code.driver.currentPage.locator(CURRENT_LINE);
 		// Note that '..' is used to get the parent of the current-line div
 		const currentLineParent = currentLine.locator('..');
 
@@ -133,7 +138,7 @@ export class Editor {
 
 	async waitForEditorContents(filename: string, accept: (contents: string) => boolean, selectorPrefix = ''): Promise<any> {
 		const selector = [selectorPrefix || '', `${EDITOR(filename)} .view-lines`].join(' ');
-		const locator = this.code.driver.page.locator(selector);
+		const locator = this.code.driver.currentPage.locator(selector);
 
 		let content = '';
 		await expect(async () => {
@@ -151,16 +156,16 @@ export class Editor {
 		const line = `${editor} .view-lines > .view-line:nth-child(${lineNumber})`;
 		const editContext = `${editor} .native-edit-context`;
 
-		await this.code.driver.page.locator(line).click();
+		await this.code.driver.currentPage.locator(line).click();
 
 		await expect(async () => {
-			await expect(this.code.driver.page.locator(editContext)).toBeFocused();
+			await expect(this.code.driver.currentPage.locator(editContext)).toBeFocused();
 		}).toPass();
 	}
 
 	async clickOnTerm(filename: string, term: string, line: number, doubleClick: boolean = false): Promise<Locator> {
 		const selector = await this.getSelector(filename, term, line);
-		const locator = this.code.driver.page.locator(selector);
+		const locator = this.code.driver.currentPage.locator(selector);
 		doubleClick ? await locator.dblclick() : await locator.click();
 		return locator;
 	}
@@ -175,7 +180,7 @@ export class Editor {
 	}
 
 	private async getViewLineIndex(filename: string, line: number): Promise<number> {
-		const allElements = await this.code.driver.page.locator(LINE_NUMBERS(filename)).all();
+		const allElements = await this.code.driver.currentPage.locator(LINE_NUMBERS(filename)).all();
 
 		// Resolve textContent for all elements first
 		const elementsWithText = await Promise.all(allElements.map(async (el, index) => ({
@@ -197,7 +202,7 @@ export class Editor {
 
 	private async getClassSelectors(filename: string, term: string, viewline: number): Promise<{ classNames: string[]; termIndex: number }> {
 		// Locate all spans inside the line
-		const allElements = await this.code.driver.page.locator(`${VIEW_LINES(filename)}>:nth-child(${viewline}) span span`).all();
+		const allElements = await this.code.driver.currentPage.locator(`${VIEW_LINES(filename)}>:nth-child(${viewline}) span span`).all();
 
 		// Resolve all textContent values before filtering
 		const elementsWithText = await Promise.all(allElements.map(async (el, index) => ({
@@ -231,14 +236,14 @@ export class Editor {
 
 	async replaceTerm(file: string, term: string, line: number, replaceWith: string) {
 		await test.step(`Replace "${term}" on line ${line} with "${replaceWith}"`, async () => {
-			await this.code.driver.page.getByRole('tab', { name: file }).click();
+			await this.code.driver.currentPage.getByRole('tab', { name: file }).click();
 			await this.clickOnTerm(file, term, line, true);
-			await this.code.driver.page.keyboard.type(replaceWith);
+			await this.code.driver.currentPage.keyboard.type(replaceWith);
 		});
 	}
 
 	async getMonacoFilenames(): Promise<string[]> {
-		const loc = this.code.driver.page.locator('.monaco-editor[data-uri]');
+		const loc = this.code.driver.currentPage.locator('.monaco-editor[data-uri]');
 		const uris = await loc.evaluateAll(els =>
 			els.map(el => el.getAttribute('data-uri') ?? '')
 		);

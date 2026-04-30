@@ -18,10 +18,7 @@ import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
-import { ThemeIcon } from '../../../../base/common/themables.js';
-import { getSessionDisplayName, getSessionIcon, isQuartoSession } from '../../positronConsole/common/sessionDisplayUtils.js';
-import { registerThemingParticipant } from '../../../../platform/theme/common/themeService.js';
-import { POSITRON_QUARTO_ICON } from '../../../common/theme.js';
+import { getSessionDisplayName, getSessionIconClasses, isQuartoSession } from '../../positronConsole/common/sessionDisplayUtils.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { dispose } from '../../../../base/common/lifecycle.js';
@@ -39,17 +36,6 @@ import { getErrorMessage } from '../../../../base/common/errors.js';
 
 // The category for language runtime actions.
 const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Interpreter' };
-
-// Class applied to the Quarto icon in the session quickpick so it picks up the
-// Quarto theme color. IQuickPickItem only accepts a CSS class name (not a React
-// style), so we register a themed rule keyed on this class.
-const QUARTO_QUICKPICK_ICON_CLASS = 'positron-quickpick-quarto-icon';
-registerThemingParticipant((theme, collector) => {
-	const quartoColor = theme.getColor(POSITRON_QUARTO_ICON);
-	if (quartoColor) {
-		collector.addRule(`.quick-input-list-icon.${QUARTO_QUICKPICK_ICON_CLASS}.codicon { color: ${quartoColor}; }`);
-	}
-});
 
 /**
  * Builds a display label that includes the runtime name for notebook sessions
@@ -178,8 +164,20 @@ const selectLanguageRuntimeSession = async (
 	const runtimeSessionService = accessor.get(IRuntimeSessionService);
 	const commandService = accessor.get(ICommandService);
 	const modelService = accessor.get(IModelService);
+	const languageService = accessor.get(ILanguageService);
 
 	const includeNotebookSessions = options?.includeNotebookSessions ?? true;
+
+	const iconClassesForSession = (session: ILanguageRuntimeSession): string[] =>
+		getSessionIconClasses(
+			{
+				sessionMode: session.metadata.sessionMode,
+				notebookUri: session.metadata.notebookUri,
+				languageId: session.runtimeMetadata.languageId,
+			},
+			modelService,
+			languageService,
+		);
 
 	// Filter active sessions by runtime state (exclude exited/uninitialized sessions).
 	const isActiveState = (session: ILanguageRuntimeSession) => {
@@ -214,7 +212,7 @@ const selectLanguageRuntimeSession = async (
 			description: session.sessionId === foregroundSessionId
 				? localize('positron.languageRuntime.currentlySelected', 'Currently Selected')
 				: undefined,
-			iconClass: ThemeIcon.asClassName(getSessionIcon(session.metadata, modelService)),
+			iconClasses: iconClassesForSession(session),
 			picked: session.sessionId === foregroundSessionId,
 		}));
 
@@ -243,7 +241,7 @@ const selectLanguageRuntimeSession = async (
 				description: session.sessionId === foregroundSessionId
 					? localize('positron.languageRuntime.currentlySelected', 'Currently Selected')
 					: undefined,
-				iconClass: ThemeIcon.asClassName(getSessionIcon(session.metadata, modelService)),
+				iconClasses: iconClassesForSession(session),
 				picked: session.sessionId === foregroundSessionId,
 			}));
 
@@ -265,7 +263,7 @@ const selectLanguageRuntimeSession = async (
 				description: session.sessionId === foregroundSessionId
 					? localize('positron.languageRuntime.currentlySelected', 'Currently Selected')
 					: undefined,
-				iconClass: `${ThemeIcon.asClassName(getSessionIcon(session.metadata, modelService))} ${QUARTO_QUICKPICK_ICON_CLASS}`,
+				iconClasses: iconClassesForSession(session),
 				picked: session.sessionId === foregroundSessionId,
 			}));
 
@@ -388,7 +386,6 @@ const selectNewLanguageRuntime = async (
 	const runtimeSessionService = accessor.get(IRuntimeSessionService);
 	const runtimeStartupService = accessor.get(IRuntimeStartupService);
 	const languageRuntimeService = accessor.get(ILanguageRuntimeService);
-	const commandService = accessor.get(ICommandService);
 
 	// Group runtimes by language.
 	const interpreterGroups = createInterpreterGroups(languageRuntimeService, runtimeStartupService);
@@ -566,8 +563,9 @@ const selectNewLanguageRuntime = async (
 			try {
 				const runtimeId = await contributedItem.contribution.onSelect(contributedItem.originalId);
 				if (runtimeId) {
-					// Wait for runtime discovery to complete to ensure the new runtime is registered
-					await commandService.executeCommand(LANGUAGE_RUNTIME_DISCOVER_RUNTIMES_ID);
+					// Use quiet mode to suppress notifications since the picker
+					// contribution already handled registration.
+					await runtimeStartupService.rediscoverAllRuntimes(/* quiet */ true);
 					return languageRuntimeService.getRegisteredRuntime(runtimeId);
 				}
 			} catch (error) {

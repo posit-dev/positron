@@ -13,7 +13,6 @@ import rename from 'gulp-rename';
 import path from 'path';
 import unzip from 'gulp-unzip';
 import gunzip from 'gulp-gunzip';
-import untar from 'gulp-untar';
 
 /**
  * Get the base URL for the quarto download
@@ -55,7 +54,7 @@ function getQuartoMacOS(version: string): Stream {
 	})
 		// Unzip, then untar
 		.pipe(gunzip())
-		.pipe(untar());
+		.pipe(util.untar());
 }
 
 /**
@@ -76,7 +75,7 @@ function getQuartoLinux(version: string): Stream {
 	})
 		// Unzip, then untar
 		.pipe(gunzip())
-		.pipe(untar())
+		.pipe(util.untar())
 		// Remove the leading directory from the path
 		.pipe(rename((path: any) => {
 			if (path.dirname.startsWith(`quarto-${version}`)) {
@@ -139,6 +138,19 @@ export function getQuartoBinaries(): Stream {
 			if (!f.basename.startsWith('._')) {
 				return f;
 			}
+		}))
+
+		// On macOS, filter out the opposite-arch tools directory. 
+		.pipe(es.mapSync((f: any) => {
+			if (process.platform !== 'darwin') {
+				return f;
+			}
+			const targetArch = process.env['npm_config_arch'];
+			const excludeDir = path.join('quarto', 'bin', 'tools', targetArch === 'arm64' ? 'x86_64' : 'aarch64');
+			if (f.dirname && (f.dirname === excludeDir || f.dirname.startsWith(excludeDir + path.sep))) {
+				return;
+			}
+			return f;
 		}))
 
 		// Restore the executable bit on the Quarto binaries. (It's very

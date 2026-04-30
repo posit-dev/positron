@@ -19,6 +19,8 @@ import globals from 'globals';
 import pluginReact from 'eslint-plugin-react';
 import pluginReactHooks from 'eslint-plugin-react-hooks';
 import pluginJsxA11y from 'eslint-plugin-jsx-a11y';
+import pluginTestingLibrary from 'eslint-plugin-testing-library';
+import pluginJestDom from 'eslint-plugin-jest-dom';
 // --- End Positron ---
 
 const ignores = fs.readFileSync(path.join(import.meta.dirname, '.eslint-ignore'), 'utf8')
@@ -81,7 +83,7 @@ export default tseslint.config(
 			'no-var': 'warn',
 			'semi': 'warn',
 			'local/code-translation-remind': 'warn',
-			'local/code-no-native-private': 'warn',
+			'local/code-no-declare-const-enum': 'warn',
 			'local/code-parameter-properties-must-have-explicit-accessibility': 'warn',
 			'local/code-no-nls-in-standalone-editor': 'warn',
 			'local/code-no-potentially-unsafe-disposables': 'warn',
@@ -96,6 +98,7 @@ export default tseslint.config(
 			'local/code-no-localized-model-description': 'warn',
 			'local/code-policy-localization-key-match': 'warn',
 			'local/code-no-localization-template-literals': 'error',
+			'local/code-no-http-import': ['warn', { target: 'src/vs/**' }],
 			'local/code-no-deep-import-of-internal': ['error', { '.*Internal': true, 'searchExtTypesInternal': false }],
 			'local/code-layering': [
 				'warn',
@@ -188,6 +191,64 @@ export default tseslint.config(
 			'local/code-setup-react-renderer-before-disposables-check': 'error',
 		}
 	},
+	// Vitest tests -- enforce Testing Library best practices via lint.
+	{
+		files: [
+			'src/vs/**/*.vitest.ts',
+			'src/vs/**/*.vitest.tsx',
+		],
+		plugins: {
+			'testing-library': pluginTestingLibrary,
+			'jest-dom': pluginJestDom,
+		},
+		rules: {
+			// eslint-plugin-jest-dom: prefer jest-dom matchers over manual DOM
+			// reads (el.classList.contains, el.textContent, document.activeElement,
+			// etc.). Catches what grep can't -- multi-line, multi-argument,
+			// comment-skipping.
+			...pluginJestDom.configs['flat/recommended'].rules,
+
+			// Require `expect(getBy*(...)).toBeInTheDocument()` for pure
+			// existence checks rather than a bare `getBy*(...)` statement.
+			// Every assertion in a test then leads with `expect(`, which
+			// reads more uniformly.
+			'testing-library/prefer-explicit-assert': 'error',
+
+			// Flag expect(queryBy*).toBeInTheDocument() -- should use getBy*
+			// since it throws with a better message. And vice versa for absence.
+			'testing-library/prefer-presence-queries': 'error',
+
+			// Note: container.querySelector and raw DOM access are already
+			// flagged by the pre-existing local/no-restricted-syntax rule
+			// (which we disable per-line at documented structural escape
+			// hatches). testing-library/no-node-access would double-flag those
+			// sites; leaving it off avoids churn.
+
+			// Disallow render() inside beforeEach/beforeAll -- leaks state.
+			'testing-library/no-render-in-lifecycle': 'error',
+
+			// Forbid committed screen.debug() / logTestingPlaygroundURL() calls.
+			'testing-library/no-debugging-utils': 'error',
+
+			// Flag unnecessary act() wrapping (RTL auto-wraps render, userEvent, etc.).
+			'testing-library/no-unnecessary-act': 'error',
+
+			// Require `await` on async queries and utilities.
+			'testing-library/await-async-queries': 'error',
+			'testing-library/await-async-utils': 'error',
+			'testing-library/no-await-sync-queries': 'error',
+
+			// Prefer @testing-library/user-event over fireEvent -- user-event
+			// fires the full event sequence a real user triggers (e.g. click
+			// fires pointerdown/mousedown/pointerup/mouseup/click), while
+			// fireEvent dispatches one synthetic event.
+			'testing-library/prefer-user-event': 'error',
+
+			// Prefer `screen.getByX` over destructuring queries from render --
+			// avoids needing to update destructuring as queries change.
+			'testing-library/prefer-screen-queries': 'error',
+		},
+	},
 	// --- End Positron ---
 	// TS
 	{
@@ -255,11 +316,6 @@ export default tseslint.config(
 			'extensions/emmet/src/updateImageSize.ts',
 			'extensions/emmet/src/util.ts',
 			'extensions/github-authentication/src/node/fetch.ts',
-			'extensions/terminal-suggest/src/fig/figInterface.ts',
-			'extensions/terminal-suggest/src/fig/fig-autocomplete-shared/mixins.ts',
-			'extensions/terminal-suggest/src/fig/fig-autocomplete-shared/specMetadata.ts',
-			'extensions/terminal-suggest/src/terminalSuggestMain.ts',
-			'extensions/terminal-suggest/src/test/env/pathExecutableCache.test.ts',
 			'extensions/tunnel-forwarding/src/extension.ts',
 			'extensions/typescript-language-features/src/utils/platform.ts',
 			'extensions/typescript-language-features/web/src/webServer.ts',
@@ -366,11 +422,6 @@ export default tseslint.config(
 			'src/vs/workbench/contrib/output/browser/outputView.ts',
 			'src/vs/workbench/contrib/preferences/browser/settingsTree.ts',
 			'src/vs/workbench/contrib/remoteTunnel/electron-browser/remoteTunnel.contribution.ts',
-			'src/vs/workbench/contrib/tasks/browser/abstractTaskService.ts',
-			'src/vs/workbench/contrib/tasks/browser/taskTerminalStatus.ts',
-			'src/vs/workbench/contrib/tasks/browser/terminalTaskSystem.ts',
-			'src/vs/workbench/contrib/terminalContrib/chatAgentTools/browser/taskHelpers.ts',
-			'src/vs/workbench/contrib/terminalContrib/chatAgentTools/browser/tools/monitoring/outputMonitor.ts',
 			'src/vs/workbench/contrib/testing/browser/explorerProjections/listProjection.ts',
 			'src/vs/workbench/contrib/testing/browser/explorerProjections/treeProjection.ts',
 			'src/vs/workbench/contrib/testing/browser/testCoverageBars.ts',
@@ -516,6 +567,7 @@ export default tseslint.config(
 			'src/vs/platform/log/common/log.ts',
 			'src/vs/platform/log/common/logIpc.ts',
 			'src/vs/platform/log/electron-main/logIpc.ts',
+			'src/vs/platform/meteredConnection/electron-main/meteredConnectionChannel.ts',
 			'src/vs/platform/observable/common/wrapInHotClass.ts',
 			'src/vs/platform/observable/common/wrapInReloadableClass.ts',
 			'src/vs/platform/policy/common/policyIpc.ts',
@@ -636,7 +688,6 @@ export default tseslint.config(
 			'src/vs/workbench/api/common/extHostWebviewView.ts',
 			'src/vs/workbench/api/common/extHostWorkspace.ts',
 			'src/vs/workbench/api/common/extensionHostMain.ts',
-			'src/vs/workbench/api/common/shared/tasks.ts',
 			'src/vs/workbench/api/node/extHostAuthentication.ts',
 			'src/vs/workbench/api/node/extHostCLIServer.ts',
 			'src/vs/workbench/api/node/extHostConsoleForwarder.ts',
@@ -772,16 +823,6 @@ export default tseslint.config(
 			'src/vs/workbench/contrib/snippets/browser/commands/configureSnippets.ts',
 			'src/vs/workbench/contrib/snippets/browser/commands/insertSnippet.ts',
 			'src/vs/workbench/contrib/snippets/browser/snippetsService.ts',
-			'src/vs/workbench/contrib/tasks/browser/abstractTaskService.ts',
-			'src/vs/workbench/contrib/tasks/browser/runAutomaticTasks.ts',
-			'src/vs/workbench/contrib/tasks/browser/task.contribution.ts',
-			'src/vs/workbench/contrib/tasks/browser/terminalTaskSystem.ts',
-			'src/vs/workbench/contrib/tasks/common/jsonSchema_v1.ts',
-			'src/vs/workbench/contrib/tasks/common/jsonSchema_v2.ts',
-			'src/vs/workbench/contrib/tasks/common/problemMatcher.ts',
-			'src/vs/workbench/contrib/tasks/common/taskConfiguration.ts',
-			'src/vs/workbench/contrib/tasks/common/taskSystem.ts',
-			'src/vs/workbench/contrib/tasks/common/tasks.ts',
 			'src/vs/workbench/contrib/testing/common/storedValue.ts',
 			'src/vs/workbench/contrib/testing/test/browser/testObjectTree.ts',
 			'src/vs/workbench/contrib/typeHierarchy/browser/typeHierarchy.contribution.ts',
@@ -909,6 +950,36 @@ export default tseslint.config(
 			]
 		}
 	},
+	// git extension - ban non-type imports from git.d.ts (use git.constants for runtime values)
+	{
+		files: [
+			'extensions/git/src/**/*.ts',
+		],
+		ignores: [
+			'extensions/git/src/api/git.constants.ts',
+		],
+		languageOptions: {
+			parser: tseslint.parser,
+		},
+		plugins: {
+			'@typescript-eslint': tseslint.plugin,
+		},
+		rules: {
+			'no-restricted-imports': 'off',
+			'@typescript-eslint/no-restricted-imports': [
+				'warn',
+				{
+					'patterns': [
+						{
+							'group': ['*/api/git'],
+							'allowTypeImports': true,
+							'message': 'Use \'import type\' for types from git.d.ts and import runtime const enum values from git.constants instead'
+						},
+					]
+				}
+			]
+		}
+	},
 	// vscode API
 	{
 		files: [
@@ -970,6 +1041,11 @@ export default tseslint.config(
 						'collapse',
 						'create',
 						'delete',
+						'lock',
+						'resume',
+						'shutdown',
+						'suspend',
+						'unlock',
 						'discover',
 						'dispose',
 						'drop',
@@ -1784,6 +1860,7 @@ export default tseslint.config(
 						'vs/workbench/~',
 						'vs/workbench/services/*/~',
 						'vs/workbench/contrib/*/~',
+						'vs/sessions/~',
 						'vs/workbench/contrib/terminal/terminalContribChatExports*',
 						'vs/workbench/contrib/terminal/terminalContribExports*',
 						'vscode-notebook-renderer', // Type only import
@@ -1858,6 +1935,17 @@ export default tseslint.config(
 							'when': 'hasBrowser',
 							'pattern': 'vs/workbench/services/*/~'
 						}
+					]
+				},
+				{
+					'target': 'src/vs/sessions/electron-browser/sessions.ts',
+					'layer': 'electron-browser',
+					'restrictions': [
+						'vs/base/~',
+						'vs/base/parts/*/~',
+						'vs/platform/*/~',
+						'vs/sessions/~',
+						'vs/sessions/sessions.desktop.main.js'
 					]
 				},
 				{
@@ -1984,7 +2072,8 @@ export default tseslint.config(
 				},
 				{
 					// Vitest infrastructure imports from base, platform, workbench,
-					// and editor to wire up the full DI container for tests.
+					// and editor to wire up the full DI container for tests, plus
+					// Testing Library packages for React component test setup.
 					'target': 'src/vs/test/vitest/**',
 					'restrictions': [
 						'vs/nls.js',
@@ -1994,6 +2083,8 @@ export default tseslint.config(
 						'vs/editor/**',
 						'vs/workbench/**',
 						'vs/test/vitest/**',
+						'@testing-library/jest-dom/vitest',
+						'@testing-library/react',
 					]
 				},
 				// --- End Positron ---
@@ -2012,7 +2103,100 @@ export default tseslint.config(
 						'src/*.js',
 						'*' // node.js
 					]
-				}
+				},
+				{
+					'target': 'src/vs/sessions/sessions.common.main.ts',
+					'layer': 'browser',
+					'restrictions': [
+						'vs/base/~',
+						'vs/base/parts/*/~',
+						'vs/platform/*/~',
+						'vs/editor/~',
+						'vs/editor/contrib/*/~',
+						'vs/editor/editor.all.js',
+						'vs/workbench/~',
+						'vs/workbench/api/~',
+						'vs/workbench/services/*/~',
+						'vs/workbench/contrib/*/~',
+						'vs/workbench/contrib/terminal/terminal.all.js'
+					]
+				},
+				{
+					'target': 'src/vs/sessions/sessions.desktop.main.ts',
+					'layer': 'electron-browser',
+					'restrictions': [
+						'vs/base/*/~',
+						'vs/base/parts/*/~',
+						'vs/platform/*/~',
+						'vs/editor/~',
+						'vs/editor/contrib/*/~',
+						'vs/editor/editor.all.js',
+						'vs/sessions/~',
+						'vs/sessions/contrib/*/~',
+						'vs/workbench/~',
+						'vs/workbench/api/~',
+						'vs/workbench/services/*/~',
+						'vs/workbench/contrib/*/~',
+						'vs/sessions/sessions.common.main.js'
+					]
+				},
+				{
+					'target': 'src/vs/sessions/~',
+					'restrictions': [
+						'vs/base/~',
+						'vs/base/parts/*/~',
+						'vs/platform/*/~',
+						'vs/editor/~',
+						'vs/editor/contrib/*/~',
+						'vs/workbench/~',
+						'vs/workbench/browser/**',
+						'vs/workbench/contrib/**',
+						'vs/workbench/services/*/~',
+						'vs/sessions/~',
+						'vs/sessions/services/*/~'
+					]
+				},
+				{
+					'target': 'src/vs/sessions/contrib/*/~',
+					'restrictions': [
+						'vs/base/~',
+						'vs/base/parts/*/~',
+						'vs/platform/*/~',
+						'vs/editor/~',
+						'vs/editor/contrib/*/~',
+						'vs/workbench/~',
+						'vs/workbench/browser/**',
+						'vs/workbench/services/*/~',
+						'vs/workbench/contrib/*/~',
+						'vs/sessions/~',
+						'vs/sessions/contrib/*/~'
+					]
+				},
+				{
+					'target': 'src/vs/sessions/services/*/~',
+					'restrictions': [
+						'vs/base/~',
+						'vs/base/parts/*/~',
+						'vs/platform/*/~',
+						'vs/editor/~',
+						'vs/editor/contrib/*/~',
+						'vs/workbench/~',
+						'vs/workbench/services/*/~',
+						'vs/sessions/services/*/~',
+						{
+							'when': 'test',
+							'pattern': 'vs/workbench/contrib/*/~'
+						}, // TODO@layers
+						'tas-client', // node module allowed even in /common/
+						'vscode-textmate', // node module allowed even in /common/
+						'@vscode/vscode-languagedetection', // node module allowed even in /common/
+						'@vscode/tree-sitter-wasm', // type import
+						{
+							'when': 'hasBrowser',
+							'pattern': '@xterm/xterm'
+						} // node module allowed even in /browser/
+					]
+				},
 			]
 		}
 	},
@@ -2152,6 +2336,29 @@ export default tseslint.config(
 			'comma-dangle': ['warn', 'only-multiline']
 		}
 	},
+	// Extension main sources (excluding tests)
+	{
+		files: [
+			'extensions/**/*.ts',
+		],
+		ignores: [
+			'extensions/**/*.test.ts',
+		],
+		rules: {
+			// Ban dynamic require() and import() calls in extensions to ensure tree-shaking works
+			'no-restricted-syntax': [
+				'warn',
+				{
+					'selector': `CallExpression[callee.name='require'][arguments.0.type!='Literal']`,
+					'message': 'Use static imports instead of dynamic require() calls to enable tree-shaking.'
+				},
+				{
+					'selector': `ImportExpression[source.type!='Literal']`,
+					'message': 'Use static imports instead of dynamic import() calls to enable tree-shaking.'
+				},
+			],
+		}
+	},
 	// markdown-language-features
 	{
 		files: [
@@ -2184,9 +2391,12 @@ export default tseslint.config(
 	// Additional extension strictness rules
 	{
 		files: [
-			'extensions/markdown-language-features/**/*.ts',
-			'extensions/mermaid-chat-features/**/*.ts',
-			'extensions/media-preview/**/*.ts',
+			'extensions/markdown-language-features/src/**/*.ts',
+			'extensions/markdown-language-features/notebook/**/*.ts',
+			'extensions/markdown-language-features/preview-src/**/*.ts',
+			'extensions/mermaid-chat-features/chat-webview-src/**/*.ts',
+			'extensions/mermaid-chat-features/src/**/*.ts',
+			'extensions/media-preview/src/**/*.ts',
 			'extensions/simple-browser/**/*.ts',
 			'extensions/typescript-language-features/**/*.ts',
 		],
@@ -2242,4 +2452,58 @@ export default tseslint.config(
 			],
 		}
 	},
+	// --- Start Positron ---
+	// Vitest tests: promote RTL-relevant rules to errors so warnings can't
+	// accumulate silently. The review-vitest-tests skill catches these with
+	// `npx eslint --max-warnings 0`, but authors don't always run it; pre-commit
+	// and CI fail on errors but tolerate warnings, so keep the gate at the
+	// authoritative level. Escape hatches still work via line-scoped
+	// // eslint-disable-next-line with a justification comment.
+	{
+		files: [
+			'src/vs/**/*.vitest.ts',
+			'src/vs/**/*.vitest.tsx',
+		],
+		rules: {
+			// Manual type assertions (as any, as T) hide bugs in tests the same
+			// way they do in runtime code. Prefer typed Partial<...> helpers.
+			'local/code-no-any-casts': 'error',
+			// Selector-based DOM queries are the escape hatch (see vitest-rtl.md).
+			// Error-level enforcement forces authors to either add a data-testid
+			// or disable per-line with a justification.
+			'no-restricted-syntax': [
+				'error',
+				{
+					'selector': 'CallExpression[callee.property.name=\'querySelector\']',
+					'message': 'querySelector is an RTL escape hatch: prefer screen.getByRole/getByTestId. If a semantic query genuinely does not fit, disable per line with a justification (see .claude/rules/vitest-rtl.md).'
+				},
+				{
+					'selector': 'CallExpression[callee.property.name=\'querySelectorAll\']',
+					'message': 'querySelectorAll is an RTL escape hatch: prefer screen.getAllByRole/getAllByTestId. If no semantic query fits, disable per line with a justification (see .claude/rules/vitest-rtl.md).'
+				},
+				{
+					'selector': 'CallExpression[callee.property.name=\'getElementById\']',
+					'message': 'getElementById is an RTL escape hatch: prefer screen.getByRole/getByTestId. If no semantic query fits, disable per line with a justification (see .claude/rules/vitest-rtl.md).'
+				},
+				{
+					'selector': 'CallExpression[callee.property.name=\'getElementsByClassName\']',
+					'message': 'getElementsByClassName is an RTL escape hatch: prefer semantic queries. If no semantic query fits, disable per line with a justification (see .claude/rules/vitest-rtl.md).'
+				},
+				{
+					'selector': 'CallExpression[callee.property.name=\'getElementsByTagName\']',
+					'message': 'getElementsByTagName is an RTL escape hatch: prefer semantic queries. If no semantic query fits, disable per line with a justification (see .claude/rules/vitest-rtl.md).'
+				},
+				{
+					'selector': 'CallExpression[callee.property.name=\'getElementsByName\']',
+					'message': 'getElementsByName is an RTL escape hatch: prefer semantic queries. If no semantic query fits, disable per line with a justification (see .claude/rules/vitest-rtl.md).'
+				},
+				// Keep the Intl helper restriction even in tests.
+				{
+					'selector': `NewExpression[callee.object.name='Intl']`,
+					'message': 'Use safeIntl helper instead for safe and lazy use of potentially expensive Intl methods.'
+				},
+			],
+		}
+	},
+	// --- End Positron ---
 );

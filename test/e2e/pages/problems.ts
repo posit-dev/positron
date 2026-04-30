@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -12,14 +12,14 @@ const TIMEOUT_STANDARD = 30000;
 
 export class Problems {
 
-	get problemsTab(): Locator { return this.code.driver.page.getByRole('tab', { name: 'Problems' }); }
-	get problemsView(): Locator { return this.code.driver.page.locator('.panel .markers-panel'); }
+	get problemsTab(): Locator { return this.code.driver.currentPage.getByRole('tab', { name: 'Problems' }); }
+	get problemsView(): Locator { return this.code.driver.currentPage.locator('.panel .markers-panel'); }
 	get problemsViewWarning(): Locator { return this.problemsView.locator('.marker-icon .codicon-warning'); }
 	get problemsViewError(): Locator { return this.problemsView.locator('.marker-icon .codicon-error'); }
 	get problemsCount(): Locator { return this.problemsTab.locator('.badge-content'); }
 	get problemsRow(): Locator { return this.problemsView.locator('.monaco-tl-row'); }
-	get warningSquiggly(): Locator { return this.code.driver.page.locator('.view-overlays .cdr.squiggly-warning'); }
-	get errorSquiggly(): Locator { return this.code.driver.page.locator('.view-overlays .cdr.squiggly-error'); }
+	get warningSquiggly(): Locator { return this.code.driver.currentPage.locator('.view-overlays .cdr.squiggly-warning'); }
+	get errorSquiggly(): Locator { return this.code.driver.currentPage.locator('.view-overlays .cdr.squiggly-error'); }
 
 	constructor(private code: Code, private quickaccess: QuickAccess) { }
 

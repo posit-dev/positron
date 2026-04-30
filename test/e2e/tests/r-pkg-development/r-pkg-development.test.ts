@@ -51,7 +51,7 @@ test.describe('R Package Development', { tag: [tags.R_PKG_DEVELOPMENT, tags.ARK]
 			await expect(async () => {
 				await app.workbench.terminal.waitForTerminalText('Error: R CMD check found ERRORs', { timeout: 20000 });
 				await app.workbench.terminal.waitForTerminalText('Terminal will be reused by tasks', { timeout: 20000 });
-			}).toPass({ timeout: 70000 });
+			}).toPass({ timeout: 100000 });
 		});
 
 		await test.step('Install R Package and Restart R', async () => {

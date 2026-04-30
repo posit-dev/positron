@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -14,11 +14,11 @@ export class Terminal {
 	terminalTab: Locator;
 
 	constructor(private code: Code, private quickaccess: QuickAccess, private clipboard: Clipboard) {
-		this.terminalTab = this.code.driver.page.getByRole('tab', { name: 'Terminal' }).locator('a');
+		this.terminalTab = this.code.driver.currentPage.getByRole('tab', { name: 'Terminal' }).locator('a');
 	}
 
 	async sendKeysToTerminal(key: string) {
-		await this.code.driver.page.keyboard.press(key);
+		await this.code.driver.currentPage.keyboard.press(key);
 	}
 
 	async clickTerminalTab() {
@@ -42,19 +42,19 @@ export class Terminal {
 			await this.code.wait(2000);
 
 			if (process.platform !== 'darwin') {
-				await this.handleContextMenu(this.code.driver.page.locator(TERMINAL_WRAPPER), 'Select All');
+				await this.handleContextMenu(this.code.driver.currentPage.locator(TERMINAL_WRAPPER), 'Select All');
 			} else {
-				await this.code.driver.page.locator(TERMINAL_WRAPPER).click();
-				await this.code.driver.page.keyboard.press('Meta+A');
+				await this.code.driver.currentPage.locator(TERMINAL_WRAPPER).click();
+				await this.code.driver.currentPage.keyboard.press('Meta+A');
 			}
 
 			// wait a little between selection and copy
 			await this.code.wait(1000);
 
 			if (process.platform !== 'darwin') {
-				await this.handleContextMenu(this.code.driver.page.locator(TERMINAL_WRAPPER), 'Copy');
+				await this.handleContextMenu(this.code.driver.currentPage.locator(TERMINAL_WRAPPER), 'Copy');
 			} else {
-				await this.code.driver.page.keyboard.press('Meta+C');
+				await this.code.driver.currentPage.keyboard.press('Meta+C');
 			}
 
 			const text = await this.clipboard.getClipboardText();
@@ -76,7 +76,7 @@ export class Terminal {
 	async waitForTerminalLines() {
 
 		await expect(async () => {
-			const terminalLines = await this.code.driver.page.locator(TERMINAL_WRAPPER).all();
+			const terminalLines = await this.code.driver.currentPage.locator(TERMINAL_WRAPPER).all();
 			expect(terminalLines.length).toBeGreaterThan(0);
 		}).toPass();
 	}
@@ -87,18 +87,18 @@ export class Terminal {
 	}
 
 	private async _waitForTerminal(): Promise<void> {
-		await expect(this.code.driver.page.locator('.terminal.xterm.focus')).toBeVisible();
+		await expect(this.code.driver.currentPage.locator('.terminal.xterm.focus')).toBeVisible();
 		await this.waitForTerminalLines();
 	}
 
 	async runCommandInTerminal(commandText: string): Promise<void> {
 		await this.sendTextToTerminal(commandText);
-		await this.code.driver.page.locator(TERMINAL_WRAPPER).click();
-		await this.code.driver.page.keyboard.press('Enter');
+		await this.code.driver.currentPage.locator(TERMINAL_WRAPPER).click();
+		await this.code.driver.currentPage.keyboard.press('Enter');
 	}
 
 	async sendTextToTerminal(text: string) {
-		const consoleInput = this.code.driver.page.locator(TERMINAL_WRAPPER);
+		const consoleInput = this.code.driver.currentPage.locator(TERMINAL_WRAPPER);
 
 		await expect(consoleInput).toBeVisible();
 
@@ -114,7 +114,7 @@ export class Terminal {
 
 	async logTerminalContents() {
 		await test.step('Log terminal contents', async () => {
-			const terminalRows = this.code.driver.page.locator('.xterm-rows > div');
+			const terminalRows = this.code.driver.currentPage.locator('.xterm-rows > div');
 			const terminalContents = (await terminalRows.evaluateAll((rows) =>
 				rows.map((row) => {
 					const spans = row.querySelectorAll('span');
@@ -140,7 +140,7 @@ export class Terminal {
 		try {
 			await locator.click({ button: 'right', timeout: 2000 });
 		} catch { }
-		const menu = this.code.driver.page.locator('.monaco-menu');
+		const menu = this.code.driver.currentPage.locator('.monaco-menu');
 
 		// dismissing dialog can be erratic, allow retries
 		for (let i = 0; i < 4; i++) {

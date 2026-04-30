@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { Emitter, Event } from '../../../../../base/common/event.js';
-import { DisposableStore, toDisposable } from '../../../../../base/common/lifecycle.js';
+import { DisposableStore, IDisposable, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { ResourceMap } from '../../../../../base/common/map.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ILanguageRuntimeMetadata, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
@@ -26,6 +26,11 @@ import { IRuntimeNotebookKernelService } from '../../common/interfaces/runtimeNo
 import { RuntimeNotebookKernelService } from '../../browser/runtimeNotebookKernelService.js';
 import { POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../../common/runtimeNotebookKernelConfig.js';
 import { mock } from '../../../../../base/test/common/mock.js';
+
+/** Shape of Jupyter notebook metadata set by RuntimeNotebookKernelService when a kernel is selected. */
+interface NotebookLanguageInfo {
+	readonly language_info: { readonly name: string };
+}
 
 describe('Positron - RuntimeNotebookKernelService', () => {
 	const ctx = createTestContainer().withWorkbenchServices().build();
@@ -71,7 +76,7 @@ describe('Positron - RuntimeNotebookKernelService', () => {
 		// before instantiating a new one with our custom INotebookService stub.
 		const existingService = ctx.instantiationService.get(IRuntimeNotebookKernelService);
 		if (existingService && 'dispose' in existingService) {
-			(existingService as any).dispose();
+			(existingService as IDisposable).dispose();
 		}
 
 		// Instantiate the runtime notebook kernel service BEFORE registering runtimes,
@@ -119,7 +124,7 @@ describe('Positron - RuntimeNotebookKernelService', () => {
 		notebookKernelService.selectKernelForNotebook(kernel, notebookDocument);
 
 		// Check the language in the notebook document metadata.
-		expect((notebookDocument.metadata.metadata as any).language_info.name).toBe(runtime.languageId);
+		expect((notebookDocument.metadata.metadata as NotebookLanguageInfo).language_info.name).toBe(runtime.languageId);
 
 		// Check each cell's language.
 		for (const cell of notebookDocument.cells) {

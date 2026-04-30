@@ -33,7 +33,7 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 import { showCustomContextMenu, CustomContextMenuSubmenu, CustomContextMenuEntry } from '../../../../browser/positronComponents/customContextMenu/customContextMenu.js';
 import { CustomContextMenuItem } from '../../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
-import { applySortToQuery, PackagesSortOrder, parseQuery } from './packagesQuery.js';
+import { applyFilterToQuery, applySortToQuery, PackagesFilter, PackagesSortOrder, parseQuery } from './packagesQuery.js';
 
 const positronUninstallPackage = localize(
 	'positronUninstallPackage',
@@ -155,9 +155,11 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	const [debouncedQueryText, setDebouncedQueryText] = useState('');
 	const filterRef = useRef<ActionBarFilterHandle>(null);
 
-	// Current sort derived from the immediate (non-debounced) query so the
-	// sort menu's checked state updates without waiting for the debounce.
-	const currentSort = useMemo(() => parseQuery(queryText).sort, [queryText]);
+	// Current sort and filter derived from the immediate (non-debounced) query
+	// so the menu's checked state updates without waiting for the debounce.
+	const currentQuery = useMemo(() => parseQuery(queryText), [queryText]);
+	const currentSort = currentQuery.sort;
+	const currentFilter = currentQuery.filter;
 
 	// Clear selection when filter text changes.
 	const handleFilterTextChanged = (text: string) => {
@@ -195,6 +197,12 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	const filteredPackages = useMemo(() => {
 		let result = deduplicatedPackages;
 
+		if (debouncedQuery.filter === PackagesFilter.Outdated) {
+			result = result.filter((pkg) => pkg.latestVersion && pkg.latestVersion !== pkg.version);
+		} else if (debouncedQuery.filter === PackagesFilter.Attached) {
+			result = result.filter((pkg) => pkg.attached === true);
+		}
+
 		if (debouncedQuery.text) {
 			const lowerFilter = debouncedQuery.text.toLowerCase();
 			result = result.filter((pkg) =>
@@ -223,6 +231,8 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		undefined,
 	);
 	const innerRef = useRef<HTMLElement>(undefined!);
+
+	const [visible, setVisible] = useState(true);
 	useEffect(() => {
 		const disposableStore = new DisposableStore();
 		disposableStore.add(
@@ -245,13 +255,18 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 				}
 			}),
 		);
+		disposableStore.add(
+			reactComponentContainer.onVisibilityChanged((isVisible) => {
+				setVisible(isVisible);
+			}),
+		);
 		return () => disposableStore.dispose();
 	}, [reactComponentContainer, scrollStateRef, setScrollState]);
 
 	// Item renderer
 	const ItemEntry = (props: { index: number; style: CSSProperties }) => {
 		const itemProps = filteredPackages[props.index];
-		const { id, name, displayName, version, latestVersion } = itemProps;
+		const { id, name, displayName, version, latestVersion, attached } = itemProps;
 
 		// Check if package has an update available
 		const hasUpdate = latestVersion && latestVersion !== version;
@@ -311,6 +326,18 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 					}
 				}}
 			>
+				{attached !== undefined && (
+					<span
+						aria-label={attached
+							? localize('positronPackages.attachedAriaLabel', "{0} is attached", name)
+							: localize('positronPackages.notAttachedAriaLabel', "{0} is not attached", name)}
+						className={positronClassNames('packages-list-item-attached', { attached })}
+						role='img'
+						title={attached
+							? localize('positronPackages.attachedTooltip', "{0} is attached", name)
+							: localize('positronPackages.notAttachedTooltip', "{0} is not attached", name)}
+					/>
+				)}
 				<div className='packages-list-item-name'>{displayName}</div>
 				<div className='packages-list-item-version'>{version}</div>
 				{hasUpdate && (
@@ -337,10 +364,41 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 
 	// Rewrite the filter input to reflect the selected sort. The input is the
 	// source of truth, so updating it flows back through onFilterTextChanged
-	// and re-derives every dependent state.
+	// and re-derives every dependent state. A trailing space is appended so
+	// the user can immediately type free-text without first pressing space;
+	// focus returns to the input for the same reason.
 	const selectSort = (sort: PackagesSortOrder) => {
-		filterRef.current?.setFilterText(applySortToQuery(queryText, sort));
+		const newText = applySortToQuery(queryText, sort);
+		filterRef.current?.setFilterText(newText === '' ? '' : `${newText} `);
+		filterRef.current?.focus();
 	};
+
+	// Rewrite the filter input to reflect the selected category filter.
+	const selectFilter = (filter: PackagesFilter) => {
+		const newText = applyFilterToQuery(queryText, filter);
+		filterRef.current?.setFilterText(newText === '' ? '' : `${newText} `);
+		filterRef.current?.focus();
+	};
+
+	// Build the Filter submenu entries. Evaluated lazily so the checked state
+	// reflects the current input when the submenu is opened.
+	const filterSubmenuEntries = (): CustomContextMenuEntry[] => [
+		new CustomContextMenuItem({
+			label: localize('positronPackages.filterByAll', "All Packages"),
+			checked: currentFilter === PackagesFilter.All,
+			onSelected: () => selectFilter(PackagesFilter.All),
+		}),
+		new CustomContextMenuItem({
+			label: localize('positronPackages.filterByOutdated', "Outdated"),
+			checked: currentFilter === PackagesFilter.Outdated,
+			onSelected: () => selectFilter(PackagesFilter.Outdated),
+		}),
+		new CustomContextMenuItem({
+			label: localize('positronPackages.filterByAttached', "Attached"),
+			checked: currentFilter === PackagesFilter.Attached,
+			onSelected: () => selectFilter(PackagesFilter.Attached),
+		}),
+	];
 
 	// Build the Sort submenu entries. Evaluated lazily so the checked state
 	// reflects the current input when the submenu is opened.
@@ -365,6 +423,11 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 			popupAlignment: 'auto',
 			minWidth: 160,
 			entries: [
+				new CustomContextMenuSubmenu({
+					icon: 'list-filter',
+					label: localize('positronPackages.filterLabel', "Filter"),
+					entries: filterSubmenuEntries,
+				}),
 				new CustomContextMenuSubmenu({
 					icon: 'arrow-swap-vertical',
 					label: localize('positronPackages.sortLabel', "Sort"),
@@ -406,6 +469,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 					</div>
 				) : (
 					<List
+						key={visible ? 'visible' : 'hidden'}
 						height={height - FILTER_HEIGHT}
 						innerRef={innerRef}
 						itemCount={filteredPackages.length}

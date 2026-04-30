@@ -15,7 +15,7 @@ import { ConsoleOutputLines } from './consoleOutputLines.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { ActivityItemErrorMessage } from '../../../../services/positronConsole/browser/classes/activityItemErrorMessage.js';
 import { ConsoleQuickFix } from './activityErrorQuickFix.js';
-import { usePositronConfiguration, usePositronContextKey } from '../../../../../base/browser/positronReactHooks.js';
+import { usePositronConfiguration, usePositronContextKey, usePositronExtensionInstalled } from '../../../../../base/browser/positronReactHooks.js';
 
 // ActivityErrorProps interface.
 export interface ActivityErrorMessageProps {
@@ -35,10 +35,17 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 	const [showTraceback, setShowTraceback] = useState(false);
 
 	// Configuration hooks.
-	const enableAssistant = usePositronConfiguration<boolean>('positron.assistant.enable');
 	const enableAssistantActions = usePositronConfiguration<boolean>('positron.assistant.consoleActions.enable');
+	const positAssistantInstalled = usePositronExtensionInstalled('posit.assistant');
+	// Set by the built-in positron-assistant extension when any direct provider
+	// or vscode.lm model is available. Posit Assistant shares the same
+	// vscode.authentication credentials, so a true value here implies it has at
+	// least one usable provider too.
+	// TODO: When Positron Assistant is deprecated in favor of Posit Assistant,
+	// replace this with a signal owned by Posit Assistant (context key or
+	// equivalent) - this key goes away with the built-in extension.
 	const hasChatModels = usePositronContextKey<boolean>('positron-assistant.hasChatModels');
-	const showAssistantActions = enableAssistant && hasChatModels && enableAssistantActions;
+	const showAssistantActions = enableAssistantActions && positAssistantInstalled && !!hasChatModels;
 
 	// Traceback useEffect.
 	useEffect(() => {

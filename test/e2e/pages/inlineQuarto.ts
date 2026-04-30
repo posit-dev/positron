@@ -20,11 +20,14 @@ const OUTPUT_CLOSE = '.quarto-output-close';
 const OUTPUT_COPY = '.quarto-output-copy';
 const OUTPUT_SAVE = '.quarto-output-save';
 const OUTPUT_POPOUT = '.quarto-output-popout';
+const OUTPUT_COLLAPSE_CHEVRON = '.quarto-output-collapse-chevron';
+const OUTPUT_COLLAPSED_CLASS = /quarto-output-collapsed/;
 const OUTPUT_STDOUT = '.quarto-output-stdout';
 const OUTPUT_HTML = '.quarto-output-html';
 const OUTPUT_IMAGE = '.quarto-output-image';
 const OUTPUT_ERROR = '.quarto-output-error';
 const OUTPUT_WEBVIEW = '.quarto-output-webview-container';
+const OUTPUT_DATA_EXPLORER = '.quarto-output-data-explorer';
 const IMAGE_PREVIEW_WRAPPER = '.quarto-image-preview-wrapper';
 const IMAGE_PREVIEW = '.quarto-image-preview';
 const IMAGE_PREVIEW_ERROR = '.quarto-image-preview-error';
@@ -53,6 +56,7 @@ export class InlineQuarto {
 	readonly copyButton: Locator;
 	readonly saveButton: Locator;
 	readonly popoutButton: Locator;
+	readonly collapseChevron: Locator;
 	readonly stdoutOutput: Locator;
 	readonly htmlOutput: Locator;
 	readonly imageOutput: Locator;
@@ -69,7 +73,7 @@ export class InlineQuarto {
 		this.code = code;
 		this.quickaccess = quickaccess;
 		this.hotKeys = hotKeys;
-		const page = code.driver.page;
+		const page = code.driver.currentPage;
 
 		this.kernelStatusWidget = page.locator(KERNEL_STATUS_WIDGET);
 		this.inlineOutput = page.locator(INLINE_OUTPUT);
@@ -83,12 +87,15 @@ export class InlineQuarto {
 		this.copyButton = page.locator(`${INLINE_OUTPUT} ${OUTPUT_COPY}`);
 		this.saveButton = page.locator(`${INLINE_OUTPUT} ${OUTPUT_SAVE}`);
 		this.popoutButton = page.locator(`${INLINE_OUTPUT} ${OUTPUT_POPOUT}`);
+		// Chevron is portaled into the editor's overflow-guard, so it's not a
+		// descendant of `.quarto-inline-output` and must be located on the page.
+		this.collapseChevron = page.locator(OUTPUT_COLLAPSE_CHEVRON);
 		this.stdoutOutput = page.locator(`${INLINE_OUTPUT} ${OUTPUT_STDOUT}`);
 		this.htmlOutput = page.locator(`${INLINE_OUTPUT} ${OUTPUT_HTML}`);
 		this.imageOutput = page.locator(`${INLINE_OUTPUT} ${OUTPUT_IMAGE}`);
 		this.errorOutput = page.locator(`${INLINE_OUTPUT} ${OUTPUT_ERROR}`);
 		this.webviewContainer = page.locator(`${INLINE_OUTPUT} ${OUTPUT_WEBVIEW}`);
-		this.webviewOrHtmlOutput = page.locator(`${INLINE_OUTPUT}`).locator(`${OUTPUT_WEBVIEW}, ${OUTPUT_HTML}`);
+		this.webviewOrHtmlOutput = page.locator(`${INLINE_OUTPUT}`).locator(`${OUTPUT_WEBVIEW}, ${OUTPUT_HTML}, ${OUTPUT_DATA_EXPLORER}`);
 		this.imagePreviewWrapper = page.locator(IMAGE_PREVIEW_WRAPPER);
 		this.imagePreview = page.locator(IMAGE_PREVIEW);
 		this.imagePreviewError = page.locator(IMAGE_PREVIEW_ERROR);
@@ -123,8 +130,8 @@ export class InlineQuarto {
 	async gotoLine(lineNumber: number): Promise<void> {
 		await test.step(`Go to line ${lineNumber}`, async () => {
 			await this.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
-			await this.code.driver.page.keyboard.type(String(lineNumber));
-			await this.code.driver.page.keyboard.press('Enter');
+			await this.code.driver.currentPage.keyboard.type(String(lineNumber));
+			await this.code.driver.currentPage.keyboard.press('Enter');
 		});
 	}
 
@@ -214,6 +221,15 @@ export class InlineQuarto {
 		});
 	}
 
+	async clickCollapseChevron(index = 0): Promise<void> {
+		await test.step(`Click collapse chevron on output ${index}`, async () => {
+			// Hover the wrapper to reveal the portaled chevron.
+			await this.getInlineOutputAt(index).hover();
+			await expect(this.collapseChevron.nth(index)).toBeVisible({ timeout: 5000 });
+			await this.collapseChevron.nth(index).click();
+		});
+	}
+
 	async runPopoutCommand(): Promise<void> {
 		await test.step('Run popout output command', async () => {
 			await this.quickaccess.runCommand('positronQuarto.popoutOutput');
@@ -222,7 +238,7 @@ export class InlineQuarto {
 
 	async selectStdoutTextViaDrag(): Promise<void> {
 		await test.step('Select stdout text via click-and-drag', async () => {
-			const page = this.code.driver.page;
+			const page = this.code.driver.currentPage;
 			const boundingBox = await this.stdoutOutput.first().boundingBox();
 			expect(boundingBox).not.toBeNull();
 
@@ -266,6 +282,18 @@ export class InlineQuarto {
 	async expectOutputVisible({ index = 0, timeout = 30000 }: { index?: number; timeout?: number } = {}): Promise<void> {
 		await test.step(`Expect output at index ${index} visible on screen`, async () => {
 			await expect(this.getOutputContentAt(index)).toBeVisible({ timeout });
+		});
+	}
+
+	async expectOutputCollapsed({ index = 0, timeout = 5000 }: { index?: number; timeout?: number } = {}): Promise<void> {
+		await test.step(`Expect output at index ${index} collapsed`, async () => {
+			await expect(this.getInlineOutputAt(index)).toHaveClass(OUTPUT_COLLAPSED_CLASS, { timeout });
+		});
+	}
+
+	async expectOutputExpanded({ index = 0, timeout = 5000 }: { index?: number; timeout?: number } = {}): Promise<void> {
+		await test.step(`Expect output at index ${index} expanded`, async () => {
+			await expect(this.getInlineOutputAt(index)).not.toHaveClass(OUTPUT_COLLAPSED_CLASS, { timeout });
 		});
 	}
 
@@ -339,7 +367,7 @@ export class InlineQuarto {
 
 	async expectTextSelectedAndContains(expectedStrings: string[]): Promise<void> {
 		await test.step(`Verify text is selected and contains one of: ${expectedStrings.join(', ')}`, async () => {
-			const selectedText = await this.code.driver.page.evaluate(() => {
+			const selectedText = await this.code.driver.currentPage.evaluate(() => {
 				const selection = window.getSelection();
 				return selection ? selection.toString().trim() : '';
 			});

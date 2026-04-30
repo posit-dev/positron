@@ -263,7 +263,9 @@ export function registerAssistantTools(
 						options.input.code,
 						true,  // focus console
 						true,  // allow incomplete input, so that incomplete statements error right away
-						positron.RuntimeCodeExecutionMode.Interactive,
+						// Use non-interactive mode so that code doesn't get combined with
+						// anything pending in the console
+						positron.RuntimeCodeExecutionMode.NonInteractive,
 						positron.RuntimeErrorBehavior.Stop,
 						observer,
 						options.input.sessionIdentifier);

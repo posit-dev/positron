@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -31,14 +31,14 @@ test.describe('Large Python Notebook', {
 		// scroll through the notebook and count unique plot outputs
 		await layouts.enterLayout('notebook');
 		await runCommand('notebook.focusTop');
-		await app.code.driver.page.locator('span').filter({ hasText: 'import pandas as pd' }).locator('span').first().click();
+		await app.code.driver.currentPage.locator('span').filter({ hasText: 'import pandas as pd' }).locator('span').first().click();
 
 		const allFigures: any[] = [];
 		const uniqueLocators = new Set<string>();
 
 		for (let i = 0; i < 12; i++) {
 
-			await app.code.driver.page.keyboard.press('PageDown');
+			await app.code.driver.currentPage.keyboard.press('PageDown');
 
 			const figureLocator = app.workbench.notebooks.frameLocator.locator('.plot-container');
 			const figures = await figureLocator.all();

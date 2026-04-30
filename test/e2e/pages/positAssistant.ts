@@ -32,6 +32,10 @@ const CHAT_INPUT = 'textarea[placeholder="Ask Posit Assistant... Type / to see c
 const SEND_BUTTON = 'button:has(svg.lucide-arrow-up)';
 const STOP_BUTTON = 'button:has(svg.lucide-square)';
 
+// Chat-form overflow (...) menu — hosts the model picker for providers
+// (like OpenAI) that do not auto-select a default model.
+const CHAT_FORM_OVERFLOW_BUTTON = '.chat-form button[aria-haspopup="menu"]:has(svg.lucide-ellipsis)';
+
 // Chat message elements
 const CHAT_MESSAGE_USER = '.chat-message-user';
 const CHAT_MESSAGE_ASSISTANT = '.chat-message-assistant';
@@ -67,7 +71,7 @@ export class PositAssistant {
 	 * All UI elements live inside this nested iframe.
 	 */
 	get frame(): FrameLocator {
-		return this.code.driver.page.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME);
+		return this.code.driver.currentPage.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME);
 	}
 
 	/**
@@ -75,7 +79,7 @@ export class PositAssistant {
 	 * Clicks the activity bar icon if it is not already selected.
 	 */
 	async open(): Promise<void> {
-		const button = this.code.driver.page.locator(ACTIVITY_BAR_BUTTON);
+		const button = this.code.driver.currentPage.locator(ACTIVITY_BAR_BUTTON);
 		const isSelected = await button.locator('..').getAttribute('aria-selected');
 		if (isSelected !== 'true') {
 			await button.click();
@@ -204,6 +208,47 @@ export class PositAssistant {
 	async waitForResponseComplete(timeout: number = 60000): Promise<void> {
 		await this.frame.locator(STOP_BUTTON).waitFor({ state: 'visible' });
 		await this.frame.locator(STOP_BUTTON).waitFor({ state: 'hidden', timeout });
+	}
+
+	// --- Model selection ---
+
+	/**
+	 * Selects a model for the current conversation.
+	 *
+	 * In narrow viewports the Posit Assistant renders the model picker in
+	 * "menu mode" (see `ModelSelector.tsx`). The chat-form overflow (`...`)
+	 * menu contains a `DropdownMenuSub` whose trigger has two spans:
+	 * `"Model"` (label) and either the currently-selected model name or
+	 * `"Select"` (value when none is selected). Clicking the trigger opens
+	 * a submenu with provider groups and their models.
+	 *
+	 * Each model is a `role="menuitem"` whose display name lives in a
+	 * child `<span class="flex-1">`; the accessible name of the menuitem
+	 * includes decorations (check icon column, trailing note/multiplier),
+	 * so we match on the span text instead.
+	 *
+	 * Some providers auto-pick a default and do not need this call. Models
+	 * beyond the initial slice are hidden behind a "More models" inline
+	 * disclosure — add that fallback when a test needs a non-top-tier model.
+	 *
+	 * @param modelName Exact model name as displayed in the menu (e.g. "GPT-5.4 Mini").
+	 */
+	async selectModel(modelName: string): Promise<void> {
+		// 1. Open the chat-form overflow menu.
+		await this.frame.locator(CHAT_FORM_OVERFLOW_BUTTON).click();
+
+		// 2. Open the "Model" submenu. The SubTrigger is identifiable as a
+		//    menuitem with aria-haspopup="menu" that contains the literal
+		//    "Model" label span; that label is stable across states.
+		await this.frame.locator('[role="menuitem"][aria-haspopup="menu"]:has(span:text-is("Model"))').click();
+
+		// 3. Click the desired model. `:text-is()` is exact-match so
+		//    "GPT-5.4" does not collide with "GPT-5.4 Mini".
+		await this.frame.locator(`[role="menuitem"]:has(span.flex-1:text-is("${modelName}"))`).click();
+
+		// Menu closes on selection; wait for the trigger to collapse so
+		// subsequent actions (e.g. Send) don't race an open overlay.
+		await expect(this.frame.locator(CHAT_FORM_OVERFLOW_BUTTON)).toHaveAttribute('aria-expanded', 'false');
 	}
 
 	// --- Chat messages ---
@@ -439,8 +484,8 @@ export class PositAssistant {
 
 		// 5. Clicking Reload reloads the window natively. Wait for the
 		//    workbench to come back up.
-		await this.code.driver.page.waitForTimeout(3000);
-		await this.code.driver.page.locator('.monaco-workbench').waitFor({ state: 'visible' });
+		await this.code.driver.currentPage.waitForTimeout(3000);
+		await this.code.driver.currentPage.locator('.monaco-workbench').waitFor({ state: 'visible' });
 	}
 
 }

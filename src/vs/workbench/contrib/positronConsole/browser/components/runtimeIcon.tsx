@@ -4,38 +4,28 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import './runtimeStatus.css';
+import './runtimeIcon.css';
 
 // Other dependencies.
-import { IModelService } from '../../../../../editor/common/services/model.js';
 import { LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
-import { getSessionIcon, getSessionIconStyle } from '../../common/sessionDisplayUtils.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { getSessionIconClasses } from '../../common/sessionDisplayUtils.js';
 import { URI } from '../../../../../base/common/uri.js';
 
 export interface RuntimeIconProps {
-	base64EncodedIconSvg: string | undefined;
 	sessionMode: LanguageRuntimeSessionMode;
 	notebookUri?: URI;
-	modelService: IModelService;
+	languageId: string;
+	'data-testid'?: string;
 }
 
-export const RuntimeIcon = ({ base64EncodedIconSvg, sessionMode, notebookUri, modelService }: RuntimeIconProps) => {
-	const classNames = ['icon'];
-
-	if (sessionMode === LanguageRuntimeSessionMode.Notebook) {
-		const icon = getSessionIcon({ sessionMode, notebookUri }, modelService);
-		const style = getSessionIconStyle({ sessionMode, notebookUri }, modelService);
-		classNames.push(...ThemeIcon.asClassNameArray(icon));
-		return <span className={positronClassNames(...classNames)} style={style}></span>;
-	}
-
-	if (base64EncodedIconSvg === undefined) {
-		return null;
-	}
-	return <img
-		className={positronClassNames(...classNames)}
-		src={`data:image/svg+xml;base64,${base64EncodedIconSvg}`}
-	/>;
+export const RuntimeIcon = ({ sessionMode, notebookUri, languageId, 'data-testid': dataTestId }: RuntimeIconProps) => {
+	const services = usePositronReactServicesContext();
+	const iconClasses = getSessionIconClasses(
+		{ sessionMode, notebookUri, languageId },
+		services.modelService,
+		services.languageService,
+	);
+	return <span className={positronClassNames('runtime-session-icon', ...iconClasses)} data-testid={dataTestId}></span>;
 };

@@ -6,6 +6,9 @@
 // CSS.
 import './runtimeOffline.css';
 
+// React.
+import { memo } from 'react';
+
 // Other dependencies.
 import { ConsoleOutputLines } from './consoleOutputLines.js';
 import { RuntimeItemOffline } from '../../../../services/positronConsole/browser/classes/runtimeItemOffline.js';
@@ -18,13 +21,12 @@ export interface RuntimeOfflineProps {
 /**
  * RuntimeOffline component.
  * @param props A RuntimeOfflineProps that contains the component properties.
- * @returns The rendered component.
+ * @returns The memoized component.
  */
-export const RuntimeOffline = (props: RuntimeOfflineProps) => {
-	// Render.
+export const RuntimeOffline = memo((props: RuntimeOfflineProps) => {
 	return (
 		<div className='runtime-offline'>
 			<ConsoleOutputLines outputLines={props.runtimeItemOffline.outputLines} />
 		</div>
 	);
-};
+});

@@ -36,7 +36,7 @@ import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../servic
 import { ILanguageRuntimeService, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
-import { autorunDelta, observableFromEvent, observableValue, runOnChange } from '../../../../base/common/observable.js';
+import { autorunDelta, IObservable, observableFromEvent, observableValue, runOnChange } from '../../../../base/common/observable.js';
 import { ResourceMap } from '../../../../base/common/map.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { cellToCellDto2 } from './cellClipboardUtils.js';
@@ -142,8 +142,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		const existingInstance = PositronNotebookInstance._instanceMap.get(uri);
 		if (existingInstance) {
-			// Make sure we're starting with a fresh view
-			existingInstance.detachView();
+			// Do NOT detach here -- attachView's internal detachView handles
+			// any re-attachment, and the unconditional detach this used to do
+			// would tear down a render cached in PositronNotebookEditor.
 			existingInstance._creationOptions = creationOptions;
 			return existingInstance;
 		}
@@ -190,6 +191,14 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Read by the React component on mount to restore the scroll position.
 	 */
 	private _restoredScrollPosition: IPositronNotebookResolvedScrollPosition | undefined;
+
+	/**
+	 * Bumped on every `restoreEditorViewState` call. The notebook React
+	 * component subscribes to this so its scroll-restoration layout effect
+	 * re-fires on cache-hit setInput, where the React tree is reused.
+	 */
+	private readonly _restoreScrollPositionRequest = observableValue<number>('restoreScrollPositionRequest', 0);
+	readonly restoreScrollPositionRequest: IObservable<number> = this._restoreScrollPositionRequest;
 
 	/**
 	 * The DOM element that contains the cells for the notebook.
@@ -448,7 +457,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 		this._logService.debug(this.id, 'Generating new notebook options');
 
-		this._notebookOptions = this._instantiationService.createInstance(NotebookOptions, DOM.getActiveWindow(), this.isReadOnly, undefined);
+		this._notebookOptions = this._register(
+			this._instantiationService.createInstance(NotebookOptions, DOM.getActiveWindow(), this.isReadOnly, undefined)
+		);
 
 		// Reset per-cell scrolling overrides when the global output scrolling setting
 		// changes so all cells follow the new default.
@@ -2002,6 +2013,24 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._restoredScrollPosition = anchor && anchor.cellIndex < cells.length
 			? { cell: cells[anchor.cellIndex], offsetFromCell: anchor.offsetFromCell }
 			: undefined;
+		this._restoreScrollPositionRequest.set(this._restoreScrollPositionRequest.get() + 1, undefined);
+	}
+
+	/**
+	 * Synchronously snap scrollTop to the position last set by
+	 * `restoreEditorViewState`, without consuming it. The editor calls this
+	 * on the cache-hit reattach path so the user never sees a paint at
+	 * scrollTop=0 between appendChild and the React layout effect that
+	 * runs the rAF refinement loop.
+	 */
+	snapToRestoredScrollPosition(): void {
+		const container = this._cellsContainer;
+		if (!container) { return; }
+		const scrollPosition = this._restoredScrollPosition;
+		if (!scrollPosition) { return; }
+		const cellTop = this.getCellTop(scrollPosition.cell);
+		if (cellTop === undefined) { return; }
+		container.scrollTop = cellTop + scrollPosition.offsetFromCell;
 	}
 
 	/**
@@ -2064,14 +2093,19 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	/**
-	 * Detaches the notebook view from its container and cleans up resources.
+	 * Detach the view so contribution lifecycle (find, etc.) sees the
+	 * detach. Does NOT dispose _notebookOptions -- a cached React tree
+	 * retains references to it that must stay valid while parked off-DOM.
 	 */
 	detachView(): void {
 		this.container.set(undefined, undefined);
 		this._overlayContainer = undefined;
 		this._logService.debug(this.id, 'detachView');
-		this._notebookOptions?.dispose();
-		this._notebookOptions = undefined;
+	}
+
+	/** Whether this instance's view is currently attached to `container`. */
+	isAttachedTo(container: HTMLElement): boolean {
+		return this.container.get() === container;
 	}
 
 	/**

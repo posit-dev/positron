@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -116,7 +116,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 			const screenshotPath = join(logsPath, 'app-start-failure.png');
 			try {
-				const page = app.code?.driver?.page;
+				const page = app.code?.driver?.currentPage;
 				if (page) {
 					appFixtureScreenshot = await page.screenshot({ path: screenshotPath });
 				}
@@ -129,7 +129,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 			await stop();
 			renamedLogsPath = await renameTempLogsDir(logger, logsPath, workerInfo);
 		}
-	}, { scope: 'worker', auto: true, timeout: 60000 }],
+	}, { scope: 'worker', auto: true, timeout: 90000 }],
 
 	assistant: [
 		async ({ app }, use) => {
@@ -274,7 +274,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 	}, { auto: true, scope: 'test' }],
 
 	page: async ({ app }, use) => {
-		await use(app.code.driver.page);
+		await use(app.code.driver.currentPage);
 	},
 
 	autoTestFixture: [async ({ logger, suiteId, app }, use, testInfo) => {

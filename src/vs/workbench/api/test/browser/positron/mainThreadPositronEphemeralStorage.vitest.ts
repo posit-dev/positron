@@ -5,10 +5,10 @@
 
 /// <reference types="vitest/globals" />
 
-import { mock } from '../../../../../base/test/common/mock.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { EphemeralStateService } from '../../../../../platform/ephemeralState/common/ephemeralStateService.js';
-import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
+import { IWorkspace, IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { IExtHostContext } from '../../../../services/extensions/common/extHostCustomers.js';
 import { MainThreadPositronEphemeralStorage } from '../../../browser/positron/mainThreadPositronEphemeralStorage.js';
 
@@ -16,11 +16,9 @@ import { MainThreadPositronEphemeralStorage } from '../../../browser/positron/ma
 const TEST_WORKSPACE_ID = 'test-workspace-id';
 
 function createMockWorkspaceContextService(): IWorkspaceContextService {
-	return new class extends mock<IWorkspaceContextService>() {
-		override getWorkspace() {
-			return { id: TEST_WORKSPACE_ID, folders: [] } as any;
-		}
-	};
+	return stubInterface<IWorkspaceContextService>({
+		getWorkspace: () => stubInterface<IWorkspace>({ id: TEST_WORKSPACE_ID, folders: [] }),
+	});
 }
 
 describe('MainThreadPositronEphemeralStorage', function () {
@@ -29,7 +27,7 @@ describe('MainThreadPositronEphemeralStorage', function () {
 
 	let ephemeralStateService: EphemeralStateService;
 	let storage: MainThreadPositronEphemeralStorage;
-	const mockExtHostContext = new class extends mock<IExtHostContext>() { };
+	const mockExtHostContext = stubInterface<IExtHostContext>();
 	const mockWorkspaceContextService = createMockWorkspaceContextService();
 
 	beforeEach(function () {
@@ -89,11 +87,9 @@ describe('MainThreadPositronEphemeralStorage', function () {
 		await storage.$setEphemeralValue('ext.a', 'workspace-1-value');
 
 		// Create a second storage instance with a different workspace ID
-		const otherWorkspaceService = new class extends mock<IWorkspaceContextService>() {
-			override getWorkspace() {
-				return { id: 'other-workspace-id', folders: [] } as any;
-			}
-		};
+		const otherWorkspaceService = stubInterface<IWorkspaceContextService>({
+			getWorkspace: () => stubInterface<IWorkspace>({ id: 'other-workspace-id', folders: [] }),
+		});
 		const storage2 = new MainThreadPositronEphemeralStorage(mockExtHostContext, ephemeralStateService, otherWorkspaceService);
 
 		// The second workspace should not see the first workspace's value

@@ -14,6 +14,7 @@ extensions/**/dist/
 /out*/
 /extensions/**/out/
 build/node_modules
+build/darwin/.dmgbuild
 coverage/
 test_data/
 test-results/
@@ -56,5 +57,9 @@ test/e2e/tests/assistant-eval/_results/
 vsix-cache/
 product.json.backup
 *.lic
+.superset/
 # --- End Positron ---
 test-output.json
+test/componentFixtures/.screenshots/*
+!test/componentFixtures/.screenshots/baseline/
+dist

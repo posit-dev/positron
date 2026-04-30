@@ -157,7 +157,7 @@ test('test', async function ({ page, sessions }) {
 ```typescript
 test('test', async function ({ app, sessions }) {
 	await sessions.start('python');
-	const page = app.code.driver.page;  // Access page from app
+	const page = app.code.driver.currentPage;  // Access page from app
 });
 
 // Or use page fixture directly

@@ -12,6 +12,7 @@ import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase 
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { registerEditorContribution, EditorContributionInstantiation } from '../../../../editor/browser/editorExtensions.js';
+import { isCodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { QuartoDocumentModelService, IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { QuartoKernelManager, IQuartoKernelManager } from './quartoKernelManager.js';
 import { QuartoExecutionManager, IQuartoExecutionManager } from './quartoExecutionManager.js';
@@ -31,7 +32,6 @@ import {
 	isQuartoDocument,
 	isQuartoOrRmdFile,
 } from '../common/positronQuartoConfig.js';
-import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { QuartoKernelState } from './quartoKernelManager.js';
 import { ILanguageRuntimeService, RuntimeStartupPhase } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { MenuId } from '../../../../platform/actions/common/actions.js';
@@ -268,8 +268,8 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 
 		// Get language ID from the editor model if available
 		let languageId: string | undefined;
-		if (activeEditor && 'getModel' in activeEditor) {
-			const model = (activeEditor as ICodeEditor).getModel();
+		if (isCodeEditor(activeEditor)) {
+			const model = activeEditor.getModel();
 			languageId = model?.getLanguageId();
 		}
 

@@ -78,6 +78,7 @@ export const ActionBarButtonIcon = (props: {
 	icon: IconType;
 	style?: React.CSSProperties;
 	dropdownIndicator?: string;
+	'data-testid'?: string;
 }) => {
 	return (
 		<Icon
@@ -86,6 +87,7 @@ export const ActionBarButtonIcon = (props: {
 				props.dropdownIndicator,
 				{ 'custom-icon-color': Boolean(props.style) }
 			)}
+			data-testid={props['data-testid']}
 			icon={props.icon}
 			style={props.style}
 		/>
@@ -104,10 +106,12 @@ export const ActionBarButtonLabel = (props: {
 	label: string;
 	hasIcon?: boolean;
 	maxTextWidth?: number;
+	'data-testid'?: string;
 }) => {
 	return (
 		<div
 			className='action-bar-button-label'
+			data-testid={props['data-testid']}
 			style={{
 				marginLeft: props.hasIcon ? 0 : 4,
 				maxWidth: optionalValue(props.maxTextWidth, 'none')

@@ -488,6 +488,20 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	restoreEditorViewState(viewState: IPositronNotebookViewState | undefined): void;
 
 	/**
+	 * Bumped on every `restoreEditorViewState` call so subscribers (the React
+	 * component's scroll-restoration layout effect) re-fire on cache-hit
+	 * setInput, where the React tree is reused.
+	 */
+	readonly restoreScrollPositionRequest: IObservable<number>;
+
+	/**
+	 * Synchronously snap scrollTop to the last restored position without
+	 * consuming it. Editor calls this on cache-hit reattach to prevent a
+	 * one-frame paint at scrollTop=0 before the React layout effect runs.
+	 */
+	snapToRestoredScrollPosition(): void;
+
+	/**
 	 * Fire the scroll event for the cells container.
 	 * Called by React when scroll or DOM mutations occur.
 	 */

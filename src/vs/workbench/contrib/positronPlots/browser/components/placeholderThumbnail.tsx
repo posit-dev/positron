@@ -6,9 +6,16 @@
 // CSS.
 import './placeholderThumbnail.css';
 
+// Other dependencies.
+import { localize } from '../../../../../nls.js';
+
 export const PlaceholderThumbnail = () => {
 	return (
-		<div className='plot-thumbnail-placeholder'>
+		<div
+			aria-label={localize('positron.plots.placeholderThumbnail', "Plot thumbnail placeholder")}
+			className='plot-thumbnail-placeholder'
+			role='img'
+		>
 			<span className='codicon codicon-graph' />
 		</div>
 	);

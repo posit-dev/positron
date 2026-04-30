@@ -14,7 +14,7 @@ $ARGUMENTS should contain the test file path(s) to review. For each test file, a
 ## Setup
 
 1. Read each test file and its source file.
-2. Read `.claude/rules/vitest-tests.md` for patterns, conventions, and common mistakes.
+2. Read `.claude/rules/vitest-tests.md` for patterns, conventions, and common mistakes. For any `.vitest.tsx` file under review, also read `.claude/rules/vitest-rtl.md`.
 3. Read the builder JSDoc: `src/vs/test/vitest/positronTestContainer.ts`
 
 ## Checklist (per test file)
@@ -25,9 +25,15 @@ Evaluate each test file against this checklist. Report ONLY items that fail -- d
 
 Any variables, emitters, or imports declared but never referenced in a test? Suite-level `let` variables that only exist for setup wiring should be inlined into the stub objects instead. Also flag excessive imports: if 5+ service identifiers are imported only for `.stub()` calls, suggest extracting the stubs into a helper function to reduce the import block.
 
-### 2. Builder adoption
+### 2. Anti-patterns
 
-Is the test using `createTestContainer()`? Flag any usage of `positronWorkbenchInstantiationService()` or `createRuntimeServices()` as a failure -- use the builder's presets instead. The only exception is plain tests (no services) that use `ensureNoLeakedDisposables()` directly for disposable tracking.
+- **Builder adoption + assertion style:** scan against the "Builder anti-patterns" table in `.claude/rules/vitest-tests.md`. For each match, report `file:line`, the pattern found, and the row's "Use instead" value. Respect the "Exception" column.
+- **Lint:** run `npx eslint --max-warnings 0 <file>` on every `.vitest.*` under review. The flag is required -- the pre-commit hook only fails on errors, so warnings accumulate silently without it. Report each finding with `file:line` and the rule name. The active rule sets include `eslint-plugin-testing-library` (query/action patterns) and `eslint-plugin-jest-dom` (matcher preferences — `prefer-to-have-focus`, `prefer-to-have-class`, `prefer-to-have-text-content`, etc.).
+- **Suppression audit:** `grep -nE "eslint-disable.*(testing-library|jest-dom)/" <file>`. A clean lint run with a disable is not the same as a clean file. For each match, check the adjacent comment (or the commit that added it): does it name a real technical constraint, or is it convenience ("avoiding an await", "tests already passed")? Convenience disables should be rewritten to match the rule, not suppressed.
+- **Wide-interface stub casts:** `grep -nE "as unknown as " <file>`. Each hit is a candidate for `stubInterface<T>()` or a `Null*`/`Test*` prebuilt -- see the "Avoid `{...} as unknown as <Interface>`" bullet in `.claude/rules/vitest-tests.md`. Skip narrowing casts where the runtime value really is the target type (`ctx.get(IService) as TestService`, `getByRole(...) as HTMLInputElement`, `getActions() as IAction[]`).
+- **Private-method test-seams:** `grep -nE "type \w+WithPrivates|as \w+WithPrivates" <file>` — and any cast pattern that reaches into a class's private members from a test. Each hit is a candidate for the "Avoid private-method test-seams" rule in `.claude/rules/vitest-tests.md`: extract the private logic to a free exported function, or (for anonymous registered classes) promote to a named exported class. Document the recommended fix in the review finding.
+
+The rules files (`vitest-tests.md`, `vitest-rtl.md`) are the single source of truth; this skill intentionally doesn't duplicate lists so they can't drift.
 
 ### 3. Setup weight
 
@@ -60,10 +66,6 @@ Any `new Emitter()` created inside an `it()` callback whose `.event` is expected
 ### 10. Spy cleanup
 
 Any `vi.spyOn(console, ...)` or `vi.spyOn(obj, 'method')` without a corresponding restore? Accept only `restoreMocks: true` in the vitest config, `afterEach(() => vi.restoreAllMocks())`, or `spy.mockRestore()` inside a `finally` block. Flag inline `mockRestore()` placed after `expect` calls as fragile -- a failing assertion skips it, and the spy leaks into subsequent tests. (Note: the project's `vitest.config.ts` already sets `restoreMocks: true` globally, so most new tests need no per-file cleanup.)
-
-### 11. RTL query usage (React tests only)
-
-For `.vitest.tsx` files using `setupRTLRenderer`: are there `container.querySelector` calls that could use `getByRole` or `getByText` instead? Flag cases where the component renders visible text or accessible roles that RTL can query directly. Note: many Positron components use internal CSS classes without accessible roles -- `container.querySelector` is acceptable when RTL queries aren't feasible.
 
 ## Output format
 

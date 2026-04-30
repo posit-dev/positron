@@ -6,6 +6,7 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
+import { fetchP3MPackageMetadata } from './p3mSearch';
 import { RSession } from './session';
 
 /**
@@ -36,6 +37,19 @@ export class RPackageManager {
 		// Result is not sorted, sort packages alphabetically by name (case-insensitive)
 		result.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
 		return result;
+	}
+
+	/**
+	 * Fetch supplemental metadata (latest version, license, publish date) from P3M
+	 * for the given package names.
+	 * @param packageNames Names of installed R packages to look up
+	 * @param token Optional cancellation token
+	 */
+	async getPackageMetadata(
+		packageNames: string[],
+		token?: vscode.CancellationToken,
+	): Promise<Map<string, Partial<positron.LanguageRuntimePackage>>> {
+		return fetchP3MPackageMetadata(packageNames, token);
 	}
 
 	/**

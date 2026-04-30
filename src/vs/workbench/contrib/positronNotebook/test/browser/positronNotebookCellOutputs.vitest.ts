@@ -25,7 +25,7 @@ function svgOutputItem() {
 }
 
 describe('Positron Notebook Cell Outputs', () => {
-	const ctx = createTestContainer().build();
+	const ctx = createTestContainer().withNotebookEditorServices().build();
 
 	describe('outputs observable', () => {
 		it('cell with image output has parsed type "image"', () => {
@@ -39,7 +39,7 @@ describe('Positron Notebook Cell Outputs', () => {
 					outputs: [pngOutputItem()],
 				}],
 			};
-			const notebook = createTestPositronNotebookInstance([cellWithImageOutput], ctx.disposables);
+			const notebook = createTestPositronNotebookInstance([cellWithImageOutput], ctx);
 			const cell = notebook.cells.get()[0];
 
 			expect(cell.isCodeCell(), 'cell should be a code cell').toBe(true);
@@ -59,7 +59,7 @@ describe('Positron Notebook Cell Outputs', () => {
 					outputs: [textOutputItem('hello')],
 				}],
 			};
-			const notebook = createTestPositronNotebookInstance([cellWithTextOutput], ctx.disposables);
+			const notebook = createTestPositronNotebookInstance([cellWithTextOutput], ctx);
 			const cell = notebook.cells.get()[0];
 
 			expect(cell.isCodeCell()).toBe(true);
@@ -79,7 +79,7 @@ describe('Positron Notebook Cell Outputs', () => {
 					outputs: [svgOutputItem()],
 				}],
 			};
-			const notebook = createTestPositronNotebookInstance([cellWithSvgOutput], ctx.disposables);
+			const notebook = createTestPositronNotebookInstance([cellWithSvgOutput], ctx);
 			const cell = notebook.cells.get()[0];
 
 			expect(cell.isCodeCell()).toBe(true);
@@ -91,7 +91,7 @@ describe('Positron Notebook Cell Outputs', () => {
 		it('adding image output to cell updates the outputs observable', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['print("hello")', 'python', CellKind.Code]],
-				ctx.disposables
+				ctx
 			);
 			const cell = notebook.cells.get()[0];
 
@@ -117,7 +117,7 @@ describe('Positron Notebook Cell Outputs', () => {
 		it('clearing outputs resets collapse state', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['print("hello")', 'python', CellKind.Code]],
-				ctx.disposables
+				ctx
 			);
 			const cell = notebook.cells.get()[0];
 			expect(cell.isCodeCell()).toBe(true);
@@ -145,7 +145,7 @@ describe('Positron Notebook Cell Outputs', () => {
 		it('outputImageTargeted context key defaults to false and can be set', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['print("hello")', 'python', CellKind.Code]],
-				ctx.disposables
+				ctx
 			);
 
 			const cellElement = document.createElement('div');
@@ -196,7 +196,7 @@ describe('Positron Notebook Cell Outputs', () => {
 					outputs: [complexHtmlOutputItem()],
 				}],
 			};
-			const notebook = createTestPositronNotebookInstance([cellWithComplexHtml], ctx.disposables);
+			const notebook = createTestPositronNotebookInstance([cellWithComplexHtml], ctx);
 			const cell = notebook.cells.get()[0];
 
 			expect(cell.isCodeCell(), 'cell should be a code cell').toBe(true);
@@ -217,7 +217,7 @@ describe('Positron Notebook Cell Outputs', () => {
 					outputs: [simpleHtmlOutputItem()],
 				}],
 			};
-			const notebook = createTestPositronNotebookInstance([cellWithSimpleHtml], ctx.disposables);
+			const notebook = createTestPositronNotebookInstance([cellWithSimpleHtml], ctx);
 			const cell = notebook.cells.get()[0];
 
 			expect(cell.isCodeCell()).toBe(true);

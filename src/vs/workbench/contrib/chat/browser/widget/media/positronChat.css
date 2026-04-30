@@ -45,3 +45,13 @@ See https://github.com/posit-dev/positron/issues/9046
 .chat-token-usage-status .token-usage-total {
 	display: inline-block;
 }
+
+/* Provider icon in the model picker button */
+.chat-model-picker-provider-icon {
+	background-size: contain;
+	background-repeat: no-repeat;
+	background-position: center;
+	width: 14px;
+	height: 14px;
+	flex-shrink: 0;
+}
