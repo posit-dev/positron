@@ -163,9 +163,18 @@ When any of these hit, surface the candidate with verdict `Move up -> <bucket>` 
 Output the report using the Output format template below. **Always step through action items one at a time** (Move down / Move up / Split / Add — NOT Keep / Skip / Delete, which the table already conveys). No threshold-based mode switching, no inline dump by default - even with a single action item, present it on its own turn and wait for the dev's reply.
 
 Step-through behavior:
-- After the at-a-glance table, render ONE action item per turn in **trace-hidden form** (4 lines: ID + path, Verdict, What changes, prompt).
-- Ask `approve / change <verdict> / skip / expand <N> ?`. If the dev replies `expand <N>`, re-render that item with the full trace block, then re-ask. Otherwise advance to the next item.
+- After the at-a-glance table, render ONE action item per turn in **trace-hidden form**: EXACTLY 4 content lines — basename + scenario, `Verdict:`, `What changes:`, prompt. **DO NOT include a `Trace:` block, `Why:` block, or any per-assertion enumeration in the default step-through render.** The example layouts shown in the Output format template below depict the EXPANDED form (rendered on `expand <N>` or `dump all` only), not the default step-through.
+- Ask `approve / change <verdict> / skip / expand <N> ?`. If the dev replies `expand <N>`, re-render that item with the full Trace / Why / Moves-to-Vitest / Stays-in-e2e block (whichever applies for the verdict), then re-ask. Otherwise advance to the next item.
 - After the last action item, summarize decisions ("N/N processed: X approved, Y changed, Z skipped"), then ask any global gate questions.
+
+Reference template for default step-through render (4 lines + prompt, NO trace):
+```
+[N] <basename> :: <scenario>
+Verdict: <Move down -> Vitest> (<confidence>)
+What changes: <one-line action>
+
+approve / change <verdict> / skip / expand <N> ?
+```
 
 Dev overrides:
 - `dump all` — escape hatch: render all remaining action items at once with full trace.
