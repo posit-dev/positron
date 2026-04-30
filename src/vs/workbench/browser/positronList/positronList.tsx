@@ -70,7 +70,6 @@ export function PositronList<T>(props: PositronListProps<T>) {
 			renderItem: (item, context) => renderItemRef.current(item, context),
 		}),
 		// renderItemRef is stable; defaultRowHeight is the only relevant input.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 		[props.defaultRowHeight]
 	);
 
@@ -98,7 +97,7 @@ export function PositronList<T>(props: PositronListProps<T>) {
 				}
 			}
 		}
-	}, [instance, props.items, props.getRowHeight, props.defaultRowHeight]);
+	}, [instance, props.items, props.getRowHeight, props.defaultRowHeight, props]);
 
 	// Wire up onSelectionChange to the instance's onDidUpdate event. Selection changes pass
 	// through onDidUpdate alongside cursor/scroll changes, so we recompute the selected items
