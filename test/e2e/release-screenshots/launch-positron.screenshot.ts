@@ -12,6 +12,11 @@ test.use({
 	suiteId: __filename,
 });
 
+/**
+ * Screenshot: positron path command palette option
+ * Path: https://positron.posit.co/launch-positron-from-terminal.html.
+ */
+
 test.describe('Release screenshots - Launch Positron', () => {
 	test('positron path command palette', async ({ app, page, hotKeys }) => {
 		// Reproduces the "positron path" command-palette closeup at
@@ -19,7 +24,7 @@ test.describe('Release screenshots - Launch Positron', () => {
 		// The Windows installer screenshot on that same page is OS-level and
 		// out of scope for this pipeline (manual).
 		await hotKeys.openCommandPalette();
-		await page.keyboard.type('positron path');
+		await page.keyboard.type('positron command path');
 
 		const palette = page.locator('.quick-input-widget');
 		await expect(palette).toBeVisible();
