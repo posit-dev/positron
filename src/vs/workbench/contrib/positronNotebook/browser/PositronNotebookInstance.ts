@@ -64,44 +64,19 @@ interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookIn
 	textModel: NotebookTextModel;
 }
 
-/**
- * Maps runtime states to their corresponding kernel status values. This mapping
- * defines how the notebook UI interprets runtime session states and displays
- * them to the user as kernel connection status. As we expand the states we
- * report this map will evolve.
- */
-const RUNTIME_STATE_TO_KERNEL_STATUS: Record<RuntimeState, KernelStatus> = {
-	// Runtime is starting up
-	[RuntimeState.Uninitialized]: KernelStatus.Starting,
-	[RuntimeState.Initializing]: KernelStatus.Starting,
-	[RuntimeState.Starting]: KernelStatus.Starting,
-	[RuntimeState.Restarting]: KernelStatus.Restarting,
-
-	// Runtime is operational
-	[RuntimeState.Ready]: KernelStatus.Idle,
-	[RuntimeState.Idle]: KernelStatus.Idle,
-
-	// Runtime is busy
-	[RuntimeState.Interrupting]: KernelStatus.Busy,
-	[RuntimeState.Busy]: KernelStatus.Busy,
-
-	// Runtime is exiting
-	[RuntimeState.Exiting]: KernelStatus.Exiting,
-
-	// Runtime is shutting down or ended
-	[RuntimeState.Exited]: KernelStatus.Exited,
-	[RuntimeState.Offline]: KernelStatus.Exited,
-} as const;
-
-const RUNTIME_STARTUP_PHASE_TO_KERNEL_STATUS: Record<RuntimeStartupPhase, KernelStatus> = {
-	[RuntimeStartupPhase.Initializing]: KernelStatus.Discovering,
-	[RuntimeStartupPhase.AwaitingTrust]: KernelStatus.Discovering,
-	[RuntimeStartupPhase.NewFolderTasks]: KernelStatus.Discovering,
-	[RuntimeStartupPhase.Reconnecting]: KernelStatus.Discovering,
-	[RuntimeStartupPhase.Starting]: KernelStatus.Discovering,
-	[RuntimeStartupPhase.Discovering]: KernelStatus.Unselected,
-	[RuntimeStartupPhase.Complete]: KernelStatus.Unselected,
-} as const;
+function kernelStatusForStartupPhase(phase: RuntimeStartupPhase): KernelStatus {
+	switch (phase) {
+		case RuntimeStartupPhase.Initializing:
+		case RuntimeStartupPhase.AwaitingTrust:
+		case RuntimeStartupPhase.NewFolderTasks:
+		case RuntimeStartupPhase.Reconnecting:
+		case RuntimeStartupPhase.Starting:
+			return KernelStatus.Discovering;
+		case RuntimeStartupPhase.Discovering:
+		case RuntimeStartupPhase.Complete:
+			return KernelStatus.Unselected;
+	}
+}
 
 
 /**
@@ -527,13 +502,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this.cells = observableValue<IPositronNotebookCell[]>('positronNotebookCells', []);
 
 		const { startupPhase } = this._languageRuntimeService;
-		this.kernelStatus = observableValue<KernelStatus>('positronNotebookKernelStatus', RUNTIME_STARTUP_PHASE_TO_KERNEL_STATUS[startupPhase]);
+		this.kernelStatus = observableValue<KernelStatus | undefined>('positronNotebookKernelStatus', kernelStatusForStartupPhase(startupPhase));
 
 		if (this.kernelStatus.get() === KernelStatus.Discovering) {
 			const d = this._register(new DisposableStore());
 			// Watch for discovery to complete
 			d.add(this._languageRuntimeService.onDidChangeRuntimeStartupPhase(startupPhase => {
-				const kernelStatus = RUNTIME_STARTUP_PHASE_TO_KERNEL_STATUS[startupPhase];
+				const kernelStatus = kernelStatusForStartupPhase(startupPhase);
 				if (kernelStatus !== KernelStatus.Discovering) {
 					d.dispose();
 					this.kernelStatus.set(kernelStatus, undefined);
@@ -578,15 +553,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		// If a new kernel is selected for this notebook, attach its runtime
 		this._register(runOnChange(this.kernel, (oldKernel, newKernel) => {
-			if (newKernel) {
-				if (oldKernel) {
-					this.kernelStatus.set(KernelStatus.Switching, undefined);
-				} else {
-					// If the kernel was selected but the runtime isn't attached yet, set the kernel status to
-					// starting. We expect the runtimeSession to be attached soon, at which point we'll
-					// update the kernel status to the runtime session state
-					this.kernelStatus.set(KernelStatus.Starting, undefined);
-				}
+			if (newKernel && oldKernel) {
+				this.kernelStatus.set(KernelStatus.Switching, undefined);
 			}
 		}));
 
@@ -2158,7 +2126,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return;
 		}
 
-		this.kernelStatus.set(RUNTIME_STATE_TO_KERNEL_STATUS[session.getRuntimeState()], undefined);
+		this.kernelStatus.set(undefined, undefined);
 
 		const disposables = this._runtimeSessionDisposables.value = new DisposableStore();
 
@@ -2168,7 +2136,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			this.kernelStatus.set(KernelStatus.Exited, undefined);
 		}));
 
-		// Listen for runtime state changes and update kernel status accordingly
+		// Listen for runtime state changes to manage session detach during kernel switching
 		disposables.add(session.onDidChangeRuntimeState((runtimeState) => {
 			const kernelStatus = this.kernelStatus.get();
 			// Detach if we're switching kernels and the old session starts exiting
@@ -2179,14 +2147,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 					runtimeState === RuntimeState.Offline ||
 					runtimeState === RuntimeState.Uninitialized)) {
 				disposables.dispose();
-			} else {
-				const kernelStatus = RUNTIME_STATE_TO_KERNEL_STATUS[runtimeState];
-				this.kernelStatus.set(kernelStatus, undefined);
-
-				// Detach when restart sequence starts - ignore intermediate states
-				if (kernelStatus === KernelStatus.Restarting) {
-					disposables.dispose();
-				}
+			} else if (runtimeState === RuntimeState.Restarting) {
+				// Detach when restart sequence starts; a new session will attach and
+				// take over runtime-state reporting via the badge's hook.
+				disposables.dispose();
 			}
 		}));
 	}
