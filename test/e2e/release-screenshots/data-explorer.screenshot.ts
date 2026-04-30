@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { join } from 'path';
 import { test } from '../tests/_test.setup';
 import { captureFullWindow } from './helpers/screenshot-utils';
 import { prepareForScreenshot } from './helpers/layout-utils';
@@ -11,25 +12,24 @@ test.use({
 	suiteId: __filename,
 });
 
-const LOAD_FLIGHTS = `
-import pandas as pd
-import os
-flights = pd.read_parquet(os.path.join(os.getcwd(), 'data-files', 'flights', 'flights.parquet'), engine='pyarrow')
-`.trim();
-
+/**
+ * Screenshot: Data Explorer open with a DataFrame of flight data, with an active filter and summary panel open
+ * Path: https://positron.posit.co/images/data-explorer.png
+ */
 test.describe('Release screenshots - Data Explorer', () => {
-	test('main panel', async ({ app, page, openFolder, executeCode, python }) => {
-		// Reproduces the hero shot at https://positron.posit.co/data-explorer.html:
-		// NYC flights DataFrame opened in a maximized Data Explorer with the
-		// Summary panel visible, a "dep_time is not missing" filter applied,
-		// month sorted descending, and arr_delay's column profile expanded.
-		test.slow();
+	test('main panel', async ({ app, page, executeCode, python }) => {
 		const { dataExplorer, variables } = app.workbench;
 
-		await openFolder('qa-example-content/workspaces/nyc-flights-data-py');
-		await app.workbench.console.waitForReady('>>>', 30000);
-
-		await executeCode('Python', LOAD_FLIGHTS);
+		// Load the parquet via an absolute path so we don't need to openFolder
+		// (which would reload the app and restart the interpreter).
+		const parquetPath = join(
+			app.workspacePathOrFolder,
+			'workspaces', 'nyc-flights-data-py', 'data-files', 'flights', 'flights.parquet',
+		);
+		await executeCode('Python', `
+import pandas as pd
+flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
+`.trim());
 		await variables.waitForVariableRow('flights');
 		await variables.doubleClickVariableRow('flights');
 		await dataExplorer.maximize(true);
