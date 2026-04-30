@@ -15,6 +15,7 @@ import { IPositronDataExplorerService } from '../../../../services/positronDataE
 import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronNotebookCodeCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { IPositronNotebookInstance } from '../IPositronNotebookInstance.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
 
 /**
  * Rich runtime context passed to actions registered against
@@ -59,7 +60,7 @@ export class OpenInDataExplorerAction extends Action2 {
 		super({
 			id: OpenInDataExplorerAction.ID,
 			title: localize('openInDataExplorer', 'Open in Data Explorer'),
-			icon: { id: 'go-to-file' },
+			icon: { id: Codicon.goToFile.id },
 			f1: false,
 			menu: {
 				id: MenuId.PositronNotebookInlineDataExplorerHeader,
