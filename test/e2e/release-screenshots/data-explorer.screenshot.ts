@@ -17,14 +17,6 @@ test.use({
  * Path: https://positron.posit.co/images/data-explorer.png
  */
 test.describe('Release screenshots - Data Explorer', () => {
-	// Force a rescan of installed Python interpreters before the python
-	// fixture tries to start a session. Works around flaky auto-discovery
-	// where POSITRON_PY_VER_SEL's interpreter is sometimes missing from
-	// the quick pick on session start.
-	test.beforeAll(async ({ app }) => {
-		await app.workbench.quickaccess.runCommand('python.refreshInterpreters');
-	});
-
 	test('main panel', async ({ app, page, executeCode, python }) => {
 		const { dataExplorer, variables } = app.workbench;
 
