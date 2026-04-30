@@ -8,6 +8,7 @@ import './listPackages.css';
 
 // React.
 import React, {
+	useCallback,
 	useEffect,
 	useMemo,
 	useRef,
@@ -29,6 +30,7 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 import { showCustomContextMenu, CustomContextMenuSubmenu, CustomContextMenuEntry } from '../../../../browser/positronComponents/customContextMenu/customContextMenu.js';
 import { CustomContextMenuItem } from '../../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
+import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { applyFilterToQuery, applySortToQuery, PackagesFilter, PackagesSortOrder, parseQuery } from './packagesQuery.js';
 import { PositronList } from '../../../../browser/positronList/positronList.js';
 import { ListEntry, PositronListInstance, PositronListItemContext } from '../../../../browser/positronList/classes/positronListInstance.js';
@@ -246,6 +248,21 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		}
 	}, [listInstance, filteredPackages]);
 
+	// Show the help page for a package using the active session's language. Falls back to a
+	// notification if the help service can't find anything.
+	const showHelpForPackage = useCallback(async (packageName: string) => {
+		const languageId = activeInstance?.session.runtimeMetadata.languageId;
+		if (!languageId) {
+			return;
+		}
+		const found = await services.positronHelpService.showHelpTopic(languageId, packageName);
+		if (!found) {
+			services.notificationService.info(
+				localize('positronPackages.noHelpFound', "No help found for '{0}'.", packageName)
+			);
+		}
+	}, [activeInstance, services]);
+
 	// Replace the item renderer whenever its closed-over deps change so the latest
 	// deduplicatedPackages snapshot is visible to "Copy All" and clicks select via the
 	// instance.
@@ -343,12 +360,24 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 							&#x2191;
 						</div>
 					)}
+					{attached === true && (
+						<Button
+							ariaLabel={localize('positronPackages.showHelpAriaLabel', "Show help for {0}", name)}
+							className='packages-list-item-help'
+							tooltip={localize('positronPackages.showHelpTooltip', "Show help for {0}", name)}
+							onPressed={() => { void showHelpForPackage(name); }}
+						>
+							<svg fill='currentColor' height='11' viewBox='0 0 16 16' width='11'>
+								<path d='M2 2.5A.5.5 0 012.5 2H5c1.1 0 2.1.4 2.9 1.1.7-.7 1.8-1.1 2.9-1.1h2.5a.5.5 0 01.5.5v10a.5.5 0 01-.5.5H11c-1 0-1.9.4-2.5 1.1-.6-.7-1.5-1.1-2.5-1.1H2.5a.5.5 0 01-.5-.5v-10zM7.5 4.1C6.9 3.4 6 3 5 3H3v9h3c.7 0 1.4.2 2 .5.6-.3 1.2-.5 2-.5h2V3h-2c-1 0-1.9.4-2.5 1.1z' />
+							</svg>
+						</Button>
+					)}
 				</div>
 			);
 		};
 
 		listInstance.setItemRenderer(renderItem);
-	}, [listInstance, deduplicatedPackages, services]);
+	}, [listInstance, deduplicatedPackages, services, showHelpForPackage]);
 
 	// Enter on the focused row sets selection to that row.
 	useEffect(() => {
