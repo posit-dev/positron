@@ -225,7 +225,7 @@ Example: *3 items audited. Recommendation: move down 2 to Vitest (medium confide
 
 ### Core Mocha (upstream, awareness only) - N items
 
-- `src/vs/.../upstream.test.ts` - references `<changed-file>`; asserts `<summary>`. **Overlaps** with proposed Vitest item #4.
+- `someUpstreamThing.test.ts` - references `<changed-file>`; asserts `<summary>`. **Overlaps** with proposed Vitest item #4.
 
 ### Action items (per-item blocks below)
 
@@ -283,15 +283,15 @@ One example per verdict (showing the four shapes):
   ```
 
 - Columns are exactly: `ID` / `Test :: scenario` / `Verdict` / `Conf.` / `Why`. No extra columns, no fewer.
-- The at-a-glance table uses the test-file basename + describe/it scenario as the row label (`notebook-cell-action-bar :: Cell deletion`), not the full path. Full paths only in the per-item detail.
+- **Use basenames everywhere visible**: at-a-glance table row labels, per-item block headers, Existing-coverage bullets, and inline references in `Why` / `Trace` / `What changes`. The basename alone (e.g., `notebookDelete.vitest.ts`) is far more readable than the full `src/vs/workbench/contrib/positronNotebook/test/browser/notebookDelete.vitest.ts`. If two paths share a basename within the same audit, disambiguate with one parent directory (`positronNotebook/notebookDelete.vitest.ts` vs `positronCopyPaste/notebookDelete.vitest.ts`). Full paths appear ONLY when the dev replies `expand <N>` or `details <N>` for the trace detail.
 - The `Why` column is one short phrase per row (e.g., *"already covered in notebookDelete.vitest.ts"*, *"webview-rendered"*, *"cross-pane workflow"*). Keep it scannable.
 - Detailed sections follow in pyramid order (Core Mocha -> Vitest -> Ext host -> E2E), Existing coverage before New coverage needed.
 
 **Display mode + per-item layout:** governed by Step 5 (display mode, step-through, trace-hidden template) and the Output format template above (per-item layout shape). Do not duplicate those rules here.
 
 Reminders worth repeating:
-- Long source paths go on their own line (`**[N]** `path``), NEVER in an H3 header. Keep H3s at section level (Vitest / Extension host / E2E), not per-item.
-- Line-number references (`L23`) only when the test file has actually been read. Paths are project-relative, no leading `./`.
+- Per-item header line uses the **basename** (not the full path) as the visible label. NEVER put paths in H3 headers. Keep H3s at section level (Vitest / Extension host / E2E).
+- Line-number references (`L23`) only when the test file has actually been read. When full paths do appear (in `expand` / `details` outputs), they are project-relative, no leading `./`.
 - Every row in the at-a-glance table carries an explicit verdict and confidence band.
 
 **`details N` on a Keep verdict:** re-render that item with the full hypothesis-verification trace (the per-helper ownership trace from 4B-verify). This is the ONLY case where a Keep gets a per-item block.
