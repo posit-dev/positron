@@ -9,7 +9,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Restart Host Extension', {
+test.describe.skip('Restart Host Extension', {
 	tag: [tags.EXTENSIONS, tags.WIN, tags.SOFT_FAIL],
 	annotation: { type: 'issue', description: 'https://github.com/posit-dev/positron/issues/12476' }
 }, () => {

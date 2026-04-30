@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -59,7 +59,7 @@ test.describe('Notebook Cell Reordering', {
 
 	test('Drag-and-drop: auto-scroll when dragging in long notebook', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
-		const page = app.code.driver.page;
+		const page = app.code.driver.currentPage;
 
 		// Ensure mouse is in a clean state (not pressed from a previous failed test)
 		await page.mouse.up();
@@ -97,7 +97,7 @@ test.describe('Notebook Cell Reordering', {
 
 	test('Multi-drag: drag three cells to beginning of notebook', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
-		const keyboard = app.code.driver.page.keyboard;
+		const keyboard = app.code.driver.currentPage.keyboard;
 
 		// Create notebook with 6 cells
 		await notebooksPositron.newNotebook({ codeCells: 6 });

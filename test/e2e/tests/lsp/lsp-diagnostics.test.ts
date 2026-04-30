@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -147,7 +147,7 @@ test.describe('Diagnostics', {
 		await runCommand('workbench.action.files.saveAs', { keepOpen: true });
 		await quickInput.waitForQuickInputOpened();
 		await quickInput.type(path.join(app.workspacePathOrFolder, 'smoke.qmd'));
-		await app.code.driver.page.keyboard.press('Enter');
+		await app.code.driver.currentPage.keyboard.press('Enter');
 		await quickInput.waitForQuickInputClosed();
 		await problems.expectDiagnosticsToBe({ badgeCount: 1, warningCount: 0, errorCount: 1 });
 
@@ -177,7 +177,7 @@ test.describe('Diagnostics', {
 		await test.step('Fix the error', async () => {
 			await notebooksPositron.selectCellAtIndex(0, { editMode: true });
 			await hotKeys.selectAll();
-			await app.code.driver.page.keyboard.type('x = 1\nprint(x)');
+			await app.code.driver.currentPage.keyboard.type('x = 1\nprint(x)');
 			await notebooksPositron.expectCellContentAtIndexToBe(0, ['x = 1', 'print(x)']);
 		});
 

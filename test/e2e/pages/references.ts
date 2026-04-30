@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -21,13 +21,13 @@ export class References {
 	constructor(private code: Code) { }
 
 	async waitUntilOpen(): Promise<void> {
-		await expect(this.code.driver.page.locator(References.REFERENCES_WIDGET)).toBeVisible();
+		await expect(this.code.driver.currentPage.locator(References.REFERENCES_WIDGET)).toBeVisible();
 	}
 
 	async waitForReferencesCountInTitle(count: number): Promise<void> {
 
 		await expect(async () => {
-			const text = await this.code.driver.page.locator(References.REFERENCES_TITLE_COUNT).textContent();
+			const text = await this.code.driver.currentPage.locator(References.REFERENCES_TITLE_COUNT).textContent();
 			const matches = text ? text.match(/\d+/) : null;
 			return matches ? parseInt(matches[0]) === count : false;
 		}).toPass({ timeout: 20000 });
@@ -35,7 +35,7 @@ export class References {
 
 	async waitForReferencesCount(count: number): Promise<void> {
 		await expect(async () => {
-			const references = await this.code.driver.page.locator(References.REFERENCES).all();
+			const references = await this.code.driver.currentPage.locator(References.REFERENCES).all();
 
 			expect(references.length).toBe(count);
 		}).toPass({ timeout: 20000 });
@@ -43,7 +43,7 @@ export class References {
 	}
 
 	async waitForFile(file: string): Promise<void> {
-		const titles = await this.code.driver.page.locator(References.REFERENCES_TITLE_FILE_NAME).all();
+		const titles = await this.code.driver.currentPage.locator(References.REFERENCES_TITLE_FILE_NAME).all();
 
 		for (const title of titles) {
 			const text = await title.textContent();
@@ -53,7 +53,7 @@ export class References {
 
 	async waitForReferenceFiles(files: string[]): Promise<void> {
 		await expect(async () => {
-			const fileNames = await this.code.driver.page.locator(References.REFERENCE_FILES).all();
+			const fileNames = await this.code.driver.currentPage.locator(References.REFERENCE_FILES).all();
 
 			for (const fileNameLocator of fileNames) {
 				const fileName = await fileNameLocator.textContent();
@@ -66,10 +66,10 @@ export class References {
 		// Sometimes someone else eats up the `Escape` key
 		let count = 0;
 		while (true) {
-			await this.code.driver.page.keyboard.press('Escape');
+			await this.code.driver.currentPage.keyboard.press('Escape');
 
 			try {
-				expect((await this.code.driver.page.locator(References.REFERENCES_WIDGET).all()).length).toBe(0);
+				expect((await this.code.driver.currentPage.locator(References.REFERENCES_WIDGET).all()).length).toBe(0);
 				return;
 			} catch (err) {
 				if (++count > 5) {

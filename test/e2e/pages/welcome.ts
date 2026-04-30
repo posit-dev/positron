@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -19,23 +19,23 @@ const BUTTON_ROLE = 'button';
 
 export class Welcome {
 
-	get logo(): Locator { return this.code.driver.page.locator(LOGO); }
-	get footer(): Locator { return this.code.driver.page.locator(FOOTER); }
-	get startSection(): Locator { return this.code.driver.page.locator(START_SECTION); }
+	get logo(): Locator { return this.code.driver.currentPage.locator(LOGO); }
+	get footer(): Locator { return this.code.driver.currentPage.locator(FOOTER); }
+	get startSection(): Locator { return this.code.driver.currentPage.locator(START_SECTION); }
 	get startButtons(): Locator { return this.startSection.getByRole(BUTTON_ROLE); }
-	get helpSection(): Locator { return this.code.driver.page.locator(HELP_TITLE); }
+	get helpSection(): Locator { return this.code.driver.currentPage.locator(HELP_TITLE); }
 	get helpTitle(): Locator { return this.helpSection.getByRole(HEADING_ROLE); }
 	get helpLinks(): Locator { return this.helpSection.getByRole(BUTTON_ROLE); }
-	get openSection(): Locator { return this.code.driver.page.locator(OPEN_SECTION); }
+	get openSection(): Locator { return this.code.driver.currentPage.locator(OPEN_SECTION); }
 	get openTitle(): Locator { return this.openSection.getByRole(HEADING_ROLE); }
 	get openButtons(): Locator { return this.openSection.getByRole(BUTTON_ROLE); }
-	get recentSection(): Locator { return this.code.driver.page.locator(RECENT_SECTION); }
+	get recentSection(): Locator { return this.code.driver.currentPage.locator(RECENT_SECTION); }
 	get recentTitle(): Locator { return this.recentSection.getByRole(HEADING_ROLE); }
 	get newNotebookButton(): Locator { return this.startButtons.getByText('New Notebook'); }
 	get newFileButton(): Locator { return this.startButtons.getByText('New File'); }
 	get newFolderFromTemplateButton(): Locator { return this.startButtons.getByText('New Folder'); }
 	get openFolderButton(): Locator { return this.startButtons.getByText('Open Folder'); }
-	get walkthroughSection(): Locator { return this.code.driver.page.locator(WALKTHROUGH_SECTION); }
+	get walkthroughSection(): Locator { return this.code.driver.currentPage.locator(WALKTHROUGH_SECTION); }
 	get walkthroughButtons(): Locator { return this.walkthroughSection.getByRole(BUTTON_ROLE); }
 
 	constructor(private code: Code) { }
@@ -55,13 +55,13 @@ export class Welcome {
 
 	async expectTabTitleToBe(title: string) {
 		await test.step(`Verify tab title: ${title}`, async () => {
-			await expect(this.code.driver.page.getByRole('tab', { name: title })).toBeVisible();
+			await expect(this.code.driver.currentPage.getByRole('tab', { name: title })).toBeVisible();
 		});
 	}
 
 	async expectConnectToBeVisible(visible: boolean) {
 		await test.step(`Verify "Connect to..." is ${visible ? '' : 'NOT'} visible`, async () => {
-			const connectButton = this.code.driver.page.getByRole(BUTTON_ROLE, { name: 'Connect to...' });
+			const connectButton = this.code.driver.currentPage.getByRole(BUTTON_ROLE, { name: 'Connect to...' });
 			if (visible) {
 				await expect(connectButton).toBeVisible();
 			}

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { parse as parseYaml, YamlNode, YamlObjectNode } from '../../../../base/common/yaml.js';
+import { parse as parseYaml, YamlNode, YamlMapNode } from '../../../../base/common/yaml.js';
 import {
 	QuartoNodeType,
 	QuartoSourceLocation,
@@ -42,9 +42,9 @@ function extractLabel(options: string): string | undefined {
 }
 
 /**
- * Look up a property value by key in a YamlObjectNode.
+ * Look up a property value by key in a YamlMapNode.
  */
-function getObjectProperty(node: YamlObjectNode, key: string): YamlNode | undefined {
+function getObjectProperty(node: YamlMapNode, key: string): YamlNode | undefined {
 	for (const prop of node.properties) {
 		if (prop.key.value === key) {
 			return prop.value;
@@ -62,7 +62,7 @@ function parseFrontmatter(frontmatterContent: string): { jupyterKernel?: string 
 	const result: { jupyterKernel?: string } = {};
 
 	const root = parseYaml(frontmatterContent);
-	if (!root || root.type !== 'object') {
+	if (!root || root.type !== 'map') {
 		return result;
 	}
 
@@ -72,17 +72,17 @@ function parseFrontmatter(frontmatterContent: string): { jupyterKernel?: string 
 	}
 
 	// Simple form: jupyter: python3
-	if (jupyter.type === 'string') {
+	if (jupyter.type === 'scalar') {
 		result.jupyterKernel = jupyter.value;
 		return result;
 	}
 
 	// Complex form: jupyter: { kernelspec: { name: kernel_name } }
-	if (jupyter.type === 'object') {
+	if (jupyter.type === 'map') {
 		const kernelspec = getObjectProperty(jupyter, 'kernelspec');
-		if (kernelspec?.type === 'object') {
+		if (kernelspec?.type === 'map') {
 			const name = getObjectProperty(kernelspec, 'name');
-			if (name?.type === 'string') {
+			if (name?.type === 'scalar') {
 				result.jupyterKernel = name.value;
 			}
 		}

@@ -148,6 +148,12 @@ describe('packagesQuery', () => {
 			expect(result.filter).toBe(PackagesFilter.Outdated);
 		});
 
+		it('@filter:attached sets Attached filter', () => {
+			const result = parseQuery('@filter:attached');
+			expect(result.text).toBe('');
+			expect(result.filter).toBe(PackagesFilter.Attached);
+		});
+
 		it('@filter:all explicitly sets All filter', () => {
 			const result = parseQuery('@filter:all');
 			expect(result.text).toBe('');
@@ -194,6 +200,10 @@ describe('packagesQuery', () => {
 
 		it('Outdated filter on empty input produces a bare token', () => {
 			expect(applyFilterToQuery('', PackagesFilter.Outdated)).toBe('@filter:outdated');
+		});
+
+		it('Attached filter on empty input produces a bare token', () => {
+			expect(applyFilterToQuery('', PackagesFilter.Attached)).toBe('@filter:attached');
 		});
 
 		it('Outdated filter with free text prepends the token', () => {

@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
+import { BreakpointSyncService } from './breakpointSync.js';
 import { NotebookDebugService } from './notebookDebugService.js';
 import { RuntimeErrorViewer } from './runtimeErrorViewer.js';
 import { DisposableStore } from './util.js';
@@ -14,6 +15,7 @@ export function activate(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(disposables);
 
 	disposables.add(log);
+	disposables.add(new BreakpointSyncService());
 	disposables.add(new NotebookDebugService());
 	disposables.add(new RuntimeErrorViewer());
 }

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -22,13 +22,13 @@ export class QuickInput {
 	quickInputResult: Locator;
 
 	constructor(private code: Code) {
-		this.quickInputList = this.code.driver.page.locator(QUICK_INPUT_LIST);
-		this.quickInput = this.code.driver.page.locator(
+		this.quickInputList = this.code.driver.currentPage.locator(QUICK_INPUT_LIST);
+		this.quickInput = this.code.driver.currentPage.locator(
 			QuickInput.QUICK_INPUT_INPUT,
 		);
 		this.quickInputTitleBar =
-			this.code.driver.page.locator(`.quick-input-title`);
-		this.quickInputResult = this.code.driver.page.locator(
+			this.code.driver.currentPage.locator(`.quick-input-title`);
+		this.quickInputResult = this.code.driver.currentPage.locator(
 			QuickInput.QUICK_INPUT_RESULT,
 		);
 	}
@@ -51,22 +51,22 @@ export class QuickInput {
 		timeout = 3000,
 	}: { timeout?: number } = {}): Promise<void> {
 		await expect(
-			this.code.driver.page.locator(QuickInput.QUICK_INPUT_INPUT),
+			this.code.driver.currentPage.locator(QuickInput.QUICK_INPUT_INPUT),
 		).toBeVisible({ timeout });
 	}
 
 	async type(value: string): Promise<void> {
-		await this.code.driver.page
+		await this.code.driver.currentPage
 			.locator(QuickInput.QUICK_INPUT_INPUT)
 			.selectText();
-		await this.code.driver.page.keyboard.press('Backspace');
-		await this.code.driver.page
+		await this.code.driver.currentPage.keyboard.press('Backspace');
+		await this.code.driver.currentPage
 			.locator(QuickInput.QUICK_INPUT_INPUT)
 			.fill(value);
 	}
 
 	async waitForQuickInputElementText(): Promise<string> {
-		const quickInputResult = this.code.driver.page.locator(
+		const quickInputResult = this.code.driver.currentPage.locator(
 			QuickInput.QUICK_INPUT_RESULT,
 		);
 
@@ -82,14 +82,14 @@ export class QuickInput {
 	}
 
 	async closeQuickInput(): Promise<void> {
-		await this.code.driver.page.keyboard.press('Escape');
+		await this.code.driver.currentPage.keyboard.press('Escape');
 		await this.waitForQuickInputClosed();
 	}
 
 	async waitForQuickInputElements(
 		accept: (names: string[]) => boolean,
 	): Promise<void> {
-		const locator = this.code.driver.page.locator(
+		const locator = this.code.driver.currentPage.locator(
 			QuickInput.QUICK_INPUT_ENTRY_LABEL,
 		);
 
@@ -101,7 +101,7 @@ export class QuickInput {
 
 	async waitForQuickInputClosed(): Promise<void> {
 		await expect(
-			this.code.driver.page.locator(QuickInput.QUICK_INPUT_INPUT),
+			this.code.driver.currentPage.locator(QuickInput.QUICK_INPUT_INPUT),
 		).not.toBeVisible({ timeout: 5000 });
 	}
 
@@ -110,7 +110,7 @@ export class QuickInput {
 		keepOpen?: boolean,
 	): Promise<void> {
 		await this.waitForQuickInputOpened();
-		await this.code.driver.page
+		await this.code.driver.currentPage
 			.locator(QuickInput.QUICK_INPUT_RESULT)
 			.nth(index)
 			.click();
@@ -124,7 +124,7 @@ export class QuickInput {
 		text: string,
 		{ timeout, force = true }: { timeout?: number; force?: boolean } = {},
 	): Promise<string> {
-		const firstMatch = this.code.driver.page
+		const firstMatch = this.code.driver.currentPage
 			.locator(`${QuickInput.QUICK_INPUT_RESULT}[aria-label*="${text}"]`)
 			.first();
 
@@ -134,7 +134,7 @@ export class QuickInput {
 				.nth(0)
 				.textContent({ timeout })) || '';
 		await firstMatch.click({ force, timeout });
-		await this.code.driver.page.mouse.move(0, 0);
+		await this.code.driver.currentPage.mouse.move(0, 0);
 
 		return firstMatchResult.trim();
 	}
@@ -144,27 +144,27 @@ export class QuickInput {
 		{ timeout, force = true }: { timeout?: number; force?: boolean } = {},
 	): Promise<void> {
 		await this.waitForQuickInputOpened();
-		const exactMatch = this.code.driver.page
+		const exactMatch = this.code.driver.currentPage
 			.locator(`${QuickInput.QUICK_INPUT_RESULT}[aria-label="${text}"]`)
 			.first();
 		await expect(exactMatch).toBeVisible({ timeout });
 		await exactMatch.click({ force, timeout });
-		await this.code.driver.page.mouse.move(0, 0);
+		await this.code.driver.currentPage.mouse.move(0, 0);
 	}
 
 	async clickOkButton(): Promise<void> {
-		await this.code.driver.page
+		await this.code.driver.currentPage
 			.locator(QuickInput.QUICKINPUT_OK_BUTTON)
 			.click();
 	}
 
 	async toggleCheckbox(text: string): Promise<void> {
-		const row = this.code.driver.page
+		const row = this.code.driver.currentPage
 			.locator(`${QuickInput.QUICK_INPUT_RESULT}[role="checkbox"][aria-label="${text}"]`);
 		await row.click();
 	}
 
 	async submitInputBox(): Promise<void> {
-		await this.code.driver.page.keyboard.press('Enter');
+		await this.code.driver.currentPage.keyboard.press('Enter');
 	}
 }

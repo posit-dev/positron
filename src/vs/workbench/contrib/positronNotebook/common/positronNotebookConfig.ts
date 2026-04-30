@@ -32,6 +32,9 @@ export const POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_ENABLED_KEY = 'positron.note
 // Configuration key for inline data explorer max height
 export const POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY = 'positron.notebook.inlineDataExplorer.maxHeight';
 
+// Configuration key that gates experimental Positron notebook features.
+export const POSITRON_NOTEBOOK_EXPERIMENTAL_KEY = 'positron.notebook.experimental';
+
 // Register the configuration setting
 const configurationRegistry = Registry.as<IConfigurationRegistry>(
 	Extensions.Configuration
@@ -108,6 +111,16 @@ configurationRegistry.registerConfiguration({
 				'positron.notebook.inlineDataExplorer.maxHeight',
 				'Maximum height in pixels for inline data explorers in notebook and Quarto outputs.'
 			),
+			scope: ConfigurationScope.WINDOW,
+		},
+		[POSITRON_NOTEBOOK_EXPERIMENTAL_KEY]: {
+			type: 'boolean',
+			default: false,
+			markdownDescription: localize(
+				'positron.notebook.experimental',
+				'Enable experimental Positron Notebook features. These features are under active development and may change without notice.'
+			),
+			tags: ['experimental'],
 			scope: ConfigurationScope.WINDOW,
 		},
 	},

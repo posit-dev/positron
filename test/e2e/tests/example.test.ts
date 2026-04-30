@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -27,14 +27,14 @@ test.describe('Examples of Concepts', () => {
 		// the "app" fixture is automatically created and available for use in all tests
 		// we just need to reference it in the test function signature to use it
 		// note: the app instance is re-created for EACH SPEC FILE
-		await expect(app.code.driver.page.getByLabel('Start Interpreter')).toBeVisible();
+		await expect(app.code.driver.currentPage.getByLabel('Start Interpreter')).toBeVisible();
 	});
 
 	test('How to use page instance', async function ({ app, page }) {
 		// the first step in this test accesses the page instance directly via the app
-		// object (app.code.driver.page), while the second step in this test uses the "page" fixture
+		// object (app.code.driver.currentPage), while the second step in this test uses the "page" fixture
 		// which is just passing the same app object directly, therefore simplifying the code
-		await expect(app.code.driver.page.getByLabel('Start Interpreter')).toBeVisible();
+		await expect(app.code.driver.currentPage.getByLabel('Start Interpreter')).toBeVisible();
 		await expect(page.getByLabel('Start Interpreter')).toBeVisible();
 	});
 
@@ -63,14 +63,14 @@ test.describe('Examples of Concepts', () => {
 		// in some cases you may want to restart the app instance within a spec file
 		// this example uses the "restartApp" fixture which restarts the app instance
 		// before any of test steps execute
-		await expect(app.code.driver.page.getByLabel('Start Interpreter')).toBeVisible();
+		await expect(app.code.driver.currentPage.getByLabel('Start Interpreter')).toBeVisible();
 	});
 
 	test('How to restart app instance anywhere in test', async function ({ app }) {
 		// this example call the restart method on the app instance, which can be used
 		// from anywhere within the test
 		await app.restart();
-		await expect(app.code.driver.page.getByLabel('Start Interpreter')).toBeVisible();
+		await expect(app.code.driver.currentPage.getByLabel('Start Interpreter')).toBeVisible();
 	});
 
 });

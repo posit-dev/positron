@@ -8,7 +8,9 @@ import './contrib/find/positronNotebookFind.contribution.js';
 import './contrib/assistant/positronNotebookAssistant.contribution.js';
 import './contrib/ghostCell/positronNotebookGhostCell.contribution.js';
 import './contrib/outline/positronNotebookOutline.contribution.js';
-import './contrib/dataExplorer/positronNotebookDataExplorer.contribution.js';
+
+// Self-registering Action2 contributions
+import './notebookCells/InlineDataExplorerActions.js';
 
 import { isCopyImageMenuArg, toBase64DataUrl } from './copyImageUtils.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
@@ -42,12 +44,14 @@ import { IExtensionService } from '../../../services/extensions/common/extension
 import { extname, isEqual } from '../../../../base/common/resources.js';
 import { CellKind, CellUri, NotebookWorkingCopyTypeIdentifier } from '../../notebook/common/notebookCommon.js';
 import { registerNotebookWidget } from './registerNotebookWidget.js';
-import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
+import { ContextKeyExpr, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { bindContextKey } from '../../../../platform/observable/common/platformObservableUtils.js';
+import { IPositronNotebookService } from './positronNotebookService.js';
 import { IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
 import { IPositronNotebookEditorOptions } from './positronNotebookEditorTypes.js';
 import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID, PositronNotebookActionId, PositronNotebookCellActionBarLeftGroup, PositronNotebookCellOutputActionGroup, usingPositronNotebooks } from '../common/positronNotebookCommon.js';
 import { getActiveCell, getSelectedCells, SelectionState } from './selectionMachine.js';
-import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED, POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS, POSITRON_NOTEBOOK_CELL_IMAGE_OUTPUT_COUNT, POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED, POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS, POSITRON_NOTEBOOK_CELL_OUTPUT_SCROLLING, POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED } from './ContextKeysManager.js';
+import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED, POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS, POSITRON_NOTEBOOK_CELL_IMAGE_OUTPUT_COUNT, POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED, POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS, POSITRON_NOTEBOOK_CELL_OUTPUT_SCROLLING, POSITRON_NOTEBOOK_EXPERIMENTAL, POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED } from './ContextKeysManager.js';
 import './contrib/undoRedo/positronNotebookUndoRedo.js';
 import { registerAction2, MenuId, MenuRegistry } from '../../../../platform/actions/common/actions.js';
 import { ExecuteSelectionInConsoleAction } from './ExecuteSelectionInConsoleAction.js';
@@ -118,8 +122,16 @@ class PositronNotebookContribution extends Disposable {
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IFileService private readonly fileService: IFileService,
 		@INotebookService private readonly notebookService: INotebookService,
+		@IPositronNotebookService positronNotebookService: IPositronNotebookService,
+		@IContextKeyService contextKeyService: IContextKeyService,
 	) {
 		super();
+
+		this._register(bindContextKey(
+			POSITRON_NOTEBOOK_EXPERIMENTAL,
+			contextKeyService,
+			reader => positronNotebookService.experimentsEnabled.read(reader),
+		));
 
 		this.registerEditor();
 	}
@@ -993,7 +1005,7 @@ registerAction2(class extends NotebookAction2 {
 });
 
 // Open markdown editor (For action bar)
-registerAction2(class extends NotebookAction2 {
+export class OpenMarkdownEditorAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.openMarkdownEditor',
@@ -1019,7 +1031,8 @@ registerAction2(class extends NotebookAction2 {
 			cell.toggleEditor();
 		}
 	}
-});
+}
+registerAction2(OpenMarkdownEditorAction);
 
 /**
  * View markdown (For action bar)
@@ -1029,7 +1042,7 @@ registerAction2(class extends NotebookAction2 {
  * action bar. We should keep both commands in sync to
  * ensure consistent behavior.
  */
-registerAction2(class extends NotebookAction2 {
+export class ViewMarkdownAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.viewMarkdown',
@@ -1055,7 +1068,8 @@ registerAction2(class extends NotebookAction2 {
 			cell.toggleEditor();
 		}
 	}
-});
+}
+registerAction2(ViewMarkdownAction);
 
 
 // Keyboard shortcut commands. These are not shown in the action bar.

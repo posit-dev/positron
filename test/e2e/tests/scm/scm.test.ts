@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -26,13 +26,13 @@ test.describe('Source Content Management', {
 
 			await app.workbench.editor.clickOnTerm(file, 'rows', 9, true);
 
-			await app.code.driver.page.keyboard.press('ArrowRight');
-			await app.code.driver.page.keyboard.press('ArrowRight');
-			await app.code.driver.page.keyboard.type('\n');
+			await app.code.driver.currentPage.keyboard.press('ArrowRight');
+			await app.code.driver.currentPage.keyboard.press('ArrowRight');
+			await app.code.driver.currentPage.keyboard.type('\n');
 
-			await app.code.driver.page.keyboard.type('print(df)');
+			await app.code.driver.currentPage.keyboard.type('print(df)');
 
-			await app.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+S' : 'Control+S');
+			await app.code.driver.currentPage.keyboard.press(process.platform === 'darwin' ? 'Meta+S' : 'Control+S');
 
 		});
 

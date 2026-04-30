@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -8,17 +8,17 @@ import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 
 export class NewFolderFlow {
-	private get backButton(): Locator { return this.code.driver.page.getByRole('button', { name: 'Back', exact: true }); }
-	private get cancelButton(): Locator { return this.code.driver.page.getByRole('button', { name: 'Cancel' }); }
-	private get nextButton(): Locator { return this.code.driver.page.getByRole('button', { name: 'Next', exact: true }); }
-	private get createButton(): Locator { return this.code.driver.page.getByRole('button', { name: 'Create', exact: true }); }
-	private folderTemplateButton = (label: string) => this.code.driver.page.locator('label').filter({ hasText: label });
-	private get folderNameInput(): Locator { return this.code.driver.page.getByLabel(/Enter the name of your new/); }
-	private get existingEnvRadioButton(): Locator { return this.code.driver.page.getByText(/Use an existing/); }
-	private get envProviderDropdown(): Locator { return this.code.driver.page.locator('#flow-sub-step-environment-creation').locator('button'); }
+	private get backButton(): Locator { return this.code.driver.currentPage.getByRole('button', { name: 'Back', exact: true }); }
+	private get cancelButton(): Locator { return this.code.driver.currentPage.getByRole('button', { name: 'Cancel' }); }
+	private get nextButton(): Locator { return this.code.driver.currentPage.getByRole('button', { name: 'Next', exact: true }); }
+	private get createButton(): Locator { return this.code.driver.currentPage.getByRole('button', { name: 'Create', exact: true }); }
+	private folderTemplateButton = (label: string) => this.code.driver.currentPage.locator('label').filter({ hasText: label });
+	private get folderNameInput(): Locator { return this.code.driver.currentPage.getByLabel(/Enter the name of your new/); }
+	private get existingEnvRadioButton(): Locator { return this.code.driver.currentPage.getByText(/Use an existing/); }
+	private get envProviderDropdown(): Locator { return this.code.driver.currentPage.locator('#flow-sub-step-environment-creation').locator('button'); }
 	private get envProviderDropdownTitle(): Locator { return this.envProviderDropdown.locator('.dropdown-entry-title'); }
-	private get dropDropdownOptions(): Locator { return this.code.driver.page.locator('.positron-modal-popup-children').getByRole('button'); }
-	private get interpreterDropdown(): Locator { return this.code.driver.page.locator('#flow-sub-step-pythonenvironment-interpreterorversion').locator('button'); }
+	private get dropDropdownOptions(): Locator { return this.code.driver.currentPage.locator('.positron-modal-popup-children').getByRole('button'); }
+	private get interpreterDropdown(): Locator { return this.code.driver.currentPage.locator('#flow-sub-step-pythonenvironment-interpreterorversion').locator('button'); }
 	private get interpreterDropdownSubtitle(): Locator { return this.interpreterDropdown.locator('.dropdown-entry-subtitle'); }
 
 	constructor(private code: Code, private quickaccess: QuickAccess) { }
@@ -39,8 +39,8 @@ export class NewFolderFlow {
 				await this.setConfiguration(options);
 			}
 
-			await this.code.driver.page.getByRole('button', { name: 'Current Window' }).click();
-			await expect(this.code.driver.page.locator('.simple-title-bar').filter({ hasText: 'New Folder From Template' })).not.toBeVisible();
+			await this.code.driver.currentPage.getByRole('button', { name: 'Current Window' }).click();
+			await expect(this.code.driver.currentPage.locator('.simple-title-bar').filter({ hasText: 'New Folder From Template' })).not.toBeVisible();
 		});
 	}
 
@@ -49,7 +49,7 @@ export class NewFolderFlow {
 	 * @param folderTemplate The folder template to select.
 	 */
 	async setFolderTemplate(folderTemplate: FolderTemplate) {
-		await this.code.driver.page.locator('label').filter({ hasText: folderTemplate }).click({ force: true });
+		await this.code.driver.currentPage.locator('label').filter({ hasText: folderTemplate }).click({ force: true });
 		await this.clickFlowButton(FlowButton.NEXT);
 	}
 
@@ -63,18 +63,18 @@ export class NewFolderFlow {
 
 		await this.folderNameInput.fill(folderName);
 		if (initGitRepo) {
-			await this.code.driver.page.getByText('Initialize Git repository').check();
+			await this.code.driver.currentPage.getByText('Initialize Git repository').check();
 		}
 
 		if (type === FolderTemplate.PYTHON_PROJECT) {
-			const checkboxLabel = this.code.driver.page.getByText('Create pyproject.toml file');
+			const checkboxLabel = this.code.driver.currentPage.getByText('Create pyproject.toml file');
 			const shouldBeChecked = createPyprojectToml ?? false;
 			if (!shouldBeChecked) {
 				// It's checked by default, so click to uncheck
 				await checkboxLabel.click();
 			}
 		} else {
-			await expect(this.code.driver.page.getByText('Create pyproject.toml file')).not.toBeVisible();
+			await expect(this.code.driver.currentPage.getByText('Create pyproject.toml file')).not.toBeVisible();
 		}
 
 		const button = options.folderTemplate === FolderTemplate.EMPTY_PROJECT ? FlowButton.CREATE : FlowButton.NEXT;
@@ -90,7 +90,7 @@ export class NewFolderFlow {
 
 		// configure R Project
 		if (type === FolderTemplate.R_PROJECT && rEnvCheckbox) {
-			await this.code.driver.page.getByText('Use `renv` to create a').click();
+			await this.code.driver.currentPage.getByText('Use `renv` to create a').click();
 		}
 
 		// configure Python Project
@@ -108,7 +108,7 @@ export class NewFolderFlow {
 			}
 
 			if (ipykernelFeedback) {
-				const ipykernelMessage = this.code.driver.page.getByText('ipykernel will be installed');
+				const ipykernelMessage = this.code.driver.currentPage.getByText('ipykernel will be installed');
 				ipykernelFeedback === 'show'
 					? await expect(ipykernelMessage).toBeVisible()
 					: await expect(ipykernelMessage).not.toBeVisible();
@@ -124,7 +124,7 @@ export class NewFolderFlow {
 	 * @returns A map where each FolderTemplate is mapped to its locator.
 	 */
 	getFolderTemplateLocatorMap() {
-		const folderTemplateLabelLocator = this.code.driver.page.locator('label');
+		const folderTemplateLabelLocator = this.code.driver.currentPage.locator('label');
 		const folderTemplateLocators: Map<FolderTemplate, Locator> = new Map(
 			Object.values(FolderTemplate).map((template: FolderTemplate) => [
 				template,
@@ -159,7 +159,7 @@ export class NewFolderFlow {
 	 */
 	async selectEnvProvider(providerToSelect: string) {
 		// Wait for loading to finish
-		await expect(this.code.driver.page.getByText(/Loading/)).toHaveCount(0, { timeout: 30000 });
+		await expect(this.code.driver.currentPage.getByText(/Loading/)).toHaveCount(0, { timeout: 30000 });
 
 		// Skip if the desired provider is already selected
 		if (await this.envProviderDropdownTitle.innerText() === providerToSelect) {
@@ -177,7 +177,7 @@ export class NewFolderFlow {
 	 */
 	async selectInterpreterByPath(interpreterPath: string) {
 		// Wait for loading to complete
-		await expect(this.code.driver.page.getByText(/Loading/)).toHaveCount(0, { timeout: 30000 });
+		await expect(this.code.driver.currentPage.getByText(/Loading/)).toHaveCount(0, { timeout: 30000 });
 
 		// Skip if the desired interpreter is already selected
 		if (await this.interpreterDropdownSubtitle.innerText() === interpreterPath) {
@@ -195,7 +195,7 @@ export class NewFolderFlow {
 					.first()
 					.click({ timeout: 5000 });
 			} catch (error) {
-				await this.code.driver.page.keyboard.press('Escape');
+				await this.code.driver.currentPage.keyboard.press('Escape');
 				throw error;
 			}
 
@@ -213,7 +213,7 @@ export class NewFolderFlow {
 		const mergedVisibility = { ...defaultVisibility, ...visibleTemplates };
 
 		await test.step(`Verify folder flow template dialog`, async () => {
-			await expect(this.code.driver.page.locator('.simple-title-bar-title').getByText('New Folder From Template')).toBeVisible();
+			await expect(this.code.driver.currentPage.locator('.simple-title-bar-title').getByText('New Folder From Template')).toBeVisible();
 
 			for (const template of Object.values(FolderTemplate)) {
 				const isVisible = mergedVisibility[template];
@@ -237,7 +237,7 @@ export class NewFolderFlow {
 
 	async verifyFolderCreation(folderName: string) {
 		await test.step(`Verify folder created`, async () => {
-			await expect(this.code.driver.page.locator('#top-action-bar-current-working-folder')).toHaveText(folderName, { timeout: 60000 }); // this is really slow on windows CI for some reason
+			await expect(this.code.driver.currentPage.locator('#top-action-bar-current-working-folder')).toHaveText(folderName, { timeout: 60000 }); // this is really slow on windows CI for some reason
 		});
 	}
 }

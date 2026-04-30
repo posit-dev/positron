@@ -1350,6 +1350,27 @@ export class KCApi implements PositronSupervisorApi {
 	}
 
 	/**
+	 * Shuts down the Kallichore server and disposes all resources. Unlike
+	 * `dispose()`, this method sends a shutdown request to the server first,
+	 * which ensures that child processes (e.g. ark.exe on Windows) are
+	 * terminated by the supervisor before Positron exits.
+	 */
+	async shutdown(): Promise<void> {
+		// Only send a shutdown request if the server has actually started; if
+		// the barrier hasn't opened we never connected so there's nothing to
+		// shut down.
+		if (this._started.isOpen()) {
+			try {
+				await this._api.api.shutdownServer();
+			} catch (err) {
+				const message = summarizeError(err);
+				this.log(`Failed to shut down Kallichore server on exit: ${message}`);
+			}
+		}
+		this.dispose();
+	}
+
+	/**
 	 * Clean up the Kallichore server and all sessions. Note that this doesn't
 	 * actually remove the sessions from the server; it just disconnects them
 	 * from the API.

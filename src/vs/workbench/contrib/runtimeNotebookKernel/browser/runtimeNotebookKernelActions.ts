@@ -22,7 +22,8 @@ import { NOTEBOOK_KERNEL } from '../../notebook/common/notebookContextKeys.js';
 import { IPositronNotebookInstance } from '../../positronNotebook/browser/IPositronNotebookInstance.js';
 import { POSITRON_NOTEBOOK_COMMAND_MODE } from '../../positronNotebook/browser/positronNotebook.contribution.js';
 import { PositronNotebookInstance } from '../../positronNotebook/browser/PositronNotebookInstance.js';
-import { usingPositronNotebooks } from '../../positronNotebook/common/positronNotebookCommon.js';
+import { IPositronNotebookService } from '../../positronNotebook/browser/positronNotebookService.js';
+import { POSITRON_NOTEBOOK_EDITOR_ID, usingPositronNotebooks } from '../../positronNotebook/common/positronNotebookCommon.js';
 import { ActiveNotebookHasRunningRuntime, isNotebookEditorInput } from '../common/activeRuntimeNotebookContextManager.js';
 import { IRuntimeNotebookKernelService } from '../common/interfaces/runtimeNotebookKernelService.js';
 import { POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../common/runtimeNotebookKernelConfig.js';
@@ -51,6 +52,11 @@ function isPositronNotebookActionBarContext(obj: unknown): obj is IPositronNoteb
 		context.instance instanceof PositronNotebookInstance;
 }
 
+function isNotebookEditorToolbarContext(obj: unknown): obj is INotebookEditorToolbarContext {
+	const context = obj as INotebookEditorToolbarContext;
+	return !!context && context.source === 'notebookToolbar' && !!context.notebookEditor?.textModel;
+}
+
 /** The context for actions in a notebook using a language runtime kernel. */
 interface IRuntimeNotebookKernelActionContext {
 	/** The notebook's URI */
@@ -69,28 +75,43 @@ interface IRuntimeNotebookKernelActionContext {
 abstract class BaseRuntimeNotebookKernelAction extends Action2 {
 	abstract runWithContext(accessor: ServicesAccessor, context: IRuntimeNotebookKernelActionContext): Promise<void>;
 
-	override async run(accessor: ServicesAccessor, context?: INotebookEditorToolbarContext | IPositronNotebookActionBarContext): Promise<void> {
+	override async run(
+		accessor: ServicesAccessor,
+		context?: INotebookEditorToolbarContext | IPositronNotebookActionBarContext | URI
+	): Promise<void> {
 		const editorService = accessor.get(IEditorService);
 		const runtimeSessionService = accessor.get(IRuntimeSessionService);
 
-		// Try to use the notebook URI from the context - set if run via the notebook editor toolbar.
+		/**
+		 * Resolve the notebook URI and source. The action is invoked from four places
+		 * and each has its own context shape:
+		 * - kernel badge dropdown: IPositronNotebookActionBarContext (instance)
+		 * - VSCode notebook toolbar: INotebookEditorToolbarContext (notebookEditor)
+		 * - editor action bar button: URI (the active editor's resource)
+		 * - command palette: undefined (look up active editor)
+		 */
 		let notebookUri: URI;
 		let source: IRuntimeNotebookKernelActionContext['source'];
-		if (context) {
-			if (isPositronNotebookActionBarContext(context)) {
-				source = {
-					id: 'positronNotebookActionBar',
-					debugMessage: `User clicked ${this.desc.id} button in Positron notebook editor toolbar`,
-				};
-				notebookUri = context.instance.uri;
-				context.instance.grabFocus();
-			} else {
-				source = {
-					id: 'vscodeNotebookToolbar',
-					debugMessage: `User clicked ${this.desc.id} button in VSCode notebook editor toolbar`
-				};
-				notebookUri = context.notebookEditor.textModel.uri;
-			}
+		if (isPositronNotebookActionBarContext(context)) {
+			source = {
+				id: 'positronNotebookActionBar',
+				debugMessage: `User clicked ${this.desc.id} button in Positron notebook editor toolbar`,
+			};
+			notebookUri = context.instance.uri;
+			context.instance.grabFocus();
+		} else if (isNotebookEditorToolbarContext(context)) {
+			source = {
+				id: 'vscodeNotebookToolbar',
+				debugMessage: `User clicked ${this.desc.id} button in VSCode notebook editor toolbar`
+			};
+			notebookUri = context.notebookEditor.textModel.uri;
+		} else if (URI.isUri(context)) {
+			source = {
+				id: 'positronNotebookActionBar',
+				debugMessage: `User clicked ${this.desc.id} button in Positron notebook editor action bar`,
+			};
+			notebookUri = context;
+			accessor.get(IPositronNotebookService).listInstances(notebookUri)[0]?.grabFocus();
 		} else {
 			source = {
 				id: 'command',
@@ -140,8 +161,10 @@ export class RuntimeNotebookKernelRestartAction extends BaseRuntimeNotebookKerne
 				},
 				// Positron notebooks
 				{
-					id: MenuId.PositronNotebookKernelSubmenu,
+					id: MenuId.EditorActionsRight,
+					group: 'navigation',
 					order: 10,
+					when: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
 				}
 			]
 		});

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -19,7 +19,7 @@ export class VsCodeNotebooks extends Notebooks {
 	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys) {
 		super(code, quickinput, quickaccess, hotKeys);
 
-		this.startChatButton = this.code.driver.page.getByLabel(/Start Chat to Generate Code/).first();
+		this.startChatButton = this.code.driver.currentPage.getByLabel(/Start Chat to Generate Code/).first();
 	}
 
 	/**

@@ -12,6 +12,7 @@ import React, { useEffect, useState, useRef } from 'react';
 
 // Other dependencies.
 import { InlineDataExplorerHeader } from '../../positronNotebook/browser/notebookCells/InlineDataExplorer.js';
+import type { IInlineDataExplorerActionContext } from '../../positronNotebook/browser/notebookCells/InlineDataExplorerActions.js';
 import { localize } from '../../../../nls.js';
 import { URI } from '../../../../base/common/uri.js';
 import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
@@ -169,16 +170,26 @@ export function QuartoInlineDataExplorer(props: QuartoInlineDataExplorerProps) {
 		};
 	}, [commId, dataExplorerService]);
 
-	const handleOpenInExplorer = () => {
-		services.commandService.executeCommand('positron-data-explorer.openFromInline', {
-			commId,
-			variablePath,
-			notebookUri: documentUri,
-		});
-	};
-
 	const isGridStale = state.status === 'connected' &&
 		(state.gridInstance.columns === 0 || state.gridInstance.rows === 0);
+
+	// Build the action context the inline data explorer header passes to
+	// registered Action2s. Quarto leaves cell/notebookInstance undefined;
+	// sourceLanguage is unknown at this layer (chunk metadata isn't threaded
+	// through yet). Future Quarto-targeted actions check for these and skip
+	// when absent.
+	const actionContext: IInlineDataExplorerActionContext | undefined =
+		state.status === 'connected' && !isGridStale
+			? {
+				documentUri,
+				sourceLanguage: '',
+				commId,
+				variablePath,
+				title,
+				shape,
+				gridInstance: state.gridInstance,
+			}
+			: undefined;
 
 	const handleKeyDown = async (e: React.KeyboardEvent<HTMLDivElement>) => {
 		if (e.code === 'KeyC' && (isMacintosh ? e.metaKey : e.ctrlKey)) {
@@ -193,9 +204,10 @@ export function QuartoInlineDataExplorer(props: QuartoInlineDataExplorerProps) {
 	return (
 		<div className='inline-data-explorer-container' style={{ height: `${dynamicHeight}px` }}>
 			<InlineDataExplorerHeader
+				actionContext={actionContext}
+				contextKeyService={services.contextKeyService}
 				shape={shape}
 				title={title}
-				onOpenInExplorer={state.status === 'connected' && !isGridStale ? handleOpenInExplorer : undefined}
 			/>
 			<div className='inline-data-explorer-content' onKeyDownCapture={handleKeyDown}>
 				{state.status === 'loading' && (
