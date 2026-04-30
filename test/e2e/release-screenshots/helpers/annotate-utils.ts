@@ -63,6 +63,14 @@ export async function annotate(page: Page, items: Annotation[]): Promise<void> {
 				'z-index:99999',
 				'pointer-events:none',
 				'box-shadow:0 1px 2px rgba(0,0,0,0.15)',
+				// Wrap inside narrow regions (e.g. the Activity bar) so the
+				// label stays inside the box-shadow border rather than
+				// being clipped.
+				'max-width:calc(100% - 12px)',
+				'word-break:break-word',
+				'white-space:normal',
+				'text-align:center',
+				'line-height:1.2',
 			].join(';');
 
 			el.appendChild(badge);
