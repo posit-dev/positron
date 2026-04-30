@@ -9,7 +9,6 @@ This document provides guidelines and setup instructions for effectively running
 - [Dependencies](#dependencies)
 - [Running Tests](#running-tests)
 - [Test Project](#test-project)
-- [Release Screenshots](#release-screenshots)
 - [Pull Requests and Test Tags](#pull-requests-and-test-tags)
 - [Running Tests in Github Actions](#running-tests-in-github-actions)
 - [Notes About Updating Specific Tests](#notes-about-updating-specific-tests)
@@ -192,22 +191,6 @@ Before any of the tests start executing the test framework clones down the [QA C
 For Python, add any package requirements to the `requirements.txt` file in the root of the [QA Content Examples](https://github.com/posit-dev/qa-example-content) repo. We generally do NOT pin them to a specific version, as test can be run against different versions of python and conflicts could arise. If this becomes a problem, we can revisit this mechanism.
 
 For R, add any package requirements to the "imports" section of the `DESCRIPTION` file in the root of the [QA Content Examples](https://github.com/posit-dev/qa-example-content) repo.
-
-## Release Screenshots
-
-The `release-screenshots` Playwright project produces PNGs for the docs site at https://positron.posit.co/. Tests live in `test/e2e/release-screenshots/` and use the `*.screenshot.ts` extension so they are not picked up by other projects.
-
-```bash
-# Run all release screenshots
-npx playwright test --project release-screenshots
-
-# Run a single one
-npx playwright test --project release-screenshots --grep "welcome page"
-```
-
-Output PNGs land in `test/e2e/release-screenshots/output/` (gitignored). Filenames match the docs site's image paths so they can be dropped straight in. Visual verification is manual - inspect each PNG before publishing.
-
-Design and plan: `docs/superpowers/specs/2026-04-30-release-screenshots-design.md`, `docs/superpowers/plans/2026-04-30-release-screenshots.md`.
 
 ## Pull Requests and Test Tags
 
