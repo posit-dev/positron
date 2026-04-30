@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
+import { PositronList } from '../../../../browser/positronList/positronList.js';
 import { NewDataConnectionFlow } from '../dialogs/newDataConnectionFlow.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
@@ -44,7 +45,11 @@ export const DataConnectionsPanel = ({ active }: DataConnectionsPanelProps) => {
 
 	// Track the data connection profiles so the panel re-renders when they change.
 	const [profiles, setProfiles] = useState<readonly IDataConnectionProfile[]>(
-		() => positronDataConnectionsService.getProfiles()
+		() => {
+			const x = positronDataConnectionsService.getProfiles();
+
+			return [...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x];
+		}
 	);
 
 	// Listen for changes to the data connection profiles and update state accordingly.
@@ -105,13 +110,22 @@ export const DataConnectionsPanel = ({ active }: DataConnectionsPanelProps) => {
 				/>
 			</PositronActionBarContextProvider>
 
-			{/* Render the data connection profiles. */}
-			<div className='data-connection-profiles'>
-				{profiles.map(profile => (
-					<div key={profile.id} className='data-connection-profile'>
-						{profile.connectionName}
-					</div>
-				))}
+			{/* Render the data connection profiles in a virtualized, keyboard-navigable list. */}
+			<div className='data-connection-profiles-list'>
+				<PositronList<IDataConnectionProfile>
+					ariaLabel={localize('positronDataConnections.profilesList', "Data Connections")}
+					defaultRowHeight={24}
+					emptyState={localize(
+						'positronDataConnections.noConnections',
+						"No data connections."
+					)}
+					items={profiles}
+					renderItem={profile => (
+						<div className='data-connection-profile'>
+							{profile.connectionName}
+						</div>
+					)}
+				/>
 			</div>
 		</div>
 	);

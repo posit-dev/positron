@@ -13,6 +13,14 @@
 	flex-direction: column;
 }
 
-.data-connections-panel .temporary-label {
-	padding: 8px;
+.data-connections-panel .data-connection-profiles-list {
+	flex: 1;
+	min-height: 0;
+}
+
+.data-connections-panel .data-connection-profile {
+	align-items: center;
+	display: flex;
+	height: 100%;
+	padding: 0 8px;
 }

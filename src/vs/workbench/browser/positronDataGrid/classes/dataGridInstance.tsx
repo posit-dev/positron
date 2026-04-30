@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -82,7 +82,7 @@ type ColumnPinningOptions = | {
 } | {
 	readonly columnPinning: true;
 	readonly maximumPinnedColumns: number;
-}
+};
 
 /**
  * RowPinningOptions type.
@@ -93,7 +93,7 @@ type RowPinningOptions = | {
 } | {
 	readonly rowPinning: true;
 	readonly maximumPinnedRows: number;
-}
+};
 
 /**
  * ScrollbarOptions type.
@@ -1376,7 +1376,7 @@ export abstract class DataGridInstance extends Disposable {
 			rowIndex: pinnedLayoutEntry.index,
 			top: pinnedLayoutEntry.start,
 			height: pinnedLayoutEntry.size,
-		}))
+		}));
 
 		// Calculate the total height of the pinned row descriptors.
 		const pinnedRowDescriptorsHeight = (() => {
@@ -1947,7 +1947,7 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	moveCursorUp() {
 		// Get the previous row index using the row layout manager.
-		const previousRowIndex = this._rowLayoutManager.previousIndex(this._cursorRowIndex)
+		const previousRowIndex = this._rowLayoutManager.previousIndex(this._cursorRowIndex);
 
 		// If the previous row index is undefined, this means that the cursor is already at the top row.
 		if (previousRowIndex === undefined) {
@@ -1957,7 +1957,7 @@ export abstract class DataGridInstance extends Disposable {
 		// Set the cursor row index to the previous row index and fire the onDidUpdate event.
 		this._cursorRowIndex = previousRowIndex;
 
-		this.scrollToCursor()
+		this.scrollToCursor();
 
 		this.fireOnDidUpdateEvent();
 	}
@@ -1967,7 +1967,7 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	moveCursorDown() {
 		// Get the next row index using the row layout manager.
-		const nextRowIndex = this._rowLayoutManager.nextIndex(this._cursorRowIndex)
+		const nextRowIndex = this._rowLayoutManager.nextIndex(this._cursorRowIndex);
 
 		// If the next row index is undefined, this means that the cursor is already at the bottom row.
 		if (nextRowIndex === undefined) {
@@ -1978,7 +1978,7 @@ export abstract class DataGridInstance extends Disposable {
 		this._cursorRowIndex = nextRowIndex;
 
 		// Scroll to the cursor.
-		this.scrollToCursor()
+		this.scrollToCursor();
 
 		// Fire the onDidUpdate event.
 		this.fireOnDidUpdateEvent();
@@ -1989,7 +1989,7 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	moveCursorLeft() {
 		// Get the previous column index using the column layout manager.
-		const previousColumnIndex = this._columnLayoutManager.previousIndex(this._cursorColumnIndex)
+		const previousColumnIndex = this._columnLayoutManager.previousIndex(this._cursorColumnIndex);
 
 		// If the previous column index is undefined, this means that the cursor is already at the first column.
 		if (previousColumnIndex === undefined) {
@@ -2011,7 +2011,7 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	moveCursorRight() {
 		// Get the next column index using the column layout manager.
-		const nextColumnIndex = this._columnLayoutManager.nextIndex(this._cursorColumnIndex)
+		const nextColumnIndex = this._columnLayoutManager.nextIndex(this._cursorColumnIndex);
 
 		// If the next column index is undefined, this means that the cursor is already at the last column.
 		if (nextColumnIndex === undefined) {
@@ -2663,13 +2663,13 @@ export abstract class DataGridInstance extends Disposable {
 			}
 
 			// Build the column indexes.
-			const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(cursorColumnPosition - 1, cursorColumnPosition)
+			const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(cursorColumnPosition - 1, cursorColumnPosition);
 			if (columnIndexes === undefined) {
 				return;
 			}
 
 			// Build the row indexes.
-			const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(cursorRowPosition, cursorRowPosition)
+			const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(cursorRowPosition, cursorRowPosition);
 			if (rowIndexes === undefined) {
 				return;
 			}
@@ -2806,13 +2806,13 @@ export abstract class DataGridInstance extends Disposable {
 			}
 
 			// Build the column indexes.
-			const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(cursorColumnPosition, cursorColumnPosition + 1)
+			const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(cursorColumnPosition, cursorColumnPosition + 1);
 			if (columnIndexes === undefined) {
 				return;
 			}
 
 			// Build the row indexes.
-			const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(cursorRowPosition, cursorRowPosition)
+			const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(cursorRowPosition, cursorRowPosition);
 			if (rowIndexes === undefined) {
 				return;
 			}
@@ -2948,13 +2948,13 @@ export abstract class DataGridInstance extends Disposable {
 			}
 
 			// Build the column indexes.
-			const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(cursorColumnPosition, cursorColumnPosition)
+			const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(cursorColumnPosition, cursorColumnPosition);
 			if (columnIndexes === undefined) {
 				return;
 			}
 
 			// Build the row indexes.
-			const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(cursorRowPosition - 1, cursorRowPosition)
+			const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(cursorRowPosition - 1, cursorRowPosition);
 			if (rowIndexes === undefined) {
 				return;
 			}
@@ -3091,13 +3091,13 @@ export abstract class DataGridInstance extends Disposable {
 			}
 
 			// Build the column indexes.
-			const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(cursorColumnPosition, cursorColumnPosition)
+			const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(cursorColumnPosition, cursorColumnPosition);
 			if (columnIndexes === undefined) {
 				return;
 			}
 
 			// Build the row indexes.
-			const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(cursorRowPosition, cursorRowPosition + 1)
+			const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(cursorRowPosition, cursorRowPosition + 1);
 			if (rowIndexes === undefined) {
 				return;
 			}
@@ -3364,6 +3364,17 @@ export abstract class DataGridInstance extends Disposable {
 	 * @returns The data cell, or, undefined.
 	 */
 	abstract cell(columnIndex: number, rowIndex: number): JSX.Element | undefined;
+
+	/**
+	 * Called when the user presses Enter while the data grid has focus and the cursor is
+	 * already showing. Subclasses can override to implement an "activation" action (e.g.
+	 * expand/collapse a row, open the focused item). The base implementation does nothing.
+	 *
+	 * The host (DataGridWaffle) handles consuming the keyboard event and the showCursor()
+	 * gating before this is called, so overrides only need to implement the action itself.
+	 */
+	async onEnterKey(): Promise<void> {
+	}
 
 	/**
 	 * Shows the column context menu.
