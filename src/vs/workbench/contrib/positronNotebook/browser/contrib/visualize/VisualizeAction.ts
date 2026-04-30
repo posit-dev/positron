@@ -16,6 +16,22 @@ import { applyVisualizeResult } from './applyVisualizeResult.js';
 import { generateVizCode, isValidDataFrameExpr } from './generateVizCode.js';
 import { showVisualizeModalDialog, validateVisualizationSuggestion, DataFrameColumn } from './visualizeModalDialog.js';
 
+/**
+ * Decode one segment of a `variablePath` array. The kernel encodes each
+ * segment via `encode_access_key`, producing a JSON string like
+ * `{"type":"str","data":"my_df"}`. Returns the raw `data` string for
+ * string-typed keys, or `undefined` for non-string keys or parse failures.
+ */
+function decodeAccessKey(encoded: string): string | undefined {
+	try {
+		const parsed = JSON.parse(encoded);
+		if (parsed && typeof parsed === 'object' && parsed.type === 'str' && typeof parsed.data === 'string') {
+			return parsed.data;
+		}
+	} catch { /* not JSON -- might be a raw string from an older kernel */ }
+	return undefined;
+}
+
 export class VisualizeDataFrameAction extends Action2 {
 	static readonly ID = 'positronNotebook.inlineDataExplorer.visualize';
 
@@ -63,20 +79,18 @@ export class VisualizeDataFrameAction extends Action2 {
 		}
 
 		// Prefer source-path metadata over display title for the dataframe
-		// prefill. `variablePath` identifies the actual variable behind the
-		// inline grid, while `title` is display-oriented and can be valid Python
-		// but point at a different object. Only single-segment paths are usable
-		// as Python expressions; multi-segment paths are runtime access keys
-		// (dict/list indices, attribute lookups) that we can't reconstruct
-		// safely, so we leave the field empty rather than fall back to title in
-		// that case -- the source-path metadata told us we don't have a valid
-		// expression.
+		// prefill. `variablePath` entries are encoded access keys (JSON
+		// objects like `{"type":"str","data":"df"}`), so we decode the first
+		// segment to recover the raw variable name. Only single-segment
+		// paths are usable as Python expressions.
 		let initialDfName = '';
-		if (ctx.variablePath && ctx.variablePath.length > 0) {
-			if (ctx.variablePath.length === 1 && isValidDataFrameExpr(ctx.variablePath[0])) {
-				initialDfName = ctx.variablePath[0];
+		if (ctx.variablePath && ctx.variablePath.length === 1) {
+			const decoded = decodeAccessKey(ctx.variablePath[0]);
+			if (decoded !== undefined && isValidDataFrameExpr(decoded)) {
+				initialDfName = decoded;
 			}
-		} else if (isValidDataFrameExpr(ctx.title)) {
+		}
+		if (!initialDfName && isValidDataFrameExpr(ctx.title)) {
 			initialDfName = ctx.title;
 		}
 

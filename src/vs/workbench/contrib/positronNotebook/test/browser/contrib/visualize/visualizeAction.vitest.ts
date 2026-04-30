@@ -70,12 +70,16 @@ describe('VisualizeDataFrameAction', () => {
 		return stubInterface<IPositronNotebookInstance>({});
 	}
 
+	function encodeAccessKey(name: string): string {
+		return JSON.stringify({ type: 'str', data: name });
+	}
+
 	function buildContext(overrides: Partial<IInlineDataExplorerActionContext> = {}): IInlineDataExplorerActionContext {
 		return {
 			documentUri: URI.parse('file:///nb.ipynb'),
 			sourceLanguage: 'python',
 			commId: 'comm-1',
-			variablePath: ['df'],
+			variablePath: [encodeAccessKey('df')],
 			title: 'df',
 			shape: { rows: 10, columns: 2 },
 			gridInstance: fakeGrid(),
@@ -164,18 +168,19 @@ describe('VisualizeDataFrameAction', () => {
 			mockShowVisualizeModalDialog.mockResolvedValue(undefined);
 		});
 
-		it('prefers a valid single-segment variablePath over a different valid title', async () => {
-			// Display title is syntactically valid but points at a different
-			// object; source-path metadata is authoritative.
-			await run(buildContext({ title: 'main', variablePath: ['df'] }));
+		it('decodes an encoded access key from variablePath', async () => {
+			await run(buildContext({ title: 'main', variablePath: [encodeAccessKey('df')] }));
 
 			expect(getInitialDfName()).toBe('df');
 		});
 
-		it('leaves prefill empty for multi-segment variablePath even when title is valid', async () => {
-			await run(buildContext({ title: 'main', variablePath: ['frames', 'main'] }));
+		it('falls back to title for multi-segment variablePath', async () => {
+			await run(buildContext({
+				title: 'main',
+				variablePath: [encodeAccessKey('frames'), encodeAccessKey('main')],
+			}));
 
-			expect(getInitialDfName()).toBe('');
+			expect(getInitialDfName()).toBe('main');
 		});
 
 		it('falls back to title when variablePath is missing and title is valid', async () => {
@@ -188,6 +193,12 @@ describe('VisualizeDataFrameAction', () => {
 			await run(buildContext({ title: 'data (1000 rows)', variablePath: undefined }));
 
 			expect(getInitialDfName()).toBe('');
+		});
+
+		it('handles a raw (non-JSON) variablePath segment as a fallback', async () => {
+			await run(buildContext({ title: 'other', variablePath: ['df'] }));
+
+			expect(getInitialDfName()).toBe('other');
 		});
 	});
 });
