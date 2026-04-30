@@ -90,7 +90,7 @@ export class Variables {
 	async toggleVariable({ variableName, action }: { variableName: string; action: 'expand' | 'collapse' }) {
 		await test.step(`${action} variable: ${variableName}`, async () => {
 			await this.waitForVariableRow(variableName);
-			const variable = this.code.driver.currentPage.locator(`${CURRENT_VARIABLES_GROUP} .name-value`, { hasText: variableName });
+			const variable = this.code.driver.currentPage.locator(`${CURRENT_VARIABLES_GROUP} .name-value`).getByText(variableName, { exact: true });
 
 			const chevronIcon = variable.locator('..').locator(VARIABLE_CHEVRON_ICON);
 			const isExpanded = await chevronIcon.evaluate((el) => el.classList.contains('codicon-chevron-down'));
@@ -158,7 +158,7 @@ export class Variables {
 
 	async clickDatabaseIconForVariableRow(rowName: string) {
 		const DATABASE_ICON = '.codicon-database';
-		await this.code.driver.currentPage.locator(`${CURRENT_VARIABLES_GROUP} ${VARIABLE_ITEMS}`).filter({ hasText: rowName }).locator(DATABASE_ICON).click();
+		await this.code.driver.currentPage.locator(`${CURRENT_VARIABLES_GROUP} ${VARIABLE_ITEMS}`).filter({ has: this.code.driver.currentPage.getByText(rowName, { exact: true }) }).locator(DATABASE_ICON).click();
 	}
 
 	async clickSessionLink() {
@@ -193,7 +193,7 @@ export class Variables {
 			await this.focusVariablesView();
 			const row = this.code.driver.currentPage
 				.locator('.variables-instance[style*="z-index: 1"] .variable-item')
-				.filter({ hasText: variableName });
+				.filter({ has: this.code.driver.currentPage.getByText(variableName, { exact: true }) });
 
 			await expect(row).toHaveCount(0);
 		});
