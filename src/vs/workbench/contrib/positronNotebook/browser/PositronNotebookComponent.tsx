@@ -36,7 +36,7 @@ import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebook
 import { IDeletionSentinel } from './IPositronNotebookInstance.js';
 import { NotebookErrorBoundary } from './NotebookErrorBoundary.js';
 import { getSelectedCells } from './selectionMachine.js';
-import { useScrollRestoration } from './useScrollRestoration.js';
+import { startScrollRestorationLoop } from './scrollRestorationLoop.js';
 
 export function PositronNotebookComponent() {
 	const notebookInstance = useNotebookInstance();
@@ -61,30 +61,31 @@ export function PositronNotebookComponent() {
 		CONTEXT_FIND_WIDGET_VISIBLE
 	);
 
-	// Attach the container in the callback ref so it's available
-	// synchronously during the commit phase, for useScrollRestoration.
+	// Attach the container in the callback ref so it's available synchronously
+	// during the commit phase, before the scroll-restoration layout effect runs.
 	const containerCallbackRef = React.useCallback((node: HTMLDivElement | null) => {
 		containerRef.current = node;
 		notebookInstance.setCellsContainer(node);
 	}, [notebookInstance]);
 
-	// Consume the restored scroll position. Cleared on read so re-renders don't restore a stale position.
-	const scrollPositionRef = React.useRef(notebookInstance.consumeRestoredScrollPosition());
+	// Re-fire the layout effect on each restoreEditorViewState call so the
+	// cache-hit setInput path (where the React tree is reused) still drives
+	// scroll restoration.
+	const restoreRequest = useObservedValue(notebookInstance.restoreScrollPositionRequest);
 
-	// Callback to calculate the target scroll top from the anchor cell.
-	const getScrollTop = React.useCallback(
-		() => {
-			const scrollPosition = scrollPositionRef.current;
-			if (!scrollPosition) { return undefined; }
+	React.useLayoutEffect(() => {
+		const scrollPosition = notebookInstance.consumeRestoredScrollPosition();
+		if (!scrollPosition) { return; }
+
+		const container = containerRef.current;
+		if (!container) { return; }
+
+		const disposable = startScrollRestorationLoop(container, () => {
 			const cellTop = notebookInstance.getCellTop(scrollPosition.cell);
-			if (cellTop === undefined) { return undefined; }
-			return cellTop + scrollPosition.offsetFromCell;
-		},
-		[notebookInstance]
-	);
-
-	// Effect to restore the scroll position.
-	useScrollRestoration(containerRef, scrollPositionRef.current ? getScrollTop : undefined, services.logService);
+			return cellTop === undefined ? undefined : cellTop + scrollPosition.offsetFromCell;
+		}, services.logService);
+		return () => disposable.dispose();
+	}, [restoreRequest, notebookInstance, services.logService]);
 
 	// Track cell count changes and announce to screen readers
 	React.useEffect(() => {

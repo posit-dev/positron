@@ -142,6 +142,40 @@ describe('PositronNotebookInstance undo/redo', () => {
 				'# Cell 4',
 			]);
 		});
+
+		it('delete-all then undo then redo round-trips a mixed code+markdown notebook', async () => {
+			const notebook = createTestPositronNotebookInstance([
+				['# Cell 0', 'python', CellKind.Code],
+				['# Cell 1', 'python', CellKind.Code],
+				['### Cell 2', 'markdown', CellKind.Markup],
+				['### Cell 3', 'markdown', CellKind.Markup],
+			], ctx);
+			const cellsBefore = notebook.cells.get();
+
+			notebook.deleteCells(cellsBefore);
+			expect(notebook.cells.get().length).toBe(0);
+
+			const undoRedo = ctx.get(IUndoRedoService);
+			await undoRedo.undo(notebook.uri);
+
+			const restored = notebook.cells.get();
+			expect(restored.length).toBe(4);
+			expect(restored.map(c => c.getContent())).toEqual([
+				'# Cell 0',
+				'# Cell 1',
+				'### Cell 2',
+				'### Cell 3',
+			]);
+			expect(restored.map(c => c.kind)).toEqual([
+				CellKind.Code,
+				CellKind.Code,
+				CellKind.Markup,
+				CellKind.Markup,
+			]);
+
+			await undoRedo.redo(notebook.uri);
+			expect(notebook.cells.get().length).toBe(0);
+		});
 	});
 
 	describe('mixed add + delete history', () => {

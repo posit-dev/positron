@@ -1697,6 +1697,7 @@ export class PositronNotebooks extends Notebooks {
  */
 class KernelBase {
 	statusBadge: Locator;
+	restartButton: Locator;
 	protected activeStatus: Locator;
 	protected idleStatus: Locator;
 	protected disconnectedStatus: Locator;
@@ -1707,6 +1708,7 @@ class KernelBase {
 		protected contextMenu: ContextMenu
 	) {
 		this.statusBadge = statusBadge;
+		this.restartButton = editorActionBar.getByRole('button', { name: 'Restart Kernel', exact: true });
 		this.activeStatus = editorActionBar.locator(ACTIVE_STATUS_ICON);
 		this.idleStatus = editorActionBar.locator(IDLE_STATUS_ICON);
 		this.disconnectedStatus = editorActionBar.locator(DISCONNECTED_STATUS_ICON);
@@ -1717,10 +1719,7 @@ class KernelBase {
 	 */
 	async restart({ waitForRestart = true }: { waitForRestart?: boolean } = {}): Promise<void> {
 		await test.step('Restart kernel', async () => {
-			await this.contextMenu.triggerAndClick({
-				menuTrigger: this.statusBadge,
-				menuItemLabel: /Restart Kernel/
-			});
+			await this.restartButton.click();
 
 			if (waitForRestart) {
 				await this.expectStatusToBe('idle', 30000);
