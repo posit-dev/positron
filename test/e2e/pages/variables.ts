@@ -69,7 +69,7 @@ export class Variables {
 	}
 
 	async waitForVariableRow(variableName: string): Promise<Locator> {
-		const desiredRow = this.code.driver.currentPage.locator(VARIABLES_NAME_COLUMN).filter({ hasText: variableName });
+		const desiredRow = this.code.driver.currentPage.locator(VARIABLES_NAME_COLUMN).getByText(variableName, { exact: true });
 		await expect(desiredRow).toBeVisible();
 		return desiredRow;
 	}
