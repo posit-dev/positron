@@ -20,7 +20,8 @@ import { showVisualizeModalDialog, validateVisualizationSuggestion, DataFrameCol
  * Decode one segment of a `variablePath` array. The kernel encodes each
  * segment via `encode_access_key`, producing a JSON string like
  * `{"type":"str","data":"my_df"}`. Returns the raw `data` string for
- * string-typed keys, or `undefined` for non-string keys or parse failures.
+ * string-typed keys. Falls back to the raw input for non-JSON segments
+ * (older kernels may emit plain variable names).
  */
 function decodeAccessKey(encoded: string): string | undefined {
 	try {
@@ -28,8 +29,10 @@ function decodeAccessKey(encoded: string): string | undefined {
 		if (parsed && typeof parsed === 'object' && parsed.type === 'str' && typeof parsed.data === 'string') {
 			return parsed.data;
 		}
-	} catch { /* not JSON -- might be a raw string from an older kernel */ }
-	return undefined;
+		return undefined;
+	} catch {
+		return encoded;
+	}
 }
 
 export class VisualizeDataFrameAction extends Action2 {
@@ -82,7 +85,9 @@ export class VisualizeDataFrameAction extends Action2 {
 		// prefill. `variablePath` entries are encoded access keys (JSON
 		// objects like `{"type":"str","data":"df"}`), so we decode the first
 		// segment to recover the raw variable name. Only single-segment
-		// paths are usable as Python expressions.
+		// paths are usable as Python expressions; multi-segment paths mean
+		// the object isn't a simple top-level variable, so we leave the
+		// field empty rather than guessing from `title`.
 		let initialDfName = '';
 		if (ctx.variablePath && ctx.variablePath.length === 1) {
 			const decoded = decodeAccessKey(ctx.variablePath[0]);
@@ -90,7 +95,7 @@ export class VisualizeDataFrameAction extends Action2 {
 				initialDfName = decoded;
 			}
 		}
-		if (!initialDfName && isValidDataFrameExpr(ctx.title)) {
+		if (!initialDfName && (!ctx.variablePath || ctx.variablePath.length === 0) && isValidDataFrameExpr(ctx.title)) {
 			initialDfName = ctx.title;
 		}
 

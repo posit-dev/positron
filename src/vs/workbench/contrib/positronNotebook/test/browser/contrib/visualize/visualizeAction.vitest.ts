@@ -174,13 +174,13 @@ describe('VisualizeDataFrameAction', () => {
 			expect(getInitialDfName()).toBe('df');
 		});
 
-		it('falls back to title for multi-segment variablePath', async () => {
+		it('leaves prefill empty for multi-segment variablePath even when title is valid', async () => {
 			await run(buildContext({
 				title: 'main',
 				variablePath: [encodeAccessKey('frames'), encodeAccessKey('main')],
 			}));
 
-			expect(getInitialDfName()).toBe('main');
+			expect(getInitialDfName()).toBe('');
 		});
 
 		it('falls back to title when variablePath is missing and title is valid', async () => {
@@ -195,10 +195,10 @@ describe('VisualizeDataFrameAction', () => {
 			expect(getInitialDfName()).toBe('');
 		});
 
-		it('handles a raw (non-JSON) variablePath segment as a fallback', async () => {
+		it('handles a raw (non-JSON) variablePath segment from an older kernel', async () => {
 			await run(buildContext({ title: 'other', variablePath: ['df'] }));
 
-			expect(getInitialDfName()).toBe('other');
+			expect(getInitialDfName()).toBe('df');
 		});
 	});
 });
