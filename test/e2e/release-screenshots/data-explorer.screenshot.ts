@@ -34,8 +34,10 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		await dataExplorer.maximize(true);
 		await dataExplorer.waitForIdle();
 
-		// apply a filter to the data explorer
+		// apply filters: dep_time is not missing AND month > 1
 		await dataExplorer.filters.add({ columnName: 'dep_time', condition: 'is not missing' });
+		await dataExplorer.waitForIdle();
+		await dataExplorer.filters.add({ columnName: 'month', condition: 'is greater than', value: '1' });
 		await dataExplorer.waitForIdle();
 
 		// Sort by month descending. columnIndex is 1-based; month is column 2.
