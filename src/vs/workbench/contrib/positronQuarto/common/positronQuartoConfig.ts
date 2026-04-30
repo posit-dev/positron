@@ -81,7 +81,6 @@ configurationRegistry.registerConfiguration({
 				'positron.quarto.inlineOutput.enabled',
 				'Enable inline output display for Quarto documents. When enabled, code execution results appear directly in the editor below the executed cell.'
 			),
-			tags: ['preview'],
 			scope: ConfigurationScope.WINDOW,
 		},
 		[POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY]: {
@@ -93,7 +92,6 @@ configurationRegistry.registerConfiguration({
 				'positron.quarto.inlineOutput.maxLines',
 				'Maximum number of lines to display in inline text output. If output exceeds this limit, only the last N lines are shown with a link to open the full output in an editor.'
 			),
-			tags: ['preview'],
 			scope: ConfigurationScope.WINDOW,
 		},
 	},
