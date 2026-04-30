@@ -395,7 +395,7 @@ def test_pinfo_2(shell: PositronShell, tmp_path: Path, mock_ui_service: Mock) ->
 
 
 def test_pinfo_unimported_module(
-    shell: PositronShell, tmp_path: Path, mock_help_service: Mock
+    shell: PositronShell, tmp_path: Path, mock_help_service: Mock, capsys
 ) -> None:
     """`?name` should call show_help when name is an installed-but-not-imported module."""
     module_name = "test_pinfo_unimported_xyz"
@@ -406,6 +406,8 @@ def test_pinfo_unimported_module(
         shell.run_cell(f"{module_name}?")
 
     mock_help_service.show_help.assert_called_once_with(module_name)
+    # Should not also print IPython's default "Object not found" message.
+    assert "not found" not in capsys.readouterr().out
 
 
 def test_pinfo_nonexistent_name(shell: PositronShell, mock_help_service: Mock) -> None:

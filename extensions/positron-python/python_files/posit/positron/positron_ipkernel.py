@@ -475,17 +475,16 @@ class PositronShell(ZMQInteractiveShell):
         self.configurables.append(self.display_formatter)  # type: ignore IPython type annotation is wrong
 
     def _inspect(self, meth, oname, namespaces=None, **kw):
-        result = super()._inspect(meth, oname, namespaces, **kw)
-
-        # When IPython can't find the name in the user namespace and the user
-        # asked for `?name` (pinfo), fall back to the help service if the name
-        # is an installed module on disk. This makes `?pandas` work when
-        # pandas is installed but not yet imported.
-        if result == "not found" and meth == "pinfo" and _is_module_on_disk(oname):
-            self.kernel.help_service.show_help(oname)
-            return None
-
-        return result
+        # For `?name`, if the name isn't a live object but is an installed
+        # module on disk, show its pydoc help instead of letting IPython
+        # print "Object not found". Pre-checking here (rather than after
+        # super()) avoids the duplicate "not found" message.
+        if meth == "pinfo" and _is_module_on_disk(oname):
+            info = self._object_find(oname, namespaces)
+            if not info.found and not hasattr(info.parent, oinspect.HOOK_NAME):
+                self.kernel.help_service.show_help(oname)
+                return None
+        return super()._inspect(meth, oname, namespaces, **kw)
 
     def _handle_pre_run_cell(self, info: ExecutionInfo) -> None:
         """Prior to execution, reset the user environment watch state."""
