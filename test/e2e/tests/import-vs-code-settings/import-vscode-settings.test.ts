@@ -80,7 +80,7 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS] }, () => {
 	});
 
 	test.describe('Import with Positron settings', () => {
-		test('Verify diff displays and rejected settings are not saved', { tag: [tags.WIN] }, async ({ app, page, hotKeys }) => {
+		test('Verify diff displays and rejected settings are not saved', async ({ app, page, hotKeys }) => {
 			const { toasts } = app.workbench;
 			const testSettingLocator = page.getByText('"test": "positron-settings"');
 
