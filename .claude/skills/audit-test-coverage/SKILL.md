@@ -210,13 +210,12 @@ Example: *3 items audited. Recommendation: move down 2 to Vitest (medium confide
 
 ## At a glance
 
-| ID  | Test :: scenario                          | Verdict             | Conf.  | Why                                                |
-|-----|-------------------------------------------|---------------------|--------|----------------------------------------------------|
-| [1] | <test-file-shortname> :: <scenario>       | Move down -> Vitest | high   | already covered in `notebookDelete.vitest.ts`      |
-| [2] | <test-file-shortname> :: <scenario>       | Split               | medium | clipboard half is e2e; rest covered                |
-| [3] | <test-file-shortname> :: <scenario>       | Keep                | high   | webview-rendered (markdown-language-features)      |
+| ID  | Test :: scenario          | Verdict             | Conf.  | Why                                            |
+|-----|---------------------------|---------------------|--------|------------------------------------------------|
+| [1] | <basename> :: <scenario>  | Move down -> Vitest | high   | already covered in `notebookDelete.vitest.ts`  |
+| [2] | <basename> :: <scenario>  | Keep                | high   | webview-rendered (markdown-language-features)  |
 
-(Use the test-file's basename + describe/it scenario as the row label so the table stays scannable. Long full paths belong only in the per-item detail below.)
+(Row label: test-file basename + describe/it scenario. Full paths only in per-item detail.)
 
 **HARD RULE:** After the table, ONLY action items (`Move down` / `Move up` / `Split` / `Add`) appear in per-item form. **`Keep`, `Skip`, and `Delete` verdicts NEVER get a per-item block.** They live in the at-a-glance table — the `Why` column is their entire treatment. Do not render them again below. The dev can reply `details N` if they want to challenge one specifically.
 
@@ -224,98 +223,51 @@ Example: *3 items audited. Recommendation: move down 2 to Vitest (medium confide
 
 ## Existing coverage
 
-### Core Mocha (upstream, awareness only, read-only) - N items
+### Core Mocha (upstream, awareness only) - N items
 
-(Awareness-only one-line bullets; never per-item blocks.)
-
-- `src/vs/platform/.../someUpstreamThing.test.ts` - references `<changed-file>`; asserts `<one-line summary>`. **Overlaps** with proposed Vitest item #4. Dev decides whether the Vitest test is still needed.
-- `src/vs/editor/.../anotherUpstream.test.ts` - references `<changed-file>`; asserts `<one-line summary>`. No overlap with proposed coverage.
+- `src/vs/.../upstream.test.ts` - references `<changed-file>`; asserts `<summary>`. **Overlaps** with proposed Vitest item #4.
 
 ### Action items (per-item blocks below)
 
-The per-item blocks follow the compact layout: path on line 1, `**Verdict:**` on line 2, then `**Why:**` / `**Trace:**` / `**Moves to Vitest:** + **Stays in e2e:**` per verdict, then `**What changes:**`. Items separated by `---`. The numbered IDs (`[1]`, `[2]`, ...) cover ALL items in the at-a-glance table; per-item blocks below skip the IDs assigned to Keep / Skip / Delete verdicts.
+Per-item layout: bold `**[N]**` + path on line 1, `**Verdict:**`, then ONE of `**Why:**` / `**Trace:**` / `**Moves to Vitest:** + **Stays in e2e:**`, then `**What changes:**`. Items separated by `---`. IDs cover ALL table rows; blocks below skip Keep/Skip/Delete IDs.
 
-Example of the per-item layouts (only verdicts that get a block — `Move down`, `Move up`, `Split`, `Add`):
+One example per verdict (showing the four shapes):
 
-**[2]** `src/vs/.../<path>`
-**Verdict:** Move up -> Ext host (confidence: medium) [rare]
-**Why:** stubs 5+ fundamental services; assertions are about cross-service dispatch, not the unit's own outputs.
-**Alternative:** rewrite this Vitest with less mocking if orchestrator-in-isolation is what's worth testing.
-
----
-
-**[4]** `<path>`
-**Verdict:** Move down -> Vitest (confidence: high)
-**Trace** (1 of 1 shown):
-- L18 expect(fmt.render(...)) -> `fmt.render()` (Vitest plain)
-**What changes:** add Vitest test for `src/vs/.../fmt.ts`; delete original after replacement verified by dev.
-
----
-
-**[7]** `<path>`
-**Verdict:** Move down -> Vitest (confidence: high, full move)
-**Trace** (2 of 6 shown; reply `expand 7` for full):
+**[N]** `<path>` -- **Move down -> Vitest** (high)
+**Trace** (2 of 6 shown; reply `expand N` for full):
 - L23 expect(parser.detect(...)) -> `clearHandler.detect()` (Vitest plain)
 - L41 expect(consoleState).toBe('cleared') -> `consoleReducer` (Vitest builder)
 - ...4 more, all hitting the parser + reducer layer.
-**What changes:** add Vitest test for `src/vs/.../clearHandler.ts` covering parser + reducer behaviors; delete original e2e after replacement verified.
+**What changes:** add Vitest test for `src/vs/.../clearHandler.ts`; delete original e2e after replacement verified.
 
----
+**[N]** `<path>` -- **Split** (medium)
+**Moves to Vitest:** L15 expect(formatter.format(...)) -> `formatter.format()` (Vitest plain)
+**Stays in e2e:** L32 cross-pane check (console -> variables)
+**What changes:** add Vitest test for the formatter; trim e2e to the cross-pane assertion.
 
-**[8]** `<path>`
-**Verdict:** Split (confidence: medium)
-**Moves to Vitest:**
-- L15 expect(formatter.format(...)) -> `formatter.format()` (Vitest plain)
-**Stays in e2e:**
-- L32 cross-pane check (console -> variables)
-**What changes:** add Vitest test for the formatter; trim e2e to cover only the cross-pane assertion.
+**[N]** `<path>` -- **Move up -> Ext host** (medium) [rare]
+**Why:** stubs 5+ fundamental services; assertions are about cross-service dispatch.
+**Alternative:** rewrite this Vitest with less mocking if orchestrator-in-isolation is what's worth testing.
 
----
+**[N]** `src/vs/.../<file>.ts` :: <behavior> -- **Add** (high) - <pattern: plain / builder / RTL>
+**Why:** <one-line reason>
 
 ### Low-confidence flags (FYI, ignore freely) - N items
 
-**[9]** `<path>` - Move down (confidence: low). Only one weak signal, listed for awareness.
-
-## New coverage needed
-
-### Vitest (Positron unit) - N items
-
-**[10]** `src/vs/.../<file>.ts` :: <behavior>
-**Verdict:** Add (confidence: high) - <pattern: plain / builder / RTL>
-**Why:** <one-line reason>
-
----
-
-### Extension host (flag only, no auto-handoff) - N items
-
-**[11]** `extensions/<name>/...` :: <behavior>
-**Verdict:** Add (confidence: high) - mirror sibling test in `<path>`
-
----
-
-### E2E - N items
-
-**[12]** `<user workflow>`
-**Verdict:** Add (confidence: high)
-**Why:** <reason this belongs in e2e>
-
----
+**[N]** `<path>` - Move down (low). <weak-signal reason>
 
 ## Skip
-
-**[13]** `<file>` - Skip (confidence: high). Docs-only / type-only / reverted / upstream / action-only.
-
----
+**[N]** `<file>` - Skip (high). Docs-only / type-only / reverted / upstream / action-only.
 
 ## Summary
-- Add: <V vitest, E ext-host-flag, 2 e2e>
+- Add: <V vitest, E ext-host-flag, e2e>
 - Move down: <H high, M medium, L low>
-- Move up: <N> (rare; review carefully)
+- Move up: <N> (rare)
 - Split: <N>
-- Keep: <N> (of which X verified via hypothesis-verification trace)
+- Keep: <N> (X verified via hypothesis-verification trace)
 - Delete / Skip: <N>
 - Upstream awareness: <U items, X overlaps>
-- Total dev decisions at the gate: <sum of approvals needed>
+- Total dev decisions at the gate: <N>
 ```
 
 **Formatting rules:**
