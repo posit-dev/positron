@@ -20,6 +20,14 @@ import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY } from '../../common/positronNotebookConfig.js';
 import { isMacintosh } from '../../../../../base/common/platform.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
+import { MenuId, MenuItemAction } from '../../../../../platform/actions/common/actions.js';
+import type { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
+import { useMenu } from '../useMenu.js';
+import { useMenuActions } from '../useMenuActions.js';
+import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
+import { useCell } from './CellProvider.js';
+import type { IInlineDataExplorerActionContext } from './InlineDataExplorerActions.js';
+import { InlineDataExplorerActionButton } from './InlineDataExplorerActionButton.js';
 
 // Height calculation constants (from inlineTableDataGridInstance.tsx constructor options)
 const HEADER_HEIGHT = 28;  // columnHeadersHeight
@@ -53,14 +61,30 @@ type InlineDataExplorerState =
 	| { status: 'disconnected' }
 	| { status: 'error'; message: string };
 
+// MenuItemAction.run drops caller-supplied args unless shouldForwardArgs is set;
+// without this, the rich IInlineDataExplorerActionContext we pass at click time
+// never reaches the registered Action2.
+const HEADER_MENU_OPTIONS = { shouldForwardArgs: true } as const;
+
 /**
  * InlineDataExplorerHeader component.
+ *
+ * Renders title, shape, and any actions registered against
+ * {@link MenuId.PositronNotebookInlineDataExplorerHeader}. Action buttons appear
+ * only when the parent provides an `actionContext` -- typically when the inline
+ * grid is connected and not stale.
  */
-export function InlineDataExplorerHeader({ title, shape, onOpenInExplorer }: {
+export function InlineDataExplorerHeader({ title, shape, actionContext, contextKeyService: providedContextKeyService }: {
 	title: string;
 	shape: { rows: number; columns: number };
-	onOpenInExplorer?: () => void;
+	actionContext: IInlineDataExplorerActionContext | undefined;
+	contextKeyService?: IContextKeyService;
 }) {
+	const cellScopedContextKeyService = useCellScopedContextKeyService();
+	const contextKeyService = providedContextKeyService ?? cellScopedContextKeyService;
+	const menu = useMenu(MenuId.PositronNotebookInlineDataExplorerHeader, contextKeyService);
+	const actionGroups = useMenuActions(menu, HEADER_MENU_OPTIONS);
+
 	return (
 		<div className='inline-data-explorer-header'>
 			<div className='inline-data-explorer-info'>
@@ -69,16 +93,19 @@ export function InlineDataExplorerHeader({ title, shape, onOpenInExplorer }: {
 					{shape.rows.toLocaleString()} {localize('rows', 'rows')} x {shape.columns.toLocaleString()} {localize('columns', 'columns')}
 				</span>
 			</div>
-			{onOpenInExplorer && (
-				<button
-					className='inline-data-explorer-open-button'
-					title={localize('openInDataExplorer', 'Open in Data Explorer')}
-					onClick={onOpenInExplorer}
-				>
-					<span className='codicon codicon-go-to-file' />
-					{localize('openInDataExplorer', 'Open in Data Explorer')}
-				</button>
-			)}
+			<div className='inline-data-explorer-header-actions'>
+				{actionContext && actionGroups.flatMap(([_group, actions]) =>
+					actions
+						.filter((action): action is MenuItemAction => action instanceof MenuItemAction)
+						.map(action => (
+							<InlineDataExplorerActionButton
+								key={action.id}
+								action={action}
+								context={actionContext}
+							/>
+						))
+				)}
+			</div>
 		</div>
 	);
 }
@@ -92,6 +119,7 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 	const { commId, shape, title, variablePath, onFallback } = props;
 	const services = PositronReactServices.services;
 	const notebookInstance = useNotebookInstance();
+	const cell = useCell();
 	const [state, setState] = useState<InlineDataExplorerState>({ status: 'loading' });
 	const containerRef = useRef<HTMLDivElement>(null);
 	// Don't create DisposableStore in useRef - it will leak on remount.
@@ -202,17 +230,27 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 		};
 	}, [commId, dataExplorerService, onFallback]);
 
-	const handleOpenInExplorer = () => {
-		services.commandService.executeCommand('positron-data-explorer.openFromInline', {
-			commId,
-			variablePath,
-			notebookUri: notebookInstance.uri,
-		});
-	};
-
 	// Check if grid instance has become stale (no data but still "connected")
 	const isGridStale = state.status === 'connected' &&
 		(state.gridInstance.columns === 0 || state.gridInstance.rows === 0);
+
+	// Build the rich context object that header actions receive on click. Populated
+	// only when we have a cell and the grid is connected and non-stale -- this is
+	// the canonical "ready" state for any registered action.
+	const actionContext: IInlineDataExplorerActionContext | undefined =
+		cell && state.status === 'connected' && !isGridStale
+			? {
+				documentUri: notebookInstance.uri,
+				sourceLanguage: cell.model.language,
+				commId,
+				variablePath,
+				title,
+				shape,
+				gridInstance: state.gridInstance,
+				cell,
+				notebookInstance,
+			}
+			: undefined;
 
 	// Handle keyboard events for copy (Cmd+C / Ctrl+C)
 	const handleKeyDown = async (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -231,11 +269,11 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 
 	// Render based on state
 	return (
-		<div ref={containerRef} className='inline-data-explorer-container' style={{ height: `${dynamicHeight}px` }}>
+		<div ref={containerRef} className='inline-data-explorer-container inline-data-explorer-container--clears-output-actions' style={{ height: `${dynamicHeight}px` }}>
 			<InlineDataExplorerHeader
+				actionContext={actionContext}
 				shape={shape}
 				title={title}
-				onOpenInExplorer={state.status === 'connected' && !isGridStale ? handleOpenInExplorer : undefined}
 			/>
 			<div className='inline-data-explorer-content' onKeyDownCapture={handleKeyDown}>
 				{state.status === 'loading' && (
