@@ -47,6 +47,9 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);
-		await capturePanel(page.locator('.positron-data-explorer'), 'data-explorer.png');
+		// .editor-group-container includes the tab strip ('Data: flights' tab)
+		// plus the editor body. .positron-data-explorer alone starts below the
+		// tab strip and crops it off.
+		await capturePanel(page.locator('.part.editor .editor-group-container'), 'data-explorer.png');
 	});
 });
