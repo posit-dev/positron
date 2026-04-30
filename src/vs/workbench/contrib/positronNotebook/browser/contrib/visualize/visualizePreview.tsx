@@ -30,6 +30,7 @@ type PreviewState =
 	| { status: 'disabled' }
 	| { status: 'unsupported-library' }
 	| { status: 'no-runtime' }
+	| { status: 'needs-dfname' }
 	| { status: 'loading' }
 	| { status: 'success'; mime: 'text/html' | 'image/png' | 'image/svg+xml'; data: string }
 	| { status: 'error'; message: string };
@@ -46,9 +47,11 @@ interface Props {
 	 * "Rendering preview..." until the cleanup timer fires.
 	 */
 	library: VizLibrary;
+	/** True when the user has chosen columns but dfName is missing or invalid. */
+	needsDfName?: boolean;
 }
 
-export function VisualizePreview({ code, notebookUri, library }: Props) {
+export function VisualizePreview({ code, notebookUri, library, needsDfName }: Props) {
 	const services = usePositronReactServicesContext();
 	const [state, setState] = useState<PreviewState>({ status: 'idle' });
 	// Bumped when a runtime session for `notebookUri` becomes available, so
@@ -103,6 +106,10 @@ export function VisualizePreview({ code, notebookUri, library }: Props) {
 			// route through a webview yet. Bail out before scheduling the
 			// kernel run -- the result wouldn't be displayable.
 			setState({ status: 'unsupported-library' });
+			return;
+		}
+		if (needsDfName) {
+			setState({ status: 'needs-dfname' });
 			return;
 		}
 		if (!code.trim()) {
@@ -198,7 +205,7 @@ export function VisualizePreview({ code, notebookUri, library }: Props) {
 			activeDisposablesRef.current = null;
 			latestExecIdRef.current = '';
 		};
-	}, [code, notebookUri, services.runtimeSessionService, enabled, library, sessionAttachTick]);
+	}, [code, notebookUri, services.runtimeSessionService, enabled, library, needsDfName, sessionAttachTick]);
 
 	return (
 		<div className='visualize-preview'>
@@ -255,6 +262,14 @@ function renderBody(state: PreviewState, onToggle: () => void) {
 					hint={localize('positron.notebook.visualize.preview.disabled.hint', 'Skip running code in the kernel until you turn it back on.')}
 					icon='codicon-eye-closed'
 					title={localize('positron.notebook.visualize.preview.disabled.title', 'Live preview is off')}
+				/>
+			);
+		case 'needs-dfname':
+			return (
+				<PreviewMessage
+					hint={localize('positron.notebook.visualize.preview.needsDfName.hint', 'Enter a valid DataFrame variable name on the columns step.')}
+					icon='codicon-info'
+					title={localize('positron.notebook.visualize.preview.needsDfName.title', 'DataFrame variable needed')}
 				/>
 			);
 		case 'no-runtime':

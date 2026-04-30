@@ -276,8 +276,8 @@ const VisualizeModalDialog = (props: Props) => {
 		if (canAdvance) { goNext(); }
 	};
 
-	const generatedSource = codeSnippetToCellSource(generateVizCode(answers));
-	const previewReady = answers.x.trim().length > 0;
+	const generatedSource = dfNameValid ? codeSnippetToCellSource(generateVizCode(answers)) : '';
+	const previewReady = dfNameValid && answers.x.trim().length > 0;
 
 	return (
 		<PositronModalDialog
@@ -404,6 +404,7 @@ const VisualizeModalDialog = (props: Props) => {
 							<VisualizePreview
 								code={previewReady ? generatedSource : ''}
 								library={library}
+								needsDfName={!dfNameValid && xColPresent}
 								notebookUri={props.notebookUri}
 							/>
 						</div>
