@@ -100,6 +100,11 @@ export function computeDropIndex(args: {
 /**
  * Resolves the cell set for a drag: the full multi-selection if the grabbed
  * cell is part of it, otherwise just the grabbed cell.
+ *
+ * Generic over `T extends CellRef` so the caller's full cell type (e.g.
+ * `IPositronNotebookCell`) flows through unchanged. Without the generic,
+ * callers passing a richer type would get back `CellRef[]` and have to
+ * widen at the call site.
  */
 export function resolveDraggedCells<T extends CellRef>(
 	draggedCell: T,
