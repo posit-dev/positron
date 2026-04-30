@@ -558,11 +558,12 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 			// Pass the current install directory so Inno Setup does not fall back to
 			// the hardcoded default path when Positron was installed to a custom location.
 			spawn(this.availableUpdate.packagePath, ['/silent', '/log', '/mergetasks=runcode,!desktopicon,!quicklaunchicon', `/DIR="${path.dirname(process.execPath)}"`], {
-				// --- End Positron ---
 				detached: true,
 				stdio: ['ignore', 'ignore', 'ignore'],
+				windowsVerbatimArguments: true,
 				env: { ...process.env, __COMPAT_LAYER: 'RunAsInvoker' }
 			});
+			// --- End Positron ---
 		}
 	}
 
