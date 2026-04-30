@@ -152,7 +152,7 @@ export class Filters {
 		this.addFilterButton = this.code.driver.currentPage.getByRole('button', { name: 'Add Filter' });
 		this.selectColumnButton = this.code.driver.currentPage.getByRole('button', { name: 'Select Column' });
 		this.selectConditionButton = this.code.driver.currentPage.getByRole('button', { name: 'Select Condition' });
-		this.selectFilterModalValue = (value: string) => this.code.driver.currentPage.locator('.positron-modal-popup').getByRole('button', { name: value });
+		this.selectFilterModalValue = (value: string) => this.code.driver.currentPage.locator('.positron-modal-popup').getByRole('button', { name: value, exact: true });
 		this.applyFilterButton = this.code.driver.currentPage.getByRole('button', { name: 'Apply Filter' });
 		// this.filteringMenu = this.code.driver.currentPage.getByRole('button', { name: 'Filtering' });
 		// this.menuItemClearFilters = this.code.driver.currentPage.getByRole('button', { name: 'Clear Filters' });
