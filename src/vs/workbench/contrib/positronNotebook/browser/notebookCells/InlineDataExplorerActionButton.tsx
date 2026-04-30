@@ -3,8 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { MenuItemAction } from '../../../../../platform/actions/common/actions.js';
+import { Icon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
 import type { IInlineDataExplorerActionContext } from './InlineDataExplorerActions.js';
 
 /**
@@ -17,7 +17,6 @@ export function InlineDataExplorerActionButton({ action, context }: {
 	action: MenuItemAction;
 	context: IInlineDataExplorerActionContext;
 }) {
-	const iconId = ThemeIcon.isThemeIcon(action.item.icon) ? action.item.icon.id : undefined;
 	return (
 		<button
 			aria-label={action.label}
@@ -26,7 +25,7 @@ export function InlineDataExplorerActionButton({ action, context }: {
 			type='button'
 			onClick={() => action.run(context)}
 		>
-			{iconId && <span className={`codicon codicon-${iconId}`} />}
+			{action.item.icon && <Icon icon={action.item.icon} />}
 			<span className='inline-data-explorer-open-button-label'>{action.label}</span>
 		</button>
 	);
