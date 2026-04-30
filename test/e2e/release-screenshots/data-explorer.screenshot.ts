@@ -17,13 +17,18 @@ test.use({
  * Path: https://positron.posit.co/images/data-explorer.png
  */
 test.describe('Release screenshots - Data Explorer', () => {
+	// Force a rescan of installed Python interpreters before the python
+	// fixture tries to start a session. Works around flaky auto-discovery
+	// where POSITRON_PY_VER_SEL's interpreter is sometimes missing from
+	// the quick pick on session start.
+	test.beforeAll(async ({ app }) => {
+		await app.workbench.quickaccess.runCommand('python.refreshInterpreters');
+	});
+
 	test('main panel', async ({ app, page, executeCode, python }) => {
 		const { dataExplorer, variables } = app.workbench;
 
-		// Load the parquet via an absolute path so we don't need to openFolder
-		// (which would reload the app and restart the interpreter). The data
-		// file lives at the qa-example-content root, not inside the workspace
-		// folder.
+		// open the flights dataset in the data explorer
 		const parquetPath = join(
 			app.workspacePathOrFolder,
 			'data-files', 'flights', 'flights.parquet',
@@ -37,6 +42,7 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		await dataExplorer.maximize(true);
 		await dataExplorer.waitForIdle();
 
+		// apply a filter to the data explorer
 		await dataExplorer.filters.add({ columnName: 'dep_time', condition: 'is not missing' });
 		await dataExplorer.waitForIdle();
 
@@ -45,10 +51,9 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		await dataExplorer.waitForIdle();
 
 		// Expand the arr_delay column profile in the summary panel.
-		// Column order in summary panel matches DataFrame order; arr_delay is
-		// the 9th column (0-based index 8).
 		await dataExplorer.summaryPanel.expandColumnProfile(8);
 
+		// capture screenshot
 		await prepareForScreenshot(app, page);
 		await capturePanel(page.locator('.positron-data-explorer'), 'data-explorer.png');
 	});
