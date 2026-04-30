@@ -23,7 +23,7 @@ test.describe('Release screenshots - Launch Positron', () => {
 
 		const palette = page.locator('.quick-input-widget');
 		await expect(palette).toBeVisible();
-		await expect(palette.getByText("Shell Command: Install 'positron' command in PATH")).toBeVisible();
+		await expect(palette.getByText(`Shell Command: Install 'positron' command in PATH`)).toBeVisible();
 
 		await prepareForScreenshot(app, page);
 		await capturePanel(palette, 'positron-path.png');
