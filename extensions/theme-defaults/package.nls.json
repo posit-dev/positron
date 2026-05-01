@@ -10,6 +10,8 @@
 	"hcColorThemeLabel": "Dark High Contrast",
 	"lightHcColorThemeLabel": "Light High Contrast",
 	"minimalIconThemeLabel": "Minimal (Visual Studio Code)",
-	"positronDarkThemeLabel": "Positron Dark",
-	"positronLightThemeLabel": "Positron Light"
+	"positronDarkThemeLabel": "Dark",
+	"positronLightThemeLabel": "Light",
+	"positronExperimentalDarkThemeLabel": "Dark Experimental",
+	"positronExperimentalLightThemeLabel": "Light Experimental"
 }
