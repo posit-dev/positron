@@ -15,9 +15,8 @@ import { isUvInstalled } from '../../common/environmentManagers/uv';
 import { executeCommand } from '../../../common/vscodeApis/commandApis';
 import { showQuickPickWithBack } from '../../../common/vscodeApis/windowApis';
 import { Commands } from '../../../common/constants';
-import { getPipRequirementsFiles, isPipInstallableToml } from './venvUtils';
+import { getPipRequirementsFiles } from './venvUtils';
 import { UV_PROVIDER_ID } from './uvCreationProvider';
-import * as fsapi from '../../../common/platform/fs-paths';
 import { hasPyprojectToml } from '../common/createEnvTriggerUtils.js';
 
 export interface AutoCreateVenvContext {
