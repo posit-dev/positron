@@ -398,6 +398,10 @@ export class WorkbenchThemeService extends Disposable implements IWorkbenchTheme
 				case 'vs-dark vscode-theme-monokai-themes-monokai-color-theme-json':
 				case 'vs-dark vscode-theme-red-themes-Red-color-theme-json':
 				case 'vs-dark vscode-theme-solarized-dark-themes-solarized-dark-color-theme-json':
+				// Hide the upstream theme-2026 entries; surfaced as Positron-branded
+				// wrappers via theme-defaults/themes/positron_experimental_*.json.
+				case 'vs vscode-theme-2026-themes-2026-light-json':
+				case 'vs-dark vscode-theme-2026-themes-2026-dark-json':
 					return false;
 
 				// Include user-defined themes as well as any new themes that have been added to

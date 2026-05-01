@@ -1,0 +1,5 @@
+{
+	"$schema": "vscode://schemas/color-theme",
+	"name": "Light Experimental",
+	"include": "../../theme-2026/themes/2026-light.json"
+}
