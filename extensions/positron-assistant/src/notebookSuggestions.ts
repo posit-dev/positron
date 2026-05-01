@@ -194,7 +194,7 @@ async function parseStreamingXML(
 						currentFieldContent = '';
 					} else if (chunk.kind === 'close' && currentField && currentSuggestion) {
 						// Save the field content
-						currentSuggestion[currentField] = currentFieldContent.trim() as NotebookActionSuggestion['mode'];;
+						currentSuggestion[currentField] = currentFieldContent.trim() as NotebookActionSuggestion['mode'];
 						currentField = null;
 						currentFieldContent = '';
 					}
