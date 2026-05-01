@@ -187,16 +187,45 @@ function getDownloadTargets(currentPlatform: NodeJS.Platform, currentArch: NodeA
 }
 
 /**
+ * Make sure the ark submodule is checked out and has tags available for
+ * `git describe`. This is defensive — CI workflows that don't checkout with
+ * `submodules: true` (or shallow checkouts that omit tags) still produce a
+ * working install.
+ */
+async function ensureSubmoduleReady(): Promise<void> {
+	const cargoPath = path.join(SUBMODULE_DIR, 'crates', 'ark', 'Cargo.toml');
+	if (!await existsAsync(cargoPath)) {
+		console.log('Ark submodule not initialized; running `git submodule update --init`...');
+		const { stdout } = await execShort('git rev-parse --show-toplevel');
+		const repoRoot = stdout.trim();
+		const submodulePath = `extensions/positron-r/${SUBMODULE_DIR}`;
+		await execShort(`git submodule update --init -- ${submodulePath}`, repoRoot);
+		if (!await existsAsync(cargoPath)) {
+			throw new Error(`Submodule init did not produce ${cargoPath}.`);
+		}
+	}
+	// Ensure tags are available for `git describe` (shallow checkouts may not
+	// have them). A failed fetch is non-fatal; distance falls back to 0.
+	try {
+		await execShort('git describe --tags --abbrev=0', SUBMODULE_DIR);
+	} catch {
+		console.log('Fetching tags in ark submodule...');
+		try {
+			await execShort('git fetch --tags', SUBMODULE_DIR);
+		} catch (err) {
+			console.warn(`Could not fetch tags: ${err}`);
+		}
+	}
+}
+
+/**
  * Read the Ark version from the submodule's Cargo.toml and compute the git
  * distance from the most recent ark release tag.
  */
 async function readSubmoduleBuildInfo(): Promise<ArkBuildInfo> {
+	await ensureSubmoduleReady();
+
 	const cargoPath = path.join(SUBMODULE_DIR, 'crates', 'ark', 'Cargo.toml');
-	if (!await existsAsync(cargoPath)) {
-		throw new Error(
-			`Cannot locate the ark submodule at ${path.resolve(SUBMODULE_DIR)}. ` +
-			`Run \`git submodule update --init --recursive\` to initialize it.`);
-	}
 	const cargo = await fs.promises.readFile(cargoPath, 'utf-8');
 	const versionMatch = cargo.match(/^version\s*=\s*"([0-9.]+)"/m);
 	if (!versionMatch) {
@@ -619,5 +648,9 @@ async function main(): Promise<void> {
 }
 
 main().catch((error) => {
-	console.error('An error occurred:', error);
+	// Fail loudly so npm install fails here rather than letting a later step
+	// produce a confusing "Unable to find R kernel" error at runtime.
+	console.error('Failed to install Ark kernel:');
+	console.error(error?.message ?? error);
+	process.exit(1);
 });
