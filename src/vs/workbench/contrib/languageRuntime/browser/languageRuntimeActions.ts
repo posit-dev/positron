@@ -19,8 +19,7 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
 import { getSessionDisplayName, getSessionIconClasses, isQuartoSession } from '../../positronConsole/common/sessionDisplayUtils.js';
-import { SELECT_KERNEL_ID_POSITRON } from '../../positronNotebook/browser/SelectPositronNotebookKernelAction.js';
-import { POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../../positronNotebook/common/positronNotebookCommon.js';
+import { POSITRON_NOTEBOOK_EDITOR_INPUT_ID, SELECT_KERNEL_ID_POSITRON } from '../../positronNotebook/common/positronNotebookCommon.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { DisposableStore, dispose } from '../../../../base/common/lifecycle.js';

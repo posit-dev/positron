@@ -20,8 +20,7 @@ import { IEditorService } from '../../../../services/editor/common/editorService
 import { EditorInput } from '../../../../common/editor/editorInput.js';
 import { IModelService } from '../../../../../editor/common/services/model.js';
 import { IRuntimeSessionService, ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
-import { SELECT_KERNEL_ID_POSITRON } from '../../../positronNotebook/browser/SelectPositronNotebookKernelAction.js';
-import { POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../../../positronNotebook/common/positronNotebookCommon.js';
+import { POSITRON_NOTEBOOK_EDITOR_INPUT_ID, SELECT_KERNEL_ID_POSITRON } from '../../../positronNotebook/common/positronNotebookCommon.js';
 
 function makeRuntime(overrides: Partial<ILanguageRuntimeMetadata> = {}): ILanguageRuntimeMetadata {
 	const languageId = overrides.languageId ?? 'python';

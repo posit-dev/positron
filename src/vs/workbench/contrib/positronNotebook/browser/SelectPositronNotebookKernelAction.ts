@@ -13,8 +13,8 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { getNotebookInstanceFromActiveEditorPane } from './notebookUtils.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { selectNewLanguageRuntime } from '../../languageRuntime/browser/languageRuntimeActions.js';
+import { SELECT_KERNEL_ID_POSITRON } from '../common/positronNotebookCommon.js';
 
-export const SELECT_KERNEL_ID_POSITRON = 'positronNotebook.selectKernel';
 const NOTEBOOK_ACTIONS_CATEGORY_POSITRON = localize2('positronNotebookActions.category', 'Positron Notebook');
 const NOTEBOOK_IS_ACTIVE_EDITOR = ContextKeyExpr.equals('activeEditor', 'workbench.editor.positronNotebook');
 
