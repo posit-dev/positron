@@ -80,11 +80,17 @@ interface ArkBuildInfo {
 	buildVersion: string;
 }
 
-/** Promisified `https.get` returning the response. */
+/** Idle timeout for HTTPS requests. Avoids indefinite hangs on flaky networks. */
+const HTTPS_TIMEOUT_MS = 60_000;
+
+/** Promisified `https.get` returning the response. Aborts after `HTTPS_TIMEOUT_MS` of inactivity. */
 const httpsGetAsync = (opts: https.RequestOptions | string | URL): Promise<IncomingMessage> => {
 	return new Promise<IncomingMessage>((resolve, reject) => {
 		const req = https.get(opts, resolve);
 		req.once('error', reject);
+		req.setTimeout(HTTPS_TIMEOUT_MS, () => {
+			req.destroy(new Error(`HTTPS request timed out after ${HTTPS_TIMEOUT_MS}ms`));
+		});
 	});
 };
 
@@ -278,13 +284,15 @@ async function tryUseLocalBuild(): Promise<boolean> {
 		await fs.promises.copyFile(localBinary, path.join(RUNTIME_DIR, kernelName));
 	}
 
-	// Local-build marker so we know not to confuse this with a prebuild.
-	await writeFileAsync(MARKER_FILE, `local:${path.resolve(localBinary)}`);
+	// Don't write the marker — local builds re-evaluate via the binary's
+	// existence in the submodule on every run, so a marker would just go stale.
 	return true;
 }
 
 /**
  * Whether the runtime location already holds a prebuild matching `info`.
+ * The marker is written only by {@link extractPrebuildAssets} after a
+ * successful download; local-build paths intentionally do not touch it.
  */
 async function isCachedPrebuildCurrent(info: ArkBuildInfo): Promise<boolean> {
 	if (!await existsAsync(MARKER_FILE)) {
@@ -555,7 +563,8 @@ async function tryCargoBuild(info: ArkBuildInfo): Promise<boolean> {
 	} else {
 		await fs.promises.copyFile(builtBinary, path.join(RUNTIME_DIR, kernelName));
 	}
-	await writeFileAsync(MARKER_FILE, `local-build:${info.buildVersion}`);
+	// Don't write the marker — `tryUseLocalBuild` will pick up the same binary
+	// on the next run via existence in the submodule.
 	return true;
 }
 
@@ -587,8 +596,10 @@ async function main(): Promise<void> {
 	// In CI we prefer correctness over speed: if the exact prebuild is missing,
 	// build from source rather than silently using an older fallback prebuild.
 	// Otherwise (local dev), the fallback is fast and almost always good enough.
-	// `CI=true` is set by GitHub Actions and most other CI providers.
-	const inCi = process.env.CI === 'true';
+	// Most CI providers set `CI=true`; some use `CI=1`. Treat any non-empty,
+	// non-"false", non-"0" value as "in CI".
+	const ciVar = process.env.CI;
+	const inCi = ciVar !== undefined && ciVar !== '' && ciVar.toLowerCase() !== 'false' && ciVar !== '0';
 
 	// 1. Local cargo build in the submodule wins.
 	if (await tryUseLocalBuild()) {
