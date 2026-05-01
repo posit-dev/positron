@@ -13,7 +13,6 @@ import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { TestQuickPick } from '../../../../../test/vitest/testQuickPick.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { selectLanguageRuntimeSession, selectNewLanguageRuntime } from '../../browser/languageRuntimeActions.js';
-import { Emitter } from '../../../../../base/common/event.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
@@ -60,7 +59,11 @@ describe('selectNewLanguageRuntime', () => {
 			rediscoverAllRuntimes,
 		})
 		.stub(IQuickInputService, stubInterface<IQuickInputService>({
-			createQuickPick: () => pick.asQuickPick(),
+			// Narrow to IQuickInputService['createQuickPick'] because the field is
+			// overloaded ({useSeparators: true} vs default false); our single-shape
+			// stub function only satisfies one overload and TS rejects it without
+			// the cast.
+			createQuickPick: (() => pick.asQuickPick()) as IQuickInputService['createQuickPick'],
 		}))
 		.build();
 
@@ -416,7 +419,6 @@ describe('selectLanguageRuntimeSession - change notebook session', () => {
 		return undefined; // user cancels by default; specific tests override
 	});
 	const executeCommand = vi.fn(async () => undefined);
-	const onDidChangeForegroundSession = new Emitter<ILanguageRuntimeSession | undefined>();
 
 	let foregroundSession: ILanguageRuntimeSession | undefined;
 	let activeEditor: EditorInput | undefined;
@@ -426,7 +428,6 @@ describe('selectLanguageRuntimeSession - change notebook session', () => {
 		.stub(IRuntimeSessionService, stubInterface<IRuntimeSessionService>({
 			get foregroundSession() { return foregroundSession; },
 			activeSessions: [] as ILanguageRuntimeSession[],
-			onDidChangeForegroundSession: onDidChangeForegroundSession.event,
 		}))
 		.stub(ICommandService, { executeCommand })
 		.stub(IModelService, { getModel: () => null })
@@ -434,7 +435,11 @@ describe('selectLanguageRuntimeSession - change notebook session', () => {
 			get activeEditor() { return activeEditor; },
 		}))
 		.stub(IQuickInputService, stubInterface<IQuickInputService>({
-			pick: pickFn,
+			// Narrow to IQuickInputService['pick'] because the field is overloaded
+			// (canPickMany: true returns Promise<T[]>, canPickMany: false returns
+			// Promise<T>); our single-shape stub satisfies only one overload and
+			// TS rejects it without the cast.
+			pick: pickFn as IQuickInputService['pick'],
 		}))
 		.build();
 
@@ -473,10 +478,6 @@ describe('selectLanguageRuntimeSession - change notebook session', () => {
 		pickItems = [];
 		// Default to the Positron Notebook Editor for tests
 		activeEditor = makeEditorInput(POSITRON_NOTEBOOK_EDITOR_INPUT_ID, URI.file('/path/to/notebook.ipynb'));
-	});
-
-	afterAll(() => {
-		onDidChangeForegroundSession.dispose();
 	});
 
 	function openInterpreterPicker(options?: Parameters<typeof selectLanguageRuntimeSession>[1]) {
