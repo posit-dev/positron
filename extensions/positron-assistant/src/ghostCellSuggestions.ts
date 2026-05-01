@@ -14,6 +14,7 @@ import { raceTimeout } from './asyncUtils.js';
 import { MARKDOWN_DIR } from './constants';
 import { StreamingTagLexer } from './streamingTagLexer.js';
 import { resolveGhostCellSuggestions } from './notebookAssistantMetadata.js';
+import { selectPreferredModel } from './modelSelection.js';
 
 /**
  * Result of a ghost cell suggestion generation
@@ -520,13 +521,6 @@ async function fetchVariablesFromSession(
 }
 
 /**
- * Escape special regex characters in a string for safe use in a RegExp constructor.
- */
-function escapeRegExp(s: string): string {
-	return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-/**
  * Result of model selection
  */
 interface ModelSelectionResult {
@@ -544,78 +538,17 @@ async function getModel(
 	log: vscode.LogOutputChannel,
 	token?: vscode.CancellationToken
 ): Promise<ModelSelectionResult | null> {
-	// Log all available models for debugging
-	const allModels = await vscode.lm.selectChatModels();
-	if (token?.isCancellationRequested) { return null; }
-	log.debug(`[ghost-cell] Available models: ${allModels.length} total`);
-
-	// Check configuration setting first (highest priority)
 	const config = vscode.workspace.getConfiguration('positron.assistant.notebook');
 	const configuredPatterns = config.get<string[]>('ghostCellSuggestions.model') || [];
-	const hasConfiguredModel = configuredPatterns.length > 0 && configuredPatterns.some(p => p && p.trim() !== '');
-
-	if (hasConfiguredModel) {
-		log.debug(`[ghost-cell] Checking configured model patterns: ${JSON.stringify(configuredPatterns)}`);
-		for (const pattern of configuredPatterns) {
-			if (!pattern || pattern.trim() === '') {
-				continue;
-			}
-			const patternLower = pattern.toLowerCase();
-			// Try exact ID match first
-			const exactMatch = allModels.find(m => m.id === pattern);
-			if (exactMatch) {
-				log.debug(`[ghost-cell] Using configured model (exact match): ${exactMatch.name}`);
-				return { model: exactMatch, usedFallback: false };
-			}
-			// Try word-boundary match (e.g., "mini" matches "gpt-4o-mini" but not "gemini")
-			const boundaryPattern = new RegExp(`(^|[\\s\\-_./])${escapeRegExp(patternLower)}($|[\\s\\-_./])`, 'i');
-			const boundaryMatch = allModels.find(m =>
-				boundaryPattern.test(m.id) || boundaryPattern.test(m.name)
-			);
-			if (boundaryMatch) {
-				log.debug(`[ghost-cell] Using configured model (boundary match): ${boundaryMatch.name}`);
-				return { model: boundaryMatch, usedFallback: false };
-			}
-		}
-		// User configured a model but none matched - we'll fall back but mark it
-		log.warn(`[ghost-cell] Configured model patterns not found: ${JSON.stringify(configuredPatterns)}`);
-	}
-
-	if (token?.isCancellationRequested) { return null; }
-
-	// Check for the latest chat session and use its model
-	const sessionModelId = participantService.getCurrentSessionModel();
-	if (sessionModelId) {
-		const models = await vscode.lm.selectChatModels({ 'id': sessionModelId });
-		if (models && models.length > 0) {
-			log.debug(`[ghost-cell] Using session model: ${models[0].name}`);
-			return { model: models[0], usedFallback: hasConfiguredModel };
-		}
-	}
-
-	if (token?.isCancellationRequested) { return null; }
-
-	// Fall back to the first model for the currently selected provider
-	const currentProvider = await positron.ai.getCurrentProvider();
-	if (token?.isCancellationRequested) { return null; }
-	if (currentProvider) {
-		const models = await vscode.lm.selectChatModels({ vendor: currentProvider.id });
-		if (token?.isCancellationRequested) { return null; }
-		if (models && models.length > 0) {
-			log.debug(`[ghost-cell] Using provider model: ${models[0].name}`);
-			return { model: models[0], usedFallback: hasConfiguredModel };
-		}
-	}
-
-	if (token?.isCancellationRequested) { return null; }
-
-	// Fall back to any available model
-	const [firstModel] = await vscode.lm.selectChatModels();
-	if (token?.isCancellationRequested) { return null; }
-	if (firstModel) {
-		log.debug(`[ghost-cell] Using fallback model: ${firstModel.name}`);
-		return { model: firstModel, usedFallback: hasConfiguredModel };
-	}
-
-	return null;
+	const selection = await selectPreferredModel({
+		participantService,
+		log,
+		logPrefix: 'ghost-cell',
+		token,
+		configuredModels: {
+			patterns: configuredPatterns,
+			matchMode: 'boundary',
+		},
+	});
+	return selection ? { model: selection.model, usedFallback: selection.usedFallback } : null;
 }

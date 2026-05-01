@@ -4,11 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import * as positron from 'positron';
 
 import { ParticipantService } from './participants.js';
 import { isFileExcludedFromAI } from './fileExclusion.js';
 import { raceTimeout } from './asyncUtils.js';
+import { selectPreferredModel } from './modelSelection.js';
 
 const MODEL_SELECTION_TIMEOUT_MS = 10_000;
 const GENERATION_TIMEOUT_MS = 30_000;
@@ -312,35 +312,11 @@ async function getModel(
 	log: vscode.LogOutputChannel,
 	token: vscode.CancellationToken,
 ): Promise<ModelSelectionResult | null> {
-	const sessionModelId = participantService.getCurrentSessionModel();
-	if (sessionModelId) {
-		const models = await vscode.lm.selectChatModels({ id: sessionModelId });
-		if (token.isCancellationRequested) { return null; }
-		if (models && models.length > 0) {
-			log.debug(`[viz-suggest] Using session model: ${models[0].name}`);
-			return { model: models[0] };
-		}
-	}
-
-	if (token.isCancellationRequested) { return null; }
-	const currentProvider = await positron.ai.getCurrentProvider();
-	if (token.isCancellationRequested) { return null; }
-	if (currentProvider) {
-		const models = await vscode.lm.selectChatModels({ vendor: currentProvider.id });
-		if (token.isCancellationRequested) { return null; }
-		if (models && models.length > 0) {
-			log.debug(`[viz-suggest] Using provider model: ${models[0].name}`);
-			return { model: models[0] };
-		}
-	}
-
-	if (token.isCancellationRequested) { return null; }
-	const [firstModel] = await vscode.lm.selectChatModels();
-	if (token.isCancellationRequested) { return null; }
-	if (firstModel) {
-		log.debug(`[viz-suggest] Using fallback model: ${firstModel.name}`);
-		return { model: firstModel };
-	}
-
-	return null;
+	const selection = await selectPreferredModel({
+		participantService,
+		log,
+		logPrefix: 'viz-suggest',
+		token,
+	});
+	return selection ? { model: selection.model } : null;
 }
