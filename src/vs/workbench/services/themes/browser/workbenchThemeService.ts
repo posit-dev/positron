@@ -373,7 +373,7 @@ export class WorkbenchThemeService extends Disposable implements IWorkbenchTheme
 	public async getColorThemes(): Promise<IWorkbenchColorTheme[]> {
 		// --- Start Positron ---
 		// Positron ships with a subset of the themes that are available by default;
-		// see positronColorThemeFilter.ts for the blacklist and bypass rules.
+		// see positronColorThemeFilter.ts for the filter and bypass rules.
 		const themes = this.colorThemeRegistry.getThemes();
 		const currentThemeId = this.getColorTheme().id;
 		return themes.filter(theme => isColorThemeVisibleInPicker(theme.id, currentThemeId));
