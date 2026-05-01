@@ -13,7 +13,7 @@ import { IQuickInputService, IQuickPickItem, QuickPickItem } from '../../../../p
 import { IKeybindingRule, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { LANGUAGE_RUNTIME_ACTION_CATEGORY } from '../common/languageRuntime.js';
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimePickerContribution, IRuntimePickerItem, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
@@ -21,7 +21,7 @@ import { IModelService } from '../../../../editor/common/services/model.js';
 import { getSessionDisplayName, getSessionIconClasses, isQuartoSession } from '../../positronConsole/common/sessionDisplayUtils.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
-import { dispose } from '../../../../base/common/lifecycle.js';
+import { DisposableStore, dispose } from '../../../../base/common/lifecycle.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { ExplorerFolderContext } from '../../files/common/files.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -374,149 +374,42 @@ const createInterpreterGroups = (
  * This can be used to start a session for a registered language runtime.
  *
  * @param accessor The service accessor.
- * @returns
+ * @param options Picker options.
+ * @param options.title Title shown in the quickpick header.
+ * @param options.languageId Restricts the runtimes shown in the picker
+ *   to the provided language id. When omitted all languages are shown.
+ * @param options.currentRuntimeId Runtime id to focus when the picker
+ *   opens initially. Only applied to the initial list so subsequent
+ *   rebuilds don't overwrite the user's keyboard navigation.
+ * @returns The selected runtime metadata, or undefined if the user
+ *   cancelled.
  */
-const selectNewLanguageRuntime = async (
+export const selectNewLanguageRuntime = async (
 	accessor: ServicesAccessor,
 	options?: {
 		title?: string;
+		languageId?: string;
+		currentRuntimeId?: string;
 	}): Promise<ILanguageRuntimeMetadata | undefined> => {
 	// Access services.
 	const quickInputService = accessor.get(IQuickInputService);
-	const runtimeSessionService = accessor.get(IRuntimeSessionService);
 	const runtimeStartupService = accessor.get(IRuntimeStartupService);
 	const languageRuntimeService = accessor.get(ILanguageRuntimeService);
 
-	// Group runtimes by language.
-	const interpreterGroups = createInterpreterGroups(languageRuntimeService, runtimeStartupService);
-
-	// Grab the current runtime.
-	const currentRuntime = runtimeSessionService.foregroundSession?.runtimeMetadata;
-
-	// Grab the active runtimes.
-	const activeRuntimes = runtimeSessionService.activeSessions
-		// Sort by last used, descending.
-		.sort((a, b) => b.lastUsed - a.lastUsed)
-		// Map from session to runtime metadata.
-		.map(session => session.runtimeMetadata)
-		// Remove duplicates, and current runtime.
-		.filter((runtime, index, runtimes) =>
-			runtime.runtimeId !== currentRuntime?.runtimeId && runtimes.findIndex(r => r.runtimeId === runtime.runtimeId) === index
-		);
-
-	// Add current runtime first, if present.
-	// Allows for "plus" + enter behavior to clone session.
-	if (currentRuntime) {
-		activeRuntimes.unshift(currentRuntime);
-	}
-
-	// Generate quick pick items for runtimes.
-	const runtimeItems: QuickPickItem[] = [];
-
-	// Add separator for suggested runtimes
-	const suggestedRuntimes = interpreterGroups
-		.map(group => group.primaryRuntime);
-
-	if (suggestedRuntimes.length > 0) {
-		runtimeItems.push({
-			type: 'separator',
-			label: localize('positron.languageRuntime.suggestedRuntimes', 'Suggested')
-		});
-
-		suggestedRuntimes.forEach(runtime => {
-			runtimeItems.push({
-				id: runtime.runtimeId,
-				label: runtime.runtimeName,
-				detail: runtime.runtimePath,
-				iconPath: {
-					dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
-				},
-				neverShowWhenFiltered: true
-			});
-		});
-	}
-
-
-	interpreterGroups.forEach(group => {
-		// Group runtimes by environment type
-		const runtimesByEnvType = new Map<string, ILanguageRuntimeMetadata[]>();
-		const allRuntimes = [group.primaryRuntime, ...group.alternateRuntimes];
-
-		allRuntimes.forEach(runtime => {
-			const envType = `${runtime.runtimeSource}`;
-			if (!runtimesByEnvType.has(envType)) {
-				runtimesByEnvType.set(envType, []);
-			}
-			runtimesByEnvType.get(envType)!.push(runtime);
-
-		});
-
-		const envTypes = Array.from(runtimesByEnvType.keys());
-
-		// Sort runtimes by version (decreasing), then alphabetically
-		envTypes.forEach(envType => {
-			runtimeItems.push({ type: 'separator', label: envType });
-			runtimesByEnvType.get(envType)!
-				.sort((a, b) => {
-					// If both have version numbers, compare them
-					if (a.languageVersion && b.languageVersion) {
-						const aVersion = a.languageVersion.split('.').map(Number);
-						const bVersion = b.languageVersion.split('.').map(Number);
-
-						// Always list unsupported versions last
-						if (!(a.extraRuntimeData as { supported?: boolean })?.supported) {
-							return 1;
-						}
-						if (!(b.extraRuntimeData as { supported?: boolean })?.supported) {
-							return -1;
-						}
-						// Compare major version
-						if (aVersion[0] !== bVersion[0]) {
-							return bVersion[0] - aVersion[0];
-						}
-
-						// Compare minor version
-						if (aVersion[1] !== bVersion[1]) {
-							return bVersion[1] - aVersion[1];
-						}
-
-						// Compare patch version
-						if (aVersion[2] !== bVersion[2]) {
-							return bVersion[2] - aVersion[2];
-						}
-					}
-
-					// If versions are equal or not found, sort alphabetically
-					return a.runtimeName.localeCompare(b.runtimeName);
-				})
-				.forEach(runtime => {
-					runtimeItems.push({
-						id: runtime.runtimeId,
-						label: runtime.runtimeName,
-						detail: runtime.runtimePath,
-						iconPath: {
-							dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
-						},
-						picked: (runtime.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId),
-						neverShowWhenFiltered: false
-					});
-				});
-
-		});
-	});
-
-	// Get contributed items from extensions (e.g., "Install Python via uv")
 	// Map to track which contribution owns which item
-	const contributedItemMap = new Map<string, { contribution: { handle: number; onSelect: (itemId: string) => Promise<string | undefined> }; originalId: string }>();
+	const contributedItemMap = new Map<string, { contribution: IRuntimePickerContribution; originalId: string }>();
+	let contributionResults: { contribution: IRuntimePickerContribution; items: IRuntimePickerItem[] }[] = [];
 
-	// Only show contributed items after discovery is complete
-	// TODO: right now, these are added to the end of the list, but we may want to
-	// group by language in the future
-	if (languageRuntimeService.startupPhase === RuntimeStartupPhase.Complete) {
-		const contributions = languageRuntimeService.getPickerContributions();
-
+	// Get contributed items from extensions (e.g., "Install Python via uv").
+	// Only show contributed items after discovery is complete.
+	const fetchContributedItems = async () => {
+		if (languageRuntimeService.startupPhase !== RuntimeStartupPhase.Complete) {
+			contributionResults = [];
+			return;
+		}
+		const contributions = languageRuntimeService.getPickerContributions(options?.languageId);
 		// Fetch items from all contributions in parallel
-		const contributionResults = await Promise.all(
+		contributionResults = await Promise.all(
 			contributions.map(async (contribution) => {
 				try {
 					const items = await contribution.getItems();
@@ -528,54 +421,233 @@ const selectNewLanguageRuntime = async (
 				}
 			})
 		);
+	};
 
-		for (const { contribution, items } of contributionResults) {
-			for (const item of items) {
+	const buildItems = (): QuickPickItem[] => {
+		// Generate quick pick items for runtimes.
+		const items: QuickPickItem[] = [];
+		contributedItemMap.clear();
+
+		// Group runtimes by language. Re-evaluated on each rebuild so newly
+		// registered runtimes show up. Restricted to options.languageId when set.
+		const interpreterGroups = createInterpreterGroups(languageRuntimeService, runtimeStartupService)
+			.filter(group => !options?.languageId || group.primaryRuntime.languageId === options.languageId);
+
+		// Add separator for suggested runtimes
+		const suggestedRuntimes = interpreterGroups
+			.map(group => group.primaryRuntime);
+
+		if (suggestedRuntimes.length > 0) {
+			items.push({
+				type: 'separator',
+				label: localize('positron.languageRuntime.suggestedRuntimes', 'Suggested')
+			});
+
+			suggestedRuntimes.forEach(runtime => {
+				items.push({
+					id: runtime.runtimeId,
+					label: runtime.runtimeName,
+					detail: runtime.runtimePath,
+					iconPath: {
+						dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
+					},
+					neverShowWhenFiltered: true
+				});
+			});
+		}
+
+
+		interpreterGroups.forEach(group => {
+			// Group runtimes by environment type
+			const runtimesByEnvType = new Map<string, ILanguageRuntimeMetadata[]>();
+			const allRuntimes = [group.primaryRuntime, ...group.alternateRuntimes];
+
+			allRuntimes.forEach(runtime => {
+				const envType = `${runtime.runtimeSource}`;
+				if (!runtimesByEnvType.has(envType)) {
+					runtimesByEnvType.set(envType, []);
+				}
+				runtimesByEnvType.get(envType)!.push(runtime);
+
+			});
+
+			const envTypes = Array.from(runtimesByEnvType.keys());
+
+			// Sort runtimes by version (decreasing), then alphabetically
+			envTypes.forEach(envType => {
+				items.push({ type: 'separator', label: envType });
+				runtimesByEnvType.get(envType)!
+					.sort((a, b) => {
+						// If both have version numbers, compare them
+						if (a.languageVersion && b.languageVersion) {
+							const aVersion = a.languageVersion.split('.').map(Number);
+							const bVersion = b.languageVersion.split('.').map(Number);
+
+							// Always list unsupported versions last
+							if (!(a.extraRuntimeData as { supported?: boolean })?.supported) {
+								return 1;
+							}
+							if (!(b.extraRuntimeData as { supported?: boolean })?.supported) {
+								return -1;
+							}
+							// Compare major version
+							if (aVersion[0] !== bVersion[0]) {
+								return bVersion[0] - aVersion[0];
+							}
+
+							// Compare minor version
+							if (aVersion[1] !== bVersion[1]) {
+								return bVersion[1] - aVersion[1];
+							}
+
+							// Compare patch version
+							if (aVersion[2] !== bVersion[2]) {
+								return bVersion[2] - aVersion[2];
+							}
+						}
+
+						// If versions are equal or not found, sort alphabetically
+						return a.runtimeName.localeCompare(b.runtimeName);
+					})
+					.forEach(runtime => {
+						items.push({
+							id: runtime.runtimeId,
+							label: runtime.runtimeName,
+							detail: runtime.runtimePath,
+							iconPath: {
+								dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
+							},
+							neverShowWhenFiltered: false
+						});
+					});
+
+			});
+		});
+
+		// TODO: right now, these are added to the end of the list, but we may want to
+		// group by language in the future
+		for (const { contribution, items: contribItems } of contributionResults) {
+			for (const item of contribItems) {
 				// Create a unique ID for this item that includes the contribution handle
 				const uniqueId = `${CONTRIBUTED_ITEM_PREFIX}${contribution.handle}_${item.id}`;
 				contributedItemMap.set(uniqueId, { contribution, originalId: item.id });
 
 				if (item.separatorLabel) {
-					runtimeItems.push({ type: 'separator', label: item.separatorLabel });
+					items.push({ type: 'separator', label: item.separatorLabel });
 				}
-				runtimeItems.push({
+				items.push({
 					id: uniqueId,
 					label: item.label,
 					detail: item.detail,
 				});
 			}
 		}
-	}
 
-	const selectedRuntime = await quickInputService.pick(runtimeItems, {
-		title: options?.title || localize('positron.languageRuntime.startSession', 'Start New Interpreter Session'),
-		canPickMany: false
-	});
+		return items;
+	};
 
-	if (!selectedRuntime?.id) {
-		return undefined;
-	}
+	await fetchContributedItems();
 
-	// Handle contributed items
-	if (selectedRuntime.id.startsWith(CONTRIBUTED_ITEM_PREFIX)) {
-		const contributedItem = contributedItemMap.get(selectedRuntime.id);
-		if (contributedItem) {
-			try {
-				const runtimeId = await contributedItem.contribution.onSelect(contributedItem.originalId);
-				if (runtimeId) {
-					// Use quiet mode to suppress notifications since the picker
-					// contribution already handled registration.
-					await runtimeStartupService.rediscoverAllRuntimes(/* quiet */ true);
-					return languageRuntimeService.getRegisteredRuntime(runtimeId);
-				}
-			} catch (error) {
-				console.error(`Failed to handle contributed item selection: ${error}`);
+	const disposables = new DisposableStore();
+	const quickPick = disposables.add(quickInputService.createQuickPick<IQuickPickItem>({ useSeparators: true }));
+	quickPick.title = options?.title || localize('positron.languageRuntime.startSession', 'Start New Interpreter Session');
+	quickPick.canSelectMany = false;
+
+	// Reassigning quickPick.items resets activeItems to the first row, so
+	// rebuilds via this helper preserve the previously focused item (whether
+	// it was the caller's currentRuntimeId or a row the user keyboard-
+	// navigated to). Falls back to the default reset if the previous item
+	// is no longer present.
+	const rebuildItems = () => {
+		const previouslyActiveId = quickPick.activeItems[0]?.id;
+		quickPick.items = buildItems();
+		if (previouslyActiveId) {
+			const stillPresent = quickPick.items.find(
+				(item): item is IQuickPickItem => item.type !== 'separator' && item.id === previouslyActiveId
+			);
+			if (stillPresent) {
+				quickPick.activeItems = [stillPresent];
 			}
 		}
-		return undefined;
+	};
+
+	quickPick.items = buildItems();
+
+	// Pre-focus the caller-supplied current runtime, if any. Subsequent
+	// rebuilds carry this forward via rebuildItems' restore logic.
+	if (options?.currentRuntimeId) {
+		const currentItem = quickPick.items.find(
+			(item): item is IQuickPickItem => item.type !== 'separator' && item.id === options.currentRuntimeId
+		);
+		if (currentItem) {
+			quickPick.activeItems = [currentItem];
+		}
 	}
 
-	return languageRuntimeService.getRegisteredRuntime(selectedRuntime.id);
+	// Rebuild when a new runtime registers - covers late initial discovery
+	// and post-startup rediscovery.
+	disposables.add(languageRuntimeService.onDidRegisterRuntime(() => {
+		rebuildItems();
+	}));
+
+	// If startup completes while the picker is open, re-fetch contributions
+	// (which we previously skipped) and rebuild.
+	disposables.add(languageRuntimeService.onDidChangeRuntimeStartupPhase(async phase => {
+		if (phase === RuntimeStartupPhase.Complete) {
+			await fetchContributedItems();
+			rebuildItems();
+		}
+	}));
+
+	return new Promise<ILanguageRuntimeMetadata | undefined>(resolve => {
+		let accepted: IQuickPickItem | undefined;
+
+		disposables.add(quickPick.onDidAccept(() => {
+			const selected = quickPick.activeItems[0];
+			if (!selected) {
+				return;
+			}
+			accepted = selected;
+			quickPick.hide();
+		}));
+
+		disposables.add(quickPick.onDidHide(async () => {
+			const selectedRuntime = accepted;
+			disposables.dispose();
+
+			if (!selectedRuntime?.id) {
+				resolve(undefined);
+				return;
+			}
+
+			// Handle contributed items
+			if (selectedRuntime.id.startsWith(CONTRIBUTED_ITEM_PREFIX)) {
+				const contributedItem = contributedItemMap.get(selectedRuntime.id);
+				if (!contributedItem) {
+					resolve(undefined);
+					return;
+				}
+				try {
+					const runtimeId = await contributedItem.contribution.onSelect(contributedItem.originalId);
+					if (runtimeId) {
+						// Use quiet mode to suppress notifications since the picker
+						// contribution already handled registration.
+						await runtimeStartupService.rediscoverAllRuntimes(/* quiet */ true);
+						resolve(languageRuntimeService.getRegisteredRuntime(runtimeId));
+						return;
+					}
+				} catch (error) {
+					console.error(`Failed to handle contributed item selection: ${error}`);
+				}
+				resolve(undefined);
+				return;
+			}
+
+			resolve(languageRuntimeService.getRegisteredRuntime(selectedRuntime.id));
+		}));
+
+		quickPick.show();
+	});
 };
 
 /**
