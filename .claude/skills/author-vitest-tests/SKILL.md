@@ -147,13 +147,15 @@ For each approved item:
 
 2. **Run the test:** `npx vitest run <path-to-test-file>`. Iterate on missing stubs per the "start low, let errors guide you up" pattern in the rules file's Builder section.
 
-3. **Check coverage** for React component tests: `npx vitest run --coverage --coverage.include='**/sourceFile.tsx' <path-to-test-file>`
+3. **Type-check the file:** `npm run test:positron:check-ts 2>&1 | grep '<test-file-name>.vitest.ts'`. This surfaces strict TypeScript errors (overload compatibility, missing properties on stubs, etc.) that `npx vitest run` does NOT catch — the output matches what the VS Code Problems pane shows. The file must be clean before considering it done.
 
-4. **For React tests**, run `npx eslint <file>` before considering it done -- `eslint-plugin-testing-library` enforces most of the RTL conventions.
+4. **Check coverage** for React component tests: `npx vitest run --coverage --coverage.include='**/sourceFile.tsx' <path-to-test-file>`
 
-5. Move to the next file. Do NOT ask the dev after each file.
+5. **For React tests**, run `npx eslint <file>` before considering it done -- `eslint-plugin-testing-library` enforces most of the RTL conventions.
 
-6. After all tests pass, run the full Vitest suite: `npm run test:positron`
+6. Move to the next file. Do NOT ask the dev after each file.
+
+7. After all tests pass, run the full Vitest suite: `npm run test:positron`
 
 ### Builder enforcement
 
