@@ -28,9 +28,6 @@ import { ChatEntitlement, IChatEntitlementService, isProUser } from '../../../..
 import * as semver from '../../../../../../base/common/semver/semver.js';
 import { IModelPickerDelegate } from './modelPickerActionItem.js';
 import { IUpdateService, StateType } from '../../../../../../platform/update/common/update.js';
-// --- Start Positron ---
-import { getProviderIcon } from './providerIcons.js';
-// --- End Positron ---
 
 function isVersionAtLeast(current: string, required: string): boolean {
 	const currentSemver = semver.coerce(current);
@@ -98,13 +95,6 @@ function createModelAction(
 	onSelect: (model: ILanguageModelChatMetadataAndIdentifier) => void,
 	section?: string,
 ): IActionWidgetDropdownAction & { section?: string } {
-	// --- Start Positron ---
-	// Check if this model is marked as the default for its provider
-	const isDefaultForLocation = model.metadata.isDefaultForLocation;
-	const isDefault = isDefaultForLocation && Object.values(isDefaultForLocation).some(v => v);
-	// Add "(default)" suffix to label if this is the default model
-	const label = isDefault ? localize('chat.modelPicker.defaultModel', "{0} (default)", model.metadata.name) : model.metadata.name;
-	// --- End Positron ---
 	return {
 		id: model.identifier,
 		enabled: true,
@@ -113,7 +103,7 @@ function createModelAction(
 		class: undefined,
 		description: model.metadata.multiplier ?? model.metadata.detail,
 		tooltip: model.metadata.name,
-		label: label,
+		label: model.metadata.name,
 		section,
 		run: () => onSelect(model),
 	};
@@ -142,9 +132,6 @@ export function buildModelPickerItems(
 	canManageModels: boolean,
 	commandService: ICommandService,
 	chatEntitlementService: IChatEntitlementService,
-	// --- Start Positron ---
-	vendorDisplayNames?: ReadonlyMap<string, string>,
-	// --- End Positron ---
 ): IActionListItem<IActionWidgetDropdownAction>[] {
 	const items: IActionListItem<IActionWidgetDropdownAction>[] = [];
 	if (models.length === 0) {
@@ -590,9 +577,6 @@ export class ModelPickerWidget extends Disposable {
 			this._delegate.canManageModels(),
 			this._commandService,
 			this._entitlementService,
-			// --- Start Positron ---
-			new Map(this._languageModelsService.getVendors().map(v => [v.vendor, v.displayName])),
-			// --- End Positron ---
 		);
 
 		const listOptions = {
@@ -656,30 +640,8 @@ export class ModelPickerWidget extends Disposable {
 			return;
 		}
 
-		const { name, statusIcon, vendor } = this._selectedModel?.metadata || {};
+		const { name, statusIcon } = this._selectedModel?.metadata || {};
 		const domChildren: (HTMLElement | string)[] = [];
-
-		// --- Start Positron ---
-		// Show provider icon for the selected model
-		if (vendor) {
-			const providerIcon = getProviderIcon(vendor);
-			if (providerIcon) {
-				if (providerIcon.svgContent) {
-					// SVG-based icons: render as background image
-					const base64 = btoa(providerIcon.svgContent);
-					const providerIconElement = dom.$('span.chat-model-picker-provider-icon');
-					providerIconElement.style.backgroundImage = `url(data:image/svg+xml;base64,${base64})`;
-					providerIconElement.style.marginRight = '4px';
-					domChildren.push(providerIconElement);
-				} else {
-					// Codicon-based icons (e.g., posit-ai): use renderIcon
-					const providerIconElement = renderIcon(providerIcon.themeIcon);
-					providerIconElement.classList.add('chat-model-picker-provider-icon');
-					domChildren.push(providerIconElement);
-				}
-			}
-		}
-		// --- End Positron ---
 
 		if (statusIcon) {
 			const iconElement = renderIcon(statusIcon);
@@ -708,19 +670,7 @@ function getModelHoverContent(model: ILanguageModelChatMetadataAndIdentifier): M
 	const isAuto = model.metadata.id === 'auto' && model.metadata.vendor === 'copilot';
 	const markdown = new MarkdownString('', { isTrusted: true, supportThemeIcons: true });
 	const providerLabel = model.metadata.auth?.providerLabel ?? model.metadata.vendor;
-
-	// --- Start Positron ---
-	// Show provider icon in hover if available
-	const providerIcon = getProviderIcon(model.metadata.vendor);
-	if (providerIcon?.svgContent) {
-		const base64 = btoa(providerIcon.svgContent);
-		markdown.appendMarkdown(`![${providerLabel}](data:image/svg+xml;base64,${base64}|height=14)&nbsp;**${model.metadata.name}**`);
-	} else if (providerIcon?.themeIcon) {
-		markdown.appendMarkdown(`$(${providerIcon.themeIcon.id})&nbsp;**${model.metadata.name}**`);
-	} else {
-		markdown.appendMarkdown(`**${providerLabel} - ${model.metadata.name}**`);
-	}
-	// --- End Positron ---
+	markdown.appendMarkdown(`**${providerLabel} - ${model.metadata.name}**`);
 	markdown.appendText(`\n`);
 
 	if (model.metadata.statusIcon && model.metadata.tooltip) {

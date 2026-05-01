@@ -8,7 +8,6 @@ import { IActionProvider } from '../../../../../../base/browser/ui/dropdown/drop
 import { IManagedHoverContent } from '../../../../../../base/browser/ui/hover/hover.js';
 import { renderIcon, renderLabelWithIcons } from '../../../../../../base/browser/ui/iconLabel/iconLabels.js';
 import { IAction } from '../../../../../../base/common/actions.js';
-import { Event } from '../../../../../../base/common/event.js';
 import { IDisposable } from '../../../../../../base/common/lifecycle.js';
 import { autorun, IObservable } from '../../../../../../base/common/observable.js';
 import { localize } from '../../../../../../nls.js';
@@ -17,29 +16,17 @@ import { IActionWidgetDropdownAction, IActionWidgetDropdownActionProvider, IActi
 import { ICommandService } from '../../../../../../platform/commands/common/commands.js';
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { IKeybindingService } from '../../../../../../platform/keybinding/common/keybinding.js';
-// --- Start Positron ---
-/*
 import { DEFAULT_MODEL_PICKER_CATEGORY } from '../../../common/widget/input/modelPickerWidget.js';
-*/
-// --- End Positron ---
 import { IProductService } from '../../../../../../platform/product/common/productService.js';
 import { ITelemetryService } from '../../../../../../platform/telemetry/common/telemetry.js';
 import { TelemetryTrustedValue } from '../../../../../../platform/telemetry/common/telemetryUtils.js';
 import { ChatEntitlement, IChatEntitlementService } from '../../../../../services/chat/common/chatEntitlementService.js';
 import { MANAGE_CHAT_COMMAND_ID } from '../../../common/constants.js';
-import { ILanguageModelChatMetadataAndIdentifier, ILanguageModelsService } from '../../../common/languageModels.js';
+import { ILanguageModelChatMetadataAndIdentifier } from '../../../common/languageModels.js';
 import { ChatInputPickerActionViewItem, IChatInputPickerOptions } from './chatInputPickerActionItem.js';
-// --- Start Positron ---
-import { getProviderIcon } from './providerIcons.js';
-import { IThemeService } from '../../../../../../platform/theme/common/themeService.js';
-import { isDark } from '../../../../../../platform/theme/common/theme.js';
-// --- End Positron ---
 
 export interface IModelPickerDelegate {
 	readonly currentModel: IObservable<ILanguageModelChatMetadataAndIdentifier | undefined>;
-	// --- Start Positron ---
-	readonly onDidChangeModelList: Event<void>;
-	// --- End Positron ---
 	setModel(model: ILanguageModelChatMetadataAndIdentifier): void;
 	getModels(): ILanguageModelChatMetadataAndIdentifier[];
 	canManageModels(): boolean;
@@ -57,20 +44,11 @@ type ChatModelChangeEvent = {
 	toModel: string | TelemetryTrustedValue<string>;
 };
 
-// --- Start Positron ---
-// The entire function has been replaced to group models by vendor with
-// separators, indicate default models, and pass themeService so provider
-// icons can adapt to light/dark themes.
-// function modelDelegateToWidgetActionsProvider(delegate: IModelPickerDelegate, telemetryService: ITelemetryService): IActionWidgetDropdownActionProvider {
-function modelDelegateToWidgetActionsProvider(delegate: IModelPickerDelegate, telemetryService: ITelemetryService, pickerOptions: IChatInputPickerOptions, themeService: IThemeService, languageModelsService: ILanguageModelsService): IActionWidgetDropdownActionProvider {
+function modelDelegateToWidgetActionsProvider(delegate: IModelPickerDelegate, telemetryService: ITelemetryService, pickerOptions: IChatInputPickerOptions): IActionWidgetDropdownActionProvider {
 	return {
 		getActions: () => {
 			const models = delegate.getModels();
-			const actions: IActionWidgetDropdownAction[] = [];
 
-			// Disable fake "Auto" entry since it won't work with Positron Assistant
-			// --- Start CodeOSS ---
-			/*
 			if (models.length === 0) {
 				// Show a fake "Auto" entry when no models are available
 				return [{
@@ -85,128 +63,38 @@ function modelDelegateToWidgetActionsProvider(delegate: IModelPickerDelegate, te
 					run: () => { }
 				} satisfies IActionWidgetDropdownAction];
 			}
-			*/
-			// --- End CodeOSS ---
 
-			// Group models by vendor
-			const modelsByVendor = new Map<string, typeof models>();
+			const actions: IActionWidgetDropdownAction[] = [];
 			for (const model of models) {
-				const vendor = model.metadata.vendor;
-				if (!modelsByVendor.has(vendor)) {
-					modelsByVendor.set(vendor, []);
-				}
-				modelsByVendor.get(vendor)!.push(model);
-			}
+				const category = model.metadata.modelPickerCategory ?? DEFAULT_MODEL_PICKER_CATEGORY;
+				const tooltip = model.metadata.tooltip ?? model.metadata.name;
+				const hoverContent = model.metadata.tooltip;
 
-			// Sort each vendor's models to place the default model first
-			// This improves UX by making the default model immediately visible
-			// without scrolling, especially for providers with long model lists
-			for (const [vendor, vendorModels] of modelsByVendor.entries()) {
-				// Find the default model for this vendor
-				// Check if model is default for any location
-				const defaultModel = vendorModels.find(m => {
-					const isDefaultForLocation = m.metadata.isDefaultForLocation;
-					return isDefaultForLocation && Object.values(isDefaultForLocation).some(v => v);
-				});
-
-				if (defaultModel) {
-					// Separate default from non-default models
-					const nonDefaultModels = vendorModels.filter(m => {
-						const isDefaultForLocation = m.metadata.isDefaultForLocation;
-						return !(isDefaultForLocation && Object.values(isDefaultForLocation).some(v => v));
-					});
-
-					// Place default first, followed by remaining models in original order
-					modelsByVendor.set(vendor, [defaultModel, ...nonDefaultModels]);
-				}
-				// If no default, keep original order
-			}
-
-			// Sort vendors for consistent ordering
-			const sortedVendors = Array.from(modelsByVendor.entries())
-				.sort((a, b) => {
-					// --- Start Positron ---
-					// Prioritize Posit AI, then alphabetically
-					if (a[0] === 'posit-ai') { return -1; }
-					if (b[0] === 'posit-ai') { return 1; }
-					// Don't show Copilot at the top anymore
-					/*
-					// Prioritize Copilot, then alphabetically
-					if (a[0] === 'copilot') { return -1; }
-					if (b[0] === 'copilot') { return 1; }
-					*/
-					// --- End Positron ---
-					return a[0].localeCompare(b[0]);
-				});
-
-			let vendorOrder = 0;
-			for (const [vendor, vendorModels] of sortedVendors) {
-				// Add separator with provider name before each group
-				// Get provider display name from the first model in the group
-				const firstModel = vendorModels[0];
-				const vendorDescriptor = languageModelsService.getVendors().find(v => v.vendor === vendor);
-				const providerName = firstModel.metadata.auth?.providerLabel ?? vendorDescriptor?.displayName ?? vendor;
-
-				// Get provider icon based on vendor ID
-				const providerIcon = getProviderIcon(vendor, isDark(themeService.getColorTheme().type));
-
-				// Use a special category prefix to indicate this is a separator
 				actions.push({
-					id: `separator-${vendor}`,
-					label: providerName,
-					enabled: false,
-					checked: false,
+					id: model.metadata.id,
+					enabled: true,
+					icon: model.metadata.statusIcon,
+					checked: model.identifier === delegate.currentModel.get()?.identifier,
+					category,
 					class: undefined,
-					tooltip: '',
-					icon: providerIcon?.themeIcon,
-					category: { label: `__separator_${vendor}`, order: vendorOrder * 1000 - 1 },
-					hover: undefined,
-					run: () => { /* separator - no action */ }
+					description: model.metadata.multiplier ?? model.metadata.detail,
+					tooltip,
+					hover: hoverContent ? { content: hoverContent, position: pickerOptions.hoverPosition } : undefined,
+					label: model.metadata.name,
+					run: () => {
+						const previousModel = delegate.currentModel.get();
+						telemetryService.publicLog2<ChatModelChangeEvent, ChatModelChangeClassification>('chat.modelChange', {
+							fromModel: previousModel?.metadata.vendor === 'copilot' ? new TelemetryTrustedValue(previousModel.identifier) : 'unknown',
+							toModel: model.metadata.vendor === 'copilot' ? new TelemetryTrustedValue(model.identifier) : 'unknown'
+						});
+						delegate.setModel(model);
+					}
 				} satisfies IActionWidgetDropdownAction);
-
-				// Add all models for this vendor
-				for (const model of vendorModels) {
-					// Check if this model is marked as the default for its provider
-					// Check if model is default for any location
-					const isDefaultForLocation = model.metadata.isDefaultForLocation;
-					const isDefault = isDefaultForLocation && Object.values(isDefaultForLocation).some(v => v);
-					// Add "(default)" suffix to label if this is the default model
-					const label = isDefault ? `${model.metadata.name} (default)` : model.metadata.name;
-					// Add "(default)" to tooltip if this is the default model
-					const tooltip = isDefault
-						? localize('chat.defaultModel', "{0} (default)", model.metadata.tooltip ?? model.metadata.name)
-						: (model.metadata.tooltip ?? model.metadata.name);
-					const hoverContent = model.metadata.tooltip;
-
-					actions.push({
-						id: model.metadata.id,
-						enabled: true,
-						icon: model.metadata.statusIcon,
-						checked: model.identifier === delegate.currentModel.get()?.identifier,
-						category: { label: `vendor_${vendor}`, order: vendorOrder * 1000 },
-						class: undefined,
-						description: model.metadata.multiplier ?? model.metadata.detail,
-						tooltip: tooltip,
-						hover: hoverContent ? { content: hoverContent, position: pickerOptions.hoverPosition } : undefined,
-						label: label,
-						run: () => {
-							const previousModel = delegate.currentModel.get();
-							telemetryService.publicLog2<ChatModelChangeEvent, ChatModelChangeClassification>('chat.modelChange', {
-								fromModel: previousModel?.metadata.vendor === 'copilot' ? new TelemetryTrustedValue(previousModel.identifier) : 'unknown',
-								toModel: model.metadata.vendor === 'copilot' ? new TelemetryTrustedValue(model.identifier) : 'unknown'
-							});
-							delegate.setModel(model);
-						}
-					} satisfies IActionWidgetDropdownAction);
-				}
-
-				vendorOrder++;
 			}
 
 			return actions;
 		}
 	};
-	// --- End Positron ---
 }
 
 function getModelPickerActionBarActionProvider(commandService: ICommandService, chatEntitlementService: IChatEntitlementService, productService: IProductService): IActionProvider {
@@ -214,12 +102,7 @@ function getModelPickerActionBarActionProvider(commandService: ICommandService, 
 	const actionProvider: IActionProvider = {
 		getActions: () => {
 			const additionalActions: IAction[] = [];
-			// --- Start Positron ---
-			// Override the entitlement check to always show manage models option
-			const useManageModelsAction = true;
 			if (
-				useManageModelsAction ||
-				// --- End Positron ---
 				chatEntitlementService.entitlement === ChatEntitlement.Free ||
 				chatEntitlementService.entitlement === ChatEntitlement.Pro ||
 				chatEntitlementService.entitlement === ChatEntitlement.ProPlus ||
@@ -258,25 +141,6 @@ function getModelPickerActionBarActionProvider(commandService: ICommandService, 
 				});
 			}
 
-			// --- Start Positron ---
-			// Remove the moreModels action and add configureProviders action instead
-			const moreModelsIndex = additionalActions.findIndex(action => action.id === 'moreModels');
-			if (moreModelsIndex !== -1) {
-				additionalActions.splice(moreModelsIndex, 1);
-			}
-			additionalActions.push({
-				id: 'configureProviders',
-				label: localize('chat.configureProviders', "Configure Model Providers..."),
-				enabled: true,
-				tooltip: localize('chat.configureProviders.tooltip', "Add and Configure Language Model Providers"),
-				class: undefined,
-				run: () => {
-					const commandId = 'positron-assistant.configureProviders';
-					commandService.executeCommand(commandId);
-				}
-			});
-			// --- End Positron ---
-
 			return additionalActions;
 		}
 	};
@@ -301,30 +165,17 @@ export class ModelPickerActionItem extends ChatInputPickerActionViewItem {
 		@IKeybindingService keybindingService: IKeybindingService,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IProductService productService: IProductService,
-		// --- Start Positron ---
-		@IThemeService private readonly themeService: IThemeService,
-		@ILanguageModelsService languageModelsService: ILanguageModelsService,
-		// --- End Positron ---
 	) {
 		// Modify the original action with a different label and make it show the current model
 		const actionWithLabel: IAction = {
 			...action,
-			// --- Start Positron ---
-			// Change "Auto" to "Pick Model"
-			label: delegate.currentModel.get()?.metadata.name ?? localize('chat.modelPicker.label', "Pick Model"),
-			// --- End Positron ---
+			label: delegate.currentModel.get()?.metadata.name ?? localize('chat.modelPicker.auto', "Auto"),
 			run: () => { }
 		};
 
 		const baseActionBarActionProvider = getModelPickerActionBarActionProvider(commandService, chatEntitlementService, productService);
 		const modelPickerActionWidgetOptions: Omit<IActionWidgetDropdownOptions, 'label' | 'labelRenderer'> = {
-			// --- Start Positron ---
-			// Pass themeService so provider icons can adapt to light/dark themes
-			/*
 			actionProvider: modelDelegateToWidgetActionsProvider(delegate, telemetryService, pickerOptions),
-			*/
-			actionProvider: modelDelegateToWidgetActionsProvider(delegate, telemetryService, pickerOptions, themeService, languageModelsService),
-			// --- End Positron ---
 			actionBarActionProvider: { getActions: () => baseActionBarActionProvider.getActions() },
 			reporter: { id: 'ChatModelPicker', name: 'ChatModelPicker', includeOptions: true },
 		};
@@ -341,27 +192,6 @@ export class ModelPickerActionItem extends ChatInputPickerActionViewItem {
 				this.renderLabel(this.element);
 			}
 		}));
-
-		// --- Start Positron ---
-		// Listen for model list changes (e.g., when provider settings change)
-		this._register(delegate.onDidChangeModelList(() => {
-			// Sync current model from delegate in case it was cleared
-			this.currentModel = delegate.currentModel.get();
-			// Update the label in case the current model changed
-			if (this.element) {
-				this.renderLabel(this.element);
-			}
-			// Note: The dropdown will automatically get fresh models from getModels()
-			// when it's opened, so no need to force refresh here
-		}));
-
-		// Re-render label when theme changes so provider icons use the correct fill
-		this._register(themeService.onDidColorThemeChange(() => {
-			if (this.element) {
-				this.renderLabel(this.element);
-			}
-		}));
-		// --- End Positron ---
 	}
 
 	protected override getHoverContents(): IManagedHoverContent | undefined {
@@ -379,35 +209,13 @@ export class ModelPickerActionItem extends ChatInputPickerActionViewItem {
 	protected override renderLabel(element: HTMLElement): IDisposable | null {
 		const { name, statusIcon } = this.currentModel?.metadata || {};
 		const domChildren = [];
-		// --- Start Positron ---
-		// Add provider icon if available
-		if (this.currentModel?.metadata.vendor) {
-			const providerIcon = getProviderIcon(this.currentModel.metadata.vendor, isDark(this.themeService.getColorTheme().type));
-			if (providerIcon?.themeIcon) {
-				const iconId = providerIcon.themeIcon.id;
-				if (iconId.startsWith('data:image/svg+xml')) {
-					// Render SVG as background image
-					const iconElement = dom.$('span.provider-icon');
-					iconElement.style.backgroundImage = `url('${iconId}')`;
-					domChildren.push(iconElement);
-				} else {
-					// Regular codicon
-					domChildren.push(...renderLabelWithIcons(`\$(${iconId})`));
-				}
-			}
-		}
-		// --- End Positron ---
 
 		if (statusIcon) {
 			const iconElement = renderIcon(statusIcon);
 			domChildren.push(iconElement);
 		}
 
-		// --- Start Positron ---
-		// Change "Auto" to "Pick Model"
-		// domChildren.push(dom.$('span.chat-input-picker-label', undefined, name ?? localize('chat.modelPicker.auto', "Auto")));
-		domChildren.push(dom.$('span.chat-input-picker-label', undefined, name ?? localize('chat.modelPicker.pickModel', "Pick Model")));
-		// --- End Positron ---
+		domChildren.push(dom.$('span.chat-input-picker-label', undefined, name ?? localize('chat.modelPicker.auto', "Auto")));
 		domChildren.push(...renderLabelWithIcons(`$(chevron-down)`));
 
 		dom.reset(element, ...domChildren);

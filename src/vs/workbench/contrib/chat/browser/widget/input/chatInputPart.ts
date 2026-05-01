@@ -129,13 +129,6 @@ import { ChatContextUsageWidget } from '../../widgetHosts/viewPane/chatContextUs
 import { Target } from '../../../common/promptSyntax/promptTypes.js';
 import { EnhancedModelPickerActionItem } from './modelPickerActionItem2.js';
 
-// --- Start Positron ---
-import { ChatRuntimeSessionContext } from './editor/chatRuntimeSessionContext.js';
-import { RuntimeSessionContextAttachmentWidget } from '../../attachments/runtimeSessionContextAttachment.js';
-import { RuntimeSessionAttachmentWidget } from '../../chatRuntimeAttachmentWidget.js';
-import { IPositronAssistantConfigurationService } from '../../../../positronAssistant/common/interfaces/positronAssistantService.js';
-// --- End Positron ---
-
 const $ = dom.$;
 
 const INPUT_EDITOR_MAX_HEIGHT = 250;
@@ -279,14 +272,6 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			contextArr.add(...implicitChatVariables);
 		}
 
-		// --- Start Positron ---
-		// Add runtime session context if enabled and has value
-		if (this.runtimeContext?.enabled && this.runtimeContext.value) {
-			const runtimeChatVariables = this.runtimeContext.toBaseEntries();
-			contextArr.add(...runtimeChatVariables);
-		}
-		// --- End Positron ---
-
 		return contextArr;
 	}
 
@@ -294,13 +279,6 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	private _indexOfLastOpenedContext: number = -1;
 
 	private _implicitContext: ChatImplicitContexts | undefined;
-
-	// --- Start Positron ---
-	private _runtimeContext: ChatRuntimeSessionContext | undefined;
-	public get runtimeContext(): ChatRuntimeSessionContext | undefined {
-		return this._runtimeContext;
-	}
-	// --- End Positron ---
 
 	public get implicitContext(): ChatImplicitContexts | undefined {
 		return this._implicitContext;
@@ -338,10 +316,6 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	private chatInputWidgetsContainer!: HTMLElement;
 	private inputContainer!: HTMLElement;
 	private readonly _widgetController = this._register(new MutableDisposable<ChatInputPartWidgetController>());
-
-	// --- Start Positron ---
-	private tokenUsageContainer!: HTMLElement;
-	// --- End Positron ---
 
 	private contextUsageWidget?: ChatContextUsageWidget;
 	private contextUsageWidgetContainer!: HTMLElement;
@@ -411,9 +385,6 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	private chatSessionPickerContainer: HTMLElement | undefined;
 	private _lastSessionPickerAction: MenuItemAction | undefined;
 	private readonly _waitForPersistedLanguageModel: MutableDisposable<IDisposable> = this._register(new MutableDisposable<IDisposable>());
-	// --- Start Positron ---
-	private _onDidChangeModelList: Emitter<void> = this._register(new Emitter<void>());
-	// --- End Positron ---
 	private readonly _chatSessionOptionEmitters: Map<string, Emitter<IChatSessionProviderOptionItem>> = new Map();
 
 	/**
@@ -571,9 +542,6 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		@IWorkbenchLayoutService private readonly layoutService: IWorkbenchLayoutService,
 		@IViewDescriptorService private readonly viewDescriptorService: IViewDescriptorService,
 		@IChatAttachmentWidgetRegistry private readonly _chatAttachmentWidgetRegistry: IChatAttachmentWidgetRegistry,
-		// --- Start Positron ---
-		@IPositronAssistantConfigurationService private readonly positronAssistantConfigService: IPositronAssistantConfigurationService,
-		// --- End Positron ---
 	) {
 		super();
 
@@ -649,14 +617,6 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 				this.agentSessionTypeKey.set(initialSessionType);
 			}
 		}
-		// --- Start Positron ---
-		// Default to 'local' session type when no delegate is provided.
-		// Without this, the model picker is hidden in the welcome view because
-		// the upstream `when` clause requires agentSessionType === 'local'.
-		else {
-			this.agentSessionTypeKey.set(localChatSessionType);
-		}
-		// --- End Positron ---
 		this.chatSessionHasCustomAgentTarget = ChatContextKeys.chatSessionHasCustomAgentTarget.bindTo(contextKeyService);
 		this.chatSessionHasTargetedModels = ChatContextKeys.chatSessionHasTargetedModels.bindTo(contextKeyService);
 
@@ -693,26 +653,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			if (shouldResetOnModelListChange(this._currentLanguageModel.get()?.identifier, this.getModels())) {
 				this.setCurrentLanguageModelToDefault();
 			}
-
-			// --- Start Positron ---
-			// Fire event to notify model picker that the model list has changed
-			this._onDidChangeModelList.fire();
-			// --- End Positron ---
 		}));
-
-		// --- Start Positron ---
-		// Listen for provider enablement configuration changes
-		this._register(this.positronAssistantConfigService.onChangeEnabledProviders(() => {
-			// Provider filtering changed - notify UI
-			this._onDidChangeModelList.fire();
-
-			// May need to switch current model if it's no longer in enabled providers
-			const currentModel = this._currentLanguageModel.get();
-			if (currentModel && !this.positronAssistantConfigService.isProviderEnabled(currentModel.metadata.vendor)) {
-				this.setCurrentLanguageModelToDefault();
-			}
-		}));
-		// --- End Positron ---
 
 		this._register(this.onDidChangeCurrentChatMode(() => {
 			this.accessibilityService.alert(this._currentModeObservable.get().label.get());
@@ -769,11 +710,6 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 
 		// Validate the initial mode - if Agent mode is set by default but disabled by policy, switch to Ask
 		this.validateCurrentChatMode();
-
-		// --- Start Positron ---
-		// 1.109.0: onDidChangeCurrentProvider was removed upstream.
-		// Provider switching is now handled via model selection directly.
-		// --- End Positron ---
 	}
 
 	private setImplicitContextEnablement() {
@@ -803,29 +739,9 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		return `chat.currentLanguageModel.${this.location}.isDefault`;
 	}
 
-	// --- Start Positron ---
-	// 1.109.0: determineSelectedModel was removed because its only caller
-	// (onDidChangeCurrentProvider) was removed upstream. Model selection logic
-	// now lives in initSelectedModel and the model picker action.
-	// --- End Positron ---
-
 	private initSelectedModel() {
-		// --- Start Positron ---
-		// Allow user to override application persisted model with config setting
-		let persistedSelection = this.storageService.get(this.getSelectedModelStorageKey(), StorageScope.APPLICATION);
-		let persistedAsDefault = this.storageService.getBoolean(this.getSelectedModelIsDefaultStorageKey(), StorageScope.APPLICATION, true);
-
-		// Only apply global preference if there's no model marked as default by byProvider preference
-		const models = this.getModels();
-		const hasProviderDefault = models.some(m => m.metadata.isDefaultForLocation[this.location]);
-		if (!hasProviderDefault) {
-			const globalPreference = this.configurationService.getValue<string>('positron.assistant.models.preference.global');
-			if (globalPreference) {
-				persistedSelection = globalPreference;
-				persistedAsDefault = false;
-			}
-		}
-		// --- End Positron ---
+		const persistedSelection = this.storageService.get(this.getSelectedModelStorageKey(), StorageScope.APPLICATION);
+		const persistedAsDefault = this.storageService.getBoolean(this.getSelectedModelIsDefaultStorageKey(), StorageScope.APPLICATION, true);
 
 		if (persistedSelection) {
 			const result = shouldRestorePersistedModel(persistedSelection, persistedAsDefault, this.getModels(), this.location);
@@ -834,30 +750,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 				this.checkModelSupported();
 			} else if (!result.model) {
 				this._waitForPersistedLanguageModel.value = this.languageModelsService.onDidChangeLanguageModels(e => {
-					// --- Start Positron ---
-					// Also search for the model partially and by name, and only restore if the provider is enabled.
-					/*
 					const persistedModel = this.languageModelsService.lookupLanguageModel(persistedSelection);
-					*/
-
-					let persistedModel = this.languageModelsService.lookupLanguageModel(persistedSelection);
-					if (!persistedModel) {
-						const allModels = this.languageModelsService.getLanguageModelIds();
-						for (const modelId of allModels) {
-							const model = this.languageModelsService.lookupLanguageModel(modelId);
-							if (model && (model.id.includes(persistedSelection) || model.name.includes(persistedSelection))) {
-								persistedModel = model;
-							}
-							if (model && (model.id === persistedSelection || model.name === persistedSelection)) {
-								break;
-							}
-						}
-					}
-					// Don't restore the model if its provider is disabled
-					if (persistedModel && !this.positronAssistantConfigService.isProviderEnabled(persistedModel.vendor)) {
-						persistedModel = undefined;
-					}
-					// --- End Positron ---
 
 					if (persistedModel) {
 						this._waitForPersistedLanguageModel.clear();
@@ -1102,21 +995,6 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 				});
 				if (syncResult.action === 'apply') {
 					this.setCurrentLanguageModel(state.selectedModel);
-					// --- Start Positron ---
-					// Validate that the persisted model is still available from
-					// an enabled provider before restoring it. Without this
-					// check, stale session state (e.g. a Copilot "Auto" model
-					// from a previous session) can be blindly a	pplied even when
-					// no providers are configured, causing the model picker to
-					// show a stale label.
-					const availableModels = this.getModels();
-					const isModelAvailable = availableModels.some(m => m.identifier === state.selectedModel!.identifier);
-					if (isModelAvailable) {
-						this.setCurrentLanguageModel(state.selectedModel);
-					} else {
-						this.setCurrentLanguageModelToDefault();
-					}
-					// --- End Positron ---
 				} else if (syncResult.action === 'default') {
 					this.setCurrentLanguageModelToDefault();
 				}
@@ -1168,18 +1046,6 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 
 	public setCurrentLanguageModel(model: ILanguageModelChatMetadataAndIdentifier) {
 		this._currentLanguageModel.set(model, undefined);
-
-		// --- Start Positron ---
-		// Update the current provider when the model vendor changes, so that
-		// the chatCurrentProvider context key stays in sync and picker
-		// visibility is re-evaluated (e.g. session target picker is only
-		// shown for the copilot provider).
-		const newVendor = model.metadata.vendor;
-		if (this.languageModelsService.currentProvider?.id !== newVendor) {
-			const knownProvider = this.languageModelsService.getLanguageModelProviders().find(p => p.id === newVendor);
-			this.languageModelsService.currentProvider = knownProvider ?? { id: newVendor, displayName: newVendor };
-		}
-		// --- End Positron ---
 
 		if (this.cachedWidth) {
 			// For quick chat and editor chat, relayout because the input may need to shrink to accomodate the model name
@@ -1252,32 +1118,8 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		return models;
 	}
 
-	// --- Start Positron ---
-	/**
-	 * Helper to filter models for user-selectable, mode-supported, and provider-enabled models.
-	 */
-	private filterAvailableModels(models: ILanguageModelChatMetadataAndIdentifier[]): ILanguageModelChatMetadataAndIdentifier[] {
-		return models.filter(entry => {
-			// Must be from an enabled provider
-			if (!this.positronAssistantConfigService.isProviderEnabled(entry.metadata?.vendor)) {
-				return false;
-			}
-			// Must be user-selectable
-			if (!entry.metadata?.isUserSelectable) {
-				return false;
-			}
-			return true;
-		});
-	}
-	// --- End Positron ---
-
 	private getModels(): ILanguageModelChatMetadataAndIdentifier[] {
-		// --- Start Positron ---
-		let models = this.getAllMergedModels();
-
-		// Filter for user-selectable models that are supported in the current mode and enabled via config
-		models = this.filterAvailableModels(models);
-		// --- End Positron ---
+		const models = this.getAllMergedModels();
 
 		models.sort((a, b) => a.metadata.name.localeCompare(b.metadata.name));
 
@@ -1385,14 +1227,6 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		const defaultModel = findDefaultModel(allModels, this.location);
 		if (defaultModel) {
 			this.setCurrentLanguageModel(defaultModel);
-			// --- Start Positron ---
-		} else {
-			// Clear the selected model when no models are available (e.g. after
-			// provider sign-out) so the picker button shows a placeholder instead
-			// of a stale model name.
-			this._currentLanguageModel.set(undefined, undefined);
-			this._onDidChangeModelList.fire();
-			// --- End Positron ---
 		}
 	}
 
@@ -2132,10 +1966,6 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		if (this.options.renderStyle === 'compact') {
 			elements = dom.h('.interactive-input-part', [
 				dom.h('.interactive-input-and-edit-session', [
-					// --- Start Positron ---
-					// 1.107.0
-					dom.h('.chat-token-usage-status@tokenUsageContainer'),
-					// --- End Positron ---
 					dom.h('.chat-question-carousel-widget-container@chatQuestionCarouselContainer'),
 					dom.h('.chat-input-widgets-container@chatInputWidgetsContainer'),
 					dom.h('.chat-todo-list-widget-container@chatInputTodoListWidgetContainer'),
@@ -2160,10 +1990,6 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			elements = dom.h('.interactive-input-part', [
 				dom.h('.chat-question-carousel-widget-container@chatQuestionCarouselContainer'),
 				dom.h('.interactive-input-followups@followupsContainer'),
-				// --- Start Positron ---
-				// 1.107.0
-				dom.h('.chat-token-usage-status@tokenUsageContainer'),
-				// --- End Positron ---
 				dom.h('.chat-input-widgets-container@chatInputWidgetsContainer'),
 				dom.h('.chat-todo-list-widget-container@chatInputTodoListWidgetContainer'),
 				dom.h('.chat-editing-session@chatEditingSessionWidgetContainer'),
@@ -2220,11 +2046,6 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		this.contextUsageWidget = this._register(this.instantiationService.createInstance(ChatContextUsageWidget));
 		this.contextUsageWidgetContainer.appendChild(this.contextUsageWidget.domNode);
 
-		// --- Start Positron ---
-		this.tokenUsageContainer = elements.tokenUsageContainer;
-		this.tokenUsageContainer.style.display = 'none'; // Initially hidden
-		// --- End Positron ---
-
 		if (this.options.enableImplicitContext && !this._implicitContext) {
 			this._implicitContext = this._register(
 				this.instantiationService.createInstance(ChatImplicitContexts),
@@ -2235,15 +2056,6 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 				this._indexOfLastAttachedContextDeletedWithKeyboard = -1;
 				this._handleAttachedContextChange();
 			}));
-
-			// --- Start Positron ---
-			// Add the runtime session implicit context
-			this._runtimeContext = this._register(
-				this.instantiationService.createInstance(ChatRuntimeSessionContext),
-			);
-
-			this._register(this._runtimeContext.onDidChangeValue(() => this._handleAttachedContextChange()));
-			// --- End Positron ---
 		} else if (!this.options.enableImplicitContext && this._implicitContext) {
 			this._implicitContext?.dispose();
 			this._implicitContext = undefined;
@@ -2406,23 +2218,8 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 						this.setCurrentLanguageModelToDefault();
 					}
 
-					// --- Start Positron ---
-					const models = this.getModels();
-					if (!this._currentLanguageModel.get() && models.length > 0) {
-						const defaultModel = models.find(m => m.metadata.isDefaultForLocation[this.location]);
-						if (defaultModel) {
-							this.setCurrentLanguageModel(defaultModel);
-						} else if (models.length > 0) {
-							this.setCurrentLanguageModel(models[0]);
-						}
-					}
-					// --- End Positron ---
-
 					const itemDelegate: IModelPickerDelegate = {
 						currentModel: this._currentLanguageModel,
-						// --- Start Positron ---
-						onDidChangeModelList: this._onDidChangeModelList.event,
-						// --- End Positron ---
 						setModel: (model: ILanguageModelChatMetadataAndIdentifier) => {
 							this._waitForPersistedLanguageModel.clear();
 							this.setCurrentLanguageModel(model);
@@ -2680,10 +2477,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		}));
 
 		const attachments = [...this.attachmentModel.attachments.entries()];
-		// --- Start Positron ---
-		// Add runtime session context to the attachments
-		const hasAttachments = Boolean(attachments.length) || Boolean(this.implicitContext?.hasValue) || Boolean(this.runtimeContext?.value);
-		// --- End Positron ---
+		const hasAttachments = Boolean(attachments.length) || Boolean(this.implicitContext?.hasValue);
 
 		// Render implicit context (active editor in Ask mode, or selection)
 		let hasImplicitContext = false;
@@ -2729,14 +2523,6 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		}
 
 
-		// --- Start Positron ---
-		if (this.runtimeContext?.value) {
-			const runtimePart = store.add(this.instantiationService.createInstance(RuntimeSessionContextAttachmentWidget, this.runtimeContext, this._contextResourceLabels));
-			container.appendChild(runtimePart.domNode);
-		}
-		// --- End Positron ---
-
-
 		for (const [index, attachment] of attachments) {
 			const resource = URI.isUri(attachment.value) ? attachment.value : isLocation(attachment.value) ? attachment.value.uri : undefined;
 			const range = isLocation(attachment.value) ? attachment.value.range : undefined;
@@ -2765,10 +2551,6 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 				attachmentWidget = this.instantiationService.createInstance(PasteAttachmentWidget, attachment, lm, options, container, this._contextResourceLabels);
 			} else if (isSCMHistoryItemVariableEntry(attachment)) {
 				attachmentWidget = this.instantiationService.createInstance(SCMHistoryItemAttachmentWidget, attachment, lm, options, container, this._contextResourceLabels);
-				// --- Start Positron ---
-			} else if (attachment.kind === 'runtimeSession') {
-				attachmentWidget = this.instantiationService.createInstance(RuntimeSessionAttachmentWidget, attachment, lm, options, container, this._contextResourceLabels);
-				// --- End Positron ---
 			} else if (isSCMHistoryItemChangeVariableEntry(attachment)) {
 				attachmentWidget = this.instantiationService.createInstance(SCMHistoryItemChangeAttachmentWidget, attachment, lm, options, container, this._contextResourceLabels);
 			} else if (isSCMHistoryItemChangeRangeVariableEntry(attachment)) {
@@ -3385,71 +3167,6 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			sideToolbarWidth: inputSideToolbarWidth > 0 ? inputSideToolbarWidth + 4 /*gap*/ : 0,
 		};
 	}
-
-	// --- Start Positron ---
-	/**
-	 * Calculate the total token usage from a view model's items
-	 */
-	private calculateTotalTokenUsage(viewModel: any): { totalInputTokens: number; totalOutputTokens: number; totalCachedTokens: number } | undefined {
-		if (!viewModel) {
-			return undefined;
-		}
-
-		let totalInputTokens = 0;
-		let totalOutputTokens = 0;
-		let totalCachedTokens = 0;
-		let hasAnyTokenUsage = false;
-
-		for (const item of viewModel.getItems()) {
-			if (isResponseVM(item) && item.tokenUsage && item.isComplete) {
-				totalInputTokens += item.tokenUsage.tokens.inputTokens;
-				totalOutputTokens += item.tokenUsage.tokens.outputTokens;
-				totalCachedTokens += item.tokenUsage.tokens.cachedTokens;
-				hasAnyTokenUsage = true;
-			}
-		}
-
-		return hasAnyTokenUsage ? { totalInputTokens, totalOutputTokens, totalCachedTokens } : undefined;
-	}
-
-	/**
-	 * Update the token usage status display
-	 */
-	updateTokenUsageDisplay(viewModel: any): void {
-		if (!this.tokenUsageContainer) {
-			return;
-		}
-
-		const previousDisplay = this.tokenUsageContainer.style.display;
-		const showTokens = this.configurationService.getValue<boolean>('positron.assistant.showTokenUsage.enable');
-		if (!showTokens) {
-			this.tokenUsageContainer.style.display = 'none';
-		} else {
-			const totalTokens = this.calculateTotalTokenUsage(viewModel);
-			if (totalTokens && totalTokens.totalInputTokens > 0 && totalTokens.totalOutputTokens > 0) {
-				dom.clearNode(this.tokenUsageContainer);
-				this.tokenUsageContainer.appendChild(
-					dom.$('.token-usage-total', undefined,
-						localize('totalTokenUsage', "Total tokens: ↑{0} ↓{1} ↩{2}", totalTokens.totalInputTokens, totalTokens.totalOutputTokens, totalTokens.totalCachedTokens)
-					)
-				);
-				this.tokenUsageContainer.style.display = 'block';
-			} else {
-				this.tokenUsageContainer.style.display = 'none';
-			}
-		}
-
-		// Trigger re-layout if visibility changed so the height observable updates
-		if (previousDisplay !== this.tokenUsageContainer.style.display && this.cachedWidth) {
-			this.layout(this.cachedWidth);
-		}
-	}
-
-	get tokenUsageHeight(): number {
-		return (this.tokenUsageContainer && this.tokenUsageContainer.style.display !== 'none')
-			? this.tokenUsageContainer.offsetHeight : 0;
-	}
-	// --- End Positron ---
 
 	/**
 	 * Gets the location of the chat widget and whether that location is maximized.

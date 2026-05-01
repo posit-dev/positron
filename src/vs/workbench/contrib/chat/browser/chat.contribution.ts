@@ -172,7 +172,6 @@ import { PlanAgentDefaultModel } from './planAgentDefaultModel.js';
 
 // --- Start Positron ---
 import { PositronBuiltinToolsContribution } from './tools/tools.js';
-import { ChatRuntimeSessionContextContribution } from './widget/input/editor/chatRuntimeSessionContext.js';
 // eslint-disable-next-line no-duplicate-imports
 import { INSTRUCTIONS_POSITRON_SOURCE_FOLDER, PROMPT_POSITRON_SOURCE_FOLDER, LEGACY_MODE_POSITRON_SOURCE_FOLDER, AGENTS_POSITRON_SOURCE_FOLDER } from '../common/promptSyntax/config/promptFileLocations.js';
 // --- End Positron ---
@@ -279,38 +278,6 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: nls.localize('chat.implicitContext.suggestedContext', "Controls whether the new implicit context flow is shown. In Ask and Edit modes, the context will automatically be included. When using an agent, context will be suggested as an attachment. Selections are always included as context."),
 			default: true,
 		},
-		// --- Start Positron ---
-		'chat.implicitSessionContext.enabled': {
-			type: 'object',
-			tags: ['experimental'],
-			description: nls.localize('chat.implicitSessionContext.enabled.1', "Enables automatically using the active interpreter session as chat context for specified chat locations."),
-			additionalProperties: {
-				type: 'string',
-				enum: ['never', 'first', 'always'],
-				description: nls.localize('chat.implicitSessionContext.value', "The value for the implicit runtime context."),
-				enumDescriptions: [
-					nls.localize('chat.implicitSessionContext.value.never', "Implicit session context is never enabled."),
-					nls.localize('chat.implicitSessionContext.value.first', "Implicit session context is enabled for the first interaction."),
-					nls.localize('chat.implicitSessionContext.value.always', "Implicit session context is always enabled.")
-				]
-			},
-			default: {
-				'panel': 'always',
-			}
-		},
-		'chat.runtimeSessionContext.maxExecutionHistoryCharacters': {
-			type: 'number',
-			tags: ['experimental'],
-			description: nls.localize('chat.runtimeSessionContext.maxExecutionHistoryCharacters', "The maximum character count for the runtime session execution history context. This is used to limit the size of the context that is sent to the model. The default is 8192 characters."),
-			default: 8192, // 8k characters
-			minimum: 1024,
-		},
-		'chat.useCopilotParticipantsWithOtherProviders': {
-			type: 'boolean',
-			markdownDescription: nls.localize('chat.useCopilotParticipantsWithOtherProviders', "Allow any model in Positron Assistant to use chat participants provided by GitHub Copilot.\n\nThis requires that you are signed into Copilot, and **may send data to Copilot models regardless of the selected provider when Copilot participants are used**.\n\nFor example, if you enable this setting and you are using Anthropic as a provider, GitHub Copilot participants are available. When invoked, the participants may send data to Copilot models.\n\n See also: `#positron.assistant.alwaysIncludeCopilotTools#`"),
-			default: false
-		},
-		// --- End Positron ---
 		'chat.editing.autoAcceptDelay': {
 			type: 'number',
 			markdownDescription: nls.localize('chat.editing.autoAcceptDelay', "Delay after which changes made by chat are automatically accepted. Values are in seconds, `0` means disabled and `100` seconds is the maximum."),
@@ -1819,7 +1786,6 @@ registerWorkbenchContribution2(AgentPluginsViewsContribution.ID, AgentPluginsVie
 
 // --- Start Positron ---
 registerWorkbenchContribution2(PositronBuiltinToolsContribution.ID, PositronBuiltinToolsContribution, WorkbenchPhase.Eventually);
-registerWorkbenchContribution2(ChatRuntimeSessionContextContribution.ID, ChatRuntimeSessionContextContribution, WorkbenchPhase.Eventually);
 // --- End Positron ---
 
 registerChatActions();

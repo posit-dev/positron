@@ -446,14 +446,6 @@ class QuickChat extends Disposable {
 			}
 			// Update attachments
 			this.widget.attachmentModel.clearAndSetContext(...mainChatWidget.attachmentModel.attachments);
-			// Update console context
-			if (this.widget.input.runtimeContext) {
-				// Set the Console context
-				this.widget.input.runtimeContext.setValue(mainChatWidget.input.runtimeContext?.value);
-				// Set whether the Console context is enabled
-				this.widget.input.runtimeContext.enabled = mainChatWidget.input.runtimeContext?.enabled ?? false;
-			}
-
 		}
 	}
 	// --- End Positron ---

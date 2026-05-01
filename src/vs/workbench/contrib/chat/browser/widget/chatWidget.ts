@@ -958,11 +958,6 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			}
 
 			this.renderFollowups();
-
-			// --- Start Positron ---
-			// Update token usage display when items change
-			this.input.updateTokenUsageDisplay(this.viewModel);
-			// --- End Positron ---
 		}
 	}
 
@@ -1448,10 +1443,6 @@ export class ChatWidget extends Disposable implements IChatWidget {
 					// Do it after a timeout because the container is not visible yet (it should be but offsetHeight returns 0 here)
 					if (this._visible) {
 						this.onDidChangeItems(true);
-						// --- Start Positron ---
-						// Update token usage display when widget becomes visible
-						this.input.updateTokenUsageDisplay(this.viewModel);
-						// --- End Positron ---
 					}
 				}, 0);
 
