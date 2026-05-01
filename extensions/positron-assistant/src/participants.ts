@@ -746,7 +746,22 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 					})
 				),
 			];
-			return this.sendLanguageModelRequest(request, response, token, newMessages, tools);
+			try {
+				return await this.sendLanguageModelRequest(request, response, token, newMessages, tools);
+			} catch (error) {
+				if (error instanceof vscode.CancellationError) {
+					throw error;
+				}
+				const errorMessage = error instanceof Error ? error.message : String(error);
+				log.error(`[participant] Error continuing after tool result: ${errorMessage}`);
+				response.markdown(
+					new vscode.MarkdownString(
+						`An error occurred while processing the tool result. Please try again.\n\n` +
+						`**Error details:** \`${errorMessage}\``
+					)
+				);
+				return undefined;
+			}
 		}
 
 		// Return token usage information

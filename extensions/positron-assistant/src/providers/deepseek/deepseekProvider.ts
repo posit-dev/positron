@@ -53,10 +53,14 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 	protected deepSeekProvider: DeepSeekProvider;
 
 	/**
-	 * Stores the reasoning_content from the last streaming response.
-	 * Required for DeepSeek thinking mode when tool calls are used.
+	 * Stores reasoning_content per assistant message in conversation order.
+	 * DeepSeek requires reasoning_content to be passed back in each assistant
+	 * message when reasoning_effort is enabled. Using a single field caused all
+	 * historical assistant messages to get the most recent reasoning, which
+	 * the API rejects when there are multiple tool-call turns.
 	 */
-	private lastReasoningContent: string | undefined;
+	private reasoningContents: (string | undefined)[] = [];
+	private reasoningIndex = 0;
 
 	/**
 	 * Model name patterns to filter out (case-insensitive).
@@ -316,6 +320,10 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 		this.logger.debug(`Start request ${requestId} to ${model.name} [${model.id}]: ${aiMessages.length} messages`);
 
 		try {
+			// Reset reasoning index so each assistant message in history
+			// gets its corresponding reasoning_content from reasoningContents
+			this.reasoningIndex = 0;
+
 			const requestBody: Record<string, any> = {
 				model: modelId,
 				messages: aiMessages.map(msg => this.toDeepSeekMessage(msg)),
@@ -372,8 +380,9 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 			let buffer = '';
 			let chunkCount = 0;
 			let bufferedToolCalls = new Map<string, { name: string; args: string }>();
-			// Clear reasoning content from previous requests - will be populated during streaming
-			this.lastReasoningContent = undefined;
+			// Capture reasoning for this response - stored per-assistant-message
+			// and pushed to reasoningContents after streaming completes
+			let currentReasoningContent: string | undefined;
 
 			while (true) {
 				const { done, value } = await reader.read();
@@ -417,7 +426,7 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 
 						// Capture reasoning_content from streaming for use in follow-up requests
 						if (choice.delta.reasoning_content) {
-							this.lastReasoningContent = (this.lastReasoningContent ?? '') + choice.delta.reasoning_content;
+							currentReasoningContent = (currentReasoningContent ?? '') + choice.delta.reasoning_content;
 						}
 
 						// Handle tool calls - buffer them until arguments are complete
@@ -473,9 +482,12 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 			this.logger.debug(`Finished streaming, ${chunkCount} chunks received`);
 
 			// Log the complete reasoning content from thinking mode
-			if (this.lastReasoningContent) {
-				this.logger.trace(`Reasoning (complete): ${this.lastReasoningContent}`);
+			if (currentReasoningContent) {
+				this.logger.trace(`Reasoning (complete): ${currentReasoningContent}`);
 			}
+			// Store reasoning for this assistant message so it can be
+			// passed back in the next request's conversation history
+			this.reasoningContents.push(currentReasoningContent);
 
 			// Handle remaining buffer
 			if (buffer.trim() && buffer.startsWith('data: ')) {
@@ -545,8 +557,9 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 		if (msg.role === 'assistant') {
 			const deepseekContent: any[] = [];
 			const toolCalls: any[] = [];
-			// Use the reasoning_content captured from the last streaming response
-			const reasoningContent = this.lastReasoningContent;
+			// Use the per-message reasoning_content - each assistant message
+			// in the history gets its own reasoning from when it was generated
+			const reasoningContent = this.reasoningContents[this.reasoningIndex++];
 
 			for (const part of content) {
 				if (part.type === 'text') {
@@ -595,7 +608,16 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 					if (typeof part.output === 'string') {
 						textContent = part.output;
 					} else if (part.output?.value !== undefined) {
-						textContent = String(part.output.value);
+						const val = part.output.value;
+						if (Array.isArray(val)) {
+							// Multi-part content: extract text from each part.
+							// AI SDK content parts use `text` for text content.
+							textContent = val
+								.map((item: any) => typeof item === 'string' ? item : item.text ?? item.value ?? JSON.stringify(item))
+								.join('\n');
+						} else {
+							textContent = String(val);
+						}
 					} else if (part.output?.text !== undefined) {
 						textContent = String(part.output.text);
 					}
