@@ -320,7 +320,7 @@ export class DeepSeekModelProvider extends ModelProvider implements positron.ai.
 				model: modelId,
 				messages: aiMessages.map(msg => this.toDeepSeekMessage(msg)),
 				stream: true,
-				// Keep thinking enabled for coding assistance
+				reasoning_effort: 'max',
 			};
 
 			if (toolsRecord) {
