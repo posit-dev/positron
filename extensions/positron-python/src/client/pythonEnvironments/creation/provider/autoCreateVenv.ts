@@ -30,7 +30,7 @@ export async function detectAutoCreateContext(workspace: WorkspaceFolder): Promi
     const [reqFiles, uvAvailable, tomlExists] = await Promise.all([
         getPipRequirementsFiles(workspace),
         isUvInstalled(),
-        hasPyprojectToml(workspace)
+        hasPyprojectToml(workspace),
     ]);
 
     return {
@@ -86,7 +86,6 @@ async function collectDepSources(workspace: WorkspaceFolder): Promise<DepSource[
             label: 'pyproject.toml',
             args: ['pip', 'install', '-e', '.'],
         });
-
     }
 
     return sources;

@@ -39,9 +39,7 @@ import { IDebugSessionEventHandlers } from './debugger/extension/hooks/types';
 import { WorkspaceService } from './common/application/workspace';
 import { IInterpreterQuickPick, IPythonPathUpdaterServiceManager } from './interpreter/configuration/types';
 import { registerAllCreateEnvironmentFeatures } from './pythonEnvironments/creation/registrations';
-import {
-    registerCreateEnvironmentTriggers,
-} from './pythonEnvironments/creation/createEnvironmentTrigger';
+import { registerCreateEnvironmentTriggers } from './pythonEnvironments/creation/createEnvironmentTrigger';
 import { initializePersistentStateForTriggers } from './common/persistentState';
 import { DebuggerTypeName } from './debugger/constants';
 import { StopWatch } from './common/utils/stopWatch';

@@ -13,7 +13,7 @@ import { getConfiguration } from '../../../common/vscodeApis/workspaceApis';
 import { getWorkspaceStateValue } from '../../../common/persistentState';
 
 // --- Start Positron ---
-import { isPipInstallableToml } from '../provider/venvUtils'
+import { isPipInstallableToml } from '../provider/venvUtils';
 // --- End Positron ---
 
 export const CREATE_ENV_TRIGGER_SETTING_PART = 'createEnvironment.trigger';
