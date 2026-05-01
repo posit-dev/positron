@@ -16,9 +16,12 @@ import { selectLanguageRuntimeSession, selectNewLanguageRuntime } from '../../br
 import { Emitter } from '../../../../../base/common/event.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
+import { IEditorService } from '../../../../services/editor/common/editorService.js';
+import { EditorInput } from '../../../../common/editor/editorInput.js';
 import { IModelService } from '../../../../../editor/common/services/model.js';
 import { IRuntimeSessionService, ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { SELECT_KERNEL_ID_POSITRON } from '../../../positronNotebook/browser/SelectPositronNotebookKernelAction.js';
+import { POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../../../positronNotebook/common/positronNotebookCommon.js';
 
 function makeRuntime(overrides: Partial<ILanguageRuntimeMetadata> = {}): ILanguageRuntimeMetadata {
 	const languageId = overrides.languageId ?? 'python';
@@ -417,6 +420,7 @@ describe('selectLanguageRuntimeSession - change notebook session', () => {
 	const onDidChangeForegroundSession = new Emitter<ILanguageRuntimeSession | undefined>();
 
 	let foregroundSession: ILanguageRuntimeSession | undefined;
+	let activeEditor: EditorInput | undefined;
 
 	const ctx = createTestContainer()
 		.withRuntimeServices()
@@ -427,6 +431,9 @@ describe('selectLanguageRuntimeSession - change notebook session', () => {
 		}))
 		.stub(ICommandService, { executeCommand })
 		.stub(IModelService, { getModel: () => null })
+		.stub(IEditorService, stubInterface<IEditorService>({
+			get activeEditor() { return activeEditor; },
+		}))
 		.stub(IQuickInputService, stubInterface<IQuickInputService>({
 			pick: pickFn,
 		}))
@@ -458,9 +465,15 @@ describe('selectLanguageRuntimeSession - change notebook session', () => {
 		});
 	}
 
+	function makeEditorInput(typeId: string, uri: URI): EditorInput {
+		return stubInterface<EditorInput>({ typeId, resource: uri });
+	}
+
 	beforeEach(() => {
 		foregroundSession = undefined;
 		pickItems = [];
+		// Default to the Positron Notebook Editor for tests
+		activeEditor = makeEditorInput(POSITRON_NOTEBOOK_EDITOR_INPUT_ID, URI.file('/path/to/notebook.ipynb'));
 	});
 
 	afterAll(() => {
@@ -504,6 +517,14 @@ describe('selectLanguageRuntimeSession - change notebook session', () => {
 	it('hides the item when caller passes includeNotebookSessions: false', async () => {
 		foregroundSession = makeNotebookSession(URI.file('/path/to/notebook.ipynb'));
 		await openInterpreterPicker({ includeNotebookSessions: false });
+		expect(hasChangeNotebookItem()).toBe(false);
+	});
+
+	it('hides the item when the active editor is a legacy notebook editor', async () => {
+		foregroundSession = makeNotebookSession(URI.file('/path/to/notebook.ipynb'));
+		// 'jupyter-notebook' is the upstream legacy notebook editor input typeId.
+		activeEditor = makeEditorInput('jupyter-notebook', URI.file('/path/to/notebook.ipynb'));
+		await openInterpreterPicker();
 		expect(hasChangeNotebookItem()).toBe(false);
 	});
 

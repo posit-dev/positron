@@ -20,6 +20,7 @@ import { ILanguageService } from '../../../../editor/common/languages/language.j
 import { IModelService } from '../../../../editor/common/services/model.js';
 import { getSessionDisplayName, getSessionIconClasses, isQuartoSession } from '../../positronConsole/common/sessionDisplayUtils.js';
 import { SELECT_KERNEL_ID_POSITRON } from '../../positronNotebook/browser/SelectPositronNotebookKernelAction.js';
+import { POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../../positronNotebook/common/positronNotebookCommon.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { DisposableStore, dispose } from '../../../../base/common/lifecycle.js';
@@ -165,6 +166,7 @@ export const selectLanguageRuntimeSession = async (
 	const quickInputService = accessor.get(IQuickInputService);
 	const runtimeSessionService = accessor.get(IRuntimeSessionService);
 	const commandService = accessor.get(ICommandService);
+	const editorService = accessor.get(IEditorService);
 	const modelService = accessor.get(IModelService);
 	const languageService = accessor.get(ILanguageService);
 
@@ -284,6 +286,7 @@ export const selectLanguageRuntimeSession = async (
 		includeNotebookSessions
 		&& foregroundForChange?.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook
 		&& foregroundForChange.metadata.notebookUri !== undefined
+		&& editorService.activeEditor?.typeId === POSITRON_NOTEBOOK_EDITOR_INPUT_ID
 		&& !isQuartoSession({
 			notebookUri: foregroundForChange.metadata.notebookUri,
 			modelService,
