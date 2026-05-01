@@ -49,7 +49,7 @@ I'll dynamically fetch the current e2e test tags from `test/e2e/infra/test-runne
 Based on the PR type and context, I'll create a structured PR body with:
 
 1. **Opening Line**
-   - "Addresses #[issue]." if applicable
+   - "Fixes #[issue]" if applicable, using a GitHub closing keyword (`Fixes`, `Closes`, `Resolves`) so the issue auto-closes when the PR is merged
    - Brief statement of what the PR does otherwise
 
 2. **Description/Summary**
@@ -101,7 +101,7 @@ I use different templates based on PR type:
 
 ### Bug Fix Template
 ```markdown
-Addresses #[issue].
+Fixes #[issue]
 
 [2-3 sentences explaining the fix]
 
@@ -122,7 +122,7 @@ Addresses #[issue].
 
 ### New Feature Template
 ```markdown
-Addresses #[issue].
+Fixes #[issue]
 
 ### Summary
 [1-2 paragraphs explaining the feature]
@@ -148,7 +148,7 @@ Addresses #[issue].
 
 ### Example 1: Bug Fix PR
 ```markdown
-Addresses #8930.
+Fixes #8930
 
 This PR fixes the Data Explorer scrollbars snapping back to 0 on Safari. The issue was caused by incorrect event handling in the virtual scrolling implementation.
 
@@ -169,7 +169,7 @@ Open a large data frame in Data Explorer on Safari and verify scrollbars can be 
 
 ### Example 2: New Feature PR
 ```markdown
-Addresses #8484.
+Fixes #8484
 
 ### Summary
 Adds support for native DuckDB connections in the Connections Pane. Users can now inspect DuckDB databases directly without needing external tools. This implementation uses the native DuckDB Python API for better performance.
