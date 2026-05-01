@@ -413,6 +413,10 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		this.availableUpdate.cancelFilePath = cancelFilePath;
 
 		await pfs.Promises.writeFile(this.availableUpdate.updateFilePath, 'flag');
+		// --- Start Positron ---
+		// Pass the current install directory so Inno Setup does not fall back to
+		// the hardcoded default path when Positron was installed to a custom location.
+		const installDir = path.dirname(process.execPath);
 		const child = spawn(this.availableUpdate.packagePath,
 			[
 				'/verysilent',
@@ -422,7 +426,8 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 				`/sessionend="${sessionEndFlagPath}"`,
 				`/cancel="${cancelFilePath}"`,
 				'/nocloseapplications',
-				'/mergetasks=runcode,!desktopicon,!quicklaunchicon'
+				'/mergetasks=runcode,!desktopicon,!quicklaunchicon',
+				`/DIR="${installDir}"`
 			],
 			{
 				detached: true,
@@ -431,6 +436,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 				env: { ...process.env, __COMPAT_LAYER: 'RunAsInvoker' }
 			}
 		);
+		// --- End Positron ---
 
 		// Track the process so we can cancel it if needed
 		this.availableUpdate.updateProcess = child;
@@ -548,11 +554,16 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 				// ignore
 			}
 		} else {
-			spawn(this.availableUpdate.packagePath, ['/silent', '/log', '/mergetasks=runcode,!desktopicon,!quicklaunchicon'], {
+			// --- Start Positron ---
+			// Pass the current install directory so Inno Setup does not fall back to
+			// the hardcoded default path when Positron was installed to a custom location.
+			spawn(this.availableUpdate.packagePath, ['/silent', '/log', '/mergetasks=runcode,!desktopicon,!quicklaunchicon', `/DIR="${path.dirname(process.execPath)}"`], {
 				detached: true,
 				stdio: ['ignore', 'ignore', 'ignore'],
+				windowsVerbatimArguments: true,
 				env: { ...process.env, __COMPAT_LAYER: 'RunAsInvoker' }
 			});
+			// --- End Positron ---
 		}
 	}
 
