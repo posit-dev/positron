@@ -17,7 +17,12 @@ test.describe('Help', { tag: [tags.HELP, tags.WEB] }, () => {
 		await settings.set({ 'workbench.reduceMotion': 'on' }, { reload: 'web' });
 	});
 
-	test('Python - Verify Help landing page', { tag: [tags.WIN] }, async function ({ app }) {
+	test.skip('Python - Verify Help landing page', {
+		annotation: {
+			type: 'issue', description: 'https://github.com/posit-dev/positron/issues/13332'
+		},
+		tag: [tags.WIN]
+	}, async function ({ app }) {
 
 		await app.workbench.layouts.enterLayout('fullSizedAuxBar');
 		await app.workbench.help.openHelpPanel();
@@ -34,7 +39,12 @@ test.describe('Help', { tag: [tags.HELP, tags.WEB] }, () => {
 		await app.workbench.layouts.enterLayout('stacked');
 	});
 
-	test('Python - Verify basic help functionality', { tag: [tags.WIN] }, async function ({ app, python }) {
+	test.skip('Python - Verify basic help functionality', {
+		annotation: {
+			type: 'issue', description: 'https://github.com/posit-dev/positron/issues/13332'
+		},
+		tag: [tags.WIN]
+	}, async function ({ app, python }) {
 		await app.workbench.console.executeCode('Python', `?load`);
 
 		await expect(async () => {
@@ -44,7 +54,12 @@ test.describe('Help', { tag: [tags.HELP, tags.WEB] }, () => {
 
 	});
 
-	test('R - Verify basic help functionality', { tag: [tags.WIN] }, async function ({ app, r }) {
+	test.skip('R - Verify basic help functionality', {
+		annotation: {
+			type: 'issue', description: 'https://github.com/posit-dev/positron/issues/13332'
+		},
+		tag: [tags.WIN]
+	}, async function ({ app, r }) {
 		await app.workbench.console.executeCode('R', `?load()`);
 
 		await expect(async () => {

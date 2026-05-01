@@ -14,7 +14,11 @@ test.describe('Console Pane: R Hyperlinks', {
 	tag: [tags.WEB, tags.CONSOLE, tags.WIN, tags.ARK]
 }, () => {
 
-	test('R - Verify console link to help', async function ({ app, r }) {
+	test.skip('R - Verify console link to help', {
+		annotation: {
+			type: 'issue', description: 'https://github.com/posit-dev/positron/issues/13332'
+		}
+	}, async function ({ app, r }) {
 		const { console, help } = app.workbench;
 
 		await console.pasteCodeToConsole("txt_formatted <- \"Help for a function: `\u001b]8;;x-r-help:utils::available.packages\\autils::available.packages\u001b]8;;\u0007()`\"", true);
@@ -26,7 +30,11 @@ test.describe('Console Pane: R Hyperlinks', {
 	});
 
 
-	test('R - Verify help with custom link text', async function ({ app, r }) {
+	test.skip('R - Verify help with custom link text', {
+		annotation: {
+			type: 'issue', description: 'https://github.com/posit-dev/positron/issues/13332'
+		}
+	}, async function ({ app, r }) {
 		const { console, help } = app.workbench;
 
 		await console.pasteCodeToConsole('library(cli)', true);
@@ -38,7 +46,11 @@ test.describe('Console Pane: R Hyperlinks', {
 		await expect((await help.getHelpFrame(0)).getByText('Collect Information About the Current R Session')).toBeVisible({ timeout: 30000 });
 	});
 
-	test('R - Verify help for a topic that is not a function', async function ({ app, r }) {
+	test.skip('R - Verify help for a topic that is not a function', {
+		annotation: {
+			type: 'issue', description: 'https://github.com/posit-dev/positron/issues/13332'
+		}
+	}, async function ({ app, r }) {
 		const { console, help } = app.workbench;
 
 		await console.pasteCodeToConsole('library(cli)', true);
@@ -50,7 +62,11 @@ test.describe('Console Pane: R Hyperlinks', {
 		await expect((await help.getHelpFrame(0)).getByText('Batch Execution of R')).toBeVisible({ timeout: 30000 });
 	});
 
-	test('R - Verify help for a vignette', async function ({ app, r }) {
+	test.skip('R - Verify help for a vignette', {
+		annotation: {
+			type: 'issue', description: 'https://github.com/posit-dev/positron/issues/13332'
+		}
+	}, async function ({ app, r }) {
 		const { console, help } = app.workbench;
 
 		await console.pasteCodeToConsole('library(cli)', true);
