@@ -38,7 +38,7 @@ const parsedArgs = minimist(process.argv.slice(2), {
 	boolean: ['start-server', 'list-extensions', 'print-ip-address', 'help', 'version', 'accept-server-license-terms', 'update-extensions'],
 	// --- Start PWB ---
 	// PWB: adding cert and cert-key options to string arg list
-	string: ['install-extension', 'install-builtin-extension', 'uninstall-extension', 'locate-extension', 'socket-path', 'host', 'port', 'compatibility', 'cert-key', 'cert'],
+	string: ['install-extension', 'install-builtin-extension', 'uninstall-extension', 'locate-extension', 'socket-path', 'host', 'port', 'compatibility', 'agent-host-port', 'agent-host-path', 'cert-key', 'cert'],
 	// --- End PWB ---
 	alias: { help: 'h', version: 'v' }
 });

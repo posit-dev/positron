@@ -115,7 +115,8 @@ enum LayoutClasses {
 	STATUSBAR_HIDDEN = 'nostatusbar',
 	FULLSCREEN = 'fullscreen',
 	MAXIMIZED = 'maximized',
-	WINDOW_BORDER = 'border'
+	WINDOW_BORDER = 'border',
+	NO_SHADOWS = 'no-shadows'
 }
 
 interface IPathToOpen extends IPath {
@@ -501,6 +502,11 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 				this.doUpdateLayoutConfiguration();
 			}
 
+			// Shadows
+			if (e.affectsConfiguration(LayoutSettings.SHADOWS)) {
+				this.updateShadows();
+			}
+
 			// Auxiliary Sidebar
 			if (e.affectsConfiguration(WorkbenchLayoutSettings.AUXILIARYBAR_FORCE_MAXIMIZED)) {
 				const forceMaximized = this.configurationService.getValue(WorkbenchLayoutSettings.AUXILIARYBAR_FORCE_MAXIMIZED);
@@ -661,6 +667,18 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 
 		// Centered Layout
 		this.editorGroupService.whenRestored.then(() => this.centerMainEditorLayout(this.stateModel.getRuntimeValue(LayoutStateKeys.MAIN_EDITOR_CENTERED), skipLayout));
+	}
+
+	private isShadowsDisabled(): boolean {
+		return this.configurationService.getValue<boolean>(LayoutSettings.SHADOWS) === false;
+	}
+
+	private updateShadows(): void {
+		const noShadows = this.isShadowsDisabled();
+
+		for (const container of Array.from(this.containers)) {
+			container.classList.toggle(LayoutClasses.NO_SHADOWS, noShadows);
+		}
 	}
 
 	private setSideBarPosition(position: Position): void {
@@ -1965,7 +1983,8 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 			// --- Start Positron ---
 			!this.isVisible(Parts.POSITRON_TOP_ACTION_BAR_PART) ? LayoutClasses.POSITRON_TOP_ACTION_BAR_HIDDEN : undefined,
 			// --- End Positron ---
-			this.state.runtime.mainWindowFullscreen ? LayoutClasses.FULLSCREEN : undefined
+			this.state.runtime.mainWindowFullscreen ? LayoutClasses.FULLSCREEN : undefined,
+			this.isShadowsDisabled() ? LayoutClasses.NO_SHADOWS : undefined
 		]);
 	}
 
@@ -3192,6 +3211,7 @@ class LayoutStateModel extends Disposable {
 		[StorageScope.WORKSPACE]: boolean;
 		[StorageScope.PROFILE]: boolean;
 		[StorageScope.APPLICATION]: boolean;
+		[StorageScope.APPLICATION_SHARED]: boolean;
 	};
 
 	constructor(
@@ -3205,7 +3225,8 @@ class LayoutStateModel extends Disposable {
 		this.isNew = {
 			[StorageScope.WORKSPACE]: this.storageService.isNew(StorageScope.WORKSPACE),
 			[StorageScope.PROFILE]: this.storageService.isNew(StorageScope.PROFILE),
-			[StorageScope.APPLICATION]: this.storageService.isNew(StorageScope.APPLICATION)
+			[StorageScope.APPLICATION]: this.storageService.isNew(StorageScope.APPLICATION),
+			[StorageScope.APPLICATION_SHARED]: this.storageService.isNew(StorageScope.APPLICATION_SHARED)
 		};
 
 		this._register(this.configurationService.onDidChangeConfiguration(configurationChange => this.updateStateFromLegacySettings(configurationChange)));

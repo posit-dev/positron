@@ -10,7 +10,7 @@ import * as cookie from 'cookie';
 import * as crypto from 'crypto';
 import { isEqualOrParent } from '../../base/common/extpath.js';
 import { getMediaMime } from '../../base/common/mime.js';
-import { isLinux } from '../../base/common/platform.js';
+import { isLinux, isWorkbench } from '../../base/common/platform.js';
 import { ILogService, LogLevel } from '../../platform/log/common/log.js';
 import { IServerEnvironmentService } from './serverEnvironmentService.js';
 import { extname, dirname, join, normalize, posix, resolve } from '../../base/common/path.js';
@@ -32,7 +32,7 @@ import { ICSSDevelopmentService } from '../../platform/cssDev/node/cssDevService
 // --- Start PWB: Server proxy support ---
 // eslint-disable-next-line local/code-import-patterns
 import httpProxy from 'http-proxy';
-import { kProxyRegex } from './pwbConstants.js';
+import { kProxyRegex, VSCODE_STATIC_PREFIX } from './pwbConstants.js';
 // eslint-disable-next-line no-duplicate-imports
 import { existsSync } from 'fs';
 // --- End PWB ---
@@ -108,10 +108,29 @@ export async function serveFile(filePath: string, cacheControl: CacheControl, lo
 		}
 		// --- End PWB ---
 
-		res.writeHead(200, responseHeaders);
-
-		// Data
-		createReadStream(filePath).pipe(res);
+		// Create the stream first and wait for it to open before sending
+		// headers so that errors (e.g. ENOENT race) can still produce a
+		// proper 404 response instead of aborting a half-sent 200.
+		const fileStream = createReadStream(filePath);
+		await new Promise<void>((resolve, reject) => {
+			fileStream.on('error', reject);
+			fileStream.on('open', () => {
+				// File opened successfully - send headers and pipe
+				res.writeHead(200, responseHeaders);
+				fileStream.pipe(res);
+				// Destroy the read stream if the response is closed prematurely
+				// (e.g. client disconnect) to avoid leaking the file descriptor.
+				res.once('close', () => fileStream.destroy());
+				fileStream.on('end', resolve);
+				// Replace the initial error handler now that headers are sent
+				fileStream.removeAllListeners('error');
+				fileStream.on('error', error => {
+					logService.error(error);
+					console.error(error.toString());
+					res.destroy();
+				});
+			});
+		});
 	} catch (error) {
 		if (error.code !== 'ENOENT') {
 			logService.error(error);
@@ -185,6 +204,25 @@ export class WebClientServer {
 	 */
 	async handle(req: http.IncomingMessage, res: http.ServerResponse, parsedUrl: url.UrlWithParsedQuery, pathname: string): Promise<void> {
 		try {
+			// --- Start PWB: session-less static path (nginx serves these in prod; this is the dev fallback) ---
+			// URL shape: /<product-label>-static/<quality>-<commit>/static/<path>  →  serve APP_ROOT/<path>
+			// Only active when running under Workbench; standalone/dev code-server keeps the
+			// session-scoped /static/ route below.
+			if (isWorkbench && pathname.startsWith(VSCODE_STATIC_PREFIX) && pathname.charCodeAt(VSCODE_STATIC_PREFIX.length) === CharCode.Slash) {
+				const afterPrefix = pathname.substring(VSCODE_STATIC_PREFIX.length + 1); // strip "/<product-label>-static/"
+				const versionSlash = afterPrefix.indexOf('/');
+				if (versionSlash === -1) {
+					return serveError(req, res, 404, 'Not found.');
+				}
+				const afterVersion = afterPrefix.substring(versionSlash); // strip "<quality>-<commit>" → "/static/<path>"
+				// Mirror the validation the `/static/` route below uses: the remainder must start
+				// with `/static/` before we hand off to _handleStatic, which resolves relative to APP_ROOT.
+				if (afterVersion.startsWith(STATIC_PATH) && afterVersion.charCodeAt(STATIC_PATH.length) === CharCode.Slash) {
+					return this._handleStatic(req, res, afterVersion.substring(STATIC_PATH.length));
+				}
+				return serveError(req, res, 404, 'Not found.');
+			}
+			// --- End PWB ---
 			if (pathname.startsWith(STATIC_PATH) && pathname.charCodeAt(STATIC_PATH.length) === CharCode.Slash) {
 				return this._handleStatic(req, res, pathname.substring(STATIC_PATH.length));
 			}
@@ -298,7 +336,8 @@ export class WebClientServer {
 		const context = await this._requestService.request({
 			type: 'GET',
 			url: uri.toString(true),
-			headers
+			headers,
+			callSite: 'webClientServer.fetchAndWriteFile'
 		}, CancellationToken.None);
 
 		const status = context.res.statusCode || 500;
@@ -424,6 +463,11 @@ export class WebClientServer {
 
 		const staticRoute = posix.join(basePath, this._productPath, STATIC_PATH);
 		const callbackRoute = posix.join(basePath, this._productPath, CALLBACK_PATH);
+		// --- Start PWB: session-less static route for cacheable assets (workbench.js/.css, NLS, icons, rsLoginCheck) ---
+		// Absolute-from-root so it bypasses the /s/<sid>/ session prefix; `<quality>-<commit>` is the cache-version key.
+		// Only used when running under Workbench -- standalone/dev falls back to session-scoped relative URLs below.
+		const sessionlessStaticRoute = posix.join(VSCODE_STATIC_PREFIX, this._productPath, STATIC_PATH);
+		// --- End PWB ---
 		// --- Start PWB ---
 		// const webExtensionRoute = posix.join(basePath, this._productPath, WEB_EXTENSION_PATH);
 		// --- End PWB ---
@@ -441,6 +485,10 @@ export class WebClientServer {
 		// --- Start PWB: add base web prefix ---
 		const base = relativeRoot(req.url!);
 		const vscodeBase = relativePath(req.url!);
+		// When under Workbench, session-less URLs are absolute-from-root; otherwise keep the
+		// session-scoped relative form that works behind the default reverse proxy.
+		const effectiveVsBase = isWorkbench ? '' : vscodeBase;
+		const effectiveStaticRoute = isWorkbench ? sessionlessStaticRoute : staticRoute;
 		// --- End PWB ---
 
 		const productConfiguration: Partial<Mutable<IProductConfiguration>> = {
@@ -537,24 +585,33 @@ export class WebClientServer {
 		}
 
 		// --- Start PWB: Conditionally inject rsLoginCheck.js script if it exists in the build ---
-		// Uses cached value from constructor to avoid blocking I/O on every request
+		// Uses cached value from constructor to avoid blocking I/O on every request.
 		const rsLoginCheckScript = this._rsLoginCheckScriptTag
-			.replace('{{VS_BASE}}', vscodeBase)
-			.replace('{{STATIC_ROUTE}}', staticRoute);
+			.replace('{{VS_BASE}}', effectiveVsBase)
+			.replace('{{STATIC_ROUTE}}', effectiveStaticRoute);
+		// --- End PWB ---
+
+		// --- Start PWB: browser-side Workbench marker ---
+		// When running under Workbench, emit an inline script that sets a global before any module
+		// loads. `platform.isWorkbench` reads this global in the browser; code that needs to branch on
+		// Workbench context (e.g. omitting the tkn query param from resource URLs) reads that flag.
+		// The script gets picked up by _getScriptCspHashes below so the CSP hash list covers it.
+		const pwbWorkbenchMarker = isWorkbench ? '<script>globalThis._PWB_IS_WORKBENCH = true;</script>' : '';
 		// --- End PWB ---
 
 		const values: { [key: string]: string } = {
 			WORKBENCH_WEB_CONFIGURATION: asJSON(workbenchWebConfiguration),
 			WORKBENCH_AUTH_SESSION: authSessionInfo ? asJSON(authSessionInfo) : '',
-			// --- Start PWB ---
+			// --- Start PWB: session-less static paths when under Workbench, session-scoped otherwise ---
 			// WORKBENCH_WEB_BASE_URL: this._staticRoute,
-			WORKBENCH_WEB_BASE_URL: vscodeBase + staticRoute,
+			WORKBENCH_WEB_BASE_URL: effectiveVsBase + effectiveStaticRoute,
 			WORKBENCH_NLS_BASE_URL: WORKBENCH_NLS_BASE_URL ?? '',
 			WORKBENCH_NLS_URL,
-			WORKBENCH_NLS_FALLBACK_URL: `${vscodeBase}${staticRoute}/out/nls.messages.js`,
+			WORKBENCH_NLS_FALLBACK_URL: `${effectiveVsBase}${effectiveStaticRoute}/out/nls.messages.js`,
 			BASE: base,
 			VS_BASE: vscodeBase,
 			RS_LOGIN_CHECK_SCRIPT: rsLoginCheckScript,
+			PWB_WORKBENCH_MARKER: pwbWorkbenchMarker,
 			// --- End PWB ---
 		};
 

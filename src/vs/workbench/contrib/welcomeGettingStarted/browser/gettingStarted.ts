@@ -69,6 +69,7 @@ import { IExtensionService } from '../../../services/extensions/common/extension
 import { IHostService } from '../../../services/host/browser/host.js';
 import { IWorkbenchThemeService } from '../../../services/themes/common/workbenchThemeService.js';
 import { GettingStartedIndexList } from './gettingStartedList.js';
+import { canShowAgentsBanner, createAgentsBanner } from '../../chat/browser/agentSessions/agentSessionsBanner.js';
 import { AccessibilityVerbositySettingId } from '../../accessibility/browser/accessibilityConfiguration.js';
 import { AccessibleViewAction } from '../../accessibility/browser/accessibleViewActions.js';
 import { KeybindingLabel } from '../../../../base/browser/ui/keybindingLabel/keybindingLabel.js';
@@ -992,6 +993,7 @@ export class GettingStartedPage extends EditorPane {
 		const recentList = this.buildRecentlyOpenedList();
 		const gettingStartedList = this.buildGettingStartedWalkthroughsList();
 
+		// --- Start Positron ---
 		// The "Connect to..." button is normally a part of the start list
 		// which is not used in Positron. We show the action underneath the
 		// recent list instead.
@@ -1007,12 +1009,27 @@ export class GettingStartedPage extends EditorPane {
 				localize('gettingStarted.topLevelRemoteOpen.title', "Connect to...")
 			)
 		);
+		// --- End Positron ---
 
-		const footer = $('.footer', {},
-			$('p.showOnStartup', {},
-				showOnStartupCheckbox.domNode,
-				showOnStartupLabel,
-			));
+		const footerChildren: HTMLElement[] = [];
+		if (canShowAgentsBanner(this.productService)) {
+			const agentsBanner = createAgentsBanner(
+				{
+					cssClass: 'getting-started-category.agents-banner',
+					source: 'welcomePage',
+				},
+				this.commandService,
+				this.telemetryService,
+			);
+			this.categoriesSlideDisposables.add(agentsBanner.disposables);
+			footerChildren.push(agentsBanner.element);
+		}
+		footerChildren.push($('p.showOnStartup', {},
+			showOnStartupCheckbox.domNode,
+			showOnStartupLabel,
+		));
+
+		const footer = $('.footer', {}, ...footerChildren);
 
 		const layoutRecentList = () => {
 			const leftContent = $('div.positron-welcome-left-column');
@@ -1061,12 +1078,9 @@ export class GettingStartedPage extends EditorPane {
 			this.buildTelemetryFooter(telemetryNotice);
 			footer.appendChild(telemetryNotice);
 			// --- Start Positron ---
-			// Always show index page instead of automatically opening the first walkthrough category
-			//
-			// This if statement has been amended to included !logoElement to
-			// ensure that we don't run this code in Positron (the logoElement
-			// is always present at this point).
-		} else if (!this.productService.openToWelcomeMainPage && this.showFeaturedWalkthrough && this.storageService.isNew(StorageScope.APPLICATION) && !logoElement) {
+			// Always show index page instead of automatically opening the first walkthrough category.
+			// Adds `!logoElement` to skip this branch in Positron (logoElement is always present here).
+		} else if (!this.productService.openToWelcomeMainPage && this.showFeaturedWalkthrough && this.storageService.isNew(StorageScope.APPLICATION) && !logoElement && !this.configurationService.getValue<boolean>('workbench.welcomePage.experimentalOnboarding')) {
 			// --- End Positron ---
 			const firstSessionDateString = this.storageService.get(firstSessionDateStorageKey, StorageScope.APPLICATION) || new Date().toUTCString();
 			const daysSinceFirstSession = ((+new Date()) - (+new Date(firstSessionDateString))) / 1000 / 60 / 60 / 24;

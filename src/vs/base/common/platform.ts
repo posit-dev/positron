@@ -156,6 +156,19 @@ export const isMobile = _isMobile;
  * GH actions or Azure Pipelines.
  */
 export const isCI = _isCI;
+// --- Start PWB: Posit Workbench context detection ---
+// True when the current code-server was launched by rserver/Workbench.
+//   Server (Node):  rserver sets RS_SERVER_URL in the child env on spawn, so its presence is the signal.
+//   Browser (web):  webClientServer.ts injects an inline `<script>globalThis._PWB_IS_WORKBENCH = true;</script>`
+//                   into workbench.html only when the server-side isWorkbench is true, and the script
+//                   runs before any module loader. We read that global here.
+// Non-Workbench deployments (other Positron web hosts, standalone code-server, desktop remote) see
+// `false` on both sides, so Workbench-specific behavior (e.g. omitting the `tkn` query param from
+// resource URLs in favor of cookie-only auth) stays off by default.
+export const isWorkbench = _isWeb
+	? !!$globalThis._PWB_IS_WORKBENCH
+	: !!nodeProcess?.env['RS_SERVER_URL'];
+// --- End PWB ---
 export const platform = _platform;
 export const userAgent = _userAgent;
 

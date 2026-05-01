@@ -57,6 +57,7 @@ export const enum LayoutSettings {
 	EDITOR_ACTIONS_LOCATION = 'workbench.editor.editorActionsLocation',
 	COMMAND_CENTER = 'window.commandCenter',
 	LAYOUT_ACTIONS = 'workbench.layoutControl.enabled',
+	SHADOWS = 'workbench.shadows',
 	// --- Start Positron ---
 	TOP_ACTION_BAR_VISIBLE = 'workbench.topActionBar.visible'
 	// --- End Positron ---

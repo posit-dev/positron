@@ -15,6 +15,7 @@ export let dirs = [
 	// --- End Positron ---
 	'',
 	'build',
+	'build/rspack',
 	'build/vite',
 	'extensions',
 	// --- Start Positron ---
@@ -44,6 +45,7 @@ export let dirs = [
 	'extensions/positron-zed',
 	// --- End Positron ---
 	'extensions/configuration-editing',
+	'extensions/copilot',
 	'extensions/css-language-features',
 	'extensions/css-language-features/server',
 	'extensions/debug-auto-launch',

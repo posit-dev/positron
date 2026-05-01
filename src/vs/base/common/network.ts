@@ -75,6 +75,9 @@ export namespace Schemas {
 
 	export const vscodeTerminal = 'vscode-terminal';
 
+	/** Scheme used for the image carousel editor. */
+	export const vscodeImageCarousel = 'vscode-image-carousel';
+
 	/** Scheme used for code blocks in chat. */
 	export const vscodeChatCodeBlock = 'vscode-chat-code-block';
 
@@ -249,9 +252,13 @@ class RemoteAuthoritiesImpl {
 		const port = this._ports[authority];
 		const connectionToken = this._connectionTokens[authority];
 		let query = `path=${encodeURIComponent(uri.path)}`;
-		if (typeof connectionToken === 'string') {
+		// --- Start PWB: omit connection token query param under Workbench so resource URLs are stable
+		// across sessions (Workbench uses cookie-based auth). Other web deployments (non-Workbench
+		// Positron web hosts, standalone code-server) keep the upstream behavior of including tkn. ---
+		if (typeof connectionToken === 'string' && !platform.isWorkbench) {
 			query += `&${connectionTokenQueryName}=${encodeURIComponent(connectionToken)}`;
 		}
+		// --- End PWB ---
 		return URI.from({
 			scheme: platform.isWeb ? this._preferredWebSchema : Schemas.vscodeRemoteResource,
 			authority: `${host}:${port}`,
