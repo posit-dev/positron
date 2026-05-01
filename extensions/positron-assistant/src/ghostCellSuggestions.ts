@@ -10,6 +10,7 @@ import * as path from 'path';
 
 import { ParticipantService } from './participants.js';
 import { isFileExcludedFromAI } from './fileExclusion.js';
+import { raceTimeout } from './asyncUtils.js';
 import { MARKDOWN_DIR } from './constants';
 import { StreamingTagLexer } from './streamingTagLexer.js';
 import { resolveGhostCellSuggestions } from './notebookAssistantMetadata.js';
@@ -523,32 +524,6 @@ async function fetchVariablesFromSession(
  */
 function escapeRegExp(s: string): string {
 	return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-/**
- * Race a promise against a timeout. Returns the promise result, or
- * `undefined` if the timeout fires first. The timer is cleaned up
- * internally. An optional `onTimeout` callback runs when the timeout fires.
- */
-async function raceTimeout<T>(
-	promise: Promise<T>,
-	timeoutMs: number,
-	onTimeout?: () => void
-): Promise<T | undefined> {
-	let timer: ReturnType<typeof setTimeout> | undefined;
-	try {
-		return await Promise.race([
-			promise,
-			new Promise<undefined>(resolve => {
-				timer = setTimeout(() => {
-					onTimeout?.();
-					resolve(undefined);
-				}, timeoutMs);
-			})
-		]);
-	} finally {
-		clearTimeout(timer);
-	}
 }
 
 /**

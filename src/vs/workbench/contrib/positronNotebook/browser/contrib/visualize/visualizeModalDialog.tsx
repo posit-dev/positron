@@ -47,11 +47,6 @@ export interface DataFrameColumn {
  * sides. `validateVisualizationSuggestion` below guards the IPC
  * boundary as defence in depth. When adding a field or changing a
  * literal, update BOTH.
- *
- * The producer that fills this in (the `suggestVisualization` command
- * in `positron-assistant`) lands in a follow-up; this type, the
- * validator, and `SuggestionBanner` are the dormant landing pad so the
- * dialog can accept a `suggestionPromise` without retrofitting later.
  */
 export interface VisualizationSuggestion {
 	library: VizLibrary;
@@ -503,12 +498,7 @@ function ChoiceGrid<T extends string>({ choices, selectedId, suggestedId, onSele
 	);
 }
 
-/**
- * Status banner for the LLM suggestion path: idle/loading/done/failed.
- * Mounted in this change but only ever sees `idle` because no
- * `suggestionPromise` is supplied yet -- the producer lands in a
- * follow-up.
- */
+/** Status banner for the LLM suggestion path: idle/loading/done/failed. */
 function SuggestionBanner({ state, reasoning, suggestedLabel }: {
 	state: 'idle' | 'loading' | 'done' | 'failed';
 	reasoning?: string;
