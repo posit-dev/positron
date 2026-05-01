@@ -226,8 +226,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 					return;
 				}
 
-				// Defer to the instance's Enter handler. Subclasses (e.g. TableSummary,
-				// ListInstance) override this to implement their activation behavior.
+				// Defer to the instance's Enter handler.
 				await context.instance.onEnterKey();
 				break;
 			}

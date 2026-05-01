@@ -3,6 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
+import './positronListInstance.css';
+
 // React.
 import { JSX, ReactNode } from 'react';
 
@@ -12,51 +15,53 @@ import { positronClassNames } from '../../../../base/common/positronUtilities.js
 import { DataGridInstance, RowSelectionState } from '../../positronDataGrid/classes/dataGridInstance.js';
 
 /**
- * ListItemContext interface. Passed to the caller's renderItem callback so the rendered
- * item can react to selection and focus state.
+ * PositronListItemContext interface. Passed to the caller's itemRenderer so the rendered item
+ * can display whatever it needs to for the index, selected state, and focused state.
  */
-export interface ListItemContext {
+export interface PositronListItemContext {
 	// The index of the item in the items array.
 	readonly index: number;
 
+	// Whether the item is currently focused (i.e. the cursor is on its row).
+	readonly focused: boolean;
+
 	// Whether the item is currently selected.
 	readonly selected: boolean;
-
-	// Whether the item currently holds the keyboard focus (cursor row).
-	readonly focused: boolean;
 }
 
 /**
- * ListItemRenderer type. The caller-provided function that renders a single list item.
+ * PositronListItemRenderer type. The caller-provided function that renders a single list item.
  */
-export type ListItemRenderer<T> = (item: T, context: ListItemContext) => ReactNode;
+export type PositronListItemRenderer<T> = (item: T, context: PositronListItemContext) => ReactNode;
 
 /**
- * ListInstanceOptions interface.
+ * PositronListInstanceOptions interface.
  */
-export interface ListInstanceOptions<T> {
+export interface PositronListInstanceOptions<T> {
+	// The initial item renderer. Can be replaced later via setItemRenderer.
+	readonly itemRenderer: PositronListItemRenderer<T>;
+
 	// The default row height. Per-row overrides can be applied via setRowHeightOverride.
 	readonly defaultRowHeight: number;
 
-	// The initial item renderer. Can be replaced later via setRenderItem.
-	readonly renderItem: ListItemRenderer<T>;
+	// A value which indicates whether to use the default styling.
+	readonly useDefaultStyling?: boolean;
 }
 
 /**
- * ListInstance class.
- *
- * A DataGridInstance specialized as a single-column list. Backs PositronList; not intended
- * to be subclassed by feature code. Keyboard navigation, focus, virtualization, and
- * multi-select all come from DataGridInstance.
+ * PositronListInstance class.
  */
-export class ListInstance<T> extends DataGridInstance {
+export class PositronListInstance<T> extends DataGridInstance {
 	//#region Private Properties
+
+	// Whether to apply the built-in focused/selected classes to the row wrapper.
+	private readonly _useDefaultStyling: boolean;
 
 	// The items being rendered.
 	private _items: readonly T[] = [];
 
 	// The current item renderer.
-	private _renderItem: ListItemRenderer<T>;
+	private _itemRenderer: PositronListItemRenderer<T>;
 
 	// Fires when the user activates an item (Enter key on a focused row).
 	private readonly _onDidActivateEmitter = this._register(new Emitter<T>());
@@ -74,9 +79,9 @@ export class ListInstance<T> extends DataGridInstance {
 
 	/**
 	 * Constructor.
-	 * @param options The list instance options.
+	 * @param options The positron list instance options.
 	 */
-	constructor(options: ListInstanceOptions<T>) {
+	constructor(options: PositronListInstanceOptions<T>) {
 		// Call the base class's constructor with options shaped for a single-column list.
 		super({
 			columnHeaders: false,
@@ -99,8 +104,11 @@ export class ListInstance<T> extends DataGridInstance {
 			selection: true,
 		});
 
-		// Stash the initial renderer.
-		this._renderItem = options.renderItem;
+		// Default to applying the built-in focused/selected classes.
+		this._useDefaultStyling = options.useDefaultStyling ?? true;
+
+		// Set the initial item renderer.
+		this._itemRenderer = options.itemRenderer;
 
 		// Lock the column count to one.
 		this._columnLayoutManager.setEntries(1);
@@ -111,17 +119,16 @@ export class ListInstance<T> extends DataGridInstance {
 	//#region Public Methods
 
 	/**
-	 * Replaces the items rendered by the list and resets the row layout entries.
-	 * Existing per-row height overrides are cleared because they reference the prior items
-	 * by index and would otherwise stick to the wrong items after the replacement.
+	 * Replaces the items rendered by the list and resets the row layout entries. Existing per-row
+	 * height overrides are cleared because they reference the prior items by index and mnight
+	 * otherwise stick to the wrong items after the replacement.
 	 * @param items The new items.
 	 */
 	setItems(items: readonly T[]): void {
 		// Replace the items.
 		this._items = items;
 
-		// Reset the row layout entries to match. setEntries clears any prior size overrides
-		// because they were keyed by index against the old items.
+		// Reset the row layout entries to match. This clears any prior size overrides.
 		this._rowLayoutManager.setEntries(items.length);
 
 		// Notify subscribers (the host PositronDataGrid) that they need to redraw.
@@ -129,25 +136,28 @@ export class ListInstance<T> extends DataGridInstance {
 	}
 
 	/**
-	 * Replaces the item renderer. Called when PositronList's renderItem prop changes so
-	 * the caller's latest closure (and the state it captured) is used.
-	 * @param renderItem The new item renderer.
+	 * Replaces the item renderer. Called when PositronList's itemRenderer prop changes so the
+	 * caller's latest closure (and the state it captured) is used.
+	 * @param itemRenderer The new item renderer.
 	 */
-	setRenderItem(renderItem: ListItemRenderer<T>): void {
-		// Swap the renderer and trigger a redraw so cells re-render with the new closure.
-		this._renderItem = renderItem;
+	setItemRenderer(itemRenderer: PositronListItemRenderer<T>): void {
+		// Set the new item renderer.
+		this._itemRenderer = itemRenderer;
+
+		// Notify subscribers (the host PositronDataGrid) that they need to redraw.
 		this.fireOnDidUpdateEvent();
 	}
 
 	/**
-	 * Sets a per-row height override. Bypasses the public setRowHeight (which is gated on
-	 * rowResize: true) by talking to the layout manager directly, the same trick
-	 * TableSummaryDataGridInstance uses for expand/collapse.
+	 * Sets a per-row height override.
 	 * @param rowIndex The row index to override.
 	 * @param rowHeight The override height in pixels.
 	 */
 	setRowHeightOverride(rowIndex: number, rowHeight: number): void {
+		// Set the override in the row layout manager.
 		this._rowLayoutManager.setSizeOverride(rowIndex, rowHeight);
+
+		// Notify subscribers (the host PositronDataGrid) that they need to redraw.
 		this.fireOnDidUpdateEvent();
 	}
 
@@ -156,7 +166,10 @@ export class ListInstance<T> extends DataGridInstance {
 	 * @param rowIndex The row index to clear.
 	 */
 	clearRowHeightOverride(rowIndex: number): void {
+		// Clear the override in the row layout manager.
 		this._rowLayoutManager.clearSizeOverride(rowIndex);
+
+		// Notify subscribers (the host PositronDataGrid) that they need to redraw.
 		this.fireOnDidUpdateEvent();
 	}
 
@@ -182,18 +195,30 @@ export class ListInstance<T> extends DataGridInstance {
 
 	//#region DataGridInstance Implementation
 
+	/**
+	 * Gets the number of columns.
+	 */
 	get columns(): number {
 		return 1;
 	}
 
+	/**
+	 * Gets the number of rows.
+	 */
 	get rows(): number {
 		return this._items.length;
 	}
 
+	/**
+	 * Gets the scroll width.
+	 */
 	override get scrollWidth(): number {
 		return 0;
 	}
 
+	/**
+	 * Gets the first column.
+	 */
 	override get firstColumn() {
 		return {
 			columnIndex: 0,
@@ -202,15 +227,29 @@ export class ListInstance<T> extends DataGridInstance {
 		};
 	}
 
+	/**
+	 * Fetches data.
+	 */
 	override async fetchData(): Promise<void> {
 		// PositronList holds its items in memory; nothing to fetch.
 	}
 
+	/**
+	 * Gets the custom width of a column.
+	 * @param columnIndex The column index.
+	 * @returns The custom width of the column; otherwise, undefined.
+	 */
 	override getCustomColumnWidth(columnIndex: number): number | undefined {
 		// The single column always fills the available layout width.
 		return columnIndex === 0 ? this.layoutWidth : undefined;
 	}
 
+	/**
+	 * Gets a data cell.
+	 * @param columnIndex The column index.
+	 * @param rowIndex The row index.
+	 * @returns The data cell, or, undefined.
+	 */
 	cell(columnIndex: number, rowIndex: number): JSX.Element | undefined {
 		// Single-column list; reject any other column.
 		if (columnIndex !== 0) {
@@ -223,21 +262,23 @@ export class ListInstance<T> extends DataGridInstance {
 			return undefined;
 		}
 
-		// Compute the per-cell context the caller's renderItem expects.
+		// Compute the per-cell context the caller's itemRenderer expects.
 		const selected = this.rowSelectionState(rowIndex) !== RowSelectionState.None;
 		const focused = this.cursorRowIndex === rowIndex;
 
-		// Wrap the caller's renderItem output in a positron-list-row so default focus and
-		// selection styling applies without every consumer needing their own CSS.
+		// Wrap the caller's itemRenderer output in a positron-list-row. When useDefaultStyling is
+		// on, the focused/selected classes are emitted so the built-in CSS applies; otherwise
+		// the caller is responsible for rendering its own focus/selection visuals from the
+		// state passed via PositronListItemContext.
 		return (
 			<div
 				className={positronClassNames(
 					'positron-list-row',
-					{ 'focused': focused },
-					{ 'selected': selected }
+					{ 'focused': this._useDefaultStyling && focused },
+					{ 'selected': this._useDefaultStyling && selected }
 				)}
 			>
-				{this._renderItem(item, { index: rowIndex, selected, focused })}
+				{this._itemRenderer(item, { index: rowIndex, selected, focused })}
 			</div>
 		);
 	}

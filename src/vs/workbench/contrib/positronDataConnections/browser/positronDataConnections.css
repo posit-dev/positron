@@ -5,6 +5,7 @@
 
 .positron-data-connections {
 	flex: 1;
+	min-height: 0;
 	display: flex;
 	flex-direction: column;
 }
@@ -16,6 +17,7 @@
 
 .positron-data-connections .panels {
 	flex: 1;
+	min-height: 0;
 	display: flex;
 	flex-direction: column;
 }

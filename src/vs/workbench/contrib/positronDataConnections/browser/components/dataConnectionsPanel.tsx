@@ -12,9 +12,10 @@ import { useEffect, useState } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
-import { PositronList } from '../../../../browser/positronList/positronList.js';
 import { NewDataConnectionFlow } from '../dialogs/newDataConnectionFlow.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { PositronDataGrid } from '../../../../browser/positronDataGrid/positronDataGrid.js';
+import { PositronListInstance } from '../../../../browser/positronList/classes/positronListInstance.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
@@ -59,6 +60,25 @@ export const DataConnectionsPanel = ({ active }: DataConnectionsPanelProps) => {
 		});
 		return () => disposable.dispose();
 	}, [positronDataConnectionsService]);
+
+	// Single-column list instance for the data connection profiles. Created once and disposed
+	// on unmount; props (items, etc.) are pushed in via setters below.
+	const [listInstance] = useState(() => new PositronListInstance<IDataConnectionProfile>({
+		defaultRowHeight: 32,
+		itemRenderer: profile => (
+			<div className='data-connection-profile'>
+				{profile.connectionName}
+			</div>
+		),
+	}));
+
+	// Push the latest profiles into the list instance.
+	useEffect(() => {
+		listInstance.setItems(profiles);
+	}, [listInstance, profiles]);
+
+	// Dispose the list instance on unmount.
+	useEffect(() => () => listInstance.dispose(), [listInstance]);
 
 	// Left action bar actions.
 	const leftActions: DynamicActionBarAction[] = [];
@@ -109,23 +129,13 @@ export const DataConnectionsPanel = ({ active }: DataConnectionsPanelProps) => {
 					rightActions={rightActions}
 				/>
 			</PositronActionBarContextProvider>
-
-			{/* Render the data connection profiles in a virtualized, keyboard-navigable list. */}
 			<div className='data-connection-profiles-list'>
-				<PositronList<IDataConnectionProfile>
-					ariaLabel={localize('positronDataConnections.profilesList', "Data Connections")}
-					defaultRowHeight={24}
-					emptyState={localize(
-						'positronDataConnections.noConnections',
-						"No data connections."
-					)}
-					items={profiles}
-					renderItem={profile => (
-						<div className='data-connection-profile'>
-							{profile.connectionName}
-						</div>
-					)}
-				/>
+				{profiles.length === 0
+					? <div className='data-connection-profiles-list-empty'>
+						{localize('positronDataConnections.noConnections', "No data connections.")}
+					</div>
+					: <PositronDataGrid id='data-connection-profiles-list' instance={listInstance} />
+				}
 			</div>
 		</div>
 	);
