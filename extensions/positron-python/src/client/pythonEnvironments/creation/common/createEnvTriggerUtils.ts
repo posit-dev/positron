@@ -4,13 +4,17 @@
 import * as path from 'path';
 import { ConfigurationTarget, Uri, WorkspaceFolder } from 'vscode';
 import * as fsapi from '../../../common/platform/fs-paths';
-import { getPipRequirementsFiles, isPipInstallableToml } from '../provider/venvUtils';
+import { getPipRequirementsFiles } from '../provider/venvUtils';
 import { getExtension } from '../../../common/vscodeApis/extensionsApi';
 import { PVSC_EXTENSION_ID } from '../../../common/constants';
 import { PythonExtension } from '../../../api/types';
 import { traceVerbose } from '../../../logging';
 import { getConfiguration } from '../../../common/vscodeApis/workspaceApis';
 import { getWorkspaceStateValue } from '../../../common/persistentState';
+
+// --- Start Positron ---
+import { isPipInstallableToml } from '../provider/venvUtils'
+// --- End Positron ---
 
 export const CREATE_ENV_TRIGGER_SETTING_PART = 'createEnvironment.trigger';
 export const CREATE_ENV_TRIGGER_SETTING = `python.${CREATE_ENV_TRIGGER_SETTING_PART}`;

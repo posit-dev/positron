@@ -41,10 +41,6 @@ import { IInterpreterQuickPick, IPythonPathUpdaterServiceManager } from './inter
 import { registerAllCreateEnvironmentFeatures } from './pythonEnvironments/creation/registrations';
 import {
     registerCreateEnvironmentTriggers,
-    // --- Start Positron ---
-    CreateEnvironmentCheckKind,
-    triggerCreateEnvironmentCheckNonBlocking,
-    // --- End Positron ---
 } from './pythonEnvironments/creation/createEnvironmentTrigger';
 import { initializePersistentStateForTriggers } from './common/persistentState';
 import { DebuggerTypeName } from './debugger/constants';
@@ -57,6 +53,10 @@ import { registerPixiFeatures } from './pythonEnvironments/common/environmentMan
 // This hyperlinks the terminal to the native REPL, which we don't use.
 // import { registerCustomTerminalLinkProvider } from './terminals/pythonStartupLinkProvider';
 import { IPythonRuntimeManager } from './positron/manager';
+import {
+    CreateEnvironmentCheckKind,
+    triggerCreateEnvironmentCheckNonBlocking,
+} from './pythonEnvironments/creation/createEnvironmentTrigger';
 // --- End Positron ---
 
 export async function activateComponents(
@@ -130,7 +130,7 @@ export async function activateFeatures(ext: ExtensionState, _components: Compone
     // --- Start Positron ---
     // Trigger the create-environment check on workspace open, after providers
     // are registered so the fallback Create_Environment command can find them.
-    const workspaceService = new WorkspaceService();
+    const workspaceService = ext.legacyIOC.serviceContainer.get<IWorkspaceService>(IWorkspaceService);
     const firstFolder = workspaceService.workspaceFolders?.[0];
     if (firstFolder) {
         triggerCreateEnvironmentCheckNonBlocking(CreateEnvironmentCheckKind.Workspace, firstFolder.uri);

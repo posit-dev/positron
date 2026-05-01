@@ -1,7 +1,10 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+// --- Start Positron ---
+// removed WorkspaceFolder import
 import { Disposable, Uri } from 'vscode';
+// --- End Positron ---
 import {
     fileContainsInlineDependencies,
     hasKnownFiles,
@@ -18,10 +21,11 @@ import { getWorkspaceFolder } from '../../common/vscodeApis/workspaceApis';
 import { traceError, traceInfo, traceVerbose } from '../../logging';
 import { hasPrefixCondaEnv, hasVenv } from './common/commonUtils';
 import { showInformationMessage } from '../../common/vscodeApis/windowApis';
-// --- Start Positron ---
 import { Common, CreateEnv } from '../../common/utils/localize';
-// --- End Positron ---
+// --- Start Positron ---
+// removed executeCommand import
 import { registerCommand } from '../../common/vscodeApis/commandApis';
+// --- End Positron ---
 import { Commands } from '../../common/constants';
 import { Resource } from '../../common/types';
 import { sendTelemetryEvent } from '../../telemetry';

@@ -18,6 +18,7 @@ import { Commands } from '../../../common/constants';
 import { getPipRequirementsFiles, isPipInstallableToml } from './venvUtils';
 import { UV_PROVIDER_ID } from './uvCreationProvider';
 import * as fsapi from '../../../common/platform/fs-paths';
+import { hasPyprojectToml } from '../common/createEnvTriggerUtils.js';
 
 export interface AutoCreateVenvContext {
     hasRequirements: boolean;
@@ -26,27 +27,22 @@ export interface AutoCreateVenvContext {
 }
 
 export async function detectAutoCreateContext(workspace: WorkspaceFolder): Promise<AutoCreateVenvContext> {
-    const tomlPath = path.join(workspace.uri.fsPath, 'pyproject.toml');
     const [reqFiles, uvAvailable, tomlExists] = await Promise.all([
         getPipRequirementsFiles(workspace),
         isUvInstalled(),
-        fsapi.pathExists(tomlPath),
+        hasPyprojectToml(workspace)
     ]);
-    let pipInstallableToml = false;
-    if (tomlExists) {
-        const content = await fsapi.readFile(tomlPath, 'utf-8');
-        pipInstallableToml = isPipInstallableToml(content);
-    }
+
     return {
         hasRequirements: (reqFiles?.length ?? 0) > 0,
-        hasPyprojectToml: pipInstallableToml,
+        hasPyprojectToml: tomlExists,
         uvAvailable,
     };
 }
 
 export function describeDepFiles(ctx: AutoCreateVenvContext): string {
     if (ctx.hasRequirements && ctx.hasPyprojectToml) {
-        return 'requirements.txt and pyproject.toml';
+        return CreateEnv.Venv.requirementsAndPyprojectToml;
     }
     if (ctx.hasPyprojectToml) {
         return 'pyproject.toml';
@@ -85,15 +81,12 @@ async function collectDepSources(workspace: WorkspaceFolder): Promise<DepSource[
         }
     }
 
-    const tomlPath = path.join(workspace.uri.fsPath, 'pyproject.toml');
-    if (await fsapi.pathExists(tomlPath)) {
-        const content = await fsapi.readFile(tomlPath, 'utf-8');
-        if (isPipInstallableToml(content)) {
-            sources.push({
-                label: 'pyproject.toml',
-                args: ['pip', 'install', '-e', '.'],
-            });
-        }
+    if (await hasPyprojectToml(workspace)) {
+        sources.push({
+            label: 'pyproject.toml',
+            args: ['pip', 'install', '-e', '.'],
+        });
+
     }
 
     return sources;

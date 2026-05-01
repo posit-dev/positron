@@ -564,6 +564,9 @@ export namespace CreateEnv {
         export const deletingEnvironmentProgress = l10n.t('Deleting existing ".venv" environment...');
         export const errorDeletingEnvironment = l10n.t('Error while deleting existing ".venv" environment.');
         export const openRequirementsFile = l10n.t('Open requirements file');
+        // --- Start Positron ---
+        export const requirementsAndPyprojectToml = l10n.t('requirements.txt and pyproject.toml');
+        // --- End Positron ---
     }
 
     export namespace Conda {

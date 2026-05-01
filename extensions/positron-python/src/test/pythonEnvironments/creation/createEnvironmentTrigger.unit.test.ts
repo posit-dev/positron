@@ -29,6 +29,9 @@ suite('Create Environment Trigger', () => {
     let showInformationMessageStub: sinon.SinonStub;
     let isCreateEnvWorkspaceCheckNotRunStub: sinon.SinonStub;
     let getWorkspaceFolderStub: sinon.SinonStub;
+    // --- Start Positron ---
+    // let executeCommandStub: sinon.SinonStub;
+    // --- End Positron ---
     let disableCreateEnvironmentTriggerStub: sinon.SinonStub;
     // --- Start Positron ---
     let autoCreateVenvWithDepsStub: sinon.SinonStub;
@@ -58,9 +61,10 @@ suite('Create Environment Trigger', () => {
         getWorkspaceFolderStub = sinon.stub(workspaceApis, 'getWorkspaceFolder');
         getWorkspaceFolderStub.returns(workspace1);
 
+        // --- Start Positron ---
         sinon.stub(commandApis, 'executeCommand');
+        // --- End Positron ---
         disableCreateEnvironmentTriggerStub = sinon.stub(triggerUtils, 'disableCreateEnvironmentTrigger');
-
         // --- Start Positron ---
         sinon
             .stub(autoCreateVenv, 'detectAutoCreateContext')
