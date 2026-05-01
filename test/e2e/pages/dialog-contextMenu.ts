@@ -23,6 +23,7 @@ export class ContextMenu {
 	constructor(private code: Code) {
 		// Check if we're on macOS AND we have an Electron app instance
 		// Only macOS + Electron combination uses native context menus
+		// Note: This only applies to right-click context menus, not dropdown menus
 		this.isNativeMenu = process.platform === 'darwin' && !!this.code.electronApp;
 	}
 
@@ -32,7 +33,9 @@ export class ContextMenu {
 	 * - For web menus this clicks the trigger and waits for the in-page menu to appear.
 	 */
 	private async triggerMenu(menuTrigger: Locator, menuTriggerButton: ClickButton = 'left'): Promise<{ menuId: number; items: MenuItemState[] } | undefined> {
-		if (this.isNativeMenu && this.code.electronApp) {
+		// Native menus only work for right-click context menus on macOS Electron
+		// Left-click dropdowns always use web-based context views, even on macOS
+		if (this.isNativeMenu && this.code.electronApp && menuTriggerButton === 'right') {
 			this.code.logger?.log?.('[contextMenu] using native context');
 			let nativeResult: { menuId: number; items: MenuItemState[] } | undefined;
 			try {
@@ -72,7 +75,8 @@ export class ContextMenu {
 	 */
 	async triggerAndClick({ menuTrigger, menuItemLabel, menuItemType = 'menuitem', menuTriggerButton = 'left', exact = false }: ContextMenuClick): Promise<void> {
 		await test.step(`Trigger context menu and click '${menuItemLabel}'`, async () => {
-			if (this.isNativeMenu) {
+			// Native menus only work for right-click context menus on macOS Electron
+			if (this.isNativeMenu && menuTriggerButton === 'right') {
 				this.code.logger.log(`Using native menu to select: ${menuItemLabel}`);
 				await this.nativeMenuTriggerAndClick({ menuTrigger, menuItemLabel, menuTriggerButton, exact });
 			} else {
@@ -200,7 +204,7 @@ export class ContextMenu {
 	 *
 	 * @param menuTrigger The locator that will trigger the context menu when clicked
 	 * @param menuItemLabel The label of the menu item to click
-	 * @param exact Whether to use exact match (native menus always use exact match for strings)
+	 * @param exact Whether to use exact match for the menu item label (default: false uses substring matching)
 	 */
 	private async nativeMenuTriggerAndClick({ menuTrigger, menuItemLabel, menuTriggerButton = 'left', exact = false }: Omit<ContextMenuClick, 'menuItemType'> & { clickButton?: ClickButton }): Promise<void> {
 		const menuItems = await this.triggerMenu(menuTrigger, menuTriggerButton);
@@ -209,9 +213,11 @@ export class ContextMenu {
 			throw new Error('Native context menu did not appear or no menu items found.');
 		}
 
-		// Handle native menu items
+		// Handle native menu items - support both exact and substring matching
 		const menuItemExists = typeof menuItemLabel === 'string'
-			? menuItems.items.some(item => item.label === menuItemLabel)
+			? (exact
+				? menuItems.items.some(item => item.label === menuItemLabel)
+				: menuItems.items.some(item => item.label.includes(menuItemLabel)))
 			: menuItems.items.some(item => menuItemLabel.test(item.label));
 
 		if (!menuItemExists) {
@@ -222,7 +228,9 @@ export class ContextMenu {
 		}
 
 		const actualItemLabel = typeof menuItemLabel === 'string'
-			? menuItemLabel
+			? (exact
+				? menuItemLabel
+				: menuItems.items.find(item => item.label.includes(menuItemLabel))!.label)
 			: menuItems.items.find(item => menuItemLabel.test(item.label))!.label;
 
 		if (!actualItemLabel) {
@@ -241,7 +249,8 @@ export class ContextMenu {
 
 		const menuItems = await this.triggerMenu(menuTrigger, menuTriggerButton);
 
-		if (this.isNativeMenu) {
+		// Native menus only work for right-click context menus on macOS Electron
+		if (this.isNativeMenu && menuTriggerButton === 'right') {
 			if (!menuItems) {
 				throw new Error('Context menu did not appear or no menu items found.');
 			}
