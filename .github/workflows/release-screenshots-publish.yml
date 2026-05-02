@@ -1,0 +1,121 @@
+name: Release Screenshots — Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Positron release tag to test against (or 'latest-release')"
+        type: string
+        default: latest-release
+      dry_run:
+        description: 'Run everything but skip opening the PR'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-screenshots-publish
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    name: Release screenshots — publish
+    runs-on: macos-latest
+    steps:
+      - name: Checkout positron
+        uses: actions/checkout@v6
+
+      - name: Generate POSITRON_BOT token
+        id: bot-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Resolve version
+        id: version
+        run: |
+          INPUT="${{ inputs.version }}"
+          if [[ "$INPUT" == "latest-release" ]]; then
+            VERSION=$(gh api "repos/posit-dev/positron-builds/releases?per_page=100" \
+              --jq '[.[] | select(.prerelease == false)] | .[0].tag_name')
+          else
+            VERSION="$INPUT"
+          fi
+          if [[ -z "$VERSION" || "$VERSION" == "null" ]]; then
+            echo "::error::No release found for version input '$INPUT'"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: $VERSION"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download Positron build
+        run: |
+          OUTPUT=$(.github/scripts/release-screenshots/download-build.sh "${{ steps.version.outputs.version }}")
+          echo "$OUTPUT" >> "$GITHUB_ENV"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install npm dependencies
+        run: npm ci --ignore-scripts
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium
+
+      - name: Clone qa-example-content
+        run: |
+          git clone --depth 1 https://github.com/posit-dev/qa-example-content.git \
+            test/e2e/qa-example-content
+
+      - name: Clone positron-website
+        env:
+          BOT_TOKEN: ${{ steps.bot-token.outputs.token }}
+        run: |
+          git clone --depth 1 \
+            "https://x-access-token:${BOT_TOKEN}@github.com/posit-dev/positron-website.git" \
+            "$RUNNER_TEMP/positron-website"
+
+      - name: Run release-screenshots project
+        run: npx playwright test --project release-screenshots
+
+      - name: Compare and report
+        id: compare
+        run: |
+          node .github/scripts/release-screenshots/compare-and-report.mjs \
+            test/e2e/release-screenshots/output \
+            "$RUNNER_TEMP/positron-website/images" \
+            "$RUNNER_TEMP/classification.json"
+
+      - name: Decide publish action
+        id: gate
+        run: |
+          CHANGED="${{ steps.compare.outputs.changed_count }}"
+          NEW="${{ steps.compare.outputs.new_count }}"
+          TOTAL=$((CHANGED + NEW))
+          echo "changed=$CHANGED new=$NEW total=$TOTAL"
+          if [[ "$TOTAL" -eq 0 ]]; then
+            echo "decision=skip-no-changes" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ inputs.dry_run }}" == "true" ]]; then
+            echo "decision=skip-dry-run" >> "$GITHUB_OUTPUT"
+          else
+            echo "decision=publish" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Log no-op exit
+        if: steps.gate.outputs.decision != 'publish'
+        run: |
+          echo "Decision: ${{ steps.gate.outputs.decision }}"
+          echo "::notice::Exiting without opening a PR (${{ steps.gate.outputs.decision }})"
