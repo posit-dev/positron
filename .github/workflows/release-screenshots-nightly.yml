@@ -1,0 +1,96 @@
+name: Release Screenshots — Nightly
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 9 * * 1-5'  # 09:00 UTC, Mon-Fri
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-screenshots-nightly
+  cancel-in-progress: true
+
+jobs:
+  screenshots:
+    name: Release screenshots — nightly sanity check
+    runs-on: macos-latest
+    steps:
+      - name: Checkout positron
+        uses: actions/checkout@v6
+
+      - name: Resolve version
+        id: version
+        run: |
+          VERSION=$(gh api "repos/posit-dev/positron-builds/releases?per_page=100" \
+            --jq '[.[] | select(.prerelease == true)] | .[0].tag_name')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Resolved latest prerelease: $VERSION"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download Positron build
+        id: download
+        run: |
+          OUTPUT=$(.github/scripts/release-screenshots/download-build.sh "${{ steps.version.outputs.version }}")
+          echo "$OUTPUT" >> "$GITHUB_ENV"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install npm dependencies
+        run: npm ci --ignore-scripts
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium
+
+      - name: Clone qa-example-content
+        run: |
+          git clone --depth 1 https://github.com/posit-dev/qa-example-content.git \
+            test/e2e/qa-example-content
+
+      - name: Clone positron-website
+        run: |
+          git clone --depth 1 https://github.com/posit-dev/positron-website.git \
+            "$RUNNER_TEMP/positron-website"
+
+      - name: Run release-screenshots project
+        run: npx playwright test --project release-screenshots
+
+      - name: Compare and report
+        id: compare
+        run: |
+          node .github/scripts/release-screenshots/compare-and-report.mjs \
+            test/e2e/release-screenshots/output \
+            "$RUNNER_TEMP/positron-website/images" \
+            "$RUNNER_TEMP/classification.json"
+
+      - name: Upload generated screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: nightly-screenshots
+          path: test/e2e/release-screenshots/output/
+          if-no-files-found: warn
+
+      - name: Notify Slack on failure
+        if: failure()
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_QA_WEBHOOK_URL }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [[ -z "$SLACK_WEBHOOK" ]]; then
+            echo "::warning::SLACK_QA_WEBHOOK_URL not set; skipping Slack notification"
+            exit 0
+          fi
+          curl -sS -X POST -H 'Content-Type: application/json' \
+            --data "{\"text\":\":x: Nightly release-screenshots failed.\n${RUN_URL}\"}" \
+            "$SLACK_WEBHOOK"
