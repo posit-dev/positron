@@ -29,6 +29,7 @@ import { IContextMenuService } from '../../platform/contextview/browser/contextV
 import { IEditorService } from '../../workbench/services/editor/common/editorService.js';
 import { INotificationService } from '../../platform/notification/common/notification.js';
 import { IConfigurationService } from '../../platform/configuration/common/configuration.js';
+import { IStorageService } from '../../platform/storage/common/storage.js';
 import { IAccessibilityService } from '../../platform/accessibility/common/accessibility.js';
 import { IInstantiationService, ServiceIdentifier } from '../../platform/instantiation/common/instantiation.js';
 import { ILanguageModelsService } from '../../workbench/contrib/chat/common/languageModels.js';
@@ -134,6 +135,7 @@ export class PositronReactServices {
 		@IQuickInputService public readonly quickInputService: IQuickInputService,
 		@IRuntimeSessionService public readonly runtimeSessionService: IRuntimeSessionService,
 		@IRuntimeStartupService public readonly runtimeStartupService: IRuntimeStartupService,
+		@IStorageService public readonly storageService: IStorageService,
 		@ITerminalService public readonly terminalService: ITerminalService,
 		@ITextModelService public readonly textModelService: ITextModelService,
 		@IThemeService public readonly themeService: IThemeService,
