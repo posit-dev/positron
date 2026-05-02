@@ -25,6 +25,10 @@ jobs:
         run: |
           VERSION=$(gh api "repos/posit-dev/positron-builds/releases?per_page=100" \
             --jq '[.[] | select(.prerelease == true)] | .[0].tag_name')
+          if [[ -z "$VERSION" || "$VERSION" == "null" ]]; then
+            echo "::error::No prerelease found in posit-dev/positron-builds"
+            exit 1
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Resolved latest prerelease: $VERSION"
         env:
