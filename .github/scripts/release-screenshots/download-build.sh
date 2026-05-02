@@ -58,13 +58,14 @@ echo "Resolved version: $VERSION (arch=$ARCH)" >&2
 echo "Downloading asset: $ASSET" >&2
 
 attempt=1
-max_attempts=3
+max_attempts=4
 while (( attempt <= max_attempts )); do
 	if gh release download "$VERSION" \
 			--repo "$REPO" \
 			--pattern "$ASSET" \
 			--dir "$WORKDIR" \
-			--clobber; then
+			--clobber \
+			&& [[ -f "$WORKDIR/$ASSET" ]]; then
 		break
 	fi
 	if (( attempt == max_attempts )); then
@@ -77,8 +78,7 @@ while (( attempt <= max_attempts )); do
 	(( attempt++ ))
 done
 
-cd "$WORKDIR"
-unzip -q "$ASSET"
+unzip -q "$WORKDIR/$ASSET" -d "$WORKDIR"
 APP_PATH=$(find "$WORKDIR" -maxdepth 2 -name 'Positron.app' -type d | head -n1)
 if [[ -z "$APP_PATH" ]]; then
 	echo "Positron.app not found after extracting $ASSET" >&2
