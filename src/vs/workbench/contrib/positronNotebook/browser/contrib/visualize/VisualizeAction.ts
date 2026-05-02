@@ -123,6 +123,12 @@ export class VisualizeDataFrameAction extends Action2 {
 			// the inline data explorer only mounts inside a real notebook so this is safe.
 			try {
 				await applyVisualizeResult(ctx.notebookInstance, ctx.cell as PositronNotebookCodeCell, snippet, result.mode);
+				const cellToRun = result.mode === 'newCell'
+					? ctx.notebookInstance.cells.get()[ctx.cell.index + 1]
+					: ctx.cell;
+				if (cellToRun) {
+					await ctx.notebookInstance.runCells([cellToRun]);
+				}
 			} catch (err) {
 				// Surface insertion failures (e.g. the cell model couldn't be
 				// resolved) instead of swallowing them silently. The user has
