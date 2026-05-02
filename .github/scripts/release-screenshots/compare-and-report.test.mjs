@@ -97,9 +97,9 @@ test('classify: ignores non-png files', async () => {
 
 test('formatSummary: includes one row per file with emoji', () => {
 	const classification = {
-		'a.png': { status: 'unchanged', generatedHash: 'abc123', generatedSize: 100, docsHash: 'abc123' },
-		'b.png': { status: 'changed', generatedHash: 'def456', generatedSize: 200, docsHash: 'old789' },
-		'c.png': { status: 'new', generatedHash: 'ghi789', generatedSize: 300 },
+		'a.png': { status: 'unchanged', generatedHash: 'abc1234567890def', generatedSize: 100, docsHash: 'abc1234567890def' },
+		'b.png': { status: 'changed', generatedHash: 'def4567890abcdef', generatedSize: 200, docsHash: 'old7890123456789' },
+		'c.png': { status: 'new', generatedHash: 'ghi7890123456789', generatedSize: 300 },
 	};
 	const md = formatSummary(classification);
 	assert.match(md, /a\.png/);
@@ -108,6 +108,9 @@ test('formatSummary: includes one row per file with emoji', () => {
 	assert.match(md, /✅/);
 	assert.match(md, /🔄/);
 	assert.match(md, /🆕/);
+	// Hash is truncated to 8 chars; the 9th+ chars must not appear
+	assert.match(md, /abc12345/);
+	assert.ok(!md.includes('abc1234567890def'), 'full hash must not appear — truncation to 8 chars is broken');
 });
 
 test('formatSummary: shows totals row', () => {
@@ -125,4 +128,15 @@ test('formatSummary: shows totals row', () => {
 test('formatSummary: empty classification renders cleanly', () => {
 	const md = formatSummary({});
 	assert.match(md, /No images/i);
+});
+
+test('formatSummary: rows are sorted alphabetically by filename', () => {
+	const classification = {
+		'z.png': { status: 'new', generatedHash: 'zzzzzzzzzzzzzzzz', generatedSize: 100 },
+		'a.png': { status: 'unchanged', generatedHash: 'aaaaaaaaaaaaaaaa', generatedSize: 200, docsHash: 'aaaaaaaaaaaaaaaa' },
+		'm.png': { status: 'changed', generatedHash: 'mmmmmmmmmmmmmmmm', generatedSize: 300, docsHash: 'nnnnnnnnnnnnnnnn' },
+	};
+	const md = formatSummary(classification);
+	assert.ok(md.indexOf('a.png') < md.indexOf('m.png'), 'a.png must appear before m.png');
+	assert.ok(md.indexOf('m.png') < md.indexOf('z.png'), 'm.png must appear before z.png');
 });
