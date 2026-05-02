@@ -8,6 +8,7 @@ import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.j
 import { URI } from '../../../../base/common/uri.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { IEditorContribution } from '../../../../editor/common/editorCommon.js';
+import { EditorOption } from '../../../../editor/common/config/editorOptions.js';
 import { Range } from '../../../../editor/common/core/range.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -300,13 +301,16 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			this._cachedOutputsLoaded = false;
 
 			// Re-check if this is a Quarto document and initialize if so
-			if (this._featureEnabled && this._isQuartoDocument()) {
+			if (this._featureEnabled && this._isQuartoDocument() && !this._isInDiffEditor()) {
 				this._initializeOutputHandling();
 			}
 		}));
 
-		// Only initialize fully if feature is enabled and this is a Quarto document
-		if (!this._featureEnabled || !this._isQuartoDocument()) {
+		// Only initialize fully if feature is enabled, this is a Quarto
+		// document, and we're not inside a diff editor. Inline outputs in a
+		// diff view are misleading because they aren't part of the file's
+		// content and won't appear in any commit.
+		if (!this._featureEnabled || !this._isQuartoDocument() || this._isInDiffEditor()) {
 			return;
 		}
 
@@ -645,6 +649,10 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	private _isQuartoDocument(): boolean {
 		const model = this._editor.getModel();
 		return isQuartoDocument(this._documentUri?.path, model?.getLanguageId());
+	}
+
+	private _isInDiffEditor(): boolean {
+		return this._editor.getOption(EditorOption.inDiffEditor);
 	}
 
 	/**
