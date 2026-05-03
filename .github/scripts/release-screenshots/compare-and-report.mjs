@@ -1,4 +1,7 @@
-// Copyright (c) Posit Software, PBC.
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
 
 import { readdir, readFile, writeFile, appendFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';

@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# Copyright (c) Posit Software, PBC.
-#
 # Resolve a Positron version (alias or literal tag), download the matching macOS
 # zip from posit-dev/positron-builds, extract it, and print the resulting .app
 # path on stdout in the form CODE_PATH=/path/to/Positron.app.

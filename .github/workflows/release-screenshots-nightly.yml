@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   screenshots:
-    name: Release screenshots — nightly sanity check
+    name: screenshots-nightly
     runs-on: macos-latest
     steps:
       - name: Checkout positron

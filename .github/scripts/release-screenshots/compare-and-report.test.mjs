@@ -1,4 +1,7 @@
-// Copyright (c) Posit Software, PBC.
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -110,7 +113,7 @@ test('formatSummary: includes one row per file with emoji', () => {
 	assert.match(md, /🆕/);
 	// Hash is truncated to 8 chars; the 9th+ chars must not appear
 	assert.match(md, /abc12345/);
-	assert.ok(!md.includes('abc1234567890def'), 'full hash must not appear — truncation to 8 chars is broken');
+	assert.ok(!md.includes('abc1234567890def'), 'full hash must not appear: truncation to 8 chars is broken');
 });
 
 test('formatSummary: shows totals row', () => {

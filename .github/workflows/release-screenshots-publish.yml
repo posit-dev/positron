@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   publish:
-    name: Release screenshots — publish
+    name: screenshots-publish
     runs-on: macos-latest
     steps:
       - name: Checkout positron
@@ -195,7 +195,7 @@ jobs:
             --title "Update screenshots for Positron $VERSION" \
             --body "$BODY")
           echo "Opened PR: $PR_URL"
-          # Reviewer assignment is best-effort — if the user isn't a collaborator
+          # Reviewer assignment is best-effort - if the user isn't a collaborator
           # on the target repo (422), don't fail the workflow over it.
           gh pr edit "$PR_URL" --add-reviewer marieidleman \
             || echo "::warning::Could not assign reviewer marieidleman (not a collaborator?)"
