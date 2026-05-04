@@ -91,7 +91,53 @@ jobs:
             "https://x-access-token:${BOT_TOKEN}@github.com/posit-dev/positron-website.git" \
             "$RUNNER_TEMP/positron-website"
 
+      - name: Setup Python (primary)
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.10.12'
+          cache: 'pip'
+          cache-dependency-path: test/e2e/qa-example-content/requirements.txt
+
+      - name: Install Python dependencies (primary)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r test/e2e/qa-example-content/requirements.txt
+          pip install ipykernel
+
+      - name: Setup Python (alternate)
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13.0'
+
+      - name: Install ipykernel for alternate Python
+        run: |
+          python --version
+          pip install ipykernel
+
+      - name: Install rig
+        run: brew install --cask rig
+
+      - name: Install R (primary)
+        run: |
+          rig add 4.5.2
+          rig default 4.5.2
+          R --version
+
+      - name: Install R packages
+        working-directory: test/e2e/qa-example-content
+        run: |
+          Rscript -e "if (!requireNamespace('pak', quietly = TRUE)) install.packages('pak', repos = 'https://cran.rstudio.com')"
+          Rscript -e "options(pak.install_binary = TRUE); pak::local_install_dev_deps(ask = FALSE, upgrade = FALSE)"
+
+      - name: Install R (alternate)
+        run: rig add 4.4.2
+
       - name: Run release-screenshots project
+        env:
+          POSITRON_PY_VER_SEL: '3.10.12'
+          POSITRON_R_VER_SEL: '4.5.2'
+          POSITRON_PY_ALT_VER_SEL: '3.13.0'
+          POSITRON_R_ALT_VER_SEL: '4.4.2'
         run: npx playwright test --project release-screenshots
 
       - name: Compare and report
