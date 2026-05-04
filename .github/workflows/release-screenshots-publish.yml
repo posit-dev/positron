@@ -14,6 +14,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write  # for AWS OIDC role-assumption in upload-report-to-s3
 
 concurrency:
   group: release-screenshots-publish
@@ -135,6 +136,11 @@ jobs:
       - name: Install R (alternate)
         run: rig add 4.4.2
 
+      - name: Send Results to GH Summary
+        uses: ./.github/actions/gen-report-dir
+        with:
+          identifier: release-screenshots-publish
+
       - name: Run release-screenshots project
         env:
           POSITRON_PY_VER_SEL: ${{ steps.setup-python-primary.outputs.python-version }}
@@ -145,6 +151,13 @@ jobs:
           GH_SUMMARY_REPORT: 'true'
           POSITRON_WINDOW_SIZE: '1600,1000'
         run: npx playwright test --project release-screenshots --workers 1
+
+      - name: Upload Playwright Report to S3
+        if: ${{ success() || failure() }}
+        uses: ./.github/actions/upload-report-to-s3
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          report-dir: ${{ env.REPORT_DIR }}
 
       - name: Upload Playwright traces and test-results
         if: always()
