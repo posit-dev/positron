@@ -20,6 +20,7 @@ test.describe('Environment Pane', {
 	});
 
 	test.afterEach(async function ({ app }) {
+		await app.workbench.packages.clearFilter();
 		await app.workbench.packages.closePackagesPane();
 	});
 

@@ -35,6 +35,10 @@ export class Packages {
 		// Ensure packages pane is open
 		await this.clickPackagesButton();
 
+		// Clear any leftover filter from a prior test so the full list renders.
+		// React filter state can persist across tests in the same file (shared app).
+		await this.clearFilter();
+
 		// Verify the packages list is displayed
 		await expect(this.packagesContainer).toBeVisible();
 
@@ -73,6 +77,15 @@ export class Packages {
 	async searchPackages(text: string): Promise<void> {
 		await this.clickPackagesButton();
 		await this.packagesContainer.getByPlaceholder('Filter packages').fill(text);
+	}
+
+	/**
+	 * Clears the packages pane filter input. No-op if the pane isn't open.
+	 */
+	async clearFilter(): Promise<void> {
+		if (await this.packagesContainer.isVisible()) {
+			await this.packagesContainer.getByPlaceholder('Filter packages').fill('');
+		}
 	}
 
 	/**
