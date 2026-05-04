@@ -124,7 +124,6 @@ jobs:
       - name: Install R (primary)
         run: |
           rig add 4.5.2
-          rig default 4.5.2
           R --version
 
       - name: Install R packages
