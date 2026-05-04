@@ -10,10 +10,11 @@ main branch by either pulling or rebasing.
 <!--
   Describe briefly what problem this pull request resolves, or what
   new feature it introduces. Include screenshots of any new or altered
-  UI. Link to any GitHub issues but avoid "magic" keywords that will
-  automatically close the issue. If there are any details about your
-  approach that are unintuitive or you want to draw attention to, please
-  describe them here.
+  UI. Reference the associated issue with a closing keyword such as
+  "Fixes #123" so GitHub automatically closes the issue when this PR
+  is merged. If there are any details about your approach that are
+  unintuitive or you want to draw attention to, please describe them
+  here.
 -->
 
 
@@ -39,7 +40,7 @@ main branch by either pulling or rebasing.
 - N/A
 
 
-### QA Notes
+### Validation Steps
 
 <!--
   Positron team members: please add relevant e2e test tags, so the tests can be
@@ -51,8 +52,8 @@ main branch by either pulling or rebasing.
 
 
 <!--
-  Add additional information for QA on how to validate the change,
-  paying special attention to the level of risk, adjacent areas that
-  could be affected by the change, and any important contextual
-  information not present in the linked issues.
+  Add additional information on how to validate the change, paying
+  special attention to the level of risk, adjacent areas that could
+  be affected by the change, and any important contextual information
+  not present in the linked issues.
 -->

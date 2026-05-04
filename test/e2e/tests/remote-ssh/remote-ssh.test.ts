@@ -107,7 +107,7 @@ test.describe('Remote SSH', {
 			await sshWin.keyboard.type('root');
 			await sshWin.keyboard.press('Enter');
 
-			const alertLocator = sshWin.locator('span', { hasText: 'Setting up SSH Host remote' });
+			const alertLocator = sshWin.locator('.statusbar-item-label', { hasText: 'Opening Remote' });
 			await expect(alertLocator).toBeVisible({ timeout: 10_000 });
 			await expect(alertLocator).not.toBeVisible({ timeout: 60_000 });
 

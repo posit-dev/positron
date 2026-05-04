@@ -272,7 +272,25 @@ export class Sessions {
 			if (this.code.driver.currentPage.url().includes('8080')) {
 				try { await this.page.getByRole('button', { name: 'Delete Session' }).click({ timeout: 1000 }); } catch (error) { }
 			} else {
-				await expect(this.page.getByText('There is no session running.')).toBeVisible();
+				// Two Workbench-specific races can hide the empty-state message:
+				// (1) Positron is launched without a folder and auto-prompts an "Open
+				//     Folder" quickpick that intercepts pointer events.
+				// (2) The bottom panel's active tab is Terminal (not Console) on
+				//     startup, so the Console pane (and the "There is no session
+				//     running." text) is not rendered.
+				// Focus the Console first, then retry-dismiss-and-assert to cover the
+				// race where the picker appears just after a check returns false or
+				// re-pops after Escape.
+				// See https://github.com/posit-dev/positron/actions/runs/25334724797
+				const openFolderPicker = this.page.locator('.quick-input-title', { hasText: 'Open Folder' });
+				const noSessionMessage = this.page.getByText('There is no session running.');
+				await expect(async () => {
+					if (await openFolderPicker.isVisible().catch(() => false)) {
+						await this.page.keyboard.press('Escape');
+					}
+					await this.console.focus();
+					await expect(noSessionMessage).toBeVisible({ timeout: 1000 });
+				}).toPass({ timeout: 15000 });
 			}
 		});
 	}
@@ -466,7 +484,18 @@ export class Sessions {
 				// Wait until the desired runtime appears in the list and select it.
 				// We need to click instead of using 'enter' because the Python select interpreter command
 				// may include additional items above the desired interpreter string.
-				await this.quickinput.selectQuickInputElementContaining(`${language} ${version}`, { timeout: 2000 });
+				try {
+					await this.quickinput.selectQuickInputElementContaining(`${language} ${version}`, { timeout: 2000 });
+				} catch (e) {
+					// Auto-discovery is intermittent: POSITRON_PY_VER_SEL's interpreter
+					// can be missing from the quick pick on the first attempt. Force a
+					// rescan so the next retry of this `toPass` iteration sees it.
+					if (language === 'Python') {
+						await this.quickinput.closeQuickInput().catch(() => { });
+						await this.quickaccess.runCommand('python.refreshInterpreters').catch(() => { });
+					}
+					throw e;
+				}
 				await this.quickinput.waitForQuickInputClosed();
 			}, 'Select runtime from quick pick').toPass({ timeout: 30000 });
 
