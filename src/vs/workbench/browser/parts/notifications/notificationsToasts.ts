@@ -179,6 +179,9 @@ export class NotificationsToasts extends Themable implements INotificationsToast
 
 		// --- Start Positron ---
 		// Keep toasts visible during e2e tests so they reflect real-user behavior.
+		// Reference environmentService so noUnusedLocals doesn't fire after disabling
+		// the upstream early-return below.
+		void this.environmentService;
 		// if (this.environmentService.enableSmokeTestDriver) {
 		// 	return; // disable in smoke tests to prevent covering elements
 		// }
