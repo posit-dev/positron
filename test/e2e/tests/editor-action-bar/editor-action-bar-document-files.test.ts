@@ -53,7 +53,7 @@ test.describe('Editor Action Bar: Document Files', {
 	}, async function ({ app, page, openFile }) {
 		await openFile('workspaces/quarto_basic/quarto_basic.qmd');
 		await verifyPreviewRendersHtml('Diamond sizes');
-		await verifySaveButton(page);
+		await verifySaveButton(app, page);
 		await verifyOpenChanges(page);
 		await verifySplitEditor('quarto_basic.qmd');
 		await verifyOpenInNewWindow(app, 'Diamond sizes');
@@ -98,15 +98,14 @@ async function bindPlatformHotkey(page: Page, key: string) {
 	await page.keyboard.press(process.platform === 'darwin' ? `Meta+${key}` : `Control+${key}`);
 }
 
-async function verifySaveButton(page: Page) {
+async function verifySaveButton(app: Application, page: Page) {
 	await test.step('verify Save button visibility, dirty state, and click', async () => {
 		// Clean editor: button visible but disabled.
 		await editorActionBar.verifyButtonVisible('Save', true);
 		await editorActionBar.verifyButtonEnabled('Save', false);
 
 		// Make a change to dirty the editor; Save becomes enabled.
-		await page.locator('[id="workbench\\.parts\\.editor"]').getByText('date').click();
-		await page.keyboard.press('Y');
+		await app.workbench.editor.selectTabAndType('quarto_basic.qmd', 'Y');
 		await editorActionBar.verifyButtonEnabled('Save', true);
 
 		// Click Save; editor should be clean again, so Save disables.
