@@ -11,9 +11,13 @@
  * `extensions/positron-r/ark`:
  *   <version>  = `version` field in `ark/crates/ark/Cargo.toml`
  *   <distance> = `git rev-list --count <last-tag>..HEAD` inside the submodule
+ *   <short_sha> = `git rev-parse --short=7 HEAD` inside the submodule
  *
  * The expected prebuild release tag in `posit-dev/positron-ark` is:
- *   `ark-<version>-<distance>`
+ *   `ark-<version>-<distance>-<short_sha>`
+ *
+ * The short SHA is included so builds from diverging branches at the same
+ * (version, distance) produce distinct tags and asset names.
  *
  * Resolution order:
  *   1. A local `cargo build` at `ark/target/release/ark[.exe]`
@@ -74,9 +78,11 @@ interface ArkBuildInfo {
 	version: string;
 	/** Commits past the most recent ark release tag. */
 	distance: number;
-	/** Release tag to look for in positron-ark, e.g. `ark-0.1.251-10`. */
+	/** Short (7-char) SHA of the ark submodule HEAD. */
+	shortSha: string;
+	/** Release tag to look for in positron-ark, e.g. `ark-0.1.251-10-abc1234`. */
 	releaseTag: string;
-	/** Version string the binary self-reports, e.g. `0.1.251+10` (or just `0.1.251` if distance=0). */
+	/** Version string the binary self-reports, e.g. `0.1.251+10.abc1234`. */
 	buildVersion: string;
 }
 
@@ -252,9 +258,15 @@ async function readSubmoduleBuildInfo(): Promise<ArkBuildInfo> {
 		console.warn(`Could not compute distance from last ark tag: ${err}. Assuming distance=0.`);
 	}
 
-	const releaseTag = `ark-${version}-${distance}`;
-	const buildVersion = distance > 0 ? `${version}+${distance}` : version;
-	return { version, distance, releaseTag, buildVersion };
+	const { stdout: shaOut } = await execShort('git rev-parse --short=7 HEAD', SUBMODULE_DIR);
+	const shortSha = shaOut.trim();
+	if (!/^[0-9a-f]{7}$/.test(shortSha)) {
+		throw new Error(`Could not compute short SHA for ark submodule (got "${shortSha}").`);
+	}
+
+	const releaseTag = `ark-${version}-${distance}-${shortSha}`;
+	const buildVersion = `${version}+${distance}.${shortSha}`;
+	return { version, distance, shortSha, releaseTag, buildVersion };
 }
 
 /**
@@ -368,6 +380,7 @@ interface ParsedRelease {
 	tag: string;
 	version: string;
 	distance: number;
+	shortSha: string;
 	release: any;
 }
 
@@ -394,9 +407,9 @@ async function listArkReleases(githubPat: string | undefined): Promise<ParsedRel
 	const parsed: ParsedRelease[] = [];
 	for (const release of releases) {
 		const tag: string = release.tag_name || '';
-		const m = tag.match(/^ark-([0-9.]+)-([0-9]+)$/);
+		const m = tag.match(/^ark-([0-9.]+)-([0-9]+)-([0-9a-f]{7})$/);
 		if (m) {
-			parsed.push({ tag, version: m[1], distance: parseInt(m[2], 10), release });
+			parsed.push({ tag, version: m[1], distance: parseInt(m[2], 10), shortSha: m[3], release });
 		}
 	}
 	parsed.sort((a, b) => compareVersionDistance(b, a));
@@ -446,7 +459,9 @@ async function extractPrebuildAssets(
 		}
 	}
 
-	// Asset filenames embed the version-distance, e.g. `ark-0.1.251-10-darwin-universal.zip`.
+	// Asset filenames embed the version-distance-shortSha, e.g.
+	// `ark-0.1.251-10-abc1234-darwin-universal.zip`. We strip the `ark-`
+	// prefix so the same string works for both the tag and the filename body.
 	const assetVersion = tagForFilename.replace(/^ark-/, '');
 
 	for (const target of targets) {
@@ -512,8 +527,7 @@ async function tryDownloadFallbackPrebuild(
 		console.log('No earlier prebuilds available.');
 		return false;
 	}
-	const fallbackBuildVersion =
-		fallback.distance > 0 ? `${fallback.version}+${fallback.distance}` : fallback.version;
+	const fallbackBuildVersion = `${fallback.version}+${fallback.distance}.${fallback.shortSha}`;
 	console.warn(
 		`\nNote: prebuild for ${info.releaseTag} is not yet available in ` +
 		`posit-dev/${PREBUILD_REPO}.\n` +
