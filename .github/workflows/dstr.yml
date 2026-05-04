@@ -1,4 +1,4 @@
-name: Data Science Test Review
+name: "Review: Data Science Test Design (/dstr)"
 
 on:
   issue_comment:
@@ -21,12 +21,20 @@ jobs:
         with:
           node-version: 22
 
+      - name: Load secret
+        uses: 1password/load-secrets-action@v4
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+
       - name: Install dependencies
         run: npm install @octokit/rest @anthropic-ai/sdk
 
       - name: Run /dstr review
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ env.ANTHROPIC_KEY }}
           GITHUB_EVENT_PATH: ${{ github.event_path }}
         run: node .github/scripts/dstr/review.mjs
