@@ -272,6 +272,16 @@ export class Sessions {
 			if (this.code.driver.currentPage.url().includes('8080')) {
 				try { await this.page.getByRole('button', { name: 'Delete Session' }).click({ timeout: 1000 }); } catch (error) { }
 			} else {
+				// Workaround: On Posit Workbench, Positron is sometimes launched without
+				// a folder attached and auto-prompts an "Open Folder" quickpick. The
+				// picker intercepts pointer events and prevents the "There is no session
+				// running." message from rendering, so dismiss it before asserting.
+				// See https://github.com/posit-dev/positron-builds/actions/runs/25307812497
+				const openFolderPicker = this.page.locator('.quick-input-title', { hasText: 'Open Folder' });
+				if (await openFolderPicker.isVisible().catch(() => false)) {
+					await this.page.keyboard.press('Escape');
+					await expect(openFolderPicker).not.toBeVisible();
+				}
 				await expect(this.page.getByText('There is no session running.')).toBeVisible();
 			}
 		});
