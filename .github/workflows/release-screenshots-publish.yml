@@ -1,4 +1,4 @@
-name: Release Screenshots — Publish
+name: "Publish: Release Screenshots"
 
 on:
   workflow_dispatch:

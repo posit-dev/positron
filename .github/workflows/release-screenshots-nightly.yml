@@ -1,5 +1,4 @@
-name: Release Screenshots — Nightly
-
+name: "Nightly: Release Screenshots"
 on:
   workflow_dispatch:
   schedule:
