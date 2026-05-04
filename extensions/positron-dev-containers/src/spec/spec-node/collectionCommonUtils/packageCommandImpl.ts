@@ -1,4 +1,4 @@
-import tar from 'tar';
+import * as tar from 'tar';
 import * as jsonc from 'jsonc-parser';
 import * as os from 'os';
 import * as recursiveDirReader from 'recursive-readdir';
