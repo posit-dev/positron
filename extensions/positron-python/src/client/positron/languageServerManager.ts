@@ -174,9 +174,8 @@ export function registerLanguageServerManager(
 ): void {
     const persistentStateFactory = serviceContainer.get<IPersistentStateFactory>(IPersistentStateFactory);
     const pythonRuntimeManager = serviceContainer.get<IPythonRuntimeManager>(IPythonRuntimeManager);
-    const pythonPathUpdaterService: IPythonPathUpdaterServiceManager = serviceContainer.get<
-        IPythonPathUpdaterServiceManager
-    >(IPythonPathUpdaterServiceManager);
+    const pythonPathUpdaterService: IPythonPathUpdaterServiceManager =
+        serviceContainer.get<IPythonPathUpdaterServiceManager>(IPythonPathUpdaterServiceManager);
     const workspaceService = serviceContainer.get<IWorkspaceService>(IWorkspaceService);
     disposables.push(
         new LanguageServerManager(

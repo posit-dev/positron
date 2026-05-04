@@ -325,9 +325,7 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
         return connection;
     }
 
-    private doRefresh(
-        options?: NativePythonEnvironmentKind | Uri[],
-    ): {
+    private doRefresh(options?: NativePythonEnvironmentKind | Uri[]): {
         completed: Promise<void>;
         discovered: Event<NativeEnvInfo | NativeEnvManagerInfo>;
     } {
@@ -564,7 +562,7 @@ export async function getAdditionalEnvDirs(): Promise<string[]> {
 function getPythonSettingAndUntildify<T>(name: string, scope?: Uri): T | undefined {
     const value = getConfiguration('python', scope).get<T>(name);
     if (typeof value === 'string') {
-        return value ? ((untildify(value as string) as unknown) as T) : undefined;
+        return value ? (untildify(value as string) as unknown as T) : undefined;
     }
     return value;
 }
@@ -583,7 +581,7 @@ export function getNativePythonFinder(context?: IExtensionContext): NativePython
             },
             async getCondaInfo() {
                 traceError('Python discovery not supported in untrusted workspace');
-                return ({} as unknown) as NativeCondaInfo;
+                return {} as unknown as NativeCondaInfo;
             },
             dispose() {
                 // do nothing

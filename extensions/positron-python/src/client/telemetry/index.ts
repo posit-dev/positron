@@ -2451,12 +2451,12 @@ export interface IEventNamePropertyMapping {
      */
     [EventName.ENVIRONMENT_CHECK_TRIGGER]: {
         trigger:
-        | 'run-in-terminal'
-        | 'debug-in-terminal'
-        | 'run-selection'
-        | 'on-workspace-load'
-        | 'as-command'
-        | 'debug';
+            | 'run-in-terminal'
+            | 'debug-in-terminal'
+            | 'run-selection'
+            | 'on-workspace-load'
+            | 'as-command'
+            | 'debug';
     };
     /**
      * Telemetry event sent when a check for environment creation condition is computed.

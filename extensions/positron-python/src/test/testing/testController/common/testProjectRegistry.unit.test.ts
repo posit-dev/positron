@@ -24,7 +24,7 @@ suite('TestProjectRegistry', () => {
         sandbox = sinon.createSandbox();
 
         // Create mock test controller
-        testController = ({
+        testController = {
             items: {
                 get: sandbox.stub(),
                 add: sandbox.stub(),
@@ -33,32 +33,32 @@ suite('TestProjectRegistry', () => {
             },
             createTestItem: sandbox.stub(),
             dispose: sandbox.stub(),
-        } as unknown) as TestController;
+        } as unknown as TestController;
 
         // Create mock config settings
-        configSettings = ({
+        configSettings = {
             getSettings: sandbox.stub().returns({
                 testing: {
                     pytestEnabled: true,
                     unittestEnabled: false,
                 },
             }),
-        } as unknown) as IConfigurationService;
+        } as unknown as IConfigurationService;
 
         // Create mock interpreter service
-        interpreterService = ({
+        interpreterService = {
             getActiveInterpreter: sandbox.stub().resolves({
                 displayName: 'Python 3.11',
                 path: '/usr/bin/python3',
                 version: { raw: '3.11.8' },
                 sysPrefix: '/usr',
             }),
-        } as unknown) as IInterpreterService;
+        } as unknown as IInterpreterService;
 
         // Create mock env vars service
-        envVarsService = ({
+        envVarsService = {
             getEnvironmentVariables: sandbox.stub().resolves({}),
-        } as unknown) as IEnvironmentVariablesProvider;
+        } as unknown as IEnvironmentVariablesProvider;
 
         registry = new TestProjectRegistry(testController, configSettings, interpreterService, envVarsService);
     });

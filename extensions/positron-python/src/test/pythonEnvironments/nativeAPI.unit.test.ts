@@ -538,7 +538,7 @@ suite('Native Python API', () => {
                 // which is exactly what we're regression-testing.
                 .returns(() => {
                     resolveCount += 1;
-                    return Promise.resolve(resolveCount === 1 ? ((undefined as unknown) as NativeEnvInfo) : basicEnv);
+                    return Promise.resolve(resolveCount === 1 ? (undefined as unknown as NativeEnvInfo) : basicEnv);
                 });
 
             const first = await api.resolveEnv(pythonPath);
