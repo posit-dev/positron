@@ -183,24 +183,31 @@ jobs:
         if: inputs.mode == 'publish' && steps.gate.outputs.decision == 'publish'
         env:
           CLS: ${{ runner.temp }}/classification.json
+          GENERATED: test/e2e/release-screenshots/output
         run: |
           set -euo pipefail
-          GENERATED=test/e2e/release-screenshots/output
-          DOCS="$RUNNER_TEMP/positron-website"
-          # Read classification.json and copy only changed/new files.
-          NAMES=$(node -e '
+          export DOCS_IMAGES="$RUNNER_TEMP/positron-website/images"
+          # Apply changed/new entries from classification.json. When docsName
+          # exists and differs from name (e.g. .jpeg -> .png), delete the old
+          # docs file before copying the replacement.
+          node -e '
+            const fs = require("fs");
+            const path = require("path");
             const c = require(process.env.CLS);
             for (const [name, info] of Object.entries(c)) {
-              if (info.status === "changed" || info.status === "new") {
-                console.log(name);
+              if (info.status !== "changed" && info.status !== "new") continue;
+              if (info.docsName && info.docsName !== name) {
+                const old = path.join(process.env.DOCS_IMAGES, info.docsName);
+                console.log(`Removing old docs file: ${info.docsName}`);
+                fs.rmSync(old, { force: true });
               }
+              console.log(`Copying ${name}`);
+              fs.copyFileSync(
+                path.join(process.env.GENERATED, name),
+                path.join(process.env.DOCS_IMAGES, name),
+              );
             }
-          ')
-          while IFS= read -r name; do
-            [[ -z "$name" ]] && continue
-            echo "Copying $name"
-            cp "$GENERATED/$name" "$DOCS/images/$name"
-          done <<< "$NAMES"
+          '
 
       - name: Commit and push branch
         if: inputs.mode == 'publish' && steps.gate.outputs.decision == 'publish'
@@ -237,8 +244,13 @@ jobs:
             const c = require(process.env.CLS);
             const lines = [];
             for (const [name, info] of Object.entries(c).sort()) {
-              if (info.status === "changed") lines.push(`- 🔄 \`${name}\` (changed)`);
-              if (info.status === "new")     lines.push(`- 🆕 \`${name}\` (new)`);
+              if (info.status === "changed") {
+                const note = info.docsName && info.docsName !== name
+                  ? `replaces \`${info.docsName}\``
+                  : "changed";
+                lines.push(`- 🔄 \`${name}\` (${note})`);
+              }
+              if (info.status === "new") lines.push(`- 🆕 \`${name}\` (new)`);
             }
             console.log(lines.join("\n"));
           ')

@@ -5,9 +5,10 @@
 
 import { readdir, readFile, writeFile, appendFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { join } from 'node:path';
+import { extname, join } from 'node:path';
 
 const PNG_SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const KNOWN_IMAGE_EXTS = ['.png', '.jpg', '.jpeg'];
 
 const STATUS_EMOJI = {
 	unchanged: '✅',
@@ -17,6 +18,10 @@ const STATUS_EMOJI = {
 
 function sha256(buf) {
 	return createHash('sha256').update(buf).digest('hex');
+}
+
+function basename(name) {
+	return name.slice(0, name.length - extname(name).length);
 }
 
 async function readPng(path) {
@@ -41,23 +46,76 @@ async function readPngIfExists(path) {
 	}
 }
 
+/**
+ * Look for a docs file matching the generated PNG by basename, allowing the
+ * docs file to use any of KNOWN_IMAGE_EXTS. Used so that a generated `foo.png`
+ * can replace an existing `foo.jpeg` in positron-website without showing as
+ * a "new" file every run.
+ *
+ * Returns the matching docs filename (e.g. 'foo.jpeg') or null.
+ */
+async function findDocsCounterpart(docsDirEntries, generatedName) {
+	const base = basename(generatedName);
+	for (const docsName of docsDirEntries) {
+		if (docsName === generatedName) {
+			continue;
+		}
+		if (basename(docsName) !== base) {
+			continue;
+		}
+		if (KNOWN_IMAGE_EXTS.includes(extname(docsName).toLowerCase())) {
+			return docsName;
+		}
+	}
+	return null;
+}
+
 export async function classify(generatedDir, docsDir) {
-	const entries = await readdir(generatedDir);
+	const generatedEntries = await readdir(generatedDir);
+	let docsEntries = [];
+	try {
+		docsEntries = await readdir(docsDir);
+	} catch (err) {
+		if (err.code !== 'ENOENT') {
+			throw err;
+		}
+	}
 	const result = {};
-	for (const name of entries) {
+	for (const name of generatedEntries) {
 		if (!name.endsWith('.png')) {
 			continue;
 		}
 		const genBuf = await readPng(join(generatedDir, name));
 		const generatedHash = sha256(genBuf);
-		const docsBuf = await readPngIfExists(join(docsDir, name));
-		if (docsBuf === null) {
-			result[name] = { status: 'new', generatedHash, generatedSize: genBuf.length };
+
+		// First try exact-name match: enables deterministic byte-level diff.
+		const exactDocsBuf = await readPngIfExists(join(docsDir, name));
+		if (exactDocsBuf !== null) {
+			const docsHash = sha256(exactDocsBuf);
+			const status = generatedHash === docsHash ? 'unchanged' : 'changed';
+			result[name] = {
+				status,
+				generatedHash,
+				generatedSize: genBuf.length,
+				docsName: name,
+				docsHash,
+			};
 			continue;
 		}
-		const docsHash = sha256(docsBuf);
-		const status = generatedHash === docsHash ? 'unchanged' : 'changed';
-		result[name] = { status, generatedHash, generatedSize: genBuf.length, docsHash };
+
+		// Fall back to a different known extension (e.g. existing .jpeg).
+		const counterpart = await findDocsCounterpart(docsEntries, name);
+		if (counterpart) {
+			result[name] = {
+				status: 'changed',
+				generatedHash,
+				generatedSize: genBuf.length,
+				docsName: counterpart,
+			};
+			continue;
+		}
+
+		result[name] = { status: 'new', generatedHash, generatedSize: genBuf.length };
 	}
 	return result;
 }
@@ -96,11 +154,15 @@ export function formatSummary(classification, opts = {}) {
 		.filter(([, info]) => info.status !== 'unchanged')
 		.map(([name, info]) => {
 			const emoji = STATUS_EMOJI[info.status];
-			const beforeUrl = `${DOCS_IMAGE_BASE_URL}/${name}`;
+			const docsRef = info.docsName ?? name;
+			const beforeUrl = `${DOCS_IMAGE_BASE_URL}/${docsRef}`;
 			const afterUrl = screenshotBaseUrl ? `${screenshotBaseUrl}/${name}` : null;
 			const beforeCell = info.status === 'new' ? '—' : imageCell(beforeUrl);
 			const afterCell = afterUrl ? imageCell(afterUrl) : '—';
-			return `| ${emoji} | \`${name}\` | ${beforeCell} | ${afterCell} |`;
+			const fileLabel = info.docsName && info.docsName !== name
+				? `\`${name}\` <br><sub>replaces \`${info.docsName}\`</sub>`
+				: `\`${name}\``;
+			return `| ${emoji} | ${fileLabel} | ${beforeCell} | ${afterCell} |`;
 		})
 		.join('\n');
 
