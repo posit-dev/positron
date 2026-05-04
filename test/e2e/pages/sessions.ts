@@ -272,19 +272,23 @@ export class Sessions {
 			if (this.code.driver.currentPage.url().includes('8080')) {
 				try { await this.page.getByRole('button', { name: 'Delete Session' }).click({ timeout: 1000 }); } catch (error) { }
 			} else {
-				// Workaround: On Posit Workbench, Positron is sometimes launched without
-				// a folder attached and auto-prompts an "Open Folder" quickpick. The
-				// picker intercepts pointer events and prevents the "There is no session
-				// running." message from rendering. Retry-dismiss-and-assert so we cover
-				// the race where the picker appears just after a check returns false or
+				// Two Workbench-specific races can hide the empty-state message:
+				// (1) Positron is launched without a folder and auto-prompts an "Open
+				//     Folder" quickpick that intercepts pointer events.
+				// (2) The bottom panel's active tab is Terminal (not Console) on
+				//     startup, so the Console pane (and the "There is no session
+				//     running." text) is not rendered.
+				// Focus the Console first, then retry-dismiss-and-assert to cover the
+				// race where the picker appears just after a check returns false or
 				// re-pops after Escape.
-				// See https://github.com/posit-dev/positron-builds/actions/runs/25307812497
+				// See https://github.com/posit-dev/positron/actions/runs/25334724797
 				const openFolderPicker = this.page.locator('.quick-input-title', { hasText: 'Open Folder' });
 				const noSessionMessage = this.page.getByText('There is no session running.');
 				await expect(async () => {
 					if (await openFolderPicker.isVisible().catch(() => false)) {
 						await this.page.keyboard.press('Escape');
 					}
+					await this.console.focus();
 					await expect(noSessionMessage).toBeVisible({ timeout: 1000 });
 				}).toPass({ timeout: 15000 });
 			}
