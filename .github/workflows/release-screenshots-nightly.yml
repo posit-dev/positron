@@ -20,6 +20,14 @@ jobs:
       - name: Checkout positron
         uses: actions/checkout@v6
 
+      - name: Generate POSITRON_BOT token
+        id: bot-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
       - name: Resolve version
         id: version
         run: |
@@ -32,7 +40,7 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Resolved latest prerelease: $VERSION"
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.bot-token.outputs.token }}
 
       - name: Download Positron build
         id: download
@@ -40,7 +48,7 @@ jobs:
           OUTPUT=$(.github/scripts/release-screenshots/download-build.sh "${{ steps.version.outputs.version }}")
           echo "$OUTPUT" >> "$GITHUB_ENV"
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.bot-token.outputs.token }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v6

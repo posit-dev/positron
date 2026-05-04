@@ -52,14 +52,14 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Resolved version: $VERSION"
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.bot-token.outputs.token }}
 
       - name: Download Positron build
         run: |
           OUTPUT=$(.github/scripts/release-screenshots/download-build.sh "${{ steps.version.outputs.version }}")
           echo "$OUTPUT" >> "$GITHUB_ENV"
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.bot-token.outputs.token }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
