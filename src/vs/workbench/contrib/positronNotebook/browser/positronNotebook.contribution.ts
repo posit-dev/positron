@@ -11,6 +11,7 @@ import './contrib/outline/positronNotebookOutline.contribution.js';
 
 // Self-registering Action2 contributions
 import './notebookCells/InlineDataExplorerActions.js';
+import './SelectPositronNotebookKernelAction.js';
 import './contrib/visualize/VisualizeAction.js';
 
 import { isCopyImageMenuArg, toBase64DataUrl } from './copyImageUtils.js';
