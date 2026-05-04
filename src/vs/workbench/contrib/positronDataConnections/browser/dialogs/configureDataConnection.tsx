@@ -12,8 +12,8 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { ConfigureDataConnectionParameters } from './configureDataConnectionParameters.js';
 import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
-import { Checkbox } from '../../../../../base/browser/ui/positronComponents/checkbox/checkbox.js';
 import { TwoButtonFooter } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/twoButtonFooter.js';
 import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
 import { DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
@@ -21,7 +21,7 @@ import { DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionPr
 /**
  * UI-side form state for a single parameter field, pairing the value with an error indicator.
  */
-interface ParameterFieldState {
+export interface ParameterFieldState {
 	// The current value of the parameter. Undefined if no value is set; for required parameters
 	// this indicates an error.
 	value: boolean | number | string | undefined;
@@ -34,7 +34,7 @@ interface ParameterFieldState {
 /**
  * UI-side form state for all parameter fields.
  */
-type ParameterFieldStates = Record<string, ParameterFieldState>;
+export type ParameterFieldStates = Record<string, ParameterFieldState>;
 
 /**
  * ConfigureDataConnectionProps interface.
@@ -219,129 +219,11 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 							</div>
 
 							{/* Parameters */}
-							{props.driver.metadata.parameters.map(parameter => {
-								switch (parameter.type) {
-									// Boolean parameter.
-									case 'boolean': {
-										return (
-											<div key={parameter.id}>
-												<Checkbox
-													initialChecked={parameterFieldStates[parameter.id].value as boolean}
-													label={parameter.label}
-													onChanged={checked => setParameterFieldState(parameter.id, checked)}
-												/>
-											</div>
-										);
-									}
-
-									// File parameter.
-									case 'file': {
-										return (
-											<div key={parameter.id} className='parameter-field'>
-												<label className='parameter-label'>{parameter.label}</label>
-												<input
-													className={positronClassNames(
-														'parameter-input', 'text-input',
-														{ 'error': parameterFieldStates[parameter.id].error }
-													)}
-													placeholder={parameter.placeholder}
-													type='text'
-													value={parameterFieldStates[parameter.id].value as string}
-													onChange={e => setParameterFieldState(parameter.id, e.target.value)}
-												/>
-											</div>
-										);
-									}
-
-									// Number parameter.
-									case 'number': {
-										return (
-											<div key={parameter.id} className='parameter-field'>
-												<label className='parameter-label'>{parameter.label}</label>
-												<input
-													className={positronClassNames(
-														'parameter-input', 'text-input',
-														{ 'error': parameterFieldStates[parameter.id].error }
-													)}
-													inputMode='numeric'
-													placeholder={parameter.placeholder}
-													type='text'
-													value={String(parameterFieldStates[parameter.id].value ?? '')}
-													onChange={e => {
-														// Get the new value, trimming whitespace.
-														const newValue = e.target.value.trim();
-
-														// Parse the value as a number. Number('') === 0, so handle empty string first.
-														const numericValue = newValue !== '' ? Number(newValue) : NaN;
-														setParameterFieldState(parameter.id, isNaN(numericValue) ? undefined : numericValue);
-													}}
-												/>
-											</div>
-										);
-									}
-
-									// Option parameter.
-									case 'option': {
-										return (
-											<div key={parameter.id} className='parameter-field'>
-												<label className='parameter-label'>{parameter.label}</label>
-												<select
-													className={positronClassNames(
-														'parameter-input', 'parameter-select',
-														{ 'error': parameterFieldStates[parameter.id].error }
-													)}
-													value={parameterFieldStates[parameter.id].value as string}
-													onChange={e => {
-														setParameterFieldState(parameter.id, e.target.value);
-													}}
-												>
-													{parameter.options?.map(option => (
-														<option key={option} value={option}>{option}</option>
-													))}
-												</select>
-											</div>
-										);
-									}
-
-									// Password parameter.
-									case 'password': {
-										return (
-											<div key={parameter.id} className='parameter-field'>
-												<label className='parameter-label'>{parameter.label}</label>
-												<input
-													className={positronClassNames(
-														'parameter-input', 'text-input',
-														{ 'error': parameterFieldStates[parameter.id].error }
-													)}
-													placeholder={parameter.placeholder}
-													type='password'
-													value={parameterFieldStates[parameter.id].value as string}
-													onChange={e => setParameterFieldState(parameter.id, e.target.value ?? undefined)}
-												/>
-											</div>
-										);
-									}
-
-									// String parameter.
-									case 'string': {
-										return (
-											<div key={parameter.id} className='parameter-field'>
-												<label className='parameter-label'>{parameter.label}</label>
-												<input
-													className={positronClassNames(
-														'parameter-input', 'text-input',
-														{ 'error': parameterFieldStates[parameter.id].error }
-													)}
-													placeholder={parameter.placeholder}
-													type='text'
-													value={parameterFieldStates[parameter.id].value as string}
-													onChange={e => setParameterFieldState(parameter.id, e.target.value ?? undefined)}
-												/>
-											</div>
-										);
-									}
-								}
-							})}
+							<ConfigureDataConnectionParameters
+								parameterFieldStates={parameterFieldStates}
+								parameters={props.driver.metadata.parameters}
+								onParameterChanged={setParameterFieldState}
+							/>
 
 						</div>
 					</div>
