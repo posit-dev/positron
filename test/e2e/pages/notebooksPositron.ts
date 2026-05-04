@@ -1882,6 +1882,7 @@ export class Kernel extends KernelBase {
 			// select the kernel
 			await this.hotKeys.selectNotebookKernel();
 			await this.quickinput.waitForQuickInputOpened({ timeout: 1000 });
+			await this.quickinput.type(desiredKernel);
 			await this.quickinput.selectQuickInputElementContaining(desiredKernel, { timeout: 1000, force: false });
 			await this.quickinput.waitForQuickInputClosed();
 			this.code.logger.log(`Selected kernel: ${desiredKernel}`);
