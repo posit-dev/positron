@@ -13,7 +13,7 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { localize } from '../../../../../nls.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
-import { Checkbox } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/checkbox.js';
+import { Checkbox } from '../../../../../base/browser/ui/positronComponents/checkbox/checkbox.js';
 import { TwoButtonFooter } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/twoButtonFooter.js';
 import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
 import { DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';

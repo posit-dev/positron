@@ -10,7 +10,7 @@ import './checkbox.css';
 import { useRef, useState } from 'react';
 
 // Other dependencies.
-import { generateUuid } from '../../../../../base/common/uuid.js';
+import { generateUuid } from '../../../../common/uuid.js';
 
 /**
  * CheckboxProps interface.

@@ -14,7 +14,7 @@ import { localize } from '../../../../../nls.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { NewDataConnectionFlow } from '../dialogs/newDataConnectionFlow.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
-import { PositronDataGrid } from '../../../../browser/positronDataGrid/positronDataGrid.js';
+import { PositronList } from '../../../../browser/positronList/positronList.js';
 import { PositronListInstance } from '../../../../browser/positronList/classes/positronListInstance.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
@@ -46,11 +46,7 @@ export const DataConnectionsPanel = ({ active }: DataConnectionsPanelProps) => {
 
 	// Track the data connection profiles so the panel re-renders when they change.
 	const [profiles, setProfiles] = useState<readonly IDataConnectionProfile[]>(
-		() => {
-			const x = positronDataConnectionsService.getProfiles();
-
-			return [...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x, ...x];
-		}
+		positronDataConnectionsService.getProfiles()
 	);
 
 	// Listen for changes to the data connection profiles and update state accordingly.
@@ -134,7 +130,7 @@ export const DataConnectionsPanel = ({ active }: DataConnectionsPanelProps) => {
 					? <div className='data-connection-profiles-list-empty'>
 						{localize('positronDataConnections.noConnections', "No data connections.")}
 					</div>
-					: <PositronDataGrid id='data-connection-profiles-list' instance={listInstance} />
+					: <PositronList id='data-connection-profiles-list' instance={listInstance} />
 				}
 			</div>
 		</div>
