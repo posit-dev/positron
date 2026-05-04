@@ -1,7 +1,8 @@
 {
     "compilerOptions": {
+        "baseUrl": ".",
         "paths": {
-            "*": ["./types/*"]
+            "*": ["types/*"]
         },
         "skipLibCheck": true,
         "module": "commonjs",
