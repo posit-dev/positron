@@ -92,6 +92,16 @@ export async function resolveElectronConfiguration(options: LaunchOptions): Prom
 		args.push(...extraArgs);
 	}
 
+	// --- Start Positron ---
+	// Honor POSITRON_WINDOW_SIZE=W,H to size the Electron window at launch
+	// (used by the release-screenshots workflow to capture at marketing-friendly
+	// dimensions). Forwarded as Chromium's --window-size flag.
+	const windowSize = process.env.POSITRON_WINDOW_SIZE;
+	if (windowSize && /^\d+,\d+$/.test(windowSize)) {
+		args.push(`--window-size=${windowSize}`);
+	}
+	// --- End Positron ---
+
 	const electronPath = codePath ? getBuildElectronPath(codePath) : getDevElectronPath();
 
 	return {
