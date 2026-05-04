@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect, Locator, Page } from '@playwright/test';
+import { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { ContextMenu } from './dialog-contextMenu';
 import { QuickInput } from './quickInput';
@@ -17,7 +17,6 @@ export class Packages {
 	packagesButton: Locator;
 	packagesContainer: Locator;
 	packagesViewMoreActionsButton: Locator;
-	private get page(): Page { return this.code.driver.currentPage; }
 
 	constructor(private code: Code, private contextMenu: ContextMenu, private quickInput: QuickInput, private toasts: Toasts) {
 		this.packagesButton = code.driver.currentPage.locator('a.action-label.codicon-package');
@@ -68,61 +67,25 @@ export class Packages {
 	}
 
 	/**
-	 * Gets all packages by scrolling through the list with mouse wheel
-	 * @returns An array of all package names
+	 * Types into the packages pane filter input to narrow the visible list.
+	 * @param text The filter text to apply (pass '' to clear).
 	 */
-	async getAllPackages(): Promise<string[]> {
-		// Ensure packages pane is open
+	async searchPackages(text: string): Promise<void> {
 		await this.clickPackagesButton();
+		await this.packagesContainer.getByPlaceholder('Filter packages').fill(text);
+	}
 
-		// Wait for the packages container to be visible
-		await expect(this.packagesContainer).toBeVisible();
-
-		const packageItems = this.packagesContainer.locator('.packages-list-item-name');
-		await expect(packageItems.first()).toBeVisible();
-
-		const seen = new Set<string>();
-		const allPackages: string[] = [];
-
-		// Scroll through the list to load all packages (handles virtualized lists)
-		let stable = false;
-		let scrollAttempts = 0;
-		const maxScrollAttempts = 100; // prevent infinite loops
-
-		while (!stable && scrollAttempts < maxScrollAttempts) {
-			const itemCount = await packageItems.count();
-
-			let newItemsFound = false;
-			for (let i = 0; i < itemCount; i++) {
-				const packageName = await packageItems.nth(i).textContent();
-
-				if (packageName) {
-					const name = packageName.trim();
-					if (!seen.has(name)) {
-						seen.add(name);
-						allPackages.push(name);
-						newItemsFound = true;
-					}
-				}
-			}
-
-			if (newItemsFound) {
-				// Scroll using mouse wheel to load more items
-				const box = await this.packagesContainer.boundingBox();
-				if (box) {
-					// Move mouse to center of packages container
-					await this.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-					// Scroll down with mouse wheel (positive deltaY scrolls down)
-					await this.page.mouse.wheel(0, 500);
-					await this.page.waitForTimeout(100); // allow more items to render
-				}
-				scrollAttempts++;
-			} else {
-				stable = true; // no new items found after scrolling
-			}
-		}
-
-		return allPackages;
+	/**
+	 * Asserts that a package row is present in the currently filtered list.
+	 * Retries past the post-install refresh delay (the install toast clears
+	 * before the package provider re-emits its snapshot).
+	 * @param name The exact package name to look for.
+	 * @param timeout Max time to wait for the row to appear.
+	 */
+	async expectPackageInList(name: string, timeout = 30_000): Promise<void> {
+		await this.clickPackagesButton();
+		const row = this.packagesContainer.locator('.packages-list-item-name', { hasText: name });
+		await expect(row.first()).toBeVisible({ timeout });
 	}
 
 	/**

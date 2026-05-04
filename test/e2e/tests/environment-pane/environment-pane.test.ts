@@ -3,16 +3,14 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, tags, expect } from '../_test.setup';
+import { test, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
 });
 
-// mouse scroll doesn't work in web
-// https://github.com/posit-dev/positron/issues/12964
 test.describe('Environment Pane', {
-	tag: [tags.WIN, tags.PACKAGES_PANE]
+	tag: [tags.WIN, tags.PACKAGES_PANE, tags.WEB]
 }, () => {
 
 	test.beforeAll(async function ({ settings }) {
@@ -25,23 +23,25 @@ test.describe('Environment Pane', {
 		await app.workbench.packages.closePackagesPane();
 	});
 
-	test('Python - Click packages button', async function ({ app, python: _python }) {
+	test('Python - Install and search package', async function ({ app, python: _python }) {
 		const { packages } = app.workbench;
 
 		await packages.verifyPackagesList();
-		await packages.installPackage('cowsay');
 
-		const allPackages = await packages.getAllPackages();
-		expect(allPackages).toContain('cowsay');
+		// install package and verify it shows up in the list
+		await packages.installPackage('cowsay');
+		await packages.searchPackages('cowsay');
+		await packages.expectPackageInList('cowsay');
 	});
 
-	test('R - Click packages button', async function ({ app, r: _r }) {
+	test('R - Install and search package', async function ({ app, r: _r }) {
 		const { packages } = app.workbench;
 
 		await packages.verifyPackagesList();
-		await packages.installPackage('cowsay');
 
-		const allPackages = await packages.getAllPackages();
-		expect(allPackages).toContain('cowsay');
+		// install package and verify it shows up in the list
+		await packages.installPackage('cowsay');
+		await packages.searchPackages('cowsay');
+		await packages.expectPackageInList('cowsay');
 	});
 });
