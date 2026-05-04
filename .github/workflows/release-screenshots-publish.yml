@@ -141,6 +141,7 @@ jobs:
           POSITRON_R_VER_SEL: '4.5.2'
           POSITRON_PY_ALT_VER_SEL: ${{ steps.setup-python-alt.outputs.python-version }}
           POSITRON_R_ALT_VER_SEL: '4.4.2'
+          ENABLE_CUSTOM_REPORTER: 'false'
         run: npx playwright test --project release-screenshots --workers 1
 
       - name: Compare and report
