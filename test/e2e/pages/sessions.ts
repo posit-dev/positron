@@ -275,14 +275,18 @@ export class Sessions {
 				// Workaround: On Posit Workbench, Positron is sometimes launched without
 				// a folder attached and auto-prompts an "Open Folder" quickpick. The
 				// picker intercepts pointer events and prevents the "There is no session
-				// running." message from rendering, so dismiss it before asserting.
+				// running." message from rendering. Retry-dismiss-and-assert so we cover
+				// the race where the picker appears just after a check returns false or
+				// re-pops after Escape.
 				// See https://github.com/posit-dev/positron-builds/actions/runs/25307812497
 				const openFolderPicker = this.page.locator('.quick-input-title', { hasText: 'Open Folder' });
-				if (await openFolderPicker.isVisible().catch(() => false)) {
-					await this.page.keyboard.press('Escape');
-					await expect(openFolderPicker).not.toBeVisible();
-				}
-				await expect(this.page.getByText('There is no session running.')).toBeVisible();
+				const noSessionMessage = this.page.getByText('There is no session running.');
+				await expect(async () => {
+					if (await openFolderPicker.isVisible().catch(() => false)) {
+						await this.page.keyboard.press('Escape');
+					}
+					await expect(noSessionMessage).toBeVisible({ timeout: 1000 });
+				}).toPass({ timeout: 15000 });
 			}
 		});
 	}
