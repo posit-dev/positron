@@ -7,7 +7,7 @@
 import './checkbox.css';
 
 // React.
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 
 // Other dependencies.
 import { generateUuid } from '../../../../common/uuid.js';
@@ -26,22 +26,17 @@ export const Checkbox = ({ label, initialChecked, onChanged }: CheckboxProps) =>
 	// Hooks.
 	const [id] = useState(generateUuid());
 	const [checked, setChecked] = useState(initialChecked ?? false);
-	const buttonRef = useRef<HTMLButtonElement>(undefined!);
 
-	// Click handler.
-	const clickHandler = () => {
-		buttonRef.current.setAttribute('aria-checked', !checked ? 'true' : 'false');
-		setChecked(!checked);
-		onChanged(!checked);
+	// Change handler.
+	const changeHandler = (e: React.ChangeEvent<HTMLInputElement>) => {
+		setChecked(e.target.checked);
+		onChanged(e.target.checked);
 	};
-
 
 	// Render.
 	return (
 		<div className='checkbox'>
-			<button ref={buttonRef} aria-checked={checked} className='checkbox-button' id={id} role='checkbox' tabIndex={0} type='button' onClick={clickHandler}>
-				{checked && <div className='check-indicator codicon codicon-check' />}
-			</button>
+			<input checked={checked} className='checkbox-input' id={id} type='checkbox' onChange={changeHandler} />
 			<label htmlFor={id}>{label}</label>
 		</div>
 	);
