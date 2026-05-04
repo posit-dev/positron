@@ -5,12 +5,16 @@
 
 import { test } from '../tests/_test.setup';
 import { captureFullWindow } from './helpers/screenshot-utils';
-import { prepareForScreenshot } from './helpers/layout-utils';
+import { prepareForScreenshot, setScreenshotWindowSize } from './helpers/layout-utils';
 import { annotate } from './helpers/annotate-utils';
 import { join } from 'path';
 
 test.use({
 	suiteId: __filename,
+});
+
+test.beforeEach(async ({ app }) => {
+	await setScreenshotWindowSize(app);
 });
 
 /**

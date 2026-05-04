@@ -7,6 +7,39 @@ import { Page } from '@playwright/test';
 import { Application } from '../../infra';
 
 /**
+ * Resize the Electron BrowserWindow to a consistent size for screenshots.
+ *
+ * Reads POSITRON_WINDOW_SIZE=W,H if set, else defaults to 1600x1000 — large
+ * enough that sidebar + editor + secondary sidebar render at marketing
+ * proportions instead of Positron's cramped ~800x600 default.
+ *
+ * Resizing post-launch (via BrowserWindow.setSize) rather than at launch:
+ * Chromium's --window-size flag doesn't propagate through VS Code/Positron's
+ * own BrowserWindow construction.
+ */
+export async function setScreenshotWindowSize(app: Application): Promise<void> {
+	const electronApp = app.code.electronApp;
+	if (!electronApp) {
+		return;
+	}
+
+	let width = 1600;
+	let height = 1000;
+	const fromEnv = process.env.POSITRON_WINDOW_SIZE;
+	if (fromEnv && /^\d+,\d+$/.test(fromEnv)) {
+		[width, height] = fromEnv.split(',').map(Number);
+	}
+
+	await electronApp.evaluate(async ({ BrowserWindow }, size) => {
+		const win = BrowserWindow.getAllWindows()[0];
+		if (win) {
+			win.setSize(size.width, size.height);
+			win.center();
+		}
+	}, { width, height });
+}
+
+/**
  * Hide any visible notification toasts. Toasts appear from many normal
  * interactions (interpreter started, file opened, etc.) and would otherwise
  * leak into screenshots.
