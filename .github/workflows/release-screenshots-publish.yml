@@ -72,6 +72,9 @@ jobs:
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
 
+      - name: Install test/e2e dependencies
+        run: npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund
+
       - name: Install Playwright Chromium
         run: npx playwright install chromium
 
