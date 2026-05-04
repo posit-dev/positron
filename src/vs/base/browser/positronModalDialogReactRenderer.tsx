@@ -99,7 +99,7 @@ export class PositronModalDialogReactRenderer extends Disposable {
 	 * from the DOM, and invoking the onDisposed callback.
 	 */
 	override dispose(): void {
-		// If the dialog us undefined, call super.dispose() and return. This can happen if dispose()
+		// If the dialog is undefined, call super.dispose() and return. This can happen if dispose()
 		// is called before render() for some reason.
 		if (this._dialog === undefined) {
 			super.dispose();
