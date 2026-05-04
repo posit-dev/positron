@@ -7,36 +7,61 @@ import { Page } from '@playwright/test';
 import { Application } from '../../infra';
 
 /**
- * Resize the Electron BrowserWindow to a consistent size for screenshots.
+ * Set the renderer viewport for screenshots, decoupled from the OS window.
  *
- * Reads POSITRON_WINDOW_SIZE=W,H if set, else defaults to 1600x1000 — large
- * enough that sidebar + editor + secondary sidebar render at marketing
- * proportions instead of Positron's cramped ~800x600 default.
+ * GitHub Actions macOS runners have a virtual display capped around 900px
+ * tall, so calling BrowserWindow.setSize(1920, 1294) gets clamped — the
+ * captured page area ends up ~684px tall (way wider than the originals on
+ * positron.posit.co, which are typically 1920x1080 or 2696x1782 retina).
  *
- * Resizing post-launch (via BrowserWindow.setSize) rather than at launch:
- * Chromium's --window-size flag doesn't propagate through VS Code/Positron's
- * own BrowserWindow construction.
+ * Workaround: use Chrome DevTools Protocol's setDeviceMetricsOverride to
+ * force the renderer to lay out and screenshot at an arbitrary size and
+ * deviceScaleFactor regardless of the OS window. We still resize the OS
+ * window best-effort so any code that reads window size sees something
+ * sensible.
+ *
+ * Reads POSITRON_SCREENSHOT_VIEWPORT="W,H" or "W,H,DPR". Default 1920x1080@1x.
  */
 export async function setScreenshotWindowSize(app: Application): Promise<void> {
 	const electronApp = app.code.electronApp;
-	if (!electronApp) {
+	const page = app.code.driver?.currentPage;
+	if (!electronApp || !page) {
 		return;
 	}
 
-	let width = 1600;
-	let height = 1000;
-	const fromEnv = process.env.POSITRON_WINDOW_SIZE;
-	if (fromEnv && /^\d+,\d+$/.test(fromEnv)) {
-		[width, height] = fromEnv.split(',').map(Number);
+	let width = 1920;
+	let height = 1080;
+	let deviceScaleFactor = 1;
+	const fromEnv = process.env.POSITRON_SCREENSHOT_VIEWPORT;
+	if (fromEnv && /^\d+,\d+(,\d+(\.\d+)?)?$/.test(fromEnv)) {
+		const parts = fromEnv.split(',').map(Number);
+		width = parts[0];
+		height = parts[1];
+		if (parts.length >= 3) {
+			deviceScaleFactor = parts[2];
+		}
 	}
 
+	// Best-effort OS window resize so the chrome (title bar etc.) layout looks
+	// right; if the runner's display can't accommodate, macOS clamps and the
+	// CDP override below picks up the slack.
+	const CHROME_HEIGHT_PX = 214;
 	await electronApp.evaluate(async ({ BrowserWindow }, size) => {
 		const win = BrowserWindow.getAllWindows()[0];
 		if (win) {
 			win.setSize(size.width, size.height);
 			win.center();
 		}
-	}, { width, height });
+	}, { width, height: height + CHROME_HEIGHT_PX });
+
+	// CDP viewport override — always succeeds, used by page.screenshot.
+	const session = await page.context().newCDPSession(page);
+	await session.send('Emulation.setDeviceMetricsOverride', {
+		width,
+		height,
+		deviceScaleFactor,
+		mobile: false,
+	});
 }
 
 /**
