@@ -43,6 +43,6 @@ test.describe('Release Screenshots - Layouts', () => {
 			},
 			{ selector: '.part.panel', label: 'Panel', color: '#0d9488' },
 		]);
-		await captureFullWindow(page, 'user-interface-for-rstudio-migration.jpeg');
+		await captureFullWindow(page, 'user-interface-for-rstudio-migration.png');
 	});
 });
