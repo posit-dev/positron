@@ -146,7 +146,8 @@ async function downloadAndReplaceKallichore(version: string,
 			}
 
 			const currentPlatform = platform();
-			const currentArch = arch();
+			// Respect npm_config_arch when cross-building (e.g. building x64 on arm64 macOS).
+			const currentArch = process.env['npm_config_arch'] || arch();
 			let os: string;
 			switch (currentPlatform) {
 				case 'win32': os = (currentArch === 'arm64' ? 'windows-arm64' : 'windows-x64'); break;
