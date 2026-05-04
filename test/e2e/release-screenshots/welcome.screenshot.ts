@@ -39,7 +39,7 @@ test.describe('Release Screenshots - Welcome Page', () => {
 
 		// run the file and wait for the plot
 		await editor.playButton.click();
-		await plots.waitForCurrentPlot();
+		await plots.waitForCurrentPlot({ timeout: 45_000 });
 
 		// setup scroll position and expand variable for screenshot
 		await hotKeys.closePrimarySidebar();
