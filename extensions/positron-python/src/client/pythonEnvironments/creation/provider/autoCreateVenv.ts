@@ -90,21 +90,13 @@ async function collectDepSources(workspace: WorkspaceFolder): Promise<DepSource[
     return sources;
 }
 
-function mergeDepArgs(chosen: DepSource[]): string[] {
-    const args = ['pip', 'install'];
-    for (const source of chosen) {
-        args.push(...source.args.slice(2));
-    }
-    return args;
-}
-
-async function pickDepInstallArgs(sources: DepSource[]): Promise<string[]> {
+async function pickDepInstallArgs(sources: DepSource[]): Promise<string[][]> {
     if (sources.length === 0) {
         return [];
     }
 
     if (sources.length === 1) {
-        return sources[0].args;
+        return [sources[0].args];
     }
 
     const items: QuickPickItem[] = sources.map((s) => ({ label: s.label, picked: true }));
@@ -119,28 +111,16 @@ async function pickDepInstallArgs(sources: DepSource[]): Promise<string[]> {
     const selected = Array.isArray(selection) ? selection : [selection];
     const selectedLabels = new Set(selected.map((s) => s.label));
     const chosen = sources.filter((s) => selectedLabels.has(s.label));
-    return chosen.length > 0 ? mergeDepArgs(chosen) : [];
+    return chosen.map((s) => s.args);
 }
 
-/**
- * Install dependencies into an existing uv-managed venv using `uv pip install`.
- * If `depInstallArgs` is provided, uses those directly (pre-resolved by the
- * auto-create flow). Otherwise, resolves which deps to install interactively.
- */
-export async function uvInstallDeps(
+async function runSingleInstall(
+    args: string[],
     workspace: WorkspaceFolder,
-    progress: CreateEnvironmentProgress,
     token?: CancellationToken,
-    depInstallArgs?: string[],
 ): Promise<void> {
-    progress.report({ message: CreateEnv.Trigger.installingDeps });
-
-    const args = depInstallArgs ?? (await pickDepInstallArgs(await collectDepSources(workspace)));
-    if (!args) {
-        return;
-    }
-
     const deferred = createDeferred<void>();
+    const outputLines: string[] = [];
     traceLog('Running uv dep install: ', ['uv', ...args]);
     const { proc, out, dispose } = execObservable('uv', args, {
         mergeStdOutErr: true,
@@ -151,6 +131,7 @@ export async function uvInstallDeps(
     out.subscribe(
         (value) => {
             const output = value.out.split(/\r?\n/g).join(os.EOL);
+            outputLines.push(output);
             traceLog(output.trimEnd());
         },
         (error) => {
@@ -160,13 +141,51 @@ export async function uvInstallDeps(
         () => {
             dispose();
             if (proc?.exitCode !== 0) {
-                deferred.reject(`uv pip install failed with exitCode: ${proc?.exitCode}`);
+                const detail = outputLines.join('').trimEnd();
+                const msg = detail
+                    ? `uv pip install failed with exitCode: ${proc?.exitCode}\n${detail}`
+                    : `uv pip install failed with exitCode: ${proc?.exitCode}`;
+                deferred.reject(msg);
             } else {
                 deferred.resolve();
             }
         },
     );
     return deferred.promise;
+}
+
+/**
+ * Install dependencies into an existing uv-managed venv using `uv pip install`.
+ * If `depInstallArgs` is provided, uses those directly (pre-resolved by the
+ * auto-create flow). Otherwise, resolves which deps to install interactively.
+ * Each source is installed independently so a failure in one does not block the others.
+ */
+export async function uvInstallDeps(
+    workspace: WorkspaceFolder,
+    progress: CreateEnvironmentProgress,
+    token?: CancellationToken,
+    depInstallArgs?: string[][],
+): Promise<void> {
+    progress.report({ message: CreateEnv.Trigger.installingDeps });
+
+    const allArgs = depInstallArgs ?? (await pickDepInstallArgs(await collectDepSources(workspace)));
+    if (allArgs.length === 0) {
+        return;
+    }
+
+    const errors: string[] = [];
+    for (const args of allArgs) {
+        try {
+            await runSingleInstall(args, workspace, token);
+        } catch (err) {
+            traceError('Failed to install dep source: ', err);
+            errors.push(String(err));
+        }
+    }
+
+    if (errors.length > 0) {
+        throw errors.join('\n\n');
+    }
 }
 
 /**

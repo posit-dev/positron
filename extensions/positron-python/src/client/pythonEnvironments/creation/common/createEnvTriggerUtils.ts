@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+import * as os from 'os';
 import * as path from 'path';
 import { ConfigurationTarget, Uri, WorkspaceFolder } from 'vscode';
 import * as fsapi from '../../../common/platform/fs-paths';
@@ -76,8 +77,14 @@ export async function isGlobalPythonSelected(workspace: WorkspaceFolder): Promis
     const extensionApi: PythonExtension = extension.exports as PythonExtension;
     const interpreter = extensionApi.environments.getActiveEnvironmentPath(workspace.uri);
     const details = await extensionApi.environments.resolveEnvironment(interpreter);
-    const isGlobal = details?.environment === undefined;
+    // --- Start Positron ---
+    const execPath = details?.executable?.uri?.fsPath ?? interpreter.path;
+    // Also treat ~/.local installs as global — they are user-wide, not project-local.
+    const homeLocal = path.join(os.homedir(), '.local') + path.sep;
+    const isUnderHomeLocal = execPath.startsWith(homeLocal);
+    const isGlobal = details?.environment === undefined || isUnderHomeLocal;
     if (isGlobal) {
+        // --- End Positron ---
         traceVerbose(`Selected python for [${workspace.uri.fsPath}] is [global] type: ${interpreter.path}`);
     }
     return isGlobal;
