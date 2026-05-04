@@ -1,136 +1,18 @@
 name: "Nightly: Release Screenshots"
+
 on:
   workflow_dispatch:
   schedule:
     - cron: '0 9 * * 1-5'  # 09:00 UTC, Mon-Fri
-
-permissions:
-  contents: read
-  id-token: write  # for AWS OIDC role-assumption in upload-report-to-s3
 
 concurrency:
   group: release-screenshots-nightly
   cancel-in-progress: true
 
 jobs:
-  screenshots:
-    name: screenshots-nightly
-    runs-on: macos-latest
-    steps:
-      - name: Checkout positron
-        uses: actions/checkout@v6
-
-      - name: Generate POSITRON_BOT token
-        id: bot-token
-        uses: actions/create-github-app-token@v3
-        with:
-          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
-          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
-
-      - name: Resolve version
-        id: version
-        env:
-          GH_TOKEN: ${{ steps.bot-token.outputs.token }}
-        run: |
-          VERSION=$(gh api "repos/posit-dev/positron-builds/releases?per_page=100" \
-            --jq '[.[] | select(.prerelease == true)] | .[0].tag_name')
-          if [[ -z "$VERSION" || "$VERSION" == "null" ]]; then
-            echo "::error::No prerelease found in posit-dev/positron-builds"
-            exit 1
-          fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Resolved latest prerelease: $VERSION"
-
-      - name: Download Positron build
-        env:
-          GH_TOKEN: ${{ steps.bot-token.outputs.token }}
-        run: |
-          OUTPUT=$(.github/scripts/release-screenshots/download-build.sh "${{ steps.version.outputs.version }}")
-          echo "$OUTPUT" >> "$GITHUB_ENV"
-
-      - name: Setup release-screenshot runtimes
-        id: runtimes
-        uses: ./.github/actions/setup-release-screenshot-runtimes
-
-      - name: Clone positron-website
-        run: |
-          git clone --depth 1 https://github.com/posit-dev/positron-website.git \
-            "$RUNNER_TEMP/positron-website"
-
-      - name: Send Results to GH Summary
-        uses: ./.github/actions/gen-report-dir
-        with:
-          identifier: release-screenshots-nightly
-
-      - name: Run release-screenshots project
-        env:
-          POSITRON_PY_VER_SEL: ${{ steps.runtimes.outputs.python-primary-version }}
-          POSITRON_R_VER_SEL: '4.5.2'
-          POSITRON_PY_ALT_VER_SEL: ${{ steps.runtimes.outputs.python-alt-version }}
-          POSITRON_R_ALT_VER_SEL: '4.4.2'
-          ENABLE_CUSTOM_REPORTER: 'false'
-          GH_SUMMARY_REPORT: 'true'
-          POSITRON_WINDOW_SIZE: '1600,1000'
-        run: npx playwright test --project release-screenshots --workers 1
-
-      - name: Upload Playwright Report to S3
-        if: ${{ success() || failure() }}
-        uses: ./.github/actions/upload-report-to-s3
-        with:
-          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
-          report-dir: ${{ env.REPORT_DIR }}
-
-      - name: Upload generated screenshots to S3
-        if: ${{ success() || failure() }}
-        run: |
-          aws s3 cp test/e2e/release-screenshots/output/ \
-            "s3://positron-test-reports/${REPORT_DIR}/screenshots/" \
-            --recursive
-
-      - name: Compare and report
-        id: compare
-        env:
-          SCREENSHOT_BASE_URL: https://d38p2avprg8il3.cloudfront.net/${{ env.REPORT_DIR }}/screenshots
-        run: |
-          node .github/scripts/release-screenshots/compare-and-report.mjs \
-            test/e2e/release-screenshots/output \
-            "$RUNNER_TEMP/positron-website/images" \
-            "$RUNNER_TEMP/classification.json"
-
-      - name: Upload generated screenshots
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: nightly-screenshots
-          path: test/e2e/release-screenshots/output/
-          if-no-files-found: warn
-
-      - name: Upload Playwright traces and test-results
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: nightly-test-results
-          path: test-results/
-          if-no-files-found: ignore
-
-      - name: Upload Playwright HTML report
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: nightly-playwright-report
-          path: playwright-report/
-          if-no-files-found: ignore
-
-  # slack-notify:
-  #   if: failure()
-  #   needs: [screenshots]
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Notify Slack
-  #       uses: midleman/slack-workflow-status@v3.1.3
-  #       with:
-  #         gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
-  #         slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
-  #         slack_channel: "#positron-test-results"
-  #         notify_on: "failure"
+  run:
+    uses: ./.github/workflows/release-screenshots.yml
+    with:
+      mode: nightly
+      version: latest-prerelease
+    secrets: inherit
