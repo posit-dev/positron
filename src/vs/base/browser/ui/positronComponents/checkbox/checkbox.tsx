@@ -39,7 +39,7 @@ export const Checkbox = ({ label, initialChecked, onChanged }: CheckboxProps) =>
 	// Render.
 	return (
 		<div className='checkbox'>
-			<button ref={buttonRef} aria-checked='false' className='checkbox-button' id={id} role='checkbox' tabIndex={0} onClick={clickHandler}>
+			<button ref={buttonRef} aria-checked='false' className='checkbox-button' id={id} role='checkbox' tabIndex={0} type='button' onClick={clickHandler}>
 				{checked && <div className='check-indicator codicon codicon-check' />}
 			</button>
 			<label htmlFor={id}>{label}</label>
