@@ -34,7 +34,6 @@ import { IsDevelopmentContext } from '../../../../platform/contextkey/common/con
 // eslint-disable-next-line no-duplicate-imports
 import { storeLastUpdateVersion } from './update.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
-import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 // --- End Positron ---
 
 const workbench = Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench);

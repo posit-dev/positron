@@ -378,7 +378,7 @@ export abstract class AbstractUpdateService implements IUpdateService {
 
 		this.logService.debug('update#checkForUpdates, url =', releaseMetadataUrl);
 
-		this.requestService.request({ url: releaseMetadataUrl }, CancellationToken.None)
+		this.requestService.request({ url: releaseMetadataUrl, callSite: 'update.checkForUpdates' }, CancellationToken.None)
 			.then<IUpdate | null>(asJson)
 			.catch(err => {
 				this.logService.trace('update#checkForUpdates, update request did not return valid update metadata:', err.message);
@@ -419,7 +419,7 @@ export abstract class AbstractUpdateService implements IUpdateService {
 	async getReleaseNotes(): Promise<string> {
 		const channel = process.env.POSITRON_UPDATE_CHANNEL ?? this.configurationService.getValue<string>('update.positron.channel');
 		const url = `${this.productService.releaseNotesUrl}/${channel}/release-notes/release-${this.productService.positronVersion}.md`;
-		const releaseNotesResponse = await this.requestService.request({ url }, CancellationToken.None);
+		const releaseNotesResponse = await this.requestService.request({ url, callSite: 'update.getReleaseNotes' }, CancellationToken.None);
 
 		if (process.env.POSITRON_UPDATE_CHANNEL) {
 			this.logService.info('update#getReleaseNotes - using release notes channel from environment variable:', process.env.POSITRON_RELEASE_NOTES_CHANNEL);
@@ -577,7 +577,7 @@ export abstract class AbstractUpdateService implements IUpdateService {
 		}
 
 		try {
-			return this.requestService.request({ url: this.url }, CancellationToken.None)
+			return this.requestService.request({ url: this.url, callSite: 'update.poll' }, CancellationToken.None)
 				.then<IUpdate | null>(asJson)
 				.then(update => {
 					if (!update || !update.version) {

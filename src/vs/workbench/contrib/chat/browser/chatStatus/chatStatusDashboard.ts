@@ -397,15 +397,12 @@ export class ChatStatusDashboard extends DomWidget {
 
 		// Settings
 		{
-			const chatSentiment = this.chatEntitlementService.sentiment;
-			addSeparator(localize('inlineSuggestions', "Inline Suggestions"), chatSentiment.installed && !chatSentiment.disabled && !chatSentiment.untrusted ? toAction({
-				id: 'workbench.action.openChatSettings',
-				label: localize('settingsLabel', "Settings"),
-				tooltip: localize('settingsTooltip', "Open Settings"),
-				class: ThemeIcon.asClassName(Codicon.settingsGear),
-				run: () => this.runCommandAndClose(() => this.commandService.executeCommand('workbench.action.openSettings', { query: `@id:${defaultChat.completionsEnablementSetting} @id:${defaultChat.nextEditSuggestionsSetting}` })),
-			}) : undefined);
-
+			// --- Start Positron ---
+			// Upstream's section here used a closure-local `addSeparator` helper that was
+			// restructured away by the 1.118.0 merge. The settings entry is rendered via
+			// createSettings(); the standalone "Inline Suggestions" header from upstream
+			// is dropped until we re-port to the new dashboard structure.
+			// --- End Positron ---
 			this.createSettings(this.element, this._store);
 		}
 

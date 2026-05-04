@@ -22,7 +22,10 @@ import { FileEditorInput } from '../../../files/browser/editors/fileEditorInput.
 import { NotebookEditorInput } from '../../../notebook/common/notebookEditorInput.js';
 import { IChatContextPickService, IChatContextValueItem, IChatContextPickerItem, IChatContextPickerPickItem, IChatContextPicker } from '../attachments/chatContextPickService.js';
 import { IChatRequestToolEntry, IChatRequestToolSetEntry, IChatRequestVariableEntry, IImageVariableEntry, toToolSetVariableEntry, toToolVariableEntry } from '../../common/attachments/chatVariableEntries.js';
-import { isToolSet, ToolDataSource } from '../../common/tools/languageModelToolsService.js';
+// --- Start Positron ---
+// Add ILanguageModelToolsService for the Positron-only tool service constructor injection.
+import { isToolSet, ILanguageModelToolsService, ToolDataSource } from '../../common/tools/languageModelToolsService.js';
+// --- End Positron ---
 import { ChatAgentLocation } from '../../common/constants.js';
 import { IChatWidget } from '../chat.js';
 import { imageToHash, isImage } from '../widget/input/editor/chatPasteProviders.js';

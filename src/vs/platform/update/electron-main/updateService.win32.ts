@@ -37,7 +37,6 @@ import { ITelemetryService } from '../../telemetry/common/telemetry.js';
 // removed unused imports: AvailableForDownload, IUpdateURLOptions
 import { DisablementReason, IUpdate, State, StateType, UpdateType } from '../common/update.js';
 import { AbstractUpdateService, createUpdateURL, getUpdateRequestHeaders, UpdateErrorClassification } from './abstractUpdateService.js';
-import { INodeProcess } from '../../../base/common/platform.js';
 // --- End Positron ---
 
 // --- Start Positron ---
@@ -86,7 +85,11 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		@IRequestService requestService: IRequestService,
 		@ILogService logService: ILogService,
 		@IFileService private readonly fileService: IFileService,
-		@INativeHostMainService private readonly nativeHostMainService: INativeHostMainService,
+		// --- Start Positron ---
+		// nativeHostMainService is declared as `protected readonly` on AbstractUpdateService
+		// (Positron-only field), so this subclass receives it via super(); no need to redeclare.
+		@INativeHostMainService nativeHostMainService: INativeHostMainService,
+		// --- End Positron ---
 		@IProductService productService: IProductService,
 		@IApplicationStorageMainService applicationStorageMainService: IApplicationStorageMainService,
 		@IMeteredConnectionService meteredConnectionService: IMeteredConnectionService,
@@ -351,7 +354,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 
 					const downloadPath = `${updatePackagePath}.tmp`;
 
-					return this.requestService.request({ url: update.url }, CancellationToken.None)
+					return this.requestService.request({ url: update.url, callSite: 'update.downloadUpdate' }, CancellationToken.None)
 						.then(context => this.fileService.writeFile(URI.file(downloadPath), context.stream))
 						.then(update.sha256hash ? () => checksum(downloadPath, update.sha256hash) : () => undefined)
 						.then(() => pfs.Promises.rename(downloadPath, updatePackagePath, false /* no retry */))

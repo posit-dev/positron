@@ -228,6 +228,7 @@ export function buildModelPickerItems(
 	languageModelsService?: ILanguageModelsService,
 	// --- Start Positron ---
 	vendorDisplayNames?: ReadonlyMap<string, string>,
+	commandService?: ICommandService,
 	// --- End Positron ---
 ): IActionListItem<IActionWidgetDropdownAction>[] {
 	const items: IActionListItem<IActionWidgetDropdownAction>[] = [];
@@ -626,9 +627,9 @@ export function buildModelPickerItems(
 					});
 				}
 				if (item.kind === 'available') {
-					items.push(createModelItem(createModelAction(item.model, selectedModelId, onSelect), item.model));
+					items.push(createModelItem(createModelAction(item.model, selectedModelId, onSelect, languageModelsService!), item.model));
 				} else {
-					items.push(createUnavailableModelItem(item.id, item.entry, item.reason, manageSettingsUrl, updateStateType));
+					items.push(createUnavailableModelItem(item.id, item.entry, item.reason, manageSettingsUrl, updateStateType, chatEntitlementService));
 				}
 			}
 		}
@@ -699,9 +700,9 @@ export function buildModelPickerItems(
 				// --- End Positron ---
 				const entry = controlModels[model.metadata.id] ?? controlModels[model.identifier];
 				if (entry?.minVSCodeVersion && !isVersionAtLeast(currentVSCodeVersion, entry.minVSCodeVersion)) {
-					items.push(createUnavailableModelItem(model.metadata.id, entry, 'update', manageSettingsUrl, updateStateType, ModelPickerSection.Other));
+					items.push(createUnavailableModelItem(model.metadata.id, entry, 'update', manageSettingsUrl, updateStateType, chatEntitlementService, ModelPickerSection.Other));
 				} else {
-					items.push(createModelItem(createModelAction(model, selectedModelId, onSelect, ModelPickerSection.Other), model));
+					items.push(createModelItem(createModelAction(model, selectedModelId, onSelect, languageModelsService!, ModelPickerSection.Other), model));
 				}
 			}
 		}
@@ -729,7 +730,7 @@ export function buildModelPickerItems(
 				class: undefined,
 				tooltip: localize('chat.manageModels.tooltip', "Manage Language Models"),
 				label: localize('chat.manageModels', "Manage Models..."),
-				run: () => { commandService.executeCommand(MANAGE_CHAT_COMMAND_ID); }
+				run: () => { commandService?.executeCommand(MANAGE_CHAT_COMMAND_ID); }
 			},
 			kind: ActionListItemKind.Action,
 			label: localize('chat.manageModels', "Manage Models..."),
@@ -751,7 +752,7 @@ export function buildModelPickerItems(
 			class: undefined,
 			tooltip: localize('chat.configureProviders.tooltip', "Add and Configure Language Model Providers"),
 			label: localize('chat.configureProviders', "Configure Model Providers..."),
-			run: () => { commandService.executeCommand('positron-assistant.configureProviders'); }
+			run: () => { commandService?.executeCommand('positron-assistant.configureProviders'); }
 		},
 		kind: ActionListItemKind.Action,
 		label: localize('chat.configureProviders', "Configure Model Providers..."),

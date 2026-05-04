@@ -23,7 +23,6 @@ import { IMeteredConnectionService } from '../../meteredConnection/common/metere
 // removed unused import IUpdateURLOptions
 import { AbstractUpdateService, createUpdateURL, getUpdateRequestHeaders, UpdateErrorClassification } from './abstractUpdateService.js';
 // --- End Positron ---
-import { INodeProcess } from '../../../base/common/platform.js';
 
 // --- Start Positron ---
 import { INativeHostMainService } from '../../native/electron-main/nativeHostMainService.js';

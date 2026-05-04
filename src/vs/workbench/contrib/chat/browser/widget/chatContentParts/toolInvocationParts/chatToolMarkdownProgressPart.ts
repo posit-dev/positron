@@ -9,7 +9,6 @@ import { ThemeIcon } from '../../../../../../../base/common/themables.js';
 import { IMarkdownRenderer } from '../../../../../../../platform/markdown/browser/markdownRenderer.js';
 import { IInstantiationService } from '../../../../../../../platform/instantiation/common/instantiation.js';
 import { IChatMarkdownContent, IChatToolInvocation, IChatToolInvocationSerialized } from '../../../../common/chatService/chatService.js';
-import { CodeBlockModelCollection } from '../../../../common/widget/codeBlockModelCollection.js';
 import { IChatCodeBlockInfo } from '../../../chat.js';
 import { ICodeBlockRenderOptions } from '../codeBlockPart.js';
 import { IChatContentPartRenderContext } from '../chatContentParts.js';
@@ -39,7 +38,6 @@ export class ChatToolMarkdownProgressPart extends BaseChatToolInvocationSubPart 
 		editorPool: EditorPool,
 		currentWidthDelegate: () => number,
 		codeBlockStartIndex: number,
-		codeBlockModelCollection: CodeBlockModelCollection,
 		@IInstantiationService instantiationService: IInstantiationService,
 	) {
 		super(toolInvocation);
@@ -58,7 +56,7 @@ export class ChatToolMarkdownProgressPart extends BaseChatToolInvocationSubPart 
 				wordWrap: 'on'
 			}
 		};
-		this.markdownPart = this._register(instantiationService.createInstance(ChatMarkdownContentPart, chatMarkdownContent, context, editorPool, false, codeBlockStartIndex, renderer, /* markdownRenderOptions */ undefined, currentWidthDelegate(), codeBlockModelCollection, { codeBlockRenderOptions }));
+		this.markdownPart = this._register(instantiationService.createInstance(ChatMarkdownContentPart, chatMarkdownContent, context, editorPool, false, codeBlockStartIndex, renderer, /* markdownRenderOptions */ undefined, currentWidthDelegate(), { codeBlockRenderOptions }));
 
 		// Determine icon based on tool invocation state
 		let icon: ThemeIcon;

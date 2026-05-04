@@ -23,6 +23,7 @@ import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
 // --- Start Positron ---
 // import { asTextOrError, IRequestService } from '../../../../platform/request/common/request.js';
+import { IUpdateService } from '../../../../platform/update/common/update.js';
 // --- End Positron ---
 import { DEFAULT_MARKDOWN_STYLES, renderMarkdownDocument } from '../../markdown/browser/markdownDocumentRenderer.js';
 import { WebviewInput } from '../../webviewPanel/browser/webviewEditorInput.js';
@@ -64,6 +65,10 @@ export class ReleaseNotesManager extends Disposable {
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@IProductService private readonly _productService: IProductService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
+		// --- Start Positron ---
+		// _updateService is used to fetch release notes via the main process (avoids CORS).
+		@IUpdateService private readonly _updateService: IUpdateService,
+		// --- End Positron ---
 	) {
 		super();
 

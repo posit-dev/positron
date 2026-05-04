@@ -4,9 +4,16 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Delayer } from '../../../../base/common/async.js';
+// --- Start Positron ---
+// VSBuffer is used by the captureContentsAsPng() method below.
+import { VSBuffer } from '../../../../base/common/buffer.js';
+// --- End Positron ---
 import { Schemas } from '../../../../base/common/network.js';
 import { ProxyChannel } from '../../../../base/parts/ipc/common/ipc.js';
 import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
+// --- Start Positron ---
+import { IFileService } from '../../../../platform/files/common/files.js';
+// --- End Positron ---
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
@@ -57,10 +64,18 @@ export class ElectronWebviewElement extends WebviewElement {
 		@INativeHostService private readonly _nativeHostService: INativeHostService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IAccessibilityService accessibilityService: IAccessibilityService,
+		// --- Start Positron ---
+		// Pass IFileService through to the base WebviewElement constructor (Positron-added).
+		@IFileService fileService: IFileService,
+		// --- End Positron ---
 	) {
 		super(initInfo, webviewThemeDataProvider,
 			configurationService, contextMenuService, notificationService, environmentService,
-			logService, remoteAuthorityResolverService, tunnelService, accessibilityService, instantiationService);
+			logService, remoteAuthorityResolverService, tunnelService, accessibilityService, instantiationService,
+			// --- Start Positron ---
+			fileService
+			// --- End Positron ---
+		);
 
 		this._webviewKeyboardHandler = new WindowIgnoreMenuShortcutsManager(configurationService, mainProcessService, _nativeHostService);
 

@@ -651,7 +651,7 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 				return;
 			}
 			// Run layout to update the webview's position to keep up with latest position.
-			helpOverlayWebview.layoutWebviewOverElement(element);
+			helpOverlayWebview.setAnchorElement(element);
 
 			oldBounds = currentBounds;
 			numberOfChecks++;
@@ -666,7 +666,7 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 		// Run layout claim and layout initially. This will help avoid stutters for non-animating
 		// cases like dragging the help window larger or opening in an already expanded view.
 		helpOverlayWebview.claim(element, DOM.getWindow(element), undefined);
-		helpOverlayWebview.layoutWebviewOverElement(element);
+		helpOverlayWebview.setAnchorElement(element);
 
 		this._register(helpOverlayWebview.onDidFocus(() => {
 			this.setHelpFocusedContextKey(true, 'webview.onDidFocus');

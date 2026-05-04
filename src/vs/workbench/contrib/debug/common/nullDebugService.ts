@@ -81,6 +81,9 @@ const nullAdapterManager: IAdapterManager = {
 	async getDebugAdapterDescriptor() { return undefined; },
 	getDebuggerLabel() { return undefined; },
 	someDebuggerInterestedInLanguage(): boolean { return false; },
+	someDebuggerInterestedInLanguageSupportsUiLaunch(): boolean { return false; },
+	shouldSendBreakpointsOnAllSaves(): boolean { return false; },
+	shouldVerifyBreakpointsInDirtyDocuments(): boolean { return false; },
 	getDebugger() { return undefined; },
 	async activateDebuggers(): Promise<void> { },
 	registerDebugAdapterFactory() { return Disposable.None; },
@@ -139,6 +142,7 @@ export class NullDebugService implements IDebugService {
 	async stopSession(_session: IDebugSession | undefined, _disconnect?: boolean, _suspend?: boolean): Promise<void> { }
 	sourceIsNotAvailable(): void { }
 	async runTo(): Promise<void> { }
+	setSessionForeground(_session: IDebugSession, _foreground: boolean): void { }
 }
 
 export class NullDebugVisualizerService implements IDebugVisualizerService {

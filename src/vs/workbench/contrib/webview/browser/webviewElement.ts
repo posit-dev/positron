@@ -25,6 +25,9 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
+// --- Start Positron ---
+import { IFileService } from '../../../../platform/files/common/files.js';
+// --- End Positron ---
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
@@ -191,6 +194,10 @@ export class WebviewElement extends Disposable implements IWebviewElement, Webvi
 		@ITunnelService private readonly _tunnelService: ITunnelService,
 		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
+		// --- Start Positron ---
+		// _fileService is used by injectJavaScript() to load the webview-events.js helper.
+		@IFileService private readonly _fileService: IFileService,
+		// --- End Positron ---
 	) {
 		super();
 

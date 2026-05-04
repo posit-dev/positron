@@ -264,7 +264,7 @@ export class ChatToolInvocationPart extends Disposable implements IChatContentPa
 		// This is after it is executed or canceled
 		// Before execution is handled by the first if-block in this method
 		if (this.toolInvocation.toolId === 'executeCode') {
-			return this.instantiationService.createInstance(ChatToolMarkdownProgressPart, this.toolInvocation, this.context, this.renderer, this.editorPool, this.currentWidthDelegate, this.codeBlockStartIndex, this.codeBlockModelCollection);
+			return this.instantiationService.createInstance(ChatToolMarkdownProgressPart, this.toolInvocation, this.context, this.renderer, this.editorPool, this.currentWidthDelegate, this.codeBlockStartIndex);
 		}
 		// --- End Positron ---
 

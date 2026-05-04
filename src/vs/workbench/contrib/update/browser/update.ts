@@ -20,7 +20,12 @@ import { INotificationService, NotificationPriority, Severity } from '../../../.
 import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IBrowserWorkbenchEnvironmentService } from '../../../services/environment/browser/environmentService.js';
 import { ReleaseNotesManager } from './releaseNotesEditor.js';
-import { isWeb } from '../../../../base/common/platform.js';
+// --- Start Positron ---
+// isMacintosh / isWindows are used by Positron's update notification flow;
+// toAction is used to build notification action buttons.
+import { isMacintosh, isWeb, isWindows } from '../../../../base/common/platform.js';
+import { toAction } from '../../../../base/common/actions.js';
+// --- End Positron ---
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { RawContextKey, IContextKey, IContextKeyService, ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { MenuRegistry, MenuId, registerAction2, Action2 } from '../../../../platform/actions/common/actions.js';
@@ -34,9 +39,9 @@ import { IUserDataSyncWorkbenchService } from '../../../services/userDataSync/co
 import { Event } from '../../../../base/common/event.js';
 import { IDefaultAccountService } from '../../../../platform/defaultAccount/common/defaultAccount.js';
 import { getInternalOrg } from '../../../../platform/assignment/common/assignment.js';
-import { IVersion, tryParseVersion } from '../common/updateUtils.js';
 
 // --- Start Positron ---
+// Upstream's IVersion / tryParseVersion are unused — Positron uses calver parsing below.
 import { IPositronVersion, parse } from '../../../../platform/update/common/positronVersion.js';
 // --- End Positron ---
 
@@ -248,7 +253,12 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 	// --- End Positron ---
 
 	constructor(
-		@IStorageService storageService: IStorageService,
+		// --- Start Positron ---
+		// Positron's customizations call this.notificationService / this.openerService /
+		// this.configurationService / this.storageService inside methods that upstream removed
+		// or moved. Keep them injected as private fields until those flows are reconciled.
+		@IStorageService private readonly storageService: IStorageService,
+		// --- End Positron ---
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
 		@IDialogService private readonly dialogService: IDialogService,
 		@IUpdateService private readonly updateService: IUpdateService,
@@ -256,6 +266,11 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IProductService private readonly productService: IProductService,
 		@IHostService private readonly hostService: IHostService,
+		// --- Start Positron ---
+		@INotificationService private readonly notificationService: INotificationService,
+		@IOpenerService private readonly openerService: IOpenerService,
+		@IConfigurationService private readonly configurationService: IConfigurationService,
+		// --- End Positron ---
 	) {
 		super();
 		this.state = updateService.state;

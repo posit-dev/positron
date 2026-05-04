@@ -113,7 +113,6 @@ import { isAgentHostTarget } from '../agentSessions/agentSessions.js';
 const $ = dom.$;
 
 const COPILOT_USERNAME = 'GitHub Copilot';
-const WORKING_CAUGHT_UP_DEBOUNCE_MS = 50;
 
 export interface IChatListItemTemplate {
 	currentElement?: ChatTreeItem;
@@ -1338,13 +1337,11 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		});
 	}
 
-	private hasBeenCaughtUpLongEnough(element: IChatResponseViewModel): boolean {
-		const lastRenderTime = element.renderData?.lastRenderTime;
-		if (typeof lastRenderTime !== 'number' || lastRenderTime === 0) {
-			return false;
-		}
-		return (Date.now() - lastRenderTime) >= WORKING_CAUGHT_UP_DEBOUNCE_MS;
-	}
+	// --- Start Positron ---
+	// Upstream added `hasBeenCaughtUpLongEnough` but its caller didn't land cleanly in the
+	// 1.118.0 merge — removed here to keep noUnusedLocals happy. Re-add when the working
+	// progress confirmation flow is reconciled.
+	// --- End Positron ---
 
 	private getChatFileChangesSummaryPart(element: IChatResponseViewModel): IChatChangesSummaryPart | undefined {
 		if (!this.shouldShowFileChangesSummary(element)) {

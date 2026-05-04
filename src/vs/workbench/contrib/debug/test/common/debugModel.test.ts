@@ -35,7 +35,11 @@ suite('DebugModel', () => {
 				disposable.add(new MockDebugStorage(storage)),
 				upcastPartial<ITextFileService>({ isDirty: (_: unknown) => false }),
 				undefined!,
-				new NullLogService()
+				new NullLogService(),
+				// --- Start Positron ---
+				// IDebugService stub for the Positron-added 5th constructor arg.
+				undefined!
+				// --- End Positron ---
 			);
 			disposable.add(model);
 			return model;

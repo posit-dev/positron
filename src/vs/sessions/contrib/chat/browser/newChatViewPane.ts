@@ -5,10 +5,8 @@
 
 import './media/chatWidget.css';
 import * as dom from '../../../../base/browser/dom.js';
-import { Codicon } from '../../../../base/common/codicons.js';
-import { Event } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore, IDisposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
-import { derived, observableValue } from '../../../../base/common/observable.js';
+import { derived } from '../../../../base/common/observable.js';
 import { isWeb } from '../../../../base/common/platform.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -187,190 +185,24 @@ class NewChatWidget extends Disposable {
 		return this._workspacePicker.selectedProject?.workspace.repositories[0]?.uri;
 	}
 
+	// --- Start Positron ---
+	// FIXME(merge-1.118.0): Upstream's auto-merge of newChatViewPane.ts dropped the
+	// supporting fields/state on `NewChatWidget` (e.g. `_localModelPickerContainer`,
+	// `_cloudModelPicker`, `_toolbarPickersContainer`, `_loadingSpinner`, `_sendButton`,
+	// `_altKeyDown`, `_modelPickerDisposable`, `_pickersContainer`, `_repoPickerContainer`,
+	// `_folderPickerContainer`, `_targetPicker`, `_history`, etc.) that the methods
+	// below relied on. Stubbed out here so the file compiles; the previous behavior
+	// (workspace picker, model picker, toolbar pickers, send button) needs to be
+	// re-ported on top of the new upstream widget structure. See upstream-merge-report.md.
 	private _renderWorkspacePicker(container: HTMLElement): IDisposable {
 		const pickersRow = dom.append(container, dom.$('.session-workspace-picker'));
 		const pickersLabel = dom.append(pickersRow, dom.$('.session-workspace-picker-label'));
 		pickersLabel.textContent = this._workspacePicker.selectedProject
 			? localize('newSessionIn', "New session in")
 			: localize('newSessionChooseWorkspace', "Start by picking a");
-
-		this._createAttachButton(toolbar);
-
-		// Local model picker (EnhancedModelPickerActionItem)
-		this._localModelPickerContainer = dom.append(toolbar, dom.$('.sessions-chat-model-picker'));
-		this._createLocalModelPicker(this._localModelPickerContainer);
-
-		// Remote model picker (action list dropdown)
-		this._cloudModelPicker.render(toolbar);
-		this._cloudModelPicker.setVisible(false);
-
-		this._toolbarPickersContainer = dom.append(toolbar, dom.$('.sessions-chat-toolbar-pickers'));
-
-		dom.append(toolbar, dom.$('.sessions-chat-toolbar-spacer'));
-
-		this._loadingSpinner = dom.append(toolbar, dom.$('.sessions-chat-loading-spinner'));
-		this._register(this.hoverService.setupManagedHover(getDefaultHoverDelegate('mouse'), this._loadingSpinner, localize('loading', "Loading...")));
-
-		const sendButtonContainer = dom.append(toolbar, dom.$('.sessions-chat-send-button'));
-		const sendButton = this._sendButton = this._register(new Button(sendButtonContainer, {
-			secondary: true,
-			title: localize('send', "Send"),
-			ariaLabel: localize('send', "Send"),
-		}));
-		sendButton.icon = Codicon.send;
-		this._register(sendButton.onDidClick(() => this._send({ openNewAfterSend: this._altKeyDown })));
-		this._register(dom.addDisposableListener(dom.getWindow(container), dom.EventType.KEY_DOWN, e => {
-			if (e.key === 'Alt') {
-				this._altKeyDown = true;
-				sendButton.icon = Codicon.runAbove;
-			}
-		}));
-		this._register(dom.addDisposableListener(dom.getWindow(container), dom.EventType.KEY_UP, e => {
-			if (e.key === 'Alt') {
-				this._altKeyDown = false;
-				sendButton.icon = Codicon.send;
-			}
-		}));
-		this._updateSendButtonState();
+		return Disposable.None;
 	}
-
-	// --- Model picker ---
-
-	private _createLocalModelPicker(container: HTMLElement): void {
-		const delegate: IModelPickerDelegate = {
-			currentModel: this._currentLanguageModel,
-			onDidChangeModelList: Event.map(this.languageModelsService.onDidChangeLanguageModels, () => { /* void */ }),
-			setModel: (model: ILanguageModelChatMetadataAndIdentifier) => {
-				this._currentLanguageModel.set(model, undefined);
-				this._newSession.value?.setModelId(model.identifier);
-				this._focusEditor();
-			},
-			getModels: () => this._getAvailableModels(),
-			canManageModels: () => false,
-		};
-
-		const pickerOptions: IChatInputPickerOptions = {
-			hideChevrons: observableValue('hideChevrons', false),
-			hoverPosition: { hoverPosition: HoverPosition.ABOVE },
-		};
-
-		const action = { id: 'sessions.modelPicker', label: '', enabled: true, class: undefined, tooltip: '', run: () => { } };
-
-		const modelPicker = this.instantiationService.createInstance(
-			EnhancedModelPickerActionItem, action, delegate, pickerOptions,
-		);
-		this._modelPickerDisposable.value = modelPicker;
-		modelPicker.render(container);
-	}
-
-	private _initDefaultModel(): void {
-		const models = this._getAvailableModels();
-		const draft = this._getDraftState();
-		const lastModelId = draft?.selectedModel?.identifier ?? this._history.values.at(-1)?.selectedModel?.identifier;
-		const defaultModel = (lastModelId ? models.find(m => m.identifier === lastModelId) : undefined) ?? models[0];
-		this._currentLanguageModel.set(defaultModel, undefined);
-	}
-
-	private _getAvailableModels(): ILanguageModelChatMetadataAndIdentifier[] {
-		return this.languageModelsService.getLanguageModelIds()
-			.map(id => {
-				const metadata = this.languageModelsService.lookupLanguageModel(id);
-				return metadata ? { metadata, identifier: id } : undefined;
-			})
-			.filter((m): m is ILanguageModelChatMetadataAndIdentifier => !!m && m.metadata.targetChatSessionType === AgentSessionProviders.Background);
-	}
-
-	// --- Welcome: Target & option pickers (dropdown row below input) ---
-
-	private _renderOptionGroupPickers(): void {
-		if (!this._pickersContainer) {
-			return;
-		}
-
-		this._clearAllPickers();
-		dom.clearNode(this._pickersContainer);
-
-		const pickersRow = dom.append(this._pickersContainer, dom.$('.chat-full-welcome-pickers'));
-
-		// Left half: target switcher (right-justified within its half)
-		const leftHalf = dom.append(pickersRow, dom.$('.sessions-chat-pickers-left-half'));
-		const targetDropdownContainer = dom.append(leftHalf, dom.$('.sessions-chat-dropdown-wrapper'));
-		this._targetPicker.render(targetDropdownContainer);
-
-		// Right half: separator + pickers (left-justified within its half)
-		const rightHalf = dom.append(pickersRow, dom.$('.sessions-chat-pickers-right-half'));
-		this._extensionPickersLeftContainer = dom.append(rightHalf, dom.$('.sessions-chat-pickers-left-separator'));
-		this._extensionPickersLeftContainer.style.display = 'none';
-
-		// Repo picker for cloud (rendered once, shown/hidden based on target)
-		this._repoPickerContainer = dom.append(rightHalf, dom.$('.sessions-chat-extension-pickers-right'));
-		this._repoPickerContainer.style.display = 'none';
-		this._repoPicker.render(this._repoPickerContainer);
-
-		// Folder picker for local (rendered once, shown/hidden based on target)
-		this._folderPickerContainer = this._folderPicker.render(rightHalf);
-		this._folderPickerContainer.style.display = 'none';
-	}
-
-	// --- Local session pickers ---
-
-	private _renderLocalSessionPickers(): void {
-		this._clearAllPickers();
-		if (this._folderPickerContainer) {
-			this._folderPickerContainer.style.display = '';
-		}
-		if (this._extensionPickersLeftContainer) {
-			this._extensionPickersLeftContainer.style.display = 'block';
-		}
-		// Show local model picker, hide remote
-		if (this._localModelPickerContainer) {
-			this._localModelPickerContainer.style.display = '';
-		}
-		this._cloudModelPicker.setVisible(false);
-	}
-
-	// --- Remote session pickers ---
-
-	private _renderRemoteSessionPickers(session: RemoteNewSession, force?: boolean): void {
-		if (!this._repoPickerContainer) {
-			return;
-		}
-
-		// Hide local-only pickers
-		if (this._folderPickerContainer) {
-			this._folderPickerContainer.style.display = 'none';
-		}
-
-		// Show remote model picker, hide local
-		if (this._localModelPickerContainer) {
-			this._localModelPickerContainer.style.display = 'none';
-		}
-		this._cloudModelPicker.setSession(session);
-		this._cloudModelPicker.setVisible(true);
-
-		// Show repo picker and separator
-		if (this._extensionPickersLeftContainer) {
-			this._extensionPickersLeftContainer.style.display = 'block';
-		}
-		this._repoPickerContainer.style.display = '';
-
-		// Render toolbar pickers (other groups)
-		this._renderToolbarPickers(session, force);
-	}
-
-	private _renderToolbarPickers(session: RemoteNewSession, force?: boolean): void {
-		if (!this._toolbarPickersContainer) {
-			return;
-		}
-
-		const toolbarOptions = session.getOtherOptionGroups();
-
-		// Filter by item availability (when-clause filtering is done by the session)
-		const visibleGroups = toolbarOptions.filter(option => {
-			const group = option.group;
-			return group.items.length > 0 || (group.commands || []).length > 0 || !!group.searchable;
-		});
-	}
+	// --- End Positron ---
 
 	// --- Send ---
 

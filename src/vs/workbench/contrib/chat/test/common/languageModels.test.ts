@@ -24,6 +24,19 @@ import { IQuickInputService } from '../../../../../platform/quickinput/common/qu
 import { TestSecretStorageService } from '../../../../../platform/secrets/test/common/testSecretStorageService.js';
 import { IProductService } from '../../../../../platform/product/common/productService.js';
 import { IRequestService } from '../../../../../platform/request/common/request.js';
+// --- Start Positron ---
+// LanguageModelsService takes IConfigurationService and IPositronAssistantConfigurationService
+// as the first two constructor args (Positron-added). Tests stub them with no-op mocks.
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+import { IPositronAssistantConfigurationService } from '../../../positronAssistant/common/interfaces/positronAssistantService.js';
+
+function positronTestConfigurationServices(): [IConfigurationService, IPositronAssistantConfigurationService] {
+	const configurationService = new TestConfigurationService();
+	const positronAssistantConfigurationService = new class extends mock<IPositronAssistantConfigurationService>() { };
+	return [configurationService, positronAssistantConfigurationService];
+}
+// --- End Positron ---
 
 suite('LanguageModels', function () {
 
@@ -35,6 +48,7 @@ suite('LanguageModels', function () {
 	setup(function () {
 
 		languageModels = new LanguageModelsService(
+			...positronTestConfigurationServices(),
 			new class extends mock<IExtensionService>() {
 				override activateByEvent(name: string) {
 					activationEvents.add(name);
@@ -242,6 +256,7 @@ suite('LanguageModels - When Clause', function () {
 		contextKeyService.createKey('testKey', true);
 
 		languageModelsWithWhen = new LanguageModelsService(
+			...positronTestConfigurationServices(),
 			new class extends mock<IExtensionService>() {
 				override activateByEvent(name: string) {
 					return Promise.resolve();
@@ -302,6 +317,7 @@ suite('LanguageModels - Model Picker Preferences Storage', function () {
 		storageService = new TestStorageService();
 
 		languageModelsService = new LanguageModelsService(
+			...positronTestConfigurationServices(),
 			new class extends mock<IExtensionService>() {
 				override activateByEvent(name: string) {
 					return Promise.resolve();
@@ -540,6 +556,7 @@ suite('LanguageModels - Model Change Events', function () {
 		storageService = new TestStorageService();
 
 		languageModelsService = new LanguageModelsService(
+			...positronTestConfigurationServices(),
 			new class extends mock<IExtensionService>() {
 				override activateByEvent(name: string) {
 					return Promise.resolve();
@@ -889,6 +906,7 @@ suite('LanguageModels - Vendor Change Events', function () {
 
 	setup(function () {
 		languageModelsService = new LanguageModelsService(
+			...positronTestConfigurationServices(),
 			new class extends mock<IExtensionService>() {
 				override activateByEvent(name: string) {
 					return Promise.resolve();
@@ -1004,6 +1022,7 @@ suite('LanguageModels - Per-Model Configuration', function () {
 		receivedOptions = undefined;
 
 		languageModelsService = new LanguageModelsService(
+			...positronTestConfigurationServices(),
 			new class extends mock<IExtensionService>() {
 				override activateByEvent() {
 					return Promise.resolve();
@@ -1156,6 +1175,7 @@ suite('LanguageModels - Provider Group Detail Fallback', function () {
 
 	test('model.detail falls back to the group name so multiple instances of the same vendor are distinguishable', async function () {
 		const languageModelsService = disposables.add(new LanguageModelsService(
+			...positronTestConfigurationServices(),
 			new class extends mock<IExtensionService>() {
 				override activateByEvent() {
 					return Promise.resolve();
@@ -1230,6 +1250,7 @@ suite('LanguageModels - Provider Group Detail Fallback', function () {
 
 	test('model.detail falls back to the group name even when there is only a single group for the vendor', async function () {
 		const languageModelsService = disposables.add(new LanguageModelsService(
+			...positronTestConfigurationServices(),
 			new class extends mock<IExtensionService>() {
 				override activateByEvent() {
 					return Promise.resolve();
@@ -1291,6 +1312,7 @@ suite('LanguageModels - Provider Group Detail Fallback', function () {
 
 	test('a provider-supplied detail is preserved when multiple groups exist', async function () {
 		const languageModelsService = disposables.add(new LanguageModelsService(
+			...positronTestConfigurationServices(),
 			new class extends mock<IExtensionService>() {
 				override activateByEvent() {
 					return Promise.resolve();

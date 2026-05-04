@@ -303,6 +303,20 @@ export class CrossAppUpdateCoordinator extends Disposable implements IUpdateServ
 		return this.localUpdateService.setInternalOrg(internalOrg);
 	}
 
+	// --- Start Positron ---
+	updateActiveLanguages(languages: string[]): void {
+		this.localUpdateService.updateActiveLanguages(languages);
+	}
+
+	getReleaseNotes(): Promise<string> {
+		return this.localUpdateService.getReleaseNotes();
+	}
+
+	resetTelemetryId(): void {
+		this.localUpdateService.resetTelemetryId();
+	}
+	// --- End Positron ---
+
 	override dispose(): void {
 		this.localStateListener?.dispose();
 		super.dispose();
