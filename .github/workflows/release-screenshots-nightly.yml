@@ -93,15 +93,15 @@ jobs:
           path: test/e2e/release-screenshots/output/
           if-no-files-found: warn
 
-  slack-notify:
-    if: failure()
-    needs: [screenshots]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Notify Slack
-        uses: midleman/slack-workflow-status@v3.1.3
-        with:
-          gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
-          slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
-          slack_channel: "#positron-test-results"
-          notify_on: "failure"
+  # slack-notify:
+  #   if: failure()
+  #   needs: [screenshots]
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Notify Slack
+  #       uses: midleman/slack-workflow-status@v3.1.3
+  #       with:
+  #         gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
+  #         slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
+  #         slack_channel: "#positron-test-results"
+  #         notify_on: "failure"
