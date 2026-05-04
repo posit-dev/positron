@@ -466,7 +466,18 @@ export class Sessions {
 				// Wait until the desired runtime appears in the list and select it.
 				// We need to click instead of using 'enter' because the Python select interpreter command
 				// may include additional items above the desired interpreter string.
-				await this.quickinput.selectQuickInputElementContaining(`${language} ${version}`, { timeout: 2000 });
+				try {
+					await this.quickinput.selectQuickInputElementContaining(`${language} ${version}`, { timeout: 2000 });
+				} catch (e) {
+					// Auto-discovery is intermittent: POSITRON_PY_VER_SEL's interpreter
+					// can be missing from the quick pick on the first attempt. Force a
+					// rescan so the next retry of this `toPass` iteration sees it.
+					if (language === 'Python') {
+						await this.quickinput.closeQuickInput().catch(() => { });
+						await this.quickaccess.runCommand('python.refreshInterpreters').catch(() => { });
+					}
+					throw e;
+				}
 				await this.quickinput.waitForQuickInputClosed();
 			}, 'Select runtime from quick pick').toPass({ timeout: 30000 });
 

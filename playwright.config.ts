@@ -33,6 +33,7 @@ const baseIgnore = [
 	'**/workbench/**',
 	'**/remote-ssh/**',
 	'**/assistant-eval/**',
+	'**/release-screenshots/**',
 ];
 
 let reporter: ReporterDescription[];
@@ -212,6 +213,15 @@ export default defineConfig<CustomTestOptions>({
 				browserName: 'chromium',
 			},
 			grep: /@:jupyter/
+		},
+		{
+			name: 'release-screenshots',
+			testDir: './test/e2e/release-screenshots',
+			testMatch: '*.screenshot.ts',
+			testIgnore: [],
+			use: {
+				artifactDir: 'release-screenshots',
+			},
 		},
 	],
 });
