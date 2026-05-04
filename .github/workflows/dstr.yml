@@ -1,0 +1,32 @@
+name: Data Science Test Review
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: write
+
+jobs:
+  dstr:
+    if: github.event.issue.pull_request && github.event.comment.body == '/dstr'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install @octokit/rest @anthropic-ai/sdk
+
+      - name: Run /dstr review
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+        run: node .github/scripts/dstr/review.mjs
