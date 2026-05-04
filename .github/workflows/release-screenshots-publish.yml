@@ -144,6 +144,22 @@ jobs:
           ENABLE_CUSTOM_REPORTER: 'false'
         run: npx playwright test --project release-screenshots --workers 1
 
+      - name: Upload Playwright traces and test-results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: publish-test-results
+          path: test-results/
+          if-no-files-found: ignore
+
+      - name: Upload Playwright HTML report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: publish-playwright-report
+          path: playwright-report/
+          if-no-files-found: ignore
+
       - name: Compare and report
         id: compare
         run: |

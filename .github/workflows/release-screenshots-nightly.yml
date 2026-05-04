@@ -146,6 +146,22 @@ jobs:
           path: test/e2e/release-screenshots/output/
           if-no-files-found: warn
 
+      - name: Upload Playwright traces and test-results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: nightly-test-results
+          path: test-results/
+          if-no-files-found: ignore
+
+      - name: Upload Playwright HTML report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: nightly-playwright-report
+          path: playwright-report/
+          if-no-files-found: ignore
+
   # slack-notify:
   #   if: failure()
   #   needs: [screenshots]
