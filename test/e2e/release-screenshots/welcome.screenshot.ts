@@ -28,6 +28,7 @@ test.describe('Release Screenshots - Welcome Page', () => {
 		await openFolder('qa-example-content/workspaces/astropy-testing');
 		await page.waitForTimeout(3000); // allow time for window to close and re-open
 		await page.locator('.monaco-workbench').waitFor({ state: 'visible' });
+		await sessions.start(['python']);
 		await sessions.expectAllSessionsToBeReady();
 
 		// open python file that plots galactocentric ring orbits
