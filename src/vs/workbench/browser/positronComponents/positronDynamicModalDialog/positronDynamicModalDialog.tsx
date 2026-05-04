@@ -7,7 +7,7 @@
 import './positronDynamicModalDialog.css';
 
 // React.
-import { ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { FormEvent, ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { TitleBar } from './components/titleBar.js';
@@ -31,6 +31,11 @@ export interface PositronDynamicModalDialogProps {
 	contentMaxHeight?: number;
 	footer: ReactNode;
 	onCancel?: () => void;
+
+	// Optional form submit handler. When provided, the content and footer are wrapped in a
+	// <form> so pressing Enter in a text field within the dialog triggers this callback. The
+	// dialog calls preventDefault on the underlying submit event automatically.
+	onSubmit?: () => void;
 }
 
 /**
@@ -206,6 +211,28 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 		setDialogBoxState(prevDialogBoxState => updateDialogBoxState(prevDialogBoxState, x, y, false));
 	};
 
+	// Submit handler. Calls preventDefault and forwards to the consumer-provided onSubmit so
+	// callers don't need to remember to suppress the default form action.
+	const submitHandler = (event: FormEvent) => {
+		event.preventDefault();
+		props.onSubmit?.();
+	};
+
+	// The content area and footer. Wrapped in a <form> when onSubmit is provided so Enter-key
+	// implicit submission works; the hidden submit button is required for browsers to enable
+	// implicit submission when the form contains multiple inputs.
+	const body = (
+		<>
+			<div className='content-area' style={{
+				minHeight: props.contentMinHeight,
+				maxHeight: props.contentMaxHeight,
+			}}>
+				{props.content}
+			</div>
+			{props.footer}
+		</>
+	);
+
 	// Render.
 	return (
 		<div ref={dialogContainerRef} className='positron-dynamic-modal-dialog-box-container'>
@@ -215,13 +242,12 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 				width: props.width,
 			}}>
 				<TitleBar title={props.title} onDrag={dragHandler} onStartDrag={startDragHandler} onStopDrag={stopDragHandler} />
-				<div className='content-area' style={{
-					minHeight: props.contentMinHeight,
-					maxHeight: props.contentMaxHeight,
-				}}>
-					{props.content}
-				</div>
-				{props.footer}
+				{!props.onSubmit ? body : (
+					<form onSubmit={submitHandler}>
+						{body}
+						<button hidden type='submit' />
+					</form>
+				)}
 			</div>
 		</div>
 	);

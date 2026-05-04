@@ -7,7 +7,7 @@
 import './configureDataConnection.css';
 
 // React.
-import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -175,61 +175,48 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 		}
 	}, [connectionName, parameterFieldStates, props]);
 
-	// Handler that runs when the user submits the form (e.g. by pressing Enter in a text field).
-	const submitHandler = (event: FormEvent) => {
-		// Prevent default form action
-		event.preventDefault();
-
-		// Run the accept handler.
-		saveHandler();
-	};
-
 	// Render.
 	return (
 		<PositronDynamicModalDialog
 			content={
-				<form onSubmit={submitHandler}>
-					<div className='configure-data-connection-container'>
-						<div className='configure-data-connection'>
-							{/* Driver Header. */}
-							<div className='driver-header'>
-								<div className='driver-header-badge'>
-									<img alt='' className='driver-header-icon' src={`data:image/svg+xml;base64,${props.driver.metadata.iconSvg}`} />
-								</div>
-								<div className='driver-header-name'>{props.driver.metadata.name}</div>
+				<div className='configure-data-connection-container'>
+					<div className='configure-data-connection'>
+						{/* Driver Header. */}
+						<div className='driver-header'>
+							<div className='driver-header-badge'>
+								<img alt='' className='driver-header-icon' src={`data:image/svg+xml;base64,${props.driver.metadata.iconSvg}`} />
 							</div>
-
-							{/* Connection Name */}
-							<div className='parameter-field'>
-								<label className='parameter-label'>{localize('positron.connectionName', 'Connection Name')}</label>
-								<input
-									ref={connectionNameInputRef}
-									className={positronClassNames(
-										'parameter-input', 'text-input',
-										{ 'error': connectionNameError }
-									)}
-									placeholder={localize('positron.connectionNamePlaceholder', 'e.g. My Connection')}
-									type='text'
-									value={connectionName}
-									onChange={e => {
-										setConnectionName(e.target.value);
-										setConnectionNameError(false);
-									}}
-								/>
-							</div>
-
-							{/* Parameters */}
-							<ConfigureDataConnectionParameters
-								parameterFieldStates={parameterFieldStates}
-								parameters={props.driver.metadata.parameters}
-								onParameterChanged={setParameterFieldState}
-							/>
-
+							<div className='driver-header-name'>{props.driver.metadata.name}</div>
 						</div>
+
+						{/* Connection Name */}
+						<div className='parameter-field'>
+							<label className='parameter-label'>{localize('positron.connectionName', 'Connection Name')}</label>
+							<input
+								ref={connectionNameInputRef}
+								className={positronClassNames(
+									'parameter-input', 'text-input',
+									{ 'error': connectionNameError }
+								)}
+								placeholder={localize('positron.connectionNamePlaceholder', 'e.g. My Connection')}
+								type='text'
+								value={connectionName}
+								onChange={e => {
+									setConnectionName(e.target.value);
+									setConnectionNameError(false);
+								}}
+							/>
+						</div>
+
+						{/* Parameters */}
+						<ConfigureDataConnectionParameters
+							parameterFieldStates={parameterFieldStates}
+							parameters={props.driver.metadata.parameters}
+							onParameterChanged={setParameterFieldState}
+						/>
+
 					</div>
-					{/* Hidden submit button to allow form submission via Enter key. */}
-					<button hidden type='submit' />
-				</form>
+				</div>
 			}
 			footer={
 				<TwoButtonFooter
@@ -246,6 +233,7 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 			)}
 			width={600}
 			onCancel={cancelHandler}
+			onSubmit={saveHandler}
 		/>
 	);
 };

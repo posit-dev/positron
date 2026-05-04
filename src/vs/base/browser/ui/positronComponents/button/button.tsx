@@ -196,6 +196,22 @@ export const Button = (props: PropsWithChildren<ButtonProps>) => {
 			role={props.role ?? 'button'}
 			style={props.style}
 			tabIndex={props.tabIndex ?? 0}
+			// Explicitly set type='button'. Per the HTML spec, a <button> element with no type
+			// attribute defaults to type='submit'. That default is harmless outside a <form>,
+			// but inside a form the browser treats every type='submit' button as a candidate for
+			// implicit submission: pressing Enter in any text input fires a click on the first
+			// submit button in DOM order. If a Button placed inside a form (e.g. a "Cancel"
+			// button in a dialog footer) inherited the default, Enter on an input would trigger
+			// that button's onPressed handler instead of the form's onSubmit -- a surprising and
+			// hard-to-diagnose footgun.
+			//
+			// This component is a custom-handled button: clickHandler/keyDownHandler call
+			// preventDefault and dispatch via onPressed, so it never needs the native submit
+			// semantics that type='submit' provides. Forcing type='button' makes Button safe to
+			// drop into any form without altering submit behavior. Forms that want Enter-to-
+			// submit can opt in by including their own hidden <button type='submit' /> alongside
+			// the form's onSubmit handler.
+			type='button'
 			onBlur={props.onBlur}
 			onClick={clickHandler}
 			onFocus={props.onFocus}
