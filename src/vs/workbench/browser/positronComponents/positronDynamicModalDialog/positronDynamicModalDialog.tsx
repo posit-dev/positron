@@ -208,11 +208,7 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 
 	// Render.
 	return (
-		<div
-			ref={dialogContainerRef}
-			className='positron-dynamic-modal-dialog-box-container'
-			role='dialog'
-		>
+		<div ref={dialogContainerRef} className='positron-dynamic-modal-dialog-box-container'>
 			<div ref={dialogBoxRef} className='positron-dynamic-modal-dialog-box' style={{
 				left: dialogBoxState.left,
 				top: dialogBoxState.top,
