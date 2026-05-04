@@ -26,7 +26,7 @@ permissions:
 jobs:
   screenshots:
     name: screenshots-${{ inputs.mode }}
-    runs-on: macos-latest
+    runs-on: macos-latest-large
     steps:
       - name: Checkout positron
         uses: actions/checkout@v6
