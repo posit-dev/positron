@@ -105,7 +105,7 @@ jobs:
           ENABLE_CUSTOM_REPORTER: 'false'
           GH_SUMMARY_REPORT: 'true'
           POSITRON_WINDOW_SIZE: '1440,900'
-        run: npx playwright test --project release-screenshots --workers 1
+        run: npx playwright test --project release-screenshots --workers 2
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}
@@ -258,3 +258,18 @@ jobs:
           # on the target repo (422), don't fail the workflow over it.
           gh pr edit "$PR_URL" --add-reviewer marieidleman \
             || echo "::warning::Could not assign reviewer marieidleman (not a collaborator?)"
+
+  slack-notify:
+    # Nightly is on a schedule; failures should page #positron-test-results.
+    # Publish is on demand, so the operator already sees the result.
+    if: ${{ failure() && inputs.mode == 'nightly' }}
+    needs: [screenshots]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Slack
+        uses: midleman/slack-workflow-status@v3.1.3
+        with:
+          gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
+          slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
+          slack_channel: "#positron-test-results"
+          notify_on: "failure"
