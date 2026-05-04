@@ -30,6 +30,8 @@ jobs:
 
       - name: Resolve version
         id: version
+        env:
+          GH_TOKEN: ${{ steps.bot-token.outputs.token }}
         run: |
           VERSION=$(gh api "repos/posit-dev/positron-builds/releases?per_page=100" \
             --jq '[.[] | select(.prerelease == true)] | .[0].tag_name')
@@ -39,87 +41,22 @@ jobs:
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Resolved latest prerelease: $VERSION"
-        env:
-          GH_TOKEN: ${{ steps.bot-token.outputs.token }}
 
       - name: Download Positron build
-        id: download
+        env:
+          GH_TOKEN: ${{ steps.bot-token.outputs.token }}
         run: |
           OUTPUT=$(.github/scripts/release-screenshots/download-build.sh "${{ steps.version.outputs.version }}")
           echo "$OUTPUT" >> "$GITHUB_ENV"
-        env:
-          GH_TOKEN: ${{ steps.bot-token.outputs.token }}
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: .nvmrc
-
-      - name: Install npm dependencies
-        run: npm ci --ignore-scripts
-        env:
-          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
-
-      - name: Install test/e2e dependencies
-        run: npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund
-
-      - name: Install Playwright Chromium
-        run: npx playwright install chromium
-
-      - name: Clone qa-example-content
-        run: |
-          git clone --depth 1 https://github.com/posit-dev/qa-example-content.git \
-            test/e2e/qa-example-content
+      - name: Setup release-screenshot runtimes
+        id: runtimes
+        uses: ./.github/actions/setup-release-screenshot-runtimes
 
       - name: Clone positron-website
         run: |
           git clone --depth 1 https://github.com/posit-dev/positron-website.git \
             "$RUNNER_TEMP/positron-website"
-
-      - name: Setup Python (primary)
-        id: setup-python-primary
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.10'
-          cache: 'pip'
-          cache-dependency-path: test/e2e/qa-example-content/requirements.txt
-
-      - name: Install Python dependencies (primary)
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r test/e2e/qa-example-content/requirements.txt
-          pip install ipykernel
-
-      - name: Setup Python (alternate)
-        id: setup-python-alt
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.13'
-
-      - name: Install ipykernel for alternate Python
-        run: |
-          python --version
-          pip install ipykernel
-
-      - name: Install rig
-        run: |
-          brew tap r-lib/rig
-          brew install --cask rig
-
-      - name: Install R (primary)
-        run: |
-          rig add 4.5.2
-          R --version
-
-      - name: Install R packages
-        working-directory: test/e2e/qa-example-content
-        run: |
-          Rscript -e "if (!requireNamespace('pak', quietly = TRUE)) install.packages('pak', repos = 'https://cran.rstudio.com')"
-          Rscript -e "options(pak.install_binary = TRUE); pak::local_install_dev_deps(ask = FALSE, upgrade = FALSE)"
-
-      - name: Install R (alternate)
-        run: rig add 4.4.2
 
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir
@@ -128,9 +65,9 @@ jobs:
 
       - name: Run release-screenshots project
         env:
-          POSITRON_PY_VER_SEL: ${{ steps.setup-python-primary.outputs.python-version }}
+          POSITRON_PY_VER_SEL: ${{ steps.runtimes.outputs.python-primary-version }}
           POSITRON_R_VER_SEL: '4.5.2'
-          POSITRON_PY_ALT_VER_SEL: ${{ steps.setup-python-alt.outputs.python-version }}
+          POSITRON_PY_ALT_VER_SEL: ${{ steps.runtimes.outputs.python-alt-version }}
           POSITRON_R_ALT_VER_SEL: '4.4.2'
           ENABLE_CUSTOM_REPORTER: 'false'
           GH_SUMMARY_REPORT: 'true'
