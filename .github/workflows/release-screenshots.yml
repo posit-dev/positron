@@ -104,7 +104,7 @@ jobs:
           POSITRON_R_ALT_VER_SEL: '4.4.2'
           ENABLE_CUSTOM_REPORTER: 'false'
           GH_SUMMARY_REPORT: 'true'
-          POSITRON_WINDOW_SIZE: '1600,1000'
+          POSITRON_WINDOW_SIZE: '1440,900'
         run: npx playwright test --project release-screenshots --workers 1
 
       - name: Upload Playwright Report to S3
