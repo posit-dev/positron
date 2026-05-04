@@ -62,30 +62,55 @@ export async function classify(generatedDir, docsDir) {
 	return result;
 }
 
-export function formatSummary(classification) {
+const DOCS_IMAGE_BASE_URL = 'https://positron.posit.co/images';
+const THUMBNAIL_WIDTH = 400;
+
+function imageCell(url) {
+	return `<img src="${url}" width="${THUMBNAIL_WIDTH}">`;
+}
+
+export function formatSummary(classification, opts = {}) {
+	const screenshotBaseUrl = opts.screenshotBaseUrl ?? process.env.SCREENSHOT_BASE_URL;
 	const entries = Object.entries(classification);
 	if (entries.length === 0) {
 		return '## Release screenshots\n\nNo images were generated.\n';
 	}
 	const counts = { unchanged: 0, changed: 0, new: 0 };
+	for (const info of Object.values(classification)) {
+		counts[info.status]++;
+	}
+	const totals = `${counts.unchanged} unchanged, ${counts.changed} changed, ${counts.new} new`;
+	const heading = `Compared against \`posit-dev/positron-website\` \`images/\`. Totals: ${totals}.`;
+
+	if (counts.changed === 0 && counts.new === 0) {
+		return [
+			'## Release screenshots',
+			'',
+			`${heading} No visual differences.`,
+			'',
+		].join('\n');
+	}
+
 	const rows = entries
 		.sort(([a], [b]) => a.localeCompare(b))
+		.filter(([, info]) => info.status !== 'unchanged')
 		.map(([name, info]) => {
-			counts[info.status]++;
 			const emoji = STATUS_EMOJI[info.status];
-			const sizeKb = (info.generatedSize / 1024).toFixed(1);
-			const hash = info.generatedHash.slice(0, 8);
-			return `| ${emoji} | \`${name}\` | ${info.status} | ${sizeKb} KB | \`${hash}\` |`;
+			const beforeUrl = `${DOCS_IMAGE_BASE_URL}/${name}`;
+			const afterUrl = screenshotBaseUrl ? `${screenshotBaseUrl}/${name}` : null;
+			const beforeCell = info.status === 'new' ? '—' : imageCell(beforeUrl);
+			const afterCell = afterUrl ? imageCell(afterUrl) : '—';
+			return `| ${emoji} | \`${name}\` | ${beforeCell} | ${afterCell} |`;
 		})
 		.join('\n');
-	const totals = `${counts.unchanged} unchanged, ${counts.changed} changed, ${counts.new} new`;
+
 	return [
 		'## Release screenshots',
 		'',
-		`Compared against \`posit-dev/positron-website\` \`images/\`. Totals: ${totals}.`,
+		heading,
 		'',
-		'| | File | Status | Size | Hash |',
-		'|---|---|---|---|---|',
+		'| | File | Current (positron.posit.co) | New (this run) |',
+		'|---|---|---|---|',
 		rows,
 		'',
 	].join('\n');

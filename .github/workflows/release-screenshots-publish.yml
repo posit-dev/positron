@@ -159,6 +159,13 @@ jobs:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
           report-dir: ${{ env.REPORT_DIR }}
 
+      - name: Upload generated screenshots to S3
+        if: ${{ success() || failure() }}
+        run: |
+          aws s3 cp test/e2e/release-screenshots/output/ \
+            "s3://positron-test-reports/${REPORT_DIR}/screenshots/" \
+            --recursive
+
       - name: Upload Playwright traces and test-results
         if: always()
         uses: actions/upload-artifact@v7
@@ -177,6 +184,8 @@ jobs:
 
       - name: Compare and report
         id: compare
+        env:
+          SCREENSHOT_BASE_URL: https://d38p2avprg8il3.cloudfront.net/${{ env.REPORT_DIR }}/screenshots
         run: |
           node .github/scripts/release-screenshots/compare-and-report.mjs \
             test/e2e/release-screenshots/output \
