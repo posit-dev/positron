@@ -19,8 +19,8 @@ export class Packages {
 	packagesViewMoreActionsButton: Locator;
 
 	constructor(private code: Code, private contextMenu: ContextMenu, private quickInput: QuickInput, private toasts: Toasts) {
-		this.packagesButton = code.driver.currentPage.locator('a.action-label.codicon-package');
-		this.packagesContainer = code.driver.currentPage.locator('.positron-packages-list');
+		this.packagesButton = this.code.driver.currentPage.locator('a.action-label.codicon-package');
+		this.packagesContainer = this.code.driver.currentPage.locator('.positron-packages-list');
 		// More Actions button (overflow menu) in the packages view title bar
 		this.packagesViewMoreActionsButton = code.driver.currentPage
 			.getByRole('toolbar', { name: 'Packages actions' })
