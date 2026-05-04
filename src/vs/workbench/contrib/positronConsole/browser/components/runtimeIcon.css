@@ -8,7 +8,6 @@
 	align-items: center;
 	flex-shrink: 0;
 	line-height: 22px;
-	padding-left: 6px;
 }
 
 /**
@@ -24,7 +23,6 @@
 	background-size: 16px;
 	background-position: left center;
 	background-repeat: no-repeat;
-	padding-right: 6px;
 	width: 16px;
 	height: 22px;
 	line-height: inherit !important;
