@@ -117,7 +117,9 @@ jobs:
           pip install ipykernel
 
       - name: Install rig
-        run: brew install --cask rig
+        run: |
+          brew tap r-lib/rig
+          brew install --cask rig
 
       - name: Install R (primary)
         run: |
