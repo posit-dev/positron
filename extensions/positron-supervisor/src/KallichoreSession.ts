@@ -805,8 +805,14 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			stop_on_error: errorBehavior === positron.RuntimeErrorBehavior.Stop,
 		};
 
+		// `cellId` is passed separately as Jupyter message metadata (not as
+		// part of the request body), following the JupyterLab/ipykernel
+		// convention. Ark uses this for breakpoint injection to identify
+		// notebook cell executions.
+		const { cellId, ...positronMetadata } = executionMetadata ?? {};
+
 		// If a code location or execution metadata is provided, include it in the request
-		if (codeLocation || executionMetadata) {
+		if (codeLocation || Object.keys(positronMetadata).length > 0) {
 			request.positron = {
 				...(codeLocation ? {
 					code_location: {
@@ -814,12 +820,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 						range: codeLocation.range
 					}
 				} : {}),
-				...executionMetadata
+				...positronMetadata
 			};
 		}
 
-		// Create and send the execute request
-		const execute = new ExecuteRequest(id, request);
+		// Create and send the execute request.
+		const execute = new ExecuteRequest(id, request, cellId as string);
 		this.sendRequest(execute).then((reply) => {
 			this.log(`Execution result: ${JSON.stringify(reply)}`, vscode.LogLevel.Debug);
 		}).catch((err) => {

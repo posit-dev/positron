@@ -22,9 +22,11 @@ import { ContextKeyExpression } from '../../../../../platform/contextkey/common/
 import { ILanguageModelsConfigurationService } from '../../common/languageModelsConfiguration.js';
 import { IQuickInputService } from '../../../../../platform/quickinput/common/quickInput.js';
 import { TestSecretStorageService } from '../../../../../platform/secrets/test/common/testSecretStorageService.js';
-import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+import { IProductService } from '../../../../../platform/product/common/productService.js';
+import { IRequestService } from '../../../../../platform/request/common/request.js';
 
 // --- Start Positron ---
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { TestPositronAssistantConfigurationService } from '../../../../test/common/positronWorkbenchTestServices.js';
 // --- End Positron ---
 
@@ -63,6 +65,8 @@ suite('LanguageModels', function () {
 			},
 			new class extends mock<IQuickInputService>() { },
 			new TestSecretStorageService(),
+			new class extends mock<IProductService>() { override readonly version = '1.100.0'; },
+			new class extends mock<IRequestService>() { },
 		);
 
 		languageModels.deltaLanguageModelChatProviderDescriptors([
@@ -172,7 +176,7 @@ suite('LanguageModels', function () {
 				}));
 				return modelMetadataAndIdentifier;
 			},
-			sendChatRequest: async (modelId: string, messages: IChatMessage[], _from: ExtensionIdentifier, _options: { [name: string]: any }, token: CancellationToken) => {
+			sendChatRequest: async (modelId: string, messages: IChatMessage[], _from: ExtensionIdentifier | undefined, _options: { [name: string]: any }, token: CancellationToken) => {
 				// const message = messages.at(-1);
 
 				const defer = new DeferredPromise();
@@ -271,6 +275,8 @@ suite('LanguageModels - When Clause', function () {
 			},
 			new class extends mock<IQuickInputService>() { },
 			new TestSecretStorageService(),
+			new class extends mock<IProductService>() { override readonly version = '1.100.0'; },
+			new class extends mock<IRequestService>() { },
 		);
 
 		languageModelsWithWhen.deltaLanguageModelChatProviderDescriptors([
@@ -336,6 +342,8 @@ suite('LanguageModels - Model Picker Preferences Storage', function () {
 			},
 			new class extends mock<IQuickInputService>() { },
 			new TestSecretStorageService(),
+			new class extends mock<IProductService>() { override readonly version = '1.100.0'; },
+			new class extends mock<IRequestService>() { },
 		);
 
 		// Register vendor1 used in most tests
@@ -576,6 +584,8 @@ suite('LanguageModels - Model Change Events', function () {
 			},
 			new class extends mock<IQuickInputService>() { },
 			new TestSecretStorageService(),
+			new class extends mock<IProductService>() { override readonly version = '1.100.0'; },
+			new class extends mock<IRequestService>() { },
 		);
 
 		// Register the vendor first
@@ -931,6 +941,8 @@ suite('LanguageModels - Vendor Change Events', function () {
 			},
 			new class extends mock<IQuickInputService>() { },
 			new TestSecretStorageService(),
+			new class extends mock<IProductService>() { override readonly version = '1.100.0'; },
+			new class extends mock<IRequestService>() { },
 		);
 	});
 
@@ -1094,6 +1106,8 @@ suite('LanguageModels - getCurrentProvider', function () {
 			},
 			new class extends mock<IQuickInputService>() { },
 			new TestSecretStorageService(),
+			new class extends mock<IProductService>() { override readonly version = '1.111.0'; },
+			new class extends mock<IRequestService>() { },
 		));
 
 		registerVendors(service, ['vendor-a', 'vendor-b', 'vendor-c']);
@@ -1132,6 +1146,8 @@ suite('LanguageModels - getCurrentProvider', function () {
 			},
 			new class extends mock<IQuickInputService>() { },
 			new TestSecretStorageService(),
+			new class extends mock<IProductService>() { override readonly version = '1.111.0'; },
+			new class extends mock<IRequestService>() { },
 		));
 
 		// The stored provider is initially restored (isProviderEnabled is not
@@ -1164,6 +1180,8 @@ suite('LanguageModels - getCurrentProvider', function () {
 			},
 			new class extends mock<IQuickInputService>() { },
 			new TestSecretStorageService(),
+			new class extends mock<IProductService>() { override readonly version = '1.111.0'; },
+			new class extends mock<IRequestService>() { },
 		));
 
 		assert.strictEqual(service.currentProvider, undefined);
@@ -1194,6 +1212,8 @@ suite('LanguageModels - getCurrentProvider', function () {
 			},
 			new class extends mock<IQuickInputService>() { },
 			new TestSecretStorageService(),
+			new class extends mock<IProductService>() { override readonly version = '1.111.0'; },
+			new class extends mock<IRequestService>() { },
 		));
 
 		// Initially, the provider is restored from storage as vendor-a

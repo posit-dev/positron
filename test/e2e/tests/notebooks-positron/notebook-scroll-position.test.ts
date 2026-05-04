@@ -41,7 +41,7 @@ test.describe('Positron Notebooks: Scroll Position', {
 		// Switch back to the notebook tab by clicking it directly.
 		// We can't use editors.selectTab() here because it expects a Monaco
 		// editor to receive focus, but the notebook is a custom editor.
-		await app.code.driver.page.getByRole('tab', { name: NOTEBOOK_FILE }).click();
+		await app.code.driver.currentPage.getByRole('tab', { name: NOTEBOOK_FILE }).click();
 		await notebooksPositron.expectToBeVisible();
 
 		// Verify the scroll position is restored.
@@ -61,9 +61,12 @@ test.describe('Positron Notebooks: Scroll Position', {
 		const middleCellIndex = Math.floor(await notebooksPositron.cell.count() / 2);
 		await notebooksPositron.cell.nth(middleCellIndex).scrollIntoViewIfNeeded();
 
-		// Capture the scroll position
-		const scrollTopBefore = await notebooksPositron.getScrollTop();
-		expect(scrollTopBefore).toBeGreaterThan(0);
+		// Capture the scroll anchor (first visible cell + offset within viewport).
+		// Cells above can re-render with slightly different heights after reload,
+		// shifting scrollTop without changing what the user sees -- so compare the
+		// anchor that restoration actually preserves, not the raw scrollTop.
+		const anchorBefore = await notebooksPositron.getScrollAnchor();
+		expect(anchorBefore).not.toBeNull();
 
 		// Reload the window
 		await hotKeys.reloadWindow(true);
@@ -71,13 +74,13 @@ test.describe('Positron Notebooks: Scroll Position', {
 		// Wait for the notebook to be visible again after reload
 		await notebooksPositron.expectToBeVisible();
 
-		// Verify the scroll position is restored.
+		// Verify the same cell is first-visible at the same offset.
 		await expect.poll(async () => {
-			const scrollTop = await notebooksPositron.getScrollTop();
-			return Math.abs(scrollTop - scrollTopBefore);
-			// Allow a small delta here. For unknown reasons, we can't yet match it
-			// excactly after a window reload. Should not significantly affect the
-			// user experience.
+			const anchorAfter = await notebooksPositron.getScrollAnchor();
+			if (!anchorAfter || anchorAfter.cellIndex !== anchorBefore!.cellIndex) {
+				return Number.POSITIVE_INFINITY;
+			}
+			return Math.abs(anchorAfter.offsetFromTop - anchorBefore!.offsetFromTop);
 		}, { timeout: 5000 }).toBeLessThanOrEqual(50);
 	});
 });

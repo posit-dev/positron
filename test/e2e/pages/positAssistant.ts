@@ -51,7 +51,6 @@ const CODE_BLOCK_INSERT_CURSOR_BUTTON = 'button[aria-label="Insert At Cursor"]';
 const CODE_BLOCK_INSERT_FILE_BUTTON = 'button[aria-label="Insert into New File"]';
 
 // Tool confirmation UI
-const TOOL_CONFIRM_TITLE = 'h4.font-semibold';
 const TOOL_ALLOW_BUTTON = 'button.rounded-r-none:has-text("Allow")';
 const TOOL_ALLOW_DROPDOWN_TRIGGER = 'button[aria-label="More allow options"]';
 const TOOL_ALLOW_SESSION_MENU_ITEM = '[role="menuitem"]:has-text("for this session")';
@@ -71,7 +70,7 @@ export class PositAssistant {
 	 * All UI elements live inside this nested iframe.
 	 */
 	get frame(): FrameLocator {
-		return this.code.driver.page.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME);
+		return this.code.driver.currentPage.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME);
 	}
 
 	/**
@@ -79,7 +78,7 @@ export class PositAssistant {
 	 * Clicks the activity bar icon if it is not already selected.
 	 */
 	async open(): Promise<void> {
-		const button = this.code.driver.page.locator(ACTIVITY_BAR_BUTTON);
+		const button = this.code.driver.currentPage.locator(ACTIVITY_BAR_BUTTON);
 		const isSelected = await button.locator('..').getAttribute('aria-selected');
 		if (isSelected !== 'true') {
 			await button.click();
@@ -402,7 +401,7 @@ export class PositAssistant {
 	 * Verifies the tool confirmation dialog is visible.
 	 */
 	async expectToolConfirmVisible(): Promise<void> {
-		await expect(this.frame.locator(TOOL_CONFIRM_TITLE)).toBeVisible();
+		await expect(this.frame.locator('.bg-warning').getByRole('heading', { level: 4 })).toBeVisible();
 	}
 
 	/**
@@ -484,8 +483,8 @@ export class PositAssistant {
 
 		// 5. Clicking Reload reloads the window natively. Wait for the
 		//    workbench to come back up.
-		await this.code.driver.page.waitForTimeout(3000);
-		await this.code.driver.page.locator('.monaco-workbench').waitFor({ state: 'visible' });
+		await this.code.driver.currentPage.waitForTimeout(3000);
+		await this.code.driver.currentPage.locator('.monaco-workbench').waitFor({ state: 'visible' });
 	}
 
 }

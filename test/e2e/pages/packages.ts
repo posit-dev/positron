@@ -17,13 +17,13 @@ export class Packages {
 	packagesButton: Locator;
 	packagesContainer: Locator;
 	packagesViewMoreActionsButton: Locator;
-	private get page(): Page { return this.code.driver.page; }
+	private get page(): Page { return this.code.driver.currentPage; }
 
 	constructor(private code: Code, private contextMenu: ContextMenu, private quickInput: QuickInput, private toasts: Toasts) {
-		this.packagesButton = code.driver.page.locator('a.action-label.codicon-package');
-		this.packagesContainer = code.driver.page.locator('.positron-packages-list');
+		this.packagesButton = code.driver.currentPage.locator('a.action-label.codicon-package');
+		this.packagesContainer = code.driver.currentPage.locator('.positron-packages-list');
 		// More Actions button (overflow menu) in the packages view title bar
-		this.packagesViewMoreActionsButton = code.driver.page
+		this.packagesViewMoreActionsButton = code.driver.currentPage
 			.getByRole('toolbar', { name: 'Packages actions' })
 			.getByRole('button', { name: 'Views and More Actions...' });
 	}

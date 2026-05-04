@@ -94,6 +94,7 @@ class ConnectionData {
 			skipWebSocketFrames = false;
 			permessageDeflate = this.socket.permessageDeflate;
 			inflateBytes = this.socket.recordedInflateBytes;
+			this.socket.setRecordInflateBytes(false);
 		}
 
 		return {
@@ -108,7 +109,7 @@ class ConnectionData {
 
 export class ExtensionHostConnection extends Disposable {
 
-	private _onClose = new Emitter<void>();
+	private _onClose = this._register(new Emitter<void>());
 	readonly onClose: Event<void> = this._onClose.event;
 
 	private readonly _canSendSocket: boolean;
@@ -137,6 +138,9 @@ export class ExtensionHostConnection extends Disposable {
 		this._remoteAddress = remoteAddress;
 		this._extensionHostProcess = null;
 		this._connectionData = new ConnectionData(socket, initialDataChunk);
+		if (!this._canSendSocket && socket instanceof WebSocketNodeSocket) {
+			socket.setRecordInflateBytes(false);
+		}
 
 		this._log(`New connection established.`);
 	}
@@ -241,6 +245,9 @@ export class ExtensionHostConnection extends Disposable {
 	public acceptReconnection(remoteAddress: string, _socket: NodeSocket | WebSocketNodeSocket, initialDataChunk: VSBuffer): void {
 		this._remoteAddress = remoteAddress;
 		this._log(`The client has reconnected.`);
+		if (!this._canSendSocket && _socket instanceof WebSocketNodeSocket) {
+			_socket.setRecordInflateBytes(false);
+		}
 		const connectionData = new ConnectionData(_socket, initialDataChunk);
 
 		if (!this._extensionHostProcess) {
@@ -255,7 +262,7 @@ export class ExtensionHostConnection extends Disposable {
 	// --- Start PWB ---
 	// Need to make this async to flush the socket before closing
 	private async _cleanResources(): Promise<void> {
-	// --- End PWB ---
+		// --- End PWB ---
 
 		if (this._disposed) {
 			// already called

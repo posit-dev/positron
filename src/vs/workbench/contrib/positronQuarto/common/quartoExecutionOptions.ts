@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { parse as parseYaml, YamlNode, YamlObjectNode } from '../../../../base/common/yaml.js';
+import { parse as parseYaml, YamlMapNode, YamlNode } from '../../../../base/common/yaml.js';
 
 /**
  * Execution options parsed from cell YAML comments.
@@ -64,12 +64,27 @@ export interface ParsedCellOptions {
  */
 function yamlNodeToValue(node: YamlNode): unknown {
 	switch (node.type) {
-		case 'string': return node.value;
-		case 'number': return node.value;
-		case 'boolean': return node.value;
-		case 'null': return null;
-		case 'array': return node.items.map(yamlNodeToValue);
-		case 'object': {
+		case 'scalar': {
+			const val = node.value;
+			// Interpret scalar values
+			if (val === 'null' || val === '~' || val === '') {
+				return null;
+			}
+			if (val === 'true') {
+				return true;
+			}
+			if (val === 'false') {
+				return false;
+			}
+			// Try to parse as number
+			const num = Number(val);
+			if (!isNaN(num) && val.trim() !== '') {
+				return num;
+			}
+			return val;
+		}
+		case 'sequence': return node.items.map(yamlNodeToValue);
+		case 'map': {
 			const result: Record<string, unknown> = {};
 			for (const prop of node.properties) {
 				result[prop.key.value] = yamlNodeToValue(prop.value);
@@ -128,17 +143,23 @@ export function parseCellExecutionOptions(code: string): ParsedCellOptions {
 		const errors: import('../../../../base/common/yaml.js').YamlParseError[] = [];
 		const parsed = parseYaml(yamlContent, errors);
 
-		if (parsed && parsed.type === 'object') {
-			const obj = parsed as YamlObjectNode;
+		if (parsed && parsed.type === 'map') {
+			const obj = parsed as YamlMapNode;
 			for (const prop of obj.properties) {
 				const key = prop.key.value;
 				const value = prop.value;
 
-				if (key === 'eval' && value.type === 'boolean') {
-					(options as { eval: boolean }).eval = value.value;
+				if (key === 'eval' && value.type === 'scalar') {
+					const boolValue = value.value.toLowerCase();
+					if (boolValue === 'true' || boolValue === 'false') {
+						(options as { eval: boolean }).eval = boolValue === 'true';
+					}
 				}
-				if (key === 'error' && value.type === 'boolean') {
-					(options as { error: boolean }).error = value.value;
+				if (key === 'error' && value.type === 'scalar') {
+					const boolValue = value.value.toLowerCase();
+					if (boolValue === 'true' || boolValue === 'false') {
+						(options as { error: boolean }).error = boolValue === 'true';
+					}
 				}
 
 				// Collect non-execution options as metadata

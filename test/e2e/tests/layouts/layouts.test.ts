@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -16,7 +16,7 @@ test.describe('Layouts', { tag: [tags.WEB, tags.LAYOUTS, tags.WIN, tags.WORKBENC
 		test('Verify Stacked Layout displays Console, Terminal, and Auxiliary Sections in correct order', async function ({ app }) {
 			const layouts = app.workbench.layouts;
 
-			await app.code.driver.page.setViewportSize({ width: 1400, height: 1000 });
+			await app.code.driver.currentPage.setViewportSize({ width: 1400, height: 1000 });
 
 			// Enter layout with help pane docked in session panel
 			await layouts.enterLayout('stacked');

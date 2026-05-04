@@ -141,7 +141,7 @@ test.describe('Workbench: Language-scoped enforced settings', {
 		}
 		await app.positWorkbench.dashboard.openSession('qa-example-content');
 
-		await app.code.driver.page.waitForSelector('.monaco-workbench', { timeout: 60000 });
+		await app.code.driver.currentPage.waitForSelector('.monaco-workbench', { timeout: 60000 });
 		await app.workbench.sessions.expectNoStartUpMessaging();
 		await app.workbench.hotKeys.closeAllEditors();
 	});
@@ -249,7 +249,7 @@ test.describe('Workbench: Language-scoped enforced settings', {
 
 			// VS Code watches settings.json, but reloading makes the observation deterministic.
 			await hotKeys.reloadWindow();
-			await app.code.driver.page.waitForSelector('.monaco-workbench', { timeout: 60000 });
+			await app.code.driver.currentPage.waitForSelector('.monaco-workbench', { timeout: 60000 });
 		});
 
 		const filePath = await writeOpenAndSave(app, runDockerCommand, hotKeys, page, 'enforced-settings-user-conflict.R', MESSY_R_CONTENT);

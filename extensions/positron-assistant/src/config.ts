@@ -328,7 +328,7 @@ async function saveModel(
 		.forEach((option) => {
 			if (!(option in userConfig)) {
 				throw new Error(vscode.l10n.t(
-					`Can't save configuration with missing required option: ${option}`
+					"Can't save configuration with missing required option: {0}", option
 				));
 			}
 		});
@@ -383,7 +383,7 @@ async function saveModel(
 		PositronAssistantApi.get().notifySignIn(name);
 
 		vscode.window.showInformationMessage(
-			vscode.l10n.t(`Language Model {0} has been added successfully.`, name)
+			vscode.l10n.t('Language Model {0} has been added successfully.', name)
 		);
 	} catch (error) {
 		if (!options?.skipSecretStorage) {
@@ -394,7 +394,7 @@ async function saveModel(
 			existingConfigs
 		);
 		const err = error instanceof Error ? error : new Error(JSON.stringify(error));
-		throw new Error(vscode.l10n.t(`Failed to add language model {0}: {1}`, name, err.message));
+		throw new Error(vscode.l10n.t('Failed to add language model {0}: {1}', name, err.message));
 	}
 }
 

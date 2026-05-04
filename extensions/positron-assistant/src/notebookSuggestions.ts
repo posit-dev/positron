@@ -13,6 +13,7 @@ import { isFileExcludedFromAI } from './fileExclusion.js';
 import { MARKDOWN_DIR } from './constants';
 import { serializeNotebookContext } from './tools/notebookUtils.js';
 import { StreamingTagLexer } from './streamingTagLexer.js';
+import { selectPreferredModel } from './modelSelection.js';
 
 /**
  * Interface for notebook action suggestions returned to the workbench
@@ -193,7 +194,7 @@ async function parseStreamingXML(
 						currentFieldContent = '';
 					} else if (chunk.kind === 'close' && currentField && currentSuggestion) {
 						// Save the field content
-						currentSuggestion[currentField] = currentFieldContent.trim() as NotebookActionSuggestion['mode'];;
+						currentSuggestion[currentField] = currentFieldContent.trim() as NotebookActionSuggestion['mode'];
 						currentField = null;
 						currentFieldContent = '';
 					}
@@ -269,73 +270,20 @@ function completeSuggestion(
  * @returns The selected language model
  */
 async function getModel(participantService: ParticipantService, log: vscode.LogOutputChannel): Promise<vscode.LanguageModelChat> {
-	// Log all available models for debugging
-	const allModels = await vscode.lm.selectChatModels();
-	log.debug(`[notebook-suggestions] Available models: ${allModels.length} total`);
-	allModels.forEach((model, index) => {
-		log.debug(`[notebook-suggestions] Model ${index + 1}: id="${model.id}", name="${model.name}", vendor="${model.vendor}"`);
-	});
-
-	// Check configuration setting first (highest priority)
 	const config = vscode.workspace.getConfiguration('positron.assistant');
 	const configuredPatterns = config.get<string[]>('notebookSuggestions.model') || [];
-	if (configuredPatterns.length > 0) {
-		log.debug(`[notebook-suggestions] Checking configured model patterns: ${JSON.stringify(configuredPatterns)}`);
-		// Iterate through patterns in order
-		for (const pattern of configuredPatterns) {
-			if (!pattern || pattern.trim() === '') {
-				continue;
-			}
-			log.debug(`[notebook-suggestions] Trying pattern: "${pattern}"`);
-			const patternLower = pattern.toLowerCase();
-			// Try exact ID match first (case-sensitive for exact matches)
-			const exactMatch = allModels.find(m => m.id === pattern);
-			if (exactMatch) {
-				log.debug(`[notebook-suggestions] Using configured model (exact ID match): ${exactMatch.name} (${exactMatch.id})`);
-				return exactMatch;
-			}
-			// Try partial match on ID or name (case-insensitive)
-			const partialMatch = allModels.find(m =>
-				m.id.toLowerCase().includes(patternLower) || m.name.toLowerCase().includes(patternLower)
-			);
-			if (partialMatch) {
-				log.debug(`[notebook-suggestions] Using configured model (partial match): ${partialMatch.name} (${partialMatch.id})`);
-				return partialMatch;
-			}
-			log.debug(`[notebook-suggestions] Pattern "${pattern}" did not match any model, trying next pattern`);
-		}
-		log.warn(`[notebook-suggestions] None of the configured patterns matched any model, falling back to default selection`);
-	}
-
-	// Check for the latest chat session and use its model
-	const sessionModelId = participantService.getCurrentSessionModel();
-	if (sessionModelId) {
-		log.debug(`[notebook-suggestions] Checking session model: ${sessionModelId}`);
-		const models = await vscode.lm.selectChatModels({ 'id': sessionModelId });
-		if (models && models.length > 0) {
-			log.debug(`[notebook-suggestions] Using session model: ${models[0].name} (${models[0].id})`);
-			return models[0];
-		}
-	}
-
-	// Fall back to the first model for the currently selected provider
-	const currentProvider = await positron.ai.getCurrentProvider();
-	if (currentProvider) {
-		log.debug(`[notebook-suggestions] Checking current provider: ${currentProvider.id}`);
-		const models = await vscode.lm.selectChatModels({ vendor: currentProvider.id });
-		if (models && models.length > 0) {
-			log.debug(`[notebook-suggestions] Using provider model: ${models[0].name} (${models[0].id})`);
-			return models[0];
-		}
-	}
-
-	// Fall back to any available model
-	log.debug(`[notebook-suggestions] Falling back to first available model`);
-	const [firstModel] = await vscode.lm.selectChatModels();
-	if (!firstModel) {
+	const selection = await selectPreferredModel({
+		participantService,
+		log,
+		logPrefix: 'notebook-suggestions',
+		configuredModels: {
+			patterns: configuredPatterns,
+			matchMode: 'partial',
+		},
+	});
+	if (!selection) {
 		throw new Error('No language model available');
 	}
 
-	log.debug(`[notebook-suggestions] Using fallback model: ${firstModel.name} (${firstModel.id})`);
-	return firstModel;
+	return selection.model;
 }

@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { isHTMLElement } from '../../../../../../base/browser/dom.js';
+import { onUnexpectedError } from '../../../../../../base/common/errors.js';
 import { Emitter, Event } from '../../../../../../base/common/event.js';
 import { Disposable, DisposableStore, IDisposable, toDisposable } from '../../../../../../base/common/lifecycle.js';
 import { IInstantiationService } from '../../../../../../platform/instantiation/common/instantiation.js';
@@ -477,7 +478,7 @@ export class PositronNotebookCellOutline extends Disposable implements IOutline<
 	}
 
 	private _delayedRecomputeState(): void {
-		this._delayerRecomputeState.trigger(() => this._recomputeState());
+		this._delayerRecomputeState.trigger(() => this._recomputeState()).catch(onUnexpectedError);
 	}
 
 	private _recomputeState(): void {

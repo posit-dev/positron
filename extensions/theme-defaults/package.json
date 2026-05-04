@@ -5,7 +5,7 @@
   "categories": [
     "Themes"
   ],
-  "version": "1.0.0",
+  "version": "10.0.0",
   "publisher": "vscode",
   "license": "MIT",
   "engines": {
@@ -48,6 +48,18 @@
         "label": "%positronLightThemeLabel%",
         "uiTheme": "vs",
         "path": "./themes/positron_light.json"
+      },
+      {
+        "id": "Experimental Positron Dark",
+        "label": "%positronExperimentalDarkThemeLabel%",
+        "uiTheme": "vs-dark",
+        "path": "./themes/positron_experimental_dark.json"
+      },
+      {
+        "id": "Experimental Positron Light",
+        "label": "%positronExperimentalLightThemeLabel%",
+        "uiTheme": "vs",
+        "path": "./themes/positron_experimental_light.json"
       },
       {
         "id": "Visual Studio Dark",

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -29,7 +29,7 @@ export function AttachScreenshotsToReportFixture() {
 	return async (options: AttachScreenshotsToReportOptions, use: (arg0: void) => Promise<void>) => {
 		const { app, testInfo } = options;
 		let screenShotCounter = 1;
-		const page = app.code.driver.page;
+		const page = app.code.driver.currentPage;
 		const screenshots: string[] = [];
 
 		app.code.driver.takeScreenshot = async function (name: string) {

@@ -134,6 +134,9 @@ import { McpManagementChannel } from '../../../platform/mcp/common/mcpManagement
 import { AllowedMcpServersService } from '../../../platform/mcp/common/allowedMcpServersService.js';
 import { IMcpGalleryManifestService } from '../../../platform/mcp/common/mcpGalleryManifest.js';
 import { McpGalleryManifestIPCService } from '../../../platform/mcp/common/mcpGalleryManifestServiceIpc.js';
+import { IMeteredConnectionService } from '../../../platform/meteredConnection/common/meteredConnection.js';
+import { MeteredConnectionChannelClient, METERED_CONNECTION_CHANNEL } from '../../../platform/meteredConnection/common/meteredConnectionIpc.js';
+import { PlaywrightChannel } from '../../../platform/browserView/node/playwrightChannel.js';
 
 // --- Start Positron ---
 import { PositronBootstrapExtensionsInitializer } from '../../../platform/extensionManagement/node/positronBootstrapExtensionsInitializer.js';
@@ -313,6 +316,10 @@ class SharedProcessMain extends Disposable implements IClientConnectionFilter {
 		const nativeHostService = new NativeHostService(-1 /* we are not running in a browser window context */, mainProcessService) as INativeHostService;
 		services.set(INativeHostService, nativeHostService);
 
+		// Metered Connection
+		const meteredConnectionService = this._register(new MeteredConnectionChannelClient(mainProcessService.getChannel(METERED_CONNECTION_CHANNEL)));
+		services.set(IMeteredConnectionService, meteredConnectionService);
+
 		// Download
 		services.set(IDownloadService, new SyncDescriptor(DownloadService, undefined, true));
 
@@ -339,6 +346,7 @@ class SharedProcessMain extends Disposable implements IClientConnectionFilter {
 				commonProperties: resolveCommonProperties(release(), hostname(), process.arch, productService.commit, productService.version, this.configuration.machineId, this.configuration.sqmId, this.configuration.devDeviceId, internalTelemetry, productService.date),
 				sendErrorTelemetry: true,
 				piiPaths: getPiiPathsFromEnvironment(environmentService),
+				meteredConnectionService,
 			}, configurationService, productService);
 		} else {
 			telemetryService = NullTelemetryService;
@@ -483,6 +491,10 @@ class SharedProcessMain extends Disposable implements IClientConnectionFilter {
 		// Web Content Extractor
 		const webContentExtractorChannel = ProxyChannel.fromService(accessor.get(ISharedWebContentExtractorService), this._store);
 		this.server.registerChannel('sharedWebContentExtractor', webContentExtractorChannel);
+
+		// Playwright
+		const playwrightChannel = this._register(new PlaywrightChannel(this.server, accessor.get(IMainProcessService), accessor.get(ILogService)));
+		this.server.registerChannel('playwright', playwrightChannel);
 	}
 
 	private registerErrorHandler(logService: ILogService): void {

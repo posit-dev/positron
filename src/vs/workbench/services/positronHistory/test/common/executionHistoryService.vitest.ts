@@ -62,6 +62,10 @@ class TestWorkspaceContextService implements IWorkspaceContextService {
 	isCurrentWorkspace(): boolean {
 		return false;
 	}
+
+	hasWorkspaceData(): boolean {
+		return false;
+	}
 }
 
 class TestRuntimeSessionService implements IRuntimeSessionService {

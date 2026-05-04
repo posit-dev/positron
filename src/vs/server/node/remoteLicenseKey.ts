@@ -7,7 +7,7 @@ import { ServerParsedArgs } from './serverEnvironmentService.js';
 import * as fs from 'fs';
 import * as path from '../../base/common/path.js';
 import * as crypto from 'crypto';
-import { activateWithManager } from './licenseManager.js';
+import { activateWithManager, verifyLocalLicense } from './licenseManager.js';
 import { FileAccess } from '../../base/common/network.js';
 
 /**
@@ -126,6 +126,14 @@ export async function validateLicenseKey(connectionToken: string, args: ServerPa
 		if (fs.existsSync(storageLocation)) {
 			return validateLicenseFile(connectionToken, storageLocation);
 		}
+	}
+
+	// Check for a .lic file next to the license-manager binary.
+	const installPath = path.join(FileAccess.asFileUri('').fsPath, '..');
+	const localResult = await verifyLocalLicense(installPath);
+	if (localResult) {
+		console.log('Verified license from license-manager directory.');
+		return localResult;
 	}
 
 	// We need at least one license key to proceed.

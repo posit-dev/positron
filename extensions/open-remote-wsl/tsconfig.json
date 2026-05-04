@@ -2,6 +2,7 @@
 	"extends": "../tsconfig.base.json",
 	"compilerOptions": {
 		"outDir": "out",
+		"rootDir": "src",
 		"strict": true,
 		"sourceMap": true,
 		"exactOptionalPropertyTypes": false,

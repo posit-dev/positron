@@ -39,10 +39,13 @@ import { IHostColorSchemeService } from '../common/hostColorSchemeService.js';
 import { RunOnceScheduler, Sequencer } from '../../../../base/common/async.js';
 import { IUserDataInitializationService } from '../../userData/browser/userDataInit.js';
 import { getIconsStyleSheet } from '../../../../platform/theme/browser/iconsStyleSheet.js';
-import { asCssVariableName, getColorRegistry } from '../../../../platform/theme/common/colorRegistry.js';
-import { asCssVariableName as asSizeCssVariableName, getSizeRegistry, sizeValueToCss } from '../../../../platform/theme/common/sizeRegistry.js';
+import { getColorRegistry } from '../../../../platform/theme/common/colorRegistry.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { mainWindow } from '../../../../base/browser/window.js';
+import { generateColorThemeCSS } from './colorThemeCss.js';
+// --- Start Positron ---
+import { isColorThemeVisibleInPicker } from './positronColorThemeFilter.js';
+// --- End Positron ---
 
 // implementation
 
@@ -118,20 +121,20 @@ export class WorkbenchThemeService extends Disposable implements IWorkbenchTheme
 
 		this.colorThemeRegistry = this._register(new ThemeRegistry(colorThemesExtPoint, ColorThemeData.fromExtensionTheme));
 		this.colorThemeWatcher = this._register(new ThemeFileWatcher(fileService, environmentService, this.reloadCurrentColorTheme.bind(this)));
-		this.onColorThemeChange = new Emitter<IWorkbenchColorTheme>({ leakWarningThreshold: 400 });
+		this.onColorThemeChange = this._register(new Emitter<IWorkbenchColorTheme>({ leakWarningThreshold: 400 }));
 		this.currentColorTheme = ColorThemeData.createUnloadedTheme('');
 		this.colorThemeSequencer = new Sequencer();
 
 		this.fileIconThemeWatcher = this._register(new ThemeFileWatcher(fileService, environmentService, this.reloadCurrentFileIconTheme.bind(this)));
 		this.fileIconThemeRegistry = this._register(new ThemeRegistry(fileIconThemesExtPoint, FileIconThemeData.fromExtensionTheme, true, FileIconThemeData.noIconTheme));
 		this.fileIconThemeLoader = new FileIconThemeLoader(extensionResourceLoaderService, languageService);
-		this.onFileIconThemeChange = new Emitter<IWorkbenchFileIconTheme>({ leakWarningThreshold: 400 });
+		this.onFileIconThemeChange = this._register(new Emitter<IWorkbenchFileIconTheme>({ leakWarningThreshold: 400 }));
 		this.currentFileIconTheme = FileIconThemeData.createUnloadedTheme('');
 		this.fileIconThemeSequencer = new Sequencer();
 
 		this.productIconThemeWatcher = this._register(new ThemeFileWatcher(fileService, environmentService, this.reloadCurrentProductIconTheme.bind(this)));
 		this.productIconThemeRegistry = this._register(new ThemeRegistry(productIconThemesExtPoint, ProductIconThemeData.fromExtensionTheme, true, ProductIconThemeData.defaultTheme));
-		this.onProductIconThemeChange = new Emitter<IWorkbenchProductIconTheme>();
+		this.onProductIconThemeChange = this._register(new Emitter<IWorkbenchProductIconTheme>());
 		this.currentProductIconTheme = ProductIconThemeData.createUnloadedTheme('');
 		this.productIconThemeSequencer = new Sequencer();
 
@@ -369,44 +372,11 @@ export class WorkbenchThemeService extends Disposable implements IWorkbenchTheme
 
 	public async getColorThemes(): Promise<IWorkbenchColorTheme[]> {
 		// --- Start Positron ---
-
-		// Get the themes and the current theme.
+		// Positron ships with a subset of the themes that are available by default;
+		// see positronColorThemeFilter.ts for the filter and bypass rules.
 		const themes = this.colorThemeRegistry.getThemes();
-		const currentTheme = this.getColorTheme();
-
-		// Positron ships with a subset of the themes that are available by default.
-		return themes.filter(theme => {
-			// Always include the current theme.
-			if (theme.id === currentTheme.id) {
-				return true;
-			}
-
-			// Filter themes.
-			switch (theme.id) {
-				// Exclude older Visual Studio Code themes.
-				case 'vs vscode-theme-defaults-themes-light_modern-json':
-				case 'vs vscode-theme-defaults-themes-light_plus-json':
-				case 'vs vscode-theme-defaults-themes-light_vs-json':
-				case 'vs vscode-theme-quietlight-themes-quietlight-color-theme-json':
-				case 'vs vscode-theme-solarized-light-themes-solarized-light-color-theme-json':
-				case 'vs-dark vscode-theme-abyss-themes-abyss-color-theme-json':
-				case 'vs-dark vscode-theme-defaults-themes-dark_modern-json':
-				case 'vs-dark vscode-theme-defaults-themes-dark_plus-json':
-				case 'vs-dark vscode-theme-defaults-themes-dark_vs-json':
-				case 'vs-dark vscode-theme-kimbie-dark-themes-kimbie-dark-color-theme-json':
-				case 'vs-dark vscode-theme-monokai-dimmed-themes-dimmed-monokai-color-theme-json':
-				case 'vs-dark vscode-theme-monokai-themes-monokai-color-theme-json':
-				case 'vs-dark vscode-theme-red-themes-Red-color-theme-json':
-				case 'vs-dark vscode-theme-solarized-dark-themes-solarized-dark-color-theme-json':
-					return false;
-
-				// Include user-defined themes as well as any new themes that have been added to
-				// Visual Studio Code.
-				default:
-					return true;
-			}
-		});
-
+		const currentThemeId = this.getColorTheme().id;
+		return themes.filter(theme => isColorThemeVisibleInPicker(theme.id, currentThemeId));
 		// --- End Positron ---
 	}
 
@@ -499,36 +469,13 @@ export class WorkbenchThemeService extends Disposable implements IWorkbenchTheme
 	}
 
 	private updateDynamicCSSRules(themeData: IColorTheme) {
-		const cssRules = new Set<string>();
-		const ruleCollector = {
-			addRule: (rule: string) => {
-				if (!cssRules.has(rule)) {
-					cssRules.add(rule);
-				}
-			}
-		};
-		ruleCollector.addRule(`.monaco-workbench { forced-color-adjust: none; }`);
-		themingRegistry.getThemingParticipants().forEach(p => p(themeData, ruleCollector, this.environmentService));
-
-		const colorVariables: string[] = [];
-		for (const item of getColorRegistry().getColors()) {
-			const color = themeData.getColor(item.id, true);
-			if (color) {
-				colorVariables.push(`${asCssVariableName(item.id)}: ${color.toString()};`);
-			}
-		}
-
-		const sizeVariables: string[] = [];
-		for (const item of getSizeRegistry().getSizes()) {
-			const sizeValue = getSizeRegistry().resolveDefaultSize(item.id, themeData);
-			if (sizeValue) {
-				sizeVariables.push(`${asSizeCssVariableName(item.id)}: ${sizeValueToCss(sizeValue)};`);
-			}
-		}
-
-		ruleCollector.addRule(`.monaco-workbench { ${(colorVariables.concat(sizeVariables)).join('\n')} }`);
-
-		_applyRules([...cssRules].join('\n'), colorThemeRulesClassName);
+		const css = generateColorThemeCSS(
+			themeData,
+			'.monaco-workbench',
+			themingRegistry.getThemingParticipants(),
+			this.environmentService
+		);
+		_applyRules(css.code, colorThemeRulesClassName);
 	}
 
 	private applyTheme(newTheme: ColorThemeData, settingsTarget: ThemeSettingTarget, silent = false): Promise<IWorkbenchColorTheme | null> {
@@ -587,7 +534,7 @@ export class WorkbenchThemeService extends Disposable implements IWorkbenchTheme
 					publisherDisplayName: string;
 					themeId: string;
 				};
-				this.telemetryService.publicLog2<ActivatePluginEvent, ActivatePluginClassification>('activatePlugin', {
+				this.telemetryService.publicLog2<ActivatePluginEvent, ActivatePluginClassification>('activateThemeExtension', {
 					id: themeData.extensionId,
 					name: themeData.extensionName,
 					isBuiltin: themeData.extensionIsBuiltin,

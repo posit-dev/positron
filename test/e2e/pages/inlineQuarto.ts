@@ -27,6 +27,7 @@ const OUTPUT_HTML = '.quarto-output-html';
 const OUTPUT_IMAGE = '.quarto-output-image';
 const OUTPUT_ERROR = '.quarto-output-error';
 const OUTPUT_WEBVIEW = '.quarto-output-webview-container';
+const OUTPUT_DATA_EXPLORER = '.quarto-output-data-explorer';
 const IMAGE_PREVIEW_WRAPPER = '.quarto-image-preview-wrapper';
 const IMAGE_PREVIEW = '.quarto-image-preview';
 const IMAGE_PREVIEW_ERROR = '.quarto-image-preview-error';
@@ -72,7 +73,7 @@ export class InlineQuarto {
 		this.code = code;
 		this.quickaccess = quickaccess;
 		this.hotKeys = hotKeys;
-		const page = code.driver.page;
+		const page = code.driver.currentPage;
 
 		this.kernelStatusWidget = page.locator(KERNEL_STATUS_WIDGET);
 		this.inlineOutput = page.locator(INLINE_OUTPUT);
@@ -94,7 +95,7 @@ export class InlineQuarto {
 		this.imageOutput = page.locator(`${INLINE_OUTPUT} ${OUTPUT_IMAGE}`);
 		this.errorOutput = page.locator(`${INLINE_OUTPUT} ${OUTPUT_ERROR}`);
 		this.webviewContainer = page.locator(`${INLINE_OUTPUT} ${OUTPUT_WEBVIEW}`);
-		this.webviewOrHtmlOutput = page.locator(`${INLINE_OUTPUT}`).locator(`${OUTPUT_WEBVIEW}, ${OUTPUT_HTML}`);
+		this.webviewOrHtmlOutput = page.locator(`${INLINE_OUTPUT}`).locator(`${OUTPUT_WEBVIEW}, ${OUTPUT_HTML}, ${OUTPUT_DATA_EXPLORER}`);
 		this.imagePreviewWrapper = page.locator(IMAGE_PREVIEW_WRAPPER);
 		this.imagePreview = page.locator(IMAGE_PREVIEW);
 		this.imagePreviewError = page.locator(IMAGE_PREVIEW_ERROR);
@@ -129,8 +130,8 @@ export class InlineQuarto {
 	async gotoLine(lineNumber: number): Promise<void> {
 		await test.step(`Go to line ${lineNumber}`, async () => {
 			await this.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
-			await this.code.driver.page.keyboard.type(String(lineNumber));
-			await this.code.driver.page.keyboard.press('Enter');
+			await this.code.driver.currentPage.keyboard.type(String(lineNumber));
+			await this.code.driver.currentPage.keyboard.press('Enter');
 		});
 	}
 
@@ -237,7 +238,7 @@ export class InlineQuarto {
 
 	async selectStdoutTextViaDrag(): Promise<void> {
 		await test.step('Select stdout text via click-and-drag', async () => {
-			const page = this.code.driver.page;
+			const page = this.code.driver.currentPage;
 			const boundingBox = await this.stdoutOutput.first().boundingBox();
 			expect(boundingBox).not.toBeNull();
 
@@ -366,7 +367,7 @@ export class InlineQuarto {
 
 	async expectTextSelectedAndContains(expectedStrings: string[]): Promise<void> {
 		await test.step(`Verify text is selected and contains one of: ${expectedStrings.join(', ')}`, async () => {
-			const selectedText = await this.code.driver.page.evaluate(() => {
+			const selectedText = await this.code.driver.currentPage.evaluate(() => {
 				const selection = window.getSelection();
 				return selection ? selection.toString().trim() : '';
 			});

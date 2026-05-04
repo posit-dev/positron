@@ -199,22 +199,22 @@ export class ModelProviderAuth {
 	async selectModelProvider(provider: ModelProvider) {
 		switch (provider.toLowerCase()) {
 			case 'anthropic-api':
-				await this.code.driver.page.locator(ANTHROPIC_BUTTON).click();
+				await this.code.driver.currentPage.locator(ANTHROPIC_BUTTON).click();
 				break;
 			case 'amazon-bedrock':
-				await this.code.driver.page.locator(AWS_BEDROCK_BUTTON).click();
+				await this.code.driver.currentPage.locator(AWS_BEDROCK_BUTTON).click();
 				break;
 			case 'echo':
-				await this.code.driver.page.locator(ECHO_MODEL_BUTTON).click();
+				await this.code.driver.currentPage.locator(ECHO_MODEL_BUTTON).click();
 				break;
 			case 'error':
-				await this.code.driver.page.locator(ERROR_MODEL_BUTTON).click();
+				await this.code.driver.currentPage.locator(ERROR_MODEL_BUTTON).click();
 				break;
 			case 'openai-api':
-				await this.code.driver.page.locator(OPENAI_BUTTON).click();
+				await this.code.driver.currentPage.locator(OPENAI_BUTTON).click();
 				break;
 			case 'posit-ai':
-				await this.code.driver.page.locator(POSIT_AI_BUTTON).click();
+				await this.code.driver.currentPage.locator(POSIT_AI_BUTTON).click();
 				break;
 			default:
 				throw new Error(`Unsupported model provider: ${provider}`);
@@ -243,7 +243,7 @@ export class ModelProviderAuth {
 
 			await this.selectModelProvider(provider);
 
-			const alreadySignedIn = await this.code.driver.page.locator(SIGN_OUT_BUTTON).isVisible();
+			const alreadySignedIn = await this.code.driver.currentPage.locator(SIGN_OUT_BUTTON).isVisible();
 			if (alreadySignedIn) {
 				await this.clickCloseButton();
 				return;
@@ -309,21 +309,21 @@ export class ModelProviderAuth {
 	}
 
 	async enterApiKey(apiKey: string) {
-		await this.code.driver.page.locator(APIKEY_RADIO).check();
-		const apiKeyInput = this.code.driver.page.locator(APIKEY_INPUT);
+		await this.code.driver.currentPage.locator(APIKEY_RADIO).check();
+		const apiKeyInput = this.code.driver.currentPage.locator(APIKEY_INPUT);
 		await fillSecretValue(apiKeyInput, apiKey);
 	}
 
 	async clickSignInButton() {
-		await this.code.driver.page.locator(SIGN_IN_BUTTON).click();
+		await this.code.driver.currentPage.locator(SIGN_IN_BUTTON).click();
 	}
 
 	async clickSignOutButton() {
-		await this.code.driver.page.locator(SIGN_OUT_BUTTON).click();
+		await this.code.driver.currentPage.locator(SIGN_OUT_BUTTON).click();
 	}
 
 	async clickCloseButton({ abandonChanges = true } = {}) {
-		await this.code.driver.page.locator(CLOSE_BUTTON).click();
+		await this.code.driver.currentPage.locator(CLOSE_BUTTON).click();
 
 		const abandonModalisVisible = await this.modals.modalTitle.filter({ hasText: 'Authentication Incomplete' }).isVisible();
 		if (abandonModalisVisible) {
@@ -336,24 +336,24 @@ export class ModelProviderAuth {
 	}
 
 	async verifySignOutButtonVisible(timeout: number = 15000) {
-		await expect(this.code.driver.page.locator(SIGN_OUT_BUTTON)).toBeVisible({ timeout });
-		await expect(this.code.driver.page.locator(SIGN_OUT_BUTTON)).toHaveText('Sign out', { timeout });
+		await expect(this.code.driver.currentPage.locator(SIGN_OUT_BUTTON)).toBeVisible({ timeout });
+		await expect(this.code.driver.currentPage.locator(SIGN_OUT_BUTTON)).toHaveText('Sign out', { timeout });
 	}
 
 	async verifySignInButtonVisible(timeout: number = 15000) {
-		await expect(this.code.driver.page.locator(SIGN_IN_BUTTON)).toBeVisible({ timeout });
-		await expect(this.code.driver.page.locator(SIGN_IN_BUTTON)).toHaveText('Sign in', { timeout });
+		await expect(this.code.driver.currentPage.locator(SIGN_IN_BUTTON)).toBeVisible({ timeout });
+		await expect(this.code.driver.currentPage.locator(SIGN_IN_BUTTON)).toHaveText('Sign in', { timeout });
 	}
 
 	async verifyAuthMethod(type: 'oauth' | 'apiKey') {
 		switch (type) {
 			case 'oauth':
-				await expect(this.code.driver.page.locator(OAUTH_RADIO)).toBeChecked();
-				await expect(this.code.driver.page.locator(APIKEY_RADIO)).toBeDisabled();
+				await expect(this.code.driver.currentPage.locator(OAUTH_RADIO)).toBeChecked();
+				await expect(this.code.driver.currentPage.locator(APIKEY_RADIO)).toBeDisabled();
 				break;
 			case 'apiKey':
-				await expect(this.code.driver.page.locator(APIKEY_RADIO)).toBeChecked();
-				await expect(this.code.driver.page.locator(OAUTH_RADIO)).toBeDisabled();
+				await expect(this.code.driver.currentPage.locator(APIKEY_RADIO)).toBeChecked();
+				await expect(this.code.driver.currentPage.locator(OAUTH_RADIO)).toBeDisabled();
 				break;
 			default:
 				throw new Error(`Unsupported auth method: ${type}`);
@@ -413,7 +413,7 @@ export class ModelProviderAuth {
 	}
 
 	private async extractDeviceCodeFromModal(_config: OAuthDeviceCodeConfig): Promise<{ verificationCode: string }> {
-		const deviceCodeModalLocator = this.code.driver.page.locator(`${POSITRON_MODAL_DIALOG}:has-text("You will need this code to sign in")`);
+		const deviceCodeModalLocator = this.code.driver.currentPage.locator(`${POSITRON_MODAL_DIALOG}:has-text("You will need this code to sign in")`);
 		await expect(deviceCodeModalLocator).toBeVisible({ timeout: 30000 });
 
 		const modalHtml = await deviceCodeModalLocator.innerHTML();

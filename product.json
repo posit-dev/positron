@@ -3,7 +3,7 @@
 	"nameShort": "Positron",
 	"nameLong": "Positron",
 	"version": "",
-	"positronVersion": "2026.05.0",
+	"positronVersion": "2026.06.0",
 	"positronBuildNumber": 0,
 	"applicationName": "positron",
 	"dataFolderName": ".positron",
@@ -62,8 +62,8 @@
 		},
 		{
 			"name": "ms-vscode.js-debug",
-			"version": "1.105.0",
-			"sha256": "0c45b90342e8aafd4ff2963b4006de64208ca58c2fd01fea7a710fe61dcfd12a",
+			"version": "1.110.0",
+			"sha256": "ad3f7d935b64f4ee123853c464b47b3cba13e5018edef831770ae9c3eb218f5b",
 			"repo": "https://github.com/microsoft/vscode-js-debug",
 			"metadata": {
 				"id": "25629058-ddac-4e17-abba-74678e126c5d",
@@ -295,8 +295,8 @@
 		},
 		{
 			"name": "posit.assistant",
-			"version": "0.3.2",
-			"sha256": "d6661dc9e5c607a645a65eae56fec210302a5babb2e2af735078e96e448b7c3e",
+			"version": "0.4.2",
+			"sha256": "9375eedf32d0e5e0de6f08369ea32fd30072f068d14ab3e276c362663b64d828",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
 				"displayName": "Posit Assistant"
@@ -340,6 +340,7 @@
 				"name": "Positron Assistant"
 			}
 		},
+		"providerExtensionId": "vscode.github-authentication",
 		"providerUriSetting": "github-enterprise.uri",
 		"providerScopes": [
 			[

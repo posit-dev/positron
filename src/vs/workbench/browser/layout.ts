@@ -28,7 +28,7 @@ import { getMenuBarVisibility, IPath, hasNativeTitlebar, hasCustomTitlebar, Titl
 import { IHostService } from '../services/host/browser/host.js';
 import { IBrowserWorkbenchEnvironmentService } from '../services/environment/browser/environmentService.js';
 import { IEditorService } from '../services/editor/common/editorService.js';
-import { EditorGroupLayout, GroupOrientation, GroupsOrder, IEditorGroupsService } from '../services/editor/common/editorGroupsService.js';
+import { EditorGroupLayout, GroupActivationReason, GroupOrientation, GroupsOrder, IEditorGroupsService } from '../services/editor/common/editorGroupsService.js';
 import { SerializableGrid, ISerializableView, ISerializedGrid, Orientation, ISerializedNode, ISerializedLeafNode, Direction, IViewSize, Sizing } from '../../base/browser/ui/grid/grid.js';
 import { Part } from './part.js';
 // --- Start Positron ---
@@ -427,7 +427,7 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 			// to maximize the panel. When editors become visible again, restore
 			// the editor. Crucially, if the user has explicitly hidden the
 			// panel (e.g. via Cmd+J), we do NOT force it back open.
-			const onDidVisibleEditorsChangeHandler = () => {
+			this._register(this.mainPartEditorService.onDidVisibleEditorsChange(() => {
 				const handled = maybeMaximizeAuxiliaryBar();
 				if (!handled) {
 					if (this.mainPartEditorService.visibleEditors.length === 0) {
@@ -449,10 +449,13 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 						showEditorIfHidden();
 					}
 				}
-			};
-			this._register(this.mainPartEditorService.onDidVisibleEditorsChange(onDidVisibleEditorsChangeHandler));
+			}));
 			// --- End Positron ---
-			this._register(this.editorGroupService.mainPart.onDidActivateGroup(showEditorIfHidden));
+			this._register(this.editorGroupService.mainPart.onDidActivateGroup(e => {
+				if (e.reason !== GroupActivationReason.PART_CLOSE) {
+					showEditorIfHidden(); // only show unless a modal/auxiliary part closes
+				}
+			}));
 
 			// Revalidate center layout when active editor changes: diff editor quits centered mode
 			this._register(this.mainPartEditorService.onDidActiveEditorChange(() => this.centerMainEditorLayout(this.stateModel.getRuntimeValue(LayoutStateKeys.MAIN_EDITOR_CENTERED))));
@@ -1687,7 +1690,7 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		this.positronTopActionBarPartView = positronTopActionBar;
 		// --- End Positron ---
 
-		const viewMap = {
+		const viewMap: Record<string, ISerializableView> = {
 			[Parts.ACTIVITYBAR_PART]: this.activityBarPartView,
 			[Parts.BANNER_PART]: this.bannerPartView,
 			[Parts.TITLEBAR_PART]: this.titleBarPartView,
@@ -2092,6 +2095,10 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		if (alignment !== 'center' && this.isPanelMaximized()) {
 			this.toggleMaximizedPanel();
 		}
+
+		// Leave auxiliary bar maximized state because changing
+		// panel alignment requires the editor part to be visible
+		this.setAuxiliaryBarMaximized(false);
 
 		this.stateModel.setRuntimeValue(LayoutStateKeys.PANEL_ALIGNMENT, alignment);
 
@@ -3362,7 +3369,10 @@ class LayoutStateModel extends Disposable {
 		// Auxiliary bar: Maximized settings
 		if (this.isNew[StorageScope.WORKSPACE]) {
 			const defaultAuxiliaryBarVisibility = this.configurationService.getValue(WorkbenchLayoutSettings.AUXILIARYBAR_DEFAULT_VISIBILITY);
-			if (
+			const startupEditor = this.configurationService.getValue<'none' | 'welcomePage' | 'readme' | 'newUntitledFile' | 'welcomePageInEmptyWorkbench' | 'terminal' | 'agentSessionsWelcomePage'>('workbench.startupEditor');
+			if (startupEditor === 'agentSessionsWelcomePage') {
+				this.applyAuxiliaryBarHiddenOverride(true);
+			} else if (
 				defaultAuxiliaryBarVisibility === 'maximized' ||
 				(defaultAuxiliaryBarVisibility === 'maximizedInWorkspace' && this.contextService.getWorkbenchState() !== WorkbenchState.EMPTY)
 			) {
@@ -3413,6 +3423,10 @@ class LayoutStateModel extends Disposable {
 
 		this.setRuntimeValue(LayoutStateKeys.AUXILIARYBAR_LAST_NON_MAXIMIZED_SIZE, this.getInitializationValue(LayoutStateKeys.AUXILIARYBAR_SIZE));
 		this.setRuntimeValue(LayoutStateKeys.AUXILIARYBAR_WAS_LAST_MAXIMIZED, true);
+	}
+
+	private applyAuxiliaryBarHiddenOverride(value: boolean): void {
+		this.setRuntimeValue(LayoutStateKeys.AUXILIARYBAR_HIDDEN, value);
 	}
 
 	save(workspace: boolean, global: boolean): void {

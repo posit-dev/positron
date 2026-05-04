@@ -60,6 +60,11 @@ runs:
         docker exec jupyter-test chmod +x /opt/install-jupyter-positron.sh
         docker exec jupyter-test chmod +x /opt/positronDownload.sh
 
+    - name: Install Jupyter with Positron in container
+      shell: bash
+      run: |
+        docker exec -e GITHUB_TOKEN="${{ inputs.github-token }}" -e ARCH_SUFFIX=amd64 jupyter-test /bin/bash -c "/opt/install-jupyter-positron.sh --ci"
+
     - name: Setup Positron license
       shell: bash
       if: inputs.positron-license != ''
@@ -67,18 +72,18 @@ runs:
         # Create license file from secret
         echo "${{ inputs.positron-license }}" > positron.lic
 
-        # Copy license into container at /opt/license.lic (expected by install script)
-        docker cp positron.lic jupyter-test:/opt/license.lic
+        # Copy license into container at arch specific location (expected by install script)
+        ARCH=$(docker exec jupyter-test uname -m)
+        if [[ "$ARCH" == "aarch64" ]]; then
+          docker cp positron.lic jupyter-test:/opt/positron-server/resources/activation/linux/aarch64/positron.lic
+        else
+          docker cp positron.lic jupyter-test:/opt/positron-server/resources/activation/linux/x86_64/positron.lic
+        fi
 
         # Clean up local copy
         rm positron.lic
 
         echo "Positron license file installed"
-
-    - name: Install Jupyter with Positron in container
-      shell: bash
-      run: |
-        docker exec -e GITHUB_TOKEN="${{ inputs.github-token }}" -e ARCH_SUFFIX=amd64 jupyter-test /bin/bash -c "/opt/install-jupyter-positron.sh --ci"
 
     - name: Show container logs on failure
       shell: bash

@@ -11,5 +11,6 @@
 			"DOM.Iterable"
 		],
 		"strict": true,
+		"skipLibCheck": true
 	}
 }

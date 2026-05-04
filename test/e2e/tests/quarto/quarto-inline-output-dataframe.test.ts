@@ -41,8 +41,8 @@ test.describe('Quarto - Inline Output: DataFrame and Interactive HTML', {
 		// Verify exactly one output item (no duplicates)
 		await inlineQuarto.expectOutputsExist(1);
 
-		// Verify HTML output present
-		await inlineQuarto.expectHtmlOutputVisible();
+		// Verify HTML output present (webview container in web mode, HTML element in desktop)
+		await inlineQuarto.expectWebviewOrHtmlVisible();
 
 		// Verify no data explorer metadata leaked
 		await inlineQuarto.expectNoDataExplorerMetadata();

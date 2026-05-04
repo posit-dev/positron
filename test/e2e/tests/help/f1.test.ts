@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -22,7 +22,11 @@ test.describe('F1 Help', {
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 	});
 
-	test('R - Verify basic F1 console help functionality', async function ({ app, page, r }) {
+	test.skip('R - Verify basic F1 console help functionality', {
+		annotation: {
+			type: 'issue', description: 'https://github.com/posit-dev/positron/issues/13332'
+		}
+	}, async function ({ app, page, r }) {
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'nyc-flights-data-r', 'flights-data-frame.r'));
 		await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
 
@@ -40,10 +44,14 @@ test.describe('F1 Help', {
 
 	});
 
-	test('R - Verify basic F1 editor help functionality', async function ({ app, page, r }) {
+	test.skip('R - Verify basic F1 editor help functionality', {
+		annotation: {
+			type: 'issue', description: 'https://github.com/posit-dev/positron/issues/13332'
+		}
+	}, async function ({ app, page, r }) {
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'generate-data-frames-r', 'generate-data-frames.r'));
 
-		await app.code.driver.page.locator('span').filter({ hasText: 'colnames(df) <- paste0(\'col\', 1:num_cols)' }).locator('span').first().dblclick();
+		await app.code.driver.currentPage.locator('span').filter({ hasText: 'colnames(df) <- paste0(\'col\', 1:num_cols)' }).locator('span').first().dblclick();
 		await page.keyboard.press('F1');
 
 		await expect(async () => {
@@ -53,7 +61,12 @@ test.describe('F1 Help', {
 
 	});
 
-	test('R - Verify basic F1 notebook help functionality', { tag: tags.NOTEBOOKS }, async function ({ app, page, r }) {
+	test.skip('R - Verify basic F1 notebook help functionality', {
+		annotation: {
+			type: 'issue', description: 'https://github.com/posit-dev/positron/issues/13332'
+		},
+		tag: tags.NOTEBOOKS
+	}, async function ({ app, page, r }) {
 		await app.workbench.quickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'large_r_notebook', 'spotify.ipynb'));
 
 		await app.workbench.layouts.enterLayout('notebook');
@@ -61,7 +74,7 @@ test.describe('F1 Help', {
 		// workaround
 		await app.workbench.notebooks.selectInterpreter('R', process.env.POSITRON_R_VER_SEL!);
 
-		await app.code.driver.page.locator('span').filter({ hasText: 'options(digits = 2)' }).locator('span').first().dblclick();
+		await app.code.driver.currentPage.locator('span').filter({ hasText: 'options(digits = 2)' }).locator('span').first().dblclick();
 
 		await expect(async () => {
 			await page.keyboard.press('F1');
@@ -76,7 +89,11 @@ test.describe('F1 Help', {
 
 	});
 
-	test('Python - Verify basic F1 console help functionality', async function ({ app, page, python }) {
+	test.skip('Python - Verify basic F1 console help functionality', {
+		annotation: {
+			type: 'issue', description: 'https://github.com/posit-dev/positron/issues/13332'
+		}
+	}, async function ({ app, page, python }) {
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'nyc-flights-data-py', 'flights-data-frame.py'));
 		await app.workbench.quickaccess.runCommand('python.execInConsole');
 
@@ -94,7 +111,11 @@ test.describe('F1 Help', {
 
 	});
 
-	test('Python - Verify basic F1 editor help functionality', async function ({ app, page, python }) {
+	test.skip('Python - Verify basic F1 editor help functionality', {
+		annotation: {
+			type: 'issue', description: 'https://github.com/posit-dev/positron/issues/13332'
+		}
+	}, async function ({ app, page, python }) {
 		const fileName = 'generate-data-frames.py';
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'generate-data-frames-py', fileName));
 
@@ -102,7 +123,7 @@ test.describe('F1 Help', {
 		await app.workbench.editor.waitForEditorContents(fileName, (content) => content.includes('pd.DataFrame'));
 
 		await expect(async () => {
-			await app.code.driver.page.locator('span').filter({ hasText: 'df = pd.DataFrame(data)' }).locator('span').first().dblclick();
+			await app.code.driver.currentPage.locator('span').filter({ hasText: 'df = pd.DataFrame(data)' }).locator('span').first().dblclick();
 		}).toPass({ timeout: 30000 });
 
 		await page.keyboard.press('F1');
@@ -114,13 +135,18 @@ test.describe('F1 Help', {
 
 	});
 
-	test('Python - Verify basic F1 notebook help functionality', { tag: tags.NOTEBOOKS }, async function ({ app, page, python }) {
+	test.skip('Python - Verify basic F1 notebook help functionality', {
+		annotation: {
+			type: 'issue', description: 'https://github.com/posit-dev/positron/issues/13332'
+		},
+		tag: tags.NOTEBOOKS
+	}, async function ({ app, page, python }) {
 		await app.workbench.quickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'large_py_notebook', 'spotify.ipynb'));
 
 		// Position the mouse over the notebook for scrolling
-		await app.code.driver.page.locator('.cell').first().hover();
+		await app.code.driver.currentPage.locator('.cell').first().hover();
 
-		const target = app.code.driver.page.locator('span').filter({ hasText: 'warnings.filterwarnings(\'ignore\')' }).locator('span').first();
+		const target = app.code.driver.currentPage.locator('span').filter({ hasText: 'warnings.filterwarnings(\'ignore\')' }).locator('span').first();
 
 		// Scroll the notebook until the target line is rendered in the DOM.
 		// The cell may be taller than the viewport, so Monaco only renders visible lines.

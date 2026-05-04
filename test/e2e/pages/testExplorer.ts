@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -21,7 +21,7 @@ export class TestExplorer extends Explorer {
 	 * @returns Promise<object> Array of case names with fail/pass statuses.
 	 */
 	async getTestResults(): Promise<object> {
-		const cases = this.code.driver.page.locator(TEST_RESULT_ITEM);
+		const cases = this.code.driver.currentPage.locator(TEST_RESULT_ITEM);
 		const caseList = await cases.all();
 		const caseStatuses = caseList.map(async aCase => {
 
@@ -52,14 +52,14 @@ export class TestExplorer extends Explorer {
 	 */
 	async openTestExplorer(): Promise<void> {
 
-		const locator = this.code.driver.page.locator(TEST_EXPLORER_ICON);
+		const locator = this.code.driver.currentPage.locator(TEST_EXPLORER_ICON);
 		await locator.waitFor({ state: 'attached' });
 		await locator.waitFor({ state: 'visible' });
 		await locator.click();
 	}
 
 	async verifyTestFilesExist(files: string[]) {
-		const projectFiles = this.code.driver.page.locator('.test-explorer');
+		const projectFiles = this.code.driver.currentPage.locator('.test-explorer');
 
 		for (let i = 0; i < files.length; i++) {
 			await expect(projectFiles.getByLabel(files[i])).toBeVisible({ timeout: 3000 });
@@ -71,6 +71,6 @@ export class TestExplorer extends Explorer {
 	 * @returns Promise<void>
 	 */
 	async runAllTests(): Promise<void> {
-		await this.code.driver.page.locator('.composite.title').getByLabel('Run Tests', { exact: true }).click();
+		await this.code.driver.currentPage.locator('.composite.title').getByLabel('Run Tests', { exact: true }).click();
 	}
 }

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -97,7 +97,7 @@ test.describe('Remote SSH', {
 			}, { timeout: 60_000 });
 
 			// Kick off the action that reveals the quick input (if needed)
-			await app.code.driver.page.locator('.codicon-remote').click();
+			await app.code.driver.currentPage.locator('.codicon-remote').click();
 
 			// Grab the new window (no URL/title/selector filtering)
 			const sshWin = await sshWinPromise;
@@ -107,7 +107,7 @@ test.describe('Remote SSH', {
 			await sshWin.keyboard.type('root');
 			await sshWin.keyboard.press('Enter');
 
-			const alertLocator = sshWin.locator('span', { hasText: 'Setting up SSH Host remote' });
+			const alertLocator = sshWin.locator('.statusbar-item-label', { hasText: 'Opening Remote' });
 			await expect(alertLocator).toBeVisible({ timeout: 10_000 });
 			await expect(alertLocator).not.toBeVisible({ timeout: 60_000 });
 

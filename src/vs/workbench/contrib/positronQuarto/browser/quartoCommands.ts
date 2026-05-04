@@ -5,7 +5,7 @@
 
 import { localize, localize2 } from '../../../../nls.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
-import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
@@ -13,15 +13,13 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { ITextModel } from '../../../../editor/common/model.js';
 import { IQuartoExecutionManager, IQuartoOutputCacheService } from '../common/quartoExecutionTypes.js';
 import { IQuartoKernelManager } from './quartoKernelManager.js';
-import { IQuartoOutputManager } from './quartoOutputManager.js';
+import { IQuartoOutputManager, QuartoOutputContribution } from './quartoOutputManager.js';
 import { IS_QUARTO_DOCUMENT, QUARTO_INLINE_OUTPUT_ENABLED, QUARTO_KERNEL_BUSY, QUARTO_KERNEL_RUNNING, isQuartoDocument } from '../common/positronQuartoConfig.js';
-import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
-import { QuartoOutputContribution } from './quartoOutputManager.js';
+import { ICodeEditor, isCodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
-import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ByteSize, IFileService } from '../../../../platform/files/common/files.js';
+import { selectNewLanguageRuntime } from '../../languageRuntime/browser/languageRuntimeActions.js';
 import { basename } from '../../../../base/common/resources.js';
 import { URI } from '../../../../base/common/uri.js';
 
@@ -68,13 +66,12 @@ function getQuartoContext(editorService: IEditorService): {
 	textModel: ITextModel;
 	documentUri: import('../../../../base/common/uri.js').URI;
 } | undefined {
-	const activeEditor = editorService.activeTextEditorControl;
+	const editor = editorService.activeTextEditorControl;
 
-	if (!activeEditor || !('getModel' in activeEditor)) {
+	if (!isCodeEditor(editor)) {
 		return undefined;
 	}
 
-	const editor = activeEditor as ICodeEditor;
 	const textModel = editor.getModel();
 	if (!textModel) {
 		return undefined;
@@ -289,7 +286,6 @@ registerAction2(class ShutdownKernelAction extends Action2 {
 
 /**
  * Change the kernel for the current Quarto document.
- * Shows a quick pick with available runtimes matching the document's language.
  */
 registerAction2(class ChangeKernelAction extends Action2 {
 	constructor() {
@@ -313,8 +309,9 @@ registerAction2(class ChangeKernelAction extends Action2 {
 	async run(accessor: ServicesAccessor): Promise<void> {
 		const editorService = accessor.get(IEditorService);
 		const kernelManager = accessor.get(IQuartoKernelManager);
-		const quickInputService = accessor.get(IQuickInputService);
-		const languageRuntimeService = accessor.get(ILanguageRuntimeService);
+		// Resolved synchronously so we can re-enter a fresh accessor scope after
+		// the awaits below (the run-method accessor is only valid synchronously).
+		const instantiationService = accessor.get(IInstantiationService);
 
 		const context = getQuartoContext(editorService);
 		if (!context) {
@@ -323,71 +320,27 @@ registerAction2(class ChangeKernelAction extends Action2 {
 
 		const { documentUri } = context;
 
-		// Get the document's primary language to filter runtimes
+		// Get the document's primary language to scope the picker.
 		const language = await kernelManager.getDocumentLanguage(documentUri);
 		if (!language) {
 			return;
 		}
 
-		// Get the current session's runtime ID to mark as selected
-		const currentSession = kernelManager.getSessionForDocument(documentUri);
-		const currentRuntimeId = currentSession?.runtimeMetadata.runtimeId;
+		const currentRuntimeId = kernelManager.getSessionForDocument(documentUri)?.runtimeMetadata.runtimeId;
 
-		const quickPick = quickInputService.createQuickPick<IQuickPickItem & { runtime?: ILanguageRuntimeMetadata }>();
-		quickPick.title = localize('quarto.changeKernel.title', "Select Quarto Kernel");
+		const runtime = await instantiationService.invokeFunction(accessor =>
+			selectNewLanguageRuntime(accessor, {
+				title: localize('quarto.changeKernel.title', "Select Quarto Kernel"),
+				languageId: language,
+				currentRuntimeId,
+			})
+		);
 
-		const gatherRuntimePicks = () => {
-			const runtimes = languageRuntimeService.registeredRuntimes
-				.filter(r => r.languageId === language);
-
-			if (runtimes.length === 0) {
-				quickPick.busy = true;
-				quickPick.items = [{
-					label: localize('quarto.changeKernel.noRuntime', "No {0} runtimes found", language),
-				}];
-			} else {
-				quickPick.busy = false;
-				quickPick.items = runtimes.map(runtime => ({
-					label: runtime.runtimeName,
-					description: runtime.runtimePath,
-					runtime,
-				}));
-
-				// Pre-select the current runtime
-				const currentItem = quickPick.items.find(
-					item => (item as any).runtime?.runtimeId === currentRuntimeId
-				);
-				if (currentItem) {
-					quickPick.activeItems = [currentItem];
-				}
-			}
-		};
-
-		// Watch for new runtimes being registered
-		const onDidRegisterDisposable = languageRuntimeService.onDidRegisterRuntime(gatherRuntimePicks);
-
-		gatherRuntimePicks();
-
-		return new Promise<void>(resolve => {
-			quickPick.onDidAccept(() => {
-				const selected = quickPick.selectedItems[0];
-				if (selected?.runtime && selected.runtime.runtimeId !== currentRuntimeId) {
-					// Fire and forget; the kernel state badge will show
-					// progress as the old kernel shuts down and the new
-					// one starts up.
-					kernelManager.changeKernelForDocument(documentUri, selected.runtime.runtimeId);
-				}
-				quickPick.hide();
-			});
-
-			quickPick.show();
-
-			quickPick.onDidHide(() => {
-				onDidRegisterDisposable.dispose();
-				quickPick.dispose();
-				resolve();
-			});
-		});
+		if (runtime && runtime.runtimeId !== currentRuntimeId) {
+			// Fire and forget; the kernel state badge will show progress as
+			// the old kernel shuts down and the new one starts up.
+			kernelManager.changeKernelForDocument(documentUri, runtime.runtimeId);
+		}
 	}
 });
 
