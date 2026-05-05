@@ -271,17 +271,23 @@ async function readSubmoduleBuildInfo(): Promise<ArkBuildInfo> {
 }
 
 /**
- * If the developer has built ark locally in the submodule's `target/release`
- * directory, copy that binary into the runtime location. Always wins over
- * prebuilds — devs iterating on ark should see their changes immediately.
+ * If the developer has built ark locally in the submodule's `target/debug` or
+ * `target/release` directory, copy that binary into the runtime location.
+ * Always wins over prebuilds — devs iterating on ark should see their changes
+ * immediately. Debug is preferred over release: developers iterating on ark
+ * typically run plain `cargo build`, so a debug binary is the current work.
  *
  * For Windows: only the host arch is populated. The other arch's slot is
  * left as-is (which may be empty or stale from a previous run).
  */
 async function tryUseLocalBuild(): Promise<boolean> {
 	const kernelName = platform() === 'win32' ? 'ark.exe' : 'ark';
-	const localBinary = path.join(SUBMODULE_DIR, 'target', 'release', kernelName);
-	if (!fs.existsSync(localBinary)) {
+	const debugBinary = path.join(SUBMODULE_DIR, 'target', 'debug', kernelName);
+	const releaseBinary = path.join(SUBMODULE_DIR, 'target', 'release', kernelName);
+	const localBinary = fs.existsSync(debugBinary) ? debugBinary
+		: fs.existsSync(releaseBinary) ? releaseBinary
+			: undefined;
+	if (!localBinary) {
 		return false;
 	}
 
