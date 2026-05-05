@@ -1,4 +1,4 @@
-name: "Release Screenshots (reusable)"
+name: "Release Screenshots"
 
 # Single source of truth for both the nightly and publish flows.
 # Callers: release-screenshots-nightly.yml, release-screenshots-publish.yml.
@@ -51,8 +51,9 @@ jobs:
                 --jq '[.[] | select(.prerelease == true)] | .[0].tag_name')
               ;;
             latest-release)
-              VERSION=$(gh api "repos/posit-dev/positron-builds/releases?per_page=100" \
-                --jq '[.[] | select(.prerelease == false)] | .[0].tag_name')
+              # Stable releases are flagged on posit-dev/positron; positron-builds
+              # marks every tag as prerelease=true, so filtering there returns nothing.
+              VERSION=$(gh api "repos/posit-dev/positron/releases/latest" --jq '.tag_name')
               ;;
             *)
               VERSION="$INPUT"
