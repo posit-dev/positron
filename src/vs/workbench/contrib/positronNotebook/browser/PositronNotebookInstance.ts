@@ -30,7 +30,7 @@ import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from '../common/positronN
 import { getAssistantSettings } from '../common/notebookAssistantMetadata.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { SELECT_KERNEL_ID_POSITRON } from './SelectPositronNotebookKernelAction.js';
+import { SELECT_KERNEL_ID_POSITRON } from '../common/positronNotebookCommon.js';
 import { INotebookKernelService } from '../../notebook/common/notebookKernelService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ILanguageRuntimeService, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';

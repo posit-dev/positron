@@ -51,7 +51,6 @@ const CODE_BLOCK_INSERT_CURSOR_BUTTON = 'button[aria-label="Insert At Cursor"]';
 const CODE_BLOCK_INSERT_FILE_BUTTON = 'button[aria-label="Insert into New File"]';
 
 // Tool confirmation UI
-const TOOL_CONFIRM_TITLE = 'h4.font-semibold';
 const TOOL_ALLOW_BUTTON = 'button.rounded-r-none:has-text("Allow")';
 const TOOL_ALLOW_DROPDOWN_TRIGGER = 'button[aria-label="More allow options"]';
 const TOOL_ALLOW_SESSION_MENU_ITEM = '[role="menuitem"]:has-text("for this session")';
@@ -402,7 +401,7 @@ export class PositAssistant {
 	 * Verifies the tool confirmation dialog is visible.
 	 */
 	async expectToolConfirmVisible(): Promise<void> {
-		await expect(this.frame.locator(TOOL_CONFIRM_TITLE)).toBeVisible();
+		await expect(this.frame.locator('.bg-warning').getByRole('heading', { level: 4 })).toBeVisible();
 	}
 
 	/**

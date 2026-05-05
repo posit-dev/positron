@@ -14,6 +14,19 @@ import { CellSelectionType, getSelectedCells, SelectionState } from '../../brows
 describe('PositronNotebookInstance', () => {
 	const ctx = createTestContainer().withNotebookEditorServices().build();
 
+	/** Returns cell content values in current order. */
+	function getCellValues(notebook: ReturnType<typeof createTestPositronNotebookInstance>): string[] {
+		return notebook.cells.get().map(c => c.model.getValue());
+	}
+
+	/** Creates a 5-cell notebook labelled A-E for move tests. */
+	function createFiveCellNotebook() {
+		return createTestPositronNotebookInstance(
+			['A', 'B', 'C', 'D', 'E'].map(v => [v, 'python', CellKind.Code]),
+			ctx,
+		);
+	}
+
 	/** Tests to ensure that the test harness is correctly setup, useful for debugging the test harness */
 	describe('Test Harness', () => {
 		it('notebook has cells from notebook text model', () => {
@@ -63,20 +76,6 @@ describe('PositronNotebookInstance', () => {
 	});
 
 	describe('moveCells', () => {
-
-		/** Helper: returns cell content values in current order. */
-		function getCellValues(notebook: ReturnType<typeof createTestPositronNotebookInstance>): string[] {
-			return notebook.cells.get().map(c => c.model.getValue());
-		}
-
-		/** Creates a 5-cell notebook labelled A-E for move tests. */
-		function createFiveCellNotebook() {
-			return createTestPositronNotebookInstance(
-				['A', 'B', 'C', 'D', 'E'].map(v => [v, 'python', CellKind.Code]),
-				ctx,
-			);
-		}
-
 		it('contiguous: move single cell down', () => {
 			const notebook = createFiveCellNotebook();
 			const cells = notebook.cells.get();
@@ -155,6 +154,119 @@ describe('PositronNotebookInstance', () => {
 			// Pass B twice -- should deduplicate and move B once
 			notebook.moveCells([cells[1], cells[1]], 4);
 			expect(getCellValues(notebook)).toEqual(['A', 'C', 'D', 'B', 'E']);
+		});
+	});
+
+	describe('moveCellsUp', () => {
+		it('moves the selected cell up by one position', () => {
+			const notebook = createFiveCellNotebook();
+			const cells = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cells[2], CellSelectionType.Normal);
+
+			notebook.moveCellsUp();
+
+			expect(getCellValues(notebook)).toEqual(['A', 'C', 'B', 'D', 'E']);
+		});
+
+		it('is a no-op when the first selected cell is at index 0', () => {
+			const notebook = createFiveCellNotebook();
+			const cells = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
+
+			notebook.moveCellsUp();
+
+			expect(getCellValues(notebook)).toEqual(['A', 'B', 'C', 'D', 'E']);
+		});
+
+		it('is a no-op when nothing is selected (empty notebook -> NoCells state)', () => {
+			// getSelectedCells returns [] only in the NoCells state, which is
+			// reached only via an empty notebook (a populated notebook always
+			// auto-selects the first cell). This drives the early-return on
+			// `cellsToMove.length === 0` in moveCellsUp.
+			const notebook = createTestPositronNotebookInstance([], ctx);
+
+			notebook.moveCellsUp();
+
+			expect(notebook.cells.get()).toEqual([]);
+		});
+	});
+
+	describe('moveCellsDown', () => {
+		it('moves the selected cell down by one position', () => {
+			const notebook = createFiveCellNotebook();
+			const cells = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cells[2], CellSelectionType.Normal);
+
+			notebook.moveCellsDown();
+
+			expect(getCellValues(notebook)).toEqual(['A', 'B', 'D', 'C', 'E']);
+		});
+
+		it('is a no-op when the last selected cell is at the last index', () => {
+			const notebook = createFiveCellNotebook();
+			const cells = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cells[4], CellSelectionType.Normal);
+
+			notebook.moveCellsDown();
+
+			expect(getCellValues(notebook)).toEqual(['A', 'B', 'C', 'D', 'E']);
+		});
+
+		it('is a no-op when nothing is selected (empty notebook -> NoCells state)', () => {
+			const notebook = createTestPositronNotebookInstance([], ctx);
+
+			notebook.moveCellsDown();
+
+			expect(notebook.cells.get()).toEqual([]);
+		});
+
+		it('moves a multi-selection block down as a group', () => {
+			const notebook = createFiveCellNotebook();
+			const cells = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cells[1], CellSelectionType.Normal);
+			notebook.selectionStateMachine.selectCell(cells[2], CellSelectionType.Add);
+
+			notebook.moveCellsDown();
+
+			expect(getCellValues(notebook)).toEqual(['A', 'D', 'B', 'C', 'E']);
+		});
+
+		it('sequential calls move the same cell each time (selection follows the move)', () => {
+			const notebook = createFiveCellNotebook();
+			const cells = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
+
+			// First move: A goes from index 0 to index 1.
+			notebook.moveCellsDown();
+			expect(getCellValues(notebook)).toEqual(['B', 'A', 'C', 'D', 'E']);
+
+			// Second move: A continues to index 2 because selection followed it.
+			// Without intermediate-state assertions a broken first move that
+			// happened to land at the right final spot would slip through.
+			notebook.moveCellsDown();
+			expect(getCellValues(notebook)).toEqual(['B', 'C', 'A', 'D', 'E']);
+
+			// Third move: A reaches index 3.
+			notebook.moveCellsDown();
+			expect(getCellValues(notebook)).toEqual(['B', 'C', 'D', 'A', 'E']);
+		});
+
+		it('sequential multi-block moves keep the selection grouped across calls', () => {
+			// Multi-cell selection persistence is structurally distinct from
+			// single-cell because the state machine has to keep both cells in
+			// MultiSelection after the move. A bug that downgraded to
+			// SingleSelection mid-sequence would let the second moveCellsDown
+			// only move one cell.
+			const notebook = createFiveCellNotebook();
+			const cells = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cells[1], CellSelectionType.Normal);
+			notebook.selectionStateMachine.selectCell(cells[2], CellSelectionType.Add);
+
+			notebook.moveCellsDown();
+			expect(getCellValues(notebook)).toEqual(['A', 'D', 'B', 'C', 'E']);
+
+			notebook.moveCellsDown();
+			expect(getCellValues(notebook)).toEqual(['A', 'D', 'E', 'B', 'C']);
 		});
 	});
 });

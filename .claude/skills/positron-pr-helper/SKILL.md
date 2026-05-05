@@ -12,7 +12,7 @@ This skill helps you create comprehensive PR bodies for the posit-dev/positron r
 Use this skill when:
 - Creating a new PR and need a well-structured body
 - Updating an existing PR body with the correct format
-- You need the current list of e2e test tags for QA notes
+- You need the current list of e2e test tags for validation steps
 - You want to ensure your PR body follows Positron conventions
 
 ## Prerequisites
@@ -49,7 +49,7 @@ I'll dynamically fetch the current e2e test tags from `test/e2e/infra/test-runne
 Based on the PR type and context, I'll create a structured PR body with:
 
 1. **Opening Line**
-   - "Addresses #[issue]." if applicable
+   - "Fixes #[issue]" if applicable, using a GitHub closing keyword (`Fixes`, `Closes`, `Resolves`) so the issue auto-closes when the PR is merged
    - Brief statement of what the PR does otherwise
 
 2. **Description/Summary**
@@ -65,7 +65,7 @@ Based on the PR type and context, I'll create a structured PR body with:
    - Bug Fixes (if applicable)
    - User-facing descriptions
 
-5. **QA Notes**
+5. **Validation Steps**
    - Relevant e2e test tags based on affected areas
    - Testing instructions
    - Code examples if helpful
@@ -101,7 +101,7 @@ I use different templates based on PR type:
 
 ### Bug Fix Template
 ```markdown
-Addresses #[issue].
+Fixes #[issue]
 
 [2-3 sentences explaining the fix]
 
@@ -113,7 +113,7 @@ Addresses #[issue].
 #### Bug Fixes
 - [User-facing description] (#[issue])
 
-### QA Notes
+### Validation Steps
 
 [relevant tags]
 
@@ -122,7 +122,7 @@ Addresses #[issue].
 
 ### New Feature Template
 ```markdown
-Addresses #[issue].
+Fixes #[issue]
 
 ### Summary
 [1-2 paragraphs explaining the feature]
@@ -137,7 +137,7 @@ Addresses #[issue].
 #### Bug Fixes
 - N/A
 
-### QA Notes
+### Validation Steps
 
 [relevant tags]
 
@@ -148,7 +148,7 @@ Addresses #[issue].
 
 ### Example 1: Bug Fix PR
 ```markdown
-Addresses #8930.
+Fixes #8930
 
 This PR fixes the Data Explorer scrollbars snapping back to 0 on Safari. The issue was caused by incorrect event handling in the virtual scrolling implementation.
 
@@ -160,7 +160,7 @@ This PR fixes the Data Explorer scrollbars snapping back to 0 on Safari. The iss
 #### Bug Fixes
 - Fix Data Explorer scrollbars snapping back to 0 on Safari (#8930)
 
-### QA Notes
+### Validation Steps
 
 @:data-explorer
 
@@ -169,7 +169,7 @@ Open a large data frame in Data Explorer on Safari and verify scrollbars can be 
 
 ### Example 2: New Feature PR
 ```markdown
-Addresses #8484.
+Fixes #8484
 
 ### Summary
 Adds support for native DuckDB connections in the Connections Pane. Users can now inspect DuckDB databases directly without needing external tools. This implementation uses the native DuckDB Python API for better performance.
@@ -184,7 +184,7 @@ Related PR: posit-dev/ark#456 (adds DuckDB kernel support)
 #### Bug Fixes
 - N/A
 
-### QA Notes
+### Validation Steps
 
 @:connections @:duck-db
 
@@ -211,6 +211,6 @@ conn.execute("INSERT INTO employees VALUES (1, 'Alice', 75000)")
 - Be concise but complete - no flowery language
 - Use present tense ("fixes", "adds", "enables")
 - Include issue references in parentheses in release notes
-- Always include at least one e2e test tag in QA notes
+- Always include at least one e2e test tag in validation steps
 - For complex changes, numbered test steps are better
 - Keep release notes user-facing (avoid implementation details)

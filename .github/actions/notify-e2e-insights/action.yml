@@ -28,6 +28,9 @@ inputs:
   source_repo:
     description: 'GitHub owner/repo where this workflow runs (auto-detected, only override if needed)'
     required: false
+  notify_on:
+    description: 'Override the dashboard repo config notify_on rule: always | failures_only | flaky_or_failures'
+    required: false
 
 runs:
   using: 'composite'
@@ -43,6 +46,7 @@ runs:
         FILTER_JOBS: ${{ inputs.filter_jobs }}
         HIDE_SKIPPED: ${{ inputs.hide_skipped }}
         SOURCE_REPO: ${{ inputs.source_repo || github.repository }}
+        NOTIFY_ON: ${{ inputs.notify_on }}
         RUN_ID: ${{ github.run_id }}
         BRANCH: ${{ github.ref_name }}
         ACTOR: ${{ github.actor }}
@@ -62,6 +66,7 @@ runs:
           --argjson hide_skipped "${HIDE_SKIPPED:-false}" \
           --arg owner_repo "$SOURCE_REPO" \
           --arg commit_message "$COMMIT_FIRST_LINE" \
+          --arg notify_on "$NOTIFY_ON" \
           '{
             workflow_run_id: $run_id,
             repo_id: $repo_id,
@@ -73,6 +78,7 @@ runs:
           + if $hide_skipped then {hide_skipped: true} else {} end
           + if $owner_repo != "" then {owner_repo: $owner_repo} else {} end
           + if $commit_message != "" then {commit_message: $commit_message} else {} end
+          + if $notify_on != "" then {notify_on: $notify_on} else {} end
           ')
 
         response=$(curl -s -w "\n%{http_code}" -X POST \
