@@ -47,14 +47,14 @@
 
 .json-leaf {
 	display: flex;
-	align-items: baseline;
+	align-items: center;
 	padding-left: 16px;
 	min-height: 18px;
 }
 
 .json-collapsible-header {
 	display: flex;
-	align-items: baseline;
+	align-items: center;
 	gap: 0;
 	padding: 0;
 	min-height: 18px;
@@ -83,10 +83,13 @@
 }
 
 .json-chevron {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
 	flex-shrink: 0;
 	width: 16px;
+	height: 16px;
 	font-size: 12px;
-	text-align: center;
 	color: var(--vscode-foreground);
 	opacity: 0.7;
 }
