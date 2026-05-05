@@ -57,7 +57,8 @@
 	display: flex;
 	align-items: center;
 	gap: 0;
-	padding: 0;
+	padding: 1px 4px;
+	margin: 0 -4px;
 	min-height: var(--_json-row-height);
 	cursor: pointer;
 	user-select: none;
@@ -66,7 +67,7 @@
 	background: none;
 	font: inherit;
 	color: inherit;
-	width: 100%;
+	width: calc(100% + 8px);
 	text-align: left;
 }
 
