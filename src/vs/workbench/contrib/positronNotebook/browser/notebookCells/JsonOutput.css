@@ -5,9 +5,7 @@
 
 .json-output {
 	--_json-chevron-size: 16px;
-	--_json-indent: 16px;
 	--_json-row-height: 18px;
-	--_json-guide-offset: 7px;
 
 	position: relative;
 	font-family: var(--vscode-positronNotebook-text-output-font-family, var(--monaco-monospace-font));
@@ -99,9 +97,9 @@
 }
 
 .json-children {
-	padding-left: var(--_json-indent);
+	margin-left: calc(var(--_json-chevron-size) / 2);
 	border-left: 1px solid var(--vscode-editorIndentGuide-background);
-	margin-left: var(--_json-guide-offset);
+	padding-left: calc(var(--_json-chevron-size) / 2 - 1px);
 }
 
 .json-bracket-close {
