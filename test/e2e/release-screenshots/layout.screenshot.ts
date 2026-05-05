@@ -32,6 +32,13 @@ test.describe('Release Screenshots - Layouts', () => {
 		await sessions.start(['python']);
 		await sessions.expectAllSessionsToBeReady();
 
+		// Open a few extra files first so the editor has multiple tabs and
+		// the explorer's OPEN EDITORS section has entries (matching the docs
+		// reference). The astropy file is opened last so it ends up as the
+		// active tab when we play the script.
+		await openFile(join('workspaces', 'python-plots', 'altair-plots.py'));
+		await openFile(join('workspaces', 'python-plots', 'plotly-example.py'));
+		await openFile(join('workspaces', 'python-plots', 'matplotlib-zoom-example.py'));
 		await openFile(
 			join('workspaces', 'astropy-testing', 'plot_galactocentric_frame.py'),
 		);
