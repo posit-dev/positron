@@ -4,44 +4,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 
 // CSS.
 import './JsonOutput.css';
-
-// Other dependencies.
-import { localize } from '../../../../../nls.js';
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 interface JsonOutputProps {
 	data: unknown;
 }
 
-const copyJsonLabel = localize('positron.notebook.copyJson', "Copy JSON");
-
 export const JsonOutput = React.memo(function JsonOutput({ data }: JsonOutputProps) {
-	const services = usePositronReactServicesContext();
-	const [copied, setCopied] = useState(false);
-
-	const handleCopy = useCallback(() => {
-		const text = JSON.stringify(data, null, 2) ?? String(data);
-		services.clipboardService.writeText(text);
-		setCopied(true);
-		setTimeout(() => setCopied(false), 1500);
-	}, [data, services.clipboardService]);
-
 	return (
 		<div className='json-output'>
-			<div className='json-output-header'>
-				<button
-					aria-label={copyJsonLabel}
-					className='json-copy-button'
-					title={copyJsonLabel}
-					onClick={handleCopy}
-				>
-					<span className={`codicon ${copied ? 'codicon-check' : 'codicon-copy'}`} />
-				</button>
-			</div>
 			<div className='json-tree'>
 				<JsonNode value={data} />
 			</div>
@@ -148,14 +122,16 @@ function JsonCollapsible({ keyName, value, type }: JsonCollapsibleProps) {
 				onClick={toggle}
 			>
 				<span className={`codicon json-chevron ${expanded ? 'codicon-chevron-down' : 'codicon-chevron-right'}`} />
-				{keyName !== undefined && <span className='json-key'>{keyName}: </span>}
-				{!expanded && (
-					<>
-						<span className='json-punct'>{brackets[0]}...{brackets[1]}</span>
-						<span className='json-secondary'>{count} {count === 1 ? 'item' : 'items'}</span>
-					</>
-				)}
-				{expanded && <span className='json-punct'>{brackets[0]}</span>}
+				<span className='json-collapsible-content'>
+					{keyName !== undefined && <span className='json-key'>{keyName}: </span>}
+					{!expanded && (
+						<>
+							<span className='json-punct'>{brackets[0]}...{brackets[1]}</span>
+							<span className='json-secondary'>{count} {count === 1 ? 'item' : 'items'}</span>
+						</>
+					)}
+					{expanded && <span className='json-punct'>{brackets[0]}</span>}
+				</span>
 			</button>
 			{expanded && (
 				<>
