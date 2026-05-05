@@ -99,12 +99,12 @@ function JsonLeaf({ keyName, valueClass, display }: JsonLeafProps) {
 			<span className={valueClass}>{shown}</span>
 			{isTruncatable && (
 				<button
-					aria-label={expanded ? 'Collapse string' : `Expand string (${contentLength} chars)`}
 					className='json-expand-value'
+					title={expanded ? 'Collapse to truncated preview' : `Expand to see all ${contentLength} characters`}
 					type='button'
 					onClick={() => setExpanded(prev => !prev)}
 				>
-					{expanded ? 'less' : `${contentLength} chars`}
+					{expanded ? 'less' : 'more'}
 				</button>
 			)}
 		</div>
