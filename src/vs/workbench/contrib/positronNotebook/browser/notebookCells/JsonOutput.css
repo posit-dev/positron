@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 .json-output {
-	--_json-chevron-size: 16px;
+	--_json-indent: 16px;
 	--_json-row-height: 18px;
 
 	position: relative;
@@ -43,13 +43,13 @@
 	background: var(--vscode-toolbar-activeBackground);
 }
 
-/* Tree layout */
+/* Tree layout: initial padding provides gutter space for root-level chevrons */
 .json-tree {
 	padding: 1px 0;
+	padding-left: var(--_json-indent);
 }
 
 .json-leaf {
-	padding-left: var(--_json-chevron-size);
 	min-height: var(--_json-row-height);
 }
 
@@ -57,7 +57,7 @@
 	display: flex;
 	align-items: center;
 	gap: 0;
-	padding-left: var(--_json-chevron-size);
+	padding: 0;
 	min-height: var(--_json-row-height);
 	cursor: pointer;
 	user-select: none;
@@ -83,27 +83,26 @@
 	outline-offset: -1px;
 }
 
+/* Chevron sits in the gutter via negative margin */
 .json-chevron {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	flex-shrink: 0;
-	width: var(--_json-chevron-size);
-	height: var(--_json-chevron-size);
-	margin-left: calc(-1 * var(--_json-chevron-size));
+	width: var(--_json-indent);
+	height: var(--_json-indent);
+	margin-left: calc(-1 * var(--_json-indent));
 	font-size: 12px;
 	color: var(--vscode-foreground);
 	opacity: 0.7;
 }
 
 .json-children {
-	margin-left: calc(var(--_json-chevron-size) / 2);
 	border-left: 1px solid var(--vscode-editorIndentGuide-background);
-	padding-left: calc(var(--_json-chevron-size) / 2 - 1px);
+	padding-left: var(--_json-indent);
 }
 
 .json-bracket-close {
-	padding-left: var(--_json-chevron-size);
 	min-height: var(--_json-row-height);
 }
 
