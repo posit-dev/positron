@@ -344,7 +344,7 @@ function createMockTestItem(id: string, label: string): TestItem {
     const mockChildren = typemoq.Mock.ofType<TestItemCollection>();
     mockChildren.setup((x) => x.add(typemoq.It.isAny())).returns(() => undefined);
 
-    const mockTestItem = ({
+    const mockTestItem = {
         id,
         label,
         canResolveChildren: false,
@@ -353,7 +353,7 @@ function createMockTestItem(id: string, label: string): TestItem {
         range,
         uri: Uri.file('/foo/bar'),
         parent: undefined,
-    } as unknown) as TestItem;
+    } as unknown as TestItem;
 
     return mockTestItem;
 }

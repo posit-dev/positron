@@ -147,6 +147,8 @@ async function downloadAndReplacePet(version: string, githubPat: string | undefi
             if (!release) {
                 throw new Error(`Could not find Python Environment Tool ${version} in the releases.`);
             }
+            // Respect npm_config_arch when cross-building (e.g. building x64 on arm64).
+            const targetArch = process.env['npm_config_arch'] || arch();
             let os: string;
             switch (platform()) {
                 case 'win32':
@@ -156,7 +158,7 @@ async function downloadAndReplacePet(version: string, githubPat: string | undefi
                     os = 'darwin-universal';
                     break;
                 case 'linux':
-                    os = arch() === 'arm64' ? 'linux-arm64' : 'linux-x64';
+                    os = targetArch === 'arm64' ? 'linux-arm64' : 'linux-x64';
                     break;
                 default: {
                     throw new Error(`Unsupported platform ${platform()}.`);

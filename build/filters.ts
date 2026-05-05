@@ -40,6 +40,9 @@ export const all = Object.freeze<string[]>([
 	// Excluded since it's third-party PDF.js distribution
 	'!extensions/positron-pdf-server/pdfjs-dist/**/*',
 
+	// Excluded since it's generated code (NES LSP server)
+	'!extensions/next-edit-suggestions/server/**/*',
+
 	// Excluded since it isn't shipping code
 	'!test/smoke/test-repo/**/*',
 	'!test/e2e/test-repo/**/*',

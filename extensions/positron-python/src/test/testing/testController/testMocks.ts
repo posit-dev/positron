@@ -42,7 +42,7 @@ export function createMockTestItem(id: string, uriPath: string, children?: TestI
         },
     } as TestItemCollection;
 
-    return ({
+    return {
         id,
         uri: Uri.file(uriPath),
         children: mockChildren,
@@ -53,7 +53,7 @@ export function createMockTestItem(id: string, uriPath: string, children?: TestI
         range: undefined,
         error: undefined,
         parent: undefined,
-    } as unknown) as TestItem;
+    } as unknown as TestItem;
 }
 
 /**
@@ -62,12 +62,12 @@ export function createMockTestItem(id: string, uriPath: string, children?: TestI
  * @param id - The unique ID of the test item
  */
 export function createMockTestItemWithoutUri(id: string): TestItem {
-    return ({
+    return {
         id,
         uri: undefined,
-        children: ({ size: 0, forEach: () => {} } as unknown) as TestItemCollection,
+        children: { size: 0, forEach: () => {} } as unknown as TestItemCollection,
         label: id,
-    } as unknown) as TestItem;
+    } as unknown as TestItem;
 }
 
 export interface MockProjectAdapterConfig {
@@ -86,20 +86,20 @@ export type MockProjectAdapter = ProjectAdapter & { executionAdapterStub: sinon.
  */
 export function createMockProjectAdapter(config: MockProjectAdapterConfig): MockProjectAdapter {
     const runTestsStub = sinon.stub().resolves();
-    const executionAdapter: ITestExecutionAdapter = ({
+    const executionAdapter: ITestExecutionAdapter = {
         runTests: runTestsStub,
-    } as unknown) as ITestExecutionAdapter;
+    } as unknown as ITestExecutionAdapter;
 
-    const resultResolverMock: ITestResultResolver = ({
+    const resultResolverMock: ITestResultResolver = {
         vsIdToRunId: new Map<string, string>(),
         runIdToVSid: new Map<string, string>(),
         runIdToTestItem: new Map<string, TestItem>(),
         detailedCoverageMap: new Map(),
         resolveDiscovery: () => Promise.resolve(),
         resolveExecution: () => {},
-    } as unknown) as ITestResultResolver;
+    } as unknown as ITestResultResolver;
 
-    const adapter = ({
+    const adapter = {
         projectUri: Uri.file(config.projectPath),
         projectName: config.projectName,
         workspaceUri: Uri.file(config.projectPath),
@@ -120,7 +120,7 @@ export function createMockProjectAdapter(config: MockProjectAdapterConfig): Mock
         isExecuting: false,
         // Expose the stub for testing
         executionAdapterStub: runTestsStub,
-    } as unknown) as MockProjectAdapter;
+    } as unknown as MockProjectAdapter;
 
     return adapter;
 }

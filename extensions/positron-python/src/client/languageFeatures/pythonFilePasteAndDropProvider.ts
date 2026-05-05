@@ -12,7 +12,8 @@ import * as os from 'os';
  * files being shift+dragged+and+dropped into file paths that are usable in Python code.
  */
 export class PythonFilePasteAndDropProvider
-    implements vscode.DocumentPasteEditProvider, vscode.DocumentDropEditProvider {
+    implements vscode.DocumentPasteEditProvider, vscode.DocumentDropEditProvider
+{
     // Custom kind for Python-formatted file paths
     public static readonly kind = vscode.DocumentDropOrPasteEditKind.Text.append('path', 'python');
 

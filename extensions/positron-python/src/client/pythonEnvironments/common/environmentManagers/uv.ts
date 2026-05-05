@@ -40,7 +40,7 @@ class UvUtils {
     }
 
     public static resetCache(): void {
-        UvUtils.uvPromise = (undefined as unknown) as Promise<UvUtils | undefined>;
+        UvUtils.uvPromise = undefined as unknown as Promise<UvUtils | undefined>;
     }
 
     private static async locate(): Promise<UvUtils | undefined> {
