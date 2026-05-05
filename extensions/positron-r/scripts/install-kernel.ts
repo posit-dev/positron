@@ -19,7 +19,7 @@
  * The short SHA is included so builds from diverging branches at the same
  * (version, distance) produce distinct tags and asset names.
  *
- * Resolution order:
+ * Resolution order (local dev):
  *   1. A local `cargo build` at `ark/target/release/ark[.exe]`
  *   2. An already-installed prebuild matching the expected version (marker file)
  *   3. Download the exact prebuild from positron-ark
@@ -27,10 +27,11 @@
  *   5. Build from source via `cargo build --release` (if rust is installed)
  *   6. Helpful error
  *
- * In CI (detected via `CI=true`), steps 4 and 5 are swapped: we prefer
- * building from source over a stale fallback prebuild, so a PR that bumps
- * the ark submodule actually tests against the new ark. CI runners for the
- * common platforms have rust pre-installed.
+ * In CI (detected via `CI=true`), the fallback prebuild step is skipped
+ * entirely: we go exact prebuild -> build from source -> fail hard. A PR that
+ * bumps the ark submodule must actually test against the new ark, never
+ * against a stale fallback. CI runners for the common platforms have rust
+ * pre-installed.
  */
 
 import decompress from 'decompress';
@@ -582,15 +583,18 @@ async function tryCargoBuild(info: ArkBuildInfo): Promise<boolean> {
 	return true;
 }
 
-function reportFailure(info: ArkBuildInfo): never {
+function reportFailure(info: ArkBuildInfo, inCi: boolean): never {
+	const triedFallback = inCi
+		? `  (Fallback prebuilds are intentionally not used in CI.)`
+		: `  - the most recent earlier ark-* release — not found, or download failed`;
 	const message = [
 		`Failed to install Ark.`,
 		``,
 		`Tried these prebuild releases in posit-dev/${PREBUILD_REPO}:`,
 		`  - ${info.releaseTag} (exact match for the submodule SHA) — not found`,
-		`  - the most recent earlier ark-* release — not found, or download failed`,
+		triedFallback,
 		``,
-		`Then looked for cargo on PATH to build from source. Cargo was not found.`,
+		`Then attempted to build from source via cargo. That also failed or cargo was not on PATH.`,
 		``,
 		`To fix:`,
 		`  - Install Rust via https://rustup.rs and re-run \`npm install\`, OR`,
@@ -607,9 +611,10 @@ async function main(): Promise<void> {
 
 	const targets = getDownloadTargets(platform() as NodeJS.Platform, arch());
 
-	// In CI we prefer correctness over speed: if the exact prebuild is missing,
-	// build from source rather than silently using an older fallback prebuild.
-	// Otherwise (local dev), the fallback is fast and almost always good enough.
+	// In CI we require correctness: if the exact prebuild is missing, build
+	// from source. If that also fails, fail hard rather than silently using a
+	// stale fallback prebuild — a PR that bumps the ark submodule must
+	// actually test against the new ark.
 	// Most CI providers set `CI=true`; some use `CI=1`. Treat any non-empty,
 	// non-"false", non-"0" value as "in CI".
 	const ciVar = process.env.CI;
@@ -637,8 +642,8 @@ async function main(): Promise<void> {
 		console.warn(`Could not download exact prebuild: ${err}`);
 	}
 
-	// In CI: build from source before falling back to an older prebuild, so
-	// PRs that bump the ark submodule actually test against the new ark.
+	// In CI: build from source as the only fallback, then fail hard. Skip the
+	// fallback-prebuild path entirely.
 	if (inCi) {
 		try {
 			if (await tryCargoBuild(info)) {
@@ -647,9 +652,10 @@ async function main(): Promise<void> {
 		} catch (err) {
 			console.warn(`cargo build failed: ${err}`);
 		}
+		reportFailure(info, inCi);
 	}
 
-	// 4. Fallback to most recent earlier prebuild.
+	// 4. Fallback to most recent earlier prebuild (local dev only).
 	try {
 		if (await tryDownloadFallbackPrebuild(info, targets, githubPat)) {
 			return;
@@ -658,10 +664,9 @@ async function main(): Promise<void> {
 		console.warn(`Could not download fallback prebuild: ${err}`);
 	}
 
-	// 5. Build from source (skipped above in CI, so this is the local-dev path
-	// when both prebuild lookups failed).
+	// 5. Build from source (local dev only).
 	try {
-		if (!inCi && await tryCargoBuild(info)) {
+		if (await tryCargoBuild(info)) {
 			return;
 		}
 	} catch (err) {
@@ -669,7 +674,7 @@ async function main(): Promise<void> {
 	}
 
 	// 6. Helpful error.
-	reportFailure(info);
+	reportFailure(info, inCi);
 }
 
 main().catch((error) => {
