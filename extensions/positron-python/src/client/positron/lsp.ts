@@ -195,20 +195,8 @@ export class PythonLsp implements vscode.Disposable {
             return false;
         };
 
-        // Add middleware to filter diagnostics for Quarto virtual documents:
-        // https://github.com/quarto-dev/quarto/issues/855
         // Also set the priorities for completion items and hovers based on Positron LSP server extensions.
         this._clientOptions.middleware = {
-            handleDiagnostics(uri, diagnostics, next) {
-                // Only check file URIs because vdocs are files on disk
-                if (uri.scheme === 'file') {
-                    const baseName = path.basename(uri.fsPath);
-                    if (VDOC_PATTERN.test(baseName)) {
-                        return;
-                    }
-                }
-                return next(uri, diagnostics);
-            },
             // Apply per-completion-item priority set by the Positron LSP server.
             provideCompletionItem(document, position, context, token, next) {
                 if (shouldSkipDocument(document)) {
