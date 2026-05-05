@@ -7,48 +7,91 @@
 
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { JsonOutput } from '../../browser/notebookCells/JsonOutput.js';
+import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
+import { IClipboardService } from '../../../../../platform/clipboard/common/clipboardService.js';
 
 describe('JsonOutput', () => {
-	it('renders object with syntax-highlighted tokens', () => {
-		render(<JsonOutput data={{ name: 'test', count: 42, active: true, value: null }} />);
+	const mockWriteText = vi.fn();
+	const ctx = createTestContainer()
+		.withReactServices()
+		.stub(IClipboardService, { writeText: mockWriteText })
+		.build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-		const pre = screen.getByText((_content, element) =>
-			element?.tagName === 'PRE' && element.classList.contains('json-output')
-		);
-		expect(pre).toBeInTheDocument();
+	it('renders object keys and string values', () => {
+		rtl.render(<JsonOutput data={{ name: 'test', count: 42 }} />);
 
-		// Keys
-		expect(screen.getByText('"name"', { selector: '.json-key' })).toBeInTheDocument();
-		expect(screen.getByText('"count"', { selector: '.json-key' })).toBeInTheDocument();
-		expect(screen.getByText('"active"', { selector: '.json-key' })).toBeInTheDocument();
-		expect(screen.getByText('"value"', { selector: '.json-key' })).toBeInTheDocument();
-
-		// Values
+		expect(screen.getByText('name:', { selector: '.json-key' })).toBeInTheDocument();
 		expect(screen.getByText('"test"', { selector: '.json-string' })).toBeInTheDocument();
 		expect(screen.getByText('42', { selector: '.json-number' })).toBeInTheDocument();
+	});
+
+	it('renders booleans and null', () => {
+		rtl.render(<JsonOutput data={{ active: true, value: null }} />);
+
 		expect(screen.getByText('true', { selector: '.json-boolean' })).toBeInTheDocument();
 		expect(screen.getByText('null', { selector: '.json-null' })).toBeInTheDocument();
 	});
 
-	it('renders arrays', () => {
-		render(<JsonOutput data={[1, 'two', false]} />);
+	it('renders arrays without key names on items', () => {
+		rtl.render(<JsonOutput data={[1, 'two', false]} />);
 
 		expect(screen.getByText('1', { selector: '.json-number' })).toBeInTheDocument();
 		expect(screen.getByText('"two"', { selector: '.json-string' })).toBeInTheDocument();
 		expect(screen.getByText('false', { selector: '.json-boolean' })).toBeInTheDocument();
 	});
 
-	it('renders nested structures', () => {
-		render(<JsonOutput data={{ nested: { deep: 'value' } }} />);
+	it('renders nested structures with collapsible nodes', () => {
+		rtl.render(<JsonOutput data={{ nested: { deep: 'value' } }} />);
 
-		expect(screen.getByText('"nested"', { selector: '.json-key' })).toBeInTheDocument();
-		expect(screen.getByText('"deep"', { selector: '.json-key' })).toBeInTheDocument();
+		expect(screen.getByText('nested:', { selector: '.json-key' })).toBeInTheDocument();
+		expect(screen.getByText('deep:', { selector: '.json-key' })).toBeInTheDocument();
 		expect(screen.getByText('"value"', { selector: '.json-string' })).toBeInTheDocument();
 	});
 
+	it('collapses and expands on click', async () => {
+		const user = userEvent.setup();
+		rtl.render(<JsonOutput data={{ items: [1, 2, 3] }} />);
+
+		// Items should be visible initially
+		expect(screen.getByText('1', { selector: '.json-number' })).toBeInTheDocument();
+
+		// Click the collapsible header for the 'items' array
+		const header = screen.getByText('items:', { selector: '.json-key' }).closest('.json-collapsible-header')!;
+		await user.click(header);
+
+		// Items should be hidden, preview shown
+		expect(screen.queryByText('1', { selector: '.json-number' })).not.toBeInTheDocument();
+		expect(screen.getByText(/3 items/)).toBeInTheDocument();
+
+		// Click again to expand
+		await user.click(header);
+		expect(screen.getByText('1', { selector: '.json-number' })).toBeInTheDocument();
+	});
+
+	it('copies JSON to clipboard', async () => {
+		const user = userEvent.setup();
+
+		rtl.render(<JsonOutput data={{ x: 1 }} />);
+
+		const copyButton = screen.getByRole('button', { name: /copy json/i });
+		await user.click(copyButton);
+
+		expect(mockWriteText).toHaveBeenCalledWith(JSON.stringify({ x: 1 }, null, 2));
+	});
+
+	it('renders empty objects compactly', () => {
+		rtl.render(<JsonOutput data={{ empty: {} }} />);
+
+		expect(screen.getByText('empty:', { selector: '.json-key' })).toBeInTheDocument();
+		expect(screen.getByText('{}', { selector: '.json-punct' })).toBeInTheDocument();
+	});
+
 	it('renders primitive values at top level', () => {
-		render(<JsonOutput data='just a string' />);
+		rtl.render(<JsonOutput data='just a string' />);
 
 		expect(screen.getByText('"just a string"', { selector: '.json-string' })).toBeInTheDocument();
 	});

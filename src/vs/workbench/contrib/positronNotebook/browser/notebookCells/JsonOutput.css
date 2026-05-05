@@ -4,31 +4,118 @@
  *--------------------------------------------------------------------------------------------*/
 
 .json-output {
-	margin: 0;
-	white-space: pre-wrap;
-	word-break: break-word;
+	position: relative;
+	font-family: var(--vscode-positronNotebook-text-output-font-family, var(--monaco-monospace-font));
+	font-size: 12px;
+	line-height: 1.5;
 }
 
-.json-output .json-key {
+.json-output-header {
+	position: absolute;
+	top: 0;
+	right: 0;
+	opacity: 0;
+	transition: opacity 150ms ease;
+}
+
+.json-output:hover .json-output-header {
+	opacity: 1;
+}
+
+.json-copy-button {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 22px;
+	border: none;
+	border-radius: 4px;
+	background: var(--vscode-toolbar-hoverBackground);
+	color: var(--vscode-foreground);
+	cursor: pointer;
+	padding: 0;
+}
+
+.json-copy-button:hover {
+	background: var(--vscode-toolbar-activeBackground);
+}
+
+/* Tree layout */
+.json-tree {
+	padding: 2px 0;
+}
+
+.json-leaf {
+	padding: 1px 0;
+	padding-left: 16px;
+}
+
+.json-collapsible-header {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	padding: 1px 0;
+	cursor: pointer;
+	border-radius: 3px;
+	border: none;
+	background: none;
+	font: inherit;
+	color: inherit;
+	width: 100%;
+	text-align: left;
+}
+
+.json-collapsible-header:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.json-chevron {
+	flex-shrink: 0;
+	width: 16px;
+	font-size: 12px;
+	text-align: center;
+	color: var(--vscode-foreground);
+	opacity: 0.7;
+}
+
+.json-children {
+	padding-left: 16px;
+	border-left: 1px solid var(--vscode-editorIndentGuide-background);
+	margin-left: 7px;
+}
+
+.json-bracket-close {
+	padding: 1px 0;
+}
+
+.json-collapsed-preview {
+	color: var(--vscode-descriptionForeground);
+	font-style: italic;
+}
+
+/* Token colors */
+.json-key {
 	color: var(--vscode-debugTokenExpression-name);
 }
 
-.json-output .json-string {
+.json-string {
 	color: var(--vscode-debugTokenExpression-string);
 }
 
-.json-output .json-number {
+.json-number {
 	color: var(--vscode-debugTokenExpression-number);
 }
 
-.json-output .json-boolean {
+.json-boolean {
 	color: var(--vscode-debugTokenExpression-boolean);
 }
 
-.json-output .json-null {
+.json-null {
 	color: var(--vscode-debugTokenExpression-value);
+	font-style: italic;
 }
 
-.json-output .json-punct {
+.json-punct {
 	color: var(--vscode-foreground);
+	opacity: 0.6;
 }

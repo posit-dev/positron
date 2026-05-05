@@ -4,61 +4,141 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 
 // CSS.
 import './JsonOutput.css';
+
+// Other dependencies.
+import { localize } from '../../../../../nls.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 interface JsonOutputProps {
 	data: unknown;
 }
 
-/**
- * Renders a JSON value with syntax highlighting.
- * Returns an array of React elements representing the highlighted tokens.
- */
-function highlightJson(data: unknown): React.ReactNode[] {
-	const json = JSON.stringify(data, null, 2);
-	if (json === undefined) {
-		return [<span key={0} className='json-null'>undefined</span>];
-	}
-
-	const nodes: React.ReactNode[] = [];
-	let i = 0;
-
-	// Regex matches JSON tokens: strings, numbers, booleans, null, structural chars
-	const tokenRegex = /("(?:[^"\\]|\\.)*")\s*:\s*|("(?:[^"\\]|\\.)*")|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|(\btrue\b|\bfalse\b)|(\bnull\b)|([{}[\],])|(\s+)/g;
-	let match: RegExpExecArray | null;
-
-	while ((match = tokenRegex.exec(json)) !== null) {
-		const [, key, str, num, bool, nul, punct, ws] = match;
-
-		if (key) {
-			// Object key (string followed by colon)
-			nodes.push(<span key={i++} className='json-key'>{key}</span>);
-			nodes.push(<span key={i++} className='json-punct'>: </span>);
-		} else if (str) {
-			nodes.push(<span key={i++} className='json-string'>{str}</span>);
-		} else if (num) {
-			nodes.push(<span key={i++} className='json-number'>{num}</span>);
-		} else if (bool) {
-			nodes.push(<span key={i++} className='json-boolean'>{bool}</span>);
-		} else if (nul) {
-			nodes.push(<span key={i++} className='json-null'>{nul}</span>);
-		} else if (punct) {
-			nodes.push(<span key={i++} className='json-punct'>{punct}</span>);
-		} else if (ws) {
-			nodes.push(<span key={i++}>{ws}</span>);
-		}
-	}
-
-	return nodes;
-}
+const copyJsonLabel = localize('positron.notebook.copyJson', "Copy JSON");
 
 export const JsonOutput = React.memo(function JsonOutput({ data }: JsonOutputProps) {
+	const services = usePositronReactServicesContext();
+	const [copied, setCopied] = useState(false);
+
+	const handleCopy = useCallback(() => {
+		const text = JSON.stringify(data, null, 2);
+		services.clipboardService.writeText(text);
+		setCopied(true);
+		setTimeout(() => setCopied(false), 1500);
+	}, [data, services.clipboardService]);
+
 	return (
-		<pre className='json-output'>
-			<code>{highlightJson(data)}</code>
-		</pre>
+		<div className='json-output'>
+			<div className='json-output-header'>
+				<button
+					aria-label={copyJsonLabel}
+					className='json-copy-button'
+					title={copyJsonLabel}
+					onClick={handleCopy}
+				>
+					<span className={`codicon ${copied ? 'codicon-check' : 'codicon-copy'}`} />
+				</button>
+			</div>
+			<div className='json-tree'>
+				<JsonNode value={data} />
+			</div>
+		</div>
 	);
 });
+
+interface JsonNodeProps {
+	value: unknown;
+	keyName?: string;
+}
+
+function JsonNode({ value, keyName }: JsonNodeProps) {
+	if (value === null) {
+		return <JsonLeaf display='null' keyName={keyName} valueClass='json-null' />;
+	}
+
+	if (Array.isArray(value)) {
+		return <JsonCollapsible keyName={keyName} type='array' value={value} />;
+	}
+
+	switch (typeof value) {
+		case 'object':
+			return <JsonCollapsible keyName={keyName} type='object' value={value as Record<string, unknown>} />;
+		case 'string':
+			return <JsonLeaf display={`"${value}"`} keyName={keyName} valueClass='json-string' />;
+		case 'number':
+			return <JsonLeaf display={String(value)} keyName={keyName} valueClass='json-number' />;
+		case 'boolean':
+			return <JsonLeaf display={String(value)} keyName={keyName} valueClass='json-boolean' />;
+		default:
+			return <JsonLeaf display={String(value)} keyName={keyName} valueClass='json-null' />;
+	}
+}
+
+interface JsonLeafProps {
+	keyName?: string;
+	valueClass: string;
+	display: string;
+}
+
+function JsonLeaf({ keyName, valueClass, display }: JsonLeafProps) {
+	return (
+		<div className='json-leaf'>
+			{keyName !== undefined && <span className='json-key'>{keyName}: </span>}
+			<span className={valueClass}>{display}</span>
+		</div>
+	);
+}
+
+interface JsonCollapsibleProps {
+	keyName?: string;
+	value: unknown[] | Record<string, unknown>;
+	type: 'array' | 'object';
+}
+
+function JsonCollapsible({ keyName, value, type }: JsonCollapsibleProps) {
+	const [expanded, setExpanded] = useState(true);
+	const entries = type === 'array'
+		? (value as unknown[]).map((v, i) => [String(i), v] as const)
+		: Object.entries(value as Record<string, unknown>);
+	const count = entries.length;
+	const brackets = type === 'array' ? ['[', ']'] : ['{', '}'];
+
+	if (count === 0) {
+		return (
+			<div className='json-leaf'>
+				{keyName !== undefined && <span className='json-key'>{keyName}: </span>}
+				<span className='json-punct'>{brackets[0]}{brackets[1]}</span>
+			</div>
+		);
+	}
+
+	const toggle = () => setExpanded(prev => !prev);
+
+	return (
+		<div className='json-collapsible'>
+			<button className='json-collapsible-header' type='button' onClick={toggle}>
+				<span className={`codicon json-chevron ${expanded ? 'codicon-chevron-down' : 'codicon-chevron-right'}`} />
+				{keyName !== undefined && <span className='json-key'>{keyName}: </span>}
+				{!expanded && (
+					<span className='json-collapsed-preview'>
+						{brackets[0]} {count} {count === 1 ? 'item' : 'items'} {brackets[1]}
+					</span>
+				)}
+				{expanded && <span className='json-punct'>{brackets[0]}</span>}
+			</button>
+			{expanded && (
+				<div className='json-children'>
+					{entries.map(([k, v]) => (
+						<JsonNode key={k} keyName={type === 'object' ? k : undefined} value={v} />
+					))}
+					<div className='json-bracket-close'>
+						<span className='json-punct'>{brackets[1]}</span>
+					</div>
+				</div>
+			)}
+		</div>
+	);
+}
