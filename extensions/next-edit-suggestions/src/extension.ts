@@ -16,7 +16,7 @@ import {
 	type SubmitCompletionFeedbackResponse,
 } from './types.js';
 import { RequestType } from 'vscode-languageclient';
-import { getLanguageClientManager, startLanguageServer } from './client.js';
+import { getLanguageClientManager, startLanguageServer, stopLanguageServer } from './client.js';
 import { getUserAgent } from './utils.js';
 import { getSessionVariables } from './variables.js';
 
@@ -114,12 +114,14 @@ export function activate(context: vscode.ExtensionContext): void {
 
 	// Start the language server only when an auth token is available
 	async function ensureLanguageServer() {
-		if (getLanguageClientManager()) {
-			return;
-		}
 		if (await getLLMConfiguration()) {
-			startLanguageServer(context, log);
-			log.info('Language server started.');
+			if (!getLanguageClientManager()) {
+				startLanguageServer(context, log);
+				log.info('Language server started.');
+			}
+		} else if (getLanguageClientManager()) {
+			log.info('Stopping language server due to logout.');
+			await stopLanguageServer();
 		}
 	}
 

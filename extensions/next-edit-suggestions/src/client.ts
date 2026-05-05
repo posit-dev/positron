@@ -92,6 +92,13 @@ export function startLanguageServer(context: vscode.ExtensionContext, outputChan
 	context.subscriptions.push(clientManagerInstance);
 }
 
+export async function stopLanguageServer(): Promise<void> {
+	if (clientManagerInstance) {
+		await clientManagerInstance.client.stop();
+		clientManagerInstance = undefined;
+	}
+}
+
 export function getLanguageClientManager(): LanguageServerClientManager | undefined {
 	return clientManagerInstance;
 }
