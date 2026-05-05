@@ -51,9 +51,6 @@
 }
 
 .json-leaf {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: baseline;
 	padding-left: var(--_json-chevron-size);
 	min-height: var(--_json-row-height);
 }
@@ -119,16 +116,18 @@
 	background: none;
 	font: inherit;
 	font-size: 11px;
-	color: var(--vscode-textLink-foreground);
+	color: var(--vscode-descriptionForeground);
 	cursor: pointer;
 	padding: 0 2px;
 	margin-left: 4px;
 	border-radius: 3px;
 	white-space: nowrap;
+	opacity: 0.7;
 }
 
 .json-expand-value:hover {
-	text-decoration: underline;
+	opacity: 1;
+	color: var(--vscode-textLink-foreground);
 }
 
 .json-expand-value:focus-visible {
