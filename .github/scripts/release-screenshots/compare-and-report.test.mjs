@@ -110,21 +110,21 @@ test('formatSummary: shows totals', () => {
 	assert.match(md, /1 new/);
 });
 
-test('formatSummary: includes report link when reportUrl is provided', () => {
+test('formatSummary: title line is a link to the report when reportUrl is provided', () => {
 	const classification = {
 		'a.png': { status: 'changed', generatedHash: 'a', generatedSize: 1, docsHash: 'old' },
 	};
 	const md = formatSummary(classification, { reportUrl: 'https://example.com/run123/report.html' });
-	assert.match(md, /Open report/);
-	assert.match(md, /https:\/\/example\.com\/run123\/report\.html/);
+	assert.match(md, /\[Screenshot Report\]\(https:\/\/example\.com\/run123\/report\.html\)/);
 });
 
-test('formatSummary: omits report link when reportUrl is not provided', () => {
+test('formatSummary: title line is plain text when reportUrl is not provided', () => {
 	const classification = {
 		'a.png': { status: 'changed', generatedHash: 'a', generatedSize: 1, docsHash: 'old' },
 	};
 	const md = formatSummary(classification);
-	assert.ok(!md.includes('Open report'), 'should not include report link when reportUrl is missing');
+	assert.ok(!md.includes('['), 'should not include a markdown link when reportUrl is missing');
+	assert.match(md, /Screenshot Report/);
 });
 
 test('formatSummary: empty classification renders cleanly', () => {

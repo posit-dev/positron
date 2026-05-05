@@ -131,24 +131,24 @@ export function formatSummary(classification, opts = {}) {
 	const reportUrl = opts.reportUrl;
 	const entries = Object.entries(classification);
 	if (entries.length === 0) {
-		return '## Release screenshots\n\nNo images were generated.\n';
+		return '🖼️ Screenshot Report\n\nNo images were generated.\n';
 	}
 	const counts = { unchanged: 0, changed: 0, new: 0 };
 	for (const info of Object.values(classification)) {
 		counts[info.status]++;
 	}
-	const totalsParts = [
+	const totalsLine = [
 		`${counts.new} new`,
 		`${counts.changed} changed`,
 		`${counts.unchanged} unchanged`,
-	];
-	if (reportUrl) {
-		totalsParts.push(`[Open report ↗](${reportUrl})`);
-	}
+	].join(' · ');
+	const titleLine = reportUrl
+		? `🖼️ [Screenshot Report](${reportUrl})`
+		: '🖼️ Screenshot Report';
 	return [
-		'## Release screenshots',
+		titleLine,
 		'',
-		totalsParts.join(' · '),
+		totalsLine,
 		'',
 	].join('\n');
 }
