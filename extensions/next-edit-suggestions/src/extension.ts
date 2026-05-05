@@ -347,7 +347,7 @@ async function generateSuggestion(
 
 		// Deal with the model returning too few closing quotes when ending its response
 		if (suggestion.text.endsWith('\n```')) {
-			suggestion.text.substring(0, suggestion.text.length - 4);
+			suggestion.text = suggestion.text.substring(0, suggestion.text.length - 4);
 		}
 
 		const range = new vscode.Range(
