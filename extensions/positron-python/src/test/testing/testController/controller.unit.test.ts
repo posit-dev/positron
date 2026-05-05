@@ -15,7 +15,7 @@ import { TestProjectRegistry } from '../../../client/testing/testController/comm
 function createStubTestController(): TestController {
     const disposable = { dispose: () => undefined };
 
-    const controller = ({
+    const controller = {
         items: {
             forEach: sinon.stub(),
             get: sinon.stub(),
@@ -30,7 +30,7 @@ function createStubTestController(): TestController {
         dispose: sinon.stub(),
         resolveHandler: undefined,
         refreshHandler: undefined,
-    } as unknown) as TestController;
+    } as unknown as TestController;
 
     return controller;
 }
@@ -57,29 +57,29 @@ suite('PythonTestController', () => {
                 sysPrefix: '/usr',
             } as any);
 
-        const workspaceService = ({ workspaceFolders: [] } as unknown) as any;
-        const configSettings = ({
+        const workspaceService = { workspaceFolders: [] } as unknown as any;
+        const configSettings = {
             getSettings: sandbox.stub().returns({
                 testing: {
                     unittestEnabled,
                     autoTestDiscoverOnSaveEnabled: false,
                 },
             }),
-        } as unknown) as any;
+        } as unknown as any;
 
-        const pytest = ({} as unknown) as any;
-        const unittest = ({} as unknown) as any;
+        const pytest = {} as unknown as any;
+        const unittest = {} as unknown as any;
         const disposables: any[] = [];
-        const interpreterService = ({
+        const interpreterService = {
             getActiveInterpreter: sandbox.stub().resolves(interpreter),
-        } as unknown) as any;
+        } as unknown as any;
 
-        const commandManager = ({
+        const commandManager = {
             registerCommand: sandbox.stub().returns({ dispose: () => undefined }),
-        } as unknown) as any;
-        const pythonExecFactory = ({} as unknown) as any;
-        const debugLauncher = ({} as unknown) as any;
-        const envVarsService = ({} as unknown) as any;
+        } as unknown as any;
+        const pythonExecFactory = {} as unknown as any;
+        const debugLauncher = {} as unknown as any;
+        const envVarsService = {} as unknown as any;
 
         return new PythonTestController(
             workspaceService,

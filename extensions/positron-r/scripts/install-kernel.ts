@@ -239,7 +239,8 @@ async function downloadAndReplaceArk(version: string,
 		}
 
 		const currentPlatform = platform() as NodeJS.Platform;
-		const currentArch = arch();
+		// Respect npm_config_arch when cross-building (e.g. building x64 on arm64 macOS).
+		const currentArch = (process.env['npm_config_arch'] as NodeArch | undefined) || arch();
 		const targets = getDownloadTargets(currentPlatform, currentArch);
 		const arkDir = path.join('resources', 'ark');
 		await fs.promises.mkdir(arkDir, { recursive: true });
@@ -368,9 +369,11 @@ async function downloadFromGitHubRepository(
 		// Copy the binary to the resources directory (root) so packaging picks it up
 		await fs.promises.copyFile(binaryPath, path.join(arkDir, kernelName));
 
-		// On Windows, also place the binary inside the architecture-specific subdirectory
+		// On Windows, also place the binary inside the architecture-specific subdirectory.
+		// Respect npm_config_arch when cross-building (e.g. building x64 on arm64).
 		if (platform() === 'win32') {
-			const windowsSubdir = process.arch === 'arm64' ? 'windows-arm64' : 'windows-x64';
+			const targetArch = process.env['npm_config_arch'] || process.arch;
+			const windowsSubdir = targetArch === 'arm64' ? 'windows-arm64' : 'windows-x64';
 			const targetDir = path.join(arkDir, windowsSubdir);
 			await fs.promises.mkdir(targetDir, { recursive: true });
 			await fs.promises.copyFile(binaryPath, path.join(targetDir, kernelName));

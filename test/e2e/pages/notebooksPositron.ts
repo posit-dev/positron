@@ -1882,6 +1882,7 @@ export class Kernel extends KernelBase {
 			// select the kernel
 			await this.hotKeys.selectNotebookKernel();
 			await this.quickinput.waitForQuickInputOpened({ timeout: 1000 });
+			await this.quickinput.type(desiredKernel);
 			await this.quickinput.selectQuickInputElementContaining(desiredKernel, { timeout: 1000, force: false });
 			await this.quickinput.waitForQuickInputClosed();
 			this.code.logger.log(`Selected kernel: ${desiredKernel}`);
@@ -1932,7 +1933,8 @@ export class Kernel extends KernelBase {
 		await test.step(`Verify kernel menu items: ${menuItemStates.map(item => item.label).join(', ')}`, async () => {
 			await this.contextMenu.triggerAndVerifyMenuItems({
 				menuTrigger: this.statusBadge,
-				menuItemStates: menuItemStates
+				menuItemStates: menuItemStates,
+				useNativeMenu: false
 			});
 		});
 	}

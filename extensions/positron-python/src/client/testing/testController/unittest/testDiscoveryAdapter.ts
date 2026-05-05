@@ -107,7 +107,7 @@ export class UnittestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
                 const proc = await runInBackground(pythonEnv, {
                     cwd,
                     args: execArgs,
-                    env: (mutableEnv as unknown) as { [key: string]: string },
+                    env: mutableEnv as unknown as { [key: string]: string },
                 });
                 traceInfo(`Started unittest discovery subprocess (environment extension) for workspace ${uri.fsPath}`);
 

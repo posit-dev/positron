@@ -37,10 +37,7 @@ test.describe('Console ANSI styling', { tag: [tags.CONSOLE, tags.WIN, tags.WEB] 
 		}).toPass({ timeout: 60000 });
 	});
 
-	test.skip("R - Can produce clickable help links", {
-		annotation: {
-			type: 'issue', description: 'https://github.com/posit-dev/positron/issues/13332'
-		},
+	test("R - Can produce clickable help links", {
 		tag: [tags.ARK]
 	}, async function ({ app, r }) {
 		const inputCode = `cli::cli_inform("{.fun base::mean}")`;

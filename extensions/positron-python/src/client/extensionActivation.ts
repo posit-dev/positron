@@ -97,18 +97,15 @@ export async function activateComponents(
 // Changed this function to be async
 export async function activateFeatures(ext: ExtensionState, _components: Components): Promise<void> {
     // --- End Positron ---
-    const interpreterQuickPick: IInterpreterQuickPick = ext.legacyIOC.serviceContainer.get<IInterpreterQuickPick>(
-        IInterpreterQuickPick,
-    );
-    const interpreterService: IInterpreterService = ext.legacyIOC.serviceContainer.get<IInterpreterService>(
-        IInterpreterService,
-    );
+    const interpreterQuickPick: IInterpreterQuickPick =
+        ext.legacyIOC.serviceContainer.get<IInterpreterQuickPick>(IInterpreterQuickPick);
+    const interpreterService: IInterpreterService =
+        ext.legacyIOC.serviceContainer.get<IInterpreterService>(IInterpreterService);
     const pathUtils = ext.legacyIOC.serviceContainer.get<IPathUtils>(IPathUtils);
 
     // --- Start Positron ---
-    const pythonRuntimeManager: IPythonRuntimeManager = ext.legacyIOC.serviceContainer.get<IPythonRuntimeManager>(
-        IPythonRuntimeManager,
-    );
+    const pythonRuntimeManager: IPythonRuntimeManager =
+        ext.legacyIOC.serviceContainer.get<IPythonRuntimeManager>(IPythonRuntimeManager);
     // --- End Positron ---
 
     registerPixiFeatures(ext.disposables);

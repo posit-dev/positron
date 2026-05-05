@@ -35,9 +35,9 @@ suite('TestDiscoveryHandler', () => {
 
         workspaceUri = Uri.file('/foo/bar');
         testProvider = 'pytest';
-        cancelationToken = ({
+        cancelationToken = {
             isCancellationRequested: false,
-        } as unknown) as CancellationToken;
+        } as unknown as CancellationToken;
     });
 
     teardown(() => {
@@ -151,12 +151,12 @@ suite('TestDiscoveryHandler', () => {
             const createErrorNodeSpy = sinon.spy(discoveryHandler, 'createErrorNode');
 
             // Mock createTestItem to return a proper TestItem
-            const mockErrorItem = ({
+            const mockErrorItem = {
                 id: 'error_id',
                 error: null,
                 canResolveChildren: false,
                 tags: [],
-            } as unknown) as TestItem;
+            } as unknown as TestItem;
             testControllerMock
                 .setup((t) => t.createTestItem(typemoq.It.isAny(), typemoq.It.isAny()))
                 .returns(() => mockErrorItem);
@@ -196,12 +196,12 @@ suite('TestDiscoveryHandler', () => {
             const createErrorNodeSpy = sinon.spy(discoveryHandler, 'createErrorNode');
 
             // Mock createTestItem to return a proper TestItem
-            const mockErrorItem = ({
+            const mockErrorItem = {
                 id: 'error_id',
                 error: null,
                 canResolveChildren: false,
                 tags: [],
-            } as unknown) as TestItem;
+            } as unknown as TestItem;
             testControllerMock
                 .setup((t) => t.createTestItem(typemoq.It.isAny(), typemoq.It.isAny()))
                 .returns(() => mockErrorItem);
@@ -346,10 +346,10 @@ suite('TestDiscoveryHandler', () => {
                 error: 'Error Message',
             });
 
-            const mockErrorItem = ({
+            const mockErrorItem = {
                 id: 'error_id',
                 error: null,
-            } as unknown) as TestItem;
+            } as unknown as TestItem;
 
             const createErrorTestItemStub = sinon.stub(testItemUtilities, 'createErrorTestItem').returns(mockErrorItem);
 
@@ -375,10 +375,10 @@ suite('TestDiscoveryHandler', () => {
                 error: 'Error Message',
             });
 
-            const mockErrorItem = ({
+            const mockErrorItem = {
                 id: 'error_id',
                 error: null,
-            } as unknown) as TestItem;
+            } as unknown as TestItem;
 
             sinon.stub(testItemUtilities, 'createErrorTestItem').returns(mockErrorItem);
 
@@ -401,10 +401,10 @@ suite('TestDiscoveryHandler', () => {
                 error: 'Error Message',
             });
 
-            const mockErrorItem = ({
+            const mockErrorItem = {
                 id: 'error_id',
                 error: null,
-            } as unknown) as TestItem;
+            } as unknown as TestItem;
 
             sinon.stub(testItemUtilities, 'createErrorTestItem').returns(mockErrorItem);
 
@@ -430,10 +430,10 @@ suite('TestDiscoveryHandler', () => {
                 error: 'Error Message',
             });
 
-            const mockErrorItem = ({
+            const mockErrorItem = {
                 id: 'error_id',
                 error: null,
-            } as unknown) as TestItem;
+            } as unknown as TestItem;
 
             sinon.stub(testItemUtilities, 'createErrorTestItem').returns(mockErrorItem);
 
@@ -493,10 +493,10 @@ suite('TestDiscoveryHandler', () => {
                 error: 'Error Message',
             });
 
-            const mockErrorItem = ({
+            const mockErrorItem = {
                 id: 'error_id',
                 error: null,
-            } as unknown) as TestItem;
+            } as unknown as TestItem;
 
             sinon.stub(testItemUtilities, 'createErrorTestItem').returns(mockErrorItem);
 

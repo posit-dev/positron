@@ -102,6 +102,7 @@ Positron has three test categories:
 - To auto-fix formatting issues in TypeScript/JavaScript files:
   - Formatting: `node scripts/format.mts <file> [file2] ...`
   - ESLint: `npx eslint --fix <file> [file2] ...`
+- When registering user-facing configuration, follow the **[guidance on settings](.claude/rules/configuration.md)**. Setting keys, titles, and display names omit redundant terms ("Positron", "Setting", etc.); `localize()` IDs keep the `positron.` prefix.
 
 ## General
 
