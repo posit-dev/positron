@@ -101,6 +101,22 @@ export class Layouts {
 	}
 
 	/**
+	 * Resize the secondary sidebar (auxiliary bar / variables-side) by
+	 * dragging its left edge. Negative x widens the bar, positive x narrows.
+	 */
+	async resizeAuxiliaryBar(delta: { x: number }): Promise<void> {
+		const auxBar = this.code.driver.currentPage.locator('.part.auxiliarybar');
+		const box = await auxBar.boundingBox();
+		if (!box) {
+			throw new Error('auxiliarybar not found or not visible');
+		}
+		await this.code.driver.clickAndDrag({
+			from: { x: box.x, y: box.y + box.height / 2 },
+			delta: { x: delta.x },
+		});
+	}
+
+	/**
 	 * A bounding box getting that errors if the element is not found rather than returning null.
 	 * @param locator Element locator to get bounding box of. E.g. `this.panelContent`.
 	 * @returns Bounding box object

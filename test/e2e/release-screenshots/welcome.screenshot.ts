@@ -21,7 +21,7 @@ test.beforeEach(async ({ app }) => {
  */
 test.describe('Release Screenshots - Welcome Page', () => {
 	test('Standard Data View', async ({ app, page, openFolder, openFile, hotKeys }) => {
-		const { sessions, editor, editors, plots, variables, quickaccess } =
+		const { sessions, editor, editors, plots, variables, quickaccess, layouts } =
 			app.workbench;
 
 		// open workspace
@@ -43,6 +43,7 @@ test.describe('Release Screenshots - Welcome Page', () => {
 
 		// setup scroll position and expand variable for screenshot
 		await hotKeys.closePrimarySidebar();
+		await layouts.resizeAuxiliaryBar({ x: -250 });
 		await quickaccess.runCommand('workbench.action.gotoLine', {
 			keepOpen: true,
 		});

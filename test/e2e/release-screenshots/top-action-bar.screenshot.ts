@@ -33,6 +33,14 @@ test.describe('Release Screenshots - Top Action Bar', () => {
 		const topBar = page.locator('.top-action-bar-container');
 		await expect(topBar).toBeVisible();
 
+		// Override the displayed folder name so the docs screenshot reads
+		// "my-project" rather than "qa-example-content" or whatever the test
+		// workspace happens to be called.
+		await page.evaluate(() => {
+			const el = document.querySelector('#top-action-bar-current-working-folder');
+			if (el) { el.textContent = 'my-project'; }
+		});
+
 		await hideToasts(app);
 
 		await annotate(page, [
@@ -67,6 +75,12 @@ test.describe('Release Screenshots - Top Action Bar', () => {
 	test('Action bar information element (folder selector)', async ({ app, page }) => {
 		const folderMenu = page.locator('.top-action-bar-custom-folder-menu');
 		await expect(folderMenu).toBeVisible();
+
+		// Override the displayed folder name so the docs screenshot reads "my-project".
+		await page.evaluate(() => {
+			const el = document.querySelector('#top-action-bar-current-working-folder');
+			if (el) { el.textContent = 'my-project'; }
+		});
 
 		await hideToasts(app);
 		await waitForStableUI(page);
