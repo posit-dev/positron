@@ -405,7 +405,7 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 		const timeoutMs = this._configurationService.getValue<number>(EXTENSION_HOST_TIMEOUT_CONFIG_KEY);
 		const results = await Promise.all(sessions.map(async session => {
 			if (!session.getLaunchInfo) {
-				return { session, skipped: true } as const;
+				return undefined;
 			}
 
 			let timedOut: boolean = false;
@@ -415,15 +415,15 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 					timeoutMs,
 					() => { timedOut = true; }
 				);
-				return { session, launchInfo, timedOut } as const;
+				return { session, launchInfo, timedOut };
 			} catch {
 				// Session may not support launch info; skip it.
-				return { session, skipped: true } as const;
+				return undefined;
 			}
 		}));
 
 		for (const result of results) {
-			if (result.skipped) {
+			if (!result) {
 				continue;
 			}
 			const { session, launchInfo, timedOut } = result;
