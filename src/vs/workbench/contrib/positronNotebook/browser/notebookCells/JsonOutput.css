@@ -102,7 +102,7 @@
 }
 
 .json-bracket-close {
-	padding-left: 0;
+	padding-left: 16px;
 	min-height: 18px;
 }
 
@@ -148,6 +148,7 @@
 /* Token colors */
 .json-key {
 	color: var(--vscode-debugTokenExpression-name);
+	margin-right: 4px;
 }
 
 .json-string {

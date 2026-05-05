@@ -159,14 +159,16 @@ function JsonCollapsible({ keyName, value, type }: JsonCollapsibleProps) {
 				{expanded && <span className='json-punct'>{brackets[0]}</span>}
 			</button>
 			{expanded && (
-				<div className='json-children'>
-					{entries.map(([k, v]) => (
-						<JsonNode key={k} keyName={type === 'object' ? k : undefined} value={v} />
-					))}
+				<>
+					<div className='json-children'>
+						{entries.map(([k, v]) => (
+							<JsonNode key={k} keyName={type === 'object' ? k : undefined} value={v} />
+						))}
+					</div>
 					<div className='json-bracket-close'>
 						<span className='json-punct'>{brackets[1]}</span>
 					</div>
-				</div>
+				</>
 			)}
 		</div>
 	);
