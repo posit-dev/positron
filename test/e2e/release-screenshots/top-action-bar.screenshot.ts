@@ -73,6 +73,10 @@ test.describe('Release Screenshots - Top Action Bar', () => {
 	 * Img Path: https://positron.posit.co/images/action-bar-information.png
 	 */
 	test('Action bar information element (folder selector)', async ({ app, page }) => {
+		// The folder selector is a small element. Bump DPR so the captured
+		// PNG has enough resolution for the docs to scale up.
+		await setScreenshotWindowSize(app, { deviceScaleFactor: 2 });
+
 		const folderMenu = page.locator('.top-action-bar-custom-folder-menu');
 		await expect(folderMenu).toBeVisible();
 

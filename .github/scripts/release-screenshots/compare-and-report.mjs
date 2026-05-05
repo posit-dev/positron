@@ -131,20 +131,22 @@ export function formatSummary(classification, opts = {}) {
 	const reportUrl = opts.reportUrl;
 	const entries = Object.entries(classification);
 	if (entries.length === 0) {
-		return '🖼️ Screenshot Report\n\nNo images were generated.\n';
+		return '📄 Screenshot Report\n\nNo images were generated.\n';
 	}
 	const counts = { unchanged: 0, changed: 0, new: 0 };
 	for (const info of Object.values(classification)) {
 		counts[info.status]++;
 	}
+	const total = counts.new + counts.changed + counts.unchanged;
 	const totalsLine = [
-		`${counts.new} new`,
-		`${counts.changed} changed`,
-		`${counts.unchanged} unchanged`,
-	].join(' · ');
+		`🖼️ Total: ${total}`,
+		`🆕 New: ${counts.new}`,
+		`🔁 Changed: ${counts.changed}`,
+		`⏭️ Unchanged: ${counts.unchanged}`,
+	].join(' | ');
 	const titleLine = reportUrl
-		? `🖼️ [Screenshot Report](${reportUrl})`
-		: '🖼️ Screenshot Report';
+		? `📄 [Screenshot Report](${reportUrl})`
+		: '📄 Screenshot Report';
 	return [
 		titleLine,
 		'',

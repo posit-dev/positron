@@ -38,7 +38,7 @@ test.describe('Release Screenshots - Layouts', () => {
 		await editor.playButton.click();
 		await plots.waitForCurrentPlot({ timeout: 45_000 });
 
-		await layouts.resizeAuxiliaryBar({ x: -200 });
+		await layouts.resizeAuxiliaryBar({ x: -400 });
 		await prepareForScreenshot(app, page);
 		await annotate(page, [
 			{ selector: '.activitybar', label: 'Activity bar', color: '#22c55e' },

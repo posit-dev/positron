@@ -105,9 +105,10 @@ test('formatSummary: shows totals', () => {
 		'c.png': { status: 'new', generatedHash: 'c', generatedSize: 3 },
 	};
 	const md = formatSummary(classification);
-	assert.match(md, /1 unchanged/);
-	assert.match(md, /1 changed/);
-	assert.match(md, /1 new/);
+	assert.match(md, /Total: 3/);
+	assert.match(md, /New: 1/);
+	assert.match(md, /Changed: 1/);
+	assert.match(md, /Unchanged: 1/);
 });
 
 test('formatSummary: title line is a link to the report when reportUrl is provided', () => {

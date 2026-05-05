@@ -22,7 +22,10 @@ import { Application } from '../../infra';
  *
  * Reads POSITRON_SCREENSHOT_VIEWPORT="W,H" or "W,H,DPR". Default 1920x1080@1x.
  */
-export async function setScreenshotWindowSize(app: Application): Promise<void> {
+export async function setScreenshotWindowSize(
+	app: Application,
+	opts?: { deviceScaleFactor?: number },
+): Promise<void> {
 	const electronApp = app.code.electronApp;
 	const page = app.code.driver?.currentPage;
 	if (!electronApp || !page) {
@@ -40,6 +43,11 @@ export async function setScreenshotWindowSize(app: Application): Promise<void> {
 		if (parts.length >= 3) {
 			deviceScaleFactor = parts[2];
 		}
+	}
+	// Per-test override wins over env, useful for capturing a small element
+	// at higher resolution so the docs can scale it.
+	if (opts?.deviceScaleFactor !== undefined) {
+		deviceScaleFactor = opts.deviceScaleFactor;
 	}
 
 	// Best-effort OS window resize so the chrome (title bar etc.) layout looks
