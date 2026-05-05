@@ -119,7 +119,13 @@ function JsonCollapsible({ keyName, value, type }: JsonCollapsibleProps) {
 
 	return (
 		<div className='json-collapsible'>
-			<button className='json-collapsible-header' type='button' onClick={toggle}>
+			<button
+				aria-expanded={expanded}
+				aria-label={keyName ? `${keyName}: ${count} ${count === 1 ? 'item' : 'items'}` : `${count} ${count === 1 ? 'item' : 'items'}`}
+				className='json-collapsible-header'
+				type='button'
+				onClick={toggle}
+			>
 				<span className={`codicon json-chevron ${expanded ? 'codicon-chevron-down' : 'codicon-chevron-right'}`} />
 				{keyName !== undefined && <span className='json-key'>{keyName}: </span>}
 				{!expanded && (

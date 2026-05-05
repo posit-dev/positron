@@ -66,8 +66,17 @@
 	text-align: left;
 }
 
+.json-collapsible-header span {
+	cursor: pointer;
+}
+
 .json-collapsible-header:hover {
 	background: var(--vscode-list-hoverBackground);
+}
+
+.json-collapsible-header:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
 }
 
 .json-chevron {
