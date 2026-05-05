@@ -589,26 +589,28 @@ async function tryCargoBuild(info: ArkBuildInfo): Promise<boolean> {
 	return true;
 }
 
-function reportFailure(info: ArkBuildInfo, inCi: boolean): never {
-	const triedFallback = inCi
-		? `  (Fallback prebuilds are intentionally not used in CI.)`
-		: `  - the most recent earlier ark-* release — not found, or download failed`;
-	const message = [
-		`Failed to install Ark.`,
-		``,
-		`Tried these prebuild releases in posit-dev/${PREBUILD_REPO}:`,
-		`  - ${info.releaseTag} (exact match for the submodule SHA) — not found`,
-		triedFallback,
-		``,
-		`Then attempted to build from source via cargo. That also failed or cargo was not on PATH.`,
-		``,
-		`To fix:`,
-		`  - Install Rust via https://rustup.rs and re-run \`npm install\`, OR`,
-		`  - Verify network access to https://api.github.com and https://github.com, OR`,
-		`  - Trigger the prebuild workflow manually for the current submodule SHA:`,
-		`      https://github.com/posit-dev/${PREBUILD_REPO}/actions/workflows/build-ark.yml`,
-	].join('\n');
-	throw new Error(message);
+class InstallError extends Error {
+	constructor(info: ArkBuildInfo, inCi: boolean) {
+		const triedFallback = inCi
+			? `  (Fallback prebuilds are intentionally not used in CI.)`
+			: `  - the most recent earlier ark-* release — not found, or download failed`;
+		super([
+			`Failed to install Ark.`,
+			``,
+			`Tried these prebuild releases in posit-dev/${PREBUILD_REPO}:`,
+			`  - ${info.releaseTag} (exact match for the submodule SHA) — not found`,
+			triedFallback,
+			``,
+			`Then attempted to build from source via cargo. That also failed or cargo was not on PATH.`,
+			``,
+			`To fix:`,
+			`  - Install Rust via https://rustup.rs and re-run \`npm install\`, OR`,
+			`  - Verify network access to https://api.github.com and https://github.com, OR`,
+			`  - Trigger the prebuild workflow manually for the current submodule SHA:`,
+			`      https://github.com/posit-dev/${PREBUILD_REPO}/actions/workflows/build-ark.yml`,
+		].join('\n'));
+		this.name = 'InstallError';
+	}
 }
 
 async function main(): Promise<void> {
@@ -658,7 +660,7 @@ async function main(): Promise<void> {
 		} catch (err) {
 			console.warn(`cargo build failed: ${err}`);
 		}
-		reportFailure(info, inCi);
+		throw new InstallError(info, inCi);
 	}
 
 	// 4. Fallback to most recent earlier prebuild (local dev only).
@@ -680,7 +682,7 @@ async function main(): Promise<void> {
 	}
 
 	// 6. Helpful error.
-	reportFailure(info, inCi);
+	throw new InstallError(info, inCi);
 }
 
 main().catch((error) => {
