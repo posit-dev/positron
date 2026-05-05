@@ -41,7 +41,7 @@ try {
   const prDiscussion = await fetchPRDiscussion();
 
   // --- Fetch changed files ---
-  const { data: files } = await octokit.pulls.listFiles({
+  const files = await octokit.paginate(octokit.pulls.listFiles, {
     owner,
     repo,
     pull_number: prNumber,
@@ -147,11 +147,12 @@ ${pr.body ?? "(no description)"}
 <sub>${tokensUsed} | Was this helpful? React \u{1F44D} or \u{1F44E} to this comment</sub>`,
   });
 } catch (error) {
+  console.error("/dstr failed:", error);
   await octokit.issues.updateComment({
     owner,
     repo,
     comment_id: placeholderComment.id,
-    body: `:x: /dstr failed: ${error.message}`,
+    body: `:x: /dstr encountered an internal error. Check the [workflow logs](${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/actions/runs/${process.env.GITHUB_RUN_ID}) for details.`,
   });
   process.exit(1);
 }
@@ -177,9 +178,15 @@ function extractIssueNumbers(body, title) {
   const text = `${title}\n${body}`;
   const numbers = new Set();
 
-  const hashPattern = /(?:fix(?:es)?|close[sd]?|resolve[sd]?|address(?:es)?)?[\s:]*#(\d+)/gi;
+  const hashPattern = /(?:fix(?:es)?|close[sd]?|resolve[sd]?|address(?:es)?)[\s:]*#(\d+)/gi;
   for (const match of text.matchAll(hashPattern)) {
     numbers.add(parseInt(match[1], 10));
+  }
+
+  const bareHashPattern = /(?<!\w)#(\d+)/g;
+  for (const match of text.matchAll(bareHashPattern)) {
+    const num = parseInt(match[1], 10);
+    if (num >= 100) numbers.add(num);
   }
 
   const urlPattern = new RegExp(

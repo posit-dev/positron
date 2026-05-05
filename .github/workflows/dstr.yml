@@ -11,7 +11,10 @@ permissions:
 
 jobs:
   dstr:
-    if: github.event.issue.pull_request && github.event.comment.body == '/dstr'
+    if: >
+      github.event.issue.pull_request &&
+      github.event.comment.body == '/dstr' &&
+      contains(fromJSON('["MEMBER","COLLABORATOR","OWNER"]'), github.event.comment.author_association)
     runs-on: ubuntu-latest
 
     steps:
@@ -30,11 +33,13 @@ jobs:
           ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
 
       - name: Install dependencies
-        run: npm install @octokit/rest @anthropic-ai/sdk
+        run: npm ci --prefix .github/scripts/dstr
 
       - name: Run /dstr review
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ANTHROPIC_API_KEY: ${{ env.ANTHROPIC_KEY }}
           GITHUB_EVENT_PATH: ${{ github.event_path }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
         run: node .github/scripts/dstr/review.mjs
