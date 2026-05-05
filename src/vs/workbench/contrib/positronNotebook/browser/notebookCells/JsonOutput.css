@@ -59,7 +59,7 @@
 	display: flex;
 	align-items: center;
 	gap: 0;
-	padding: 0;
+	padding-left: var(--_json-chevron-size);
 	min-height: var(--_json-row-height);
 	cursor: pointer;
 	user-select: none;
@@ -92,10 +92,10 @@
 	flex-shrink: 0;
 	width: var(--_json-chevron-size);
 	height: var(--_json-chevron-size);
+	margin-left: calc(-1 * var(--_json-chevron-size));
 	font-size: 12px;
 	color: var(--vscode-foreground);
 	opacity: 0.7;
-	transform: translateX(-1px);
 }
 
 .json-children {
@@ -105,8 +105,7 @@
 }
 
 .json-bracket-close {
-	/* Align with content after the chevron: guide-offset minus the border (1px) */
-	padding-left: calc(var(--_json-guide-offset) - 1px);
+	padding-left: var(--_json-chevron-size);
 	min-height: var(--_json-row-height);
 }
 
