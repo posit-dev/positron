@@ -30,7 +30,7 @@
 .tab-button .tab-header {
 	display: flex;
 	align-items: center;
-	gap: 6px;
+	gap: 4px;
 	height: 22px;
 	width: 100%;
 }
