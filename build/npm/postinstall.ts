@@ -242,6 +242,85 @@ function generateRehWebPackageJson() {
 			child_process.execSync(`git add --renormalize ${packageJsonPath}`);
 		});
 }
+
+/**
+ * If the ark submodule pointer recorded in this commit differs from what's
+ * currently checked out in `extensions/positron-r/ark`, sync it — but only
+ * when it's safe to do so. "Safe" means: the current submodule HEAD is
+ * detached and is an ancestor of ark's `origin/main` (i.e., no in-progress
+ * dev work would be lost). Anything else (named branch, unmerged commits,
+ * offline, CI) is left alone.
+ *
+ * Runs before the dirs loop so the subsequent extensions install (which
+ * triggers install-kernel) sees the synced submodule contents.
+ */
+async function syncArkSubmoduleIfSafe(): Promise<void> {
+	// Skip in CI — checkouts there already pin the submodule via `submodules: true`.
+	if (process.env['CI']) {
+		return;
+	}
+
+	const submodulePath = 'extensions/positron-r/ark';
+	const submoduleAbs = path.join(root, submodulePath);
+
+	// Not initialized yet — install-kernel's ensureSubmoduleReady handles that path.
+	if (!fs.existsSync(path.join(submoduleAbs, '.git'))) {
+		return;
+	}
+
+	const exec = (cmd: string, cwd: string) =>
+		child_process.execSync(cmd, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+
+	// Compare recorded pointer vs. checked-out HEAD.
+	let recordedSha: string;
+	let currentSha: string;
+	try {
+		const lsTree = exec(`git ls-tree HEAD ${submodulePath}`, root);
+		recordedSha = lsTree.split(/\s+/)[2];
+		currentSha = exec('git rev-parse HEAD', submoduleAbs);
+	} catch {
+		return;
+	}
+	if (!recordedSha || recordedSha === currentSha) {
+		return;
+	}
+
+	// Don't detach from a named branch — even if reachable from main, the dev is
+	// likely actively using it.
+	try {
+		const branch = exec('git symbolic-ref --quiet --short HEAD', submoduleAbs);
+		if (branch) {
+			log(submodulePath,
+				`Pointer differs (${currentSha.slice(0, 7)} → ${recordedSha.slice(0, 7)}), ` +
+				`but ark is on branch '${branch}'. Skipping auto-sync.`);
+			return;
+		}
+	} catch {
+		// Detached HEAD — symbolic-ref exits non-zero, which is what we want.
+	}
+
+	// Refresh origin/main inside the submodule so the ancestor check is meaningful.
+	// Offline → skip silently; the dev can sync manually when they're back online.
+	try {
+		exec('git fetch --quiet origin main', submoduleAbs);
+	} catch {
+		return;
+	}
+
+	// Safety gate: only sync if current HEAD has no commits beyond ark's origin/main.
+	try {
+		exec('git merge-base --is-ancestor HEAD origin/main', submoduleAbs);
+	} catch {
+		log(submodulePath,
+			`Pointer differs (${currentSha.slice(0, 7)} → ${recordedSha.slice(0, 7)}), ` +
+			`but HEAD is not reachable from ark's origin/main — looks like in-progress ` +
+			`work. Skipping. Run \`git submodule update -- ${submodulePath}\` to sync manually.`);
+		return;
+	}
+
+	log(submodulePath, `Syncing ark submodule ${currentSha.slice(0, 7)} → ${recordedSha.slice(0, 7)}...`);
+	run('git', ['submodule', 'update', '--', submodulePath], { cwd: root, stdio: 'inherit' });
+}
 // --- End Positron ---
 
 async function runWithConcurrency(tasks: (() => Promise<void>)[], concurrency: number): Promise<void> {
@@ -270,6 +349,12 @@ async function runWithConcurrency(tasks: (() => Promise<void>)[], concurrency: n
 }
 
 async function main() {
+	// --- Start Positron ---
+	// Sync the ark submodule before anything else — extensions install runs
+	// install-kernel, which reads the submodule's working tree.
+	await syncArkSubmoduleIfSafe();
+	// --- End Positron ---
+
 	if (!process.env['VSCODE_FORCE_INSTALL'] && isUpToDate()) {
 		log('.', 'All dependencies up to date, skipping postinstall.');
 		child_process.execSync('git config pull.rebase merges');
