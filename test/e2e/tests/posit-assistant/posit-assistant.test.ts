@@ -139,7 +139,7 @@ test.describe('Posit Assistant', {
 				await app.workbench.positAssistant.open();
 				await app.workbench.positAssistant.waitForReady();
 
-				await app.workbench.positAssistant.sendMessage('Create a simple data visualization using plotnine', false);
+				await app.workbench.positAssistant.sendMessage('Create a simple data visualization using matplotlib', false);
 				await app.workbench.positAssistant.expectToolConfirmVisible();
 				await app.workbench.positAssistant.allowToolForSession();
 				await app.workbench.positAssistant.waitForResponseComplete();
