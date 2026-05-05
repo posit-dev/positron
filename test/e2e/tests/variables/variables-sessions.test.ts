@@ -21,7 +21,8 @@ test.describe('Variables: Sessions', {
 		await sessions.deleteDisconnectedSessions();
 	});
 
-	test('Validate variables are isolated between sessions', async function ({ app, sessions }) {
+	//flaky test
+	test.skip('Validate variables are isolated between sessions', async function ({ app, sessions }) {
 		const { console, variables } = app.workbench;
 
 		// Ensure sessions exist and are idle

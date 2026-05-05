@@ -1933,7 +1933,8 @@ export class Kernel extends KernelBase {
 		await test.step(`Verify kernel menu items: ${menuItemStates.map(item => item.label).join(', ')}`, async () => {
 			await this.contextMenu.triggerAndVerifyMenuItems({
 				menuTrigger: this.statusBadge,
-				menuItemStates: menuItemStates
+				menuItemStates: menuItemStates,
+				useNativeMenu: false
 			});
 		});
 	}

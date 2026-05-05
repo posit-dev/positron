@@ -219,7 +219,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		await sessions.start(['python']);
 		await notebooksPositron.newNotebook();
 		await notebooksPositron.kernel.select('Python');
-		await notebooksPositron.addCodeToCell(0, 'import time; time.sleep(6); print("done")', { run: false });
+		await notebooksPositron.addCodeToCell(0, 'import time; time.sleep(10); print("done")', { run: false });
 		await notebooksPositron.runCellButtonAtIndex(0).click();
 
 		// verify the console accepts typed input
