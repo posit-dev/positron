@@ -186,4 +186,37 @@ suite('buildParamsRCode', () => {
 			'assign("params", list(regions = c("east", "west", "north")), envir = globalenv())',
 		);
 	});
+
+	test('unwraps a full mixed structured-form params block', () => {
+		// Mirrors the example at https://yihui.org/rmarkdown/params-knit
+		const yaml = [
+			'title: My Document',
+			'output: html_document',
+			'params:',
+			'  year:',
+			'    label: "Year"',
+			'    value: 2017',
+			'    input: slider',
+			'    min: 2010',
+			'    max: 2018',
+			'    step: 1',
+			'    sep: ""',
+			'  region:',
+			'    label: "Region:"',
+			'    value: Europe',
+			'    input: select',
+			'    choices: [North America, Europe, Asia, Africa]',
+			'  printcode:',
+			'    label: "Display Code:"',
+			'    value: TRUE',
+			'  data:',
+			'    label: "Input dataset:"',
+			'    value: results.csv',
+			'    input: file',
+		].join('\n');
+		assert.strictEqual(
+			buildParamsRCode(yaml),
+			'assign("params", list(year = 2017, region = "Europe", printcode = TRUE, data = "results.csv"), envir = globalenv())',
+		);
+	});
 });
