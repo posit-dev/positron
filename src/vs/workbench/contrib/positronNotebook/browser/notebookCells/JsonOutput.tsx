@@ -95,21 +95,17 @@ function JsonLeaf({ keyName, valueClass, display }: JsonLeafProps) {
 
 	return (
 		<div className='json-leaf'>
+			{keyName !== undefined && <span className='json-key'>{keyName}: </span>}
+			<span className={valueClass}>{shown}</span>
 			{isTruncatable && (
 				<button
-					aria-expanded={expanded}
 					aria-label={expanded ? 'Collapse string' : `Expand string (${contentLength} chars)`}
-					className='json-inline-toggle'
+					className='json-expand-value'
 					type='button'
 					onClick={() => setExpanded(prev => !prev)}
 				>
-					<span className={`codicon ${expanded ? 'codicon-chevron-down' : 'codicon-chevron-right'}`} />
+					{expanded ? 'less' : `${contentLength} chars`}
 				</button>
-			)}
-			{keyName !== undefined && <span className='json-key'>{keyName}: </span>}
-			<span className={valueClass}>{shown}</span>
-			{isTruncatable && !expanded && (
-				<span className='json-secondary'>{contentLength} chars</span>
 			)}
 		</div>
 	);

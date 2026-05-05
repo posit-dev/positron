@@ -52,7 +52,8 @@
 
 .json-leaf {
 	display: flex;
-	align-items: center;
+	flex-wrap: wrap;
+	align-items: baseline;
 	padding-left: var(--_json-chevron-size);
 	min-height: var(--_json-row-height);
 }
@@ -112,38 +113,30 @@
 	min-height: var(--_json-row-height);
 }
 
-/* Inline toggle for long strings */
-.json-inline-toggle {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	flex-shrink: 0;
-	width: var(--_json-chevron-size);
-	height: var(--_json-chevron-size);
+/* Inline expand/collapse for long strings */
+.json-expand-value {
 	border: none;
 	background: none;
-	padding: 0;
+	font: inherit;
+	font-size: 11px;
+	color: var(--vscode-textLink-foreground);
 	cursor: pointer;
-	color: var(--vscode-foreground);
-	opacity: 0.7;
+	padding: 0 2px;
+	margin-left: 4px;
 	border-radius: 3px;
+	white-space: nowrap;
 }
 
-.json-inline-toggle:hover {
-	opacity: 1;
-	background: var(--vscode-toolbar-hoverBackground);
+.json-expand-value:hover {
+	text-decoration: underline;
 }
 
-.json-inline-toggle:focus-visible {
+.json-expand-value:focus-visible {
 	outline: 1px solid var(--vscode-focusBorder);
 	outline-offset: -1px;
 }
 
-.json-inline-toggle span {
-	cursor: pointer;
-}
-
-/* Secondary annotation text (item counts, char counts) */
+/* Secondary annotation text (item counts) */
 .json-secondary {
 	color: var(--vscode-descriptionForeground);
 	font-style: italic;
