@@ -5,7 +5,7 @@
 
 import { join } from 'path';
 import { test } from '../tests/_test.setup';
-import { captureFullWindow } from './helpers/screenshot-utils';
+import { capturePanel } from './helpers/screenshot-utils';
 import { prepareForScreenshot, setScreenshotWindowSize } from './helpers/layout-utils';
 
 test.use({
@@ -54,8 +54,10 @@ test.describe('Release Screenshots - Welcome Page', () => {
 			action: 'expand',
 		});
 
-		// capture screenshot
+		// capture screenshot - clip to the actual workbench element so we
+		// don't get white space below if the OS window is shorter than the
+		// CDP-forced 1920x1080 viewport.
 		await prepareForScreenshot(app, page);
-		await captureFullWindow(page, 'astropy.png');
+		await capturePanel(page.locator('.monaco-workbench'), 'astropy.png');
 	});
 });
