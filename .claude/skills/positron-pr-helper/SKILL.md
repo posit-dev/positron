@@ -12,7 +12,7 @@ This skill helps you create comprehensive PR bodies for the posit-dev/positron r
 Use this skill when:
 - Creating a new PR and need a well-structured body
 - Updating an existing PR body with the correct format
-- You need the current list of e2e test tags for QA notes
+- You need the current list of e2e test tags for validation steps
 - You want to ensure your PR body follows Positron conventions
 
 ## Prerequisites
@@ -65,7 +65,7 @@ Based on the PR type and context, I'll create a structured PR body with:
    - Bug Fixes (if applicable)
    - User-facing descriptions
 
-5. **QA Notes**
+5. **Validation Steps**
    - Relevant e2e test tags based on affected areas
    - Testing instructions
    - Code examples if helpful
@@ -113,7 +113,7 @@ Fixes #[issue]
 #### Bug Fixes
 - [User-facing description] (#[issue])
 
-### QA Notes
+### Validation Steps
 
 [relevant tags]
 
@@ -137,7 +137,7 @@ Fixes #[issue]
 #### Bug Fixes
 - N/A
 
-### QA Notes
+### Validation Steps
 
 [relevant tags]
 
@@ -160,7 +160,7 @@ This PR fixes the Data Explorer scrollbars snapping back to 0 on Safari. The iss
 #### Bug Fixes
 - Fix Data Explorer scrollbars snapping back to 0 on Safari (#8930)
 
-### QA Notes
+### Validation Steps
 
 @:data-explorer
 
@@ -184,7 +184,7 @@ Related PR: posit-dev/ark#456 (adds DuckDB kernel support)
 #### Bug Fixes
 - N/A
 
-### QA Notes
+### Validation Steps
 
 @:connections @:duck-db
 
@@ -211,6 +211,6 @@ conn.execute("INSERT INTO employees VALUES (1, 'Alice', 75000)")
 - Be concise but complete - no flowery language
 - Use present tense ("fixes", "adds", "enables")
 - Include issue references in parentheses in release notes
-- Always include at least one e2e test tag in QA notes
+- Always include at least one e2e test tag in validation steps
 - For complex changes, numbered test steps are better
 - Keep release notes user-facing (avoid implementation details)
