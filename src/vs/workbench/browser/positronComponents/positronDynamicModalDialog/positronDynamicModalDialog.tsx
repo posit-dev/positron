@@ -29,7 +29,7 @@ export interface PositronDynamicModalDialogProps {
 	content: ReactNode;
 	contentMinHeight?: number;
 	contentMaxHeight?: number;
-	footer: ReactNode;
+	footer?: ReactNode;
 	onCancel?: () => void;
 
 	// Optional form submit handler. When provided, the dialog renders a hidden submit button and
@@ -245,7 +245,6 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 						{props.content}
 					</div>
 					{props.footer}
-					{props.onSubmit && <button hidden type='submit' />}
 				</form>
 			</div>
 		</div>
