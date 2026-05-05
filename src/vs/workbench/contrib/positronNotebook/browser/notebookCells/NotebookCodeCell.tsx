@@ -32,6 +32,7 @@ import { Markdown } from './Markdown.js';
 import { useCellContextMenu } from './useCellContextMenu.js';
 import { MenuId } from '../../../../../platform/actions/common/actions.js';
 import { DataExplorerCellOutput } from './DataExplorerCellOutput.js';
+import { JsonOutput } from './JsonOutput.js';
 import { NotebookErrorBoundary } from '../NotebookErrorBoundary.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED, POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS } from '../ContextKeysManager.js';
@@ -322,6 +323,8 @@ const CellOutput = React.memo(function CellOutput(output: CellOutputProps) {
 			return renderHtml(parsed.content);
 		case 'markdown':
 			return <Markdown content={parsed.content} />;
+		case 'json':
+			return <JsonOutput data={parsed.data} />;
 		case 'dataExplorer':
 			return <DataExplorerCellOutput outputs={outputs} parsed={parsed} />;
 		case 'unknown':

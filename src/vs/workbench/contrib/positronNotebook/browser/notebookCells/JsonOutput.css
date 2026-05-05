@@ -1,0 +1,34 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.json-output {
+	margin: 0;
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.json-output .json-key {
+	color: var(--vscode-debugTokenExpression-name);
+}
+
+.json-output .json-string {
+	color: var(--vscode-debugTokenExpression-string);
+}
+
+.json-output .json-number {
+	color: var(--vscode-debugTokenExpression-number);
+}
+
+.json-output .json-boolean {
+	color: var(--vscode-debugTokenExpression-boolean);
+}
+
+.json-output .json-null {
+	color: var(--vscode-debugTokenExpression-value);
+}
+
+.json-output .json-punct {
+	color: var(--vscode-foreground);
+}

@@ -24,6 +24,14 @@ function svgOutputItem() {
 	return { mime: 'image/svg+xml', data: VSBuffer.fromString('<svg><circle r="10"/></svg>') };
 }
 
+function jsonOutputItem(data: unknown) {
+	return { mime: 'application/json', data: VSBuffer.fromString(JSON.stringify(data)) };
+}
+
+function invalidJsonOutputItem() {
+	return { mime: 'application/json', data: VSBuffer.fromString('{not valid json') };
+}
+
 describe('Positron Notebook Cell Outputs', () => {
 	const ctx = createTestContainer().withNotebookEditorServices().build();
 
@@ -173,6 +181,51 @@ describe('Positron Notebook Cell Outputs', () => {
 				cellContextKeyService.getContextKeyValue(POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.key),
 				'outputImageTargeted should be false after being cleared'
 			).toBe(false);
+		});
+	});
+
+	describe('JSON output', () => {
+		it('cell with application/json output has parsed type "json"', () => {
+			const cellWithJsonOutput: TestCellInput = {
+				source: 'JSON({"x": 1})',
+				language: 'python',
+				mime: undefined,
+				cellKind: CellKind.Code,
+				outputs: [{
+					outputId: 'output-1',
+					outputs: [jsonOutputItem({ x: 1, y: [2, 3], nested: { flag: true } })],
+				}],
+			};
+			const notebook = createTestPositronNotebookInstance([cellWithJsonOutput], ctx);
+			const cell = notebook.cells.get()[0];
+
+			expect(cell.isCodeCell()).toBe(true);
+			const outputs = cell.outputs.get();
+			expect(outputs.length).toBe(1);
+			expect(outputs[0].parsed.type).toBe('json');
+			if (outputs[0].parsed.type === 'json') {
+				expect(outputs[0].parsed.data).toEqual({ x: 1, y: [2, 3], nested: { flag: true } });
+			}
+		});
+
+		it('invalid JSON falls back to text output', () => {
+			const cellWithInvalidJson: TestCellInput = {
+				source: 'display_json()',
+				language: 'python',
+				mime: undefined,
+				cellKind: CellKind.Code,
+				outputs: [{
+					outputId: 'output-1',
+					outputs: [invalidJsonOutputItem()],
+				}],
+			};
+			const notebook = createTestPositronNotebookInstance([cellWithInvalidJson], ctx);
+			const cell = notebook.cells.get()[0];
+
+			expect(cell.isCodeCell()).toBe(true);
+			const outputs = cell.outputs.get();
+			expect(outputs.length).toBe(1);
+			expect(outputs[0].parsed.type).toBe('text');
 		});
 	});
 
