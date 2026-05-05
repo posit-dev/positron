@@ -115,6 +115,18 @@ jobs:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
           report-dir: ${{ env.REPORT_DIR }}
 
+      - name: Compare and report
+        id: compare
+        if: ${{ success() || failure() }}
+        env:
+          SCREENSHOT_BASE_URL: https://d38p2avprg8il3.cloudfront.net/${{ env.REPORT_DIR }}/screenshots
+          POSITRON_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          node .github/scripts/release-screenshots/compare-and-report.mjs \
+            test/e2e/release-screenshots/output \
+            "$RUNNER_TEMP/positron-website/images" \
+            "$RUNNER_TEMP/classification.json"
+
       - name: Upload generated screenshots to S3
         if: ${{ success() || failure() }}
         run: |
@@ -145,16 +157,6 @@ jobs:
           name: ${{ inputs.mode }}-playwright-report
           path: playwright-report/
           if-no-files-found: ignore
-
-      - name: Compare and report
-        id: compare
-        env:
-          SCREENSHOT_BASE_URL: https://d38p2avprg8il3.cloudfront.net/${{ env.REPORT_DIR }}/screenshots
-        run: |
-          node .github/scripts/release-screenshots/compare-and-report.mjs \
-            test/e2e/release-screenshots/output \
-            "$RUNNER_TEMP/positron-website/images" \
-            "$RUNNER_TEMP/classification.json"
 
       # ===== Publish-only tail =====
 
