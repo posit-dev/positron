@@ -75,7 +75,7 @@
 
 .json-children {
 	border-left: 1px solid var(--vscode-editorIndentGuide-background);
-	padding-left: var(--_json-indent);
+	padding-left: calc(var(--_json-indent) - 1px);
 }
 
 .json-bracket-close {

@@ -60,7 +60,7 @@ export const POSITRON_NOTEBOOK_CELL_CAN_MOVE_DOWN = new RawContextKey<boolean>('
 // Output-related context keys
 export const POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS = new RawContextKey<boolean>('positronNotebookCellHasOutputs', false);
 export const POSITRON_NOTEBOOK_CELL_IMAGE_OUTPUT_COUNT = new RawContextKey<number>('positronNotebookCellImageOutputCount', 0);
-export const POSITRON_NOTEBOOK_CELL_HAS_JSON_OUTPUT = new RawContextKey<boolean>('positronNotebookCellHasJsonOutput', false);
+export const POSITRON_NOTEBOOK_CELL_JSON_OUTPUT_COUNT = new RawContextKey<number>('positronNotebookCellJsonOutputCount', 0);
 export const POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED = new RawContextKey<boolean>('positronNotebookCellOutputIsCollapsed', false);
 export const POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS = new RawContextKey<boolean>('positronNotebookCellOutputOverflows', false, localize('positronNotebookCellOutputOverflows', "Whether the cell's text output exceeds the line limit"));
 export const POSITRON_NOTEBOOK_CELL_OUTPUT_SCROLLING = new RawContextKey<boolean>('positronNotebookCellOutputScrolling', false, localize('positronNotebookCellOutputScrolling', "Whether the cell's output is in scrolling mode"));
@@ -90,7 +90,7 @@ export const POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS = {
 	canMoveDown: POSITRON_NOTEBOOK_CELL_CAN_MOVE_DOWN,
 	hasOutputs: POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS,
 	imageOutputCount: POSITRON_NOTEBOOK_CELL_IMAGE_OUTPUT_COUNT,
-	hasJsonOutput: POSITRON_NOTEBOOK_CELL_HAS_JSON_OUTPUT,
+	jsonOutputCount: POSITRON_NOTEBOOK_CELL_JSON_OUTPUT_COUNT,
 	outputIsCollapsed: POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED,
 	outputOverflows: POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS,
 	outputScrolling: POSITRON_NOTEBOOK_CELL_OUTPUT_SCROLLING,
@@ -122,7 +122,7 @@ export function bindCellContextKeys(service: IScopedContextKeyService): IPositro
 		canMoveDown: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.canMoveDown.bindTo(service),
 		hasOutputs: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.hasOutputs.bindTo(service),
 		imageOutputCount: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.imageOutputCount.bindTo(service),
-		hasJsonOutput: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.hasJsonOutput.bindTo(service),
+		jsonOutputCount: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.jsonOutputCount.bindTo(service),
 		outputIsCollapsed: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.outputIsCollapsed.bindTo(service),
 		outputOverflows: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.outputOverflows.bindTo(service),
 		outputScrolling: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.outputScrolling.bindTo(service),
