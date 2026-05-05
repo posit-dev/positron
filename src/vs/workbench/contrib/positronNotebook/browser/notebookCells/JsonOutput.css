@@ -147,6 +147,7 @@
 
 .json-string {
 	color: var(--vscode-debugTokenExpression-string);
+	overflow-wrap: anywhere;
 }
 
 .json-number {
