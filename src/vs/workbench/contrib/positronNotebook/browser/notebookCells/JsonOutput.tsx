@@ -24,7 +24,7 @@ export const JsonOutput = React.memo(function JsonOutput({ data }: JsonOutputPro
 	const [copied, setCopied] = useState(false);
 
 	const handleCopy = useCallback(() => {
-		const text = JSON.stringify(data, null, 2);
+		const text = JSON.stringify(data, null, 2) ?? String(data);
 		services.clipboardService.writeText(text);
 		setCopied(true);
 		setTimeout(() => setCopied(false), 1500);
@@ -67,7 +67,7 @@ function JsonNode({ value, keyName }: JsonNodeProps) {
 		case 'object':
 			return <JsonCollapsible keyName={keyName} type='object' value={value as Record<string, unknown>} />;
 		case 'string':
-			return <JsonLeaf display={`"${value}"`} keyName={keyName} valueClass='json-string' />;
+			return <JsonLeaf display={JSON.stringify(value)} keyName={keyName} valueClass='json-string' />;
 		case 'number':
 			return <JsonLeaf display={String(value)} keyName={keyName} valueClass='json-number' />;
 		case 'boolean':
@@ -87,9 +87,10 @@ interface JsonLeafProps {
 
 function JsonLeaf({ keyName, valueClass, display }: JsonLeafProps) {
 	const [expanded, setExpanded] = useState(false);
-	const isTruncatable = valueClass === 'json-string' && display.length > STRING_TRUNCATE_LENGTH;
+	const contentLength = display.length - 2; // exclude wrapper quotes
+	const isTruncatable = valueClass === 'json-string' && contentLength > STRING_TRUNCATE_LENGTH;
 	const shown = isTruncatable && !expanded
-		? display.slice(0, STRING_TRUNCATE_LENGTH - 1) + '..."'
+		? display.slice(0, STRING_TRUNCATE_LENGTH + 1) + '..."'
 		: display;
 
 	return (
@@ -97,7 +98,7 @@ function JsonLeaf({ keyName, valueClass, display }: JsonLeafProps) {
 			{isTruncatable && (
 				<button
 					aria-expanded={expanded}
-					aria-label={expanded ? 'Collapse string' : `Expand string (${display.length - 2} chars)`}
+					aria-label={expanded ? 'Collapse string' : `Expand string (${contentLength} chars)`}
 					className='json-inline-toggle'
 					type='button'
 					onClick={() => setExpanded(prev => !prev)}
@@ -108,7 +109,7 @@ function JsonLeaf({ keyName, valueClass, display }: JsonLeafProps) {
 			{keyName !== undefined && <span className='json-key'>{keyName}: </span>}
 			<span className={valueClass}>{shown}</span>
 			{isTruncatable && !expanded && (
-				<span className='json-secondary'>{display.length - 2} chars</span>
+				<span className='json-secondary'>{contentLength} chars</span>
 			)}
 		</div>
 	);
