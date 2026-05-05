@@ -365,6 +365,7 @@ function toOutputItems(data: ILanguageRuntimeMessageOutputData): IOutputItemDto[
 				outputItems.push({ data: decodeBase64(String(value)), mime });
 				break;
 			// This list is a subset of src/vs/workbench/contrib/notebook/browser/view/cellParts/cellOutput.JUPYTER_RENDERER_MIMETYPES
+			case 'application/json':
 			case 'application/geo+json':
 			case 'application/vdom.v1+json':
 			case 'application/vnd.dataresource+json':
