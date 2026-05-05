@@ -12,11 +12,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
-import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
-import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
+import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
 import { TwoButtonFooter } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/twoButtonFooter.js';
+import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
 import { IDataConnectionDriverMetadata } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
 
 /**
@@ -46,9 +45,9 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 	// Refs.
 	const gridContainerRef = useRef<HTMLDivElement>(undefined!);
 
-	// Map of driver card keys to their <button> elements, populated by the Button ref callback below.
+	// Map of driver card keys to their <label> elements, populated by the label ref callback below.
 	// Used by scrollToFocusedDriverCard to look up a card by key without reaching into the DOM.
-	const driverCardRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+	const driverCardRefs = useRef<Map<string, HTMLLabelElement>>(new Map());
 
 	// State.
 	const [drivers, setDrivers] = useState<IDataConnectionDriverMetadata[]>([]);
@@ -57,6 +56,23 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 
 	// Load the registered drivers and listen for changes.
 	useEffect(() => {
+		// // DEBUG: register clones of each real driver with unique IDs so the grid has enough cards
+		// // to exercise scrolling/layout. Each clone is a real registered driver, so onNext ->
+		// // driverManager.getDriver(id) resolves and the configure step opens normally. registerDriver
+		// // is keyed by id, so re-mounting the dialog just replaces existing clones instead of
+		// // compounding. Remove before committing.
+		// const cloneCount = 12;
+		// for (const d of positronDataConnectionsService.driverManager.getDrivers().filter(d => !d.id.includes('-clone-'))) {
+		// 	for (let i = 0; i < cloneCount; i++) {
+		// 		const cloneId = `${d.id}-clone-${i}`;
+		// 		positronDataConnectionsService.driverManager.registerDriver({
+		// 			...d,
+		// 			id: cloneId,
+		// 			metadata: { ...d.metadata, id: cloneId, name: `${d.metadata.name} ${i + 1}` },
+		// 		});
+		// 	}
+		// }
+
 		// Set the initial list of drivers.
 		setDrivers(positronDataConnectionsService.driverManager.getDrivers().map(d => d.metadata));
 
@@ -87,6 +103,20 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 		const container = gridContainerRef.current;
 		if (!targetDriverCard || !container) {
 			return;
+		}
+
+		// The browser's native focus auto-scroll walks every scrollable ancestor of the focused
+		// radio input and scrolls each one. We want only the grid container to scroll, so reset
+		// scrollTop/scrollLeft on every ancestor above the grid container. (`overflow: hidden`
+		// boxes like the dialog box also accept programmatic scrolling, so they get caught up in
+		// this too.) Done first so our own scroll math below sees a clean slate.
+		for (let parent = container.parentElement; parent; parent = parent.parentElement) {
+			if (parent.scrollTop !== 0) {
+				parent.scrollTop = 0;
+			}
+			if (parent.scrollLeft !== 0) {
+				parent.scrollLeft = 0;
+			}
 		}
 
 		// Calculate the top and bottom of the target card relative to the container.
@@ -130,7 +160,7 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 						'driver-grid-clip',
 						{ 'error': showError }
 					)}>
-						<div ref={gridContainerRef} className='driver-grid-container' role='group'>
+						<div ref={gridContainerRef} className='driver-grid-container' role='radiogroup'>
 							{drivers.length === 0 ? (
 								// No drivers registered yet; extensions providing them may still be loading.
 								<div className='driver-grid-placeholder'>
@@ -143,8 +173,9 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 								<div className='driver-grid'>
 									{drivers.map((driver, index) => {
 										const driverCardKey = `${driver.id}-${index}`;
+										const driverCardId = `data-connection-driver-card-${driverCardKey}`;
 										return (
-											<Button
+											<label
 												key={driverCardKey}
 												ref={element => {
 													if (element) {
@@ -157,19 +188,26 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 													'driver-card',
 													{ 'selected': selectedDriverId === driver.id }
 												)}
-												id={`data-connection-driver-card-${driverCardKey}`}
-												onFocus={() => scrollToFocusedDriverCard(driverCardKey)}
-												onPressed={() => {
-													scrollToFocusedDriverCard(driverCardKey);
-													setSelectedDriverId(driver.id);
-													setShowError(false);
-												}}
+												htmlFor={driverCardId}
 											>
+												<input
+													checked={selectedDriverId === driver.id}
+													className='driver-card-input'
+													id={driverCardId}
+													name='data-connection-driver'
+													type='radio'
+													value={driver.id}
+													onChange={() => {
+														setSelectedDriverId(driver.id);
+														setShowError(false);
+													}}
+													onFocus={() => scrollToFocusedDriverCard(driverCardKey)}
+												/>
 												<div className='driver-card-badge'>
 													<img alt='' className='driver-card-icon' src={`data:image/svg+xml;base64,${driver.iconSvg}`} />
 												</div>
 												<div className='driver-card-name'>{driver.name}</div>
-											</Button>
+											</label>
 										);
 									})}
 								</div>

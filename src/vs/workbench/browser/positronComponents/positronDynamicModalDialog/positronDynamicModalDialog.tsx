@@ -31,11 +31,6 @@ export interface PositronDynamicModalDialogProps {
 	contentMaxHeight?: number;
 	footer: ReactNode;
 	onCancel?: () => void;
-
-	// Optional form submit handler. When provided, the content and footer are wrapped in a
-	// <form> so pressing Enter in a text field within the dialog triggers this callback. The
-	// dialog calls preventDefault on the underlying submit event automatically.
-	onSubmit?: () => void;
 }
 
 /**
@@ -211,27 +206,14 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 		setDialogBoxState(prevDialogBoxState => updateDialogBoxState(prevDialogBoxState, x, y, false));
 	};
 
-	// Submit handler. Calls preventDefault and forwards to the consumer-provided onSubmit so
-	// callers don't need to remember to suppress the default form action.
+	// Form submit handler. Suppresses the form's default submission behavior. We don't actually
+	// invoke any consumer callback from here: Button.tsx's clickHandler calls preventDefault
+	// before native submission can fire, so both mouse-click on the primary button AND Enter-key
+	// implicit submission both flow through the primary button's onPressed handler. The form
+	// itself exists for HTML semantics (and to give the implicit-submission machinery a target).
 	const submitHandler = (event: FormEvent) => {
 		event.preventDefault();
-		props.onSubmit?.();
 	};
-
-	// The content area and footer. Wrapped in a <form> when onSubmit is provided so Enter-key
-	// implicit submission works; the hidden submit button is required for browsers to enable
-	// implicit submission when the form contains multiple inputs.
-	const body = (
-		<>
-			<div className='content-area' style={{
-				minHeight: props.contentMinHeight,
-				maxHeight: props.contentMaxHeight,
-			}}>
-				{props.content}
-			</div>
-			{props.footer}
-		</>
-	);
 
 	// Render.
 	return (
@@ -242,12 +224,19 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 				width: props.width,
 			}}>
 				<TitleBar title={props.title} onDrag={dragHandler} onStartDrag={startDragHandler} onStopDrag={stopDragHandler} />
-				{!props.onSubmit ? body : (
-					<form onSubmit={submitHandler}>
-						{body}
-						<button hidden type='submit' />
-					</form>
-				)}
+				{/*
+					The dialog must provide a button with type='submit' in props.content or
+					props.footer to enable Enter-key implicit form submission.
+				*/}
+				<form className='positron-dynamic-modal-dialog-form' onSubmit={submitHandler}>
+					<div className='content-area' style={{
+						minHeight: props.contentMinHeight,
+						maxHeight: props.contentMaxHeight,
+					}}>
+						{props.content}
+					</div>
+					{props.footer}
+				</form>
 			</div>
 		</div>
 	);

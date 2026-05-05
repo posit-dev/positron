@@ -13,6 +13,15 @@
 	outline: none !important;
 }
 
+/*
+ * Form wrapping content-area + footer. display: contents removes the form's own box from the
+ * layout tree so its children (content-area, footer) participate directly in the dialog box's
+ * flex column alongside the title bar sibling.
+ */
+.positron-dynamic-modal-dialog-form {
+	display: contents;
+}
+
 /* Positron Modal Dialog - flex column layout */
 .positron-dynamic-modal-dialog-box {
 	display: flex;

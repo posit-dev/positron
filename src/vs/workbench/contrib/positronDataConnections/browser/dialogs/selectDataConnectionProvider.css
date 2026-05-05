@@ -79,6 +79,27 @@
 	background: var(--vscode-list-activeSelectionBackground);
 }
 
+/*
+	Visually hide the radio input. The label is the visible click/focus surface; pulling the focus
+	ring up to the label keeps the visible focus indicator on the card.
+*/
+.select-data-connection-provider .driver-card-input {
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	position: absolute;
+	white-space: nowrap;
+	clip: rect(0, 0, 0, 0);
+	border: 0;
+}
+
+.select-data-connection-provider .driver-card:has(.driver-card-input:focus-visible) {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 1px;
+}
+
 .select-data-connection-provider .driver-card-badge {
 	width: 48px;
 	height: 48px;

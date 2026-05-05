@@ -233,7 +233,6 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 			)}
 			width={600}
 			onCancel={cancelHandler}
-			onSubmit={saveHandler}
 		/>
 	);
 };
