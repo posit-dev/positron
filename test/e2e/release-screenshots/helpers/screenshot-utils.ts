@@ -38,3 +38,20 @@ export async function capturePanel(locator: Locator, filename: string): Promise<
 		path: outputPath(filename),
 	});
 }
+
+/**
+ * Capture a rectangular region of the page and write it to the output folder.
+ * Use this when neither a single locator nor the full window fits, e.g.
+ * cropping a sidebar plus an open dropdown that lives outside the sidebar's
+ * DOM. Coordinates are in CSS pixels in the renderer's viewport.
+ */
+export async function captureRegion(
+	page: Page,
+	filename: string,
+	clip: { x: number; y: number; width: number; height: number },
+): Promise<void> {
+	await page.screenshot({
+		path: outputPath(filename),
+		clip,
+	});
+}

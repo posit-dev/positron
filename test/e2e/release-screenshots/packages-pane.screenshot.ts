@@ -3,10 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect } from '@playwright/test';
 import { join } from 'path';
 import { test } from '../tests/_test.setup';
-import { captureFullWindow } from './helpers/screenshot-utils';
+import { captureRegion } from './helpers/screenshot-utils';
 import { hideToasts, setScreenshotWindowSize, waitForStableUI } from './helpers/layout-utils';
 
 test.use({
@@ -39,44 +38,32 @@ test.describe('Release Screenshots - Packages Pane', () => {
 
 		// open the packages pane and wait for the list to populate
 		await packages.clickPackagesButton();
-		await expect(packages.packagesContainer).toBeVisible();
-		await expect(
-			packages.packagesContainer.locator('.packages-list-item-name').first(),
-		).toBeVisible();
+		await packages.expectPackagesListPopulated();
 
-		// Hide toasts BEFORE opening the menu - the standard prepareForScreenshot
-		// helper also calls unhoverAll(), which would move the mouse to 0,0 and
-		// close the menu we are about to open.
+		// Hide toasts BEFORE opening the menu
 		await hideToasts(app);
 
-		// click the filter funnel to open the top-level Filter/Sort menu
-		await page.locator('.positron-packages-list .filter-button').click();
-		const topMenu = page
-			.locator('.positron-modal-popup-container .custom-context-menu-items')
-			.first();
-		await expect(topMenu).toBeVisible();
-		const filterSubmenuTrigger = topMenu.locator('.custom-context-menu-item', {
-			has: page.locator('.title', { hasText: 'Filter' }),
-		});
-		await expect(filterSubmenuTrigger).toBeVisible();
-
-		// hover Filter to reveal the nested submenu (All Packages / Outdated / Attached)
-		await filterSubmenuTrigger.hover();
-		const submenu = page
-			.locator('.positron-modal-popup-container .custom-context-menu-items')
-			.nth(1);
-		await expect(submenu).toBeVisible();
-		const outdatedItem = submenu.locator('.custom-context-menu-item', {
-			has: page.locator('.title', { hasText: 'Outdated' }),
-		});
-		await expect(outdatedItem).toBeVisible();
-
-		// hover Outdated so it shows the highlighted state in the reference image
-		await outdatedItem.hover();
+		// open the filter options menu, expand the Filter submenu, and highlight Outdated
+		await packages.openFilterOptionsMenu();
+		await packages.expandFilterOptionsSubmenu('Filter');
+		await packages.hoverFilterOptionsSubmenuItem('Outdated');
 
 		// settle CSS transitions but skip unhoverAll - moving the mouse would close the menu
 		await waitForStableUI(page);
 
-		await captureFullWindow(page, 'packages-pane.png');
+		// Crop to the activity bar + sidebar + dropdown fly-out + a slice of editor
+		// for context, matching the framing of the original docs image.
+		const submenuBox = await packages.filterOptionsSubmenu.boundingBox();
+		if (!submenuBox) {
+			throw new Error('Could not measure submenu bounding box');
+		}
+		const EDITOR_CONTEXT_PX = 350;
+		const HEIGHT_PX = 600;
+		await captureRegion(page, 'packages-pane.png', {
+			x: 0,
+			y: 0,
+			width: Math.ceil(submenuBox.x + submenuBox.width + EDITOR_CONTEXT_PX),
+			height: HEIGHT_PX,
+		});
 	});
 });
