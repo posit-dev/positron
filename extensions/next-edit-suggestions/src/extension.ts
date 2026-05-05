@@ -229,6 +229,16 @@ export function activate(context: vscode.ExtensionContext): void {
 			debounceDelayMs,
 		}),
 	);
+
+	context.subscriptions.push(
+		vscode.workspace.onDidChangeConfiguration((e) => {
+			if (e.affectsConfiguration('nextEditSuggestions')) {
+				cachedCompletionModels = null;
+				selectedModel = null;
+				providerImpl._onDidChangeEmitter.fire();
+			}
+		}),
+	);
 }
 
 async function generateSuggestion(
