@@ -28,15 +28,15 @@
 		"commands": [
 			{
 				"command": "next-edit-suggestions.learnMore",
-				"title": "Posit AI: Learn more"
+				"title": "%command.learnMore.title%"
 			},
 			{
 				"command": "next-edit-suggestions.restartLsp",
-				"title": "Next Edit Suggestions: Restart LSP Server"
+				"title": "%command.restartLsp.title%"
 			}
 		],
 		"configuration": {
-			"title": "Next Edit Suggestions",
+			"title": "%configuration.title%",
 			"properties": {
 				"nextEditSuggestions.enable": {
 					"type": "object",
@@ -46,12 +46,12 @@
 						"markdown": false,
 						"scminput": false
 					},
-					"description": "Control which file types receive next edit suggestions. Use '*' for the default, and specify language IDs (e.g., 'python', 'markdown') to override. Set to { \"*\": false } to disable completely."
+					"description": "%configuration.enable.description%"
 				},
 				"nextEditSuggestions.selectedCompletionModel": {
 					"type": "string",
 					"default": "",
-					"description": "Model ID to use for suggestions. Leave empty for automatic model selection."
+					"description": "%configuration.selectedCompletionModel.description%"
 				}
 			}
 		}
