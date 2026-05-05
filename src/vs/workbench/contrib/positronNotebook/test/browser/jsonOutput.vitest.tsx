@@ -6,18 +6,14 @@
 /// <reference types="vitest/globals" />
 
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { JsonOutput } from '../../browser/notebookCells/JsonOutput.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
-import { IClipboardService } from '../../../../../platform/clipboard/common/clipboardService.js';
-
 describe('JsonOutput', () => {
-	const mockWriteText = vi.fn();
 	const ctx = createTestContainer()
 		.withReactServices()
-		.stub(IClipboardService, { writeText: mockWriteText })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
@@ -72,16 +68,6 @@ describe('JsonOutput', () => {
 		expect(screen.getByText('1', { selector: '.json-number' })).toBeInTheDocument();
 	});
 
-	it('copies JSON to clipboard', async () => {
-		const user = userEvent.setup();
-
-		rtl.render(<JsonOutput data={{ x: 1 }} />);
-
-		const copyButton = screen.getByRole('button', { name: /copy json/i });
-		await user.click(copyButton);
-
-		expect(mockWriteText).toHaveBeenCalledWith(JSON.stringify({ x: 1 }, null, 2));
-	});
 
 	it('renders empty objects compactly', () => {
 		rtl.render(<JsonOutput data={{ empty: {} }} />);

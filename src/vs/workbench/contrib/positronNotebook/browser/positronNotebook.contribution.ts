@@ -53,7 +53,7 @@ import { IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
 import { IPositronNotebookEditorOptions } from './positronNotebookEditorTypes.js';
 import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID, PositronNotebookActionId, PositronNotebookCellActionBarLeftGroup, PositronNotebookCellOutputActionGroup, usingPositronNotebooks } from '../common/positronNotebookCommon.js';
 import { getActiveCell, getSelectedCells, SelectionState } from './selectionMachine.js';
-import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED, POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS, POSITRON_NOTEBOOK_CELL_IMAGE_OUTPUT_COUNT, POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED, POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS, POSITRON_NOTEBOOK_CELL_OUTPUT_SCROLLING, POSITRON_NOTEBOOK_EXPERIMENTAL, POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED } from './ContextKeysManager.js';
+import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED, POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS, POSITRON_NOTEBOOK_CELL_HAS_JSON_OUTPUT, POSITRON_NOTEBOOK_CELL_IMAGE_OUTPUT_COUNT, POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED, POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS, POSITRON_NOTEBOOK_CELL_OUTPUT_SCROLLING, POSITRON_NOTEBOOK_EXPERIMENTAL, POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED } from './ContextKeysManager.js';
 import './contrib/undoRedo/positronNotebookUndoRedo.js';
 import { registerAction2, MenuId, MenuRegistry } from '../../../../platform/actions/common/actions.js';
 import { ExecuteSelectionInConsoleAction } from './ExecuteSelectionInConsoleAction.js';
@@ -1815,6 +1815,45 @@ registerAction2(class extends NotebookAction2 {
 			logService.error('Failed to copy image to clipboard:', err);
 			notificationService.error(localize('copyImageFailed', "Failed to copy image to clipboard"));
 		}
+	}
+});
+
+// Copy JSON output to clipboard
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: PositronNotebookActionId.CopyOutputJson,
+			title: localize2('positronNotebook.cell.copyOutputJson', "Copy JSON"),
+			icon: ThemeIcon.fromId('copy'),
+			menu: [
+				{
+					id: MenuId.PositronNotebookCellOutputActionBar,
+					group: PositronNotebookCellOutputActionGroup.Copy,
+					order: 2,
+					when: ContextKeyExpr.and(
+						POSITRON_NOTEBOOK_CELL_HAS_JSON_OUTPUT,
+						POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED.toNegated()
+					)
+				},
+			],
+		});
+	}
+
+	override async runNotebookAction(notebook: IPositronNotebookInstance, accessor: ServicesAccessor): Promise<void> {
+		const clipboardService = accessor.get(IClipboardService);
+
+		const state = notebook.selectionStateMachine.state.get();
+		const cell = getActiveCell(state);
+		if (!cell?.isCodeCell()) {
+			return;
+		}
+		const jsonOutput = cell.outputs.get().find(o => o.parsed.type === 'json');
+		if (jsonOutput?.parsed.type !== 'json') {
+			return;
+		}
+
+		const text = JSON.stringify(jsonOutput.parsed.data, null, 2);
+		await clipboardService.writeText(text);
 	}
 });
 
