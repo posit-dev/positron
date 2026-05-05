@@ -10,7 +10,7 @@ test.use({
 });
 
 test.describe('Variables: Sessions', {
-	tag: [tags.WIN, tags.WEB, tags.CRITICAL, tags.VARIABLES, tags.SESSIONS, tags.CROSS_BROWSER]
+	tag: [tags.WIN, tags.CRITICAL, tags.VARIABLES, tags.SESSIONS, tags.CROSS_BROWSER]
 }, () => {
 
 	test.beforeEach(async function ({ hotKeys }) {
@@ -21,8 +21,7 @@ test.describe('Variables: Sessions', {
 		await sessions.deleteDisconnectedSessions();
 	});
 
-	//flaky test
-	test.skip('Validate variables are isolated between sessions', async function ({ app, sessions }) {
+	test('Validate variables are isolated between sessions', async function ({ app, sessions }) {
 		const { console, variables } = app.workbench;
 
 		// Ensure sessions exist and are idle
