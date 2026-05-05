@@ -2,7 +2,7 @@
 
 86 heuristics across 13 domains, distilled from 21 data science textbooks, 2,400+ academic papers, 48 enterprise customer deployments, and deep analysis of the Positron IDE codebase.
 
-The system prompt (`system-prompt.md`) uses a condensed 21-heuristic subset for the GitHub Action. This document is the full reference — used by the local `/ds-test-design` slash command and for maintaining/expanding the condensed set.
+The system prompt (`system-prompt.md`) uses a condensed 21-heuristic subset for the GitHub Action. This document is the full reference — used by the local `/dstr` slash command and for maintaining/expanding the condensed set.
 
 ---
 
