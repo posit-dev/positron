@@ -26,12 +26,9 @@ interface TwoButtonFooterProps {
  * @returns The rendered component.
  */
 export const TwoButtonFooter = (props: TwoButtonFooterProps) => {
-	// Primary button. type='submit' makes this the form's implicit submit target when the footer
-	// is rendered inside a <form> (e.g. inside PositronDynamicModalDialog), so pressing Enter in
-	// any input triggers this button's onPressed via the browser's "click the default submit
-	// button" implicit-submission behavior. Outside a form, type='submit' has no effect.
+	// Primary button.
 	const primaryButton = (
-		<FooterButton autoFocus default type='submit' onPressed={props.onPrimaryButton}>
+		<FooterButton autoFocus default onPressed={props.onPrimaryButton}>
 			{props.primaryButtonTitle}
 		</FooterButton>
 	);

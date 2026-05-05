@@ -231,6 +231,7 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 			)}
 			width={492}
 			onCancel={cancelHandler}
+			onSubmit={nextHandler}
 		/>
 	);
 };

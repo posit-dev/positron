@@ -31,6 +31,13 @@ export interface PositronDynamicModalDialogProps {
 	contentMaxHeight?: number;
 	footer: ReactNode;
 	onCancel?: () => void;
+
+	// Optional form submit handler. When provided, the dialog renders a hidden submit button and
+	// inside the wrapping <form> so pressing Enter in any input fires this callback. The dialog
+	// calls preventDefault on the underlying submit event automatically. Footer/content buttons
+	// stay type='button' and never become implicit submit targets themselves -- callers wire
+	// Enter-to-submit by passing onSubmit, not by promoting a button.
+	onSubmit?: () => void;
 }
 
 /**
@@ -206,13 +213,11 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 		setDialogBoxState(prevDialogBoxState => updateDialogBoxState(prevDialogBoxState, x, y, false));
 	};
 
-	// Form submit handler. Suppresses the form's default submission behavior. We don't actually
-	// invoke any consumer callback from here: Button.tsx's clickHandler calls preventDefault
-	// before native submission can fire, so both mouse-click on the primary button AND Enter-key
-	// implicit submission both flow through the primary button's onPressed handler. The form
-	// itself exists for HTML semantics (and to give the implicit-submission machinery a target).
+	// Submit handler. Calls preventDefault and forwards to the consumer-provided onSubmit so
+	// callers don't need to remember to suppress the default form action.
 	const submitHandler = (event: FormEvent) => {
 		event.preventDefault();
+		props.onSubmit?.();
 	};
 
 	// Render.
@@ -225,8 +230,12 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 			}}>
 				<TitleBar title={props.title} onDrag={dragHandler} onStartDrag={startDragHandler} onStopDrag={stopDragHandler} />
 				{/*
-					The dialog must provide a button with type='submit' in props.content or
-					props.footer to enable Enter-key implicit form submission.
+					The content area and footer are always wrapped in a <form>. Enter-key
+					implicit submission only activates when a submit target exists -- in this
+					component that target is the hidden <button type='submit'> rendered below
+					when the caller passes onSubmit. Other buttons in the dialog use type='button'
+					and never serve as the submit target, so callers can compose any footer or
+					content without worrying about which button "is" the submit button.
 				*/}
 				<form className='positron-dynamic-modal-dialog-form' onSubmit={submitHandler}>
 					<div className='content-area' style={{
@@ -236,6 +245,7 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 						{props.content}
 					</div>
 					{props.footer}
+					{props.onSubmit && <button hidden type='submit' />}
 				</form>
 			</div>
 		</div>

@@ -20,7 +20,6 @@ interface FooterButtonProps {
 	autoFocus?: boolean;
 	default?: boolean;
 	disabled?: boolean;
-	type?: 'button' | 'submit';
 	onPressed: () => void;
 }
 
@@ -38,7 +37,6 @@ export const FooterButton = (props: PropsWithChildren<FooterButtonProps>) => {
 				{ 'default': props.default }
 			)}
 			disabled={props.disabled}
-			type={props.type}
 			onPressed={props.onPressed}
 		>
 			{props.children}
