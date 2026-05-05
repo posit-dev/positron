@@ -497,7 +497,7 @@ function selectModel(models: CompletionModel[]): CompletionModel {
 
 let selectedModel: CompletionModel | null = null;
 
-async function getGatewayCompletionModel(baseUrl: string, accessToken: string): Promise<CompletionModel> {
+async function ensureCompletionModelsCache(baseUrl: string, accessToken: string): Promise<CompletionModel[]> {
 	if (!cachedCompletionModels || Date.now() - cachedCompletionModelsTimestamp > MODEL_CACHE_TTL_MS) {
 		cachedCompletionModels = null;
 		try {
@@ -515,12 +515,20 @@ async function getGatewayCompletionModel(baseUrl: string, accessToken: string): 
 			cachedCompletionModels = [DEFAULT_COMPLETION_MODEL];
 			cachedCompletionModelsTimestamp = Date.now();
 		}
+	}
 
-		selectedModel = selectModel(cachedCompletionModels);
+	return cachedCompletionModels;
+}
+
+async function getGatewayCompletionModel(baseUrl: string, accessToken: string): Promise<CompletionModel> {
+	const models = await ensureCompletionModelsCache(baseUrl, accessToken);
+
+	if (!selectedModel || !models.includes(selectedModel)) {
+		selectedModel = selectModel(models);
 		log.info(`Selected completion model: ${selectedModel.id} (endpoint: ${selectedModel.endpointPath})`);
 	}
 
-	return selectedModel!;
+	return selectedModel;
 }
 
 async function getLLMConfiguration(): Promise<LLMConfig | null> {
@@ -538,9 +546,16 @@ async function getLLMConfiguration(): Promise<LLMConfig | null> {
 		.getConfiguration('nextEditSuggestions')
 		.get<string>('selectedCompletionModel') || '';
 
-	const model = selectedModelId
-		? cachedCompletionModels?.find((m) => m.id === selectedModelId)
-		: await getGatewayCompletionModel(baseUrl, session.accessToken);
+	let model: CompletionModel | undefined;
+	if (selectedModelId) {
+		const models = await ensureCompletionModelsCache(baseUrl, session.accessToken);
+		model = models.find((m) => m.id === selectedModelId);
+		if (!model) {
+			log.warn(`Configured completion model '${selectedModelId}' not found among available models, falling back to default.`);
+		}
+	} else {
+		model = await getGatewayCompletionModel(baseUrl, session.accessToken);
+	}
 
 	return {
 		modelId: model?.id ?? DEFAULT_COMPLETION_MODEL.id,
