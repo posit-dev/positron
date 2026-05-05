@@ -3,11 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { execSync } from 'child_process';
+import { existsSync } from 'fs';
+import { join } from 'path';
 import { test } from '../tests/_test.setup';
 import { captureFullWindow } from './helpers/screenshot-utils';
 import { prepareForScreenshot, setScreenshotWindowSize } from './helpers/layout-utils';
 import { annotate } from './helpers/annotate-utils';
-import { join } from 'path';
 
 test.use({
 	suiteId: __filename,
@@ -21,29 +23,54 @@ test.beforeEach(async ({ app }) => {
  * Img Path: https://positron.posit.co/images/user-interface-for-rstudio-migration.jpeg
  */
 test.describe('Release Screenshots - Layouts', () => {
-	test('Annotated Layout Overview', async ({ app, page, openFolder, openFile }) => {
-		const { layouts, sessions, editor, plots } = app.workbench;
+	test('Annotated Layout Overview', async ({ app, page, openFolder, openFile, executeCode }) => {
+		const { layouts, sessions, plots } = app.workbench;
 
-		// Open the astropy workspace so the venv with matplotlib/astropy is picked up,
-		// then run the plot script so Variables and Plots populate the secondary sidebar.
-		await openFolder('qa-example-content/workspaces/astropy-testing');
+		// Clone positron-workshop into the test workspace so the explorer
+		// shows a populated file tree matching the docs reference.
+		const workshopDir = join(app.workspacePathOrFolder, 'positron-workshop');
+		if (!existsSync(workshopDir)) {
+			execSync(
+				`git clone --depth=1 https://github.com/posit-dev/positron-workshop.git "${workshopDir}"`,
+				{ stdio: 'inherit' },
+			);
+		}
+
+		// Open the workshop folder so VS Code's workspace is positron-workshop.
+		// The OS picker starts one level above workspacePathOrFolder (which is
+		// the qa-example-content dir), so the prefix is needed.
+		await openFolder('qa-example-content/positron-workshop');
 		await page.waitForTimeout(3000);
 		await page.locator('.monaco-workbench').waitFor({ state: 'visible' });
+
+		// Start a Python session and run a small script so Variables and Plots
+		// populate the secondary sidebar. Doesn't need any specific venv.
 		await sessions.start(['python']);
 		await sessions.expectAllSessionsToBeReady();
-
-		// Open a few extra files first so the editor has multiple tabs and
-		// the explorer's OPEN EDITORS section has entries (matching the docs
-		// reference). The astropy file is opened last so it ends up as the
-		// active tab when we play the script.
-		await openFile(join('workspaces', 'python-plots', 'altair-plots.py'));
-		await openFile(join('workspaces', 'python-plots', 'plotly-example.py'));
-		await openFile(join('workspaces', 'python-plots', 'matplotlib-zoom-example.py'));
-		await openFile(
-			join('workspaces', 'astropy-testing', 'plot_galactocentric_frame.py'),
-		);
-		await editor.playButton.click();
+		await executeCode('Python', [
+			'import matplotlib.pyplot as plt',
+			'import numpy as np',
+			'import pandas as pd',
+			'np.random.seed(0)',
+			'species = np.repeat([\'Adelie\', \'Chinstrap\', \'Gentoo\'], 50)',
+			'bill = np.concatenate([np.random.normal(39, 2, 50), np.random.normal(49, 3, 50), np.random.normal(47, 3, 50)])',
+			'flipper = np.concatenate([np.random.normal(190, 6, 50), np.random.normal(196, 7, 50), np.random.normal(217, 6, 50)])',
+			'penguins = pd.DataFrame({\'species\': species, \'bill_length_mm\': bill, \'flipper_length_mm\': flipper})',
+			'fig, ax = plt.subplots(figsize=(7, 4))',
+			'for sp in [\'Adelie\', \'Chinstrap\', \'Gentoo\']:\n\tgrp = penguins[penguins[\'species\'] == sp]\n\tax.scatter(grp[\'flipper_length_mm\'], grp[\'bill_length_mm\'], label=sp, alpha=0.7)',
+			'ax.set_xlabel(\'Flipper length (mm)\')',
+			'ax.set_ylabel(\'Bill length (mm)\')',
+			'ax.legend(title=\'Penguin species\')',
+			'ax.set_title(\'Flipper and bill length\')',
+			'plt.show()',
+		].join('\n'));
 		await plots.waitForCurrentPlot({ timeout: 45_000 });
+
+		// Open a few qmd files so the editor has multiple tabs.
+		await openFile('positron-workshop/setup.qmd');
+		await openFile('positron-workshop/raukr.qmd');
+		await openFile('positron-workshop/modules/01-hello-positron.qmd');
+		await openFile('positron-workshop/index.qmd');
 
 		await layouts.resizeAuxiliaryBar({ x: -400 });
 		await prepareForScreenshot(app, page);
