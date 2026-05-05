@@ -233,6 +233,7 @@ export function activate(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration((e) => {
 			if (e.affectsConfiguration('nextEditSuggestions')) {
+				log.trace(`[config] Refresh configuration due to change in 'nextEditSuggestions' settings.`);
 				cachedCompletionModels = null;
 				selectedModel = null;
 				providerImpl._onDidChangeEmitter.fire();
