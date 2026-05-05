@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -42,11 +42,9 @@ const commsFiles = comms.map(comm => comm + '.json');
 /// The directory to write the generated Typescript files to
 const tsOutputDir = `${commsDir}/../../src/vs/workbench/services/languageRuntime/common`;
 
-/// The directory to write the generated Rust files to
-/// By default, points at the ark git submodule under positron-r. Can be
-/// overridden with the ARK_DIRECTORY environment variable (useful when working
-/// against a sibling clone of ark).
-const arkDirectory = process.env.ARK_DIRECTORY || `${commsDir}/../../extensions/positron-r/ark`;
+/// The directory to write the generated Rust files to. Points at the ark git
+/// submodule under positron-r.
+const arkDirectory = `${commsDir}/../../extensions/positron-r/ark`;
 const rustOutputDir = `${arkDirectory}/crates/amalthea/src/comm`;
 
 /// The directory to write the generated Python files to
@@ -1802,11 +1800,10 @@ async function createCommInterface() {
 
 // Check prerequisites
 
-// Check that the ark submodule is initialized (or ARK_DIRECTORY points at a clone).
+// Check that the ark submodule is initialized.
 if (!existsSync(rustOutputDir)) {
 	console.error('The ark submodule must be initialized (`git submodule update --init ' +
-		'--recursive`), or the ARK_DIRECTORY environment variable must point at an ark ' +
-		'clone, so that Rust output types can be written.\n' +
+		'--recursive`) so that Rust output types can be written.\n' +
 		`Expected Rust output directory: ${rustOutputDir}`);
 	process.exit(1);
 }
