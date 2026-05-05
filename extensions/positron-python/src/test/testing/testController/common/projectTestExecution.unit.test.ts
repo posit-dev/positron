@@ -580,10 +580,10 @@ suite('Project Test Execution', () => {
             const item = createMockTestItem('test1', '/workspace/proj/test.py');
             const runMock = createMockTestRun();
             const token = new CancellationTokenSource().token;
-            const profileMock = ({
+            const profileMock = {
                 kind: TestRunProfileKind.Coverage,
                 loadDetailedCoverage: undefined,
-            } as unknown) as TestRunProfile;
+            } as unknown as TestRunProfile;
             const request = { profile: profileMock } as TestRunRequest;
             const deps = createMockDependencies();
 
@@ -620,10 +620,10 @@ suite('Project Test Execution', () => {
         test('should configure loadDetailedCoverage callback when profile kind is Coverage', () => {
             // Mock
             const project = createMockProjectAdapter({ projectPath: '/workspace/proj', projectName: 'proj' });
-            const profileMock = ({
+            const profileMock = {
                 kind: TestRunProfileKind.Coverage,
                 loadDetailedCoverage: undefined,
-            } as unknown) as TestRunProfile;
+            } as unknown as TestRunProfile;
             const request = { profile: profileMock } as TestRunRequest;
 
             // Run
@@ -636,10 +636,10 @@ suite('Project Test Execution', () => {
         test('should leave loadDetailedCoverage undefined when profile kind is Run', () => {
             // Mock
             const project = createMockProjectAdapter({ projectPath: '/workspace/proj', projectName: 'proj' });
-            const profileMock = ({
+            const profileMock = {
                 kind: TestRunProfileKind.Run,
                 loadDetailedCoverage: undefined,
-            } as unknown) as TestRunProfile;
+            } as unknown as TestRunProfile;
             const request = { profile: profileMock } as TestRunRequest;
 
             // Run
@@ -656,10 +656,10 @@ suite('Project Test Execution', () => {
             // Use Uri.fsPath as the key to match the implementation's lookup
             const fileUri = Uri.file('/workspace/proj/file.py');
             project.resultResolver.detailedCoverageMap.set(fileUri.fsPath, mockCoverageDetails as any);
-            const profileMock = ({
+            const profileMock = {
                 kind: TestRunProfileKind.Coverage,
                 loadDetailedCoverage: undefined,
-            } as unknown) as TestRunProfile;
+            } as unknown as TestRunProfile;
             const request = { profile: profileMock } as TestRunRequest;
 
             // Run - configure coverage
@@ -680,10 +680,10 @@ suite('Project Test Execution', () => {
         test('should return empty array when file has no coverage data in map', async () => {
             // Mock
             const project = createMockProjectAdapter({ projectPath: '/workspace/proj', projectName: 'proj' });
-            const profileMock = ({
+            const profileMock = {
                 kind: TestRunProfileKind.Coverage,
                 loadDetailedCoverage: undefined,
-            } as unknown) as TestRunProfile;
+            } as unknown as TestRunProfile;
             const request = { profile: profileMock } as TestRunRequest;
 
             // Run - configure coverage
@@ -712,10 +712,10 @@ suite('Project Test Execution', () => {
             project1.resultResolver.detailedCoverageMap.set(file1Uri.fsPath, coverage1 as any);
             project2.resultResolver.detailedCoverageMap.set(file2Uri.fsPath, coverage2 as any);
 
-            const profileMock = ({
+            const profileMock = {
                 kind: TestRunProfileKind.Coverage,
                 loadDetailedCoverage: undefined,
-            } as unknown) as TestRunProfile;
+            } as unknown as TestRunProfile;
             const request = { profile: profileMock } as TestRunRequest;
 
             // Run - configure coverage with both projects

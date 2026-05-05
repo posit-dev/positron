@@ -580,9 +580,8 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     }
 
     private async createLsp(interpreter: PythonEnvironment): Promise<void> {
-        const environmentService = this.serviceContainer.get<IEnvironmentVariablesProvider>(
-            IEnvironmentVariablesProvider,
-        );
+        const environmentService =
+            this.serviceContainer.get<IEnvironmentVariablesProvider>(IEnvironmentVariablesProvider);
         const outputChannel = this.serviceContainer.get<ILanguageServerOutputChannel>(ILanguageServerOutputChannel);
         const configService = this.serviceContainer.get<IConfigurationService>(IConfigurationService);
         const workspaceService = this.serviceContainer.get<IWorkspaceService>(IWorkspaceService);

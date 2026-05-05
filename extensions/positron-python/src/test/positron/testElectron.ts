@@ -277,7 +277,7 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
     let executablePath: string;
     switch (platform) {
         case 'darwin':
-            executablePath = path.join(installDir, 'Positron.app', 'Contents', 'MacOS', 'Electron');
+            executablePath = path.join(installDir, 'Positron.app', 'Contents', 'MacOS', 'Positron');
             break;
         default:
             throw new Error(`Unsupported platform: ${platform}`);

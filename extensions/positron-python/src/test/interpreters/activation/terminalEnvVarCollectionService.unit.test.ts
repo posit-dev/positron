@@ -110,10 +110,10 @@ suite('Terminal Environment Variable Collection Service', () => {
             process.env,
         );
         configService = mock<IConfigurationService>();
-        when(configService.getSettings(anything())).thenReturn(({
+        when(configService.getSettings(anything())).thenReturn({
             terminal: { activateEnvironment: true },
             pythonPath: displayPath,
-        } as unknown) as IPythonSettings);
+        } as unknown as IPythonSettings);
         when(collection.clear()).thenResolve();
         terminalEnvVarCollectionService = new TerminalEnvVarCollectionService(
             instance(platform),
@@ -236,9 +236,9 @@ suite('Terminal Environment Variable Collection Service', () => {
             environmentActivationService.getActivatedEnvironmentVariables(anything(), undefined, undefined, 'bash'),
         ).thenResolve(envVars);
 
-        when(interpreterService.getActiveInterpreter(anything())).thenResolve(({
+        when(interpreterService.getActiveInterpreter(anything())).thenResolve({
             envName: 'envName',
-        } as unknown) as PythonEnvironment);
+        } as unknown as PythonEnvironment);
 
         when(collection.replace(anything(), anything(), anything())).thenResolve();
         when(collection.delete(anything())).thenResolve();
@@ -264,11 +264,11 @@ suite('Terminal Environment Variable Collection Service', () => {
         when(
             environmentActivationService.getActivatedEnvironmentVariables(anything(), undefined, undefined, 'bash'),
         ).thenResolve(envVars);
-        when(interpreterService.getActiveInterpreter(anything())).thenResolve(({
+        when(interpreterService.getActiveInterpreter(anything())).thenResolve({
             type: PythonEnvType.Virtual,
             envName: 'envName',
             envPath: 'prefix/to/conda',
-        } as unknown) as PythonEnvironment);
+        } as unknown as PythonEnvironment);
 
         when(collection.replace(anything(), anything(), anything())).thenResolve();
         when(collection.delete(anything())).thenResolve();
@@ -288,11 +288,11 @@ suite('Terminal Environment Variable Collection Service', () => {
         when(
             environmentActivationService.getActivatedEnvironmentVariables(anything(), undefined, undefined, 'bash'),
         ).thenResolve(envVars);
-        when(interpreterService.getActiveInterpreter(anything())).thenResolve(({
+        when(interpreterService.getActiveInterpreter(anything())).thenResolve({
             type: PythonEnvType.Virtual,
             envName: 'envName',
             envPath: 'prefix/to/conda',
-        } as unknown) as PythonEnvironment);
+        } as unknown as PythonEnvironment);
 
         when(collection.replace(anything(), anything(), anything())).thenResolve();
         when(collection.delete(anything())).thenResolve();
@@ -313,11 +313,11 @@ suite('Terminal Environment Variable Collection Service', () => {
         when(
             environmentActivationService.getActivatedEnvironmentVariables(anything(), undefined, undefined, 'bash'),
         ).thenResolve(envVars);
-        when(interpreterService.getActiveInterpreter(anything())).thenResolve(({
+        when(interpreterService.getActiveInterpreter(anything())).thenResolve({
             type: PythonEnvType.Conda,
             envName: 'envName',
             envPath: 'prefix/to/conda',
-        } as unknown) as PythonEnvironment);
+        } as unknown as PythonEnvironment);
 
         when(collection.replace(anything(), anything(), anything())).thenResolve();
         when(collection.delete(anything())).thenResolve();
@@ -484,10 +484,10 @@ suite('Terminal Environment Variable Collection Service', () => {
         when(collection.replace(anything(), anything(), anything())).thenResolve();
         when(collection.delete(anything())).thenResolve();
         reset(configService);
-        when(configService.getSettings(anything())).thenReturn(({
+        when(configService.getSettings(anything())).thenReturn({
             terminal: { activateEnvironment: false },
             pythonPath: displayPath,
-        } as unknown) as IPythonSettings);
+        } as unknown as IPythonSettings);
 
         await terminalEnvVarCollectionService._applyCollection(undefined, customShell);
 
@@ -531,9 +531,9 @@ suite('Terminal Environment Variable Collection Service', () => {
             name: 'workspace1',
             index: 0,
         };
-        when(interpreterService.getActiveInterpreter(resource)).thenResolve(({
+        when(interpreterService.getActiveInterpreter(resource)).thenResolve({
             type: PythonEnvType.Virtual,
-        } as unknown) as PythonEnvironment);
+        } as unknown as PythonEnvironment);
         when(workspaceService.getWorkspaceFolder(resource)).thenReturn(workspaceFolder);
         when(
             environmentActivationService.getActivatedEnvironmentVariables(resource, undefined, undefined, ps1Shell),
@@ -559,9 +559,9 @@ suite('Terminal Environment Variable Collection Service', () => {
             name: 'workspace1',
             index: 0,
         };
-        when(interpreterService.getActiveInterpreter(resource)).thenResolve(({
+        when(interpreterService.getActiveInterpreter(resource)).thenResolve({
             type: PythonEnvType.Virtual,
-        } as unknown) as PythonEnvironment);
+        } as unknown as PythonEnvironment);
         when(workspaceService.getWorkspaceFolder(resource)).thenReturn(workspaceFolder);
         when(
             environmentActivationService.getActivatedEnvironmentVariables(resource, undefined, undefined, ps1Shell),
@@ -585,11 +585,11 @@ suite('Terminal Environment Variable Collection Service', () => {
             name: 'workspace1',
             index: 0,
         };
-        when(interpreterService.getActiveInterpreter(resource)).thenResolve(({
+        when(interpreterService.getActiveInterpreter(resource)).thenResolve({
             type: PythonEnvType.Conda,
             envName: 'envName',
             envPath: 'prefix/to/conda',
-        } as unknown) as PythonEnvironment);
+        } as unknown as PythonEnvironment);
         when(workspaceService.getWorkspaceFolder(resource)).thenReturn(workspaceFolder);
         when(
             environmentActivationService.getActivatedEnvironmentVariables(resource, undefined, undefined, ps1Shell),
@@ -617,11 +617,11 @@ suite('Terminal Environment Variable Collection Service', () => {
             name: 'workspace1',
             index: 0,
         };
-        when(interpreterService.getActiveInterpreter(resource)).thenResolve(({
+        when(interpreterService.getActiveInterpreter(resource)).thenResolve({
             type: PythonEnvType.Conda,
             envName: 'base',
             envPath: 'prefix/to/conda',
-        } as unknown) as PythonEnvironment);
+        } as unknown as PythonEnvironment);
         when(workspaceService.getWorkspaceFolder(resource)).thenReturn(workspaceFolder);
         when(
             environmentActivationService.getActivatedEnvironmentVariables(resource, undefined, undefined, ps1Shell),
@@ -645,11 +645,11 @@ suite('Terminal Environment Variable Collection Service', () => {
             name: 'workspace1',
             index: 0,
         };
-        when(interpreterService.getActiveInterpreter(resource)).thenResolve(({
+        when(interpreterService.getActiveInterpreter(resource)).thenResolve({
             type: PythonEnvType.Conda,
             envName: 'envName',
             envPath: 'prefix/to/conda',
-        } as unknown) as PythonEnvironment);
+        } as unknown as PythonEnvironment);
         when(workspaceService.getWorkspaceFolder(resource)).thenReturn(workspaceFolder);
         when(
             environmentActivationService.getActivatedEnvironmentVariables(resource, undefined, undefined, ps1Shell),
@@ -672,9 +672,9 @@ suite('Terminal Environment Variable Collection Service', () => {
             name: 'workspace1',
             index: 0,
         };
-        when(interpreterService.getActiveInterpreter(resource)).thenResolve(({
+        when(interpreterService.getActiveInterpreter(resource)).thenResolve({
             type: undefined,
-        } as unknown) as PythonEnvironment);
+        } as unknown as PythonEnvironment);
         when(workspaceService.getWorkspaceFolder(resource)).thenReturn(workspaceFolder);
         when(
             environmentActivationService.getActivatedEnvironmentVariables(resource, undefined, undefined, ps1Shell),
@@ -698,9 +698,9 @@ suite('Terminal Environment Variable Collection Service', () => {
             name: 'workspace1',
             index: 0,
         };
-        when(interpreterService.getActiveInterpreter(resource)).thenResolve(({
+        when(interpreterService.getActiveInterpreter(resource)).thenResolve({
             type: PythonEnvType.Virtual,
-        } as unknown) as PythonEnvironment);
+        } as unknown as PythonEnvironment);
         when(workspaceService.getWorkspaceFolder(resource)).thenReturn(workspaceFolder);
         when(
             environmentActivationService.getActivatedEnvironmentVariables(resource, undefined, undefined, windowsShell),
@@ -724,9 +724,9 @@ suite('Terminal Environment Variable Collection Service', () => {
             name: 'workspace1',
             index: 0,
         };
-        when(interpreterService.getActiveInterpreter(resource)).thenResolve(({
+        when(interpreterService.getActiveInterpreter(resource)).thenResolve({
             type: PythonEnvType.Virtual,
-        } as unknown) as PythonEnvironment);
+        } as unknown as PythonEnvironment);
         when(workspaceService.getWorkspaceFolder(resource)).thenReturn(workspaceFolder);
         when(
             environmentActivationService.getActivatedEnvironmentVariables(resource, undefined, undefined, windowsShell),
