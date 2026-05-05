@@ -55,3 +55,38 @@ export async function captureRegion(
 		clip,
 	});
 }
+
+/**
+ * Capture an element at a higher pixel density than the renderer's
+ * deviceScaleFactor. Useful for small UI elements (e.g. an action-bar
+ * dropdown) where the docs need a crisp image to scale.
+ *
+ * Uses raw CDP `Page.captureScreenshot` with `clip.scale`, since
+ * Playwright's locator.screenshot() doesn't pick up `setDeviceMetricsOverride`
+ * DPR changes reliably.
+ */
+export async function capturePanelHires(
+	page: Page,
+	locator: Locator,
+	filename: string,
+	scale: number,
+): Promise<void> {
+	const box = await locator.boundingBox();
+	if (!box) {
+		throw new Error(`Could not measure bounding box for ${filename}`);
+	}
+	const session = await page.context().newCDPSession(page);
+	const { data } = await session.send('Page.captureScreenshot', {
+		format: 'png',
+		clip: {
+			x: box.x,
+			y: box.y,
+			width: box.width,
+			height: box.height,
+			scale,
+		},
+	});
+	await session.detach();
+	const fs = await import('node:fs/promises');
+	await fs.writeFile(outputPath(filename), Buffer.from(data, 'base64'));
+}

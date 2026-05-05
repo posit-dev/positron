@@ -5,7 +5,7 @@
 
 import { expect } from '@playwright/test';
 import { test } from '../tests/_test.setup';
-import { capturePanel, captureRegion } from './helpers/screenshot-utils';
+import { capturePanelHires, captureRegion } from './helpers/screenshot-utils';
 import { annotate, clearAnnotations } from './helpers/annotate-utils';
 import { hideToasts, setScreenshotWindowSize, waitForStableUI } from './helpers/layout-utils';
 
@@ -73,10 +73,6 @@ test.describe('Release Screenshots - Top Action Bar', () => {
 	 * Img Path: https://positron.posit.co/images/action-bar-information.png
 	 */
 	test('Action bar information element (folder selector)', async ({ app, page }) => {
-		// The folder selector is a small element. Bump DPR so the captured
-		// PNG has enough resolution for the docs to scale up.
-		await setScreenshotWindowSize(app, { deviceScaleFactor: 2 });
-
 		const folderMenu = page.locator('.top-action-bar-custom-folder-menu');
 		await expect(folderMenu).toBeVisible();
 
@@ -88,6 +84,7 @@ test.describe('Release Screenshots - Top Action Bar', () => {
 
 		await hideToasts(app);
 		await waitForStableUI(page);
-		await capturePanel(folderMenu, 'action-bar-information.png');
+		// Capture at 2x so the docs have a crisp image to scale.
+		await capturePanelHires(page, folderMenu, 'action-bar-information.png', 2);
 	});
 });

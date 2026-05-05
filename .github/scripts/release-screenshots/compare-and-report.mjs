@@ -143,7 +143,7 @@ export function formatSummary(classification, opts = {}) {
 		`🆕 New: ${counts.new}`,
 		`🔁 Changed: ${counts.changed}`,
 		`⏭️ Unchanged: ${counts.unchanged}`,
-	].join(' | ');
+	].join('  |  ');
 	const titleLine = reportUrl
 		? `📄 [Screenshot Report](${reportUrl})`
 		: '📄 Screenshot Report';
