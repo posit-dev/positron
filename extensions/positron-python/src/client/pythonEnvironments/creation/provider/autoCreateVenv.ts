@@ -114,11 +114,7 @@ async function pickDepInstallArgs(sources: DepSource[]): Promise<string[][]> {
     return chosen.map((s) => s.args);
 }
 
-async function runSingleInstall(
-    args: string[],
-    workspace: WorkspaceFolder,
-    token?: CancellationToken,
-): Promise<void> {
+async function runSingleInstall(args: string[], workspace: WorkspaceFolder, token?: CancellationToken): Promise<void> {
     const deferred = createDeferred<void>();
     const outputLines: string[] = [];
     traceLog('Running uv dep install: ', ['uv', ...args]);
