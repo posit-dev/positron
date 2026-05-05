@@ -3,7 +3,31 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as path from 'path';
 import * as vscode from 'vscode';
+import { log } from './extension.js';
+import minimatch from 'minimatch';
+
+function isFileExcludedFromAI(uri: vscode.Uri): boolean {
+	const config = vscode.workspace.getConfiguration('positron.assistant');
+
+	let patterns = config.get<string[]>('aiExcludes');
+	const inspect = config.inspect<string[]>('aiExcludes');
+	if (!inspect?.globalValue && !inspect?.workspaceValue) {
+		patterns = config.get<string[]>('inlineCompletionExcludes');
+	}
+
+	if (!patterns || patterns.length === 0) {
+		return false;
+	}
+
+	return patterns.some(pattern => {
+		if (!pattern.includes('/')) {
+			return minimatch(path.basename(uri.path), pattern, { dot: true });
+		}
+		return minimatch(uri.path, pattern, { dot: true });
+	});
+}
 
 function matchesGlobPattern(fileName: string, pattern: string): boolean {
 	const baseName = fileName.substring(fileName.lastIndexOf('/') + 1);
@@ -22,6 +46,12 @@ export function isCompletionEnabled(document: vscode.TextDocument): boolean {
 		.getConfiguration('positron.assistant')
 		.get<boolean>('enable', true);
 	if (!assistantEnabled) {
+		return false;
+	}
+
+	/* Check if the file is excluded from AI features based on user configuration. */
+	if (isFileExcludedFromAI(document.uri)) {
+		log.debug(`AI features are disabled for ${document.uri.fsPath} based on user configuration.`);
 		return false;
 	}
 

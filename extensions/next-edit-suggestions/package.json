@@ -61,6 +61,7 @@
 		"watch": "gulp watch-extension:next-edit-suggestions"
 	},
 	"dependencies": {
+		"minimatch": "^3.1.5",
 		"vscode-languageclient": "^9.0.1"
 	},
 	"devDependencies": {
