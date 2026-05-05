@@ -104,12 +104,13 @@ describe('JsonOutput', () => {
 		// Should be truncated -- full string not present
 		expect(screen.queryByText(`"${longStr}"`, { selector: '.json-string' })).not.toBeInTheDocument();
 
-		// Expand button shows char count
-		const expandBtn = screen.getByRole('button', { name: /200 chars/ });
-		expect(expandBtn).toBeInTheDocument();
+		// Secondary annotation shows char count
+		expect(screen.getByText('200 chars', { selector: '.json-secondary' })).toBeInTheDocument();
 
-		// Click to expand
+		// Inline toggle expands
+		const expandBtn = screen.getByRole('button', { name: /expand string/i });
 		await user.click(expandBtn);
 		expect(screen.getByText(`"${longStr}"`, { selector: '.json-string' })).toBeInTheDocument();
+		expect(screen.queryByText('200 chars', { selector: '.json-secondary' })).not.toBeInTheDocument();
 	});
 });

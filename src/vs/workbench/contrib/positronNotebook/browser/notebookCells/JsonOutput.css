@@ -7,7 +7,7 @@
 	position: relative;
 	font-family: var(--vscode-positronNotebook-text-output-font-family, var(--monaco-monospace-font));
 	font-size: 12px;
-	line-height: 1.5;
+	line-height: 1.4;
 }
 
 .json-output-header {
@@ -42,19 +42,22 @@
 
 /* Tree layout */
 .json-tree {
-	padding: 2px 0;
+	padding: 1px 0;
 }
 
 .json-leaf {
-	padding: 1px 0;
+	display: flex;
+	align-items: baseline;
 	padding-left: 16px;
+	min-height: 18px;
 }
 
 .json-collapsible-header {
 	display: flex;
-	align-items: center;
-	gap: 2px;
-	padding: 1px 0;
+	align-items: baseline;
+	gap: 0;
+	padding: 0;
+	min-height: 18px;
 	cursor: pointer;
 	user-select: none;
 	border-radius: 3px;
@@ -95,33 +98,47 @@
 }
 
 .json-bracket-close {
-	padding: 1px 0;
+	padding-left: 0;
+	min-height: 18px;
 }
 
-.json-collapsed-preview {
-	color: var(--vscode-descriptionForeground);
-	font-style: italic;
-}
-
-.json-expand-value {
+/* Inline toggle for long strings */
+.json-inline-toggle {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	width: 16px;
+	height: 16px;
 	border: none;
 	background: none;
-	font: inherit;
-	font-size: 11px;
-	color: var(--vscode-textLink-foreground);
+	padding: 0;
 	cursor: pointer;
-	padding: 0 4px;
-	margin-left: 4px;
+	color: var(--vscode-foreground);
+	opacity: 0.7;
 	border-radius: 3px;
 }
 
-.json-expand-value:hover {
+.json-inline-toggle:hover {
+	opacity: 1;
 	background: var(--vscode-toolbar-hoverBackground);
 }
 
-.json-expand-value:focus-visible {
+.json-inline-toggle:focus-visible {
 	outline: 1px solid var(--vscode-focusBorder);
 	outline-offset: -1px;
+}
+
+.json-inline-toggle span {
+	cursor: pointer;
+}
+
+/* Secondary annotation text (item counts, char counts) */
+.json-secondary {
+	color: var(--vscode-descriptionForeground);
+	font-style: italic;
+	margin-left: 6px;
+	font-size: 11px;
 }
 
 /* Token colors */

@@ -89,21 +89,26 @@ function JsonLeaf({ keyName, valueClass, display }: JsonLeafProps) {
 	const [expanded, setExpanded] = useState(false);
 	const isTruncatable = valueClass === 'json-string' && display.length > STRING_TRUNCATE_LENGTH;
 	const shown = isTruncatable && !expanded
-		? display.slice(0, STRING_TRUNCATE_LENGTH - 1) + '…"'
+		? display.slice(0, STRING_TRUNCATE_LENGTH - 1) + '..."'
 		: display;
 
 	return (
 		<div className='json-leaf'>
-			{keyName !== undefined && <span className='json-key'>{keyName}: </span>}
-			<span className={valueClass}>{shown}</span>
 			{isTruncatable && (
 				<button
-					className='json-expand-value'
+					aria-expanded={expanded}
+					aria-label={expanded ? 'Collapse string' : `Expand string (${display.length - 2} chars)`}
+					className='json-inline-toggle'
 					type='button'
 					onClick={() => setExpanded(prev => !prev)}
 				>
-					{expanded ? 'less' : `${display.length - 2} chars`}
+					<span className={`codicon ${expanded ? 'codicon-chevron-down' : 'codicon-chevron-right'}`} />
 				</button>
+			)}
+			{keyName !== undefined && <span className='json-key'>{keyName}: </span>}
+			<span className={valueClass}>{shown}</span>
+			{isTruncatable && !expanded && (
+				<span className='json-secondary'>{display.length - 2} chars</span>
 			)}
 		</div>
 	);
@@ -146,9 +151,10 @@ function JsonCollapsible({ keyName, value, type }: JsonCollapsibleProps) {
 				<span className={`codicon json-chevron ${expanded ? 'codicon-chevron-down' : 'codicon-chevron-right'}`} />
 				{keyName !== undefined && <span className='json-key'>{keyName}: </span>}
 				{!expanded && (
-					<span className='json-collapsed-preview'>
-						{brackets[0]} {count} {count === 1 ? 'item' : 'items'} {brackets[1]}
-					</span>
+					<>
+						<span className='json-punct'>{brackets[0]}...{brackets[1]}</span>
+						<span className='json-secondary'>{count} {count === 1 ? 'item' : 'items'}</span>
+					</>
 				)}
 				{expanded && <span className='json-punct'>{brackets[0]}</span>}
 			</button>
