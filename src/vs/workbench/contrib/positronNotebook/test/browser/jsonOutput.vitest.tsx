@@ -95,4 +95,21 @@ describe('JsonOutput', () => {
 
 		expect(screen.getByText('"just a string"', { selector: '.json-string' })).toBeInTheDocument();
 	});
+
+	it('truncates long strings and expands on click', async () => {
+		const user = userEvent.setup();
+		const longStr = 'x'.repeat(200);
+		rtl.render(<JsonOutput data={{ msg: longStr }} />);
+
+		// Should be truncated -- full string not present
+		expect(screen.queryByText(`"${longStr}"`, { selector: '.json-string' })).not.toBeInTheDocument();
+
+		// Expand button shows char count
+		const expandBtn = screen.getByRole('button', { name: /200 chars/ });
+		expect(expandBtn).toBeInTheDocument();
+
+		// Click to expand
+		await user.click(expandBtn);
+		expect(screen.getByText(`"${longStr}"`, { selector: '.json-string' })).toBeInTheDocument();
+	});
 });

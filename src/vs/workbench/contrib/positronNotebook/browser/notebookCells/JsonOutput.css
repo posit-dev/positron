@@ -103,6 +103,27 @@
 	font-style: italic;
 }
 
+.json-expand-value {
+	border: none;
+	background: none;
+	font: inherit;
+	font-size: 11px;
+	color: var(--vscode-textLink-foreground);
+	cursor: pointer;
+	padding: 0 4px;
+	margin-left: 4px;
+	border-radius: 3px;
+}
+
+.json-expand-value:hover {
+	background: var(--vscode-toolbar-hoverBackground);
+}
+
+.json-expand-value:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
 /* Token colors */
 .json-key {
 	color: var(--vscode-debugTokenExpression-name);

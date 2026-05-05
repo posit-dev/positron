@@ -77,6 +77,8 @@ function JsonNode({ value, keyName }: JsonNodeProps) {
 	}
 }
 
+const STRING_TRUNCATE_LENGTH = 120;
+
 interface JsonLeafProps {
 	keyName?: string;
 	valueClass: string;
@@ -84,10 +86,25 @@ interface JsonLeafProps {
 }
 
 function JsonLeaf({ keyName, valueClass, display }: JsonLeafProps) {
+	const [expanded, setExpanded] = useState(false);
+	const isTruncatable = valueClass === 'json-string' && display.length > STRING_TRUNCATE_LENGTH;
+	const shown = isTruncatable && !expanded
+		? display.slice(0, STRING_TRUNCATE_LENGTH - 1) + '…"'
+		: display;
+
 	return (
 		<div className='json-leaf'>
 			{keyName !== undefined && <span className='json-key'>{keyName}: </span>}
-			<span className={valueClass}>{display}</span>
+			<span className={valueClass}>{shown}</span>
+			{isTruncatable && (
+				<button
+					className='json-expand-value'
+					type='button'
+					onClick={() => setExpanded(prev => !prev)}
+				>
+					{expanded ? 'less' : `${display.length - 2} chars`}
+				</button>
+			)}
 		</div>
 	);
 }
