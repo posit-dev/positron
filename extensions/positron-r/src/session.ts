@@ -19,6 +19,7 @@ import { LOGGER, supervisorApi } from './extension.js';
 import { ArkComm } from './ark-comm';
 import { RPackageManager } from './packages';
 import { RMetadataExtra } from './r-installation';
+import { ParamsBinder } from './params';
 
 interface RPackageInstallation {
 	packageName: string;
@@ -171,6 +172,13 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		this.onDidChangeRuntimeState(async (state) => {
 			await this.onStateChange(state);
 		});
+
+		// For notebook sessions bound to a Quarto/RMarkdown document, mirror
+		// the document's `params:` block into a `params` list in the global
+		// environment. The binder no-ops for sessions that don't qualify.
+		const paramsBinder = new ParamsBinder(this);
+		paramsBinder.start();
+		this._disposables.push(paramsBinder);
 	}
 
 	onDidEndSession: vscode.Event<positron.LanguageRuntimeExit>;
