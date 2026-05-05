@@ -5,7 +5,7 @@
 
 import { expect } from '@playwright/test';
 import { test } from '../tests/_test.setup';
-import { capturePanel } from './helpers/screenshot-utils';
+import { capturePanel, captureRegion } from './helpers/screenshot-utils';
 import { annotate } from './helpers/annotate-utils';
 import { hideToasts, setScreenshotWindowSize, waitForStableUI } from './helpers/layout-utils';
 
@@ -81,7 +81,21 @@ test.describe('Release Screenshots - Extension Publisher', () => {
 		]);
 
 		await waitForStableUI(page);
-		await capturePanel(header, 'extension-verified-publisher.png');
+
+		// Crop horizontally - the .header element fills the editor pane, but the
+		// content (icon + title + publisher row + description + downloads) only
+		// uses the left portion. Match the docs framing.
+		const headerBox = await header.boundingBox();
+		if (!headerBox) {
+			throw new Error('Could not measure extension header bounding box');
+		}
+		const NARROW_WIDTH = 700;
+		await captureRegion(page, 'extension-verified-publisher.png', {
+			x: Math.floor(headerBox.x),
+			y: Math.floor(headerBox.y),
+			width: Math.min(NARROW_WIDTH, Math.ceil(headerBox.width)),
+			height: Math.ceil(headerBox.height),
+		});
 	});
 
 
