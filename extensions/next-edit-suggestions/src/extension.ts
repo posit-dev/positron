@@ -176,7 +176,7 @@ export function activate(context: vscode.ExtensionContext): void {
 			document: vscode.TextDocument,
 			position: vscode.Position,
 			_context: vscode.InlineCompletionContext,
-			_token: vscode.CancellationToken,
+			token: vscode.CancellationToken,
 		): Promise<vscode.InlineCompletionList | undefined> => {
 			if (!isCompletionEnabled(document)) {
 				return new vscode.InlineCompletionList([]);
@@ -186,7 +186,11 @@ export function activate(context: vscode.ExtensionContext): void {
 				setTimeout(() => resolve(null), 10000);
 			});
 
-			const result = await Promise.race([generateSuggestion(document, position), timeoutPromise]);
+			const cancellationPromise = new Promise<null>((resolve) => {
+				token.onCancellationRequested(() => resolve(null));
+			});
+
+			const result = await Promise.race([generateSuggestion(document, position), timeoutPromise, cancellationPromise]);
 			if (!result) {
 				return new vscode.InlineCompletionList([]);
 			}
