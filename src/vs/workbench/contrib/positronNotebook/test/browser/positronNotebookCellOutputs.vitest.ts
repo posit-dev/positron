@@ -8,7 +8,7 @@
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { CellEditType, CellKind } from '../../../notebook/common/notebookCommon.js';
-import { POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED } from '../../browser/ContextKeysManager.js';
+import { POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED, POSITRON_NOTEBOOK_OUTPUT_JSON_TARGETED } from '../../browser/ContextKeysManager.js';
 import { createTestPositronNotebookInstance, TestCellInput } from './testPositronNotebookInstance.js';
 
 function pngOutputItem() {
@@ -180,6 +180,36 @@ describe('Positron Notebook Cell Outputs', () => {
 			expect(
 				cellContextKeyService.getContextKeyValue(POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.key),
 				'outputImageTargeted should be false after being cleared'
+			).toBe(false);
+		});
+
+		it('outputJsonTargeted context key defaults to false and can be set', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[['print("hello")', 'python', CellKind.Code]],
+				ctx
+			);
+
+			const cellElement = document.createElement('div');
+			const cellContextKeyService = notebook.scopedContextKeyService.createScoped(cellElement);
+			ctx.disposables.add(cellContextKeyService);
+
+			expect(
+				cellContextKeyService.getContextKeyValue(POSITRON_NOTEBOOK_OUTPUT_JSON_TARGETED.key),
+				'outputJsonTargeted should not be set by default'
+			).toBe(undefined);
+
+			const outputJsonTargeted = POSITRON_NOTEBOOK_OUTPUT_JSON_TARGETED.bindTo(cellContextKeyService);
+			outputJsonTargeted.set(true);
+
+			expect(
+				cellContextKeyService.getContextKeyValue(POSITRON_NOTEBOOK_OUTPUT_JSON_TARGETED.key),
+				'outputJsonTargeted should be true after being set'
+			).toBe(true);
+
+			outputJsonTargeted.set(false);
+			expect(
+				cellContextKeyService.getContextKeyValue(POSITRON_NOTEBOOK_OUTPUT_JSON_TARGETED.key),
+				'outputJsonTargeted should be false after being cleared'
 			).toBe(false);
 		});
 	});

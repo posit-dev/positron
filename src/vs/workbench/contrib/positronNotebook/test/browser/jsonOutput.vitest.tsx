@@ -82,6 +82,13 @@ describe('JsonOutput', () => {
 		expect(screen.getByText('"just a string"', { selector: '.json-string' })).toBeInTheDocument();
 	});
 
+	it('marks the root element with the output id', () => {
+		rtl.render(<JsonOutput data={{ value: 1 }} outputId='output-123' />);
+
+		const output = screen.getByText('value:', { selector: '.json-key' }).closest('.json-output');
+		expect(output).toHaveAttribute('data-positron-json-output-id', 'output-123');
+	});
+
 	it('truncates long strings and expands on click', async () => {
 		const user = userEvent.setup();
 		const longStr = 'x'.repeat(200);

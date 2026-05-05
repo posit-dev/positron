@@ -72,6 +72,7 @@ export const POSITRON_NOTEBOOK_CELL_OUTPUT_SCROLLING = new RawContextKey<boolean
  * cell context key set or bindCellContextKeys.
  */
 export const POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED = new RawContextKey<boolean>('positronNotebookOutputImageTargeted', false);
+export const POSITRON_NOTEBOOK_OUTPUT_JSON_TARGETED = new RawContextKey<boolean>('positronNotebookOutputJsonTargeted', false);
 
 // All cell context keys in one place so we can easily operate on them all at once
 export const POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS = {

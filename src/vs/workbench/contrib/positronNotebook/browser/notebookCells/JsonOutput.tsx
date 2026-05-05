@@ -11,11 +11,12 @@ import './JsonOutput.css';
 
 interface JsonOutputProps {
 	data: unknown;
+	outputId?: string;
 }
 
-export const JsonOutput = React.memo(function JsonOutput({ data }: JsonOutputProps) {
+export const JsonOutput = React.memo(function JsonOutput({ data, outputId }: JsonOutputProps) {
 	return (
-		<div className='json-output'>
+		<div className='json-output' data-positron-json-output-id={outputId}>
 			<div className='json-tree'>
 				<JsonNode value={data} />
 			</div>
