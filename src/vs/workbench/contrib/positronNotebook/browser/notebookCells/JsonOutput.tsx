@@ -27,7 +27,7 @@ function highlightJson(data: unknown): React.ReactNode[] {
 	let i = 0;
 
 	// Regex matches JSON tokens: strings, numbers, booleans, null, structural chars
-	const tokenRegex = /("(?:[^"\\]|\\.)*")\s*:|("(?:[^"\\]|\\.)*")|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|(\btrue\b|\bfalse\b)|(\bnull\b)|([{}[\],])|(\s+)/g;
+	const tokenRegex = /("(?:[^"\\]|\\.)*")\s*:\s*|("(?:[^"\\]|\\.)*")|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|(\btrue\b|\bfalse\b)|(\bnull\b)|([{}[\],])|(\s+)/g;
 	let match: RegExpExecArray | null;
 
 	while ((match = tokenRegex.exec(json)) !== null) {
