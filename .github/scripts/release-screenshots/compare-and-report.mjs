@@ -5,9 +5,10 @@
 
 import { readdir, readFile, writeFile, appendFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { join } from 'node:path';
+import { extname, join } from 'node:path';
 
 const PNG_SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const KNOWN_IMAGE_EXTS = ['.png', '.jpg', '.jpeg'];
 
 const STATUS_EMOJI = {
 	unchanged: '✅',
@@ -17,6 +18,10 @@ const STATUS_EMOJI = {
 
 function sha256(buf) {
 	return createHash('sha256').update(buf).digest('hex');
+}
+
+function basename(name) {
+	return name.slice(0, name.length - extname(name).length);
 }
 
 async function readPng(path) {
@@ -41,51 +46,133 @@ async function readPngIfExists(path) {
 	}
 }
 
+/**
+ * Look for a docs file matching the generated PNG by basename, allowing the
+ * docs file to use any of KNOWN_IMAGE_EXTS. Used so that a generated `foo.png`
+ * can replace an existing `foo.jpeg` in positron-website without showing as
+ * a "new" file every run.
+ *
+ * Returns the matching docs filename (e.g. 'foo.jpeg') or null.
+ */
+async function findDocsCounterpart(docsDirEntries, generatedName) {
+	const base = basename(generatedName);
+	for (const docsName of docsDirEntries) {
+		if (docsName === generatedName) {
+			continue;
+		}
+		if (basename(docsName) !== base) {
+			continue;
+		}
+		if (KNOWN_IMAGE_EXTS.includes(extname(docsName).toLowerCase())) {
+			return docsName;
+		}
+	}
+	return null;
+}
+
 export async function classify(generatedDir, docsDir) {
-	const entries = await readdir(generatedDir);
+	const generatedEntries = await readdir(generatedDir);
+	let docsEntries = [];
+	try {
+		docsEntries = await readdir(docsDir);
+	} catch (err) {
+		if (err.code !== 'ENOENT') {
+			throw err;
+		}
+	}
 	const result = {};
-	for (const name of entries) {
+	for (const name of generatedEntries) {
 		if (!name.endsWith('.png')) {
 			continue;
 		}
 		const genBuf = await readPng(join(generatedDir, name));
 		const generatedHash = sha256(genBuf);
-		const docsBuf = await readPngIfExists(join(docsDir, name));
-		if (docsBuf === null) {
-			result[name] = { status: 'new', generatedHash, generatedSize: genBuf.length };
+
+		// First try exact-name match: enables deterministic byte-level diff.
+		const exactDocsBuf = await readPngIfExists(join(docsDir, name));
+		if (exactDocsBuf !== null) {
+			const docsHash = sha256(exactDocsBuf);
+			const status = generatedHash === docsHash ? 'unchanged' : 'changed';
+			result[name] = {
+				status,
+				generatedHash,
+				generatedSize: genBuf.length,
+				docsName: name,
+				docsHash,
+			};
 			continue;
 		}
-		const docsHash = sha256(docsBuf);
-		const status = generatedHash === docsHash ? 'unchanged' : 'changed';
-		result[name] = { status, generatedHash, generatedSize: genBuf.length, docsHash };
+
+		// Fall back to a different known extension (e.g. existing .jpeg).
+		const counterpart = await findDocsCounterpart(docsEntries, name);
+		if (counterpart) {
+			result[name] = {
+				status: 'changed',
+				generatedHash,
+				generatedSize: genBuf.length,
+				docsName: counterpart,
+			};
+			continue;
+		}
+
+		result[name] = { status: 'new', generatedHash, generatedSize: genBuf.length };
 	}
 	return result;
 }
 
-export function formatSummary(classification) {
+const DOCS_IMAGE_BASE_URL = 'https://positron.posit.co/images';
+const THUMBNAIL_WIDTH = 400;
+
+function imageCell(url) {
+	return `<img src="${url}" width="${THUMBNAIL_WIDTH}">`;
+}
+
+export function formatSummary(classification, opts = {}) {
+	const screenshotBaseUrl = opts.screenshotBaseUrl ?? process.env.SCREENSHOT_BASE_URL;
 	const entries = Object.entries(classification);
 	if (entries.length === 0) {
 		return '## Release screenshots\n\nNo images were generated.\n';
 	}
 	const counts = { unchanged: 0, changed: 0, new: 0 };
+	for (const info of Object.values(classification)) {
+		counts[info.status]++;
+	}
+	const totals = `${counts.unchanged} unchanged, ${counts.changed} changed, ${counts.new} new`;
+	const heading = `Compared against \`posit-dev/positron-website\` \`images/\`. Totals: ${totals}.`;
+
+	if (counts.changed === 0 && counts.new === 0) {
+		return [
+			'## Release screenshots',
+			'',
+			`${heading} No visual differences.`,
+			'',
+		].join('\n');
+	}
+
 	const rows = entries
 		.sort(([a], [b]) => a.localeCompare(b))
+		.filter(([, info]) => info.status !== 'unchanged')
 		.map(([name, info]) => {
-			counts[info.status]++;
 			const emoji = STATUS_EMOJI[info.status];
-			const sizeKb = (info.generatedSize / 1024).toFixed(1);
-			const hash = info.generatedHash.slice(0, 8);
-			return `| ${emoji} | \`${name}\` | ${info.status} | ${sizeKb} KB | \`${hash}\` |`;
+			const docsRef = info.docsName ?? name;
+			const beforeUrl = `${DOCS_IMAGE_BASE_URL}/${docsRef}`;
+			const afterUrl = screenshotBaseUrl ? `${screenshotBaseUrl}/${name}` : null;
+			const beforeCell = info.status === 'new' ? '—' : imageCell(beforeUrl);
+			const afterCell = afterUrl ? imageCell(afterUrl) : '—';
+			const fileLabel = info.docsName && info.docsName !== name
+				? `\`${name}\` <br><sub>replaces \`${info.docsName}\`</sub>`
+				: `\`${name}\``;
+			return `| ${emoji} | ${fileLabel} | ${beforeCell} | ${afterCell} |`;
 		})
 		.join('\n');
-	const totals = `${counts.unchanged} unchanged, ${counts.changed} changed, ${counts.new} new`;
+
 	return [
 		'## Release screenshots',
 		'',
-		`Compared against \`posit-dev/positron-website\` \`images/\`. Totals: ${totals}.`,
+		heading,
 		'',
-		'| | File | Status | Size | Hash |',
-		'|---|---|---|---|---|',
+		'| | File | Current (positron.posit.co) | New (this run) |',
+		'|---|---|---|---|',
 		rows,
 		'',
 	].join('\n');
