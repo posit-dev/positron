@@ -184,7 +184,13 @@ export class ResponseStreamWithLinkification implements FinalizableChatResponseS
 	}
 
 	usage(usage: ChatResultUsage): ChatResponseStream {
-		this.enqueue(() => this._progress.usage(usage), false);
+		// --- Start Positron ---
+		// Guard against the underlying stream not implementing usage() (Positron-side
+		// chat response streams may not implement it).
+		if (typeof this._progress.usage === 'function') {
+			this.enqueue(() => this._progress.usage(usage), false);
+		}
+		// --- End Positron ---
 		return this;
 	}
 

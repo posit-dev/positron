@@ -17,7 +17,10 @@ export interface CommandDetails {
 }
 
 export const IntentRegistry = new class {
-	private _descriptors: SyncDescriptor<IIntent>[] = [];
+	// --- Start Positron ---
+	// Don't make the intent descriptors private as it breaks compilation inside Positron.
+	_descriptors: SyncDescriptor<IIntent>[] = [];
+	// --- End Positron ---
 
 	public setIntents(intentDescriptors: SyncDescriptor<IIntent>[]) {
 		this._descriptors = this._descriptors.concat(intentDescriptors);

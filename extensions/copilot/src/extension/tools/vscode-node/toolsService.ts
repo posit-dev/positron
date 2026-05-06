@@ -248,11 +248,35 @@ export class ToolsService extends BaseToolsService {
 		// todo@connor4312: string check here is for back-compat for 1.109 Insiders
 		const requestToolsByName = new Map(Iterable.map(request.tools, ([t, enabled]) => [typeof t === 'string' ? t : t.name, enabled]));
 
+		// --- Start Positron ---
+		// Compute the set of tools considered to be enabled by Positron. This
+		// filters out tools that are not relevant to the current Positron
+		// context; for example, many tools only make sense when a session
+		// context is attached.
+		let enabledTools = this.tools.map(tool => tool.name);
+		const api = vscode.extensions.getExtension('positron.positron-assistant')?.exports;
+		if (api) {
+			// Get the enabled tools from the Positron API
+			const positronEnabledTools = api.getEnabledTools(request, this.tools);
+			// Compute the set of tools that were disabled
+			const positronDisabledTools = this.tools.filter(tool => !positronEnabledTools.includes(tool.name)).map(tool => tool.name);
+			this.logService.debug(`Disabling Positron tools: ${positronDisabledTools.join(', ')}`);
+			enabledTools = positronEnabledTools;
+		}
+		// --- End Positron ---
+
 		const modelSpecificOverrides = new Map(this.getToolOverridesForEndpoint(endpoint, tools));
 		const modelSpecificTools = this.getModelSpecificTools();
 
 		return tools
 			.filter(tool => {
+				// --- Start Positron ---
+				// -1. Check to see whether Positron considers the tool to be enabled.
+				if (!enabledTools.includes(tool.name)) {
+					return false;
+				}
+				// --- End Positron ---
+
 				// 0. If the tool was a model specific tool with an override, it'll be mixed in in the 'map' later.
 				if (modelSpecificTools.get(tool.name)?.tool.overridesTool) {
 					return false;

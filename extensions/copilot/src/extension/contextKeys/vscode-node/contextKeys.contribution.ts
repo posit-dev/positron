@@ -218,6 +218,11 @@ export class ContextKeysContribution extends Disposable {
 		}
 	}
 
+	// --- Start Positron ---
+	// Remove auto-show of log view; in Positron we only want to show the log view when
+	// the user explicitly requests it.
+
+	/*
 	private _updateShowLogViewContext() {
 		if (this._showLogView) {
 			return;
@@ -228,6 +233,12 @@ export class ContextKeysContribution extends Disposable {
 			commands.executeCommand('setContext', showLogViewContextKey, this._showLogView);
 		}
 	}
+	*/
+
+	private _updateShowLogViewContext() {
+		commands.executeCommand('setContext', showLogViewContextKey, this._showLogView);
+	}
+	// --- End Positron ---
 
 	private _updateDebugContext() {
 		commands.executeCommand('setContext', debugContextKey, !this._envService.isProduction());

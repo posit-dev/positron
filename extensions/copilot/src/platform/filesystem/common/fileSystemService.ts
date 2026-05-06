@@ -37,7 +37,10 @@ export interface IFileSystemService extends FileSystem {
  * This is disabled in production.
  */
 export const fileSystemServiceReadAsJSON = new class {
-	private _cache: LRUCache<any> | null = null;
+	// --- Start Positron ---
+	// Don't make this cache private as it breaks compilation inside Positron.
+	_cache: LRUCache<any> | null = null;
+	// --- End Positron ---
 
 	enable(): void {
 		this._cache = new LRUCache<any>(10);
@@ -56,7 +59,10 @@ export const fileSystemServiceReadAsJSON = new class {
 		return value;
 	}
 
-	private async _readJSON<T>(fileSystemService: IFileSystemService, uri: Uri): Promise<T> {
+	// --- Start Positron ---
+	// Don't make this method private as it breaks compilation inside Positron.
+	async _readJSON<T>(fileSystemService: IFileSystemService, uri: Uri): Promise<T> {
+		// --- End Positron ---
 		const buffer = await fileSystemService.readFile(uri, true);
 		return JSON.parse(buffer.toString()) as T;
 	}

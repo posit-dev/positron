@@ -378,6 +378,14 @@ const toolsCalledInParallel = new Set<ToolName>([
 ]);
 
 async function sendToolCallTelemetry(props: ToolResultOpts, promptContext: IBuildPromptContext, invokeOutcome: ToolInvocationOutcome, validateOutcome: ToolValidationOutcome, endpointProvider: IEndpointProvider, telemetryService: ITelemetryService) {
+
+	// --- Start Positron ---
+	// Disable tool call telemetry entirely.
+	if (invokeOutcome) {
+		return;
+	}
+	// --- End Positron ---
+
 	const model = promptContext.request?.model && (await endpointProvider.getChatEndpoint(promptContext.request?.model)).model;
 	const toolName = props.toolCall.name;
 

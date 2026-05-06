@@ -264,6 +264,10 @@ export class LanguageModelAccess extends Disposable implements IExtensionContrib
 				category: modelCategory,
 				statusIcon: endpoint.degradationReason ? new vscode.ThemeIcon('warning') : undefined,
 				version: endpoint.version,
+				// --- Start Positron ---
+				// @ts-ignore
+				providerName: 'Github Copilot',
+				// --- End Positron ---
 				maxInputTokens: endpoint.modelMaxPromptTokens - baseCount - BaseTokensPerCompletion,
 				maxOutputTokens: endpoint.maxOutputTokens,
 				requiresAuthorization: session && { label: session.account.label },

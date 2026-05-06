@@ -30,6 +30,9 @@ import { ChatVariablesCollection, extractDebugTargetSessionIds, isCustomizations
 import { getGlobalContextCacheKey, GlobalContextMessageMetadata, RenderedUserMessageMetadata, Turn } from '../../../prompt/common/conversation';
 import { InternalToolReference } from '../../../prompt/common/intents';
 import { IPromptVariablesService } from '../../../prompt/node/promptVariablesService';
+// --- Start Positron ---
+import { PositronAssistant } from '../../../prompts/node/base/positronAssistant.jsx';
+// --- End Positron ---
 import { ToolName } from '../../../tools/common/toolNames';
 import { MemoryContextPrompt, MemoryInstructionsPrompt } from '../../../tools/node/memoryContextPrompt';
 import { TodoListContextPrompt } from '../../../tools/node/todoListContextPrompt';
@@ -113,6 +116,9 @@ export class AgentPrompt extends PromptElement<AgentPromptProps> {
 				<CopilotIdentityRules />
 				<SafetyRules />
 			</SystemMessage>
+			{/* --- Start Positron --- */}
+			<PositronAssistant promptContext={this.props.promptContext} />
+			{/* --- End Positron --- */}
 			{instructions}
 			<SystemMessage>
 				<MemoryInstructionsPrompt />

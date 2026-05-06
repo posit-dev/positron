@@ -110,7 +110,10 @@ export interface ICopilotToolExtensionCtor extends IModelSpecificToolCtor {
 }
 
 export const ToolRegistry = new class {
-	private _tools: Array<ICopilotToolCtor> = [];
+	// --- Start Positron ---
+	// Don't make the tools private as it breaks compilation inside Positron.
+	_tools: Array<ICopilotToolCtor> = [];
+	// --- End Positron ---
 	private _toolExtensions: Array<ICopilotToolExtensionCtor> = [];
 	private _modelSpecificTools = new ObservableMap<string, { definition: vscode.LanguageModelToolDefinition; tool: IModelSpecificToolCtor }>();
 	private _nonDeferredToolNames = new Set<string>();

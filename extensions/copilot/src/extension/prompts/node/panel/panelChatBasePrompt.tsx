@@ -23,6 +23,10 @@ import { CustomInstructions } from './customInstructions';
 import { ProjectLabels } from './projectLabels';
 import { WorkspaceFoldersHint } from './workspace/workspaceFoldersHint';
 
+// --- Start Positron ---
+import { PositronAssistant } from '../base/positronAssistant.jsx';
+// --- End Positron ---
+
 export interface PanelChatBasePromptProps extends GenericBasePromptElementProps {
 }
 
@@ -52,6 +56,9 @@ export class PanelChatBasePrompt extends PromptElement<PanelChatBasePromptProps>
 					{/* Only include current date when not running simulations, since if we generate cache entries with the current date, the cache will be invalidated every day */}
 					{!this.envService.isSimulation() && <><br />The current date is {new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}.</>}
 				</SystemMessage>
+				{/* --- Start Positron --- */}
+				<PositronAssistant promptContext={this.props.promptContext} />
+				{/* --- End Positron --- */}
 				<HistoryWithInstructions flexGrow={1} historyPriority={700} passPriority history={history} currentTurnVars={chatVariables}>
 					<InstructionMessage priority={1000}>
 						Use Markdown formatting in your answers.<br />

@@ -21,6 +21,10 @@ import { CustomInstructions } from '../panel/customInstructions';
 import { MarkdownBlock } from './inlineChatGenerateMarkdownPrompt';
 import { SummarizedDocumentSplit } from './promptingSummarizedDocument';
 
+// --- Start Positron ---
+import { PositronAssistant } from '../base/positronAssistant.jsx';
+// --- End Positron ---
+
 export interface InlineChatEditMarkdownPromptProps extends GenericInlinePromptProps {
 }
 
@@ -91,6 +95,9 @@ export class InlineChatEditMarkdownPrompt extends PromptElement<InlineChatEditMa
 					The user needs help to modify some markdown content.<br />
 					<LegacySafetyRules />
 				</SystemMessage>
+				{/* --- Start Positron --- */}
+				<PositronAssistant promptContext={this.props.promptContext} />
+				{/* --- End Positron --- */}
 				<HistoryWithInstructions inline={true} historyPriority={700} passPriority history={history}>
 					<InstructionMessage priority={1000}>
 						The markdown is always delimited by {MarkdownBlock.FenceSequence}.<br />

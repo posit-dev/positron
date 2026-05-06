@@ -175,6 +175,13 @@ export class EditFileResult extends PromptElement<IEditFileResultProps> {
 	}
 
 	private async sendEditFileResultTelemetry(totalNewDiagnostics: number, filesWithNewDiagnostics: number) {
+		// --- Start Positron ---
+		// Disable telemetry entirely in Positron.
+		if (Math.random() > 0) {
+			return;
+		}
+		// --- End Positron ---
+
 		const model = this.props.model && (await this.endpointProvider.getChatEndpoint(this.props.model)).model;
 
 		/* __GDPR__
