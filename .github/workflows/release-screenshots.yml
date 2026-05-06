@@ -17,15 +17,15 @@ on:
           - publish
         default: nightly
       version:
-        description: "Positron version. Pass a tag, 'latest-prerelease' (default for nightly), or 'latest-release' (typical for publish)."
+        description: "Positron version: a tag, 'latest-prerelease', 'latest-release', or 'auto' (default; latest-prerelease for nightly, latest-release for publish)."
         type: string
-        default: latest-prerelease
+        default: auto
       open_pr:
         description: "Publish mode: open a PR if there are changes. No-op for nightly."
         type: boolean
         default: true
   schedule:
-    - cron: '0 9 * * 1-5'  # 09:00 UTC, Mon-Fri (uses input defaults: mode=nightly, version=latest-prerelease)
+    - cron: '0 9 * * 1-5'  # 09:00 UTC, Mon-Fri (resolves to mode=nightly, version=latest-prerelease via 'auto')
 
 concurrency:
   # Separate groups per mode so a publish run doesn't cancel an in-flight nightly.
@@ -41,7 +41,7 @@ permissions:
 # everywhere downstream.
 env:
   MODE: ${{ inputs.mode || 'nightly' }}
-  VERSION_INPUT: ${{ inputs.version || 'latest-prerelease' }}
+  VERSION_INPUT: ${{ inputs.version || 'auto' }}
 
 jobs:
   release-screenshots:
@@ -65,6 +65,17 @@ jobs:
           GH_TOKEN: ${{ steps.bot-token.outputs.token }}
           INPUT: ${{ env.VERSION_INPUT }}
         run: |
+          # 'auto' picks the per-mode default: latest-prerelease for nightly,
+          # latest-release for publish. Cron + the dispatch default both land
+          # here so each mode gets the right build channel without the user
+          # having to remember.
+          if [[ "$INPUT" == "auto" ]]; then
+            if [[ "$MODE" == "publish" ]]; then
+              INPUT="latest-release"
+            else
+              INPUT="latest-prerelease"
+            fi
+          fi
           case "$INPUT" in
             latest-prerelease)
               VERSION=$(gh api "repos/posit-dev/positron-builds/releases?per_page=100" \
