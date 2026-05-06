@@ -37,7 +37,7 @@ permissions:
   id-token: write  # for AWS OIDC role-assumption in upload-report-to-s3
 
 jobs:
-  screenshots:
+  release-screenshots:
     name: screenshots-${{ inputs.mode }}
     runs-on: macos-latest-xlarge
     steps:
@@ -296,7 +296,7 @@ jobs:
     # Nightly is on a schedule; failures should page #positron-test-results.
     # Publish is on demand, so the operator already sees the result.
     if: ${{ failure() && inputs.mode == 'nightly' }}
-    needs: [screenshots]
+    needs: [release-screenshots]
     runs-on: ubuntu-latest
     steps:
       - name: Notify Slack
