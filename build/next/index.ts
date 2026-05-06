@@ -588,6 +588,31 @@ async function copyAllNonTsFiles(outDir: string, excludeTests: boolean): Promise
 	console.log(`[resources] Copied ${allFiles.length} files`);
 }
 
+// --- Start Positron ---
+/**
+ * Copy ESM package dependencies (React, etc.) from `.build/esm-package-dependencies/`
+ * to `<outDir>/esm-package-dependencies/`. These are pre-bundled at postinstall time
+ * (see build/npm/build-esm-package-dependencies.ts) and referenced by the workbench
+ * importmap in `vs/code/electron-browser/workbench/workbench.html`. Without this copy
+ * step the importmap resolves to a non-existent path and the workbench fails to load.
+ */
+async function copyESMPackageDependencies(outDir: string): Promise<void> {
+	const srcRoot = path.join(REPO_ROOT, '.build', 'esm-package-dependencies');
+	if (!fs.existsSync(srcRoot)) {
+		console.log(`[resources] No .build/esm-package-dependencies/ found; skipping ESM dep copy`);
+		return;
+	}
+	const destRoot = path.join(REPO_ROOT, outDir, 'esm-package-dependencies');
+	const files = await globAsync('**/*', { cwd: srcRoot, nodir: true });
+	await Promise.all(files.map(file => {
+		const srcPath = path.join(srcRoot, file);
+		const destPath = path.join(destRoot, file);
+		return copyFile(srcPath, destPath);
+	}));
+	console.log(`[resources] Copied ${files.length} ESM package dependency files to ${outDir}/esm-package-dependencies/`);
+}
+// --- End Positron ---
+
 /**
  * Copy curated resource files for production bundles.
  * Uses specific per-target patterns matching the old build's vscodeResourceIncludes,
@@ -1115,6 +1140,11 @@ ${tslib}`,
 	// Copy resources (curated per-target patterns for production)
 	await copyResources(outDir, target);
 
+	// --- Start Positron ---
+	// Copy ESM package dependencies (React, etc.) referenced by the workbench importmap.
+	await copyESMPackageDependencies(outDir);
+	// --- End Positron ---
+
 	// Compile standalone TypeScript files (like Electron preload scripts) that cannot be bundled
 	await compileStandaloneFiles(outDir, doMinify, target);
 
@@ -1147,6 +1177,9 @@ async function watch(): Promise<void> {
 	try {
 		await transpile(outDir, false);
 		await copyAllNonTsFiles(outDir, false);
+		// --- Start Positron ---
+		await copyESMPackageDependencies(outDir);
+		// --- End Positron ---
 		console.log(`Finished transpilation with 0 errors after ${Date.now() - t1} ms`);
 	} catch (err) {
 		console.error('[watch] Initial build failed:', err);
@@ -1292,6 +1325,9 @@ async function main(): Promise<void> {
 					const t1 = Date.now();
 					await transpile(outDir, options.excludeTests);
 					await copyAllNonTsFiles(outDir, options.excludeTests);
+					// --- Start Positron ---
+					await copyESMPackageDependencies(outDir);
+					// --- End Positron ---
 					console.log(`[transpile] Done in ${Date.now() - t1}ms`);
 				}
 				break;
