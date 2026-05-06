@@ -7,7 +7,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { test } from '../tests/_test.setup';
 import { capturePanel } from './helpers/screenshot-utils';
-import { prepareForScreenshot, setScreenshotWindowSize } from './helpers/layout-utils';
+import { captureLayoutDiagnostics, prepareForScreenshot, setScreenshotWindowSize } from './helpers/layout-utils';
 
 test.use({
 	suiteId: __filename,
@@ -68,6 +68,17 @@ test.describe('Release Screenshots - Welcome Page', () => {
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);
+
+		// Diagnostic: dump every part's bounding rect right before capture so
+		// the Playwright report shows where any white space lives. Remove this
+		// once the layout-mismatch issue is solved.
+		const diagnostics = await captureLayoutDiagnostics(page);
+		await test.info().attach('layout-diagnostics.json', {
+			body: JSON.stringify(diagnostics, null, 2),
+			contentType: 'application/json',
+		});
+		console.log('layout diagnostics:', JSON.stringify(diagnostics, null, 2));
+
 		await capturePanel(page.locator('.monaco-workbench'), 'astropy.png');
 	});
 });

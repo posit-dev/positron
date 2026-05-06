@@ -103,6 +103,55 @@ export async function unhoverAll(page: Page): Promise<void> {
 }
 
 /**
+ * Snapshot the rendered dimensions of every workbench part plus window/body
+ * sizes. Returns a serialisable object so callers can `console.log` or
+ * attach it to a Playwright report. Used to diagnose layout-mismatch issues
+ * (e.g. white space inside the workbench because a part isn't filling).
+ */
+export async function captureLayoutDiagnostics(page: Page): Promise<Record<string, unknown>> {
+	return await page.evaluate(() => {
+		const rect = (sel: string) => {
+			const el = document.querySelector(sel);
+			if (!el) { return null; }
+			const r = el.getBoundingClientRect();
+			return {
+				x: Math.round(r.x),
+				y: Math.round(r.y),
+				width: Math.round(r.width),
+				height: Math.round(r.height),
+				bottom: Math.round(r.bottom),
+				right: Math.round(r.right),
+			};
+		};
+		return {
+			window: {
+				innerWidth: window.innerWidth,
+				innerHeight: window.innerHeight,
+				devicePixelRatio: window.devicePixelRatio,
+			},
+			body: {
+				clientWidth: document.body.clientWidth,
+				clientHeight: document.body.clientHeight,
+			},
+			documentElement: {
+				clientWidth: document.documentElement.clientWidth,
+				clientHeight: document.documentElement.clientHeight,
+			},
+			parts: {
+				workbench: rect('.monaco-workbench'),
+				titlebar: rect('.part.titlebar'),
+				activitybar: rect('.part.activitybar'),
+				sidebar: rect('.part.sidebar'),
+				editor: rect('.part.editor'),
+				auxiliarybar: rect('.part.auxiliarybar'),
+				panel: rect('.part.panel'),
+				statusbar: rect('.part.statusbar'),
+			},
+		};
+	});
+}
+
+/**
  * Hide notification badges (the small red dots / counts) on activity-bar
  * items. These appear for things like "sign in to GitHub" and shouldn't
  * leak into release screenshots regardless of which test is running.
