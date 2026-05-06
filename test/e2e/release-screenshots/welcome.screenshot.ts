@@ -55,10 +55,11 @@ test.describe('Release Screenshots - Welcome Page', () => {
 		// setup scroll position and expand variable for screenshot
 		await hotKeys.closePrimarySidebar();
 		await layouts.resizeAuxiliaryBar({ x: -500 });
+		await layouts.resizePanel({ y: -150 });
 		await quickaccess.runCommand('workbench.action.gotoLine', {
 			keepOpen: true,
 		});
-		await page.keyboard.type(String(88));
+		await page.keyboard.type(String(99));
 		await page.keyboard.press('Enter');
 		await variables.toggleVariable({
 			variableName: 'gc_frame',
