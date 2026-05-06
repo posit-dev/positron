@@ -20,10 +20,10 @@ on:
         description: "Positron version. Pass a tag, 'latest-prerelease' (default for nightly), or 'latest-release' (typical for publish)."
         type: string
         default: latest-prerelease
-      dry_run:
-        description: "Publish only: skip opening the PR even if there are changes."
+      open_pr:
+        description: "Publish only: open a PR if there are changes (uncheck for dry run)."
         type: boolean
-        default: false
+        default: true
   schedule:
     - cron: '0 9 * * 1-5'  # 09:00 UTC, Mon-Fri (uses input defaults: mode=nightly, version=latest-prerelease)
 
@@ -186,7 +186,7 @@ jobs:
           echo "changed=$CHANGED new=$NEW total=$TOTAL"
           if [[ "$TOTAL" -eq 0 ]]; then
             echo "decision=skip-no-changes" >> "$GITHUB_OUTPUT"
-          elif [[ "${{ inputs.dry_run }}" == "true" ]]; then
+          elif [[ "${{ inputs.open_pr }}" == "false" ]]; then
             echo "decision=skip-dry-run" >> "$GITHUB_OUTPUT"
           else
             echo "decision=publish" >> "$GITHUB_OUTPUT"
