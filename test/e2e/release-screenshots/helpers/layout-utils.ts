@@ -176,15 +176,23 @@ export async function forceWorkbenchLayout(page: Page): Promise<void> {
 		return new Promise<void>((resolve, reject) => {
 			let attempts = 0;
 			const poll = () => {
-				const h = wb ? wb.clientHeight : 0;
-				if (h >= targetH - 1) {
+				// Use the status bar's actual rendered position as the truth
+				// signal. .monaco-workbench's clientHeight is unreliable here
+				// because we force it via CSS above; what we actually care
+				// about is whether the grid's children fill the viewport.
+				const sb = document.querySelector('.part.statusbar');
+				const sbBottom = sb ? sb.getBoundingClientRect().bottom : 0;
+				if (sbBottom >= targetH - 1) {
 					resolve();
 					return;
 				}
 				if (attempts >= 30) {
+					const wbHeight = wb ? wb.clientHeight : 0;
 					reject(new Error(
-						`forceWorkbenchLayout timed out: workbench height ${h}px ` +
-						`did not reach target ${targetH}px after ${attempts} resize attempts. ` +
+						`forceWorkbenchLayout timed out: status bar bottom at ` +
+						`${sbBottom}px did not reach target ${targetH}px after ` +
+						`${attempts} resize attempts. ` +
+						`workbench.clientHeight=${wbHeight}, ` +
 						`window.innerHeight=${window.innerHeight}, ` +
 						`window.innerWidth=${window.innerWidth}, ` +
 						`body.clientHeight=${document.body.clientHeight}.`,
