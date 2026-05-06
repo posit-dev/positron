@@ -36,9 +36,16 @@ permissions:
   contents: read
   id-token: write  # for AWS OIDC role-assumption in upload-report-to-s3
 
+# Normalize inputs once. Scheduled (cron) events do not populate inputs.*,
+# so we fall back to nightly defaults here and use env.MODE / env.VERSION_INPUT
+# everywhere downstream.
+env:
+  MODE: ${{ inputs.mode || 'nightly' }}
+  VERSION_INPUT: ${{ inputs.version || 'latest-prerelease' }}
+
 jobs:
   release-screenshots:
-    name: screenshots-${{ inputs.mode }}
+    name: screenshots-${{ inputs.mode || 'nightly' }}
     runs-on: macos-latest-xlarge
     steps:
       - name: Checkout positron
@@ -56,7 +63,7 @@ jobs:
         id: version
         env:
           GH_TOKEN: ${{ steps.bot-token.outputs.token }}
-          INPUT: ${{ inputs.version }}
+          INPUT: ${{ env.VERSION_INPUT }}
         run: |
           case "$INPUT" in
             latest-prerelease)
@@ -91,13 +98,13 @@ jobs:
         uses: ./.github/actions/setup-release-screenshot-runtimes
 
       - name: Clone positron-website (public)
-        if: inputs.mode == 'nightly'
+        if: env.MODE == 'nightly'
         run: |
           git clone --depth 1 https://github.com/posit-dev/positron-website.git \
             "$RUNNER_TEMP/positron-website"
 
       - name: Clone positron-website (authenticated, for push)
-        if: inputs.mode == 'publish'
+        if: env.MODE == 'publish'
         env:
           BOT_TOKEN: ${{ steps.bot-token.outputs.token }}
         run: |
@@ -108,7 +115,7 @@ jobs:
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir
         with:
-          identifier: release-screenshots-${{ inputs.mode }}
+          identifier: release-screenshots-${{ env.MODE }}
 
       - name: Run release-screenshots project
         env:
@@ -154,7 +161,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ inputs.mode }}-screenshots
+          name: ${{ env.MODE }}-screenshots
           path: test/e2e/release-screenshots/output/
           if-no-files-found: warn
 
@@ -162,7 +169,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ inputs.mode }}-test-results
+          name: ${{ env.MODE }}-test-results
           path: test-results/
           if-no-files-found: ignore
 
@@ -170,14 +177,14 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ inputs.mode }}-playwright-report
+          name: ${{ env.MODE }}-playwright-report
           path: playwright-report/
           if-no-files-found: ignore
 
       # ===== Publish-only tail =====
 
       - name: Decide publish action
-        if: inputs.mode == 'publish'
+        if: env.MODE == 'publish'
         id: gate
         run: |
           CHANGED="${{ steps.compare.outputs.changed_count }}"
@@ -193,13 +200,13 @@ jobs:
           fi
 
       - name: Log no-op exit
-        if: inputs.mode == 'publish' && steps.gate.outputs.decision != 'publish'
+        if: env.MODE == 'publish' && steps.gate.outputs.decision != 'publish'
         run: |
           echo "Decision: ${{ steps.gate.outputs.decision }}"
           echo "::notice::Exiting without opening a PR (${{ steps.gate.outputs.decision }})"
 
       - name: Copy changed and new images into docs site
-        if: inputs.mode == 'publish' && steps.gate.outputs.decision == 'publish'
+        if: env.MODE == 'publish' && steps.gate.outputs.decision == 'publish'
         env:
           CLS: ${{ runner.temp }}/classification.json
           GENERATED: test/e2e/release-screenshots/output
@@ -229,7 +236,7 @@ jobs:
           '
 
       - name: Commit and push branch
-        if: inputs.mode == 'publish' && steps.gate.outputs.decision == 'publish'
+        if: env.MODE == 'publish' && steps.gate.outputs.decision == 'publish'
         id: push
         env:
           VERSION: ${{ steps.version.outputs.version }}
@@ -248,7 +255,7 @@ jobs:
           echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
 
       - name: Open pull request
-        if: inputs.mode == 'publish' && steps.gate.outputs.decision == 'publish'
+        if: env.MODE == 'publish' && steps.gate.outputs.decision == 'publish'
         env:
           CLS: ${{ runner.temp }}/classification.json
           GH_TOKEN: ${{ steps.bot-token.outputs.token }}
@@ -295,7 +302,7 @@ jobs:
   slack-notify:
     # Nightly is on a schedule; failures should page #positron-test-results.
     # Publish is on demand, so the operator already sees the result.
-    if: ${{ failure() && inputs.mode == 'nightly' }}
+    if: ${{ failure() && (inputs.mode || 'nightly') == 'nightly' }}
     needs: [release-screenshots]
     runs-on: ubuntu-latest
     steps:
