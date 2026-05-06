@@ -173,12 +173,22 @@ export async function forceWorkbenchLayout(page: Page): Promise<void> {
 			el.style.minWidth = `${targetW}px`;
 		}
 
-		return new Promise<void>((resolve) => {
+		return new Promise<void>((resolve, reject) => {
 			let attempts = 0;
 			const poll = () => {
 				const h = wb ? wb.clientHeight : 0;
-				if (h >= targetH - 1 || attempts >= 30) {
+				if (h >= targetH - 1) {
 					resolve();
+					return;
+				}
+				if (attempts >= 30) {
+					reject(new Error(
+						`forceWorkbenchLayout timed out: workbench height ${h}px ` +
+						`did not reach target ${targetH}px after ${attempts} resize attempts. ` +
+						`window.innerHeight=${window.innerHeight}, ` +
+						`window.innerWidth=${window.innerWidth}, ` +
+						`body.clientHeight=${document.body.clientHeight}.`,
+					));
 					return;
 				}
 				attempts++;
