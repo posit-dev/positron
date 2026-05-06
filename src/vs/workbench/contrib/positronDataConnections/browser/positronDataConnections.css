@@ -1,0 +1,23 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-data-connections {
+	flex: 1;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+.positron-data-connections-container:focus,
+.positron-data-connections-container:focus-visible {
+	outline: none !important;
+}
+
+.positron-data-connections .panels {
+	flex: 1;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+}

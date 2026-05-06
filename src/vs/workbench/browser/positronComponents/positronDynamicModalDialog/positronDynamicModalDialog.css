@@ -1,0 +1,80 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Container that fills the host <dialog>. The native <dialog>'s ::backdrop provides the dimming,
+ * so this layer must stay transparent because adding a background here would compound the dimming.
+ */
+.positron-dynamic-modal-dialog-box-container {
+	inset: 0;
+	position: absolute;
+	outline: none !important;
+}
+
+/*
+ * Form wrapping content-area + footer. display: contents removes the form's own box from the
+ * layout tree so its children (content-area, footer) participate directly in the dialog box's
+ * flex column alongside the title bar sibling.
+ */
+.positron-dynamic-modal-dialog-form {
+	display: contents;
+}
+
+/* Positron Modal Dialog - flex column layout */
+.positron-dynamic-modal-dialog-box {
+	display: flex;
+	overflow: hidden;
+	position: absolute;
+	border-radius: 5px;
+	flex-direction: column;
+	color: var(--vscode-positronModalDialog-foreground);
+	background: var(--vscode-positronModalDialog-background);
+	border: 1px solid var(--vscode-positronModalDialog-border);
+	box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.1), 0 6px 20px 0 rgba(0, 0, 0, 0.1);
+}
+
+/*
+ * Content area. Sits between the fixed-height title bar and footer inside the
+ * flex column. `flex: 1 1 auto` lets the content grow to consume remaining
+ * space and shrink when constrained, while the component-level contentMinHeight
+ * and contentMaxHeight props bound that range. `min-height: 0` overrides the
+ * default `auto` min-size of a flex item so the content can actually shrink
+ * below its intrinsic size and `overflow: auto` takes over.
+ */
+.positron-dynamic-modal-dialog-box .content-area {
+	flex: 1 1 auto;
+	min-height: 0;
+	padding: 16px;
+	overflow: auto;
+	white-space: pre-line;
+}
+
+.positron-dynamic-modal-dialog-box .content-area code {
+	color: inherit;
+	font-size: 11px;
+	overflow-wrap: break-word;
+	font-family: var(--monaco-monospace-font);
+}
+
+/* Text inputs */
+.positron-dynamic-modal-dialog-box .text-input {
+	width: 100%;
+	padding: 4px;
+	border-radius: 4px;
+	box-sizing: border-box;
+	background: var(--vscode-positronModalDialog-textInputBackground);
+	border: 1px solid var(--vscode-positronModalDialog-textInputBorder);
+}
+
+.positron-dynamic-modal-dialog-box .text-input::selection {
+	color: var(--vscode-positronModalDialog-textInputSelectionForeground);
+	background: var(--vscode-positronModalDialog-textInputSelectionBackground);
+}
+
+/* Error messages */
+.positron-dynamic-modal-dialog-box .error-msg {
+	color: var(--vscode-errorForeground);
+	word-break: break-all;
+}

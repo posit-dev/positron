@@ -469,6 +469,23 @@ export class StatementRangeSyntaxError extends Error {
 	}
 }
 
+export enum DataConnectionParameterType {
+	Boolean = 'boolean',
+	File = 'file',
+	Number = 'number',
+	Option = 'option',
+	Password = 'password',
+	String = 'string',
+}
+
+export enum DataConnectionNodeKind {
+	Database = 'database',
+	Schema = 'schema',
+	Table = 'table',
+	View = 'view',
+	Field = 'field',
+}
+
 export { UiRuntimeNotifications } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 export type { PlotRenderSettings } from '../../../services/positronPlots/common/positronPlots.js';
 export { PlotRenderFormat } from '../../../services/positronPlots/common/positronPlots.js';

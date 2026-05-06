@@ -1,0 +1,4 @@
+{
+	"displayName": "Positron PostgreSQL Data Connection Driver",
+	"description": "Provides a PostgreSQL data connection driver for the Data Connections panel."
+}

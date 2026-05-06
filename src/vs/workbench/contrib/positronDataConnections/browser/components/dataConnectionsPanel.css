@@ -1,0 +1,36 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.data-connections-panel {
+	flex: 1;
+	display: none;
+	min-height: 0;
+	flex-direction: column;
+}
+
+.data-connections-panel.active {
+	display: flex;
+}
+
+.data-connections-panel .data-connection-profiles-list {
+	flex: 1;
+	min-height: 0;
+}
+
+.data-connections-panel .data-connection-profiles-list-empty {
+	width: 100%;
+	height: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--vscode-descriptionForeground);
+}
+
+.data-connections-panel .data-connection-profile {
+	height: 100%;
+	display: flex;
+	padding: 0 8px;
+	align-items: center;
+}

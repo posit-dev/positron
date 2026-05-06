@@ -30,7 +30,7 @@ interface DeleteAllVariablesModalDialogProps {
 /**
  * DeleteAllVariablesModalDialog component.
  * @param props The component properties.
- * @returns The component.
+ * @returns The rendered component.
  */
 export const DeleteAllVariablesModalDialog = (props: DeleteAllVariablesModalDialogProps) => {
 	/**

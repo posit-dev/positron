@@ -23,7 +23,7 @@ const positronNewFileFolder = localize('positronNewFileFolder', "New File/Folder
 
 /**
  * TopActionBarNewMenu component.
- * @returns The component.
+ * @returns The rendered component.
  */
 export const TopActionBarNewMenu = () => {
 	// Hooks.

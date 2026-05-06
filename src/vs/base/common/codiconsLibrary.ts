@@ -656,6 +656,10 @@ export const codiconsLibrary = {
 	claude: register('claude', 0xec82),
 	openInWindow: register('open-in-window', 0xec83),
 	newSession: register('new-session', 0xec84),
+	terminalSecure: register('terminal-secure', 0xec85),
+	chatImport: register('chat-import', 0xec86),
+	chatExport: register('chat-export', 0xec87),
+	shareWindow: register('share-window', 0xec88),
 	positronNew: register('positron-new', 0xf230),
 	positronOpen: register('positron-open', 0xf231),
 	positronSave: register('positron-save', 0xf232),
@@ -763,4 +767,6 @@ export const codiconsLibrary = {
 	positronPin: register('positron-pin', 0xf298),
 	positronUnpin: register('positron-unpin', 0xf299),
 	positronQuarto: register('positron-quarto', 0xf29a),
+	positronDataConnections: register('positron-data-connections', 0xf29b),
+	positronAddConnection: register('positron-add-connection', 0xf29c),
 } as const;

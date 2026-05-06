@@ -56,7 +56,7 @@ interface ChooseNewFolderWindowModalDialogProps {
 /**
  * ChooseNewFolderWindowModalDialog component.
  * @param props The component properties.
- * @returns The component.
+ * @returns The rendered component.
  */
 const ChooseNewFolderWindowModalDialog = (props: ChooseNewFolderWindowModalDialogProps) => {
 	// Button configuration.
