@@ -57,6 +57,35 @@ export async function captureRegion(
 }
 
 /**
+ * Capture the workbench from the top of the viewport down to the bottom
+ * of the status bar. Use this instead of capturePanel(.monaco-workbench)
+ * when the OS window may be shorter than the CDP-forced viewport: the
+ * status bar's bounding box reflects where the workbench actually ends,
+ * so we never include the empty white space between the rendered
+ * workbench bottom and the renderer viewport bottom.
+ */
+export async function captureWorkbenchContent(
+	page: Page,
+	filename: string,
+): Promise<void> {
+	const statusbar = page.locator('.part.statusbar');
+	const box = await statusbar.boundingBox();
+	if (!box) {
+		throw new Error('statusbar not found - cannot measure workbench extent');
+	}
+	const width = await page.evaluate(() => window.innerWidth);
+	await page.screenshot({
+		path: outputPath(filename),
+		clip: {
+			x: 0,
+			y: 0,
+			width,
+			height: Math.ceil(box.y + box.height),
+		},
+	});
+}
+
+/**
  * Capture an element at a higher pixel density than the renderer's
  * deviceScaleFactor. Useful for small UI elements (e.g. an action-bar
  * dropdown) where the docs need a crisp image to scale.

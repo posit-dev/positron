@@ -140,17 +140,54 @@ export async function waitForStableUI(page: Page, ms = 250): Promise<void> {
 }
 
 /**
+ * Force the workbench to lay out to the renderer's full viewport height.
+ *
+ * On macOS CI runners the OS window is clamped (~900px tall), and even
+ * after CDP `setDeviceMetricsOverride` forces the renderer viewport to
+ * 1080, the workbench's layout service can stay laid out at the
+ * OS-clamped height. Result: `.monaco-workbench` is shorter than the
+ * captured viewport, leaving white space below the rendered parts.
+ *
+ * Polls window.dispatchEvent('resize') until `.monaco-workbench`'s
+ * clientHeight matches the renderer's window.innerHeight (or until a
+ * short timeout). When the workbench's grid responds to the resize
+ * event, it'll re-call layout() and pick up the new dimensions.
+ */
+export async function forceWorkbenchLayout(page: Page): Promise<void> {
+	await page.evaluate(() => {
+		return new Promise<void>((resolve) => {
+			const target = window.innerHeight;
+			let attempts = 0;
+			const poll = () => {
+				const wb = document.querySelector('.monaco-workbench') as HTMLElement | null;
+				const h = wb ? wb.clientHeight : 0;
+				if (h >= target - 1 || attempts >= 30) {
+					resolve();
+					return;
+				}
+				attempts++;
+				window.dispatchEvent(new Event('resize'));
+				setTimeout(poll, 100);
+			};
+			poll();
+		});
+	});
+}
+
+/**
  * Standard pre-screenshot cleanup. Composes the smaller helpers in the order
  * that produces a clean, deterministic frame:
- *   1. Hide notification toasts (they cover real UI)
- *   2. Hide activity-bar notification badges (e.g. "sign in to GitHub" red dot)
- *   3. Unhover (no spurious hover states)
- *   4. Wait for layout to settle
+ *   1. Force the workbench to lay out to the full renderer viewport
+ *   2. Hide notification toasts (they cover real UI)
+ *   3. Hide activity-bar notification badges (e.g. "sign in to GitHub" red dot)
+ *   4. Unhover (no spurious hover states)
+ *   5. Wait for layout to settle
  *
  * Call this immediately before `captureFullWindow` / `capturePanel`. Set up
  * world state with POMs first, then call this once, then capture.
  */
 export async function prepareForScreenshot(app: Application, page: Page): Promise<void> {
+	await forceWorkbenchLayout(page);
 	await hideToasts(app);
 	await hideNotificationBadges(page);
 	await unhoverAll(page);
