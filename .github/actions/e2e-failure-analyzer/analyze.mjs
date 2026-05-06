@@ -101,11 +101,21 @@ function renderProjectFailures(projects, historyMap) {
 			for (let i = 0; i < (t.attempts || []).length; i++) {
 				const a = t.attempts[i];
 				out.push(`  Attempt ${i + 1}:`);
-				if (a.screenshotPath) { out.push(`    screenshot: ${a.screenshotPath}`); }
+				// Prefer the chronological array; fall back to the single legacy path.
+				const shots = Array.isArray(a.screenshotPaths) && a.screenshotPaths.length
+					? a.screenshotPaths
+					: (a.screenshotPath ? [a.screenshotPath] : []);
+				if (shots.length === 1) {
+					out.push(`    screenshot: ${shots[0]}`);
+				} else if (shots.length > 1) {
+					out.push(`    screenshots (chronological, last is failure-state):`);
+					for (let j = 0; j < shots.length; j++) {
+						out.push(`      [${j}] ${shots[j]}`);
+					}
+				}
 				if (a.errorContextPath) { out.push(`    errorContext: ${a.errorContextPath}`); }
 				if (a.trace?.timeline) {
-					const tl = String(a.trace.timeline).split('\n').slice(0, 12).join('\n');
-					out.push(`    trace timeline (first 12 lines):\n${indent(tl, '      ')}`);
+					out.push(`    trace timeline:\n${indent(String(a.trace.timeline), '      ')}`);
 				}
 				if (Array.isArray(a.trace?.errors) && a.trace.errors.length) {
 					out.push(`    trace errors: ${a.trace.errors.slice(0, 3).map(e => String(e).split('\n')[0]).join(' | ')}`);
@@ -191,8 +201,9 @@ For each failure or group of related failures, determine:
 3. Suggested action for a developer
 
 Process:
-- READ ALL SCREENSHOTS IN PARALLEL with multiple Read tool calls in a single message. Screenshots are the most revealing evidence.
-- View error-context markdown files only when screenshots and trace timelines are insufficient.
+- READ EVERY SCREENSHOT IN PARALLEL with multiple Read tool calls in a single message. Each attempt may have several screenshots in chronological order; the last is the failure-state, the earlier ones show what the page looked like in the moments leading up to it. Comparing them is often what reveals the real root cause -- the failure message and the final frame can be misleading on their own.
+- READ THE FULL TRACE TIMELINE in the prompt. The action sequence (selector clicks, navigations, waits) often shows where a test actually went wrong even if the final error points elsewhere. Don't stop at the last action.
+- View error-context markdown files when screenshots and trace timelines are insufficient.
 - Multiple tests failing in the same file/suite usually share a root cause -- group them.
 - A test that failed then passed on retry is flaky. One that failed all retries is a hard failure.
 - Tests tagged \`:soft-fail\` are known flaky.
