@@ -228,13 +228,6 @@ export class PositronListInstance<T> extends DataGridInstance {
 	}
 
 	/**
-	 * Fetches data.
-	 */
-	override async fetchData(): Promise<void> {
-		// PositronList holds its items in memory; nothing to fetch.
-	}
-
-	/**
 	 * Gets the custom width of a column.
 	 * @param columnIndex The column index.
 	 * @returns The custom width of the column; otherwise, undefined.
