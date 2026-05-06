@@ -42,6 +42,7 @@ jobs:
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+          E2E_INSIGHTS_KEY: "op://Positron/E2E_dashboard_api_key/credential"
 
       - name: Run analyzer
         uses: ./.github/actions/e2e-failure-analyzer
@@ -51,5 +52,5 @@ jobs:
           # alongside the push trigger before merging.
           run-url: ${{ inputs.run_url || 'https://github.com/posit-dev/positron/actions/runs/25216614544' }}
           anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
-          e2e-insights-api-key: ${{ secrets.E2E_INSIGHTS_API_KEY }}
+          e2e-insights-api-key: ${{ env.E2E_INSIGHTS_KEY }}
           model: ${{ inputs.model || 'claude-sonnet-4-5' }}
