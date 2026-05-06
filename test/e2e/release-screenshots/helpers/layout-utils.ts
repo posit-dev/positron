@@ -34,8 +34,8 @@ export async function setScreenshotWindowSize(
 		return;
 	}
 
-	let width = 1024;
-	let height = 684;
+	let width = 1365;
+	let height = 912;
 	let deviceScaleFactor = 1;
 	const fromEnv = process.env.POSITRON_SCREENSHOT_VIEWPORT;
 	if (fromEnv && /^\d+,\d+(,\d+(\.\d+)?)?$/.test(fromEnv)) {

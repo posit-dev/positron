@@ -54,7 +54,7 @@ test.describe('Release Screenshots - Welcome Page', () => {
 
 		// setup scroll position and expand variable for screenshot
 		await hotKeys.closePrimarySidebar();
-		await layouts.resizeAuxiliaryBar({ x: -500 });
+		await layouts.resizeAuxiliaryBar({ x: -300 });
 		await layouts.resizePanel({ y: -150 });
 		await quickaccess.runCommand('workbench.action.gotoLine', {
 			keepOpen: true,
