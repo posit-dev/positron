@@ -23,7 +23,7 @@ test.beforeEach(async ({ app }) => {
  * Img Path: https://positron.posit.co/images/user-interface-for-rstudio-migration.jpeg
  */
 test.describe('Release Screenshots - Layouts', () => {
-	test.skip('Annotated Layout Overview', async ({ app, page, openFolder, openFile, executeCode }) => {
+	test.skip('Release Screenshot - user-interface-for-rstudio-migration.png', async ({ app, page, openFolder, openFile, executeCode }) => {
 		const { layouts, sessions, plots } = app.workbench;
 
 		// Clone positron-workshop into the test workspace so the explorer
@@ -72,6 +72,7 @@ test.describe('Release Screenshots - Layouts', () => {
 		await openFile('positron-workshop/modules/01-hello-positron.qmd');
 		await openFile('positron-workshop/index.qmd');
 
+		// resize, annotate, and capture full window screenshot
 		await layouts.resizeAuxiliaryBar({ x: -400 });
 		await prepareForScreenshot(app, page);
 		await annotate(page, [

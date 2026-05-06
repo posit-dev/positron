@@ -32,7 +32,7 @@ test.describe('Release Screenshots - Extension Publisher', () => {
 	 * from an unverified publisher. The test untrusts the publisher and uninstalls
 	 * the extension first to ensure the dialog appears even on local re-runs.
 	 */
-	test.skip('Publisher trust dialog when installing unverified extension', async ({ app, page }) => {
+	test.skip('Release Screenshot - extension-publisher-trust.png', async ({ app, page }) => {
 		const { extensions } = app.workbench;
 
 		// better-comments is published by an individual with no verified domain,
@@ -49,6 +49,7 @@ test.describe('Release Screenshots - Extension Publisher', () => {
 		await expect(dialog).toBeVisible({ timeout: 30_000 });
 		await expect(dialog.getByRole('button', { name: 'Trust Publisher & Install' })).toBeVisible();
 
+		// capture screenshot
 		await hideToasts(app);
 		await waitForStableUI(page);
 		await capturePanel(dialog, 'extension-publisher-trust.png');
@@ -61,7 +62,7 @@ test.describe('Release Screenshots - Extension Publisher', () => {
 	/**
 	 * Img Path: https://positron.posit.co/images/extension-verified-publisher.png
 	 */
-	test('Air extension header with verified-publisher annotation', async ({ app, page }) => {
+	test('Release Screenshot - extension-verified-publisher.png', async ({ app, page }) => {
 		const { extensions } = app.workbench;
 
 		// Air ships pre-installed and is published by Posit Software, PBC, so it
@@ -75,16 +76,13 @@ test.describe('Release Screenshots - Extension Publisher', () => {
 
 		await hideToasts(app);
 
-		// Draw an unlabelled orange rectangle around the verified-publisher widget.
+		// Draw an orange rectangle around the verified-publisher widget.
 		await annotate(page, [
 			{ selector: '.extension-editor .publisher', label: '', color: '#ea580c', padding: 6 },
 		]);
-
 		await waitForStableUI(page);
 
-		// Crop horizontally - the .header element fills the editor pane, but the
-		// content (icon + title + publisher row + description + downloads) only
-		// uses the left portion. Match the docs framing.
+		// Crop horizontally and capture screenshot
 		const headerBox = await header.boundingBox();
 		if (!headerBox) {
 			throw new Error('Could not measure extension header bounding box');

@@ -27,22 +27,20 @@ test.describe('Release Screenshots - Top Action Bar', () => {
 	/**
 	 * Img Path: https://positron.posit.co/images/top-action-bar.png
 	 */
-	test.skip('Top action bar with annotated regions', async ({ app, page }) => {
+	test.skip('Release Screenshot - top-action-bar.png', async ({ app, page }) => {
 		// The default test workspace provides a folder context, so the full top
 		// action bar (command center + interpreter + folder selector) is already shown.
 		const topBar = page.locator('.top-action-bar-container');
 		await expect(topBar).toBeVisible();
 
 		// Override the displayed folder name so the docs screenshot reads
-		// "my-project" rather than "qa-example-content" or whatever the test
-		// workspace happens to be called.
+		// "my-project" rather than "qa-example-content"
 		await page.evaluate(() => {
 			const el = document.querySelector('#top-action-bar-current-working-folder');
 			if (el) { el.textContent = 'my-project'; }
 		});
 
 		await hideToasts(app);
-
 		await annotate(page, [
 			{ selector: '.top-action-bar-container [aria-label="New"]', label: 'New File / Folder', color: '#22c55e', labelPosition: 'above-left' },
 			{ selector: '.top-action-bar-container [aria-label="Open"]', label: 'Open File / Folder', color: '#0d9488', labelPosition: 'below-center' },
@@ -51,7 +49,6 @@ test.describe('Release Screenshots - Top Action Bar', () => {
 			{ selector: '.top-action-bar-session-manager-face', label: 'Interpreter Selector', color: '#ef4444', labelPosition: 'below-center' },
 			{ selector: '.top-action-bar-custom-folder-menu', label: 'Folder Selector', color: '#ea580c', labelPosition: 'above-center' },
 		]);
-
 		await waitForStableUI(page);
 
 		// Crop to the top of the window: top action bar plus space for the
@@ -72,7 +69,7 @@ test.describe('Release Screenshots - Top Action Bar', () => {
 	/**
 	 * Img Path: https://positron.posit.co/images/action-bar-information.png
 	 */
-	test('Action bar information element (folder selector)', async ({ app, page }) => {
+	test('Release Screenshot - action-bar-information.png', async ({ app, page }) => {
 		const folderMenu = page.locator('.top-action-bar-custom-folder-menu');
 		await expect(folderMenu).toBeVisible();
 
@@ -82,9 +79,9 @@ test.describe('Release Screenshots - Top Action Bar', () => {
 			if (el) { el.textContent = 'my-project'; }
 		});
 
+		// capture screenshot (at 2x so the docs have a crisp image to scale)
 		await hideToasts(app);
 		await waitForStableUI(page);
-		// Capture at 2x so the docs have a crisp image to scale.
 		await capturePanelHires(page, folderMenu, 'action-bar-information.png', 2);
 	});
 });

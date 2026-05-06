@@ -21,7 +21,7 @@ test.beforeEach(async ({ app }) => {
  * Img Path: https://positron.posit.co/images/astropy.png
  */
 test.describe('Release Screenshots - Welcome Page', () => {
-	test('Standard Data View', async ({ app, page, openFolder, openFile, hotKeys, executeCode }) => {
+	test('Release Screenshot - astropy.png', async ({ app, page, openFolder, openFile, hotKeys, executeCode }) => {
 		const { sessions, editors, plots, variables, quickaccess, layouts } =
 			app.workbench;
 
@@ -29,15 +29,13 @@ test.describe('Release Screenshots - Welcome Page', () => {
 		await openFolder('qa-example-content/workspaces/astropy-testing');
 		await page.waitForTimeout(3000); // allow time for window to close and re-open
 		await page.locator('.monaco-workbench').waitFor({ state: 'visible' });
-		// openFolder re-creates the Electron window, which drops the CDP
-		// setDeviceMetricsOverride applied in beforeEach. Re-apply it on the
-		// new page so the screenshot fills the requested viewport.
+
+		// openFolder re-creates the Electron window, re-apply viewport settings.
 		await setScreenshotWindowSize(app);
+
+		// start session and open python file that plots galactocentric ring orbits
 		await sessions.start(['python']);
 		await sessions.expectAllSessionsToBeReady();
-
-		// open python file that plots galactocentric ring orbits (just for editor context;
-		// we execute the script statement by statement in the console below).
 		const scriptRel = join('workspaces', 'astropy-testing', 'plot_galactocentric_frame.py');
 		await openFile(scriptRel);
 		await editors.waitForActiveTab('plot_galactocentric_frame.py');

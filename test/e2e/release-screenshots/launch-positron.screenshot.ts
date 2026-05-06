@@ -20,7 +20,7 @@ test.beforeEach(async ({ app }) => {
  * Img Path: https://positron.posit.co/images/positron-path.png
  */
 test.describe('Release Screenshots - Launch Positron', () => {
-	test('positron path command palette', async ({ app, page, hotKeys }) => {
+	test('Release Screenshot - positron-path.png', async ({ app, page, hotKeys }) => {
 		// open the command palette and search for the positron path command
 		await hotKeys.openCommandPalette();
 		await page.keyboard.type('positron command path');
