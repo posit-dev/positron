@@ -286,7 +286,7 @@ Report structure:
 |------|----------|------------|----------|
 | <test name> | <project / OS> | <category> | hard \\| flaky |
 
-Include non-e2e job failures (unit tests, build failures, etc.) as additional rows with the job name as the test name.
+Order the rows: **all hard failures first, then all flaky failures**. Within each severity group, keep failures from the same test file adjacent. Non-e2e job failures (unit tests, build failures, etc.) are hard failures by definition -- include them as rows in the hard-failure section with the job name as the test name.
 
 ## Detailed Analysis
 
