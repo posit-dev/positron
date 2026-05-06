@@ -104,7 +104,7 @@
 			"problemMatcher": "$esbuild-watch"
 		},
 		{
-			"label": "VS Code - Build",
+			"label": "Positron - Build",
 			"dependsOn": [
 				"Core - Transpile",
 				"Core - Typecheck",
@@ -123,7 +123,8 @@
 				"E2E Tests - Build",
 				"Core - Transpile",
 				"Core - Typecheck",
-				"Ext - Build"
+				"Ext - Build",
+				"Copilot - Build"
 			],
 			"group": {
 				"kind": "build",
