@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { readFileSync } from 'fs';
 import { join } from 'path';
 import { test } from '../tests/_test.setup';
 import { capturePanel } from './helpers/screenshot-utils';
@@ -20,8 +21,8 @@ test.beforeEach(async ({ app }) => {
  * Img Path: https://positron.posit.co/images/astropy.png
  */
 test.describe('Release Screenshots - Welcome Page', () => {
-	test('Standard Data View', async ({ app, page, openFolder, openFile, hotKeys }) => {
-		const { sessions, editor, editors, plots, variables, quickaccess, layouts } =
+	test('Standard Data View', async ({ app, page, openFolder, openFile, hotKeys, executeCode }) => {
+		const { sessions, editors, plots, variables, quickaccess, layouts } =
 			app.workbench;
 
 		// open workspace
@@ -31,14 +32,24 @@ test.describe('Release Screenshots - Welcome Page', () => {
 		await sessions.start(['python']);
 		await sessions.expectAllSessionsToBeReady();
 
-		// open python file that plots galactocentric ring orbits
-		await openFile(
-			join('workspaces', 'astropy-testing', 'plot_galactocentric_frame.py'),
-		);
+		// open python file that plots galactocentric ring orbits (just for editor context;
+		// we execute the script statement by statement in the console below).
+		const scriptRel = join('workspaces', 'astropy-testing', 'plot_galactocentric_frame.py');
+		await openFile(scriptRel);
 		await editors.waitForActiveTab('plot_galactocentric_frame.py');
 
-		// run the file and wait for the plot
-		await editor.playButton.click();
+		// Execute the script statement by statement in the console rather than
+		// using the run-file (%run) play button. Splitting on blank lines keeps
+		// each top-level block (imports, function def, computation, plot) as
+		// separate console submissions.
+		const scriptContent = readFileSync(
+			join(app.workspacePathOrFolder, scriptRel),
+			'utf-8',
+		);
+		const blocks = scriptContent.split(/\n\n+/).filter((b) => b.trim());
+		for (const block of blocks) {
+			await executeCode('Python', block);
+		}
 		await plots.waitForCurrentPlot({ timeout: 45_000 });
 
 		// setup scroll position and expand variable for screenshot
@@ -54,9 +65,7 @@ test.describe('Release Screenshots - Welcome Page', () => {
 			action: 'expand',
 		});
 
-		// capture screenshot - clip to the actual workbench element so we
-		// don't get white space below if the OS window is shorter than the
-		// CDP-forced 1920x1080 viewport.
+		// capture screenshot
 		await prepareForScreenshot(app, page);
 		await capturePanel(page.locator('.monaco-workbench'), 'astropy.png');
 	});

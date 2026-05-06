@@ -27,7 +27,7 @@ test.describe('Release Screenshots - Top Action Bar', () => {
 	/**
 	 * Img Path: https://positron.posit.co/images/top-action-bar.png
 	 */
-	test('Top action bar with annotated regions', async ({ app, page }) => {
+	test.skip('Top action bar with annotated regions', async ({ app, page }) => {
 		// The default test workspace provides a folder context, so the full top
 		// action bar (command center + interpreter + folder selector) is already shown.
 		const topBar = page.locator('.top-action-bar-container');

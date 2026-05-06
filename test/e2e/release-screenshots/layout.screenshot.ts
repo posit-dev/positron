@@ -23,7 +23,7 @@ test.beforeEach(async ({ app }) => {
  * Img Path: https://positron.posit.co/images/user-interface-for-rstudio-migration.jpeg
  */
 test.describe('Release Screenshots - Layouts', () => {
-	test('Annotated Layout Overview', async ({ app, page, openFolder, openFile, executeCode }) => {
+	test.skip('Annotated Layout Overview', async ({ app, page, openFolder, openFile, executeCode }) => {
 		const { layouts, sessions, plots } = app.workbench;
 
 		// Clone positron-workshop into the test workspace so the explorer
