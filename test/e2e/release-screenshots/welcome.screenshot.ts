@@ -22,7 +22,7 @@ test.beforeEach(async ({ app }) => {
  */
 test.describe('Release Screenshots - Welcome Page', () => {
 	test('Standard Data View', async ({ app, page, openFolder, openFile, hotKeys, executeCode }) => {
-		const { sessions, editors, plots, variables, quickaccess, layouts } =
+		const { sessions, editor, editors, plots, variables, quickaccess, layouts } =
 			app.workbench;
 
 		// open workspace
@@ -38,10 +38,15 @@ test.describe('Release Screenshots - Welcome Page', () => {
 		await openFile(scriptRel);
 		await editors.waitForActiveTab('plot_galactocentric_frame.py');
 
-		// Execute the script statement by statement in the console rather than
-		// using the run-file (%run) play button. Splitting on blank lines keeps
-		// each top-level block (imports, function def, computation, plot) as
-		// separate console submissions.
+		// Run the file via the play button first - this triggers the workbench
+		// layout fill that the OLD nightly captures depended on (statement-by-
+		// statement executeCode alone doesn't trigger the same relayout).
+		await editor.playButton.click();
+		await plots.waitForCurrentPlot({ timeout: 45_000 });
+
+		// Then re-execute the script statement by statement in the console so
+		// the visible console output matches the docs reference's incremental
+		// execution flow rather than a single `%run` echo.
 		const scriptContent = readFileSync(
 			join(app.workspacePathOrFolder, scriptRel),
 			'utf-8',
@@ -50,7 +55,6 @@ test.describe('Release Screenshots - Welcome Page', () => {
 		for (const block of blocks) {
 			await executeCode('Python', block, { maximizeConsole: false });
 		}
-		await plots.waitForCurrentPlot({ timeout: 45_000 });
 
 		// setup scroll position and expand variable for screenshot
 		await hotKeys.closePrimarySidebar();
