@@ -1,0 +1,133 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.select-data-connection-provider .driver-grid-placeholder {
+	padding: 8px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.select-data-connection-provider .select-provider-label {
+	font-size: 13px;
+	margin-bottom: 6px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.select-data-connection-provider .driver-grid-clip {
+	overflow: hidden;
+	border-radius: 6px;
+	border: 1px solid var(--vscode-widget-border);
+}
+
+.select-data-connection-provider .driver-grid-clip.error {
+	border-color: var(--vscode-errorForeground);
+}
+
+.select-data-connection-provider .driver-grid-container {
+	/* Two rows: 8px (top padding) + 110px (row 1) + 8px (gap) + 110px (row 2) + 8px (bottom padding) = 244px */
+	height: 244px;
+	overflow-y: auto;
+}
+
+.select-data-connection-provider .driver-grid-container::-webkit-scrollbar {
+	/* Sneaks a thin scrollbar into the 8px gap. */
+	width: 5px;
+}
+
+.select-data-connection-provider .driver-grid-container::-webkit-scrollbar-thumb {
+	background: var(--vscode-scrollbarSlider-background);
+}
+
+.select-data-connection-provider .driver-grid-container::-webkit-scrollbar-thumb:hover {
+	background: var(--vscode-scrollbarSlider-hoverBackground);
+}
+
+.select-data-connection-provider .driver-grid {
+	gap: 8px;
+	padding: 8px;
+	display: grid;
+	align-content: start;
+	grid-template-rows: repeat(2, 110px);
+	grid-template-columns: repeat(3, 142px);
+}
+
+.select-data-connection-provider .driver-card {
+	gap: 8px;
+	display: flex;
+	font: inherit;
+	color: inherit;
+	font-size: 12px;
+	cursor: pointer;
+	padding: 16px 8px;
+	border-radius: 6px;
+	align-items: center;
+	flex-direction: column;
+	background: transparent;
+	justify-content: center;
+	/* box-sizing: border-box; */
+	border: 1px solid var(--vscode-widget-border);
+}
+
+.select-data-connection-provider .driver-card:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.select-data-connection-provider .driver-card.selected {
+	border-color: var(--vscode-focusBorder);
+	color: var(--vscode-list-activeSelectionForeground);
+	background: var(--vscode-list-activeSelectionBackground);
+}
+
+/*
+	Visually hide the radio input. The label is the visible click/focus surface; pulling the focus
+	ring up to the label keeps the visible focus indicator on the card.
+*/
+.select-data-connection-provider .driver-card-input {
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	position: absolute;
+	white-space: nowrap;
+	clip: rect(0, 0, 0, 0);
+	border: 0;
+}
+
+.select-data-connection-provider .driver-card:has(.driver-card-input:focus-visible) {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 1px;
+}
+
+.select-data-connection-provider .driver-card-badge {
+	width: 48px;
+	height: 48px;
+	display: flex;
+	border-radius: 8px;
+	align-items: center;
+	justify-content: center;
+	border: 1px solid rgba(128, 128, 128, 0.2);
+}
+
+.vs-light .select-data-connection-provider .driver-card-badge {
+	background: #f8f8f8;
+}
+
+.vs-dark .select-data-connection-provider .driver-card-badge {
+	background: #f8f8f8;
+}
+
+.select-data-connection-provider .driver-card-icon {
+	width: 32px;
+	height: 32px;
+	object-fit: contain;
+}
+
+.select-data-connection-provider .driver-card-name {
+	max-width: 100%;
+	overflow: hidden;
+	text-align: center;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}

@@ -153,6 +153,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 				{ pinned: props.pinned },
 			)}
 			data-column-index={props.columnIndex}
+			role='columnheader'
 			style={{
 				left: props.left,
 				width: props.width,
@@ -186,13 +187,14 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 					<div
 						ref={titleRef}
 						className='title'
+						role='presentation'
 						onMouseLeave={titleMouseLeave}
 						onMouseOver={titleMouseOver}
 					>
 						{renderedColumn}
 					</div>
 					{props.column?.description &&
-						<div className='description'>{props.column.description}</div>
+						<div className='description' role='presentation'>{props.column.description}</div>
 					}
 				</div>
 				{columnSortKey &&

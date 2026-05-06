@@ -5,6 +5,7 @@
 
 .console-core .console-instance {
 	top: 0;
+	bottom: 0;
 	cursor: default;
 	padding-left: 10px;
 	position: absolute;

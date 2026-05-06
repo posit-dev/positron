@@ -35,8 +35,13 @@ export interface KeyboardModifiers {
  * ButtonProps interface.
  */
 export interface ButtonProps {
+	readonly id?: string;
+	readonly ariaControls?: string;
 	readonly ariaHaspopup?: React.AriaAttributes['aria-haspopup'];
 	readonly ariaLabel?: string;
+	readonly ariaSelected?: boolean;
+	readonly autoFocus?: boolean;
+	readonly role?: string;
 	readonly className?: string;
 	readonly disabled?: boolean;
 	readonly hoverManager?: IHoverManager;
@@ -44,6 +49,9 @@ export interface ButtonProps {
 	readonly style?: CSSProperties | undefined;
 	readonly tabIndex?: number;
 	readonly tooltip?: string | (() => string | undefined);
+	// Native <button> type. Defaults to 'button' (see the rendered button below for the rationale);
+	// pass 'submit' when the button must serve as the implicit form submit target inside a <form>.
+	readonly type?: 'button' | 'submit';
 	readonly onBlur?: () => void;
 	readonly onFocus?: () => void;
 	readonly onKeyDown?: (e: KeyboardEvent<HTMLButtonElement>) => void;
@@ -175,18 +183,28 @@ export const Button = (props: PropsWithChildren<ButtonProps>) => {
 	return (
 		<button
 			ref={buttonRef}
+			aria-controls={props.ariaControls}
 			aria-disabled={props.disabled ? 'true' : undefined}
 			aria-haspopup={props.ariaHaspopup}
 			aria-label={props.ariaLabel}
+			aria-selected={props.ariaSelected}
+			autoFocus={props.autoFocus}
 			className={positronClassNames(
 				'positron-button',
 				props.className,
 				{ 'disabled': props.disabled }
 			)}
 			disabled={props.disabled}
-			role='button'
+			id={props.id}
+			role={props.role ?? 'button'}
 			style={props.style}
 			tabIndex={props.tabIndex ?? 0}
+			// Default to 'button'. The HTML default of 'submit' is a footgun for buttons inside
+			// <form> elements because it makes every Button a candidate for Enter-key implicit
+			// submission. Click and keyboard activation go through onPressed regardless of type;
+			// the type prop only affects which button the browser picks as the form's implicit
+			// submit target.
+			type={props.type ?? 'button'}
 			onBlur={props.onBlur}
 			onClick={clickHandler}
 			onFocus={props.onFocus}
