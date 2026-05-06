@@ -44,11 +44,21 @@ let repo = null;
 let project = null;
 let doCleanup = false;
 
+/** Parse a non-negative integer CLI flag. Rejects NaN, negatives, and non-integer floats. */
+function parseNonNegInt(name, raw) {
+	const n = Number(raw);
+	if (!Number.isInteger(n) || n < 0) {
+		console.error(`Invalid ${name}: ${raw} (expected non-negative integer)`);
+		process.exit(1);
+	}
+	return n;
+}
+
 for (let i = 0; i < cliArgs.length; i++) {
 	switch (cliArgs[i]) {
 		case '--output-dir': outputDir = cliArgs[++i]; break;
-		case '--last': lastN = parseInt(cliArgs[++i], 10); break;
-		case '--screenshots': screenshotsN = parseInt(cliArgs[++i], 10); break;
+		case '--last': lastN = parseNonNegInt('--last', cliArgs[++i]); break;
+		case '--screenshots': screenshotsN = parseNonNegInt('--screenshots', cliArgs[++i]); break;
 		case '--download': doDownload = true; break;
 		case '--run-id': runId = cliArgs[++i]; break;
 		case '--repo': repo = cliArgs[++i]; break;
@@ -318,10 +328,11 @@ function parseTrace(tracePath) {
 	}
 
 	const actions = events.filter(e => e.type === 'before' || e.type === 'after');
-	const recent = actions.slice(-lastN);
+	// `slice(-0)` returns the whole array, so handle 0 explicitly.
+	const recent = lastN === 0 ? [] : actions.slice(-lastN);
 
 	const timelineLines = [];
-	timelineLines.push(`=== Action Timeline (last ${Math.min(lastN, actions.length)} of ${actions.length} events) ===\n`);
+	timelineLines.push(`=== Action Timeline (last ${recent.length} of ${actions.length} events) ===\n`);
 
 	for (const a of recent) {
 		if (a.type === 'before') {
@@ -343,7 +354,8 @@ function parseTrace(tracePath) {
 	}
 
 	const screenshots = events.filter(e => e.type === 'screencast-frame');
-	const trailingScreenshots = screenshots.slice(-screenshotsN);
+	// `slice(-0)` returns the whole array, so handle 0 explicitly.
+	const trailingScreenshots = screenshotsN === 0 ? [] : screenshots.slice(-screenshotsN);
 	const lastScreenshot = trailingScreenshots.length > 0 ? trailingScreenshots[trailingScreenshots.length - 1] : null;
 
 	if (trailingScreenshots.length > 0) {

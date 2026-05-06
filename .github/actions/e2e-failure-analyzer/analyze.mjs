@@ -17,6 +17,14 @@ const WORK_DIR = mustEnv('WORK_DIR');
 const MODEL = process.env.MODEL || 'claude-sonnet-4-5';
 const STEP_SUMMARY = process.env.GITHUB_STEP_SUMMARY;
 const MAX_TURNS = Number(process.env.MAX_TURNS || 40);
+// Defensive bounds against pathological runs (many failures x long traces).
+// Per-attempt cap is ~50x the old 12-line truncation -- never trips on typical
+// tests, prevents 500-action timelines from ballooning the prompt.
+const MAX_TIMELINE_CHARS = Number(process.env.MAX_TIMELINE_CHARS || 30000);
+// Aggregate soft cap. Sonnet 4.5 has ~600KB of input context; we warn well
+// before that. Exceeding it doesn't fail -- the model handles oversized
+// prompts by failing the request, which we'd see in the action logs anyway.
+const PROMPT_WARN_CHARS = Number(process.env.PROMPT_WARN_CHARS || 400000);
 // Workaround for claude-agent-sdk-typescript#296 (resolver picks musl over
 // glibc on Linux): action.yml installs @anthropic-ai/claude-code globally
 // and passes the resolved path here.
@@ -115,7 +123,8 @@ function renderProjectFailures(projects, historyMap) {
 				}
 				if (a.errorContextPath) { out.push(`    errorContext: ${a.errorContextPath}`); }
 				if (a.trace?.timeline) {
-					out.push(`    trace timeline:\n${indent(String(a.trace.timeline), '      ')}`);
+					const tl = capTimeline(String(a.trace.timeline));
+					out.push(`    trace timeline:\n${indent(tl, '      ')}`);
 				}
 				if (Array.isArray(a.trace?.errors) && a.trace.errors.length) {
 					out.push(`    trace errors: ${a.trace.errors.slice(0, 3).map(e => String(e).split('\n')[0]).join(' | ')}`);
@@ -185,6 +194,19 @@ function indent(text, prefix) {
 	return String(text).split('\n').map(l => prefix + l).join('\n');
 }
 
+/**
+ * Cap a per-attempt timeline so a single pathological test can't dominate the
+ * prompt. Keeps the head AND tail (failures usually hit the tail; the head
+ * shows where the test started) and drops the middle with a marker.
+ */
+function capTimeline(text) {
+	if (text.length <= MAX_TIMELINE_CHARS) { return text; }
+	const half = Math.floor(MAX_TIMELINE_CHARS / 2) - 64;
+	const head = text.slice(0, half);
+	const tail = text.slice(-half);
+	return `${head}\n\n[... ${text.length - 2 * half} chars elided to fit prompt budget ...]\n\n${tail}`;
+}
+
 function renderHistorySummary(history, historyMap) {
 	if (!history) { return '(no historical data; e2e-test-insights API unavailable or no key)'; }
 	if (history.error) { return `(history query error: ${history.error})`; }
@@ -245,7 +267,7 @@ async function main() {
 	const projects = discoverProjectDirs(WORK_DIR);
 
 	const historyMap = buildHistoryByKey(history);
-	const userPrompt = [
+	const sections = [
 		'## Run metadata',
 		renderRunHeader(runInfo),
 		'',
@@ -260,7 +282,15 @@ async function main() {
 		'',
 		'---',
 		'Analyze the failures above. Read all referenced screenshots in parallel before writing the report. Output the final markdown report as instructed.',
-	].join('\n');
+	];
+	const oversizedBanner = sections.join('\n').length > PROMPT_WARN_CHARS
+		? `\n> WARNING: This run produced an unusually large evidence bundle (>${Math.round(PROMPT_WARN_CHARS / 1000)}KB of context). Be especially focused -- group related failures aggressively, prefer the most-revealing screenshot per attempt over reading every frame, and keep the report concise.\n`
+		: '';
+	const userPrompt = oversizedBanner ? `${oversizedBanner}\n${sections.join('\n')}` : sections.join('\n');
+
+	if (userPrompt.length > PROMPT_WARN_CHARS) {
+		console.warn(`[analyzer] WARN: prompt size ${userPrompt.length} chars exceeds soft threshold ${PROMPT_WARN_CHARS}. Model may struggle or fail.`);
+	}
 
 	console.log(`[analyzer] WORK_DIR=${WORK_DIR}`);
 	console.log(`[analyzer] model=${MODEL} maxTurns=${MAX_TURNS} claudePath=${CLAUDE_CODE_PATH || '(default)'}`);
