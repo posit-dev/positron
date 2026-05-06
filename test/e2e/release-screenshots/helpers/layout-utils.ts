@@ -148,20 +148,36 @@ export async function waitForStableUI(page: Page, ms = 250): Promise<void> {
  * OS-clamped height. Result: `.monaco-workbench` is shorter than the
  * captured viewport, leaving white space below the rendered parts.
  *
- * Polls window.dispatchEvent('resize') until `.monaco-workbench`'s
- * clientHeight matches the renderer's window.innerHeight (or until a
- * short timeout). When the workbench's grid responds to the resize
- * event, it'll re-call layout() and pick up the new dimensions.
+ * Forces explicit pixel heights on html/body/.monaco-workbench and its
+ * mounting parent, then dispatches a resize event so the workbench's
+ * layout service re-reads parent.clientHeight (now the forced value)
+ * and re-lays-out. Polls until `.monaco-workbench` actually hits the
+ * target height, or until a short timeout.
  */
 export async function forceWorkbenchLayout(page: Page): Promise<void> {
 	await page.evaluate(() => {
+		const targetH = window.innerHeight;
+		const targetW = window.innerWidth;
+
+		// Pin every container in the chain to the renderer viewport so
+		// getClientArea(parent) reads the forced size, not the OS window.
+		const html = document.documentElement;
+		const body = document.body;
+		const wb = document.querySelector('.monaco-workbench') as HTMLElement | null;
+		const wbParent = wb?.parentElement ?? null;
+		for (const el of [html, body, wbParent, wb]) {
+			if (!el) { continue; }
+			el.style.height = `${targetH}px`;
+			el.style.width = `${targetW}px`;
+			el.style.minHeight = `${targetH}px`;
+			el.style.minWidth = `${targetW}px`;
+		}
+
 		return new Promise<void>((resolve) => {
-			const target = window.innerHeight;
 			let attempts = 0;
 			const poll = () => {
-				const wb = document.querySelector('.monaco-workbench') as HTMLElement | null;
 				const h = wb ? wb.clientHeight : 0;
-				if (h >= target - 1 || attempts >= 30) {
+				if (h >= targetH - 1 || attempts >= 30) {
 					resolve();
 					return;
 				}
