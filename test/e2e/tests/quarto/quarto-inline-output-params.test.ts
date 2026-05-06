@@ -6,16 +6,12 @@
 import { join } from 'path';
 import { test, tags } from '../_test.setup';
 
-// The parameters.qmd fixture lives on the `feature/quarto-params` branch of
-// qa-example-content; set `QA_REPO=feature/quarto-params` when running this
-// test until that branch is merged to main.
-
 test.use({
 	suiteId: __filename
 });
 
 test.describe('Quarto - Inline Output: R Params', {
-	tag: [tags.WEB, tags.WIN, tags.QUARTO]
+	tag: [tags.QUARTO]
 }, () => {
 
 	test.beforeAll(async function ({ settings }) {
