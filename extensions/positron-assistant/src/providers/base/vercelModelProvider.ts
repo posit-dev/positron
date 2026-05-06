@@ -7,7 +7,6 @@ import * as vscode from 'vscode';
 import * as ai from 'ai';
 import { ModelProvider } from './modelProvider';
 import { CacheBreakpointProvider, isMaxTokensFinishReason, processMessages, toAIMessage } from '../../utils';
-import { getProviderTimeoutMs } from '../../providerConfig.js';
 import { TokenUsage, recordRequestTokenUsage, recordTokenUsage } from '../../tokens';
 import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers';
 import { getAllModelDefinitions } from '../../modelDefinitions';
@@ -70,24 +69,6 @@ export abstract class VercelModelProvider extends ModelProvider {
 	 * formatting (e.g., image support).
 	 */
 	protected usesChatCompletions: boolean = false;
-
-	/**
-	 * Sends a test message to verify model connectivity.
-	 *
-	 * Uses Vercel AI SDK's `generateText` to send a simple test message
-	 * with timeout and retry logic.
-	 *
-	 * @param modelId - The ID of the model to test
-	 * @returns A promise that resolves to the test response
-	 */
-	protected override async sendTestMessage(modelId: string) {
-		return ai.generateText({
-			model: this.aiProvider(modelId, this.aiOptions),
-			prompt: `I'm checking to see if you're there. Respond only with the word "hello".`,
-			abortSignal: AbortSignal.timeout(getProviderTimeoutMs()),
-			maxRetries: 1,
-		});
-	}
 
 	/**
 	 * Provides a chat response using the Vercel AI SDK.
