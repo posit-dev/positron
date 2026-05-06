@@ -48,7 +48,7 @@ test.describe('Release Screenshots - Welcome Page', () => {
 		);
 		const blocks = scriptContent.split(/\n\n+/).filter((b) => b.trim());
 		for (const block of blocks) {
-			await executeCode('Python', block);
+			await executeCode('Python', block, { maximizeConsole: false });
 		}
 		await plots.waitForCurrentPlot({ timeout: 45_000 });
 
