@@ -1,0 +1,4 @@
+{
+	"displayName": "Positron SQLite Data Connection Driver",
+	"description": "Provides a native SQLite data connection driver for the Data Connections panel."
+}

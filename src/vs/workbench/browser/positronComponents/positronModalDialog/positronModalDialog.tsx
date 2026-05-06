@@ -7,7 +7,7 @@
 import './positronModalDialog.css';
 
 // React.
-import { PropsWithChildren, useEffect, useRef, useState } from 'react';
+import { PropsWithChildren, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
@@ -80,9 +80,9 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 	// State hooks.
 	const [dialogBoxState, setDialogBoxState] = useState(kInitialDialogBoxState);
 
-	// Initialization.
-	useEffect(() => {
-		// Center the dialog box.
+	// Center the dialog box on mount or when dimensions change. useLayoutEffect ensures the
+	// centered position is applied before the browser paints, avoiding a visible flash at 0,0.
+	useLayoutEffect(() => {
 		setDialogBoxState(prevDialogBoxState => {
 			// Update the dialog box state, centering the dialog box.
 			const result: DialogBoxState = {
@@ -94,7 +94,10 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 			// Return the updated dialog box state.
 			return result;
 		});
+	}, [props.width, props.height]);
 
+	// Set up keyboard and resize event handlers.
+	useEffect(() => {
 		// Create a disposable store for the event handlers we'll add.
 		const disposableStore = new DisposableStore();
 
@@ -119,6 +122,7 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 					}
 
 					// Get the first default button that is not disabled. If there is one, click it.
+					// eslint-disable-next-line no-restricted-syntax
 					const defaultButton = dialogBoxRef.current.querySelector<HTMLElement>(
 						'button.default:not([disabled])'
 					);
@@ -139,6 +143,7 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 				// Tab moves between dialog elements. This code works to keep the focus in the dialog.
 				case 'Tab': {
 					// Get the focusable elements.
+					// eslint-disable-next-line no-restricted-syntax
 					const focusableElements = dialogBoxRef.current.querySelectorAll<HTMLElement>(
 						focusableElementSelectors
 					);
@@ -221,7 +226,7 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 
 		// Return the clean up for our event handlers.
 		return () => disposableStore.dispose();
-	}, [props]);
+	}, [props.renderer, props.onCancel, props.width, props.height, props]);
 
 	// Start drag handler.
 	const startDragHandler = () => {

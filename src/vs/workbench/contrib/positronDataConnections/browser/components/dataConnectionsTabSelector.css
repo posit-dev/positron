@@ -1,0 +1,13 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.data-connections-tab-selector {
+	height: 27px;
+	gap: 4px;
+	display: flex;
+	padding: 0 12px;
+	flex-direction: row;
+	border-top: 1px solid var(--vscode-positronActionBar-border);
+}

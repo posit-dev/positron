@@ -18,7 +18,7 @@ export interface ActionBarSeparatorProps {
 
 /**
  * ActionBarSeparator component.
- * @returns The component.
+ * @returns The rendered component.
  */
 export const ActionBarSeparator = (props: ActionBarSeparatorProps) => {
 	// Render.

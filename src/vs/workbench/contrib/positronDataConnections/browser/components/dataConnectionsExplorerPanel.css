@@ -1,0 +1,18 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.data-connections-explorer-panel {
+	flex: 1;
+	display: none;
+}
+
+.data-connections-explorer-panel.active {
+	display: flex;
+	flex-direction: column;
+}
+
+.data-connections-explorer-panel .temporary-label {
+	padding: 8px;
+}
