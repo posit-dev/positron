@@ -96,6 +96,31 @@ export async function unhoverAll(page: Page): Promise<void> {
 }
 
 /**
+ * Hide notification badges (the small red dots / counts) on activity-bar
+ * items. These appear for things like "sign in to GitHub" and shouldn't
+ * leak into release screenshots regardless of which test is running.
+ *
+ * Implemented by injecting a stylesheet so the rule sticks even if the
+ * workbench re-renders the badge after we hide it.
+ */
+export async function hideNotificationBadges(page: Page): Promise<void> {
+	await page.evaluate(() => {
+		const ID = 'release-screenshot-hide-badges';
+		if (document.getElementById(ID)) {
+			return;
+		}
+		const style = document.createElement('style');
+		style.id = ID;
+		style.textContent = `
+			.activitybar .badge,
+			.activitybar .activity-action.has-badge .badge,
+			.part.activitybar .badge { display: none !important; }
+		`;
+		document.head.appendChild(style);
+	});
+}
+
+/**
  * Wait for the workbench to be visually stable. A short fixed wait after
  * `requestAnimationFrame` covers most CSS transitions and async layout reflow.
  *
@@ -111,14 +136,16 @@ export async function waitForStableUI(page: Page, ms = 250): Promise<void> {
  * Standard pre-screenshot cleanup. Composes the smaller helpers in the order
  * that produces a clean, deterministic frame:
  *   1. Hide notification toasts (they cover real UI)
- *   2. Unhover (no spurious hover states)
- *   3. Wait for layout to settle
+ *   2. Hide activity-bar notification badges (e.g. "sign in to GitHub" red dot)
+ *   3. Unhover (no spurious hover states)
+ *   4. Wait for layout to settle
  *
  * Call this immediately before `captureFullWindow` / `capturePanel`. Set up
  * world state with POMs first, then call this once, then capture.
  */
 export async function prepareForScreenshot(app: Application, page: Page): Promise<void> {
 	await hideToasts(app);
+	await hideNotificationBadges(page);
 	await unhoverAll(page);
 	await waitForStableUI(page);
 }
