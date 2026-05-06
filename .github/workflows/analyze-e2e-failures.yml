@@ -1,0 +1,46 @@
+name: "Analyze E2E Failures"
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_url:
+        description: "Full GitHub Actions run URL to analyze"
+        required: true
+        type: string
+      model:
+        description: "Anthropic model"
+        required: false
+        default: "claude-sonnet-4-5"
+        type: string
+
+jobs:
+  analyze:
+    name: analyze
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          # Need .claude/skills/e2e-failure-analyzer/scripts and the action itself.
+          sparse-checkout: |
+            .claude/skills/e2e-failure-analyzer
+            .github/actions/e2e-failure-analyzer
+
+      - name: Load secret
+        uses: 1password/load-secrets-action@v4
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+
+      - name: Run analyzer
+        uses: ./.github/actions/e2e-failure-analyzer
+        with:
+          run-url: ${{ inputs.run_url }}
+          anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
+          e2e-insights-api-key: ${{ secrets.E2E_INSIGHTS_API_KEY }}
+          model: ${{ inputs.model }}
