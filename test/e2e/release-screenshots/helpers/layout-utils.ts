@@ -70,6 +70,13 @@ export async function setScreenshotWindowSize(
 		deviceScaleFactor,
 		mobile: false,
 	});
+
+	// Force a window resize event so the workbench's layout service
+	// recomputes part heights against the new viewport. Without this,
+	// the workbench can stay laid out at the OS-clamped height and the
+	// captured PNG shows empty white space below the bottom panel.
+	await page.evaluate(() => window.dispatchEvent(new Event('resize')));
+	await page.waitForTimeout(100);
 }
 
 /**
