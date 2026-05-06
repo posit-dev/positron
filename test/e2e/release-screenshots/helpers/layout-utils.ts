@@ -34,8 +34,8 @@ export async function setScreenshotWindowSize(
 		return;
 	}
 
-	let width = 1365;
-	let height = 912;
+	let width = 1680;
+	let height = 1050;
 	let deviceScaleFactor = 1;
 	const fromEnv = process.env.POSITRON_SCREENSHOT_VIEWPORT;
 	if (fromEnv && /^\d+,\d+(,\d+(\.\d+)?)?$/.test(fromEnv)) {
@@ -50,32 +50,25 @@ export async function setScreenshotWindowSize(
 		deviceScaleFactor = opts.deviceScaleFactor;
 	}
 
-	const actualBounds = await electronApp.evaluate(async ({ BrowserWindow }, size) => {
+	// Best-effort OS window resize. setSize (rather than setContentSize)
+	// matches the historical config that produced clean 1680x1050 captures
+	// on the same runner. If the OS clamps below this, CDP's metrics
+	// override below renders the page at the requested size internally
+	// and page.screenshot captures the full virtual rendering.
+	const CHROME_HEIGHT_PX = 214;
+	await electronApp.evaluate(async ({ BrowserWindow }, size) => {
 		const win = BrowserWindow.getAllWindows()[0];
-		if (!win) { return null; }
-		win.setContentSize(size.width, size.height);
-		win.center();
-		const b = win.getContentBounds();
-		return { width: b.width, height: b.height };
-	}, { width, height });
+		if (win) {
+			win.setSize(size.width, size.height);
+			win.center();
+		}
+	}, { width, height: height + CHROME_HEIGHT_PX });
 
-	// Use whatever the OS actually gave us so the CDP override matches the
-	// real renderer surface. Without this, a clamped window would produce
-	// white space at the bottom of every screenshot.
-	const effectiveWidth = actualBounds?.width ?? width;
-	const effectiveHeight = actualBounds?.height ?? height;
-	if (actualBounds && (actualBounds.height < height || actualBounds.width < width)) {
-		console.warn(
-			`[setScreenshotWindowSize] OS window content area was clamped to ` +
-			`${actualBounds.width}x${actualBounds.height} (requested ${width}x${height}). ` +
-			`Capturing at the clamped size to avoid white space.`,
-		);
-	}
-
+	// CDP viewport override - always succeeds, regardless of OS window clamp.
 	const session = await page.context().newCDPSession(page);
 	await session.send('Emulation.setDeviceMetricsOverride', {
-		width: effectiveWidth,
-		height: effectiveHeight,
+		width,
+		height,
 		deviceScaleFactor,
 		mobile: false,
 	});
