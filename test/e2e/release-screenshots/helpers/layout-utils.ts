@@ -7,22 +7,8 @@ import { Page } from '@playwright/test';
 import { Application } from '../../infra';
 
 /**
- * Set the screenshot viewport.
- *
- * Sets BOTH the OS window's content area (via Electron's setContentSize)
- * AND the CDP layout viewport (via Emulation.setDeviceMetricsOverride) to
- * the same dimensions. They must match: if the CDP layout viewport is
- * larger than the OS window can actually render, the captured PNG ends
- * up with the renderer's actual content on top and white space below.
- *
- * Defaults to 1024x684 (3:2 aspect ratio, matching the docs references on
- * positron.posit.co and fitting the CI macOS runner's content-area cap).
- * Override with POSITRON_SCREENSHOT_VIEWPORT="W,H" or "W,H,DPR" — local
- * runs use the same default as CI so screenshots look identical.
- *
- * If the OS clamps below the requested size, we log a warning so the
- * mismatch is visible in the test report instead of silently producing
- * white space.
+ * Set the screenshot viewport. Defaults to 1680x1050; override via
+ * `POSITRON_SCREENSHOT_VIEWPORT="W,H"` or `"W,H,DPR"`.
  */
 export async function setScreenshotWindowSize(
 	app: Application,
