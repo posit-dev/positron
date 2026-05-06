@@ -76,7 +76,7 @@ function renderNonE2eFailures(runInfo) {
 	}).join('\n');
 }
 
-function renderProjectFailures(projects) {
+function renderProjectFailures(projects, historyMap) {
 	if (projects.length === 0) { return '(no e2e projects)'; }
 	const out = [];
 	for (const { project, result } of projects) {
@@ -92,6 +92,12 @@ function renderProjectFailures(projects) {
 			out.push(`- Test: ${t.title}`);
 			out.push(`  File: ${t.file}`);
 			out.push(`  Status: ${t.status} (${t.attemptCount} attempt${t.attemptCount === 1 ? '' : 's'})`);
+			const hist = findHistoryFor(historyMap, t.title, t.file);
+			if (hist) {
+				out.push(indent(renderHistoryForTest(hist), '  '));
+			} else if (historyMap.size > 0) {
+				out.push(`  History: no entry for this test (${historyMap.size} tests in history blob)`);
+			}
 			for (let i = 0; i < (t.attempts || []).length; i++) {
 				const a = t.attempts[i];
 				out.push(`  Attempt ${i + 1}:`);
@@ -110,14 +116,71 @@ function renderProjectFailures(projects) {
 	return out.join('\n');
 }
 
+// History keys use forward slashes and a "test/e2e/" prefix; failure `file`
+// fields can be Windows-style (backslashes) and relative to test/e2e. Normalize
+// so the lookup map hits.
+function normalizeSpecPath(file) {
+	let p = String(file || '').replace(/\\/g, '/');
+	if (!p.startsWith('test/e2e/')) {
+		p = `test/e2e/${p}`;
+	}
+	return p;
+}
+
+function buildHistoryByKey(history) {
+	const map = new Map();
+	if (history && Array.isArray(history.tests)) {
+		for (const t of history.tests) {
+			if (t.test_key) { map.set(t.test_key, t); }
+		}
+	}
+	return map;
+}
+
+function findHistoryFor(historyMap, title, file) {
+	if (!historyMap || historyMap.size === 0) { return null; }
+	const key = `${title}|||${normalizeSpecPath(file)}`;
+	return historyMap.get(key) || null;
+}
+
+function renderHistoryForTest(entry) {
+	const h = entry.history || {};
+	const lines = [];
+	const passed = h.pass_count ?? 0;
+	const total = h.total_runs ?? 0;
+	const failRate = h.fail_rate != null ? `${(h.fail_rate * 100).toFixed(0)}%` : '?';
+	const passRate = h.pass_rate != null ? `${(h.pass_rate * 100).toFixed(0)}%` : '?';
+	lines.push(`History (last ${entry.lookback_days || '?'} days, branch ${entry.branch || '?'}):`);
+	lines.push(`  passed ${passed}/${total} (${passRate}), failed ${h.fail_count ?? 0} (${failRate}), flaky ${h.flaky_count ?? 0}, last_status=${h.last_status || '?'}`);
+	if (entry.insight) {
+		const ins = entry.insight;
+		lines.push(`  insight: ${ins.type || '?'}${ins.message ? ` -- "${String(ins.message).slice(0, 80)}"` : ''}${ins.occurrences ? `, ${ins.occurrences} occurrences` : ''}${ins.timing_value ? `, ${ins.timing_label || 'first seen'} ${ins.timing_value}` : ''}`);
+	}
+	if (Array.isArray(entry.environment_breakdown) && entry.environment_breakdown.length) {
+		lines.push('  environments:');
+		for (const e of entry.environment_breakdown) {
+			const er = e.pass_rate != null ? `${(e.pass_rate * 100).toFixed(0)}%` : '?';
+			lines.push(`    ${e.os}/${e.browser}: ${e.passed}/${e.total_runs} (${er}, ${e.failed} failed, ${e.flaky} flaky)`);
+		}
+	}
+	if (Array.isArray(entry.failure_patterns) && entry.failure_patterns.length) {
+		const top = entry.failure_patterns[0];
+		const pct = top.percentage != null ? ` (${(top.percentage * 100).toFixed(0)}%)` : '';
+		lines.push(`  top failure pattern${pct}: "${String(top.pattern || '').replace(/\n/g, ' ').slice(0, 140)}"`);
+	}
+	return lines.join('\n');
+}
+
 function indent(text, prefix) {
 	return String(text).split('\n').map(l => prefix + l).join('\n');
 }
 
-function renderHistory(history) {
+function renderHistorySummary(history, historyMap) {
 	if (!history) { return '(no historical data; e2e-test-insights API unavailable or no key)'; }
 	if (history.error) { return `(history query error: ${history.error})`; }
-	return JSON.stringify(history, null, 2).slice(0, 8000);
+	const total = historyMap.size;
+	if (total === 0) { return '(history blob present but empty)'; }
+	return `Per-test history pre-rendered inline with each failure below. (${total} tests in history blob, lookback ${history.lookback_days || '?'} days, branch ${history.branch || '?'}.)`;
 }
 
 const SYSTEM_PROMPT = `You are an e2e test failure triage analyst for the Positron IDE project. You produce concise, evidence-based markdown reports for GitHub Actions step summaries.
@@ -170,6 +233,7 @@ async function main() {
 	const history = readJsonIfExists(join(WORK_DIR, 'history.json'));
 	const projects = discoverProjectDirs(WORK_DIR);
 
+	const historyMap = buildHistoryByKey(history);
 	const userPrompt = [
 		'## Run metadata',
 		renderRunHeader(runInfo),
@@ -177,11 +241,11 @@ async function main() {
 		'## Non-e2e job failures',
 		renderNonE2eFailures(runInfo),
 		'',
-		'## E2E project failures',
-		renderProjectFailures(projects),
-		'',
 		'## Historical test health (e2e-test-insights)',
-		renderHistory(history),
+		renderHistorySummary(history, historyMap),
+		'',
+		'## E2E project failures',
+		renderProjectFailures(projects, historyMap),
 		'',
 		'---',
 		'Analyze the failures above. Read all referenced screenshots in parallel before writing the report. Output the final markdown report as instructed.',
