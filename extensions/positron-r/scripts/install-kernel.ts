@@ -141,13 +141,28 @@ async function downloadReleaseAsset(assetUrl: string, headers: Record<string, st
 }
 
 /**
+ * Env overrides applied to every subprocess spawned by this script. We use
+ * git's `GIT_CONFIG_*` env vars to mark all directories as safe - CI runners
+ * (especially containerized ones) often have the workspace owned by a
+ * different uid than the one running git, which trips git's "dubious
+ * ownership" check. The env-var form is process-local; it never touches the
+ * user's global git config.
+ */
+const subprocessEnv: NodeJS.ProcessEnv = {
+	...process.env,
+	GIT_CONFIG_COUNT: '1',
+	GIT_CONFIG_KEY_0: 'safe.directory',
+	GIT_CONFIG_VALUE_0: '*',
+};
+
+/**
  * Run a short shell command and capture its output. Use {@link runStreaming}
  * for long-running commands like `cargo build`.
  */
 async function execShort(command: string, cwd?: string): Promise<{ stdout: string; stderr: string }> {
 	const { exec } = require('child_process');
 	return new Promise((resolve, reject) => {
-		exec(command, { cwd }, (error: Error | null, stdout: string, stderr: string) => {
+		exec(command, { cwd, env: subprocessEnv }, (error: Error | null, stdout: string, stderr: string) => {
 			if (error) {
 				reject(error);
 			} else {
