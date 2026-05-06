@@ -105,11 +105,12 @@ jobs:
           POSITRON_R_ALT_VER_SEL: '4.4.2'
           ENABLE_CUSTOM_REPORTER: 'false'
           GH_SUMMARY_REPORT: 'true'
-          # macOS CI runners have a small virtual display — content area
-          # caps around 684px tall. Capture at 1024x684 (3:2 aspect ratio)
-          # to match the docs reference images on positron.posit.co.
-          # Locally, override with a larger value to match your display.
-          POSITRON_SCREENSHOT_VIEWPORT: '1024,684'
+          # 3:2 aspect ratio matches the docs references on positron.posit.co.
+          # The CI runner's content area caps at ~684px tall, so the height
+          # below will get clamped — setScreenshotWindowSize logs a warning
+          # and adopts the actually-clamped size for the CDP override so
+          # the captured PNG has no white space.
+          POSITRON_SCREENSHOT_VIEWPORT: '1365,912'
         run: npx playwright test --project release-screenshots --workers 2
 
       - name: Upload Playwright Report to S3
