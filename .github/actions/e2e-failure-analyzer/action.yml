@@ -97,6 +97,9 @@ runs:
         RUN_INFO="$WORK_DIR/run-info.json"
         RUN_ID=$(jq -r '.runId' "$RUN_INFO")
         BRANCH=$(jq -r '.run.branch // .run.head_branch // "main"' "$RUN_INFO")
+        # The e2e-test-insights API uses a single "positron" repo ID for both
+        # posit-dev/positron and posit-dev/positron-builds (same tests, same
+        # storage) -- do not parameterize this on the source GH repo.
         node "${{ github.workspace }}/.claude/skills/e2e-failure-analyzer/scripts/e2e-query-history.js" \
           --repo positron \
           --run-id "$RUN_ID" \
