@@ -35,6 +35,30 @@ outputs:
 runs:
   using: "composite"
   steps:
+    - name: Bump display resolution
+      shell: bash
+      run: |
+        # The macOS runner's default virtual display is ~1024x768, which
+        # caps our screenshot height at ~684. Bump to 1920x1200 so we can
+        # capture at 1920x1080+ without the OS window being clamped.
+        # Best-effort: if displayplacer or the resolution isn't supported,
+        # warn and continue — captures will fall back to the clamped size.
+        set +e
+        brew install jakehilborn/jakehilborn/displayplacer
+        SCREEN_ID=$(displayplacer list 2>/dev/null | awk '/Persistent screen id/ {print $5; exit}')
+        if [ -z "$SCREEN_ID" ]; then
+          echo "::warning::Could not detect screen id via displayplacer; continuing at default resolution."
+          exit 0
+        fi
+        echo "Detected screen id: $SCREEN_ID"
+        echo "Available modes:"
+        displayplacer list | sed -n '/^Resolutions for screen/,/^$/p'
+        if displayplacer "id:${SCREEN_ID} res:1920x1200 scaling:on origin:(0,0) degree:0"; then
+          echo "Display set to 1920x1200."
+        else
+          echo "::warning::displayplacer failed to set 1920x1200; continuing at default resolution."
+        fi
+
     - name: Setup Node.js
       uses: actions/setup-node@v6
       with:
