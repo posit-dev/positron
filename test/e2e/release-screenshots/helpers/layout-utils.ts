@@ -15,9 +15,10 @@ import { Application } from '../../infra';
  * larger than the OS window can actually render, the captured PNG ends
  * up with the renderer's actual content on top and white space below.
  *
- * Defaults to 1680x1050 unless POSITRON_SCREENSHOT_VIEWPORT="W,H" or
- * "W,H,DPR" overrides. CI macOS runners can only render up to ~684px
- * tall — set the env var to "1680,680" (or similar) for those runs.
+ * Defaults to 1024x684 (3:2 aspect ratio, matching the docs references on
+ * positron.posit.co and fitting the CI macOS runner's content-area cap).
+ * Override with POSITRON_SCREENSHOT_VIEWPORT="W,H" or "W,H,DPR" — local
+ * runs use the same default as CI so screenshots look identical.
  *
  * If the OS clamps below the requested size, we log a warning so the
  * mismatch is visible in the test report instead of silently producing
@@ -33,8 +34,8 @@ export async function setScreenshotWindowSize(
 		return;
 	}
 
-	let width = 1680;
-	let height = 1050;
+	let width = 1024;
+	let height = 684;
 	let deviceScaleFactor = 1;
 	const fromEnv = process.env.POSITRON_SCREENSHOT_VIEWPORT;
 	if (fromEnv && /^\d+,\d+(,\d+(\.\d+)?)?$/.test(fromEnv)) {
