@@ -49,7 +49,7 @@ jobs:
           # On push events, fall back to a fixed test run URL so the workflow
           # exercises end-to-end without manual input. Remove this fallback
           # alongside the push trigger before merging.
-          run-url: ${{ inputs.run_url || 'https://github.com/posit-dev/positron-builds/actions/runs/25207054915' }}
+          run-url: ${{ inputs.run_url || 'https://github.com/posit-dev/positron/actions/runs/25216614544' }}
           anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
           e2e-insights-api-key: ${{ secrets.E2E_INSIGHTS_API_KEY }}
           model: ${{ inputs.model || 'claude-sonnet-4-5' }}
