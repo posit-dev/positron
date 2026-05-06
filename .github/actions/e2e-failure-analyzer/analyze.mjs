@@ -290,15 +290,31 @@ async function main() {
 	}
 
 	const report = pickReport(assistantMessages);
+	const header = renderReportHeader(runInfo);
 	if (!report) {
 		console.error('[analyzer] no markdown report produced');
-		writeStepSummary('## E2E Failure Analysis\n\n_Analyzer produced no report. Check action logs._\n');
+		writeStepSummary(`${header}\n\n## E2E Failure Analysis\n\n_Analyzer produced no report. Check action logs._\n`);
 		process.exit(1);
 	}
 
-	writeStepSummary(report);
-	writeFileSync(join(WORK_DIR, 'analysis-report.md'), report);
-	console.log(`[analyzer] wrote ${report.length} chars to step summary`);
+	const fullReport = `${header}\n\n${report}`;
+	writeStepSummary(fullReport);
+	writeFileSync(join(WORK_DIR, 'analysis-report.md'), fullReport);
+	console.log(`[analyzer] wrote ${fullReport.length} chars to step summary`);
+}
+
+function renderReportHeader(runInfo) {
+	const r = runInfo?.run || {};
+	const c = runInfo?.commit || {};
+	const url = r.html_url || '';
+	const runId = runInfo?.runId || '';
+	const branch = r.branch || r.head_branch || '?';
+	const workflow = r.name || 'workflow';
+	const sha = (r.head_sha || '').slice(0, 8);
+	const subject = (c.message || '').split('\n')[0];
+	const linkText = url ? `[${workflow} run #${runId}](${url})` : `${workflow} run #${runId}`;
+	const commitSegment = sha ? ` -- commit \`${sha}\`${subject ? ` "${subject}"` : ''}` : '';
+	return `> Analyzed ${linkText} on \`${branch}\`${commitSegment}`;
 }
 
 function pickReport(messages) {
