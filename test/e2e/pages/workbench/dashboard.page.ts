@@ -249,14 +249,16 @@ export class DashboardPage {
 			console.log('No "Allow" button found, proceeding...');
 		}
 
-		// Wait for OAuth to complete
-		await page.waitForTimeout(2000);
-
-		// Enable the credential widget if it's in disabled state
+		// Wait for the credential widget to appear in disabled state after OAuth completes
+		// Then click it to enable
 		const disabledWidget = page.locator('[aria-label*="Snowflake"][aria-label*="Disabled"]');
-		const isDisabled = await disabledWidget.isVisible().catch(() => false);
-		if (isDisabled) {
+		try {
+			await expect(disabledWidget).toBeVisible({ timeout: 10000 });
 			await disabledWidget.click();
+			console.log('Clicked disabled widget to enable Snowflake credential');
+		} catch {
+			// Widget might already be enabled or in a different state
+			console.log('Disabled widget not found, checking if already enabled...');
 		}
 
 		// Verify credentials are enabled
