@@ -7,20 +7,21 @@ import { Page } from '@playwright/test';
 import { Application } from '../../infra';
 
 /**
- * Set the renderer viewport for screenshots, decoupled from the OS window.
+ * Set the screenshot viewport.
  *
- * GitHub Actions macOS runners have a virtual display capped around 900px
- * tall, so calling BrowserWindow.setSize(1920, 1294) gets clamped — the
- * captured page area ends up ~684px tall (way wider than the originals on
- * positron.posit.co, which are typically 1920x1080 or 2696x1782 retina).
+ * Sets BOTH the OS window's content area (via Electron's setContentSize)
+ * AND the CDP layout viewport (via Emulation.setDeviceMetricsOverride) to
+ * the same dimensions. They must match: if the CDP layout viewport is
+ * larger than the OS window can actually render, the captured PNG ends
+ * up with the renderer's actual content on top and white space below.
  *
- * Workaround: use Chrome DevTools Protocol's setDeviceMetricsOverride to
- * force the renderer to lay out and screenshot at an arbitrary size and
- * deviceScaleFactor regardless of the OS window. We still resize the OS
- * window best-effort so any code that reads window size sees something
- * sensible.
+ * Defaults to 1680x1050 unless POSITRON_SCREENSHOT_VIEWPORT="W,H" or
+ * "W,H,DPR" overrides. CI macOS runners can only render up to ~684px
+ * tall — set the env var to "1680,680" (or similar) for those runs.
  *
- * Reads POSITRON_SCREENSHOT_VIEWPORT="W,H" or "W,H,DPR". Default 1920x1080@1x.
+ * If the OS clamps below the requested size, we log a warning so the
+ * mismatch is visible in the test report instead of silently producing
+ * white space.
  */
 export async function setScreenshotWindowSize(
 	app: Application,
@@ -32,8 +33,8 @@ export async function setScreenshotWindowSize(
 		return;
 	}
 
-	let width = 1920;
-	let height = 1080;
+	let width = 1680;
+	let height = 1050;
 	let deviceScaleFactor = 1;
 	const fromEnv = process.env.POSITRON_SCREENSHOT_VIEWPORT;
 	if (fromEnv && /^\d+,\d+(,\d+(\.\d+)?)?$/.test(fromEnv)) {
@@ -44,23 +45,10 @@ export async function setScreenshotWindowSize(
 			deviceScaleFactor = parts[2];
 		}
 	}
-	// Per-test override wins over env, useful for capturing a small element
-	// at higher resolution so the docs can scale it.
 	if (opts?.deviceScaleFactor !== undefined) {
 		deviceScaleFactor = opts.deviceScaleFactor;
 	}
 
-	// Force the OS window's CONTENT area to match the desired viewport
-	// exactly. This is critical: CDP's setDeviceMetricsOverride changes
-	// what JS sees for window.innerHeight and getBoundingClientRect, but
-	// the renderer surface itself is still bounded by the OS window's
-	// actual content area. If the OS window is shorter than the override,
-	// the captured PNG contains the rendered top + white space below.
-	//
-	// setContentSize sets the inner (chrome-excluded) dimensions, so we
-	// don't need to hardcode chrome height. If the runner's display can't
-	// fit it, macOS clamps - we log the actual size so the test report
-	// shows the constraint instead of silently producing white space.
 	const actualBounds = await electronApp.evaluate(async ({ BrowserWindow }, size) => {
 		const win = BrowserWindow.getAllWindows()[0];
 		if (!win) { return null; }
@@ -69,40 +57,33 @@ export async function setScreenshotWindowSize(
 		const b = win.getContentBounds();
 		return { width: b.width, height: b.height };
 	}, { width, height });
+
+	// Use whatever the OS actually gave us so the CDP override matches the
+	// real renderer surface. Without this, a clamped window would produce
+	// white space at the bottom of every screenshot.
+	const effectiveWidth = actualBounds?.width ?? width;
+	const effectiveHeight = actualBounds?.height ?? height;
 	if (actualBounds && (actualBounds.height < height || actualBounds.width < width)) {
 		console.warn(
 			`[setScreenshotWindowSize] OS window content area was clamped to ` +
 			`${actualBounds.width}x${actualBounds.height} (requested ${width}x${height}). ` +
-			`Captured PNG may contain white space below the rendered workbench.`,
+			`Capturing at the clamped size to avoid white space.`,
 		);
 	}
 
-	// CDP viewport override — always succeeds, used by page.screenshot.
 	const session = await page.context().newCDPSession(page);
 	await session.send('Emulation.setDeviceMetricsOverride', {
-		width,
-		height,
+		width: effectiveWidth,
+		height: effectiveHeight,
 		deviceScaleFactor,
 		mobile: false,
 	});
-
-	// Force a window resize event so the workbench's layout service
-	// recomputes part heights against the new viewport. Without this,
-	// the workbench can stay laid out at the OS-clamped height and the
-	// captured PNG shows empty white space below the bottom panel.
-	await page.evaluate(() => window.dispatchEvent(new Event('resize')));
-	await page.waitForTimeout(100);
 }
 
 /**
  * Hide any visible notification toasts. Toasts appear from many normal
  * interactions (interpreter started, file opened, etc.) and would otherwise
  * leak into screenshots.
- *
- * Uses the Toasts POM directly rather than the command palette: the
- * `notifications.hideToasts` command works, but routing it through
- * `quickaccess.runCommand` opens the command palette, which restores
- * focus to the primary sidebar on close.
  */
 export async function hideToasts(app: Application): Promise<void> {
 	await app.workbench.toasts.closeAll();
@@ -115,75 +96,6 @@ export async function hideToasts(app: Application): Promise<void> {
  */
 export async function unhoverAll(page: Page): Promise<void> {
 	await page.mouse.move(0, 0);
-}
-
-/**
- * Snapshot the rendered dimensions of every workbench part plus window/body
- * sizes. Returns a serialisable object so callers can `console.log` or
- * attach it to a Playwright report. Used to diagnose layout-mismatch issues
- * (e.g. white space inside the workbench because a part isn't filling).
- */
-export async function captureLayoutDiagnostics(
-	page: Page,
-	app?: Application,
-): Promise<Record<string, unknown>> {
-	let osWindow: { width: number; height: number; chromeHeight: number } | null = null;
-	if (app?.code.electronApp) {
-		osWindow = await app.code.electronApp.evaluate(async ({ BrowserWindow }) => {
-			const win = BrowserWindow.getAllWindows()[0];
-			if (!win) { return null; }
-			const outer = win.getBounds();
-			const inner = win.getContentBounds();
-			return {
-				width: inner.width,
-				height: inner.height,
-				chromeHeight: outer.height - inner.height,
-			};
-		});
-	}
-	return await page.evaluate((osWin) => {
-		const rect = (sel: string) => {
-			const el = document.querySelector(sel);
-			if (!el) { return null; }
-			const r = el.getBoundingClientRect();
-			return {
-				x: Math.round(r.x),
-				y: Math.round(r.y),
-				width: Math.round(r.width),
-				height: Math.round(r.height),
-				bottom: Math.round(r.bottom),
-				right: Math.round(r.right),
-			};
-		};
-		return {
-			osWindow: osWin,
-			window: {
-				innerWidth: window.innerWidth,
-				innerHeight: window.innerHeight,
-				outerWidth: window.outerWidth,
-				outerHeight: window.outerHeight,
-				devicePixelRatio: window.devicePixelRatio,
-			},
-			body: {
-				clientWidth: document.body.clientWidth,
-				clientHeight: document.body.clientHeight,
-			},
-			documentElement: {
-				clientWidth: document.documentElement.clientWidth,
-				clientHeight: document.documentElement.clientHeight,
-			},
-			parts: {
-				workbench: rect('.monaco-workbench'),
-				titlebar: rect('.part.titlebar'),
-				activitybar: rect('.part.activitybar'),
-				sidebar: rect('.part.sidebar'),
-				editor: rect('.part.editor'),
-				auxiliarybar: rect('.part.auxiliarybar'),
-				panel: rect('.part.panel'),
-				statusbar: rect('.part.statusbar'),
-			},
-		};
-	}, osWindow);
 }
 
 /**
@@ -224,88 +136,17 @@ export async function waitForStableUI(page: Page, ms = 250): Promise<void> {
 }
 
 /**
- * Force the workbench to lay out to the renderer's full viewport height.
- *
- * On macOS CI runners the OS window is clamped (~900px tall), and even
- * after CDP `setDeviceMetricsOverride` forces the renderer viewport to
- * 1080, the workbench's layout service can stay laid out at the
- * OS-clamped height. Result: `.monaco-workbench` is shorter than the
- * captured viewport, leaving white space below the rendered parts.
- *
- * Forces explicit pixel heights on html/body/.monaco-workbench and its
- * mounting parent, then dispatches a resize event so the workbench's
- * layout service re-reads parent.clientHeight (now the forced value)
- * and re-lays-out. Polls until `.monaco-workbench` actually hits the
- * target height, or until a short timeout.
- */
-export async function forceWorkbenchLayout(page: Page): Promise<void> {
-	await page.evaluate(() => {
-		const targetH = window.innerHeight;
-		const targetW = window.innerWidth;
-
-		// Pin every container in the chain to the renderer viewport so
-		// getClientArea(parent) reads the forced size, not the OS window.
-		const html = document.documentElement;
-		const body = document.body;
-		const wb = document.querySelector('.monaco-workbench') as HTMLElement | null;
-		const wbParent = wb?.parentElement ?? null;
-		for (const el of [html, body, wbParent, wb]) {
-			if (!el) { continue; }
-			el.style.height = `${targetH}px`;
-			el.style.width = `${targetW}px`;
-			el.style.minHeight = `${targetH}px`;
-			el.style.minWidth = `${targetW}px`;
-		}
-
-		return new Promise<void>((resolve, reject) => {
-			let attempts = 0;
-			const poll = () => {
-				// Use the status bar's actual rendered position as the truth
-				// signal. .monaco-workbench's clientHeight is unreliable here
-				// because we force it via CSS above; what we actually care
-				// about is whether the grid's children fill the viewport.
-				const sb = document.querySelector('.part.statusbar');
-				const sbBottom = sb ? sb.getBoundingClientRect().bottom : 0;
-				if (sbBottom >= targetH - 1) {
-					resolve();
-					return;
-				}
-				if (attempts >= 30) {
-					const wbHeight = wb ? wb.clientHeight : 0;
-					reject(new Error(
-						`forceWorkbenchLayout timed out: status bar bottom at ` +
-						`${sbBottom}px did not reach target ${targetH}px after ` +
-						`${attempts} resize attempts. ` +
-						`workbench.clientHeight=${wbHeight}, ` +
-						`window.innerHeight=${window.innerHeight}, ` +
-						`window.innerWidth=${window.innerWidth}, ` +
-						`body.clientHeight=${document.body.clientHeight}.`,
-					));
-					return;
-				}
-				attempts++;
-				window.dispatchEvent(new Event('resize'));
-				setTimeout(poll, 100);
-			};
-			poll();
-		});
-	});
-}
-
-/**
  * Standard pre-screenshot cleanup. Composes the smaller helpers in the order
  * that produces a clean, deterministic frame:
- *   1. Force the workbench to lay out to the full renderer viewport
- *   2. Hide notification toasts (they cover real UI)
- *   3. Hide activity-bar notification badges (e.g. "sign in to GitHub" red dot)
- *   4. Unhover (no spurious hover states)
- *   5. Wait for layout to settle
+ *   1. Hide notification toasts (they cover real UI)
+ *   2. Hide activity-bar notification badges (e.g. "sign in to GitHub" red dot)
+ *   3. Unhover (no spurious hover states)
+ *   4. Wait for layout to settle
  *
  * Call this immediately before `captureFullWindow` / `capturePanel`. Set up
  * world state with POMs first, then call this once, then capture.
  */
 export async function prepareForScreenshot(app: Application, page: Page): Promise<void> {
-	await forceWorkbenchLayout(page);
 	await hideToasts(app);
 	await hideNotificationBadges(page);
 	await unhoverAll(page);

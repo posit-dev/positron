@@ -7,7 +7,7 @@ import { execSync } from 'child_process';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { test } from '../tests/_test.setup';
-import { capturePanel } from './helpers/screenshot-utils';
+import { captureFullWindow } from './helpers/screenshot-utils';
 import { prepareForScreenshot, setScreenshotWindowSize } from './helpers/layout-utils';
 import { annotate } from './helpers/annotate-utils';
 
@@ -90,6 +90,6 @@ test.describe('Release Screenshots - Layouts', () => {
 			},
 			{ selector: '.part.panel', label: 'Panel', color: '#0d9488' },
 		]);
-		await capturePanel(page.locator('.monaco-workbench'), 'user-interface-for-rstudio-migration.png');
+		await captureFullWindow(page, 'user-interface-for-rstudio-migration.png');
 	});
 });

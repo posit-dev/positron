@@ -105,7 +105,11 @@ jobs:
           POSITRON_R_ALT_VER_SEL: '4.4.2'
           ENABLE_CUSTOM_REPORTER: 'false'
           GH_SUMMARY_REPORT: 'true'
-          POSITRON_SCREENSHOT_VIEWPORT: '1680,1050'
+          # macOS CI runners have a small virtual display — content area
+          # caps around 684px tall. Capture at 1680x680 so the renderer
+          # surface and the CDP override match (no white space).
+          # Locally, override with a larger value to match your display.
+          POSITRON_SCREENSHOT_VIEWPORT: '1680,680'
         run: npx playwright test --project release-screenshots --workers 2
 
       - name: Upload Playwright Report to S3
