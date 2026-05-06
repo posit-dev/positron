@@ -15,6 +15,12 @@ if hash update-mime-database 2>/dev/null; then
 	update-mime-database /usr/share/mime
 fi
 
+# --- Start Positron ---
+# Skip the rest of this file; it attempts to register Microsoft repositories
+# which aren't needed for Positron.
+exit 0
+# --- End Positron ---
+
 RET=true
 if [ -e '/usr/share/debconf/confmodule' ]; then
 	. /usr/share/debconf/confmodule
