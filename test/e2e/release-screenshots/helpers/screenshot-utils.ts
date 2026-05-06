@@ -18,11 +18,21 @@ function outputPath(filename: string): string {
 /**
  * Capture the entire Electron window and write it to the output folder.
  * Used for full-app shots like the Welcome page.
+ *
+ * Reads the renderer's reported viewport size and passes it as an explicit
+ * clip. Without a clip, page.screenshot captures at the OS window's
+ * actual render-surface size — which on CI macOS runners is shorter than
+ * the CDP-forced viewport, producing white space. With a clip, CDP forces
+ * the renderer to lay out the clip region at the requested size.
  */
 export async function captureFullWindow(page: Page, filename: string): Promise<void> {
+	const { width, height } = await page.evaluate(() => ({
+		width: window.innerWidth,
+		height: window.innerHeight,
+	}));
 	await page.screenshot({
 		path: outputPath(filename),
-		fullPage: false,
+		clip: { x: 0, y: 0, width, height },
 	});
 }
 
