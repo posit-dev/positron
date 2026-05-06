@@ -50,17 +50,32 @@ export async function setScreenshotWindowSize(
 		deviceScaleFactor = opts.deviceScaleFactor;
 	}
 
-	// Best-effort OS window resize so the chrome (title bar etc.) layout looks
-	// right; if the runner's display can't accommodate, macOS clamps and the
-	// CDP override below picks up the slack.
-	const CHROME_HEIGHT_PX = 214;
-	await electronApp.evaluate(async ({ BrowserWindow }, size) => {
+	// Force the OS window's CONTENT area to match the desired viewport
+	// exactly. This is critical: CDP's setDeviceMetricsOverride changes
+	// what JS sees for window.innerHeight and getBoundingClientRect, but
+	// the renderer surface itself is still bounded by the OS window's
+	// actual content area. If the OS window is shorter than the override,
+	// the captured PNG contains the rendered top + white space below.
+	//
+	// setContentSize sets the inner (chrome-excluded) dimensions, so we
+	// don't need to hardcode chrome height. If the runner's display can't
+	// fit it, macOS clamps - we log the actual size so the test report
+	// shows the constraint instead of silently producing white space.
+	const actualBounds = await electronApp.evaluate(async ({ BrowserWindow }, size) => {
 		const win = BrowserWindow.getAllWindows()[0];
-		if (win) {
-			win.setSize(size.width, size.height);
-			win.center();
-		}
-	}, { width, height: height + CHROME_HEIGHT_PX });
+		if (!win) { return null; }
+		win.setContentSize(size.width, size.height);
+		win.center();
+		const b = win.getContentBounds();
+		return { width: b.width, height: b.height };
+	}, { width, height });
+	if (actualBounds && (actualBounds.height < height || actualBounds.width < width)) {
+		console.warn(
+			`[setScreenshotWindowSize] OS window content area was clamped to ` +
+			`${actualBounds.width}x${actualBounds.height} (requested ${width}x${height}). ` +
+			`Captured PNG may contain white space below the rendered workbench.`,
+		);
+	}
 
 	// CDP viewport override — always succeeds, used by page.screenshot.
 	const session = await page.context().newCDPSession(page);
@@ -108,8 +123,25 @@ export async function unhoverAll(page: Page): Promise<void> {
  * attach it to a Playwright report. Used to diagnose layout-mismatch issues
  * (e.g. white space inside the workbench because a part isn't filling).
  */
-export async function captureLayoutDiagnostics(page: Page): Promise<Record<string, unknown>> {
-	return await page.evaluate(() => {
+export async function captureLayoutDiagnostics(
+	page: Page,
+	app?: Application,
+): Promise<Record<string, unknown>> {
+	let osWindow: { width: number; height: number; chromeHeight: number } | null = null;
+	if (app?.code.electronApp) {
+		osWindow = await app.code.electronApp.evaluate(async ({ BrowserWindow }) => {
+			const win = BrowserWindow.getAllWindows()[0];
+			if (!win) { return null; }
+			const outer = win.getBounds();
+			const inner = win.getContentBounds();
+			return {
+				width: inner.width,
+				height: inner.height,
+				chromeHeight: outer.height - inner.height,
+			};
+		});
+	}
+	return await page.evaluate((osWin) => {
 		const rect = (sel: string) => {
 			const el = document.querySelector(sel);
 			if (!el) { return null; }
@@ -124,9 +156,12 @@ export async function captureLayoutDiagnostics(page: Page): Promise<Record<strin
 			};
 		};
 		return {
+			osWindow: osWin,
 			window: {
 				innerWidth: window.innerWidth,
 				innerHeight: window.innerHeight,
+				outerWidth: window.outerWidth,
+				outerHeight: window.outerHeight,
 				devicePixelRatio: window.devicePixelRatio,
 			},
 			body: {
@@ -148,7 +183,7 @@ export async function captureLayoutDiagnostics(page: Page): Promise<Record<strin
 				statusbar: rect('.part.statusbar'),
 			},
 		};
-	});
+	}, osWindow);
 }
 
 /**

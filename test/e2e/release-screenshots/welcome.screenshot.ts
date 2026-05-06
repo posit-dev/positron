@@ -72,7 +72,7 @@ test.describe('Release Screenshots - Welcome Page', () => {
 		// Diagnostic: dump every part's bounding rect right before capture so
 		// the Playwright report shows where any white space lives. Remove this
 		// once the layout-mismatch issue is solved.
-		const diagnostics = await captureLayoutDiagnostics(page);
+		const diagnostics = await captureLayoutDiagnostics(page, app);
 		await test.info().attach('layout-diagnostics.json', {
 			body: JSON.stringify(diagnostics, null, 2),
 			contentType: 'application/json',
