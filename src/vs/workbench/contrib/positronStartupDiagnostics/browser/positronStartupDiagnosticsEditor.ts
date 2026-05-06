@@ -43,7 +43,7 @@ import * as perf from '../../../../base/common/performance.js';
 export const EXTENSION_HOST_TIMEOUT_CONFIG_KEY = 'startupDiagnostics.timeout';
 
 /** Default value (ms) for {@link EXTENSION_HOST_TIMEOUT_CONFIG_KEY}. */
-export const EXTENSION_HOST_TIMEOUT_DEFAULT_MS = 5000;
+export const EXTENSION_HOST_TIMEOUT_DEFAULT_MS = 10000;
 
 export class PositronStartupDiagnosticsContrib implements IDisposable {
 
