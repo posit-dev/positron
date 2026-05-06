@@ -439,6 +439,17 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	}
 
 	/**
+	 * Activates the row at the cursor by toggling its expansion. Called by DataGridWaffle
+	 * when the user presses Enter while a row is focused.
+	 */
+	override async onEnterKey(): Promise<void> {
+		// Only allow toggle if summary stats are supported for this column.
+		if (this.canToggleColumnExpansion(this.cursorRowIndex)) {
+			await this.toggleExpandColumn(this.cursorRowIndex);
+		}
+	}
+
+	/**
 	 * Gets the column schema for the specified column index.
 	 * @param columnIndex The column index.
 	 * @returns The column schema for the specified column index

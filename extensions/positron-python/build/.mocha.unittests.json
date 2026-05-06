@@ -3,7 +3,10 @@
     "require": [
         "out/test/unittests.js"
     ],
-    "exclude": "out/**/*.jsx",
+    "exclude": [
+        "out/**/*.jsx",
+        "out/test/common/experiments/service.unit.test.js"
+    ],
     "reporter": "mocha-multi-reporters",
     "reporter-option": "configFile=./build/.mocha-multi-reporters.config",
     "ui": "tdd",

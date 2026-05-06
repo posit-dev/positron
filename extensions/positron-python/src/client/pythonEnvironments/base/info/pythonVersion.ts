@@ -238,9 +238,7 @@ function compareVersionRelease(left: PythonVersion, right: PythonVersion): [numb
  *  Upstream has deprecated, but do not remove.
  * // --- End Positron ---
  */
-export function toSemverLikeVersion(
-    version: PythonVersion,
-): {
+export function toSemverLikeVersion(version: PythonVersion): {
     raw: string;
     major: number;
     minor: number;

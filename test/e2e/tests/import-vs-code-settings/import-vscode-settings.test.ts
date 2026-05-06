@@ -97,7 +97,7 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS] }, () => {
 			await expect(testSettingLocator).toHaveCount(1);
 		});
 
-		test('Verify diff displays and accepted settings are saved', { tag: [tags.WIN] }, async ({ app, page, hotKeys }) => {
+		test('Verify diff displays and accepted settings are saved', async ({ app, page, hotKeys }) => {
 			const { toasts } = app.workbench;
 
 			// import settings and verify diff displays

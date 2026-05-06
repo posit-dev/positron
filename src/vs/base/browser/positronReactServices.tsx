@@ -29,6 +29,7 @@ import { IContextMenuService } from '../../platform/contextview/browser/contextV
 import { IEditorService } from '../../workbench/services/editor/common/editorService.js';
 import { INotificationService } from '../../platform/notification/common/notification.js';
 import { IConfigurationService } from '../../platform/configuration/common/configuration.js';
+import { IStorageService } from '../../platform/storage/common/storage.js';
 import { IAccessibilityService } from '../../platform/accessibility/common/accessibility.js';
 import { IInstantiationService, ServiceIdentifier } from '../../platform/instantiation/common/instantiation.js';
 import { ILanguageModelsService } from '../../workbench/contrib/chat/common/languageModels.js';
@@ -55,6 +56,7 @@ import { IPositronVariablesService } from '../../workbench/services/positronVari
 import { IPositronConnectionsService } from '../../workbench/services/positronConnections/common/interfaces/positronConnectionsService.js';
 import { IPositronWebviewPreloadService } from '../../workbench/services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { IPositronNotebookOutputWebviewService } from '../../workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService.js';
+import { IPositronDataConnectionsService } from '../../workbench/services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 import { IPositronDataExplorerService } from '../../workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { ILanguageFeaturesService } from '../../editor/common/services/languageFeatures.js';
 import { ILanguageConfigurationService } from '../../editor/common/languages/languageConfigurationRegistry.js';
@@ -116,6 +118,7 @@ export class PositronReactServices {
 		@IPositronAssistantService public readonly positronAssistantService: IPositronAssistantService,
 		@IPositronConnectionsService public readonly positronConnectionsService: IPositronConnectionsService,
 		@IPositronConsoleService public readonly positronConsoleService: IPositronConsoleService,
+		@IPositronDataConnectionsService public readonly positronDataConnectionsService: IPositronDataConnectionsService,
 		@IPositronDataExplorerService public readonly positronDataExplorerService: IPositronDataExplorerService,
 		@IPositronHelpService public readonly positronHelpService: IPositronHelpService,
 		@IPositronMemoryUsageService public readonly positronMemoryUsageService: IPositronMemoryUsageService,
@@ -134,6 +137,7 @@ export class PositronReactServices {
 		@IQuickInputService public readonly quickInputService: IQuickInputService,
 		@IRuntimeSessionService public readonly runtimeSessionService: IRuntimeSessionService,
 		@IRuntimeStartupService public readonly runtimeStartupService: IRuntimeStartupService,
+		@IStorageService public readonly storageService: IStorageService,
 		@ITerminalService public readonly terminalService: ITerminalService,
 		@ITextModelService public readonly textModelService: ITextModelService,
 		@IThemeService public readonly themeService: IThemeService,

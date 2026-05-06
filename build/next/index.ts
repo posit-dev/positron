@@ -244,7 +244,11 @@ const commonResourcePatterns = [
 	'vs/editor/common/languages/injections/*.scm',
 
 	// SVGs referenced from CSS (needed for transpile/dev builds where CSS is copied as-is)
-	'vs/workbench/browser/media/code-icon.svg',
+	// --- Start Positron ---
+	// Broaden to all workbench/browser/media SVGs so positron-header*.svg and
+	// positron-icon.svg ship alongside code-icon.svg.
+	'vs/workbench/browser/media/*.svg',
+	// --- End Positron ---
 	'vs/workbench/browser/parts/editor/media/letterpress*.svg',
 	'vs/sessions/contrib/chat/browser/media/*.svg'
 ];
@@ -252,6 +256,11 @@ const commonResourcePatterns = [
 // Resources for desktop target
 const desktopResourcePatterns = [
 	...commonResourcePatterns,
+
+	// --- Start Positron ---
+	// Positron Help welcome/help HTML loaded by positronHelpService at runtime.
+	'vs/workbench/contrib/positronHelp/browser/resources/*.html',
+	// --- End Positron ---
 
 	// HTML
 	'vs/code/electron-browser/workbench/workbench.html',
@@ -329,6 +338,11 @@ const serverWebResourcePatterns = [
 	...serverResourcePatterns,
 	...commonResourcePatterns,
 
+	// --- Start Positron ---
+	// Positron Help welcome/help HTML loaded by positronHelpService at runtime.
+	'vs/workbench/contrib/positronHelp/browser/resources/*.html',
+	// --- End Positron ---
+
 	// Web HTML
 	'vs/code/browser/workbench/workbench.html',
 	'vs/code/browser/workbench/workbench-dev.html',
@@ -355,6 +369,11 @@ const serverWebResourcePatterns = [
 // Resources for standalone web target (browser-only, no server)
 const webResourcePatterns = [
 	...commonResourcePatterns,
+
+	// --- Start Positron ---
+	// Positron Help welcome/help HTML loaded by positronHelpService at runtime.
+	'vs/workbench/contrib/positronHelp/browser/resources/*.html',
+	// --- End Positron ---
 
 	// Web HTML
 	'vs/code/browser/workbench/workbench.html',

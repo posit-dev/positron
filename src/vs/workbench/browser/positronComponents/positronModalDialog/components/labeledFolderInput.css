@@ -25,7 +25,7 @@
 	border-radius: 4px;
 	color: var(--vscode-positronModalDialog-buttonForeground);
 	background: var(--vscode-positronModalDialog-buttonBackground);
-	border: 1px solid var(--vscode-positronModalDialog-buttonBorder);
+	border: 1px solid var(--vscode-button-border);;
 }
 
 .positron-modal-dialog-box

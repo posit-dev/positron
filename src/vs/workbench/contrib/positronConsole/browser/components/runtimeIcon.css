@@ -7,25 +7,54 @@
 	display: inline-flex;
 	align-items: center;
 	flex-shrink: 0;
-	width: 20px;
-	height: 20px;
+	line-height: 22px;
 }
 
 /**
  * File icon themes scope all their CSS to `.show-file-icons`.
- * Without this class nothing renders. Each surface using RuntimeIcon
- * has to add the class to its container.
+ * Without this class nothing renders. Each surface using
+ * RuntimeIcon has to add the class to its container.
  *
- * The sizing strategy used here matches IconLabel (see iconLabel.css)
- * so Seti font glyphs and language-contributed SVGs end up the same
- * visual size.
+ * Mirror IconLabel (iconLabel.css) so the icon renderes
+ * identically to the file explorer, breadcrumbs, and editor tabs
+ * across all themes.
  */
 .show-file-icons .runtime-session-icon::before {
-	display: inline-block;
-	font-size: 20px !important; /* override the show-file-icons default font size */
-	line-height: 20px;
 	background-size: 16px;
 	background-position: left center;
 	background-repeat: no-repeat;
+	width: 16px;
+	height: 22px;
+	line-height: inherit !important;
+	display: inline-block;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	vertical-align: top;
 	flex-shrink: 0;
+}
+
+/**
+ * Seti glyphs draw offset-right within the em quad, leaving visible empty
+ * space on the left of the icon between the parent's padding edge and the
+ * painted glyph. To compensate, we pull the entire icon left via margin-left,
+ * which visually centers Seti icons within the padded area of the console tab
+ * list and session picker.
+ */
+.runtime-session-icon.seti-icon-theme-active {
+	margin-left: -5px;
+}
+
+/**
+ * Seti renders its language glyphs offset-right within the em quad. Seti has no
+ * `.qmd` rule, so `.qmd` files fall through to the Quarto extension's SVG
+ * (centered SVG), which does not look vertically aligned with other Seti glyphs
+ * in the console tab list and session picker. To fix this we shift the  SVG right
+ * to match Seti's visual center.
+ *
+ * Scoped to `.qmd` only (not `.quarto-lang-file-icon`) because Seti DOES map
+ * `.rmd` to an R glyph. Those files render via Seti's font and are already
+ * right-aligned, so applying the shim would over-shift them.
+ */
+.runtime-session-icon.seti-icon-theme-active.qmd-ext-file-icon::before {
+	transform: translateX(2px);
 }

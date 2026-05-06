@@ -15,13 +15,14 @@
 (function () {
 	'use strict';
 
+	const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+
 	/**
 	 * Check if the keyboard event matches a shortcut that should be forwarded to VS Code.
 	 * @param {KeyboardEvent} e
 	 * @returns {boolean}
 	 */
 	function shouldForwardToVSCode(e) {
-		const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
 		const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
 
 		// Command Palette: Cmd/Ctrl+Shift+P
@@ -115,6 +116,25 @@
 	 * @param {KeyboardEvent} e
 	 */
 	function handleKeyDown(e) {
+		// On macOS, Electron's menu accelerators for Cmd+C (role: 'copy') and
+		// Cmd+A (sendActionToFirstResponder('selectAll:')) consume the
+		// OS-level commands before Chromium can synthesize the corresponding
+		// events inside this nested cross-origin iframe, so PDF.js's
+		// text-layer listeners never fire on their own. execCommand triggers
+		// the events synchronously here, sidestepping the menu accelerator
+		// path. Other platforms route the keystrokes through Chromium
+		// normally and don't need this workaround.
+		if (isMac && e.metaKey && !e.shiftKey && !e.altKey) {
+			if (e.code === 'KeyC') {
+				document.execCommand('copy');
+				return;
+			}
+			if (e.code === 'KeyA') {
+				document.execCommand('selectAll');
+				return;
+			}
+		}
+
 		if (shouldForwardToVSCode(e)) {
 			// Prevent PDF.js from handling this shortcut
 			e.preventDefault();

@@ -60,6 +60,7 @@ vsix-cache/
 product.json.backup
 *.lic
 .superset/
+test/e2e/release-screenshots/output/
 # --- End Positron ---
 test-output.json
 test/componentFixtures/.screenshots/*

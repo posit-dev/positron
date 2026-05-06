@@ -61,9 +61,12 @@ test.describe('Positron Notebooks: Scroll Position', {
 		const middleCellIndex = Math.floor(await notebooksPositron.cell.count() / 2);
 		await notebooksPositron.cell.nth(middleCellIndex).scrollIntoViewIfNeeded();
 
-		// Capture the scroll position
-		const scrollTopBefore = await notebooksPositron.getScrollTop();
-		expect(scrollTopBefore).toBeGreaterThan(0);
+		// Capture the scroll anchor (first visible cell + offset within viewport).
+		// Cells above can re-render with slightly different heights after reload,
+		// shifting scrollTop without changing what the user sees -- so compare the
+		// anchor that restoration actually preserves, not the raw scrollTop.
+		const anchorBefore = await notebooksPositron.getScrollAnchor();
+		expect(anchorBefore).not.toBeNull();
 
 		// Reload the window
 		await hotKeys.reloadWindow(true);
@@ -71,13 +74,18 @@ test.describe('Positron Notebooks: Scroll Position', {
 		// Wait for the notebook to be visible again after reload
 		await notebooksPositron.expectToBeVisible();
 
-		// Verify the scroll position is restored.
+		// Wait for cells to actually render -- expectToBeVisible() only waits for
+		// the container, not its children. On slower CI envs the tab restore can
+		// take longer than the scroll-comparison timeout below.
+		await expect.poll(() => notebooksPositron.cell.count(), { timeout: 30000 }).toBeGreaterThan(0);
+
+		// Verify the same cell is first-visible at the same offset.
 		await expect.poll(async () => {
-			const scrollTop = await notebooksPositron.getScrollTop();
-			return Math.abs(scrollTop - scrollTopBefore);
-			// Allow a small delta here. For unknown reasons, we can't yet match it
-			// excactly after a window reload. Should not significantly affect the
-			// user experience.
+			const anchorAfter = await notebooksPositron.getScrollAnchor();
+			if (!anchorAfter || anchorAfter.cellIndex !== anchorBefore!.cellIndex) {
+				return Number.POSITIVE_INFINITY;
+			}
+			return Math.abs(anchorAfter.offsetFromTop - anchorBefore!.offsetFromTop);
 		}, { timeout: 5000 }).toBeLessThanOrEqual(50);
 	});
 });

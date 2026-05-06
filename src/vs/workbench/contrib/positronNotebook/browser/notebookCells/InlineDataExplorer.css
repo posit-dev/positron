@@ -63,6 +63,12 @@ with the Quarto-style overlay layout. */
 	min-width: 0;
 }
 
+.inline-data-explorer-header-actions {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
 .inline-data-explorer-title {
 	font-weight: 500;
 	color: var(--vscode-foreground);
