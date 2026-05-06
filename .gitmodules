@@ -1,3 +1,0 @@
-[submodule "extensions/positron-copilot-chat"]
-	path = extensions/positron-copilot-chat
-	url = https://github.com/posit-dev/positron-copilot-chat.git

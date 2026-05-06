@@ -132,15 +132,6 @@
 			"problemMatcher": []
 		},
 		{
-			"label": "compile positron-copilot-chat",
-			"type": "shell",
-			"command": "git submodule update --init --recursive && cd extensions/positron-copilot-chat && npm i && npm run compile",
-			"options": {
-				"cwd": "${workspaceFolder}"
-			},
-			"problemMatcher": [],
-		},
-		{
 			"type": "npm",
 			"script": "kill-watch-client-transpiled",
 			"label": "Kill Core - Transpile",
