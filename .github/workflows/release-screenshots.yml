@@ -1,23 +1,36 @@
 name: "Release Screenshots"
 
-# Single source of truth for both the nightly and publish flows.
-# Callers: release-screenshots-nightly.yml, release-screenshots-publish.yml.
+# Cron triggers nightly mode automatically (compare-only). Manual dispatch
+# can pick publish mode to open a PR in posit-dev/positron-website with
+# changed images.
+
+run-name: "${{ inputs.mode == 'publish' && 'Publish' || 'Nightly' }}: Release Screenshots"
 
 on:
-  workflow_call:
+  workflow_dispatch:
     inputs:
       mode:
-        description: "'nightly' (compare only) or 'publish' (open PR if changes)"
-        type: string
-        required: true
+        description: "Mode"
+        type: choice
+        options:
+          - nightly
+          - publish
+        default: nightly
       version:
-        description: "Positron version. Pass a tag, 'latest-prerelease', or 'latest-release'."
+        description: "Positron version. Pass a tag, 'latest-prerelease' (default for nightly), or 'latest-release' (typical for publish)."
         type: string
-        required: true
+        default: latest-prerelease
       dry_run:
-        description: "Publish mode only: skip opening the PR even if there are changes."
+        description: "Publish only: skip opening the PR even if there are changes."
         type: boolean
         default: false
+  schedule:
+    - cron: '0 9 * * 1-5'  # 09:00 UTC, Mon-Fri (uses input defaults: mode=nightly, version=latest-prerelease)
+
+concurrency:
+  # Separate groups per mode so a publish run doesn't cancel an in-flight nightly.
+  group: release-screenshots-${{ inputs.mode || 'nightly' }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
