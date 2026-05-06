@@ -181,8 +181,6 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 				md.blank();
 				this._addSystemInfo(md);
 				md.blank();
-				this._addExtensionHostStatus(md);
-				md.blank();
 				this._addAffiliatedRuntimes(md);
 				md.blank();
 				this._addActiveRuntimes(md);
@@ -202,6 +200,8 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 				await this._addSessionLaunchInfo(md);
 				md.blank();
 				this._addDiscoveredRuntimes(md);
+				md.blank();
+				this._addExtensionHostStatus(md);
 				md.blank();
 				await this._addOutputChannels(md);
 
