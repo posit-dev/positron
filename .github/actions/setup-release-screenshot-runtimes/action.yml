@@ -87,7 +87,9 @@ runs:
         ALT_VERSION=$("$ALT_PYTHON" --version | awk '{print $2}')
         echo "python-version=$ALT_VERSION" >> "$GITHUB_OUTPUT"
         # Install ipykernel into the alt Python so it's discoverable by Positron.
-        "$ALT_PYTHON" -m pip install ipykernel
+        # uv-managed Pythons are PEP 668 externally-managed, so pip install
+        # needs --break-system-packages to write into site-packages.
+        "$ALT_PYTHON" -m pip install --break-system-packages ipykernel
 
     - name: Install rig
       shell: bash
