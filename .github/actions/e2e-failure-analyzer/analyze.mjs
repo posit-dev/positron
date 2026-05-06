@@ -16,15 +16,15 @@ import { join } from 'node:path';
 const WORK_DIR = mustEnv('WORK_DIR');
 const MODEL = process.env.MODEL || 'claude-sonnet-4-5';
 const STEP_SUMMARY = process.env.GITHUB_STEP_SUMMARY;
-const MAX_TURNS = Number(process.env.MAX_TURNS || 40);
+const MAX_TURNS = parsePosIntEnv('MAX_TURNS', 40);
 // Defensive bounds against pathological runs (many failures x long traces).
 // Per-attempt cap is ~50x the old 12-line truncation -- never trips on typical
 // tests, prevents 500-action timelines from ballooning the prompt.
-const MAX_TIMELINE_CHARS = Number(process.env.MAX_TIMELINE_CHARS || 30000);
+const MAX_TIMELINE_CHARS = parsePosIntEnv('MAX_TIMELINE_CHARS', 30000);
 // Aggregate soft cap. Sonnet 4.5 has ~600KB of input context; we warn well
 // before that. Exceeding it doesn't fail -- the model handles oversized
 // prompts by failing the request, which we'd see in the action logs anyway.
-const PROMPT_WARN_CHARS = Number(process.env.PROMPT_WARN_CHARS || 400000);
+const PROMPT_WARN_CHARS = parsePosIntEnv('PROMPT_WARN_CHARS', 400000);
 // Workaround for claude-agent-sdk-typescript#296 (resolver picks musl over
 // glibc on Linux): action.yml installs @anthropic-ai/claude-code globally
 // and passes the resolved path here.
@@ -37,6 +37,23 @@ function mustEnv(name) {
 		process.exit(2);
 	}
 	return v;
+}
+
+/**
+ * Parse a positive-integer env var. Falls back to `fallback` (with a logged
+ * warning) for unset, empty, NaN, non-integer, or non-positive values. We
+ * silently accept the fallback rather than crashing because misconfiguring a
+ * defensive bound shouldn't kill the analyzer -- but the user should know.
+ */
+function parsePosIntEnv(name, fallback) {
+	const raw = process.env[name];
+	if (raw === undefined || raw === '') { return fallback; }
+	const n = Number(raw);
+	if (!Number.isInteger(n) || n <= 0) {
+		console.warn(`[analyzer] WARN: invalid ${name}=${raw}, falling back to default ${fallback}`);
+		return fallback;
+	}
+	return n;
 }
 
 function readJsonIfExists(path) {
@@ -198,13 +215,38 @@ function indent(text, prefix) {
  * Cap a per-attempt timeline so a single pathological test can't dominate the
  * prompt. Keeps the head AND tail (failures usually hit the tail; the head
  * shows where the test started) and drops the middle with a marker.
+ *
+ * Guarantees `result.length <= MAX_TIMELINE_CHARS`. Falls back to a hard
+ * truncate (with an ellipsis) if the configured cap is too small for a
+ * meaningful head+tail split.
  */
 function capTimeline(text) {
-	if (text.length <= MAX_TIMELINE_CHARS) { return text; }
-	const half = Math.floor(MAX_TIMELINE_CHARS / 2) - 64;
+	const max = MAX_TIMELINE_CHARS;
+	if (text.length <= max) { return text; }
+
+	// Reserve a generous fixed budget for the elision marker. The marker is
+	// `\n\n[... N chars elided to fit prompt budget ...]\n\n` where N's digit
+	// count is bounded by realistic input sizes; 80 chars covers up to ~10^20.
+	const MARKER_RESERVE = 80;
+
+	if (max <= MARKER_RESERVE + 2) {
+		// Cap is so small there's no room for head + tail + marker. Hard truncate.
+		const ellipsis = '...';
+		if (max <= ellipsis.length) { return text.slice(0, max); }
+		return text.slice(0, max - ellipsis.length) + ellipsis;
+	}
+
+	const half = Math.floor((max - MARKER_RESERVE) / 2);
 	const head = text.slice(0, half);
 	const tail = text.slice(-half);
-	return `${head}\n\n[... ${text.length - 2 * half} chars elided to fit prompt budget ...]\n\n${tail}`;
+	const elided = Math.max(0, text.length - 2 * half);
+	const marker = `\n\n[... ${elided} chars elided to fit prompt budget ...]\n\n`;
+
+	let result = head + marker + tail;
+	// Hard guard: if the marker exceeded MARKER_RESERVE (e.g. astronomical input
+	// size with many digits), trim from the tail rather than blowing the budget.
+	if (result.length > max) { result = result.slice(0, max); }
+	return result;
 }
 
 function renderHistorySummary(history, historyMap) {
