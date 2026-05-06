@@ -111,11 +111,21 @@ function renderProjectFailures(projects, historyMap) {
 		out.push(`Hard failures (failed all retries): ${finalFailures.length}`);
 		out.push(`Total failed attempts (incl. flaky recoveries): ${allAttempts.length}`);
 
+		// Pre-compute deterministic severity per test: HARD = appears in result.failures
+		// (failed all retries); FLAKY = only appears in failedTests (recovered on retry).
+		// This must be computed here -- the model will misclassify if asked to count attempts.
+		// Match on (title, basename) since failures.file is a playwright-normalized absolute
+		// path while testDetails.file is project-relative -- but the basenames agree.
+		const hardKeys = new Set(finalFailures.map(f => `${f.title}|||${baseName(f.file)}`));
+
 		const details = result.testDetails || [];
 		for (const t of details) {
+			const key = `${t.title}|||${baseName(t.file)}`;
+			const severity = hardKeys.has(key) ? 'HARD' : 'FLAKY';
 			out.push('');
 			out.push(`- Test: ${t.title}`);
 			out.push(`  File: ${t.file}`);
+			out.push(`  Severity: ${severity} (${severity === 'HARD' ? 'failed all retries' : 'passed on retry'})`);
 			out.push(`  Status: ${t.status} (${t.attemptCount} attempt${t.attemptCount === 1 ? '' : 's'})`);
 			const hist = findHistoryFor(historyMap, t.title, t.file);
 			if (hist) {
@@ -211,6 +221,11 @@ function indent(text, prefix) {
 	return String(text).split('\n').map(l => prefix + l).join('\n');
 }
 
+/** Last path segment, normalized across Windows/Unix separators. */
+function baseName(p) {
+	return String(p || '').replace(/\\/g, '/').split('/').pop() || '';
+}
+
 /**
  * Cap a per-attempt timeline so a single pathological test can't dominate the
  * prompt. Keeps the head AND tail (failures usually hit the tail; the head
@@ -269,7 +284,7 @@ Process:
 - READ THE FULL TRACE TIMELINE in the prompt. The action sequence (selector clicks, navigations, waits) often shows where a test actually went wrong even if the final error points elsewhere. Don't stop at the last action.
 - View error-context markdown files when screenshots and trace timelines are insufficient.
 - Multiple tests failing in the same file/suite usually share a root cause -- group them.
-- A test that failed then passed on retry is flaky. One that failed all retries is a hard failure.
+- The Severity for each test is pre-computed and labeled in the input ("Severity: HARD" or "Severity: FLAKY"). Use that label VERBATIM in your output. Do NOT recompute severity from retry counts, root cause, or history -- the input label is authoritative. A test can have root cause "flaky test" and severity "HARD" simultaneously: that means the test failed all retries on this run AND its history shows it's prone to flaking.
 - Tests tagged \`:soft-fail\` are known flaky.
 - If historical data is provided, use it to distinguish regressions from known flakes:
   - 0% pass rate on one platform but 100% on others = deterministic platform regression, NOT flaky
@@ -286,7 +301,7 @@ Report structure:
 |------|----------|------------|----------|
 | <test name> | <project / OS> | <category> | hard \\| flaky |
 
-Order the rows: **all hard failures first, then all flaky failures**. Within each severity group, keep failures from the same test file adjacent. Non-e2e job failures (unit tests, build failures, etc.) are hard failures by definition -- include them as rows in the hard-failure section with the job name as the test name.
+Order the rows: **all hard-severity failures first, then all flaky-severity failures**. The severity is the label from the input ("Severity: HARD" or "Severity: FLAKY"), not the root cause category. Within each severity group, keep failures from the same test file adjacent. Non-e2e job failures (unit tests, build failures, etc.) are hard severity by definition -- include them as rows in the hard-severity section with the job name as the test name.
 
 ## Detailed Analysis
 
