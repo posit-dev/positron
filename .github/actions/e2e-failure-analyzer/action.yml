@@ -32,6 +32,17 @@ runs:
       working-directory: ${{ github.action_path }}
       run: npm ci --no-audit --no-fund
 
+    - name: Install Claude Code CLI
+      # Workaround for an Agent SDK bug that resolves the musl-variant binary
+      # before the glibc one on Linux runners (claude-agent-sdk-typescript#296).
+      # Installing @anthropic-ai/claude-code globally and pointing the SDK at
+      # it via pathToClaudeCodeExecutable bypasses the buggy resolver.
+      shell: bash
+      run: |
+        npm install -g @anthropic-ai/claude-code
+        echo "CLAUDE_CODE_PATH=$(which claude)" >> "$GITHUB_ENV"
+        claude --version
+
     - name: Prepare working directory
       id: prep
       shell: bash

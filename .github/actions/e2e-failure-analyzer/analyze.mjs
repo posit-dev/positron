@@ -17,6 +17,10 @@ const WORK_DIR = mustEnv('WORK_DIR');
 const MODEL = process.env.MODEL || 'claude-sonnet-4-5';
 const STEP_SUMMARY = process.env.GITHUB_STEP_SUMMARY;
 const MAX_TURNS = Number(process.env.MAX_TURNS || 40);
+// Workaround for claude-agent-sdk-typescript#296 (resolver picks musl over
+// glibc on Linux): action.yml installs @anthropic-ai/claude-code globally
+// and passes the resolved path here.
+const CLAUDE_CODE_PATH = process.env.CLAUDE_CODE_PATH || undefined;
 
 function mustEnv(name) {
 	const v = process.env[name];
@@ -184,7 +188,7 @@ async function main() {
 	].join('\n');
 
 	console.log(`[analyzer] WORK_DIR=${WORK_DIR}`);
-	console.log(`[analyzer] model=${MODEL} maxTurns=${MAX_TURNS}`);
+	console.log(`[analyzer] model=${MODEL} maxTurns=${MAX_TURNS} claudePath=${CLAUDE_CODE_PATH || '(default)'}`);
 	console.log(`[analyzer] projects=${projects.map(p => p.project).join(', ') || '(none)'}`);
 	console.log(`[analyzer] user prompt (${userPrompt.length} chars):\n${userPrompt.slice(0, 4000)}${userPrompt.length > 4000 ? '\n...(truncated)' : ''}`);
 
@@ -200,6 +204,7 @@ async function main() {
 			allowedTools: ['Read', 'Glob', 'Grep'],
 			permissionMode: 'bypassPermissions',
 			maxTurns: MAX_TURNS,
+			...(CLAUDE_CODE_PATH ? { pathToClaudeCodeExecutable: CLAUDE_CODE_PATH } : {}),
 		},
 	})) {
 		if (message.type === 'assistant') {
