@@ -21,7 +21,7 @@ on:
         type: string
         default: latest-prerelease
       open_pr:
-        description: "Publish only: open a PR if there are changes (uncheck for dry run)."
+        description: "Publish mode: open a PR if there are changes. No-op for nightly."
         type: boolean
         default: true
   schedule:
