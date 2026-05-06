@@ -30,7 +30,10 @@ export async function WorkbenchApp(
 		// Workbench: Login to Posit Workbench
 		await app.positWorkbench.auth.signIn();
 		await app.positWorkbench.dashboard.expectHeaderToBeVisible();
-		await app.positWorkbench.dashboard.openSession('qa-example-content');
+
+		// Get the browser context for OAuth flows
+		const context = app.code.driver.currentPage.context();
+		await app.positWorkbench.dashboard.openSession('qa-example-content', context);
 
 		// Wait for Positron to be ready
 		await app.code.driver.currentPage.waitForSelector('.monaco-workbench', { timeout: 60000 });
