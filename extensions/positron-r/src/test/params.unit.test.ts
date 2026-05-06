@@ -167,8 +167,12 @@ suite('buildParamsRCode', () => {
 		);
 	});
 
-	test('returns undefined for malformed YAML', () => {
-		assert.strictEqual(buildParamsRCode('params:\n  : : :'), undefined);
+	test('throws for malformed YAML when a params section is present', () => {
+		assert.throws(() => buildParamsRCode('params:\n  : : :'));
+	});
+
+	test('returns undefined for malformed YAML when no params section is present', () => {
+		assert.strictEqual(buildParamsRCode('title: Hello\n  : : :'), undefined);
 	});
 
 	test('renders YAML date scalars as as.Date()', () => {

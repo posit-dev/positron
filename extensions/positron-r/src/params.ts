@@ -3,12 +3,26 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as path from 'path';
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as yaml from 'js-yaml';
 
 import { LOGGER } from './extension.js';
 import { RSession } from './session.js';
+
+/**
+ * Quarto/RMarkdown params binder for R notebook sessions.
+ *
+ * `rmarkdown::render` and `quarto::render` populate a `params` list in the
+ * global environment from a document's YAML front matter. Positron opens
+ * these documents as notebooks and bypasses the render entry point, so this
+ * module mirrors the binding ourselves: parse the front matter, render the
+ * `params:` block as R code, and assign on the kernel's first Ready state
+ * and on every subsequent save of the bound document. Supports primitives,
+ * dates, arrays, the structured `{value, label, input, choices}` form, and
+ * `!r` / `!expr` expression tags.
+ */
 
 /**
  * Marker produced when js-yaml encounters an `!r` or `!expr` tag.
@@ -162,7 +176,9 @@ function unwrapTopLevelParam(raw: unknown): unknown {
 /**
  * Build the R code that assigns `params` in the global environment based on
  * the `params:` block in a YAML front matter. Returns undefined if the front
- * matter is absent, malformed, or has no `params:` key.
+ * matter is absent or has no `params:` key. Throws when the YAML is malformed
+ * and a `params:` section appears to be present -- callers can ignore the
+ * throw if no params binding is expected.
  */
 export function buildParamsRCode(frontMatterYaml: string | undefined): string | undefined {
 	if (!frontMatterYaml) {
@@ -172,7 +188,12 @@ export function buildParamsRCode(frontMatterYaml: string | undefined): string | 
 	try {
 		parsed = yaml.load(frontMatterYaml, { schema: PARAMS_SCHEMA });
 	} catch (err) {
-		LOGGER.debug(`Skipping params: malformed YAML front matter (${err})`);
+		// Only surface parse errors when the document looks like it intends to
+		// define params. Otherwise we'd complain about every malformed header
+		// even when there's no params binding at stake.
+		if (/^\s*params\s*:/m.test(frontMatterYaml)) {
+			throw err;
+		}
 		return undefined;
 	}
 	if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
@@ -220,19 +241,28 @@ function formatError(err: unknown): string {
 }
 
 /**
+ * Display name for the document type backing a session, derived from the
+ * notebook URI extension. Returns undefined if the session isn't backed by
+ * a Quarto or R Markdown document.
+ */
+function docFlavor(session: RSession): 'Quarto' | 'R Markdown' | undefined {
+	const path = session.metadata.notebookUri?.path.toLowerCase();
+	if (path?.endsWith('.qmd')) {
+		return 'Quarto';
+	}
+	if (path?.endsWith('.rmd')) {
+		return 'R Markdown';
+	}
+	return undefined;
+}
+
+/**
  * Determines whether a session should have `params` bound from the YAML
  * front matter of its associated document.
  */
 function isQuartoOrRmdNotebookSession(session: RSession): boolean {
-	if (session.metadata.sessionMode !== positron.LanguageRuntimeSessionMode.Notebook) {
-		return false;
-	}
-	const uri = session.metadata.notebookUri;
-	if (!uri) {
-		return false;
-	}
-	const path = uri.path.toLowerCase();
-	return path.endsWith('.qmd') || path.endsWith('.rmd');
+	return session.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Notebook
+		&& docFlavor(session) !== undefined;
 }
 
 /**
@@ -263,7 +293,9 @@ export class ParamsBinder implements vscode.Disposable {
 			this._session.onDidChangeRuntimeState(state => {
 				if (state === positron.RuntimeState.Ready) {
 					this._lastFrontMatter = undefined;
-					void this.sync();
+					// Initial bind: the user didn't trigger this, so failures
+					// stay in the log rather than popping a toast.
+					void this.sync(undefined, false);
 				}
 			})
 		);
@@ -271,13 +303,14 @@ export class ParamsBinder implements vscode.Disposable {
 		this._disposables.push(
 			vscode.workspace.onDidSaveTextDocument(doc => {
 				if (doc.uri.toString() === this._session.metadata.notebookUri?.toString()) {
-					void this.sync(doc.getText());
+					// User-initiated save: surface failures as a toast.
+					void this.sync(doc.getText(), true);
 				}
 			})
 		);
 	}
 
-	private async sync(text?: string): Promise<void> {
+	private async sync(text: string | undefined, notifyOnError: boolean): Promise<void> {
 		if (this._disposed) {
 			return;
 		}
@@ -298,12 +331,27 @@ export class ParamsBinder implements vscode.Disposable {
 		}
 
 		const fm = extractFrontMatter(text);
+		// Front matter unchanged since our last attempt -- skip silently. This
+		// also dedups error toasts: a failed attempt records its front matter
+		// here so the same broken header doesn't surface a second notification.
 		if (fm === this._lastFrontMatter) {
 			return;
 		}
 		this._lastFrontMatter = fm;
 
-		const code = buildParamsRCode(fm);
+		let code: string | undefined;
+		try {
+			code = buildParamsRCode(fm);
+		} catch (err) {
+			// YAML parse errors are noisy and hard to interpret out of context;
+			// log them but don't surface a toast. The user already sees the
+			// problem in their editor.
+			LOGGER.warn(
+				`Failed to parse YAML front matter for ${uri.toString()}: ${formatError(err)}\nFront matter:\n${fm}`,
+			);
+			return;
+		}
+
 		if (!code) {
 			return;
 		}
@@ -318,7 +366,25 @@ export class ParamsBinder implements vscode.Disposable {
 				this._session.metadata.sessionId,
 			);
 		} catch (err) {
-			LOGGER.warn(`Failed to bind params for ${uri.toString()}: ${formatError(err)}`);
+			LOGGER.warn(
+				`Failed to bind params for ${uri.toString()}: ${formatError(err)}\nGenerated code:\n${code}`,
+			);
+			if (notifyOnError) {
+				void this.showEvalErrorNotification();
+			}
+		}
+	}
+
+	private async showEvalErrorNotification(): Promise<void> {
+		const flavor = docFlavor(this._session) ?? 'Quarto';
+		const filename = path.basename(this._session.metadata.notebookUri?.path ?? '');
+		const message = flavor === 'Quarto'
+			? vscode.l10n.t('{0}: An error occurred evaluating the Quarto params in the document header.', filename)
+			: vscode.l10n.t('{0}: An error occurred evaluating the R Markdown params in the document header.', filename);
+		const showLog = vscode.l10n.t('Show Log');
+		const choice = await vscode.window.showErrorMessage(message, showLog);
+		if (choice === showLog) {
+			LOGGER.show();
 		}
 	}
 
