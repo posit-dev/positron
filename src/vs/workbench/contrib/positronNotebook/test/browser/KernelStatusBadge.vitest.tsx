@@ -103,7 +103,7 @@ describe('KernelStatusBadge', () => {
 		expect(screen.getByText('Python 3.12')).toBeInTheDocument();
 	});
 
-	it('shows active icon and kernel name when a kernel is first selected (regression: previously showed Disconnected)', () => {
+	it('shows active icon and kernel name when a kernel is first selected', () => {
 		// First kernel selection: runOnChange leaves kernelStatus at Unselected.
 		const kernel = makeKernel('Python 3.12', 'python-3.12');
 		renderBadge(makeInstance(NotebookKernelStatus.Unselected, kernel));

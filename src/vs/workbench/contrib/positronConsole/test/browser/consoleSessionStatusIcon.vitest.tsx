@@ -52,7 +52,7 @@ describe('ConsoleSessionStatusIcon', () => {
 		expect(screen.getByTestId('runtime-status-active')).toBeInTheDocument();
 	});
 
-	it('shows active icon during Restarting (regression: previously showed stale state via PositronConsoleState)', () => {
+	it('shows active icon during Restarting', () => {
 		const { session, emitter } = makeSession(RuntimeState.Idle);
 		rtl.render(<ConsoleSessionStatusIcon positronConsoleInstance={makeInstance(session)} />);
 		act(() => emitter.fire(RuntimeState.Restarting));
