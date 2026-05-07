@@ -13,6 +13,7 @@ import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { IBaseCellEditorOptions } from '../../notebook/browser/notebookBrowser.js';
 import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
 import { RuntimeNotebookKernel } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernel.js';
+import type { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronNotebookEditor } from './IPositronNotebookEditor.js';
 import { IHoverManager } from '../../../../platform/hover/browser/hoverManager.js';
 import { IPositronNotebookContribution } from './positronNotebookExtensions.js';
@@ -187,6 +188,8 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * Observable of the notebook's selected kernel.
 	 */
 	readonly kernel: IObservable<RuntimeNotebookKernel | undefined>;
+
+	readonly runtimeSession: IObservable<ILanguageRuntimeSession | undefined>;
 
 	/**
 	 * State machine that manages cell selection behavior and state.

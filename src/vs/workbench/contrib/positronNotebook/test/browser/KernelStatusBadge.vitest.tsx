@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/// <reference types="vitest/globals" />
+
 import { act, screen } from '@testing-library/react';
 import { URI } from '../../../../../base/common/uri.js';
 import { Emitter } from '../../../../../base/common/event.js';
@@ -17,10 +19,9 @@ import {
 import {
 	ILanguageRuntimeSession,
 	IRuntimeSessionMetadata,
-	IRuntimeSessionService,
-	IRuntimeSessionWillStartEvent,
 } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { KernelStatus, IPositronNotebookInstance } from '../../browser/IPositronNotebookInstance.js';
+import { RuntimeNotebookKernel } from '../../../runtimeNotebookKernel/browser/runtimeNotebookKernel.js';
 import { KernelStatusBadge } from '../../browser/KernelStatusBadge.js';
 import { NotebookInstanceProvider } from '../../browser/NotebookInstanceProvider.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
@@ -30,9 +31,6 @@ import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary
 const NOTEBOOK_URI = URI.file('/tmp/notebook.ipynb');
 
 describe('KernelStatusBadge', () => {
-	const onWillStartSession = new Emitter<IRuntimeSessionWillStartEvent>();
-	let currentSession: ILanguageRuntimeSession | undefined;
-
 	function makeSession(initial: RuntimeState): { session: ILanguageRuntimeSession; emitter: Emitter<RuntimeState> } {
 		const stateEmitter = new Emitter<RuntimeState>();
 		const endEmitter = new Emitter<ILanguageRuntimeExit>();
@@ -48,33 +46,34 @@ describe('KernelStatusBadge', () => {
 		};
 	}
 
-	function makeInstance(kernelStatus: KernelStatus | undefined): IPositronNotebookInstance {
-		const kernelStatusObs = observableValue<KernelStatus | undefined>('test-kernelStatus', kernelStatus);
+	function makeKernel(runtimeName: string, runtimeId: string): RuntimeNotebookKernel {
+		return stubInterface<RuntimeNotebookKernel>({
+			runtime: stubInterface<ILanguageRuntimeMetadata>({ runtimeName, runtimeId }),
+		});
+	}
+
+	function makeInstance(
+		kernelStatus: KernelStatus | undefined,
+		kernel?: RuntimeNotebookKernel,
+		session?: ILanguageRuntimeSession,
+	): IPositronNotebookInstance {
 		return stubInterface<IPositronNotebookInstance>({
 			uri: NOTEBOOK_URI,
-			kernelStatus: kernelStatusObs,
-			kernel: observableValue('test-kernel', undefined),
+			kernelStatus: observableValue<KernelStatus | undefined>('test-kernelStatus', kernelStatus),
+			kernel: observableValue('test-kernel', kernel),
+			runtimeSession: observableValue<ILanguageRuntimeSession | undefined>('test-runtimeSession', session),
 			container: observableValue('test-container', undefined),
 		});
 	}
 
 	const ctx = createTestContainer()
 		.withReactServices()
-		.stub(IRuntimeSessionService, {
-			onWillStartSession: onWillStartSession.event,
-			getNotebookSessionForNotebookUri: (uri: URI) =>
-				currentSession && uri.toString() === NOTEBOOK_URI.toString()
-					? currentSession
-					: undefined,
-		})
 		.stub(ILanguageRuntimeService, {
 			startupPhase: RuntimeStartupPhase.Complete,
 			onDidChangeRuntimeStartupPhase: new Emitter<RuntimeStartupPhase>().event,
 		})
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
-
-	beforeEach(() => { currentSession = undefined; });
 
 	function renderBadge(instance: IPositronNotebookInstance) {
 		return rtl.render(
@@ -96,24 +95,32 @@ describe('KernelStatusBadge', () => {
 		expect(screen.getByText('Discovering Interpreters...')).toBeInTheDocument();
 	});
 
-	it('shows active icon when kernelStatus=Switching', () => {
-		renderBadge(makeInstance(KernelStatus.Switching));
+	it('shows active icon and new kernel name when switching kernels', () => {
+		// Switching after a kernel swap: new kernel selected, no session yet.
+		const newKernel = makeKernel('Python 3.12', 'python-3.12');
+		renderBadge(makeInstance(KernelStatus.Switching, newKernel));
 		expect(screen.getByTestId('runtime-status-active')).toBeInTheDocument();
-		expect(screen.getByText('Switching Kernels...')).toBeInTheDocument();
+		expect(screen.getByText('Python 3.12')).toBeInTheDocument();
+	});
+
+	it('shows active icon and kernel name when a kernel is first selected (regression: previously showed Disconnected)', () => {
+		// First kernel selection: runOnChange leaves kernelStatus at Unselected.
+		const kernel = makeKernel('Python 3.12', 'python-3.12');
+		renderBadge(makeInstance(KernelStatus.Unselected, kernel));
+		expect(screen.getByTestId('runtime-status-active')).toBeInTheDocument();
+		expect(screen.getByText('Python 3.12')).toBeInTheDocument();
 	});
 
 	it('shows idle icon and runtime name when a session is Idle', () => {
 		const { session } = makeSession(RuntimeState.Idle);
-		currentSession = session;
-		renderBadge(makeInstance(undefined));
+		renderBadge(makeInstance(undefined, undefined, session));
 		expect(screen.getByTestId('runtime-status-idle')).toBeInTheDocument();
 		expect(screen.getByText('Python 3.12')).toBeInTheDocument();
 	});
 
 	it('updates display when the session emits state changes', () => {
 		const { session, emitter } = makeSession(RuntimeState.Idle);
-		currentSession = session;
-		renderBadge(makeInstance(undefined));
+		renderBadge(makeInstance(undefined, undefined, session));
 		act(() => emitter.fire(RuntimeState.Restarting));
 		expect(screen.getByTestId('runtime-status-active')).toBeInTheDocument();
 		act(() => emitter.fire(RuntimeState.Idle));
@@ -121,14 +128,10 @@ describe('KernelStatusBadge', () => {
 	});
 
 	it('shows disconnected icon and runtime name when a kernel exits without a switch', () => {
-		const { session } = makeSession(RuntimeState.Idle);
-		currentSession = session;
-		// Simulate the post-end-session model state: session is gone (currentSession = undefined),
-		// but the kernel selection persists and kernelStatus has been set to Exited.
-		currentSession = undefined;
-		const instance = makeInstance(KernelStatus.Exited);
-		renderBadge(instance);
+		// Post-shutdown: session gone, kernel still selected.
+		const kernel = makeKernel('Python 3.12', 'python-3.12');
+		renderBadge(makeInstance(KernelStatus.Exited, kernel));
 		expect(screen.getByTestId('runtime-status-disconnected')).toBeInTheDocument();
-		expect(screen.getByText('Kernel Exited')).toBeInTheDocument();
+		expect(screen.getByText('Python 3.12')).toBeInTheDocument();
 	});
 });

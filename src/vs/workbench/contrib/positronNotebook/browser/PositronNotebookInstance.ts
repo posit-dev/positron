@@ -372,6 +372,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	kernel;
 
+	runtimeSession;
+
 	/**
 	 * Language for the notebook.
 	 */
@@ -503,6 +505,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		const { startupPhase } = this._languageRuntimeService;
 		this.kernelStatus = observableValue<KernelStatus | undefined>('positronNotebookKernelStatus', kernelStatusForStartupPhase(startupPhase));
+		this.runtimeSession = observableValue<ILanguageRuntimeSession | undefined>('positronNotebookRuntimeSession', undefined);
 
 		if (this.kernelStatus.get() === KernelStatus.Discovering) {
 			const d = this._register(new DisposableStore());
@@ -2127,6 +2130,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 
 		this.kernelStatus.set(undefined, undefined);
+		this.runtimeSession.set(session, undefined);
 
 		const disposables = this._runtimeSessionDisposables.value = new DisposableStore();
 
@@ -2134,6 +2138,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._register(session.onDidEndSession(() => {
 			disposables.dispose();
 			this.kernelStatus.set(KernelStatus.Exited, undefined);
+			this.runtimeSession.set(undefined, undefined);
 		}));
 
 		// Listen for runtime state changes to manage session detach during kernel switching

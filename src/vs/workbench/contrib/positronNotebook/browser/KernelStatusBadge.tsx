@@ -13,7 +13,6 @@ import React from 'react';
 import { useNotebookInstance } from './NotebookInstanceProvider.js';
 import { useObservedValue } from './useObservedValue.js';
 import { KernelStatus } from './IPositronNotebookInstance.js';
-import { useNotebookRuntimeSession } from './useNotebookRuntimeSession.js';
 import { useSessionRuntimeState } from '../../positronConsole/browser/components/useSessionRuntimeState.js';
 import { RuntimeStatusIcon } from '../../positronConsole/browser/components/runtimeStatus.js';
 import { runtimeStateToRuntimeStatus, RuntimeStatus } from '../../positronConsole/common/sessionDisplayUtils.js';
@@ -44,7 +43,7 @@ export function KernelStatusBadge() {
 	const services = usePositronReactServicesContext();
 	const languageRuntimeService = services.get(ILanguageRuntimeService);
 
-	const session = useNotebookRuntimeSession(notebookInstance.uri);
+	const session = useObservedValue(notebookInstance.runtimeSession);
 	const runtimeState = useSessionRuntimeState(session);
 	const kernelStatus = useObservedValue(notebookInstance.kernelStatus);
 	const kernel = useObservedValue(notebookInstance.kernel);
@@ -53,18 +52,17 @@ export function KernelStatusBadge() {
 		() => languageRuntimeService.startupPhase,
 	));
 
-	// Display status: prefer the runtime session's state. When no session is
-	// attached, derive from pre-session kernelStatus, then fall back to
-	// "Active" if a kernel was picked and we're waiting for its session.
 	let runtimeStatus: RuntimeStatus;
 	if (runtimeState !== undefined) {
 		runtimeStatus = runtimeStateToRuntimeStatus[runtimeState];
-	} else if (kernelStatus === KernelStatus.Unselected || kernelStatus === KernelStatus.Exited) {
+	} else if (kernelStatus === KernelStatus.Exited) {
 		runtimeStatus = RuntimeStatus.Disconnected;
-	} else if (kernelStatus === KernelStatus.Discovering || kernelStatus === KernelStatus.Switching) {
+	} else if (kernel) {
+		runtimeStatus = RuntimeStatus.Active;
+	} else if (kernelStatus === KernelStatus.Discovering) {
 		runtimeStatus = RuntimeStatus.Active;
 	} else {
-		runtimeStatus = kernel ? RuntimeStatus.Active : RuntimeStatus.Disconnected;
+		runtimeStatus = RuntimeStatus.Disconnected;
 	}
 
 	let label: string;
