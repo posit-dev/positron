@@ -155,7 +155,8 @@ test.describe('Remote SSH', {
 			await sshWorkbench.editor.selectTabAndType(fileName, flaskAppCode);
 			await sshWin.keyboard.press('Enter');
 
-			await sshWorkbench.topActionBar.saveButton.click();
+			// Trigger Save (an untitled file, so this opens the Save As dialog).
+			await sshWin.keyboard.press(process.platform === 'darwin' ? 'Meta+S' : 'Control+S');
 
 			await sshWorkbench.quickInput.waitForQuickInputOpened();
 			await sshWin.keyboard.press('Backspace'); // clear any pre-filled text

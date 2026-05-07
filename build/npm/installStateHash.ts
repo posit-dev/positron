@@ -7,11 +7,37 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import path from 'path';
 import { dirs } from './dirs.ts';
+// --- Start Positron ---
+import * as child_process from 'child_process';
+// --- End Positron ---
 
 export const root = fs.realpathSync.native(path.dirname(path.dirname(import.meta.dirname)));
 export const stateFile = path.join(root, 'node_modules', '.postinstall-state');
 export const stateContentsFile = path.join(root, 'node_modules', '.postinstall-state-contents');
 export const forceInstallMessage = 'Run \x1b[36mnode build/npm/fast-install.ts --force\x1b[0m to force a full install.';
+
+// --- Start Positron ---
+// The ark binary in extensions/positron-r/resources/ark is resolved by
+// install-kernel.ts based on the submodule's HEAD SHA. Include that SHA in
+// the postinstall state so a submodule pointer change invalidates the
+// "up to date" check and re-runs the extensions install.
+const arkSubmodulePath = 'extensions/positron-r/ark';
+const arkVirtualKey = `${arkSubmodulePath}@HEAD`;
+
+function getArkSubmoduleSha(): string | undefined {
+	const submoduleDir = path.join(root, arkSubmodulePath);
+	if (!fs.existsSync(path.join(submoduleDir, '.git'))) {
+		return undefined;
+	}
+	try {
+		return child_process
+			.execSync('git rev-parse HEAD', { cwd: submoduleDir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+			.trim();
+	} catch {
+		return undefined;
+	}
+}
+// --- End Positron ---
 
 export function collectInputFiles(): string[] {
 	const files: string[] = [];
@@ -97,6 +123,12 @@ export function computeState(): PostinstallState {
 			// file may not be readable
 		}
 	}
+	// --- Start Positron ---
+	const arkSha = getArkSubmoduleSha();
+	if (arkSha) {
+		fileHashes[arkVirtualKey] = arkSha;
+	}
+	// --- End Positron ---
 	return { nodeVersion: process.versions.node, fileHashes };
 }
 
@@ -109,6 +141,12 @@ export function computeContents(): Record<string, string> {
 			// file may not be readable
 		}
 	}
+	// --- Start Positron ---
+	const arkSha = getArkSubmoduleSha();
+	if (arkSha) {
+		fileContents[arkVirtualKey] = arkSha;
+	}
+	// --- End Positron ---
 	return fileContents;
 }
 
