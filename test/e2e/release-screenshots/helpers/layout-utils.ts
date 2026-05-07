@@ -104,25 +104,21 @@ export async function hideNotificationBadges(page: Page): Promise<void> {
 }
 
 /**
- * Suppress the Monaco sash hover/active highlight (the blue strip you
- * sometimes see between the variables and plots panes after a resize
- * drag). The drag releases the mouse but the sash retains its focus/active
- * class until something else clears it; injecting CSS is more deterministic
- * than blurring focus.
+ * Hide Monaco progress bars (the thin blue strip pane re-renders show at
+ * the top of their content area). After a resize the plots pane refits
+ * and renders a progress bar; if we screenshot mid-fit, that bar leaks
+ * into the captured image.
  */
-export async function hideSashHighlights(page: Page): Promise<void> {
+export async function hideProgressBars(page: Page): Promise<void> {
 	await page.evaluate(() => {
-		const ID = 'release-screenshot-hide-sash-highlights';
+		const ID = 'release-screenshot-hide-progress';
 		if (document.getElementById(ID)) {
 			return;
 		}
 		const style = document.createElement('style');
 		style.id = ID;
 		style.textContent = `
-			.monaco-sash:hover,
-			.monaco-sash.active,
-			.monaco-sash:focus,
-			.monaco-sash:focus-within { background-color: transparent !important; }
+			.monaco-progress-container { display: none !important; }
 		`;
 		document.head.appendChild(style);
 	});
@@ -170,7 +166,7 @@ export async function overrideRuntimeLabel(page: Page): Promise<void> {
  * that produces a clean, deterministic frame:
  *   1. Hide notification toasts (they cover real UI)
  *   2. Hide activity-bar notification badges (e.g. "sign in to GitHub" red dot)
- *   3. Suppress Monaco sash hover/active highlights left over from drags
+ *   3. Hide Monaco progress bars from in-flight pane re-renders
  *   4. Rewrite runtime labels (e.g. "(uv: positron)") to "(Venv: .venv)"
  *   5. Unhover (no spurious hover states)
  *   6. Wait for layout to settle
@@ -181,7 +177,7 @@ export async function overrideRuntimeLabel(page: Page): Promise<void> {
 export async function prepareForScreenshot(app: Application, page: Page): Promise<void> {
 	await hideToasts(app);
 	await hideNotificationBadges(page);
-	await hideSashHighlights(page);
+	await hideProgressBars(page);
 	await overrideRuntimeLabel(page);
 	await unhoverAll(page);
 	await waitForStableUI(page);
