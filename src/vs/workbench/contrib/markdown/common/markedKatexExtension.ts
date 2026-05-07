@@ -30,8 +30,8 @@ export namespace MarkedKatexExtension {
 	// --- End Positron ---
 
 	const blockRule = /^(\${1,2})\n((?:\\[^]|[^\\])+?)\n\1(?:\n|$)/;
-	const bareBlockRule = /^\\begin\s*\{([^{}]+)\}/;
-	const beginEndGlobalRule = /(\\begin|\\end)\s*\{([^{}]+)\}/g;
+	const bareBlockStartRule = /^\\begin\s*\{([^{}]+)\}/;
+	const BLOCK_KATEX_TOKEN = 'blockKatex' as const;
 
 	export function extension(katex: typeof import('katex').default, options: MarkedKatexOptions = {}): marked.MarkedExtension {
 		return {
@@ -107,7 +107,7 @@ export namespace MarkedKatexExtension {
 
 	function blockKatex(options: MarkedKatexOptions, renderer: marked.RendererExtensionFunction): marked.TokenizerAndRendererExtension {
 		return {
-			name: 'blockKatex',
+			name: BLOCK_KATEX_TOKEN,
 			level: 'block',
 			start(src: string) {
 				return src.match(new RegExp(blockRule.source, 'm'))?.index;
@@ -116,7 +116,7 @@ export namespace MarkedKatexExtension {
 				const match = src.match(blockRule);
 				if (match) {
 					return {
-						type: 'blockKatex',
+						type: BLOCK_KATEX_TOKEN,
 						raw: match[0],
 						text: match[2].trim(),
 						displayMode: match[1].length === 2,
@@ -135,17 +135,16 @@ export namespace MarkedKatexExtension {
 	 */
 	function findBareBlockEnd(src: string): number {
 		const beginEndStack: string[] = [];
-		const globalRule = new RegExp(beginEndGlobalRule.source, 'g');
+		const rule = /(\\begin|\\end)\s*\{([^{}]+)\}/g;
 		let match: RegExpExecArray | null;
 
-		while ((match = globalRule.exec(src)) !== null) {
+		while ((match = rule.exec(src)) !== null) {
 			if (match[1] === '\\begin') {
 				beginEndStack.push(match[2].trim());
 			} else if (match[1] === '\\end') {
 				beginEndStack.pop();
 				if (beginEndStack.length === 0) {
 					let end = match.index + match[0].length;
-					// Consume trailing newline if present
 					if (src[end] === '\n') {
 						end += 1;
 					}
@@ -156,31 +155,34 @@ export namespace MarkedKatexExtension {
 		return -1;
 	}
 
+	function tokenizeBareBlock(src: string): marked.Tokens.Generic | undefined {
+		if (!bareBlockStartRule.test(src)) {
+			return;
+		}
+
+		const end = findBareBlockEnd(src);
+		if (end === -1) {
+			return;
+		}
+
+		const raw = src.slice(0, end);
+		return {
+			type: BLOCK_KATEX_TOKEN,
+			raw,
+			text: raw.trim(),
+			displayMode: true,
+		};
+	}
+
 	function bareBlockKatex(options: MarkedKatexOptions, renderer: marked.RendererExtensionFunction): marked.TokenizerAndRendererExtension {
 		return {
-			name: 'blockKatex',
+			name: BLOCK_KATEX_TOKEN,
 			level: 'block',
 			start(src: string) {
-				return src.match(bareBlockRule)?.index;
+				return src.match(bareBlockStartRule)?.index;
 			},
-			tokenizer(src: string, tokens: marked.Token[]) {
-				const beginMatch = src.match(bareBlockRule);
-				if (!beginMatch) {
-					return;
-				}
-
-				const end = findBareBlockEnd(src);
-				if (end === -1) {
-					return;
-				}
-
-				const raw = src.slice(0, end);
-				return {
-					type: 'blockKatex',
-					raw,
-					text: raw.trim(),
-					displayMode: true,
-				};
+			tokenizer(src: string) {
+				return tokenizeBareBlock(src);
 			},
 			renderer,
 		};
@@ -188,29 +190,13 @@ export namespace MarkedKatexExtension {
 
 	function inlineBareKatex(options: MarkedKatexOptions, renderer: marked.RendererExtensionFunction): marked.TokenizerAndRendererExtension {
 		return {
-			name: 'blockKatex',
+			name: BLOCK_KATEX_TOKEN,
 			level: 'inline',
 			start(src: string) {
 				return src.indexOf('\\begin');
 			},
-			tokenizer(src: string, tokens: marked.Token[]) {
-				const beginMatch = src.match(bareBlockRule);
-				if (!beginMatch) {
-					return;
-				}
-
-				const end = findBareBlockEnd(src);
-				if (end === -1) {
-					return;
-				}
-
-				const raw = src.slice(0, end);
-				return {
-					type: 'blockKatex',
-					raw,
-					text: raw.trim(),
-					displayMode: true,
-				};
+			tokenizer(src: string) {
+				return tokenizeBareBlock(src);
 			},
 			renderer,
 		};
