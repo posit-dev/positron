@@ -197,6 +197,27 @@ jobs:
           docker exec test cat /etc/rstudio/positron.conf 2>&1 || true
           echo "::endgroup::"
 
+          echo "::group::package.json in each install (product-label field)"
+          docker exec test bash -c '
+            for dir in /usr/lib/rstudio-server/bin/positron-server/*/; do
+              echo "--- $dir ---"
+              if [ -f "$dir/package.json" ]; then
+                grep -E "\"(name|product-label|version)\"" "$dir/package.json" | head -5
+              else
+                echo "no package.json"
+              fi
+            done
+          '
+          echo "::endgroup::"
+
+          echo "::group::Workbench HTML output — which static prefix does it emit?"
+          docker exec test bash -c '
+            sid=$(curl -s -c /tmp/cookies -b /tmp/cookies -X POST -d "username=user1&password=$WB_PASSWORD" http://localhost:8787/auth-do-sign-in 2>&1 | head -3 || echo "auth failed")
+            echo "auth: $sid"
+            curl -s -b /tmp/cookies http://localhost:8787/ 2>&1 | grep -oE "/(vscode|positron)-static/[^\"]+" | head -10 || echo "no static URL in root response"
+          '
+          echo "::endgroup::"
+
           echo "::group::Generated nginx conf (positron-static block)"
           docker exec test bash -c '
             for conf in /var/lib/rstudio-server/conf/rserver-http.conf /etc/rstudio/rserver-http.conf; do
