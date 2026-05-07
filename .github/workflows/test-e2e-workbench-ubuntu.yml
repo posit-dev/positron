@@ -210,11 +210,27 @@ jobs:
           '
           echo "::endgroup::"
 
-          echo "::group::Workbench HTML output — which static prefix does it emit?"
+          echo "::group::Running positron-server processes and their actual binary paths"
           docker exec test bash -c '
-            sid=$(curl -s -c /tmp/cookies -b /tmp/cookies -X POST -d "username=user1&password=$WB_PASSWORD" http://localhost:8787/auth-do-sign-in 2>&1 | head -3 || echo "auth failed")
-            echo "auth: $sid"
-            curl -s -b /tmp/cookies http://localhost:8787/ 2>&1 | grep -oE "/(vscode|positron)-static/[^\"]+" | head -10 || echo "no static URL in root response"
+            sudo bash -c "
+              for pid in \$(pgrep -f positron-server); do
+                echo \"PID \$pid: \$(readlink /proc/\$pid/exe 2>/dev/null || echo unreadable)\"
+                cmdline=\$(tr \"\\0\" \" \" < /proc/\$pid/cmdline 2>/dev/null)
+                echo \"  cmd: \$cmdline\"
+              done
+            " 2>&1 | head -30
+          '
+          echo "::endgroup::"
+
+          echo "::group::Session log — actual POSITRON_EXEC_COMMAND used"
+          docker exec test bash -c '
+            sudo bash -c "
+              for log in /var/log/rstudio/rstudio-launcher/*.log /var/log/rstudio/launcher/*.log /home/*/.local/share/rstudio/sessions/*/log /tmp/rstudio-rsession-*.log; do
+                [ -f \$log ] || continue
+                echo --- \$log ---
+                grep -E \"Running session:|POSITRON_EXEC_COMMAND|positron-server\" \"\$log\" 2>/dev/null | tail -10
+              done
+            " 2>&1 | head -40
           '
           echo "::endgroup::"
 
