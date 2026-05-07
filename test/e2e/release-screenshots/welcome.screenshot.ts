@@ -54,10 +54,11 @@ test.describe('Release Screenshots - Welcome Page', () => {
 		}
 		await plots.waitForCurrentPlot({ timeout: 45_000 });
 
-		// setup scroll position and expand variable for screenshot
+		// setup scroll position and adjust layout
 		await hotKeys.closePrimarySidebar();
 		await layouts.resizeAuxiliaryBar({ x: -500 });
 		await layouts.resizePanel({ y: -150 });
+		await plots.alterPlotArea(0, -100);
 		await quickaccess.runCommand('workbench.action.gotoLine', {
 			keepOpen: true,
 		});
