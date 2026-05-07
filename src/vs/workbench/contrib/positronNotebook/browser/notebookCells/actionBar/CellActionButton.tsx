@@ -34,6 +34,7 @@ interface CellActionButtonProps {
  */
 const SHOW_SUCCESS_FEEDBACK = new Set([
 	PositronNotebookActionId.CopyOutputImage,
+	PositronNotebookActionId.CopyOutputJson,
 ]);
 
 /** Duration to show the success feedback (in milliseconds). */

@@ -59,6 +59,18 @@ describe('Notebook Output Utils', () => {
 			const result = parseOutputData(makeOutputItem('application/vnd.code.notebook.stdout', 'hello'));
 			expect(result.type).toBe('stdout');
 		});
+
+		it('parses notebook error MIME as error output', () => {
+			const result = parseOutputData(makeOutputItem(
+				'application/vnd.code.notebook.error',
+				JSON.stringify({ name: 'Error', message: 'failed', stack: 'stack trace' })
+			));
+
+			expect(result.type).toBe('error');
+			if (result.type === 'error') {
+				expect(result.content).toBe('stack trace');
+			}
+		});
 	});
 
 	it('pickPreferredOutputItem: prefers image/svg+xml over text/plain', () => {

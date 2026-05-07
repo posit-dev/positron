@@ -89,6 +89,7 @@ export function useCellContextKeys(
 			keys.canMoveDown.set(cell.index < cells.length - 1 && cells.length > 1);
 			keys.hasOutputs.set(outputs.length > 0);
 			keys.imageOutputCount.set(outputs.filter(o => o.parsed.type === 'image').length);
+			keys.jsonOutputCount.set(outputs.filter(o => o.parsed.type === 'json').length);
 			keys.outputIsCollapsed.set(outputIsCollapsed);
 			keys.outputScrolling.set(outputScrolling ?? globalOutputScrolling);
 		}));
