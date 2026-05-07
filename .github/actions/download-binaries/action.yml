@@ -13,6 +13,8 @@ runs:
       if: ${{ inputs.cache-hit == 'true' }}
       shell: bash
       working-directory: extensions
+      env:
+        POSITRON_GITHUB_RO_PAT: ${{ github.token }}
       run: |
         echo "Extensions cache hit detected - downloading binaries"
         # WHY WE ONLY RUN THIS WHEN CACHE HITS (counterintuitive but correct):

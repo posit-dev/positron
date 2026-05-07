@@ -1,0 +1,3 @@
+[submodule "extensions/positron-r/ark"]
+	path = extensions/positron-r/ark
+	url = https://github.com/posit-dev/ark.git
