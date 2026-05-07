@@ -61,26 +61,14 @@ runs:
         git clone --depth 1 https://github.com/posit-dev/qa-example-content.git \
           test/e2e/qa-example-content
 
-    - name: Install uv + Python (primary)
+    - name: Install uv + Python (primary, with venv)
       id: setup-python-primary
       uses: astral-sh/setup-uv@v7
       with:
         python-version: ${{ inputs.python-primary-version }}
+        activate-environment: true
         enable-cache: true
         cache-dependency-glob: test/e2e/qa-example-content/requirements.txt
-
-    - name: Create primary venv at $RUNNER_TEMP/.venv (plain python -m venv)
-      shell: bash
-      run: |
-        # Use python's stdlib venv (not `uv venv`) so the venv has no uv
-        # marker files. Positron labels uv-managed envs "(uv: <parent dir>)"
-        # which surfaced "_temp" / "positron" in screenshots; a plain venv
-        # is labeled by its basename, ".venv".
-        PYTHON=$(uv python find ${{ inputs.python-primary-version }})
-        VENV_DIR="$RUNNER_TEMP/.venv"
-        "$PYTHON" -m venv "$VENV_DIR"
-        echo "VIRTUAL_ENV=$VENV_DIR" >> "$GITHUB_ENV"
-        echo "$VENV_DIR/bin" >> "$GITHUB_PATH"
 
     - name: Install Python dependencies (primary)
       shell: bash

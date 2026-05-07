@@ -116,12 +116,35 @@ export async function waitForStableUI(page: Page, ms = 250): Promise<void> {
 }
 
 /**
+ * Rewrite the "(uv: <project>)" suffix Positron renders next to the Python
+ * interpreter name with "(.venv)". On CI the runtime venv lives under the
+ * runner workspace (e.g. /Users/runner/work/positron/positron/.venv), so the
+ * default label reads "(uv: positron)" or "(uv: _temp)" — both look like
+ * product internals leaking into docs screenshots.
+ */
+export async function overrideRuntimeLabel(page: Page): Promise<void> {
+	await page.evaluate(() => {
+		const PATTERN = /\(uv:\s*[^)]+\)/g;
+		const REPLACEMENT = '(.venv)';
+		const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+		let node: Node | null;
+		while ((node = walker.nextNode())) {
+			const t = node as Text;
+			if (t.nodeValue && t.nodeValue.includes('(uv:')) {
+				t.nodeValue = t.nodeValue.replace(PATTERN, REPLACEMENT);
+			}
+		}
+	});
+}
+
+/**
  * Standard pre-screenshot cleanup. Composes the smaller helpers in the order
  * that produces a clean, deterministic frame:
  *   1. Hide notification toasts (they cover real UI)
  *   2. Hide activity-bar notification badges (e.g. "sign in to GitHub" red dot)
- *   3. Unhover (no spurious hover states)
- *   4. Wait for layout to settle
+ *   3. Rewrite "(uv: ...)" runtime labels to "(.venv)"
+ *   4. Unhover (no spurious hover states)
+ *   5. Wait for layout to settle
  *
  * Call this immediately before `captureFullWindow` / `capturePanel`. Set up
  * world state with POMs first, then call this once, then capture.
@@ -129,6 +152,7 @@ export async function waitForStableUI(page: Page, ms = 250): Promise<void> {
 export async function prepareForScreenshot(app: Application, page: Page): Promise<void> {
 	await hideToasts(app);
 	await hideNotificationBadges(page);
+	await overrideRuntimeLabel(page);
 	await unhoverAll(page);
 	await waitForStableUI(page);
 }
