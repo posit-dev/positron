@@ -69,15 +69,16 @@ runs:
         enable-cache: true
         cache-dependency-glob: test/e2e/qa-example-content/requirements.txt
 
-    - name: Create primary venv at $RUNNER_TEMP/.venv
+    - name: Create primary venv at $RUNNER_TEMP/.venv (plain python -m venv)
       shell: bash
       run: |
-        # Create the venv outside the repo so Positron labels the interpreter
-        # as ".venv" (the basename of VIRTUAL_ENV) rather than picking up the
-        # runner's repo directory name "positron", which makes the env look
-        # like part of the product in screenshots.
+        # Use python's stdlib venv (not `uv venv`) so the venv has no uv
+        # marker files. Positron labels uv-managed envs "(uv: <parent dir>)"
+        # which surfaced "_temp" / "positron" in screenshots; a plain venv
+        # is labeled by its basename, ".venv".
+        PYTHON=$(uv python find ${{ inputs.python-primary-version }})
         VENV_DIR="$RUNNER_TEMP/.venv"
-        uv venv --python ${{ inputs.python-primary-version }} "$VENV_DIR"
+        "$PYTHON" -m venv "$VENV_DIR"
         echo "VIRTUAL_ENV=$VENV_DIR" >> "$GITHUB_ENV"
         echo "$VENV_DIR/bin" >> "$GITHUB_PATH"
 
