@@ -127,20 +127,34 @@ export async function waitForStableUI(page: Page, ms = 250): Promise<void> {
  * "Python 3.10.15 (Pyenv)") with a generic "(Venv: .venv)". The labels
  * otherwise surface CI/runner internals — uv project paths, the local
  * Python manager — into docs screenshots.
+ *
+ * Scoped to the three workbench surfaces that render the runtime label:
+ *   - `.top-action-bar-session-manager-face` (top-right interpreter face)
+ *   - `.plot-session-name`                   (plots pane header)
+ *   - `.tab-header .session-name`            (console session tab)
+ *
+ * Call this AFTER `waitForStableUI` so any in-flight re-renders don't undo
+ * the rewrite before the screenshot fires.
  */
 export async function overrideRuntimeLabel(page: Page): Promise<void> {
 	await page.evaluate(() => {
-		// Match "Python <version>" followed by " (<anything>)" and rewrite the
-		// suffix only. Anchored on "Python" so we don't touch unrelated
-		// parenthesized text elsewhere in the workbench.
+		const SELECTORS = [
+			'.top-action-bar-session-manager-face',
+			'.plot-session-name',
+			'.tab-header .session-name',
+		];
 		const PATTERN = /(Python\s+[\d.]+)\s+\([^)]+\)/g;
 		const REPLACEMENT = '$1 (Venv: .venv)';
-		const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-		let node: Node | null;
-		while ((node = walker.nextNode())) {
-			const t = node as Text;
-			if (t.nodeValue && t.nodeValue.includes('Python ')) {
-				t.nodeValue = t.nodeValue.replace(PATTERN, REPLACEMENT);
+		for (const sel of SELECTORS) {
+			for (const root of document.querySelectorAll(sel)) {
+				const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+				let node: Node | null;
+				while ((node = walker.nextNode())) {
+					const t = node as Text;
+					if (t.nodeValue && t.nodeValue.includes('Python ')) {
+						t.nodeValue = t.nodeValue.replace(PATTERN, REPLACEMENT);
+					}
+				}
 			}
 		}
 	});
@@ -151,9 +165,12 @@ export async function overrideRuntimeLabel(page: Page): Promise<void> {
  * that produces a clean, deterministic frame:
  *   1. Hide notification toasts (they cover real UI)
  *   2. Hide activity-bar notification badges (e.g. "sign in to GitHub" red dot)
- *   3. Rewrite runtime labels (e.g. "(uv: positron)") to "(Venv: .venv)"
- *   4. Unhover (no spurious hover states)
- *   5. Wait for layout to settle (and any in-flight progress bars to clear)
+ *   3. Unhover (no spurious hover states)
+ *   4. Wait for layout to settle (and any in-flight progress bars to clear)
+ *   5. Rewrite runtime labels (e.g. "(uv: positron)") to "(Venv: .venv)"
+ *
+ * The label rewrite goes last so React re-renders during the settle wait
+ * don't undo it before the screenshot fires.
  *
  * Call this immediately before `captureFullWindow` / `capturePanel`. Set up
  * world state with POMs first, then call this once, then capture.
@@ -161,7 +178,7 @@ export async function overrideRuntimeLabel(page: Page): Promise<void> {
 export async function prepareForScreenshot(app: Application, page: Page): Promise<void> {
 	await hideToasts(app);
 	await hideNotificationBadges(page);
-	await overrideRuntimeLabel(page);
 	await unhoverAll(page);
 	await waitForStableUI(page);
+	await overrideRuntimeLabel(page);
 }
