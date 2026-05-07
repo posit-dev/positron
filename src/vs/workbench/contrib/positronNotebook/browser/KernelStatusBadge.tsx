@@ -53,7 +53,11 @@ export function KernelStatusBadge() {
 	));
 
 	let runtimeStatus: RuntimeStatus;
-	if (runtimeState !== undefined) {
+	if (kernelStatus === NotebookKernelStatus.Switching) {
+		// Switching is user intent to transition; show Active immediately
+		// regardless of the now-stale old session's runtime state.
+		runtimeStatus = RuntimeStatus.Active;
+	} else if (runtimeState !== undefined) {
 		runtimeStatus = runtimeStateToRuntimeStatus[runtimeState];
 	} else if (kernelStatus === NotebookKernelStatus.Exited) {
 		runtimeStatus = RuntimeStatus.Disconnected;

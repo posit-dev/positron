@@ -103,6 +103,18 @@ describe('KernelStatusBadge', () => {
 		expect(screen.getByText('Python 3.12')).toBeInTheDocument();
 	});
 
+	it('shows active icon immediately when switching even if the old session is still Idle', () => {
+		// Early in the switch the new kernel is selected and kernelStatus
+		// is Switching, but the old session hasn't started exiting yet.
+		// Switching must override the old session's stale Idle state so
+		// the user gets immediate spinner feedback on click.
+		const newKernel = makeKernel('R 4.3.2', 'r-4.3.2');
+		const { session } = makeSession(RuntimeState.Idle);
+		renderBadge(makeInstance(NotebookKernelStatus.Switching, newKernel, session));
+		expect(screen.getByTestId('runtime-status-active')).toBeInTheDocument();
+		expect(screen.getByText('R 4.3.2')).toBeInTheDocument();
+	});
+
 	it('shows active icon and kernel name when a kernel is first selected', () => {
 		// First kernel selection: runOnChange leaves kernelStatus at Unselected.
 		const kernel = makeKernel('Python 3.12', 'python-3.12');
