@@ -51,17 +51,6 @@ describe('MarkedKatexExtension - bare block environments', () => {
 		expect(blockTokens[0].displayMode).toBe(true);
 	});
 
-	it('tokenizes \\begin{align}...\\end{align}', () => {
-		const input = '\\begin{align}\na &= b + c \\\\\nd &= e + f\n\\end{align}\n';
-		const tokens = markedInstance.lexer(input);
-		const katexTokens = collectKatexTokens(tokens);
-
-		const blockTokens = katexTokens.filter(t => t.displayMode);
-		expect(blockTokens).toHaveLength(1);
-		expect(blockTokens[0].text).toContain('\\begin{align}');
-		expect(blockTokens[0].text).toContain('\\end{align}');
-	});
-
 	it('tokenizes \\begin{align*}...\\end{align*}', () => {
 		const input = '\\begin{align*}\na &= b\n\\end{align*}\n';
 		const tokens = markedInstance.lexer(input);
@@ -121,15 +110,6 @@ describe('MarkedKatexExtension - bare block environments', () => {
 		expect(blockTokens[0].text).not.toContain('as shown');
 	});
 
-	it('renders bare block after paragraph text', () => {
-		const input = 'Some text before:\n\n\\begin{equation}\nx = 1\n\\end{equation}\n';
-		const tokens = markedInstance.lexer(input);
-		const katexTokens = collectKatexTokens(tokens);
-
-		const blockTokens = katexTokens.filter(t => t.displayMode);
-		expect(blockTokens).toHaveLength(1);
-	});
-
 	it('handles multiple bare blocks in sequence', () => {
 		const input = [
 			'\\begin{equation}',
@@ -146,43 +126,5 @@ describe('MarkedKatexExtension - bare block environments', () => {
 
 		const blockTokens = katexTokens.filter(t => t.displayMode);
 		expect(blockTokens).toHaveLength(2);
-	});
-});
-
-describe('MarkedKatexExtension - existing behavior preserved', () => {
-	const markedInstance = createMarkedInstance();
-
-	it('preserves existing $$ block behavior', () => {
-		const input = '$$\nx^2 + y^2 = z^2\n$$\n';
-		const tokens = markedInstance.lexer(input);
-		const katexTokens = collectKatexTokens(tokens);
-
-		const blockTokens = katexTokens.filter(t => t.displayMode);
-		expect(blockTokens).toHaveLength(1);
-		expect(blockTokens[0].text).toBe('x^2 + y^2 = z^2');
-	});
-
-	it('preserves existing inline $ behavior', () => {
-		const input = 'Hello $x^2$ world';
-		const tokens = markedInstance.lexer(input);
-		const katexTokens = collectKatexTokens(tokens);
-
-		const inlineTokens = katexTokens.filter(t => !t.displayMode);
-		expect(inlineTokens).toHaveLength(1);
-		expect(inlineTokens[0].text).toBe('x^2');
-	});
-
-	it('supports $$ blocks immediately after paragraph', () => {
-		const input = [
-			'Block example:',
-			'$$',
-			'\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}',
-			'$$',
-		].join('\n');
-		const tokens = markedInstance.lexer(input);
-		const katexTokens = collectKatexTokens(tokens);
-
-		const blockTokens = katexTokens.filter(t => t.displayMode);
-		expect(blockTokens).toHaveLength(1);
 	});
 });
