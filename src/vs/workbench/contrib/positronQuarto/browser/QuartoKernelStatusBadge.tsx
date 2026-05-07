@@ -27,13 +27,18 @@ import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 
 /**
- * Fallback RuntimeStatus for pre-session kernel states. Once a session is
- * attached, its RuntimeState is authoritative, so only the cases where no
- * session exists (None, Error) need a fallback here.
+ * Fallback RuntimeStatus for kernel states that fire without a session
+ * attached. The kernel manager sets `Starting` before the session object is
+ * created and `ShuttingDown` after it's torn down (e.g., during a restart),
+ * so those states need explicit mappings to avoid a Disconnected icon.
+ * Once a session is attached, its RuntimeState is authoritative and this
+ * fallback isn't needed.
  */
 const quartoStateToRuntimeStatus: Partial<Record<QuartoKernelState, RuntimeStatus>> = {
 	[QuartoKernelState.None]: RuntimeStatus.Disconnected,
+	[QuartoKernelState.Starting]: RuntimeStatus.Active,
 	[QuartoKernelState.Error]: RuntimeStatus.Disconnected,
+	[QuartoKernelState.ShuttingDown]: RuntimeStatus.Active,
 };
 
 /**
