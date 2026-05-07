@@ -327,6 +327,7 @@ import './contrib/positronOutputWebview/browser/notebookOutputWebview.contributi
 import './contrib/positronNotebook/browser/positronNotebook.contribution.js';
 import './contrib/positronWelcome/browser/positronWelcome.contribution.js';
 import './contrib/positronTelemetry/browser/positronTelemetry.contribution.js';
+import './contrib/positronEditorActions/browser/positronEditorActions.contribution.js';
 // --- End Positron ---
 
 // Terminal
