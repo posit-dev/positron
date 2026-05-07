@@ -6,8 +6,12 @@
 /**
  * Provider metadata definitions.
  *
- * This file is the single source of truth for provider identity metadata (id, displayName,
- * settingName). It exists to break a circular dependency:
+ * NOTE: This metadata has been duplicated in the authentication extension
+ * (`extensions/authentication/src/providerSources.ts`) as part of moving
+ * provider configuration ownership there. When positron-assistant is
+ * removed, this duplication will no longer exist.
+ *
+ * This file exists to break a circular dependency:
  *
  * - modelDefinitions.ts and modelResolutionHelpers.ts need providerId → settingName mapping
  * - Previously they imported from providerMigration.ts which imports providers/index.ts
@@ -16,10 +20,6 @@
  *
  * By defining provider metadata here, both the provider classes and the helper functions
  * can import from this single source without creating a cycle.
- *
- * When adding a new provider:
- * 1. Add its metadata to PROVIDER_METADATA below
- * 2. Import and use that metadata in the provider's static source block
  */
 
 /**

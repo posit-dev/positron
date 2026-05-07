@@ -5,35 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { getModelProviders } from './providers';
 import { PROVIDER_ENABLE_SETTINGS_SEARCH } from './constants.js';
-
-/**
- * Register all available language model providers. Supported providers may or may not
- * be enabled based on user configuration.
- * Should be called once during extension activation.
- */
-export function registerSupportedProviders(): void {
-	const registeredProviderIds: string[] = [];
-
-	// Register all providers defined in the Positron Assistant extension
-	const models = getModelProviders();
-	for (const model of models) {
-		if (model.source?.provider) {
-			registeredProviderIds.push(model.source.provider.id);
-
-			positron.ai.registerProviderMetadata({
-				id: model.source.provider.id,
-				displayName: model.source.provider.displayName,
-				settingName: model.source.provider.settingName
-			});
-		}
-	}
-
-	// TODO: For future consideration, how can providers from other extensions be dynamically
-	// discovered and registered here? Perhaps an extension API to register a provider?
-	// For now, we only support providers that are returned by getModelProviders().
-}
 
 /**
  * Validates that at least one language model provider is enabled.

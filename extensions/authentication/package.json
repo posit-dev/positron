@@ -64,6 +64,13 @@
 				"label": "Gemini Code Assist"
 			}
 		],
+		"commands": [
+			{
+				"command": "authentication.configureProviders",
+				"title": "%commands.configureProviders.title%",
+        "category": "%commands.category%"
+			}
+		],
 		"configuration": {
 			"title": "Authentication",
 			"properties": {
