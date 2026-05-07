@@ -46,16 +46,6 @@ export interface IDataConnectionProfile {
 }
 
 /**
- * A section header in the data connections list. Groups a run of profiles under a labeled
- * heading (e.g. "ACTIVE", "SAVED"). The shape is intentionally minimal -- additional fields
- * (counts, badges, etc.) can be added when the UI needs them.
- */
-export interface IDataConnectionSection {
-	// The label shown in the section header.
-	readonly label: string;
-}
-
-/**
  * Common fields shared by every service-level data connection parameter variant.
  */
 export interface IDataConnectionParameterBase {

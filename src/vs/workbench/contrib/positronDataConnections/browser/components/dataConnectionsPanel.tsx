@@ -12,15 +12,17 @@ import { useEffect, useState } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { NewDataConnectionFlow } from '../dialogs/newDataConnectionFlow.js';
-import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { PositronList } from '../../../../browser/positronList/positronList.js';
-import { ListEntry, PositronListInstance } from '../../../../browser/positronList/classes/positronListInstance.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
+import { ListEntry, PositronListInstance } from '../../../../browser/positronList/classes/positronListInstance.js';
 import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
-import { IDataConnectionProfile, IDataConnectionSection } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
+import { IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
+import { IDataConnectionInstance } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsInstance.js';
 import { DEFAULT_ACTION_BAR_BUTTON_WIDTH, DynamicActionBarAction, PositronDynamicActionBar } from '../../../../../platform/positronActionBar/browser/positronDynamicActionBar.js';
 
 /**
@@ -38,64 +40,125 @@ interface DataConnectionsPanelProps {
 }
 
 /**
+ * A row in the data connections list. Discriminated so the renderer can dispatch on kind
+ * without sniffing for type-specific fields. 'instance' rows wrap a live IDataConnectionInstance
+ * (rendered in the Active section); 'profile' rows wrap a persisted IDataConnectionProfile
+ * (rendered in the Saved section).
+ */
+type IDataConnectionListItem =
+	| { readonly kind: 'instance'; readonly instance: IDataConnectionInstance }
+	| { readonly kind: 'profile'; readonly profile: IDataConnectionProfile };
+
+/**
+ * A section header in the data connections list. Groups a run of rows under a labeled heading
+ * (e.g. "Active Connections", "Saved"). The shape is intentionally minimal -- additional fields
+ * (counts, badges, etc.) can be added when the UI needs them.
+ */
+interface IDataConnectionSection {
+	// The label shown in the section header.
+	readonly label: string;
+}
+
+/**
  * DataConnectionsPanel component.
  */
 export const DataConnectionsPanel = ({ active }: DataConnectionsPanelProps) => {
-	// Access the Positron data connections service.
+	// Context.
 	const { positronDataConnectionsService } = usePositronReactServicesContext();
 
-	// Track the data connection profiles so the panel re-renders when they change.
-	const [profiles, setProfiles] = useState<readonly IDataConnectionProfile[]>(() => {
-		const dd = positronDataConnectionsService.getProfiles();
-		return [...dd, ...dd, ...dd, ...dd, ...dd, ...dd, ...dd, ...dd, ...dd, ...dd, ...dd, ...dd, ...dd, ...dd, ...dd, ...dd, ...dd, ...dd, ...dd, ...dd];
-	}
-	);
+	// Instances and profiles state. Lazy initializers so the service getters only run on first
+	// mount, not every render. The useEffect below resyncs to catch any change between this
+	// initial read and effect commit.
+	const [instances, setInstances] = useState<readonly IDataConnectionInstance[]>(() => positronDataConnectionsService.getInstances());
+	const [profiles, setProfiles] = useState<readonly IDataConnectionProfile[]>(() => positronDataConnectionsService.getProfiles());
 
-	// Listen for changes to the data connection profiles and update state accordingly.
+	// Listen for changes to data connection instances and profiles, and update state accordingly.
 	useEffect(() => {
-		const disposable = positronDataConnectionsService.onDidChangeProfiles(updatedProfiles => {
+		// Disposable store to hold our listeners so we can clean them up on unmount.
+		const disposableStore = new DisposableStore();
+
+		// Subscribe to future changes.
+		disposableStore.add(positronDataConnectionsService.onDidChangeInstances(updatedInstances => {
+			setInstances(updatedInstances);
+		}));
+		disposableStore.add(positronDataConnectionsService.onDidChangeProfiles(updatedProfiles => {
 			setProfiles(updatedProfiles);
-		});
-		return () => disposable.dispose();
+		}));
+
+		// Resync to current state. The lazy useState initializers ran during render; the service
+		// may have fired a change between then and now (effect commit).
+		setInstances(positronDataConnectionsService.getInstances());
+		setProfiles(positronDataConnectionsService.getProfiles());
+
+		// Clean up listeners on unmount.
+		return () => disposableStore.dispose();
 	}, [positronDataConnectionsService]);
 
-	// Single-column list instance for the data connection profiles. Created once and disposed
-	// on unmount; props (items, etc.) are pushed in via setters below.
-	const [listInstance] = useState(() => new PositronListInstance<IDataConnectionProfile, IDataConnectionSection>({
+	// PositronListInstance. Items are a discriminated union: 'instance' rows wrap a live
+	// IDataConnectionInstance, 'profile' rows wrap a persisted IDataConnectionProfile. The
+	// renderer dispatches on the item's kind.
+	const [listInstance] = useState(() => new PositronListInstance<IDataConnectionListItem, IDataConnectionSection>({
 		defaultItemHeight: 32,
-		itemRenderer: profile => (
-			<div className='data-connection-profile'>
-				{profile.connectionName}
-			</div>
-		),
+		itemRenderer: item => item.kind === 'instance'
+			? (
+				<div className='data-connection-instance'>
+					{item.instance.driverName}
+				</div>
+			)
+			: (
+				<div className='data-connection-profile'>
+					{item.profile.connectionName}
+				</div>
+			),
 		defaultSectionHeight: 22,
 		sectionRenderer: section => (
 			<div className='data-connection-section'>
-				SECTION {section.label}
+				{section.label}
 			</div>
 		)
 	}));
 
-	// Push the latest profiles into the list instance, grouped into "Active" (the first two
-	// profiles) and "Saved" (the remainder).
+	// Push the latest instances and profiles into the list, grouped into "Active Connections"
+	// (live instances) and "Saved" (persisted profiles). Empty groups are omitted.
 	useEffect(() => {
-		const activeProfiles = profiles.slice(0, 2);
-		const savedProfiles = profiles.slice(2);
-		const entries: ListEntry<IDataConnectionProfile, IDataConnectionSection>[] = [];
-		if (activeProfiles.length > 0) {
-			entries.push({ kind: 'section', section: { label: localize('positronDataConnections.activeSection', "Active") } });
-			for (const profile of activeProfiles) {
-				entries.push({ kind: 'item', item: profile });
+		// Create the list entries.
+		const entries: ListEntry<IDataConnectionListItem, IDataConnectionSection>[] = [];
+
+		// Add an "Active Connections" section if there are any instances, and an entry for each instance.
+		if (instances.length > 0) {
+			// Push the section.
+			entries.push({
+				kind: 'section',
+				section: {
+					label: localize('positronDataConnections.activeConnectionsSection', "Active Connections")
+				},
+			});
+
+			// Push the instances.
+			for (const instance of instances) {
+				entries.push({ kind: 'item', item: { kind: 'instance', instance } });
 			}
 		}
-		if (savedProfiles.length > 0) {
-			entries.push({ kind: 'section', section: { label: localize('positronDataConnections.savedSection', "Saved") } });
-			for (const profile of savedProfiles) {
-				entries.push({ kind: 'item', item: profile });
+
+		// Add a "Saved Connections" section if there are any profiles, and an entry for each profile.
+		if (profiles.length > 0) {
+			// Push the section.
+			entries.push({
+				kind: 'section',
+				section: {
+					label: localize('positronDataConnections.savedSection', "Saved Connections")
+				},
+			});
+
+			// Push the entries.
+			for (const profile of profiles) {
+				entries.push({ kind: 'item', item: { kind: 'profile', profile } });
 			}
 		}
+
+		// Update the list entries.
 		listInstance.setEntries(entries);
-	}, [listInstance, profiles]);
+	}, [listInstance, instances, profiles]);
 
 	// Dispose the list instance on unmount.
 	useEffect(() => () => listInstance.dispose(), [listInstance]);
@@ -154,7 +217,7 @@ export const DataConnectionsPanel = ({ active }: DataConnectionsPanelProps) => {
 					? <div className='data-connection-profiles-list-empty'>
 						{localize('positronDataConnections.noConnections', "No data connections.")}
 					</div>
-					: <PositronList<IDataConnectionProfile, IDataConnectionSection>
+					: <PositronList<IDataConnectionListItem, IDataConnectionSection>
 						id='data-connection-profiles-list'
 						instance={listInstance}
 					/>
