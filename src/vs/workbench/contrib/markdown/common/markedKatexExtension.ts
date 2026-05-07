@@ -30,12 +30,16 @@ export namespace MarkedKatexExtension {
 	// --- End Positron ---
 
 	const blockRule = /^(\${1,2})\n((?:\\[^]|[^\\])+?)\n\1(?:\n|$)/;
+	const bareBlockRule = /^\\begin\s*\{([^{}]+)\}/;
+	const beginEndGlobalRule = /(\\begin|\\end)\s*\{([^{}]+)\}/g;
 
 	export function extension(katex: typeof import('katex').default, options: MarkedKatexOptions = {}): marked.MarkedExtension {
 		return {
 			extensions: [
 				inlineKatex(options, createRenderer(katex, options, false)),
 				blockKatex(options, createRenderer(katex, options, true)),
+				bareBlockKatex(options, createRenderer(katex, options, true)),
+				inlineBareKatex(options, createRenderer(katex, options, true)),
 			],
 		};
 	}
@@ -119,6 +123,99 @@ export namespace MarkedKatexExtension {
 					};
 				}
 				return;
+			},
+			renderer,
+		};
+	}
+
+	/**
+	 * Finds the end position of a balanced \begin{env}...\end{env} block
+	 * by tracking nested environments via a stack.
+	 * Returns the index past the closing \end{env} (including trailing newline),
+	 * or -1 if no balanced close is found.
+	 */
+	function findBareBlockEnd(src: string): number {
+		const lines = src.split('\n');
+		const beginEndStack: string[] = [];
+		let consumed = 0;
+
+		for (let i = 0; i < lines.length; i++) {
+			const line = lines[i];
+			for (const match of line.matchAll(beginEndGlobalRule)) {
+				if (match[1] === '\\begin') {
+					beginEndStack.push(match[2].trim());
+				} else if (match[1] === '\\end') {
+					beginEndStack.pop();
+					if (beginEndStack.length === 0) {
+						// Include trailing newline if present
+						consumed += line.length;
+						if (i < lines.length - 1) {
+							consumed += 1; // newline character
+						}
+						return consumed;
+					}
+				}
+			}
+			consumed += line.length + 1; // +1 for newline
+		}
+		return -1;
+	}
+
+	function bareBlockKatex(options: MarkedKatexOptions, renderer: marked.RendererExtensionFunction): marked.TokenizerAndRendererExtension {
+		return {
+			name: 'blockKatex',
+			level: 'block',
+			start(src: string) {
+				return src.match(bareBlockRule)?.index;
+			},
+			tokenizer(src: string, tokens: marked.Token[]) {
+				const beginMatch = src.match(bareBlockRule);
+				if (!beginMatch) {
+					return;
+				}
+
+				const end = findBareBlockEnd(src);
+				if (end === -1) {
+					return;
+				}
+
+				const raw = src.slice(0, end);
+				return {
+					type: 'blockKatex',
+					raw,
+					text: raw.trim(),
+					displayMode: true,
+				};
+			},
+			renderer,
+		};
+	}
+
+	function inlineBareKatex(options: MarkedKatexOptions, renderer: marked.RendererExtensionFunction): marked.TokenizerAndRendererExtension {
+		return {
+			name: 'blockKatex',
+			level: 'inline',
+			start(src: string) {
+				return src.indexOf('\\begin');
+			},
+			tokenizer(src: string, tokens: marked.Token[]) {
+				const beginMatch = src.match(bareBlockRule);
+				if (!beginMatch) {
+					return;
+				}
+
+				const end = findBareBlockEnd(src);
+				if (end === -1) {
+					return;
+				}
+
+				const raw = src.slice(0, end);
+				return {
+					type: 'blockKatex',
+					raw,
+					text: raw.trim(),
+					displayMode: true,
+				};
 			},
 			renderer,
 		};
