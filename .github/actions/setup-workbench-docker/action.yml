@@ -88,4 +88,8 @@ runs:
           # Install our custom build
           cp -r vscode-reh-web-pwb-linux-x64 /usr/lib/rstudio-server/bin/positron-server/new &&
           chown -R rstudio-server:rstudio-server /usr/lib/rstudio-server/bin/positron-server/new
+
+          # Restart so rserver and rstudio-launcher re-scan installs and pick up our build
+          sudo rstudio-server restart &&
+          sudo rstudio-launcher restart
         "

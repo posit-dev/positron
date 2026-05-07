@@ -110,7 +110,7 @@ export class DashboardPage {
 			await expect(credentialsSection).toBeVisible({ timeout: 5000 });
 		} catch {
 			// No credentials section - managed credentials not configured on this workbench instance
-			console.warn('Session Credentials section not found - managed credentials are not configured on this Workbench instance');
+			this.code.logger.log('Session Credentials section not found - managed credentials are not configured on this Workbench instance');
 			return;
 		}
 
@@ -132,11 +132,11 @@ export class DashboardPage {
 		const enabledWidget = page.locator('[aria-label*="Databricks"][aria-label*="Enabled"]');
 		const isEnabled = await enabledWidget.isVisible().catch(() => false);
 		if (isEnabled) {
-			console.log('Databricks credential already configured, skipping setup');
+			this.code.logger.log('Databricks credential already configured, skipping setup');
 			return;
 		}
 
-		console.log('Setting up Databricks OAuth...');
+		this.code.logger.log('Setting up Databricks OAuth...');
 
 		const serviceAccountEmail = process.env.DATABRICKS_SERVICE_ACCOUNT_EMAIL!;
 		const serviceAccountPassword = process.env.DATABRICKS_SERVICE_ACCOUNT_PASSWORD!;
@@ -176,7 +176,7 @@ export class DashboardPage {
 		await expect(otpField).toBeVisible({ timeout: 15000 });
 
 		const totpCode = generateTOTP(otpSecret);
-		console.log('Generated TOTP code for Databricks');
+		this.code.logger.log('Generated TOTP code for Databricks');
 		await otpField.fill(totpCode);
 
 		const verifyOtpButton = oauthPage.locator('button:has-text("Verify"), input[value="Verify"]');
@@ -189,12 +189,12 @@ export class DashboardPage {
 			await oauthPage.waitForTimeout(2000);
 			await oauthPage.close();
 		} catch {
-			console.log('OAuth page closed or timed out (may be expected)');
+			this.code.logger.log('OAuth page closed or timed out (may be expected)');
 		}
 
 		// Verify credentials are enabled
 		await expect(enabledWidget).toBeVisible({ timeout: 30000 });
-		console.log('Databricks OAuth setup complete');
+		this.code.logger.log('Databricks OAuth setup complete');
 	}
 
 	/**
@@ -208,11 +208,11 @@ export class DashboardPage {
 		const enabledWidget = page.locator('[aria-label*="Snowflake"][aria-label*="Enabled"]');
 		const isEnabled = await enabledWidget.isVisible().catch(() => false);
 		if (isEnabled) {
-			console.log('Snowflake credential already configured, skipping setup');
+			this.code.logger.log('Snowflake credential already configured, skipping setup');
 			return;
 		}
 
-		console.log('Setting up Snowflake OAuth...');
+		this.code.logger.log('Setting up Snowflake OAuth...');
 
 		const snowflakeUsername = process.env.SNOWFLAKE_USERNAME!;
 		const snowflakePassword = process.env.SNOWFLAKE_PASSWORD!;
@@ -241,9 +241,9 @@ export class DashboardPage {
 		try {
 			await allowButton.waitFor({ timeout: 5000 });
 			await allowButton.click();
-			console.log('Clicked "Allow" authorization button');
+			this.code.logger.log('Clicked "Allow" authorization button');
 		} catch {
-			console.log('No "Allow" button found, proceeding...');
+			this.code.logger.log('No "Allow" button found, proceeding...');
 		}
 
 		// Wait for OAuth to complete and widget to reach its final state
@@ -252,7 +252,7 @@ export class DashboardPage {
 			// Check if already enabled - if so, we're done
 			const isEnabled = await enabledWidget.isVisible().catch(() => false);
 			if (isEnabled) {
-				console.log('Snowflake credential already enabled after OAuth');
+				this.code.logger.log('Snowflake credential already enabled after OAuth');
 				return;
 			}
 
@@ -261,14 +261,14 @@ export class DashboardPage {
 			const isDisabled = await disabledWidget.isVisible().catch(() => false);
 			if (isDisabled) {
 				await disabledWidget.click();
-				console.log('Clicked disabled widget to enable Snowflake credential');
+				this.code.logger.log('Clicked disabled widget to enable Snowflake credential');
 			}
 
 			// Verify it's now enabled
 			await expect(enabledWidget).toBeVisible({ timeout: 2000 });
 		}).toPass({ timeout: 15000 });
 
-		console.log('Snowflake OAuth setup complete');
+		this.code.logger.log('Snowflake OAuth setup complete');
 	}
 
 	/**
