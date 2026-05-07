@@ -12,12 +12,6 @@ on:
         required: false
         default: "claude-sonnet-4-5"
         type: string
-  # TEMPORARY: trigger on push to this branch so we can iterate on the
-  # action itself without needing a workflow_dispatch UI. Remove this
-  # block before merging.
-  push:
-    branches:
-      - jonv/e2e-failure-analyzer-action
 
 jobs:
   analyze:
@@ -60,10 +54,7 @@ jobs:
       - name: Run analyzer
         uses: ./.github/actions/e2e-failure-analyzer
         with:
-          # On push events, fall back to a fixed test run URL so the workflow
-          # exercises end-to-end without manual input. Remove this fallback
-          # alongside the push trigger before merging.
-          run-url: ${{ inputs.run_url || 'https://github.com/posit-dev/positron/actions/runs/25455097929' }}
+          run-url: ${{ inputs.run_url }}
           anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
           e2e-insights-api-key: ${{ env.E2E_INSIGHTS_KEY }}
-          model: ${{ inputs.model || 'claude-sonnet-4-5' }}
+          model: ${{ inputs.model }}
