@@ -246,20 +246,28 @@ export class DashboardPage {
 			console.log('No "Allow" button found, proceeding...');
 		}
 
-		// Wait for the credential widget to appear in disabled state after OAuth completes
-		// Then click it to enable
-		const disabledWidget = page.locator('[aria-label*="Snowflake"][aria-label*="Disabled"]');
-		try {
-			await expect(disabledWidget).toBeVisible({ timeout: 10000 });
-			await disabledWidget.click();
-			console.log('Clicked disabled widget to enable Snowflake credential');
-		} catch {
-			// Widget might already be enabled or in a different state
-			console.log('Disabled widget not found, checking if already enabled...');
-		}
+		// Wait for OAuth to complete and widget to reach its final state
+		// Use expect.toPass to handle the race between widget state updates
+		await expect(async () => {
+			// Check if already enabled - if so, we're done
+			const isEnabled = await enabledWidget.isVisible().catch(() => false);
+			if (isEnabled) {
+				console.log('Snowflake credential already enabled after OAuth');
+				return;
+			}
 
-		// Verify credentials are enabled
-		await expect(enabledWidget).toBeVisible({ timeout: 10000 });
+			// Otherwise, look for disabled widget and click to enable
+			const disabledWidget = page.locator('[aria-label*="Snowflake"][aria-label*="Disabled"]');
+			const isDisabled = await disabledWidget.isVisible().catch(() => false);
+			if (isDisabled) {
+				await disabledWidget.click();
+				console.log('Clicked disabled widget to enable Snowflake credential');
+			}
+
+			// Verify it's now enabled
+			await expect(enabledWidget).toBeVisible({ timeout: 2000 });
+		}).toPass({ timeout: 15000 });
+
 		console.log('Snowflake OAuth setup complete');
 	}
 

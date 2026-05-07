@@ -177,15 +177,9 @@ export class NotificationsToasts extends Themable implements INotificationsToast
 			return; // do not show toasts while notification center is visible
 		}
 
-		// --- Start Positron ---
-		// Keep toasts visible during e2e tests so they reflect real-user behavior.
-		// Reference environmentService so noUnusedLocals doesn't fire after disabling
-		// the upstream early-return below.
-		void this.environmentService;
-		// if (this.environmentService.enableSmokeTestDriver) {
-		// 	return; // disable in smoke tests to prevent covering elements
-		// }
-		// --- End Positron ---
+		if (this.environmentService.enableSmokeTestDriver) {
+			return; // disable in smoke tests to prevent covering elements
+		}
 
 		if (item.priority === NotificationPriority.SILENT) {
 			return; // do not show toasts for silenced notifications
