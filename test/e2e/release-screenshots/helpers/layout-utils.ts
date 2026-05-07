@@ -116,7 +116,7 @@ export async function waitForStableUI(page: Page, ms = 250): Promise<void> {
 	// Monaco's progress bar adds `.active` while running and removes it when
 	// done; resize-triggered refits flash this on the plots pane. Wait for
 	// all of them to clear so the screenshot doesn't capture the indicator.
-	await expect(page.locator('.monaco-progress-container.active')).toHaveCount(0, { timeout: 5000 });
+	await expect(page.locator('.monaco-progress-container.active')).toHaveCount(0, { timeout: 15000 });
 	await page.evaluate(() => new Promise<void>(r => requestAnimationFrame(() => r())));
 	await page.waitForTimeout(ms);
 }

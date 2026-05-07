@@ -57,7 +57,7 @@ test.describe('Release Screenshots - Welcome Page', () => {
 		// setup scroll position and adjust layout
 		await hotKeys.closePrimarySidebar();
 		await plots.alterPlotArea(0, -75);
-		await layouts.resizeAuxiliaryBar({ x: -400 });
+		await layouts.resizeAuxiliaryBar({ x: -420 });
 		await layouts.resizePanel({ y: -130 });
 		await quickaccess.runCommand('workbench.action.gotoLine', {
 			keepOpen: true,
