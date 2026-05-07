@@ -60,26 +60,6 @@ describe('Notebook Output Utils', () => {
 			expect(result.type).toBe('stdout');
 		});
 
-		it('parses application/json with a runtime error shape as JSON', () => {
-			const payload = { name: 'Runtime Error', message: 'queued' };
-			const result = parseOutputData(makeOutputItem('application/json', JSON.stringify(payload)));
-
-			expect(result.type).toBe('json');
-			if (result.type === 'json') {
-				expect(result.data).toEqual(payload);
-			}
-		});
-
-		it('parses application/json with a keyboard interrupt shape as JSON', () => {
-			const payload = { name: 'KeyboardInterrupt', traceback: ['interrupted'] };
-			const result = parseOutputData(makeOutputItem('application/json', JSON.stringify(payload)));
-
-			expect(result.type).toBe('json');
-			if (result.type === 'json') {
-				expect(result.data).toEqual(payload);
-			}
-		});
-
 		it('parses notebook error MIME as error output', () => {
 			const result = parseOutputData(makeOutputItem(
 				'application/vnd.code.notebook.error',

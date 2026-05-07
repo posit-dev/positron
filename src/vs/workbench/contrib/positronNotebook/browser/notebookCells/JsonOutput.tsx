@@ -42,7 +42,7 @@ function JsonNode({ value, keyName }: JsonNodeProps) {
 		case 'object':
 			return <JsonCollapsible keyName={keyName} type='object' value={value as Record<string, unknown>} />;
 		case 'string':
-			return <JsonLeaf display={JSON.stringify(value) ?? '""'} keyName={keyName} valueClass='json-string' />;
+			return <JsonLeaf display={JSON.stringify(value)} keyName={keyName} valueClass='json-string' />;
 		case 'number':
 			return <JsonLeaf display={String(value)} keyName={keyName} valueClass='json-number' />;
 		case 'boolean':

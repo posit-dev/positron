@@ -16,5 +16,5 @@ export function isCopyJsonMenuArg(arg: unknown): arg is CopyJsonMenuArg {
 }
 
 export function serializeJsonOutput(data: unknown): string {
-	return JSON.stringify(data, null, 2) ?? String(data);
+	return JSON.stringify(data, null, 2);
 }
