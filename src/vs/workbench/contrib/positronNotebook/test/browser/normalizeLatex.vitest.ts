@@ -43,6 +43,14 @@ describe('normalizeLatex', () => {
 			.toBe('\\displaystyle \\int_{-\\infty}^{\\infty} e^{-x^2}\\,dx = \\sqrt{\\pi}');
 	});
 
+	it('preserves escaped \\$ (literal dollar signs)', () => {
+		expect(normalizeLatex('\\$5 + \\$10 = \\$15')).toBe('\\$5 + \\$10 = \\$15');
+	});
+
+	it('strips unescaped $ but preserves escaped \\$ in mixed content', () => {
+		expect(normalizeLatex('$\\text{costs \\$5}$')).toBe('\\text{costs \\$5}');
+	});
+
 	it('handles empty content', () => {
 		expect(normalizeLatex('')).toBe('');
 	});

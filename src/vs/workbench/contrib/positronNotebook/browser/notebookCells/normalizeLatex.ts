@@ -27,7 +27,8 @@ export function normalizeLatex(content: string): string {
 		return trimmed.slice(2, -2).trim();
 	}
 
-	// Strip all $ delimiters (both $...$ and $$...$$) since the MIME type
+	// Strip unescaped $ delimiters (both $...$ and $$...$$) since the MIME type
 	// already establishes math context. KaTeX errors on literal $ in math mode.
-	return trimmed.replace(/\${1,2}/g, '').trim();
+	// Preserve escaped \$ which represents a literal dollar sign in LaTeX.
+	return trimmed.replace(/(?<!\\)\${1,2}/g, '').trim();
 }
