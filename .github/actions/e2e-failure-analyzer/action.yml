@@ -127,6 +127,9 @@ runs:
       env:
         ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
         WORK_DIR: ${{ steps.prep.outputs.work_dir }}
+        # Repo workspace -- the agent reads test source from $REPO_ROOT/test/e2e
+        # to understand each failing test's intent (assertions, page-object usage).
+        REPO_ROOT: ${{ github.workspace }}
         MODEL: ${{ inputs.model }}
         MAX_TURNS: ${{ inputs.max-turns }}
       run: node analyze.mjs

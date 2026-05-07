@@ -17,6 +17,9 @@ const WORK_DIR = mustEnv('WORK_DIR');
 const MODEL = process.env.MODEL || 'claude-sonnet-4-5';
 const STEP_SUMMARY = process.env.GITHUB_STEP_SUMMARY;
 const MAX_TURNS = parsePosIntEnv('MAX_TURNS', 40);
+// Repo workspace (sparse-checkout root). Optional: when present, the agent
+// reads failing tests' source from $REPO_ROOT/test/e2e/{tests,pages,fixtures}.
+const REPO_ROOT = process.env.REPO_ROOT || '';
 // Defensive bounds against pathological runs (many failures x long traces).
 // Per-attempt cap is ~50x the old 12-line truncation -- never trips on typical
 // tests, prevents 500-action timelines from ballooning the prompt.
@@ -298,7 +301,8 @@ For each failure or group of related failures, determine:
 Process:
 - READ EVERY SCREENSHOT IN PARALLEL with multiple Read tool calls in a single message. Each attempt may have several screenshots in chronological order; the last is the failure-state, the earlier ones show what the page looked like in the moments leading up to it. Comparing them is often what reveals the real root cause -- the failure message and the final frame can be misleading on their own.
 - READ THE FULL TRACE TIMELINE in the prompt. The action sequence (selector clicks, navigations, waits) often shows where a test actually went wrong even if the final error points elsewhere. Don't stop at the last action.
-- View error-context markdown files when screenshots and trace timelines are insufficient.
+- READ THE FAILING TEST'S SOURCE FILE before drawing conclusions. The test file path is provided in each failure entry. If REPO_ROOT is set in the input header, the absolute path is \`<REPO_ROOT>/test/e2e/<file>\`. Reading the source tells you what the test actually intends to verify, what page objects/helpers it depends on, and the setup steps -- often the difference between "the assertion is the bug" vs "setup failed before reaching the assertion." When the test imports page objects (e.g., \`import { Console } from '../../pages/console'\`), Read those too if the failure involves their behavior. Do this BEFORE writing the analysis, not after.
+- View error-context markdown files when screenshots, trace timelines, and source code are insufficient.
 - Multiple tests failing in the same file/suite usually share a root cause -- group them.
 - The Severity for each test is pre-computed and labeled in the input ("Severity: HARD" or "Severity: FLAKY"). Use that label VERBATIM in your output. Do NOT recompute severity from retry counts, root cause, or history -- the input label is authoritative. A test can have root cause "flaky test" and severity "HARD" simultaneously: that means the test failed all retries on this run AND its history shows it's prone to flaking.
 - Tests tagged \`:soft-fail\` are known flaky.
@@ -340,9 +344,13 @@ async function main() {
 	const projects = discoverProjectDirs(WORK_DIR);
 
 	const historyMap = buildHistoryByKey(history);
+	const repoRootLine = REPO_ROOT
+		? `REPO_ROOT: ${REPO_ROOT} (test source available at $REPO_ROOT/test/e2e/{tests,pages,fixtures})`
+		: 'REPO_ROOT: not set (test source not available; analyze from screenshots/traces only)';
 	const sections = [
 		'## Run metadata',
 		renderRunHeader(runInfo),
+		repoRootLine,
 		'',
 		'## Non-e2e job failures',
 		renderNonE2eFailures(runInfo),
@@ -366,6 +374,7 @@ async function main() {
 	}
 
 	console.log(`[analyzer] WORK_DIR=${WORK_DIR}`);
+	console.log(`[analyzer] REPO_ROOT=${REPO_ROOT || '(unset)'}`);
 	console.log(`[analyzer] model=${MODEL} maxTurns=${MAX_TURNS} claudePath=${CLAUDE_CODE_PATH || '(default)'}`);
 	console.log(`[analyzer] projects=${projects.map(p => p.project).join(', ') || '(none)'}`);
 	console.log(`[analyzer] user prompt (${userPrompt.length} chars):\n${userPrompt.slice(0, 4000)}${userPrompt.length > 4000 ? '\n...(truncated)' : ''}`);
