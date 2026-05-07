@@ -90,7 +90,7 @@ jobs:
           DATABRICKS_SERVICE_ACCOUNT_EMAIL: "op://Positron/Databricks-WB-Auto/service-account-email"
           DATABRICKS_SERVICE_ACCOUNT_PASSWORD: "op://Positron/Databricks-WB-Auto/service-account-password"
           DATABRICKS_SERVICE_ACCOUNT_OTP_SECRET: "op://Positron/Databricks-WB-Auto/service-account-otp-secret"
-          SNOWFLAKE_ACCOUNT: "op://Positron/Snowflake/credential/Snowflake-WB-Auto/account"
+          SNOWFLAKE_ACCOUNT: "op://Positron/Snowflake-WB-Auto/account"
           SNOWFLAKE_CLIENT_ID: "op://Positron/Snowflake-WB-Auto/client-id"
           SNOWFLAKE_CLIENT_SECRET: "op://Positron/Snowflake-WB-Auto/client-secret"
           SNOWFLAKE_USERNAME: "op://Positron/Snowflake-WB-Auto/username"
