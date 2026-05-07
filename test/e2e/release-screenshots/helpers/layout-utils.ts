@@ -7,7 +7,7 @@ import { Page } from '@playwright/test';
 import { Application } from '../../infra';
 
 /**
- * Set the screenshot viewport. Defaults to 1680x1050; override via
+ * Set the screenshot viewport. Defaults to 1512x945; override via
  * `POSITRON_SCREENSHOT_VIEWPORT="W,H"` or `"W,H,DPR"`.
  */
 export async function setScreenshotWindowSize(
@@ -20,8 +20,8 @@ export async function setScreenshotWindowSize(
 		return;
 	}
 
-	let width = 1680;
-	let height = 1050;
+	let width = 1512;
+	let height = 945;
 	let deviceScaleFactor = 1;
 	const fromEnv = process.env.POSITRON_SCREENSHOT_VIEWPORT;
 	if (fromEnv && /^\d+,\d+(,\d+(\.\d+)?)?$/.test(fromEnv)) {
