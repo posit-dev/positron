@@ -181,7 +181,6 @@ export async function showConfigurationDialog(
 		enrichedSources,
 		async (config, action) => {
 			log.info(`Config dialog action: "${action}" for provider "${config.provider}"`);
-			const hasAuthProvider = authProviders.has(config.provider);
 			switch (action) {
 				case 'save':
 				case 'oauth-signin': {
@@ -189,18 +188,14 @@ export async function showConfigurationDialog(
 						await handleCopilotSignIn();
 						break;
 					}
-					if (hasAuthProvider) {
-						await handleSave(config);
-						notifyModelAdded(config);
-					}
+					await handleSave(config);
+					notifyModelAdded(config);
 					break;
 				}
 				case 'delete':
 				case 'oauth-signout': {
-					if (hasAuthProvider) {
-						await handleDelete(config);
-						notifyModelRemoved(config);
-					}
+					await handleDelete(config);
+					notifyModelRemoved(config);
 					break;
 				}
 				case 'cancel': {
@@ -301,8 +296,9 @@ async function handleDelete(
 ): Promise<void> {
 	const provider = authProviders.get(config.provider);
 	if (!provider) {
-		log.warn(`handleDelete: no auth provider for "${config.provider}"`);
-		return;
+		throw new Error(
+			vscode.l10n.t('No auth provider registered for {0}', config.provider)
+		);
 	}
 	const sessions = await provider.getSessions();
 	// Credential-chain sessions (e.g. env var credentials) use the
