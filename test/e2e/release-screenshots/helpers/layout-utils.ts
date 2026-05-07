@@ -104,6 +104,31 @@ export async function hideNotificationBadges(page: Page): Promise<void> {
 }
 
 /**
+ * Suppress the Monaco sash hover/active highlight (the blue strip you
+ * sometimes see between the variables and plots panes after a resize
+ * drag). The drag releases the mouse but the sash retains its focus/active
+ * class until something else clears it; injecting CSS is more deterministic
+ * than blurring focus.
+ */
+export async function hideSashHighlights(page: Page): Promise<void> {
+	await page.evaluate(() => {
+		const ID = 'release-screenshot-hide-sash-highlights';
+		if (document.getElementById(ID)) {
+			return;
+		}
+		const style = document.createElement('style');
+		style.id = ID;
+		style.textContent = `
+			.monaco-sash:hover,
+			.monaco-sash.active,
+			.monaco-sash:focus,
+			.monaco-sash:focus-within { background-color: transparent !important; }
+		`;
+		document.head.appendChild(style);
+	});
+}
+
+/**
  * Wait for the workbench to be visually stable. A short fixed wait after
  * `requestAnimationFrame` covers most CSS transitions and async layout reflow.
  *
@@ -145,9 +170,10 @@ export async function overrideRuntimeLabel(page: Page): Promise<void> {
  * that produces a clean, deterministic frame:
  *   1. Hide notification toasts (they cover real UI)
  *   2. Hide activity-bar notification badges (e.g. "sign in to GitHub" red dot)
- *   3. Rewrite "(uv: ...)" runtime labels to "(.venv)"
- *   4. Unhover (no spurious hover states)
- *   5. Wait for layout to settle
+ *   3. Suppress Monaco sash hover/active highlights left over from drags
+ *   4. Rewrite runtime labels (e.g. "(uv: positron)") to "(Venv: .venv)"
+ *   5. Unhover (no spurious hover states)
+ *   6. Wait for layout to settle
  *
  * Call this immediately before `captureFullWindow` / `capturePanel`. Set up
  * world state with POMs first, then call this once, then capture.
@@ -155,6 +181,7 @@ export async function overrideRuntimeLabel(page: Page): Promise<void> {
 export async function prepareForScreenshot(app: Application, page: Page): Promise<void> {
 	await hideToasts(app);
 	await hideNotificationBadges(page);
+	await hideSashHighlights(page);
 	await overrideRuntimeLabel(page);
 	await unhoverAll(page);
 	await waitForStableUI(page);
