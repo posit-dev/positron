@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -94,6 +94,15 @@ describe('MarkedKatexExtension - bare block environments', () => {
 
 	it('does not tokenize unbalanced environments', () => {
 		const input = '\\begin{equation}\nx = 1\n';
+		const tokens = markedInstance.lexer(input);
+		const katexTokens = collectKatexTokens(tokens);
+
+		const blockTokens = katexTokens.filter(t => t.displayMode);
+		expect(blockTokens).toHaveLength(0);
+	});
+
+	it('does not tokenize mismatched environments', () => {
+		const input = '\\begin{equation}\nx = 1\n\\end{align}\n';
 		const tokens = markedInstance.lexer(input);
 		const katexTokens = collectKatexTokens(tokens);
 

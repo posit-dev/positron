@@ -139,9 +139,13 @@ export namespace MarkedKatexExtension {
 		let match: RegExpExecArray | null;
 
 		while ((match = rule.exec(src)) !== null) {
+			const envName = match[2].trim();
 			if (match[1] === '\\begin') {
-				beginEndStack.push(match[2].trim());
+				beginEndStack.push(envName);
 			} else if (match[1] === '\\end') {
+				if (beginEndStack[beginEndStack.length - 1] !== envName) {
+					return -1;
+				}
 				beginEndStack.pop();
 				if (beginEndStack.length === 0) {
 					let end = match.index + match[0].length;
