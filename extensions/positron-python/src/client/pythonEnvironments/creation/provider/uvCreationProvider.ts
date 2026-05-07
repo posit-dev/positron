@@ -25,8 +25,14 @@ import {
     CreateEnvironmentOptions,
     CreateEnvironmentResult,
 } from '../proposed.createEnvApis';
-import { getStablePythonAfterUpdate, getUvPythonVersionInfo, isUvInstalled } from '../../common/environmentManagers/uv';
+import {
+    getAvailablePythonVersions,
+    getStablePythonAfterUpdate,
+    getUvPythonVersionInfo,
+    isUvInstalled,
+} from '../../common/environmentManagers/uv';
 import { pickPythonVersion } from './uvUtils';
+import { uvInstallDeps } from './autoCreateVenv';
 
 export const UV_PROVIDER_ID = `${PVSC_EXTENSION_ID}:uv`;
 
@@ -139,10 +145,20 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
         workspaceStep.next = existingEnvStep;
 
         let version: string | undefined;
+        let installDeps = options?.installPackages ?? false;
         const versionStep = new MultiStepNode(
             workspaceStep,
             async (context) => {
-                if (existingVenvAction === ExistingVenvAction.Create && options?.uvPythonVersion) {
+                if (existingVenvAction === ExistingVenvAction.Create && options?.uvPythonVersion === 'auto') {
+                    const versions = await getAvailablePythonVersions();
+                    if (versions.length > 0) {
+                        version = versions[0].version;
+                        traceInfo(`Auto-selected Python version ${version} for uv environment.`);
+                    } else {
+                        traceError('No Python versions available from uv for auto-selection.');
+                        return MultiStepAction.Cancel;
+                    }
+                } else if (existingVenvAction === ExistingVenvAction.Create && options?.uvPythonVersion) {
                     version = options.uvPythonVersion;
                 } else if (
                     existingVenvAction === ExistingVenvAction.Recreate ||
@@ -248,6 +264,18 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
 
                 envPath = await createUvVenv(workspace, version, progress, token, options?.envName);
                 if (envPath) {
+                    if (installDeps && workspace) {
+                        try {
+                            await uvInstallDeps(workspace, progress, token, options?.depInstallArgs);
+                        } catch (depEx) {
+                            if (depEx === MultiStepAction.Back || depEx === MultiStepAction.Cancel) {
+                                traceInfo('User skipped dependency installation.');
+                            } else {
+                                traceError('Dependency installation failed, but venv was created: ', depEx);
+                                showPositronErrorMessageWithLogs(CreateEnv.Venv.errorInstallingPackages);
+                            }
+                        }
+                    }
                     return { path: envPath, workspaceFolder: workspace };
                 }
 
