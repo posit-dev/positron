@@ -110,6 +110,7 @@ export class DashboardPage {
 			await expect(credentialsSection).toBeVisible({ timeout: 5000 });
 		} catch {
 			// No credentials section - managed credentials not configured on this workbench instance
+			console.warn('Session Credentials section not found - managed credentials are not configured on this Workbench instance');
 			return;
 		}
 
@@ -146,8 +147,6 @@ export class DashboardPage {
 			context.waitForEvent('page'),
 			page.locator('[aria-label*="Databricks"]').first().click(),
 		]);
-
-		console.log('OAuth page opened:', oauthPage.url());
 
 		// Navigate to Okta SSO via Databricks
 		await oauthPage.waitForURL(/cloud\.databricks\.com\/login\.html/, { timeout: 15000 });
@@ -224,8 +223,6 @@ export class DashboardPage {
 			context.waitForEvent('page'),
 			snowflakeWidget.click(),
 		]);
-
-		console.log('Snowflake OAuth page opened:', oauthPage.url());
 
 		// Wait for Snowflake login page to load
 		await oauthPage.waitForLoadState('networkidle');
