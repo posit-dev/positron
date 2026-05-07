@@ -13,14 +13,14 @@ import { PositronDataGrid } from '../positronDataGrid/positronDataGrid.js';
 /**
  * PositronListProps interface.
  */
-interface PositronListProps<T> {
+interface PositronListProps<TItem, TSection> {
 	id?: string;
-	instance: PositronListInstance<T>;
+	instance: PositronListInstance<TItem, TSection>;
 }
 
 /**
  * PositronList component.
  */
-export const PositronList = <T,>({ id, instance }: PositronListProps<T>): JSX.Element => {
+export const PositronList = <TItem, TSection = never>({ id, instance }: PositronListProps<TItem, TSection>): JSX.Element => {
 	return <PositronDataGrid id={id} instance={instance} />;
 };

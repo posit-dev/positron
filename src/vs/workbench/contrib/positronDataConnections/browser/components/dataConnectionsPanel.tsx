@@ -15,12 +15,12 @@ import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { NewDataConnectionFlow } from '../dialogs/newDataConnectionFlow.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { PositronList } from '../../../../browser/positronList/positronList.js';
-import { PositronListInstance } from '../../../../browser/positronList/classes/positronListInstance.js';
+import { ListEntry, PositronListInstance } from '../../../../browser/positronList/classes/positronListInstance.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
-import { IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
+import { IDataConnectionProfile, IDataConnectionSection } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
 import { DEFAULT_ACTION_BAR_BUTTON_WIDTH, DynamicActionBarAction, PositronDynamicActionBar } from '../../../../../platform/positronActionBar/browser/positronDynamicActionBar.js';
 
 /**
@@ -45,8 +45,10 @@ export const DataConnectionsPanel = ({ active }: DataConnectionsPanelProps) => {
 	const { positronDataConnectionsService } = usePositronReactServicesContext();
 
 	// Track the data connection profiles so the panel re-renders when they change.
-	const [profiles, setProfiles] = useState<readonly IDataConnectionProfile[]>(
-		positronDataConnectionsService.getProfiles()
+	const [profiles, setProfiles] = useState<readonly IDataConnectionProfile[]>(() => {
+		const dd = positronDataConnectionsService.getProfiles();
+		return [...dd, ...dd, ...dd, ...dd, ...dd, ...dd, ...dd, ...dd, ...dd, ...dd, ...dd, ...dd, ...dd, ...dd, ...dd, ...dd, ...dd, ...dd, ...dd, ...dd];
+	}
 	);
 
 	// Listen for changes to the data connection profiles and update state accordingly.
@@ -59,18 +61,40 @@ export const DataConnectionsPanel = ({ active }: DataConnectionsPanelProps) => {
 
 	// Single-column list instance for the data connection profiles. Created once and disposed
 	// on unmount; props (items, etc.) are pushed in via setters below.
-	const [listInstance] = useState(() => new PositronListInstance<IDataConnectionProfile>({
-		defaultRowHeight: 32,
+	const [listInstance] = useState(() => new PositronListInstance<IDataConnectionProfile, IDataConnectionSection>({
+		defaultItemHeight: 32,
 		itemRenderer: profile => (
 			<div className='data-connection-profile'>
 				{profile.connectionName}
 			</div>
 		),
+		defaultSectionHeight: 22,
+		sectionRenderer: section => (
+			<div className='data-connection-section'>
+				SECTION {section.label}
+			</div>
+		)
 	}));
 
-	// Push the latest profiles into the list instance.
+	// Push the latest profiles into the list instance, grouped into "Active" (the first two
+	// profiles) and "Saved" (the remainder).
 	useEffect(() => {
-		listInstance.setItems(profiles);
+		const activeProfiles = profiles.slice(0, 2);
+		const savedProfiles = profiles.slice(2);
+		const entries: ListEntry<IDataConnectionProfile, IDataConnectionSection>[] = [];
+		if (activeProfiles.length > 0) {
+			entries.push({ kind: 'section', section: { label: localize('positronDataConnections.activeSection', "Active") } });
+			for (const profile of activeProfiles) {
+				entries.push({ kind: 'item', item: profile });
+			}
+		}
+		if (savedProfiles.length > 0) {
+			entries.push({ kind: 'section', section: { label: localize('positronDataConnections.savedSection', "Saved") } });
+			for (const profile of savedProfiles) {
+				entries.push({ kind: 'item', item: profile });
+			}
+		}
+		listInstance.setEntries(entries);
 	}, [listInstance, profiles]);
 
 	// Dispose the list instance on unmount.
@@ -130,7 +154,10 @@ export const DataConnectionsPanel = ({ active }: DataConnectionsPanelProps) => {
 					? <div className='data-connection-profiles-list-empty'>
 						{localize('positronDataConnections.noConnections', "No data connections.")}
 					</div>
-					: <PositronList id='data-connection-profiles-list' instance={listInstance} />
+					: <PositronList<IDataConnectionProfile, IDataConnectionSection>
+						id='data-connection-profiles-list'
+						instance={listInstance}
+					/>
 				}
 			</div>
 		</div>
