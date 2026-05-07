@@ -114,13 +114,16 @@ function renderProjectFailures(projects, historyMap) {
 		// Pre-compute deterministic severity per test: HARD = appears in result.failures
 		// (failed all retries); FLAKY = only appears in failedTests (recovered on retry).
 		// This must be computed here -- the model will misclassify if asked to count attempts.
-		// Match on (title, basename) since failures.file is a playwright-normalized absolute
-		// path while testDetails.file is project-relative -- but the basenames agree.
-		const hardKeys = new Set(finalFailures.map(f => `${f.title}|||${baseName(f.file)}`));
+		// Match on (title, normalizedSpecPath). failures.file is a playwright-normalized
+		// absolute path while testDetails.file is project-relative; we strip up to the
+		// `tests/` root so the suffixes can be compared directly. Using the full project-
+		// relative suffix (not just basename) avoids false matches when two test files in
+		// different directories happen to share a basename and a test title.
+		const hardKeys = new Set(finalFailures.map(f => `${f.title}|||${normalizeSpecPath(f.file)}`));
 
 		const details = result.testDetails || [];
 		for (const t of details) {
-			const key = `${t.title}|||${baseName(t.file)}`;
+			const key = `${t.title}|||${normalizeSpecPath(t.file)}`;
 			const severity = hardKeys.has(key) ? 'HARD' : 'FLAKY';
 			out.push('');
 			out.push(`- Test: ${t.title}`);
@@ -162,15 +165,26 @@ function renderProjectFailures(projects, historyMap) {
 	return out.join('\n');
 }
 
-// History keys use forward slashes and a "test/e2e/" prefix; failure `file`
-// fields can be Windows-style (backslashes) and relative to test/e2e. Normalize
-// so the lookup map hits.
+/**
+ * Normalize an e2e spec file path to the canonical "test/e2e/tests/..." form
+ * used by the e2e-test-insights API. Handles three input shapes:
+ *
+ *   "../C:\\a\\positron\\test\\e2e\\tests\\foo\\bar.test.ts"  (failures.file: absolute)
+ *   "tests\\foo\\bar.test.ts"                                  (testDetails.file: relative)
+ *   "test/e2e/tests/foo/bar.test.ts"                           (already canonical)
+ *
+ * All three normalize to "test/e2e/tests/foo/bar.test.ts". Used both for
+ * matching against history API keys AND for severity lookup -- using the full
+ * project-relative suffix (not just basename) avoids false matches when two
+ * test files in different directories happen to share a basename and a title.
+ */
 function normalizeSpecPath(file) {
-	let p = String(file || '').replace(/\\/g, '/');
-	if (!p.startsWith('test/e2e/')) {
-		p = `test/e2e/${p}`;
-	}
-	return p;
+	const fwd = String(file || '').replace(/\\/g, '/');
+	const idx = fwd.lastIndexOf('/tests/');
+	if (idx >= 0) { return `test/e2e${fwd.slice(idx)}`; }
+	if (fwd.startsWith('tests/')) { return `test/e2e/${fwd}`; }
+	if (fwd.startsWith('test/e2e/')) { return fwd; }
+	return fwd;
 }
 
 function buildHistoryByKey(history) {
@@ -221,10 +235,6 @@ function indent(text, prefix) {
 	return String(text).split('\n').map(l => prefix + l).join('\n');
 }
 
-/** Last path segment, normalized across Windows/Unix separators. */
-function baseName(p) {
-	return String(p || '').replace(/\\/g, '/').split('/').pop() || '';
-}
 
 /**
  * Cap a per-attempt timeline so a single pathological test can't dominate the
