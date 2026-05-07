@@ -109,6 +109,7 @@ describe('MarkedKatexExtension - bare block environments', () => {
 		const blockTokens = katexTokens.filter(t => t.displayMode);
 		expect(blockTokens).toHaveLength(1);
 		expect(blockTokens[0].text).toContain('\\begin{equation}');
+		expect(blockTokens[0].text).not.toContain('as shown');
 	});
 
 	it('renders bare block after paragraph text', () => {

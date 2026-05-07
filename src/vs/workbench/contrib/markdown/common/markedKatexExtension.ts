@@ -129,34 +129,29 @@ export namespace MarkedKatexExtension {
 	}
 
 	/**
-	 * Finds the end position of a balanced \begin{env}...\end{env} block
-	 * by tracking nested environments via a stack.
-	 * Returns the index past the closing \end{env} (including trailing newline),
-	 * or -1 if no balanced close is found.
+	 * Finds the end position of a balanced \begin{env}...\end{env} block.
+	 * Returns the character index immediately after the closing \end{env}
+	 * (plus trailing newline when at a line boundary), or -1 if unbalanced.
 	 */
 	function findBareBlockEnd(src: string): number {
-		const lines = src.split('\n');
 		const beginEndStack: string[] = [];
-		let consumed = 0;
+		const globalRule = new RegExp(beginEndGlobalRule.source, 'g');
+		let match: RegExpExecArray | null;
 
-		for (let i = 0; i < lines.length; i++) {
-			const line = lines[i];
-			for (const match of line.matchAll(beginEndGlobalRule)) {
-				if (match[1] === '\\begin') {
-					beginEndStack.push(match[2].trim());
-				} else if (match[1] === '\\end') {
-					beginEndStack.pop();
-					if (beginEndStack.length === 0) {
-						// Include trailing newline if present
-						consumed += line.length;
-						if (i < lines.length - 1) {
-							consumed += 1; // newline character
-						}
-						return consumed;
+		while ((match = globalRule.exec(src)) !== null) {
+			if (match[1] === '\\begin') {
+				beginEndStack.push(match[2].trim());
+			} else if (match[1] === '\\end') {
+				beginEndStack.pop();
+				if (beginEndStack.length === 0) {
+					let end = match.index + match[0].length;
+					// Consume trailing newline if present
+					if (src[end] === '\n') {
+						end += 1;
 					}
+					return end;
 				}
 			}
-			consumed += line.length + 1; // +1 for newline
 		}
 		return -1;
 	}
