@@ -167,23 +167,29 @@ function renderProjectFailures(projects, historyMap) {
 
 /**
  * Normalize an e2e spec file path to the canonical "test/e2e/tests/..." form
- * used by the e2e-test-insights API. Handles three input shapes:
+ * used by the e2e-test-insights API. Handles four input shapes:
  *
  *   "../C:\\a\\positron\\test\\e2e\\tests\\foo\\bar.test.ts"  (failures.file: absolute)
  *   "tests\\foo\\bar.test.ts"                                  (testDetails.file: relative)
  *   "test/e2e/tests/foo/bar.test.ts"                           (already canonical)
+ *   "tests/foo/tests/bar.test.ts"                              (nested `tests/` subdir)
  *
- * All three normalize to "test/e2e/tests/foo/bar.test.ts". Used both for
- * matching against history API keys AND for severity lookup -- using the full
- * project-relative suffix (not just basename) avoids false matches when two
- * test files in different directories happen to share a basename and a title.
+ * All normalize to "test/e2e/tests/<rest>". Used for both severity lookup AND
+ * matching against history API keys -- using the full project-relative suffix
+ * (not just basename) avoids false matches when two test files in different
+ * directories happen to share a basename and a title.
+ *
+ * Anchors on the specific "/test/e2e/tests/" substring rather than a generic
+ * "/tests/" so paths with nested `tests/` subdirectories aren't truncated.
  */
 function normalizeSpecPath(file) {
 	const fwd = String(file || '').replace(/\\/g, '/');
-	const idx = fwd.lastIndexOf('/tests/');
-	if (idx >= 0) { return `test/e2e${fwd.slice(idx)}`; }
-	if (fwd.startsWith('tests/')) { return `test/e2e/${fwd}`; }
+	// Prefer the most specific anchor: matches absolute Playwright-normalized
+	// paths regardless of how deep a `tests/` subdir is nested afterwards.
+	const idx = fwd.indexOf('/test/e2e/tests/');
+	if (idx >= 0) { return fwd.slice(idx + 1); }
 	if (fwd.startsWith('test/e2e/')) { return fwd; }
+	if (fwd.startsWith('tests/')) { return `test/e2e/${fwd}`; }
 	return fwd;
 }
 
