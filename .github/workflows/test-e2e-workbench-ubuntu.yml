@@ -150,6 +150,73 @@ jobs:
           export DISPLAY=:10
           npx playwright test --project e2e-workbench --retries=1 --workers=1
 
+      - name: Debug — dump Positron install resolution on failure
+        if: failure()
+        shell: bash
+        run: |
+          set +e
+          echo "::group::Installed Positron directories"
+          docker exec test ls -la /usr/lib/rstudio-server/bin/positron-server/
+          echo "::endgroup::"
+
+          echo "::group::Version of each install"
+          docker exec test bash -c '
+            for dir in /usr/lib/rstudio-server/bin/positron-server/*/; do
+              echo "--- $dir ---"
+              if [ -x "$dir/bin/positron-server" ]; then
+                "$dir/bin/positron-server" --version 2>&1 | head -10
+              else
+                echo "no bin/positron-server"
+              fi
+            done
+          '
+          echo "::endgroup::"
+
+          echo "::group::rserver log lines about Positron path resolution"
+          docker exec test bash -c '
+            for log in /var/log/rstudio/rstudio-server/*.log /var/lib/rstudio-server/monitor/log/*.log; do
+              [ -f "$log" ] || continue
+              echo "--- $log ---"
+              grep -E "Using Positron|Using bundled|positron-static|editor-exec-path|version mismatch" "$log" | tail -40
+            done
+          '
+          echo "::endgroup::"
+
+          echo "::group::Env vars seen by rserver process"
+          docker exec test bash -c '
+            pid=$(pgrep -o -x rserver)
+            if [ -n "$pid" ]; then
+              tr "\0" "\n" < /proc/$pid/environ | grep -iE "POSITRON|WORKBENCH|RS_"
+            else
+              echo "no rserver process"
+            fi
+          '
+          echo "::endgroup::"
+
+          echo "::group::positron.conf"
+          docker exec test cat /etc/rstudio/positron.conf 2>&1 || true
+          echo "::endgroup::"
+
+          echo "::group::Generated nginx conf (positron-static block)"
+          docker exec test bash -c '
+            for conf in /var/lib/rstudio-server/conf/rserver-http.conf /etc/rstudio/rserver-http.conf; do
+              [ -f "$conf" ] || continue
+              echo "--- $conf ---"
+              grep -B1 -A6 positron-static "$conf"
+            done
+          '
+          echo "::endgroup::"
+
+          echo "::group::Tail of rserver logs (last 200 lines)"
+          docker exec test bash -c '
+            for log in /var/log/rstudio/rstudio-server/*.log; do
+              [ -f "$log" ] || continue
+              echo "--- $log ---"
+              tail -200 "$log"
+            done
+          '
+          echo "::endgroup::"
+
       - name: Upload HTML report to S3
         if: always()
         uses: ./.github/actions/upload-report-to-s3
