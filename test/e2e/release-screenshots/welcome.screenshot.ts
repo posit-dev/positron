@@ -58,7 +58,7 @@ test.describe('Release Screenshots - Welcome Page', () => {
 		await hotKeys.closePrimarySidebar();
 		await plots.alterPlotArea(0, -75);
 		await layouts.resizeAuxiliaryBar({ x: -400 });
-		await layouts.resizePanel({ y: -120 });
+		await layouts.resizePanel({ y: -130 });
 		await quickaccess.runCommand('workbench.action.gotoLine', {
 			keepOpen: true,
 		});
@@ -68,6 +68,7 @@ test.describe('Release Screenshots - Welcome Page', () => {
 			variableName: 'gc_frame',
 			action: 'expand',
 		});
+		await variables.scroll({ y: 150 });
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);
