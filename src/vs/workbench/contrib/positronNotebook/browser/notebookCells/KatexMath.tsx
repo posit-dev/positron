@@ -11,6 +11,7 @@ import { importAMDNodeModule } from '../../../../../amdX.js';
 import { safeSetInnerHtml } from '../../../../../base/browser/domSanitize.js';
 import { allowedMarkdownHtmlTags, allowedMarkdownHtmlAttributes } from '../../../../../base/browser/markdownRenderer.js';
 import { MarkedKatexSupport } from '../../../markdown/browser/markedKatexSupport.js';
+import { getWindow } from '../../../../../base/browser/dom.js';
 
 type KatexModule = typeof import('katex').default;
 
@@ -55,6 +56,8 @@ export function KatexMath({ latex, displayMode }: { latex: string; displayMode?:
 		if (!container) {
 			return;
 		}
+
+		MarkedKatexSupport.ensureKatexStyles(getWindow(container));
 
 		if (cachedKatex) {
 			renderLatex(container, cachedKatex, latex, displayMode);

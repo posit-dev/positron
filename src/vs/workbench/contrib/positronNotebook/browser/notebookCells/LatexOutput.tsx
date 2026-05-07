@@ -10,8 +10,6 @@ import './LatexOutput.css';
 import React from 'react';
 
 // Other dependencies.
-import { getWindow } from '../../../../../base/browser/dom.js';
-import { MarkedKatexSupport } from '../../../markdown/browser/markedKatexSupport.js';
 import { KatexMath } from './KatexMath.js';
 import { normalizeLatex } from './normalizeLatex.js';
 
@@ -22,18 +20,10 @@ import { normalizeLatex } from './normalizeLatex.js';
  * is LaTeX) and renders in display mode (block-level math).
  */
 export function LatexOutput({ content }: { content: string }) {
-	const containerRef = React.useRef<HTMLDivElement>(null);
-
-	React.useEffect(() => {
-		if (containerRef.current) {
-			MarkedKatexSupport.ensureKatexStyles(getWindow(containerRef.current));
-		}
-	}, []);
-
 	const latex = React.useMemo(() => normalizeLatex(content), [content]);
 
 	return (
-		<div ref={containerRef} className='positron-notebook-latex-output'>
+		<div className='positron-notebook-latex-output'>
 			<KatexMath displayMode latex={latex} />
 		</div>
 	);
