@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Page } from '@playwright/test';
+import { expect, Page } from '@playwright/test';
 import { Application } from '../../infra';
 
 /**
@@ -104,34 +104,19 @@ export async function hideNotificationBadges(page: Page): Promise<void> {
 }
 
 /**
- * Hide Monaco progress bars (the thin blue strip pane re-renders show at
- * the top of their content area). After a resize the plots pane refits
- * and renders a progress bar; if we screenshot mid-fit, that bar leaks
- * into the captured image.
- */
-export async function hideProgressBars(page: Page): Promise<void> {
-	await page.evaluate(() => {
-		const ID = 'release-screenshot-hide-progress';
-		if (document.getElementById(ID)) {
-			return;
-		}
-		const style = document.createElement('style');
-		style.id = ID;
-		style.textContent = `
-			.monaco-progress-container { display: none !important; }
-		`;
-		document.head.appendChild(style);
-	});
-}
-
-/**
- * Wait for the workbench to be visually stable. A short fixed wait after
- * `requestAnimationFrame` covers most CSS transitions and async layout reflow.
+ * Wait for the workbench to be visually stable. Waits for any in-flight
+ * Monaco progress bars (the thin blue strip pane re-renders show at the
+ * top of their content area) to clear, then a short fixed wait after
+ * `requestAnimationFrame` to cover CSS transitions and async layout reflow.
  *
  * If a specific test needs to wait for a specific locator/state, do that with
  * `expect(...).toBeVisible()` before calling this helper.
  */
 export async function waitForStableUI(page: Page, ms = 250): Promise<void> {
+	// Monaco's progress bar adds `.active` while running and removes it when
+	// done; resize-triggered refits flash this on the plots pane. Wait for
+	// all of them to clear so the screenshot doesn't capture the indicator.
+	await expect(page.locator('.monaco-progress-container.active')).toHaveCount(0, { timeout: 5000 });
 	await page.evaluate(() => new Promise<void>(r => requestAnimationFrame(() => r())));
 	await page.waitForTimeout(ms);
 }
@@ -166,10 +151,9 @@ export async function overrideRuntimeLabel(page: Page): Promise<void> {
  * that produces a clean, deterministic frame:
  *   1. Hide notification toasts (they cover real UI)
  *   2. Hide activity-bar notification badges (e.g. "sign in to GitHub" red dot)
- *   3. Hide Monaco progress bars from in-flight pane re-renders
- *   4. Rewrite runtime labels (e.g. "(uv: positron)") to "(Venv: .venv)"
- *   5. Unhover (no spurious hover states)
- *   6. Wait for layout to settle
+ *   3. Rewrite runtime labels (e.g. "(uv: positron)") to "(Venv: .venv)"
+ *   4. Unhover (no spurious hover states)
+ *   5. Wait for layout to settle (and any in-flight progress bars to clear)
  *
  * Call this immediately before `captureFullWindow` / `capturePanel`. Set up
  * world state with POMs first, then call this once, then capture.
@@ -177,7 +161,6 @@ export async function overrideRuntimeLabel(page: Page): Promise<void> {
 export async function prepareForScreenshot(app: Application, page: Page): Promise<void> {
 	await hideToasts(app);
 	await hideNotificationBadges(page);
-	await hideProgressBars(page);
 	await overrideRuntimeLabel(page);
 	await unhoverAll(page);
 	await waitForStableUI(page);
