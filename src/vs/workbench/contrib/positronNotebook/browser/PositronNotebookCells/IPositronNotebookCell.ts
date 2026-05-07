@@ -403,6 +403,10 @@ export type ParsedOutput = ParsedTextOutput |
 	content: string;
 } |
 {
+	type: 'json';
+	data: unknown;
+} |
+{
 	type: 'unknown';
 	content: string;
 } |

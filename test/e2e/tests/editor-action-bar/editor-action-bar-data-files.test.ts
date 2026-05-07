@@ -84,6 +84,10 @@ test.describe('Editor Action Bar: Data Files', {
 			// Ensure the summary panel is visible
 			await dataExplorer.summaryPanel.show();
 
+			// Save button should NOT appear on the Data Explorer's editor
+			// action bar; the data explorer URI is virtual (not file-backed).
+			await editorActionBar.verifyButtonVisible('Save', false);
+
 			// Verify action bar behavior
 			await editorActionBar.selectSummaryOn(app.web, 'Left');
 			await editorActionBar.verifySummaryPosition('Left');
