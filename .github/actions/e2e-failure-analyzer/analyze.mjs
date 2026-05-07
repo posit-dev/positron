@@ -301,7 +301,7 @@ For each failure or group of related failures, determine:
 Process:
 - READ EVERY SCREENSHOT IN PARALLEL with multiple Read tool calls in a single message. Each attempt may have several screenshots in chronological order; the last is the failure-state, the earlier ones show what the page looked like in the moments leading up to it. Comparing them is often what reveals the real root cause -- the failure message and the final frame can be misleading on their own.
 - READ THE FULL TRACE TIMELINE in the prompt. The action sequence (selector clicks, navigations, waits) often shows where a test actually went wrong even if the final error points elsewhere. Don't stop at the last action.
-- READ THE FAILING TEST'S SOURCE FILE before drawing conclusions. The test file path is provided in each failure entry. If REPO_ROOT is set in the input header, the absolute path is \`<REPO_ROOT>/test/e2e/<file>\`. Reading the source tells you what the test actually intends to verify, what page objects/helpers it depends on, and the setup steps -- often the difference between "the assertion is the bug" vs "setup failed before reaching the assertion." When the test imports page objects (e.g., \`import { Console } from '../../pages/console'\`), Read those too if the failure involves their behavior. Do this BEFORE writing the analysis, not after.
+- READ THE FAILING TEST'S SOURCE FILE before drawing conclusions. The test file path is provided in each failure entry. If REPO_ROOT is set in the input header, the absolute path is \`<REPO_ROOT>/test/e2e/<file>\`. Reading the source tells you what the test actually intends to verify, what page objects/helpers it depends on, and the setup steps -- often the difference between "the assertion is the bug" vs "setup failed before reaching the assertion." When the test imports from \`../../pages/\`, \`../../fixtures/\`, or \`../../infra/\`, Read those too if the failure involves their behavior. \`infra/\` is especially useful when the failure happens during workbench startup, session creation, or teardown -- look at \`workbench.ts\`, \`code.ts\`, or the playwright drivers there. Do this BEFORE writing the analysis, not after.
 - View error-context markdown files when screenshots, trace timelines, and source code are insufficient.
 - Multiple tests failing in the same file/suite usually share a root cause -- group them.
 - The Severity for each test is pre-computed and labeled in the input ("Severity: HARD" or "Severity: FLAKY"). Use that label VERBATIM in your output. Do NOT recompute severity from retry counts, root cause, or history -- the input label is authoritative. A test can have root cause "flaky test" and severity "HARD" simultaneously: that means the test failed all retries on this run AND its history shows it's prone to flaking.
@@ -345,7 +345,7 @@ async function main() {
 
 	const historyMap = buildHistoryByKey(history);
 	const repoRootLine = REPO_ROOT
-		? `REPO_ROOT: ${REPO_ROOT} (test source available at $REPO_ROOT/test/e2e/{tests,pages,fixtures})`
+		? `REPO_ROOT: ${REPO_ROOT} (test source available at $REPO_ROOT/test/e2e/{tests,pages,fixtures,infra})`
 		: 'REPO_ROOT: not set (test source not available; analyze from screenshots/traces only)';
 	const sections = [
 		'## Run metadata',

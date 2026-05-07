@@ -33,8 +33,10 @@ jobs:
           # Need:
           # - .claude/skills/e2e-failure-analyzer/scripts (extraction helpers)
           # - .github/actions/e2e-failure-analyzer (the action itself)
-          # - test/e2e/{tests,pages,fixtures} so the analyzer can read failing
-          #   test source + page objects to understand each test's intent.
+          # - test/e2e/{tests,pages,fixtures,infra} so the analyzer can read
+          #   failing test source, page objects, fixture configs, and the
+          #   workbench/driver helpers that startup-or-teardown failures often
+          #   route through.
           # - test/e2e/{CLAUDE.md,README.md} for repo-specific test conventions.
           sparse-checkout: |
             .claude/skills/e2e-failure-analyzer
@@ -42,6 +44,7 @@ jobs:
             test/e2e/tests
             test/e2e/pages
             test/e2e/fixtures
+            test/e2e/infra
             test/e2e/CLAUDE.md
             test/e2e/README.md
 
