@@ -118,9 +118,9 @@ export async function waitForStableUI(page: Page, ms = 250): Promise<void> {
 /**
  * Rewrite the parenthesized environment suffix Positron renders next to
  * the Python interpreter name (e.g. "Python 3.10.15 (uv: positron)",
- * "Python 3.10.15 (Pyenv)") with a generic "(.venv)". The labels otherwise
- * surface CI/runner internals — uv project paths, the local Python manager
- * — into docs screenshots.
+ * "Python 3.10.15 (Pyenv)") with a generic "(Venv: .venv)". The labels
+ * otherwise surface CI/runner internals — uv project paths, the local
+ * Python manager — into docs screenshots.
  */
 export async function overrideRuntimeLabel(page: Page): Promise<void> {
 	await page.evaluate(() => {
@@ -128,7 +128,7 @@ export async function overrideRuntimeLabel(page: Page): Promise<void> {
 		// suffix only. Anchored on "Python" so we don't touch unrelated
 		// parenthesized text elsewhere in the workbench.
 		const PATTERN = /(Python\s+[\d.]+)\s+\([^)]+\)/g;
-		const REPLACEMENT = '$1 (.venv)';
+		const REPLACEMENT = '$1 (Venv: .venv)';
 		const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
 		let node: Node | null;
 		while ((node = walker.nextNode())) {
