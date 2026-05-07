@@ -68,7 +68,7 @@
 			{
 				"command": "authentication.configureProviders",
 				"title": "%commands.configureProviders.title%",
-        "category": "%commands.category%"
+				"category": "%commands.category%"
 			}
 		],
 		"configuration": {
