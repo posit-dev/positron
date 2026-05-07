@@ -63,11 +63,12 @@ export interface IDeletionSentinel {
 }
 
 /**
- * Pre-session kernel states that aren't covered by the runtime session's
- * RuntimeState. Once a session is attached, its RuntimeState is authoritative
- * and KernelStatus is undefined.
+ * Lifecycle of the notebook's relationship to a runtime session. When
+ * Connected, the session itself is authoritative for runtime state; the
+ * other values cover pre-session and post-session phases that the session
+ * can't speak to.
  */
-export enum KernelStatus {
+export enum NotebookKernelStatus {
 	/** Discovering available kernels */
 	Discovering = 'Preparing',
 	/** No kernel has been selected for the notebook */
@@ -75,6 +76,8 @@ export enum KernelStatus {
 	/** Changing from one kernel to another - bridges the gap while the old
 	 * session exits before the new session attaches. */
 	Switching = 'Switching',
+	/** A runtime session is attached. Its RuntimeState drives the display. */
+	Connected = 'Connected',
 	/** A kernel was selected and its runtime session has ended without a
 	 * follow-up (e.g., user shutdown). The user's selection persists; the
 	 * badge displays Disconnected with the runtime name so they can restart. */
@@ -182,7 +185,7 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * Observable status of the notebook's kernel connection. UI elements can
 	 * react to changes in kernel connectivity.
 	 */
-	readonly kernelStatus: IObservable<KernelStatus | undefined>;
+	readonly kernelStatus: IObservable<NotebookKernelStatus>;
 
 	/**
 	 * Observable of the notebook's selected kernel.

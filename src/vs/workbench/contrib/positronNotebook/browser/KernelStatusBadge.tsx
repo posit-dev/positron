@@ -12,7 +12,7 @@ import React from 'react';
 // Other dependencies.
 import { useNotebookInstance } from './NotebookInstanceProvider.js';
 import { useObservedValue } from './useObservedValue.js';
-import { KernelStatus } from './IPositronNotebookInstance.js';
+import { NotebookKernelStatus } from './IPositronNotebookInstance.js';
 import { useSessionRuntimeState } from '../../positronConsole/browser/components/useSessionRuntimeState.js';
 import { RuntimeStatusIcon } from '../../positronConsole/browser/components/runtimeStatus.js';
 import { runtimeStateToRuntimeStatus, RuntimeStatus } from '../../positronConsole/common/sessionDisplayUtils.js';
@@ -25,11 +25,11 @@ import { observableFromEvent } from '../../../../base/common/observable.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 import { ILanguageRuntimeService, RuntimeStartupPhase } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 
-const kernelStatusToLabel: Record<KernelStatus, string> = {
-	[KernelStatus.Discovering]: localize('positronNotebook.kernelStatusBadge.discovering', 'Discovering Interpreters...'),
-	[KernelStatus.Unselected]: localize('positronNotebook.kernelStatusBadge.unselected', 'No Kernel Selected'),
-	[KernelStatus.Switching]: localize('positronNotebook.kernelStatusBadge.switching', 'Switching Kernels...'),
-	[KernelStatus.Exited]: localize('positronNotebook.kernelStatusBadge.exited', 'Kernel Exited'),
+const kernelStatusToLabel: Partial<Record<NotebookKernelStatus, string>> = {
+	[NotebookKernelStatus.Discovering]: localize('positronNotebook.kernelStatusBadge.discovering', 'Discovering Interpreters...'),
+	[NotebookKernelStatus.Unselected]: localize('positronNotebook.kernelStatusBadge.unselected', 'No Kernel Selected'),
+	[NotebookKernelStatus.Switching]: localize('positronNotebook.kernelStatusBadge.switching', 'Switching Kernels...'),
+	[NotebookKernelStatus.Exited]: localize('positronNotebook.kernelStatusBadge.exited', 'Kernel Exited'),
 };
 
 const runtimeStartupPhaseToLabel: Partial<Record<RuntimeStartupPhase, string>> = {
@@ -55,11 +55,11 @@ export function KernelStatusBadge() {
 	let runtimeStatus: RuntimeStatus;
 	if (runtimeState !== undefined) {
 		runtimeStatus = runtimeStateToRuntimeStatus[runtimeState];
-	} else if (kernelStatus === KernelStatus.Exited) {
+	} else if (kernelStatus === NotebookKernelStatus.Exited) {
 		runtimeStatus = RuntimeStatus.Disconnected;
 	} else if (kernel) {
 		runtimeStatus = RuntimeStatus.Active;
-	} else if (kernelStatus === KernelStatus.Discovering) {
+	} else if (kernelStatus === NotebookKernelStatus.Discovering) {
 		runtimeStatus = RuntimeStatus.Active;
 	} else {
 		runtimeStatus = RuntimeStatus.Disconnected;
@@ -72,10 +72,8 @@ export function KernelStatusBadge() {
 		label = session.runtimeMetadata.runtimeName;
 	} else if (startupPhase && runtimeStartupPhaseToLabel[startupPhase]) {
 		label = runtimeStartupPhaseToLabel[startupPhase]!;
-	} else if (kernelStatus !== undefined) {
-		label = kernelStatusToLabel[kernelStatus];
 	} else {
-		label = '';
+		label = kernelStatusToLabel[kernelStatus] ?? '';
 	}
 
 	// scopedContextKeyService is only available after attachView() is called.
