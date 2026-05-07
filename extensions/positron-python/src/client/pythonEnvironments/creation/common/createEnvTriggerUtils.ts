@@ -1,7 +1,10 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+// --- Start Positron ---
 import * as os from 'os';
+import { isPipInstallableToml } from '../provider/venvUtils';
+// --- End Positron ---
 import * as path from 'path';
 import { ConfigurationTarget, Uri, WorkspaceFolder } from 'vscode';
 import * as fsapi from '../../../common/platform/fs-paths';
@@ -12,10 +15,6 @@ import { PythonExtension } from '../../../api/types';
 import { traceVerbose } from '../../../logging';
 import { getConfiguration } from '../../../common/vscodeApis/workspaceApis';
 import { getWorkspaceStateValue } from '../../../common/persistentState';
-
-// --- Start Positron ---
-import { isPipInstallableToml } from '../provider/venvUtils';
-// --- End Positron ---
 
 export const CREATE_ENV_TRIGGER_SETTING_PART = 'createEnvironment.trigger';
 export const CREATE_ENV_TRIGGER_SETTING = `python.${CREATE_ENV_TRIGGER_SETTING_PART}`;
@@ -49,8 +48,8 @@ export async function hasPyprojectToml(workspace: WorkspaceFolder): Promise<bool
     }
     return installable;
 }
-// --- End Positron ---
 
+// --- End Positron ---
 export async function hasKnownFiles(workspace: WorkspaceFolder): Promise<boolean> {
     const filePaths: string[] = [
         'poetry.lock',
@@ -79,12 +78,12 @@ export async function isGlobalPythonSelected(workspace: WorkspaceFolder): Promis
     const details = await extensionApi.environments.resolveEnvironment(interpreter);
     // --- Start Positron ---
     const execPath = details?.executable?.uri?.fsPath ?? interpreter.path;
-    // Also treat ~/.local installs as global — they are user-wide, not project-local.
+    // Also treat ~/.local installs as global - they are user-wide, not project-local.
     const homeLocal = path.join(os.homedir(), '.local') + path.sep;
     const isUnderHomeLocal = execPath.startsWith(homeLocal);
     const isGlobal = details?.environment === undefined || isUnderHomeLocal;
+    // --- End Positron ---
     if (isGlobal) {
-        // --- End Positron ---
         traceVerbose(`Selected python for [${workspace.uri.fsPath}] is [global] type: ${interpreter.path}`);
     }
     return isGlobal;

@@ -14,8 +14,10 @@ import {
 } from '../../../client/pythonEnvironments/creation/createEnvironmentTrigger';
 import * as workspaceApis from '../../../client/common/vscodeApis/workspaceApis';
 import * as commandApis from '../../../client/common/vscodeApis/commandApis';
-import { Common } from '../../../client/common/utils/localize';
 // --- Start Positron ---
+// import { Commands } from '../../../client/common/constants';
+// import { Common, CreateEnv } from '../../../client/common/utils/localize';
+import { Common } from '../../../client/common/utils/localize';
 import * as autoCreateVenv from '../../../client/pythonEnvironments/creation/provider/autoCreateVenv';
 // --- End Positron ---
 
