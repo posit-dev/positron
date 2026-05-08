@@ -4,12 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ContextKeyExpr, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IEditorGroup, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
+import { EditorInput } from '../../../common/editor/editorInput.js';
+import { GroupIdentifier, GroupModelChangeKind } from '../../../common/editor.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { registerEditorContribution, EditorContributionInstantiation } from '../../../../editor/browser/editorExtensions.js';
 import { isCodeEditor } from '../../../../editor/browser/editorBrowser.js';
@@ -84,13 +87,17 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 	private readonly _kernelRunningKey = QUARTO_KERNEL_RUNNING.bindTo(this._contextKeyService);
 	private readonly _kernelBusyKey = QUARTO_KERNEL_BUSY.bindTo(this._contextKeyService);
 
-	/** Tracks documents that have already had auto-start attempted, so we only auto-start on first open. */
+	/** Tracks documents that have already had auto-start attempted, so we only auto-start on first focus. */
 	private readonly _autoStartedDocuments = new Set<string>();
+
+	/** Per-group EDITOR_PIN listener disposables, keyed by group ID. */
+	private readonly _groupListeners = new Map<GroupIdentifier, DisposableStore>();
 
 	constructor(
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IEditorService private readonly _editorService: IEditorService,
+		@IEditorGroupsService private readonly _editorGroupsService: IEditorGroupsService,
 		@IQuartoKernelManager private readonly _quartoKernelManager: IQuartoKernelManager,
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
@@ -113,7 +120,7 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 		this._register(this._editorService.onDidActiveEditorChange(() => {
 			this._updateIsQuartoDocument();
 			this._updateKernelRunning();
-			this._autoStartKernelIfNeeded();
+			this._autoStartKernelIfActiveAndPinned();
 		}));
 
 		// Listen for kernel state changes
@@ -135,18 +142,56 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 			}
 		}));
 
+		// Watch for preview-to-pinned transitions on each editor group so a
+		// preview tab that the user upgrades (typing, executing, double-click,
+		// drag, etc.) starts its kernel.
+		this._register(this._editorGroupsService.onDidAddGroup(group => this._registerGroupListener(group)));
+		this._register(this._editorGroupsService.onDidRemoveGroup(group => {
+			this._groupListeners.get(group.id)?.dispose();
+			this._groupListeners.delete(group.id);
+		}));
+		for (const group of this._editorGroupsService.groups) {
+			this._registerGroupListener(group);
+		}
+
 		// After the runtime startup phase completes (reconnection finished),
-		// auto-start kernels for any already-open Quarto documents that
-		// didn't get a session restored.
+		// auto-start the kernel for the active Quarto document if it's pinned.
+		// Background tabs and preview editors do NOT get a kernel until the
+		// user focuses or pins them.
 		if (this._languageRuntimeService.startupPhase === RuntimeStartupPhase.Complete) {
-			this._autoStartKernelsForOpenDocuments();
+			this._autoStartKernelIfActiveAndPinned();
 		} else {
 			this._register(this._languageRuntimeService.onDidChangeRuntimeStartupPhase(phase => {
 				if (phase === RuntimeStartupPhase.Complete) {
-					this._autoStartKernelsForOpenDocuments();
+					this._autoStartKernelIfActiveAndPinned();
 				}
 			}));
 		}
+	}
+
+	override dispose(): void {
+		for (const disposables of this._groupListeners.values()) {
+			disposables.dispose();
+		}
+		this._groupListeners.clear();
+		super.dispose();
+	}
+
+	private _registerGroupListener(group: IEditorGroup): void {
+		if (this._groupListeners.has(group.id)) {
+			return;
+		}
+		const disposables = new DisposableStore();
+		this._groupListeners.set(group.id, disposables);
+		disposables.add(group.onDidModelChange(e => {
+			if (e.kind === GroupModelChangeKind.EDITOR_PIN && e.editor) {
+				this._maybeAutoStartKernelForEditor(e.editor);
+			}
+		}));
+		disposables.add(group.onWillDispose(() => {
+			disposables.dispose();
+			this._groupListeners.delete(group.id);
+		}));
 	}
 
 	private _updateInlineOutputEnabled(): void {
@@ -185,21 +230,48 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 	}
 
 	/**
-	 * Auto-start the kernel for the active Quarto document if inline output
-	 * is enabled and no kernel is already running. This provides a seamless
-	 * experience where the kernel is ready by the time the user wants to
-	 * execute code.
+	 * Auto-start the kernel for the active Quarto document, if it is pinned
+	 * (i.e. not a preview tab). Sessions for backgrounded tabs are started
+	 * when the user switches to them; sessions for preview tabs are started
+	 * when the user pins them (typing, executing, double-clicking the tab,
+	 * dragging the tab, etc.).
 	 */
-	private _autoStartKernelIfNeeded(): void {
+	private _autoStartKernelIfActiveAndPinned(): void {
+		const activeEditor = this._editorService.activeEditor;
+		if (!activeEditor) {
+			return;
+		}
+		this._maybeAutoStartKernelForEditor(activeEditor);
+	}
+
+	private _maybeAutoStartKernelForEditor(editor: EditorInput): void {
 		// Don't auto-start during startup/reconnection to avoid racing with
-		// session restoration. Open documents will be handled by
-		// _autoStartKernelsForOpenDocuments() once startup completes.
+		// session restoration. The startup-phase listener re-runs this check
+		// once startup completes.
 		if (this._languageRuntimeService.startupPhase !== RuntimeStartupPhase.Complete) {
 			return;
 		}
 
-		const uri = this._editorService.activeEditor?.resource;
-		if (!uri || !this._isQuartoFile()) {
+		const uri = editor.resource;
+		if (!uri || !isQuartoOrRmdFile(uri.path)) {
+			return;
+		}
+
+		if (!this._inlineOutputEnabledKey.get()) {
+			return;
+		}
+
+		// Find the editor's group and verify it is the active editor of that
+		// group AND pinned. We never auto-start for preview tabs or for tabs
+		// that are open in a group but not currently active.
+		let activeAndPinned = false;
+		for (const group of this._editorGroupsService.groups) {
+			if (group.activeEditor === editor && group.isPinned(editor)) {
+				activeAndPinned = true;
+				break;
+			}
+		}
+		if (!activeAndPinned) {
 			return;
 		}
 
@@ -208,11 +280,13 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 			return;
 		}
 
-		if (!this._inlineOutputEnabledKey.get()) {
+		// If a session already exists (e.g. reconnected during startup), mark
+		// the document as auto-started so we don't try again later.
+		if (this._quartoKernelManager.getKernelState(uri) !== QuartoKernelState.None) {
+			this._autoStartedDocuments.add(key);
 			return;
 		}
 
-		// Mark as attempted so we don't auto-start again on tab switches
 		this._autoStartedDocuments.add(key);
 
 		// Fire and forget - kernel startup is handled asynchronously.
@@ -221,41 +295,6 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 		this._quartoKernelManager.ensureKernelForDocument(uri, undefined, { silent: true }).catch(() => {
 			// Errors are handled internally by the kernel manager
 		});
-	}
-
-	/**
-	 * Auto-start kernels for all open Quarto documents that don't already
-	 * have a session. Called after the runtime startup phase completes, so
-	 * that we don't race with session reconnection/restoration.
-	 */
-	private _autoStartKernelsForOpenDocuments(): void {
-		if (!this._inlineOutputEnabledKey.get()) {
-			return;
-		}
-
-		for (const editorInput of this._editorService.editors) {
-			const uri = editorInput.resource;
-			if (!uri || !isQuartoOrRmdFile(uri.path)) {
-				continue;
-			}
-
-			const key = uri.toString();
-			if (this._autoStartedDocuments.has(key)) {
-				continue;
-			}
-
-			const state = this._quartoKernelManager.getKernelState(uri);
-			if (state !== QuartoKernelState.None) {
-				// Already has a session (e.g., restored during reconnection)
-				this._autoStartedDocuments.add(key);
-				continue;
-			}
-
-			this._autoStartedDocuments.add(key);
-			this._quartoKernelManager.ensureKernelForDocument(uri, undefined, { silent: true }).catch(() => {
-				// Errors are handled internally by the kernel manager
-			});
-		}
 	}
 
 	/**
