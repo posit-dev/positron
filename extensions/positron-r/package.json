@@ -335,6 +335,25 @@
             ],
             "markdownDescription": "%r.configuration.interpreters.pixiDiscovery.markdownDescription%"
           },
+          "positron.r.interpreters.pathDiscoveryMode": {
+            "scope": "resource",
+            "type": "string",
+            "enum": [
+              "auto",
+              "on",
+              "off"
+            ],
+            "enumDescriptions": [
+              "%r.configuration.interpreters.pathDiscoveryMode.auto%",
+              "%r.configuration.interpreters.pathDiscoveryMode.on%",
+              "%r.configuration.interpreters.pathDiscoveryMode.off%"
+            ],
+            "default": "auto",
+            "tags": [
+              "interpreterSettings"
+            ],
+            "markdownDescription": "%r.configuration.interpreters.pathDiscoveryMode.markdownDescription%"
+          },
           "positron.r.kernel.path": {
             "scope": "window",
             "type": "string",

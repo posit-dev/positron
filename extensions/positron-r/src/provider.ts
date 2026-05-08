@@ -398,6 +398,14 @@ export async function currentRBinary(): Promise<RBinary | undefined> {
 	}
 }
 
+function isPathDiscoveryEnabled(): boolean {
+	const mode = vscode.workspace.getConfiguration('positron.r')
+		.get<'auto' | 'on' | 'off'>('interpreters.pathDiscoveryMode', 'auto');
+	if (mode === 'on') { return true; }
+	if (mode === 'off') { return false; }
+	return os.platform() !== 'win32';
+}
+
 /**
  * Get the current R binary(ies) for various definitions of "current".
  * The first item of the returned list will eventually be marked as The Current R Binary.
@@ -414,9 +422,13 @@ async function currentRBinaryCandidates(): Promise<RBinary[]> {
 		}
 	}
 
-	candidate = await currentRBinaryFromPATH();
-	if (candidate) {
-		candidates.push(candidate);
+	if (isPathDiscoveryEnabled()) {
+		candidate = await currentRBinaryFromPATH();
+		if (candidate) {
+			candidates.push(candidate);
+		}
+	} else {
+		LOGGER.info('Skipping PATH-based R discovery (positron.r.interpreters.pathDiscoveryMode). To include R installations only available on PATH, set this to "on" or list them via positron.r.interpreters.override.');
 	}
 
 	if (os.platform() !== 'win32') {
