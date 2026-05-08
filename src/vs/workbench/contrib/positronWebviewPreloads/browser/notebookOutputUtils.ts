@@ -95,11 +95,20 @@ function webviewMessageCode() {
 		return body.scrollWidth || documentElement.scrollWidth;
 	};
 
+	let lastHeight = -1;
+	let lastWidth = -1;
 	const sendSizeMessage = () => {
+		const height = getBodyScrollHeight();
+		const width = getBodyScrollWidth();
+		if (height === lastHeight && width === lastWidth) {
+			return;
+		}
+		lastHeight = height;
+		lastWidth = width;
 		vscode.postMessage({
 			type: 'webviewMetrics',
-			bodyScrollHeight: getBodyScrollHeight(),
-			bodyScrollWidth: getBodyScrollWidth()
+			bodyScrollHeight: height,
+			bodyScrollWidth: width
 		});
 	};
 
@@ -119,6 +128,42 @@ function webviewMessageCode() {
 		resizeObserver.observe(documentElement);
 	} catch (e) {
 		console.error('Error observing documentElement', e);
+	}
+
+	// ResizeObserver on documentElement only fires when the content box
+	// changes, not when scrollHeight changes. Content mutations (e.g.
+	// mermaid replacing a <pre> with a taller SVG) change scrollHeight
+	// without affecting the viewport-constrained content box. A
+	// MutationObserver catches these structural DOM changes.
+	let sizeUpdateFrame: number | undefined;
+	const debouncedSendSize = () => {
+		if (sizeUpdateFrame !== undefined) {
+			cancelAnimationFrame(sizeUpdateFrame);
+		}
+		sizeUpdateFrame = requestAnimationFrame(() => {
+			sizeUpdateFrame = undefined;
+			sendSizeMessage();
+		});
+	};
+
+	const installBodyObserver = () => {
+		const body = document.body;
+		if (!body) {
+			return;
+		}
+		const mutationObserver = new MutationObserver(debouncedSendSize);
+		mutationObserver.observe(body, {
+			childList: true,
+			subtree: true,
+			attributes: true,
+			characterData: true
+		});
+	};
+
+	if (document.body) {
+		installBodyObserver();
+	} else {
+		document.addEventListener('DOMContentLoaded', installBodyObserver);
 	}
 
 	// Let specialized webview contents forward double-click interactions to
