@@ -4,12 +4,16 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize2 } from '../../../../nls.js';
+import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { MenuId, MenuRegistry } from '../../../../platform/actions/common/actions.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { ResourceContextKey } from '../../../common/contextkeys.js';
+import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { QUARTO_INLINE_OUTPUT_ENABLED, QUARTO_LANGUAGE_IDS } from '../common/positronQuartoConfig.js';
 import { QuartoCommandId } from './quartoCommands.js';
+import { IQuartoKernelManager } from './quartoKernelManager.js';
 
 // Per-pane lang-id check: the global IS_QUARTO_DOCUMENT context key would
 // leak this entry into adjacent editor groups, the same way it would for the
@@ -92,3 +96,72 @@ MenuRegistry.appendMenuItem(MenuId.PositronQuartoEditorActionBarMenu, {
 	order: 10,
 	when: QUARTO_INLINE_OUTPUT_ENABLED,
 });
+
+// "Restart {Lang} and Clear All Outputs" - the title needs the active document's
+// kernel language interpolated, but IMenuItem.command.title is a static string
+// captured at registration. We work around it with a workbench contribution
+// that re-registers the menu entry whenever the language name changes.
+// MenuRegistry.appendMenuItem fires onDidChangeMenu on both add and dispose, so
+// the editor action bar factory rebuilds and picks up the new title.
+class QuartoRestartMenuItemController extends Disposable implements IWorkbenchContribution {
+	static readonly ID = 'workbench.contrib.quartoRestartMenuItem';
+
+	private _menuItemDisposable: IDisposable | undefined;
+	private _currentLanguageName: string | undefined;
+
+	constructor(
+		@IEditorService private readonly _editorService: IEditorService,
+		@IQuartoKernelManager private readonly _kernelManager: IQuartoKernelManager,
+	) {
+		super();
+
+		this._update();
+
+		this._register(this._editorService.onDidActiveEditorChange(() => this._update()));
+		this._register(this._kernelManager.onDidChangeKernelState(() => this._update()));
+	}
+
+	private _update(): void {
+		const uri = this._editorService.activeEditor?.resource;
+		const session = uri ? this._kernelManager.getSessionForDocument(uri) : undefined;
+		const languageName = session?.runtimeMetadata.languageName;
+
+		// Bail if the language name hasn't changed since the last registration.
+		// Kernel state transitions (Ready <-> Busy) fire frequently during
+		// execution but don't affect the title; precondition handles enabled
+		// state separately.
+		if (this._menuItemDisposable && languageName === this._currentLanguageName) {
+			return;
+		}
+		this._currentLanguageName = languageName;
+
+		this._menuItemDisposable?.dispose();
+		this._menuItemDisposable = MenuRegistry.appendMenuItem(MenuId.PositronQuartoEditorActionBarMenu, {
+			command: {
+				id: QuartoCommandId.RestartAndClearAllOutputs,
+				title: languageName
+					? localize2(
+						'quarto.editorActionBar.restartAndClearAllOutputs',
+						"Restart {0} and Clear All Outputs",
+						languageName)
+					: localize2(
+						'quarto.editorActionBar.restartAndClearAllOutputsGeneric',
+						"Restart Interpreter and Clear All Outputs"),
+			},
+			group: '1_clear',
+			order: 20,
+			when: QUARTO_INLINE_OUTPUT_ENABLED,
+		});
+	}
+
+	override dispose(): void {
+		this._menuItemDisposable?.dispose();
+		super.dispose();
+	}
+}
+
+registerWorkbenchContribution2(
+	QuartoRestartMenuItemController.ID,
+	QuartoRestartMenuItemController,
+	WorkbenchPhase.AfterRestored,
+);

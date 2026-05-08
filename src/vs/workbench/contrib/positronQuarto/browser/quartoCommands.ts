@@ -41,6 +41,7 @@ export const enum QuartoCommandId {
 	ExpandAllOutputs = 'positronQuarto.expandAllOutputs',
 	CollapseAllOutputs = 'positronQuarto.collapseAllOutputs',
 	ToggleOutputCollapse = 'positronQuarto.toggleOutputCollapse',
+	RestartAndClearAllOutputs = 'positronQuarto.restartAndClearAllOutputs',
 }
 
 /**
@@ -170,6 +171,44 @@ registerAction2(class ClearAllOutputsAction extends Action2 {
 
 		// Clear all output view zones
 		outputManager.clearAllOutputs(documentUri);
+	}
+});
+
+/**
+ * Restart the kernel and clear all inline outputs in one step.
+ * Useful when the user wants a clean slate: outputs disappear immediately
+ * (mirroring ClearAllOutputs) and the kernel restarts in the background.
+ */
+registerAction2(class RestartAndClearAllOutputsAction extends Action2 {
+	constructor() {
+		super({
+			id: QuartoCommandId.RestartAndClearAllOutputs,
+			title: localize2('quarto.restartAndClearAllOutputs', "Restart Interpreter and Clear All Outputs"),
+			category: QUARTO_CATEGORY,
+			f1: true,
+			precondition: ContextKeyExpr.and(QUARTO_PRECONDITION, QUARTO_KERNEL_RUNNING),
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const editorService = accessor.get(IEditorService);
+		const executionManager = accessor.get(IQuartoExecutionManager);
+		const outputManager = accessor.get(IQuartoOutputManager);
+		const kernelManager = accessor.get(IQuartoKernelManager);
+
+		const context = getQuartoContext(editorService);
+		if (!context) {
+			return;
+		}
+
+		const { documentUri } = context;
+
+		// Mirror ClearAllOutputs: cancel pending work and remove view zones up
+		// front so the editor reflects the reset before the kernel comes back.
+		executionManager.clearExecutionState(documentUri);
+		outputManager.clearAllOutputs(documentUri);
+
+		await kernelManager.restartKernelForDocument(documentUri);
 	}
 });
 
