@@ -10,12 +10,11 @@ import './newDataConnectionFlow.css';
 import { useState } from 'react';
 
 // Other dependencies.
-import { generateUuid } from '../../../../../base/common/uuid.js';
 import { ConfigureDataConnection } from './configureDataConnection.js';
 import { SelectDataConnectionProvider } from './selectDataConnectionProvider.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
-import { IDataConnectionDriver, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
+import { IDataConnectionDriver } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
 
 /**
  * NewDataConnectionFlowStep enumeration.
@@ -54,7 +53,6 @@ export const NewDataConnectionFlow = (props: NewDataConnectionFlowProps) => {
 	// State.
 	const [step, setStep] = useState(NewDataConnectionFlowStep.SelectProvider);
 	const [driver, setDriver] = useState<IDataConnectionDriver | undefined>(undefined);
-	const [dataConnectionProfile, setDataConnectionProfile] = useState<IDataConnectionProfile | undefined>(undefined);
 
 	// Render the current step.
 	switch (step) {
@@ -63,19 +61,10 @@ export const NewDataConnectionFlow = (props: NewDataConnectionFlowProps) => {
 			return (
 				<SelectDataConnectionProvider
 					renderer={props.renderer}
-					onNext={driverId => {
-						// Set the driver.
-						setDriver(positronDataConnectionsService.driverManager.getDriver(driverId));
-
-						// Set the data connection profile.
-						setDataConnectionProfile({
-							id: generateUuid(),
-							connectionName: '',
-							driverId,
-							parameterValues: {}
-						});
-
-						// Transition to the configure step.
+					onNext={selectedDriver => {
+						// Remember the selected driver and transition to the configure step. The
+						// profile itself is constructed by ConfigureDataConnection on save.
+						setDriver(selectedDriver);
 						setStep(NewDataConnectionFlowStep.Configure);
 					}}
 				/>
@@ -86,12 +75,11 @@ export const NewDataConnectionFlow = (props: NewDataConnectionFlowProps) => {
 			return (
 				<ConfigureDataConnection
 					driver={driver!}
-					profile={dataConnectionProfile!}
 					renderer={props.renderer}
 					onBack={() => setStep(NewDataConnectionFlowStep.SelectProvider)}
-					onSave={updatedDataConnectionProfile => {
+					onSave={profile => {
 						// Add the connection profile in the service.
-						positronDataConnectionsService.addUpdateProfile(updatedDataConnectionProfile);
+						positronDataConnectionsService.addUpdateProfile(profile);
 
 						// Dispose the renderer to close the dialog.
 						props.renderer.dispose();

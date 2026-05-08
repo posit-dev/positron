@@ -35,8 +35,8 @@ export interface IDataConnectionProfile {
 	// Epoch millis the connection was last used. Undefined until first use.
 	lastUsedAt?: number;
 
-	// The ID of the driver used for this connection.
-	driverId: string;
+	// The driver metadata for this connection.
+	driverMetadata: Pick<IDataConnectionDriverMetadata, 'id' | 'name' | 'iconSvg' | 'supportedLanguageIds'>;
 
 	// The user-chosen name for this connection.
 	connectionName: string;

@@ -339,7 +339,7 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 		const previouslyPersistedProfile = this._readPersistedProfile(profile.id);
 
 		// Identify the current secret parameter ids from the driver.
-		const driver = this.driverManager.getDriver(profile.driverId);
+		const driver = this.driverManager.getDriver(profile.driverMetadata.id);
 		const secretParamIdSet = new Set(
 			driver?.metadata.parameters
 				.filter(_ => (_.type === 'password' || _.type === 'string') && _.secret === true)

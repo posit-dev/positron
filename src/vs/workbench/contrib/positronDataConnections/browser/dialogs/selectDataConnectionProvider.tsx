@@ -16,7 +16,7 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
 import { TwoButtonFooter } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/twoButtonFooter.js';
 import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
-import { IDataConnectionDriverMetadata } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
+import { IDataConnectionDriver, IDataConnectionDriverMetadata } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
 
 /**
  * SelectDataConnectionProviderProps interface.
@@ -26,7 +26,7 @@ interface SelectDataConnectionProviderProps {
 	renderer: PositronModalDialogReactRenderer;
 
 	// Called when the user selects a driver and clicks Next.
-	onNext: (driverId: string) => void;
+	onNext: (selectedDriver: IDataConnectionDriver) => void;
 }
 
 /**
@@ -138,12 +138,23 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 
 	// Next handler.
 	const nextHandler = useCallback(() => {
-		if (selectedDriverId) {
-			onNext(selectedDriverId);
-		} else {
+		// If no driver is selected, set the show error flag and do not proceed to the next step.
+		if (!selectedDriverId) {
 			setShowError(true);
+			return;
 		}
-	}, [selectedDriverId, onNext]);
+
+		// Get the selected driver. This can't fail. If it does, something is very wrong.
+		const driver = positronDataConnectionsService.driverManager.getDriver(selectedDriverId);
+		if (!driver) {
+			console.error(`Selected driver with id ${selectedDriverId} not found`);
+			setShowError(true);
+			return;
+		}
+
+		// Proceed to the next step with the selected driver.
+		onNext(driver);
+	}, [selectedDriverId, onNext, positronDataConnectionsService.driverManager]);
 
 	// Render.
 	return (

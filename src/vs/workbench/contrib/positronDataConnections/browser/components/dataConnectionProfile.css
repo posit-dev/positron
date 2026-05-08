@@ -9,3 +9,34 @@
 	padding: 0 14px;
 	align-items: center;
 }
+
+.data-connection-profile-icon {
+	width: 20px;
+	height: 20px;
+	margin-right: 8px;
+}
+
+.data-connection-profile-text {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.data-connection-profile-actions {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: transparent;
+	border: none;
+	padding: 4px;
+	margin-left: 8px;
+	cursor: pointer;
+	color: inherit;
+	border-radius: 4px;
+}
+
+.data-connection-profile-actions:hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
+}

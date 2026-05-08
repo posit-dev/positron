@@ -11,6 +11,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
+import { generateUuid } from '../../../../../base/common/uuid.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { ConfigureDataConnectionParameters } from './configureDataConnectionParameters.js';
 import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
@@ -46,15 +47,15 @@ interface ConfigureDataConnectionProps {
 	// The driver for the connection being configured.
 	driver: IDataConnectionDriver;
 
-	// The data connection profile being configured.
-	profile: IDataConnectionProfile;
+	// The profile. Omit when creating a new profile.
+	profile?: IDataConnectionProfile;
+
+	// Called when the user clicks Save to save the profile.
+	onSave: (profile: IDataConnectionProfile) => void;
 
 	// Called when the user clicks the Back button to return to the previous step. If not provided, the Back
 	// button will not be shown.
 	onBack?: () => void;
-
-	// Called when the user clicks Save to save the connection profile.
-	onSave?: (dataConnectionProfile: IDataConnectionProfile) => void;
 }
 
 /**
@@ -74,7 +75,7 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 	}, []);
 
 	// State.
-	const [connectionName, setConnectionName] = useState(props.profile.connectionName);
+	const [connectionName, setConnectionName] = useState(props.profile?.connectionName ?? '');
 	const [connectionNameError, setConnectionNameError] = useState(false);
 	const [parameterFieldStates, setParameterFieldStates] = useState<ParameterFieldStates>(() => {
 		// Initialize parameter field states.
@@ -90,7 +91,7 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 			// otherwise fall back to the default value (if any). For required parameters, leaving
 			// the value as undefined will trigger a validation error until the user provides a value.
 			initialParameterFieldStates[parameter.id] = {
-				value: props.profile.parameterValues[parameter.id] ?? defaultValue ?? undefined,
+				value: props.profile?.parameterValues[parameter.id] ?? defaultValue ?? undefined,
 				error: false
 			};
 		}
@@ -167,10 +168,18 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 			}
 
 			// Call the onSave callback with the connection profile.
-			props.onSave?.({
-				...props.profile,
+			props.onSave({
+				id: props.profile?.id ?? generateUuid(),
+				createdAt: props.profile?.createdAt ?? Date.now(),
+				lastUsedAt: props.profile?.lastUsedAt,
+				driverMetadata: {
+					id: props.driver.metadata.id,
+					name: props.driver.metadata.name,
+					iconSvg: props.driver.metadata.iconSvg,
+					supportedLanguageIds: props.driver.metadata.supportedLanguageIds,
+				},
 				connectionName,
-				parameterValues
+				parameterValues,
 			});
 		}
 	}, [connectionName, parameterFieldStates, props]);
