@@ -37,6 +37,7 @@ import { IDeletionSentinel } from './IPositronNotebookInstance.js';
 import { NotebookErrorBoundary } from './NotebookErrorBoundary.js';
 import { getSelectedCells } from './selectionMachine.js';
 import { startScrollRestorationLoop } from './scrollRestorationLoop.js';
+import type { NotebookDisplayOptions, NotebookLayoutConfiguration } from '../../notebook/browser/notebookOptions.js';
 
 export function PositronNotebookComponent() {
 	const notebookInstance = useNotebookInstance();
@@ -245,12 +246,27 @@ function useFontStyles(): React.CSSProperties {
 	const targetWindow = DOM.getActiveWindow();
 	const fontInfo = FontMeasurements.readFontInfo(targetWindow, createBareFontInfoFromRawSettings(editorOptions, PixelRatio.getInstance(targetWindow).value));
 	const family = fontInfo.fontFamily ?? `"SF Mono", Monaco, Menlo, Consolas, "Ubuntu Mono", "Liberation Mono", "DejaVu Sans Mono", "Courier New", monospace`;
+
+	return getNotebookFontStyles(layout, family);
+}
+
+export function getNotebookFontStyles(layout: NotebookLayoutConfiguration & NotebookDisplayOptions, textOutputFontFamily: string): React.CSSProperties {
 	const outputMaxHeight = layout.outputLineHeight * layout.outputLineLimit;
+	const markdownFontSize = typeof layout.markupFontSize === 'number' && layout.markupFontSize > 0
+		? `${layout.markupFontSize}px`
+		: `calc(${layout.fontSize}px * 1.2)`;
+	const markdownLineHeight = typeof layout.markdownLineHeight === 'number' && layout.markdownLineHeight > 0
+		? `${layout.markdownLineHeight}px`
+		: 'normal';
+	const markdownFontFamily = layout.markupFontFamily || 'var(--vscode-font-family)';
 
 	return {
-		['--vscode-positronNotebook-text-output-font-family' as string]: family,
+		['--vscode-positronNotebook-text-output-font-family' as string]: textOutputFontFamily,
 		['--vscode-positronNotebook-text-output-font-size' as string]: `${layout.outputFontSize}px`,
 		['--vscode-positronNotebook-output-max-height' as string]: `${outputMaxHeight}px`,
+		['--vscode-positronNotebook-markdown-font-size' as string]: markdownFontSize,
+		['--vscode-positronNotebook-markdown-line-height' as string]: markdownLineHeight,
+		['--vscode-positronNotebook-markdown-font-family' as string]: markdownFontFamily,
 	};
 }
 

@@ -41,15 +41,14 @@ export function useNotebookInstance() {
  */
 export function useNotebookOptions() {
 	const instance = useNotebookInstance();
-	// Wrap in a usestate so we can trigger rerendering of notebooks when options change.
-	const [notebookOptions, setNotebookOptions] = React.useState(instance.notebookOptions);
+	const [, forceUpdate] = React.useReducer((count: number) => count + 1, 0);
 
 	React.useEffect(() => {
 		const listener = instance.notebookOptions.onDidChangeOptions(() => {
-			setNotebookOptions(instance.notebookOptions);
+			forceUpdate();
 		});
 		return () => listener.dispose();
 	}, [instance.notebookOptions]);
 
-	return notebookOptions;
+	return instance.notebookOptions;
 }
