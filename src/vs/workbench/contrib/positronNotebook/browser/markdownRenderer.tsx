@@ -78,8 +78,8 @@ function decodeHtmlEntities(text: string): string {
 type ExtendedToken = marked.MarkedToken | MarkedKatexExtension.KatexToken | MarkedSuperSubExtension.SuperSubToken | MarkedFootnoteExtension.FootnoteToken;
 
 export interface MarkdownRenderOptions {
-	readonly onMermaidDoubleClick?: () => void;
-	readonly onMermaidFocus?: () => void;
+	readonly onEmbeddedContentDoubleClick?: () => void;
+	readonly onEmbeddedContentFocus?: () => void;
 }
 
 /**
@@ -410,8 +410,8 @@ export class TokenMarkdownRenderer {
 				<MermaidDiagram
 					key={key}
 					source={token.text}
-					onDoubleClick={this.options.onMermaidDoubleClick}
-					onFocus={this.options.onMermaidFocus}
+					onDoubleClick={this.options.onEmbeddedContentDoubleClick}
+					onFocus={this.options.onEmbeddedContentFocus}
 				/>
 			);
 		}

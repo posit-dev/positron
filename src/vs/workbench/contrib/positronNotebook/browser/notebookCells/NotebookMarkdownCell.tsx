@@ -124,8 +124,8 @@ export function NotebookMarkdownCell({ cell }: { cell: PositronNotebookMarkdownC
 								markdownString.length > 0
 									? <Markdown
 										content={markdownString}
-										onMermaidDoubleClick={toggleEditor}
-										onMermaidFocus={selectCell}
+										onEmbeddedContentDoubleClick={toggleEditor}
+										onEmbeddedContentFocus={selectCell}
 									/>
 									: <div className='empty-output-msg'>
 										{emptyMarkdownCell}

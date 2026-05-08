@@ -18,8 +18,8 @@ import { IExtensionService } from '../../../../services/extensions/common/extens
 
 interface MarkdownProps {
 	readonly content: string;
-	readonly onMermaidDoubleClick?: () => void;
-	readonly onMermaidFocus?: () => void;
+	readonly onEmbeddedContentDoubleClick?: () => void;
+	readonly onEmbeddedContentFocus?: () => void;
 }
 
 /**
@@ -27,8 +27,8 @@ interface MarkdownProps {
  * @param content: Markdown content to render in string form
  * @returns React element containing the rendered markdown.
  */
-export function Markdown({ content, onMermaidDoubleClick, onMermaidFocus }: MarkdownProps) {
-	const renderedHtml = useMarkdown(content, onMermaidDoubleClick, onMermaidFocus);
+export function Markdown({ content, onEmbeddedContentDoubleClick, onEmbeddedContentFocus }: MarkdownProps) {
+	const renderedHtml = useMarkdown(content, onEmbeddedContentDoubleClick, onEmbeddedContentFocus);
 
 	switch (renderedHtml.status) {
 		case 'error':
@@ -52,8 +52,8 @@ type MarkdownRenderResults = {
 
 function useMarkdown(
 	content: string,
-	onMermaidDoubleClick: (() => void) | undefined,
-	onMermaidFocus: (() => void) | undefined
+	onEmbeddedContentDoubleClick: (() => void) | undefined,
+	onEmbeddedContentFocus: (() => void) | undefined
 ): MarkdownRenderResults {
 
 	const services = usePositronReactServicesContext();
@@ -67,7 +67,7 @@ function useMarkdown(
 				content,
 				services.get(IExtensionService),
 				services.languageService,
-				{ onMermaidDoubleClick, onMermaidFocus }
+				{ onEmbeddedContentDoubleClick, onEmbeddedContentFocus }
 			),
 			5000,
 		));
@@ -93,7 +93,7 @@ function useMarkdown(
 		});
 
 		return () => conversionCancellablePromise.cancel();
-	}, [content, onMermaidDoubleClick, onMermaidFocus, services]);
+	}, [content, onEmbeddedContentDoubleClick, onEmbeddedContentFocus, services]);
 
 	return renderedHtml;
 }
