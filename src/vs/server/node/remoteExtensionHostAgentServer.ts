@@ -53,7 +53,7 @@ import { IPositronIdleTrackingService } from '../../platform/positronIdleTrackin
 // --- End Positron ---
 
 // --- Start PWB: Server proxy support ---
-import { kProxyRegex } from './pwbConstants.js';
+import { kProxyRegex, VSCODE_STATIC_PREFIX } from './pwbConstants.js';
 // --- End PWB ---
 
 const SHUTDOWN_TIMEOUT = 5 * 60 * 1000;
@@ -168,10 +168,22 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 			return void res.end('OK');
 		}
 
-		if (!httpRequestHasValidConnectionToken(this._connectionToken, req, parsedUrl)) {
-			// invalid connection token
-			return serveError(req, res, 403, `Forbidden.`);
+		// --- Start PWB ---
+		// Validate the connection token for all requests except:
+		//  - the webview service worker (browser may omit the connection-token
+		//    cookie when loading the SW, which would otherwise 403 here; upstream
+		//    dodges this by serving the webview from a CDN instead of this codepath).
+		//  - <VSCODE_STATIC_PREFIX>/* when running under Workbench (session-less,
+		//    content-versioned public assets; in production nginx serves these and
+		//    they never reach this process, so the dev fallback must match by
+		//    skipping auth as well).
+		if (pathname.indexOf('/service-worker.js') === -1 && !(platform.isWorkbench && pathname.startsWith(VSCODE_STATIC_PREFIX + '/'))) {
+			if (!httpRequestHasValidConnectionToken(this._connectionToken, req, parsedUrl)) {
+				// invalid connection token
+				return serveError(req, res, 403, `Forbidden.`);
+			}
 		}
+		// --- End PWB ---
 
 		// --- Start Positron ---
 		// Idle tracking endpoint for hosting platforms (e.g., Posit Cloud)
