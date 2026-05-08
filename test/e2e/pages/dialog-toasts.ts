@@ -78,10 +78,15 @@ export class Toasts {
 			: await this.toastNotification.waitFor({ state: 'detached', timeout });
 	}
 
-	async clickButton(button: string) {
+	async clickButton(button: string, options: { notificationFilter?: string | RegExp } = {}) {
 		await test.step(`Click notification button: ${button}`, async () => {
+			const { notificationFilter } = options;
+
 			// Check if the toast button is immediately accessible
-			const toastButton = this.getOptionButton(button);
+			const scopedToast = notificationFilter
+				? this.toastNotification.filter({ hasText: notificationFilter })
+				: this.toastNotification;
+			const toastButton = scopedToast.getByRole('button', { name: button });
 			if (await toastButton.isVisible()) {
 				await toastButton.click();
 				return;
@@ -90,7 +95,10 @@ export class Toasts {
 			// Open notification center and try clicking there (handles smoke test mode
 			// and cases where the toast is obscured by the editor)
 			await this.openNotificationCenter();
-			const notificationCenterButton = this.notificationsCenter.getByRole('button', { name: button });
+			const scopedCenter = notificationFilter
+				? this.notificationsCenter.locator('.notification-list-item').filter({ hasText: notificationFilter })
+				: this.notificationsCenter;
+			const notificationCenterButton = scopedCenter.getByRole('button', { name: button });
 			if (await notificationCenterButton.isVisible()) {
 				await notificationCenterButton.click();
 				await this.closeNotificationCenter();
