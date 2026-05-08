@@ -64,39 +64,166 @@ export function AttachLogsToReportFixture() {
 
 		if (!suiteId) { return; }
 
-		const zipPath = path.join(logsPath, 'logs.zip');
+		// For e2e-workbench, pull logs from Docker container
+		const isWorkbenchProject = testInfo.project.name === 'e2e-workbench';
+		if (isWorkbenchProject) {
+			await attachDockerLogsToReport(logsPath, testInfo);
+		} else {
+			await attachLocalLogsToReport(logsPath, testInfo);
+		}
+	};
+}
+
+/**
+ * Attach logs from the local filesystem (non-Docker projects)
+ */
+async function attachLocalLogsToReport(logsPath: string, testInfo: playwright.TestInfo): Promise<void> {
+	const zipPath = path.join(logsPath, 'logs.zip');
+	const output = fs.createWriteStream(zipPath);
+	const archive = archiver('zip', { zlib: { level: 9 } });
+
+	archive.on('error', (err: Error) => {
+		throw err;
+	});
+
+	archive.pipe(output);
+
+	// add all log files to the archive
+	archive.glob('**/*', { cwd: logsPath, ignore: ['logs.zip'] });
+
+	// wait for the archive to finalize and the output stream to close
+	await new Promise((resolve, reject) => {
+		output.on('close', () => resolve(undefined));
+		output.on('error', reject);
+		archive.finalize();
+	});
+
+	// attach the zipped file to the report
+	await testInfo.attach(`logs-${path.basename(testInfo.file)}.zip`, {
+		path: zipPath,
+		contentType: 'application/zip',
+	});
+
+	// remove the logs.zip file
+	try {
+		await fs.promises.unlink(zipPath);
+	} catch (err) {
+		console.error(`Failed to remove ${zipPath}:`, err);
+	}
+}
+
+/**
+ * Pull logs from Docker container, attach to report, and clean up container logs
+ */
+async function attachDockerLogsToReport(logsPath: string, testInfo: playwright.TestInfo): Promise<void> {
+	const { exec } = require('child_process');
+	const { promisify } = require('util');
+	const execP = promisify(exec);
+
+	const containerName = 'test';
+	const containerLogsPath = '/home/user1/.local/state/positron/logs';
+	const tempLogsDir = path.join(logsPath, 'docker-logs');
+	const zipPath = path.join(logsPath, 'logs.zip');
+
+	try {
+		// Create temporary directory to store copied logs
+		await fs.promises.mkdir(tempLogsDir, { recursive: true });
+
+		// Copy logs from container to local temp directory
+		// Using tar to handle file permissions and nested directories properly
+		let hasDockerLogs = false;
+		try {
+			await execP(`docker exec ${containerName} tar -C ${containerLogsPath} -cf - . | tar -C ${tempLogsDir} -xf -`, {
+				maxBuffer: 1024 * 1024 * 50, // 50 MB buffer for logs
+			});
+			hasDockerLogs = true;
+		} catch (err: any) {
+			// If logs don't exist in container or copy fails, log and continue
+			console.warn(`Failed to copy logs from Docker container: ${err.message}`);
+		}
+
+		// Check if we got any files from Docker
+		const dockerFiles = hasDockerLogs ? await fs.promises.readdir(tempLogsDir) : [];
+		if (dockerFiles.length === 0) {
+			console.log('No logs found in Docker container');
+		}
+
+		// Check if local test logs exist (these are always local, not in Docker)
+		let hasLocalLogs = false;
+		try {
+			const localLogStats = await fs.promises.stat(logsPath);
+			if (localLogStats.isDirectory()) {
+				const localFiles = await fs.promises.readdir(logsPath);
+				hasLocalLogs = localFiles.some(f => f !== 'docker-logs' && f !== 'logs.zip');
+			}
+		} catch (err: any) {
+			console.warn(`Failed to check local logs: ${err.message}`);
+		}
+
+		// If we have neither Docker logs nor local logs, nothing to attach
+		if (dockerFiles.length === 0 && !hasLocalLogs) {
+			console.log('No logs to attach');
+			return;
+		}
+
+		// Create zip archive from both Docker logs and local test logs
 		const output = fs.createWriteStream(zipPath);
 		const archive = archiver('zip', { zlib: { level: 9 } });
 
-		archive.on('error', (err) => {
+		archive.on('error', (err: Error) => {
 			throw err;
 		});
 
 		archive.pipe(output);
 
-		// add all log files to the archive
-		archive.glob('**/*', { cwd: logsPath, ignore: ['logs.zip'] });
+		// Add Docker logs to the archive (from temp directory)
+		if (dockerFiles.length > 0) {
+			archive.glob('**/*', { cwd: tempLogsDir, ignore: ['logs.zip'] });
+		}
 
-		// wait for the archive to finalize and the output stream to close
+		// Add local test logs to the archive (from logsPath)
+		if (hasLocalLogs) {
+			archive.glob('**/*', { cwd: logsPath, ignore: ['logs.zip', 'docker-logs', 'docker-logs/**'] });
+		}
+
+		// Wait for the archive to finalize and the output stream to close
 		await new Promise((resolve, reject) => {
 			output.on('close', () => resolve(undefined));
 			output.on('error', reject);
 			archive.finalize();
 		});
 
-		// attach the zipped file to the report
+		// Attach the zipped file to the report
 		await testInfo.attach(`logs-${path.basename(testInfo.file)}.zip`, {
 			path: zipPath,
 			contentType: 'application/zip',
 		});
 
-		// remove the logs.zip file
+		// Clean up container logs after successful attachment
+		try {
+			await execP(`docker exec ${containerName} sh -c "rm -rf ${containerLogsPath}/*"`, {
+				maxBuffer: 1024 * 1024 * 10,
+			});
+			console.log('Cleaned up logs in Docker container');
+		} catch (err: any) {
+			console.warn(`Failed to clean up logs in Docker container: ${err.message}`);
+		}
+	} catch (err: any) {
+		console.error(`Failed to process Docker logs: ${err.message}`);
+	} finally {
+		// Clean up local temporary files
+		try {
+			await fs.promises.rm(tempLogsDir, { recursive: true, force: true });
+		} catch (err) {
+			console.error(`Failed to remove temporary logs directory: ${err}`);
+		}
+
 		try {
 			await fs.promises.unlink(zipPath);
 		} catch (err) {
-			console.error(`Failed to remove ${zipPath}:`, err);
+			// Ignore - zip file may not exist
 		}
-	};
+	}
 }
 
 export function TracingFixture() {

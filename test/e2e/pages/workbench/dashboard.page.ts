@@ -128,11 +128,24 @@ export class DashboardPage {
 	private async setupDatabricksOAuth(context: BrowserContext): Promise<void> {
 		const page = this.code.driver.currentPage;
 
-		// Check if already enabled
+		// Check if already enabled and stays enabled for 5 seconds
 		const enabledWidget = page.locator('[aria-label*="Databricks"][aria-label*="Enabled"]');
-		const isEnabled = await enabledWidget.isVisible().catch(() => false);
-		if (isEnabled) {
-			this.code.logger.log('Databricks credential already configured, skipping setup');
+		const isStablyEnabled = await (async () => {
+			try {
+				// Check every 500ms for 5 seconds to ensure stable state
+				for (let i = 0; i < 10; i++) {
+					const visible = await enabledWidget.isVisible().catch(() => false);
+					if (!visible) { return false; }
+					await page.waitForTimeout(500);
+				}
+				return true;
+			} catch {
+				return false;
+			}
+		})();
+
+		if (isStablyEnabled) {
+			this.code.logger.log('Databricks credential stably enabled, skipping setup');
 			return;
 		}
 
