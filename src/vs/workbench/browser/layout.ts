@@ -759,6 +759,12 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 				this.setStatusBarHidden(change.value as boolean);
 			}
 
+			// --- Start Positron ---
+			if (change.key === LayoutStateKeys.POSITRON_TOP_ACTION_BAR_HIDDEN) {
+				this.setPositronTopActionBarHidden(change.value as boolean);
+			}
+			// --- End Positron ---
+
 			if (change.key === LayoutStateKeys.SIDEBAR_POSITON) {
 				this.setSideBarPosition(change.value as Position);
 			}
@@ -3220,6 +3226,12 @@ class LayoutStateModel extends Disposable {
 			this.setRuntimeValueAndFire(LayoutStateKeys.STATUSBAR_HIDDEN, !this.configurationService.getValue(LegacyWorkbenchLayoutSettings.STATUSBAR_VISIBLE));
 		}
 
+		// --- Start Positron ---
+		if (configurationChangeEvent.affectsConfiguration(LayoutSettings.TOP_ACTION_BAR_VISIBLE)) {
+			this.setRuntimeValueAndFire(LayoutStateKeys.POSITRON_TOP_ACTION_BAR_HIDDEN, !this.configurationService.getValue(LayoutSettings.TOP_ACTION_BAR_VISIBLE));
+		}
+		// --- End Positron ---
+
 		if (configurationChangeEvent.affectsConfiguration(LegacyWorkbenchLayoutSettings.SIDEBAR_POSITION)) {
 			this.setRuntimeValueAndFire(LayoutStateKeys.SIDEBAR_POSITON, positionFromString(this.configurationService.getValue(LegacyWorkbenchLayoutSettings.SIDEBAR_POSITION) ?? 'left'));
 		}
@@ -3258,6 +3270,9 @@ class LayoutStateModel extends Disposable {
 		// Apply legacy settings
 		this.stateCache.set(LayoutStateKeys.ACTIVITYBAR_HIDDEN.name, this.isActivityBarHidden());
 		this.stateCache.set(LayoutStateKeys.STATUSBAR_HIDDEN.name, !this.configurationService.getValue(LegacyWorkbenchLayoutSettings.STATUSBAR_VISIBLE));
+		// --- Start Positron ---
+		this.stateCache.set(LayoutStateKeys.POSITRON_TOP_ACTION_BAR_HIDDEN.name, !this.configurationService.getValue(LayoutSettings.TOP_ACTION_BAR_VISIBLE));
+		// --- End Positron ---
 		this.stateCache.set(LayoutStateKeys.SIDEBAR_POSITON.name, positionFromString(this.configurationService.getValue(LegacyWorkbenchLayoutSettings.SIDEBAR_POSITION) ?? 'left'));
 
 		// Set dynamic defaults: part sizing and side bar visibility
