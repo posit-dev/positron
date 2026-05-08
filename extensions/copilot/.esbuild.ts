@@ -322,7 +322,16 @@ async function moveSourceMapsToSeparateDir(): Promise<void> {
 }
 
 async function main() {
-	if (process.env['BUILD_SOURCEVERSION']) {
+	// --- Start Positron ---
+	// Upstream's package.json patch is for MS's Copilot Chat marketplace
+	// publishing scheme (date-based versioning per VSCODE_QUALITY channel).
+	// Positron bundles the extension and uses its own versioning in
+	// product.json, so additionally gate on VSCODE_QUALITY: positron-builds
+	// runners inherit BUILD_SOURCEVERSION from Azure DevOps but don't set
+	// VSCODE_QUALITY, and we don't want the patch to run for them.
+	// if (process.env['BUILD_SOURCEVERSION']) {
+	if (process.env['BUILD_SOURCEVERSION'] && process.env['VSCODE_QUALITY']) {
+		// --- End Positron ---
 		console.log('Running in CI environment, applying package.json patch for correct versioning and pre-release status...');
 		applyPackageJsonPatch();
 	}
