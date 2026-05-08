@@ -17,7 +17,7 @@ import { showQuickPickWithBack } from '../../../common/vscodeApis/windowApis';
 import { Commands } from '../../../common/constants';
 import { getPipRequirementsFiles } from './venvUtils';
 import { UV_PROVIDER_ID } from './uvCreationProvider';
-import { hasPyprojectToml } from '../common/createEnvTriggerUtils.js';
+import { hasPyprojectToml } from '../common/createEnvTriggerUtils';
 
 export interface AutoCreateVenvContext {
     hasRequirements: boolean;
