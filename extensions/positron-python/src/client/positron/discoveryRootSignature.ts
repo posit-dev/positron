@@ -52,6 +52,50 @@ const HOME_RELATIVE_PATHS: readonly string[] = [
 ];
 
 /**
+ * Directory where `uv python install` drops managed Python interpreters.
+ * Resolved without launching `uv` so the warm-start signature stays cheap.
+ *
+ * Resolution order matches uv-dirs (astral-sh/uv):
+ *   1. `UV_PYTHON_INSTALL_DIR` -- explicit override, used verbatim.
+ *   2. `UV_STATE_DIR` -- joined with `python`.
+ *   3. The platform's user data directory + `uv/python`. uv honors
+ *      `XDG_DATA_HOME` on every platform; on Windows it lands under
+ *      `%APPDATA%` (Roaming), not `%LOCALAPPDATA%`.
+ *
+ * Uses `xdg-portable` for the data-dir lookup on macOS/Linux. On Windows,
+ * `xdg.data()` returns `%APPDATA%\xdg.data` -- a convention unique to that
+ * package -- so we fall back to plain `%APPDATA%` to match uv's actual layout.
+ */
+function getUvPythonInstallDir(): string | undefined {
+    const installDirOverride = process.env['UV_PYTHON_INSTALL_DIR'];
+    if (installDirOverride) {
+        return installDirOverride;
+    }
+    const stateDirOverride = process.env['UV_STATE_DIR'];
+    if (stateDirOverride) {
+        return path.join(stateDirOverride, 'python');
+    }
+    if (process.platform === 'win32') {
+        const appData = process.env['APPDATA'];
+        if (!appData) {
+            return undefined;
+        }
+        return path.join(appData, 'uv', 'python');
+    }
+    try {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        const xdg = require('xdg-portable/cjs');
+        const dataDir: string | undefined = xdg.data();
+        if (!dataDir) {
+            return undefined;
+        }
+        return path.join(dataDir, 'uv', 'python');
+    } catch {
+        return undefined;
+    }
+}
+
+/**
  * Hatch virtual-env root for the current platform. Hatch keeps interpreters
  * and project envs in a per-OS data directory; new project envs land here.
  */
@@ -122,6 +166,8 @@ function getDefaultInterpreterParent(): string | undefined {
  *   - pyenv root (via PYENV_ROOT / PYENV / OS default), `versions/` subdir.
  *   - Common POSIX bin dirs (`/usr/local/bin`, `/opt/homebrew/bin`, ...).
  *   - Default conda env dirs under the user's home (`~/anaconda3/envs`, etc.).
+ *   - uv-managed Python install dir (UV_PYTHON_INSTALL_DIR / UV_STATE_DIR /
+ *     `<data>/uv/python`).
  *   - Hatch virtual-env root (per-OS data dir).
  *   - Windows-known Python install roots (LOCALAPPDATA / ProgramFiles).
  *   - The parent of `python.defaultInterpreterPath`.
@@ -168,6 +214,7 @@ export async function getPythonDiscoveryRootSignature(): Promise<positron.Runtim
         }
     }
 
+    addAll([getUvPythonInstallDir()]);
     addAll([getHatchVirtualEnvRoot()]);
     addAll(getWindowsKnownRoots());
     addAll([getDefaultInterpreterParent()]);
