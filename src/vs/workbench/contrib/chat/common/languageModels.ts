@@ -1124,7 +1124,19 @@ export class LanguageModelsService implements ILanguageModelsService {
 		}
 
 		// Activate extensions before requesting to resolve the models
-		await this._extensionService.activateByEvent(`onLanguageModelChatProvider:${vendorId}`);
+		// --- Start Positron ---
+		// Guard against unhandled errors from extension activation. Without
+		// this, a single extension throwing during activation (e.g. the
+		// GitHub Copilot extension when stale auth tokens are present)
+		// rejects the Promise.all in selectLanguageModels and causes
+		// vscode.lm.selectChatModels() to return zero models for every
+		// vendor. See https://github.com/posit-dev/positron/issues/11452.
+		try {
+			await this._extensionService.activateByEvent(`onLanguageModelChatProvider:${vendorId}`);
+		} catch (error) {
+			this._logService.error(`[LM] Failed to activate provider extension for vendor ${vendorId}`, error);
+		}
+		// --- End Positron ---
 
 		const provider = this._providers.get(vendorId);
 		if (!provider) {
@@ -1261,8 +1273,17 @@ export class LanguageModelsService implements ILanguageModelsService {
 			const allVendors = Array.from(this._vendors.keys()).filter(vendor =>
 				this._positronAssistantConfigurationService.isProviderEnabled(vendor)
 			);
+			// Use allSettled so a single vendor cannot prevent
+			// other vendors' models from being returned. See
+			// https://github.com/posit-dev/positron/issues/11452.
+			const results = await Promise.allSettled(allVendors.map(vendor => this._resolveAllLanguageModels(vendor, true)));
+			for (let i = 0; i < results.length; i++) {
+				const r = results[i];
+				if (r.status === 'rejected') {
+					this._logService.error(`[LM] Failed to resolve language models for vendor ${allVendors[i]}`, r.reason);
+				}
+			}
 			// --- End Positron ---
-			await Promise.all(allVendors.map(vendor => this._resolveAllLanguageModels(vendor, true)));
 		}
 
 		const result: string[] = [];

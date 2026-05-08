@@ -132,7 +132,7 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 	// Render.
 	return (
 		<div className={positronClassNames('console-core')}>
-			<div style={{ height: props.height, width: consolePaneWidth }}>
+			<div className='console-pane' style={{ width: consolePaneWidth }}>
 				<ActionBar {...props} showDeleteButton={positronConsoleContext.consoleSessionListCollapsed} />
 				{/* #6845 - Only render console instances when the console pane width is greater than 0. */}
 				{consolePaneWidth > 0 &&
