@@ -16,7 +16,8 @@
 //
 // Options:
 //   --output-dir <dir>   Where to save screenshots and error-context (default: /tmp/e2e-analysis-<random>)
-//   --last <N>           Number of trace actions to show (default: 30)
+//   --last <N>           Number of trace actions to show (default: 500)
+//   --screenshots <N>    Number of trailing screencast frames to extract per attempt (default: 3)
 //   --cleanup            Remove blob-reports, blob-merged, and report JSON after processing
 //
 // Output: JSON to stdout with failures, test details, trace timelines, and paths
@@ -35,17 +36,29 @@ const cliArgs = process.argv.slice(2);
 let blobDir = null;
 let reportPath = null;
 let outputDir = null;
-let lastN = 30;
+let lastN = 500;
+let screenshotsN = 3;
 let doDownload = false;
 let runId = null;
 let repo = null;
 let project = null;
 let doCleanup = false;
 
+/** Parse a non-negative integer CLI flag. Rejects NaN, negatives, and non-integer floats. */
+function parseNonNegInt(name, raw) {
+	const n = Number(raw);
+	if (!Number.isInteger(n) || n < 0) {
+		console.error(`Invalid ${name}: ${raw} (expected non-negative integer)`);
+		process.exit(1);
+	}
+	return n;
+}
+
 for (let i = 0; i < cliArgs.length; i++) {
 	switch (cliArgs[i]) {
 		case '--output-dir': outputDir = cliArgs[++i]; break;
-		case '--last': lastN = parseInt(cliArgs[++i], 10); break;
+		case '--last': lastN = parseNonNegInt('--last', cliArgs[++i]); break;
+		case '--screenshots': screenshotsN = parseNonNegInt('--screenshots', cliArgs[++i]); break;
 		case '--download': doDownload = true; break;
 		case '--run-id': runId = cliArgs[++i]; break;
 		case '--repo': repo = cliArgs[++i]; break;
@@ -315,10 +328,11 @@ function parseTrace(tracePath) {
 	}
 
 	const actions = events.filter(e => e.type === 'before' || e.type === 'after');
-	const recent = actions.slice(-lastN);
+	// `slice(-0)` returns the whole array, so handle 0 explicitly.
+	const recent = lastN === 0 ? [] : actions.slice(-lastN);
 
 	const timelineLines = [];
-	timelineLines.push(`=== Action Timeline (last ${Math.min(lastN, actions.length)} of ${actions.length} events) ===\n`);
+	timelineLines.push(`=== Action Timeline (last ${recent.length} of ${actions.length} events) ===\n`);
 
 	for (const a of recent) {
 		if (a.type === 'before') {
@@ -340,13 +354,18 @@ function parseTrace(tracePath) {
 	}
 
 	const screenshots = events.filter(e => e.type === 'screencast-frame');
-	const lastScreenshot = screenshots.length > 0 ? screenshots[screenshots.length - 1] : null;
+	// `slice(-0)` returns the whole array, so handle 0 explicitly.
+	const trailingScreenshots = screenshotsN === 0 ? [] : screenshots.slice(-screenshotsN);
+	const lastScreenshot = trailingScreenshots.length > 0 ? trailingScreenshots[trailingScreenshots.length - 1] : null;
 
-	if (lastScreenshot) {
+	if (trailingScreenshots.length > 0) {
 		timelineLines.push(`\n=== Screenshots ===`);
 		timelineLines.push(`Total screencast frames: ${screenshots.length}`);
-		timelineLines.push(`Last screenshot sha1: ${lastScreenshot.sha1}`);
-		timelineLines.push(`Last screenshot timestamp: ${lastScreenshot.timestamp}`);
+		timelineLines.push(`Extracting last ${trailingScreenshots.length} frame(s):`);
+		for (let i = 0; i < trailingScreenshots.length; i++) {
+			const s = trailingScreenshots[i];
+			timelineLines.push(`  [${i}] sha1=${s.sha1} timestamp=${s.timestamp}`);
+		}
 	}
 
 	const errorEvents = events.filter(e => e.type === 'after' && e.error);
@@ -362,6 +381,9 @@ function parseTrace(tracePath) {
 	return {
 		timeline: timelineLines.join('\n'),
 		errors,
+		// Last N screencast frames in chronological order; final entry is the failure-state screenshot.
+		screenshotShas: trailingScreenshots.map(s => ({ sha1: s.sha1, timestamp: s.timestamp })),
+		// Kept for backward compat with callers that read just the final frame.
 		lastScreenshotSha1: lastScreenshot?.sha1 || null,
 	};
 }
@@ -416,6 +438,7 @@ for (const testId of failedTestIds) {
 
 		let traceData = null;
 		let screenshotPath = null;
+		const screenshotPaths = [];
 
 		// Extract and parse trace
 		if (traceAtt.resourceHash) {
@@ -437,21 +460,30 @@ for (const testId of failedTestIds) {
 				if (tracePath) {
 					traceData = parseTrace(tracePath);
 
-					// Step 3: extract last screenshot from resource zip
-					// The sha1 field from screencast-frame events is the full filename
-					// including extension (e.g., "page@abc123-timestamp.jpeg")
-					if (traceData.lastScreenshotSha1) {
-						const ssFileName = `${shortId}-attempt${i}.jpeg`;
+					// Step 3: extract trailing N screencast frames in chronological order.
+					// File naming: <shortId>-attempt<i>-frame<j>.jpeg where j=0 is the
+					// earliest of the N extracted, last index is the failure-state frame.
+					// The sha1 field is the full filename incl. extension (page@<hash>-<ts>.jpeg).
+					const frames = traceData.screenshotShas || [];
+					for (let j = 0; j < frames.length; j++) {
+						const sha = frames[j].sha1;
+						if (!sha) { continue; }
+						const ssFileName = `${shortId}-attempt${i}-frame${j}.jpeg`;
 						const ssDestPath = join(resolvedOutputDir, 'screenshots', ssFileName);
-						const ssEntry = `resources/${traceData.lastScreenshotSha1}`;
-						const ssTempDir = join(tmpWorkDir, `ss-${shortId}-${i}`);
+						const ssEntry = `resources/${sha}`;
+						const ssTempDir = join(tmpWorkDir, `ss-${shortId}-${i}-${j}`);
 						const ssExtracted = unzipFile(resourceZipPath, ssEntry, ssTempDir);
 
 						if (ssExtracted) {
 							writeFileSync(ssDestPath, readFileSync(ssExtracted));
-							screenshotPath = ssDestPath;
+							screenshotPaths.push(ssDestPath);
 						}
 					}
+					// Final frame is the most-revealing failure state -- preserve the
+					// legacy single-screenshotPath field for callers that only want it.
+					screenshotPath = screenshotPaths.length > 0
+						? screenshotPaths[screenshotPaths.length - 1]
+						: null;
 				}
 			}
 		}
@@ -479,7 +511,8 @@ for (const testId of failedTestIds) {
 		attempts.push({
 			attemptIndex: i,
 			trace: traceData,
-			screenshotPath,
+			screenshotPath,           // legacy: final frame only
+			screenshotPaths,          // chronological list; last entry is the failure-state
 			errorContextPath,
 		});
 	}

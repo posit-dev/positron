@@ -466,9 +466,15 @@ export class CursorsController extends Disposable {
 
 	public executeEdits(eventsCollector: ViewModelEventsCollector, source: string | null | undefined, edits: IIdentifiedSingleEditOperation[], cursorStateComputer: ICursorStateComputer, reason: TextModelEditSource): void {
 		let autoClosingIndices: [number, number][] | null = null;
-		if (source === 'snippet') {
+		// --- Start Positron ---
+		// `|| source === 'suggest'`: completion-driven snippet inserts arrive
+		// tagged 'suggest' (since upstream 1.102) and also need auto-closing
+		// pair detection. See https://github.com/posit-dev/positron/issues/9044.
+		if (source === 'snippet' || source === 'suggest') {
+			// if (source === 'snippet') {
 			autoClosingIndices = this._findAutoClosingPairs(edits);
 		}
+		// --- End Positron ---
 
 		if (autoClosingIndices) {
 			edits[0]._isTracked = true;

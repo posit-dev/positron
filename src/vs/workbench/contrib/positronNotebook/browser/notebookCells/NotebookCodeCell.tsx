@@ -32,14 +32,16 @@ import { Markdown } from './Markdown.js';
 import { useCellContextMenu } from './useCellContextMenu.js';
 import { MenuId } from '../../../../../platform/actions/common/actions.js';
 import { DataExplorerCellOutput } from './DataExplorerCellOutput.js';
+import { JsonOutput } from './JsonOutput.js';
 import { NotebookErrorBoundary } from '../NotebookErrorBoundary.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED, POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS } from '../ContextKeysManager.js';
+import { POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED, POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS, POSITRON_NOTEBOOK_OUTPUT_JSON_TARGETED } from '../ContextKeysManager.js';
 import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
 import { useScrollingIndicator } from './useScrollingIndicator.js';
 import { CellOutputActionBar } from './CellOutputActionBar.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { HorizontalSplitter, HorizontalSplitterResizeParams } from '../../../../../base/browser/ui/positronComponents/splitters/horizontalSplitter.js';
+import { serializeJsonOutput } from '../copyJsonUtils.js';
 
 /** The minimum height (pixels) that scrollable outputs can be resized to. */
 const MINIMUM_SCROLLABLE_OUTPUT_HEIGHT = 50;
@@ -64,6 +66,10 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 	);
 	const outputImageTargeted = useMemo(
 		() => contextKeyService ? POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.bindTo(contextKeyService) : undefined,
+		[contextKeyService]
+	);
+	const outputJsonTargeted = useMemo(
+		() => contextKeyService ? POSITRON_NOTEBOOK_OUTPUT_JSON_TARGETED.bindTo(contextKeyService) : undefined,
 		[contextKeyService]
 	);
 	const notebookOptions = useNotebookOptions();
@@ -152,10 +158,24 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 			: undefined;
 		const imageDataUrl = src?.startsWith('data:') ? src : undefined;
 
-		// Set context key so the "Copy Image" menu item shows only when an image is targeted
-		outputImageTargeted?.set(!!imageDataUrl);
+		const targetElement = isHTMLElement(event.target) ? event.target : undefined;
+		const jsonOutputElement = targetElement?.closest<HTMLElement>('[data-positron-json-output-id]');
+		const jsonOutputId = jsonOutputElement?.dataset.positronJsonOutputId;
+		const jsonOutput = jsonOutputId
+			? outputs.find(o => o.outputId === jsonOutputId && o.parsed.type === 'json')
+			: undefined;
+		const jsonText = jsonOutput?.parsed.type === 'json'
+			? serializeJsonOutput(jsonOutput.parsed.data)
+			: undefined;
 
-		const onHide = () => outputImageTargeted?.set(false);
+		// Set context keys so targeted copy menu items show only for the right output type.
+		outputImageTargeted?.set(!!imageDataUrl);
+		outputJsonTargeted?.set(!!jsonText);
+
+		const onHide = () => {
+			outputImageTargeted?.set(false);
+			outputJsonTargeted?.set(false);
+		};
 
 		// Delay to next tick so the browser selection is up to date
 		// (right-click may highlight a word after the contextmenu event fires)
@@ -193,8 +213,14 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 				];
 			};
 
-			const menuActionOptions = imageDataUrl
-				? { arg: { imageDataUrl }, shouldForwardArgs: true }
+			let menuArg: { imageDataUrl: string } | { jsonText: string } | undefined;
+			if (imageDataUrl) {
+				menuArg = { imageDataUrl };
+			} else if (jsonText) {
+				menuArg = { jsonText };
+			}
+			const menuActionOptions = menuArg
+				? { arg: menuArg, shouldForwardArgs: true }
 				: undefined;
 
 			showContextMenu({ x, y }, getClipboardActions, onHide, menuActionOptions);
@@ -322,6 +348,8 @@ const CellOutput = React.memo(function CellOutput(output: CellOutputProps) {
 			return renderHtml(parsed.content);
 		case 'markdown':
 			return <Markdown content={parsed.content} />;
+		case 'json':
+			return <JsonOutput data={parsed.data} outputId={output.outputId} />;
 		case 'dataExplorer':
 			return <DataExplorerCellOutput outputs={outputs} parsed={parsed} />;
 		case 'unknown':
@@ -348,4 +376,3 @@ const CollapsedOutputLabel = ({ onExpand }: { onExpand: () => void }) => {
 		{outputCollapsedLabel}
 	</Button>;
 };
-

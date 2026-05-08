@@ -5759,6 +5759,26 @@ suite('Editor Controller', () => {
 		});
 	});
 
+	// --- Start Positron ---
+	test('positron #9044 - completion-inserted `()` is tracked as auto-closed pair', () => {
+		usingCursor({
+			text: [''],
+			languageId: autoClosingLanguageId
+		}, (editor, model, viewModel) => {
+			viewModel.setSelections('test', [new Selection(1, 1, 1, 1)]);
+
+			editor.executeEdits(EditSources.suggest({ providerId: undefined }), [{
+				range: new Range(1, 1, 1, 1),
+				text: 'foo()'
+			}], [new Selection(1, 5, 1, 5)]);
+			assert.strictEqual(model.getLineContent(1), 'foo()');
+
+			editor.runCommand(CoreEditingCommands.DeleteLeft, null);
+			assert.strictEqual(model.getLineContent(1), 'foo');
+		});
+	});
+	// --- End Positron ---
+
 	test('issue #78833 - Add config to use old brackets/quotes overtyping', () => {
 		usingCursor({
 			text: [
