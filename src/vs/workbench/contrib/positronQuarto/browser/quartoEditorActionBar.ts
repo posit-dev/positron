@@ -90,7 +90,7 @@ MenuRegistry.appendMenuItem(MenuId.PositronQuartoEditorActionBarMenu, {
 MenuRegistry.appendMenuItem(MenuId.PositronQuartoEditorActionBarMenu, {
 	command: {
 		id: 'workbench.action.positronConsole.showNotebookConsole',
-		title: localize2('quarto.editorActionBar.showNotebookConsole', "Show Notebook Console"),
+		title: localize2('quarto.editorActionBar.showNotebookConsole', "Show Console"),
 	},
 	group: '3_console',
 	order: 10,
