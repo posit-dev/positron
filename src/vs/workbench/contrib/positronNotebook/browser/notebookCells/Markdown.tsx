@@ -16,13 +16,19 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 import { renderNotebookMarkdown } from '../markdownRenderer.js';
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
 
+interface MarkdownProps {
+	readonly content: string;
+	readonly onMermaidDoubleClick?: () => void;
+	readonly onMermaidFocus?: () => void;
+}
+
 /**
  * Component that renders markdown content from a string using token-based rendering.
  * @param content: Markdown content to render in string form
  * @returns React element containing the rendered markdown.
  */
-export function Markdown({ content }: { content: string }) {
-	const renderedHtml = useMarkdown(content);
+export function Markdown({ content, onMermaidDoubleClick, onMermaidFocus }: MarkdownProps) {
+	const renderedHtml = useMarkdown(content, onMermaidDoubleClick, onMermaidFocus);
 
 	switch (renderedHtml.status) {
 		case 'error':
@@ -44,7 +50,11 @@ type MarkdownRenderResults = {
 	errorMsg: string;
 };
 
-function useMarkdown(content: string): MarkdownRenderResults {
+function useMarkdown(
+	content: string,
+	onMermaidDoubleClick: (() => void) | undefined,
+	onMermaidFocus: (() => void) | undefined
+): MarkdownRenderResults {
 
 	const services = usePositronReactServicesContext();
 	const [renderedHtml, setRenderedHtml] = React.useState<MarkdownRenderResults>({
@@ -56,7 +66,8 @@ function useMarkdown(content: string): MarkdownRenderResults {
 			renderNotebookMarkdown(
 				content,
 				services.get(IExtensionService),
-				services.languageService
+				services.languageService,
+				{ onMermaidDoubleClick, onMermaidFocus }
 			),
 			5000,
 		));
@@ -82,7 +93,7 @@ function useMarkdown(content: string): MarkdownRenderResults {
 		});
 
 		return () => conversionCancellablePromise.cancel();
-	}, [content, services]);
+	}, [content, onMermaidDoubleClick, onMermaidFocus, services]);
 
 	return renderedHtml;
 }

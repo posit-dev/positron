@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/* eslint-disable no-restricted-globals, no-restricted-syntax */
 
 export function buildWebviewHTML(opts: {
 	content: string;
@@ -52,7 +53,11 @@ type WheelForwardMessage = {
 	deltaY: number;
 };
 
-type HTMLOutputWebviewMessage = HTMLOutputMetricsMessage | WheelForwardMessage;
+type DoubleClickMessage = {
+	type: 'doubleClick';
+};
+
+type HTMLOutputWebviewMessage = HTMLOutputMetricsMessage | WheelForwardMessage | DoubleClickMessage;
 
 
 export function isHTMLOutputWebviewMessage(message: unknown): message is HTMLOutputMetricsMessage {
@@ -66,6 +71,11 @@ export function isWheelForwardMessage(message: unknown): message is WheelForward
 		&& typeof m.deltaY === 'number';
 }
 
+export function isDoubleClickMessage(message: unknown): message is DoubleClickMessage {
+	return (message as DoubleClickMessage | undefined)?.type === 'doubleClick';
+}
+
+
 function webviewMessageCode() {
 	// acquireVsCodeApi is a global injected by the webview host. Access it
 	// through the window object so the production bundler cannot rename it.
@@ -73,19 +83,29 @@ function webviewMessageCode() {
 	const vscode: { postMessage: (message: HTMLOutputWebviewMessage) => void } =
 		(window as any)['acquireVsCodeApi']();
 
-	const sendSizeMessage = () => {
-		// Get body of the webview and measure content sizes
-		// eslint-disable-next-line no-restricted-syntax
+	const getBodyScrollHeight = () => {
 		const body = document.body;
-		// eslint-disable-next-line no-restricted-syntax
 		const documentElement = document.documentElement;
-		const bodyScrollHeight = body.scrollHeight || documentElement.scrollHeight;
-		const bodyScrollWidth = body.scrollWidth || documentElement.scrollWidth;
+		return body.scrollHeight || documentElement.scrollHeight;
+	};
 
+	const getBodyScrollWidth = () => {
+		const body = document.body;
+		const documentElement = document.documentElement;
+		return body.scrollWidth || documentElement.scrollWidth;
+	};
+
+	const sendSizeMessage = () => {
 		vscode.postMessage({
 			type: 'webviewMetrics',
-			bodyScrollHeight,
-			bodyScrollWidth
+			bodyScrollHeight: getBodyScrollHeight(),
+			bodyScrollWidth: getBodyScrollWidth()
+		});
+	};
+
+	const sendDoubleClickMessage = () => {
+		vscode.postMessage({
+			type: 'doubleClick'
 		});
 	};
 
@@ -95,12 +115,15 @@ function webviewMessageCode() {
 	});
 
 	try {
-		// eslint-disable-next-line no-restricted-syntax
 		const documentElement = document.documentElement;
 		resizeObserver.observe(documentElement);
 	} catch (e) {
 		console.error('Error observing documentElement', e);
 	}
+
+	// Let specialized webview contents forward double-click interactions to
+	// the notebook cell that owns the webview.
+	window.addEventListener('positronWebviewDoubleClick', sendDoubleClickMessage);
 
 	// Two things can happen when the user wheels over a webview output:
 	//
@@ -123,15 +146,11 @@ function webviewMessageCode() {
 	// (the default), so the effective overflow is html's unless that is
 	// visible, in which case body's wins.
 	const getViewportScrollConsumer = (): Element | null => {
-		// eslint-disable-next-line no-restricted-syntax
 		const root = document.documentElement;
-		// eslint-disable-next-line no-restricted-syntax
 		const body = document.body;
-		// eslint-disable-next-line no-restricted-globals
 		const rootOverflow = window.getComputedStyle(root).overflowY;
 		let effectiveOverflow = rootOverflow;
 		if (rootOverflow === 'visible' && body) {
-			// eslint-disable-next-line no-restricted-globals
 			effectiveOverflow = window.getComputedStyle(body).overflowY;
 		}
 		if (effectiveOverflow === 'hidden' || effectiveOverflow === 'clip') {
@@ -154,7 +173,6 @@ function webviewMessageCode() {
 			if (!(node instanceof Element)) {
 				return null;
 			}
-			// eslint-disable-next-line no-restricted-syntax
 			const isBodyOrRoot = node === document.body || node === document.documentElement;
 			if (isBodyOrRoot) {
 				// Only the single viewport scroller implicitly scrolls on
@@ -164,7 +182,6 @@ function webviewMessageCode() {
 					continue;
 				}
 			} else {
-				// eslint-disable-next-line no-restricted-globals
 				const overflowY = window.getComputedStyle(node).overflowY;
 				if (overflowY !== 'auto' && overflowY !== 'scroll') {
 					continue;
@@ -202,7 +219,6 @@ function webviewMessageCode() {
 	let lastConsumedAt = 0;
 	let lastSeenDelta = 0;
 	let lastEventAt = 0;
-	// eslint-disable-next-line no-restricted-globals
 	window.addEventListener('wheel', (event: WheelEvent) => {
 		if (event.defaultPrevented || event.deltaY === 0) {
 			return;
@@ -238,7 +254,6 @@ function webviewMessageCode() {
 	}, { passive: true });
 
 	// Send message on load back to Positron
-	// eslint-disable-next-line no-restricted-globals
 	window.onload = sendSizeMessage;
 }
 
