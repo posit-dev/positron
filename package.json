@@ -2,8 +2,9 @@
   "name": "code-oss-dev",
   "version": "1.118.0",
   "distro": "b85ea484c93395a77703478557a49e35ac7c0841",
+  "product-label": "positron",
   "author": {
-    "name": "Microsoft Corporation"
+    "name": "Posit Software, PBC"
   },
   "license": "MIT",
   "main": "./out/main.js",

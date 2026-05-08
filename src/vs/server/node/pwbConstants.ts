@@ -1,10 +1,14 @@
-/* eslint-disable header/header */
-import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+import { existsSync, readFileSync } from 'fs';
+import { dirname, join } from '../../base/common/path.js';
+import { fileURLToPath } from 'url';
 
 export const kProxyRegex = new RegExp('\/proxy\/[0-9]+[^a-zA-Z](\/)?');
 
+// --- Start PWB: session-less static URL prefix for cacheable assets ---
 // Session-less URL prefix for cacheable static assets (workbench.js/.css, NLS, icons, rsLoginCheck).
 // In production the Workbench embedded nginx serves these directly off disk (gzip_static); the
 // handler in webClientServer.ts is the dev/standalone fallback. The `product-label` field in
@@ -42,3 +46,4 @@ function resolveProductLabel(): string {
 }
 
 export const VSCODE_STATIC_PREFIX = `/${resolveProductLabel()}-static`;
+// --- End PWB ---

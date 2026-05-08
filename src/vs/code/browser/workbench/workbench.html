@@ -42,6 +42,10 @@
 		// --- End PWB ---
 		globalThis._VSCODE_FILE_ROOT = baseUrl + '/out/';
 	</script>
+	<!-- Start PWB: marker script is injected by webClientServer.ts only when isWorkbench is true; read by platform.isWorkbench in the browser -->
+	{{PWB_WORKBENCH_MARKER}}
+	<!-- End PWB -->
+
 	<!--- Start Positron --->
 	<script>
 		const importMap = { imports: {} };

@@ -24,6 +24,7 @@ import { INotebookRendererMessagingService } from '../../notebook/common/noteboo
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { webviewMessageCodeString } from '../../positronWebviewPreloads/browser/notebookOutputUtils.js';
+import { handleWebviewLinkClicksInjection } from './downloadUtils.js';
 
 /**
  * Processed bundle of information about a message and how to render it for a webview.
@@ -388,7 +389,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		const headContent = [
 			needsBase ? `<base href="${asWebviewUri(baseUri).toString(true)}/">` : '',
 			PositronNotebookOutputWebviewService.CssAddons,
-			`<script>${webviewMessageCodeString}</script>`,
+			`<script>${webviewMessageCodeString}\n${handleWebviewLinkClicksInjection}</script>`,
 		].filter(Boolean).join('\n');
 
 		if (/<head[\s>]/i.test(html)) {
@@ -421,6 +422,7 @@ ${headContent}
 			origin: DOM.getActiveWindow().origin,
 			contentOptions: {
 				allowScripts: true,
+				allowMultipleAPIAcquire: true,
 				localResourceRoots: baseUri ? [baseUri] : [],
 			},
 			extension: undefined,
