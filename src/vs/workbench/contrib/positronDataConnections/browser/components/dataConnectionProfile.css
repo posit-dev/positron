@@ -3,18 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-.data-connections-panel {
-	flex: 1;
-	display: none;
-	min-height: 0;
-	flex-direction: column;
-}
-
-.data-connections-panel.active {
+.data-connection-profile {
+	height: 100%;
 	display: flex;
-}
-
-.data-connections-panel .data-connection-profiles-list {
-	flex: 1;
-	min-height: 0;
+	padding: 0 14px;
+	align-items: center;
 }

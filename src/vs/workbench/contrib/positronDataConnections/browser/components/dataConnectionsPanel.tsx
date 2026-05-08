@@ -15,6 +15,9 @@ import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { NewDataConnectionFlow } from '../dialogs/newDataConnectionFlow.js';
 import { PositronList } from '../../../../browser/positronList/positronList.js';
+import { DataConnectionSection, IDataConnectionSection } from './dataConnectionSection.js';
+import { DataConnectionInstance } from './dataConnectionInstance.js';
+import { DataConnectionProfile } from './dataConnectionProfile.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
@@ -48,16 +51,6 @@ interface DataConnectionsPanelProps {
 type IDataConnectionListItem =
 	| { readonly kind: 'instance'; readonly instance: IDataConnectionInstance }
 	| { readonly kind: 'profile'; readonly profile: IDataConnectionProfile };
-
-/**
- * A section header in the data connections list. Groups a run of rows under a labeled heading
- * (e.g. "Active Connections", "Saved"). The shape is intentionally minimal -- additional fields
- * (counts, badges, etc.) can be added when the UI needs them.
- */
-interface IDataConnectionSection {
-	// The label shown in the section header.
-	readonly label: string;
-}
 
 /**
  * DataConnectionsPanel component.
@@ -94,28 +87,18 @@ export const DataConnectionsPanel = ({ active }: DataConnectionsPanelProps) => {
 		return () => disposableStore.dispose();
 	}, [positronDataConnectionsService]);
 
+
+
 	// PositronListInstance. Items are a discriminated union: 'instance' rows wrap a live
 	// IDataConnectionInstance, 'profile' rows wrap a persisted IDataConnectionProfile. The
 	// renderer dispatches on the item's kind.
 	const [listInstance] = useState(() => new PositronListInstance<IDataConnectionListItem, IDataConnectionSection>({
-		defaultItemHeight: 32,
-		itemRenderer: item => item.kind === 'instance'
-			? (
-				<div className='data-connection-instance'>
-					{item.instance.driverName}
-				</div>
-			)
-			: (
-				<div className='data-connection-profile'>
-					{item.profile.connectionName}
-				</div>
-			),
-		defaultSectionHeight: 22,
-		sectionRenderer: section => (
-			<div className='data-connection-section'>
-				{section.label}
-			</div>
-		)
+		defaultItemHeight: 45,
+		itemRenderer: item => item.kind === 'profile'
+			? <DataConnectionProfile profile={item.profile} />
+			: <DataConnectionInstance instance={item.instance} />,
+		defaultSectionHeight: 30,
+		sectionRenderer: section => <DataConnectionSection section={section} />
 	}));
 
 	// Push the latest instances and profiles into the list, grouped into "Active Connections"
@@ -130,13 +113,19 @@ export const DataConnectionsPanel = ({ active }: DataConnectionsPanelProps) => {
 			entries.push({
 				kind: 'section',
 				section: {
-					label: localize('positronDataConnections.activeConnectionsSection', "Active Connections")
+					label: localize('positronDataConnections.activeConnectionsSection', "Active")
 				},
 			});
 
 			// Push the instances.
 			for (const instance of instances) {
-				entries.push({ kind: 'item', item: { kind: 'instance', instance } });
+				entries.push({
+					kind: 'item',
+					item: {
+						kind: 'instance',
+						instance
+					}
+				});
 			}
 		}
 
@@ -146,13 +135,19 @@ export const DataConnectionsPanel = ({ active }: DataConnectionsPanelProps) => {
 			entries.push({
 				kind: 'section',
 				section: {
-					label: localize('positronDataConnections.savedSection', "Saved Connections")
+					label: localize('positronDataConnections.savedConnectionsSection', "Saved")
 				},
 			});
 
 			// Push the entries.
 			for (const profile of profiles) {
-				entries.push({ kind: 'item', item: { kind: 'profile', profile } });
+				entries.push({
+					kind: 'item',
+					item: {
+						kind: 'profile',
+						profile
+					}
+				});
 			}
 		}
 
@@ -213,15 +208,11 @@ export const DataConnectionsPanel = ({ active }: DataConnectionsPanelProps) => {
 				/>
 			</PositronActionBarContextProvider>
 			<div className='data-connection-profiles-list'>
-				{profiles.length === 0
-					? <div className='data-connection-profiles-list-empty'>
-						{localize('positronDataConnections.noConnections', "No data connections.")}
-					</div>
-					: <PositronList<IDataConnectionListItem, IDataConnectionSection>
-						id='data-connection-profiles-list'
-						instance={listInstance}
-					/>
-				}
+				<PositronList<IDataConnectionListItem, IDataConnectionSection>
+					emptyListRenderer={() => localize('positronDataConnections.noConnections', "No data connections.")}
+					id='data-connection-profiles-list'
+					instance={listInstance}
+				/>
 			</div>
 		</div>
 	);
