@@ -1466,6 +1466,59 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 	}
 
+	changeToHeading(level: number): void {
+		this._assertTextModel();
+		const cell = getActiveCell(this.selectionStateMachine.state.get());
+		if (!cell) {
+			return;
+		}
+
+		// Capture index before any mutations
+		const cellIndex = cell.index;
+
+		// Convert to markdown first if needed
+		if (cell.kind !== CellKind.Markup) {
+			this.changeCellType(CellKind.Markup);
+		}
+
+		// Re-read cell model at the same index (changeCellType replaces the cell)
+		const cellModel = this.textModel.cells[cellIndex];
+		if (!cellModel) {
+			return;
+		}
+
+		const content = cellModel.getValue();
+		const lines = content.split(/\r?\n/);
+		const firstLine = lines[0] ?? '';
+
+		// Strip existing heading prefix
+		const stripped = firstLine.replace(/^#{1,6}\s*/, '');
+		const prefix = '#'.repeat(level) + ' ';
+		lines[0] = prefix + stripped;
+
+		const newContent = lines.join('\n');
+		const computeUndoRedo = !this.isReadOnly || this.textModel.viewType === 'interactive';
+		const endSelections: ISelectionState = {
+			kind: SelectionStateType.Index,
+			focus: { start: cellIndex, end: cellIndex + 1 },
+			selections: [{ start: cellIndex, end: cellIndex + 1 }]
+		};
+
+		this.textModel.applyEdits([{
+			editType: CellEditType.Replace,
+			index: cellIndex,
+			count: 1,
+			cells: [{
+				cellKind: CellKind.Markup,
+				language: cellModel.language,
+				mime: cellModel.mime,
+				source: newContent,
+				outputs: [],
+				metadata: cellModel.metadata,
+			}]
+		}], true, undefined, () => endSelections, undefined, computeUndoRedo);
+	}
+
 	/**
 	 * Splits the currently editing cell at the cursor position(s).
 	 * Supports multi-cursor: each cursor creates an additional split point.

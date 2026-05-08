@@ -628,6 +628,130 @@ KeybindingsRegistry.registerKeybindingRule({
 	primary: KeyMod.Shift | KeyCode.KeyZ
 });
 
+// Shift+L: Toggle line numbers in command mode (Jupyter-style)
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.toggleLineNumbers',
+			title: localize2('positronNotebook.toggleLineNumbers', "Toggle Line Numbers"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyMod.Shift | KeyCode.KeyL
+			},
+			grabFocusOnRun: false
+		});
+	}
+	override runNotebookAction(_notebook: IPositronNotebookInstance, accessor: ServicesAccessor) {
+		const configurationService = accessor.get(IConfigurationService);
+		const current = configurationService.getValue<'on' | 'off'>('notebook.lineNumbers') === 'on';
+		configurationService.updateValue('notebook.lineNumbers', current ? 'off' : 'on');
+	}
+});
+
+// 1-6: Change cell to heading level (Jupyter-style)
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.changeToHeading1',
+			title: localize2('positronNotebook.cell.changeToHeading1', "Change Cell to Heading 1"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.Digit1
+			}
+		});
+	}
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.changeToHeading(1);
+	}
+});
+
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.changeToHeading2',
+			title: localize2('positronNotebook.cell.changeToHeading2', "Change Cell to Heading 2"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.Digit2
+			}
+		});
+	}
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.changeToHeading(2);
+	}
+});
+
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.changeToHeading3',
+			title: localize2('positronNotebook.cell.changeToHeading3', "Change Cell to Heading 3"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.Digit3
+			}
+		});
+	}
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.changeToHeading(3);
+	}
+});
+
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.changeToHeading4',
+			title: localize2('positronNotebook.cell.changeToHeading4', "Change Cell to Heading 4"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.Digit4
+			}
+		});
+	}
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.changeToHeading(4);
+	}
+});
+
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.changeToHeading5',
+			title: localize2('positronNotebook.cell.changeToHeading5', "Change Cell to Heading 5"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.Digit5
+			}
+		});
+	}
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.changeToHeading(5);
+	}
+});
+
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.changeToHeading6',
+			title: localize2('positronNotebook.cell.changeToHeading6', "Change Cell to Heading 6"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.Digit6
+			}
+		});
+	}
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.changeToHeading(6);
+	}
+});
+
 //#endregion Notebook Commands
 
 //#region Cell Commands
@@ -1351,7 +1475,8 @@ export class MoveCellUpAction extends NotebookAction2 {
 			keybinding: {
 				when: NotebookContextKeys.editorFocused,
 				weight: KeybindingWeight.EditorContrib,
-				primary: KeyMod.Alt | KeyCode.UpArrow
+				primary: KeyMod.Alt | KeyCode.UpArrow,
+				secondary: [KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.UpArrow]
 			}
 		});
 	}
@@ -1378,7 +1503,8 @@ export class MoveCellDownAction extends NotebookAction2 {
 			keybinding: {
 				when: NotebookContextKeys.editorFocused,
 				weight: KeybindingWeight.EditorContrib,
-				primary: KeyMod.Alt | KeyCode.DownArrow
+				primary: KeyMod.Alt | KeyCode.DownArrow,
+				secondary: [KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.DownArrow]
 			}
 		});
 	}
