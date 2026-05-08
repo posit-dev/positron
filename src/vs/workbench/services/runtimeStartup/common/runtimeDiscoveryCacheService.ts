@@ -14,12 +14,14 @@ import {
 // Re-export the root-signature types so consumers of the cache API can pull
 // everything they need from a single import. The types themselves live next
 // to `IRuntimeManager` to avoid a cycle between the cache service and the
-// runtime service.
-export {
+// runtime service. `export type` is required for the interfaces so the
+// compiled JS doesn't emit a runtime re-export of names that only exist at
+// the type level (which fails the ESM loader at module evaluation time).
+export type {
 	IRuntimeRootEntry,
 	IRuntimeRootSignature,
-	signaturesEqual,
 };
+export { signaturesEqual };
 
 export const IRuntimeDiscoveryCache =
 	createDecorator<IRuntimeDiscoveryCache>('runtimeDiscoveryCache');
