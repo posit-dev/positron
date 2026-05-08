@@ -1141,6 +1141,16 @@ export class LanguageModelsService implements ILanguageModelsService {
 		const provider = this._providers.get(vendorId);
 		if (!provider) {
 			this._logService.warn(`[LM] No provider registered for vendor ${vendorId}`);
+			// --- Start Positron ---
+			// Clear any stale model cache entries for this vendor. Without
+			// this, models left in _modelCache from a prior registration
+			// continue to be returned from selectLanguageModels, which
+			// triggers an ext-host recursion loop in
+			// getLanguageModelByIdentifier (selectLanguageModels → resolve
+			// → cache returns stale id → getLanguageModelByIdentifier
+			// re-resolves via selectLanguageModels(vendor) → repeat).
+			this._clearModelCache(vendorId);
+			// --- End Positron ---
 			return;
 		}
 
