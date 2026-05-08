@@ -200,7 +200,7 @@
 		},
 		{
 			"name": "meta.pyrefly",
-			"version": "0.64.1",
+			"version": "0.62.0",
 			"repo": "https://github.com/facebook/pyrefly",
 			"metadata": {
 				"publisherId": {
@@ -214,7 +214,7 @@
 		},
 		{
 			"name": "ms-python.debugpy",
-			"version": "2026.6.0",
+			"version": "2025.18.0",
 			"repo": "https://github.com/microsoft/vscode-python-debugger",
 			"metadata": {
 				"id": "4bd5d2c9-9d65-401a-b0b2-7498d9f17615",
@@ -230,7 +230,7 @@
 		},
 		{
 			"name": "posit.publisher",
-			"version": "2.5.4",
+			"version": "1.36.0",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
@@ -281,8 +281,8 @@
 		},
 		{
 			"name": "GitHub.vscode-pull-request-github",
-			"version": "0.98.0",
-			"sha256": "3e4ec69066794db5daf74af84450633f9212fd47ddbada4b20acbbf17d58004f",
+			"version": "0.128.0",
+			"sha256": "ced05271c027d3c2b65cee44cfa65e60844f68041b15659afd6c854955d8343b",
 			"repo": "https://github.com/Microsoft/vscode-pull-request-github",
 			"metadata": {
 				"publisherId": {
@@ -295,8 +295,8 @@
 		},
 		{
 			"name": "posit.assistant",
-			"version": "0.5.3",
-			"sha256": "fe9b47949b2df5c0fbbe2a6f2e7d11156565be726a3856dedf2102db9a4ed30b",
+			"version": "0.4.2",
+			"sha256": "9375eedf32d0e5e0de6f08369ea32fd30072f068d14ab3e276c362663b64d828",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
 				"displayName": "Posit Assistant"
