@@ -45,6 +45,9 @@ import '../common/positronQuartoConfig.js';
 // Import commands to ensure they're registered
 import './quartoCommands.js';
 
+// Import editor action bar menu wiring to ensure it's registered
+import './quartoEditorActionBar.js';
+
 // Import CSS styles
 import './media/quartoExecutionDecorations.css';
 import './media/quartoOutputViewZone.css';
