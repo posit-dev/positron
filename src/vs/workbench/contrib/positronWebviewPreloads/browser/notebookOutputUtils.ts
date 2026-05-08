@@ -97,10 +97,10 @@ function webviewMessageCode() {
 
 	let lastHeight = -1;
 	let lastWidth = -1;
-	const sendSizeMessage = () => {
+	const sendSizeMessage = (force?: boolean) => {
 		const height = getBodyScrollHeight();
 		const width = getBodyScrollWidth();
-		if (height === lastHeight && width === lastWidth) {
+		if (!force && height === lastHeight && width === lastWidth) {
 			return;
 		}
 		lastHeight = height;
@@ -298,8 +298,11 @@ function webviewMessageCode() {
 		});
 	}, { passive: true });
 
-	// Send message on load back to Positron
-	window.onload = sendSizeMessage;
+	// Send message on load back to Positron. Force bypasses the dedup
+	// guard so the host always receives the initial size even if an
+	// observer already posted the same dimensions before onMessage was
+	// attached.
+	window.onload = () => sendSizeMessage(true);
 }
 
 export const webviewMessageCodeString = `(${webviewMessageCode.toString()})();`;
