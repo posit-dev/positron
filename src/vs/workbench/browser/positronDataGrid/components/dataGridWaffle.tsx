@@ -7,7 +7,7 @@
 import './dataGridWaffle.css';
 
 // React.
-import { forwardRef, JSX, KeyboardEvent, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
+import { CSSProperties, forwardRef, JSX, KeyboardEvent, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { DataGridRow } from './dataGridRow.js';
@@ -27,6 +27,15 @@ import { isElectron, isMacintosh } from '../../../../base/common/platform.js';
 import { ExtendColumnSelectionBy, ExtendRowSelectionBy } from '../classes/dataGridInstance.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 import { TableSummaryDataGridInstance } from '../../../services/positronDataExplorer/browser/tableSummaryDataGridInstance.js';
+
+/**
+ * Inline-style shape for the data grid waffle root. Extends CSSProperties with the two custom
+ * properties this component sets so TypeScript accepts the literal without per-key casts.
+ */
+interface DataGridWaffleCSSProperties extends CSSProperties {
+	'--data-grid-clip-right': string;
+	'--data-grid-clip-bottom': string;
+}
 
 /**
  * DataGridWaffle component.
@@ -633,12 +642,23 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 		);
 	}
 
+	// Scrollbars are absolutely-positioned siblings overlapping the column headers, row headers,
+	// and rows. These custom properties carry the scrollbar thickness when each scrollbar
+	// enabled (otherwise zero), and descendants use them in clip-path so nothing paints underneath
+	// the scrollbar gutters. This avoids the "what color should the scrollbar background be",
+	// allowing the scrollbars (and the scrollbar corner) to simply show the ambient background.
+	const waffleStyle: DataGridWaffleCSSProperties = {
+		'--data-grid-clip-right': `${context.instance.verticalScrollbar ? context.instance.scrollbarThickness : 0}px`,
+		'--data-grid-clip-bottom': `${context.instance.horizontalScrollbar ? context.instance.scrollbarThickness : 0}px`,
+	};
+
 	// Render.
 	return (
 		<div
 			ref={dataGridWaffleRef}
 			className='data-grid-waffle'
 			role='grid'
+			style={waffleStyle}
 			tabIndex={0}
 			onBlur={() => context.instance.setFocused(false)}
 			onFocus={() => context.instance.setFocused(true)}
@@ -718,6 +738,8 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				style={{
 					width: width - context.instance.rowHeadersWidth,
 					height: height - context.instance.columnHeadersHeight,
+					// See the --data-grid-clip-* custom properties on .data-grid-waffle.
+					clipPath: 'inset(0 var(--data-grid-clip-right) var(--data-grid-clip-bottom) 0)',
 				}}
 			>
 				<div

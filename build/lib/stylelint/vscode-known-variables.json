@@ -1084,6 +1084,8 @@
 		"--comment-thread-editor-font-weight",
 		"--comment-thread-state-background-color",
 		"--comment-thread-state-color",
+		"--data-grid-clip-right",
+		"--data-grid-clip-bottom",
 		"--editor-font-size",
 		"--editor-group-tab-height",
 		"--editor-group-tabs-height",
