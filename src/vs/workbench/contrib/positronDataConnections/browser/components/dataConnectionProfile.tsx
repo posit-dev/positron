@@ -11,11 +11,13 @@ import { useRef } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
+import { ConfigureDataConnection } from '../dialogs/configureDataConnection.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
 import { showCustomContextMenu } from '../../../../browser/positronComponents/customContextMenu/customContextMenu.js';
 import { CustomContextMenuItem } from '../../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
+import { IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 import { CustomContextMenuSeparator } from '../../../../browser/positronComponents/customContextMenu/customContextMenuSeparator.js';
-import { IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
 
 /**
  * DataConnectionProfileProps interface.
@@ -28,11 +30,57 @@ interface DataConnectionProfileProps {
  * DataConnectionProfile component. Renders one saved (persisted) profile row.
  */
 export const DataConnectionProfile = ({ profile }: DataConnectionProfileProps) => {
-	// Context.
-	const { positronDataConnectionsService } = usePositronReactServicesContext();
+	// Services.
+	const { notificationService, positronDataConnectionsService } = usePositronReactServicesContext();
 
 	// Reference hooks.
 	const actionsButtonRef = useRef<HTMLButtonElement>(null);
+
+	/**
+	 * Edits the data connection profile.
+	 */
+	const editProfile = () => {
+		// Get the driver for this profile. If it's not found, give the user a message tailored
+		// to whether extensions have finished loading. Before that point, the driver is likely
+		// still loading. After that point, the extension is genuinely not installed or enabled.
+		const driver = positronDataConnectionsService.driverManager.getDriver(profile.driverMetadata.id);
+		if (!driver) {
+			notificationService.error(positronDataConnectionsService.driverManager.driversLoaded
+				? localize(
+					'positronDataConnections.driverNotInstalled',
+					"Driver '{0}' is not available for connection '{1}'. The extension that provides it may not be installed or enabled.",
+					profile.driverMetadata.name,
+					profile.connectionName
+				)
+				: localize(
+					'positronDataConnections.driverStillLoading',
+					"Driver '{0}' is still loading for connection '{1}'. Please try again in a moment.",
+					profile.driverMetadata.name,
+					profile.connectionName
+				)
+			);
+
+			// Don't proceed to the edit dialog if the driver isn't available.
+			return;
+		}
+
+		// Create and show the configure data connection dialog for this profile.
+		const renderer = new PositronModalDialogReactRenderer();
+		renderer.render(
+			<ConfigureDataConnection
+				driver={driver}
+				profile={profile}
+				renderer={renderer}
+				onSave={updatedProfile => {
+					// Update the profile in the service.
+					positronDataConnectionsService.addUpdateProfile(updatedProfile);
+
+					// Dispose the dialog.
+					renderer.dispose();
+				}}
+			/>
+		);
+	};
 
 	/**
 	 * Shows the actions menu for this profile.
@@ -69,7 +117,7 @@ export const DataConnectionProfile = ({ profile }: DataConnectionProfileProps) =
 				new CustomContextMenuItem({
 					icon: 'edit',
 					label: localize('positronDataConnections.editConnection', "Edit Connection"),
-					onSelected: () => console.log(`Edit Connection: ${profile.id} (${profile.connectionName})`),
+					onSelected: () => editProfile(),
 				}),
 				new CustomContextMenuItem({
 					icon: 'trash',

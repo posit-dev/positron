@@ -7,12 +7,14 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { ISecretStorageService } from '../../../../platform/secrets/common/secrets.js';
-import { DataConnectionDriverManager } from './positronDataConnectionsDriverManager.js';
-import { IDataConnectionInstance } from '../common/interfaces/positronDataConnectionsInstance.js';
+import { DataConnectionsDriverManager } from './dataConnectionsDriverManager.js';
+import { IExtensionService } from '../../../services/extensions/common/extensions.js';
+import { IDataConnectionInstance } from '../common/interfaces/dataConnectionInstance.js';
 import { IPositronDataConnectionsService } from '../common/interfaces/positronDataConnectionsService.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
-import { IDataConnectionDriverManager, IDataConnectionProfile } from '../common/interfaces/positronDataConnectionsDriver.js';
+import { IDataConnectionProfile } from '../common/interfaces/dataConnectionDriver.js';
+import { IDataConnectionsDriverManager } from '../common/interfaces/dataConnectionsDriverManager.js';
 
 // Storage key prefix for persisted data connection profiles. Each data connection profile gets
 // its own key (`{prefix}{profileId}`) so updates rewrite only the changed profile, not the whole
@@ -61,20 +63,22 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 
 	/**
 	 * Constructor.
+	 * @param extensionService The extension service.
 	 * @param _logService The log service.
-	 * @param _storageService The storage service (profile metadata).
 	 * @param _secretStorageService The secret storage service (secret parameter values).
+	 * @param _storageService The storage service (profile metadata).
 	 */
 	constructor(
+		@IExtensionService extensionService: IExtensionService,
 		@ILogService private readonly _logService: ILogService,
-		@IStorageService private readonly _storageService: IStorageService,
 		@ISecretStorageService private readonly _secretStorageService: ISecretStorageService,
+		@IStorageService private readonly _storageService: IStorageService,
 	) {
 		// Call the base class constructor.
 		super();
 
 		// Create the data connection driver manager.
-		this.driverManager = this._register(new DataConnectionDriverManager());
+		this.driverManager = this._register(new DataConnectionsDriverManager(extensionService));
 
 		// Load data connection profiles from storage. Secret values stay in secret storage and are
 		// fetched on demand by getProfileWithSecrets.
@@ -89,7 +93,7 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	declare readonly _serviceBrand: undefined;
 
 	// Manages registered data connection drivers (register, remove, list, change events).
-	readonly driverManager: IDataConnectionDriverManager;
+	readonly driverManager: IDataConnectionsDriverManager;
 
 	// Fires when data connection profiles change.
 	readonly onDidChangeProfiles: Event<IDataConnectionProfile[]> = this._onDidChangeProfilesEmitter.event;
@@ -181,6 +185,17 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 
 		// Return a new profile object that includes the secret parameter values.
 		return { ...profile, parameterValues };
+	}
+
+	/**
+	 * Gets the parameter ids for which a secret value is stored on the given profile, without
+	 * loading the values themselves.
+	 * @param id The data connection profile id.
+	 * @returns The list of parameter ids with stored secrets. Empty if the profile has no
+	 * stored secrets (or no longer exists).
+	 */
+	getProfileSecretIds(id: string): readonly string[] {
+		return this._readPersistedProfile(id)?.secretParameterIds ?? [];
 	}
 
 	/**
@@ -335,8 +350,10 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	 * placeholder without the user being forced to retype the secret each save.
 	 */
 	private _splitAndPersistSecrets(profile: IDataConnectionProfile): IPersistedDataConnectionProfile {
-		// Read the previously-persisted data connection profile so we can compute orphan secrets.
+		// Read the previously-persisted data connection profile so we can preserve any stored
+		// secrets the form didn't touch, and clean up orphans when the driver schema changes.
 		const previouslyPersistedProfile = this._readPersistedProfile(profile.id);
+		const previousSecretParameterIds = new Set(previouslyPersistedProfile?.secretParameterIds ?? []);
 
 		// Identify the current secret parameter ids from the driver.
 		const driver = this.driverManager.getDriver(profile.driverMetadata.id);
@@ -346,27 +363,36 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 				.map(_ => _.id) ?? []
 		);
 
-		// Split the profile's parameter values into public values and secret writes.
+		// Build the public parameter values and the new list of secret parameter ids.
+		// Iterate the driver's current secret schema (not the form's parameterValues) so an absent
+		// secret means "preserve existing," not "clear." A secret is only cleared by removing the
+		// whole profile or by the parameter ceasing to be a secret in the driver schema.
 		const publicParameterValues: typeof profile.parameterValues = {};
-		const secretParameterIds: string[] = [];
 		for (const [key, value] of Object.entries(profile.parameterValues)) {
-			if (secretParamIdSet.has(key)) {
-				secretParameterIds.push(key);
-				if (typeof value === 'string' && value.length > 0) {
-					this._secretStorageService.set(secretKey(profile.id, key), value).catch(err => {
-						this._logService.error(`[DataConnections] Failed to write secret for ${profile.id}/${key}: ${err}`);
-					});
-				}
-			} else {
+			if (!secretParamIdSet.has(key)) {
 				publicParameterValues[key] = value;
 			}
 		}
+		const secretParameterIds: string[] = [];
+		for (const secretParamId of secretParamIdSet) {
+			const submittedValue = profile.parameterValues[secretParamId];
+			if (typeof submittedValue === 'string' && submittedValue.length > 0) {
+				// User typed a new value; write it and record the id.
+				this._secretStorageService.set(secretKey(profile.id, secretParamId), submittedValue).catch(err => {
+					this._logService.error(`[DataConnections] Failed to write secret for ${profile.id}/${secretParamId}: ${err}`);
+				});
+				secretParameterIds.push(secretParamId);
+			} else if (previousSecretParameterIds.has(secretParamId)) {
+				// Form left this secret blank but a value is stored. Preserve it.
+				secretParameterIds.push(secretParamId);
+			}
+			// Otherwise: never had a secret here, still doesn't.
+		}
 
-		// Drop any orphaned secrets.
-		const previousSecretParameterIds = previouslyPersistedProfile?.secretParameterIds ?? [];
-		const stillPresentSecretParameterIds = new Set(secretParameterIds);
+		// Drop orphan secrets: parameters that were previously secret but no longer are in the
+		// current driver schema (driver was updated and renamed/removed/non-secreted a field).
 		for (const previousSecretParameterId of previousSecretParameterIds) {
-			if (!stillPresentSecretParameterIds.has(previousSecretParameterId)) {
+			if (!secretParamIdSet.has(previousSecretParameterId)) {
 				this._secretStorageService.delete(secretKey(profile.id, previousSecretParameterId)).catch(err => {
 					this._logService.error(`[DataConnections] Failed to delete secret for ${profile.id}/${previousSecretParameterId}: ${err}`);
 				});

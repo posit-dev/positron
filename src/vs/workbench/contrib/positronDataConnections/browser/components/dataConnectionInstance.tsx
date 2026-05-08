@@ -7,7 +7,7 @@
 import './dataConnectionInstance.css';
 
 // Other dependencies.
-import { IDataConnectionInstance } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsInstance.js';
+import { IDataConnectionInstance } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
 
 /**
  * DataConnectionInstanceProps interface.

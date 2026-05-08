@@ -14,10 +14,11 @@ import { localize } from '../../../../../nls.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { ConfigureDataConnectionParameters } from './configureDataConnectionParameters.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
 import { TwoButtonFooter } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/twoButtonFooter.js';
 import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
-import { DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
+import { DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 
 /**
  * UI-side form state for a single parameter field, pairing the value with an error indicator.
@@ -65,6 +66,9 @@ interface ConfigureDataConnectionProps {
  * @returns The rendered component.
  */
 export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => {
+	// Services.
+	const { positronDataConnectionsService } = usePositronReactServicesContext();
+
 	// Ref to the Connection Name input so we can drive initial focus to it (overriding the
 	// primary button's autoFocus, which fires during React commit before this effect runs).
 	const connectionNameInputRef = useRef<HTMLInputElement>(null);
@@ -73,6 +77,13 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 	useEffect(() => {
 		connectionNameInputRef.current?.focus();
 	}, []);
+
+	// Ids of parameters that already have a secret saved for this profile. Secret fields for these
+	// show a "saved" placeholder, and leaving them blank on submit keeps the existing secret rather
+	// than clearing it.
+	const [storedSecretIds] = useState<ReadonlySet<string>>(() => new Set(
+		props.profile ? positronDataConnectionsService.getProfileSecretIds(props.profile.id) : []
+	));
 
 	// State.
 	const [connectionName, setConnectionName] = useState(props.profile?.connectionName ?? '');
@@ -133,15 +144,18 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 			setConnectionNameError(true);
 		}
 
-		// Validate the parameters. Required parameters must not be empty.
+		// Validate the parameters.
 		const updatedParameterFieldStates = { ...parameterFieldStates };
 		for (const parameter of props.driver.metadata.parameters) {
 			// Get the current value for this parameter field.
 			const value = parameterFieldStates[parameter.id].value;
 
-			// Determine if there is a validation error for this parameter. For required parameters,
-			// an error exists if the value is undefined.
-			const hasError = parameter.required === true && value === undefined;
+			// Determine if there is a validation error for this parameter. A required parameter
+			// is invalid when its value is undefined, with one exception: a secret parameter that
+			// already has a stored value can be left blank to keep the stored value.
+			const isSecret = parameter.type === 'password' || (parameter.type === 'string' && parameter.secret === true);
+			const hasStoredSecret = isSecret && storedSecretIds.has(parameter.id);
+			const hasError = parameter.required === true && value === undefined && !hasStoredSecret;
 
 			// Update the parameter field state.
 			updatedParameterFieldStates[parameter.id] = {
@@ -182,7 +196,7 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 				parameterValues,
 			});
 		}
-	}, [connectionName, parameterFieldStates, props]);
+	}, [connectionName, parameterFieldStates, props, storedSecretIds]);
 
 	// Render.
 	return (
@@ -221,6 +235,7 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 						<ConfigureDataConnectionParameters
 							parameterFieldStates={parameterFieldStates}
 							parameters={props.driver.metadata.parameters}
+							storedSecretIds={storedSecretIds}
 							onParameterChanged={setParameterFieldState}
 						/>
 

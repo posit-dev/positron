@@ -11,21 +11,21 @@ import { useEffect, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
+import { DataConnectionProfile } from './dataConnectionProfile.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
+import { DataConnectionInstance } from './dataConnectionInstance.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { NewDataConnectionFlow } from '../dialogs/newDataConnectionFlow.js';
 import { PositronList } from '../../../../browser/positronList/positronList.js';
-import { DataConnectionSection, IDataConnectionSection } from './dataConnectionSection.js';
-import { DataConnectionInstance } from './dataConnectionInstance.js';
-import { DataConnectionProfile } from './dataConnectionProfile.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { DataConnectionSection, IDataConnectionSection } from './dataConnectionSection.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { ListEntry, PositronListInstance } from '../../../../browser/positronList/classes/positronListInstance.js';
 import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
+import { IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
-import { IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
-import { IDataConnectionInstance } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsInstance.js';
+import { IDataConnectionInstance } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
 import { DEFAULT_ACTION_BAR_BUTTON_WIDTH, DynamicActionBarAction, PositronDynamicActionBar } from '../../../../../platform/positronActionBar/browser/positronDynamicActionBar.js';
 
 /**
