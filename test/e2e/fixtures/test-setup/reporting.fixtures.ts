@@ -199,15 +199,10 @@ async function attachDockerLogsToReport(logsPath: string, testInfo: playwright.T
 			contentType: 'application/zip',
 		});
 
-		// Clean up container logs after successful attachment
-		try {
-			await execP(`docker exec ${containerName} sh -c "rm -rf ${containerLogsPath}/*"`, {
-				maxBuffer: 1024 * 1024 * 10,
-			});
-			console.log('Cleaned up logs in Docker container');
-		} catch (err: any) {
-			console.warn(`Failed to clean up logs in Docker container: ${err.message}`);
-		}
+		// NOTE: We do NOT clean up container logs here because:
+		// - The app runs at worker scope (one instance per test file)
+		// - If we delete logs after test 1, the app won't recreate them for test 2+
+		// - Logs are cleaned up once at worker teardown in _test.setup.ts
 	} catch (err: any) {
 		console.error(`Failed to process Docker logs: ${err.message}`);
 	} finally {
