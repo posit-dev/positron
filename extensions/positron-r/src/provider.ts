@@ -428,7 +428,7 @@ async function currentRBinaryCandidates(): Promise<RBinary[]> {
 			candidates.push(candidate);
 		}
 	} else {
-		LOGGER.info('Skipping PATH-based R discovery (positron.r.interpreters.pathDiscoveryMode). To include R installations only available on PATH, set this to "on" or list them via positron.r.interpreters.override.');
+		LOGGER.info('Skipping PATH-based R discovery (change this behavior with positron.r.interpreters.pathDiscoveryMode).');
 	}
 
 	if (os.platform() !== 'win32') {
