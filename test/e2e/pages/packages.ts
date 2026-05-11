@@ -6,6 +6,7 @@
 import { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { ContextMenu } from './dialog-contextMenu';
+import { Help } from './help';
 import { QuickInput } from './quickInput';
 import { Toasts } from './dialog-toasts';
 
@@ -22,7 +23,7 @@ export class Packages {
 	filterOptionsMenu: Locator;
 	filterOptionsSubmenu: Locator;
 
-	constructor(private code: Code, private contextMenu: ContextMenu, private quickInput: QuickInput, private toasts: Toasts) {
+	constructor(private code: Code, private contextMenu: ContextMenu, private quickInput: QuickInput, private toasts: Toasts, private help: Help) {
 		this.packagesButton = this.code.driver.currentPage.locator('a.action-label.codicon-package');
 		this.packagesContainer = this.code.driver.currentPage.locator('.positron-packages-list');
 
@@ -162,6 +163,19 @@ export class Packages {
 		});
 		await expect(item).toBeVisible();
 		await item.hover();
+	}
+
+	/**
+	 * Waits for the Help pane to render content for a package, retrying past the
+	 * help-frame load delay.
+	 * @param expectedText Substring that must appear in the help frame body
+	 * @param helpFrameIndex Index of the help webview to check (0 for the first opened, etc.)
+	 */
+	async expectHelpPaneToContainText(expectedText: string, helpFrameIndex: number): Promise<void> {
+		await expect(async () => {
+			const helpFrame = await this.help.getHelpFrame(helpFrameIndex);
+			await expect(helpFrame.locator('body')).toContainText(expectedText);
+		}).toPass();
 	}
 
 	/**
