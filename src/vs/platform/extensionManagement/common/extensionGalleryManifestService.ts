@@ -43,6 +43,25 @@ export const POSITRON_GALLERY_PRESETS: Record<string, ExtensionGalleryConfig> = 
 	},
 };
 
+/**
+ * Resolves the gallery config to use, applying the Positron precedence:
+ * a successfully-parsed EXTENSIONS_GALLERY env var wins over the
+ * `positron.extensions.gallerySource` setting, which wins over the default
+ * product gallery. An env var that failed to parse should be passed as
+ * undefined so the caller falls through to the preset.
+ */
+export function resolvePositronGalleryConfig(
+	envGallery: ExtensionGalleryConfig | undefined,
+	gallerySource: string | undefined,
+	productGallery: ExtensionGalleryConfig | undefined,
+): ExtensionGalleryConfig | undefined {
+	if (envGallery) {
+		return envGallery;
+	}
+	const preset = gallerySource ? POSITRON_GALLERY_PRESETS[gallerySource] : undefined;
+	return preset ?? productGallery;
+}
+
 // --- End Positron ---
 
 export class ExtensionGalleryManifestService extends Disposable implements IExtensionGalleryManifestService {
