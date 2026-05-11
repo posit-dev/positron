@@ -16,6 +16,7 @@ export class Packages {
 
 	packagesButton: Locator;
 	packagesContainer: Locator;
+	refreshPackagesButton: Locator;
 	packagesViewMoreActionsButton: Locator;
 	filterButton: Locator;
 	filterOptionsMenu: Locator;
@@ -24,6 +25,10 @@ export class Packages {
 	constructor(private code: Code, private contextMenu: ContextMenu, private quickInput: QuickInput, private toasts: Toasts) {
 		this.packagesButton = this.code.driver.currentPage.locator('a.action-label.codicon-package');
 		this.packagesContainer = this.code.driver.currentPage.locator('.positron-packages-list');
+
+		this.refreshPackagesButton = this.code.driver.currentPage
+			.getByRole('toolbar', { name: 'Packages actions' })
+			.getByLabel('Refresh Packages');
 		// More Actions button (overflow menu) in the packages view title bar
 		this.packagesViewMoreActionsButton = code.driver.currentPage
 			.getByRole('toolbar', { name: 'Packages actions' })
@@ -157,6 +162,43 @@ export class Packages {
 		});
 		await expect(item).toBeVisible();
 		await item.hover();
+	}
+
+	/**
+	 * Clicks the help button on a package row to open its help topic in the Help pane.
+	 * The packages list is virtualized -- scrolls the list down until the row for
+	 * the requested package is rendered, then clicks its help button.
+	 * @param packageName The name of the package whose help button should be clicked
+	 */
+	async clickHelpButton(packageName: string): Promise<void> {
+		await this.clickPackagesButton();
+		await expect(this.packagesContainer).toBeVisible();
+
+		const helpButton = this.code.driver.currentPage.getByRole('button', { name: `Show help for ${packageName}` });
+
+		if (!(await helpButton.isVisible())) {
+			const box = await this.packagesContainer.boundingBox();
+			if (!box) {
+				throw new Error('Packages container has no bounding box');
+			}
+			await this.code.driver.currentPage.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+
+			const maxScrollAttempts = 100;
+			for (let i = 0; i < maxScrollAttempts; i++) {
+				await this.code.driver.currentPage.mouse.wheel(0, 250);
+				await this.code.driver.currentPage.waitForTimeout(100);
+				if (await helpButton.isVisible()) {
+					break;
+				}
+			}
+		}
+
+		await helpButton.click();
+	}
+
+	async clickRefreshPackagesButton(): Promise<void> {
+		await this.clickPackagesButton();
+		await this.refreshPackagesButton.click();
 	}
 
 	/**
