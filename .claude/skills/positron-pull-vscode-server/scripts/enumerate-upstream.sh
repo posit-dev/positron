@@ -4,7 +4,7 @@
 # Usage: ./enumerate-upstream.sh <baseline-sha>
 #
 # <baseline-sha> is the upstream/main commit that corresponds to the last
-# "pseudo upstream merge from vscode-server" commit in Positron's history.
+# "upstream merge from vscode-server" commit in Positron's history.
 #
 # Assumes Positron and vscode-server are on the same Microsoft VSCode baseline.
 # If Microsoft commits appear in the range, the script exits with an error —
@@ -15,8 +15,8 @@ set -euo pipefail
 if [ -z "${1:-}" ]; then
 	echo "Usage: $0 <baseline-sha>"
 	echo ""
-	echo "Recent pseudo upstream merges in Positron:"
-	git log --oneline --grep="pseudo upstream merge from vscode-server" -5
+	echo "Recent upstream merges from vscode-server in Positron:"
+	git log --oneline --grep="upstream merge from vscode-server" -5
 	exit 1
 fi
 
