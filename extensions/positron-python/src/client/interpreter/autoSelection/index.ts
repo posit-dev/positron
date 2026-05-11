@@ -44,10 +44,9 @@ export class InterpreterAutoSelectionService implements IInterpreterAutoSelectio
         @inject(IExperimentService) private readonly experimentService: IExperimentService,
     ) {
         // Initialize persistent state after dependency injection
-        this.globallyPreferredInterpreter = this.stateFactory.createGlobalPersistentState<PythonEnvironment | undefined>(
-            preferredGlobalInterpreter,
-            undefined,
-        );
+        this.globallyPreferredInterpreter = this.stateFactory.createGlobalPersistentState<
+            PythonEnvironment | undefined
+        >(preferredGlobalInterpreter, undefined);
         proxy.registerInstance!(this);
     }
 

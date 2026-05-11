@@ -47,7 +47,7 @@ class InterpreterQuickPickItem implements IInterpreterQuickPickItem {
 
     public detail?: string;
 
-    public interpreter = ({} as unknown) as PythonEnvironment;
+    public interpreter = {} as unknown as PythonEnvironment;
 
     constructor(l: string, p: string, d?: string) {
         this.path = p;

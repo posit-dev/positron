@@ -6,6 +6,13 @@
 import { env } from '../../../base/common/process.js';
 import { IProductConfiguration } from '../../../base/common/product.js';
 import { ISandboxConfiguration } from '../../../base/parts/sandbox/common/sandboxTypes.js';
+// --- Start PWB ---
+// Import from extensionsGalleryEnv.js (leaf module) rather than
+// extensionGalleryManifestService.js: the latter transitively pulls in
+// extensionManagement.ts, which runs Registry contributions at module load
+// before the Registry is ready, crashing startup with a ReferenceError.
+import { parseExtensionsGalleryEnv } from '../../extensionManagement/common/extensionsGalleryEnv.js';
+// --- End PWB ---
 
 /**
  * @deprecated It is preferred that you use `IProductService` if you can. This
@@ -50,13 +57,14 @@ else if (globalThis._VSCODE_PRODUCT_JSON && globalThis._VSCODE_PACKAGE_JSON) {
 		});
 	}
 
-	// --- Start PWB: Custom extensions gallery
+	// --- Start PWB: Custom extensions gallery ---
 	if (env['EXTENSIONS_GALLERY']) {
-		Object.assign(product, {
-			extensionsGallery: JSON.parse(env['EXTENSIONS_GALLERY'])
-		});
+		const extensionsGallery = parseExtensionsGalleryEnv(env['EXTENSIONS_GALLERY']);
+		if (extensionsGallery) {
+			Object.assign(product, { extensionsGallery });
+		}
 	}
-	// --- End PWB: Custom extensions gallery
+	// --- End PWB: Custom extensions gallery ---
 }
 
 // Web environment or unknown

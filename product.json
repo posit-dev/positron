@@ -242,8 +242,8 @@
 		},
 		{
 			"name": "quarto.quarto",
-			"version": "1.131.0",
-			"sha256": "1fcae21883e96367a6e65a76d84cf8900138c4536774f9a5387f711538389a0c",
+			"version": "1.132.0",
+			"sha256": "fe54121a32cae2b1bd9e6b8560fcfcbacc23515587abb09dd735110d3246245b",
 			"repo": "https://github.com/quarto-dev/quarto/tree/main/apps/vscode",
 			"metadata": {
 				"id": "a1be81fc-0f3a-4f2e-92ee-3fdc7ab96c73",
@@ -295,8 +295,8 @@
 		},
 		{
 			"name": "posit.assistant",
-			"version": "0.3.2",
-			"sha256": "d6661dc9e5c607a645a65eae56fec210302a5babb2e2af735078e96e448b7c3e",
+			"version": "0.4.2",
+			"sha256": "9375eedf32d0e5e0de6f08369ea32fd30072f068d14ab3e276c362663b64d828",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
 				"displayName": "Posit Assistant"
@@ -690,6 +690,7 @@
 		],
 		"posit-ai": [
 			"positron.authentication",
+			"positron.next-edit-suggestions",
 			"positron.positron-assistant",
 			"posit.assistant"
 		],

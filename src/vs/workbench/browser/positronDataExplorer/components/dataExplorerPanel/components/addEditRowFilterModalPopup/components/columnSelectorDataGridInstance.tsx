@@ -18,7 +18,7 @@ import { DataExplorerClientInstance } from '../../../../../../../services/langua
  * Constants.
  */
 const ROW_HEIGHT = 26;
-const OVERSCAN_FACTOR = 3
+const OVERSCAN_FACTOR = 3;
 
 /**
  * ColumnSelectorDataGridInstance class.
@@ -132,7 +132,7 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 		// Add the onDidSchemaUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
 			// Update the layout entries.
-			await this.updateLayoutEntries()
+			await this.updateLayoutEntries();
 
 			// Perform a soft reset.
 			this.softReset();

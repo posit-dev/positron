@@ -32,7 +32,7 @@ export class Console {
 	suggestionList: Locator;
 	addSessionDuplicateButton: Locator;
 	addSessionExpandMenuButton: Locator;
-	private consoleTab: Locator;
+	consoleTab: Locator;
 	private error: Locator;
 
 	get emptyConsole() {

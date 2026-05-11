@@ -82,11 +82,12 @@ on:
       notify_on:
         description: "Slack notification on:"
         required: false
-        default: "failure"
+        default: "failures_only"
         type: choice
         options:
-          - failure
+          - failures_only
           - always
+          - flaky_or_failures
           - never
       grep:
         description: "Grep pattern:"
@@ -350,21 +351,7 @@ jobs:
     needs:
       [validate-commit, e2e-electron, e2e-windows, e2e-chromium, e2e-rhel, e2e-chromium-rhel, e2e-suse, e2e-chromium-suse, e2e-sles, e2e-chromium-sles, e2e-debian, e2e-chromium-debian, unit-tests, ext-host-tests]
     runs-on: ubuntu-latest
-    env:
-      notify_on: ${{ github.event_name == 'schedule' && 'always' || inputs.notify_on || 'failure' }}
     steps:
-      - run: |
-          echo "Will notify on: ${{ env.notify_on }}"
-      - name: Notify Slack
-        uses: midleman/slack-workflow-status@v3.1.3
-        with:
-          gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
-          slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
-          slack_channel: "#positron-test-results"
-          filter_jobs: "(e2e / ([^0-9]*)|unit|ext-host)$"
-          include_job_durations: false
-          notify_on: ${{ env.notify_on }}
-
       - name: Checkout
         if: always()
         uses: actions/checkout@v6
@@ -372,7 +359,7 @@ jobs:
           sparse-checkout: .github/actions/notify-e2e-insights
 
       - name: Notify E2E Test Insights
-        if: always()
+        if: always() && inputs.notify_on != 'never'
         uses: ./.github/actions/notify-e2e-insights
         with:
           webhook_secret: ${{ secrets.E2E_INSIGHTS_WEBHOOK_SECRET }}
@@ -380,3 +367,4 @@ jobs:
           repo_id: "positron"
           title: "E2E Full Suite Tests"
           filter_jobs: "(e2e / ([^0-9]*)|unit|ext-host)$"
+          notify_on: ${{ inputs.notify_on }}

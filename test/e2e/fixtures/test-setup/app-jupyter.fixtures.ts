@@ -82,6 +82,7 @@ export async function JupyterApp(
 		// Wait for the folder to open and Positron to be ready
 		await app.code.driver.currentPage.waitForSelector('.monaco-workbench', { timeout: 60000 });
 		await app.workbench.sessions.expectNoStartUpMessaging();
+		await app.workbench.console.consoleTab.click();
 		await app.workbench.sessions.deleteAll();
 
 		await app.workbench.hotKeys.closeAllEditors();

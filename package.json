@@ -2,6 +2,7 @@
   "name": "code-oss-dev",
   "version": "1.111.0",
   "distro": "cd72f8f27b485d65c99f5020caa895a5ac5692eb",
+  "product-label": "positron",
   "author": {
     "name": "Microsoft Corporation"
   },
@@ -17,6 +18,7 @@
     "test-extension": "vscode-test",
     "test-build-scripts": "cd build && npm run test",
     "test:positron": "vitest --run",
+    "test:positron:check-ts": "tsc --noEmit -p ./vitest.tsconfig.json --skipLibCheck",
     "test:core": "./scripts/test.sh",
     "test:ext-host": "./scripts/test-integration.sh",
     "check-cyclic-dependencies": "node build/lib/checkCyclicDependencies.ts out",

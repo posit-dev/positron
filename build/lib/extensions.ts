@@ -162,6 +162,8 @@ function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, 
 	const extensionsWithNpmDeps = [
 		'positron-proxy',
 		'positron-duckdb',
+		'positron-sqlite',
+		'positron-postgresql',
 		'positron-catalog-explorer',
 		'positron-pdf-server'
 	];
@@ -351,14 +353,16 @@ const baseHeaders = {
 // --- Start Positron ---
 
 function getPlatformDownloads(): string[] {
-	switch (os.arch()) {
+	// Respect npm_config_arch when cross-building (e.g. building x64 on arm64 macOS).
+	const targetArch = process.env['npm_config_arch'] || os.arch();
+	switch (targetArch) {
 		case 'arm64':
 			return [`${process.platform}-arm64`];
 		case 'x64':
 		case 'x86_64':
 			return [`${process.platform}-x64`];
 		default:
-			throw new Error(`Unsupported architecture: ${os.arch()}`);
+			throw new Error(`Unsupported architecture: ${targetArch}`);
 	}
 }
 

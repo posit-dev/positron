@@ -327,6 +327,7 @@ import './contrib/positronOutputWebview/browser/notebookOutputWebview.contributi
 import './contrib/positronNotebook/browser/positronNotebook.contribution.js';
 import './contrib/positronWelcome/browser/positronWelcome.contribution.js';
 import './contrib/positronTelemetry/browser/positronTelemetry.contribution.js';
+import './contrib/positronEditorActions/browser/positronEditorActions.contribution.js';
 // --- End Positron ---
 
 // Terminal
@@ -483,6 +484,7 @@ import './contrib/positronConsole/browser/positronConsoleView.js';
 import './contrib/positronDataExplorerEditor/browser/positronDataExplorerEditor.contribution.js';
 import './contrib/positronDataExplorerEditor/browser/positronDataExplorerEditor.js';
 import './contrib/positronConnections/browser/positronConnections.contribution.js';
+import './contrib/positronDataConnections/browser/positronDataConnections.contribution.js';
 import './contrib/positronHistory/browser/positronHistory.contribution.js';
 import './contrib/positronRuntimeSessions/browser/positronRuntimeSessions.contribution.js';
 import './contrib/positronStartupDiagnostics/browser/positronStartupDiagnostics.contribution.js';
@@ -505,6 +507,7 @@ import './services/positronHistory/common/executionHistory.js';
 import './services/positronVariables/common/positronVariablesService.js';
 import './services/positronDataExplorer/browser/positronDataExplorerService.js';
 import './services/positronConnections/browser/positronConnectionsService.js';
+import './services/positronDataConnections/browser/positronDataConnectionsService.js';
 import './contrib/positronWebviewPreloads/browser/positronWebviewPreloadsService.js';
 import './contrib/positronAssistant/browser/positronAssistantService.js';
 import './services/positronMemoryUsage/browser/positronMemoryUsageService.js';

@@ -41,7 +41,7 @@ const positronOpenFileFolder = localize('positronOpenFileFolder', "Open File/Fol
 
 /**
  * TopActionBarOpenMenu component.
- * @returns The component.
+ * @returns The rendered component.
  */
 export const TopActionBarOpenMenu = () => {
 	// Hooks.

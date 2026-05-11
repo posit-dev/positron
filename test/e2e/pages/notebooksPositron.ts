@@ -1684,6 +1684,29 @@ export class PositronNotebooks extends Notebooks {
 	async getScrollTop(): Promise<number> {
 		return this.cellsContainer.evaluate(el => el.scrollTop);
 	}
+
+	/**
+	 * Capture the scroll anchor: the first cell at least partially visible in
+	 * the viewport, plus its top offset relative to the cells container.
+	 *
+	 * This is what the scroll restoration implementation preserves across
+	 * reloads. Compare anchors (not raw scrollTop): cells above the anchor can
+	 * re-render with slightly different heights between sessions, shifting
+	 * scrollTop while leaving the user-visible position unchanged.
+	 */
+	async getScrollAnchor(): Promise<{ cellIndex: number; offsetFromTop: number } | null> {
+		return this.cellsContainer.evaluate(c => {
+			const containerRect = c.getBoundingClientRect();
+			const cells = c.querySelectorAll('[data-testid="notebook-cell"]');
+			for (let i = 0; i < cells.length; i++) {
+				const r = cells[i].getBoundingClientRect();
+				if (r.bottom > containerRect.top) {
+					return { cellIndex: i, offsetFromTop: r.top - containerRect.top };
+				}
+			}
+			return null;
+		});
+	}
 	// #endregion
 }
 
@@ -1859,6 +1882,7 @@ export class Kernel extends KernelBase {
 			// select the kernel
 			await this.hotKeys.selectNotebookKernel();
 			await this.quickinput.waitForQuickInputOpened({ timeout: 1000 });
+			await this.quickinput.type(desiredKernel);
 			await this.quickinput.selectQuickInputElementContaining(desiredKernel, { timeout: 1000, force: false });
 			await this.quickinput.waitForQuickInputClosed();
 			this.code.logger.log(`Selected kernel: ${desiredKernel}`);
@@ -1909,7 +1933,8 @@ export class Kernel extends KernelBase {
 		await test.step(`Verify kernel menu items: ${menuItemStates.map(item => item.label).join(', ')}`, async () => {
 			await this.contextMenu.triggerAndVerifyMenuItems({
 				menuTrigger: this.statusBadge,
-				menuItemStates: menuItemStates
+				menuItemStates: menuItemStates,
+				useNativeMenu: false
 			});
 		});
 	}
