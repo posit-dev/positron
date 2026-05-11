@@ -188,26 +188,11 @@ export class Packages {
 		await this.clickPackagesButton();
 		await expect(this.packagesContainer).toBeVisible();
 
-		const helpButton = this.code.driver.currentPage.getByRole('button', { name: `Show help for ${packageName}` });
-
-		if (!(await helpButton.isVisible())) {
-			const box = await this.packagesContainer.boundingBox();
-			if (!box) {
-				throw new Error('Packages container has no bounding box');
-			}
-			await this.code.driver.currentPage.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-
-			const maxScrollAttempts = 100;
-			for (let i = 0; i < maxScrollAttempts; i++) {
-				await this.code.driver.currentPage.mouse.wheel(0, 250);
-				await this.code.driver.currentPage.waitForTimeout(100);
-				if (await helpButton.isVisible()) {
-					break;
-				}
-			}
-		}
+		await this.searchPackages(packageName);
+		const helpButton = this.packagesContainer.getByRole('button', { name: `Show help for ${packageName}` });
 
 		await helpButton.click();
+		await this.clearFilter();
 	}
 
 	async clickRefreshPackagesButton(): Promise<void> {
