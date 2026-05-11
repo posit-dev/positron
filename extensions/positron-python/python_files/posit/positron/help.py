@@ -43,7 +43,12 @@ def _distribution_to_modules(name: str) -> list[str]:
     or when no installed distribution matches.
     """
     try:
-        from importlib.metadata import packages_distributions
+        # packages_distributions exists on Python >= 3.10; pyright's stubs for
+        # older versions don't know about it, so suppress the import-symbol
+        # check here. ImportError handles the actual runtime absence.
+        from importlib.metadata import (
+            packages_distributions,  # type: ignore[reportGeneralTypeIssues]
+        )
     except ImportError:
         return []
 
