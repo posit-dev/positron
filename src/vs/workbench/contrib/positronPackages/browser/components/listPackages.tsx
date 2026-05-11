@@ -25,6 +25,8 @@ import { Separator } from '../../../../../base/common/actions.js';
 import { localize } from '../../../../../nls.js';
 import { usePositronPackagesContext } from '../positronPackagesContext.js';
 import { ILanguageRuntimePackage } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { generateUuid } from '../../../../../base/common/uuid.js';
 import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progressbar.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { showCustomContextMenu, CustomContextMenuSubmenu, CustomContextMenuEntry } from '../../../../browser/positronComponents/customContextMenu/customContextMenu.js';
@@ -251,10 +253,24 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	// Show the help page for a package using the active session's language. Falls back to a
 	// notification if the help service can't find anything.
 	const showHelpForPackage = useCallback(async (packageName: string) => {
-		const languageId = activeInstance?.session.runtimeMetadata.languageId;
-		if (!languageId) {
+		const session = activeInstance?.session;
+		if (!session) {
 			return;
 		}
+		const languageId = session.runtimeMetadata.languageId;
+
+		// R users would prefer we use the `??` operator, whereas the PositronHelpService uses `?`
+		if (languageId === 'r') {
+			session.execute(
+				`??${packageName}`,
+				generateUuid(),
+				RuntimeCodeExecutionMode.Interactive,
+				RuntimeErrorBehavior.Stop,
+			);
+			return;
+		}
+
+		// Default behavior
 		const found = await services.positronHelpService.showHelpTopic(languageId, packageName);
 		if (!found) {
 			services.notificationService.info(
