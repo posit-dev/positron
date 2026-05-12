@@ -37,14 +37,12 @@ test.describe('Release Screenshots - Layouts', () => {
 		}
 
 		// Open the workshop folder so VS Code's workspace is positron-workshop.
-		// The OS picker starts one level above workspacePathOrFolder (which is
-		// the qa-example-content dir), so the prefix is needed.
 		await openFolder('qa-example-content/positron-workshop');
 		await page.waitForTimeout(3000);
 		await page.locator('.monaco-workbench').waitFor({ state: 'visible' });
 
 		// Start a Python session and run a small script so Variables and Plots
-		// populate the secondary sidebar. Doesn't need any specific venv.
+		// populate the secondary sidebar.
 		await sessions.start(['python']);
 		await sessions.expectAllSessionsToBeReady();
 		await executeCode('Python', [

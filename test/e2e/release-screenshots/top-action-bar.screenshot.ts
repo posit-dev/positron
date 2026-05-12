@@ -28,8 +28,6 @@ test.describe('Release Screenshots - Top Action Bar', () => {
 	 * Img Path: https://positron.posit.co/images/top-action-bar.png
 	 */
 	test.skip('Release Screenshot - top-action-bar.png', async ({ app, page }) => {
-		// The default test workspace provides a folder context, so the full top
-		// action bar (command center + interpreter + folder selector) is already shown.
 		const topBar = page.locator('.top-action-bar-container');
 		await expect(topBar).toBeVisible();
 

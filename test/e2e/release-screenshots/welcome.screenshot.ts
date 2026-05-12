@@ -14,8 +14,7 @@ test.use({
 });
 
 test.beforeEach(async ({ app }) => {
-	// Smaller 1280x800 viewport so text/chrome read proportionally larger
-	// in docs. All captures are 2x natively via the screenshot helpers.
+	// Smaller viewport so text/chrome read proportionally larger
 	await setScreenshotWindowSize(app, { width: 1280, height: 800 });
 });
 
@@ -66,7 +65,7 @@ test.describe('Release Screenshots - Welcome Page', () => {
 		await quickaccess.runCommand('workbench.action.gotoLine', {
 			keepOpen: true,
 		});
-		await page.keyboard.type('179');
+		await page.keyboard.type('181');
 		await page.keyboard.press('Enter');
 		await variables.toggleVariable({
 			variableName: 'gc_frame',

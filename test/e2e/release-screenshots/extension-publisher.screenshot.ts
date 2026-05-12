@@ -17,8 +17,6 @@ test.beforeEach(async ({ app }) => {
 	await setScreenshotWindowSize(app);
 });
 
-// Each test in this file leaves an extension editor or modal dialog open;
-// clean up so the next test's command-palette interactions start neutral.
 test.afterEach(async ({ app }) => {
 	await app.workbench.hotKeys.closeAllEditors();
 });
@@ -65,7 +63,7 @@ test.describe('Release Screenshots - Extension Publisher', () => {
 	test('Release Screenshot - extension-verified-publisher.png', async ({ app, page }) => {
 		const { extensions } = app.workbench;
 
-		// Air ships pre-installed and is published by Posit Software, PBC, so it
+		// Air ships pre-installed and is published by Posit, so it
 		// reliably has the verified-publisher badge.
 		const id = 'posit.air-vscode';
 		await extensions.openExtensionDetails(id);
