@@ -61,13 +61,13 @@ test.describe('Release Screenshots - Welcome Page', () => {
 
 		// setup scroll position and adjust layout
 		await hotKeys.closePrimarySidebar();
-		await plots.alterPlotArea(0, -75);
+		await plots.alterPlotArea(0, -55);
 		await layouts.resizeAuxiliaryBar({ x: -300 });
-		await layouts.resizePanel({ y: -130 });
+		await layouts.resizePanel({ y: -100 });
 		await quickaccess.runCommand('workbench.action.gotoLine', {
 			keepOpen: true,
 		});
-		await page.keyboard.type('180');
+		await page.keyboard.type('179');
 		await page.keyboard.press('Enter');
 		await variables.toggleVariable({
 			variableName: 'gc_frame',
