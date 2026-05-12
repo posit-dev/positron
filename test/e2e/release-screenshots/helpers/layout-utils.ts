@@ -139,9 +139,7 @@ export async function hideNotificationBadges(page: Page): Promise<void> {
 		const style = document.createElement('style');
 		style.id = ID;
 		style.textContent = `
-			.activitybar .badge,
-			.activitybar .activity-action.has-badge .badge,
-			.part.activitybar .badge,
+			.badge,
 			.monaco-count-badge { display: none !important; }
 		`;
 		document.head.appendChild(style);
