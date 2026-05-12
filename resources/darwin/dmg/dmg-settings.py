@@ -2,7 +2,7 @@
 # Variables passed via dmgbuild -D flag: app_path, app_name, background, icon
 
 format = 'UDZO'
-size = None
+size = '2g'
 icon = defines.get('icon')
 background = defines.get('background')
 
