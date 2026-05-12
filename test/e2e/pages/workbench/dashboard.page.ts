@@ -132,11 +132,11 @@ export class DashboardPage {
 		const enabledWidget = page.locator('[aria-label*="Databricks"][aria-label*="Enabled"]');
 		const isStablyEnabled = await (async () => {
 			try {
-				// Check every 500ms for 5 seconds to ensure stable state
+				// Check every 1 second for 10 seconds to ensure stable state
 				for (let i = 0; i < 10; i++) {
 					const visible = await enabledWidget.isVisible().catch(() => false);
 					if (!visible) { return false; }
-					await page.waitForTimeout(500);
+					await page.waitForTimeout(1000);
 				}
 				return true;
 			} catch {
