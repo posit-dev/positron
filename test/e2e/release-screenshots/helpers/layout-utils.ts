@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Page } from '@playwright/test';
+import { expect, Page } from '@playwright/test';
 import { Application } from '../../infra';
 
 interface ViewportDims {
@@ -156,6 +156,9 @@ export async function hideNotificationBadges(page: Page): Promise<void> {
  * `expect(...).toBeVisible()` before calling this helper.
  */
 export async function waitForStableUI(page: Page, ms = 250): Promise<void> {
+	await expect(
+		page.locator('.positron-plots-container .monaco-progress-container.active')
+	).toHaveCount(0, { timeout: 15000 });
 	await page.evaluate(() => new Promise<void>(r => requestAnimationFrame(() => r())));
 	await page.waitForTimeout(ms);
 }
