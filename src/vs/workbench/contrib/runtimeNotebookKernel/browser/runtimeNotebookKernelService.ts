@@ -392,8 +392,8 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 	 * Try to determine the preferred kernel for a notebook.
 	 */
 	private getPreferredKernel(notebook: NotebookTextModel): RuntimeNotebookKernel | undefined {
-		// Get the notebook's language.
-		const languageId = getNotebookLanguage(notebook);
+		// Get the notebook's language if possible, otherwise fallback to the foureground session lanaguage.
+		const languageId = getNotebookLanguage(notebook) ?? this._runtimeSessionService.foregroundSession?.runtimeMetadata.languageId;
 		if (!languageId) {
 			this._logService.debug(`Could not determine notebook ${notebook.uri.fsPath} language`);
 			return;
