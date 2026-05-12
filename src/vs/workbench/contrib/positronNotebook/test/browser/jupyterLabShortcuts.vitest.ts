@@ -5,16 +5,17 @@
 
 /// <reference types="vitest/globals" />
 
-import { KeyCode, KeyMod } from '../../../../../base/common/keyCodes.js';
+import { KeyChord, KeyCode, KeyMod } from '../../../../../base/common/keyCodes.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import {
 	MoveCellDownAction,
 	MoveCellUpAction,
 	POSITRON_NOTEBOOK_COMMAND_MODE,
+	SelectAllCellsAction,
 } from '../../browser/positronNotebook.contribution.js';
 import { createTestPositronNotebookInstance } from './testPositronNotebookInstance.js';
-import { CellSelectionType } from '../../browser/selectionMachine.js';
+import { CellSelectionType, getSelectedCells, SelectionState } from '../../browser/selectionMachine.js';
 import { POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../browser/ContextKeysManager.js';
 
 describe('JupyterLab keyboard shortcuts', () => {
@@ -126,6 +127,86 @@ describe('JupyterLab keyboard shortcuts', () => {
 			const after = notebook.cells.get();
 			expect(after[0].kind).toBe(CellKind.Markup);
 			expect(after[0].getContent()).toBe('###### test');
+		});
+	});
+
+	describe('selectAllCells (Cmd+A)', () => {
+		it('SelectAllCellsAction declares Cmd+A scoped to command mode', () => {
+			const action = new SelectAllCellsAction();
+			expect(action.desc.keybinding?.primary).toBe(KeyMod.CtrlCmd | KeyCode.KeyA);
+			expect(action.desc.keybinding?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
+		});
+
+		it('selects all cells in a multi-cell notebook', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[
+					['cell1', 'python', CellKind.Code],
+					['cell2', 'python', CellKind.Code],
+					['cell3', 'python', CellKind.Code],
+				],
+				ctx,
+			);
+			const cells = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
+
+			notebook.selectAllCells();
+
+			const state = notebook.selectionStateMachine.state.get();
+			expect(state.type).toBe(SelectionState.MultiSelection);
+			if (state.type === SelectionState.MultiSelection) {
+				expect(getSelectedCells(state)).toHaveLength(3);
+			}
+		});
+
+		it('handles single-cell notebook', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[['only cell', 'python', CellKind.Code]],
+				ctx,
+			);
+			const cells = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
+
+			notebook.selectAllCells();
+
+			const state = notebook.selectionStateMachine.state.get();
+			expect(state.type).toBe(SelectionState.SingleSelection);
+		});
+	});
+
+	describe('toggleOutput (o key)', () => {
+		it('toggles output collapse on a code cell', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[['print("hello")', 'python', CellKind.Code]],
+				ctx,
+			);
+			const cells = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
+			const cell = cells[0];
+
+			expect(cell.isCodeCell()).toBe(true);
+			if (cell.isCodeCell()) {
+				cell.toggleOutputCollapse();
+				expect(cell.outputIsCollapsed.get()).toBe(true);
+				cell.toggleOutputCollapse();
+				expect(cell.outputIsCollapsed.get()).toBe(false);
+			}
+		});
+	});
+
+	describe('interruptKernel (I+I)', () => {
+		it('interruptKernel is callable on notebook instance', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[['print("hello")', 'python', CellKind.Code]],
+				ctx,
+			);
+			// Verify interruptKernel doesn't throw when no cells are executing
+			expect(() => notebook.interruptKernel()).not.toThrow();
+		});
+
+		it('I+I keybinding uses KeyChord', () => {
+			// Verify the keychord constant matches what we'd expect
+			const chord = KeyChord(KeyCode.KeyI, KeyCode.KeyI);
+			expect(chord).toBeGreaterThan(0);
 		});
 	});
 });

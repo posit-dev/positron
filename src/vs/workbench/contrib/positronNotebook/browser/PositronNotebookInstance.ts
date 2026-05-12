@@ -1519,6 +1519,36 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}], true, undefined, () => endSelections, undefined, computeUndoRedo);
 	}
 
+	interruptKernel(): void {
+		this._assertTextModel();
+		const cells = this.cells.get();
+		const executingCells = cells.filter(cell =>
+			this.notebookExecutionStateService.getCellExecution(cell.uri)
+		);
+		if (executingCells.length > 0) {
+			this.notebookExecutionService.cancelNotebookCells(
+				this.textModel,
+				executingCells.map(c => c.model as NotebookCellTextModel)
+			);
+		}
+	}
+
+	selectAllCells(): void {
+		const cells = this.cells.get();
+		if (cells.length === 0) {
+			return;
+		}
+		if (cells.length === 1) {
+			this.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
+			return;
+		}
+		// Select the first cell normally, then add all remaining cells
+		this.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
+		for (let i = 1; i < cells.length; i++) {
+			this.selectionStateMachine.selectCell(cells[i], CellSelectionType.Add);
+		}
+	}
+
 	/**
 	 * Splits the currently editing cell at the cursor position(s).
 	 * Supports multi-cursor: each cursor creates an additional split point.

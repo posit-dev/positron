@@ -752,6 +752,65 @@ registerAction2(class extends NotebookAction2 {
 	}
 });
 
+// I+I: Interrupt kernel in command mode (Jupyter-style)
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.interruptKernel',
+			title: localize2('positronNotebook.interruptKernel', "Interrupt Kernel"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyChord(KeyCode.KeyI, KeyCode.KeyI)
+			}
+		});
+	}
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.interruptKernel();
+	}
+});
+
+// o: Toggle output of selected cell in command mode (Jupyter-style)
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.toggleOutput',
+			title: localize2('positronNotebook.cell.toggleOutput', "Toggle Cell Output"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.KeyO
+			}
+		});
+	}
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		const state = notebook.selectionStateMachine.state.get();
+		const cell = getActiveCell(state);
+		if (cell?.isCodeCell()) {
+			cell.toggleOutputCollapse();
+		}
+	}
+});
+
+// Cmd+A / Ctrl+A: Select all cells in command mode (Jupyter-style)
+export class SelectAllCellsAction extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.selectAllCells',
+			title: localize2('positronNotebook.selectAllCells', "Select All Cells"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyMod.CtrlCmd | KeyCode.KeyA
+			}
+		});
+	}
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.selectAllCells();
+	}
+}
+registerAction2(SelectAllCellsAction);
+
 //#endregion Notebook Commands
 
 //#region Cell Commands
