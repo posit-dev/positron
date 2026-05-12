@@ -230,13 +230,12 @@
 		},
 		{
 			"name": "posit.publisher",
-			"version": "1.36.0",
+			"version": "2.4.0",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
-				"displayName": "Posit Publisher",
-				"multiPlatformServiceUrl": "https://p3m.dev/openvsx/latest/vscode/asset"
+				"displayName": "Posit Publisher"
 			},
 			"publisherDisplayName": "Posit Software, PBC"
 		},
