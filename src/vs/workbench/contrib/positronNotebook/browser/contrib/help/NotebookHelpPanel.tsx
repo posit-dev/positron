@@ -55,8 +55,6 @@ const SHORTCUT_SECTIONS: ShortcutSection[] = [
 			{ label: localize('positron.notebookHelp.deleteCell', 'Delete cell'), commandId: 'positronNotebook.cell.delete' },
 			{ label: localize('positron.notebookHelp.moveCellUp', 'Move cell up'), commandId: 'positronNotebook.cell.moveUp' },
 			{ label: localize('positron.notebookHelp.moveCellDown', 'Move cell down'), commandId: 'positronNotebook.cell.moveDown' },
-			{ label: localize('positron.notebookHelp.undo', 'Undo'), commandId: 'undo' },
-			{ label: localize('positron.notebookHelp.redo', 'Redo'), commandId: 'redo' },
 		]
 	},
 	{
