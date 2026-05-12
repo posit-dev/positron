@@ -25,15 +25,33 @@ function outputPath(filename: string): string {
  * the CDP-forced viewport, producing white space. With a clip, CDP forces
  * the renderer to lay out the clip region at the requested size.
  */
-export async function captureFullWindow(page: Page, filename: string): Promise<void> {
+export async function captureFullWindow(
+	page: Page,
+	filename: string,
+	opts?: { scale?: number },
+): Promise<void> {
 	const { width, height } = await page.evaluate(() => ({
 		width: window.innerWidth,
 		height: window.innerHeight,
 	}));
-	await page.screenshot({
-		path: outputPath(filename),
-		clip: { x: 0, y: 0, width, height },
+	const scale = opts?.scale ?? 1;
+	if (scale === 1) {
+		await page.screenshot({
+			path: outputPath(filename),
+			clip: { x: 0, y: 0, width, height },
+		});
+		return;
+	}
+	// Hi-DPI capture via raw CDP; Playwright's page.screenshot with clip
+	// captures CSS pixels and doesn't reliably honor deviceScaleFactor.
+	const session = await page.context().newCDPSession(page);
+	const { data } = await session.send('Page.captureScreenshot', {
+		format: 'png',
+		clip: { x: 0, y: 0, width, height, scale },
 	});
+	await session.detach();
+	const fs = await import('node:fs/promises');
+	await fs.writeFile(outputPath(filename), Buffer.from(data, 'base64'));
 }
 
 /**

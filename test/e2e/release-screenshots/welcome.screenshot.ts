@@ -67,7 +67,7 @@ test.describe('Release Screenshots - Welcome Page', () => {
 		await quickaccess.runCommand('workbench.action.gotoLine', {
 			keepOpen: true,
 		});
-		await page.keyboard.type('183');
+		await page.keyboard.type('180');
 		await page.keyboard.press('Enter');
 		await variables.toggleVariable({
 			variableName: 'gc_frame',
@@ -77,6 +77,6 @@ test.describe('Release Screenshots - Welcome Page', () => {
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);
-		await captureFullWindow(page, 'astropy.png');
+		await captureFullWindow(page, 'astropy.png', { scale: 2 });
 	});
 });
