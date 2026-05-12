@@ -9,9 +9,12 @@ import { ContextKeyExpr } from '../../../../../../platform/contextkey/common/con
 import { ServicesAccessor } from '../../../../../../platform/instantiation/common/instantiation.js';
 import { IKeybindingService } from '../../../../../../platform/keybinding/common/keybinding.js';
 import { ILayoutService } from '../../../../../../platform/layout/browser/layoutService.js';
+import { KeybindingWeight } from '../../../../../../platform/keybinding/common/keybindingsRegistry.js';
+import { KeyCode, KeyMod } from '../../../../../../base/common/keyCodes.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
 import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../../common/positronNotebookCommon.js';
+import { POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../ContextKeysManager.js';
 import { NotebookHelpPanel, resolveShortcutBindings } from './NotebookHelpPanel.js';
 
 const NOTEBOOK_HELP_ACTION_ID = 'positronNotebook.showKeyboardShortcuts';
@@ -25,6 +28,11 @@ registerAction2(class NotebookShowKeyboardShortcutsAction extends Action2 {
 			icon: Codicon.keyboard,
 			f1: true,
 			category: localize2('positronNotebook.category', 'Notebook'),
+			keybinding: {
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyH,
+				when: POSITRON_NOTEBOOK_EDITOR_FOCUSED,
+			},
 			menu: {
 				id: MenuId.EditorActionsLeft,
 				group: 'navigation',
