@@ -140,7 +140,7 @@ jobs:
           # this size internally regardless of OS window clamping. Same 8:5
           # aspect ratio as the historical 1680x1050 config but scaled down
           # so text and chrome read proportionally larger in docs.
-          POSITRON_SCREENSHOT_VIEWPORT: '1512,945'
+          POSITRON_SCREENSHOT_VIEWPORT: '1280,800'
         run: npx playwright test --project release-screenshots --workers 2
 
       - name: Upload Playwright Report to S3
