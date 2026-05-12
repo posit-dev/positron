@@ -7,12 +7,15 @@ import { expect, Page } from '@playwright/test';
 import { Application } from '../../infra';
 
 /**
- * Set the screenshot viewport. Defaults to 1360x850; override via
- * `POSITRON_SCREENSHOT_VIEWPORT="W,H"` or `"W,H,DPR"`.
+ * Set the screenshot viewport. Defaults to 1512x945; override via
+ * `POSITRON_SCREENSHOT_VIEWPORT="W,H"` or `"W,H,DPR"`. Also applies a
+ * default zoom level of 1 (~1.2x text/chrome) so docs screenshots read
+ * comfortably without shrinking the viewport further. Override via
+ * `POSITRON_SCREENSHOT_ZOOM` or the `zoomLevel` option.
  */
 export async function setScreenshotWindowSize(
 	app: Application,
-	opts?: { deviceScaleFactor?: number },
+	opts?: { deviceScaleFactor?: number; zoomLevel?: number },
 ): Promise<void> {
 	const electronApp = app.code.electronApp;
 	const page = app.code.driver?.currentPage;
@@ -20,8 +23,8 @@ export async function setScreenshotWindowSize(
 		return;
 	}
 
-	let width = 1360;
-	let height = 850;
+	let width = 1512;
+	let height = 945;
 	let deviceScaleFactor = 1;
 	const fromEnv = process.env.POSITRON_SCREENSHOT_VIEWPORT;
 	if (fromEnv && /^\d+,\d+(,\d+(\.\d+)?)?$/.test(fromEnv)) {
@@ -34,6 +37,15 @@ export async function setScreenshotWindowSize(
 	}
 	if (opts?.deviceScaleFactor !== undefined) {
 		deviceScaleFactor = opts.deviceScaleFactor;
+	}
+
+	let zoomLevel = 1;
+	const zoomEnv = process.env.POSITRON_SCREENSHOT_ZOOM;
+	if (zoomEnv && /^-?\d+(\.\d+)?$/.test(zoomEnv)) {
+		zoomLevel = Number(zoomEnv);
+	}
+	if (opts?.zoomLevel !== undefined) {
+		zoomLevel = opts.zoomLevel;
 	}
 
 	// Best-effort OS window resize. setSize (rather than setContentSize)
@@ -58,6 +70,15 @@ export async function setScreenshotWindowSize(
 		deviceScaleFactor,
 		mobile: false,
 	});
+
+	// Apply UI zoom via Electron's webContents. Each level is roughly 1.2x;
+	// zoomLevel=1 -> 1.2x, 2 -> 1.44x, 0 -> default. Set explicitly (rather
+	// than running workbench.action.zoomIn) so the level is idempotent
+	// across beforeEach calls on the same worker.
+	await electronApp.evaluate(async ({ BrowserWindow }, level) => {
+		const win = BrowserWindow.getAllWindows()[0];
+		win?.webContents.setZoomLevel(level);
+	}, zoomLevel);
 }
 
 /**
