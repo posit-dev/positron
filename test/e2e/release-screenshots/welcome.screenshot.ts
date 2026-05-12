@@ -14,8 +14,6 @@ test.use({
 });
 
 test.beforeEach(async ({ app }) => {
-	// Welcome hero shot reads better at a smaller viewport — text and chrome
-	// look proportionally larger when the docs image is rendered at fixed width.
 	await setScreenshotWindowSize(app, { width: 1280, height: 800 });
 });
 
@@ -33,7 +31,7 @@ test.describe('Release Screenshots - Welcome Page', () => {
 		await page.locator('.monaco-workbench').waitFor({ state: 'visible' });
 
 		// openFolder re-creates the Electron window, re-apply viewport settings.
-		await setScreenshotWindowSize(app);
+		await setScreenshotWindowSize(app, { width: 1280, height: 800 });
 
 		// start session and open python file that plots galactocentric ring orbits
 		await sessions.start(['python']);
@@ -59,7 +57,7 @@ test.describe('Release Screenshots - Welcome Page', () => {
 		// setup scroll position and adjust layout
 		await hotKeys.closePrimarySidebar();
 		await plots.alterPlotArea(0, -75);
-		await layouts.resizeAuxiliaryBar({ x: -420 });
+		await layouts.resizeAuxiliaryBar({ x: -300 });
 		await layouts.resizePanel({ y: -130 });
 		await quickaccess.runCommand('workbench.action.gotoLine', {
 			keepOpen: true,
