@@ -14,7 +14,9 @@ test.use({
 });
 
 test.beforeEach(async ({ app }) => {
-	await setScreenshotWindowSize(app);
+	// Welcome hero shot reads better at a smaller viewport — text and chrome
+	// look proportionally larger when the docs image is rendered at fixed width.
+	await setScreenshotWindowSize(app, { width: 1280, height: 800 });
 });
 
 /**

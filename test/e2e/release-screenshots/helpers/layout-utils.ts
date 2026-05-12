@@ -7,12 +7,13 @@ import { expect, Page } from '@playwright/test';
 import { Application } from '../../infra';
 
 /**
- * Set the screenshot viewport. Defaults to 1280x800; override via
- * `POSITRON_SCREENSHOT_VIEWPORT="W,H"` or `"W,H,DPR"`.
+ * Set the screenshot viewport. Defaults to 1512x945; override via
+ * `POSITRON_SCREENSHOT_VIEWPORT="W,H"` or `"W,H,DPR"`, or per-test via
+ * the `width` / `height` opts (highest precedence).
  */
 export async function setScreenshotWindowSize(
 	app: Application,
-	opts?: { deviceScaleFactor?: number },
+	opts?: { width?: number; height?: number; deviceScaleFactor?: number },
 ): Promise<void> {
 	const electronApp = app.code.electronApp;
 	const page = app.code.driver?.currentPage;
@@ -20,8 +21,8 @@ export async function setScreenshotWindowSize(
 		return;
 	}
 
-	let width = 1280;
-	let height = 800;
+	let width = 1512;
+	let height = 945;
 	let deviceScaleFactor = 1;
 	const fromEnv = process.env.POSITRON_SCREENSHOT_VIEWPORT;
 	if (fromEnv && /^\d+,\d+(,\d+(\.\d+)?)?$/.test(fromEnv)) {
@@ -31,6 +32,12 @@ export async function setScreenshotWindowSize(
 		if (parts.length >= 3) {
 			deviceScaleFactor = parts[2];
 		}
+	}
+	if (opts?.width !== undefined) {
+		width = opts.width;
+	}
+	if (opts?.height !== undefined) {
+		height = opts.height;
 	}
 	if (opts?.deviceScaleFactor !== undefined) {
 		deviceScaleFactor = opts.deviceScaleFactor;
