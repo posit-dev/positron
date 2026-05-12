@@ -97,6 +97,7 @@ export function resolveShortcutBindings(keybindingService: IKeybindingService): 
 interface NotebookHelpPanelProps {
 	renderer: PositronModalReactRenderer;
 	resolvedBindings: ResolvedBindingsMap;
+	onOpenAllShortcuts: () => void;
 }
 
 function getChordKeys(chord: ResolvedChord): string[] {
@@ -138,7 +139,7 @@ function KeybindingDisplay({ commandId, resolvedBindings }: { commandId: string;
 	return renderKeybinding(keybinding);
 }
 
-export function NotebookHelpPanel({ renderer, resolvedBindings }: NotebookHelpPanelProps): ReactElement {
+export function NotebookHelpPanel({ renderer, resolvedBindings, onOpenAllShortcuts }: NotebookHelpPanelProps): ReactElement {
 	return (
 		<OKModalDialog
 			closeOnClickOutside={true}
@@ -166,6 +167,11 @@ export function NotebookHelpPanel({ renderer, resolvedBindings }: NotebookHelpPa
 						</div>
 					</div>
 				))}
+				<div className='notebook-help-all-shortcuts'>
+					<button className='all-shortcuts-link' onClick={() => { renderer.dispose(); onOpenAllShortcuts(); }}>
+						{localize('positron.notebookHelp.allShortcuts', 'View All Notebook Keyboard Shortcuts...')}
+					</button>
+				</div>
 			</div>
 		</OKModalDialog>
 	);

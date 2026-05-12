@@ -9,6 +9,7 @@ import { ContextKeyExpr } from '../../../../../../platform/contextkey/common/con
 import { ServicesAccessor } from '../../../../../../platform/instantiation/common/instantiation.js';
 import { IKeybindingService } from '../../../../../../platform/keybinding/common/keybinding.js';
 import { ILayoutService } from '../../../../../../platform/layout/browser/layoutService.js';
+import { ICommandService } from '../../../../../../platform/commands/common/commands.js';
 import { KeybindingWeight } from '../../../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { KeyCode, KeyMod } from '../../../../../../base/common/keyCodes.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
@@ -45,6 +46,7 @@ registerAction2(class NotebookShowKeyboardShortcutsAction extends Action2 {
 	override run(accessor: ServicesAccessor): void {
 		const keybindingService = accessor.get(IKeybindingService);
 		const layoutService = accessor.get(ILayoutService);
+		const commandService = accessor.get(ICommandService);
 
 		// Resolve keybindings while the notebook editor still has focus,
 		// before the modal steals it and changes the active context.
@@ -58,6 +60,9 @@ registerAction2(class NotebookShowKeyboardShortcutsAction extends Action2 {
 			<NotebookHelpPanel
 				renderer={renderer}
 				resolvedBindings={resolvedBindings}
+				onOpenAllShortcuts={() => {
+					commandService.executeCommand('workbench.action.openGlobalKeybindings', 'positronNotebook');
+				}}
 			/>
 		);
 	}
