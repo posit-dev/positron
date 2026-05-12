@@ -26,6 +26,7 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 import { NotebookErrorBoundary } from '../NotebookErrorBoundary.js';
 import { CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_REPLACE_INPUT_FOCUSED } from '../../../../../editor/contrib/find/browser/findModel.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { getWindow } from '../../../../../base/browser/dom.js';
 
 /**
  * Wraps children in a {@link CellProvider} when the cell is a code cell, so descendants
@@ -96,7 +97,9 @@ export function NotebookCellWrapper({ cell, children }: {
 			//    (markdown cells should still get container focus since their editor unmounts)
 			!wasEditingCodeCell &&
 			// 3. The find widget is focused (to keep focus in the find input)
-			!findWidgetFocused) {
+			!findWidgetFocused &&
+			// 4. Focus is already inside this cell (e.g. on the output section)
+			!cellElement.contains(getWindow(cellElement).document.activeElement)) {
 			cellElement.focus();
 		}
 	}, [isActiveCell, selectionStatus, cellElement, cell, notebookInstance]);
