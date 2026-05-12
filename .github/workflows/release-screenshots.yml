@@ -137,9 +137,9 @@ jobs:
           ENABLE_CUSTOM_REPORTER: 'false'
           GH_SUMMARY_REPORT: 'true'
           # CDP setDeviceMetricsOverride forces the renderer to lay out at
-          # this size internally regardless of OS window clamping. The text
-          # is made proportionally larger via the webContents zoom level
-          # set by setScreenshotWindowSize (default zoomLevel=1, ~1.2x).
+          # this size internally regardless of OS window clamping. Same 8:5
+          # aspect ratio as the historical 1680x1050 config but scaled down
+          # so text and chrome read proportionally larger in docs.
           POSITRON_SCREENSHOT_VIEWPORT: '1512,945'
         run: npx playwright test --project release-screenshots --workers 2
 
