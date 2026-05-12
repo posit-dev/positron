@@ -123,8 +123,9 @@ export async function unhoverAll(page: Page): Promise<void> {
 
 /**
  * Hide notification badges (the small red dots / counts) on activity-bar
- * items. These appear for things like "sign in to GitHub" and shouldn't
- * leak into release screenshots regardless of which test is running.
+ * items, panel tabs (e.g. "Problems 2"), etc. These leak into release
+ * screenshots from things like "sign in to GitHub", Python lint warnings,
+ * or terminal output.
  *
  * Implemented by injecting a stylesheet so the rule sticks even if the
  * workbench re-renders the badge after we hide it.
@@ -140,7 +141,8 @@ export async function hideNotificationBadges(page: Page): Promise<void> {
 		style.textContent = `
 			.activitybar .badge,
 			.activitybar .activity-action.has-badge .badge,
-			.part.activitybar .badge { display: none !important; }
+			.part.activitybar .badge,
+			.monaco-count-badge { display: none !important; }
 		`;
 		document.head.appendChild(style);
 	});
