@@ -16,14 +16,35 @@ function outputPath(filename: string): string {
 }
 
 /**
+ * Default capture scale (PNG native pixels per CSS pixel). 2x keeps
+ * workbench text crisp when docs scale the image at fixed width.
+ */
+const DEFAULT_SCALE = 2;
+
+async function writePng(filename: string, base64: string): Promise<void> {
+	const fs = await import('node:fs/promises');
+	await fs.writeFile(outputPath(filename), Buffer.from(base64, 'base64'));
+}
+
+async function cdpCapture(
+	page: Page,
+	clip: { x: number; y: number; width: number; height: number; scale: number },
+	filename: string,
+): Promise<void> {
+	const session = await page.context().newCDPSession(page);
+	const { data } = await session.send('Page.captureScreenshot', { format: 'png', clip });
+	await session.detach();
+	await writePng(filename, data);
+}
+
+/**
  * Capture the entire Electron window and write it to the output folder.
  * Used for full-app shots like the Welcome page.
  *
  * Reads the renderer's reported viewport size and passes it as an explicit
- * clip. Without a clip, page.screenshot captures at the OS window's
- * actual render-surface size — which on CI macOS runners is shorter than
- * the CDP-forced viewport, producing white space. With a clip, CDP forces
- * the renderer to lay out the clip region at the requested size.
+ * clip through CDP at the requested scale (defaults to 2x). Playwright's
+ * page.screenshot() with clip captures CSS pixels and doesn't reliably
+ * honor deviceScaleFactor, so we go through raw CDP.
  */
 export async function captureFullWindow(
 	page: Page,
@@ -34,24 +55,7 @@ export async function captureFullWindow(
 		width: window.innerWidth,
 		height: window.innerHeight,
 	}));
-	const scale = opts?.scale ?? 1;
-	if (scale === 1) {
-		await page.screenshot({
-			path: outputPath(filename),
-			clip: { x: 0, y: 0, width, height },
-		});
-		return;
-	}
-	// Hi-DPI capture via raw CDP; Playwright's page.screenshot with clip
-	// captures CSS pixels and doesn't reliably honor deviceScaleFactor.
-	const session = await page.context().newCDPSession(page);
-	const { data } = await session.send('Page.captureScreenshot', {
-		format: 'png',
-		clip: { x: 0, y: 0, width, height, scale },
-	});
-	await session.detach();
-	const fs = await import('node:fs/promises');
-	await fs.writeFile(outputPath(filename), Buffer.from(data, 'base64'));
+	await cdpCapture(page, { x: 0, y: 0, width, height, scale: opts?.scale ?? DEFAULT_SCALE }, filename);
 }
 
 /**
@@ -61,10 +65,17 @@ export async function captureFullWindow(
  * The locator must resolve to exactly one element. Callers should ensure
  * the panel is visible and stable before calling.
  */
-export async function capturePanel(locator: Locator, filename: string): Promise<void> {
-	await locator.screenshot({
-		path: outputPath(filename),
-	});
+export async function capturePanel(
+	page: Page,
+	locator: Locator,
+	filename: string,
+	opts?: { scale?: number },
+): Promise<void> {
+	const box = await locator.boundingBox();
+	if (!box) {
+		throw new Error(`Could not measure bounding box for ${filename}`);
+	}
+	await cdpCapture(page, { ...box, scale: opts?.scale ?? DEFAULT_SCALE }, filename);
 }
 
 /**
@@ -77,11 +88,9 @@ export async function captureRegion(
 	page: Page,
 	filename: string,
 	clip: { x: number; y: number; width: number; height: number },
+	opts?: { scale?: number },
 ): Promise<void> {
-	await page.screenshot({
-		path: outputPath(filename),
-		clip,
-	});
+	await cdpCapture(page, { ...clip, scale: opts?.scale ?? DEFAULT_SCALE }, filename);
 }
 
 /**
@@ -95,6 +104,7 @@ export async function captureRegion(
 export async function captureWorkbenchContent(
 	page: Page,
 	filename: string,
+	opts?: { scale?: number },
 ): Promise<void> {
 	const statusbar = page.locator('.part.statusbar');
 	const box = await statusbar.boundingBox();
@@ -102,25 +112,16 @@ export async function captureWorkbenchContent(
 		throw new Error('statusbar not found - cannot measure workbench extent');
 	}
 	const width = await page.evaluate(() => window.innerWidth);
-	await page.screenshot({
-		path: outputPath(filename),
-		clip: {
-			x: 0,
-			y: 0,
-			width,
-			height: Math.ceil(box.y + box.height),
-		},
-	});
+	await cdpCapture(
+		page,
+		{ x: 0, y: 0, width, height: Math.ceil(box.y + box.height), scale: opts?.scale ?? DEFAULT_SCALE },
+		filename,
+	);
 }
 
 /**
- * Capture an element at a higher pixel density than the renderer's
- * deviceScaleFactor. Useful for small UI elements (e.g. an action-bar
- * dropdown) where the docs need a crisp image to scale.
- *
- * Uses raw CDP `Page.captureScreenshot` with `clip.scale`, since
- * Playwright's locator.screenshot() doesn't pick up `setDeviceMetricsOverride`
- * DPR changes reliably.
+ * Deprecated alias for `capturePanel`. Kept temporarily for callers that
+ * passed an explicit scale; new code should use `capturePanel({ scale })`.
  */
 export async function capturePanelHires(
 	page: Page,
@@ -128,22 +129,5 @@ export async function capturePanelHires(
 	filename: string,
 	scale: number,
 ): Promise<void> {
-	const box = await locator.boundingBox();
-	if (!box) {
-		throw new Error(`Could not measure bounding box for ${filename}`);
-	}
-	const session = await page.context().newCDPSession(page);
-	const { data } = await session.send('Page.captureScreenshot', {
-		format: 'png',
-		clip: {
-			x: box.x,
-			y: box.y,
-			width: box.width,
-			height: box.height,
-			scale,
-		},
-	});
-	await session.detach();
-	const fs = await import('node:fs/promises');
-	await fs.writeFile(outputPath(filename), Buffer.from(data, 'base64'));
+	await capturePanel(page, locator, filename, { scale });
 }

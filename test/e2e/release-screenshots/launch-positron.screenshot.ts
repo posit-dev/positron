@@ -34,6 +34,6 @@ test.describe('Release Screenshots - Launch Positron', () => {
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);
-		await capturePanel(palette, 'positron-path.png');
+		await capturePanel(page, palette, 'positron-path.png');
 	});
 });

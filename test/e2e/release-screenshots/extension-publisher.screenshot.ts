@@ -52,7 +52,7 @@ test.describe('Release Screenshots - Extension Publisher', () => {
 		// capture screenshot
 		await hideToasts(app);
 		await waitForStableUI(page);
-		await capturePanel(dialog, 'extension-publisher-trust.png');
+		await capturePanel(page, dialog, 'extension-publisher-trust.png');
 
 		// Cancel out so we don't actually trust + install the extension.
 		await dialog.getByRole('button', { name: 'Cancel' }).click();

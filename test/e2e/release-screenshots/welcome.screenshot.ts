@@ -77,6 +77,6 @@ test.describe('Release Screenshots - Welcome Page', () => {
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);
-		await captureFullWindow(page, 'astropy.png', { scale: 2 });
+		await captureFullWindow(page, 'astropy.png');
 	});
 });

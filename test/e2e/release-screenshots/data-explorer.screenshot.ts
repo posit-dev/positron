@@ -67,6 +67,7 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		// capture screenshot
 		await prepareForScreenshot(app, page);
 		await capturePanel(
+			page,
 			page.locator('.part.editor .editor-group-container'),
 			'data-explorer.png',
 		);
