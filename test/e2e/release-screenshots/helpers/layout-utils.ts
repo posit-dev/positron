@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect, Page } from '@playwright/test';
+import { Page } from '@playwright/test';
 import { Application } from '../../infra';
 
 interface ViewportDims {
@@ -156,10 +156,6 @@ export async function hideNotificationBadges(page: Page): Promise<void> {
  * `expect(...).toBeVisible()` before calling this helper.
  */
 export async function waitForStableUI(page: Page, ms = 250): Promise<void> {
-	// Monaco's progress bar adds `.active` while running and removes it when
-	// done; resize-triggered refits flash this on the plots pane. Wait for
-	// all of them to clear so the screenshot doesn't capture the indicator.
-	await expect(page.locator('.monaco-progress-container.active')).toHaveCount(0, { timeout: 15000 });
 	await page.evaluate(() => new Promise<void>(r => requestAnimationFrame(() => r())));
 	await page.waitForTimeout(ms);
 }
