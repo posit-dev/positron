@@ -23,7 +23,9 @@ const DEFAULT_SCALE = 2;
 
 async function writePng(filename: string, base64: string): Promise<void> {
 	const fs = await import('node:fs/promises');
-	await fs.writeFile(outputPath(filename), Buffer.from(base64, 'base64'));
+	const out = outputPath(filename);
+	await fs.mkdir(path.dirname(out), { recursive: true });
+	await fs.writeFile(out, Buffer.from(base64, 'base64'));
 }
 
 async function cdpCapture(
