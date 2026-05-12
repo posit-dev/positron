@@ -62,7 +62,7 @@ test.describe('Release Screenshots - Welcome Page', () => {
 		await quickaccess.runCommand('workbench.action.gotoLine', {
 			keepOpen: true,
 		});
-		await page.keyboard.type(String(99));
+		await page.keyboard.type(String(96));
 		await page.keyboard.press('Enter');
 		await variables.toggleVariable({
 			variableName: 'gc_frame',
