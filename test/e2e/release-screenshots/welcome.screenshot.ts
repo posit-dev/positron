@@ -7,7 +7,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { test } from '../tests/_test.setup';
 import { captureFullWindow } from './helpers/screenshot-utils';
-import { prepareForScreenshot, setScreenshotWindowSize } from './helpers/layout-utils';
+import { prepareForScreenshot, reapplyCdpViewport, setScreenshotWindowSize } from './helpers/layout-utils';
 
 test.use({
 	suiteId: __filename,
@@ -30,8 +30,10 @@ test.describe('Release Screenshots - Welcome Page', () => {
 		await page.waitForTimeout(3000); // allow time for window to close and re-open
 		await page.locator('.monaco-workbench').waitFor({ state: 'visible' });
 
-		// openFolder re-creates the Electron window, re-apply viewport settings.
-		await setScreenshotWindowSize(app, { width: 1280, height: 800 });
+		// openFolder re-creates the Electron window, dropping the per-page
+		// CDP override. Re-apply only the override (don't call setSize a
+		// second time — that has been observed to wedge worker teardown).
+		await reapplyCdpViewport(app, { width: 1280, height: 800 });
 
 		// start session and open python file that plots galactocentric ring orbits
 		await sessions.start(['python']);

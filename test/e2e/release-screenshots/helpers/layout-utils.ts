@@ -6,21 +6,13 @@
 import { expect, Page } from '@playwright/test';
 import { Application } from '../../infra';
 
-/**
- * Set the screenshot viewport. Defaults to 1512x945; override via
- * `POSITRON_SCREENSHOT_VIEWPORT="W,H"` or `"W,H,DPR"`, or per-test via
- * the `width` / `height` opts (highest precedence).
- */
-export async function setScreenshotWindowSize(
-	app: Application,
-	opts?: { width?: number; height?: number; deviceScaleFactor?: number },
-): Promise<void> {
-	const electronApp = app.code.electronApp;
-	const page = app.code.driver?.currentPage;
-	if (!electronApp || !page) {
-		return;
-	}
+interface ViewportDims {
+	width: number;
+	height: number;
+	deviceScaleFactor: number;
+}
 
+function resolveViewport(opts?: { width?: number; height?: number; deviceScaleFactor?: number }): ViewportDims {
 	let width = 1512;
 	let height = 945;
 	let deviceScaleFactor = 1;
@@ -42,6 +34,31 @@ export async function setScreenshotWindowSize(
 	if (opts?.deviceScaleFactor !== undefined) {
 		deviceScaleFactor = opts.deviceScaleFactor;
 	}
+	return { width, height, deviceScaleFactor };
+}
+
+/**
+ * Set the screenshot viewport. Defaults to 1512x945; override via
+ * `POSITRON_SCREENSHOT_VIEWPORT="W,H"` or `"W,H,DPR"`, or per-test via
+ * the `width` / `height` opts (highest precedence).
+ *
+ * Resizes the OS window AND applies a CDP viewport override. Call this
+ * once per test (typically in beforeEach). If you need to re-establish
+ * the renderer's viewport after a window reopen (e.g. post-openFolder),
+ * use `reapplyCdpViewport` instead — calling setSize again on a freshly
+ * reopened window has been observed to destabilize worker teardown.
+ */
+export async function setScreenshotWindowSize(
+	app: Application,
+	opts?: { width?: number; height?: number; deviceScaleFactor?: number },
+): Promise<void> {
+	const electronApp = app.code.electronApp;
+	const page = app.code.driver?.currentPage;
+	if (!electronApp || !page) {
+		return;
+	}
+
+	const { width, height, deviceScaleFactor } = resolveViewport(opts);
 
 	// Best-effort OS window resize. setSize (rather than setContentSize)
 	// matches the historical config that produced clean 1680x1050 captures
@@ -57,12 +74,31 @@ export async function setScreenshotWindowSize(
 		}
 	}, { width, height: height + CHROME_HEIGHT_PX });
 
-	// CDP viewport override - always succeeds, regardless of OS window clamp.
+	await applyCdpOverride(page, { width, height, deviceScaleFactor });
+}
+
+/**
+ * Re-apply just the CDP viewport override on the current page. Use this
+ * after operations that reopen the Electron window (e.g. `openFolder`)
+ * to restore the renderer-side viewport without calling `setSize` again.
+ */
+export async function reapplyCdpViewport(
+	app: Application,
+	opts?: { width?: number; height?: number; deviceScaleFactor?: number },
+): Promise<void> {
+	const page = app.code.driver?.currentPage;
+	if (!page) {
+		return;
+	}
+	await applyCdpOverride(page, resolveViewport(opts));
+}
+
+async function applyCdpOverride(page: Page, dims: ViewportDims): Promise<void> {
 	const session = await page.context().newCDPSession(page);
 	await session.send('Emulation.setDeviceMetricsOverride', {
-		width,
-		height,
-		deviceScaleFactor,
+		width: dims.width,
+		height: dims.height,
+		deviceScaleFactor: dims.deviceScaleFactor,
 		mobile: false,
 	});
 }
