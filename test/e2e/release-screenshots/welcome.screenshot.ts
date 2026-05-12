@@ -71,7 +71,7 @@ test.describe('Release Screenshots - Welcome Page', () => {
 			variableName: 'gc_frame',
 			action: 'expand',
 		});
-		await variables.scroll({ y: 300 });
+		// await variables.scroll({ y: 300 });
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);
