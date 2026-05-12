@@ -259,10 +259,14 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		}
 		const languageId = session.runtimeMetadata.languageId;
 
-		// R users would prefer we use the `??` operator, whereas the PositronHelpService uses `?`
+		// R: open the package's help index directly. The help comm only knows
+		// how to look up help *topics*, so bare "dplyr" usually finds nothing.
+		// `help(package = ...)` is the canonical entry point for package-level
+		// help; printing the result triggers ark's browseURL hook, which
+		// surfaces the page in the help pane.
 		if (languageId === 'r') {
 			session.execute(
-				`??${packageName}`,
+				`help(package = "${packageName}", help_type = "html")`,
 				generateUuid(),
 				RuntimeCodeExecutionMode.Interactive,
 				RuntimeErrorBehavior.Stop,
