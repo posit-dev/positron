@@ -176,6 +176,10 @@ export function parseOutputData(outputItem: IOutputItemDto): ParsedOutput {
 		return { type: 'markdown', content: message };
 	}
 
+	if (mime === 'text/latex') {
+		return { type: 'latex', content: message };
+	}
+
 	if (mime === 'image/png') {
 		return {
 			type: 'image',
