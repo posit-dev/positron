@@ -117,6 +117,9 @@ export class ExtensionHostConnection extends Disposable {
 	private _remoteAddress: string;
 	private _extensionHostProcess: cp.ChildProcess | null;
 	private _connectionData: ConnectionData | null;
+	// --- Start PWB: Track whether extension host has sent VSCODE_EXTHOST_IPC_READY ---
+	private _extHostIsReady: boolean;
+	// --- End PWB ---
 
 	constructor(
 		private readonly _reconnectionToken: string,
@@ -141,6 +144,9 @@ export class ExtensionHostConnection extends Disposable {
 		if (!this._canSendSocket && socket instanceof WebSocketNodeSocket) {
 			socket.setRecordInflateBytes(false);
 		}
+		// --- Start PWB: Track whether extension host has sent VSCODE_EXTHOST_IPC_READY ---
+		this._extHostIsReady = false;
+		// --- End PWB ---
 
 		this._log(`New connection established.`);
 	}
@@ -256,6 +262,15 @@ export class ExtensionHostConnection extends Disposable {
 			return;
 		}
 
+		// --- Start PWB: Buffer socket until extension host is ready to avoid silent drop ---
+		if (!this._extHostIsReady) {
+			// Process started but hasn't signalled ready yet; the ready handler
+			// in start() will pick up _connectionData and send it.
+			this._connectionData = connectionData;
+			return;
+		}
+		// --- End PWB ---
+
 		this._sendSocketToExtensionHost(this._extensionHostProcess, connectionData);
 	}
 
@@ -365,12 +380,18 @@ export class ExtensionHostConnection extends Disposable {
 			if (extHostNamedPipeServer) {
 				extHostNamedPipeServer.on('connection', (socket) => {
 					extHostNamedPipeServer.close();
+					// --- Start PWB: Mark host ready when pipe connection is established ---
+					this._extHostIsReady = true;
+					// --- End PWB ---
 					this._pipeSockets(socket, this._connectionData!);
 				});
 			} else {
 				const messageListener = (msg: IExtHostReadyMessage) => {
 					if (msg.type === 'VSCODE_EXTHOST_IPC_READY') {
 						this._extensionHostProcess!.removeListener('message', messageListener);
+						// --- Start PWB: Mark host ready before sending buffered socket ---
+						this._extHostIsReady = true;
+						// --- End PWB ---
 						this._sendSocketToExtensionHost(this._extensionHostProcess!, this._connectionData!);
 						this._connectionData = null;
 					}
