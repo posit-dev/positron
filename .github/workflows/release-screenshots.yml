@@ -136,6 +136,9 @@ jobs:
           POSITRON_R_ALT_VER_SEL: '4.4.2'
           ENABLE_CUSTOM_REPORTER: 'false'
           GH_SUMMARY_REPORT: 'true'
+          # Keep Playwright traces for every test (pass or fail) — debugging
+          # screenshot drift after the fact is much easier with a trace.
+          PW_TRACE: 'on'
           # CDP setDeviceMetricsOverride forces the renderer to lay out at
           # this size internally regardless of OS window clamping. Same 8:5
           # aspect ratio as the historical 1680x1050 config but scaled down
