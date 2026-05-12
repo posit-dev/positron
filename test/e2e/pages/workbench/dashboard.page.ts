@@ -114,11 +114,11 @@ export class DashboardPage {
 			return;
 		}
 
-		// Setup Databricks (will skip if already enabled)
-		await this.setupDatabricksOAuth(context);
-
 		// Setup Snowflake (will skip if already enabled)
 		await this.setupSnowflakeOAuth(context);
+
+		// Setup Databricks (will skip if already enabled)
+		await this.setupDatabricksOAuth(context);
 	}
 
 	/**
