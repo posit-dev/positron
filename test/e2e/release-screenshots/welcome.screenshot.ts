@@ -14,10 +14,9 @@ test.use({
 });
 
 test.beforeEach(async ({ app }) => {
-	// 1280x800 viewport + 2x DPR: small enough that text/chrome read
-	// proportionally larger in docs, but captured at 2x pixel density so
-	// the workbench text stays crisp when the docs page scales the image.
-	await setScreenshotWindowSize(app, { width: 1280, height: 800, deviceScaleFactor: 2 });
+	// Smaller 1280x800 viewport so text/chrome read proportionally larger
+	// in docs. All captures are 2x natively via the screenshot helpers.
+	await setScreenshotWindowSize(app, { width: 1280, height: 800 });
 });
 
 /**
@@ -36,7 +35,7 @@ test.describe('Release Screenshots - Welcome Page', () => {
 		// openFolder re-creates the Electron window, dropping the per-page
 		// CDP override. Re-apply only the override (don't call setSize a
 		// second time — that has been observed to wedge worker teardown).
-		await reapplyCdpViewport(app, { width: 1280, height: 800, deviceScaleFactor: 2 });
+		await reapplyCdpViewport(app, { width: 1280, height: 800 });
 
 		// start session and open python file that plots galactocentric ring orbits
 		await sessions.start(['python']);
