@@ -358,6 +358,16 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	changeToHeading(level: number): void;
 
 	/**
+	 * Interrupts all currently executing cells in the notebook.
+	 */
+	interruptKernel(): void;
+
+	/**
+	 * Selects all cells in the notebook.
+	 */
+	selectAllCells(): void;
+
+	/**
 	 * Splits the currently editing cell at the cursor position(s).
 	 * Supports multi-cursor: each cursor creates an additional split point.
 	 */
