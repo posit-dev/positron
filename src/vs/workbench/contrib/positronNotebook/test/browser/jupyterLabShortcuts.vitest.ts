@@ -22,12 +22,14 @@ import {
 	ExecuteAndSelectBelowAction,
 	ExecuteOrToggleEditorAction,
 	ExitEditModeAction,
+	InterruptKernelAction,
 	MoveCellDownAction,
 	MoveCellUpAction,
 	POSITRON_NOTEBOOK_COMMAND_MODE,
 	RunAllCellsAction,
 	SelectAllCellsAction,
 	ToggleLineNumbersAction,
+	ToggleOutputAction,
 } from '../../browser/positronNotebook.contribution.js';
 import { CellSelectionType, getSelectedCells, SelectionState, SelectionStateMachine } from '../../browser/selectionMachine.js';
 import { createTestPositronNotebookInstance } from './testPositronNotebookInstance.js';
@@ -383,35 +385,31 @@ describe('Positron Notebook keyboard shortcuts', () => {
 		});
 
 		it('toggles notebook.lineNumbers from off to on', () => {
-			const updateValue = vi.fn();
 			const notebook = createTestPositronNotebookInstance(
 				[['cell', 'python', CellKind.Code]],
 				ctx,
 			);
 			const configService = ctx.instantiationService.get(IConfigurationService);
 			vi.spyOn(configService, 'getValue').mockReturnValue('off');
-			vi.spyOn(configService, 'updateValue').mockImplementation(updateValue);
-			const accessor: ServicesAccessor = { get: () => configService };
+			const updateSpy = vi.spyOn(configService, 'updateValue').mockResolvedValue(undefined);
 
-			new TestableToggleLineNumbers().testRun(notebook, accessor);
+			new TestableToggleLineNumbers().testRun(notebook, ctx.instantiationService);
 
-			expect(updateValue).toHaveBeenCalledWith('notebook.lineNumbers', 'on');
+			expect(updateSpy).toHaveBeenCalledWith('notebook.lineNumbers', 'on');
 		});
 
 		it('toggles notebook.lineNumbers from on to off', () => {
-			const updateValue = vi.fn();
 			const notebook = createTestPositronNotebookInstance(
 				[['cell', 'python', CellKind.Code]],
 				ctx,
 			);
 			const configService = ctx.instantiationService.get(IConfigurationService);
 			vi.spyOn(configService, 'getValue').mockReturnValue('on');
-			vi.spyOn(configService, 'updateValue').mockImplementation(updateValue);
-			const accessor: ServicesAccessor = { get: () => configService };
+			const updateSpy = vi.spyOn(configService, 'updateValue').mockResolvedValue(undefined);
 
-			new TestableToggleLineNumbers().testRun(notebook, accessor);
+			new TestableToggleLineNumbers().testRun(notebook, ctx.instantiationService);
 
-			expect(updateValue).toHaveBeenCalledWith('notebook.lineNumbers', 'off');
+			expect(updateSpy).toHaveBeenCalledWith('notebook.lineNumbers', 'off');
 		});
 	});
 
@@ -420,6 +418,12 @@ describe('Positron Notebook keyboard shortcuts', () => {
 	//#region Output toggle
 
 	describe('O (Toggle Cell Output)', () => {
+		it('declares O scoped to command mode', () => {
+			const action = new ToggleOutputAction();
+			expect(action.desc.keybinding?.primary).toBe(KeyCode.KeyO);
+			expect(action.desc.keybinding?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
+		});
+
 		it('toggles output collapse on a code cell', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['print("hello")', 'python', CellKind.Code]],
@@ -492,9 +496,23 @@ describe('Positron Notebook keyboard shortcuts', () => {
 	//#region Interrupt kernel
 
 	describe('I+I (Interrupt Kernel)', () => {
-		it('uses KeyChord for I,I binding', () => {
-			const chord = KeyChord(KeyCode.KeyI, KeyCode.KeyI);
-			expect(chord).toBeGreaterThan(0);
+		it('declares I,I chord scoped to command mode', () => {
+			const action = new InterruptKernelAction();
+			expect(action.desc.keybinding?.primary).toBe(KeyChord(KeyCode.KeyI, KeyCode.KeyI));
+			expect(action.desc.keybinding?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
+		});
+
+		it('calls interruptKernel() on the notebook', () => {
+			const interruptKernel = vi.fn();
+			const notebook = stubInterface<IPositronNotebookInstance>({ interruptKernel });
+
+			new (class extends InterruptKernelAction {
+				testRun(nb: IPositronNotebookInstance, accessor: ServicesAccessor) {
+					return this.runNotebookAction(nb, accessor);
+				}
+			})().testRun(notebook, unusedAccessor);
+
+			expect(interruptKernel).toHaveBeenCalledOnce();
 		});
 
 		it('does not throw when no cells are executing', () => {
