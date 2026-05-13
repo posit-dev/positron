@@ -61,7 +61,7 @@ registerAction2(class NotebookShowKeyboardShortcutsAction extends Action2 {
 				renderer={renderer}
 				resolvedBindings={resolvedBindings}
 				onOpenAllShortcuts={() => {
-					commandService.executeCommand('workbench.action.openGlobalKeybindings', 'positronNotebook');
+					commandService.executeCommand('workbench.action.openGlobalKeybindings', 'positronNotebook.');
 				}}
 			/>
 		);
