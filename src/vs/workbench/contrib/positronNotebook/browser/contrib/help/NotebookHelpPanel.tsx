@@ -67,7 +67,7 @@ const SHORTCUT_SECTIONS: ShortcutSection[] = [
 	{
 		title: localize('positron.notebookHelp.section.other', 'Other'),
 		shortcuts: [
-			{ label: localize('positron.notebookHelp.find', 'Find'), commandId: 'positron.notebook.find.start' },
+			{ label: localize('positron.notebookHelp.find', 'Find'), commandId: 'positronNotebook.find.start' },
 			{ label: localize('positron.notebookHelp.save', 'Save notebook'), commandId: 'workbench.action.files.save' },
 			{ label: localize('positron.notebookHelp.commandPalette', 'Command palette'), commandId: 'workbench.action.showCommands' },
 		]
