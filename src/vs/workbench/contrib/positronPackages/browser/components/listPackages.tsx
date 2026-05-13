@@ -8,7 +8,6 @@ import './listPackages.css';
 
 // React.
 import React, {
-	CSSProperties,
 	useEffect,
 	useMemo,
 	useRef,
@@ -16,10 +15,7 @@ import React, {
 } from 'react';
 
 // Other dependencies.
-import { FixedSizeList as List } from 'react-window';
-import * as DOM from '../../../../../base/browser/dom.js';
 import { isMacintosh } from '../../../../../base/common/platform.js';
-import { useStateRef } from '../../../../../base/browser/ui/react/useStateRef.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { ActionBarFilter, ActionBarFilterHandle } from '../../../../../platform/positronActionBar/browser/components/actionBarFilter.js';
 import { ViewsProps } from '../positronPackages.js';
@@ -34,6 +30,8 @@ import { showCustomContextMenu, CustomContextMenuSubmenu, CustomContextMenuEntry
 import { CustomContextMenuItem } from '../../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { applyFilterToQuery, applySortToQuery, PackagesFilter, PackagesSortOrder, parseQuery } from './packagesQuery.js';
+import { PositronList } from '../../../../browser/positronList/positronList.js';
+import { ListEntry, PositronListInstance, PositronListItemContext } from '../../../../browser/positronList/classes/positronListInstance.js';
 
 const positronUninstallPackage = localize(
 	'positronUninstallPackage',
@@ -48,11 +46,14 @@ const positronUpdatePackage = localize(
 // Height of the filter container in pixels
 const FILTER_HEIGHT = 34;
 
+// Row height for package list items in pixels
+const ITEM_HEIGHT = 26;
+
 export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	const {
 		activeInstance,
 	} = usePositronPackagesContext();
-	const { height, reactComponentContainer } = props;
+	const { height } = props;
 	const services = usePositronReactServicesContext();
 
 	const [packages, setPackages] = useState<ILanguageRuntimePackage[]>([]);
@@ -161,10 +162,17 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	const currentSort = currentQuery.sort;
 	const currentFilter = currentQuery.filter;
 
+	// PositronListInstance. The renderer is set later via setItemRenderer so it can close over
+	// the latest packages/services state without recreating the instance.
+	const [listInstance] = useState(() => new PositronListInstance<ILanguageRuntimePackage>({
+		defaultItemHeight: ITEM_HEIGHT,
+		itemRenderer: () => null,
+	}));
+
 	// Clear selection when filter text changes.
 	const handleFilterTextChanged = (text: string) => {
 		setQueryText(text);
-		setSelectedItem(undefined);
+		listInstance.clearSelection();
 	};
 
 	// Debounce filter text changes (300ms).
@@ -219,148 +227,166 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		return result;
 	}, [deduplicatedPackages, debouncedQuery]);
 
-	// UI State
-	const [focused, setFocused] = useState(false);
-
-	// Selected Item
-	const [selectedItem, setSelectedItem] = useState<string | undefined>();
-
-	// We're required to save the scroll state because browsers will automatically
-	// scrollTop when an object becomes visible again.
-	const [, setScrollState, scrollStateRef] = useStateRef<number[] | undefined>(
-		undefined,
-	);
-	const innerRef = useRef<HTMLElement>(undefined!);
-
-	const [visible, setVisible] = useState(true);
+	// Push the latest filtered packages into the list. Wrapping in {kind: 'item'} is the
+	// PositronList entry contract; this list has no sections.
 	useEffect(() => {
-		const disposableStore = new DisposableStore();
-		disposableStore.add(
-			reactComponentContainer.onSaveScrollPosition(() => {
-				if (innerRef.current) {
-					setScrollState(DOM.saveParentsScrollTop(innerRef.current));
-				}
-			}),
-		);
-		disposableStore.add(
-			reactComponentContainer.onRestoreScrollPosition(() => {
-				if (scrollStateRef.current) {
-					if (innerRef.current) {
-						DOM.restoreParentsScrollTop(
-							innerRef.current,
-							scrollStateRef.current,
-						);
-					}
-					setScrollState(undefined);
-				}
-			}),
-		);
-		disposableStore.add(
-			reactComponentContainer.onVisibilityChanged((isVisible) => {
-				setVisible(isVisible);
-			}),
-		);
-		return () => disposableStore.dispose();
-	}, [reactComponentContainer, scrollStateRef, setScrollState]);
+		// Selection is tracked by row index in the data grid; entries may reorder on refresh,
+		// so re-anchor by package name after pushing the new entries.
+		const previouslySelectedName = listInstance.getSelectedItems()[0]?.name;
 
-	// Item renderer
-	const ItemEntry = (props: { index: number; style: CSSProperties }) => {
-		const itemProps = filteredPackages[props.index];
-		const { id, name, displayName, version, latestVersion, attached } = itemProps;
+		const entries: ListEntry<ILanguageRuntimePackage, never>[] = filteredPackages.map(pkg => ({
+			kind: 'item',
+			item: pkg,
+		}));
+		listInstance.setEntries(entries);
 
-		// Check if package has an update available
-		const hasUpdate = latestVersion && latestVersion !== version;
+		if (previouslySelectedName !== undefined) {
+			const newIndex = filteredPackages.findIndex(p => p.name === previouslySelectedName);
+			if (newIndex >= 0) {
+				listInstance.selectRow(newIndex);
+			} else {
+				listInstance.clearSelection();
+			}
+		}
+	}, [listInstance, filteredPackages]);
 
-		return (
-			// eslint-disable-next-line jsx-a11y/no-static-element-interactions
-			<div
-				className={positronClassNames('packages-list-item', {
-					selected: id === selectedItem,
-				})}
-				style={props.style}
-				onMouseDown={(e) => {
-					// Show context menu on right-click or Ctrl+Click on macOS
-					if ((e.button === 0 && isMacintosh && e.ctrlKey) || e.button === 2) {
-						services.contextMenuService.showContextMenu({
-							getActions: () => [
-								{
-									id: 'copy',
-									label: localize('positronPackages.copyPackage', "Copy '{0} ({1})'", name, version),
-									tooltip: localize('positronPackages.copyPackage', "Copy '{0} ({1})'", name, version),
-									class: undefined,
-									enabled: true,
-									run: () => services.clipboardService.writeText(`${name} (${version})`)
-								},
-								{
-									id: 'copyAll',
-									label: localize('positronPackages.copyAllPackages', 'Copy All'),
-									tooltip: localize('positronPackages.copyAllPackages', 'Copy All'),
-									class: undefined,
-									enabled: true,
-									run: () => services.clipboardService.writeText(deduplicatedPackages.map((pkg) => `${pkg.name} (${pkg.version})`).join('\n'))
-								},
-								new Separator(),
-								{
-									id: 'updatePackage',
-									label: positronUpdatePackage,
-									tooltip: positronUpdatePackage,
-									class: undefined,
-									enabled: true,
-									run: () => services.commandService.executeCommand('positronPackages.updatePackage', name)
-
-								},
-								{
-									id: 'uninstallPackage',
-									label: positronUninstallPackage,
-									tooltip: positronUninstallPackage,
-									class: undefined,
-									enabled: true,
-									run: () => services.commandService.executeCommand('positronPackages.uninstallPackage', name)
-								}
-							],
-							getAnchor: () => ({ x: e.clientX, y: e.clientY })
-						});
-					} else if (e.button === 0) {
-						// Left click without Ctrl on Mac - select the item
-						setSelectedItem(id);
-					}
-				}}
-			>
-				{attached !== undefined && (
-					<span
-						aria-label={attached
-							? localize('positronPackages.attachedAriaLabel', "{0} is attached", name)
-							: localize('positronPackages.notAttachedAriaLabel', "{0} is not attached", name)}
-						className={positronClassNames('packages-list-item-attached', { attached })}
-						role='img'
-						title={attached
-							? localize('positronPackages.attachedTooltip', "{0} is attached", name)
-							: localize('positronPackages.notAttachedTooltip', "{0} is not attached", name)}
-					/>
-				)}
-				<div className='packages-list-item-name'>{displayName}</div>
-				<div className='packages-list-item-version'>{version}</div>
-				{hasUpdate && (
-					<div
-						className='packages-list-item-update'
-						title={localize('positronPackages.updateAvailable', "Update available: {0}", latestVersion)}
-					>
-						&#x2191;
-					</div>
-				)}
-			</div >
-		);
-	};
-
-	// Update selected package in the service when selection changes
+	// Replace the item renderer whenever its closed-over deps change so the latest
+	// deduplicatedPackages snapshot is visible to "Copy All" and clicks select via the
+	// instance.
 	useEffect(() => {
-		// Find the package name from the selected item id
-		const selectedPackageName = selectedItem
-			? deduplicatedPackages.find((pkg) => pkg.id === selectedItem)?.name
-			: undefined;
-		services.positronPackagesService.setSelectedPackage(selectedPackageName);
-		return () => services.positronPackagesService.setSelectedPackage(undefined);
-	}, [selectedItem, deduplicatedPackages, services.positronPackagesService]);
+		const renderItem = (pkg: ILanguageRuntimePackage, ctx: PositronListItemContext) => {
+			const { name, displayName, version, latestVersion, attached } = pkg;
+			const hasUpdate = latestVersion && latestVersion !== version;
+
+			const showRowContextMenu = (anchor: { x: number; y: number }) => {
+				services.contextMenuService.showContextMenu({
+					getActions: () => [
+						{
+							id: 'copy',
+							label: localize('positronPackages.copyPackage', "Copy '{0} ({1})'", name, version),
+							tooltip: localize('positronPackages.copyPackage', "Copy '{0} ({1})'", name, version),
+							class: undefined,
+							enabled: true,
+							run: () => services.clipboardService.writeText(`${name} (${version})`)
+						},
+						{
+							id: 'copyAll',
+							label: localize('positronPackages.copyAllPackages', 'Copy All'),
+							tooltip: localize('positronPackages.copyAllPackages', 'Copy All'),
+							class: undefined,
+							enabled: true,
+							run: () => services.clipboardService.writeText(deduplicatedPackages.map((pkg) => `${pkg.name} (${pkg.version})`).join('\n'))
+						},
+						new Separator(),
+						{
+							id: 'updatePackage',
+							label: positronUpdatePackage,
+							tooltip: positronUpdatePackage,
+							class: undefined,
+							enabled: true,
+							run: () => services.commandService.executeCommand('positronPackages.updatePackage', name)
+
+						},
+						{
+							id: 'uninstallPackage',
+							label: positronUninstallPackage,
+							tooltip: positronUninstallPackage,
+							class: undefined,
+							enabled: true,
+							run: () => services.commandService.executeCommand('positronPackages.uninstallPackage', name)
+						}
+					],
+					getAnchor: () => anchor
+				});
+			};
+
+			return (
+				// eslint-disable-next-line jsx-a11y/no-static-element-interactions
+				<div
+					className='packages-list-item'
+					onContextMenu={(e) => {
+						// Right-click. The data grid's row cell calls e.stopPropagation() on
+						// mousedown, so right-click handling lives on contextmenu instead.
+						e.preventDefault();
+						e.stopPropagation();
+						showRowContextMenu({ x: e.clientX, y: e.clientY });
+					}}
+					onMouseDown={(e) => {
+						// Ctrl+Click on macOS acts as right-click for the context menu.
+						if (e.button === 0 && isMacintosh && e.ctrlKey) {
+							e.stopPropagation();
+							showRowContextMenu({ x: e.clientX, y: e.clientY });
+						} else if (e.button === 0) {
+							// Left click - select via the instance and move browser focus to the
+							// data grid waffle so the cursor-outline gating (:focus-within) shows.
+							e.stopPropagation();
+							listInstance.selectRow(ctx.index);
+							(e.currentTarget.closest('.data-grid-waffle') as HTMLElement | null)?.focus();
+						}
+					}}
+				>
+					{attached !== undefined && (
+						<span
+							aria-label={attached
+								? localize('positronPackages.attachedAriaLabel', "{0} is attached", name)
+								: localize('positronPackages.notAttachedAriaLabel', "{0} is not attached", name)}
+							className={positronClassNames('packages-list-item-attached', { attached })}
+							role='img'
+							title={attached
+								? localize('positronPackages.attachedTooltip', "{0} is attached", name)
+								: localize('positronPackages.notAttachedTooltip', "{0} is not attached", name)}
+						/>
+					)}
+					<div className='packages-list-item-name'>{displayName}</div>
+					<div className='packages-list-item-version'>{version}</div>
+					{hasUpdate && (
+						<div
+							className='packages-list-item-update'
+							title={localize('positronPackages.updateAvailable', "Update available: {0}", latestVersion)}
+						>
+							&#x2191;
+						</div>
+					)}
+				</div>
+			);
+		};
+
+		listInstance.setItemRenderer(renderItem);
+	}, [listInstance, deduplicatedPackages, services]);
+
+	// Enter on the focused row sets selection to that row.
+	useEffect(() => {
+		const disposable = listInstance.onDidActivate(() => {
+			listInstance.selectRow(listInstance.cursorRowIndex);
+		});
+		return () => disposable.dispose();
+	}, [listInstance]);
+
+	// Sync the currently-selected package's name into the packages service. onDidUpdate fires
+	// for any instance change (selection, cursor, scroll), so we dedupe before pushing.
+	useEffect(() => {
+		const pushSelection = () => {
+			const name = listInstance.getSelectedItems()[0]?.name;
+			services.positronPackagesService.setSelectedPackage(name);
+		};
+		// Push once on mount in case selection already exists.
+		pushSelection();
+		let lastName: string | undefined;
+		const disposable = listInstance.onDidUpdate(() => {
+			const name = listInstance.getSelectedItems()[0]?.name;
+			if (name !== lastName) {
+				lastName = name;
+				services.positronPackagesService.setSelectedPackage(name);
+			}
+		});
+		return () => {
+			disposable.dispose();
+			services.positronPackagesService.setSelectedPackage(undefined);
+		};
+	}, [listInstance, services]);
+
+	// Dispose the list instance on unmount.
+	useEffect(() => () => listInstance.dispose(), [listInstance]);
 
 	// Rewrite the filter input to reflect the selected sort. The input is the
 	// source of truth, so updating it flows back through onFilterTextChanged
@@ -437,16 +463,14 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		});
 	};
 
+	// Only show the "No packages found" message when the user has an active filter query.
+	// An unfiltered empty list renders the (empty) data grid, matching prior behavior.
+	const emptyListRenderer = debouncedQuery.text
+		? () => localize('positronPackages.noPackagesFound', "No packages found.")
+		: undefined;
+
 	return (
-		// eslint-disable-next-line jsx-a11y/no-static-element-interactions
-		<div
-			className={positronClassNames('positron-packages-list', {
-				focused,
-			})}
-			tabIndex={0}
-			onBlur={() => setFocused(false)}
-			onFocus={() => setFocused(true)}
-		>
+		<div className='positron-packages-list'>
 			<div ref={progressRef} id='packages-progress' />
 
 			<div className='packages-filter-container'>
@@ -461,25 +485,11 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 					onFilterTextChanged={handleFilterTextChanged}
 				/>
 			</div>
-			<div className='packages-list-container'>
-				{filteredPackages.length === 0 && debouncedQuery.text ? (
-					<div className='packages-empty-message'
-						style={{ height: height - FILTER_HEIGHT }}>
-						{localize('positronPackages.noPackagesFound', "No packages found.")}
-					</div>
-				) : (
-					<List
-						key={visible ? 'visible' : 'hidden'}
-						height={height - FILTER_HEIGHT}
-						innerRef={innerRef}
-						itemCount={filteredPackages.length}
-						itemKey={(index) => filteredPackages[index].id}
-						itemSize={26}
-						width={'calc(100% - 2px)'}
-					>
-						{ItemEntry}
-					</List>
-				)}
+			<div className='packages-list-container' style={{ height: height - FILTER_HEIGHT }}>
+				<PositronList
+					emptyListRenderer={emptyListRenderer}
+					instance={listInstance}
+				/>
 			</div>
 		</div>
 	);
