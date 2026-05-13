@@ -50,7 +50,9 @@ function bucketKey(extensionId: string, languageId: string): string {
 }
 
 function unpackBucketKey(key: string): { extensionId: string; languageId: string } | undefined {
-	const idx = key.lastIndexOf(BUCKET_SEPARATOR);
+	// Split on the first separator: extension IDs are `publisher.name` and
+	// cannot contain `::`, but language IDs are unconstrained and may.
+	const idx = key.indexOf(BUCKET_SEPARATOR);
 	if (idx <= 0 || idx === key.length - BUCKET_SEPARATOR.length) {
 		return undefined;
 	}
