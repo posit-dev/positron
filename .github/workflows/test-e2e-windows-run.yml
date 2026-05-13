@@ -201,8 +201,10 @@ jobs:
 
       - name: Download binaries (Ark, Kallichore) with retry
         uses: nick-fields/retry@v4
+        env:
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
         with:
-          timeout_minutes: 5
+          timeout_minutes: 20
           max_attempts: 3
           retry_wait_seconds: 10
           shell: bash

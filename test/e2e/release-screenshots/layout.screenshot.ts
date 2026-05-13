@@ -5,12 +5,16 @@
 
 import { test } from '../tests/_test.setup';
 import { captureFullWindow } from './helpers/screenshot-utils';
-import { prepareForScreenshot } from './helpers/layout-utils';
+import { prepareForScreenshot, setScreenshotWindowSize } from './helpers/layout-utils';
 import { annotate } from './helpers/annotate-utils';
 import { join } from 'path';
 
 test.use({
 	suiteId: __filename,
+});
+
+test.beforeEach(async ({ app }) => {
+	await setScreenshotWindowSize(app);
 });
 
 /**
@@ -39,6 +43,6 @@ test.describe('Release Screenshots - Layouts', () => {
 			},
 			{ selector: '.part.panel', label: 'Panel', color: '#0d9488' },
 		]);
-		await captureFullWindow(page, 'layout.png');
+		await captureFullWindow(page, 'user-interface-for-rstudio-migration.png');
 	});
 });

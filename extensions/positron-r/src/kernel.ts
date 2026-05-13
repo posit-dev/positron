@@ -31,9 +31,12 @@ type WindowsKernelArch = 'arm64' | 'x64';
  * locations, in order:
  *
  * 1. The `positron.r.kernel.path` setting, if specified.
- * 2. The embedded kernel, if it exists (release builds).
- * 3. A locally built kernel (development builds for kernel developers).
- * 4. A local, downloaded copy of the kernel (development builds for everyone else).
+ * 2. A fresh build in the ark submodule's `target/{release,debug}` directory.
+ *    This is the dev fast path: a `cargo build` in the submodule is picked up
+ *    immediately without re-running install-kernel.
+ * 3. The embedded kernel under `resources/ark/`. This is what install-kernel
+ *    populates from a prebuild download (or a copy of the local build) and
+ *    what ships in the packaged extension.
  *
  * @param options Additional hints that help resolve the correct kernel path.
  * @returns A path to the Ark kernel, or undefined if the kernel could not be found.
@@ -49,24 +52,24 @@ export function getArkKernelPath(options?: ArkKernelLookupOptions): string | und
 
 	const kernelName = os.platform() === 'win32' ? 'ark.exe' : 'ark';
 
-	// Look for locally built Debug or Release kernels. If both exist, we'll use
-	// whichever is newest. This is the location where the kernel is typically built
-	// by developers, who have `positron` and `ark` directories side-by-side.
-	let devKernel: string | undefined;
-	const positronParent = path.dirname(path.dirname(path.dirname(EXTENSION_ROOT_DIR)));
-	const devDebugKernel = path.join(positronParent, 'ark', 'target', 'debug', kernelName);
-	const devReleaseKernel = path.join(positronParent, 'ark', 'target', 'release', kernelName);
-	const debugModified = safeStatSync(devDebugKernel)?.mtime;
-	const releaseModified = safeStatSync(devReleaseKernel)?.mtime;
+	// Look for a locally-built ark in the submodule. If both debug and release
+	// builds exist, use the newer one. This lets developers iterate on ark
+	// without re-running `npm install` to repopulate `resources/ark/`.
+	const submoduleRoot = path.join(EXTENSION_ROOT_DIR, 'ark');
+	const submoduleDebug = path.join(submoduleRoot, 'target', 'debug', kernelName);
+	const submoduleRelease = path.join(submoduleRoot, 'target', 'release', kernelName);
+	const debugModified = safeStatSync(submoduleDebug)?.mtime;
+	const releaseModified = safeStatSync(submoduleRelease)?.mtime;
 
+	let submoduleKernel: string | undefined;
 	if (debugModified) {
-		devKernel = (releaseModified && releaseModified > debugModified) ? devReleaseKernel : devDebugKernel;
+		submoduleKernel = (releaseModified && releaseModified > debugModified) ? submoduleRelease : submoduleDebug;
 	} else if (releaseModified) {
-		devKernel = devReleaseKernel;
+		submoduleKernel = submoduleRelease;
 	}
-	if (devKernel) {
-		LOGGER.info('Loading Ark from disk in adjacent repo. Make sure it\'s up-to-date.');
-		return devKernel;
+	if (submoduleKernel) {
+		LOGGER.info(`Loading Ark from submodule build at ${submoduleKernel}.`);
+		return submoduleKernel;
 	}
 
 	const arkRoot = path.join(EXTENSION_ROOT_DIR, 'resources', 'ark');

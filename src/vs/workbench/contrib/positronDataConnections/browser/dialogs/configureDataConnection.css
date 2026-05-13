@@ -1,0 +1,96 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.configure-data-connection-container {
+	padding: 16px;
+	border-radius: 6px;
+	border: 1px solid var(--vscode-widget-border);
+}
+
+.configure-data-connection {
+	gap: 8px;
+	display: flex;
+	flex-direction: column;
+}
+
+.configure-data-connection .driver-header {
+	gap: 6px;
+	display: flex;
+	/* padding: 10px; */
+	border-radius: 6px;
+	align-items: center;
+	/* background: var(--vscode-sideBar-background); */
+	/* border: 1px solid var(--vscode-widget-border); */
+}
+
+.configure-data-connection .driver-header-badge {
+	width: 20px;
+	height: 20px;
+	display: flex;
+	flex-shrink: 0;
+	border-radius: 3px;
+	align-items: center;
+	background: #f8f8f8;
+	justify-content: center;
+	border: 1px solid rgba(128, 128, 128, 0.2);
+}
+
+.configure-data-connection .driver-header-icon {
+	width: 16px;
+	height: 16px;
+	object-fit: contain;
+}
+
+.configure-data-connection .driver-header-name {
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.configure-data-connection .parameter-field {
+	gap: 2px;
+	display: flex;
+	flex-direction: column;
+}
+
+.configure-data-connection .parameter-label {
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.configure-data-connection .parameter-input {
+	width: 100%;
+	padding: 4px 6px;
+	/* font-size: 13px; */
+	border-radius: 4px;
+	box-sizing: border-box;
+	color: var(--vscode-input-foreground);
+	background: var(--vscode-input-background);
+	border: 1px solid var(--vscode-input-border);
+}
+
+/* Override Chromium's default focus outline (which uses a different color for password fields). */
+.configure-data-connection .parameter-input:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 0;
+}
+
+.configure-data-connection .parameter-input.error {
+	outline: 1px solid var(--vscode-inputValidation-errorBorder);
+	outline-offset: 1px;
+}
+
+.configure-data-connection .parameter-input.error:focus {
+	box-shadow: 0 0 0 1px var(--vscode-focusBorder);
+	outline: 1px solid var(--vscode-inputValidation-errorBorder);
+	outline-offset: 2px;
+}
+
+.configure-data-connection .parameter-select {
+	height: 26px;
+}
+
+.configure-data-connection .parameter-checkbox {
+	margin: 0;
+}

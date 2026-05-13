@@ -5,6 +5,7 @@
 
 import { mainWindow } from '../../../../base/browser/window.js';
 import { Disposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
+import { isWorkbench } from '../../../../base/common/platform.js';
 import { POSITRON_IDLE_TRACKING_CHANNEL_NAME, PositronIdleTrackingChannelClient } from '../../../../platform/positronIdleTracking/common/positronIdleTrackingIpc.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { IRemoteAgentService } from '../../../services/remote/common/remoteAgentService.js';
@@ -39,7 +40,10 @@ class PositronIdleReporterContribution extends Disposable implements IWorkbenchC
 			return;
 		}
 
-		// TODO : Return early if we're running on Workbench
+		// Workbench handles idle tracking server-side; no client reporting needed.
+		if (isWorkbench) {
+			return;
+		}
 
 		const channel = new PositronIdleTrackingChannelClient(
 			connection.getChannel(POSITRON_IDLE_TRACKING_CHANNEL_NAME)

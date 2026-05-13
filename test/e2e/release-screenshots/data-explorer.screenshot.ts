@@ -6,10 +6,14 @@
 import { join } from 'path';
 import { test } from '../tests/_test.setup';
 import { capturePanel } from './helpers/screenshot-utils';
-import { prepareForScreenshot } from './helpers/layout-utils';
+import { prepareForScreenshot, setScreenshotWindowSize } from './helpers/layout-utils';
 
 test.use({
 	suiteId: __filename,
+});
+
+test.beforeEach(async ({ app }) => {
+	await setScreenshotWindowSize(app);
 });
 
 /**

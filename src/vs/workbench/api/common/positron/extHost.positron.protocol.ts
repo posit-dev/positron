@@ -16,6 +16,7 @@ import { INotebookContextDTO, NotebookCellType } from '../../../common/positron/
 import { ActiveRuntimeSessionMetadata, EnvironmentVariableAction, LanguageRuntimeDynState, LanguageRuntimePackage, PackageSpec, RuntimeSessionMetadata, type notebooks } from 'positron';
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
+import { DataConnectionParameterValuesDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource, IPositronProviderMetadata, IShowLanguageModelConfigOptions } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { IChatAgentData } from '../../../contrib/chat/common/participants/chatAgents.js';
 import { PlotRenderSettings } from '../../../services/positronPlots/common/positronPlots.js';
@@ -183,6 +184,89 @@ export interface ExtHostConnectionsShape {
 	$driverInstallDependencies(driverId: string): Promise<boolean>;
 }
 
+/**
+ * Main thread side of the data connections RPC channel. The ext host calls
+ * these methods to register/unregister drivers with the main thread service.
+ */
+export interface MainThreadDataConnectionsShape extends IDisposable {
+	/**
+	 * Called by the ext host when an extension registers a data connection driver.
+	 * Wraps the driver in an adapter and registers it with the service.
+	 * @param driverId The unique identifier for the driver.
+	 * @param metadata Serializable driver info (name, parameters, supported languages, etc.).
+	 */
+	$registerDataConnectionDriver(driverId: string, metadata: IDataConnectionDriverMetadataDTO): void;
+
+	/**
+	 * Called by the ext host when a driver is unregistered (its Disposable was disposed).
+	 * @param driverId The unique identifier for the driver to remove.
+	 */
+	$removeDataConnectionDriver(driverId: string): void;
+
+	/**
+	 * Returns summaries of all registered data connection drivers.
+	 */
+	$getDataConnectionDrivers(): Promise<IDataConnectionDriverSummaryDTO[]>;
+
+	/**
+	 * Connects to a driver and returns a connection handle. The main thread
+	 * adapter calls back into the ext host via $driverConnect, so the full
+	 * RPC round trip is exercised.
+	 */
+	$connectToDataConnectionDriver(driverId: string, params: DataConnectionParameterValuesDTO): Promise<number>;
+
+	/**
+	 * Checks whether a connection is read-only via the main thread service.
+	 */
+	$connectionIsReadOnlyViaService(connectionHandle: number): Promise<boolean>;
+
+	/**
+	 * Gets top-level children of a connection via the main thread service.
+	 */
+	$connectionGetChildrenViaService(connectionHandle: number): Promise<IDataConnectionNodeDTO[]>;
+
+	/**
+	 * Disconnects a connection via the main thread service.
+	 */
+	$connectionDisconnectViaService(connectionHandle: number): Promise<void>;
+
+	/**
+	 * Checks whether a connection is still connected via the main thread service.
+	 */
+	$connectionIsConnectedViaService(connectionHandle: number): Promise<boolean>;
+
+	/**
+	 * Gets children of a node via the main thread service.
+	 */
+	$nodeGetChildrenViaService(connectionHandle: number, nodeHandle: number): Promise<IDataConnectionNodeDTO[]>;
+
+	/**
+	 * Previews a node via the main thread service.
+	 */
+	$nodePreviewViaService(connectionHandle: number, nodeHandle: number): Promise<void>;
+
+	/**
+	 * Releases a connection handle via the main thread service.
+	 */
+	$releaseConnectionViaService(connectionHandle: number): void;
+}
+
+/**
+ * Extension host side of the data connections RPC channel. The main thread
+ * calls these methods to connect, browse the schema tree, and manage the
+ * lifecycle of connections that live in the extension process.
+ */
+export interface ExtHostDataConnectionsShape {
+	$driverConnect(driverId: string, params: DataConnectionParameterValuesDTO): Promise<number>;
+	$connectionIsReadOnly(connectionHandle: number): Promise<boolean>;
+	$connectionGetChildren(connectionHandle: number): Promise<IDataConnectionNodeDTO[]>;
+	$connectionDisconnect(connectionHandle: number): Promise<void>;
+	$connectionIsConnected(connectionHandle: number): Promise<boolean>;
+	$nodeGetChildren(connectionHandle: number, nodeHandle: number): Promise<IDataConnectionNodeDTO[]>;
+	$nodePreview(connectionHandle: number, nodeHandle: number): Promise<void>;
+	$releaseConnection(connectionHandle: number): void;
+}
+
 export interface MainThreadEnvironmentShape extends IDisposable {
 	$getEnvironmentContributions(): Promise<Record<string, EnvironmentVariableAction[]>>;
 }
@@ -342,6 +426,7 @@ export const ExtHostPositronContext = {
 	ExtHostQuickOpen: createProxyIdentifier<ExtHostQuickOpenShape>('ExtHostQuickOpen'),
 	ExtHostPlotsService: createProxyIdentifier<ExtHostPlotsServiceShape>('ExtHostPlotsService'),
 	ExtHostNotebookFeatures: createProxyIdentifier<ExtHostNotebookFeaturesShape>('ExtHostNotebookFeatures'),
+	ExtHostDataConnections: createProxyIdentifier<ExtHostDataConnectionsShape>('ExtHostDataConnections'),
 };
 
 export interface MainThreadPositronEphemeralStorageShape extends IDisposable {
@@ -363,4 +448,5 @@ export const MainPositronContext = {
 	MainThreadPlotsService: createProxyIdentifier<MainThreadPlotsServiceShape>('MainThreadPlotsService'),
 	MainThreadNotebookFeatures: createProxyIdentifier<MainThreadNotebookFeaturesShape>('MainThreadNotebookFeatures'),
 	MainThreadPositronEphemeralStorage: createProxyIdentifier<MainThreadPositronEphemeralStorageShape>('MainThreadPositronEphemeralStorage'),
+	MainThreadDataConnections: createProxyIdentifier<MainThreadDataConnectionsShape>('MainThreadDataConnections'),
 };

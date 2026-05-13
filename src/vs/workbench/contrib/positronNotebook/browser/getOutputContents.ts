@@ -109,6 +109,16 @@ export function parseOutputData(outputItem: IOutputItemDto): ParsedOutput {
 	const { data, mime } = outputItem;
 	const message = data.toString();
 
+	if (mime === 'application/json') {
+		try {
+			const parsed = JSON.parse(message);
+			return { type: 'json', data: parsed };
+		} catch {
+			// Invalid JSON -- fall through to render as plain text
+			return { type: 'text', content: message };
+		}
+	}
+
 	try {
 		const parsedMessage = JSON.parse(message);
 
@@ -164,6 +174,10 @@ export function parseOutputData(outputItem: IOutputItemDto): ParsedOutput {
 
 	if (mime === 'text/markdown') {
 		return { type: 'markdown', content: message };
+	}
+
+	if (mime === 'text/latex') {
+		return { type: 'latex', content: message };
 	}
 
 	if (mime === 'image/png') {

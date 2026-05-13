@@ -52,28 +52,6 @@ test.describe('Quarto - Inline Output: Persistence', {
 		await inlineQuarto.expectOutputVisible();
 	});
 
-	test('Python - Verify kernel status persists after window reload', async function ({ app, python, openFile, hotKeys }) {
-		const { editors, inlineQuarto } = app.workbench;
-
-		// Open a Quarto file and wait for the kernel to be ready
-		await openFile(join('workspaces', 'quarto_inline_output', 'simple_plot.qmd'));
-		await editors.waitForActiveTab('simple_plot.qmd');
-		await inlineQuarto.expectKernelStatusVisible();
-
-		// Run the cell and wait for output
-		await editors.clickTab('simple_plot.qmd');
-		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 25 });
-
-		// Get initial kernel text
-		await inlineQuarto.expectKernelIdle();
-		const initialKernelText = await inlineQuarto.getKernelText();
-
-		// Reload window and wait for kernel status to be visible again
-		await hotKeys.reloadWindow(true);
-		await inlineQuarto.expectKernelToHaveText(initialKernelText);
-		await inlineQuarto.expectKernelIdle();
-	});
-
 	test('Python - Verify inline output works in untitled Quarto document and persists through save', async function ({ app, python, page, runCommand, hotKeys, saveFileAs }) {
 		const { editors, inlineQuarto } = app.workbench;
 
@@ -119,5 +97,28 @@ print("Hello from untitled!")
 		await inlineQuarto.gotoLine(10);
 		await inlineQuarto.expectOutputVisible();
 		await inlineQuarto.expectStdoutContains('Hello from untitled!');
+	});
+
+	// Moving this test to the end because it involves a window reload which can cause flakiness for subsequent tests
+	test('Python - Verify kernel status persists after window reload', async function ({ app, python, openFile, hotKeys }) {
+		const { editors, inlineQuarto } = app.workbench;
+
+		// Open a Quarto file and wait for the kernel to be ready
+		await openFile(join('workspaces', 'quarto_inline_output', 'simple_plot.qmd'));
+		await editors.waitForActiveTab('simple_plot.qmd');
+		await inlineQuarto.expectKernelStatusVisible();
+
+		// Run the cell and wait for output
+		await editors.clickTab('simple_plot.qmd');
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 25 });
+
+		// Get initial kernel text
+		await inlineQuarto.expectKernelIdle();
+		const initialKernelText = await inlineQuarto.getKernelText();
+
+		// Reload window and wait for kernel status to be visible again
+		await hotKeys.reloadWindow(true);
+		await inlineQuarto.expectKernelToHaveText(initialKernelText);
+		await inlineQuarto.expectKernelIdle();
 	});
 });

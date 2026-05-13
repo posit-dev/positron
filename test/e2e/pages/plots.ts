@@ -76,9 +76,9 @@ export class Plots {
 		});
 	}
 
-	async waitForCurrentPlot() {
+	async waitForCurrentPlot({ timeout = 30000 }: { timeout?: number } = {}) {
 		await test.step('Wait for current plot to be visible', async () => {
-			await expect(this.code.driver.currentPage.locator(CURRENT_PLOT)).toBeVisible({ timeout: 30000 });
+			await expect(this.code.driver.currentPage.locator(CURRENT_PLOT)).toBeVisible({ timeout });
 		});
 	}
 

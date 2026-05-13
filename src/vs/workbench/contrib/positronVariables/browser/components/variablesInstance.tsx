@@ -47,6 +47,92 @@ interface VariablesInstanceProps {
 }
 
 /**
+ * Row data passed to the virtualized row component via react-window's `itemData`.
+ *
+ * The row component (`VariableEntryRow`) is defined at module scope so its reference
+ * is stable across renders. react-window calls `createElement(children, ...)` per cell,
+ * so an inline children function would change component-type identity each render and
+ * remount every row -- which would tear the sash element out of the DOM mid-drag and
+ * break column resizing.
+ */
+interface VariableEntryRowData {
+	readonly entries: VariableEntry[];
+	readonly selectedId: string | undefined;
+	readonly focused: boolean;
+	readonly positronVariablesInstance: IPositronVariablesInstance;
+	readonly detailsColumnWidth: number;
+	readonly nameColumnWidth: number;
+	readonly rightColumnVisible: boolean;
+	readonly clientState: RuntimeClientState;
+	readonly onSelected: (index: number) => void;
+	readonly onDeselected: () => void;
+	readonly onToggleExpandCollapse: (index: number) => void;
+	readonly onBeginResizeNameColumn: () => VerticalSplitterResizeParams;
+	readonly onResizeNameColumn: (newNameColumnWidth: number) => void;
+}
+
+/**
+ * Stable row component for the virtualized variable list.
+ */
+const VariableEntryRow = ({ index, style, data }: ListChildComponentProps<VariableEntryRowData>) => {
+	const entry = data.entries[index];
+	if (isVariableGroup(entry)) {
+		return (
+			<VariableGroup
+				key={entry.id}
+				focused={data.focused}
+				positronVariablesInstance={data.positronVariablesInstance}
+				selected={data.selectedId === entry.id}
+				style={style}
+				variableGroup={entry}
+				onDeselected={data.onDeselected}
+				onSelected={() => data.onSelected(index)}
+				onToggleExpandCollapse={() => data.onToggleExpandCollapse(index)}
+			/>
+		);
+	} else if (isVariableItem(entry)) {
+		return (
+			<VariableItem
+				key={entry.id}
+				detailsColumnWidth={data.detailsColumnWidth}
+				disabled={data.clientState === RuntimeClientState.Closed}
+				focused={data.focused}
+				nameColumnWidth={data.nameColumnWidth}
+				positronVariablesInstance={data.positronVariablesInstance}
+				rightColumnVisible={data.rightColumnVisible}
+				selected={data.selectedId === entry.id}
+				style={style}
+				variableItem={entry}
+				onBeginResizeNameColumn={data.onBeginResizeNameColumn}
+				onDeselected={data.onDeselected}
+				onResizeNameColumn={data.onResizeNameColumn}
+				onSelected={() => data.onSelected(index)}
+				onToggleExpandCollapse={() => data.onToggleExpandCollapse(index)}
+			/>
+		);
+	} else if (isVariableOverflow(entry)) {
+		return (
+			<VariableOverflow
+				key={entry.id}
+				detailsColumnWidth={data.detailsColumnWidth}
+				focused={data.focused}
+				nameColumnWidth={data.nameColumnWidth}
+				selected={data.selectedId === entry.id}
+				style={style}
+				variableOverflow={entry}
+				onBeginResizeNameColumn={data.onBeginResizeNameColumn}
+				onDeselected={data.onDeselected}
+				onResizeNameColumn={data.onResizeNameColumn}
+				onSelected={() => data.onSelected(index)}
+			/>
+		);
+	} else {
+		// It's a bug to get here.
+		return null;
+	}
+};
+
+/**
 * VariablesInstance component.
 * @param props A VariablesInstanceProps that contains the component properties.
 * @returns The rendered component.
@@ -463,69 +549,23 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 		innerRef.current.parentElement?.scrollBy(e.deltaX, e.deltaY);
 	};
 
-	/**
-	 * VariableEntry component.
-	 * @param index The index of the variable entry.
-	 * @param style The style (positioning) at which to render the variable entry.
-	 * @returns The rendered variable entry.
-	 */
-	const VariableEntry = ({ index, style }: ListChildComponentProps<VariableEntry>) => {
-		// Get the entry being rendered.
-		const entry = variableEntries[index];
-		if (isVariableGroup(entry)) {
-			return (
-				<VariableGroup
-					key={entry.id}
-					focused={focused}
-					positronVariablesInstance={props.positronVariablesInstance}
-					selected={selectedId === entry.id}
-					style={style}
-					variableGroup={entry}
-					onDeselected={deselectedHandler}
-					onSelected={() => selectedHandler(index)}
-					onToggleExpandCollapse={() => toggleExpandCollapseHandler(index)}
-				/>
-			);
-		} else if (isVariableItem(entry)) {
-			return (
-				<VariableItem
-					key={entry.id}
-					detailsColumnWidth={detailsColumnWidth}
-					disabled={clientState === RuntimeClientState.Closed}
-					focused={focused}
-					nameColumnWidth={nameColumnWidth}
-					positronVariablesInstance={props.positronVariablesInstance}
-					rightColumnVisible={rightColumnVisible}
-					selected={selectedId === entry.id}
-					style={style}
-					variableItem={entry}
-					onBeginResizeNameColumn={beginResizeNameColumnHandler}
-					onDeselected={deselectedHandler}
-					onResizeNameColumn={resizeNameColumnHandler}
-					onSelected={() => selectedHandler(index)}
-					onToggleExpandCollapse={() => toggleExpandCollapseHandler(index)}
-				/>
-			);
-		} else if (isVariableOverflow(entry)) {
-			return (
-				<VariableOverflow
-					key={entry.id}
-					detailsColumnWidth={detailsColumnWidth}
-					focused={focused}
-					nameColumnWidth={nameColumnWidth}
-					selected={selectedId === entry.id}
-					style={style}
-					variableOverflow={entry}
-					onBeginResizeNameColumn={beginResizeNameColumnHandler}
-					onDeselected={deselectedHandler}
-					onResizeNameColumn={resizeNameColumnHandler}
-					onSelected={() => selectedHandler(index)}
-				/>
-			);
-		} else {
-			// It's a bug to get here.
-			return null;
-		}
+	// Build the row data passed to the stable virtualized row component. Identity changes
+	// each render, but `VariableEntryRow` itself is hoisted at module scope so react-window
+	// re-renders rows with new props instead of unmounting and remounting them.
+	const itemData: VariableEntryRowData = {
+		entries: variableEntries,
+		selectedId,
+		focused,
+		positronVariablesInstance: props.positronVariablesInstance,
+		detailsColumnWidth,
+		nameColumnWidth,
+		rightColumnVisible,
+		clientState,
+		onSelected: selectedHandler,
+		onDeselected: deselectedHandler,
+		onToggleExpandCollapse: toggleExpandCollapseHandler,
+		onBeginResizeNameColumn: beginResizeNameColumnHandler,
+		onResizeNameColumn: resizeNameColumnHandler,
 	};
 
 	// Render.
@@ -548,6 +588,7 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 					height={props.height}
 					innerRef={innerRef}
 					itemCount={variableEntries.length}
+					itemData={itemData}
 					itemKey={index => variableEntries[index].id}
 					itemSize={LINE_HEIGHT}
 					overscanCount={10}
@@ -560,7 +601,7 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 						}
 					}}
 				>
-					{VariableEntry}
+					{VariableEntryRow}
 				</List>
 			}
 		</div>

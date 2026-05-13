@@ -113,11 +113,12 @@ export class ContextMenu {
 	/**
 	 * Action: Closes an open context menu
 	 *
+	 * @param useNativeMenu Use native menu behavior (macOS only, most menus in Positron are web-based)
 	 * @returns Promise that resolves when the context menu is closed
 	 */
-	private async closeContextMenu(): Promise<void> {
-		// For macOS Electron, try native IPC first; fall back to sending Escape to the page.
-		if (this.isNativePlatform && this.code.electronApp) {
+	private async closeContextMenu(useNativeMenu = false): Promise<void> {
+		// For macOS Electron with native menus, try native IPC first; fall back to sending Escape to the page.
+		if (this.isNativePlatform && useNativeMenu && this.code.electronApp) {
 			try {
 				await this.code.electronApp.evaluate(({ app }) => {
 					app.emit('e2e:contextMenuClose');
@@ -299,7 +300,7 @@ export class ContextMenu {
 				// todo: not dealing with this right now. :)
 			}
 		}
-		await this.closeContextMenu();
+		await this.closeContextMenu(useNativeMenu);
 	}
 }
 

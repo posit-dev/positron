@@ -1918,9 +1918,21 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		editorContainer: HTMLElement
 	) {
 		this.detachView();
-		this._scopedContextKeyService = scopedContextKeyService;
-		this._scopedInstantiationService.value = this._instantiationService.createChild(
-			new ServiceCollection([IContextKeyService, scopedContextKeyService]));
+		// Each cell's Monaco editor creates a child dependency-injection
+		// container under this one. That child overrides the context-key
+		// service with one scoped to the cell's DOM. Disposing this container
+		// also disposes every child container under it. The render cache keeps
+		// cell React trees alive across tab switches, and those cells still
+		// reference their child containers. If we rebuild this container on
+		// every attachView, those children get disposed. The next keystroke
+		// in a cached cell would then throw "InstantiationService has been
+		// disposed". Reuse the existing container when the context-key service
+		// hasn't changed.
+		if (this._scopedContextKeyService !== scopedContextKeyService || !this._scopedInstantiationService.value) {
+			this._scopedContextKeyService = scopedContextKeyService;
+			this._scopedInstantiationService.value = this._instantiationService.createChild(
+				new ServiceCollection([IContextKeyService, scopedContextKeyService]));
+		}
 		// Set container last -- contributions react to this observable, and they
 		// may need scopedContextKeyService to already be available.
 		this.container.set(container, undefined);

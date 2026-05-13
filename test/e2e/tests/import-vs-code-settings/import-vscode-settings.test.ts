@@ -68,7 +68,7 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS] }, () => {
 
 			// select "Don't Show Again" and verify that the prompt is no longer visible
 			await toasts.expectImportSettingsToastToBeVisible();
-			await toasts.clickButton("Don't Show Again");
+			await toasts.clickButton("Don't Show Again", { notificationFilter: /Import your settings from Visual Studio Code/ });
 			await toasts.expectImportSettingsToastToBeVisible(false);
 
 			// verify that prompt is not shown again
@@ -97,7 +97,7 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS] }, () => {
 			await expect(testSettingLocator).toHaveCount(1);
 		});
 
-		test('Verify diff displays and accepted settings are saved', { tag: [tags.WIN] }, async ({ app, page, hotKeys }) => {
+		test('Verify diff displays and accepted settings are saved', async ({ app, page, hotKeys }) => {
 			const { toasts } = app.workbench;
 
 			// import settings and verify diff displays

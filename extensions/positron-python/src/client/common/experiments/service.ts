@@ -41,10 +41,9 @@ export class ExperimentService implements IExperimentService {
         @inject(IPersistentStateFactory) private readonly persistentState: IPersistentStateFactory,
     ) {
         // Initialize experiments state - must be done in constructor after dependency injection
-        this.experiments = this.persistentState.createGlobalPersistentState<{ features: string[] }>(
-            EXP_MEMENTO_KEY,
-            { features: [] },
-        );
+        this.experiments = this.persistentState.createGlobalPersistentState<{ features: string[] }>(EXP_MEMENTO_KEY, {
+            features: [],
+        });
         const settings = this.workspaceService.getConfiguration('python');
         // Users can only opt in or out of experiment groups, not control groups.
         const optInto = settings.get<string[]>('experiments.optInto') || [];

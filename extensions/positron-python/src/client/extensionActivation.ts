@@ -51,6 +51,10 @@ import { registerPixiFeatures } from './pythonEnvironments/common/environmentMan
 // This hyperlinks the terminal to the native REPL, which we don't use.
 // import { registerCustomTerminalLinkProvider } from './terminals/pythonStartupLinkProvider';
 import { IPythonRuntimeManager } from './positron/manager';
+import {
+    CreateEnvironmentCheckKind,
+    triggerCreateEnvironmentCheckNonBlocking,
+} from './pythonEnvironments/creation/createEnvironmentTrigger';
 // --- End Positron ---
 
 export async function activateComponents(
@@ -93,18 +97,15 @@ export async function activateComponents(
 // Changed this function to be async
 export async function activateFeatures(ext: ExtensionState, _components: Components): Promise<void> {
     // --- End Positron ---
-    const interpreterQuickPick: IInterpreterQuickPick = ext.legacyIOC.serviceContainer.get<IInterpreterQuickPick>(
-        IInterpreterQuickPick,
-    );
-    const interpreterService: IInterpreterService = ext.legacyIOC.serviceContainer.get<IInterpreterService>(
-        IInterpreterService,
-    );
+    const interpreterQuickPick: IInterpreterQuickPick =
+        ext.legacyIOC.serviceContainer.get<IInterpreterQuickPick>(IInterpreterQuickPick);
+    const interpreterService: IInterpreterService =
+        ext.legacyIOC.serviceContainer.get<IInterpreterService>(IInterpreterService);
     const pathUtils = ext.legacyIOC.serviceContainer.get<IPathUtils>(IPathUtils);
 
     // --- Start Positron ---
-    const pythonRuntimeManager: IPythonRuntimeManager = ext.legacyIOC.serviceContainer.get<IPythonRuntimeManager>(
-        IPythonRuntimeManager,
-    );
+    const pythonRuntimeManager: IPythonRuntimeManager =
+        ext.legacyIOC.serviceContainer.get<IPythonRuntimeManager>(IPythonRuntimeManager);
     // --- End Positron ---
 
     registerPixiFeatures(ext.disposables);
@@ -120,6 +121,16 @@ export async function activateFeatures(ext: ExtensionState, _components: Compone
         pythonRuntimeManager,
         // --- End Positron ---
     );
+
+    // --- Start Positron ---
+    // Trigger the create-environment check on workspace open, after providers
+    // are registered so the fallback Create_Environment command can find them.
+    const workspaceService = ext.legacyIOC.serviceContainer.get<IWorkspaceService>(IWorkspaceService);
+    const firstFolder = workspaceService.workspaceFolders?.[0];
+    if (firstFolder) {
+        triggerCreateEnvironmentCheckNonBlocking(CreateEnvironmentCheckKind.Workspace, firstFolder.uri);
+    }
+    // --- End Positron ---
     const executionHelper = ext.legacyIOC.serviceContainer.get<ICodeExecutionHelper>(ICodeExecutionHelper);
     const commandManager = ext.legacyIOC.serviceContainer.get<ICommandManager>(ICommandManager);
     registerTriggerForTerminalREPL(ext.disposables);

@@ -28,7 +28,7 @@ suite('Result Resolver tests', () => {
         let cancelationToken: CancellationToken;
 
         setup(() => {
-            testController = ({
+            testController = {
                 items: {
                     get: () => {
                         log.push('get');
@@ -47,9 +47,9 @@ suite('Result Resolver tests', () => {
                 dispose: () => {
                     // empty
                 },
-            } as unknown) as TestController;
+            } as unknown as TestController;
             defaultErrorMessage = 'pytest test discovery error (see Output > Python)';
-            blankTestItem = ({
+            blankTestItem = {
                 canResolveChildren: false,
                 tags: [],
                 children: {
@@ -57,10 +57,10 @@ suite('Result Resolver tests', () => {
                         // empty
                     },
                 },
-            } as unknown) as TestItem;
-            cancelationToken = ({
+            } as unknown as TestItem;
+            cancelationToken = {
                 isCancellationRequested: false,
-            } as unknown) as CancellationToken;
+            } as unknown as CancellationToken;
         });
         teardown(() => {
             sinon.restore();
@@ -295,9 +295,9 @@ suite('Result Resolver tests', () => {
             testControllerMock = typemoq.Mock.ofType<TestController>();
             testControllerMock.setup((t) => t.items).returns(() => testItemCollectionMock.object);
 
-            cancelationToken = ({
+            cancelationToken = {
                 isCancellationRequested: false,
-            } as unknown) as CancellationToken;
+            } as unknown as CancellationToken;
 
             // define functions within runInstance
             runInstance = typemoq.Mock.ofType<TestRun>();
@@ -600,14 +600,14 @@ function createMockTestItem(id: string): TestItem {
     mockChildren.setup((x) => x.add(typemoq.It.isAny())).returns(() => undefined);
     mockChildren.setup((x) => x.forEach(typemoq.It.isAny())).returns(() => undefined);
 
-    const mockTestItem = ({
+    const mockTestItem = {
         id,
         canResolveChildren: false,
         tags: [],
         children: mockChildren.object,
         range,
         uri: Uri.file('/foo/bar'),
-    } as unknown) as TestItem;
+    } as unknown as TestItem;
 
     return mockTestItem;
 }

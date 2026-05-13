@@ -62,7 +62,7 @@ This PR fixes [the problem]. The issue was caused by [root cause]. [Implementati
 #### Bug Fixes
 - [User-facing description of fix] (#[issue])
 
-### QA Notes
+### Validation Steps
 
 [relevant tags]
 
@@ -90,7 +90,7 @@ This PR adds [feature description]. Users can now [what they can do].
 #### Bug Fixes
 - N/A
 
-### QA Notes
+### Validation Steps
 
 [relevant tags]
 
@@ -121,7 +121,7 @@ This PR [describes the UI change]. The change improves [what it improves].
 #### Bug Fixes
 - N/A
 
-### QA Notes
+### Validation Steps
 
 [relevant tags including UI-specific ones]
 
@@ -153,7 +153,7 @@ This PR optimizes [what was optimized]. Performance improves by [metrics/percent
 #### Performance
 - [User-facing performance improvement] (#[issue])
 
-### QA Notes
+### Validation Steps
 
 @:performance [other relevant tags]
 
@@ -179,7 +179,7 @@ This PR [refactoring description]. No user-facing changes.
 #### Bug Fixes
 - N/A
 
-### QA Notes
+### Validation Steps
 
 [relevant tags]
 
@@ -195,7 +195,7 @@ Adds e2e tests for [feature/area].
 
 This PR adds comprehensive test coverage for [what's being tested]. The tests verify [key behaviors].
 
-### QA Notes
+### Validation Steps
 
 [tags for the areas being tested]
 
@@ -230,7 +230,7 @@ npx playwright test [test-file-name] --project e2e-electron
 - ❌ "Fixed various bugs"
 - ❌ "Updated UI"
 
-## QA Notes Best Practices
+## Validation Steps Best Practices
 
 ### Tag Selection
 

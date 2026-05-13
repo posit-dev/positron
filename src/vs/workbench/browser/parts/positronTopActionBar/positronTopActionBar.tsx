@@ -25,14 +25,13 @@ import { TopActionBarCommandCenter } from './components/topActionBarCommandCente
 import { PositronTopActionBarContextProvider } from './positronTopActionBarContext.js';
 import { TopActionBarCustomFolderMenu } from './components/topActionBarCustomFolderMenu.js';
 import { TopActionBarSessionManager } from './components/topActionBarSessionManager.js';
-import { SAVE_ALL_COMMAND_ID, SAVE_FILE_COMMAND_ID } from '../../../contrib/files/browser/fileConstants.js';
+import { SAVE_ALL_COMMAND_ID } from '../../../contrib/files/browser/fileConstants.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 
 // Constants.
 const kHorizontalPadding = 4;
 const kCenterUIBreak = 600;
 const kFulllCenterUIBreak = 765;
-const SAVE = SAVE_FILE_COMMAND_ID;
 const SAVE_ALL = SAVE_ALL_COMMAND_ID;
 const NAV_BACK = NavigateBackwardsAction.ID;
 const NAV_FORWARD = NavigateForwardAction.ID;
@@ -103,11 +102,6 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 							<ActionBarSeparator />
 							<TopActionBarOpenMenu />
 							<ActionBarSeparator />
-							<ActionBarCommandButton
-								ariaLabel={CommandCenter.title(SAVE)}
-								commandId={SAVE}
-								icon={ThemeIcon.fromId('positron-save')}
-							/>
 							<ActionBarCommandButton
 								ariaLabel={CommandCenter.title(SAVE_ALL)}
 								commandId={SAVE_ALL}
