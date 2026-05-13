@@ -231,8 +231,8 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	// PositronList entry contract; this list has no sections.
 	useEffect(() => {
 		// Selection is tracked by row index in the data grid; entries may reorder on refresh,
-		// so re-anchor by package name after pushing the new entries.
-		const previouslySelectedName = listInstance.getSelectedItems()[0]?.name;
+		// so re-anchor by package id after pushing the new entries.
+		const previouslySelectedId = listInstance.getSelectedItems()[0]?.id;
 
 		const entries: ListEntry<ILanguageRuntimePackage, never>[] = filteredPackages.map(pkg => ({
 			kind: 'item',
@@ -240,8 +240,8 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		}));
 		listInstance.setEntries(entries);
 
-		if (previouslySelectedName !== undefined) {
-			const newIndex = filteredPackages.findIndex(p => p.name === previouslySelectedName);
+		if (previouslySelectedId !== undefined) {
+			const newIndex = filteredPackages.findIndex(p => p.id === previouslySelectedId);
 			if (newIndex >= 0) {
 				listInstance.selectRow(newIndex);
 			} else {
