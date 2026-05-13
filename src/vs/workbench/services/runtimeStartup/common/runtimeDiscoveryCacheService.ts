@@ -116,6 +116,17 @@ export interface IDiscoveryCacheBucket {
 }
 
 /**
+ * One full-discovery invocation recorded for diagnostics. `'*'` in either id
+ * field denotes an all-providers run.
+ */
+export interface IFullDiscoveryRunEntry {
+	readonly extensionId: string;
+	readonly languageId: string;
+	readonly reason: string;
+	readonly at: number;
+}
+
+/**
  * Counters scoped to the lifetime of the cache service instance. Surfaced via
  * the startup-diagnostics editor.
  */
@@ -133,7 +144,7 @@ export interface IDiscoveryCacheSessionCounters {
 	 * doing their job.
 	 */
 	rootsChangedFullDiscoveries: number;
-	fullDiscoveryRuns: ReadonlyArray<{ extensionId: string; languageId: string; reason: string; at: number }>;
+	fullDiscoveryRuns: ReadonlyArray<IFullDiscoveryRunEntry>;
 }
 
 /**

@@ -16,6 +16,7 @@ import {
 	ICachedRuntime,
 	IDiscoveryCacheBucket,
 	IDiscoveryCacheSessionCounters,
+	IFullDiscoveryRunEntry,
 	IRuntimeDiscoveryCache,
 	IRuntimeFingerprint,
 	IRuntimeRootSignature,
@@ -117,6 +118,10 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 
 	private readonly _buckets = new Map<string, IInternalBucket>();
 
+	// Mutable backing array; sessionCounters exposes the same reference typed as
+	// ReadonlyArray so external consumers can't push.
+	private readonly _fullDiscoveryRuns: IFullDiscoveryRunEntry[] = [];
+
 	public readonly sessionCounters: IDiscoveryCacheSessionCounters = {
 		foregroundHits: 0,
 		revalidationsAttempted: 0,
@@ -124,7 +129,7 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 		revalidationsFailed: 0,
 		evictions: 0,
 		rootsChangedFullDiscoveries: 0,
-		fullDiscoveryRuns: [],
+		fullDiscoveryRuns: this._fullDiscoveryRuns,
 	};
 
 	constructor(
@@ -344,8 +349,7 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 	}
 
 	public recordFullDiscoveryRun(extensionId: string, languageId: string, reason: string): void {
-		(this.sessionCounters.fullDiscoveryRuns as { extensionId: string; languageId: string; reason: string; at: number }[])
-			.push({ extensionId, languageId, reason, at: Date.now() });
+		this._fullDiscoveryRuns.push({ extensionId, languageId, reason, at: Date.now() });
 		if (reason === 'roots-changed') {
 			this.sessionCounters.rootsChangedFullDiscoveries++;
 		}
