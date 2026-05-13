@@ -984,10 +984,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		// Foreground cache pass. Skipped when caching is disabled, no entries
 		// exist yet, or the caller forced a bypass (rediscover).
-		const revalidations: ICacheRevalidationTask[] = [];
-		if (!options.bypassCache) {
-			await this.loadFromDiscoveryCache(revalidations);
-		}
+		const revalidations: ICacheRevalidationTask[] = options.bypassCache
+			? []
+			: await this.loadFromDiscoveryCache();
 
 		// Decide which managers still need a real enumeration, and for those
 		// that do, which of their hosted languages to actually run on this
@@ -1077,9 +1076,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 *  - fingerprint changed: register and queue background revalidation so
 	 *    the extension can re-hydrate / swap if needed
 	 */
-	private async loadFromDiscoveryCache(revalidations: ICacheRevalidationTask[]): Promise<void> {
+	private async loadFromDiscoveryCache(): Promise<ICacheRevalidationTask[]> {
+		const revalidations: ICacheRevalidationTask[] = [];
 		if (!this._discoveryCache.isEnabled()) {
-			return;
+			return revalidations;
 		}
 		// Skip buckets for languages whose startup behavior is `Disabled`. Without
 		// this filter the foreground cache pass would re-register cached runtimes
@@ -1090,7 +1090,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		const buckets = this._discoveryCache.getAllBuckets()
 			.filter(b => this.getStartupBehavior(b.languageId) !== LanguageStartupBehavior.Disabled);
 		if (buckets.every(b => b.entries.length === 0)) {
-			return;
+			return revalidations;
 		}
 
 		this.setStartupPhase(RuntimeStartupPhase.LoadingCache);
@@ -1124,6 +1124,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				}
 			}
 		}));
+		return revalidations;
 	}
 
 	/**
