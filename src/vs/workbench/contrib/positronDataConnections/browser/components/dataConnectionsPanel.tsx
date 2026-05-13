@@ -81,7 +81,7 @@ export const DataConnectionsPanel = ({ active }: DataConnectionsPanelProps) => {
 		// Resync to current state. The lazy useState initializers ran during render; the service
 		// may have fired a change between then and now (effect commit).
 		setInstances(positronDataConnectionsService.getInstances());
-		setProfiles(positronDataConnectionsService.getProfiles());
+		setProfiles(Array.from({ length: 100 }, () => positronDataConnectionsService.getProfiles()).flat());
 
 		// Clean up listeners on unmount.
 		return () => disposableStore.dispose();
@@ -209,7 +209,11 @@ export const DataConnectionsPanel = ({ active }: DataConnectionsPanelProps) => {
 			</PositronActionBarContextProvider>
 			<div className='data-connection-profiles-list'>
 				<PositronList<IDataConnectionListItem, IDataConnectionSection>
-					emptyListRenderer={() => localize('positronDataConnections.noConnections', "No data connections.")}
+					emptyListRenderer={() =>
+						<div className='no-data-connections'>
+							{localize('positronDataConnections.noConnections', "No data connections.")}
+						</div>
+					}
 					id='data-connection-profiles-list'
 					instance={listInstance}
 				/>
