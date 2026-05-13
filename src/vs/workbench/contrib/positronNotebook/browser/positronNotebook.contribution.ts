@@ -756,7 +756,7 @@ registerAction2(class extends NotebookAction2 {
 });
 
 // I+I: Interrupt kernel in command mode (Jupyter-style)
-registerAction2(class extends NotebookAction2 {
+export class InterruptKernelAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.interruptKernel',
@@ -771,10 +771,11 @@ registerAction2(class extends NotebookAction2 {
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.interruptKernel();
 	}
-});
+}
+registerAction2(InterruptKernelAction);
 
 // o: Toggle output of selected cell in command mode (Jupyter-style)
-registerAction2(class extends NotebookAction2 {
+export class ToggleOutputAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.toggleOutput',
@@ -793,7 +794,8 @@ registerAction2(class extends NotebookAction2 {
 			cell.toggleOutputCollapse();
 		}
 	}
-});
+}
+registerAction2(ToggleOutputAction);
 
 // Cmd+A / Ctrl+A: Select all cells in command mode (Jupyter-style)
 export class SelectAllCellsAction extends NotebookAction2 {

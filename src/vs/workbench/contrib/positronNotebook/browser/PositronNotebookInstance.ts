@@ -1473,15 +1473,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return;
 		}
 
-		// Capture index before any mutations
 		const cellIndex = cell.index;
-
-		// Convert to markdown first if needed
-		if (cell.kind !== CellKind.Markup) {
-			this.changeCellType(CellKind.Markup);
-		}
-
-		// Re-read cell model at the same index (changeCellType replaces the cell)
 		const cellModel = this.textModel.cells[cellIndex];
 		if (!cellModel) {
 			return;
@@ -1491,10 +1483,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		const lines = content.split(/\r?\n/);
 		const firstLine = lines[0] ?? '';
 
-		// Strip existing heading prefix
+		// Strip existing heading prefix and apply new one
 		const stripped = firstLine.replace(/^#{1,6}\s*/, '');
-		const prefix = '#'.repeat(level) + ' ';
-		lines[0] = prefix + stripped;
+		lines[0] = '#'.repeat(level) + ' ' + stripped;
 
 		const newContent = lines.join('\n');
 		const computeUndoRedo = !this.isReadOnly || this.textModel.viewType === 'interactive';
@@ -1504,16 +1495,17 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			selections: [{ start: cellIndex, end: cellIndex + 1 }]
 		};
 
+		// Single atomic edit: converts to markdown (if needed) and sets heading in one operation
 		this.textModel.applyEdits([{
 			editType: CellEditType.Replace,
 			index: cellIndex,
 			count: 1,
 			cells: [{
 				cellKind: CellKind.Markup,
-				language: cellModel.language,
+				language: 'markdown',
 				mime: cellModel.mime,
 				source: newContent,
-				outputs: [],
+				outputs: cellModel.outputs,
 				metadata: cellModel.metadata,
 			}]
 		}], true, undefined, () => endSelections, undefined, computeUndoRedo);
