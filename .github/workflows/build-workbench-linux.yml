@@ -48,8 +48,6 @@ jobs:
           npm_config_arch: x64
         shell: scl enable gcc-toolset-14 -- bash -eo pipefail {0}
         run: |
-          echo "CI environment variable: $CI"
-          echo "GITHUB_ACTIONS environment variable: $GITHUB_ACTIONS"
           npm install --prefix build --fetch-timeout 120000
           npm ci --fetch-timeout 120000
 
