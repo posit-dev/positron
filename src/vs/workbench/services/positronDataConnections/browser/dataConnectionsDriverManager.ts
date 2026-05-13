@@ -5,12 +5,18 @@
 
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { IDataConnectionDriver, IDataConnectionDriverManager } from '../common/interfaces/positronDataConnectionsDriver.js';
+import { onUnexpectedError } from '../../../../base/common/errors.js';
+import { IDataConnectionDriver } from '../common/interfaces/dataConnectionDriver.js';
+import { IExtensionService } from '../../../services/extensions/common/extensions.js';
+import { IDataConnectionsDriverManager } from '../common/interfaces/dataConnectionsDriverManager.js';
 
 /**
- * DataConnectionDriverManager class.
+ * DataConnectionsDriverManager class.
  */
-export class DataConnectionDriverManager extends Disposable implements IDataConnectionDriverManager {
+export class DataConnectionsDriverManager extends Disposable implements IDataConnectionsDriverManager {
+	// A value which indicates whether the drivers are loaded.
+	private _driversLoaded = false;
+
 	// The registered data connection drivers.
 	private readonly _drivers: IDataConnectionDriver[] = [];
 
@@ -19,6 +25,27 @@ export class DataConnectionDriverManager extends Disposable implements IDataConn
 
 	// The onDidChangeDrivers event.
 	readonly onDidChangeDrivers: Event<IDataConnectionDriver[]> = this._onDidChangeDrivers.event;
+
+	/**
+	 * Constructor. Subscribes to onStartupFinished activation so callers can tell "still loading"
+	 * from "extension is genuinely absent" when looking up a driver.
+	 */
+	constructor(extensionService: IExtensionService) {
+		// Call the base class constructor.
+		super();
+
+		// Subscribe to the onStartupFinished activation event. Once it resolves, any extensions
+		// registered against it have had a chance to register their drivers, so a missing driver
+		// can be reported as "genuinely absent" rather than "still loading." If activation fails,
+		// flip the flag anyway so the UI doesn't hang in "still loading" forever.
+		extensionService.activateByEvent('onStartupFinished').then(
+			() => { this._driversLoaded = true; },
+			err => {
+				this._driversLoaded = true;
+				onUnexpectedError(err);
+			}
+		);
+	}
 
 	/**
 	 * Registers a driver.
@@ -56,7 +83,17 @@ export class DataConnectionDriverManager extends Disposable implements IDataConn
 	}
 
 	/**
+	 * Gets a value indicating whether the drivers have finished loading. Callers can use this to determine
+	 * whether an absent driver is still loading or genuinely not present.
+	 * @returns true if the drivers have finished loading; otherwise, false.
+	 */
+	get driversLoaded(): boolean {
+		return this._driversLoaded;
+	}
+
+	/**
 	 * Gets all drivers.
+	 * @returns The array of drivers.
 	 */
 	getDrivers(): IDataConnectionDriver[] {
 		return [...this._drivers];
@@ -65,6 +102,7 @@ export class DataConnectionDriverManager extends Disposable implements IDataConn
 	/**
 	 * Gets a driver.
 	 * @param driverId The driver ID of the driver to get.
+	 * @return The driver with the given ID, or undefined if not found.
 	 */
 	getDriver(driverId: string): IDataConnectionDriver | undefined {
 		return this._drivers.find(d => d.id === driverId);

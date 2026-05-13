@@ -5,7 +5,7 @@ description: Use when pulling changes from rstudio/vscode-server into Positron �
 
 # Pull Upstream vscode-server Changes
 
-Ports changes from `rstudio/vscode-server` into Positron as a single "pseudo upstream merge" commit. A full `git merge` is not possible — the two repos are parallel VSCode forks with no shared git ancestry.
+Ports changes from `rstudio/vscode-server` into Positron as a single "upstream merge from vscode-server" commit. A full `git merge` is not possible — the two repos are parallel VSCode forks with no shared git ancestry — so changes are applied manually and bundled into one commit.
 
 ## When to Use This Skill
 
@@ -36,7 +36,7 @@ Find `<baseline-sha>` — it's the `upstream/main` HEAD recorded after the previ
 git rev-parse upstream/main
 ```
 
-If starting fresh with no recorded SHA, look at the `Brings in:` lines of the last pseudo upstream merge commit, find the earliest of those commits on `upstream/main`, and use its parent SHA as the baseline.
+If starting fresh with no recorded SHA, look at the `Brings in:` lines of the last upstream merge commit, find the earliest of those commits on `upstream/main`, and use its parent SHA as the baseline.
 
 The script assumes Positron and vscode-server are on the same Microsoft VSCode baseline. If Microsoft commits appear in the range it exits with an error — sync the Microsoft baseline first.
 
@@ -70,21 +70,25 @@ npm run precommit -- <file1> <file2> ...           # lint and formatting
 
 Fix precommit issues only in lines you touched. Do not fix pre-existing warnings in unrelated parts of the file — those belong in a separate commit.
 
-Bundle everything into one commit:
+Bundle everything into one commit. Keep the message focused on what's being ported and why — do not include QA notes or e2e test tags (those belong in the PR body only):
 ```bash
-git commit -m "pseudo upstream merge from vscode-server
+git commit -m "upstream merge from vscode-server
 
 Brings in:
 - rstudio/vscode-server#N: <description>
 
-### QA Notes
-
-<steps or 'No manual testing needed.'>"
+<optional: 1-2 short paragraphs of context, e.g. who/what is affected>"
 ```
 
-### Step 5: Create PR
+### Step 5: Offer to create PR
 
-Use the `positron-pr-helper` skill to create the PR. Always include `@:workbench @:web` in the QA tags.
+After the commit lands and verification passes, ask the user whether to create a PR using the `positron-pr-helper` skill — do not push or open the PR until they confirm.
+
+If they say yes, invoke `positron-pr-helper`. Always include `@:workbench @:web @:jupyter` in the QA tags. Then look at the ported diffs and add any other tags that match the affected areas — `positron-pr-helper` fetches the current list from `test/e2e/infra/test-runner/test-tags.ts` (or run `.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh list` directly). Pick tags conservatively — only add ones that genuinely match what changed. The mandatory three (`@:workbench @:web @:jupyter`) already cover the PWB surface area; additional tags are for routing extra coverage at the specific subsystem that was touched.
+
+### Step 6: Ask for skill feedback
+
+After the PR is open (or after the user declines to create one), ask the user how the skill worked for them and whether anything about the workflow should be changed. If they suggest changes, edit `SKILL.md` directly so future runs incorporate the feedback.
 
 ## Common Mistakes
 
