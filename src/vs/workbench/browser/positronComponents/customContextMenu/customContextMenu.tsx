@@ -217,15 +217,22 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 	 *
 	 * @returns The rendered component.
 	 */
-	const MenuSeparator = () => {
+	const MenuSeparator = ({ title }: { title?: string }) => {
 		// Render.
 		return (
-			<div
-				className='custom-context-menu-separator'
-				role='separator'
-				// When the mouse enters a menu separator, close the active submenu.
-				onMouseEnter={closeActiveSubmenu}
-			/>
+			<>
+				<div
+					className='custom-context-menu-separator'
+					role='separator'
+					// When the mouse enters a menu separator, close the active submenu.
+					onMouseEnter={closeActiveSubmenu}
+				/>
+				{title && (
+					<div className='custom-context-menu-separator-title'>
+						{title}
+					</div>
+				)}
+			</>
 		);
 	};
 
@@ -502,7 +509,7 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 					if (entry instanceof CustomContextMenuItem) {
 						return <MenuItem key={index} {...entry.options} />;
 					} else if (entry instanceof CustomContextMenuSeparator) {
-						return <MenuSeparator key={index} />;
+						return <MenuSeparator key={index} title={entry.title} />;
 					} else if (entry instanceof CustomContextMenuSubmenu) {
 						return <MenuSubmenuItem key={index} {...entry.options} />;
 					} else {

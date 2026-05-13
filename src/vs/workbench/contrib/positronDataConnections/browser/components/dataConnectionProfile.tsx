@@ -100,7 +100,7 @@ export const DataConnectionProfile = ({ profile }: DataConnectionProfileProps) =
 					label: localize('positronDataConnections.connect', "Connect"),
 					onSelected: () => console.log(`Connect: ${profile.id} (${profile.connectionName})`),
 				}),
-				new CustomContextMenuSeparator(),
+				new CustomContextMenuSeparator(localize('positronDataConnections.connectWith', "Connect With")),
 				new CustomContextMenuItem({
 					label: localize('positronDataConnections.connectWithPython', "Python"),
 					onSelected: () => console.log(`Connect with Python: ${profile.id} (${profile.connectionName})`),

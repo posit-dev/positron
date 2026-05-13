@@ -18,6 +18,13 @@
 	background: var(--vscode-positronContextMenu-separatorBackground);
 }
 
+.custom-context-menu-separator-title {
+	padding: 2px 8px;
+	font-size: 0.9em;
+	text-transform: uppercase;
+	color: var(--vscode-descriptionForeground);
+}
+
 .custom-context-menu-item {
 	width: 100%;
 	height: 26px;
