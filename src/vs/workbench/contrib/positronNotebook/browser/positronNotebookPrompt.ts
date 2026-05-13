@@ -131,7 +131,7 @@ export class PositronNotebookPromptContribution extends Disposable implements IW
 registerAction2(class extends Action2 {
 	constructor() {
 		super({
-			id: 'positron.notebook.resetPrompt',
+			id: 'positronNotebook.resetPrompt',
 			title: localize2('positron.notebook.resetPrompt', 'Reset Positron Notebook Prompt'),
 			category: Categories.Developer,
 			f1: true,
