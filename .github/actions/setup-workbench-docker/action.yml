@@ -65,11 +65,11 @@ runs:
           -e GITHUB_TOKEN="${{ inputs.github-token }}" \
           -e ARCH_SUFFIX=amd64 \
           -e WB_PASSWORD="${{ inputs.wb-password }}" \
-          -e DATABRICKS_URL="${DATABRICKS_URL}" \
-          -e DATABRICKS_CLIENT_ID="${DATABRICKS_CLIENT_ID}" \
-          -e SNOWFLAKE_ACCOUNT="${SNOWFLAKE_ACCOUNT}" \
-          -e SNOWFLAKE_CLIENT_ID="${SNOWFLAKE_CLIENT_ID}" \
-          -e SNOWFLAKE_CLIENT_SECRET="${SNOWFLAKE_CLIENT_SECRET}" \
+          -e DATABRICKS_URL_="${DATABRICKS_URL}" \
+          -e DATABRICKS_CLIENT_ID_="${DATABRICKS_CLIENT_ID}" \
+          -e SNOWFLAKE_ACCOUNT_="${SNOWFLAKE_ACCOUNT}" \
+          -e SNOWFLAKE_CLIENT_ID_="${SNOWFLAKE_CLIENT_ID}" \
+          -e SNOWFLAKE_CLIENT_SECRET_="${SNOWFLAKE_CLIENT_SECRET}" \
           test /bin/bash -c "/tmp/install-workbench.sh --${{ inputs.install-mode }}"
 
     - name: Install custom Positron build (if provided)

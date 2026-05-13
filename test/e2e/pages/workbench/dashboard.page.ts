@@ -128,12 +128,14 @@ export class DashboardPage {
 	private async setupDatabricksOAuth(context: BrowserContext): Promise<void> {
 		const page = this.code.driver.currentPage;
 
-		// Check if already enabled
+		// Check if already enabled - wait 3 seconds for state to stabilize
 		const enabledWidget = page.locator('[aria-label*="Databricks"][aria-label*="Enabled"]');
-		const isEnabled = await enabledWidget.isVisible().catch(() => false);
-		if (isEnabled) {
+		try {
+			await expect(enabledWidget).toBeVisible({ timeout: 3000 });
 			this.code.logger.log('Databricks credential already configured, skipping setup');
 			return;
+		} catch {
+			// Not enabled yet, proceed with setup
 		}
 
 		this.code.logger.log('Setting up Databricks OAuth...');
@@ -204,12 +206,14 @@ export class DashboardPage {
 	private async setupSnowflakeOAuth(context: BrowserContext): Promise<void> {
 		const page = this.code.driver.currentPage;
 
-		// Check if already enabled
+		// Check if already enabled - wait 3 seconds for state to stabilize
 		const enabledWidget = page.locator('[aria-label*="Snowflake"][aria-label*="Enabled"]');
-		const isEnabled = await enabledWidget.isVisible().catch(() => false);
-		if (isEnabled) {
+		try {
+			await expect(enabledWidget).toBeVisible({ timeout: 3000 });
 			this.code.logger.log('Snowflake credential already configured, skipping setup');
 			return;
+		} catch {
+			// Not enabled yet, proceed with setup
 		}
 
 		this.code.logger.log('Setting up Snowflake OAuth...');
