@@ -1083,6 +1083,20 @@ declare module 'positron' {
 		getDiscoveryRootSignature?(): Thenable<RuntimeRootSignature>;
 
 		/**
+		 * Opt out of the discovery cache's warm-start fast path. When `true`,
+		 * `discoverAllRuntimes()` is invoked on every Positron window open --
+		 * even when the cache would otherwise have considered the manager
+		 * satisfied.
+		 *
+		 * Set this when your runtimes are dynamic, ephemeral, or not backed by
+		 * a stat-able binary (so they can never be cached): the cache has no
+		 * record of them, but skipping discovery would leave them unregistered
+		 * on warm starts. Managers whose runtimes set `cacheable: true` should
+		 * leave this unset.
+		 */
+		alwaysRediscover?: boolean;
+
+		/**
 		 * An optional event that fires when a new runtime is discovered.
 		 *
 		 * Not fired during `discoverRuntimes()`; used to notify Positron of a

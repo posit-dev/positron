@@ -19,6 +19,7 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IWorkbenchEnvironmentService } from '../../../environment/common/environmentService.js';
 import {
+	IHostedLanguageContribution,
 	ILanguageRuntimeMetadata,
 	IRuntimeManager,
 	IRuntimeRootSignature,
@@ -56,9 +57,13 @@ interface ITestDiscoveryCache extends IRuntimeDiscoveryCache {
 function createTestCache(): ITestDiscoveryCache {
 	const buckets = new Map<string, IDiscoveryCacheBucket>();
 	let enabled = true;
+	const bucketKey = (extId: string, langId: string) => `${extId}::${langId}`;
 	return stubInterface<ITestDiscoveryCache>({
 		isEnabled: () => enabled,
 		getAllBuckets: () => enabled ? Array.from(buckets.values()) : [],
+		getEntries: (extId, langId) => enabled ? (buckets.get(bucketKey(extId, langId))?.entries ?? []) : [],
+		getLastFullDiscovery: (extId, langId) => buckets.get(bucketKey(extId, langId))?.lastFullDiscovery,
+		getDiscoveryRootSignature: (extId, langId) => buckets.get(bucketKey(extId, langId))?.discoveryRootSignature,
 		setBucket(bucket: IDiscoveryCacheBucket) {
 			buckets.set(`${bucket.extensionId}::${bucket.languageId}`, bucket);
 		},
@@ -76,10 +81,25 @@ interface IManagerOptions {
 	owns: ILanguageRuntimeMetadata[];
 	rootSignatureByLanguage?: Record<string, IRuntimeRootSignature>;
 	rootSignatureBehavior?: 'normal' | 'throws' | 'never-resolves';
+	/**
+	 * The (extensionId, languageId) contributions this ext host hosts, with
+	 * their `alwaysRediscover` flag. If omitted, derived from `owns` with all
+	 * flags `false` (covers the existing cache-hit tests). Set explicitly to
+	 * model an ext host with multiple language managers (e.g. r + zed) or to
+	 * declare per-language `alwaysRediscover`.
+	 */
+	contributions?: IHostedLanguageContribution[];
+	contributionsBehavior?: 'normal' | 'throws';
 }
 
 function makeManager(opts: IManagerOptions): IRuntimeManager {
 	const ownsByPath = new Map(opts.owns.map(m => [m.runtimePath, m]));
+	const contributions: IHostedLanguageContribution[] = opts.contributions ?? Array.from(
+		new Map(opts.owns.map(m => [
+			`${m.extensionId.value}::${m.languageId}`,
+			{ extensionId: m.extensionId.value, languageId: m.languageId, alwaysRediscover: false },
+		])).values(),
+	);
 	return {
 		id: opts.id,
 		discoverAllRuntimes: async () => { /* no-op for unit test */ },
@@ -95,6 +115,12 @@ function makeManager(opts: IManagerOptions): IRuntimeManager {
 				return new Promise<IRuntimeRootSignature | undefined>(() => { /* never */ });
 			}
 			return opts.rootSignatureByLanguage?.[languageId];
+		},
+		getHostedLanguageContributions: async () => {
+			if (opts.contributionsBehavior === 'throws') {
+				throw new Error('boom');
+			}
+			return contributions;
 		},
 	};
 }
@@ -200,10 +226,17 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 	// The decision logic is the load-bearing part of the warm-start fast path,
 	// and the public `discoverAllRuntimes` entry point would require simulating
 	// the full startup phase machine just to get here.
-	function managersNeedingFullDiscovery(svc: RuntimeStartupService): Promise<IRuntimeManager[]> {
-		return (svc as unknown as { managersNeedingFullDiscovery: () => Promise<IRuntimeManager[]> })
+	interface IPlan {
+		manager: IRuntimeManager;
+		runContributions: IHostedLanguageContribution[];
+		skipLanguageIds: string[];
+	}
+	function managersNeedingFullDiscovery(svc: RuntimeStartupService): Promise<IPlan[]> {
+		return (svc as unknown as { managersNeedingFullDiscovery: () => Promise<IPlan[]> })
 			.managersNeedingFullDiscovery();
 	}
+	// Convenience for the most common assertion: which managers were planned for discovery?
+	const managersFromPlans = (plans: IPlan[]) => plans.map(p => p.manager);
 
 	function lastFullDiscoveryReason(svc: RuntimeStartupService): string {
 		return (svc as unknown as { _lastFullDiscoveryReason: string })._lastFullDiscoveryReason;
@@ -218,24 +251,31 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 			ctx.disposables.add(svc.registerRuntimeManager(m1));
 			ctx.disposables.add(svc.registerRuntimeManager(m2));
 
-			const result = await managersNeedingFullDiscovery(svc);
-			expect(result).toEqual([m1, m2]);
+			const plans = await managersNeedingFullDiscovery(svc);
+			expect(managersFromPlans(plans)).toEqual([m1, m2]);
 		});
 	});
 
 	describe('cold-start path', () => {
-		it('returns every manager when no buckets are cached', async () => {
+		it('flags a manager whose contributions have no cached entries', async () => {
 			const svc = makeService();
-			const m1 = makeManager({ id: 1, owns: [] });
-			ctx.disposables.add(svc.registerRuntimeManager(m1));
+			const pyManager = makeManager({
+				id: 1,
+				owns: [],
+				contributions: [{ extensionId: 'ms.python', languageId: 'python', alwaysRediscover: false }],
+			});
+			ctx.disposables.add(svc.registerRuntimeManager(pyManager));
 
-			const result = await managersNeedingFullDiscovery(svc);
-			expect(result).toEqual([m1]);
+			const plans = await managersNeedingFullDiscovery(svc);
+			expect(managersFromPlans(plans)).toEqual([pyManager]);
 			expect(lastFullDiscoveryReason(svc)).toBe('cold-start');
 		});
 
-		it('flags a manager that owns none of the cached buckets', async () => {
-			// Cache has a Python bucket, but our manager doesn't claim Python.
+		it("skips a manager that hosts no contributions at all", async () => {
+			// Ext host hasn't activated yet (or hosts no language runtime
+			// managers); planner has nothing to do for it. Different from
+			// cold-start, where the ext host *does* host contributions but
+			// none of them are in the cache.
 			cache.setBucket(makeBucket({
 				extensionId: 'ms.python',
 				languageId: 'python',
@@ -244,12 +284,11 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 				signature: sig([['/usr/bin', true, 1000]]),
 			}));
 			const svc = makeService();
-			const rManager = makeManager({ id: 2, owns: [] });
+			const rManager = makeManager({ id: 2, owns: [], contributions: [] });
 			ctx.disposables.add(svc.registerRuntimeManager(rManager));
 
-			const result = await managersNeedingFullDiscovery(svc);
-			expect(result).toEqual([rManager]);
-			expect(lastFullDiscoveryReason(svc)).toBe('cold-start');
+			const plans = await managersNeedingFullDiscovery(svc);
+			expect(plans).toEqual([]);
 		});
 	});
 
@@ -273,8 +312,66 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 			});
 			ctx.disposables.add(svc.registerRuntimeManager(pyManager));
 
-			const result = await managersNeedingFullDiscovery(svc);
-			expect(result).toEqual([]);
+			const plans = await managersNeedingFullDiscovery(svc);
+			expect(plans).toEqual([]);
+		});
+	});
+
+	describe('alwaysRediscover opt-out', () => {
+		it('runs only the alwaysRediscover language when sibling languages are cache-satisfied', async () => {
+			// Models the positron-zed scenario: zed and r share an ext host
+			// (one IRuntimeManager hosts both contributions). R's cache is
+			// fresh, zed has no cache and is marked alwaysRediscover. The
+			// plan should run zed but skip r -- otherwise the cache PR is
+			// pointless on warm starts because Zed's opt-out poisons R.
+			const rootSig = sig([['/usr/local/bin/R', true, 1000]]);
+			const rBucket = makeBucket({
+				extensionId: 'positron.positron-r',
+				languageId: 'r',
+				runtimePath: '/usr/local/bin/R',
+				lastFullDiscovery: Date.now(),
+				signature: rootSig,
+			});
+			cache.setBucket(rBucket);
+
+			const svc = makeService();
+			const sharedHost = makeManager({
+				id: 1,
+				owns: [rBucket.entries[0].metadata],
+				rootSignatureByLanguage: { r: rootSig },
+				contributions: [
+					{ extensionId: 'positron.positron-r', languageId: 'r', alwaysRediscover: false },
+					{ extensionId: 'positron.positron-zed', languageId: 'zed', alwaysRediscover: true },
+				],
+			});
+			ctx.disposables.add(svc.registerRuntimeManager(sharedHost));
+
+			const plans = await managersNeedingFullDiscovery(svc);
+			expect(plans).toEqual([{
+				manager: sharedHost,
+				runContributions: [
+					{ extensionId: 'positron.positron-zed', languageId: 'zed', alwaysRediscover: true },
+				],
+				skipLanguageIds: ['r'],
+			}]);
+			expect(lastFullDiscoveryReason(svc)).toBe('always-rediscover');
+		});
+
+		it('falls back to a conservative whole-host run when the contributions probe throws', async () => {
+			// A misbehaving ext host that throws from getHostedLanguageContributions
+			// shouldn't strand its discovery; we plan a full pass with no skip
+			// list, equivalent to the pre-cache behavior.
+			const svc = makeService();
+			const pyManager = makeManager({
+				id: 1,
+				owns: [],
+				contributionsBehavior: 'throws',
+			});
+			ctx.disposables.add(svc.registerRuntimeManager(pyManager));
+
+			const plans = await managersNeedingFullDiscovery(svc);
+			expect(plans).toEqual([{ manager: pyManager, runContributions: [], skipLanguageIds: [] }]);
+			expect(lastFullDiscoveryReason(svc)).toBe('cold-start');
 		});
 	});
 
@@ -298,8 +395,8 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 			});
 			ctx.disposables.add(svc.registerRuntimeManager(pyManager));
 
-			const result = await managersNeedingFullDiscovery(svc);
-			expect(result).toEqual([pyManager]);
+			const plans = await managersNeedingFullDiscovery(svc);
+			expect(managersFromPlans(plans)).toEqual([pyManager]);
 			expect(lastFullDiscoveryReason(svc)).toBe('periodic');
 		});
 
@@ -323,8 +420,8 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 			});
 			ctx.disposables.add(svc.registerRuntimeManager(pyManager));
 
-			const result = await managersNeedingFullDiscovery(svc);
-			expect(result).toEqual([pyManager]);
+			const plans = await managersNeedingFullDiscovery(svc);
+			expect(managersFromPlans(plans)).toEqual([pyManager]);
 			expect(lastFullDiscoveryReason(svc)).toBe('periodic');
 		});
 	});
@@ -350,8 +447,8 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 			});
 			ctx.disposables.add(svc.registerRuntimeManager(pyManager));
 
-			const result = await managersNeedingFullDiscovery(svc);
-			expect(result).toEqual([pyManager]);
+			const plans = await managersNeedingFullDiscovery(svc);
+			expect(managersFromPlans(plans)).toEqual([pyManager]);
 			expect(lastFullDiscoveryReason(svc)).toBe('roots-changed');
 		});
 
@@ -376,8 +473,8 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 			});
 			ctx.disposables.add(svc.registerRuntimeManager(pyManager));
 
-			const result = await managersNeedingFullDiscovery(svc);
-			expect(result).toEqual([]);
+			const plans = await managersNeedingFullDiscovery(svc);
+			expect(plans).toEqual([]);
 		});
 
 		it('falls back to periodic when getDiscoveryRootSignature throws', async () => {
@@ -399,8 +496,8 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 			});
 			ctx.disposables.add(svc.registerRuntimeManager(pyManager));
 
-			const result = await managersNeedingFullDiscovery(svc);
-			expect(result).toEqual([pyManager]);
+			const plans = await managersNeedingFullDiscovery(svc);
+			expect(managersFromPlans(plans)).toEqual([pyManager]);
 			expect(lastFullDiscoveryReason(svc)).toBe('periodic');
 		});
 
@@ -431,8 +528,8 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 				// resolution, so we need to advance and then drain the microtask
 				// queue between awaits.
 				await vi.advanceTimersByTimeAsync(600);
-				const result = await promise;
-				expect(result).toEqual([pyManager]);
+				const plans = await promise;
+				expect(managersFromPlans(plans)).toEqual([pyManager]);
 				expect(lastFullDiscoveryReason(svc)).toBe('periodic');
 			} finally {
 				vi.useRealTimers();
@@ -477,13 +574,13 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 				},
 			})));
 
-			const result = await managersNeedingFullDiscovery(svc);
-			expect(result).toHaveLength(2);
+			const plans = await managersNeedingFullDiscovery(svc);
+			expect(plans).toHaveLength(2);
 			expect(lastFullDiscoveryReason(svc)).toBe('roots-changed');
 		});
 
 		it('cold-start beats roots-changed when both fire across managers', async () => {
-			// Manager A: cold-start (no buckets it owns).
+			// Manager A: cold-start (contribution has no cached entries).
 			// Manager B: fresh + signature changed -> roots-changed.
 			// The reason field should be the more specific 'cold-start'.
 			const persistedSig = sig([['/usr/bin', true, 1000]]);
@@ -499,7 +596,9 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 			const svc = makeService();
 			ctx.disposables.add(svc.registerRuntimeManager(makeManager({
 				id: 1,
-				owns: [], // owns nothing -> cold-start
+				owns: [],
+				// Has a contribution but no cached entries -> cold-start.
+				contributions: [{ extensionId: 'ms.python', languageId: 'python', alwaysRediscover: false }],
 			})));
 			ctx.disposables.add(svc.registerRuntimeManager(makeManager({
 				id: 2,
@@ -509,8 +608,8 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 				},
 			})));
 
-			const result = await managersNeedingFullDiscovery(svc);
-			expect(result).toHaveLength(2);
+			const plans = await managersNeedingFullDiscovery(svc);
+			expect(plans).toHaveLength(2);
 			expect(lastFullDiscoveryReason(svc)).toBe('cold-start');
 		});
 	});

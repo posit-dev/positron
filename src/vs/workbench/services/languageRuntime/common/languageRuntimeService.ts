@@ -953,6 +953,21 @@ export interface ILanguageRuntimeMetadata {
 }
 
 /**
+ * One language-runtime contribution as seen from inside an extension host:
+ * the (extension, language) pair that registered a `LanguageRuntimeManager`
+ * via `positron.runtime.registerLanguageRuntimeManager`, plus the per-manager
+ * `alwaysRediscover` opt-out flag the extension declared.
+ *
+ * A single extension host typically hosts several of these (e.g. positron-r
+ * and positron-zed both run in the node ext host, each registers one).
+ */
+export interface IHostedLanguageContribution {
+	readonly extensionId: string;
+	readonly languageId: string;
+	readonly alwaysRediscover: boolean;
+}
+
+/**
  * Represents an object that manages the discovery of language runtimes. This
  * is implemented by each extension host in the form of a
 * `MainThreadLanguageRuntime`.
@@ -964,10 +979,16 @@ export interface IRuntimeManager {
 	/**
 	 * Discovers all available runtimes on the machine.
 	 *
-	 * @param disabledLanguageIds Languages for which discovery should be
-	 * skipped.
+	 * @param disabledLanguageIds Languages the user has disabled; the
+	 * extension host filters its discoverers by this set in addition to
+	 * `skipLanguageIds`.
+	 * @param skipLanguageIds Languages whose discovery the cache layer has
+	 * decided to skip on this pass (typically because they're fully served
+	 * from cache and not flagged `alwaysRediscover`). Treated identically to
+	 * `disabledLanguageIds` at runtime; the split exists so the user-disabled
+	 * set isn't conflated with cache-driven decisions.
 	 */
-	discoverAllRuntimes(disabledLanguageIds: string[]): Promise<void>;
+	discoverAllRuntimes(disabledLanguageIds: string[], skipLanguageIds?: string[]): Promise<void>;
 
 	/**
 	 * Mark the manager's discovery-complete flag without running a real
@@ -1006,6 +1027,16 @@ export interface IRuntimeManager {
 	 * triggers via this path.
 	 */
 	getDiscoveryRootSignature(languageId: string): Promise<IRuntimeRootSignature | undefined>;
+
+	/**
+	 * Return one entry per `LanguageRuntimeManager` registered in this
+	 * extension host, with the `alwaysRediscover` flag the manager declared.
+	 * The discovery-cache layer uses this to make per-`(extensionId,
+	 * languageId)` decisions about whether each contribution needs a full
+	 * pass on the current open, then drives `discoverAllRuntimes` with a
+	 * per-language skip set.
+	 */
+	getHostedLanguageContributions(): Promise<IHostedLanguageContribution[]>;
 
 	/**
 	 * Re-validate runtime metadata against the live extension. Throws if the

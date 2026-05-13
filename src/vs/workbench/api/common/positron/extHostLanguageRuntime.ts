@@ -5,7 +5,7 @@
 
 import type * as positron from 'positron';
 import { debounce } from '../../../../base/common/decorators.js';
-import { ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageState, ILanguageRuntimeMetadata, IRuntimeRootSignature, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageError, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IHostedLanguageContribution, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageState, ILanguageRuntimeMetadata, IRuntimeRootSignature, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageError, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import * as extHostProtocol from './extHost.positron.protocol.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
@@ -967,6 +967,21 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * `getDiscoveryRootSignature`. Errors thrown by the manager propagate to
 	 * the caller, which in turn drops back to the periodic-refresh trigger.
 	 */
+	/**
+	 * Per-contribution view of the runtime managers registered in this
+	 * extension host. The main-thread cache layer uses this to make
+	 * per-`(extensionId, languageId)` decisions about which contributions
+	 * need a full discovery pass, instead of forcing the whole ext host
+	 * just because one of its managers opted into `alwaysRediscover`.
+	 */
+	public async $getHostedLanguageContributions(): Promise<IHostedLanguageContribution[]> {
+		return this._runtimeManagers.map(m => ({
+			extensionId: m.extension.identifier.value,
+			languageId: m.languageId,
+			alwaysRediscover: m.manager.alwaysRediscover === true,
+		}));
+	}
+
 	public async $getDiscoveryRootSignature(languageId: string): Promise<IRuntimeRootSignature | undefined> {
 		const m = this._runtimeManagers.find(m => m.languageId === languageId);
 		if (!m || !m.manager.getDiscoveryRootSignature) {
@@ -1002,9 +1017,18 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	/**
 	 * Discovers language runtimes and registers them with the main thread.
 	 *
-	 * @param disabledLanguageIds The set of language IDs to exclude from discovery
+	 * @param disabledLanguageIds The set of language IDs the user has disabled.
+	 * @param skipLanguageIds Additional language IDs the cache layer has
+	 * decided don't need a discovery pass on this open (typically because
+	 * they're fully served from cache and aren't `alwaysRediscover`).
 	 */
-	public async $discoverLanguageRuntimes(disabledLanguageIds: string[]): Promise<void> {
+	public async $discoverLanguageRuntimes(disabledLanguageIds: string[], skipLanguageIds?: string[]): Promise<void> {
+		// Merge the two skip sources into one. `disabledLanguageIds` is the
+		// user's explicit "don't run this language" setting; `skipLanguageIds`
+		// is the cache layer's per-language opt-out for this pass. The ext
+		// host doesn't care which is which -- it just needs the union.
+		const skipSet = new Set<string>([...disabledLanguageIds, ...(skipLanguageIds ?? [])]);
+
 		// Extract all the runtime discoverers from the runtime managers
 		let start = 0;
 		let end = this._runtimeManagers.length;
@@ -1015,7 +1039,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			// runtimes from it
 			const managers = this._runtimeManagers.slice(start, end);
 			try {
-				await this.discoverLanguageRuntimes(managers, disabledLanguageIds);
+				await this.discoverLanguageRuntimes(managers, skipSet);
 			} catch (err) {
 				// Log and continue if errors occur during registration; this is
 				// a safeguard to ensure we always signal the main thread when
@@ -1094,10 +1118,11 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	/**
 	 * Discovers language runtimes in parallel and registers each one with the main thread.
 	 *
-	 * @param discoverers The set of discoverers to discover runtimes from
-	 * @param disabledLanguageIds The set of language IDs to exclude from discovery
+	 * @param managers The set of managers to discover runtimes from
+	 * @param skipLanguageIds Language IDs to exclude from discovery (union of
+	 * the user's disabled set and the cache layer's per-pass skip set).
 	 */
-	private async discoverLanguageRuntimes(managers: Array<LanguageRuntimeManager>, disabledLanguageIds: string[]): Promise<void> {
+	private async discoverLanguageRuntimes(managers: Array<LanguageRuntimeManager>, skipLanguageIds: Set<string>): Promise<void> {
 
 		// Utility promise
 		const never: Promise<never> = new Promise(() => { });
@@ -1110,15 +1135,14 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		}
 
 		// Invoke all the discovery functions to return an async generator for each
-		const discoverers: Array<Discoverer> = managers.map(manager => ({
-			extension: manager.extension,
-			manager: manager.manager,
-			languageId: manager.languageId,
-			discoverer: manager.manager.discoverAllRuntimes()
-		})).filter(discoverer =>
-			// Do not discover runtimes for disabled languages
-			!disabledLanguageIds.includes(discoverer.languageId)
-		);
+		const discoverers: Array<Discoverer> = managers
+			.filter(manager => !skipLanguageIds.has(manager.languageId))
+			.map(manager => ({
+				extension: manager.extension,
+				manager: manager.manager,
+				languageId: manager.languageId,
+				discoverer: manager.manager.discoverAllRuntimes()
+			}));
 
 		// The number of discoverers we're waiting on (initially all
 		// discoverers)
