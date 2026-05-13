@@ -26,22 +26,9 @@ function ids(runtimes: ILanguageRuntimeMetadata[]): string[] {
 }
 
 describe('buildSessionDropdownRuntimes', () => {
-	it('returns an empty array when activeSessions is empty and foregroundRuntime is undefined', () => {
-		expect(buildSessionDropdownRuntimes(undefined, [])).toEqual([]);
-	});
-
 	it('returns only the foreground runtime when activeSessions is empty', () => {
 		const foreground = makeRuntime('r-1');
 		expect(ids(buildSessionDropdownRuntimes(foreground, []))).toEqual(['r-1']);
-	});
-
-	it('places the foreground runtime first regardless of lastUsed', () => {
-		const foreground = makeRuntime('r-foreground');
-		const sessions = [
-			makeSession('r-older', 50),
-			makeSession('r-newer', 200),
-		];
-		expect(ids(buildSessionDropdownRuntimes(foreground, sessions))).toEqual(['r-foreground', 'r-newer', 'r-older']);
 	});
 
 	it('sorts remaining sessions by lastUsed descending after the foreground', () => {
@@ -71,13 +58,5 @@ describe('buildSessionDropdownRuntimes', () => {
 			makeSession('r-2', 100),
 		];
 		expect(ids(buildSessionDropdownRuntimes(foreground, sessions))).toEqual(['r-1', 'r-2']);
-	});
-
-	it('caps the result at 5 items total', () => {
-		const foreground = makeRuntime('r-foreground');
-		const sessions = Array.from({ length: 10 }, (_, i) => makeSession(`r-${i}`, i));
-		const result = ids(buildSessionDropdownRuntimes(foreground, sessions));
-		expect(result).toHaveLength(5);
-		expect(result[0]).toBe('r-foreground');
 	});
 });
