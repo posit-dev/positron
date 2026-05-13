@@ -244,17 +244,8 @@ describe('Notebook output focus state', () => {
 	});
 
 	describe('CopyOutputAction behavior', () => {
-		it('writes empty string to clipboard when text outputs have empty content', async () => {
-			const notebook = createTestPositronNotebookInstance([{
-				source: 'print("")',
-				language: 'python',
-				mime: undefined,
-				cellKind: CellKind.Code,
-				outputs: [{
-					outputId: 'empty-output',
-					outputs: [{ mime: 'application/vnd.code.notebook.stdout', data: VSBuffer.fromString('') }],
-				}],
-			}], ctx);
+		function setupCopyAction(cellInputs: TestCellInput[]) {
+			const notebook = createTestPositronNotebookInstance(cellInputs, ctx);
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
 
@@ -274,11 +265,46 @@ describe('Notebook output focus state', () => {
 			outputDiv.tabIndex = 0;
 			outputDiv.focus();
 
+			return { notebook, accessor, writeText, cleanup: () => document.body.removeChild(outputDiv) };
+		}
+
+		it('writes empty string to clipboard when text outputs have empty content', async () => {
+			const { notebook, accessor, writeText, cleanup } = setupCopyAction([{
+				source: 'print("")',
+				language: 'python',
+				mime: undefined,
+				cellKind: CellKind.Code,
+				outputs: [{
+					outputId: 'empty-output',
+					outputs: [{ mime: 'application/vnd.code.notebook.stdout', data: VSBuffer.fromString('') }],
+				}],
+			}]);
+
 			const action = new CopyOutputAction();
 			await action.runNotebookAction(notebook, accessor);
 
 			expect(writeText).toHaveBeenCalledWith('');
-			document.body.removeChild(outputDiv);
+			cleanup();
+		});
+
+		it('copies formatted JSON when cell has a single JSON output', async () => {
+			const jsonData = { key: 'value', nested: { n: 42 } };
+			const { notebook, accessor, writeText, cleanup } = setupCopyAction([{
+				source: 'data',
+				language: 'python',
+				mime: undefined,
+				cellKind: CellKind.Code,
+				outputs: [{
+					outputId: 'json-output',
+					outputs: [{ mime: 'application/json', data: VSBuffer.fromString(JSON.stringify(jsonData)) }],
+				}],
+			}]);
+
+			const action = new CopyOutputAction();
+			await action.runNotebookAction(notebook, accessor);
+
+			expect(writeText).toHaveBeenCalledWith(JSON.stringify(jsonData, null, 2));
+			cleanup();
 		});
 	});
 });

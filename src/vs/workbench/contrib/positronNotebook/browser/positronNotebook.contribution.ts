@@ -1826,7 +1826,14 @@ export class CopyOutputAction extends NotebookAction2 {
 			return;
 		}
 
-		// Priority 3: Copy all text output content
+		// Priority 3: If the cell has exactly one JSON output, copy as formatted JSON
+		const jsonOutputs = outputs.filter(o => o.parsed.type === 'json');
+		if (jsonOutputs.length === 1 && jsonOutputs[0].parsed.type === 'json') {
+			await clipboardService.writeText(serializeJsonOutput(jsonOutputs[0].parsed.data));
+			return;
+		}
+
+		// Priority 4: Copy all text output content
 		if (outputs.some(o => isParsedTextOutput(o.parsed))) {
 			await clipboardService.writeText(getPlainTextOutputContent(outputs));
 			return;
