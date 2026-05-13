@@ -52,47 +52,47 @@ const HOME_RELATIVE_PATHS: readonly string[] = [
 ];
 
 /**
- * Directory where `uv python install` drops managed Python interpreters.
+ * Directories where `uv python install` drops managed Python interpreters.
  * Resolved without launching `uv` so the warm-start signature stays cheap.
  *
- * Resolution order matches uv-dirs (astral-sh/uv):
+ * Resolution mirrors uv's StateStore (astral-sh/uv, uv-state):
  *   1. `UV_PYTHON_INSTALL_DIR` -- explicit override, used verbatim.
  *   2. `UV_STATE_DIR` -- joined with `python`.
- *   3. The platform's user data directory + `uv/python`. uv honors
- *      `XDG_DATA_HOME` on every platform; on Windows it lands under
- *      `%APPDATA%` (Roaming), not `%LOCALAPPDATA%`.
- *
- * Uses `xdg-portable` for the data-dir lookup on macOS/Linux. On Windows,
- * `xdg.data()` returns `%APPDATA%\xdg.data` -- a convention unique to that
- * package -- so we fall back to plain `%APPDATA%` to match uv's actual layout.
+ *   3. Platform defaults:
+ *      - Unix (incl. macOS): `$XDG_DATA_HOME/uv/python`, else
+ *        `$HOME/.local/share/uv/python`. uv prefers XDG on every Unix.
+ *      - macOS additionally: `$HOME/Library/Application Support/uv/python`
+ *        as a legacy fallback; uv still honors it when it exists.
+ *      - Windows: `%APPDATA%\uv\python` (Roaming, matching uv).
  */
-function getUvPythonInstallDir(): string | undefined {
+function getUvPythonInstallDirs(): string[] {
     const installDirOverride = process.env['UV_PYTHON_INSTALL_DIR'];
     if (installDirOverride) {
-        return installDirOverride;
+        return [installDirOverride];
     }
     const stateDirOverride = process.env['UV_STATE_DIR'];
     if (stateDirOverride) {
-        return path.join(stateDirOverride, 'python');
+        return [path.join(stateDirOverride, 'python')];
     }
     if (process.platform === 'win32') {
         const appData = process.env['APPDATA'];
         if (!appData) {
-            return undefined;
+            return [];
         }
-        return path.join(appData, 'uv', 'python');
+        return [path.join(appData, 'uv', 'python')];
     }
-    try {
-        // eslint-disable-next-line @typescript-eslint/naming-convention
-        const xdg = require('xdg-portable/cjs');
-        const dataDir: string | undefined = xdg.data();
-        if (!dataDir) {
-            return undefined;
-        }
-        return path.join(dataDir, 'uv', 'python');
-    } catch {
-        return undefined;
+    const dirs: string[] = [];
+    const xdgDataHome = process.env['XDG_DATA_HOME'];
+    const home = getUserHomeDir();
+    if (xdgDataHome) {
+        dirs.push(path.join(xdgDataHome, 'uv', 'python'));
+    } else if (home) {
+        dirs.push(path.join(home, '.local', 'share', 'uv', 'python'));
     }
+    if (process.platform === 'darwin' && home) {
+        dirs.push(path.join(home, 'Library', 'Application Support', 'uv', 'python'));
+    }
+    return dirs;
 }
 
 /**
@@ -214,7 +214,7 @@ export async function getPythonDiscoveryRootSignature(): Promise<positron.Runtim
         }
     }
 
-    addAll([getUvPythonInstallDir()]);
+    addAll(getUvPythonInstallDirs());
     addAll([getHatchVirtualEnvRoot()]);
     addAll(getWindowsKnownRoots());
     addAll([getDefaultInterpreterParent()]);
