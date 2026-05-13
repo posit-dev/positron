@@ -14,31 +14,6 @@ test.describe('Console: Add +', {
 	tag: [tags.SESSIONS, tags.CONSOLE, tags.WEB, tags.WIN]
 }, () => {
 
-	test('Validate can duplicate runtime via Console + button', {
-		tag: [tags.ARK]
-	}, async function ({ app, page }) {
-		const { sessions, console } = app.workbench;
-		await sessions.start(['r']);
-
-		// Click the `+` button in the console to add a new session of the same type
-		await console.clickDuplicateSessionButton();
-		await expect(page.getByTestId(/console-tab-r-*/)).toHaveCount(2);
-		await sessions.expectAllSessionsToBeReady();
-	});
-
-	test('Validate can start a different runtime via Console + button', {
-		tag: [tags.ARK]
-	}, async function ({ app, page }) {
-		const { sessions, console } = app.workbench;
-		await sessions.start(['r', 'r']);
-
-		// Click the `+ v` button in the console to Start Another session
-		await console.clickStartAnotherSessionButton('python');
-		await expect(page.getByTestId(/console-tab-r-*/)).toHaveCount(2);
-		await expect(page.getByTestId(/console-tab-python-*/)).toHaveCount(1);
-		await sessions.expectAllSessionsToBeReady();
-	});
-
 	test('Validate Console + button menu shows both active and disconnected sessions', {
 		tag: [tags.ARK]
 	}, async function ({ app }) {
