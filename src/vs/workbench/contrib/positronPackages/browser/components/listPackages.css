@@ -98,9 +98,8 @@
 }
 
 .positron-packages-list .positron-list-empty {
-	padding: 5px 9px 5px 20px;
+	padding: 5px 8px;
 	cursor: default;
-	/* Anchor the message at the top-left, matching the prior empty-state placement. */
 	justify-content: flex-start;
 	align-items: flex-start;
 }
