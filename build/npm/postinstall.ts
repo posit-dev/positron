@@ -259,6 +259,7 @@ function generateRehWebPackageJson() {
 async function syncArkSubmoduleIfSafe(): Promise<void> {
 	// Skip in CI — checkouts there already pin the submodule via `submodules: true`.
 	if (process.env['CI']) {
+		log('.', 'Skipping ark submodule sync in CI environment');
 		return;
 	}
 
@@ -354,7 +355,12 @@ async function main() {
 	// --- Start Positron ---
 	// Sync the ark submodule before anything else — extensions install runs
 	// install-kernel, which reads the submodule's working tree.
-	await syncArkSubmoduleIfSafe();
+	try {
+		await syncArkSubmoduleIfSafe();
+	} catch (err) {
+		console.error('Error in syncArkSubmoduleIfSafe:', err);
+		throw err;
+	}
 	// --- End Positron ---
 
 	if (!process.env['VSCODE_FORCE_INSTALL'] && isUpToDate()) {
