@@ -544,7 +544,7 @@ describe('selectLanguageRuntimeSession - change notebook session', () => {
 });
 
 describe('DuplicateActiveConsoleSessionAction', () => {
-	const startNewRuntimeSession = vi.fn(async () => undefined as unknown as ILanguageRuntimeSession);
+	const startNewRuntimeSession = vi.fn(async (): Promise<string> => 'new-session-id');
 	const executeCommand = vi.fn(async () => undefined);
 	const notifyError = vi.fn();
 	let foregroundSession: ILanguageRuntimeSession | undefined;
@@ -553,7 +553,7 @@ describe('DuplicateActiveConsoleSessionAction', () => {
 		.withRuntimeServices()
 		.stub(IRuntimeSessionService, stubInterface<IRuntimeSessionService>({
 			get foregroundSession() { return foregroundSession; },
-			startNewRuntimeSession: startNewRuntimeSession as unknown as IRuntimeSessionService['startNewRuntimeSession'],
+			startNewRuntimeSession,
 		}))
 		.stub(ICommandService, { executeCommand })
 		.stub(INotificationService, stubInterface<INotificationService>({ error: notifyError }))
@@ -597,6 +597,7 @@ describe('DuplicateActiveConsoleSessionAction', () => {
 	it('returns early without calling startNewRuntimeSession when there is no foreground session', async () => {
 		foregroundSession = undefined;
 		await runAction();
+		expect(executeCommand).not.toHaveBeenCalled();
 		expect(startNewRuntimeSession).not.toHaveBeenCalled();
 	});
 
