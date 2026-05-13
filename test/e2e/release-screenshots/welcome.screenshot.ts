@@ -61,11 +61,11 @@ test.describe('Release Screenshots - Welcome Page', () => {
 		await hotKeys.closePrimarySidebar();
 		await plots.alterPlotArea(0, -55);
 		await layouts.resizeAuxiliaryBar({ x: -300 });
-		await layouts.resizePanel({ y: -100 });
+		await layouts.resizePanel({ y: -70 });
 		await quickaccess.runCommand('workbench.action.gotoLine', {
 			keepOpen: true,
 		});
-		await page.keyboard.type('181');
+		await page.keyboard.type('182');
 		await page.keyboard.press('Enter');
 		await variables.toggleVariable({
 			variableName: 'gc_frame',
