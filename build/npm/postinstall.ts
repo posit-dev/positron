@@ -214,9 +214,11 @@ function generateRehWebPackageJson() {
 		.pipe(
 			mergeJson({
 				fileName: 'package.json',
-				// Rename the "name" field to positron-reh-web
+				// Rename "name" to positron-reh-web and add "product-label" used by
+				// Workbench's nginx static URL routing.
 				endObj: {
 					name: 'positron-reh-web',
+					'product-label': 'positron',
 				},
 				transform: (mergedJson: { dependencies?: { [x: string]: any } }) => {
 					// Sort the dependencies alphabetically

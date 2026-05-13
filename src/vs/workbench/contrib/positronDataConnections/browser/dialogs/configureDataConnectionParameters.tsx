@@ -10,16 +10,30 @@ import { JSX } from 'react';
 import { ParameterFieldStates } from './configureDataConnection.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { Checkbox } from '../../../../../base/browser/ui/positronComponents/checkbox/checkbox.js';
-import { IDataConnectionParameter } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
+import { IDataConnectionParameter } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 
 /**
  * ConfigureDataConnectionParametersProps interface.
  */
 interface ConfigureDataConnectionParametersProps {
+	// The parameters to render fields for, as defined by the driver.
 	parameters: readonly IDataConnectionParameter[];
+
+	// Ids of parameters that already have a secret saved for this profile. Secret fields for these
+	// show a "saved" placeholder, and leaving them blank on submit keeps the existing secret rather
+	// than clearing it.
+	storedSecretIds: ReadonlySet<string>;
+
+	// The current value and error state of each parameter field, managed by the parent component.
 	parameterFieldStates: ParameterFieldStates;
+
+	// Callback to notify the parent component of changes to any parameter field.
 	onParameterChanged: (parameterId: string, value: boolean | number | string | undefined) => void;
 }
+
+// Placeholder shown in secret fields that already have a stored value. The user sees that something
+// is set without ever loading the actual secret into the DOM.
+const STORED_SECRET_PLACEHOLDER = '••••••••';
 
 /**
  * ConfigureDataConnectionParameters component. Renders the per-parameter form fields for the
@@ -27,6 +41,7 @@ interface ConfigureDataConnectionParametersProps {
  */
 export const ConfigureDataConnectionParameters = ({
 	parameters,
+	storedSecretIds,
 	parameterFieldStates,
 	onParameterChanged,
 }: ConfigureDataConnectionParametersProps): JSX.Element => {
@@ -116,17 +131,22 @@ export const ConfigureDataConnectionParameters = ({
 
 					// Password parameter.
 					case 'password': {
+						// Show the saved-secret placeholder when a value is stored and the field
+						// hasn't been edited; otherwise the driver-supplied placeholder.
+						const fieldValue = parameterFieldStates[parameter.id].value as string;
+						const showStoredPlaceholder = storedSecretIds.has(parameter.id) && !fieldValue;
 						return (
 							<div key={parameter.id} className='parameter-field'>
 								<label className='parameter-label'>{parameter.label}</label>
 								<input
 									className={positronClassNames(
-										'parameter-input', 'text-input',
+										'parameter-input',
+										'text-input',
 										{ 'error': parameterFieldStates[parameter.id].error }
 									)}
-									placeholder={parameter.placeholder}
+									placeholder={showStoredPlaceholder ? STORED_SECRET_PLACEHOLDER : parameter.placeholder}
 									type='password'
-									value={parameterFieldStates[parameter.id].value as string}
+									value={fieldValue}
 									onChange={e => onParameterChanged(parameter.id, e.target.value ?? undefined)}
 								/>
 							</div>
@@ -135,17 +155,21 @@ export const ConfigureDataConnectionParameters = ({
 
 					// String parameter.
 					case 'string': {
+						// Secret-typed strings get the saved-secret placeholder treatment too.
+						const fieldValue = parameterFieldStates[parameter.id].value as string;
+						const showStoredPlaceholder = parameter.secret === true && storedSecretIds.has(parameter.id) && !fieldValue;
 						return (
 							<div key={parameter.id} className='parameter-field'>
 								<label className='parameter-label'>{parameter.label}</label>
 								<input
 									className={positronClassNames(
-										'parameter-input', 'text-input',
+										'parameter-input',
+										'text-input',
 										{ 'error': parameterFieldStates[parameter.id].error }
 									)}
-									placeholder={parameter.placeholder}
-									type='text'
-									value={parameterFieldStates[parameter.id].value as string}
+									placeholder={showStoredPlaceholder ? STORED_SECRET_PLACEHOLDER : parameter.placeholder}
+									type={parameter.secret === true ? 'password' : 'text'}
+									value={fieldValue}
 									onChange={e => onParameterChanged(parameter.id, e.target.value ?? undefined)}
 								/>
 							</div>

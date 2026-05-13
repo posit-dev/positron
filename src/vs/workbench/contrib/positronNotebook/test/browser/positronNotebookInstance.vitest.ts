@@ -5,8 +5,11 @@
 
 /// <reference types="vitest/globals" />
 
+import { URI } from '../../../../../base/common/uri.js';
+import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
+import { MockScopableContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { createTestPositronNotebookInstance } from './testPositronNotebookInstance.js';
+import { createTestPositronNotebookInstance, TestPositronNotebookInstance } from './testPositronNotebookInstance.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { CellSelectionStatus } from '../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { CellSelectionType, getSelectedCells, SelectionState } from '../../browser/selectionMachine.js';
@@ -267,6 +270,66 @@ describe('PositronNotebookInstance', () => {
 
 			notebook.moveCellsDown();
 			expect(getCellValues(notebook)).toEqual(['A', 'D', 'E', 'B', 'C']);
+		});
+	});
+
+	describe('attachView', () => {
+		function createInstance(): TestPositronNotebookInstance {
+			const id = `attach-${Math.random().toString(36).slice(2)}`;
+			const notebook = ctx.disposables.add(ctx.instantiationService.createInstance(
+				TestPositronNotebookInstance,
+				id,
+				URI.parse(`test:///${id}.ipynb`),
+				'jupyter-notebook',
+				undefined,
+			));
+			notebook.instantiationService = ctx.instantiationService;
+			return notebook;
+		}
+
+		function makeContainersAndContextKeyService() {
+			const editorContainer = document.createElement('div');
+			const notebookContainer = document.createElement('div');
+			const overlayContainer = document.createElement('div');
+			const contextKeyService = ctx.instantiationService
+				.invokeFunction(accessor => accessor.get(IContextKeyService))
+				.createScoped(editorContainer);
+			return { editorContainer, notebookContainer, overlayContainer, contextKeyService };
+		}
+
+		it('re-attaching with the same scopedContextKeyService preserves the scoped instantiation service', () => {
+			// Each cell's Monaco editor creates a child dependency-injection
+			// container under `scopedInstantiationService`. Disposing this
+			// container also disposes its children. If attachView rebuilt it
+			// on every call, every cached cell's child container would be
+			// disposed and the next keystroke would throw
+			// "InstantiationService has been disposed". Re-attaching with
+			// the same context-key service must reuse the existing container.
+			const notebook = createInstance();
+			const c = makeContainersAndContextKeyService();
+			notebook.attachView(c.editorContainer, c.contextKeyService, c.notebookContainer, c.overlayContainer);
+			const isBefore = notebook.scopedInstantiationService;
+
+			notebook.attachView(c.editorContainer, c.contextKeyService, c.notebookContainer, c.overlayContainer);
+
+			expect(notebook.scopedInstantiationService).toBe(isBefore);
+		});
+
+		it('re-attaching with a different scopedContextKeyService rebuilds the scoped instantiation service', () => {
+			// When a notebook moves to a different editor group, it gets a
+			// different context-key service. The scoped container has to be
+			// rebuilt so new cells bind their context keys to the new one.
+			const notebook = createInstance();
+			const editorContainer = document.createElement('div');
+			const notebookContainer = document.createElement('div');
+			const overlayContainer = document.createElement('div');
+
+			notebook.attachView(editorContainer, new MockScopableContextKeyService(), notebookContainer, overlayContainer);
+			const isBefore = notebook.scopedInstantiationService;
+
+			notebook.attachView(editorContainer, new MockScopableContextKeyService(), notebookContainer, overlayContainer);
+
+			expect(notebook.scopedInstantiationService).not.toBe(isBefore);
 		});
 	});
 });

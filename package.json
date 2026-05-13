@@ -2,6 +2,7 @@
   "name": "code-oss-dev",
   "version": "1.111.0",
   "distro": "cd72f8f27b485d65c99f5020caa895a5ac5692eb",
+  "product-label": "positron",
   "author": {
     "name": "Microsoft Corporation"
   },

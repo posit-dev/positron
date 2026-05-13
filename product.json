@@ -94,10 +94,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "2026.5.4",
+			"version": "2026.5.7",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web-pwb",
-			"sha256": "af0786f6732b28c929892c2fbefde5ddf65bb68bb7742c7e1047438068365dc2",
+			"sha256": "063ee8c0cd480f74723f4d32d9a92fe34f8f5d74dd416d6b466bac467f5a8161",
 			"metadata": {
 				"publisherDisplayName": "Posit PBC"
 			}
@@ -230,13 +230,12 @@
 		},
 		{
 			"name": "posit.publisher",
-			"version": "1.36.0",
+			"version": "2.4.0",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
-				"displayName": "Posit Publisher",
-				"multiPlatformServiceUrl": "https://p3m.dev/openvsx/latest/vscode/asset"
+				"displayName": "Posit Publisher"
 			},
 			"publisherDisplayName": "Posit Software, PBC"
 		},
