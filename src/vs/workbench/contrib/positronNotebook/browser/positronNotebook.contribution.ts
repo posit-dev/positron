@@ -515,7 +515,7 @@ export class AddSelectionUpAction extends NotebookAction2 {
 registerAction2(AddSelectionUpAction);
 
 // Enter key: Enter edit mode when cell is selected but NOT editing
-registerAction2(class extends NotebookAction2 {
+export class EnterEditModeAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.edit',
@@ -534,7 +534,8 @@ registerAction2(class extends NotebookAction2 {
 			console.error('Error entering editor:', err);
 		});
 	}
-});
+}
+registerAction2(EnterEditModeAction);
 
 /**
  * Escape key: Exit edit mode when cell editor is focused.
@@ -546,7 +547,7 @@ registerAction2(class extends NotebookAction2 {
  * cell action bars. We should keep both commands in sync
  * to ensure consistent behavior.
  */
-registerAction2(class extends NotebookAction2 {
+export class ExitEditModeAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.quitEdit',
@@ -574,7 +575,8 @@ registerAction2(class extends NotebookAction2 {
 			}
 		}
 	}
-});
+}
+registerAction2(ExitEditModeAction);
 
 /**
  * Escape key: Reduce multi-selection to just the active cell when in command mode.
@@ -623,7 +625,7 @@ KeybindingsRegistry.registerKeybindingRule({
 });
 
 // Shift+L: Toggle line numbers in command mode (Jupyter-style)
-registerAction2(class extends NotebookAction2 {
+export class ToggleLineNumbersAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.toggleLineNumbers',
@@ -641,7 +643,8 @@ registerAction2(class extends NotebookAction2 {
 		const current = configurationService.getValue<'on' | 'off'>('notebook.lineNumbers') === 'on';
 		configurationService.updateValue('notebook.lineNumbers', current ? 'off' : 'on');
 	}
-});
+}
+registerAction2(ToggleLineNumbersAction);
 
 // 1-6: Change cell to heading level (Jupyter-style)
 registerAction2(class extends NotebookAction2 {
@@ -1262,7 +1265,7 @@ registerAction2(ViewMarkdownAction);
 // TODO: Improve the context key support so we don't need to have a single command per
 // the keyboard shortcut and can reuse the action bar commands. Cell agnostic
 // "Execute in place" command.
-registerAction2(class extends NotebookAction2 {
+export class ExecuteOrToggleEditorAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.executeOrToggleEditor',
@@ -1288,7 +1291,8 @@ registerAction2(class extends NotebookAction2 {
 			}
 		}
 	}
-});
+}
+registerAction2(ExecuteOrToggleEditorAction);
 
 
 /**
@@ -1324,7 +1328,7 @@ function executeActiveCell(notebook: IPositronNotebookInstance): IPositronNotebo
 }
 
 // Execute cell and select below
-registerAction2(class extends NotebookAction2 {
+export class ExecuteAndSelectBelowAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.executeAndSelectBelow',
@@ -1367,10 +1371,11 @@ registerAction2(class extends NotebookAction2 {
 			notebook.selectionStateMachine.moveSelectionDown(false);
 		}
 	}
-});
+}
+registerAction2(ExecuteAndSelectBelowAction);
 
 // Execute cell, insert a new cell below, and focus it (Alt+Enter, Jupyter-style)
-registerAction2(class extends NotebookAction2 {
+export class ExecuteAndInsertBelowAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.executeAndInsertBelow',
@@ -1392,7 +1397,8 @@ registerAction2(class extends NotebookAction2 {
 		// Always insert a new cell below of the same type and focus it
 		notebook.addCell(cell.kind, cell.index + 1, true);
 	}
-});
+}
+registerAction2(ExecuteAndInsertBelowAction);
 
 // Copy cells command - C (Jupyter-style)
 export class CopyCellsAction extends NotebookAction2 {
@@ -2062,7 +2068,7 @@ registerAction2(class extends NotebookAction2 {
 // Register notebook-level actions that appear in the editor action bar
 
 // Run All Cells - Executes all code cells in the notebook
-registerAction2(class extends NotebookAction2 {
+export class RunAllCellsAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.runAllCells',
@@ -2091,10 +2097,11 @@ registerAction2(class extends NotebookAction2 {
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.runAllCells();
 	}
-});
+}
+registerAction2(RunAllCellsAction);
 
 // Clear All Outputs - Clears outputs from all cells
-registerAction2(class extends NotebookAction2 {
+export class ClearAllOutputsAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.clearAllOutputs',
@@ -2123,7 +2130,8 @@ registerAction2(class extends NotebookAction2 {
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.clearAllCellOutputs();
 	}
-});
+}
+registerAction2(ClearAllOutputsAction);
 
 // Show Console - Opens or focuses the notebook console
 registerAction2(class extends NotebookAction2 {
