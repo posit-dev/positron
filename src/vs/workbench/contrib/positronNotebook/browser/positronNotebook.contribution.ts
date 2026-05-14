@@ -14,7 +14,7 @@ import './notebookCells/InlineDataExplorerActions.js';
 import './SelectPositronNotebookKernelAction.js';
 import './contrib/visualize/VisualizeAction.js';
 
-import { isCopyImageMenuArg, toBase64DataUrl } from './copyImageUtils.js';
+import { copyImageToClipboard, isCopyImageMenuArg } from './copyImageUtils.js';
 import { isCopyJsonMenuArg, serializeJsonOutput } from './copyJsonUtils.js';
 import { getPlainTextOutputContent, isParsedTextOutput } from './getOutputContents.js';
 import { getActiveWindow, isEditableElement, isHTMLElement } from '../../../../base/browser/dom.js';
@@ -1817,25 +1817,30 @@ export class CopyOutputAction extends NotebookAction2 {
 		// Priority 2: If the cell has exactly one image output, copy the image
 		const imageOutputs = outputs.filter(o => o.parsed.type === 'image');
 		if (imageOutputs.length === 1 && imageOutputs[0].parsed.type === 'image') {
-			try {
-				await clipboardService.writeImage(toBase64DataUrl(imageOutputs[0].parsed.dataUrl));
-			} catch (err) {
-				logService.error('Failed to copy image to clipboard:', err);
-				notificationService.error(localize('copyImageFailed', "Failed to copy image to clipboard"));
-			}
+			await copyImageToClipboard(imageOutputs[0].parsed.dataUrl, clipboardService, logService, notificationService);
 			return;
 		}
 
 		// Priority 3: If the cell has exactly one JSON output, copy as formatted JSON
 		const jsonOutputs = outputs.filter(o => o.parsed.type === 'json');
 		if (jsonOutputs.length === 1 && jsonOutputs[0].parsed.type === 'json') {
-			await clipboardService.writeText(serializeJsonOutput(jsonOutputs[0].parsed.data));
+			try {
+				await clipboardService.writeText(serializeJsonOutput(jsonOutputs[0].parsed.data));
+			} catch (err) {
+				logService.error('Failed to copy output to clipboard:', err);
+				notificationService.error(localize('copyOutputFailed', "Failed to copy output to clipboard"));
+			}
 			return;
 		}
 
 		// Priority 4: Copy all text output content
 		if (outputs.some(o => isParsedTextOutput(o.parsed))) {
-			await clipboardService.writeText(getPlainTextOutputContent(outputs));
+			try {
+				await clipboardService.writeText(getPlainTextOutputContent(outputs));
+			} catch (err) {
+				logService.error('Failed to copy output to clipboard:', err);
+				notificationService.error(localize('copyOutputFailed', "Failed to copy output to clipboard"));
+			}
 			return;
 		}
 	}
@@ -1843,7 +1848,7 @@ export class CopyOutputAction extends NotebookAction2 {
 registerAction2(CopyOutputAction);
 
 // Copy output image to clipboard (menu-driven, e.g. right-click on specific image)
-export class CopyOutputImageAction extends NotebookAction2 {
+class CopyOutputImageAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: PositronNotebookActionId.CopyOutputImage,
@@ -1902,12 +1907,7 @@ export class CopyOutputImageAction extends NotebookAction2 {
 			return;
 		}
 
-		try {
-			await clipboardService.writeImage(toBase64DataUrl(dataUrl));
-		} catch (err) {
-			logService.error('Failed to copy image to clipboard:', err);
-			notificationService.error(localize('copyImageFailed', "Failed to copy image to clipboard"));
-		}
+		await copyImageToClipboard(dataUrl, clipboardService, logService, notificationService);
 	}
 }
 registerAction2(CopyOutputImageAction);

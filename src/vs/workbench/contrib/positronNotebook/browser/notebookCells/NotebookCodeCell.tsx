@@ -250,6 +250,7 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 				aria-label={localize('positron.notebook.cellOutput', 'Cell output')}
 				className='positron-notebook-code-cell-outputs positron-notebook-cell-outputs'
 				data-testid='cell-output'
+				role='region'
 				tabIndex={0}
 				onBlur={handleOutputBlur}
 				onContextMenu={handleContextMenu}
