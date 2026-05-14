@@ -28,20 +28,21 @@ test.describe('Sessions: R Session Init Hooks', {
 		await console.waitForConsoleContents('[.Rprofile] top-level code executed', { timeout: 30000 });
 		await console.waitForConsoleContents('[hook:init] start_type=new', { timeout: 30000 });
 
-		// options("width") should reflect actual console, not R default 80
-		const optLines = await console.waitForConsoleContents(/\[hook:init\] options_width=\d+/, { timeout: 15000 });
-		expect(Number(optLines[0].match(/options_width=(\d+)/)![1]), 'options("width") should not be R default 80').not.toBe(80);
-
-		// cli::console_width() should also return actual width
-		const cliLines = await console.waitForConsoleContents(/\[hook:init\] cli_width=\d+/, { timeout: 15000 });
-		expect(Number(cliLines[0].match(/cli_width=(\d+)/)![1]), 'cli::console_width() should not be R default 80').not.toBe(80);
-
 		// rstudioapi two-way calls work inside the hook
 		await console.waitForConsoleContents('[hook:init] project=', { timeout: 15000 });
 
 		// navigateToFile triggers a UI action (opens DESCRIPTION in editor)
 		await console.waitForConsoleContents('[hook:init] navigateToFile DESCRIPTION completed', { timeout: 15000 });
 		await app.workbench.editors.waitForActiveTab('DESCRIPTION');
+
+		// Verify hook saw the actual console width by comparing to a live query
+		const hookWidthLines = await console.waitForConsoleContents(/\[hook:init\] cli_width=\d+/, { timeout: 15000 });
+		const hookWidth = Number(hookWidthLines[0].match(/cli_width=(\d+)/)![1]);
+
+		await app.workbench.console.executeCode('R', 'cat(paste0("[live] width=", cli::console_width()))');
+		const liveLines = await console.waitForConsoleContents(/\[live\] width=\d+/, { timeout: 15000 });
+		const liveWidth = Number(liveLines[0].match(/width=(\d+)/)![1]);
+		expect(hookWidth, 'hook cli::console_width() should match live console width').toBe(liveWidth);
 	});
 
 	test('R - Restart runs .Rprofile and fires session_init with start_type=restart', async function ({ app, sessions, hotKeys }) {
@@ -70,12 +71,14 @@ test.describe('Sessions: R Session Init Hooks', {
 		// session_reconnect hook fires
 		await console.waitForConsoleContents('[hook:reconnect] fired', { timeout: 30000 });
 
-		// Width detection works on reconnect
-		const optLines = await console.waitForConsoleContents(/\[hook:reconnect\] options_width=\d+/, { timeout: 15000 });
-		expect(Number(optLines[0].match(/options_width=(\d+)/)![1]), 'options("width") on reconnect should not be R default 80').not.toBe(80);
+		// Verify hook saw the actual console width by comparing to a live query
+		const hookWidthLines = await console.waitForConsoleContents(/\[hook:reconnect\] cli_width=\d+/, { timeout: 15000 });
+		const hookWidth = Number(hookWidthLines[0].match(/cli_width=(\d+)/)![1]);
 
-		const cliLines = await console.waitForConsoleContents(/\[hook:reconnect\] cli_width=\d+/, { timeout: 15000 });
-		expect(Number(cliLines[0].match(/cli_width=(\d+)/)![1]), 'cli::console_width() on reconnect should not be R default 80').not.toBe(80);
+		await app.workbench.console.executeCode('R', 'cat(paste0("[live] width=", cli::console_width()))');
+		const liveLines = await console.waitForConsoleContents(/\[live\] width=\d+/, { timeout: 15000 });
+		const liveWidth = Number(liveLines[0].match(/width=(\d+)/)![1]);
+		expect(hookWidth, 'reconnect hook cli::console_width() should match live console width').toBe(liveWidth);
 
 		// rstudioapi works on reconnect
 		await console.waitForConsoleContents('[hook:reconnect] project=', { timeout: 15000 });
