@@ -576,6 +576,15 @@ export abstract class AbstractUpdateService implements IUpdateService {
 			return false;
 		}
 
+		// The constructor returns early (leaving `this.url` undefined) when
+		// updates are disabled by environment, missing product config, or
+		// running unbuilt. Issuing the request anyway throws synchronously
+		// because Node's URL parser rejects undefined urls, and the timer
+		// service's startup barrier never opens. See upstream's matching guard.
+		if (!this.url) {
+			return undefined;
+		}
+
 		try {
 			return this.requestService.request({ url: this.url, callSite: 'update.poll' }, CancellationToken.None)
 				.then<IUpdate | null>(asJson)
