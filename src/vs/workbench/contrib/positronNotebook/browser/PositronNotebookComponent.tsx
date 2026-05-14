@@ -103,6 +103,18 @@ export function PositronNotebookComponent() {
 		previousCellCount.current = currentCount;
 	}, [notebookCells.length]);
 
+	// In web mode the workbench's monaco-scrollable-element ancestor calls
+	// preventDefault on wheel events during the bubble phase, which blocks
+	// native scrolling on this container. Stop propagation so the event
+	// never reaches that handler.
+	React.useEffect(() => {
+		const container = containerRef.current;
+		if (!container) { return; }
+		const handler = (e: WheelEvent) => { e.stopPropagation(); };
+		container.addEventListener('wheel', handler);
+		return () => container.removeEventListener('wheel', handler);
+	}, []);
+
 	// Observe scroll events and fire to notebook instance, also track scroll position
 	useScrollObserver(containerRef as React.RefObject<HTMLElement>, React.useCallback(() => {
 		notebookInstance.fireScrollEvent();
