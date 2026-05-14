@@ -170,6 +170,23 @@ class ExtHostLanguageRuntimePackageManagerAdapter implements ILanguageRuntimePac
 	}
 }
 
+/**
+ * Builds a URI for a path arriving from a runtime open event. Centralizes
+ * path normalization and environment-correct scheme/authority so all three
+ * handlers (OpenEditor / OpenWorkspace / OpenWithSystem) stay in sync.
+ */
+export async function buildRuntimeOpenEventResource(
+	path: string,
+	pathService: IPathService,
+	environmentService: IWorkbenchEnvironmentService,
+): Promise<URI> {
+	return toLocalResource(
+		await pathService.fileURI(path),
+		environmentService.remoteAuthority,
+		pathService.defaultUriScheme,
+	);
+}
+
 // Adapter class; presents an ILanguageRuntime interface that connects to the
 // extension host proxy to supply language features.
 class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILanguageRuntimeSession {
@@ -325,10 +342,7 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 				if (ed.kind === 'uri') {
 					file = URI.parse(ed.file);
 				} else {
-					file = toLocalResource(
-						await this._pathService.fileURI(ed.file),
-						this._environmentService.remoteAuthority,
-						this._pathService.defaultUriScheme);
+					file = await buildRuntimeOpenEventResource(ed.file, this._pathService, this._environmentService);
 				}
 
 				const editor: ITextResourceEditorInput = {
@@ -342,18 +356,12 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 			} else if (ev.name === UiFrontendEvent.OpenWorkspace) {
 				// Open a workspace
 				const ws = ev.data as OpenWorkspaceEvent;
-				const uri = toLocalResource(
-					await this._pathService.fileURI(ws.path),
-					this._environmentService.remoteAuthority,
-					this._pathService.defaultUriScheme);
+				const uri = await buildRuntimeOpenEventResource(ws.path, this._pathService, this._environmentService);
 				this._commandService.executeCommand('vscode.openFolder', uri, ws.new_window);
 			} else if (ev.name === UiFrontendEvent.OpenWithSystem) {
 				// Open a file or folder with system default application
 				const openWith = ev.data as OpenWithSystemEvent;
-				const uri = toLocalResource(
-					await this._pathService.fileURI(openWith.path),
-					this._environmentService.remoteAuthority,
-					this._pathService.defaultUriScheme);
+				const uri = await buildRuntimeOpenEventResource(openWith.path, this._pathService, this._environmentService);
 
 				// Use VS Code's opener service with external option
 				await this._openerService.open(uri, { openExternal: true });
