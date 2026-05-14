@@ -34,6 +34,12 @@ import { Delayer } from '../../../../base/common/async.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
 import { isWeb } from '../../../../base/common/platform.js';
 import { ChatEntitlementService, IChatEntitlementService } from '../../chat/common/chatEntitlementService.js';
+// --- Start Positron ---
+// Preserve the ChatEntitlementService import even though the only use site is in the
+// commented-out builtin chat extension migration block below. Keeps merge-conflict surface
+// minimal by not touching the upstream import line.
+void ChatEntitlementService;
+// --- End Positron ---
 
 const SOURCE = 'IWorkbenchExtensionEnablementService';
 
@@ -136,6 +142,12 @@ export class ExtensionEnablementService extends Disposable implements IWorkbench
 			});
 		}
 
+		// --- Start Positron ---
+		// Skip upstream's "disable builtin chat extension on first launch" migration. In VS Code
+		// the chat extension is Copilot, which is gated on user opt-in via chat setup. In Positron
+		// the chat extension is Positron Assistant, which is always enabled, so the migration
+		// would incorrectly disable it for every new profile.
+		/*
 		if (!this.environmentService.isSessionsWindow && !this.environmentService.skipBuiltinExtensions?.some(id => id.toLowerCase() === this._chatExtensionId)) {
 			const builtinChatExtensionEnablementMigrationKey = 'builtinChatExtensionEnablementMigration';
 			const builtinChatExtensionEnablementMigration = this.storageService.getBoolean(builtinChatExtensionEnablementMigrationKey, StorageScope.PROFILE) === true;
@@ -167,6 +179,8 @@ export class ExtensionEnablementService extends Disposable implements IWorkbench
 				}
 			}
 		}
+		*/
+		// --- End Positron ---
 	}
 
 	private get hasWorkspace(): boolean {
