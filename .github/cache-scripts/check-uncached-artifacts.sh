@@ -109,6 +109,8 @@ IGNORE_PATTERNS+=(
 	".pyc"
 	"__pycache__"
 	".cpython-"
+	# Git internal objects created by git operations during CI (not source files)
+	".git/"
 )
 
 # ============================================================================
