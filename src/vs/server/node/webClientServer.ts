@@ -32,9 +32,9 @@ import { ICSSDevelopmentService } from '../../platform/cssDev/node/cssDevService
 // --- Start PWB: Server proxy support ---
 // eslint-disable-next-line local/code-import-patterns
 import httpProxy from 'http-proxy';
-import { kProxyRegex, VSCODE_STATIC_PREFIX } from './pwbConstants.js';
 // eslint-disable-next-line no-duplicate-imports
 import { existsSync } from 'fs';
+import { kProxyRegex, VSCODE_STATIC_PREFIX, WORKBENCH_DEPLOYMENT_PREFIX } from './pwbConstants.js';
 // --- End PWB ---
 
 const textMimeType: { [ext: string]: string | undefined } = {
@@ -448,8 +448,10 @@ export class WebClientServer {
 		// --- End PWB ---
 		// --- Start PWB: session-less static route for cacheable assets (workbench.js/.css, NLS, icons, rsLoginCheck) ---
 		// Absolute-from-root so it bypasses the /s/<sid>/ session prefix; `<quality>-<commit>` is the cache-version key.
+		// WORKBENCH_DEPLOYMENT_PREFIX (e.g. "/rstudio") is prepended for installations mounted under a sub-path,
+		// where the front-end reverse proxy only routes that prefix back to Workbench. Empty when mounted at root.
 		// Only used when running under Workbench -- standalone/dev falls back to session-scoped relative URLs below.
-		const sessionlessStaticRoute = posix.join(VSCODE_STATIC_PREFIX, this._productPath, STATIC_PATH);
+		const sessionlessStaticRoute = posix.join(WORKBENCH_DEPLOYMENT_PREFIX, VSCODE_STATIC_PREFIX, this._productPath, STATIC_PATH);
 		// --- End PWB ---
 
 		const resolveWorkspaceURI = (defaultLocation?: string) => defaultLocation && URI.file(resolve(defaultLocation)).with({ scheme: Schemas.vscodeRemote, authority: remoteAuthority });

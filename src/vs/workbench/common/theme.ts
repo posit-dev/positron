@@ -1684,14 +1684,6 @@ export const POSITRON_RUNTIME_STATE_ICON_IDLE = registerColor('positronRuntime.s
 
 //  < --- Positron Data Grid --- >
 
-// Positron data grid background color.
-export const POSITRON_DATA_GRID_BACKGROUND_COLOR = registerColor('positronDataGrid.background', {
-	dark: editorBackground,
-	light: editorBackground,
-	hcDark: editorBackground,
-	hcLight: editorBackground
-}, localize('positronDataGrid.background', "Positron data grid background color."));
-
 // Positron data grid contrast background color.
 export const POSITRON_DATA_GRID_CONTRAST_BACKGROUND_COLOR = registerColor('positronDataGrid.contrastBackground', {
 	dark: lighten(editorBackground, 0.2),

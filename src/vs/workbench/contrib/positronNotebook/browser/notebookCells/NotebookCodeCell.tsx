@@ -191,7 +191,7 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 
 				return [
 					{
-						id: 'positron.notebook.copyOutputText',
+						id: 'positronNotebook.copyOutputText',
 						label: copyOutputTextLabel,
 						tooltip: '',
 						class: undefined,
