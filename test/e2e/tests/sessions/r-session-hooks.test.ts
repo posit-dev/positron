@@ -39,7 +39,7 @@ test.describe('Sessions: R Session Init Hooks', {
 		// rstudioapi two-way calls work inside the hook
 		await console.waitForConsoleContents('[hook:init] project=', { timeout: 15000 });
 
-		// navigateToFile triggers a UI action (opens .Rprofile in editor)
+		// navigateToFile triggers a UI action (opens DESCRIPTION in editor)
 		await console.waitForConsoleContents('[hook:init] navigateToFile DESCRIPTION completed', { timeout: 15000 });
 		await app.workbench.editors.waitForActiveTab('DESCRIPTION');
 	});
@@ -49,7 +49,7 @@ test.describe('Sessions: R Session Init Hooks', {
 
 		await hotKeys.closeAllEditors();
 		const sessionId = await sessions.getCurrentSessionId();
-		await sessions.restart(sessionId!, { waitForIdle: true });
+		await sessions.restart(sessionId, { waitForIdle: true });
 
 		await console.waitForConsoleContents('[.Rprofile] top-level code executed', { timeout: 30000 });
 		await console.waitForConsoleContents('[hook:init] start_type=restart', { timeout: 30000 });
