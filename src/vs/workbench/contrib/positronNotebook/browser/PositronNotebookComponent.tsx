@@ -103,15 +103,12 @@ export function PositronNotebookComponent() {
 		previousCellCount.current = currentCount;
 	}, [notebookCells.length]);
 
-	// The workbench's monaco-scrollable-element ancestor calls preventDefault
-	// on wheel events during the bubble phase, which blocks native scrolling
-	// on this container. This manifests in web mode (PWB) where the workbench
-	// ScrollableElement doesn't detect that it has nothing to scroll. Applied
-	// unconditionally because stopPropagation is harmless in Electron (the
-	// ancestor already skips preventDefault when it has no overflow).
-	// Deps: [] is safe because the container div is unconditionally rendered
-	// at a fixed tree position, so the DOM node is stable for the component's
-	// lifetime.
+	// In web mode, BrowserWindow (window.ts) registers an unconditional
+	// preventDefault() on wheel events on the mainContainer (.monaco-workbench)
+	// to block macOS back/forward gestures. Because it's non-passive and fires
+	// during bubble, it cancels native scrolling for ALL descendants that rely
+	// on overflow:auto. stopPropagation() here prevents the event from reaching
+	// that listener. Harmless in Electron where NativeWindow has no such handler.
 	React.useEffect(() => {
 		const container = containerRef.current;
 		if (!container) { return; }
