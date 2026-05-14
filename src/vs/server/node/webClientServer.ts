@@ -463,11 +463,6 @@ export class WebClientServer {
 
 		const staticRoute = posix.join(basePath, this._productPath, STATIC_PATH);
 		const callbackRoute = posix.join(basePath, this._productPath, CALLBACK_PATH);
-		// --- Start PWB: session-less static route for cacheable assets (workbench.js/.css, NLS, icons, rsLoginCheck) ---
-		// Absolute-from-root so it bypasses the /s/<sid>/ session prefix; `<quality>-<commit>` is the cache-version key.
-		// Only used when running under Workbench -- standalone/dev falls back to session-scoped relative URLs below.
-		const sessionlessStaticRoute = posix.join(VSCODE_STATIC_PREFIX, this._productPath, STATIC_PATH);
-		// --- End PWB ---
 		// --- Start PWB ---
 		// const webExtensionRoute = posix.join(basePath, this._productPath, WEB_EXTENSION_PATH);
 		// --- End PWB ---
