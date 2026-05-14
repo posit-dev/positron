@@ -1,0 +1,143 @@
+name: "E2E Failure Analyzer"
+description: "Run the e2e-failure-analyzer skill against a finished GH Actions run via the Claude Agent SDK."
+inputs:
+  run-url:
+    description: "Full GitHub Actions run URL to analyze (e.g. https://github.com/posit-dev/positron/actions/runs/123)"
+    required: true
+  anthropic-api-key:
+    description: "Anthropic API key (resolved from 1Password by the caller)"
+    required: true
+  e2e-insights-api-key:
+    description: "e2e-test-insights API key (optional)"
+    required: false
+    default: ""
+  model:
+    description: "Anthropic model identifier"
+    required: false
+    default: "claude-sonnet-4-5"
+  max-turns:
+    description: "Maximum agent turns (cost guard)"
+    required: false
+    default: "40"
+runs:
+  using: composite
+  steps:
+    - name: Set up Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: "20"
+
+    - name: Install action dependencies
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: npm ci --no-audit --no-fund
+
+    - name: Install Claude Code CLI
+      # Workaround for an Agent SDK bug that resolves the musl-variant binary
+      # before the glibc one on Linux runners (claude-agent-sdk-typescript#296).
+      # Installing @anthropic-ai/claude-code globally and pointing the SDK at
+      # it via pathToClaudeCodeExecutable bypasses the buggy resolver.
+      shell: bash
+      run: |
+        npm install -g @anthropic-ai/claude-code
+        echo "CLAUDE_CODE_PATH=$(which claude)" >> "$GITHUB_ENV"
+        claude --version
+
+    - name: Prepare working directory
+      id: prep
+      shell: bash
+      run: |
+        WORK_DIR="${RUNNER_TEMP}/e2e-analyze"
+        rm -rf "$WORK_DIR"
+        mkdir -p "$WORK_DIR"
+        echo "work_dir=$WORK_DIR" >> "$GITHUB_OUTPUT"
+
+    - name: Gather run info
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        node "${{ github.workspace }}/.claude/skills/e2e-failure-analyzer/scripts/e2e-gather-run-info.js" \
+          "${{ inputs.run-url }}" > "${{ steps.prep.outputs.work_dir }}/run-info.json"
+        echo "::group::run-info.json"
+        cat "${{ steps.prep.outputs.work_dir }}/run-info.json"
+        echo "::endgroup::"
+
+    - name: Process each project
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      working-directory: ${{ github.action_path }}
+      run: |
+        WORK_DIR="${{ steps.prep.outputs.work_dir }}"
+        RUN_INFO="$WORK_DIR/run-info.json"
+        REPO=$(jq -r '.repo' "$RUN_INFO")
+        RUN_ID=$(jq -r '.runId' "$RUN_INFO")
+        PROJECTS=$(jq -r '.projects // [] | .[]' "$RUN_INFO")
+
+        if [ -z "$PROJECTS" ]; then
+          echo "No e2e projects found (likely positron-builds run -- Path B not implemented in v1)."
+          exit 0
+        fi
+
+        for PROJECT in $PROJECTS; do
+          OUT="$WORK_DIR/$PROJECT"
+          mkdir -p "$OUT"
+          echo "::group::Process project $PROJECT"
+          # cwd = action dir so npx finds @playwright/test from action's node_modules
+          node "${{ github.workspace }}/.claude/skills/e2e-failure-analyzer/scripts/e2e-process-project.js" \
+            --download \
+            --run-id "$RUN_ID" \
+            --repo "$REPO" \
+            --project "$PROJECT" \
+            --output-dir "$OUT" \
+            --cleanup \
+            > "$OUT/result.json" || {
+              echo "Failed to process project $PROJECT (exit $?). Continuing."
+            }
+          echo "::endgroup::"
+        done
+
+    - name: Query historical test health
+      if: ${{ inputs.e2e-insights-api-key != '' }}
+      shell: bash
+      env:
+        E2E_INSIGHTS_API_KEY: ${{ inputs.e2e-insights-api-key }}
+      run: |
+        WORK_DIR="${{ steps.prep.outputs.work_dir }}"
+        RUN_INFO="$WORK_DIR/run-info.json"
+        RUN_ID=$(jq -r '.runId' "$RUN_INFO")
+        BRANCH=$(jq -r '.run.branch // .run.head_branch // "main"' "$RUN_INFO")
+        # The e2e-test-insights API uses a single "positron" repo ID for both
+        # posit-dev/positron and posit-dev/positron-builds (same tests, same
+        # storage) -- do not parameterize this on the source GH repo.
+        node "${{ github.workspace }}/.claude/skills/e2e-failure-analyzer/scripts/e2e-query-history.js" \
+          --repo positron \
+          --run-id "$RUN_ID" \
+          --lookback-days 14 \
+          --branch "$BRANCH" \
+          > "$WORK_DIR/history.json" || {
+            echo "History query failed (exit $?). Continuing without history."
+            echo '{"error":"query failed"}' > "$WORK_DIR/history.json"
+          }
+
+    - name: Analyze with Claude Agent SDK
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      env:
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+        WORK_DIR: ${{ steps.prep.outputs.work_dir }}
+        # Repo workspace -- the agent reads test source from $REPO_ROOT/test/e2e
+        # to understand each failing test's intent (assertions, page-object usage).
+        REPO_ROOT: ${{ github.workspace }}
+        MODEL: ${{ inputs.model }}
+        MAX_TURNS: ${{ inputs.max-turns }}
+      run: node analyze.mjs
+
+    - name: Upload analyzer artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: e2e-failure-analysis
+        path: ${{ steps.prep.outputs.work_dir }}
+        retention-days: 14

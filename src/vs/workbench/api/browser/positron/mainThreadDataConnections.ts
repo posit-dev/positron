@@ -6,8 +6,8 @@
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IPositronDataConnectionsService } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
-import { DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionParameter } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDriver.js';
-import { IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsDTOs.js';
+import { DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionParameter } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+import { IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { ExtHostDataConnectionsShape, ExtHostPositronContext, MainPositronContext, MainThreadDataConnectionsShape } from '../../common/positron/extHost.positron.protocol.js';
 
 /**

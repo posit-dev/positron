@@ -69,7 +69,7 @@ export function NotebookMarkdownCell({ cell }: { cell: PositronNotebookMarkdownC
 			const getClipboardActions = (): IAction[] => {
 				const actions: IAction[] = [];
 				actions.push({
-					id: 'positron.notebook.copy',
+					id: 'positronNotebook.copy',
 					label: copyLabel,
 					tooltip: '',
 					class: undefined,
@@ -81,7 +81,7 @@ export function NotebookMarkdownCell({ cell }: { cell: PositronNotebookMarkdownC
 					}
 				});
 				actions.push({
-					id: 'positron.notebook.selectAll',
+					id: 'positronNotebook.selectAll',
 					label: selectAllLabel,
 					tooltip: '',
 					class: undefined,

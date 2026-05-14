@@ -99,12 +99,13 @@ Output JSON contains:
 - `testDetails` - array of per-test objects, each containing:
   - `testId`, `title`, `file`, `status`, `blob`, `attemptCount`
   - `attempts` - array of per-attempt objects with:
-    - `trace` - parsed trace data: `timeline` (human-readable string), `errors` (array), `lastScreenshotSha1`
-    - `screenshotPath` - path to extracted last screenshot JPEG (view with Read tool)
+    - `trace` - parsed trace data: `timeline` (human-readable string), `errors` (array), `screenshotShas` (array of `{sha1, timestamp}` in chronological order), `lastScreenshotSha1` (legacy: same as last entry of `screenshotShas`)
+    - `screenshotPaths` - chronological array of paths to extracted screenshot JPEGs (view with Read tool); the last entry is the failure-state frame, earlier entries show the moments before it
+    - `screenshotPath` - legacy alias pointing to the last entry of `screenshotPaths`
     - `errorContextPath` - path to extracted page snapshot markdown (view with Read tool if needed)
   - `logHashes` - array of `{resourceHash, blob}` for logs (extract manually if needed)
 
-**IMPORTANT: View screenshots** using the `screenshotPath` fields with the Read tool. You MUST Read **all** screenshots in a **single message** with multiple parallel Read tool calls -- this results in only one approval prompt instead of one per screenshot. View all attempts; comparing across retries reveals whether a failure is consistent or intermittent. Screenshots are the most revealing evidence for diagnosing failures.
+**IMPORTANT: View screenshots** using the `screenshotPaths` arrays with the Read tool. You MUST Read **all** screenshots in a **single message** with multiple parallel Read tool calls -- this results in only one approval prompt instead of one per screenshot. View all attempts and all frames per attempt; comparing across retries reveals whether a failure is consistent or intermittent, and comparing the trailing frames *within* an attempt often shows where the test went wrong before the visible error. Screenshots are the most revealing evidence for diagnosing failures. Default frame count per attempt is 3 (configurable via `--screenshots N` on `e2e-process-project.js`).
 
 **View error context** with the Read tool using `errorContextPath` paths if the screenshot and trace timeline are insufficient for diagnosis.
 

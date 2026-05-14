@@ -109,14 +109,28 @@ export function buildESMPackageDependencies(outdir: string = 'out/esm-package-de
 	const entryPoints = Object.keys(exportMap);
 
 	// Bundle the entry points with esbuild.
-	esbuild.buildSync({
-		entryPoints,
-		bundle: true,
-		format: 'esm',
-		outdir,
-		minify: true,
-		splitting: true,
-	});
+	try {
+		const result = esbuild.buildSync({
+			entryPoints,
+			bundle: true,
+			format: 'esm',
+			outdir,
+			minify: true,
+			splitting: true,
+		});
+
+		if (result.errors.length > 0) {
+			console.error('esbuild errors:', result.errors);
+			throw new Error(`esbuild failed with ${result.errors.length} errors`);
+		}
+
+		if (result.warnings.length > 0) {
+			console.warn('esbuild warnings:', result.warnings);
+		}
+	} catch (err) {
+		console.error('Failed to build ESM package dependencies with esbuild:', err);
+		throw err;
+	}
 
 	/**
 	 * The post-processing step exists because of how esbuild handles CommonJS to ESM conversion.

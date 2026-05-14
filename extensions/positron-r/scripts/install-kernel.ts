@@ -203,7 +203,10 @@ function getDownloadTargets(currentPlatform: NodeJS.Platform, currentArch: NodeA
 				{ assetSuffix: 'windows-x64', subdirectory: 'windows-x64', label: 'Windows x64' }
 			];
 		case 'darwin':
-			return [{ assetSuffix: 'darwin-universal', label: 'macOS Universal' }];
+			return [{
+				assetSuffix: currentArch === 'arm64' ? 'darwin-arm64' : 'darwin-x64',
+				label: currentArch === 'arm64' ? 'macOS ARM64' : 'macOS x64'
+			}];
 		case 'linux':
 			return [{
 				assetSuffix: currentArch === 'arm64' ? 'linux-arm64' : 'linux-x64',
@@ -632,7 +635,9 @@ async function main(): Promise<void> {
 	const info = await readSubmoduleBuildInfo();
 	console.log(`Ark submodule: version ${info.version}, distance ${info.distance} (${info.releaseTag})`);
 
-	const targets = getDownloadTargets(platform() as NodeJS.Platform, arch());
+	// Respect npm_config_arch when cross-building (e.g. building x64 on arm64 macOS).
+	const targetArch = (process.env.npm_config_arch as NodeArch | undefined) || arch();
+	const targets = getDownloadTargets(platform() as NodeJS.Platform, targetArch);
 
 	// In CI we require correctness: if the exact prebuild is missing, build
 	// from source. If that also fails, fail hard rather than silently using a

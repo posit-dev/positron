@@ -29,6 +29,7 @@ import { getActiveWindow, isHTMLElement } from '../../../../../base/browser/dom.
 import { IAction, Separator } from '../../../../../base/common/actions.js';
 import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
 import { Markdown } from './Markdown.js';
+import { LatexOutput } from './LatexOutput.js';
 import { useCellContextMenu } from './useCellContextMenu.js';
 import { MenuId } from '../../../../../platform/actions/common/actions.js';
 import { DataExplorerCellOutput } from './DataExplorerCellOutput.js';
@@ -190,7 +191,7 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 
 				return [
 					{
-						id: 'positron.notebook.copyOutputText',
+						id: 'positronNotebook.copyOutputText',
 						label: copyOutputTextLabel,
 						tooltip: '',
 						class: undefined,
@@ -348,6 +349,8 @@ const CellOutput = React.memo(function CellOutput(output: CellOutputProps) {
 			return renderHtml(parsed.content);
 		case 'markdown':
 			return <Markdown content={parsed.content} />;
+		case 'latex':
+			return <LatexOutput content={parsed.content} />;
 		case 'json':
 			return <JsonOutput data={parsed.data} outputId={output.outputId} />;
 		case 'dataExplorer':

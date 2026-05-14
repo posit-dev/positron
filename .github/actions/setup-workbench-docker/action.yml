@@ -43,20 +43,34 @@ runs:
         # Download get-latest-wb-noble-url.sh
         curl -L -o get-latest-wb-noble-url.sh https://raw.githubusercontent.com/posit-dev/qa-example-content/main/dockerfiles/wb-local/get-latest-wb-noble-url.sh
 
+        # Download configure-datasources.sh
+        curl -L -o configure-datasources.sh https://raw.githubusercontent.com/posit-dev/qa-example-content/main/dockerfiles/wb-local/configure-datasources.sh
+
         # Copy scripts into the container
         docker cp install-workbench.sh test:/tmp/install-workbench.sh
         docker cp positronDownload.sh test:/tmp/positronDownload.sh
         docker cp get-latest-wb-noble-url.sh test:/tmp/get-latest-wb-noble-url.sh
+        docker cp configure-datasources.sh test:/tmp/configure-datasources.sh
 
         # Make scripts executable
         docker exec test chmod +x /tmp/install-workbench.sh
         docker exec test chmod +x /tmp/positronDownload.sh
         docker exec test chmod +x /tmp/get-latest-wb-noble-url.sh
+        docker exec test chmod +x /tmp/configure-datasources.sh
 
     - name: Install Workbench in container
       shell: bash
       run: |
-        docker exec -e GITHUB_TOKEN="${{ inputs.github-token }}" -e ARCH_SUFFIX=amd64 -e WB_PASSWORD="${{ inputs.wb-password }}" test /bin/bash -c "/tmp/install-workbench.sh --${{ inputs.install-mode }}"
+        docker exec \
+          -e GITHUB_TOKEN="${{ inputs.github-token }}" \
+          -e ARCH_SUFFIX=amd64 \
+          -e WB_PASSWORD="${{ inputs.wb-password }}" \
+          -e DATABRICKS_URL_="${DATABRICKS_URL}" \
+          -e DATABRICKS_CLIENT_ID_="${DATABRICKS_CLIENT_ID}" \
+          -e SNOWFLAKE_ACCOUNT_="${SNOWFLAKE_ACCOUNT}" \
+          -e SNOWFLAKE_CLIENT_ID_="${SNOWFLAKE_CLIENT_ID}" \
+          -e SNOWFLAKE_CLIENT_SECRET_="${SNOWFLAKE_CLIENT_SECRET}" \
+          test /bin/bash -c "/tmp/install-workbench.sh --${{ inputs.install-mode }}"
 
     - name: Install custom Positron build (if provided)
       if: inputs.custom-positron-tarball != ''
@@ -73,5 +87,7 @@ runs:
           rm -rf /usr/lib/rstudio-server/bin/positron-server/new &&
           # Install our custom build
           cp -r vscode-reh-web-pwb-linux-x64 /usr/lib/rstudio-server/bin/positron-server/new &&
-          chown -R rstudio-server:rstudio-server /usr/lib/rstudio-server/bin/positron-server/new
+          chown -R rstudio-server:rstudio-server /usr/lib/rstudio-server/bin/positron-server/new &&
+          # Restart so rserver re-scans installs and picks up our build
+          sudo rstudio-server restart
         "

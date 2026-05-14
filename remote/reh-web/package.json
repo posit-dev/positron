@@ -1,6 +1,7 @@
 {
 	"name": "positron-reh-web",
 	"version": "0.0.0",
+	"product-label": "positron",
 	"private": true,
 	"dependencies": {
 		"@anthropic-ai/sandbox-runtime": "0.0.23",
