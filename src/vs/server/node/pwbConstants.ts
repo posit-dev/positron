@@ -47,3 +47,22 @@ function resolveProductLabel(): string {
 
 export const VSCODE_STATIC_PREFIX = `/${resolveProductLabel()}-static`;
 // --- End PWB ---
+
+// --- Start PWB: Workbench deployment path prefix ---
+// Deployment path prefix for Workbench installations mounted under a sub-path (e.g. behind a
+// front-end reverse proxy that only routes /rstudio/* to Workbench). rserver passes the session
+// URL via RS_SESSION_URL, which looks like "/rstudio/s/<session-id>/" or "/s/<session-id>/" --
+// the part before "/s/" is the deployment prefix, and we prepend it to the absolute-from-root
+// URLs we emit so the front proxy will actually route them to Workbench. Empty string when
+// Workbench is mounted at the origin root or when running outside Workbench.
+function resolveDeploymentPrefix(): string {
+	const sessionUrl = process.env['RS_SESSION_URL'];
+	if (!sessionUrl) {
+		return '';
+	}
+	const idx = sessionUrl.indexOf('/s/');
+	return idx > 0 ? sessionUrl.substring(0, idx) : '';
+}
+
+export const WORKBENCH_DEPLOYMENT_PREFIX = resolveDeploymentPrefix();
+// --- End PWB ---

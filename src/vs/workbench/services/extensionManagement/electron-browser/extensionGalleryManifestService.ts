@@ -27,10 +27,12 @@ import { IHostService } from '../../host/browser/host.js';
 import { IDefaultAccount } from '../../../../base/common/defaultAccount.js';
 
 // --- Start Positron ---
+import { env } from '../../../../base/common/process.js';
 // eslint-disable-next-line no-duplicate-imports
 import { PositronGallerySourceConfigKey } from '../../../../platform/extensionManagement/common/extensionGalleryManifest.js';
 // eslint-disable-next-line no-duplicate-imports
-import { ExtensionGalleryConfig, POSITRON_GALLERY_PRESETS } from '../../../../platform/extensionManagement/common/extensionGalleryManifestService.js';
+import { ExtensionGalleryConfig, resolvePositronGalleryConfig } from '../../../../platform/extensionManagement/common/extensionGalleryManifestService.js';
+import { parseExtensionsGalleryEnv } from '../../../../platform/extensionManagement/common/extensionsGalleryEnv.js';
 // --- End Positron ---
 
 export class WorkbenchExtensionGalleryManifestService extends ExtensionGalleryManifestService implements IExtensionGalleryManifestService {
@@ -83,12 +85,15 @@ export class WorkbenchExtensionGalleryManifestService extends ExtensionGalleryMa
 
 	// --- Start Positron ---
 	protected override getGalleryConfig(): ExtensionGalleryConfig | undefined {
-		const source = this.configurationService.getValue<string>(PositronGallerySourceConfigKey);
-		const preset = POSITRON_GALLERY_PRESETS[source];
-		if (preset) {
-			return preset;
-		}
-		return super.getGalleryConfig();
+		const envValue = env['EXTENSIONS_GALLERY'];
+		const envGallery = envValue
+			? parseExtensionsGalleryEnv<ExtensionGalleryConfig>(envValue, msg => this.logService.warn(msg))
+			: undefined;
+		return resolvePositronGalleryConfig(
+			envGallery,
+			this.configurationService.getValue<string>(PositronGallerySourceConfigKey),
+			super.getGalleryConfig(),
+		);
 	}
 	// --- End Positron ---
 

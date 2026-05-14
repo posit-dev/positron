@@ -5,9 +5,10 @@
 
 import { Event } from '../../../../../base/common/event.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
-import { IDataConnectionInstance } from './positronDataConnectionsInstance.js';
+import { IDataConnectionInstance } from './dataConnectionInstance.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
-import { IDataConnectionDriverManager, IDataConnectionProfile } from './positronDataConnectionsDriver.js';
+import { IDataConnectionProfile } from './dataConnectionDriver.js';
+import { IDataConnectionsDriverManager } from './dataConnectionsDriverManager.js';
 
 // DI token used to inject IPositronDataConnectionsService throughout the workbench.
 export const IPositronDataConnectionsService = createDecorator<IPositronDataConnectionsService>('positronDataConnectionsService');
@@ -22,7 +23,7 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	readonly _serviceBrand: undefined;
 
 	// Manages registered data connection drivers (register, remove, list, change events).
-	readonly driverManager: IDataConnectionDriverManager;
+	readonly driverManager: IDataConnectionsDriverManager;
 
 	// Fires when data connection profiles change.
 	onDidChangeProfiles: Event<IDataConnectionProfile[]>;
@@ -58,6 +59,16 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	 * @returns The matching data connection profile, or undefined if not found.
 	 */
 	getProfileWithSecrets(id: string): Promise<IDataConnectionProfile | undefined>;
+
+	/**
+	 * Gets the parameter ids for which a secret value is stored on the given profile, without
+	 * loading the values themselves. Used by the edit dialog to render a "saved" placeholder
+	 * for secret fields that already have a value, distinguishing them from never-set ones.
+	 * @param id The data connection profile id.
+	 * @returns The list of parameter ids with stored secrets. Empty if the profile has no
+	 * stored secrets (or no longer exists).
+	 */
+	getProfileSecretIds(id: string): readonly string[];
 
 	/**
 	 * Removes a data connection profile.

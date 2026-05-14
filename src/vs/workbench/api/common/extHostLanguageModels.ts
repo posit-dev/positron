@@ -129,6 +129,12 @@ export class ExtHostLanguageModels implements ExtHostLanguageModelsShape {
 	private readonly _pendingRequest = new Map<number, { languageModelId: string; res: LanguageModelResponse }>();
 	private readonly _ignoredFileProviders = new Map<number, vscode.LanguageModelIgnoredFileProvider>();
 	private _languageModelProxyProvider: vscode.LanguageModelProxyProvider | undefined;
+	// --- Start Positron ---
+	// Tracks model identifiers currently being re-resolved by
+	// getLanguageModelByIdentifier. Used to break recursion when
+	// selectLanguageModels keeps returning a model id we still can't find.
+	private readonly _modelLookupInFlight = new Set<string>();
+	// --- End Positron ---
 
 	constructor(
 		@IExtHostRpcService extHostRpc: IExtHostRpcService,
@@ -400,6 +406,16 @@ export class ExtHostLanguageModels implements ExtHostLanguageModelsShape {
 
 		let model = this._localModels.get(modelId);
 		if (!model) {
+			// --- Start Positron ---
+			// Break recursion: if a re-resolve is already in flight for this
+			// modelId, don't kick off another one. Without this guard, a stale
+			// id returned by selectLanguageModels (e.g. an orphaned entry in
+			// main thread's _modelCache for a vendor with no provider) drives
+			// an unbounded loop through selectLanguageModels → here → back.
+			if (this._modelLookupInFlight.has(modelId)) {
+				return undefined;
+			}
+			// --- End Positron ---
 			// model gone? is this an error on us? Try to resolve model again
 			this._logService.warn(`[LanguageModelProxy](${extension.identifier.value}) Could not find model '${modelId}' in local cache. Trying to resolve model again.`);
 			const vendor = this.getVendorFromModelIdentifier(modelId);
@@ -407,7 +423,14 @@ export class ExtHostLanguageModels implements ExtHostLanguageModelsShape {
 				this._logService.warn(`[LanguageModelProxy](${extension.identifier.value}) Could not extract vendor from model identifier '${modelId}'.`);
 				return undefined;
 			}
-			await this.selectLanguageModels(extension, { vendor });
+			// --- Start Positron ---
+			this._modelLookupInFlight.add(modelId);
+			try {
+				await this.selectLanguageModels(extension, { vendor });
+			} finally {
+				this._modelLookupInFlight.delete(modelId);
+			}
+			// --- End Positron ---
 			model = this._localModels.get(modelId);
 			if (!model) {
 				this._logService.warn(`[LanguageModelProxy](${extension.identifier.value}) Could not find model '${modelId}' in local cache after re-resolving models.`);
