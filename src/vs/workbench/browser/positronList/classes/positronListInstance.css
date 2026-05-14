@@ -4,6 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 /*
+	Section row wrapper. The caller's sectionRenderer controls visual appearance; this wrapper
+	just fills the row slot the grid sized for the section.
+*/
+.positron-list-section {
+	width: 100%;
+	height: 100%;
+}
+
+/*
 	The row wraps the caller's itemRenderer output inside the slot that PositronDataGrid sizes
 	for each row. width/height 100% makes the wrapper fill that slot, so that default selection
 	and focus styling cover the entire row rather than collapsing to the rendered content's

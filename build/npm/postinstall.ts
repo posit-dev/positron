@@ -10,9 +10,6 @@ import * as child_process from 'child_process';
 import { createRequire } from 'module';
 import { dirs } from './dirs.ts';
 import { root, stateFile, stateContentsFile, computeState, computeContents, isUpToDate } from './installStateHash.ts';
-// --- Start Positron ---
-import { buildESMPackageDependencies } from './build-esm-package-dependencies.ts';
-// --- End Positron ---
 
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const rootNpmrcConfigKeys = getNpmrcConfigKeys(path.join(root, '.npmrc'));
@@ -259,6 +256,7 @@ function generateRehWebPackageJson() {
 async function syncArkSubmoduleIfSafe(): Promise<void> {
 	// Skip in CI — checkouts there already pin the submodule via `submodules: true`.
 	if (process.env['CI']) {
+		log('.', 'Skipping ark submodule sync in CI environment');
 		return;
 	}
 
@@ -354,7 +352,12 @@ async function main() {
 	// --- Start Positron ---
 	// Sync the ark submodule before anything else — extensions install runs
 	// install-kernel, which reads the submodule's working tree.
-	await syncArkSubmoduleIfSafe();
+	try {
+		await syncArkSubmoduleIfSafe();
+	} catch (err) {
+		console.error('Error in syncArkSubmoduleIfSafe:', err);
+		throw err;
+	}
 	// --- End Positron ---
 
 	if (!process.env['VSCODE_FORCE_INSTALL'] && isUpToDate()) {
@@ -478,9 +481,16 @@ async function main() {
 
 	// --- Start Positron ---
 	// Build ESM package dependencies once during postinstall for reuse across all build pipelines.
-	console.log('Building ESM package dependencies...');
-	buildESMPackageDependencies('.build/esm-package-dependencies');
-	console.log('ESM package dependencies built successfully.');
+	// Dynamic import to avoid loading esbuild before the build directory's npm install completes.
+	try {
+		console.log('Building ESM package dependencies...');
+		const { buildESMPackageDependencies } = await import('./build-esm-package-dependencies.ts');
+		buildESMPackageDependencies('.build/esm-package-dependencies');
+		console.log('ESM package dependencies built successfully.');
+	} catch (err) {
+		console.error('Error building ESM package dependencies:', err);
+		throw err;
+	}
 	// --- End Positron ---
 
 	fs.writeFileSync(stateFile, JSON.stringify(_state));
