@@ -69,6 +69,15 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	const loading = refreshLoading || installLoading || updateLoading || updateAllLoading || uninstallLoading;
 
 	useEffect(() => {
+		// Reset loading flags so a stale loading state from the previous instance
+		// (e.g. a cancelled Update All that hadn't yet fired its `false` event)
+		// doesn't leak across an instance switch.
+		setRefreshLoading(false);
+		setInstallLoading(false);
+		setUpdateLoading(false);
+		setUpdateAllLoading(false);
+		setUninstallLoading(false);
+
 		if (!activeInstance) {
 			setPackages([]);
 			return;
