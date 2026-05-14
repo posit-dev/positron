@@ -326,9 +326,13 @@ function setupMSFTExperimentationService(builder: IInstantiationServiceBuilder, 
 function setupTelemetry(builder: IInstantiationServiceBuilder, extensionContext: ExtensionContext, internalAIKey: string, internalLargeEventAIKey: string, externalAIKey: string) {
 
 	// --- Start Positron ---
-	// Always disable telemetry in Positron, regardless of mode.
+	// Always disable telemetry in Positron, regardless of mode. We still call
+	// setupMSFTExperimentationService below so IExperimentationService is registered
+	// (transitively required by IIgnoreService and others); in non-production mode it
+	// registers the NullExperimentationService, which is what we want anyway.
 	if (builder && extensionContext) {
 		builder.define(ITelemetryService, new NullTelemetryService());
+		setupMSFTExperimentationService(builder, extensionContext);
 		return;
 	}
 	// --- End Positron ---
