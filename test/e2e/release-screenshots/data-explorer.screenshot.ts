@@ -20,7 +20,7 @@ test.beforeEach(async ({ app }) => {
  * Img Path: https://positron.posit.co/images/data-explorer.png
  */
 test.describe('Release Screenshots - Data Explorer', () => {
-	test('Data Explorer with Flight Data', async ({ app, page, executeCode, python }) => {
+	test('Release Screenshot - data-explorer.png', async ({ app, page, executeCode, python }) => {
 		const { dataExplorer, variables } = app.workbench;
 
 		// open the flights dataset in the data explorer
@@ -67,6 +67,7 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		// capture screenshot
 		await prepareForScreenshot(app, page);
 		await capturePanel(
+			page,
 			page.locator('.part.editor .editor-group-container'),
 			'data-explorer.png',
 		);

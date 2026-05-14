@@ -87,6 +87,15 @@ export class Variables {
 		return await progressBar.isVisible();
 	}
 
+	/**
+	 * Scroll the variables list by wheel. Positive y scrolls down, negative scrolls up.
+	 */
+	async scroll(delta: { y: number }): Promise<void> {
+		const list = this.code.driver.currentPage.locator('.variables-instance').first();
+		await list.hover();
+		await this.code.driver.currentPage.mouse.wheel(0, delta.y);
+	}
+
 	async toggleVariable({ variableName, action }: { variableName: string; action: 'expand' | 'collapse' }) {
 		await test.step(`${action} variable: ${variableName}`, async () => {
 			await this.waitForVariableRow(variableName);
