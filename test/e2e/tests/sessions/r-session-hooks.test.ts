@@ -40,8 +40,8 @@ test.describe('Sessions: R Session Init Hooks', {
 		await console.waitForConsoleContents('[hook:init] project=', { timeout: 15000 });
 
 		// navigateToFile triggers a UI action (opens .Rprofile in editor)
-		await console.waitForConsoleContents('[hook:init] navigateToFile completed', { timeout: 15000 });
-		await app.workbench.editors.waitForActiveTab('.Rprofile');
+		await console.waitForConsoleContents('[hook:init] navigateToFile DESCRIPTION completed', { timeout: 15000 });
+		await app.workbench.editors.waitForActiveTab('DESCRIPTION');
 	});
 
 	test('R - Restart runs .Rprofile and fires session_init with start_type=restart', async function ({ app, sessions, hotKeys }) {
@@ -55,8 +55,8 @@ test.describe('Sessions: R Session Init Hooks', {
 		await console.waitForConsoleContents('[hook:init] start_type=restart', { timeout: 30000 });
 
 		// navigateToFile works on restart too
-		await console.waitForConsoleContents('[hook:init] navigateToFile completed', { timeout: 15000 });
-		await app.workbench.editors.waitForActiveTab('.Rprofile');
+		await console.waitForConsoleContents('[hook:init] navigateToFile DESCRIPTION completed', { timeout: 15000 });
+		await app.workbench.editors.waitForActiveTab('DESCRIPTION');
 	});
 
 	test('R - Window reload fires only session_reconnect, not session_init or .Rprofile', async function ({ app, hotKeys }) {
