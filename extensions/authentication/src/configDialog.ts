@@ -95,7 +95,12 @@ async function enrichWithCredentialState(
 		try {
 			const sessions = await provider.getSessions();
 			const signedIn = sessions.length > 0;
-			if (signedIn && source.provider.id === FOUNDRY_AUTH_PROVIDER_ID && hasManagedCredentials(FOUNDRY_MANAGED_CREDENTIALS)) {
+			// Chain sessions (env vars, credential chain, managed credentials) use
+			// the provider ID as their session ID; stored API-key sessions use a
+			// random UUID. Only autoconfigured sessions should show the
+			// "authenticated automatically" UI and hide the sign-out button.
+			const isAutoSession = signedIn && sessions[0].id === source.provider.id;
+			if (isAutoSession && source.provider.id === FOUNDRY_AUTH_PROVIDER_ID && hasManagedCredentials(FOUNDRY_MANAGED_CREDENTIALS)) {
 				return {
 					...source,
 					signedIn,
@@ -109,7 +114,7 @@ async function enrichWithCredentialState(
 					},
 				};
 			}
-			if (signedIn && source.provider.id === 'snowflake-cortex' && hasManagedCredentials(SNOWFLAKE_MANAGED_CREDENTIALS)) {
+			if (isAutoSession && source.provider.id === 'snowflake-cortex' && hasManagedCredentials(SNOWFLAKE_MANAGED_CREDENTIALS)) {
 				return {
 					...source,
 					signedIn,
@@ -123,7 +128,7 @@ async function enrichWithCredentialState(
 					},
 				};
 			}
-			if (signedIn && source.defaults.autoconfigure) {
+			if (isAutoSession && source.defaults.autoconfigure) {
 				return {
 					...source,
 					signedIn,
