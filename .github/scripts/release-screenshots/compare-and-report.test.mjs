@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { classify, formatSummary } from './compare-and-report.mjs';
+import { classify, formatSummary, formatHtml } from './compare-and-report.mjs';
 
 const PNG_SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
@@ -98,34 +98,34 @@ test('classify: ignores non-png files', async () => {
 	}
 });
 
-test('formatSummary: includes one row per file with emoji', () => {
-	const classification = {
-		'a.png': { status: 'unchanged', generatedHash: 'abc1234567890def', generatedSize: 100, docsHash: 'abc1234567890def' },
-		'b.png': { status: 'changed', generatedHash: 'def4567890abcdef', generatedSize: 200, docsHash: 'old7890123456789' },
-		'c.png': { status: 'new', generatedHash: 'ghi7890123456789', generatedSize: 300 },
-	};
-	const md = formatSummary(classification);
-	assert.match(md, /a\.png/);
-	assert.match(md, /b\.png/);
-	assert.match(md, /c\.png/);
-	assert.match(md, /✅/);
-	assert.match(md, /🔄/);
-	assert.match(md, /🆕/);
-	// Hash is truncated to 8 chars; the 9th+ chars must not appear
-	assert.match(md, /abc12345/);
-	assert.ok(!md.includes('abc1234567890def'), 'full hash must not appear: truncation to 8 chars is broken');
-});
-
-test('formatSummary: shows totals row', () => {
+test('formatSummary: shows totals', () => {
 	const classification = {
 		'a.png': { status: 'unchanged', generatedHash: 'a', generatedSize: 1 },
 		'b.png': { status: 'changed', generatedHash: 'b', generatedSize: 2, docsHash: 'old' },
 		'c.png': { status: 'new', generatedHash: 'c', generatedSize: 3 },
 	};
 	const md = formatSummary(classification);
-	assert.match(md, /1 unchanged/);
-	assert.match(md, /1 changed/);
-	assert.match(md, /1 new/);
+	assert.match(md, /Total: 3/);
+	assert.match(md, /New: 1/);
+	assert.match(md, /Changed: 1/);
+	assert.match(md, /Unchanged: 1/);
+});
+
+test('formatSummary: title line is a link to the report when reportUrl is provided', () => {
+	const classification = {
+		'a.png': { status: 'changed', generatedHash: 'a', generatedSize: 1, docsHash: 'old' },
+	};
+	const md = formatSummary(classification, { reportUrl: 'https://example.com/run123/report.html' });
+	assert.match(md, /\[Screenshot Report\]\(https:\/\/example\.com\/run123\/report\.html\)/);
+});
+
+test('formatSummary: title line is plain text when reportUrl is not provided', () => {
+	const classification = {
+		'a.png': { status: 'changed', generatedHash: 'a', generatedSize: 1, docsHash: 'old' },
+	};
+	const md = formatSummary(classification);
+	assert.ok(!md.includes('['), 'should not include a markdown link when reportUrl is missing');
+	assert.match(md, /Screenshot Report/);
 });
 
 test('formatSummary: empty classification renders cleanly', () => {
@@ -133,13 +133,56 @@ test('formatSummary: empty classification renders cleanly', () => {
 	assert.match(md, /No images/i);
 });
 
-test('formatSummary: rows are sorted alphabetically by filename', () => {
+test('formatHtml: includes one card per file with status section', () => {
 	const classification = {
-		'z.png': { status: 'new', generatedHash: 'zzzzzzzzzzzzzzzz', generatedSize: 100 },
-		'a.png': { status: 'unchanged', generatedHash: 'aaaaaaaaaaaaaaaa', generatedSize: 200, docsHash: 'aaaaaaaaaaaaaaaa' },
-		'm.png': { status: 'changed', generatedHash: 'mmmmmmmmmmmmmmmm', generatedSize: 300, docsHash: 'nnnnnnnnnnnnnnnn' },
+		'a.png': { status: 'unchanged', generatedHash: 'a', generatedSize: 1, docsHash: 'a' },
+		'b.png': { status: 'changed', generatedHash: 'b', generatedSize: 2, docsHash: 'old' },
+		'c.png': { status: 'new', generatedHash: 'c', generatedSize: 3 },
 	};
-	const md = formatSummary(classification);
-	assert.ok(md.indexOf('a.png') < md.indexOf('m.png'), 'a.png must appear before m.png');
-	assert.ok(md.indexOf('m.png') < md.indexOf('z.png'), 'm.png must appear before z.png');
+	const html = formatHtml(classification, { screenshotBaseUrl: 'https://example.com/run123' });
+	assert.match(html, /a\.png/);
+	assert.match(html, /b\.png/);
+	assert.match(html, /c\.png/);
+	assert.match(html, /data-status="unchanged"/);
+	assert.match(html, /data-status="changed"/);
+	assert.match(html, /data-status="new"/);
+});
+
+test('formatHtml: includes Positron version in header when provided', () => {
+	const html = formatHtml({}, { version: '2026.05.0-179' });
+	assert.match(html, /Positron/);
+	assert.match(html, /2026\.05\.0-179/);
+});
+
+test('formatHtml: omits version meta when not provided', () => {
+	const html = formatHtml({});
+	assert.ok(!html.includes('Positron <code'), 'should not render version chip when version is missing');
+});
+
+test('formatHtml: cards are sorted alphabetically by filename', () => {
+	const classification = {
+		'z.png': { status: 'changed', generatedHash: 'z', generatedSize: 1, docsHash: 'old' },
+		'a.png': { status: 'changed', generatedHash: 'a', generatedSize: 2, docsHash: 'old' },
+		'm.png': { status: 'changed', generatedHash: 'm', generatedSize: 3, docsHash: 'old' },
+	};
+	const html = formatHtml(classification, { screenshotBaseUrl: 'https://example.com/run123' });
+	assert.ok(html.indexOf('a.png') < html.indexOf('m.png'), 'a.png must appear before m.png');
+	assert.ok(html.indexOf('m.png') < html.indexOf('z.png'), 'm.png must appear before z.png');
+});
+
+test('formatHtml: new-status cards have placeholder for missing current image', () => {
+	const classification = {
+		'newonly.png': { status: 'new', generatedHash: 'x', generatedSize: 1 },
+	};
+	const html = formatHtml(classification, { screenshotBaseUrl: 'https://example.com/run123' });
+	assert.match(html, /not on positron\.posit\.co/i);
+});
+
+test('formatHtml: escapes HTML-unsafe characters in filenames', () => {
+	const classification = {
+		'has<bad>.png': { status: 'new', generatedHash: 'x', generatedSize: 1 },
+	};
+	const html = formatHtml(classification, { screenshotBaseUrl: 'https://example.com/run123' });
+	assert.ok(!html.includes('has<bad>.png'), 'unescaped angle brackets should not appear');
+	assert.match(html, /has&lt;bad&gt;\.png/);
 });
