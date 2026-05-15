@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import path = require('path');
+import { join } from 'path';
 import { test, expect, tags } from '../_test.setup';
 
 test.use({
