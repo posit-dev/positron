@@ -80,9 +80,15 @@ jobs:
             echo "npm ci completed successfully"
 
       - name: Download binaries (Ark, Kallichore)
+        # Only rebuild binaries if EVERY cache hit (which means npm install was skipped
+        # and postinstall scripts didn't run). With even one cache miss, install ran
+        # and the binaries are already in place from postinstall — the action's
+        # verification check (looking for resources/ark/ark[.exe]) is brittle against
+        # partial-hit cases and hits a false-positive here. Match production behavior.
         uses: ./.github/actions/download-binaries
         with:
-          cache-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' ||
+          cache-hit: ${{ steps.restore-caches.outputs.cache-npm-core-hit == 'true' &&
+                         steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' &&
                          steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' }}
 
       # NOTE: Intentionally skipping `npm run prelaunch` (built-in extension download).
