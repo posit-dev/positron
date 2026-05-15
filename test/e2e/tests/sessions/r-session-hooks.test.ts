@@ -18,7 +18,7 @@ test.describe('Sessions: R Session Init Hooks', {
 		await settings.set({
 			'interpreters.startupBehavior': 'auto'
 		});
-		await openFolder(path.join('qa-example-content/workspaces/r-session-hooks'));
+		await openFolder(join('qa-example-content/workspaces/r-session-hooks'));
 		await app.workbench.console.waitForReadyAndStarted('>', 60000);
 	});
 
