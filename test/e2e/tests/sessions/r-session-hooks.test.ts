@@ -81,7 +81,7 @@ test.describe('Sessions: R Session Init Hooks', {
 		expect(hookWidth, 'reconnect hook cli::console_width() should match live console width').toBe(liveWidth);
 
 		// rstudioapi works on reconnect
-		await console.waitForConsoleContents('[hook:reconnect] project=', { timeout: 15000 });
+		await console.waitForConsoleContents('[hook:reconnect] project=r-session-hooks', { timeout: 15000 });
 
 		// session_init must NOT fire on reconnect
 		await console.waitForConsoleContents('[hook:init]', { expectedCount: 0, timeout: 5000 });
