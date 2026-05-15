@@ -3,6 +3,11 @@ name: "Test: E2E Workbench (Ubuntu)"
 on:
   workflow_call:
     inputs:
+      commit:
+        description: "Commit SHA to test"
+        required: false
+        default: ""
+        type: string
       grep:
         required: false
         description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames."
@@ -59,6 +64,12 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
+
+      - name: Checkout specific commit
+        if: ${{ inputs.commit != '' }}
+        run: |
+          git checkout ${{ inputs.commit }}
+          git submodule update --init --recursive
 
       - name: Generate access token for private repos
         id: access-token

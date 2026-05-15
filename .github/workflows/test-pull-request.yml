@@ -2,18 +2,29 @@ name: "Test: PR"
 
 on:
   workflow_dispatch:
-  pull_request:
+  pull_request_target:
     branches:
       - main
       - "prerelease/**"
       - "release/**"
+    types: [opened, synchronize, labeled]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
+  authorize:
+    runs-on: ubuntu-latest
+    if: >
+      (github.event.action != 'labeled' || github.event.label.name == 'run-ci') &&
+      (github.event.pull_request.head.repo.full_name == github.repository ||
+       contains(github.event.pull_request.labels.*.name, 'run-ci'))
+    steps:
+      - run: true
+
   pr-tags:
+    needs: authorize
     runs-on: ubuntu-latest
     outputs:
       tags: ${{ steps.pr-tags.outputs.tags }}
@@ -33,6 +44,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
       - name: Parse Tags from PR Body
         id: pr-tags
         run: bash scripts/pr-tags-parse.sh
@@ -44,8 +57,9 @@ jobs:
   e2e-ubuntu-electron:
     name: e2e
     uses: ./.github/workflows/test-e2e-ubuntu.yml
-    needs: pr-tags
+    needs: [authorize, pr-tags]
     with:
+      commit: ${{ github.event.pull_request.head.sha }}
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "electron"
       install_undetectable_interpreters: false
@@ -56,11 +70,12 @@ jobs:
     secrets: inherit
 
   e2e-windows-electron:
-    needs: pr-tags
+    needs: [authorize, pr-tags]
     if: ${{ needs.pr-tags.outputs.win_tag_found == 'true' }}
     name: e2e
     uses: ./.github/workflows/test-e2e-windows-run.yml
     with:
+      commit: ${{ github.event.pull_request.head.sha }}
       save_cache: true
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "windows"
@@ -69,11 +84,12 @@ jobs:
     secrets: inherit
 
   e2e-ubuntu-browser:
-    needs: pr-tags
+    needs: [authorize, pr-tags]
     if: ${{ needs.pr-tags.outputs.web_tag_found == 'true' }}
     name: e2e
     uses: ./.github/workflows/test-e2e-ubuntu.yml
     with:
+      commit: ${{ github.event.pull_request.head.sha }}
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "chromium"
       project: "e2e-chromium"
@@ -86,9 +102,10 @@ jobs:
   e2e-rhel-electron:
     name: e2e
     uses: ./.github/workflows/test-e2e-rhel.yml
-    needs: pr-tags
+    needs: [authorize, pr-tags]
     if: ${{ needs.pr-tags.outputs.rhel_electron_tag_found == 'true' }}
     with:
+      commit: ${{ github.event.pull_request.head.sha }}
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "electron (RHEL)"
       install_undetectable_interpreters: false
@@ -98,11 +115,12 @@ jobs:
     secrets: inherit
 
   e2e-rhel-chromium:
-    needs: pr-tags
+    needs: [authorize, pr-tags]
     if: ${{ needs.pr-tags.outputs.rhel_web_tag_found == 'true' }}
     name: e2e
     uses: ./.github/workflows/test-e2e-rhel.yml
     with:
+      commit: ${{ github.event.pull_request.head.sha }}
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "chromium (RHEL)"
       project: "e2e-chromium"
@@ -115,9 +133,10 @@ jobs:
   e2e-suse-electron:
     name: e2e
     uses: ./.github/workflows/test-e2e-suse.yml
-    needs: pr-tags
+    needs: [authorize, pr-tags]
     if: ${{ needs.pr-tags.outputs.suse_electron_tag_found == 'true' }}
     with:
+      commit: ${{ github.event.pull_request.head.sha }}
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "electron (SUSE)"
       install_undetectable_interpreters: false
@@ -127,11 +146,12 @@ jobs:
     secrets: inherit
 
   e2e-suse-chromium:
-    needs: pr-tags
+    needs: [authorize, pr-tags]
     if: ${{ needs.pr-tags.outputs.suse_web_tag_found == 'true' }}
     name: e2e
     uses: ./.github/workflows/test-e2e-suse.yml
     with:
+      commit: ${{ github.event.pull_request.head.sha }}
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "chromium (SUSE)"
       project: "e2e-chromium"
@@ -144,9 +164,10 @@ jobs:
   e2e-sles-electron:
     name: e2e
     uses: ./.github/workflows/test-e2e-sles.yml
-    needs: pr-tags
+    needs: [authorize, pr-tags]
     if: ${{ needs.pr-tags.outputs.sles_electron_tag_found == 'true' }}
     with:
+      commit: ${{ github.event.pull_request.head.sha }}
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "electron (SLES)"
       install_undetectable_interpreters: false
@@ -156,11 +177,12 @@ jobs:
     secrets: inherit
 
   e2e-sles-chromium:
-    needs: pr-tags
+    needs: [authorize, pr-tags]
     if: ${{ needs.pr-tags.outputs.sles_web_tag_found == 'true' }}
     name: e2e
     uses: ./.github/workflows/test-e2e-sles.yml
     with:
+      commit: ${{ github.event.pull_request.head.sha }}
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "chromium (SLES)"
       project: "e2e-chromium"
@@ -173,9 +195,10 @@ jobs:
   e2e-debian-electron:
     name: e2e
     uses: ./.github/workflows/test-e2e-debian.yml
-    needs: pr-tags
+    needs: [authorize, pr-tags]
     if: ${{ needs.pr-tags.outputs.debian_electron_tag_found == 'true' }}
     with:
+      commit: ${{ github.event.pull_request.head.sha }}
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "electron (Debian)"
       install_undetectable_interpreters: false
@@ -185,11 +208,12 @@ jobs:
     secrets: inherit
 
   e2e-debian-chromium:
-    needs: pr-tags
+    needs: [authorize, pr-tags]
     if: ${{ needs.pr-tags.outputs.debian_web_tag_found == 'true' }}
     name: e2e
     uses: ./.github/workflows/test-e2e-debian.yml
     with:
+      commit: ${{ github.event.pull_request.head.sha }}
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "chromium (Debian)"
       project: "e2e-chromium"
@@ -200,25 +224,30 @@ jobs:
     secrets: inherit
 
   e2e-pyrefly:
-    needs: pr-tags
+    needs: [authorize, pr-tags]
     if: ${{ needs.pr-tags.outputs.pyrefly_tag_found == 'true' }}
     name: e2e
     uses: ./.github/workflows/test-e2e-pyrefly.yml
+    with:
+      commit: ${{ github.event.pull_request.head.sha }}
     secrets: inherit
 
   build-workbench:
-    needs: pr-tags
+    needs: [authorize, pr-tags]
     if: ${{ needs.pr-tags.outputs.workbench_tag_found == 'true' }}
     name: build
     uses: ./.github/workflows/build-workbench-linux.yml
+    with:
+      commit: ${{ github.event.pull_request.head.sha }}
     secrets: inherit
 
   e2e-workbench:
-    needs: [pr-tags, build-workbench]
+    needs: [authorize, pr-tags, build-workbench]
     if: ${{ needs.pr-tags.outputs.workbench_tag_found == 'true' }}
     name: e2e
     uses: ./.github/workflows/test-e2e-workbench-ubuntu.yml
     with:
+      commit: ${{ github.event.pull_request.head.sha }}
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "workbench"
       install_license: false
@@ -227,18 +256,21 @@ jobs:
     secrets: inherit
 
   build-jupyter:
-    needs: pr-tags
+    needs: [authorize, pr-tags]
     if: ${{ needs.pr-tags.outputs.jupyter_tag_found == 'true' }}
     name: build
     uses: ./.github/workflows/build-jupyter-linux.yml
+    with:
+      commit: ${{ github.event.pull_request.head.sha }}
     secrets: inherit
 
   e2e-jupyter:
-    needs: [pr-tags, build-jupyter]
+    needs: [authorize, pr-tags, build-jupyter]
     if: ${{ needs.pr-tags.outputs.jupyter_tag_found == 'true' }}
     name: e2e
     uses: ./.github/workflows/test-e2e-jupyter-ubuntu.yml
     with:
+      commit: ${{ github.event.pull_request.head.sha }}
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "jupyter"
       install_license: true
@@ -247,15 +279,19 @@ jobs:
     secrets: inherit
 
   unit-tests:
+    needs: authorize
     name: test
     uses: ./.github/workflows/test-unit.yml
     secrets: inherit
     with:
+      commit: ${{ github.event.pull_request.head.sha }}
       save_cache: true  # Only this job saves cache to avoid race conditions
 
   ext-host-tests:
+    needs: authorize
     name: test
     uses: ./.github/workflows/test-ext-host.yml
     secrets: inherit
     with:
+      commit: ${{ github.event.pull_request.head.sha }}
       pull_request: true
