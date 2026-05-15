@@ -29,7 +29,7 @@ test.describe('Sessions: R Session Init Hooks', {
 		await console.waitForConsoleContents('[hook:init] start_type=new', { timeout: 30000 });
 
 		// rstudioapi two-way calls work inside the hook
-		await console.waitForConsoleContents('[hook:init] project=', { timeout: 15000 });
+		await console.waitForConsoleContents('[hook:init] project=r-session-hooks', { timeout: 15000 });
 
 		// navigateToFile triggers a UI action (opens DESCRIPTION in editor)
 		await console.waitForConsoleContents('[hook:init] navigateToFile DESCRIPTION completed', { timeout: 15000 });
