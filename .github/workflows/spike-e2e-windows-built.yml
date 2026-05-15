@@ -1,0 +1,356 @@
+name: "Spike: E2E against packaged Windows build"
+
+# Pivot from the Linux spike (.github/workflows/spike-e2e-linux-built.yml).
+# Validates whether gulp vscode-win32-x64 produces a packaged app small enough
+# to share between a build job and a test job on `windows-latest-8x` runners.
+# Background: a prior Dec 2025 attempt failed because the shared artifact was a
+# multi-GB dev-workspace tarball; this spike tests a packaged-app artifact instead.
+
+on:
+  push:
+    branches:
+      - mi/heather-azalea
+    paths:
+      - '.github/workflows/spike-e2e-windows-built.yml'
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+  packages: read
+
+jobs:
+  build:
+    name: build-windows-packaged
+    timeout-minutes: 90
+    runs-on: windows-latest-8x
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      POSITRON_BUILD_NUMBER: 0
+    outputs:
+      gulp_minutes: ${{ steps.gulp-build.outputs.gulp_minutes }}
+      gulp_seconds: ${{ steps.gulp-build.outputs.gulp_seconds }}
+      artifact_mb: ${{ steps.compress.outputs.artifact_mb }}
+      compress_seconds: ${{ steps.compress.outputs.compress_seconds }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set screen resolution
+        shell: pwsh
+        run: Set-DisplayResolution -Width 1920 -Height 1080 -Force
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+
+      - name: 📦 Restore caches
+        id: restore-caches
+        uses: ./.github/actions/restore-build-caches
+
+      - name: Install node dependencies
+        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true'
+        uses: nick-fields/retry@v4
+        env:
+          npm_config_arch: x64
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
+          POSITRON_PARALLEL_INSTALL: '0'         # Windows file-locking races on native modules
+          NPM_CONFIG_AUDIT: 'false'
+          NPM_CONFIG_FUND: 'false'
+          NPM_CONFIG_UPDATE_NOTIFIER: 'false'
+          POSITRON_EXTENSIONS_FILTER: ${{ (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true' && 'stable') || (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' && 'volatile') || '' }}
+        with:
+          timeout_minutes: 90
+          max_attempts: 3
+          retry_wait_seconds: 5
+          shell: bash
+          # Retry handles windows-process-tree native-module flake.
+          # See https://github.com/posit-dev/issues/3481 and test-e2e-windows-run.yml.
+          command: |
+            set -e
+            npm --prefix build ci --no-audit --no-fund --fetch-timeout 120000
+            npm ci --no-audit --no-fund --fetch-timeout 120000
+            echo "npm ci completed successfully"
+
+      - name: Download binaries (Ark, Kallichore)
+        uses: ./.github/actions/download-binaries
+        with:
+          cache-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' ||
+                         steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' }}
+
+      # NOTE: Intentionally skipping `npm run prelaunch` (built-in extension download).
+      # The hypothesis is that `gulp vscode-win32-x64` produces a complete package
+      # on its own. If the test job fails because built-in extensions are missing,
+      # add a `npm run prelaunch` step before gulp in a follow-up iteration.
+
+      - name: Run gulp vscode-win32-x64
+        id: gulp-build
+        shell: pwsh
+        env:
+          POSITRON_BUILD_NUMBER: 0
+        run: |
+          $start = Get-Date
+          npm run gulp vscode-win32-x64
+          if ($LASTEXITCODE -ne 0) { throw "gulp vscode-win32-x64 failed with exit code $LASTEXITCODE" }
+          $elapsed = (Get-Date) - $start
+          "gulp_seconds=$([int]$elapsed.TotalSeconds)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "gulp_minutes=$([int]$elapsed.TotalMinutes)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+          # gulp writes to ..\VSCode-win32-x64 relative to the repo root.
+          # The exact runner path varies (D:\a\positron\positron or C:\a\...),
+          # so locate dynamically instead of hardcoding.
+          $buildDir = Get-ChildItem -Path "$env:GITHUB_WORKSPACE\..", "D:\a", "C:\a" -Recurse -Directory -Filter 'VSCode-win32-x64' -ErrorAction SilentlyContinue |
+            Where-Object { Test-Path (Join-Path $_.FullName 'resources\app\product.json') } |
+            Select-Object -First 1 -ExpandProperty FullName
+
+          if (-not $buildDir) {
+            Write-Host "ERROR: VSCode-win32-x64 build directory not found"
+            Write-Host "Searched under GITHUB_WORKSPACE\.., D:\a, C:\a"
+            Get-ChildItem -Path "$env:GITHUB_WORKSPACE\..", "D:\a", "C:\a" -Directory -ErrorAction SilentlyContinue | Select-Object -First 20 FullName
+            exit 1
+          }
+          Write-Host "Found packaged build at $buildDir"
+          "build_dir=$buildDir" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Verify packaged app structure
+        shell: pwsh
+        run: |
+          $buildDir = "${{ steps.gulp-build.outputs.build_dir }}"
+          Write-Host "=== Listing $buildDir (top level) ==="
+          Get-ChildItem -Path $buildDir | Select-Object Mode, Length, Name | Format-Table -AutoSize
+
+          $productJson = Join-Path $buildDir 'resources\app\product.json'
+          if (-not (Test-Path $productJson)) {
+            Write-Host "MISSING: $productJson"
+            exit 1
+          }
+          $product = Get-Content $productJson | ConvertFrom-Json
+          $exeName = "$($product.nameShort).exe"
+          $exePath = Join-Path $buildDir $exeName
+          Write-Host "Expected exe: $exePath (from nameShort=$($product.nameShort))"
+          if (-not (Test-Path $exePath)) {
+            Write-Host "MISSING: $exePath"
+            Write-Host "Top-level .exe files in build dir:"
+            Get-ChildItem -Path $buildDir -Filter '*.exe' | Select-Object Name | Format-Table
+            exit 1
+          }
+          Write-Host "Packaged app verified at $buildDir (exe: $exeName)"
+
+      - name: Compress artifact
+        id: compress
+        shell: pwsh
+        run: |
+          $buildDir = "${{ steps.gulp-build.outputs.build_dir }}"
+          $parentDir = Split-Path -Parent $buildDir
+          $leaf = Split-Path -Leaf $buildDir  # expected: 'VSCode-win32-x64'
+
+          $artifactDir = "D:\a\artifacts"
+          New-Item -ItemType Directory -Path $artifactDir -Force | Out-Null
+          $archivePath = Join-Path $artifactDir 'positron-win32-x64.7z'
+
+          # Run 7z from the parent directory so the archive stores paths relative to
+          # the build dir's parent (i.e. entries start with 'VSCode-win32-x64\...').
+          # This avoids 7z's default behavior of preserving the full absolute path,
+          # which would force the test job to recreate D:\a\positron\... under its extract root.
+          $start = Get-Date
+          Push-Location $parentDir
+          try {
+            # 7z is pre-installed on GHA Windows runners.
+            # -mx=1 (fastest) + -mmt=on (multithreaded) trades compression ratio for speed.
+            & 7z a -mx=1 -mmt=on $archivePath $leaf
+            if ($LASTEXITCODE -ne 0) { throw "7z compression failed with exit code $LASTEXITCODE" }
+          } finally {
+            Pop-Location
+          }
+          $elapsed = (Get-Date) - $start
+
+          $sizeMb = [int]((Get-Item $archivePath).Length / 1MB)
+          "compress_seconds=$([int]$elapsed.TotalSeconds)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "artifact_mb=$sizeMb" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "archive_path=$archivePath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "Artifact: ${sizeMb} MB, compressed in $([int]$elapsed.TotalSeconds)s"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: positron-win32-x64-packaged
+          path: D:\a\artifacts\positron-win32-x64.7z
+          retention-days: 1
+          compression-level: 0
+
+      - name: Report build metrics to summary
+        if: always()
+        shell: bash
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY <<EOF
+          ## Spike build metrics (Windows)
+          - gulp vscode-win32-x64: **${{ steps.gulp-build.outputs.gulp_minutes }} min** (${{ steps.gulp-build.outputs.gulp_seconds }}s)
+          - Artifact size: **${{ steps.compress.outputs.artifact_mb }} MB**
+          - 7z compress time: ${{ steps.compress.outputs.compress_seconds }}s
+          EOF
+
+  test:
+    name: test-windows-packaged
+    needs: build
+    timeout-minutes: 45
+    runs-on: windows-latest-8x
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      POSITRON_BUILD_NUMBER: 0
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+
+      - name: Set screen resolution
+        shell: pwsh
+        run: Set-DisplayResolution -Width 1920 -Height 1080 -Force
+
+      - name: Load secrets
+        uses: 1password/load-secrets-action@v4
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+          OPENAI_KEY: "op://Positron/OpenAI/credential"
+          POSIT_AUTH_HOST: "op://Positron/Posit-AI-Login/website"
+          POSIT_EMAIL: "op://Positron/Posit-AI-Login/username"
+          POSIT_PASSWORD: "op://Positron/Posit-AI-Login/password"
+
+      - name: Setup AWS S3 Access
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+
+      - name: Download packaged build artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: positron-win32-x64-packaged
+          path: D:\a\artifacts
+
+      - name: Extract packaged build
+        id: extract
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path D:\positron-build -Force | Out-Null
+          $start = Get-Date
+          & 7z x D:\a\artifacts\positron-win32-x64.7z -oD:\positron-build -y
+          if ($LASTEXITCODE -ne 0) { throw "7z extract failed with exit code $LASTEXITCODE" }
+          $elapsed = (Get-Date) - $start
+          "extract_seconds=$([int]$elapsed.TotalSeconds)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "Extracted in $([int]$elapsed.TotalSeconds)s"
+          Write-Host "Contents of D:\positron-build:"
+          Get-ChildItem -Path D:\positron-build -Recurse -Depth 1 | Select-Object FullName | Format-Table -AutoSize
+
+      - name: Verify extracted app and resolve BUILD path
+        id: resolve-build
+        shell: pwsh
+        run: |
+          # The artifact was compressed with an absolute source path; 7z preserves the
+          # full directory tree starting at the drive root. Locate VSCode-win32-x64
+          # dynamically rather than guessing the nested path.
+          $buildDir = Get-ChildItem -Path D:\positron-build -Recurse -Directory -Filter 'VSCode-win32-x64' -ErrorAction SilentlyContinue |
+            Where-Object { Test-Path (Join-Path $_.FullName 'resources\app\product.json') } |
+            Select-Object -First 1 -ExpandProperty FullName
+
+          if (-not $buildDir) {
+            Write-Host "ERROR: VSCode-win32-x64 not found under D:\positron-build"
+            Get-ChildItem -Path D:\positron-build -Recurse -Directory -Depth 4 | Select-Object FullName | Format-Table
+            exit 1
+          }
+          $product = Get-Content (Join-Path $buildDir 'resources\app\product.json') | ConvertFrom-Json
+          $exePath = Join-Path $buildDir "$($product.nameShort).exe"
+          if (-not (Test-Path $exePath)) {
+            Write-Host "MISSING: $exePath"
+            Get-ChildItem -Path $buildDir -Filter '*.exe' | Select-Object Name | Format-Table
+            exit 1
+          }
+          Write-Host "Verified packaged app: $exePath"
+          "build_dir=$buildDir" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Install E2E test dependencies
+        shell: bash
+        run: npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund
+
+      - name: Compile E2E tests
+        shell: bash
+        run: npm --prefix test/e2e run compile
+
+      - name: Install Playwright browsers
+        shell: bash
+        run: npx playwright install
+
+      - name: Run bootstrap-extensions test
+        id: run-test
+        continue-on-error: true
+        shell: pwsh
+        env:
+          PWTEST_BLOB_DO_NOT_REMOVE: '1'
+          # Skip the qa-example-content clone (handled by global setup; not needed here)
+          SKIP_CLONE: 'true'
+        run: |
+          $env:BUILD = "${{ steps.resolve-build.outputs.build_dir }}"
+          Write-Host "BUILD=$env:BUILD"
+          $start = Get-Date
+          npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project e2e-windows --reporter=list
+          $exit = $LASTEXITCODE
+          $elapsed = (Get-Date) - $start
+          "test_seconds=$([int]$elapsed.TotalSeconds)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "test_exit_code=$exit" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          if ($exit -eq 0) {
+            "test_pass=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          } else {
+            "test_pass=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          }
+          Write-Host "bootstrap-extensions test exit code: $exit (elapsed: $([int]$elapsed.TotalSeconds)s)"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: spike-windows-test-results
+          path: |
+            test-results/
+            blob-report/
+            playwright-report/
+            test-logs/
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Report test metrics to summary
+        if: always()
+        shell: bash
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY <<EOF
+          ## Spike test metrics (Windows)
+          - Extract time: ${{ steps.extract.outputs.extract_seconds }}s
+          - Bootstrap test wallclock: ${{ steps.run-test.outputs.test_seconds }}s
+          - Bootstrap test pass: **${{ steps.run-test.outputs.test_pass }}** (exit code ${{ steps.run-test.outputs.test_exit_code }})
+
+          ## Build metrics (from build job)
+          - gulp: ${{ needs.build.outputs.gulp_minutes }} min (${{ needs.build.outputs.gulp_seconds }}s)
+          - Artifact: ${{ needs.build.outputs.artifact_mb }} MB
+          - 7z compress: ${{ needs.build.outputs.compress_seconds }}s
+          EOF
+
+      - name: Fail job if bootstrap test failed
+        if: steps.run-test.outputs.test_pass != 'true'
+        shell: bash
+        run: |
+          echo "Bootstrap test failed (exit code: ${{ steps.run-test.outputs.test_exit_code }})"
+          exit 1
