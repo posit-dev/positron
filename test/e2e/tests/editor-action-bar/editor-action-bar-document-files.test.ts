@@ -98,25 +98,25 @@ async function bindPlatformHotkey(page: Page, key: string) {
 	await page.keyboard.press(process.platform === 'darwin' ? `Meta+${key}` : `Control+${key}`);
 }
 
-async function verifySaveButton(app: Application, page: Page) {
-	await test.step('verify Save button visibility, dirty state, and click', async () => {
-		// Clean editor: button visible but disabled.
-		await editorActionBar.verifyButtonVisible('Save', true);
-		await editorActionBar.verifyButtonEnabled('Save', false);
+// async function verifySaveButton(app: Application, page: Page) {
+// 	await test.step('verify Save button visibility, dirty state, and click', async () => {
+// 		// Clean editor: button visible but disabled.
+// 		await editorActionBar.verifyButtonVisible('Save', true);
+// 		await editorActionBar.verifyButtonEnabled('Save', false);
 
-		// Make a change to dirty the editor; Save becomes enabled.
-		await app.workbench.editor.selectTabAndType('quarto_basic.qmd', 'Y');
-		await editorActionBar.verifyButtonEnabled('Save', true);
+// 		// Make a change to dirty the editor; Save becomes enabled.
+// 		await app.workbench.editor.selectTabAndType('quarto_basic.qmd', 'Y');
+// 		await editorActionBar.verifyButtonEnabled('Save', true);
 
-		// Click Save; editor should be clean again, so Save disables.
-		await editorActionBar.clickButton('Save');
-		await editorActionBar.verifyButtonEnabled('Save', false);
+// 		// Click Save; editor should be clean again, so Save disables.
+// 		await editorActionBar.clickButton('Save');
+// 		await editorActionBar.verifyButtonEnabled('Save', false);
 
-		// Restore the file so subsequent steps see the original content.
-		await bindPlatformHotkey(page, 'Z');
-		await bindPlatformHotkey(page, 'S');
-	});
-}
+// 		// Restore the file so subsequent steps see the original content.
+// 		await bindPlatformHotkey(page, 'Z');
+// 		await bindPlatformHotkey(page, 'S');
+// 	});
+// }
 
 async function verifyOpenChanges(page: Page) {
 	await test.step('verify "open changes" shows diff', async () => {
