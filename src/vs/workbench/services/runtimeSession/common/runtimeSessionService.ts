@@ -306,6 +306,12 @@ export interface ILanguageRuntimePackage {
 	 * transitively loaded dependencies.
 	 */
 	attached?: boolean;
+
+	/** Optional short description or summary. */
+	description?: string;
+
+	/** Optional package author. */
+	author?: string;
 }
 
 /**
