@@ -54,6 +54,7 @@ test.describe('Sessions: R Session Init Hooks', {
 
 		await console.waitForConsoleContents('[.Rprofile] top-level code executed', { timeout: 30000 });
 		await console.waitForConsoleContents('[hook:init] start_type=restart', { timeout: 30000 });
+		await console.waitForConsoleContents('[hook:init] project=r-session-hooks', { timeout: 15000 });
 
 		// navigateToFile works on restart too
 		await console.waitForConsoleContents('[hook:init] navigateToFile DESCRIPTION completed', { timeout: 15000 });
