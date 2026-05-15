@@ -53,7 +53,7 @@ test.describe('Editor Action Bar: Document Files', {
 	}, async function ({ app, page, openFile }) {
 		await openFile('workspaces/quarto_basic/quarto_basic.qmd');
 		await verifyPreviewRendersHtml('Diamond sizes');
-		await verifySaveButton(app, page);
+		// await verifySaveButton(app, page); // Skipped due to https://github.com/posit-dev/positron/issues/13530
 		await verifyOpenChanges(page);
 		await verifySplitEditor('quarto_basic.qmd');
 		await verifyOpenInNewWindow(app, 'Diamond sizes');
