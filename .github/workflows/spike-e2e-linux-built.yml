@@ -85,14 +85,17 @@ jobs:
           echo "gulp_seconds=$ELAPSED" >> $GITHUB_OUTPUT
           echo "gulp_minutes=$((ELAPSED / 60))" >> $GITHUB_OUTPUT
 
-          # Locate the output - gulp writes to /__w/VSCode-linux-x64 (parent of repo)
-          if [ -d "/__w/VSCode-linux-x64" ]; then
-            echo "build_dir=/__w/VSCode-linux-x64" >> $GITHUB_OUTPUT
-          else
-            echo "ERROR: VSCode-linux-x64 not found at /__w/"
-            find /__w -maxdepth 3 -type d -name 'VSCode-linux*' || true
+          # gulp writes to ../VSCode-linux-x64 relative to the repo root.
+          # In containerized actions/checkout, the working tree is /__w/<repo>/<repo>,
+          # so the artifact lands at /__w/<repo>/VSCode-linux-x64.
+          BUILD_DIR=$(find /__w -maxdepth 3 -type d -name 'VSCode-linux-x64' | head -1)
+          if [ -z "$BUILD_DIR" ]; then
+            echo "ERROR: VSCode-linux-x64 not found under /__w"
+            find /__w -maxdepth 4 -type d -name 'VSCode*' || true
             exit 1
           fi
+          echo "build_dir=$BUILD_DIR" >> $GITHUB_OUTPUT
+          echo "Found packaged build at $BUILD_DIR"
 
       - name: Verify packaged app structure
         run: |
