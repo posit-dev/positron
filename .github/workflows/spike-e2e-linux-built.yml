@@ -1,6 +1,11 @@
 name: "Spike: E2E against packaged Linux build"
 
 on:
+  push:
+    branches:
+      - mi/heather-azalea
+    paths:
+      - '.github/workflows/spike-e2e-linux-built.yml'
   workflow_dispatch:
 
 permissions:
