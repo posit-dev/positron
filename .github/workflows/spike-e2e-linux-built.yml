@@ -14,10 +14,101 @@ permissions:
   packages: read
 
 jobs:
-  smoke:
-    name: spike-smoke
-    runs-on: ubuntu-latest
-    timeout-minutes: 2
+  build:
+    name: build-linux-packaged
+    timeout-minutes: 45
+    runs-on: ubuntu-latest-8x
+    container:
+      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:116
+      options: --user 0:0 --init
+      credentials:
+        username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
+        password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      DOCKER_CONFIG: /tmp/.docker
+      POSITRON_BUILD_NUMBER: 0
+      HOME: /root
     steps:
-      - name: Confirm workflow runs
-        run: echo "Spike workflow is wired up. Replacing this job with the real build next."
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Ensure Docker config dir is writable
+        run: |
+          mkdir -p /tmp/.docker
+          chmod 700 /tmp/.docker
+
+      - name: Setup build environment
+        uses: ./.github/actions/setup-build-env
+        with:
+          distro: ubuntu
+          install-playwright: 'false'
+          github-token: ${{ github.token }}
+
+      - name: Run gulp vscode-linux-x64
+        id: gulp-build
+        env:
+          POSITRON_BUILD_NUMBER: 0
+        run: |
+          START=$(date +%s)
+          npm run gulp vscode-linux-x64
+          END=$(date +%s)
+          ELAPSED=$((END - START))
+          echo "gulp_seconds=$ELAPSED" >> $GITHUB_OUTPUT
+          echo "gulp_minutes=$((ELAPSED / 60))" >> $GITHUB_OUTPUT
+
+          # Locate the output - gulp writes to /__w/VSCode-linux-x64 (parent of repo)
+          if [ -d "/__w/VSCode-linux-x64" ]; then
+            echo "build_dir=/__w/VSCode-linux-x64" >> $GITHUB_OUTPUT
+          else
+            echo "ERROR: VSCode-linux-x64 not found at /__w/"
+            find /__w -maxdepth 3 -type d -name 'VSCode-linux*' || true
+            exit 1
+          fi
+
+      - name: Verify packaged app structure
+        run: |
+          BUILD_DIR="${{ steps.gulp-build.outputs.build_dir }}"
+          echo "=== Listing $BUILD_DIR (depth 2) ==="
+          find "$BUILD_DIR" -maxdepth 2 -type f -name 'product.json' -o -name 'package.json' | head -10
+          echo "=== Expected: resources/app/product.json ==="
+          test -f "$BUILD_DIR/resources/app/product.json" || { echo "MISSING: resources/app/product.json"; exit 1; }
+          APP_NAME=$(node -e "console.log(require('$BUILD_DIR/resources/app/product.json').applicationName)")
+          echo "applicationName=$APP_NAME"
+          test -f "$BUILD_DIR/$APP_NAME" || { echo "MISSING: binary at $BUILD_DIR/$APP_NAME"; exit 1; }
+          echo "Packaged app verified at $BUILD_DIR"
+
+      - name: Compress artifact
+        id: compress
+        run: |
+          BUILD_DIR="${{ steps.gulp-build.outputs.build_dir }}"
+          mkdir -p /tmp/artifacts
+          START=$(date +%s)
+          tar -C "$(dirname "$BUILD_DIR")" \
+              --use-compress-program='zstd -T0 -1' \
+              -cf /tmp/artifacts/positron-linux-x64.tar.zst \
+              "$(basename "$BUILD_DIR")"
+          END=$(date +%s)
+          SIZE_MB=$(du -m /tmp/artifacts/positron-linux-x64.tar.zst | cut -f1)
+          echo "tar_seconds=$((END - START))" >> $GITHUB_OUTPUT
+          echo "artifact_mb=$SIZE_MB" >> $GITHUB_OUTPUT
+          echo "Artifact: ${SIZE_MB} MB, compressed in $((END - START))s"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: positron-linux-x64-packaged
+          path: /tmp/artifacts/positron-linux-x64.tar.zst
+          retention-days: 1
+          compression-level: 0
+
+      - name: Report metrics to summary
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY <<EOF
+          ## Spike build metrics
+          - gulp vscode-linux-x64: **${{ steps.gulp-build.outputs.gulp_minutes }} min** (${{ steps.gulp-build.outputs.gulp_seconds }}s)
+          - Artifact size: **${{ steps.compress.outputs.artifact_mb }} MB**
+          - tar+zstd time: ${{ steps.compress.outputs.tar_seconds }}s
+          EOF
