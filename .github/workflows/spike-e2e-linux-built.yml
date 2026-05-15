@@ -40,12 +40,38 @@ jobs:
           mkdir -p /tmp/.docker
           chmod 700 /tmp/.docker
 
-      - name: Setup build environment
-        uses: ./.github/actions/setup-build-env
+      - name: 📦 Restore caches
+        id: restore-caches
+        uses: ./.github/actions/restore-build-caches
+
+      - name: Install node dependencies
+        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true'
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
+          POSITRON_PARALLEL_INSTALL: '0'
+          POSITRON_NPM_CONCURRENCY: '10'
+          NPM_CONFIG_AUDIT: 'false'
+          NPM_CONFIG_FUND: 'false'
+          NPM_CONFIG_UPDATE_NOTIFIER: 'false'
+          NPM_CONFIG_DEVDIR: '.node-gyp-cache'
+          DOCKER_CONFIG: /tmp/.docker
+          POSITRON_EXTENSIONS_FILTER: ${{ (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true' && 'stable') || (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' && 'volatile') || '' }}
+        run: |
+          set -e
+          bash scripts/install-npm-parallel.sh
+
+      - name: Download binaries (Ark, Kallichore)
+        uses: ./.github/actions/download-binaries
         with:
-          distro: ubuntu
-          install-playwright: 'false'
-          github-token: ${{ github.token }}
+          cache-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' ||
+                         steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' }}
+
+      - name: Prelaunch (download built-in extensions)
+        run: npm run prelaunch
 
       - name: Run gulp vscode-linux-x64
         id: gulp-build
