@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Sessions: R Session Init Hooks', {
-	tag: [tags.CONSOLE, tags.SESSIONS, tags.ARK, tags.WIN]
+	tag: [tags.CONSOLE, tags.SESSIONS, tags.ARK, tags.WIN, tags.WEB]
 }, () => {
 
 	test.beforeAll(async function ({ app, openFolder, settings }) {
