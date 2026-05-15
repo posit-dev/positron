@@ -48,9 +48,54 @@
 	padding-left: 8px;
 	padding-right: 8px;
 	display: flex;
-	align-items: center;
 	cursor: pointer;
 	overflow: hidden;
+}
+
+.packages-list-item.item-size-row {
+	align-items: center;
+}
+
+.packages-list-item.item-size-card {
+	align-items: flex-start;
+	/* Align with the search input's outer-left edge (filter-container 8px + input border 1px), plus the 0.5px nudge from .packages-list-container. */
+	padding-left: 10px;
+	padding-right: 11px;
+	padding-top: 6px;
+	padding-bottom: 6px;
+}
+
+.packages-list-item-content {
+	flex: 1 1 auto;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+.packages-list-item.item-size-row .packages-list-item-content {
+	flex-direction: row;
+	align-items: baseline;
+	overflow: hidden;
+}
+
+.packages-list-item-header {
+	display: flex;
+	flex-direction: row;
+	align-items: baseline;
+	overflow: hidden;
+	min-width: 0;
+}
+
+.packages-list-item.item-size-row .packages-list-item-header {
+	flex: 1 1 auto;
+}
+
+/*
+ * In card mode, drop the dot ~4px below the top edge so it reads as belonging
+ * to the whole card (title + description), not the title alone.
+ */
+.packages-list-item.item-size-card .packages-list-item-attached {
+	margin-top: 4px;
 }
 
 /*
@@ -84,8 +129,15 @@
 }
 
 .packages-list-item-name {
-	flex: 0 0 auto;
+	flex: 0 1 auto;
+	min-width: 0;
 	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.packages-list-item.item-size-card .packages-list-item-name {
+	font-weight: bold;
 }
 
 .packages-list-item-version {
@@ -104,6 +156,24 @@
 	margin-left: 0.5em;
 	color: var(--vscode-notificationsInfoIcon-foreground);
 	font-size: 0.9em;
+}
+
+.packages-list-item-description {
+	color: var(--vscode-descriptionForeground);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	min-width: 0;
+}
+
+.packages-list-item-author {
+	font-size: 90%;
+	color: var(--vscode-descriptionForeground);
+	opacity: 0.85;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	min-width: 0;
 }
 
 .positron-packages-list .positron-list-empty {
