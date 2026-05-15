@@ -1,0 +1,18 @@
+name: "Spike: E2E against packaged Linux build"
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+  packages: read
+
+jobs:
+  smoke:
+    name: spike-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Confirm workflow runs
+        run: echo "Spike workflow is wired up. Replacing this job with the real build next."
