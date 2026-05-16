@@ -147,7 +147,7 @@ export class QuickInputController extends Disposable {
 	 * users get from a native OS file picker). Unnecessarily reparenting causes focus problems
 	 * with the quick input, so the reparent itself is gated on the parent already being correct.
 	 */
-	private handlePositronModal() {
+	private handlePositronModal(applyInert = false) {
 		const modal = this.layoutService.activeContainer.getElementsByClassName('positron-modal-dialog-box');
 		if (modal.length && dom.isHTMLElement(modal.item(0)) && this.ui) {
 			const modalContainer = modal.item(0) as HTMLElement;
@@ -164,10 +164,9 @@ export class QuickInputController extends Disposable {
 					}
 				}).observe(modalContainer, { childList: true });
 			}
-			// Always (re-)apply inert: the same modal may open a second quick pick after
-			// the first one hid and cleared inert, and the early-out above would skip the
-			// reparent in that case.
-			this.applyPositronModalInert(modalContainer);
+			if (applyInert) {
+				this.applyPositronModalInert(modalContainer);
+			}
 		} else {
 			if (this.ui) {
 				// restore parent
@@ -786,6 +785,9 @@ export class QuickInputController extends Disposable {
 		backButton.tooltip = backKeybindingLabel ? localize('quickInput.backWithKeybinding', "Back ({0})", backKeybindingLabel) : localize('quickInput.back', "Back");
 
 		ui.container.style.display = '';
+		// --- Start Positron ---
+		this.handlePositronModal(true);
+		// --- End Positron ---
 		this.updateLayout();
 		this.dndController?.setEnabled(!controller.anchor);
 		this.dndController?.layoutContainer();
@@ -929,6 +931,13 @@ export class QuickInputController extends Disposable {
 	async cancel(reason?: QuickInputHideReason) {
 		this.hide(reason);
 	}
+
+	// --- Start Positron ---
+	override dispose(): void {
+		this.clearPositronModalInert();
+		super.dispose();
+	}
+	// --- End Positron ---
 
 	layout(dimension: dom.IDimension, titleBarOffset: number): void {
 		this.dimension = dimension;
