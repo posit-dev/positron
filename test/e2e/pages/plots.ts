@@ -19,8 +19,10 @@ const PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .pos
 const SAVE_PLOT_FROM_PLOTS_PANE_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Save plot"]';
 const COPY_PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Copy plot to clipboard"]';
 const ZOOM_PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Fit"]';
-const OPEN_IN_EDITOR_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Open in editor tab"]';
 const OPEN_IN_EDITOR_DROPDOWN_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Select where to open plot"]';
+// The primary (non-caret) half of the split-button. Clicking it repeats the
+// most recent menu selection rather than opening the dropdown.
+const OPEN_IN_EDITOR_PRIMARY_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .action-bar-button-action-button[aria-label="Select where to open plot"]';
 const OVERFLOW_MENU_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="overflow"]';
 const SESSION_NAME_BUTTON = '.plot-session-name';
 const ORIGIN_FILE_BUTTON = '.plot-origin-file';
@@ -193,10 +195,6 @@ export class Plots {
 		}
 	}
 
-	async clickGoToFileButton() {
-		await this.code.driver.currentPage.locator('.codicon-go-to-file').click();
-	}
-
 	async setThePlotZoom(zoomLevel: ZoomLevels) {
 		await test.step(`Set plot zoom to: ${zoomLevel}`, async () => {
 			await this.contextMenu.triggerAndClick({
@@ -247,9 +245,9 @@ export class Plots {
 	}
 
 	async clickOpenInEditorButton() {
-		await test.step('Click the main Open in Editor button', async () => {
-			const openInEditorButton = this.code.driver.currentPage.locator(OPEN_IN_EDITOR_BUTTON);
-			await openInEditorButton.click();
+		await test.step('Click the primary half of the Open-in split button', async () => {
+			const primaryButton = this.code.driver.currentPage.locator(OPEN_IN_EDITOR_PRIMARY_BUTTON);
+			await primaryButton.click();
 		});
 	}
 
