@@ -357,11 +357,16 @@ export interface IPositronPlotsService {
 
 	/**
 	 * Gets the remembered "Open in..." target for the plots action bar split-button.
+	 *
+	 * When the dedicated storage key is unset, falls back to migrating the legacy
+	 * `positronPlots.defaultEditorAction` editor-group number (used by older builds)
+	 * into the corresponding {@link PlotOpenTarget}.
 	 */
 	getDefaultOpenTarget(): PlotOpenTarget;
 
 	/**
 	 * Records the remembered "Open in..." target for the plots action bar split-button.
+	 * Supersedes any value carried over from the legacy editor-group key.
 	 */
 	setDefaultOpenTarget(target: PlotOpenTarget): void;
 
