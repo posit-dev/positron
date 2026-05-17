@@ -1516,11 +1516,36 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		}
 
 		this._storageService.store('positronPlots.defaultEditorAction', selectedEditorGroup, StorageScope.WORKSPACE, StorageTarget.MACHINE);
+		// Opening in an editor target supersedes any previous gallery/popout preference.
+		this.setPreferGallery(false);
+		this.setPreferPopout(false);
 	}
 
 	public getPreferredEditorGroup(): number {
 		const preferredEditorGroup = this._storageService.getNumber('positronPlots.defaultEditorAction', StorageScope.WORKSPACE, ACTIVE_GROUP);
 		return preferredEditorGroup;
+	}
+
+	public getPreferGallery(): boolean {
+		return this._storageService.getBoolean('positronPlots.preferGallery', StorageScope.WORKSPACE, false);
+	}
+
+	public setPreferGallery(prefer: boolean): void {
+		this._storageService.store('positronPlots.preferGallery', prefer, StorageScope.WORKSPACE, StorageTarget.MACHINE);
+		if (prefer) {
+			this._storageService.store('positronPlots.preferPopout', false, StorageScope.WORKSPACE, StorageTarget.MACHINE);
+		}
+	}
+
+	public getPreferPopout(): boolean {
+		return this._storageService.getBoolean('positronPlots.preferPopout', StorageScope.WORKSPACE, false);
+	}
+
+	public setPreferPopout(prefer: boolean): void {
+		this._storageService.store('positronPlots.preferPopout', prefer, StorageScope.WORKSPACE, StorageTarget.MACHINE);
+		if (prefer) {
+			this._storageService.store('positronPlots.preferGallery', false, StorageScope.WORKSPACE, StorageTarget.MACHINE);
+		}
 	}
 
 	public getEditorInstance(id: string) {

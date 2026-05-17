@@ -340,6 +340,30 @@ export interface IPositronPlotsService {
 	getPreferredEditorGroup(): number;
 
 	/**
+	 * Whether the gallery was the most recent "Open in..." choice. When true,
+	 * the plots action bar's split-button primary click should open the gallery
+	 * rather than repeat the preferred editor group.
+	 */
+	getPreferGallery(): boolean;
+
+	/**
+	 * Records whether the gallery was the most recent "Open in..." choice.
+	 */
+	setPreferGallery(prefer: boolean): void;
+
+	/**
+	 * Whether popping out an HTML plot was the most recent "Open in..." choice.
+	 * The popout option only appears for HTML plots, so this preference scopes
+	 * to that case.
+	 */
+	getPreferPopout(): boolean;
+
+	/**
+	 * Records whether popping out an HTML plot was the most recent "Open in..." choice.
+	 */
+	setPreferPopout(prefer: boolean): void;
+
+	/**
 	 * Gets the plot client that is connected to an editor for the specified id.
 	 *
 	 * @param id The id of the plot client to get.

@@ -486,6 +486,31 @@ export class TestPositronPlotsService extends Disposable implements IPositronPlo
 		return 0; // Default to active group for test implementation
 	}
 
+	private _preferGallery = false;
+	private _preferPopout = false;
+
+	getPreferGallery(): boolean {
+		return this._preferGallery;
+	}
+
+	setPreferGallery(prefer: boolean): void {
+		this._preferGallery = prefer;
+		if (prefer) {
+			this._preferPopout = false;
+		}
+	}
+
+	getPreferPopout(): boolean {
+		return this._preferPopout;
+	}
+
+	setPreferPopout(prefer: boolean): void {
+		this._preferPopout = prefer;
+		if (prefer) {
+			this._preferGallery = false;
+		}
+	}
+
 	/**
 	 * Gets the plot client that is connected to an editor for the specified id.
 	 *
