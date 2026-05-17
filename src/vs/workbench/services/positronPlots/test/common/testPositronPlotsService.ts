@@ -5,9 +5,10 @@
 
 import { Emitter } from '../../../../../base/common/event.js';
 import { Disposable, DisposableMap } from '../../../../../base/common/lifecycle.js';
-import { IPositronPlotsService, IPositronPlotClient, HistoryPolicy, DarkFilter, PlotRenderSettings, PlotsDisplayLocation } from '../../common/positronPlots.js';
+import { IPositronPlotsService, IPositronPlotClient, HistoryPolicy, DarkFilter, PlotOpenTarget, PlotRenderSettings, PlotsDisplayLocation } from '../../common/positronPlots.js';
 import { IPositronPlotSizingPolicy } from '../../common/sizingPolicy.js';
 import { IPositronPlotMetadata } from '../../../languageRuntime/common/languageRuntimePlotClient.js';
+import { ACTIVE_GROUP, AUX_WINDOW_GROUP, SIDE_GROUP } from '../../../editor/common/editorService.js';
 
 /**
  * TestPositronPlotsService class.
@@ -483,32 +484,27 @@ export class TestPositronPlotsService extends Disposable implements IPositronPlo
 	 * Gets the preferred editor group for opening the plot in an editor tab.
 	 */
 	getPreferredEditorGroup(): number {
-		return 0; // Default to active group for test implementation
-	}
-
-	private _preferGallery = false;
-	private _preferPopout = false;
-
-	getPreferGallery(): boolean {
-		return this._preferGallery;
-	}
-
-	setPreferGallery(prefer: boolean): void {
-		this._preferGallery = prefer;
-		if (prefer) {
-			this._preferPopout = false;
+		switch (this._defaultOpenTarget) {
+			case PlotOpenTarget.EditorNewWindow:
+				return AUX_WINDOW_GROUP;
+			case PlotOpenTarget.EditorTabToSide:
+				return SIDE_GROUP;
+			case PlotOpenTarget.EditorTab:
+			case PlotOpenTarget.Gallery:
+			case PlotOpenTarget.Popout:
+			default:
+				return ACTIVE_GROUP;
 		}
 	}
 
-	getPreferPopout(): boolean {
-		return this._preferPopout;
+	private _defaultOpenTarget = PlotOpenTarget.EditorTab;
+
+	getDefaultOpenTarget(): PlotOpenTarget {
+		return this._defaultOpenTarget;
 	}
 
-	setPreferPopout(prefer: boolean): void {
-		this._preferPopout = prefer;
-		if (prefer) {
-			this._preferGallery = false;
-		}
+	setDefaultOpenTarget(target: PlotOpenTarget): void {
+		this._defaultOpenTarget = target;
 	}
 
 	/**

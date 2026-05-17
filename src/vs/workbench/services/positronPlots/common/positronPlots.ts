@@ -113,6 +113,22 @@ export enum PlotsDisplayLocation {
 }
 
 /**
+ * The remembered target for the plots action bar "Open in..." split-button.
+ */
+export enum PlotOpenTarget {
+	/** Open in a new auxiliary window editor group. */
+	EditorNewWindow = 'editorNewWindow',
+	/** Open in the active editor group. */
+	EditorTab = 'editorTab',
+	/** Open in the side editor group. */
+	EditorTabToSide = 'editorTabToSide',
+	/** Open the plots gallery in a new window. */
+	Gallery = 'gallery',
+	/** Pop out an HTML plot in a new window. */
+	Popout = 'popout'
+}
+
+/**
  * Creates a suggested file name for a plot.
  * @param storageService The storage service to use.
  * @returns A suggested file name for the plot.
@@ -340,28 +356,14 @@ export interface IPositronPlotsService {
 	getPreferredEditorGroup(): number;
 
 	/**
-	 * Whether the gallery was the most recent "Open in..." choice. When true,
-	 * the plots action bar's split-button primary click should open the gallery
-	 * rather than repeat the preferred editor group.
+	 * Gets the remembered "Open in..." target for the plots action bar split-button.
 	 */
-	getPreferGallery(): boolean;
+	getDefaultOpenTarget(): PlotOpenTarget;
 
 	/**
-	 * Records whether the gallery was the most recent "Open in..." choice.
+	 * Records the remembered "Open in..." target for the plots action bar split-button.
 	 */
-	setPreferGallery(prefer: boolean): void;
-
-	/**
-	 * Whether popping out an HTML plot was the most recent "Open in..." choice.
-	 * The popout option only appears for HTML plots, so this preference scopes
-	 * to that case.
-	 */
-	getPreferPopout(): boolean;
-
-	/**
-	 * Records whether popping out an HTML plot was the most recent "Open in..." choice.
-	 */
-	setPreferPopout(prefer: boolean): void;
+	setDefaultOpenTarget(target: PlotOpenTarget): void;
 
 	/**
 	 * Gets the plot client that is connected to an editor for the specified id.

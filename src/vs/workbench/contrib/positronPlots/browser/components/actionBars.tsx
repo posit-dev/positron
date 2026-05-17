@@ -16,7 +16,7 @@ import { PositronActionBarContextProvider } from '../../../../../platform/positr
 import { usePositronPlotsContext } from '../positronPlotsContext.js';
 import { PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { StaticPlotClient } from '../../../../services/positronPlots/common/staticPlotClient.js';
-import { DarkFilter, PlotsDisplayLocation, ZoomLevel } from '../../../../services/positronPlots/common/positronPlots.js';
+import { DarkFilter, PlotOpenTarget, PlotsDisplayLocation, ZoomLevel } from '../../../../services/positronPlots/common/positronPlots.js';
 import { DisposableStore, IDisposable } from '../../../../../base/common/lifecycle.js';
 import { IAction, Separator } from '../../../../../base/common/actions.js';
 import { PlotSizingPolicyCustom } from '../../../../services/positronPlots/common/sizingPolicyCustom.js';
@@ -84,20 +84,24 @@ const openSourceFile = localize('positronPlots.openSourceFile', "Open Source Fil
 // Open in editor command interface and data.
 interface OpenInEditorCommand {
 	editorTarget: AUX_WINDOW_GROUP_TYPE | ACTIVE_GROUP_TYPE | SIDE_GROUP_TYPE;
+	openTarget: PlotOpenTarget;
 	label: string;
 }
 
 const openInEditorCommands: Array<OpenInEditorCommand> = [
 	{
 		editorTarget: AUX_WINDOW_GROUP,
+		openTarget: PlotOpenTarget.EditorNewWindow,
 		label: localize('positron-editor-new-window', "Open in New Window")
 	},
 	{
 		editorTarget: ACTIVE_GROUP,
+		openTarget: PlotOpenTarget.EditorTab,
 		label: localize('positron-editor-new-tab', "Open in Editor Tab")
 	},
 	{
 		editorTarget: SIDE_GROUP,
+		openTarget: PlotOpenTarget.EditorTabToSide,
 		label: localize('positron-editor-new-tab-right', "Open in Editor Tab to the Side")
 	},
 ];
@@ -138,25 +142,52 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		plotClientForPolicy?.sizingPolicy.getName(plotClientForPolicy) ?? ''
 	);
 
-	// State for the "Open in..." dropdown's default action — the entry the user
-	// picked most recently, which the split-button primary click will repeat.
-	// Either an editor target number, 'gallery', or 'popout' (HTML plots).
-	// Seed from the service so the choice survives the action bar being remounted
-	// (e.g. when the gallery is closed and the plots view comes back).
-	const [defaultOpenAction, setDefaultOpenAction] = useState<number | 'gallery' | 'popout'>(() => {
-		if (services.positronPlotsService.getPreferPopout()) {
-			return 'popout';
-		}
-		if (services.positronPlotsService.getPreferGallery()) {
-			return 'gallery';
-		}
-		return services.positronPlotsService.getPreferredEditorGroup();
-	});
+	// State for the remembered "Open in..." target. This is the user's explicit
+	// menu selection, persisted in the service so it survives remounts.
+	const [rememberedOpenTarget, setRememberedOpenTarget] = useState<PlotOpenTarget>(() =>
+		services.positronPlotsService.getDefaultOpenTarget()
+	);
 
-	// Handler to open plot in editor and update default action.
-	const openEditorPlotHandler = useCallback((groupType: number) => {
-		services.commandService.executeCommand(PlotsEditorAction.ID, groupType);
-		setDefaultOpenAction(groupType);
+	const getFallbackOpenTarget = (availableTargets: readonly PlotOpenTarget[]): PlotOpenTarget => {
+		const preferredEditorGroup = services.positronPlotsService.getPreferredEditorGroup();
+		const preferredEditorCommand = openInEditorCommands.find(command =>
+			command.editorTarget === preferredEditorGroup
+			&& availableTargets.includes(command.openTarget)
+		);
+		if (preferredEditorCommand) {
+			return preferredEditorCommand.openTarget;
+		}
+
+		const firstAvailableEditorCommand = openInEditorCommands.find(command =>
+			availableTargets.includes(command.openTarget)
+		);
+		if (firstAvailableEditorCommand) {
+			return firstAvailableEditorCommand.openTarget;
+		}
+
+		if (availableTargets.includes(PlotOpenTarget.Popout)) {
+			return PlotOpenTarget.Popout;
+		}
+
+		if (availableTargets.includes(PlotOpenTarget.Gallery)) {
+			return PlotOpenTarget.Gallery;
+		}
+
+		return availableTargets[0] ?? PlotOpenTarget.Gallery;
+	};
+
+	const resolveOpenTarget = (target: PlotOpenTarget, availableTargets: readonly PlotOpenTarget[]): PlotOpenTarget => {
+		if (availableTargets.includes(target)) {
+			return target;
+		}
+
+		return getFallbackOpenTarget(availableTargets);
+	};
+
+	// Handler to open plot in editor and update the remembered target.
+	const openEditorPlotHandler = useCallback(async (command: OpenInEditorCommand) => {
+		await services.commandService.executeCommand(PlotsEditorAction.ID, command.editorTarget);
+		setRememberedOpenTarget(command.openTarget);
 	}, [services.commandService]);
 
 	// Only show the sizing policy controls when Positron is in control of the
@@ -218,16 +249,16 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		services.commandService.executeCommand(PlotsCopyAction.ID, PlotActionTarget.VIEW);
 	};
 
-	const popoutPlotHandler = () => {
-		services.commandService.executeCommand(PlotsPopoutAction.ID);
-		setDefaultOpenAction('popout');
-		services.positronPlotsService.setPreferPopout(true);
+	const popoutPlotHandler = async () => {
+		await services.commandService.executeCommand(PlotsPopoutAction.ID);
+		setRememberedOpenTarget(PlotOpenTarget.Popout);
+		services.positronPlotsService.setDefaultOpenTarget(PlotOpenTarget.Popout);
 	};
 
-	const openGalleryInNewWindowHandler = () => {
-		services.commandService.executeCommand(PlotsGalleryInNewWindowAction.ID);
-		setDefaultOpenAction('gallery');
-		services.positronPlotsService.setPreferGallery(true);
+	const openGalleryInNewWindowHandler = async () => {
+		await services.commandService.executeCommand(PlotsGalleryInNewWindowAction.ID);
+		setRememberedOpenTarget(PlotOpenTarget.Gallery);
+		services.positronPlotsService.setDefaultOpenTarget(PlotOpenTarget.Gallery);
 	};
 
 	// Track dark filter mode changes.
@@ -467,53 +498,59 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		});
 	});
 
-	// Open in editor actions builder. The three "open in..." options only show when
-	// there is a plot; the gallery option is always available at the bottom.
+	// Open in actions builder. The editor targets and popout target are shown
+	// only when available for the selected plot; gallery is always available.
 	const openInEditorActions = (): IAction[] => {
-		const actions: IAction[] = [];
-
+		const availableOpenTargets: Array<{
+			target: PlotOpenTarget;
+			id: string;
+			label: string;
+			run: () => Promise<void>;
+		}> = [];
 		if (showOpenInEditorButton) {
-			openInEditorCommands.forEach(command => actions.push({
+			openInEditorCommands.forEach(command => availableOpenTargets.push({
+				target: command.openTarget,
 				id: `${PlotsEditorAction.ID}.${command.editorTarget}`,
 				label: command.label,
-				tooltip: '',
-				class: undefined,
-				checked: defaultOpenAction === command.editorTarget,
-				enabled: true,
-				run: () => openEditorPlotHandler(command.editorTarget)
+				run: () => openEditorPlotHandler(command)
 			}));
 		} else if (enablePopoutPlot) {
-			actions.push({
+			availableOpenTargets.push({
+				target: PlotOpenTarget.Popout,
 				id: PlotsPopoutAction.ID,
 				label: openPlotInNewWindow,
-				tooltip: '',
-				class: undefined,
-				checked: defaultOpenAction === 'popout',
-				enabled: true,
 				run: () => popoutPlotHandler()
 			});
 		}
 
-		if (actions.length > 0) {
-			actions.push(new Separator());
-		}
-
-		actions.push({
+		availableOpenTargets.push({
+			target: PlotOpenTarget.Gallery,
 			id: PlotsGalleryInNewWindowAction.ID,
 			label: openPlotsGalleryInNewWindow,
-			tooltip: '',
-			class: undefined,
-			checked: defaultOpenAction === 'gallery',
-			enabled: true,
 			run: () => openGalleryInNewWindowHandler()
 		});
 
-		if (!actions.some(action => !(action instanceof Separator) && action.checked)) {
-			const fallback = actions.find(action => !(action instanceof Separator));
-			if (fallback) {
-				fallback.checked = true;
+		const resolvedOpenTarget = resolveOpenTarget(
+			rememberedOpenTarget,
+			availableOpenTargets.map(action => action.target)
+		);
+
+		const actions: IAction[] = [];
+		availableOpenTargets.forEach((action, index) => {
+			if (action.target === PlotOpenTarget.Gallery && index > 0) {
+				actions.push(new Separator());
 			}
-		}
+
+			actions.push({
+				id: action.id,
+				label: action.label,
+				tooltip: '',
+				class: undefined,
+				checked: action.target === resolvedOpenTarget,
+				enabled: true,
+				run: action.run
+			});
+		});
 
 		return actions;
 	};
