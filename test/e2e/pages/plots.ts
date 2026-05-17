@@ -206,9 +206,9 @@ export class Plots {
 
 	async openPlotIn(plotLocation: PlotLocations) {
 		const menuItemRegex = {
-			'editor': /Open in editor tab$/,
-			'new window': /Open in new window$/,
-			'editor tab to the side': /Open in editor tab to the Side$/
+			'editor': /Open in Editor Tab$/,
+			'new window': /Open in New Window$/,
+			'editor tab to the side': /Open in Editor Tab to the Side$/
 		};
 		await test.step(`Open plot in: ${plotLocation}`, async () => {
 			// The "Open in Editor" button may be visible in the action bar or overflowed into the overflow menu.
@@ -253,9 +253,9 @@ export class Plots {
 
 	async verifyOpenPlotDropdownCheckedOption(expectedOption: PlotLocations) {
 		const menuItemLabels: Record<PlotLocations, string> = {
-			'editor': 'Open in editor tab',
-			'new window': 'Open in new window',
-			'editor tab to the side': 'Open in editor tab to the Side'
+			'editor': 'Open in Editor Tab',
+			'new window': 'Open in New Window',
+			'editor tab to the side': 'Open in Editor Tab to the Side'
 		};
 		await test.step(`Verify dropdown checked option is: ${expectedOption}`, async () => {
 			const openInEditorButton = this.code.driver.currentPage.locator(OPEN_IN_EDITOR_DROPDOWN_BUTTON);

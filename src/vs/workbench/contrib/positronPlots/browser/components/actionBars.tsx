@@ -46,8 +46,8 @@ const showPreviousPlot = localize('positronShowPreviousPlot', "Show previous plo
 const showNextPlot = localize('positronShowNextPlot', "Show next plot");
 const savePlot = localize('positronSavePlot', "Save plot");
 const copyPlotToClipboard = localize('positronCopyPlotToClipboard', "Copy plot to clipboard");
-const openPlotInNewWindow = localize('positronOpenPlotInNewWindow', "Open plot in new window");
-const openPlotsGalleryInNewWindow = localize('positronOpenPlotsGalleryInNewWindow', "Open plots gallery in new window");
+const openPlotInNewWindow = localize('positronOpenPlotInNewWindow', "Open Plot in New Window");
+const openPlotsGalleryInNewWindow = localize('positronOpenPlotsGalleryInNewWindow', "Open Plots Gallery in New Window");
 const clearAllPlots = localize('positronClearAllPlots', "Clear all plots");
 // dark filter localized strings
 const darkFilterLabel = localize('positron.darkFilter', "Dark Filter");
@@ -90,15 +90,15 @@ interface OpenInEditorCommand {
 const openInEditorCommands: Array<OpenInEditorCommand> = [
 	{
 		editorTarget: AUX_WINDOW_GROUP,
-		label: localize('positron-editor-new-window', "Open in new window")
+		label: localize('positron-editor-new-window', "Open in New Window")
 	},
 	{
 		editorTarget: ACTIVE_GROUP,
-		label: localize('positron-editor-new-tab', "Open in editor tab")
+		label: localize('positron-editor-new-tab', "Open in Editor Tab")
 	},
 	{
 		editorTarget: SIDE_GROUP,
-		label: localize('positron-editor-new-tab-right', "Open in editor tab to the Side")
+		label: localize('positron-editor-new-tab-right', "Open in Editor Tab to the Side")
 	},
 ];
 
