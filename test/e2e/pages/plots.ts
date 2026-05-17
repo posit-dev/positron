@@ -19,9 +19,7 @@ const PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .pos
 const SAVE_PLOT_FROM_PLOTS_PANE_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Save plot"]';
 const COPY_PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Copy plot to clipboard"]';
 const ZOOM_PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Fit"]';
-const OPEN_IN_EDITOR_DROPDOWN_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Select where to open plot"]';
-// The primary (non-caret) half of the split-button. Clicking it repeats the
-// most recent menu selection rather than opening the dropdown.
+const OPEN_IN_EDITOR_DROPDOWN_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .action-bar-button-drop-down-button[aria-label="Select where to open plot"]';
 const OPEN_IN_EDITOR_PRIMARY_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .action-bar-button-action-button[aria-label="Select where to open plot"]';
 const OVERFLOW_MENU_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="overflow"]';
 const SESSION_NAME_BUTTON = '.plot-session-name';
