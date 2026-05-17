@@ -508,6 +508,13 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			run: () => openGalleryInNewWindowHandler()
 		});
 
+		if (!actions.some(action => !(action instanceof Separator) && action.checked)) {
+			const fallback = actions.find(action => !(action instanceof Separator));
+			if (fallback) {
+				fallback.checked = true;
+			}
+		}
+
 		return actions;
 	};
 
