@@ -26,7 +26,6 @@ const explainPrompt = localize('positronNotebookAssistantExplainPrompt', "Explai
 
 const NEW_CHAT_COMMAND = 'posit-assistant.newChat';
 const ATTACHMENT_NAME = 'notebook-cell-error.txt';
-const SIDEBAR_VIEW_SETTING = 'assistant.sidebarView';
 
 /**
  * Props for the NotebookCellQuickFix component.
@@ -44,13 +43,12 @@ interface NotebookCellQuickFixProps {
  */
 export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 	const services = usePositronReactServicesContext();
-	const { commandService, contextMenuService, notificationService } = services;
+	const { commandService, contextMenuService, logService } = services;
 
 	// Configuration hooks to conditionally show the quick-fix buttons
 	const enableAssistant = usePositronConfiguration<boolean>('positron.assistant.enable');
 	const enableNotebookMode = usePositronConfiguration<boolean>(POSITRON_NOTEBOOK_ENABLED_KEY);
 	const hasChatModels = usePositronContextKey<boolean>('positron-assistant.hasChatModels');
-	const sidebarViewEnabled = usePositronConfiguration<boolean>(SIDEBAR_VIEW_SETTING);
 
 	// Only show buttons if assistant is enabled, notebook mode is enabled, and chat models are available
 	const showQuickFix = enableAssistant && enableNotebookMode && hasChatModels;
@@ -68,6 +66,19 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 		return { uri: `data:text/plain;base64,${base64}`, name: ATTACHMENT_NAME };
 	}, [cleanError]);
 
+	const runBuiltInChat = useCallback(async (prompt: string, isNew: boolean) => {
+		const query = cleanError
+			? `${prompt}\n\`\`\`\n${cleanError}\n\`\`\``
+			: prompt;
+		if (isNew) {
+			await commandService.executeCommand(ACTION_ID_NEW_CHAT);
+		}
+		await commandService.executeCommand(CHAT_OPEN_ACTION_ID, {
+			query,
+			mode: ChatModeKind.Agent
+		});
+	}, [commandService, cleanError]);
+
 	const runNewChat = useCallback(async (prompt: string, target: 'new' | 'auto') => {
 		try {
 			await commandService.executeCommand(NEW_CHAT_COMMAND, {
@@ -76,41 +87,18 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 				behavior: 'submit',
 				...(attachment && { files: [attachment] }),
 			});
-		} catch {
-			notificationService.error(
-				localize(
-					'positronNotebookAssistantUnavailable',
-					"Posit Assistant is not available. Install the Posit Assistant extension to use Fix and Explain."
-				)
-			);
+		} catch (err) {
+			logService.warn('[NotebookCellQuickFix] posit-assistant.newChat unavailable, using built-in chat:', err);
+			await runBuiltInChat(prompt, target === 'new');
 		}
-	}, [commandService, notificationService, attachment]);
-
-	const runQuickChat = useCallback((prompt: string, isNew: boolean) => {
-		const query = cleanError
-			? `${prompt}\n\`\`\`\n${cleanError}\n\`\`\``
-			: prompt;
-		if (isNew) {
-			commandService.executeCommand(ACTION_ID_NEW_CHAT);
-		}
-		commandService.executeCommand(CHAT_OPEN_ACTION_ID, {
-			query,
-			mode: ChatModeKind.Agent
-		});
-	}, [commandService, cleanError]);
+	}, [commandService, logService, runBuiltInChat, attachment]);
 
 	const pressedFixHandler = () => {
-		if (sidebarViewEnabled) {
-			return runNewChat(fixPrompt, 'new');
-		}
-		return runQuickChat(fixPrompt, true);
+		return runNewChat(fixPrompt, 'new');
 	};
 
 	const pressedExplainHandler = () => {
-		if (sidebarViewEnabled) {
-			return runNewChat(explainPrompt, 'new');
-		}
-		return runQuickChat(explainPrompt, true);
+		return runNewChat(explainPrompt, 'new');
 	};
 
 	// Memoize dropdown actions for Fix button
@@ -122,13 +110,10 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 			class: undefined,
 			enabled: true,
 			run: () => {
-				if (sidebarViewEnabled) {
-					return runNewChat(fixPrompt, 'auto');
-				}
-				return runQuickChat(fixPrompt, false);
+				return runNewChat(fixPrompt, 'auto');
 			}
 		}
-	], [sidebarViewEnabled, runNewChat, runQuickChat]);
+	], [runNewChat]);
 
 	// Memoize dropdown actions for Explain button
 	const explainDropdownActions = useMemo((): IAction[] => [
@@ -139,13 +124,10 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 			class: undefined,
 			enabled: true,
 			run: () => {
-				if (sidebarViewEnabled) {
-					return runNewChat(explainPrompt, 'auto');
-				}
-				return runQuickChat(explainPrompt, false);
+				return runNewChat(explainPrompt, 'auto');
 			}
 		}
-	], [sidebarViewEnabled, runNewChat, runQuickChat]);
+	], [runNewChat]);
 
 	// Don't render if assistant features are not enabled
 	if (!showQuickFix) {
@@ -199,4 +181,3 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 		</div>
 	);
 };
-
