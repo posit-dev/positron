@@ -8,7 +8,7 @@
 import { ILanguageRuntimeMetadata } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { buildSessionDropdownRuntimes } from '../../common/sessionDropdownUtils.js';
+import { buildRuntimesDropdown } from '../../common/sessionDropdownUtils.js';
 
 function makeSession(runtimeId: string, lastUsed: number): ILanguageRuntimeSession {
 	return stubInterface<ILanguageRuntimeSession>({
@@ -25,10 +25,10 @@ function ids(runtimes: ILanguageRuntimeMetadata[]): string[] {
 	return runtimes.map(r => r.runtimeId);
 }
 
-describe('buildSessionDropdownRuntimes', () => {
+describe('buildRuntimesDropdown', () => {
 	it('returns only the foreground runtime when activeSessions is empty', () => {
 		const foreground = makeRuntime('r-1');
-		expect(ids(buildSessionDropdownRuntimes(foreground, []))).toEqual(['r-1']);
+		expect(ids(buildRuntimesDropdown(foreground, []))).toEqual(['r-1']);
 	});
 
 	it('sorts remaining sessions by lastUsed descending after the foreground', () => {
@@ -38,7 +38,7 @@ describe('buildSessionDropdownRuntimes', () => {
 			makeSession('r-newest', 300),
 			makeSession('r-middle', 100),
 		];
-		expect(ids(buildSessionDropdownRuntimes(foreground, sessions))).toEqual([
+		expect(ids(buildRuntimesDropdown(foreground, sessions))).toEqual([
 			'r-foreground', 'r-newest', 'r-middle', 'r-oldest',
 		]);
 	});
@@ -48,7 +48,7 @@ describe('buildSessionDropdownRuntimes', () => {
 			makeSession('py', 100),
 			makeSession('py', 200),
 		];
-		expect(ids(buildSessionDropdownRuntimes(undefined, sessions))).toEqual(['py']);
+		expect(ids(buildRuntimesDropdown(undefined, sessions))).toEqual(['py']);
 	});
 
 	it('excludes the foreground runtimeId from remaining sessions before prepending it', () => {
@@ -57,6 +57,6 @@ describe('buildSessionDropdownRuntimes', () => {
 			makeSession('r-1', 500),
 			makeSession('r-2', 100),
 		];
-		expect(ids(buildSessionDropdownRuntimes(foreground, sessions))).toEqual(['r-1', 'r-2']);
+		expect(ids(buildRuntimesDropdown(foreground, sessions))).toEqual(['r-1', 'r-2']);
 	});
 });

@@ -715,10 +715,6 @@ const renameLanguageRuntimeSession = async (
 };
 
 /**
- * Registers language runtime actions.
- */
-
-/**
  * Action that allows the user to create a new console session based off the current active console session.
  * This utilizes the runtime data from the current session to create a new session.
  */
@@ -972,8 +968,6 @@ export function registerLanguageRuntimeActions() {
 			return undefined;
 		}
 	});
-
-	registerAction2(DuplicateActiveConsoleSessionAction);
 
 	/**
 	 * Action that allows the user to rename an active session.
@@ -1685,6 +1679,8 @@ registerAction2(class extends Action2 {
 		notificationService.info(localize('positron.interpreter.archMismatchReset', 'Architecture mismatch warning has been reset. The warning will appear the next time you start an interpreter with a different architecture than your system.'));
 	}
 });
+
+registerAction2(DuplicateActiveConsoleSessionAction);
 
 CommandsRegistry.registerCommandAlias(
 	'workbench.action.language.runtime.startNewSession',

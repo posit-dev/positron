@@ -37,7 +37,7 @@ import { DropdownWithPrimaryActionViewItem } from '../../../../platform/actions/
 import { MenuItemAction } from '../../../../platform/actions/common/actions.js';
 import { localize } from '../../../../nls.js';
 import { MutableDisposable } from '../../../../base/common/lifecycle.js';
-import { buildSessionDropdownRuntimes } from '../common/sessionDropdownUtils.js';
+import { buildRuntimesDropdown } from '../common/sessionDropdownUtils.js';
 
 /**
  * PositronConsoleViewPane class.
@@ -344,7 +344,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 
 	private updateSessionDropdown(dropdownAction: Action): void {
 		const currentRuntime = this.runtimeSessionService.foregroundSession?.runtimeMetadata;
-		const activeRuntimes = buildSessionDropdownRuntimes(currentRuntime, this.runtimeSessionService.activeSessions);
+		const activeRuntimes = buildRuntimesDropdown(currentRuntime, this.runtimeSessionService.activeSessions);
 
 		const dropdownMenuActions = activeRuntimes.map(runtime => new Action(
 			`console.startSession.${runtime.runtimeId}`,
