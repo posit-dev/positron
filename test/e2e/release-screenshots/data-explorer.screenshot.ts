@@ -225,7 +225,6 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		// Dismiss UI noise before opening the menu
 		await hideToasts(app);
 		await hideNotificationBadges(page);
-		await hideDataGridCursor(page);
 
 		// Right-click the year column cell in row 0
 		const menuPopup = await dataExplorer.grid.openCellContextMenu(0, 0);
@@ -371,7 +370,6 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		// Dismiss UI noise before opening the menu
 		await hideToasts(app);
 		await hideNotificationBadges(page);
-		await hideDataGridCursor(page);
 
 		// Right-click on row header index 1 (the second row, shown as "1" in the UI)
 		const menuPopup = await dataExplorer.grid.openRowContextMenu(1);
