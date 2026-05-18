@@ -122,6 +122,23 @@ export async function unhoverAll(page: Page): Promise<void> {
 }
 
 /**
+ * Hide the text-insertion caret in any focused input. The blinking cursor
+ * causes pixel differences between runs and is not meaningful in a screenshot.
+ */
+export async function hideCaret(page: Page): Promise<void> {
+	await page.evaluate(() => {
+		const ID = 'release-screenshot-hide-caret';
+		if (document.getElementById(ID)) {
+			return;
+		}
+		const style = document.createElement('style');
+		style.id = ID;
+		style.textContent = '* { caret-color: transparent !important; }';
+		document.head.appendChild(style);
+	});
+}
+
+/**
  * Hide notification badges (the small red dots / counts) on activity-bar
  * items, panel tabs (e.g. "Problems 2"), etc. These leak into release
  * screenshots from things like "sign in to GitHub", Python lint warnings,
@@ -207,9 +224,10 @@ export async function overrideRuntimeLabel(page: Page): Promise<void> {
  * that produces a clean, deterministic frame:
  *   1. Hide notification toasts (they cover real UI)
  *   2. Hide activity-bar notification badges (e.g. "sign in to GitHub" red dot)
- *   3. Unhover (no spurious hover states)
- *   4. Wait for layout to settle (and any in-flight progress bars to clear)
- *   5. Rewrite runtime labels (e.g. "(uv: positron)") to "(Venv: .venv)"
+ *   3. Hide text-insertion caret (blinking cursor causes pixel noise)
+ *   4. Unhover (no spurious hover states)
+ *   5. Wait for layout to settle (and any in-flight progress bars to clear)
+ *   6. Rewrite runtime labels (e.g. "(uv: positron)") to "(Venv: .venv)"
  *
  * The label rewrite goes last so React re-renders during the settle wait
  * don't undo it before the screenshot fires.
@@ -220,6 +238,7 @@ export async function overrideRuntimeLabel(page: Page): Promise<void> {
 export async function prepareForScreenshot(app: Application, page: Page): Promise<void> {
 	await hideToasts(app);
 	await hideNotificationBadges(page);
+	await hideCaret(page);
 	await unhoverAll(page);
 	await waitForStableUI(page);
 	await overrideRuntimeLabel(page);
