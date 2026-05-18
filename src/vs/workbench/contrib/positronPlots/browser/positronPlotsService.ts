@@ -10,7 +10,7 @@ import { ILanguageRuntimeMessageOutput, LanguageRuntimeSessionMode, RuntimeOutpu
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { HTMLFileSystemProvider } from '../../../../platform/files/browser/htmlFileSystemProvider.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
-import { createSuggestedFileNameForPlot, DarkFilter, HistoryPolicy, IPositronPlotClient, IPositronPlotsService, PlotRenderFormat, PlotRenderSettings, PlotsDisplayLocation, POSITRON_PLOTS_LOCATION_CONTEXT, POSITRON_PLOTS_VIEW_ID, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
+import { createSuggestedFileNameForPlot, DarkFilter, HistoryPolicy, IPositronPlotClient, IPositronPlotsService, PlotOpenTarget, PlotRenderFormat, PlotRenderSettings, PlotsDisplayLocation, POSITRON_PLOTS_LOCATION_CONTEXT, POSITRON_PLOTS_VIEW_ID, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { StaticPlotClient } from '../../../services/positronPlots/common/staticPlotClient.js';
 import { IStorageService, StorageTarget, StorageScope } from '../../../../platform/storage/common/storage.js';
@@ -43,7 +43,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { WebviewPlotClient } from './webviewPlotClient.js';
-import { ACTIVE_GROUP, AUX_WINDOW_GROUP, IEditorService } from '../../../services/editor/common/editorService.js';
+import { ACTIVE_GROUP, AUX_WINDOW_GROUP, IEditorService, SIDE_GROUP } from '../../../services/editor/common/editorService.js';
 import { URI } from '../../../../base/common/uri.js';
 import { PositronPlotCommProxy } from '../../../services/languageRuntime/common/positronPlotCommProxy.js';
 import { PlotResult } from '../../../services/languageRuntime/common/positronPlotComm.js';
@@ -83,6 +83,12 @@ const DefaultSizingPolicyConfigKey = 'plots.defaultSizingPolicy';
 
 /** The config key used to store the history policy setting */
 const HistoryPolicyConfigKey = 'plots.historyPolicy';
+
+/** The key used to store the default "Open in..." target. */
+const DefaultOpenTargetStorageKey = 'positronPlots.defaultOpenTarget';
+
+/** Legacy keys used for one-way migration to DefaultOpenTargetStorageKey. */
+const LegacyDefaultEditorActionStorageKey = 'positronPlots.defaultEditorAction';
 
 interface DataUri {
 	mime: string;
@@ -1515,12 +1521,57 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			throw new Error('Failed to open editor');
 		}
 
-		this._storageService.store('positronPlots.defaultEditorAction', selectedEditorGroup, StorageScope.WORKSPACE, StorageTarget.MACHINE);
+		this.setDefaultOpenTarget(this.editorGroupToOpenTarget(selectedEditorGroup));
 	}
 
 	public getPreferredEditorGroup(): number {
-		const preferredEditorGroup = this._storageService.getNumber('positronPlots.defaultEditorAction', StorageScope.WORKSPACE, ACTIVE_GROUP);
-		return preferredEditorGroup;
+		return this.openTargetToEditorGroup(this.getDefaultOpenTarget()) ?? ACTIVE_GROUP;
+	}
+
+	public getDefaultOpenTarget(): PlotOpenTarget {
+		const target = this._storageService.get(DefaultOpenTargetStorageKey, StorageScope.WORKSPACE);
+		switch (target) {
+			case PlotOpenTarget.EditorNewWindow:
+			case PlotOpenTarget.EditorTab:
+			case PlotOpenTarget.EditorTabToSide:
+			case PlotOpenTarget.Gallery:
+			case PlotOpenTarget.Popout:
+				return target;
+		}
+
+		// Migrate old persisted values from older builds on first read.
+		const legacyEditorGroup = this._storageService.getNumber(LegacyDefaultEditorActionStorageKey, StorageScope.WORKSPACE, ACTIVE_GROUP);
+		return this.editorGroupToOpenTarget(legacyEditorGroup);
+	}
+
+	public setDefaultOpenTarget(target: PlotOpenTarget): void {
+		this._storageService.store(DefaultOpenTargetStorageKey, target, StorageScope.WORKSPACE, StorageTarget.MACHINE);
+	}
+
+	private editorGroupToOpenTarget(groupType: number): PlotOpenTarget {
+		switch (groupType) {
+			case AUX_WINDOW_GROUP:
+				return PlotOpenTarget.EditorNewWindow;
+			case SIDE_GROUP:
+				return PlotOpenTarget.EditorTabToSide;
+			case ACTIVE_GROUP:
+			default:
+				return PlotOpenTarget.EditorTab;
+		}
+	}
+
+	private openTargetToEditorGroup(target: PlotOpenTarget): number | undefined {
+		switch (target) {
+			case PlotOpenTarget.EditorNewWindow:
+				return AUX_WINDOW_GROUP;
+			case PlotOpenTarget.EditorTab:
+				return ACTIVE_GROUP;
+			case PlotOpenTarget.EditorTabToSide:
+				return SIDE_GROUP;
+			case PlotOpenTarget.Gallery:
+			case PlotOpenTarget.Popout:
+				return undefined;
+		}
 	}
 
 	public getEditorInstance(id: string) {
