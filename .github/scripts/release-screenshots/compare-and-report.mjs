@@ -38,18 +38,20 @@ async function readPng(path) {
 
 /**
  * Generate a diff PNG visualising what changed between two screenshots.
- * - Masked regions (fractional coords, same format as applyMasks) → solid mid-grey
- * - Changed pixels outside mask (max channel delta > 5) → bright red
- * - Unchanged pixels outside mask → 30% brightness of the generated image
+ * - Changed pixels (max channel delta > threshold) → bright red
+ * - Unchanged pixels → 30% brightness of the generated image
  *
  * Returns null if either buffer is not a parseable PNG or the images differ in size.
+ * Otherwise returns { buf, changedRatio } where changedRatio is the fraction of
+ * pixels (0–1) whose max channel delta exceeds the threshold.
  *
- * @param {Buffer} genBuf   raw generated PNG (unmasked)
- * @param {Buffer} docsBuf  raw docs PNG (unmasked)
- * @param {Array<{x: number, y: number, width: number, height: number}>} regions
- * @returns {Buffer|null}
+ * @param {Buffer} genBuf   raw generated PNG
+ * @param {Buffer} docsBuf  raw docs PNG
+ * @param {Array}  regions  unused, reserved for future use
+ * @param {{ threshold?: number }} opts
+ * @returns {{ buf: Buffer, changedRatio: number }|null}
  */
-export function generateDiff(genBuf, docsBuf, regions = []) {
+export function generateDiff(genBuf, docsBuf, regions = [], { threshold = 15 } = {}) {
 	let genPng, docsPng;
 	try {
 		genPng = PNG.sync.read(genBuf);
@@ -61,56 +63,36 @@ export function generateDiff(genBuf, docsBuf, regions = []) {
 		return null;
 	}
 
-	// Build a flat boolean mask bitmap.
-	const masked = new Uint8Array(genPng.width * genPng.height);
-	for (const { x: xf, y: yf, width: wf, height: hf } of regions) {
-		const x1 = Math.round(xf * genPng.width);
-		const y1 = Math.round(yf * genPng.height);
-		const x2 = Math.min(genPng.width, Math.round((xf + wf) * genPng.width));
-		const y2 = Math.min(genPng.height, Math.round((yf + hf) * genPng.height));
-		for (let row = y1; row < y2; row++) {
-			for (let col = x1; col < x2; col++) {
-				masked[row * genPng.width + col] = 1;
-			}
-		}
-	}
-
 	const diff = new PNG({ width: genPng.width, height: genPng.height });
-	const DIFF_THRESHOLD = 5;
+	let changedPixels = 0;
 
 	for (let row = 0; row < genPng.height; row++) {
 		for (let col = 0; col < genPng.width; col++) {
 			const i = (row * genPng.width + col) * 4;
-			if (masked[row * genPng.width + col]) {
-				// Masked region — grey so the reader knows it is intentionally ignored.
-				diff.data[i] = 160;
-				diff.data[i + 1] = 160;
-				diff.data[i + 2] = 160;
+			const delta = Math.max(
+				Math.abs(genPng.data[i] - docsPng.data[i]),
+				Math.abs(genPng.data[i + 1] - docsPng.data[i + 1]),
+				Math.abs(genPng.data[i + 2] - docsPng.data[i + 2]),
+			);
+			if (delta > threshold) {
+				changedPixels++;
+				// Changed — red.
+				diff.data[i] = 255;
+				diff.data[i + 1] = 50;
+				diff.data[i + 2] = 50;
 				diff.data[i + 3] = 255;
 			} else {
-				const delta = Math.max(
-					Math.abs(genPng.data[i] - docsPng.data[i]),
-					Math.abs(genPng.data[i + 1] - docsPng.data[i + 1]),
-					Math.abs(genPng.data[i + 2] - docsPng.data[i + 2]),
-				);
-				if (delta > DIFF_THRESHOLD) {
-					// Changed — red.
-					diff.data[i] = 255;
-					diff.data[i + 1] = 50;
-					diff.data[i + 2] = 50;
-					diff.data[i + 3] = 255;
-				} else {
-					// Unchanged — dim to 30% so changed pixels stand out.
-					diff.data[i] = Math.round(genPng.data[i] * 0.3);
-					diff.data[i + 1] = Math.round(genPng.data[i + 1] * 0.3);
-					diff.data[i + 2] = Math.round(genPng.data[i + 2] * 0.3);
-					diff.data[i + 3] = 255;
-				}
+				// Unchanged — dim to 30% so changed pixels stand out.
+				diff.data[i] = Math.round(genPng.data[i] * 0.3);
+				diff.data[i + 1] = Math.round(genPng.data[i + 1] * 0.3);
+				diff.data[i + 2] = Math.round(genPng.data[i + 2] * 0.3);
+				diff.data[i + 3] = 255;
 			}
 		}
 	}
 
-	return PNG.sync.write(diff);
+	const totalPixels = genPng.width * genPng.height;
+	return { buf: PNG.sync.write(diff), changedRatio: changedPixels / totalPixels };
 }
 
 async function readPngIfExists(path) {
@@ -179,11 +161,12 @@ export async function classify(generatedDir, docsDir, opts = {}) {
 				docsHash,
 			};
 			if (status === 'changed' && opts.writeDiffs) {
-				const diffBuf = generateDiff(genBufRaw, exactDocsBuf);
-				if (diffBuf) {
+				const diffResult = generateDiff(genBufRaw, exactDocsBuf);
+				if (diffResult) {
 					const diffName = name.replace(/\.png$/, '-diff.png');
-					await writeFile(join(generatedDir, diffName), diffBuf);
+					await writeFile(join(generatedDir, diffName), diffResult.buf);
 					entry.diffName = diffName;
+					entry.changedRatio = diffResult.changedRatio;
 				}
 			}
 			result[name] = entry;
@@ -267,9 +250,12 @@ function htmlCard(name, info, screenshotBaseUrl) {
 	const diffUrl = (info.diffName && screenshotBaseUrl)
 		? `${screenshotBaseUrl}/${info.diffName}`
 		: null;
+	const ratioTag = info.changedRatio !== undefined
+		? ` <span class="ratio-badge">${(info.changedRatio * 100).toFixed(1)}% pixels changed</span>`
+		: '';
 	const diffFig = diffUrl
 		? `<figure>
-			<figcaption>Diff (red&nbsp;= changed · grey&nbsp;= masked)</figcaption>
+			<figcaption>Diff (red&nbsp;= changed · dimmed&nbsp;= unchanged)${ratioTag}</figcaption>
 			<a href="${htmlEscape(diffUrl)}" target="_blank" rel="noopener"><img loading="lazy" src="${htmlEscape(diffUrl)}" alt="diff"></a>
 		</figure>`
 		: '';
@@ -365,6 +351,7 @@ export function formatHtml(classification, opts = {}) {
 	figcaption { font-size: 12px; color: #6b7280; margin-bottom: 6px; }
 	img { max-width: 100%; height: auto; border: 1px solid #e5e7eb; border-radius: 4px; cursor: zoom-in; background: white; }
 	.empty { font-style: italic; color: #9ca3af; padding: 8px 0; font-size: 13px; }
+	.ratio-badge { background: #fee2e2; color: #991b1b; border-radius: 4px; padding: 1px 6px; font-size: 11px; font-weight: 600; white-space: nowrap; }
 	code { background: #f3f4f6; padding: 1px 5px; border-radius: 3px; font-size: 0.9em; }
 </style>
 </head>
