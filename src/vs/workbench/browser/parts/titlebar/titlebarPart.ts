@@ -811,13 +811,7 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 	}
 
 	protected get isCommandCenterVisible() {
-		// --- Start Positron ---
-		// Editor actions are disabled in Positron. They have been moved to the Editor Action Bar.
-		return false;
-		/*
 		return !this.isCompact && this.configurationService.getValue<boolean>(LayoutSettings.COMMAND_CENTER) !== false;
-		*/
-		// --- End Positron ---
 	}
 
 	private get editorActionsEnabled(): boolean {
