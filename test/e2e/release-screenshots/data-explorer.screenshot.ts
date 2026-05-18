@@ -110,11 +110,22 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		await dataExplorer.waitForIdle();
 
 		await prepareForScreenshot(app, page);
-		await capturePanel(
-			page,
-			page.locator('.part.editor .editor-group-container'),
-			'data-explorer-grid-example.png',
-		);
+
+		// Capture just the top-left corner of the grid: column headers + first 5 data rows,
+		// cropped to the dep_delay column (data-column-index="5") right edge.
+		const headersBox = await page.locator('.data-grid-column-headers').boundingBox();
+		const depDelayHeader = await page.locator('.data-grid-column-header[data-column-index="5"]').boundingBox();
+		const fifthRowBox = await page.locator('.data-explorer-panel .right-column .data-grid-rows-container .data-grid-row').nth(4).boundingBox();
+		if (!headersBox || !depDelayHeader || !fifthRowBox) {
+			throw new Error('Could not measure bounding boxes for grid example screenshot');
+		}
+		const PADDING = 2;
+		await captureRegion(page, 'data-explorer-grid-example.png', {
+			x: headersBox.x,
+			y: headersBox.y,
+			width: depDelayHeader.x + depDelayHeader.width - headersBox.x + PADDING,
+			height: fifthRowBox.y + fifthRowBox.height - headersBox.y + PADDING,
+		});
 	});
 
 	/**
