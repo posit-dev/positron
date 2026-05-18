@@ -15,15 +15,16 @@ type ExecuteCode = (
 	options?: { timeout?: number; waitForReady?: boolean; maximizeConsole?: boolean },
 ) => Promise<void>;
 
-async function openFlightsDataset(
-	workspacePathOrFolder: string,
-	executeCode: ExecuteCode,
-	variables: { waitForVariableRow(name: string): Promise<void>; doubleClickVariableRow(name: string): Promise<void> },
-): Promise<void> {
-	const parquetPath = join(workspacePathOrFolder, 'data-files', 'flights', 'flights.parquet');
+type AppShim = {
+	workspacePathOrFolder: string;
+	workbench: { variables: { waitForVariableRow(name: string): Promise<unknown>; doubleClickVariableRow(name: string): Promise<unknown> } };
+};
+
+async function openFlightsDataset(app: AppShim, executeCode: ExecuteCode): Promise<void> {
+	const parquetPath = join(app.workspacePathOrFolder, 'data-files', 'flights', 'flights.parquet');
 	await executeCode('Python', `import pandas as pd\nflights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')`);
-	await variables.waitForVariableRow('flights');
-	await variables.doubleClickVariableRow('flights');
+	await app.workbench.variables.waitForVariableRow('flights');
+	await app.workbench.variables.doubleClickVariableRow('flights');
 }
 
 test.use({
@@ -34,10 +35,6 @@ test.beforeEach(async ({ app }) => {
 	await setScreenshotWindowSize(app);
 });
 
-// Restore the bottom panel and secondary sidebar so the python fixture for
-// the next test can start a session (maximize() closes both panels).
-// Press Escape first so any open popup (e.g. column/cell/row menus) does not
-// intercept the layout-restore keyboard shortcuts.
 test.afterEach(async ({ app, page }) => {
 	await page.keyboard.press('Escape');
 	await app.workbench.hotKeys.restoreBottomPanel();
@@ -51,7 +48,7 @@ test.describe('Release Screenshots - Data Explorer', () => {
 	test('Release Screenshot - data-explorer.png', async ({ app, page, executeCode, python }) => {
 		const { dataExplorer } = app.workbench;
 
-		await openFlightsDataset(app.workspacePathOrFolder, executeCode, app.workbench.variables);
+		await openFlightsDataset(app, executeCode);
 		await dataExplorer.maximize(true);
 		await dataExplorer.waitForIdle();
 
@@ -91,7 +88,7 @@ test.describe('Release Screenshots - Data Explorer', () => {
 	 */
 	test('Release Screenshot - data-explorer-grid-example.png', async ({ app, page, executeCode, python }) => {
 		const { dataExplorer } = app.workbench;
-		await openFlightsDataset(app.workspacePathOrFolder, executeCode, app.workbench.variables);
+		await openFlightsDataset(app, executeCode);
 		await dataExplorer.maximize(false);
 		await dataExplorer.waitForIdle();
 		await dataExplorer.filters.clearAll();
@@ -126,7 +123,7 @@ test.describe('Release Screenshots - Data Explorer', () => {
 	 */
 	test('Release Screenshot - data-explorer-column-menu.png', async ({ app, page, executeCode, python }) => {
 		const { dataExplorer } = app.workbench;
-		await openFlightsDataset(app.workspacePathOrFolder, executeCode, app.workbench.variables);
+		await openFlightsDataset(app, executeCode);
 		await dataExplorer.maximize(false);
 		await dataExplorer.waitForIdle();
 		await dataExplorer.filters.clearAll();
@@ -173,7 +170,7 @@ test.describe('Release Screenshots - Data Explorer', () => {
 	 */
 	test('Release Screenshot - data-explorer-cell-menu.png', async ({ app, page, executeCode, python }) => {
 		const { dataExplorer } = app.workbench;
-		await openFlightsDataset(app.workspacePathOrFolder, executeCode, app.workbench.variables);
+		await openFlightsDataset(app, executeCode);
 		await dataExplorer.maximize(false);
 		await dataExplorer.waitForIdle();
 		await dataExplorer.filters.clearAll();
@@ -221,7 +218,7 @@ test.describe('Release Screenshots - Data Explorer', () => {
 	 */
 	test('Release Screenshot - data-explorer-cell-value-tooltip.png', async ({ app, page, executeCode, python }) => {
 		const { dataExplorer } = app.workbench;
-		await openFlightsDataset(app.workspacePathOrFolder, executeCode, app.workbench.variables);
+		await openFlightsDataset(app, executeCode);
 		await dataExplorer.maximize(false);
 		await dataExplorer.waitForIdle();
 		await dataExplorer.filters.clearAll();
@@ -285,7 +282,7 @@ test.describe('Release Screenshots - Data Explorer', () => {
 	 */
 	test('Release Screenshot - data-explorer-row-menu.png', async ({ app, page, executeCode, python }) => {
 		const { dataExplorer } = app.workbench;
-		await openFlightsDataset(app.workspacePathOrFolder, executeCode, app.workbench.variables);
+		await openFlightsDataset(app, executeCode);
 		await dataExplorer.maximize(false);
 		await dataExplorer.waitForIdle();
 		await dataExplorer.filters.clearAll();
