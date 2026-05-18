@@ -172,17 +172,17 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		// Click the ⋮ button on the "month" column header (0-based index 1)
 		const menuPopup = await dataExplorer.grid.openColumnContextMenu(1);
 
-		// Capture from the left edge of the year column through the right edge of the day
-		// column, so the menu sits over month with year visible to the left and day to the right.
+		// Capture from the left edge of the month column through the right edge of the day
+		// column, so the menu sits over month with day visible to the right.
 		const menuBox = await menuPopup.boundingBox();
 		const headersBox = await page.locator('.data-grid-column-headers').boundingBox();
-		const yearHeaderBox = await page.locator('.data-grid-column-header[data-column-index="0"]').boundingBox();
+		const monthHeaderBox = await page.locator('.data-grid-column-header[data-column-index="1"]').boundingBox();
 		const dayHeaderBox = await page.locator('.data-grid-column-header[data-column-index="2"]').boundingBox();
 		if (!menuBox || !headersBox) {
 			throw new Error('Could not measure bounding boxes for column menu screenshot');
 		}
 		const PADDING = 2;
-		const startX = yearHeaderBox ? yearHeaderBox.x : Math.max(0, menuBox.x - 220);
+		const startX = monthHeaderBox ? monthHeaderBox.x : Math.max(0, menuBox.x - 220);
 		const endX = Math.max(
 			menuBox.x + menuBox.width,
 			dayHeaderBox ? dayHeaderBox.x + dayHeaderBox.width : 0,
@@ -332,6 +332,7 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 			throw new Error('Could not measure bounding boxes for cell value tooltip screenshot');
 		}
 		const PADDING = 16;
+		const RIGHT_PADDING = 40;
 		const startX = Math.max(0, Math.min(tooltipBox.x, cellBox.x) - PADDING);
 		const startY = headersBox
 			? headersBox.y
@@ -340,7 +341,7 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 			tooltipBox.x + tooltipBox.width,
 			cellBox.x + cellBox.width,
 			timeHourHeaderBox ? timeHourHeaderBox.x + timeHourHeaderBox.width : 0,
-		) + PADDING;
+		) + RIGHT_PADDING;
 		const endY = Math.max(tooltipBox.y + tooltipBox.height, cellBox.y + cellBox.height) + PADDING;
 		await captureRegion(page, 'data-explorer-cell-value-tooltip.png', {
 			x: startX,
@@ -381,7 +382,8 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		await hideToasts(app);
 		await hideNotificationBadges(page);
 
-		// Right-click on row header index 1 (the second row, shown as "1" in the UI)
+		// Left-click row header 1 first so it gets the blue selection highlight, then right-click for the menu.
+		await page.locator('.data-grid-row-header').nth(1).click();
 		const menuPopup = await dataExplorer.grid.openRowContextMenu(1);
 
 		// Capture from the row-headers left edge, starting at the first data row (no column
