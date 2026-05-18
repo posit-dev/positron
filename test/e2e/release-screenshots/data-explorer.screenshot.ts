@@ -143,9 +143,7 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		await hideNotificationBadges(page);
 
 		// Click the ⋮ button on the "day" column header (0-based index 2)
-		await page.locator('.data-grid-column-header[data-column-index="2"] .sort-button').click();
-		const menuPopup = page.locator('.positron-modal-popup');
-		await expect(menuPopup).toBeVisible({ timeout: 5000 });
+		const menuPopup = await dataExplorer.grid.openColumnContextMenu(2);
 
 		// Capture a region: from ~2 column-widths left of the menu, starting at the column
 		// headers row, and ending just below the bottom of the open menu.
@@ -192,12 +190,8 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		await hideToasts(app);
 		await hideNotificationBadges(page);
 
-		// Right-click the year column cell in row 0 (first data cell in the rows container)
-		await page
-			.locator('.data-explorer-panel .right-column .data-grid-rows-container .data-grid-row:nth-child(1) > div:nth-child(1)')
-			.click({ button: 'right' });
-		const menuPopup = page.locator('.positron-modal-popup');
-		await expect(menuPopup).toBeVisible({ timeout: 5000 });
+		// Right-click the year column cell in row 0
+		const menuPopup = await dataExplorer.grid.openCellContextMenu(0, 0);
 
 		// Capture from the row-headers left edge through the full open menu
 		const menuBox = await menuPopup.boundingBox();
@@ -246,7 +240,7 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		await dataExplorer.waitForIdle();
 
 		// Wait for time_hour column header to be rendered before hovering over a cell
-		await expect(page.locator('.data-grid-column-header[data-column-index="18"]')).toBeVisible({ timeout: 10000 });
+		await dataExplorer.grid.waitForColumnHeader(18);
 
 		// Narrow the time_hour column so its value is truncated (auto-sizing fits the full
 		// "2013-01-01 05:00:00" string, so offsetWidth >= scrollWidth and no tooltip fires).
@@ -326,9 +320,7 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		await hideNotificationBadges(page);
 
 		// Right-click on row header index 1 (the second row, shown as "1" in the UI)
-		await page.locator('.data-grid-row-header').nth(1).click({ button: 'right' });
-		const menuPopup = page.locator('.positron-modal-popup');
-		await expect(menuPopup).toBeVisible({ timeout: 5000 });
+		const menuPopup = await dataExplorer.grid.openRowContextMenu(1);
 
 		// Capture from the row-headers left edge through the first few data columns and the menu
 		const menuBox = await menuPopup.boundingBox();

@@ -379,6 +379,59 @@ export class DataGrid {
 		});
 	}
 
+	private columnHeaderByIndex(columnIndex: number): Locator {
+		return this.code.driver.currentPage.locator(`.data-grid-column-header[data-column-index="${columnIndex}"]`);
+	}
+
+	/**
+	 * Wait for the column header at the given 0-based data-column-index to be visible.
+	 * Useful after navigating to a far-right column via keyboard.
+	 */
+	async waitForColumnHeader(columnIndex: number, timeout = 10000): Promise<void> {
+		await test.step(`Wait for column header at index ${columnIndex}`, async () => {
+			await expect(this.columnHeaderByIndex(columnIndex)).toBeVisible({ timeout });
+		});
+	}
+
+	/**
+	 * Click the ⋮ button on the column header at the given 0-based data-column-index
+	 * and wait for the popup menu to appear. Returns the popup locator.
+	 */
+	async openColumnContextMenu(columnIndex: number): Promise<Locator> {
+		return test.step(`Open context menu for column ${columnIndex}`, async () => {
+			await this.columnHeaderByIndex(columnIndex).locator('.sort-button').click();
+			const popup = this.code.driver.currentPage.locator('.positron-modal-popup');
+			await expect(popup).toBeVisible({ timeout: 5000 });
+			return popup;
+		});
+	}
+
+	/**
+	 * Right-click the row header at the given 0-based index and wait for the popup
+	 * menu to appear. Returns the popup locator.
+	 */
+	async openRowContextMenu(rowIndex: number): Promise<Locator> {
+		return test.step(`Open context menu for row header ${rowIndex}`, async () => {
+			await this.rowHeader.nth(rowIndex).click({ button: 'right' });
+			const popup = this.code.driver.currentPage.locator('.positron-modal-popup');
+			await expect(popup).toBeVisible({ timeout: 5000 });
+			return popup;
+		});
+	}
+
+	/**
+	 * Right-click the cell at the given 0-based visual position and wait for the
+	 * popup menu to appear. Returns the popup locator.
+	 */
+	async openCellContextMenu(rowPosition: number, columnPosition: number): Promise<Locator> {
+		return test.step(`Open context menu for cell at row ${rowPosition}, col ${columnPosition}`, async () => {
+			await this.cellByPosition(rowPosition, columnPosition).click({ button: 'right' });
+			const popup = this.code.driver.currentPage.locator('.positron-modal-popup');
+			await expect(popup).toBeVisible({ timeout: 5000 });
+			return popup;
+		});
+	}
+
 	/**
 	 * Click a column header by its title
 	 * @param columnTitle The exact title of the column to click
