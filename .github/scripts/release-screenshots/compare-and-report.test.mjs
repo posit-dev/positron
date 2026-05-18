@@ -8,8 +8,28 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { crc32 } from 'node:zlib';
 import { PNG } from 'pngjs';
 import { classify, generateDiff, formatSummary, formatHtml } from './compare-and-report.mjs';
+
+/**
+ * Inject a tEXt metadata chunk right after the IHDR chunk of a valid PNG.
+ * pngjs ignores metadata chunks on read, so pixels are unchanged but raw
+ * bytes differ — simulating what happens when two tools encode the same image.
+ */
+function withTextChunk(pngBuf, keyword, value) {
+	const data = Buffer.from(`${keyword}\0${value}`, 'latin1');
+	const type = Buffer.from('tEXt');
+	const crcVal = crc32(data, crc32(type));
+	const len = Buffer.allocUnsafe(4);
+	len.writeUInt32BE(data.length, 0);
+	const crcBuf = Buffer.allocUnsafe(4);
+	crcBuf.writeUInt32BE(crcVal >>> 0, 0);
+	const chunk = Buffer.concat([len, type, data, crcBuf]);
+	// IHDR chunk always ends at offset 33 (8 sig + 4 len + 4 type + 13 data + 4 crc)
+	const AFTER_IHDR = 33;
+	return Buffer.concat([pngBuf.subarray(0, AFTER_IHDR), chunk, pngBuf.subarray(AFTER_IHDR)]);
+}
 
 const PNG_SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
@@ -69,6 +89,24 @@ test('classify: different bytes, same name -> changed', async () => {
 		const result = await classify(generated, docs);
 		assert.equal(result['foo.png'].status, 'changed');
 		assert.notEqual(result['foo.png'].generatedHash, result['foo.png'].docsHash);
+	} finally {
+		await cleanup();
+	}
+});
+
+test('classify: different hashes but 0% pixel diff -> unchanged', async () => {
+	const { generated, docs, cleanup } = await makeDirs();
+	try {
+		// Same pixel data; docs copy has an injected tEXt metadata chunk so bytes
+		// (and hashes) differ while pixels are identical. Simulates metadata-only
+		// divergence between capture tools and the positron.posit.co image pipeline.
+		const buf = makeRealPng(4, 4, [255, 0, 0], [0, 0, 255]);
+		const withMeta = withTextChunk(buf, 'Software', 'different-tool');
+		assert.ok(!buf.equals(withMeta), 'metadata injection should produce different bytes');
+		await writeFile(join(generated, 'same.png'), buf);
+		await writeFile(join(docs, 'same.png'), withMeta);
+		const result = await classify(generated, docs);
+		assert.equal(result['same.png'].status, 'unchanged');
 	} finally {
 		await cleanup();
 	}

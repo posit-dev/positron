@@ -152,7 +152,17 @@ export async function classify(generatedDir, docsDir, opts = {}) {
 		const exactDocsBuf = await readPngIfExists(join(docsDir, name));
 		if (exactDocsBuf !== null) {
 			const docsHash = sha256(exactDocsBuf);
-			const status = generatedHash === docsHash ? 'unchanged' : 'changed';
+			if (generatedHash === docsHash) {
+				// Byte-identical — definitely unchanged, no pixel decode needed.
+				result[name] = { status: 'unchanged', generatedHash, generatedSize: genBufRaw.length, docsName: name, docsHash };
+				continue;
+			}
+
+			// Hashes differ — check whether pixels actually differ above threshold.
+			// Metadata changes (compression, color profile, timestamps) can cause hash
+			// mismatches even when images are visually identical.
+			const diffResult = generateDiff(genBufRaw, exactDocsBuf);
+			const status = (diffResult && diffResult.changedRatio === 0) ? 'unchanged' : 'changed';
 			const entry = {
 				status,
 				generatedHash,
@@ -160,14 +170,11 @@ export async function classify(generatedDir, docsDir, opts = {}) {
 				docsName: name,
 				docsHash,
 			};
-			if (status === 'changed' && opts.writeDiffs) {
-				const diffResult = generateDiff(genBufRaw, exactDocsBuf);
-				if (diffResult) {
-					const diffName = name.replace(/\.png$/, '-diff.png');
-					await writeFile(join(generatedDir, diffName), diffResult.buf);
-					entry.diffName = diffName;
-					entry.changedRatio = diffResult.changedRatio;
-				}
+			if (status === 'changed' && opts.writeDiffs && diffResult) {
+				const diffName = name.replace(/\.png$/, '-diff.png');
+				await writeFile(join(generatedDir, diffName), diffResult.buf);
+				entry.diffName = diffName;
+				entry.changedRatio = diffResult.changedRatio;
 			}
 			result[name] = entry;
 			continue;
