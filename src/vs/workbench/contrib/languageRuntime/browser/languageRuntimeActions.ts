@@ -717,6 +717,7 @@ const renameLanguageRuntimeSession = async (
 /**
  * Registers language runtime actions.
  */
+
 /**
  * Action that allows the user to create a new console session based off the current active console session.
  * This utilizes the runtime data from the current session to create a new session.

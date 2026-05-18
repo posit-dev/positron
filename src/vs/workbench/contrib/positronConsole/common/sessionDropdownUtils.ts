@@ -13,7 +13,7 @@ import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common
  * session). Remaining sessions are sorted by most-recently-used, deduplicated
  * by runtimeId, and capped at 5 total entries.
  */
-export function buildSessionDropdownRuntimes(
+export function buildRuntimesDropdown(
 	foregroundRuntime: ILanguageRuntimeMetadata | undefined,
 	activeSessions: ILanguageRuntimeSession[]
 ): ILanguageRuntimeMetadata[] {
