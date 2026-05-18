@@ -235,6 +235,7 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		const splitterBox = await page.locator('.data-explorer-panel .splitter').boundingBox();
 		const headersBox = await page.locator('.data-grid-column-headers').boundingBox();
 		const dayHeaderBox = await page.locator('.data-grid-column-header[data-column-index="2"]').boundingBox();
+		const row12Box = await page.locator('.data-explorer-panel .right-column .data-grid-rows-container .data-grid-row').nth(12).boundingBox();
 		if (!menuBox) {
 			throw new Error('Could not measure bounding box for cell menu screenshot');
 		}
@@ -246,11 +247,15 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 			menuBox.x + menuBox.width,
 			dayHeaderBox ? dayHeaderBox.x + dayHeaderBox.width : 0,
 		) + PADDING;
+		const endY = Math.max(
+			menuBox.y + menuBox.height,
+			row12Box ? row12Box.y + row12Box.height : 0,
+		) + PADDING;
 		await captureRegion(page, 'data-explorer-cell-menu.png', {
 			x: startX,
 			y: startY,
 			width: endX - startX,
-			height: menuBox.y + menuBox.height - startY + PADDING,
+			height: endY - startY,
 		});
 	});
 
