@@ -209,8 +209,10 @@ export class Filters {
 		if (await this.clearSortingButton.isVisible() && await this.clearSortingButton.isEnabled()) {
 			await this.clearSortingButton.click();
 		}
-		if (await this.clearFilterButton.isVisible()) {
-			await this.clearFilterButton.click();
+		// Each active filter renders its own clear icon. Click .first() in a loop
+		// until none remain to avoid strict-mode violations from multi-element matches.
+		while (await this.clearFilterButton.first().isVisible()) {
+			await this.clearFilterButton.first().click();
 		}
 	}
 }

@@ -108,6 +108,8 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		await dataExplorer.waitForIdle();
 		await dataExplorer.filters.clearAll();
 		await dataExplorer.waitForIdle();
+		await dataExplorer.grid.clickUpperLeftCorner();
+		await dataExplorer.grid.jumpToStart();
 
 		await prepareForScreenshot(app, page);
 
@@ -152,6 +154,8 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		await dataExplorer.waitForIdle();
 		await dataExplorer.filters.clearAll();
 		await dataExplorer.waitForIdle();
+		await dataExplorer.grid.clickUpperLeftCorner();
+		await dataExplorer.grid.jumpToStart();
 
 		// Dismiss UI noise before opening the menu so it doesn't appear in the screenshot
 		await hideToasts(app);
@@ -204,6 +208,8 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		await dataExplorer.waitForIdle();
 		await dataExplorer.filters.clearAll();
 		await dataExplorer.waitForIdle();
+		await dataExplorer.grid.clickUpperLeftCorner();
+		await dataExplorer.grid.jumpToStart();
 
 		// Dismiss UI noise before opening the menu
 		await hideToasts(app);
@@ -256,7 +262,8 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		await dataExplorer.waitForIdle();
 
 		// Navigate to the time_hour column (last column, index 18) via keyboard
-		await dataExplorer.grid.clickCell(0, 0);
+		await dataExplorer.grid.clickUpperLeftCorner();
+		await dataExplorer.grid.jumpToStart();
 		await page.keyboard.press('End');
 		await dataExplorer.waitForIdle();
 
@@ -338,6 +345,8 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		await dataExplorer.waitForIdle();
 		await dataExplorer.filters.clearAll();
 		await dataExplorer.waitForIdle();
+		await dataExplorer.grid.clickUpperLeftCorner();
+		await dataExplorer.grid.jumpToStart();
 
 		// Dismiss UI noise before opening the menu
 		await hideToasts(app);
