@@ -111,8 +111,10 @@ get_extension_info() {
 	EXTENSION_TARGET_PLATFORM=""
 
 	if command -v jq >/dev/null 2>&1; then
-		EXTENSION_VERSION=$(echo "$response" | jq -r '.versions[0].version // empty')
-		EXTENSION_TARGET_PLATFORM=$(echo "$response" | jq -r '.versions[0].target_platform // empty')
+		# Sort by published_at descending to get the actual latest version
+		# (P3M does not guarantee versions are returned in sorted order)
+		EXTENSION_VERSION=$(echo "$response" | jq -r '.versions | sort_by(.published_at) | reverse | .[0].version // empty')
+		EXTENSION_TARGET_PLATFORM=$(echo "$response" | jq -r '.versions | sort_by(.published_at) | reverse | .[0].target_platform // empty')
 
 	else
 		# Fallback parsing without jq
@@ -317,6 +319,7 @@ process_extension() {
 		local version_response
 		if version_response=$(curl -s -f "$version_url" 2>/dev/null); then
 			if command -v jq >/dev/null 2>&1; then
+				# Find the matching version (versions array is not guaranteed to be sorted)
 				TARGET_PLATFORM=$(echo "$version_response" | jq -r --arg ver "$VERSION" '.versions[] | select(.version == $ver) | .target_platform // empty' | head -1)
 			else
 				TARGET_PLATFORM=$(echo "$version_response" | grep -o '"target_platform":"[^"]*"' | head -1 | cut -d'"' -f4)
