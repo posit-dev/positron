@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { crc32 } from 'node:zlib';
 import { PNG } from 'pngjs';
-import { classify, generateDiff, formatSummary, formatHtml } from './compare-and-report.mjs';
+import { classify, generateDiff, formatSummary, formatHtml, formatChangedRatio } from './compare-and-report.mjs';
 
 /**
  * Inject a tEXt metadata chunk right after the IHDR chunk of a valid PNG.
@@ -243,6 +243,23 @@ test('formatHtml: escapes HTML-unsafe characters in filenames', () => {
 	const html = formatHtml(classification, { screenshotBaseUrl: 'https://example.com/run123' });
 	assert.ok(!html.includes('has<bad>.png'), 'unescaped angle brackets should not appear');
 	assert.match(html, /has&lt;bad&gt;\.png/);
+});
+
+// --- formatChangedRatio ---
+
+test('formatChangedRatio: zero renders as 0%', () => {
+	assert.equal(formatChangedRatio(0), '0%');
+});
+
+test('formatChangedRatio: sub-0.1% renders as < 0.1% (not 0.0%)', () => {
+	assert.equal(formatChangedRatio(0.0001), '< 0.1%');
+	assert.equal(formatChangedRatio(0.00001), '< 0.1%');
+});
+
+test('formatChangedRatio: values >= 0.1% render as N.N%', () => {
+	assert.equal(formatChangedRatio(0.001), '0.1%');
+	assert.equal(formatChangedRatio(0.023), '2.3%');
+	assert.equal(formatChangedRatio(1), '100.0%');
 });
 
 // --- generateDiff ---

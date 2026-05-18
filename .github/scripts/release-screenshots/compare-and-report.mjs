@@ -254,6 +254,17 @@ function htmlEscape(s) {
 	));
 }
 
+export function formatChangedRatio(ratio) {
+	const pct = ratio * 100;
+	if (pct === 0) {
+		return '0%';
+	}
+	if (pct < 0.1) {
+		return '< 0.1%';
+	}
+	return `${pct.toFixed(1)}%`;
+}
+
 function htmlCard(name, info, screenshotBaseUrl) {
 	const docsRef = info.docsName ?? name;
 	const beforeUrl = `${DOCS_IMAGE_BASE_URL}/${docsRef}`;
@@ -268,7 +279,7 @@ function htmlCard(name, info, screenshotBaseUrl) {
 		? `${screenshotBaseUrl}/${info.diffName}`
 		: null;
 	const ratioTag = info.changedRatio !== undefined
-		? ` <span class="ratio-badge">${(info.changedRatio * 100).toFixed(1)}% pixels changed</span>`
+		? ` <span class="ratio-badge">${formatChangedRatio(info.changedRatio)} pixels changed</span>`
 		: '';
 	const diffFig = diffUrl
 		? `<figure>
