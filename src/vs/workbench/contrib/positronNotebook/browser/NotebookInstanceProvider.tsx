@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -37,6 +37,11 @@ export function useNotebookInstance() {
 
 /**
  * Grab notebook config options from the current notebook instance.
+ *
+ * notebookOptions itself is not mutable but the options it provides
+ * can be updated. This hook forces a re-render whenever options change
+ * so that consumers get the latest values.
+ *
  * @returns Notebook options for the current notebook instance.
  */
 export function useNotebookOptions() {
