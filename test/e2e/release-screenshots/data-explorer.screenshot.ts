@@ -67,11 +67,11 @@ test.describe('Release Screenshots - Data Explorer', () => {
 		});
 		await dataExplorer.waitForIdle();
 
-		// Sort by month descending. columnIndex is 1-based; month is column 2.
+		// sort by month descending. columnIndex is 1-based; month is column 2.
 		await dataExplorer.grid.sortColumnBy(2, 'Sort Descending');
 		await dataExplorer.waitForIdle();
 
-		// Expand the arr_delay column profile in the summary panel.
+		// expand the arr_delay column profile in the summary panel.
 		await dataExplorer.summaryPanel.expandColumnProfile(8);
 
 		// capture screenshot
@@ -87,22 +87,28 @@ test.describe('Release Screenshots - Data Explorer', () => {
 	 * Img Path: https://positron.posit.co/images/data-explorer-grid-example.png
 	 */
 	test('Release Screenshot - data-explorer-grid-example.png', async ({ app, page, executeCode, python }) => {
+
+		// open the data explorer with the flights dataset
 		const { dataExplorer } = app.workbench;
 		await openFlightsDataset(app, executeCode);
+
+		// Maximize the data explorer and clear filters
 		await dataExplorer.maximize(false);
 		await dataExplorer.waitForIdle();
 		await dataExplorer.filters.clearAll();
 		await dataExplorer.waitForIdle();
 		await dataExplorer.grid.clickUpperLeftCorner();
 		await dataExplorer.grid.jumpToStart();
+
 		// Move the cursor past the crop boundary (columns 0–5) so no blue cell outline appears.
 		for (let i = 0; i < 6; i++) {
 			await page.keyboard.press('ArrowRight');
 		}
 
-		await prepareForScreenshot(app, page);
+
 
 		// Capture just the top-left corner of the grid
+		await prepareForScreenshot(app, page);
 		const headersBox = await dataExplorer.grid.columnHeadersContainer.boundingBox();
 		const depDelayHeader = await dataExplorer.grid.columnHeaderByIndex(5).boundingBox();
 		const fifthRowBox = await dataExplorer.grid.dataRow(4).boundingBox();
@@ -123,13 +129,18 @@ test.describe('Release Screenshots - Data Explorer', () => {
 	 */
 	test('Release Screenshot - data-explorer-column-menu.png', async ({ app, page, executeCode, python }) => {
 		const { dataExplorer } = app.workbench;
+
+		// open the data explorer with the flights dataset
 		await openFlightsDataset(app, executeCode);
 		await dataExplorer.maximize(false);
 		await dataExplorer.waitForIdle();
+
+		// Clear filters and jump to the top-left cell
 		await dataExplorer.filters.clearAll();
 		await dataExplorer.waitForIdle();
 		await dataExplorer.grid.clickUpperLeftCorner();
 		await dataExplorer.grid.jumpToStart();
+
 		// Move the cursor past the crop boundary (columns 0–2) so no blue cell outline appears.
 		for (let i = 0; i < 6; i++) {
 			await page.keyboard.press('ArrowRight');
@@ -142,8 +153,7 @@ test.describe('Release Screenshots - Data Explorer', () => {
 		// Click the ⋮ button on the "month" column header (0-based index 1)
 		const menuPopup = await dataExplorer.grid.openColumnContextMenu(1);
 
-		// Capture from the left edge of the month column through the right edge of the day
-		// column, so the menu sits over month with day visible to the right.
+		// Capture from the left edge of the month column through the right edge of the day column
 		const menuBox = await menuPopup.boundingBox();
 		const headersBox = await dataExplorer.grid.columnHeadersContainer.boundingBox();
 		const monthHeaderBox = await dataExplorer.grid.columnHeaderByIndex(1).boundingBox();
@@ -170,9 +180,13 @@ test.describe('Release Screenshots - Data Explorer', () => {
 	 */
 	test('Release Screenshot - data-explorer-cell-menu.png', async ({ app, page, executeCode, python }) => {
 		const { dataExplorer } = app.workbench;
+
+		// open the data explorer with the flights dataset
 		await openFlightsDataset(app, executeCode);
 		await dataExplorer.maximize(false);
 		await dataExplorer.waitForIdle();
+
+		// Clear filters and jump to the top-left cell
 		await dataExplorer.filters.clearAll();
 		await dataExplorer.waitForIdle();
 		await dataExplorer.grid.clickUpperLeftCorner();
@@ -185,6 +199,7 @@ test.describe('Release Screenshots - Data Explorer', () => {
 		// Right-click the year column cell in row 0
 		const menuPopup = await dataExplorer.grid.openCellContextMenu(0, 0);
 
+		// Capture region
 		const menuBox = await menuPopup.boundingBox();
 		const splitterBox = await dataExplorer.grid.splitter.boundingBox();
 		const headersBox = await dataExplorer.grid.columnHeadersContainer.boundingBox();
@@ -218,20 +233,21 @@ test.describe('Release Screenshots - Data Explorer', () => {
 	 */
 	test('Release Screenshot - data-explorer-cell-value-tooltip.png', async ({ app, page, executeCode, python }) => {
 		const { dataExplorer } = app.workbench;
+
+		// open the data explorer with the flights dataset
 		await openFlightsDataset(app, executeCode);
 		await dataExplorer.maximize(false);
 		await dataExplorer.waitForIdle();
+
+		// clear filters and navigte to the time_hour column (last column, index 18)
 		await dataExplorer.filters.clearAll();
 		await dataExplorer.waitForIdle();
-
-		// Navigate to the time_hour column (last column, index 18) via keyboard
 		await dataExplorer.grid.clickUpperLeftCorner();
 		await dataExplorer.grid.jumpToStart();
 		await page.keyboard.press('End');
 		await dataExplorer.waitForIdle();
 
-		// Wait for time_hour column header to be visible, then narrow it so the cell value
-		// truncates and the hover tooltip fires (auto-sizing fits the full value without truncation).
+		// Wait for time_hour column header to be visible, then narrow it so the cell value truncates
 		await dataExplorer.grid.waitForColumnHeader(18);
 		await dataExplorer.grid.narrowColumnBySash(18, 50);
 		await dataExplorer.waitForIdle();
@@ -282,13 +298,18 @@ test.describe('Release Screenshots - Data Explorer', () => {
 	 */
 	test('Release Screenshot - data-explorer-row-menu.png', async ({ app, page, executeCode, python }) => {
 		const { dataExplorer } = app.workbench;
+
+		// open the data explorer with the flights dataset
 		await openFlightsDataset(app, executeCode);
 		await dataExplorer.maximize(false);
 		await dataExplorer.waitForIdle();
+
+		// Clear filters and jump to the top-left cell
 		await dataExplorer.filters.clearAll();
 		await dataExplorer.waitForIdle();
 		await dataExplorer.grid.clickUpperLeftCorner();
 		await dataExplorer.grid.jumpToStart();
+
 		// Move cursor to row 1 so it carries the blue cell highlight into the screenshot.
 		await page.keyboard.press('ArrowDown');
 
@@ -299,8 +320,7 @@ test.describe('Release Screenshots - Data Explorer', () => {
 		// Right-click on row header index 1 (the second row, shown as "1" in the UI)
 		const menuPopup = await dataExplorer.grid.openRowContextMenu(1);
 
-		// Capture from the row-headers left edge, starting at the first data row (no column
-		// headers), through the month column right edge. Show rows 0–6 with menu open on row 1.
+		// Capture screenshot region
 		const menuBox = await menuPopup.boundingBox();
 		const rowHeadersBox = await dataExplorer.grid.rowHeadersContainer.boundingBox();
 		const monthHeaderBox = await dataExplorer.grid.columnHeaderByIndex(1).boundingBox();
