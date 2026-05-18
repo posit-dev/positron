@@ -1003,6 +1003,13 @@ const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Con
 				'default': true,
 				'description': localize('zenMode.hideActivityBar', "Controls whether turning on Zen Mode also hides the activity bar either at the left or right of the workbench.")
 			},
+			// --- Start Positron ---
+			'zenMode.hideTopActionBar': {
+				'type': 'boolean',
+				'default': true,
+				'description': localize('positron.zenMode.hideTopActionBar', "Controls whether turning on Zen Mode also hides the top action bar.")
+			},
+			// --- End Positron ---
 			'zenMode.hideLineNumbers': {
 				'type': 'boolean',
 				'default': true,

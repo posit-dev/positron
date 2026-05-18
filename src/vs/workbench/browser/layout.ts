@@ -1521,6 +1521,9 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 				zenModeExitInfo.wasVisible.sideBar = this.isVisible(Parts.SIDEBAR_PART);
 				zenModeExitInfo.wasVisible.panel = this.isVisible(Parts.PANEL_PART);
 				zenModeExitInfo.wasVisible.auxiliaryBar = this.isVisible(Parts.AUXILIARYBAR_PART);
+				// --- Start Positron ---
+				zenModeExitInfo.wasVisible.positronTopActionBar = this.isVisible(Parts.POSITRON_TOP_ACTION_BAR_PART);
+				// --- End Positron ---
 				this.stateModel.setRuntimeValue(LayoutStateKeys.ZEN_MODE_EXIT_INFO, zenModeExitInfo);
 			}
 
@@ -1535,6 +1538,12 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 			if (config.hideStatusBar) {
 				this.setStatusBarHidden(true);
 			}
+
+			// --- Start Positron ---
+			if (config.hideTopActionBar) {
+				this.setPositronTopActionBarHidden(true);
+			}
+			// --- End Positron ---
 
 			if (config.hideLineNumbers) {
 				setLineNumbers('off');
@@ -1568,6 +1577,14 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 					const zenModeHideStatusBar = this.configurationService.getValue<boolean>(ZenModeSettings.HIDE_STATUSBAR);
 					this.setStatusBarHidden(zenModeHideStatusBar);
 				}
+
+				// --- Start Positron ---
+				// Top Action Bar
+				if (e.affectsConfiguration(ZenModeSettings.HIDE_TOP_ACTION_BAR)) {
+					const zenModeHideTopActionBar = this.configurationService.getValue<boolean>(ZenModeSettings.HIDE_TOP_ACTION_BAR);
+					this.setPositronTopActionBarHidden(zenModeHideTopActionBar);
+				}
+				// --- End Positron ---
 
 				// Center Layout
 				if (e.affectsConfiguration(ZenModeSettings.CENTER_LAYOUT)) {
@@ -1619,6 +1636,12 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 			if (!this.stateModel.getRuntimeValue(LayoutStateKeys.STATUSBAR_HIDDEN, true)) {
 				this.setStatusBarHidden(false);
 			}
+
+			// --- Start Positron ---
+			if (!this.stateModel.getRuntimeValue(LayoutStateKeys.POSITRON_TOP_ACTION_BAR_HIDDEN, true)) {
+				this.setPositronTopActionBarHidden(false);
+			}
+			// --- End Positron ---
 
 			if (zenModeExitInfo.transitionedToCenteredEditorLayout) {
 				this.centerMainEditorLayout(false, true);
@@ -3061,6 +3084,9 @@ type ZenModeConfiguration = {
 	showTabs: 'multiple' | 'single' | 'none';
 	restore: boolean;
 	silentNotifications: boolean;
+	// --- Start Positron ---
+	hideTopActionBar: boolean;
+	// --- End Positron ---
 };
 
 function getZenModeConfiguration(configurationService: IConfigurationService): ZenModeConfiguration {
@@ -3117,6 +3143,9 @@ const LayoutStateKeys = {
 			auxiliaryBar: false,
 			panel: false,
 			sideBar: false,
+			// --- Start Positron ---
+			positronTopActionBar: false,
+			// --- End Positron ---
 		},
 	}),
 
@@ -3154,7 +3183,7 @@ const LayoutStateKeys = {
 	STATUSBAR_HIDDEN: new RuntimeStateKey<boolean>('statusBar.hidden', StorageScope.WORKSPACE, StorageTarget.MACHINE, false, true),
 
 	// --- Start Positron ---
-	POSITRON_TOP_ACTION_BAR_HIDDEN: new RuntimeStateKey<boolean>('positronTopActionBar.hidden', StorageScope.WORKSPACE, StorageTarget.MACHINE, false),
+	POSITRON_TOP_ACTION_BAR_HIDDEN: new RuntimeStateKey<boolean>('positronTopActionBar.hidden', StorageScope.WORKSPACE, StorageTarget.MACHINE, false, true),
 	// --- End Positron ---
 
 } as const;
@@ -3482,6 +3511,11 @@ class LayoutStateModel extends Disposable {
 				case LayoutStateKeys.SIDEBAR_POSITON:
 					this.stateCache.set(key.name, this.configurationService.getValue(LegacyWorkbenchLayoutSettings.SIDEBAR_POSITION) ?? 'left');
 					break;
+				// --- Start Positron ---
+				case LayoutStateKeys.POSITRON_TOP_ACTION_BAR_HIDDEN:
+					this.stateCache.set(key.name, !this.configurationService.getValue(LayoutSettings.TOP_ACTION_BAR_VISIBLE));
+					break;
+				// --- End Positron ---
 			}
 		}
 
