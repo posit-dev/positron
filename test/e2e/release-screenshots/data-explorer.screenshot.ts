@@ -252,7 +252,8 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 
 		// Narrow the time_hour column so its value is truncated (auto-sizing fits the full
 		// "2013-01-01 05:00:00" string, so offsetWidth >= scrollWidth and no tooltip fires).
-		// Drag the right-edge sash of the column header ~120px to the left.
+		// Drag the right-edge sash ~50px left: enough to truncate the cell value while keeping
+		// the "time_hour" column header title fully visible.
 		const timeHourHeader = page.locator('.data-grid-column-header[data-column-index="18"]');
 		const headerBox = await timeHourHeader.boundingBox();
 		if (!headerBox) {
@@ -262,7 +263,7 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		const sashY = headerBox.y + headerBox.height / 2;
 		await page.mouse.move(sashX, sashY);
 		await page.mouse.down();
-		await page.mouse.move(sashX - 120, sashY, { steps: 10 });
+		await page.mouse.move(sashX - 50, sashY, { steps: 10 });
 		await page.mouse.up();
 		await dataExplorer.waitForIdle();
 
