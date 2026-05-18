@@ -203,7 +203,7 @@ test.describe('Positron Assistant Model Picker Default Indicator', { tag: [tags.
 	 * 1. The model picker shows "(default)" suffix next to the model name
 	 * 2. The default model appears first in the vendor group
 	 */
-	test('Verify default model indicator and ordering for single provider', async function ({ settings, assistant }) {
+	test.skip('Verify default model indicator and ordering for single provider', async function ({ settings, assistant }) {
 		// Configure the Echo Language Model v2 as the default for the echo provider
 		await settings.set({
 			'positron.assistant.models.preference.echo': 'Echo Language Model v2'

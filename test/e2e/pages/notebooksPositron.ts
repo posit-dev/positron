@@ -756,6 +756,7 @@ export class PositronNotebooks extends Notebooks {
 	 * @param cellIndex - The index of the cell to add code to (default: 0).
 	 * @param options - Options to control behavior:
 	 * delay: Optional delay between keystrokes for typing simulation (default: 0, meaning no delay).
+	 * fast: Use fill() instead of pressSequentially() — skips keystroke simulation for bulk population (default: false).
 	 * run: Whether to run the cell after adding code (default: false).
 	 * waitForSpinner: Whether to wait for the execution spinner to appear and disappear (default: false).
 	 * waitForPopup: Whether to wait for the execution info popup to appear after running (default: false).
@@ -763,9 +764,9 @@ export class PositronNotebooks extends Notebooks {
 	async addCodeToCell(
 		cellIndex: number,
 		code: string,
-		options?: { delay?: number; run?: boolean; waitForSpinner?: boolean; container?: Locator }
+		options?: { delay?: number; fast?: boolean; run?: boolean; waitForSpinner?: boolean; container?: Locator }
 	): Promise<Locator> {
-		const { delay = 0, run = false, waitForSpinner = false, container } = options ?? {};
+		const { delay = 0, fast = false, run = false, waitForSpinner = false, container } = options ?? {};
 		// When a container is provided, scope all cell lookups to it so that cells from
 		// other open notebooks are not counted or accidentally targeted.
 		const scopedCell = container ? container.locator('[data-testid="notebook-cell"]') : this.cell;
@@ -788,7 +789,11 @@ export class PositronNotebooks extends Notebooks {
 			const editor = cell.locator('.monaco-editor :is(.native-edit-context, .inputarea)');
 			await editor.focus();
 
-			await editor.pressSequentially(code, { delay });
+			if (fast) {
+				await this.code.driver.currentPage.keyboard.insertText(code);
+			} else {
+				await editor.pressSequentially(code, { delay });
+			}
 
 			if (run) {
 				await cell.getByRole('button', { name: 'Run Cell', exact: true }).click();
