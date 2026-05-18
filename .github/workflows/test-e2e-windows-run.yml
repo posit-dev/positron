@@ -225,8 +225,24 @@ jobs:
       - name: Install Playwright browsers
         run: npm run playwright-install
 
+      - name: Restore E2E test dependencies cache
+        id: cache-e2e
+        uses: actions/cache/restore@v5
+        with:
+          path: test/e2e/node_modules
+          key: ${{ runner.os }}-e2e-v1-${{ hashFiles('test/e2e/package-lock.json') }}
+
       - name: Install E2E test dependencies
+        if: steps.cache-e2e.outputs.cache-hit != 'true'
         run: npm --prefix test/e2e ci --no-audit --no-fund
+
+      - name: Save E2E test dependencies cache
+        if: ${{ matrix.shard == 1 && steps.cache-e2e.outputs.cache-hit != 'true' }}
+        continue-on-error: true
+        uses: actions/cache/save@v5
+        with:
+          path: test/e2e/node_modules
+          key: ${{ runner.os }}-e2e-v1-${{ hashFiles('test/e2e/package-lock.json') }}
 
       - name: Compile E2E Tests
         run: npm --prefix test/e2e run compile
