@@ -106,6 +106,8 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		await variables.doubleClickVariableRow('flights');
 		await dataExplorer.maximize(false);
 		await dataExplorer.waitForIdle();
+		await dataExplorer.filters.clearAll();
+		await dataExplorer.waitForIdle();
 
 		await prepareForScreenshot(app, page);
 		await capturePanel(
@@ -136,6 +138,8 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		await variables.waitForVariableRow('flights');
 		await variables.doubleClickVariableRow('flights');
 		await dataExplorer.maximize(false);
+		await dataExplorer.waitForIdle();
+		await dataExplorer.filters.clearAll();
 		await dataExplorer.waitForIdle();
 
 		// Dismiss UI noise before opening the menu so it doesn't appear in the screenshot
@@ -185,6 +189,8 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		await variables.doubleClickVariableRow('flights');
 		await dataExplorer.maximize(false);
 		await dataExplorer.waitForIdle();
+		await dataExplorer.filters.clearAll();
+		await dataExplorer.waitForIdle();
 
 		// Dismiss UI noise before opening the menu
 		await hideToasts(app);
@@ -232,6 +238,8 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		await variables.waitForVariableRow('flights');
 		await variables.doubleClickVariableRow('flights');
 		await dataExplorer.maximize(false);
+		await dataExplorer.waitForIdle();
+		await dataExplorer.filters.clearAll();
 		await dataExplorer.waitForIdle();
 
 		// Navigate to the time_hour column (last column, index 18) via keyboard
@@ -313,6 +321,8 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		await variables.waitForVariableRow('flights');
 		await variables.doubleClickVariableRow('flights');
 		await dataExplorer.maximize(false);
+		await dataExplorer.waitForIdle();
+		await dataExplorer.filters.clearAll();
 		await dataExplorer.waitForIdle();
 
 		// Dismiss UI noise before opening the menu
