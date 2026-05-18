@@ -86,6 +86,7 @@
         completedAt: undefined
       },
       vote: undefined,
+      tokenUsage: undefined,
       voteDownReason: undefined,
       slashCommand: undefined,
       usedContext: {
@@ -107,8 +108,7 @@
       },
       contentReferences: [  ],
       codeCitations: [  ],
-      timeSpentWaiting: 0,
-      tokenUsage: undefined
+      timeSpentWaiting: 0
     }
   ]
 }
