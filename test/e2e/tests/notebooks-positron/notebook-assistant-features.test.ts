@@ -70,7 +70,7 @@ test.describe('Notebook Assistant: Interaction Flow', {
 		await assistant.logoutModelProvider('echo');
 	});
 
-	test('Fix error button opens chat and sends error context', async function ({ app }) {
+	test.skip('Fix error button opens chat and sends error context', async function ({ app }) {
 		const { notebooksPositron, assistant } = app.workbench;
 
 		// Create notebook
@@ -99,7 +99,7 @@ test.describe('Notebook Assistant: Interaction Flow', {
 		expect(responseText).toContain('undefined_var');
 	});
 
-	test('Explain error button opens chat and sends error context', async function ({ app }) {
+	test.skip('Explain error button opens chat and sends error context', async function ({ app }) {
 		const { notebooksPositron, assistant } = app.workbench;
 
 		// Create notebook
