@@ -327,6 +327,7 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		const tooltipBox = await tooltip.boundingBox();
 		const cellBox = await timeHourCell.boundingBox();
 		const headersBox = await page.locator('.data-grid-column-headers').boundingBox();
+		const timeHourHeaderBox = await page.locator('.data-grid-column-header[data-column-index="18"]').boundingBox();
 		if (!tooltipBox || !cellBox) {
 			throw new Error('Could not measure bounding boxes for cell value tooltip screenshot');
 		}
@@ -335,7 +336,11 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		const startY = headersBox
 			? headersBox.y
 			: Math.max(0, Math.min(tooltipBox.y, cellBox.y) - PADDING);
-		const endX = Math.max(tooltipBox.x + tooltipBox.width, cellBox.x + cellBox.width) + PADDING;
+		const endX = Math.max(
+			tooltipBox.x + tooltipBox.width,
+			cellBox.x + cellBox.width,
+			timeHourHeaderBox ? timeHourHeaderBox.x + timeHourHeaderBox.width : 0,
+		) + PADDING;
 		const endY = Math.max(tooltipBox.y + tooltipBox.height, cellBox.y + cellBox.height) + PADDING;
 		await captureRegion(page, 'data-explorer-cell-value-tooltip.png', {
 			x: startX,
