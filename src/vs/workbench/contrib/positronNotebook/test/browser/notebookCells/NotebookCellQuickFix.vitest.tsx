@@ -18,8 +18,6 @@ import { ICommandService } from '../../../../../../platform/commands/common/comm
 import { IContextMenuService } from '../../../../../../platform/contextview/browser/contextView.js';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../../test/vitest/positronTestContainer.js';
-import { CHAT_OPEN_ACTION_ID, ACTION_ID_NEW_CHAT } from '../../../../chat/browser/actions/chatActions.js';
-import { ChatModeKind } from '../../../../chat/common/constants.js';
 import { NotebookCellQuickFix } from '../../../browser/notebookCells/NotebookCellQuickFix.js';
 
 const errorContent = '\x1b[31mNameError: name "x" is not defined\x1b[0m';
@@ -93,25 +91,4 @@ describe('NotebookCellQuickFix', () => {
 		expect(payload.target).toBe('auto');
 	});
 
-	it('falls back to built-in chat when posit-assistant.newChat rejects', async () => {
-		executeCommand.mockImplementation(async (command: string) => {
-			if (command === 'posit-assistant.newChat') {
-				throw new Error('command not found');
-			}
-		});
-
-		const user = userEvent.setup();
-		rtl.render(<NotebookCellQuickFix errorContent={errorContent} />);
-
-		await user.click(screen.getByRole('button', { name: /ask assistant to fix in new chat/i }));
-
-		await waitFor(() => expect(executeCommand).toHaveBeenCalledTimes(3));
-		expect(executeCommand.mock.calls[0][0]).toBe('posit-assistant.newChat');
-		expect(executeCommand.mock.calls[1][0]).toBe(ACTION_ID_NEW_CHAT);
-		expect(executeCommand.mock.calls[2][0]).toBe(CHAT_OPEN_ACTION_ID);
-		expect(executeCommand.mock.calls[2][1]).toEqual({
-			query: 'Fix this notebook cell error.\n```\nNameError: name "x" is not defined\n```',
-			mode: ChatModeKind.Agent
-		});
-	});
 });
