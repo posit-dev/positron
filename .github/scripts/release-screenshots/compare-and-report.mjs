@@ -74,6 +74,83 @@ export function applyMasks(pngBuf, regions) {
 	return PNG.sync.write(png);
 }
 
+/**
+ * Generate a diff PNG visualising what changed between two screenshots.
+ * - Masked regions (fractional coords, same format as applyMasks) → solid mid-grey
+ * - Changed pixels outside mask (max channel delta > 5) → bright red
+ * - Unchanged pixels outside mask → 30% brightness of the generated image
+ *
+ * Returns null if either buffer is not a parseable PNG or the images differ in size.
+ *
+ * @param {Buffer} genBuf   raw generated PNG (unmasked)
+ * @param {Buffer} docsBuf  raw docs PNG (unmasked)
+ * @param {Array<{x: number, y: number, width: number, height: number}>} regions
+ * @returns {Buffer|null}
+ */
+export function generateDiff(genBuf, docsBuf, regions = []) {
+	let genPng, docsPng;
+	try {
+		genPng = PNG.sync.read(genBuf);
+		docsPng = PNG.sync.read(docsBuf);
+	} catch {
+		return null;
+	}
+	if (genPng.width !== docsPng.width || genPng.height !== docsPng.height) {
+		return null;
+	}
+
+	// Build a flat boolean mask bitmap.
+	const masked = new Uint8Array(genPng.width * genPng.height);
+	for (const { x: xf, y: yf, width: wf, height: hf } of regions) {
+		const x1 = Math.round(xf * genPng.width);
+		const y1 = Math.round(yf * genPng.height);
+		const x2 = Math.min(genPng.width, Math.round((xf + wf) * genPng.width));
+		const y2 = Math.min(genPng.height, Math.round((yf + hf) * genPng.height));
+		for (let row = y1; row < y2; row++) {
+			for (let col = x1; col < x2; col++) {
+				masked[row * genPng.width + col] = 1;
+			}
+		}
+	}
+
+	const diff = new PNG({ width: genPng.width, height: genPng.height });
+	const DIFF_THRESHOLD = 5;
+
+	for (let row = 0; row < genPng.height; row++) {
+		for (let col = 0; col < genPng.width; col++) {
+			const i = (row * genPng.width + col) * 4;
+			if (masked[row * genPng.width + col]) {
+				// Masked region — grey so the reader knows it is intentionally ignored.
+				diff.data[i] = 160;
+				diff.data[i + 1] = 160;
+				diff.data[i + 2] = 160;
+				diff.data[i + 3] = 255;
+			} else {
+				const delta = Math.max(
+					Math.abs(genPng.data[i] - docsPng.data[i]),
+					Math.abs(genPng.data[i + 1] - docsPng.data[i + 1]),
+					Math.abs(genPng.data[i + 2] - docsPng.data[i + 2]),
+				);
+				if (delta > DIFF_THRESHOLD) {
+					// Changed — red.
+					diff.data[i] = 255;
+					diff.data[i + 1] = 50;
+					diff.data[i + 2] = 50;
+					diff.data[i + 3] = 255;
+				} else {
+					// Unchanged — dim to 30% so changed pixels stand out.
+					diff.data[i] = Math.round(genPng.data[i] * 0.3);
+					diff.data[i + 1] = Math.round(genPng.data[i + 1] * 0.3);
+					diff.data[i + 2] = Math.round(genPng.data[i + 2] * 0.3);
+					diff.data[i + 3] = 255;
+				}
+			}
+		}
+	}
+
+	return PNG.sync.write(diff);
+}
+
 async function readPngIfExists(path) {
 	try {
 		return await readPng(path);
@@ -109,7 +186,7 @@ async function findDocsCounterpart(docsDirEntries, generatedName) {
 	return null;
 }
 
-export async function classify(generatedDir, docsDir, masks = {}) {
+export async function classify(generatedDir, docsDir, masks = {}, opts = {}) {
 	const generatedEntries = await readdir(generatedDir);
 	let docsEntries = [];
 	try {
@@ -125,7 +202,8 @@ export async function classify(generatedDir, docsDir, masks = {}) {
 			continue;
 		}
 		const regions = masks[name] ?? [];
-		const genBuf = applyMasks(await readPng(join(generatedDir, name)), regions);
+		const genBufRaw = await readPng(join(generatedDir, name));
+		const genBuf = applyMasks(genBufRaw, regions);
 		const generatedHash = sha256(genBuf);
 
 		// First try exact-name match: enables deterministic byte-level diff.
@@ -133,13 +211,22 @@ export async function classify(generatedDir, docsDir, masks = {}) {
 		if (exactDocsBuf !== null) {
 			const docsHash = sha256(applyMasks(exactDocsBuf, regions));
 			const status = generatedHash === docsHash ? 'unchanged' : 'changed';
-			result[name] = {
+			const entry = {
 				status,
 				generatedHash,
-				generatedSize: genBuf.length,
+				generatedSize: genBufRaw.length,
 				docsName: name,
 				docsHash,
 			};
+			if (status === 'changed' && opts.writeDiffs) {
+				const diffBuf = generateDiff(genBufRaw, exactDocsBuf, regions);
+				if (diffBuf) {
+					const diffName = name.replace(/\.png$/, '-diff.png');
+					await writeFile(join(generatedDir, diffName), diffBuf);
+					entry.diffName = diffName;
+				}
+			}
+			result[name] = entry;
 			continue;
 		}
 
@@ -149,13 +236,13 @@ export async function classify(generatedDir, docsDir, masks = {}) {
 			result[name] = {
 				status: 'changed',
 				generatedHash,
-				generatedSize: genBuf.length,
+				generatedSize: genBufRaw.length,
 				docsName: counterpart,
 			};
 			continue;
 		}
 
-		result[name] = { status: 'new', generatedHash, generatedSize: genBuf.length };
+		result[name] = { status: 'new', generatedHash, generatedSize: genBufRaw.length };
 	}
 	return result;
 }
@@ -217,6 +304,15 @@ function htmlCard(name, info, screenshotBaseUrl) {
 	const afterFig = afterUrl
 		? `<a href="${htmlEscape(afterUrl)}" target="_blank" rel="noopener"><img loading="lazy" src="${htmlEscape(afterUrl)}" alt="new"></a>`
 		: '<div class="empty">—</div>';
+	const diffUrl = (info.diffName && screenshotBaseUrl)
+		? `${screenshotBaseUrl}/${info.diffName}`
+		: null;
+	const diffFig = diffUrl
+		? `<figure>
+			<figcaption>Diff (red&nbsp;= changed · grey&nbsp;= masked)</figcaption>
+			<a href="${htmlEscape(diffUrl)}" target="_blank" rel="noopener"><img loading="lazy" src="${htmlEscape(diffUrl)}" alt="diff"></a>
+		</figure>`
+		: '';
 	const replaces = info.docsName && info.docsName !== name
 		? `<div class="card-replaces">replaces <code>${htmlEscape(info.docsName)}</code></div>`
 		: '';
@@ -224,7 +320,7 @@ function htmlCard(name, info, screenshotBaseUrl) {
 <div class="card">
 	<div class="card-name"><code>${htmlEscape(name)}</code></div>
 	${replaces}
-	<div class="card-images">
+	<div class="card-images${diffFig ? ' has-diff' : ''}">
 		<figure>
 			<figcaption>Current (positron.posit.co)</figcaption>
 			${beforeFig}
@@ -233,6 +329,7 @@ function htmlCard(name, info, screenshotBaseUrl) {
 			<figcaption>New (this run)</figcaption>
 			${afterFig}
 		</figure>
+		${diffFig}
 	</div>
 </div>`;
 }
@@ -303,6 +400,7 @@ export function formatHtml(classification, opts = {}) {
 	.card-name code { background: transparent; padding: 0; }
 	.card-replaces { color: #6b7280; font-size: 12px; margin-top: 2px; }
 	.card-images { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 10px; }
+	.card-images.has-diff { grid-template-columns: 1fr 1fr 1fr; }
 	figure { margin: 0; }
 	figcaption { font-size: 12px; color: #6b7280; margin-bottom: 6px; }
 	img { max-width: 100%; height: auto; border: 1px solid #e5e7eb; border-radius: 4px; cursor: zoom-in; background: white; }
@@ -358,7 +456,7 @@ async function main() {
 	try {
 		masks = JSON.parse(await readFile(join(dirname(generatedDir), 'masks.json'), 'utf8'));
 	} catch { /* no masks.json is fine */ }
-	const result = await classify(generatedDir, docsDir, masks);
+	const result = await classify(generatedDir, docsDir, masks, { writeDiffs: true });
 	await writeFile(jsonOut, JSON.stringify(result, null, 2));
 
 	// Write the HTML report next to the generated screenshots so it gets

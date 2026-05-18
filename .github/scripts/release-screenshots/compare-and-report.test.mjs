@@ -9,7 +9,7 @@ import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { PNG } from 'pngjs';
-import { classify, applyMasks, formatSummary, formatHtml } from './compare-and-report.mjs';
+import { classify, applyMasks, generateDiff, formatSummary, formatHtml } from './compare-and-report.mjs';
 
 const PNG_SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
@@ -270,4 +270,51 @@ test('applyMasks: returns original buffer for non-parseable PNG (fake fixture)',
 	const fakeBuf = Buffer.concat([PNG_SIG, Buffer.from('not-real-png-data')]);
 	const result = applyMasks(fakeBuf, [{ x: 0, y: 0, width: 1, height: 1 }]);
 	assert.deepEqual(result, fakeBuf);
+});
+
+// --- generateDiff ---
+
+test('generateDiff: unchanged pixels are dimmed, changed pixels are red', () => {
+	// 4×2 image: left half red, right half blue
+	const gen = makeRealPng(4, 2, [255, 0, 0], [0, 0, 255]);
+	// docs: left half red (same), right half green (different)
+	const docs = makeRealPng(4, 2, [255, 0, 0], [0, 255, 0]);
+	const diffBuf = generateDiff(gen, docs);
+	assert.ok(diffBuf, 'should produce a diff buffer');
+	const diff = PNG.sync.read(diffBuf);
+	// left half (unchanged) should be dimmed red (≈ 255*0.3 = 76)
+	const leftIdx = 0 * 4;
+	assert.ok(diff.data[leftIdx] < 100, 'unchanged red channel should be dimmed');
+	// right half (changed) should be bright red
+	const rightIdx = 2 * 4;
+	assert.equal(diff.data[rightIdx], 255);
+	assert.equal(diff.data[rightIdx + 1], 50);
+	assert.equal(diff.data[rightIdx + 2], 50);
+});
+
+test('generateDiff: masked regions are grey regardless of pixel content', () => {
+	const gen = makeRealPng(4, 2, [255, 0, 0], [0, 0, 255]);
+	const docs = makeRealPng(4, 2, [255, 0, 0], [0, 255, 0]);
+	// mask the right half
+	const diffBuf = generateDiff(gen, docs, [{ x: 0.5, y: 0, width: 0.5, height: 1 }]);
+	assert.ok(diffBuf);
+	const diff = PNG.sync.read(diffBuf);
+	// right half should be mid-grey (160)
+	const rightIdx = 2 * 4;
+	assert.equal(diff.data[rightIdx], 160);
+	assert.equal(diff.data[rightIdx + 1], 160);
+	assert.equal(diff.data[rightIdx + 2], 160);
+});
+
+test('generateDiff: returns null for non-parseable input', () => {
+	const fakeBuf = Buffer.concat([PNG_SIG, Buffer.from('bad-data')]);
+	const real = makeRealPng(2, 2, [255, 0, 0], [0, 255, 0]);
+	assert.equal(generateDiff(fakeBuf, real), null);
+	assert.equal(generateDiff(real, fakeBuf), null);
+});
+
+test('generateDiff: returns null when images are different sizes', () => {
+	const a = makeRealPng(4, 4, [255, 0, 0], [0, 0, 255]);
+	const b = makeRealPng(8, 4, [255, 0, 0], [0, 0, 255]);
+	assert.equal(generateDiff(a, b), null);
 });
