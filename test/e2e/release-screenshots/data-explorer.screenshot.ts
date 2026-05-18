@@ -5,16 +5,25 @@
 
 import { join } from 'path';
 import { expect } from '@playwright/test';
-import { Application } from '../../infra';
 import { test } from '../tests/_test.setup';
 import { capturePanel, captureRegion } from './helpers/screenshot-utils';
 import { hideDataGridCursor, hideNotificationBadges, hideToasts, prepareForScreenshot, setScreenshotWindowSize } from './helpers/layout-utils';
 
-async function openFlightsDataset(app: Application, executeCode: (language: string, code: string) => Promise<void>): Promise<void> {
-	const parquetPath = join(app.workspacePathOrFolder, 'data-files', 'flights', 'flights.parquet');
+type ExecuteCode = (
+	language: 'Python' | 'R',
+	code: string,
+	options?: { timeout?: number; waitForReady?: boolean; maximizeConsole?: boolean },
+) => Promise<void>;
+
+async function openFlightsDataset(
+	workspacePathOrFolder: string,
+	executeCode: ExecuteCode,
+	variables: { waitForVariableRow(name: string): Promise<void>; doubleClickVariableRow(name: string): Promise<void> },
+): Promise<void> {
+	const parquetPath = join(workspacePathOrFolder, 'data-files', 'flights', 'flights.parquet');
 	await executeCode('Python', `import pandas as pd\nflights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')`);
-	await app.workbench.variables.waitForVariableRow('flights');
-	await app.workbench.variables.doubleClickVariableRow('flights');
+	await variables.waitForVariableRow('flights');
+	await variables.doubleClickVariableRow('flights');
 }
 
 test.use({
@@ -42,7 +51,7 @@ test.describe('Release Screenshots - Data Explorer', () => {
 	test('Release Screenshot - data-explorer.png', async ({ app, page, executeCode, python }) => {
 		const { dataExplorer } = app.workbench;
 
-		await openFlightsDataset(app, executeCode);
+		await openFlightsDataset(app.workspacePathOrFolder, executeCode, app.workbench.variables);
 		await dataExplorer.maximize(true);
 		await dataExplorer.waitForIdle();
 
@@ -82,7 +91,7 @@ test.describe('Release Screenshots - Data Explorer', () => {
 	 */
 	test('Release Screenshot - data-explorer-grid-example.png', async ({ app, page, executeCode, python }) => {
 		const { dataExplorer } = app.workbench;
-		await openFlightsDataset(app, executeCode);
+		await openFlightsDataset(app.workspacePathOrFolder, executeCode, app.workbench.variables);
 		await dataExplorer.maximize(false);
 		await dataExplorer.waitForIdle();
 		await dataExplorer.filters.clearAll();
@@ -117,7 +126,7 @@ test.describe('Release Screenshots - Data Explorer', () => {
 	 */
 	test('Release Screenshot - data-explorer-column-menu.png', async ({ app, page, executeCode, python }) => {
 		const { dataExplorer } = app.workbench;
-		await openFlightsDataset(app, executeCode);
+		await openFlightsDataset(app.workspacePathOrFolder, executeCode, app.workbench.variables);
 		await dataExplorer.maximize(false);
 		await dataExplorer.waitForIdle();
 		await dataExplorer.filters.clearAll();
@@ -164,7 +173,7 @@ test.describe('Release Screenshots - Data Explorer', () => {
 	 */
 	test('Release Screenshot - data-explorer-cell-menu.png', async ({ app, page, executeCode, python }) => {
 		const { dataExplorer } = app.workbench;
-		await openFlightsDataset(app, executeCode);
+		await openFlightsDataset(app.workspacePathOrFolder, executeCode, app.workbench.variables);
 		await dataExplorer.maximize(false);
 		await dataExplorer.waitForIdle();
 		await dataExplorer.filters.clearAll();
@@ -212,7 +221,7 @@ test.describe('Release Screenshots - Data Explorer', () => {
 	 */
 	test('Release Screenshot - data-explorer-cell-value-tooltip.png', async ({ app, page, executeCode, python }) => {
 		const { dataExplorer } = app.workbench;
-		await openFlightsDataset(app, executeCode);
+		await openFlightsDataset(app.workspacePathOrFolder, executeCode, app.workbench.variables);
 		await dataExplorer.maximize(false);
 		await dataExplorer.waitForIdle();
 		await dataExplorer.filters.clearAll();
@@ -276,7 +285,7 @@ test.describe('Release Screenshots - Data Explorer', () => {
 	 */
 	test('Release Screenshot - data-explorer-row-menu.png', async ({ app, page, executeCode, python }) => {
 		const { dataExplorer } = app.workbench;
-		await openFlightsDataset(app, executeCode);
+		await openFlightsDataset(app.workspacePathOrFolder, executeCode, app.workbench.variables);
 		await dataExplorer.maximize(false);
 		await dataExplorer.waitForIdle();
 		await dataExplorer.filters.clearAll();
