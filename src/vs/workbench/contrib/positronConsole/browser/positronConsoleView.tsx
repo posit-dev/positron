@@ -37,6 +37,7 @@ import { DropdownWithPrimaryActionViewItem } from '../../../../platform/actions/
 import { MenuItemAction } from '../../../../platform/actions/common/actions.js';
 import { localize } from '../../../../nls.js';
 import { MutableDisposable } from '../../../../base/common/lifecycle.js';
+import { buildRuntimesDropdown } from '../common/sessionDropdownUtils.js';
 
 /**
  * PositronConsoleViewPane class.
@@ -342,28 +343,8 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 	}
 
 	private updateSessionDropdown(dropdownAction: Action): void {
-		// Grab the current runtime.
 		const currentRuntime = this.runtimeSessionService.foregroundSession?.runtimeMetadata;
-
-		// Grab the active runtimes.
-		let activeRuntimes = this.runtimeSessionService.activeSessions
-			// Sort by last used, descending.
-			.sort((a, b) => b.lastUsed - a.lastUsed)
-			// Map from session to runtime metadata.
-			.map(session => session.runtimeMetadata)
-			// Remove duplicates, and current runtime.
-			.filter((runtime, index, runtimes) =>
-				runtime.runtimeId !== currentRuntime?.runtimeId && runtimes.findIndex(r => r.runtimeId === runtime.runtimeId) === index
-			);
-
-		// Add current runtime first, if present.
-		// Allows for "plus" + enter behavior to clone session.
-		if (currentRuntime) {
-			activeRuntimes.unshift(currentRuntime);
-		}
-
-		// Limit to 5 active runtimes to avoid cluttering the dropdown.
-		activeRuntimes = activeRuntimes.slice(0, 5);
+		const activeRuntimes = buildRuntimesDropdown(currentRuntime, this.runtimeSessionService.activeSessions);
 
 		const dropdownMenuActions = activeRuntimes.map(runtime => new Action(
 			`console.startSession.${runtime.runtimeId}`,
