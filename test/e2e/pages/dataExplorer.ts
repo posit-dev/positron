@@ -226,6 +226,8 @@ export class DataGrid {
 	private get rowHeader(): Locator { return this.code.driver.currentPage.locator('.data-grid-row-header'); }
 	private get columnHeaders(): Locator { return this.code.driver.currentPage.locator(HEADER_TITLES); }
 	private get rows(): Locator { return this.code.driver.currentPage.locator(`${DATA_GRID_ROWS} ${DATA_GRID_ROW}`); }
+	get columnHeadersContainer(): Locator { return this.code.driver.currentPage.locator('.data-grid-column-headers'); }
+	dataRow(nth: number): Locator { return this.code.driver.currentPage.locator(`${DATA_GRID_ROWS} ${DATA_GRID_ROW}`).nth(nth); }
 	private cellByPosition = (rowIndex: number, columnIndex: number) => this.code.driver.currentPage.locator(
 		`${DATA_GRID_ROWS} ${DATA_GRID_ROW}:nth-child(${rowIndex + 1}) > div:nth-child(${columnIndex + 1})`
 	);
@@ -381,7 +383,7 @@ export class DataGrid {
 		});
 	}
 
-	private columnHeaderByIndex(columnIndex: number): Locator {
+	columnHeaderByIndex(columnIndex: number): Locator {
 		return this.code.driver.currentPage.locator(`.data-grid-column-header[data-column-index="${columnIndex}"]`);
 	}
 

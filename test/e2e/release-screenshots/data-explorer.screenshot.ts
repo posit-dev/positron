@@ -117,11 +117,10 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 
 		await prepareForScreenshot(app, page);
 
-		// Capture just the top-left corner of the grid: column headers + first 5 data rows,
-		// cropped to the dep_delay column (data-column-index="5") right edge.
-		const headersBox = await page.locator('.data-grid-column-headers').boundingBox();
-		const depDelayHeader = await page.locator('.data-grid-column-header[data-column-index="5"]').boundingBox();
-		const fifthRowBox = await page.locator('.data-explorer-panel .right-column .data-grid-rows-container .data-grid-row').nth(4).boundingBox();
+		// Capture just the top-left corner of the grid
+		const headersBox = await dataExplorer.grid.columnHeadersContainer.boundingBox();
+		const depDelayHeader = await dataExplorer.grid.columnHeaderByIndex(5).boundingBox();
+		const fifthRowBox = await dataExplorer.grid.dataRow(4).boundingBox();
 		if (!headersBox || !depDelayHeader || !fifthRowBox) {
 			throw new Error('Could not measure bounding boxes for grid example screenshot');
 		}
@@ -175,9 +174,9 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		// Capture from the left edge of the month column through the right edge of the day
 		// column, so the menu sits over month with day visible to the right.
 		const menuBox = await menuPopup.boundingBox();
-		const headersBox = await page.locator('.data-grid-column-headers').boundingBox();
-		const monthHeaderBox = await page.locator('.data-grid-column-header[data-column-index="1"]').boundingBox();
-		const dayHeaderBox = await page.locator('.data-grid-column-header[data-column-index="2"]').boundingBox();
+		const headersBox = await dataExplorer.grid.columnHeadersContainer.boundingBox();
+		const monthHeaderBox = await dataExplorer.grid.columnHeaderByIndex(1).boundingBox();
+		const dayHeaderBox = await dataExplorer.grid.columnHeaderByIndex(2).boundingBox();
 		if (!menuBox || !headersBox) {
 			throw new Error('Could not measure bounding boxes for column menu screenshot');
 		}
@@ -233,9 +232,9 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		// column right edge (or the menu right edge, whichever is wider).
 		const menuBox = await menuPopup.boundingBox();
 		const splitterBox = await page.locator('.data-explorer-panel .splitter').boundingBox();
-		const headersBox = await page.locator('.data-grid-column-headers').boundingBox();
-		const dayHeaderBox = await page.locator('.data-grid-column-header[data-column-index="2"]').boundingBox();
-		const row12Box = await page.locator('.data-explorer-panel .right-column .data-grid-rows-container .data-grid-row').nth(12).boundingBox();
+		const headersBox = await dataExplorer.grid.columnHeadersContainer.boundingBox();
+		const dayHeaderBox = await dataExplorer.grid.columnHeaderByIndex(2).boundingBox();
+		const row12Box = await dataExplorer.grid.dataRow(12).boundingBox();
 		if (!menuBox) {
 			throw new Error('Could not measure bounding box for cell menu screenshot');
 		}
@@ -326,8 +325,8 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		// Capture a tight region: column headers row + surrounding cells + tooltip
 		const tooltipBox = await tooltip.boundingBox();
 		const cellBox = await timeHourCell.boundingBox();
-		const headersBox = await page.locator('.data-grid-column-headers').boundingBox();
-		const timeHourHeaderBox = await page.locator('.data-grid-column-header[data-column-index="18"]').boundingBox();
+		const headersBox = await dataExplorer.grid.columnHeadersContainer.boundingBox();
+		const timeHourHeaderBox = await dataExplorer.grid.columnHeaderByIndex(18).boundingBox();
 		if (!tooltipBox || !cellBox) {
 			throw new Error('Could not measure bounding boxes for cell value tooltip screenshot');
 		}
@@ -391,9 +390,9 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		// headers), through the month column right edge. Show rows 0–6 with menu open on row 1.
 		const menuBox = await menuPopup.boundingBox();
 		const rowHeadersBox = await page.locator('.data-grid-row-headers').boundingBox();
-		const monthHeaderBox = await page.locator('.data-grid-column-header[data-column-index="1"]').boundingBox();
-		const row0Box = await page.locator('.data-explorer-panel .right-column .data-grid-rows-container .data-grid-row').nth(0).boundingBox();
-		const row6Box = await page.locator('.data-explorer-panel .right-column .data-grid-rows-container .data-grid-row').nth(6).boundingBox();
+		const monthHeaderBox = await dataExplorer.grid.columnHeaderByIndex(1).boundingBox();
+		const row0Box = await dataExplorer.grid.dataRow(0).boundingBox();
+		const row6Box = await dataExplorer.grid.dataRow(6).boundingBox();
 		if (!menuBox) {
 			throw new Error('Could not measure bounding box for row menu screenshot');
 		}
