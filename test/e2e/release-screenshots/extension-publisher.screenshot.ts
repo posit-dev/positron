@@ -85,7 +85,9 @@ test.describe('Release Screenshots - Extension Publisher', () => {
 		if (!headerBox) {
 			throw new Error('Could not measure extension header bounding box');
 		}
-		const NARROW_WIDTH = 700;
+		// Crop before the download count and rating — both are live numbers that
+		// change between runs and would cause the screenshot to be flagged as new.
+		const NARROW_WIDTH = 440;
 		await captureRegion(page, 'extension-verified-publisher.png', {
 			x: Math.floor(headerBox.x),
 			y: Math.floor(headerBox.y),
