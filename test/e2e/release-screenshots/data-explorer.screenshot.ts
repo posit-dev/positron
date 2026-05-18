@@ -197,7 +197,8 @@ test.describe('Release Screenshots - Data Explorer', () => {
 			throw new Error('Could not measure bounding box for cell menu screenshot');
 		}
 		const PADDING = 2;
-		const startX = splitterBox ? splitterBox.x : Math.max(0, menuBox.x - 100);
+		const LEFT_BLEED = 8;
+		const startX = splitterBox ? Math.max(0, splitterBox.x - LEFT_BLEED) : Math.max(0, menuBox.x - 100);
 		const startY = headersBox ? headersBox.y : Math.max(0, menuBox.y - 60);
 		const endX = Math.max(
 			menuBox.x + menuBox.width,
