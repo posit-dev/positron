@@ -47,8 +47,8 @@ async function readPng(path) {
  *
  * @param {Buffer} genBuf   raw generated PNG
  * @param {Buffer} docsBuf  raw docs PNG
- * @param {Array}  regions  unused, reserved for future use
- * @param {{ threshold?: number }} opts
+ * @param {Array}  regions  reserved for future use
+ * @param {{ threshold?: number }} opts  threshold defaults to 15 to suppress anti-aliasing noise
  * @returns {{ buf: Buffer, changedRatio: number }|null}
  */
 export function generateDiff(genBuf, docsBuf, regions = [], { threshold = 15 } = {}) {
@@ -142,7 +142,7 @@ export async function classify(generatedDir, docsDir, opts = {}) {
 	}
 	const result = {};
 	for (const name of generatedEntries) {
-		if (!name.endsWith('.png')) {
+		if (!name.endsWith('.png') || /-diff\.png$/.test(name)) {
 			continue;
 		}
 		const genBufRaw = await readPng(join(generatedDir, name));
@@ -183,12 +183,22 @@ export async function classify(generatedDir, docsDir, opts = {}) {
 		// Fall back to a different known extension (e.g. existing .jpeg).
 		const counterpart = await findDocsCounterpart(docsEntries, name);
 		if (counterpart) {
-			result[name] = {
-				status: 'changed',
+			const counterpartBuf = await readPngIfExists(join(docsDir, counterpart));
+			const diffResult = counterpartBuf ? generateDiff(genBufRaw, counterpartBuf) : null;
+			const status = (diffResult && diffResult.changedRatio === 0) ? 'unchanged' : 'changed';
+			const entry = {
+				status,
 				generatedHash,
 				generatedSize: genBufRaw.length,
 				docsName: counterpart,
 			};
+			if (status === 'changed' && opts.writeDiffs && diffResult) {
+				const diffName = name.replace(/\.png$/, '-diff.png');
+				await writeFile(join(generatedDir, diffName), diffResult.buf);
+				entry.diffName = diffName;
+				entry.changedRatio = diffResult.changedRatio;
+			}
+			result[name] = entry;
 			continue;
 		}
 
