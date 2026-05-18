@@ -119,7 +119,7 @@ Be conservative on **Adequate via existing coverage** -- only use it when you've
 Output **exactly one final assistant message** containing the markdown report below. Do not include any text before the report. Do not output the report and then continue investigating.
 
 ```markdown
-## Test coverage check 🧪
+## PETE's assessment 🧪
 
 **Verdict:** <Adequate | Adequate via existing coverage | Insufficient | Not applicable> -- <one-sentence justification>
 
@@ -147,7 +147,7 @@ For "Adequate" / "Adequate via existing coverage" / "Not applicable": omit this 
 Omit entirely if not applicable.>
 
 ---
-<sub>Triggered by pr-test-checker on PR open or `/recheck-tests`. Pilot scope. False positives or missed tests? Reply in this thread or rerun with `/recheck-tests`.</sub>
+<sub>PETE (Positron Extreme Test Experiment) — LLM-based test-coverage advisor, in pilot. Triggers on PR open and `/recheck-tests`. Wrong verdict? Run `/recheck-tests` or ping @jonvanausdeln.</sub>
 ```
 
 ## Constraints

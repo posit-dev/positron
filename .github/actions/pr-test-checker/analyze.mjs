@@ -66,7 +66,7 @@ function renderSkipComment(context) {
 	}[skip.reason] || skip.detail || 'Skipped by pre-filter.';
 
 	return [
-		'## Test coverage check 🧪',
+		'## PETE\'s assessment 🧪',
 		'',
 		`**Verdict:** Not applicable -- ${reasonText}`,
 		'',
@@ -74,7 +74,7 @@ function renderSkipComment(context) {
 		`${context.stats.fileCount} file(s), categorized as: ${formatCategoryCounts(context.stats.categoryCounts)}.`,
 		'',
 		'---',
-		`<sub>Triggered by pr-test-checker. Pre-filter short-circuited the LLM check. Run \`/recheck-tests\` if this is wrong.</sub>`,
+		`<sub>PETE (Positron Extreme Test Experiment): an LLM-based test-coverage advisor, currently in pilot. Pre-filter short-circuited the LLM check on this PR. Run \`/recheck-tests\` if this is wrong.</sub>`,
 	].join('\n');
 }
 
@@ -181,7 +181,7 @@ async function runAgent(systemPrompt, userPrompt) {
 
 // --- Report extraction -------------------------------------------------------
 
-const REPORT_HEADER = '## Test coverage check';
+const REPORT_HEADER = `## PETE's assessment`;
 
 function pickReport(messages) {
 	for (let i = messages.length - 1; i >= 0; i--) {
@@ -232,12 +232,12 @@ async function main() {
 	const report = pickReport(assistantMessages);
 	if (!report) {
 		const fallback = [
-			'## Test coverage check 🧪',
+			'## PETE\'s assessment 🧪',
 			'',
 			'**Verdict:** _Unknown_ -- the analyzer produced no markdown report. Check action logs.',
 			'',
 			'---',
-			'<sub>Triggered by pr-test-checker. Run `/recheck-tests` to retry.</sub>',
+			'<sub>PETE (Positron Extreme Test Experiment): an LLM-based test-coverage advisor, currently in pilot. Run `/recheck-tests` to retry.</sub>',
 		].join('\n');
 		writeFileSync(join(WORK_DIR, 'comment.md'), wrapWithMarker(fallback));
 		console.error('[analyzer] no markdown report produced; wrote fallback comment');
