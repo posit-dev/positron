@@ -1,0 +1,11 @@
+{
+	"extension-verified-publisher.png": [
+		{
+			"_comment": "Download count and rating count are live numbers that change each run. Mask the right ~45% of the header (everything after the publisher badge) so they don't trigger false 'changed' or 'new' reports. Coordinates are fractional (0–1) and scale-independent.",
+			"x": 0.55,
+			"y": 0,
+			"width": 0.45,
+			"height": 1
+		}
+	]
+}

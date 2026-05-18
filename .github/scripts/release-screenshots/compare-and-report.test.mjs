@@ -8,13 +8,33 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { classify, formatSummary, formatHtml } from './compare-and-report.mjs';
+import { PNG } from 'pngjs';
+import { classify, applyMasks, formatSummary, formatHtml } from './compare-and-report.mjs';
 
 const PNG_SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 async function makePng(dir, name, payload) {
 	const body = Buffer.concat([PNG_SIG, Buffer.from(payload)]);
 	await writeFile(join(dir, name), body);
+}
+
+/**
+ * Create a real 4-channel RGBA PNG where the left half is red and the right
+ * half is blue. Used to test mask region behaviour.
+ */
+function makeRealPng(width, height, leftColor, rightColor) {
+	const png = new PNG({ width, height });
+	for (let y = 0; y < height; y++) {
+		for (let x = 0; x < width; x++) {
+			const idx = (y * width + x) * 4;
+			const color = x < width / 2 ? leftColor : rightColor;
+			png.data[idx] = color[0];
+			png.data[idx + 1] = color[1];
+			png.data[idx + 2] = color[2];
+			png.data[idx + 3] = 255;
+		}
+	}
+	return PNG.sync.write(png);
 }
 
 async function makeDirs() {
@@ -185,4 +205,69 @@ test('formatHtml: escapes HTML-unsafe characters in filenames', () => {
 	const html = formatHtml(classification, { screenshotBaseUrl: 'https://example.com/run123' });
 	assert.ok(!html.includes('has<bad>.png'), 'unescaped angle brackets should not appear');
 	assert.match(html, /has&lt;bad&gt;\.png/);
+});
+
+// --- applyMasks ---
+
+test('applyMasks: returns original buffer when regions is empty', () => {
+	const buf = makeRealPng(4, 4, [255, 0, 0], [0, 0, 255]);
+	const result = applyMasks(buf, []);
+	assert.deepEqual(result, applyMasks(buf, []));
+});
+
+test('applyMasks: paints masked region grey', () => {
+	// 4×4 image: left half red, right half blue
+	const buf = makeRealPng(4, 4, [255, 0, 0], [0, 0, 255]);
+	// mask right half (x=0.5, width=0.5)
+	const masked = applyMasks(buf, [{ x: 0.5, y: 0, width: 0.5, height: 1 }]);
+	const png = PNG.sync.read(masked);
+	// left half unchanged (red)
+	const leftIdx = (0 * 4 + 0) * 4;
+	assert.equal(png.data[leftIdx], 255);
+	assert.equal(png.data[leftIdx + 1], 0);
+	assert.equal(png.data[leftIdx + 2], 0);
+	// right half greyed out
+	const rightIdx = (0 * 4 + 2) * 4;
+	assert.equal(png.data[rightIdx], 128);
+	assert.equal(png.data[rightIdx + 1], 128);
+	assert.equal(png.data[rightIdx + 2], 128);
+});
+
+test('applyMasks: two images differing only in masked area compare as unchanged', async () => {
+	const { generated, docs, cleanup } = await makeDirs();
+	try {
+		// generated: left=red, right=blue; docs: left=red, right=green
+		// mask covers the right half — so the blue vs green difference is ignored
+		const genBuf = makeRealPng(4, 4, [255, 0, 0], [0, 0, 255]);
+		const docsBuf = makeRealPng(4, 4, [255, 0, 0], [0, 255, 0]);
+		await writeFile(join(generated, 'test.png'), genBuf);
+		await writeFile(join(docs, 'test.png'), docsBuf);
+		const masks = { 'test.png': [{ x: 0.5, y: 0, width: 0.5, height: 1 }] };
+		const result = await classify(generated, docs, masks);
+		assert.equal(result['test.png'].status, 'unchanged');
+	} finally {
+		await cleanup();
+	}
+});
+
+test('applyMasks: two images differing outside masked area compare as changed', async () => {
+	const { generated, docs, cleanup } = await makeDirs();
+	try {
+		// generated: left=red; docs: left=green; right half masked
+		const genBuf = makeRealPng(4, 4, [255, 0, 0], [0, 0, 255]);
+		const docsBuf = makeRealPng(4, 4, [0, 255, 0], [0, 0, 255]);
+		await writeFile(join(generated, 'test.png'), genBuf);
+		await writeFile(join(docs, 'test.png'), docsBuf);
+		const masks = { 'test.png': [{ x: 0.5, y: 0, width: 0.5, height: 1 }] };
+		const result = await classify(generated, docs, masks);
+		assert.equal(result['test.png'].status, 'changed');
+	} finally {
+		await cleanup();
+	}
+});
+
+test('applyMasks: returns original buffer for non-parseable PNG (fake fixture)', () => {
+	const fakeBuf = Buffer.concat([PNG_SIG, Buffer.from('not-real-png-data')]);
+	const result = applyMasks(fakeBuf, [{ x: 0, y: 0, width: 1, height: 1 }]);
+	assert.deepEqual(result, fakeBuf);
 });

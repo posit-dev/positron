@@ -5,7 +5,8 @@
 
 import { readdir, readFile, writeFile, appendFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { extname, join } from 'node:path';
+import { dirname, extname, join } from 'node:path';
+import { PNG } from 'pngjs';
 
 const PNG_SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const KNOWN_IMAGE_EXTS = ['.png', '.jpg', '.jpeg'];
@@ -33,6 +34,44 @@ async function readPng(path) {
 		throw new Error(`File is not a valid PNG (bad signature): ${path}`);
 	}
 	return buf;
+}
+
+/**
+ * Paint solid 50% grey over each mask region (in-memory only — the file is not
+ * modified). Both the generated and docs images are masked before hashing so
+ * pixel-level differences in masked areas are ignored by the comparison.
+ *
+ * All coordinates are fractions of the image dimensions (0–1), so masks work
+ * regardless of capture scale or device pixel ratio. If the buffer is not a
+ * parseable PNG (e.g. test fixtures), the original buffer is returned unchanged.
+ *
+ * @param {Buffer} pngBuf
+ * @param {Array<{x: number, y: number, width: number, height: number}>} regions
+ */
+export function applyMasks(pngBuf, regions) {
+	if (!regions || regions.length === 0) { return pngBuf; }
+	let png;
+	try {
+		png = PNG.sync.read(pngBuf);
+	} catch {
+		return pngBuf;
+	}
+	for (const { x, y, width, height } of regions) {
+		const x1 = Math.round(x * png.width);
+		const y1 = Math.round(y * png.height);
+		const x2 = Math.min(png.width, Math.round((x + width) * png.width));
+		const y2 = Math.min(png.height, Math.round((y + height) * png.height));
+		for (let row = y1; row < y2; row++) {
+			for (let col = x1; col < x2; col++) {
+				const idx = (row * png.width + col) * 4;
+				png.data[idx] = 128;
+				png.data[idx + 1] = 128;
+				png.data[idx + 2] = 128;
+				png.data[idx + 3] = 255;
+			}
+		}
+	}
+	return PNG.sync.write(png);
 }
 
 async function readPngIfExists(path) {
@@ -70,7 +109,7 @@ async function findDocsCounterpart(docsDirEntries, generatedName) {
 	return null;
 }
 
-export async function classify(generatedDir, docsDir) {
+export async function classify(generatedDir, docsDir, masks = {}) {
 	const generatedEntries = await readdir(generatedDir);
 	let docsEntries = [];
 	try {
@@ -85,13 +124,14 @@ export async function classify(generatedDir, docsDir) {
 		if (!name.endsWith('.png')) {
 			continue;
 		}
-		const genBuf = await readPng(join(generatedDir, name));
+		const regions = masks[name] ?? [];
+		const genBuf = applyMasks(await readPng(join(generatedDir, name)), regions);
 		const generatedHash = sha256(genBuf);
 
 		// First try exact-name match: enables deterministic byte-level diff.
 		const exactDocsBuf = await readPngIfExists(join(docsDir, name));
 		if (exactDocsBuf !== null) {
-			const docsHash = sha256(exactDocsBuf);
+			const docsHash = sha256(applyMasks(exactDocsBuf, regions));
 			const status = generatedHash === docsHash ? 'unchanged' : 'changed';
 			result[name] = {
 				status,
@@ -313,7 +353,12 @@ async function main() {
 		console.error('Usage: compare-and-report.mjs <generatedDir> <docsImagesDir> <jsonOutPath>');
 		process.exit(2);
 	}
-	const result = await classify(generatedDir, docsDir);
+	// masks.json lives one level above the output dir (next to the screenshot tests)
+	let masks = {};
+	try {
+		masks = JSON.parse(await readFile(join(dirname(generatedDir), 'masks.json'), 'utf8'));
+	} catch { /* no masks.json is fine */ }
+	const result = await classify(generatedDir, docsDir, masks);
 	await writeFile(jsonOut, JSON.stringify(result, null, 2));
 
 	// Write the HTML report next to the generated screenshots so it gets
