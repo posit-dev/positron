@@ -5,9 +5,17 @@
 
 import { join } from 'path';
 import { expect } from '@playwright/test';
+import { Application } from '../../infra';
 import { test } from '../tests/_test.setup';
 import { capturePanel, captureRegion } from './helpers/screenshot-utils';
 import { hideDataGridCursor, hideNotificationBadges, hideToasts, prepareForScreenshot, setScreenshotWindowSize } from './helpers/layout-utils';
+
+async function openFlightsDataset(app: Application, executeCode: (language: string, code: string) => Promise<void>): Promise<void> {
+	const parquetPath = join(app.workspacePathOrFolder, 'data-files', 'flights', 'flights.parquet');
+	await executeCode('Python', `import pandas as pd\nflights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')`);
+	await app.workbench.variables.waitForVariableRow('flights');
+	await app.workbench.variables.doubleClickVariableRow('flights');
+}
 
 test.use({
 	suiteId: __filename,
@@ -32,24 +40,9 @@ test.afterEach(async ({ app, page }) => {
  */
 test.describe('Release Screenshots - Data Explorer', () => {
 	test('Release Screenshot - data-explorer.png', async ({ app, page, executeCode, python }) => {
-		const { dataExplorer, variables } = app.workbench;
+		const { dataExplorer } = app.workbench;
 
-		// open the flights dataset in the data explorer
-		const parquetPath = join(
-			app.workspacePathOrFolder,
-			'data-files',
-			'flights',
-			'flights.parquet',
-		);
-		await executeCode(
-			'Python',
-			`
-import pandas as pd
-flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
-`.trim(),
-		);
-		await variables.waitForVariableRow('flights');
-		await variables.doubleClickVariableRow('flights');
+		await openFlightsDataset(app, executeCode);
 		await dataExplorer.maximize(true);
 		await dataExplorer.waitForIdle();
 
@@ -88,22 +81,8 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 	 * Img Path: https://positron.posit.co/images/data-explorer-grid-example.png
 	 */
 	test('Release Screenshot - data-explorer-grid-example.png', async ({ app, page, executeCode, python }) => {
-		const { dataExplorer, variables } = app.workbench;
-		const parquetPath = join(
-			app.workspacePathOrFolder,
-			'data-files',
-			'flights',
-			'flights.parquet',
-		);
-		await executeCode(
-			'Python',
-			`
-import pandas as pd
-flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
-`.trim(),
-		);
-		await variables.waitForVariableRow('flights');
-		await variables.doubleClickVariableRow('flights');
+		const { dataExplorer } = app.workbench;
+		await openFlightsDataset(app, executeCode);
 		await dataExplorer.maximize(false);
 		await dataExplorer.waitForIdle();
 		await dataExplorer.filters.clearAll();
@@ -137,22 +116,8 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 	 * Img Path: https://positron.posit.co/images/data-explorer-column-menu.png
 	 */
 	test('Release Screenshot - data-explorer-column-menu.png', async ({ app, page, executeCode, python }) => {
-		const { dataExplorer, variables } = app.workbench;
-		const parquetPath = join(
-			app.workspacePathOrFolder,
-			'data-files',
-			'flights',
-			'flights.parquet',
-		);
-		await executeCode(
-			'Python',
-			`
-import pandas as pd
-flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
-`.trim(),
-		);
-		await variables.waitForVariableRow('flights');
-		await variables.doubleClickVariableRow('flights');
+		const { dataExplorer } = app.workbench;
+		await openFlightsDataset(app, executeCode);
 		await dataExplorer.maximize(false);
 		await dataExplorer.waitForIdle();
 		await dataExplorer.filters.clearAll();
@@ -198,22 +163,8 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 	 * Img Path: https://positron.posit.co/images/data-explorer-cell-menu.png
 	 */
 	test('Release Screenshot - data-explorer-cell-menu.png', async ({ app, page, executeCode, python }) => {
-		const { dataExplorer, variables } = app.workbench;
-		const parquetPath = join(
-			app.workspacePathOrFolder,
-			'data-files',
-			'flights',
-			'flights.parquet',
-		);
-		await executeCode(
-			'Python',
-			`
-import pandas as pd
-flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
-`.trim(),
-		);
-		await variables.waitForVariableRow('flights');
-		await variables.doubleClickVariableRow('flights');
+		const { dataExplorer } = app.workbench;
+		await openFlightsDataset(app, executeCode);
 		await dataExplorer.maximize(false);
 		await dataExplorer.waitForIdle();
 		await dataExplorer.filters.clearAll();
@@ -228,10 +179,8 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		// Right-click the year column cell in row 0
 		const menuPopup = await dataExplorer.grid.openCellContextMenu(0, 0);
 
-		// Capture from the splitter (blue arrow handle) on the left through the "day"
-		// column right edge (or the menu right edge, whichever is wider).
 		const menuBox = await menuPopup.boundingBox();
-		const splitterBox = await page.locator('.data-explorer-panel .splitter').boundingBox();
+		const splitterBox = await dataExplorer.grid.splitter.boundingBox();
 		const headersBox = await dataExplorer.grid.columnHeadersContainer.boundingBox();
 		const dayHeaderBox = await dataExplorer.grid.columnHeaderByIndex(2).boundingBox();
 		const row12Box = await dataExplorer.grid.dataRow(12).boundingBox();
@@ -262,22 +211,8 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 	 * Img Path: https://positron.posit.co/images/data-explorer-cell-value-tooltip.png
 	 */
 	test('Release Screenshot - data-explorer-cell-value-tooltip.png', async ({ app, page, executeCode, python }) => {
-		const { dataExplorer, variables } = app.workbench;
-		const parquetPath = join(
-			app.workspacePathOrFolder,
-			'data-files',
-			'flights',
-			'flights.parquet',
-		);
-		await executeCode(
-			'Python',
-			`
-import pandas as pd
-flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
-`.trim(),
-		);
-		await variables.waitForVariableRow('flights');
-		await variables.doubleClickVariableRow('flights');
+		const { dataExplorer } = app.workbench;
+		await openFlightsDataset(app, executeCode);
 		await dataExplorer.maximize(false);
 		await dataExplorer.waitForIdle();
 		await dataExplorer.filters.clearAll();
@@ -289,31 +224,17 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		await page.keyboard.press('End');
 		await dataExplorer.waitForIdle();
 
-		// Wait for time_hour column header to be rendered before hovering over a cell
+		// Wait for time_hour column header to be visible, then narrow it so the cell value
+		// truncates and the hover tooltip fires (auto-sizing fits the full value without truncation).
 		await dataExplorer.grid.waitForColumnHeader(18);
-
-		// Narrow the time_hour column so its value is truncated (auto-sizing fits the full
-		// "2013-01-01 05:00:00" string, so offsetWidth >= scrollWidth and no tooltip fires).
-		// Drag the right-edge sash ~50px left: enough to truncate the cell value while keeping
-		// the "time_hour" column header title fully visible.
-		const timeHourHeader = page.locator('.data-grid-column-header[data-column-index="18"]');
-		const headerBox = await timeHourHeader.boundingBox();
-		if (!headerBox) {
-			throw new Error('Could not find time_hour column header bounding box');
-		}
-		const sashX = headerBox.x + headerBox.width - 2;
-		const sashY = headerBox.y + headerBox.height / 2;
-		await page.mouse.move(sashX, sashY);
-		await page.mouse.down();
-		await page.mouse.move(sashX - 50, sashY, { steps: 10 });
-		await page.mouse.up();
+		await dataExplorer.grid.narrowColumnBySash(18, 50);
 		await dataExplorer.waitForIdle();
 
 		// Hover over the first time_hour cell to trigger the truncation tooltip
 		await hideToasts(app);
 		await hideNotificationBadges(page);
 		await hideDataGridCursor(page);
-		const timeHourCell = page.locator('#data-grid-row-cell-content-18-0 .text-value');
+		const timeHourCell = dataExplorer.grid.cellTextValue(18, 0);
 		await timeHourCell.scrollIntoViewIfNeeded();
 		await timeHourCell.hover();
 		// The hover manager has a 500ms delay before showing the tooltip
@@ -354,22 +275,8 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 	 * Img Path: https://positron.posit.co/images/data-explorer-row-menu.png
 	 */
 	test('Release Screenshot - data-explorer-row-menu.png', async ({ app, page, executeCode, python }) => {
-		const { dataExplorer, variables } = app.workbench;
-		const parquetPath = join(
-			app.workspacePathOrFolder,
-			'data-files',
-			'flights',
-			'flights.parquet',
-		);
-		await executeCode(
-			'Python',
-			`
-import pandas as pd
-flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
-`.trim(),
-		);
-		await variables.waitForVariableRow('flights');
-		await variables.doubleClickVariableRow('flights');
+		const { dataExplorer } = app.workbench;
+		await openFlightsDataset(app, executeCode);
 		await dataExplorer.maximize(false);
 		await dataExplorer.waitForIdle();
 		await dataExplorer.filters.clearAll();
@@ -389,7 +296,7 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		// Capture from the row-headers left edge, starting at the first data row (no column
 		// headers), through the month column right edge. Show rows 0–6 with menu open on row 1.
 		const menuBox = await menuPopup.boundingBox();
-		const rowHeadersBox = await page.locator('.data-grid-row-headers').boundingBox();
+		const rowHeadersBox = await dataExplorer.grid.rowHeadersContainer.boundingBox();
 		const monthHeaderBox = await dataExplorer.grid.columnHeaderByIndex(1).boundingBox();
 		const row0Box = await dataExplorer.grid.dataRow(0).boundingBox();
 		const row6Box = await dataExplorer.grid.dataRow(6).boundingBox();
