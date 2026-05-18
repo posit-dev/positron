@@ -377,13 +377,14 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		await dataExplorer.waitForIdle();
 		await dataExplorer.grid.clickUpperLeftCorner();
 		await dataExplorer.grid.jumpToStart();
+		// Move cursor to row 1 so it carries the blue cell highlight into the screenshot.
+		await page.keyboard.press('ArrowDown');
 
 		// Dismiss UI noise before opening the menu
 		await hideToasts(app);
 		await hideNotificationBadges(page);
 
-		// Left-click row header 1 first so it gets the blue selection highlight, then right-click for the menu.
-		await page.locator('.data-grid-row-header').nth(1).click();
+		// Right-click on row header index 1 (the second row, shown as "1" in the UI)
 		const menuPopup = await dataExplorer.grid.openRowContextMenu(1);
 
 		// Capture from the row-headers left edge, starting at the first data row (no column
