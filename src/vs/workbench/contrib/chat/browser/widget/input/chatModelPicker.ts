@@ -278,11 +278,12 @@ export function buildModelPickerItems(
 			};
 
 			// --- 1. Auto ---
+			// --- Start Positron ---
+			// In Positron, Auto is not promoted to the first position. It is
+			// treated like any other model and appears in the Other Models
+			// section (or in promoted if explicitly selected/recent/featured).
 			const autoModel = models.find(m => isAutoModel(m));
-			if (autoModel) {
-				markPlaced(autoModel.identifier, autoModel.metadata.id);
-				items.push(createModelItem(createModelAction(autoModel, selectedModelId, onSelect, languageModelsService!), autoModel));
-			}
+			// --- End Positron ---
 
 			// --- 2. Promoted section (selected + recently used + featured) ---
 			type PromotedItem =
@@ -417,7 +418,24 @@ export function buildModelPickerItems(
 					section: ModelPickerSection.Other,
 					isSectionToggle: true,
 				});
+				// --- Start Positron ---
+				// Group models by vendor and add provider separators.
+				let otherLastVendor: string | undefined;
+				// --- End Positron ---
 				for (const model of otherModels) {
+					// --- Start Positron ---
+					if (model.metadata.vendor !== otherLastVendor) {
+						otherLastVendor = model.metadata.vendor;
+						const providerIcon = getProviderIcon(model.metadata.vendor);
+						const providerLabel = model.metadata.auth?.providerLabel ?? vendorDisplayNames?.get(model.metadata.vendor) ?? model.metadata.vendor;
+						items.push({
+							kind: ActionListItemKind.Separator,
+							label: providerLabel,
+							group: providerIcon ? { title: providerLabel, icon: providerIcon.themeIcon } : { title: providerLabel },
+							section: ModelPickerSection.Other,
+						});
+					}
+					// --- End Positron ---
 					const entry = controlModels[model.metadata.id] ?? controlModels[model.identifier];
 					if (entry?.minVSCodeVersion && !isVersionAtLeast(currentVSCodeVersion, entry.minVSCodeVersion)) {
 						items.push(createUnavailableModelItem(model.metadata.id, entry, 'update', manageSettingsUrl, updateStateType, chatEntitlementService, ModelPickerSection.Other));
@@ -428,18 +446,11 @@ export function buildModelPickerItems(
 			}
 		}
 
-		if (manageModelsAction) {
-			items.push({ kind: ActionListItemKind.Separator, section: otherModels.length ? ModelPickerSection.Other : undefined });
-			items.push({
-				item: manageModelsAction,
-				kind: ActionListItemKind.Action,
-				label: manageModelsAction.label,
-				group: { title: '', icon: Codicon.blank },
-				hideIcon: false,
-				section: otherModels.length ? ModelPickerSection.Other : undefined,
-				showAlways: true,
-			});
-		}
+		// --- Start Positron ---
+		// The upstream `manageModelsAction` push was removed here because the
+		// Positron footer below adds Manage Models alongside Configure Model
+		// Providers for all picker modes. Leaving both produced duplicates.
+		// --- End Positron ---
 	} else {
 		// Flat list: auto first, then all models sorted alphabetically
 		const autoModel = models.find(m => isAutoModel(m));
@@ -472,241 +483,6 @@ export function buildModelPickerItems(
 		return items;
 	}
 
-	const isPro = isProUser(chatEntitlementService.entitlement);
-	let otherModels: ILanguageModelChatMetadataAndIdentifier[] = [];
-	if (models.length) {
-		// Collect all available models into lookup maps
-		const allModelsMap = new Map<string, ILanguageModelChatMetadataAndIdentifier>();
-		const modelsByMetadataId = new Map<string, ILanguageModelChatMetadataAndIdentifier>();
-		for (const model of models) {
-			allModelsMap.set(model.identifier, model);
-			modelsByMetadataId.set(model.metadata.id, model);
-		}
-
-		const placed = new Set<string>();
-
-		const markPlaced = (identifierOrId: string, metadataId?: string) => {
-			placed.add(identifierOrId);
-			if (metadataId) {
-				placed.add(metadataId);
-			}
-		};
-
-		const resolveModel = (id: string) => allModelsMap.get(id) ?? modelsByMetadataId.get(id);
-
-		const getUnavailableReason = (entry: IModelControlEntry): 'upgrade' | 'update' | 'admin' => {
-			if (!isPro) {
-				return 'upgrade';
-			}
-			if (entry.minVSCodeVersion && !isVersionAtLeast(currentVSCodeVersion, entry.minVSCodeVersion)) {
-				return 'update';
-			}
-			return 'admin';
-		};
-
-		// --- Start Positron ---
-		// --- 1. Auto ---
-		const autoModel = models.find(m => m.metadata.id === 'auto' && m.metadata.vendor === 'copilot');
-		// Auto model is not promoted to the first position in Positron - it appears with other models grouped by provider
-		/*
-		if (autoModel) {
-			markPlaced(autoModel.identifier, autoModel.metadata.id);
-			items.push(createModelItem(createModelAction(autoModel, selectedModelId, onSelect), autoModel));
-		}
-		*/
-
-		// --- 2. Promoted section (selected + recently used + featured) ---
-		// Add vendor field to PromotedItem for grouping with provider separators
-		type PromotedItem =
-			| { kind: 'available'; model: ILanguageModelChatMetadataAndIdentifier; vendor: string; providerLabel: string }
-			| { kind: 'unavailable'; id: string; entry: IModelControlEntry; reason: 'upgrade' | 'update' | 'admin'; vendor: string; providerLabel: string };
-		// --- End Positron ---
-
-		const promotedItems: PromotedItem[] = [];
-
-		// Try to place a model by id. Returns true if handled.
-		const tryPlaceModel = (id: string): boolean => {
-			if (placed.has(id)) {
-				return false;
-			}
-			const model = resolveModel(id);
-			if (model && !placed.has(model.identifier)) {
-				markPlaced(model.identifier, model.metadata.id);
-				const entry = controlModels[model.metadata.id];
-				// --- Start Positron ---
-				const vendor = model.metadata.vendor;
-				const providerLabel = model.metadata.auth?.providerLabel ?? vendorDisplayNames?.get(vendor) ?? vendor;
-				// --- End Positron ---
-				if (entry?.minVSCodeVersion && !isVersionAtLeast(currentVSCodeVersion, entry.minVSCodeVersion)) {
-					promotedItems.push({ kind: 'unavailable', id: model.metadata.id, entry, reason: 'update', vendor, providerLabel });
-				} else {
-					promotedItems.push({ kind: 'available', model, vendor, providerLabel });
-				}
-				return true;
-			}
-			if (!model) {
-				const entry = controlModels[id];
-				if (entry && !entry.exists) {
-					markPlaced(id);
-					// --- Start Positron ---
-					// For unavailable models without a resolved model, use 'unknown' as vendor
-					promotedItems.push({ kind: 'unavailable', id, entry, reason: getUnavailableReason(entry), vendor: 'unknown', providerLabel: 'Unknown' });
-					// --- End Positron ---
-					return true;
-				}
-			}
-			return false;
-		};
-
-		// Selected model
-		if (selectedModelId && selectedModelId !== autoModel?.identifier) {
-			tryPlaceModel(selectedModelId);
-		}
-
-		// Recently used models
-		for (const id of recentModelIds) {
-			tryPlaceModel(id);
-		}
-
-		// Featured models from control manifest
-		for (const [entryId, entry] of Object.entries(controlModels)) {
-			if (!entry.featured || placed.has(entryId)) {
-				continue;
-			}
-			const model = resolveModel(entryId);
-			if (model && !placed.has(model.identifier)) {
-				markPlaced(model.identifier, model.metadata.id);
-				// --- Start Positron ---
-				const vendor = model.metadata.vendor;
-				const providerLabel = model.metadata.auth?.providerLabel ?? vendorDisplayNames?.get(vendor) ?? vendor;
-				// --- End Positron ---
-				if (entry.minVSCodeVersion && !isVersionAtLeast(currentVSCodeVersion, entry.minVSCodeVersion)) {
-					promotedItems.push({ kind: 'unavailable', id: entryId, entry, reason: 'update', vendor, providerLabel });
-				} else {
-					promotedItems.push({ kind: 'available', model, vendor, providerLabel });
-				}
-			} else if (!model && !entry.exists) {
-				markPlaced(entryId);
-				// --- Start Positron ---
-				promotedItems.push({ kind: 'unavailable', id: entryId, entry, reason: getUnavailableReason(entry), vendor: 'unknown', providerLabel: 'Unknown' });
-				// --- End Positron ---
-			}
-		}
-
-		// --- Start Positron ---
-		// Render promoted section: group by vendor with separators, then by availability, then alphabetically
-		if (promotedItems.length > 0) {
-			promotedItems.sort((a, b) => {
-				// Sort by vendor first
-				const vendorCmp = a.vendor.localeCompare(b.vendor);
-				if (vendorCmp !== 0) {
-					return vendorCmp;
-				}
-				// Then by availability
-				const aAvail = a.kind === 'available' ? 0 : 1;
-				const bAvail = b.kind === 'available' ? 0 : 1;
-				if (aAvail !== bAvail) {
-					return aAvail - bAvail;
-				}
-				// Then alphabetically by name
-				const aName = a.kind === 'available' ? a.model.metadata.name : a.entry.label;
-				const bName = b.kind === 'available' ? b.model.metadata.name : b.entry.label;
-				return aName.localeCompare(bName);
-			});
-
-			let promotedLastVendor: string | undefined;
-			for (const item of promotedItems) {
-				// Add provider separator when vendor changes
-				if (item.vendor !== promotedLastVendor && item.vendor !== 'unknown') {
-					promotedLastVendor = item.vendor;
-					const providerIcon = getProviderIcon(item.vendor);
-					items.push({
-						kind: ActionListItemKind.Separator,
-						label: item.providerLabel,
-						group: providerIcon ? { title: item.providerLabel, icon: providerIcon.themeIcon } : { title: item.providerLabel }
-					});
-				}
-				if (item.kind === 'available') {
-					items.push(createModelItem(createModelAction(item.model, selectedModelId, onSelect, languageModelsService!), item.model));
-				} else {
-					items.push(createUnavailableModelItem(item.id, item.entry, item.reason, manageSettingsUrl, updateStateType, chatEntitlementService));
-				}
-			}
-		}
-		// --- End Positron ---
-
-		// --- 3. Other Models (collapsible) ---
-		otherModels = models
-			.filter(m => !placed.has(m.identifier) && !placed.has(m.metadata.id))
-			.sort((a, b) => {
-				const aEntry = controlModels[a.metadata.id] ?? controlModels[a.identifier];
-				const bEntry = controlModels[b.metadata.id] ?? controlModels[b.identifier];
-				const aAvail = aEntry?.minVSCodeVersion && !isVersionAtLeast(currentVSCodeVersion, aEntry.minVSCodeVersion) ? 1 : 0;
-				const bAvail = bEntry?.minVSCodeVersion && !isVersionAtLeast(currentVSCodeVersion, bEntry.minVSCodeVersion) ? 1 : 0;
-				if (aAvail !== bAvail) {
-					return aAvail - bAvail;
-				}
-				// --- Start Positron ---
-				// Prioritize posit-ai models first
-				const aPosit = a.metadata.vendor === 'posit-ai' ? 0 : 1;
-				const bPosit = b.metadata.vendor === 'posit-ai' ? 0 : 1;
-				if (aPosit !== bPosit) {
-					return aPosit - bPosit;
-				}
-				// --- End Positron ---
-				const vendorCmp = a.metadata.vendor.localeCompare(b.metadata.vendor);
-				return vendorCmp !== 0 ? vendorCmp : a.metadata.name.localeCompare(b.metadata.name);
-			});
-
-		if (otherModels.length > 0) {
-			if (items.length > 0) {
-				items.push({ kind: ActionListItemKind.Separator });
-			}
-			items.push({
-				item: {
-					id: 'otherModels',
-					enabled: true,
-					checked: false,
-					class: undefined,
-					tooltip: localize('chat.modelPicker.otherModels', "Other Models"),
-					label: localize('chat.modelPicker.otherModels', "Other Models"),
-					run: () => { /* toggle handled by isSectionToggle */ }
-				},
-				kind: ActionListItemKind.Action,
-				label: localize('chat.modelPicker.otherModels', "Other Models"),
-				group: { title: '', icon: Codicon.chevronDown },
-				hideIcon: false,
-				section: ModelPickerSection.Other,
-				isSectionToggle: true,
-			});
-			// --- Start Positron ---
-			// Group models by vendor and add provider separators
-			let otherLastVendor: string | undefined;
-			// --- End Positron ---
-			for (const model of otherModels) {
-				// --- Start Positron ---
-				// Add provider separator when vendor changes
-				if (model.metadata.vendor !== otherLastVendor) {
-					otherLastVendor = model.metadata.vendor;
-					const providerIcon = getProviderIcon(model.metadata.vendor);
-					const providerLabel = model.metadata.auth?.providerLabel ?? vendorDisplayNames?.get(model.metadata.vendor) ?? model.metadata.vendor;
-					items.push({
-						kind: ActionListItemKind.Separator,
-						label: providerLabel,
-						group: providerIcon ? { title: providerLabel, icon: providerIcon.themeIcon } : { title: providerLabel },
-						section: ModelPickerSection.Other,
-					});
-				}
-				// --- End Positron ---
-				const entry = controlModels[model.metadata.id] ?? controlModels[model.identifier];
-				if (entry?.minVSCodeVersion && !isVersionAtLeast(currentVSCodeVersion, entry.minVSCodeVersion)) {
-					items.push(createUnavailableModelItem(model.metadata.id, entry, 'update', manageSettingsUrl, updateStateType, chatEntitlementService, ModelPickerSection.Other));
-				} else {
-					items.push(createModelItem(createModelAction(model, selectedModelId, onSelect, languageModelsService!, ModelPickerSection.Other), model));
-				}
-			}
-		}
-	}
 
 	if (
 		// --- Start Positron ---

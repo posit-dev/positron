@@ -33,7 +33,10 @@ import { IPositronAssistantConfigurationService } from '../../../positronAssista
 
 function positronTestConfigurationServices(): [IConfigurationService, IPositronAssistantConfigurationService] {
 	const configurationService = new TestConfigurationService();
-	const positronAssistantConfigurationService = new class extends mock<IPositronAssistantConfigurationService>() { };
+	const positronAssistantConfigurationService = new class extends mock<IPositronAssistantConfigurationService>() {
+		override readonly onChangeEnabledProviders = Event.None;
+		override isProviderEnabled() { return true; }
+	};
 	return [configurationService, positronAssistantConfigurationService];
 }
 // --- End Positron ---
@@ -838,50 +841,37 @@ suite('LanguageModels - Model Change Events', function () {
 	});
 
 	test('fires onChange event when models change without provider emitting change event', async function () {
+		// --- Start Positron ---
+		// Positron's registerLanguageModelProvider eagerly calls
+		// _resolveAllLanguageModels, which consumes the first
+		// provideLanguageModelChatInfo invocation. Return a distinct model on
+		// each call so the test's explicit selectLanguageModels calls still
+		// observe a model change.
 		let callCount = 0;
 		disposables.add(languageModelsService.registerLanguageModelProvider('test-vendor', {
 			onDidChange: Event.None, // Provider doesn't emit change events
 			provideLanguageModelChatInfo: async () => {
 				callCount++;
-				if (callCount === 1) {
-					// First call returns initial model
-					return [{
-						metadata: {
-							extension: nullExtensionDescription.identifier,
-							name: 'Model 1',
-							vendor: 'test-vendor',
-							family: 'family1',
-							version: '1.0',
-							id: 'model1',
-							maxInputTokens: 100,
-							maxOutputTokens: 100,
-							modelPickerCategory: undefined,
-							isDefaultForLocation: {}
-						} satisfies ILanguageModelChatMetadata,
-						identifier: 'test-vendor/model1'
-					}];
-				} else {
-					// Subsequent calls return different model
-					return [{
-						metadata: {
-							extension: nullExtensionDescription.identifier,
-							name: 'Model 2',
-							vendor: 'test-vendor',
-							family: 'family2',
-							version: '2.0',
-							id: 'model2',
-							maxInputTokens: 200,
-							maxOutputTokens: 200,
-							modelPickerCategory: undefined,
-							isDefaultForLocation: {}
-						} satisfies ILanguageModelChatMetadata,
-						identifier: 'test-vendor/model2'
-					}];
-				}
+				return [{
+					metadata: {
+						extension: nullExtensionDescription.identifier,
+						name: `Model ${callCount}`,
+						vendor: 'test-vendor',
+						family: `family${callCount}`,
+						version: `${callCount}.0`,
+						id: `model${callCount}`,
+						maxInputTokens: 100 * callCount,
+						maxOutputTokens: 100 * callCount,
+						modelPickerCategory: undefined,
+						isDefaultForLocation: {}
+					} satisfies ILanguageModelChatMetadata,
+					identifier: `test-vendor/model${callCount}`
+				}];
 			},
 			sendChatRequest: async () => { throw new Error(); },
 			provideTokenCount: async () => { throw new Error(); }
 		}));
+		// --- End Positron ---
 
 		// Initial resolution
 		await languageModelsService.selectLanguageModels({ vendor: 'test-vendor' });

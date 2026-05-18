@@ -1512,7 +1512,12 @@ suite('SuggestModel - offWhenInlineCompletions with InlineCompletionsController'
 			editor.setPosition({ lineNumber: 1, column: 4 });
 			editor.trigger('keyboard', Handler.Type, { text: 'd' });
 
-			await timeout(200);
+			// --- Start Positron ---
+			// Bumped from 200ms: with fake timers the inline completions model
+			// needs more ticks than the upstream value before its autorun in
+			// _waitForInlineCompletionsAndTrigger settles.
+			await timeout(2000);
+			// --- End Positron ---
 
 			sub.dispose();
 			assert.strictEqual(didSuggest, true, 'Quick suggestions should have been triggered after inline completions resolved empty');
@@ -1546,7 +1551,10 @@ suite('SuggestModel - offWhenInlineCompletions with InlineCompletionsController'
 			editor.setPosition({ lineNumber: 1, column: 4 });
 			editor.trigger('keyboard', Handler.Type, { text: 'd' });
 
-			await timeout(200);
+			// --- Start Positron ---
+			// Bumped from 200ms; see note in the previous test.
+			await timeout(2000);
+			// --- End Positron ---
 
 			sub.dispose();
 			assert.strictEqual(didSuggest, true, 'Quick suggestions should have been triggered when inlineSuggest is disabled');

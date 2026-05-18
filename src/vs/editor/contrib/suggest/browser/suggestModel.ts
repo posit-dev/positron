@@ -483,8 +483,17 @@ export class SuggestModel implements IDisposable {
 
 		const store = new DisposableStore();
 		this._waitForInlineCompletions = store;
+		// --- Start Positron ---
+		let disposed = false;
+		// --- End Positron ---
 
 		const triggerAndCleanUp = (doTrigger: boolean) => {
+			// --- Start Positron ---
+			if (disposed) {
+				return;
+			}
+			disposed = true;
+			// --- End Positron ---
 			store.dispose();
 			if (this._waitForInlineCompletions === store) {
 				this._waitForInlineCompletions = undefined;
@@ -512,7 +521,14 @@ export class SuggestModel implements IDisposable {
 			inlineModel.stop('automatic');
 		}, 750, store);
 
-		store.add(autorun(reader => {
+		// --- Start Positron ---
+		// The autorun's initial synchronous run can call triggerAndCleanUp,
+		// which disposes the store before this `store.add(...)` finishes,
+		// causing a "DisposableStore that has already been disposed of" error
+		// and leaking the autorun. Create the autorun first, register it with
+		// the store immediately, and bail out if a synchronous run already
+		// triggered the cleanup path.
+		const autorunDisposable = autorun(reader => {
 			const status = inlineModel.status.read(reader);
 			const currentState = inlineModel.state.read(reader);
 			if (!currentState && status === 'loading') {
@@ -520,7 +536,13 @@ export class SuggestModel implements IDisposable {
 				return;
 			}
 			triggerAndCleanUp(!currentState);
-		}));
+		});
+		if (disposed) {
+			autorunDisposable.dispose();
+		} else {
+			store.add(autorunDisposable);
+		}
+		// --- End Positron ---
 	}
 
 	private _refilterCompletionItems(): void {

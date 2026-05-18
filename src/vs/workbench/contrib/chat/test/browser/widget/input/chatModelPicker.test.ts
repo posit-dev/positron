@@ -764,8 +764,12 @@ suite('buildModelPickerItems', () => {
 			showFeatured: false,
 		});
 		const actions = getActionItems(items);
-		// Auto first, then Other Models toggle, then models in other section
-		assert.strictEqual(actions[0].label, 'Auto');
+		// --- Start Positron ---
+		// In Positron, Auto is not promoted to first position - all models
+		// (including Auto) appear in the Other Models section when there are
+		// no selected, recent, or featured models to promote.
+		assert.strictEqual(actions[0].label, 'Other Models');
+		// --- End Positron ---
 		// GPT-4o should NOT be promoted — it should be in Other Models
 		const promotedLabels = actions.filter(a => !a.isSectionToggle && a.section !== 'other' && a.item?.id !== 'manageModels').map(a => a.label);
 		assert.ok(!promotedLabels.includes('GPT-4o'), 'GPT-4o should not be in promoted section when showFeatured=false');
