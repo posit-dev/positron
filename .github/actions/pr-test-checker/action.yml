@@ -7,6 +7,9 @@ inputs:
   anthropic-api-key:
     description: "Anthropic API key (resolved from 1Password by the caller)"
     required: true
+  repo-root:
+    description: "Absolute path to the PR-head checkout the agent reads source from. The action itself runs from a trusted base-branch checkout; this input lets the workflow point the agent at a separate, untrusted checkout for source-reading only. Must be set for any flow that handles secrets."
+    required: true
   model:
     description: "Anthropic model identifier"
     required: false
@@ -49,12 +52,15 @@ runs:
         echo "work_dir=$WORK_DIR" >> "$GITHUB_OUTPUT"
 
     - name: Gather PR context
+      # Runs the gather script from the action's own directory (i.e. the
+      # trusted base-branch checkout), not from the PR head. PR-head code
+      # must never execute with secrets in scope.
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
         GITHUB_REPOSITORY: ${{ github.repository }}
       run: |
-        node "${{ github.workspace }}/.claude/skills/pr-test-checker/scripts/gather-pr-context.mjs" \
+        node "${{ github.action_path }}/../../../.claude/skills/pr-test-checker/scripts/gather-pr-context.mjs" \
           "${{ inputs.pr-number }}" \
           "${{ steps.prep.outputs.work_dir }}/context.json"
         echo "::group::context.json (summary)"
@@ -62,13 +68,17 @@ runs:
         echo "::endgroup::"
 
     - name: Analyze with Claude Agent SDK
+      # analyze.mjs and SKILL.md both resolve relative to github.action_path
+      # so they are read from the trusted base-branch checkout. Only
+      # REPO_ROOT (where the agent's Read/Grep/Glob tools operate) points
+      # at the untrusted PR-head checkout.
       shell: bash
       working-directory: ${{ github.action_path }}
       env:
         ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
         WORK_DIR: ${{ steps.prep.outputs.work_dir }}
-        REPO_ROOT: ${{ github.workspace }}
-        SKILL_PATH: ${{ github.workspace }}/.claude/skills/pr-test-checker/SKILL.md
+        REPO_ROOT: ${{ inputs.repo-root }}
+        SKILL_PATH: ${{ github.action_path }}/../../../.claude/skills/pr-test-checker/SKILL.md
         MODEL: ${{ inputs.model }}
         MAX_TURNS: ${{ inputs.max-turns }}
       run: node analyze.mjs

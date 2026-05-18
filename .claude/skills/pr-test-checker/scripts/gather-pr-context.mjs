@@ -67,7 +67,7 @@ const CATEGORIES = [
 	{ name: 'test-other', match: p => /\/(test|tests|__tests__)\//.test(p) },
 
 	// Docs / config / lockfiles -- not source, not tests
-	{ name: 'docs', match: p => /\.(md|mdx)$/i.test(p) || /^(LICENSE|NOTICE)(\.txt)?$/i.test(p) || /CHANGELOG\.md$/i.test(p) || /CONTRIBUTING\.md$/i.test(p) || /README/i.test(p) },
+	{ name: 'docs', match: p => /\.(md|mdx)$/i.test(p) || /^(LICENSE|NOTICE)(\.txt)?$/i.test(p) || /CHANGELOG\.md$/i.test(p) || /CONTRIBUTING\.md$/i.test(p) || /(^|\/)README(\.[^\/]+)?$/i.test(p) },
 	{ name: 'lockfile', match: p => /(package-lock\.json|yarn\.lock|pnpm-lock\.yaml)$/i.test(p) },
 	{ name: 'config-repo', match: p => p.startsWith('.github/') || p.startsWith('.vscode/') || /^\.(editorconfig|gitignore|gitattributes)$/.test(p) },
 	{ name: 'config-build', match: p => p.startsWith('build/azure-pipelines/') || p.startsWith('build/checksums/') || p.startsWith('build/lib/i18n/') },
