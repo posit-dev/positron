@@ -149,16 +149,18 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		// Click the ⋮ button on the "day" column header (0-based index 2)
 		const menuPopup = await dataExplorer.grid.openColumnContextMenu(2);
 
-		// Capture a region: from ~2 column-widths left of the menu, starting at the column
-		// headers row, and ending just below the bottom of the open menu.
+		// Capture a region: from the left edge of the "month" column (data-column-index="1"),
+		// starting at the column headers row, and ending just below the bottom of the open menu.
+		// Anchoring to month (rather than a fixed pixel offset) ensures the year column stays
+		// off the left edge of the screenshot regardless of column widths.
 		const menuBox = await menuPopup.boundingBox();
 		const headersBox = await page.locator('.data-grid-column-headers').boundingBox();
+		const monthHeaderBox = await page.locator('.data-grid-column-header[data-column-index="1"]').boundingBox();
 		if (!menuBox || !headersBox) {
 			throw new Error('Could not measure bounding boxes for column menu screenshot');
 		}
 		const PADDING = 12;
-		const LEFT_CONTEXT = 220;
-		const startX = Math.max(0, menuBox.x - LEFT_CONTEXT);
+		const startX = monthHeaderBox ? monthHeaderBox.x : Math.max(0, menuBox.x - 220);
 		await captureRegion(page, 'data-explorer-column-menu.png', {
 			x: startX,
 			y: headersBox.y,
