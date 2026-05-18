@@ -8,6 +8,10 @@ import 'mocha';
 import * as vscode from 'vscode';
 import { DeferredPromise, assertNoRpc, closeAllEditors, disposeAll } from '../utils';
 
+// --- Start Positron ---
+import * as positron from 'positron';
+// --- End Positron ---
+
 const isWindows = process.platform === 'win32';
 
 /**
@@ -28,6 +32,24 @@ function extractTextContent(result: vscode.LanguageModelToolResult): string {
 
 	setup(async () => {
 		disposables = [];
+
+		// --- Start Positron ---
+		// Register provider metadata so Positron treats `test-lm-vendor` and the
+		// `copilot` vendor as enabled. Without this the language model providers
+		// registered below are filtered out, no model is available, and the chat
+		// request never reaches the participant, causing the test to time out.
+		// `copilot` is enabled via the `copilot-auth` provider id (default: true).
+		positron.ai.registerProviderMetadata({
+			id: 'test-lm-vendor',
+			displayName: 'Test LM Vendor',
+			settingName: 'testLmVendor'
+		});
+		positron.ai.registerProviderMetadata({
+			id: 'copilot-auth',
+			displayName: 'Test Copilot',
+			settingName: 'githubCopilot'
+		});
+		// --- End Positron ---
 
 		// Force shell integration on so tests that rely on exit code / output
 		// reporting are not dependent on prior test suites or user settings.
