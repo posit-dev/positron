@@ -1,0 +1,114 @@
+name: "PR Test Checker"
+
+# Grades whether the PR has adequate test coverage and posts a verdict comment.
+# Pilot scope: only runs for PR authors / commenters in the allowlist below.
+# To widen the pilot, edit both ALLOWLIST refs in this file (kept in sync).
+
+on:
+  pull_request:
+    types:
+      - opened
+  issue_comment:
+    types:
+      - created
+
+jobs:
+  on-open:
+    name: Grade on open
+    if: |
+      github.event_name == 'pull_request' &&
+      contains(fromJson('["jonvanausdeln"]'), github.event.pull_request.user.login)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    concurrency:
+      group: pr-test-checker-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          # The agent reads CLAUDE.md, .claude/rules/*.md, and the source trees
+          # to find existing test coverage. The action + skill directories must
+          # be present at the workspace root.
+          sparse-checkout: |
+            .claude/skills/pr-test-checker
+            .claude/rules
+            .github/actions/pr-test-checker
+            CLAUDE.md
+            src
+            extensions
+            test/e2e
+
+      - name: Load Anthropic API key
+        uses: 1password/load-secrets-action@v4
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+
+      - name: Run pr-test-checker
+        uses: ./.github/actions/pr-test-checker
+        with:
+          pr-number: ${{ github.event.pull_request.number }}
+          anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
+
+  on-recheck:
+    name: Re-grade on /recheck-tests
+    # Fires when an allowlisted user comments `/recheck-tests` on a PR. The
+    # issue_comment event covers both issues and PRs; the .pull_request guard
+    # filters to PR comments only.
+    if: |
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request != null &&
+      contains(github.event.comment.body, '/recheck-tests') &&
+      contains(fromJson('["jonvanausdeln"]'), github.event.comment.user.login)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    concurrency:
+      group: pr-test-checker-${{ github.event.issue.number }}
+      cancel-in-progress: true
+    steps:
+      - name: Resolve PR head SHA
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          HEAD_SHA=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')
+          echo "head_sha=${HEAD_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout PR head
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.pr.outputs.head_sha }}
+          sparse-checkout: |
+            .claude/skills/pr-test-checker
+            .claude/rules
+            .github/actions/pr-test-checker
+            CLAUDE.md
+            src
+            extensions
+            test/e2e
+
+      - name: Load Anthropic API key
+        uses: 1password/load-secrets-action@v4
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+
+      - name: Run pr-test-checker
+        uses: ./.github/actions/pr-test-checker
+        with:
+          pr-number: ${{ github.event.issue.number }}
+          anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
