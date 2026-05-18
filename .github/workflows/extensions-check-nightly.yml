@@ -167,19 +167,9 @@ jobs:
             -d "$(jq -n \
               --arg channel "#positron-qa" \
               --arg pr_url "$PR_URL" \
-              --arg ext "$EXTENSIONS" \
               '{
                 channel: $channel,
-                text: ("Bootstrap extensions update ready for review: " + $pr_url),
-                blocks: [
-                  {
-                    type: "section",
-                    text: {
-                      type: "mrkdwn",
-                      text: (":package: *Bootstrap extensions update ready for review*\n<" + $pr_url + "|View PR>\n`" + $ext + "`")
-                    }
-                  }
-                ]
+                text: ("PR to update bootstrap extensions: " + $pr_url)
               }')"
 
   slack-notify:
