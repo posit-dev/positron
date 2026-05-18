@@ -75,9 +75,13 @@ if echo "$PR_BODY" | grep -q "@:pyrefly"; then
 	echo "Found pyrefly tag in PR body. Setting to run pyrefly tests."
 	echo "pyrefly_tag_found=true" >> "$GITHUB_OUTPUT"
 fi
-if echo "$PR_BODY" | grep -q "@:workbench"; then
+if echo "$PR_BODY" | grep -qE "@:workbench( |\$|,)"; then
 	echo "Found workbench tag in PR body. Setting to run workbench tests."
 	echo "workbench_tag_found=true" >> "$GITHUB_OUTPUT"
+fi
+if echo "$PR_BODY" | grep -q "@:workbench-stable"; then
+	echo "Found workbench-stable tag in PR body. Setting to run workbench tests against the last stable Workbench."
+	echo "workbench_stable_tag_found=true" >> "$GITHUB_OUTPUT"
 fi
 if echo "$PR_BODY" | grep -q "@:jupyter"; then
 	echo "Found jupyter tag in PR body. Setting to run jupyter tests."
