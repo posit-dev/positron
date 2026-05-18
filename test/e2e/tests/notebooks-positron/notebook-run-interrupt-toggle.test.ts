@@ -45,7 +45,7 @@ test.describe('Positron Notebooks: Run All / Interrupt Toggle', {
 
 		await test.step('Verify execution was interrupted', async () => {
 			await notebooksPositron.expectNoActiveSpinners(30000);
-			await expect(notebooksPositron.cellOutput(0)).toContainText('keyboard interupt', { timeout: 10000 });
+			await expect(notebooksPositron.cellOutput(0)).toContainText('keyboard interrupt', { timeout: 10000 });
 		});
 
 		await test.step('Verify second cell was NOT executed', async () => {

@@ -1915,13 +1915,13 @@ registerAction2(class extends NotebookAction2 {
 	}
 });
 
-// Interrupt Execution - Stops all currently running cells
+// Stop All Cells - cancels execution of every running cell.
 registerAction2(class extends NotebookAction2 {
 	constructor() {
 		super({
-			id: 'positronNotebook.interruptExecution',
-			title: localize2('interruptExecution', 'Interrupt'),
-			icon: ThemeIcon.fromId('notebook-stop'),
+			id: 'positronNotebook.stopAllCells',
+			title: localize2('stopAllCells', 'Stop'),
+			icon: ThemeIcon.fromId('primitive-square'),
 			f1: true,
 			category: POSITRON_NOTEBOOK_CATEGORY,
 			positronActionBarOptions: {
@@ -1949,7 +1949,9 @@ registerAction2(class extends NotebookAction2 {
 	}
 
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
-		return notebook.cancelExecution();
+		// runAllCells delegates to _runCells, which sees the live executions and
+		// routes to cancelNotebookCells instead of executeNotebookCells.
+		notebook.runAllCells();
 	}
 });
 

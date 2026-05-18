@@ -1109,13 +1109,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		await this._runCells(this.cells.get());
 	}
 
-	async cancelExecution(): Promise<void> {
-		this._assertTextModel();
-		const cells = this.cells.get();
-		await this.notebookExecutionService.cancelNotebookCells(this.textModel, cells.map(c => c.model as NotebookCellTextModel));
-	}
-
-
 	/**
 	 * Adds a new cell to the notebook at the specified index.
 	 * @param type The type of cell to add (`CellKind`)
