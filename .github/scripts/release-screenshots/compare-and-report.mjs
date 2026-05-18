@@ -272,7 +272,7 @@ function htmlCard(name, info, screenshotBaseUrl) {
 		: '';
 	const diffFig = diffUrl
 		? `<figure>
-			<figcaption>Diff (red&nbsp;= changed · dimmed&nbsp;= unchanged)${ratioTag}</figcaption>
+			<figcaption>Diff${ratioTag}</figcaption>
 			<a href="${htmlEscape(diffUrl)}" target="_blank" rel="noopener"><img loading="lazy" src="${htmlEscape(diffUrl)}" alt="diff"></a>
 		</figure>`
 		: '';
