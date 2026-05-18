@@ -7,7 +7,7 @@ import { join } from 'path';
 import { expect } from '@playwright/test';
 import { test } from '../tests/_test.setup';
 import { capturePanel, captureRegion } from './helpers/screenshot-utils';
-import { hideNotificationBadges, hideToasts, prepareForScreenshot, setScreenshotWindowSize } from './helpers/layout-utils';
+import { hideDataGridCursor, hideNotificationBadges, hideToasts, prepareForScreenshot, setScreenshotWindowSize } from './helpers/layout-utils';
 
 test.use({
 	suiteId: __filename,
@@ -110,6 +110,10 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		await dataExplorer.waitForIdle();
 		await dataExplorer.grid.clickUpperLeftCorner();
 		await dataExplorer.grid.jumpToStart();
+		// Move the cursor past the crop boundary (columns 0–5) so no blue cell outline appears.
+		for (let i = 0; i < 6; i++) {
+			await page.keyboard.press('ArrowRight');
+		}
 
 		await prepareForScreenshot(app, page);
 
@@ -156,30 +160,37 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		await dataExplorer.waitForIdle();
 		await dataExplorer.grid.clickUpperLeftCorner();
 		await dataExplorer.grid.jumpToStart();
+		// Move the cursor past the crop boundary (columns 0–2) so no blue cell outline appears.
+		for (let i = 0; i < 6; i++) {
+			await page.keyboard.press('ArrowRight');
+		}
 
 		// Dismiss UI noise before opening the menu so it doesn't appear in the screenshot
 		await hideToasts(app);
 		await hideNotificationBadges(page);
 
-		// Click the ⋮ button on the "day" column header (0-based index 2)
-		const menuPopup = await dataExplorer.grid.openColumnContextMenu(2);
+		// Click the ⋮ button on the "month" column header (0-based index 1)
+		const menuPopup = await dataExplorer.grid.openColumnContextMenu(1);
 
-		// Capture a region: from the left edge of the "month" column (data-column-index="1"),
-		// starting at the column headers row, and ending just below the bottom of the open menu.
-		// Anchoring to month (rather than a fixed pixel offset) ensures the year column stays
-		// off the left edge of the screenshot regardless of column widths.
+		// Capture from the left edge of the year column through the right edge of the day
+		// column, so the menu sits over month with year visible to the left and day to the right.
 		const menuBox = await menuPopup.boundingBox();
 		const headersBox = await page.locator('.data-grid-column-headers').boundingBox();
-		const monthHeaderBox = await page.locator('.data-grid-column-header[data-column-index="1"]').boundingBox();
+		const yearHeaderBox = await page.locator('.data-grid-column-header[data-column-index="0"]').boundingBox();
+		const dayHeaderBox = await page.locator('.data-grid-column-header[data-column-index="2"]').boundingBox();
 		if (!menuBox || !headersBox) {
 			throw new Error('Could not measure bounding boxes for column menu screenshot');
 		}
-		const PADDING = 12;
-		const startX = monthHeaderBox ? monthHeaderBox.x : Math.max(0, menuBox.x - 220);
+		const PADDING = 2;
+		const startX = yearHeaderBox ? yearHeaderBox.x : Math.max(0, menuBox.x - 220);
+		const endX = Math.max(
+			menuBox.x + menuBox.width,
+			dayHeaderBox ? dayHeaderBox.x + dayHeaderBox.width : 0,
+		) + PADDING;
 		await captureRegion(page, 'data-explorer-column-menu.png', {
 			x: startX,
 			y: headersBox.y,
-			width: menuBox.x + menuBox.width - startX + PADDING,
+			width: endX - startX,
 			height: menuBox.y + menuBox.height - headersBox.y + PADDING,
 		});
 	});
@@ -214,24 +225,32 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		// Dismiss UI noise before opening the menu
 		await hideToasts(app);
 		await hideNotificationBadges(page);
+		await hideDataGridCursor(page);
 
 		// Right-click the year column cell in row 0
 		const menuPopup = await dataExplorer.grid.openCellContextMenu(0, 0);
 
-		// Capture from the row-headers left edge through the full open menu
+		// Capture from the splitter (blue arrow handle) on the left through the "day"
+		// column right edge (or the menu right edge, whichever is wider).
 		const menuBox = await menuPopup.boundingBox();
-		const rowHeadersBox = await page.locator('.data-grid-row-headers').boundingBox();
+		const splitterBox = await page.locator('.data-explorer-panel .splitter').boundingBox();
 		const headersBox = await page.locator('.data-grid-column-headers').boundingBox();
+		const dayHeaderBox = await page.locator('.data-grid-column-header[data-column-index="2"]').boundingBox();
 		if (!menuBox) {
 			throw new Error('Could not measure bounding box for cell menu screenshot');
 		}
-		const PADDING = 12;
-		const startX = rowHeadersBox ? rowHeadersBox.x : Math.max(0, menuBox.x - 100);
+		const PADDING = 2;
+		const LEFT_BLEED = 16;
+		const startX = splitterBox ? Math.max(0, splitterBox.x - LEFT_BLEED) : Math.max(0, menuBox.x - 100);
 		const startY = headersBox ? headersBox.y : Math.max(0, menuBox.y - 60);
+		const endX = Math.max(
+			menuBox.x + menuBox.width,
+			dayHeaderBox ? dayHeaderBox.x + dayHeaderBox.width : 0,
+		) + PADDING;
 		await captureRegion(page, 'data-explorer-cell-menu.png', {
 			x: startX,
 			y: startY,
-			width: menuBox.x + menuBox.width - startX + PADDING,
+			width: endX - startX,
 			height: menuBox.y + menuBox.height - startY + PADDING,
 		});
 	});
@@ -290,6 +309,7 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		// Hover over the first time_hour cell to trigger the truncation tooltip
 		await hideToasts(app);
 		await hideNotificationBadges(page);
+		await hideDataGridCursor(page);
 		const timeHourCell = page.locator('#data-grid-row-cell-content-18-0 .text-value');
 		await timeHourCell.scrollIntoViewIfNeeded();
 		await timeHourCell.hover();
@@ -351,30 +371,37 @@ flights = pd.read_parquet(r'${parquetPath}', engine='pyarrow')
 		// Dismiss UI noise before opening the menu
 		await hideToasts(app);
 		await hideNotificationBadges(page);
+		await hideDataGridCursor(page);
 
 		// Right-click on row header index 1 (the second row, shown as "1" in the UI)
 		const menuPopup = await dataExplorer.grid.openRowContextMenu(1);
 
-		// Capture from the row-headers left edge through the first few data columns and the menu
+		// Capture from the row-headers left edge, starting at the first data row (no column
+		// headers), through the month column right edge. Show rows 0–6 with menu open on row 1.
 		const menuBox = await menuPopup.boundingBox();
 		const rowHeadersBox = await page.locator('.data-grid-row-headers').boundingBox();
-		const headersBox = await page.locator('.data-grid-column-headers').boundingBox();
+		const monthHeaderBox = await page.locator('.data-grid-column-header[data-column-index="1"]').boundingBox();
+		const row0Box = await page.locator('.data-explorer-panel .right-column .data-grid-rows-container .data-grid-row').nth(0).boundingBox();
+		const row6Box = await page.locator('.data-explorer-panel .right-column .data-grid-rows-container .data-grid-row').nth(6).boundingBox();
 		if (!menuBox) {
 			throw new Error('Could not measure bounding box for row menu screenshot');
 		}
-		const PADDING = 12;
-		const COL_CONTEXT = 240;
+		const PADDING = 2;
 		const startX = rowHeadersBox ? rowHeadersBox.x : Math.max(0, menuBox.x - 60);
-		const startY = headersBox ? headersBox.y : Math.max(0, menuBox.y - 60);
+		const startY = row0Box ? row0Box.y : Math.max(0, menuBox.y - 60);
 		const endX = Math.max(
 			menuBox.x + menuBox.width,
-			(rowHeadersBox ? rowHeadersBox.x + rowHeadersBox.width : menuBox.x) + COL_CONTEXT,
+			monthHeaderBox ? monthHeaderBox.x + monthHeaderBox.width : 0,
+		) + PADDING;
+		const endY = Math.max(
+			menuBox.y + menuBox.height,
+			row6Box ? row6Box.y + row6Box.height : 0,
 		) + PADDING;
 		await captureRegion(page, 'data-explorer-row-menu.png', {
 			x: startX,
 			y: startY,
 			width: endX - startX,
-			height: menuBox.y + menuBox.height - startY + PADDING,
+			height: endY - startY,
 		});
 	});
 });

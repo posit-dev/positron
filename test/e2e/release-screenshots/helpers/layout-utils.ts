@@ -122,6 +122,17 @@ export async function unhoverAll(page: Page): Promise<void> {
 }
 
 /**
+ * Hide the data-grid cursor border (the blue outline around the focused cell).
+ * Injected as a stylesheet so the rule persists across re-renders.
+ */
+export async function hideDataGridCursor(page: Page): Promise<void> {
+	await page.addStyleTag({
+		content: '.cursor-border { display: none !important; } .selection-overlay { display: none !important; }',
+	});
+	await page.waitForTimeout(50);
+}
+
+/**
  * Hide the text-insertion caret in any focused input. The blinking cursor
  * causes pixel differences between runs and is not meaningful in a screenshot.
  */
