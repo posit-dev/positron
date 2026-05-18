@@ -1755,6 +1755,20 @@ class KernelBase {
 	 */
 	async shutdown(): Promise<void> {
 		await test.step('Shutdown kernel', async () => {
+			// During a kernel restart, the badge icon may briefly show "idle"
+			// before the kernel is actually ready. This happens because the
+			// kernel reports intermediate idle states while it shuts down
+			// and while the new kernel sets up its comms (variables, plots,
+			// and so on). The Shutdown Kernel menu item only becomes
+			// enabled once the kernel is truly ready, so wait for it rather
+			// than relying on the badge before clicking.
+			await expect(async () => {
+				await this.contextMenu.triggerAndVerifyMenuItems({
+					menuTrigger: this.statusBadge,
+					menuItemStates: [{ label: 'Shutdown Kernel', enabled: true }],
+				});
+			}, 'Shutdown Kernel menu item to be enabled').toPass({ timeout: 30000 });
+
 			await this.contextMenu.triggerAndClick({
 				menuTrigger: this.statusBadge,
 				menuItemLabel: /Shutdown Kernel/
