@@ -4,6 +4,10 @@ name: "Spike: Windows Packaged Build"
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'build/gulpfile.vscode.win32.ts'
 
 jobs:
   build:
