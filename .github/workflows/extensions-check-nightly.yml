@@ -176,7 +176,7 @@ jobs:
                (if $ext != "" then ($ext | split(" ") | map("• " + .) | join("\n")) else "" end) as $bullets |
                {
                  channel: $channel,
-                 text: (":pullrequest: bootstrap extensions update | <" + $pr_url + "|PR #" + $pr_num + ">" + (if $bullets != "" then "\n\n" + $bullets else "" end))
+                 text: ("bootstrap extensions update | <" + $pr_url + "|PR #" + $pr_num + ">" + (if $bullets != "" then "\n\n" + $bullets else "" end))
                }')"
 
   slack-notify:
