@@ -20,5 +20,6 @@
 	"posit.assistant.sidebarView": true,
 	"assistant.sidebarView": true,
 	"shiny.previewType": "internal",
-	"terminal.integrated.gpuAcceleration": "off"
+	"terminal.integrated.gpuAcceleration": "off",
+	"console.showNotebookConsoleActions": true
 }
