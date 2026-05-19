@@ -1,7 +1,9 @@
 name: "Spike: Windows zstd availability"
 
 on:
-  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
 
 jobs:
   test-zstd:
