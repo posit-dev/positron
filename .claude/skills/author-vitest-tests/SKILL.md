@@ -117,13 +117,13 @@ Format the plan like this:
 >
 > **Stubs:** short list of services you intend to stub, with a one-line reason each
 >
-> **Test cases:** (annotate tests that will use `toMatchInlineSnapshot()` with `[snapshot]`; for each, add a one-line regression hypothesis — what breaks in the product if this test fails?)
+> **Test cases:** (annotate tests that will use `toMatchInlineSnapshot()` with `[snapshot]`)
 > - **<describe block 1>**
->   - <test name 1> — *<regression hypothesis>*
->   - <test name 2> `[snapshot]` — *<regression hypothesis>*
+>   - <test name 1>
+>   - <test name 2> `[snapshot]`
 > - **<describe block 2>**
->   - <test name 3> — *<regression hypothesis>*
->   - <test name 4> `[snapshot]` — *<regression hypothesis>*
+>   - <test name 3>
+>   - <test name 4> `[snapshot]`
 >
 > Total: <bullet count> tests (<snapshot count> snapshots). Anything you want added, dropped, or reshaped before I write?
 
