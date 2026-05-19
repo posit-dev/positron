@@ -18,7 +18,7 @@ import { IPositronPackagesInstance, PositronPackagesInstance } from './positronP
 
 const TIMEOUT_REFRESH_MS = 5_000; // 5 seconds
 
-const ITEM_SIZE_STORAGE_KEY = 'positronPackages.itemSize';
+const ITEM_SIZE_STORAGE_KEY = 'positron.packages.itemSize';
 
 /**
  * PositronPackagesService class.
