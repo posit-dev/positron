@@ -308,21 +308,11 @@ test.describe('Release Screenshots - Data Explorer', () => {
 		await dataExplorer.grid.clickUpperLeftCorner();
 		await dataExplorer.grid.jumpToStart();
 
-		// Left-click row header 1 to produce the blue row selection highlight.
-		// Override the :not(.focused) opacity rule so the selection stays fully
-		// visible even after the context menu popup steals browser focus from the
-		// data grid. The overlay div only exists when the row is actually selected,
-		// so this only affects opacity — not whether the selection is present.
-		await dataExplorer.grid.clickRowHeader(1);
-		await page.addStyleTag({
-			content: '.data-grid-row-header .selection-overlay:not(.focused) { opacity: 100% !important; }',
-		});
-
 		// Dismiss UI noise before opening the menu
 		await hideToasts(app);
 		await hideNotificationBadges(page);
 
-		// Right-click on row header index 1 to open the context menu.
+		// Right-click on row header index 1 (the second row, shown as "1" in the UI)
 		const menuPopup = await dataExplorer.grid.openRowContextMenu(1);
 
 		// Capture screenshot region
