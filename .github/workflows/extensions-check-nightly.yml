@@ -16,8 +16,6 @@ jobs:
     name: 'extensions-linux'
     timeout-minutes: 60
     runs-on: ubuntu-latest-8x
-    outputs:
-      extensions: ${{ steps.parse.outputs.extensions }}
     container:
       image: ghcr.io/posit-dev/positron-ubuntu24-amd64:116
       options: --user 0:0
@@ -51,8 +49,6 @@ jobs:
           identifier: e2e-electron
 
       - name: 🧪 Run Playwright Tests (Electron)
-        id: playwright-test
-        continue-on-error: true
         shell: bash
         env:
           POSITRON_PY_VER_SEL: "3.10.12"
@@ -62,28 +58,12 @@ jobs:
           PWTEST_BLOB_DO_NOT_REMOVE: 1
           EXTENSIONS_FAIL_ON_MISMATCH: true
         run: |
-          {
-            echo "Running: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project e2e-electron --reporter=null"
-            npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project e2e-electron --reporter=null
-          } 2>&1 | tee /tmp/playwright-output.txt
-
-      - name: Parse mismatched extensions
-        id: parse
-        if: steps.playwright-test.outcome == 'failure'
-        shell: bash
-        run: |
-          LINE=$(grep 'update-extensions.sh' /tmp/playwright-output.txt | head -1 | xargs || true)
-          EXTENSIONS="${LINE#./scripts/update-extensions.sh }"
-          echo "extensions=$EXTENSIONS" >> "$GITHUB_OUTPUT"
-
-      - name: Fail if tests failed
-        if: steps.playwright-test.outcome == 'failure'
-        shell: bash
-        run: exit 1
+          echo "Running: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project e2e-electron --reporter=null"
+          npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project e2e-electron --reporter=null
 
   auto-update:
     name: 'auto-update-extensions'
-    if: needs.extensions-linux.result == 'failure' && needs.extensions-linux.outputs.extensions != ''
+    if: needs.extensions-linux.result == 'failure'
     needs: [extensions-linux]
     runs-on: ubuntu-latest
     permissions:
@@ -109,9 +89,7 @@ jobs:
           git config user.email "positron-bot[bot]@users.noreply.github.com"
 
       - name: Update extensions
-        env:
-          EXTENSIONS: ${{ needs.extensions-linux.outputs.extensions }}
-        run: ./scripts/update-extensions.sh $EXTENSIONS
+        run: ./scripts/update-extensions.sh --all
 
       - name: Commit and push
         id: push
@@ -132,26 +110,29 @@ jobs:
         if: steps.push.outputs.branch != ''
         env:
           GH_TOKEN: ${{ steps.bot-token.outputs.token }}
-          EXTENSIONS: ${{ needs.extensions-linux.outputs.extensions }}
           BRANCH: ${{ steps.push.outputs.branch }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          EXT_BULLETS=$(echo "$EXTENSIONS" | tr ' ' '\n' | sed 's/^/- /')
-          cat > /tmp/pr-body.md << EOF
-          ### Summary
+          UPDATED=$(jq -rn \
+            --argjson old "$(git show HEAD~1:product.json)" \
+            --argjson new "$(cat product.json)" \
+            '($old.bootstrapExtensions | map({(.name): .version}) | add) as $ov |
+             ($new.bootstrapExtensions | map({(.name): .version}) | add) as $nv |
+             [$nv | to_entries[] | select(.value != $ov[.key]) | .key] | join(" ")')
+          EXT_BULLETS=$(echo "$UPDATED" | tr ' ' '\n' | sed 's/^/- /')
+          PR_URL=$(gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "chore: update bootstrap extensions" \
+            --body "### Summary
           Update bootstrap extensions detected as out-of-date by the nightly check.
 
           ${EXT_BULLETS}
 
           ### QA Notes
-          Triggered by [nightly extensions check](${RUN_URL}).
-          EOF
-          PR_URL=$(gh pr create \
-            --base main \
-            --head "$BRANCH" \
-            --title "chore: update bootstrap extensions" \
-            --body-file /tmp/pr-body.md)
+          Triggered by [nightly extensions check](${RUN_URL}).")
           echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
+          echo "updated=$UPDATED" >> "$GITHUB_OUTPUT"
 
       - name: Post PR to Slack
         if: steps.create-pr.outputs.pr_url != ''
@@ -159,7 +140,7 @@ jobs:
           # Ensure SLACK_TOKEN_TEST_STATUS has access to #positron-qa, or swap for a token that does
           SLACK_TOKEN: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
           PR_URL: ${{ steps.create-pr.outputs.pr_url }}
-          EXTENSIONS: ${{ needs.extensions-linux.outputs.extensions }}
+          UPDATED: ${{ steps.create-pr.outputs.updated }}
         run: |
           curl -s -X POST https://slack.com/api/chat.postMessage \
             -H "Authorization: Bearer $SLACK_TOKEN" \
@@ -167,7 +148,7 @@ jobs:
             -d "$(jq -n \
               --arg channel "#positron-qa" \
               --arg pr_url "$PR_URL" \
-              --arg ext "$EXTENSIONS" \
+              --arg ext "$UPDATED" \
               '{
                 channel: $channel,
                 text: ("PR to update bootstrap extensions: " + $pr_url + "\n" + $ext)
