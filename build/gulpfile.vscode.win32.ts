@@ -21,11 +21,6 @@ import * as util from './lib/util.ts';
 
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
-// --- Start Positron ---
-// Patch Node's fs with graceful-fs to retry EMFILE (too many open files) errors
-// during the Windows packaging step. Same fix VS Code uses in their build tooling.
-require('graceful-fs').gracefulify(require('fs'));
-// --- End Positron ---
 
 const repoPath = path.dirname(import.meta.dirname);
 const commit = getVersion(repoPath);
