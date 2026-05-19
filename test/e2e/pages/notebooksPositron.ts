@@ -1760,19 +1760,15 @@ class KernelBase {
 	 */
 	async shutdown(): Promise<void> {
 		await test.step('Shutdown kernel', async () => {
-			// During a kernel restart, the badge icon may briefly show "idle"
-			// before the kernel is actually ready. This happens because the
-			// kernel reports intermediate idle states while it shuts down
-			// and while the new kernel sets up its comms (variables, plots,
-			// and so on). The Shutdown Kernel menu item only becomes
-			// enabled once the kernel is truly ready, so wait for it rather
-			// than relying on the badge before clicking.
-			await expect(async () => {
-				await this.contextMenu.triggerAndVerifyMenuItems({
-					menuTrigger: this.statusBadge,
-					menuItemStates: [{ label: 'Shutdown Kernel', enabled: true }],
-				});
-			}, 'Shutdown Kernel menu item to be enabled').toPass({ timeout: 30000 });
+			// The Shutdown Kernel menu item is gated on the
+			// `notebookHasRunningInterpreter` context key, which only flips
+			// true on `RuntimeState.Ready`. The runtime status icon can read
+			// "idle" during a restart before `Ready` fires (intermediate
+			// state while comms are being set up), so we cannot use the icon
+			// as a readiness signal. Menu items also do not reactively
+			// update once open, so we poll by re-opening the menu until the
+			// item is enabled, then click.
+			await this.waitForMenuItemEnabled('Shutdown Kernel');
 
 			await this.contextMenu.triggerAndClick({
 				menuTrigger: this.statusBadge,
@@ -1780,6 +1776,30 @@ class KernelBase {
 			});
 			await this.expectStatusToBe('disconnected', 15000);
 		});
+	}
+
+	/**
+	 * Poll the kernel context menu until `menuItemLabel` is enabled.
+	 *
+	 * Context-menu items render their enabled state at open-time and do not
+	 * update while open: if the underlying context key flips after the menu
+	 * is shown, the rendered item stays stale until the menu is closed and
+	 * reopened. Each polling iteration therefore opens the menu, checks the
+	 * item, and closes it. The close runs in a `finally` so we don't
+	 * accidentally keep the menu open (otherwise the next iteration's
+	 * click would close the menu instead of open it).
+	 */
+	private async waitForMenuItemEnabled(menuItemLabel: string, timeout = 30000): Promise<void> {
+		await expect(async () => {
+			try {
+				await this.contextMenu.triggerAndVerifyMenuItems({
+					menuTrigger: this.statusBadge,
+					menuItemStates: [{ label: menuItemLabel, enabled: true }],
+				});
+			} finally {
+				await this.statusBadge.page().keyboard.press('Escape').catch(() => { });
+			}
+		}, `${menuItemLabel} menu item to be enabled`).toPass({ timeout });
 	}
 
 	/**
