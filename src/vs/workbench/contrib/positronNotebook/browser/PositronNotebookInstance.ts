@@ -33,7 +33,7 @@ import { ICommandService } from '../../../../platform/commands/common/commands.j
 import { SELECT_KERNEL_ID_POSITRON } from '../common/positronNotebookCommon.js';
 import { INotebookKernelService } from '../../notebook/common/notebookKernelService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { ILanguageRuntimeService, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeService, RuntimeExitReason, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { autorunDelta, IObservable, observableFromEvent, observableValue, runOnChange } from '../../../../base/common/observable.js';
@@ -2146,8 +2146,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		const disposables = this._runtimeSessionDisposables.value = new DisposableStore();
 
-		// Clean up when the session ends
-		this._register(session.onDidEndSession(() => {
+		// Clean up when the session ends. During a restart the session
+		// fires onDidEndSession but remains valid; keep it attached so
+		// the badge and menu stay functional while the kernel restarts.
+		this._register(session.onDidEndSession((exit) => {
+			if (exit.reason === RuntimeExitReason.Restart) {
+				return;
+			}
 			disposables.dispose();
 			this.kernelStatus.set(NotebookKernelStatus.Exited, undefined);
 			this.runtimeSession.set(undefined, undefined);
