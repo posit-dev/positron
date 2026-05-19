@@ -82,6 +82,7 @@ jobs:
           echo ""
 
           # gzip
+          mkdir -p "${WORK_DIR}/dest-gz"
           START=$(date +%s%N)
           tar -C "${WORK_DIR}" -czf "${WORK_DIR}/test.tar.gz" source
           GZ_COMPRESS=$(( ($(date +%s%N) - START) / 1000000 ))
