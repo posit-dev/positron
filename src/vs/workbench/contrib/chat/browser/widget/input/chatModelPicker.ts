@@ -783,6 +783,7 @@ export class ModelPickerWidget extends Disposable {
 			this._languageModelsService,
 			// --- Start Positron ---
 			new Map(this._languageModelsService.getVendors().map(v => [v.vendor, v.displayName])),
+			this._commandService,
 			// --- End Positron ---
 		);
 
