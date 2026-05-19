@@ -136,7 +136,7 @@ export class Workbench {
 		this.welcome = new Welcome(code);
 		this.terminal = new Terminal(code, this.quickaccess, this.clipboard);
 		this.viewer = new Viewer(code);
-		this.editor = new Editor(code, this.toasts);
+		this.editor = new Editor(code);
 		this.testExplorer = new TestExplorer(code);
 		this.outline = new Outline(code, this.quickaccess);
 		this.extensions = new Extensions(code, this.quickaccess);
