@@ -139,6 +139,12 @@ runs:
         while IFS=$'\t' read -r JOB_ID JOB_NAME; do
           [ -z "$JOB_ID" ] && continue
           DIR_NAME=$(sanitize "$JOB_NAME")
+          # If two jobs sanitize to the same directory name (e.g., names that
+          # differ only in stripped punctuation), append the job ID so neither
+          # silently overwrites the other.
+          if [ -d "$WORK_DIR/$DIR_NAME" ]; then
+            DIR_NAME="${DIR_NAME}-${JOB_ID}"
+          fi
           OUT="$WORK_DIR/$DIR_NAME"
           mkdir -p "$OUT"
           echo "::group::Process e2e job $JOB_ID ($JOB_NAME) -> $DIR_NAME"
