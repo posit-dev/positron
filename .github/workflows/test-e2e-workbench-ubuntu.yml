@@ -100,8 +100,8 @@ jobs:
           SNOWFLAKE_CLIENT_SECRET: "op://Positron/Snowflake-WB-Auto/client-secret"
           SNOWFLAKE_USERNAME: "op://Positron/Snowflake-WB-Auto/username"
           SNOWFLAKE_PASSWORD: "op://Positron/Snowflake-WB-Auto/password"
-          WORKBENCH_LICENSE: "op://Positron/Workbench-lic-WB-Auto"
-          CONNECT_LICENSE: "op://Positron/Connect-lic-WB-Auto"
+          WORKBENCH_LICENSE: "op://Positron/Workbench-lic-WB-Auto/notesPlain"
+          CONNECT_LICENSE: "op://Positron/Connect-lic-WB-Auto/notesPlain"
 
       - name: Write license files
         run: |
