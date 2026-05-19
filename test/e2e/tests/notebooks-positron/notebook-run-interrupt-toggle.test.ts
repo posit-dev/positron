@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Positron Notebooks: Run All / Interrupt Toggle', {
-	tag: [tags.POSITRON_NOTEBOOKS, tags.WIN, tags.WEB]
+	tag: [tags.POSITRON_NOTEBOOKS]
 }, () => {
 
 	test('Python - Run All toggles to Interrupt during execution, cancels, and prevents subsequent cells', {
