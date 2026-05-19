@@ -3358,8 +3358,13 @@ class LayoutStateModel extends Disposable {
 
 		// --- Start Positron ---
 		// In Positron, the auxiliary bar and panel are not hidden by default and the panel defaults
-		// to 50% height.
-		LayoutStateKeys.AUXILIARYBAR_HIDDEN.defaultValue = false;
+		// to 50% height. Respect explicit user configuration of the secondary side bar visibility.
+		const auxBarVisibilityConfigured = isConfigured(
+			this.configurationService.inspect(WorkbenchLayoutSettings.AUXILIARYBAR_DEFAULT_VISIBILITY)
+		);
+		if (!auxBarVisibilityConfigured) {
+			LayoutStateKeys.AUXILIARYBAR_HIDDEN.defaultValue = false;
+		}
 		LayoutStateKeys.PANEL_HIDDEN.defaultValue = false;
 		LayoutStateKeys.PANEL_SIZE.defaultValue = mainContainerDimension.height / 2;
 
@@ -3371,7 +3376,9 @@ class LayoutStateModel extends Disposable {
 		if (!layoutInitialized) {
 			LayoutStateKeys.SIDEBAR_HIDDEN.defaultValue = false;
 			LayoutStateKeys.PANEL_HIDDEN.defaultValue = false;
-			LayoutStateKeys.AUXILIARYBAR_HIDDEN.defaultValue = false;
+			if (!auxBarVisibilityConfigured) {
+				LayoutStateKeys.AUXILIARYBAR_HIDDEN.defaultValue = false;
+			}
 			LayoutStateKeys.SIDEBAR_SIZE.defaultValue = Math.round(mainContainerDimension.width * 0.15);
 			LayoutStateKeys.PANEL_LAST_NON_MAXIMIZED_HEIGHT.defaultValue = Math.round(mainContainerDimension.height * 0.4);
 			LayoutStateKeys.AUXILIARYBAR_SIZE.defaultValue = Math.round(mainContainerDimension.width * 0.3);
