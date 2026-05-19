@@ -149,10 +149,12 @@ jobs:
               --arg channel "#positron-qa" \
               --arg pr_url "$PR_URL" \
               --arg ext "$UPDATED" \
-              '{
-                channel: $channel,
-                text: ("PR to update bootstrap extensions: " + $pr_url + "\n" + $ext)
-              }')"
+              '($pr_url | split("/") | last) as $pr_num |
+               ($ext | split(" ") | map("• " + .) | join("\n")) as $bullets |
+               {
+                 channel: $channel,
+                 text: (":pullrequest: bootstrap extensions update | <" + $pr_url + "|PR #" + $pr_num + ">\n\n" + $bullets)
+               }')"
 
   slack-notify:
     if: failure()
