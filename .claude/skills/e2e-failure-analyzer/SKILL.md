@@ -26,7 +26,8 @@ Scripts live alongside this skill in `scripts/`. Use the base directory path sho
 ### Consolidated scripts (preferred -- fewer tool calls)
 
 - **`e2e-gather-run-info.js`** - Gathers all run metadata, failed jobs, artifacts, non-e2e job log excerpts, and commit info in one call. Replaces multiple `gh api` invocations.
-- **`e2e-process-project.js`** - Processes a merged blob report project end-to-end: extracts failures, scans blobs, extracts/parses traces, extracts screenshots and error-context. Replaces multiple script + unzip invocations.
+- **`e2e-process-project.js`** - **Path A.** Processes a merged blob report project end-to-end: extracts failures, scans blobs, extracts/parses traces, extracts screenshots and error-context. Replaces multiple script + unzip invocations.
+- **`e2e-process-s3.js`** - **Path B.** Processes a CloudFront-hosted Playwright HTML report end-to-end: fetches `index.html`, decodes the embedded base64 `report.zip`, downloads trace + error-context attachments from S3, parses traces, and extracts screencast frames. Produces the same JSON shape as `e2e-process-project.js` so the downstream analyzer treats both paths identically.
 
 ### Standalone scripts (used by consolidated scripts internally, or for ad-hoc debugging)
 
@@ -113,86 +114,24 @@ Output JSON contains:
 
 ## Path B: posit-dev/positron-builds (S3 HTML Reports)
 
-Use the failed e2e jobs already identified in Step 1a. For each failed e2e job:
+### Process the HTML report (single script call)
 
-### B1: Extract Failure Details from Job Logs
+The `e2e-process-s3.js` script handles everything in one call: fetches the report's `index.html`, decodes the embedded base64 `report.zip`, walks failures + per-file detail JSONs, downloads trace and error-context attachments from S3, parses traces, and extracts trailing screencast frames.
 
-The job logs contain full Playwright test output including error messages, stack traces, and attachment paths:
-
-```bash
-gh api repos/posit-dev/positron-builds/actions/jobs/<JOB_ID>/logs 2>&1 | grep -A 20 -E "^\s+\d+\) \[" | head -100
-```
-
-This gives the full test failure output including:
-- Test name and tags
-- Error messages and stack traces
-- Attachment paths (trace, logs, screenshots)
-
-### B2: Get Report URL from Job Logs
-
-The job log contains the S3 report URL:
+For **each** failed e2e job from Step 1, resolve the job's `REPORT_DIR` from its logs (the workflow logs both an unresolved template line containing literal `${IDENTIFIER}` / `${OS_SUFFIX}` and the expanded value -- ignore the template), then run:
 
 ```bash
-gh api repos/posit-dev/positron-builds/actions/jobs/<JOB_ID>/logs 2>&1 | grep -oE 'REPORT_DIR=playwright-report-[^ ]+' | head -1
+node "$SKILL_DIR/scripts/e2e-process-s3.js" \
+  --report-url https://d38p2avprg8il3.cloudfront.net/<REPORT_DIR>/ \
+  --output-dir /tmp/e2e-analysis-<JOB_LABEL> \
+  --cleanup
 ```
 
-The base URL pattern is: `https://d38p2avprg8il3.cloudfront.net/<REPORT_DIR>/`
+For interactive / ad-hoc use, you can call the script directly with any CloudFront-hosted Playwright HTML report URL -- no run ID required.
 
-### B3: Download Screenshots from S3
+Output JSON is identical to Path A's `e2e-process-project.js` (see the field list above), so the same screenshot-reading and analysis flow applies. The `blob` field is the report directory name (last path segment of the S3 URL) rather than a zip filename, since Path B has no blob zips.
 
-The HTML report's `data/` directory contains PNGs (on-test-end screenshots) and ZIPs (traces, logs). Find PNG filenames from the upload log:
-
-```bash
-gh api repos/posit-dev/positron-builds/actions/jobs/<JOB_ID>/logs 2>&1 | grep -oE 'data/[a-f0-9]+\.png' | sort -u
-```
-
-Download and view each PNG with the Read tool:
-```bash
-curl -s -o /tmp/pw-screenshot-N.png "https://d38p2avprg8il3.cloudfront.net/<REPORT_DIR>/data/<HASH>.png"
-```
-
-There are typically only 5-15 PNGs per job (one per failed/flaky test attempt). Download all and view them.
-
-### B4: Download Traces from S3
-
-Find trace zips by checking sizes of data/ zips (traces are typically >1MB while logs are <500KB):
-
-```bash
-# Get all data zip hashes from upload log
-ZIPS=$(gh api repos/posit-dev/positron-builds/actions/jobs/<JOB_ID>/logs 2>&1 | grep -oE 'data/[a-f0-9]+\.zip' | sort -u)
-
-# Check sizes to find traces (>1MB)
-for hash in $(echo "$ZIPS" | sed 's|data/||' | head -30); do
-  size=$(curl -sI "https://d38p2avprg8il3.cloudfront.net/<REPORT_DIR>/data/${hash}" | grep -i content-length | awk '{print $2}' | tr -d '\r')
-  [ "$size" -gt 1000000 ] 2>/dev/null && echo "$size $hash"
-done | sort -rn
-```
-
-Download and verify trace zips:
-```bash
-curl -s -o /tmp/pw-trace.zip "https://d38p2avprg8il3.cloudfront.net/<REPORT_DIR>/data/<HASH>.zip"
-unzip -l /tmp/pw-trace.zip | head -5  # Should show trace.trace + resources/*.jpeg
-```
-
-Then extract and parse the trace using the same script as Path A:
-```bash
-mkdir -p /tmp/trace-contents && unzip -o /tmp/pw-trace.zip trace.trace -d /tmp/trace-contents
-node "$SKILL_DIR/scripts/e2e-parse-trace.js" /tmp/trace-contents/trace.trace
-```
-
-Extract the last screenshot from the trace zip using the sha1 from the script output:
-```bash
-unzip -o /tmp/pw-trace.zip "resources/<LAST_SCREENSHOT>.jpeg" -d /tmp/trace-contents
-```
-
-### B5: Download Logs from S3
-
-Logs zips are typically 300-500KB and contain `e2e-test-runner.log`, `main.log`, `window1/` directory, etc:
-
-```bash
-curl -s -o /tmp/pw-logs.zip "https://d38p2avprg8il3.cloudfront.net/<REPORT_DIR>/data/<HASH>.zip"
-unzip -l /tmp/pw-logs.zip | head -5  # Should show e2e-test-runner.log, main.log, etc.
-```
+**IMPORTANT: View screenshots** the same way as Path A -- Read all `screenshotPaths` arrays in a single message with multiple parallel Read tool calls, and view `errorContextPath` files when the screenshot and trace timeline aren't enough.
 
 ---
 
@@ -315,13 +254,8 @@ Offer to:
 
 ## Cleanup
 
-**Path A**: If you used `--cleanup` with `e2e-process-project.js`, the download/merge artifacts are already removed. Only the `--output-dir` remains (screenshots and error-context). Remove it with exact paths (no globs):
+**Path A and Path B**: If you used `--cleanup` with `e2e-process-project.js` / `e2e-process-s3.js`, the intermediate download/unzip dirs are already removed. Only the `--output-dir` remains (screenshots and error-context). Remove it with exact paths (no globs):
 
 ```bash
-rm -rf /tmp/e2e-analysis-<PROJECT>
-```
-
-**Path B**: Remove artifacts with exact paths:
-```bash
-rm -rf /tmp/pw-screenshots /tmp/pw-traces /tmp/pw-logs
+rm -rf /tmp/e2e-analysis-<PROJECT_OR_JOB_LABEL>
 ```
