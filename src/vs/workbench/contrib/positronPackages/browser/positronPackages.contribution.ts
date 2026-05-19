@@ -31,7 +31,10 @@ import { PositronPackagesView } from './positronPackagesView.js';
 
 export const POSITRON_PACKAGES_VIEW_CONTAINER_ID = 'workbench.viewContainer.positronPackages';
 
-const POSITRON_PACKAGES_ENABLED = ContextKeyExpr.equals('config.positron.packages.enable', true);
+const POSITRON_PACKAGES_ENABLED = ContextKeyExpr.and(
+	ContextKeyExpr.equals('config.packages.enabled', true),
+	ContextKeyExpr.equals('config.positron.packages.enable', true),
+)!;
 
 const viewContainer = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry).registerViewContainer({
 	id: POSITRON_PACKAGES_VIEW_CONTAINER_ID,
@@ -75,11 +78,20 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 	type: 'object',
 	title: nls.localize('packagesConfigurationTitle', 'Packages'),
 	properties: {
+		'packages.enabled': {
+			type: 'boolean',
+			default: true,
+			scope: ConfigurationScope.APPLICATION,
+			description: nls.localize('positron.packages.enabled', 'Show the Packages pane.'),
+			tags: ['preview'],
+		},
 		'positron.packages.enable': {
 			type: 'boolean',
 			default: true,
 			scope: ConfigurationScope.APPLICATION,
 			description: nls.localize('positron.packages.enable', 'Show the Packages pane.'),
+			deprecationMessage: nls.localize('positron.packages.enable.deprecated', "Deprecated. Use 'packages.enabled' instead."),
+			included: false,
 			tags: ['preview'],
 		}
 	}
