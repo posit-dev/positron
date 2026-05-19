@@ -120,10 +120,11 @@ jobs:
              ($new.bootstrapExtensions | map({(.name): .version}) | add) as $nv |
              [$nv | to_entries[] | select(.value != $ov[.key]) | .key] | join(" ")')
           EXT_BULLETS=$(echo "$UPDATED" | tr ' ' '\n' | sed 's/^/- /')
+          TITLE="chore: update bootstrap extensions ($(echo "$UPDATED" | tr ' ' ','))"
           PR_URL=$(gh pr create \
             --base main \
             --head "$BRANCH" \
-            --title "chore: update bootstrap extensions" \
+            --title "$TITLE" \
             --body "### Summary
           Update bootstrap extensions detected as out-of-date by the nightly check.
 
