@@ -31,12 +31,19 @@ jobs:
       max_failures: 10  # 20 max failures / 2 shards = 10
     secrets: inherit
 
-  e2e-windows:
-    name: e2e
-    uses: ./.github/workflows/test-e2e-windows-run.yml
+  setup-windows:
+    name: setup-windows
+    uses: ./.github/workflows/test-e2e-windows-build.yml
     secrets: inherit
     with:
       save_cache: true
+
+  e2e-windows:
+    name: e2e
+    needs: [setup-windows]
+    uses: ./.github/workflows/test-e2e-windows-run.yml
+    secrets: inherit
+    with:
       grep: ""
       project: "e2e-windows"
       display_name: "electron-win"
@@ -107,7 +114,7 @@ jobs:
           filter_jobs: "(e2e / ([^0-9]*)|unit|ext-host)$"
 
   slack-notify-win-extensions:
-    if: ${{ needs.e2e-windows-electron.outputs.extensions_failed == 'true' }}
+    if: ${{ needs.e2e-windows.outputs.extensions_failed == 'true' }}
     needs:
       - e2e-windows
     runs-on: ubuntu-latest

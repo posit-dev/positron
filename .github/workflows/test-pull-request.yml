@@ -57,13 +57,21 @@ jobs:
       allow_soft_fail: false
     secrets: inherit
 
-  e2e-windows-electron:
+  setup-windows-electron:
     needs: pr-tags
+    if: ${{ needs.pr-tags.outputs.win_tag_found == 'true' }}
+    name: setup-windows
+    uses: ./.github/workflows/test-e2e-windows-build.yml
+    with:
+      save_cache: true
+    secrets: inherit
+
+  e2e-windows-electron:
+    needs: [pr-tags, setup-windows-electron]
     if: ${{ needs.pr-tags.outputs.win_tag_found == 'true' }}
     name: e2e
     uses: ./.github/workflows/test-e2e-windows-run.yml
     with:
-      save_cache: true
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "electron-win"
       upload_logs: false
