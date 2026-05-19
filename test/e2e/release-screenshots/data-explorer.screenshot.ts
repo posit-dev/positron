@@ -308,14 +308,14 @@ test.describe('Release Screenshots - Data Explorer', () => {
 		await dataExplorer.grid.clickUpperLeftCorner();
 		await dataExplorer.grid.jumpToStart();
 
-		// Move cursor to row 1 so it carries the blue cell highlight into the screenshot.
-		await page.keyboard.press('ArrowDown');
+		// Left-click row header 1 to produce the blue row selection highlight.
+		await dataExplorer.grid.clickRowHeader(1);
 
 		// Dismiss UI noise before opening the menu
 		await hideToasts(app);
 		await hideNotificationBadges(page);
 
-		// Right-click on row header index 1 (the second row, shown as "1" in the UI)
+		// Right-click on row header index 1 to open the context menu.
 		const menuPopup = await dataExplorer.grid.openRowContextMenu(1);
 
 		// Capture screenshot region
