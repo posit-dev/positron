@@ -157,8 +157,8 @@ jobs:
                }')"
 
   slack-notify:
-    if: failure()
-    needs: [extensions-linux]
+    if: always() && needs.extensions-linux.result == 'failure' && needs.auto-update.result != 'success'
+    needs: [extensions-linux, auto-update]
     runs-on: ubuntu-latest
     steps:
       - name: Notify Slack
