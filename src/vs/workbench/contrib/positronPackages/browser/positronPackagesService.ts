@@ -176,6 +176,8 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 
 	readonly onDidChangeActivePackagesInstance = this._onDidChangeActivePackagesInstance.event;
 
+	readonly onDidChangeItemSize = this._onDidChangeItemSize.event;
+
 	readonly onDidStopPackagesInstance = this._onDidStopPositronPackagesInstanceEmitter.event;
 
 	get activeSession(): ILanguageRuntimeSession | undefined {
@@ -206,8 +208,6 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		this._storageService.store(ITEM_SIZE_STORAGE_KEY, itemSize, StorageScope.PROFILE, StorageTarget.USER);
 		this._onDidChangeItemSize.fire(itemSize);
 	}
-
-	readonly onDidChangeItemSize = this._onDidChangeItemSize.event;
 
 	async refreshPackages(token?: CancellationToken): Promise<ILanguageRuntimePackage[]> {
 		const instance = this._activeInstance;
