@@ -392,35 +392,16 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 	 * Try to determine the preferred kernel for a notebook.
 	 */
 	private getPreferredKernel(notebook: NotebookTextModel): RuntimeNotebookKernel | undefined {
-		// Get the notebook's language if possible, otherwise fallback to the foureground session lanaguage.
-		const languageId = getNotebookLanguage(notebook) ?? this._runtimeSessionService.foregroundSession?.runtimeMetadata.languageId;
+		const languageId = getNotebookLanguage(notebook);
 		if (!languageId) {
 			this._logService.debug(`Could not determine notebook ${notebook.uri.fsPath} language`);
 			return;
 		}
-
-		// Get the preferred runtime for the notebook's language.
-		let runtime: ILanguageRuntimeMetadata | undefined;
-		try {
-			runtime = this._runtimeStartupService.getPreferredRuntime(languageId);
-			this._logService.debug(`No preferred runtime for language ${languageId}`);
-		} catch (err) {
-			// It may error if there are no registered runtimes for the language, so log and return.
-			this._logService.debug(`Failed to get preferred runtime for language ${languageId}. Reason: ${err.toString()}`);
-			return;
+		const kernel = this.kernelForLanguage(languageId);
+		if (!kernel) {
+			this._logService.warn(`No kernel for preferred runtime for language ${languageId} for notebook ${notebook.uri}`);
 		}
-
-		// Get the preferred runtime's matching kernel.
-		if (runtime) {
-			const kernel = this._kernelsByRuntimeId.get(runtime.runtimeId);
-			if (kernel) {
-				return kernel;
-			} else {
-				this._logService.warn(`No kernel for preferred runtime ${runtime.runtimeId} for notebook ${notebook.uri}`);
-			}
-		}
-
-		return;
+		return kernel;
 	}
 
 	/**
@@ -479,6 +460,26 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 	}
 
 	private async attachNotebookInstance(instance: IPositronNotebookInstance): Promise<void> {
+		// PositronNotebookEditorInput constructs the instance synchronously and
+		// fires onDidAddNotebookInstance before setInput resolves the notebook
+		// text model. Wait until the model is attached to the instance before
+		// applying the foreground-session fallback.
+		const notebook = await this.awaitInstanceModel(instance);
+
+		// If no kernel was resolved when the notebook was added (for example, an empty
+		// .ipynb with no language metadata and no cells), fall back to the foreground
+		// session's language. Doing this after the instance is constructed ensures
+		// the instance's onWillStartSession subscription is in place before the
+		// session start events fire.
+		if (notebook && !this.getSelectedKernel(notebook)) {
+			const fallback = this.kernelForLanguage(
+				this._runtimeSessionService.foregroundSession?.runtimeMetadata.languageId,
+			);
+			if (fallback) {
+				this._notebookKernelService.selectKernelForNotebook(fallback, notebook);
+			}
+		}
+
 		// Get the selected kernel
 		const kernel = instance.kernel.get();
 
@@ -557,6 +558,36 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 			}
 		}
 		return false;
+	}
+
+	private awaitInstanceModel(instance: IPositronNotebookInstance): Promise<NotebookTextModel | undefined> {
+		if (instance.textModel) {
+			return Promise.resolve(instance.textModel);
+		}
+		return new Promise<NotebookTextModel | undefined>(resolve => {
+			// Register the listener with the service so it's cleaned up if the
+			// service is disposed before the model is attached (which happens
+			// in tests that don't drive the full editor lifecycle).
+			const disposable = this._register(instance.onDidChangeModel(() => {
+				if (instance.textModel) {
+					resolve(instance.textModel);
+					disposable.dispose();
+				}
+			}));
+		});
+	}
+
+	private kernelForLanguage(languageId: string | undefined): RuntimeNotebookKernel | undefined {
+		if (!languageId) {
+			return undefined;
+		}
+		try {
+			const runtime = this._runtimeStartupService.getPreferredRuntime(languageId);
+			return runtime ? this._kernelsByRuntimeId.get(runtime.runtimeId) : undefined;
+		} catch (err) {
+			this._logService.debug(`No preferred runtime for language ${languageId}: ${err.toString()}`);
+			return undefined;
+		}
 	}
 
 	/**
