@@ -1235,9 +1235,6 @@ declare module 'positron' {
 
 		/** Optional short description or summary shown in the Packages pane card view. */
 		description?: string;
-
-		/** Optional author shown in the Packages pane card view. */
-		author?: string;
 	}
 
 	/**
