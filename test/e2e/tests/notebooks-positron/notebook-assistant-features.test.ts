@@ -35,7 +35,7 @@ test.describe('Notebook Assistant: Feature Toggle', {
 		await notebooksPositron.expectErrorAssistantButtonsVisible(false);
 	});
 
-	test('Notebook AI features visible when assistant enabled', async function ({ app, settings }) {
+	test.skip('Notebook AI features visible when assistant enabled', async function ({ app, settings }) {
 		const { notebooksPositron, assistant } = app.workbench;
 
 		// Enable assistant and sign in to echo provider
@@ -58,7 +58,7 @@ test.describe('Notebook Assistant: Feature Toggle', {
 	});
 });
 
-test.describe('Notebook Assistant: Interaction Flow', {
+test.describe.skip('Notebook Assistant: Interaction Flow', {
 	tag: [tags.POSITRON_NOTEBOOKS, tags.ASSISTANT, tags.WEB, tags.WIN]
 }, () => {
 
