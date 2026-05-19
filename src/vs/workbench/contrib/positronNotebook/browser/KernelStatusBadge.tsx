@@ -12,36 +12,24 @@ import React from 'react';
 // Other dependencies.
 import { useNotebookInstance } from './NotebookInstanceProvider.js';
 import { useObservedValue } from './useObservedValue.js';
-import { KernelStatus } from './IPositronNotebookInstance.js';
+import { NotebookKernelStatus } from './IPositronNotebookInstance.js';
+import { useSessionRuntimeState } from '../../positronConsole/browser/components/useSessionRuntimeState.js';
 import { RuntimeStatusIcon } from '../../positronConsole/browser/components/runtimeStatus.js';
-import { RuntimeStatus } from '../../positronConsole/common/sessionDisplayUtils.js';
+import { runtimeStateToRuntimeStatus, RuntimeStatus } from '../../positronConsole/common/sessionDisplayUtils.js';
 import { localize } from '../../../../nls.js';
 import { MenuId, MenuItemAction, SubmenuItemAction } from '../../../../platform/actions/common/actions.js';
 import { ActionBarMenuButton } from '../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { useMenu } from './useMenu.js';
 import { IPositronNotebookActionBarContext } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernelActions.js';
-import { derived, observableFromEvent } from '../../../../base/common/observable.js';
+import { observableFromEvent } from '../../../../base/common/observable.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 import { ILanguageRuntimeService, RuntimeStartupPhase } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 
-const kernelStatusToRuntimeStatus: Record<KernelStatus, RuntimeStatus> = {
-	// Disconnected
-	[KernelStatus.Unselected]: RuntimeStatus.Disconnected,
-	[KernelStatus.Exited]: RuntimeStatus.Disconnected,
-	// Idle
-	[KernelStatus.Idle]: RuntimeStatus.Idle,
-	// Active
-	[KernelStatus.Discovering]: RuntimeStatus.Active,
-	[KernelStatus.Starting]: RuntimeStatus.Active,
-	[KernelStatus.Restarting]: RuntimeStatus.Active,
-	[KernelStatus.Switching]: RuntimeStatus.Active,
-	[KernelStatus.Exiting]: RuntimeStatus.Active,
-	[KernelStatus.Busy]: RuntimeStatus.Active,
-};
-
-const kernelStatusToLabel: Partial<Record<KernelStatus, string>> = {
-	[KernelStatus.Discovering]: localize('positronNotebook.kernelStatusBadge.discovering', 'Discovering Interpreters...'),
-	[KernelStatus.Unselected]: localize('positronNotebook.kernelStatusBadge.unselected', 'No Kernel Selected'),
+const kernelStatusToLabel: Partial<Record<NotebookKernelStatus, string>> = {
+	[NotebookKernelStatus.Discovering]: localize('positronNotebook.kernelStatusBadge.discovering', 'Discovering Interpreters...'),
+	[NotebookKernelStatus.Unselected]: localize('positronNotebook.kernelStatusBadge.unselected', 'No Kernel Selected'),
+	[NotebookKernelStatus.Switching]: localize('positronNotebook.kernelStatusBadge.switching', 'Switching Kernels...'),
+	[NotebookKernelStatus.Exited]: localize('positronNotebook.kernelStatusBadge.exited', 'Kernel Exited'),
 };
 
 const runtimeStartupPhaseToLabel: Partial<Record<RuntimeStartupPhase, string>> = {
@@ -51,37 +39,47 @@ const runtimeStartupPhaseToLabel: Partial<Record<RuntimeStartupPhase, string>> =
 const tooltip = localize('positronNotebook.kernelStatusBadge.tooltip', 'Kernel Actions');
 
 export function KernelStatusBadge() {
-	// Context
 	const notebookInstance = useNotebookInstance();
 	const services = usePositronReactServicesContext();
 	const languageRuntimeService = services.get(ILanguageRuntimeService);
 
-	// State
-	const runtimeStatus = useObservedValue(notebookInstance.kernelStatus.map((kernelStatus) =>
-		kernelStatusToRuntimeStatus[kernelStatus]));
-	const startupPhaseObs = observableFromEvent(
+	const session = useObservedValue(notebookInstance.runtimeSession);
+	const runtimeState = useSessionRuntimeState(session);
+	const kernelStatus = useObservedValue(notebookInstance.kernelStatus);
+	const kernel = useObservedValue(notebookInstance.kernel);
+	const startupPhase = useObservedValue(observableFromEvent(
 		languageRuntimeService.onDidChangeRuntimeStartupPhase,
 		() => languageRuntimeService.startupPhase,
-	);
-	const label = useObservedValue(derived(reader => {
-		const kernel = notebookInstance.kernel.read(reader);
-		const kernelStatus = notebookInstance.kernelStatus.read(reader);
-		const startupPhase = startupPhaseObs.read(reader);
-		// Prefer the kernel's runtime name, if available
-		if (kernel) {
-			return kernel.runtime.runtimeName;
-		}
-		// Display known runtime startup phases
-		if (runtimeStartupPhaseToLabel[startupPhase]) {
-			return runtimeStartupPhaseToLabel[startupPhase];
-		}
-		// Display known kernel statuses
-		if (kernelStatusToLabel[kernelStatus]) {
-			return kernelStatusToLabel[kernelStatus];
-		}
-		// This shouldn't happen...
-		return '';
-	}));
+	));
+
+	let runtimeStatus: RuntimeStatus;
+	if (kernelStatus === NotebookKernelStatus.Switching) {
+		// Switching is user intent to transition; show Active immediately
+		// regardless of the now-stale old session's runtime state.
+		runtimeStatus = RuntimeStatus.Active;
+	} else if (runtimeState !== undefined) {
+		runtimeStatus = runtimeStateToRuntimeStatus[runtimeState];
+	} else if (kernelStatus === NotebookKernelStatus.Exited) {
+		runtimeStatus = RuntimeStatus.Disconnected;
+	} else if (kernel) {
+		runtimeStatus = RuntimeStatus.Active;
+	} else if (kernelStatus === NotebookKernelStatus.Discovering) {
+		runtimeStatus = RuntimeStatus.Active;
+	} else {
+		runtimeStatus = RuntimeStatus.Disconnected;
+	}
+
+	let label: string;
+	if (kernel) {
+		label = kernel.runtime.runtimeName;
+	} else if (session) {
+		label = session.runtimeMetadata.runtimeName;
+	} else if (startupPhase && runtimeStartupPhaseToLabel[startupPhase]) {
+		label = runtimeStartupPhaseToLabel[startupPhase]!;
+	} else {
+		label = kernelStatusToLabel[kernelStatus] ?? '';
+	}
+
 	// scopedContextKeyService is only available after attachView() is called.
 	// When a notebook replaces a preview tab, the widget may render before
 	// attachView() completes. Use container (set last in attachView) as the

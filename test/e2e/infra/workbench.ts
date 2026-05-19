@@ -134,7 +134,7 @@ export class Workbench {
 		this.notebooksVscode = new VsCodeNotebooks(code, this.quickInput, this.quickaccess, this.hotKeys);
 		this.notebooksPositron = new PositronNotebooks(code, this.quickInput, this.quickaccess, this.hotKeys, this.contextMenu);
 		this.welcome = new Welcome(code);
-		this.terminal = new Terminal(code, this.quickaccess, this.clipboard);
+		this.terminal = new Terminal(code, this.quickaccess);
 		this.viewer = new Viewer(code);
 		this.editor = new Editor(code, this.toasts);
 		this.testExplorer = new TestExplorer(code);

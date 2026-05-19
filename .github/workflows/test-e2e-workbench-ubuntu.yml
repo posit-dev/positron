@@ -28,6 +28,11 @@ on:
         description: "Whether to allow tests marked with :soft-fail to fail without failing the job."
         type: boolean
         default: false
+      install_mode:
+        required: false
+        description: "Workbench install mode: 'ci' for latest daily, 'ci-stable' for the last stable release."
+        type: string
+        default: "ci"
 
 permissions:
   id-token: write
@@ -121,7 +126,7 @@ jobs:
       - name: Setup Workbench Docker Environment
         uses: ./.github/actions/setup-workbench-docker
         with:
-          install-mode: ci
+          install-mode: ${{ inputs.install_mode }}
           wb-password: ${{ secrets.WB_PASSWORD }}
           github-token: ${{ steps.access-token.outputs.token }}
           run-id: ${{ github.run_id }}

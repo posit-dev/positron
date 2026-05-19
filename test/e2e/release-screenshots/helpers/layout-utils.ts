@@ -3,34 +3,18 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Page } from '@playwright/test';
+import { expect, Page } from '@playwright/test';
 import { Application } from '../../infra';
 
-/**
- * Set the renderer viewport for screenshots, decoupled from the OS window.
- *
- * GitHub Actions macOS runners have a virtual display capped around 900px
- * tall, so calling BrowserWindow.setSize(1920, 1294) gets clamped — the
- * captured page area ends up ~684px tall (way wider than the originals on
- * positron.posit.co, which are typically 1920x1080 or 2696x1782 retina).
- *
- * Workaround: use Chrome DevTools Protocol's setDeviceMetricsOverride to
- * force the renderer to lay out and screenshot at an arbitrary size and
- * deviceScaleFactor regardless of the OS window. We still resize the OS
- * window best-effort so any code that reads window size sees something
- * sensible.
- *
- * Reads POSITRON_SCREENSHOT_VIEWPORT="W,H" or "W,H,DPR". Default 1920x1080@1x.
- */
-export async function setScreenshotWindowSize(app: Application): Promise<void> {
-	const electronApp = app.code.electronApp;
-	const page = app.code.driver?.currentPage;
-	if (!electronApp || !page) {
-		return;
-	}
+interface ViewportDims {
+	width: number;
+	height: number;
+	deviceScaleFactor: number;
+}
 
-	let width = 1920;
-	let height = 1080;
+function resolveViewport(opts?: { width?: number; height?: number; deviceScaleFactor?: number }): ViewportDims {
+	let width = 1512;
+	let height = 945;
 	let deviceScaleFactor = 1;
 	const fromEnv = process.env.POSITRON_SCREENSHOT_VIEWPORT;
 	if (fromEnv && /^\d+,\d+(,\d+(\.\d+)?)?$/.test(fromEnv)) {
@@ -41,10 +25,46 @@ export async function setScreenshotWindowSize(app: Application): Promise<void> {
 			deviceScaleFactor = parts[2];
 		}
 	}
+	if (opts?.width !== undefined) {
+		width = opts.width;
+	}
+	if (opts?.height !== undefined) {
+		height = opts.height;
+	}
+	if (opts?.deviceScaleFactor !== undefined) {
+		deviceScaleFactor = opts.deviceScaleFactor;
+	}
+	return { width, height, deviceScaleFactor };
+}
 
-	// Best-effort OS window resize so the chrome (title bar etc.) layout looks
-	// right; if the runner's display can't accommodate, macOS clamps and the
-	// CDP override below picks up the slack.
+/**
+ * Set the screenshot viewport. Defaults to 1512x945; override via
+ * `POSITRON_SCREENSHOT_VIEWPORT="W,H"` or `"W,H,DPR"`, or per-test via
+ * the `width` / `height` opts (highest precedence).
+ *
+ * Resizes the OS window AND applies a CDP viewport override. Call this
+ * once per test (typically in beforeEach). If you need to re-establish
+ * the renderer's viewport after a window reopen (e.g. post-openFolder),
+ * use `reapplyCdpViewport` instead — calling setSize again on a freshly
+ * reopened window has been observed to destabilize worker teardown.
+ */
+export async function setScreenshotWindowSize(
+	app: Application,
+	opts?: { width?: number; height?: number; deviceScaleFactor?: number },
+): Promise<void> {
+	const electronApp = app.code.electronApp;
+	const page = app.code.driver?.currentPage;
+	if (!electronApp || !page) {
+		return;
+	}
+
+	const { width, height, deviceScaleFactor } = resolveViewport(opts);
+
+	// Best-effort OS window resize. setSize (rather than setContentSize)
+	// matches the historical config that produced clean 1680x1050 captures
+	// on the same runner. If the OS clamps below this, CDP's metrics
+	// override below renders the page at the requested size internally
+	// and page.screenshot captures the full virtual rendering.
 	const CHROME_HEIGHT_PX = 214;
 	await electronApp.evaluate(async ({ BrowserWindow }, size) => {
 		const win = BrowserWindow.getAllWindows()[0];
@@ -54,12 +74,31 @@ export async function setScreenshotWindowSize(app: Application): Promise<void> {
 		}
 	}, { width, height: height + CHROME_HEIGHT_PX });
 
-	// CDP viewport override — always succeeds, used by page.screenshot.
+	await applyCdpOverride(page, { width, height, deviceScaleFactor });
+}
+
+/**
+ * Re-apply just the CDP viewport override on the current page. Use this
+ * after operations that reopen the Electron window (e.g. `openFolder`)
+ * to restore the renderer-side viewport without calling `setSize` again.
+ */
+export async function reapplyCdpViewport(
+	app: Application,
+	opts?: { width?: number; height?: number; deviceScaleFactor?: number },
+): Promise<void> {
+	const page = app.code.driver?.currentPage;
+	if (!page) {
+		return;
+	}
+	await applyCdpOverride(page, resolveViewport(opts));
+}
+
+async function applyCdpOverride(page: Page, dims: ViewportDims): Promise<void> {
 	const session = await page.context().newCDPSession(page);
 	await session.send('Emulation.setDeviceMetricsOverride', {
-		width,
-		height,
-		deviceScaleFactor,
+		width: dims.width,
+		height: dims.height,
+		deviceScaleFactor: dims.deviceScaleFactor,
 		mobile: false,
 	});
 }
@@ -68,11 +107,6 @@ export async function setScreenshotWindowSize(app: Application): Promise<void> {
  * Hide any visible notification toasts. Toasts appear from many normal
  * interactions (interpreter started, file opened, etc.) and would otherwise
  * leak into screenshots.
- *
- * Uses the Toasts POM directly rather than the command palette: the
- * `notifications.hideToasts` command works, but routing it through
- * `quickaccess.runCommand` opens the command palette, which restores
- * focus to the primary sidebar on close.
  */
 export async function hideToasts(app: Application): Promise<void> {
 	await app.workbench.toasts.closeAll();
@@ -88,29 +122,135 @@ export async function unhoverAll(page: Page): Promise<void> {
 }
 
 /**
- * Wait for the workbench to be visually stable. A short fixed wait after
- * `requestAnimationFrame` covers most CSS transitions and async layout reflow.
+ * Hide the data-grid cursor border (the blue outline around the focused cell).
+ * Injected as a stylesheet so the rule persists across re-renders.
+ */
+export async function hideDataGridCursor(page: Page): Promise<void> {
+	await page.addStyleTag({
+		content: '.cursor-border { display: none !important; } .selection-overlay { display: none !important; }',
+	});
+	await page.waitForTimeout(50);
+}
+
+/**
+ * Hide the text-insertion caret in any focused input. The blinking cursor
+ * causes pixel differences between runs and is not meaningful in a screenshot.
+ */
+export async function hideCaret(page: Page): Promise<void> {
+	await page.evaluate(() => {
+		const ID = 'release-screenshot-hide-caret';
+		if (document.getElementById(ID)) {
+			return;
+		}
+		const style = document.createElement('style');
+		style.id = ID;
+		style.textContent = '* { caret-color: transparent !important; }';
+		document.head.appendChild(style);
+	});
+}
+
+/**
+ * Hide notification badges (the small red dots / counts) on activity-bar
+ * items, panel tabs (e.g. "Problems 2"), etc. These leak into release
+ * screenshots from things like "sign in to GitHub", Python lint warnings,
+ * or terminal output.
+ *
+ * Implemented by injecting a stylesheet so the rule sticks even if the
+ * workbench re-renders the badge after we hide it.
+ */
+export async function hideNotificationBadges(page: Page): Promise<void> {
+	await page.evaluate(() => {
+		const ID = 'release-screenshot-hide-badges';
+		if (document.getElementById(ID)) {
+			return;
+		}
+		const style = document.createElement('style');
+		style.id = ID;
+		style.textContent = `
+			.badge,
+			.monaco-count-badge { display: none !important; }
+		`;
+		document.head.appendChild(style);
+	});
+}
+
+/**
+ * Wait for the workbench to be visually stable. Waits for any in-flight
+ * Monaco progress bars (the thin blue strip pane re-renders show at the
+ * top of their content area) to clear, then a short fixed wait after
+ * `requestAnimationFrame` to cover CSS transitions and async layout reflow.
  *
  * If a specific test needs to wait for a specific locator/state, do that with
  * `expect(...).toBeVisible()` before calling this helper.
  */
 export async function waitForStableUI(page: Page, ms = 250): Promise<void> {
+	await expect(
+		page.locator('.positron-plots-container .monaco-progress-container.active')
+	).toHaveCount(0, { timeout: 15000 });
 	await page.evaluate(() => new Promise<void>(r => requestAnimationFrame(() => r())));
 	await page.waitForTimeout(ms);
+}
+
+/**
+ * Rewrite the parenthesized environment suffix Positron renders next to
+ * the Python interpreter name (e.g. "Python 3.10.15 (uv: positron)",
+ * "Python 3.10.15 (Pyenv)") with a generic "(Venv: .venv)". The labels
+ * otherwise surface CI/runner internals — uv project paths, the local
+ * Python manager — into docs screenshots.
+ *
+ * Scoped to the three workbench surfaces that render the runtime label:
+ *   - `.top-action-bar-session-manager-face` (top-right interpreter face)
+ *   - `.plot-session-name`                   (plots pane header)
+ *   - `.tab-header .session-name`            (console session tab)
+ *
+ * Call this AFTER `waitForStableUI` so any in-flight re-renders don't undo
+ * the rewrite before the screenshot fires.
+ */
+export async function overrideRuntimeLabel(page: Page): Promise<void> {
+	await page.evaluate(() => {
+		const SELECTORS = [
+			'.top-action-bar-session-manager-face',
+			'.plot-session-name',
+			'.tab-header .session-name',
+		];
+		const PATTERN = /(Python\s+[\d.]+)\s+\([^)]+\)/g;
+		const REPLACEMENT = '$1 (Venv: .venv)';
+		for (const sel of SELECTORS) {
+			for (const root of document.querySelectorAll(sel)) {
+				const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+				let node: Node | null;
+				while ((node = walker.nextNode())) {
+					const t = node as Text;
+					if (t.nodeValue && t.nodeValue.includes('Python ')) {
+						t.nodeValue = t.nodeValue.replace(PATTERN, REPLACEMENT);
+					}
+				}
+			}
+		}
+	});
 }
 
 /**
  * Standard pre-screenshot cleanup. Composes the smaller helpers in the order
  * that produces a clean, deterministic frame:
  *   1. Hide notification toasts (they cover real UI)
- *   2. Unhover (no spurious hover states)
- *   3. Wait for layout to settle
+ *   2. Hide activity-bar notification badges (e.g. "sign in to GitHub" red dot)
+ *   3. Hide text-insertion caret (blinking cursor causes pixel noise)
+ *   4. Unhover (no spurious hover states)
+ *   5. Wait for layout to settle (and any in-flight progress bars to clear)
+ *   6. Rewrite runtime labels (e.g. "(uv: positron)") to "(Venv: .venv)"
+ *
+ * The label rewrite goes last so React re-renders during the settle wait
+ * don't undo it before the screenshot fires.
  *
  * Call this immediately before `captureFullWindow` / `capturePanel`. Set up
  * world state with POMs first, then call this once, then capture.
  */
 export async function prepareForScreenshot(app: Application, page: Page): Promise<void> {
 	await hideToasts(app);
+	await hideNotificationBadges(page);
+	await hideCaret(page);
 	await unhoverAll(page);
 	await waitForStableUI(page);
+	await overrideRuntimeLabel(page);
 }

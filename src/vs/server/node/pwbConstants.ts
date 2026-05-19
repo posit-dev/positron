@@ -66,3 +66,20 @@ function resolveDeploymentPrefix(): string {
 
 export const WORKBENCH_DEPLOYMENT_PREFIX = resolveDeploymentPrefix();
 // --- End PWB ---
+
+// --- Start PWB: Workbench 2026.05+ ships the nginx route for /<product-label>-static/...; ---
+// older Workbenches must use session-scoped URLs.
+function hasStaticRoute(): boolean {
+	const v = process.env['RSTUDIO_VERSION'];
+	if (!v) {
+		return false;
+	}
+	const [year, month] = v.split(/[-+]/)[0].split('.').map(Number);
+	if (!Number.isFinite(year) || !Number.isFinite(month)) {
+		return false;
+	}
+	return year > 2026 || (year === 2026 && month >= 5);
+}
+
+export const HAS_STATIC_ROUTE = hasStaticRoute();
+// --- End PWB ---

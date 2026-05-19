@@ -9,7 +9,6 @@ import * as positron from 'positron';
 import * as sinon from 'sinon';
 import { PROVIDER_ENABLE_SETTINGS_SEARCH } from '../constants.js';
 import {
-	registerSupportedProviders,
 	validateProvidersEnabled
 } from '../providerConfiguration.js';
 import { stubGetModelProviders } from './utils.js';
@@ -41,9 +40,6 @@ suite('Provider Configuration Tests', () => {
 
 		// Mock getModelProviders to return test providers
 		stubGetModelProviders();
-
-		// Register providers before running tests
-		registerSupportedProviders();
 	});
 
 	teardown(() => {

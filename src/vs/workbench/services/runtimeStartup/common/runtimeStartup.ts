@@ -2089,10 +2089,16 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			this._logService.debug(`${marker}: Restoring session for ` +
 				`${session.sessionName}`);
 
-			// We want to activate the first console session we see, but no
-			// following sessions
-			const activate = firstConsole;
-			if (!session.metadata.notebookUri) {
+			// Activate (i.e. make foreground) the first console session
+			// we reconnect to. Notebook sessions are never activated as
+			// part of reconnection; the foreground session for a notebook
+			// is set by the editor focus path when the user activates
+			// the corresponding editor (so reconnected sessions for
+			// background tabs do not steal foreground from the active
+			// editor).
+			const isConsoleSession = !session.metadata.notebookUri;
+			const activate = firstConsole && isConsoleSession;
+			if (isConsoleSession) {
 				firstConsole = false;
 			}
 

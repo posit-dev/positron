@@ -43,14 +43,6 @@ export class EchoModelProvider extends ModelProvider {
 	capabilities = DEFAULT_MODEL_CAPABILITIES;
 
 	/**
-	 * Sends a test message to verify connectivity.
-	 * For the echo provider, this always succeeds.
-	 */
-	protected async sendTestMessage(modelId: string): Promise<any> {
-		return Promise.resolve({ text: 'echo' });
-	}
-
-	/**
 	 * Provides a chat response by echoing back the user's input.
 	 * Special commands:
 	 * - 'Send Python Code' - Returns Python code snippet

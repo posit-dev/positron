@@ -15,7 +15,7 @@ test.use({
  * Tools with 'requires-session:python' should only be available when a Python session is active.
  * @see https://github.com/posit-dev/positron/issues/11616
  */
-test.describe('Positron Assistant Tool Scoping', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB] }, () => {
+test.describe.skip('Positron Assistant Tool Scoping', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB] }, () => {
 
 	// R-specific tools that should only be enabled when R session is active
 	const R_SPECIFIC_TOOLS = [

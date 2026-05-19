@@ -717,8 +717,62 @@ const renameLanguageRuntimeSession = async (
 };
 
 /**
- * Registers language runtime actions.
+ * Action that allows the user to create a new console session based off the current active console session.
+ * This utilizes the runtime data from the current session to create a new session.
  */
+export class DuplicateActiveConsoleSessionAction extends Action2 {
+	constructor() {
+		super({
+			icon: Codicon.plus,
+			id: LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_CONSOLE_SESSION_ID,
+			title: localize2('positron.languageRuntime.duplicateActiveConsoleSession.title', 'Duplicate Active Console Session'),
+			category,
+			f1: true,
+			menu: [{
+				group: 'navigation',
+				id: MenuId.ViewTitle,
+				order: 1,
+				when: ContextKeyExpr.and(
+					ContextKeyExpr.equals('view', POSITRON_CONSOLE_VIEW_ID),
+					PositronConsoleInstancesExistContext
+				),
+			}],
+		});
+	}
+
+	async run(accessor: ServicesAccessor) {
+		// Access services
+		const commandService = accessor.get(ICommandService);
+		const runtimeSessionService = accessor.get(IRuntimeSessionService);
+		const notificationService = accessor.get(INotificationService);
+
+		// Get the current foreground session.
+		const currentSession = runtimeSessionService.foregroundSession;
+		if (!currentSession) {
+			return;
+		}
+
+		if (currentSession.metadata.sessionMode !== LanguageRuntimeSessionMode.Console) {
+			notificationService.error(localize('positron.languageRuntime.duplicate.notConsole', 'Cannot duplicate session. The current session is not a console session.'));
+			return;
+		}
+
+		// Drive focus into the Positron console.
+		commandService.executeCommand('workbench.panel.positronConsole.focus');
+
+		// Duplicate the current session with the `startNewRuntimeSession` method.
+		await runtimeSessionService.startNewRuntimeSession(
+			currentSession.runtimeMetadata.runtimeId,
+			currentSession.dynState.sessionName,
+			currentSession.metadata.sessionMode,
+			undefined,
+			`Duplicated session: ${currentSession.dynState.sessionName}`,
+			RuntimeStartMode.Starting,
+			true
+		);
+	}
+}
+
 export function registerLanguageRuntimeActions() {
 	/**
 	 * Helper function to register a language runtime action.
@@ -914,63 +968,6 @@ export function registerLanguageRuntimeActions() {
 				);
 			}
 			return undefined;
-		}
-	});
-
-	/**
-	 * Action that allows the user to create a new console session based off the current active console session.
-	 * This utilizes the runtime data from the current session to create a new session.
-	 */
-	registerAction2(class extends Action2 {
-		constructor() {
-			super({
-				icon: Codicon.plus,
-				id: LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_CONSOLE_SESSION_ID,
-				title: localize2('positron.languageRuntime.duplicateActiveConsoleSession.title', 'Duplicate Active Console Session'),
-				category,
-				f1: true,
-				menu: [{
-					group: 'navigation',
-					id: MenuId.ViewTitle,
-					order: 1,
-					when: ContextKeyExpr.and(
-						ContextKeyExpr.equals('view', POSITRON_CONSOLE_VIEW_ID),
-						PositronConsoleInstancesExistContext
-					),
-				}],
-			});
-		}
-
-		async run(accessor: ServicesAccessor) {
-			// Access services
-			const commandService = accessor.get(ICommandService);
-			const runtimeSessionService = accessor.get(IRuntimeSessionService);
-			const notificationService = accessor.get(INotificationService);
-
-			// Get the current foreground session.
-			const currentSession = runtimeSessionService.foregroundSession;
-			if (!currentSession) {
-				return;
-			}
-
-			if (currentSession.metadata.sessionMode !== LanguageRuntimeSessionMode.Console) {
-				notificationService.error(localize('positron.languageRuntime.duplicate.notConsole', 'Cannot duplicate session. The current session is not a console session.'));
-				return;
-			}
-
-			// Drive focus into the Positron console.
-			commandService.executeCommand('workbench.panel.positronConsole.focus');
-
-			// Duplicate the current session with the `startNewRuntimeSession` method.
-			await runtimeSessionService.startNewRuntimeSession(
-				currentSession.runtimeMetadata.runtimeId,
-				currentSession.dynState.sessionName,
-				currentSession.metadata.sessionMode,
-				undefined,
-				`Duplicated session: ${currentSession.dynState.sessionName}`,
-				RuntimeStartMode.Starting,
-				true
-			);
 		}
 	});
 
@@ -1704,6 +1701,8 @@ registerAction2(class extends Action2 {
 		notificationService.info(localize('positron.interpreter.archMismatchReset', 'Architecture mismatch warning has been reset. The warning will appear the next time you start an interpreter with a different architecture than your system.'));
 	}
 });
+
+registerAction2(DuplicateActiveConsoleSessionAction);
 
 CommandsRegistry.registerCommandAlias(
 	'workbench.action.language.runtime.startNewSession',
