@@ -167,7 +167,6 @@ jobs:
       - name: Post PR to Slack
         if: steps.push.outputs.existing_pr != '' || steps.create-pr.outputs.pr_url != ''
         env:
-          # Ensure SLACK_TOKEN_TEST_STATUS has access to #positron-qa, or swap for a token that does
           SLACK_TOKEN: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
           PR_URL: ${{ steps.create-pr.outputs.pr_url || steps.push.outputs.existing_pr }}
           UPDATED: ${{ steps.create-pr.outputs.updated }}
@@ -176,14 +175,14 @@ jobs:
             -H "Authorization: Bearer $SLACK_TOKEN" \
             -H "Content-Type: application/json" \
             -d "$(jq -n \
-              --arg channel "#positron-qa" \
+              --arg channel "#positron-dev" \
               --arg pr_url "$PR_URL" \
               --arg ext "$UPDATED" \
               '($pr_url | split("/") | last) as $pr_num |
-               (if $ext != "" then ($ext | split(" ") | map("• " + .) | join("\n")) else "" end) as $bullets |
+               (if $ext != "" then "\n\n" + ($ext | split(" ") | map("• " + .) | join("\n")) else "" end) as $bullets |
                {
                  channel: $channel,
-                 text: ("bootstrap extensions update | <" + $pr_url + "|PR #" + $pr_num + ">" + (if $bullets != "" then "\n\n" + $bullets else "" end))
+                 text: ("📦 *Bootstrap Extensions Updated*\nposit-dev/positron · <" + $pr_url + "|PR #" + $pr_num + ">" + $bullets)
                }')"
 
   slack-notify:
