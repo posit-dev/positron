@@ -51,6 +51,10 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 			kernelGroup: 'Python',
 			status: 'active'
 		});
+		await notebooksPositron.kernel.expectKernelToBe({
+			kernelGroup: 'Python',
+			status: 'idle'
+		});
 
 		// shut down kernel and ensure restart toolbar button stays enabled, shutdown menu item is disabled
 		await notebooksPositron.kernel.shutdown();
