@@ -63,7 +63,7 @@ jobs:
 
   auto-update:
     name: 'auto-update-extensions'
-    if: always() && needs.extensions-linux.result == 'failure'
+    if: always() && needs.extensions-linux.result != 'cancelled'
     needs: [extensions-linux]
     runs-on: ubuntu-latest
     permissions:
