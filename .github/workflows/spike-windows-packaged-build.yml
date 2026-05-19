@@ -1,0 +1,73 @@
+name: "Spike: Windows Packaged Build"
+# One-shot workflow to verify graceful-fs fix resolves EMFILE errors in gulp vscode-win32-x64.
+# Delete this file before merging.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: gulp vscode-win32-x64
+    runs-on: windows-latest-8x
+    timeout-minutes: 90
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      POSITRON_BUILD_NUMBER: 0
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+
+      - name: 📦 Restore caches
+        id: restore-caches
+        uses: ./.github/actions/restore-build-caches
+
+      - name: Install node dependencies
+        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true'
+        uses: nick-fields/retry@v4
+        env:
+          npm_config_arch: x64
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
+          POSITRON_PARALLEL_INSTALL: '0'
+          NPM_CONFIG_AUDIT: 'false'
+          NPM_CONFIG_FUND: 'false'
+          NPM_CONFIG_UPDATE_NOTIFIER: 'false'
+          POSITRON_EXTENSIONS_FILTER: ${{ (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true' && 'stable') || (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' && 'volatile') || '' }}
+        with:
+          timeout_minutes: 90
+          max_attempts: 3
+          retry_wait_seconds: 5
+          shell: bash
+          command: |
+            set -e
+            npm --prefix build ci --no-audit --no-fund --fetch-timeout 120000
+            npm ci --no-audit --no-fund --fetch-timeout 120000
+
+      - name: Download binaries (Ark, Kallichore)
+        uses: nick-fields/retry@v4
+        env:
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
+        with:
+          timeout_minutes: 20
+          max_attempts: 3
+          retry_wait_seconds: 10
+          shell: bash
+          command: |
+            set -e
+            cd extensions/positron-r && npm rebuild --foreground-scripts
+            cd ../positron-supervisor && npm rebuild --foreground-scripts
+
+      - name: 📦 gulp vscode-win32-x64
+        shell: bash
+        run: npm run gulp vscode-win32-x64
