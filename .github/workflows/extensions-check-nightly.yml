@@ -61,9 +61,134 @@ jobs:
           echo "Running: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project e2e-electron --reporter=null"
           npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project e2e-electron --reporter=null
 
-  slack-notify:
-    if: failure()
+  auto-update:
+    name: 'auto-update-extensions'
+    if: always() && needs.extensions-linux.result != 'cancelled'
     needs: [extensions-linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      pr_url: ${{ steps.create-pr.outputs.pr_url || steps.push.outputs.existing_pr }}
+    steps:
+      - name: Generate POSITRON_BOT token
+        id: bot-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          token: ${{ steps.bot-token.outputs.token }}
+
+      - name: Configure git identity
+        run: |
+          git config user.name "positron-bot[bot]"
+          git config user.email "positron-bot[bot]@users.noreply.github.com"
+
+      - name: Update extensions
+        env:
+          TEST_RESULT: ${{ needs.extensions-linux.result }}
+        run: |
+          if [ "$TEST_RESULT" = "failure" ]; then
+            ./scripts/update-extensions.sh --all
+          else
+            ./scripts/update-extensions.sh meta.pyrefly
+          fi
+
+      - name: Commit and push
+        id: push
+        env:
+          GH_TOKEN: ${{ steps.bot-token.outputs.token }}
+        run: |
+          # Skip if an open auto-update PR already exists to avoid duplicates
+          EXISTING=$(gh pr list --base main --state open \
+            --json headRefName,url \
+            --jq '.[] | select(.headRefName | startswith("automated/update-extensions")) | .url' \
+            | head -1 || true)
+          if [ -n "$EXISTING" ]; then
+            echo "Open auto-update PR already exists: $EXISTING — skipping"
+            echo "existing_pr=$EXISTING" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          BRANCH="automated/update-extensions-$(date +%Y%m%d-%H%M%S)"
+          git checkout -b "$BRANCH"
+          git add product.json
+          if git diff --staged --quiet; then
+            echo "No changes to product.json — skipping PR"
+            exit 0
+          fi
+          git commit -m "chore: update bootstrap extensions"
+          git push origin "$BRANCH"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Create pull request
+        id: create-pr
+        if: steps.push.outputs.branch != ''
+        env:
+          GH_TOKEN: ${{ steps.bot-token.outputs.token }}
+          BRANCH: ${{ steps.push.outputs.branch }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          UPDATED=$(jq -rn \
+            --argjson old "$(git show HEAD~1:product.json)" \
+            --argjson new "$(cat product.json)" \
+            '($old.bootstrapExtensions | map({(.name): .version}) | add) as $ov |
+             ($new.bootstrapExtensions | map({(.name): .version}) | add) as $nv |
+             [$nv | to_entries[] | select(.value != $ov[.key]) | .key] | join(" ")')
+          EXT_BULLETS=$(echo "$UPDATED" | tr ' ' '\n' | sed 's/^/- /')
+          # Truncate title if more than 3 extensions to stay within GitHub's limit
+          EXT_ARRAY=($UPDATED)
+          COUNT=${#EXT_ARRAY[@]}
+          if [ "$COUNT" -le 3 ]; then
+            TITLE="chore: update bootstrap extensions ($(echo "$UPDATED" | tr ' ' ','))"
+          else
+            FIRST3="${EXT_ARRAY[0]},${EXT_ARRAY[1]},${EXT_ARRAY[2]}"
+            TITLE="chore: update bootstrap extensions ($FIRST3 +$((COUNT - 3)) more)"
+          fi
+          PR_URL=$(gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "$TITLE" \
+            --body "### Summary
+          Update bootstrap extensions detected as out-of-date by the nightly check.
+
+          ${EXT_BULLETS}
+
+          ### QA Notes
+          Triggered by [nightly extensions check](${RUN_URL}).")
+          echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
+          echo "updated=$UPDATED" >> "$GITHUB_OUTPUT"
+
+      - name: Post PR to Slack
+        if: steps.push.outputs.existing_pr != '' || steps.create-pr.outputs.pr_url != ''
+        env:
+          # Ensure SLACK_TOKEN_TEST_STATUS has access to #positron-qa, or swap for a token that does
+          SLACK_TOKEN: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
+          PR_URL: ${{ steps.create-pr.outputs.pr_url || steps.push.outputs.existing_pr }}
+          UPDATED: ${{ steps.create-pr.outputs.updated }}
+        run: |
+          curl -s -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n \
+              --arg channel "#positron-qa" \
+              --arg pr_url "$PR_URL" \
+              --arg ext "$UPDATED" \
+              '($pr_url | split("/") | last) as $pr_num |
+               (if $ext != "" then ($ext | split(" ") | map("• " + .) | join("\n")) else "" end) as $bullets |
+               {
+                 channel: $channel,
+                 text: ("bootstrap extensions update | <" + $pr_url + "|PR #" + $pr_num + ">" + (if $bullets != "" then "\n\n" + $bullets else "" end))
+               }')"
+
+  slack-notify:
+    if: always() && needs.extensions-linux.result == 'failure' && needs.auto-update.outputs.pr_url == ''
+    needs: [extensions-linux, auto-update]
     runs-on: ubuntu-latest
     steps:
       - name: Notify Slack
