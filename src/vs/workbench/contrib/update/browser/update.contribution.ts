@@ -30,8 +30,11 @@ import { IRuntimeSessionService } from '../../../services/runtimeSession/common/
 import { IsDevelopmentContext } from '../../../../platform/contextkey/common/contextkeys.js';
 // eslint-disable-next-line no-duplicate-imports
 import { storeLastUpdateVersion } from './update.js';
+// eslint-disable-next-line no-duplicate-imports
+import { isWeb } from '../../../../base/common/platform.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
+import { IPositronDocsService } from '../../../services/positronDocs/browser/positronDocsService.js';
 // --- End Positron ---
 
 const workbench = Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench);
@@ -70,6 +73,16 @@ export class ShowReleaseNotesAction extends Action2 {
 		const productService = accessor.get(IProductService);
 		// --- Start Positron ---
 		// const openerService = accessor.get(IOpenerService);
+		// In a web context (e.g. Posit Workbench), the local update service
+		// cannot serve release notes, so open the docs URL externally instead.
+		// IPositronDocsService honors POSITRON_DOCS_URL and otherwise falls
+		// back to the public Positron docs site.
+		if (isWeb) {
+			const openerService = accessor.get(IOpenerService);
+			const docsService = accessor.get(IPositronDocsService);
+			await openerService.open(URI.parse(docsService.getUrl('release-notes')));
+			return;
+		}
 
 		try {
 			await showReleaseNotesInEditor(instantiationService, productService.positronVersion, false);
