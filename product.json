@@ -674,7 +674,8 @@
 		"github": [
 			"GitHub.copilot-chat",
 			"positron.positron-assistant",
-			"posit.assistant"
+			"posit.assistant",
+			"positron.authentication"
 		],
 		"github-enterprise": [
 			"GitHub.copilot-chat"

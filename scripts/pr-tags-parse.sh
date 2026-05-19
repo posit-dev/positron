@@ -87,6 +87,10 @@ if echo "$PR_BODY" | grep -q "@:jupyter"; then
 	echo "Found jupyter tag in PR body. Setting to run jupyter tests."
 	echo "jupyter_tag_found=true" >> "$GITHUB_OUTPUT"
 fi
+if echo "$PR_BODY" | grep -q "@:remote-ssh"; then
+	echo "Found remote-ssh tag in PR body. Setting to run remote-ssh tests."
+	echo "remote_ssh_tag_found=true" >> "$GITHUB_OUTPUT"
+fi
 
 # Check if @:all is present in the PR body
 if echo "$PR_BODY" | grep -q "@:all"; then

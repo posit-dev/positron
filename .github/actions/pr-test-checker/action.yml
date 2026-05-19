@@ -1,0 +1,123 @@
+name: "PR Test Checker"
+description: "Grade a PR's test coverage using the Claude Agent SDK and post the verdict as a PR comment."
+inputs:
+  pr-number:
+    description: "PR number to analyze"
+    required: true
+  anthropic-api-key:
+    description: "Anthropic API key (resolved from 1Password by the caller)"
+    required: true
+  repo-root:
+    description: "Absolute path to the PR-head checkout the agent reads source from. The action itself runs from a trusted base-branch checkout; this input lets the workflow point the agent at a separate, untrusted checkout for source-reading only. Must be set for any flow that handles secrets."
+    required: true
+  model:
+    description: "Anthropic model identifier"
+    required: false
+    default: "claude-sonnet-4-6"
+  max-turns:
+    description: "Maximum agent turns (cost guard)"
+    required: false
+    default: "25"
+runs:
+  using: composite
+  steps:
+    - name: Set up Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: "20"
+
+    - name: Install action dependencies
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: npm ci --no-audit --no-fund
+
+    - name: Install Claude Code CLI
+      # Same workaround as e2e-failure-analyzer: the Agent SDK's resolver picks
+      # the musl variant over glibc on Linux runners. Installing globally and
+      # passing the resolved path via pathToClaudeCodeExecutable sidesteps it.
+      # See claude-agent-sdk-typescript#296.
+      shell: bash
+      run: |
+        npm install -g @anthropic-ai/claude-code
+        echo "CLAUDE_CODE_PATH=$(which claude)" >> "$GITHUB_ENV"
+        claude --version
+
+    - name: Prepare working directory
+      id: prep
+      shell: bash
+      run: |
+        WORK_DIR="${RUNNER_TEMP}/pr-test-checker"
+        rm -rf "$WORK_DIR"
+        mkdir -p "$WORK_DIR"
+        echo "work_dir=$WORK_DIR" >> "$GITHUB_OUTPUT"
+
+    - name: Gather PR context
+      # Runs the gather script from the action's own directory (i.e. the
+      # trusted base-branch checkout), not from the PR head. PR-head code
+      # must never execute with secrets in scope.
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+      run: |
+        node "${{ github.action_path }}/../../../.claude/skills/pr-test-checker/scripts/gather-pr-context.mjs" \
+          "${{ inputs.pr-number }}" \
+          "${{ steps.prep.outputs.work_dir }}/context.json"
+        echo "::group::context.json (summary)"
+        jq '{ pr: .pr.number, title: .pr.title, files: .stats.fileCount, test: .stats.testFileCount, source: .stats.sourceFileCount, skip: .skip }' "${{ steps.prep.outputs.work_dir }}/context.json"
+        echo "::endgroup::"
+
+    - name: Analyze with Claude Agent SDK
+      # analyze.mjs and SKILL.md both resolve relative to github.action_path
+      # so they are read from the trusted base-branch checkout. Only
+      # REPO_ROOT (where the agent's Read/Grep/Glob tools operate) points
+      # at the untrusted PR-head checkout.
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      env:
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+        WORK_DIR: ${{ steps.prep.outputs.work_dir }}
+        REPO_ROOT: ${{ inputs.repo-root }}
+        SKILL_PATH: ${{ github.action_path }}/../../../.claude/skills/pr-test-checker/SKILL.md
+        MODEL: ${{ inputs.model }}
+        MAX_TURNS: ${{ inputs.max-turns }}
+      run: node analyze.mjs
+
+    - name: Upsert PR comment
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        PR_NUMBER: ${{ inputs.pr-number }}
+        WORK_DIR: ${{ steps.prep.outputs.work_dir }}
+      run: |
+        COMMENT_FILE="$WORK_DIR/comment.md"
+        if [ ! -s "$COMMENT_FILE" ]; then
+          echo "::error::comment.md is missing or empty -- analyzer must have failed."
+          exit 1
+        fi
+
+        MARKER="<!-- pr-test-checker -->"
+        # Find an existing comment with our marker. Pull only what we need from
+        # the comments listing (id + body) to keep the response small.
+        EXISTING_ID=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" --paginate \
+          --jq "[.[] | select(.body | contains(\"$MARKER\"))][0].id // empty")
+
+        if [ -n "$EXISTING_ID" ]; then
+          echo "Updating existing comment $EXISTING_ID"
+          gh api "repos/${GITHUB_REPOSITORY}/issues/comments/${EXISTING_ID}" \
+            -X PATCH \
+            -F body=@"$COMMENT_FILE"
+        else
+          echo "Creating new comment"
+          gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" \
+            -F body=@"$COMMENT_FILE"
+        fi
+
+    - name: Upload analyzer artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: pr-test-checker-${{ inputs.pr-number }}
+        path: ${{ steps.prep.outputs.work_dir }}
+        retention-days: 14

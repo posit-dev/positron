@@ -152,6 +152,12 @@
           "group": "navigation",
           "when": "positron-assistant.generatingCommitMessage && config.positron.assistant.gitIntegration.enable"
         }
+      ],
+      "commandPalette": [
+        {
+          "command": "positron-assistant.configureProviders",
+          "when": "false"
+        }
       ]
     },
     "commands": [
