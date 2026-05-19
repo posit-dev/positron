@@ -158,14 +158,14 @@ test.describe('Release Screenshots - Data Explorer', () => {
 		const headersBox = await dataExplorer.grid.columnHeadersContainer.boundingBox();
 		const monthHeaderBox = await dataExplorer.grid.columnHeaderByIndex(1).boundingBox();
 		const dayHeaderBox = await dataExplorer.grid.columnHeaderByIndex(2).boundingBox();
-		if (!menuBox || !headersBox) {
+		if (!menuBox || !headersBox || !monthHeaderBox || !dayHeaderBox) {
 			throw new Error('Could not measure bounding boxes for column menu screenshot');
 		}
 		const PADDING = 2;
-		const startX = monthHeaderBox ? monthHeaderBox.x : Math.max(0, menuBox.x - 220);
+		const startX = monthHeaderBox.x;
 		const endX = Math.max(
 			menuBox.x + menuBox.width,
-			dayHeaderBox ? dayHeaderBox.x + dayHeaderBox.width : 0,
+			dayHeaderBox.x + dayHeaderBox.width,
 		) + PADDING;
 		await captureRegion(page, 'data-explorer-column-menu.png', {
 			x: startX,
@@ -205,20 +205,20 @@ test.describe('Release Screenshots - Data Explorer', () => {
 		const headersBox = await dataExplorer.grid.columnHeadersContainer.boundingBox();
 		const dayHeaderBox = await dataExplorer.grid.columnHeaderByIndex(2).boundingBox();
 		const row12Box = await dataExplorer.grid.dataRow(12).boundingBox();
-		if (!menuBox) {
-			throw new Error('Could not measure bounding box for cell menu screenshot');
+		if (!menuBox || !splitterBox || !headersBox || !dayHeaderBox || !row12Box) {
+			throw new Error('Could not measure bounding boxes for cell menu screenshot');
 		}
 		const PADDING = 2;
 		const LEFT_BLEED = 8;
-		const startX = splitterBox ? Math.max(0, splitterBox.x - LEFT_BLEED) : Math.max(0, menuBox.x - 100);
-		const startY = headersBox ? headersBox.y : Math.max(0, menuBox.y - 60);
+		const startX = Math.max(0, splitterBox.x - LEFT_BLEED);
+		const startY = headersBox.y;
 		const endX = Math.max(
 			menuBox.x + menuBox.width,
-			dayHeaderBox ? dayHeaderBox.x + dayHeaderBox.width : 0,
+			dayHeaderBox.x + dayHeaderBox.width,
 		) + PADDING;
 		const endY = Math.max(
 			menuBox.y + menuBox.height,
-			row12Box ? row12Box.y + row12Box.height : 0,
+			row12Box.y + row12Box.height,
 		) + PADDING;
 		await captureRegion(page, 'data-explorer-cell-menu.png', {
 			x: startX,
@@ -270,19 +270,17 @@ test.describe('Release Screenshots - Data Explorer', () => {
 		const cellBox = await timeHourCell.boundingBox();
 		const headersBox = await dataExplorer.grid.columnHeadersContainer.boundingBox();
 		const timeHourHeaderBox = await dataExplorer.grid.columnHeaderByIndex(18).boundingBox();
-		if (!tooltipBox || !cellBox) {
+		if (!tooltipBox || !cellBox || !headersBox || !timeHourHeaderBox) {
 			throw new Error('Could not measure bounding boxes for cell value tooltip screenshot');
 		}
 		const PADDING = 16;
 		const RIGHT_PADDING = 40;
 		const startX = Math.max(0, Math.min(tooltipBox.x, cellBox.x) - PADDING);
-		const startY = headersBox
-			? headersBox.y
-			: Math.max(0, Math.min(tooltipBox.y, cellBox.y) - PADDING);
+		const startY = headersBox.y;
 		const endX = Math.max(
 			tooltipBox.x + tooltipBox.width,
 			cellBox.x + cellBox.width,
-			timeHourHeaderBox ? timeHourHeaderBox.x + timeHourHeaderBox.width : 0,
+			timeHourHeaderBox.x + timeHourHeaderBox.width,
 		) + RIGHT_PADDING;
 		const endY = Math.max(tooltipBox.y + tooltipBox.height, cellBox.y + cellBox.height) + PADDING;
 		await captureRegion(page, 'data-explorer-cell-value-tooltip.png', {
