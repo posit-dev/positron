@@ -28,6 +28,23 @@ import { CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_REPLACE_INPUT_FOCUSED } from '../..
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { getWindow } from '../../../../../base/browser/dom.js';
 
+const OUTPUT_SECTION_CLASS = 'positron-notebook-cell-outputs';
+
+function isActiveElementInOutputSection(cellElement: HTMLElement): boolean {
+	const activeElement = getWindow(cellElement).document.activeElement;
+	if (!activeElement || !cellElement.contains(activeElement)) {
+		return false;
+	}
+	let el: Element | null = activeElement;
+	while (el && el !== cellElement) {
+		if (el.classList.contains(OUTPUT_SECTION_CLASS)) {
+			return true;
+		}
+		el = el.parentElement;
+	}
+	return false;
+}
+
 /**
  * Wraps children in a {@link CellProvider} when the cell is a code cell, so descendants
  * can resolve it via {@link useCell}. Markdown and raw cells render without the provider.
@@ -98,8 +115,8 @@ export function NotebookCellWrapper({ cell, children }: {
 			!wasEditingCodeCell &&
 			// 3. The find widget is focused (to keep focus in the find input)
 			!findWidgetFocused &&
-			// 4. Focus is already inside this cell (e.g. on the output section)
-			!cellElement.contains(getWindow(cellElement).document.activeElement)) {
+			// 4. Focus is on the output section (which is deliberately focusable for Cmd+C)
+			!isActiveElementInOutputSection(cellElement)) {
 			cellElement.focus();
 		}
 	}, [isActiveCell, selectionStatus, cellElement, cell, notebookInstance]);
