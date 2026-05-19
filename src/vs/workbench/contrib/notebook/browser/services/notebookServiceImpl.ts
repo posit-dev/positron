@@ -987,8 +987,8 @@ export class NotebookService extends Disposable implements INotebookService {
 				this._configurationService
 			)
 		});
-
 		// --- End Positron ---
+
 		const indentAmount = model.metadata.indentAmount;
 		if (typeof indentAmount === 'string' && indentAmount) {
 			// This is required for ipynb serializer to preserve the whitespace in the notebook.

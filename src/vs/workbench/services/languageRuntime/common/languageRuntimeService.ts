@@ -199,6 +199,8 @@ export interface ILanguageRuntimeMessageUpdateOutput extends ILanguageRuntimeMes
  * runtime execution.
  */
 export interface ILanguageRuntimeMessageResult extends ILanguageRuntimeMessageOutput {
+	/** The execution count. */
+	readonly execution_count: number;
 }
 
 /**
