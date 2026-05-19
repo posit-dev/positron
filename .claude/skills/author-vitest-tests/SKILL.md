@@ -117,13 +117,13 @@ Format the plan like this:
 >
 > **Stubs:** short list of services you intend to stub, with a one-line reason each
 >
-> **Test cases:** (annotate tests that will use `toMatchInlineSnapshot()` with `[snapshot]`)
+> **Test cases:** (annotate tests that will use `toMatchInlineSnapshot()` with `[snapshot]`; for each, add a one-line regression hypothesis — what breaks in the product if this test fails?)
 > - **<describe block 1>**
->   - <test name 1>
->   - <test name 2> `[snapshot]`
+>   - <test name 1> — *<regression hypothesis>*
+>   - <test name 2> `[snapshot]` — *<regression hypothesis>*
 > - **<describe block 2>**
->   - <test name 3>
->   - <test name 4> `[snapshot]`
+>   - <test name 3> — *<regression hypothesis>*
+>   - <test name 4> `[snapshot]` — *<regression hypothesis>*
 >
 > Total: <bullet count> tests (<snapshot count> snapshots). Anything you want added, dropped, or reshaped before I write?
 
@@ -192,6 +192,7 @@ Present the dev with a summary:
 
 ## Hard rules
 
+- **Test for regressions, not coverage.** Before writing any test, state what user-visible or system-observable regression it guards against. If you can't answer, skip the test. A test that verifies an internal counter, array index, or call count — where the real invariant is a downstream side-effect — is testing structure, not behavior. Coverage is a side-effect of good tests, not a goal.
 - **Don't over-test.** Test public behavior, not implementation details.
 - **Don't export internals for testing.** Test behavior through rendered output or public API.
 - **Don't write E2E tests.** Flag for E2E if needed, but don't write them.
