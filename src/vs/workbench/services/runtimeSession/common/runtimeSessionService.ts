@@ -309,9 +309,6 @@ export interface ILanguageRuntimePackage {
 
 	/** Optional short description or summary. */
 	description?: string;
-
-	/** Optional package author. */
-	author?: string;
 }
 
 /**

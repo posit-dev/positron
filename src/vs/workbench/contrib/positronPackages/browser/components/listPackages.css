@@ -158,22 +158,39 @@
 	font-size: 0.9em;
 }
 
-.packages-list-item-description {
-	color: var(--vscode-descriptionForeground);
-	white-space: nowrap;
+.packages-list-item-description-row {
+	display: flex;
+	flex-direction: row;
+	align-items: flex-start;
+	min-width: 0;
 	overflow: hidden;
-	text-overflow: ellipsis;
+	gap: 0.5em;
+}
+
+.packages-list-item-description {
+	flex: 1 1 auto;
+	color: var(--vscode-descriptionForeground);
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
 	min-width: 0;
 }
 
-.packages-list-item-author {
+.packages-list-item-update-button.positron-button {
+	flex: 0 0 auto;
+	padding: 1px 8px;
 	font-size: 90%;
-	color: var(--vscode-descriptionForeground);
-	opacity: 0.85;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	min-width: 0;
+	line-height: 1.4;
+	border: 1px solid var(--vscode-button-border, transparent);
+	border-radius: 3px;
+	background-color: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+}
+
+.packages-list-item-update-button.positron-button:hover:not(.disabled) {
+	background-color: var(--vscode-button-hoverBackground);
 }
 
 .positron-packages-list .positron-list-empty {

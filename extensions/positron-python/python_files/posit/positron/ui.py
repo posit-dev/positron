@@ -8,7 +8,6 @@ import importlib.metadata
 import inspect
 import logging
 import os
-import re
 import sys
 import types
 import webbrowser
@@ -165,17 +164,6 @@ def _get_packages_installed(kernel: "PositronIPyKernel", _params: List[JsonData]
             # runtime object (email.message.Message) always has it.
             metadata: Any = dist.metadata
             summary = metadata.get("Summary")
-            # Fall back through Author, Author-email, Maintainer, Maintainer-email so
-            # packages that set only a maintainer (e.g. click's `Pallets`) still show one.
-            author = ""
-            for field in ("Author", "Author-email", "Maintainer", "Maintainer-email"):
-                value = metadata.get(field)
-                if value and value != "UNKNOWN":
-                    # Strip trailing email addresses in angle brackets to match the R side.
-                    stripped = re.sub(r"\s*<[^>]+>", "", value).strip()
-                    if stripped:
-                        author = stripped
-                        break
             packages_dict[canonical] = {
                 "id": f"{canonical}-{dist.version}",
                 "name": name,
@@ -183,7 +171,6 @@ def _get_packages_installed(kernel: "PositronIPyKernel", _params: List[JsonData]
                 "version": dist.version,
                 "attached": attached,
                 "description": summary if summary and summary != "UNKNOWN" else "",
-                "author": author,
             }
     return sorted(packages_dict.values(), key=lambda p: p["displayName"])
 
