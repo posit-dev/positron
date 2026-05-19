@@ -91,14 +91,7 @@ jobs:
           git config user.email "positron-bot[bot]@users.noreply.github.com"
 
       - name: Update extensions
-        env:
-          TEST_RESULT: ${{ needs.extensions-linux.result }}
-        run: |
-          if [ "$TEST_RESULT" = "failure" ]; then
-            ./scripts/update-extensions.sh --all
-          else
-            ./scripts/update-extensions.sh meta.pyrefly
-          fi
+        run: ./scripts/update-extensions.sh meta.pyrefly
 
       - name: Commit and push
         id: push
