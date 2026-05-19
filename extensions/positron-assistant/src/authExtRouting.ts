@@ -9,15 +9,7 @@
 // Remove this file when all providers are migrated.
 
 import * as vscode from 'vscode';
-import * as positron from 'positron';
 import { ModelProviderLogger } from './providers/base/modelProviderLogger.js';
-
-/** Result returned by the auth extension's config dialog command. */
-export interface ConfigDialogResult {
-	action: string;
-	config: positron.ai.LanguageModelConfig;
-	accountId?: string;
-}
 
 /** Providers whose credentials are managed by the authentication extension. */
 const AUTH_EXT_PROVIDERS = new Set<string>([
@@ -102,16 +94,3 @@ export async function resolveApiKey(
 		: secrets.get(`apiKey-${config.id}`);
 }
 
-/**
- * Delegate the config dialog to the authentication extension.
- * Returns the actions taken so the caller can handle model lifecycle.
- */
-export async function delegateConfigDialog(
-	sources: positron.ai.LanguageModelSource[],
-	options?: positron.ai.ShowLanguageModelConfigOptions
-): Promise<ConfigDialogResult[]> {
-	const results = await vscode.commands.executeCommand<ConfigDialogResult[]>(
-		'authentication.configureProviders', sources, options
-	);
-	return results ?? [];
-}

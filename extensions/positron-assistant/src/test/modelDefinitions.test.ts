@@ -7,7 +7,6 @@ import * as assert from 'assert';
 import * as vscode from 'vscode';
 import * as sinon from 'sinon';
 import { getAllModelDefinitions } from '../modelDefinitions.js';
-import { registerSupportedProviders } from '../providerConfiguration.js';
 import { stubGetModelProviders } from './utils.js';
 
 suite('Model Definitions', () => {
@@ -22,9 +21,6 @@ suite('Model Definitions', () => {
 
 		// Mock getModelProviders to return test providers
 		stubGetModelProviders();
-
-		// Register providers before running tests
-		registerSupportedProviders();
 	});
 
 	teardown(() => {
