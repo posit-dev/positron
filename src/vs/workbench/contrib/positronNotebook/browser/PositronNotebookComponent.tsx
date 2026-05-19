@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -37,6 +37,8 @@ import { IDeletionSentinel } from './IPositronNotebookInstance.js';
 import { NotebookErrorBoundary } from './NotebookErrorBoundary.js';
 import { getSelectedCells } from './selectionMachine.js';
 import { startScrollRestorationLoop } from './scrollRestorationLoop.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import type { NotebookDisplayOptions, NotebookLayoutConfiguration } from '../../notebook/browser/notebookOptions.js';
 
 export function PositronNotebookComponent() {
 	const notebookInstance = useNotebookInstance();
@@ -247,24 +249,60 @@ function renderCellsAndSentinels(
 }
 
 /**
- * Get css properties for fonts in the notebook.
- * @returns A css properties object that sets css variables associated with fonts in the notebook.
+ * Resolve rendered-markdown font values from notebook.markup.* settings. Falls back to
+ * `inherit` so unset values cascade from .monaco-workbench when not set. Unlike the
+ * legacy notebook editor, we do not default the font size to 1.2 times the base font size
+ * being used for the notebook.
  */
+function getMarkdownFontStyles(layout: NotebookLayoutConfiguration & NotebookDisplayOptions) {
+	return {
+		fontSize: layout.markupFontSize > 0
+			? `${layout.markupFontSize}px`
+			: 'inherit',
+		lineHeight: layout.markdownLineHeight > 0
+			? `${layout.markdownLineHeight}px`
+			: 'inherit',
+		fontFamily: layout.markupFontFamily || 'inherit',
+	};
+}
+
+/**
+ * Resolve text-output font values. The font family is derived from editor font measurements
+ * (we want text outputs to match the editor's monospace font), so this helper needs the
+ * configuration service and target window in addition to the notebook layout.
+ */
+function getOutputFontStyles(
+	layout: NotebookLayoutConfiguration & NotebookDisplayOptions,
+	configurationService: IConfigurationService,
+	targetWindow: Window,
+) {
+	const editorOptions = configurationService.getValue<IEditorOptions>('editor');
+	const fontInfo = FontMeasurements.readFontInfo(targetWindow, createBareFontInfoFromRawSettings(editorOptions, PixelRatio.getInstance(targetWindow).value));
+	const fontFamily = fontInfo.fontFamily ?? `"SF Mono", Monaco, Menlo, Consolas, "Ubuntu Mono", "Liberation Mono", "DejaVu Sans Mono", "Courier New", monospace`;
+
+	return {
+		fontSize: `${layout.outputFontSize}px`,
+		fontFamily,
+		maxHeight: `${layout.outputLineHeight * layout.outputLineLimit}px`,
+	};
+}
+
 function useFontStyles(): React.CSSProperties {
 	const services = usePositronReactServicesContext();
 	const notebookOptions = useNotebookOptions();
 	const layout = notebookOptions.getLayoutConfiguration();
-
-	const editorOptions = services.configurationService.getValue<IEditorOptions>('editor');
 	const targetWindow = DOM.getActiveWindow();
-	const fontInfo = FontMeasurements.readFontInfo(targetWindow, createBareFontInfoFromRawSettings(editorOptions, PixelRatio.getInstance(targetWindow).value));
-	const family = fontInfo.fontFamily ?? `"SF Mono", Monaco, Menlo, Consolas, "Ubuntu Mono", "Liberation Mono", "DejaVu Sans Mono", "Courier New", monospace`;
-	const outputMaxHeight = layout.outputLineHeight * layout.outputLineLimit;
+
+	const markdown = getMarkdownFontStyles(layout);
+	const output = getOutputFontStyles(layout, services.configurationService, targetWindow);
 
 	return {
-		['--vscode-positronNotebook-text-output-font-family' as string]: family,
-		['--vscode-positronNotebook-text-output-font-size' as string]: `${layout.outputFontSize}px`,
-		['--vscode-positronNotebook-output-max-height' as string]: `${outputMaxHeight}px`,
+		['--vscode-positronNotebook-text-output-font-family' as string]: output.fontFamily,
+		['--vscode-positronNotebook-text-output-font-size' as string]: output.fontSize,
+		['--vscode-positronNotebook-output-max-height' as string]: output.maxHeight,
+		['--vscode-positronNotebook-markdown-font-size' as string]: markdown.fontSize,
+		['--vscode-positronNotebook-markdown-line-height' as string]: markdown.lineHeight,
+		['--vscode-positronNotebook-markdown-font-family' as string]: markdown.fontFamily,
 	};
 }
 
