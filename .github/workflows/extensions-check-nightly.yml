@@ -70,7 +70,7 @@ jobs:
       contents: write
       pull-requests: write
     outputs:
-      pr_url: ${{ steps.create-pr.outputs.pr_url }}
+      pr_url: ${{ steps.create-pr.outputs.pr_url || steps.push.outputs.existing_pr }}
     steps:
       - name: Generate POSITRON_BOT token
         id: bot-token
