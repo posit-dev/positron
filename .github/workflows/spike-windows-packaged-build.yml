@@ -8,6 +8,7 @@ on:
     branches: [main]
     paths:
       - 'build/gulpfile.vscode.win32.ts'
+      - 'build/lib/extensions.ts'
 
 jobs:
   build:
