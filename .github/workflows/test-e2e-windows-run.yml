@@ -154,15 +154,21 @@ jobs:
           WORKSPACE=$(cygpath -u "${GITHUB_WORKSPACE}")
           WORKSPACE_PARENT="$(dirname "${WORKSPACE}")"
           ARTIFACTS_DIR="$(cygpath -u "${RUNNER_TEMP}")/artifacts"
-          if [ -f "${ARTIFACTS_DIR}/positron-build.tar.gz" ]; then
-            echo "Extracting build artifact..."
+          if [ -f "${ARTIFACTS_DIR}/positron-build.tar.zst" ]; then
+            echo "Extracting zstd archive with parallel decompression..."
+            zstd -d -T0 --stdout "${ARTIFACTS_DIR}/positron-build.tar.zst" | \
+              tar --no-same-owner --no-same-permissions -x -C "${WORKSPACE_PARENT}"
+            echo "Cleaning up archive to free disk space"
+            rm -f "${ARTIFACTS_DIR}/positron-build.tar.zst"
+          elif [ -f "${ARTIFACTS_DIR}/positron-build.tar.gz" ]; then
+            echo "Extracting gzip archive..."
             tar --no-same-owner --no-same-permissions \
               -C "${WORKSPACE_PARENT}" \
               -xzf "${ARTIFACTS_DIR}/positron-build.tar.gz"
             echo "Cleaning up archive to free disk space"
             rm -f "${ARTIFACTS_DIR}/positron-build.tar.gz"
           else
-            echo "No build artifact found at ${ARTIFACTS_DIR}/positron-build.tar.gz" && exit 1
+            echo "No build artifact found in ${ARTIFACTS_DIR}" && exit 1
           fi
 
       - name: Download Python requirements file

@@ -151,12 +151,25 @@ jobs:
           echo "Creating build artifact from ${WORKSPACE}..."
           # Tar the full workspace so shards skip npm ci and compile entirely.
           # Exclude .git (shards restore their own via checkout) and npm/pip caches.
-          tar -C "${WORKSPACE_PARENT}" \
-            --exclude="${WORKSPACE_NAME}/.git" \
-            --exclude="${WORKSPACE_NAME}/.npm-cache" \
-            -czf "${ARTIFACTS_DIR}/positron-build.tar.gz" \
-            "${WORKSPACE_NAME}"
-          echo "Artifact size: $(du -sh "${ARTIFACTS_DIR}/positron-build.tar.gz")"
+          # Prefer zstd (faster compress+decompress, smaller output) with gzip fallback.
+          if command -v zstd >/dev/null 2>&1; then
+            echo "Using zstd (multithreaded) for compression"
+            tar -C "${WORKSPACE_PARENT}" \
+              --exclude="${WORKSPACE_NAME}/.git" \
+              --exclude="${WORKSPACE_NAME}/.npm-cache" \
+              --use-compress-program='zstd -T0 -1' \
+              -cf "${ARTIFACTS_DIR}/positron-build.tar.zst" \
+              "${WORKSPACE_NAME}"
+            echo "Artifact size: $(du -sh "${ARTIFACTS_DIR}/positron-build.tar.zst")"
+          else
+            echo "zstd not available, falling back to gzip"
+            tar -C "${WORKSPACE_PARENT}" \
+              --exclude="${WORKSPACE_NAME}/.git" \
+              --exclude="${WORKSPACE_NAME}/.npm-cache" \
+              -czf "${ARTIFACTS_DIR}/positron-build.tar.gz" \
+              "${WORKSPACE_NAME}"
+            echo "Artifact size: $(du -sh "${ARTIFACTS_DIR}/positron-build.tar.gz")"
+          fi
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v7
@@ -164,4 +177,4 @@ jobs:
           name: positron-build-windows
           path: ${{ runner.temp }}/artifacts
           retention-days: 1
-          compression-level: 0  # already compressed with gzip
+          compression-level: 0  # already compressed
