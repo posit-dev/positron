@@ -71,7 +71,7 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		this._itemSizeContextKey = POSITRON_PACKAGES_ITEM_SIZE.bindTo(this._contextKeyService);
 
 		// Seed the item-size context key from persisted storage so the user's preferred
-		// mode (card vs row) survives reloads. The context key's own default ('row')
+		// mode (card vs row) survives reloads. The context key's own default ('card')
 		// applies when nothing is persisted.
 		const storedItemSize = this._storageService.get(ITEM_SIZE_STORAGE_KEY, StorageScope.PROFILE);
 		if (storedItemSize === 'card' || storedItemSize === 'row') {
@@ -195,7 +195,7 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 	}
 
 	get itemSize(): PackagesItemSize {
-		return this._itemSizeContextKey.get() ?? 'row';
+		return this._itemSizeContextKey.get() ?? 'card';
 	}
 
 	setItemSize(itemSize: PackagesItemSize): void {
