@@ -1080,7 +1080,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		await this._runCells(this.cells.get());
 	}
 
-
 	/**
 	 * Adds a new cell to the notebook at the specified index.
 	 * @param type The type of cell to add (`CellKind`)
@@ -2302,7 +2301,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		const hasExecutions = [...cells].some(cell => Boolean(this.notebookExecutionStateService.getCellExecution(cell.uri)));
 
 		if (hasExecutions) {
-			this.notebookExecutionService.cancelNotebookCells(this.textModel, Array.from(cells).map(c => c.model as NotebookCellTextModel));
+			await this.notebookExecutionService.cancelNotebookCells(this.textModel, Array.from(cells).map(c => c.model as NotebookCellTextModel));
 			return;
 		}
 
