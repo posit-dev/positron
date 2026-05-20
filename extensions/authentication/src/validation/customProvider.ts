@@ -6,6 +6,33 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { KEY_VALIDATION_TIMEOUT_MS } from '../constants';
+import { log } from '../log';
+
+interface ModelOverrideEntry {
+	identifier?: string;
+}
+
+/**
+ * Resolve a model identifier to send in the Custom Provider validation
+ * request. Reads the first entry's `identifier` from
+ * `positron.assistant.models.overrides.customProvider`. Returns `''` when
+ * no usable override is configured.
+ */
+function getCustomProviderModel(): string {
+	try {
+		const overrides = vscode.workspace
+			.getConfiguration('positron.assistant')
+			.get<ModelOverrideEntry[]>('models.overrides.customProvider');
+		if (Array.isArray(overrides) && overrides.length > 0) {
+			const first = overrides[0]?.identifier?.trim();
+			if (first) {
+				return first;
+			}
+		}
+	} catch {
+	}
+	return '';
+}
 
 class CustomProviderValidationError extends Error {
 	constructor(message: string) {
@@ -39,10 +66,11 @@ export async function validateCustomProviderApiKey(
 		() => controller.abort(), KEY_VALIDATION_TIMEOUT_MS
 	);
 	try {
+		const model = getCustomProviderModel();
 		const response = await fetch(endpoint, {
 			method: 'POST',
 			headers,
-			body: JSON.stringify({ model: '', messages: [] }),
+			body: JSON.stringify({ model, messages: [] }),
 			signal: controller.signal,
 		});
 
@@ -58,11 +86,8 @@ export async function validateCustomProviderApiKey(
 		}
 
 		if (response.status === 404) {
-			throw new CustomProviderValidationError(
-				vscode.l10n.t(
-					'Custom Provider endpoint not found. Check your base URL.'
-				)
-			);
+			log.warn(`[Custom Provider] Validation endpoint returned 404 for ${endpoint}; saving credentials anyway.`);
+			return;
 		}
 
 		throw new CustomProviderValidationError(vscode.l10n.t(
