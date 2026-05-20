@@ -64,46 +64,6 @@ interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookIn
 	textModel: NotebookTextModel;
 }
 
-/**
- * Maps runtime states to their corresponding kernel status values. This mapping
- * defines how the notebook UI interprets runtime session states and displays
- * them to the user as kernel connection status. As we expand the states we
- * report this map will evolve.
- */
-const RUNTIME_STATE_TO_KERNEL_STATUS: Record<RuntimeState, KernelStatus> = {
-	// Runtime is starting up
-	[RuntimeState.Uninitialized]: KernelStatus.Starting,
-	[RuntimeState.Initializing]: KernelStatus.Starting,
-	[RuntimeState.Starting]: KernelStatus.Starting,
-	[RuntimeState.Restarting]: KernelStatus.Restarting,
-
-	// Runtime is operational
-	[RuntimeState.Ready]: KernelStatus.Idle,
-	[RuntimeState.Idle]: KernelStatus.Idle,
-
-	// Runtime is busy
-	[RuntimeState.Interrupting]: KernelStatus.Busy,
-	[RuntimeState.Busy]: KernelStatus.Busy,
-
-	// Runtime is exiting
-	[RuntimeState.Exiting]: KernelStatus.Exiting,
-
-	// Runtime is shutting down or ended
-	[RuntimeState.Exited]: KernelStatus.Exited,
-	[RuntimeState.Offline]: KernelStatus.Exited,
-} as const;
-
-const RUNTIME_STARTUP_PHASE_TO_KERNEL_STATUS: Record<RuntimeStartupPhase, KernelStatus> = {
-	[RuntimeStartupPhase.Initializing]: KernelStatus.Discovering,
-	[RuntimeStartupPhase.AwaitingTrust]: KernelStatus.Discovering,
-	[RuntimeStartupPhase.NewFolderTasks]: KernelStatus.Discovering,
-	[RuntimeStartupPhase.Reconnecting]: KernelStatus.Discovering,
-	[RuntimeStartupPhase.Starting]: KernelStatus.Discovering,
-	[RuntimeStartupPhase.LoadingCache]: KernelStatus.Discovering,
-	[RuntimeStartupPhase.Discovering]: KernelStatus.Unselected,
-	[RuntimeStartupPhase.Complete]: KernelStatus.Unselected,
-} as const;
-
 function kernelStatusForStartupPhase(phase: RuntimeStartupPhase): NotebookKernelStatus {
 	switch (phase) {
 		case RuntimeStartupPhase.Initializing:
@@ -111,6 +71,7 @@ function kernelStatusForStartupPhase(phase: RuntimeStartupPhase): NotebookKernel
 		case RuntimeStartupPhase.NewFolderTasks:
 		case RuntimeStartupPhase.Reconnecting:
 		case RuntimeStartupPhase.Starting:
+		case RuntimeStartupPhase.LoadingCache:
 			return NotebookKernelStatus.Discovering;
 		case RuntimeStartupPhase.Discovering:
 		case RuntimeStartupPhase.Complete:
