@@ -270,6 +270,12 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	// A list of active sessions owned by this extension host
 	private readonly _runtimeSessions = new Array<positron.LanguageRuntimeSession>();
 
+	// Per-session disposable stores, parallel to `_runtimeSessions`. Holds the
+	// event subscriptions created by `attachToSession` (and other per-session
+	// subscriptions like the one in `handleCommOpen`) so they can be released
+	// when `$disposeLanguageRuntime` is called.
+	private readonly _sessionDisposables = new Array<DisposableStore>();
+
 	// A list of runtime proxies to sessions owned by other extension hosts; map of
 	// session ID to proxy
 	private readonly _runtimeProxies = new Map<string, ExtHostRuntimeSessionProxy>();
@@ -575,9 +581,10 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 */
 	private attachToSession(session: positron.LanguageRuntimeSession): number {
 		const sessionId = session.metadata.sessionId;
+		const disposables = new DisposableStore();
 
 		// Wire event handlers for state changes and messages
-		session.onDidChangeRuntimeState(state => {
+		disposables.add(session.onDidChangeRuntimeState(state => {
 			const tick = this._eventClocks[handle] = this._eventClocks[handle] + 1;
 			this._proxy.$emitLanguageRuntimeState(sessionId, tick, state);
 
@@ -601,9 +608,9 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 					}
 				});
 			}
-		});
+		}));
 
-		session.onDidReceiveRuntimeMessage(message => {
+		disposables.add(session.onDidReceiveRuntimeMessage(message => {
 			const tick = this._eventClocks[handle] = this._eventClocks[handle] + 1;
 			// Amend the message with the event clock for ordering
 			const runtimeMessage: ILanguageRuntimeMessage = {
@@ -644,10 +651,10 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 					this._proxy.$emitLanguageRuntimeMessage(sessionId, false, new SerializableObjectWithBuffers(runtimeMessage));
 					break;
 			}
-		});
+		}));
 
 		// Hook up the session end (exit) handler
-		session.onDidEndSession(exit => {
+		disposables.add(session.onDidEndSession(exit => {
 			// Notify the main thread that the session has ended
 			this._proxy.$emitLanguageRuntimeExit(session.metadata.sessionId, exit);
 
@@ -658,16 +665,17 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			// that would invalidate the handles of all subsequent sessions
 			// since we store them in an array. The session remains in an inert
 			// state.
-		});
+		}));
 
 		// Hook up the resource usage update handler
-		session.onDidUpdateResourceUsage(usage => {
+		disposables.add(session.onDidUpdateResourceUsage(usage => {
 			this._proxy.$emitLanguageRuntimeResourceUsage(session.metadata.sessionId, usage);
-		});
+		}));
 
 		// Register the runtime
 		const handle = this._runtimeSessions.length;
 		this._runtimeSessions.push(session);
+		this._sessionDisposables.push(disposables);
 
 		this._eventClocks.push(0);
 
@@ -813,6 +821,9 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot cleanup runtime: session handle '${handle}' not found or no longer valid.`);
 		}
+		// Release the event subscriptions wired in `attachToSession`. The
+		// array slot is kept so subsequent session handles remain valid.
+		this._sessionDisposables[handle].dispose();
 		// Dispose session to cleanup kernel, LSP, etc.
 		await this._runtimeSessions[handle].dispose();
 	}
@@ -1588,14 +1599,14 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			});
 
 		// Dispose the client instance when the runtime exits
-		this._runtimeSessions[handle].onDidChangeRuntimeState(state => {
+		this._sessionDisposables[handle].add(this._runtimeSessions[handle].onDidChangeRuntimeState(state => {
 			if (state === RuntimeState.Exited) {
 				// Mark the client instance as already closed so disposal
 				// doesn't try to close it
 				clientInstance.setClientState(RuntimeClientState.Closed);
 				clientInstance.dispose();
 			}
-		});
+		}));
 
 		// See if one of the registered client handlers wants to handle this
 		let handled = false;
