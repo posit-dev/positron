@@ -1,27 +1,47 @@
 name: "Setup Xvfb"
-description: "Configure and start Xvfb virtual framebuffer"
+description: "Configure and start Xvfb virtual framebuffer, one display per Playwright worker"
+
+inputs:
+  workers:
+    description: "Number of Xvfb displays to start (one per Playwright worker)"
+    required: false
+    default: "1"
 
 runs:
   using: "composite"
   steps:
     - name: Setup Xvfb
       shell: bash
+      env:
+        WORKERS: ${{ inputs.workers }}
       run: |
-        # Start Xvfb in the background
-        /usr/bin/Xvfb :10 -ac -screen 0 2560x1440x24 > /tmp/Xvfb.out 2>&1 &
+        # Start one Xvfb instance per worker starting at :10, so Playwright workers
+        # don't race on a shared X server. test/e2e/infra/electron.ts maps each
+        # worker's parallelIndex to DISPLAY=:(10+parallelIndex).
+        for i in $(seq 0 $((WORKERS - 1))); do
+          display=":$((10 + i))"
+          /usr/bin/Xvfb "$display" -ac -screen 0 2560x1440x24 > "/tmp/Xvfb.$i.out" 2>&1 &
+        done
 
-        # Wait until Xvfb is ready
+        # Wait until every display is ready (default DISPLAY=:10 used by non-Playwright steps).
         export DISPLAY=:10
-        for i in {1..10}; do
-          if xdpyinfo > /dev/null 2>&1; then
-            echo "Xvfb is ready"
+        for attempt in {1..15}; do
+          ready=true
+          for i in $(seq 0 $((WORKERS - 1))); do
+            if ! DISPLAY=":$((10 + i))" xdpyinfo > /dev/null 2>&1; then
+              ready=false
+              break
+            fi
+          done
+          if [ "$ready" = true ]; then
+            echo "All $WORKERS Xvfb display(s) ready"
             break
           fi
-          echo "Waiting for Xvfb to start..."
+          echo "Waiting for Xvfb displays to start..."
           sleep 1
         done
 
-        # Export the DISPLAY variable for subsequent steps
+        # Export the default DISPLAY for any subsequent step that doesn't go through Playwright.
         echo "DISPLAY=:10" >> $GITHUB_ENV
 
         # Start a proper dbus session bus for Electron/Chromium

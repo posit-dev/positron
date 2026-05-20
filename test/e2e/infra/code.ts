@@ -56,6 +56,8 @@ export interface LaunchOptions {
 	readonly externalServerUrl?: string;
 	/** Video recording configuration for demo scripts */
 	readonly recordVideo?: { dir: string; size?: { width: number; height: number } };
+	/** Playwright parallelIndex for per-worker resource isolation (e.g. Xvfb display on Linux) */
+	readonly workerIndex?: number;
 	// --- End Positron ---
 }
 
