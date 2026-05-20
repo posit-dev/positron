@@ -89,19 +89,29 @@ function fileIsOpenOrInsideWorkspace(
 
 /**
  * Checks if a file path should be excluded from AI features based on aiExcludes settings.
- * Uses aiExcludes if explicitly configured, otherwise falls back to inlineCompletionExcludes.
+ * Uses aiExcludes; only falls back to the deprecated inlineCompletionExcludes when the user
+ * explicitly set it (migration aid). Otherwise the contributed aiExcludes default applies.
  * For patterns without '/', matches against basename only for intuitive behavior.
  * @param configurationService The configuration service
  * @param filePath The full file path to check (uri.path)
  * @returns Whether the file is excluded from AI features
  */
 export function isFileExcludedFromAI(configurationService: IConfigurationService, filePath: string): boolean {
-	let patterns = configurationService.getValue<string[]>('positron.assistant.aiExcludes');
-	const inspect = configurationService.inspect<string[]>('positron.assistant.aiExcludes');
+	// `inspect()` reports user-written values in `userValue` / `workspaceValue`;
+	// the contributed default lives in a separate `defaultValue` field. Checking
+	// `!== undefined` (not truthy) is deliberate: an empty array is still a user
+	// value and means "user said exclude nothing," which must not be overridden.
+	const aiInspect = configurationService.inspect<string[]>('positron.assistant.aiExcludes');
+	const inlineInspect = configurationService.inspect<string[]>('positron.assistant.inlineCompletionExcludes');
+	const aiSetByUser = aiInspect?.userValue !== undefined || aiInspect?.workspaceValue !== undefined;
+	const inlineSetByUser = inlineInspect?.userValue !== undefined || inlineInspect?.workspaceValue !== undefined;
 
-	if (!inspect?.userValue && !inspect?.workspaceValue) {
-		patterns = configurationService.getValue<string[]>('positron.assistant.inlineCompletionExcludes');
-	}
+	// Honor the deprecated `inlineCompletionExcludes` only as a migration aid:
+	// the user explicitly set it and hasn't moved to `aiExcludes` yet. Stock
+	// users fall through to the `aiExcludes` contributed default via `.getValue()`.
+	const patterns = (!aiSetByUser && inlineSetByUser)
+		? configurationService.getValue<string[]>('positron.assistant.inlineCompletionExcludes')
+		: configurationService.getValue<string[]>('positron.assistant.aiExcludes');
 
 	if (!patterns || patterns.length === 0) {
 		return false;

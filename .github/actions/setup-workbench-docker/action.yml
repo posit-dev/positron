@@ -19,10 +19,31 @@ inputs:
     description: 'Optional path to custom Positron workbench tar.gz to install instead of downloading'
     required: false
     default: ''
+  workbench-license-path:
+    description: 'Path to Workbench license file'
+    required: false
+    default: '/tmp/workbench.lic'
+  connect-license-path:
+    description: 'Path to Connect license file'
+    required: false
+    default: '/tmp/connect.lic'
 
 runs:
   using: 'composite'
   steps:
+    - name: Prepare Connect license for volume mount
+      shell: bash
+      run: |
+        # Create connect directory if it doesn't exist
+        mkdir -p dockerfiles/connect
+        # Copy Connect license to the location expected by docker-compose volume mount
+        if [ -f "${{ inputs.connect-license-path }}" ]; then
+          cp "${{ inputs.connect-license-path }}" dockerfiles/connect/connect.lic
+          echo "Connect license copied to dockerfiles/connect/connect.lic"
+        else
+          echo "Warning: Connect license not found at ${{ inputs.connect-license-path }}"
+        fi
+
     - name: Start Docker Compose Services
       shell: bash
       run: |
@@ -51,6 +72,11 @@ runs:
         docker cp positronDownload.sh test:/tmp/positronDownload.sh
         docker cp get-latest-wb-noble-url.sh test:/tmp/get-latest-wb-noble-url.sh
         docker cp configure-datasources.sh test:/tmp/configure-datasources.sh
+
+        # Copy Workbench license into test container if it exists
+        if [ -f "${{ inputs.workbench-license-path }}" ]; then
+          docker cp "${{ inputs.workbench-license-path }}" test:/tmp/workbench.lic
+        fi
 
         # Make scripts executable
         docker exec test chmod +x /tmp/install-workbench.sh
