@@ -2106,7 +2106,7 @@ registerAction2(class extends NotebookAction2 {
 });
 
 // Toggle Outline - Reveals or hides the Outline view in the Explorer pane
-registerAction2(class extends Action2 {
+export class ToggleOutlineAction extends Action2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.toggleOutline',
@@ -2135,7 +2135,8 @@ registerAction2(class extends Action2 {
 			await viewsService.openView(IOutlinePane.Id, true);
 		}
 	}
-});
+}
+registerAction2(ToggleOutlineAction);
 
 // Ask Assistant - Opens assistant chat with prompt options for the notebook
 // Action is defined in AskAssistantAction.ts
