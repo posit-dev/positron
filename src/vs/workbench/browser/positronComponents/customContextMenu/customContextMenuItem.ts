@@ -6,24 +6,37 @@
 import { KeyboardModifiers } from '../../../../base/browser/ui/positronComponents/button/button.js';
 
 /**
- * CustomContextMenuItemOptions interface.
+ * Icon options. A menu item may specify either a codicon name (`icon`) or an image source
+ * (`iconSrc`), but not both. Defined as a discriminated union so callers can't accidentally
+ * set both fields.
  */
-export interface CustomContextMenuItemOptions {
+type CustomContextMenuItemIconOptions =
+	| { readonly icon?: string; readonly iconSrc?: never }
+	| { readonly icon?: never; readonly iconSrc?: string };
+
+/**
+ * CustomContextMenuItemOptions type.
+ */
+export type CustomContextMenuItemOptions = CustomContextMenuItemIconOptions & {
 	readonly commandId?: string;
 	/**
 	 * Called BEFORE the command executes. Similar to native ActionRunner's onWillRun.
 	 */
 	readonly onWillSelect?: () => void;
 	readonly checked?: boolean;
-	readonly icon?: string;
 	readonly label: string;
 	readonly disabled?: boolean;
+	/**
+	 * Indicates that selecting this item performs a destructive action (e.g. delete). The
+	 * renderer styles the label using the error foreground color.
+	 */
+	readonly destructive?: boolean;
 	/**
 	 * Called AFTER the command executes (or immediately if no commandId).
 	 * Similar to native ActionRunner's onDidRun.
 	 */
 	readonly onSelected: (e: KeyboardModifiers) => void;
-}
+};
 
 /**
  * CustomContextMenuItem class.

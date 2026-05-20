@@ -36,17 +36,25 @@
 	align-content: center;
 	background: transparent;
 	color: var(--vscode-positronContextMenu-foreground);
-	grid-template-columns: [icon] 22px [title] 1fr [shortcut] min-content [end];
+	grid-template-columns: [icon] 24px [title] 1fr [shortcut] min-content [end];
 }
 
 .custom-context-menu-item.checkable {
-	grid-template-columns: [check] 22px [icon] 22px [title] 1fr [shortcut] min-content [end];
+	grid-template-columns: [check] 22px [icon] 24px [title] 1fr [shortcut] min-content [end];
+}
+
+.custom-context-menu-item.destructive {
+	color: var(--vscode-errorForeground);
 }
 
 .custom-context-menu-item:not(.disabled):hover {
 	border-radius: 4px;
 	color: var(--vscode-positronContextMenu-hoverForeground);
 	background: var(--vscode-positronContextMenu-hoverBackground);
+}
+
+.custom-context-menu-item.destructive:not(.disabled):hover {
+	color: var(--vscode-errorForeground);
 }
 
 .custom-context-menu-item:focus {
@@ -72,8 +80,15 @@
 	grid-column: icon / title;
 }
 
-.custom-context-menu-item .icon.disabled {
-	opacity: 50%;
+.custom-context-menu-item .icon.icon-image {
+	width: 16px;
+	height: 16px;
+	align-self: center;
+	object-fit: contain;
+}
+
+.custom-context-menu-item .icon.destructive {
+	color: var(--vscode-errorForeground);
 }
 
 .custom-context-menu-item .title {
@@ -83,11 +98,7 @@
 	white-space: nowrap;
 	text-overflow: ellipsis;
 	grid-column: title / shortcut;
-	margin: 2px 0 2px 0;
-}
-
-.custom-context-menu-item .title.disabled {
-	opacity: 50%;
+	margin: 2px 0;
 }
 
 .custom-context-menu-item .shortcut {
@@ -105,7 +116,8 @@
 	grid-column: shortcut / end;
 }
 
-/* Make the submenu chevron indicator look disabled */
+.custom-context-menu-item .icon.disabled,
+.custom-context-menu-item .title.disabled,
 .custom-context-menu-item .submenu-indicator.disabled {
 	opacity: 50%;
 }

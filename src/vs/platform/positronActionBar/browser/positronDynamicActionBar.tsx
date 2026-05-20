@@ -30,16 +30,14 @@ export const DEFAULT_ACTION_BAR_DROPDOWN_BUTTON_WIDTH = 36;
 export const DEFAULT_ACTION_BAR_SEPARATOR_WIDTH = 7;
 
 /**
- * OverflowContextMenuItem interface.
+ * OverflowContextMenuItem type.
  */
-export interface OverflowContextMenuItem extends CustomContextMenuItemOptions {
-}
+export type OverflowContextMenuItem = CustomContextMenuItemOptions;
 
 /**
- * OverflowContextMenuSubmenu interface.
+ * OverflowContextMenuSubmenu type.
  */
-export interface OverflowContextMenuSubmenu extends CustomContextMenuSubmenuOptions {
-}
+export type OverflowContextMenuSubmenu = CustomContextMenuSubmenuOptions;
 
 /**
  * DynamicActionBarAction interface.
