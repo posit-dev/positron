@@ -172,7 +172,7 @@ runs:
       if: ${{ inputs.restore-npm-core == 'true' }}
       id: cache-npm-core
       continue-on-error: true
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
         path: ${{ steps.cache-paths.outputs.npm-core-paths }}
         key: npm-core-v7-node${{ steps.node-version.outputs.version }}-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ steps.package-locks-hash.outputs.hash }}
@@ -181,7 +181,7 @@ runs:
       if: ${{ inputs.restore-npm-extensions == 'true' }}
       id: cache-npm-extensions-volatile
       continue-on-error: true
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
         path: ${{ steps.cache-paths.outputs.npm-extensions-volatile-paths }}
         key: npm-extensions-volatile-v1-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ steps.extensions-volatile-hash.outputs.hash }}
@@ -190,7 +190,7 @@ runs:
       if: ${{ inputs.restore-npm-extensions == 'true' }}
       id: cache-npm-extensions-stable
       continue-on-error: true
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
         path: ${{ steps.cache-paths.outputs.npm-extensions-stable-paths }}
         key: npm-extensions-stable-v4-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ steps.extensions-stable-hash.outputs.hash }}
@@ -199,7 +199,7 @@ runs:
       if: ${{ inputs.restore-builtins == 'true' }}
       id: cache-builtins
       continue-on-error: true
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
         path: ${{ steps.cache-paths.outputs.builtins-paths }}
         key: builtins-v2-${{ runner.os }}-${{ hashFiles('product.json', 'build/lib/builtInExtensions.ts') }}
@@ -214,7 +214,7 @@ runs:
       if: ${{ inputs.restore-playwright == 'true' }}
       id: cache-playwright
       continue-on-error: true
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
         path: ${{ steps.cache-paths.outputs.playwright-paths }}
         key: playwright-v2-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
