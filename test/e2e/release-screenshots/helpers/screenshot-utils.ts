@@ -135,15 +135,16 @@ export async function capturePanelHires(
 }
 
 /**
- * Composite a captured PNG onto a slightly larger white canvas and paint a
- * soft drop shadow behind it. Approximates the floating-window look of the
- * legacy macOS-chrome screenshots that this repo's CDP captures cannot
- * reproduce directly. Mutates the file in place. Padding scales with the
- * source resolution so it stays proportional at 2x device pixels.
+ * Composite a captured PNG onto a slightly larger white canvas, round the
+ * corners, and paint a soft drop shadow behind it. Approximates the
+ * floating-window look of the legacy macOS-chrome screenshots that this
+ * repo's CDP captures cannot reproduce directly. Mutates the file in place.
+ * Radius and padding are in source pixels (i.e. the captured PNG is at 2x by
+ * default, so radius=24 ≈ 12 CSS px).
  */
 export async function applyDropShadow(
 	filename: string,
-	opts?: { padding?: number; blur?: number; opacity?: number },
+	opts?: { padding?: number; blur?: number; opacity?: number; radius?: number },
 ): Promise<void> {
 	const { createCanvas, loadImage } = await import('canvas');
 	const fs = await import('node:fs/promises');
@@ -152,6 +153,18 @@ export async function applyDropShadow(
 	const padding = opts?.padding ?? 60;
 	const blur = opts?.blur ?? 40;
 	const opacity = opts?.opacity ?? 0.25;
+	const radius = opts?.radius ?? 24;
+
+	// Clip the source image to a rounded rect on a transparent canvas so the
+	// shadow that follows traces the rounded silhouette, not the rectangle.
+	const clipped = createCanvas(img.width, img.height);
+	const clipCtx = clipped.getContext('2d');
+	clipCtx.beginPath();
+	clipCtx.roundRect(0, 0, img.width, img.height, radius);
+	clipCtx.closePath();
+	clipCtx.clip();
+	clipCtx.drawImage(img, 0, 0);
+
 	const W = img.width + padding * 2;
 	const H = img.height + padding * 2;
 	const canvas = createCanvas(W, H);
@@ -162,6 +175,7 @@ export async function applyDropShadow(
 	ctx.shadowBlur = blur;
 	ctx.shadowOffsetX = 0;
 	ctx.shadowOffsetY = Math.round(blur / 3);
-	ctx.drawImage(img, padding, padding);
+	ctx.drawImage(clipped, padding, padding);
+
 	await fs.writeFile(file, canvas.toBuffer('image/png'));
 }

@@ -6,7 +6,7 @@
 import { expect } from '@playwright/test';
 import { test as base } from '../tests/_test.setup';
 import { applyDropShadow, captureFullWindow } from './helpers/screenshot-utils';
-import { prepareForScreenshot, setScreenshotWindowSize } from './helpers/layout-utils';
+import { overrideWorkspaceName, prepareForScreenshot, setScreenshotWindowSize } from './helpers/layout-utils';
 import { annotate, clearAnnotations } from './helpers/annotate-utils';
 
 const ANNOTATION_COLOR = '#dc2626';
@@ -51,6 +51,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 		await hotKeys.toggleBottomPanel();
 
 		await prepareForScreenshot(app, page);
+		await overrideWorkspaceName(page, 'qa-example-content', 'positron-demos-notebooks');
 		await annotate(page, [
 			{ selector: 'button[aria-label="Kernel Actions"]', label: '', color: ANNOTATION_COLOR, padding: 3 },
 		]);
@@ -79,6 +80,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 		await expect(assistantButton).toBeVisible({ timeout: 10000 });
 
 		await prepareForScreenshot(app, page);
+		await overrideWorkspaceName(page, 'qa-example-content', 'positron-demos-notebooks');
 		await annotate(page, [
 			{ selector: '.editor-action-bar-container button[aria-label="Ask Assistant"]', label: '', color: ANNOTATION_COLOR, padding: 3 },
 		]);
@@ -110,6 +112,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 		await expect(panel).toBeVisible({ timeout: 10000 });
 
 		await prepareForScreenshot(app, page);
+		await overrideWorkspaceName(page, 'qa-example-content', 'positron-demos-notebooks');
 		await captureFullWindow(page, 'positron-notebook-assistant-panel.png');
 		await applyDropShadow('positron-notebook-assistant-panel.png');
 	});

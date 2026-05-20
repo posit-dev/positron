@@ -231,6 +231,41 @@ export async function overrideRuntimeLabel(page: Page): Promise<void> {
 }
 
 /**
+ * Rewrite the workspace folder name shown in the title bar and the top
+ * action bar's folder picker. The default test workspace renders as
+ * "qa-example-content"; docs screenshots use a friendlier folder name like
+ * "positron-demos-notebooks". Replaces only the matching token so other
+ * title-bar text (e.g. "Untitled-1.ipynb — ") is preserved.
+ *
+ * Call this AFTER `waitForStableUI` so any in-flight re-renders don't undo
+ * the rewrite before the screenshot fires.
+ */
+export async function overrideWorkspaceName(
+	page: Page,
+	from: string,
+	to: string,
+): Promise<void> {
+	await page.evaluate(({ from, to }) => {
+		const SELECTORS = [
+			'.titlebar .window-title',
+			'#top-action-bar-current-working-folder',
+		];
+		for (const sel of SELECTORS) {
+			for (const root of document.querySelectorAll(sel)) {
+				const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+				let node: Node | null;
+				while ((node = walker.nextNode())) {
+					const t = node as Text;
+					if (t.nodeValue && t.nodeValue.includes(from)) {
+						t.nodeValue = t.nodeValue.split(from).join(to);
+					}
+				}
+			}
+		}
+	}, { from, to });
+}
+
+/**
  * Standard pre-screenshot cleanup. Composes the smaller helpers in the order
  * that produces a clean, deterministic frame:
  *   1. Hide notification toasts (they cover real UI)

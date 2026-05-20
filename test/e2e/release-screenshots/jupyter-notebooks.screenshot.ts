@@ -5,7 +5,7 @@
 
 import { test } from '../tests/_test.setup';
 import { applyDropShadow, captureFullWindow } from './helpers/screenshot-utils';
-import { prepareForScreenshot, setScreenshotWindowSize } from './helpers/layout-utils';
+import { overrideWorkspaceName, prepareForScreenshot, setScreenshotWindowSize } from './helpers/layout-utils';
 import { annotate, clearAnnotations } from './helpers/annotate-utils';
 
 const ANNOTATION_COLOR = '#dc2626';
@@ -40,6 +40,7 @@ test.describe('Release Screenshots - Jupyter Notebooks', () => {
 		await hotKeys.toggleBottomPanel();
 
 		await prepareForScreenshot(app, page);
+		await overrideWorkspaceName(page, 'qa-example-content', 'positron-demos-notebooks');
 		await annotate(page, [
 			// Wrap the whole kernel-action-view-item so the icon stays inside the box.
 			{ selector: '.kernel-action-view-item', label: '', color: ANNOTATION_COLOR, padding: 3 },
