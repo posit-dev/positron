@@ -7,12 +7,21 @@
 	top: 0px;
 }
 
+.positron-packages-list {
+	height: 100%;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+}
+
 .packages-filter-container {
+	flex: 0 0 auto;
 	padding: 4px 8px;
 }
 
 .packages-list-container {
-	height: 100%;
+	flex: 1 1 auto;
+	min-height: 0;
 	position: relative;
 	left: 0.5px;
 }

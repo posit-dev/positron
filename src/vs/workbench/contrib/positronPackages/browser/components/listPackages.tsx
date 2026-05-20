@@ -43,9 +43,6 @@ const positronUpdatePackage = localize(
 	'Update Package',
 );
 
-// Height of the filter container in pixels
-const FILTER_HEIGHT = 34;
-
 // Row height for package list items in pixels
 const ITEM_HEIGHT = 26;
 
@@ -53,7 +50,6 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	const {
 		activeInstance,
 	} = usePositronPackagesContext();
-	const { height } = props;
 	const services = usePositronReactServicesContext();
 
 	const [packages, setPackages] = useState<ILanguageRuntimePackage[]>([]);
@@ -485,7 +481,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 					onFilterTextChanged={handleFilterTextChanged}
 				/>
 			</div>
-			<div className='packages-list-container' style={{ height: height - FILTER_HEIGHT }}>
+			<div className='packages-list-container'>
 				<PositronList
 					emptyListRenderer={emptyListRenderer}
 					instance={listInstance}
