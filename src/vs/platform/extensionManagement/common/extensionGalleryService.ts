@@ -31,6 +31,9 @@ import { StopWatch } from '../../../base/common/stopwatch.js';
 import { format2 } from '../../../base/common/strings.js';
 import { ExtensionGalleryResourceType, Flag, getExtensionGalleryManifestResourceUri, IExtensionGalleryManifest, IExtensionGalleryManifestService, ExtensionGalleryManifestStatus } from './extensionGalleryManifest.js';
 import { TelemetryTrustedValue } from '../../telemetry/common/telemetryUtils.js';
+// --- Start Positron ---
+import { filterLatestExtensionVersionsForTargetPlatformPositron } from './positronGalleryVersionFilter.js';
+// --- End Positron ---
 
 const CURRENT_TARGET_PLATFORM = isWeb ? TargetPlatform.WEB : getTargetPlatform(platform, arch);
 const SEARCH_ACTIVITY_HEADER_NAME = 'X-Market-Search-Activity-Id';
@@ -864,7 +867,14 @@ export abstract class AbstractExtensionGalleryService implements IExtensionGalle
 
 	private async getValidRawGalleryExtensionVersionFromLatestVersions(rawGalleryExtension: IRawGalleryExtension, latestVersions: IRawGalleryExtensionVersion[], extensionInfo: IExtensionInfo, options: IExtensionQueryOptions, allTargetPlatforms: TargetPlatform[]): Promise<IRawGalleryExtensionVersion | null> {
 		const targetPlatform = options.targetPlatform ?? CURRENT_TARGET_PLATFORM;
-		const latestExtensionVersionsForTargetPlatform = filterLatestExtensionVersionsForTargetPlatform(latestVersions, targetPlatform, allTargetPlatforms);
+		// --- Start Positron ---
+		// const latestExtensionVersionsForTargetPlatform = filterLatestExtensionVersionsForTargetPlatform(latestVersions, targetPlatform, allTargetPlatforms);
+		// Use the order-invariant Positron filter instead of upstream's
+		// `filterLatestExtensionVersionsForTargetPlatform`, which assumes versions are sorted
+		// descending by semver. Open VSX and P3M do not always honor that ordering, which
+		// caused Positron to install old extension versions (issue #12619).
+		const latestExtensionVersionsForTargetPlatform = filterLatestExtensionVersionsForTargetPlatformPositron(latestVersions, targetPlatform, allTargetPlatforms);
+		// --- End Positron ---
 
 		// First, find a valid version matching the requested type (pre-release or release)
 		const result = await this.getValidRawGalleryExtensionVersion(
