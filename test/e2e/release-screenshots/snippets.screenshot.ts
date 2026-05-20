@@ -91,25 +91,27 @@ test.describe('Release Screenshots - Snippets', () => {
 		await quickaccess.runCommand('Snippets: Configure Snippets', { keepOpen: true });
 		const picker = page.locator('.quick-input-widget');
 		await expect(picker).toBeVisible();
-		const rowsContainer = picker.locator('.quick-input-list .monaco-list-rows').first();
-		await expect(rowsContainer).toBeVisible();
+		// Wait for the snippets picker (not the command palette) by anchoring
+		// on the unique "New Global Snippets file..." row.
+		await expect(picker.locator('.monaco-list-row[aria-label^="New Global Snippets file"]')).toBeVisible();
 
-		// Scroll the list so python is visible. The picker is virtualized but
-		// scrolling the rows container reliably triggers row rendering.
-		await rowsContainer.evaluate((el) => {
-			const target = el.querySelector('[aria-label^="python ("]') as HTMLElement | null;
-			if (target) {
-				target.scrollIntoView({ block: 'center' });
-				return;
-			}
-			// Fallback: roughly halfway down the language list (~50 rows * 22px).
-			(el as HTMLElement).scrollTop = 1100;
-		});
-		// Re-query after virtualized scroll repopulates rows.
-		const pythonRow = picker.locator('.quick-input-list .monaco-list-row[aria-label^="python ("]');
-		const quartoRow = picker.locator('.quick-input-list .monaco-list-row[aria-label^="quarto ("]');
-		const rRow = picker.locator('.quick-input-list .monaco-list-row[aria-label^="r ("]');
-		await expect(pythonRow).toBeVisible();
+		const pythonRow = picker.locator('.quick-input-list .monaco-list-row[aria-label^="python, ("]');
+		const quartoRow = picker.locator('.quick-input-list .monaco-list-row[aria-label^="quarto, ("]');
+		const rRow = picker.locator('.quick-input-list .monaco-list-row[aria-label^="r, ("]');
+
+		// Monaco-list is virtualized; setting scrollTop on .monaco-list-rows
+		// doesn't reliably re-virtualize. Hover the picker and wheel-scroll
+		// until python is rendered (each step ~22px row, alphabetical languages
+		// land around row ~50).
+		const pickerBox = await picker.boundingBox();
+		if (!pickerBox) {
+			throw new Error('Could not measure quick-input picker');
+		}
+		await page.mouse.move(pickerBox.x + pickerBox.width / 2, pickerBox.y + pickerBox.height / 2);
+		await expect(async () => {
+			await page.mouse.wheel(0, 200);
+			await expect(pythonRow).toBeVisible({ timeout: 500 });
+		}).toPass({ timeout: 15000 });
 		await expect(quartoRow).toBeVisible();
 		await expect(rRow).toBeVisible();
 
@@ -121,9 +123,9 @@ test.describe('Release Screenshots - Snippets', () => {
 		await annotate(page, [
 			{
 				selector: [
-					'.quick-input-list .monaco-list-row[aria-label^="python ("]',
-					'.quick-input-list .monaco-list-row[aria-label^="quarto ("]',
-					'.quick-input-list .monaco-list-row[aria-label^="r ("]',
+					'.quick-input-list .monaco-list-row[aria-label^="python, ("]',
+					'.quick-input-list .monaco-list-row[aria-label^="quarto, ("]',
+					'.quick-input-list .monaco-list-row[aria-label^="r, ("]',
 				],
 				label: '3',
 				color: ANNOTATION_COLOR,
@@ -134,10 +136,9 @@ test.describe('Release Screenshots - Snippets', () => {
 
 		// Crop from the picker top through the bottom of the R row so the
 		// search box and the highlighted languages are both in frame.
-		const pickerBox = await picker.boundingBox();
 		const rBox = await rRow.boundingBox();
-		if (!pickerBox || !rBox) {
-			throw new Error('Could not measure picker / rows');
+		if (!rBox) {
+			throw new Error('Could not measure r row');
 		}
 		const height = Math.ceil((rBox.y + rBox.height) - pickerBox.y);
 		await captureRegion(page, 'snippets-configure-language-specific-snippets.png', {
@@ -154,8 +155,9 @@ test.describe('Release Screenshots - Snippets', () => {
 	 * Open a fresh R file, type `for`, navigate to the snippet entry so the
 	 * details panel renders the snippet body, then capture the suggest widget.
 	 */
-	test('Release Screenshot - snippets-for-example.png', async ({ app, page, openFile }) => {
-		const { editor } = app.workbench;
+	test('Release Screenshot - snippets-for-example.png', async ({ app, page, openFile, r }) => {
+		const { editor, sessions } = app.workbench;
+		await sessions.expectAllSessionsToBeReady();
 
 		// Minimal R buffer so the suggest widget isn't polluted by identifiers
 		// scraped from existing code (`functionBody`, `findUnique`, etc.).
@@ -164,29 +166,49 @@ test.describe('Release Screenshots - Snippets', () => {
 		await openFile('snippet-demo.R');
 
 		await editor.type('for');
-
+		// Trigger the suggest widget explicitly (typing alone doesn't always
+		// open it for R, and the test needs to drive selection deterministically).
+		await expect(async () => {
+			await page.keyboard.press('Control+Space');
+			await expect(page.locator('.suggest-widget.visible')).toBeVisible({ timeout: 3000 });
+		}).toPass({ timeout: 15000 });
 		const suggest = page.locator('.suggest-widget.visible');
-		await expect(suggest).toBeVisible({ timeout: 10000 });
 
-		// Walk selection down until the focused row is the snippet (not the
-		// keyword), so the details panel renders the snippet body.
+		// Walk selection down until the focused row is the snippet (the
+		// keyword `for` typically appears above the `for` snippet).
 		const focused = suggest.locator('.monaco-list-row.focused');
-		for (let i = 0; i < 8; i++) {
-			const isSnippet = await focused
-				.locator('.suggest-icon.codicon-symbol-snippet, .codicon-symbol-snippet')
-				.first()
-				.isVisible()
-				.catch(() => false);
-			if (isSnippet) {
-				break;
-			}
+		const isFocusedSnippet = async () =>
+			focused.locator('.codicon-symbol-snippet').first().isVisible().catch(() => false);
+		for (let i = 0; i < 8 && !(await isFocusedSnippet()); i++) {
 			await page.keyboard.press('ArrowDown');
 		}
-		const details = suggest.locator('.details');
-		await expect(details).toBeVisible({ timeout: 5000 });
+		// Toggle the details panel so the snippet body renders to the side.
+		// Ctrl+Space when the widget is visible runs `toggleSuggestionDetails`
+		// (same binding as Trigger Suggest, disambiguated by widget visibility).
+		const details = page.locator('.suggest-details-container');
+		await expect(async () => {
+			await page.keyboard.press('Control+Space');
+			await expect(details).toBeVisible({ timeout: 2000 });
+		}).toPass({ timeout: 10000 });
 
 		await prepareForScreenshot(app, page);
-		await capturePanel(page, suggest, 'snippets-for-example.png');
+		// Capture the union of the suggest widget + the (overlay-positioned)
+		// details panel so the snippet body shows alongside the list.
+		const suggestBox = await suggest.boundingBox();
+		const detailsBox = await details.boundingBox();
+		if (!suggestBox || !detailsBox) {
+			throw new Error('Could not measure suggest widget / details panel');
+		}
+		const left = Math.floor(Math.min(suggestBox.x, detailsBox.x));
+		const top = Math.floor(Math.min(suggestBox.y, detailsBox.y));
+		const right = Math.ceil(Math.max(suggestBox.x + suggestBox.width, detailsBox.x + detailsBox.width));
+		const bottom = Math.ceil(Math.max(suggestBox.y + suggestBox.height, detailsBox.y + detailsBox.height));
+		await captureRegion(page, 'snippets-for-example.png', {
+			x: left,
+			y: top,
+			width: right - left,
+			height: bottom - top,
+		});
 	});
 
 	/**
@@ -195,21 +217,26 @@ test.describe('Release Screenshots - Snippets', () => {
 	 * Type `fun` in a fresh R file and annotate the snippet row ("fun" / Function
 	 * skeleton) and the keyword row ("function" / [keyword]).
 	 */
-	test('Release Screenshot - snippets-keyword-with-two-items.png', async ({ app, page, openFile }) => {
-		const { editor } = app.workbench;
+	test('Release Screenshot - snippets-keyword-with-two-items.png', async ({ app, page, openFile, r }) => {
+		const { editor, sessions } = app.workbench;
+		await sessions.expectAllSessionsToBeReady();
 
 		const filePath = join(app.workspacePathOrFolder, 'snippet-demo.R');
 		writeFileSync(filePath, '\n');
 		await openFile('snippet-demo.R');
 
 		await editor.type('fun');
-
+		await expect(async () => {
+			await page.keyboard.press('Control+Space');
+			await expect(page.locator('.suggest-widget.visible')).toBeVisible({ timeout: 3000 });
+		}).toPass({ timeout: 15000 });
 		const suggest = page.locator('.suggest-widget.visible');
-		await expect(suggest).toBeVisible({ timeout: 10000 });
 
-		// Wait until both rows we want to annotate are rendered.
-		const funRow = suggest.locator('.monaco-list-row', { hasText: 'Function skeleton' }).first();
-		const functionKeywordRow = suggest.locator('.monaco-list-row', { hasText: '[keyword]' }).filter({ hasText: 'function' }).first();
+		// Wait until both rows we want to annotate are rendered. The positron-r
+		// `fun` snippet describes itself as "Define a function"; the keyword
+		// row shows `[keyword]` in its trailing meta.
+		const funRow = suggest.locator('.monaco-list-row', { hasText: 'Define a function' }).first();
+		const functionKeywordRow = suggest.locator('.monaco-list-row', { hasText: '[keyword]' }).filter({ hasText: /\bfunction\b/ }).first();
 		await expect(funRow).toBeVisible({ timeout: 5000 });
 		await expect(functionKeywordRow).toBeVisible({ timeout: 5000 });
 
@@ -219,7 +246,7 @@ test.describe('Release Screenshots - Snippets', () => {
 			const rows = document.querySelectorAll('.suggest-widget .monaco-list-row');
 			for (const row of rows) {
 				const text = row.textContent ?? '';
-				if (text.includes('Function skeleton')) {
+				if (text.includes('Define a function')) {
 					row.setAttribute('data-screenshot-target', 'snippet-fun');
 				} else if (text.includes('[keyword]') && /\bfunction\b/.test(text)) {
 					row.setAttribute('data-screenshot-target', 'keyword-function');
