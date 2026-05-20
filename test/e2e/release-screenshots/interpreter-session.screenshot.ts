@@ -1,0 +1,112 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import { expect } from '@playwright/test';
+import { writeFileSync } from 'fs';
+import { join } from 'path';
+import { test } from '../tests/_test.setup';
+import { captureFullWindow } from './helpers/screenshot-utils';
+import { overrideWorkspaceName, prepareForScreenshot, setScreenshotWindowSize } from './helpers/layout-utils';
+import { annotate, clearAnnotations } from './helpers/annotate-utils';
+
+const ANNOTATION_COLOR = '#dc2626';
+
+const DATA_TYPES_R = `# Numbers
+count <- 5L
+price <- 19.99
+
+# Strings
+first_name <- "Alice"
+city <- "Seattle"
+
+# Vector
+scores <- c(88, 92, 75, 95, 81)
+
+# Boolean
+is_active <- TRUE
+
+# Data Frame
+employees <- data.frame(
+name = c("Alice", "Bob", "Charlie"),
+age = c(30, 25, 35),
+salary = c(85000, 65000, 92000)
+)
+`;
+
+const BASICS_R = `# Variable Assignment
+x <- 10
+y <- 5
+
+# Arithmetic
+sum <- x + y
+diff <- x - y
+prod <- x * y
+quot <- x / y
+`;
+
+test.use({
+	suiteId: __filename,
+});
+
+test.beforeEach(async ({ app }) => {
+	await setScreenshotWindowSize(app);
+});
+
+test.afterEach(async ({ app, page }) => {
+	await page.keyboard.press('Escape');
+	await clearAnnotations(page);
+	await app.workbench.hotKeys.closeAllEditors();
+});
+
+test.describe('Release Screenshots - Interpreter Session', () => {
+
+	/**
+	 * Img Path: https://positron.posit.co/images/variables-pane.png
+	 *
+	 * R session with several variables assigned, Variables view visible in the
+	 * secondary side bar.
+	 */
+	test('Release Screenshot - variables-pane.png', async ({ app, page, openFile, executeCode, r }) => {
+		const { sessions, variables, hotKeys } = app.workbench;
+		await sessions.expectAllSessionsToBeReady();
+
+		writeFileSync(join(app.workspacePathOrFolder, 'data_types.R'), DATA_TYPES_R);
+		await openFile('data_types.R');
+		await executeCode('R', DATA_TYPES_R, { maximizeConsole: false });
+
+		await hotKeys.closePrimarySidebar();
+		await variables.focusVariablesView();
+		await expect(variables.variablesPane).toBeVisible();
+
+		await prepareForScreenshot(app, page);
+		await overrideWorkspaceName(page, 'qa-example-content', 'my-project');
+		await captureFullWindow(page, 'variables-pane.png');
+	});
+
+	/**
+	 * Img Path: https://positron.posit.co/images/active-interpreter-session.png
+	 *
+	 * R and Python sessions running side-by-side, Sessions view visible in the
+	 * secondary side bar, with an annotation on the top-right interpreter chip.
+	 */
+	test('Release Screenshot - active-interpreter-session.png', async ({ app, page, openFile, r }) => {
+		const { sessions, quickaccess, hotKeys } = app.workbench;
+		await sessions.start(['python']);
+		await sessions.expectAllSessionsToBeReady();
+
+		writeFileSync(join(app.workspacePathOrFolder, 'basics.R'), BASICS_R);
+		await openFile('basics.R');
+
+		await hotKeys.closePrimarySidebar();
+		await quickaccess.runCommand('workbench.view.positronSessions.focus', { exactLabelMatch: false });
+
+		await prepareForScreenshot(app, page);
+		await overrideWorkspaceName(page, 'qa-example-content', 'my-project');
+		await annotate(page, [
+			{ selector: '.top-action-bar-session-manager-face', label: '', color: ANNOTATION_COLOR, padding: 3 },
+		]);
+		await captureFullWindow(page, 'active-interpreter-session.png');
+	});
+});
