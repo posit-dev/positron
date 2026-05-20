@@ -47,6 +47,9 @@ export const enum ZenModeSettings {
 	FULLSCREEN = 'zenMode.fullScreen',
 	RESTORE = 'zenMode.restore',
 	SILENT_NOTIFICATIONS = 'zenMode.silentNotifications',
+	// --- Start Positron ---
+	HIDE_TOP_ACTION_BAR = 'zenMode.hideTopActionBar',
+	// --- End Positron ---
 }
 
 export const enum LayoutSettings {
