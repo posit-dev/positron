@@ -98,6 +98,10 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 
 	// Set up keyboard and resize event handlers.
 	useEffect(() => {
+		// Register bounds so child popups know clicks inside this dialog are not
+		// "outside" the renderer stack.
+		props.renderer.setBoundsProvider(() => dialogBoxRef.current.getBoundingClientRect());
+
 		// Create a disposable store for the event handlers we'll add.
 		const disposableStore = new DisposableStore();
 

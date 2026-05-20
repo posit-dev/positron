@@ -440,4 +440,46 @@ describe('PositronModalReactRenderer', () => {
 			expect(callbackCalled).toBe(false);
 		});
 	});
+
+	/**
+	 * Popup dismiss does not tear down parent dialog test suite.
+	 */
+	describe('popup dismiss does not tear down parent dialog', () => {
+		it('disposing a child renderer leaves the parent intact', () => {
+			const container = createMockContainer();
+
+			const dialog = disposables.add(new PositronModalReactRenderer({ container }));
+			dialog.render(createMockReactElement());
+
+			const popup = disposables.add(new PositronModalReactRenderer({ container }));
+			popup.render(createMockReactElement());
+
+			expect(container.children.length).toBe(2);
+
+			popup.dispose();
+
+			expect(container.children.length).toBe(1);
+
+			dialog.dispose();
+		});
+
+		it('dialog with registered bounds prevents disposeAll from outside click', () => {
+			const container = createMockContainer();
+
+			const dialog = disposables.add(new PositronModalReactRenderer({ container }));
+			dialog.render(createMockReactElement());
+			dialog.setBoundsProvider(() => new DOMRect(100, 100, 500, 400));
+
+			const popup = disposables.add(new PositronModalReactRenderer({ container }));
+			popup.render(createMockReactElement());
+
+			// Click inside dialog bounds -- isInsideAnyPopup should return true,
+			// preventing disposeAll from tearing down the dialog
+			const e = new MouseEvent('mousedown', { clientX: 200, clientY: 200 });
+			expect(PositronModalReactRenderer.isInsideAnyPopup(e)).toBe(true);
+
+			popup.dispose();
+			dialog.dispose();
+		});
+	});
 });
