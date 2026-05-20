@@ -5,7 +5,7 @@
 
 import { expect } from '@playwright/test';
 import { test as base } from '../tests/_test.setup';
-import { captureFullWindow } from './helpers/screenshot-utils';
+import { applyDropShadow, captureFullWindow } from './helpers/screenshot-utils';
 import { prepareForScreenshot, setScreenshotWindowSize } from './helpers/layout-utils';
 import { annotate, clearAnnotations } from './helpers/annotate-utils';
 
@@ -26,7 +26,7 @@ test.use({
 });
 
 test.beforeEach(async ({ app }) => {
-	await setScreenshotWindowSize(app, { width: 1104, height: 744 });
+	await setScreenshotWindowSize(app, { width: 960, height: 640 });
 });
 
 test.afterEach(async ({ app, page }) => {
@@ -55,6 +55,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 			{ selector: 'button[aria-label="Kernel Actions"]', label: '', color: ANNOTATION_COLOR, padding: 3 },
 		]);
 		await captureFullWindow(page, 'positron-notebook-editor-kernel-selector.png');
+		await applyDropShadow('positron-notebook-editor-kernel-selector.png');
 	});
 
 	/**
@@ -82,6 +83,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 			{ selector: '.editor-action-bar-container button[aria-label="Ask Assistant"]', label: '', color: ANNOTATION_COLOR, padding: 3 },
 		]);
 		await captureFullWindow(page, 'positron-notebook-assistant-action-bar.png');
+		await applyDropShadow('positron-notebook-assistant-action-bar.png');
 	});
 
 	/**
@@ -109,5 +111,6 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 
 		await prepareForScreenshot(app, page);
 		await captureFullWindow(page, 'positron-notebook-assistant-panel.png');
+		await applyDropShadow('positron-notebook-assistant-panel.png');
 	});
 });

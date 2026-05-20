@@ -133,3 +133,35 @@ export async function capturePanelHires(
 ): Promise<void> {
 	await capturePanel(page, locator, filename, { scale });
 }
+
+/**
+ * Composite a captured PNG onto a slightly larger white canvas and paint a
+ * soft drop shadow behind it. Approximates the floating-window look of the
+ * legacy macOS-chrome screenshots that this repo's CDP captures cannot
+ * reproduce directly. Mutates the file in place. Padding scales with the
+ * source resolution so it stays proportional at 2x device pixels.
+ */
+export async function applyDropShadow(
+	filename: string,
+	opts?: { padding?: number; blur?: number; opacity?: number },
+): Promise<void> {
+	const { createCanvas, loadImage } = await import('canvas');
+	const fs = await import('node:fs/promises');
+	const file = outputPath(filename);
+	const img = await loadImage(file);
+	const padding = opts?.padding ?? 60;
+	const blur = opts?.blur ?? 40;
+	const opacity = opts?.opacity ?? 0.25;
+	const W = img.width + padding * 2;
+	const H = img.height + padding * 2;
+	const canvas = createCanvas(W, H);
+	const ctx = canvas.getContext('2d');
+	ctx.fillStyle = '#ffffff';
+	ctx.fillRect(0, 0, W, H);
+	ctx.shadowColor = `rgba(0,0,0,${opacity})`;
+	ctx.shadowBlur = blur;
+	ctx.shadowOffsetX = 0;
+	ctx.shadowOffsetY = Math.round(blur / 3);
+	ctx.drawImage(img, padding, padding);
+	await fs.writeFile(file, canvas.toBuffer('image/png'));
+}
