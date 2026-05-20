@@ -113,6 +113,22 @@ export enum PlotsDisplayLocation {
 }
 
 /**
+ * The remembered target for the plots action bar "Open in..." split-button.
+ */
+export enum PlotOpenTarget {
+	/** Open in a new auxiliary window editor group. */
+	EditorNewWindow = 'editorNewWindow',
+	/** Open in the active editor group. */
+	EditorTab = 'editorTab',
+	/** Open in the side editor group. */
+	EditorTabToSide = 'editorTabToSide',
+	/** Open the plots gallery in a new window. */
+	Gallery = 'gallery',
+	/** Pop out an HTML plot in a new window. */
+	Popout = 'popout'
+}
+
+/**
  * Creates a suggested file name for a plot.
  * @param storageService The storage service to use.
  * @returns A suggested file name for the plot.
@@ -338,6 +354,21 @@ export interface IPositronPlotsService {
 	 * Gets the preferred editor group for opening the plot in an editor tab.
 	 */
 	getPreferredEditorGroup(): number;
+
+	/**
+	 * Gets the remembered "Open in..." target for the plots action bar split-button.
+	 *
+	 * When the dedicated storage key is unset, falls back to migrating the legacy
+	 * `positronPlots.defaultEditorAction` editor-group number (used by older builds)
+	 * into the corresponding {@link PlotOpenTarget}.
+	 */
+	getDefaultOpenTarget(): PlotOpenTarget;
+
+	/**
+	 * Records the remembered "Open in..." target for the plots action bar split-button.
+	 * Supersedes any value carried over from the legacy editor-group key.
+	 */
+	setDefaultOpenTarget(target: PlotOpenTarget): void;
 
 	/**
 	 * Gets the plot client that is connected to an editor for the specified id.

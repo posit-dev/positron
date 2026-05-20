@@ -37,13 +37,6 @@ export class ErrorModelProvider extends ModelProvider {
 	};
 
 	/**
-	 * Sends a test message - always throws an error.
-	 */
-	protected async sendTestMessage(modelId: string): Promise<any> {
-		throw new Error(this._message);
-	}
-
-	/**
 	 * Provides a chat response - always throws an error.
 	 */
 	async provideLanguageModelChatResponse(

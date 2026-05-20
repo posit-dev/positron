@@ -8,7 +8,6 @@ import { Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 
 const POSITRON_TOP_ACTION_BAR = 'div[id="workbench.parts.positron-top-action-bar"]';
-const POSITRON_TOP_ACTION_SAVE_BUTTON = 'div[id="workbench.parts.positron-top-action-bar"] .action-bar-region-left .action-bar-button[aria-label="Save"]';
 const POSITRON_TOP_ACTION_SAVE_ALL_BUTTON = 'div[id="workbench.parts.positron-top-action-bar"] .action-bar-region-left .action-bar-button[aria-label="Save All"]';
 
 /*
@@ -16,12 +15,10 @@ const POSITRON_TOP_ACTION_SAVE_ALL_BUTTON = 'div[id="workbench.parts.positron-to
  */
 export class TopActionBar {
 	topActionBar: Locator;
-	saveButton: Locator;
 	saveAllButton: Locator;
 
 	constructor(private code: Code) {
 		this.topActionBar = this.code.driver.currentPage.locator(POSITRON_TOP_ACTION_BAR);
-		this.saveButton = this.code.driver.currentPage.locator(POSITRON_TOP_ACTION_SAVE_BUTTON);
 		this.saveAllButton = this.code.driver.currentPage.locator(POSITRON_TOP_ACTION_SAVE_ALL_BUTTON);
 	}
 }

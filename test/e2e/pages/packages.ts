@@ -17,6 +17,9 @@ export class Packages {
 	packagesButton: Locator;
 	packagesContainer: Locator;
 	packagesViewMoreActionsButton: Locator;
+	filterButton: Locator;
+	filterOptionsMenu: Locator;
+	filterOptionsSubmenu: Locator;
 
 	constructor(private code: Code, private contextMenu: ContextMenu, private quickInput: QuickInput, private toasts: Toasts) {
 		this.packagesButton = this.code.driver.currentPage.locator('a.action-label.codicon-package');
@@ -25,6 +28,14 @@ export class Packages {
 		this.packagesViewMoreActionsButton = code.driver.currentPage
 			.getByRole('toolbar', { name: 'Packages actions' })
 			.getByRole('button', { name: 'Views and More Actions...' });
+		// Filter funnel that opens the Filter/Sort options menu.
+		this.filterButton = this.packagesContainer.locator('.filter-button');
+		// Custom context menu popups appear in DOM order. The first is the top-level
+		// Filter/Sort menu; a hovered submenu trigger spawns a second popup.
+		const popupItems = this.code.driver.currentPage
+			.locator('.positron-modal-popup-container .custom-context-menu-items');
+		this.filterOptionsMenu = popupItems.first();
+		this.filterOptionsSubmenu = popupItems.nth(1);
 	}
 
 	/**
@@ -50,14 +61,15 @@ export class Packages {
 	}
 
 	/**
-	 * Clicks the packages button to open the packages view
-	 * If the packages pane is already visible, this is a no-op
+	 * Opens the packages pane if not already open and waits for the
+	 * container to be visible.
 	 */
 	async clickPackagesButton(): Promise<void> {
 		const isVisible = await this.packagesContainer.isVisible();
 		if (!isVisible) {
 			await this.packagesButton.click();
 		}
+		await expect(this.packagesContainer).toBeVisible();
 	}
 
 	/**
@@ -89,6 +101,16 @@ export class Packages {
 	}
 
 	/**
+	 * Asserts the packages list has rendered at least one item. Use after
+	 * starting a session to wait for the package provider's first snapshot.
+	 */
+	async expectPackagesListPopulated(): Promise<void> {
+		await expect(
+			this.packagesContainer.locator('.packages-list-item-name').first(),
+		).toBeVisible();
+	}
+
+	/**
 	 * Asserts that a package row is present in the currently filtered list.
 	 * Retries past the post-install refresh delay (the install toast clears
 	 * before the package provider re-emits its snapshot).
@@ -99,6 +121,42 @@ export class Packages {
 		await this.clickPackagesButton();
 		const row = this.packagesContainer.locator('.packages-list-item-name', { hasText: name });
 		await expect(row.first()).toBeVisible({ timeout });
+	}
+
+	/**
+	 * Click the filter funnel to open the Filter/Sort options menu.
+	 * Asserts the top-level menu is visible.
+	 */
+	async openFilterOptionsMenu(): Promise<void> {
+		await this.clickPackagesButton();
+		await this.filterButton.click();
+		await expect(this.filterOptionsMenu).toBeVisible();
+	}
+
+	/**
+	 * Hover the named submenu trigger (Filter or Sort) in the open filter options
+	 * menu to reveal its nested submenu. Asserts the submenu is visible.
+	 */
+	async expandFilterOptionsSubmenu(name: 'Filter' | 'Sort'): Promise<void> {
+		const trigger = this.filterOptionsMenu.locator('.custom-context-menu-item', {
+			has: this.code.driver.currentPage.locator('.title', { hasText: name }),
+		});
+		await expect(trigger).toBeVisible();
+		await trigger.hover();
+		await expect(this.filterOptionsSubmenu).toBeVisible();
+	}
+
+	/**
+	 * Hover an item in the currently-open filter options submenu so it shows
+	 * the highlighted state. Used for screenshots that need to capture a
+	 * specific item in the highlighted state.
+	 */
+	async hoverFilterOptionsSubmenuItem(label: string): Promise<void> {
+		const item = this.filterOptionsSubmenu.locator('.custom-context-menu-item', {
+			has: this.code.driver.currentPage.locator('.title', { hasText: label }),
+		});
+		await expect(item).toBeVisible();
+		await item.hover();
 	}
 
 	/**

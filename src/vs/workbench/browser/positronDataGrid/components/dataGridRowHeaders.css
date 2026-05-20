@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -8,4 +8,6 @@
 	position: relative;
 	grid-row: waffle / end-waffle;
 	grid-column: headers / waffle;
+	/* Don't paint underneath the horizontal scrollbar -- see .data-grid-waffle for the source. */
+	clip-path: inset(0 0 var(--data-grid-clip-bottom, 0) 0);
 }

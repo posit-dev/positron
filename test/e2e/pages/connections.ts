@@ -31,7 +31,7 @@ export class Connections {
 		this.currentConnectionName = code.driver.currentPage.locator('.connections-instance-details .connection-name');
 	}
 
-	async openConnectionsNodes(nodes: string[]) {
+	async openConnectionsNodes(nodes: (string | RegExp)[]) {
 		for (const node of nodes) {
 			await this.code.driver.currentPage.locator(CONNECTIONS_ITEM).filter({ hasText: node }).locator('.codicon-chevron-right').click();
 			await expect(this.code.driver.currentPage.locator(CONNECTIONS_ITEM).filter({ hasText: node }).locator('.codicon-chevron-down')).toBeVisible();

@@ -1,15 +1,50 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/*
+ * Console body layout: CSS-driven height cascade with ResizeObserver for bottom anchoring.
+ *
+ * Sizing chain (VS Code grid sets the pixel height at the top, every level below fills its parent
+ * through layout):
+ *
+ *   <part element>                       ← VS Code grid sets pixel height
+ *     .positron-console                  ← height: 100% (positronConsole.css)
+ *       .console-core                    ← height: 100% (this file)
+ *         .console-pane                  ← height: 100%, flex column (this file)
+ *           ActionBar                    ← fixed height
+ *           .console-instances-container ← flex: 1 (this file)
+ *             .console-instance          ← top: 0; bottom: 0 (consoleInstance.css)
+ *
+ * Maintaining height in React props (style={{ height: props.height }}) lags the actual DOM resize
+ * by a frame: VS Code's grid mutates the parent synchronously, but a prop-driven height has to
+ * flow through onSizeChanged → setState → re-render before reaching our element. During that
+ * window the parent and child have different sizes and the visible content shifts by 1-10px every
+ * tick. The CSS cascade above eliminates that window — parent resizes reach .console-instance in a
+ * single layout pass with no React in the chain.
+ *
+ * Keeping the user anchored to the bottom of content during a shrink is handled by a
+ * ResizeObserver in consoleInstance.tsx — the browser auto-clamps scrollTop on grow but
+ * not on shrink, so that case needs a JS reaction that fires before paint.
+ */
 .positron-console .console-core {
 	display: flex;
-	flex-direction: row;
 	width: 100%;
+	height: 100%;
+	min-height: 0;
+	flex-direction: row;
+}
+
+.positron-console .console-core .console-pane {
+	height: 100%;
+	display: flex;
+	flex-direction: column;
 }
 
 .positron-console .console-core .console-instances-container {
+	flex: 1;
+	min-height: 0;
 	position: relative;
 }
 

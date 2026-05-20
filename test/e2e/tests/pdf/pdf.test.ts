@@ -25,10 +25,10 @@ function getPdfFrame(page: Page): FrameLocator {
 }
 
 test.describe('PDF Viewer', {
-	tag: [tags.WEB, tags.WIN, tags.PDF]
+	tag: [tags.WEB, tags.PDF]
 }, () => {
 
-	test('Can open and close PDF file', async function ({ openDataFile, page, app }) {
+	test('Can open and close PDF file', { tag: [tags.WIN] }, async function ({ openDataFile, page, app }) {
 		// Open the PDF file
 		await openDataFile('data-files/pdf/sample-local-pdf.pdf');
 
@@ -46,6 +46,8 @@ test.describe('PDF Viewer', {
 		expect(filenames.length).toBe(0);
 	});
 
+	// Linux + web only: the print path opens a native OS dialog that hangs the Windows worker.
+	// Renderer-side behavior is identical across platforms and covered on Linux Electron + web.
 	test('Can print PDF file', async function ({ openDataFile, page, hotKeys }) {
 		// Open the PDF file
 		await openDataFile('data-files/pdf/sample-local-pdf.pdf');

@@ -10,9 +10,6 @@ import * as child_process from 'child_process';
 import { createRequire } from 'module';
 import { dirs } from './dirs.ts';
 import { root, stateFile, stateContentsFile, computeState, computeContents, isUpToDate } from './installStateHash.ts';
-// --- Start Positron ---
-import { buildESMPackageDependencies } from './build-esm-package-dependencies.ts';
-// --- End Positron ---
 
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const rootNpmrcConfigKeys = getNpmrcConfigKeys(path.join(root, '.npmrc'));
@@ -214,9 +211,11 @@ function generateRehWebPackageJson() {
 		.pipe(
 			mergeJson({
 				fileName: 'package.json',
-				// Rename the "name" field to positron-reh-web
+				// Rename "name" to positron-reh-web and add "product-label" used by
+				// Workbench's nginx static URL routing.
 				endObj: {
 					name: 'positron-reh-web',
+					'product-label': 'positron',
 				},
 				transform: (mergedJson: { dependencies?: { [x: string]: any } }) => {
 					// Sort the dependencies alphabetically
@@ -241,6 +240,86 @@ function generateRehWebPackageJson() {
 			const packageJsonPath = path.join(packageJsonDirPath, 'package.json');
 			child_process.execSync(`git add --renormalize ${packageJsonPath}`);
 		});
+}
+
+/**
+ * If the ark submodule pointer recorded in this commit differs from what's
+ * currently checked out in `extensions/positron-r/ark`, sync it — but only
+ * when it's safe to do so. "Safe" means: the current submodule HEAD is
+ * detached and is an ancestor of ark's `origin/main` (i.e., no in-progress
+ * dev work would be lost). Anything else (named branch, unmerged commits,
+ * offline, CI) is left alone.
+ *
+ * Runs before the dirs loop so the subsequent extensions install (which
+ * triggers install-kernel) sees the synced submodule contents.
+ */
+async function syncArkSubmoduleIfSafe(): Promise<void> {
+	// Skip in CI — checkouts there already pin the submodule via `submodules: true`.
+	if (process.env['CI']) {
+		log('.', 'Skipping ark submodule sync in CI environment');
+		return;
+	}
+
+	const submodulePath = 'extensions/positron-r/ark';
+	const submoduleAbs = path.join(root, submodulePath);
+
+	// Not initialized yet — install-kernel's ensureSubmoduleReady handles that path.
+	if (!fs.existsSync(path.join(submoduleAbs, '.git'))) {
+		return;
+	}
+
+	const exec = (cmd: string, cwd: string) =>
+		child_process.execSync(cmd, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+
+	// Compare recorded pointer vs. checked-out HEAD.
+	let recordedSha: string;
+	let currentSha: string;
+	try {
+		const lsTree = exec(`git ls-tree HEAD ${submodulePath}`, root);
+		recordedSha = lsTree.split(/\s+/)[2];
+		currentSha = exec('git rev-parse HEAD', submoduleAbs);
+	} catch {
+		return;
+	}
+	if (!recordedSha || recordedSha === currentSha) {
+		return;
+	}
+
+	// Don't detach from a named branch — even if reachable from main, the dev is
+	// likely actively using it.
+	try {
+		const branch = exec('git symbolic-ref --quiet --short HEAD', submoduleAbs);
+		if (branch) {
+			log(submodulePath,
+				`Pointer differs (${currentSha.slice(0, 7)} → ${recordedSha.slice(0, 7)}), ` +
+				`but ark is on branch '${branch}'. Skipping auto-sync.`);
+			return;
+		}
+	} catch {
+		// Detached HEAD — symbolic-ref exits non-zero, which is what we want.
+	}
+
+	// Refresh origin/main inside the submodule so the ancestor check is meaningful.
+	// Offline → skip silently; the dev can sync manually when they're back online.
+	try {
+		exec('git fetch --quiet origin main', submoduleAbs);
+	} catch {
+		return;
+	}
+
+	// Safety gate: only sync if current HEAD has no commits beyond ark's origin/main.
+	try {
+		exec('git merge-base --is-ancestor HEAD origin/main', submoduleAbs);
+	} catch {
+		log(submodulePath,
+			`Pointer differs (${currentSha.slice(0, 7)} → ${recordedSha.slice(0, 7)}), ` +
+			`but HEAD is not reachable from ark's origin/main — looks like in-progress ` +
+			`work. Skipping. Run \`git submodule update -- ${submodulePath}\` to sync manually.`);
+		return;
+	}
+
+	log(submodulePath, `Syncing ark submodule ${currentSha.slice(0, 7)} → ${recordedSha.slice(0, 7)}...`);
+	run('git', ['submodule', 'update', '--', submodulePath], { cwd: root, stdio: 'inherit' });
 }
 // --- End Positron ---
 
@@ -270,6 +349,17 @@ async function runWithConcurrency(tasks: (() => Promise<void>)[], concurrency: n
 }
 
 async function main() {
+	// --- Start Positron ---
+	// Sync the ark submodule before anything else — extensions install runs
+	// install-kernel, which reads the submodule's working tree.
+	try {
+		await syncArkSubmoduleIfSafe();
+	} catch (err) {
+		console.error('Error in syncArkSubmoduleIfSafe:', err);
+		throw err;
+	}
+	// --- End Positron ---
+
 	if (!process.env['VSCODE_FORCE_INSTALL'] && isUpToDate()) {
 		log('.', 'All dependencies up to date, skipping postinstall.');
 		child_process.execSync('git config pull.rebase merges');
@@ -391,9 +481,16 @@ async function main() {
 
 	// --- Start Positron ---
 	// Build ESM package dependencies once during postinstall for reuse across all build pipelines.
-	console.log('Building ESM package dependencies...');
-	buildESMPackageDependencies('.build/esm-package-dependencies');
-	console.log('ESM package dependencies built successfully.');
+	// Dynamic import to avoid loading esbuild before the build directory's npm install completes.
+	try {
+		console.log('Building ESM package dependencies...');
+		const { buildESMPackageDependencies } = await import('./build-esm-package-dependencies.ts');
+		buildESMPackageDependencies('.build/esm-package-dependencies');
+		console.log('ESM package dependencies built successfully.');
+	} catch (err) {
+		console.error('Error building ESM package dependencies:', err);
+		throw err;
+	}
 	// --- End Positron ---
 
 	fs.writeFileSync(stateFile, JSON.stringify(_state));

@@ -74,6 +74,11 @@ test.describe('Positron Notebooks: Scroll Position', {
 		// Wait for the notebook to be visible again after reload
 		await notebooksPositron.expectToBeVisible();
 
+		// Wait for cells to actually render -- expectToBeVisible() only waits for
+		// the container, not its children. On slower CI envs the tab restore can
+		// take longer than the scroll-comparison timeout below.
+		await expect.poll(() => notebooksPositron.cell.count(), { timeout: 30000 }).toBeGreaterThan(0);
+
 		// Verify the same cell is first-visible at the same offset.
 		await expect.poll(async () => {
 			const anchorAfter = await notebooksPositron.getScrollAnchor();

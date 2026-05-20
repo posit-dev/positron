@@ -12,5 +12,7 @@
 	"configuration.google.baseUrl.description": "Custom Gemini API base URL. Overrides the default https://generativelanguage.googleapis.com/v1beta endpoint. Also set automatically from the GEMINI_BASE_URL environment variable.",
 	"configuration.google.customHeaders.description": "Extra HTTP headers attached to every Gemini request. **Do not set headers managed by the Google Generative AI SDK** (`x-goog-api-key`, `Content-Type`) — on chat requests a colliding entry will override the SDK's headers and break the connection.",
 	"configuration.openai-compatible.baseUrl.description": "Base URL for the custom OpenAI-compatible provider endpoint.",
-	"configuration.openai-compatible.customHeaders.description": "Extra HTTP headers attached to every OpenAI-compatible request (e.g., Databricks gateway requirements like `x-databricks-use-coding-agent-mode`). Additive only — entries that collide with headers set by the OpenAI SDK (`Authorization` derived from your API key, `Content-Type`) are ignored at request time."
+	"configuration.openai-compatible.customHeaders.description": "Extra HTTP headers attached to every OpenAI-compatible request (e.g., Databricks gateway requirements like `x-databricks-use-coding-agent-mode`). Additive only — entries that collide with headers set by the OpenAI SDK (`Authorization` derived from your API key, `Content-Type`) are ignored at request time.",
+	"commands.configureProviders.title": "Configure Language Model Providers",
+	"commands.category": "Authentication"
 }

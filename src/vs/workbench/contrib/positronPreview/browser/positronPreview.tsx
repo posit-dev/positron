@@ -12,7 +12,7 @@ import { PropsWithChildren, useEffect, useState } from 'react';
 // Other dependencies.
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { PreviewContainer } from './components/previewContainer.js';
-import { IPositronPreviewService } from './positronPreviewSevice.js';
+import { IPositronPreviewService, PreviewOpenTarget } from './positronPreviewSevice.js';
 import { PreviewWebview } from './previewWebview.js';
 import { PositronPreviewViewPane } from './positronPreviewView.js';
 import { UrlActionBars } from './components/urlActionBars.js';
@@ -112,5 +112,5 @@ export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) 
 		</>
 	);
 };
-export { IPositronPreviewService };
+export { IPositronPreviewService, PreviewOpenTarget };
 

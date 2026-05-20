@@ -19,7 +19,9 @@ test.describe('Positron Notebooks: ipywidgets', {
 		await notebooksPositron.kernel.select('Python');
 	});
 
-	test('IntSlider arrow keys change value', async function ({ app }) {
+	test.skip('IntSlider arrow keys change value', {
+		annotation: { type: 'issue', description: 'https://github.com/posit-dev/positron/issues/13646' }
+	}, async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 		await notebooksPositron.addCodeToCell(0, `
 import ipywidgets as ipw
