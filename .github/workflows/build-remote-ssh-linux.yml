@@ -57,6 +57,7 @@ jobs:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
           npm_config_arch: x64
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: scl enable gcc-toolset-14 -- bash -eo pipefail {0}
         run: |
           # Check versions
@@ -150,6 +151,7 @@ jobs:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
           npm_config_arch: x64
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: scl enable gcc-toolset-14 -- bash -eo pipefail {0}
         run: |
           # Check versions
