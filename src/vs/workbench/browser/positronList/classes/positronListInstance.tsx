@@ -12,7 +12,7 @@ import { JSX, ReactNode } from 'react';
 // Other dependencies.
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { positronClassNames } from '../../../../base/common/positronUtilities.js';
-import { DataGridInstance, RowSelectionState } from '../../positronDataGrid/classes/dataGridInstance.js';
+import { DataGridInstance, MouseSelectionType, RowSelectionState } from '../../positronDataGrid/classes/dataGridInstance.js';
 
 /**
  * PositronListItemContext interface. Passed to the caller's itemRenderer so the rendered item
@@ -358,6 +358,29 @@ export class PositronListInstance<TItem, TSection = never> extends DataGridInsta
 			</div>
 		);
 	}
+
+	/**
+	 * Overrides the base class's row-selection so the cursor (focus) follows. The base
+	 * implementation only sets the row-selection state, leaving the cursor wherever it was —
+	 * fine for a grid where the cursor and selection are independent, wrong for a list where
+	 * the focused row should be the selected row. Selecting a section row is a no-op since
+	 * sections aren't selectable.
+	 *
+	 * The cursor and selection both update through this single entry point, so callers that
+	 * select programmatically (e.g. from an item's own click handler that stops propagation
+	 * before the data grid sees the event) get the focus indicator for free.
+	 */
+	override selectRow(rowIndex: number): void {
+		const entry = this._entries[rowIndex];
+		if (entry === undefined || entry.kind !== 'item') {
+			return;
+		}
+
+		super.selectRow(rowIndex);
+		// List rows are single-column, so the cursor column is always 0.
+		this.setCursorPosition(0, rowIndex);
+	}
+
 
 	/**
 	 * Fires onDidActivate for the currently focused item. PositronList wraps this with its
