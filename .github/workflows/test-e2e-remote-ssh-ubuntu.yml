@@ -69,6 +69,12 @@ jobs:
           name: "positron-deb-remote-ssh-x64"
           path: /tmp/artifacts
 
+      - name: Download REH artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: "positron-reh-remote-ssh-x64"
+          path: /tmp/artifacts
+
       - name: Install Positron from DEB
         run: |
           sudo apt-get update && sudo apt-get install -y xdg-utils
@@ -88,6 +94,31 @@ jobs:
       - name: Install SSH in container
         run: |
           docker exec test /bin/bash -c "/tmp/ssh-install.sh"
+
+      - name: Setup Positron REH in container
+        run: |
+          # Copy REH tarball into container
+          docker cp /tmp/artifacts/positron-reh-remote-ssh-x64.tar.gz test:/tmp/positron-reh-remote-ssh-x64.tar.gz
+
+          # Extract REH into /root/.positron-server
+          docker exec test /bin/bash -c "
+            mkdir -p /root/.positron-server
+            cd /root/.positron-server
+            tar xzf /tmp/positron-reh-remote-ssh-x64.tar.gz --strip-components=1
+            rm /tmp/positron-reh-remote-ssh-x64.tar.gz
+          "
+
+          # Verify extraction
+          docker exec test /bin/bash -c "
+            echo 'Verifying REH extraction...'
+            ls -la /root/.positron-server/
+            if [[ -d /root/.positron-server/bin && -d /root/.positron-server/data && -d /root/.positron-server/extensions ]]; then
+              echo '✓ REH directories found: bin, data, extensions'
+            else
+              echo '✗ REH extraction incomplete'
+              exit 1
+            fi
+          "
 
       - name: Configure xvfb and dbus
         uses: ./.github/actions/setup-xvfb
