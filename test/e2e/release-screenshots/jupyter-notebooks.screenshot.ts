@@ -41,7 +41,8 @@ test.describe('Release Screenshots - Jupyter Notebooks', () => {
 
 		await prepareForScreenshot(app, page);
 		await annotate(page, [
-			{ selector: 'a.kernel-label', label: '', color: ANNOTATION_COLOR, padding: 3 },
+			// Wrap the whole kernel-action-view-item so the icon stays inside the box.
+			{ selector: '.kernel-action-view-item', label: '', color: ANNOTATION_COLOR, padding: 3 },
 		]);
 		await captureFullWindow(page, 'jupyter-notebooks-kernel-selector.png');
 	});
