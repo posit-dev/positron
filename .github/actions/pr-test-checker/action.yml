@@ -40,8 +40,11 @@ runs:
         PR_NUMBER: ${{ inputs.pr-number }}
       run: |
         MARKER="<!-- pr-test-checker -->"
+        # Match on BOTH the marker AND the bot author -- a non-bot commenter
+        # could otherwise paste the marker to suppress future auto-grading
+        # until someone manually runs /recheck-tests.
         EXISTING_ID=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" --paginate \
-          --jq "[.[] | select(.body | contains(\"$MARKER\"))][0].id // empty")
+          --jq "[.[] | select(.body | contains(\"$MARKER\")) | select(.user.login == \"github-actions[bot]\")][0].id // empty")
         if [ -n "$EXISTING_ID" ]; then
           echo "PETE comment already exists (id=${EXISTING_ID}); skipping. Use /recheck-tests to force a re-grade."
           echo "skip=true" >> "$GITHUB_OUTPUT"
@@ -134,10 +137,12 @@ runs:
         fi
 
         MARKER="<!-- pr-test-checker -->"
-        # Find an existing comment with our marker. Pull only what we need from
-        # the comments listing (id + body) to keep the response small.
+        # Find an existing comment with our marker AND authored by the bot.
+        # Filtering on author prevents a spoofed marker in a human comment
+        # from being picked up here (either as a PATCH target that 403s, or
+        # by hiding the bot's own comment from the upsert lookup).
         EXISTING_ID=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" --paginate \
-          --jq "[.[] | select(.body | contains(\"$MARKER\"))][0].id // empty")
+          --jq "[.[] | select(.body | contains(\"$MARKER\")) | select(.user.login == \"github-actions[bot]\")][0].id // empty")
 
         if [ -n "$EXISTING_ID" ]; then
           echo "Updating existing comment $EXISTING_ID"
