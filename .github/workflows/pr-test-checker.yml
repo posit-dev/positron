@@ -4,6 +4,18 @@ name: "PR Test Checker"
 # Pilot scope: only runs for PR authors / commenters in the allowlist below.
 # To widen the pilot, edit both ALLOWLIST refs in this file (kept in sync).
 #
+# Trigger recovery: we listen for `opened`, `synchronize`, AND `ready_for_review`
+# on `pull_request`, not just `opened`. GitHub occasionally drops `opened`
+# deliveries (see #13664, where the `pull_request_target` CLA event fired but
+# `pull_request: opened` didn't, leaving PETE with no verdict), so the extra
+# types give us a recovery path on the next push or draft->ready transition.
+# Observable behavior: PETE grades on PR creation, and only re-grades on
+# explicit `/recheck-tests`. To avoid re-grading on every push, the action
+# short-circuits any `pull_request`-triggered run when a PETE comment already
+# exists on the PR -- `synchronize` and `ready_for_review` therefore only do
+# work in the rare case where the initial `opened` was missed. `/recheck-tests`
+# (an `issue_comment` event) sets `force-regrade=true` and bypasses the guard.
+#
 # Security model: each job checks out two trees -- the BASE branch (trusted
 # action + skill code, used to run the analyzer with secrets) and the PR HEAD
 # (untrusted source code, mounted as read-only data for the agent's
@@ -18,13 +30,15 @@ on:
   pull_request:
     types:
       - opened
+      - synchronize
+      - ready_for_review
   issue_comment:
     types:
       - created
 
 jobs:
   on-open:
-    name: Grade on open
+    name: Grade on PR change
     if: |
       github.event_name == 'pull_request' &&
       contains(fromJson('["jonvanausdeln", "sharon-wang", "melissa-barca", "samclark2015", "timtmok"]'), github.event.pull_request.user.login)
@@ -143,3 +157,4 @@ jobs:
           pr-number: ${{ github.event.issue.number }}
           anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
           repo-root: ${{ github.workspace }}/pr-head
+          force-regrade: "true"
