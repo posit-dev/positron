@@ -564,14 +564,19 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 		if (instance.textModel) {
 			return Promise.resolve(instance.textModel);
 		}
+
 		return new Promise<NotebookTextModel | undefined>(resolve => {
-			// Register the listener with the service so it's cleaned up if the
-			// service is disposed before the model is attached (which happens
-			// in tests that don't drive the full editor lifecycle).
-			const disposable = this._register(instance.onDidChangeModel(() => {
+			const disposables = this._register(new DisposableStore());
+			disposables.add(instance.onDidChangeModel(() => {
 				if (instance.textModel) {
 					resolve(instance.textModel);
-					disposable.dispose();
+					disposables.dispose();
+				}
+			}));
+			disposables.add(this._positronNotebookService.onDidRemoveNotebookInstance(removed => {
+				if (removed === instance) {
+					resolve(undefined);
+					disposables.dispose();
 				}
 			}));
 		});
