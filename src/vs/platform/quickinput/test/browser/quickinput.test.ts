@@ -117,6 +117,27 @@ suite('QuickInput', () => { // https://github.com/microsoft/vscode/issues/147543
 		controller.layout({ height: 20, width: 40 }, 0);
 	});
 
+	// --- Start Positron ---
+	test('modal inert is applied only while quick input is visible', () => {
+		const modalContainer = document.createElement('div');
+		modalContainer.className = 'positron-modal-dialog-box';
+		const modalContent = document.createElement('button');
+		modalContainer.appendChild(modalContent);
+		controller.container.appendChild(modalContainer);
+		store.add(toDisposable(() => modalContainer.remove()));
+
+		const quickpick = store.add(controller.createQuickPick());
+
+		assert.strictEqual(modalContent.inert, false);
+
+		quickpick.show();
+		assert.strictEqual(modalContent.inert, true);
+
+		quickpick.hide();
+		assert.strictEqual(modalContent.inert, false);
+	});
+	// --- End Positron ---
+
 	test('pick - basecase', async () => {
 		const item = { label: 'foo' };
 

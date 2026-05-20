@@ -16,7 +16,6 @@ test.describe('Autocomplete with Notebook Console', {
 
 	test.afterEach(async function ({ hotKeys, settings }) {
 		await settings.remove([
-			'console.showNotebookConsoleActions',
 			'console.showNotebookConsoles',
 			'positron.quarto.inlineOutput.enabled',
 			'workbench.editor.enablePreview',
@@ -24,17 +23,10 @@ test.describe('Autocomplete with Notebook Console', {
 		await hotKeys.closeAllEditors();
 	});
 
-	test('Python - Autocomplete in script works after opening notebook console', async function ({ app, runCommand, openFile, sessions, hotKeys, settings }) {
+	test('Python - Autocomplete in script works after opening notebook console', async function ({ app, runCommand, openFile, sessions, hotKeys }) {
 		const { editors, console, notebooks } = app.workbench;
 		const page = app.code.driver.currentPage;
 		const keyboard = page.keyboard;
-
-		await test.step('Enable notebook console actions', async () => {
-			await settings.set(
-				{ 'console.showNotebookConsoleActions': true },
-				{ reload: true, waitMs: 1000 }
-			);
-		});
 
 		// Start a Python console session and import pandas
 		await sessions.start(['python']);
@@ -88,17 +80,10 @@ test.describe('Autocomplete with Notebook Console', {
 
 	test('R - Autocomplete in script works after opening notebook console', {
 		tag: [tags.ARK]
-	}, async function ({ app, runCommand, openFile, sessions, hotKeys, settings }) {
+	}, async function ({ app, runCommand, openFile, sessions, hotKeys }) {
 		const { editors, console, notebooks } = app.workbench;
 		const page = app.code.driver.currentPage;
 		const keyboard = page.keyboard;
-
-		await test.step('Enable notebook console actions', async () => {
-			await settings.set(
-				{ 'console.showNotebookConsoleActions': true },
-				{ reload: true, waitMs: 1000 }
-			);
-		});
 
 		// Start an R console session and load arrow
 		await sessions.start(['r']);

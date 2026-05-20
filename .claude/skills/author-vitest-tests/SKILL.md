@@ -192,6 +192,7 @@ Present the dev with a summary:
 
 ## Hard rules
 
+- **Test for regressions, not coverage.** Before writing any test, state what user-visible or system-observable regression it guards against. If you can't answer, skip the test. A test that verifies an internal counter, array index, or call count — where the real invariant is a downstream side-effect — is testing structure, not behavior. Coverage is a side-effect of good tests, not a goal.
 - **Don't over-test.** Test public behavior, not implementation details.
 - **Don't export internals for testing.** Test behavior through rendered output or public API.
 - **Don't write E2E tests.** Flag for E2E if needed, but don't write them.

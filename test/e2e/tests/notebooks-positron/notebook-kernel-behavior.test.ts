@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -174,11 +174,8 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 			});
 		});
 
-	test('ensure notebook console attaches and terminates with active kernel', async function ({ app, sessions, settings }) {
+	test('ensure notebook console attaches and terminates with active kernel', async function ({ app, sessions }) {
 		const { notebooksPositron, console } = app.workbench;
-
-		// Enable the notebook console actions setting for this test
-		await settings.set({ 'console.showNotebookConsoleActions': true }, { reload: true, waitMs: 1000 });
 
 		const [, rSession] = await sessions.start(['python', 'r']);
 		await sessions.select(rSession.id);
@@ -206,9 +203,6 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 			kernelGroup: 'R',
 			status: 'disconnected'
 		});
-
-		// Disable the notebook console actions setting after this test
-		await settings.remove(['console.showNotebookConsoleActions']);
 	});
 
 	test('Python - console accepts input after notebook cell execution', {

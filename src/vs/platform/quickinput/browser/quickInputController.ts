@@ -117,6 +117,11 @@ export class QuickInputController extends Disposable {
 			}
 		}));
 		this.viewState = this.loadViewState();
+
+		// --- Start Positron ---
+		// When the quick pick hides, restore interaction on the Positron modal it was reparented into (if any).
+		this._register(this.onHide(() => this.clearPositronModalInert()));
+		// --- End Positron ---
 	}
 
 	private registerKeyModsListeners(window: Window, disposables: DisposableStore): void {
@@ -133,14 +138,20 @@ export class QuickInputController extends Disposable {
 
 	// --- Start Positron ---
 	/**
-	 * Special handling for Positron modals because they create an overlay to prevent interaction with anything
-	 * below. This reparents the quick input to the modal if needed. Unnecessarily reparenting causes
-	 * focus problems with the quick input.
-	 *
-	 * TODO: The quick pick still allows interaction with the modal. It should probably prevent modal
-	 * interaction while the quick pick is open.
+	 * Elements inside the active Positron modal that were marked `inert` while
+	 * the quick pick was reparented into the modal. Tracked so we only clear
+	 * inert on elements we set it on, leaving any pre-existing inert intact.
 	 */
-	private handlePositronModal() {
+	private positronModalInertElements: HTMLElement[] = [];
+
+	/**
+	 * Special handling for Positron modals. Reparents the quick input into the modal so it
+	 * renders above the dialog, and marks the modal's other children `inert` so the dialog
+	 * can't be interacted with while the quick pick is open (matching the desktop modality
+	 * users get from a native OS file picker). Unnecessarily reparenting causes focus problems
+	 * with the quick input, so the reparent itself is gated on the parent already being correct.
+	 */
+	private handlePositronModal(applyInert = false) {
 		const modal = this.layoutService.activeContainer.getElementsByClassName('positron-modal-dialog-box');
 		if (modal.length && dom.isHTMLElement(modal.item(0)) && this.ui) {
 			const modalContainer = modal.item(0) as HTMLElement;
@@ -157,6 +168,9 @@ export class QuickInputController extends Disposable {
 					}
 				}).observe(modalContainer, { childList: true });
 			}
+			if (applyInert) {
+				this.applyPositronModalInert(modalContainer);
+			}
 		} else {
 			if (this.ui) {
 				// restore parent
@@ -167,6 +181,23 @@ export class QuickInputController extends Disposable {
 				}
 			}
 		}
+	}
+
+	private applyPositronModalInert(modalContainer: HTMLElement) {
+		this.clearPositronModalInert();
+		for (const child of Array.from(modalContainer.children)) {
+			if (child !== this.ui?.container && dom.isHTMLElement(child) && !child.inert) {
+				child.inert = true;
+				this.positronModalInertElements.push(child);
+			}
+		}
+	}
+
+	private clearPositronModalInert() {
+		for (const el of this.positronModalInertElements) {
+			el.inert = false;
+		}
+		this.positronModalInertElements = [];
 	}
 	// --- End Positron ---
 
@@ -765,6 +796,9 @@ export class QuickInputController extends Disposable {
 		backButton.tooltip = backKeybindingLabel ? localize('quickInput.backWithKeybinding', "Back ({0})", backKeybindingLabel) : localize('quickInput.back', "Back");
 
 		ui.container.style.display = '';
+		// --- Start Positron ---
+		this.handlePositronModal(true);
+		// --- End Positron ---
 		this.updateLayout();
 		this.dndController?.setEnabled(!controller.anchor);
 		this.dndController?.layoutContainer();
@@ -918,6 +952,13 @@ export class QuickInputController extends Disposable {
 	async cancel(reason?: QuickInputHideReason) {
 		this.hide(reason);
 	}
+
+	// --- Start Positron ---
+	override dispose(): void {
+		this.clearPositronModalInert();
+		super.dispose();
+	}
+	// --- End Positron ---
 
 	layout(dimension: dom.IDimension, titleBarOffset: number): void {
 		this.dimension = dimension;

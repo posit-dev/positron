@@ -59,13 +59,18 @@ export class OpenAIModelProvider extends VercelModelProvider implements positron
 	 */
 	public static readonly FILTERED_MODEL_PATTERNS = [
 		'audio',
+		'babbage',
+		'dall-e',
+		'davinci',
+		'embedding',
 		'image',
 		'moderation',
+		'o3-pro',
 		'realtime',
 		'search',
 		'transcribe',
-		'dall-e',
-		'o3-pro',
+		'tts',
+		'whisper',
 	] as const;
 
 	static source: positron.ai.LanguageModelSource = {

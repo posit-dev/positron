@@ -17,15 +17,19 @@ import { kPaddingLeft, kPaddingRight } from './actionBars.js';
 import { PreviewHtml } from '../previewHtml.js';
 import { ActionBarRegion } from '../../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
+import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { ActionBarSeparator } from '../../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
+import { IAction } from '../../../../../base/common/actions.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { PreviewOpenTarget } from '../positronPreviewSevice.js';
 
 const reload = localize('positron.preview.html.reload', "Reload the content");
 const clear = localize('positron.preview.html.clear', "Clear the content");
-const openInBrowser = localize('positron.preview.html.openInBrowser', "Open the content in the default browser");
-const openInEditor = localize('positron.preview.html.openInEditor', "Open the content in an editor tab");
+const openInBrowserLabel = localize('positron.preview.html.openInBrowser.menu', "Open in Browser");
+const openInEditorLabel = localize('positron.preview.html.openInEditor.menu', "Open in Editor Tab");
+const openInDropdownLabel = localize('positron.preview.html.openInDropdown', "Select where to open");
 
 /**
  * HtmlActionBarsProps interface.
@@ -40,6 +44,12 @@ export const HtmlActionBars = (props: PropsWithChildren<HtmlActionBarsProps>) =>
 
 	const services = usePositronReactServicesContext();
 	const [title, setTitle] = useState(props.preview.html?.title);
+
+	// State for the remembered "Open in..." target. Persisted via the preview
+	// service so it survives remounts and reloads.
+	const [rememberedOpenTarget, setRememberedOpenTarget] = useState<PreviewOpenTarget>(() =>
+		services.positronPreviewService.getDefaultOpenTarget()
+	);
 
 	// Handler for the reload button.
 	const reloadHandler = () => {
@@ -56,14 +66,41 @@ export const HtmlActionBars = (props: PropsWithChildren<HtmlActionBarsProps>) =>
 
 	// Handler for the open in browser button.
 	const openInBrowserHandler = () => {
+		setRememberedOpenTarget(PreviewOpenTarget.Browser);
+		services.positronPreviewService.setDefaultOpenTarget(PreviewOpenTarget.Browser);
 		services.openerService.open(props.preview.uri,
 			{ openExternal: true, fromUserGesture: true });
 	};
 
 	// Handler for open in editor button
 	const openInEditorHandler = () => {
+		setRememberedOpenTarget(PreviewOpenTarget.EditorTab);
+		services.positronPreviewService.setDefaultOpenTarget(PreviewOpenTarget.EditorTab);
 		services.positronPreviewService.openEditor(props.preview.uri, title);
 	};
+
+	// Builds the dropdown actions. The "checked" action is the remembered
+	// target, which is what the split-button's primary click repeats.
+	const openInActions = (): IAction[] => [
+		{
+			id: 'positron.preview.html.openInBrowser',
+			label: openInBrowserLabel,
+			tooltip: '',
+			class: undefined,
+			checked: rememberedOpenTarget === PreviewOpenTarget.Browser,
+			enabled: true,
+			run: openInBrowserHandler,
+		},
+		{
+			id: 'positron.preview.html.openInEditor',
+			label: openInEditorLabel,
+			tooltip: '',
+			class: undefined,
+			checked: rememberedOpenTarget === PreviewOpenTarget.EditorTab,
+			enabled: true,
+			run: openInEditorHandler,
+		},
+	];
 
 	// Main use effect.
 	useEffect(() => {
@@ -95,19 +132,15 @@ export const HtmlActionBars = (props: PropsWithChildren<HtmlActionBarsProps>) =>
 							icon={ThemeIcon.fromId('positron-refresh')}
 							tooltip={reload}
 							onPressed={reloadHandler} />
-						<ActionBarButton
+						<ActionBarMenuButton
+							actions={openInActions}
 							align='right'
-							ariaLabel={openInBrowser}
+							ariaLabel={openInDropdownLabel}
+							dropdownAriaLabel={openInDropdownLabel}
+							dropdownIndicator='enabled-split'
+							dropdownTooltip={openInDropdownLabel}
 							icon={ThemeIcon.fromId('positron-open-in-new-window')}
-							tooltip={openInBrowser}
-							onPressed={openInBrowserHandler} />
-						<ActionBarSeparator />
-						<ActionBarButton
-							align='right'
-							ariaLabel={openInEditor}
-							icon={ThemeIcon.fromId('go-to-file')}
-							tooltip={openInEditor}
-							onPressed={openInEditorHandler} />
+							tooltip={openInDropdownLabel} />
 						<ActionBarSeparator />
 						<ActionBarButton
 							align='right'

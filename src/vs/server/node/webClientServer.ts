@@ -34,7 +34,7 @@ import { ICSSDevelopmentService } from '../../platform/cssDev/node/cssDevService
 import httpProxy from 'http-proxy';
 // eslint-disable-next-line no-duplicate-imports
 import { existsSync } from 'fs';
-import { kProxyRegex, VSCODE_STATIC_PREFIX, WORKBENCH_DEPLOYMENT_PREFIX } from './pwbConstants.js';
+import { kProxyRegex, VSCODE_STATIC_PREFIX, WORKBENCH_DEPLOYMENT_PREFIX, HAS_STATIC_ROUTE } from './pwbConstants.js';
 // --- End PWB ---
 
 const textMimeType: { [ext: string]: string | undefined } = {
@@ -208,7 +208,7 @@ export class WebClientServer {
 			// URL shape: /<product-label>-static/<quality>-<commit>/static/<path>  →  serve APP_ROOT/<path>
 			// Only active when running under Workbench; standalone/dev code-server keeps the
 			// session-scoped /static/ route below.
-			if (isWorkbench && pathname.startsWith(VSCODE_STATIC_PREFIX) && pathname.charCodeAt(VSCODE_STATIC_PREFIX.length) === CharCode.Slash) {
+			if (isWorkbench && HAS_STATIC_ROUTE && pathname.startsWith(VSCODE_STATIC_PREFIX) && pathname.charCodeAt(VSCODE_STATIC_PREFIX.length) === CharCode.Slash) {
 				const afterPrefix = pathname.substring(VSCODE_STATIC_PREFIX.length + 1); // strip "/<product-label>-static/"
 				const versionSlash = afterPrefix.indexOf('/');
 				if (versionSlash === -1) {
@@ -489,8 +489,9 @@ export class WebClientServer {
 		const vscodeBase = relativePath(req.url!);
 		// When under Workbench, session-less URLs are absolute-from-root; otherwise keep the
 		// session-scoped relative form that works behind the default reverse proxy.
-		const effectiveVsBase = isWorkbench ? '' : vscodeBase;
-		const effectiveStaticRoute = isWorkbench ? sessionlessStaticRoute : staticRoute;
+		const useStaticRoute = isWorkbench && HAS_STATIC_ROUTE;
+		const effectiveVsBase = useStaticRoute ? '' : vscodeBase;
+		const effectiveStaticRoute = useStaticRoute ? sessionlessStaticRoute : staticRoute;
 		// --- End PWB ---
 
 		const productConfiguration: Partial<Mutable<IProductConfiguration>> = {

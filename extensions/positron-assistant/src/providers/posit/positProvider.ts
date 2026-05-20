@@ -300,20 +300,6 @@ export class PositModelProvider extends VercelModelProvider {
 		return;
 	}
 
-	/**
-	 * Sends a test message to verify model connectivity.
-	 * When using Vercel SDK, delegates to base class. When using native SDK,
-	 * connection is verified via OAuth token in resolveConnection.
-	 */
-	protected override async sendTestMessage(modelId: string) {
-		if (!this._useNativeSdk) {
-			// Use Vercel SDK's test message implementation
-			return super.sendTestMessage(modelId);
-		}
-		// For native SDK, connection is verified via OAuth token in resolveConnection
-		return Promise.resolve() as any;
-	}
-
 	private onContentBlock(block: Anthropic.ContentBlock, progress: vscode.Progress<vscode.LanguageModelResponsePart2>): void {
 		switch (block.type) {
 			case 'tool_use':

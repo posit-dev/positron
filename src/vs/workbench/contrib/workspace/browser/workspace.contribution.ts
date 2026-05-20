@@ -430,7 +430,18 @@ export class WorkspaceTrustUXHandler extends Disposable implements IWorkbenchCon
 				title,
 				{ label: trustOption ?? localize({ key: 'trustOption', comment: ['&& denotes a mnemonic'] }, "&&Yes, I trust the authors"), sublabel: isSingleFolderWorkspace ? localize('trustFolderOptionDescription', "Trust folder and enable all features") : localize('trustWorkspaceOptionDescription', "Trust workspace and enable all features") },
 				{ label: dontTrustOption ?? localize({ key: 'dontTrustOption', comment: ['&& denotes a mnemonic'] }, "&&No, I don't trust the authors"), sublabel: isSingleFolderWorkspace ? localize('dontTrustFolderOptionDescription', "Open folder in restricted mode") : localize('dontTrustWorkspaceOptionDescription', "Open workspace in restricted mode") },
-				markdownStrings,
+				// --- Start Positron ---
+				// Replace the markdown strings with our own trust content.
+				// markdownStrings,
+				[
+					!isSingleFolderWorkspace ?
+						localize('positron.workspaceStartupTrustDetails', "{0} provides features that can automatically start Python or R sessions in this workspace, which could execute files.", this.productService.nameShort) :
+						localize('positron.folderStartupTrustDetails', "{0} provides features that can automatically start Python or R sessions in this folder, which could execute files.", this.productService.nameShort),
+					learnMoreString ?? localize('positron.startupTrustRequestLearnMore', "If you don't trust the authors of these files, we recommend to continue in restricted mode as the files may be malicious. See [the VS Code documentation](https://aka.ms/vscode-workspace-trust) to learn more."),
+					!isEmptyWindow ?
+						`\`${this.labelService.getWorkspaceLabel(workspaceIdentifier, { verbose: Verbosity.LONG })}\`` : '',
+				],
+				// --- End Positron ---
 				checkboxText
 			);
 		}));

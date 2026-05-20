@@ -960,7 +960,11 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		// race conditions). We also use this promise to avoid restarting
 		// in the middle of initialization.
 		this._lspClientId = this._kernel.createPositronLspClientId();
-		this._lspStartingPromise = this._kernel.startPositronLsp(this._lspClientId, '127.0.0.1');
+		// Bind the LSP to IPv4 loopback and connect the client to the same
+		// address; otherwise the client's `localhost` resolution can land on
+		// `::1` and miss the server when IPv4 is disabled.
+		const host = '127.0.0.1';
+		this._lspStartingPromise = this._kernel.startPositronLsp(this._lspClientId, host);
 		let port: number;
 		try {
 			port = await this._lspStartingPromise;
@@ -971,7 +975,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 
 		this._kernel.emitJupyterLog(`Starting Positron LSP client on port ${port}`);
 
-		await this._lsp.activate(port);
+		await this._lsp.activate(port, host);
 	}
 
 	private async _deactivateLsp(): Promise<void> {

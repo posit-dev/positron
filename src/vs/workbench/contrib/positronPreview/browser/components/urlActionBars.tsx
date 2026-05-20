@@ -14,6 +14,8 @@ import { PositronActionBar } from '../../../../../platform/positronActionBar/bro
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { ActionBarRegion } from '../../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
+import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
+import { IAction } from '../../../../../base/common/actions.js';
 import { localize } from '../../../../../nls.js';
 import { PreviewUrl, QUERY_NONCE_PARAMETER } from '../previewUrl.js';
 import { ActionBarSeparator } from '../../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
@@ -24,6 +26,7 @@ import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ITerminalInstance } from '../../../terminal/browser/terminal.js';
 import { RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { PreviewOpenTarget } from '../positronPreviewSevice.js';
 
 // Constants.
 const kUrlBarInputName = 'url-bar';
@@ -42,9 +45,10 @@ const navigateBack = localize('positron.preview.navigateBack', "Navigate back to
 const navigateForward = localize('positron.preview.navigateForward', "Navigate back to the next URL");
 const reload = localize('positron.preview.reload', "Reload the current URL");
 const clear = localize('positron.preview.clear', "Clear the current URL");
-const openInBrowser = localize('positron.preview.openInBrowser', "Open the current URL in the default browser");
+const openInBrowserLabel = localize('positron.preview.openInBrowser.menu', "Open in Browser");
+const openInEditorLabel = localize('positron.preview.openInEditor.menu', "Open in Editor Tab");
+const openInDropdownLabel = localize('positron.preview.openInDropdown', "Select where to open");
 const currentUrl = localize('positron.preview.currentUrl', "The current URL");
-const openInEditor = localize('positron.preview.html.openInEditor', "Open the content in an editor tab");
 const interruptExecution = localize('positron.preview.interruptExecution', "Interrupt execution");
 
 /**
@@ -121,7 +125,15 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 		});
 	};
 
+	// State for the remembered "Open in..." target. Persisted via the preview
+	// service so it survives remounts and reloads.
+	const [rememberedOpenTarget, setRememberedOpenTarget] = useState<PreviewOpenTarget>(() =>
+		services.positronPreviewService.getDefaultOpenTarget()
+	);
+
 	const openInEditorHandler = () => {
+		setRememberedOpenTarget(PreviewOpenTarget.EditorTab);
+		services.positronPreviewService.setDefaultOpenTarget(PreviewOpenTarget.EditorTab);
 		services.positronPreviewService.openEditor(currentUri);
 	};
 
@@ -132,9 +144,34 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 
 	// Handler for the open in browser button.
 	const openInBrowserHandler = () => {
+		setRememberedOpenTarget(PreviewOpenTarget.Browser);
+		services.positronPreviewService.setDefaultOpenTarget(PreviewOpenTarget.Browser);
 		services.openerService.open(props.preview.currentUri,
 			{ openExternal: true, fromUserGesture: true });
 	};
+
+	// Builds the dropdown actions. The "checked" action is the remembered
+	// target, which is what the split-button's primary click repeats.
+	const openInActions = (): IAction[] => [
+		{
+			id: 'positron.preview.openInBrowser',
+			label: openInBrowserLabel,
+			tooltip: '',
+			class: undefined,
+			checked: rememberedOpenTarget === PreviewOpenTarget.Browser,
+			enabled: true,
+			run: openInBrowserHandler,
+		},
+		{
+			id: 'positron.preview.openInEditor',
+			label: openInEditorLabel,
+			tooltip: '',
+			class: undefined,
+			checked: rememberedOpenTarget === PreviewOpenTarget.EditorTab,
+			enabled: true,
+			run: openInEditorHandler,
+		},
+	];
 
 	// Perform navigation to the given URL.
 	const navigateToUrl = (url: string) => {
@@ -354,19 +391,15 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 							icon={ThemeIcon.fromId('positron-refresh')}
 							tooltip={reload}
 							onPressed={reloadHandler} />
-						<ActionBarButton
+						<ActionBarMenuButton
+							actions={openInActions}
 							align='right'
-							ariaLabel={openInBrowser}
+							ariaLabel={openInDropdownLabel}
+							dropdownAriaLabel={openInDropdownLabel}
+							dropdownIndicator='enabled-split'
+							dropdownTooltip={openInDropdownLabel}
 							icon={ThemeIcon.fromId('positron-open-in-new-window')}
-							tooltip={openInBrowser}
-							onPressed={openInBrowserHandler} />
-						<ActionBarSeparator />
-						<ActionBarButton
-							align='right'
-							ariaLabel={openInEditor}
-							icon={ThemeIcon.fromId('go-to-file')}
-							tooltip={openInEditor}
-							onPressed={openInEditorHandler} />
+							tooltip={openInDropdownLabel} />
 						<ActionBarSeparator />
 						<ActionBarButton
 							align='right'

@@ -1,11 +1,12 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as DOM from '../../../../base/browser/dom.js';
 import { Disposable, DisposableMap } from '../../../../base/common/lifecycle.js';
-import { IPositronPreviewService } from './positronPreview.js';
+import { IPositronPreviewService, PreviewOpenTarget } from './positronPreview.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IOverlayWebview, IWebviewService, WebviewExtensionDescription, WebviewInitInfo } from '../../webview/browser/webview.js';
 import { PreviewWebview } from './previewWebview.js';
@@ -31,6 +32,9 @@ import { Schemas } from '../../../../base/common/network.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { localize } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+
+/** The key used to store the Viewer's default "Open in..." target. */
+const DefaultOpenTargetStorageKey = 'positronPreview.defaultOpenTarget';
 
 /**
  * Positron preview service; keeps track of the set of active previews and
@@ -64,8 +68,12 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@IEditorService private readonly _editorService: IEditorService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IStorageService private readonly _storageService: IStorageService,
 	) {
 		super();
+		this._register(this._items);
+		this._register(this._onDidCreatePreviewWebviewEmitter);
+		this._register(this._onDidChangeActivePreviewWebview);
 		this.onDidCreatePreviewWebview = this._onDidCreatePreviewWebviewEmitter.event;
 		this.onDidChangeActivePreviewWebview = this._onDidChangeActivePreviewWebview.event;
 		this._runtimeSessionService.activeSessions.forEach(runtime => {
@@ -562,6 +570,20 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 				path: previewId
 			}),
 		});
+	}
+
+	public getDefaultOpenTarget(): PreviewOpenTarget {
+		const target = this._storageService.get(DefaultOpenTargetStorageKey, StorageScope.WORKSPACE);
+		switch (target) {
+			case PreviewOpenTarget.Browser:
+			case PreviewOpenTarget.EditorTab:
+				return target;
+		}
+		return PreviewOpenTarget.Browser;
+	}
+
+	public setDefaultOpenTarget(target: PreviewOpenTarget): void {
+		this._storageService.store(DefaultOpenTargetStorageKey, target, StorageScope.WORKSPACE, StorageTarget.MACHINE);
 	}
 
 	public editorWebview(editorId: string): PreviewWebview | undefined {

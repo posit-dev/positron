@@ -85,13 +85,17 @@ export class PythonLsp implements vscode.Disposable {
      * activated.
      *
      * @param port The port on which the language server is listening.
+     * @param host The host on which the language server is listening. Must match
+     *   the bind address passed to `startPositronLsp`, otherwise the connect can
+     *   resolve to a different address family than the server bound to (e.g.
+     *   `::1` when the server is bound to `127.0.0.1` and IPv4 is disabled).
      */
-    public async activate(port: number): Promise<void> {
+    public async activate(port: number, host: string): Promise<void> {
         // Clean up disposables from any previous activation
         this.activationDisposables.forEach((d) => d.dispose());
         this.activationDisposables = [];
 
-        // Define server options for the language server. Connects to `port`.
+        // Define server options for the language server. Connects to `host:port`.
         const serverOptions = async (): Promise<StreamInfo> => {
             const out = new PromiseHandles<StreamInfo>();
             const socket = new Socket();
@@ -106,7 +110,7 @@ export class PythonLsp implements vscode.Disposable {
             socket.on('error', (error) => {
                 out.reject(error);
             });
-            socket.connect(port);
+            socket.connect(port, host);
 
             return out.promise;
         };
