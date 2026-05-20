@@ -171,11 +171,11 @@ jobs:
           echo "Building Positron REH with commit SHA: ${{ env.BUILD_SOURCEVERSION }}"
           npm run gulp vscode-reh-linux-x64
           cd ..
-          tar czvf positron-reh-remote-ssh-x64.tar.gz vscode-reh-linux-x64
+          tar czvf positron/positron-reh-remote-ssh-x64.tar.gz vscode-reh-linux-x64
 
       - name: Upload REH artifact
         uses: actions/upload-artifact@v7
         with:
           name: positron-reh-remote-ssh-x64
-          path: ../positron-reh-remote-ssh-x64.tar.gz
+          path: positron-reh-remote-ssh-x64.tar.gz
           retention-days: 1
