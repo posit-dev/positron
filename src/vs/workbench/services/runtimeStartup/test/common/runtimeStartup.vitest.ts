@@ -21,6 +21,7 @@ import { IWorkbenchEnvironmentService } from '../../../environment/common/enviro
 import {
 	IHostedLanguageContribution,
 	ILanguageRuntimeMetadata,
+	ILanguageRuntimeService,
 	IRuntimeManager,
 	IRuntimeRootSignature,
 	LanguageRuntimeArchitecture,
@@ -35,7 +36,9 @@ import { RuntimeStartupService } from '../../common/runtimeStartup.js';
 import {
 	ICachedRuntime,
 	IDiscoveryCacheBucket,
+	IDiscoveryCacheSessionCounters,
 	IRuntimeDiscoveryCache,
+	IRuntimeFingerprint,
 } from '../../common/runtimeDiscoveryCacheService.js';
 
 /**
@@ -45,6 +48,13 @@ import {
 interface ITestDiscoveryCache extends IRuntimeDiscoveryCache {
 	setBucket(bucket: IDiscoveryCacheBucket): void;
 	setEnabled(enabled: boolean): void;
+	/**
+	 * Stub for `statRuntimePath`. By default returns a fixed valid fingerprint
+	 * so `loadFromDiscoveryCache` treats every cached entry as still-on-disk.
+	 * Override in a test to simulate `path gone` (return `undefined`) or a
+	 * changed fingerprint (return different size/mtime/ctime).
+	 */
+	setStatRuntimePathBehavior(behavior: (path: string) => { resolvedPath: string; fingerprint: IRuntimeFingerprint } | undefined): void;
 }
 
 /**
@@ -58,17 +68,41 @@ function createTestCache(): ITestDiscoveryCache {
 	const buckets = new Map<string, IDiscoveryCacheBucket>();
 	let enabled = true;
 	const bucketKey = (extId: string, langId: string) => `${extId}::${langId}`;
+	let statBehavior: (path: string) => { resolvedPath: string; fingerprint: IRuntimeFingerprint } | undefined =
+		(path) => ({ resolvedPath: path, fingerprint: { size: 1, mtimeMs: 1, ctimeMs: 1 } });
+	const counters: IDiscoveryCacheSessionCounters = {
+		foregroundHits: 0,
+		revalidationsAttempted: 0,
+		revalidationsSucceeded: 0,
+		revalidationsFailed: 0,
+		evictions: 0,
+		rootsChangedFullDiscoveries: 0,
+		fullDiscoveryRuns: [],
+	};
 	return stubInterface<ITestDiscoveryCache>({
 		isEnabled: () => enabled,
 		getAllBuckets: () => enabled ? Array.from(buckets.values()) : [],
 		getEntries: (extId, langId) => enabled ? (buckets.get(bucketKey(extId, langId))?.entries ?? []) : [],
 		getLastFullDiscovery: (extId, langId) => buckets.get(bucketKey(extId, langId))?.lastFullDiscovery,
 		getDiscoveryRootSignature: (extId, langId) => buckets.get(bucketKey(extId, langId))?.discoveryRootSignature,
+		statRuntimePath: async (path: string) => statBehavior(path),
+		invalidate: (extId: string, langId: string, path: string) => {
+			const bucket = buckets.get(bucketKey(extId, langId));
+			if (bucket) {
+				const filtered = bucket.entries.filter(e => e.metadata.runtimePath !== path);
+				buckets.set(bucketKey(extId, langId), { ...bucket, entries: filtered });
+			}
+		},
+		markValidated: () => true,
+		sessionCounters: counters,
 		setBucket(bucket: IDiscoveryCacheBucket) {
 			buckets.set(`${bucket.extensionId}::${bucket.languageId}`, bucket);
 		},
 		setEnabled(value: boolean) {
 			enabled = value;
+		},
+		setStatRuntimePathBehavior(behavior) {
+			statBehavior = behavior;
 		},
 	});
 }
@@ -157,11 +191,18 @@ function makeBucket(opts: {
 	runtimePath: string;
 	lastFullDiscovery?: number;
 	signature?: IRuntimeRootSignature;
+	/**
+	 * Defaults to the runtime path so tests that register multiple buckets
+	 * don't collide on the default `'rt-1'` id (the language runtime service
+	 * silently no-ops a re-register with the same id).
+	 */
+	runtimeId?: string;
 }): IDiscoveryCacheBucket {
 	const md = metadata({
 		extensionId: opts.extensionId,
 		languageId: opts.languageId,
 		runtimePath: opts.runtimePath,
+		runtimeId: opts.runtimeId ?? opts.runtimePath,
 	});
 	const entry: ICachedRuntime = {
 		metadata: md,
@@ -611,6 +652,71 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 			const plans = await managersNeedingFullDiscovery(svc);
 			expect(plans).toHaveLength(2);
 			expect(lastFullDiscoveryReason(svc)).toBe('cold-start');
+		});
+	});
+
+	describe('loadFromDiscoveryCache skip set', () => {
+		// `loadFromDiscoveryCache` is private; test via string-index access.
+		function loadFromDiscoveryCache(
+			svc: RuntimeStartupService,
+			skipBuckets: ReadonlySet<string>,
+		): Promise<unknown> {
+			return (svc as unknown as {
+				loadFromDiscoveryCache: (skip: ReadonlySet<string>) => Promise<unknown>;
+			}).loadFromDiscoveryCache(skipBuckets);
+		}
+
+		function registeredPaths(): string[] {
+			return ctx.get(ILanguageRuntimeService).registeredRuntimes.map(m => m.runtimePath);
+		}
+
+		it('does not pre-register cached entries for buckets in the skip set', async () => {
+			// Two buckets: Python and R. The skip set names the Python bucket
+			// because (in real flow) `managersNeedingFullDiscovery` decided
+			// it needs a fresh enumeration. Pre-registering the cached Python
+			// entry would leak an interpreter that current settings now filter
+			// out -- the regression this test guards.
+			cache.setBucket(makeBucket({
+				extensionId: 'ms.python',
+				languageId: 'python',
+				runtimePath: '/usr/bin/python3',
+				lastFullDiscovery: Date.now(),
+			}));
+			cache.setBucket(makeBucket({
+				extensionId: 'positron.r',
+				languageId: 'r',
+				runtimePath: '/usr/local/bin/R',
+				lastFullDiscovery: Date.now(),
+			}));
+
+			const svc = makeService();
+			await loadFromDiscoveryCache(svc, new Set(['ms.python::python']));
+
+			// R was loaded; Python was not. The skip set is the only thing
+			// that should have made that difference.
+			expect(registeredPaths()).toEqual(['/usr/local/bin/R']);
+		});
+
+		it('loads every bucket when the skip set is empty', async () => {
+			// Sanity check that the skip-set wiring doesn't accidentally
+			// suppress loads in the no-skip case.
+			cache.setBucket(makeBucket({
+				extensionId: 'ms.python',
+				languageId: 'python',
+				runtimePath: '/usr/bin/python3',
+				lastFullDiscovery: Date.now(),
+			}));
+			cache.setBucket(makeBucket({
+				extensionId: 'positron.r',
+				languageId: 'r',
+				runtimePath: '/usr/local/bin/R',
+				lastFullDiscovery: Date.now(),
+			}));
+
+			const svc = makeService();
+			await loadFromDiscoveryCache(svc, new Set());
+
+			expect(registeredPaths().sort()).toEqual(['/usr/bin/python3', '/usr/local/bin/R']);
 		});
 	});
 

@@ -112,6 +112,8 @@ interface RRootEntry {
  *   - User-specified `positron.r.interpreters.override`.
  *   - Hard-coded server-installation roots (POSIX only).
  *   - Hard-coded ad-hoc binary paths.
+ *   - `positron.r.interpreters.exclude` folded into the opaque digest so a
+ *     settings change flips the signature and re-runs discovery.
  *
  * Sources intentionally excluded (fall back to the periodic-refresh trigger):
  *   - Conda environments (require `conda env list`).
@@ -174,7 +176,23 @@ export async function getRDiscoveryRootSignature(): Promise<positron.RuntimeRoot
 		entries.push({ path: resolved, exists, mtimeMs });
 	}
 
-	return { entries };
+	return { entries, opaque: getRFilterSettingsDigest() };
+}
+
+/**
+ * Digest of the discovery-filter settings (`positron.r.interpreters.exclude`).
+ * The `interpreters.override` paths already contribute as path entries above;
+ * `interpreters.exclude` does not, since the discoverer enumerates the same
+ * directories whether or not exclude is set and then filters at construction.
+ * Folding the exclude list into `opaque` lets a settings change flip the
+ * signature so cached entries for an excluded R don't outlive the setting.
+ */
+function getRFilterSettingsDigest(): string {
+	const config = vscode.workspace.getConfiguration('positron.r');
+	const payload = {
+		exclude: config.get<string[]>('interpreters.exclude') ?? [],
+	};
+	return crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex');
 }
 
 /**

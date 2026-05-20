@@ -982,20 +982,44 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		this._logService.debug(`[Runtime startup] All extensions contributing language runtimes have been activated: [${enabledLanguages.join(', ')}]`);
 
-		// Foreground cache pass. Skipped when caching is disabled, no entries
-		// exist yet, or the caller forced a bypass (rediscover).
-		const revalidations: ICacheRevalidationTask[] = options.bypassCache
-			? []
-			: await this.loadFromDiscoveryCache();
-
 		// Decide which managers still need a real enumeration, and for those
 		// that do, which of their hosted languages to actually run on this
 		// pass. On warm starts where every contribution is cache-satisfied
 		// (and none is `alwaysRediscover`), this is empty -- we go straight
 		// to Complete.
+		//
+		// Planning runs *before* the foreground cache pass so that any
+		// `(extensionId, languageId)` bucket that's about to be re-discovered
+		// (signature changed, periodic refresh, cold start, alwaysRediscover)
+		// is skipped during cache load. Pre-registering cached runtimes for
+		// stale buckets would leak entries that current settings would now
+		// filter out -- e.g. an interpreter that the user has just added to
+		// `python.interpreters.exclude` -- since `registerRuntime` doesn't
+		// re-validate against settings and the subsequent discovery pass
+		// doesn't unregister stale entries either.
 		const plans: IManagerDiscoveryPlan[] = options.bypassCache
 			? this._runtimeManagers.map(m => ({ manager: m, runContributions: [], skipLanguageIds: [] }))
 			: await this.managersNeedingFullDiscovery();
+
+		// Collect the buckets that will be re-discovered. Cache load skips
+		// these to avoid pre-registering entries that the fresh discovery is
+		// about to evaluate against current settings.
+		const skipCacheLoad = new Set<string>();
+		for (const plan of plans) {
+			for (const { extensionId, languageId } of plan.runContributions) {
+				skipCacheLoad.add(`${extensionId}::${languageId}`);
+			}
+		}
+
+		// Foreground cache pass. Skipped when caching is disabled, no entries
+		// exist yet, or the caller forced a bypass (rediscover). On bypass we
+		// also skip every bucket implicitly via the empty `runContributions`
+		// path above -- bypassCache rebuilds plans without populating
+		// `runContributions`, so the skip set is empty there. The cache wipe
+		// below handles bypass.
+		const revalidations: ICacheRevalidationTask[] = options.bypassCache
+			? []
+			: await this.loadFromDiscoveryCache(skipCacheLoad);
 
 		if (plans.length === 0) {
 			// Warm-start fast path. No manager has any work to do; transition
@@ -1075,8 +1099,14 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 *  - fingerprint matches: register the cached metadata as-is
 	 *  - fingerprint changed: register and queue background revalidation so
 	 *    the extension can re-hydrate / swap if needed
+	 *
+	 * @param skipBuckets `(extensionId, languageId)` keys (joined by `::`) for
+	 * buckets that are about to be re-discovered on this pass. Their cached
+	 * entries are skipped here so the fresh discovery is the sole source of
+	 * truth for what gets registered (and what current settings would now
+	 * filter out, like a freshly-added exclude path).
 	 */
-	private async loadFromDiscoveryCache(): Promise<ICacheRevalidationTask[]> {
+	private async loadFromDiscoveryCache(skipBuckets: ReadonlySet<string> = new Set()): Promise<ICacheRevalidationTask[]> {
 		const revalidations: ICacheRevalidationTask[] = [];
 		if (!this._discoveryCache.isEnabled()) {
 			return revalidations;
@@ -1087,8 +1117,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// and the registered-runtimes list -- the no-cache path filters disabled
 		// languages out of `enabledLanguages` before activating extensions, so
 		// no runtimes would have been registered without the cache.
+		//
+		// Also skip buckets that are about to be re-discovered; pre-registering
+		// their cached entries would leak runtimes that current settings now
+		// filter out (e.g. a freshly-added `python.interpreters.exclude` path).
 		const buckets = this._discoveryCache.getAllBuckets()
-			.filter(b => this.getStartupBehavior(b.languageId) !== LanguageStartupBehavior.Disabled);
+			.filter(b => this.getStartupBehavior(b.languageId) !== LanguageStartupBehavior.Disabled)
+			.filter(b => !skipBuckets.has(`${b.extensionId}::${b.languageId}`));
 		if (buckets.every(b => b.entries.length === 0)) {
 			return revalidations;
 		}

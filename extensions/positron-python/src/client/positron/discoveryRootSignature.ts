@@ -5,6 +5,7 @@
 
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
+import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
@@ -171,6 +172,9 @@ function getDefaultInterpreterParent(): string | undefined {
  *   - Hatch virtual-env root (per-OS data dir).
  *   - Windows-known Python install roots (LOCALAPPDATA / ProgramFiles).
  *   - The parent of `python.defaultInterpreterPath`.
+ *   - Discovery-filter settings (`python.interpreters.include` / `.exclude` /
+ *     `.override`) folded into the opaque digest so a settings change flips
+ *     the signature and re-runs discovery.
  *
  * Sources intentionally excluded (fall back to the periodic-refresh trigger):
  *   - Conda envs created with `--prefix` outside the well-known dirs.
@@ -250,5 +254,23 @@ export async function getPythonDiscoveryRootSignature(): Promise<positron.Runtim
         entries.push({ path: resolved, exists, mtimeMs });
     }
 
-    return { entries };
+    return { entries, opaque: getFilterSettingsDigest() };
+}
+
+/**
+ * Digest of the discovery-filter settings (`python.interpreters.include`,
+ * `python.interpreters.exclude`, `python.interpreters.override`). Folded into
+ * the signature's opaque blob so a settings change flips the signature even
+ * though no on-disk root has moved. Without this, a freshly-added exclude
+ * path would not trigger discovery re-run and the cache would keep serving
+ * the now-excluded interpreter.
+ */
+function getFilterSettingsDigest(): string {
+    const config = vscode.workspace.getConfiguration('python');
+    const payload = {
+        include: config.get<string[]>('interpreters.include') ?? [],
+        exclude: config.get<string[]>('interpreters.exclude') ?? [],
+        override: config.get<string[]>('interpreters.override') ?? [],
+    };
+    return crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex');
 }
