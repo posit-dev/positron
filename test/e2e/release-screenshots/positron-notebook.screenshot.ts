@@ -75,8 +75,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 		await hotKeys.toggleBottomPanel();
 
 		// The button is gated on config.positron.assistant.enable; wait for it to render.
-		const assistantButton = page.locator('.editor-action-bar-container button[aria-label="Ask Assistant"]');
-		await expect(assistantButton).toBeVisible({ timeout: 10000 });
+		await notebooksPositron.expectAssistantButtonsVisible();
 
 		await prepareForScreenshot(app, page);
 		await overrideWorkspaceName(page, 'qa-example-content', 'positron-demos-notebooks');
@@ -102,9 +101,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 		await hotKeys.closeSecondarySidebar();
 		await hotKeys.toggleBottomPanel();
 
-		const assistantButton = page.locator('.editor-action-bar-container button[aria-label="Ask Assistant"]');
-		await expect(assistantButton).toBeVisible({ timeout: 10000 });
-		await assistantButton.click();
+		await notebooksPositron.clickAskAssistantButton();
 
 		const panel = page.locator('.positron-modal-dialog-box').filter({ hasText: 'Positron Notebook Assistant' });
 		await expect(panel).toBeVisible({ timeout: 10000 });

@@ -71,15 +71,9 @@ test.describe('Release Screenshots - Extension Publisher', () => {
 		await expect(header).toBeVisible();
 		await expect(header.locator('.publisher')).toBeVisible();
 
-		// Air ships pre-installed in some builds but not all. Install it if the
-		// Install button is visible so the screenshot captures the Disable/Uninstall
-		// state every run.
-		const installButton = page.locator('.extension-editor .monaco-action-bar .action-item:not(.disabled) .extension-action.install').first();
-		const uninstallButton = page.locator('.extension-editor .monaco-action-bar .action-item:not(.disabled) .extension-action.uninstall').first();
-		if (await installButton.isVisible({ timeout: 2_000 }).catch(() => false)) {
-			await installButton.click();
-			await expect(uninstallButton).toBeVisible({ timeout: 60_000 });
-		}
+		// Air ships pre-installed in some builds but not all; ensure installed
+		// so the screenshot always captures the Disable/Uninstall state.
+		await extensions.installFromEditorIfNotInstalled();
 
 		await hideToasts(app);
 
