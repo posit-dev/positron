@@ -198,10 +198,12 @@ export async function waitForStableUI(page: Page, ms = 250): Promise<void> {
  * otherwise surface CI/runner internals — uv project paths, the local
  * Python manager — into docs screenshots.
  *
- * Scoped to the three workbench surfaces that render the runtime label:
- *   - `.top-action-bar-session-manager-face` (top-right interpreter face)
- *   - `.plot-session-name`                   (plots pane header)
- *   - `.tab-header .session-name`            (console session tab)
+ * Scoped to the workbench surfaces that render the runtime label:
+ *   - `.top-action-bar-session-manager-face`     (top-right interpreter face)
+ *   - `.plot-session-name`                       (plots pane header)
+ *   - `.tab-header .session-name`                (console session tab)
+ *   - `.positron-notebook-kernel-status-badge`   (Positron notebook kernel chip)
+ *   - `a.kernel-label`                           (VS Code Jupyter notebook kernel chip)
  *
  * Call this AFTER `waitForStableUI` so any in-flight re-renders don't undo
  * the rewrite before the screenshot fires.
@@ -212,6 +214,8 @@ export async function overrideRuntimeLabel(page: Page): Promise<void> {
 			'.top-action-bar-session-manager-face',
 			'.plot-session-name',
 			'.tab-header .session-name',
+			'.positron-notebook-kernel-status-badge',
+			'a.kernel-label',
 		];
 		const PATTERN = /(Python\s+[\d.]+)\s+\([^)]+\)/g;
 		const REPLACEMENT = '$1 (Venv: .venv)';
