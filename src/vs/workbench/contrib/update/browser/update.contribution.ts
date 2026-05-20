@@ -36,7 +36,6 @@ import { storeLastUpdateVersion } from './update.js';
 // eslint-disable-next-line no-duplicate-imports
 import { isWeb } from '../../../../base/common/platform.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
-import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { IPositronDocsService } from '../../../services/positronDocs/browser/positronDocsService.js';
 // --- End Positron ---
 
