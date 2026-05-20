@@ -114,6 +114,13 @@ interface IManagerOptions {
 	id: number;
 	owns: ILanguageRuntimeMetadata[];
 	rootSignatureByLanguage?: Record<string, IRuntimeRootSignature>;
+	/**
+	 * Per-(extensionId, languageId) override. Takes precedence over
+	 * `rootSignatureByLanguage` when both match. Lets tests model the bug
+	 * where two managers register for the same languageId (e.g. python) but
+	 * only one of them owns the signature.
+	 */
+	rootSignatureByPair?: Record<string, IRuntimeRootSignature>;
 	rootSignatureBehavior?: 'normal' | 'throws' | 'never-resolves';
 	/**
 	 * The (extensionId, languageId) contributions this ext host hosts, with
@@ -141,14 +148,15 @@ function makeManager(opts: IManagerOptions): IRuntimeManager {
 		recommendWorkspaceRuntimes: async () => [],
 		managesRuntime: async (metadata) => ownsByPath.has(metadata.runtimePath),
 		validateMetadata: async (m) => m,
-		getDiscoveryRootSignature: async (languageId: string) => {
+		getDiscoveryRootSignature: async (extensionId: string, languageId: string) => {
 			if (opts.rootSignatureBehavior === 'throws') {
 				throw new Error('boom');
 			}
 			if (opts.rootSignatureBehavior === 'never-resolves') {
 				return new Promise<IRuntimeRootSignature | undefined>(() => { /* never */ });
 			}
-			return opts.rootSignatureByLanguage?.[languageId];
+			const pairKey = `${extensionId}::${languageId}`;
+			return opts.rootSignatureByPair?.[pairKey] ?? opts.rootSignatureByLanguage?.[languageId];
 		},
 		getHostedLanguageContributions: async () => {
 			if (opts.contributionsBehavior === 'throws') {
@@ -516,6 +524,48 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 
 			const plans = await managersNeedingFullDiscovery(svc);
 			expect(plans).toEqual([]);
+		});
+
+		it('uses extensionId to disambiguate when two managers share a languageId', async () => {
+			// Regression: two extensions can register a runtime manager for the
+			// same language (e.g. ms-python.python and positron.positron-reticulate
+			// both register for `python`). A signature lookup keyed on languageId
+			// alone shadows the real owner with the sibling manager, which doesn't
+			// implement `getDiscoveryRootSignature` and returns undefined -- so
+			// `rootsChanged` evaluates to false and the pre-discovery cache wipe
+			// is skipped, leaving a freshly-added `python.interpreters.exclude`
+			// path live in cached entries. The fix keys the lookup on
+			// (extensionId, languageId) so the right manager answers.
+			const persistedSig = sig([['/usr/bin', true, 1000]]);
+			const currentSig = sig([['/usr/bin', true, 2000]]); // mtime moved
+			const bucket = makeBucket({
+				extensionId: 'ms-python.python',
+				languageId: 'python',
+				runtimePath: '/usr/bin/python3',
+				lastFullDiscovery: Date.now(),
+				signature: persistedSig,
+			});
+			cache.setBucket(bucket);
+
+			const svc = makeService();
+			const pyManager = makeManager({
+				id: 1,
+				owns: [bucket.entries[0].metadata],
+				// Only the real owner answers for its (extensionId, languageId);
+				// `rootSignatureByLanguage` is deliberately unset so a buggy
+				// caller keying on languageId alone would observe undefined.
+				rootSignatureByPair: {
+					'ms-python.python::python': currentSig,
+				},
+				contributions: [
+					{ extensionId: 'ms-python.python', languageId: 'python', alwaysRediscover: false },
+				],
+			});
+			ctx.disposables.add(svc.registerRuntimeManager(pyManager));
+
+			const plans = await managersNeedingFullDiscovery(svc);
+			expect(managersFromPlans(plans)).toEqual([pyManager]);
+			expect(lastFullDiscoveryReason(svc)).toBe('roots-changed');
 		});
 
 		it('falls back to periodic when getDiscoveryRootSignature throws', async () => {

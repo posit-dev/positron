@@ -1017,16 +1017,23 @@ export interface IRuntimeManager {
 	managesRuntime(metadata: ILanguageRuntimeMetadata): Promise<boolean>;
 
 	/**
-	 * Snapshot the directories this manager scans for interpreters, for the
-	 * given language. Called on every warm start to detect newly-installed
-	 * interpreters before deciding whether to skip full discovery.
+	 * Snapshot the directories the manager registered by `extensionId` scans
+	 * for interpreters of `languageId`. Called on every warm start to detect
+	 * newly-installed interpreters before deciding whether to skip full
+	 * discovery.
 	 *
-	 * Returns `undefined` when the manager (or the per-language
-	 * implementation) does not implement the API; the cache layer treats that
-	 * as "fall back to the periodic-refresh trigger" and never spuriously
-	 * triggers via this path.
+	 * Disambiguates by `extensionId` because multiple extensions can register
+	 * a runtime manager for the same `languageId` (e.g. `ms-python.python`
+	 * and `positron.positron-reticulate` both register for `python`), and
+	 * only one of them owns the discovery signature for any given
+	 * (extensionId, languageId) bucket.
+	 *
+	 * Returns `undefined` when no manager matches (extensionId, languageId)
+	 * or when the matched manager does not implement the signature API; the
+	 * cache layer treats that as "fall back to the periodic-refresh trigger"
+	 * and never spuriously triggers via this path.
 	 */
-	getDiscoveryRootSignature(languageId: string): Promise<IRuntimeRootSignature | undefined>;
+	getDiscoveryRootSignature(extensionId: string, languageId: string): Promise<IRuntimeRootSignature | undefined>;
 
 	/**
 	 * Return one entry per `LanguageRuntimeManager` registered in this

@@ -1265,10 +1265,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				const periodicStale = lastFullDiscovery === 0 || lastFullDiscovery < periodicCutoff;
 
 				// Root-change check: compare the persisted signature against
-				// the manager's current one. Per-language, so a delta in one
-				// language doesn't penalize the others.
+				// the manager's current one. Per-(extensionId, languageId), so
+				// a delta in one contribution doesn't penalize others (and a
+				// sibling contribution registered against the same language
+				// without `getDiscoveryRootSignature`, e.g. positron-reticulate
+				// for `python`, doesn't shadow the real owner's signature).
 				const persistedSig = this._discoveryCache.getDiscoveryRootSignature(contrib.extensionId, contrib.languageId);
-				const currentSig = await this._safeGetRootSignature(manager, contrib.languageId);
+				const currentSig = await this._safeGetRootSignature(manager, contrib.extensionId, contrib.languageId);
 				const rootsChanged = currentSig !== undefined && !signaturesEqual(persistedSig, currentSig);
 
 				if (rootsChanged) {
@@ -1333,15 +1336,23 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			return;
 		}
 
-		// Fetch one signature per languageId we'll discover. Managers return
-		// undefined for languages they don't handle (or that don't implement
-		// the signature API); we just skip the signature update in that case.
-		const uniqueLanguages = new Set(runPairs.map(p => p.languageId));
-		const sigByLanguage = new Map<string, IRuntimeRootSignature>();
-		await Promise.all(Array.from(uniqueLanguages).map(async languageId => {
-			const sig = await this._safeGetRootSignature(manager, languageId);
+		// Fetch one signature per (extensionId, languageId) pair we'll discover.
+		// Managers return undefined for languages they don't handle (or that
+		// don't implement the signature API); we just skip the signature
+		// update in that case. We key by both extensionId and languageId
+		// because multiple extensions can register a manager for the same
+		// languageId (e.g. positron-python and positron-reticulate both
+		// register for `python`), and only one of them owns the discovery
+		// signature for any given bucket.
+		const uniquePairs = new Map<string, { extensionId: string; languageId: string }>();
+		for (const pair of runPairs) {
+			uniquePairs.set(`${pair.extensionId}::${pair.languageId}`, pair);
+		}
+		const sigByPair = new Map<string, IRuntimeRootSignature>();
+		await Promise.all(Array.from(uniquePairs.values()).map(async ({ extensionId, languageId }) => {
+			const sig = await this._safeGetRootSignature(manager, extensionId, languageId);
 			if (sig !== undefined) {
-				sigByLanguage.set(languageId, sig);
+				sigByPair.set(`${extensionId}::${languageId}`, sig);
 			}
 		}));
 
@@ -1359,7 +1370,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// `onDidRegisterRuntime` would miss buckets that legitimately
 			// produce zero runtimes on this open.
 			this._discoveryCache.setLastFullDiscovery(extensionId, languageId, stampedAt);
-			const sig = sigByLanguage.get(languageId);
+			const sig = sigByPair.get(key);
 			if (sig !== undefined) {
 				this._discoveryCache.setDiscoveryRootSignature(extensionId, languageId, sig);
 			}
@@ -1390,25 +1401,31 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	}
 
 	/**
-	 * Call `manager.getDiscoveryRootSignature(languageId)` defensively:
-	 * timeout-bound the call, swallow throws, and treat both as "no signature
-	 * available" so the caller falls back to the periodic-refresh trigger.
+	 * Call `manager.getDiscoveryRootSignature(extensionId, languageId)`
+	 * defensively: timeout-bound the call, swallow throws, and treat both as
+	 * "no signature available" so the caller falls back to the periodic-
+	 * refresh trigger. We disambiguate by extensionId because multiple
+	 * extensions can register a runtime manager for the same languageId (e.g.
+	 * `ms-python.python` and `positron.positron-reticulate` both register for
+	 * `python`) and only one of them owns the discovery signature for any
+	 * given (extensionId, languageId) bucket.
 	 */
 	private async _safeGetRootSignature(
 		manager: IRuntimeManager,
+		extensionId: string,
 		languageId: string,
 	): Promise<IRuntimeRootSignature | undefined> {
 		try {
 			return await raceTimeout(
-				manager.getDiscoveryRootSignature(languageId),
+				manager.getDiscoveryRootSignature(extensionId, languageId),
 				RuntimeStartupService.ROOT_SIGNATURE_TIMEOUT_MS,
 				() => this._logService.warn(
-					`[Runtime startup] getDiscoveryRootSignature(${languageId}) timed out ` +
+					`[Runtime startup] getDiscoveryRootSignature(${extensionId}, ${languageId}) timed out ` +
 					`for manager ${manager.id}; falling back to periodic refresh.`),
 			);
 		} catch (err) {
 			this._logService.warn(
-				`[Runtime startup] getDiscoveryRootSignature(${languageId}) threw ` +
+				`[Runtime startup] getDiscoveryRootSignature(${extensionId}, ${languageId}) threw ` +
 				`for manager ${manager.id}; falling back to periodic refresh: ${err}`);
 			return undefined;
 		}

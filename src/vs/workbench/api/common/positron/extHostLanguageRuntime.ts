@@ -982,8 +982,14 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		}));
 	}
 
-	public async $getDiscoveryRootSignature(languageId: string): Promise<IRuntimeRootSignature | undefined> {
-		const m = this._runtimeManagers.find(m => m.languageId === languageId);
+	public async $getDiscoveryRootSignature(extensionId: string, languageId: string): Promise<IRuntimeRootSignature | undefined> {
+		// Multiple extensions can register a runtime manager for the same
+		// languageId (e.g. `ms-python.python` and `positron.positron-reticulate`
+		// both register for `python`). Disambiguate by extensionId so a sibling
+		// manager that doesn't implement `getDiscoveryRootSignature` doesn't
+		// shadow the real owner.
+		const m = this._runtimeManagers.find(m =>
+			m.languageId === languageId && m.extension.identifier.value === extensionId);
 		if (!m || !m.manager.getDiscoveryRootSignature) {
 			return undefined;
 		}

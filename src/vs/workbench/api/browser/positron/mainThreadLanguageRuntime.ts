@@ -1670,8 +1670,8 @@ export class MainThreadLanguageRuntime
 	 *
 	 * (part of implementation of IRuntimeManager)
 	 */
-	async getDiscoveryRootSignature(languageId: string): Promise<IRuntimeRootSignature | undefined> {
-		return this._proxy.$getDiscoveryRootSignature(languageId);
+	async getDiscoveryRootSignature(extensionId: string, languageId: string): Promise<IRuntimeRootSignature | undefined> {
+		return this._proxy.$getDiscoveryRootSignature(extensionId, languageId);
 	}
 
 	/**
