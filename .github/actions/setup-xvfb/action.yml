@@ -15,6 +15,10 @@ runs:
       env:
         WORKERS: ${{ inputs.workers }}
       run: |
+        # Fail fast on invalid input - otherwise `seq 0 -1` silently starts zero
+        # Xvfb instances and the ready-check reports success with no displays.
+        [[ "$WORKERS" =~ ^[1-9][0-9]*$ ]] || { echo "WORKERS must be a positive integer, got: '$WORKERS'"; exit 1; }
+
         # Start one Xvfb instance per worker starting at :10, so Playwright workers
         # don't race on a shared X server. test/e2e/infra/electron.ts maps each
         # worker's parallelIndex to DISPLAY=:(10+parallelIndex).

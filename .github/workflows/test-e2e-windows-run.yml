@@ -155,6 +155,7 @@ jobs:
           WORKSPACE_PARENT="$(dirname "${WORKSPACE}")"
           ARTIFACTS_DIR="$(cygpath -u "${RUNNER_TEMP}")/artifacts"
           if [ -f "${ARTIFACTS_DIR}/positron-build.tar.zst" ]; then
+            command -v zstd >/dev/null 2>&1 || { echo "zstd not found but .tar.zst artifact exists"; exit 1; }
             echo "Extracting zstd archive with parallel decompression..."
             zstd -d -T0 --stdout "${ARTIFACTS_DIR}/positron-build.tar.zst" | \
               tar --no-same-owner --no-same-permissions -x -C "${WORKSPACE_PARENT}"
