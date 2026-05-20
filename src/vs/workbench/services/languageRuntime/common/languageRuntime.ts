@@ -257,7 +257,7 @@ configurationRegistry.registerConfiguration({
 		'interpreters.discoveryCache.enabled': {
 			scope: ConfigurationScope.APPLICATION_MACHINE,
 			type: 'boolean',
-			default: true,
+			default: false,
 			description: nls.localize(
 				'positron.runtime.discoveryCache.enabled',
 				"Reuse previously discovered interpreters to speed up Positron startup."),
