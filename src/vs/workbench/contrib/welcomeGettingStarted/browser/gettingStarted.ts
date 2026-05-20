@@ -69,7 +69,10 @@ import { IExtensionService } from '../../../services/extensions/common/extension
 import { IHostService } from '../../../services/host/browser/host.js';
 import { IWorkbenchThemeService } from '../../../services/themes/common/workbenchThemeService.js';
 import { GettingStartedIndexList } from './gettingStartedList.js';
-import { canShowAgentsBanner, createAgentsBanner } from '../../chat/browser/agentSessions/agentSessionsBanner.js';
+// --- Start Positron ---
+// Upstream import for the agents app promotion banner; not used in Positron.
+// import { canShowAgentsBanner, createAgentsBanner } from '../../chat/browser/agentSessions/agentSessionsBanner.js';
+// --- End Positron ---
 import { AccessibilityVerbositySettingId } from '../../accessibility/browser/accessibilityConfiguration.js';
 import { AccessibleViewAction } from '../../accessibility/browser/accessibleViewActions.js';
 import { KeybindingLabel } from '../../../../base/browser/ui/keybindingLabel/keybindingLabel.js';
@@ -1011,25 +1014,37 @@ export class GettingStartedPage extends EditorPane {
 		);
 		// --- End Positron ---
 
-		const footerChildren: HTMLElement[] = [];
-		if (canShowAgentsBanner(this.productService)) {
-			const agentsBanner = createAgentsBanner(
-				{
-					cssClass: 'getting-started-category.agents-banner',
-					source: 'welcomePage',
-				},
-				this.commandService,
-				this.telemetryService,
-			);
-			this.categoriesSlideDisposables.add(agentsBanner.disposables);
-			footerChildren.push(agentsBanner.element);
-		}
-		footerChildren.push($('p.showOnStartup', {},
-			showOnStartupCheckbox.domNode,
-			showOnStartupLabel,
-		));
-
-		const footer = $('.footer', {}, ...footerChildren);
+		// --- Start Positron ---
+		// Upstream adds an "Agents app" promotion banner here in non-stable
+		// builds. This banner promotes a VS Code-specific desktop window and is
+		// not part of the Positron product, so omit it from the Positron
+		// welcome page footer.
+		//
+		// const footerChildren: HTMLElement[] = [];
+		// if (canShowAgentsBanner(this.productService)) {
+		// 	const agentsBanner = createAgentsBanner(
+		// 		{
+		// 			cssClass: 'getting-started-category.agents-banner',
+		// 			source: 'welcomePage',
+		// 		},
+		// 		this.commandService,
+		// 		this.telemetryService,
+		// 	);
+		// 	this.categoriesSlideDisposables.add(agentsBanner.disposables);
+		// 	footerChildren.push(agentsBanner.element);
+		// }
+		// footerChildren.push($('p.showOnStartup', {},
+		// 	showOnStartupCheckbox.domNode,
+		// 	showOnStartupLabel,
+		// ));
+		//
+		// const footer = $('.footer', {}, ...footerChildren);
+		const footer = $('.footer', {},
+			$('p.showOnStartup', {},
+				showOnStartupCheckbox.domNode,
+				showOnStartupLabel,
+			));
+		// --- End Positron ---
 
 		const layoutRecentList = () => {
 			const leftContent = $('div.positron-welcome-left-column');
