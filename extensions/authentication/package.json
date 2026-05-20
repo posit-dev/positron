@@ -104,6 +104,14 @@
 					},
 					"additionalProperties": false
 				},
+				"authentication.snowflake.customHeaders": {
+					"type": "object",
+					"default": {},
+					"additionalProperties": {
+						"type": "string"
+					},
+					"markdownDescription": "%configuration.snowflake.customHeaders.description%"
+				},
 				"authentication.anthropic.baseUrl": {
 					"type": "string",
 					"default": "",
