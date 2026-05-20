@@ -41,7 +41,9 @@ async function cdpCapture(
 
 /**
  * Capture the entire Electron window and write it to the output folder.
- * Used for full-app shots like the Welcome page.
+ * Used for full-app shots like the Welcome page. The capture is wrapped in
+ * a rounded-corner drop shadow halo to mimic a floating macOS window — pass
+ * `{ shadow: false }` to skip when a raw capture is needed.
  *
  * Reads the renderer's reported viewport size and passes it as an explicit
  * clip through CDP at the requested scale (defaults to 2x). Playwright's
@@ -51,13 +53,16 @@ async function cdpCapture(
 export async function captureFullWindow(
 	page: Page,
 	filename: string,
-	opts?: { scale?: number },
+	opts?: { scale?: number; shadow?: boolean },
 ): Promise<void> {
 	const { width, height } = await page.evaluate(() => ({
 		width: window.innerWidth,
 		height: window.innerHeight,
 	}));
 	await cdpCapture(page, { x: 0, y: 0, width, height, scale: opts?.scale ?? DEFAULT_SCALE }, filename);
+	if (opts?.shadow !== false) {
+		await applyDropShadow(filename);
+	}
 }
 
 /**

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test } from '../tests/_test.setup';
-import { applyDropShadow, captureFullWindow } from './helpers/screenshot-utils';
+import { captureFullWindow } from './helpers/screenshot-utils';
 import { overrideWorkspaceName, prepareForScreenshot, setScreenshotWindowSize } from './helpers/layout-utils';
 import { annotate, clearAnnotations } from './helpers/annotate-utils';
 
@@ -46,6 +46,5 @@ test.describe('Release Screenshots - Jupyter Notebooks', () => {
 			{ selector: '.kernel-action-view-item', label: '', color: ANNOTATION_COLOR, padding: 3 },
 		]);
 		await captureFullWindow(page, 'jupyter-notebooks-kernel-selector.png');
-		await applyDropShadow('jupyter-notebooks-kernel-selector.png');
 	});
 });
