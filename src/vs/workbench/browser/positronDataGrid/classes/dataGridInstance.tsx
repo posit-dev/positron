@@ -1943,44 +1943,44 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
-	 * Moves the cursor up.
+	 * Moves the cursor up, skipping any rows the subclass marks as not selectable.
 	 */
 	moveCursorUp() {
-		// Get the previous row index using the row layout manager.
-		const previousRowIndex = this._rowLayoutManager.previousIndex(this._cursorRowIndex);
+		// Walk backwards until we find a selectable row, or run out of rows.
+		let previousRowIndex = this._rowLayoutManager.previousIndex(this._cursorRowIndex);
+		while (previousRowIndex !== undefined && !this.isRowSelectable(previousRowIndex)) {
+			previousRowIndex = this._rowLayoutManager.previousIndex(previousRowIndex);
+		}
 
-		// If the previous row index is undefined, this means that the cursor is already at the top row.
+		// If we didn't find a selectable row above the cursor, leave the cursor where it is.
 		if (previousRowIndex === undefined) {
 			return;
 		}
 
-		// Set the cursor row index to the previous row index and fire the onDidUpdate event.
+		// Move the cursor and scroll to it.
 		this._cursorRowIndex = previousRowIndex;
-
 		this.scrollToCursor();
-
 		this.fireOnDidUpdateEvent();
 	}
 
 	/**
-	 * Moves the cursor down.
+	 * Moves the cursor down, skipping any rows the subclass marks as not selectable.
 	 */
 	moveCursorDown() {
-		// Get the next row index using the row layout manager.
-		const nextRowIndex = this._rowLayoutManager.nextIndex(this._cursorRowIndex);
+		// Walk forwards until we find a selectable row, or run out of rows.
+		let nextRowIndex = this._rowLayoutManager.nextIndex(this._cursorRowIndex);
+		while (nextRowIndex !== undefined && !this.isRowSelectable(nextRowIndex)) {
+			nextRowIndex = this._rowLayoutManager.nextIndex(nextRowIndex);
+		}
 
-		// If the next row index is undefined, this means that the cursor is already at the bottom row.
+		// If we didn't find a selectable row below the cursor, leave the cursor where it is.
 		if (nextRowIndex === undefined) {
 			return;
 		}
 
-		// Set the cursor row index to the next row index and fire the onDidUpdate event.
+		// Move the cursor and scroll to it.
 		this._cursorRowIndex = nextRowIndex;
-
-		// Scroll to the cursor.
 		this.scrollToCursor();
-
-		// Fire the onDidUpdate event.
 		this.fireOnDidUpdateEvent();
 	}
 
@@ -2182,6 +2182,12 @@ export abstract class DataGridInstance extends Disposable {
 		pinned: boolean,
 		selectionType: MouseSelectionType
 	): Promise<void> {
+		// Subclass-marked non-selectable rows (e.g. section headers) absorb the click silently;
+		// the cursor stays put and the current selection is preserved.
+		if (!this.isRowSelectable(rowIndex)) {
+			return;
+		}
+
 		// Clear column selection.
 		this._columnSelectionIndexes = undefined;
 
@@ -2433,6 +2439,12 @@ export abstract class DataGridInstance extends Disposable {
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
 	async mouseSelectRow(rowIndex: number, selectionType: MouseSelectionType): Promise<void> {
+		// Subclass-marked non-selectable rows (e.g. section headers) absorb the click silently;
+		// the cursor stays put and the current selection is preserved.
+		if (!this.isRowSelectable(rowIndex)) {
+			return;
+		}
+
 		// Clear cell selection.
 		this._cellSelectionIndexes = undefined;
 
@@ -3367,6 +3379,16 @@ export abstract class DataGridInstance extends Disposable {
 	 * @returns The data cell, or, undefined.
 	 */
 	abstract cell(columnIndex: number, rowIndex: number): JSX.Element | undefined;
+
+	/**
+	 * Determines whether a row can hold the cursor / be the target of a click. Subclasses that
+	 * render non-interactive rows (e.g. section headers in PositronList) override this to return
+	 * false for those rows; keyboard navigation skips them and mouse clicks on them are ignored.
+	 * @param rowIndex The row index.
+	 */
+	isRowSelectable(rowIndex: number): boolean {
+		return true;
+	}
 
 	/**
 	 * Called when the user presses Enter while the data grid has focus and the cursor is

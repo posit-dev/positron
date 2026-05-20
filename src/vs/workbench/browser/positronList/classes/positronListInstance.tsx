@@ -222,6 +222,17 @@ export class PositronListInstance<TItem, TSection = never> extends DataGridInsta
 		// Reset the row layout entries to match, supplying the per-row sizes in one call.
 		this._rowLayoutManager.setEntries(entries.length, entrySizes);
 
+		// If the cursor landed on a section (typical on first render when the first entry is a
+		// section header), advance it to the next selectable item row.
+		if (!this.isRowSelectable(this.cursorRowIndex)) {
+			for (let rowIndex = this.cursorRowIndex + 1; rowIndex < this._entries.length; rowIndex++) {
+				if (this.isRowSelectable(rowIndex)) {
+					this.setCursorRow(rowIndex);
+					break;
+				}
+			}
+		}
+
 		// Notify subscribers (the host PositronDataGrid) that they need to redraw.
 		this.fireOnDidUpdateEvent();
 	}
@@ -360,33 +371,17 @@ export class PositronListInstance<TItem, TSection = never> extends DataGridInsta
 	}
 
 	/**
-	 * Overrides the base class's row-selection so the cursor (focus) follows. The base
-	 * implementation only sets the row-selection state, leaving the cursor wherever it was —
-	 * fine for a grid where the cursor and selection are independent, wrong for a list where
-	 * the focused row should be the selected row. Selecting a section row is a no-op since
-	 * sections aren't selectable.
-	 *
-	 * The cursor and selection both update through this single entry point, so callers that
-	 * select programmatically (e.g. from an item's own click handler that stops propagation
-	 * before the data grid sees the event) get the focus indicator for free.
+	 * Marks section rows as not selectable, so DataGridInstance keyboard navigation skips them
+	 * and clicks on them are ignored.
 	 */
-	override selectRow(rowIndex: number): void {
-		const entry = this._entries[rowIndex];
-		if (entry === undefined || entry.kind !== 'item') {
-			return;
-		}
-
-		super.selectRow(rowIndex);
-		// List rows are single-column, so the cursor column is always 0.
-		this.setCursorPosition(0, rowIndex);
+	override isRowSelectable(rowIndex: number): boolean {
+		return this._entries[rowIndex]?.kind === 'item';
 	}
-
 
 	/**
 	 * Fires onDidActivate for the currently focused item. PositronList wraps this with its
-	 * onActivate prop. We guard against the cursor being on a section or out-of-range row;
-	 * navigation skipping isn't enforced at the base-class level yet, so a caller could in
-	 * principle land the cursor on a section.
+	 * onActivate prop. The cursor should already be on an item -- section rows are skipped by
+	 * keyboard navigation and rejected by click handling -- so this is a defensive guard.
 	 */
 	override async onEnterKey(): Promise<void> {
 		const entry = this._entries[this.cursorRowIndex];
