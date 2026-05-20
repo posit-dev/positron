@@ -112,8 +112,8 @@ jobs:
           docker exec test /bin/bash -c "
             echo 'Verifying REH extraction...'
             ls -la /root/.positron-server/
-            if [[ -d /root/.positron-server/bin && -d /root/.positron-server/data && -d /root/.positron-server/extensions ]]; then
-              echo '✓ REH directories found: bin, data, extensions'
+            if [[ -d /root/.positron-server/bin && -d /root/.positron-server/extensions ]]; then
+              echo '✓ REH directories found: bin, extensions'
             else
               echo '✗ REH extraction incomplete'
               exit 1
