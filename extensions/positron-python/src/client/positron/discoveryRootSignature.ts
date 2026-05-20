@@ -172,9 +172,10 @@ function getDefaultInterpreterParent(): string | undefined {
  *   - Hatch virtual-env root (per-OS data dir).
  *   - Windows-known Python install roots (LOCALAPPDATA / ProgramFiles).
  *   - The parent of `python.defaultInterpreterPath`.
- *   - Discovery-filter settings (`python.interpreters.include` / `.exclude` /
- *     `.override`) folded into the opaque digest so a settings change flips
- *     the signature and re-runs discovery.
+ *   - Discovery-gating settings (`python.interpreters.include` / `.exclude` /
+ *     `.override`, `python.locator`, `python.useEnvironmentsExtension`)
+ *     folded into the opaque digest so a settings change flips the signature
+ *     and re-runs discovery.
  *
  * Sources intentionally excluded (fall back to the periodic-refresh trigger):
  *   - Conda envs created with `--prefix` outside the well-known dirs.
@@ -258,12 +259,20 @@ export async function getPythonDiscoveryRootSignature(): Promise<positron.Runtim
 }
 
 /**
- * Digest of the discovery-filter settings (`python.interpreters.include`,
- * `python.interpreters.exclude`, `python.interpreters.override`). Folded into
- * the signature's opaque blob so a settings change flips the signature even
- * though no on-disk root has moved. Without this, a freshly-added exclude
- * path would not trigger discovery re-run and the cache would keep serving
- * the now-excluded interpreter.
+ * Digest of every Python setting that gates discovery but doesn't move an
+ * on-disk root. Folded into the signature's opaque blob so a settings change
+ * flips the signature even though no scan-root mtime moved -- without this
+ * the cache would keep serving entries that the new setting would now filter
+ * or that a different locator implementation wouldn't have found.
+ *
+ * Settings covered:
+ *   - `interpreters.include` / `.exclude` / `.override`: post-discovery
+ *     filters (`shouldIncludeInterpreter`); a freshly-added exclude would
+ *     otherwise leave the now-excluded interpreter registered from cache.
+ *   - `locator`: switches between the JS locator and the native locator,
+ *     which enumerate different sets of interpreters.
+ *   - `useEnvironmentsExtension`: switches discovery to the external Python
+ *     Environments extension; the cache must rebuild when this flips.
  */
 function getFilterSettingsDigest(): string {
     const config = vscode.workspace.getConfiguration('python');
@@ -271,6 +280,8 @@ function getFilterSettingsDigest(): string {
         include: config.get<string[]>('interpreters.include') ?? [],
         exclude: config.get<string[]>('interpreters.exclude') ?? [],
         override: config.get<string[]>('interpreters.override') ?? [],
+        locator: config.get<string>('locator') ?? '',
+        useEnvironmentsExtension: config.get<boolean>('useEnvironmentsExtension') ?? false,
     };
     return crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex');
 }

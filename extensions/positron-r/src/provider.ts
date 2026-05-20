@@ -112,8 +112,10 @@ interface RRootEntry {
  *   - User-specified `positron.r.interpreters.override`.
  *   - Hard-coded server-installation roots (POSIX only).
  *   - Hard-coded ad-hoc binary paths.
- *   - `positron.r.interpreters.exclude` folded into the opaque digest so a
- *     settings change flips the signature and re-runs discovery.
+ *   - Discovery-gating settings (`positron.r.interpreters.exclude` /
+ *     `.default` / `.condaDiscovery` / `.pixiDiscovery` / `.pathDiscoveryMode`)
+ *     folded into the opaque digest so a settings change flips the signature
+ *     and re-runs discovery.
  *
  * Sources intentionally excluded (fall back to the periodic-refresh trigger):
  *   - Conda environments (require `conda env list`).
@@ -180,17 +182,34 @@ export async function getRDiscoveryRootSignature(): Promise<positron.RuntimeRoot
 }
 
 /**
- * Digest of the discovery-filter settings (`positron.r.interpreters.exclude`).
- * The `interpreters.override` paths already contribute as path entries above;
- * `interpreters.exclude` does not, since the discoverer enumerates the same
- * directories whether or not exclude is set and then filters at construction.
- * Folding the exclude list into `opaque` lets a settings change flip the
- * signature so cached entries for an excluded R don't outlive the setting.
+ * Digest of every R setting that gates discovery but doesn't move an on-disk
+ * root. Folded into the signature's opaque blob so a settings change flips
+ * the signature even though no scan-root mtime moved.
+ *
+ * Settings covered:
+ *   - `interpreters.exclude`: post-discovery filter; without this an
+ *     excluded R would outlive the setting via the cache.
+ *   - `interpreters.default`: stamped onto cached metadata as `default: true`
+ *     by `RInstallation`; flipping the default would otherwise leave the
+ *     wrong installation flagged as default until the periodic refresh.
+ *   - `interpreters.condaDiscovery` / `.pixiDiscovery`: per-provider toggles;
+ *     enabling either should produce a discovery run that picks up envs
+ *     these providers find (their results are non-cacheable, so the only
+ *     way they appear in the registered set is a fresh discovery pass).
+ *   - `interpreters.pathDiscoveryMode`: `'on'`/`'off'`/`'auto'` toggle for
+ *     PATH-based current-binary lookup; affects which binary discovery
+ *     marks as "current".
+ *
+ * `interpreters.override` contributes as path entries above, not here.
  */
 function getRFilterSettingsDigest(): string {
 	const config = vscode.workspace.getConfiguration('positron.r');
 	const payload = {
 		exclude: config.get<string[]>('interpreters.exclude') ?? [],
+		default: config.get<string>('interpreters.default') ?? '',
+		condaDiscovery: config.get<boolean>('interpreters.condaDiscovery') ?? false,
+		pixiDiscovery: config.get<boolean>('interpreters.pixiDiscovery') ?? false,
+		pathDiscoveryMode: config.get<string>('interpreters.pathDiscoveryMode') ?? '',
 	};
 	return crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex');
 }
