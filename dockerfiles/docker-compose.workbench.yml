@@ -67,6 +67,7 @@ services:
       - connect-data:/var/lib/rstudio-connect
       - /var/lib/rstudio-connect
       - ./connect/rstudio-connect.gcfg:/etc/rstudio-connect/rstudio-connect.gcfg:ro
+      - ./connect/connect.lic:/var/lib/rstudio-connect/connect.lic:ro
       - connect_tokens:/tokens
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3939"]
