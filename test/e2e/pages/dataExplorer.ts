@@ -209,8 +209,8 @@ export class Filters {
 		if (await this.clearSortingButton.isVisible() && await this.clearSortingButton.isEnabled()) {
 			await this.clearSortingButton.click();
 		}
-		if (await this.clearFilterButton.isVisible()) {
-			await this.clearFilterButton.click();
+		while (await this.clearFilterButton.first().isVisible()) {
+			await this.clearFilterButton.first().click();
 		}
 	}
 }
@@ -224,6 +224,11 @@ export class DataGrid {
 	private get rowHeader(): Locator { return this.code.driver.currentPage.locator('.data-grid-row-header'); }
 	private get columnHeaders(): Locator { return this.code.driver.currentPage.locator(HEADER_TITLES); }
 	private get rows(): Locator { return this.code.driver.currentPage.locator(`${DATA_GRID_ROWS} ${DATA_GRID_ROW}`); }
+	get columnHeadersContainer(): Locator { return this.code.driver.currentPage.locator('.data-grid-column-headers'); }
+	get rowHeadersContainer(): Locator { return this.code.driver.currentPage.locator('.data-grid-row-headers'); }
+	get splitter(): Locator { return this.code.driver.currentPage.locator('.data-explorer-panel .splitter'); }
+	dataRow(nth: number): Locator { return this.code.driver.currentPage.locator(`${DATA_GRID_ROWS} ${DATA_GRID_ROW}`).nth(nth); }
+	cellTextValue(columnIndex: number, rowIndex: number): Locator { return this.grid.locator(`#data-grid-row-cell-content-${columnIndex}-${rowIndex} .text-value`); }
 	private cellByPosition = (rowIndex: number, columnIndex: number) => this.code.driver.currentPage.locator(
 		`${DATA_GRID_ROWS} ${DATA_GRID_ROW}:nth-child(${rowIndex + 1}) > div:nth-child(${columnIndex + 1})`
 	);
@@ -376,6 +381,79 @@ export class DataGrid {
 			await this.jumpToStart();
 			await this.clickCell(start.row, start.col);
 			await this.shiftClickCell(end.row, end.col);
+		});
+	}
+
+	columnHeaderByIndex(columnIndex: number): Locator {
+		return this.code.driver.currentPage.locator(`.data-grid-column-header[data-column-index="${columnIndex}"]`);
+	}
+
+	/**
+	 * Wait for the column header at the given 0-based data-column-index to be visible.
+	 * Useful after navigating to a far-right column via keyboard.
+	 */
+	async waitForColumnHeader(columnIndex: number, timeout = 10000): Promise<void> {
+		await test.step(`Wait for column header at index ${columnIndex}`, async () => {
+			await expect(this.columnHeaderByIndex(columnIndex)).toBeVisible({ timeout });
+		});
+	}
+
+	/**
+	 * Drag the right-edge sash of a column header left by `px` pixels, truncating cell values
+	 * so hover tooltips fire. The column must already be visible in the viewport.
+	 */
+	async narrowColumnBySash(columnIndex: number, px: number): Promise<void> {
+		await test.step(`Narrow column ${columnIndex} by ${px}px`, async () => {
+			const headerBox = await this.columnHeaderByIndex(columnIndex).boundingBox();
+			if (!headerBox) {
+				throw new Error(`Column header ${columnIndex} not found`);
+			}
+			const sashX = headerBox.x + headerBox.width - 2;
+			const sashY = headerBox.y + headerBox.height / 2;
+			const page = this.code.driver.currentPage;
+			await page.mouse.move(sashX, sashY);
+			await page.mouse.down();
+			await page.mouse.move(sashX - px, sashY, { steps: 10 });
+			await page.mouse.up();
+		});
+	}
+
+	/**
+	 * Click the ⋮ button on the column header at the given 0-based data-column-index
+	 * and wait for the popup menu to appear. Returns the popup locator.
+	 */
+	async openColumnContextMenu(columnIndex: number): Promise<Locator> {
+		return test.step(`Open context menu for column ${columnIndex}`, async () => {
+			await this.columnHeaderByIndex(columnIndex).locator('.sort-button').click();
+			const popup = this.code.driver.currentPage.locator('.positron-modal-popup');
+			await expect(popup).toBeVisible({ timeout: 5000 });
+			return popup;
+		});
+	}
+
+	/**
+	 * Right-click the row header at the given 0-based index and wait for the popup
+	 * menu to appear. Returns the popup locator.
+	 */
+	async openRowContextMenu(rowIndex: number): Promise<Locator> {
+		return test.step(`Open context menu for row header ${rowIndex}`, async () => {
+			await this.rowHeader.nth(rowIndex).click({ button: 'right' });
+			const popup = this.code.driver.currentPage.locator('.positron-modal-popup');
+			await expect(popup).toBeVisible({ timeout: 5000 });
+			return popup;
+		});
+	}
+
+	/**
+	 * Right-click the cell at the given 0-based visual position and wait for the
+	 * popup menu to appear. Returns the popup locator.
+	 */
+	async openCellContextMenu(rowPosition: number, columnPosition: number): Promise<Locator> {
+		return test.step(`Open context menu for cell at row ${rowPosition}, col ${columnPosition}`, async () => {
+			await this.cellByPosition(rowPosition, columnPosition).click({ button: 'right' });
+			const popup = this.code.driver.currentPage.locator('.positron-modal-popup');
+			await expect(popup).toBeVisible({ timeout: 5000 });
+			return popup;
 		});
 	}
 

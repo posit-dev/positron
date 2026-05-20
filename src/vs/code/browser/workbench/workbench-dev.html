@@ -42,6 +42,9 @@
 		const baseUrl = new URL('{{WORKBENCH_WEB_BASE_URL}}', window.location.origin).toString();
 		globalThis._VSCODE_FILE_ROOT = baseUrl + '/out/';
 	</script>
+	<!-- Start PWB: marker script is injected by webClientServer.ts only when isWorkbench is true; read by platform.isWorkbench in the browser -->
+	{{PWB_WORKBENCH_MARKER}}
+	<!-- End PWB -->
 	<script>
 		const sheet = document.getElementById('vscode-css-modules').sheet;
 		globalThis._VSCODE_CSS_LOAD = function (url) {

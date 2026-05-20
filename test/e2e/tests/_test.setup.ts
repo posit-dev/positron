@@ -351,6 +351,22 @@ test.afterAll(async function ({ logger, suiteId, }, testInfo) {
 		// ignore
 	}
 
+	// Clean up Docker container logs at worker teardown (once per test file)
+	const isWorkbenchProject = testInfo.project.name === 'e2e-workbench';
+	if (isWorkbenchProject) {
+		try {
+			const { exec } = require('child_process');
+			const { promisify } = require('util');
+			const execP = promisify(exec);
+			await execP('docker exec test sh -c "rm -rf /home/user1/.local/state/positron/logs/*"', {
+				maxBuffer: 1024 * 1024 * 10,
+			});
+			console.log('Cleaned up logs in Docker container');
+		} catch (err: any) {
+			console.warn(`Failed to clean up logs in Docker container: ${err.message}`);
+		}
+	}
+
 	if (appFixtureFailed) {
 		try {
 			if (appFixtureScreenshot) {

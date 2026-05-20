@@ -16,10 +16,10 @@ import { MarkedKatexSupport } from '../../markdown/browser/markedKatexSupport.js
 import { getWindow } from '../../../../base/browser/dom.js';
 import { escape } from '../../../../base/common/strings.js';
 import { DeferredImage } from './notebookCells/DeferredImage.js';
+import { KatexMath } from './notebookCells/KatexMath.js';
 import { NotebookLink } from './notebookCells/NotebookLink.js';
 import { safeSetInnerHtml } from '../../../../base/browser/domSanitize.js';
 import { allowedMarkdownHtmlTags, allowedMarkdownHtmlAttributes } from '../../../../base/browser/markdownRenderer.js';
-import { importAMDNodeModule } from '../../../../amdX.js';
 import { convertDomChildrenToReact } from './domToReact.js';
 import { MarkedKatexExtension } from '../../markdown/common/markedKatexExtension.js';
 import { MarkedSuperSubExtension } from '../../markdown/common/markedSuperSubExtension.js';
@@ -76,68 +76,6 @@ function decodeHtmlEntities(text: string): string {
  */
 type ExtendedToken = marked.MarkedToken | MarkedKatexExtension.KatexToken | MarkedSuperSubExtension.SuperSubToken | MarkedFootnoteExtension.FootnoteToken;
 
-/**
- * Component that renders LaTeX expressions.
- *
- * Since rendering LaTeX to HTML requires KaTeX which produces
- * HTML/MathML/SVG, we need to use safeSetInnerHtml to render it
- * which will parse the HTML string into the DOM.
- *
- * @param latex The raw LaTeX string to render
- * @param displayMode Whether to render in display mode block or inline mode (default)
- * @returns React element containing the rendered math
- */
-function KatexMath({ latex, displayMode }: { latex: string; displayMode?: boolean }) {
-	const containerRef = React.useRef<HTMLSpanElement | HTMLDivElement>(null);
-
-	React.useEffect(() => {
-		const container = containerRef.current;
-		if (!container) {
-			return;
-		}
-
-		let cancelled = false;
-
-		// Load KaTeX dynamically using AMD module loader
-		importAMDNodeModule<typeof import('katex').default>('katex', 'dist/katex.min.js').then(katex => {
-			if (cancelled) {
-				return;
-			}
-
-			try {
-				// convert the raw latex into HTML/MathML/SVG
-				const html = katex.renderToString(latex, {
-					throwOnError: false,
-					displayMode: displayMode || false
-				});
-				const sanitizerConfig = MarkedKatexSupport.getSanitizerOptions({
-					allowedTags: allowedMarkdownHtmlTags,
-					allowedAttributes: allowedMarkdownHtmlAttributes,
-				});
-				// Parse the HTML into the container element safely
-				safeSetInnerHtml(container, html, sanitizerConfig);
-			} catch (e) {
-				container.textContent = latex; // Fallback to raw LaTeX on error
-			}
-		}).catch((err) => {
-			if (!cancelled) {
-				if (container) {
-					container.textContent = latex; // Fallback to raw LaTeX on error
-				}
-			}
-		});
-
-		return () => {
-			cancelled = true;
-		};
-	}, [latex, displayMode]);
-
-	// KaTeX will populate this container with its rendered output
-	if (displayMode) {
-		return <div ref={containerRef as React.RefObject<HTMLDivElement>} className='katex-block' />;
-	}
-	return <span ref={containerRef as React.RefObject<HTMLSpanElement>} className='katex-inline' />;
-}
 
 /**
  * Component that renders syntax-highlighted code blocks.

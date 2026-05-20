@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from '../../../../../base/common/event.js';
-import { IDataConnectionHandle } from './positronDataConnectionsDriver.js';
+import { IDataConnectionHandle } from './dataConnectionDriver.js';
 
 /**
  * A data connection instance tracked by the service and displayed in the UI.

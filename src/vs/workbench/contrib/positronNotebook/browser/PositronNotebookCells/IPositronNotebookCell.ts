@@ -391,7 +391,7 @@ export type ParsedOutput = ParsedTextOutput |
 	dataUrl: string;
 } |
 {
-	type: 'interupt';
+	type: 'interrupt';
 	trace: string;
 } |
 {
@@ -400,6 +400,10 @@ export type ParsedOutput = ParsedTextOutput |
 } |
 {
 	type: 'markdown';
+	content: string;
+} |
+{
+	type: 'latex';
 	content: string;
 } |
 {

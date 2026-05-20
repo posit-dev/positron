@@ -13,8 +13,8 @@ export function msgIsDownloadMessage(msg: any): msg is IClickedDataUrlMessage {
 	return msg.type === 'clicked-data-url';
 }
 
-// Let typescript know that the vscode object is available
-declare const vscode: {
+// Let typescript know that the acquireVsCodeApi function is available in webviews
+declare function acquireVsCodeApi(): {
 	postMessage(message: IClickedDataUrlMessage): void;
 };
 
@@ -24,6 +24,7 @@ declare const vscode: {
 // notebook webviews. The implementation here is a bit simpler because there's contexts that don't
 // apply to the positron webviews that are handled in the notebook webviews.
 function handleWebviewClicks() {
+	const vscode = acquireVsCodeApi();
 
 	// eslint-disable-next-line no-restricted-syntax
 	document.addEventListener('click', (event) => {

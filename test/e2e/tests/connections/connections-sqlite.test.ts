@@ -71,7 +71,7 @@ test.describe('SQLite DB Connection', {
 		});
 
 		await test.step('Verify connection nodes', async () => {
-			await app.workbench.connections.openConnectionsNodes(['SQLiteConnection', 'Default']);
+			await app.workbench.connections.openConnectionsNodes(['SQLiteConnection', /^main$|^Default$/]);
 			await app.workbench.connections.openConnectionsNodes(tables);
 		});
 
@@ -80,7 +80,7 @@ test.describe('SQLite DB Connection', {
 			await app.workbench.connections.connectIcon.click();
 			await app.workbench.connections.resumeConnectionButton.click();
 
-			await app.workbench.connections.openConnectionsNodes(['SQLiteConnection', 'Default']);
+			await app.workbench.connections.openConnectionsNodes(['SQLiteConnection', /^main$|^Default$/]);
 			await app.workbench.connections.openConnectionsNodes(tables);
 		});
 
@@ -99,7 +99,7 @@ test.describe('SQLite DB Connection', {
 		await test.step('Open connections pane', async () => {
 			await app.workbench.connections.openConnectionPane();
 			await app.workbench.connections.viewConnection('SQLiteConnection');
-			await app.workbench.connections.openConnectionsNodes(['SQLiteConnection', 'Default']);
+			await app.workbench.connections.openConnectionsNodes(['SQLiteConnection', /^main$|^Default$/]);
 
 			// mtcars node should not exist
 			await expect(

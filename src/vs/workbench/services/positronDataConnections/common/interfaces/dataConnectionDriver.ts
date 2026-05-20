@@ -3,8 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Event } from '../../../../../base/common/event.js';
-import { IDataConnectionNodeDTO } from './positronDataConnectionsDTOs.js';
+import { IDataConnectionNodeDTO } from './dataConnectionDTOs.js';
 
 // --- Service-level interfaces ---
 //
@@ -35,8 +34,8 @@ export interface IDataConnectionProfile {
 	// Epoch millis the connection was last used. Undefined until first use.
 	lastUsedAt?: number;
 
-	// The ID of the driver used for this connection.
-	driverId: string;
+	// The driver metadata for this connection.
+	driverMetadata: Pick<IDataConnectionDriverMetadata, 'id' | 'name' | 'iconSvg' | 'supportedLanguageIds'>;
 
 	// The user-chosen name for this connection.
 	connectionName: string;
@@ -106,37 +105,4 @@ export interface IDataConnectionHandle {
 	nodeGetChildren(nodeHandle: number): Promise<IDataConnectionNodeDTO[]>;
 	nodePreview(nodeHandle: number): Promise<void>;
 	release(): void;
-}
-
-/**
- * Manages registered data connection drivers.
- */
-export interface IDataConnectionDriverManager {
-	/**
-	 * Registers a driver.
-	 * @param driver The driver to register.
-	 */
-	registerDriver(driver: IDataConnectionDriver): void;
-
-	/**
-	 * Removes a driver.
-	 * @param driverId The ID of the driver to remove.
-	 */
-	removeDriver(driverId: string): void;
-
-	/**
-	 * Gets all drivers.
-	 */
-	getDrivers(): IDataConnectionDriver[];
-
-	/**
-	 * Gets a driver.
-	 * @param driverId The driver ID of the driver to get.
-	 */
-	getDriver(driverId: string): IDataConnectionDriver | undefined;
-
-	/**
-	 * Fires whenever a driver is registered or removed.
-	 */
-	onDidChangeDrivers: Event<IDataConnectionDriver[]>;
 }

@@ -22,8 +22,9 @@ resolve_version() {
 				--jq '[.[] | select(.prerelease == true)] | .[0].tag_name'
 			;;
 		latest-release)
-			gh api "repos/$REPO/releases?per_page=100" \
-				--jq '[.[] | select(.prerelease == false)] | .[0].tag_name'
+			# Stable releases are flagged on posit-dev/positron; $REPO (positron-builds)
+			# marks every tag as prerelease=true, so filtering there returns nothing.
+			gh api "repos/posit-dev/positron/releases/latest" --jq '.tag_name'
 			;;
 		*)
 			echo "$input"

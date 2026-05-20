@@ -97,6 +97,7 @@ export class MenuId {
 	// --- Start Positron ---
 	static readonly PositronNotebookKernelSubmenu = new MenuId('PositronNotebookKernelSubmenu');
 	static readonly PositronQuartoKernelSubmenu = new MenuId('PositronQuartoKernelSubmenu');
+	static readonly PositronQuartoEditorActionBarMenu = new MenuId('PositronQuartoEditorActionBarMenu');
 	static readonly PositronNotebookCellActionBarLeft = new MenuId('PositronNotebookCellActionBarLeft');
 	static readonly PositronNotebookCellActionBarRight = new MenuId('PositronNotebookCellActionBarRight');
 	static readonly PositronNotebookCellActionBarSubmenu = new MenuId('PositronNotebookCellActionBarSubmenu');

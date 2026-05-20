@@ -3335,9 +3335,12 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
-	 * Fetches data.
+	 * Fetches data. Subclasses that hold their data in memory don't need to override; subclasses
+	 * that lazily fetch from a backend (data explorer comms, DuckDB, etc.) override to populate
+	 * the cache for the currently visible window.
 	 */
-	abstract fetchData(): Promise<void>;
+	async fetchData(): Promise<void> {
+	}
 
 	/**
 	 * Gets a column.

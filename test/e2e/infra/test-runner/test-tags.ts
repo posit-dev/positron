@@ -89,6 +89,7 @@ export enum TestTags {
 	WEB_ONLY = '@:web-only',
 	WIN = '@:win',
 	WORKBENCH = '@:workbench',
+	WORKBENCH_STABLE = '@:workbench-stable',
 	REMOTE_SSH = '@:remote-ssh',
 
 	// soft fail tag for tests that shouldn't fail merge to main

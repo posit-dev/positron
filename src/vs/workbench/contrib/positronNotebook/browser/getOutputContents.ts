@@ -123,7 +123,7 @@ export function parseOutputData(outputItem: IOutputItemDto): ParsedOutput {
 		const parsedMessage = JSON.parse(message);
 
 		if (parsedMessage?.name === 'KeyboardInterrupt') {
-			return { type: 'interupt', trace: parsedMessage.traceback };
+			return { type: 'interrupt', trace: parsedMessage.traceback };
 		}
 
 		if (parsedMessage?.name === 'Runtime Error') {
@@ -174,6 +174,10 @@ export function parseOutputData(outputItem: IOutputItemDto): ParsedOutput {
 
 	if (mime === 'text/markdown') {
 		return { type: 'markdown', content: message };
+	}
+
+	if (mime === 'text/latex') {
+		return { type: 'latex', content: message };
 	}
 
 	if (mime === 'image/png') {
