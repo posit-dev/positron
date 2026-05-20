@@ -15,22 +15,26 @@ type CustomContextMenuItemIconOptions =
 	| { readonly icon?: never; readonly iconSrc?: string };
 
 /**
+ * Behavior options. A menu item may either represent a toggleable state (`checked`) or a
+ * destructive action (`destructive`), but not both. A "checked destructive" item has no
+ * coherent meaning -- you don't toggle a delete on and off. Defined as a discriminated
+ * union so callers can't accidentally set both fields.
+ */
+type CustomContextMenuItemBehaviorOptions =
+	| { readonly checked?: boolean; readonly destructive?: never }
+	| { readonly checked?: never; readonly destructive?: boolean };
+
+/**
  * CustomContextMenuItemOptions type.
  */
-export type CustomContextMenuItemOptions = CustomContextMenuItemIconOptions & {
+export type CustomContextMenuItemOptions = CustomContextMenuItemIconOptions & CustomContextMenuItemBehaviorOptions & {
 	readonly commandId?: string;
 	/**
 	 * Called BEFORE the command executes. Similar to native ActionRunner's onWillRun.
 	 */
 	readonly onWillSelect?: () => void;
-	readonly checked?: boolean;
 	readonly label: string;
 	readonly disabled?: boolean;
-	/**
-	 * Indicates that selecting this item performs a destructive action (e.g. delete). The
-	 * renderer styles the label using the error foreground color.
-	 */
-	readonly destructive?: boolean;
 	/**
 	 * Called AFTER the command executes (or immediately if no commandId).
 	 * Similar to native ActionRunner's onDidRun.
