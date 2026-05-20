@@ -97,13 +97,17 @@ jobs:
 
       - name: Setup Positron REH in container
         run: |
+          # Get the commit SHA to create the versioned directory structure
+          COMMIT_SHA="${{ github.sha }}"
+
           # Copy REH tarball into container
           docker cp /tmp/artifacts/positron-reh-remote-ssh-x64.tar.gz test:/tmp/positron-reh-remote-ssh-x64.tar.gz
 
-          # Extract REH into /root/.positron-server
+          # Extract REH into /root/.positron-server/bin/<commit-sha>
+          # The remote SSH extension expects the structure: ~/.positron-server/bin/<commit>/bin/positron-server
           docker exec test /bin/bash -c "
-            mkdir -p /root/.positron-server
-            cd /root/.positron-server
+            mkdir -p /root/.positron-server/bin/${COMMIT_SHA}
+            cd /root/.positron-server/bin/${COMMIT_SHA}
             tar xzf /tmp/positron-reh-remote-ssh-x64.tar.gz --strip-components=1
             rm /tmp/positron-reh-remote-ssh-x64.tar.gz
           "
@@ -111,9 +115,9 @@ jobs:
           # Verify extraction
           docker exec test /bin/bash -c "
             echo 'Verifying REH extraction...'
-            ls -la /root/.positron-server/
-            if [[ -d /root/.positron-server/bin && -d /root/.positron-server/extensions ]]; then
-              echo '✓ REH directories found: bin, extensions'
+            ls -la /root/.positron-server/bin/${COMMIT_SHA}/
+            if [[ -d /root/.positron-server/bin/${COMMIT_SHA}/bin && -d /root/.positron-server/bin/${COMMIT_SHA}/extensions ]]; then
+              echo '✓ REH directories found at /root/.positron-server/bin/${COMMIT_SHA}/'
             else
               echo '✗ REH extraction incomplete'
               exit 1
