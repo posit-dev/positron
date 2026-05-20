@@ -63,14 +63,23 @@ test.describe('Release Screenshots - Extension Publisher', () => {
 	test('Release Screenshot - extension-verified-publisher.png', async ({ app, page }) => {
 		const { extensions } = app.workbench;
 
-		// Air ships pre-installed and is published by Posit, so it
-		// reliably has the verified-publisher badge.
+		// Air is published by Posit, so it reliably has the verified-publisher badge.
 		const id = 'posit.air-vscode';
 		await extensions.openExtensionDetails(id);
 
 		const header = page.locator('.extension-editor .header');
 		await expect(header).toBeVisible();
 		await expect(header.locator('.publisher')).toBeVisible();
+
+		// Air ships pre-installed in some builds but not all. Install it if the
+		// Install button is visible so the screenshot captures the Disable/Uninstall
+		// state every run.
+		const installButton = page.locator('.extension-editor .monaco-action-bar .action-item:not(.disabled) .extension-action.install').first();
+		const uninstallButton = page.locator('.extension-editor .monaco-action-bar .action-item:not(.disabled) .extension-action.uninstall').first();
+		if (await installButton.isVisible({ timeout: 2_000 }).catch(() => false)) {
+			await installButton.click();
+			await expect(uninstallButton).toBeVisible({ timeout: 60_000 });
+		}
 
 		await hideToasts(app);
 
