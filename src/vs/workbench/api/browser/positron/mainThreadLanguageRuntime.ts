@@ -11,7 +11,7 @@ import {
 	RuntimeInitialState
 } from '../../common/positron/extHost.positron.protocol.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
-import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget, IRuntimeManager, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeResourceUsage, ILanguageRuntimeLaunchInfo } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IHostedLanguageContribution, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget, IRuntimeManager, IRuntimeRootSignature, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeResourceUsage, ILanguageRuntimeLaunchInfo } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimePackage, ILanguageRuntimePackageManager, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IPackageSpec, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Disposable, DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
@@ -1589,6 +1589,17 @@ export class MainThreadLanguageRuntime
 			this._runtimeStartupService.registerRuntimeManager(this)
 		);
 
+		// Forward every runtime registration to the extension host so that
+		// `positron.runtime.onDidRegisterRuntime` mirrors the main-thread
+		// truth. Without this, runtimes registered by the discovery cache
+		// (or by any other main-thread-only path) would be invisible to
+		// extensions, since the ext-host emitter would only fire for
+		// extension-driven `registerLanguageRuntime` calls.
+		this._disposables.add(
+			this._languageRuntimeService.onDidRegisterRuntime(metadata => {
+				this._proxy.$onDidRegisterLanguageRuntime(metadata);
+			}));
+
 		// Track code execution events in the Console and Notebooks and forward
 		// them to the event host
 		this._disposables.add(
@@ -1624,8 +1635,19 @@ export class MainThreadLanguageRuntime
 	 * @param disabledLanguageIds The list of language IDs for which runtimes
 	 * should not be discovered
 	 */
-	async discoverAllRuntimes(disabledLanguageIds: string[]): Promise<void> {
-		this._proxy.$discoverLanguageRuntimes(disabledLanguageIds);
+	async discoverAllRuntimes(disabledLanguageIds: string[], skipLanguageIds?: string[]): Promise<void> {
+		this._proxy.$discoverLanguageRuntimes(disabledLanguageIds, skipLanguageIds);
+	}
+
+	/**
+	 * Tell the extension host that initial discovery is over without asking
+	 * it to enumerate. Used by the warm-start fast path in
+	 * `RuntimeStartupService.discoverAllRuntimes`.
+	 *
+	 * (part of implementation of IRuntimeManager)
+	 */
+	markDiscoveryComplete(): void {
+		this._proxy.$markRuntimeDiscoveryComplete();
 	}
 
 	/**
@@ -1639,6 +1661,29 @@ export class MainThreadLanguageRuntime
 	 */
 	async recommendWorkspaceRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]> {
 		return this._proxy.$recommendWorkspaceRuntimes(disabledLanguageIds);
+	}
+
+	/**
+	 * Snapshot the directories the extension scans for interpreters of the
+	 * given language. Forwarded to the extension host where each registered
+	 * `LanguageRuntimeManager` is asked for its own signature.
+	 *
+	 * (part of implementation of IRuntimeManager)
+	 */
+	async getDiscoveryRootSignature(extensionId: string, languageId: string): Promise<IRuntimeRootSignature | undefined> {
+		return this._proxy.$getDiscoveryRootSignature(extensionId, languageId);
+	}
+
+	/**
+	 * Per-contribution view of the language-runtime managers registered in
+	 * this extension host (one entry per `LanguageRuntimeManager`), including
+	 * the `alwaysRediscover` flag the extension declared. Used by the
+	 * discovery-cache layer to make per-`(extensionId, languageId)` decisions.
+	 *
+	 * (part of implementation of IRuntimeManager)
+	 */
+	async getHostedLanguageContributions(): Promise<IHostedLanguageContribution[]> {
+		return this._proxy.$getHostedLanguageContributions();
 	}
 
 	$emitLanguageRuntimeMessage(sessionId: string, handled: boolean, message: SerializableObjectWithBuffers<ILanguageRuntimeMessage>): void {
@@ -1734,7 +1779,13 @@ export class MainThreadLanguageRuntime
 
 	// Called by the extension host to get a list of all registered runtimes
 	$getRegisteredRuntimes(): Promise<ILanguageRuntimeMetadata[]> {
-		return Promise.resolve(Array.from(this._registeredRuntimes.values()));
+		// Return the full registry, not just the runtimes that this ext host
+		// happens to have registered itself. The discovery cache and other
+		// main-thread paths register runtimes directly on
+		// `ILanguageRuntimeService` without round-tripping through
+		// `$registerLanguageRuntime`, so the local `_registeredRuntimes`
+		// map is incomplete by design.
+		return Promise.resolve(this._languageRuntimeService.registeredRuntimes);
 	}
 
 	// Called by the extension host to start a previously registered language runtime

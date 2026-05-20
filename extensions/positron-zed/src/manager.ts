@@ -60,6 +60,14 @@ export class ZedRuntimeManager implements positron.LanguageRuntimeManager {
 	}
 
 	/**
+	 * Zed runtimes are not backed by a real binary and never set
+	 * `cacheable: true`, so the discovery cache has no record of them. Opt
+	 * out of the warm-start fast path so `discoverAllRuntimes` runs on every
+	 * window open and the runtimes always appear in pickers.
+	 */
+	readonly alwaysRediscover = true;
+
+	/**
 	 * "Discovers" the Zed language runtimes.
 	 *
 	 * @returns An async generator that yields metadata for the Zed language

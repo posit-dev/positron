@@ -253,6 +253,35 @@ configurationRegistry.registerConfiguration({
 				'positron.runtime.automaticStartup',
 				"How interpreters are started in new Positron windows."),
 			tags: ['interpreterSettings']
+		},
+		'interpreters.discoveryCache.enabled': {
+			scope: ConfigurationScope.APPLICATION_MACHINE,
+			type: 'boolean',
+			default: true,
+			description: nls.localize(
+				'positron.runtime.discoveryCache.enabled',
+				"Reuse previously discovered interpreters to speed up Positron startup."),
+			tags: ['interpreterSettings']
+		},
+		'interpreters.discoveryCache.maxAgeDays': {
+			scope: ConfigurationScope.APPLICATION_MACHINE,
+			type: 'number',
+			default: 30,
+			minimum: 1,
+			description: nls.localize(
+				'positron.runtime.discoveryCache.maxAgeDays',
+				"Number of days a cached interpreter is reused before it is rediscovered."),
+			tags: ['interpreterSettings']
+		},
+		'interpreters.discoveryCache.refreshIntervalDays': {
+			scope: ConfigurationScope.APPLICATION_MACHINE,
+			type: 'number',
+			default: 1,
+			minimum: 1,
+			description: nls.localize(
+				'positron.runtime.discoveryCache.refreshIntervalDays',
+				"How often (in days) to run a full interpreter discovery to detect newly installed interpreters."),
+			tags: ['interpreterSettings']
 		}
 	}
 });
