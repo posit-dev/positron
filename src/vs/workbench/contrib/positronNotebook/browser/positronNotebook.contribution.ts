@@ -75,6 +75,7 @@ import { NotebookAction2 } from './NotebookAction2.js';
 import './AskAssistantAction.js'; // Register AskAssistantAction
 import { CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_REPLACE_INPUT_FOCUSED } from '../../../../editor/contrib/find/browser/findModel.js';
 import { Codicon } from '../../../../base/common/codicons.js';
+import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.js';
 
 export const POSITRON_NOTEBOOK_COMMAND_MODE = ContextKeyExpr.and(
 	POSITRON_NOTEBOOK_EDITOR_FOCUSED,
@@ -553,7 +554,15 @@ registerAction2(class extends NotebookAction2 {
 			id: 'positronNotebook.cell.quitEdit',
 			title: localize2('positronNotebook.cell.quitEdit', "Exit Cell Edit Mode"),
 			keybinding: {
-				when: POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED,
+				when: ContextKeyExpr.and(
+					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED,
+					// Don't exit when multiple selections are active (escape should cancel multi selection first #10385)
+					EditorContextKeys.hasMultipleSelections.toNegated(),
+					// Don't exit when text is selected (escape should deselect first)
+					EditorContextKeys.hasNonEmptySelection.toNegated(),
+					// Don't exit when a hover tooltip is shown (escape should dismiss hover first)
+					EditorContextKeys.hoverVisible.toNegated()
+				),
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyCode.Escape
 			}
