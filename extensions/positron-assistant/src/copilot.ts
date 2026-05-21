@@ -151,11 +151,6 @@ export class CopilotService implements vscode.Disposable {
  */
 export class CopilotModelProvider extends ModelProvider {
 
-	/** Stub for sending a test message. Always resolves immediately. */
-	protected sendTestMessage(modelId: string): Promise<any> {
-		return Promise.resolve();
-	}
-
 	/** Stub for chat response. Always resolves immediately. */
 	provideLanguageModelChatResponse(model: vscode.LanguageModelChatInformation, messages: vscode.LanguageModelChatMessage2[], options: vscode.ProvideLanguageModelChatResponseOptions, progress: vscode.Progress<vscode.LanguageModelResponsePart2>, token: vscode.CancellationToken): Promise<void> {
 		return Promise.resolve();

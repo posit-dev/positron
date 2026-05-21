@@ -19,8 +19,8 @@ const PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .pos
 const SAVE_PLOT_FROM_PLOTS_PANE_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Save plot"]';
 const COPY_PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Copy plot to clipboard"]';
 const ZOOM_PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Fit"]';
-const OPEN_IN_EDITOR_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Open in editor tab"]';
-const OPEN_IN_EDITOR_DROPDOWN_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Select where to open plot"]';
+const OPEN_IN_EDITOR_DROPDOWN_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .action-bar-button-drop-down-button[aria-label="Select where to open plot"]';
+const OPEN_IN_EDITOR_PRIMARY_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .action-bar-button-action-button[aria-label="Select where to open plot"]';
 const OVERFLOW_MENU_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="overflow"]';
 const SESSION_NAME_BUTTON = '.plot-session-name';
 const ORIGIN_FILE_BUTTON = '.plot-origin-file';
@@ -193,10 +193,6 @@ export class Plots {
 		}
 	}
 
-	async clickGoToFileButton() {
-		await this.code.driver.currentPage.locator('.codicon-go-to-file').click();
-	}
-
 	async setThePlotZoom(zoomLevel: ZoomLevels) {
 		await test.step(`Set plot zoom to: ${zoomLevel}`, async () => {
 			await this.contextMenu.triggerAndClick({
@@ -208,9 +204,9 @@ export class Plots {
 
 	async openPlotIn(plotLocation: PlotLocations) {
 		const menuItemRegex = {
-			'editor': /Open in editor tab$/,
-			'new window': /Open in new window$/,
-			'editor tab to the side': /Open in editor tab to the Side$/
+			'editor': /Open in Editor Tab$/,
+			'new window': /Open in New Window$/,
+			'editor tab to the side': /Open in Editor Tab to the Side$/
 		};
 		await test.step(`Open plot in: ${plotLocation}`, async () => {
 			// The "Open in Editor" button may be visible in the action bar or overflowed into the overflow menu.
@@ -247,17 +243,17 @@ export class Plots {
 	}
 
 	async clickOpenInEditorButton() {
-		await test.step('Click the main Open in Editor button', async () => {
-			const openInEditorButton = this.code.driver.currentPage.locator(OPEN_IN_EDITOR_BUTTON);
-			await openInEditorButton.click();
+		await test.step('Click the primary half of the Open-in split button', async () => {
+			const primaryButton = this.code.driver.currentPage.locator(OPEN_IN_EDITOR_PRIMARY_BUTTON);
+			await primaryButton.click();
 		});
 	}
 
 	async verifyOpenPlotDropdownCheckedOption(expectedOption: PlotLocations) {
 		const menuItemLabels: Record<PlotLocations, string> = {
-			'editor': 'Open in editor tab',
-			'new window': 'Open in new window',
-			'editor tab to the side': 'Open in editor tab to the Side'
+			'editor': 'Open in Editor Tab',
+			'new window': 'Open in New Window',
+			'editor tab to the side': 'Open in Editor Tab to the Side'
 		};
 		await test.step(`Verify dropdown checked option is: ${expectedOption}`, async () => {
 			const openInEditorButton = this.code.driver.currentPage.locator(OPEN_IN_EDITOR_DROPDOWN_BUTTON);

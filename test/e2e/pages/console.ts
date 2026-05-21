@@ -201,15 +201,12 @@ export class Console {
 
 	async waitForReadyAndStarted(prompt: string, timeout = 30000, expectedCount = 1): Promise<void> {
 		await test.step('Wait for console to be ready and started', async () => {
+			// Only click the console tab if it's visible
+			if (await this.consoleTab.isVisible()) {
+				await this.consoleTab.click();
+			}
 			await this.waitForReady(prompt, timeout);
 			await this.waitForConsoleContents('started', { timeout, expectedCount });
-		});
-	}
-
-	async waitForReadyAndRestarted(prompt: string, timeout = 30000): Promise<void> {
-		await test.step('Wait for console to be ready and restarted', async () => {
-			await this.waitForReady(prompt, timeout);
-			await this.waitForConsoleContents('restarted', { timeout });
 		});
 	}
 

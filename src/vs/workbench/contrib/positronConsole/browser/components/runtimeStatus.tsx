@@ -56,6 +56,7 @@ export const RuntimeStatusIcon = ({ status }: RuntimeStatusIconProps) => {
 	const color = asCssVariable(colorId);
 	return <Icon
 		className={status === RuntimeStatus.Active ? 'animate-spin' : undefined}
+		data-testid={`runtime-status-${status.toLowerCase()}`}
 		icon={icon}
 		style={{ color }}
 	/>;

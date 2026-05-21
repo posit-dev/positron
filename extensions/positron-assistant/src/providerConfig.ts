@@ -12,7 +12,7 @@
  */
 
 import * as vscode from 'vscode';
-import { DEFAULT_MAX_CONNECTION_ATTEMPTS, DEFAULT_PROVIDER_TIMEOUT_SEC } from './constants.js';
+import { DEFAULT_PROVIDER_TIMEOUT_SEC } from './constants.js';
 
 /**
  * Gets the provider timeout in milliseconds from user configuration.
@@ -21,18 +21,4 @@ export function getProviderTimeoutMs(): number {
 	const cfg = vscode.workspace.getConfiguration('positron.assistant');
 	const timeoutSec = cfg.get<number>('providerTimeout', DEFAULT_PROVIDER_TIMEOUT_SEC);
 	return timeoutSec * 1000;
-}
-
-/**
- * Gets the maximum number of connection attempts from user configuration.
- */
-export function getMaxConnectionAttempts(): number {
-	const cfg = vscode.workspace.getConfiguration('positron.assistant');
-	const maxAttempts = cfg.get<number>('maxConnectionAttempts', DEFAULT_MAX_CONNECTION_ATTEMPTS);
-	if (maxAttempts < 1) {
-		// Note: Cannot use log from extension.ts here to avoid circular dependencies
-		console.warn(`[positron-assistant] Invalid maxConnectionAttempts value: ${maxAttempts}. Using default of ${DEFAULT_MAX_CONNECTION_ATTEMPTS}.`);
-		return DEFAULT_MAX_CONNECTION_ATTEMPTS;
-	}
-	return maxAttempts;
 }

@@ -70,10 +70,12 @@ import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
 import { PositronNotebookPromptContribution } from './positronNotebookPrompt.js';
 import { ActiveNotebookHasRunningRuntime } from '../../runtimeNotebookKernel/common/activeRuntimeNotebookContextManager.js';
+import { NOTEBOOK_HAS_SOMETHING_RUNNING } from '../../notebook/common/notebookContextKeys.js';
 import { NotebookAction2 } from './NotebookAction2.js';
 import './AskAssistantAction.js'; // Register AskAssistantAction
 import { CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_REPLACE_INPUT_FOCUSED } from '../../../../editor/contrib/find/browser/findModel.js';
 import { Codicon } from '../../../../base/common/codicons.js';
+import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.js';
 
 export const POSITRON_NOTEBOOK_COMMAND_MODE = ContextKeyExpr.and(
 	POSITRON_NOTEBOOK_EDITOR_FOCUSED,
@@ -552,7 +554,15 @@ registerAction2(class extends NotebookAction2 {
 			id: 'positronNotebook.cell.quitEdit',
 			title: localize2('positronNotebook.cell.quitEdit', "Exit Cell Edit Mode"),
 			keybinding: {
-				when: POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED,
+				when: ContextKeyExpr.and(
+					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED,
+					// Don't exit when multiple selections are active (escape should cancel multi selection first #10385)
+					EditorContextKeys.hasMultipleSelections.toNegated(),
+					// Don't exit when text is selected (escape should deselect first)
+					EditorContextKeys.hasNonEmptySelection.toNegated(),
+					// Don't exit when a hover tooltip is shown (escape should dismiss hover first)
+					EditorContextKeys.hoverVisible.toNegated()
+				),
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyCode.Escape
 			}
@@ -1893,10 +1903,16 @@ registerAction2(class extends NotebookAction2 {
 				id: MenuId.EditorActionsLeft,
 				group: 'navigation',
 				order: 10,
-				when: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID)
+				when: ContextKeyExpr.and(
+					ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+					NOTEBOOK_HAS_SOMETHING_RUNNING.toNegated()
+				)
 			},
 			keybinding: {
-				when: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+				when: ContextKeyExpr.and(
+					ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+					NOTEBOOK_HAS_SOMETHING_RUNNING.toNegated()
+				),
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Enter
 			}
@@ -1904,7 +1920,47 @@ registerAction2(class extends NotebookAction2 {
 	}
 
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
-		notebook.runAllCells();
+		return notebook.runAllCells();
+	}
+});
+
+// Stop All Cells - cancels execution of every running cell.
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.stopAllCells',
+			title: localize2('stopAllCells', 'Stop'),
+			icon: ThemeIcon.fromId('primitive-square'),
+			f1: true,
+			category: POSITRON_NOTEBOOK_CATEGORY,
+			positronActionBarOptions: {
+				controlType: 'button',
+				displayTitle: false
+			},
+			menu: {
+				id: MenuId.EditorActionsLeft,
+				group: 'navigation',
+				order: 10,
+				when: ContextKeyExpr.and(
+					ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+					NOTEBOOK_HAS_SOMETHING_RUNNING
+				)
+			},
+			keybinding: {
+				when: ContextKeyExpr.and(
+					ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+					NOTEBOOK_HAS_SOMETHING_RUNNING
+				),
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Enter
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		// runAllCells delegates to _runCells, which sees the live executions and
+		// routes to cancelNotebookCells instead of executeNotebookCells.
+		return notebook.runAllCells();
 	}
 });
 

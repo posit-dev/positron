@@ -25,7 +25,10 @@ export async function verifyFolderCreation(app: Application, folderName: string)
 export async function verifyConsoleReady(app: Application, folderTemplate: FolderTemplate) {
 	await test.step(`Verify console is ready`, async () => {
 		const consoleSymbol = folderTemplate === FolderTemplate.R_PROJECT ? '>' : '>>>';
+
+		await app.workbench.hotKeys.closeSecondarySidebar();
 		await app.workbench.console.waitForReadyAndStarted(consoleSymbol, 90000);
+		await app.workbench.hotKeys.showSecondarySidebar();
 	});
 }
 

@@ -191,7 +191,7 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 
 				return [
 					{
-						id: 'positron.notebook.copyOutputText',
+						id: 'positronNotebook.copyOutputText',
 						label: copyOutputTextLabel,
 						tooltip: '',
 						class: undefined,
@@ -339,9 +339,9 @@ const CellOutput = React.memo(function CellOutput(output: CellOutputProps) {
 	}
 
 	switch (parsed.type) {
-		case 'interupt':
+		case 'interrupt':
 			return <div className='notebook-error'>
-				{localize('cellExecutionKeyboardInterupt', 'Cell execution stopped due to keyboard interupt.')}
+				{localize('cellExecutionKeyboardInterrupt', 'Cell execution stopped due to keyboard interrupt.')}
 			</div>;
 		case 'image':
 			return <img alt='output image' src={parsed.dataUrl} />;

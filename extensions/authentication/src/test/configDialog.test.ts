@@ -12,13 +12,21 @@ import { validateAnthropicApiKey } from '../validation';
 
 suite('configDialog', () => {
 	let originalShowLanguageModelConfig: typeof positron.ai.showLanguageModelConfig;
+	let originalGetEnabledProviders: typeof positron.ai.getEnabledProviders;
 	let originalFetch: typeof globalThis.fetch;
 	let provider: AuthProvider;
 
 	setup(() => {
 		authProviders.clear();
 		originalShowLanguageModelConfig = positron.ai.showLanguageModelConfig;
+		originalGetEnabledProviders = positron.ai.getEnabledProviders;
 		originalFetch = globalThis.fetch;
+
+		// Mock getEnabledProviders to return all providers by default
+		(positron.ai as any).getEnabledProviders = async () => [
+			'anthropic-api', 'openai-api', 'openai-compatible', 'test-chain'
+		];
+
 		const secrets = new Map<string, string>();
 		const globalState = new Map<string, unknown>();
 		const mockContext = {
@@ -51,7 +59,32 @@ suite('configDialog', () => {
 		provider.dispose();
 		authProviders.clear();
 		positron.ai.showLanguageModelConfig = originalShowLanguageModelConfig;
+		(positron.ai as any).getEnabledProviders = originalGetEnabledProviders;
 		globalThis.fetch = originalFetch;
+	});
+
+	test('shows info message when no providers are enabled', async () => {
+		(positron.ai as any).getEnabledProviders = async () => [];
+
+		let shownMessage: string | undefined;
+		const originalShowInfo = vscode.window.showInformationMessage;
+		(vscode.window as any).showInformationMessage = async (message: string, ...items: string[]) => {
+			shownMessage = message;
+			return undefined;
+		};
+
+		let dialogOpened = false;
+		positron.ai.showLanguageModelConfig = async () => {
+			dialogOpened = true;
+		};
+
+		try {
+			await showConfigurationDialog();
+			assert.ok(shownMessage?.includes('No language model providers are enabled'), 'Should show no-providers message');
+			assert.strictEqual(dialogOpened, false, 'Should not open config dialog');
+		} finally {
+			(vscode.window as any).showInformationMessage = originalShowInfo;
+		}
 	});
 
 	test('validates Anthropic key before storing', async () => {
@@ -72,19 +105,11 @@ suite('configDialog', () => {
 			};
 		};
 
-		const source = {
-			type: positron.PositronLanguageModelType.Chat,
-			provider: { id: 'anthropic-api', displayName: 'Anthropic', settingName: 'anthropic-api' },
-			signedIn: false,
-			defaults: { name: 'Anthropic', model: 'claude-sonnet-4-0' },
-			supportedOptions: [],
-		} as unknown as positron.ai.LanguageModelSource;
-
 		positron.ai.showLanguageModelConfig = async (_sources, onAction) => {
 			await onAction({ provider: 'anthropic-api', type: positron.PositronLanguageModelType.Chat, name: 'Anthropic', model: 'claude-sonnet-4-0', apiKey: 'sk-ant-valid' }, 'save');
 		};
 
-		await showConfigurationDialog([source]);
+		await showConfigurationDialog();
 
 		assert.strictEqual(validated, true);
 		assert.strictEqual(stored, true);
@@ -106,20 +131,12 @@ suite('configDialog', () => {
 			};
 		};
 
-		const source = {
-			type: positron.PositronLanguageModelType.Chat,
-			provider: { id: 'anthropic-api', displayName: 'Anthropic', settingName: 'anthropic-api' },
-			signedIn: false,
-			defaults: { name: 'Anthropic', model: 'claude-sonnet-4-0' },
-			supportedOptions: [],
-		} as unknown as positron.ai.LanguageModelSource;
-
 		positron.ai.showLanguageModelConfig = async (_sources, onAction) => {
 			await onAction({ provider: 'anthropic-api', type: positron.PositronLanguageModelType.Chat, name: 'Anthropic', model: 'claude-sonnet-4-0', apiKey: 'sk-ant-invalid' }, 'save');
 		};
 
 		await assert.rejects(
-			showConfigurationDialog([source]),
+			showConfigurationDialog(),
 			(error: Error) => error.message.includes('Invalid Anthropic API key')
 		);
 		assert.strictEqual(stored, false);
@@ -149,20 +166,12 @@ suite('configDialog', () => {
 		registerAuthProvider('anthropic-api', chainProvider);
 		await chainProvider.resolveChainCredentials();
 
-		const source = {
-			type: positron.PositronLanguageModelType.Chat,
-			provider: { id: 'anthropic-api', displayName: 'Anthropic', settingName: 'anthropic-api' },
-			signedIn: true,
-			defaults: { name: 'Anthropic', model: 'claude-sonnet-4-0' },
-			supportedOptions: [],
-		} as unknown as positron.ai.LanguageModelSource;
-
 		positron.ai.showLanguageModelConfig = async (_sources, onAction) => {
 			await onAction({ provider: 'anthropic-api', type: positron.PositronLanguageModelType.Chat, name: 'Anthropic', model: 'claude-sonnet-4-0' }, 'delete');
 		};
 
 		await assert.rejects(
-			showConfigurationDialog([source]),
+			showConfigurationDialog(),
 			(error: Error) => error.message.includes('environment variable')
 		);
 
@@ -193,23 +202,19 @@ suite('configDialog', () => {
 		);
 		registerAuthProvider('test-chain', chainProvider);
 
-		const source = {
-			type: positron.PositronLanguageModelType.Chat,
-			provider: { id: 'test-chain', displayName: 'Test Chain', settingName: 'test-chain' },
-			signedIn: false,
-			defaults: { name: 'Test Chain', model: 'test-model' },
-			supportedOptions: [],
-		} as unknown as positron.ai.LanguageModelSource;
-
+		const actions: { action: string; provider: string }[] = [];
 		positron.ai.showLanguageModelConfig = async (_sources, onAction) => {
-			await onAction({ provider: 'test-chain', type: positron.PositronLanguageModelType.Chat, name: 'Test Chain', model: 'test-model' }, 'save');
+			const config = { provider: 'test-chain', type: positron.PositronLanguageModelType.Chat, name: 'Test Chain', model: 'test-model' };
+			await onAction(config, 'save');
+			actions.push({ action: 'save', provider: config.provider });
 		};
 
-		const results = await showConfigurationDialog([source]);
+		await showConfigurationDialog();
 
-		assert.strictEqual(results.length, 1);
-		assert.strictEqual(results[0].action, 'save');
-		assert.strictEqual(results[0].accountId, 'test-chain');
+		assert.strictEqual(actions.length, 1);
+		assert.strictEqual(actions[0].action, 'save');
+		const sessions = await chainProvider.getSessions();
+		assert.strictEqual(sessions.length, 1);
 		chainProvider.dispose();
 	});
 
@@ -246,14 +251,7 @@ suite('configDialog', () => {
 			},
 		});
 
-		const source = {
-			type: positron.PositronLanguageModelType.Chat,
-			provider: { id: 'openai-compatible', displayName: 'Custom Provider', settingName: 'openai-compatible' },
-			signedIn: false,
-			defaults: { name: 'Custom Provider', model: 'local-model', baseUrl: 'http://localhost:1234/v1' },
-			supportedOptions: [],
-		} as unknown as positron.ai.LanguageModelSource;
-
+		const actions: { action: string; provider: string }[] = [];
 		positron.ai.showLanguageModelConfig = async (_sources, onAction) => {
 			await onAction({
 				provider: 'openai-compatible',
@@ -263,14 +261,14 @@ suite('configDialog', () => {
 				baseUrl: 'http://localhost:1234/v1',
 				apiKey: '',
 			}, 'save');
+			actions.push({ action: 'save', provider: 'openai-compatible' });
 		};
 
-		const results = await showConfigurationDialog([source]);
+		await showConfigurationDialog();
 
+		assert.strictEqual(actions.length, 1);
+		assert.strictEqual(actions[0].action, 'save');
 		assert.strictEqual(validatedWithEmptyKey, true, 'should validate even with empty key');
-		assert.strictEqual(results.length, 1);
-		assert.strictEqual(results[0].action, 'save');
-		assert.ok(results[0].accountId, 'should have an accountId');
 
 		// Verify a session was created with an empty access token
 		const sessions = await customProvider.getSessions();
@@ -323,14 +321,7 @@ suite('configDialog', () => {
 			},
 		});
 
-		const source = {
-			type: positron.PositronLanguageModelType.Chat,
-			provider: { id: 'openai-api', displayName: 'OpenAI', settingName: 'openai-api' },
-			signedIn: false,
-			defaults: { name: 'OpenAI', model: 'gpt-4o' },
-			supportedOptions: [],
-		} as unknown as positron.ai.LanguageModelSource;
-
+		const actions: { action: string; provider: string }[] = [];
 		positron.ai.showLanguageModelConfig = async (_sources, onAction) => {
 			await onAction({
 				provider: 'openai-api',
@@ -339,16 +330,17 @@ suite('configDialog', () => {
 				model: 'gpt-4o',
 				baseUrl: 'https://my-proxy.example.com/v1',
 			}, 'save');
+			actions.push({ action: 'save', provider: 'openai-api' });
 		};
 
-		const results = await showConfigurationDialog([source]);
+		await showConfigurationDialog();
 
 		assert.strictEqual(savedBaseUrl, 'https://my-proxy.example.com/v1',
 			'onSave should have been called with the custom base URL');
 		assert.strictEqual(baseUrlDuringResolve, 'https://my-proxy.example.com/v1',
 			'base URL should be persisted before chain resolution');
-		assert.strictEqual(results.length, 1);
-		assert.strictEqual(results[0].action, 'save');
+		assert.strictEqual(actions.length, 1);
+		assert.strictEqual(actions[0].action, 'save');
 
 		chainProvider.dispose();
 	});

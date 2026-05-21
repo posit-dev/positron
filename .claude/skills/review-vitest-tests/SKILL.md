@@ -21,6 +21,14 @@ $ARGUMENTS should contain the test file path(s) to review. For each test file, a
 
 Evaluate each test file against this checklist. Report ONLY items that fail -- don't list passing items. Also flag any cross-file inconsistencies (e.g., same service stubbed differently, different assertion styles for the same pattern).
 
+### 0. Test value and falsifiability
+
+For each test, ask: **what specific production code change would make it fail, and does that change represent a user-visible or system-observable regression?**
+
+Flag any test where the answer is "I'm not sure" or where the test only verifies an implementation detail with no behavioral consequence — e.g., an internal counter value, a private array index, or a call count when the real invariant is a downstream side-effect. Coverage is a side-effect of good tests, not a goal. Every test should guard a specific regression that would matter.
+
+Concrete check: mentally delete or mutate the production code path the test exercises. Would a user or the system notice the breakage? If not, the test is verifying structure, not behavior — flag it with a suggested behavioral rewrite or recommend dropping it.
+
 ### 1. Unused declarations and import bloat
 
 Any variables, emitters, or imports declared but never referenced in a test? Suite-level `let` variables that only exist for setup wiring should be inlined into the stub objects instead. Also flag excessive imports: if 5+ service identifiers are imported only for `.stub()` calls, suggest extracting the stubs into a helper function to reduce the import block.

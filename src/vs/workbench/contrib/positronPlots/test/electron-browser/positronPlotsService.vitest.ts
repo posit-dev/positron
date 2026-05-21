@@ -9,7 +9,9 @@ import { raceTimeout } from '../../../../../base/common/async.js';
 import { PositronTestServiceAccessor } from '../../../../test/browser/positronWorkbenchTestServices.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { IPositronPlotMetadata, PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
-import { HistoryPolicy, IPositronPlotClient, IPositronPlotsService, PlotsDisplayLocation } from '../../../../services/positronPlots/common/positronPlots.js';
+import { HistoryPolicy, IPositronPlotClient, IPositronPlotsService, PlotOpenTarget, PlotsDisplayLocation } from '../../../../services/positronPlots/common/positronPlots.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
+import { ACTIVE_GROUP, AUX_WINDOW_GROUP, SIDE_GROUP } from '../../../../services/editor/common/editorService.js';
 import { RuntimeClientType } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { TestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { startTestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
@@ -231,6 +233,53 @@ describe('Positron - Plots Service', () => {
 
 	it('selection: expect error removing plot when no plot selected', () => {
 		expect(() => plotsService.removeSelectedPlot()).toThrow('No plot is selected');
+	});
+
+	describe('default open target', () => {
+		const NEW_KEY = 'positronPlots.defaultOpenTarget';
+		const LEGACY_KEY = 'positronPlots.defaultEditorAction';
+
+		let storageService: IStorageService;
+
+		beforeEach(() => {
+			storageService = ctx.instantiationService.invokeFunction(accessor => accessor.get(IStorageService));
+			// Reset both storage keys so each scenario starts from a known state.
+			storageService.remove(NEW_KEY, StorageScope.WORKSPACE);
+			storageService.remove(LEGACY_KEY, StorageScope.WORKSPACE);
+		});
+
+		it('migrates legacy editor-group values when the new key is unset', () => {
+			const cases: Array<[number, PlotOpenTarget]> = [
+				[ACTIVE_GROUP, PlotOpenTarget.EditorTab],
+				[AUX_WINDOW_GROUP, PlotOpenTarget.EditorNewWindow],
+				[SIDE_GROUP, PlotOpenTarget.EditorTabToSide],
+			];
+			for (const [legacyGroup, expected] of cases) {
+				storageService.remove(NEW_KEY, StorageScope.WORKSPACE);
+				storageService.store(LEGACY_KEY, legacyGroup, StorageScope.WORKSPACE, StorageTarget.MACHINE);
+				expect(plotsService.getDefaultOpenTarget()).toBe(expected);
+			}
+		});
+
+		it('prefers the new key over the legacy key when both are present', () => {
+			storageService.store(LEGACY_KEY, AUX_WINDOW_GROUP, StorageScope.WORKSPACE, StorageTarget.MACHINE);
+			plotsService.setDefaultOpenTarget(PlotOpenTarget.Gallery);
+			expect(plotsService.getDefaultOpenTarget()).toBe(PlotOpenTarget.Gallery);
+		});
+
+		it('derives getPreferredEditorGroup from the remembered target', () => {
+			const cases: Array<[PlotOpenTarget, number]> = [
+				[PlotOpenTarget.EditorNewWindow, AUX_WINDOW_GROUP],
+				[PlotOpenTarget.EditorTab, ACTIVE_GROUP],
+				[PlotOpenTarget.EditorTabToSide, SIDE_GROUP],
+				[PlotOpenTarget.Gallery, ACTIVE_GROUP],
+				[PlotOpenTarget.Popout, ACTIVE_GROUP],
+			];
+			for (const [target, expectedGroup] of cases) {
+				plotsService.setDefaultOpenTarget(target);
+				expect(plotsService.getPreferredEditorGroup()).toBe(expectedGroup);
+			}
+		});
 	});
 
 	it('selection: select previous/next plot', async () => {

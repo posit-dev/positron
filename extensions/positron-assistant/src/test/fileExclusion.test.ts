@@ -170,18 +170,44 @@ suite('fileExclusion', () => {
 		});
 
 		suite('fallback to inlineCompletionExcludes', () => {
-			test('should use inlineCompletionExcludes when aiExcludes is not explicitly set', () => {
+			test('should use inlineCompletionExcludes when only the deprecated setting is explicitly set', () => {
+				// User has not set aiExcludes — `.get` returns whatever the contributed default would be.
 				(mockConfiguration.get as sinon.SinonStub).withArgs('aiExcludes').returns(['*.py']);
 				(mockConfiguration.inspect as sinon.SinonStub).withArgs('aiExcludes').returns({
 					globalValue: undefined,
 					workspaceValue: undefined
 				});
+				// User has explicitly set inlineCompletionExcludes (migration case).
 				(mockConfiguration.get as sinon.SinonStub).withArgs('inlineCompletionExcludes').returns(['*.env']);
+				(mockConfiguration.inspect as sinon.SinonStub).withArgs('inlineCompletionExcludes').returns({
+					globalValue: ['*.env'],
+					workspaceValue: undefined
+				});
 
-				// Should use the fallback pattern
+				// Should use the explicitly-set deprecated pattern
 				assert.strictEqual(isFileExcludedFromAI(vscode.Uri.file('/project/.env')), true);
 				// The aiExcludes default should be ignored
 				assert.strictEqual(isFileExcludedFromAI(vscode.Uri.file('/project/file.py')), false);
+			});
+
+			test('should NOT use inlineCompletionExcludes when neither setting is explicitly set (stock config)', () => {
+				// Regression for issue #13544: stock-config users were getting the deprecated
+				// setting's `**/.*` default instead of the new aiExcludes default.
+				(mockConfiguration.get as sinon.SinonStub).withArgs('aiExcludes').returns(['*.py']);
+				(mockConfiguration.inspect as sinon.SinonStub).withArgs('aiExcludes').returns({
+					globalValue: undefined,
+					workspaceValue: undefined
+				});
+				(mockConfiguration.get as sinon.SinonStub).withArgs('inlineCompletionExcludes').returns(['**/.*']);
+				(mockConfiguration.inspect as sinon.SinonStub).withArgs('inlineCompletionExcludes').returns({
+					globalValue: undefined,
+					workspaceValue: undefined
+				});
+
+				// Should use the aiExcludes default (*.py), not the deprecated default (**/.*).
+				assert.strictEqual(isFileExcludedFromAI(vscode.Uri.file('/project/file.py')), true);
+				assert.strictEqual(isFileExcludedFromAI(vscode.Uri.file('/project/.github/foo.yml')), false);
+				assert.strictEqual(isFileExcludedFromAI(vscode.Uri.file('/project/.env')), false);
 			});
 		});
 
@@ -197,6 +223,145 @@ suite('fileExclusion', () => {
 				assert.strictEqual(isFileExcludedFromAI(vscode.Uri.file('/project/.env')), true);
 				assert.strictEqual(isFileExcludedFromAI(vscode.Uri.file('/project/config/secret.txt')), true);
 				assert.strictEqual(isFileExcludedFromAI(vscode.Uri.file('/project/file.js')), false);
+			});
+		});
+
+		suite('default patterns', () => {
+			// Keep in sync with positron.assistant.aiExcludes default in package.json.
+			const defaultPatterns = [
+				'**/.env',
+				'**/.env.*',
+				'**/*.pem',
+				'**/*.key',
+				'**/*.p12',
+				'**/*.pfx',
+				'**/*.jks',
+				'**/*.keystore',
+				'**/id_rsa',
+				'**/id_dsa',
+				'**/id_ecdsa',
+				'**/id_ecdsa_sk',
+				'**/id_ed25519',
+				'**/id_ed25519_sk',
+				'**/.git-credentials',
+				'**/.npmrc',
+				'**/.pypirc',
+				'**/.netrc',
+				'**/.Renviron',
+				'**/.aws/config',
+				'**/.aws/credentials',
+				'**/.docker/config.json',
+				'**/.kube/config',
+				'**/application_default_credentials.json',
+				'**/.azure/accessTokens.json',
+				'**/.azure/accessToken.json',
+				'**/.azure/msal_token_cache.json',
+				'**/.azure/msal_token_cache.bin',
+				'**/secrets.*',
+				'**/.git/**',
+				'**/.svn/**',
+				'**/.hg/**',
+				'**/.DS_Store',
+			];
+
+			setup(() => {
+				// Simulate stock config: user has not set either key. VS Code's
+				// `.get()` returns the contributed default; `.inspect()` reports
+				// undefined user/workspace values.
+				(mockConfiguration.get as sinon.SinonStub).withArgs('aiExcludes').returns(defaultPatterns);
+				(mockConfiguration.inspect as sinon.SinonStub).withArgs('aiExcludes').returns({
+					globalValue: undefined,
+					workspaceValue: undefined
+				});
+				(mockConfiguration.get as sinon.SinonStub).withArgs('inlineCompletionExcludes').returns(['**/.*']);
+				(mockConfiguration.inspect as sinon.SinonStub).withArgs('inlineCompletionExcludes').returns({
+					globalValue: undefined,
+					workspaceValue: undefined
+				});
+			});
+
+			test('excludes sensitive files', () => {
+				const excluded = [
+					// env
+					'/project/.env',
+					'/project/.env.local',
+					'/project/.env.production',
+					// keys / certs / keystores
+					'/project/certs/server.pem',
+					'/project/certs/server.key',
+					'/project/cert.p12',
+					'/project/cert.pfx',
+					'/project/keystore.jks',
+					'/project/my.keystore',
+					// SSH keys (incl. extra variants)
+					'/home/user/.ssh/id_rsa',
+					'/home/user/.ssh/id_dsa',
+					'/home/user/.ssh/id_ecdsa',
+					'/home/user/.ssh/id_ecdsa_sk',
+					'/home/user/.ssh/id_ed25519',
+					'/home/user/.ssh/id_ed25519_sk',
+					// package manager / registry auth
+					'/home/user/.git-credentials',
+					'/project/.npmrc',
+					'/home/user/.pypirc',
+					'/home/user/.netrc',
+					// language runtime configs
+					'/home/user/.Renviron',
+					// cloud / container creds
+					'/home/user/.aws/config',
+					'/home/user/.aws/credentials',
+					'/home/user/.docker/config.json',
+					'/home/user/.kube/config',
+					'/home/user/.config/gcloud/application_default_credentials.json',
+					'/home/user/.azure/accessTokens.json',
+					'/home/user/.azure/accessToken.json',
+					'/home/user/.azure/msal_token_cache.json',
+					'/home/user/.azure/msal_token_cache.bin',
+					// generic secret-named
+					'/project/secrets.yml',
+					// VCS internals
+					'/project/.git/config',
+					'/project/.git/objects/pack/pack-abc.idx',
+					'/project/.svn/entries',
+					'/project/.hg/store/00manifest.i',
+					// OS metadata
+					'/project/.DS_Store',
+					'/project/src/.DS_Store',
+				];
+				for (const filePath of excluded) {
+					assert.strictEqual(
+						isFileExcludedFromAI(vscode.Uri.file(filePath)),
+						true,
+						`expected ${filePath} to be excluded`,
+					);
+				}
+			});
+
+			test('allows project metadata, data files, and dependency sources', () => {
+				const allowed = [
+					'/project/.github/workflows/ci.yml',
+					'/project/.gitignore',
+					'/project/.gitattributes',
+					'/project/.vscode/settings.json',
+					'/project/.eslintrc.json',
+					'/project/.prettierrc',
+					'/project/.editorconfig',
+					'/project/.positai/plan.md',
+					'/project/data.csv',
+					'/project/data/sample.parquet',
+					'/project/report.xlsx',
+					'/project/plot.png',
+					'/project/notebook.ipynb',
+					'/project/node_modules/pandas/core.py',
+					'/project/.venv/lib/python3.11/site-packages/numpy/__init__.py',
+				];
+				for (const filePath of allowed) {
+					assert.strictEqual(
+						isFileExcludedFromAI(vscode.Uri.file(filePath)),
+						false,
+						`expected ${filePath} to be allowed`,
+					);
+				}
 			});
 		});
 	});

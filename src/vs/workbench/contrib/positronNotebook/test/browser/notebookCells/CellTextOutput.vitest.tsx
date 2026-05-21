@@ -184,10 +184,7 @@ describe('CellTextOutput', () => {
 		expect(screen.getByTestId('cell-text-output')).toHaveClass('word-wrap');
 	});
 
-	// TODO: useNotebookOptions has a bug where setNotebookOptions(instance.notebookOptions)
-	// passes the same object reference, so React skips the re-render. Once that hook is
-	// fixed to produce a new reference on change, unskip this test.
-	it.skip('switches from truncated to normal when line limit increases', () => {
+	it('switches from truncated to normal when line limit increases', () => {
 		const content = makeLines(35);
 		renderCellTextOutput(
 			{ content, type: 'stdout' },

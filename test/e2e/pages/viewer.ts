@@ -5,12 +5,15 @@
 
 import test, { expect, FrameLocator, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
+import { ContextMenu } from './dialog-contextMenu.js';
 
 const OUTER_FRAME = '.webview';
 const INNER_FRAME = '#active-frame';
 const REFRESH_BUTTON = '.codicon-positron-refresh';
 const VIEWER_PANEL = '[id="workbench.panel.positronPreview"]';
 const ACTION_BAR = '.positron-action-bar';
+const OPEN_IN_DROPDOWN_BUTTON = '.preview-action-bar .action-bar-button-drop-down-button[aria-label="Select where to open"]';
+const OPEN_IN_PRIMARY_BUTTON = '.preview-action-bar .action-bar-button-action-button[aria-label="Select where to open"]';
 
 const FULL_APP = 'body';
 
@@ -20,7 +23,7 @@ export class Viewer {
 	get viewerFrame(): FrameLocator { return this.code.driver.currentPage.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME); }
 	get interruptButton(): Locator { return this.code.driver.currentPage.locator(ACTION_BAR).getByRole('button', { name: 'Interrupt execution' }); }
 
-	constructor(private code: Code) { }
+	constructor(private code: Code, private contextMenu: ContextMenu) { }
 
 	getViewerLocator(locator: string): Locator {
 		return this.viewerFrame.locator(locator);
@@ -50,7 +53,20 @@ export class Viewer {
 	}
 
 	async openViewerToEditor() {
-		await this.code.driver.currentPage.locator('.codicon-go-to-file').click();
+		await test.step('Open Viewer content in editor tab via "Open in..." dropdown', async () => {
+			const dropdownButton = this.code.driver.currentPage.locator(OPEN_IN_DROPDOWN_BUTTON);
+			await this.contextMenu.triggerAndClick({
+				menuTrigger: dropdownButton,
+				menuItemLabel: /Open in Editor Tab$/,
+				menuItemType: 'menuitemcheckbox'
+			});
+		});
+	}
+
+	async clickOpenInPrimaryButton() {
+		await test.step('Click primary half of "Open in..." split button', async () => {
+			await this.code.driver.currentPage.locator(OPEN_IN_PRIMARY_BUTTON).click();
+		});
 	}
 
 	async expectViewerPanelVisible(timeout = 10000): Promise<void> {

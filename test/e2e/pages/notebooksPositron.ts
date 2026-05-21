@@ -756,6 +756,7 @@ export class PositronNotebooks extends Notebooks {
 	 * @param cellIndex - The index of the cell to add code to (default: 0).
 	 * @param options - Options to control behavior:
 	 * delay: Optional delay between keystrokes for typing simulation (default: 0, meaning no delay).
+	 * fast: Use fill() instead of pressSequentially() — skips keystroke simulation for bulk population (default: false).
 	 * run: Whether to run the cell after adding code (default: false).
 	 * waitForSpinner: Whether to wait for the execution spinner to appear and disappear (default: false).
 	 * waitForPopup: Whether to wait for the execution info popup to appear after running (default: false).
@@ -763,9 +764,9 @@ export class PositronNotebooks extends Notebooks {
 	async addCodeToCell(
 		cellIndex: number,
 		code: string,
-		options?: { delay?: number; run?: boolean; waitForSpinner?: boolean; container?: Locator }
+		options?: { delay?: number; fast?: boolean; run?: boolean; waitForSpinner?: boolean; container?: Locator }
 	): Promise<Locator> {
-		const { delay = 0, run = false, waitForSpinner = false, container } = options ?? {};
+		const { delay = 0, fast = false, run = false, waitForSpinner = false, container } = options ?? {};
 		// When a container is provided, scope all cell lookups to it so that cells from
 		// other open notebooks are not counted or accidentally targeted.
 		const scopedCell = container ? container.locator('[data-testid="notebook-cell"]') : this.cell;
@@ -788,7 +789,11 @@ export class PositronNotebooks extends Notebooks {
 			const editor = cell.locator('.monaco-editor :is(.native-edit-context, .inputarea)');
 			await editor.focus();
 
-			await editor.pressSequentially(code, { delay });
+			if (fast) {
+				await this.code.driver.currentPage.keyboard.insertText(code);
+			} else {
+				await editor.pressSequentially(code, { delay });
+			}
 
 			if (run) {
 				await cell.getByRole('button', { name: 'Run Cell', exact: true }).click();
@@ -1755,12 +1760,46 @@ class KernelBase {
 	 */
 	async shutdown(): Promise<void> {
 		await test.step('Shutdown kernel', async () => {
+			// The Shutdown Kernel menu item is gated on the
+			// `notebookHasRunningInterpreter` context key, which only flips
+			// true on `RuntimeState.Ready`. The runtime status icon can read
+			// "idle" during a restart before `Ready` fires (intermediate
+			// state while comms are being set up), so we cannot use the icon
+			// as a readiness signal. Menu items also do not reactively
+			// update once open, so we poll by re-opening the menu until the
+			// item is enabled, then click.
+			await this.waitForMenuItemEnabled('Shutdown Kernel');
+
 			await this.contextMenu.triggerAndClick({
 				menuTrigger: this.statusBadge,
 				menuItemLabel: /Shutdown Kernel/
 			});
 			await this.expectStatusToBe('disconnected', 15000);
 		});
+	}
+
+	/**
+	 * Poll the kernel context menu until `menuItemLabel` is enabled.
+	 *
+	 * Context-menu items render their enabled state at open-time and do not
+	 * update while open: if the underlying context key flips after the menu
+	 * is shown, the rendered item stays stale until the menu is closed and
+	 * reopened. Each polling iteration therefore opens the menu, checks the
+	 * item, and closes it. The close runs in a `finally` so we don't
+	 * accidentally keep the menu open (otherwise the next iteration's
+	 * click would close the menu instead of open it).
+	 */
+	private async waitForMenuItemEnabled(menuItemLabel: string, timeout = 30000): Promise<void> {
+		await expect(async () => {
+			try {
+				await this.contextMenu.triggerAndVerifyMenuItems({
+					menuTrigger: this.statusBadge,
+					menuItemStates: [{ label: menuItemLabel, enabled: true }],
+				});
+			} finally {
+				await this.statusBadge.page().keyboard.press('Escape').catch(() => { });
+			}
+		}, `${menuItemLabel} menu item to be enabled`).toPass({ timeout });
 	}
 
 	/**

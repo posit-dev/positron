@@ -94,10 +94,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "2026.5.7",
+			"version": "2026.5.8",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web-pwb",
-			"sha256": "063ee8c0cd480f74723f4d32d9a92fe34f8f5d74dd416d6b466bac467f5a8161",
+			"sha256": "81abe1e8b5d9bf6a227fa54eee90b791593f5cd271bb0b9cc487f67ee468be9a",
 			"metadata": {
 				"publisherDisplayName": "Posit PBC"
 			}
@@ -106,7 +106,7 @@
 	"bootstrapExtensions": [
 		{
 			"name": "charliermarsh.ruff",
-			"version": "2026.38.0",
+			"version": "2026.42.0",
 			"repo": "https://github.com/astral-sh/ruff-vscode",
 			"metadata": {
 				"publisherId": {
@@ -200,7 +200,7 @@
 		},
 		{
 			"name": "meta.pyrefly",
-			"version": "0.62.0",
+			"version": "1.0.0",
 			"repo": "https://github.com/facebook/pyrefly",
 			"metadata": {
 				"publisherId": {
@@ -214,7 +214,7 @@
 		},
 		{
 			"name": "ms-python.debugpy",
-			"version": "2025.18.0",
+			"version": "2026.6.0",
 			"repo": "https://github.com/microsoft/vscode-python-debugger",
 			"metadata": {
 				"id": "4bd5d2c9-9d65-401a-b0b2-7498d9f17615",
@@ -230,7 +230,7 @@
 		},
 		{
 			"name": "posit.publisher",
-			"version": "2.4.0",
+			"version": "2.7.0",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
@@ -280,8 +280,8 @@
 		},
 		{
 			"name": "GitHub.vscode-pull-request-github",
-			"version": "0.128.0",
-			"sha256": "ced05271c027d3c2b65cee44cfa65e60844f68041b15659afd6c854955d8343b",
+			"version": "0.144.0",
+			"sha256": "c9358907d2d3a3a70989e264b362a66b8b4f31f718115902dec2a513ec64c372",
 			"repo": "https://github.com/Microsoft/vscode-pull-request-github",
 			"metadata": {
 				"publisherId": {
@@ -294,8 +294,8 @@
 		},
 		{
 			"name": "posit.assistant",
-			"version": "0.4.2",
-			"sha256": "9375eedf32d0e5e0de6f08369ea32fd30072f068d14ab3e276c362663b64d828",
+			"version": "0.5.5",
+			"sha256": "7b292b598e86f7dd4041a7adcd99c1232600df567721b19704b90898a37e5256",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
 				"displayName": "Posit Assistant"
@@ -674,7 +674,8 @@
 		"github": [
 			"GitHub.copilot-chat",
 			"positron.positron-assistant",
-			"posit.assistant"
+			"posit.assistant",
+			"positron.authentication"
 		],
 		"github-enterprise": [
 			"GitHub.copilot-chat"

@@ -27,6 +27,8 @@ import { TopActionBarCustomFolderMenu } from './components/topActionBarCustomFol
 import { TopActionBarSessionManager } from './components/topActionBarSessionManager.js';
 import { SAVE_ALL_COMMAND_ID } from '../../../contrib/files/browser/fileConstants.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
+import { LayoutSettings } from '../../../services/layout/browser/layoutService.js';
+import { usePositronConfiguration } from '../../../../base/browser/positronReactHooks.js';
 
 // Constants.
 const kHorizontalPadding = 4;
@@ -72,6 +74,9 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 		props.positronTopActionBarContainer.width > kFulllCenterUIBreak
 	);
 
+	// When the title bar hosts the command center, suppress the center region here to avoid duplication.
+	const commandCenterInTitleBar = usePositronConfiguration<boolean>(LayoutSettings.COMMAND_CENTER) === true;
+
 	// Main useEffect.
 	useEffect(() => {
 		// Create the disposable store for cleanup.
@@ -108,7 +113,7 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 								icon={ThemeIcon.fromId('positron-save-all')}
 							/>
 						</ActionBarRegion>
-						{showCenterUI && (
+						{showCenterUI && !commandCenterInTitleBar && (
 							<ActionBarRegion location='center'>
 								<PositronActionBar nestedActionBar={true}>
 									{showFullCenterUI && (
