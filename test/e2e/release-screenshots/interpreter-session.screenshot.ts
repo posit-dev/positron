@@ -105,7 +105,6 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		await openFile('basics.R');
 
 		await hotKeys.closePrimarySidebar();
-		await hotKeys.closeSecondarySidebar();
 		await quickaccess.runCommand('workbench.view.positronSessions.focus', { exactLabelMatch: false });
 		await layouts.resizeAuxiliaryBar({ x: -300 });
 		await layouts.resizePanel({ y: -200 });
