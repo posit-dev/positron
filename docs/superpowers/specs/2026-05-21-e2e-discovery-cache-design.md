@@ -163,34 +163,41 @@ export interface IRuntimeDiscoveryCacheSeedSource {
 }
 ```
 
-The cache service takes this as a constructor dependency and consults it inside its existing `_initPromise`, **before** `_reloadFromStorage()` runs. Modified init pseudocode:
+The cache service takes this as a constructor dependency and consults it inside a **new `_initPromise`**, **before** `_reloadFromStorage()` runs. The existing constructor is synchronous (the current code runs `_reloadFromStorage()` directly in the constructor body); this work requires moving that call into an async `_init()` method and exposing the resulting promise. The refactor:
+
+- Constructor stores `this._initPromise = this._init()` instead of calling `_reloadFromStorage()` directly.
+- `_init()` is an async method that: (1) calls `await this._seedSource.getSeed()`; (2) writes any seed via `this.importCacheState(seed)` (see below); (3) calls `this._reloadFromStorage()`.
+- All public methods on the service that read cache state begin with `await this._initPromise` to ensure callers don't see pre-seed data.
+- Existing callers that today treat the service as ready immediately after instantiation need to be audited and updated to await readiness. These are limited to `IRuntimeStartupService` and its sibling startup services in `runtimeStartup/common/`; spot-check during plan-writing to confirm the audit set.
+
+Modified init pseudocode:
 
 ```ts
 private async _init(): Promise<void> {
-    const existing = this._storageService.get(RUNTIME_DISCOVERY_CACHE_STORAGE_KEY, StorageScope.APPLICATION);
-    if (!existing) {
-        // Try external seed before falling back to cold discovery.
-        try {
-            const seed = await this._seedSource.getSeed();
-            if (seed && this._validateSeed(seed)) {
-                this._storageService.store(
-                    RUNTIME_DISCOVERY_CACHE_STORAGE_KEY,
-                    JSON.stringify(seed),
-                    StorageScope.APPLICATION,
-                    StorageTarget.MACHINE,
-                );
-                this._logService.info(`[discoveryCache] seeded cache from external source with ${Object.keys(seed.buckets).length} bucket(s)`);
-            }
-        } catch (e) {
-            this._logService.warn(`[discoveryCache] seed source threw: ${e}; continuing without seed`);
+    // Try external seed before falling back to cold discovery.
+    // importCacheState handles all validation (schemaVersion, !buckets guard),
+    // the "don't clobber" check, the storage write, and the in-memory reload.
+    // Routing the init seed through this method keeps the import logic in one
+    // place and gives the public method a clear runtime caller.
+    try {
+        const seed = await this._seedSource.getSeed();
+        if (seed) {
+            this.importCacheState(seed);
         }
+    } catch (e) {
+        this._logService.warn(`[discoveryCache] seed source threw: ${e}; continuing without seed`);
     }
-    this._reloadFromStorage();  // existing logic — picks up the seed transparently
+    // If importCacheState wrote a row, _reloadFromStorage was already called
+    // by it; this second call is a no-op for an unchanged storage row, and
+    // it's the original cold path when no seed was available.
+    this._reloadFromStorage();
     // ... rest of existing init
 }
 ```
 
-**Why fold into `_initPromise` instead of running as a separate workbench contribution:** any consumer of `IRuntimeDiscoveryCache` already awaits the service being ready. Running the seed inside that same promise means the ordering constraint ("seed must arrive before any consumer reads the cache") is enforced by the DI system itself — no `LifecyclePhase` ordering, no `seedReady: Promise<void>` plumbing on a separate contribution, no race window. A separate workbench contribution can't make this guarantee from a constructor (constructors can't be async); folding seed acquisition into the init promise is the canonical VS Code pattern when the seed must precede other service work.
+**Why route through `importCacheState` instead of duplicating the storage write inline:** keeps validation logic (`schemaVersion`, `!buckets`) in exactly one place. Otherwise an implementer maintaining the spec has to keep `_validateSeed` and `importCacheState`'s checks in sync — a near-certain source of drift. Routing init through the public method also gives `importCacheState` a guaranteed runtime caller, so it isn't a "dead" API that only exists for testability. Future callers (Workbench server-side tooling priming the cache after boot, diagnostics commands) reuse the same path.
+
+**Why fold the seed into an init promise instead of running as a separate workbench contribution:** any consumer of `IRuntimeDiscoveryCache` is updated to await the service being ready. Running the seed inside that same promise means the ordering constraint ("seed must arrive before any consumer reads the cache") is enforced by the DI system itself — no `LifecyclePhase` ordering, no `seedReady: Promise<void>` plumbing on a separate contribution, no race window. A separate workbench contribution can't make this guarantee from a constructor (constructors can't be async); folding seed acquisition into a service-owned init promise is the canonical VS Code pattern when the seed must precede other service work.
 
 **Why not just have the cache service read the env var itself:** `process.env` is unavailable in `common/`, and the seed file read needs `IFileService` plus knowledge of where the path comes from. Splitting the *interface* (common) from the *impl* (electron-sandbox) keeps the cache service layer-clean while still letting init logic await the seed.
 
@@ -388,11 +395,12 @@ These tests construct payloads directly in-test; no env, no fs, no `process` ref
 - Populated cache → `exportCacheState()` returns a payload that round-trips through `importCacheState` and produces an identical storage row.
 - `schemaVersion` field equals `RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION`.
 
-**Cache service — init-time seeding (vitest):** Cases that exercise the seed-source integration:
-- `_seedSource.getSeed()` returns undefined → init proceeds normally, no seed write.
-- `_seedSource.getSeed()` returns valid payload + storage empty → storage written, `_buckets` populated when init resolves.
-- `_seedSource.getSeed()` returns payload + storage already populated → seed ignored (existing storage wins).
-- `_seedSource.getSeed()` rejects → warning logged, init still resolves (does not throw out of the service constructor).
+**Cache service — init-time seeding (vitest):** Cases that exercise the seed-source integration (init routes through `importCacheState`, so these tests effectively verify the wiring, not the validation logic):
+- `_seedSource.getSeed()` returns undefined → init resolves with no seed write, no `importCacheState` call.
+- `_seedSource.getSeed()` returns valid payload + storage empty → `importCacheState` called once, `_buckets` populated by the time the init promise resolves.
+- `_seedSource.getSeed()` returns payload + storage already populated → `importCacheState` called but returns `false`; storage unchanged.
+- `_seedSource.getSeed()` rejects → warning logged, init still resolves (the rejection does not propagate out of `_init`).
+- Public methods that read cache state await `_initPromise` — verify by constructing the service with a slow-resolving seed source and asserting that a read call doesn't resolve until init does.
 
 Stub `IRuntimeDiscoveryCacheSeedSource` directly; no need to stub `IFileService` or `INativeEnvironmentService` at this layer.
 
@@ -422,7 +430,7 @@ Runs in the same e2e matrix as other tests. Lives in `test/e2e/tests/` so it ben
 
 Q4 (script location) is non-gating — defaults to `test/e2e/scripts/`.
 
-**Step 1 — Cache service: `importCacheState` + `exportCacheState` (common).** Both methods land with vitest coverage. Manual verification before merge: build Positron locally, populate the cache through a normal startup, open a debug console (or add a temporary log line), call `cache.exportCacheState()`, confirm the returned payload shape and contents are sensible. Remove any temporary logging before merge. This guards against shape bugs that vitest round-trips don't catch (e.g. `exportCacheState` being called before the in-memory cache is fully populated).
+**Step 1 — Cache service: `importCacheState` + `exportCacheState` + async init refactor (common).** Both new methods land with vitest coverage. The refactor: convert `RuntimeDiscoveryCache`'s currently-synchronous constructor body into an async `_init()` method whose returned promise (`_initPromise`) is awaited by every public method that reads cache state. The seed-source consult and `importCacheState` route through `_init` (see Component 1b). Audit current callers of `IRuntimeDiscoveryCache` (limited to startup services in `runtimeStartup/common/`) to confirm they handle the now-async readiness. Manual verification before merge: build Positron locally, populate the cache through a normal startup, open a debug console (or add a temporary log line), call `cache.exportCacheState()`, confirm the returned payload shape and contents are sensible. Remove any temporary logging before merge.
 
 **Step 2 — CLI export flag + seed-source impl (electron-sandbox).** Both pieces land together since they share the `INativeEnvironmentService` wiring. End-to-end testable locally: `positron --export-discovery-cache=/tmp/cache.json` should exit 0 with a valid JSON file; subsequent launches with `POSITRON_RUNTIME_DISCOVERY_CACHE_SEED=/tmp/cache.json` should log the import during cache service init.
 
