@@ -23,10 +23,19 @@ function isPreReleaseVersion(version: IRawGalleryExtensionVersion): boolean {
  * Positron replacement for the upstream `filterLatestExtensionVersionsForTargetPlatform`.
  *
  * The upstream implementation assumes the input is sorted by version descending and picks
- * the first compatible entry it encounters. That assumption holds for the Microsoft Marketplace
- * but not for Open VSX or Posit Public Package Manager (P3M), which have historically returned
- * versions in ascending order. When the assumption is violated, the resolver picks the OLDEST
- * compatible version instead of the newest (issue #12619).
+ * the first compatible entry it encounters. P3M (Positron's default gallery) honors that
+ * assumption on both `/vscode/gallery/extensionquery` and `/vscode/gallery/{publisher}/{name}/latest`,
+ * so the default install path is correct without this filter.
+ *
+ * Open VSX, which Positron also supports as a configurable gallery, does not. Despite the name,
+ * Open VSX's `/vscode/gallery/{publisher}/{name}/latest` returns every version of the extension
+ * in ascending semver order with per-platform variants interleaved. When Positron's resolver
+ * consumes that response, the upstream filter picks the OLDEST compatible version instead of
+ * the newest (issue #12619). Reproducible as of May 2026 with a single curl against open-vsx.org.
+ *
+ * (P3M previously had a related ASC-ordering bug on these endpoints, fixed server-side in PPM
+ * hotfix 2026.04.2, rstudio/package-manager#17916. Keeping this filter order-invariant also
+ * guards against future regressions on either backend.)
  *
  * This implementation is order-invariant: the result is the same regardless of how the input
  * array is ordered. The returned list contains:

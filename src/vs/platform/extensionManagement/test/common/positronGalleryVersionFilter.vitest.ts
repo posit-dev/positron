@@ -104,9 +104,10 @@ describe('filterLatestExtensionVersionsForTargetPlatformPositron', () => {
 		expect(result).toEqual([universal]);
 	});
 
-	it('picks the newest platform-specific when later versions drop universal (claude-code shape)', () => {
-		// anthropic.claude-code shipped a universal VSIX through 2.1.89, then per-platform
-		// only from 2.1.90+. Resolver should pick the newest linux-x64, not the last universal.
+	it('picks the newest platform-specific when later versions drop universal', () => {
+		// An extension may ship a universal VSIX for a while and then transition to per-platform
+		// builds. The resolver must pick the newest per-platform version compatible with the
+		// target, not regress to the last universal.
 		const lastUniversal = aExtensionVersion('2.1.89', TargetPlatform.UNIVERSAL);
 		const newerLinux = aExtensionVersion('2.1.90', TargetPlatform.LINUX_X64);
 		const newerDarwin = aExtensionVersion('2.1.90', TargetPlatform.DARWIN_X64);
