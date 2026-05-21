@@ -17,7 +17,7 @@ echo "  * Tags: '$TAGS'"
 OUTPUT=""
 
 # Filter and preprocess tags based on project
-if [[ "$PROJECT" == "e2e-windows" ]]; then
+if [[ "$PROJECT" == "e2e-windows" || "$PROJECT" == "e2e-macOS-ci" ]]; then
   # Remove @:win from the tags
   TAGS=$(echo "$TAGS" | tr ',' '\n' | grep -v "@:win" | sort -u | tr '\n' ',' | sed 's/,$//')
 	# If @:web is present, remove it
@@ -49,8 +49,8 @@ case "$PROJECT" in
   "e2e-chromium"|"e2e-firefox"|"e2e-webkit"|"e2e-edge")
     OUTPUT="(?=.*@:web)"  # Base tag for chromium/web engines
     ;;
-  "e2e-windows")
-    OUTPUT="(?=.*@:win)"  # Base tag for windows
+  "e2e-windows"|"e2e-macOS-ci")
+    OUTPUT="(?=.*@:win)"  # Base tag for windows and macOS
     ;;
   "e2e-electron")
     OUTPUT="" # No prefix for linux
