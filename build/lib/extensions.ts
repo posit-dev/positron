@@ -720,8 +720,24 @@ export function packageCopilotExtensionStream(disableMangle: boolean): Stream {
 	}
 
 	const localExtensionsStream = minifyExtensionResources(
-		fromLocal(extensionPath, false, disableMangle)
+		// --- Start Positron ---
+		// Stamp `buildType: 'prod'` in the packaged manifest. Upstream's
+		// extensions/copilot/.esbuild.ts has an applyPackageJsonPatch() that does
+		// this, but it is gated on VSCODE_QUALITY (their marketplace publishing
+		// flow) and Positron's release builders do not set that env var. Without
+		// the flip the shipped package.json keeps `buildType: 'dev'` from source,
+		// and the extension's runtime check
+		// `isProduction = (buildType !== 'dev')` (in
+		// src/platform/env/common/packagejson.ts) is false. That routes
+		// activation through configureDevPackages(), which require()s
+		// `source-map-support` and `dotenv` -- both devDependencies that are not
+		// present in the production node_modules of the packaged extension.
+		updateExtensionPackageJSON(fromLocal(extensionPath, false, disableMangle), (data: any) => {
+			data.buildType = 'prod';
+			return data;
+		})
 			.pipe(rename(p => p.dirname = `extensions/copilot/${p.dirname}`))
+		// --- End Positron ---
 	);
 
 	const productionDependencies = getProductionDependencies('extensions/copilot');

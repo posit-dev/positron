@@ -218,7 +218,15 @@ zone.js/dist/**
 @xterm/xterm-addon-*/out-test/**
 
 # @github/copilot - strip unneeded binaries and files
-@github/copilot/sdk/index.js
+# --- Start Positron ---
+# Upstream strips @github/copilot/sdk/index.js because their packaging supplies
+# the SDK through a different path (their copilot-chat marketplace VSIX bundles
+# it). Positron builds copilot-chat from source via packageCopilotExtensionStream
+# and the extension does `await import('@github/copilot/sdk')` at runtime
+# (extensions/copilot/src/extension/chatSessions/copilotcli/node/copilotCli.ts),
+# so the file must ship. Removed from the ignore list.
+# @github/copilot/sdk/index.js
+# --- End Positron ---
 @github/copilot/prebuilds/**
 @github/copilot/clipboard/**
 @github/copilot/ripgrep/**
