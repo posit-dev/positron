@@ -92,8 +92,8 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 	 * secondary side bar, with an annotation on the top-right interpreter chip.
 	 */
 	test('Release Screenshot - active-interpreter-session.png', async ({ app, page, openFile, r }) => {
-		const { sessions, quickaccess, hotKeys } = app.workbench;
-		await sessions.start(['python']);
+		const { sessions, quickaccess, hotKeys, layouts } = app.workbench;
+		await sessions.start(['r']);
 		await sessions.expectAllSessionsToBeReady();
 
 		writeFileSync(join(app.workspacePathOrFolder, 'basics.R'), BASICS_R);
@@ -101,6 +101,7 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 
 		await hotKeys.closePrimarySidebar();
 		await quickaccess.runCommand('workbench.view.positronSessions.focus', { exactLabelMatch: false });
+		await layouts.resizePanel({ y: -100 });
 
 		await prepareForScreenshot(app, page);
 		await overrideWorkspaceName(page, 'qa-example-content', 'my-project');
