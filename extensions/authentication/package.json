@@ -198,6 +198,14 @@
 					},
 					"additionalProperties": false
 				},
+				"authentication.googleVertex.customHeaders": {
+					"type": "object",
+					"default": {},
+					"additionalProperties": {
+						"type": "string"
+					},
+					"markdownDescription": "%configuration.googleVertex.customHeaders.description%"
+				},
 				"authentication.openai-compatible.baseUrl": {
 					"type": "string",
 					"default": "",
