@@ -155,14 +155,18 @@ runs:
 
           # Resolve REPORT_DIR from the job's logs. The workflow logs both an
           # unresolved template line (REPORT_DIR="...-${IDENTIFIER}-${OS_SUFFIX}")
-          # and the expanded value (REPORT_DIR: playwright-report-<run>-<attempt>-<id>-<os>).
-          # Skip the template line, take the first concrete match. Single awk pass
-          # rather than grep | grep | head -1 to avoid head closing its stdin while
-          # upstream grep is still writing -- under `set -e -o pipefail` that
-          # manifests as "grep: write error: Broken pipe" + exit 2 on large logs.
+          # and the expanded value. Skip the template, capture the first concrete
+          # match, emit it at END. Avoiding `exit` here is deliberate -- it would
+          # close awk's stdin mid-pipeline, SIGPIPE upstream printf, and under
+          # `set -e -o pipefail` kill the step (manifests as "printf: write error:
+          # Broken pipe" on large log payloads).
           LOGS=$(gh api "repos/$REPO/actions/jobs/$JOB_ID/logs" 2>/dev/null || true)
-          REPORT_DIR=$(printf '%s' "$LOGS" \
-            | awk '!/\${/ && match($0, /playwright-report-[A-Za-z0-9_-]+/) { print substr($0, RSTART, RLENGTH); exit }')
+          REPORT_DIR=$(printf '%s' "$LOGS" | awk '
+            !/\${/ && !found && match($0, /playwright-report-[A-Za-z0-9_-]+/) {
+              found = substr($0, RSTART, RLENGTH)
+            }
+            END { if (found) print found }
+          ')
 
           if [ -z "$REPORT_DIR" ]; then
             echo "Could not resolve REPORT_DIR from logs of job $JOB_ID. Skipping."
