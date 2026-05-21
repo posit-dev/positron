@@ -37,6 +37,10 @@ inputs:
     description: "Whether to restore Playwright browsers cache (default: true)"
     required: false
     default: 'true'
+  emit-summary:
+    description: "Emit cache hit/miss summary to the job summary (default: false). Cache state is identical across jobs in a workflow, so opt in from one job to avoid duplication."
+    required: false
+    default: 'false'
 
 outputs:
   cache-npm-core-hit:
@@ -271,4 +275,7 @@ runs:
         CACHE_NPM_EXTENSIONS_STABLE_PARTIAL: ${{ steps.detect-partials.outputs.npm-extensions-stable-partial }}
         CACHE_BUILTINS_PARTIAL: ${{ steps.detect-partials.outputs.builtins-partial }}
         CACHE_PLAYWRIGHT_PARTIAL: ${{ steps.detect-partials.outputs.playwright-partial }}
+
+        # whether to write a summary block to $GITHUB_STEP_SUMMARY
+        EMIT_CACHE_SUMMARY: ${{ inputs.emit-summary }}
       run: .github/cache-scripts/log-cache-status.sh restore

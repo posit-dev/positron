@@ -60,6 +60,8 @@ jobs:
       - name: 📦 Restore caches
         id: restore-caches
         uses: ./.github/actions/restore-build-caches
+        with:
+          emit-summary: 'true'
 
       - name: Install system dependencies
         uses: ./.github/actions/install-system-deps
