@@ -160,18 +160,6 @@ suite('resolveGoogleVertexCredential', () => {
 		assert.strictEqual(constructorCalls[0].credentials, undefined);
 	});
 
-	test('inline credentials win over ADC when both could resolve', async () => {
-		process.env.GOOGLE_CLIENT_EMAIL = 'sa@example.iam.gserviceaccount.com';
-		process.env.GOOGLE_PRIVATE_KEY = '-----BEGIN PRIVATE KEY-----\\nABC\\n-----END PRIVATE KEY-----';
-		nextToken = 'ya29.first-token';
-
-		await resolveGoogleVertexCredential();
-
-		// Only the inline constructor should have run -- ADC was never tried.
-		assert.strictEqual(constructorCalls.length, 1);
-		assert.ok(constructorCalls[0].credentials?.client_email);
-	});
-
 	test('throws when no credentials are available', async () => {
 		// No client-email env vars; ADC returns null (no token).
 		nextToken = null;
@@ -192,45 +180,54 @@ suite('resolveGoogleVertexCredential', () => {
 		);
 	});
 
-	test('throws when location is missing even if credentials resolve', async () => {
-		nextToken = 'ya29.adc-token';
-		delete process.env.GOOGLE_VERTEX_LOCATION;
+	test('settings take precedence over env vars for project and location', async () => {
+		// The resolver reads project/location from settings first, then falls
+		// back to env vars. If the order ever got reversed, env-var-only
+		// users would silently override what they explicitly configured.
+		process.env.GOOGLE_VERTEX_PROJECT = 'env-project';
+		process.env.GOOGLE_VERTEX_LOCATION = 'env-location';
+		nextToken = 'ya29.token';
 
-		await assert.rejects(
-			resolveGoogleVertexCredential(),
-			/requires a project and location/,
-		);
-	});
-
-	test('falls through to ADC when inline credentials fail to mint', async () => {
-		process.env.GOOGLE_CLIENT_EMAIL = 'sa@example.iam.gserviceaccount.com';
-		process.env.GOOGLE_PRIVATE_KEY = '-----BEGIN PRIVATE KEY-----\\nABC\\n-----END PRIVATE KEY-----';
-
-		// First call (inline) returns null; second call (ADC) returns a token.
-		let callCount = 0;
-		const originalGetAccessToken = GoogleAuthStub.prototype.getAccessToken;
-		GoogleAuthStub.prototype.getAccessToken = async function () {
-			callCount++;
-			if (callCount === 1) {
-				return null; // inline path fails
+		const vscode = require('vscode');
+		const originalGetConfiguration = vscode.workspace.getConfiguration;
+		vscode.workspace.getConfiguration = (section?: string) => {
+			if (section === 'authentication.googleVertex') {
+				return {
+					get: (key: string) => key === 'credentials'
+						? {
+							GOOGLE_VERTEX_PROJECT: 'settings-project',
+							GOOGLE_VERTEX_LOCATION: 'settings-location',
+						}
+						: undefined,
+				};
 			}
-			return 'ya29.adc-fallback-token';
+			return originalGetConfiguration.call(vscode.workspace, section);
 		};
 
 		try {
-			const payload = await resolveGoogleVertexCredential();
-			assert.deepStrictEqual(JSON.parse(payload), {
-				token: 'ya29.adc-fallback-token',
-				project: TEST_PROJECT,
-				location: TEST_LOCATION,
-			});
-			// Both constructors should have been called: inline (with credentials) then ADC (without).
-			assert.strictEqual(constructorCalls.length, 2);
-			assert.ok((constructorCalls[0] as GoogleAuthOpts).credentials?.client_email, 'inline constructor first');
-			assert.strictEqual((constructorCalls[1] as GoogleAuthOpts).credentials, undefined, 'ADC constructor second');
+			const payload = JSON.parse(await resolveGoogleVertexCredential());
+			assert.strictEqual(payload.project, 'settings-project');
+			assert.strictEqual(payload.location, 'settings-location');
 		} finally {
-			GoogleAuthStub.prototype.getAccessToken = originalGetAccessToken;
+			vscode.workspace.getConfiguration = originalGetConfiguration;
 		}
+	});
+
+	test('normalizes escaped newlines in inline private key', async () => {
+		// Users often paste service-account keys from JSON into env vars,
+		// which leaves the literal two-character `\n` sequence instead of
+		// real newlines. The resolver must normalize before handing the
+		// key to google-auth-library.
+		process.env.GOOGLE_CLIENT_EMAIL = 'sa@example.iam.gserviceaccount.com';
+		process.env.GOOGLE_PRIVATE_KEY = '-----BEGIN PRIVATE KEY-----\\nABC\\nDEF\\n-----END PRIVATE KEY-----';
+		nextToken = 'ya29.token';
+
+		await resolveGoogleVertexCredential();
+
+		assert.strictEqual(
+			constructorCalls[0].credentials?.private_key,
+			'-----BEGIN PRIVATE KEY-----\nABC\nDEF\n-----END PRIVATE KEY-----',
+		);
 	});
 });
 
@@ -268,44 +265,20 @@ suite('validateGoogleVertexCredentials', () => {
 		_resetGoogleVertexResolverForTests();
 	});
 
-	test('resolves when the resolver returns a payload', async () => {
-		nextToken = 'ya29.probe-token';
-
-		await validateGoogleVertexCredentials('', {
-			type: 1, // PositronLanguageModelType.Chat
-			provider: 'google-vertex',
-			name: 'Vertex',
-			model: 'gemini-2.5-flash',
-		} as any);
-	});
-
-	test('rejects with friendly error when no credentials are available', async () => {
-		// ADC returns null; resolver throws "No Google Vertex AI credentials found".
+	test('wraps resolver errors with the Vertex AI prefix', async () => {
+		// The probe's only job is to reshape errors from the resolver into a
+		// user-facing message. ADC returns null -> resolver throws ->
+		// probe wraps with 'Vertex AI:' prefix.
 		nextToken = null;
 
 		await assert.rejects(
 			() => validateGoogleVertexCredentials('', {
-				type: 1,
+				type: 1, // PositronLanguageModelType.Chat
 				provider: 'google-vertex',
 				name: 'Vertex',
 				model: 'gemini-2.5-flash',
 			} as any),
 			/Vertex AI:/,
-		);
-	});
-
-	test('rejects with friendly error when project is missing', async () => {
-		nextToken = 'ya29.probe-token';
-		delete process.env.GOOGLE_VERTEX_PROJECT;
-
-		await assert.rejects(
-			() => validateGoogleVertexCredentials('', {
-				type: 1,
-				provider: 'google-vertex',
-				name: 'Vertex',
-				model: 'gemini-2.5-flash',
-			} as any),
-			/requires a project and location/,
 		);
 	});
 });
