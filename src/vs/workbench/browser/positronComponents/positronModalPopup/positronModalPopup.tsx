@@ -567,6 +567,10 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 					// Click landed inside another renderer in the stack (e.g. a parent
 					// menu or a dialog hosting this dropdown) -- close only this popup.
 					props.renderer.dispose();
+				} else if (PositronModalReactRenderer.hasPersistentParent(props.renderer)) {
+					// A parent dialog exists in the stack -- close only this popup so
+					// the dialog survives.
+					props.renderer.dispose();
 				} else {
 					// Click is outside every registered renderer -- dismiss the entire
 					// stack so all menus/popups close in one click.

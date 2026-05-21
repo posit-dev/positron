@@ -339,6 +339,20 @@ export class PositronModalReactRenderer extends Disposable {
 	}
 
 	/**
+	 * Returns true if any renderer *below* the given renderer has a bounds provider registered.
+	 * This indicates a persistent parent (e.g. a dialog) that should survive child dismissal.
+	 */
+	public static hasPersistentParent(renderer: PositronModalReactRenderer): boolean {
+		let found = false;
+		PositronModalReactRenderer._renderersStack.forEach(r => {
+			if (r !== renderer && r._boundsProvider !== undefined) {
+				found = true;
+			}
+		});
+		return found;
+	}
+
+	/**
 	 * Renders the ReactElement that was supplied.
 	 * @param reactElement The ReactElement to render.
 	 */
