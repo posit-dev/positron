@@ -99,21 +99,23 @@ test.describe('Release Screenshots - Snippets', () => {
 		const quartoRow = picker.locator('.quick-input-list .monaco-list-row[aria-label^="quarto, ("]');
 		const rRow = picker.locator('.quick-input-list .monaco-list-row[aria-label^="r, ("]');
 
-		// Monaco-list is virtualized; setting scrollTop on .monaco-list-rows
-		// doesn't reliably re-virtualize. Hover the picker and wheel-scroll
-		// until python is rendered (each step ~22px row, alphabetical languages
-		// land around row ~50).
+		// Walk the picker selection down with ArrowDown until python/quarto/r
+		// are all rendered. Mouse-wheel doesn't reliably scroll the virtualized
+		// list in Linux CI; keyboard navigation works everywhere. We require
+		// all three rows visible together (not just python) because the list
+		// only renders ~20 rows; if python is at the bottom of the viewport,
+		// quarto/r below it haven't been virtualized in yet.
+		await expect(async () => {
+			await page.keyboard.press('ArrowDown');
+			await expect(pythonRow).toBeVisible({ timeout: 100 });
+			await expect(quartoRow).toBeVisible({ timeout: 100 });
+			await expect(rRow).toBeVisible({ timeout: 100 });
+		}).toPass({ timeout: 60000, intervals: [50] });
+
 		const pickerBox = await picker.boundingBox();
 		if (!pickerBox) {
 			throw new Error('Could not measure quick-input picker');
 		}
-		await page.mouse.move(pickerBox.x + pickerBox.width / 2, pickerBox.y + pickerBox.height / 2);
-		await expect(async () => {
-			await page.mouse.wheel(0, 200);
-			await expect(pythonRow).toBeVisible({ timeout: 500 });
-		}).toPass({ timeout: 15000 });
-		await expect(quartoRow).toBeVisible();
-		await expect(rRow).toBeVisible();
 
 		await prepareForScreenshot(app, page);
 		await overrideWorkspaceName(page, 'qa-example-content', 'my-project');
