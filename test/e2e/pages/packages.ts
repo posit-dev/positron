@@ -113,11 +113,12 @@ export class Packages {
 	/**
 	 * Asserts that a package row is present in the currently filtered list.
 	 * Retries past the post-install refresh delay (the install toast clears
-	 * before the package provider re-emits its snapshot).
+	 * before the package provider re-emits its snapshot — R installs via pak
+	 * can take ~30s on Windows CI before the package appears).
 	 * @param name The exact package name to look for.
 	 * @param timeout Max time to wait for the row to appear.
 	 */
-	async expectPackageInList(name: string, timeout = 30_000): Promise<void> {
+	async expectPackageInList(name: string, timeout = 60_000): Promise<void> {
 		await this.clickPackagesButton();
 		const row = this.packagesContainer.locator('.packages-list-item-name', { hasText: name });
 		await expect(row.first()).toBeVisible({ timeout });
