@@ -12,7 +12,7 @@ import { JSX, ReactNode } from 'react';
 // Other dependencies.
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { positronClassNames } from '../../../../base/common/positronUtilities.js';
-import { DataGridInstance, MouseSelectionType, RowSelectionState } from '../../positronDataGrid/classes/dataGridInstance.js';
+import { DataGridInstance, RowSelectionState } from '../../positronDataGrid/classes/dataGridInstance.js';
 
 /**
  * PositronListItemContext interface. Passed to the caller's itemRenderer so the rendered item
