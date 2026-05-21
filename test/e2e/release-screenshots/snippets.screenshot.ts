@@ -116,6 +116,23 @@ test.describe('Release Screenshots - Snippets', () => {
 			throw new Error('Could not measure quick-input picker');
 		}
 
+		// scrollIntoView leaves python somewhere in the middle of the visible
+		// list (lots of unrelated languages above). Press ArrowDown more to
+		// shift the list up — each press scrolls one row when focus is below
+		// the visible bottom. Target: python at the 3rd visible row so the
+		// docs framing shows powershell, properties, python, quarto, r.
+		const TARGET_CONTEXT_ROWS = 2;
+		const listBox = await page.locator('.quick-input-list').boundingBox();
+		const pythonBoxAfterScroll = await pythonRow.boundingBox();
+		if (listBox && pythonBoxAfterScroll) {
+			const rowHeight = pythonBoxAfterScroll.height;
+			const targetPythonY = listBox.y + TARGET_CONTEXT_ROWS * rowHeight;
+			const rowsToShift = Math.max(0, Math.round((pythonBoxAfterScroll.y - targetPythonY) / rowHeight));
+			for (let i = 0; i < rowsToShift; i++) {
+				await page.keyboard.press('ArrowDown');
+			}
+		}
+
 		await prepareForScreenshot(app, page);
 		await overrideWorkspaceName(page, 'qa-example-content', 'my-project');
 

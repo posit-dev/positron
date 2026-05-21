@@ -92,7 +92,7 @@ export async function paintBackdrop(
 
 export async function annotate(page: Page, items: Annotation[]): Promise<void> {
 	await page.evaluate((items) => {
-		const BORDER_PX = 2;
+		const BORDER_PX = 1;
 		const Z = 99998;
 
 		// Remove any borders/badges from a prior annotate() call so subsequent

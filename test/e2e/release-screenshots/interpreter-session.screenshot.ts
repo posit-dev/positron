@@ -78,7 +78,7 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 
 		await hotKeys.closePrimarySidebar();
 		await variables.focusVariablesView();
-		await layouts.resizeAuxiliaryBar({ x: -100 });
+		await layouts.resizeAuxiliaryBar({ x: -300 });
 		await expect(variables.variablesPane).toBeVisible();
 
 		await layouts.resizePanel({ y: -200 });
