@@ -67,7 +67,25 @@ function updateExtensionPackageJSON(input: Stream, update: (data: any) => any): 
 		.pipe(packageJsonFilter.restore);
 }
 
-function fromLocal(extensionPath: string, forWeb: boolean, _disableMangle: boolean): Stream {
+// --- Start Positron ---
+// Extensions that are still bundled with webpack instead of esbuild. Upstream
+// removed the webpack pathway from this file during their esbuild migration,
+// but positron-python still relies on it: its webpack config rewrites module
+// requests so dependencies like reflect-metadata are inlined into the bundle,
+// and its .vscodeignore excludes node_modules so those dependencies are not
+// otherwise shipped. Without webpack, release builds fail to activate the
+// extension at runtime ("Cannot find module 'reflect-metadata'").
+//
+// This is intentionally a hard-coded allowlist (not a generic file-existence
+// check) so that new extensions cannot accidentally adopt webpack. Remove this
+// list, the webpack branch in fromLocal, and fromLocalWebpack below once
+// positron-python is migrated to esbuild.
+const positronWebpackExtensions = new Set([
+	'positron-python',
+]);
+// --- End Positron ---
+
+function fromLocal(extensionPath: string, forWeb: boolean, disableMangle: boolean): Stream {
 
 	let esbuildConfigFileName = forWeb
 		? 'esbuild.browser.mts'
@@ -80,6 +98,15 @@ function fromLocal(extensionPath: string, forWeb: boolean, _disableMangle: boole
 		esbuildConfigFileName = '.esbuild.ts';
 		hasEsbuild = fs.existsSync(path.join(extensionPath, esbuildConfigFileName));
 	}
+
+	// --- Start Positron ---
+	const webpackConfigFileName = forWeb
+		? 'extension-browser.webpack.config.js'
+		: 'extension.webpack.config.js';
+	const hasWebpack = !hasEsbuild
+		&& positronWebpackExtensions.has(path.basename(extensionPath))
+		&& fs.existsSync(path.join(extensionPath, webpackConfigFileName));
+	// --- End Positron ---
 
 	let input: Stream;
 	let isBundled = false;
@@ -95,6 +122,11 @@ function fromLocal(extensionPath: string, forWeb: boolean, _disableMangle: boole
 			// Extensions with their own build system (e.g. .esbuild.ts) handle type checking internally
 			: fromLocalEsbuild(extensionPath, esbuildConfigFileName);
 		isBundled = true;
+		// --- Start Positron ---
+	} else if (hasWebpack) {
+		input = fromLocalWebpack(extensionPath, webpackConfigFileName, disableMangle);
+		isBundled = true;
+		// --- End Positron ---
 	} else {
 		input = fromLocalNormal(extensionPath);
 	}
@@ -142,6 +174,78 @@ function fromLocalNormal(extensionPath: string): Stream {
 	return result.pipe(createStatsStream(path.basename(extensionPath)));
 }
 
+// --- Start Positron ---
+// TEMPORARY: kept solely so positron-python can be bundled with webpack until
+// it is migrated to esbuild. See positronWebpackExtensions above. Delete this
+// function (and its caller) once that migration lands.
+//
+// Implementation notes: we deliberately spawn the extension's own
+// node_modules/.bin/webpack rather than require()-ing webpack from the repo
+// root. The root install ends up with an ajv-keywords/ajv version mismatch
+// (eslint pins ajv@6 at the root; webpack's schema-utils chain wants ajv@8)
+// that npm's hoister cannot resolve under the repo's legacy-peer-deps=true
+// setting. positron-python ships its own webpack 5 install where the tree is
+// internally consistent, so shelling out there sidesteps the problem entirely.
+function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, _disableMangle: boolean): Stream {
+	const vsce = require('@vscode/vsce') as typeof import('@vscode/vsce');
+	const result = es.through();
+	const extensionName = path.basename(extensionPath);
+
+	const webpackBin = path.join(
+		extensionPath,
+		'node_modules',
+		'.bin',
+		process.platform === 'win32' ? 'webpack.cmd' : 'webpack'
+	);
+
+	if (!fs.existsSync(webpackBin)) {
+		setImmediate(() => result.emit('error', new Error(
+			`fromLocalWebpack: ${webpackBin} not found. Did you run 'npm install' in ${extensionName}?`
+		)));
+		return result.pipe(createStatsStream(extensionName));
+	}
+
+	new Promise<void>((resolve, reject) => {
+		const proc = cp.execFile(
+			webpackBin,
+			['--config', webpackConfigFileName, '--mode', 'production', '--devtool', 'source-map'],
+			{ cwd: extensionPath, maxBuffer: 200 * 1024 * 1024 },
+			(err, _stdout, stderr) => {
+				if (err) {
+					fancyLog.error(stderr);
+					return reject(err);
+				}
+				fancyLog(`Bundled extension: ${ansiColors.yellow(path.join(extensionName, webpackConfigFileName))}`);
+				resolve();
+			}
+		);
+		proc.stdout?.on('data', data => {
+			fancyLog(`${ansiColors.green('webpacking')} ${extensionName}: ${data.toString('utf8').trimEnd()}`);
+		});
+	}).then(() => {
+		// Webpack inlines runtime dependencies, so PackageManager.None keeps
+		// node_modules out of the packaged extension.
+		return listExtensionFiles({ cwd: extensionPath, packageManager: vsce.PackageManager.None });
+	}).then(fileNames => {
+		const files = fileNames
+			.map(fileName => path.join(extensionPath, fileName))
+			.map(filePath => new File({
+				path: filePath,
+				stat: fs.statSync(filePath),
+				base: extensionPath,
+				contents: fs.createReadStream(filePath)
+			}));
+
+		es.readArray(files).pipe(result);
+	}).catch(err => {
+		console.error(extensionPath);
+		result.emit('error', err);
+	});
+
+	return result.pipe(createStatsStream(extensionName));
+}
+// --- End Positron ---
+
 function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string): Stream {
 	const vsce = require('@vscode/vsce') as typeof import('@vscode/vsce');
 	const result = es.through();
@@ -188,7 +292,8 @@ function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string):
 			'positron-proxy',
 			'positron-duckdb',
 			'positron-catalog-explorer',
-			'positron-pdf-server'
+			'positron-pdf-server',
+			'positron-sqlite'
 		];
 
 		// If the extension has npm dependencies, use the Npm package manager
