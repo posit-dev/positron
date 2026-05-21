@@ -36,7 +36,7 @@ test.describe('Release Screenshots - Snippets', () => {
 	 * search box plus the first two rows (Global / workspace) and the start of
 	 * the alphabetical language list.
 	 */
-	test('Release Screenshot - snippets-configure-snippets.png', async ({ app, page }) => {
+	test('Release Screenshot - snippets-configure-snippets.png', async ({ app, page, r }) => {
 		const { quickaccess } = app.workbench;
 
 		await quickaccess.runCommand('Snippets: Configure Snippets', { keepOpen: true });
@@ -85,7 +85,7 @@ test.describe('Release Screenshots - Snippets', () => {
 	 * Captures the same picker scrolled so python/quarto/r are in view, with
 	 * an orange outline around those three rows to match the docs visual.
 	 */
-	test('Release Screenshot - snippets-configure-language-specific-snippets.png', async ({ app, page }) => {
+	test('Release Screenshot - snippets-configure-language-specific-snippets.png', async ({ app, page, r }) => {
 		const { quickaccess } = app.workbench;
 
 		await quickaccess.runCommand('Snippets: Configure Snippets', { keepOpen: true });
