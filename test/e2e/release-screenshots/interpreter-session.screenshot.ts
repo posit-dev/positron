@@ -69,7 +69,7 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 	 * secondary side bar.
 	 */
 	test('Release Screenshot - variables-pane.png', async ({ app, page, openFile, executeCode, r }) => {
-		const { sessions, variables, hotKeys } = app.workbench;
+		const { sessions, variables, hotKeys, layouts } = app.workbench;
 		await sessions.expectAllSessionsToBeReady();
 
 		writeFileSync(join(app.workspacePathOrFolder, 'data_types.R'), DATA_TYPES_R);
@@ -80,6 +80,7 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		await variables.focusVariablesView();
 		await expect(variables.variablesPane).toBeVisible();
 
+		await layouts.resizePanel({ y: -200 });
 		await prepareForScreenshot(app, page);
 		await overrideWorkspaceName(page, 'qa-example-content', 'my-project');
 		await captureFullWindow(page, 'variables-pane.png');
