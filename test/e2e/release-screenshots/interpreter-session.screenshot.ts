@@ -78,6 +78,7 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 
 		await hotKeys.closePrimarySidebar();
 		await variables.focusVariablesView();
+		await layouts.resizeAuxiliaryBar({ x: -100 });
 		await expect(variables.variablesPane).toBeVisible();
 
 		await layouts.resizePanel({ y: -200 });
@@ -106,6 +107,7 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		await hotKeys.closePrimarySidebar();
 		await hotKeys.closeSecondarySidebar();
 		await quickaccess.runCommand('workbench.view.positronSessions.focus', { exactLabelMatch: false });
+		await layouts.resizeAuxiliaryBar({ x: -300 });
 		await layouts.resizePanel({ y: -200 });
 
 		await prepareForScreenshot(app, page);
