@@ -9,7 +9,7 @@ import * as vscode from 'vscode';
 import { IPythonExecutionFactory, IPythonExecutionService } from '../../common/process/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
-import { fetchP3MPackageMetadata } from './p3mSearch';
+import { fetchMetadataWithOutdated } from './packageMetadata';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
 
@@ -37,47 +37,26 @@ export class PipPackageManager implements IPackageManager {
         packageNames: string[],
         token?: vscode.CancellationToken,
     ): Promise<Map<string, Partial<positron.LanguageRuntimePackage>>> {
-        // Run the P3M fetch in parallel with pip's own outdated check. pip uses
-        // `packaging.version` internally (PEP 440 semantics), so we defer the
-        // version comparison to pip rather than reinventing it in TypeScript.
-        const [p3mMetadata, outdated] = await Promise.all([
-            fetchP3MPackageMetadata(packageNames, token),
-            this._getOutdatedPackageNames(token),
-        ]);
-
-        const outdatedSet = new Set(outdated);
-        for (const name of packageNames) {
-            const key = name.toLowerCase();
-            const existing = p3mMetadata.get(key) ?? {};
-            // pip normalizes underscores/hyphens; compare on lowercase too.
-            p3mMetadata.set(key, { ...existing, outdated: outdatedSet.has(key) });
-        }
-
-        return p3mMetadata;
+        return fetchMetadataWithOutdated(packageNames, (t) => this._getOutdatedNames(t), token);
     }
 
     /**
-     * Get the lowercased names of outdated installed packages via
-     * `pip list --outdated`. Returns an empty list if pip isn't available or
-     * the call fails for transient reasons; the indicator simply won't show.
+     * Lowercased names of outdated installed packages via `pip list --outdated`.
+     * pip uses `packaging.version` (PEP 440) for the comparison.
      */
-    private async _getOutdatedPackageNames(token?: vscode.CancellationToken): Promise<string[]> {
-        try {
-            if (!(await this.isPipAvailable())) {
-                return [];
-            }
-            const pythonService = await this._getPythonService();
-            const proxyFlags = this._getProxyFlags();
-            const result = await pythonService.execModule(
-                'pip',
-                ['list', '--outdated', '--format=json', ...proxyFlags],
-                { token },
-            );
-            const parsed = JSON.parse(result.stdout) as Array<{ name: string }>;
-            return parsed.map((pkg) => pkg.name.toLowerCase());
-        } catch {
-            return [];
+    private async _getOutdatedNames(token?: vscode.CancellationToken): Promise<Set<string>> {
+        if (!(await this.isPipAvailable())) {
+            return new Set();
         }
+        const pythonService = await this._getPythonService();
+        const proxyFlags = this._getProxyFlags();
+        const result = await pythonService.execModule(
+            'pip',
+            ['list', '--outdated', '--format=json', ...proxyFlags],
+            { token },
+        );
+        const parsed = JSON.parse(result.stdout) as Array<{ name: string }>;
+        return new Set(parsed.map((pkg) => pkg.name.toLowerCase()));
     }
 
     /**

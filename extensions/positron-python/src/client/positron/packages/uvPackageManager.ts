@@ -13,7 +13,7 @@ import { IProcessServiceFactory } from '../../common/process/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
 import { isUvInstalled } from '../../pythonEnvironments/common/environmentManagers/uv';
-import { fetchP3MPackageMetadata } from './p3mSearch';
+import { fetchMetadataWithOutdated } from './packageMetadata';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
 
@@ -41,34 +41,16 @@ export class UvPackageManager implements IPackageManager {
         packageNames: string[],
         token?: vscode.CancellationToken,
     ): Promise<Map<string, Partial<positron.LanguageRuntimePackage>>> {
-        // Run P3M metadata fetch in parallel with uv's own outdated check.
-        // uv evaluates versions using PEP 440 (via Rust's `pep440_rs`), so we
-        // defer the comparison to uv rather than reinventing it in TypeScript.
-        const [p3mMetadata, outdated] = await Promise.all([
-            fetchP3MPackageMetadata(packageNames, token),
-            this._getOutdatedPackagesSafe(token),
-        ]);
-
-        const outdatedSet = new Set(outdated.map((pkg) => pkg.name.toLowerCase()));
-        for (const name of packageNames) {
-            const key = name.toLowerCase();
-            const existing = p3mMetadata.get(key) ?? {};
-            p3mMetadata.set(key, { ...existing, outdated: outdatedSet.has(key) });
-        }
-
-        return p3mMetadata;
+        return fetchMetadataWithOutdated(packageNames, (t) => this._getOutdatedNames(t), token);
     }
 
     /**
-     * Wrapper around _getOutdatedPackages that swallows errors so a transient
-     * network failure doesn't take the whole package list down with it.
+     * Lowercased names of outdated installed packages via `uv pip list --outdated`.
+     * uv evaluates versions using PEP 440 (via Rust's `pep440_rs`).
      */
-    private async _getOutdatedPackagesSafe(token?: vscode.CancellationToken): Promise<Array<{ name: string }>> {
-        try {
-            return await this._getOutdatedPackages(token);
-        } catch {
-            return [];
-        }
+    private async _getOutdatedNames(token?: vscode.CancellationToken): Promise<Set<string>> {
+        const outdated = await this._getOutdatedPackages(token);
+        return new Set(outdated.map((pkg) => pkg.name.toLowerCase()));
     }
 
     /**
