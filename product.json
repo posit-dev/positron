@@ -723,6 +723,10 @@
 			"positron.authentication",
 			"positron.positron-assistant",
 			"posit.assistant"
+		],
+		"google-cloud": [
+			"positron.authentication",
+			"posit.assistant"
 		]
 	}
 }
