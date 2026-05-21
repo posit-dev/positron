@@ -202,7 +202,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		let result = deduplicatedPackages;
 
 		if (debouncedQuery.filter === PackagesFilter.Outdated) {
-			result = result.filter((pkg) => pkg.latestVersion && pkg.latestVersion !== pkg.version);
+			result = result.filter((pkg) => pkg.outdated === true);
 		} else if (debouncedQuery.filter === PackagesFilter.Attached) {
 			result = result.filter((pkg) => pkg.attached === true);
 		}
@@ -251,8 +251,11 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	// instance.
 	useEffect(() => {
 		const renderItem = (pkg: ILanguageRuntimePackage, ctx: PositronListItemContext) => {
-			const { name, displayName, version, latestVersion, attached } = pkg;
-			const hasUpdate = latestVersion && latestVersion !== version;
+			const { name, displayName, version, latestVersion, attached, outdated } = pkg;
+			// Display the update indicator only when the runtime has confirmed the
+			// package is outdated. The tooltip still shows `latestVersion` from
+			// P3M because that's the version a user would update to.
+			const hasUpdate = outdated === true;
 
 			const showRowContextMenu = (anchor: { x: number; y: number }) => {
 				services.contextMenuService.showContextMenu({

@@ -37,7 +37,47 @@ export class PipPackageManager implements IPackageManager {
         packageNames: string[],
         token?: vscode.CancellationToken,
     ): Promise<Map<string, Partial<positron.LanguageRuntimePackage>>> {
-        return fetchP3MPackageMetadata(packageNames, token);
+        // Run the P3M fetch in parallel with pip's own outdated check. pip uses
+        // `packaging.version` internally (PEP 440 semantics), so we defer the
+        // version comparison to pip rather than reinventing it in TypeScript.
+        const [p3mMetadata, outdated] = await Promise.all([
+            fetchP3MPackageMetadata(packageNames, token),
+            this._getOutdatedPackageNames(token),
+        ]);
+
+        const outdatedSet = new Set(outdated);
+        for (const name of packageNames) {
+            const key = name.toLowerCase();
+            const existing = p3mMetadata.get(key) ?? {};
+            // pip normalizes underscores/hyphens; compare on lowercase too.
+            p3mMetadata.set(key, { ...existing, outdated: outdatedSet.has(key) });
+        }
+
+        return p3mMetadata;
+    }
+
+    /**
+     * Get the lowercased names of outdated installed packages via
+     * `pip list --outdated`. Returns an empty list if pip isn't available or
+     * the call fails for transient reasons; the indicator simply won't show.
+     */
+    private async _getOutdatedPackageNames(token?: vscode.CancellationToken): Promise<string[]> {
+        try {
+            if (!(await this.isPipAvailable())) {
+                return [];
+            }
+            const pythonService = await this._getPythonService();
+            const proxyFlags = this._getProxyFlags();
+            const result = await pythonService.execModule(
+                'pip',
+                ['list', '--outdated', '--format=json', ...proxyFlags],
+                { token },
+            );
+            const parsed = JSON.parse(result.stdout) as Array<{ name: string }>;
+            return parsed.map((pkg) => pkg.name.toLowerCase());
+        } catch {
+            return [];
+        }
     }
 
     /**

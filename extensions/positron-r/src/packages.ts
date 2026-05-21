@@ -41,7 +41,10 @@ export class RPackageManager {
 
 	/**
 	 * Fetch supplemental metadata (latest version, license, publish date) from P3M
-	 * for the given package names.
+	 * for the given package names, and ask R which packages are outdated.
+	 * Version comparison lives in R (using `utils::old.packages()`, which uses
+	 * `numeric_version` semantics) rather than in the extension, since R
+	 * package versions don't play nicely with semver — see ark PR #625.
 	 * @param packageNames Names of installed R packages to look up
 	 * @param token Optional cancellation token
 	 */
@@ -49,7 +52,30 @@ export class RPackageManager {
 		packageNames: string[],
 		token?: vscode.CancellationToken,
 	): Promise<Map<string, Partial<positron.LanguageRuntimePackage>>> {
-		return fetchP3MPackageMetadata(packageNames, token);
+		const [p3mMetadata, outdatedNames] = await Promise.all([
+			fetchP3MPackageMetadata(packageNames, token),
+			this._getOutdatedPackageNames(token),
+		]);
+
+		const outdatedSet = new Set(outdatedNames);
+		for (const name of packageNames) {
+			const key = name.toLowerCase();
+			const existing = p3mMetadata.get(key) ?? {};
+			p3mMetadata.set(key, { ...existing, outdated: outdatedSet.has(name) });
+		}
+
+		return p3mMetadata;
+	}
+
+	private async _getOutdatedPackageNames(token?: vscode.CancellationToken): Promise<string[]> {
+		try {
+			return await this._callMethod<string[] | null>('pkg_outdated', token) ?? [];
+		} catch {
+			// `pkg_outdated` hits the user's configured repositories and can fail
+			// for transient network reasons. Failing silently keeps the package
+			// list usable; outdated state will repopulate on the next refresh.
+			return [];
+		}
 	}
 
 	/**

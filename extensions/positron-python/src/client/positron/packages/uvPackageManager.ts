@@ -41,7 +41,34 @@ export class UvPackageManager implements IPackageManager {
         packageNames: string[],
         token?: vscode.CancellationToken,
     ): Promise<Map<string, Partial<positron.LanguageRuntimePackage>>> {
-        return fetchP3MPackageMetadata(packageNames, token);
+        // Run P3M metadata fetch in parallel with uv's own outdated check.
+        // uv evaluates versions using PEP 440 (via Rust's `pep440_rs`), so we
+        // defer the comparison to uv rather than reinventing it in TypeScript.
+        const [p3mMetadata, outdated] = await Promise.all([
+            fetchP3MPackageMetadata(packageNames, token),
+            this._getOutdatedPackagesSafe(token),
+        ]);
+
+        const outdatedSet = new Set(outdated.map((pkg) => pkg.name.toLowerCase()));
+        for (const name of packageNames) {
+            const key = name.toLowerCase();
+            const existing = p3mMetadata.get(key) ?? {};
+            p3mMetadata.set(key, { ...existing, outdated: outdatedSet.has(key) });
+        }
+
+        return p3mMetadata;
+    }
+
+    /**
+     * Wrapper around _getOutdatedPackages that swallows errors so a transient
+     * network failure doesn't take the whole package list down with it.
+     */
+    private async _getOutdatedPackagesSafe(token?: vscode.CancellationToken): Promise<Array<{ name: string }>> {
+        try {
+            return await this._getOutdatedPackages(token);
+        } catch {
+            return [];
+        }
     }
 
     /**
