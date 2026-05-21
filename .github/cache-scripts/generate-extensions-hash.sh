@@ -160,7 +160,8 @@ elif [ "$FILTER" == "stable" ]; then
 	# submodules (e.g. extensions/positron-copilot-chat).
 	ALL_EXT_DIRS=$(git ls-tree HEAD extensions/ | awk '$2=="tree" || $2=="commit" {print $4}' | sort)
 	GIT_TREE_HASH=""
-	for ext_dir in $ALL_EXT_DIRS; do
+	while IFS= read -r ext_dir; do
+		[ -z "$ext_dir" ] && continue
 		# Check if this is a volatile extension (skip if it is)
 		is_volatile=false
 		for volatile_ext in "${VOLATILE_EXTENSIONS[@]}"; do
@@ -174,7 +175,7 @@ elif [ "$FILTER" == "stable" ]; then
 			TREE_HASH=$(git rev-parse "HEAD:$ext_dir" 2>/dev/null || echo "no-tree")
 			GIT_TREE_HASH="${GIT_TREE_HASH}${TREE_HASH}"
 		fi
-	done
+	done <<< "$ALL_EXT_DIRS"
 
 	# Also hash .vscode/extensions/* (they're in the stable cache too).
 	VSCODE_EXT_DIRS=$(git ls-tree HEAD .vscode/extensions/ | awk '$2=="tree" || $2=="commit" {print $4}' | sort)

@@ -153,8 +153,9 @@ fi
 # visible without digging through raw logs. The stable cache miss bug went
 # undetected for 20+ days; this is the safety net.
 #
-# Hit case:   one terse line ("✅ All caches restored").
-# Miss case:  full bulleted block with the missing cache(s) bolded.
+# Hit case:     one terse line ("✅ All caches restored").
+# Miss case:    "## Cache" section with one bullet per cache showing state.
+# Skipped case: one terse line ("⏭️ All caches skipped") if no caches were enabled.
 #
 # Skipped if $GITHUB_STEP_SUMMARY is unset (local runs).
 
@@ -229,7 +230,9 @@ done
 
 # Emit summary.
 {
-	if [[ "$misses" -eq 0 ]]; then
+	if [[ "$total" -eq 0 ]]; then
+		echo "⏭️ All caches skipped"
+	elif [[ "$misses" -eq 0 ]]; then
 		if [[ "$partial_hits" -gt 0 ]]; then
 			echo "✅ All caches restored (${exact_hits} exact, ${partial_hits} partial)"
 		else
