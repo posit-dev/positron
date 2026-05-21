@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as crypto from 'crypto';
 import * as vscode from 'vscode';
 import { GoogleAuth } from 'google-auth-library';
 
@@ -29,31 +28,6 @@ export interface GoogleVertexCredentialPayload {
 }
 
 /**
- * Cached `GoogleAuth` client. Reused across resolutions so `google-auth-library`
- * can manage token refresh internally. Invalidated when the source env vars
- * change between calls.
- */
-let cachedAuthClient: GoogleAuth | undefined;
-let cachedAuthSignature: string | undefined;
-
-function hashSecret(value: string | undefined): string {
-	if (!value) {
-		return '';
-	}
-	return crypto.createHash('sha256').update(value).digest('hex').slice(0, 16);
-}
-
-function authSignature(): string {
-	return [
-		process.env.GOOGLE_CLIENT_EMAIL ?? '',
-		// Hash the private key so it never lands in a plain cache-key string.
-		hashSecret(process.env.GOOGLE_PRIVATE_KEY),
-		process.env.GOOGLE_PRIVATE_KEY_ID ?? '',
-		process.env.GOOGLE_APPLICATION_CREDENTIALS ?? '',
-	].join('|');
-}
-
-/**
  * Tries inline service-account credentials passed via env vars
  * (`GOOGLE_CLIENT_EMAIL` + `GOOGLE_PRIVATE_KEY`). Mints an OAuth token via
  * `google-auth-library`. Returns undefined if env vars are not set.
@@ -65,34 +39,24 @@ async function tryInlineCredentials(): Promise<string | undefined> {
 		return undefined;
 	}
 
-	const signature = `inline|${authSignature()}`;
-	if (cachedAuthSignature !== signature) {
-		cachedAuthClient = new GoogleAuth({
-			credentials: {
-				client_email: clientEmail,
-				// `google-auth-library` requires literal newlines; users often
-				// paste keys with escaped `\n` sequences.
-				private_key: privateKey.replace(/\\n/g, '\n'),
-				...(process.env.GOOGLE_PRIVATE_KEY_ID && {
-					private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
-				}),
-			},
-			scopes: [VERTEX_SCOPE],
-		});
-		cachedAuthSignature = signature;
-	}
+	const client = new GoogleAuth({
+		credentials: {
+			client_email: clientEmail,
+			// `google-auth-library` requires literal newlines; users often
+			// paste keys with escaped `\n` sequences.
+			private_key: privateKey.replace(/\\n/g, '\n'),
+			...(process.env.GOOGLE_PRIVATE_KEY_ID && {
+				private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
+			}),
+		},
+		scopes: [VERTEX_SCOPE],
+	});
 
-	// Capture the client locally so a concurrent resolver call that swaps
-	// `cachedAuthClient` between this assignment and the awaited call below
-	// can't redirect us to the wrong identity.
-	const client = cachedAuthClient!;
 	try {
 		const token = await client.getAccessToken();
 		if (!token) {
 			return undefined;
 		}
-		// `token` is `string | null | undefined` per the library type; we
-		// narrowed via the `!token` check above.
 		return token as string;
 	} catch (err) {
 		// Presence of GOOGLE_CLIENT_EMAIL + GOOGLE_PRIVATE_KEY signals explicit
@@ -111,17 +75,7 @@ async function tryInlineCredentials(): Promise<string | undefined> {
  * descriptive error at the top level.
  */
 async function tryApplicationDefaultCredentials(): Promise<string | undefined> {
-	const signature = `adc|${authSignature()}`;
-	if (cachedAuthSignature !== signature) {
-		cachedAuthClient = new GoogleAuth({
-			scopes: [VERTEX_SCOPE],
-		});
-		cachedAuthSignature = signature;
-	}
-
-	// Capture locally to avoid a race with concurrent resolver calls that
-	// could swap `cachedAuthClient` between assignment and await.
-	const client = cachedAuthClient!;
+	const client = new GoogleAuth({ scopes: [VERTEX_SCOPE] });
 	try {
 		const token = await client.getAccessToken();
 		if (!token) {
@@ -194,13 +148,4 @@ export async function resolveGoogleVertexCredential(): Promise<string> {
 
 	const payload: GoogleVertexCredentialPayload = { token, project, location };
 	return JSON.stringify(payload);
-}
-
-/**
- * Test helper: reset the cached `GoogleAuth` client. Not part of the public
- * runtime API.
- */
-export function _resetGoogleVertexResolverForTests(): void {
-	cachedAuthClient = undefined;
-	cachedAuthSignature = undefined;
 }

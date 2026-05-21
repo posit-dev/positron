@@ -57,8 +57,7 @@ interface GoogleAuthOpts {
 }
 
 /**
- * Programmable stub for `google-auth-library`'s `GoogleAuth`. The resolver
- * captures one `GoogleAuth` instance per env-var signature; we control what
+ * Programmable stub for `google-auth-library`'s `GoogleAuth`. Controls what
  * `getAccessToken()` returns by mutating `nextToken` / `nextError`.
  */
 let nextToken: string | null | undefined = undefined;
@@ -99,19 +98,15 @@ function installGoogleAuthStub(): void {
 suite('resolveGoogleVertexCredential', () => {
 	let envSnapshot: Record<string, string | undefined>;
 	let resolveGoogleVertexCredential: typeof import('../googleVertexResolver').resolveGoogleVertexCredential;
-	let _resetGoogleVertexResolverForTests: typeof import('../googleVertexResolver')._resetGoogleVertexResolverForTests;
 
 	suiteSetup(() => {
 		installGoogleAuthStub();
 		// Now require the resolver so it picks up the stubbed library.
-		const mod = require('../googleVertexResolver');
-		resolveGoogleVertexCredential = mod.resolveGoogleVertexCredential;
-		_resetGoogleVertexResolverForTests = mod._resetGoogleVertexResolverForTests;
+		resolveGoogleVertexCredential = require('../googleVertexResolver').resolveGoogleVertexCredential;
 	});
 
 	setup(() => {
 		envSnapshot = snapshotEnv();
-		_resetGoogleVertexResolverForTests();
 		nextToken = undefined;
 		nextError = undefined;
 		constructorCalls = [];
@@ -124,7 +119,6 @@ suite('resolveGoogleVertexCredential', () => {
 
 	teardown(() => {
 		restoreEnv(envSnapshot);
-		_resetGoogleVertexResolverForTests();
 	});
 
 	test('returns JSON envelope from inline service-account env vars', async () => {
