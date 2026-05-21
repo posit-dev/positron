@@ -119,5 +119,23 @@ export class Extensions {
 		}
 	}
 
-
+	/**
+	 * Install the extension currently shown in the extension editor (details
+	 * pane) if it isn't already installed. No-op when the Uninstall button is
+	 * present. Used by screenshot tests where we need a stable installed state
+	 * regardless of whether the extension shipped pre-installed in the build.
+	 */
+	async installFromEditorIfNotInstalled(timeout = 60_000): Promise<void> {
+		const install = this.code.driver.currentPage
+			.locator('.extension-editor .monaco-action-bar .action-item:not(.disabled) .extension-action.install')
+			.first();
+		const uninstall = this.code.driver.currentPage
+			.locator('.extension-editor .monaco-action-bar .action-item:not(.disabled) .extension-action.uninstall')
+			.first();
+		if (!(await install.isVisible({ timeout: 2_000 }).catch(() => false))) {
+			return;
+		}
+		await install.click();
+		await expect(uninstall).toBeVisible({ timeout });
+	}
 }

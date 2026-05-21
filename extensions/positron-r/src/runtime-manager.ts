@@ -6,7 +6,7 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import { currentRBinary, makeMetadata, registerModuleRuntimeWithApi, rRuntimeDiscoverer } from './provider';
+import { currentRBinary, getRDiscoveryRootSignature, makeMetadata, registerModuleRuntimeWithApi, rRuntimeDiscoverer } from './provider';
 import { RInstallation, RMetadataExtra, ReasonDiscovered, friendlyReason, isModuleMetadata } from './r-installation';
 import { RSession, createJupyterKernelExtra } from './session';
 import { createJupyterKernelSpec } from './kernel-spec';
@@ -73,6 +73,16 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 
 	registerLanguageRuntime(runtime: positron.LanguageRuntimeMetadata): void {
 		this.onDidDiscoverRuntimeEmitter.fire(runtime);
+	}
+
+	/**
+	 * Snapshot the directories this extension scans for R installations. Used
+	 * by Positron to detect newly-installed R interpreters between startups
+	 * without having to rerun a full discovery pass. See
+	 * `getRDiscoveryRootSignature` for the source list and what's excluded.
+	 */
+	async getDiscoveryRootSignature(): Promise<positron.RuntimeRootSignature> {
+		return getRDiscoveryRootSignature();
 	}
 
 	async recommendedWorkspaceRuntime(): Promise<positron.LanguageRuntimeMetadata | undefined> {

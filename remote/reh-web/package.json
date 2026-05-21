@@ -1,7 +1,6 @@
 {
 	"name": "positron-reh-web",
 	"version": "0.0.0",
-	"product-label": "positron",
 	"private": true,
 	"dependencies": {
 		"@anthropic-ai/sandbox-runtime": "0.0.23",
@@ -68,5 +67,6 @@
 		"react-dom": "umd/react-dom.production.min.js",
 		"react-window": "dist/index-prod.umd.js",
 		"he": "he.js"
-	}
+	},
+	"product-label": "positron"
 }

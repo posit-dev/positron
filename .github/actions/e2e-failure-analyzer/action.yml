@@ -23,6 +23,10 @@ inputs:
     description: "blob (sharded artifacts + merge-reports) or s3 (HTML report). Default: blob."
     required: false
     default: "blob"
+  repo-root:
+    description: "Path to the repo workspace whose test/e2e/ source the analyzer should read. Defaults to $GITHUB_WORKSPACE. positron-builds passes $GITHUB_WORKSPACE/positron because the test source lives in the submodule."
+    required: false
+    default: ${{ github.workspace }}
 runs:
   using: composite
   steps:
@@ -210,7 +214,7 @@ runs:
         WORK_DIR: ${{ steps.prep.outputs.work_dir }}
         # Repo workspace -- the agent reads test source from $REPO_ROOT/test/e2e
         # to understand each failing test's intent (assertions, page-object usage).
-        REPO_ROOT: ${{ github.workspace }}
+        REPO_ROOT: ${{ inputs.repo-root }}
         MODEL: ${{ inputs.model }}
         MAX_TURNS: ${{ inputs.max-turns }}
       run: node analyze.mjs
