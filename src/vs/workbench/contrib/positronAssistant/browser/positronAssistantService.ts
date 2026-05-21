@@ -20,6 +20,21 @@ import { isFileExcludedFromAI } from '../../chat/browser/tools/utils.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 
 /**
+ * Returns the candidate config keys for a provider's enable setting, in
+ * preference order. The shorter `assistant.provider.<name>.enable` form
+ * is used by providers owned by the authentication extension; the legacy
+ * `positron.assistant.provider.<name>.enable` form is used by providers
+ * still declared in `extensions/positron-assistant/package.json`. Either
+ * key may toggle the provider on.
+ */
+function enableSettingKeys(settingName: string): string[] {
+	return [
+		`assistant.provider.${settingName}.enable`,
+		`positron.assistant.provider.${settingName}.enable`,
+	];
+}
+
+/**
  * PositronAssistantConfigurationService class.
  * Broken out from PositronAssistantService to avoid a circular dependency
  * between PositronAssistantService and ChatAgentService (through IChatService).
@@ -46,10 +61,11 @@ export class PositronAssistantConfigurationService extends Disposable implements
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
 			// Check individual provider enable settings
 			for (const metadata of this._providerMetadata.values()) {
-				const settingKey = `positron.assistant.provider.${metadata.settingName}.enable`;
-				if (e.affectsConfiguration(settingKey)) {
-					this._enabledProvidersEmitter.fire();
-					break;
+				for (const settingKey of enableSettingKeys(metadata.settingName)) {
+					if (e.affectsConfiguration(settingKey)) {
+						this._enabledProvidersEmitter.fire();
+						return;
+					}
 				}
 			}
 		}));
@@ -72,8 +88,9 @@ export class PositronAssistantConfigurationService extends Disposable implements
 		const enabledProviders: string[] = [];
 
 		for (const [providerId, metadata] of this._providerMetadata.entries()) {
-			const settingKey = `positron.assistant.provider.${metadata.settingName}.enable`;
-			const isEnabled = this._configurationService.getValue<boolean>(settingKey);
+			const isEnabled = enableSettingKeys(metadata.settingName).some(
+				key => this._configurationService.getValue<boolean>(key)
+			);
 			if (isEnabled) {
 				enabledProviders.push(providerId);
 			}

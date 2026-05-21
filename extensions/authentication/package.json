@@ -18,13 +18,15 @@
 		"onAuthenticationRequest:openai-api",
 		"onAuthenticationRequest:openai-compatible",
 		"onAuthenticationRequest:google",
+		"onAuthenticationRequest:google-vertex",
 		"onCommand:authentication.configureProviders",
 		"onCommand:authentication.migrateApiKey"
 	],
 	"main": "./out/extension.js",
 	"dependencies": {
 		"@aws-sdk/credential-providers": "^3.734.0",
-		"@aws-sdk/types": "^3.734.0"
+		"@aws-sdk/types": "^3.734.0",
+		"google-auth-library": "^9.15.1"
 	},
 	"devDependencies": {
 		"@types/node": "22.x"
@@ -62,6 +64,10 @@
 			{
 				"id": "google",
 				"label": "Gemini Code Assist"
+			},
+			{
+				"id": "google-vertex",
+				"label": "Google Vertex AI"
 			}
 		],
 		"commands": [
@@ -171,6 +177,27 @@
 					},
 					"markdownDescription": "%configuration.google.customHeaders.description%"
 				},
+				"authentication.googleVertex.baseUrl": {
+					"type": "string",
+					"default": "",
+					"description": "%configuration.googleVertex.baseUrl.description%"
+				},
+				"authentication.googleVertex.credentials": {
+					"type": "object",
+					"default": {},
+					"markdownDescription": "%configuration.googleVertex.credentials.description%",
+					"properties": {
+						"GOOGLE_VERTEX_PROJECT": {
+							"type": "string",
+							"default": null
+						},
+						"GOOGLE_VERTEX_LOCATION": {
+							"type": "string",
+							"default": null
+						}
+					},
+					"additionalProperties": false
+				},
 				"authentication.openai-compatible.baseUrl": {
 					"type": "string",
 					"default": "",
@@ -183,6 +210,15 @@
 						"type": "string"
 					},
 					"markdownDescription": "%configuration.openai-compatible.customHeaders.description%"
+				},
+				"assistant.provider.googleVertex.enable": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "%configuration.provider.googleVertex.enable.description%",
+					"tags": [
+						"experimental",
+						"advanced"
+					]
 				}
 			}
 		}

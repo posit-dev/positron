@@ -49,7 +49,14 @@ export interface IPositronProviderMetadata {
 	id: string;
 	/** Display name shown in UI (e.g., 'Anthropic', 'GitHub Copilot') */
 	displayName: string;
-	/** Setting name used in positron.assistant.provider.<settingName>.enable */
+	/**
+	 * Setting name used in the per-provider enable key. Either
+	 * `assistant.provider.<settingName>.enable` (for providers owned by
+	 * the authentication extension) or
+	 * `positron.assistant.provider.<settingName>.enable` (the legacy
+	 * form, still used by providers declared in
+	 * `extensions/positron-assistant/package.json`) toggles the provider.
+	 */
 	settingName: string;
 }
 
@@ -155,8 +162,10 @@ export interface IPositronAssistantConfigurationService {
 	 * Should only be used after the Positron Assistant extension has finished activation,
 	 * as enabled providers are registered as part of the extension activation flow.
 	 *
-	 * Reads from individual provider enable settings (`positron.assistant.provider.<settingName>.enable`)
-	 * and the deprecated `positron.assistant.enabledProviders` array setting.
+	 * Reads from per-provider enable settings: either
+	 * `assistant.provider.<settingName>.enable` or
+	 * `positron.assistant.provider.<settingName>.enable` toggles the
+	 * provider on.
 	 *
 	 * @returns Array of enabled provider IDs
 	 */

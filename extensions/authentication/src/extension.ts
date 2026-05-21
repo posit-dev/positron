@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
-import { ANTHROPIC_AUTH_PROVIDER_ID, AWS_AUTH_PROVIDER_ID, CREDENTIAL_REFRESH_INTERVAL_MS, CUSTOM_PROVIDER_AUTH_PROVIDER_ID, FOUNDRY_AUTH_PROVIDER_ID, GEMINI_AUTH_PROVIDER_ID, OPENAI_AUTH_PROVIDER_ID, POSIT_AUTH_PROVIDER_ID } from './constants';
+import { ANTHROPIC_AUTH_PROVIDER_ID, AWS_AUTH_PROVIDER_ID, CREDENTIAL_REFRESH_INTERVAL_MS, CUSTOM_PROVIDER_AUTH_PROVIDER_ID, FOUNDRY_AUTH_PROVIDER_ID, GEMINI_AUTH_PROVIDER_ID, GOOGLE_VERTEX_AUTH_PROVIDER_ID, OPENAI_AUTH_PROVIDER_ID, POSIT_AUTH_PROVIDER_ID } from './constants';
 import { AuthProvider } from './authProvider';
 import { registerAuthProvider, showConfigurationDialog } from './configDialog';
 import { PROVIDER_METADATA } from './providerSources';
@@ -20,6 +20,7 @@ import { migrateAwsSettings } from './migration/aws';
 import { migrateSnowflakeSettings } from './migration/snowflake';
 import { registerMigrateApiKeyCommand } from './migration/apiKey';
 import { AuthProviderLogger } from './authProviderLogger';
+import { resolveGoogleVertexCredential } from './googleVertexResolver';
 
 export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(log);
@@ -39,6 +40,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	await registerOpenaiProvider(context);
 	await registerGeminiProvider(context);
+	await registerGoogleVertexProvider(context);
 	registerCustomProvider(context);
 
 	// Register provider metadata so the Settings UI shows per-provider
@@ -496,6 +498,56 @@ async function registerGeminiProvider(
 	);
 
 	log.info(`Registered auth provider: ${GEMINI_AUTH_PROVIDER_ID}`);
+}
+
+async function registerGoogleVertexProvider(
+	context: vscode.ExtensionContext,
+): Promise<void> {
+	const envBaseUrl = process.env.GOOGLE_VERTEX_BASE_URL;
+	if (envBaseUrl) {
+		await vscode.workspace
+			.getConfiguration(`authentication.${GOOGLE_VERTEX_AUTH_PROVIDER_ID}`)
+			.update(
+				'baseUrl', envBaseUrl,
+				vscode.ConfigurationTarget.Global,
+			).then(undefined, err =>
+				log.error(`Failed to sync Vertex base URL: ${err}`)
+			);
+	}
+
+	const provider = new AuthProvider(
+		GOOGLE_VERTEX_AUTH_PROVIDER_ID, 'Google Vertex AI', context,
+		undefined,
+		{
+			resolve: resolveGoogleVertexCredential,
+			refreshIntervalMs: CREDENTIAL_REFRESH_INTERVAL_MS,
+		}
+	);
+	context.subscriptions.push(
+		vscode.authentication.registerAuthenticationProvider(
+			GOOGLE_VERTEX_AUTH_PROVIDER_ID, 'Google Vertex AI', provider,
+			{ supportsMultipleAccounts: false }
+		),
+		provider,
+	);
+	registerAuthProvider(GOOGLE_VERTEX_AUTH_PROVIDER_ID, provider, {
+		onSave: async (config) => {
+			if (config.baseUrl) {
+				await vscode.workspace
+					.getConfiguration(`authentication.${GOOGLE_VERTEX_AUTH_PROVIDER_ID}`)
+					.update(
+						'baseUrl', config.baseUrl,
+						vscode.ConfigurationTarget.Global,
+					);
+			}
+		},
+	});
+
+	await provider.resolveChainCredentials().catch(err =>
+		log.debug(`[Google Vertex] Initial credential resolution: ${err}`)
+	);
+
+	log.info(`Registered auth provider: ${GOOGLE_VERTEX_AUTH_PROVIDER_ID}`);
 }
 
 function registerCustomProvider(
