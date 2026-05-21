@@ -9,9 +9,12 @@ import { join } from 'path';
 import { test } from '../tests/_test.setup';
 import { capturePanel, captureRegion } from './helpers/screenshot-utils';
 import { overrideWorkspaceName, prepareForScreenshot, setScreenshotWindowSize } from './helpers/layout-utils';
-import { annotate, clearAnnotations } from './helpers/annotate-utils';
+import { annotate, clearAnnotations, paintBackdrop } from './helpers/annotate-utils';
 
 const ANNOTATION_COLOR = '#ea580c';
+// Extra width on the right of the picker crop so `right-outside` badges
+// aren't clipped. ~6px gap + ~24px badge + ~10px breathing room.
+const LABEL_GUTTER = 48;
 
 test.use({
 	suiteId: __filename,
@@ -51,13 +54,9 @@ test.describe('Release Screenshots - Snippets', () => {
 		await prepareForScreenshot(app, page);
 		await overrideWorkspaceName(page, 'qa-example-content', 'my-project');
 
-		await annotate(page, [
-			{ selector: '.monaco-list-row[aria-label^="New Global Snippets file"]', label: '1', color: ANNOTATION_COLOR, padding: 1, labelPosition: 'top-right' },
-			{ selector: '.monaco-list-row[aria-label^="New Snippets file for"]', label: '2', color: ANNOTATION_COLOR, padding: 1, labelPosition: 'top-right' },
-		]);
-
 		// Crop to the top of the picker (search box + first ~5 rows); the full
-		// picker has 100+ language rows.
+		// picker has 100+ language rows. Extra width on the right gives the
+		// right-outside badges room to render without being clipped.
 		const pickerBox = await picker.boundingBox();
 		if (!pickerBox) {
 			throw new Error('Could not measure quick-input picker');
@@ -65,10 +64,25 @@ test.describe('Release Screenshots - Snippets', () => {
 		const rowBox = await globalRow.boundingBox();
 		const rowHeight = rowBox?.height ?? 24;
 		const cropHeight = Math.ceil((rowBox?.y ?? pickerBox.y) - pickerBox.y + rowHeight * 5);
+
+		// White backdrop in the gutter so the right-outside badges sit on a
+		// clean surface, not on whatever workbench content is behind the picker.
+		await paintBackdrop(page, {
+			x: pickerBox.x + pickerBox.width,
+			y: pickerBox.y,
+			width: LABEL_GUTTER,
+			height: cropHeight,
+		});
+
+		await annotate(page, [
+			{ selector: '.monaco-list-row[aria-label^="New Global Snippets file"]', label: '1', color: ANNOTATION_COLOR, padding: 1, labelPosition: 'right-outside' },
+			{ selector: '.monaco-list-row[aria-label^="New Snippets file for"]', label: '2', color: ANNOTATION_COLOR, padding: 1, labelPosition: 'right-outside' },
+		]);
+
 		await captureRegion(page, 'snippets-configure-snippets.png', {
 			x: Math.floor(pickerBox.x),
 			y: Math.floor(pickerBox.y),
-			width: Math.ceil(pickerBox.width),
+			width: Math.ceil(pickerBox.width) + LABEL_GUTTER,
 			height: cropHeight,
 		});
 	});
@@ -105,6 +119,21 @@ test.describe('Release Screenshots - Snippets', () => {
 		await prepareForScreenshot(app, page);
 		await overrideWorkspaceName(page, 'qa-example-content', 'my-project');
 
+		const rBox = await rRow.boundingBox();
+		if (!rBox) {
+			throw new Error('Could not measure r row');
+		}
+		const height = Math.ceil((rBox.y + rBox.height) - pickerBox.y);
+
+		// White backdrop in the gutter so the right-outside badge sits on a
+		// clean surface, not on whatever workbench content is behind the picker.
+		await paintBackdrop(page, {
+			x: pickerBox.x + pickerBox.width,
+			y: pickerBox.y,
+			width: LABEL_GUTTER,
+			height,
+		});
+
 		await annotate(page, [
 			{
 				selector: [
@@ -115,19 +144,14 @@ test.describe('Release Screenshots - Snippets', () => {
 				label: '3',
 				color: ANNOTATION_COLOR,
 				padding: 1,
-				labelPosition: 'top-right',
+				labelPosition: 'right-outside',
 			},
 		]);
 
-		const rBox = await rRow.boundingBox();
-		if (!rBox) {
-			throw new Error('Could not measure r row');
-		}
-		const height = Math.ceil((rBox.y + rBox.height) - pickerBox.y);
 		await captureRegion(page, 'snippets-configure-language-specific-snippets.png', {
 			x: Math.floor(pickerBox.x),
 			y: Math.floor(pickerBox.y),
-			width: Math.ceil(pickerBox.width),
+			width: Math.ceil(pickerBox.width) + LABEL_GUTTER,
 			height,
 		});
 	});
