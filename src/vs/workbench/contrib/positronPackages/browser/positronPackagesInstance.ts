@@ -249,6 +249,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			await packageManager.installPackages(packages, effectiveToken);
 
 			// Refresh packages with two-stage metadata fetch
+			this._invalidateMetadataCache();
 			await this._refreshPackagesInternal(packageManager, effectiveToken);
 		} finally {
 			// Completed
@@ -267,6 +268,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			await packageManager.uninstallPackages(packageNames, effectiveToken);
 
 			// Refresh packages with two-stage metadata fetch
+			this._invalidateMetadataCache();
 			await this._refreshPackagesInternal(packageManager, effectiveToken);
 		} finally {
 			// Completed
@@ -288,6 +290,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			}
 
 			// Refresh packages with two-stage metadata fetch
+			this._invalidateMetadataCache();
 			await this._refreshPackagesInternal(packageManager, effectiveToken);
 		} finally {
 			// Completed
@@ -309,11 +312,25 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			}
 
 			// Refresh packages with two-stage metadata fetch
+			this._invalidateMetadataCache();
 			await this._refreshPackagesInternal(packageManager, effectiveToken);
 		} finally {
 			// Completed
 			this._onDidChangeUpdateAllState.fire(false);
 		}
+	}
+
+	/**
+	 * Drop the cached metadata so the next refresh re-hydrates from the
+	 * package manager. Called after install/uninstall/update operations:
+	 * the installed-version (and therefore the `outdated` flag) may have
+	 * changed for the affected packages, and re-running the metadata fetch
+	 * is the simplest way to keep the UI consistent without tracking which
+	 * specific entries went stale.
+	 */
+	private _invalidateMetadataCache(): void {
+		this._metadataFetch?.cancel();
+		this._metadataCache.clear();
 	}
 
 	async searchPackages(name: string, token?: CancellationToken): Promise<ILanguageRuntimePackage[]> {
