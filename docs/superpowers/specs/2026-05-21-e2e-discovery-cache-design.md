@@ -18,7 +18,6 @@ The cost in CI is multiplicative: discovery runs once per test, once per worker,
 - E2E tests skip interpreter discovery on launch by reusing a primed cache.
 - Zero behavior change for production users.
 - Minimal new surface area in the cache service.
-- One discovery pass per CI workflow, not per shard.
 - Same mechanism works locally for developers running e2e tests on their machine.
 
 ## Non-goals
@@ -48,16 +47,19 @@ Four components, each in its own layer:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ Component 1: Production (RuntimeDiscoveryCacheService)      │
-│  - Seed import on startup (env var → file → IStorageService)│
-│  - Export API: exportCacheState() returns JSON-serializable │
+│ Component 1: Production (split across layers)               │
+│  1a (common):           importCacheState(payload)           │
+│  1b (common):           exportCacheState() -> payload       │
+│  1c (electron-sandbox): bootstrap contribution reads env+fs,│
+│                         calls importCacheState              │
 └─────────────────────────────────────────────────────────────┘
                               ▲
-                              │ in-process API
+                              │ in-process API (exportCacheState)
                               │
 ┌─────────────────────────────────────────────────────────────┐
 │ Component 2: CLI export flag (shared primitive)             │
-│ --export-discovery-cache=PATH: boot, wait Complete, dump    │
+│ --export-discovery-cache=PATH: boot, wait Complete, dump,   │
+│ ILifecycleService.quit()                                    │
 └─────────────────────────────────────────────────────────────┘
                               ▲
                               │ shell invocation
@@ -79,87 +81,132 @@ Each layer has a single, narrow purpose. Each can be developed and tested in iso
 
 ## Component 1: Production change
 
-**Location:** `src/vs/workbench/services/runtimeStartup/common/runtimeDiscoveryCache.ts` (the implementation file; `runtimeDiscoveryCacheService.ts` is the interface).
+Three additions, split across layers to respect VS Code's `common`/`node`/`electron-*` boundaries:
 
-Two additions to the cache service: a seed-import code path that runs on startup, and an `exportCacheState()` method that returns the cache contents in a JSON-serializable form.
+- **1a (common):** `importCacheState(json: string)` method on `IRuntimeDiscoveryCache` — accepts a pre-read JSON payload and stores it via `IStorageService`. No env, no fs.
+- **1b (common):** `exportCacheState()` method on `IRuntimeDiscoveryCache` — returns the in-memory cache as a JSON-serializable payload.
+- **1c (electron-sandbox):** Seed bootstrapping contribution that reads the env var and seed file, then calls `importCacheState()`. Lives outside `common/` because env-var and filesystem access aren't legal there.
 
-### 1a. Seed import on startup
+### 1a. Import API (common)
 
-Add seed-import logic to the service initialization. Pseudocode:
+Add a method to the `IRuntimeDiscoveryCache` interface in `runtimeDiscoveryCacheService.ts`:
 
 ```ts
-private maybeImportSeed(): void {
-    const seedPath = process.env.POSITRON_RUNTIME_DISCOVERY_CACHE_SEED;
-    if (!seedPath) {
-        return;
-    }
+/**
+ * Replace the cache state with the payload, if and only if the storage row
+ * is currently empty. Used to seed the cache from an external source
+ * (e.g. a test prime file, a Workbench-managed server cache).
+ *
+ * Returns true if the import happened, false if skipped (existing cache wins).
+ */
+importCacheState(payload: IDiscoveryCachePayload): boolean;
+```
+
+Implementation in `runtimeDiscoveryCache.ts` (common):
+
+```ts
+importCacheState(payload: IDiscoveryCachePayload): boolean {
     if (this._storageService.get(RUNTIME_DISCOVERY_CACHE_STORAGE_KEY, StorageScope.APPLICATION)) {
         // Don't clobber an existing cache — local dev with real Positron state should win.
-        return;
+        return false;
     }
-    let raw: string;
-    try {
-        raw = fs.readFileSync(seedPath, 'utf8');
-    } catch (e) {
-        this._logService.warn(`[discoveryCache] seed file unreadable: ${e}`);
-        return;
-    }
-    try {
-        JSON.parse(raw); // validate shape before storing
-    } catch (e) {
-        this._logService.warn(`[discoveryCache] seed file malformed: ${e}`);
-        return;
+    // Schema-version check: payload from an older/newer schema is ignored.
+    if (payload.schemaVersion !== RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION) {
+        this._logService.warn(`[discoveryCache] seed schema mismatch (got v${payload.schemaVersion}, expected v${RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION}); skipping import`);
+        return false;
     }
     this._storageService.store(
         RUNTIME_DISCOVERY_CACHE_STORAGE_KEY,
-        raw,
+        JSON.stringify(payload),
         StorageScope.APPLICATION,
         StorageTarget.MACHINE,
     );
-    this._logService.info(`[discoveryCache] seeded from ${seedPath}`);
+    this._logService.info(`[discoveryCache] imported cache state with ${payload.buckets.length} buckets`);
+    return true;
 }
 ```
 
-Called once from the constructor, before any read of the cache key.
+**Why a service method, not env-var-and-fs in the constructor:**
+- `process.env` doesn't exist in browser contexts. VS Code's layering rules forbid `process` references in `common/`. The original spec read `process.env` in `common/`, which would fail at the eslint layer check (and at runtime in web Positron).
+- `fs` is Node-only; the cache service already routes file I/O through the injected `IFileService` to stay layer-clean. Reading the seed file in `common/` would break the same boundary.
+- Splitting the API surface (in-memory state mutation in common, env+fs reads in a non-common contribution) keeps each layer doing what it's allowed to do.
+- `importCacheState` is symmetric with `exportCacheState`. Vitest can test the import path with a JSON payload constructed in-test, no fs or process needed.
 
-**Why this shape:**
-- Reads the env var inside the service (not threaded through constructor injection). The env var is process-global and only consulted on startup; constructor injection adds plumbing for no benefit.
-- Validates JSON shape before storing, so a corrupt file can't poison the SQLite row.
-- "Don't clobber" rule means seeding is purely additive — a developer running tests locally with a real cache won't have it overwritten by a stale seed.
+### 1b. Export API (common)
 
-**Why no `cacheable` field changes, no new settings, no telemetry:** every existing mechanism (fingerprint validation, revalidation, eviction, the `interpreters.discoveryCache.enabled` setting) keeps working unchanged. The seed is just a different starting state.
-
-### 1b. Export API
-
-Add a method to the `IRuntimeDiscoveryCache` interface:
+Add a symmetric method:
 
 ```ts
 /**
  * Return the current cache state as a JSON-serializable payload.
- * The shape exactly matches what is persisted to IStorageService under
- * RUNTIME_DISCOVERY_CACHE_STORAGE_KEY, so the export can be re-imported
- * via the POSITRON_RUNTIME_DISCOVERY_CACHE_SEED env var.
+ * The shape matches what is persisted to IStorageService and what
+ * importCacheState() accepts, so export -> import round-trips cleanly.
  */
 exportCacheState(): IDiscoveryCachePayload;
 ```
 
-The implementation reads the current in-memory cache state and returns it. No new serialization logic — `JSON.stringify(exportCacheState())` produces the exact same string that the storage row already holds. This is the in-process API that Component 2 (CLI flag) and any future caller (Workbench tooling, diagnostics) builds on.
+The implementation reads the current in-memory cache state and returns it. `JSON.stringify(exportCacheState())` produces the exact string that the storage row already holds. This is the in-process API that Component 2 (CLI flag), Workbench tooling, and diagnostics all build on.
 
-**Why expose this as a service method instead of reading `state.vscdb` directly:**
-- Reading the SQLite file from outside Positron requires a SQLite dep, hard-codes the storage layout, and breaks if VS Code changes how it persists application storage.
-- A service method is decoupled from the storage backend — if the cache layer changes how it persists (e.g. to a separate file, to in-memory only for some scopes), callers don't notice.
-- The same method serves diagnostics, the CLI export flag, and (eventually) Workbench tooling. One implementation, many consumers.
+**Type location for `IDiscoveryCachePayload`:** export the existing internal `IPersistedCache` shape under the public name `IDiscoveryCachePayload` from `runtimeDiscoveryCacheService.ts`. The interface already captures the persisted shape; renaming-on-export gives external callers (Workbench, tooling) a stable public type name without duplicating the definition. Include `schemaVersion: number` as a top-level field on the payload so import-side validation has something to check (today, the schema version is implicit in the storage key — making it explicit in the payload lets imports be validated before storage is touched).
+
+### 1c. Seed bootstrapping (electron-sandbox)
+
+A new workbench contribution registered in `src/vs/workbench/services/runtimeStartup/electron-sandbox/runtimeDiscoveryCacheBootstrap.ts`. Pseudocode:
+
+```ts
+class RuntimeDiscoveryCacheBootstrap implements IWorkbenchContribution {
+    constructor(
+        @IRuntimeDiscoveryCache cache: IRuntimeDiscoveryCache,
+        @INativeEnvironmentService env: INativeEnvironmentService,
+        @IFileService fileService: IFileService,
+        @ILogService logService: ILogService,
+    ) {
+        this.maybeSeed(cache, env, fileService, logService);
+    }
+
+    private async maybeSeed(...) {
+        const seedPath = env.runtimeDiscoveryCacheSeedPath; // surfaced via INativeEnvironmentService
+        if (!seedPath) { return; }
+
+        let raw: string;
+        try {
+            const content = await fileService.readFile(URI.file(seedPath));
+            raw = content.value.toString();
+        } catch (e) {
+            logService.warn(`[discoveryCache] seed file unreadable at ${seedPath}: ${e}`);
+            return;
+        }
+
+        let payload: IDiscoveryCachePayload;
+        try {
+            payload = JSON.parse(raw);
+        } catch (e) {
+            logService.warn(`[discoveryCache] seed file malformed: ${e}`);
+            return;
+        }
+
+        cache.importCacheState(payload);
+    }
+}
+```
+
+**Wiring the env var to `INativeEnvironmentService`:** `EnvironmentMainService` (electron-main) reads `process.env.POSITRON_RUNTIME_DISCOVERY_CACHE_SEED` during startup and surfaces it as a typed property `runtimeDiscoveryCacheSeedPath: string | undefined` on `INativeEnvironmentService`. This is the canonical pattern in VS Code for env vars that need to reach the renderer (env vars are unavailable in `common/` and the workbench renderer reads them via this service). The exact field name and electron-main wiring is finalized during plan-writing.
+
+**Registration:** registered in the workbench contribution registry at `LifecyclePhase.Restored` (or earlier — whatever fires before the cache service is first consulted by other startup services). Order matters: the bootstrap must complete its `importCacheState` call before any service reads the cache key.
+
+**Production safety:** in production builds, the env var is harmless if set (the cache service validates the payload's schema version and JSON shape, and refuses to clobber an existing cache row). See the Security row in [Risks](#risks) for the full discussion.
 
 ## Component 2: CLI export flag
 
 **New flag:** `positron --export-discovery-cache=PATH`
 
 **Behavior:**
-1. Parse the flag during CLI argument processing.
-2. App boots normally.
-3. A new top-level contribution listens for the runtime startup phase to reach `Complete`.
-4. On `Complete`, the contribution resolves `IRuntimeDiscoveryCache`, calls `exportCacheState()`, writes `JSON.stringify(result)` to the path, and exits with code 0.
-5. On any error (write failure, timeout waiting for `Complete`), log to stderr and exit with non-zero.
+1. Parse the flag during CLI argument processing; the value (a path) is surfaced on `INativeEnvironmentService` (same pattern as 1c).
+2. App boots normally — full workbench, runtime services, the lot. The export needs discovery to have actually run, which only happens with the workbench fully up. (This is unlike `--list-extensions`, which short-circuits before the workbench boots — that mechanism is **not** applicable here.)
+3. A new electron-sandbox workbench contribution observes `IRuntimeStartupService` for the startup phase to reach `Complete`.
+4. On `Complete`, the contribution resolves `IRuntimeDiscoveryCache`, calls `exportCacheState()`, writes `JSON.stringify(result)` to the path via `IFileService`, and then calls `ILifecycleService.quit()` to shut the app down cleanly.
+5. The contribution also installs a watchdog timer (default 5 minutes — configurable via the same CLI flag's optional second argument or a fixed constant). If `Complete` is not reached in time, log to stderr and call `ILifecycleService.quit()` with a non-zero exit hint so the process surfaces an error to the calling script.
+6. On write failure, same handling — log and quit non-zero.
 
 **Why a CLI flag, not a command palette command:**
 - Scriptable from any shell — no Electron API knowledge required.
@@ -168,10 +215,10 @@ The implementation reads the current in-memory cache state and returns it. No ne
 - Language-agnostic — Workbench's eventual integration likely runs from a shell script, not from a VS Code extension.
 
 **Implementation location:**
-- Flag declaration: wherever Positron CLI args are parsed (to be confirmed during plan-writing — likely alongside other Positron-specific CLI flags).
-- Behavior contribution: a small workbench contribution that observes the startup phase and triggers the export. Lives next to the cache service in `runtimeStartup/`.
+- Flag declaration: wherever Positron CLI args are parsed (alongside other Positron-specific CLI flags). Settled during plan-writing.
+- Behavior contribution: `src/vs/workbench/services/runtimeStartup/electron-sandbox/runtimeDiscoveryCacheExport.ts`, registered at a phase that runs after the workbench is up. Sibling to the bootstrap contribution from 1c.
 
-**Open question for plan-writing:** the cleanest way to signal "exit now" from a workbench contribution. May piggyback on an existing one-shot CLI mechanism (e.g. the same path that handles `--list-extensions`).
+**Why `ILifecycleService.quit()` and not a CLI short-circuit:** `--list-extensions` and similar flags work by short-circuiting before the workbench boots — that mechanism is **inapplicable here** because the export depends on runtime startup completing, which requires the full workbench to be running. The right exit primitive is `ILifecycleService.quit()` (or `ILifecycleMainService.quit()` if the contribution needs to live in electron-main), which performs a graceful shutdown that flushes pending IStorageService writes and respects shutdown listeners. Resolved.
 
 ## Component 3: Test infrastructure
 
@@ -222,9 +269,9 @@ Where:
 
 **Steps added to each existing e2e shard:**
 1. Compute cache key (one shell line).
-2. `actions/cache@v5` with that key and `path: ~/.cache/positron-e2e/`. On hit, the seed file is restored. On miss, the action records the key for save-on-success.
-3. If the seed file is missing after the cache step: run `npm run prime-discovery-cache -- --out ~/.cache/positron-e2e/discovery-cache.json`.
-4. Set `POSITRON_RUNTIME_DISCOVERY_CACHE_SEED=~/.cache/positron-e2e/discovery-cache.json` on the test command's environment.
+2. `actions/cache@v5` with that key and `path: ${{ runner.temp }}/positron-e2e-cache/`. On hit, the seed file is restored. On miss, the action records the key for save-on-success. `runner.temp` is a GitHub-provided variable that resolves to an OS-appropriate temp directory on Linux, macOS, and Windows.
+3. If the seed file is missing after the cache step: run `npm run prime-discovery-cache -- --out "${{ runner.temp }}/positron-e2e-cache/discovery-cache.json"`.
+4. Set `POSITRON_RUNTIME_DISCOVERY_CACHE_SEED=${{ runner.temp }}/positron-e2e-cache/discovery-cache.json` on the test command's environment.
 
 On cache miss, one shard's save populates the cache for next time (`actions/cache@v5` handles parallel "already saved" gracefully — subsequent saves with the same key are no-ops).
 
@@ -244,7 +291,7 @@ Wall-clock impact in steady state is ~5s per shard; in exchange, each shard save
 ```
 Each shard
   ├─ actions/cache@v5 restore
-  │      ├─ HIT: seed file appears at ~/.cache/positron-e2e/discovery-cache.json
+  │      ├─ HIT: seed file appears at ${runner.temp}/positron-e2e-cache/discovery-cache.json
   │      └─ MISS: nothing restored; key recorded for post-job save
   │
   ├─ If seed file missing:
@@ -271,42 +318,67 @@ Each shard
 
 | Failure mode | Behavior | Test coverage |
 |---|---|---|
-| Env var unset | Skip seeding, no log | Unit (vitest) |
-| Seed file missing | Log warning, skip seeding | Unit (vitest) |
-| Seed file malformed JSON | Log warning, skip seeding | Unit (vitest) |
-| Storage key already populated | Skip seeding, no log | Unit (vitest) |
+| Env var unset | Bootstrap contribution checks the seed-path property on `INativeEnvironmentService`; if undefined, returns immediately. No file I/O attempted. | Unit (vitest) — bootstrap contribution test |
+| Seed file missing | `IFileService.readFile` throws; bootstrap catches, logs warning, returns. `importCacheState` is never called. | Unit (vitest) — bootstrap contribution test |
+| Seed file malformed JSON | `JSON.parse` throws; bootstrap catches, logs warning, returns. | Unit (vitest) — bootstrap contribution test |
+| Storage key already populated | `importCacheState` checks the storage key and returns `false`; no log, no clobber. | Unit (vitest) — cache service test |
 | Per-entry fingerprint stale | Existing fingerprint check evicts entry | Already tested in `runtimeDiscoveryCache.vitest.ts` |
 | Discovery root signature stale | Existing root-signature check triggers full discovery for that bucket | Already tested |
-| Schema version mismatch | Key embeds schema version → stale seed file is unreadable at new key → behaves as if file is missing | Implicit |
+| Schema version mismatch | `importCacheState` checks `payload.schemaVersion` against `RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION` and refuses to import; existing cache (if any) is untouched. If the schema version bump *also* invalidates the persisted storage row (per `_reloadFromStorage()`'s wipe-and-rediscover path), the cache is wiped and a full discovery pass runs. Net: stale seeds never poison a newer schema. | Unit (vitest) |
 | Prime step fails in one shard | That shard runs without a seed (status-quo behavior). The prime step uses `continue-on-error: true` so a script bug doesn't fail the test job. | Workflow-level |
-| Prime step times out | Same as failure — shard proceeds without seed. Set a generous step `timeout-minutes` to surface chronic regressions without blocking PRs. | Workflow-level |
+| Prime step / CLI flag hangs | CLI flag has a built-in 5-minute watchdog (configurable constant in source) — if startup phase doesn't reach `Complete` in time, it logs to stderr and quits non-zero. Workflow step also sets `timeout-minutes: 10` as belt-and-suspenders. Either trigger surfaces a clear error to the calling script. | Workflow-level + CLI test |
 | Parallel shards saving the same cache key | `actions/cache@v5` is idempotent on save: first save wins, subsequent saves with same key are no-ops. No special handling needed. | n/a |
 
 ## Testing strategy
 
-**Cache service — seed import (vitest):** Extend `src/vs/workbench/services/runtimeStartup/test/common/runtimeDiscoveryCache.vitest.ts` with cases for:
-- Env var set, file present, key absent → key populated from file.
-- Env var set, file present, key already populated → key untouched.
-- Env var set, file missing → key untouched, no throw.
-- Env var set, file malformed → key untouched, no throw.
-- Env var unset → key untouched, no fs read attempted.
+**Cache service — import API (vitest):** Extend `src/vs/workbench/services/runtimeStartup/test/common/runtimeDiscoveryCache.vitest.ts` with cases for `importCacheState(payload)`:
+- Empty storage + valid payload → storage row populated, returns `true`.
+- Storage row already populated → returns `false`, existing row untouched.
+- Payload `schemaVersion` differs from current → returns `false`, warning logged, no write.
+- Empty `buckets` array → valid, storage row populated with the empty payload shape.
+
+These tests construct payloads directly in-test; no env, no fs, no `process` reference. The common-layer service stays layer-clean.
 
 **Cache service — export API (vitest):** Cases for:
-- Empty cache → exportCacheState returns the empty payload shape.
-- Populated cache → exportCacheState returns a payload that round-trips through JSON.stringify/parse and matches the storage row exactly.
-- Schema version embedded in export matches `RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION`.
+- Empty cache → `exportCacheState()` returns the empty payload shape with current schema version.
+- Populated cache → `exportCacheState()` returns a payload that round-trips through `importCacheState` and produces an identical storage row.
+- `schemaVersion` field equals `RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION`.
 
-**CLI export flag (integration):** A standalone test that runs `positron --export-discovery-cache=<tmp>` against a real interpreter install, verifies the output file is valid JSON matching the cache schema, and confirms the process exits 0.
+**Bootstrap contribution (vitest, electron-sandbox layer):** new file alongside the contribution. Cases:
+- Seed-path property undefined → contribution returns without calling `cache.importCacheState`.
+- Seed-path set, file readable, valid JSON → `cache.importCacheState` called with parsed payload.
+- Seed-path set, file unreadable → warning logged, `cache.importCacheState` not called.
+- Seed-path set, file malformed JSON → warning logged, `cache.importCacheState` not called.
+
+Use stub `IFileService` and stub `INativeEnvironmentService` per the standard builder pattern.
+
+**CLI export flag (E2E Playwright):** A new e2e test at `test/e2e/tests/runtime-cache/export-cli.test.ts` (or similar), `--project e2e-electron`, that:
+1. Spawns the Positron binary with `--export-discovery-cache=<tmp>` and a throwaway user-data-dir.
+2. Waits for the process to exit (expects exit code 0 within the 5-minute internal timeout).
+3. Reads the output file, parses as JSON, asserts the shape matches `IDiscoveryCachePayload` (presence of `schemaVersion`, `buckets`).
+
+Runs in the same e2e matrix as other tests. Lives in `test/e2e/tests/` so it benefits from existing launch infra without duplicating it.
 
 **End-to-end smoke test:** One existing e2e test runs both with and without the seed env var; both should pass, the seeded one should show a log line confirming the seed was loaded. Manual verification during initial rollout, not a permanent test.
 
 ## Rollout
 
-1. **Cache service: seed import + export API** — land first. Both new code paths are inert until something invokes them (env var unset, no CLI flag), so safe-to-merge no-op for users.
-2. **CLI export flag** — land second, once the export API exists. End-to-end testable in isolation by running `positron --export-discovery-cache=<tmp>` locally and inspecting the JSON.
-3. **Prime script + local workflow** — land third. Developers can opt in manually; not yet wired into CI.
-4. **CI wiring (one workflow)** — land fourth, against `test-pull-request.yml` only. Verify wall-clock improvement and zero new flakes over ~1 week.
-5. **Expand to remaining workflows** — `test-merge.yml`, then `positron-builds` test-release matrix.
+**Step 0 — Resolve gating open questions.** Lock down before any implementation begins:
+- Q1 (file list for `INTERPRETER_MANIFEST_HASH`) gates Step 4.
+- Q2 (CLI argv wiring + exit mechanism) gates Step 2. Already partially resolved in Component 2: `ILifecycleService.quit()` is the exit primitive; the remaining sub-question is the precise location where the new arg is added to `ParsedArgs`/`INativeEnvironmentService`. Confirm before coding Step 2.
+- Q4 (auto-detect vs explicit opt-in for the seed env var in the launch fixture) gates Step 3.
+
+Q3 (script location) is non-gating — defaults to `test/e2e/scripts/`.
+
+**Step 1 — Cache service: `importCacheState` + `exportCacheState` (common).** Both methods land with vitest coverage. Manual verification before merge: build Positron locally, populate the cache through a normal startup, open a debug console (or add a temporary log line), call `cache.exportCacheState()`, confirm the returned payload shape and contents are sensible. Remove any temporary logging before merge. This guards against shape bugs that vitest round-trips don't catch (e.g. `exportCacheState` being called before the in-memory cache is fully populated).
+
+**Step 2 — CLI export flag + bootstrap contribution (electron-sandbox).** Both pieces land together since they share the `INativeEnvironmentService` wiring. End-to-end testable locally: `positron --export-discovery-cache=/tmp/cache.json` should exit 0 with a valid JSON file; subsequent launches with `POSITRON_RUNTIME_DISCOVERY_CACHE_SEED=/tmp/cache.json` should log the import.
+
+**Step 3 — Prime script + local workflow.** Developers can opt in manually; not yet wired into CI.
+
+**Step 4 — CI wiring (one workflow).** Against `test-pull-request.yml` only. Verify wall-clock improvement and zero new flakes over ~1 week.
+
+**Step 5 — Expand to remaining workflows.** `test-merge.yml`, then `positron-builds` test-release matrix.
 
 Each step is independently revertable. If a regression appears in step 4 or 5, removing the env var from one workflow restores today's behavior with zero code change.
 
@@ -314,7 +386,8 @@ Each step is independently revertable. If a regression appears in step 4 or 5, r
 
 | Risk | Severity | Mitigation |
 |---|---|---|
-| Bug in new seed-import code | Low | Env var-gated; dead in production. Vitest coverage. |
+| Bug in new seed-import code | Low | Env var-gated; bootstrap returns early when unset. Vitest covers all branches of the bootstrap contribution + cache service. |
+| Env var accessible in production builds (set by user or malicious injection) | Low | The env var is **intentionally enabled in production builds** — it's the same mechanism Posit Workbench will use to seed a server-wide cache, so gating it behind a `POSITRON_TEST_` prefix or `--enable-proposed-api` would block that use case. Risk surface is bounded by: (a) `importCacheState` only runs when the storage row is empty (no clobber); (b) payload is validated against `IDiscoveryCachePayload` shape + `schemaVersion` before any write; (c) the payload contains interpreter binary paths and version metadata — same content already in users' production caches — no credentials, no project data; (d) `IFileService` honors the existing fs permissions, so an attacker can't escalate by pointing the env var at a privileged file. If a future need for production gating emerges, adding a guard is a small follow-up. |
 | Seed contains sensitive paths | Low | Seed contains interpreter binary paths and version metadata only — same content that's already in users' production caches. No credentials, no project data. |
 | Prime script becomes a maintenance burden | Low | The script is a thin wrapper over `positron --export-discovery-cache` (Component 2). All non-trivial logic lives in Positron itself, where it benefits from the rest of the codebase's maintenance. |
 | CLI export flag drifts from internal cache representation | Low | The flag invokes `exportCacheState()` which is a public method on the cache service. Vitest covers the round-trip (export → re-import → identical state). Workbench depending on the flag adds a second consumer that catches drift. |
@@ -341,10 +414,15 @@ Posit Workbench runs Positron multi-user on a shared server. Each user session t
 
 ## Open questions
 
-1. **Exact file list for `INTERPRETER_MANIFEST_HASH`.** Probably `.devcontainer/Dockerfile` + Python/R install scripts + any version-pinning files referenced from them. Settle during plan-writing.
-2. **Where the CLI flag wires into Positron's argv parsing**, and the cleanest mechanism to signal "do the work then exit" from a workbench contribution. May piggyback on existing one-shot CLI patterns (e.g. `--list-extensions`). Settle during plan-writing.
-3. **Where the prime script lives** — `test/e2e/scripts/` vs `build/scripts/` vs a new location. Probably `test/e2e/scripts/` since it depends on the e2e launcher's binary-resolution logic.
-4. **Whether to auto-detect the seed file in the launch fixture** (so tests transparently benefit) **or require explicit opt-in** (so a missing seed is loud, not silent). Auto-detect with a `--no-cache-seed` opt-out feels right for most cases; confirm during plan-writing.
+Gating questions (must resolve before the listed rollout step):
+
+1. **(Gates Step 4) Exact file list for `INTERPRETER_MANIFEST_HASH`.** Probably `.devcontainer/Dockerfile` + Python/R install scripts + any version-pinning files referenced from them. Settle during plan-writing.
+2. **(Gates Step 2) Precise wiring of the new CLI arg into `ParsedArgs` and `INativeEnvironmentService`.** The exit mechanism is settled (`ILifecycleService.quit()` — see Component 2). The remaining sub-question is which existing argv parsing site to extend and the property name on `INativeEnvironmentService` (e.g. `runtimeDiscoveryCacheExportPath`).
+3. **(Gates Step 3) Whether to auto-detect the seed file in the launch fixture** (so tests transparently benefit) **or require explicit opt-in** (so a missing seed is loud, not silent). Auto-detect with a `--no-cache-seed` opt-out feels right for most cases; confirm during plan-writing.
+
+Non-gating:
+
+4. **Where the prime script lives** — `test/e2e/scripts/` vs `build/scripts/` vs a new location. Defaulting to `test/e2e/scripts/` since it depends on the e2e launcher's binary-resolution logic.
 
 ## Success criteria
 
