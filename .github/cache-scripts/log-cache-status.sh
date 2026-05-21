@@ -192,7 +192,7 @@ render_state() {
 	case "$1" in
 		hit)     echo "✅ hit" ;;
 		partial) echo "⚠️ partial" ;;
-		miss)    echo "❌ miss" ;;
+		miss)    echo "❌" ;;
 		skipped) echo "⏭️ skipped" ;;
 		*)       echo "unknown" ;;
 	esac
