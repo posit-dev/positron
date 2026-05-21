@@ -55,7 +55,7 @@ export const LanguageModelIcon = (props: { provider: string }) => {
 				return <Claude className='language-model icon' />;
 			case 'google':
 				return <Gemini className='language-model icon' />;
-			case 'google-vertex':
+			case 'google-cloud':
 				return <VertexAI className='language-model icon' />;
 			case 'copilot':
 			case 'copilot-auth':

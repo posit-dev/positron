@@ -11,7 +11,7 @@ import {
 	CUSTOM_PROVIDER_AUTH_PROVIDER_ID,
 	FOUNDRY_AUTH_PROVIDER_ID,
 	GEMINI_AUTH_PROVIDER_ID,
-	GOOGLE_VERTEX_AUTH_PROVIDER_ID,
+	GOOGLE_CLOUD_AUTH_PROVIDER_ID,
 	OPENAI_AUTH_PROVIDER_ID,
 	POSIT_AUTH_PROVIDER_ID,
 } from './constants';
@@ -66,7 +66,7 @@ export const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
 		settingName: 'google',
 	},
 	googleVertex: {
-		id: GOOGLE_VERTEX_AUTH_PROVIDER_ID,
+		id: GOOGLE_CLOUD_AUTH_PROVIDER_ID,
 		displayName: 'Google Vertex AI',
 		settingName: 'googleVertex',
 	},

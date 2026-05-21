@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
-import { ANTHROPIC_AUTH_PROVIDER_ID, AWS_AUTH_PROVIDER_ID, CREDENTIAL_REFRESH_INTERVAL_MS, CUSTOM_PROVIDER_AUTH_PROVIDER_ID, FOUNDRY_AUTH_PROVIDER_ID, GEMINI_AUTH_PROVIDER_ID, GOOGLE_VERTEX_AUTH_PROVIDER_ID, OPENAI_AUTH_PROVIDER_ID, POSIT_AUTH_PROVIDER_ID } from './constants';
+import { ANTHROPIC_AUTH_PROVIDER_ID, AWS_AUTH_PROVIDER_ID, CREDENTIAL_REFRESH_INTERVAL_MS, CUSTOM_PROVIDER_AUTH_PROVIDER_ID, FOUNDRY_AUTH_PROVIDER_ID, GEMINI_AUTH_PROVIDER_ID, GOOGLE_CLOUD_AUTH_PROVIDER_ID, OPENAI_AUTH_PROVIDER_ID, POSIT_AUTH_PROVIDER_ID } from './constants';
 import { AuthProvider } from './authProvider';
 import { registerAuthProvider, showConfigurationDialog } from './configDialog';
 import { PROVIDER_METADATA } from './providerSources';
@@ -506,7 +506,7 @@ async function registerGoogleVertexProvider(
 	const envBaseUrl = process.env.GOOGLE_VERTEX_BASE_URL;
 	if (envBaseUrl) {
 		await vscode.workspace
-			.getConfiguration(`authentication.${GOOGLE_VERTEX_AUTH_PROVIDER_ID}`)
+			.getConfiguration('authentication.googleVertex')
 			.update(
 				'baseUrl', envBaseUrl,
 				vscode.ConfigurationTarget.Global,
@@ -516,7 +516,7 @@ async function registerGoogleVertexProvider(
 	}
 
 	const provider = new AuthProvider(
-		GOOGLE_VERTEX_AUTH_PROVIDER_ID, 'Google Vertex AI', context,
+		GOOGLE_CLOUD_AUTH_PROVIDER_ID, 'Google Vertex AI', context,
 		undefined,
 		{
 			resolve: resolveGoogleVertexCredential,
@@ -525,16 +525,16 @@ async function registerGoogleVertexProvider(
 	);
 	context.subscriptions.push(
 		vscode.authentication.registerAuthenticationProvider(
-			GOOGLE_VERTEX_AUTH_PROVIDER_ID, 'Google Vertex AI', provider,
+			GOOGLE_CLOUD_AUTH_PROVIDER_ID, 'Google Vertex AI', provider,
 			{ supportsMultipleAccounts: false }
 		),
 		provider,
 	);
-	registerAuthProvider(GOOGLE_VERTEX_AUTH_PROVIDER_ID, provider, {
+	registerAuthProvider(GOOGLE_CLOUD_AUTH_PROVIDER_ID, provider, {
 		onSave: async (config) => {
 			if (config.baseUrl) {
 				await vscode.workspace
-					.getConfiguration(`authentication.${GOOGLE_VERTEX_AUTH_PROVIDER_ID}`)
+					.getConfiguration('authentication.googleVertex')
 					.update(
 						'baseUrl', config.baseUrl,
 						vscode.ConfigurationTarget.Global,
@@ -547,7 +547,7 @@ async function registerGoogleVertexProvider(
 		log.debug(`[Google Vertex] Initial credential resolution: ${err}`)
 	);
 
-	log.info(`Registered auth provider: ${GOOGLE_VERTEX_AUTH_PROVIDER_ID}`);
+	log.info(`Registered auth provider: ${GOOGLE_CLOUD_AUTH_PROVIDER_ID}`);
 }
 
 function registerCustomProvider(

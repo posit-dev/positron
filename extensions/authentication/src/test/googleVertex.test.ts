@@ -274,7 +274,7 @@ suite('validateGoogleVertexCredentials', () => {
 		await assert.rejects(
 			() => validateGoogleVertexCredentials('', {
 				type: 1, // PositronLanguageModelType.Chat
-				provider: 'google-vertex',
+				provider: 'google-cloud',
 				name: 'Vertex',
 				model: 'gemini-2.5-flash',
 			} as any),
