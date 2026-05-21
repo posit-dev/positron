@@ -117,17 +117,17 @@ jobs:
           TEST_RESULT: ${{ needs.extensions-linux.result }}
         run: |
           if [ "$TEST_RESULT" = "failure" ] && [ -s mismatched-extensions.txt ]; then
-            MISMATCHED=$(cat mismatched-extensions.txt)
-            echo "Bumping mismatched extensions: $MISMATCHED"
+            read -ra MISMATCHED <<< "$(cat mismatched-extensions.txt)"
+            echo "Bumping mismatched extensions: ${MISMATCHED[*]}"
             {
               echo "### Mismatched bootstrap extensions"
               echo ""
-              echo "$MISMATCHED" | tr ' ' '\n' | sed 's/^/- /'
+              printf -- '- %s\n' "${MISMATCHED[@]}"
             } >> "$GITHUB_STEP_SUMMARY"
-            ./scripts/update-extensions.sh $MISMATCHED
+            ./scripts/update-extensions.sh "${MISMATCHED[@]}"
           else
-            echo "No mismatched extensions detected — bumping meta.pyrefly only."
-            echo "_No mismatched extensions detected — falling back to bumping meta.pyrefly._" >> "$GITHUB_STEP_SUMMARY"
+            echo "No mismatched extensions detected - bumping meta.pyrefly only."
+            echo "_No mismatched extensions detected - falling back to bumping meta.pyrefly._" >> "$GITHUB_STEP_SUMMARY"
             ./scripts/update-extensions.sh meta.pyrefly
           fi
 
