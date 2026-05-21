@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as crypto from 'crypto';
 import * as vscode from 'vscode';
 import { GoogleAuth } from 'google-auth-library';
 
@@ -35,10 +36,18 @@ export interface GoogleVertexCredentialPayload {
 let cachedAuthClient: GoogleAuth | undefined;
 let cachedAuthSignature: string | undefined;
 
+function hashSecret(value: string | undefined): string {
+	if (!value) {
+		return '';
+	}
+	return crypto.createHash('sha256').update(value).digest('hex').slice(0, 16);
+}
+
 function authSignature(): string {
 	return [
 		process.env.GOOGLE_CLIENT_EMAIL ?? '',
-		process.env.GOOGLE_PRIVATE_KEY ?? '',
+		// Hash the private key so it never lands in a plain cache-key string.
+		hashSecret(process.env.GOOGLE_PRIVATE_KEY),
 		process.env.GOOGLE_PRIVATE_KEY_ID ?? '',
 		process.env.GOOGLE_APPLICATION_CREDENTIALS ?? '',
 	].join('|');
@@ -73,16 +82,25 @@ async function tryInlineCredentials(): Promise<string | undefined> {
 		cachedAuthSignature = signature;
 	}
 
+	// Capture the client locally so a concurrent resolver call that swaps
+	// `cachedAuthClient` between this assignment and the awaited call below
+	// can't redirect us to the wrong identity.
+	const client = cachedAuthClient!;
 	try {
-		const token = await cachedAuthClient!.getAccessToken();
+		const token = await client.getAccessToken();
 		if (!token) {
 			return undefined;
 		}
 		// `token` is `string | null | undefined` per the library type; we
 		// narrowed via the `!token` check above.
 		return token as string;
-	} catch {
-		return undefined;
+	} catch (err) {
+		// Presence of GOOGLE_CLIENT_EMAIL + GOOGLE_PRIVATE_KEY signals explicit
+		// user intent. Surface the failure instead of silently falling through
+		// to ADC, which would mask a malformed key behind a misleading
+		// "no credentials found" error.
+		const message = err instanceof Error ? err.message : String(err);
+		throw new Error(`Inline service-account credentials failed: ${message}`);
 	}
 }
 
@@ -101,8 +119,11 @@ async function tryApplicationDefaultCredentials(): Promise<string | undefined> {
 		cachedAuthSignature = signature;
 	}
 
+	// Capture locally to avoid a race with concurrent resolver calls that
+	// could swap `cachedAuthClient` between assignment and await.
+	const client = cachedAuthClient!;
 	try {
-		const token = await cachedAuthClient!.getAccessToken();
+		const token = await client.getAccessToken();
 		if (!token) {
 			return undefined;
 		}

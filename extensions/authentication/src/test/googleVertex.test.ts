@@ -170,6 +170,21 @@ suite('resolveGoogleVertexCredential', () => {
 		);
 	});
 
+	test('surfaces inline credential errors instead of falling through to ADC', async () => {
+		// When the user has set inline service-account env vars, a failure
+		// to mint a token (e.g. malformed key) must be surfaced. Falling
+		// through to ADC would produce a misleading "no credentials found"
+		// error pointing at the vars the user already set.
+		process.env.GOOGLE_CLIENT_EMAIL = 'sa@example.iam.gserviceaccount.com';
+		process.env.GOOGLE_PRIVATE_KEY = '-----BEGIN PRIVATE KEY-----\\nBAD\\n-----END PRIVATE KEY-----';
+		nextError = new Error('invalid_grant: Invalid JWT Signature.');
+
+		await assert.rejects(
+			resolveGoogleVertexCredential(),
+			/Inline service-account credentials failed: invalid_grant/,
+		);
+	});
+
 	test('throws when project is missing even if credentials resolve', async () => {
 		nextToken = 'ya29.adc-token';
 		delete process.env.GOOGLE_VERTEX_PROJECT;
