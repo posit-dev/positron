@@ -69,7 +69,18 @@ export class RPackageManager {
 
 	private async _getOutdatedPackageNames(token?: vscode.CancellationToken): Promise<string[]> {
 		try {
-			return await this._callMethod<string[] | null>('pkg_outdated', token) ?? [];
+			// ark's `pkg_outdated` currently returns `as.list(outdated[, "Package"])`,
+			// which is a named R list (named by package). Named lists serialize to
+			// JSON objects, not arrays, so we may receive either `["pkg", ...]` or
+			// `{"pkg": "pkg", ...}` depending on the ark version. Handle both; either
+			// form gives us the package names we need.
+			const result = await this._callMethod<string[] | Record<string, unknown> | null>(
+				'pkg_outdated', token
+			);
+			if (!result) {
+				return [];
+			}
+			return Array.isArray(result) ? result : Object.keys(result);
 		} catch {
 			// `pkg_outdated` hits the user's configured repositories and can fail
 			// for transient network reasons. Failing silently keeps the package
