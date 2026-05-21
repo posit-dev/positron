@@ -43,7 +43,7 @@ test.describe('Release Screenshots - Layouts', () => {
 
 		// Start a Python session and run a small script so Variables and Plots
 		// populate the secondary sidebar.
-		await sessions.start(['python']);
+		await sessions.start(['pythonAlt']);
 		await sessions.expectAllSessionsToBeReady();
 		await executeCode('Python', [
 			'import matplotlib.pyplot as plt',

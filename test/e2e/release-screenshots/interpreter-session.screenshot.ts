@@ -98,7 +98,7 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		// Smaller window so the chrome and Sessions cards read proportionally
 		// larger in the docs page; matches astropy.png sizing.
 		await setScreenshotWindowSize(app, { width: 1280, height: 800 });
-		await sessions.start(['python', 'r']);
+		await sessions.start(['pythonAlt', 'r']);
 		await sessions.expectAllSessionsToBeReady();
 
 		writeFileSync(join(app.workspacePathOrFolder, 'basics.R'), BASICS_R);

@@ -37,7 +37,7 @@ test.describe('Release Screenshots - Welcome Page', () => {
 		await reapplyCdpViewport(app, { width: 1280, height: 800 });
 
 		// start session and open python file that plots galactocentric ring orbits
-		await sessions.start(['python']);
+		await sessions.start(['pythonAlt']);
 		await sessions.expectAllSessionsToBeReady();
 		const scriptRel = join('workspaces', 'astropy-testing', 'plot_galactocentric_frame.py');
 		await openFile(scriptRel);
