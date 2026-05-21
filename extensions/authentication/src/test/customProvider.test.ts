@@ -108,4 +108,46 @@ suite('validateCustomProviderApiKey', () => {
 			/Invalid Custom Provider API key/
 		);
 	});
+
+	test('surfaces gateway error message on 4xx hard-fail with JSON body', async () => {
+		mockGet.returns(undefined);
+		globalThis.fetch = async () => ({
+			ok: false,
+			status: 418,
+			text: async () => JSON.stringify({ error: { message: 'tea required' } }),
+		} as Response);
+
+		await assert.rejects(
+			validateCustomProviderApiKey('sk-test', makeConfig()),
+			/HTTP 418.*tea required/s
+		);
+	});
+
+	test('surfaces gateway body verbatim when not JSON', async () => {
+		mockGet.returns(undefined);
+		globalThis.fetch = async () => ({
+			ok: false,
+			status: 500,
+			text: async () => 'Service Unavailable: upstream timeout',
+		} as Response);
+
+		await assert.rejects(
+			validateCustomProviderApiKey('sk-test', makeConfig()),
+			/HTTP 500.*Service Unavailable: upstream timeout/s
+		);
+	});
+
+	test('falls back to status-only message when body cannot be read', async () => {
+		mockGet.returns(undefined);
+		globalThis.fetch = async () => ({
+			ok: false,
+			status: 502,
+			text: async () => { throw new Error('body read failed'); },
+		} as unknown as Response);
+
+		await assert.rejects(
+			validateCustomProviderApiKey('sk-test', makeConfig()),
+			/Unable to validate Custom Provider credentials \(HTTP 502\)/
+		);
+	});
 });

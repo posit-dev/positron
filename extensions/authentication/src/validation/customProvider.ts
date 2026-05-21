@@ -34,6 +34,33 @@ function getCustomProviderModel(): string {
 	return '';
 }
 
+/**
+ * Read a best-effort error description from a fetch Response. Tries JSON
+ * `error.message` first (canonical OpenAI shape), falls back to a trimmed
+ * plain-text body, returns empty string if the body cannot be read.
+ */
+async function readErrorBody(response: Response): Promise<string> {
+	try {
+		const text = await response.text();
+		const trimmed = text.trim();
+		if (!trimmed) {
+			return '';
+		}
+		try {
+			const parsed = JSON.parse(trimmed);
+			const message = parsed?.error?.message ?? parsed?.message;
+			if (typeof message === 'string' && message.trim()) {
+				return message.trim();
+			}
+		} catch {
+		}
+		// Cap at 500 chars so a runaway HTML response doesn't fill the toast.
+		return trimmed.length > 500 ? trimmed.slice(0, 500) + '...' : trimmed;
+	} catch {
+		return '';
+	}
+}
+
 class CustomProviderValidationError extends Error {
 	constructor(message: string) {
 		super(message);
@@ -109,10 +136,18 @@ export async function validateCustomProviderApiKey(
 			return;
 		}
 
-		throw new CustomProviderValidationError(vscode.l10n.t(
-			'Unable to validate Custom Provider credentials (HTTP {0})',
-			String(response.status)
-		));
+		const body = await readErrorBody(response);
+		throw new CustomProviderValidationError(body
+			? vscode.l10n.t(
+				'Unable to validate Custom Provider credentials (HTTP {0}): {1}',
+				String(response.status),
+				body
+			)
+			: vscode.l10n.t(
+				'Unable to validate Custom Provider credentials (HTTP {0})',
+				String(response.status)
+			)
+		);
 	} catch (err) {
 		if (err instanceof Error && err.name === 'AbortError') {
 			throw new CustomProviderValidationError(vscode.l10n.t(
