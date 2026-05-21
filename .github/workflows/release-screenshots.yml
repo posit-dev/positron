@@ -128,6 +128,15 @@ jobs:
         with:
           identifier: release-screenshots-${{ env.MODE }}
 
+      # Wait for bundled extensions (quarto, air, etc.) to finish bootstrapping
+      # so language-aware screenshots have the full set of languages and
+      # completions available. Mirrors the bootstrap step in the e2e workflows.
+      - name: Wait for bootstrap extensions
+        env:
+          POSITRON_PY_VER_SEL: ${{ steps.runtimes.outputs.python-primary-version }}
+          POSITRON_R_VER_SEL: '4.5.2'
+        run: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project e2e-electron --reporter=null
+
       - name: Run release-screenshots project
         env:
           POSITRON_PY_VER_SEL: ${{ steps.runtimes.outputs.python-primary-version }}
@@ -144,6 +153,8 @@ jobs:
           # aspect ratio as the historical 1680x1050 config but scaled down
           # so text and chrome read proportionally larger in docs.
           POSITRON_SCREENSHOT_VIEWPORT: '1512,945'
+          # Bootstrap already verified above; skip it inside the suite.
+          SKIP_BOOTSTRAP: 'true'
         run: npx playwright test --project release-screenshots --workers 2
 
       - name: Upload Playwright Report to S3
