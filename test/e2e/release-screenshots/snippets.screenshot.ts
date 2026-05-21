@@ -7,7 +7,7 @@ import { expect } from '@playwright/test';
 import { writeFileSync } from 'fs';
 import { join } from 'path';
 import { test } from '../tests/_test.setup';
-import { capturePanel, captureRegion } from './helpers/screenshot-utils';
+import { captureRegion } from './helpers/screenshot-utils';
 import { overrideWorkspaceName, prepareForScreenshot, setScreenshotWindowSize } from './helpers/layout-utils';
 import { annotate, clearAnnotations, paintBackdrop } from './helpers/annotate-utils';
 
@@ -232,6 +232,20 @@ test.describe('Release Screenshots - Snippets', () => {
 			{ selector: '[data-screenshot-target="keyword-function"]', label: '', color: ANNOTATION_COLOR, padding: 1 },
 		]);
 
-		await capturePanel(page, suggestWidget.widget, 'snippets-keyword-with-two-items.png');
+		// Crop to the widget width but end just below the keyword row so the
+		// shot matches the docs framing (annotated rows + a couple of
+		// follow-ups, not the full ~10-row scroll buffer).
+		const widgetBox = await suggestWidget.widget.boundingBox();
+		const lastRowBox = await page.locator('[data-screenshot-target="keyword-function"]').boundingBox();
+		if (!widgetBox || !lastRowBox) {
+			throw new Error('Could not measure suggest widget / keyword row');
+		}
+		const cropBottom = lastRowBox.y + lastRowBox.height + 4;
+		await captureRegion(page, 'snippets-keyword-with-two-items.png', {
+			x: Math.floor(widgetBox.x),
+			y: Math.floor(widgetBox.y),
+			width: Math.ceil(widgetBox.width),
+			height: Math.ceil(cropBottom - widgetBox.y),
+		});
 	});
 });

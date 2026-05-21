@@ -92,7 +92,7 @@ export async function paintBackdrop(
 
 export async function annotate(page: Page, items: Annotation[]): Promise<void> {
 	await page.evaluate((items) => {
-		const BORDER_PX = 3;
+		const BORDER_PX = 2;
 		const Z = 99998;
 
 		// Remove any borders/badges from a prior annotate() call so subsequent
@@ -163,7 +163,7 @@ export async function annotate(page: Page, items: Annotation[]): Promise<void> {
 			// wider than the region (e.g. 'Activity bar' inside the narrow
 			// Activity bar column).
 			const PAD = 6;
-			const BADGE_H = 24; // approx rendered badge height (font + padding)
+			const BADGE_H = 20; // matches the fixed badge height set below
 			const anchor =
 				labelPosition === 'top-center' ? `top:${rect.top + PAD}px;left:${rect.left + rect.width / 2}px;transform:translateX(-50%);` :
 					labelPosition === 'top-right' ? `top:${rect.top + PAD}px;right:${window.innerWidth - rect.right + PAD}px;` :
@@ -184,7 +184,16 @@ export async function annotate(page: Page, items: Annotation[]): Promise<void> {
 				anchor,
 				`background:${color}`,
 				'color:#fff',
-				'padding:3px 8px',
+				// Fixed square so single-digit badges (1, 2, 3, ...) are
+				// visually identical. Multi-character labels grow horizontally
+				// via min-width + padding while the height stays uniform.
+				'min-width:20px',
+				'height:20px',
+				'padding:0 6px',
+				'box-sizing:border-box',
+				'display:inline-flex',
+				'align-items:center',
+				'justify-content:center',
 				'border-radius:3px',
 				'font:600 12px system-ui,-apple-system,sans-serif',
 				'white-space:nowrap',
