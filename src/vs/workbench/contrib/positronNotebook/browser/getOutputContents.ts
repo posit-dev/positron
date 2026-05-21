@@ -5,6 +5,7 @@
 
 import { encodeBase64, VSBuffer } from '../../../../base/common/buffer.js';
 import { localize } from '../../../../nls.js';
+import { removeAnsiEscapeCodes } from '../../../../base/common/strings.js';
 import { NotebookCellOutputTextModel } from '../../notebook/common/model/notebookCellOutputTextModel.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { ICellOutput, IOutputItemDto } from '../../notebook/common/notebookCommon.js';
@@ -98,6 +99,13 @@ const textOutputTypes: ParsedTextOutput['type'][] = ['stdout', 'text', 'stderr',
 
 export function isParsedTextOutput(output: ParsedOutput): output is ParsedTextOutput {
 	return (textOutputTypes as string[]).includes(output.type);
+}
+
+export function getPlainTextOutputContent(outputs: ReadonlyArray<{ parsed: ParsedOutput }>): string {
+	return outputs
+		.filter(o => isParsedTextOutput(o.parsed))
+		.map(o => removeAnsiEscapeCodes((o.parsed as ParsedTextOutput).content))
+		.join('\n');
 }
 
 /**
