@@ -387,9 +387,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 							tooltip={localize('positronPackages.showHelpTooltip', "Show help for {0}", name)}
 							onPressed={() => { void showHelpForPackage(name); }}
 						>
-							<svg fill='currentColor' height='11' viewBox='0 0 16 16' width='11'>
-								<path d='M2 2.5A.5.5 0 012.5 2H5c1.1 0 2.1.4 2.9 1.1.7-.7 1.8-1.1 2.9-1.1h2.5a.5.5 0 01.5.5v10a.5.5 0 01-.5.5H11c-1 0-1.9.4-2.5 1.1-.6-.7-1.5-1.1-2.5-1.1H2.5a.5.5 0 01-.5-.5v-10zM7.5 4.1C6.9 3.4 6 3 5 3H3v9h3c.7 0 1.4.2 2 .5.6-.3 1.2-.5 2-.5h2V3h-2c-1 0-1.9.4-2.5 1.1z' />
-							</svg>
+							<span className='codicon codicon-book' />
 						</Button>
 					)}
 				</div>

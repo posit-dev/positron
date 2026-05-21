@@ -118,10 +118,14 @@
 	border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border));
 	border-radius: 3px;
 	color: inherit;
-	opacity: 0.5;
+	opacity: 0.7;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
+}
+
+.packages-list-item .packages-list-item-help .codicon {
+	font-size: 13px;
 }
 
 .packages-list-item:hover .packages-list-item-help {
