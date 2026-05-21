@@ -270,6 +270,22 @@ class ArrayMap<TIn, TOut, TKey> implements IDisposable {
 	}
 
 	public setItems(items: readonly TIn[]): void {
+		// --- Start Positron ---
+		// Defensive: some upstream observables (notably ObservableGit's `repos`
+		// observable, which reads `gitApi.repositories`) can momentarily yield a
+		// non-iterable value, which makes the `for (const item of items)` loop
+		// below throw "e is not iterable" from the recompute path. The shipping
+		// extension catches and rethrows the error via setTimeout(throw, 0), so
+		// the activation flow surfaces this as an unhandled rejection in
+		// mainThreadExtensionService and the extension never finishes
+		// initializing. Tracking issue: microsoft/vscode#303070 (upstream
+		// vscode-copilot-chat is archived without a fix). Coerce non-array
+		// inputs to an empty array so the observable chain stays healthy. This
+		// preserves behavior for valid inputs (the loop sees the same items).
+		if (!Array.isArray(items)) {
+			items = [];
+		}
+		// --- End Positron ---
 		const newItems: TOut[] = [];
 		const itemsToRemove = new Set(this._cache.keys());
 
