@@ -149,7 +149,7 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 				toolCalls: true,
 				autoconfigure: {
 					type: positron.ai.LanguageModelAutoconfigureType.Custom,
-					message: 'Automatically configured using Snowflake credentials',
+					message: 'Snowflake credentials',
 					signedIn: false,
 				},
 			},
