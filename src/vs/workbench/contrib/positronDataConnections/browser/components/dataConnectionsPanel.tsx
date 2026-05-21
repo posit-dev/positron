@@ -87,8 +87,6 @@ export const DataConnectionsPanel = ({ active }: DataConnectionsPanelProps) => {
 		return () => disposableStore.dispose();
 	}, [positronDataConnectionsService]);
 
-
-
 	// PositronListInstance. Items are a discriminated union: 'instance' rows wrap a live
 	// IDataConnectionInstance, 'profile' rows wrap a persisted IDataConnectionProfile. The
 	// renderer dispatches on the item's kind.
