@@ -48,10 +48,11 @@ Four components, each in its own layer:
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │ Component 1: Production (split across layers)               │
-│  1a (common):           importCacheState(payload)           │
-│  1b (common):           exportCacheState() -> payload       │
-│  1c (electron-sandbox): bootstrap contribution reads env+fs,│
-│                         calls importCacheState              │
+│  1a (common):           importCacheState / exportCacheState │
+│  1b (common):           IRuntimeDiscoveryCacheSeedSource    │
+│                         (interface; consulted in _init)     │
+│  1c (electron-sandbox): real seed-source impl reads env+fs  │
+│                         browser: no-op impl                 │
 └─────────────────────────────────────────────────────────────┘
                               ▲
                               │ in-process API (exportCacheState)
@@ -81,38 +82,50 @@ Each layer has a single, narrow purpose. Each can be developed and tested in iso
 
 ## Component 1: Production change
 
-Three additions, split across layers to respect VS Code's `common`/`node`/`electron-*` boundaries:
+Three additions, split across layers to respect VS Code's `common`/`electron-*` boundaries and to integrate cleanly with the cache service's existing `_initPromise` so seed ordering is automatic:
 
-- **1a (common):** `importCacheState(json: string)` method on `IRuntimeDiscoveryCache` — accepts a pre-read JSON payload and stores it via `IStorageService`. No env, no fs.
-- **1b (common):** `exportCacheState()` method on `IRuntimeDiscoveryCache` — returns the in-memory cache as a JSON-serializable payload.
-- **1c (electron-sandbox):** Seed bootstrapping contribution that reads the env var and seed file, then calls `importCacheState()`. Lives outside `common/` because env-var and filesystem access aren't legal there.
+- **1a (common):** `importCacheState(payload: IDiscoveryCachePayload): boolean` and `exportCacheState(): IDiscoveryCachePayload` methods on `IRuntimeDiscoveryCache`. No env, no fs.
+- **1b (common):** New injected dependency `IRuntimeDiscoveryCacheSeedSource` (interface in common). The cache service consults it during init, before `_reloadFromStorage()` populates `_buckets`, so consumers awaiting the cache service's existing readiness signal automatically see the seeded data.
+- **1c (electron-sandbox):** Real `RuntimeDiscoveryCacheSeedSource` impl that reads the env var via `INativeEnvironmentService` and the seed file via `IFileService`. Browser/web target gets a no-op impl that returns `undefined`.
 
-### 1a. Import API (common)
+### 1a. Import + Export APIs (common)
 
-Add a method to the `IRuntimeDiscoveryCache` interface in `runtimeDiscoveryCacheService.ts`:
+Add two methods to `IRuntimeDiscoveryCache` in `runtimeDiscoveryCacheService.ts`:
 
 ```ts
 /**
- * Replace the cache state with the payload, if and only if the storage row
- * is currently empty. Used to seed the cache from an external source
- * (e.g. a test prime file, a Workbench-managed server cache).
- *
- * Returns true if the import happened, false if skipped (existing cache wins).
+ * Replace the cache state with the payload, iff the storage row is currently
+ * empty and the payload validates. Used to seed the cache from an external
+ * source (test prime file, Workbench-managed server cache). Writes the row,
+ * then re-runs the cache service's internal reload so in-memory state
+ * (`_buckets`) reflects the seed. Returns true if the import happened.
  */
 importCacheState(payload: IDiscoveryCachePayload): boolean;
+
+/**
+ * Return the current cache state as a JSON-serializable payload. The shape
+ * matches what is persisted to IStorageService and what importCacheState()
+ * accepts, so export -> import round-trips cleanly.
+ */
+exportCacheState(): IDiscoveryCachePayload;
 ```
 
 Implementation in `runtimeDiscoveryCache.ts` (common):
 
 ```ts
 importCacheState(payload: IDiscoveryCachePayload): boolean {
+    // Refuse to clobber an existing cache — local dev with real state wins.
     if (this._storageService.get(RUNTIME_DISCOVERY_CACHE_STORAGE_KEY, StorageScope.APPLICATION)) {
-        // Don't clobber an existing cache — local dev with real Positron state should win.
         return false;
     }
-    // Schema-version check: payload from an older/newer schema is ignored.
+    // Schema-version guard — stale seeds never poison a newer schema.
     if (payload.schemaVersion !== RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION) {
         this._logService.warn(`[discoveryCache] seed schema mismatch (got v${payload.schemaVersion}, expected v${RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION}); skipping import`);
+        return false;
+    }
+    // Shape guard — mirrors `_reloadFromStorage`'s `!parsed.buckets` check.
+    if (!payload.buckets) {
+        this._logService.warn(`[discoveryCache] seed payload missing buckets; skipping import`);
         return false;
     }
     this._storageService.store(
@@ -121,80 +134,108 @@ importCacheState(payload: IDiscoveryCachePayload): boolean {
         StorageScope.APPLICATION,
         StorageTarget.MACHINE,
     );
-    this._logService.info(`[discoveryCache] imported cache state with ${payload.buckets.length} buckets`);
+    // Critical: storage writes don't fire the cache service's own onDidChangeValue
+    // listener (it guards on `e.external`). Re-run the existing reload so
+    // `this._buckets` reflects the seed in the current session, not just the next.
+    this._reloadFromStorage();
+    this._logService.info(`[discoveryCache] imported cache state with ${Object.keys(payload.buckets).length} bucket(s)`);
     return true;
 }
 ```
 
-**Why a service method, not env-var-and-fs in the constructor:**
-- `process.env` doesn't exist in browser contexts. VS Code's layering rules forbid `process` references in `common/`. The original spec read `process.env` in `common/`, which would fail at the eslint layer check (and at runtime in web Positron).
-- `fs` is Node-only; the cache service already routes file I/O through the injected `IFileService` to stay layer-clean. Reading the seed file in `common/` would break the same boundary.
-- Splitting the API surface (in-memory state mutation in common, env+fs reads in a non-common contribution) keeps each layer doing what it's allowed to do.
-- `importCacheState` is symmetric with `exportCacheState`. Vitest can test the import path with a JSON payload constructed in-test, no fs or process needed.
+**Type location for `IDiscoveryCachePayload`:** export the existing internal `IPersistedCache` shape under the public name `IDiscoveryCachePayload` from `runtimeDiscoveryCacheService.ts`. The interface already captures the persisted shape; renaming-on-export gives external callers (Workbench, tooling) a stable public type name without duplicating the definition. Note `IPersistedCache.buckets` is a `Record<string, IPersistedBucket>` (keyed by `${extensionId}/${languageId}`), not an array — that's why the log line above uses `Object.keys(...).length`. Include `schemaVersion: number` as a top-level field on the payload so import-side validation has something explicit to check.
 
-### 1b. Export API (common)
+### 1b. Seed-source dependency (common interface)
 
-Add a symmetric method:
+New service interface, registered in the standard DI container:
 
 ```ts
-/**
- * Return the current cache state as a JSON-serializable payload.
- * The shape matches what is persisted to IStorageService and what
- * importCacheState() accepts, so export -> import round-trips cleanly.
- */
-exportCacheState(): IDiscoveryCachePayload;
+export const IRuntimeDiscoveryCacheSeedSource = createDecorator<IRuntimeDiscoveryCacheSeedSource>('runtimeDiscoveryCacheSeedSource');
+
+export interface IRuntimeDiscoveryCacheSeedSource {
+    readonly _serviceBrand: undefined;
+    /**
+     * Return a parsed seed payload if one is available, undefined otherwise.
+     * Implementations handle their own env-var lookup, file reads, and JSON
+     * parsing; the common-layer cache service stays free of those concerns.
+     */
+    getSeed(): Promise<IDiscoveryCachePayload | undefined>;
+}
 ```
 
-The implementation reads the current in-memory cache state and returns it. `JSON.stringify(exportCacheState())` produces the exact string that the storage row already holds. This is the in-process API that Component 2 (CLI flag), Workbench tooling, and diagnostics all build on.
-
-**Type location for `IDiscoveryCachePayload`:** export the existing internal `IPersistedCache` shape under the public name `IDiscoveryCachePayload` from `runtimeDiscoveryCacheService.ts`. The interface already captures the persisted shape; renaming-on-export gives external callers (Workbench, tooling) a stable public type name without duplicating the definition. Include `schemaVersion: number` as a top-level field on the payload so import-side validation has something to check (today, the schema version is implicit in the storage key — making it explicit in the payload lets imports be validated before storage is touched).
-
-### 1c. Seed bootstrapping (electron-sandbox)
-
-A new workbench contribution registered in `src/vs/workbench/services/runtimeStartup/electron-sandbox/runtimeDiscoveryCacheBootstrap.ts`. Pseudocode:
+The cache service takes this as a constructor dependency and consults it inside its existing `_initPromise`, **before** `_reloadFromStorage()` runs. Modified init pseudocode:
 
 ```ts
-class RuntimeDiscoveryCacheBootstrap implements IWorkbenchContribution {
-    constructor(
-        @IRuntimeDiscoveryCache cache: IRuntimeDiscoveryCache,
-        @INativeEnvironmentService env: INativeEnvironmentService,
-        @IFileService fileService: IFileService,
-        @ILogService logService: ILogService,
-    ) {
-        this.maybeSeed(cache, env, fileService, logService);
+private async _init(): Promise<void> {
+    const existing = this._storageService.get(RUNTIME_DISCOVERY_CACHE_STORAGE_KEY, StorageScope.APPLICATION);
+    if (!existing) {
+        // Try external seed before falling back to cold discovery.
+        try {
+            const seed = await this._seedSource.getSeed();
+            if (seed && this._validateSeed(seed)) {
+                this._storageService.store(
+                    RUNTIME_DISCOVERY_CACHE_STORAGE_KEY,
+                    JSON.stringify(seed),
+                    StorageScope.APPLICATION,
+                    StorageTarget.MACHINE,
+                );
+                this._logService.info(`[discoveryCache] seeded cache from external source with ${Object.keys(seed.buckets).length} bucket(s)`);
+            }
+        } catch (e) {
+            this._logService.warn(`[discoveryCache] seed source threw: ${e}; continuing without seed`);
+        }
     }
+    this._reloadFromStorage();  // existing logic — picks up the seed transparently
+    // ... rest of existing init
+}
+```
 
-    private async maybeSeed(...) {
-        const seedPath = env.runtimeDiscoveryCacheSeedPath; // surfaced via INativeEnvironmentService
-        if (!seedPath) { return; }
+**Why fold into `_initPromise` instead of running as a separate workbench contribution:** any consumer of `IRuntimeDiscoveryCache` already awaits the service being ready. Running the seed inside that same promise means the ordering constraint ("seed must arrive before any consumer reads the cache") is enforced by the DI system itself — no `LifecyclePhase` ordering, no `seedReady: Promise<void>` plumbing on a separate contribution, no race window. A separate workbench contribution can't make this guarantee from a constructor (constructors can't be async); folding seed acquisition into the init promise is the canonical VS Code pattern when the seed must precede other service work.
+
+**Why not just have the cache service read the env var itself:** `process.env` is unavailable in `common/`, and the seed file read needs `IFileService` plus knowledge of where the path comes from. Splitting the *interface* (common) from the *impl* (electron-sandbox) keeps the cache service layer-clean while still letting init logic await the seed.
+
+### 1c. Seed source implementation (electron-sandbox + browser)
+
+Two impls registered in the DI container:
+
+**electron-sandbox** (`runtimeDiscoveryCacheSeedSource.ts` in a new `electron-sandbox/` sibling directory):
+
+```ts
+class RuntimeDiscoveryCacheSeedSource implements IRuntimeDiscoveryCacheSeedSource {
+    declare readonly _serviceBrand: undefined;
+    constructor(
+        @INativeEnvironmentService private readonly _env: INativeEnvironmentService,
+        @IFileService private readonly _fileService: IFileService,
+        @ILogService private readonly _logService: ILogService,
+    ) {}
+
+    async getSeed(): Promise<IDiscoveryCachePayload | undefined> {
+        const seedPath = this._env.runtimeDiscoveryCacheSeedPath;
+        if (!seedPath) { return undefined; }
 
         let raw: string;
         try {
-            const content = await fileService.readFile(URI.file(seedPath));
+            const content = await this._fileService.readFile(URI.file(seedPath));
             raw = content.value.toString();
         } catch (e) {
-            logService.warn(`[discoveryCache] seed file unreadable at ${seedPath}: ${e}`);
-            return;
+            this._logService.warn(`[discoveryCache] seed file unreadable at ${seedPath}: ${e}`);
+            return undefined;
         }
-
-        let payload: IDiscoveryCachePayload;
         try {
-            payload = JSON.parse(raw);
+            return JSON.parse(raw) as IDiscoveryCachePayload;
         } catch (e) {
-            logService.warn(`[discoveryCache] seed file malformed: ${e}`);
-            return;
+            this._logService.warn(`[discoveryCache] seed file malformed: ${e}`);
+            return undefined;
         }
-
-        cache.importCacheState(payload);
     }
 }
 ```
 
-**Wiring the env var to `INativeEnvironmentService`:** `EnvironmentMainService` (electron-main) reads `process.env.POSITRON_RUNTIME_DISCOVERY_CACHE_SEED` during startup and surfaces it as a typed property `runtimeDiscoveryCacheSeedPath: string | undefined` on `INativeEnvironmentService`. This is the canonical pattern in VS Code for env vars that need to reach the renderer (env vars are unavailable in `common/` and the workbench renderer reads them via this service). The exact field name and electron-main wiring is finalized during plan-writing.
+**browser** (no-op): returns `undefined`. Web Positron doesn't have a meaningful concept of "primed cache file on disk," so the seed mechanism is inert. Same shape as the electron-sandbox impl; registered in the browser-only DI bootstrap.
 
-**Registration:** registered in the workbench contribution registry at `LifecyclePhase.Restored` (or earlier — whatever fires before the cache service is first consulted by other startup services). Order matters: the bootstrap must complete its `importCacheState` call before any service reads the cache key.
+**Wiring the env var to `INativeEnvironmentService`:** `EnvironmentMainService` (electron-main) reads `process.env.POSITRON_RUNTIME_DISCOVERY_CACHE_SEED` during startup and surfaces it as a typed property `runtimeDiscoveryCacheSeedPath: string | undefined` on `INativeEnvironmentService`. This is the canonical pattern in VS Code for env vars that need to reach the renderer. The exact field name and electron-main wiring is finalized during plan-writing.
 
-**Production safety:** in production builds, the env var is harmless if set (the cache service validates the payload's schema version and JSON shape, and refuses to clobber an existing cache row). See the Security row in [Risks](#risks) for the full discussion.
+**Production safety:** in production builds, the env var is harmless if set — the cache service validates the payload's schema version and shape, and refuses to clobber an existing cache row. See the [Risks](#risks) section for the full discussion.
 
 ## Component 2: CLI export flag
 
@@ -216,7 +257,7 @@ class RuntimeDiscoveryCacheBootstrap implements IWorkbenchContribution {
 
 **Implementation location:**
 - Flag declaration: wherever Positron CLI args are parsed (alongside other Positron-specific CLI flags). Settled during plan-writing.
-- Behavior contribution: `src/vs/workbench/services/runtimeStartup/electron-sandbox/runtimeDiscoveryCacheExport.ts`, registered at a phase that runs after the workbench is up. Sibling to the bootstrap contribution from 1c.
+- Behavior contribution: `src/vs/workbench/services/runtimeStartup/electron-sandbox/runtimeDiscoveryCacheExport.ts`, registered at a phase that runs after the workbench is up. Sibling to the seed-source impl from 1c.
 
 **Why `ILifecycleService.quit()` and not a CLI short-circuit:** `--list-extensions` and similar flags work by short-circuiting before the workbench boots — that mechanism is **inapplicable here** because the export depends on runtime startup completing, which requires the full workbench to be running. The right exit primitive is `ILifecycleService.quit()` (or `ILifecycleMainService.quit()` if the contribution needs to live in electron-main), which performs a graceful shutdown that flushes pending IStorageService writes and respects shutdown listeners. Resolved.
 
@@ -305,8 +346,10 @@ Each shard
   │
   ├─ Run tests
   │      └─ Each test launches Positron
-  │           └─ Cache service sees env var
-  │                └─ Imports JSON into IStorageService
+  │           └─ Cache service init awaits seed-source.getSeed()
+  │                └─ Seed-source reads env var (INativeEnvironmentService)
+  │                     and seed file (IFileService), returns payload
+  │                └─ Cache service writes storage + reloads in-memory _buckets
   │                     └─ Cache is warm; Discovering phase short-circuits
   │                          └─ Tests run faster
   │
@@ -318,9 +361,9 @@ Each shard
 
 | Failure mode | Behavior | Test coverage |
 |---|---|---|
-| Env var unset | Bootstrap contribution checks the seed-path property on `INativeEnvironmentService`; if undefined, returns immediately. No file I/O attempted. | Unit (vitest) — bootstrap contribution test |
-| Seed file missing | `IFileService.readFile` throws; bootstrap catches, logs warning, returns. `importCacheState` is never called. | Unit (vitest) — bootstrap contribution test |
-| Seed file malformed JSON | `JSON.parse` throws; bootstrap catches, logs warning, returns. | Unit (vitest) — bootstrap contribution test |
+| Env var unset | Seed-source impl checks the seed-path property on `INativeEnvironmentService`; if undefined, `getSeed()` returns `undefined` and the cache service's init skips the seed branch. No file I/O attempted. | Unit (vitest) — seed-source impl test |
+| Seed file missing | `IFileService.readFile` throws; seed-source catches, logs warning, returns `undefined`. Cache service init proceeds normally. | Unit (vitest) — seed-source impl test |
+| Seed file malformed JSON | `JSON.parse` throws; seed-source catches, logs warning, returns `undefined`. | Unit (vitest) — seed-source impl test |
 | Storage key already populated | `importCacheState` checks the storage key and returns `false`; no log, no clobber. | Unit (vitest) — cache service test |
 | Per-entry fingerprint stale | Existing fingerprint check evicts entry | Already tested in `runtimeDiscoveryCache.vitest.ts` |
 | Discovery root signature stale | Existing root-signature check triggers full discovery for that bucket | Already tested |
@@ -332,10 +375,11 @@ Each shard
 ## Testing strategy
 
 **Cache service — import API (vitest):** Extend `src/vs/workbench/services/runtimeStartup/test/common/runtimeDiscoveryCache.vitest.ts` with cases for `importCacheState(payload)`:
-- Empty storage + valid payload → storage row populated, returns `true`.
-- Storage row already populated → returns `false`, existing row untouched.
+- Empty storage + valid payload → storage row populated **and** `_buckets` reflects the seed (verify by calling a read API after import); returns `true`.
+- Storage row already populated → returns `false`, existing row untouched, `_buckets` unchanged.
 - Payload `schemaVersion` differs from current → returns `false`, warning logged, no write.
-- Empty `buckets` array → valid, storage row populated with the empty payload shape.
+- Payload missing `buckets` (e.g. `{}`) → returns `false`, warning logged, no write.
+- Empty `buckets: {}` Record → valid, storage row populated, `Object.keys(buckets).length === 0` reflected in the log.
 
 These tests construct payloads directly in-test; no env, no fs, no `process` reference. The common-layer service stays layer-clean.
 
@@ -344,11 +388,19 @@ These tests construct payloads directly in-test; no env, no fs, no `process` ref
 - Populated cache → `exportCacheState()` returns a payload that round-trips through `importCacheState` and produces an identical storage row.
 - `schemaVersion` field equals `RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION`.
 
-**Bootstrap contribution (vitest, electron-sandbox layer):** new file alongside the contribution. Cases:
-- Seed-path property undefined → contribution returns without calling `cache.importCacheState`.
-- Seed-path set, file readable, valid JSON → `cache.importCacheState` called with parsed payload.
-- Seed-path set, file unreadable → warning logged, `cache.importCacheState` not called.
-- Seed-path set, file malformed JSON → warning logged, `cache.importCacheState` not called.
+**Cache service — init-time seeding (vitest):** Cases that exercise the seed-source integration:
+- `_seedSource.getSeed()` returns undefined → init proceeds normally, no seed write.
+- `_seedSource.getSeed()` returns valid payload + storage empty → storage written, `_buckets` populated when init resolves.
+- `_seedSource.getSeed()` returns payload + storage already populated → seed ignored (existing storage wins).
+- `_seedSource.getSeed()` rejects → warning logged, init still resolves (does not throw out of the service constructor).
+
+Stub `IRuntimeDiscoveryCacheSeedSource` directly; no need to stub `IFileService` or `INativeEnvironmentService` at this layer.
+
+**Seed source impl (vitest, electron-sandbox layer):** new file `runtimeDiscoveryCacheSeedSource.vitest.ts` next to the impl. Cases:
+- `runtimeDiscoveryCacheSeedPath` undefined → `getSeed()` returns `undefined` without touching `IFileService`.
+- Path set, file readable, valid JSON → returns the parsed payload.
+- Path set, `IFileService.readFile` rejects → returns `undefined`, warning logged.
+- Path set, file malformed JSON → returns `undefined`, warning logged.
 
 Use stub `IFileService` and stub `INativeEnvironmentService` per the standard builder pattern.
 
@@ -366,13 +418,13 @@ Runs in the same e2e matrix as other tests. Lives in `test/e2e/tests/` so it ben
 **Step 0 — Resolve gating open questions.** Lock down before any implementation begins:
 - Q1 (file list for `INTERPRETER_MANIFEST_HASH`) gates Step 4.
 - Q2 (CLI argv wiring + exit mechanism) gates Step 2. Already partially resolved in Component 2: `ILifecycleService.quit()` is the exit primitive; the remaining sub-question is the precise location where the new arg is added to `ParsedArgs`/`INativeEnvironmentService`. Confirm before coding Step 2.
-- Q4 (auto-detect vs explicit opt-in for the seed env var in the launch fixture) gates Step 3.
+- Q3 (auto-detect vs explicit opt-in for the seed env var in the launch fixture) gates Step 3.
 
-Q3 (script location) is non-gating — defaults to `test/e2e/scripts/`.
+Q4 (script location) is non-gating — defaults to `test/e2e/scripts/`.
 
 **Step 1 — Cache service: `importCacheState` + `exportCacheState` (common).** Both methods land with vitest coverage. Manual verification before merge: build Positron locally, populate the cache through a normal startup, open a debug console (or add a temporary log line), call `cache.exportCacheState()`, confirm the returned payload shape and contents are sensible. Remove any temporary logging before merge. This guards against shape bugs that vitest round-trips don't catch (e.g. `exportCacheState` being called before the in-memory cache is fully populated).
 
-**Step 2 — CLI export flag + bootstrap contribution (electron-sandbox).** Both pieces land together since they share the `INativeEnvironmentService` wiring. End-to-end testable locally: `positron --export-discovery-cache=/tmp/cache.json` should exit 0 with a valid JSON file; subsequent launches with `POSITRON_RUNTIME_DISCOVERY_CACHE_SEED=/tmp/cache.json` should log the import.
+**Step 2 — CLI export flag + seed-source impl (electron-sandbox).** Both pieces land together since they share the `INativeEnvironmentService` wiring. End-to-end testable locally: `positron --export-discovery-cache=/tmp/cache.json` should exit 0 with a valid JSON file; subsequent launches with `POSITRON_RUNTIME_DISCOVERY_CACHE_SEED=/tmp/cache.json` should log the import during cache service init.
 
 **Step 3 — Prime script + local workflow.** Developers can opt in manually; not yet wired into CI.
 
@@ -386,7 +438,7 @@ Each step is independently revertable. If a regression appears in step 4 or 5, r
 
 | Risk | Severity | Mitigation |
 |---|---|---|
-| Bug in new seed-import code | Low | Env var-gated; bootstrap returns early when unset. Vitest covers all branches of the bootstrap contribution + cache service. |
+| Bug in new seed-import code | Low | Env var-gated; seed-source returns `undefined` when unset. Vitest covers all branches of the seed-source impl + the cache service's init seeding. |
 | Env var accessible in production builds (set by user or malicious injection) | Low | The env var is **intentionally enabled in production builds** — it's the same mechanism Posit Workbench will use to seed a server-wide cache, so gating it behind a `POSITRON_TEST_` prefix or `--enable-proposed-api` would block that use case. Risk surface is bounded by: (a) `importCacheState` only runs when the storage row is empty (no clobber); (b) payload is validated against `IDiscoveryCachePayload` shape + `schemaVersion` before any write; (c) the payload contains interpreter binary paths and version metadata — same content already in users' production caches — no credentials, no project data; (d) `IFileService` honors the existing fs permissions, so an attacker can't escalate by pointing the env var at a privileged file. If a future need for production gating emerges, adding a guard is a small follow-up. |
 | Seed contains sensitive paths | Low | Seed contains interpreter binary paths and version metadata only — same content that's already in users' production caches. No credentials, no project data. |
 | Prime script becomes a maintenance burden | Low | The script is a thin wrapper over `positron --export-discovery-cache` (Component 2). All non-trivial logic lives in Positron itself, where it benefits from the rest of the codebase's maintenance. |
