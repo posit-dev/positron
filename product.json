@@ -230,7 +230,7 @@
 		},
 		{
 			"name": "posit.publisher",
-			"version": "2.7.0",
+			"version": "2.7.1",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
@@ -280,8 +280,8 @@
 		},
 		{
 			"name": "GitHub.vscode-pull-request-github",
-			"version": "0.144.0",
-			"sha256": "c9358907d2d3a3a70989e264b362a66b8b4f31f718115902dec2a513ec64c372",
+			"version": "0.146.0",
+			"sha256": "d83c899c592b259c2359e55eec4d335f384f4c4678c0b41aba7a571fb7fcecc8",
 			"repo": "https://github.com/Microsoft/vscode-pull-request-github",
 			"metadata": {
 				"publisherId": {
@@ -294,8 +294,8 @@
 		},
 		{
 			"name": "posit.assistant",
-			"version": "0.5.5",
-			"sha256": "7b292b598e86f7dd4041a7adcd99c1232600df567721b19704b90898a37e5256",
+			"version": "0.5.6",
+			"sha256": "ea5e500db01cc6f27927e8da82f33765d249a26d3d6b69082253f72af5aa46cf",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
 				"displayName": "Posit Assistant"
