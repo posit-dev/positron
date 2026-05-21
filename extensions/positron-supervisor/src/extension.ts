@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -14,6 +14,14 @@ import { KallichoreInstances } from './KallichoreInstances';
 
 /** Singleton instance of the Kallichore API wrapper */
 export let API_INSTANCE: KCApi;
+
+/**
+ * The reason the Positron window is shutting down, captured from
+ * `positron.window.onWillShutdown` so it can be consulted from `deactivate()`.
+ * Stays `undefined` if the event never fires (e.g. an unexpected ext host
+ * crash) or if the RPC race causes us to miss it.
+ */
+let lastShutdownReason: positron.ShutdownReason | undefined;
 
 export function activate(context: vscode.ExtensionContext): PositronSupervisorApi {
 	const log = positron.window.createRawLogOutputChannel('Kernel Supervisor');
@@ -54,6 +62,10 @@ export function activate(context: vscode.ExtensionContext): PositronSupervisorAp
 		log.show();
 	}));
 
+	context.subscriptions.push(positron.window.onWillShutdown(reason => {
+		lastShutdownReason = reason;
+	}));
+
 	return API_INSTANCE;
 }
 
@@ -62,14 +74,16 @@ export async function deactivate(): Promise<void> {
 		return;
 	}
 
-	// On Windows, shut down the Kallichore server so kcserver terminates its
-	// child processes (e.g. ark.exe) before Positron exits and avoids orphaned
-	// kernel processes. On other platforms, just dispose connections so the
-	// server stays running and sessions can be reconnected after a window
-	// reload (the server's idle timeout cleans it up on actual quit).
-	if (os.platform() === 'win32') {
-		await API_INSTANCE.shutdown();
-	} else {
+	// On reload, dispose connections only so the server keeps running and
+	// sessions can reconnect when the window comes back up. On any other
+	// shutdown -- and when the reason is unknown (e.g. RPC race during
+	// teardown) -- shut down kcserver so it terminates its child processes
+	// (kernels) cleanly. Without this, on Windows the orphaned processes
+	// survive past Positron exit; on other platforms they linger until the
+	// server's idle timeout fires.
+	if (lastShutdownReason === positron.ShutdownReason.Reload) {
 		API_INSTANCE.dispose();
+	} else {
+		await API_INSTANCE.shutdown();
 	}
 }

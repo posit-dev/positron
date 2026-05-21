@@ -2181,6 +2181,25 @@ declare module 'positron' {
 			provider: HelpTopicProvider): vscode.Disposable;
 	}
 
+	/**
+	 * The reason the Positron window is shutting down. Surfaced via
+	 * `positron.window.onWillShutdown` so extensions can distinguish a quit
+	 * from a window reload.
+	 */
+	export enum ShutdownReason {
+		/** The window was closed (e.g. last window of the application). */
+		Close = 1,
+
+		/** The application is quitting. */
+		Quit = 2,
+
+		/** The window is reloading. */
+		Reload = 3,
+
+		/** The window is loading a different workspace. */
+		Load = 4,
+	}
+
 	namespace window {
 		/**
 		 * Create and show a new preview panel.
@@ -2305,6 +2324,18 @@ declare module 'positron' {
 		 * plot widget.
 		 */
 		export function getPlotsRenderSettings(): Thenable<PlotRenderSettings>;
+
+		/**
+		 * Fires when the Positron window is about to shut down. The reason
+		 * indicates how the shutdown was triggered (quit, reload, close, or
+		 * load of a different workspace) so extensions can decide whether
+		 * resources should be torn down or preserved for reconnection.
+		 *
+		 * Listeners must complete synchronously: there is no opportunity to
+		 * defer the shutdown. Stash the reason and consult it from
+		 * `deactivate()` if cleanup needs to happen there.
+		 */
+		export const onWillShutdown: vscode.Event<ShutdownReason>;
 
 	}
 

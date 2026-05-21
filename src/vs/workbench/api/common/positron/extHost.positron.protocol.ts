@@ -414,6 +414,24 @@ export interface MainThreadPreviewPanelShape extends IDisposable {
 	$setTitle(handle: PreviewHandle, value: string): void;
 }
 
+export interface MainThreadLifecycleShape extends IDisposable {
+}
+
+export interface ExtHostLifecycleShape {
+	$onWillShutdown(reason: ShutdownReason): Promise<void>;
+}
+
+/**
+ * Mirrors the workbench's `ShutdownReason` so it can be transferred over RPC
+ * without importing renderer-only modules into the extension host.
+ */
+export const enum ShutdownReason {
+	Close = 1,
+	Quit = 2,
+	Reload = 3,
+	Load = 4,
+}
+
 export interface IMainPositronContext extends IRPCProtocol {
 }
 
@@ -431,6 +449,7 @@ export const ExtHostPositronContext = {
 	ExtHostPlotsService: createProxyIdentifier<ExtHostPlotsServiceShape>('ExtHostPlotsService'),
 	ExtHostNotebookFeatures: createProxyIdentifier<ExtHostNotebookFeaturesShape>('ExtHostNotebookFeatures'),
 	ExtHostDataConnections: createProxyIdentifier<ExtHostDataConnectionsShape>('ExtHostDataConnections'),
+	ExtHostLifecycle: createProxyIdentifier<ExtHostLifecycleShape>('ExtHostLifecycle'),
 };
 
 export interface MainThreadPositronEphemeralStorageShape extends IDisposable {
@@ -453,4 +472,5 @@ export const MainPositronContext = {
 	MainThreadNotebookFeatures: createProxyIdentifier<MainThreadNotebookFeaturesShape>('MainThreadNotebookFeatures'),
 	MainThreadPositronEphemeralStorage: createProxyIdentifier<MainThreadPositronEphemeralStorageShape>('MainThreadPositronEphemeralStorage'),
 	MainThreadDataConnections: createProxyIdentifier<MainThreadDataConnectionsShape>('MainThreadDataConnections'),
+	MainThreadLifecycle: createProxyIdentifier<MainThreadLifecycleShape>('MainThreadLifecycle'),
 };
