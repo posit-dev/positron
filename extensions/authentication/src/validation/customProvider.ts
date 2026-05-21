@@ -118,12 +118,7 @@ export async function validateCustomProviderApiKey(
 			// A real model + 403 is more likely a credential/scope issue.
 			if (model === '') {
 				throw new CustomProviderValidationError(
-					vscode.l10n.t(
-						'Custom Provider test model was rejected by the gateway. ' +
-						'Your credentials may be valid, but the gateway does not allow ' +
-						'access with an empty model. Configure a model override in ' +
-						'`positron.assistant.models.overrides.customProvider` and try again.'
-					)
+					vscode.l10n.t('Custom Provider test model was rejected by the gateway. Your credentials may be valid, but the gateway does not allow access with an empty model. Configure a model override in `positron.assistant.models.overrides.customProvider` and try again.')
 				);
 			}
 			throw new CustomProviderValidationError(
@@ -137,16 +132,12 @@ export async function validateCustomProviderApiKey(
 		}
 
 		const body = await readErrorBody(response);
-		throw new CustomProviderValidationError(body
-			? vscode.l10n.t(
-				'Unable to validate Custom Provider credentials (HTTP {0}): {1}',
-				String(response.status),
-				body
-			)
-			: vscode.l10n.t(
-				'Unable to validate Custom Provider credentials (HTTP {0})',
-				String(response.status)
-			)
+		const statusMessage = vscode.l10n.t(
+			'Unable to validate Custom Provider credentials (HTTP {0})',
+			String(response.status)
+		);
+		throw new CustomProviderValidationError(
+			body ? `${statusMessage}: ${body}` : statusMessage
 		);
 	} catch (err) {
 		if (err instanceof Error && err.name === 'AbortError') {
