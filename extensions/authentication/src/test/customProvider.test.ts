@@ -86,4 +86,26 @@ suite('validateCustomProviderApiKey', () => {
 		assert.match(logWarnStub.firstCall.args[0] as string, /Custom Provider/);
 		assert.match(logWarnStub.firstCall.args[0] as string, /404/);
 	});
+
+	test('throws model-not-authorized message on 403 when no model override is set', async () => {
+		mockGet.returns(undefined);
+		stubFetch(403);
+
+		await assert.rejects(
+			validateCustomProviderApiKey('sk-test', makeConfig()),
+			/Custom Provider test model was rejected/
+		);
+	});
+
+	test('throws credential-failure message on 403 when override is set', async () => {
+		mockGet.withArgs('models.overrides.customProvider').returns([
+			{ identifier: 'real-model-id' },
+		]);
+		stubFetch(403);
+
+		await assert.rejects(
+			validateCustomProviderApiKey('sk-test', makeConfig()),
+			/Invalid Custom Provider API key/
+		);
+	});
 });

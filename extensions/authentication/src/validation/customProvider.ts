@@ -79,7 +79,26 @@ export async function validateCustomProviderApiKey(
 			return;
 		}
 
-		if (response.status === 401 || response.status === 403) {
+		if (response.status === 401) {
+			throw new CustomProviderValidationError(
+				vscode.l10n.t('Invalid Custom Provider API key')
+			);
+		}
+
+		if (response.status === 403) {
+			// Empty model + 403 usually means the gateway accepted the
+			// credentials but does not authorize the default/empty model.
+			// A real model + 403 is more likely a credential/scope issue.
+			if (model === '') {
+				throw new CustomProviderValidationError(
+					vscode.l10n.t(
+						'Custom Provider test model was rejected by the gateway. ' +
+						'Your credentials may be valid, but the gateway does not allow ' +
+						'access with an empty model. Configure a model override in ' +
+						'`positron.assistant.models.overrides.customProvider` and try again.'
+					)
+				);
+			}
 			throw new CustomProviderValidationError(
 				vscode.l10n.t('Invalid Custom Provider API key')
 			);
