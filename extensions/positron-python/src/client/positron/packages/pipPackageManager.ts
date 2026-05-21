@@ -41,13 +41,25 @@ export class PipPackageManager implements IPackageManager {
     }
 
     /**
-     * Lowercased names of outdated installed packages via `pip list --outdated`.
-     * pip uses `packaging.version` (PEP 440) for the comparison.
+     * Lowercased names of outdated installed packages. pip uses
+     * `packaging.version` (PEP 440) for the comparison.
      */
     private async _getOutdatedNames(token?: vscode.CancellationToken): Promise<Set<string>> {
         if (!(await this.isPipAvailable())) {
             return new Set();
         }
+        const outdated = await this._getOutdatedPackages(token);
+        return new Set(outdated.map((pkg) => pkg.name.toLowerCase()));
+    }
+
+    /**
+     * Get outdated installed packages via `pip list --outdated`. Returns the
+     * raw `{name}[]` shape so callers can either pass the names back to
+     * `pip install --upgrade` or transform to a lowercase Set for lookup.
+     * Assumes pip is already available; callers must check `isPipAvailable()`
+     * if they aren't already gated by `_ensurePip()`.
+     */
+    private async _getOutdatedPackages(token?: vscode.CancellationToken): Promise<Array<{ name: string }>> {
         const pythonService = await this._getPythonService();
         const proxyFlags = this._getProxyFlags();
         const result = await pythonService.execModule(
@@ -55,8 +67,7 @@ export class PipPackageManager implements IPackageManager {
             ['list', '--outdated', '--format=json', ...proxyFlags],
             { token },
         );
-        const parsed = JSON.parse(result.stdout) as Array<{ name: string }>;
-        return new Set(parsed.map((pkg) => pkg.name.toLowerCase()));
+        return JSON.parse(result.stdout) as Array<{ name: string }>;
     }
 
     /**
@@ -130,19 +141,9 @@ export class PipPackageManager implements IPackageManager {
 
         await this._ensurePip();
 
-        // First, get list of outdated packages
-        const proxyFlags = this._getProxyFlags();
-
-        const pythonService = await this._getPythonService();
-        const outdatedResult = await pythonService.execModule(
-            'pip',
-            ['list', '--outdated', '--format=json', ...proxyFlags],
-            { token },
-        );
-
-        let outdatedPackages: Array<{ name: string }> = [];
+        let outdatedPackages: Array<{ name: string }>;
         try {
-            outdatedPackages = JSON.parse(outdatedResult.stdout);
+            outdatedPackages = await this._getOutdatedPackages(token);
         } catch {
             throw new Error('Failed to parse outdated packages list');
         }
