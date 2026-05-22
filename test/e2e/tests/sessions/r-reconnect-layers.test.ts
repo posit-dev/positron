@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Sessions: R Reconnect Layers', {
-	tag: [tags.CONSOLE, tags.SESSIONS, tags.ARK, tags.WEB]
+	tag: [tags.CONSOLE, tags.SESSIONS, tags.ARK, tags.WEB, tags.WIN]
 }, () => {
 
 	test.beforeAll(async function ({ app, openFolder, settings }) {
