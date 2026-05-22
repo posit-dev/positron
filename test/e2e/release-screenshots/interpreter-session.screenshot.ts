@@ -107,7 +107,8 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		await hotKeys.closePrimarySidebar();
 		await hotKeys.closeSecondarySidebar();
 		await quickaccess.runCommand('workbench.view.positronSessions.focus', { exactLabelMatch: false });
-		await layouts.resizePanel({ y: -100 });
+		await layouts.resizeAuxiliaryBar({ x: -200 });
+		await layouts.resizePanel({ y: 150 });
 
 		await prepareForScreenshot(app, page);
 		await overrideWorkspaceName(page, 'qa-example-content', 'my-project');
