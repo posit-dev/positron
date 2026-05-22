@@ -265,7 +265,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
-          aws-region: ${{ vars.QA_AWS_REGION }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
 
       - name: Run Tests (Electron)
         env:
