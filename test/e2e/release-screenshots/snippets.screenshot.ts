@@ -140,7 +140,11 @@ test.describe('Release Screenshots - Snippets', () => {
 		if (!rBox) {
 			throw new Error('Could not measure r row');
 		}
-		const height = Math.ceil((rBox.y + rBox.height) - pickerBox.y);
+		// Extra space below the r row so the annotation's bottom border
+		// (padding=1 + 1px stroke) and any sub-pixel anti-aliasing don't
+		// get clipped at the crop edge.
+		const BOTTOM_PAD = 6;
+		const height = Math.ceil((rBox.y + rBox.height + BOTTOM_PAD) - pickerBox.y);
 
 		// White backdrop in the gutter so the right-outside badge sits on a
 		// clean surface, not on whatever workbench content is behind the picker.
