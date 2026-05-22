@@ -159,7 +159,7 @@ jobs:
           # the read-only .git/objects/pack files left behind).
           SKIP_BOOTSTRAP: 'true'
           SKIP_CLONE: 'true'
-        run: npx playwright test --project release-screenshots --workers 2
+        run: npx playwright test --project release-screenshots --workers 2 --max-failures=2
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}
