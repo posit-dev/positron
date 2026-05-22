@@ -16,7 +16,6 @@ import React, {
 } from 'react';
 
 // Other dependencies.
-import { isMacintosh } from '../../../../../base/common/platform.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { ActionBarFilter, ActionBarFilterHandle } from '../../../../../platform/positronActionBar/browser/components/actionBarFilter.js';
 import { ViewsProps } from '../positronPackages.js';
@@ -354,19 +353,6 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 						e.preventDefault();
 						e.stopPropagation();
 						showRowContextMenu({ x: e.clientX, y: e.clientY });
-					}}
-					onMouseDown={(e) => {
-						// Ctrl+Click on macOS acts as right-click for the context menu.
-						if (e.button === 0 && isMacintosh && e.ctrlKey) {
-							e.stopPropagation();
-							showRowContextMenu({ x: e.clientX, y: e.clientY });
-						} else if (e.button === 0) {
-							// Left click - select via the instance and move browser focus to the
-							// data grid waffle so the cursor-outline gating (:focus-within) shows.
-							e.stopPropagation();
-							listInstance.selectRow(ctx.index);
-							(e.currentTarget.closest('.data-grid-waffle') as HTMLElement | null)?.focus();
-						}
 					}}
 				>
 					{attached !== undefined && (
