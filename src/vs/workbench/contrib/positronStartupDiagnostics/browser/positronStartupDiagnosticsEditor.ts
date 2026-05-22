@@ -179,7 +179,7 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 		return Promise.resolve(this._model);
 	}
 
-	private async _updateModel(): void {
+	private async _updateModel(): Promise<void> {
 		Promise.all([
 			// Wait for the timer service barrier so _addSystemInfo can read
 			// startupMetrics, but cap the wait. The diagnostics report's job is to
