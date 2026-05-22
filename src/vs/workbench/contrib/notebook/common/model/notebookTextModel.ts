@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // --- Start Positron ---
-import { removeOutputExecutionCounts } from '../notebookSaveUtils.js';
+import { snapshotNotebookCellOutputs } from '../notebookSaveSettings.js';
 // --- End Positron ---
 import { ISequence, LcsDiff } from '../../../../../base/common/diff/diff.js';
 import { Emitter, Event, PauseableEmitter } from '../../../../../base/common/event.js';
@@ -504,15 +504,10 @@ export class NotebookTextModel extends Disposable implements INotebookTextModel 
 				}
 			}
 
-			cellData.outputs = !transientOptions.transientOutputs ? cell.outputs : [];
 			// --- Start Positron ---
-			// If cell metadata execution counts are set as transient,
-			// also remove execution counts from outputs -
-			// it's probably what users expect.
-			if (transientOptions.transientCellMetadata.execution_count &&
-				cellData.outputs.length > 0) {
-				removeOutputExecutionCounts(cellData);
-			}
+			// Use our snapshotting which also handles output execution counts.
+			// cellData.outputs = !transientOptions.transientOutputs ? cell.outputs : [];
+			cellData.outputs = snapshotNotebookCellOutputs(cell.outputs, transientOptions);
 			// --- End Positron ---
 			cellData.metadata = filter(cell.metadata, key => !transientOptions.transientCellMetadata[key]);
 
