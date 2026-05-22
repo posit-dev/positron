@@ -12,7 +12,7 @@ import { registerAuthProvider, showConfigurationDialog } from './configDialog';
 import { PROVIDER_METADATA } from './providerSources';
 import { normalizeToV1Url, validateAnthropicApiKey, validateCustomProviderApiKey, validateFoundryApiKey, validateGeminiApiKey, validateOpenaiApiKey, validateSnowflakeApiKey } from './validation';
 import { FOUNDRY_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
-import { detectSnowflakeCredentials, getSnowflakeConnectionsTomlPath } from './snowflakeCredentials';
+import { detectSnowflakeCredentials, getSnowflakeConnectionsTomlPath, seedSnowflakePartnerTagHeader } from './snowflakeCredentials';
 import { PositOAuthProvider } from './positOAuthProvider';
 import * as fs from 'fs';
 import { log } from './log';
@@ -358,6 +358,13 @@ function registerSnowflakeProvider(context: vscode.ExtensionContext): void {
 			`Initial credential resolution failed: ${err}`
 		)
 	);
+
+	// Make the partner-tag User-Agent available to Posit Assistant via the
+	// shared customHeaders setting. See seedSnowflakePartnerTagHeader for rules.
+	seedSnowflakePartnerTagHeader().catch(err =>
+		logger.logOperationError('seed Snowflake partner tag', err)
+	);
+
 	logger.info('Registered auth provider');
 }
 

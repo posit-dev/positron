@@ -10,6 +10,8 @@ import {
 	isValidSnowflakeAccount,
 	constructSnowflakeBaseUrl,
 	getSnowflakeDefaultBaseUrl,
+	getSnowflakePartnerTag,
+	seedSnowflakePartnerTagHeader,
 	detectSnowflakeCredentials,
 } from '../snowflakeCredentials';
 
@@ -115,6 +117,124 @@ suite('Snowflake Credentials', () => {
 
 			const url = getSnowflakeDefaultBaseUrl();
 			assert.strictEqual(url, 'https://<account_identifier>.snowflakecomputing.com/api/v2/cortex/v1');
+		});
+	});
+
+	suite('Partner Tag', () => {
+		let mockWorkspaceConfig: sinon.SinonStub;
+		let getConfigurationStub: sinon.SinonStub;
+		let processEnvStub: sinon.SinonStub;
+
+		setup(() => {
+			mockWorkspaceConfig = sinon.stub();
+			const mockConfig: vscode.WorkspaceConfiguration = {
+				get: mockWorkspaceConfig,
+				has: sinon.stub(),
+				inspect: sinon.stub(),
+				update: sinon.stub()
+			};
+			getConfigurationStub = sinon.stub(vscode.workspace, 'getConfiguration').returns(mockConfig);
+			processEnvStub = sinon.stub(process, 'env').value({});
+		});
+
+		teardown(() => {
+			getConfigurationStub.restore();
+			processEnvStub.restore();
+		});
+
+		test('getSnowflakePartnerTag prefers environmentVariables.set.SF_PARTNER', () => {
+			mockWorkspaceConfig.withArgs('set').returns({ SF_PARTNER: 'setting_value' });
+			processEnvStub.value({ SF_PARTNER: 'env_value' });
+
+			assert.strictEqual(getSnowflakePartnerTag(), 'setting_value');
+		});
+
+		test('getSnowflakePartnerTag falls back to process.env.SF_PARTNER', () => {
+			mockWorkspaceConfig.withArgs('set').returns({});
+			processEnvStub.value({ SF_PARTNER: 'env_value' });
+
+			assert.strictEqual(getSnowflakePartnerTag(), 'env_value');
+		});
+
+		test('getSnowflakePartnerTag defaults to posit_positron', () => {
+			mockWorkspaceConfig.withArgs('set').returns({});
+
+			assert.strictEqual(getSnowflakePartnerTag(), 'posit_positron');
+		});
+	});
+
+	suite('Seed Partner Tag Header', () => {
+		let getStub: sinon.SinonStub;
+		let inspectStub: sinon.SinonStub;
+		let updateStub: sinon.SinonStub;
+		let getConfigurationStub: sinon.SinonStub;
+
+		setup(() => {
+			getStub = sinon.stub();
+			inspectStub = sinon.stub();
+			updateStub = sinon.stub().resolves();
+			const mockConfig: vscode.WorkspaceConfiguration = {
+				get: getStub,
+				has: sinon.stub(),
+				inspect: inspectStub,
+				update: updateStub,
+			};
+			getConfigurationStub = sinon
+				.stub(vscode.workspace, 'getConfiguration')
+				.callsFake((section?: string) => {
+					if (section === 'authentication.snowflake') {
+						return mockConfig;
+					}
+					// Empty config for SF_PARTNER lookup so the seeded
+					// User-Agent is always the default partner tag.
+					return { get: () => ({}) } as unknown as vscode.WorkspaceConfiguration;
+				});
+			sinon.stub(process, 'env').value({});
+		});
+
+		teardown(() => {
+			getConfigurationStub.restore();
+		});
+
+		test('skips write when User-Agent is already set in effective config', async () => {
+			getStub.withArgs('customHeaders', {}).returns({ 'User-Agent': 'user-custom' });
+			inspectStub.withArgs('customHeaders').returns({ globalValue: { 'User-Agent': 'user-custom' } });
+
+			const wrote = await seedSnowflakePartnerTagHeader();
+
+			assert.strictEqual(wrote, false);
+			assert.strictEqual(updateStub.called, false);
+		});
+
+		test('writes to most-specific scope where customHeaders is defined, merging existing keys', async () => {
+			getStub.withArgs('customHeaders', {}).returns({ 'X-Tenant': 'acme' });
+			inspectStub.withArgs('customHeaders').returns({
+				globalValue: { 'X-Global': 'g' },
+				workspaceValue: { 'X-Tenant': 'acme' },
+			});
+
+			const wrote = await seedSnowflakePartnerTagHeader();
+
+			assert.strictEqual(wrote, true);
+			assert.deepStrictEqual(updateStub.firstCall.args, [
+				'customHeaders',
+				{ 'X-Tenant': 'acme', 'User-Agent': 'posit_positron' },
+				vscode.ConfigurationTarget.Workspace,
+			]);
+		});
+
+		test('falls back to Global when customHeaders is not defined at any scope', async () => {
+			getStub.withArgs('customHeaders', {}).returns({});
+			inspectStub.withArgs('customHeaders').returns({});
+
+			const wrote = await seedSnowflakePartnerTagHeader();
+
+			assert.strictEqual(wrote, true);
+			assert.deepStrictEqual(updateStub.firstCall.args, [
+				'customHeaders',
+				{ 'User-Agent': 'posit_positron' },
+				vscode.ConfigurationTarget.Global,
+			]);
 		});
 	});
 

@@ -226,6 +226,66 @@ export async function checkForUpdatedSnowflakeCredentials(
 }
 
 /**
+ * Resolves the Snowflake partner tag sent as the User-Agent header on Cortex
+ * requests. The tag lets Snowflake attribute traffic to Posit; Workbench-managed
+ * environments override it via SF_PARTNER (e.g. `posit_workbench_positron`).
+ *
+ * Precedence: environmentVariables.set.SF_PARTNER, then process.env.SF_PARTNER,
+ * then the default `posit_positron`.
+ */
+export function getSnowflakePartnerTag(): string {
+	const envVars = vscode.workspace
+		.getConfiguration('environmentVariables')
+		.get<Record<string, string>>('set') ?? {};
+	return envVars['SF_PARTNER'] || process.env.SF_PARTNER || 'posit_positron';
+}
+
+/**
+ * Seeds the Snowflake partner tag into `authentication.snowflake.customHeaders`
+ * as the User-Agent header, so Posit Assistant reads it from there instead of
+ * redoing the lookup itself.
+ *
+ * Two rules:
+ * - Skip if the user already set User-Agent. customHeaders is the escape
+ *   hatch for enterprise gateways, and we don't clobber it.
+ * - Write to the scope where customHeaders is currently defined (most
+ *   specific wins). Object settings don't merge across scopes, so a global
+ *   write can be hidden by a workspace-level value.
+ *
+ * Seeded once at activation; subsequent SF_PARTNER changes require a reload.
+ * Users who need a different tag mid-session can edit
+ * authentication.snowflake.customHeaders directly.
+ *
+ * @returns true if a write was made, false if seeding was skipped.
+ */
+export async function seedSnowflakePartnerTagHeader(): Promise<boolean> {
+	const cfg = vscode.workspace.getConfiguration('authentication.snowflake');
+	const effective = cfg.get<Record<string, string>>('customHeaders', {});
+	if (effective['User-Agent']) {
+		return false;
+	}
+	const inspection = cfg.inspect<Record<string, string>>('customHeaders');
+	let target: vscode.ConfigurationTarget;
+	let base: Record<string, string>;
+	if (inspection?.workspaceFolderValue !== undefined) {
+		target = vscode.ConfigurationTarget.WorkspaceFolder;
+		base = inspection.workspaceFolderValue;
+	} else if (inspection?.workspaceValue !== undefined) {
+		target = vscode.ConfigurationTarget.Workspace;
+		base = inspection.workspaceValue;
+	} else {
+		target = vscode.ConfigurationTarget.Global;
+		base = inspection?.globalValue ?? {};
+	}
+	await cfg.update(
+		'customHeaders',
+		{ ...base, 'User-Agent': getSnowflakePartnerTag() },
+		target
+	);
+	return true;
+}
+
+/**
  * Gets the default base URL for Snowflake Cortex, using SNOWFLAKE_ACCOUNT if available
  * @returns Base URL string with account identifier filled in if possible
  */
