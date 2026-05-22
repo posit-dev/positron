@@ -1232,6 +1232,9 @@ declare module 'positron' {
 		 * can be loaded as a transitive dependency without being attached.
 		 */
 		attached?: boolean;
+
+		/** Optional short description or summary shown in the Packages pane card view. */
+		description?: string;
 	}
 
 	/**
