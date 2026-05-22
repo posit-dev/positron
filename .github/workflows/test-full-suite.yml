@@ -39,6 +39,11 @@ on:
         required: false
         default: true
         type: boolean
+      run_e2e_macos:
+        description: "E2E Tests / Electron (macOS)"
+        required: false
+        default: false
+        type: boolean
       run_e2e_browser:
         description: "E2E Tests / Chromium (Ubuntu)"
         required: false
@@ -132,6 +137,16 @@ jobs:
       commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
       skip_cache: ${{ inputs.commit != 'latest' }}
 
+  setup-macos:
+    name: setup-macos
+    needs: [validate-commit]
+    if: ${{ !failure() && !cancelled() && inputs.run_e2e_macos }}
+    uses: ./.github/workflows/test-e2e-macos-build.yml
+    secrets: inherit
+    with:
+      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
+      arch: arm64
+
   e2e-electron:
     name: e2e
     needs: [setup]
@@ -170,6 +185,23 @@ jobs:
       matrix: '{"shard":[1,2,3,4]}'
       max_failures: 6  # 20 max failures / 4 shards = 5, rounded to 6 to avoid premature failure of the entire suite
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
+
+  e2e-macos:
+    name: e2e
+    needs: [setup-macos]
+    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_macos) }}
+    uses: ./.github/workflows/test-e2e-macos-run.yml
+    secrets: inherit
+    with:
+      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
+      grep: ${{ inputs.grep || '' }}
+      project: "e2e-macOS-ci"
+      display_name: "macos"
+      shards: 4
+      matrix: '{"shard":[1,2,3,4]}'
+      max_failures: 6  # 20 max failures / 4 shards = 5, rounded to 6 to avoid premature failure of the entire suite
+      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
+      arch: arm64
 
   e2e-chromium:
     name: e2e
@@ -349,7 +381,7 @@ jobs:
   slack-notify:
     if: always()
     needs:
-      [validate-commit, e2e-electron, e2e-windows, e2e-chromium, e2e-rhel, e2e-chromium-rhel, e2e-suse, e2e-chromium-suse, e2e-sles, e2e-chromium-sles, e2e-debian, e2e-chromium-debian, unit-tests, ext-host-tests]
+      [validate-commit, e2e-electron, e2e-windows, e2e-macos, e2e-chromium, e2e-rhel, e2e-chromium-rhel, e2e-suse, e2e-chromium-suse, e2e-sles, e2e-chromium-sles, e2e-debian, e2e-chromium-debian, unit-tests, ext-host-tests]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
