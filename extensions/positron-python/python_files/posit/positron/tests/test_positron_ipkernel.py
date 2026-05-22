@@ -394,6 +394,56 @@ def test_pinfo_2(shell: PositronShell, tmp_path: Path, mock_ui_service: Mock) ->
     mock_ui_service.open_editor.assert_called_once_with(expected_file, 4, 0)
 
 
+def test_pinfo_unimported_module(
+    shell: PositronShell, tmp_path: Path, mock_help_service: Mock, capsys
+) -> None:
+    """`?name` should call show_help when name is an installed-but-not-imported module."""
+    module_name = "test_pinfo_unimported_xyz"
+    (tmp_path / f"{module_name}.py").write_text("# empty\n")
+
+    with prepended_to_syspath(str(tmp_path)):
+        assert module_name not in shell.user_ns
+        shell.run_cell(f"{module_name}?")
+
+    mock_help_service.show_help.assert_called_once_with(module_name)
+    # Should not also print IPython's default "Object not found" message.
+    assert "not found" not in capsys.readouterr().out
+
+
+def test_pinfo_nonexistent_name(shell: PositronShell, mock_help_service: Mock) -> None:
+    """`?name` for a name that's neither in scope nor on disk should not call show_help."""
+    shell.run_cell("definitely_not_a_real_module_zzz_123?")
+
+    mock_help_service.show_help.assert_not_called()
+
+
+def test_pinfo_distribution_name(
+    shell: PositronShell,
+    mock_help_service: Mock,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys,
+) -> None:
+    """`?name` should call show_help when name is a PyPI distribution (e.g. `scikit-learn`)."""
+    import importlib.metadata
+
+    # Pretend numpy is shipped as the distribution `fake-dist-xyz`. The import
+    # name (`numpy`) differs from the distribution name, mirroring the real
+    # `scikit-learn` / `sklearn` case. `raising=False` so this works on Python
+    # 3.9 where `packages_distributions` is absent.
+    monkeypatch.setattr(
+        importlib.metadata,
+        "packages_distributions",
+        lambda: {"numpy": ["fake-dist-xyz"]},
+        raising=False,
+    )
+
+    shell.run_cell("?fake-dist-xyz")
+
+    mock_help_service.show_help.assert_called_once_with("fake-dist-xyz")
+    # Should not also print IPython's default "Object not found" message.
+    assert "not found" not in capsys.readouterr().out
+
+
 def test_clear(shell: PositronShell, mock_ui_service: Mock) -> None:
     """Redirect `%clear` to the Positron UI service's `clear_console` method."""
     shell.run_cell("%clear")

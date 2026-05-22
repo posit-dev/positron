@@ -154,7 +154,7 @@ export class Workbench {
 		this.inlineDataExplorer = new InlineDataExplorer(code.driver.currentPage);
 		this.inlineQuarto = new InlineQuarto(code, this.quickaccess, this.hotKeys);
 		this.publisher = new Publisher(this.quickInput);
-		this.packages = new Packages(code, this.contextMenu, this.quickInput, this.toasts);
+		this.packages = new Packages(code, this.contextMenu, this.quickInput, this.toasts, this.help);
 	}
 }
 

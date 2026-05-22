@@ -8,6 +8,7 @@ import './listPackages.css';
 
 // React.
 import React, {
+	useCallback,
 	useEffect,
 	useMemo,
 	useRef,
@@ -24,15 +25,17 @@ import { Separator } from '../../../../../base/common/actions.js';
 import { localize } from '../../../../../nls.js';
 import { usePositronPackagesContext } from '../positronPackagesContext.js';
 import { ILanguageRuntimePackage } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { generateUuid } from '../../../../../base/common/uuid.js';
 import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progressbar.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { showCustomContextMenu, CustomContextMenuSubmenu, CustomContextMenuEntry } from '../../../../browser/positronComponents/customContextMenu/customContextMenu.js';
 import { CustomContextMenuItem } from '../../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
+import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { applyFilterToQuery, applySortToQuery, PackagesFilter, PackagesSortOrder, parseQuery } from './packagesQuery.js';
 import { PositronList } from '../../../../browser/positronList/positronList.js';
 import { ListEntry, PositronListInstance, PositronListItemContext } from '../../../../browser/positronList/classes/positronListInstance.js';
-import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 
 const positronUninstallPackage = localize(
 	'positronUninstallPackage',
@@ -258,6 +261,39 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		}
 	}, [listInstance, filteredPackages]);
 
+	// Show the help page for a package using the active session's language. Falls back to a
+	// notification if the help service can't find anything.
+	const showHelpForPackage = useCallback(async (packageName: string) => {
+		const session = activeInstance?.session;
+		if (!session) {
+			return;
+		}
+		const languageId = session.runtimeMetadata.languageId;
+
+		// R: open the package's help index directly. The help comm only knows
+		// how to look up help *topics*, so bare "dplyr" usually finds nothing.
+		// `help(package = ...)` is the canonical entry point for package-level
+		// help; printing the result triggers ark's browseURL hook, which
+		// surfaces the page in the help pane.
+		if (languageId === 'r') {
+			session.execute(
+				`help(package = "${packageName}", help_type = "html")`,
+				generateUuid(),
+				RuntimeCodeExecutionMode.Interactive,
+				RuntimeErrorBehavior.Stop,
+			);
+			return;
+		}
+
+		// Default behavior
+		const found = await services.positronHelpService.showHelpTopic(languageId, packageName);
+		if (!found) {
+			services.notificationService.info(
+				localize('positronPackages.noHelpFound', "No help found for '{0}'.", packageName)
+			);
+		}
+	}, [activeInstance, services]);
+
 	// Replace the item renderer whenever its closed-over deps change so the latest
 	// deduplicatedPackages snapshot is visible to "Copy All" and clicks select via the
 	// instance.
@@ -376,12 +412,22 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 							</div>
 						)}
 					</div>
+					{attached === true && (
+						<Button
+							ariaLabel={localize('positronPackages.showHelpAriaLabel', "Show help for {0}", name)}
+							className='packages-list-item-help'
+							tooltip={localize('positronPackages.showHelpTooltip', "Show help for {0}", name)}
+							onPressed={() => { void showHelpForPackage(name); }}
+						>
+							<span className='codicon codicon-book' />
+						</Button>
+					)}
 				</div>
 			);
 		};
 
 		listInstance.setItemRenderer(renderItem);
-	}, [listInstance, deduplicatedPackages, services, itemSize]);
+	}, [listInstance, deduplicatedPackages, services, itemSize, showHelpForPackage]);
 
 	// Enter on the focused row sets selection to that row.
 	useEffect(() => {
