@@ -58,6 +58,7 @@
 	},
 	"scripts": {
 		"compile": "gulp compile-extension:next-edit-suggestions",
+		"pretest": "npm run compile",
 		"watch": "gulp watch-extension:next-edit-suggestions"
 	},
 	"dependencies": {
@@ -65,7 +66,11 @@
 		"vscode-languageclient": "^9.0.1"
 	},
 	"devDependencies": {
+		"@types/mocha": "^9.1.0",
 		"@types/node": "^20.19.24",
-		"@types/vscode": "^1.108.0"
+		"@types/sinon": "^17.0.3",
+		"@types/vscode": "^1.108.0",
+		"mocha": "^9.2.1",
+		"sinon": "^17.0.1"
 	}
 }

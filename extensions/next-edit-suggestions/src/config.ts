@@ -55,6 +55,10 @@ function isCompletionEnabledForFileType(document: vscode.TextDocument): boolean 
 		.getConfiguration('nextEditSuggestions')
 		.get<Record<string, boolean>>('enable');
 
+	if (!enableConfig) {
+		return true;
+	}
+
 	const languageId = document.languageId;
 
 	if (Object.hasOwn(enableConfig, languageId)) {
