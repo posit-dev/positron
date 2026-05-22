@@ -163,7 +163,7 @@ jobs:
               elif ($entry.tags | length) > 0 then
                 "- " + $e + " -> " + ($entry.tags | join(", "))
               else
-                "- " + $e + " -> (no tag" + (if $entry.note then "; " + $entry.note else "" end) + ")"
+                "- " + $e + " -> n/a"
               end
             ) | join("\n")
           ')
@@ -181,9 +181,9 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           echo "updated=$UPDATED" >> "$GITHUB_OUTPUT"
           {
-            echo "tag_bullets<<RENDER_EOF"
+            echo "tag_bullets<<__RENDER_EOF__"
             echo "$TAG_BULLETS"
-            echo "RENDER_EOF"
+            echo "__RENDER_EOF__"
           } >> "$GITHUB_OUTPUT"
           echo "combined_tags=$COMBINED_TAGS" >> "$GITHUB_OUTPUT"
 

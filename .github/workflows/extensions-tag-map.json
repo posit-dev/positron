@@ -1,6 +1,6 @@
 {
-  "charliermarsh.ruff":                         { "tags": [],                                                       "note": "Python linter/formatter; no e2e coverage. Verify Python editor manually." },
-  "GitHub.vscode-pull-request-github":          { "tags": [],                                                       "note": "No e2e coverage of the PR extension. @:scm only covers basic git modify/stage/commit." },
+  "charliermarsh.ruff":                         { "tags": [] },
+  "GitHub.vscode-pull-request-github":          { "tags": [] },
   "meta.pyrefly":                               { "tags": ["@:pyrefly"] },
   "ms-python.debugpy":                          { "tags": ["@:debug"] },
   "ms-toolsai.jupyter":                         { "tags": ["@:jupyter", "@:notebooks", "@:positron-notebooks"] },
