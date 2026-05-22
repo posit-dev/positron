@@ -516,6 +516,7 @@ import './contrib/runtimeSession/browser/foregroundSessionContribution.js';
 import './services/languageRuntime/common/languageRuntime.js';
 import './services/runtimeSession/common/runtimeSession.js';
 import './services/runtimeStartup/common/runtimeStartup.js';
+import './services/runtimeStartup/common/runtimeDiscoveryCache.js';
 import './contrib/runtimeNotebookKernel/browser/runtimeNotebookKernelService.js';
 import './services/positronConsole/browser/positronConsoleService.js';
 import './services/positronConsole/browser/resourceUsageHistoryService.js';

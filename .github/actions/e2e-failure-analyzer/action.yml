@@ -23,6 +23,10 @@ inputs:
     description: "blob (sharded artifacts + merge-reports) or s3 (HTML report). Default: blob."
     required: false
     default: "blob"
+  repo-root:
+    description: "Path to the repo workspace whose test/e2e/ source and .claude/skills/ helpers the analyzer should read. Defaults to $GITHUB_WORKSPACE. positron-builds passes $GITHUB_WORKSPACE/positron because both the test source and helper scripts live in the submodule."
+    required: false
+    default: ""
 runs:
   using: composite
   steps:
@@ -61,7 +65,7 @@ runs:
       env:
         GH_TOKEN: ${{ github.token }}
       run: |
-        node "${{ github.workspace }}/.claude/skills/e2e-failure-analyzer/scripts/e2e-gather-run-info.js" \
+        node "${{ inputs.repo-root || github.workspace }}/.claude/skills/e2e-failure-analyzer/scripts/e2e-gather-run-info.js" \
           "${{ inputs.run-url }}" > "${{ steps.prep.outputs.work_dir }}/run-info.json"
         echo "::group::run-info.json"
         cat "${{ steps.prep.outputs.work_dir }}/run-info.json"
@@ -90,7 +94,7 @@ runs:
           mkdir -p "$OUT"
           echo "::group::Process project $PROJECT"
           # cwd = action dir so npx finds @playwright/test from action's node_modules
-          node "${{ github.workspace }}/.claude/skills/e2e-failure-analyzer/scripts/e2e-process-project.js" \
+          node "${{ inputs.repo-root || github.workspace }}/.claude/skills/e2e-failure-analyzer/scripts/e2e-process-project.js" \
             --download \
             --run-id "$RUN_ID" \
             --repo "$REPO" \
@@ -151,14 +155,18 @@ runs:
 
           # Resolve REPORT_DIR from the job's logs. The workflow logs both an
           # unresolved template line (REPORT_DIR="...-${IDENTIFIER}-${OS_SUFFIX}")
-          # and the expanded value (REPORT_DIR: playwright-report-<run>-<attempt>-<id>-<os>).
-          # Filter out lines containing literal ${ to skip the template, then
-          # extract the first concrete playwright-report-* token.
+          # and the expanded value. Skip the template, capture the first concrete
+          # match, emit it at END. Avoiding `exit` here is deliberate -- it would
+          # close awk's stdin mid-pipeline, SIGPIPE upstream printf, and under
+          # `set -e -o pipefail` kill the step (manifests as "printf: write error:
+          # Broken pipe" on large log payloads).
           LOGS=$(gh api "repos/$REPO/actions/jobs/$JOB_ID/logs" 2>/dev/null || true)
-          REPORT_DIR=$(printf '%s' "$LOGS" \
-            | grep -v '\${' \
-            | grep -oE 'playwright-report-[A-Za-z0-9_-]+' \
-            | head -1)
+          REPORT_DIR=$(printf '%s' "$LOGS" | awk '
+            !/\${/ && !found && match($0, /playwright-report-[A-Za-z0-9_-]+/) {
+              found = substr($0, RSTART, RLENGTH)
+            }
+            END { if (found) print found }
+          ')
 
           if [ -z "$REPORT_DIR" ]; then
             echo "Could not resolve REPORT_DIR from logs of job $JOB_ID. Skipping."
@@ -169,7 +177,7 @@ runs:
           REPORT_URL="$CDN_BASE/$REPORT_DIR/"
           echo "Report URL: $REPORT_URL"
 
-          node "${{ github.workspace }}/.claude/skills/e2e-failure-analyzer/scripts/e2e-process-s3.js" \
+          node "${{ inputs.repo-root || github.workspace }}/.claude/skills/e2e-failure-analyzer/scripts/e2e-process-s3.js" \
             --report-url "$REPORT_URL" \
             --output-dir "$OUT" \
             --cleanup \
@@ -192,7 +200,7 @@ runs:
         # The e2e-test-insights API uses a single "positron" repo ID for both
         # posit-dev/positron and posit-dev/positron-builds (same tests, same
         # storage) -- do not parameterize this on the source GH repo.
-        node "${{ github.workspace }}/.claude/skills/e2e-failure-analyzer/scripts/e2e-query-history.js" \
+        node "${{ inputs.repo-root || github.workspace }}/.claude/skills/e2e-failure-analyzer/scripts/e2e-query-history.js" \
           --repo positron \
           --run-id "$RUN_ID" \
           --lookback-days 14 \
@@ -210,7 +218,7 @@ runs:
         WORK_DIR: ${{ steps.prep.outputs.work_dir }}
         # Repo workspace -- the agent reads test source from $REPO_ROOT/test/e2e
         # to understand each failing test's intent (assertions, page-object usage).
-        REPO_ROOT: ${{ github.workspace }}
+        REPO_ROOT: ${{ inputs.repo-root || github.workspace }}
         MODEL: ${{ inputs.model }}
         MAX_TURNS: ${{ inputs.max-turns }}
       run: node analyze.mjs

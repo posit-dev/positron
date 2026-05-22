@@ -16,7 +16,7 @@ runs:
   using: "composite"
   steps:
     - name: Configure AWS Credentials
-      uses: aws-actions/configure-aws-credentials@v4
+      uses: aws-actions/configure-aws-credentials@v6
       if: ${{ !cancelled() }}
       with:
         role-to-assume: ${{ inputs.role-to-assume }}

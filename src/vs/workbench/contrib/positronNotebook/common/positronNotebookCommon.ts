@@ -41,6 +41,7 @@ export enum PositronNotebookCellOutputActionGroup {
  * Not exhaustive; add here when Action IDs are referenced in more than one place.
  */
 export enum PositronNotebookActionId {
+	CopyOutput = 'positronNotebook.cell.copyOutput',
 	CopyOutputImage = 'positronNotebook.cell.copyOutputImage',
 	CopyOutputJson = 'positronNotebook.cell.copyOutputJson',
 }

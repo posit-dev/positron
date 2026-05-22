@@ -14,3 +14,13 @@
 	position: relative;
 	margin-top: 5px;
 }
+
+.startup-status .discovery-path {
+	font-size: 0.85em;
+	color: var(--vscode-descriptionForeground);
+	margin-top: 2px;
+	max-width: 90%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}

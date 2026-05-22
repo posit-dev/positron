@@ -5,6 +5,11 @@ on:
   schedule:
     - cron: "0 2 * * 1-5"
   workflow_dispatch:
+    inputs:
+      dryrun:
+        description: 'Dry run: detect mismatches and run the bump script, but skip commit/push/PR/Slack.'
+        type: boolean
+        default: false
 
 permissions:
   id-token: write
@@ -61,6 +66,15 @@ jobs:
           echo "Running: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project e2e-electron --reporter=null"
           npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project e2e-electron --reporter=null
 
+      - name: Upload mismatched extensions list
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mismatched-extensions
+          path: test-logs/mismatched-extensions.txt
+          retention-days: 3
+          if-no-files-found: ignore
+
   auto-update:
     name: 'auto-update-extensions'
     if: always() && needs.extensions-linux.result != 'cancelled'
@@ -90,18 +104,43 @@ jobs:
           git config user.name "positron-bot[bot]"
           git config user.email "positron-bot[bot]@users.noreply.github.com"
 
+      - name: Download mismatched extensions list
+        if: needs.extensions-linux.result == 'failure'
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: mismatched-extensions
+          path: .
+
       - name: Update extensions
         env:
           TEST_RESULT: ${{ needs.extensions-linux.result }}
         run: |
-          if [ "$TEST_RESULT" = "failure" ]; then
-            ./scripts/update-extensions.sh --all
+          MISMATCHED=()
+          if [ "$TEST_RESULT" = "failure" ] && [ -s mismatched-extensions.txt ]; then
+            read -ra MISMATCHED <<< "$(cat mismatched-extensions.txt)"
+          fi
+          # meta.pyrefly is optional in the test, so bump it every run to catch silent drift.
+          EXTENSIONS_TO_BUMP=(meta.pyrefly "${MISMATCHED[@]}")
+          echo "Bumping extensions: ${EXTENSIONS_TO_BUMP[*]}"
+          {
+            echo "### Bootstrap extensions to bump"
+            echo ""
+            printf -- '- %s\n' "${EXTENSIONS_TO_BUMP[@]}"
+          } >> "$GITHUB_STEP_SUMMARY"
+          ./scripts/update-extensions.sh "${EXTENSIONS_TO_BUMP[@]}"
+
+      - name: Show product.json diff
+        run: |
+          if git diff --quiet product.json; then
+            echo "No changes to product.json."
           else
-            ./scripts/update-extensions.sh meta.pyrefly
+            git --no-pager diff product.json
           fi
 
       - name: Commit and push
         id: push
+        if: inputs.dryrun != true
         env:
           GH_TOKEN: ${{ steps.bot-token.outputs.token }}
         run: |
@@ -165,7 +204,7 @@ jobs:
           echo "updated=$UPDATED" >> "$GITHUB_OUTPUT"
 
       - name: Post PR to Slack
-        if: steps.push.outputs.existing_pr != '' || steps.create-pr.outputs.pr_url != ''
+        if: (steps.push.outputs.existing_pr != '' || steps.create-pr.outputs.pr_url != '') && inputs.dryrun != true
         env:
           SLACK_TOKEN: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
           PR_URL: ${{ steps.create-pr.outputs.pr_url || steps.push.outputs.existing_pr }}
@@ -186,7 +225,7 @@ jobs:
                }')"
 
   slack-notify:
-    if: always() && needs.extensions-linux.result == 'failure' && needs.auto-update.outputs.pr_url == ''
+    if: always() && needs.extensions-linux.result == 'failure' && needs.auto-update.outputs.pr_url == '' && inputs.dryrun != true
     needs: [extensions-linux, auto-update]
     runs-on: ubuntu-latest
     steps:

@@ -10,13 +10,12 @@ import './NotebookCodeCell.css';
 import React, { useCallback, useEffect, useMemo } from 'react';
 
 // Other dependencies.
-import { NotebookCellOutputs, ParsedTextOutput } from '../PositronNotebookCells/IPositronNotebookCell.js';
-import { isParsedTextOutput } from '../getOutputContents.js';
+import { NotebookCellOutputs } from '../PositronNotebookCells/IPositronNotebookCell.js';
+import { getPlainTextOutputContent, isParsedTextOutput } from '../getOutputContents.js';
 import { useObservedValue, useDebouncedObservedValue } from '../useObservedValue.js';
 import { CellEditorMonacoWidget } from './CellEditorMonacoWidget.js';
 import { localize } from '../../../../../nls.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
-import { removeAnsiEscapeCodes } from '../../../../../base/common/strings.js';
 import { CellTextOutput } from './CellTextOutput.js';
 import { NotebookCellWrapper } from './NotebookCellWrapper.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
@@ -36,13 +35,14 @@ import { DataExplorerCellOutput } from './DataExplorerCellOutput.js';
 import { JsonOutput } from './JsonOutput.js';
 import { NotebookErrorBoundary } from '../NotebookErrorBoundary.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED, POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS, POSITRON_NOTEBOOK_OUTPUT_JSON_TARGETED } from '../ContextKeysManager.js';
+import { POSITRON_NOTEBOOK_OUTPUT_FOCUSED, POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED, POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS, POSITRON_NOTEBOOK_OUTPUT_JSON_TARGETED } from '../ContextKeysManager.js';
 import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
 import { useScrollingIndicator } from './useScrollingIndicator.js';
 import { CellOutputActionBar } from './CellOutputActionBar.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { HorizontalSplitter, HorizontalSplitterResizeParams } from '../../../../../base/browser/ui/positronComponents/splitters/horizontalSplitter.js';
 import { serializeJsonOutput } from '../copyJsonUtils.js';
+import { CellSelectionType } from '../selectionMachine.js';
 
 /** The minimum height (pixels) that scrollable outputs can be resized to. */
 const MINIMUM_SCROLLABLE_OUTPUT_HEIGHT = 50;
@@ -73,6 +73,20 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 		() => contextKeyService ? POSITRON_NOTEBOOK_OUTPUT_JSON_TARGETED.bindTo(contextKeyService) : undefined,
 		[contextKeyService]
 	);
+	const outputFocusedKey = useMemo(
+		() => contextKeyService ? POSITRON_NOTEBOOK_OUTPUT_FOCUSED.bindTo(contextKeyService) : undefined,
+		[contextKeyService]
+	);
+	const { selectionStateMachine } = useNotebookInstance();
+	const handleOutputFocus = useCallback(() => {
+		outputFocusedKey?.set(true);
+		selectionStateMachine.selectCell(cell, CellSelectionType.Normal);
+	}, [outputFocusedKey, selectionStateMachine, cell]);
+	const handleOutputBlur = useCallback((e: React.FocusEvent) => {
+		if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+			outputFocusedKey?.set(false);
+		}
+	}, [outputFocusedKey]);
 	const notebookOptions = useNotebookOptions();
 	const layout = notebookOptions.getLayoutConfiguration();
 	const outputsInnerRef = React.useRef<HTMLDivElement>(null);
@@ -202,11 +216,7 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 								getActiveWindow().document.execCommand('copy');
 							} else {
 								// Fall back to copying all text output from the cell
-								const textContent = outputs
-									.filter(o => isParsedTextOutput(o.parsed))
-									.map(o => removeAnsiEscapeCodes((o.parsed as ParsedTextOutput).content))
-									.join('\n');
-								services.clipboardService.writeText(textContent);
+								services.clipboardService.writeText(getPlainTextOutputContent(outputs));
 							}
 						}
 					},
@@ -240,7 +250,11 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 				aria-label={localize('positron.notebook.cellOutput', 'Cell output')}
 				className='positron-notebook-code-cell-outputs positron-notebook-cell-outputs'
 				data-testid='cell-output'
+				role='region'
+				tabIndex={0}
+				onBlur={handleOutputBlur}
 				onContextMenu={handleContextMenu}
+				onFocus={handleOutputFocus}
 			>
 				<div ref={outputsInnerRef} className={positronClassNames(
 					'positron-notebook-code-cell-outputs-inner',

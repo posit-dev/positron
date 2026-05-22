@@ -66,6 +66,13 @@ export const POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS = new RawContextKey<boolean
 export const POSITRON_NOTEBOOK_CELL_OUTPUT_SCROLLING = new RawContextKey<boolean>('positronNotebookCellOutputScrolling', false, localize('positronNotebookCellOutputScrolling', "Whether the cell's output is in scrolling mode"));
 
 /**
+ * Context key set to true when a cell's output section has DOM focus.
+ * Used to gate keyboard shortcuts (e.g. Cmd+C to copy image) so they only
+ * fire when the user has explicitly focused the output area.
+ */
+export const POSITRON_NOTEBOOK_OUTPUT_FOCUSED = new RawContextKey<boolean>('positronNotebookOutputFocused', false, localize('positronNotebookOutputFocused', "Whether a cell's output area has focus"));
+
+/**
  * Interaction-driven context key set to true when the user right-clicks on an
  * image in the output area, or opens the ellipsis menu for a cell with image
  * output. This key tracks the current menu interaction and is NOT part of the

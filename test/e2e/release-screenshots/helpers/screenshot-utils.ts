@@ -41,7 +41,9 @@ async function cdpCapture(
 
 /**
  * Capture the entire Electron window and write it to the output folder.
- * Used for full-app shots like the Welcome page.
+ * Used for full-app shots like the Welcome page. The capture is wrapped in
+ * a rounded-corner drop shadow halo to mimic a floating macOS window — pass
+ * `{ shadow: false }` to skip when a raw capture is needed.
  *
  * Reads the renderer's reported viewport size and passes it as an explicit
  * clip through CDP at the requested scale (defaults to 2x). Playwright's
@@ -51,13 +53,16 @@ async function cdpCapture(
 export async function captureFullWindow(
 	page: Page,
 	filename: string,
-	opts?: { scale?: number },
+	opts?: { scale?: number; shadow?: boolean },
 ): Promise<void> {
 	const { width, height } = await page.evaluate(() => ({
 		width: window.innerWidth,
 		height: window.innerHeight,
 	}));
 	await cdpCapture(page, { x: 0, y: 0, width, height, scale: opts?.scale ?? DEFAULT_SCALE }, filename);
+	if (opts?.shadow !== false) {
+		await applyDropShadow(filename);
+	}
 }
 
 /**
@@ -132,4 +137,50 @@ export async function capturePanelHires(
 	scale: number,
 ): Promise<void> {
 	await capturePanel(page, locator, filename, { scale });
+}
+
+/**
+ * Composite a captured PNG onto a slightly larger white canvas, round the
+ * corners, and paint a soft drop shadow behind it. Approximates the
+ * floating-window look of the legacy macOS-chrome screenshots that this
+ * repo's CDP captures cannot reproduce directly. Mutates the file in place.
+ * Radius and padding are in source pixels (i.e. the captured PNG is at 2x by
+ * default, so radius=24 ≈ 12 CSS px).
+ */
+export async function applyDropShadow(
+	filename: string,
+	opts?: { padding?: number; blur?: number; opacity?: number; radius?: number },
+): Promise<void> {
+	const { createCanvas, loadImage } = await import('canvas');
+	const fs = await import('node:fs/promises');
+	const file = outputPath(filename);
+	const img = await loadImage(file);
+	const padding = opts?.padding ?? 60;
+	const blur = opts?.blur ?? 40;
+	const opacity = opts?.opacity ?? 0.25;
+	const radius = opts?.radius ?? 24;
+
+	// Clip the source image to a rounded rect on a transparent canvas so the
+	// shadow that follows traces the rounded silhouette, not the rectangle.
+	const clipped = createCanvas(img.width, img.height);
+	const clipCtx = clipped.getContext('2d');
+	clipCtx.beginPath();
+	clipCtx.roundRect(0, 0, img.width, img.height, radius);
+	clipCtx.closePath();
+	clipCtx.clip();
+	clipCtx.drawImage(img, 0, 0);
+
+	const W = img.width + padding * 2;
+	const H = img.height + padding * 2;
+	const canvas = createCanvas(W, H);
+	const ctx = canvas.getContext('2d');
+	ctx.fillStyle = '#ffffff';
+	ctx.fillRect(0, 0, W, H);
+	ctx.shadowColor = `rgba(0,0,0,${opacity})`;
+	ctx.shadowBlur = blur;
+	ctx.shadowOffsetX = 0;
+	ctx.shadowOffsetY = Math.round(blur / 3);
+	ctx.drawImage(clipped, padding, padding);
+
+	await fs.writeFile(file, canvas.toBuffer('image/png'));
 }

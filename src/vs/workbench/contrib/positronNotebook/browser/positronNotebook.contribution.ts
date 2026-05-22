@@ -14,8 +14,10 @@ import './notebookCells/InlineDataExplorerActions.js';
 import './SelectPositronNotebookKernelAction.js';
 import './contrib/visualize/VisualizeAction.js';
 
-import { isCopyImageMenuArg, toBase64DataUrl } from './copyImageUtils.js';
+import { copyImageToClipboard, isCopyImageMenuArg } from './copyImageUtils.js';
 import { isCopyJsonMenuArg, serializeJsonOutput } from './copyJsonUtils.js';
+import { getPlainTextOutputContent, isParsedTextOutput } from './getOutputContents.js';
+import { getActiveWindow, isEditableElement, isHTMLElement } from '../../../../base/browser/dom.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -54,7 +56,7 @@ import { IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
 import { IPositronNotebookEditorOptions } from './positronNotebookEditorTypes.js';
 import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID, PositronNotebookActionId, PositronNotebookCellActionBarLeftGroup, PositronNotebookCellOutputActionGroup, usingPositronNotebooks } from '../common/positronNotebookCommon.js';
 import { getActiveCell, getSelectedCells, SelectionState } from './selectionMachine.js';
-import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED, POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS, POSITRON_NOTEBOOK_CELL_JSON_OUTPUT_COUNT, POSITRON_NOTEBOOK_CELL_IMAGE_OUTPUT_COUNT, POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED, POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS, POSITRON_NOTEBOOK_CELL_OUTPUT_SCROLLING, POSITRON_NOTEBOOK_EXPERIMENTAL, POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED, POSITRON_NOTEBOOK_OUTPUT_JSON_TARGETED } from './ContextKeysManager.js';
+import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED, POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS, POSITRON_NOTEBOOK_CELL_JSON_OUTPUT_COUNT, POSITRON_NOTEBOOK_CELL_IMAGE_OUTPUT_COUNT, POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED, POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS, POSITRON_NOTEBOOK_CELL_OUTPUT_SCROLLING, POSITRON_NOTEBOOK_EXPERIMENTAL, POSITRON_NOTEBOOK_OUTPUT_FOCUSED, POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED, POSITRON_NOTEBOOK_OUTPUT_JSON_TARGETED } from './ContextKeysManager.js';
 import './contrib/undoRedo/positronNotebookUndoRedo.js';
 import { registerAction2, MenuId, MenuRegistry } from '../../../../platform/actions/common/actions.js';
 import { ExecuteSelectionInConsoleAction } from './ExecuteSelectionInConsoleAction.js';
@@ -1759,13 +1761,100 @@ registerAction2(class extends NotebookAction2 {
 	}
 });
 
-// Copy output image to clipboard
-registerAction2(class extends NotebookAction2 {
+// Copy output (unified Cmd+C when output is focused)
+export class CopyOutputAction extends NotebookAction2 {
+	constructor() {
+		super({
+			id: PositronNotebookActionId.CopyOutput,
+			title: localize2('positronNotebook.cell.copyOutput', "Copy Output"),
+			grabFocusOnRun: false,
+			keybinding: {
+				primary: KeyMod.CtrlCmd | KeyCode.KeyC,
+				when: ContextKeyExpr.and(
+					POSITRON_NOTEBOOK_EDITOR_FOCUSED,
+					POSITRON_NOTEBOOK_OUTPUT_FOCUSED,
+					POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS,
+					POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED.toNegated(),
+				),
+				weight: KeybindingWeight.EditorContrib,
+			},
+		});
+	}
+
+	override async runNotebookAction(notebook: IPositronNotebookInstance, accessor: ServicesAccessor): Promise<void> {
+		const clipboardService = accessor.get(IClipboardService);
+		const logService = accessor.get(ILogService);
+		const notificationService = accessor.get(INotificationService);
+
+		const state = notebook.selectionStateMachine.state.get();
+		const cell = getActiveCell(state);
+		if (!cell?.isCodeCell()) {
+			return;
+		}
+
+		const outputs = cell.outputs.get();
+
+		const win = getActiveWindow();
+		const focusedElement = win.document.activeElement;
+
+		// Editable controls: execute native copy and bail out
+		if (focusedElement && (isEditableElement(focusedElement) ||
+			(isHTMLElement(focusedElement) && focusedElement.isContentEditable))) {
+			win.document.execCommand('copy');
+			return;
+		}
+
+		// Priority 1: If there's a text selection entirely within the output, copy it
+		const selection = win.document.getSelection();
+		if (selection && selection.type === 'Range' && focusedElement &&
+			selection.anchorNode && selection.focusNode &&
+			focusedElement.contains(selection.anchorNode) &&
+			focusedElement.contains(selection.focusNode)) {
+			win.document.execCommand('copy');
+			return;
+		}
+
+		// Priority 2: If the cell has exactly one image output, copy the image
+		const imageOutputs = outputs.filter(o => o.parsed.type === 'image');
+		if (imageOutputs.length === 1 && imageOutputs[0].parsed.type === 'image') {
+			await copyImageToClipboard(imageOutputs[0].parsed.dataUrl, clipboardService, logService, notificationService);
+			return;
+		}
+
+		// Priority 3: If the cell has exactly one JSON output, copy as formatted JSON
+		const jsonOutputs = outputs.filter(o => o.parsed.type === 'json');
+		if (jsonOutputs.length === 1 && jsonOutputs[0].parsed.type === 'json') {
+			try {
+				await clipboardService.writeText(serializeJsonOutput(jsonOutputs[0].parsed.data));
+			} catch (err) {
+				logService.error('Failed to copy output to clipboard:', err);
+				notificationService.error(localize('copyOutputFailed', "Failed to copy output to clipboard"));
+			}
+			return;
+		}
+
+		// Priority 4: Copy all text output content
+		if (outputs.some(o => isParsedTextOutput(o.parsed))) {
+			try {
+				await clipboardService.writeText(getPlainTextOutputContent(outputs));
+			} catch (err) {
+				logService.error('Failed to copy output to clipboard:', err);
+				notificationService.error(localize('copyOutputFailed', "Failed to copy output to clipboard"));
+			}
+			return;
+		}
+	}
+}
+registerAction2(CopyOutputAction);
+
+// Copy output image to clipboard (menu-driven, e.g. right-click on specific image)
+class CopyOutputImageAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: PositronNotebookActionId.CopyOutputImage,
 			title: localize2('positronNotebook.cell.copyOutputImage', "Copy Image"),
 			icon: ThemeIcon.fromId('copy'),
+			grabFocusOnRun: false,
 			menu: [
 				{
 					id: MenuId.PositronNotebookCellOutputActionBar,
@@ -1789,8 +1878,6 @@ registerAction2(class extends NotebookAction2 {
 					)
 				},
 			],
-			// Keybinding deferred to #12434 (output-focused state for
-			// context-dependent Cmd+C)
 		});
 	}
 
@@ -1820,14 +1907,10 @@ registerAction2(class extends NotebookAction2 {
 			return;
 		}
 
-		try {
-			await clipboardService.writeImage(toBase64DataUrl(dataUrl));
-		} catch (err) {
-			logService.error('Failed to copy image to clipboard:', err);
-			notificationService.error(localize('copyImageFailed', "Failed to copy image to clipboard"));
-		}
+		await copyImageToClipboard(dataUrl, clipboardService, logService, notificationService);
 	}
-});
+}
+registerAction2(CopyOutputImageAction);
 
 // Copy JSON output to clipboard
 registerAction2(class extends NotebookAction2 {
