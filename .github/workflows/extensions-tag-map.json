@@ -1,0 +1,16 @@
+{
+  "charliermarsh.ruff":                         { "tags": [],                                                       "note": "Python linter/formatter; no e2e coverage. Verify Python editor manually." },
+  "GitHub.vscode-pull-request-github":          { "tags": [],                                                       "note": "No e2e coverage of the PR extension. @:scm only covers basic git modify/stage/commit." },
+  "meta.pyrefly":                               { "tags": ["@:pyrefly"] },
+  "ms-python.debugpy":                          { "tags": ["@:debug"] },
+  "ms-toolsai.jupyter":                         { "tags": ["@:jupyter", "@:notebooks", "@:positron-notebooks"] },
+  "ms-toolsai.jupyter-keymap":                  { "tags": ["@:jupyter", "@:notebooks"] },
+  "ms-toolsai.jupyter-renderers":               { "tags": ["@:jupyter", "@:notebooks", "@:positron-notebooks"] },
+  "ms-toolsai.vscode-jupyter-cell-tags":        { "tags": ["@:jupyter", "@:notebooks"] },
+  "ms-toolsai.vscode-jupyter-slideshow":        { "tags": ["@:jupyter", "@:notebooks"] },
+  "posit.air-vscode":                           { "tags": ["@:ark"] },
+  "posit.assistant":                            { "tags": ["@:assistant", "@:posit-assistant"] },
+  "posit.publisher":                            { "tags": ["@:publisher"] },
+  "posit.shiny":                                { "tags": ["@:apps"] },
+  "quarto.quarto":                              { "tags": ["@:quarto"] }
+}
