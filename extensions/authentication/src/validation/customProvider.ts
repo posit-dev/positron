@@ -112,24 +112,15 @@ export async function validateCustomProviderApiKey(
 			);
 		}
 
-		if (response.status === 403) {
+		if (response.status === 403 && model === '') {
 			// Empty model + 403 usually means the gateway accepted the
 			// credentials but does not authorize the default/empty model.
 			// A real model + 403 is most likely a credential/scope issue or
-			// a per-model authorization failure; surface the gateway body so
-			// the user can see what the gateway actually said.
-			if (model === '') {
-				throw new CustomProviderValidationError(
-					vscode.l10n.t('Custom Provider test model was rejected by the gateway. Your credentials may be valid, but the gateway does not allow access with an empty model. Add a model in the Configure Model Providers dialog and try again.')
-				);
-			}
-			const body = await readErrorBody(response);
-			const statusMessage = vscode.l10n.t(
-				'Unable to validate Custom Provider credentials (HTTP {0})',
-				String(response.status)
-			);
+			// a per-model authorization failure; surface the gateway body
+			// via the generic catch-all below so the user sees the gateway's
+			// reason.
 			throw new CustomProviderValidationError(
-				body ? `${statusMessage}: ${body}` : statusMessage
+				vscode.l10n.t('Custom Provider test model was rejected by the gateway. Your credentials may be valid, but the gateway does not allow access with an empty model. Add a model in the Configure Model Providers dialog and try again.')
 			);
 		}
 
