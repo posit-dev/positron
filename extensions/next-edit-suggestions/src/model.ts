@@ -6,10 +6,9 @@
 import * as vscode from 'vscode';
 
 import type { CompletionModel, LLMConfig, ModelsResponse } from './types.js';
+import { getGatewayBaseUrl, getSelectedCompletionModelId } from './config.js';
 import { getUserAgent } from './utils.js';
 import { log } from './extension.js';
-
-const DEFAULT_BASE_URL = 'https://gateway.posit.ai';
 
 const DEFAULT_COMPLETION_MODEL: CompletionModel = {
 	id: 'qwen3-8b',
@@ -124,14 +123,8 @@ export async function getLLMConfiguration(): Promise<LLMConfig | null> {
 		return null;
 	}
 
-	const baseUrl = vscode.workspace
-		.getConfiguration('authentication.positai')
-		.inspect<string>('baseUrl')?.globalValue
-		?? DEFAULT_BASE_URL;
-
-	const selectedModelId = vscode.workspace
-		.getConfiguration('nextEditSuggestions')
-		.get<string>('selectedCompletionModel') || '';
+	const baseUrl = getGatewayBaseUrl();
+	const selectedModelId = getSelectedCompletionModelId();
 
 	let model: CompletionModel | undefined;
 	if (selectedModelId) {
