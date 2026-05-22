@@ -59,7 +59,28 @@ export function formatPositronVersion(positronVersion: string, positronBuildNumb
 }
 
 /**
+ * Whether the URL points at a P3M-hosted gallery. We only attach telemetry params to
+ * P3M URLs so non-P3M galleries (Open VSX, internal proxies, custom forks) don't
+ * receive Positron-specific telemetry they didn't ask for.
+ *
+ * Matches `p3m.dev` and any subdomain (e.g. `staging.p3m.dev`). Hostname parsing
+ * avoids substring-attack collisions like `p3m.dev.attacker.com`.
+ */
+export function isP3MGalleryUrl(url: string): boolean {
+	try {
+		const host = new URL(url).hostname;
+		return host === 'p3m.dev' || host.endsWith('.p3m.dev');
+	} catch {
+		return false;
+	}
+}
+
+/**
  * Appends Positron telemetry params to a gallery request URL.
+ *
+ * Gated to P3M URLs only via {@link isP3MGalleryUrl}: non-P3M galleries receive the
+ * URL unchanged. This avoids leaking Positron-specific telemetry to Open VSX or any
+ * other gallery a PWB / enterprise build might point at.
  *
  * P3M's log pipeline captures `request_url` and `user_agent` only. URL params are the
  * portable way to surface check-trigger, session-type, and version across desktop
@@ -75,6 +96,9 @@ export function appendPositronGalleryParams(
 	sessionType: PositronSessionType,
 	positronVersion: string,
 ): string {
+	if (!isP3MGalleryUrl(url)) {
+		return url;
+	}
 	const params: string[] = [];
 	if (checkTrigger) {
 		params.push(`positron-check-trigger=${encodeURIComponent(checkTrigger)}`);

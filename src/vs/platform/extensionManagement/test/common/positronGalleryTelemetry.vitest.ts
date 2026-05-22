@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { appendPositronGalleryParams, formatPositronVersion } from '../../common/positronGalleryTelemetry.js';
+import { appendPositronGalleryParams, formatPositronVersion, isP3MGalleryUrl } from '../../common/positronGalleryTelemetry.js';
 
 describe('positronGalleryTelemetry', function () {
 	describe('formatPositronVersion', function () {
@@ -46,6 +46,55 @@ describe('positronGalleryTelemetry', function () {
 				const result = appendPositronGalleryParams(baseUrl, undefined, sessionType, '2026.06.0');
 				expect(result).toContain(`positron-session-type=${sessionType}`);
 			}
+		});
+
+		it('returns the URL unchanged for non-P3M galleries', () => {
+			const openVsx = 'https://open-vsx.org/vscode/gallery/extensionquery';
+			expect(appendPositronGalleryParams(openVsx, 'startup', 'desktop', '2026.06.0')).toBe(openVsx);
+
+			const internal = 'https://gallery.internal.example.com/extensionquery';
+			expect(appendPositronGalleryParams(internal, 'periodic', 'workbench', '2026.06.0')).toBe(internal);
+		});
+
+		it('tags P3M subdomains (e.g. staging)', () => {
+			const staging = 'https://staging.p3m.dev/openvsx/latest/vscode/gallery/extensionquery';
+			const result = appendPositronGalleryParams(staging, 'startup', 'desktop', '2026.06.0');
+			expect(result).toContain('positron-check-trigger=startup');
+		});
+
+		it('does not tag URLs that merely contain p3m.dev as substring', () => {
+			const spoof = 'https://p3m.dev.attacker.com/extensionquery';
+			expect(appendPositronGalleryParams(spoof, 'startup', 'desktop', '2026.06.0')).toBe(spoof);
+		});
+
+		it('tolerates URI template placeholders in the path', () => {
+			const template = 'https://p3m.dev/openvsx/latest/vscode/gallery/{publisher}/{name}/latest';
+			const result = appendPositronGalleryParams(template, 'startup', 'desktop', '2026.06.0');
+			expect(result).toContain('positron-check-trigger=startup');
+		});
+	});
+
+	describe('isP3MGalleryUrl', function () {
+		it('matches p3m.dev exactly', () => {
+			expect(isP3MGalleryUrl('https://p3m.dev/openvsx/latest/vscode/gallery/extensionquery')).toBe(true);
+		});
+
+		it('matches p3m.dev subdomains', () => {
+			expect(isP3MGalleryUrl('https://staging.p3m.dev/foo')).toBe(true);
+		});
+
+		it('rejects unrelated hosts', () => {
+			expect(isP3MGalleryUrl('https://open-vsx.org/vscode/gallery/extensionquery')).toBe(false);
+			expect(isP3MGalleryUrl('https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery')).toBe(false);
+		});
+
+		it('rejects substring collisions', () => {
+			expect(isP3MGalleryUrl('https://p3m.dev.attacker.com/foo')).toBe(false);
+		});
+
+		it('returns false for malformed URLs', () => {
+			expect(isP3MGalleryUrl('not a url')).toBe(false);
+			expect(isP3MGalleryUrl('')).toBe(false);
 		});
 	});
 });
