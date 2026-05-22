@@ -511,10 +511,15 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 					// positron-help-navigate message.
 					case 'positron-help-navigate': {
 						// Determine whether to open the URL externally; otherwise, open it in the
-						// help service. This obviously isn't an exact science. At the moment, we
-						// open PDFs externally.
+						// help service. This obviously isn't an exact science. We open PDFs
+						// externally, and we open URLs externally when they're neither localhost
+						// nor on the same origin as the help proxy hosting this entry. The
+						// same-origin check is what lets relative help links resolve internally
+						// when Positron Server is hosted at a non-localhost authority.
 						const url = new URL(message.url);
-						if (!isLocalhost(url.hostname) || url.pathname.toLowerCase().endsWith('.pdf')) {
+						const sourceUrl = new URL(this.sourceUrl);
+						if (url.pathname.toLowerCase().endsWith('.pdf') ||
+							(!isLocalhost(url.hostname) && url.origin !== sourceUrl.origin)) {
 							try {
 								await this._openerService.open(message.url, {
 									openExternal: true

@@ -61,32 +61,36 @@ runs:
         git clone --depth 1 https://github.com/posit-dev/qa-example-content.git \
           test/e2e/qa-example-content
 
-    - name: Setup Python (primary)
+    - name: Install uv + Python (primary, with venv)
       id: setup-python-primary
-      uses: actions/setup-python@v6
+      uses: astral-sh/setup-uv@v7
       with:
         python-version: ${{ inputs.python-primary-version }}
-        cache: 'pip'
-        cache-dependency-path: test/e2e/qa-example-content/requirements.txt
+        activate-environment: true
+        enable-cache: true
+        cache-dependency-glob: test/e2e/qa-example-content/requirements.txt
 
     - name: Install Python dependencies (primary)
       shell: bash
       run: |
-        python -m pip install --upgrade pip
-        pip install -r test/e2e/qa-example-content/requirements.txt
-        pip install ipykernel
+        uv pip install -r test/e2e/qa-example-content/requirements.txt
+        uv pip install ipykernel
+        # Extra packages for screenshot tests not yet in qa-example-content's
+        # requirements.
+        uv pip install astropy matplotlib
 
-    - name: Setup Python (alternate)
+    - name: Install Python (alternate, no venv activation)
       id: setup-python-alt
-      uses: actions/setup-python@v6
-      with:
-        python-version: ${{ inputs.python-alt-version }}
-
-    - name: Install ipykernel for alternate Python
       shell: bash
       run: |
-        python --version
-        pip install ipykernel
+        uv python install ${{ inputs.python-alt-version }}
+        ALT_PYTHON=$(uv python find ${{ inputs.python-alt-version }})
+        ALT_VERSION=$("$ALT_PYTHON" --version | awk '{print $2}')
+        echo "python-version=$ALT_VERSION" >> "$GITHUB_OUTPUT"
+        # Install ipykernel into the alt Python so it's discoverable by Positron.
+        # uv-managed Pythons are PEP 668 externally-managed, so pip install
+        # needs --break-system-packages to write into site-packages.
+        "$ALT_PYTHON" -m pip install --break-system-packages ipykernel
 
     - name: Install rig
       shell: bash

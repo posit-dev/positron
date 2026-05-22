@@ -145,3 +145,106 @@ elif [[ "$OPERATION" == "save" ]]; then
 	log_save_status "builtins"         "CACHE_BUILTINS_HIT"
 	log_save_status "playwright"       "CACHE_PLAYWRIGHT_HIT"
 fi
+
+# ============================================================================
+# SECTION 4: Job Summary (loud on miss, quiet on hit)
+# ============================================================================
+# Surface cache state in the GitHub Actions job summary so regressions are
+# visible without digging through raw logs. The stable cache miss bug went
+# undetected for 20+ days; this is the safety net.
+#
+# Hit case:     one terse line ("✅ All caches restored").
+# Miss case:    "## Cache" section with one bullet per cache showing state.
+# Skipped case: one terse line ("⏭️ All caches skipped") if no caches were enabled.
+#
+# Skipped if $GITHUB_STEP_SUMMARY is unset (local runs).
+
+# Only emit a summary for restore operations, and only when the caller opts in
+# via EMIT_CACHE_SUMMARY=true. Cache state is identical across jobs in a
+# workflow, so we opt in from one job (test/unit) to avoid duplication.
+# Save events are redundant with restore misses (a save only happens because
+# the matching restore missed), so we never emit a save summary.
+if [[ -z "${GITHUB_STEP_SUMMARY:-}" \
+	|| "$OPERATION" != "restore" \
+	|| "${EMIT_CACHE_SUMMARY:-false}" != "true" ]]; then
+	exit 0
+fi
+
+# Map a single cache to "hit" | "partial" | "miss" | "skipped".
+cache_state() {
+	local enabled_var="$1"
+	local hit_var="$2"
+	local partial_var="$3"
+
+	if [[ "${!enabled_var:-false}" != "true" ]]; then
+		echo "skipped"
+	elif [[ "${!hit_var:-false}" == "true" ]]; then
+		echo "hit"
+	elif [[ "${!partial_var:-false}" == "true" ]]; then
+		echo "partial"
+	else
+		echo "miss"
+	fi
+}
+
+# Render a cache state as a summary fragment.
+render_state() {
+	case "$1" in
+		hit)     echo "✅ hit" ;;
+		partial) echo "⚠️ partial" ;;
+		miss)    echo "❌" ;;
+		skipped) echo "⏭️ skipped" ;;
+		*)       echo "unknown" ;;
+	esac
+}
+
+# Cache definitions: name | enabled_var | hit_var | partial_var
+CACHES=(
+	"npm-core|RESTORE_NPM_CORE|CACHE_NPM_CORE_HIT|CACHE_NPM_CORE_PARTIAL"
+	"npm-ext-volatile|RESTORE_NPM_EXTENSIONS|CACHE_NPM_EXTENSIONS_VOLATILE_HIT|CACHE_NPM_EXTENSIONS_VOLATILE_PARTIAL"
+	"npm-ext-stable|RESTORE_NPM_EXTENSIONS|CACHE_NPM_EXTENSIONS_STABLE_HIT|CACHE_NPM_EXTENSIONS_STABLE_PARTIAL"
+	"builtins|RESTORE_BUILTINS|CACHE_BUILTINS_HIT|CACHE_BUILTINS_PARTIAL"
+	"playwright|RESTORE_PLAYWRIGHT|CACHE_PLAYWRIGHT_HIT|CACHE_PLAYWRIGHT_PARTIAL"
+)
+
+# Compute state per cache and count categories.
+states=()
+total=0
+exact_hits=0
+partial_hits=0
+misses=0
+for spec in "${CACHES[@]}"; do
+	IFS='|' read -r name enabled_var hit_var partial_var <<< "$spec"
+	state="$(cache_state "$enabled_var" "$hit_var" "$partial_var")"
+	states+=("$name|$state")
+
+	if [[ "$state" != "skipped" ]]; then
+		total=$((total + 1))
+	fi
+	case "$state" in
+		hit)     exact_hits=$((exact_hits + 1)) ;;
+		partial) partial_hits=$((partial_hits + 1)) ;;
+		miss)    misses=$((misses + 1)) ;;
+	esac
+done
+
+# Emit summary.
+{
+	if [[ "$total" -eq 0 ]]; then
+		echo "⏭️ All caches skipped"
+	elif [[ "$misses" -eq 0 ]]; then
+		if [[ "$partial_hits" -gt 0 ]]; then
+			echo "✅ All caches restored (${exact_hits} exact, ${partial_hits} partial)"
+		else
+			echo "✅ All caches restored (${exact_hits}/${total})"
+		fi
+	else
+		echo "## Cache"
+		echo ""
+		for entry in "${states[@]}"; do
+			IFS='|' read -r name state <<< "$entry"
+			echo "- ${name} $(render_state "$state")"
+		done
+	fi
+	echo ""
+} >> "$GITHUB_STEP_SUMMARY"

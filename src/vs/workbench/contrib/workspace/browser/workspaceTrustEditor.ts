@@ -985,11 +985,19 @@ export class WorkspaceTrustEditor extends EditorPane {
 		this.renderLimitationsHeaderElement(this.trustedContainer, trustedTitle, trustedSubTitle);
 		const trustedContainerItems = this.workspaceService.getWorkbenchState() === WorkbenchState.EMPTY ?
 			[
+				// --- Start Positron ---
+				localize('positron.trustedSessions', "Python and R sessions are allowed to start"),
+				localize('positron.trustedAssistant', "Posit Assistant can be enabled"),
+				// --- End Positron ---
 				localize('trustedTasks', "Tasks are allowed to run"),
 				localize('trustedDebugging', "Debugging is enabled"),
 				localize('trustedExtensions', "All enabled extensions are activated")
 			] :
 			[
+				// --- Start Positron ---
+				localize('positron.trustedSessions', "Python and R sessions are allowed to start"),
+				localize('positron.trustedAssistant', "Posit Assistant can be enabled"),
+				// --- End Positron ---
 				localize('trustedTasks', "Tasks are allowed to run"),
 				localize('trustedDebugging', "Debugging is enabled"),
 				localize('trustedSettings', "All workspace settings are applied"),
@@ -1003,11 +1011,19 @@ export class WorkspaceTrustEditor extends EditorPane {
 		this.renderLimitationsHeaderElement(this.untrustedContainer, untrustedTitle, untrustedSubTitle);
 		const untrustedContainerItems = this.workspaceService.getWorkbenchState() === WorkbenchState.EMPTY ?
 			[
+				// --- Start Positron ---
+				localize('positron.untrustedSessions', "Python and R sessions will not start"),
+				localize('positron.untrustedAssistant', "Posit Assistant cannot be enabled"),
+				// --- End Positron ---
 				localize('untrustedTasks', "Tasks are not allowed to run"),
 				localize('untrustedDebugging', "Debugging is disabled"),
 				fixBadLocalizedLinks(localize({ key: 'untrustedExtensions', comment: ['Please ensure the markdown link syntax is not broken up with whitespace [text block](link block)'] }, "[{0} extensions]({1}) are disabled or have limited functionality", numExtensions, `command:${LIST_WORKSPACE_UNSUPPORTED_EXTENSIONS_COMMAND_ID}`))
 			] :
 			[
+				// --- Start Positron ---
+				localize('positron.untrustedSessions', "Python and R sessions will not start"),
+				localize('positron.untrustedAssistant', "Posit Assistant cannot be enabled"),
+				// --- End Positron ---
 				localize('untrustedTasks', "Tasks are not allowed to run"),
 				localize('untrustedDebugging', "Debugging is disabled"),
 				fixBadLocalizedLinks(numSettings ? localize({ key: 'untrustedSettings', comment: ['Please ensure the markdown link syntax is not broken up with whitespace [text block](link block)'] }, "[{0} workspace settings]({1}) are not applied", numSettings, 'command:settings.filterUntrusted') : localize('no untrustedSettings', "Workspace settings requiring trust are not applied")),

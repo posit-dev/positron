@@ -1,0 +1,210 @@
+name: "Test: E2E Remote SSH (Ubuntu)"
+
+on:
+  workflow_call:
+    inputs:
+      grep:
+        required: false
+        description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames."
+        default: "@:remote-ssh"
+        type: string
+      display_name:
+        required: false
+        description: "The name of the job as it will appear in the GitHub Actions UI."
+        default: "remote-ssh"
+        type: string
+      upload_logs:
+        required: false
+        description: "Whether or not to upload e2e test logs."
+        type: boolean
+        default: true
+      allow_soft_fail:
+        required: false
+        description: "Whether to allow tests marked with :soft-fail to fail without failing the job."
+        type: boolean
+        default: false
+
+permissions:
+  id-token: write
+  contents: read
+  packages: read
+
+jobs:
+  e2e-remote-ssh-ubuntu:
+    name: ${{ inputs.display_name || 'remote-ssh' }}
+    runs-on: ubuntu-latest-8x
+    timeout-minutes: 80
+
+    env:
+      AWS_S3_BUCKET: positron-test-reports
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      R_LIBS_SITE: /usr/local/lib/R/site-library
+      R_LIBS_USER: /usr/local/lib/R/site-library
+      GH_SUMMARY_REPORT: true
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
+          password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+
+      - name: Setup test dependencies and compile tests
+        uses: ./.github/actions/setup-e2e-test-dependencies
+
+      - name: Download DEB artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: "positron-deb-remote-ssh-x64"
+          path: /tmp/artifacts
+
+      - name: Download REH artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: "positron-reh-remote-ssh-x64"
+          path: /tmp/artifacts
+
+      - name: Install Positron from DEB
+        run: |
+          sudo apt-get update && sudo apt-get install -y xdg-utils
+          sudo dpkg -i /tmp/artifacts/Positron-remote-ssh-x64.deb
+
+      - name: Start Docker Container
+        run: |
+          docker run -d --name test -p 3456:22 ghcr.io/posit-dev/positron-ubuntu24-amd64:116 \
+            /bin/bash -c 'while true; do sleep 3600; done'
+
+      - name: Download SSH install script
+        run: |
+          curl -L -o ssh-install.sh https://raw.githubusercontent.com/posit-dev/qa-example-content/main/dockerfiles/arm-local/ssh-install.sh
+          docker cp ssh-install.sh test:/tmp/ssh-install.sh
+          docker exec test chmod +x /tmp/ssh-install.sh
+
+      - name: Install SSH in container
+        run: |
+          docker exec test /bin/bash -c "/tmp/ssh-install.sh"
+
+      - name: Setup Positron REH in container
+        run: |
+          # Get the commit SHA to create the versioned directory structure
+          COMMIT_SHA="${{ github.sha }}"
+
+          # Copy REH tarball into container
+          docker cp /tmp/artifacts/positron-reh-remote-ssh-x64.tar.gz test:/tmp/positron-reh-remote-ssh-x64.tar.gz
+
+          # Extract REH into /root/.positron-server/bin/<commit-sha>
+          # The remote SSH extension expects the structure: ~/.positron-server/bin/<commit>/bin/positron-server
+          docker exec test /bin/bash -c "
+            mkdir -p /root/.positron-server/bin/${COMMIT_SHA}
+            cd /root/.positron-server/bin/${COMMIT_SHA}
+            tar xzf /tmp/positron-reh-remote-ssh-x64.tar.gz --strip-components=1
+            rm /tmp/positron-reh-remote-ssh-x64.tar.gz
+          "
+
+          # Verify extraction
+          docker exec test /bin/bash -c "
+            echo 'Verifying REH extraction...'
+            ls -la /root/.positron-server/bin/${COMMIT_SHA}/
+            if [[ -d /root/.positron-server/bin/${COMMIT_SHA}/bin && -d /root/.positron-server/bin/${COMMIT_SHA}/extensions ]]; then
+              echo '✓ REH directories found at /root/.positron-server/bin/${COMMIT_SHA}/'
+            else
+              echo '✗ REH extraction incomplete'
+              exit 1
+            fi
+          "
+
+      - name: Configure xvfb and dbus
+        uses: ./.github/actions/setup-xvfb
+
+      - name: Configure SSH host "remote"
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          touch /tmp/known_hosts
+          chmod 644 /tmp/known_hosts
+          ssh-keyscan -p 3456 127.0.0.1 >> /tmp/known_hosts 2>/dev/null || true
+
+          tmpcfg="$(mktemp)"
+          if [[ -f ~/.ssh/config ]]; then
+            awk '
+              BEGIN{skip=0}
+              $1=="Host" && $2=="remote"{skip=1; next}
+              skip && $1=="Host"{skip=0}
+              !skip{print}
+            ' ~/.ssh/config > "$tmpcfg"
+          fi
+
+          {
+            echo "Host remote"
+            echo "  HostName 127.0.0.1"
+            echo "  Port 3456"
+            echo "  User root"
+            echo "  UserKnownHostsFile /tmp/known_hosts"
+            echo "  StrictHostKeyChecking yes"
+          } >> "$tmpcfg"
+
+          mv "$tmpcfg" ~/.ssh/config
+          chmod 600 ~/.ssh/config
+
+      - name: Install Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12.6'
+
+      - name: Generate Report Directory
+        uses: ./.github/actions/gen-report-dir
+        with:
+          identifier: e2e-remote-ssh
+
+      - name: Run tests (host → container)
+        env:
+          POSITRON_PY_VER_SEL: "3.12.6"
+          POSITRON_R_VER_SEL: 4.5.2
+          POSITRON_PY_ALT_VER_SEL: "3.13.0"
+          POSITRON_R_ALT_VER_SEL: 4.4.2
+          POSITRON_PY_REMOTE_VER_SEL: 3.10.12
+          POSITRON_R_REMOTE_VER_SEL: 4.5.2
+          PWTEST_BLOB_DO_NOT_REMOVE: 1
+          REPORTER_REPO_NAME: positron
+          CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
+          PW_PROJECT_NAME: e2e-remote-ssh
+        run: |
+          export DISPLAY=:10
+          BUILD=/usr/share/positron npx playwright test --project e2e-remote-ssh --retries=1 --workers=1
+
+      - name: Upload Playwright Report to S3
+        if: always()
+        uses: ./.github/actions/upload-report-to-s3
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          report-dir: ${{ env.REPORT_DIR }}
+
+      - name: Upload Test Logs
+        if: ${{ always() && inputs.upload_logs }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-remote-ssh-ubuntu-logs
+          path: test-logs
+          retention-days: 3
+          if-no-files-found: ignore
+
+      - name: Teardown
+        if: always()
+        run: |
+          docker stop -t 10 test || true
+          docker rm -f test || true

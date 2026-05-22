@@ -5,6 +5,7 @@
 
 import { encodeBase64, VSBuffer } from '../../../../base/common/buffer.js';
 import { localize } from '../../../../nls.js';
+import { removeAnsiEscapeCodes } from '../../../../base/common/strings.js';
 import { NotebookCellOutputTextModel } from '../../notebook/common/model/notebookCellOutputTextModel.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { ICellOutput, IOutputItemDto } from '../../notebook/common/notebookCommon.js';
@@ -100,6 +101,13 @@ export function isParsedTextOutput(output: ParsedOutput): output is ParsedTextOu
 	return (textOutputTypes as string[]).includes(output.type);
 }
 
+export function getPlainTextOutputContent(outputs: ReadonlyArray<{ parsed: ParsedOutput }>): string {
+	return outputs
+		.filter(o => isParsedTextOutput(o.parsed))
+		.map(o => removeAnsiEscapeCodes((o.parsed as ParsedTextOutput).content))
+		.join('\n');
+}
+
 /**
  * Parse cell output into standard serializable js objects.
  * @param outputItem Contents of a cells output
@@ -123,7 +131,7 @@ export function parseOutputData(outputItem: IOutputItemDto): ParsedOutput {
 		const parsedMessage = JSON.parse(message);
 
 		if (parsedMessage?.name === 'KeyboardInterrupt') {
-			return { type: 'interupt', trace: parsedMessage.traceback };
+			return { type: 'interrupt', trace: parsedMessage.traceback };
 		}
 
 		if (parsedMessage?.name === 'Runtime Error') {

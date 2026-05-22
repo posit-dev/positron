@@ -7,7 +7,6 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as ai from 'ai';
 import { ModelConfig } from '../../configTypes.js';
-import { getMaxConnectionAttempts } from '../../providerConfig.js';
 import { isAuthorizationError } from '../../utils';
 import { applyModelFilters } from '../../modelFilters';
 import { getAllModelDefinitions } from '../../modelDefinitions';
@@ -40,7 +39,6 @@ import { ErrorContext } from './errorContext';
  *
  * Subclasses must implement:
  * - {@link provideLanguageModelChatResponse} - Chat response generation
- * - {@link sendTestMessage} - Connection testing
  * - {@link initializeProvider} - Provider initialization (optional)
  *
  * @example
@@ -56,10 +54,6 @@ import { ErrorContext } from './errorContext';
  *
  *   async provideLanguageModelChatResponse(...) {
  *     // Implement custom chat logic
- *   }
- *
- *   protected async sendTestMessage(modelId: string) {
- *     // Implement custom test logic
  *   }
  * }
  * ```
@@ -215,36 +209,21 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	 * 3. Applies filters to the model list
 	 * 4. Tests connectivity by sending a test message to available models
 	 *
-	 * The method respects the cancellation token and will abort if cancellation
-	 * is requested. It returns undefined on success or an Error describing the
-	 * failure reason.
+	 * Authentication is validated implicitly: providers that call a `/models`-style
+	 * endpoint in {@link resolveModels} will throw on 401/403 there. For providers
+	 * that load models from configuration without an API call, credential validity
+	 * is established by the authentication extension at credential-save time and
+	 * surfaces on first chat use if it has since become invalid.
 	 *
 	 * @param token - Cancellation token to abort the connection attempt
 	 * @returns A promise that resolves to undefined on success, or an Error if connection failed
 	 *
 	 * @throws {AuthenticationError} If credentials are invalid
 	 * @throws {ModelRetrievalError} If no models are available or all models fail filtering
-	 *
-	 * @example
-	 * ```typescript
-	 * const error = await provider.resolveConnection(token);
-	 * if (error) {
-	 *   console.error('Connection failed:', error.message);
-	 * } else {
-	 *   console.log('Connection successful');
-	 * }
-	 * ```
-	 *
-	 * @see {@link testModelConnectivity} for connectivity testing details
 	 */
 	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
 		this.logger.debug('Resolving connection...');
 
-		token.onCancellationRequested(() => {
-			return false;
-		});
-
-		// First validate credentials if needed
 		const credentialsValid = await this.validateCredentials();
 		if (!credentialsValid) {
 			return new AuthenticationError(this.providerName, 'Invalid credentials');
@@ -260,106 +239,8 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 			return new ModelRetrievalError(this.providerName, 'No models available after applying filters');
 		}
 
-		// Set connection test context for error handling
-		const connectionTestContext: ErrorContext = {
-			isConnectionTest: true,
-			isChat: false,
-			isStartup: false
-		};
-
-		return this.testModelConnectivity(models, token, connectionTestContext);
+		return undefined;
 	}
-
-	/**
-	 * Tests connectivity with the available models by sending test messages.
-	 *
-	 * This method attempts to verify that at least one model from the provider
-	 * is accessible and working correctly. It tests up to a configured number
-	 * of models (controlled by {@link getMaxConnectionAttempts}) and returns
-	 * success as soon as any model responds successfully.
-	 *
-	 * The method collects error messages from all failed attempts and returns
-	 * a comprehensive error if all tested models fail.
-	 *
-	 * @param models - The list of models to test connectivity for
-	 * @param token - Cancellation token to abort testing
-	 * @param context - Optional error context for error handling
-	 * @returns A promise that resolves to undefined if at least one model succeeds,
-	 *          or an Error containing all failure messages if all models fail
-	 *
-	 * @see {@link sendTestMessage} for the actual test implementation
-	 * @see {@link getMaxConnectionAttempts} for configuring test limits
-	 */
-	protected async testModelConnectivity(
-		models: vscode.LanguageModelChatInformation[],
-		token: vscode.CancellationToken,
-		context?: ErrorContext
-	): Promise<Error | undefined> {
-		const maxModelsToTest = getMaxConnectionAttempts();
-		const modelsToTest = models.slice(0, maxModelsToTest);
-
-		this.logger.debug(`Testing up to ${modelsToTest.length} models for connectivity...`);
-
-		const errors: string[] = [];
-
-		// Try each model until one succeeds
-		for (const modelInfo of modelsToTest) {
-			if (token.isCancellationRequested) {
-				return new Error(`Connection test cancelled`);
-			}
-
-			const model = modelInfo.id;
-
-			try {
-				await this.sendTestMessage(model);
-				this.logger.debug(`'${model}' Test message sent successfully.`);
-				return undefined; // Success! At least one model is working
-			} catch (error) {
-				this.logger.warn(`'${model}' Error sending test message`, error);
-				const errorMsg = await this.parseProviderError(error, context) ||
-					(ai.AISDKError.isInstance(error) ? error.message : JSON.stringify(error, null, 2));
-				errors.push(errorMsg);
-			}
-		}
-
-		// If we get here, all tested models failed
-		const allErrors = errors.join('; ');
-		this.logger.error(`All ${modelsToTest.length} tested models failed: ${allErrors}`);
-		return new Error(`${this.providerName}: All tested models failed: ${allErrors}`);
-	}
-
-	/**
-	 * Sends a test message to verify that a specific model is accessible and responsive.
-	 *
-	 * Subclasses must implement this method to test connectivity with their specific
-	 * provider SDK. The test message should be kept simple to minimize token usage
-	 * while still verifying end-to-end connectivity.
-	 *
-	 * @param modelId - The ID of the model to test
-	 * @returns A promise that resolves to the test response from the model
-	 *
-	 * @throws {Error} If the model request fails
-	 *
-	 * @example
-	 * ```typescript
-	 * // Vercel AI SDK provider (implemented in VercelModelProvider subclass)
-	 * protected async sendTestMessage(modelId: string) {
-	 *   return ai.generateText({
-	 *     model: this.createAIProvider()(modelId),
-	 *     prompt: "Hello",
-	 *     maxRetries: 1,
-	 *   });
-	 * }
-	 *
-	 * // Custom provider using native SDK
-	 * protected async sendTestMessage(modelId: string) {
-	 *   return this._client.chat({ model: modelId, messages: [{ role: 'user', content: 'Hello' }] });
-	 * }
-	 * ```
-	 *
-	 * @see {@link getProviderTimeoutMs} for timeout configuration
-	 */
-	protected abstract sendTestMessage(modelId: string): Promise<any>;
 
 	/**
 	 * Provides the list of available language models for this provider.

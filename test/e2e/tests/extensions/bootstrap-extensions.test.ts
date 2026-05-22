@@ -183,6 +183,17 @@ async function waitForExtensions(
 		console.log('\n👉 Run script and commit changes:');
 		console.log(`   ./scripts/update-extensions.sh ${Array.from(mismatched).join(' ')}\n`);
 
+		// Surface the mismatched list to CI so the nightly workflow bumps only
+		// the affected extensions instead of every entry in product.json.
+		if (process.env.GITHUB_ACTIONS) {
+			const outDir = 'test-logs';
+			fs.mkdirSync(outDir, { recursive: true });
+			fs.writeFileSync(
+				path.join(outDir, 'mismatched-extensions.txt'),
+				Array.from(mismatched).join(' ')
+			);
+		}
+
 		if (process.env.EXTENSIONS_FAIL_ON_MISMATCH === 'true') {
 			throw new Error('Some extensions were installed with mismatched versions (after grace period). Please check the logs above.');
 		}

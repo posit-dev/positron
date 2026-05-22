@@ -23,7 +23,6 @@ test.describe('Sessions: Interpreter Sync', {
 	test.beforeAll(async function ({ settings }) {
 		await settings.set(
 			{
-				'console.showNotebookConsoleActions': true,
 				'positron.notebook.enabled': true
 			},
 			{ reload: 'web', waitMs: 1000 }

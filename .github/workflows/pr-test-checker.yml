@@ -1,0 +1,160 @@
+name: "PR Test Checker"
+
+# Grades whether the PR has adequate test coverage and posts a verdict comment.
+# Pilot scope: only runs for PR authors / commenters in the allowlist below.
+# To widen the pilot, edit both ALLOWLIST refs in this file (kept in sync).
+#
+# Trigger recovery: we listen for `opened`, `synchronize`, AND `ready_for_review`
+# on `pull_request`, not just `opened`. GitHub occasionally drops `opened`
+# deliveries (see #13664, where the `pull_request_target` CLA event fired but
+# `pull_request: opened` didn't, leaving PETE with no verdict), so the extra
+# types give us a recovery path on the next push or draft->ready transition.
+# Observable behavior: PETE grades on PR creation, and only re-grades on
+# explicit `/recheck-tests`. To avoid re-grading on every push, the action
+# short-circuits any `pull_request`-triggered run when a PETE comment already
+# exists on the PR -- `synchronize` and `ready_for_review` therefore only do
+# work in the rare case where the initial `opened` was missed. `/recheck-tests`
+# (an `issue_comment` event) sets `force-regrade=true` and bypasses the guard.
+#
+# Security model: each job checks out two trees -- the BASE branch (trusted
+# action + skill code, used to run the analyzer with secrets) and the PR HEAD
+# (untrusted source code, mounted as read-only data for the agent's
+# Read/Grep/Glob tools). The analyzer is invoked from the base checkout via
+# `uses: ./base/.github/actions/pr-test-checker` so that PR-head code is never
+# executed with secrets in scope. This closes the "pwn request" pattern where
+# a fork PR modifies action code, and an allowlisted user comments
+# /recheck-tests (an `issue_comment` event that runs in base context with
+# full secrets, unlike `pull_request` events which strip secrets for forks).
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - ready_for_review
+  issue_comment:
+    types:
+      - created
+
+jobs:
+  on-open:
+    name: Grade on PR change
+    if: |
+      github.event_name == 'pull_request' &&
+      contains(fromJson('["jonvanausdeln", "sharon-wang", "melissa-barca", "samclark2015", "timtmok"]'), github.event.pull_request.user.login)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    concurrency:
+      group: pr-test-checker-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout BASE (trusted action + skill code)
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: base
+          sparse-checkout: |
+            .claude/skills/pr-test-checker
+            .claude/rules
+            .github/actions/pr-test-checker
+
+      - name: Checkout PR HEAD (untrusted source data)
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr-head
+          sparse-checkout: |
+            CLAUDE.md
+            src
+            extensions
+            test/e2e
+
+      - name: Load Anthropic API key
+        uses: 1password/load-secrets-action@v4
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+
+      - name: Run pr-test-checker (from base, source from PR head)
+        uses: ./base/.github/actions/pr-test-checker
+        with:
+          pr-number: ${{ github.event.pull_request.number }}
+          anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
+          repo-root: ${{ github.workspace }}/pr-head
+
+  on-recheck:
+    name: Re-grade on /recheck-tests
+    # Fires when an allowlisted user comments `/recheck-tests` on a PR.
+    # The issue_comment event runs in base-repo context with full secrets
+    # even when the PR is from a fork, so two layers of defense:
+    #   1. BOTH the commenter AND the PR author must be allowlisted (the
+    #      PR-author check blocks comments on fork PRs by non-allowlisted
+    #      authors -- attackers can't bait /recheck-tests on their own PRs).
+    #   2. The job checks out the base branch to RUN the action and the
+    #      PR head only as READ-ONLY DATA -- PR-head code never executes.
+    if: |
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request != null &&
+      contains(github.event.comment.body, '/recheck-tests') &&
+      contains(fromJson('["jonvanausdeln", "sharon-wang", "melissa-barca", "samclark2015", "timtmok"]'), github.event.comment.user.login) &&
+      contains(fromJson('["jonvanausdeln", "sharon-wang", "melissa-barca", "samclark2015", "timtmok"]'), github.event.issue.user.login)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    concurrency:
+      group: pr-test-checker-${{ github.event.issue.number }}
+      cancel-in-progress: true
+    steps:
+      - name: Resolve PR head SHA
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          HEAD_SHA=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')
+          echo "head_sha=${HEAD_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout BASE (trusted action + skill code)
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: base
+          sparse-checkout: |
+            .claude/skills/pr-test-checker
+            .claude/rules
+            .github/actions/pr-test-checker
+
+      - name: Checkout PR HEAD (untrusted source data)
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.pr.outputs.head_sha }}
+          path: pr-head
+          sparse-checkout: |
+            CLAUDE.md
+            src
+            extensions
+            test/e2e
+
+      - name: Load Anthropic API key
+        uses: 1password/load-secrets-action@v4
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+
+      - name: Run pr-test-checker (from base, source from PR head)
+        uses: ./base/.github/actions/pr-test-checker
+        with:
+          pr-number: ${{ github.event.issue.number }}
+          anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
+          repo-root: ${{ github.workspace }}/pr-head
+          force-regrade: "true"

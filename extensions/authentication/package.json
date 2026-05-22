@@ -64,6 +64,13 @@
 				"label": "Gemini Code Assist"
 			}
 		],
+		"commands": [
+			{
+				"command": "authentication.configureProviders",
+				"title": "%commands.configureProviders.title%",
+				"category": "%commands.category%"
+			}
+		],
 		"configuration": {
 			"title": "Authentication",
 			"properties": {
@@ -104,30 +111,78 @@
 					},
 					"additionalProperties": false
 				},
+				"authentication.snowflake.customHeaders": {
+					"type": "object",
+					"default": {},
+					"additionalProperties": {
+						"type": "string"
+					},
+					"markdownDescription": "%configuration.snowflake.customHeaders.description%"
+				},
 				"authentication.anthropic.baseUrl": {
 					"type": "string",
 					"default": "",
 					"description": "%configuration.anthropic.baseUrl.description%"
+				},
+				"authentication.anthropic.customHeaders": {
+					"type": "object",
+					"default": {},
+					"additionalProperties": {
+						"type": "string"
+					},
+					"markdownDescription": "%configuration.anthropic.customHeaders.description%"
 				},
 				"authentication.foundry.baseUrl": {
 					"type": "string",
 					"default": "",
 					"description": "%configuration.foundry.baseUrl.description%"
 				},
+				"authentication.foundry.customHeaders": {
+					"type": "object",
+					"default": {},
+					"additionalProperties": {
+						"type": "string"
+					},
+					"markdownDescription": "%configuration.foundry.customHeaders.description%"
+				},
 				"authentication.openai-api.baseUrl": {
 					"type": "string",
 					"default": "",
 					"description": "%configuration.openai-api.baseUrl.description%"
+				},
+				"authentication.openai-api.customHeaders": {
+					"type": "object",
+					"default": {},
+					"additionalProperties": {
+						"type": "string"
+					},
+					"markdownDescription": "%configuration.openai-api.customHeaders.description%"
 				},
 				"authentication.google.baseUrl": {
 					"type": "string",
 					"default": "",
 					"description": "%configuration.google.baseUrl.description%"
 				},
+				"authentication.google.customHeaders": {
+					"type": "object",
+					"default": {},
+					"additionalProperties": {
+						"type": "string"
+					},
+					"markdownDescription": "%configuration.google.customHeaders.description%"
+				},
 				"authentication.openai-compatible.baseUrl": {
 					"type": "string",
 					"default": "",
 					"description": "%configuration.openai-compatible.baseUrl.description%"
+				},
+				"authentication.openai-compatible.customHeaders": {
+					"type": "object",
+					"default": {},
+					"additionalProperties": {
+						"type": "string"
+					},
+					"markdownDescription": "%configuration.openai-compatible.customHeaders.description%"
 				}
 			}
 		}

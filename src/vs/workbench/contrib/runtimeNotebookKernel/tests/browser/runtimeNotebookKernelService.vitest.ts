@@ -9,6 +9,7 @@ import { Emitter, Event } from '../../../../../base/common/event.js';
 import { DisposableStore, IDisposable, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { ResourceMap } from '../../../../../base/common/map.js';
 import { URI } from '../../../../../base/common/uri.js';
+import { timeout } from '../../../../../base/common/async.js';
 import { ILanguageRuntimeMetadata, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { waitForRuntimeState } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
@@ -25,6 +26,13 @@ import { createTestNotebookEditor } from '../../../notebook/test/browser/testNot
 import { IRuntimeNotebookKernelService } from '../../common/interfaces/runtimeNotebookKernelService.js';
 import { RuntimeNotebookKernelService } from '../../browser/runtimeNotebookKernelService.js';
 import { POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../../common/runtimeNotebookKernelConfig.js';
+import { POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../../../positronNotebook/common/positronNotebookCommon.js';
+import { IEditorGroupsService } from '../../../../services/editor/common/editorGroupsService.js';
+import { EditorInput } from '../../../../common/editor/editorInput.js';
+import { GroupModelChangeKind, IEditorIdentifier } from '../../../../common/editor.js';
+import { IGroupModelChangeEvent } from '../../../../common/editor/editorGroupModel.js';
+import { TestEditorGroupView } from '../../../../test/browser/workbenchTestServices.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { mock } from '../../../../../base/test/common/mock.js';
 
 /** Shape of Jupyter notebook metadata set by RuntimeNotebookKernelService when a kernel is selected. */
@@ -228,6 +236,123 @@ describe('Positron - RuntimeNotebookKernelService', () => {
 		// Spot check the kernel source actions.
 		expect(kernelSourceActions.length, `Unexpected kernel source actions: ${JSON.stringify(kernelSourceActions)}`).toBe(1);
 		expect(kernelSourceActions[0].label).toBe('Select Environment...');
+	});
+
+	describe('Positron notebook editor active+pinned gate', () => {
+		let positronInput: EditorInput;
+		let decoyInput: EditorInput;
+		let group: TestEditorGroupView;
+		let modelChangeEmitter: Emitter<IGroupModelChangeEvent>;
+
+		function makeStubEditorInput(typeId: string, uri: URI): EditorInput {
+			return stubInterface<EditorInput>({
+				typeId,
+				resource: uri,
+			});
+		}
+
+		function setActive(input: EditorInput): void {
+			group.activeEditor = input;
+		}
+
+		function setPinned(input: EditorInput, pinned: boolean): void {
+			vi.spyOn(group, 'isPinned').mockImplementation(editorOrIndex => editorOrIndex === input && pinned);
+		}
+
+		// Recreate the service after setting up the editor / group spies so
+		// that listeners attach to our emitter and not the Event.None default.
+		beforeEach(() => {
+			positronInput = makeStubEditorInput(POSITRON_NOTEBOOK_EDITOR_INPUT_ID, notebookDocument.uri);
+			decoyInput = makeStubEditorInput('workbench.input.text', URI.parse('file:///decoy.txt'));
+
+			// Wire a real emitter onto the group so EDITOR_PIN events can be
+			// fired in tests (the default test group's onDidModelChange is
+			// Event.None).
+			group = ctx.instantiationService.get(IEditorGroupsService).groups[0] as TestEditorGroupView;
+			modelChangeEmitter = new Emitter<IGroupModelChangeEvent>();
+			ctx.disposables.add(modelChangeEmitter);
+			Object.defineProperty(group, 'onDidModelChange', { value: modelChangeEmitter.event, configurable: true });
+			vi.spyOn(group, 'isPinned').mockReturnValue(false);
+
+			// Make findEditors return the Positron notebook input for the test URI.
+			vi.spyOn(accessor.editorService, 'findEditors').mockImplementation(((): readonly IEditorIdentifier[] => {
+				return [{ groupId: group.id, editor: positronInput }];
+			}) as typeof accessor.editorService.findEditors);
+
+			// Recreate the service so its listeners pick up our emitter.
+			runtimeNotebookKernelService.dispose();
+			runtimeNotebookKernelService = ctx.disposables.add(
+				ctx.instantiationService.createInstance(RuntimeNotebookKernelService));
+			ctx.instantiationService.stub(IRuntimeNotebookKernelService, runtimeNotebookKernelService);
+		});
+
+		it('does NOT start a session when a Positron notebook editor input is in preview mode', async () => {
+			setActive(positronInput);
+			setPinned(positronInput, false);
+
+			notebookKernelService.selectKernelForNotebook(kernel, notebookDocument);
+
+			// Wait briefly to confirm no session starts.
+			await timeout(50);
+			expect(runtimeSessionService.activeSessions.length).toBe(0);
+		});
+
+		it('does NOT start a session for a Positron notebook editor that is not active in any group', async () => {
+			setActive(decoyInput);
+			setPinned(positronInput, true);
+
+			notebookKernelService.selectKernelForNotebook(kernel, notebookDocument);
+
+			await timeout(50);
+			expect(runtimeSessionService.activeSessions.length).toBe(0);
+		});
+
+		it('starts the session immediately when a Positron notebook editor is active+pinned', async () => {
+			setActive(positronInput);
+			setPinned(positronInput, true);
+
+			notebookKernelService.selectKernelForNotebook(kernel, notebookDocument);
+
+			const { session } = await Event.toPromise(runtimeSessionService.onWillStartSession);
+			expect(session.runtimeMetadata).toBe(runtime);
+		});
+
+		it('starts the deferred session when a preview tab is pinned', async () => {
+			setActive(positronInput);
+			setPinned(positronInput, false);
+
+			// Selecting the kernel while preview should defer the start.
+			notebookKernelService.selectKernelForNotebook(kernel, notebookDocument);
+			await timeout(50);
+			expect(runtimeSessionService.activeSessions.length).toBe(0);
+
+			// Now simulate the user pinning the tab.
+			setPinned(positronInput, true);
+			modelChangeEmitter.fire({ kind: GroupModelChangeKind.EDITOR_PIN, editor: positronInput });
+
+			const { session } = await Event.toPromise(runtimeSessionService.onWillStartSession);
+			expect(session.runtimeMetadata).toBe(runtime);
+		});
+
+		it('does NOT start a deferred session if the kernel was deselected before the editor became active+pinned', async () => {
+			setActive(positronInput);
+			setPinned(positronInput, false);
+
+			// Select the kernel while the editor is in preview; start is deferred.
+			notebookKernelService.selectKernelForNotebook(kernel, notebookDocument);
+			await timeout(50);
+			expect(runtimeSessionService.activeSessions.length).toBe(0);
+
+			// Deselect the kernel before the editor becomes active+pinned.
+			notebookKernelService.selectKernelForNotebook(undefined, notebookDocument);
+
+			// Now pin the tab. The previously-deferred kernel must NOT start.
+			setPinned(positronInput, true);
+			modelChangeEmitter.fire({ kind: GroupModelChangeKind.EDITOR_PIN, editor: positronInput });
+
+			await timeout(50);
+			expect(runtimeSessionService.activeSessions.length).toBe(0);
+		});
 	});
 });
 

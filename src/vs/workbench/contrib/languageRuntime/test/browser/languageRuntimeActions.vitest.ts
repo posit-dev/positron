@@ -12,13 +12,14 @@ import { IRuntimeStartupService } from '../../../../services/runtimeStartup/comm
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { TestQuickPick } from '../../../../../test/vitest/testQuickPick.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { selectLanguageRuntimeSession, selectNewLanguageRuntime } from '../../browser/languageRuntimeActions.js';
+import { DuplicateActiveConsoleSessionAction, selectLanguageRuntimeSession, selectNewLanguageRuntime } from '../../browser/languageRuntimeActions.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { EditorInput } from '../../../../common/editor/editorInput.js';
 import { IModelService } from '../../../../../editor/common/services/model.js';
-import { IRuntimeSessionService, ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeSessionService, ILanguageRuntimeSession, RuntimeStartMode } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { POSITRON_NOTEBOOK_EDITOR_INPUT_ID, SELECT_KERNEL_ID_POSITRON } from '../../../positronNotebook/common/positronNotebookCommon.js';
 
 function makeRuntime(overrides: Partial<ILanguageRuntimeMetadata> = {}): ILanguageRuntimeMetadata {
@@ -539,5 +540,86 @@ describe('selectLanguageRuntimeSession - change notebook session', () => {
 		const result = await openInterpreterPicker();
 		expect(executeCommand).toHaveBeenCalledWith(SELECT_KERNEL_ID_POSITRON);
 		expect(result).toBeUndefined();
+	});
+});
+
+describe('DuplicateActiveConsoleSessionAction', () => {
+	const startNewRuntimeSession = vi.fn(async (): Promise<string> => 'new-session-id');
+	const executeCommand = vi.fn(async () => undefined);
+	const notifyError = vi.fn();
+	let foregroundSession: ILanguageRuntimeSession | undefined;
+
+	const ctx = createTestContainer()
+		.withRuntimeServices()
+		.stub(IRuntimeSessionService, stubInterface<IRuntimeSessionService>({
+			get foregroundSession() { return foregroundSession; },
+			startNewRuntimeSession,
+		}))
+		.stub(ICommandService, { executeCommand })
+		.stub(INotificationService, stubInterface<INotificationService>({ error: notifyError }))
+		.build();
+
+	beforeEach(() => {
+		foregroundSession = undefined;
+	});
+
+	function runAction() {
+		return ctx.instantiationService.invokeFunction(accessor => new DuplicateActiveConsoleSessionAction().run(accessor));
+	}
+
+	function makeConsoleForegroundSession(): ILanguageRuntimeSession {
+		return stubInterface<ILanguageRuntimeSession>({
+			runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ runtimeId: 'python-runtime-1' }),
+			dynState: stubInterface<ILanguageRuntimeSession['dynState']>({ sessionName: 'My Python Session' }),
+			metadata: {
+				sessionId: 'console-session-1',
+				sessionMode: LanguageRuntimeSessionMode.Console,
+				notebookUri: undefined,
+				createdTimestamp: 0,
+				startReason: 'test',
+			},
+		});
+	}
+
+	function makeNotebookForegroundSession(): ILanguageRuntimeSession {
+		return stubInterface<ILanguageRuntimeSession>({
+			dynState: stubInterface<ILanguageRuntimeSession['dynState']>({ sessionName: 'My Notebook Session' }),
+			metadata: {
+				sessionId: 'notebook-session-1',
+				sessionMode: LanguageRuntimeSessionMode.Notebook,
+				notebookUri: URI.file('/path/to/notebook.ipynb'),
+				createdTimestamp: 0,
+				startReason: 'test',
+			},
+		});
+	}
+
+	it('returns early without calling startNewRuntimeSession when there is no foreground session', async () => {
+		foregroundSession = undefined;
+		await runAction();
+		expect(executeCommand).not.toHaveBeenCalled();
+		expect(startNewRuntimeSession).not.toHaveBeenCalled();
+	});
+
+	it('calls startNewRuntimeSession with the foreground session runtimeId, sessionName, and sessionMode', async () => {
+		foregroundSession = makeConsoleForegroundSession();
+		await runAction();
+		expect(executeCommand).toHaveBeenCalledWith('workbench.panel.positronConsole.focus');
+		expect(startNewRuntimeSession).toHaveBeenCalledWith(
+			'python-runtime-1',
+			'My Python Session',
+			LanguageRuntimeSessionMode.Console,
+			undefined,
+			'Duplicated session: My Python Session',
+			RuntimeStartMode.Starting,
+			true
+		);
+	});
+
+	it('shows an error notification and skips startNewRuntimeSession when the foreground session is not a Console session', async () => {
+		foregroundSession = makeNotebookForegroundSession();
+		await runAction();
+		expect(notifyError).toHaveBeenCalledOnce();
+		expect(startNewRuntimeSession).not.toHaveBeenCalled();
 	});
 });

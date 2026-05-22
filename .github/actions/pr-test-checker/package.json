@@ -1,0 +1,9 @@
+{
+	"name": "pr-test-checker-action",
+	"private": true,
+	"type": "module",
+	"description": "GH composite action that grades PR test coverage via the Claude Agent SDK.",
+	"dependencies": {
+		"@anthropic-ai/claude-agent-sdk": "^0.2.128"
+	}
+}
