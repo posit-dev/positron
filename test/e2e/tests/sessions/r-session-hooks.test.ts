@@ -66,12 +66,7 @@ test.describe('Sessions: R Session Init Hooks', {
 
 		await hotKeys.closeAllEditors();
 		await app.workbench.console.clearButton.click();
-
-		// Let's try reloadWindow action instead hotKeys
-  		await app.workbench.quickaccess.runCommand('workbench.action.reloadWindow');
-  		await app.code.driver.currentPage.waitForTimeout(3000);
-  		await app.code.driver.currentPage.locator('.monaco-workbench').waitFor({ state: 'visible' });
-		
+		await app.workbench.quickaccess.runCommand('workbench.action.reloadWindow');
 		await console.waitForReady('>', 60000);
 
 		// Make sure session is fully reconnected/settled
