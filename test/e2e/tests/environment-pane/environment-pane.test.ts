@@ -45,4 +45,25 @@ test.describe('Environment Pane', {
 		await packages.searchPackages('cowsay');
 		await packages.expectPackageInList('cowsay');
 	});
+
+	test.describe('Help button', { tag: [tags.HELP] }, () => {
+		test('R - Opens package help in Help pane', async function ({ app, r: _r }) {
+			const { packages } = app.workbench;
+
+			// Base is always attached
+			await packages.clickHelpButton('base');
+			await packages.expectHelpPaneToContainText('The R Base Package', 0);
+		});
+
+		test('Python - Opens package help in Help pane', async function ({ app, python: _python, executeCode }) {
+			const { packages } = app.workbench;
+
+			// `attached` is true only when the user has bound the module in the REPL and refreshed
+			await executeCode('Python', 'import numpy');
+			await packages.clickRefreshPackagesButton();
+
+			await packages.clickHelpButton('numpy');
+			await packages.expectHelpPaneToContainText('NumPy', 1);
+		});
+	});
 });
