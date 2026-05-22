@@ -77,6 +77,13 @@ export interface DynamicActionBarAction {
 	 * should appear as a submenu in the overflow menu.
 	 */
 	overflowContextMenuSubmenu?: OverflowContextMenuSubmenu;
+
+	/**
+	 * When true, the action shrinks to fit the available space instead of
+	 * being dropped from the layout. The action's component is responsible for
+	 * truncating its content (e.g. via CSS text-overflow: ellipsis).
+	 */
+	growable?: boolean;
 }
 
 /**
@@ -301,6 +308,16 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 
 				// Handle overflowing.
 				if (separatorWidth + width > layoutWidth) {
+					// Growable actions shrink to fill remaining space instead of being dropped,
+					// as long as the fixed width still fits. The component handles truncation.
+					if (action.growable && action.fixedWidth + separatorWidth <= layoutWidth) {
+						width = layoutWidth - separatorWidth;
+						gridEntries.push({ width, action });
+						layoutWidth = 0;
+						overflowing = true;
+						overflowActions.push(...actions.slice(i + 1).filter(hasOverflowEntry));
+						return;
+					}
 					overflowing = true;
 					overflowActions.push(...actions.slice(i).filter(hasOverflowEntry));
 					return;

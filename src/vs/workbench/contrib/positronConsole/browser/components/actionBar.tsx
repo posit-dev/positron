@@ -366,6 +366,7 @@ export const ActionBar = (props: ActionBarProps) => {
 			fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
 			text: directoryLabel,
 			separator: false,
+			growable: true,
 			component: <CurrentWorkingDirectory directoryLabel={directoryLabel} />
 		}
 	];
