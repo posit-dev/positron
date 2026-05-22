@@ -62,11 +62,9 @@ export class PipPackageManager implements IPackageManager {
     private async _getOutdatedPackages(token?: vscode.CancellationToken): Promise<Array<{ name: string }>> {
         const pythonService = await this._getPythonService();
         const proxyFlags = this._getProxyFlags();
-        const result = await pythonService.execModule(
-            'pip',
-            ['list', '--outdated', '--format=json', ...proxyFlags],
-            { token },
-        );
+        const result = await pythonService.execModule('pip', ['list', '--outdated', '--format=json', ...proxyFlags], {
+            token,
+        });
         return JSON.parse(result.stdout) as Array<{ name: string }>;
     }
 
