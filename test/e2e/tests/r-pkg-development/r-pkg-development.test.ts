@@ -83,7 +83,7 @@ test.describe('R Package Development', { tag: [tags.R_PKG_DEVELOPMENT, tags.ARK]
 			await app.workbench.console.waitForConsoleContents('"testfun"');
 
 			// Reset setting to default
-			await settings.set({ 'positron.r.localPackageInstallMethod': 'pak' });
+			await settings.set({ 'positron.r.localPackageInstallMethod': 'devtools' });
 		});
 	});
 });
