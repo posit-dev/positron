@@ -417,6 +417,33 @@ def test_pinfo_nonexistent_name(shell: PositronShell, mock_help_service: Mock) -
     mock_help_service.show_help.assert_not_called()
 
 
+def test_pinfo_distribution_name(
+    shell: PositronShell,
+    mock_help_service: Mock,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys,
+) -> None:
+    """`?name` should call show_help when name is a PyPI distribution (e.g. `scikit-learn`)."""
+    import importlib.metadata
+
+    # Pretend numpy is shipped as the distribution `fake-dist-xyz`. The import
+    # name (`numpy`) differs from the distribution name, mirroring the real
+    # `scikit-learn` / `sklearn` case. `raising=False` so this works on Python
+    # 3.9 where `packages_distributions` is absent.
+    monkeypatch.setattr(
+        importlib.metadata,
+        "packages_distributions",
+        lambda: {"numpy": ["fake-dist-xyz"]},
+        raising=False,
+    )
+
+    shell.run_cell("?fake-dist-xyz")
+
+    mock_help_service.show_help.assert_called_once_with("fake-dist-xyz")
+    # Should not also print IPython's default "Object not found" message.
+    assert "not found" not in capsys.readouterr().out
+
+
 def test_clear(shell: PositronShell, mock_ui_service: Mock) -> None:
     """Redirect `%clear` to the Positron UI service's `clear_console` method."""
     shell.run_cell("%clear")

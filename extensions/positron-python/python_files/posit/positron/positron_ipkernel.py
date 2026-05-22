@@ -38,7 +38,7 @@ from .access_keys import encode_access_key
 from .connections import ConnectionsService
 from .data_explorer import DataExplorerService, DataExplorerWarning
 from .debugger import PositronDebugger
-from .help import HelpService, help  # noqa: A004
+from .help import HelpService, _distribution_to_modules, help  # noqa: A004
 from .lsp import LSPService
 from .patch.bokeh import handle_bokeh_output, patch_bokeh_no_access
 from .patch.haystack import patch_haystack_is_in_jupyter
@@ -476,10 +476,11 @@ class PositronShell(ZMQInteractiveShell):
 
     def _inspect(self, meth, oname, namespaces=None, **kw):
         # For `?name`, if the name isn't a live object but is an installed
-        # module on disk, show its pydoc help instead of letting IPython
-        # print "Object not found". Pre-checking here (rather than after
-        # super()) avoids the duplicate "not found" message.
-        if meth == "pinfo" and _is_module_on_disk(oname):
+        # module or a known PyPI distribution name (e.g. `scikit-learn`,
+        # whose import name is `sklearn`), show its pydoc help instead of
+        # letting IPython print "Object not found". Pre-checking here
+        # (rather than after super()) avoids the duplicate "not found" message.
+        if meth == "pinfo" and (_is_module_on_disk(oname) or _distribution_to_modules(oname)):
             info = self._object_find(oname, namespaces)
             if not info.found and not hasattr(info.parent, oinspect.HOOK_NAME):
                 self.kernel.help_service.show_help(oname)
