@@ -10,11 +10,11 @@ inputs:
   python-primary-version:
     description: "Python version request for setup-python (primary). Latest patch resolved."
     required: false
-    default: '3.10'
+    default: '3.13'
   python-alt-version:
     description: "Python version request for setup-python (alternate). Latest patch resolved."
     required: false
-    default: '3.13'
+    default: '3.10'
   r-primary-version:
     description: "R version installed via rig as the primary."
     required: false
