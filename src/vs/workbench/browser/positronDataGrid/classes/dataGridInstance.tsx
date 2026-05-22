@@ -150,14 +150,19 @@ type DefaultCursorOptions = | {
 };
 
 /**
- * SelectionMode type. Controls how plain (non-shift) keyboard navigation interacts with the
- * selection:
- *   - 'spreadsheet' (default): navigation clears selection -- cursor and selection are separate.
- *   - 'list': navigation re-selects the cursor row after moving -- single-select tracks the cursor.
- *
- * Shift+navigation goes through extendRowSelection regardless of the mode.
+ * SelectionMode type. Controls how the grid couples cursor movement, keyboard, and mouse input to
+ * the selection:
+ *   - 'spreadsheet' (default): cursor and selection are independent. Plain navigation clears the
+ *     selection; Shift+navigation extends it; Ctrl/Cmd+click and Shift+click build multi/range
+ *     row selections.
+ *   - 'list-multiple-selection': the cursor row is always selected (re-selected after every
+ *     move), and Shift+navigation, Shift+click, Ctrl/Cmd+click, and selectAll build multi-row
+ *     selections.
+ *   - 'list-single-selection': the selection is always exactly the cursor row. Shift+navigation,
+ *     Shift+click, Ctrl/Cmd+click, and selectAll collapse to a plain single-row select on the
+ *     cursor.
  */
-export type SelectionMode = 'spreadsheet' | 'list';
+export type SelectionMode = 'spreadsheet' | 'list-multiple-selection' | 'list-single-selection';
 
 /**
  * SelectionOptions type. Discriminated on `selection`: when selection is disabled, there is
@@ -175,11 +180,12 @@ type SelectionOptions =
 	}
 	| {
 		// Selection enabled (the default): mouse clicks and keyboard navigation populate the
-		// cell/column/row selection buckets, and shift-modified keys extend the selection.
+		// cell/column/row selection buckets. Whether Shift and Ctrl/Cmd modifiers extend the
+		// selection depends on selectionMode.
 		selection?: true;
 
-		// How plain (non-shift) navigation interacts with selection. Defaults to 'spreadsheet'.
-		// See SelectionMode for details.
+		// How cursor movement and modifier keys interact with selection. Defaults to
+		// 'spreadsheet'. See SelectionMode for details.
 		selectionMode?: SelectionMode;
 	};
 
@@ -701,7 +707,7 @@ export abstract class DataGridInstance extends Disposable {
 	private readonly _selection: boolean;
 
 	/**
-	 * Gets the selection mode -- 'spreadsheet' (default) or 'list'. See SelectionMode for details.
+	 * Gets the selection mode.
 	 */
 	private readonly _selectionMode: SelectionMode;
 
@@ -2255,14 +2261,14 @@ export abstract class DataGridInstance extends Disposable {
 	 * Mouse selects a cell.
 	 * @param columnIndex The column index.
 	 * @param rowIndex The row index.
-	 * @param selectionType The mouse selection type.
+	 * @param mouseSelectionType The mouse selection type.
 	 * @returns A Promise<boolean> that resolves when the operation is complete.
 	 */
 	async mouseSelectCell(
 		columnIndex: number,
 		rowIndex: number,
 		pinned: boolean,
-		selectionType: MouseSelectionType
+		mouseSelectionType: MouseSelectionType
 	): Promise<void> {
 		// Subclass-marked non-selectable rows (e.g. section headers) absorb the click silently;
 		// the cursor stays put and the current selection is preserved.
@@ -2277,7 +2283,7 @@ export abstract class DataGridInstance extends Disposable {
 		this._rowSelectionIndexes = undefined;
 
 		// Process the selection based on selection type.
-		switch (selectionType) {
+		switch (mouseSelectionType) {
 			// Single selection.
 			case MouseSelectionType.Single: {
 				// Clear cell selection.
@@ -2382,10 +2388,10 @@ export abstract class DataGridInstance extends Disposable {
 	/**
 	 * Mouse selects a column.
 	 * @param columnIndex The column index.
-	 * @param selectionType The selection type.
+	 * @param mouseSelectionType The selection type.
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	async mouseSelectColumn(columnIndex: number, selectionType: MouseSelectionType): Promise<void> {
+	async mouseSelectColumn(columnIndex: number, mouseSelectionType: MouseSelectionType): Promise<void> {
 		// Clear cell selection.
 		this._cellSelectionIndexes = undefined;
 
@@ -2403,7 +2409,7 @@ export abstract class DataGridInstance extends Disposable {
 		};
 
 		// Process the selection based on selection type.
-		switch (selectionType) {
+		switch (mouseSelectionType) {
 			// Single selection.
 			case MouseSelectionType.Single: {
 				// Single select the column.
@@ -2517,14 +2523,20 @@ export abstract class DataGridInstance extends Disposable {
 	/**
 	 * Mouse selects a row.
 	 * @param rowIndex The row index.
-	 * @param selectionType The selection type.
+	 * @param mouseSelectionType The selection type.
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	async mouseSelectRow(rowIndex: number, selectionType: MouseSelectionType): Promise<void> {
+	async mouseSelectRow(rowIndex: number, mouseSelectionType: MouseSelectionType): Promise<void> {
 		// Subclass-marked non-selectable rows (e.g. section headers) absorb the click silently;
 		// the cursor stays put and the current selection is preserved.
 		if (!this.isRowSelectable(rowIndex)) {
 			return;
+		}
+
+		// In 'list-single-selection' mode the selection is always exactly the cursor row, so
+		// Shift+click (Range) and Ctrl/Cmd+click (Multi) collapse to a plain single-row click.
+		if (this._selectionMode === 'list-single-selection') {
+			mouseSelectionType = MouseSelectionType.Single;
 		}
 
 		// Clear cell selection.
@@ -2544,7 +2556,7 @@ export abstract class DataGridInstance extends Disposable {
 		};
 
 		// Process the selection based on selection type.
-		switch (selectionType) {
+		switch (mouseSelectionType) {
 			// Single selection.
 			case MouseSelectionType.Single: {
 				// Single select the row.
