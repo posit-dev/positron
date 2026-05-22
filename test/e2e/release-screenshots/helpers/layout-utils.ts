@@ -192,11 +192,16 @@ export async function waitForStableUI(page: Page, ms = 250): Promise<void> {
 }
 
 /**
- * Rewrite the parenthesized environment suffix Positron renders next to
- * the Python interpreter name (e.g. "Python 3.10.15 (uv: positron)",
- * "Python 3.10.15 (Pyenv)") with a generic "(Venv: .venv)". The labels
- * otherwise surface CI/runner internals — uv project paths, the local
- * Python manager — into docs screenshots.
+ * Rewrite the Python interpreter label Positron renders in chips and
+ * session names (e.g. "Python 3.10.15 (uv: positron)", "Python 3.10.15
+ * (Pyenv)") so docs screenshots show a clean, current display version.
+ * Two normalizations in one pass:
+ *   - Version: pinned to `displayVersion` (default '3.13') so screenshots
+ *     keep showing the latest major.minor regardless of which interpreter
+ *     CI actually launched. This is a DOM-only override; CI continues to
+ *     run whichever Python has the test deps installed.
+ *   - Suffix: collapsed to a generic "(Venv: .venv)" so CI/runner internals
+ *     (uv project paths, Pyenv, system labels) don't leak into docs.
  *
  * Scoped to the workbench surfaces that render the runtime label:
  *   - `.top-action-bar-session-manager-face`     (top-right interpreter face)
@@ -208,8 +213,8 @@ export async function waitForStableUI(page: Page, ms = 250): Promise<void> {
  * Call this AFTER `waitForStableUI` so any in-flight re-renders don't undo
  * the rewrite before the screenshot fires.
  */
-export async function overrideRuntimeLabel(page: Page): Promise<void> {
-	await page.evaluate(() => {
+export async function overrideRuntimeLabel(page: Page, displayVersion: string = '3.13'): Promise<void> {
+	await page.evaluate(({ displayVersion }) => {
 		const SELECTORS = [
 			'.top-action-bar-session-manager-face',
 			'.plot-session-name',
@@ -217,8 +222,8 @@ export async function overrideRuntimeLabel(page: Page): Promise<void> {
 			'.positron-notebook-kernel-status-badge',
 			'a.kernel-label',
 		];
-		const PATTERN = /(Python\s+[\d.]+)\s+\([^)]+\)/g;
-		const REPLACEMENT = '$1 (Venv: .venv)';
+		const PATTERN = /Python\s+[\d.]+\s+\([^)]+\)/g;
+		const REPLACEMENT = `Python ${displayVersion} (Venv: .venv)`;
 		for (const sel of SELECTORS) {
 			for (const root of document.querySelectorAll(sel)) {
 				const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
@@ -231,7 +236,7 @@ export async function overrideRuntimeLabel(page: Page): Promise<void> {
 				}
 			}
 		}
-	});
+	}, { displayVersion });
 }
 
 /**

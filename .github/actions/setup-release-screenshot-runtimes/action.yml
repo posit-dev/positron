@@ -10,11 +10,11 @@ inputs:
   python-primary-version:
     description: "Python version request for setup-python (primary). Latest patch resolved."
     required: false
-    default: '3.13'
+    default: '3.10'
   python-alt-version:
     description: "Python version request for setup-python (alternate). Latest patch resolved."
     required: false
-    default: '3.10'
+    default: '3.13'
   r-primary-version:
     description: "R version installed via rig as the primary."
     required: false
@@ -78,24 +78,6 @@ runs:
         # Extra packages for screenshot tests not yet in qa-example-content's
         # requirements.
         uv pip install astropy matplotlib
-
-    - name: Install Python dependencies (system Python)
-      shell: bash
-      run: |
-        # macos-latest-xlarge ships Python 3.13 pre-installed. Positron's
-        # runtime discovery prefers the system Python when it matches the
-        # POSITRON_PY_VER_SEL version, so we provision the system one
-        # with the same deps to make sure imports work regardless of
-        # which interpreter Positron selects.
-        SYS_PYTHON=$(command -v python${{ inputs.python-primary-version }} || true)
-        if [ -z "$SYS_PYTHON" ]; then
-          echo "::notice::No system python${{ inputs.python-primary-version }} on PATH; skipping system-Python provisioning"
-          exit 0
-        fi
-        echo "Provisioning system Python at: $SYS_PYTHON"
-        "$SYS_PYTHON" -m pip install --break-system-packages \
-          -r test/e2e/qa-example-content/requirements.txt \
-          ipykernel astropy matplotlib
 
     - name: Install Python (alternate, no venv activation)
       id: setup-python-alt
