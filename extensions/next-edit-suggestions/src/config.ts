@@ -8,26 +8,7 @@ import * as vscode from 'vscode';
 import { log } from './extension.js';
 import minimatch from 'minimatch';
 
-function isFileExcludedFromAI(uri: vscode.Uri): boolean {
-	const config = vscode.workspace.getConfiguration('positron.assistant');
-
-	let patterns = config.get<string[]>('aiExcludes');
-	const inspect = config.inspect<string[]>('aiExcludes');
-	if (!inspect?.globalValue && !inspect?.workspaceValue) {
-		patterns = config.get<string[]>('inlineCompletionExcludes');
-	}
-
-	if (!patterns || patterns.length === 0) {
-		return false;
-	}
-
-	return patterns.some(pattern => {
-		if (!pattern.includes('/')) {
-			return minimatch(path.basename(uri.path), pattern, { dot: true });
-		}
-		return minimatch(uri.path, pattern, { dot: true });
-	});
-}
+const DEFAULT_BASE_URL = 'https://gateway.posit.ai';
 
 function matchesGlobPattern(fileName: string, pattern: string): boolean {
 	const baseName = fileName.substring(fileName.lastIndexOf('/') + 1);
@@ -40,24 +21,43 @@ function matchesGlobPattern(fileName: string, pattern: string): boolean {
 	return baseName === pattern;
 }
 
-export function isCompletionEnabled(document: vscode.TextDocument): boolean {
-	/* If a user has explicitly disabled assistant via the old method, honour that here too. */
-	const assistantEnabled = vscode.workspace
-		.getConfiguration('positron.assistant')
-		.get<boolean>('enable', true);
-	if (!assistantEnabled) {
+export function getGatewayBaseUrl(): string {
+	return vscode.workspace
+		.getConfiguration('authentication.positai')
+		.inspect<string>('baseUrl')?.globalValue
+		?? DEFAULT_BASE_URL;
+}
+
+export function getSelectedCompletionModelId(): string {
+	return vscode.workspace
+		.getConfiguration('nextEditSuggestions')
+		.get<string>('selectedCompletionModel') || '';
+}
+
+function isFileExcludedFromAI(uri: vscode.Uri): boolean {
+	const config = vscode.workspace.getConfiguration('positron.assistant');
+
+	const patterns = config.get<string[]>('aiExcludes');
+	if (!patterns || patterns.length === 0) {
 		return false;
 	}
 
-	/* Check if the file is excluded from AI features based on user configuration. */
-	if (isFileExcludedFromAI(document.uri)) {
-		log.debug(`AI features are disabled for ${document.uri.fsPath} based on user configuration.`);
-		return false;
-	}
+	return patterns.some(pattern => {
+		if (!pattern.includes('/')) {
+			return minimatch(path.basename(uri.path), pattern, { dot: true });
+		}
+		return minimatch(uri.path, pattern, { dot: true });
+	});
+}
 
+function isCompletionEnabledForFileType(document: vscode.TextDocument): boolean {
 	const enableConfig = vscode.workspace
 		.getConfiguration('nextEditSuggestions')
 		.get<Record<string, boolean>>('enable');
+
+	if (!enableConfig) {
+		return true;
+	}
 
 	const languageId = document.languageId;
 
@@ -73,4 +73,24 @@ export function isCompletionEnabled(document: vscode.TextDocument): boolean {
 	}
 
 	return enableConfig['*'] ?? true;
+}
+
+/** Determines whether inline completions are enabled for a document.
+ *
+ * Checks are evaluated in order:
+ * 1. `positron.assistant.aiExcludes` -- file excluded from all AI features.
+ * 2. `nextEditSuggestions.enable` -- per-language ID, then filename glob.
+ * 3. `nextEditSuggestions.enable` -- `*` wildcard.
+ */
+export function isCompletionEnabled(document: vscode.TextDocument): boolean {
+	if (isFileExcludedFromAI(document.uri)) {
+		log.debug(`AI features are disabled for ${document.uri.fsPath} based on positron.assistant.aiExcludes configuration.`);
+		return false;
+	}
+
+	const enabled = isCompletionEnabledForFileType(document);
+	if (!enabled) {
+		log.debug(`Inline completions are disabled for ${document.uri.fsPath} based on nextEditSuggestions.enable configuration.`);
+	}
+	return enabled;
 }
