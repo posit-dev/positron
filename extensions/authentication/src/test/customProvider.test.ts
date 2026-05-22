@@ -97,15 +97,19 @@ suite('validateCustomProviderApiKey', () => {
 		);
 	});
 
-	test('throws credential-failure message on 403 when override is set', async () => {
+	test('surfaces gateway body on 403 when override is set', async () => {
 		mockGet.withArgs('models.overrides.customProvider').returns([
 			{ identifier: 'real-model-id' },
 		]);
-		stubFetch(403);
+		globalThis.fetch = async () => ({
+			ok: false,
+			status: 403,
+			text: async () => JSON.stringify({ error: { message: 'token expired' } }),
+		} as Response);
 
 		await assert.rejects(
 			validateCustomProviderApiKey('sk-test', makeConfig()),
-			/Invalid Custom Provider API key/
+			/HTTP 403.*token expired/s
 		);
 	});
 
