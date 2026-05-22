@@ -93,7 +93,7 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 	 * R and Python sessions running side-by-side, Sessions view visible in the
 	 * secondary side bar, with an annotation on the top-right interpreter chip.
 	 */
-	test('Release Screenshot - active-interpreter-session.png', async ({ app, page, openFile, }) => {
+	test('Release Screenshot - active-interpreter-session.png', async ({ app, page, openFile }) => {
 		const { sessions, quickaccess, hotKeys, layouts } = app.workbench;
 		// Smaller window so the chrome and Sessions cards read proportionally
 		// larger in the docs page; matches astropy.png sizing.
@@ -105,9 +105,9 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		await openFile('basics.R');
 
 		await hotKeys.closePrimarySidebar();
+		await hotKeys.closeSecondarySidebar();
 		await quickaccess.runCommand('workbench.view.positronSessions.focus', { exactLabelMatch: false });
-		await layouts.resizeAuxiliaryBar({ x: -300 });
-		await layouts.resizePanel({ y: -200 });
+		await layouts.resizePanel({ y: -100 });
 
 		await prepareForScreenshot(app, page);
 		await overrideWorkspaceName(page, 'qa-example-content', 'my-project');
