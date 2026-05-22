@@ -13,6 +13,10 @@ export const POSITRON_PACKAGES_HAS_ACTIVE_SESSION = new RawContextKey<boolean>('
 export const POSITRON_PACKAGES_IS_BUSY = new RawContextKey<boolean>('positronPackages.isBusy', false);
 export const POSITRON_PACKAGES_SELECTED_PACKAGE = new RawContextKey<string>('positronPackages.selectedPackage', '');
 
+// Item size mode for the packages list: 'card' or 'row'.
+export type PackagesItemSize = 'card' | 'row';
+export const POSITRON_PACKAGES_ITEM_SIZE = new RawContextKey<PackagesItemSize>('positronPackages.itemSize', 'card');
+
 // Context key expressions for menu enablement
 export const PACKAGES_VIEW_VISIBLE = ContextKeyExpr.equals('view', POSITRON_PACKAGES_VIEW_ID);
 export const PACKAGES_CAN_RUN_ACTION = ContextKeyExpr.and(

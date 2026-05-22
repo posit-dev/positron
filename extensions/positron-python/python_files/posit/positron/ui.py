@@ -12,7 +12,7 @@ import sys
 import types
 import webbrowser
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Union
 from urllib.parse import urlparse
 
 from comm.base_comm import BaseComm
@@ -160,12 +160,17 @@ def _get_packages_installed(kernel: "PositronIPyKernel", _params: List[JsonData]
         if canonical not in packages_dict:
             import_names = _import_names_for_dist(dist, canonical)
             attached = any(import_name in user_top_levels for import_name in import_names)
+            # PackageMetadata (the 3.14 protocol) doesn't expose .get(), but the
+            # runtime object (email.message.Message) always has it.
+            metadata: Any = dist.metadata
+            summary = metadata.get("Summary")
             packages_dict[canonical] = {
                 "id": f"{canonical}-{dist.version}",
                 "name": name,
                 "displayName": canonical,
                 "version": dist.version,
                 "attached": attached,
+                "description": summary if summary and summary != "UNKNOWN" else "",
             }
     return sorted(packages_dict.values(), key=lambda p: p["displayName"])
 
