@@ -24,6 +24,10 @@ on:
         description: "Publish mode: open a PR if there are changes. No-op for nightly."
         type: boolean
         default: true
+      slack_notify:
+        description: "Notify #positron-test-results on nightly failure. Uncheck when triggering manually for testing."
+        type: boolean
+        default: true
   schedule:
     - cron: '0 9 * * 1-5'  # 09:00 UTC, Mon-Fri (resolves to mode=nightly, version=latest-prerelease via 'auto')
 
@@ -357,7 +361,10 @@ jobs:
   slack-notify:
     # Nightly is on a schedule; failures should page #positron-test-results.
     # Publish is on demand, so the operator already sees the result.
-    if: ${{ failure() && (inputs.mode || 'nightly') == 'nightly' }}
+    # `inputs.slack_notify` is unset on schedule events (cron), so the
+    # `!= false` check defaults to notifying; manual runs that uncheck the
+    # box opt out.
+    if: ${{ failure() && (inputs.mode || 'nightly') == 'nightly' && inputs.slack_notify != false }}
     needs: [release-screenshots]
     runs-on: ubuntu-latest
     steps:
