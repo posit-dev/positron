@@ -26,7 +26,7 @@ test.describe('Sessions: R Reconnect Layers', {
 		const { console } = app.workbench;
 
 		// The .Rprofile in this workspace does cat("[.Rprofile] top-level code executed\n")
-		// Verify we can see that — confirms we're using the right .Rprofile
+		// Verify we can see that to confirm we're using the right .Rprofile (most basic confirmation)
 		await console.waitForConsoleContents('[.Rprofile] top-level code executed', { timeout: 30000 });
 	});
 
@@ -37,7 +37,7 @@ test.describe('Sessions: R Reconnect Layers', {
 		await hotKeys.reloadWindow(true);
 		await console.waitForReady('>', 60000);
 
-		// Can we run code and see output? Most basic thing after reconnect.
+		// Can we run code and see output? Most basic thing after reconnect (must work).
 		await console.executeCode('R', 'cat("[layer2] hello")');
 		// Use exact match so we don't also pick up the input line containing cat(...)
 		await console.waitForConsoleContents('[layer2] hello', { timeout: 30000, exact: true });
@@ -46,7 +46,7 @@ test.describe('Sessions: R Reconnect Layers', {
 	test('Layer 3: Session is the same R process after reload (variable persists)', async function ({ app, hotKeys }) {
 		const { console } = app.workbench;
 
-		// Set something before reload
+		// Set something before reload to check survivability
 		await console.executeCode('R', 'layer3_marker <- "survived"');
 		await console.waitForReady('>');
 
@@ -54,7 +54,7 @@ test.describe('Sessions: R Reconnect Layers', {
 		await hotKeys.reloadWindow(true);
 		await console.waitForReady('>', 60000);
 
-		// Query the variable — if it's there, same process
+		// Query the variable: if it's there, same process
 		await console.executeCode('R', 'cat(paste0("[layer3] marker=", layer3_marker))');
 		await console.waitForConsoleContents('[layer3] marker=survived', { timeout: 30000, exact: true });
 	});
@@ -66,7 +66,7 @@ test.describe('Sessions: R Reconnect Layers', {
 		await hotKeys.reloadWindow(true);
 		await console.waitForReady('>', 60000);
 
-		// .Rprofile top-level cat() should not appear in post-reload output
+		// .Rprofile top-level cat() should not appear in post-reload output (this should pass quickly after console is ready)
 		await console.waitForConsoleContents('[.Rprofile] top-level code executed', { expectedCount: 0, timeout: 5000 });
 	});
 
@@ -79,6 +79,7 @@ test.describe('Sessions: R Reconnect Layers', {
 
 		// The session_reconnect hook does cat("[hook:reconnect] fired\n")
 		// This output should appear without executing anything
-		await console.waitForConsoleContents('[hook:reconnect] fired', { timeout: 30000 });
+		// Set timeout to 60s instead to rule out Claude's confusing hypothesis of timing issue
+		await console.waitForConsoleContents('[hook:reconnect] fired', { timeout: 60000 });
 	});
 });
