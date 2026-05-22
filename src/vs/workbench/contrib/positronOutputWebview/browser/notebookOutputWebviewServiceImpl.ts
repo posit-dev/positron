@@ -450,6 +450,10 @@ ${headContent}
 	 */
 	static readonly CssAddons = `
 <style>
+	body {
+		margin: 0;
+	}
+
 	/* Hide actions button that try and open external pages like opening source code as they don't currently work (See #2829)
 	/* We do support download link clicks, so keep those. */
 	.vega-actions a:not([download]) {
