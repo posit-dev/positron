@@ -6,6 +6,13 @@
 import { isElectron, isWeb, isWorkbench } from '../../../base/common/platform.js';
 
 /**
+ * Setting key for opting out of P3M gallery telemetry. Boolean; defaults to true.
+ * Admins (e.g. PWB) can flip it false via the normal settings.json mechanisms to
+ * disable Positron-specific query params on extension gallery requests.
+ */
+export const GalleryUsageDataConfigKey = 'extensions.gallery.sendUsageData';
+
+/**
  * Why a particular gallery request was issued. Only set on update-check requests; left
  * undefined for browse / other gallery traffic so P3M can distinguish the two buckets.
  */
@@ -78,9 +85,9 @@ export function isP3MGalleryUrl(url: string): boolean {
 /**
  * Appends Positron telemetry params to a gallery request URL.
  *
- * Gated to P3M URLs only via {@link isP3MGalleryUrl}: non-P3M galleries receive the
- * URL unchanged. This avoids leaking Positron-specific telemetry to Open VSX or any
- * other gallery a PWB / enterprise build might point at.
+ * Returns the URL unchanged when any of these gates fail:
+ * - `sendUsageData` is false (admin / user opt-out via {@link GalleryUsageDataConfigKey}).
+ * - The URL hostname is not a P3M-hosted gallery (see {@link isP3MGalleryUrl}).
  *
  * P3M's log pipeline captures `request_url` and `user_agent` only. URL params are the
  * portable way to surface check-trigger, session-type, and version across desktop
@@ -95,8 +102,9 @@ export function appendPositronGalleryParams(
 	checkTrigger: PositronCheckTrigger | undefined,
 	sessionType: PositronSessionType,
 	positronVersion: string,
+	sendUsageData: boolean,
 ): string {
-	if (!isP3MGalleryUrl(url)) {
+	if (!sendUsageData || !isP3MGalleryUrl(url)) {
 		return url;
 	}
 	const params: string[] = [];

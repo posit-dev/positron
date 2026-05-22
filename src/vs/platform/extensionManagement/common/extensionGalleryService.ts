@@ -32,7 +32,7 @@ import { format2 } from '../../../base/common/strings.js';
 import { ExtensionGalleryResourceType, Flag, getExtensionGalleryManifestResourceUri, IExtensionGalleryManifest, IExtensionGalleryManifestService, ExtensionGalleryManifestStatus } from './extensionGalleryManifest.js';
 import { TelemetryTrustedValue } from '../../telemetry/common/telemetryUtils.js';
 // --- Start Positron ---
-import { appendPositronGalleryParams, formatPositronVersion, getPositronSessionType, PositronCheckTrigger } from './positronGalleryTelemetry.js';
+import { appendPositronGalleryParams, formatPositronVersion, GalleryUsageDataConfigKey, getPositronSessionType, PositronCheckTrigger } from './positronGalleryTelemetry.js';
 // --- End Positron ---
 
 const CURRENT_TARGET_PLATFORM = isWeb ? TargetPlatform.WEB : getTargetPlatform(platform, arch);
@@ -780,11 +780,13 @@ export abstract class AbstractExtensionGalleryService implements IExtensionGalle
 		// Tag the resource-API URI templates with telemetry params here, so every
 		// downstream GET (including the unpkg fallback) carries them. The params are
 		// added before format2 expands {publisher}/{name}, which preserves them.
+		const sendUsageData = this.configurationService.getValue<boolean>(GalleryUsageDataConfigKey) !== false;
 		const positronGalleryParams = (url: string) => appendPositronGalleryParams(
 			url,
 			options.checkTrigger,
 			getPositronSessionType(),
 			formatPositronVersion(this.productService.positronVersion, this.productService.positronBuildNumber),
+			sendUsageData,
 		);
 		resourceApi = {
 			uri: positronGalleryParams(resourceApi.uri),
@@ -1429,11 +1431,13 @@ export abstract class AbstractExtensionGalleryService implements IExtensionGalle
 		// --- Start Positron ---
 		// Tag the outgoing POST URL with distribution type + Positron version, plus the
 		// update-check trigger (read off the Query state) when applicable
+		const sendUsageData = this.configurationService.getValue<boolean>(GalleryUsageDataConfigKey) !== false;
 		const taggedQueryApi = appendPositronGalleryParams(
 			extensionsQueryApi,
 			query.checkTrigger,
 			getPositronSessionType(),
 			formatPositronVersion(this.productService.positronVersion, this.productService.positronBuildNumber),
+			sendUsageData,
 		);
 		// --- End Positron ---
 
