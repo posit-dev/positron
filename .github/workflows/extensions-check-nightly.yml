@@ -170,6 +170,9 @@ jobs:
           COMBINED_TAGS=$(echo "$UPDATED" | tr ' ' '\n' | jq -R -s -r --slurpfile map "$TAG_MAP" '
             split("\n") | map(select(length > 0)) | map($map[0][.].tags // []) | flatten | unique | join(" ")
           ')
+          UNMAPPED=$(echo "$UPDATED" | tr ' ' '\n' | jq -R -s -r --slurpfile map "$TAG_MAP" '
+            split("\n") | map(select(length > 0)) | map(select($map[0][.] == null)) | join(", ")
+          ')
           {
             echo "### Suggested test tags"
             echo ""
@@ -180,12 +183,8 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
           echo "updated=$UPDATED" >> "$GITHUB_OUTPUT"
-          {
-            echo "tag_bullets<<__RENDER_EOF__"
-            echo "$TAG_BULLETS"
-            echo "__RENDER_EOF__"
-          } >> "$GITHUB_OUTPUT"
           echo "combined_tags=$COMBINED_TAGS" >> "$GITHUB_OUTPUT"
+          echo "unmapped=$UNMAPPED" >> "$GITHUB_OUTPUT"
 
       - name: Commit and push
         id: push
@@ -221,9 +220,10 @@ jobs:
           GH_TOKEN: ${{ steps.bot-token.outputs.token }}
           BRANCH: ${{ steps.push.outputs.branch }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          MAP_URL: ${{ github.server_url }}/${{ github.repository }}/blob/main/.github/workflows/extensions-tag-map.json
           UPDATED: ${{ steps.render-tags.outputs.updated }}
-          TAG_BULLETS: ${{ steps.render-tags.outputs.tag_bullets }}
           COMBINED_TAGS: ${{ steps.render-tags.outputs.combined_tags }}
+          UNMAPPED: ${{ steps.render-tags.outputs.unmapped }}
         run: |
           EXT_BULLETS=$(echo "$UPDATED" | tr ' ' '\n' | sed 's/^/- /')
           # Truncate title if more than 3 extensions to stay within GitHub's limit
@@ -235,11 +235,15 @@ jobs:
             FIRST3="${EXT_ARRAY[0]},${EXT_ARRAY[1]},${EXT_ARRAY[2]}"
             TITLE="chore: update bootstrap extensions ($FIRST3 +$((COUNT - 3)) more)"
           fi
-          COMBINED_LINE=""
+          TAGS_LINE=""
           if [ -n "$COMBINED_TAGS" ]; then
-            COMBINED_LINE="
-
-          Combined: ${COMBINED_TAGS}"
+            TAGS_LINE="${COMBINED_TAGS}
+          "
+          fi
+          UNMAPPED_LINE=""
+          if [ -n "$UNMAPPED" ]; then
+            UNMAPPED_LINE="[Unmapped](${MAP_URL}): ${UNMAPPED}
+          "
           fi
           PR_URL=$(gh pr create \
             --base main \
@@ -251,10 +255,7 @@ jobs:
           ${EXT_BULLETS}
 
           ### QA Notes
-          Triggered by [nightly extensions check](${RUN_URL}).
-
-          **Suggested test tags:**
-          ${TAG_BULLETS}${COMBINED_LINE}")
+          ${TAGS_LINE}${UNMAPPED_LINE}Triggered by [nightly extensions check](${RUN_URL}).")
           echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
           echo "updated=$UPDATED" >> "$GITHUB_OUTPUT"
 
