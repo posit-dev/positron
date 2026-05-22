@@ -213,7 +213,7 @@ export async function waitForStableUI(page: Page, ms = 250): Promise<void> {
  * Call this AFTER `waitForStableUI` so any in-flight re-renders don't undo
  * the rewrite before the screenshot fires.
  */
-export async function overrideRuntimeLabel(page: Page, displayVersion: string = '3.13'): Promise<void> {
+export async function overrideRuntimeLabel(page: Page, displayVersion: string = '3.13.5'): Promise<void> {
 	await page.evaluate(({ displayVersion }) => {
 		const SELECTORS = [
 			'.top-action-bar-session-manager-face',
