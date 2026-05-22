@@ -61,13 +61,17 @@ test.describe('Sessions: R Session Init Hooks', {
 		await app.workbench.editors.waitForActiveTab('DESCRIPTION');
 	});
 
-	test('R - Window reload fires only session_reconnect, not session_init or .Rprofile', async function ({ app, hotKeys }) {
+	test('R - Window reload fires only session_reconnect, not session_init or .Rprofile', async function ({ app, hotKeys, sessions }) {
 		const { console } = app.workbench;
 
 		await hotKeys.closeAllEditors();
 		await app.workbench.console.clearButton.click();
 		await hotKeys.reloadWindow(true);
 		await console.waitForReady('>', 60000);
+
+		// Make sure session is fully reconnected/settled
+		const sessionId = await sessions.getCurrentSessionId();
+		await sessions.expectStatusToBe(sessionId, 'idle');
 
 		// session_reconnect hook fires
 		await console.waitForConsoleContents('[hook:reconnect] fired', { timeout: 30000 });
