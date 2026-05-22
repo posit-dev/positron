@@ -239,6 +239,7 @@
             "type": "boolean",
             "default": false,
             "markdownDescription": "%configuration.enable.markdownDescription%",
+            "markdownDeprecationMessage": "%configuration.enable.markdownDeprecationMessage%",
             "tags": [
               "preview"
             ]
