@@ -179,8 +179,8 @@ function fromLocalNormal(extensionPath: string): Stream {
 // it is migrated to esbuild. See positronWebpackExtensions above. Delete this
 // function (and its caller) once that migration lands.
 //
-// Implementation notes: we deliberately spawn the extension's own
-// node_modules/.bin/webpack rather than require()-ing webpack from the repo
+// Implementation notes: we deliberately spawn the extension's own webpack
+// install as a child process rather than require()-ing webpack from the repo
 // root. The root install ends up with an ajv-keywords/ajv version mismatch
 // (eslint pins ajv@6 at the root; webpack's schema-utils chain wants ajv@8)
 // that npm's hoister cannot resolve under the repo's legacy-peer-deps=true
@@ -191,24 +191,24 @@ function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, 
 	const result = es.through();
 	const extensionName = path.basename(extensionPath);
 
-	const webpackBin = path.join(
-		extensionPath,
-		'node_modules',
-		'.bin',
-		process.platform === 'win32' ? 'webpack.cmd' : 'webpack'
-	);
+	// Invoke webpack's JS entry directly with the current Node binary rather
+	// than the .bin shim. Node >= 20.12 rejects spawning .cmd / .bat files
+	// without shell: true (CVE-2024-27980), which broke the Windows build when
+	// we shelled out to webpack.cmd. Running the .js file is cross-platform
+	// and avoids needing a shell.
+	const webpackJs = path.join(extensionPath, 'node_modules', 'webpack', 'bin', 'webpack.js');
 
-	if (!fs.existsSync(webpackBin)) {
+	if (!fs.existsSync(webpackJs)) {
 		setImmediate(() => result.emit('error', new Error(
-			`fromLocalWebpack: ${webpackBin} not found. Did you run 'npm install' in ${extensionName}?`
+			`fromLocalWebpack: ${webpackJs} not found. Did you run 'npm install' in ${extensionName}?`
 		)));
 		return result.pipe(createStatsStream(extensionName));
 	}
 
 	new Promise<void>((resolve, reject) => {
 		const proc = cp.execFile(
-			webpackBin,
-			['--config', webpackConfigFileName, '--mode', 'production', '--devtool', 'source-map'],
+			process.execPath,
+			[webpackJs, '--config', webpackConfigFileName, '--mode', 'production', '--devtool', 'source-map'],
 			{ cwd: extensionPath, maxBuffer: 200 * 1024 * 1024 },
 			(err, _stdout, stderr) => {
 				if (err) {
