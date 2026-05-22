@@ -257,6 +257,10 @@ jobs:
         run: |
           brew install --cask xquartz
 
+      - name: Install Playwright browsers
+        run: |
+          npx playwright install chromium
+
       - name: Transform to Playwright tags $PW_TAGS
         run: bash scripts/pr-tags-transform.sh "${{ inputs.project }}" "${{ inputs.grep }}"
 
