@@ -119,6 +119,16 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		await hotKeys.closePrimarySidebar();
 		await quickaccess.runCommand('workbench.view.positronSessions.focus', { exactLabelMatch: false });
 		await expect(layouts.auxBar).toBeVisible();
+		// Hide the Variables split-view pane so the aux bar matches the docs
+		// reference for this shot (Sessions only — Variables is shown in the
+		// dedicated variables-pane.png shot).
+		await page.evaluate(() => {
+			const header = document.querySelector('.part.auxiliarybar [aria-label="Variables Section"]');
+			const pane = header?.closest('.split-view-view') as HTMLElement | null;
+			if (pane) {
+				pane.style.display = 'none';
+			}
+		});
 		await layouts.resizeAuxiliaryBar({ x: -200 });
 		await layouts.resizePanel({ y: 150 });
 
