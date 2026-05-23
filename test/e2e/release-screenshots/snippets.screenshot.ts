@@ -201,16 +201,24 @@ test.describe('Release Screenshots - Snippets', () => {
 
 		await prepareForScreenshot(app, page);
 		// Capture the union of the suggest widget + the (overlay-positioned)
-		// details panel so the snippet body shows alongside the list.
+		// details panel so the snippet body shows alongside the list. Cap the
+		// suggest widget height at the first few rows so the docs framing
+		// matches the original (the widget itself shows ~11 rows, but the
+		// reference only includes the for-loop entries before unrelated
+		// matches like `force`, `formals`, etc.).
 		const suggestBox = await suggestWidget.widget.boundingBox();
 		const detailsBox = await suggestWidget.detailsContainer.boundingBox();
 		if (!suggestBox || !detailsBox) {
 			throw new Error('Could not measure suggest widget / details panel');
 		}
+		const VISIBLE_ROWS = 4; // for [keyword], for snippet, forcats::, foreign::
+		const firstRowBox = await suggestWidget.widget.locator('.monaco-list-row').first().boundingBox();
+		const rowHeight = firstRowBox?.height ?? 22;
+		const suggestBottom = suggestBox.y + VISIBLE_ROWS * rowHeight;
 		const left = Math.floor(Math.min(suggestBox.x, detailsBox.x));
 		const top = Math.floor(Math.min(suggestBox.y, detailsBox.y));
 		const right = Math.ceil(Math.max(suggestBox.x + suggestBox.width, detailsBox.x + detailsBox.width));
-		const bottom = Math.ceil(Math.max(suggestBox.y + suggestBox.height, detailsBox.y + detailsBox.height));
+		const bottom = Math.ceil(Math.max(suggestBottom, detailsBox.y + detailsBox.height));
 		await captureRegion(page, 'snippets-for-example.png', {
 			x: left,
 			y: top,
