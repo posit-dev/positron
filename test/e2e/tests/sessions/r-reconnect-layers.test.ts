@@ -73,6 +73,7 @@ test.describe('Sessions: R Reconnect Layers', {
 	test('Layer 5: Hook cat() output appears in console after reload without user action', async function ({ app, hotKeys }) {
 		const { console } = app.workbench;
 
+		await console.focus();
 		await console.clearButton.click();
 		await hotKeys.reloadWindow(true);
 		await console.waitForReady('>', 60000);
