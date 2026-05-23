@@ -65,8 +65,9 @@ test.describe('Sessions: R Session Init Hooks', {
 		const { console } = app.workbench;
 
 		await hotKeys.closeAllEditors();
-		await app.workbench.console.clearButton.click();
-		await app.workbench.quickaccess.runCommand('workbench.action.reloadWindow');
+		await console.focus();    
+		await clearButton.click();
+		await runCommand('workbench.action.reloadWindow');
 		await console.waitForReady('>', 60000);
 
 		// Make sure session is fully reconnected/settled
