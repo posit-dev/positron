@@ -70,6 +70,9 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 	 */
 	test('Release Screenshot - variables-pane.png', async ({ app, page, openFile, executeCode, r }) => {
 		const { sessions, variables, hotKeys, layouts } = app.workbench;
+		// Smaller window so the variables list reads denser and the empty
+		// editor / console space below is trimmed — matches the docs framing.
+		await setScreenshotWindowSize(app, { width: 1280, height: 800 });
 		await sessions.expectAllSessionsToBeReady();
 
 		writeFileSync(join(app.workspacePathOrFolder, 'data_types.R'), DATA_TYPES_R);
