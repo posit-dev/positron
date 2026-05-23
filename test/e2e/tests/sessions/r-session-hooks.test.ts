@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test, tags } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -65,9 +65,9 @@ test.describe('Sessions: R Session Init Hooks', {
 		const { console } = app.workbench;
 
 		await hotKeys.closeAllEditors();
-		await console.focus();    
-		await clearButton.click();
-		await runCommand('workbench.action.reloadWindow');
+		await console.focus();
+		await console.clearButton.click();
+		await hotKeys.reloadWindow(true);
 		await console.waitForReady('>', 60000);
 
 		// Make sure session is fully reconnected/settled
