@@ -36,6 +36,8 @@ export type Annotation = {
 	| 'left-outside';
 	/** Pixels to expand the border outward on all sides. Default 0. */
 	padding?: number;
+	/** Border stroke width in pixels. Default 3 (matches the docs styling for full-window shots). */
+	borderWidth?: number;
 };
 
 /**
@@ -92,7 +94,7 @@ export async function paintBackdrop(
 
 export async function annotate(page: Page, items: Annotation[]): Promise<void> {
 	await page.evaluate((items) => {
-		const BORDER_PX = 1;
+		const DEFAULT_BORDER_PX = 3;
 		const Z = 99998;
 
 		// Remove any borders/badges from a prior annotate() call so subsequent
@@ -104,7 +106,7 @@ export async function annotate(page: Page, items: Annotation[]): Promise<void> {
 			.querySelectorAll('[data-screenshot-annotation="border"], [data-screenshot-annotation="label"]')
 			.forEach((el) => el.remove());
 
-		for (const { selector, label, color, labelPosition = 'top-left', padding = 0 } of items) {
+		for (const { selector, label, color, labelPosition = 'top-left', padding = 0, borderWidth = DEFAULT_BORDER_PX } of items) {
 			const selectors = Array.isArray(selector) ? selector : [selector];
 			const elRects: DOMRect[] = [];
 			for (const sel of selectors) {
@@ -146,7 +148,7 @@ export async function annotate(page: Page, items: Annotation[]): Promise<void> {
 				`left:${rect.left}px`,
 				`width:${rect.width}px`,
 				`height:${rect.height}px`,
-				`border:${BORDER_PX}px solid ${color}`,
+				`border:${borderWidth}px solid ${color}`,
 				'box-sizing:border-box',
 				'pointer-events:none',
 				`z-index:${Z}`,

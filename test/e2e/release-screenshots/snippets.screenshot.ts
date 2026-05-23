@@ -75,8 +75,8 @@ test.describe('Release Screenshots - Snippets', () => {
 		});
 
 		await annotate(page, [
-			{ selector: '.monaco-list-row[aria-label^="New Global Snippets file"]', label: '1', color: ANNOTATION_COLOR, padding: 1, labelPosition: 'right-outside' },
-			{ selector: '.monaco-list-row[aria-label^="New Snippets file for"]', label: '2', color: ANNOTATION_COLOR, padding: 1, labelPosition: 'right-outside' },
+			{ selector: '.monaco-list-row[aria-label^="New Global Snippets file"]', label: '1', color: ANNOTATION_COLOR, padding: 1, labelPosition: 'right-outside', borderWidth: 1 },
+			{ selector: '.monaco-list-row[aria-label^="New Snippets file for"]', label: '2', color: ANNOTATION_COLOR, padding: 1, labelPosition: 'right-outside', borderWidth: 1 },
 		]);
 
 		await captureRegion(page, 'snippets-configure-snippets.png', {
@@ -166,6 +166,7 @@ test.describe('Release Screenshots - Snippets', () => {
 				color: ANNOTATION_COLOR,
 				padding: 1,
 				labelPosition: 'right-outside',
+				borderWidth: 1,
 			},
 		]);
 
