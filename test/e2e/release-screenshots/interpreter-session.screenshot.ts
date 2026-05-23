@@ -78,18 +78,11 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 
 		await hotKeys.closePrimarySidebar();
 		await variables.focusVariablesView();
-		// Hide the Plots split-view pane from the auxiliary bar so the shot
-		// matches the docs reference (Variables only). Hiding via CSS rather
-		// than the `<viewId>.removeView` command because that command's title
-		// is "Hide 'Plots'", which the command-palette fuzzy match doesn't
-		// reliably resolve from the raw command ID.
-		await page.evaluate(() => {
-			const header = document.querySelector('.part.auxiliarybar [aria-label="Plots Section"]');
-			const pane = header?.closest('.split-view-view') as HTMLElement | null;
-			if (pane) {
-				pane.style.display = 'none';
-			}
-		});
+		// Collapse the Plots pane (sibling split-view to Variables) so the
+		// shot matches the docs reference (Variables only). The pane header
+		// has an aria-label of "Plots Section" and clicking it toggles
+		// expand/collapse.
+		await page.locator('.part.auxiliarybar [aria-label="Plots Section"]').click();
 		await layouts.resizeAuxiliaryBar({ x: -300 });
 		await expect(variables.variablesPane).toBeVisible();
 
