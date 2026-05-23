@@ -250,8 +250,8 @@ test.describe('Release Screenshots - Snippets', () => {
 
 		await prepareForScreenshot(app, page);
 		await annotate(page, [
-			{ selector: '[data-screenshot-target="snippet-fun"]', label: '', color: ANNOTATION_COLOR, padding: 1 },
-			{ selector: '[data-screenshot-target="keyword-function"]', label: '', color: ANNOTATION_COLOR, padding: 1 },
+			{ selector: '[data-screenshot-target="snippet-fun"]', label: '', color: ANNOTATION_COLOR, padding: 1, borderWidth: 1 },
+			{ selector: '[data-screenshot-target="keyword-function"]', label: '', color: ANNOTATION_COLOR, padding: 1, borderWidth: 1 },
 		]);
 
 		// Crop to the widget width but end just below the keyword row so the

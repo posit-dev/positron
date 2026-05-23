@@ -69,7 +69,7 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 	 * secondary side bar.
 	 */
 	test('Release Screenshot - variables-pane.png', async ({ app, page, openFile, executeCode, r }) => {
-		const { sessions, variables, hotKeys, layouts, quickaccess } = app.workbench;
+		const { sessions, variables, hotKeys, layouts } = app.workbench;
 		await sessions.expectAllSessionsToBeReady();
 
 		writeFileSync(join(app.workspacePathOrFolder, 'data_types.R'), DATA_TYPES_R);
@@ -77,11 +77,19 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		await executeCode('R', DATA_TYPES_R, { maximizeConsole: false });
 
 		await hotKeys.closePrimarySidebar();
-		// Hide the Plots pane from the auxiliary bar so the shot matches the
-		// docs reference (Variables only). VS Code registers
-		// `<viewId>.removeView` per view; running it toggles visibility off.
-		await quickaccess.runCommand('workbench.panel.positronPlots.removeView', { exactLabelMatch: false });
 		await variables.focusVariablesView();
+		// Hide the Plots split-view pane from the auxiliary bar so the shot
+		// matches the docs reference (Variables only). Hiding via CSS rather
+		// than the `<viewId>.removeView` command because that command's title
+		// is "Hide 'Plots'", which the command-palette fuzzy match doesn't
+		// reliably resolve from the raw command ID.
+		await page.evaluate(() => {
+			const header = document.querySelector('.part.auxiliarybar [aria-label="Plots Section"]');
+			const pane = header?.closest('.split-view-view') as HTMLElement | null;
+			if (pane) {
+				pane.style.display = 'none';
+			}
+		});
 		await layouts.resizeAuxiliaryBar({ x: -300 });
 		await expect(variables.variablesPane).toBeVisible();
 
