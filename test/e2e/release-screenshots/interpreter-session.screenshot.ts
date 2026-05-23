@@ -106,7 +106,7 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 	 * secondary side bar, with an annotation on the top-right interpreter chip.
 	 */
 	test('Release Screenshot - active-interpreter-session.png', async ({ app, page, openFile }) => {
-		const { sessions, quickaccess, hotKeys, layouts } = app.workbench;
+		const { sessions, hotKeys, layouts } = app.workbench;
 		// Smaller window so the chrome and Sessions cards read proportionally
 		// larger in the docs page; matches astropy.png sizing.
 		await setScreenshotWindowSize(app, { width: 1280, height: 800 });
@@ -117,19 +117,9 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		await openFile('basics.R');
 
 		await hotKeys.closePrimarySidebar();
-		await quickaccess.runCommand('workbench.view.positronSessions.focus', { exactLabelMatch: false });
-		await expect(layouts.auxBar).toBeVisible();
-		// Hide the Variables split-view pane so the aux bar matches the docs
-		// reference for this shot (Sessions only — Variables is shown in the
-		// dedicated variables-pane.png shot).
-		await page.evaluate(() => {
-			const header = document.querySelector('.part.auxiliarybar [aria-label="Variables Section"]');
-			const pane = header?.closest('.split-view-view') as HTMLElement | null;
-			if (pane) {
-				pane.style.display = 'none';
-			}
-		});
-		await layouts.resizeAuxiliaryBar({ x: -200 });
+		// Close the aux bar entirely — the Sessions cards this shot is meant
+		// to highlight now live in the bottom panel, not the aux bar.
+		await hotKeys.closeSecondarySidebar();
 		await layouts.resizePanel({ y: 150 });
 
 		await prepareForScreenshot(app, page);
