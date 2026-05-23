@@ -117,6 +117,10 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		// to highlight now live in the bottom panel, not the aux bar.
 		await hotKeys.closeSecondarySidebar();
 		await layouts.resizePanel({ y: 150 });
+		// Widen the session tab list a bit so the R/Python cards read
+		// proportionally larger in the docs framing. Negative x drags the
+		// sash left, growing the list.
+		await sessions.resizeSessionList({ x: -80 });
 
 		await prepareForScreenshot(app, page);
 		await overrideWorkspaceName(page, 'qa-example-content', 'my-project');
