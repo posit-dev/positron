@@ -119,19 +119,18 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		await executeCode('R', DATA_TYPES_R, { maximizeConsole: false });
 
 		await hotKeys.closePrimarySidebar();
-		await variables.focusVariablesView();
 		// Collapse the Plots pane (sibling split-view to Variables) so the
 		// shot matches the docs reference (Variables only). The pane header
 		// has an aria-label of "Plots Section" and clicking it toggles
 		// expand/collapse.
 		await page.locator('.part.auxiliarybar [aria-label="Plots Section"]').click();
-		// Clicking the header leaves it focused/highlighted; press Escape so
-		// the collapsed header renders in its default (unfocused) state.
-		await page.keyboard.press('Escape');
+		// Re-focus the Variables view AFTER the click so the Plots header
+		// loses its focused/highlighted state in the captured frame.
+		await variables.focusVariablesView();
 		await layouts.resizeAuxiliaryBar({ x: -300 });
 		await expect(variables.variablesPane).toBeVisible();
 
-		await layouts.resizePanel({ y: -50 });
+		await layouts.resizePanel({ y: -20 });
 		await prepareForScreenshot(app, page);
 		await overrideWorkspaceName(page, 'qa-example-content', 'my-project');
 		await captureFullWindow(page, 'variables-pane.png');
