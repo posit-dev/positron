@@ -12,10 +12,10 @@ import { basename, join } from 'node:path';
 const DAEMONS = ['watch-client-transpile', 'watch-client', 'watch-extensions', 'watch-e2e'];
 
 const FINISH_PATTERN: Record<string, RegExp> = {
-	'watch-client-transpile': /Finished transpilation/,
-	'watch-client': /Finished compilation/,
+	'watch-client-transpile': /Finished transpilation with/,
+	'watch-client': /Finished compilation with/,
 	'watch-extensions': /Finished compilation/,
-	'watch-e2e': /Found \d+ errors?\. Watching for file changes/,
+	'watch-e2e': /\[watch-e2e\] \d+:\d+:\d+ [AP]M - Found [0-9]+ errors?\. Watching for file changes/,
 };
 
 const ANSI_ESCAPE = /\x1b\[[0-9;]*m/g;
