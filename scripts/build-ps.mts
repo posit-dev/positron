@@ -4,11 +4,24 @@
  *--------------------------------------------------------------------------------------------*/
 import { execSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { stat } from 'node:fs/promises';
 import { createConnection } from 'node:net';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 
 const DAEMONS = ['watch-client-transpile', 'watch-client', 'watch-extensions', 'watch-e2e'];
+
+const FINISH_PATTERN: Record<string, RegExp> = {
+	'watch-client-transpile': /Finished transpilation/,
+	'watch-client': /Finished compilation/,
+	'watch-extensions': /Finished compilation/,
+	'watch-e2e': /Found \d+ errors?\. Watching for file changes/,
+};
+
+const ANSI_ESCAPE = /\x1b\[[0-9;]*m/g;
+// Matches both 12h (6:12:55 PM) and 24h gulp-style ([18:12:55]) timestamps
+const TIMESTAMP_RE = /(?:\[(\d{1,2}:\d{2}:\d{2})\]|(\d{1,2}:\d{2}:\d{2}\s*[AP]M))/;
+const DEEMON_MARKER = /\[deemon\] (Spawned|Attached to running) build daemon/;
 
 function getIPCHandle(commandPath: string, args: string[], cwd: string): string {
 	const scope = createHash('md5')
@@ -22,6 +35,12 @@ function getIPCHandle(commandPath: string, args: string[], cwd: string): string 
 	return join(process.env['XDG_RUNTIME_DIR'] || tmpdir(), `daemon-${scope}.sock`);
 }
 
+interface DaemonInfo {
+	status: 'running' | 'stopped';
+	uptime?: string;
+	lastCompiled?: string;
+}
+
 function checkDaemon(name: string, cwd: string): Promise<'running' | 'stopped'> {
 	const handle = getIPCHandle('npm', ['run', name], cwd);
 	return new Promise((resolve) => {
@@ -31,6 +50,84 @@ function checkDaemon(name: string, cwd: string): Promise<'running' | 'stopped'> 
 		});
 		socket.once('error', () => resolve('stopped'));
 	});
+}
+
+function formatUptime(ms: number): string {
+	const seconds = Math.floor(ms / 1000);
+	if (seconds < 60) { return `${seconds}s`; }
+	const minutes = Math.floor(seconds / 60);
+	if (minutes < 60) { return `${minutes}m`; }
+	const hours = Math.floor(minutes / 60);
+	const remainingMinutes = minutes % 60;
+	return `${hours}h ${remainingMinutes}m`;
+}
+
+async function getSocketUptime(name: string, cwd: string): Promise<string | undefined> {
+	const handle = getIPCHandle('npm', ['run', name], cwd);
+	try {
+		const st = await stat(handle);
+		const age = Date.now() - st.birthtimeMs;
+		return formatUptime(age);
+	} catch {
+		return undefined;
+	}
+}
+
+const TALK = 1;
+
+function getLastCompiled(name: string, cwd: string): Promise<string | undefined> {
+	const handle = getIPCHandle('npm', ['run', name], cwd);
+	const pattern = FINISH_PATTERN[name];
+	return new Promise((resolve) => {
+		const timer = setTimeout(() => {
+			socket.destroy();
+			resolve(undefined);
+		}, 3000);
+
+		const socket = createConnection(handle, () => {
+			socket.write(new Uint8Array([TALK]));
+		});
+
+		let pending = '';
+		let lastTimestamp: string | undefined;
+		let hasFinished = false;
+
+		socket.on('data', (data: Buffer) => {
+			pending += data.toString();
+			const lines = pending.split('\n');
+			pending = lines.pop() || '';
+			for (const line of lines) {
+				const clean = line.replace(ANSI_ESCAPE, '');
+				if (DEEMON_MARKER.test(clean)) {
+					clearTimeout(timer);
+					socket.destroy();
+					resolve(lastTimestamp || (hasFinished ? 'idle' : undefined));
+					return;
+				}
+				if (pattern.test(clean)) {
+					hasFinished = true;
+					const m = clean.match(TIMESTAMP_RE);
+					if (m) { lastTimestamp = m[1] || m[2]; }
+				}
+			}
+		});
+
+		socket.once('error', () => {
+			clearTimeout(timer);
+			resolve(undefined);
+		});
+	});
+}
+
+async function getDaemonInfo(name: string, cwd: string): Promise<DaemonInfo> {
+	const status = await checkDaemon(name, cwd);
+	if (status === 'stopped') { return { status }; }
+
+	const [uptime, lastCompiled] = await Promise.all([
+		getSocketUptime(name, cwd),
+		getLastCompiled(name, cwd),
+	]);
+	return { status, uptime, lastCompiled };
 }
 
 const KILL = 0;
@@ -115,12 +212,12 @@ if (stopMode) {
 } else {
 	const allResults = await Promise.all(
 		worktrees.map(async (wt) => {
-			const statuses = await Promise.all(
-				DAEMONS.map((name) => checkDaemon(name, wt.path))
+			const infos = await Promise.all(
+				DAEMONS.map((name) => getDaemonInfo(name, wt.path))
 			);
-			const daemons: Record<string, string> = {};
+			const daemons: Record<string, DaemonInfo> = {};
 			for (let i = 0; i < DAEMONS.length; i++) {
-				daemons[DAEMONS[i]] = statuses[i];
+				daemons[DAEMONS[i]] = infos[i];
 			}
 			return { worktree: wt.path, branch: wt.branch, daemons };
 		})
@@ -134,9 +231,12 @@ if (stopMode) {
 				// allow-any-unicode-next-line
 				console.log(`\n${basename(worktree)} (${branch})\n${'─'.repeat(50)}`);
 			}
-			console.log(`${'DAEMON'.padEnd(25)} STATUS`);
+			console.log(`${'DAEMON'.padEnd(25)} ${'STATUS'.padEnd(10)} ${'UPTIME'.padEnd(10)} LAST COMPILED`);
 			for (const name of DAEMONS) {
-				console.log(`${name.padEnd(25)} ${daemons[name]}`);
+				const info = daemons[name];
+				const uptime = info.uptime || '-';
+				const lastCompiled = info.lastCompiled || '-';
+				console.log(`${name.padEnd(25)} ${info.status.padEnd(10)} ${uptime.padEnd(10)} ${lastCompiled}`);
 			}
 		}
 	}
