@@ -76,7 +76,7 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		// Smaller window so the chrome and Sessions cards read proportionally
 		// larger in the docs page; matches astropy.png sizing.
 		await setScreenshotWindowSize(app, { width: 1280, height: 800 });
-		await sessions.start(['python', 'r']);
+		const [pySession,] = await sessions.start(['python', 'r']);
 		await sessions.expectAllSessionsToBeReady();
 
 		writeFileSync(join(app.workspacePathOrFolder, 'basics.R'), BASICS_R);
@@ -86,7 +86,7 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		// Close the aux bar entirely — the Sessions cards this shot is meant
 		// to highlight now live in the bottom panel, not the aux bar.
 		await hotKeys.closeSecondarySidebar();
-		await layouts.resizePanel({ y: -100 });
+		await layouts.resizePanel({ y: -150 });
 		// Widen the session tab list a bit so the R/Python cards read
 		// proportionally larger in the docs framing. Negative x drags the
 		// sash left, growing the list.
@@ -98,6 +98,7 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 			{ selector: '.top-action-bar-session-manager-face', label: '', color: ANNOTATION_COLOR, padding: 3 },
 		]);
 		await captureFullWindow(page, 'active-interpreter-session.png');
+		await sessions.delete(pySession.id);
 	});
 
 	/**
