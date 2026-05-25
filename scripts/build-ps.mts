@@ -33,6 +33,35 @@ function checkDaemon(name: string, cwd: string): Promise<'running' | 'stopped'> 
 	});
 }
 
+const KILL = 0;
+
+function stopDaemon(name: string, cwd: string): Promise<'killed' | 'not running'> {
+	const handle = getIPCHandle('npm', ['run', name], cwd);
+	return new Promise((resolve) => {
+		const socket = createConnection(handle, () => {
+			socket.write(new Uint8Array([KILL]));
+			socket.destroy();
+			resolve('killed');
+		});
+		socket.once('error', () => resolve('not running'));
+	});
+}
+
+async function stopDaemonAndWait(name: string, cwd: string): Promise<'killed' | 'not running'> {
+	const result = await stopDaemon(name, cwd);
+	if (result === 'killed') {
+		// Wait for the daemon to fully exit so its socket becomes non-connectable.
+		// Without this, an immediate re-run of --stop can connect to the dying
+		// daemon and falsely report another kill.
+		for (let i = 0; i < 20; i++) {
+			const status = await checkDaemon(name, cwd);
+			if (status === 'stopped') { break; }
+			await new Promise((r) => setTimeout(r, 100));
+		}
+	}
+	return result;
+}
+
 function getWorktrees(): { path: string; branch: string }[] {
 	const output = execSync('git worktree list --porcelain', { encoding: 'utf-8' });
 	const worktrees: { path: string; branch: string }[] = [];
@@ -55,32 +84,60 @@ function getWorktrees(): { path: string; branch: string }[] {
 
 const allMode = process.argv.includes('--all');
 const jsonMode = process.argv.includes('--json');
+const stopMode = process.argv.includes('--stop');
 const worktrees = allMode ? getWorktrees() : [{ path: process.cwd(), branch: '' }];
 
-const allResults = await Promise.all(
-	worktrees.map(async (wt) => {
-		const statuses = await Promise.all(
-			DAEMONS.map((name) => checkDaemon(name, wt.path))
-		);
-		const daemons: Record<string, string> = {};
-		for (let i = 0; i < DAEMONS.length; i++) {
-			daemons[DAEMONS[i]] = statuses[i];
-		}
-		return { worktree: wt.path, branch: wt.branch, daemons };
-	})
-);
+if (stopMode) {
+	const allResults = await Promise.all(
+		worktrees.map(async (wt) => {
+			const statuses = await Promise.all(
+				DAEMONS.map((name) => stopDaemonAndWait(name, wt.path))
+			);
+			const daemons: Record<string, string> = {};
+			for (let i = 0; i < DAEMONS.length; i++) {
+				daemons[DAEMONS[i]] = statuses[i];
+			}
+			return { worktree: wt.path, branch: wt.branch, daemons };
+		})
+	);
 
-if (jsonMode) {
-	console.log(JSON.stringify(allResults, null, 2));
-} else {
 	for (const { worktree, branch, daemons } of allResults) {
 		if (allMode) {
 			// allow-any-unicode-next-line
 			console.log(`\n${basename(worktree)} (${branch})\n${'─'.repeat(50)}`);
 		}
-		console.log(`${'DAEMON'.padEnd(25)} STATUS`);
 		for (const name of DAEMONS) {
-			console.log(`${name.padEnd(25)} ${daemons[name]}`);
+			if (daemons[name] === 'killed') {
+				console.log(`[${name}] killed`);
+			}
+		}
+	}
+} else {
+	const allResults = await Promise.all(
+		worktrees.map(async (wt) => {
+			const statuses = await Promise.all(
+				DAEMONS.map((name) => checkDaemon(name, wt.path))
+			);
+			const daemons: Record<string, string> = {};
+			for (let i = 0; i < DAEMONS.length; i++) {
+				daemons[DAEMONS[i]] = statuses[i];
+			}
+			return { worktree: wt.path, branch: wt.branch, daemons };
+		})
+	);
+
+	if (jsonMode) {
+		console.log(JSON.stringify(allResults, null, 2));
+	} else {
+		for (const { worktree, branch, daemons } of allResults) {
+			if (allMode) {
+				// allow-any-unicode-next-line
+				console.log(`\n${basename(worktree)} (${branch})\n${'─'.repeat(50)}`);
+			}
+			console.log(`${'DAEMON'.padEnd(25)} STATUS`);
+			for (const name of DAEMONS) {
+				console.log(`${name.padEnd(25)} ${daemons[name]}`);
+			}
 		}
 	}
 }
