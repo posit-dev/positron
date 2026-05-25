@@ -271,6 +271,15 @@ export async function overrideWorkspaceName(
 				}
 			}
 		}
+		// The console's current-working-directory label renders the full
+		// filesystem path (e.g. /private/var/folders/.../qa-example-content).
+		// Rewrite to the friendly tilde form (~/my-project) so the docs
+		// screenshot doesn't leak the temp workspace path.
+		for (const label of document.querySelectorAll('.current-working-directory-label .label')) {
+			if (label.textContent && label.textContent.includes(from)) {
+				label.textContent = `~/${to}`;
+			}
+		}
 	}, { from, to });
 }
 
