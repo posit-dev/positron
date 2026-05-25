@@ -46,12 +46,18 @@
 						"markdown": false,
 						"scminput": false
 					},
-					"description": "%configuration.enable.description%"
+					"description": "%configuration.enable.description%",
+					"tags": [
+						"preview"
+					]
 				},
 				"nextEditSuggestions.selectedCompletionModel": {
 					"type": "string",
 					"default": "",
-					"description": "%configuration.selectedCompletionModel.description%"
+					"description": "%configuration.selectedCompletionModel.description%",
+					"tags": [
+						"preview"
+					]
 				}
 			}
 		}
