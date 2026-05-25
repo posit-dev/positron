@@ -2,61 +2,71 @@
  *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import { spawn } from 'node:child_process';
+import { execSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { createConnection } from 'node:net';
+import { tmpdir } from 'node:os';
+import { basename, join } from 'node:path';
 
 const DAEMONS = ['watch-client-transpile', 'watch-client', 'watch-extensions', 'watch-e2e'];
-const DEEMON_MISSING = /\[deemon\] No daemon running/;
 
-/**
- * Checks if a deemon daemon is running by attaching to it briefly.
- * If the daemon is not running, deemon prints "No daemon running" and exits
- * quickly. If the daemon IS running, deemon attaches and starts streaming
- * replayed output — so if we haven't seen "No daemon running" after a short
- * wait, the daemon is running.
- */
-function checkDaemon(name: string): Promise<'running' | 'stopped'> {
+function getIPCHandle(commandPath: string, args: string[], cwd: string): string {
+	const scope = createHash('md5')
+		.update(commandPath)
+		.update(args.toString())
+		.update(cwd)
+		.digest('hex');
+	if (process.platform === 'win32') {
+		return `\\\\.\\pipe\\daemon-${scope}`;
+	}
+	return join(process.env['XDG_RUNTIME_DIR'] || tmpdir(), `daemon-${scope}.sock`);
+}
+
+function checkDaemon(name: string, cwd: string): Promise<'running' | 'stopped'> {
+	const handle = getIPCHandle('npm', ['run', name], cwd);
 	return new Promise((resolve) => {
-		const child = spawn('npx', ['deemon', '--attach', '--', 'npm', 'run', name], {
-			stdio: ['ignore', 'pipe', 'pipe'],
-			shell: true,
+		const socket = createConnection(handle, () => {
+			socket.destroy();
+			resolve('running');
 		});
-
-		let resolved = false;
-		const done = (status: 'running' | 'stopped') => {
-			if (resolved) {
-				return;
-			}
-			resolved = true;
-			clearTimeout(runningTimeout);
-			child.kill();
-			resolve(status);
-		};
-
-		let output = '';
-		const onData = (data: { toString(): string }) => {
-			output += data.toString();
-			if (DEEMON_MISSING.test(output)) {
-				done('stopped');
-			}
-		};
-		child.stdout.on('data', onData);
-		child.stderr.on('data', onData);
-
-		// If the process exits quickly without "No daemon running", it's an
-		// unexpected state — treat as stopped.
-		child.on('close', () => done('stopped'));
-
-		// If we haven't seen "No daemon running" after 3 seconds, the daemon
-		// must be running (deemon is replaying its output).
-		const runningTimeout = setTimeout(() => done('running'), 3_000);
+		socket.once('error', () => resolve('stopped'));
 	});
 }
 
-const results = await Promise.all(
-	DAEMONS.map(async (name) => ({ name, status: await checkDaemon(name) }))
-);
+function getWorktrees(): { path: string; branch: string }[] {
+	const output = execSync('git worktree list --porcelain', { encoding: 'utf-8' });
+	const worktrees: { path: string; branch: string }[] = [];
+	let current: { path?: string; branch?: string } = {};
+	for (const line of output.split('\n')) {
+		if (line.startsWith('worktree ')) {
+			current = { path: line.slice('worktree '.length) };
+		} else if (line.startsWith('branch ')) {
+			current.branch = line.slice('branch '.length).replace('refs/heads/', '');
+		} else if (line === '' && current.path) {
+			worktrees.push({ path: current.path, branch: current.branch || '(detached)' });
+			current = {};
+		}
+	}
+	if (current.path) {
+		worktrees.push({ path: current.path, branch: current.branch || '(detached)' });
+	}
+	return worktrees;
+}
 
-console.log(`${'DAEMON'.padEnd(20)} STATUS`);
-for (const { name, status } of results) {
-	console.log(`${name.padEnd(20)} ${status}`);
+const allMode = process.argv.includes('--all');
+const worktrees = allMode ? getWorktrees() : [{ path: process.cwd(), branch: '' }];
+
+for (const wt of worktrees) {
+	const results = await Promise.all(
+		DAEMONS.map(async (name) => ({ name, status: await checkDaemon(name, wt.path) }))
+	);
+
+	if (allMode) {
+		console.log(`\n${basename(wt.path)} (${wt.branch})`);
+		console.log(`${'─'.repeat(50)}`);
+	}
+	console.log(`${'DAEMON'.padEnd(25)} STATUS`);
+	for (const { name, status } of results) {
+		console.log(`${name.padEnd(25)} ${status}`);
+	}
 }
