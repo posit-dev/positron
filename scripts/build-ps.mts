@@ -59,10 +59,13 @@ const worktrees = allMode ? getWorktrees() : [{ path: process.cwd(), branch: '' 
 
 const allResults = await Promise.all(
 	worktrees.map(async (wt) => {
-		const daemons: Record<string, string> = {};
-		await Promise.all(
-			DAEMONS.map(async (name) => { daemons[name] = await checkDaemon(name, wt.path); })
+		const statuses = await Promise.all(
+			DAEMONS.map((name) => checkDaemon(name, wt.path))
 		);
+		const daemons: Record<string, string> = {};
+		for (let i = 0; i < DAEMONS.length; i++) {
+			daemons[DAEMONS[i]] = statuses[i];
+		}
 		return { worktree: wt.path, branch: wt.branch, daemons };
 	})
 );
@@ -76,8 +79,8 @@ if (jsonMode) {
 			console.log(`\n${basename(worktree)} (${branch})\n${'─'.repeat(50)}`);
 		}
 		console.log(`${'DAEMON'.padEnd(25)} STATUS`);
-		for (const [name, status] of Object.entries(daemons)) {
-			console.log(`${name.padEnd(25)} ${status}`);
+		for (const name of DAEMONS) {
+			console.log(`${name.padEnd(25)} ${daemons[name]}`);
 		}
 	}
 }
