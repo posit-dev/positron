@@ -129,7 +129,7 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		await layouts.resizeAuxiliaryBar({ x: -300 });
 		await expect(variables.variablesPane).toBeVisible();
 
-		await layouts.resizePanel({ y: 10 });
+		await layouts.resizePanel({ y: 30 });
 		await prepareForScreenshot(app, page);
 		await overrideWorkspaceName(page, 'qa-example-content', 'my-project');
 		await captureFullWindow(page, 'variables-pane.png');
