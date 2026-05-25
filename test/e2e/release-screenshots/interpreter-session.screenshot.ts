@@ -125,6 +125,9 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		// has an aria-label of "Plots Section" and clicking it toggles
 		// expand/collapse.
 		await page.locator('.part.auxiliarybar [aria-label="Plots Section"]').click();
+		// Clicking the header leaves it focused/highlighted; press Escape so
+		// the collapsed header renders in its default (unfocused) state.
+		await page.keyboard.press('Escape');
 		await layouts.resizeAuxiliaryBar({ x: -300 });
 		await expect(variables.variablesPane).toBeVisible();
 
