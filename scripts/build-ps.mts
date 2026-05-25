@@ -22,6 +22,12 @@ const ANSI_ESCAPE = /\x1b\[[0-9;]*m/g;
 // Matches both 12h (6:12:55 PM) and 24h gulp-style ([18:12:55]) timestamps
 const TIMESTAMP_RE = /(?:\[(\d{1,2}:\d{2}:\d{2})\]|(\d{1,2}:\d{2}:\d{2}\s*[AP]M))/;
 const DEEMON_MARKER = /\[deemon\] (Spawned|Attached to running) build daemon/;
+const ERROR_COUNT_RE: Record<string, RegExp> = {
+	'watch-client-transpile': /Finished transpilation with (\d+) error/,
+	'watch-client': /Finished compilation with (\d+) error/,
+	'watch-extensions': /Finished compilation with (\d+) error/,
+	'watch-e2e': /Found (\d+) errors?\./,
+};
 
 function getIPCHandle(commandPath: string, args: string[], cwd: string): string {
 	const scope = createHash('md5')
@@ -147,6 +153,7 @@ interface DaemonInfo {
 	uptime?: string;
 	uptimeMs?: number;
 	lastCompiled?: string;
+	errors?: number;
 	rss?: string;
 	cpu?: string;
 }
@@ -185,9 +192,15 @@ async function getSocketUptime(name: string, cwd: string): Promise<string | unde
 
 const TALK = 1;
 
-function getLastCompiled(name: string, cwd: string): Promise<string | undefined> {
+interface CompileResult {
+	lastCompiled?: string;
+	errors?: number;
+}
+
+function getLastCompiled(name: string, cwd: string): Promise<CompileResult | undefined> {
 	const handle = getIPCHandle('npm', ['run', name], cwd);
 	const pattern = FINISH_PATTERN[name];
+	const errorPattern = ERROR_COUNT_RE[name];
 	return new Promise((resolve) => {
 		const timer = setTimeout(() => {
 			socket.destroy();
@@ -200,6 +213,7 @@ function getLastCompiled(name: string, cwd: string): Promise<string | undefined>
 
 		let pending = '';
 		let lastTimestamp: string | undefined;
+		let lastErrors: number | undefined;
 		let hasFinished = false;
 
 		socket.on('data', (data: Buffer) => {
@@ -211,13 +225,16 @@ function getLastCompiled(name: string, cwd: string): Promise<string | undefined>
 				if (DEEMON_MARKER.test(clean)) {
 					clearTimeout(timer);
 					socket.destroy();
-					resolve(lastTimestamp || (hasFinished ? 'idle' : undefined));
+					const lastCompiled = lastTimestamp || (hasFinished ? 'idle' : undefined);
+					resolve(lastCompiled ? { lastCompiled, errors: lastErrors } : undefined);
 					return;
 				}
 				if (pattern.test(clean)) {
 					hasFinished = true;
 					const m = clean.match(TIMESTAMP_RE);
 					if (m) { lastTimestamp = m[1] || m[2]; }
+					const em = clean.match(errorPattern);
+					if (em) { lastErrors = Number(em[1]); }
 				}
 			}
 		});
@@ -233,7 +250,7 @@ async function getDaemonInfo(name: string, cwd: string, table: ProcessEntry[]): 
 	const status = await checkDaemon(name, cwd);
 	if (status === 'stopped') { return { status }; }
 
-	const [uptime, lastCompiled] = await Promise.all([
+	const [uptime, compileResult] = await Promise.all([
 		getSocketUptime(name, cwd),
 		getLastCompiled(name, cwd),
 	]);
@@ -254,7 +271,11 @@ async function getDaemonInfo(name: string, cwd: string, table: ProcessEntry[]): 
 		uptimeMs = Date.now() - st.birthtimeMs;
 	} catch { /* ignore */ }
 
-	return { status, uptime, lastCompiled, rss, cpu, uptimeMs };
+	return {
+		status, uptime, rss, cpu, uptimeMs,
+		lastCompiled: compileResult?.lastCompiled,
+		errors: compileResult?.errors,
+	};
 }
 
 const KILL = 0;
@@ -392,14 +413,15 @@ if (stopMode) {
 			} else {
 				console.log(worktreeState);
 			}
-			console.log(`${'DAEMON'.padEnd(25)} ${'STATUS'.padEnd(10)} ${'UPTIME'.padEnd(10)} ${'RAM'.padEnd(8)} ${'CPU'.padEnd(8)} LAST COMPILED`);
+			console.log(`${'DAEMON'.padEnd(25)} ${'STATUS'.padEnd(10)} ${'UPTIME'.padEnd(10)} ${'RAM'.padEnd(8)} ${'CPU'.padEnd(8)} ${'ERRORS'.padEnd(8)} LAST COMPILED`);
 			for (const name of DAEMONS) {
 				const info = daemons[name];
 				const uptime = info.uptime || '-';
 				const lastCompiled = info.lastCompiled || '-';
+				const errors = info.errors !== undefined ? String(info.errors) : '-';
 				const rss = info.rss || '-';
 				const cpu = info.cpu || '-';
-				console.log(`${name.padEnd(25)} ${info.status.padEnd(10)} ${uptime.padEnd(10)} ${rss.padEnd(8)} ${cpu.padEnd(8)} ${lastCompiled}`);
+				console.log(`${name.padEnd(25)} ${info.status.padEnd(10)} ${uptime.padEnd(10)} ${rss.padEnd(8)} ${cpu.padEnd(8)} ${errors.padEnd(8)} ${lastCompiled}`);
 			}
 		}
 	}
