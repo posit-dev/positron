@@ -306,15 +306,20 @@ function getWorktrees(): { path: string; branch: string }[] {
 	return worktrees;
 }
 
-type WorktreeState = 'stopped' | 'starting' | 'ready';
+type WorktreeState = 'stopped' | 'starting' | 'ready' | 'partial';
 
 function getWorktreeStateValue(daemons: Record<string, DaemonInfo>): WorktreeState {
 	const infos = Object.values(daemons);
 	const allStopped = infos.every(i => i.status === 'stopped');
 	if (allStopped) { return 'stopped'; }
-	const allCompiled = infos.every(i => i.status === 'stopped' || i.lastCompiled);
-	if (allCompiled) { return 'ready'; }
-	return 'starting';
+	const allRunning = infos.every(i => i.status === 'running');
+	if (allRunning) {
+		const allCompiled = infos.every(i => i.lastCompiled);
+		return allCompiled ? 'ready' : 'starting';
+	}
+	// Mix of running and stopped
+	const someStarting = infos.some(i => i.status === 'running' && !i.lastCompiled);
+	return someStarting ? 'starting' : 'partial';
 }
 
 function getWorktreeStateDisplay(daemons: Record<string, DaemonInfo>): string {
