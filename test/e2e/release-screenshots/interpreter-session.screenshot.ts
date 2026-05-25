@@ -83,8 +83,6 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		await openFile('basics.R');
 
 		await hotKeys.closePrimarySidebar();
-		// Close the aux bar entirely — the Sessions cards this shot is meant
-		// to highlight now live in the bottom panel, not the aux bar.
 		await hotKeys.closeSecondarySidebar();
 		await layouts.resizePanel({ y: -150 });
 		// Widen the session tab list a bit so the R/Python cards read
@@ -119,6 +117,7 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		await executeCode('R', DATA_TYPES_R, { maximizeConsole: false });
 
 		await hotKeys.closePrimarySidebar();
+		await hotKeys.showSecondarySidebar();
 		// Collapse the Plots pane (sibling split-view to Variables) so the
 		// shot matches the docs reference (Variables only). The pane header
 		// has an aria-label of "Plots Section" and clicking it toggles
@@ -130,7 +129,7 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		await layouts.resizeAuxiliaryBar({ x: -300 });
 		await expect(variables.variablesPane).toBeVisible();
 
-		await layouts.resizePanel({ y: -20 });
+		await layouts.resizePanel({ y: -35 });
 		await prepareForScreenshot(app, page);
 		await overrideWorkspaceName(page, 'qa-example-content', 'my-project');
 		await captureFullWindow(page, 'variables-pane.png');
