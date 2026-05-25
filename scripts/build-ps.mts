@@ -150,12 +150,15 @@ function formatCpu(seconds: number): string {
 
 interface DaemonInfo {
 	status: 'running' | 'stopped';
+	pid?: number;
 	uptime?: string;
 	uptimeMs?: number;
 	lastCompiled?: string;
 	errors?: number;
 	rss?: string;
+	rssKb?: number;
 	cpu?: string;
+	cpuSeconds?: number;
 }
 
 function checkDaemon(name: string, cwd: string): Promise<'running' | 'stopped'> {
@@ -256,13 +259,17 @@ async function getDaemonInfo(name: string, cwd: string, table: ProcessEntry[]): 
 	]);
 
 	let rss: string | undefined;
+	let rssKb: number | undefined;
 	let cpu: string | undefined;
+	let cpuSeconds: number | undefined;
 	let uptimeMs: number | undefined;
 	const pid = findDaemonPid(name, cwd);
 	if (pid && table.length > 0) {
 		const stats = getTreeStats(pid, table);
 		rss = formatRss(stats.rss);
+		rssKb = stats.rss;
 		cpu = formatCpu(stats.cpu);
+		cpuSeconds = stats.cpu;
 	}
 
 	const handle = getIPCHandle('npm', ['run', name], cwd);
@@ -272,7 +279,7 @@ async function getDaemonInfo(name: string, cwd: string, table: ProcessEntry[]): 
 	} catch { /* ignore */ }
 
 	return {
-		status, uptime, rss, cpu, uptimeMs,
+		status, pid, uptime, rss, rssKb, cpu, cpuSeconds, uptimeMs,
 		lastCompiled: compileResult?.lastCompiled,
 		errors: compileResult?.errors,
 	};
@@ -400,8 +407,17 @@ if (stopMode) {
 
 	if (jsonMode) {
 		const jsonOutput = allResults.map(({ worktree, branch, daemons }) => ({
-			worktree, branch, daemons,
+			worktree, branch,
 			state: getWorktreeStateValue(daemons),
+			daemons: Object.fromEntries(Object.entries(daemons).map(([name, info]) => [name, {
+				status: info.status,
+				pid: info.pid ?? null,
+				uptimeMs: info.uptimeMs ?? null,
+				rssKb: info.rssKb ?? null,
+				cpuSeconds: info.cpuSeconds ?? null,
+				errors: info.errors ?? null,
+				lastCompiled: info.lastCompiled ?? null,
+			}])),
 		}));
 		console.log(JSON.stringify(jsonOutput, null, 2));
 	} else {
@@ -413,15 +429,16 @@ if (stopMode) {
 			} else {
 				console.log(worktreeState);
 			}
-			console.log(`${'DAEMON'.padEnd(25)} ${'STATUS'.padEnd(10)} ${'UPTIME'.padEnd(10)} ${'RAM'.padEnd(8)} ${'CPU'.padEnd(8)} ${'ERRORS'.padEnd(8)} LAST COMPILED`);
+			console.log(`${'DAEMON'.padEnd(25)} ${'STATUS'.padEnd(10)} ${'PID'.padEnd(8)} ${'UPTIME'.padEnd(10)} ${'RAM'.padEnd(8)} ${'CPU'.padEnd(8)} ${'ERRORS'.padEnd(8)} LAST COMPILED`);
 			for (const name of DAEMONS) {
 				const info = daemons[name];
+				const pid = info.pid ? String(info.pid) : '-';
 				const uptime = info.uptime || '-';
 				const lastCompiled = info.lastCompiled || '-';
 				const errors = info.errors !== undefined ? String(info.errors) : '-';
 				const rss = info.rss || '-';
 				const cpu = info.cpu || '-';
-				console.log(`${name.padEnd(25)} ${info.status.padEnd(10)} ${uptime.padEnd(10)} ${rss.padEnd(8)} ${cpu.padEnd(8)} ${errors.padEnd(8)} ${lastCompiled}`);
+				console.log(`${name.padEnd(25)} ${info.status.padEnd(10)} ${pid.padEnd(8)} ${uptime.padEnd(10)} ${rss.padEnd(8)} ${cpu.padEnd(8)} ${errors.padEnd(8)} ${lastCompiled}`);
 			}
 		}
 	}
