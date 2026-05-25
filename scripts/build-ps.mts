@@ -54,19 +54,30 @@ function getWorktrees(): { path: string; branch: string }[] {
 }
 
 const allMode = process.argv.includes('--all');
+const jsonMode = process.argv.includes('--json');
 const worktrees = allMode ? getWorktrees() : [{ path: process.cwd(), branch: '' }];
 
-for (const wt of worktrees) {
-	const results = await Promise.all(
-		DAEMONS.map(async (name) => ({ name, status: await checkDaemon(name, wt.path) }))
-	);
+const allResults = await Promise.all(
+	worktrees.map(async (wt) => {
+		const daemons: Record<string, string> = {};
+		await Promise.all(
+			DAEMONS.map(async (name) => { daemons[name] = await checkDaemon(name, wt.path); })
+		);
+		return { worktree: wt.path, branch: wt.branch, daemons };
+	})
+);
 
-	if (allMode) {
-		console.log(`\n${basename(wt.path)} (${wt.branch})`);
-		console.log(`${'─'.repeat(50)}`);
-	}
-	console.log(`${'DAEMON'.padEnd(25)} STATUS`);
-	for (const { name, status } of results) {
-		console.log(`${name.padEnd(25)} ${status}`);
+if (jsonMode) {
+	console.log(JSON.stringify(allResults, null, 2));
+} else {
+	for (const { worktree, branch, daemons } of allResults) {
+		if (allMode) {
+			// allow-any-unicode-next-line
+			console.log(`\n${basename(worktree)} (${branch})\n${'─'.repeat(50)}`);
+		}
+		console.log(`${'DAEMON'.padEnd(25)} STATUS`);
+		for (const [name, status] of Object.entries(daemons)) {
+			console.log(`${name.padEnd(25)} ${status}`);
+		}
 	}
 }
