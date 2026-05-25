@@ -181,49 +181,39 @@ test.describe('Release Screenshots - Snippets', () => {
 	/**
 	 * Img Path: https://positron.posit.co/images/snippets-for-example.png
 	 *
-	 * Open a fresh R file, type `for`, navigate to the snippet entry so the
+	 * Type `for` at the R console prompt, navigate to the snippet entry so the
 	 * details panel renders the snippet body, then capture the union of the
-	 * suggest widget and the (overlay-positioned) details panel.
+	 * console input line, suggest widget, and overlay-positioned details panel.
 	 */
-	test('Release Screenshot - snippets-for-example.png', async ({ app, page, openFile, r }) => {
-		const { editor, sessions, suggestWidget } = app.workbench;
+	test('Release Screenshot - snippets-for-example.png', async ({ app, page, r }) => {
+		const { console: consolePane, sessions, suggestWidget } = app.workbench;
 		await sessions.expectAllSessionsToBeReady();
 
-		// Minimal R buffer so the suggest widget isn't polluted by identifiers
-		// scraped from existing code.
-		writeFileSync(join(app.workspacePathOrFolder, 'snippet-demo.R'), '\n');
-		await openFile('snippet-demo.R');
-
-		await editor.type('for');
+		// Type at the R console prompt — matches the docs reference which
+		// shows "> for" in the console, not in an editor file.
+		await consolePane.typeToConsole('for');
 		await suggestWidget.trigger();
 		await suggestWidget.focusSnippetRow();
 		await suggestWidget.toggleDetails();
 
 		await prepareForScreenshot(app, page);
-		// Capture the union of the suggest widget + the (overlay-positioned)
-		// details panel so the snippet body shows alongside the list. Extend
-		// left to include the editor line where "for" was typed (matches the
-		// docs reference which shows the typed text at the left edge). Cap
-		// the suggest widget height at the first few rows so the docs framing
-		// matches the original (the widget itself shows ~11 rows, but the
-		// reference only includes the for-loop entries before unrelated
-		// matches like `force`, `formals`, etc.).
+		// Capture the union of the console input line + suggest widget + the
+		// (overlay-positioned) details panel. Cap the suggest widget height at
+		// the first few rows so the docs framing matches the original (the
+		// widget itself shows ~11 rows, but the reference only includes the
+		// for-loop entries before unrelated matches like `force`, `formals`).
 		const suggestBox = await suggestWidget.widget.boundingBox();
 		const detailsBox = await suggestWidget.detailsContainer.boundingBox();
-		const editorBox = await page.locator('[id="workbench.parts.editor"]').boundingBox();
-		const firstLineBox = await page.locator('.monaco-editor .view-lines > .view-line').first().boundingBox();
-		if (!suggestBox || !detailsBox || !editorBox || !firstLineBox) {
-			throw new Error('Could not measure suggest widget / details panel / editor / first line');
+		const consoleInputBox = await page.locator('div.console-input').first().boundingBox();
+		if (!suggestBox || !detailsBox || !consoleInputBox) {
+			throw new Error('Could not measure suggest widget / details panel / console input');
 		}
 		const VISIBLE_ROWS = 4; // for [keyword], for snippet, forcats::, foreign::
 		const firstRowBox = await suggestWidget.widget.locator('.monaco-list-row').first().boundingBox();
 		const rowHeight = firstRowBox?.height ?? 22;
 		const suggestBottom = suggestBox.y + VISIBLE_ROWS * rowHeight;
-		const left = Math.floor(editorBox.x);
-		// Extend the top up to include line 1 of the editor (where "for" was
-		// typed). The suggest widget pops up over the editor; without this
-		// the typed text is hidden behind the widget.
-		const top = Math.floor(Math.min(suggestBox.y, detailsBox.y, firstLineBox.y));
+		const left = Math.floor(Math.min(suggestBox.x, consoleInputBox.x));
+		const top = Math.floor(Math.min(suggestBox.y, detailsBox.y, consoleInputBox.y));
 		const right = Math.ceil(Math.max(suggestBox.x + suggestBox.width, detailsBox.x + detailsBox.width));
 		const bottom = Math.ceil(Math.max(suggestBottom, detailsBox.y + detailsBox.height));
 		await captureRegion(page, 'snippets-for-example.png', {
