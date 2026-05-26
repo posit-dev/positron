@@ -68,8 +68,8 @@
 
 /* Toolbar-specific bar sizing */
 
+/* Bar width is set via inline style so it scales with the available space. */
 .memory-usage-meter .memory-bar-container {
-	width: 100px;
 	flex-shrink: 0;
 	height: 10px;
 }
