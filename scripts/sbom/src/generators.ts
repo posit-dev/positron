@@ -7,7 +7,7 @@ import { spawn } from 'child_process';
 import { resolve as resolvePath } from 'path';
 import { BOM, Project } from './types';
 import { createEmptyBom, getRepoRoot } from './utils';
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readFileSync, readdirSync } from 'fs';
 
 /**
  * Generate SBOM for an npm project using Snyk
@@ -43,8 +43,12 @@ export async function generateNpmSbom(project: Project): Promise<BOM> {
 				}
 			} else {
 				console.error(`[ERROR] Failed to generate SBOM for: ${project.name} (exit code: ${code})`);
-				if (errBuffer) console.error('stderr:', errBuffer);
-				if (buffer) console.error('stdout:', buffer);
+				if (errBuffer) {
+					console.error('stderr:', errBuffer);
+				}
+				if (buffer) {
+					console.error('stdout:', buffer);
+				}
 				resolve(createEmptyBom());
 			}
 		});
@@ -99,15 +103,35 @@ export async function generateRustSbom(project: Project): Promise<BOM> {
 			if (code === 0) {
 				console.info(`[OK] Generated SBOM for: ${project.name}`);
 				try {
-					// Read the output file (relative to the project directory)
-					const fullOutputPath = resolvePath(resolvedPath, outputFile);
-					if (!existsSync(fullOutputPath)) {
-						console.error(`[ERROR] Output file not found at ${fullOutputPath}`);
+					// cargo-cyclonedx may use a different filename pattern, so search for it
+					let foundFile: string | null = null;
+
+					// First try the expected filename
+					const expectedPath = resolvePath(resolvedPath, outputFile);
+					if (existsSync(expectedPath)) {
+						foundFile = expectedPath;
+					} else {
+						// Search for any .cdx.json or sbom*.json files in the directory
+						const files = readdirSync(resolvedPath);
+						const candidates = files.filter(f =>
+							f.endsWith('.cdx.json') ||
+							(f.includes('sbom') && f.endsWith('.json'))
+						);
+
+						if (candidates.length > 0) {
+							foundFile = resolvePath(resolvedPath, candidates[0]);
+							console.info(`  Found SBOM file: ${candidates[0]}`);
+						}
+					}
+
+					if (!foundFile) {
+						console.error(`[ERROR] No SBOM output file found in ${resolvedPath}`);
+						console.error(`  Looked for: ${outputFile}, *.cdx.json, sbom*.json`);
 						resolve(createEmptyBom());
 						return;
 					}
 
-					const bomContent = readFileSync(fullOutputPath, 'utf-8');
+					const bomContent = readFileSync(foundFile, 'utf-8');
 					const bom = JSON.parse(bomContent);
 					resolve(bom);
 				} catch (e) {
@@ -116,7 +140,9 @@ export async function generateRustSbom(project: Project): Promise<BOM> {
 				}
 			} else {
 				console.error(`[ERROR] Failed to generate SBOM for: ${project.name} (exit code: ${code})`);
-				if (errBuffer) console.error('stderr:', errBuffer);
+				if (errBuffer) {
+					console.error('stderr:', errBuffer);
+				}
 				resolve(createEmptyBom());
 			}
 		});
