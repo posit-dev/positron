@@ -77,40 +77,26 @@ jobs:
           path: ${{ github.workspace }}/positron
           submodules: recursive
 
-      - name: Skip SBOM generation in dry-run mode
-        if: ${{ inputs.dry-run }}
-        run: |
-          echo "[DRY-RUN] Skipping SBOM generation"
-          echo "Version: ${{ env.PRODUCT_VERSION }}"
-          echo ""
-          echo "In dry-run mode, the SBOM build and generation steps are skipped."
-          echo "The workflow will complete successfully without creating a PR."
-
       - name: Set up Node.js
-        if: ${{ !inputs.dry-run }}
         uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install Rust and cargo tools
-        if: ${{ !inputs.dry-run }}
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
           source $HOME/.cargo/env
           cargo install cargo-cyclonedx --force --locked
 
       - name: Set Rust PATH
-        if: ${{ !inputs.dry-run }}
         run: |
           echo "PATH=$HOME/.cargo/bin:$PATH" >> $GITHUB_ENV
 
       - name: Install Snyk CLI
-        if: ${{ !inputs.dry-run }}
         run: |
           npm install -g snyk@1.1301.2
 
       - name: Install system dependencies
-        if: ${{ !inputs.dry-run }}
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -125,7 +111,6 @@ jobs:
             zlib1g-dev
 
       - name: Clone Kallichore source for scanning
-        if: ${{ !inputs.dry-run }}
         run: |
           # Read Kallichore version from package.json
           KALLICHORE_VERSION=$(jq -r '.positron.binaryDependencies.kallichore' \
@@ -141,7 +126,6 @@ jobs:
           echo "[OK] Cloned Kallichore source"
 
       - name: Generate SBOM
-        if: ${{ !inputs.dry-run }}
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         run: |
@@ -168,7 +152,6 @@ jobs:
           npm run generate
 
       - name: Verify SBOM was generated
-        if: ${{ !inputs.dry-run }}
         run: |
           if [ ! -f scripts/sbom/SBOM.json ]; then
             echo "ERROR: SBOM.json was not generated!"
@@ -189,21 +172,21 @@ jobs:
           echo "Short version for filename: ${SHORT_VERSION}"
 
       - name: Upload SBOM as artifact
-        if: ${{ !inputs.dry-run }}
         uses: actions/upload-artifact@v4
         with:
           name: Positron__v${{ steps.version.outputs.short_version }}.sbom
           path: ${{ github.workspace }}/positron/scripts/sbom/SBOM.json
           retention-days: 10
 
-      - name: Workflow complete in dry-run mode
+      - name: Dry-run complete - SBOM generated but PR skipped
         if: ${{ inputs.dry-run }}
         run: |
-          echo "[OK] Dry-run mode: Workflow completed successfully"
+          echo "[DRY-RUN] Workflow completed successfully"
           echo "Version: ${{ env.PRODUCT_VERSION }}"
           echo "Short version: ${{ steps.version.outputs.short_version }}"
           echo ""
-          echo "SBOM generation and PR creation were skipped."
+          echo "SBOM was generated and uploaded as artifact."
+          echo "PR creation was skipped (dry-run mode)."
 
       - name: Generate GitHub App token
         if: ${{ !inputs.dry-run }}
