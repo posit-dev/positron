@@ -32,7 +32,7 @@ import { showCustomContextMenu, CustomContextMenuSubmenu, CustomContextMenuEntry
 import { CustomContextMenuItem } from '../../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
-import { applyFilterToQuery, applySortToQuery, PackagesFilter, PackagesSortOrder, parseQuery } from './packagesQuery.js';
+import { addFilterToQuery, applySortToQuery, clearFiltersFromQuery, PackagesFilter, PackagesSortOrder, parseQuery, removeFilterFromQuery } from './packagesQuery.js';
 import { PositronList } from '../../../../browser/positronList/positronList.js';
 import { ListEntry, PositronListInstance, PositronListItemContext } from '../../../../browser/positronList/classes/positronListInstance.js';
 
@@ -169,7 +169,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	// so the menu's checked state updates without waiting for the debounce.
 	const currentQuery = useMemo(() => parseQuery(queryText), [queryText]);
 	const currentSort = currentQuery.sort;
-	const currentFilter = currentQuery.filter;
+	const currentFilters = currentQuery.filters;
 
 	// PositronListInstance. Recreated when itemSize changes so each mode gets its own row
 	// height; the renderer is set later via setItemRenderer so it can close over the latest
@@ -215,9 +215,11 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	const filteredPackages = useMemo(() => {
 		let result = deduplicatedPackages;
 
-		if (debouncedQuery.filter === PackagesFilter.Outdated) {
+		// Active filters intersect: each one narrows the result independently.
+		if (debouncedQuery.filters.includes(PackagesFilter.Outdated)) {
 			result = result.filter((pkg) => pkg.latestVersion && pkg.latestVersion !== pkg.version);
-		} else if (debouncedQuery.filter === PackagesFilter.Attached) {
+		}
+		if (debouncedQuery.filters.includes(PackagesFilter.Attached)) {
 			result = result.filter((pkg) => pkg.attached === true);
 		}
 
@@ -460,30 +462,43 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		filterRef.current?.focus();
 	};
 
-	// Rewrite the filter input to reflect the selected category filter.
-	const selectFilter = (filter: PackagesFilter) => {
-		const newText = applyFilterToQuery(queryText, filter);
+	// Add or remove a category filter from the input. The menu surfaces each
+	// filter as an independent checkbox, so we add when it's off and remove
+	// when it's on; an empty active set means "all packages".
+	const toggleFilter = (filter: PackagesFilter) => {
+		const newText = currentFilters.includes(filter)
+			? removeFilterFromQuery(queryText, filter)
+			: addFilterToQuery(queryText, filter);
 		filterRef.current?.setFilterText(newText === '' ? '' : `${newText} `);
 		filterRef.current?.focus();
 	};
 
+	// Clear all category filters. Free text and sort are preserved.
+	const clearAllFilters = useCallback(() => {
+		const newText = clearFiltersFromQuery(queryText);
+		filterRef.current?.setFilterText(newText === '' ? '' : `${newText} `);
+		filterRef.current?.focus();
+	}, [queryText]);
+
 	// Build the Filter submenu entries. Evaluated lazily so the checked state
-	// reflects the current input when the submenu is opened.
+	// reflects the current input when the submenu is opened. "All Packages"
+	// reads as checked when no filters are active, otherwise clicking it
+	// clears the active set.
 	const filterSubmenuEntries = (): CustomContextMenuEntry[] => [
 		new CustomContextMenuItem({
 			label: localize('positronPackages.filterByAll', "All Packages"),
-			checked: currentFilter === PackagesFilter.All,
-			onSelected: () => selectFilter(PackagesFilter.All),
+			checked: currentFilters.length === 0,
+			onSelected: () => clearAllFilters(),
 		}),
 		new CustomContextMenuItem({
 			label: localize('positronPackages.filterByOutdated', "Outdated"),
-			checked: currentFilter === PackagesFilter.Outdated,
-			onSelected: () => selectFilter(PackagesFilter.Outdated),
+			checked: currentFilters.includes(PackagesFilter.Outdated),
+			onSelected: () => toggleFilter(PackagesFilter.Outdated),
 		}),
 		new CustomContextMenuItem({
 			label: localize('positronPackages.filterByAttached', "Attached"),
-			checked: currentFilter === PackagesFilter.Attached,
-			onSelected: () => selectFilter(PackagesFilter.Attached),
+			checked: currentFilters.includes(PackagesFilter.Attached),
+			onSelected: () => toggleFilter(PackagesFilter.Attached),
 		}),
 	];
 
@@ -524,10 +539,27 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		});
 	};
 
-	// Only show the "No packages found" message when the user has an active filter query.
-	// An unfiltered empty list renders the (empty) data grid, matching prior behavior.
-	const emptyListRenderer = debouncedQuery.text
-		? () => localize('positronPackages.noPackagesFound', "No packages found.")
+	// Only show the "No packages found" message when the user has narrowed the
+	// list (free text or active category filters). An unfiltered empty list
+	// renders the (empty) data grid, matching prior behavior. When category
+	// filters are active, append a "Clear filters" affordance so the user can
+	// recover from a zero-result intersection without hunting in the menu.
+	const filtersActive = debouncedQuery.filters.length > 0;
+	const hasFreeText = !!debouncedQuery.text;
+	const emptyListRenderer = (filtersActive || hasFreeText)
+		? () => (
+			<div className='packages-empty-list'>
+				<div>{localize('positronPackages.noPackagesFound', "No packages found.")}</div>
+				{filtersActive && (
+					<Button
+						className='packages-empty-list-clear'
+						onPressed={clearAllFilters}
+					>
+						{localize('positronPackages.clearFilters', "Clear filters")}
+					</Button>
+				)}
+			</div>
+		)
 		: undefined;
 
 	return (
