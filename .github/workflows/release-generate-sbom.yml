@@ -168,8 +168,8 @@ jobs:
         with:
           name: sbom-debug-files
           path: |
-            .sbom-tmp/kallichore/*.json
-            scripts/sbom/SBOM.json
+            positron/.sbom-tmp/kallichore/*.json
+            positron/scripts/sbom/SBOM.json
           if-no-files-found: ignore
           retention-days: 5
 
