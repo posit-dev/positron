@@ -173,6 +173,24 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			e.stopPropagation();
 		};
 
+		// Applies the per-key selection policy around cursor navigation. In spreadsheet mode
+		// (the default), selection is cleared before the cursor moves so cursor and selection
+		// are independent. In list mode, selection collapses onto the new cursor row after the
+		// move so single-select tracks the cursor. The `selection` guards keep these no-ops
+		// when selection is disabled on the grid.
+		const navigationSelection = {
+			beforeMoveCursor: () => {
+				if (context.instance.selection && context.instance.selectionMode === 'spreadsheet') {
+					context.instance.clearSelection();
+				}
+			},
+			afterMoveCursor: () => {
+				if (context.instance.selection && context.instance.selectionMode === 'list') {
+					context.instance.selectRow(context.instance.cursorRowIndex);
+				}
+			}
+		};
+
 		// Process the code.
 		switch (e.code) {
 			// Tab key - for summary panel navigation
@@ -261,22 +279,27 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 					return;
 				}
 
-				// Cmd / Ctrl + Home clears the selection and positions the screen and cursor to the
-				// top left.
+				// Cmd / Ctrl + Home positions the screen and cursor to the top left. The cursor
+				// lands on the first selectable row so unselectable rows (e.g. section headers)
+				// are skipped. In spreadsheet mode the selection is cleared; in list mode it
+				// collapses onto the new cursor row.
 				if (isMacintosh ? e.metaKey : e.ctrlKey) {
-					context.instance.clearSelection();
+					navigationSelection.beforeMoveCursor();
 					await context.instance.setScrollOffsets(0, 0);
 					context.instance.setCursorPosition(
 						context.instance.firstColumnIndex,
-						context.instance.firstRowIndex
+						context.instance.firstSelectableRowIndex
 					);
+					navigationSelection.afterMoveCursor();
 					return;
 				}
 
-				// Home clears the selection and positions the screen and cursor to the left.
-				context.instance.clearSelection();
+				// Home positions the screen and cursor to the left. In spreadsheet mode the
+				// selection is cleared; in list mode it collapses onto the cursor row.
+				navigationSelection.beforeMoveCursor();
 				await context.instance.setHorizontalScrollOffset(0);
 				context.instance.setCursorColumn(context.instance.firstColumnIndex);
+				navigationSelection.afterMoveCursor();
 				break;
 			}
 
@@ -301,25 +324,30 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 					return;
 				}
 
-				// Cmd / Ctrl + End clears the selection and positions the screen and cursor to the
-				// bottom right.
+				// Cmd / Ctrl + End positions the screen and cursor to the bottom right. The
+				// cursor lands on the last selectable row so unselectable rows (e.g. section
+				// headers) are skipped. In spreadsheet mode the selection is cleared; in list
+				// mode it collapses onto the new cursor row.
 				if (isMacintosh ? e.metaKey : e.ctrlKey) {
-					context.instance.clearSelection();
+					navigationSelection.beforeMoveCursor();
 					await context.instance.setScrollOffsets(
 						context.instance.maximumHorizontalScrollOffset,
 						context.instance.maximumVerticalScrollOffset
 					);
 					context.instance.setCursorPosition(
 						context.instance.lastColummIndex,
-						context.instance.lastRowIndex
+						context.instance.lastSelectableRowIndex
 					);
+					navigationSelection.afterMoveCursor();
 					return;
 				}
 
-				// End clears the selection and positions the screen and cursor to the left.
-				context.instance.clearSelection();
+				// End positions the screen and cursor to the right. In spreadsheet mode the
+				// selection is cleared; in list mode it collapses onto the cursor row.
+				navigationSelection.beforeMoveCursor();
 				await context.instance.setHorizontalScrollOffset(context.instance.maximumHorizontalScrollOffset);
 				context.instance.setCursorColumn(context.instance.lastColummIndex);
+				navigationSelection.afterMoveCursor();
 				break;
 			}
 
@@ -344,12 +372,14 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 					return;
 				}
 
-				// PageUp clears the selection and moves up by one page, positioning the cursor at
-				// the top of the page.
-				context.instance.clearSelection();
+				// PageUp moves up by one page, positioning the cursor at the top of the page. In
+				// spreadsheet mode the selection is cleared; in list mode it collapses onto the
+				// new cursor row.
+				navigationSelection.beforeMoveCursor();
 
 				// Scroll page up.
 				context.instance.scrollPageUp();
+				navigationSelection.afterMoveCursor();
 				break;
 			}
 
@@ -374,12 +404,14 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 					return;
 				}
 
-				// PageDown clears the selection and moves down by one page, positioning the cursor
-				// at the top of the page
-				context.instance.clearSelection();
+				// PageDown moves down by one page, positioning the cursor at the top of the page.
+				// In spreadsheet mode the selection is cleared; in list mode it collapses onto
+				// the new cursor row.
+				navigationSelection.beforeMoveCursor();
 
 				// Scroll page down.
 				context.instance.scrollPageDown();
+				navigationSelection.afterMoveCursor();
 				break;
 			}
 
@@ -406,12 +438,16 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 						return;
 					}
 
-					// Clear selection.
-					context.instance.clearSelection();
+					// Clear selection (spreadsheet mode) or leave it for the post-move selectRow
+					// (list mode).
+					navigationSelection.beforeMoveCursor();
 				}
 
 				// Move the cursor up.
 				context.instance.moveCursorUp();
+
+				// Collapse selection onto the new cursor row in list mode.
+				navigationSelection.afterMoveCursor();
 				break;
 			}
 
@@ -438,12 +474,16 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 						return;
 					}
 
-					// Clear selection.
-					context.instance.clearSelection();
+					// Clear selection (spreadsheet mode) or leave it for the post-move selectRow
+					// (list mode).
+					navigationSelection.beforeMoveCursor();
 				}
 
 				// Move the cursor down.
 				context.instance.moveCursorDown();
+
+				// Collapse selection onto the new cursor row in list mode.
+				navigationSelection.afterMoveCursor();
 				break;
 			}
 
@@ -470,12 +510,16 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 						return;
 					}
 
-					// Clear selection.
-					context.instance.clearSelection();
+					// Clear selection (spreadsheet mode) or leave it for the post-move selectRow
+					// (list mode).
+					navigationSelection.beforeMoveCursor();
 				}
 
 				// Moves the cursor left.
 				context.instance.moveCursorLeft();
+
+				// Collapse selection onto the new cursor row in list mode.
+				navigationSelection.afterMoveCursor();
 				break;
 			}
 
@@ -502,12 +546,16 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 						return;
 					}
 
-					// Clear selection.
-					context.instance.clearSelection();
+					// Clear selection (spreadsheet mode) or leave it for the post-move selectRow
+					// (list mode).
+					navigationSelection.beforeMoveCursor();
 				}
 
 				// Moves the cursor right.
 				context.instance.moveCursorRight();
+
+				// Collapse selection onto the new cursor row in list mode.
+				navigationSelection.afterMoveCursor();
 				break;
 			}
 

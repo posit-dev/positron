@@ -1002,8 +1002,15 @@ export abstract class AbstractExtensionService extends Disposable implements IEx
 
 		// --- Start Positron ---
 		// When all the extension hosts have started, we can notify the main
-		// thread.
-		Promise.all(allExtensionHostStartups).then(() => {
+		// thread. Always open the barrier -- if a host's startup rejected, we
+		// log it but still release waiters so the workbench doesn't hang
+		// silently.
+		Promise.allSettled(allExtensionHostStartups).then((results) => {
+			for (const result of results) {
+				if (result.status === 'rejected') {
+					this._logService.error(`Extension host startup failed`, result.reason);
+				}
+			}
 			this._allExtensionHostsStarted.open();
 		});
 		// --- End Positron ---

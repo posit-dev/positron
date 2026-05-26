@@ -1241,6 +1241,9 @@ declare module 'positron' {
 		 * never re-implements version comparison.
 		 */
 		outdated?: boolean;
+
+		/** Optional short description or summary shown in the Packages pane card view. */
+		description?: string;
 	}
 
 	/**

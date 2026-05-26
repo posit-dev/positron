@@ -314,6 +314,9 @@ export interface ILanguageRuntimePackage {
 	 * frontend never re-implements version comparison.
 	 */
 	outdated?: boolean;
+
+	/** Optional short description or summary. */
+	description?: string;
 }
 
 /**
