@@ -96,7 +96,12 @@ export async function generateRustSbom(project: Project): Promise<BOM> {
 		});
 
 		proc.stderr.on('data', (chunk: Buffer) => {
-			errBuffer += chunk.toString('utf8');
+			const text = chunk.toString('utf8');
+			errBuffer += text;
+			// Log stderr in real-time for debugging cargo-cyclonedx output location
+			if (text.includes('Wrote') || text.includes('wrote') || text.includes('Writing') || text.includes('writing')) {
+				console.info(`  ${text.trim()}`);
+			}
 		});
 
 		proc.on('close', (code) => {
@@ -128,12 +133,24 @@ export async function generateRustSbom(project: Project): Promise<BOM> {
 							f.endsWith('.cdx.json') ||
 							(f.includes('sbom') && f.endsWith('.json')) ||
 							f.endsWith('_sbom.json') ||
-							// Accept any .json file that's not a cache or config file
+							// Accept any .json file that's not a cache, config, or OpenAPI spec
 							(f.endsWith('.json') &&
 								!f.includes('cache') &&
 								!f.includes('config') &&
+								!f.includes('openapi') &&
 								!f.startsWith('.'))
-						);
+						).filter(f => {
+							// Further filter out OpenAPI specs by checking file content
+							try {
+								const testPath = resolvePath(resolvedPath, f);
+								const content = readFileSync(testPath, 'utf-8');
+								const json = JSON.parse(content);
+								// Skip if it's an OpenAPI spec
+								return json.openapi === undefined;
+							} catch {
+								return false;
+							}
+						});
 
 						if (candidates.length > 0) {
 							foundFile = resolvePath(resolvedPath, candidates[0]);
