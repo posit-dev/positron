@@ -1493,12 +1493,6 @@ export abstract class AbstractExtensionGalleryService implements IExtensionGalle
 		const stopWatch = new StopWatch();
 		let context: IRequestContext | undefined, errorCode: ExtensionGalleryErrorCode | undefined, total: number = 0;
 
-		// --- Start Positron ---
-		// TEMP: log the tagged gallery query URL so we can verify P3M telemetry params land
-		// on the wire. Remove before merging.
-		this.logService.info(`[p3m] POST ${taggedQueryApi}`);
-		// --- End Positron ---
-
 		try {
 			context = await this.requestService.request({
 				type: 'POST',
@@ -1642,13 +1636,6 @@ export abstract class AbstractExtensionGalleryService implements IExtensionGalle
 		let context;
 		let errorCode: string | undefined;
 		const stopWatch = new StopWatch();
-
-		// --- Start Positron ---
-		// TEMP: log the per-extension resource-API GET URL (pre-tagged by
-		// getExtensionsUsingResourceApi) so we can verify P3M telemetry params land on the
-		// wire. Remove before merging.
-		this.logService.info(`[p3m] GET ${uri.toString(true)}`);
-		// --- End Positron ---
 
 		try {
 			const commonHeaders = await this.commonHeadersPromise;
