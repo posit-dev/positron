@@ -67,6 +67,8 @@ export const LanguageModelIcon = (props: { provider: string }) => {
 				return <div className={`language-model icon button-icon codicon codicon-positron-assistant`} />;
 			case 'snowflake-cortex':
 				return <Snowflake className='language-model icon' />;
+			case 'openai-compatible':
+				return <div className={`language-model icon button-icon codicon codicon-wrench`} />;
 			case 'error':
 				return <div className={`language-model icon button-icon codicon codicon-error`} />;
 			case 'echo':

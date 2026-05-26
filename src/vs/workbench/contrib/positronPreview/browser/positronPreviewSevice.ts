@@ -28,6 +28,16 @@ export const POSITRON_PREVIEW_HTML_VIEW_TYPE = 'positron.previewHtml';
 export const IPositronPreviewService = createDecorator<IPositronPreviewService>(POSITRON_PREVIEW_SERVICE_ID);
 
 /**
+ * The remembered target for the Viewer action bar "Open in..." split-button.
+ */
+export enum PreviewOpenTarget {
+	/** Open the content in the default external browser. */
+	Browser = 'browser',
+	/** Open the content in an editor tab. */
+	EditorTab = 'editorTab',
+}
+
+/**
  * IPositronPreviewService interface.
  *
  * Note that this service lives in `/contrib/` instead of `/services/` because
@@ -146,4 +156,15 @@ export interface IPositronPreviewService {
 	 * @param title The title for the preview.
 	 */
 	openHtmlString(previewId: string, html: string, title: string): PreviewWebview;
+
+	/**
+	 * Gets the remembered "Open in..." target for the Viewer action bar.
+	 * Defaults to {@link PreviewOpenTarget.Browser} for new users.
+	 */
+	getDefaultOpenTarget(): PreviewOpenTarget;
+
+	/**
+	 * Persists the remembered "Open in..." target for the Viewer action bar.
+	 */
+	setDefaultOpenTarget(target: PreviewOpenTarget): void;
 }

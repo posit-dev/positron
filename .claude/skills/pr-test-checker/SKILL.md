@@ -147,7 +147,7 @@ For "Adequate" / "Adequate via existing coverage" / "Not applicable": omit this 
 Omit entirely if not applicable.>
 
 ---
-<small>PETE (Positron Extreme Test Experiment) - LLM-based test-coverage advisor, in pilot. Triggers on PR open and on `/recheck-tests` comments. Wrong verdict? Add a `/recheck-tests` comment to this PR to re-run, or ping @jonvanausdeln.</small>
+<small>PETE (Positron Extreme Test Experiment) - LLM-based test-coverage advisor, in pilot. Triggers on PR open and on `/recheck-tests` comments. Wrong verdict? Add a `/recheck-tests` comment to this PR to re-run, or ping @jonvanausdeln. Please share feedback on how PETE performed [here](https://docs.google.com/spreadsheets/d/1MIBYC-ItKaeH7Pup1VHoGw8sTkwxIbbDnDMn_vRSrGg/edit?usp=sharing).</small>
 ```
 
 ## Constraints

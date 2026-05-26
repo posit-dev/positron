@@ -69,6 +69,12 @@ jobs:
           name: "positron-deb-remote-ssh-x64"
           path: /tmp/artifacts
 
+      - name: Download REH artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: "positron-reh-remote-ssh-x64"
+          path: /tmp/artifacts
+
       - name: Install Positron from DEB
         run: |
           sudo apt-get update && sudo apt-get install -y xdg-utils
@@ -88,6 +94,35 @@ jobs:
       - name: Install SSH in container
         run: |
           docker exec test /bin/bash -c "/tmp/ssh-install.sh"
+
+      - name: Setup Positron REH in container
+        run: |
+          # Get the commit SHA to create the versioned directory structure
+          COMMIT_SHA="${{ github.sha }}"
+
+          # Copy REH tarball into container
+          docker cp /tmp/artifacts/positron-reh-remote-ssh-x64.tar.gz test:/tmp/positron-reh-remote-ssh-x64.tar.gz
+
+          # Extract REH into /root/.positron-server/bin/<commit-sha>
+          # The remote SSH extension expects the structure: ~/.positron-server/bin/<commit>/bin/positron-server
+          docker exec test /bin/bash -c "
+            mkdir -p /root/.positron-server/bin/${COMMIT_SHA}
+            cd /root/.positron-server/bin/${COMMIT_SHA}
+            tar xzf /tmp/positron-reh-remote-ssh-x64.tar.gz --strip-components=1
+            rm /tmp/positron-reh-remote-ssh-x64.tar.gz
+          "
+
+          # Verify extraction
+          docker exec test /bin/bash -c "
+            echo 'Verifying REH extraction...'
+            ls -la /root/.positron-server/bin/${COMMIT_SHA}/
+            if [[ -d /root/.positron-server/bin/${COMMIT_SHA}/bin && -d /root/.positron-server/bin/${COMMIT_SHA}/extensions ]]; then
+              echo '✓ REH directories found at /root/.positron-server/bin/${COMMIT_SHA}/'
+            else
+              echo '✗ REH extraction incomplete'
+              exit 1
+            fi
+          "
 
       - name: Configure xvfb and dbus
         uses: ./.github/actions/setup-xvfb
@@ -150,7 +185,7 @@ jobs:
           PW_PROJECT_NAME: e2e-remote-ssh
         run: |
           export DISPLAY=:10
-          BUILD=/usr/share/positron npx playwright test --project e2e-remote-ssh --retries=1 --workers=1 --grep="${{ inputs.grep }}"
+          BUILD=/usr/share/positron npx playwright test --project e2e-remote-ssh --retries=1 --workers=1
 
       - name: Upload Playwright Report to S3
         if: always()

@@ -179,8 +179,8 @@ export class ChatViewWelcomePart extends Disposable {
 			title.textContent = content.title;
 
 			// --- Start Positron ---
-			// Added a Preview badge to the welcome chat view, with th same styling as the Preview badge in the Settings UI.
-			dom.append(this.element, $('.chat-welcome-view-preview-badge', undefined, localize('chatViewWelcomePreview', "Preview")));
+			// Added a Superseded badge to the welcome chat view, with the same styling as the Preview badge in the Settings UI.
+			dom.append(this.element, $('.chat-welcome-view-preview-badge', undefined, localize('chatViewWelcomeSuperseded', "Superseded")));
 			// --- End Positron ---
 
 			const message = dom.append(this.element, $('.chat-welcome-view-message'));

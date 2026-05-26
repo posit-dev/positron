@@ -71,6 +71,7 @@ function kernelStatusForStartupPhase(phase: RuntimeStartupPhase): NotebookKernel
 		case RuntimeStartupPhase.NewFolderTasks:
 		case RuntimeStartupPhase.Reconnecting:
 		case RuntimeStartupPhase.Starting:
+		case RuntimeStartupPhase.LoadingCache:
 			return NotebookKernelStatus.Discovering;
 		case RuntimeStartupPhase.Discovering:
 		case RuntimeStartupPhase.Complete:

@@ -65,8 +65,8 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 	/**
 	 * Img Path: https://positron.posit.co/images/active-interpreter-session.png
 	 *
-	 * R and Python sessions running side-by-side, Sessions view visible in the
-	 * secondary side bar, with an annotation on the top-right interpreter chip.
+	 * R and Python sessions running side-by-side, Sessions list visible in the
+	 * bottom panel, with an annotation on the top-right interpreter chip.
 	 *
 	 * Runs first so the R session is fresh — the console should show the R
 	 * startup banner, not output from an earlier test's executeCode.
@@ -118,8 +118,12 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		await hotKeys.closePrimarySidebar();
 		await hotKeys.showSecondarySidebar();
 
-		// Collapse the Plots pane and focus on variables so the Plots header doesn't have focus state
-		await page.locator('.part.auxiliarybar [aria-label="Plots Section"]').click();
+		// Collapse the Plots pane and focus on variables so the Plots header doesn't have focus state.
+		// The header click is a toggle, so assert the pane ends up collapsed in case a prior run
+		// already left it that way (the click would otherwise re-expand it).
+		const plotsSection = page.locator('.part.auxiliarybar [aria-label="Plots Section"]');
+		await plotsSection.click();
+		await expect(plotsSection).toHaveAttribute('aria-expanded', 'false');
 		await variables.focusVariablesView();
 		await layouts.resizeAuxiliaryBar({ x: -300 });
 		await expect(variables.variablesPane).toBeVisible();

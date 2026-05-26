@@ -75,6 +75,9 @@ test.describe('Release Screenshots - Welcome Page', () => {
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);
+		// from === to is intentional: the title-bar / folder-picker should keep
+		// reading "astropy-testing", but the console's current-working-dir label
+		// needs the tilde-form rewrite so the temp workspace path doesn't leak.
 		await overrideWorkspaceName(page, 'astropy-testing', 'astropy-testing');
 		await captureFullWindow(page, 'astropy.png');
 	});

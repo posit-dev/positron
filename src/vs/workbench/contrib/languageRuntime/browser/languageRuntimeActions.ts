@@ -21,6 +21,7 @@ import { IModelService } from '../../../../editor/common/services/model.js';
 import { getSessionDisplayName, getSessionIconClasses, isQuartoSession } from '../../positronConsole/common/sessionDisplayUtils.js';
 import { POSITRON_NOTEBOOK_EDITOR_INPUT_ID, SELECT_KERNEL_ID_POSITRON } from '../../positronNotebook/common/positronNotebookCommon.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
+import { IRuntimeDiscoveryCache } from '../../../services/runtimeStartup/common/runtimeDiscoveryCacheService.js';
 import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { DisposableStore, dispose } from '../../../../base/common/lifecycle.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
@@ -69,6 +70,7 @@ export const LANGUAGE_RUNTIME_RESTART_ACTIVE_SESSION_ID = 'workbench.action.lang
 export const LANGUAGE_RUNTIME_RENAME_SESSION_ID = 'workbench.action.language.runtime.renameSession';
 export const LANGUAGE_RUNTIME_RENAME_ACTIVE_SESSION_ID = 'workbench.action.language.runtime.renameActiveSession';
 export const LANGUAGE_RUNTIME_DISCOVER_RUNTIMES_ID = 'workbench.action.language.runtime.discoverAllRuntimes';
+export const LANGUAGE_RUNTIME_CLEAR_INTERPRETER_CACHE_ID = 'workbench.action.language.runtime.clearInterpreterCache';
 
 // Console Session Specific Action IDs
 export const LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID = 'workbench.action.language.runtime.startNewConsoleSession';
@@ -1273,6 +1275,26 @@ export function registerLanguageRuntimeActions() {
 
 			// Kick off discovery.
 			runtimeStartupService.rediscoverAllRuntimes();
+		}
+	});
+
+	registerAction2(class extends Action2 {
+		constructor() {
+			super({
+				id: LANGUAGE_RUNTIME_CLEAR_INTERPRETER_CACHE_ID,
+				title: localize2('workbench.action.language.runtime.clearInterpreterCache', "Clear Interpreter Cache"),
+				f1: true,
+				category
+			});
+		}
+
+		async run(accessor: ServicesAccessor) {
+			const cache = accessor.get(IRuntimeDiscoveryCache);
+			const notificationService = accessor.get(INotificationService);
+			cache.clear();
+			notificationService.info(localize(
+				'positron.runtimeStartupService.cacheClearedMessage',
+				"Interpreter discovery cache cleared. Run Discover All Interpreters to repopulate it."));
 		}
 	});
 

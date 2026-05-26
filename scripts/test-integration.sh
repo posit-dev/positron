@@ -156,6 +156,12 @@ npm run test-extension -- -l positron-code-cells
 kill_app
 
 echo
+echo "### Next Edit Suggestions tests"
+echo
+npm run test-extension -- -l next-edit-suggestions
+kill_app
+
+echo
 echo "### Positron R tests"
 echo
 npm run test-extension -- -l positron-r

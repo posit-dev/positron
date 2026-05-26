@@ -43,6 +43,7 @@ import { ExtHostPlotsService } from './extHostPlotsService.js';
 import { ExtHostNotebookFeatures } from './extHostNotebookFeatures.js';
 import { ExtHostPositronEphemeralStorage } from './extHostPositronEphemeralStorage.js';
 import { IExtHostStorage } from '../extHostStorage.js';
+import { ExtHostLifecycle } from './extHostLifecycle.js';
 
 /**
  * Factory interface for creating an instance of the Positron API.
@@ -92,6 +93,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const extHostDataConnections = rpcProtocol.set(ExtHostPositronContext.ExtHostDataConnections, new ExtHostDataConnections(rpcProtocol));
 	const extHostEnvironment = rpcProtocol.set(ExtHostPositronContext.ExtHostEnvironment, new ExtHostEnvironment(rpcProtocol));
 	const extHostNotebookFeatures = rpcProtocol.set(ExtHostPositronContext.ExtHostNotebookFeatures, new ExtHostNotebookFeatures(rpcProtocol));
+	const extHostLifecycle = rpcProtocol.set(ExtHostPositronContext.ExtHostLifecycle, new ExtHostLifecycle());
 	const storage = accessor.get(IExtHostStorage);
 	const extHostEphemeralStorage = new ExtHostPositronEphemeralStorage(rpcProtocol, accessor.get(ILogService));
 	storage.setPositronEphemeralStorage(extHostEphemeralStorage);
@@ -240,6 +242,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 			getPlotsRenderSettings(): Thenable<positron.PlotRenderSettings> {
 				return extHostPlotsService.getPlotsRenderSettings();
+			},
+			get onWillShutdown() {
+				return extHostLifecycle.onWillShutdown;
 			},
 		};
 
@@ -613,6 +618,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			StatementRangeSyntaxError: extHostTypes.StatementRangeSyntaxError,
 			DataConnectionParameterType: extHostTypes.DataConnectionParameterType,
 			DataConnectionNodeKind: extHostTypes.DataConnectionNodeKind,
+			ShutdownReason: extHostTypes.ShutdownReason,
 		};
 	};
 }

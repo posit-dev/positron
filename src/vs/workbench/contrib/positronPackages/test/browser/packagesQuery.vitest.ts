@@ -80,7 +80,7 @@ describe('packagesQuery', () => {
 		});
 
 		it('unknown @key:value token is stripped from free text', () => {
-			const result = parseQuery('foo @author:hadley bar');
+			const result = parseQuery('foo @unknown:value bar');
 			expect(result.text).toBe('foo bar');
 			expect(result.sort).toBe(PackagesSortOrder.NameAsc);
 		});

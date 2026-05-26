@@ -210,7 +210,10 @@ test.describe('Release Screenshots - Snippets', () => {
 		const VISIBLE_ROWS = 4; // for [keyword], for snippet, forcats::, foreign::
 		const firstRowBox = await suggestWidget.widget.locator('.monaco-list-row').first().boundingBox();
 		const rowHeight = firstRowBox?.height ?? 22;
-		const suggestBottom = suggestBox.y + VISIBLE_ROWS * rowHeight;
+		// Anchor to the first row's y (not the widget's outer top edge) so
+		// the crop bottom accounts for any widget chrome above the list.
+		const rowsTop = firstRowBox?.y ?? suggestBox.y;
+		const suggestBottom = rowsTop + VISIBLE_ROWS * rowHeight;
 		const left = Math.floor(Math.min(suggestBox.x, consoleInputBox.x));
 		const top = Math.floor(Math.min(suggestBox.y, detailsBox.y, consoleInputBox.y));
 		const right = Math.ceil(Math.max(suggestBox.x + suggestBox.width, detailsBox.x + detailsBox.width));
@@ -249,13 +252,14 @@ test.describe('Release Screenshots - Snippets', () => {
 		await expect(funRow).toBeVisible({ timeout: 5_000 });
 		await expect(functionKeywordRow).toBeVisible({ timeout: 5_000 });
 
-		// Tag the two target rows with data-screenshot-target so annotate()
-		// (plain querySelector) can find them without :has-text.
+		// Prepare for the screenshot, THEN tag the rows. prepareForScreenshot's
+		// waitForStableUI step drains rAF / waits 250ms, during which Monaco's
+		// virtualised list may recycle DOM rows and strip injected data-*
+		// attributes. Tagging after the settle keeps the attrs alive for annotate().
+		await prepareForScreenshot(app, page);
 		await suggestWidget.tagRow('Define a function', 'snippet-fun');
 		await suggestWidget.tagRowByRegex(/\bfunction\b.*\[keyword\]|\[keyword\].*\bfunction\b/, 'keyword-function');
 
-		// Prepare for the screenshot and annotate the two rows.
-		await prepareForScreenshot(app, page);
 		await annotate(page, [
 			{ selector: '[data-screenshot-target="snippet-fun"]', label: '', color: ANNOTATION_COLOR, padding: 1, borderWidth: 1 },
 			{ selector: '[data-screenshot-target="keyword-function"]', label: '', color: ANNOTATION_COLOR, padding: 1, borderWidth: 1 },

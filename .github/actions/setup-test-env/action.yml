@@ -18,7 +18,7 @@ runs:
       run: npm --prefix test/e2e run compile
 
     - name: Setup AWS S3 Access
-      uses: aws-actions/configure-aws-credentials@v4
+      uses: aws-actions/configure-aws-credentials@v6
       with:
         role-to-assume: ${{ inputs.aws-role-to-assume }}
         aws-region: ${{ inputs.aws-region }}

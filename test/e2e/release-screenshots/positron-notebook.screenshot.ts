@@ -40,7 +40,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 	 * Img Path: https://positron.posit.co/images/positron-notebook-editor-kernel-selector.png
 	 */
 	test('Release Screenshot - positron-notebook-editor-kernel-selector.png', async ({ app, page, python }) => {
-		const { notebooksPositron, hotKeys } = app.workbench;
+		const { notebooksPositron, hotKeys, layouts } = app.workbench;
 
 		// Open a new notebook and select the Python interpreter
 		await notebooksPositron.createNewNotebook();
@@ -50,7 +50,11 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 		// customize the layout
 		await hotKeys.closePrimarySidebar();
 		await hotKeys.closeSecondarySidebar();
+		// toggleBottomPanel is a toggle, not an idempotent close — assert the
+		// post-condition so the test fails loudly if a prior step left the
+		// panel already closed and the toggle re-opened it.
 		await hotKeys.toggleBottomPanel();
+		await layouts.expectBottomPanelToBeVisible(false);
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);
@@ -65,7 +69,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 	 * Img Path: https://positron.posit.co/images/positron-notebook-assistant-action-bar.png
 	 */
 	test('Release Screenshot - positron-notebook-assistant-action-bar.png', async ({ app, page, python, settings }) => {
-		const { notebooksPositron, hotKeys } = app.workbench;
+		const { notebooksPositron, hotKeys, layouts } = app.workbench;
 
 		await settings.set({ 'positron.assistant.enable': true }, { keepOpen: false });
 
@@ -78,6 +82,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 		await hotKeys.closePrimarySidebar();
 		await hotKeys.closeSecondarySidebar();
 		await hotKeys.toggleBottomPanel();
+		await layouts.expectBottomPanelToBeVisible(false);
 
 		// button is gated on config.positron.assistant.enable; wait for it to render.
 		await notebooksPositron.expectAssistantButtonsVisible();
@@ -95,7 +100,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 	 * Img Path: https://positron.posit.co/images/positron-notebook-assistant-panel.png
 	 */
 	test('Release Screenshot - positron-notebook-assistant-panel.png', async ({ app, page, python, settings }) => {
-		const { notebooksPositron, hotKeys } = app.workbench;
+		const { notebooksPositron, hotKeys, layouts } = app.workbench;
 
 		await settings.set({ 'positron.assistant.enable': true }, { keepOpen: false });
 
@@ -108,6 +113,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 		await hotKeys.closePrimarySidebar();
 		await hotKeys.closeSecondarySidebar();
 		await hotKeys.toggleBottomPanel();
+		await layouts.expectBottomPanelToBeVisible(false);
 
 		// click the "Ask Assistant" button to open the assistant panel
 		await notebooksPositron.clickAskAssistantButton();

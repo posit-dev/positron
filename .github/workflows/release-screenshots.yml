@@ -364,7 +364,7 @@ jobs:
     # `inputs.slack_notify` is unset on schedule events (cron), so the
     # `!= false` check defaults to notifying; manual runs that uncheck the
     # box opt out.
-    if: ${{ failure() && (inputs.mode || 'nightly') == 'nightly' && inputs.slack_notify != false }}
+    if: ${{ failure() && (inputs.mode || 'nightly') == 'nightly' && inputs.slack_notify != 'false' }}
     needs: [release-screenshots]
     runs-on: ubuntu-latest
     steps:

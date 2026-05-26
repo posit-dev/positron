@@ -5,6 +5,11 @@ on:
   schedule:
     - cron: "0 2 * * 1-5"
   workflow_dispatch:
+    inputs:
+      dryrun:
+        description: 'Dry run: detect mismatches and run the bump script, but skip commit/push/PR/Slack.'
+        type: boolean
+        default: false
 
 permissions:
   id-token: write
@@ -61,6 +66,15 @@ jobs:
           echo "Running: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project e2e-electron --reporter=null"
           npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project e2e-electron --reporter=null
 
+      - name: Upload mismatched extensions list
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mismatched-extensions
+          path: test-logs/mismatched-extensions.txt
+          retention-days: 3
+          if-no-files-found: ignore
+
   auto-update:
     name: 'auto-update-extensions'
     if: always() && needs.extensions-linux.result != 'cancelled'
@@ -90,18 +104,91 @@ jobs:
           git config user.name "positron-bot[bot]"
           git config user.email "positron-bot[bot]@users.noreply.github.com"
 
+      - name: Download mismatched extensions list
+        if: needs.extensions-linux.result == 'failure'
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: mismatched-extensions
+          path: .
+
       - name: Update extensions
         env:
           TEST_RESULT: ${{ needs.extensions-linux.result }}
         run: |
-          if [ "$TEST_RESULT" = "failure" ]; then
-            ./scripts/update-extensions.sh --all
-          else
-            ./scripts/update-extensions.sh meta.pyrefly
+          MISMATCHED=()
+          if [ "$TEST_RESULT" = "failure" ] && [ -s mismatched-extensions.txt ]; then
+            read -ra MISMATCHED <<< "$(cat mismatched-extensions.txt)"
           fi
+          # meta.pyrefly is optional in the test, so bump it every run to catch silent drift.
+          EXTENSIONS_TO_BUMP=(meta.pyrefly "${MISMATCHED[@]}")
+          echo "Bumping extensions: ${EXTENSIONS_TO_BUMP[*]}"
+          {
+            echo "### Bootstrap extensions to bump"
+            echo ""
+            printf -- '- %s\n' "${EXTENSIONS_TO_BUMP[@]}"
+          } >> "$GITHUB_STEP_SUMMARY"
+          ./scripts/update-extensions.sh "${EXTENSIONS_TO_BUMP[@]}"
+
+      - name: Show product.json diff
+        run: |
+          if git diff --quiet product.json; then
+            echo "No changes to product.json."
+          else
+            git --no-pager diff product.json
+          fi
+
+      - name: Render test tags
+        id: render-tags
+        run: |
+          UPDATED=$(jq -rn \
+            --argjson old "$(git show HEAD:product.json)" \
+            --argjson new "$(cat product.json)" \
+            '($old.bootstrapExtensions | map({(.name): .version}) | add) as $ov |
+             ($new.bootstrapExtensions | map({(.name): .version}) | add) as $nv |
+             [$nv | to_entries[] | select(.value != $ov[.key]) | .key] | join(" ")')
+          if [ -z "$UPDATED" ]; then
+            echo "No bootstrap extension version changes detected."
+            echo "updated=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          TAG_MAP=.github/workflows/extensions-tag-map.json
+          TAG_BULLETS=$(echo "$UPDATED" | tr ' ' '\n' | jq -R -s -r --slurpfile map "$TAG_MAP" '
+            (split("\n") | map(select(length > 0))) as $exts |
+            $map[0] as $m |
+            $exts | map(
+              . as $e | $m[$e] as $entry |
+              if $entry == null then
+                "- " + $e + " -> (unmapped; add to extensions-tag-map.json)"
+              elif ($entry.tags | length) > 0 then
+                "- " + $e + " -> " + ($entry.tags | join(", "))
+              else
+                "- " + $e + " -> n/a"
+              end
+            ) | join("\n")
+          ')
+          COMBINED_TAGS=$(echo "$UPDATED" | tr ' ' '\n' | jq -R -s -r --slurpfile map "$TAG_MAP" '
+            split("\n") | map(select(length > 0)) | map($map[0][.].tags // []) | flatten | unique | join(" ")
+          ')
+          UNMAPPED=$(echo "$UPDATED" | tr ' ' '\n' | jq -R -s -r --slurpfile map "$TAG_MAP" '
+            split("\n") | map(select(length > 0)) | map(select($map[0][.] == null)) | join(", ")
+          ')
+          {
+            echo "### Suggested test tags"
+            echo ""
+            echo "$TAG_BULLETS"
+            if [ -n "$COMBINED_TAGS" ]; then
+              echo ""
+              echo "Combined: $COMBINED_TAGS"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "updated=$UPDATED" >> "$GITHUB_OUTPUT"
+          echo "combined_tags=$COMBINED_TAGS" >> "$GITHUB_OUTPUT"
+          echo "unmapped=$UNMAPPED" >> "$GITHUB_OUTPUT"
 
       - name: Commit and push
         id: push
+        if: inputs.dryrun != true
         env:
           GH_TOKEN: ${{ steps.bot-token.outputs.token }}
         run: |
@@ -133,13 +220,11 @@ jobs:
           GH_TOKEN: ${{ steps.bot-token.outputs.token }}
           BRANCH: ${{ steps.push.outputs.branch }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          MAP_URL: ${{ github.server_url }}/${{ github.repository }}/blob/main/.github/workflows/extensions-tag-map.json
+          UPDATED: ${{ steps.render-tags.outputs.updated }}
+          COMBINED_TAGS: ${{ steps.render-tags.outputs.combined_tags }}
+          UNMAPPED: ${{ steps.render-tags.outputs.unmapped }}
         run: |
-          UPDATED=$(jq -rn \
-            --argjson old "$(git show HEAD~1:product.json)" \
-            --argjson new "$(cat product.json)" \
-            '($old.bootstrapExtensions | map({(.name): .version}) | add) as $ov |
-             ($new.bootstrapExtensions | map({(.name): .version}) | add) as $nv |
-             [$nv | to_entries[] | select(.value != $ov[.key]) | .key] | join(" ")')
           EXT_BULLETS=$(echo "$UPDATED" | tr ' ' '\n' | sed 's/^/- /')
           # Truncate title if more than 3 extensions to stay within GitHub's limit
           EXT_ARRAY=($UPDATED)
@@ -149,6 +234,16 @@ jobs:
           else
             FIRST3="${EXT_ARRAY[0]},${EXT_ARRAY[1]},${EXT_ARRAY[2]}"
             TITLE="chore: update bootstrap extensions ($FIRST3 +$((COUNT - 3)) more)"
+          fi
+          TAGS_LINE=""
+          if [ -n "$COMBINED_TAGS" ]; then
+            TAGS_LINE="${COMBINED_TAGS}
+          "
+          fi
+          UNMAPPED_LINE=""
+          if [ -n "$UNMAPPED" ]; then
+            UNMAPPED_LINE="[Unmapped](${MAP_URL}): ${UNMAPPED}
+          "
           fi
           PR_URL=$(gh pr create \
             --base main \
@@ -160,12 +255,12 @@ jobs:
           ${EXT_BULLETS}
 
           ### QA Notes
-          Triggered by [nightly extensions check](${RUN_URL}).")
+          ${TAGS_LINE}${UNMAPPED_LINE}Triggered by [nightly extensions check](${RUN_URL}).")
           echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
           echo "updated=$UPDATED" >> "$GITHUB_OUTPUT"
 
       - name: Post PR to Slack
-        if: steps.push.outputs.existing_pr != '' || steps.create-pr.outputs.pr_url != ''
+        if: (steps.push.outputs.existing_pr != '' || steps.create-pr.outputs.pr_url != '') && inputs.dryrun != true
         env:
           SLACK_TOKEN: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
           PR_URL: ${{ steps.create-pr.outputs.pr_url || steps.push.outputs.existing_pr }}
@@ -186,7 +281,7 @@ jobs:
                }')"
 
   slack-notify:
-    if: always() && needs.extensions-linux.result == 'failure' && needs.auto-update.outputs.pr_url == ''
+    if: always() && needs.extensions-linux.result == 'failure' && needs.auto-update.outputs.pr_url == '' && inputs.dryrun != true
     needs: [extensions-linux, auto-update]
     runs-on: ubuntu-latest
     steps:

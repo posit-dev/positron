@@ -244,8 +244,8 @@
           "positron.r.localPackageInstallMethod": {
             "scope": "window",
             "type": "string",
-            "enum": ["pak", "base"],
-            "default": "pak",
+            "enum": ["devtools", "base"],
+            "default": "devtools",
             "markdownDescription": "%r.configuration.localPackageInstallMethod.description%"
           }
         }

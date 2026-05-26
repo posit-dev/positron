@@ -674,6 +674,15 @@ declare module 'positron' {
 		 * notifications to the backend via the UI client.
 		 */
 		uiSubscriptions?: UiRuntimeNotifications[];
+
+		/**
+		 * Whether this runtime is eligible to be stored in Positron's cross-window
+		 * discovery cache. Defaults to `false` when omitted. Set to `true` only for
+		 * system-scoped runtimes whose `runtimePath` resolves to a real on-disk
+		 * executable and whose behavior is not bound to a specific workspace
+		 * (i.e. not a venv, renv library, pyenv/asdf shim, or proxy/remote runtime).
+		 */
+		cacheable?: boolean;
 	}
 
 	/**
@@ -682,6 +691,34 @@ declare module 'positron' {
 	export enum UiRuntimeNotifications {
 		/** Notification that the settings for rendering a plot have changed, typically because the plot area did */
 		DidChangePlotsRenderSettings = 'did_change_plots_render_settings',
+	}
+
+	/**
+	 * One root that a `LanguageRuntimeManager` scans for interpreters. The
+	 * `path` should be resolved (symlinks followed) before being reported;
+	 * `mtimeMs` is 0 when the path does not exist.
+	 */
+	export interface RuntimeRootEntry {
+		readonly path: string;
+		readonly exists: boolean;
+		readonly mtimeMs: number;
+	}
+
+	/**
+	 * Fingerprint of every directory a `LanguageRuntimeManager` scans for
+	 * interpreters. Returned by `getDiscoveryRootSignature` to let Positron
+	 * detect newly-installed interpreters between startups without rerunning
+	 * full discovery.
+	 */
+	export interface RuntimeRootSignature {
+		/** Roots in stable insertion order. Order is part of the signature. */
+		readonly entries: readonly RuntimeRootEntry[];
+		/**
+		 * Optional opaque blob folded into equality. Lets a manager mix in
+		 * non-stat-able state (env-modules version, conda config hash) without
+		 * exposing the details to Positron.
+		 */
+		readonly opaque?: string;
 	}
 
 	export interface RuntimeSessionMetadata {
@@ -1029,6 +1066,37 @@ declare module 'positron' {
 		recommendedWorkspaceRuntime(): Thenable<LanguageRuntimeMetadata | undefined>;
 
 		/**
+		 * An optional snapshot of the directories this manager scans for
+		 * interpreters. Called on every warm start to detect newly-installed
+		 * interpreters before deciding whether to skip full discovery.
+		 *
+		 * The snapshot must be cheap to compute -- on the order of one stat
+		 * per scan root. Implementations whose discovery sources cannot be
+		 * fingerprinted that cheaply (e.g. those that need to invoke a
+		 * subprocess like `conda env list`) should not implement this method;
+		 * the periodic-refresh cap will catch their changes within ~24h.
+		 *
+		 * Returning `{ entries: [] }` is a valid stable signature and means
+		 * "I have no stat-able roots." Throwing or rejecting causes the
+		 * manager to fall back to the periodic-refresh trigger.
+		 */
+		getDiscoveryRootSignature?(): Thenable<RuntimeRootSignature>;
+
+		/**
+		 * Opt out of the discovery cache's warm-start fast path. When `true`,
+		 * `discoverAllRuntimes()` is invoked on every Positron window open --
+		 * even when the cache would otherwise have considered the manager
+		 * satisfied.
+		 *
+		 * Set this when your runtimes are dynamic, ephemeral, or not backed by
+		 * a stat-able binary (so they can never be cached): the cache has no
+		 * record of them, but skipping discovery would leave them unregistered
+		 * on warm starts. Managers whose runtimes set `cacheable: true` should
+		 * leave this unset.
+		 */
+		alwaysRediscover?: boolean;
+
+		/**
 		 * An optional event that fires when a new runtime is discovered.
 		 *
 		 * Not fired during `discoverRuntimes()`; used to notify Positron of a
@@ -1164,6 +1232,9 @@ declare module 'positron' {
 		 * can be loaded as a transitive dependency without being attached.
 		 */
 		attached?: boolean;
+
+		/** Optional short description or summary shown in the Packages pane card view. */
+		description?: string;
 	}
 
 	/**
@@ -2113,6 +2184,25 @@ declare module 'positron' {
 			provider: HelpTopicProvider): vscode.Disposable;
 	}
 
+	/**
+	 * The reason the Positron window is shutting down. Surfaced via
+	 * `positron.window.onWillShutdown` so extensions can distinguish a quit
+	 * from a window reload.
+	 */
+	export enum ShutdownReason {
+		/** The window was closed (e.g. last window of the application). */
+		Close = 1,
+
+		/** The application is quitting. */
+		Quit = 2,
+
+		/** The window is reloading. */
+		Reload = 3,
+
+		/** The window is loading a different workspace. */
+		Load = 4,
+	}
+
 	namespace window {
 		/**
 		 * Create and show a new preview panel.
@@ -2237,6 +2327,18 @@ declare module 'positron' {
 		 * plot widget.
 		 */
 		export function getPlotsRenderSettings(): Thenable<PlotRenderSettings>;
+
+		/**
+		 * Fires when the Positron window is about to shut down. The reason
+		 * indicates how the shutdown was triggered (quit, reload, close, or
+		 * load of a different workspace) so extensions can decide whether
+		 * resources should be torn down or preserved for reconnection.
+		 *
+		 * Listeners must complete synchronously: there is no opportunity to
+		 * defer the shutdown. Stash the reason and consult it from
+		 * `deactivate()` if cleanup needs to happen there.
+		 */
+		export const onWillShutdown: vscode.Event<ShutdownReason>;
 
 	}
 

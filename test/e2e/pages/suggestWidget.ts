@@ -81,6 +81,10 @@ export class SuggestWidget {
 			}
 			await this.code.driver.currentPage.keyboard.press('ArrowDown');
 		}
+		// Don't silently fall through with focus on a non-snippet row — a
+		// downstream `toggleDetails()` would otherwise capture the wrong row.
+		const found = await this.focusedRow.locator(SNIPPET_ICON).first().isVisible().catch(() => false);
+		expect(found, `snippet row not focused after ${maxSteps} ArrowDown steps`).toBe(true);
 	}
 
 	/**

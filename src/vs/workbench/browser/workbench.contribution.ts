@@ -852,7 +852,13 @@ const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Con
 			},
 			[LayoutSettings.COMMAND_CENTER]: {
 				type: 'boolean',
+				// --- Start Positron ---
+				// Positron hides the command center by default; users can opt-in to display it in the title bar.
+				/*
 				default: true,
+				*/
+				default: false,
+				// --- End Positron ---
 				markdownDescription: isWeb ?
 					localize('window.commandCenterWeb', "Show command launcher together with the window title.") :
 					localize({ key: 'window.commandCenter', comment: ['{0}, {1} is a placeholder for a setting identifier.'] }, "Show command launcher together with the window title. This setting only has an effect when {0} is not set to {1}.", '`#window.customTitleBarVisibility#`', '`never`')
@@ -997,6 +1003,13 @@ const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Con
 				'default': true,
 				'description': localize('zenMode.hideActivityBar', "Controls whether turning on Zen Mode also hides the activity bar either at the left or right of the workbench.")
 			},
+			// --- Start Positron ---
+			'zenMode.hideTopActionBar': {
+				'type': 'boolean',
+				'default': true,
+				'description': localize('positron.zenMode.hideTopActionBar', "Controls whether turning on Zen Mode also hides the top action bar.")
+			},
+			// --- End Positron ---
 			'zenMode.hideLineNumbers': {
 				'type': 'boolean',
 				'default': true,

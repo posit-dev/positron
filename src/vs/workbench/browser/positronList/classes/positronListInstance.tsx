@@ -12,7 +12,7 @@ import { JSX, ReactNode } from 'react';
 // Other dependencies.
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { positronClassNames } from '../../../../base/common/positronUtilities.js';
-import { DataGridInstance, RowSelectionState } from '../../positronDataGrid/classes/dataGridInstance.js';
+import { DataGridInstance, MouseSelectionType, RowSelectionState } from '../../positronDataGrid/classes/dataGridInstance.js';
 
 /**
  * PositronListItemContext interface. Passed to the caller's itemRenderer so the rendered item
@@ -22,8 +22,12 @@ export interface PositronListItemContext {
 	// The index of the entry in the entries array.
 	readonly index: number;
 
-	// Whether the item is currently focused (i.e. the cursor is on its row).
-	readonly focused: boolean;
+	// Whether the cursor is on this row. Combine with listFocused to render a "focused" indicator
+	// only when the list itself has keyboard focus.
+	readonly cursor: boolean;
+
+	// Whether the list has keyboard focus.
+	readonly listFocused: boolean;
 
 	// Whether the item is currently selected.
 	readonly selected: boolean;
@@ -176,9 +180,9 @@ export class PositronListInstance<TItem, TSection = never> extends DataGridInsta
 			useEditorFont: false,
 			automaticLayout: true,
 			cellBorders: false,
-			internalCursor: true,
-			cursorOffset: 0,
+			internalCursor: false,
 			selection: true,
+			selectionMode: 'list',
 		});
 
 		// Default to applying the built-in focused/selected classes.
@@ -221,6 +225,17 @@ export class PositronListInstance<TItem, TSection = never> extends DataGridInsta
 
 		// Reset the row layout entries to match, supplying the per-row sizes in one call.
 		this._rowLayoutManager.setEntries(entries.length, entrySizes);
+
+		// If the cursor landed on a section (typical on first render when the first entry is a
+		// section header), advance it to the next selectable item row.
+		if (!this.isRowSelectable(this.cursorRowIndex)) {
+			for (let rowIndex = this.cursorRowIndex + 1; rowIndex < this._entries.length; rowIndex++) {
+				if (this.isRowSelectable(rowIndex)) {
+					this.setCursorRow(rowIndex);
+					break;
+				}
+			}
+		}
 
 		// Notify subscribers (the host PositronDataGrid) that they need to redraw.
 		this.fireOnDidUpdateEvent();
@@ -333,19 +348,22 @@ export class PositronListInstance<TItem, TSection = never> extends DataGridInsta
 		// Render item rows. Wrap the caller's itemRenderer output in a positron-list-row. When
 		// useDefaultStyling is on, the focused/selected classes are emitted so the built-in CSS
 		// applies; otherwise the caller is responsible for rendering its own focus/selection
-		// visuals from the state passed via PositronListItemContext.
+		// visuals from the state passed via PositronListItemContext. The .focused class only
+		// applies when the cursor is on this row AND the list itself has keyboard focus, so the
+		// focus ring disappears when focus leaves the list.
 		if (entry.kind === 'item') {
 			const selected = this.rowSelectionState(rowIndex) !== RowSelectionState.None;
-			const focused = this.cursorRowIndex === rowIndex;
+			const cursor = this.cursorRowIndex === rowIndex;
+			const listFocused = this.focused;
 			return (
 				<div
 					className={positronClassNames(
 						'positron-list-row',
-						{ 'focused': this._useDefaultStyling && focused },
+						{ 'focused': this._useDefaultStyling && cursor && listFocused },
 						{ 'selected': this._useDefaultStyling && selected }
 					)}
 				>
-					{this._itemRenderer(entry.item, { index: rowIndex, selected, focused })}
+					{this._itemRenderer(entry.item, { index: rowIndex, cursor, listFocused, selected })}
 				</div>
 			);
 		}
@@ -360,10 +378,31 @@ export class PositronListInstance<TItem, TSection = never> extends DataGridInsta
 	}
 
 	/**
+	 * Marks section rows as not selectable, so DataGridInstance keyboard navigation skips them
+	 * and clicks on them are ignored.
+	 */
+	override isRowSelectable(rowIndex: number): boolean {
+		return this._entries[rowIndex]?.kind === 'item';
+	}
+
+	/**
+	 * Redirects cell-level mouse selection to row-level selection. PositronList is a single-column
+	 * row list, so clicks should populate the row selection bucket (which the row wrapper's
+	 * `.selected` class and `getSelectedItems()` read) rather than the cell selection bucket.
+	 */
+	override async mouseSelectCell(
+		_columnIndex: number,
+		rowIndex: number,
+		_pinned: boolean,
+		selectionType: MouseSelectionType
+	): Promise<void> {
+		await this.mouseSelectRow(rowIndex, selectionType);
+	}
+
+	/**
 	 * Fires onDidActivate for the currently focused item. PositronList wraps this with its
-	 * onActivate prop. We guard against the cursor being on a section or out-of-range row;
-	 * navigation skipping isn't enforced at the base-class level yet, so a caller could in
-	 * principle land the cursor on a section.
+	 * onActivate prop. The cursor should already be on an item -- section rows are skipped by
+	 * keyboard navigation and rejected by click handling -- so this is a defensive guard.
 	 */
 	override async onEnterKey(): Promise<void> {
 		const entry = this._entries[this.cursorRowIndex];
