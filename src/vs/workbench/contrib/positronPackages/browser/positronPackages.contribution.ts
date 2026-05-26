@@ -90,7 +90,7 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			default: true,
 			scope: ConfigurationScope.APPLICATION,
 			description: nls.localize('positron.packages.enable', 'Show the Packages pane.'),
-			deprecationMessage: nls.localize('positron.packages.enable.deprecated', "Deprecated. Use '#packages.enabled#' instead."),
+			markdownDeprecationMessage: nls.localize('positron.packages.enable.deprecated', "Deprecated. Use `#packages.enabled#` instead."),
 			tags: ['preview'],
 		}
 	}
