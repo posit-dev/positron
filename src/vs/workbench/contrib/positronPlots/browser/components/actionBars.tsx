@@ -845,13 +845,13 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 				align='right'
 				ariaLabel={clearAllPlots}
 				disabled={noPlots}
-				icon={ThemeIcon.fromId('clear-all')}
+				icon={ThemeIcon.fromId('trash')}
 				tooltip={clearAllPlots}
 				onPressed={clearAllPlotsHandler}
 			/>
 		),
 		overflowContextMenuItem: {
-			icon: 'clear-all',
+			icon: 'trash',
 			label: clearAllPlots,
 			disabled: noPlots,
 			onSelected: clearAllPlotsHandler

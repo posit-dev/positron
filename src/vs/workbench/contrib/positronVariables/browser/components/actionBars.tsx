@@ -267,14 +267,14 @@ export const ActionBars = (props: PropsWithChildren<{}>) => {
 				<ActionBarButton
 					align='right'
 					ariaLabel={positronDeleteAllObjects}
-					icon={ThemeIcon.fromId('clear-all')}
+					icon={ThemeIcon.fromId('trash')}
 					tooltip={positronDeleteAllObjects}
 					onPressed={deleteAllObjectsHandler}
 				/>
 			),
 			overflowContextMenuItem: {
 				commandId: 'positron.deleteAllObjects',
-				icon: 'clear-all',
+				icon: 'trash',
 				label: positronDeleteAllObjects,
 				onSelected: deleteAllObjectsHandler
 			}
