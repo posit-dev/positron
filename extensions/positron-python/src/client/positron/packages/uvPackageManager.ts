@@ -41,16 +41,7 @@ export class UvPackageManager implements IPackageManager {
         packageNames: string[],
         token?: vscode.CancellationToken,
     ): Promise<Map<string, Partial<positron.LanguageRuntimePackage>>> {
-        return fetchMetadataWithOutdated(packageNames, (t) => this._getOutdatedNames(t), token);
-    }
-
-    /**
-     * Lowercased names of outdated installed packages via `uv pip list --outdated`.
-     * uv evaluates versions using PEP 440 (via Rust's `pep440_rs`).
-     */
-    private async _getOutdatedNames(token?: vscode.CancellationToken): Promise<Set<string>> {
-        const outdated = await this._getOutdatedPackages(token);
-        return new Set(outdated.map((pkg) => pkg.name.toLowerCase()));
+        return fetchMetadataWithOutdated(packageNames, (t) => this._getOutdatedVersions(t), token);
     }
 
     /**
@@ -245,9 +236,23 @@ export class UvPackageManager implements IPackageManager {
     }
 
     /**
-     * Get list of outdated packages using uv pip list.
+     * Map of lowercased package name to uv's resolved `latest_version` for
+     * outdated installed packages via `uv pip list --outdated`. uv evaluates
+     * versions using PEP 440 (via Rust's `pep440_rs`).
      */
-    private async _getOutdatedPackages(token?: vscode.CancellationToken): Promise<Array<{ name: string }>> {
+    private async _getOutdatedVersions(token?: vscode.CancellationToken): Promise<Map<string, string>> {
+        const outdated = await this._getOutdatedPackages(token);
+        return new Map(outdated.map((pkg) => [pkg.name.toLowerCase(), pkg.latest_version]));
+    }
+
+    /**
+     * Get list of outdated packages using uv pip list. Each entry includes
+     * uv's resolved `latest_version` (PEP 440 via `pep440_rs`) so callers can
+     * surface it directly rather than re-resolving from a separate index.
+     */
+    private async _getOutdatedPackages(
+        token?: vscode.CancellationToken,
+    ): Promise<Array<{ name: string; latest_version: string }>> {
         const processServiceFactory = this._serviceContainer.get<IProcessServiceFactory>(IProcessServiceFactory);
         const processService = await processServiceFactory.create();
         const proxyEnv = this._getProxyEnv();

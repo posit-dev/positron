@@ -37,35 +37,7 @@ export class PipPackageManager implements IPackageManager {
         packageNames: string[],
         token?: vscode.CancellationToken,
     ): Promise<Map<string, Partial<positron.LanguageRuntimePackage>>> {
-        return fetchMetadataWithOutdated(packageNames, (t) => this._getOutdatedNames(t), token);
-    }
-
-    /**
-     * Lowercased names of outdated installed packages. pip uses
-     * `packaging.version` (PEP 440) for the comparison.
-     */
-    private async _getOutdatedNames(token?: vscode.CancellationToken): Promise<Set<string>> {
-        if (!(await this.isPipAvailable())) {
-            return new Set();
-        }
-        const outdated = await this._getOutdatedPackages(token);
-        return new Set(outdated.map((pkg) => pkg.name.toLowerCase()));
-    }
-
-    /**
-     * Get outdated installed packages via `pip list --outdated`. Returns the
-     * raw `{name}[]` shape so callers can either pass the names back to
-     * `pip install --upgrade` or transform to a lowercase Set for lookup.
-     * Assumes pip is already available; callers must check `isPipAvailable()`
-     * if they aren't already gated by `_ensurePip()`.
-     */
-    private async _getOutdatedPackages(token?: vscode.CancellationToken): Promise<Array<{ name: string }>> {
-        const pythonService = await this._getPythonService();
-        const proxyFlags = this._getProxyFlags();
-        const result = await pythonService.execModule('pip', ['list', '--outdated', '--format=json', ...proxyFlags], {
-            token,
-        });
-        return JSON.parse(result.stdout) as Array<{ name: string }>;
+        return fetchMetadataWithOutdated(packageNames, (t) => this._getOutdatedVersions(t), token);
     }
 
     /**
@@ -139,7 +111,7 @@ export class PipPackageManager implements IPackageManager {
 
         await this._ensurePip();
 
-        let outdatedPackages: Array<{ name: string }>;
+        let outdatedPackages: Array<{ name: string; latest_version: string }>;
         try {
             outdatedPackages = await this._getOutdatedPackages(token);
         } catch {
@@ -179,6 +151,37 @@ export class PipPackageManager implements IPackageManager {
             this._pythonService = await factory.create({ pythonPath: this._pythonPath });
         }
         return this._pythonService;
+    }
+
+    /**
+     * Map of lowercased package name to pip's resolved `latest_version` for
+     * outdated installed packages. pip uses `packaging.version` (PEP 440)
+     * for the comparison.
+     */
+    private async _getOutdatedVersions(token?: vscode.CancellationToken): Promise<Map<string, string>> {
+        if (!(await this.isPipAvailable())) {
+            return new Map();
+        }
+        const outdated = await this._getOutdatedPackages(token);
+        return new Map(outdated.map((pkg) => [pkg.name.toLowerCase(), pkg.latest_version]));
+    }
+
+    /**
+     * Get outdated installed packages via `pip list --outdated`. Returns the
+     * raw `{name, latest_version}[]` shape so callers can either pass the
+     * names back to `pip install --upgrade` or build a name -> latest version
+     * lookup. Assumes pip is already available; callers must check
+     * `isPipAvailable()` if they aren't already gated by `_ensurePip()`.
+     */
+    private async _getOutdatedPackages(
+        token?: vscode.CancellationToken,
+    ): Promise<Array<{ name: string; latest_version: string }>> {
+        const pythonService = await this._getPythonService();
+        const proxyFlags = this._getProxyFlags();
+        const result = await pythonService.execModule('pip', ['list', '--outdated', '--format=json', ...proxyFlags], {
+            token,
+        });
+        return JSON.parse(result.stdout) as Array<{ name: string; latest_version: string }>;
     }
 
     /**
