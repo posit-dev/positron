@@ -285,12 +285,14 @@ test('generateDiff: unchanged pixels are dimmed, changed pixels are red', () => 
 });
 
 test('generateDiff: changedRatio reflects proportion of changed pixels', () => {
-	// 4×2 = 8 pixels: left half (4) unchanged, right half (4) changed → ratio 0.5
-	const gen = makeRealPng(4, 2, [255, 0, 0], [0, 0, 255]);
-	const docs = makeRealPng(4, 2, [255, 0, 0], [0, 255, 0]);
+	// 16×16 with left half (8 cols) unchanged, right half changed → ratio ≈ 0.5.
+	// (Exact 0.5 would require no blur; the box blur bleeds a column of edge
+	// pixels across the boundary, so we accept a small window around 0.5.)
+	const gen = makeRealPng(16, 16, [255, 0, 0], [0, 0, 255]);
+	const docs = makeRealPng(16, 16, [255, 0, 0], [0, 255, 0]);
 	const result = generateDiff(gen, docs);
 	assert.ok(result);
-	assert.equal(result.changedRatio, 0.5);
+	assert.ok(result.changedRatio > 0.35 && result.changedRatio < 0.55, `expected ~0.5, got ${result.changedRatio}`);
 });
 
 test('generateDiff: threshold suppresses small deltas', () => {

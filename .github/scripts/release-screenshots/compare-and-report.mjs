@@ -38,23 +38,54 @@ async function readPng(path) {
 }
 
 /**
+ * 3×3 box blur on RGBA pixel data. Returns a fresh Uint8Array of the same size.
+ * Pixels outside the image are clamped (edge replication). Smooths sub-pixel
+ * font rendering shifts so two images of the same text at slightly different
+ * sub-pixel positions read as similar to the comparator.
+ */
+function boxBlur(data, width, height) {
+	const out = new Uint8Array(data.length);
+	for (let y = 0; y < height; y++) {
+		for (let x = 0; x < width; x++) {
+			let r = 0, g = 0, b = 0, a = 0, count = 0;
+			for (let dy = -1; dy <= 1; dy++) {
+				const yy = Math.min(height - 1, Math.max(0, y + dy));
+				for (let dx = -1; dx <= 1; dx++) {
+					const xx = Math.min(width - 1, Math.max(0, x + dx));
+					const j = (yy * width + xx) * 4;
+					r += data[j];
+					g += data[j + 1];
+					b += data[j + 2];
+					a += data[j + 3];
+					count++;
+				}
+			}
+			const i = (y * width + x) * 4;
+			out[i] = Math.round(r / count);
+			out[i + 1] = Math.round(g / count);
+			out[i + 2] = Math.round(b / count);
+			out[i + 3] = Math.round(a / count);
+		}
+	}
+	return out;
+}
+
+/**
  * Generate a diff PNG visualising what changed between two screenshots.
- * Uses pixelmatch with `includeAA: false` so anti-aliased / sub-pixel
- * differences (the kind that crop up between font-rendering runs) don't
- * inflate the change count.
  *
- * - Changed pixels → bright red
- * - Everything else → 30% brightness of the generated image
+ * Both images are blurred with a 3×3 box kernel before comparison so that
+ * sub-pixel font shifts (which produce large per-pixel color deltas at glyph
+ * edges) collapse into similar low-frequency content. pixelmatch then runs
+ * on the smoothed copies with `includeAA: false`, catching real layout /
+ * color / content changes while ignoring text rendering noise.
  *
- * Pre-fills the output buffer with a dimmed copy of the generated image,
- * then runs pixelmatch with `diffMask: true` so only the changed pixels
- * are drawn over the base. This keeps anti-aliased pixels (which would
- * otherwise render as yellow and dominate text-heavy screenshots) looking
- * like the rest of the unchanged background.
+ * - Changed pixels → bright red, drawn over a 30%-brightness copy of the
+ *   *original* (unblurred) generated image, so the diff stays readable.
+ * - Everything else → dim background.
  *
  * Returns null if either buffer is not a parseable PNG or the images differ in size.
  * Otherwise returns { buf, changedRatio } where changedRatio is the fraction of
- * pixels (0–1) that pixelmatch flags as a real change (excluding AA).
+ * pixels (0–1) that pixelmatch flags as a real change after blurring.
  *
  * @param {Buffer} genBuf   raw generated PNG
  * @param {Buffer} docsBuf  raw docs PNG
@@ -74,10 +105,12 @@ export function generateDiff(genBuf, docsBuf, regions = [], { threshold = 0.1 } 
 		return null;
 	}
 
+	const blurredGen = boxBlur(genPng.data, genPng.width, genPng.height);
+	const blurredDocs = boxBlur(docsPng.data, docsPng.width, docsPng.height);
+
 	const diff = new PNG({ width: genPng.width, height: genPng.height });
-	// Pre-fill with a 30%-brightness copy of the generated image so that
-	// non-diff pixels (including anti-aliased ones, which pixelmatch would
-	// otherwise paint yellow) render as a dim background.
+	// Pre-fill with a 30%-brightness copy of the *original* (unblurred) generated
+	// image so the dim background stays sharp and readable.
 	for (let i = 0; i < genPng.data.length; i += 4) {
 		diff.data[i] = Math.round(genPng.data[i] * 0.3);
 		diff.data[i + 1] = Math.round(genPng.data[i + 1] * 0.3);
@@ -85,8 +118,8 @@ export function generateDiff(genBuf, docsBuf, regions = [], { threshold = 0.1 } 
 		diff.data[i + 3] = 255;
 	}
 	const changedPixels = pixelmatch(
-		genPng.data,
-		docsPng.data,
+		blurredGen,
+		blurredDocs,
 		diff.data,
 		genPng.width,
 		genPng.height,
