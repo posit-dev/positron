@@ -37,62 +37,42 @@ async function readPng(path) {
 	return buf;
 }
 
-/**
- * Box blur on RGBA pixel data with the given radius. Returns a fresh
- * Uint8Array of the same size. Pixels outside the image are clamped (edge
- * replication). A larger radius absorbs larger sub-pixel font shifts.
- */
-function boxBlur(data, width, height, radius = 2) {
-	const out = new Uint8Array(data.length);
-	for (let y = 0; y < height; y++) {
-		for (let x = 0; x < width; x++) {
-			let r = 0, g = 0, b = 0, a = 0, count = 0;
-			for (let dy = -radius; dy <= radius; dy++) {
-				const yy = Math.min(height - 1, Math.max(0, y + dy));
-				for (let dx = -radius; dx <= radius; dx++) {
-					const xx = Math.min(width - 1, Math.max(0, x + dx));
-					const j = (yy * width + xx) * 4;
-					r += data[j];
-					g += data[j + 1];
-					b += data[j + 2];
-					a += data[j + 3];
-					count++;
-				}
-			}
-			const i = (y * width + x) * 4;
-			out[i] = Math.round(r / count);
-			out[i + 1] = Math.round(g / count);
-			out[i + 2] = Math.round(b / count);
-			out[i + 3] = Math.round(a / count);
-		}
-	}
-	return out;
-}
+const DIFF_COLOR = [255, 50, 50];
+const DEFAULT_BLOCK_SIZE = 16;
+const DEFAULT_BLOCK_DENSITY = 0.3;
 
 /**
  * Generate a diff PNG visualising what changed between two screenshots.
  *
- * Both images are blurred with a 7×7 box kernel before comparison so that
- * sub-pixel font shifts (which produce large per-pixel color deltas at glyph
- * edges) collapse into similar low-frequency content. pixelmatch then runs
- * on the smoothed copies with `includeAA: false`, catching real layout /
- * color / content changes while ignoring text rendering noise.
+ * pixelmatch identifies per-pixel differences with `includeAA: false`, but
+ * sub-pixel font shifts produce scattered diffs along every glyph edge that
+ * still survive that check. To separate real content changes (which form
+ * dense clusters of changed pixels) from font-shift noise (sparse pixels
+ * sprinkled across the image), we collapse the per-pixel mask to NxN blocks
+ * and keep only blocks whose changed-pixel density exceeds a threshold.
  *
- * - Changed pixels → bright red, drawn over a 30%-brightness copy of the
- *   *original* (unblurred) generated image, so the diff stays readable.
+ * - Changed pixels in kept blocks → bright red, drawn over a 30%-brightness
+ *   copy of the generated image.
  * - Everything else → dim background.
  *
  * Returns null if either buffer is not a parseable PNG or the images differ in size.
- * Otherwise returns { buf, changedRatio } where changedRatio is the fraction of
- * pixels (0–1) that pixelmatch flags as a real change after blurring.
+ * Otherwise returns { buf, changedRatio } where changedRatio is the fraction
+ * of pixels (0–1) inside kept blocks (after density filtering).
  *
  * @param {Buffer} genBuf   raw generated PNG
  * @param {Buffer} docsBuf  raw docs PNG
  * @param {Array}  regions  reserved for future use
- * @param {{ threshold?: number }} opts  pixelmatch threshold in [0,1]; default 0.4
+ * @param {{ threshold?: number, blockSize?: number, blockDensity?: number }} opts
+ *        pixelmatch threshold in [0,1] (default 0.1), block size in pixels
+ *        (default 16), minimum changed-pixel density per block (default 0.3).
  * @returns {{ buf: Buffer, changedRatio: number }|null}
  */
-export function generateDiff(genBuf, docsBuf, regions = [], { threshold = 0.4 } = {}) {
+export function generateDiff(
+	genBuf,
+	docsBuf,
+	regions = [],
+	{ threshold = 0.1, blockSize = DEFAULT_BLOCK_SIZE, blockDensity = DEFAULT_BLOCK_DENSITY } = {},
+) {
 	let genPng, docsPng;
 	try {
 		genPng = PNG.sync.read(genBuf);
@@ -104,33 +84,69 @@ export function generateDiff(genBuf, docsBuf, regions = [], { threshold = 0.4 } 
 		return null;
 	}
 
-	const blurredGen = boxBlur(genPng.data, genPng.width, genPng.height, 3);
-	const blurredDocs = boxBlur(docsPng.data, docsPng.width, docsPng.height, 3);
+	const { width, height } = genPng;
+	// Per-pixel diff mask: diffColor where changed, untouched elsewhere.
+	const mask = new Uint8Array(width * height * 4);
+	pixelmatch(genPng.data, docsPng.data, mask, width, height, {
+		threshold,
+		includeAA: false,
+		diffMask: true,
+		diffColor: DIFF_COLOR,
+	});
 
-	const diff = new PNG({ width: genPng.width, height: genPng.height });
-	// Pre-fill with a 30%-brightness copy of the *original* (unblurred) generated
-	// image so the dim background stays sharp and readable.
-	for (let i = 0; i < genPng.data.length; i += 4) {
-		diff.data[i] = Math.round(genPng.data[i] * 0.3);
-		diff.data[i + 1] = Math.round(genPng.data[i + 1] * 0.3);
-		diff.data[i + 2] = Math.round(genPng.data[i + 2] * 0.3);
-		diff.data[i + 3] = 255;
+	// Per-block density check. A block is "kept" only if a sufficient
+	// fraction of its pixels are changed — filters out the scattered single-
+	// pixel diffs that font shifts produce along glyph edges.
+	const bw = Math.ceil(width / blockSize);
+	const bh = Math.ceil(height / blockSize);
+	const keepBlock = new Uint8Array(bw * bh);
+	for (let by = 0; by < bh; by++) {
+		for (let bx = 0; bx < bw; bx++) {
+			const y0 = by * blockSize;
+			const y1 = Math.min(height, y0 + blockSize);
+			const x0 = bx * blockSize;
+			const x1 = Math.min(width, x0 + blockSize);
+			let count = 0;
+			let total = 0;
+			for (let y = y0; y < y1; y++) {
+				for (let x = x0; x < x1; x++) {
+					const i = (y * width + x) * 4;
+					if (mask[i] === DIFF_COLOR[0] && mask[i + 1] === DIFF_COLOR[1] && mask[i + 2] === DIFF_COLOR[2]) {
+						count++;
+					}
+					total++;
+				}
+			}
+			if (count / total >= blockDensity) {
+				keepBlock[by * bw + bx] = 1;
+			}
+		}
 	}
-	const changedPixels = pixelmatch(
-		blurredGen,
-		blurredDocs,
-		diff.data,
-		genPng.width,
-		genPng.height,
-		{
-			threshold,
-			includeAA: false,
-			diffMask: true,
-			diffColor: [255, 50, 50],
-		},
-	);
 
-	const totalPixels = genPng.width * genPng.height;
+	// Render: dim background by default; changed pixels in *kept* blocks → red.
+	const diff = new PNG({ width, height });
+	let changedPixels = 0;
+	for (let y = 0; y < height; y++) {
+		for (let x = 0; x < width; x++) {
+			const i = (y * width + x) * 4;
+			const bi = Math.floor(y / blockSize) * bw + Math.floor(x / blockSize);
+			const isDiff = mask[i] === DIFF_COLOR[0] && mask[i + 1] === DIFF_COLOR[1] && mask[i + 2] === DIFF_COLOR[2];
+			if (isDiff && keepBlock[bi]) {
+				diff.data[i] = DIFF_COLOR[0];
+				diff.data[i + 1] = DIFF_COLOR[1];
+				diff.data[i + 2] = DIFF_COLOR[2];
+				diff.data[i + 3] = 255;
+				changedPixels++;
+			} else {
+				diff.data[i] = Math.round(genPng.data[i] * 0.3);
+				diff.data[i + 1] = Math.round(genPng.data[i + 1] * 0.3);
+				diff.data[i + 2] = Math.round(genPng.data[i + 2] * 0.3);
+				diff.data[i + 3] = 255;
+			}
+		}
+	}
+
+	const totalPixels = width * height;
 	return { buf: PNG.sync.write(diff), changedRatio: changedPixels / totalPixels };
 }
 
