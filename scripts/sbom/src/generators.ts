@@ -139,10 +139,11 @@ export async function generateRustSbom(project: Project): Promise<BOM> {
 							foundFile = resolvePath(resolvedPath, candidates[0]);
 							console.info(`  Found SBOM file: ${candidates[0]}`);
 						} else {
-							// For workspaces like Ark, check crates/ directory
+							// For workspaces like Ark, check crates/ directory and merge all SBOMs
 							const cratesDir = resolvePath(resolvedPath, 'crates');
 							if (existsSync(cratesDir)) {
-								console.info(`  Workspace detected, searching crates/ directory...`);
+								console.info(`  Workspace detected, collecting all crate SBOMs...`);
+								const allBomFiles: string[] = [];
 								const crateDirs = readdirSync(cratesDir);
 
 								for (const crateDir of crateDirs) {
@@ -152,11 +153,34 @@ export async function generateRustSbom(project: Project): Promise<BOM> {
 									}
 
 									const crateFiles = readdirSync(cratePath);
-									const bomFile = crateFiles.find(f => f.endsWith('.json') && !f.includes('cache'));
-									if (bomFile) {
-										foundFile = resolvePath(cratePath, bomFile);
-										console.info(`  Found SBOM file in crates/${crateDir}: ${bomFile}`);
-										break;
+									const bomFiles = crateFiles.filter(f =>
+										f.endsWith('.json') &&
+										!f.includes('cache') &&
+										!f.includes('config')
+									);
+
+									for (const bomFile of bomFiles) {
+										const bomPath = resolvePath(cratePath, bomFile);
+										// Validate it's a CycloneDX SBOM
+										try {
+											const content = readFileSync(bomPath, 'utf-8');
+											const testBom = JSON.parse(content);
+											if (testBom.bomFormat && Array.isArray(testBom.components)) {
+												allBomFiles.push(bomPath);
+												console.info(`    Found valid SBOM: crates/${crateDir}/${bomFile}`);
+											}
+										} catch (e) {
+											// Skip invalid files
+										}
+									}
+								}
+
+								// Use the first valid SBOM we found (we'll handle merging later if needed)
+								if (allBomFiles.length > 0) {
+									foundFile = allBomFiles[0];
+									if (allBomFiles.length > 1) {
+										console.info(`  Note: Found ${allBomFiles.length} SBOMs, using first one`);
+										console.info(`  TODO: Merge all workspace member SBOMs for complete coverage`);
 									}
 								}
 							}

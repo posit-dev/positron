@@ -162,6 +162,17 @@ jobs:
           echo "Components: $(jq '.components | length' scripts/sbom/SBOM.json)"
           echo "Dependencies: $(jq '.dependencies | length' scripts/sbom/SBOM.json)"
 
+      - name: Upload intermediate files for debugging
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-debug-files
+          path: |
+            .sbom-tmp/kallichore/*.json
+            scripts/sbom/SBOM.json
+          if-no-files-found: ignore
+          retention-days: 5
+
       - name: Extract short version for filename
         id: version
         run: |
