@@ -75,12 +75,26 @@ When the change touches one of these, check whether the relevant e2e test is tag
 - Native UI (no Electron menus, dialogs, or system file pickers)
 - Network (CORS, no raw sockets)
 - Auth flows (typically OAuth-only in web)
+- Lifecycle (shutdown reasons, reload vs quit, session reconnect -- reload is a no-op concept on desktop quit but is the dominant case on web)
 
 To check whether a candidate e2e test has the right tag, Grep its file for `@:win` or `@:web` literally -- the tags appear in test titles or describe blocks.
 
+### Surface-specific code paths
+
+The strongest signal of differential desktop vs web behavior -- much stronger than vague "hotspot" matching:
+
+- **Parallel implementations**: a service has both `src/vs/.../browser/<name>.ts` AND `src/vs/.../electron-sandbox/<name>.ts` files. Common examples: `services/lifecycle/`, `services/host/`, `services/files/`, `services/dialogs/`. A change to (or test of) one path does not cover the other.
+- **Surface branching**: the diff contains `UIKind.Web`, `isWeb`, `platform.isElectron`, `os.platform() === 'win32'`, or paths imported from `browser/` / `electron-sandbox/`. Each branch is its own untested behavior until proven otherwise.
+
+When you see a parallel-implementation file in the diff, Grep its sibling (`browser/foo.ts` <-> `electron-sandbox/foo.ts`) to see if the bug or behavior also exists there. A fix that only lands on one side is half a fix.
+
 ### Decision rule
 
-When the change touches a Windows or web hotspot AND no e2e test is tagged for that surface, add a "Deployment note" to the verdict body -- even when grading Adequate. Don't auto-upgrade to Insufficient on surface risk alone; unit tests are still the cheaper test for pure logic. But name the gap so the author can decide whether to tag an existing e2e test, add a new one, or do a manual cross-surface check.
+Two cases, two responses:
+
+1. **Direct surface gap (Insufficient).** The diff modifies code under `src/vs/.../browser/` (or `electron-sandbox/`), adds web/desktop branching, or touches Windows-specific branching, AND no test exercises the changed path. Name the specific Vitest or extension-host test that should exist. A test that covers only the desktop branch of a `UIKind`-branched function is not coverage of the web branch, and vice versa.
+
+2. **Indirect surface gap (Deployment note, keep verdict).** The diff touches a Windows or web hotspot but doesn't directly modify surface-specific code (e.g., it *consumes* a service whose `browser/`/`electron-sandbox/` implementations diverge), AND no e2e test is tagged for that surface. Add a Deployment note even when grading Adequate -- name the sibling file or branch the author should consider. Don't auto-upgrade to Insufficient on surface risk alone; unit tests are still the cheaper test for pure logic.
 
 ## Investigation steps
 
@@ -98,6 +112,7 @@ Do these in order before writing your verdict:
    - For e2e coverage of UI features, check `test/e2e/tests/` for tagged tests
 4. **Read the candidate test files** to confirm they actually exercise the changed behavior, not just adjacent code. A test that imports a module but doesn't call the new function is not coverage.
 5. **For pure refactors or renames**, existing passing tests are usually sufficient -- but only if the test surface didn't change. Check.
+6. **Check for surface-specific code paths.** Grep the diff for `browser/`, `electron-sandbox/`, `UIKind`, `isWeb`, `platform.isElectron`, or `os.platform()`. For any source file under a `browser/` or `electron-sandbox/` directory, check whether a sibling implementation exists across the split (`Glob` for `**/<name>.ts`) -- a change or test on one side does not cover the other. Apply the Decision rule.
 
 Cap your investigation at ~10-15 tool calls. If you can't determine coverage in that budget, lean toward Insufficient with a note that you couldn't fully verify.
 
@@ -140,9 +155,10 @@ Output **exactly one final assistant message** containing the markdown report be
 For "Adequate" / "Adequate via existing coverage" / "Not applicable": omit this section or write "None.">
 
 ### Deployment note (optional)
-<Include this section ONLY when the change touches a Windows or web hotspot AND no e2e test is tagged for that surface (`@:win` for Windows, `@:web` for web). Name the surface and the missing tag. Examples:
+<Include this section ONLY for the **indirect surface gap** case from the Decision rule -- the diff touches a Windows or web hotspot but doesn't directly modify surface-specific code, AND no surface-specific test exists. (For direct gaps in `browser/` / `electron-sandbox/` / surface branching, grade Insufficient and use Suggested additions instead.) Name the surface and the gap. Examples:
 - "Touches Windows path normalization (`foo.ts:23`). No `@:win`-tagged e2e exercises this path, so a Windows-only regression would slip past PR review. Consider tagging an existing e2e test or adding a manual Windows check."
 - "Adds file-picker behavior (`bar.tsx:88`). No `@:web`-tagged e2e covers this; in the web build there are no native dialogs, so this needs a web-aware test or manual check before shipping to web."
+- "Subscribes to `ILifecycleService.onWillShutdown` (`baz.ts:42`). The `browser/lifecycleService.ts` and `electron-sandbox/lifecycleService.ts` implementations diverge in how they fill the shutdown reason; this PR's tests cover the desktop path but not the web equivalent. Consider a Vitest of the web sibling or a `@:web` e2e covering the reload-vs-quit distinction."
 
 Omit entirely if not applicable.>
 
