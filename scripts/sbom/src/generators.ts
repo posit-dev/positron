@@ -139,20 +139,25 @@ export async function generateRustSbom(project: Project): Promise<BOM> {
 							foundFile = resolvePath(resolvedPath, candidates[0]);
 							console.info(`  Found SBOM file: ${candidates[0]}`);
 						} else {
-							// For workspaces like Ark, check if there's a bom.json in crates subdirectories
-							const crateDirs = files.filter(f => {
-								const fullPath = resolvePath(resolvedPath, f);
-								return existsSync(resolvePath(fullPath, 'Cargo.toml'));
-							});
+							// For workspaces like Ark, check crates/ directory
+							const cratesDir = resolvePath(resolvedPath, 'crates');
+							if (existsSync(cratesDir)) {
+								console.info(`  Workspace detected, searching crates/ directory...`);
+								const crateDirs = readdirSync(cratesDir);
 
-							for (const crateDir of crateDirs) {
-								const cratePath = resolvePath(resolvedPath, crateDir);
-								const crateFiles = readdirSync(cratePath);
-								const bomFile = crateFiles.find(f => f.endsWith('.json') && !f.includes('cache'));
-								if (bomFile) {
-									foundFile = resolvePath(cratePath, bomFile);
-									console.info(`  Found SBOM file in ${crateDir}: ${bomFile}`);
-									break;
+								for (const crateDir of crateDirs) {
+									const cratePath = resolvePath(cratesDir, crateDir);
+									if (!existsSync(resolvePath(cratePath, 'Cargo.toml'))) {
+										continue;
+									}
+
+									const crateFiles = readdirSync(cratePath);
+									const bomFile = crateFiles.find(f => f.endsWith('.json') && !f.includes('cache'));
+									if (bomFile) {
+										foundFile = resolvePath(cratePath, bomFile);
+										console.info(`  Found SBOM file in crates/${crateDir}: ${bomFile}`);
+										break;
+									}
 								}
 							}
 
@@ -171,6 +176,15 @@ export async function generateRustSbom(project: Project): Promise<BOM> {
 
 					const bomContent = readFileSync(foundFile, 'utf-8');
 					const bom = JSON.parse(bomContent);
+
+					// Validate it's a proper CycloneDX BOM
+					if (!bom.bomFormat || !Array.isArray(bom.components)) {
+						console.error(`[ERROR] Invalid SBOM format in ${foundFile}`);
+						console.error(`  File does not appear to be a CycloneDX SBOM`);
+						resolve(createEmptyBom());
+						return;
+					}
+
 					resolve(bom);
 				} catch (e) {
 					console.error(`[ERROR] Failed to parse SBOM for ${project.name}: ${e}`);
