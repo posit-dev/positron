@@ -158,9 +158,8 @@ type DefaultCursorOptions = | {
  *   - 'list-multiple-selection': the cursor row is always selected (re-selected after every
  *     move), and Shift+navigation, Shift+click, Ctrl/Cmd+click, and selectAll build multi-row
  *     selections.
- *   - 'list-single-selection': the selection is always exactly the cursor row. Shift+navigation,
- *     Shift+click, Ctrl/Cmd+click, and selectAll collapse to a plain single-row select on the
- *     cursor.
+ *   - 'list-single-selection': the selection tracks the cursor row as a single-row selection.
+ *     Shift+navigation, Shift+click, and Ctrl/Cmd+click do not create multi-row selections.
  */
 export type SelectionMode = 'spreadsheet' | 'list-multiple-selection' | 'list-single-selection';
 
