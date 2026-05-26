@@ -77,8 +77,8 @@ export async function generateRustSbom(project: Project): Promise<BOM> {
 		}
 
 		// cargo-cyclonedx writes to a file in the current directory
-		// Use --override-filename to specify a known location
-		const outputFile = 'sbom-output.json';
+		// Use --override-filename to specify a known location (it will add .json)
+		const outputFile = 'sbom-output';
 		const proc = spawn('cargo', [
 			'cyclonedx',
 			'--format', 'json',
@@ -103,30 +103,45 @@ export async function generateRustSbom(project: Project): Promise<BOM> {
 			if (code === 0) {
 				console.info(`[OK] Generated SBOM for: ${project.name}`);
 				try {
-					// cargo-cyclonedx may use a different filename pattern, so search for it
+					// cargo-cyclonedx adds .json to the filename, so try both variations
 					let foundFile: string | null = null;
 
-					// First try the expected filename
-					const expectedPath = resolvePath(resolvedPath, outputFile);
-					if (existsSync(expectedPath)) {
-						foundFile = expectedPath;
-					} else {
-						// Search for any .cdx.json or sbom*.json files in the directory
+					// Try the most likely patterns first
+					const patterns = [
+						`${outputFile}.json`,           // sbom-output.json
+						outputFile,                      // sbom-output
+						`${outputFile}.json.json`        // sbom-output.json.json (double extension)
+					];
+
+					for (const pattern of patterns) {
+						const testPath = resolvePath(resolvedPath, pattern);
+						if (existsSync(testPath)) {
+							foundFile = testPath;
+							break;
+						}
+					}
+
+					// If not found, search the directory for any SBOM-like files
+					if (!foundFile) {
 						const files = readdirSync(resolvedPath);
 						const candidates = files.filter(f =>
 							f.endsWith('.cdx.json') ||
-							(f.includes('sbom') && f.endsWith('.json'))
+							(f.includes('sbom') && f.endsWith('.json')) ||
+							f.endsWith('_sbom.json')
 						);
 
 						if (candidates.length > 0) {
 							foundFile = resolvePath(resolvedPath, candidates[0]);
 							console.info(`  Found SBOM file: ${candidates[0]}`);
+						} else {
+							// List all JSON files for debugging
+							const jsonFiles = files.filter(f => f.endsWith('.json'));
+							console.error(`[ERROR] No SBOM output file found in ${resolvedPath}`);
+							console.error(`  JSON files present: ${jsonFiles.join(', ') || '(none)'}`);
 						}
 					}
 
 					if (!foundFile) {
-						console.error(`[ERROR] No SBOM output file found in ${resolvedPath}`);
-						console.error(`  Looked for: ${outputFile}, *.cdx.json, sbom*.json`);
 						resolve(createEmptyBom());
 						return;
 					}
