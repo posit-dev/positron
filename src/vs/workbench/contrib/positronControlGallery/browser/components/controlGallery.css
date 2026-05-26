@@ -1,0 +1,98 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.control-gallery {
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	height: 100%;
+	color: var(--vscode-foreground);
+	background-color: var(--vscode-editor-background);
+}
+
+.control-gallery-body {
+	flex: 1 1 auto;
+	min-height: 0;
+	display: flex;
+}
+
+/*
+	A 1 CSS pixel buffer at the bottom so the editor's bottom chrome (which paints over the
+	last pixel of the editor's content area) does not eat into the nav or the panel content.
+*/
+.control-gallery-editor-chrome-buffer {
+	flex: 0 0 1px;
+}
+
+.control-gallery-nav {
+	flex: 0 0 240px;
+	border-right: 1px solid var(--vscode-panel-border);
+	overflow-y: auto;
+	padding: 8px 0;
+}
+
+.control-gallery-nav ul {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.control-gallery-nav li {
+	margin: 0;
+}
+
+.control-gallery-nav-item {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	width: 100%;
+	padding: 8px 16px;
+	border: none;
+	background: transparent;
+	color: inherit;
+	text-align: left;
+	cursor: pointer;
+	font: inherit;
+}
+
+.control-gallery-nav-item:hover {
+	background-color: var(--vscode-list-hoverBackground);
+}
+
+.control-gallery-nav-item:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+.control-gallery-nav-item.selected {
+	background-color: var(--vscode-list-activeSelectionBackground);
+	color: var(--vscode-list-activeSelectionForeground);
+}
+
+.control-gallery-nav-label {
+	font-weight: 600;
+}
+
+.control-gallery-nav-description {
+	font-size: 0.85em;
+	opacity: 0.8;
+}
+
+.control-gallery-panel {
+	flex: 1 1 auto;
+	min-width: 0;
+	min-height: 0;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+}
+
+.control-gallery-empty {
+	flex: 1 1 auto;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	opacity: 0.6;
+}
