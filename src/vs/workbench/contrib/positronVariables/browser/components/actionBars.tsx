@@ -38,8 +38,8 @@ const kFilterTimeout = 800;
 /**
  * Localized strings.
  */
-const positronRefreshObjects = localize('positronRefreshObjects', "Refresh objects");
-const positronDeleteAllObjects = localize('positronDeleteAllObjects', "Delete all objects");
+const positronRefreshObjects = localize('positronRefreshObjects', "Refresh Objects");
+const positronDeleteAllObjects = localize('positronDeleteAllObjects', "Delete All Objects");
 
 /**
  * ActionBars component.

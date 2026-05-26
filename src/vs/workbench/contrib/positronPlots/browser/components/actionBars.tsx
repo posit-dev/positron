@@ -42,13 +42,13 @@ const kPaddingLeft = 14;
 const kPaddingRight = 8;
 
 // Localized strings.
-const showPreviousPlot = localize('positronShowPreviousPlot', "Show previous plot");
-const showNextPlot = localize('positronShowNextPlot', "Show next plot");
-const savePlot = localize('positronSavePlot', "Save plot");
-const copyPlotToClipboard = localize('positronCopyPlotToClipboard', "Copy plot to clipboard");
+const showPreviousPlot = localize('positronShowPreviousPlot', "Show Previous Plot");
+const showNextPlot = localize('positronShowNextPlot', "Show Next Plot");
+const savePlot = localize('positronSavePlot', "Save Plot");
+const copyPlotToClipboard = localize('positronCopyPlotToClipboard', "Copy Plot to Clipboard");
 const openPlotInNewWindow = localize('positronOpenPlotInNewWindow', "Open Plot in New Window");
 const openPlotsGalleryInNewWindow = localize('positronOpenPlotsGalleryInNewWindow', "Open Plots Gallery in New Window");
-const clearAllPlots = localize('positronClearAllPlots', "Clear all plots");
+const clearAllPlots = localize('positronClearAllPlots', "Clear All Plots");
 // dark filter localized strings
 const darkFilterLabel = localize('positron.darkFilter', "Dark Filter");
 const darkFilterNoneLabel = localize('positron.darkFilterNone', "No Filter");
