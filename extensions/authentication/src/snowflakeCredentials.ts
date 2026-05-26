@@ -226,6 +226,19 @@ export async function checkForUpdatedSnowflakeCredentials(
 }
 
 /**
+ * Default partner tag. Matches the schema default of
+ * `authentication.snowflake.customHeaders` in package.json, so that a fresh
+ * install or a "Reset Setting" produces this value without any write.
+ */
+export const DEFAULT_SNOWFLAKE_PARTNER_TAG = 'posit_positron';
+
+/**
+ * globalState key for the last User-Agent we wrote into customHeaders. Used to
+ * tell our prior seed apart from a value the user typed.
+ */
+const LAST_SEEDED_USER_AGENT_KEY = 'snowflake.lastSeededUserAgent';
+
+/**
  * Resolves the Snowflake partner tag sent as the User-Agent header on Cortex
  * requests. The tag lets Snowflake attribute traffic to Posit; Workbench-managed
  * environments override it via SF_PARTNER (e.g. `posit_workbench_positron`).
@@ -237,7 +250,7 @@ export function getSnowflakePartnerTag(): string {
 	const envVars = vscode.workspace
 		.getConfiguration('environmentVariables')
 		.get<Record<string, string>>('set') ?? {};
-	return envVars['SF_PARTNER'] || process.env.SF_PARTNER || 'posit_positron';
+	return envVars['SF_PARTNER'] || process.env.SF_PARTNER || DEFAULT_SNOWFLAKE_PARTNER_TAG;
 }
 
 /**
@@ -245,25 +258,46 @@ export function getSnowflakePartnerTag(): string {
  * as the User-Agent header, so Posit Assistant reads it from there instead of
  * redoing the lookup itself.
  *
- * Two rules:
- * - Skip if the user already set User-Agent. customHeaders is the escape
- *   hatch for enterprise gateways, and we don't clobber it.
- * - Write to the scope where customHeaders is currently defined (most
- *   specific wins). Object settings don't merge across scopes, so a global
- *   write can be hidden by a workspace-level value.
- *
- * Seeded once at activation; subsequent SF_PARTNER changes require a reload.
- * Users who need a different tag mid-session can edit
- * authentication.snowflake.customHeaders directly.
+ * Strategy:
+ * - The schema default already carries `User-Agent: posit_positron`, so we
+ *   only write when the desired tag differs from that default (e.g. Workbench
+ *   sets SF_PARTNER=posit_workbench_positron).
+ * - We track the last value we wrote in globalState so that on a later
+ *   activation we can tell our own prior seed from a user customization. The
+ *   current User-Agent is considered "ours to overwrite" when it is unset,
+ *   equals the schema default, or matches the value we last seeded. Anything
+ *   else means the user customized it -- leave alone.
+ * - Writes target the most specific scope where customHeaders is defined
+ *   (folder > workspace > global), since object settings don't merge across
+ *   scopes.
  *
  * @returns true if a write was made, false if seeding was skipped.
  */
-export async function seedSnowflakePartnerTagHeader(): Promise<boolean> {
+export async function seedSnowflakePartnerTagHeader(
+	context: vscode.ExtensionContext
+): Promise<boolean> {
+	const desired = getSnowflakePartnerTag();
 	const cfg = vscode.workspace.getConfiguration('authentication.snowflake');
-	const effective = cfg.get<Record<string, string>>('customHeaders', {});
-	if (effective['User-Agent']) {
+	const current = cfg.get<Record<string, string>>('customHeaders', {});
+	const currentUserAgent = current['User-Agent'];
+
+	if (currentUserAgent === desired) {
 		return false;
 	}
+
+	// Schema default carries the value; only seed when overriding.
+	if (desired === DEFAULT_SNOWFLAKE_PARTNER_TAG && currentUserAgent === undefined) {
+		return false;
+	}
+
+	const lastSeeded = context.globalState.get<string>(LAST_SEEDED_USER_AGENT_KEY);
+	const isOurs = currentUserAgent === undefined ||
+		currentUserAgent === DEFAULT_SNOWFLAKE_PARTNER_TAG ||
+		currentUserAgent === lastSeeded;
+	if (!isOurs) {
+		return false;
+	}
+
 	const inspection = cfg.inspect<Record<string, string>>('customHeaders');
 	let target: vscode.ConfigurationTarget;
 	let base: Record<string, string>;
@@ -277,11 +311,8 @@ export async function seedSnowflakePartnerTagHeader(): Promise<boolean> {
 		target = vscode.ConfigurationTarget.Global;
 		base = inspection?.globalValue ?? {};
 	}
-	await cfg.update(
-		'customHeaders',
-		{ ...base, 'User-Agent': getSnowflakePartnerTag() },
-		target
-	);
+	await cfg.update('customHeaders', { ...base, 'User-Agent': desired }, target);
+	await context.globalState.update(LAST_SEEDED_USER_AGENT_KEY, desired);
 	return true;
 }
 

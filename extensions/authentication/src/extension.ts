@@ -361,7 +361,7 @@ function registerSnowflakeProvider(context: vscode.ExtensionContext): void {
 
 	// Make the partner-tag User-Agent available to Posit Assistant via the
 	// shared customHeaders setting. See seedSnowflakePartnerTagHeader for rules.
-	seedSnowflakePartnerTagHeader().catch(err =>
+	seedSnowflakePartnerTagHeader(context).catch(err =>
 		logger.logOperationError('seed Snowflake partner tag', err)
 	);
 

@@ -113,7 +113,9 @@
 				},
 				"authentication.snowflake.customHeaders": {
 					"type": "object",
-					"default": {},
+					"default": {
+						"User-Agent": "posit_positron"
+					},
 					"additionalProperties": {
 						"type": "string"
 					},
