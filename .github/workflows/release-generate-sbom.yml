@@ -151,6 +151,16 @@ jobs:
           # Generate the SBOM
           npm run generate
 
+      - name: Debug Kallichore SBOM
+        if: always()
+        run: |
+          if [ -f .sbom-tmp/kallichore/kallichore.json ]; then
+            echo "=== Kallichore SBOM Contents (first 50 lines) ==="
+            head -n 50 .sbom-tmp/kallichore/kallichore.json
+          else
+            echo "kallichore.json not found"
+          fi
+
       - name: Verify SBOM was generated
         run: |
           if [ ! -f scripts/sbom/SBOM.json ]; then
