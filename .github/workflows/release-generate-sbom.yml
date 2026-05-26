@@ -151,16 +151,6 @@ jobs:
           # Generate the SBOM
           npm run generate
 
-      - name: Debug Kallichore SBOM
-        if: always()
-        run: |
-          if [ -f .sbom-tmp/kallichore/kallichore.json ]; then
-            echo "=== Kallichore SBOM Contents (first 50 lines) ==="
-            head -n 50 .sbom-tmp/kallichore/kallichore.json
-          else
-            echo "kallichore.json not found"
-          fi
-
       - name: Verify SBOM was generated
         run: |
           if [ ! -f scripts/sbom/SBOM.json ]; then
@@ -171,17 +161,6 @@ jobs:
           ls -lh scripts/sbom/SBOM.json
           echo "Components: $(jq '.components | length' scripts/sbom/SBOM.json)"
           echo "Dependencies: $(jq '.dependencies | length' scripts/sbom/SBOM.json)"
-
-      - name: Upload intermediate files for debugging
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: sbom-debug-files
-          path: |
-            positron/.sbom-tmp/kallichore/*.json
-            positron/scripts/sbom/SBOM.json
-          if-no-files-found: ignore
-          retention-days: 5
 
       - name: Extract short version for filename
         id: version

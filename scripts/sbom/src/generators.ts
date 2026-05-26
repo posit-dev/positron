@@ -192,12 +192,34 @@ export async function generateRustSbom(project: Project): Promise<BOM> {
 									}
 								}
 
-								// Use the first valid SBOM we found (we'll handle merging later if needed)
+								// Merge all workspace member SBOMs for complete coverage
 								if (allBomFiles.length > 0) {
-									foundFile = allBomFiles[0];
-									if (allBomFiles.length > 1) {
-										console.info(`  Note: Found ${allBomFiles.length} SBOMs, using first one`);
-										console.info(`  TODO: Merge all workspace member SBOMs for complete coverage`);
+									if (allBomFiles.length === 1) {
+										foundFile = allBomFiles[0];
+									} else {
+										// Multiple SBOMs - merge them into a single BOM
+										console.info(`  Merging ${allBomFiles.length} workspace member SBOMs...`);
+										const mergedBom = createEmptyBom();
+										mergedBom.metadata.component.name = project.name;
+
+										for (const bomFile of allBomFiles) {
+											const content = readFileSync(bomFile, 'utf-8');
+											const workspaceBom = JSON.parse(content);
+
+											// Add all components and dependencies
+											if (workspaceBom.components) {
+												mergedBom.components.push(...workspaceBom.components);
+											}
+											if (workspaceBom.dependencies) {
+												mergedBom.dependencies.push(...workspaceBom.dependencies);
+											}
+										}
+
+										console.info(`  Merged ${mergedBom.components.length} total components from workspace`);
+
+										// Return the merged BOM directly
+										resolve(mergedBom);
+										return;
 									}
 								}
 							}
