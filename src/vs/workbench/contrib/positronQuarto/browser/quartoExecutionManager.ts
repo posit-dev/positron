@@ -1722,9 +1722,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			if (message.parent_id !== executionId) {
 				return;
 			}
-			// Cast to ILanguageRuntimeMessageWebOutput to get resource_roots if available
-			const webMessage = message as ILanguageRuntimeMessageWebOutput;
-			this._handleOutputMessage(tracker, documentUri, message.data, webMessage);
+			this._handleOutputMessage(tracker, documentUri, message.data);
 		}));
 
 		// Handle stream messages (stdout/stderr)

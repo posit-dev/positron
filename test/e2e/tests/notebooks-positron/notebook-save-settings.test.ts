@@ -82,7 +82,12 @@ test.describe('Positron Notebooks: Save Settings', {
 			const content = await readJson(savedFilePath);
 			for (const cell of content.cells) {
 				if (cell.cell_type === 'code') {
-					expect(cell.execution_count, 'execution_count should be null').toBeNull();
+					expect(cell.execution_count, 'cell execution_count should be null').toBeNull();
+					for (const output of cell.outputs ?? []) {
+						if (output.output_type === 'execute_result') {
+							expect(output.execution_count, 'output execution_count should be null').toBeNull();
+						}
+					}
 				}
 			}
 		}).toPass({ timeout: 5000 });
@@ -96,7 +101,12 @@ test.describe('Positron Notebooks: Save Settings', {
 		await expect(async () => {
 			const content = await readJson(savedFilePath);
 			const codeCell = content.cells.find((c: any) => c.cell_type === 'code');
-			expect(codeCell.execution_count, 'execution_count should be a number').toBeGreaterThan(0);
+			expect(codeCell.execution_count, 'cell execution_count should be a number').toBeGreaterThan(0);
+			for (const output of codeCell.outputs ?? []) {
+				if (output.output_type === 'execute_result') {
+					expect(output.execution_count, 'output execution_count should be a number').toBeGreaterThan(0);
+				}
+			}
 		}).toPass({ timeout: 5000 });
 	});
 });

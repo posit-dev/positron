@@ -357,6 +357,7 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 			...this._defaultMessage(message, LanguageRuntimeMessageType.Result),
 			kind: message.kind ?? RuntimeOutputKind.Unknown,
 			data: message.data ?? {},
+			execution_count: message.execution_count ?? 0,
 		};
 	}
 
