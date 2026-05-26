@@ -38,40 +38,46 @@ async function readPng(path) {
 }
 
 const DIFF_COLOR = [255, 50, 50];
-const DEFAULT_BLOCK_SIZE = 16;
-const DEFAULT_BLOCK_DENSITY = 0.3;
+const DEFAULT_WINDOW_RADIUS = 7;
+const DEFAULT_LOCAL_DENSITY = 0.15;
 
 /**
  * Generate a diff PNG visualising what changed between two screenshots.
  *
  * pixelmatch identifies per-pixel differences with `includeAA: false`, but
  * sub-pixel font shifts produce scattered diffs along every glyph edge that
- * still survive that check. To separate real content changes (which form
- * dense clusters of changed pixels) from font-shift noise (sparse pixels
- * sprinkled across the image), we collapse the per-pixel mask to NxN blocks
- * and keep only blocks whose changed-pixel density exceeds a threshold.
+ * still survive that check. We post-filter the per-pixel mask with a
+ * sliding-window local-density check: a changed pixel survives only if
+ * enough of its neighbours within `windowRadius` are also changed.
  *
- * - Changed pixels in kept blocks → bright red, drawn over a 30%-brightness
- *   copy of the generated image.
+ * Why sliding-window (rather than fixed blocks): fixed blocks miss real
+ * content changes that straddle a block boundary (e.g. a small string like
+ * "3.13.5" split across two blocks may not reach density in either, even
+ * though the change is concentrated). A sliding window centred on each
+ * pixel removes that grid-alignment bias.
+ *
+ * - Changed pixels that pass the local-density check → bright red, drawn
+ *   over a 30%-brightness copy of the generated image.
  * - Everything else → dim background.
  *
  * Returns null if either buffer is not a parseable PNG or the images differ in size.
  * Otherwise returns { buf, changedRatio } where changedRatio is the fraction
- * of pixels (0–1) inside kept blocks (after density filtering).
+ * of pixels (0–1) that survived the density filter.
  *
  * @param {Buffer} genBuf   raw generated PNG
  * @param {Buffer} docsBuf  raw docs PNG
  * @param {Array}  regions  reserved for future use
- * @param {{ threshold?: number, blockSize?: number, blockDensity?: number }} opts
- *        pixelmatch threshold in [0,1] (default 0.1), block size in pixels
- *        (default 16), minimum changed-pixel density per block (default 0.3).
+ * @param {{ threshold?: number, windowRadius?: number, localDensity?: number }} opts
+ *        pixelmatch threshold in [0,1] (default 0.1), sliding-window radius
+ *        in pixels (default 7, i.e. a 15x15 window), minimum local density
+ *        of changed pixels required to keep one (default 0.15).
  * @returns {{ buf: Buffer, changedRatio: number }|null}
  */
 export function generateDiff(
 	genBuf,
 	docsBuf,
 	regions = [],
-	{ threshold = 0.1, blockSize = DEFAULT_BLOCK_SIZE, blockDensity = DEFAULT_BLOCK_DENSITY } = {},
+	{ threshold = 0.1, windowRadius = DEFAULT_WINDOW_RADIUS, localDensity = DEFAULT_LOCAL_DENSITY } = {},
 ) {
 	let genPng, docsPng;
 	try {
@@ -85,7 +91,8 @@ export function generateDiff(
 	}
 
 	const { width, height } = genPng;
-	// Per-pixel diff mask: diffColor where changed, untouched elsewhere.
+	// Per-pixel diff mask from pixelmatch (includeAA:false already filters
+	// classic anti-aliasing; what gets through is mostly font-shift edges).
 	const mask = new Uint8Array(width * height * 4);
 	pixelmatch(genPng.data, docsPng.data, mask, width, height, {
 		threshold,
@@ -94,44 +101,45 @@ export function generateDiff(
 		diffColor: DIFF_COLOR,
 	});
 
-	// Per-block density check. A block is "kept" only if a sufficient
-	// fraction of its pixels are changed — filters out the scattered single-
-	// pixel diffs that font shifts produce along glyph edges.
-	const bw = Math.ceil(width / blockSize);
-	const bh = Math.ceil(height / blockSize);
-	const keepBlock = new Uint8Array(bw * bh);
-	for (let by = 0; by < bh; by++) {
-		for (let bx = 0; bx < bw; bx++) {
-			const y0 = by * blockSize;
-			const y1 = Math.min(height, y0 + blockSize);
-			const x0 = bx * blockSize;
-			const x1 = Math.min(width, x0 + blockSize);
-			let count = 0;
-			let total = 0;
-			for (let y = y0; y < y1; y++) {
-				for (let x = x0; x < x1; x++) {
-					const i = (y * width + x) * 4;
-					if (mask[i] === DIFF_COLOR[0] && mask[i + 1] === DIFF_COLOR[1] && mask[i + 2] === DIFF_COLOR[2]) {
-						count++;
-					}
-					total++;
-				}
-			}
-			if (count / total >= blockDensity) {
-				keepBlock[by * bw + bx] = 1;
-			}
+	// Flatten mask to 1 bit/pixel for the density pass, then build a per-row
+	// running sum so windowed counts are O(rows-in-window) instead of O(rows*cols).
+	const bin = new Uint8Array(width * height);
+	for (let y = 0; y < height; y++) {
+		for (let x = 0; x < width; x++) {
+			const i = (y * width + x) * 4;
+			bin[y * width + x] = mask[i] === DIFF_COLOR[0] && mask[i + 1] === DIFF_COLOR[1] && mask[i + 2] === DIFF_COLOR[2] ? 1 : 0;
 		}
 	}
+	const rowSum = new Int32Array(width * height);
+	for (let y = 0; y < height; y++) {
+		let acc = 0;
+		for (let x = 0; x < width; x++) {
+			acc += bin[y * width + x];
+			rowSum[y * width + x] = acc;
+		}
+	}
+	const winSize = (2 * windowRadius + 1) * (2 * windowRadius + 1);
+	const minCount = Math.ceil(localDensity * winSize);
 
-	// Render: dim background by default; changed pixels in *kept* blocks → red.
 	const diff = new PNG({ width, height });
 	let changedPixels = 0;
 	for (let y = 0; y < height; y++) {
 		for (let x = 0; x < width; x++) {
 			const i = (y * width + x) * 4;
-			const bi = Math.floor(y / blockSize) * bw + Math.floor(x / blockSize);
-			const isDiff = mask[i] === DIFF_COLOR[0] && mask[i + 1] === DIFF_COLOR[1] && mask[i + 2] === DIFF_COLOR[2];
-			if (isDiff && keepBlock[bi]) {
+			let keep = false;
+			if (bin[y * width + x]) {
+				const x0 = Math.max(0, x - windowRadius);
+				const y0 = Math.max(0, y - windowRadius);
+				const x1 = Math.min(width - 1, x + windowRadius);
+				const y1 = Math.min(height - 1, y + windowRadius);
+				let s = 0;
+				for (let yy = y0; yy <= y1; yy++) {
+					const left = x0 > 0 ? rowSum[yy * width + x0 - 1] : 0;
+					s += rowSum[yy * width + x1] - left;
+				}
+				keep = s >= minCount;
+			}
+			if (keep) {
 				diff.data[i] = DIFF_COLOR[0];
 				diff.data[i + 1] = DIFF_COLOR[1];
 				diff.data[i + 2] = DIFF_COLOR[2];

@@ -305,17 +305,19 @@ test('generateDiff: threshold suppresses small deltas', () => {
 });
 
 test('generateDiff: threshold option overrides default', () => {
-	// Same small delta — but with a near-zero threshold, every pixel is flagged
-	const gen = makeRealPng(4, 2, [255, 0, 0], [255, 0, 0]);
-	const docs = makeRealPng(4, 2, [245, 0, 0], [245, 0, 0]);
+	// Same small delta — but with a near-zero threshold, every pixel is flagged.
+	// Image must be at least the size of the density window (radius=7 → 15x15)
+	// so the local-density check sees a fully changed neighbourhood.
+	const gen = makeRealPng(20, 20, [255, 0, 0], [255, 0, 0]);
+	const docs = makeRealPng(20, 20, [245, 0, 0], [245, 0, 0]);
 	const result = generateDiff(gen, docs, [], { threshold: 0 });
 	assert.ok(result);
 	assert.equal(result.changedRatio, 1, 'any non-zero delta should exceed threshold=0');
 });
 
 test('generateDiff: masked regions are grey regardless of pixel content', () => {
-	const gen = makeRealPng(4, 2, [255, 0, 0], [0, 0, 255]);
-	const docs = makeRealPng(4, 2, [255, 0, 0], [0, 255, 0]);
+	const gen = makeRealPng(20, 20, [255, 0, 0], [0, 0, 255]);
+	const docs = makeRealPng(20, 20, [255, 0, 0], [0, 255, 0]);
 	// regions param is reserved; passing it should not crash
 	const result = generateDiff(gen, docs, [{ x: 0.5, y: 0, width: 0.5, height: 1 }]);
 	assert.ok(result);
