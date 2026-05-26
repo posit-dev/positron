@@ -35,11 +35,6 @@
 	/* Base state: action bar hidden by default */
 	visibility: hidden;
 
-	/* Always show action bar when cell is active (selected) */
-	&.visible {
-		visibility: visible;
-	}
-
 	/* Toggled by useToggleOnSticky while the bar is stuck to the scrollport.
 	 * Square off the top corners so the bar meets the scroll viewport flush. */
 	&.positron-notebooks-cell-action-bar--stuck {
@@ -49,7 +44,20 @@
 	}
 }
 
-/* Show action bar when cell is hovered (includes drag handle hover) */
+/*
+ * Show the action bar for the active cell, but only when the notebook pane itself
+ * has focus. Without the focus-within gate, side-by-side notebooks would each
+ * present their active cell's action bar as if both were focused.
+ */
+.positron-notebook-editor:focus-within .positron-notebooks-cell-action-bar.visible {
+	visibility: visible;
+}
+
+/*
+ * Show action bar when cell is hovered (includes drag handle hover).
+ * Hover access is intentionally not gated on focus-within -- users can still
+ * trigger actions on an unfocused notebook by hovering.
+ */
 .sortable-cell:hover > .positron-notebook-cell .positron-notebooks-cell-action-bar {
 	visibility: visible;
 }
