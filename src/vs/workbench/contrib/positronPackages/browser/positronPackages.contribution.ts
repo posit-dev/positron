@@ -93,6 +93,19 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			deprecationMessage: nls.localize('positron.packages.enable.deprecated', "Deprecated. Use '#packages.enabled#' instead."),
 			included: false,
 			tags: ['preview'],
+		},
+		'packages.r.packageManager': {
+			type: 'string',
+			enum: ['auto', 'pak', 'base'],
+			enumDescriptions: [
+				nls.localize('positron.packages.r.packageManager.auto', "Use pak when it is already installed, otherwise prompt to install it; falls back to base R if the prompt is declined."),
+				nls.localize('positron.packages.r.packageManager.pak', "Always use pak. Install it automatically if it is not present."),
+				nls.localize('positron.packages.r.packageManager.base', "Always use base R (install.packages, update.packages, remove.packages). Never use or install pak."),
+			],
+			default: 'auto',
+			scope: ConfigurationScope.APPLICATION,
+			markdownDescription: nls.localize('positron.packages.r.packageManager', "Which R package manager to use for installing, updating, and removing R packages. Does not affect projects using renv, which always use renv."),
+			tags: ['preview'],
 		}
 	}
 });
