@@ -36,6 +36,15 @@
 	align-self: center;
 }
 
+.language-model.icon.posit-ai {
+	color: #213d4f;
+}
+
+.vs-dark .language-model.icon.posit-ai,
+.hc-black .language-model.icon.posit-ai {
+	color: #ffffff;
+}
+
 .language-model.icon.codicon.button-icon {
 	font-size: 2.5rem;
 }
