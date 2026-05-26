@@ -5,6 +5,7 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import { traceWarn } from '../../logging';
 import { fetchP3MPackageMetadata } from './p3mSearch';
 
 /**
@@ -31,7 +32,10 @@ export async function fetchMetadataWithOutdated(
 ): Promise<Map<string, Partial<positron.LanguageRuntimePackage>>> {
     const [p3mMetadata, outdated] = await Promise.all([
         fetchP3MPackageMetadata(packageNames, token),
-        getOutdatedVersions(token).catch(() => new Map<string, string>()),
+        getOutdatedVersions(token).catch((err) => {
+            traceWarn(`Failed to fetch outdated package versions: ${err}`);
+            return new Map<string, string>();
+        }),
     ]);
 
     for (const name of packageNames) {

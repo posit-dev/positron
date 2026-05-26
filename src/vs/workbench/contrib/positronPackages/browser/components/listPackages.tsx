@@ -300,10 +300,10 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		const renderItem = (pkg: ILanguageRuntimePackage, ctx: PositronListItemContext) => {
 			const { name, displayName, version, latestVersion, attached, outdated, description } = pkg;
 			// Display the update indicator only when the runtime has confirmed the
-			// package is outdated. The tooltip still shows `latestVersion` from
-			// pip/uv (or P3M as fallback) because that's the version a user would
-			// update to.
-			const hasUpdate = outdated === true;
+			// package is outdated *and* we know which version to advertise. The
+			// resolver-supplied `latestVersion` (or P3M as fallback) feeds the
+			// tooltip; without it we'd render "Update available: undefined".
+			const hasUpdate = outdated === true && !!latestVersion;
 
 			const showRowContextMenu = (anchor: { x: number; y: number }) => {
 				services.contextMenuService.showContextMenu({

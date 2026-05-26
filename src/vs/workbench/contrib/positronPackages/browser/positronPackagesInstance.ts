@@ -248,8 +248,11 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		try {
 			await packageManager.installPackages(packages, effectiveToken);
 
+			// Evict the affected packages so Stage 2 refetches their metadata
+			// (latestVersion / outdated may have shifted relative to the install).
+			this._evictPackagesFromCache(packages.map((pkg) => pkg.name));
+
 			// Refresh packages with two-stage metadata fetch
-			this._invalidateMetadataCache();
 			await this._refreshPackagesInternal(packageManager, effectiveToken);
 		} finally {
 			// Completed
@@ -267,8 +270,10 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		try {
 			await packageManager.uninstallPackages(packageNames, effectiveToken);
 
+			// Drop cached entries for the now-removed packages.
+			this._evictPackagesFromCache(packageNames);
+
 			// Refresh packages with two-stage metadata fetch
-			this._invalidateMetadataCache();
 			await this._refreshPackagesInternal(packageManager, effectiveToken);
 		} finally {
 			// Completed
@@ -289,8 +294,9 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 				return;
 			}
 
+			this._evictPackagesFromCache(packages.map((pkg) => pkg.name));
+
 			// Refresh packages with two-stage metadata fetch
-			this._invalidateMetadataCache();
 			await this._refreshPackagesInternal(packageManager, effectiveToken);
 		} finally {
 			// Completed
@@ -311,8 +317,11 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 				return;
 			}
 
+			// Update-all potentially touched every installed package; evict
+			// every cached entry so Stage 2 refetches them all.
+			this._evictPackagesFromCache(Array.from(this._metadataCache.keys()));
+
 			// Refresh packages with two-stage metadata fetch
-			this._invalidateMetadataCache();
 			await this._refreshPackagesInternal(packageManager, effectiveToken);
 		} finally {
 			// Completed
@@ -321,16 +330,21 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	}
 
 	/**
-	 * Drop the cached metadata so the next refresh re-hydrates from the
-	 * package manager. Called after install/uninstall/update operations:
-	 * the installed-version (and therefore the `outdated` flag) may have
-	 * changed for the affected packages, and re-running the metadata fetch
-	 * is the simplest way to keep the UI consistent without tracking which
-	 * specific entries went stale.
+	 * Evict the named packages from the in-memory cache. Used after
+	 * install/uninstall/update operations so the upcoming Stage 2 refetches
+	 * their metadata. Other packages' cached metadata is preserved.
+	 *
+	 * Cancels any in-flight metadata fetch so a stale write can't repopulate
+	 * the slots we just cleared.
 	 */
-	private _invalidateMetadataCache(): void {
+	private _evictPackagesFromCache(packageNames: readonly string[]): void {
+		if (packageNames.length === 0) {
+			return;
+		}
 		this._metadataFetch?.cancel();
-		this._metadataCache.clear();
+		for (const name of packageNames) {
+			this._metadataCache.delete(name.toLowerCase());
+		}
 	}
 
 	async searchPackages(name: string, token?: CancellationToken): Promise<ILanguageRuntimePackage[]> {

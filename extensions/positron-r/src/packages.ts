@@ -6,6 +6,7 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
+import { LOGGER } from './extension';
 import { fetchP3MPackageMetadata } from './p3mSearch';
 import { RSession } from './session';
 
@@ -81,10 +82,12 @@ export class RPackageManager {
 				return [];
 			}
 			return Array.isArray(result) ? result : Object.keys(result);
-		} catch {
+		} catch (err) {
 			// `pkg_outdated` hits the user's configured repositories and can fail
-			// for transient network reasons. Failing silently keeps the package
-			// list usable; outdated state will repopulate on the next refresh.
+			// for transient network reasons. Don't propagate -- outdated state
+			// will repopulate on the next refresh, and the package list stays
+			// usable. Log so we can diagnose if a user reports missing flags.
+			LOGGER.warn(`Failed to fetch outdated R package list: ${err}`);
 			return [];
 		}
 	}
