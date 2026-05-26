@@ -28,6 +28,9 @@ import {
 	shouldRequireRepositorySignatureFor,
 	IGalleryExtensionVersion
 } from '../../../../platform/extensionManagement/common/extensionManagement.js';
+// --- Start Positron ---
+import { PositronCheckTrigger } from '../../../../platform/extensionManagement/common/positronGalleryTelemetry.js';
+// --- End Positron ---
 import { IWorkbenchExtensionEnablementService, EnablementState, IExtensionManagementServerService, IExtensionManagementServer, IWorkbenchExtensionManagementService, IResourceExtension } from '../../../services/extensionManagement/common/extensionManagement.js';
 import { getGalleryExtensionTelemetryData, getLocalExtensionTelemetryData, areSameExtensions, groupByExtension, getGalleryExtensionId, findMatchingMaliciousEntry } from '../../../../platform/extensionManagement/common/extensionManagementUtil.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
@@ -1132,13 +1135,19 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 			}
 			if (e.affectsConfiguration(AutoCheckUpdatesConfigurationKey)) {
 				if (this.isAutoCheckUpdatesEnabled()) {
-					this.checkForUpdates(`Enabled auto check updates`);
+					// --- Start Positron ---
+					// this.checkForUpdates(`Enabled auto check updates`);
+					this.checkForUpdates(`Enabled auto check updates`, undefined, 'setting-change');
+					// --- End Positron ---
 				}
 			}
 		}));
 		this._register(this.extensionEnablementService.onEnablementChanged(platformExtensions => {
 			if (this.isAutoCheckUpdatesEnabled() && this.getAutoUpdateValue() === 'onlyEnabledExtensions' && platformExtensions.some(e => this.extensionEnablementService.isEnabled(e))) {
-				this.checkForUpdates('Extension enablement changed');
+				// --- Start Positron ---
+				// this.checkForUpdates('Extension enablement changed');
+				this.checkForUpdates('Extension enablement changed', undefined, 'extension-toggled');
+				// --- End Positron ---
 			}
 		}));
 		this._register(Event.debounce(this.onChange, () => undefined, 100)(() => this.hasOutdatedExtensionsContextKey.set(this.outdated.length > 0)));
@@ -1149,20 +1158,29 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 					comment: 'Report when update check is triggered on product update';
 				}>('extensions:updatecheckonproductupdate');
 				if (this.isAutoCheckUpdatesEnabled()) {
-					this.checkForUpdates('Product update');
+					// --- Start Positron ---
+					// this.checkForUpdates('Product update');
+					this.checkForUpdates('Product update', undefined, 'positron-updated');
+					// --- End Positron ---
 				}
 			}
 		}));
 
 		this._register(this.allowedExtensionsService.onDidChangeAllowedExtensionsConfigValue(() => {
 			if (this.isAutoCheckUpdatesEnabled()) {
-				this.checkForUpdates('Allowed extensions changed');
+				// --- Start Positron ---
+				// this.checkForUpdates('Allowed extensions changed');
+				this.checkForUpdates('Allowed extensions changed', undefined, 'setting-change');
+				// --- End Positron ---
 			}
 		}));
 
 		this._register(this.meteredConnectionService.onDidChangeIsConnectionMetered(() => {
 			if (this.isAutoCheckUpdatesEnabled()) {
-				this.checkForUpdates('Connection is no longer metered');
+				// --- Start Positron ---
+				// this.checkForUpdates('Connection is no longer metered');
+				this.checkForUpdates('Connection is no longer metered', undefined, 'network-unmetered');
+				// --- End Positron ---
 			}
 			if (isWeb && !this.isAutoUpdateEnabled()) {
 				this.autoUpdateBuiltinExtensions();
@@ -1938,7 +1956,12 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 		return ExtensionState.Uninstalled;
 	}
 
-	async checkForUpdates(reason?: string, onlyBuiltin?: boolean): Promise<void> {
+	// --- Start Positron ---
+	// Added trailing checkTrigger so callers can label why the check fired. Plumbed onto
+	// the outgoing gallery request via IExtensionQueryOptions.checkTrigger for P3M.
+	// async checkForUpdates(reason?: string, onlyBuiltin?: boolean): Promise<void> {
+	async checkForUpdates(reason?: string, onlyBuiltin?: boolean, checkTrigger?: PositronCheckTrigger): Promise<void> {
+		// --- End Positron ---
 		if (reason) {
 			this.logService.trace(`[Extensions]: Checking for updates. Reason: ${reason}`);
 		} else {
@@ -1989,7 +2012,10 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 				count: infos.length,
 			});
 			this.logService.trace(`Checking updates for extensions`, infos.map(e => e.id).join(', '));
-			const galleryExtensions = await this.galleryService.getExtensions(infos, { targetPlatform, compatible: true, productVersion: this.getProductVersion() }, CancellationToken.None);
+			// --- Start Positron ---
+			// const galleryExtensions = await this.galleryService.getExtensions(infos, { targetPlatform, compatible: true, productVersion: this.getProductVersion() }, CancellationToken.None);
+			const galleryExtensions = await this.galleryService.getExtensions(infos, { targetPlatform, compatible: true, productVersion: this.getProductVersion(), checkTrigger }, CancellationToken.None);
+			// --- End Positron ---
 			if (galleryExtensions.length) {
 				await this.syncInstalledExtensionsWithGallery(galleryExtensions, infos);
 			}
@@ -2131,11 +2157,22 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 		return this.configurationService.getValue(AutoCheckUpdatesConfigurationKey);
 	}
 
+	// --- Start Positron ---
+	// Tracks whether the first (startup) auto check has fired so that subsequent
+	// 12h-interval re-fires get tagged as `periodic` for P3M telemetry.
+	private hasFiredStartupCheck = false;
+	// --- End Positron ---
+
 	private eventuallyCheckForUpdates(immediate = false): void {
 		this.updatesCheckDelayer.cancel();
 		this.updatesCheckDelayer.trigger(async () => {
 			if (this.isAutoCheckUpdatesEnabled()) {
-				await this.checkForUpdates();
+				// --- Start Positron ---
+				// await this.checkForUpdates();
+				const checkTrigger: PositronCheckTrigger = this.hasFiredStartupCheck ? 'periodic' : 'startup';
+				this.hasFiredStartupCheck = true;
+				await this.checkForUpdates(undefined, undefined, checkTrigger);
+				// --- End Positron ---
 			}
 			this.eventuallyCheckForUpdates();
 		}, immediate ? 0 : this.getUpdatesCheckInterval()).then(undefined, err => null);
