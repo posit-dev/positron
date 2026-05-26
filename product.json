@@ -101,6 +101,16 @@
 			"metadata": {
 				"publisherDisplayName": "Posit PBC"
 			}
+		},
+		{
+			"name": "posit.slc",
+			"version": "0.6.0",
+			"positUrl": "https://cdn.posit.co/pwb-components/slc-extension",
+			"type": "reh-web-pwb",
+			"sha256": "a824bc7739e226e1b40ea0f8c4e4f4c6f796fc3b4abfa6e9abe3bd119a30d938",
+			"metadata": {
+				"publisherDisplayName": "Posit PBC"
+			}
 		}
 	],
 	"bootstrapExtensions": [
