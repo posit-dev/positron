@@ -1210,7 +1210,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 	// --- Start Positron ---
 	private getPositronWelcomeViewContent(additionalMessage: string | IMarkdownString | undefined): IChatViewWelcomeContent {
 		const welcomeTitle = localize('positronAssistant.welcomeTitle', "Positron Assistant");
-		const openLinkMessage = localize('positronAssistant.openLinkMessage', "Try Posit Assistant");
+		const openLinkMessage = localize('positronAssistant.openLinkMessage', "Open Posit Assistant");
 		const learnMoreLinkMessage = localize('positronAssistant.learnMoreLinkMessage', "our documentation");
 		// eslint-disable-next-line local/code-no-unexternalized-strings
 		let welcomeText = localize('positronAssistant.welcomeMessage', `Positron Assistant is being superseded by Posit Assistant, our new AI coding companion for data science.
