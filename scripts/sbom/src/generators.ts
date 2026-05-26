@@ -127,17 +127,40 @@ export async function generateRustSbom(project: Project): Promise<BOM> {
 						const candidates = files.filter(f =>
 							f.endsWith('.cdx.json') ||
 							(f.includes('sbom') && f.endsWith('.json')) ||
-							f.endsWith('_sbom.json')
+							f.endsWith('_sbom.json') ||
+							// Accept any .json file that's not a cache or config file
+							(f.endsWith('.json') &&
+								!f.includes('cache') &&
+								!f.includes('config') &&
+								!f.startsWith('.'))
 						);
 
 						if (candidates.length > 0) {
 							foundFile = resolvePath(resolvedPath, candidates[0]);
 							console.info(`  Found SBOM file: ${candidates[0]}`);
 						} else {
-							// List all JSON files for debugging
-							const jsonFiles = files.filter(f => f.endsWith('.json'));
-							console.error(`[ERROR] No SBOM output file found in ${resolvedPath}`);
-							console.error(`  JSON files present: ${jsonFiles.join(', ') || '(none)'}`);
+							// For workspaces like Ark, check if there's a bom.json in crates subdirectories
+							const crateDirs = files.filter(f => {
+								const fullPath = resolvePath(resolvedPath, f);
+								return existsSync(resolvePath(fullPath, 'Cargo.toml'));
+							});
+
+							for (const crateDir of crateDirs) {
+								const cratePath = resolvePath(resolvedPath, crateDir);
+								const crateFiles = readdirSync(cratePath);
+								const bomFile = crateFiles.find(f => f.endsWith('.json') && !f.includes('cache'));
+								if (bomFile) {
+									foundFile = resolvePath(cratePath, bomFile);
+									console.info(`  Found SBOM file in ${crateDir}: ${bomFile}`);
+									break;
+								}
+							}
+
+							if (!foundFile) {
+								const jsonFiles = files.filter(f => f.endsWith('.json'));
+								console.error(`[ERROR] No SBOM output file found in ${resolvedPath}`);
+								console.error(`  JSON files present: ${jsonFiles.join(', ') || '(none)'}`);
+							}
 						}
 					}
 
