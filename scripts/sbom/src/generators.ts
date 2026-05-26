@@ -72,8 +72,10 @@ export async function generateRustSbom(project: Project): Promise<BOM> {
 			return;
 		}
 
-		// cargo-cyclonedx writes to stdout
-		const proc = spawn('cargo', ['cyclonedx', '--format', 'json'], {
+		// cargo-cyclonedx writes to a file in the current directory
+		// Use --output-cdx to specify a known location
+		const outputFile = resolvePath(resolvedPath, 'sbom-output.json');
+		const proc = spawn('cargo', ['cyclonedx', '--format', 'json', '--output-cdx', outputFile], {
 			cwd: resolvedPath
 		});
 
@@ -92,20 +94,14 @@ export async function generateRustSbom(project: Project): Promise<BOM> {
 			if (code === 0) {
 				console.info(`[OK] Generated SBOM for: ${project.name}`);
 				try {
-					// cargo-cyclonedx may write the file to disk, try reading it
-					const bomFilePath = resolvePath(resolvedPath, 'target/bom.json');
-					let bomContent = buffer;
-
-					if (!bomContent && existsSync(bomFilePath)) {
-						bomContent = readFileSync(bomFilePath, 'utf-8');
-					}
-
-					if (!bomContent) {
-						console.error(`[ERROR] No SBOM output found for ${project.name}`);
+					// Read the output file we specified
+					if (!existsSync(outputFile)) {
+						console.error(`[ERROR] Output file not found at ${outputFile}`);
 						resolve(createEmptyBom());
 						return;
 					}
 
+					const bomContent = readFileSync(outputFile, 'utf-8');
 					const bom = JSON.parse(bomContent);
 					resolve(bom);
 				} catch (e) {
