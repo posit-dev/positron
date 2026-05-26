@@ -11,6 +11,8 @@ import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/tes
 import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
+import { IThemeService } from '../../../../../platform/theme/common/themeService.js';
+import { TestThemeService } from '../../../../../platform/theme/test/common/testThemeService.js';
 import { ILanguageModelChatMetadata, ILanguageModelChatMetadataAndIdentifier, ILanguageModelsService } from '../../../../../workbench/contrib/chat/common/languageModels.js';
 import { ISessionsProvidersService } from '../../../../services/sessions/browser/sessionsProvidersService.js';
 import { CLAUDE_CODE_SESSION_TYPE, COPILOT_CLI_SESSION_TYPE } from '../../../../services/sessions/common/session.js';
@@ -68,6 +70,9 @@ function stubServices(
 		onDidChangeProviders: Event.None,
 		getProviders: () => [provider as ISessionsProvider],
 	} as Partial<ISessionsProvidersService>);
+
+	// ModelPickerWidget subscribes to onDidColorThemeChange during construction.
+	instantiationService.stub(IThemeService, new TestThemeService());
 
 	// Stub IInstantiationService so SessionModelPicker can call createInstance for ModelPickerActionItem
 	instantiationService.stub(IInstantiationService, instantiationService);
