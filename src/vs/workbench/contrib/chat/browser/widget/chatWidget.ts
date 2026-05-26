@@ -15,7 +15,7 @@ import { Codicon } from '../../../../../base/common/codicons.js';
 import { toErrorMessage } from '../../../../../base/common/errorMessage.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { hash } from '../../../../../base/common/hash.js';
-import { createCommandUri, IMarkdownString, MarkdownString } from '../../../../../base/common/htmlContent.js';
+import { IMarkdownString, MarkdownString } from '../../../../../base/common/htmlContent.js';
 import { Iterable } from '../../../../../base/common/iterator.js';
 import { Disposable, DisposableStore, IDisposable, MutableDisposable, thenIfNotDisposed } from '../../../../../base/common/lifecycle.js';
 import { ResourceSet } from '../../../../../base/common/map.js';
@@ -89,6 +89,8 @@ import { IChatDebugService } from '../../common/chatDebugService.js';
 // --- Start Positron ---
 import './media/positronChat.css';
 import { ILanguageModelsService } from '../../common/languageModels.js';
+// eslint-disable-next-line no-duplicate-imports
+import { createCommandUri } from '../../../../../base/common/htmlContent.js';
 import { IPositronDocsService } from '../../../../services/positronDocs/browser/positronDocsService.js';
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
