@@ -15,7 +15,7 @@ import { Codicon } from '../../../../../base/common/codicons.js';
 import { toErrorMessage } from '../../../../../base/common/errorMessage.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { hash } from '../../../../../base/common/hash.js';
-import { IMarkdownString, MarkdownString } from '../../../../../base/common/htmlContent.js';
+import { createCommandUri, IMarkdownString, MarkdownString } from '../../../../../base/common/htmlContent.js';
 import { Iterable } from '../../../../../base/common/iterator.js';
 import { Disposable, DisposableStore, IDisposable, MutableDisposable, thenIfNotDisposed } from '../../../../../base/common/lifecycle.js';
 import { ResourceSet } from '../../../../../base/common/map.js';
@@ -90,6 +90,9 @@ import { IChatDebugService } from '../../common/chatDebugService.js';
 import './media/positronChat.css';
 import { ILanguageModelsService } from '../../common/languageModels.js';
 import { IPositronDocsService } from '../../../../services/positronDocs/browser/positronDocsService.js';
+import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
+import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
+import { showExtensionsWithIdsCommandId } from '../../../extensions/browser/extensionsActions.js';
 // --- End Positron ---
 
 const $ = dom.$;
@@ -397,6 +400,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		// --- Start Positron ---
 		@ILanguageModelsService private readonly languageModelsService: ILanguageModelsService,
 		@IPositronDocsService private readonly docsService: IPositronDocsService,
+		@IExtensionService private readonly extensionService: IExtensionService,
 		// --- End Positron ---
 		@IChatModeService private readonly chatModeService: IChatModeService,
 		@IChatLayoutService private readonly chatLayoutService: IChatLayoutService,
@@ -441,6 +445,18 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		this.requestInProgress = ChatContextKeys.requestInProgress.bindTo(contextKeyService);
 
 		this._register(this.chatEntitlementService.onDidChangeAnonymous(() => this.renderWelcomeViewContentIfNeeded()));
+
+		// --- Start Positron ---
+		// Re-render the welcome view when Posit Assistant is installed or uninstalled
+		// so the "Install"/"Open" link reflects the current install state.
+		this._register(this.extensionService.onDidChangeExtensions(e => {
+			const touchesPositAssistant = (exts: readonly { identifier: ExtensionIdentifier }[]) =>
+				exts.some(ext => ExtensionIdentifier.equals(ext.identifier, ChatWidget.POSIT_ASSISTANT_EXTENSION_ID));
+			if (touchesPositAssistant(e.added) || touchesPositAssistant(e.removed)) {
+				this.renderWelcomeViewContentIfNeeded();
+			}
+		}));
+		// --- End Positron ---
 
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration('chat.tips.enabled')) {
@@ -1208,22 +1224,35 @@ export class ChatWidget extends Disposable implements IChatWidget {
 	}
 
 	// --- Start Positron ---
+	private static readonly POSIT_ASSISTANT_EXTENSION_ID = 'posit.assistant';
+
+	private isPositAssistantInstalled(): boolean {
+		return this.extensionService.extensions.some(ext =>
+			ExtensionIdentifier.equals(ext.identifier, ChatWidget.POSIT_ASSISTANT_EXTENSION_ID));
+	}
+
 	private getPositronWelcomeViewContent(additionalMessage: string | IMarkdownString | undefined): IChatViewWelcomeContent {
 		const welcomeTitle = localize('positronAssistant.welcomeTitle', "Positron Assistant");
-		const openLinkMessage = localize('positronAssistant.openLinkMessage', "Open Posit Assistant");
+		const installed = this.isPositAssistantInstalled();
+		const actionLinkMessage = installed
+			? localize('positronAssistant.openLinkMessage', "Open Posit Assistant")
+			: localize('positronAssistant.installLinkMessage', "Install Posit Assistant");
+		const actionLinkUri = installed
+			? 'command:workbench.view.extension.posit-assistant'
+			: createCommandUri(showExtensionsWithIdsCommandId, [ChatWidget.POSIT_ASSISTANT_EXTENSION_ID]).toString();
 		const learnMoreLinkMessage = localize('positronAssistant.learnMoreLinkMessage', "our documentation");
 		// eslint-disable-next-line local/code-no-unexternalized-strings
 		let welcomeText = localize('positronAssistant.welcomeMessage', `Positron Assistant is being superseded by Posit Assistant, our new AI coding companion for data science.
 
 &nbsp;
 
-{open-link}
+{action-link}
 
 &nbsp;
 
 See {learn-more-link} to learn more.
 `);
-		welcomeText = welcomeText.replace('{open-link}', `[${openLinkMessage}](command:workbench.view.extension.posit-assistant)`);
+		welcomeText = welcomeText.replace('{action-link}', `[${actionLinkMessage}](${actionLinkUri})`);
 		welcomeText = welcomeText.replace('{learn-more-link}', `[${learnMoreLinkMessage}](${this.docsService.getUrl('assistant')})`);
 
 		return {
