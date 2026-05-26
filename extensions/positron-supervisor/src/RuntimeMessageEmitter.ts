@@ -127,6 +127,7 @@ export class RuntimeMessageEmitter implements vscode.Disposable {
 			output_id: data.transient?.display_id,
 			data: data.data,
 			metadata: message.metadata,
+			execution_count: data.execution_count,
 		} satisfies positron.LanguageRuntimeResult);
 	}
 

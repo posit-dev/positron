@@ -28,7 +28,7 @@ export async function providePackageTasks(context: vscode.ExtensionContext): Pro
 	);
 }
 
-type InstallMethod = 'pak' | 'base';
+type InstallMethod = 'devtools' | 'base';
 
 function getPackageInstallTask(installMethod: InstallMethod) {
 	if (installMethod === 'base') {
@@ -43,8 +43,8 @@ function getPackageInstallTask(installMethod: InstallMethod) {
 	return {
 		task: 'r.task.packageInstall',
 		message: vscode.l10n.t('{taskName}', { taskName: 'Install R package' }),
-		rcode: 'pak::local_install(upgrade = FALSE)',
-		package: 'pak',
+		rcode: 'devtools::install(build = FALSE)',
+		package: 'devtools',
 		envVars: null
 	};
 }
@@ -56,7 +56,7 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 	const binpath = RSessionManager.instance.getLastBinpath();
 
 	const config = vscode.workspace.getConfiguration('positron.r');
-	const installMethod = config.get<InstallMethod>('localPackageInstallMethod', 'pak');
+	const installMethod = config.get<InstallMethod>('localPackageInstallMethod', 'devtools');
 
 	const taskData = [
 		{

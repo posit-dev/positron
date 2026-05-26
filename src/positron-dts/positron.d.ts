@@ -385,6 +385,8 @@ declare module 'positron' {
 	 * runtime execution.
 	 */
 	export interface LanguageRuntimeResult extends LanguageRuntimeOutput {
+		/** The execution count. */
+		execution_count: number;
 	}
 
 	/**
@@ -1232,6 +1234,9 @@ declare module 'positron' {
 		 * can be loaded as a transitive dependency without being attached.
 		 */
 		attached?: boolean;
+
+		/** Optional short description or summary shown in the Packages pane card view. */
+		description?: string;
 	}
 
 	/**

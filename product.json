@@ -102,6 +102,16 @@
 			"metadata": {
 				"publisherDisplayName": "Posit PBC"
 			}
+		},
+		{
+			"name": "posit.slc",
+			"version": "0.6.0",
+			"positUrl": "https://cdn.posit.co/pwb-components/slc-extension",
+			"type": "reh-web-pwb",
+			"sha256": "105cd11357bde4c330bf12aac856b0ee3eae2c967bab6037c3dedacd55f59e7d",
+			"metadata": {
+				"publisherDisplayName": "Posit PBC"
+			}
 		}
 	],
 	"bootstrapExtensions": [
@@ -231,7 +241,7 @@
 		},
 		{
 			"name": "posit.publisher",
-			"version": "2.7.2",
+			"version": "2.7.3",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
@@ -295,8 +305,8 @@
 		},
 		{
 			"name": "posit.assistant",
-			"version": "0.5.6",
-			"sha256": "ea5e500db01cc6f27927e8da82f33765d249a26d3d6b69082253f72af5aa46cf",
+			"version": "0.5.8",
+			"sha256": "efa061419678c0660fb0ccfcb4a33d8095ca9174d7018f0c9e7b7b5d4ae275f8",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
 				"displayName": "Posit Assistant"

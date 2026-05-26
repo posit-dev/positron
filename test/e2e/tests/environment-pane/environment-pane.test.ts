@@ -15,7 +15,7 @@ test.describe('Environment Pane', {
 
 	test.beforeAll(async function ({ settings }) {
 		await settings.set({
-			'positron.packages.enable': true
+			'packages.enabled': true
 		}, { reload: 'web' });
 	});
 

@@ -117,7 +117,10 @@
 					"additionalProperties": {
 						"type": "string"
 					},
-					"markdownDescription": "%configuration.snowflake.customHeaders.description%"
+					"markdownDescription": "%configuration.snowflake.customHeaders.description%",
+					"tags": [
+						"preview"
+					]
 				},
 				"authentication.anthropic.baseUrl": {
 					"type": "string",
@@ -130,12 +133,18 @@
 					"additionalProperties": {
 						"type": "string"
 					},
-					"markdownDescription": "%configuration.anthropic.customHeaders.description%"
+					"markdownDescription": "%configuration.anthropic.customHeaders.description%",
+					"tags": [
+						"preview"
+					]
 				},
 				"authentication.foundry.baseUrl": {
 					"type": "string",
 					"default": "",
-					"description": "%configuration.foundry.baseUrl.description%"
+					"description": "%configuration.foundry.baseUrl.description%",
+					"tags": [
+						"preview"
+					]
 				},
 				"authentication.foundry.customHeaders": {
 					"type": "object",
@@ -143,7 +152,10 @@
 					"additionalProperties": {
 						"type": "string"
 					},
-					"markdownDescription": "%configuration.foundry.customHeaders.description%"
+					"markdownDescription": "%configuration.foundry.customHeaders.description%",
+					"tags": [
+						"preview"
+					]
 				},
 				"authentication.openai-api.baseUrl": {
 					"type": "string",
@@ -156,12 +168,19 @@
 					"additionalProperties": {
 						"type": "string"
 					},
-					"markdownDescription": "%configuration.openai-api.customHeaders.description%"
+					"markdownDescription": "%configuration.openai-api.customHeaders.description%",
+					"tags": [
+						"preview"
+					]
 				},
 				"authentication.google.baseUrl": {
 					"type": "string",
 					"default": "",
-					"description": "%configuration.google.baseUrl.description%"
+					"description": "%configuration.google.baseUrl.description%",
+					"tags": [
+						"experimental",
+						"advanced"
+					]
 				},
 				"authentication.google.customHeaders": {
 					"type": "object",
@@ -169,12 +188,19 @@
 					"additionalProperties": {
 						"type": "string"
 					},
-					"markdownDescription": "%configuration.google.customHeaders.description%"
+					"markdownDescription": "%configuration.google.customHeaders.description%",
+					"tags": [
+						"experimental",
+						"advanced"
+					]
 				},
 				"authentication.openai-compatible.baseUrl": {
 					"type": "string",
 					"default": "",
-					"description": "%configuration.openai-compatible.baseUrl.description%"
+					"description": "%configuration.openai-compatible.baseUrl.description%",
+					"tags": [
+						"experimental"
+					]
 				},
 				"authentication.openai-compatible.customHeaders": {
 					"type": "object",
@@ -182,7 +208,10 @@
 					"additionalProperties": {
 						"type": "string"
 					},
-					"markdownDescription": "%configuration.openai-compatible.customHeaders.description%"
+					"markdownDescription": "%configuration.openai-compatible.customHeaders.description%",
+					"tags": [
+						"experimental"
+					]
 				}
 			}
 		}

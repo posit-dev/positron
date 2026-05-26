@@ -170,6 +170,15 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 				scope: ConfigurationScope.APPLICATION,
 				tags: ['usesOnlineServices']
 			},
+			// --- Start Positron ---
+			'extensions.gallery.sendUsageData': {
+				type: 'boolean',
+				description: localize('positron.extensions.gallery.sendUsageData', "When enabled, sends Positron distribution type, version, and update-check trigger as query parameters on extension gallery requests. No user-identifying data is sent. Disable this to stop sending these parameters."),
+				default: true,
+				scope: ConfigurationScope.APPLICATION,
+				tags: ['usesOnlineServices']
+			},
+			// --- End Positron ---
 			'extensions.ignoreRecommendations': {
 				type: 'boolean',
 				description: localize('extensionsIgnoreRecommendations', "When enabled, the notifications for extension recommendations will not be shown."),

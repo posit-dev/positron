@@ -16,7 +16,6 @@ import React, {
 } from 'react';
 
 // Other dependencies.
-import { isMacintosh } from '../../../../../base/common/platform.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { ActionBarFilter, ActionBarFilterHandle } from '../../../../../platform/positronActionBar/browser/components/actionBarFilter.js';
 import { ViewsProps } from '../positronPackages.js';
@@ -47,8 +46,9 @@ const positronUpdatePackage = localize(
 	'Update Package',
 );
 
-// Row height for package list items in pixels
-const ITEM_HEIGHT = 26;
+// Row heights for each item size mode.
+const ROW_ITEM_HEIGHT = 26;
+const CARD_ITEM_HEIGHT = 72;
 
 export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	const {
@@ -57,6 +57,15 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	const services = usePositronReactServicesContext();
 
 	const [packages, setPackages] = useState<ILanguageRuntimePackage[]>([]);
+
+	// Item size mode ('card' or 'row'), driven by the packages service.
+	const [itemSize, setItemSize] = useState(() => services.positronPackagesService.itemSize);
+	useEffect(() => {
+		const disposable = services.positronPackagesService.onDidChangeItemSize((size) => {
+			setItemSize(size);
+		});
+		return () => disposable.dispose();
+	}, [services.positronPackagesService]);
 
 	// Progress Bar
 	const progressRef = useRef<HTMLDivElement>(null);
@@ -162,12 +171,13 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	const currentSort = currentQuery.sort;
 	const currentFilter = currentQuery.filter;
 
-	// PositronListInstance. The renderer is set later via setItemRenderer so it can close over
-	// the latest packages/services state without recreating the instance.
-	const [listInstance] = useState(() => new PositronListInstance<ILanguageRuntimePackage>({
-		defaultItemHeight: ITEM_HEIGHT,
+	// PositronListInstance. Recreated when itemSize changes so each mode gets its own row
+	// height; the renderer is set later via setItemRenderer so it can close over the latest
+	// packages/services state without forcing another recreation.
+	const listInstance = useMemo(() => new PositronListInstance<ILanguageRuntimePackage>({
+		defaultItemHeight: itemSize === 'card' ? CARD_ITEM_HEIGHT : ROW_ITEM_HEIGHT,
 		itemRenderer: () => null,
-	}));
+	}), [itemSize]);
 
 	// Clear selection when filter text changes.
 	const handleFilterTextChanged = (text: string) => {
@@ -288,12 +298,21 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	// instance.
 	useEffect(() => {
 		const renderItem = (pkg: ILanguageRuntimePackage, ctx: PositronListItemContext) => {
-			const { name, displayName, version, latestVersion, attached } = pkg;
+			const { name, displayName, version, latestVersion, attached, description } = pkg;
 			const hasUpdate = latestVersion && latestVersion !== version;
 
 			const showRowContextMenu = (anchor: { x: number; y: number }) => {
 				services.contextMenuService.showContextMenu({
 					getActions: () => [
+						{
+							id: 'showHelp',
+							label: localize('positronPackages.showHelp', "Show Help"),
+							tooltip: localize('positronPackages.showHelp', "Show Help"),
+							class: undefined,
+							enabled: true,
+							run: () => { void showHelpForPackage(name); }
+						},
+						new Separator(),
 						{
 							id: 'copy',
 							label: localize('positronPackages.copyPackage', "Copy '{0} ({1})'", name, version),
@@ -336,26 +355,13 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 			return (
 				// eslint-disable-next-line jsx-a11y/no-static-element-interactions
 				<div
-					className='packages-list-item'
+					className={positronClassNames('packages-list-item', `item-size-${itemSize}`)}
 					onContextMenu={(e) => {
 						// Right-click. The data grid's row cell calls e.stopPropagation() on
 						// mousedown, so right-click handling lives on contextmenu instead.
 						e.preventDefault();
 						e.stopPropagation();
 						showRowContextMenu({ x: e.clientX, y: e.clientY });
-					}}
-					onMouseDown={(e) => {
-						// Ctrl+Click on macOS acts as right-click for the context menu.
-						if (e.button === 0 && isMacintosh && e.ctrlKey) {
-							e.stopPropagation();
-							showRowContextMenu({ x: e.clientX, y: e.clientY });
-						} else if (e.button === 0) {
-							// Left click - select via the instance and move browser focus to the
-							// data grid waffle so the cursor-outline gating (:focus-within) shows.
-							e.stopPropagation();
-							listInstance.selectRow(ctx.index);
-							(e.currentTarget.closest('.data-grid-waffle') as HTMLElement | null)?.focus();
-						}
 					}}
 				>
 					{attached !== undefined && (
@@ -370,32 +376,51 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 								: localize('positronPackages.notAttachedTooltip', "{0} is not attached", name)}
 						/>
 					)}
-					<div className='packages-list-item-name'>{displayName}</div>
-					<div className='packages-list-item-version'>{version}</div>
-					{hasUpdate && (
-						<div
-							className='packages-list-item-update'
-							title={localize('positronPackages.updateAvailable', "Update available: {0}", latestVersion)}
-						>
-							&#x2191;
+					<div className='packages-list-item-content'>
+						<div className='packages-list-item-header'>
+							<div className='packages-list-item-name'>{displayName}</div>
+							<div className='packages-list-item-version'>{version}</div>
+							{itemSize === 'row' && hasUpdate && (
+								<div
+									className='packages-list-item-update'
+									title={localize('positronPackages.updateAvailable', "Update available: {0}", latestVersion)}
+								>
+									&#x2191;
+								</div>
+							)}
 						</div>
-					)}
-					{attached === true && (
-						<Button
-							ariaLabel={localize('positronPackages.showHelpAriaLabel', "Show help for {0}", name)}
-							className='packages-list-item-help'
-							tooltip={localize('positronPackages.showHelpTooltip', "Show help for {0}", name)}
-							onPressed={() => { void showHelpForPackage(name); }}
-						>
-							<span className='codicon codicon-book' />
-						</Button>
-					)}
+						{itemSize === 'card' && (
+							<div className='packages-list-item-description-row'>
+								<div className='packages-list-item-description' title={description ?? ''}>
+									{description ?? ''}
+								</div>
+								{hasUpdate && (
+									<Button
+										ariaLabel={localize('positronPackages.updatePackageAria', "Update {0} to {1}", name, latestVersion)}
+										className='packages-list-item-update-button'
+										tooltip={localize('positronPackages.updateAvailable', "Update available: {0}", latestVersion)}
+										onPressed={() => services.commandService.executeCommand('positronPackages.updatePackage', name)}
+									>
+										{localize('positronPackages.update', "Update")}
+									</Button>
+								)}
+							</div>
+						)}
+					</div>
+					<Button
+						ariaLabel={localize('positronPackages.showHelpAriaLabel', "Show help for {0}", name)}
+						className='packages-list-item-help'
+						tooltip={localize('positronPackages.showHelpTooltip', "Show help for {0}", name)}
+						onPressed={() => { void showHelpForPackage(name); }}
+					>
+						<span className='codicon codicon-book' />
+					</Button>
 				</div>
 			);
 		};
 
 		listInstance.setItemRenderer(renderItem);
-	}, [listInstance, deduplicatedPackages, services, showHelpForPackage]);
+	}, [listInstance, deduplicatedPackages, services, itemSize, showHelpForPackage]);
 
 	// Enter on the focused row sets selection to that row.
 	useEffect(() => {

@@ -33,6 +33,8 @@ import { IUriIdentityService } from '../../../../../../platform/uriIdentity/comm
 import { IUpdateService, StateType } from '../../../../../../platform/update/common/update.js';
 // --- Start Positron ---
 import { getProviderIcon } from './providerIcons.js';
+import { IThemeService } from '../../../../../../platform/theme/common/themeService.js';
+import { isDark } from '../../../../../../platform/theme/common/theme.js';
 // --- End Positron ---
 
 function isVersionAtLeast(current: string, required: string): boolean {
@@ -229,6 +231,7 @@ export function buildModelPickerItems(
 	// --- Start Positron ---
 	vendorDisplayNames?: ReadonlyMap<string, string>,
 	commandService?: ICommandService,
+	isDarkTheme?: boolean,
 	// --- End Positron ---
 ): IActionListItem<IActionWidgetDropdownAction>[] {
 	const items: IActionListItem<IActionWidgetDropdownAction>[] = [];
@@ -426,7 +429,7 @@ export function buildModelPickerItems(
 					// --- Start Positron ---
 					if (model.metadata.vendor !== otherLastVendor) {
 						otherLastVendor = model.metadata.vendor;
-						const providerIcon = getProviderIcon(model.metadata.vendor);
+						const providerIcon = getProviderIcon(model.metadata.vendor, isDarkTheme);
 						const providerLabel = model.metadata.auth?.providerLabel ?? vendorDisplayNames?.get(model.metadata.vendor) ?? model.metadata.vendor;
 						items.push({
 							kind: ActionListItemKind.Separator,
@@ -469,7 +472,7 @@ export function buildModelPickerItems(
 		for (const model of sortedModels) {
 			if (model.metadata.vendor !== lastVendor) {
 				lastVendor = model.metadata.vendor;
-				const providerIcon = getProviderIcon(model.metadata.vendor);
+				const providerIcon = getProviderIcon(model.metadata.vendor, isDarkTheme);
 				const providerLabel = model.metadata.auth?.providerLabel ?? vendorDisplayNames?.get(model.metadata.vendor) ?? model.metadata.vendor;
 				items.push({
 					kind: ActionListItemKind.Separator,
@@ -482,7 +485,6 @@ export function buildModelPickerItems(
 		// --- End Positron ---
 		return items;
 	}
-
 
 	if (
 		// --- Start Positron ---
@@ -665,12 +667,19 @@ export class ModelPickerWidget extends Disposable {
 		@IChatEntitlementService private readonly _entitlementService: IChatEntitlementService,
 		@IUpdateService private readonly _updateService: IUpdateService,
 		@IUriIdentityService private readonly _uriIdentityService: IUriIdentityService,
+		// --- Start Positron ---
+		@IThemeService private readonly _themeService: IThemeService,
+		// --- End Positron ---
 	) {
 		super();
 
 		this._register(this._languageModelsService.onDidChangeLanguageModels(() => {
 			this._renderLabel();
 		}));
+		// --- Start Positron ---
+		// Re-render the label when the theme changes so provider icons recolor.
+		this._register(this._themeService.onDidColorThemeChange(() => this._renderLabel()));
+		// --- End Positron ---
 	}
 
 	setHideChevrons(hideChevrons: IObservable<boolean>): void {
@@ -784,6 +793,7 @@ export class ModelPickerWidget extends Disposable {
 			// --- Start Positron ---
 			new Map(this._languageModelsService.getVendors().map(v => [v.vendor, v.displayName])),
 			this._commandService,
+			isDark(this._themeService.getColorTheme().type),
 			// --- End Positron ---
 		);
 
@@ -868,7 +878,7 @@ export class ModelPickerWidget extends Disposable {
 		// --- Start Positron ---
 		// Show provider icon for the selected model
 		if (vendor) {
-			const providerIcon = getProviderIcon(vendor);
+			const providerIcon = getProviderIcon(vendor, isDark(this._themeService.getColorTheme().type));
 			if (providerIcon) {
 				if (providerIcon.svgContent) {
 					// SVG-based icons: render as background image
@@ -878,7 +888,7 @@ export class ModelPickerWidget extends Disposable {
 					providerIconElement.style.marginRight = '4px';
 					domChildren.push(providerIconElement);
 				} else {
-					// Codicon-based icons (e.g., posit-ai): use renderIcon
+					// Codicon-based icons: use renderIcon
 					const providerIconElement = renderIcon(providerIcon.themeIcon);
 					providerIconElement.classList.add('chat-model-picker-provider-icon');
 					domChildren.push(providerIconElement);

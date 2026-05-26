@@ -69,21 +69,33 @@ export function activate(context: vscode.ExtensionContext): PositronSupervisorAp
 	return API_INSTANCE;
 }
 
+/**
+ * Decides whether `deactivate()` should dispose the supervisor's local
+ * connections. Exported so the decision logic can be exercised in tests
+ * without driving the full extension lifecycle.
+ *
+ * Only desktop Quit disposes:
+ * - Reload/Load: leave sessions in place so they reconnect when the window
+ *   comes back up.
+ * - Web (any reason): the supervisor server is hosted out-of-process and may
+ *   be shared with other clients; let it keep running and rely on its idle
+ *   timeout for cleanup.
+ * - Unknown reason (e.g. RPC race during teardown): also leave it alone --
+ *   we'd rather a stale server than tear down a live one we shouldn't.
+ */
+export function shouldDisposeOnDeactivate(
+	reason: positron.ShutdownReason | undefined,
+	uiKind: vscode.UIKind,
+): boolean {
+	return reason === positron.ShutdownReason.Quit && uiKind === vscode.UIKind.Desktop;
+}
+
 export async function deactivate(): Promise<void> {
 	if (!API_INSTANCE) {
 		return;
 	}
 
-	// On reload, dispose connections only so the server keeps running and
-	// sessions can reconnect when the window comes back up. On any other
-	// shutdown -- and when the reason is unknown (e.g. RPC race during
-	// teardown) -- shut down kcserver so it terminates its child processes
-	// (kernels) cleanly. Without this, on Windows the orphaned processes
-	// survive past Positron exit; on other platforms they linger until the
-	// server's idle timeout fires.
-	if (lastShutdownReason === positron.ShutdownReason.Reload) {
+	if (shouldDisposeOnDeactivate(lastShutdownReason, vscode.env.uiKind)) {
 		API_INSTANCE.dispose();
-	} else {
-		await API_INSTANCE.shutdown();
 	}
 }

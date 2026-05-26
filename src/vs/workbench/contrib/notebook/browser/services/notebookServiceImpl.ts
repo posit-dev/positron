@@ -8,7 +8,7 @@
 import { usingPositronNotebooks } from '../../../positronNotebook/common/positronNotebookCommon.js';
 import { POSITRON_NOTEBOOK_ENABLED_KEY } from '../../../positronNotebook/common/positronNotebookConfig.js';
 import { IPYNB_VIEW_TYPE } from '../notebookBrowser.js';
-import { resolveNotebookSerializerOptions } from '../contrib/saveSettings/saveSettings.js';
+import { resolveNotebookSerializerOptions } from '../../common/notebookSaveSettings.js';
 // --- End Positron ---
 import { localize } from '../../../../../nls.js';
 import { toAction } from '../../../../../base/common/actions.js';
@@ -987,8 +987,8 @@ export class NotebookService extends Disposable implements INotebookService {
 				this._configurationService
 			)
 		});
-
 		// --- End Positron ---
+
 		const indentAmount = model.metadata.indentAmount;
 		if (typeof indentAmount === 'string' && indentAmount) {
 			// This is required for ipynb serializer to preserve the whitespace in the notebook.

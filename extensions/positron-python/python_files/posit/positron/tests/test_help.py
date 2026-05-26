@@ -128,6 +128,108 @@ def test_show_help(
     ]
 
 
+@pytest.mark.parametrize(
+    ("raw", "canonical"),
+    [
+        ("scikit-learn", "scikit-learn"),
+        ("scikit_learn", "scikit-learn"),
+        ("Scikit_Learn", "scikit-learn"),
+        ("python.dateutil", "python-dateutil"),
+        ("Pillow", "pillow"),
+        ("already-canonical", "already-canonical"),
+    ],
+)
+def test_canonicalize_distribution_name(raw: str, canonical: str) -> None:
+    """PEP 503 normalization collapses runs of -_. and lowercases."""
+    from positron.help import _canonicalize_distribution_name
+
+    assert _canonicalize_distribution_name(raw) == canonical
+
+
+@pytest.mark.parametrize(
+    ("dist_name", "packages_map", "expected_first", "expected_set"),
+    [
+        # PyPI dist "scikit-learn" -> import "sklearn".
+        ("scikit-learn", {"sklearn": ["scikit-learn"]}, "sklearn", {"sklearn"}),
+        # PEP 503 variants of the dist name still match.
+        ("Scikit_Learn", {"sklearn": ["scikit-learn"]}, "sklearn", {"sklearn"}),
+        # When a dist exposes multiple top-levels, the module whose canonical
+        # name matches the dist is sorted first.
+        (
+            "setuptools",
+            {
+                "_distutils_hack": ["setuptools"],
+                "setuptools": ["setuptools"],
+                "pkg_resources": ["setuptools"],
+            },
+            "setuptools",
+            {"_distutils_hack", "setuptools", "pkg_resources"},
+        ),
+        # Unknown dist returns empty.
+        ("nonexistent-dist", {"sklearn": ["scikit-learn"]}, None, set()),
+    ],
+    ids=["differs", "canonical-variants", "multi-top-level-preferred", "unknown"],
+)
+def test_distribution_to_modules(
+    monkeypatch: pytest.MonkeyPatch,
+    dist_name: str,
+    packages_map: dict,
+    expected_first,
+    expected_set: set,
+) -> None:
+    """Map distribution names to their top-level importable modules."""
+    import importlib.metadata
+
+    from positron.help import _distribution_to_modules
+
+    # `raising=False` -- packages_distributions doesn't exist on Python < 3.10,
+    # but our code imports it lazily; we just need the attribute present for
+    # the test's mocked dispatch.
+    monkeypatch.setattr(
+        importlib.metadata,
+        "packages_distributions",
+        lambda: packages_map,
+        raising=False,
+    )
+
+    result = _distribution_to_modules(dist_name)
+    assert (result[0] if result else None, set(result)) == (expected_first, expected_set)
+
+
+def test_distribution_to_modules_missing_api(monkeypatch: pytest.MonkeyPatch) -> None:
+    """On Python < 3.10 (no packages_distributions) we gracefully return []."""
+    import importlib.metadata
+
+    from positron.help import _distribution_to_modules
+
+    monkeypatch.delattr(importlib.metadata, "packages_distributions", raising=False)
+
+    assert _distribution_to_modules("scikit-learn") == []
+
+
+def test_show_help_resolves_distribution_name(
+    help_service: HelpService,
+    help_comm,
+    mock_pydoc_thread,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When pydoc can't resolve a name, fall back via the distribution mapping."""
+    import importlib.metadata
+
+    # numpy is a real module; pretend it's shipped as the dist "fake-dist".
+    # `raising=False` so this works on Python 3.9 where the attribute is absent.
+    monkeypatch.setattr(
+        importlib.metadata,
+        "packages_distributions",
+        lambda: {"numpy": ["fake-dist"]},
+        raising=False,
+    )
+
+    help_service.show_help("fake-dist")
+
+    assert help_comm.messages == [show_help_event(f"{mock_pydoc_thread.url}get?key=numpy")]
+
+
 def test_handle_show_help_topic(help_comm, mock_pydoc_thread) -> None:
     msg = json_rpc_request(
         HelpBackendRequest.ShowHelpTopic, {"topic": "logging"}, comm_id="dummy_comm_id"

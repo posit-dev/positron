@@ -110,7 +110,8 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 					parent_id: id,
 					when: new Date().toISOString(),
 					type: positron.LanguageRuntimeMessageType.Result,
-					data: { 'text/plain': `${varName} = ${varValue}` }
+					data: { 'text/plain': `${varName} = ${varValue}` },
+					execution_count: this._executionCount,
 				} as positron.LanguageRuntimeResult);
 				this.returnToIdle(id);
 			}, 10);
@@ -145,7 +146,8 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 				parent_id: id,
 				when: new Date().toISOString(),
 				type: positron.LanguageRuntimeMessageType.Result,
-				data: { 'text/plain': 'Test result' }
+				data: { 'text/plain': 'Test result' },
+				execution_count: this._executionCount,
 			} as positron.LanguageRuntimeResult);
 			this.returnToIdle(id);
 		},
