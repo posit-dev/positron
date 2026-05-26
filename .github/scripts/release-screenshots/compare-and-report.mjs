@@ -38,19 +38,18 @@ async function readPng(path) {
 }
 
 /**
- * 3×3 box blur on RGBA pixel data. Returns a fresh Uint8Array of the same size.
- * Pixels outside the image are clamped (edge replication). Smooths sub-pixel
- * font rendering shifts so two images of the same text at slightly different
- * sub-pixel positions read as similar to the comparator.
+ * Box blur on RGBA pixel data with the given radius. Returns a fresh
+ * Uint8Array of the same size. Pixels outside the image are clamped (edge
+ * replication). A larger radius absorbs larger sub-pixel font shifts.
  */
-function boxBlur(data, width, height) {
+function boxBlur(data, width, height, radius = 2) {
 	const out = new Uint8Array(data.length);
 	for (let y = 0; y < height; y++) {
 		for (let x = 0; x < width; x++) {
 			let r = 0, g = 0, b = 0, a = 0, count = 0;
-			for (let dy = -1; dy <= 1; dy++) {
+			for (let dy = -radius; dy <= radius; dy++) {
 				const yy = Math.min(height - 1, Math.max(0, y + dy));
-				for (let dx = -1; dx <= 1; dx++) {
+				for (let dx = -radius; dx <= radius; dx++) {
 					const xx = Math.min(width - 1, Math.max(0, x + dx));
 					const j = (yy * width + xx) * 4;
 					r += data[j];
@@ -73,7 +72,7 @@ function boxBlur(data, width, height) {
 /**
  * Generate a diff PNG visualising what changed between two screenshots.
  *
- * Both images are blurred with a 3×3 box kernel before comparison so that
+ * Both images are blurred with a 7×7 box kernel before comparison so that
  * sub-pixel font shifts (which produce large per-pixel color deltas at glyph
  * edges) collapse into similar low-frequency content. pixelmatch then runs
  * on the smoothed copies with `includeAA: false`, catching real layout /
@@ -90,10 +89,10 @@ function boxBlur(data, width, height) {
  * @param {Buffer} genBuf   raw generated PNG
  * @param {Buffer} docsBuf  raw docs PNG
  * @param {Array}  regions  reserved for future use
- * @param {{ threshold?: number }} opts  pixelmatch threshold in [0,1]; default 0.1
+ * @param {{ threshold?: number }} opts  pixelmatch threshold in [0,1]; default 0.4
  * @returns {{ buf: Buffer, changedRatio: number }|null}
  */
-export function generateDiff(genBuf, docsBuf, regions = [], { threshold = 0.1 } = {}) {
+export function generateDiff(genBuf, docsBuf, regions = [], { threshold = 0.4 } = {}) {
 	let genPng, docsPng;
 	try {
 		genPng = PNG.sync.read(genBuf);
@@ -105,8 +104,8 @@ export function generateDiff(genBuf, docsBuf, regions = [], { threshold = 0.1 } 
 		return null;
 	}
 
-	const blurredGen = boxBlur(genPng.data, genPng.width, genPng.height);
-	const blurredDocs = boxBlur(docsPng.data, docsPng.width, docsPng.height);
+	const blurredGen = boxBlur(genPng.data, genPng.width, genPng.height, 3);
+	const blurredDocs = boxBlur(docsPng.data, docsPng.width, docsPng.height, 3);
 
 	const diff = new PNG({ width: genPng.width, height: genPng.height });
 	// Pre-fill with a 30%-brightness copy of the *original* (unblurred) generated

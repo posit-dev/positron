@@ -265,20 +265,20 @@ test('formatChangedRatio: values >= 0.1% render as N.N%', () => {
 // --- generateDiff ---
 
 test('generateDiff: unchanged pixels are dimmed, changed pixels are red', () => {
-	// 4×2 image: left half red, right half blue
-	const gen = makeRealPng(4, 2, [255, 0, 0], [0, 0, 255]);
-	// docs: left half red (same), right half green (different)
-	const docs = makeRealPng(4, 2, [255, 0, 0], [0, 255, 0]);
+	// 16×16 image (large enough for the 7×7 blur kernel not to dominate):
+	// left half red, right half blue in `gen`; right half green in `docs`.
+	const gen = makeRealPng(16, 16, [255, 0, 0], [0, 0, 255]);
+	const docs = makeRealPng(16, 16, [255, 0, 0], [0, 255, 0]);
 	const result = generateDiff(gen, docs);
 	assert.ok(result, 'should produce a diff result');
 	const diff = PNG.sync.read(result.buf);
-	// left half (unchanged) — dim 30% of generated: red [255,0,0] → ~[76,0,0]
-	const leftIdx = 0 * 4;
+	// Sample deep in the left half (unchanged) — dim 30% of red: ~[76,0,0]
+	const leftIdx = (8 * 16 + 1) * 4;
 	assert.equal(diff.data[leftIdx], Math.round(255 * 0.3));
 	assert.equal(diff.data[leftIdx + 1], 0);
 	assert.equal(diff.data[leftIdx + 2], 0);
-	// right half (changed) — pixelmatch's diffColor
-	const rightIdx = 2 * 4;
+	// Sample deep in the right half (changed) — pixelmatch's diffColor
+	const rightIdx = (8 * 16 + 14) * 4;
 	assert.equal(diff.data[rightIdx], 255);
 	assert.equal(diff.data[rightIdx + 1], 50);
 	assert.equal(diff.data[rightIdx + 2], 50);
