@@ -2051,6 +2051,9 @@ export const POSITRON_NOTEBOOK_CELL_HOVER_BORDER = registerColor('positronNotebo
 // Positron notebook cell border color when focused or being edited.
 export const POSITRON_NOTEBOOK_CELL_FOCUSED_BORDER = registerColor('positronNotebook.cellFocusedBorder', focusBorder, localize('positronNotebook.cellFocusedBorder', "Positron notebook cell border color when focused or being edited."));
 
+// Positron notebook cell border color when selected or being edited in a notebook pane that does not currently have focus.
+export const POSITRON_NOTEBOOK_CELL_INACTIVE_FOCUSED_BORDER = registerColor('positronNotebook.cellInactiveFocusedBorder', POSITRON_NOTEBOOK_CELL_BORDER, localize('positronNotebook.cellInactiveFocusedBorder', "Positron notebook cell border color when selected or being edited in a notebook pane that does not currently have focus."));
+
 // Positron notebook cell action bar background color.
 export const POSITRON_NOTEBOOK_ACTION_BAR_BACKGROUND = registerColor('positronNotebook.actionBarBackground', editorBackground, localize('positronNotebook.actionBarBackground', "Positron notebook cell action bar background color."));
 

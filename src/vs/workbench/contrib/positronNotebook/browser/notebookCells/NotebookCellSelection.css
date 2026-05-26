@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -154,6 +154,30 @@ focus indicator. Revert the selection border to avoid a doubled ring. */
 .positron-notebook-markdown-cell .positron-notebook-cell-outputs:has(.empty-output-msg) {
 	border-style: dashed;
 	border-color: var(--vscode-positronNotebook-cellBorder);
+}
+
+
+/* === Inactive Notebook Pane: dim the cell focus border when the notebook does not have focus === */
+
+/*
+ * When focus leaves the entire notebook pane (e.g. have two side-by-side notebooks open),
+ * selected/editing cells fall back to the muted inactive border so only the truly focused
+ * notebook shows the active blue focus ring.
+ */
+.positron-notebook-editor:not(:focus-within) .positron-notebook-cell.selected .positron-notebook-editor-section,
+.positron-notebook-editor:not(:focus-within) .positron-notebook-code-cell.selected .positron-notebook-cell-outputs,
+.positron-notebook-editor:not(:focus-within) .positron-notebook-cell.editing .positron-notebook-editor-section,
+.positron-notebook-editor:not(:focus-within) .positron-notebook-code-cell.editing .positron-notebook-cell-outputs,
+.positron-notebook-editor:not(:focus-within) .positron-notebook-cell.selected .positron-notebook-editor-container:not(.editor-hidden),
+.positron-notebook-editor:not(:focus-within) .positron-notebook-cell.editing .positron-notebook-editor-container:not(.editor-hidden),
+.positron-notebook-editor:not(:focus-within) .positron-notebook-markdown-cell.selected .positron-notebook-cell-outputs,
+.positron-notebook-editor:not(:focus-within) .positron-notebook-markdown-cell.editing .positron-notebook-cell-outputs {
+	border-color: var(--vscode-positronNotebook-cellInactiveFocusedBorder);
+}
+
+.positron-notebook-editor:not(:focus-within) .positron-notebook-cell.selected:has(.positron-notebook-outputs-section.no-outputs) .positron-notebook-editor-section,
+.positron-notebook-editor:not(:focus-within) .positron-notebook-cell.editing:has(.positron-notebook-outputs-section.no-outputs) .positron-notebook-editor-section {
+	border-bottom-color: var(--vscode-positronNotebook-cellInactiveFocusedBorder);
 }
 
 
