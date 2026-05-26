@@ -116,10 +116,10 @@ jobs:
           KALLICHORE_VERSION=$(jq -r '.positron.binaryDependencies.kallichore' \
             extensions/positron-supervisor/package.json)
 
-          echo "Cloning Kallichore v${KALLICHORE_VERSION}..."
+          echo "Cloning Kallichore ${KALLICHORE_VERSION}..."
 
-          # Clone the specific version
-          git clone --depth 1 --branch "v${KALLICHORE_VERSION}" \
+          # Clone the specific version (Kallichore uses tags without 'v' prefix)
+          git clone --depth 1 --branch "${KALLICHORE_VERSION}" \
             https://github.com/posit-dev/kallichore.git \
             .sbom-tmp/kallichore
 
