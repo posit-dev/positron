@@ -13,7 +13,7 @@ test.use({
 });
 
 test.describe('Python Venv Auto-Creation', {
-	tag: [tags.INTERPRETER]
+	tag: [tags.INTERPRETER, tags.WIN, tags.WEB]
 }, () => {
 
 	const fixtureBase = 'qa-example-content/workspaces/python-venv-creation';
