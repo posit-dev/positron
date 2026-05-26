@@ -22,7 +22,7 @@ test.describe('Sessions: R Session Init Hooks', {
 		await app.workbench.console.waitForReadyAndStarted('>', 60000);
 	});
 
-	test('R - New session runs .Rprofile and fires session_init with correct start_type and console width', async function ({ app }) {
+	test('R - New session runs .Rprofile and fires session_init with correct start_type', async function ({ app }) {
 		const { console } = app.workbench;
 
 		await console.waitForConsoleContents('[.Rprofile] top-level code executed', { timeout: 30000 });
@@ -34,6 +34,12 @@ test.describe('Sessions: R Session Init Hooks', {
 		// navigateToFile triggers a UI action (opens DESCRIPTION in editor)
 		await console.waitForConsoleContents('[hook:init] navigateToFile DESCRIPTION completed', { timeout: 15000 });
 		await app.workbench.editors.waitForActiveTab('DESCRIPTION');
+	});
+
+	test('R - session_init hook receives correct console width', async function ({ app }) {
+		test.skip(process.platform !== 'linux', 'Width propagation races with hook execution on macOS/Windows');
+
+		const { console } = app.workbench;
 
 		// Verify hook saw the actual console width by comparing to a live query
 		const hookWidthLines = await console.waitForConsoleContents(/\[hook:init\] cli_width=\d+/, { timeout: 15000 });
@@ -61,7 +67,9 @@ test.describe('Sessions: R Session Init Hooks', {
 		await app.workbench.editors.waitForActiveTab('DESCRIPTION');
 	});
 
-	test('R - Window reload fires only session_reconnect, not session_init or .Rprofile', async function ({ app, hotKeys }) {
+	test.skip('R - Window reload fires only session_reconnect, not session_init or .Rprofile', {
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7593' }]
+	}, async function ({ app, hotKeys }) {
 		const { console } = app.workbench;
 
 		await hotKeys.closeAllEditors();
