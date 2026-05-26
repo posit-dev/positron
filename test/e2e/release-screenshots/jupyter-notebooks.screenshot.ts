@@ -18,10 +18,10 @@ test.beforeEach(async ({ app }) => {
 	await setScreenshotWindowSize(app, { width: 960, height: 640 });
 });
 
-test.afterEach(async ({ app, page }) => {
+test.afterEach(async ({ page, hotKeys }) => {
 	await page.keyboard.press('Escape');
 	await clearAnnotations(page);
-	await app.workbench.hotKeys.closeAllEditors();
+	await hotKeys.closeAllEditors();
 });
 
 test.describe('Release Screenshots - Jupyter Notebooks', () => {
@@ -31,15 +31,18 @@ test.describe('Release Screenshots - Jupyter Notebooks', () => {
 	test('Release Screenshot - jupyter-notebooks-kernel-selector.png', async ({ app, page, python }) => {
 		const { notebooksVscode, hotKeys, sessions } = app.workbench;
 
+		// Open a new notebook and select the Python interpreter
 		await notebooksVscode.createNewNotebook();
 		await notebooksVscode.expectToBeVisible();
 		await notebooksVscode.selectInterpreter('Python');
 		await sessions.expectSessionPickerToBe('Untitled-1.ipynb');
 
+		// customize the layout
 		await hotKeys.closePrimarySidebar();
 		await hotKeys.closeSecondarySidebar();
 		await hotKeys.toggleBottomPanel();
 
+		// capture screenshot
 		await prepareForScreenshot(app, page);
 		await overrideWorkspaceName(page, 'qa-example-content', 'positron-demos-notebooks');
 		await annotate(page, [

@@ -96,19 +96,19 @@ test.describe('Release Screenshots - Snippets', () => {
 	test('Release Screenshot - snippets-configure-language-specific-snippets.png', async ({ app, page, r }) => {
 		const { quickaccess, quickInput } = app.workbench;
 
+		// Open the "Snippets: Configure Snippets" picker
 		await quickaccess.runCommand('Snippets: Configure Snippets', { keepOpen: true });
 		const picker = quickInput.widget;
 		await expect(picker).toBeVisible();
+
 		// Anchor on the snippets-specific first row so we know the snippets
 		// picker (not the command palette) is active before scrolling.
 		await expect(quickInput.rowByAriaLabelPrefix('New Global Snippets file')).toBeVisible();
 
+		// Scroll the picker so python/quarto/r are all rendered.
 		const pythonRow = quickInput.rowByAriaLabelPrefix('python, (');
 		const quartoRow = quickInput.rowByAriaLabelPrefix('quarto, (');
 		const rRow = quickInput.rowByAriaLabelPrefix('r, (');
-
-		// Reveal python/quarto/r together — virtualization only renders ~20
-		// rows, so we keep stepping until all three are present.
 		await quickInput.scrollIntoView([pythonRow, quartoRow, rRow]);
 
 		const pickerBox = await picker.boundingBox();
@@ -189,8 +189,7 @@ test.describe('Release Screenshots - Snippets', () => {
 		const { console: consolePane, sessions, suggestWidget } = app.workbench;
 		await sessions.expectAllSessionsToBeReady();
 
-		// Type at the R console prompt — matches the docs reference which
-		// shows "> for" in the console, not in an editor file.
+		// Type `for` at the R console prompt
 		await consolePane.typeToConsole('for');
 		await suggestWidget.trigger();
 		await suggestWidget.focusSnippetRow();
@@ -232,14 +231,16 @@ test.describe('Release Screenshots - Snippets', () => {
 	 */
 	test('Release Screenshot - snippets-keyword-with-two-items.png', async ({ app, page, openFile, r }) => {
 		const { editor, sessions, suggestWidget } = app.workbench;
-		await sessions.expectAllSessionsToBeReady();
 
+		await sessions.expectAllSessionsToBeReady();
 		writeFileSync(join(app.workspacePathOrFolder, 'snippet-demo.R'), '\n');
 		await openFile('snippet-demo.R');
 
+		// Type `fun` in the R file and trigger the suggest widget
 		await editor.type('fun');
 		await suggestWidget.trigger();
 
+		// Wait for the two target rows to be visible.
 		const funRow = suggestWidget.rowByText('Define a function').first();
 		const functionKeywordRow = suggestWidget.widget
 			.locator('.monaco-list-row', { hasText: '[keyword]' })
@@ -253,6 +254,7 @@ test.describe('Release Screenshots - Snippets', () => {
 		await suggestWidget.tagRow('Define a function', 'snippet-fun');
 		await suggestWidget.tagRowByRegex(/\bfunction\b.*\[keyword\]|\[keyword\].*\bfunction\b/, 'keyword-function');
 
+		// Prepare for the screenshot and annotate the two rows.
 		await prepareForScreenshot(app, page);
 		await annotate(page, [
 			{ selector: '[data-screenshot-target="snippet-fun"]', label: '', color: ANNOTATION_COLOR, padding: 1, borderWidth: 1 },

@@ -54,10 +54,10 @@ test.beforeEach(async ({ app }) => {
 	await setScreenshotWindowSize(app);
 });
 
-test.afterEach(async ({ app, page }) => {
+test.afterEach(async ({ page, hotKeys }) => {
 	await page.keyboard.press('Escape');
 	await clearAnnotations(page);
-	await app.workbench.hotKeys.closeAllEditors();
+	await hotKeys.closeAllEditors();
 });
 
 test.describe('Release Screenshots - Interpreter Session', () => {
@@ -82,14 +82,13 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		writeFileSync(join(app.workspacePathOrFolder, 'basics.R'), BASICS_R);
 		await openFile('basics.R');
 
+		// customize the layout
 		await hotKeys.closePrimarySidebar();
 		await hotKeys.closeSecondarySidebar();
 		await layouts.resizePanel({ y: -150 });
-		// Widen the session tab list a bit so the R/Python cards read
-		// proportionally larger in the docs framing. Negative x drags the
-		// sash left, growing the list.
 		await sessions.resizeSessionList({ x: -80 });
 
+		// capture screenshot
 		await prepareForScreenshot(app, page);
 		await overrideWorkspaceName(page, 'qa-example-content', 'my-project');
 		await annotate(page, [
@@ -107,8 +106,7 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 	 */
 	test('Release Screenshot - variables-pane.png', async ({ app, page, openFile, executeCode, r }) => {
 		const { sessions, variables, hotKeys, layouts } = app.workbench;
-		// Smaller window so the variables list reads denser and the empty
-		// editor / console space below is trimmed — matches the docs framing.
+
 		await setScreenshotWindowSize(app, { width: 1280, height: 800 });
 		await sessions.expectAllSessionsToBeReady();
 
@@ -116,19 +114,17 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		await openFile('data_types.R');
 		await executeCode('R', DATA_TYPES_R, { maximizeConsole: false });
 
+		// customize the layout
 		await hotKeys.closePrimarySidebar();
 		await hotKeys.showSecondarySidebar();
-		// Collapse the Plots pane (sibling split-view to Variables) so the
-		// shot matches the docs reference (Variables only). The pane header
-		// has an aria-label of "Plots Section" and clicking it toggles
-		// expand/collapse.
+
+		// Collapse the Plots pane and focus on variables so the Plots header doesn't have focus state
 		await page.locator('.part.auxiliarybar [aria-label="Plots Section"]').click();
-		// Re-focus the Variables view AFTER the click so the Plots header
-		// loses its focused/highlighted state in the captured frame.
 		await variables.focusVariablesView();
 		await layouts.resizeAuxiliaryBar({ x: -300 });
 		await expect(variables.variablesPane).toBeVisible();
 
+		// capture screenshot
 		await layouts.resizePanel({ y: 30 });
 		await prepareForScreenshot(app, page);
 		await overrideWorkspaceName(page, 'qa-example-content', 'my-project');
