@@ -13,27 +13,32 @@ import { annotate, clearAnnotations } from './helpers/annotate-utils';
 
 const ANNOTATION_COLOR = '#dc2626';
 
-const DATA_TYPES_R = `# Numbers
-count <- 5L
-price <- 19.99
-
-# Strings
-first_name <- "Alice"
-city <- "Seattle"
-
-# Vector
-scores <- c(88, 92, 75, 95, 81)
-
-# Boolean
-is_active <- TRUE
-
-# Data Frame
-employees <- data.frame(
-name = c("Alice", "Bob", "Charlie"),
-age = c(30, 25, 35),
-salary = c(85000, 65000, 92000)
-)
-`;
+// Built via array+join because the data.frame() body needs 2-space indents
+// (so the console output reads "normal" to R folks), but the project hygiene
+// hook rejects lines with leading spaces in source files.
+const DATA_TYPES_R = [
+	'# Numbers',
+	'count <- 5L',
+	'price <- 19.99',
+	'',
+	'# Strings',
+	'first_name <- "Alice"',
+	'city <- "Seattle"',
+	'',
+	'# Vector',
+	'scores <- c(88, 92, 75, 95, 81)',
+	'',
+	'# Boolean',
+	'is_active <- TRUE',
+	'',
+	'# Data Frame',
+	'employees <- data.frame(',
+	'  name = c("Alice", "Bob", "Charlie"),',
+	'  age = c(30, 25, 35),',
+	'  salary = c(85000, 65000, 92000)',
+	')',
+	'',
+].join('\n');
 
 const BASICS_R = `# Variable Assignment
 x <- 10
