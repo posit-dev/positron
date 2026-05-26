@@ -134,7 +134,11 @@ class ToggleCustomTitleBar extends Action2 {
 							ContextKeyExpr.and(
 								ContextKeyExpr.equals('config.workbench.layoutControl.enabled', false),
 								ContextKeyExpr.equals('config.window.commandCenter', false),
-								ContextKeyExpr.notEquals('config.workbench.editor.editorActionsLocation', 'titleBar'),
+								// --- Start Positron ---
+								// Positron owns workbench.editor.editorActionsLocation via the Editor Action
+								// Toolbar, so this clause no longer participates in the visibility logic.
+								// ContextKeyExpr.notEquals('config.workbench.editor.editorActionsLocation', 'titleBar'),
+								// --- End Positron ---
 								ContextKeyExpr.notEquals('config.workbench.activityBar.location', 'top'),
 								ContextKeyExpr.notEquals('config.workbench.activityBar.location', 'bottom')
 							)?.negate()
