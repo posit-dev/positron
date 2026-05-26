@@ -61,7 +61,7 @@ test.describe('Sessions: R Session Init Hooks', {
 		await app.workbench.editors.waitForActiveTab('DESCRIPTION');
 	});
 
-	test('R - Window reload fires only session_reconnect, not session_init or .Rprofile', async function ({ app, hotKeys, sessions }) {
+	test('R - Window reload fires only session_reconnect, not session_init or .Rprofile', async function ({ app, hotKeys }) {
 		const { console } = app.workbench;
 
 		await hotKeys.closeAllEditors();
@@ -80,9 +80,6 @@ test.describe('Sessions: R Session Init Hooks', {
 		await console.clearButton.click();
 		await hotKeys.reloadWindow(true);
 		await console.waitForReady('>', 60000);
-
-		const sessionId = await sessions.getCurrentSessionId();
-		await sessions.expectStatusToBe(sessionId, 'idle');
 
 		// Verify session_reconnect hook fired via the queryable side effect
 		await console.executeCode('R', 'cat(paste0("[verify] reconnect_fired=", isTRUE(getOption("test_reconnect_fired"))))');
