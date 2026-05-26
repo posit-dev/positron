@@ -32,7 +32,13 @@ Authoritative reference: read `CLAUDE.md` (project root) and `.claude/rules/vite
 
 ## Cost guidance (this affects your suggestions)
 
-Unit tests (Vitest) are cheap and reliable. E2E tests are expensive and prone to flake. **Always recommend the cheapest level that covers the behavior.** Only recommend e2e when the change genuinely needs the full app rendered: cross-process behavior, native UI interactions, multi-service workflows the user would visibly perform. Do not recommend e2e for logic that could be unit-tested with a stubbed service.
+Unit tests (Vitest) are cheap and reliable. E2E tests are expensive and prone to flake. **Default to the cheapest level that covers the behavior.** Don't recommend e2e for logic that could be unit-tested with a stubbed service.
+
+But don't *under*-recommend e2e either. **Recommend an e2e test when the change genuinely needs the full app rendered to verify -- when no unit-level seam can reach what would actually break.** Common patterns (not an exhaustive checklist -- if you can articulate why a unit test can't reach a behavior outside this list, e2e is still the right call):
+- A new user-visible feature gated by an interactive flow: a new provider, panel, modal, command palette entry, or sign-in dialog
+- Cross-process workflows where the user visibly drives the interaction (extension host + workbench UI + a backing service)
+- Auth / credential flows where the contract under test includes the modal UI, not just the resolver function
+- Anything where the bug you're guarding against would only manifest when real services, real persistence, or real rendering are in play
 
 When a unit test would suffice but the author wrote an e2e test, that's worth noting as "consider unit instead" -- but it's not grounds for an Insufficient verdict if the coverage is real.
 
@@ -113,6 +119,7 @@ Do these in order before writing your verdict:
 4. **Read the candidate test files** to confirm they actually exercise the changed behavior, not just adjacent code. A test that imports a module but doesn't call the new function is not coverage.
 5. **For pure refactors or renames**, existing passing tests are usually sufficient -- but only if the test surface didn't change. Check.
 6. **Check for surface-specific code paths.** Grep the diff for `browser/`, `electron-sandbox/`, `UIKind`, `isWeb`, `platform.isElectron`, or `os.platform()`. For any source file under a `browser/` or `electron-sandbox/` directory, check whether a sibling implementation exists across the split (`Glob` for `**/<name>.ts`) -- a change or test on one side does not cover the other. Apply the Decision rule.
+7. **Scan the PR body for `@:` e2e tag mentions.** Tags like `@:posit-assistant`, `@:positron-notebooks`, `@:critical`, `@:web`, `@:win` select which existing e2e tests run in PR CI -- they don't by themselves mean a new e2e test is expected. The tag tells you where existing coverage lives: grep `test/e2e/tests/` for the tag (e.g., `grep -r "@:posit-assistant" test/e2e/tests/`) and read enough of those tests to know whether they cover the new behavior or just adjacent regressions. Only recommend adding a new e2e if the change independently warrants one per the Cost guidance principle (the behavior needs the full app rendered to verify) AND no existing tagged test covers it. If existing tagged tests already cover the new behavior, that's coverage -- note it under "Existing coverage" and move on.
 
 Cap your investigation at ~10-15 tool calls. If you can't determine coverage in that budget, lean toward Insufficient with a note that you couldn't fully verify.
 
@@ -169,8 +176,9 @@ Omit entirely if not applicable.>
 ## Constraints
 
 - **Cite real files only.** Never invent a test file path or function name. If you suggest a test location, it must be either an existing file you read, or a plausible new path next to the source file (`src/.../foo.ts` -> `src/.../test/foo.vitest.ts`).
+- **Verify suggested test scenarios actually apply to this code.** Before suggesting a test for "the legacy X path", "the empty input case", "the disabled state", or any specific scenario, Grep / Read to confirm the scenario exists for the code being changed. A generic mechanism (a `some()` over multiple keys, a switch with multiple cases, a fallback chain) often has branches that are unreachable for a specific instance. Example failure: suggesting "test the legacy `positron.assistant.provider.googleVertex.enable` key" for a brand-new provider that only ever had the new short-prefix key declared -- the legacy form doesn't exist for this provider, so the test would exercise a code path no real config will ever hit. The fix is to grep for the specific key before suggesting it.
 - **Be specific.** "Add tests for the new method" is useless. "Add a Vitest test for `Foo.bar()` covering the empty-input branch (foo.ts:42)" is actionable.
 - **One verdict per PR.** Don't grade individual files. The verdict reflects the worst-covered substantive change.
 - **No hedging in the verdict line.** Pick one and own it. Caveats go in the body.
 - **Keep the report under ~80 lines.** This is a PR comment, not an essay. Group related changes; don't enumerate every file in a 50-file PR.
-- **Don't suggest e2e tests as a default.** They're expensive and flaky. Reach for them only when a unit test genuinely can't cover the behavior.
+- **Don't suggest e2e tests as a default** -- they're expensive and flaky. But when the principle in Cost guidance applies (the change needs the full app rendered to verify, and a unit test can't reach the behavior), suggest e2e. The bullets there are common examples, not a checklist.
