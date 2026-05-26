@@ -272,10 +272,13 @@ test('generateDiff: unchanged pixels are dimmed, changed pixels are red', () => 
 	const result = generateDiff(gen, docs);
 	assert.ok(result, 'should produce a diff result');
 	const diff = PNG.sync.read(result.buf);
-	// left half (unchanged) should be dimmed red (≈ 255*0.3 = 76)
+	// pixelmatch renders unchanged pixels as grayscale (R=G=B), alpha-blended
+	// toward white. Channels should match each other, not be the original
+	// red color.
 	const leftIdx = 0 * 4;
-	assert.ok(diff.data[leftIdx] < 100, 'unchanged red channel should be dimmed');
-	// right half (changed) should be bright red
+	assert.equal(diff.data[leftIdx], diff.data[leftIdx + 1], 'unchanged pixel should be grayscale (R=G)');
+	assert.equal(diff.data[leftIdx + 1], diff.data[leftIdx + 2], 'unchanged pixel should be grayscale (G=B)');
+	// right half (changed) should be bright red — pixelmatch's diffColor
 	const rightIdx = 2 * 4;
 	assert.equal(diff.data[rightIdx], 255);
 	assert.equal(diff.data[rightIdx + 1], 50);
@@ -292,21 +295,21 @@ test('generateDiff: changedRatio reflects proportion of changed pixels', () => {
 });
 
 test('generateDiff: threshold suppresses small deltas', () => {
-	// Both halves differ by exactly 10 — below the default threshold of 15 → ratio 0
+	// Small RGB delta of 10 — well below pixelmatch's default YIQ threshold (0.1) → ratio 0
 	const gen = makeRealPng(4, 2, [255, 0, 0], [255, 0, 0]);
 	const docs = makeRealPng(4, 2, [245, 0, 0], [245, 0, 0]);
 	const result = generateDiff(gen, docs);
 	assert.ok(result);
-	assert.equal(result.changedRatio, 0, 'delta=10 should be below threshold=15');
+	assert.equal(result.changedRatio, 0, 'small delta should be below default threshold');
 });
 
 test('generateDiff: threshold option overrides default', () => {
-	// Delta of 10 — above a custom threshold of 5 → all pixels changed
+	// Same small delta — but with a near-zero threshold, every pixel is flagged
 	const gen = makeRealPng(4, 2, [255, 0, 0], [255, 0, 0]);
 	const docs = makeRealPng(4, 2, [245, 0, 0], [245, 0, 0]);
-	const result = generateDiff(gen, docs, [], { threshold: 5 });
+	const result = generateDiff(gen, docs, [], { threshold: 0 });
 	assert.ok(result);
-	assert.equal(result.changedRatio, 1, 'delta=10 should exceed threshold=5');
+	assert.equal(result.changedRatio, 1, 'any non-zero delta should exceed threshold=0');
 });
 
 test('generateDiff: masked regions are grey regardless of pixel content', () => {

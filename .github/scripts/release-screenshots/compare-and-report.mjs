@@ -7,6 +7,7 @@ import { readdir, readFile, writeFile, appendFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { extname, join } from 'node:path';
 import { PNG } from 'pngjs';
+import pixelmatch from 'pixelmatch';
 
 const PNG_SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const KNOWN_IMAGE_EXTS = ['.png', '.jpg', '.jpeg'];
@@ -38,20 +39,25 @@ async function readPng(path) {
 
 /**
  * Generate a diff PNG visualising what changed between two screenshots.
- * - Changed pixels (max channel delta > threshold) → bright red
+ * Uses pixelmatch with `includeAA: false` so anti-aliased / sub-pixel
+ * differences (the kind that crop up between font-rendering runs) don't
+ * inflate the change count.
+ *
+ * - Changed pixels → bright red
+ * - Anti-aliased pixels → yellow (rendered but not counted)
  * - Unchanged pixels → 30% brightness of the generated image
  *
  * Returns null if either buffer is not a parseable PNG or the images differ in size.
  * Otherwise returns { buf, changedRatio } where changedRatio is the fraction of
- * pixels (0–1) whose max channel delta exceeds the threshold.
+ * pixels (0–1) that pixelmatch flags as a real change (excluding AA).
  *
  * @param {Buffer} genBuf   raw generated PNG
  * @param {Buffer} docsBuf  raw docs PNG
  * @param {Array}  regions  reserved for future use
- * @param {{ threshold?: number }} opts  threshold defaults to 15 to suppress anti-aliasing noise
+ * @param {{ threshold?: number }} opts  pixelmatch threshold in [0,1]; default 0.1
  * @returns {{ buf: Buffer, changedRatio: number }|null}
  */
-export function generateDiff(genBuf, docsBuf, regions = [], { threshold = 15 } = {}) {
+export function generateDiff(genBuf, docsBuf, regions = [], { threshold = 0.1 } = {}) {
 	let genPng, docsPng;
 	try {
 		genPng = PNG.sync.read(genBuf);
@@ -64,32 +70,19 @@ export function generateDiff(genBuf, docsBuf, regions = [], { threshold = 15 } =
 	}
 
 	const diff = new PNG({ width: genPng.width, height: genPng.height });
-	let changedPixels = 0;
-
-	for (let row = 0; row < genPng.height; row++) {
-		for (let col = 0; col < genPng.width; col++) {
-			const i = (row * genPng.width + col) * 4;
-			const delta = Math.max(
-				Math.abs(genPng.data[i] - docsPng.data[i]),
-				Math.abs(genPng.data[i + 1] - docsPng.data[i + 1]),
-				Math.abs(genPng.data[i + 2] - docsPng.data[i + 2]),
-			);
-			if (delta > threshold) {
-				changedPixels++;
-				// Changed — red.
-				diff.data[i] = 255;
-				diff.data[i + 1] = 50;
-				diff.data[i + 2] = 50;
-				diff.data[i + 3] = 255;
-			} else {
-				// Unchanged — dim to 30% so changed pixels stand out.
-				diff.data[i] = Math.round(genPng.data[i] * 0.3);
-				diff.data[i + 1] = Math.round(genPng.data[i + 1] * 0.3);
-				diff.data[i + 2] = Math.round(genPng.data[i + 2] * 0.3);
-				diff.data[i + 3] = 255;
-			}
-		}
-	}
+	const changedPixels = pixelmatch(
+		genPng.data,
+		docsPng.data,
+		diff.data,
+		genPng.width,
+		genPng.height,
+		{
+			threshold,
+			includeAA: false,
+			alpha: 0.3,
+			diffColor: [255, 50, 50],
+		},
+	);
 
 	const totalPixels = genPng.width * genPng.height;
 	return { buf: PNG.sync.write(diff), changedRatio: changedPixels / totalPixels };
