@@ -20,7 +20,8 @@ suite('Discover Web app frameworks', () => {
         document = {
             getText: () => '',
             languageId: 'python',
-        } as vscode.TextDocument;
+            uri: { scheme: 'file' },
+        } as unknown as vscode.TextDocument;
     });
 
     teardown(() => {
@@ -64,6 +65,17 @@ suite('Discover Web app frameworks', () => {
 
             assert.strictEqual(actual, expected);
         });
+    });
+
+    test('should clear context for notebook cell documents', () => {
+        const notebookDocument = {
+            getText: () => 'import dash\napp = Dash(__name__)',
+            languageId: 'python',
+            uri: { scheme: 'vscode-notebook-cell' },
+        } as unknown as vscode.TextDocument;
+        detectWebApp(notebookDocument);
+
+        assert.ok(executeCommandStub.calledOnceWith('setContext', 'pythonAppFramework', undefined));
     });
 
     // Tests for app creation patterns
