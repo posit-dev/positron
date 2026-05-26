@@ -265,59 +265,53 @@ test('formatChangedRatio: values >= 0.1% render as N.N%', () => {
 // --- generateDiff ---
 
 test('generateDiff: unchanged pixels are dimmed, changed pixels are red', () => {
-	// 16×16 image (large enough for the 7×7 blur kernel not to dominate):
-	// left half red, right half blue in `gen`; right half green in `docs`.
-	const gen = makeRealPng(16, 16, [255, 0, 0], [0, 0, 255]);
-	const docs = makeRealPng(16, 16, [255, 0, 0], [0, 255, 0]);
+	// 4×2 image: left half red, right half blue
+	const gen = makeRealPng(4, 2, [255, 0, 0], [0, 0, 255]);
+	// docs: left half red (same), right half green (different)
+	const docs = makeRealPng(4, 2, [255, 0, 0], [0, 255, 0]);
 	const result = generateDiff(gen, docs);
 	assert.ok(result, 'should produce a diff result');
 	const diff = PNG.sync.read(result.buf);
-	// Sample deep in the left half (unchanged) — dim 30% of red: ~[76,0,0]
-	const leftIdx = (8 * 16 + 1) * 4;
-	assert.equal(diff.data[leftIdx], Math.round(255 * 0.3));
-	assert.equal(diff.data[leftIdx + 1], 0);
-	assert.equal(diff.data[leftIdx + 2], 0);
-	// Sample deep in the right half (changed) — pixelmatch's diffColor
-	const rightIdx = (8 * 16 + 14) * 4;
+	// left half (unchanged) should be dimmed red (≈ 255*0.3 = 76)
+	const leftIdx = 0 * 4;
+	assert.ok(diff.data[leftIdx] < 100, 'unchanged red channel should be dimmed');
+	// right half (changed) should be bright red
+	const rightIdx = 2 * 4;
 	assert.equal(diff.data[rightIdx], 255);
 	assert.equal(diff.data[rightIdx + 1], 50);
 	assert.equal(diff.data[rightIdx + 2], 50);
 });
 
 test('generateDiff: changedRatio reflects proportion of changed pixels', () => {
-	// 16×16 with left half (8 cols) unchanged, right half changed → ratio ≈ 0.5.
-	// (Exact 0.5 would require no blur; the box blur bleeds a column of edge
-	// pixels across the boundary, so we accept a small window around 0.5.)
-	const gen = makeRealPng(16, 16, [255, 0, 0], [0, 0, 255]);
-	const docs = makeRealPng(16, 16, [255, 0, 0], [0, 255, 0]);
+	// 4×2 = 8 pixels: left half (4) unchanged, right half (4) changed → ratio 0.5
+	const gen = makeRealPng(4, 2, [255, 0, 0], [0, 0, 255]);
+	const docs = makeRealPng(4, 2, [255, 0, 0], [0, 255, 0]);
 	const result = generateDiff(gen, docs);
 	assert.ok(result);
-	assert.ok(result.changedRatio > 0.35 && result.changedRatio < 0.55, `expected ~0.5, got ${result.changedRatio}`);
+	assert.equal(result.changedRatio, 0.5);
 });
 
 test('generateDiff: threshold suppresses small deltas', () => {
-	// Small RGB delta of 10 — well below pixelmatch's default YIQ threshold (0.1) → ratio 0
+	// Both halves differ by exactly 10 — below the default threshold of 15 → ratio 0
 	const gen = makeRealPng(4, 2, [255, 0, 0], [255, 0, 0]);
 	const docs = makeRealPng(4, 2, [245, 0, 0], [245, 0, 0]);
 	const result = generateDiff(gen, docs);
 	assert.ok(result);
-	assert.equal(result.changedRatio, 0, 'small delta should be below default threshold');
+	assert.equal(result.changedRatio, 0, 'delta=10 should be below threshold=15');
 });
 
 test('generateDiff: threshold option overrides default', () => {
-	// Same small delta — but with a near-zero threshold, every pixel is flagged.
-	// Image must be at least the size of the density window (radius=7 → 15x15)
-	// so the local-density check sees a fully changed neighbourhood.
-	const gen = makeRealPng(20, 20, [255, 0, 0], [255, 0, 0]);
-	const docs = makeRealPng(20, 20, [245, 0, 0], [245, 0, 0]);
-	const result = generateDiff(gen, docs, [], { threshold: 0 });
+	// Delta of 10 — above a custom threshold of 5 → all pixels changed
+	const gen = makeRealPng(4, 2, [255, 0, 0], [255, 0, 0]);
+	const docs = makeRealPng(4, 2, [245, 0, 0], [245, 0, 0]);
+	const result = generateDiff(gen, docs, [], { threshold: 5 });
 	assert.ok(result);
-	assert.equal(result.changedRatio, 1, 'any non-zero delta should exceed threshold=0');
+	assert.equal(result.changedRatio, 1, 'delta=10 should exceed threshold=5');
 });
 
 test('generateDiff: masked regions are grey regardless of pixel content', () => {
-	const gen = makeRealPng(20, 20, [255, 0, 0], [0, 0, 255]);
-	const docs = makeRealPng(20, 20, [255, 0, 0], [0, 255, 0]);
+	const gen = makeRealPng(4, 2, [255, 0, 0], [0, 0, 255]);
+	const docs = makeRealPng(4, 2, [255, 0, 0], [0, 255, 0]);
 	// regions param is reserved; passing it should not crash
 	const result = generateDiff(gen, docs, [{ x: 0.5, y: 0, width: 0.5, height: 1 }]);
 	assert.ok(result);

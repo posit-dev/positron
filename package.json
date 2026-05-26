@@ -281,7 +281,6 @@
     "os-browserify": "^0.3.0",
     "p-all": "^1.0.0",
     "path-browserify": "^1.0.1",
-    "pixelmatch": "^7.2.0",
     "pngjs": "^7.0.0",
     "pump": "^1.0.1",
     "rcedit": "^1.1.0",

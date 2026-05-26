@@ -7,7 +7,6 @@ import { readdir, readFile, writeFile, appendFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { extname, join } from 'node:path';
 import { PNG } from 'pngjs';
-import pixelmatch from 'pixelmatch';
 
 const PNG_SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const KNOWN_IMAGE_EXTS = ['.png', '.jpg', '.jpeg'];
@@ -37,48 +36,22 @@ async function readPng(path) {
 	return buf;
 }
 
-const DIFF_COLOR = [255, 50, 50];
-const DEFAULT_WINDOW_RADIUS = 7;
-const DEFAULT_LOCAL_DENSITY = 0.15;
-
 /**
  * Generate a diff PNG visualising what changed between two screenshots.
- *
- * pixelmatch identifies per-pixel differences with `includeAA: false`, but
- * sub-pixel font shifts produce scattered diffs along every glyph edge that
- * still survive that check. We post-filter the per-pixel mask with a
- * sliding-window local-density check: a changed pixel survives only if
- * enough of its neighbours within `windowRadius` are also changed.
- *
- * Why sliding-window (rather than fixed blocks): fixed blocks miss real
- * content changes that straddle a block boundary (e.g. a small string like
- * "3.13.5" split across two blocks may not reach density in either, even
- * though the change is concentrated). A sliding window centred on each
- * pixel removes that grid-alignment bias.
- *
- * - Changed pixels that pass the local-density check → bright red, drawn
- *   over a 30%-brightness copy of the generated image.
- * - Everything else → dim background.
+ * - Changed pixels (max channel delta > threshold) → bright red
+ * - Unchanged pixels → 30% brightness of the generated image
  *
  * Returns null if either buffer is not a parseable PNG or the images differ in size.
- * Otherwise returns { buf, changedRatio } where changedRatio is the fraction
- * of pixels (0–1) that survived the density filter.
+ * Otherwise returns { buf, changedRatio } where changedRatio is the fraction of
+ * pixels (0–1) whose max channel delta exceeds the threshold.
  *
  * @param {Buffer} genBuf   raw generated PNG
  * @param {Buffer} docsBuf  raw docs PNG
  * @param {Array}  regions  reserved for future use
- * @param {{ threshold?: number, windowRadius?: number, localDensity?: number }} opts
- *        pixelmatch threshold in [0,1] (default 0.1), sliding-window radius
- *        in pixels (default 7, i.e. a 15x15 window), minimum local density
- *        of changed pixels required to keep one (default 0.15).
+ * @param {{ threshold?: number }} opts  threshold defaults to 15 to suppress anti-aliasing noise
  * @returns {{ buf: Buffer, changedRatio: number }|null}
  */
-export function generateDiff(
-	genBuf,
-	docsBuf,
-	regions = [],
-	{ threshold = 0.1, windowRadius = DEFAULT_WINDOW_RADIUS, localDensity = DEFAULT_LOCAL_DENSITY } = {},
-) {
+export function generateDiff(genBuf, docsBuf, regions = [], { threshold = 15 } = {}) {
 	let genPng, docsPng;
 	try {
 		genPng = PNG.sync.read(genBuf);
@@ -90,62 +63,26 @@ export function generateDiff(
 		return null;
 	}
 
-	const { width, height } = genPng;
-	// Per-pixel diff mask from pixelmatch (includeAA:false already filters
-	// classic anti-aliasing; what gets through is mostly font-shift edges).
-	const mask = new Uint8Array(width * height * 4);
-	pixelmatch(genPng.data, docsPng.data, mask, width, height, {
-		threshold,
-		includeAA: false,
-		diffMask: true,
-		diffColor: DIFF_COLOR,
-	});
-
-	// Flatten mask to 1 bit/pixel for the density pass, then build a per-row
-	// running sum so windowed counts are O(rows-in-window) instead of O(rows*cols).
-	const bin = new Uint8Array(width * height);
-	for (let y = 0; y < height; y++) {
-		for (let x = 0; x < width; x++) {
-			const i = (y * width + x) * 4;
-			bin[y * width + x] = mask[i] === DIFF_COLOR[0] && mask[i + 1] === DIFF_COLOR[1] && mask[i + 2] === DIFF_COLOR[2] ? 1 : 0;
-		}
-	}
-	const rowSum = new Int32Array(width * height);
-	for (let y = 0; y < height; y++) {
-		let acc = 0;
-		for (let x = 0; x < width; x++) {
-			acc += bin[y * width + x];
-			rowSum[y * width + x] = acc;
-		}
-	}
-	const winSize = (2 * windowRadius + 1) * (2 * windowRadius + 1);
-	const minCount = Math.ceil(localDensity * winSize);
-
-	const diff = new PNG({ width, height });
+	const diff = new PNG({ width: genPng.width, height: genPng.height });
 	let changedPixels = 0;
-	for (let y = 0; y < height; y++) {
-		for (let x = 0; x < width; x++) {
-			const i = (y * width + x) * 4;
-			let keep = false;
-			if (bin[y * width + x]) {
-				const x0 = Math.max(0, x - windowRadius);
-				const y0 = Math.max(0, y - windowRadius);
-				const x1 = Math.min(width - 1, x + windowRadius);
-				const y1 = Math.min(height - 1, y + windowRadius);
-				let s = 0;
-				for (let yy = y0; yy <= y1; yy++) {
-					const left = x0 > 0 ? rowSum[yy * width + x0 - 1] : 0;
-					s += rowSum[yy * width + x1] - left;
-				}
-				keep = s >= minCount;
-			}
-			if (keep) {
-				diff.data[i] = DIFF_COLOR[0];
-				diff.data[i + 1] = DIFF_COLOR[1];
-				diff.data[i + 2] = DIFF_COLOR[2];
-				diff.data[i + 3] = 255;
+
+	for (let row = 0; row < genPng.height; row++) {
+		for (let col = 0; col < genPng.width; col++) {
+			const i = (row * genPng.width + col) * 4;
+			const delta = Math.max(
+				Math.abs(genPng.data[i] - docsPng.data[i]),
+				Math.abs(genPng.data[i + 1] - docsPng.data[i + 1]),
+				Math.abs(genPng.data[i + 2] - docsPng.data[i + 2]),
+			);
+			if (delta > threshold) {
 				changedPixels++;
+				// Changed — red.
+				diff.data[i] = 255;
+				diff.data[i + 1] = 50;
+				diff.data[i + 2] = 50;
+				diff.data[i + 3] = 255;
 			} else {
+				// Unchanged — dim to 30% so changed pixels stand out.
 				diff.data[i] = Math.round(genPng.data[i] * 0.3);
 				diff.data[i + 1] = Math.round(genPng.data[i + 1] * 0.3);
 				diff.data[i + 2] = Math.round(genPng.data[i + 2] * 0.3);
@@ -154,7 +91,7 @@ export function generateDiff(
 		}
 	}
 
-	const totalPixels = width * height;
+	const totalPixels = genPng.width * genPng.height;
 	return { buf: PNG.sync.write(diff), changedRatio: changedPixels / totalPixels };
 }
 
