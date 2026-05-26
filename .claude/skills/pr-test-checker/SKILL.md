@@ -26,7 +26,7 @@ The Positron repo has four runners. The right test for a change depends on what 
 | New code under `src/vs/` (pure function, class, service, React component) | **Vitest** | `src/vs/**/test/**/*.vitest.{ts,tsx}` |
 | Touching an **existing** upstream VS Code test file | **Core Mocha** (match the existing pattern; don't create new Mocha tests for new Positron code) | `src/vs/**/test/**/*.test.ts` |
 | Code in `extensions/<name>/` that needs an activated extension host | **Extension-host Mocha** | `extensions/<name>/**/*.test.ts` |
-| User-visible workflow that spans multiple systems (kernel + UI + filesystem) | **Playwright e2e** | `test/e2e/tests/**/*.test.ts` |
+| User-visible workflow that needs the full app rendered to verify (e.g., kernel + UI + filesystem, a sign-in / auth modal flow, a new provider in a configuration dialog, a new command palette entry that drives a panel) | **Playwright e2e** | `test/e2e/tests/**/*.test.ts` |
 
 Authoritative reference: read `CLAUDE.md` (project root) and `.claude/rules/vitest-tests.md` if you need to confirm a runner choice.
 
@@ -87,12 +87,14 @@ To check whether a candidate e2e test has the right tag, Grep its file for `@:wi
 
 ### Surface-specific code paths
 
-The strongest signal of differential desktop vs web behavior -- much stronger than vague "hotspot" matching:
+The strongest signal for **direct** surface gaps -- when the diff itself sits on one side of a surface split:
 
 - **Parallel implementations**: a service has both `src/vs/.../browser/<name>.ts` AND `src/vs/.../electron-sandbox/<name>.ts` files. Common examples: `services/lifecycle/`, `services/host/`, `services/files/`, `services/dialogs/`. A change to (or test of) one path does not cover the other.
 - **Surface branching**: the diff contains `UIKind.Web`, `isWeb`, `platform.isElectron`, `os.platform() === 'win32'`, or paths imported from `browser/` / `electron-sandbox/`. Each branch is its own untested behavior until proven otherwise.
 
 When you see a parallel-implementation file in the diff, Grep its sibling (`browser/foo.ts` <-> `electron-sandbox/foo.ts`) to see if the bug or behavior also exists there. A fix that only lands on one side is half a fix.
+
+The Windows/web **hotspots** lists above are the corresponding signal for **indirect** gaps -- the diff doesn't live in a surface-split directory, but it consumes a service whose `browser/`/`electron-sandbox/` implementations diverge (e.g., subscribes to `ILifecycleService.onWillShutdown`). Apply both lenses: surface-path check first (direct), then hotspot check (indirect).
 
 ### Decision rule
 
@@ -132,7 +134,11 @@ You must pick exactly one verdict:
 | **Adequate** | The PR adds tests that cover the new/changed behavior at the cheapest viable level. Cite the test file(s) and what behavior they cover. |
 | **Adequate via existing coverage** | The PR doesn't add tests, but existing tests already exercise the changed code paths (pure refactor, rename, behavior-preserving cleanup, or trivially-covered new code). Cite the specific test file(s) and lines/describes you verified. |
 | **Insufficient** | At least one substantive source change has no test coverage -- neither in the PR nor in existing tests. Name the gap and suggest specific additions. |
-| **Not applicable** | The PR is docs-only, config-only, dependency bumps, or otherwise has no testable behavior change. (Most "Not applicable" PRs short-circuit before you're invoked; reaching this verdict from your seat means the heuristic missed.) |
+| **Not applicable** | The PR has no testable behavior change. Examples: docs-only, config-only, dependency bumps, logging/telemetry/instrumentation additions, type-only changes, copyright/formatting. (Most short-circuit before you're invoked; reaching this verdict from your seat means the heuristic missed, or the change is observability-only.) |
+
+**What counts as a "substantive" change** (drives the Insufficient threshold): a behavior change a reasonable reader would expect to assert against -- new branches, new functions, modified return values, new error paths, observable side effects, fixed bugs. **Not substantive:** comments, copyright/formatting, logging-only additions, telemetry, type-only changes, behavior-preserving refactors/renames where the test surface is unchanged. When in doubt, ask: "could a future regression here go undetected without a new test?" If no -> not substantive.
+
+**For bug-fix PRs**, adequate coverage means a *regression test* -- one that fails on `main` and passes after the fix. If the PR claims to fix a specific issue (e.g., "Fix #1234" in the title or body, or a clear bug description) but the new/modified tests don't exercise the exact branch the fix touches, treat it as **Insufficient** -- the fix isn't pinned in place and the bug can recur. Cite the specific test case (`it(...)` block) that pins the fix; vague coverage of adjacent code doesn't count.
 
 Be conservative on **Adequate via existing coverage** -- only use it when you've actually read the existing test and confirmed it exercises the changed path. "There's probably a test somewhere" is Insufficient.
 
