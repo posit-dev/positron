@@ -272,13 +272,12 @@ test('generateDiff: unchanged pixels are dimmed, changed pixels are red', () => 
 	const result = generateDiff(gen, docs);
 	assert.ok(result, 'should produce a diff result');
 	const diff = PNG.sync.read(result.buf);
-	// pixelmatch renders unchanged pixels as grayscale (R=G=B), alpha-blended
-	// toward white. Channels should match each other, not be the original
-	// red color.
+	// left half (unchanged) — dim 30% of generated: red [255,0,0] → ~[76,0,0]
 	const leftIdx = 0 * 4;
-	assert.equal(diff.data[leftIdx], diff.data[leftIdx + 1], 'unchanged pixel should be grayscale (R=G)');
-	assert.equal(diff.data[leftIdx + 1], diff.data[leftIdx + 2], 'unchanged pixel should be grayscale (G=B)');
-	// right half (changed) should be bright red — pixelmatch's diffColor
+	assert.equal(diff.data[leftIdx], Math.round(255 * 0.3));
+	assert.equal(diff.data[leftIdx + 1], 0);
+	assert.equal(diff.data[leftIdx + 2], 0);
+	// right half (changed) — pixelmatch's diffColor
 	const rightIdx = 2 * 4;
 	assert.equal(diff.data[rightIdx], 255);
 	assert.equal(diff.data[rightIdx + 1], 50);

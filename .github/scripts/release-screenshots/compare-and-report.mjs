@@ -44,8 +44,13 @@ async function readPng(path) {
  * inflate the change count.
  *
  * - Changed pixels → bright red
- * - Anti-aliased pixels → yellow (rendered but not counted)
- * - Unchanged pixels → 30% brightness of the generated image
+ * - Everything else → 30% brightness of the generated image
+ *
+ * Pre-fills the output buffer with a dimmed copy of the generated image,
+ * then runs pixelmatch with `diffMask: true` so only the changed pixels
+ * are drawn over the base. This keeps anti-aliased pixels (which would
+ * otherwise render as yellow and dominate text-heavy screenshots) looking
+ * like the rest of the unchanged background.
  *
  * Returns null if either buffer is not a parseable PNG or the images differ in size.
  * Otherwise returns { buf, changedRatio } where changedRatio is the fraction of
@@ -70,6 +75,15 @@ export function generateDiff(genBuf, docsBuf, regions = [], { threshold = 0.1 } 
 	}
 
 	const diff = new PNG({ width: genPng.width, height: genPng.height });
+	// Pre-fill with a 30%-brightness copy of the generated image so that
+	// non-diff pixels (including anti-aliased ones, which pixelmatch would
+	// otherwise paint yellow) render as a dim background.
+	for (let i = 0; i < genPng.data.length; i += 4) {
+		diff.data[i] = Math.round(genPng.data[i] * 0.3);
+		diff.data[i + 1] = Math.round(genPng.data[i + 1] * 0.3);
+		diff.data[i + 2] = Math.round(genPng.data[i + 2] * 0.3);
+		diff.data[i + 3] = 255;
+	}
 	const changedPixels = pixelmatch(
 		genPng.data,
 		docsPng.data,
@@ -79,7 +93,7 @@ export function generateDiff(genBuf, docsBuf, regions = [], { threshold = 0.1 } 
 		{
 			threshold,
 			includeAA: false,
-			alpha: 0.3,
+			diffMask: true,
 			diffColor: [255, 50, 50],
 		},
 	);
