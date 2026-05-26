@@ -62,7 +62,7 @@ focus indicator. Revert the selection border to avoid a doubled ring. */
 
 .positron-notebook-code-cell.selected .positron-notebook-cell-outputs:focus,
 .positron-notebook-code-cell.editing .positron-notebook-cell-outputs:focus {
-	border-color: var(--vscode-positronNotebook-border-color);
+	border-color: var(--vscode-positronNotebook-cellBorder);
 }
 
 /* === Selection States: Hover (when not selected/editing) === */
