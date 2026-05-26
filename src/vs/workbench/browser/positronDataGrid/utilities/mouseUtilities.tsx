@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -15,7 +15,7 @@ import { MouseSelectionType } from '../classes/dataGridInstance.js';
  * @param e The MouseEvent.
  * @returns The MouseSelectionType.
  */
-export const selectionType = (e: MouseEvent): MouseSelectionType => {
+export const mouseSelectionType = (e: MouseEvent): MouseSelectionType => {
 	// Shift (for range) has a higher priority than the meta / ctrl key (for multiple).
 	if (e.shiftKey) {
 		return MouseSelectionType.Range;
