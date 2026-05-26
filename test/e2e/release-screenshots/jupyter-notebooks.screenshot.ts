@@ -34,7 +34,7 @@ test.describe('Release Screenshots - Jupyter Notebooks', () => {
 		await notebooksVscode.createNewNotebook();
 		await notebooksVscode.expectToBeVisible();
 		await notebooksVscode.selectInterpreter('Python');
-		await sessions.expectSessionPickerToBe('Untitled-1.ipynb')
+		await sessions.expectSessionPickerToBe('Untitled-1.ipynb');
 
 		await hotKeys.closePrimarySidebar();
 		await hotKeys.closeSecondarySidebar();
