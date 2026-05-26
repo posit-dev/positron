@@ -29,11 +29,12 @@ test.describe('Release Screenshots - Jupyter Notebooks', () => {
 	 * Img Path: https://positron.posit.co/images/jupyter-notebooks-kernel-selector.png
 	 */
 	test('Release Screenshot - jupyter-notebooks-kernel-selector.png', async ({ app, page, python }) => {
-		const { notebooksVscode, hotKeys } = app.workbench;
+		const { notebooksVscode, hotKeys, sessions } = app.workbench;
 
 		await notebooksVscode.createNewNotebook();
 		await notebooksVscode.expectToBeVisible();
 		await notebooksVscode.selectInterpreter('Python');
+		await sessions.expectSessionPickerToBe('Untitled-1.ipynb')
 
 		await hotKeys.closePrimarySidebar();
 		await hotKeys.closeSecondarySidebar();
