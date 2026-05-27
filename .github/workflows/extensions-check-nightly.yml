@@ -125,15 +125,19 @@ jobs:
           echo "Found existing PR #$PR_NUMBER on branch $PR_BRANCH (review: ${PR_REVIEW:-none})"
 
           # Treat any review attention as a signal to add commits rather than force-push.
+          # /pulls/.../comments only covers inline review-thread comments; /issues/.../comments
+          # covers the main conversation tab — both must be checked to avoid clobbering a
+          # teammate's "please hold off" note with a force-push.
           REVIEW_COMMENTS=$(gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER/comments" --jq 'length')
+          ISSUE_COMMENTS=$(gh api "repos/${{ github.repository }}/issues/$PR_NUMBER/comments" --jq 'length')
           NON_BOT_COMMITS=$(gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER/commits" \
             --jq '[.[] | select((.author.login // "") != "positron-bot[bot]")] | length')
-          if [ "$REVIEW_COMMENTS" -gt 0 ] || [ "$NON_BOT_COMMITS" -gt 0 ] || [ -n "$PR_REVIEW" ]; then
+          if [ "$REVIEW_COMMENTS" -gt 0 ] || [ "$ISSUE_COMMENTS" -gt 0 ] || [ "$NON_BOT_COMMITS" -gt 0 ] || [ -n "$PR_REVIEW" ]; then
             MODE=additive
           else
             MODE=reset
           fi
-          echo "Reuse mode: $MODE (review comments: $REVIEW_COMMENTS, non-bot commits: $NON_BOT_COMMITS, review decision: ${PR_REVIEW:-none})"
+          echo "Reuse mode: $MODE (review comments: $REVIEW_COMMENTS, issue comments: $ISSUE_COMMENTS, non-bot commits: $NON_BOT_COMMITS, review decision: ${PR_REVIEW:-none})"
           {
             echo "exists=true"
             echo "pr_number=$PR_NUMBER"
@@ -280,7 +284,13 @@ jobs:
             BRANCH="$PR_BRANCH"
             git add product.json
             if git diff --staged --quiet && git diff --quiet origin/main -- product.json; then
-              echo "Existing PR is already current — nothing to commit or push."
+              # Reset-mode + no bumps needed: working tree matches origin/main and the
+              # existing PR's commits on the remote are untouched. We intentionally don't
+              # set branch/reused outputs here — skipping create-pr means the existing
+              # title/body stay as-is, which still accurately describe the PR's content.
+              # (Refreshing now would render an empty extension list, since UPDATED is
+              # computed from working tree vs origin/main and is empty in this path.)
+              echo "Reset produced no diff vs main — existing PR untouched."
               exit 0
             fi
             if git diff --staged --quiet; then
