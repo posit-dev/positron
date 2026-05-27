@@ -64,8 +64,13 @@ test.describe('Interpreter: Excludes', {
 	});
 });
 
+// Electron-only: in web mode the Positron server process (and its extension host) survives
+// window reloads, so runtimes registered before the override setting was written stay in the
+// registry. Only a worker restart wipes them, which the test harness can't trigger between
+// tests. Re-enable @:web once the runtime service supports unregistering stale entries
+// (see comment at runtimeStartup.ts:996).
 test.describe('Interpreter: Override', {
-	tag: [tags.INTERPRETER, tags.WEB]
+	tag: [tags.INTERPRETER]
 }, () => {
 	let overrideRPath: string;
 	let overridePythonPath: string;
@@ -80,12 +85,7 @@ test.describe('Interpreter: Override', {
 		}, { reload: true, waitForReady: true });
 	});
 
-	test('R - Can Override Interpreter Discovery', { tag: [tags.ARK] }, async function ({ sessions, hotKeys, app }) {
-		// The runtime discovery cache is stored at StorageScope.APPLICATION and survives
-		// window reloads, so R installs registered before the override was written stay
-		// registered. Clear the cache then reload so discovery runs fresh against the override.
-		await app.workbench.quickaccess.runCommand('Clear Interpreter Cache');
-		await hotKeys.reloadWindow(true);
+	test('R - Can Override Interpreter Discovery', { tag: [tags.ARK] }, async function ({ sessions }) {
 		await expectSessionStartToFail(sessions, 'r', overrideRPath);
 	});
 
