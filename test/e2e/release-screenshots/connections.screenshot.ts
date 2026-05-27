@@ -65,8 +65,10 @@ test.describe('Release Screenshots - Connections Pane', () => {
 		await layouts.resizeAuxiliaryBar({ x: -100 });
 
 		// Make R the foreground session + R file the active editor to match the
-		// docs reference (which features R as the headline language).
-		await sessions.select('R');
+		// docs reference (which features R as the headline language). Use the
+		// versioned name so the text query disambiguates against the Python tab
+		// (whose name contains "positron", which substring-matches "R").
+		await sessions.select(`R ${process.env.POSITRON_R_VER_SEL!}`);
 		await openFile(rScript);
 
 		// capture screenshot

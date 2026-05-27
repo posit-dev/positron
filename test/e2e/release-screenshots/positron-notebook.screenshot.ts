@@ -160,7 +160,8 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 			'plt.tight_layout()',
 			'plt.show()',
 		].join('\n');
-		await notebooksPositron.addCodeToCell(0, code, { fast: true, run: true, waitForSpinner: true });
+		await notebooksPositron.addCodeToCell(0, code, { fast: true });
+		await notebooksPositron.runCodeAtIndex(0);
 
 		// Customize layout: close primary sidebar (file explorer), keep secondary
 		// side bar visible (variables), close bottom panel.
