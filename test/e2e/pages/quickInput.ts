@@ -20,6 +20,7 @@ export class QuickInput {
 	quickInput: Locator;
 	quickInputTitleBar: Locator;
 	quickInputResult: Locator;
+	widget: Locator;
 
 	constructor(private code: Code) {
 		this.quickInputList = this.code.driver.currentPage.locator(QUICK_INPUT_LIST);
@@ -31,6 +32,41 @@ export class QuickInput {
 		this.quickInputResult = this.code.driver.currentPage.locator(
 			QuickInput.QUICK_INPUT_RESULT,
 		);
+		this.widget = this.code.driver.currentPage.locator(QuickInput.QUICK_INPUT);
+	}
+
+	/**
+	 * Locator for a quick-pick row whose aria-label starts with `prefix`.
+	 * Monaco-list rows are virtualized, so aria-label is the most stable
+	 * way to address a specific item without relying on DOM index.
+	 */
+	rowByAriaLabelPrefix(prefix: string): Locator {
+		return this.code.driver.currentPage.locator(
+			`${QUICK_INPUT_LIST} .monaco-list-row[aria-label^="${prefix}"]`,
+		);
+	}
+
+	/**
+	 * Press ArrowDown until every passed row is rendered in the picker. Use
+	 * when a screenshot needs alphabetical neighbors visible together (the
+	 * virtualized window only renders ~20 rows, so simply scrolling to one
+	 * target may leave neighbors below it un-rendered).
+	 *
+	 * Wheel-scroll the picker isn't reliable across platforms (no-ops in
+	 * Linux CI), so we drive selection through the keyboard.
+	 */
+	async scrollIntoView(
+		rows: Locator[],
+		options?: { timeout?: number; intervalMs?: number },
+	): Promise<void> {
+		const timeout = options?.timeout ?? 60_000;
+		const intervalMs = options?.intervalMs ?? 50;
+		await expect(async () => {
+			await this.code.driver.currentPage.keyboard.press('ArrowDown');
+			for (const row of rows) {
+				await expect(row).toBeVisible({ timeout: 100 });
+			}
+		}).toPass({ timeout, intervals: [intervalMs] });
 	}
 
 	async expectTitleBarToHaveText(text: string): Promise<void> {

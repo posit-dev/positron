@@ -12,7 +12,7 @@ import { MouseEvent, useRef } from 'react';
 // Other dependencies.
 import * as nls from '../../../../nls.js';
 import { IDataColumn } from '../interfaces/dataColumn.js';
-import { selectionType } from '../utilities/mouseUtilities.js';
+import { mouseSelectionType } from '../utilities/mouseUtilities.js';
 import { ColumnSelectionState } from '../classes/dataGridInstance.js';
 import { usePositronDataGridContext } from '../positronDataGridContext.js';
 import { positronClassNames } from '../../../../base/common/positronUtilities.js';
@@ -69,7 +69,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 		// If the column selection state is None, and selection is enabled, mouse-select the column.
 		// Otherwise, scroll the column into view.
 		if (columnSelectionState === ColumnSelectionState.None && context.instance.selection) {
-			await context.instance.mouseSelectColumn(props.columnIndex, selectionType(e));
+			await context.instance.mouseSelectColumn(props.columnIndex, mouseSelectionType(e));
 		} else {
 			await context.instance.scrollToColumn(props.columnIndex);
 		}

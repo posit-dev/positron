@@ -24,6 +24,10 @@ on:
         description: "Publish mode: open a PR if there are changes. No-op for nightly."
         type: boolean
         default: true
+      slack_notify:
+        description: "Notify #positron-test-results on nightly failure. Uncheck when triggering manually for testing."
+        type: boolean
+        default: true
   schedule:
     - cron: '0 9 * * 1-5'  # 09:00 UTC, Mon-Fri (resolves to mode=nightly, version=latest-prerelease via 'auto')
 
@@ -128,6 +132,15 @@ jobs:
         with:
           identifier: release-screenshots-${{ env.MODE }}
 
+      # Wait for bundled extensions (quarto, air, etc.) to finish bootstrapping
+      # so language-aware screenshots have the full set of languages and
+      # completions available. Mirrors the bootstrap step in the e2e workflows.
+      - name: Wait for bootstrap extensions
+        env:
+          POSITRON_PY_VER_SEL: ${{ steps.runtimes.outputs.python-primary-version }}
+          POSITRON_R_VER_SEL: '4.5.2'
+        run: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project e2e-electron --reporter=null
+
       - name: Run release-screenshots project
         env:
           POSITRON_PY_VER_SEL: ${{ steps.runtimes.outputs.python-primary-version }}
@@ -144,7 +157,13 @@ jobs:
           # aspect ratio as the historical 1680x1050 config but scaled down
           # so text and chrome read proportionally larger in docs.
           POSITRON_SCREENSHOT_VIEWPORT: '1512,945'
-        run: npx playwright test --project release-screenshots --workers 2
+          # Bootstrap already verified above; skip the bootstrap test inside
+          # the suite, and skip the workspace clone since globalSetup already
+          # populated it during the bootstrap run (re-running cp -R fails on
+          # the read-only .git/objects/pack files left behind).
+          SKIP_BOOTSTRAP: 'true'
+          SKIP_CLONE: 'true'
+        run: npx playwright test --project release-screenshots --workers 2 --max-failures=2
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}
@@ -336,13 +355,16 @@ jobs:
               --arg version "$VERSION" \
               '{
                 channel: $channel,
-                text: ("📸 *Screenshots Updated · Positron " + $version + "*\nposit-dev/positron-website · <" + $pr_url + "|PR #" + $pr_number + ">")
+                text: ("📸 *Screenshots Updated · Positron " + $version + "* · <" + $pr_url + "|PR #" + $pr_number + ">")
               }')"
 
   slack-notify:
     # Nightly is on a schedule; failures should page #positron-test-results.
     # Publish is on demand, so the operator already sees the result.
-    if: ${{ failure() && (inputs.mode || 'nightly') == 'nightly' }}
+    # `inputs.slack_notify` is unset on schedule events (cron), so the
+    # `!= false` check defaults to notifying; manual runs that uncheck the
+    # box opt out.
+    if: ${{ failure() && (inputs.mode || 'nightly') == 'nightly' && inputs.slack_notify != 'false' }}
     needs: [release-screenshots]
     runs-on: ubuntu-latest
     steps:
