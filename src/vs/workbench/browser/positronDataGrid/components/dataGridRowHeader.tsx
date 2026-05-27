@@ -11,7 +11,7 @@ import { MouseEvent, useRef } from 'react';
 
 // Other dependencies.
 import { positronClassNames } from '../../../../base/common/positronUtilities.js';
-import { selectionType } from '../utilities/mouseUtilities.js';
+import { mouseSelectionType } from '../utilities/mouseUtilities.js';
 import { RowSelectionState } from '../classes/dataGridInstance.js';
 import { VerticalSplitter } from '../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
 import { HorizontalSplitter } from '../../../../base/browser/ui/positronComponents/splitters/horizontalSplitter.js';
@@ -58,7 +58,7 @@ export const DataGridRowHeader = (props: DataGridRowHeaderProps) => {
 		// If the row selection state is None, and selection is enabled, mouse-select the row.
 		// Otherwise, scroll the row into view.
 		if (rowSelectionState === RowSelectionState.None && context.instance.selection) {
-			await context.instance.mouseSelectRow(props.rowIndex, selectionType(e));
+			await context.instance.mouseSelectRow(props.rowIndex, mouseSelectionType(e));
 		} else {
 			await context.instance.scrollToRow(props.rowIndex);
 		}

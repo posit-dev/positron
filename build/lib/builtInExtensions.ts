@@ -76,8 +76,8 @@ function isUpToDate(extension: IExtensionDefinition): boolean {
 
 function getExtensionDownloadStream(extension: IExtensionDefinition) {
 	// --- Start PWB: Bundle PWB extension ---
-	// the PWB extension is a special case because it's not availble from the marketplace or github
-	if (extension.name === 'rstudio.rstudio-workbench') {
+	// Route any extension with a positUrl to the Posit CDN.
+	if (extension.positUrl) {
 		return ext.fromPositUrl(extension)
 			.pipe(rename(p => p.dirname = `${extension.name}/${p.dirname}`));
 	}

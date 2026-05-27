@@ -32,6 +32,8 @@ import { IPositronHelpService } from '../../../contrib/positronHelp/browser/posi
 import { INotebookService } from '../../../contrib/notebook/common/notebookService.js';
 import { IRuntimeClientEvent } from '../../../services/languageRuntime/common/languageRuntimeUiClient.js';
 import { URI } from '../../../../base/common/uri.js';
+import { toLocalResource } from '../../../../base/common/resources.js';
+import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
 import { BusyEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, WorkingDirectoryEvent, ShowMessageEvent, SetEditorSelectionsEvent, OpenWithSystemEvent, EvalResult } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IEditor } from '../../../../editor/common/editorCommon.js';
@@ -168,6 +170,23 @@ class ExtHostLanguageRuntimePackageManagerAdapter implements ILanguageRuntimePac
 	}
 }
 
+/**
+ * Builds a URI for a path arriving from a runtime open event. Centralizes
+ * path normalization and environment-correct scheme/authority so all three
+ * handlers (OpenEditor / OpenWorkspace / OpenWithSystem) stay in sync.
+ */
+export async function buildRuntimeOpenEventResource(
+	path: string,
+	pathService: IPathService,
+	environmentService: IWorkbenchEnvironmentService,
+): Promise<URI> {
+	return toLocalResource(
+		await pathService.fileURI(path),
+		environmentService.remoteAuthority,
+		pathService.defaultUriScheme,
+	);
+}
+
 // Adapter class; presents an ILanguageRuntime interface that connects to the
 // extension host proxy to supply language features.
 class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILanguageRuntimeSession {
@@ -226,6 +245,7 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 		private readonly _notebookService: INotebookService,
 		private readonly _editorService: IEditorService,
 		private readonly _pathService: IPathService,
+		private readonly _environmentService: IWorkbenchEnvironmentService,
 		private readonly _proxy: ExtHostLanguageRuntimeShape,
 		private readonly _openerService: IOpenerService
 	) {
@@ -322,10 +342,7 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 				if (ed.kind === 'uri') {
 					file = URI.parse(ed.file);
 				} else {
-					file = URI.from({
-						scheme: this._pathService.defaultUriScheme,
-						path: ed.file
-					});
+					file = await buildRuntimeOpenEventResource(ed.file, this._pathService, this._environmentService);
 				}
 
 				const editor: ITextResourceEditorInput = {
@@ -339,18 +356,12 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 			} else if (ev.name === UiFrontendEvent.OpenWorkspace) {
 				// Open a workspace
 				const ws = ev.data as OpenWorkspaceEvent;
-				const uri = URI.from({
-					scheme: this._pathService.defaultUriScheme,
-					path: ws.path
-				});
+				const uri = await buildRuntimeOpenEventResource(ws.path, this._pathService, this._environmentService);
 				this._commandService.executeCommand('vscode.openFolder', uri, ws.new_window);
 			} else if (ev.name === UiFrontendEvent.OpenWithSystem) {
 				// Open a file or folder with system default application
 				const openWith = ev.data as OpenWithSystemEvent;
-				const uri = URI.from({
-					scheme: this._pathService.defaultUriScheme,
-					path: openWith.path
-				});
+				const uri = await buildRuntimeOpenEventResource(openWith.path, this._pathService, this._environmentService);
 
 				// Use VS Code's opener service with external option
 				await this._openerService.open(uri, { openExternal: true });
@@ -1568,7 +1579,8 @@ export class MainThreadLanguageRuntime
 		@ICommandService private readonly _commandService: ICommandService,
 		@INotebookService private readonly _notebookService: INotebookService,
 		@IEditorService private readonly _editorService: IEditorService,
-		@IOpenerService private readonly _openerService: IOpenerService
+		@IOpenerService private readonly _openerService: IOpenerService,
+		@IWorkbenchEnvironmentService private readonly _environmentService: IWorkbenchEnvironmentService
 	) {
 		// TODO@softwarenerd - We needed to find a central place where we could ensure that certain
 		// Positron services were up and running early in the application lifecycle. For now, this
@@ -2345,6 +2357,7 @@ export class MainThreadLanguageRuntime
 			this._notebookService,
 			this._editorService,
 			this._pathService,
+			this._environmentService,
 			this._proxy,
 			this._openerService);
 	}

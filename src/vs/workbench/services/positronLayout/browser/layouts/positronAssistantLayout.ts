@@ -5,8 +5,12 @@
 
 import { localize2 } from '../../../../../nls.js';
 import { registerAction2 } from '../../../../../platform/actions/common/actions.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
+import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
 import { Parts } from '../../../layout/browser/layoutService.js';
+import { CustomPositronLayoutDescription } from '../../common/positronCustomViews.js';
+import { IPositronLayoutService } from '../interfaces/positronLayoutService.js';
 import { PositronLayoutAction, PositronLayoutInfo } from './layoutAction.js';
 
 
@@ -14,7 +18,10 @@ export const positronAssistantLayout: PositronLayoutInfo = {
 	id: 'workbench.action.positronAssistantLayout',
 	codicon: 'positron-assistant-layout',
 	label: localize2('choseLayout.assistant', 'Assistant Layout'),
-	precondition: ContextKeyExpr.has('config.positron.assistant.enable'),
+	precondition: ContextKeyExpr.or(
+		ContextKeyExpr.has('config.positron.assistant.enable'),
+		ContextKeyExpr.has('config.assistant.enabled'),
+	)!,
 	layoutDescriptor: {
 		[Parts.SIDEBAR_PART]: {
 			size: '30%',
@@ -65,5 +72,23 @@ export const positronAssistantLayout: PositronLayoutInfo = {
 registerAction2(class extends PositronLayoutAction {
 	constructor() {
 		super(positronAssistantLayout);
+	}
+
+	override run(accessor: ServicesAccessor): void {
+		// Prefer Posit Assistant when enabled; fall back to the legacy Positron Assistant chat view container.
+		const configurationService = accessor.get(IConfigurationService);
+		const sidebarContainerId = configurationService.getValue<boolean>('assistant.enabled')
+			? 'posit-assistant'
+			: 'workbench.panel.chat';
+
+		const layoutDescriptor: CustomPositronLayoutDescription = {
+			...positronAssistantLayout.layoutDescriptor,
+			[Parts.SIDEBAR_PART]: {
+				...positronAssistantLayout.layoutDescriptor[Parts.SIDEBAR_PART],
+				viewContainers: [{ id: sidebarContainerId, opened: true }],
+			},
+		};
+
+		accessor.get(IPositronLayoutService).setLayout(layoutDescriptor);
 	}
 });

@@ -6,7 +6,15 @@
 /// <reference types="vitest/globals" />
 
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
-import { applyFilterToQuery, applySortToQuery, PackagesFilter, PackagesSortOrder, parseQuery } from '../../browser/components/packagesQuery.js';
+import {
+	addFilterToQuery,
+	applySortToQuery,
+	clearFiltersFromQuery,
+	PackagesFilter,
+	PackagesSortOrder,
+	parseQuery,
+	removeFilterFromQuery,
+} from '../../browser/components/packagesQuery.js';
 
 describe('packagesQuery', () => {
 
@@ -17,12 +25,14 @@ describe('packagesQuery', () => {
 			const result = parseQuery('');
 			expect(result.text).toBe('');
 			expect(result.sort).toBe(PackagesSortOrder.NameAsc);
+			expect(result.filters).toEqual([]);
 		});
 
 		it('whitespace-only input returns default sort and empty text', () => {
 			const result = parseQuery('   \t ');
 			expect(result.text).toBe('');
 			expect(result.sort).toBe(PackagesSortOrder.NameAsc);
+			expect(result.filters).toEqual([]);
 		});
 
 		it('free text without tokens is preserved and trimmed', () => {
@@ -73,22 +83,17 @@ describe('packagesQuery', () => {
 			expect(result.sort).toBe(PackagesSortOrder.NameAsc);
 		});
 
-		it('unknown @key token is stripped from free text', () => {
-			const result = parseQuery('foo @outdated bar');
-			expect(result.text).toBe('foo bar');
-			expect(result.sort).toBe(PackagesSortOrder.NameAsc);
-		});
-
 		it('unknown @key:value token is stripped from free text', () => {
 			const result = parseQuery('foo @unknown:value bar');
 			expect(result.text).toBe('foo bar');
 			expect(result.sort).toBe(PackagesSortOrder.NameAsc);
+			expect(result.filters).toEqual([]);
 		});
 
-		it('unknown token alongside known @sort: token: both stripped', () => {
-			const result = parseQuery('@outdated @sort:name-desc dplyr');
+		it('legacy @filter:outdated is treated as unknown and stripped', () => {
+			const result = parseQuery('dplyr @filter:outdated');
 			expect(result.text).toBe('dplyr');
-			expect(result.sort).toBe(PackagesSortOrder.NameDesc);
+			expect(result.filters).toEqual([]);
 		});
 
 		it('bare @key attached to free text is stripped', () => {
@@ -136,97 +141,132 @@ describe('packagesQuery', () => {
 		});
 	});
 
-	describe('parseQuery filter', () => {
-		it('empty input returns default All filter', () => {
-			const result = parseQuery('');
-			expect(result.filter).toBe(PackagesFilter.All);
+	describe('parseQuery filters', () => {
+		it('@outdated sets Outdated filter', () => {
+			const result = parseQuery('@outdated');
+			expect(result.text).toBe('');
+			expect(result.filters).toEqual([PackagesFilter.Outdated]);
 		});
 
-		it('@filter:outdated sets Outdated filter', () => {
-			const result = parseQuery('@filter:outdated');
+		it('@attached sets Attached filter', () => {
+			const result = parseQuery('@attached');
 			expect(result.text).toBe('');
-			expect(result.filter).toBe(PackagesFilter.Outdated);
-		});
-
-		it('@filter:attached sets Attached filter', () => {
-			const result = parseQuery('@filter:attached');
-			expect(result.text).toBe('');
-			expect(result.filter).toBe(PackagesFilter.Attached);
-		});
-
-		it('@filter:all explicitly sets All filter', () => {
-			const result = parseQuery('@filter:all');
-			expect(result.text).toBe('');
-			expect(result.filter).toBe(PackagesFilter.All);
+			expect(result.filters).toEqual([PackagesFilter.Attached]);
 		});
 
 		it('filter token matching is case-insensitive', () => {
-			const result = parseQuery('@FILTER:OUTDATED');
-			expect(result.filter).toBe(PackagesFilter.Outdated);
+			const result = parseQuery('@OUTDATED');
+			expect(result.filters).toEqual([PackagesFilter.Outdated]);
 		});
 
 		it('filter token is stripped from free text', () => {
-			const result = parseQuery('dplyr @filter:outdated');
+			const result = parseQuery('dplyr @outdated');
 			expect(result.text).toBe('dplyr');
-			expect(result.filter).toBe(PackagesFilter.Outdated);
+			expect(result.filters).toEqual([PackagesFilter.Outdated]);
 		});
 
-		it('unknown @filter: value is stripped and leaves default filter', () => {
-			const result = parseQuery('foo @filter:bogus bar');
-			expect(result.text).toBe('foo bar');
-			expect(result.filter).toBe(PackagesFilter.All);
+		it('multiple filters are captured in input order', () => {
+			const result = parseQuery('@outdated @attached dplyr');
+			expect(result.text).toBe('dplyr');
+			expect(result.filters).toEqual([PackagesFilter.Outdated, PackagesFilter.Attached]);
+		});
+
+		it('filter order follows input order', () => {
+			const result = parseQuery('@attached @outdated');
+			expect(result.filters).toEqual([PackagesFilter.Attached, PackagesFilter.Outdated]);
+		});
+
+		it('duplicate filter tokens are deduped', () => {
+			const result = parseQuery('@outdated dplyr @outdated');
+			expect(result.text).toBe('dplyr');
+			expect(result.filters).toEqual([PackagesFilter.Outdated]);
 		});
 
 		it('filter and sort tokens coexist', () => {
-			const result = parseQuery('@filter:outdated @sort:name-desc dplyr');
+			const result = parseQuery('@outdated @sort:name-desc dplyr');
 			expect(result.text).toBe('dplyr');
-			expect(result.filter).toBe(PackagesFilter.Outdated);
+			expect(result.filters).toEqual([PackagesFilter.Outdated]);
 			expect(result.sort).toBe(PackagesSortOrder.NameDesc);
-		});
-
-		it('multiple @filter: tokens: last one wins, all stripped', () => {
-			const result = parseQuery('foo @filter:all bar @filter:outdated baz');
-			expect(result.text).toBe('foo bar baz');
-			expect(result.filter).toBe(PackagesFilter.Outdated);
 		});
 	});
 
-	describe('applyFilterToQuery', () => {
-		it('default All filter strips any existing token and returns bare text', () => {
-			expect(applyFilterToQuery('', PackagesFilter.All)).toBe('');
-			expect(applyFilterToQuery('dplyr', PackagesFilter.All)).toBe('dplyr');
-			expect(applyFilterToQuery('@filter:outdated dplyr', PackagesFilter.All)).toBe('dplyr');
+	describe('addFilterToQuery', () => {
+		it('adds a filter to empty input', () => {
+			expect(addFilterToQuery('', PackagesFilter.Outdated)).toBe('@outdated');
 		});
 
-		it('Outdated filter on empty input produces a bare token', () => {
-			expect(applyFilterToQuery('', PackagesFilter.Outdated)).toBe('@filter:outdated');
+		it('prepends the filter token before free text', () => {
+			expect(addFilterToQuery('dplyr', PackagesFilter.Outdated)).toBe('@outdated dplyr');
 		});
 
-		it('Attached filter on empty input produces a bare token', () => {
-			expect(applyFilterToQuery('', PackagesFilter.Attached)).toBe('@filter:attached');
+		it('appends a new filter after existing filters to preserve click order', () => {
+			expect(addFilterToQuery('@outdated dplyr', PackagesFilter.Attached)).toBe('@outdated @attached dplyr');
 		});
 
-		it('Outdated filter with free text prepends the token', () => {
-			expect(applyFilterToQuery('dplyr', PackagesFilter.Outdated)).toBe('@filter:outdated dplyr');
+		it('is a no-op when the filter is already active', () => {
+			expect(addFilterToQuery('@outdated dplyr', PackagesFilter.Outdated)).toBe('@outdated dplyr');
 		});
 
-		it('existing @filter: token is replaced', () => {
-			expect(applyFilterToQuery('@filter:all dplyr', PackagesFilter.Outdated)).toBe('@filter:outdated dplyr');
+		it('preserves @sort: tokens', () => {
+			expect(addFilterToQuery('@sort:name-desc dplyr', PackagesFilter.Outdated)).toBe('@outdated @sort:name-desc dplyr');
 		});
 
-		it('replacement is case-insensitive on existing @filter: token', () => {
-			expect(applyFilterToQuery('@FILTER:ALL dplyr', PackagesFilter.Outdated)).toBe('@filter:outdated dplyr');
+		it('strips any lingering legacy @filter: token', () => {
+			expect(addFilterToQuery('@filter:outdated dplyr', PackagesFilter.Outdated)).toBe('@outdated dplyr');
 		});
 
-		it('non-@filter tokens are preserved', () => {
-			expect(applyFilterToQuery('@sort:name-desc dplyr', PackagesFilter.Outdated)).toBe('@filter:outdated @sort:name-desc dplyr');
-		});
-
-		it('round-trip: applyFilterToQuery then parseQuery yields the same filter', () => {
-			const applied = applyFilterToQuery('dplyr', PackagesFilter.Outdated);
+		it('round-trip: addFilterToQuery then parseQuery yields the same filter', () => {
+			const applied = addFilterToQuery('dplyr', PackagesFilter.Outdated);
 			const parsed = parseQuery(applied);
 			expect(parsed.text).toBe('dplyr');
-			expect(parsed.filter).toBe(PackagesFilter.Outdated);
+			expect(parsed.filters).toEqual([PackagesFilter.Outdated]);
+		});
+
+		it('round-trip with two filters preserves click order', () => {
+			const a = addFilterToQuery('', PackagesFilter.Attached);
+			const b = addFilterToQuery(a, PackagesFilter.Outdated);
+			const parsed = parseQuery(b);
+			expect(parsed.filters).toEqual([PackagesFilter.Attached, PackagesFilter.Outdated]);
+		});
+	});
+
+	describe('removeFilterFromQuery', () => {
+		it('removes a filter, leaving remaining filters in order', () => {
+			expect(removeFilterFromQuery('@outdated @attached dplyr', PackagesFilter.Outdated)).toBe('@attached dplyr');
+		});
+
+		it('removing the only filter leaves bare text', () => {
+			expect(removeFilterFromQuery('@outdated dplyr', PackagesFilter.Outdated)).toBe('dplyr');
+		});
+
+		it('removing the only filter on otherwise-empty input returns empty string', () => {
+			expect(removeFilterFromQuery('@outdated', PackagesFilter.Outdated)).toBe('');
+		});
+
+		it('is a no-op when the filter is not active', () => {
+			expect(removeFilterFromQuery('@attached dplyr', PackagesFilter.Outdated)).toBe('@attached dplyr');
+		});
+
+		it('preserves @sort: tokens', () => {
+			expect(removeFilterFromQuery('@outdated @sort:name-desc dplyr', PackagesFilter.Outdated)).toBe('@sort:name-desc dplyr');
+		});
+	});
+
+	describe('clearFiltersFromQuery', () => {
+		it('removes all filter tokens but keeps free text and sort', () => {
+			expect(clearFiltersFromQuery('@outdated @attached @sort:name-desc dplyr')).toBe('@sort:name-desc dplyr');
+		});
+
+		it('is a no-op when no filters are active', () => {
+			expect(clearFiltersFromQuery('dplyr')).toBe('dplyr');
+		});
+
+		it('strips legacy @filter: tokens as well', () => {
+			expect(clearFiltersFromQuery('@filter:outdated @attached dplyr')).toBe('dplyr');
+		});
+
+		it('returns empty string when only filter tokens were present', () => {
+			expect(clearFiltersFromQuery('@outdated @attached')).toBe('');
 		});
 	});
 });

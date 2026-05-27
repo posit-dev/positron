@@ -385,6 +385,8 @@ declare module 'positron' {
 	 * runtime execution.
 	 */
 	export interface LanguageRuntimeResult extends LanguageRuntimeOutput {
+		/** The execution count. */
+		execution_count: number;
 	}
 
 	/**
