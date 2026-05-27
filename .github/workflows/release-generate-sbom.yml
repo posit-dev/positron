@@ -154,9 +154,92 @@ jobs:
 
           echo "[OK] Cloned Kallichore source"
 
+      - name: Clone bootstrap extensions for scanning
+        run: |
+          echo "Cloning bootstrap extensions from product.json..."
+          mkdir -p .sbom-tmp/bootstrap-extensions
+
+          # Extract name and repo for each extension that has a repo
+          jq -r '.bootstrapExtensions[] | select(.repo) | "\(.name)|\(.repo)"' product.json | \
+          while IFS='|' read -r name repo; do
+            echo "  Cloning ${name}..."
+
+            # Handle repos that point to subdirectories (e.g., /tree/main/path)
+            if [[ "$repo" == *"/tree/"* ]]; then
+              # Extract base repo URL and subdirectory
+              base_repo=$(echo "$repo" | sed 's|/tree/[^/]*/.*||')
+              subdir=$(echo "$repo" | sed 's|.*/tree/[^/]*/||')
+
+              echo "    Detected subdirectory: ${subdir}"
+              # Clone full repo and keep it (needed for workspace dependencies)
+              if git clone --depth 1 "$base_repo" ".sbom-tmp/bootstrap-extensions/${name}" 2>/dev/null; then
+                if [ -d ".sbom-tmp/bootstrap-extensions/${name}/${subdir}" ]; then
+                  # Create a marker file so we know this is a subdirectory repo
+                  echo "${subdir}" > ".sbom-tmp/bootstrap-extensions/${name}/.sbom-subdir"
+                  echo "    [OK] Cloned ${name} (full repo with subdirectory ${subdir})"
+                else
+                  echo "    [WARN] Subdirectory ${subdir} not found in ${name}, skipping"
+                  rm -rf ".sbom-tmp/bootstrap-extensions/${name}"
+                fi
+              else
+                echo "    [WARN] Failed to clone ${name}, skipping"
+              fi
+            else
+              # Regular clone
+              if git clone --depth 1 "$repo" ".sbom-tmp/bootstrap-extensions/${name}" 2>/dev/null; then
+                echo "    [OK] Cloned ${name}"
+              else
+                echo "    [WARN] Failed to clone ${name}, skipping"
+              fi
+            fi
+          done
+
+          echo "[OK] Finished cloning bootstrap extensions"
+
+      - name: Install npm dependencies for bootstrap extensions
+        run: |
+          echo "Installing npm dependencies for bootstrap extensions that need them..."
+
+          for ext_dir in .sbom-tmp/bootstrap-extensions/*/; do
+            ext_name=$(basename "$ext_dir")
+
+            # Check if this is a subdirectory repo (has .sbom-subdir marker)
+            if [ -f "${ext_dir}.sbom-subdir" ]; then
+              # For subdirectory repos, install at root (with legacy peer deps for monorepo conflicts)
+              echo "  Installing dependencies for ${ext_name} (workspace root)..."
+              if [ -f "${ext_dir}package.json" ]; then
+                if (cd "$ext_dir" && npm install --omit=dev --legacy-peer-deps --ignore-scripts --no-audit --no-fund 2>&1 | head -30); then
+                  echo "    [OK] Installed dependencies at root for ${ext_name}"
+                else
+                  echo "    [WARN] npm install failed at root for ${ext_name}"
+                fi
+              fi
+              continue
+            fi
+
+            # Regular extension handling
+            if [ -f "${ext_dir}package.json" ]; then
+              # Skip Rust projects (they have Cargo.toml and package.json is just metadata)
+              if [ -f "${ext_dir}Cargo.toml" ]; then
+                echo "  Skipping ${ext_name} (Rust project)"
+                continue
+              fi
+
+              echo "  Installing dependencies for ${ext_name}..."
+              if (cd "$ext_dir" && npm install --omit=dev --ignore-scripts --no-audit --no-fund 2>&1 | head -20); then
+                echo "    [OK] Installed dependencies for ${ext_name}"
+              else
+                echo "    [WARN] npm install failed for ${ext_name}, will attempt SBOM generation anyway"
+              fi
+            fi
+          done
+
+          echo "[OK] Finished installing dependencies"
+
       - name: Generate SBOM
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          PRODUCT_VERSION: ${{ env.PRODUCT_VERSION }}
         run: |
           cd scripts/sbom
 

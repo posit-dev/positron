@@ -17,9 +17,15 @@ export function getRepoRoot(): string {
 }
 
 /**
- * Get Positron version from package.json
+ * Get Positron version from environment variable or package.json
  */
 export function getPositronVersion(): string {
+	// Check environment variable first (passed from workflow input)
+	if (process.env.PRODUCT_VERSION) {
+		return process.env.PRODUCT_VERSION;
+	}
+
+	// Fallback to package.json (for local development)
 	const packageJsonPath = resolvePath(getRepoRoot(), 'package.json');
 	if (!existsSync(packageJsonPath)) {
 		console.warn('package.json not found, using "dev" version');
