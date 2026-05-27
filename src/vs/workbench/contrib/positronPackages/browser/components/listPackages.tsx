@@ -19,7 +19,6 @@ import React, {
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { ActionBarFilter, ActionBarFilterHandle } from '../../../../../platform/positronActionBar/browser/components/actionBarFilter.js';
 import { ViewsProps } from '../positronPackages.js';
-import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { Separator } from '../../../../../base/common/actions.js';
 import { localize } from '../../../../../nls.js';
 import { usePositronPackagesContext } from '../positronPackagesContext.js';
@@ -35,6 +34,8 @@ import { Button } from '../../../../../base/browser/ui/positronComponents/button
 import { applyFilterToQuery, applySortToQuery, PackagesFilter, PackagesSortOrder, parseQuery } from './packagesQuery.js';
 import { PositronList } from '../../../../browser/positronList/positronList.js';
 import { ListEntry, PositronListInstance, PositronListItemContext } from '../../../../browser/positronList/classes/positronListInstance.js';
+import { POSITRON_PACKAGES_IS_BUSY } from '../positronPackagesContextKeys.js';
+import { usePositronContextKey } from '../../../../../base/browser/positronReactHooks.js';
 
 const positronUninstallPackage = localize(
 	'positronUninstallPackage',
@@ -70,51 +71,21 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	// Progress Bar
 	const progressRef = useRef<HTMLDivElement>(null);
 
-	const [refreshLoading, setRefreshLoading] = useState<boolean>(false);
-	const [installLoading, setInstallLoading] = useState<boolean>(false);
-	const [updateLoading, setUpdateLoading] = useState<boolean>(false);
-	const [updateAllLoading, setUpdateAllLoading] = useState<boolean>(false);
-	const [uninstallLoading, setUninstallLoading] = useState<boolean>(false);
-
-	const loading = refreshLoading || installLoading || updateLoading || updateAllLoading || uninstallLoading;
+	const loading = usePositronContextKey<boolean>(POSITRON_PACKAGES_IS_BUSY.key);
 
 	useEffect(() => {
-		// Reset loading flags so a stale loading state from the previous instance
-		// (e.g. a cancelled Update All that hadn't yet fired its `false` event)
-		// doesn't leak across an instance switch.
-		setRefreshLoading(false);
-		setInstallLoading(false);
-		setUpdateLoading(false);
-		setUpdateAllLoading(false);
-		setUninstallLoading(false);
-
 		if (!activeInstance) {
 			setPackages([]);
 			return;
 		}
 
-		setPackages(activeInstance.packages);
-		const disposables = new DisposableStore();
-		disposables.add(activeInstance.onDidRefreshPackagesInstance((packages) => {
+		const disposable = activeInstance.onDidRefreshPackagesInstance((packages) => {
 			setPackages(packages);
-		}));
-		disposables.add(activeInstance.onDidChangeRefreshState((isLoading) => {
-			setRefreshLoading(isLoading);
-		}));
-		disposables.add(activeInstance.onDidChangeInstallState((isLoading) => {
-			setInstallLoading(isLoading);
-		}));
-		disposables.add(activeInstance.onDidChangeUpdateState((isLoading) => {
-			setUpdateLoading(isLoading);
-		}));
-		disposables.add(activeInstance.onDidChangeUpdateAllState((isLoading) => {
-			setUpdateAllLoading(isLoading);
-		}));
-		disposables.add(activeInstance.onDidChangeUninstallState((isLoading) => {
-			setUninstallLoading(isLoading);
-		}));
+		});
 
-		return () => disposables.dispose();
+		setPackages(activeInstance.packages);
+
+		return () => disposable.dispose();
 	}, [activeInstance]);
 
 	useEffect(() => {
