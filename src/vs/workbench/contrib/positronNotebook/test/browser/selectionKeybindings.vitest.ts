@@ -9,7 +9,8 @@ import { KeyCode, KeyMod } from '../../../../../base/common/keyCodes.js';
 import { MenuId } from '../../../../../platform/actions/common/actions.js';
 import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../browser/ContextKeysManager.js';
+import { CellContextKeys } from '../../common/cellContextKeys.js';
+import { NotebookContextKeys } from '../../common/notebookContextKeys.js';
 import { IPositronNotebookInstance } from '../../browser/IPositronNotebookInstance.js';
 import { CellSelectionType, getActiveCell, getSelectedCells, SelectionState } from '../../browser/selectionMachine.js';
 import {
@@ -215,12 +216,12 @@ describe('Notebook selection keybinding actions', () => {
 			const action = new MoveCellUpAction();
 			expect(action.desc.id).toBe('positronNotebook.cell.moveUp');
 			expect(action.desc.keybinding?.primary).toBe(KeyMod.Alt | KeyCode.UpArrow);
-			expect(action.desc.keybinding?.when).toBe(POSITRON_NOTEBOOK_EDITOR_FOCUSED);
+			expect(action.desc.keybinding?.when).toBe(NotebookContextKeys.editorFocused);
 			// Menu entry: cell action bar submenu, gated on canMoveUp so the
 			// item disappears at the first cell where the move would no-op.
 			const menu = Array.isArray(action.desc.menu) ? action.desc.menu[0] : action.desc.menu;
 			expect(menu?.id).toBe(MenuId.PositronNotebookCellActionBarSubmenu);
-			expect(menu?.when).toBe(POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.canMoveUp);
+			expect(menu?.when).toBe(CellContextKeys.canMoveUp);
 		});
 
 		it('moves the selected cell up by one and selection follows', () => {
@@ -242,10 +243,10 @@ describe('Notebook selection keybinding actions', () => {
 			const action = new MoveCellDownAction();
 			expect(action.desc.id).toBe('positronNotebook.cell.moveDown');
 			expect(action.desc.keybinding?.primary).toBe(KeyMod.Alt | KeyCode.DownArrow);
-			expect(action.desc.keybinding?.when).toBe(POSITRON_NOTEBOOK_EDITOR_FOCUSED);
+			expect(action.desc.keybinding?.when).toBe(NotebookContextKeys.editorFocused);
 			const menu = Array.isArray(action.desc.menu) ? action.desc.menu[0] : action.desc.menu;
 			expect(menu?.id).toBe(MenuId.PositronNotebookCellActionBarSubmenu);
-			expect(menu?.when).toBe(POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.canMoveDown);
+			expect(menu?.when).toBe(CellContextKeys.canMoveDown);
 		});
 
 		it('moves the selected cell down by one and selection follows', () => {
