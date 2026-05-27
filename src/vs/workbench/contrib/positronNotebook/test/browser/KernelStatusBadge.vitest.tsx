@@ -115,11 +115,10 @@ describe('KernelStatusBadge', () => {
 		expect(screen.getByText('R 4.3.2')).toBeInTheDocument();
 	});
 
-	it('shows active icon and kernel name when a kernel is first selected', () => {
-		// First kernel selection: runOnChange leaves kernelStatus at Unselected.
+	it('shows disconnected icon and kernel name when a kernel is selected but no session is attached', () => {
 		const kernel = makeKernel('Python 3.12', 'python-3.12');
 		renderBadge(makeInstance(NotebookKernelStatus.Unselected, kernel));
-		expect(screen.getByTestId('runtime-status-active')).toBeInTheDocument();
+		expect(screen.getByTestId('runtime-status-disconnected')).toBeInTheDocument();
 		expect(screen.getByText('Python 3.12')).toBeInTheDocument();
 	});
 
