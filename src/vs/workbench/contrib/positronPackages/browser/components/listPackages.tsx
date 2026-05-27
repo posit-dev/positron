@@ -337,6 +337,17 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 				});
 			};
 
+			const helpButton = (
+				<Button
+					ariaLabel={localize('positronPackages.showHelpAriaLabel', "Show help for {0}", name)}
+					className='packages-list-item-help'
+					tooltip={localize('positronPackages.showHelpTooltip', "Show help for {0}", name)}
+					onPressed={() => { void showHelpForPackage(name); }}
+				>
+					<span className='codicon codicon-book' />
+				</Button>
+			);
+
 			return (
 				// eslint-disable-next-line jsx-a11y/no-static-element-interactions
 				<div
@@ -373,6 +384,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 									&#x2191;
 								</div>
 							)}
+							{itemSize === 'card' && helpButton}
 						</div>
 						{itemSize === 'card' && (
 							<div className='packages-list-item-description-row'>
@@ -392,14 +404,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 							</div>
 						)}
 					</div>
-					<Button
-						ariaLabel={localize('positronPackages.showHelpAriaLabel', "Show help for {0}", name)}
-						className='packages-list-item-help'
-						tooltip={localize('positronPackages.showHelpTooltip', "Show help for {0}", name)}
-						onPressed={() => { void showHelpForPackage(name); }}
-					>
-						<span className='codicon codicon-book' />
-					</Button>
+					{itemSize === 'row' && helpButton}
 				</div>
 			);
 		};
