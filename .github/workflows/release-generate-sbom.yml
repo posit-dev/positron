@@ -196,6 +196,20 @@ jobs:
 
           echo "[OK] Finished cloning bootstrap extensions"
 
+      - name: Install npm dependencies for bootstrap extensions
+        run: |
+          echo "Installing npm dependencies for bootstrap extensions that need them..."
+
+          for ext_dir in .sbom-tmp/bootstrap-extensions/*/; do
+            if [ -f "${ext_dir}package.json" ]; then
+              ext_name=$(basename "$ext_dir")
+              echo "  Installing dependencies for ${ext_name}..."
+              (cd "$ext_dir" && npm install --production --ignore-scripts --no-audit --no-fund 2>&1 | head -20) || echo "    [WARN] npm install failed for ${ext_name}, continuing"
+            fi
+          done
+
+          echo "[OK] Finished installing dependencies"
+
       - name: Generate SBOM
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
