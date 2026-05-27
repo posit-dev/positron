@@ -17,7 +17,6 @@ const NEW_NOTEBOOK_COMMAND = 'ipynb.newUntitledIpynb';
 const CELL_LINE = '.cell div.view-lines';
 const EXECUTE_CELL_COMMAND = 'notebook.cell.execute';
 const CELL_EXECUTING_SPINNER = '.cell-statusbar-container .codicon-notebook-state-executing';
-const CELL_TERMINAL_STATE = '.cell-statusbar-container .codicon-notebook-state-success, .cell-statusbar-container .codicon-notebook-state-error';
 const OUTER_FRAME = '.webview';
 const INNER_FRAME = '#active-frame';
 const REVERT_AND_CLOSE = 'workbench.action.revertAndCloseActiveEditor';
@@ -141,10 +140,10 @@ export class Notebooks {
 	async executeCodeInCell() {
 		await test.step('Execute code in cell', async () => {
 			await this.quickaccess.runCommand(EXECUTE_CELL_COMMAND);
-			// Positive, cell-scoped wait: cell finished when its status bar shows
-			// a success or error icon. More reliable on Windows than waiting for
-			// the executing spinner class to clear globally.
-			await expect(this.code.driver.currentPage.locator(CELL_TERMINAL_STATE).first(), 'cell to reach success or error state').toBeVisible({ timeout: 30000 });
+			// Scoped to the cell status bar so the kernel toolbar, outline, and
+			// run-all spinners don't trip this. Count-based so it's safe for
+			// multi-cell tests that execute additional cells after this one.
+			await expect(this.code.driver.currentPage.locator(CELL_EXECUTING_SPINNER), 'no cell to be in executing state').toHaveCount(0, { timeout: 30000 });
 		});
 	}
 
