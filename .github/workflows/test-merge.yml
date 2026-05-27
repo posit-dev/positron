@@ -24,11 +24,11 @@ jobs:
       install_undetectable_interpreters: false
       install_license: false
       upload_logs: false
-      shards: 2
-      matrix: '{"shard":[1,2]}'
+      shards: 3
+      matrix: '{"shard":[1,2,3]}'
       workers: 2
       allow_soft_fail: true
-      max_failures: 10  # 20 max failures / 2 shards = 10
+      max_failures: 7  # 20 max failures / 3 shards = 6.66, rounded up to 7
     secrets: inherit
 
   setup-windows:
@@ -49,9 +49,9 @@ jobs:
       display_name: "electron-win"
       allow_soft_fail: true
       upload_logs: false
-      shards: 3
-      matrix: '{"shard":[1,2,3]}'
-      max_failures: 7  # 20 max failures / 3 shards = 6.66, rounded up to 7
+      shards: 4
+      matrix: '{"shard":[1,2,3,4]}'
+      max_failures: 5  # 20 max failures / 4 shards = 5
 
   e2e-ubuntu-chromium:
     name: e2e
