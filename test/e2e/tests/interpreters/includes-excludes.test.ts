@@ -80,7 +80,10 @@ test.describe('Interpreter: Override', {
 		}, { reload: true, waitForReady: true });
 	});
 
-	test('R - Can Override Interpreter Discovery', { tag: [tags.ARK] }, async function ({ sessions }) {
+	test('R - Can Override Interpreter Discovery', { tag: [tags.ARK] }, async function ({ sessions, hotKeys }) {
+		// Flaky on first attempt but passes on retry; reload to ensure the override setting
+		// is fully applied before attempting to start the session.
+		await hotKeys.reloadWindow(true);
 		await expectSessionStartToFail(sessions, 'r', overrideRPath);
 	});
 
