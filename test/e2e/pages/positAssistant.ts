@@ -60,13 +60,7 @@ const TOOL_DECLINE_BUTTON = 'button.rounded-r-none:has-text("Decline")';
 // Tool result accordion (rendered in the transcript after a tool runs)
 const TOOL_RESULT_ACCORDION_ITEM = '[data-slot="accordion-item"]';
 
-/**
- * Posit Assistant qualifies MCP tool names as `mcp__<server>__<tool>` in the
- * UI. Both the confirmation card and the post-run accordion render this
- * literal string in a `<span class="font-mono">`, which makes it a stable
- * signal that a specific MCP server's tool (not a built-in tool or a
- * different MCP server) was selected and executed.
- */
+/** Posit Assistant qualifies MCP tool names as `mcp__<server>__<tool>` in the UI. */
 function mcpToolId(server: string, tool: string): string {
 	return `mcp__${server}__${tool}`;
 }
@@ -419,50 +413,29 @@ export class PositAssistant {
 		await expect(this.frame.locator(TOOL_CONFIRM_CARD).getByRole('heading', { level: 4 })).toBeVisible();
 	}
 
-	/**
-	 * Verifies the tool confirmation dialog is visible AND specifically
-	 * identifies an MCP server + tool (e.g. `mcp__everything__echo`). Stronger
-	 * than `expectToolConfirmVisible()` for MCP tests, where you want to prove
-	 * the model selected the right MCP tool — not a different MCP server's
-	 * tool or a built-in tool with overlapping behavior.
-	 */
+	/** Verifies the tool confirmation dialog identifies a specific MCP server + tool. */
 	async expectMcpToolConfirmVisible(server: string, tool: string): Promise<void> {
 		await expect(this.frame.locator(TOOL_CONFIRM_CARD)).toContainText(mcpToolId(server, tool));
 	}
 
-	/**
-	 * Returns a locator for the MCP tool-result accordion item for a specific
-	 * server + tool. The accordion is rendered by Posit Assistant whenever an
-	 * MCP tool actually executes (post-Allow), so its presence is evidence the
-	 * tool ran end-to-end rather than failing silently.
-	 */
+	/** Locator for the MCP tool-result accordion, rendered after the tool executes. */
 	mcpToolResult(server: string, tool: string) {
-		// `:scope` keeps the :has() match scoped to this accordion item rather
-		// than matching any ancestor that happens to contain the id text.
 		return this.frame.locator(
 			`${TOOL_RESULT_ACCORDION_ITEM}:has(:scope :text("${mcpToolId(server, tool)}"))`,
 		);
 	}
 
-	/**
-	 * Verifies the MCP tool-result accordion for a specific server + tool is
-	 * present in the transcript. Use after `waitForResponseComplete()` to
-	 * confirm the tool actually executed.
-	 */
+	/** Verifies the MCP tool-result accordion is in the transcript. */
 	async expectMcpToolResultVisible(server: string, tool: string): Promise<void> {
 		await expect(this.mcpToolResult(server, tool)).toBeVisible();
 	}
 
 	/**
-	 * Asserts a literal text string is present somewhere in the chat frame DOM.
-	 * Uses `toBeAttached()` rather than `toBeVisible()` because tool-result
-	 * accordion panels use `overflow-hidden` with an animated height that can
-	 * leave content visually hidden (h=0) even when logically rendered. The
-	 * text is in the DOM either way.
+	 * Asserts a literal text string is anywhere in the chat frame DOM.
 	 *
-	 * Useful for asserting a tool's literal output reached the UI (e.g. the
-	 * `Echo: ...` payload returned by `@modelcontextprotocol/server-everything`'s
-	 * echo tool) without depending on the model's natural-language reply.
+	 * Uses `toBeAttached()` not `toBeVisible()`: tool-result accordion panels
+	 * use overflow-hidden + animated height that can read as visually hidden
+	 * even when fully expanded.
 	 */
 	async expectChatContainsText(text: string): Promise<void> {
 		await expect(this.frame.getByText(text, { exact: false }).first()).toBeAttached();
