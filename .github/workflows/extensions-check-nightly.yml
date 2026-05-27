@@ -144,7 +144,7 @@ jobs:
 
       - name: Prepare branch and capture pre-update state
         id: prepare
-        if: steps.detect.outputs.exists == 'true' && inputs.dryrun != true
+        if: steps.detect.outputs.exists == 'true'
         env:
           PR_BRANCH: ${{ steps.detect.outputs.pr_branch }}
         run: |
@@ -162,7 +162,7 @@ jobs:
           echo "pre_set=$PRE_SET" >> "$GITHUB_OUTPUT"
 
       - name: Reset branch to main (clean reapply)
-        if: steps.detect.outputs.exists == 'true' && steps.detect.outputs.mode == 'reset' && inputs.dryrun != true
+        if: steps.detect.outputs.exists == 'true' && steps.detect.outputs.mode == 'reset'
         env:
           PR_BRANCH: ${{ steps.detect.outputs.pr_branch }}
         run: |
@@ -269,12 +269,12 @@ jobs:
 
       - name: Commit and push
         id: push
-        if: inputs.dryrun != true
         env:
           GH_TOKEN: ${{ steps.bot-token.outputs.token }}
           EXISTS: ${{ steps.detect.outputs.exists }}
           MODE: ${{ steps.detect.outputs.mode }}
           PR_BRANCH: ${{ steps.detect.outputs.pr_branch }}
+          DRYRUN: ${{ inputs.dryrun }}
         run: |
           if [ "$EXISTS" = "true" ]; then
             BRANCH="$PR_BRANCH"
@@ -289,11 +289,19 @@ jobs:
               echo "reused=true" >> "$GITHUB_OUTPUT"
               exit 0
             fi
-            git commit -m "chore: update bootstrap extensions"
-            if [ "$MODE" = "reset" ]; then
-              git push --force-with-lease origin "$BRANCH"
+            if [ "$DRYRUN" = "true" ]; then
+              if [ "$MODE" = "reset" ]; then
+                echo "[dryrun] Would commit and force-push to existing branch $BRANCH (reset mode)."
+              else
+                echo "[dryrun] Would commit and push to existing branch $BRANCH (additive mode)."
+              fi
             else
-              git push origin "$BRANCH"
+              git commit -m "chore: update bootstrap extensions"
+              if [ "$MODE" = "reset" ]; then
+                git push --force-with-lease origin "$BRANCH"
+              else
+                git push origin "$BRANCH"
+              fi
             fi
             echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
             echo "reused=true" >> "$GITHUB_OUTPUT"
@@ -305,15 +313,19 @@ jobs:
               echo "No changes to product.json — skipping PR"
               exit 0
             fi
-            git commit -m "chore: update bootstrap extensions"
-            git push origin "$BRANCH"
+            if [ "$DRYRUN" = "true" ]; then
+              echo "[dryrun] Would commit and push new branch $BRANCH."
+            else
+              git commit -m "chore: update bootstrap extensions"
+              git push origin "$BRANCH"
+            fi
             echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
             echo "reused=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Create or update pull request
         id: create-pr
-        if: steps.push.outputs.branch != '' && inputs.dryrun != true
+        if: steps.push.outputs.branch != ''
         env:
           GH_TOKEN: ${{ steps.bot-token.outputs.token }}
           BRANCH: ${{ steps.push.outputs.branch }}
@@ -325,6 +337,7 @@ jobs:
           UPDATED: ${{ steps.render-tags.outputs.updated }}
           COMBINED_TAGS: ${{ steps.render-tags.outputs.combined_tags }}
           UNMAPPED: ${{ steps.render-tags.outputs.unmapped }}
+          DRYRUN: ${{ inputs.dryrun }}
         run: |
           EXT_BULLETS=$(echo "$UPDATED" | tr ' ' '\n' | sed 's/^/- /')
           # Truncate title if more than 3 extensions to stay within GitHub's limit
@@ -355,7 +368,18 @@ jobs:
           ${TAGS_LINE}${UNMAPPED_LINE}Triggered by [nightly extensions check](${RUN_URL}).
 
           _This PR is auto-managed by the nightly bootstrap-extensions workflow; the title and body may be overwritten on subsequent runs._"
-          if [ "$REUSED" = "true" ]; then
+          if [ "$DRYRUN" = "true" ]; then
+            if [ "$REUSED" = "true" ]; then
+              echo "[dryrun] Would update existing PR #$EXISTING_PR_NUMBER ($EXISTING_PR_URL)"
+              PR_URL="$EXISTING_PR_URL"
+            else
+              echo "[dryrun] Would create new PR from branch $BRANCH"
+              PR_URL="https://example.invalid/dryrun"
+            fi
+            echo "[dryrun] Title: $TITLE"
+            echo "[dryrun] Body:"
+            printf '%s\n' "$BODY" | sed 's/^/[dryrun]   /'
+          elif [ "$REUSED" = "true" ]; then
             gh pr edit "$EXISTING_PR_NUMBER" --title "$TITLE" --body "$BODY" >/dev/null
             PR_URL="$EXISTING_PR_URL"
             echo "Updated existing PR: $PR_URL"
@@ -371,13 +395,14 @@ jobs:
           echo "updated=$UPDATED" >> "$GITHUB_OUTPUT"
 
       - name: Post PR to Slack
-        if: steps.create-pr.outputs.pr_url != '' && inputs.dryrun != true
+        if: steps.create-pr.outputs.pr_url != ''
         env:
           SLACK_TOKEN: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
           PR_URL: ${{ steps.create-pr.outputs.pr_url }}
           UPDATED: ${{ steps.create-pr.outputs.updated }}
           NEW_EXTS: ${{ steps.render-tags.outputs.new_exts }}
           REUSED: ${{ steps.push.outputs.reused }}
+          DRYRUN: ${{ inputs.dryrun }}
         run: |
           # Skip the repost when reusing a PR that didn't gain any new extensions today.
           if [ "$REUSED" = "true" ] && [ -z "$NEW_EXTS" ]; then
@@ -387,19 +412,25 @@ jobs:
           # Slack bullets reflect today's contribution: the newly added subset for reuse,
           # or the full set for a brand-new PR.
           BULLET_EXTS="${NEW_EXTS:-$UPDATED}"
+          PAYLOAD=$(jq -n \
+            --arg channel "#positron-dev" \
+            --arg pr_url "$PR_URL" \
+            --arg ext "$BULLET_EXTS" \
+            '($pr_url | split("/") | last) as $pr_num |
+             (if $ext != "" then "\n\n" + ($ext | split(" ") | map("• " + .) | join("\n")) else "" end) as $bullets |
+             {
+               channel: $channel,
+               text: ("📦 *Bootstrap Extensions Updated* · <" + $pr_url + "|PR #" + $pr_num + ">" + $bullets)
+             }')
+          if [ "$DRYRUN" = "true" ]; then
+            echo "[dryrun] Would post to Slack:"
+            printf '%s\n' "$PAYLOAD" | sed 's/^/[dryrun]   /'
+            exit 0
+          fi
           curl -s -X POST https://slack.com/api/chat.postMessage \
             -H "Authorization: Bearer $SLACK_TOKEN" \
             -H "Content-Type: application/json" \
-            -d "$(jq -n \
-              --arg channel "#positron-dev" \
-              --arg pr_url "$PR_URL" \
-              --arg ext "$BULLET_EXTS" \
-              '($pr_url | split("/") | last) as $pr_num |
-               (if $ext != "" then "\n\n" + ($ext | split(" ") | map("• " + .) | join("\n")) else "" end) as $bullets |
-               {
-                 channel: $channel,
-                 text: ("📦 *Bootstrap Extensions Updated* · <" + $pr_url + "|PR #" + $pr_num + ">" + $bullets)
-               }')"
+            -d "$PAYLOAD"
 
   slack-notify:
     if: always() && needs.extensions-linux.result == 'failure' && needs.auto-update.outputs.pr_url == '' && inputs.dryrun != true
