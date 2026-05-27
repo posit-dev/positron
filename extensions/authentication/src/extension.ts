@@ -503,6 +503,7 @@ async function registerGeminiProvider(
 async function registerGoogleVertexProvider(
 	context: vscode.ExtensionContext,
 ): Promise<void> {
+	const logger = new AuthProviderLogger('Google Vertex AI');
 	const envBaseUrl = process.env.GOOGLE_VERTEX_BASE_URL;
 	if (envBaseUrl) {
 		await vscode.workspace
@@ -519,7 +520,7 @@ async function registerGoogleVertexProvider(
 		GOOGLE_CLOUD_AUTH_PROVIDER_ID, 'Google Vertex AI', context,
 		undefined,
 		{
-			resolve: resolveGoogleVertexCredential,
+			resolve: () => resolveGoogleVertexCredential(logger),
 			refreshIntervalMs: CREDENTIAL_REFRESH_INTERVAL_MS,
 		}
 	);

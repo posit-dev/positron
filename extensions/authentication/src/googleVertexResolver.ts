@@ -5,6 +5,8 @@
 
 import * as vscode from 'vscode';
 import { GoogleAuth } from 'google-auth-library';
+import { AuthProviderLogger } from './authProviderLogger';
+import { log } from './log';
 
 const VERTEX_SCOPE = 'https://www.googleapis.com/auth/cloud-platform';
 
@@ -74,7 +76,9 @@ async function tryInlineCredentials(): Promise<string | undefined> {
  * (not an error) when ADC fails to resolve, so the chain can surface a single
  * descriptive error at the top level.
  */
-async function tryApplicationDefaultCredentials(): Promise<string | undefined> {
+async function tryApplicationDefaultCredentials(
+	logger: AuthProviderLogger,
+): Promise<string | undefined> {
 	const client = new GoogleAuth({ scopes: [VERTEX_SCOPE] });
 	try {
 		const token = await client.getAccessToken();
@@ -82,7 +86,8 @@ async function tryApplicationDefaultCredentials(): Promise<string | undefined> {
 			return undefined;
 		}
 		return token as string;
-	} catch {
+	} catch (err) {
+		logger.warn('Application Default Credentials failed', err);
 		return undefined;
 	}
 }
@@ -121,10 +126,12 @@ function readProjectAndLocation(): { project?: string; location?: string } {
  *
  * Throws if no credentials resolve, or if project/location are unset.
  */
-export async function resolveGoogleVertexCredential(): Promise<string> {
+export async function resolveGoogleVertexCredential(
+	logger: AuthProviderLogger = new AuthProviderLogger('Google Vertex AI', log),
+): Promise<string> {
 	let token = await tryInlineCredentials();
 	if (!token) {
-		token = await tryApplicationDefaultCredentials();
+		token = await tryApplicationDefaultCredentials(logger);
 	}
 	if (!token) {
 		throw new Error(
