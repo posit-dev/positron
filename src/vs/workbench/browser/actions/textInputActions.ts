@@ -44,16 +44,17 @@ export function createTextInputActions(clipboardService: IClipboardService, logS
 					const selectionStart = element.selectionStart || 0;
 					const selectionEnd = element.selectionEnd || 0;
 
-					const newValue = `${element.value.substring(0, selectionStart)}${clipboardText}${element.value.substring(selectionEnd, element.value.length)}`;
-
 					// --- Start Positron ---
 					// React patches the value setter on HTMLInputElement/HTMLTextAreaElement
-					// prototypes to keep its internal value tracker in sync. Assigning
+					// instances to keep its internal value tracker in sync. Assigning
 					// `element.value` directly therefore updates React's tracker, and the
 					// subsequent input event is treated as a no-op by React, so controlled
-					// components never see an onChange. Use the underlying native setter to
+					// components never see an onChange. Use the prototype's native setter to
 					// bypass React's patch; the dispatched input event then fires onChange
 					// as expected. See posit-dev/positron#12204.
+					//
+					// element.value = `${element.value.substring(0, selectionStart)}${clipboardText}${element.value.substring(selectionEnd, element.value.length)}`;
+					const newValue = `${element.value.substring(0, selectionStart)}${clipboardText}${element.value.substring(selectionEnd, element.value.length)}`;
 					const proto = isHTMLInputElement(element)
 						? HTMLInputElement.prototype
 						: HTMLTextAreaElement.prototype;
