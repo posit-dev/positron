@@ -454,6 +454,21 @@ export class PositAssistant {
 	}
 
 	/**
+	 * Asserts a literal text string is present somewhere in the chat frame DOM.
+	 * Uses `toBeAttached()` rather than `toBeVisible()` because tool-result
+	 * accordion panels use `overflow-hidden` with an animated height that can
+	 * leave content visually hidden (h=0) even when logically rendered. The
+	 * text is in the DOM either way.
+	 *
+	 * Useful for asserting a tool's literal output reached the UI (e.g. the
+	 * `Echo: ...` payload returned by `@modelcontextprotocol/server-everything`'s
+	 * echo tool) without depending on the model's natural-language reply.
+	 */
+	async expectChatContainsText(text: string): Promise<void> {
+		await expect(this.frame.getByText(text, { exact: false }).first()).toBeAttached();
+	}
+
+	/**
 	 * Selects "Allow for this session" from the tool confirmation dropdown.
 	 */
 	async allowToolForSession(): Promise<void> {

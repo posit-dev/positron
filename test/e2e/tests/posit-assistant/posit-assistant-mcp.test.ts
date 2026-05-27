@@ -88,12 +88,12 @@ test.describe('Posit Assistant MCP', {
 				//    cannot fabricate it from the prompt alone.
 				await app.workbench.positAssistant.expectMcpToolResultVisible('everything', 'echo');
 
-				// 3. The model's reply includes the marker. Combined with checks 1
-				//    and 2 above (which prove the right MCP tool actually ran), this
-				//    rules out the model satisfying the test by replying without
-				//    invoking the tool.
-				const responseText = await app.workbench.positAssistant.getLastResponseText();
-				test.expect(responseText).toContain(marker);
+				// 3. The literal "Echo: <marker>" payload appears somewhere in the
+				//    chat frame DOM. The "Echo: " prefix is from the everything
+				//    server's tools/echo.ts (not the prompt or the user message),
+				//    so a parroting model can't synthesize this exact string —
+				//    only a real tool execution can put it in the UI.
+				await app.workbench.positAssistant.expectChatContainsText(`Echo: ${marker}`);
 			});
 		});
 	}
