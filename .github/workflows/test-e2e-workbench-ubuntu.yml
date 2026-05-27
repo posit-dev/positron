@@ -28,6 +28,11 @@ on:
         description: "Whether to allow tests marked with :soft-fail to fail without failing the job."
         type: boolean
         default: false
+      install_mode:
+        required: false
+        description: "Workbench install mode: 'ci' for latest daily, 'ci-stable' for the last stable release."
+        type: string
+        default: "ci"
 
 permissions:
   id-token: write
@@ -95,6 +100,13 @@ jobs:
           SNOWFLAKE_CLIENT_SECRET: "op://Positron/Snowflake-WB-Auto/client-secret"
           SNOWFLAKE_USERNAME: "op://Positron/Snowflake-WB-Auto/username"
           SNOWFLAKE_PASSWORD: "op://Positron/Snowflake-WB-Auto/password"
+          WORKBENCH_LICENSE: "op://Positron/Workbench-lic-WB-Auto/notesPlain"
+          CONNECT_LICENSE: "op://Positron/Connect-lic-WB-Auto/notesPlain"
+
+      - name: Write license files
+        run: |
+          echo "$WORKBENCH_LICENSE" > /tmp/workbench.lic
+          echo "$CONNECT_LICENSE" > /tmp/connect.lic
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -121,7 +133,7 @@ jobs:
       - name: Setup Workbench Docker Environment
         uses: ./.github/actions/setup-workbench-docker
         with:
-          install-mode: ci
+          install-mode: ${{ inputs.install_mode }}
           wb-password: ${{ secrets.WB_PASSWORD }}
           github-token: ${{ steps.access-token.outputs.token }}
           run-id: ${{ github.run_id }}

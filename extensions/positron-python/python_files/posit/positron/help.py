@@ -8,6 +8,7 @@ from __future__ import annotations
 import contextlib
 import logging
 import pydoc
+import re
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
 
@@ -26,6 +27,41 @@ if TYPE_CHECKING:
     from comm.base_comm import BaseComm
 
 logger = logging.getLogger(__name__)
+
+
+def _canonicalize_distribution_name(name: str) -> str:
+    # PEP 503: collapse runs of -_. into a single dash and lowercase.
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def _distribution_to_modules(name: str) -> list[str]:
+    """Top-level modules provided by the PyPI distribution `name`.
+
+    PyPI distribution names don't always match the importable module name
+    (e.g. "scikit-learn" -> "sklearn", "python-dateutil" -> "dateutil").
+    Returns an empty list on Python < 3.10 (where the stdlib API is missing)
+    or when no installed distribution matches.
+    """
+    try:
+        # packages_distributions exists on Python >= 3.10; pyright's stubs for
+        # older versions don't know about it, so suppress the import-symbol
+        # check here. ImportError handles the actual runtime absence.
+        from importlib.metadata import (
+            packages_distributions,  # type: ignore[reportGeneralTypeIssues]
+        )
+    except ImportError:
+        return []
+
+    canonical = _canonicalize_distribution_name(name)
+    modules: list[str] = []
+    for module, distributions in packages_distributions().items():
+        if any(_canonicalize_distribution_name(d) == canonical for d in distributions):
+            modules.append(module)
+    # When a distribution exposes multiple top-level modules (e.g. setuptools
+    # also exposes _distutils_hack, pkg_resources), prefer one whose name
+    # matches the distribution name.
+    modules.sort(key=lambda m: _canonicalize_distribution_name(m) != canonical)
+    return modules
 
 
 def help(topic="help"):  # noqa: A001
@@ -118,6 +154,16 @@ class HelpService:
         result = None
         with contextlib.suppress(ImportError):
             result = pydoc.resolve(thing=request)
+
+        # If pydoc can't resolve the request (e.g. a PyPI distribution name like
+        # "scikit-learn" whose import name is "sklearn"), try mapping the
+        # distribution name to its top-level module(s) and resolving those.
+        if result is None and isinstance(request, str):
+            for module_name in _distribution_to_modules(request):
+                with contextlib.suppress(ImportError):
+                    result = pydoc.resolve(thing=module_name)
+                if result is not None:
+                    break
 
         if result is None:
             # We could not resolve to an object, try to get help for the request as a string.

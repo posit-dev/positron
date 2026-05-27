@@ -24,14 +24,17 @@ import { IViewContainersRegistry, IViewsRegistry, Extensions as ViewContainerExt
 import { ILanguageRuntimePackage, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { positronSessionViewIcon } from '../../positronSession/browser/positronSessionContainer.js';
 import { IPositronPackagesService } from './interfaces/positronPackagesService.js';
-import { PACKAGES_CAN_RUN_ACTION, PACKAGES_HAS_SELECTION, PACKAGES_VIEW_VISIBLE, POSITRON_PACKAGES_VIEW_ID } from './positronPackagesContextKeys.js';
+import { PACKAGES_CAN_RUN_ACTION, PACKAGES_HAS_SELECTION, PACKAGES_VIEW_VISIBLE, POSITRON_PACKAGES_ITEM_SIZE, POSITRON_PACKAGES_VIEW_ID } from './positronPackagesContextKeys.js';
 import { installPackage, uninstallPackage, updatePackage } from './positronPackagesQuickPick.js';
 import { PositronPackagesService } from './positronPackagesService.js';
 import { PositronPackagesView } from './positronPackagesView.js';
 
 export const POSITRON_PACKAGES_VIEW_CONTAINER_ID = 'workbench.viewContainer.positronPackages';
 
-const POSITRON_PACKAGES_ENABLED = ContextKeyExpr.equals('config.positron.packages.enable', true);
+const POSITRON_PACKAGES_ENABLED = ContextKeyExpr.and(
+	ContextKeyExpr.equals('config.packages.enabled', true),
+	ContextKeyExpr.equals('config.positron.packages.enable', true),
+)!;
 
 const viewContainer = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry).registerViewContainer({
 	id: POSITRON_PACKAGES_VIEW_CONTAINER_ID,
@@ -75,12 +78,19 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 	type: 'object',
 	title: nls.localize('packagesConfigurationTitle', 'Packages'),
 	properties: {
+		'packages.enabled': {
+			type: 'boolean',
+			default: true,
+			scope: ConfigurationScope.APPLICATION,
+			description: nls.localize('positron.packages.enabled', 'Show the Packages pane.'),
+			tags: ['preview'],
+		},
 		'positron.packages.enable': {
 			type: 'boolean',
 			default: true,
 			scope: ConfigurationScope.APPLICATION,
 			description: nls.localize('positron.packages.enable', 'Show the Packages pane.'),
-			tags: ['preview'],
+			markdownDeprecationMessage: nls.localize('positron.packages.enable.deprecated', "Deprecated. Use `#packages.enabled#` instead."),
 		}
 	}
 });
@@ -597,6 +607,75 @@ class RefreshMetadataAction extends Action2 {
 	}
 }
 
+/**
+ * Switches the Packages view to the expanded card layout.
+ * Only visible in the view title when the view is currently showing compact rows.
+ */
+class SetPackagesCardViewAction extends Action2 {
+	constructor() {
+		super({
+			id: 'positronPackages.setCardView',
+			title: nls.localize2('positronPackages.showAsCards', 'Show as Cards'),
+			category: PACKAGES_CATEGORY,
+			icon: Codicon.listSelection,
+			precondition: POSITRON_PACKAGES_ENABLED,
+			menu: {
+				id: MenuId.ViewTitle,
+				when: ContextKeyExpr.and(PACKAGES_VIEW_VISIBLE, POSITRON_PACKAGES_ITEM_SIZE.isEqualTo('row')),
+				group: 'navigation',
+				order: 2,
+			},
+		});
+	}
+	override async run(accessor: ServicesAccessor): Promise<void> {
+		accessor.get<IPositronPackagesService>(IPositronPackagesService).setItemSize('card');
+	}
+}
+
+/**
+ * Switches the Packages view to the compact row layout.
+ * Only visible in the view title when the view is currently showing cards.
+ */
+class SetPackagesRowViewAction extends Action2 {
+	constructor() {
+		super({
+			id: 'positronPackages.setRowView',
+			title: nls.localize2('positronPackages.showAsRows', 'Show as Rows'),
+			category: PACKAGES_CATEGORY,
+			icon: Codicon.listFlat,
+			precondition: POSITRON_PACKAGES_ENABLED,
+			menu: {
+				id: MenuId.ViewTitle,
+				when: ContextKeyExpr.and(PACKAGES_VIEW_VISIBLE, POSITRON_PACKAGES_ITEM_SIZE.isEqualTo('card')),
+				group: 'navigation',
+				order: 2,
+			},
+		});
+	}
+	override async run(accessor: ServicesAccessor): Promise<void> {
+		accessor.get<IPositronPackagesService>(IPositronPackagesService).setItemSize('row');
+	}
+}
+
+/**
+ * Toggles between card and row layouts. Exposed via the command palette.
+ */
+class TogglePackagesItemSizeAction extends Action2 {
+	constructor() {
+		super({
+			id: 'positronPackages.toggleItemSize',
+			title: nls.localize2('positronPackages.toggleItemSize', 'Toggle Packages List Layout'),
+			category: PACKAGES_CATEGORY,
+			f1: true,
+			precondition: POSITRON_PACKAGES_ENABLED,
+		});
+	}
+	override async run(accessor: ServicesAccessor): Promise<void> {
+		const service = accessor.get<IPositronPackagesService>(IPositronPackagesService);
+		service.setItemSize(service.itemSize === 'card' ? 'row' : 'card');
+	}
+}
+
 registerAction2(InstallPackageAction);
 registerAction2(RefreshPackagesAction);
 registerAction2(RefreshMetadataAction);
@@ -605,4 +684,7 @@ registerAction2(UpdatePackageAction);
 registerAction2(UpdateAllPackagesAction);
 registerAction2(UpdateSelectedPackageAction);
 registerAction2(UninstallSelectedPackageAction);
+registerAction2(SetPackagesCardViewAction);
+registerAction2(SetPackagesRowViewAction);
+registerAction2(TogglePackagesItemSizeAction);
 registerSingleton(IPositronPackagesService, PositronPackagesService, InstantiationType.Delayed);

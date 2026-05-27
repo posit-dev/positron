@@ -342,4 +342,52 @@ describe('TopActionBarSessionManager', () => {
 			);
 		});
 	});
+
+	// During a kernel switch in a notebook, the picker briefly flashes
+	// Disconnected because foregroundSessionDisplayInfo surfaces the deleted
+	// old session's Exited state before the new session takes foreground. The
+	// notebook badge stays Active throughout because it reads session state
+	// directly. These tests document the desired picker behavior so a future
+	// fix can test against these.
+	describe('notebook kernel switch', () => {
+		const displayInfoEmitter = new Emitter<IRuntimeSessionDisplayInfo | undefined>();
+		const ctx = createTestContainer()
+			.withReactServices()
+			.stub(IRuntimeSessionService, {
+				foregroundSessionDisplayInfo: undefined,
+				activeSessions: [],
+				onDidChangeForegroundSessionDisplayInfo: displayInfoEmitter.event,
+			})
+			.build();
+		const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+		const notebookUri = URI.file('/workspace/test.ipynb');
+
+		it.fails('stays Active when foreground notebook session goes from Idle to Exited', () => {
+			rtl.render(<TopActionBarSessionManager />);
+
+			// Notebook session is foreground and Idle.
+			act(() => {
+				displayInfoEmitter.fire(makeDisplayInfo({
+					sessionMode: LanguageRuntimeSessionMode.Notebook,
+					notebookUri,
+					sessionState: RuntimeState.Idle,
+				}));
+			});
+			expect(screen.getByTestId('runtime-status-idle')).toBeInTheDocument();
+
+			// Kernel switch begins: cached Exited info is surfaced for the
+			// deleted session before the new session takes foreground.
+			act(() => {
+				displayInfoEmitter.fire(makeDisplayInfo({
+					sessionMode: LanguageRuntimeSessionMode.Notebook,
+					notebookUri,
+					sessionState: RuntimeState.Exited,
+				}));
+			});
+
+			// Picker should match the notebook badge: Active throughout the switch.
+			expect(screen.getByTestId('runtime-status-active')).toBeInTheDocument();
+		});
+	});
 });

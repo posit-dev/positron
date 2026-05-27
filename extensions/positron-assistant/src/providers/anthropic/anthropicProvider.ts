@@ -131,18 +131,6 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 		}
 	}
 
-	/**
-	 * Sends a test message to verify model connectivity.
-	 * Uses the native Anthropic SDK to test the connection.
-	 */
-	protected override async sendTestMessage(modelId: string) {
-		return this._client.messages.create({
-			model: modelId,
-			max_tokens: 10,
-			messages: [{ role: 'user', content: 'Hello' }]
-		});
-	}
-
 	protected override retrieveModelsFromConfig() {
 		return getAnthropicModelsFromConfig(
 			this.providerId,

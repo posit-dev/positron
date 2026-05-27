@@ -17,61 +17,61 @@ echo "  * Tags: '$TAGS'"
 OUTPUT=""
 
 # Filter and preprocess tags based on project
-if [[ "$PROJECT" == "e2e-windows" ]]; then
-  # Remove @:win from the tags
-  TAGS=$(echo "$TAGS" | tr ',' '\n' | grep -v "@:win" | sort -u | tr '\n' ',' | sed 's/,$//')
+if [[ "$PROJECT" == "e2e-windows" || "$PROJECT" == "e2e-macOS-ci" ]]; then
+	# Remove @:win from the tags
+	TAGS=$(echo "$TAGS" | tr ',' '\n' | grep -v "@:win" | sort -u | tr '\n' ',' | sed 's/,$//')
 	# If @:web is present, remove it
 	if echo "$TAGS" | grep -q "@:web"; then
-    TAGS=$(echo "$TAGS" | tr ',' '\n' | grep -v "@:web" | sort -u | tr '\n' ',' | sed 's/,$//')
-  fi
+		TAGS=$(echo "$TAGS" | tr ',' '\n' | grep -v "@:web" | sort -u | tr '\n' ',' | sed 's/,$//')
+	fi
 elif [[ "$PROJECT" == "e2e-chromium" ]]; then
-  # Remove @:web from the tags
-  TAGS=$(echo "$TAGS" | tr ',' '\n' | grep -v "@:web" | sort -u | tr '\n' ',' | sed 's/,$//')
+	# Remove @:web from the tags
+	TAGS=$(echo "$TAGS" | tr ',' '\n' | grep -v "@:web" | sort -u | tr '\n' ',' | sed 's/,$//')
 	# If @:win is present, remove it
 	if echo "$TAGS" | grep -q "@:win"; then
-    TAGS=$(echo "$TAGS" | tr ',' '\n' | grep -v "@:win" | sort -u | tr '\n' ',' | sed 's/,$//')
-  fi
+		TAGS=$(echo "$TAGS" | tr ',' '\n' | grep -v "@:win" | sort -u | tr '\n' ',' | sed 's/,$//')
+	fi
 else
-  # Deduplicate for other projects
-  TAGS=$(echo "$TAGS" | tr ',' '\n' | sort -u | tr '\n' ',' | sed 's/,$//')
+	# Deduplicate for other projects
+	TAGS=$(echo "$TAGS" | tr ',' '\n' | sort -u | tr '\n' ',' | sed 's/,$//')
 	# If @:web is present, remove it
 	if echo "$TAGS" | grep -q "@:web"; then
-    TAGS=$(echo "$TAGS" | tr ',' '\n' | grep -v "@:web" | sort -u | tr '\n' ',' | sed 's/,$//')
-  fi
+		TAGS=$(echo "$TAGS" | tr ',' '\n' | grep -v "@:web" | sort -u | tr '\n' ',' | sed 's/,$//')
+	fi
 	# If @:win is present, remove it
 	if echo "$TAGS" | grep -q "@:win"; then
-    TAGS=$(echo "$TAGS" | tr ',' '\n' | grep -v "@:win" | sort -u | tr '\n' ',' | sed 's/,$//')
-  fi
+		TAGS=$(echo "$TAGS" | tr ',' '\n' | grep -v "@:win" | sort -u | tr '\n' ',' | sed 's/,$//')
+	fi
 fi
 
 # Determine prefix based on PROJECT
 case "$PROJECT" in
-  "e2e-chromium"|"e2e-firefox"|"e2e-webkit"|"e2e-edge")
-    OUTPUT="(?=.*@:web)"  # Base tag for chromium/web engines
-    ;;
-  "e2e-windows")
-    OUTPUT="(?=.*@:win)"  # Base tag for windows
-    ;;
-  "e2e-electron")
-    OUTPUT="" # No prefix for linux
-    ;;
-  "inspect-ai")
-    OUTPUT="(?=.*@:inspect-ai)"  # Base tag for inspect-ai
-    ;;
-  *)
-    echo "Unknown PROJECT: $PROJECT"
-    exit 1
-    ;;
+	"e2e-chromium"|"e2e-firefox"|"e2e-webkit"|"e2e-edge")
+		OUTPUT="(?=.*@:web)"  # Base tag for chromium/web engines
+		;;
+	"e2e-windows"|"e2e-macOS-ci")
+		OUTPUT="(?=.*@:win)"  # Base tag for windows and macOS
+		;;
+	"e2e-electron")
+		OUTPUT="" # No prefix for linux
+		;;
+	"inspect-ai")
+		OUTPUT="(?=.*@:inspect-ai)"  # Base tag for inspect-ai
+		;;
+	*)
+		echo "Unknown PROJECT: $PROJECT"
+		exit 1
+		;;
 esac
 
 # Append OR logic for additional tags
 if [[ -n "$TAGS" ]]; then
-  # Convert comma-separated tags into OR regex format
-  TAGS_REGEX=$(echo "$TAGS" | tr ',' '|' | sed 's/^/(?=.*(/;s/$/))/' | sed 's/|)/)/') # Create OR condition
-  OUTPUT="$OUTPUT$TAGS_REGEX"
+	# Convert comma-separated tags into OR regex format
+	TAGS_REGEX=$(echo "$TAGS" | tr ',' '|' | sed 's/^/(?=.*(/;s/$/))/' | sed 's/|)/)/') # Create OR condition
+	OUTPUT="$OUTPUT$TAGS_REGEX"
 else
-  # Ensure OUTPUT remains explicitly an empty string if TAGS is empty
-  OUTPUT="${OUTPUT:-}"
+	# Ensure OUTPUT remains explicitly an empty string if TAGS is empty
+	OUTPUT="${OUTPUT:-}"
 fi
 
 # Output the final string
@@ -80,4 +80,3 @@ echo "  * '${OUTPUT}'"  # Show quotes for clarity
 
 # Save to GITHUB_ENV
 echo "PW_TAGS=${OUTPUT}" >> $GITHUB_ENV
-

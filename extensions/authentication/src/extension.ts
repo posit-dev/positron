@@ -9,6 +9,7 @@ import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { ANTHROPIC_AUTH_PROVIDER_ID, AWS_AUTH_PROVIDER_ID, CREDENTIAL_REFRESH_INTERVAL_MS, CUSTOM_PROVIDER_AUTH_PROVIDER_ID, FOUNDRY_AUTH_PROVIDER_ID, GEMINI_AUTH_PROVIDER_ID, OPENAI_AUTH_PROVIDER_ID, POSIT_AUTH_PROVIDER_ID } from './constants';
 import { AuthProvider } from './authProvider';
 import { registerAuthProvider, showConfigurationDialog } from './configDialog';
+import { PROVIDER_METADATA } from './providerSources';
 import { normalizeToV1Url, validateAnthropicApiKey, validateCustomProviderApiKey, validateFoundryApiKey, validateGeminiApiKey, validateOpenaiApiKey, validateSnowflakeApiKey } from './validation';
 import { FOUNDRY_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
 import { detectSnowflakeCredentials, getSnowflakeConnectionsTomlPath } from './snowflakeCredentials';
@@ -40,16 +41,21 @@ export async function activate(context: vscode.ExtensionContext) {
 	await registerGeminiProvider(context);
 	registerCustomProvider(context);
 
+	// Register provider metadata so the Settings UI shows per-provider
+	// enable toggles (positron.assistant.provider.<settingName>.enable).
+	for (const metadata of Object.values(PROVIDER_METADATA)) {
+		positron.ai.registerProviderMetadata(metadata);
+	}
+
 	log.info('Authentication extension activated');
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'authentication.configureProviders',
 			async (
-				sources?: positron.ai.LanguageModelSource[],
 				options?: positron.ai.ShowLanguageModelConfigOptions
 			) => {
-				return showConfigurationDialog(sources ?? [], options);
+				return showConfigurationDialog(options);
 			}
 		),
 	);
@@ -335,6 +341,16 @@ function registerSnowflakeProvider(context: vscode.ExtensionContext): void {
 	);
 	registerAuthProvider('snowflake-cortex', provider, {
 		validateApiKey: validateSnowflakeApiKey,
+		onSave: async (config) => {
+			if (config.baseUrl) {
+				await vscode.workspace
+					.getConfiguration('authentication.snowflake-cortex')
+					.update(
+						'baseUrl', config.baseUrl,
+						vscode.ConfigurationTarget.Global
+					);
+			}
+		},
 	});
 	provider.resolveChainCredentials().catch(err =>
 		logger.logCredentialResolution(

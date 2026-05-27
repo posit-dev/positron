@@ -52,6 +52,7 @@ import { InlineDataExplorer } from '../pages/inlineDataExplorer.js';
 import { InlineQuarto } from '../pages/inlineQuarto.js';
 import { Publisher } from '../pages/publisher.js';
 import { Packages } from '../pages/packages.js';
+import { SuggestWidget } from '../pages/suggestWidget.js';
 
 export interface Commands {
 	runCommand(command: string, options?: { exactLabelMatch?: boolean }): Promise<any>;
@@ -106,6 +107,7 @@ export class Workbench {
 	readonly inlineQuarto: InlineQuarto;
 	readonly publisher: Publisher;
 	readonly packages: Packages;
+	readonly suggestWidget: SuggestWidget;
 
 	constructor(code: Code) {
 		this.hotKeys = new HotKeys(code);
@@ -134,8 +136,8 @@ export class Workbench {
 		this.notebooksVscode = new VsCodeNotebooks(code, this.quickInput, this.quickaccess, this.hotKeys);
 		this.notebooksPositron = new PositronNotebooks(code, this.quickInput, this.quickaccess, this.hotKeys, this.contextMenu);
 		this.welcome = new Welcome(code);
-		this.terminal = new Terminal(code, this.quickaccess, this.clipboard);
-		this.viewer = new Viewer(code);
+		this.terminal = new Terminal(code, this.quickaccess);
+		this.viewer = new Viewer(code, this.contextMenu);
 		this.editor = new Editor(code, this.toasts);
 		this.testExplorer = new TestExplorer(code);
 		this.outline = new Outline(code, this.quickaccess);
@@ -154,7 +156,8 @@ export class Workbench {
 		this.inlineDataExplorer = new InlineDataExplorer(code.driver.currentPage);
 		this.inlineQuarto = new InlineQuarto(code, this.quickaccess, this.hotKeys);
 		this.publisher = new Publisher(this.quickInput);
-		this.packages = new Packages(code, this.contextMenu, this.quickInput, this.toasts);
+		this.packages = new Packages(code, this.contextMenu, this.quickInput, this.toasts, this.help);
+		this.suggestWidget = new SuggestWidget(code);
 	}
 }
 

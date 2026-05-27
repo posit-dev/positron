@@ -13,6 +13,7 @@ import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { IBaseCellEditorOptions } from '../../notebook/browser/notebookBrowser.js';
 import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
 import { RuntimeNotebookKernel } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernel.js';
+import type { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronNotebookEditor } from './IPositronNotebookEditor.js';
 import { IHoverManager } from '../../../../platform/hover/browser/hoverManager.js';
 import { IPositronNotebookContribution } from './positronNotebookExtensions.js';
@@ -62,26 +63,24 @@ export interface IDeletionSentinel {
 }
 
 /**
- * Represents the possible states of a notebook's kernel connection
+ * Lifecycle of the notebook's relationship to a runtime session. When
+ * Connected, the session itself is authoritative for runtime state; the
+ * other values cover pre-session and post-session phases that the session
+ * can't speak to.
  */
-export enum KernelStatus {
+export enum NotebookKernelStatus {
 	/** Discovering available kernels */
 	Discovering = 'Preparing',
 	/** No kernel has been selected for the notebook */
 	Unselected = 'Unselected',
-	/** The kernel is restarting*/
-	Restarting = 'Restarting',
-	/** Changing from one kernel to another */
+	/** Changing from one kernel to another - bridges the gap while the old
+	 * session exits before the new session attaches. */
 	Switching = 'Switching',
-	/** The kernel is starting */
-	Starting = 'Starting',
-	/** The kernel is ready to receive a request */
-	Idle = 'Idle',
-	/** The kernel is busy handling a request */
-	Busy = 'Busy',
-	/** The kernel is in the process of exiting */
-	Exiting = 'Exiting',
-	/** The kernel has exited */
+	/** A runtime session is attached. Its RuntimeState drives the display. */
+	Connected = 'Connected',
+	/** A kernel was selected and its runtime session has ended without a
+	 * follow-up (e.g., user shutdown). The user's selection persists; the
+	 * badge displays Disconnected with the runtime name so they can restart. */
 	Exited = 'Exited',
 }
 
@@ -186,12 +185,14 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * Observable status of the notebook's kernel connection. UI elements can
 	 * react to changes in kernel connectivity.
 	 */
-	readonly kernelStatus: IObservable<KernelStatus>;
+	readonly kernelStatus: IObservable<NotebookKernelStatus>;
 
 	/**
 	 * Observable of the notebook's selected kernel.
 	 */
 	readonly kernel: IObservable<RuntimeNotebookKernel | undefined>;
+
+	readonly runtimeSession: IObservable<ILanguageRuntimeSession | undefined>;
 
 	/**
 	 * State machine that manages cell selection behavior and state.

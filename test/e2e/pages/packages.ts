@@ -6,6 +6,7 @@
 import { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { ContextMenu } from './dialog-contextMenu';
+import { Help } from './help';
 import { QuickInput } from './quickInput';
 import { Toasts } from './dialog-toasts';
 
@@ -16,14 +17,19 @@ export class Packages {
 
 	packagesButton: Locator;
 	packagesContainer: Locator;
+	refreshPackagesButton: Locator;
 	packagesViewMoreActionsButton: Locator;
 	filterButton: Locator;
 	filterOptionsMenu: Locator;
 	filterOptionsSubmenu: Locator;
 
-	constructor(private code: Code, private contextMenu: ContextMenu, private quickInput: QuickInput, private toasts: Toasts) {
+	constructor(private code: Code, private contextMenu: ContextMenu, private quickInput: QuickInput, private toasts: Toasts, private help: Help) {
 		this.packagesButton = this.code.driver.currentPage.locator('a.action-label.codicon-package');
 		this.packagesContainer = this.code.driver.currentPage.locator('.positron-packages-list');
+
+		this.refreshPackagesButton = this.code.driver.currentPage
+			.getByRole('toolbar', { name: 'Packages actions' })
+			.getByLabel('Refresh Packages');
 		// More Actions button (overflow menu) in the packages view title bar
 		this.packagesViewMoreActionsButton = code.driver.currentPage
 			.getByRole('toolbar', { name: 'Packages actions' })
@@ -157,6 +163,41 @@ export class Packages {
 		});
 		await expect(item).toBeVisible();
 		await item.hover();
+	}
+
+	/**
+	 * Waits for the Help pane to render content for a package, retrying past the
+	 * help-frame load delay.
+	 * @param expectedText Substring that must appear in the help frame body
+	 * @param helpFrameIndex Index of the help webview to check (0 for the first opened, etc.)
+	 */
+	async expectHelpPaneToContainText(expectedText: string, helpFrameIndex: number): Promise<void> {
+		await expect(async () => {
+			const helpFrame = await this.help.getHelpFrame(helpFrameIndex);
+			await expect(helpFrame.locator('body')).toContainText(expectedText);
+		}).toPass();
+	}
+
+	/**
+	 * Clicks the help button on a package row to open its help topic in the Help pane.
+	 * The packages list is virtualized -- scrolls the list down until the row for
+	 * the requested package is rendered, then clicks its help button.
+	 * @param packageName The name of the package whose help button should be clicked
+	 */
+	async clickHelpButton(packageName: string): Promise<void> {
+		await this.clickPackagesButton();
+		await expect(this.packagesContainer).toBeVisible();
+
+		await this.searchPackages(packageName);
+		const helpButton = this.packagesContainer.getByRole('button', { name: `Show help for ${packageName}`, exact: true });
+
+		await helpButton.click();
+		await this.clearFilter();
+	}
+
+	async clickRefreshPackagesButton(): Promise<void> {
+		await this.clickPackagesButton();
+		await this.refreshPackagesButton.click();
 	}
 
 	/**

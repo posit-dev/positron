@@ -5,6 +5,8 @@
 
 .current-working-directory-label {
 	display: flex;
+	width: 100%;
+	min-width: 0;
 	font-size: 12px;
 	overflow: hidden;
 	align-items: center;
@@ -13,10 +15,12 @@
 
 .current-working-directory-label .codicon {
 	padding-top: 1px;
+	flex-shrink: 0;
 	color: var(--vscode-positronActionBar-foreground);
 }
 
 .current-working-directory-label .label {
+	min-width: 0;
 	overflow: hidden;
 	padding-left: 5px;
 	white-space: nowrap;

@@ -122,6 +122,34 @@ export async function unhoverAll(page: Page): Promise<void> {
 }
 
 /**
+ * Hide the data-grid cursor border (the blue outline around the focused cell).
+ * Injected as a stylesheet so the rule persists across re-renders.
+ */
+export async function hideDataGridCursor(page: Page): Promise<void> {
+	await page.addStyleTag({
+		content: '.cursor-border { display: none !important; } .selection-overlay { display: none !important; }',
+	});
+	await page.waitForTimeout(50);
+}
+
+/**
+ * Hide the text-insertion caret in any focused input. The blinking cursor
+ * causes pixel differences between runs and is not meaningful in a screenshot.
+ */
+export async function hideCaret(page: Page): Promise<void> {
+	await page.evaluate(() => {
+		const ID = 'release-screenshot-hide-caret';
+		if (document.getElementById(ID)) {
+			return;
+		}
+		const style = document.createElement('style');
+		style.id = ID;
+		style.textContent = '* { caret-color: transparent !important; }';
+		document.head.appendChild(style);
+	});
+}
+
+/**
  * Hide notification badges (the small red dots / counts) on activity-bar
  * items, panel tabs (e.g. "Problems 2"), etc. These leak into release
  * screenshots from things like "sign in to GitHub", Python lint warnings,
@@ -164,29 +192,38 @@ export async function waitForStableUI(page: Page, ms = 250): Promise<void> {
 }
 
 /**
- * Rewrite the parenthesized environment suffix Positron renders next to
- * the Python interpreter name (e.g. "Python 3.10.15 (uv: positron)",
- * "Python 3.10.15 (Pyenv)") with a generic "(Venv: .venv)". The labels
- * otherwise surface CI/runner internals — uv project paths, the local
- * Python manager — into docs screenshots.
+ * Rewrite the Python interpreter label Positron renders in chips and
+ * session names (e.g. "Python 3.10.15 (uv: positron)", "Python 3.10.15
+ * (Pyenv)") so docs screenshots show a clean, current display version.
+ * Two normalizations in one pass:
+ *   - Version: pinned to `displayVersion` (default '3.13') so screenshots
+ *     keep showing the latest major.minor regardless of which interpreter
+ *     CI actually launched. This is a DOM-only override; CI continues to
+ *     run whichever Python has the test deps installed.
+ *   - Suffix: collapsed to a generic "(Venv: .venv)" so CI/runner internals
+ *     (uv project paths, Pyenv, system labels) don't leak into docs.
  *
- * Scoped to the three workbench surfaces that render the runtime label:
- *   - `.top-action-bar-session-manager-face` (top-right interpreter face)
- *   - `.plot-session-name`                   (plots pane header)
- *   - `.tab-header .session-name`            (console session tab)
+ * Scoped to the workbench surfaces that render the runtime label:
+ *   - `.top-action-bar-session-manager-face`     (top-right interpreter face)
+ *   - `.plot-session-name`                       (plots pane header)
+ *   - `.tab-header .session-name`                (console session tab)
+ *   - `.positron-notebook-kernel-status-badge`   (Positron notebook kernel chip)
+ *   - `a.kernel-label`                           (VS Code Jupyter notebook kernel chip)
  *
  * Call this AFTER `waitForStableUI` so any in-flight re-renders don't undo
  * the rewrite before the screenshot fires.
  */
-export async function overrideRuntimeLabel(page: Page): Promise<void> {
-	await page.evaluate(() => {
+export async function overrideRuntimeLabel(page: Page, displayVersion: string = '3.13.5'): Promise<void> {
+	await page.evaluate(({ displayVersion }) => {
 		const SELECTORS = [
 			'.top-action-bar-session-manager-face',
 			'.plot-session-name',
 			'.tab-header .session-name',
+			'.positron-notebook-kernel-status-badge',
+			'a.kernel-label',
 		];
-		const PATTERN = /(Python\s+[\d.]+)\s+\([^)]+\)/g;
-		const REPLACEMENT = '$1 (Venv: .venv)';
+		const PATTERN = /Python\s+[\d.]+\s+\([^)]+\)/g;
+		const REPLACEMENT = `Python ${displayVersion} (Venv: .venv)`;
 		for (const sel of SELECTORS) {
 			for (const root of document.querySelectorAll(sel)) {
 				const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
@@ -199,7 +236,51 @@ export async function overrideRuntimeLabel(page: Page): Promise<void> {
 				}
 			}
 		}
-	});
+	}, { displayVersion });
+}
+
+/**
+ * Rewrite the workspace folder name shown in the title bar and the top
+ * action bar's folder picker. The default test workspace renders as
+ * "qa-example-content"; docs screenshots use a friendlier folder name like
+ * "positron-demos-notebooks". Replaces only the matching token so other
+ * title-bar text (e.g. "Untitled-1.ipynb — ") is preserved.
+ *
+ * Call this AFTER `waitForStableUI` so any in-flight re-renders don't undo
+ * the rewrite before the screenshot fires.
+ */
+export async function overrideWorkspaceName(
+	page: Page,
+	from: string,
+	to: string,
+): Promise<void> {
+	await page.evaluate(({ from, to }) => {
+		const SELECTORS = [
+			'.titlebar .window-title',
+			'#top-action-bar-current-working-folder',
+		];
+		for (const sel of SELECTORS) {
+			for (const root of document.querySelectorAll(sel)) {
+				const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+				let node: Node | null;
+				while ((node = walker.nextNode())) {
+					const t = node as Text;
+					if (t.nodeValue && t.nodeValue.includes(from)) {
+						t.nodeValue = t.nodeValue.split(from).join(to);
+					}
+				}
+			}
+		}
+		// The console's current-working-directory label renders the full
+		// filesystem path (e.g. /private/var/folders/.../qa-example-content).
+		// Rewrite to the friendly tilde form (~/my-project) so the docs
+		// screenshot doesn't leak the temp workspace path.
+		for (const label of document.querySelectorAll('.current-working-directory-label .label')) {
+			if (label.textContent && label.textContent.includes(from)) {
+				label.textContent = `~/${to}`;
+			}
+		}
+	}, { from, to });
 }
 
 /**
@@ -207,9 +288,10 @@ export async function overrideRuntimeLabel(page: Page): Promise<void> {
  * that produces a clean, deterministic frame:
  *   1. Hide notification toasts (they cover real UI)
  *   2. Hide activity-bar notification badges (e.g. "sign in to GitHub" red dot)
- *   3. Unhover (no spurious hover states)
- *   4. Wait for layout to settle (and any in-flight progress bars to clear)
- *   5. Rewrite runtime labels (e.g. "(uv: positron)") to "(Venv: .venv)"
+ *   3. Hide text-insertion caret (blinking cursor causes pixel noise)
+ *   4. Unhover (no spurious hover states)
+ *   5. Wait for layout to settle (and any in-flight progress bars to clear)
+ *   6. Rewrite runtime labels (e.g. "(uv: positron)") to "(Venv: .venv)"
  *
  * The label rewrite goes last so React re-renders during the settle wait
  * don't undo it before the screenshot fires.
@@ -220,6 +302,7 @@ export async function overrideRuntimeLabel(page: Page): Promise<void> {
 export async function prepareForScreenshot(app: Application, page: Page): Promise<void> {
 	await hideToasts(app);
 	await hideNotificationBadges(page);
+	await hideCaret(page);
 	await unhoverAll(page);
 	await waitForStableUI(page);
 	await overrideRuntimeLabel(page);

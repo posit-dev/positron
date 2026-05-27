@@ -1,0 +1,448 @@
+name: "Test: E2E (macOS) — Run-only"
+
+on:
+  workflow_call:
+    inputs:
+      commit:
+        description: "Commit SHA to test"
+        required: false
+        default: ""
+        type: string
+      grep:
+        required: false
+        description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames. Confirm pattern matching locally with: npx playwright test --grep=<regex>"
+        default: ""
+        type: string
+      project:
+        required: false
+        description: "The name of the Playwright project to run tests for."
+        default: "e2e-macOS-ci"
+        type: string
+      workers:
+        required: false
+        description: "Number of parallel workers to use, defaults to 2."
+        default: 2
+        type: number
+      shards:
+        required: false
+        description: "Total number of shards (for display purposes and shard argument)"
+        default: 1
+        type: number
+      matrix:
+        required: false
+        description: "Pre-calculated matrix JSON from caller workflow"
+        default: '{"shard":[1]}'
+        type: string
+      display_name:
+        required: false
+        description: "The name of the job as it will appear in the GitHub Actions UI."
+        default: "macos"
+        type: string
+      max_failures:
+        required: false
+        description: "Maximum number of test failures before aborting. Should be calculated as: base_max_failures / number_of_shards (e.g., 10 / 4 = 3 for 4 shards)."
+        type: number
+        default: 10
+      enable_diagnostic_logging:
+        required: false
+        description: "Enable diagnostic logging (free memory, process list, CPU usage) at the end of each test."
+        type: boolean
+        default: false
+      arch:
+        required: false
+        description: "Architecture to test (arm64 or x64)."
+        default: arm64
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  e2e-macos-run:
+    name: ${{ inputs.display_name || 'macos' }}-${{ matrix.shard }}
+    timeout-minutes: 120
+    runs-on: ${{ inputs.arch == 'arm64' && 'macos-latest-xlarge' || 'macos-latest-large' }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(inputs.matrix) }}
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      POSITRON_BUILD_NUMBER: 0
+      AWS_S3_BUCKET: positron-test-reports
+      DATABRICKS_WORKSPACE: ${{ secrets.DATABRICKS_WORKSPACE }}
+      DATABRICKS_PAT: ${{ secrets.DATABRICKS_PAT }}
+      LANG: "en_US.UTF-8"
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Checkout specific commit
+        if: ${{ inputs.commit != '' }}
+        run: git checkout ${{ inputs.commit }}
+
+      - name: Setup AWS S3 Access
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+
+      - name: Load secret
+        uses: 1password/load-secrets-action@v4
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+          OPENAI_KEY: "op://Positron/OpenAI/credential"
+          POSIT_AUTH_HOST: "op://Positron/Posit-AI-Login/website"
+          POSIT_EMAIL: "op://Positron/Posit-AI-Login/username"
+          POSIT_PASSWORD: "op://Positron/Posit-AI-Login/password"
+
+      - name: Configure display resolution
+        run: |
+          echo "Current display configuration:"
+          system_profiler SPDisplaysDataType
+
+          brew install displayplacer
+
+          echo "Current displayplacer configuration:"
+          displayplacer list
+
+          # The Intel (x64) runner only supports hz:30 color_depth:4 at 1920x1080;
+          # the arm64 runner supports hz:60 color_depth:7.
+          if [ "${{ inputs.arch }}" = "x64" ]; then
+            displayplacer "res:1920x1080 hz:30 color_depth:4 enabled:true scaling:off origin:(0,0) degree:0"
+          else
+            displayplacer "res:1920x1080 hz:60 color_depth:7 enabled:true scaling:off origin:(0,0) degree:0"
+          fi
+
+          echo "New configuration:"
+          displayplacer list
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install system dependencies
+        run: |
+          brew install gdal udunits
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: "positron-build-macos-${{ inputs.arch }}"
+          path: /tmp/artifacts
+
+      - name: Extract build artifact
+        run: |
+          cd ..
+          if [ -f /tmp/artifacts/positron-build.tar.gz ]; then
+            echo "Extracting gzip archive"
+            tar -xzf /tmp/artifacts/positron-build.tar.gz || true
+            echo "Cleaning up compressed archive to free disk space"
+            rm -f /tmp/artifacts/positron-build.tar.gz
+          else
+            echo "No build artifact found in /tmp/artifacts"
+            ls -la /tmp/artifacts || true
+            exit 1
+          fi
+
+          if [ -d positron ]; then
+            echo "Build extracted successfully"
+            ls -la positron | head -20
+          fi
+
+      - name: Seed system tmp cache from bundled cache
+        run: |
+          if [ -d test/e2e/qa-example-content-cache ]; then
+            rm -rf /tmp/qa-example-content-cache || true
+            mv test/e2e/qa-example-content-cache /tmp/qa-example-content-cache || true
+            if [ -f /tmp/qa-example-content-cache/.cached-commit ]; then
+              echo "✓ Seeded /tmp/qa-example-content-cache"
+            fi
+          fi
+
+      - name: Validate bundled QA cache
+        run: |
+          echo "Checking for seeded QA cache at /tmp/qa-example-content-cache/.cached-commit"
+          if [ -f /tmp/qa-example-content-cache/.cached-commit ]; then
+            echo "✓ Cached commit found: $(cat /tmp/qa-example-content-cache/.cached-commit)"
+          else
+            echo "✗ Cached commit missing at /tmp/qa-example-content-cache/.cached-commit"
+            echo "Contents of /tmp:"; ls -la /tmp || true
+            exit 1
+          fi
+
+      - name: Install Rig and R
+        run: |
+          if brew list --cask | grep -q "^r$"; then
+            brew uninstall r
+          fi
+          R_VERSION="4.5.2"
+          R_ALTERNATE_VERSION="4.3.0"
+          echo "Installing R version $R_VERSION using Rig..."
+          brew tap r-lib/rig
+          brew install --cask rig
+          rig add "$R_VERSION"
+          echo "Installing R version $R_ALTERNATE_VERSION using Rig..."
+          rig add "$R_ALTERNATE_VERSION"
+
+      - name: Install R packages for 4.5.2
+        run: |
+          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
+          Rscript -e "options(pak.install_binary = TRUE, repos = c(CRAN = 'https://packagemanager.posit.co/cran/latest')); pak::local_install_dev_deps(ask = FALSE)"
+
+      - name: Install pyenv and Python
+        run: |
+          brew install pyenv
+          export PYENV_ROOT="$HOME/.pyenv"
+          export PATH="$PYENV_ROOT/bin:$PATH"
+          eval "$(pyenv init --path)"
+          eval "$(pyenv init -)"
+          pyenv install 3.10.10
+          pyenv install 3.11.0
+          pyenv global 3.10.10
+
+      - name: Install Python dependencies
+        run: |
+          export PYENV_ROOT="$HOME/.pyenv"
+          export PATH="$PYENV_ROOT/bin:$PATH"
+          eval "$(pyenv init --path)"
+          eval "$(pyenv init -)"
+          pyenv global 3.10.10
+          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      # The Intel runner is slow enough that the first matplotlib import in a
+      # test can spend 10-30s building the font cache and trip a test timeout.
+      - name: Pre-warm matplotlib font cache
+        if: ${{ inputs.arch == 'x64' }}
+        run: |
+          export PYENV_ROOT="$HOME/.pyenv"
+          export PATH="$PYENV_ROOT/bin:$PATH"
+          eval "$(pyenv init --path)"
+          eval "$(pyenv init -)"
+          python -c "import matplotlib.pyplot as plt; plt.figure()"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install ipykernel for 3.11.0
+        run: |
+          export PYENV_ROOT="$HOME/.pyenv"
+          export PATH="$PYENV_ROOT/bin:$PATH"
+          eval "$(pyenv init --path)"
+          eval "$(pyenv init -)"
+          pyenv global 3.11.0
+          python -m pip install --upgrade pip
+          python -m pip install ipykernel
+          pyenv global 3.10.10
+
+      - name: Setup Graphviz
+        run: brew install graphviz
+
+      - name: Set up Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tinytex: true
+
+      - name: Install XQuartz
+        run: |
+          brew install --cask xquartz
+
+      - name: Install Playwright browsers
+        run: |
+          npx playwright install chromium
+
+      - name: Transform to Playwright tags $PW_TAGS
+        run: bash scripts/pr-tags-transform.sh "${{ inputs.project }}" "${{ inputs.grep }}"
+
+      - name: Run Tests (Electron)
+        env:
+          POSITRON_PY_VER_SEL: 3.10.10
+          POSITRON_R_VER_SEL: 4.5.2
+          POSITRON_PY_ALT_VER_SEL: 3.11.0
+          POSITRON_R_ALT_VER_SEL: 4.3.0
+          REPORTER_REPO_NAME: positron
+          COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
+          CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
+          PWTEST_BLOB_DO_NOT_REMOVE: 1
+          E2E_CONNECT_SERVER: ${{ secrets.E2E_CONNECT_SERVER}}
+          E2E_CONNECT_APIKEY: ${{ secrets.E2E_CONNECT_APIKEY}}
+          GH_SUMMARY_REPORT: false # prevent reporting individual shard results to github summary
+        run: |
+          # Bootstrap extensions first
+          npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }} --reporter=null
+
+          # Build grep arguments
+          GREP_ARG=""
+          if [ -n "${{ inputs.grep }}" ]; then
+            GREP_ARG="--grep ${{ inputs.grep }}"
+          fi
+
+          # Calculate shard if we have more than 1 shard
+          SHARD_ARG=""
+          if [ "${{ inputs.shards }}" -gt "1" ]; then
+            SHARD_ARG="--shard=${{ matrix.shard }}/${{ inputs.shards }}"
+          fi
+
+          # Run tests - don't fail on test failures, let merge-reports determine pass/fail
+          SKIP_BOOTSTRAP=true SKIP_CLONE=true npx playwright test \
+            --project ${{ inputs.project }} \
+            --workers ${{ inputs.workers }} \
+            --max-failures ${{ inputs.max_failures }} \
+            $GREP_ARG \
+            $SHARD_ARG || true
+
+      - name: Upload Blob Report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: blob-report-${{ inputs.project }}-${{ matrix.shard }}
+          path: blob-report
+          retention-days: 1
+
+      - name: Upload Test Logs
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.project }}-macos-logs-${{ matrix.shard }}
+          path: test-logs
+          retention-days: 3
+          if-no-files-found: ignore
+
+  merge-reports:
+    name: ${{ inputs.display_name }}
+    if: ${{ !cancelled() }}
+    needs: [e2e-macos-run]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+
+      - name: Setup AWS S3 Access
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+
+      - name: Install Playwright
+        run: |
+          # Create clean directory for merge dependencies
+          mkdir -p playwright-merge
+          cd playwright-merge
+          npm init -y
+          npm install @playwright/test @midleman/github-actions-reporter
+
+      - name: Generate Report Directory
+        uses: ./.github/actions/gen-report-dir
+        with:
+          identifier: ${{ inputs.project }}
+
+      - name: Download all blob reports
+        uses: actions/download-artifact@v8
+        with:
+          path: all-blob-reports
+          pattern: blob-report-${{ inputs.project }}-*
+          merge-multiple: true
+
+      - name: Verify all shard reports received
+        id: verify-reports
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          EXPECTED_SHARDS=${{ inputs.shards }}
+          PROJECT="${{ inputs.project }}"
+          echo "Expected shard count: $EXPECTED_SHARDS"
+
+          # Query GitHub API for artifacts in this run matching our pattern
+          ARTIFACTS=$(gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts --jq '.artifacts[].name' | grep "^blob-report-${PROJECT}-" || true)
+          ARTIFACT_COUNT=$(echo "$ARTIFACTS" | grep -c . || echo 0)
+
+          echo "Found artifacts:"
+          echo "$ARTIFACTS"
+          echo ""
+          echo "Artifact count: $ARTIFACT_COUNT"
+
+          # Check which shards are missing
+          MISSING_SHARDS=""
+          for i in $(seq 1 $EXPECTED_SHARDS); do
+            if ! echo "$ARTIFACTS" | grep -q "^blob-report-${PROJECT}-${i}$"; then
+              MISSING_SHARDS="$MISSING_SHARDS $i"
+            fi
+          done
+
+          if [ -n "$MISSING_SHARDS" ]; then
+            echo "::warning::Missing blob reports for shards:$MISSING_SHARDS"
+            echo "This typically means these shards crashed before uploading their results."
+            echo "missing_reports=true" >> $GITHUB_OUTPUT
+            echo "missing_shards=$MISSING_SHARDS" >> $GITHUB_OUTPUT
+          else
+            echo "All $EXPECTED_SHARDS shard reports received"
+            echo "missing_reports=false" >> $GITHUB_OUTPUT
+            echo "missing_shards=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Merge Playwright Blob Reports, Generate HTML and JSON Reports
+        working-directory: playwright-merge
+        run: |
+          # Create output directory
+          mkdir -p playwright-report
+
+          # Generate HTML report and GH Summary
+          PLAYWRIGHT_HTML_REPORT=playwright-report npx playwright merge-reports \
+            --reporter=@midleman/github-actions-reporter,html \
+            ../all-blob-reports
+
+          # Generate JSON report separately with explicit output path
+          PLAYWRIGHT_JSON_OUTPUT_NAME=playwright-report/results.json npx playwright merge-reports \
+            --reporter=json \
+            ../all-blob-reports
+
+      - name: Upload HTML report to S3
+        if: always()
+        uses: ./.github/actions/upload-report-to-s3
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          report-dir: ${{ env.REPORT_DIR }}
+          working-directory: playwright-merge
+
+      - name: Check test results
+        if: always()
+        run: |
+          JSON_REPORT="playwright-merge/playwright-report/results.json"
+          if [ ! -f "$JSON_REPORT" ]; then
+            echo "⚠ JSON report not found at $JSON_REPORT"
+            echo "Contents of playwright-merge/playwright-report:"
+            ls -la playwright-merge/playwright-report/ || true
+            exit 1
+          fi
+
+          node scripts/check-soft-fail-failures.js "$JSON_REPORT" --no-soft-fail
+
+          # Fail if we're missing reports from any shards (even if all available tests passed)
+          if [[ "${{ steps.verify-reports.outputs.missing_reports }}" == "true" ]]; then
+            echo ""
+            echo "::error::Missing shard reports detected!"
+            echo "Missing reports from shards:${{ steps.verify-reports.outputs.missing_shards }}"
+            echo "These shards likely crashed or timed out before uploading results."
+            echo "Check the individual shard jobs above for errors."
+            exit 1
+          fi
+
+      - name: Clean up blob report artifacts
+        if: success()
+        uses: geekyeggo/delete-artifact@v6
+        with:
+          name: blob-report-${{ inputs.project }}-*
+          failOnError: false

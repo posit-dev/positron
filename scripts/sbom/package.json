@@ -1,0 +1,16 @@
+{
+	"name": "positron-sbom",
+	"version": "1.0.0",
+	"description": "Generate SBOM for Positron",
+	"main": "out/generate-sbom.js",
+	"scripts": {
+		"build": "tsc",
+		"generate": "tsc && node ./out/generate-sbom.js"
+	},
+	"author": "Posit PBC",
+	"license": "MIT",
+	"devDependencies": {
+		"@types/node": "^22.0.0",
+		"typescript": "^5.7.2"
+	}
+}

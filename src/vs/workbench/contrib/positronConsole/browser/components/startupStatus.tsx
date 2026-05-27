@@ -44,31 +44,48 @@ export const StartupStatus = () => {
 	const progressRef = React.useRef<HTMLDivElement>(null);
 
 	// Component state.
-	const [discovered, setDiscovered] =
-		useState(services.languageRuntimeService.registeredRuntimes.length);
 	const [startupPhase, setStartupPhase] =
 		useState(services.languageRuntimeService.startupPhase);
 	const [runtimeStartupEvent, setRuntimeStartupEvent] =
 		useState<IRuntimeAutoStartEvent | undefined>(undefined);
+	const [latestRuntimePath, setLatestRuntimePath] = useState<string | undefined>(undefined);
 
 	useEffect(() => {
 		const disposableStore = new DisposableStore();
+
+		// Use the count of runtimes registered in the previous discovery pass
+		// to drive a determinate progress bar. Falls back to infinite when no
+		// prior count is known (cold start on a fresh machine).
+		const expected = services.runtimeStartupService.lastDiscoveryRuntimeCount;
+		let worked = services.languageRuntimeService.registeredRuntimes.length;
 
 		// Create a progress bar and add it to the disposable store.
 		let bar: ProgressBar | undefined;
 		if (progressRef.current) {
 			bar = new ProgressBar(progressRef.current);
-			// Infinite progress since we don't know how many interpreters we're discovering.
-			bar.infinite();
+			if (expected > 0) {
+				bar.total(expected);
+				if (worked > 0) {
+					bar.worked(worked);
+				}
+			} else {
+				bar.infinite();
+			}
 			disposableStore.add(bar);
 		}
 
-		// When each interpreter is discovered, update the count.
+		// When each interpreter is discovered, advance the bar and remember
+		// the path so it can be displayed beneath the bar.
 		disposableStore.add(
 			services.languageRuntimeService.onDidRegisterRuntime(
-				_runtime => {
-					setDiscovered(
-						services.languageRuntimeService.registeredRuntimes.length);
+				runtime => {
+					worked++;
+					if (bar && expected > 0) {
+						bar.worked(1);
+					}
+					if (runtime.runtimePath) {
+						setLatestRuntimePath(runtime.runtimePath);
+					}
 				}));
 
 		// When the startup phase changes, update the phase.
@@ -128,8 +145,12 @@ export const StartupStatus = () => {
 				<div className='starting'>{starting}...</div>
 			}
 			{startupPhase === RuntimeStartupPhase.Discovering && !runtimeStartupEvent &&
-				<div className='discovery'>{discoveringIntrepreters}
-					{discovered > 0 && <span> ({discovered})</span>}...</div>
+				<>
+					<div className='discovery'>{discoveringIntrepreters}...</div>
+					{latestRuntimePath &&
+						<div className='discovery-path' title={latestRuntimePath}>{latestRuntimePath}</div>
+					}
+				</>
 			}
 		</div>
 	);

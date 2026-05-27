@@ -64,6 +64,13 @@
 				"label": "Gemini Code Assist"
 			}
 		],
+		"commands": [
+			{
+				"command": "authentication.configureProviders",
+				"title": "%commands.configureProviders.title%",
+				"category": "%commands.category%"
+			}
+		],
 		"configuration": {
 			"title": "Authentication",
 			"properties": {
@@ -104,30 +111,107 @@
 					},
 					"additionalProperties": false
 				},
+				"authentication.snowflake.customHeaders": {
+					"type": "object",
+					"default": {},
+					"additionalProperties": {
+						"type": "string"
+					},
+					"markdownDescription": "%configuration.snowflake.customHeaders.description%",
+					"tags": [
+						"preview"
+					]
+				},
 				"authentication.anthropic.baseUrl": {
 					"type": "string",
 					"default": "",
 					"description": "%configuration.anthropic.baseUrl.description%"
 				},
+				"authentication.anthropic.customHeaders": {
+					"type": "object",
+					"default": {},
+					"additionalProperties": {
+						"type": "string"
+					},
+					"markdownDescription": "%configuration.anthropic.customHeaders.description%",
+					"tags": [
+						"preview"
+					]
+				},
 				"authentication.foundry.baseUrl": {
 					"type": "string",
 					"default": "",
-					"description": "%configuration.foundry.baseUrl.description%"
+					"description": "%configuration.foundry.baseUrl.description%",
+					"tags": [
+						"preview"
+					]
+				},
+				"authentication.foundry.customHeaders": {
+					"type": "object",
+					"default": {},
+					"additionalProperties": {
+						"type": "string"
+					},
+					"markdownDescription": "%configuration.foundry.customHeaders.description%",
+					"tags": [
+						"preview"
+					]
 				},
 				"authentication.openai-api.baseUrl": {
 					"type": "string",
 					"default": "",
 					"description": "%configuration.openai-api.baseUrl.description%"
 				},
+				"authentication.openai-api.customHeaders": {
+					"type": "object",
+					"default": {},
+					"additionalProperties": {
+						"type": "string"
+					},
+					"markdownDescription": "%configuration.openai-api.customHeaders.description%",
+					"tags": [
+						"preview"
+					]
+				},
 				"authentication.google.baseUrl": {
 					"type": "string",
 					"default": "",
-					"description": "%configuration.google.baseUrl.description%"
+					"description": "%configuration.google.baseUrl.description%",
+					"tags": [
+						"experimental",
+						"advanced"
+					]
+				},
+				"authentication.google.customHeaders": {
+					"type": "object",
+					"default": {},
+					"additionalProperties": {
+						"type": "string"
+					},
+					"markdownDescription": "%configuration.google.customHeaders.description%",
+					"tags": [
+						"experimental",
+						"advanced"
+					]
 				},
 				"authentication.openai-compatible.baseUrl": {
 					"type": "string",
 					"default": "",
-					"description": "%configuration.openai-compatible.baseUrl.description%"
+					"description": "%configuration.openai-compatible.baseUrl.description%",
+					"tags": [
+						"experimental"
+					]
+				},
+				"authentication.openai-compatible.customHeaders": {
+					"type": "object",
+					"default": {},
+					"additionalProperties": {
+						"type": "string"
+					},
+					"markdownDescription": "%configuration.openai-compatible.customHeaders.description%",
+					"tags": [
+						"experimental"
+					]
 				}
 			}
 		}

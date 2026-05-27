@@ -3,48 +3,19 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// React.
-import { useEffect, useState } from 'react';
-
 // Other dependencies.
-import { IPositronConsoleInstance, PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
-import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { RuntimeStatusIcon } from './runtimeStatus.js';
-import { RuntimeStatus } from '../../common/sessionDisplayUtils.js';
-
-const consoleStateToRuntimeStatus = {
-	[PositronConsoleState.Uninitialized]: RuntimeStatus.Disconnected,
-	[PositronConsoleState.Disconnected]: RuntimeStatus.Disconnected,
-	[PositronConsoleState.Starting]: RuntimeStatus.Active,
-	[PositronConsoleState.Busy]: RuntimeStatus.Active,
-	[PositronConsoleState.Ready]: RuntimeStatus.Idle,
-	[PositronConsoleState.Offline]: RuntimeStatus.Disconnected,
-	[PositronConsoleState.Exiting]: RuntimeStatus.Active,
-	[PositronConsoleState.Exited]: RuntimeStatus.Disconnected
-};
+import { runtimeStateToRuntimeStatus } from '../../common/sessionDisplayUtils.js';
+import { useSessionRuntimeState } from './useSessionRuntimeState.js';
 
 interface ConsoleSessionStatusIconProps {
 	readonly positronConsoleInstance: IPositronConsoleInstance;
 }
 
 export const ConsoleSessionStatusIcon = ({ positronConsoleInstance }: ConsoleSessionStatusIconProps) => {
-	// State hooks
-	const [consoleState, setConsoleState] = useState(positronConsoleInstance.state);
-
-	// Main useEffect hook.
-	useEffect(() => {
-		const disposableStore = new DisposableStore();
-
-		disposableStore.add(positronConsoleInstance.onDidChangeState(state => {
-			setConsoleState(state);
-		}));
-
-		return () => disposableStore.dispose();
-	}, [positronConsoleInstance]);
-
-	const runtimeStatus = consoleStateToRuntimeStatus[consoleState];
-
-	return (
-		<RuntimeStatusIcon status={runtimeStatus} />
-	);
+	const runtimeState = useSessionRuntimeState(positronConsoleInstance.attachedRuntimeSession) ?? RuntimeState.Uninitialized;
+	const runtimeStatus = runtimeStateToRuntimeStatus[runtimeState];
+	return <RuntimeStatusIcon status={runtimeStatus} />;
 };

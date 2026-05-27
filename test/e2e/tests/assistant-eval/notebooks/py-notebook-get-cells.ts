@@ -41,7 +41,7 @@ export const pyNotebookGetCells: EvalTestCase = {
 		// Create 21 cells (indices 0-20) so it's a "large" notebook
 		for (let i = 0; i < 21; i++) {
 			const code = `x = ${i}; result_${i} = x * 10; result_${i}`;
-			await notebooksPositron.addCodeToCell(i, code);
+			await notebooksPositron.addCodeToCell(i, code, { fast: true });
 		}
 
 		// Select cell 0 so the sliding window is at the beginning

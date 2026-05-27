@@ -18,6 +18,7 @@ import { ChatContextKeys } from '../../chat/common/actions/chatContextKeys.js';
 import { RuntimeCodeExecutionMode } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ChatAgentLocation } from '../../chat/common/constants.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.js';
@@ -29,6 +30,25 @@ class PositronAssistantContribution extends Disposable implements IWorkbenchCont
 		@IPositronConsoleService private readonly _consoleService: IPositronConsoleService,
 	) {
 		super();
+
+		// Add "Configure Language Model Providers" to the Accounts menu
+		registerAction2(class ConfigureProvidersFromAccountsAction extends Action2 {
+			constructor() {
+				super({
+					id: 'workbench.action.positronAssistant.configureProvidersFromAccounts',
+					title: localize2('positron.configureProviders', "Configure Language Model Providers"),
+					menu: {
+						id: MenuId.AccountsContext,
+						group: '3_configuration',
+						when: ChatContextKeys.enabled,
+					},
+				});
+			}
+
+			override async run(accessor: ServicesAccessor): Promise<void> {
+				return accessor.get(ICommandService).executeCommand('authentication.configureProviders');
+			}
+		});
 
 		// Add "play" button to sidebar chat code block actions
 		const consoleService = this._consoleService;

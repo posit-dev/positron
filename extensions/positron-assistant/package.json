@@ -152,6 +152,12 @@
           "group": "navigation",
           "when": "positron-assistant.generatingCommitMessage && config.positron.assistant.gitIntegration.enable"
         }
+      ],
+      "commandPalette": [
+        {
+          "command": "positron-assistant.configureProviders",
+          "when": "false"
+        }
       ]
     },
     "commands": [
@@ -233,6 +239,7 @@
             "type": "boolean",
             "default": false,
             "markdownDescription": "%configuration.enable.markdownDescription%",
+            "markdownDeprecationMessage": "%configuration.enable.markdownDeprecationMessage%",
             "tags": [
               "preview"
             ]
@@ -268,7 +275,39 @@
           "positron.assistant.aiExcludes": {
             "type": "array",
             "default": [
-              "**/.*"
+              "**/.env",
+              "**/.env.*",
+              "**/*.pem",
+              "**/*.key",
+              "**/*.p12",
+              "**/*.pfx",
+              "**/*.jks",
+              "**/*.keystore",
+              "**/id_rsa",
+              "**/id_dsa",
+              "**/id_ecdsa",
+              "**/id_ecdsa_sk",
+              "**/id_ed25519",
+              "**/id_ed25519_sk",
+              "**/.git-credentials",
+              "**/.npmrc",
+              "**/.pypirc",
+              "**/.netrc",
+              "**/.Renviron",
+              "**/.aws/config",
+              "**/.aws/credentials",
+              "**/.docker/config.json",
+              "**/.kube/config",
+              "**/application_default_credentials.json",
+              "**/.azure/accessTokens.json",
+              "**/.azure/accessToken.json",
+              "**/.azure/msal_token_cache.json",
+              "**/.azure/msal_token_cache.bin",
+              "**/secrets.*",
+              "**/.git/**",
+              "**/.svn/**",
+              "**/.hg/**",
+              "**/.DS_Store"
             ],
             "markdownDescription": "%configuration.aiExcludes.description%",
             "items": {
@@ -337,13 +376,6 @@
             "default": 60,
             "markdownDescription": "%configuration.providerTimeout.description%",
             "minimum": 1
-          },
-          "positron.assistant.maxConnectionAttempts": {
-            "type": "number",
-            "default": 3,
-            "minimum": 1,
-            "maximum": 10,
-            "markdownDescription": "%configuration.maxConnectionAttempts.description%"
           },
           "positron.assistant.models.include": {
             "type": "array",
@@ -460,7 +492,10 @@
           "positron.assistant.models.preference.githubCopilot": {
             "type": "string",
             "default": "",
-            "markdownDescription": "%configuration.models.preference.githubCopilot.description%"
+            "markdownDescription": "%configuration.models.preference.githubCopilot.description%",
+            "tags": [
+              "preview"
+            ]
           },
           "positron.assistant.models.preference.amazonBedrock": {
             "type": "string",
@@ -475,7 +510,10 @@
           "positron.assistant.models.preference.msFoundry": {
             "type": "string",
             "default": "",
-            "markdownDescription": "%configuration.models.preference.msFoundry.description%"
+            "markdownDescription": "%configuration.models.preference.msFoundry.description%",
+            "tags": [
+              "preview"
+            ]
           },
           "positron.assistant.models.preference.openAI": {
             "type": "string",
@@ -485,7 +523,10 @@
           "positron.assistant.models.preference.customProvider": {
             "type": "string",
             "default": "",
-            "markdownDescription": "%configuration.models.preference.customProvider.description%"
+            "markdownDescription": "%configuration.models.preference.customProvider.description%",
+            "tags": [
+              "experimental"
+            ]
           },
           "positron.assistant.models.preference.positAI": {
             "type": "string",
@@ -497,6 +538,7 @@
             "default": "",
             "markdownDescription": "%configuration.models.preference.google.description%",
             "tags": [
+              "experimental",
               "advanced"
             ]
           },
@@ -650,6 +692,9 @@
             "type": "array",
             "default": [],
             "markdownDescription": "%configuration.models.overrides.msFoundry.description%",
+            "tags": [
+              "preview"
+            ],
             "items": {
               "type": "object",
               "properties": {
@@ -722,6 +767,9 @@
             "type": "array",
             "default": [],
             "markdownDescription": "%configuration.models.overrides.customProvider.description%",
+            "tags": [
+              "experimental"
+            ],
             "items": {
               "type": "object",
               "properties": {
@@ -797,6 +845,7 @@
             "default": [],
             "markdownDescription": "%configuration.models.overrides.google.description%",
             "tags": [
+              "experimental",
               "advanced"
             ],
             "items": {

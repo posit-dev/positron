@@ -14,6 +14,7 @@ import { localize } from '../../../../../nls.js';
 import { ConfigureDataConnection } from '../dialogs/configureDataConnection.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
+import { PYTHON_ICON_BASE64, R_ICON_BASE64 } from '../../../../services/positronDataConnections/common/languageIcons.js';
 import { showCustomContextMenu } from '../../../../browser/positronComponents/customContextMenu/customContextMenu.js';
 import { CustomContextMenuItem } from '../../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
 import { IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
@@ -89,6 +90,7 @@ export const DataConnectionProfile = ({ profile }: DataConnectionProfileProps) =
 		if (!actionsButtonRef.current) {
 			return;
 		}
+
 		showCustomContextMenu({
 			anchorElement: actionsButtonRef.current,
 			popupPosition: 'auto',
@@ -100,16 +102,19 @@ export const DataConnectionProfile = ({ profile }: DataConnectionProfileProps) =
 					label: localize('positronDataConnections.connect', "Connect"),
 					onSelected: () => console.log(`Connect: ${profile.id} (${profile.connectionName})`),
 				}),
-				new CustomContextMenuSeparator(),
+				new CustomContextMenuSeparator(localize('positronDataConnections.connectWith', "Connect With")),
 				new CustomContextMenuItem({
+					iconSrc: `data:image/svg+xml;base64,${PYTHON_ICON_BASE64}`,
 					label: localize('positronDataConnections.connectWithPython', "Python"),
 					onSelected: () => console.log(`Connect with Python: ${profile.id} (${profile.connectionName})`),
 				}),
 				new CustomContextMenuItem({
+					iconSrc: `data:image/svg+xml;base64,${R_ICON_BASE64}`,
 					label: localize('positronDataConnections.connectWithR', "R"),
 					onSelected: () => console.log(`Connect with R: ${profile.id} (${profile.connectionName})`),
 				}),
 				new CustomContextMenuItem({
+					icon: 'database',
 					label: localize('positronDataConnections.connectWithSQL', "SQL"),
 					onSelected: () => console.log(`Connect with SQL: ${profile.id} (${profile.connectionName})`),
 				}),
@@ -119,7 +124,9 @@ export const DataConnectionProfile = ({ profile }: DataConnectionProfileProps) =
 					label: localize('positronDataConnections.editConnection', "Edit Connection"),
 					onSelected: () => editProfile(),
 				}),
+				new CustomContextMenuSeparator(),
 				new CustomContextMenuItem({
+					destructive: true,
 					icon: 'trash',
 					label: localize('positronDataConnections.remove', "Remove"),
 					onSelected: () => positronDataConnectionsService.removeProfile(profile.id),

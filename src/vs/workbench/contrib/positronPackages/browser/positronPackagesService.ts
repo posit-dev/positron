@@ -9,13 +9,16 @@ import { Emitter } from '../../../../base/common/event.js';
 import { Disposable, DisposableMap, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { LanguageRuntimeSessionMode } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageSpec, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronPackagesService } from './interfaces/positronPackagesService.js';
-import { POSITRON_PACKAGES_HAS_ACTIVE_SESSION, POSITRON_PACKAGES_IS_BUSY, POSITRON_PACKAGES_SELECTED_PACKAGE } from './positronPackagesContextKeys.js';
+import { PackagesItemSize, POSITRON_PACKAGES_HAS_ACTIVE_SESSION, POSITRON_PACKAGES_IS_BUSY, POSITRON_PACKAGES_ITEM_SIZE, POSITRON_PACKAGES_SELECTED_PACKAGE } from './positronPackagesContextKeys.js';
 import { IPositronPackagesInstance, PositronPackagesInstance } from './positronPackagesInstance.js';
 
 const TIMEOUT_REFRESH_MS = 5_000; // 5 seconds
+
+const ITEM_SIZE_STORAGE_KEY = 'positron.packages.itemSize';
 
 /**
  * PositronPackagesService class.
@@ -27,6 +30,8 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 
 	private readonly _onDidStopPositronPackagesInstanceEmitter = this._register(new Emitter<IPositronPackagesInstance>());
 
+	private readonly _onDidChangeItemSize = this._register(new Emitter<PackagesItemSize>());
+
 	private readonly _instancesBySessionId = this._register(new DisposableMap<string, PositronPackagesInstance>());
 
 	private _activeInstance: PositronPackagesInstance | undefined;
@@ -35,6 +40,7 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 	private readonly _hasActiveSessionContextKey: IContextKey<boolean>;
 	private readonly _isBusyContextKey: IContextKey<boolean>;
 	private readonly _selectedPackageContextKey: IContextKey<string>;
+	private readonly _itemSizeContextKey: IContextKey<PackagesItemSize>;
 
 	// Disposables for tracking busy state of the active instance
 	private readonly _activeInstanceDisposables = this._register(new DisposableStore());
@@ -53,6 +59,7 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@ILogService private readonly _logService: ILogService,
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
+		@IStorageService private readonly _storageService: IStorageService,
 	) {
 		// Call the disposable constructor.
 		super();
@@ -61,6 +68,15 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		this._hasActiveSessionContextKey = POSITRON_PACKAGES_HAS_ACTIVE_SESSION.bindTo(this._contextKeyService);
 		this._isBusyContextKey = POSITRON_PACKAGES_IS_BUSY.bindTo(this._contextKeyService);
 		this._selectedPackageContextKey = POSITRON_PACKAGES_SELECTED_PACKAGE.bindTo(this._contextKeyService);
+		this._itemSizeContextKey = POSITRON_PACKAGES_ITEM_SIZE.bindTo(this._contextKeyService);
+
+		// Seed the item-size context key from persisted storage so the user's preferred
+		// mode (card vs row) survives reloads. The context key's own default ('card')
+		// applies when nothing is persisted.
+		const storedItemSize = this._storageService.get(ITEM_SIZE_STORAGE_KEY, StorageScope.PROFILE);
+		if (storedItemSize === 'card' || storedItemSize === 'row') {
+			this._itemSizeContextKey.set(storedItemSize);
+		}
 
 		// Create new instances
 		this._register(this._runtimeSessionService.onWillStartSession((e) => {
@@ -160,6 +176,8 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 
 	readonly onDidChangeActivePackagesInstance = this._onDidChangeActivePackagesInstance.event;
 
+	readonly onDidChangeItemSize = this._onDidChangeItemSize.event;
+
 	readonly onDidStopPackagesInstance = this._onDidStopPositronPackagesInstanceEmitter.event;
 
 	get activeSession(): ILanguageRuntimeSession | undefined {
@@ -176,6 +194,19 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 
 	setSelectedPackage(packageName: string | undefined): void {
 		this._selectedPackageContextKey.set(packageName ?? '');
+	}
+
+	get itemSize(): PackagesItemSize {
+		return this._itemSizeContextKey.get() ?? 'card';
+	}
+
+	setItemSize(itemSize: PackagesItemSize): void {
+		if (this.itemSize === itemSize) {
+			return;
+		}
+		this._itemSizeContextKey.set(itemSize);
+		this._storageService.store(ITEM_SIZE_STORAGE_KEY, itemSize, StorageScope.PROFILE, StorageTarget.USER);
+		this._onDidChangeItemSize.fire(itemSize);
 	}
 
 	async refreshPackages(token?: CancellationToken): Promise<ILanguageRuntimePackage[]> {

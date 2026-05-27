@@ -1,0 +1,287 @@
+name: Release - Generate SBOM
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Product Version (e.g., 2025.09.2)"
+        required: true
+        type: string
+      sha:
+        description: "Git SHA to checkout (defaults to workflow ref)"
+        required: false
+        type: string
+      dry-run:
+        description: "Generate SBOM without creating a PR"
+        required: false
+        type: boolean
+        default: true
+  workflow_call:
+    inputs:
+      version:
+        description: "Product Version (e.g., 2025.09.2)"
+        required: true
+        type: string
+      sha:
+        description: "Git SHA to checkout (defaults to workflow ref)"
+        required: false
+        type: string
+      dry-run:
+        description: "Generate SBOM without creating a PR"
+        required: false
+        type: boolean
+        default: true
+      reviewers:
+        description: "Comma-separated list of GitHub usernames to request review from"
+        required: false
+        type: string
+    outputs:
+      pr-url:
+        description: "URL of the created pull request"
+        value: ${{ jobs.generate-sbom.outputs.pr-url }}
+      pr-number:
+        description: "Number of the created pull request"
+        value: ${{ jobs.generate-sbom.outputs.pr-number }}
+      result-url:
+        description: "URL of the created PR or the repository pulls page in dry-run mode"
+        value: ${{ jobs.generate-sbom.outputs.result-url }}
+    secrets:
+      RELEASE_APP_ID:
+        required: true
+      RELEASE_APP_PRIVATE_KEY:
+        required: true
+      SNYK_TOKEN:
+        required: true
+
+env:
+  PRODUCT_VERSION: ${{ inputs.version || 'dev' }}
+  NODE_VERSION: "22.x"
+
+jobs:
+  generate-sbom:
+    name: Generate SBOM
+    runs-on: ubuntu-22.04
+    outputs:
+      pr-url: ${{ steps.set-pr-url.outputs.url }}
+      pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
+      result-url: ${{ steps.set-pr-url.outputs.url }}
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}/positron
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.sha || github.sha }}
+          path: ${{ github.workspace }}/positron
+          submodules: recursive
+
+      - name: Skip SBOM generation in dry-run mode
+        if: ${{ inputs.dry-run }}
+        run: |
+          echo "[DRY-RUN] Skipping SBOM generation"
+          echo "Version: ${{ env.PRODUCT_VERSION }}"
+          echo ""
+          echo "In dry-run mode, the SBOM build and generation steps are skipped."
+          echo "The workflow will complete successfully without creating a PR."
+
+      - name: Set up Node.js
+        if: ${{ !inputs.dry-run }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Rust and cargo tools
+        if: ${{ !inputs.dry-run }}
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          source $HOME/.cargo/env
+          cargo install cargo-cyclonedx --force --locked
+
+      - name: Set Rust PATH
+        if: ${{ !inputs.dry-run }}
+        run: |
+          echo "PATH=$HOME/.cargo/bin:$PATH" >> $GITHUB_ENV
+
+      - name: Install Snyk CLI
+        if: ${{ !inputs.dry-run }}
+        run: |
+          npm install -g snyk@1.1301.2
+
+      - name: Install system dependencies
+        if: ${{ !inputs.dry-run }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            curl \
+            git \
+            wget \
+            ca-certificates \
+            jq \
+            libssl-dev \
+            libcurl4-openssl-dev \
+            zlib1g-dev
+
+      - name: Clone Kallichore source for scanning
+        if: ${{ !inputs.dry-run }}
+        run: |
+          # Read Kallichore version from package.json
+          KALLICHORE_VERSION=$(jq -r '.positron.binaryDependencies.kallichore' \
+            extensions/positron-supervisor/package.json)
+
+          echo "Cloning Kallichore v${KALLICHORE_VERSION}..."
+
+          # Clone the specific version
+          git clone --depth 1 --branch "v${KALLICHORE_VERSION}" \
+            https://github.com/posit-dev/kallichore.git \
+            .sbom-tmp/kallichore
+
+          echo "[OK] Cloned Kallichore source"
+
+      - name: Generate SBOM
+        if: ${{ !inputs.dry-run }}
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          cd scripts/sbom
+
+          # Verify tools are installed
+          echo "=== Verifying tools ==="
+          node --version
+          npm --version
+          cargo --version
+          rustc --version
+          snyk --version
+
+          # Authenticate with Snyk if token provided
+          if [ -n "$SNYK_TOKEN" ]; then
+            echo "=== Authenticating with Snyk ==="
+            snyk auth $SNYK_TOKEN
+          fi
+
+          # Install sbom generator npm dependencies
+          npm ci
+
+          # Generate the SBOM
+          npm run generate
+
+      - name: Verify SBOM was generated
+        if: ${{ !inputs.dry-run }}
+        run: |
+          if [ ! -f scripts/sbom/SBOM.json ]; then
+            echo "ERROR: SBOM.json was not generated!"
+            exit 1
+          fi
+          echo "[OK] SBOM.json generated successfully"
+          ls -lh scripts/sbom/SBOM.json
+          echo "Components: $(jq '.components | length' scripts/sbom/SBOM.json)"
+          echo "Dependencies: $(jq '.dependencies | length' scripts/sbom/SBOM.json)"
+
+      - name: Extract short version for filename
+        id: version
+        run: |
+          # Extract just the version number (e.g., "2025.09.2" from "2025.09.2+123")
+          SHORT_VERSION=$(echo "${{ env.PRODUCT_VERSION }}" | sed 's/+.*//')
+          echo "short_version=${SHORT_VERSION}" >> $GITHUB_OUTPUT
+          echo "Full version: ${{ env.PRODUCT_VERSION }}"
+          echo "Short version for filename: ${SHORT_VERSION}"
+
+      - name: Upload SBOM as artifact
+        if: ${{ !inputs.dry-run }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Positron__v${{ steps.version.outputs.short_version }}.sbom
+          path: ${{ github.workspace }}/positron/scripts/sbom/SBOM.json
+          retention-days: 10
+
+      - name: Workflow complete in dry-run mode
+        if: ${{ inputs.dry-run }}
+        run: |
+          echo "[OK] Dry-run mode: Workflow completed successfully"
+          echo "Version: ${{ env.PRODUCT_VERSION }}"
+          echo "Short version: ${{ steps.version.outputs.short_version }}"
+          echo ""
+          echo "SBOM generation and PR creation were skipped."
+
+      - name: Generate GitHub App token
+        if: ${{ !inputs.dry-run }}
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner: rstudio
+          repositories: posit-sboms
+
+      - name: Checkout posit-sboms repository
+        if: ${{ !inputs.dry-run }}
+        uses: actions/checkout@v6
+        with:
+          repository: rstudio/posit-sboms
+          path: ${{ github.workspace }}/posit-sboms
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Copy SBOM to posit-sboms repository
+        if: ${{ !inputs.dry-run }}
+        run: |
+          mkdir -p "${GITHUB_WORKSPACE}/posit-sboms/Positron"
+          cp "${GITHUB_WORKSPACE}/positron/scripts/sbom/SBOM.json" \
+             "${GITHUB_WORKSPACE}/posit-sboms/Positron/Positron__v${{ steps.version.outputs.short_version }}.sbom"
+
+      - name: Sanitize version for branch name
+        if: ${{ !inputs.dry-run }}
+        id: sanitize
+        run: |
+          # Replace special characters with hyphens for branch name
+          SANITIZED=$(echo "${{ env.PRODUCT_VERSION }}" | tr '+' '-' | tr '.' '-')
+          echo "branch_suffix=$SANITIZED" >> $GITHUB_OUTPUT
+
+      - name: Create Pull Request
+        id: create-pr
+        if: ${{ !inputs.dry-run }}
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          path: ${{ github.workspace }}/posit-sboms
+          commit-message: |
+            Add Positron v${{ env.PRODUCT_VERSION }} SBOM
+
+            - Generated SBOM using CycloneDX format
+            - Includes Rust and Node.js dependencies
+          branch: add-positron-sbom-${{ steps.sanitize.outputs.branch_suffix }}
+          delete-branch: true
+          title: "Add Positron ${{ env.PRODUCT_VERSION }} SBOM"
+          body: |
+            ## SBOM Update
+
+            This PR adds the Software Bill of Materials (SBOM) for Positron:
+
+            - **Product Version**: ${{ env.PRODUCT_VERSION }}
+            - **Format**: CycloneDX JSON
+
+            ### Files Updated
+
+            - `Positron/Positron__v${{ steps.version.outputs.short_version }}.sbom` - Complete SBOM file
+
+            ### Testing
+
+            Please verify:
+            - SBOM file is valid CycloneDX format
+            - Version number matches the release version
+            - Component counts are reasonable
+
+            Generated by GitHub Actions
+          labels: |
+            automated
+          reviewers: ${{ inputs.reviewers }}
+
+      - name: Set PR URL
+        id: set-pr-url
+        run: |
+          if [ "${{ inputs.dry-run }}" = "true" ]; then
+            echo "url=https://github.com/posit-dev/positron/pull/1" >> $GITHUB_OUTPUT
+          else
+            echo "url=${{ steps.create-pr.outputs.pull-request-url }}" >> $GITHUB_OUTPUT
+          fi

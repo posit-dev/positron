@@ -5,7 +5,7 @@
 
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
-import { ILanguageRuntimeMetadata, IRuntimeManager, RuntimeState } from '../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, IRuntimeManager, RuntimeStartupPhase, RuntimeState } from '../../languageRuntime/common/languageRuntimeService.js';
 import { Event } from '../../../../base/common/event.js';
 import { IRuntimeSessionMetadata } from '../../runtimeSession/common/runtimeSessionService.js';
 
@@ -162,4 +162,27 @@ export interface IRuntimeStartupService {
 	 * @param manager The runtime manager
 	 */
 	registerRuntimeManager(manager: IRuntimeManager): IDisposable;
+
+	/**
+	 * Current startup phase. Equivalent to ILanguageRuntimeService.startupPhase
+	 * but exposed here so diagnostics consumers don't need to plumb both
+	 * services. `Complete` can coexist with a background revalidation pass --
+	 * consult `backgroundDiscoveryInProgress` to disambiguate.
+	 */
+	readonly startupPhase: RuntimeStartupPhase;
+
+	/**
+	 * Whether a background full / revalidation pass is currently in flight.
+	 * Tracked separately from `startupPhase` because a background pass can
+	 * run after the phase has reached `Complete` (warm starts).
+	 */
+	readonly backgroundDiscoveryInProgress: boolean;
+
+	/**
+	 * Number of runtimes registered at the end of the last completed discovery
+	 * pass (persisted across sessions). Returns 0 if no prior discovery has
+	 * completed on this machine. UIs can use this as a hint for showing
+	 * determinate progress during a fresh discovery pass.
+	 */
+	readonly lastDiscoveryRuntimeCount: number;
 }

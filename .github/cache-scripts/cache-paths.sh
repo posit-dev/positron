@@ -155,14 +155,18 @@ generate_npm_extensions_stable_paths() {
 		fi
 	done <<< "$volatile_exts"
 
-	# Find all extensions except volatile ones and node_modules
+	# Find all extensions except volatile ones, node_modules, and build output.
+	# `out` is a build artifact directory (produced by esbuild-extension-common.mts).
+	# It only exists after compile, so including it would make the path list
+	# non-deterministic between cache restore (no out/) and cache save (out/ exists),
+	# producing different cache versions and constant misses.
 	local paths=""
 	for ext_dir in extensions/*/; do
 		ext_dir="${ext_dir%/}"
 		local ext_name="${ext_dir##*/}"
 
-		# Skip node_modules and volatile extensions
-		if [ "$ext_name" != "node_modules" ] && ! echo "$ext_name" | grep -qE "^($volatile_pattern)$"; then
+		# Skip node_modules, build output, and volatile extensions
+		if [ "$ext_name" != "node_modules" ] && [ "$ext_name" != "out" ] && ! echo "$ext_name" | grep -qE "^($volatile_pattern)$"; then
 			paths="${paths}${ext_dir}"$'\n'
 		fi
 	done

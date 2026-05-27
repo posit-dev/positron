@@ -10,7 +10,7 @@ import './dataGridRowCell.css';
 import { MouseEvent, useRef } from 'react';
 
 // Other dependencies.
-import { selectionType } from '../utilities/mouseUtilities.js';
+import { mouseSelectionType } from '../utilities/mouseUtilities.js';
 import { CellSelectionState } from '../classes/dataGridInstance.js';
 import { usePositronDataGridContext } from '../positronDataGridContext.js';
 import { positronClassNames } from '../../../../base/common/positronUtilities.js';
@@ -69,7 +69,7 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 					props.columnIndex,
 					props.rowIndex,
 					props.pinned,
-					selectionType(e)
+					mouseSelectionType(e)
 				);
 			} else {
 				// Scroll to the cell.

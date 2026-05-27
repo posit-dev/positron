@@ -13,8 +13,9 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IEphemeralStateService } from '../../../../platform/ephemeralState/common/ephemeralState.js';
 import { IExtensionService } from '../../extensions/common/extensions.js';
-import { ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimeManager, LanguageRuntimeArchitecture, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata } from '../../languageRuntime/common/languageRuntimeService.js';
+import { IHostedLanguageContribution, ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimeManager, IRuntimeRootSignature, LanguageRuntimeArchitecture, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata, signaturesEqual } from '../../languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from './runtimeStartupService.js';
+import { IRuntimeDiscoveryCache, IRuntimeFingerprint, RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_DEFAULT, RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_SETTING } from './runtimeDiscoveryCacheService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 import { ExtensionsRegistry } from '../../extensions/common/extensionsRegistry.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
@@ -28,11 +29,37 @@ import { IPositronNewFolderService } from '../../positronNewFolder/common/positr
 import { IWorkbenchEnvironmentService } from '../../environment/common/environmentService.js';
 import { isWeb } from '../../../../base/common/platform.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { Barrier } from '../../../../base/common/async.js';
+import { Barrier, Limiter, raceTimeout } from '../../../../base/common/async.js';
 import { arch as systemArch } from '../../../../base/common/process.js';
 
 interface ILanguageRuntimeProviderMetadata {
 	languageId: string;
+}
+
+/** A queued background revalidation for a cache entry whose fingerprint changed. */
+interface ICacheRevalidationTask {
+	extensionId: string;
+	languageId: string;
+	metadata: ILanguageRuntimeMetadata;
+	freshFingerprint: IRuntimeFingerprint;
+}
+
+/**
+ * Discovery plan for a single ext host: which of its hosted language
+ * contributions need to actually run discovery this pass, and which the
+ * cache already covers and so should be filtered out of the ext-host's
+ * discoverer loop.
+ */
+interface IManagerDiscoveryPlan {
+	manager: IRuntimeManager;
+	/**
+	 * `(extensionId, languageId)` pairs whose discovery the ext host should
+	 * run. Carries the full contribution so signature recording at discovery
+	 * start can stamp the precise buckets being enumerated.
+	 */
+	runContributions: IHostedLanguageContribution[];
+	/** Language IDs the ext host should NOT discover this pass (cache hit). */
+	skipLanguageIds: string[];
 }
 
 /**
@@ -58,6 +85,13 @@ interface IAffiliatedRuntimeMetadata {
  * the storage format.
  */
 const PERSISTENT_WORKSPACE_SESSIONS = 'positron.workspaceSessionList.v3';
+
+/**
+ * Storage key for the count of runtimes registered at the end of the last
+ * completed discovery pass. Used to drive a determinate progress bar in the
+ * console "Discovering interpreters" UI.
+ */
+const LAST_DISCOVERY_RUNTIME_COUNT_KEY = 'positron.runtime.lastDiscoveryRuntimeCount';
 
 const languageRuntimeExtPoint =
 	ExtensionsRegistry.registerExtensionPoint<ILanguageRuntimeProviderMetadata[]>({
@@ -107,6 +141,17 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	// The current startup phase
 	private _startupPhase: RuntimeStartupPhase;
 
+	// Cached count of runtimes registered at the end of the last completed
+	// discovery pass. Loaded from storage at construction; written when phase
+	// transitions to Complete.
+	private _lastDiscoveryRuntimeCount: number = 0;
+
+	// Whether a background full-discovery / revalidation pass is currently
+	// running. Tracked separately from `_startupPhase` because a background
+	// pass can coexist with `Complete`: warm starts surface "ready for input"
+	// before cache revalidation I/O has settled.
+	private _backgroundDiscoveryInProgress = false;
+
 	// Whether we are shutting down
 	private _shuttingDown = false;
 
@@ -146,6 +191,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
 		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
 		@IWorkbenchEnvironmentService private readonly _environmentService: IWorkbenchEnvironmentService,
+		@IRuntimeDiscoveryCache private readonly _discoveryCache: IRuntimeDiscoveryCache,
 	) {
 
 		super();
@@ -173,6 +219,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		this._startupPhase = _languageRuntimeService.startupPhase;
 		perf.mark(`code/positron/runtimeStartupPhase/${this._startupPhase}`);
+
+		this._lastDiscoveryRuntimeCount = this._storageService.getNumber(
+			LAST_DISCOVERY_RUNTIME_COUNT_KEY, StorageScope.APPLICATION, 0);
 		this._register(
 			this._languageRuntimeService.onDidChangeRuntimeStartupPhase(
 				(phase) => {
@@ -267,6 +316,15 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// auto-start a runtime.
 		this._register(this._languageRuntimeService.onDidChangeRuntimeStartupPhase(phase => {
 			if (phase === RuntimeStartupPhase.Complete) {
+
+				// Persist the count of registered runtimes so the next session
+				// can show a determinate progress bar during discovery.
+				const count = this._languageRuntimeService.registeredRuntimes.length;
+				if (count > 0 && count !== this._lastDiscoveryRuntimeCount) {
+					this._lastDiscoveryRuntimeCount = count;
+					this._storageService.store(LAST_DISCOVERY_RUNTIME_COUNT_KEY, count,
+						StorageScope.APPLICATION, StorageTarget.MACHINE);
+				}
 
 				// Check to see if every single language runtime has been disabled.
 				const languageIds = this._languagePacks.keys();
@@ -486,6 +544,18 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	onWillAutoStartRuntime: Event<IRuntimeAutoStartEvent>;
 
 	onSessionRestoreFailure: Event<ISessionRestoreFailedEvent>;
+
+	public get startupPhase(): RuntimeStartupPhase {
+		return this._startupPhase;
+	}
+
+	public get backgroundDiscoveryInProgress(): boolean {
+		return this._backgroundDiscoveryInProgress;
+	}
+
+	public get lastDiscoveryRuntimeCount(): number {
+		return this._lastDiscoveryRuntimeCount;
+	}
 
 	/**
 	 * Gets all the affiliated runtimes for the workspace.
@@ -735,6 +805,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 	/**
 	 * Kicks off a refresh of runtime discovery, after initial discovery.
+	 *
+	 * Bypasses the discovery cache: every manager runs a fresh full pass and
+	 * the resulting `cacheable: true` metadata re-seeds the cache. Refuses to
+	 * run if a background revalidation pass is already in flight, since
+	 * `Complete` can coexist with one and we want to avoid a second concurrent
+	 * pass racing against it.
 	 */
 	public async rediscoverAllRuntimes(quiet?: boolean): Promise<void> {
 
@@ -744,9 +820,19 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			return;
 		}
 
+		// Refuse if a background full / revalidation pass is already running.
+		// Notify the user rather than silently no-op'ing so it's clear why
+		// the command appeared to do nothing.
+		if (this._backgroundDiscoveryInProgress) {
+			this._logService.info('[Runtime startup] Runtime discovery refresh skipped: a background pass is already in progress.');
+			this._notificationService.info(nls.localize('positron.runtimeStartupService.discoveryAlreadyRunning',
+				"Interpreter discovery is already running in the background; please wait for it to finish."));
+			return;
+		}
+
 		// Remember the old set of runtimes so we can report any new ones
 		const oldRuntimes = this._languageRuntimeService.registeredRuntimes;
-		this._logService.debug('[Runtime startup] Refreshing runtime discovery.');
+		this._logService.debug('[Runtime startup] Refreshing runtime discovery (bypassing cache).');
 		this._discoveryCompleteByExtHostId.forEach((_, extHostId, m) => {
 			m.set(extHostId, false);
 		});
@@ -757,8 +843,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			title: nls.localize('positron.runtimeStartupService.discoveringRuntimes', 'Discovering interpreters...'),
 			cancellable: false
 		}, async (progress) => {
-			// Start the discovery process
-			this.discoverAllRuntimes();
+			// Start the discovery process. bypassCache=true so every manager
+			// runs a fresh full pass and the cache is re-seeded from the
+			// results via onDidRegisterRuntime's cache-write path.
+			this.discoverAllRuntimes({ bypassCache: true });
 
 			// Wait for discovery to complete
 			await new Promise<void>((resolve) => {
@@ -846,11 +934,17 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	}
 
 	/**
-	 * Activates all of the extensions that provide language runtimes, then
-	 * enters the discovery phase, in which each extension is asked to supply
-	 * its language runtime metadata.
+	 * Activates all extensions that contribute runtimes, then runs cache-aware
+	 * discovery: load survivors from the cross-window cache (LoadingCache),
+	 * decide which managers still need a real enumeration (Discovering), and
+	 * kick off background revalidation for entries whose fingerprint changed.
+	 *
+	 * @param options.bypassCache When true, skips the cache foreground pass
+	 * and forces full discovery for every manager. Used by user-triggered
+	 * "Discover All Interpreters" so the cache is always re-seeded from a
+	 * fresh ground truth.
 	 */
-	private async discoverAllRuntimes() {
+	private async discoverAllRuntimes(options: { bypassCache?: boolean } = {}) {
 
 		// If we have no language packs yet, but were awaiting trust, we need to
 		// wait until the language packs are reloaded with the new trust
@@ -888,13 +982,531 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		this._logService.debug(`[Runtime startup] All extensions contributing language runtimes have been activated: [${enabledLanguages.join(', ')}]`);
 
-		// Enter the discovery phase; this triggers us to ask each extension for its
-		// language runtime providers.
-		this.setStartupPhase(RuntimeStartupPhase.Discovering);
+		// Decide which managers still need a real enumeration, and for those
+		// that do, which of their hosted languages to actually run on this
+		// pass. On warm starts where every contribution is cache-satisfied
+		// (and none is `alwaysRediscover`), this is empty -- we go straight
+		// to Complete.
+		//
+		// Planning runs *before* the foreground cache pass so that any
+		// `(extensionId, languageId)` bucket that's about to be re-discovered
+		// (signature changed, periodic refresh, cold start, alwaysRediscover)
+		// is skipped during cache load. Pre-registering cached runtimes for
+		// stale buckets would leak entries that current settings would now
+		// filter out -- e.g. an interpreter that the user has just added to
+		// `python.interpreters.exclude` -- since `registerRuntime` doesn't
+		// re-validate against settings and the subsequent discovery pass
+		// doesn't unregister stale entries either.
+		const plans: IManagerDiscoveryPlan[] = options.bypassCache
+			? this._runtimeManagers.map(m => ({ manager: m, runContributions: [], skipLanguageIds: [] }))
+			: await this.managersNeedingFullDiscovery();
 
-		// Ask each extension host to provide its language runtime metadata.
+		// Collect the buckets that will be re-discovered. Cache load skips
+		// these to avoid pre-registering entries that the fresh discovery is
+		// about to evaluate against current settings.
+		const skipCacheLoad = new Set<string>();
+		for (const plan of plans) {
+			for (const { extensionId, languageId } of plan.runContributions) {
+				skipCacheLoad.add(`${extensionId}::${languageId}`);
+			}
+		}
+
+		// Foreground cache pass. Skipped when caching is disabled, no entries
+		// exist yet, or the caller forced a bypass (rediscover). On bypass we
+		// also skip every bucket implicitly via the empty `runContributions`
+		// path above -- bypassCache rebuilds plans without populating
+		// `runContributions`, so the skip set is empty there. The cache wipe
+		// below handles bypass.
+		const revalidations: ICacheRevalidationTask[] = options.bypassCache
+			? []
+			: await this.loadFromDiscoveryCache(skipCacheLoad);
+
+		if (plans.length === 0) {
+			// Warm-start fast path. No manager has any work to do; transition
+			// straight to Complete. Mark every ext host's discovery flag true
+			// so the next rediscover invocation isn't fighting stale state, and
+			// signal each ext host that initial discovery is over so any
+			// runtime manager registered later (via the public
+			// `registerLanguageRuntimeManager` API) self-triggers its own
+			// discovery -- the IIFE inside the ext host is gated on a flag
+			// that, without this signal, would never flip on a warm start.
+			for (const manager of this._runtimeManagers) {
+				this._discoveryCompleteByExtHostId.set(manager.id, true);
+				manager.markDiscoveryComplete();
+			}
+			this.setStartupPhase(RuntimeStartupPhase.Complete);
+		} else {
+			// Cold or mixed: enter Discovering for the managers that still
+			// need a full pass; mark the rest complete so completeDiscovery()
+			// can transition to Complete once the slow ones return.
+			this.setStartupPhase(RuntimeStartupPhase.Discovering);
+			const planByManager = new Map(plans.map(p => [p.manager.id, p]));
+			for (const manager of this._runtimeManagers) {
+				if (!planByManager.has(manager.id)) {
+					this._discoveryCompleteByExtHostId.set(manager.id, true);
+				}
+			}
+			const reason = options.bypassCache
+				? 'user-triggered'
+				: this._lastFullDiscoveryReason;
+			for (const plan of plans) {
+				// Capture-then-discover. Signatures are recorded *before*
+				// the manager starts walking the filesystem so a new install
+				// that lands during this pass shows up as a delta on the next
+				// warm start, rather than being baked into a post-discovery
+				// snapshot and missed forever.
+				//
+				// On the `bypassCache` rediscover path we don't have a plan;
+				// fall back to attribution by existing-bucket scan. Otherwise
+				// we know the exact `(extensionId, languageId)` pairs being
+				// run and can stamp them directly.
+				const runPairs = plan.runContributions.length > 0
+					? plan.runContributions
+					: await this._discoverRunPairsByAttribution(plan.manager);
+				await this._captureSignaturesAtDiscoveryStart(plan.manager, runPairs, reason);
+
+				// Wipe cache entries only for the languages this pass will
+				// actually re-enumerate. Skipped languages (cache-fresh
+				// siblings sharing an ext host with an `alwaysRediscover`
+				// contribution) keep their cache: we're not asking the ext
+				// host to discover them, so wiping would lose data without
+				// a refresh. The pass will repopulate the run languages'
+				// cache via `onDidRegisterRuntime`.
+				for (const { extensionId, languageId } of runPairs) {
+					for (const entry of this._discoveryCache.getEntries(extensionId, languageId)) {
+						this._discoveryCache.invalidate(extensionId, languageId, entry.metadata.runtimePath);
+					}
+				}
+				plan.manager.discoverAllRuntimes(disabledLanguages, plan.skipLanguageIds);
+			}
+		}
+
+		// Kick off background revalidation for entries whose fingerprint
+		// changed. Independent of the Discovering/Complete decision above; if
+		// nothing changed there's nothing to do.
+		if (revalidations.length > 0) {
+			this._backgroundDiscoveryInProgress = true;
+			this.runBackgroundRevalidations(revalidations).finally(() => {
+				this._backgroundDiscoveryInProgress = false;
+			});
+		}
+	}
+
+	/**
+	 * Foreground cache pass. For each (extensionId, languageId) bucket, stat
+	 * each cached entry's binary and decide:
+	 *  - path gone: evict
+	 *  - fingerprint matches: register the cached metadata as-is
+	 *  - fingerprint changed: register and queue background revalidation so
+	 *    the extension can re-hydrate / swap if needed
+	 *
+	 * @param skipBuckets `(extensionId, languageId)` keys (joined by `::`) for
+	 * buckets that are about to be re-discovered on this pass. Their cached
+	 * entries are skipped here so the fresh discovery is the sole source of
+	 * truth for what gets registered (and what current settings would now
+	 * filter out, like a freshly-added exclude path).
+	 */
+	private async loadFromDiscoveryCache(skipBuckets: ReadonlySet<string> = new Set()): Promise<ICacheRevalidationTask[]> {
+		const revalidations: ICacheRevalidationTask[] = [];
+		if (!this._discoveryCache.isEnabled()) {
+			return revalidations;
+		}
+		// Skip buckets for languages whose startup behavior is `Disabled`. Without
+		// this filter the foreground cache pass would re-register cached runtimes
+		// for a disabled language on every warm start, surfacing them in pickers
+		// and the registered-runtimes list -- the no-cache path filters disabled
+		// languages out of `enabledLanguages` before activating extensions, so
+		// no runtimes would have been registered without the cache.
+		//
+		// Also skip buckets that are about to be re-discovered; pre-registering
+		// their cached entries would leak runtimes that current settings now
+		// filter out (e.g. a freshly-added `python.interpreters.exclude` path).
+		const buckets = this._discoveryCache.getAllBuckets()
+			.filter(b => this.getStartupBehavior(b.languageId) !== LanguageStartupBehavior.Disabled)
+			.filter(b => !skipBuckets.has(`${b.extensionId}::${b.languageId}`));
+		if (buckets.every(b => b.entries.length === 0)) {
+			return revalidations;
+		}
+
+		this.setStartupPhase(RuntimeStartupPhase.LoadingCache);
+
+		await Promise.all(buckets.map(async bucket => {
+			for (const entry of bucket.entries) {
+				const probe = await this._discoveryCache.statRuntimePath(entry.metadata.runtimePath);
+				if (!probe) {
+					this._logService.debug(
+						`[Runtime startup] Evicting cached runtime ${formatLanguageRuntimeMetadata(entry.metadata)}: ` +
+						`path no longer resolves to a binary.`);
+					this._discoveryCache.invalidate(bucket.extensionId, bucket.languageId, entry.metadata.runtimePath);
+					continue;
+				}
+				this._languageRuntimeService.registerRuntime(entry.metadata);
+				this._discoveryCache.sessionCounters.foregroundHits++;
+
+				const fp = probe.fingerprint;
+				const same = fp.size === entry.fingerprint.size
+					&& fp.mtimeMs === entry.fingerprint.mtimeMs
+					&& fp.ctimeMs === entry.fingerprint.ctimeMs;
+				if (same) {
+					this._discoveryCache.markValidated(bucket.extensionId, bucket.languageId, entry.metadata.runtimePath, fp);
+				} else {
+					revalidations.push({
+						extensionId: bucket.extensionId,
+						languageId: bucket.languageId,
+						metadata: entry.metadata,
+						freshFingerprint: fp,
+					});
+				}
+			}
+		}));
+		return revalidations;
+	}
+
+	/**
+	 * Plan what each ext-host needs to do on this open. Decisions are made
+	 * per `(extensionId, languageId)` and then grouped by ext host so a
+	 * single discovery RPC can drive the contributions that actually need it.
+	 *
+	 * For each contribution the ext host hosts:
+	 *  - cache stale (cold-start / roots-changed / periodic) -> include in
+	 *    `runLanguageIds`
+	 *  - cache fresh and `alwaysRediscover` -> include in `runLanguageIds`
+	 *  - cache fresh and not `alwaysRediscover` -> include in `skipLanguageIds`
+	 *
+	 * A manager whose `runLanguageIds` is empty is omitted from the result.
+	 * The caller passes `skipLanguageIds` through to `discoverAllRuntimes`
+	 * so the ext host filters its discoverers down to just the languages
+	 * that have work this pass. This is what prevents a single
+	 * `alwaysRediscover` contribution (e.g. positron-zed) from forcing
+	 * sibling languages (positron-r, positron-python) in the same ext host
+	 * to re-enumerate when their caches are fresh.
+	 */
+	private async managersNeedingFullDiscovery(): Promise<IManagerDiscoveryPlan[]> {
+		if (!this._discoveryCache.isEnabled()) {
+			return this._runtimeManagers.map(m => ({ manager: m, runContributions: [], skipLanguageIds: [] }));
+		}
+
+		// Buckets whose last full pass is older than the periodic cap (or that
+		// have never had one recorded) trigger a refresh on this open.
+		const refreshDays = this._configurationService.getValue<number>(RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_SETTING)
+			?? RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_DEFAULT;
+		const periodicCutoff = Date.now() - refreshDays * 24 * 60 * 60 * 1000;
+
+		// Reason precedence: cold-start > always-rediscover > roots-changed >
+		// periodic. Track the most-specific reason observed across all managers
+		// needing discovery. `always-rediscover` is a permanent contribution
+		// opt-out rather than a transient staleness signal, so it ranks below
+		// cold-start (which describes a one-time situation) but above the
+		// staleness reasons.
+		const reasonRank: Record<'cold-start' | 'always-rediscover' | 'roots-changed' | 'periodic', number> = {
+			'cold-start': 0,
+			'always-rediscover': 1,
+			'roots-changed': 2,
+			'periodic': 3,
+		};
+		let observedReason: 'cold-start' | 'always-rediscover' | 'roots-changed' | 'periodic' | undefined;
+		const promote = (r: 'cold-start' | 'always-rediscover' | 'roots-changed' | 'periodic') => {
+			if (observedReason === undefined || reasonRank[r] < reasonRank[observedReason]) {
+				observedReason = r;
+			}
+		};
+
+		const plans: IManagerDiscoveryPlan[] = [];
+		await Promise.all(this._runtimeManagers.map(async manager => {
+			// Get the per-(extensionId, languageId) contribution list with
+			// each contribution's `alwaysRediscover` flag.
+			let contributions: IHostedLanguageContribution[];
+			try {
+				contributions = await manager.getHostedLanguageContributions();
+			} catch (err) {
+				this._logService.trace(
+					`[Runtime startup] getHostedLanguageContributions threw for manager ${manager.id}: ${err}`);
+				// No info: conservatively run a full pass for this ext host.
+				plans.push({ manager, runContributions: [], skipLanguageIds: [] });
+				promote('cold-start');
+				return;
+			}
+
+			if (contributions.length === 0) {
+				// Ext host hosts no language runtime contributions; nothing to
+				// do. (Possible if extensions are activating slowly; the next
+				// open will plan properly.)
+				return;
+			}
+
+			const runContributions: IHostedLanguageContribution[] = [];
+			const skipLangs = new Set<string>();
+			let mostSpecificReason: 'cold-start' | 'always-rediscover' | 'roots-changed' | 'periodic' | undefined;
+			const promoteLocal = (r: 'cold-start' | 'always-rediscover' | 'roots-changed' | 'periodic') => {
+				if (mostSpecificReason === undefined || reasonRank[r] < reasonRank[mostSpecificReason]) {
+					mostSpecificReason = r;
+				}
+			};
+
+			for (const contrib of contributions) {
+				// User-disabled languages get filtered out of `discoverAllRuntimes`
+				// by the existing `disabledLanguageIds` path; don't double-count.
+				if (this.getStartupBehavior(contrib.languageId) === LanguageStartupBehavior.Disabled) {
+					continue;
+				}
+
+				const entries = this._discoveryCache.getEntries(contrib.extensionId, contrib.languageId);
+				if (entries.length === 0) {
+					// Cold-start for this contribution: no cached entries, so
+					// we have to enumerate to find out what it owns. (This
+					// also covers `alwaysRediscover` contributions whose
+					// runtimes are never cached, like positron-zed.)
+					runContributions.push(contrib);
+					promoteLocal(contrib.alwaysRediscover ? 'always-rediscover' : 'cold-start');
+					continue;
+				}
+
+				const lastFullDiscovery = this._discoveryCache.getLastFullDiscovery(contrib.extensionId, contrib.languageId) ?? 0;
+				const periodicStale = lastFullDiscovery === 0 || lastFullDiscovery < periodicCutoff;
+
+				// Root-change check: compare the persisted signature against
+				// the manager's current one. Per-(extensionId, languageId), so
+				// a delta in one contribution doesn't penalize others (and a
+				// sibling contribution registered against the same language
+				// without `getDiscoveryRootSignature`, e.g. positron-reticulate
+				// for `python`, doesn't shadow the real owner's signature).
+				const persistedSig = this._discoveryCache.getDiscoveryRootSignature(contrib.extensionId, contrib.languageId);
+				const currentSig = await this._safeGetRootSignature(manager, contrib.extensionId, contrib.languageId);
+				const rootsChanged = currentSig !== undefined && !signaturesEqual(persistedSig, currentSig);
+
+				if (rootsChanged) {
+					runContributions.push(contrib);
+					promoteLocal('roots-changed');
+				} else if (periodicStale) {
+					runContributions.push(contrib);
+					promoteLocal('periodic');
+				} else if (contrib.alwaysRediscover) {
+					runContributions.push(contrib);
+					promoteLocal('always-rediscover');
+				} else {
+					skipLangs.add(contrib.languageId);
+				}
+			}
+
+			if (runContributions.length > 0) {
+				plans.push({
+					manager,
+					runContributions,
+					skipLanguageIds: Array.from(skipLangs),
+				});
+				if (mostSpecificReason !== undefined) {
+					promote(mostSpecificReason);
+				}
+			}
+		}));
+
+		this._lastFullDiscoveryReason = observedReason ?? 'cold-start';
+		return plans;
+	}
+
+	/**
+	 * Capture and persist the manager's current root signature for every
+	 * (extensionId, languageId) bucket the manager will produce results for,
+	 * and record a per-bucket full-discovery diagnostic stamp. Called once
+	 * per manager at the moment we kick off `manager.discoverAllRuntimes()`.
+	 *
+	 * Why this ordering: the signature is captured *before* the manager
+	 * starts walking the filesystem so that an interpreter installed during
+	 * the discovery pass shows up as a delta on the next warm start, rather
+	 * than being baked into a post-discovery snapshot and missed forever.
+	 *
+	 * Two attribution paths:
+	 *   1. For each existing cache bucket the manager owns (per
+	 *      `managesRuntime`), record per (extensionId, languageId) directly.
+	 *   2. For every contributed language pack the manager actually responds
+	 *      to (`getDiscoveryRootSignature` returns non-undefined), record per
+	 *      (extensionId, languageId) for each extension in that language
+	 *      pack. This covers the cold-start case where the manager has no
+	 *      prior bucket to attribute against.
+	 */
+	private async _captureSignaturesAtDiscoveryStart(
+		manager: IRuntimeManager,
+		runPairs: ReadonlyArray<{ extensionId: string; languageId: string }>,
+		reason: string,
+	): Promise<void> {
+		if (runPairs.length === 0) {
+			// Diagnostic placeholder: a manager ran with no recorded
+			// contributions. Falls back to periodic-refresh after this.
+			this._discoveryCache.recordFullDiscoveryRun('*', '*', reason);
+			return;
+		}
+
+		// Fetch one signature per (extensionId, languageId) pair we'll discover.
+		// Managers return undefined for languages they don't handle (or that
+		// don't implement the signature API); we just skip the signature
+		// update in that case. We key by both extensionId and languageId
+		// because multiple extensions can register a manager for the same
+		// languageId (e.g. positron-python and positron-reticulate both
+		// register for `python`), and only one of them owns the discovery
+		// signature for any given bucket.
+		const uniquePairs = new Map<string, { extensionId: string; languageId: string }>();
+		for (const pair of runPairs) {
+			uniquePairs.set(`${pair.extensionId}::${pair.languageId}`, pair);
+		}
+		const sigByPair = new Map<string, IRuntimeRootSignature>();
+		await Promise.all(Array.from(uniquePairs.values()).map(async ({ extensionId, languageId }) => {
+			const sig = await this._safeGetRootSignature(manager, extensionId, languageId);
+			if (sig !== undefined) {
+				sigByPair.set(`${extensionId}::${languageId}`, sig);
+			}
+		}));
+
+		const stampedAt = Date.now();
+		const recordedKeys = new Set<string>();
+		for (const { extensionId, languageId } of runPairs) {
+			const key = `${extensionId}::${languageId}`;
+			if (recordedKeys.has(key)) { continue; }
+			recordedKeys.add(key);
+			this._discoveryCache.recordFullDiscoveryRun(extensionId, languageId, reason);
+			// Stamp `lastFullDiscovery` now, at the start of the pass: the
+			// periodic-refresh check reads this value on the next open and
+			// what matters is that *a* pass ran, not exactly when each
+			// runtime registered. Stamping per-runtime via
+			// `onDidRegisterRuntime` would miss buckets that legitimately
+			// produce zero runtimes on this open.
+			this._discoveryCache.setLastFullDiscovery(extensionId, languageId, stampedAt);
+			const sig = sigByPair.get(key);
+			if (sig !== undefined) {
+				this._discoveryCache.setDiscoveryRootSignature(extensionId, languageId, sig);
+			}
+		}
+	}
+
+	/**
+	 * Fallback attribution path used only by the rediscover/bypass-cache
+	 * code path, which doesn't run through `managersNeedingFullDiscovery`.
+	 * Walks existing cache buckets and asks the manager if it owns each.
+	 */
+	private async _discoverRunPairsByAttribution(
+		manager: IRuntimeManager,
+	): Promise<{ extensionId: string; languageId: string }[]> {
+		const pairs: { extensionId: string; languageId: string }[] = [];
+		for (const bucket of this._discoveryCache.getAllBuckets()) {
+			if (bucket.entries.length === 0) { continue; }
+			try {
+				if (await manager.managesRuntime(bucket.entries[0].metadata)) {
+					pairs.push({ extensionId: bucket.extensionId, languageId: bucket.languageId });
+				}
+			} catch (err) {
+				this._logService.trace(
+					`[Runtime startup] managesRuntime threw while attributing bypass pairs: ${err}`);
+			}
+		}
+		return pairs;
+	}
+
+	/**
+	 * Call `manager.getDiscoveryRootSignature(extensionId, languageId)`
+	 * defensively: timeout-bound the call, swallow throws, and treat both as
+	 * "no signature available" so the caller falls back to the periodic-
+	 * refresh trigger. We disambiguate by extensionId because multiple
+	 * extensions can register a runtime manager for the same languageId (e.g.
+	 * `ms-python.python` and `positron.positron-reticulate` both register for
+	 * `python`) and only one of them owns the discovery signature for any
+	 * given (extensionId, languageId) bucket.
+	 */
+	private async _safeGetRootSignature(
+		manager: IRuntimeManager,
+		extensionId: string,
+		languageId: string,
+	): Promise<IRuntimeRootSignature | undefined> {
+		try {
+			return await raceTimeout(
+				manager.getDiscoveryRootSignature(extensionId, languageId),
+				RuntimeStartupService.ROOT_SIGNATURE_TIMEOUT_MS,
+				() => this._logService.warn(
+					`[Runtime startup] getDiscoveryRootSignature(${extensionId}, ${languageId}) timed out ` +
+					`for manager ${manager.id}; falling back to periodic refresh.`),
+			);
+		} catch (err) {
+			this._logService.warn(
+				`[Runtime startup] getDiscoveryRootSignature(${extensionId}, ${languageId}) threw ` +
+				`for manager ${manager.id}; falling back to periodic refresh: ${err}`);
+			return undefined;
+		}
+	}
+
+	/**
+	 * Reason classification set as a side-effect of the most recent
+	 * `managersNeedingFullDiscovery()` call. The per-manager iteration already
+	 * walks the buckets we'd need to inspect for this, so caching the result
+	 * here is cheaper than a sibling helper that re-walks them. `bypassCache`
+	 * paths overwrite this with `'user-triggered'` at the call site.
+	 *
+	 * Precedence (most-specific wins): `cold-start` > `always-rediscover` >
+	 * `roots-changed` > `periodic`. `cold-start` covers managers that never
+	 * produced any cached runtimes; `always-rediscover` covers managers that
+	 * opted out of the cache fast path entirely (non-cacheable runtimes);
+	 * `roots-changed` covers warm starts where a scan-root mtime moved (a new
+	 * interpreter likely showed up); `periodic` covers warm starts where the
+	 * bucket simply aged past the refresh cap.
+	 */
+	private _lastFullDiscoveryReason: 'cold-start' | 'always-rediscover' | 'roots-changed' | 'periodic' = 'cold-start';
+
+	/**
+	 * Per-manager budget for `getDiscoveryRootSignature`. The call should be
+	 * a handful of stats and complete in single-digit milliseconds; if it
+	 * doesn't, log and treat as "no signature" (fall back to periodic) rather
+	 * than blocking warm-start latency on a slow extension.
+	 */
+	private static readonly ROOT_SIGNATURE_TIMEOUT_MS = 500;
+
+	/**
+	 * Run cached-entry revalidations in batches of at most 4 concurrent
+	 * `validateMetadata` calls. On thrown error, evict; otherwise refresh the
+	 * cached metadata + fingerprint and re-register if the runtime ID changed.
+	 */
+	private async runBackgroundRevalidations(tasks: ICacheRevalidationTask[]): Promise<void> {
+		const limiter = new Limiter<void>(4);
+		await Promise.all(tasks.map(task => limiter.queue(() => this.revalidateOne(task))));
+	}
+
+	private async revalidateOne(task: ICacheRevalidationTask): Promise<void> {
+		this._discoveryCache.sessionCounters.revalidationsAttempted++;
+		// Find the manager that owns this runtime.
+		let owner: IRuntimeManager | undefined;
 		for (const manager of this._runtimeManagers) {
-			manager.discoverAllRuntimes(disabledLanguages);
+			try {
+				if (await manager.managesRuntime(task.metadata)) {
+					owner = manager;
+					break;
+				}
+			} catch (err) {
+				this._logService.trace(`[Runtime startup] managesRuntime threw during revalidation: ${err}`);
+			}
+		}
+		if (!owner) {
+			this._discoveryCache.sessionCounters.revalidationsFailed++;
+			this._discoveryCache.invalidate(task.extensionId, task.languageId, task.metadata.runtimePath);
+			return;
+		}
+		try {
+			const validated = await owner.validateMetadata(task.metadata);
+			this._discoveryCache.sessionCounters.revalidationsSucceeded++;
+			// Registry swap: if the validator returned different metadata,
+			// register it (the registry tolerates re-registration on the same
+			// path with a new runtimeId, mirroring the affiliated-cache path).
+			if (validated.runtimeId !== task.metadata.runtimeId) {
+				this._logService.info(
+					`[Runtime startup] Cached runtime drifted; ` +
+					`replacing ${formatLanguageRuntimeMetadata(task.metadata)} ` +
+					`with ${formatLanguageRuntimeMetadata(validated)}`);
+				this._languageRuntimeService.registerRuntime(validated);
+			}
+			// Refresh the cache entry with the (possibly-updated) metadata
+			// and the fresh fingerprint we already captured.
+			await this._discoveryCache.upsert(validated);
+		} catch (err) {
+			this._discoveryCache.sessionCounters.revalidationsFailed++;
+			this._logService.info(
+				`[Runtime startup] Cache revalidation failed for ` +
+				`${formatLanguageRuntimeMetadata(task.metadata)}; evicting: ${err}`);
+			this._discoveryCache.invalidate(task.extensionId, task.languageId, task.metadata.runtimePath);
 		}
 	}
 
@@ -907,8 +1519,28 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 */
 	private onDidRegisterRuntime(metadata: ILanguageRuntimeMetadata): void {
 
-		// Ignore if we're not in the discovery phase.
-		if (this._startupPhase !== RuntimeStartupPhase.Discovering) {
+		// During a real discovery pass (cold-start full discovery, user-triggered
+		// rediscover, or a background refresh), feed cacheable runtimes into the
+		// cross-window cache. Cache hits replayed during `LoadingCache` are
+		// already in the cache and don't need to be re-upserted.
+		//
+		// `lastFullDiscovery` is stamped at the start of the pass in
+		// `_captureSignaturesAtDiscoveryStart` (so buckets that legitimately
+		// produce zero runtimes on this open still get refreshed), not here.
+		if (metadata.cacheable === true &&
+			(this._startupPhase === RuntimeStartupPhase.Discovering || this._backgroundDiscoveryInProgress)) {
+			this._discoveryCache.upsert(metadata).catch(err => {
+				this._logService.warn(
+					`[Runtime startup] Failed to cache runtime ${formatLanguageRuntimeMetadata(metadata)}: ${err}`);
+			});
+		}
+
+		// The remaining work is the affiliated-runtime auto-start. We act in
+		// both Discovering (cold start) and LoadingCache (warm-start cache hit),
+		// since a cache-loaded runtime can match the workspace affiliation just
+		// like a freshly-discovered one would.
+		if (this._startupPhase !== RuntimeStartupPhase.Discovering &&
+			this._startupPhase !== RuntimeStartupPhase.LoadingCache) {
 			return;
 		}
 
@@ -1509,10 +2141,16 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			this._logService.debug(`${marker}: Restoring session for ` +
 				`${session.sessionName}`);
 
-			// We want to activate the first console session we see, but no
-			// following sessions
-			const activate = firstConsole;
-			if (!session.metadata.notebookUri) {
+			// Activate (i.e. make foreground) the first console session
+			// we reconnect to. Notebook sessions are never activated as
+			// part of reconnection; the foreground session for a notebook
+			// is set by the editor focus path when the user activates
+			// the corresponding editor (so reconnected sessions for
+			// background tabs do not steal foreground from the active
+			// editor).
+			const isConsoleSession = !session.metadata.notebookUri;
+			const activate = firstConsole && isConsoleSession;
+			if (isConsoleSession) {
 				firstConsole = false;
 			}
 

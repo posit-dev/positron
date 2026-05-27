@@ -389,6 +389,11 @@ export interface IExtensionQueryOptions {
 	compatible?: boolean;
 	queryAllVersions?: boolean;
 	source?: string;
+	// --- Start Positron ---
+	// Why this gallery request was issued. Plumbed to the outgoing request URL so P3M can
+	// bucket update-check traffic. See positronGalleryTelemetry.ts.
+	checkTrigger?: import('./positronGalleryTelemetry.js').PositronCheckTrigger;
+	// --- End Positron ---
 }
 
 export interface IExtensionGalleryCapabilities {
