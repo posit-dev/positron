@@ -244,7 +244,7 @@ jobs:
           pyenv global 3.10.10
 
       - name: Setup Graphviz
-        uses: ts-graphviz/setup-graphviz@v2.0.2
+        run: brew install graphviz
 
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@v2
