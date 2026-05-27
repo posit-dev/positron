@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Sessions: R Session Init Hooks', {
-	tag: [tags.CONSOLE, tags.SESSIONS, tags.ARK, tags.WIN, tags.WEB]
+	tag: [tags.CONSOLE, tags.SESSIONS, tags.ARK]
 }, () => {
 
 	test.beforeAll(async function ({ app, openFolder, settings }) {
@@ -22,7 +22,9 @@ test.describe('Sessions: R Session Init Hooks', {
 		await app.workbench.console.waitForReadyAndStarted('>', 60000);
 	});
 
-	test('R - New session runs .Rprofile and fires session_init with correct start_type', async function ({ app }) {
+	test('R - New session runs .Rprofile and fires session_init with correct start_type', {
+		tag: [tags.WIN, tags.WEB]
+	}, async function ({ app }) {
 		const { console } = app.workbench;
 
 		await console.waitForConsoleContents('[.Rprofile] top-level code executed', { timeout: 30000 });
@@ -36,9 +38,10 @@ test.describe('Sessions: R Session Init Hooks', {
 		await app.workbench.editors.waitForActiveTab('DESCRIPTION');
 	});
 
-	test('R - session_init hook receives correct console width', async function ({ app }) {
+	test('R - session_init hook receives correct console width', {
+		tag: [tags.WEB]
+	}, async function ({ app }) {
 		test.skip(process.platform !== 'linux', 'Width propagation races with hook execution on macOS/Windows');
-
 		const { console } = app.workbench;
 
 		// Verify hook saw the actual console width by comparing to a live query
@@ -51,7 +54,9 @@ test.describe('Sessions: R Session Init Hooks', {
 		expect(hookWidth, 'hook cli::console_width() should match live console width').toBe(liveWidth);
 	});
 
-	test('R - Restart runs .Rprofile and fires session_init with start_type=restart', async function ({ app, sessions, hotKeys }) {
+	test('R - Restart runs .Rprofile and fires session_init with start_type=restart', {
+		tag: [tags.WIN, tags.WEB]
+	}, async function ({ app, sessions, hotKeys }) {
 		const { console } = app.workbench;
 
 		await hotKeys.closeAllEditors();
@@ -67,9 +72,11 @@ test.describe('Sessions: R Session Init Hooks', {
 		await app.workbench.editors.waitForActiveTab('DESCRIPTION');
 	});
 
-	test.skip('R - Window reload fires only session_reconnect, not session_init or .Rprofile', {
+	test('R - Window reload fires only session_reconnect, not session_init or .Rprofile', {
+		tag: [tags.WIN],
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7593' }]
 	}, async function ({ app, hotKeys }) {
+		test.skip(process.platform === 'linux', 'Session dies after window reload on Linux CI (#7593)');
 		const { console } = app.workbench;
 
 		await hotKeys.closeAllEditors();
