@@ -15,14 +15,14 @@ on:
       - .github/workflows/test-merge.yml
 
 jobs:
-  setup:
+  setup-ubuntu:
     name: setup
     uses: ./.github/workflows/test-e2e-ubuntu-build.yml
     secrets: inherit
 
   e2e-electron:
     name: e2e
-    needs: [setup]
+    needs: [setup-ubuntu]
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     with:
       grep: ""
@@ -31,15 +31,15 @@ jobs:
       install_undetectable_interpreters: false
       install_license: false
       upload_logs: false
-      shards: 3
-      matrix: '{"shard":[1,2,3]}'
+      shards: 6
+      matrix: '{"shard":[1,2,3,4,5,6]}'
       workers: 2
       allow_soft_fail: true
-      max_failures: 7  # 20 max failures / 3 shards = 6.66, rounded up to 7
+      max_failures: 4  # 20 max failures / 6 shards = 3.33, rounded up to 4
     secrets: inherit
 
   setup-windows:
-    name: setup-windows
+    name: setup
     uses: ./.github/workflows/test-e2e-windows-build.yml
     secrets: inherit
     with:
@@ -56,13 +56,13 @@ jobs:
       display_name: "electron-win"
       allow_soft_fail: true
       upload_logs: false
-      shards: 4
-      matrix: '{"shard":[1,2,3,4]}'
-      max_failures: 5  # 20 max failures / 4 shards = 5
+      shards: 6
+      matrix: '{"shard":[1,2,3,4,5,6]}'
+      max_failures: 4  # 20 max failures / 6 shards = 3.33, rounded up to 4
 
   e2e-ubuntu-chromium:
     name: e2e
-    needs: [setup]
+    needs: [setup-ubuntu]
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     with:
       grep: ""
@@ -71,11 +71,11 @@ jobs:
       install_undetectable_interpreters: false
       install_license: true
       upload_logs: true
-      shards: 2
-      matrix: '{"shard":[1,2]}'
+      shards: 6
+      matrix: '{"shard":[1,2,3,4,5,6]}'
       workers: 2
       allow_soft_fail: true
-      max_failures: 10  # 20 max failures / 2 shards = 10
+      max_failures: 4  # 20 max failures / 6 shards = 3.33, rounded up to 4
     secrets: inherit
 
   unit-tests:
