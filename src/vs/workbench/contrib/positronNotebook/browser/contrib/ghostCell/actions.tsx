@@ -12,7 +12,7 @@ import { ServicesAccessor } from '../../../../../../platform/instantiation/commo
 import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { NotebookAction2 } from '../../NotebookAction2.js';
-import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../ContextKeysManager.js';
+import { NotebookContextKeys } from '../../../common/notebookContextKeys.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../../common/positronNotebookCommon.js';
 import { GhostCellController } from './controller.js';
 import { REQUEST_GHOST_CELL_SUGGESTION_COMMAND_ID, SHOW_GHOST_CELL_INFO_COMMAND_ID } from './config.js';
@@ -44,8 +44,8 @@ registerGhostCellAction({
 		// Require notebook DOM focus and exclude cell editor focus to avoid
 		// stealing Cmd+Shift+G from terminal Find Previous or notebook Find Previous
 		when: ContextKeyExpr.and(
-			POSITRON_NOTEBOOK_EDITOR_FOCUSED,
-			POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.negate()
+			NotebookContextKeys.editorFocused,
+			NotebookContextKeys.cellEditorFocused.negate()
 		),
 		// Must be higher than editor.action.announceCursorPosition (WorkbenchContrib + 10)
 		weight: KeybindingWeight.WorkbenchContrib + 50,

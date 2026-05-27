@@ -27,7 +27,7 @@ import { PositronNotebookCellGeneral } from '../PositronNotebookCells/PositronNo
 import { useObservedValue } from '../useObservedValue.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { autorun, autorunDelta } from '../../../../../base/common/observable.js';
-import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../ContextKeysManager.js';
+import { NotebookContextKeys } from '../../common/notebookContextKeys.js';
 import { CellSelectionType, SelectionState } from '../selectionMachine.js';
 import { InQuickPickContextKey } from '../../../../browser/quickaccess.js';
 import { EditorContextKeys } from '../../../../../editor/common/editorContextKeys.js';
@@ -184,7 +184,7 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 
 		// Bind the cell editor focused context key to the editor's internal scoped service
 		// (CodeEditorWidget creates this synchronously in its constructor)
-		const cellEditorFocusedKey = POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.bindTo(editor.contextKeyService);
+		const cellEditorFocusedKey = NotebookContextKeys.cellEditorFocused.bindTo(editor.contextKeyService);
 
 		// Track whether the most recent mousedown had modifier keys held.
 		// Monaco's _onMouseDown calls focus() BEFORE emitting onMouseDown,

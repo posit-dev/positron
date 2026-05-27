@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
-import { POSITRON_NOTEBOOK_EXPERIMENTAL } from './ContextKeysManager.js';
+import { NotebookContextKeys } from '../common/notebookContextKeys.js';
 import { useContextKeyValue } from './useContextKeyValue.js';
 
 /**
@@ -13,5 +13,5 @@ import { useContextKeyValue } from './useContextKeyValue.js';
  */
 export function usePositronNotebookExperimental(): boolean {
 	const contextKeyService = usePositronReactServicesContext().contextKeyService;
-	return useContextKeyValue(contextKeyService, POSITRON_NOTEBOOK_EXPERIMENTAL) ?? false;
+	return useContextKeyValue(contextKeyService, NotebookContextKeys.experimental) ?? false;
 }

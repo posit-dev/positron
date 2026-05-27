@@ -18,7 +18,8 @@ import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ISize } from '../../../../../base/browser/positronReactRenderer.js';
 import { IScopedContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
-import { POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS, POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED, POSITRON_NOTEBOOK_OUTPUT_FOCUSED } from '../../browser/ContextKeysManager.js';
+import { CellContextKeys } from '../../common/cellContextKeys.js';
+import { NotebookContextKeys } from '../../common/notebookContextKeys.js';
 import { NotebookInstanceProvider } from '../../browser/NotebookInstanceProvider.js';
 import { EnvironentProvider } from '../../browser/EnvironmentProvider.js';
 import { NotebookCodeCell } from '../../browser/notebookCells/NotebookCodeCell.js';
@@ -95,10 +96,10 @@ describe('Notebook output focus state', () => {
 		return { cells, notebook };
 	}
 
-	describe('POSITRON_NOTEBOOK_OUTPUT_FOCUSED context key', () => {
+	describe('CellContextKeys.outputFocused context key', () => {
 		it('is defined with key positronNotebookOutputFocused', () => {
-			expect(POSITRON_NOTEBOOK_OUTPUT_FOCUSED).toBeDefined();
-			expect(POSITRON_NOTEBOOK_OUTPUT_FOCUSED.key).toBe('positronNotebookOutputFocused');
+			expect(CellContextKeys.outputFocused).toBeDefined();
+			expect(CellContextKeys.outputFocused.key).toBe('positronNotebookOutputFocused');
 		});
 
 		it('can be bound and set on a scoped context key service', () => {
@@ -108,14 +109,14 @@ describe('Notebook output focus state', () => {
 			const cellContextKeyService = notebook.scopedContextKeyService.createScoped(cellElement);
 			ctx.disposables.add(cellContextKeyService);
 
-			expect(cellContextKeyService.getContextKeyValue(POSITRON_NOTEBOOK_OUTPUT_FOCUSED.key)).toBe(undefined);
+			expect(cellContextKeyService.getContextKeyValue(CellContextKeys.outputFocused.key)).toBe(undefined);
 
-			const outputFocused = POSITRON_NOTEBOOK_OUTPUT_FOCUSED.bindTo(cellContextKeyService);
+			const outputFocused = CellContextKeys.outputFocused.bindTo(cellContextKeyService);
 			outputFocused.set(true);
-			expect(cellContextKeyService.getContextKeyValue(POSITRON_NOTEBOOK_OUTPUT_FOCUSED.key)).toBe(true);
+			expect(cellContextKeyService.getContextKeyValue(CellContextKeys.outputFocused.key)).toBe(true);
 
 			outputFocused.set(false);
-			expect(cellContextKeyService.getContextKeyValue(POSITRON_NOTEBOOK_OUTPUT_FOCUSED.key)).toBe(false);
+			expect(cellContextKeyService.getContextKeyValue(CellContextKeys.outputFocused.key)).toBe(false);
 		});
 	});
 
@@ -160,7 +161,7 @@ describe('Notebook output focus state', () => {
 			const outputSection = screen.getByTestId('cell-output');
 			outputSection.focus();
 
-			expect(contextKeyService.getContextKeyValue(POSITRON_NOTEBOOK_OUTPUT_FOCUSED.key)).toBe(true);
+			expect(contextKeyService.getContextKeyValue(CellContextKeys.outputFocused.key)).toBe(true);
 		});
 
 		it('sets positronNotebookOutputFocused to false when output section loses focus', () => {
@@ -168,10 +169,10 @@ describe('Notebook output focus state', () => {
 
 			const outputSection = screen.getByTestId('cell-output');
 			outputSection.focus();
-			expect(contextKeyService.getContextKeyValue(POSITRON_NOTEBOOK_OUTPUT_FOCUSED.key)).toBe(true);
+			expect(contextKeyService.getContextKeyValue(CellContextKeys.outputFocused.key)).toBe(true);
 
 			outputSection.blur();
-			expect(contextKeyService.getContextKeyValue(POSITRON_NOTEBOOK_OUTPUT_FOCUSED.key)).toBe(false);
+			expect(contextKeyService.getContextKeyValue(CellContextKeys.outputFocused.key)).toBe(false);
 		});
 
 		it('keeps positronNotebookOutputFocused true when focus moves to a child element', () => {
@@ -179,7 +180,7 @@ describe('Notebook output focus state', () => {
 
 			const outputSection = screen.getByTestId('cell-output');
 			outputSection.focus();
-			expect(contextKeyService.getContextKeyValue(POSITRON_NOTEBOOK_OUTPUT_FOCUSED.key)).toBe(true);
+			expect(contextKeyService.getContextKeyValue(CellContextKeys.outputFocused.key)).toBe(true);
 
 			// Directly fire blur with relatedTarget inside the output section to
 			// isolate the guard logic (avoid relying on re-focus bubbling).
@@ -187,7 +188,7 @@ describe('Notebook output focus state', () => {
 			outputSection.appendChild(child);
 			fireEvent.blur(outputSection, { relatedTarget: child });
 
-			expect(contextKeyService.getContextKeyValue(POSITRON_NOTEBOOK_OUTPUT_FOCUSED.key)).toBe(true);
+			expect(contextKeyService.getContextKeyValue(CellContextKeys.outputFocused.key)).toBe(true);
 		});
 	});
 
@@ -231,10 +232,10 @@ describe('Notebook output focus state', () => {
 
 			const whenClause = keybinding.when;
 			expect(whenClause).toBeDefined();
-			expect(whenClause?.serialize()).toContain(POSITRON_NOTEBOOK_EDITOR_FOCUSED.key);
-			expect(whenClause?.serialize()).toContain(POSITRON_NOTEBOOK_OUTPUT_FOCUSED.key);
-			expect(whenClause?.serialize()).toContain(POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS.key);
-			expect(whenClause?.serialize()).toContain(`!${POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED.key}`);
+			expect(whenClause?.serialize()).toContain(NotebookContextKeys.editorFocused.key);
+			expect(whenClause?.serialize()).toContain(CellContextKeys.outputFocused.key);
+			expect(whenClause?.serialize()).toContain(CellContextKeys.hasOutputs.key);
+			expect(whenClause?.serialize()).toContain(`!${CellContextKeys.outputIsCollapsed.key}`);
 		});
 
 		it('has the correct action ID', () => {
