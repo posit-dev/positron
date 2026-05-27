@@ -123,6 +123,8 @@ Do these in order before writing your verdict:
 6. **Check for surface-specific code paths.** Grep the diff for `browser/`, `electron-sandbox/`, `UIKind`, `isWeb`, `platform.isElectron`, or `os.platform()`. For any source file under a `browser/` or `electron-sandbox/` directory, check whether a sibling implementation exists across the split (`Glob` for `**/<name>.ts`) -- a change or test on one side does not cover the other. Apply the Decision rule.
 7. **Scan the PR body for `@:` e2e tag mentions.** Tags like `@:posit-assistant`, `@:positron-notebooks`, `@:critical`, `@:web`, `@:win` select which existing e2e tests run in PR CI -- they don't by themselves mean a new e2e test is expected. The tag tells you where existing coverage lives: grep `test/e2e/tests/` for the tag (e.g., `grep -r "@:posit-assistant" test/e2e/tests/`) and read enough of those tests to know whether they cover the new behavior or just adjacent regressions. Only recommend adding a new e2e if the change independently warrants one per the Cost guidance principle (the behavior needs the full app rendered to verify) AND no existing tagged test covers it. If existing tagged tests already cover the new behavior, that's coverage -- note it under "Existing coverage" and move on.
 
+   **Also check for missing tags.** While reading existing tagged e2e tests, note which tags they carry. If a test exercises the area being changed but its tag isn't in the PR body, suggest the tag -- those tests won't run in this PR's CI without it. The authoritative tag list lives at `test/e2e/infra/test-runner/test-tags.ts`. Map the changed feature area to its feature tag by finding e2e tests that import the modified file or its containing service, then reading the tag(s) on those tests. Only suggest **feature** tags (`@:data-explorer`, `@:sessions`, `@:assistant`, `@:plots`, etc.); platform tags (`@:win`, `@:web`) are governed by Deployment coverage and belong in the Deployment note, not here. When unsure whether a tag applies, skip rather than guess. Surface any missing tag in the "Suggested tags" output section.
+
 Cap your investigation at ~10-15 tool calls. If you can't determine coverage in that budget, lean toward Insufficient with a note that you couldn't fully verify.
 
 ## Rubric
@@ -166,6 +168,13 @@ Output **exactly one final assistant message** containing the markdown report be
 - **Add `<test file path>`** (or "Add to `<existing test file>`"): a <Vitest|extension-host|e2e> test for <specific function or behavior>. Justify the runner choice in one phrase ("pure function -- unit suffices" or "spans kernel + console UI -- needs e2e").
 
 For "Adequate" / "Adequate via existing coverage" / "Not applicable": omit this section or write "None.">
+
+### Suggested tags (optional)
+<Include this section when the PR touches a feature area whose existing e2e tests are gated by a tag the PR body didn't include -- the tests exist but won't run on this PR without the tag. List the missing tag(s), the area they cover, and (briefly) the evidence: which test file you found and what it asserts. Examples:
+- "Touches data explorer column logic but no `@:data-explorer` in PR body -- `test/e2e/tests/data-explorer/column-summary.test.ts` would exercise this change at PR time if tagged."
+- "Touches kernel supervisor shutdown but no `@:sessions` in PR body -- `test/e2e/tests/sessions/session-lifecycle.test.ts` covers reload-survives-sessions behavior, won't run without the tag."
+
+Only suggest **feature** tags from `test/e2e/infra/test-runner/test-tags.ts`. Don't suggest platform tags (`@:win`, `@:web`) here -- those belong in the Deployment note. Omit entirely if not applicable.>
 
 ### Deployment note (optional)
 <Include this section ONLY for the **indirect surface gap** case from the Decision rule -- the diff touches a Windows or web hotspot but doesn't directly modify surface-specific code, AND no surface-specific test exists. (For direct gaps in `browser/` / `electron-sandbox/` / surface branching, grade Insufficient and use Suggested additions instead.) Name the surface and the gap. Examples:
