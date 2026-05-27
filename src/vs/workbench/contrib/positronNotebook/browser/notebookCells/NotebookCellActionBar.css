@@ -24,10 +24,10 @@
 	left: var(--vscode-positronNotebook-action-bar-inset);
 	z-index: 10;
 	border-width: 1px;
-	border-color: var(--vscode-positronNotebook-action-bar-border-color);
+	border-color: var(--vscode-positronNotebook-actionBarBorder);
 	border-style: solid;
 	border-radius: var(--vscode-positronNotebook-cell-radius);
-	background-color: var(--vscode-positronNotebook-action-bar-background);
+	background-color: var(--vscode-positronNotebook-actionBarBackground);
 	transition: border-radius 0.15s ease-out;
 	display: flex;
 	gap: var(--_positron-notebook-cell-action-bar-button-gap);

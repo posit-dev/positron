@@ -5,7 +5,6 @@
 
 .positron-notebook-kernel-status-badge {
 	font-size: 12px;
-	color: var(--vscode-positronNotebook-deemphasized-foreground);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
