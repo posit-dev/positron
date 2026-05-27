@@ -49,8 +49,9 @@ export class WorkbenchVersion {
 		);
 
 		// Parse output like: "2026.05.0+218.pro2 Workbench (Golden Wattle) for Ubuntu Jammy"
+		// or "2026.06.0-daily+90.pro5 Workbench (Blue Plumbago) for Ubuntu Jammy"
 		const firstLine = result.stdout.trim().split('\n')[0];
-		const versionMatch = firstLine.match(/^([\d.]+\+[\w.]+)/);
+		const versionMatch = firstLine.match(/^(\d+\.\d+\.\d+)/);
 
 		if (!versionMatch) {
 			throw new Error(`Could not parse version from: ${firstLine}`);
