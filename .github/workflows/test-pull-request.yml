@@ -53,7 +53,7 @@ jobs:
       install_undetectable_interpreters: false
       install_license: false
       upload_logs: false
-      workers: 4
+      workers: 2
       allow_soft_fail: false
     secrets: inherit
 
