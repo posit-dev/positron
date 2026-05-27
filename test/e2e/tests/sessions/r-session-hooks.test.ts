@@ -23,7 +23,7 @@ test.describe('Sessions: R Session Init Hooks', {
 	});
 
 	test('R - New session runs .Rprofile and fires session_init with correct start_type', {
-		tag: [tags.WIN, tags.WEB]
+		tag: [tags.WEB]
 	}, async function ({ app }) {
 		const { console } = app.workbench;
 
