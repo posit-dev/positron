@@ -16,7 +16,8 @@ const DETECTING_KERNELS_TEXT = 'Detecting Kernels';
 const NEW_NOTEBOOK_COMMAND = 'ipynb.newUntitledIpynb';
 const CELL_LINE = '.cell div.view-lines';
 const EXECUTE_CELL_COMMAND = 'notebook.cell.execute';
-const EXECUTE_CELL_SPINNER = '.codicon-notebook-state-executing';
+const CELL_EXECUTING_SPINNER = '.cell-statusbar-container .codicon-notebook-state-executing';
+const CELL_TERMINAL_STATE = '.cell-statusbar-container .codicon-notebook-state-success, .cell-statusbar-container .codicon-notebook-state-error';
 const OUTER_FRAME = '.webview';
 const INNER_FRAME = '#active-frame';
 const REVERT_AND_CLOSE = 'workbench.action.revertAndCloseActiveEditor';
@@ -62,7 +63,7 @@ export class Notebooks {
 		await test.step(`Select kernel: ${desiredKernel}`, async () => {
 			await expect(this.notebookProgressBar).not.toBeVisible({ timeout: 30000 });
 			await expect(this.code.driver.currentPage.locator(DETECTING_KERNELS_TEXT)).not.toBeVisible({ timeout: 30000 });
-			await expect(this.code.driver.currentPage.locator(EXECUTE_CELL_SPINNER)).not.toBeVisible({ timeout: 30000 });
+			await expect(this.code.driver.currentPage.locator(CELL_EXECUTING_SPINNER)).not.toBeVisible({ timeout: 30000 });
 
 			try {
 				// 1. Try finding by text
@@ -140,7 +141,10 @@ export class Notebooks {
 	async executeCodeInCell() {
 		await test.step('Execute code in cell', async () => {
 			await this.quickaccess.runCommand(EXECUTE_CELL_COMMAND);
-			await expect(this.code.driver.currentPage.locator(EXECUTE_CELL_SPINNER), 'execute cell spinner to not be visible').toHaveCount(0, { timeout: 30000 });
+			// Positive, cell-scoped wait: cell finished when its status bar shows
+			// a success or error icon. More reliable on Windows than waiting for
+			// the executing spinner class to clear globally.
+			await expect(this.code.driver.currentPage.locator(CELL_TERMINAL_STATE).first(), 'cell to reach success or error state').toBeVisible({ timeout: 30000 });
 		});
 	}
 
