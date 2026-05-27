@@ -205,10 +205,10 @@ jobs:
 
             # Check if this is a subdirectory repo (has .sbom-subdir marker)
             if [ -f "${ext_dir}.sbom-subdir" ]; then
-              # For subdirectory repos, install at root and subdirectory
+              # For subdirectory repos, install at root (with legacy peer deps for monorepo conflicts)
               echo "  Installing dependencies for ${ext_name} (workspace root)..."
               if [ -f "${ext_dir}package.json" ]; then
-                if (cd "$ext_dir" && npm install --production --ignore-scripts --no-audit --no-fund 2>&1 | head -20); then
+                if (cd "$ext_dir" && npm install --omit=dev --legacy-peer-deps --ignore-scripts --no-audit --no-fund 2>&1 | head -30); then
                   echo "    [OK] Installed dependencies at root for ${ext_name}"
                 else
                   echo "    [WARN] npm install failed at root for ${ext_name}"
@@ -226,7 +226,7 @@ jobs:
               fi
 
               echo "  Installing dependencies for ${ext_name}..."
-              if (cd "$ext_dir" && npm install --production --ignore-scripts --no-audit --no-fund 2>&1 | head -20); then
+              if (cd "$ext_dir" && npm install --omit=dev --ignore-scripts --no-audit --no-fund 2>&1 | head -20); then
                 echo "    [OK] Installed dependencies for ${ext_name}"
               else
                 echo "    [WARN] npm install failed for ${ext_name}, will attempt SBOM generation anyway"
