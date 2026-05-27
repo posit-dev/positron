@@ -190,7 +190,7 @@ jobs:
 
       - name: Upload SBOM as artifact
         if: ${{ !inputs.dry-run }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Positron__v${{ steps.version.outputs.short_version }}.sbom
           path: ${{ github.workspace }}/positron/scripts/sbom/SBOM.json
