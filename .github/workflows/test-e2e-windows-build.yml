@@ -49,15 +49,24 @@ jobs:
 
       # Defender's real-time scanning hits every file created during cache
       # restore, npm install (100k+ files), compile, and Playwright install.
-      # Excluding workspace + temp paths cuts these file-heavy steps
-      # significantly on Windows GitHub-hosted runners. Apply once, early.
+      # Cover workspace, parent, and both possible drive roots since the
+      # GitHub Actions Windows runner uses D:\a (and sometimes C:\a).
       - name: Disable Defender scanning for build paths
         shell: pwsh
         run: |
+          $workspace = "${{ github.workspace }}"
+          $parent = Split-Path -Parent $workspace
           Add-MpPreference -ExclusionPath "${{ runner.temp }}" -ErrorAction SilentlyContinue
-          Add-MpPreference -ExclusionPath "${{ github.workspace }}" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionPath "$workspace" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionPath "$parent" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionPath "D:\a" -ErrorAction SilentlyContinue
           Add-MpPreference -ExclusionPath "C:\a" -ErrorAction SilentlyContinue
-          Write-Host "Defender exclusions applied"
+          Write-Host "Defender exclusions applied:"
+          Write-Host "  - ${{ runner.temp }}"
+          Write-Host "  - $workspace"
+          Write-Host "  - $parent"
+          Write-Host "  - D:\a, C:\a"
+          (Get-MpPreference).ExclusionPath | ForEach-Object { Write-Host "    [verified] $_" }
 
       - name: 📦 Restore caches
         if: ${{ !inputs.skip_cache }}

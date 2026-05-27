@@ -148,17 +148,30 @@ jobs:
           name: positron-build-windows
           path: ${{ runner.temp }}/artifacts
 
-      # Defender's real-time scanning hits every file created during extract,
-      # which is the dominant cost for node_modules-heavy archives (~50k small
-      # files). Excluding the workspace and temp paths typically cuts extract
-      # time 3-5x on Windows GitHub-hosted runners.
+      # Defender's real-time scanning hits every file created during extract.
+      # The tar step writes to dirname(github.workspace) — one level up from
+      # the repo checkout — so the parent must be excluded, not just the
+      # checkout itself. Also handle Windows GitHub runners using D:\a as the
+      # actions root.
       - name: Disable Defender scanning for extract paths
         shell: pwsh
         run: |
+          $workspace = "${{ github.workspace }}"
+          $parent = Split-Path -Parent $workspace
           Add-MpPreference -ExclusionPath "${{ runner.temp }}" -ErrorAction SilentlyContinue
-          Add-MpPreference -ExclusionPath "${{ github.workspace }}" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionPath "$workspace" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionPath "$parent" -ErrorAction SilentlyContinue
+          # GitHub Actions on Windows typically runs on D:\, but C:\ has been
+          # seen too. Cover both runner working roots.
+          Add-MpPreference -ExclusionPath "D:\a" -ErrorAction SilentlyContinue
           Add-MpPreference -ExclusionPath "C:\a" -ErrorAction SilentlyContinue
-          Write-Host "Defender exclusions applied"
+          Write-Host "Defender exclusions applied:"
+          Write-Host "  - ${{ runner.temp }}"
+          Write-Host "  - $workspace"
+          Write-Host "  - $parent (extract destination)"
+          Write-Host "  - D:\a, C:\a"
+          # Print current exclusions to verify
+          (Get-MpPreference).ExclusionPath | ForEach-Object { Write-Host "    [verified] $_" }
 
       - name: Extract build artifact
         shell: bash
