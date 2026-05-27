@@ -47,6 +47,18 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      # Defender's real-time scanning hits every file created during cache
+      # restore, npm install (100k+ files), compile, and Playwright install.
+      # Excluding workspace + temp paths cuts these file-heavy steps
+      # significantly on Windows GitHub-hosted runners. Apply once, early.
+      - name: Disable Defender scanning for build paths
+        shell: pwsh
+        run: |
+          Add-MpPreference -ExclusionPath "${{ runner.temp }}" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionPath "${{ github.workspace }}" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionPath "C:\a" -ErrorAction SilentlyContinue
+          Write-Host "Defender exclusions applied"
+
       - name: 📦 Restore caches
         if: ${{ !inputs.skip_cache }}
         id: restore-caches
