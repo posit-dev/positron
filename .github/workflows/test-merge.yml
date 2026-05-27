@@ -122,7 +122,7 @@ jobs:
           notify_on: "always"
 
   analyze-e2e-failures:
-    if: ${{ contains(needs.*.result, 'failure') }}
+    if: ${{ always() && contains(needs.*.result, 'failure') }}
     needs: [e2e-electron, e2e-windows, e2e-ubuntu-chromium]
     uses: ./.github/workflows/analyze-e2e-failures.yml
     with:
