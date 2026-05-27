@@ -725,7 +725,6 @@
 		"--vscode-positronNotebook-action-bar-inset",
 		"--vscode-positronNotebook-actionBarBackground",
 		"--vscode-positronNotebook-actionBarBorder",
-		"--vscode-positronNotebook-border",
 		"--vscode-positronNotebook-cell-radius",
 		"--vscode-positronNotebook-cellBorder",
 		"--vscode-positronNotebook-cellFocusedBorder",
