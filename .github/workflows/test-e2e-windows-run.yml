@@ -59,7 +59,7 @@ on:
       display_name:
         required: false
         description: "The name of the job as it will appear in the GitHub Actions UI."
-        default: "e2e-windows-run"
+        default: "electron-win"
         type: string
       upload_logs:
         required: false
@@ -92,8 +92,8 @@ permissions:
   contents: read
 
 jobs:
-  e2e-windows-run:
-    name: ${{ inputs.display_name || 'e2e-windows-run' }}-${{ matrix.shard }}
+  windows:
+    name: ${{ inputs.display_name || 'electron-win' }}-${{ matrix.shard }}
     timeout-minutes: 150
     runs-on: windows-latest-8x
     strategy:
@@ -350,7 +350,7 @@ jobs:
           rig ls
 
       - name: Setup Graphviz
-        uses: ts-graphviz/setup-graphviz@v2.0.2
+        run: choco install graphviz -y --no-progress
 
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@v2
@@ -484,7 +484,7 @@ jobs:
     name: ${{ inputs.display_name }}
     timeout-minutes: 10
     if: ${{ !cancelled() }}
-    needs: [e2e-windows-run]
+    needs: [windows]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v6

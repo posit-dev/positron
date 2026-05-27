@@ -22,20 +22,31 @@ import { MemoryUsageDropdown } from './memoryUsageDropdown.js';
 import { MemoryUsageBar } from './memoryUsageBar.js';
 
 /**
- * The fixed-width portion of the full meter (bar + arrow + gaps + padding),
- * excluding the dynamic size label text.
+ * The fixed-width portion of the meter when the bar is present, excluding the
+ * bar itself and the dynamic size label text.
  *
- * bar(100) + gap(6) + gap(6) + arrow(14) + padding(4+4) = 134
+ * gap(6) + gap(6) + arrow(14) + padding(4+4) = 34
  */
-export const MEMORY_METER_FIXED_WIDTH = 134;
+export const MEMORY_METER_CHROME_WIDTH = 34;
 
 /**
- * The fixed-width portion of the compact meter (arrow + gap + padding only,
- * no bar), excluding the dynamic size label text.
+ * The fixed-width portion of the meter when the bar is omitted (label + arrow
+ * only), excluding the dynamic size label text.
  *
  * gap(6) + arrow(14) + padding(4+4) = 28
  */
-export const MEMORY_METER_COMPACT_FIXED_WIDTH = 28;
+export const MEMORY_METER_NO_BAR_WIDTH = 28;
+
+/**
+ * The bar's maximum width (when the action bar has ample space).
+ */
+export const MEMORY_BAR_MAX_WIDTH = 100;
+
+/**
+ * The bar's minimum width before the caller should fall back to a label-only
+ * meter (no bar).
+ */
+export const MEMORY_BAR_MIN_WIDTH = 27;
 
 /**
  * The label shown while memory data is still being computed.
@@ -52,7 +63,12 @@ const computingLabel = localize('positron.memoryUsage.computing', "Computing mem
  */
 interface MemoryUsageMeterProps {
 	snapshot?: IMemoryUsageSnapshot;
-	compact?: boolean;
+	/**
+	 * Width of the segmented bar, in px. Scales between MEMORY_BAR_MIN_WIDTH
+	 * and MEMORY_BAR_MAX_WIDTH. Omit to render a label-only meter (no bar) for
+	 * very narrow layouts.
+	 */
+	barWidth?: number;
 	loading?: boolean;
 }
 
@@ -64,7 +80,7 @@ interface MemoryUsageMeterProps {
  * When `loading` is true, renders an empty bar with a "Mem" label. Clicking
  * in this state shows a popup with a "Computing memory usage..." message.
  */
-export const MemoryUsageMeter = ({ snapshot, compact, loading }: MemoryUsageMeterProps) => {
+export const MemoryUsageMeter = ({ snapshot, barWidth, loading }: MemoryUsageMeterProps) => {
 	// Services.
 	const services = usePositronReactServicesContext();
 	const actionBarContext = usePositronActionBarContext();
@@ -130,8 +146,8 @@ export const MemoryUsageMeter = ({ snapshot, compact, loading }: MemoryUsageMete
 				onMouseEnter={onMouseEnter}
 				onMouseLeave={onMouseLeave}
 			>
-				{!compact && (
-					<div className='memory-bar-container'>
+				{barWidth !== undefined && (
+					<div className='memory-bar-container' style={{ width: barWidth }}>
 						{/* Empty bar -- no segments */}
 					</div>
 				)}
@@ -191,7 +207,9 @@ export const MemoryUsageMeter = ({ snapshot, compact, loading }: MemoryUsageMete
 			onMouseEnter={onMouseEnter}
 			onMouseLeave={onMouseLeave}
 		>
-			{!compact && <MemoryUsageBar snapshot={snapshot} />}
+			{barWidth !== undefined && (
+				<MemoryUsageBar snapshot={snapshot} style={{ width: barWidth }} />
+			)}
 			<span className='memory-size-label'>{sizeLabel}</span>
 			<div className='memory-drop-down-arrow codicon codicon-positron-drop-down-arrow' />
 		</div>

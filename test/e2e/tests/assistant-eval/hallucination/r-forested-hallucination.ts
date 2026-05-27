@@ -28,6 +28,11 @@ export const rForestedHallucination: EvalTestCase = {
 		// Start R session
 		const [rSession] = await sessions.start(['r']);
 
+		// Pre-install forested so the eval focuses on hallucination behavior,
+		// not package setup. The package isn't in any shared fixture because
+		// only this test needs it.
+		await console.executeCode('R', 'if (!requireNamespace("forested", quietly = TRUE)) install.packages("forested", repos = "https://packagemanager.posit.co/cran/latest")');
+
 		// Ask the question
 		await assistant.clickNewChatButton();
 		await assistant.selectChatMode(mode);

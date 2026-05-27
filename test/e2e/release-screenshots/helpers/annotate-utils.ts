@@ -31,9 +31,13 @@ export type Annotation = {
 	| 'above-left'
 	| 'above-center'
 	| 'below-left'
-	| 'below-center';
+	| 'below-center'
+	| 'right-outside'
+	| 'left-outside';
 	/** Pixels to expand the border outward on all sides. Default 0. */
 	padding?: number;
+	/** Border stroke width in pixels. Default 3 (matches the docs styling for full-window shots). */
+	borderWidth?: number;
 };
 
 /**
@@ -60,18 +64,49 @@ export async function clearAnnotations(page: Page): Promise<void> {
 	});
 }
 
+/**
+ * Paint a solid backdrop rectangle on the page. Sits just below the
+ * annotation border/badge layer, so `right-outside` / `left-outside`
+ * badges render on a clean surface instead of whatever workbench content
+ * happens to be behind the picker. Coordinates are in CSS pixels.
+ */
+export async function paintBackdrop(
+	page: Page,
+	rect: { x: number; y: number; width: number; height: number },
+	color: string = '#ffffff',
+): Promise<void> {
+	await page.evaluate(({ rect, color }) => {
+		const el = document.createElement('div');
+		el.dataset.screenshotAnnotation = 'backdrop';
+		el.style.cssText = [
+			'position:fixed',
+			`top:${rect.y}px`,
+			`left:${rect.x}px`,
+			`width:${rect.width}px`,
+			`height:${rect.height}px`,
+			`background:${color}`,
+			'z-index:99997',
+			'pointer-events:none',
+		].join(';');
+		document.body.appendChild(el);
+	}, { rect, color });
+}
+
 export async function annotate(page: Page, items: Annotation[]): Promise<void> {
 	await page.evaluate((items) => {
-		const BORDER_PX = 3;
+		const DEFAULT_BORDER_PX = 3;
 		const Z = 99998;
 
-		// Remove any annotations from a prior call so subsequent tests in the
-		// same suite don't inherit borders/badges from earlier captures.
+		// Remove any borders/badges from a prior annotate() call so subsequent
+		// tests in the same suite don't inherit them. Backdrops painted via
+		// paintBackdrop() are left alone — callers may paint them before or
+		// after annotate(). `clearAnnotations()` (called from afterEach)
+		// removes both kinds at end of test.
 		document
-			.querySelectorAll('[data-screenshot-annotation]')
+			.querySelectorAll('[data-screenshot-annotation="border"], [data-screenshot-annotation="label"]')
 			.forEach((el) => el.remove());
 
-		for (const { selector, label, color, labelPosition = 'top-left', padding = 0 } of items) {
+		for (const { selector, label, color, labelPosition = 'top-left', padding = 0, borderWidth = DEFAULT_BORDER_PX } of items) {
 			const selectors = Array.isArray(selector) ? selector : [selector];
 			const elRects: DOMRect[] = [];
 			for (const sel of selectors) {
@@ -113,7 +148,7 @@ export async function annotate(page: Page, items: Annotation[]): Promise<void> {
 				`left:${rect.left}px`,
 				`width:${rect.width}px`,
 				`height:${rect.height}px`,
-				`border:${BORDER_PX}px solid ${color}`,
+				`border:${borderWidth}px solid ${color}`,
 				'box-sizing:border-box',
 				'pointer-events:none',
 				`z-index:${Z}`,
@@ -130,7 +165,7 @@ export async function annotate(page: Page, items: Annotation[]): Promise<void> {
 			// wider than the region (e.g. 'Activity bar' inside the narrow
 			// Activity bar column).
 			const PAD = 6;
-			const BADGE_H = 24; // approx rendered badge height (font + padding)
+			const BADGE_H = 20; // matches the fixed badge height set below
 			const anchor =
 				labelPosition === 'top-center' ? `top:${rect.top + PAD}px;left:${rect.left + rect.width / 2}px;transform:translateX(-50%);` :
 					labelPosition === 'top-right' ? `top:${rect.top + PAD}px;right:${window.innerWidth - rect.right + PAD}px;` :
@@ -139,7 +174,9 @@ export async function annotate(page: Page, items: Annotation[]): Promise<void> {
 								labelPosition === 'above-left' ? `top:${rect.top - BADGE_H - PAD}px;left:${rect.left}px;` :
 									labelPosition === 'below-center' ? `top:${rect.bottom + PAD}px;left:${rect.left + rect.width / 2}px;transform:translateX(-50%);` :
 										labelPosition === 'below-left' ? `top:${rect.bottom + PAD}px;left:${rect.left}px;` :
-											`top:${rect.top + PAD}px;left:${rect.left + PAD}px;`;
+											labelPosition === 'right-outside' ? `top:${rect.top + rect.height / 2}px;left:${rect.right + PAD}px;transform:translateY(-50%);` :
+												labelPosition === 'left-outside' ? `top:${rect.top + rect.height / 2}px;right:${window.innerWidth - rect.left + PAD}px;transform:translateY(-50%);` :
+													`top:${rect.top + PAD}px;left:${rect.left + PAD}px;`;
 
 			const badge = document.createElement('div');
 			badge.textContent = label;
@@ -149,7 +186,16 @@ export async function annotate(page: Page, items: Annotation[]): Promise<void> {
 				anchor,
 				`background:${color}`,
 				'color:#fff',
-				'padding:3px 8px',
+				// Fixed square so single-digit badges (1, 2, 3, ...) are
+				// visually identical. Multi-character labels grow horizontally
+				// via min-width + padding while the height stays uniform.
+				'min-width:20px',
+				'height:20px',
+				'padding:0 6px',
+				'box-sizing:border-box',
+				'display:inline-flex',
+				'align-items:center',
+				'justify-content:center',
 				'border-radius:3px',
 				'font:600 12px system-ui,-apple-system,sans-serif',
 				'white-space:nowrap',

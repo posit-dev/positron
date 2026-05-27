@@ -31,6 +31,9 @@ import { StopWatch } from '../../../base/common/stopwatch.js';
 import { format2 } from '../../../base/common/strings.js';
 import { ExtensionGalleryResourceType, Flag, getExtensionGalleryManifestResourceUri, IExtensionGalleryManifest, IExtensionGalleryManifestService, ExtensionGalleryManifestStatus } from './extensionGalleryManifest.js';
 import { TelemetryTrustedValue } from '../../telemetry/common/telemetryUtils.js';
+// --- Start Positron ---
+import { appendPositronGalleryParams, formatPositronVersion, GalleryUsageDataConfigKey, getPositronSessionType, PositronCheckTrigger } from './positronGalleryTelemetry.js';
+// --- End Positron ---
 
 const CURRENT_TARGET_PLATFORM = isWeb ? TargetPlatform.WEB : getTargetPlatform(platform, arch);
 const SEARCH_ACTIVITY_HEADER_NAME = 'X-Market-Search-Activity-Id';
@@ -150,6 +153,10 @@ interface IQueryState {
 	readonly criteria: ICriterium[];
 	readonly assetTypes: string[];
 	readonly source?: string;
+	// --- Start Positron ---
+	// Tag for P3M telemetry. Read in queryRawGalleryExtensions to build URL params.
+	readonly checkTrigger?: PositronCheckTrigger;
+	// --- End Positron ---
 }
 
 const DefaultQueryState: IQueryState = {
@@ -253,6 +260,9 @@ class Query {
 	get criteria(): ICriterium[] { return this.state.criteria; }
 	get assetTypes(): string[] { return this.state.assetTypes; }
 	get source(): string | undefined { return this.state.source; }
+	// --- Start Positron ---
+	get checkTrigger(): PositronCheckTrigger | undefined { return this.state.checkTrigger; }
+	// --- End Positron ---
 	get searchText(): string {
 		const criterium = this.state.criteria.filter(criterium => criterium.filterType === FilterType.SearchText)[0];
 		return criterium && criterium.value ? criterium.value : '';
@@ -291,6 +301,12 @@ class Query {
 	withSource(source: string): Query {
 		return new Query({ ...this.state, source });
 	}
+
+	// --- Start Positron ---
+	withCheckTrigger(checkTrigger: PositronCheckTrigger | undefined): Query {
+		return new Query({ ...this.state, checkTrigger });
+	}
+	// --- End Positron ---
 }
 
 function getStatistic(statistics: IRawGalleryExtensionStatistics[], name: string): number {
@@ -732,6 +748,11 @@ export abstract class AbstractExtensionGalleryService implements IExtensionGalle
 		if (options.source) {
 			query = query.withSource(options.source);
 		}
+		// --- Start Positron ---
+		// Stash checkTrigger on the Query state. Read at the POST chokepoint in
+		// queryRawGalleryExtensions to tag the outgoing URL for P3M.
+		query = query.withCheckTrigger(options.checkTrigger);
+		// --- End Positron ---
 
 		const { extensions } = await this.queryGalleryExtensions(
 			query,
@@ -754,6 +775,24 @@ export abstract class AbstractExtensionGalleryService implements IExtensionGalle
 	}
 
 	private async getExtensionsUsingResourceApi(extensionInfos: ReadonlyArray<IExtensionInfo>, options: IExtensionQueryOptions, resourceApi: { uri: string; fallback?: string }, extensionGalleryManifest: IExtensionGalleryManifest, token: CancellationToken): Promise<IGalleryExtension[]> {
+
+		// --- Start Positron ---
+		// Tag the resource-API URI templates with telemetry params here, so every
+		// downstream GET (including the unpkg fallback) carries them. The params are
+		// added before format2 expands {publisher}/{name}, which preserves them.
+		const sendUsageData = this.configurationService.getValue<boolean>(GalleryUsageDataConfigKey) !== false;
+		const positronGalleryParams = (url: string) => appendPositronGalleryParams(
+			url,
+			options.checkTrigger,
+			getPositronSessionType(),
+			formatPositronVersion(this.productService.positronVersion, this.productService.positronBuildNumber),
+			sendUsageData,
+		);
+		resourceApi = {
+			uri: positronGalleryParams(resourceApi.uri),
+			fallback: resourceApi.fallback ? positronGalleryParams(resourceApi.fallback) : undefined,
+		};
+		// --- End Positron ---
 
 		const result: IGalleryExtension[] = [];
 		const toQuery: IExtensionInfo[] = [];
@@ -1188,6 +1227,10 @@ export abstract class AbstractExtensionGalleryService implements IExtensionGalle
 	}
 
 	private async queryGalleryExtensions(query: Query, criteria: ExtensionsCriteria, extensionGalleryManifest: IExtensionGalleryManifest, token: CancellationToken): Promise<{ extensions: IGalleryExtension[]; total: number }> {
+		// --- Start Positron ---
+		// Snapshot the parent query's checkTrigger at entry so the recursive version-fetch block below can read it
+		const parentCheckTrigger = query.checkTrigger;
+		// --- End Positron ---
 		const flags = query.flags;
 
 		/**
@@ -1299,7 +1342,10 @@ export abstract class AbstractExtensionGalleryService implements IExtensionGalle
 				.withFlags(...flags.filter(flag => flag !== Flag.IncludeLatestVersionOnly), Flag.IncludeVersions)
 				.withPage(1, needAllVersions.size)
 				.withFilter(FilterType.ExtensionId, ...needAllVersions.keys());
-			const { extensions } = await this.queryGalleryExtensions(query, criteria, extensionGalleryManifest, token);
+			// --- Start Positron ---
+			// const { extensions } = await this.queryGalleryExtensions(query, criteria, extensionGalleryManifest, token);
+			const { extensions } = await this.queryGalleryExtensions(query.withCheckTrigger(parentCheckTrigger), criteria, extensionGalleryManifest, token);
+			// --- End Positron ---
 			this.telemetryService.publicLog2<GalleryServiceAdditionalQueryEvent, GalleryServiceAdditionalQueryClassification>('galleryService:additionalQuery', {
 				duration: stopWatch.elapsed(),
 				count: needAllVersions.size
@@ -1382,6 +1428,19 @@ export abstract class AbstractExtensionGalleryService implements IExtensionGalle
 			throw new Error('No extension gallery query service configured.');
 		}
 
+		// --- Start Positron ---
+		// Tag the outgoing POST URL with distribution type + Positron version, plus the
+		// update-check trigger (read off the Query state) when applicable
+		const sendUsageData = this.configurationService.getValue<boolean>(GalleryUsageDataConfigKey) !== false;
+		const taggedQueryApi = appendPositronGalleryParams(
+			extensionsQueryApi,
+			query.checkTrigger,
+			getPositronSessionType(),
+			formatPositronVersion(this.productService.positronVersion, this.productService.positronBuildNumber),
+			sendUsageData,
+		);
+		// --- End Positron ---
+
 		query = query
 			/* Always exclude non validated extensions */
 			.withFlags(...query.flags, Flag.ExcludeNonValidated)
@@ -1437,7 +1496,10 @@ export abstract class AbstractExtensionGalleryService implements IExtensionGalle
 		try {
 			context = await this.requestService.request({
 				type: 'POST',
-				url: extensionsQueryApi,
+				// --- Start Positron ---
+				// url: extensionsQueryApi,
+				url: taggedQueryApi,
+				// --- End Positron ---
 				data,
 				headers
 			}, token);
