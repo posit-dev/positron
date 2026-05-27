@@ -513,4 +513,5 @@ import './contrib/positronWebviewPreloads/browser/positronWebviewPreloadsService
 import './contrib/positronAssistant/browser/positronAssistantService.js';
 import './services/positronMemoryUsage/browser/positronMemoryUsageService.js';
 import './services/positronMemoryUsage/common/positronMemoryUsage.contribution.js';
+import './services/positronFileTransfer/browser/positronFileTransferService.js';
 // --- End Positron ---
