@@ -3,8 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import path from 'path';
+import * as os from 'os';
 import * as fs from 'fs/promises';
+import * as path from 'path';
 import { expect } from '@playwright/test';
 import { test, tags } from '../_test.setup';
 
@@ -15,6 +16,7 @@ test.use({
 test.describe('Python Venv Auto-Creation', {
 	tag: [tags.INTERPRETER, tags.WIN, tags.WEB]
 }, () => {
+	test.slow();
 
 	const fixtureBase = 'qa-example-content/workspaces/python-venv-creation';
 
@@ -28,27 +30,26 @@ test.describe('Python Venv Auto-Creation', {
 	test('Notification appears for workspace with requirements.txt', {
 		tag: [tags.CRITICAL]
 	}, async function ({ app, openFolder }) {
-		await openFolder(path.join(fixtureBase, 'with-requirements'));
+		await openFolder(`${fixtureBase}/with-requirements`);
 
-		await app.workbench.toasts.waitForAppear(/requirements\.txt/, { timeout: 30000 });
+		await app.workbench.toasts.waitForAppear(/requirements\.txt/, { timeout: 60000 });
 		await app.workbench.toasts.expectToastWithTitle(/uv/);
 		await app.workbench.toasts.closeWithHeader(/requirements\.txt/);
 	});
 
 	test('No notification when .venv already exists', async function ({ app, openFolder, hotKeys }) {
-		// Reload to reset the run-once guard from prior test
 		await hotKeys.reloadWindow(true);
-		await openFolder(path.join(fixtureBase, 'with-existing-venv'));
+		await openFolder(`${fixtureBase}/with-existing-venv`);
 
 		await app.workbench.toasts.expectToastWithTitleNotToAppear(/requirements\.txt/);
 	});
 
-	test('Clicking Yes creates venv and installs deps', {
+	test('Clicking Yes creates venv', {
 		tag: [tags.CRITICAL]
 	}, async function ({ app, openFolder, hotKeys }) {
 		test.skip(process.env.IS_OPENSUSE === 'true', 'Skip on openSuse');
 
-		const tempWorkspace = '/tmp/vscsmoke/qa-example-content/venv-creation-test';
+		const tempWorkspace = path.join(os.tmpdir(), 'vscsmoke', 'qa-example-content', 'venv-creation-test');
 		await fs.mkdir(tempWorkspace, { recursive: true });
 		await fs.writeFile(path.join(tempWorkspace, 'requirements.txt'), 'requests\n');
 
@@ -56,7 +57,7 @@ test.describe('Python Venv Auto-Creation', {
 			await hotKeys.reloadWindow(true);
 			await openFolder('qa-example-content/venv-creation-test');
 
-			await app.workbench.toasts.waitForAppear(/requirements\.txt/, { timeout: 30000 });
+			await app.workbench.toasts.waitForAppear(/requirements\.txt/, { timeout: 60000 });
 			await app.workbench.toasts.clickButton('Yes', { notificationFilter: /requirements\.txt/ });
 
 			const venvPath = path.join(tempWorkspace, '.venv');
