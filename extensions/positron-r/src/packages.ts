@@ -290,13 +290,13 @@ export class RPackageManager {
 	}
 
 	/**
-	 * Read the configured R package manager preference.
+	 * Read the configured R packages installer preference.
 	 * 'auto' means: prefer pak, prompt to install it when missing, fall back to base on decline.
 	 * 'pak' means: prefer pak, install it without prompting when missing.
 	 * 'base' means: never use or install pak.
 	 */
-	private _getConfiguredPackageManager(): 'auto' | 'pak' | 'base' {
-		const value = vscode.workspace.getConfiguration('packages.r').get<string>('packageManager');
+	private _getConfiguredInstaller(): 'auto' | 'pak' | 'base' {
+		const value = vscode.workspace.getConfiguration('packages.r').get<string>('installer');
 		return value === 'pak' || value === 'base' ? value : 'auto';
 	}
 
@@ -324,14 +324,14 @@ export class RPackageManager {
 	}
 
 	/**
-	 * Resolve which package manager to use, honoring the `packages.r.packageManager` setting.
+	 * Resolve which installer to use, honoring the `packages.r.installer` setting.
 	 *
 	 * @param allowInstallPak When true (install/update operations), may install pak, either
 	 *                       by prompting the user (setting: 'auto') or silently (setting: 'pak').
 	 *                       When false (list/search/uninstall), only detects what is available.
 	 */
 	private async _resolveMethod(allowInstallPak: boolean): Promise<string> {
-		const setting = this._getConfiguredPackageManager();
+		const setting = this._getConfiguredInstaller();
 		if (setting === 'base') {
 			return 'base';
 		}

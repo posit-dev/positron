@@ -94,17 +94,17 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			included: false,
 			tags: ['preview'],
 		},
-		'packages.r.packageManager': {
+		'packages.r.installer': {
 			type: 'string',
 			enum: ['auto', 'pak', 'base'],
 			enumDescriptions: [
-				nls.localize('positron.packages.r.packageManager.auto', "Use pak when it is already installed, otherwise prompt to install it; falls back to base R if the prompt is declined."),
-				nls.localize('positron.packages.r.packageManager.pak', "Always use pak. Install it automatically if it is not present."),
-				nls.localize('positron.packages.r.packageManager.base', "Always use base R (install.packages, update.packages, remove.packages). Never use or install pak."),
+				nls.localize('positron.packages.r.installer.auto', "Use pak if installed; otherwise prompt and fall back to base R."),
+				nls.localize('positron.packages.r.installer.pak', "Always use pak. Silently install it if missing."),
+				nls.localize('positron.packages.r.installer.base', "Always use base R."),
 			],
 			default: 'auto',
-			scope: ConfigurationScope.APPLICATION,
-			markdownDescription: nls.localize('positron.packages.r.packageManager', "Which R package manager to use for installing, updating, and removing R packages. Does not affect projects using renv, which always use renv."),
+			scope: ConfigurationScope.RESOURCE,
+			markdownDescription: nls.localize('positron.packages.r.installer', "Which package installer to use for installing, updating, and removing R packages. Does not affect projects using renv, which always use renv."),
 			tags: ['preview'],
 		}
 	}
