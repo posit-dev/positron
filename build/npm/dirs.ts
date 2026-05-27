@@ -31,6 +31,7 @@ export let dirs = [
 	'extensions/positron-environment',
 	'extensions/positron-sqlite',
 	'extensions/positron-environment-modules',
+	'extensions/positron-file-transfer',
 	'extensions/positron-ipywidgets',
 	'extensions/positron-javascript',
 	'extensions/positron-notebooks',
