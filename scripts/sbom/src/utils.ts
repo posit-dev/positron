@@ -132,10 +132,21 @@ export async function checkForCargoCyclonedx(): Promise<void> {
  */
 export function findRootComponent(bom: BOM, projectName: string): Component | undefined {
 	// First try the metadata component
-	if (bom.metadata?.component?.name === projectName) {
+	if (bom.metadata?.component) {
 		return bom.metadata.component;
 	}
 
-	// Then try to find in components
-	return bom.components.find(c => c.name === projectName);
+	// Then try to find in components by name
+	const byName = bom.components.find(c => c.name === projectName);
+	if (byName) {
+		return byName;
+	}
+
+	// If no exact match, just use the first component if it exists
+	// (Snyk/cargo might not use the exact project name we specified)
+	if (bom.components.length > 0) {
+		return bom.components[0];
+	}
+
+	return undefined;
 }
