@@ -124,14 +124,16 @@ jobs:
           PR_REVIEW=$(echo "$PR_INFO" | jq -r '.reviewDecision // ""')
           echo "Found existing PR #$PR_NUMBER on branch $PR_BRANCH (review: ${PR_REVIEW:-none})"
 
-          # Treat any review attention as a signal to add commits rather than force-push.
-          # /pulls/.../comments only covers inline review-thread comments; /issues/.../comments
-          # covers the main conversation tab — both must be checked to avoid clobbering a
-          # teammate's "please hold off" note with a force-push.
-          REVIEW_COMMENTS=$(gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER/comments" --jq 'length')
-          ISSUE_COMMENTS=$(gh api "repos/${{ github.repository }}/issues/$PR_NUMBER/comments" --jq 'length')
+          # Treat any human review attention as a signal to add commits rather than force-push.
+          # /pulls/.../comments covers inline review-thread comments; /issues/.../comments
+          # covers the main conversation tab — both must be checked, and bot accounts
+          # (positron-bot, github-actions, etc.) are filtered out so routine automation
+          # doesn't trip the safeguard.
+          BOT_FILTER='[.[] | select((.user.type // "User") != "Bot")] | length'
+          REVIEW_COMMENTS=$(gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER/comments" --jq "$BOT_FILTER")
+          ISSUE_COMMENTS=$(gh api "repos/${{ github.repository }}/issues/$PR_NUMBER/comments" --jq "$BOT_FILTER")
           NON_BOT_COMMITS=$(gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER/commits" \
-            --jq '[.[] | select((.author.login // "") != "positron-bot[bot]")] | length')
+            --jq '[.[] | select((.author.type // "User") != "Bot")] | length')
           if [ "$REVIEW_COMMENTS" -gt 0 ] || [ "$ISSUE_COMMENTS" -gt 0 ] || [ "$NON_BOT_COMMITS" -gt 0 ] || [ -n "$PR_REVIEW" ]; then
             MODE=additive
           else
