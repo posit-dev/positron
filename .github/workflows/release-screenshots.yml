@@ -355,7 +355,7 @@ jobs:
               --arg version "$VERSION" \
               '{
                 channel: $channel,
-                text: ("📸 *Screenshots Updated · Positron " + $version + "*\nposit-dev/positron-website · <" + $pr_url + "|PR #" + $pr_number + ">")
+                text: ("📸 *Screenshots Updated · Positron " + $version + "* · <" + $pr_url + "|PR #" + $pr_number + ">")
               }')"
 
   slack-notify:

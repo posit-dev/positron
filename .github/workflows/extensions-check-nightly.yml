@@ -277,7 +277,7 @@ jobs:
                (if $ext != "" then "\n\n" + ($ext | split(" ") | map("• " + .) | join("\n")) else "" end) as $bullets |
                {
                  channel: $channel,
-                 text: ("📦 *Bootstrap Extensions Updated*\nposit-dev/positron · <" + $pr_url + "|PR #" + $pr_num + ">" + $bullets)
+                 text: ("📦 *Bootstrap Extensions Updated* · <" + $pr_url + "|PR #" + $pr_num + ">" + $bullets)
                }')"
 
   slack-notify:
