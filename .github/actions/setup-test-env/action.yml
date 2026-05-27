@@ -7,6 +7,10 @@ inputs:
   aws-region:
     description: "The AWS region for S3"
     required: true
+  workers:
+    description: "Number of Playwright workers (used to size per-worker Xvfb displays)"
+    required: false
+    default: "1"
 
 runs:
   using: "composite"
@@ -25,3 +29,5 @@ runs:
 
     - name: Setup Xvfb
       uses: ./.github/actions/setup-xvfb
+      with:
+        workers: ${{ inputs.workers }}

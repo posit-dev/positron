@@ -1,0 +1,201 @@
+name: "E2E: Build Positron (Windows)"
+
+on:
+  workflow_call:
+    inputs:
+      commit:
+        description: "Commit SHA to test"
+        required: false
+        default: ""
+        type: string
+      skip_cache:
+        required: false
+        description: "Skip restoring caches (use when testing a specific commit)"
+        type: boolean
+        default: false
+      save_cache:
+        required: false
+        description: "Whether to save caches after the build (only one workflow per run should save to avoid race conditions)"
+        type: boolean
+        default: false
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-windows:
+    name: build-windows
+    timeout-minutes: 60
+    runs-on: windows-latest-8x
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      POSITRON_BUILD_NUMBER: 0
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Checkout specific commit
+        if: ${{ inputs.commit != '' }}
+        run: git checkout ${{ inputs.commit }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+
+      # Defender's real-time scanning hits every file created during cache
+      # restore, npm install (100k+ files), compile, and Playwright install.
+      # Cover workspace, parent, and both possible drive roots since the
+      # GitHub Actions Windows runner uses D:\a (and sometimes C:\a).
+      - name: Disable Defender scanning for build paths
+        shell: pwsh
+        run: |
+          $workspace = "${{ github.workspace }}"
+          $parent = Split-Path -Parent $workspace
+          Add-MpPreference -ExclusionPath "${{ runner.temp }}" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionPath "$workspace" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionPath "$parent" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionPath "D:\a" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionPath "C:\a" -ErrorAction SilentlyContinue
+          Write-Host "Defender exclusions applied:"
+          Write-Host "  - ${{ runner.temp }}"
+          Write-Host "  - $workspace"
+          Write-Host "  - $parent"
+          Write-Host "  - D:\a, C:\a"
+          (Get-MpPreference).ExclusionPath | ForEach-Object { Write-Host "    [verified] $_" }
+
+      - name: 📦 Restore caches
+        if: ${{ !inputs.skip_cache }}
+        id: restore-caches
+        uses: ./.github/actions/restore-build-caches
+
+      - name: Install node dependencies
+        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true'
+        uses: nick-fields/retry@v4
+        env:
+          npm_config_arch: x64
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
+          POSITRON_PARALLEL_INSTALL: '0'         # Disabled on Windows due to native module file locking races
+          POSITRON_NPM_CONCURRENCY: '30'         # Unused when parallel install is disabled
+          NPM_CONFIG_AUDIT: 'false'              # Skip security audit during install (speeds up install)
+          NPM_CONFIG_FUND: 'false'               # Skip funding messages
+          NPM_CONFIG_UPDATE_NOTIFIER: 'false'    # Skip update notifications
+          POSITRON_EXTENSIONS_FILTER: ${{ (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true' && 'stable') || (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' && 'volatile') || '' }}
+        with:
+          timeout_minutes: 90
+          max_attempts: 3
+          retry_wait_seconds: 5
+          shell: bash
+          command: |
+            set -e
+            npm --prefix build ci --no-audit --no-fund --fetch-timeout 120000
+            npm ci --no-audit --no-fund --fetch-timeout 120000
+
+      - name: Download binaries (Ark, Kallichore) with retry
+        uses: nick-fields/retry@v4
+        env:
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
+        with:
+          timeout_minutes: 20
+          max_attempts: 3
+          retry_wait_seconds: 10
+          shell: bash
+          command: |
+            set -e
+            cd extensions/positron-r && npm rebuild --foreground-scripts
+            cd ../positron-supervisor && npm rebuild --foreground-scripts
+
+      - name: Compile Positron and Download Electron
+        run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
+
+      - name: Install Playwright browsers
+        run: npm run playwright-install
+
+      - name: Restore E2E test dependencies cache
+        id: cache-e2e
+        uses: actions/cache/restore@v5
+        with:
+          path: test/e2e/node_modules
+          key: ${{ runner.os }}-e2e-v1-${{ hashFiles('test/e2e/package-lock.json') }}
+
+      - name: Install E2E test dependencies
+        if: steps.cache-e2e.outputs.cache-hit != 'true'
+        run: npm --prefix test/e2e ci --no-audit --no-fund
+
+      - name: Save E2E test dependencies cache
+        if: ${{ steps.cache-e2e.outputs.cache-hit != 'true' }}
+        continue-on-error: true
+        uses: actions/cache/save@v5
+        with:
+          path: test/e2e/node_modules
+          key: ${{ runner.os }}-e2e-v1-${{ hashFiles('test/e2e/package-lock.json') }}
+
+      - name: Compile E2E Tests
+        run: npm --prefix test/e2e run compile
+
+      # Downloads Builtin Extensions (needed for integration & e2e testing)
+      - name: Download Builtin Extensions
+        shell: bash
+        run: npm run prelaunch
+
+      - name: 💾 Save caches
+        if: ${{ inputs.save_cache }}
+        uses: ./.github/actions/save-build-caches
+        with:
+          cache-npm-core-hit: ${{ steps.restore-caches.outputs.cache-npm-core-hit }}
+          cache-npm-extensions-volatile-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-volatile-hit }}
+          cache-npm-extensions-stable-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-stable-hit }}
+          cache-builtins-hit: ${{ steps.restore-caches.outputs.cache-builtins-hit }}
+          cache-playwright-hit: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
+          extensions-volatile-hash: ${{ steps.restore-caches.outputs.extensions-volatile-hash }}
+          extensions-stable-hash: ${{ steps.restore-caches.outputs.extensions-stable-hash }}
+          package-locks-hash: ${{ steps.restore-caches.outputs.package-locks-hash }}
+          node-version: ${{ steps.restore-caches.outputs.node-version }}
+          playwright-version: ${{ steps.restore-caches.outputs.playwright-version }}
+
+      - name: Create Build Artifact
+        shell: bash
+        run: |
+          WORKSPACE=$(cygpath -u "${GITHUB_WORKSPACE}")
+          WORKSPACE_PARENT="$(dirname "${WORKSPACE}")"
+          WORKSPACE_NAME="$(basename "${WORKSPACE}")"
+          ARTIFACTS_DIR="$(cygpath -u "${RUNNER_TEMP}")/artifacts"
+          mkdir -p "${ARTIFACTS_DIR}"
+          echo "Creating build artifact from ${WORKSPACE}..."
+          # Tar the full workspace so shards skip npm ci and compile entirely.
+          # Exclude .git (shards restore their own via checkout) and npm/pip caches.
+          # Prefer zstd (faster compress+decompress, smaller output) with gzip fallback.
+          if command -v zstd >/dev/null 2>&1; then
+            echo "Using zstd (multithreaded) for compression"
+            tar -C "${WORKSPACE_PARENT}" \
+              --exclude="${WORKSPACE_NAME}/.git" \
+              --exclude="${WORKSPACE_NAME}/.npm-cache" \
+              --use-compress-program='zstd -T0 -1' \
+              -cf "${ARTIFACTS_DIR}/positron-build.tar.zst" \
+              "${WORKSPACE_NAME}"
+            echo "Artifact size: $(du -sh "${ARTIFACTS_DIR}/positron-build.tar.zst")"
+          else
+            echo "zstd not available, falling back to gzip"
+            tar -C "${WORKSPACE_PARENT}" \
+              --exclude="${WORKSPACE_NAME}/.git" \
+              --exclude="${WORKSPACE_NAME}/.npm-cache" \
+              -czf "${ARTIFACTS_DIR}/positron-build.tar.gz" \
+              "${WORKSPACE_NAME}"
+            echo "Artifact size: $(du -sh "${ARTIFACTS_DIR}/positron-build.tar.gz")"
+          fi
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: positron-build-windows
+          path: ${{ runner.temp }}/artifacts
+          retention-days: 1
+          compression-level: 0  # already compressed

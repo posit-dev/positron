@@ -184,14 +184,6 @@ function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, 
 	// --- Start PWB: from Positron ---
 	// Replace vsce.listFiles with listExtensionFiles to queue the work
 	listExtensionFiles({ cwd: extensionPath, packageManager: packageManager, packagedDependencies }).then(fileNames => {
-		const files = fileNames
-			.map(fileName => path.join(extensionPath, fileName))
-			.map(filePath => new File({
-				path: filePath,
-				stat: fs.statSync(filePath),
-				base: extensionPath,
-				contents: fs.createReadStream(filePath)
-			}));
 
 		// check for a webpack configuration files, then invoke webpack
 		// and merge its output with the files stream.
@@ -263,12 +255,9 @@ function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, 
 			});
 		});
 
-		es.merge(...webpackStreams, es.readArray(files))
-			// .pipe(es.through(function (data) {
-			// 	// debug
-			// 	console.log('out', data.path, data.contents.length);
-			// 	this.emit('data', data);
-			// }))
+		// Use createSequentialFileStream to open one file at a time, preventing EMFILE errors
+		// when extensions with many files (e.g. positron-python's python_files) are packaged.
+		es.merge(...webpackStreams, createSequentialFileStream(extensionPath, fileNames))
 			.pipe(result);
 
 	}).catch(err => {

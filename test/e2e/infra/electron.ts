@@ -24,6 +24,15 @@ export async function resolveElectronConfiguration(options: LaunchOptions): Prom
 	const { codePath, workspacePath, extensionsPath, userDataDir, remote, logger, logsPath, crashesPath, extraArgs } = options;
 	const env = { ...process.env };
 
+	// --- Start Positron ---
+	// Per-worker virtual display isolation on Linux. Each Playwright worker
+	// gets its own Xvfb display (:10 + parallelIndex) so workers don't race
+	// on a shared X server. Requires CI to start N Xvfb displays beginning at :10.
+	if (typeof options.workerIndex === 'number' && process.platform === 'linux') {
+		env.DISPLAY = `:${10 + options.workerIndex}`;
+	}
+	// --- End Positron ---
+
 	const args: string[] = [
 		'--skip-release-notes',
 		'--skip-welcome',

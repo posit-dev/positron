@@ -76,7 +76,8 @@ export function OptionsFixture() {
 			} : {}),
 			// --- End Positron ---
 			useExternalServer: project.useExternalServer,
-			externalServerUrl: project.externalServerUrl
+			externalServerUrl: project.externalServerUrl,
+			workerIndex: workerInfo.parallelIndex,
 		};
 
 		options.userDataDir = getRandomUserDataDir(options);

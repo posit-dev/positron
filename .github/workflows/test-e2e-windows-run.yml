@@ -16,16 +16,6 @@ on:
         required: false
         default: ""
         type: string
-      skip_cache:
-        required: false
-        description: "Skip restoring caches (use when testing a specific commit)"
-        type: boolean
-        default: false
-      save_cache:
-        required: false
-        description: "Whether to save caches after the run (only one job per workflow should save to avoid race conditions)"
-        type: boolean
-        default: false
       grep:
         required: false
         description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames. Confirm pattern matching locally with: npx playwright test --grep=<regex>"
@@ -152,103 +142,60 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v7
 
-      - name: 📦 Restore caches
-        if: ${{ !inputs.skip_cache }}
-        id: restore-caches
-        uses: ./.github/actions/restore-build-caches
-
-      - name: Install node dependencies
-        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
-            steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' ||
-            steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true'
-        uses: nick-fields/retry@v4
-        env:
-          npm_config_arch: x64
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
-          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
-          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
-          POSITRON_PARALLEL_INSTALL: '0'         # Disabled on Windows due to native module file locking races
-          POSITRON_NPM_CONCURRENCY: '30'         # Unused when parallel install is disabled
-          NPM_CONFIG_AUDIT: 'false'              # Skip security audit during install (speeds up install)
-          NPM_CONFIG_FUND: 'false'               # Skip funding messages
-          NPM_CONFIG_UPDATE_NOTIFIER: 'false'    # Skip update notifications
-          # Extension filter logic:
-          #   volatile=hit, stable=miss  → filter=stable (install stable only)
-          #   volatile=miss, stable=hit  → filter=volatile (install volatile only)
-          #   both hit OR both miss      → filter='' (install all or skip via parent condition)
-          POSITRON_EXTENSIONS_FILTER: ${{ (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true' && 'stable') || (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' && 'volatile') || '' }}
+      - name: Download build artifact
+        uses: actions/download-artifact@v8
         with:
-          timeout_minutes: 90
-          max_attempts: 3
-          retry_wait_seconds: 5
-          shell: bash
-          # Install strategy:
-          # 1. Pre-install build/ so postinstall can access gulp-merge-json
-          # 2. Run root npm ci which triggers postinstall (installs 60+ extensions in parallel, concurrency: 30)
-          # 3. Postinstall skips build/ since it's already installed (avoids duplicate work)
-          # Note: test/e2e is installed in separate step below (not cached, always runs)
-          # See https://github.com/posit-dev/positron/issues/3481 for why retry is needed (windows-process-tree failures)
-          command: |
-            set -e  # Exit immediately if any command fails
+          name: positron-build-windows
+          path: ${{ runner.temp }}/artifacts
 
-            # Pre-install build directory (required by postinstall for gulp-merge-json)
-            npm --prefix build ci --no-audit --no-fund --fetch-timeout 120000
+      # Defender's real-time scanning hits every file created during extract.
+      # The tar step writes to dirname(github.workspace) — one level up from
+      # the repo checkout — so the parent must be excluded, not just the
+      # checkout itself. Also handle Windows GitHub runners using D:\a as the
+      # actions root.
+      - name: Disable Defender scanning for extract paths
+        shell: pwsh
+        run: |
+          $workspace = "${{ github.workspace }}"
+          $parent = Split-Path -Parent $workspace
+          Add-MpPreference -ExclusionPath "${{ runner.temp }}" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionPath "$workspace" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionPath "$parent" -ErrorAction SilentlyContinue
+          # GitHub Actions on Windows typically runs on D:\, but C:\ has been
+          # seen too. Cover both runner working roots.
+          Add-MpPreference -ExclusionPath "D:\a" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionPath "C:\a" -ErrorAction SilentlyContinue
+          Write-Host "Defender exclusions applied:"
+          Write-Host "  - ${{ runner.temp }}"
+          Write-Host "  - $workspace"
+          Write-Host "  - $parent (extract destination)"
+          Write-Host "  - D:\a, C:\a"
+          # Print current exclusions to verify
+          (Get-MpPreference).ExclusionPath | ForEach-Object { Write-Host "    [verified] $_" }
 
-            # Run root npm ci (triggers postinstall which installs all extensions)
-            npm ci --no-audit --no-fund --fetch-timeout 120000
-
-            echo "npm ci completed successfully"
-
-      - name: Download binaries (Ark, Kallichore) with retry
-        uses: nick-fields/retry@v4
-        env:
-          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
-        with:
-          timeout_minutes: 20
-          max_attempts: 3
-          retry_wait_seconds: 10
-          shell: bash
-          command: |
-            set -e  # Exit immediately if any command fails
-
-            # Download platform-specific binaries for Windows
-            # Wrapped in retry due to occasional GitHub API timeouts
-            cd extensions
-            echo "Downloading Ark binary..."
-            cd positron-r && npm rebuild --foreground-scripts
-            echo "Downloading Kallichore binary..."
-            cd ../positron-supervisor && npm rebuild --foreground-scripts
-
-      - name: Compile Positron and Download Electron
-        run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
-
-      - name: Install Playwright browsers
-        run: npm run playwright-install
-
-      - name: Install E2E test dependencies
-        run: npm --prefix test/e2e ci --no-audit --no-fund
-
-      - name: Compile E2E Tests
-        run: npm --prefix test/e2e run compile
-
-      # Downloads Builtin Extensions (needed for integration & e2e testing)
-      - shell: bash
-        run: npm run prelaunch
-
-      - name: 💾 Save caches
-        if: ${{ inputs.save_cache && matrix.shard == 1 }}
-        uses: ./.github/actions/save-build-caches
-        with:
-          cache-npm-core-hit: ${{ steps.restore-caches.outputs.cache-npm-core-hit }}
-          cache-npm-extensions-volatile-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-volatile-hit }}
-          cache-npm-extensions-stable-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-stable-hit }}
-          cache-builtins-hit: ${{ steps.restore-caches.outputs.cache-builtins-hit }}
-          cache-playwright-hit: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
-          extensions-volatile-hash: ${{ steps.restore-caches.outputs.extensions-volatile-hash }}
-          extensions-stable-hash: ${{ steps.restore-caches.outputs.extensions-stable-hash }}
-          package-locks-hash: ${{ steps.restore-caches.outputs.package-locks-hash }}
-          node-version: ${{ steps.restore-caches.outputs.node-version }}
-          playwright-version: ${{ steps.restore-caches.outputs.playwright-version }}
+      - name: Extract build artifact
+        shell: bash
+        run: |
+          WORKSPACE=$(cygpath -u "${GITHUB_WORKSPACE}")
+          WORKSPACE_PARENT="$(dirname "${WORKSPACE}")"
+          ARTIFACTS_DIR="$(cygpath -u "${RUNNER_TEMP}")/artifacts"
+          if [ -f "${ARTIFACTS_DIR}/positron-build.tar.zst" ]; then
+            command -v zstd >/dev/null 2>&1 || { echo "zstd not found but .tar.zst artifact exists"; exit 1; }
+            echo "Extracting zstd archive with parallel decompression..."
+            zstd -d -T0 --stdout "${ARTIFACTS_DIR}/positron-build.tar.zst" | \
+              tar --no-same-owner --no-same-permissions -x -C "${WORKSPACE_PARENT}"
+            echo "Cleaning up archive to free disk space"
+            rm -f "${ARTIFACTS_DIR}/positron-build.tar.zst"
+          elif [ -f "${ARTIFACTS_DIR}/positron-build.tar.gz" ]; then
+            echo "Extracting gzip archive..."
+            tar --no-same-owner --no-same-permissions \
+              -C "${WORKSPACE_PARENT}" \
+              -xzf "${ARTIFACTS_DIR}/positron-build.tar.gz"
+            echo "Cleaning up archive to free disk space"
+            rm -f "${ARTIFACTS_DIR}/positron-build.tar.gz"
+          else
+            echo "No build artifact found in ${ARTIFACTS_DIR}" && exit 1
+          fi
 
       - name: Download Python requirements file
         id: download-python-reqs
@@ -351,13 +298,6 @@ jobs:
 
       - name: Setup Graphviz
         run: choco install graphviz -y --no-progress
-
-      - name: Set up Quarto
-        uses: quarto-dev/quarto-actions/setup@v2
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tinytex: true
 
       - name: Setup AWS S3 Access
         uses: aws-actions/configure-aws-credentials@v6
