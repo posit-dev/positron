@@ -58,9 +58,37 @@ env:
   NODE_VERSION: "22.x"
 
 jobs:
+  authorize:
+    name: Check Authorization
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if actor is org member
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "Checking if ${{ github.actor }} is a member of posit-dev..."
+
+          # Check org membership (returns 204 if member, 404 if not)
+          status=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            --silent \
+            -i \
+            /orgs/posit-dev/members/${{ github.actor }} \
+            | head -n 1 | cut -d' ' -f2)
+
+          if [ "$status" = "204" ]; then
+            echo "✓ ${{ github.actor }} is a member of posit-dev"
+          else
+            echo "✗ ${{ github.actor }} is not a member of posit-dev"
+            echo "This workflow can only be run by posit-dev organization members."
+            exit 1
+          fi
+
   generate-sbom:
     name: Generate SBOM
     runs-on: ubuntu-22.04
+    needs: authorize
     outputs:
       pr-url: ${{ steps.set-pr-url.outputs.url }}
       pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
