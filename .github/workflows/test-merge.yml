@@ -6,6 +6,13 @@ on:
       - main
       - "prerelease/**"
       - "release/**"
+  # TEMPORARY: trigger once on this PR to validate the new shard counts.
+  # Revert this block before merging.
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/test-merge.yml
 
 jobs:
   setup:
@@ -85,45 +92,47 @@ jobs:
     with:
       pull_request: false
 
-  slack-notify:
-    if: always()
-    needs:
-      [
-        setup,
-        unit-tests,
-        ext-host-tests,
-        e2e-electron,
-        e2e-windows,
-        e2e-ubuntu-chromium,
-      ]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        if: always()
-        uses: actions/checkout@v6
-        with:
-          sparse-checkout: .github/actions/notify-e2e-insights
-
-      - name: Notify E2E Test Insights
-        if: always()
-        uses: ./.github/actions/notify-e2e-insights
-        with:
-          webhook_secret: ${{ secrets.E2E_INSIGHTS_WEBHOOK_SECRET }}
-          connect_api_key: ${{ secrets.CONNECT_API_KEY }}
-          repo_id: "positron"
-          filter_jobs: "(e2e / ([^0-9]*)|unit|ext-host)$"
-
-  slack-notify-win-extensions:
-    if: ${{ needs.e2e-windows.outputs.extensions_failed == 'true' }}
-    needs:
-      - e2e-windows
-    runs-on: ubuntu-latest
-    steps:
-      - name: Notify Slack
-        uses: midleman/slack-workflow-status@v3.1.3
-        with:
-          gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
-          slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
-          slack_channel: "#positron-rstats-test-results"
-          filter_jobs: "windows"
-          notify_on: "always"
+# TEMPORARY: slack notifications disabled while validating shard counts on this PR.
+# Restore both jobs before merging.
+#  slack-notify:
+#    if: always()
+#    needs:
+#      [
+#        setup,
+#        unit-tests,
+#        ext-host-tests,
+#        e2e-electron,
+#        e2e-windows,
+#        e2e-ubuntu-chromium,
+#      ]
+#    runs-on: ubuntu-latest
+#    steps:
+#      - name: Checkout
+#        if: always()
+#        uses: actions/checkout@v6
+#        with:
+#          sparse-checkout: .github/actions/notify-e2e-insights
+#
+#      - name: Notify E2E Test Insights
+#        if: always()
+#        uses: ./.github/actions/notify-e2e-insights
+#        with:
+#          webhook_secret: ${{ secrets.E2E_INSIGHTS_WEBHOOK_SECRET }}
+#          connect_api_key: ${{ secrets.CONNECT_API_KEY }}
+#          repo_id: "positron"
+#          filter_jobs: "(e2e / ([^0-9]*)|unit|ext-host)$"
+#
+#  slack-notify-win-extensions:
+#    if: ${{ needs.e2e-windows.outputs.extensions_failed == 'true' }}
+#    needs:
+#      - e2e-windows
+#    runs-on: ubuntu-latest
+#    steps:
+#      - name: Notify Slack
+#        uses: midleman/slack-workflow-status@v3.1.3
+#        with:
+#          gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
+#          slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
+#          slack_channel: "#positron-rstats-test-results"
+#          filter_jobs: "windows"
+#          notify_on: "always"
