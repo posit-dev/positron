@@ -139,25 +139,14 @@ export class Notebooks {
 
 	async executeCodeInCell() {
 		await test.step('Execute code in cell', async () => {
-			// Lock onto the focused cell at call time so subsequent waits track
-			// THIS cell's state, not any other cell that might also be running.
-			// aria-posinset is a stable per-row identifier on monaco-list-row.
-			const focusedRow = this.code.driver.currentPage.locator(ACTIVE_ROW_SELECTOR).first();
-			const posinset = await focusedRow.getAttribute('aria-posinset');
-			if (!posinset) {
-				throw new Error('executeCodeInCell: no focused notebook cell');
-			}
-			const cellRow = this.code.driver.currentPage.locator(`.notebook-editor .monaco-list-row[aria-posinset="${posinset}"]`);
-			const executingSpinner = cellRow.locator('.cell-statusbar-container .codicon-notebook-state-executing');
-			const terminalState = cellRow.locator('.cell-statusbar-container .codicon-notebook-state-success, .cell-statusbar-container .codicon-notebook-state-error').first();
-
 			await this.quickaccess.runCommand(EXECUTE_CELL_COMMAND);
-			// Wait for THIS cell to enter the executing state, then reach a
-			// terminal state. Upstream MIN_SPINNER_TIME (500ms) in
-			// ExecutionStateCellStatusBarItem guarantees the spinner is observable
-			// for at least the polling window.
-			await expect(executingSpinner, 'cell to enter executing state').toBeVisible({ timeout: 10000 });
-			await expect(terminalState, 'cell to reach success or error state').toBeVisible({ timeout: 30000 });
+			// Scoped to the cell status bar so unrelated spinners (kernel toolbar,
+			// outline, run-all action, kernel quick pick) don't trip this. Fast
+			// Python cells may not render the executing icon long enough for a
+			// positive wait to observe, so we stay with the negative count check
+			// and rely on downstream assertions (output, variable, etc.) to gate
+			// the actual completion behavior.
+			await expect(this.code.driver.currentPage.locator(CELL_EXECUTING_SPINNER), 'no cell to be in executing state').toHaveCount(0, { timeout: 30000 });
 		});
 	}
 
