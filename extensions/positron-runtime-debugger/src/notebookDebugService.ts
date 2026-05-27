@@ -89,7 +89,7 @@ function hasActiveDebugSessionForNotebook(notebookUriStr: string): boolean {
 
 /** Get the cell index, handling both NotebookCell and PositronContext. */
 function getCellIndex(cell: vscode.NotebookCell | PositronContext): number {
-	if ('index' in cell) {
+	if (isNotebookCell(cell)) {
 		return cell.index;
 	}
 	const notebook = vscode.workspace.notebookDocuments.find(
@@ -104,6 +104,10 @@ function getCellIndex(cell: vscode.NotebookCell | PositronContext): number {
 		}
 	}
 	return 0;
+}
+
+function isNotebookCell(cell: vscode.NotebookCell | PositronContext): cell is vscode.NotebookCell {
+	return typeof (cell as vscode.NotebookCell).index === 'number';
 }
 
 /** Get the active notebook cell, if one exists. */
