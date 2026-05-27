@@ -62,28 +62,37 @@ test.describe('Posit Assistant MCP', {
 				await app.workbench.positAssistant.open();
 				await app.workbench.positAssistant.waitForReady();
 
-				// A unique marker the LLM can't have produced from priors. If the
-				// echo tool is reachable, this string round-trips through the MCP
-				// server and surfaces in the response.
+				// A unique marker the LLM can't have produced from priors. The echo
+				// tool prepends "Echo: " (see @modelcontextprotocol/server-everything's
+				// tools/echo.ts), so the literal string "Echo: <marker>" can only
+				// appear in the UI if the tool actually ran — a parroting model
+				// would only have the marker, not the prefix.
 				const marker = 'positron-mcp-echo-marker-7f31b9c4';
 
 				await app.workbench.positAssistant.sendMessage(
-					`Call the "echo" tool from the "everything" MCP server with this exact message: ${marker}. Then reply with only the echoed text.`,
+					`Call the "echo" tool from the "everything" MCP server with this exact message: ${marker}.`,
 					false,
 					{ newConversation: true },
 				);
 
-				// MCP tool calls go through the same allow/decline confirmation flow
-				// as built-in tools. If MCP wasn't loaded from .positai/settings.json,
-				// the model has no tool to call and this assertion will time out.
-				await app.workbench.positAssistant.expectToolConfirmVisible();
+				// 1. The confirm card identifies the specific MCP tool. If the
+				//    model picked a different tool (or no MCP tool at all because
+				//    .positai/settings.json wasn't loaded), this fails.
+				await app.workbench.positAssistant.expectMcpToolConfirmVisible('everything', 'echo');
 				await app.workbench.positAssistant.allowToolOnce();
 				// MCP server startup (npx fetch + launch) can push first-tool latency
 				// past the default 60s. Give it more headroom.
 				await app.workbench.positAssistant.waitForResponseComplete(120000);
 
-				const responseText = await app.workbench.positAssistant.getLastResponseText();
-				test.expect(responseText).toContain(marker);
+				// 2. The result accordion for this specific MCP tool is rendered
+				//    in the transcript — proof the tool actually executed end-to-end.
+				await app.workbench.positAssistant.expectMcpToolResultVisible('everything', 'echo');
+
+				// 3. The expanded accordion body contains the tool's literal output.
+				//    `Echo: ` comes from the tool source, not the prompt, so this is
+				//    real evidence the MCP server ran (not just LLM parroting).
+				const toolResultText = await app.workbench.positAssistant.getMcpToolResultText('everything', 'echo');
+				test.expect(toolResultText).toContain(`Echo: ${marker}`);
 			});
 		});
 	}

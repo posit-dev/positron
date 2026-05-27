@@ -51,10 +51,25 @@ const CODE_BLOCK_INSERT_CURSOR_BUTTON = 'button[aria-label="Insert At Cursor"]';
 const CODE_BLOCK_INSERT_FILE_BUTTON = 'button[aria-label="Insert into New File"]';
 
 // Tool confirmation UI
+const TOOL_CONFIRM_CARD = '.bg-warning';
 const TOOL_ALLOW_BUTTON = 'button.rounded-r-none:has-text("Allow")';
 const TOOL_ALLOW_DROPDOWN_TRIGGER = 'button[aria-label="More allow options"]';
 const TOOL_ALLOW_SESSION_MENU_ITEM = '[role="menuitem"]:has-text("for this session")';
 const TOOL_DECLINE_BUTTON = 'button.rounded-r-none:has-text("Decline")';
+
+// Tool result accordion (rendered in the transcript after a tool runs)
+const TOOL_RESULT_ACCORDION_ITEM = '[data-slot="accordion-item"]';
+
+/**
+ * Posit Assistant qualifies MCP tool names as `mcp__<server>__<tool>` in the
+ * UI. Both the confirmation card and the post-run accordion render this
+ * literal string in a `<span class="font-mono">`, which makes it a stable
+ * signal that a specific MCP server's tool (not a built-in tool or a
+ * different MCP server) was selected and executed.
+ */
+function mcpToolId(server: string, tool: string): string {
+	return `mcp__${server}__${tool}`;
+}
 
 /**
  * Page object for the Posit Assistant extension.
@@ -401,7 +416,58 @@ export class PositAssistant {
 	 * Verifies the tool confirmation dialog is visible.
 	 */
 	async expectToolConfirmVisible(): Promise<void> {
-		await expect(this.frame.locator('.bg-warning').getByRole('heading', { level: 4 })).toBeVisible();
+		await expect(this.frame.locator(TOOL_CONFIRM_CARD).getByRole('heading', { level: 4 })).toBeVisible();
+	}
+
+	/**
+	 * Verifies the tool confirmation dialog is visible AND specifically
+	 * identifies an MCP server + tool (e.g. `mcp__everything__echo`). Stronger
+	 * than `expectToolConfirmVisible()` for MCP tests, where you want to prove
+	 * the model selected the right MCP tool — not a different MCP server's
+	 * tool or a built-in tool with overlapping behavior.
+	 */
+	async expectMcpToolConfirmVisible(server: string, tool: string): Promise<void> {
+		await expect(this.frame.locator(TOOL_CONFIRM_CARD)).toContainText(mcpToolId(server, tool));
+	}
+
+	/**
+	 * Returns a locator for the MCP tool-result accordion item for a specific
+	 * server + tool. The accordion is rendered by Posit Assistant whenever an
+	 * MCP tool actually executes (post-Allow), so its presence is evidence the
+	 * tool ran end-to-end rather than failing silently.
+	 */
+	mcpToolResult(server: string, tool: string) {
+		// `:scope` keeps the :has() match scoped to this accordion item rather
+		// than matching any ancestor that happens to contain the id text.
+		return this.frame.locator(
+			`${TOOL_RESULT_ACCORDION_ITEM}:has(:scope :text("${mcpToolId(server, tool)}"))`,
+		);
+	}
+
+	/**
+	 * Verifies the MCP tool-result accordion for a specific server + tool is
+	 * present in the transcript. Use after `waitForResponseComplete()` to
+	 * confirm the tool actually executed.
+	 */
+	async expectMcpToolResultVisible(server: string, tool: string): Promise<void> {
+		await expect(this.mcpToolResult(server, tool)).toBeVisible();
+	}
+
+	/**
+	 * Expands the MCP tool-result accordion for the given server + tool and
+	 * returns the full text content of the item (header + expanded panel).
+	 * Lets the caller assert on the raw tool output (e.g. `Echo: ${marker}`),
+	 * which is rendered by the UI from the actual MCP response — the model
+	 * cannot fabricate this text even if it sees the prompt.
+	 */
+	async getMcpToolResultText(server: string, tool: string): Promise<string> {
+		const item = this.mcpToolResult(server, tool);
+		const trigger = item.locator('button[aria-expanded]').first();
+		if ((await trigger.getAttribute('aria-expanded')) !== 'true') {
+			await trigger.click();
+		}
+		await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+		return (await item.textContent()) ?? '';
 	}
 
 	/**
