@@ -62,26 +62,27 @@ jobs:
     name: Check Authorization
     runs-on: ubuntu-latest
     steps:
-      - name: Check if actor is org member
+      - name: Check if actor has write access
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          echo "Checking if ${{ github.actor }} is a member of posit-dev..."
+          echo "Checking if ${{ github.actor }} has write access to ${{ github.repository }}..."
 
-          # Check org membership (returns 204 if member, 404 if not)
-          status=$(gh api \
+          # Get user's permission level for this repository
+          permission=$(gh api \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
-            --silent \
-            -i \
-            /orgs/posit-dev/members/${{ github.actor }} \
-            | head -n 1 | cut -d' ' -f2)
+            /repos/${{ github.repository }}/collaborators/${{ github.actor }}/permission \
+            --jq '.permission')
 
-          if [ "$status" = "204" ]; then
-            echo "✓ ${{ github.actor }} is a member of posit-dev"
+          echo "Permission level: $permission"
+
+          # Allow write, maintain, or admin
+          if [[ "$permission" == "write" ]] || [[ "$permission" == "maintain" ]] || [[ "$permission" == "admin" ]]; then
+            echo "✓ ${{ github.actor }} has sufficient permissions"
           else
-            echo "✗ ${{ github.actor }} is not a member of posit-dev"
-            echo "This workflow can only be run by posit-dev organization members."
+            echo "✗ ${{ github.actor }} does not have write access"
+            echo "This workflow requires write access to the repository."
             exit 1
           fi
 
