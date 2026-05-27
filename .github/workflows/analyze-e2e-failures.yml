@@ -12,6 +12,17 @@ on:
         required: false
         default: "claude-sonnet-4-5"
         type: string
+  workflow_call:
+    inputs:
+      run_url:
+        description: "Full GitHub Actions run URL to analyze"
+        required: true
+        type: string
+      model:
+        description: "Anthropic model"
+        required: false
+        default: "claude-sonnet-4-5"
+        type: string
 
 jobs:
   analyze:

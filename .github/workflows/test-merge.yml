@@ -120,3 +120,11 @@ jobs:
           slack_channel: "#positron-rstats-test-results"
           filter_jobs: "windows"
           notify_on: "always"
+
+  analyze-e2e-failures:
+    if: ${{ contains(needs.*.result, 'failure') }}
+    needs: [e2e-electron, e2e-windows, e2e-ubuntu-chromium]
+    uses: ./.github/workflows/analyze-e2e-failures.yml
+    with:
+      run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    secrets: inherit
