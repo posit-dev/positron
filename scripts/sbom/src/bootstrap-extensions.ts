@@ -17,12 +17,22 @@ export interface BootstrapExtension {
 
 /**
  * Detect project type by checking for Cargo.toml (Rust) or package.json (npm)
+ * For subdirectory repos, check the subdirectory
  */
 function detectProjectType(extensionPath: string): 'npm' | 'rust' {
 	const fullPath = resolvePath(getRepoRoot(), extensionPath);
 
+	// Check if this is a subdirectory repo (has .sbom-subdir marker)
+	const subdirMarker = resolvePath(fullPath, '.sbom-subdir');
+	let checkPath = fullPath;
+
+	if (existsSync(subdirMarker)) {
+		const subdir = readFileSync(subdirMarker, 'utf-8').trim();
+		checkPath = resolvePath(fullPath, subdir);
+	}
+
 	// Check for Cargo.toml first (Rust)
-	if (existsSync(resolvePath(fullPath, 'Cargo.toml'))) {
+	if (existsSync(resolvePath(checkPath, 'Cargo.toml'))) {
 		return 'rust';
 	}
 
@@ -49,12 +59,21 @@ export function getBootstrapExtensions(): Project[] {
 		const projects: Project[] = extensions
 			.filter(ext => ext.repo)
 			.map(ext => {
-				const path = `.sbom-tmp/bootstrap-extensions/${ext.name}`;
-				const type = detectProjectType(path);
+				const basePath = `.sbom-tmp/bootstrap-extensions/${ext.name}`;
+				const type = detectProjectType(basePath);
+
+				// Check if this is a subdirectory repo
+				const subdirMarker = resolvePath(getRepoRoot(), basePath, '.sbom-subdir');
+				let scanPath = basePath;
+
+				if (existsSync(subdirMarker)) {
+					const subdir = readFileSync(subdirMarker, 'utf-8').trim();
+					scanPath = `${basePath}/${subdir}`;
+				}
 
 				return {
 					name: `Bootstrap: ${ext.name}`,
-					path,
+					path: scanPath,
 					type
 				};
 			});

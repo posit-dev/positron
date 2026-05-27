@@ -171,15 +171,15 @@ jobs:
               subdir=$(echo "$repo" | sed 's|.*/tree/[^/]*/||')
 
               echo "    Detected subdirectory: ${subdir}"
-              if git clone --depth 1 "$base_repo" ".sbom-tmp/bootstrap-extensions/${name}-full" 2>/dev/null; then
-                # Copy just the subdirectory
-                if [ -d ".sbom-tmp/bootstrap-extensions/${name}-full/${subdir}" ]; then
-                  mv ".sbom-tmp/bootstrap-extensions/${name}-full/${subdir}" ".sbom-tmp/bootstrap-extensions/${name}"
-                  rm -rf ".sbom-tmp/bootstrap-extensions/${name}-full"
-                  echo "    [OK] Cloned ${name} (subdirectory)"
+              # Clone full repo and keep it (needed for workspace dependencies)
+              if git clone --depth 1 "$base_repo" ".sbom-tmp/bootstrap-extensions/${name}" 2>/dev/null; then
+                if [ -d ".sbom-tmp/bootstrap-extensions/${name}/${subdir}" ]; then
+                  # Create a marker file so we know this is a subdirectory repo
+                  echo "${subdir}" > ".sbom-tmp/bootstrap-extensions/${name}/.sbom-subdir"
+                  echo "    [OK] Cloned ${name} (full repo with subdirectory ${subdir})"
                 else
-                  echo "    [WARN] Subdirectory ${subdir} not found, skipping"
-                  rm -rf ".sbom-tmp/bootstrap-extensions/${name}-full"
+                  echo "    [WARN] Subdirectory ${subdir} not found in ${name}, skipping"
+                  rm -rf ".sbom-tmp/bootstrap-extensions/${name}"
                 fi
               else
                 echo "    [WARN] Failed to clone ${name}, skipping"
@@ -201,9 +201,24 @@ jobs:
           echo "Installing npm dependencies for bootstrap extensions that need them..."
 
           for ext_dir in .sbom-tmp/bootstrap-extensions/*/; do
-            if [ -f "${ext_dir}package.json" ]; then
-              ext_name=$(basename "$ext_dir")
+            ext_name=$(basename "$ext_dir")
 
+            # Check if this is a subdirectory repo (has .sbom-subdir marker)
+            if [ -f "${ext_dir}.sbom-subdir" ]; then
+              # For subdirectory repos, install at root and subdirectory
+              echo "  Installing dependencies for ${ext_name} (workspace root)..."
+              if [ -f "${ext_dir}package.json" ]; then
+                if (cd "$ext_dir" && npm install --production --ignore-scripts --no-audit --no-fund 2>&1 | head -20); then
+                  echo "    [OK] Installed dependencies at root for ${ext_name}"
+                else
+                  echo "    [WARN] npm install failed at root for ${ext_name}"
+                fi
+              fi
+              continue
+            fi
+
+            # Regular extension handling
+            if [ -f "${ext_dir}package.json" ]; then
               # Skip Rust projects (they have Cargo.toml and package.json is just metadata)
               if [ -f "${ext_dir}Cargo.toml" ]; then
                 echo "  Skipping ${ext_name} (Rust project)"
