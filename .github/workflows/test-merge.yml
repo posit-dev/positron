@@ -47,7 +47,11 @@ jobs:
 
   e2e-windows:
     name: e2e
-    needs: [setup-windows]
+    # EXPERIMENT: no `needs:` constraint — start in parallel with setup-windows.
+    # The e2e-windows-run workflow waits for the build artifact internally
+    # AFTER doing all artifact-independent setup (Python, R, Quarto, Graphviz).
+    # Goal: overlap ~15 min of independent setup with the build job's ~45 min,
+    # cutting ~15 min off critical path.
     uses: ./.github/workflows/test-e2e-windows-run.yml
     secrets: inherit
     with:

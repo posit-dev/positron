@@ -142,61 +142,6 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v7
 
-      - name: Download build artifact
-        uses: actions/download-artifact@v8
-        with:
-          name: positron-build-windows
-          path: ${{ runner.temp }}/artifacts
-
-      # Defender's real-time scanning hits every file created during extract.
-      # The tar step writes to dirname(github.workspace) — one level up from
-      # the repo checkout — so the parent must be excluded, not just the
-      # checkout itself. Also handle Windows GitHub runners using D:\a as the
-      # actions root.
-      - name: Disable Defender scanning for extract paths
-        shell: pwsh
-        run: |
-          $workspace = "${{ github.workspace }}"
-          $parent = Split-Path -Parent $workspace
-          Add-MpPreference -ExclusionPath "${{ runner.temp }}" -ErrorAction SilentlyContinue
-          Add-MpPreference -ExclusionPath "$workspace" -ErrorAction SilentlyContinue
-          Add-MpPreference -ExclusionPath "$parent" -ErrorAction SilentlyContinue
-          # GitHub Actions on Windows typically runs on D:\, but C:\ has been
-          # seen too. Cover both runner working roots.
-          Add-MpPreference -ExclusionPath "D:\a" -ErrorAction SilentlyContinue
-          Add-MpPreference -ExclusionPath "C:\a" -ErrorAction SilentlyContinue
-          Write-Host "Defender exclusions applied:"
-          Write-Host "  - ${{ runner.temp }}"
-          Write-Host "  - $workspace"
-          Write-Host "  - $parent (extract destination)"
-          Write-Host "  - D:\a, C:\a"
-          # Print current exclusions to verify
-          (Get-MpPreference).ExclusionPath | ForEach-Object { Write-Host "    [verified] $_" }
-
-      - name: Extract build artifact
-        shell: bash
-        run: |
-          WORKSPACE=$(cygpath -u "${GITHUB_WORKSPACE}")
-          WORKSPACE_PARENT="$(dirname "${WORKSPACE}")"
-          ARTIFACTS_DIR="$(cygpath -u "${RUNNER_TEMP}")/artifacts"
-          if [ -f "${ARTIFACTS_DIR}/positron-build.tar.zst" ]; then
-            command -v zstd >/dev/null 2>&1 || { echo "zstd not found but .tar.zst artifact exists"; exit 1; }
-            echo "Extracting zstd archive with parallel decompression..."
-            zstd -d -T0 --stdout "${ARTIFACTS_DIR}/positron-build.tar.zst" | \
-              tar --no-same-owner --no-same-permissions -x -C "${WORKSPACE_PARENT}"
-            echo "Cleaning up archive to free disk space"
-            rm -f "${ARTIFACTS_DIR}/positron-build.tar.zst"
-          elif [ -f "${ARTIFACTS_DIR}/positron-build.tar.gz" ]; then
-            echo "Extracting gzip archive..."
-            tar --no-same-owner --no-same-permissions \
-              -C "${WORKSPACE_PARENT}" \
-              -xzf "${ARTIFACTS_DIR}/positron-build.tar.gz"
-            echo "Cleaning up archive to free disk space"
-            rm -f "${ARTIFACTS_DIR}/positron-build.tar.gz"
-          else
-            echo "No build artifact found in ${ARTIFACTS_DIR}" && exit 1
-          fi
-
       - name: Download Python requirements file
         id: download-python-reqs
         run: |
@@ -311,6 +256,94 @@ jobs:
         with:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
+
+      # EXPERIMENT: shard setup runs in parallel with the build job (the
+      # parent test-merge.yml dropped `needs: [setup-windows]` on this job).
+      # Wait here for the build job to complete before downloading its
+      # artifact. Goal: overlap ~15 min of independent setup with the build,
+      # cutting wallclock on the critical path.
+      - name: Wait for build artifact to be ready
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $deadline = (Get-Date).AddMinutes(75)
+          $start = Get-Date
+          while ((Get-Date) -lt $deadline) {
+            $jobsJson = gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs" --paginate 2>$null
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host "API call failed, retrying..."
+              Start-Sleep -Seconds 30
+              continue
+            }
+            $jobs = $jobsJson | ConvertFrom-Json
+            $buildJob = $jobs.jobs | Where-Object { $_.name -like "*build-windows*" } | Select-Object -First 1
+
+            if ($buildJob -eq $null) {
+              Write-Host "[$([math]::Round(((Get-Date) - $start).TotalMinutes, 1))m] Build job not started yet"
+            } elseif ($buildJob.status -eq "completed") {
+              if ($buildJob.conclusion -eq "success") {
+                Write-Host "[$([math]::Round(((Get-Date) - $start).TotalMinutes, 1))m] Build job completed successfully"
+                exit 0
+              } else {
+                Write-Error "Build job finished with conclusion: $($buildJob.conclusion). Cannot proceed."
+                exit 1
+              }
+            } else {
+              Write-Host "[$([math]::Round(((Get-Date) - $start).TotalMinutes, 1))m] Build job status: $($buildJob.status)"
+            }
+            Start-Sleep -Seconds 30
+          }
+          Write-Error "Timed out after 75 minutes waiting for build artifact"
+          exit 1
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: positron-build-windows
+          path: ${{ runner.temp }}/artifacts
+
+      # Defender's real-time scanning hits every file created during extract.
+      # The tar step writes to dirname(github.workspace) — one level up from
+      # the repo checkout — so the parent must be excluded, not just the
+      # checkout itself. Also handle Windows GitHub runners using D:\a as the
+      # actions root.
+      - name: Disable Defender scanning for extract paths
+        shell: pwsh
+        run: |
+          $workspace = "${{ github.workspace }}"
+          $parent = Split-Path -Parent $workspace
+          Add-MpPreference -ExclusionPath "${{ runner.temp }}" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionPath "$workspace" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionPath "$parent" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionPath "D:\a" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionPath "C:\a" -ErrorAction SilentlyContinue
+          Write-Host "Defender exclusions applied:"
+          (Get-MpPreference).ExclusionPath | ForEach-Object { Write-Host "    [verified] $_" }
+
+      - name: Extract build artifact
+        shell: bash
+        run: |
+          WORKSPACE=$(cygpath -u "${GITHUB_WORKSPACE}")
+          WORKSPACE_PARENT="$(dirname "${WORKSPACE}")"
+          ARTIFACTS_DIR="$(cygpath -u "${RUNNER_TEMP}")/artifacts"
+          if [ -f "${ARTIFACTS_DIR}/positron-build.tar.zst" ]; then
+            command -v zstd >/dev/null 2>&1 || { echo "zstd not found but .tar.zst artifact exists"; exit 1; }
+            echo "Extracting zstd archive with parallel decompression..."
+            zstd -d -T0 --stdout "${ARTIFACTS_DIR}/positron-build.tar.zst" | \
+              tar --no-same-owner --no-same-permissions -x -C "${WORKSPACE_PARENT}"
+            echo "Cleaning up archive to free disk space"
+            rm -f "${ARTIFACTS_DIR}/positron-build.tar.zst"
+          elif [ -f "${ARTIFACTS_DIR}/positron-build.tar.gz" ]; then
+            echo "Extracting gzip archive..."
+            tar --no-same-owner --no-same-permissions \
+              -C "${WORKSPACE_PARENT}" \
+              -xzf "${ARTIFACTS_DIR}/positron-build.tar.gz"
+            echo "Cleaning up archive to free disk space"
+            rm -f "${ARTIFACTS_DIR}/positron-build.tar.gz"
+          else
+            echo "No build artifact found in ${ARTIFACTS_DIR}" && exit 1
+          fi
 
       - name: 🧪 Run Extensions Tests
         if: ${{ matrix.shard == 1 }}
