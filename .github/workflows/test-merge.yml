@@ -71,11 +71,11 @@ jobs:
       install_undetectable_interpreters: false
       install_license: true
       upload_logs: true
-      shards: 6
-      matrix: '{"shard":[1,2,3,4,5,6]}'
+      shards: 5
+      matrix: '{"shard":[1,2,3,4,5]}'
       workers: 2
       allow_soft_fail: true
-      max_failures: 4  # 20 max failures / 6 shards = 3.33, rounded up to 4
+      max_failures: 4  # 20 max failures / 5 shards = 4
     secrets: inherit
 
   unit-tests:
