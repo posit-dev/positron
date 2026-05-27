@@ -35,7 +35,7 @@ import { DataExplorerCellOutput } from './DataExplorerCellOutput.js';
 import { JsonOutput } from './JsonOutput.js';
 import { NotebookErrorBoundary } from '../NotebookErrorBoundary.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { POSITRON_NOTEBOOK_OUTPUT_FOCUSED, POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED, POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS, POSITRON_NOTEBOOK_OUTPUT_JSON_TARGETED } from '../ContextKeysManager.js';
+import { CellContextKeys } from '../../common/cellContextKeys.js';
 import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
 import { useScrollingIndicator } from './useScrollingIndicator.js';
 import { CellOutputActionBar } from './CellOutputActionBar.js';
@@ -62,19 +62,19 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 	const perCellScrolling = useObservedValue(cell.outputScrolling);
 	const contextKeyService = useCellScopedContextKeyService();
 	const outputOverflowsKey = useMemo(
-		() => contextKeyService ? POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS.bindTo(contextKeyService) : undefined,
+		() => contextKeyService ? CellContextKeys.outputOverflows.bindTo(contextKeyService) : undefined,
 		[contextKeyService]
 	);
 	const outputImageTargeted = useMemo(
-		() => contextKeyService ? POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.bindTo(contextKeyService) : undefined,
+		() => contextKeyService ? CellContextKeys.outputImageTargeted.bindTo(contextKeyService) : undefined,
 		[contextKeyService]
 	);
 	const outputJsonTargeted = useMemo(
-		() => contextKeyService ? POSITRON_NOTEBOOK_OUTPUT_JSON_TARGETED.bindTo(contextKeyService) : undefined,
+		() => contextKeyService ? CellContextKeys.outputJsonTargeted.bindTo(contextKeyService) : undefined,
 		[contextKeyService]
 	);
 	const outputFocusedKey = useMemo(
-		() => contextKeyService ? POSITRON_NOTEBOOK_OUTPUT_FOCUSED.bindTo(contextKeyService) : undefined,
+		() => contextKeyService ? CellContextKeys.outputFocused.bindTo(contextKeyService) : undefined,
 		[contextKeyService]
 	);
 	const { selectionStateMachine } = useNotebookInstance();

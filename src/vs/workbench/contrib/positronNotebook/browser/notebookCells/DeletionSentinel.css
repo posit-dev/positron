@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -45,7 +45,7 @@
 .deletion-sentinel-cell-container {
 	flex: 1;
 	background: var(--vscode-notebook-cellEditorBackground, var(--vscode-editor-background));
-	border: var(--vscode-positronNotebook-border);
+	border: 1px solid var(--vscode-positronNotebook-cellBorder);
 	border-radius: var(--vscode-positronNotebook-cell-radius);
 	opacity: 0.6; /* Make the whole cell look faded */
 	overflow: hidden;

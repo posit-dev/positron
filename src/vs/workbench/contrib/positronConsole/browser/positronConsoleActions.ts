@@ -40,11 +40,11 @@ import { IExecutionHistoryService } from '../../../services/positronHistory/comm
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { createCodeLocation, ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
 import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
-import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../../positronNotebook/browser/ContextKeysManager.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { usingQuartoInlineOutput, isQuartoDocument, QUARTO_INLINE_OUTPUT_ENABLED, IS_QUARTO_DOCUMENT } from '../../positronQuarto/common/positronQuartoConfig.js';
 import { getNotebookUriFromActiveEditor } from './getNotebookUriFromActiveEditor.js';
 import { IQuartoExecutionManager } from '../../positronQuarto/common/quartoExecutionTypes.js';
+import { NotebookContextKeys } from '../../positronNotebook/common/notebookContextKeys.js';
 
 /**
  * Positron console command ID's.
@@ -280,7 +280,7 @@ export function registerPositronConsoleActions() {
 				},
 				f1: true,
 				category,
-				icon: Codicon.clearAll,
+				icon: Codicon.trash,
 			});
 		}
 
@@ -362,7 +362,7 @@ export function registerPositronConsoleActions() {
 				precondition: ContextKeyExpr.and(
 					EditorContextKeys.editorTextFocus,
 					NOTEBOOK_EDITOR_FOCUSED.toNegated(),
-					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
+					NotebookContextKeys.cellEditorFocused.toNegated()
 				),
 				keybinding: {
 					weight: KeybindingWeight.WorkbenchContrib,
@@ -977,7 +977,7 @@ export function registerPositronConsoleActions() {
 				precondition: ContextKeyExpr.and(
 					EditorContextKeys.editorTextFocus,
 					NOTEBOOK_EDITOR_FOCUSED.toNegated(),
-					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
+					NotebookContextKeys.cellEditorFocused.toNegated()
 				),
 				keybinding: {
 					weight: KeybindingWeight.WorkbenchContrib,
@@ -1119,7 +1119,7 @@ export function registerPositronConsoleActions() {
 					ContextKeyExpr.and(
 						EditorContextKeys.editorTextFocus,
 						NOTEBOOK_EDITOR_FOCUSED.toNegated(),
-						POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
+						NotebookContextKeys.cellEditorFocused.toNegated()
 					)
 				),
 				keybinding: {
@@ -1170,7 +1170,7 @@ export function registerPositronConsoleActions() {
 					ContextKeyExpr.and(
 						EditorContextKeys.editorTextFocus,
 						NOTEBOOK_EDITOR_FOCUSED.toNegated(),
-						POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
+						NotebookContextKeys.cellEditorFocused.toNegated()
 					)
 				),
 				keybinding: {

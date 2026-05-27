@@ -66,13 +66,12 @@ export function isWheelForwardMessage(message: unknown): message is WheelForward
 		&& typeof m.deltaY === 'number';
 }
 
-// Helper function for TypeScript typing
-function acquireVsCodeApi(): { postMessage: (message: HTMLOutputWebviewMessage) => void } {
-	throw new Error('Function not implemented.');
-}
-
 function webviewMessageCode() {
-	const vscode = acquireVsCodeApi();
+	// acquireVsCodeApi is a global injected by the webview host. Access it
+	// through the window object so the production bundler cannot rename it.
+	// eslint-disable-next-line no-restricted-globals
+	const vscode: { postMessage: (message: HTMLOutputWebviewMessage) => void } =
+		(window as any)['acquireVsCodeApi']();
 
 	const sendSizeMessage = () => {
 		// Get body of the webview and measure content sizes

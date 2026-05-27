@@ -95,10 +95,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "2026.5.8",
+			"version": "2026.6.3",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web-pwb",
-			"sha256": "81abe1e8b5d9bf6a227fa54eee90b791593f5cd271bb0b9cc487f67ee468be9a",
+			"sha256": "c6c92cf0c9bb1a3411484e4283e531109db1879c9b0c06e526db4bf136ded7cf",
 			"metadata": {
 				"publisherDisplayName": "Posit PBC"
 			}
@@ -305,8 +305,8 @@
 		},
 		{
 			"name": "posit.assistant",
-			"version": "0.5.8",
-			"sha256": "efa061419678c0660fb0ccfcb4a33d8095ca9174d7018f0c9e7b7b5d4ae275f8",
+			"version": "0.5.9",
+			"sha256": "40e8c099477a5dd7667adc5f2e88d9867fd38f1ed92d2e5a1f5100550c89f752",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
 				"displayName": "Posit Assistant"
@@ -741,6 +741,10 @@
 		"google": [
 			"positron.authentication",
 			"positron.positron-assistant",
+			"posit.assistant"
+		],
+		"google-cloud": [
+			"positron.authentication",
 			"posit.assistant"
 		]
 	},

@@ -51,10 +51,19 @@ const CODE_BLOCK_INSERT_CURSOR_BUTTON = 'button[aria-label="Insert At Cursor"]';
 const CODE_BLOCK_INSERT_FILE_BUTTON = 'button[aria-label="Insert into New File"]';
 
 // Tool confirmation UI
+const TOOL_CONFIRM_CARD = '.bg-warning';
 const TOOL_ALLOW_BUTTON = 'button.rounded-r-none:has-text("Allow")';
 const TOOL_ALLOW_DROPDOWN_TRIGGER = 'button[aria-label="More allow options"]';
 const TOOL_ALLOW_SESSION_MENU_ITEM = '[role="menuitem"]:has-text("for this session")';
 const TOOL_DECLINE_BUTTON = 'button.rounded-r-none:has-text("Decline")';
+
+// Tool result accordion (rendered in the transcript after a tool runs)
+const TOOL_RESULT_ACCORDION_ITEM = '[data-slot="accordion-item"]';
+
+/** Posit Assistant qualifies MCP tool names as `mcp__<server>__<tool>` in the UI. */
+function mcpToolId(server: string, tool: string): string {
+	return `mcp__${server}__${tool}`;
+}
 
 /**
  * Page object for the Posit Assistant extension.
@@ -401,7 +410,35 @@ export class PositAssistant {
 	 * Verifies the tool confirmation dialog is visible.
 	 */
 	async expectToolConfirmVisible(): Promise<void> {
-		await expect(this.frame.locator('.bg-warning').getByRole('heading', { level: 4 })).toBeVisible();
+		await expect(this.frame.locator(TOOL_CONFIRM_CARD).getByRole('heading', { level: 4 })).toBeVisible();
+	}
+
+	/** Verifies the tool confirmation dialog identifies a specific MCP server + tool. */
+	async expectMcpToolConfirmVisible(server: string, tool: string): Promise<void> {
+		await expect(this.frame.locator(TOOL_CONFIRM_CARD)).toContainText(mcpToolId(server, tool));
+	}
+
+	/** Locator for the MCP tool-result accordion, rendered after the tool executes. */
+	mcpToolResult(server: string, tool: string) {
+		return this.frame.locator(
+			`${TOOL_RESULT_ACCORDION_ITEM}:has(:scope :text("${mcpToolId(server, tool)}"))`,
+		);
+	}
+
+	/** Verifies the MCP tool-result accordion is in the transcript. */
+	async expectMcpToolResultVisible(server: string, tool: string): Promise<void> {
+		await expect(this.mcpToolResult(server, tool)).toBeVisible();
+	}
+
+	/**
+	 * Asserts a literal text string is anywhere in the chat frame DOM.
+	 *
+	 * Uses `toBeAttached()` not `toBeVisible()`: tool-result accordion panels
+	 * use overflow-hidden + animated height that can read as visually hidden
+	 * even when fully expanded.
+	 */
+	async expectChatContainsText(text: string): Promise<void> {
+		await expect(this.frame.getByText(text, { exact: false }).first()).toBeAttached();
 	}
 
 	/**

@@ -6,7 +6,10 @@
 import { ILocalizedString, localize, localize2 } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
-import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
+// --- Start Positron ---
+// Unused after the ToggleEditorActions registration below was removed.
+// import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
+// --- End Positron ---
 import { LayoutSettings } from '../../../services/layout/browser/layoutService.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ContextKeyExpr, ContextKeyExpression, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
@@ -139,7 +142,11 @@ class ToggleCustomTitleBar extends Action2 {
 							ContextKeyExpr.and(
 								ContextKeyExpr.equals('config.workbench.layoutControl.enabled', false),
 								ContextKeyExpr.equals('config.window.commandCenter', false),
-								ContextKeyExpr.notEquals('config.workbench.editor.editorActionsLocation', 'titleBar'),
+								// --- Start Positron ---
+								// Positron owns workbench.editor.editorActionsLocation via the Editor Action
+								// Toolbar, so this clause no longer participates in the visibility logic.
+								// ContextKeyExpr.notEquals('config.workbench.editor.editorActionsLocation', 'titleBar'),
+								// --- End Positron ---
 								ContextKeyExpr.notEquals('config.workbench.activityBar.location', 'top'),
 								ContextKeyExpr.notEquals('config.workbench.activityBar.location', 'bottom')
 							)?.negate()
@@ -226,54 +233,59 @@ registerAction2(class HideCustomTitleBar extends Action2 {
 	}
 });
 
-registerAction2(class ToggleEditorActions extends Action2 {
-	static readonly settingsID = `workbench.editor.editorActionsLocation`;
-	constructor() {
-
-		const titleBarContextCondition = ContextKeyExpr.and(
-			ContextKeyExpr.equals(`config.workbench.editor.showTabs`, 'none').negate(),
-			ContextKeyExpr.equals(`config.${ToggleEditorActions.settingsID}`, 'default'),
-		)?.negate();
-
-		super({
-			id: `toggle.${ToggleEditorActions.settingsID}`,
-			title: localize('toggle.editorActions', 'Editor Actions'),
-			toggled: ContextKeyExpr.equals(`config.${ToggleEditorActions.settingsID}`, 'hidden').negate(),
-			menu: [
-				{ id: MenuId.TitleBarContext, order: 3, when: titleBarContextCondition, group: '2_config' },
-				{ id: MenuId.TitleBarTitleContext, order: 3, when: titleBarContextCondition, group: '2_config' }
-			]
-		});
-	}
-
-	run(accessor: ServicesAccessor, ...args: unknown[]): void {
-		const configService = accessor.get(IConfigurationService);
-		const storageService = accessor.get(IStorageService);
-
-		const location = configService.getValue<string>(ToggleEditorActions.settingsID);
-		if (location === 'hidden') {
-			const showTabs = configService.getValue<string>(LayoutSettings.EDITOR_TABS_MODE);
-
-			// If tabs are visible, then set the editor actions to be in the title bar
-			if (showTabs !== 'none') {
-				configService.updateValue(ToggleEditorActions.settingsID, 'titleBar');
-			}
-
-			// If tabs are not visible, then set the editor actions to the last location the were before being hidden
-			else {
-				const storedValue = storageService.get(ToggleEditorActions.settingsID, StorageScope.PROFILE);
-				configService.updateValue(ToggleEditorActions.settingsID, storedValue ?? 'default');
-			}
-
-			storageService.remove(ToggleEditorActions.settingsID, StorageScope.PROFILE);
-		}
-		// Store the current value (titleBar or default) in the storage service for later to restore
-		else {
-			configService.updateValue(ToggleEditorActions.settingsID, 'hidden');
-			storageService.store(ToggleEditorActions.settingsID, location, StorageScope.PROFILE, StorageTarget.USER);
-		}
-	}
-});
+// --- Start Positron ---
+// Positron supplies its own Editor Action Toolbar, so the upstream "Editor Actions" toggle
+// (title-bar context menu entry + toggle.workbench.editor.editorActionsLocation command) is
+// removed as it is no longer useful.
+// registerAction2(class ToggleEditorActions extends Action2 {
+// 	static readonly settingsID = `workbench.editor.editorActionsLocation`;
+// 	constructor() {
+//
+// 		const titleBarContextCondition = ContextKeyExpr.and(
+// 			ContextKeyExpr.equals(`config.workbench.editor.showTabs`, 'none').negate(),
+// 			ContextKeyExpr.equals(`config.${ToggleEditorActions.settingsID}`, 'default'),
+// 		)?.negate();
+//
+// 		super({
+// 			id: `toggle.${ToggleEditorActions.settingsID}`,
+// 			title: localize('toggle.editorActions', 'Editor Actions'),
+// 			toggled: ContextKeyExpr.equals(`config.${ToggleEditorActions.settingsID}`, 'hidden').negate(),
+// 			menu: [
+// 				{ id: MenuId.TitleBarContext, order: 3, when: titleBarContextCondition, group: '2_config' },
+// 				{ id: MenuId.TitleBarTitleContext, order: 3, when: titleBarContextCondition, group: '2_config' }
+// 			]
+// 		});
+// 	}
+//
+// 	run(accessor: ServicesAccessor, ...args: unknown[]): void {
+// 		const configService = accessor.get(IConfigurationService);
+// 		const storageService = accessor.get(IStorageService);
+//
+// 		const location = configService.getValue<string>(ToggleEditorActions.settingsID);
+// 		if (location === 'hidden') {
+// 			const showTabs = configService.getValue<string>(LayoutSettings.EDITOR_TABS_MODE);
+//
+// 			// If tabs are visible, then set the editor actions to be in the title bar
+// 			if (showTabs !== 'none') {
+// 				configService.updateValue(ToggleEditorActions.settingsID, 'titleBar');
+// 			}
+//
+// 			// If tabs are not visible, then set the editor actions to the last location the were before being hidden
+// 			else {
+// 				const storedValue = storageService.get(ToggleEditorActions.settingsID, StorageScope.PROFILE);
+// 				configService.updateValue(ToggleEditorActions.settingsID, storedValue ?? 'default');
+// 			}
+//
+// 			storageService.remove(ToggleEditorActions.settingsID, StorageScope.PROFILE);
+// 		}
+// 		// Store the current value (titleBar or default) in the storage service for later to restore
+// 		else {
+// 			configService.updateValue(ToggleEditorActions.settingsID, 'hidden');
+// 			storageService.store(ToggleEditorActions.settingsID, location, StorageScope.PROFILE, StorageTarget.USER);
+// 		}
+// 	}
+// });
+// --- End Positron ---
 
 // --- Toolbar actions --- //
 

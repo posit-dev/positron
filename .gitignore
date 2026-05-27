@@ -82,3 +82,4 @@ dist
 .agents/skills/.local/
 .github/skills/.local/
 .sbom-tmp/
+.sbom-tmp/

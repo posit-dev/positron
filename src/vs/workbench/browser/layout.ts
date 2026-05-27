@@ -142,7 +142,11 @@ export const TITLE_BAR_SETTINGS = [
 	LayoutSettings.ACTIVITY_BAR_LOCATION,
 	LayoutSettings.COMMAND_CENTER,
 	...COMMAND_CENTER_SETTINGS,
-	LayoutSettings.EDITOR_ACTIONS_LOCATION,
+	// --- Start Positron ---
+	// Positron owns workbench.editor.editorActionsLocation via the Editor Action Toolbar,
+	// so the upstream entry in TITLE_BAR_SETTINGS is removed.
+	// LayoutSettings.EDITOR_ACTIONS_LOCATION,
+	// --- End Positron ---
 	LayoutSettings.LAYOUT_ACTIONS,
 	MenuSettings.MenuBarVisibility,
 	TitleBarSetting.TITLE_BAR_STYLE,

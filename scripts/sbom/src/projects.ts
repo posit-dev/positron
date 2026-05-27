@@ -30,7 +30,7 @@ export const PROJECTS: Project[] = [
 	},
 	{
 		name: 'Ark (R Kernel)',
-		path: './extensions/positron-r/ark',
+		path: './extensions/positron-r/ark/crates/ark',
 		type: 'rust'
 	}
 ];

@@ -57,7 +57,11 @@ export const enum LayoutSettings {
 	ACTIVITY_BAR_AUTO_HIDE = 'workbench.activityBar.autoHide',
 	ACTIVITY_BAR_COMPACT = 'workbench.activityBar.compact',
 	EDITOR_TABS_MODE = 'workbench.editor.showTabs',
-	EDITOR_ACTIONS_LOCATION = 'workbench.editor.editorActionsLocation',
+	// --- Start Positron ---
+	// Positron owns workbench.editor.editorActionsLocation via the Editor Action Toolbar,
+	// so the upstream enum entry is removed.
+	// EDITOR_ACTIONS_LOCATION = 'workbench.editor.editorActionsLocation',
+	// --- End Positron ---
 	COMMAND_CENTER = 'window.commandCenter',
 	LAYOUT_ACTIONS = 'workbench.layoutControl.enabled',
 	SHADOWS = 'workbench.shadows',

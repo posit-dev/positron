@@ -71,8 +71,7 @@ test.describe('Release Screenshots - Extension Publisher', () => {
 		await expect(header).toBeVisible();
 		await expect(header.locator('.publisher')).toBeVisible();
 
-		// Air ships pre-installed in some builds but not all; ensure installed
-		// so the screenshot always captures the Disable/Uninstall state.
+		// Ensure the extension is installed so the verified-publisher badge is visible.
 		await extensions.installFromEditorIfNotInstalled();
 
 		await hideToasts(app);

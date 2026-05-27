@@ -9,7 +9,6 @@
 	align-items: center;
 	gap: 4px;
 	font-size: 12px;
-	color: var(--vscode-positronNotebook-deemphasized-foreground);
 
 	.action-label {
 		cursor: pointer;
@@ -26,5 +25,5 @@
 }
 
 .positron-iconed-button.bordered {
-	border: 1px solid var(--vscode-positronNotebook-action-bar-border-color);
+	border: 1px solid var(--vscode-positronNotebook-actionBarBorder);
 }

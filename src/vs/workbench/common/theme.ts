@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../nls.js';
-import { registerColor, editorBackground, contrastBorder, transparent, editorWidgetBackground, textLinkForeground, lighten, darken, focusBorder, activeContrastBorder, editorWidgetForeground, editorErrorForeground, editorWarningForeground, editorInfoForeground, treeIndentGuidesStroke, errorForeground, listActiveSelectionBackground, listActiveSelectionForeground, editorForeground, toolbarHoverBackground, inputBorder, widgetBorder, scrollbarShadow } from '../../platform/theme/common/colorRegistry.js';
+import { registerColor, editorBackground, contrastBorder, transparent, editorWidgetBackground, editorWidgetBorder, textLinkForeground, lighten, darken, focusBorder, activeContrastBorder, editorWidgetForeground, editorErrorForeground, editorWarningForeground, editorInfoForeground, treeIndentGuidesStroke, errorForeground, listActiveSelectionBackground, listActiveSelectionForeground, editorForeground, toolbarHoverBackground, inputBorder, widgetBorder, scrollbarShadow } from '../../platform/theme/common/colorRegistry.js';
 import { IColorTheme } from '../../platform/theme/common/themeService.js';
 import { Color } from '../../base/common/color.js';
 import { ColorScheme } from '../../platform/theme/common/theme.js';
@@ -2027,6 +2027,38 @@ export const POSITRON_NOTEBOOK_CELL_FOOTER_FOREGROUND = registerColor('positronN
 	hcDark: editorForeground,
 	hcLight: editorForeground
 }, localize('positronNotebook.cellFooterForeground', "Positron notebook cell footer foreground color for execution status, duration, and timestamp."));
+
+// Positron notebook default foreground color.
+export const POSITRON_NOTEBOOK_FOREGROUND = registerColor('positronNotebook.foreground', editorForeground, localize('positronNotebook.foreground', "Positron notebook default foreground color."));
+
+// Positron notebook error output foreground color.
+export const POSITRON_NOTEBOOK_ERROR_FOREGROUND = registerColor('positronNotebook.errorForeground', editorErrorForeground, localize('positronNotebook.errorForeground', "Positron notebook error output foreground color."));
+
+// Positron notebook deferred image placeholder background color.
+export const POSITRON_NOTEBOOK_IMG_PLACEHOLDER_BACKGROUND = registerColor('positronNotebook.imgPlaceholderBackground', listActiveSelectionBackground, localize('positronNotebook.imgPlaceholderBackground', "Positron notebook deferred image placeholder background color."));
+
+// Positron notebook cell border color.
+export const POSITRON_NOTEBOOK_CELL_BORDER = registerColor('positronNotebook.cellBorder', {
+	dark: listInactiveSelectionBackground,
+	light: listInactiveSelectionBackground,
+	hcDark: contrastBorder,
+	hcLight: contrastBorder
+}, localize('positronNotebook.cellBorder', "Positron notebook cell border color when not focused or hovered."));
+
+// Positron notebook cell border color when hovered.
+export const POSITRON_NOTEBOOK_CELL_HOVER_BORDER = registerColor('positronNotebook.cellHoverBorder', editorWidgetBorder, localize('positronNotebook.cellHoverBorder', "Positron notebook cell border color when hovered."));
+
+// Positron notebook cell border color when focused or being edited.
+export const POSITRON_NOTEBOOK_CELL_FOCUSED_BORDER = registerColor('positronNotebook.cellFocusedBorder', focusBorder, localize('positronNotebook.cellFocusedBorder', "Positron notebook cell border color when focused or being edited."));
+
+// Positron notebook cell border color when selected or being edited in a notebook pane that does not currently have focus.
+export const POSITRON_NOTEBOOK_CELL_INACTIVE_FOCUSED_BORDER = registerColor('positronNotebook.cellInactiveFocusedBorder', POSITRON_NOTEBOOK_CELL_BORDER, localize('positronNotebook.cellInactiveFocusedBorder', "Positron notebook cell border color when selected or being edited in a notebook pane that does not currently have focus."));
+
+// Positron notebook cell action bar background color.
+export const POSITRON_NOTEBOOK_ACTION_BAR_BACKGROUND = registerColor('positronNotebook.actionBarBackground', editorBackground, localize('positronNotebook.actionBarBackground', "Positron notebook cell action bar background color."));
+
+// Positron notebook cell action bar border and separator color.
+export const POSITRON_NOTEBOOK_ACTION_BAR_BORDER = registerColor('positronNotebook.actionBarBorder', editorWidgetBorder, localize('positronNotebook.actionBarBorder', "Positron notebook cell action bar border and separator color."));
 
 // *************************************************************************************************
 // *************************************************************************************************
