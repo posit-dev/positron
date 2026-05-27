@@ -307,6 +307,15 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 				services.contextMenuService.showContextMenu({
 					getActions: () => [
 						{
+							id: 'showHelp',
+							label: localize('positronPackages.showHelp', "Show Help"),
+							tooltip: localize('positronPackages.showHelp', "Show Help"),
+							class: undefined,
+							enabled: true,
+							run: () => { void showHelpForPackage(name); }
+						},
+						new Separator(),
+						{
 							id: 'copy',
 							label: localize('positronPackages.copyPackage', "Copy '{0} ({1})'", name, version),
 							tooltip: localize('positronPackages.copyPackage', "Copy '{0} ({1})'", name, version),
@@ -400,16 +409,14 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 							</div>
 						)}
 					</div>
-					{attached === true && (
-						<Button
-							ariaLabel={localize('positronPackages.showHelpAriaLabel', "Show help for {0}", name)}
-							className='packages-list-item-help'
-							tooltip={localize('positronPackages.showHelpTooltip', "Show help for {0}", name)}
-							onPressed={() => { void showHelpForPackage(name); }}
-						>
-							<span className='codicon codicon-book' />
-						</Button>
-					)}
+					<Button
+						ariaLabel={localize('positronPackages.showHelpAriaLabel', "Show help for {0}", name)}
+						className='packages-list-item-help'
+						tooltip={localize('positronPackages.showHelpTooltip', "Show help for {0}", name)}
+						onPressed={() => { void showHelpForPackage(name); }}
+					>
+						<span className='codicon codicon-book' />
+					</Button>
 				</div>
 			);
 		};

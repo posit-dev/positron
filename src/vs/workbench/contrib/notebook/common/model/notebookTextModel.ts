@@ -3,6 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// --- Start Positron ---
+import { snapshotNotebookCellOutputs } from '../notebookSaveSettings.js';
+// --- End Positron ---
 import { ISequence, LcsDiff } from '../../../../../base/common/diff/diff.js';
 import { Emitter, Event, PauseableEmitter } from '../../../../../base/common/event.js';
 import { hash } from '../../../../../base/common/hash.js';
@@ -501,7 +504,11 @@ export class NotebookTextModel extends Disposable implements INotebookTextModel 
 				}
 			}
 
-			cellData.outputs = !transientOptions.transientOutputs ? cell.outputs : [];
+			// --- Start Positron ---
+			// Use our snapshotting which also handles output execution counts.
+			// cellData.outputs = !transientOptions.transientOutputs ? cell.outputs : [];
+			cellData.outputs = snapshotNotebookCellOutputs(cell.outputs, transientOptions);
+			// --- End Positron ---
 			cellData.metadata = filter(cell.metadata, key => !transientOptions.transientCellMetadata[key]);
 
 			data.cells.push(cellData);

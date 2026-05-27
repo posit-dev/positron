@@ -13,6 +13,7 @@ import GithubCopilot from '../icons/githubCopilot.js';
 import Bedrock from '../icons/bedrockColor.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import OpenAI from '../icons/openai.js';
+import PositAi from '../icons/positAi.js';
 import Snowflake from '../icons/snowflake.js';
 import MicrosoftFoundry from '../icons/microsoftFoundry.js';
 
@@ -64,7 +65,7 @@ export const LanguageModelIcon = (props: { provider: string }) => {
 			case 'ms-foundry':
 				return <MicrosoftFoundry className='language-model icon' />;
 			case 'posit-ai':
-				return <div className={`language-model icon button-icon codicon codicon-positron-assistant`} />;
+				return <PositAi className='language-model icon' />;
 			case 'snowflake-cortex':
 				return <Snowflake className='language-model icon' />;
 			case 'openai-compatible':

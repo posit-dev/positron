@@ -189,7 +189,7 @@ export class Packages {
 		await expect(this.packagesContainer).toBeVisible();
 
 		await this.searchPackages(packageName);
-		const helpButton = this.packagesContainer.getByRole('button', { name: `Show help for ${packageName}` });
+		const helpButton = this.packagesContainer.getByRole('button', { name: `Show help for ${packageName}`, exact: true });
 
 		await helpButton.click();
 		await this.clearFilter();

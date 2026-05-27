@@ -89,8 +89,12 @@ import { IChatDebugService } from '../../common/chatDebugService.js';
 // --- Start Positron ---
 import './media/positronChat.css';
 import { ILanguageModelsService } from '../../common/languageModels.js';
-import { IPositronAssistantConfigurationService } from '../../../positronAssistant/common/interfaces/positronAssistantService.js';
+// eslint-disable-next-line no-duplicate-imports
+import { createCommandUri } from '../../../../../base/common/htmlContent.js';
 import { IPositronDocsService } from '../../../../services/positronDocs/browser/positronDocsService.js';
+import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
+import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
+import { showExtensionsWithIdsCommandId } from '../../../extensions/browser/extensionsActions.js';
 // --- End Positron ---
 
 const $ = dom.$;
@@ -397,8 +401,8 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		@ILanguageModelToolsService private readonly toolsService: ILanguageModelToolsService,
 		// --- Start Positron ---
 		@ILanguageModelsService private readonly languageModelsService: ILanguageModelsService,
-		@IPositronAssistantConfigurationService private readonly positronAssistantConfigurationService: IPositronAssistantConfigurationService,
 		@IPositronDocsService private readonly docsService: IPositronDocsService,
+		@IExtensionService private readonly extensionService: IExtensionService,
 		// --- End Positron ---
 		@IChatModeService private readonly chatModeService: IChatModeService,
 		@IChatLayoutService private readonly chatLayoutService: IChatLayoutService,
@@ -443,6 +447,18 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		this.requestInProgress = ChatContextKeys.requestInProgress.bindTo(contextKeyService);
 
 		this._register(this.chatEntitlementService.onDidChangeAnonymous(() => this.renderWelcomeViewContentIfNeeded()));
+
+		// --- Start Positron ---
+		// Re-render the welcome view when Posit Assistant is installed or uninstalled
+		// so the "Install"/"Open" link reflects the current install state.
+		this._register(this.extensionService.onDidChangeExtensions(e => {
+			const touchesPositAssistant = (exts: readonly { identifier: ExtensionIdentifier }[]) =>
+				exts.some(ext => ExtensionIdentifier.equals(ext.identifier, ChatWidget.POSIT_ASSISTANT_EXTENSION_ID));
+			if (touchesPositAssistant(e.added) || touchesPositAssistant(e.removed)) {
+				this.renderWelcomeViewContentIfNeeded();
+			}
+		}));
+		// --- End Positron ---
 
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration('chat.tips.enabled')) {
@@ -1210,56 +1226,41 @@ export class ChatWidget extends Disposable implements IChatWidget {
 	}
 
 	// --- Start Positron ---
+	private static readonly POSIT_ASSISTANT_EXTENSION_ID = 'posit.assistant';
+
+	private isPositAssistantInstalled(): boolean {
+		return this.extensionService.extensions.some(ext =>
+			ExtensionIdentifier.equals(ext.identifier, ChatWidget.POSIT_ASSISTANT_EXTENSION_ID));
+	}
+
 	private getPositronWelcomeViewContent(additionalMessage: string | IMarkdownString | undefined): IChatViewWelcomeContent {
-		let welcomeText;
-		let welcomeTitle;
-		let tips: IMarkdownString | undefined;
+		const welcomeTitle = localize('positronAssistant.welcomeTitle', "Positron Assistant");
+		const installed = this.isPositAssistantInstalled();
+		const actionLinkMessage = installed
+			? localize('positronAssistant.openLinkMessage', "Open Posit Assistant")
+			: localize('positronAssistant.installLinkMessage', "Install Posit Assistant");
+		const actionLinkUri = installed
+			? 'command:workbench.view.extension.posit-assistant'
+			: createCommandUri(showExtensionsWithIdsCommandId, [ChatWidget.POSIT_ASSISTANT_EXTENSION_ID]).toString();
+		const learnMoreLinkMessage = localize('positronAssistant.learnMoreLinkMessage', "our documentation");
+		// eslint-disable-next-line local/code-no-unexternalized-strings
+		let welcomeText = localize('positronAssistant.welcomeMessage', `Positron Assistant is being superseded by Posit Assistant, our new AI coding companion for data science.
 
-		// Show a link to enable the assistant if it's not yet enabled
-		if (!this.configurationService.getValue('positron.assistant.enable')) {
-			welcomeTitle = localize('positronAssistant.comingSoonTitle', "Welcome to Positron Assistant");
-			const enableAssistantMessage = localize('positronAssistant.enableAssistantMessage', "Enable Positron Assistant");
-			welcomeText = localize('positronAssistant.comingSoonMessage', "Positron Assistant is under development and is currently available as a preview feature of Positron.\n");
-			welcomeText += `\n\n[${enableAssistantMessage}](command:positron-assistant.enableAssistantSetting)`;
-		} else if (!this.languageModelsService.currentProvider) {
-			// No provider is configured/authenticated - show appropriate setup message
-			const hasEnabledProviders = this.positronAssistantConfigurationService.getEnabledProviders().length > 0;
-			welcomeTitle = localize('positronAssistant.gettingStartedTitle', "Set Up Positron Assistant");
+&nbsp;
 
-			if (hasEnabledProviders) {
-				// Providers are enabled but user needs to sign in
-				const signInMessage = localize('positronAssistant.signInMessage', "Sign in to a provider");
-				welcomeText = localize('positronAssistant.signInSetupMessage', "To start using Positron Assistant, sign in to a provider.");
-				welcomeText += `\n\n[${signInMessage}](command:positron-assistant.configureProviders)`;
-			} else {
-				// No providers enabled - need to enable first
-				const enableProviderMessage = localize('positronAssistant.enableProviderMessage', "Enable a provider");
-				welcomeText = localize('positronAssistant.enableSetupMessage', "To start using Positron Assistant, enable a provider in Settings.");
-				welcomeText += `\n\n[${enableProviderMessage}](command:workbench.action.openSettings?%22positron.assistant.provider%20enable%22)`;
-			}
-		} else {
-			const guideLinkMessage = localize('positronAssistant.guideLinkMessage', "Positron Assistant User Guide");
-			welcomeTitle = localize('positronAssistant.welcomeMessageTitle', "Welcome to Positron Assistant");
-			// eslint-disable-next-line local/code-no-unexternalized-strings
-			welcomeText = localize('positronAssistant.welcomeMessageReady', `Positron Assistant is an AI coding companion designed to accelerate and enhance your data science projects.
+{action-link}
 
-The {guide-link} explains the possibilities and capabilities of Positron Assistant.
+&nbsp;
 
-Always verify results. AI assistants can sometimes produce incorrect code.`);
-			// eslint-disable-next-line local/code-no-unexternalized-strings
-			tips = new MarkdownString(localize('positronAssistant.welcomeMessageReadyTips', `Click on or type $(mention) to select a Chat Participant.
+See {learn-more-link} to learn more.
+`);
+		welcomeText = welcomeText.replace('{action-link}', `[${actionLinkMessage}](${actionLinkUri})`);
+		welcomeText = welcomeText.replace('{learn-more-link}', `[${learnMoreLinkMessage}](${this.docsService.getUrl('assistant')})`);
 
-Click on $(attach) or type \`#\` to add context, such as files to your chat.
-
-Type \`/\` to use predefined commands such as \`/help\`.`,
-			), { supportThemeIcons: true, isTrusted: true });
-			welcomeText = welcomeText.replace('{guide-link}', `[${guideLinkMessage}](${this.docsService.getUrl('assistant')})`);
-		}
 		return {
 			title: welcomeTitle,
 			message: new MarkdownString(welcomeText, { supportThemeIcons: true, isTrusted: true }),
 			icon: Codicon.positronAssistant,
-			tips,
 			additionalMessage,
 		};
 	}

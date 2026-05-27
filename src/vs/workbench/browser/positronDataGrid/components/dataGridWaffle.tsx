@@ -175,21 +175,28 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 
 		// Applies the per-key selection policy around cursor navigation. In spreadsheet mode
 		// (the default), selection is cleared before the cursor moves so cursor and selection
-		// are independent. In list mode, selection collapses onto the new cursor row after the
-		// move so single-select tracks the cursor. The `selection` guards keep these no-ops
-		// when selection is disabled on the grid.
+		// are independent. In either list mode, selection collapses onto the new cursor row
+		// after the move so the selection tracks the cursor. The `selection` guards keep these
+		// no-ops when selection is disabled on the grid.
+		const selectionMode = context.instance.selectionMode;
+		const isListMode = selectionMode === 'list-multiple-selection' || selectionMode === 'list-single-selection';
 		const navigationSelection = {
 			beforeMoveCursor: () => {
-				if (context.instance.selection && context.instance.selectionMode === 'spreadsheet') {
+				if (context.instance.selection && selectionMode === 'spreadsheet') {
 					context.instance.clearSelection();
 				}
 			},
 			afterMoveCursor: () => {
-				if (context.instance.selection && context.instance.selectionMode === 'list') {
+				if (context.instance.selection && isListMode) {
 					context.instance.selectRow(context.instance.cursorRowIndex);
 				}
 			}
 		};
+
+		// In 'list-single-selection' mode the selection is always exactly the cursor row, so
+		// Shift extension keys fall through to plain navigation (which collapses onto the cursor
+		// via afterMoveCursor). Ctrl+Shift+Space (select all) is likewise gated off below.
+		const allowExtend = selectionMode !== 'list-single-selection';
 
 		// Process the code.
 		switch (e.code) {
@@ -235,7 +242,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 						context.instance.selectColumn(context.instance.cursorColumnIndex);
 					} else if (e.shiftKey && !e.ctrlKey) {
 						context.instance.selectRow(context.instance.cursorRowIndex);
-					} else if (e.ctrlKey && e.shiftKey) {
+					} else if (e.ctrlKey && e.shiftKey && allowExtend) {
 						context.instance.selectAll();
 					}
 				}
@@ -268,8 +275,8 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 					return;
 				}
 
-				// Shift + Home does nothing.
-				if (e.shiftKey) {
+				// Shift + Home extends the row selection up by one screen.
+				if (e.shiftKey && allowExtend) {
 					context.instance.extendRowSelectionUp(ExtendRowSelectionBy.Screen);
 					return;
 				}
@@ -313,8 +320,8 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 					return;
 				}
 
-				// Shift + End does nothing.
-				if (e.shiftKey) {
+				// Shift + End extends the row selection down by one screen.
+				if (e.shiftKey && allowExtend) {
 					context.instance.extendRowSelectionDown(ExtendRowSelectionBy.Screen);
 					return;
 				}
@@ -367,7 +374,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				}
 
 				// Range selection.
-				if (e.shiftKey) {
+				if (e.shiftKey && allowExtend) {
 					context.instance.extendRowSelectionUp(ExtendRowSelectionBy.Page);
 					return;
 				}
@@ -399,7 +406,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				}
 
 				// Range selection.
-				if (e.shiftKey) {
+				if (e.shiftKey && allowExtend) {
 					context.instance.extendRowSelectionDown(ExtendRowSelectionBy.Page);
 					return;
 				}
@@ -433,7 +440,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				// When selection is enabled, perform selection processing.
 				if (context.instance.selection) {
 					// Extend selection up.
-					if (e.shiftKey) {
+					if (e.shiftKey && allowExtend) {
 						context.instance.extendRowSelectionUp(ExtendRowSelectionBy.Row);
 						return;
 					}
@@ -469,7 +476,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				// When selection is enabled, perform selection processing.
 				if (context.instance.selection) {
 					// Extend selection down.
-					if (e.shiftKey) {
+					if (e.shiftKey && allowExtend) {
 						context.instance.extendRowSelectionDown(ExtendRowSelectionBy.Row);
 						return;
 					}
@@ -505,7 +512,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				// When selection is enabled, perform selection processing.
 				if (context.instance.selection) {
 					// Extend selection left.
-					if (e.shiftKey) {
+					if (e.shiftKey && allowExtend) {
 						context.instance.extendColumnSelectionLeft(ExtendColumnSelectionBy.Column);
 						return;
 					}
@@ -541,7 +548,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				// When selection is enabled, perform selection processing.
 				if (context.instance.selection) {
 					// Extend selection right.
-					if (e.shiftKey) {
+					if (e.shiftKey && allowExtend) {
 						context.instance.extendColumnSelectionRight(ExtendColumnSelectionBy.Column);
 						return;
 					}
