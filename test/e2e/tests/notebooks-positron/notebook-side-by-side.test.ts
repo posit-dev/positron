@@ -104,6 +104,10 @@ test.describe('Notebook Side-by-Side Isolation', {
 			// Focus the RIGHT notebook by clicking its cell
 			await rightNotebook.cell(0).click();
 
+			// Hover the LEFT cell to reveal its action bar -- the unfocused notebook's
+			// active-cell action bar is hidden by default and only reappears on hover.
+			await leftNotebook.cell(0).hover();
+
 			// Verify clicking "Run Cell" in the LEFT notebook runs the cell in the LEFT notebook, not the focused RIGHT notebook
 			await leftNotebook.runCellButton(0).click();
 			await expect(leftNotebook.cellOutput(0)).toContainText('left_nb', { timeout: 30000 });
