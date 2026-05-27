@@ -51,7 +51,7 @@ export interface IPositronProviderMetadata {
 	displayName: string;
 	/**
 	 * Setting name used in the per-provider enable key. Either
-	 * `assistant.provider.<settingName>.enable` (for providers owned by
+	 * `assistant.provider.<settingName>.enabled` (for providers owned by
 	 * the authentication extension) or
 	 * `positron.assistant.provider.<settingName>.enable` (the legacy
 	 * form, still used by providers declared in
@@ -163,7 +163,7 @@ export interface IPositronAssistantConfigurationService {
 	 * as enabled providers are registered as part of the extension activation flow.
 	 *
 	 * Reads from per-provider enable settings: either
-	 * `assistant.provider.<settingName>.enable` or
+	 * `assistant.provider.<settingName>.enabled` or
 	 * `positron.assistant.provider.<settingName>.enable` toggles the
 	 * provider on.
 	 *

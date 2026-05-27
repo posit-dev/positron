@@ -21,7 +21,7 @@ import { ILanguageService } from '../../../../editor/common/languages/language.j
 
 /**
  * Returns the candidate config keys for a provider's enable setting, in
- * preference order. The shorter `assistant.provider.<name>.enable` form
+ * preference order. The shorter `assistant.provider.<name>.enabled` form
  * is used by providers owned by the authentication extension; the legacy
  * `positron.assistant.provider.<name>.enable` form is used by providers
  * still declared in `extensions/positron-assistant/package.json`. Either
@@ -29,7 +29,7 @@ import { ILanguageService } from '../../../../editor/common/languages/language.j
  */
 function enableSettingKeys(settingName: string): string[] {
 	return [
-		`assistant.provider.${settingName}.enable`,
+		`assistant.provider.${settingName}.enabled`,
 		`positron.assistant.provider.${settingName}.enable`,
 	];
 }

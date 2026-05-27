@@ -180,7 +180,10 @@
 				"authentication.googleVertex.baseUrl": {
 					"type": "string",
 					"default": "",
-					"description": "%configuration.googleVertex.baseUrl.description%"
+					"description": "%configuration.googleVertex.baseUrl.description%",
+					"tags": [
+						"experimental"
+					]
 				},
 				"authentication.googleVertex.credentials": {
 					"type": "object",
@@ -196,7 +199,10 @@
 							"default": null
 						}
 					},
-					"additionalProperties": false
+					"additionalProperties": false,
+					"tags": [
+						"experimental"
+					]
 				},
 				"authentication.googleVertex.customHeaders": {
 					"type": "object",
@@ -204,7 +210,10 @@
 					"additionalProperties": {
 						"type": "string"
 					},
-					"markdownDescription": "%configuration.googleVertex.customHeaders.description%"
+					"markdownDescription": "%configuration.googleVertex.customHeaders.description%",
+					"tags": [
+						"experimental"
+					]
 				},
 				"authentication.openai-compatible.baseUrl": {
 					"type": "string",
@@ -219,13 +228,12 @@
 					},
 					"markdownDescription": "%configuration.openai-compatible.customHeaders.description%"
 				},
-				"assistant.provider.googleVertex.enable": {
+				"assistant.provider.googleVertex.enabled": {
 					"type": "boolean",
 					"default": false,
-					"markdownDescription": "%configuration.provider.googleVertex.enable.description%",
+					"markdownDescription": "%configuration.provider.googleVertex.enabled.description%",
 					"tags": [
-						"experimental",
-						"advanced"
+						"experimental"
 					]
 				}
 			}
