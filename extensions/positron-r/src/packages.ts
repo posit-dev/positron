@@ -6,7 +6,7 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
-import { fetchP3MPackageMetadata } from './p3mSearch';
+import { LOGGER } from './extension';
 import { RSession } from './session';
 
 /**
@@ -40,8 +40,12 @@ export class RPackageManager {
 	}
 
 	/**
-	 * Fetch supplemental metadata (latest version, license, publish date) from P3M
-	 * for the given package names.
+	 * Ask R which packages are outdated and return `latestVersion` for each.
+	 * Ark's `pkg_outdated` (backed by `utils::old.packages()`) queries the
+	 * user's configured repositories, so its `ReposVer` reflects what an
+	 * upgrade would actually fetch. Version comparison happens in R using
+	 * `numeric_version` semantics, since R package versions don't play
+	 * nicely with semver -- see ark PR #625.
 	 * @param packageNames Names of installed R packages to look up
 	 * @param token Optional cancellation token
 	 */
@@ -49,7 +53,44 @@ export class RPackageManager {
 		packageNames: string[],
 		token?: vscode.CancellationToken,
 	): Promise<Map<string, Partial<positron.LanguageRuntimePackage>>> {
-		return fetchP3MPackageMetadata(packageNames, token);
+		const outdated = await this._getOutdatedVersions(token);
+
+		const metadata = new Map<string, Partial<positron.LanguageRuntimePackage>>();
+		for (const name of packageNames) {
+			const key = name.toLowerCase();
+			const latestFromArk = outdated.get(name);
+			metadata.set(key, {
+				outdated: outdated.has(name),
+				...(latestFromArk ? { latestVersion: latestFromArk } : {}),
+			});
+		}
+
+		return metadata;
+	}
+
+	/**
+	 * Call `pkg_outdated` and return a map of package name to latest version
+	 * from the user's configured R repositories. Swallows errors -- the call
+	 * hits the network and can fail transiently; outdated state will
+	 * repopulate on the next refresh, and the package list stays usable.
+	 */
+	private async _getOutdatedVersions(token?: vscode.CancellationToken): Promise<Map<string, string>> {
+		try {
+			const outdated = await this._getOutdatedPackages(token);
+			return new Map(outdated.map(p => [p.name, p.latestVersion]));
+		} catch (err) {
+			LOGGER.warn(`Failed to fetch outdated R package list: ${err}`);
+			return new Map();
+		}
+	}
+
+	private async _getOutdatedPackages(
+		token?: vscode.CancellationToken,
+	): Promise<Array<{ name: string; latestVersion: string }>> {
+		const result = await this._callMethod<Array<{ name: string; latestVersion: string }> | null>(
+			'pkg_outdated', token
+		);
+		return result ?? [];
 	}
 
 	/**
@@ -159,11 +200,9 @@ export class RPackageManager {
 
 			if (method === 'pak') {
 				// Get outdated packages via RPC, then update with pak
-				const outdated = await this._callMethod<string[] | null>(
-					'pkg_outdated', token
-				) ?? [];
+				const outdated = await this._getOutdatedPackages(token);
 				if (outdated.length > 0) {
-					const pkgVector = this._formatRVector(outdated);
+					const pkgVector = this._formatRVector(outdated.map(p => p.name));
 					await this._execute(`pak::pkg_install(${pkgVector}, ask = FALSE)`, token);
 				} else {
 					// TODO: notify user see https://github.com/posit-dev/positron/issues/11997

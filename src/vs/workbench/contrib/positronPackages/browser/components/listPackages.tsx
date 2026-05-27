@@ -196,7 +196,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 
 		// Active filters intersect: each one narrows the result independently.
 		if (debouncedQuery.filters.includes(PackagesFilter.Outdated)) {
-			result = result.filter((pkg) => pkg.latestVersion && pkg.latestVersion !== pkg.version);
+			result = result.filter((pkg) => pkg.outdated === true);
 		}
 		if (debouncedQuery.filters.includes(PackagesFilter.Attached)) {
 			result = result.filter((pkg) => pkg.attached === true);
@@ -279,8 +279,12 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	// instance.
 	useEffect(() => {
 		const renderItem = (pkg: ILanguageRuntimePackage, ctx: PositronListItemContext) => {
-			const { name, displayName, version, latestVersion, attached, description } = pkg;
-			const hasUpdate = latestVersion && latestVersion !== version;
+			const { name, displayName, version, latestVersion, attached, outdated, description } = pkg;
+			// Display the update indicator only when the runtime has confirmed the
+			// package is outdated *and* we know which version to advertise. The
+			// resolver-supplied `latestVersion` (or P3M as fallback) feeds the
+			// tooltip; without it we'd render "Update available: undefined".
+			const hasUpdate = outdated === true && !!latestVersion;
 
 			const showRowContextMenu = (anchor: { x: number; y: number }) => {
 				services.contextMenuService.showContextMenu({
