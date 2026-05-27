@@ -299,6 +299,13 @@ jobs:
       - name: Setup Graphviz
         run: choco install graphviz -y --no-progress
 
+      - name: Set up Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tinytex: true
+
       - name: Setup AWS S3 Access
         uses: aws-actions/configure-aws-credentials@v6
         with:
