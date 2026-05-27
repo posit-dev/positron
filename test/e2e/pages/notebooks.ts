@@ -139,11 +139,15 @@ export class Notebooks {
 
 	async executeCodeInCell() {
 		await test.step('Execute code in cell', async () => {
+			const spinner = this.code.driver.currentPage.locator(CELL_EXECUTING_SPINNER);
 			await this.quickaccess.runCommand(EXECUTE_CELL_COMMAND);
-			// Scoped to the cell status bar so the kernel toolbar, outline, and
-			// run-all spinners don't trip this. Count-based so it's safe for
-			// multi-cell tests that execute additional cells after this one.
-			await expect(this.code.driver.currentPage.locator(CELL_EXECUTING_SPINNER), 'no cell to be in executing state').toHaveCount(0, { timeout: 30000 });
+			// Require an execution-start transition before waiting for completion.
+			// Upstream's MIN_SPINNER_TIME (500ms) in ExecutionStateCellStatusBarItem
+			// guarantees the spinner is observable once the cell enters Executing,
+			// so otherwise the completion wait could pass at t=0 before the cell
+			// has actually started.
+			await expect(spinner.first(), 'cell to enter executing state').toBeVisible({ timeout: 10000 });
+			await expect(spinner, 'no cell to be in executing state').toHaveCount(0, { timeout: 30000 });
 		});
 	}
 
