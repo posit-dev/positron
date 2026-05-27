@@ -541,25 +541,9 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 
 	// Only show the "No packages found" message when the user has narrowed the
 	// list (free text or active category filters). An unfiltered empty list
-	// renders the (empty) data grid, matching prior behavior. When category
-	// filters are active, append a "Clear filters" affordance so the user can
-	// recover from a zero-result intersection without hunting in the menu.
-	const filtersActive = debouncedQuery.filters.length > 0;
-	const hasFreeText = !!debouncedQuery.text;
-	const emptyListRenderer = (filtersActive || hasFreeText)
-		? () => (
-			<div className='packages-empty-list'>
-				<div>{localize('positronPackages.noPackagesFound', "No packages found.")}</div>
-				{filtersActive && (
-					<Button
-						className='packages-empty-list-clear'
-						onPressed={clearAllFilters}
-					>
-						{localize('positronPackages.clearFilters', "Clear filters")}
-					</Button>
-				)}
-			</div>
-		)
+	// renders the (empty) data grid, matching prior behavior.
+	const emptyListRenderer = (debouncedQuery.filters.length > 0 || debouncedQuery.text)
+		? () => localize('positronPackages.noPackagesFound', "No packages found.")
 		: undefined;
 
 	return (

@@ -231,23 +231,3 @@
 	justify-content: flex-start;
 	align-items: flex-start;
 }
-
-.packages-empty-list {
-	display: flex;
-	flex-direction: column;
-	gap: 6px;
-	align-items: flex-start;
-}
-
-.packages-empty-list-clear.positron-button {
-	padding: 0;
-	background: transparent;
-	border: none;
-	color: var(--vscode-textLink-foreground);
-	cursor: pointer;
-}
-
-.packages-empty-list-clear.positron-button:hover:not(.disabled) {
-	color: var(--vscode-textLink-activeForeground);
-	text-decoration: underline;
-}
