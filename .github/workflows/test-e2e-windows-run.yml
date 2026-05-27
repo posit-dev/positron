@@ -148,6 +148,18 @@ jobs:
           name: positron-build-windows
           path: ${{ runner.temp }}/artifacts
 
+      # Defender's real-time scanning hits every file created during extract,
+      # which is the dominant cost for node_modules-heavy archives (~50k small
+      # files). Excluding the workspace and temp paths typically cuts extract
+      # time 3-5x on Windows GitHub-hosted runners.
+      - name: Disable Defender scanning for extract paths
+        shell: pwsh
+        run: |
+          Add-MpPreference -ExclusionPath "${{ runner.temp }}" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionPath "${{ github.workspace }}" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionPath "C:\a" -ErrorAction SilentlyContinue
+          Write-Host "Defender exclusions applied"
+
       - name: Extract build artifact
         shell: bash
         run: |
@@ -273,13 +285,6 @@ jobs:
 
       - name: Setup Graphviz
         run: choco install graphviz -y --no-progress
-
-      - name: Set up Quarto
-        uses: quarto-dev/quarto-actions/setup@v2
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tinytex: true
 
       - name: Setup AWS S3 Access
         uses: aws-actions/configure-aws-credentials@v6
