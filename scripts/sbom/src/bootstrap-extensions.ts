@@ -16,6 +16,21 @@ export interface BootstrapExtension {
 }
 
 /**
+ * Detect project type by checking for Cargo.toml (Rust) or package.json (npm)
+ */
+function detectProjectType(extensionPath: string): 'npm' | 'rust' {
+	const fullPath = resolvePath(getRepoRoot(), extensionPath);
+
+	// Check for Cargo.toml first (Rust)
+	if (existsSync(resolvePath(fullPath, 'Cargo.toml'))) {
+		return 'rust';
+	}
+
+	// Default to npm (package.json is checked later during SBOM generation)
+	return 'npm';
+}
+
+/**
  * Read bootstrap extensions from product.json
  */
 export function getBootstrapExtensions(): Project[] {
@@ -33,13 +48,21 @@ export function getBootstrapExtensions(): Project[] {
 		// Filter to only extensions with repos, and create project definitions
 		const projects: Project[] = extensions
 			.filter(ext => ext.repo)
-			.map(ext => ({
-				name: `Bootstrap: ${ext.name}`,
-				path: `.sbom-tmp/bootstrap-extensions/${ext.name}`,
-				type: 'npm' as const
-			}));
+			.map(ext => {
+				const path = `.sbom-tmp/bootstrap-extensions/${ext.name}`;
+				const type = detectProjectType(path);
 
-		console.log(`Found ${projects.length} bootstrap extensions with repositories`);
+				return {
+					name: `Bootstrap: ${ext.name}`,
+					path,
+					type
+				};
+			});
+
+		const rustCount = projects.filter(p => p.type === 'rust').length;
+		const npmCount = projects.filter(p => p.type === 'npm').length;
+
+		console.log(`Found ${projects.length} bootstrap extensions with repositories (${npmCount} npm, ${rustCount} rust)`);
 		return projects;
 	} catch (error) {
 		console.warn(`Failed to parse product.json: ${error}`);

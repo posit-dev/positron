@@ -163,10 +163,34 @@ jobs:
           jq -r '.bootstrapExtensions[] | select(.repo) | "\(.name)|\(.repo)"' product.json | \
           while IFS='|' read -r name repo; do
             echo "  Cloning ${name}..."
-            if git clone --depth 1 "$repo" ".sbom-tmp/bootstrap-extensions/${name}" 2>/dev/null; then
-              echo "    [OK] Cloned ${name}"
+
+            # Handle repos that point to subdirectories (e.g., /tree/main/path)
+            if [[ "$repo" == *"/tree/"* ]]; then
+              # Extract base repo URL and subdirectory
+              base_repo=$(echo "$repo" | sed 's|/tree/[^/]*/.*||')
+              subdir=$(echo "$repo" | sed 's|.*/tree/[^/]*/||')
+
+              echo "    Detected subdirectory: ${subdir}"
+              if git clone --depth 1 "$base_repo" ".sbom-tmp/bootstrap-extensions/${name}-full" 2>/dev/null; then
+                # Copy just the subdirectory
+                if [ -d ".sbom-tmp/bootstrap-extensions/${name}-full/${subdir}" ]; then
+                  mv ".sbom-tmp/bootstrap-extensions/${name}-full/${subdir}" ".sbom-tmp/bootstrap-extensions/${name}"
+                  rm -rf ".sbom-tmp/bootstrap-extensions/${name}-full"
+                  echo "    [OK] Cloned ${name} (subdirectory)"
+                else
+                  echo "    [WARN] Subdirectory ${subdir} not found, skipping"
+                  rm -rf ".sbom-tmp/bootstrap-extensions/${name}-full"
+                fi
+              else
+                echo "    [WARN] Failed to clone ${name}, skipping"
+              fi
             else
-              echo "    [WARN] Failed to clone ${name}, skipping"
+              # Regular clone
+              if git clone --depth 1 "$repo" ".sbom-tmp/bootstrap-extensions/${name}" 2>/dev/null; then
+                echo "    [OK] Cloned ${name}"
+              else
+                echo "    [WARN] Failed to clone ${name}, skipping"
+              fi
             fi
           done
 
