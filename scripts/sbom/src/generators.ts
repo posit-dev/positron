@@ -133,20 +133,21 @@ export async function generateRustSbom(project: Project): Promise<BOM> {
 							f.endsWith('.cdx.json') ||
 							(f.includes('sbom') && f.endsWith('.json')) ||
 							f.endsWith('_sbom.json') ||
-							// Accept any .json file that's not a cache, config, or OpenAPI spec
+							// Accept any .json file that's not a cache, config, OpenAPI spec, or package-lock
 							(f.endsWith('.json') &&
 								!f.includes('cache') &&
 								!f.includes('config') &&
 								!f.includes('openapi') &&
+								!f.includes('package-lock') &&
 								!f.startsWith('.'))
 						).filter(f => {
-							// Further filter out OpenAPI specs by checking file content
+							// Further filter out OpenAPI specs and npm lock files by checking file content
 							try {
 								const testPath = resolvePath(resolvedPath, f);
 								const content = readFileSync(testPath, 'utf-8');
 								const json = JSON.parse(content);
-								// Skip if it's an OpenAPI spec
-								return json.openapi === undefined;
+								// Skip if it's an OpenAPI spec or npm lock file
+								return json.openapi === undefined && json.lockfileVersion === undefined;
 							} catch {
 								return false;
 							}

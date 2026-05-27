@@ -203,8 +203,19 @@ jobs:
           for ext_dir in .sbom-tmp/bootstrap-extensions/*/; do
             if [ -f "${ext_dir}package.json" ]; then
               ext_name=$(basename "$ext_dir")
+
+              # Skip Rust projects (they have Cargo.toml and package.json is just metadata)
+              if [ -f "${ext_dir}Cargo.toml" ]; then
+                echo "  Skipping ${ext_name} (Rust project)"
+                continue
+              fi
+
               echo "  Installing dependencies for ${ext_name}..."
-              (cd "$ext_dir" && npm install --production --ignore-scripts --no-audit --no-fund 2>&1 | head -20) || echo "    [WARN] npm install failed for ${ext_name}, continuing"
+              if (cd "$ext_dir" && npm install --production --ignore-scripts --no-audit --no-fund 2>&1 | head -20); then
+                echo "    [OK] Installed dependencies for ${ext_name}"
+              else
+                echo "    [WARN] npm install failed for ${ext_name}, will attempt SBOM generation anyway"
+              fi
             fi
           done
 
