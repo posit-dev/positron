@@ -201,7 +201,7 @@ jobs:
           echo "Short version for filename: ${SHORT_VERSION}"
 
       - name: Upload SBOM as artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Positron__v${{ steps.version.outputs.short_version }}.sbom
           path: ${{ github.workspace }}/positron/scripts/sbom/SBOM.json
@@ -253,7 +253,7 @@ jobs:
       - name: Create Pull Request
         id: create-pr
         if: ${{ !inputs.dry-run }}
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ steps.app-token.outputs.token }}
           path: ${{ github.workspace }}/posit-sboms
