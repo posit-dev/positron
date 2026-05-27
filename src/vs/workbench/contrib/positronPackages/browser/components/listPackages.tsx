@@ -30,7 +30,6 @@ import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progress
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { showCustomContextMenu, CustomContextMenuSubmenu, CustomContextMenuEntry } from '../../../../browser/positronComponents/customContextMenu/customContextMenu.js';
 import { CustomContextMenuItem } from '../../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
-import { Codicon } from '../../../../../base/common/codicons.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { addFilterToQuery, applySortToQuery, clearFiltersFromQuery, PackagesFilter, PackagesSortOrder, parseQuery, removeFilterFromQuery } from './packagesQuery.js';
 import { PositronList } from '../../../../browser/positronList/positronList.js';
@@ -561,7 +560,6 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 				<ActionBarFilter
 					ref={filterRef}
 					showClearAlways
-					clearButtonIcon={Codicon.clearAll}
 					filterButtonTooltip={localize('positronPackages.filterOptions', "Filter options")}
 					placeholder={localize('positronPackages.filterPlaceholder', "Filter packages")}
 					size='md'

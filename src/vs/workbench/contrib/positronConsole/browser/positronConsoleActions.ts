@@ -280,7 +280,7 @@ export function registerPositronConsoleActions() {
 				},
 				f1: true,
 				category,
-				icon: Codicon.clearAll,
+				icon: Codicon.trash,
 			});
 		}
 
