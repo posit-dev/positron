@@ -7,7 +7,7 @@
 import './NotebookCodeCell.css';
 
 // React.
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect } from 'react';
 
 // Other dependencies.
 import { NotebookCellOutputs } from '../PositronNotebookCells/IPositronNotebookCell.js';
@@ -35,8 +35,6 @@ import { DataExplorerCellOutput } from './DataExplorerCellOutput.js';
 import { JsonOutput } from './JsonOutput.js';
 import { NotebookErrorBoundary } from '../NotebookErrorBoundary.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { CellContextKeys } from '../../common/cellContextKeys.js';
-import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
 import { useScrollingIndicator } from './useScrollingIndicator.js';
 import { CellOutputActionBar } from './CellOutputActionBar.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
@@ -60,33 +58,17 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 	const services = usePositronReactServicesContext();
 	const isCollapsed = useObservedValue(cell.outputIsCollapsed);
 	const perCellScrolling = useObservedValue(cell.outputScrolling);
-	const contextKeyService = useCellScopedContextKeyService();
-	const outputOverflowsKey = useMemo(
-		() => contextKeyService ? CellContextKeys.outputOverflows.bindTo(contextKeyService) : undefined,
-		[contextKeyService]
-	);
-	const outputImageTargeted = useMemo(
-		() => contextKeyService ? CellContextKeys.outputImageTargeted.bindTo(contextKeyService) : undefined,
-		[contextKeyService]
-	);
-	const outputJsonTargeted = useMemo(
-		() => contextKeyService ? CellContextKeys.outputJsonTargeted.bindTo(contextKeyService) : undefined,
-		[contextKeyService]
-	);
-	const outputFocusedKey = useMemo(
-		() => contextKeyService ? CellContextKeys.outputFocused.bindTo(contextKeyService) : undefined,
-		[contextKeyService]
-	);
+	const contextKeys = cell.contextKeys;
 	const { selectionStateMachine } = useNotebookInstance();
 	const handleOutputFocus = useCallback(() => {
-		outputFocusedKey?.set(true);
+		contextKeys?.outputFocused.set(true);
 		selectionStateMachine.selectCell(cell, CellSelectionType.Normal);
-	}, [outputFocusedKey, selectionStateMachine, cell]);
+	}, [contextKeys, selectionStateMachine, cell]);
 	const handleOutputBlur = useCallback((e: React.FocusEvent) => {
 		if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-			outputFocusedKey?.set(false);
+			contextKeys?.outputFocused.set(false);
 		}
-	}, [outputFocusedKey]);
+	}, [contextKeys]);
 	const notebookOptions = useNotebookOptions();
 	const layout = notebookOptions.getLayoutConfiguration();
 	const outputsInnerRef = React.useRef<HTMLDivElement>(null);
@@ -130,12 +112,12 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 
 	// Update the output overflow context key.
 	React.useEffect(() => {
-		if (!outputOverflowsKey) { return; }
+		if (!contextKeys) { return; }
 		const hasOverflowingOutput = outputs.some(o =>
 			isParsedTextOutput(o.parsed) && o.parsed.content.trimEnd().split('\n').length > layout.outputLineLimit
 		);
-		outputOverflowsKey.set(hasOverflowingOutput);
-	}, [outputs, layout.outputLineLimit, outputOverflowsKey]);
+		contextKeys.outputOverflows.set(hasOverflowingOutput);
+	}, [outputs, layout.outputLineLimit, contextKeys]);
 
 	const { showContextMenu } = useCellContextMenu({
 		cell,
@@ -184,12 +166,12 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 			: undefined;
 
 		// Set context keys so targeted copy menu items show only for the right output type.
-		outputImageTargeted?.set(!!imageDataUrl);
-		outputJsonTargeted?.set(!!jsonText);
+		contextKeys?.outputImageTargeted.set(!!imageDataUrl);
+		contextKeys?.outputJsonTargeted.set(!!jsonText);
 
 		const onHide = () => {
-			outputImageTargeted?.set(false);
-			outputJsonTargeted?.set(false);
+			contextKeys?.outputImageTargeted.set(false);
+			contextKeys?.outputJsonTargeted.set(false);
 		};
 
 		// Delay to next tick so the browser selection is up to date

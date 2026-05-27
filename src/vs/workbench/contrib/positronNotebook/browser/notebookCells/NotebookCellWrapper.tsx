@@ -15,10 +15,8 @@ import { localize } from '../../../../../nls.js';
 import { CellSelectionStatus, IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { CellSelectionType, SelectionState } from '../selectionMachine.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
-import { useEnvironment } from '../EnvironmentProvider.js';
 import { useObservedValue } from '../useObservedValue.js';
 import { NotebookCellActionBar } from './NotebookCellActionBar.js';
-import { useCellContextKeys } from './useCellContextKeys.js';
 import { CellScopedContextKeyServiceProvider } from './CellContextKeyServiceProvider.js';
 import { CellProvider } from './CellProvider.js';
 import { ScreenReaderOnly } from '../../../../../base/browser/ui/positronComponents/ScreenReaderOnly.js';
@@ -60,14 +58,6 @@ export function NotebookCellWrapper({ cell, children }: {
 	cell: IPositronNotebookCell;
 	children: React.ReactNode;
 }) {
-	/**
-	 * We need to use state to track the cell ref to ensure the cell action bar
-	 * receives a valid element (not null) after the first render cycle.
-	 *
-	 * This is required to ensure the cell action bar is not empty on first render,
-	 * so behavior such as hover works. The cell action bar relies on context keys
-	 * that are bound in useCellContextKeys which required a valid cell ref.
-	 */
 	const [cellElement, setCellElement] = React.useState<HTMLDivElement | null>(null);
 
 	// Attach the container in the callback ref so cell.container is available
@@ -84,7 +74,6 @@ export function NotebookCellWrapper({ cell, children }: {
 	const services = usePositronReactServicesContext();
 	const notebookInstance = useNotebookInstance();
 	const selectionStateMachine = notebookInstance.selectionStateMachine;
-	const environment = useEnvironment();
 	const selectionStatus = useObservedValue(cell.selectionStatus);
 	const isActiveCell = useObservedValue(cell.isActive);
 	// Track previous selection status to detect edit mode exit
@@ -120,9 +109,6 @@ export function NotebookCellWrapper({ cell, children }: {
 			cellElement.focus();
 		}
 	}, [isActiveCell, selectionStatus, cellElement, cell, notebookInstance]);
-
-	// Manage context keys for this cell
-	const scopedContextKeyService = useCellContextKeys(cell, cellElement, environment, notebookInstance);
 
 	const cellType = cell.isRawCell() ? 'Raw' : cell.isCodeCell() ? 'Code' : 'Markdown';
 	const cellTypeLower = cellType.toLowerCase();
@@ -234,7 +220,7 @@ export function NotebookCellWrapper({ cell, children }: {
 			selectionStateMachine.selectCell(cell, CellSelectionType.Normal);
 		}}
 	>
-		<CellScopedContextKeyServiceProvider service={scopedContextKeyService}>
+		<CellScopedContextKeyServiceProvider service={cell.scopedContextKeyService}>
 			<MaybeCellProvider cell={cell}>
 				<div className='positron-notebooks-cell-action-bar-container'>
 					<NotebookCellActionBar cell={cell} />

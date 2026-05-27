@@ -5,15 +5,16 @@
 
 import { disposableTimeout } from '../../../../../base/common/async.js';
 import * as DOM from '../../../../../base/browser/dom.js';
-import { Disposable, IReference } from '../../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, IReference } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { IModelDeltaDecoration, ITextModel } from '../../../../../editor/common/model.js';
 import { IResolvedTextEditorModel, ITextModelService } from '../../../../../editor/common/services/resolverService.js';
 import { Range } from '../../../../../editor/common/core/range.js';
+import { IScopedContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
 import { CellDecorationManager } from './CellDecorationManager.js';
 import { CellKind, NotebookCellExecutionState } from '../../../notebook/common/notebookCommon.js';
-import { IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell, IPositronNotebookRawCell, CellSelectionStatus, ExecutionStatus, NotebookCellOutputs } from './IPositronNotebookCell.js';
+import { IPositronNotebookCell, CellSelectionStatus, ExecutionStatus, NotebookCellOutputs } from './IPositronNotebookCell.js';
 import { CellSelectionType } from '../selectionMachine.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
 import { derived, IObservable, IObservableSignal, observableFromEvent, observableSignal, observableValue } from '../../../../../base/common/observable.js';
@@ -24,6 +25,9 @@ import { ScrollType } from '../../../../../editor/common/editorCommon.js';
 import { INotebookEditorOptions } from '../../../notebook/browser/notebookBrowser.js';
 import { INotebookCellExecution, INotebookExecutionStateService, NotebookExecutionType } from '../../../notebook/common/notebookExecutionStateService.js';
 import { IContextKeysCellOutputViewModel } from '../IPositronNotebookEditor.js';
+import { CellContextKeyManager } from './CellContextKeyManager.js';
+import { PositronNotebookCodeCell } from './PositronNotebookCodeCell.js';
+import { PositronNotebookMarkdownCell } from './PositronNotebookMarkdownCell.js';
 
 /**
  * Minimum visibility ratio required for a cell to be considered visible in the viewport.
@@ -64,6 +68,9 @@ export interface ICellRevealOptions {
 export abstract class PositronNotebookCellGeneral extends Disposable implements IPositronNotebookCell {
 	abstract readonly kind: CellKind;
 	private _container: HTMLElement | undefined;
+	private readonly _containerDisposables = this._register(new DisposableStore());
+	private _scopedContextKeyService: IScopedContextKeyService | undefined;
+	private _contextKeys: CellContextKeyManager | undefined;
 	private readonly _execution = observableValue<INotebookCellExecution | undefined, void>('cellExecution', undefined);
 	protected readonly _editor = observableValue<ICodeEditor | undefined>('cellEditor', undefined);
 	public readonly editor: IObservable<ICodeEditor | undefined> = this._editor;
@@ -190,15 +197,15 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		super.dispose();
 	}
 
-	isMarkdownCell(): this is IPositronNotebookMarkdownCell {
+	isMarkdownCell(): this is PositronNotebookMarkdownCell {
 		return this.kind === CellKind.Markup;
 	}
 
-	isCodeCell(): this is IPositronNotebookCodeCell {
+	isCodeCell(): this is PositronNotebookCodeCell {
 		return this.kind === CellKind.Code && this.model.language !== 'raw';
 	}
 
-	isRawCell(): this is IPositronNotebookRawCell {
+	isRawCell(): this is PositronNotebookCodeCell {
 		return this.kind === CellKind.Code && this.model.language === 'raw';
 	}
 
@@ -216,8 +223,28 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		this._instance.selectionStateMachine.selectCell(this, type);
 	}
 
+	get scopedContextKeyService(): IScopedContextKeyService | undefined {
+		return this._scopedContextKeyService;
+	}
+
+	/** Context keys scoped to this cell, available after container attachment. */
+	get contextKeys(): CellContextKeyManager | undefined {
+		return this._contextKeys;
+	}
+
 	attachContainer(container: HTMLElement): void {
+		if (this._container === container) {
+			return;
+		}
+		this._containerDisposables.clear();
 		this._container = container;
+
+		this._scopedContextKeyService = this._containerDisposables.add(
+			this._instance.scopedContextKeyService.createScoped(container)
+		);
+		this._contextKeys = this._containerDisposables.add(
+			new CellContextKeyManager(this, this._scopedContextKeyService, this._instance)
+		);
 	}
 
 	get container(): HTMLElement | undefined {
