@@ -348,16 +348,21 @@ export class Sessions {
 		await test.step(`Resize session list: ${options}`, async () => {
 			const { x, y } = options;
 
-			// Adjust width if x is provided
+			// Adjust width if x is provided. Scope the sash to the bottom panel
+			// so we don't pick up the editor/aux-bar split sashes, and assert
+			// uniqueness so a layout change that adds another sash there fails
+			// loudly instead of silently dragging the wrong divider.
 			if (x !== undefined) {
-				const horizontalSash = this.page.locator('.sash');
+				const horizontalSash = this.page.locator('[id="workbench.parts.panel"] .sash');
+				await expect(horizontalSash).toHaveCount(1);
 				const box = await horizontalSash.boundingBox();
-				if (box) {
-					await this.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-					await this.page.mouse.down();
-					await this.page.mouse.move(box.x + box.width / 2 + x, box.y + box.height / 2);
-					await this.page.mouse.up();
+				if (!box) {
+					throw new Error('Session list sash not measurable');
 				}
+				await this.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+				await this.page.mouse.down();
+				await this.page.mouse.move(box.x + box.width / 2 + x, box.y + box.height / 2);
+				await this.page.mouse.up();
 			}
 
 			// Adjust height if y is provided
