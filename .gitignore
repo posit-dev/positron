@@ -65,3 +65,4 @@ test/componentFixtures/.screenshots/*
 !test/componentFixtures/.screenshots/baseline/
 dist
 .sbom-tmp/
+.sbom-tmp/

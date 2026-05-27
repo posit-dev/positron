@@ -154,6 +154,24 @@ jobs:
 
           echo "[OK] Cloned Kallichore source"
 
+      - name: Clone bootstrap extensions for scanning
+        run: |
+          echo "Cloning bootstrap extensions from product.json..."
+          mkdir -p .sbom-tmp/bootstrap-extensions
+
+          # Extract name and repo for each extension that has a repo
+          jq -r '.bootstrapExtensions[] | select(.repo) | "\(.name)|\(.repo)"' product.json | \
+          while IFS='|' read -r name repo; do
+            echo "  Cloning ${name}..."
+            if git clone --depth 1 "$repo" ".sbom-tmp/bootstrap-extensions/${name}" 2>/dev/null; then
+              echo "    [OK] Cloned ${name}"
+            else
+              echo "    [WARN] Failed to clone ${name}, skipping"
+            fi
+          done
+
+          echo "[OK] Finished cloning bootstrap extensions"
+
       - name: Generate SBOM
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
