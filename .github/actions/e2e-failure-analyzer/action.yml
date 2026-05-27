@@ -14,7 +14,7 @@ inputs:
   model:
     description: "Anthropic model identifier"
     required: false
-    default: "claude-sonnet-4-5"
+    default: "claude-opus-4-7"
   max-turns:
     description: "Maximum agent turns (cost guard)"
     required: false
