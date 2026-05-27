@@ -84,7 +84,7 @@ jobs:
       contents: write
       pull-requests: write
     outputs:
-      pr_url: ${{ steps.create-pr.outputs.pr_url || steps.push.outputs.existing_pr }}
+      pr_url: ${{ steps.create-pr.outputs.pr_url || steps.detect.outputs.pr_url }}
     steps:
       - name: Generate POSITRON_BOT token
         id: bot-token
@@ -103,6 +103,71 @@ jobs:
         run: |
           git config user.name "positron-bot[bot]"
           git config user.email "positron-bot[bot]@users.noreply.github.com"
+
+      - name: Detect existing auto-update PR
+        id: detect
+        env:
+          GH_TOKEN: ${{ steps.bot-token.outputs.token }}
+        run: |
+          # Find an open auto-update PR (branch prefix matches our convention).
+          PR_INFO=$(gh pr list --base main --state open \
+            --json number,url,headRefName,reviewDecision \
+            --jq '[.[] | select(.headRefName | startswith("automated/update-extensions"))] | first // empty')
+          if [ -z "$PR_INFO" ]; then
+            echo "No existing auto-update PR found; a new one will be created if needed."
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          PR_NUMBER=$(echo "$PR_INFO" | jq -r .number)
+          PR_URL=$(echo "$PR_INFO" | jq -r .url)
+          PR_BRANCH=$(echo "$PR_INFO" | jq -r .headRefName)
+          PR_REVIEW=$(echo "$PR_INFO" | jq -r '.reviewDecision // ""')
+          echo "Found existing PR #$PR_NUMBER on branch $PR_BRANCH (review: ${PR_REVIEW:-none})"
+
+          # Treat any review attention as a signal to add commits rather than force-push.
+          REVIEW_COMMENTS=$(gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER/comments" --jq 'length')
+          NON_BOT_COMMITS=$(gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER/commits" \
+            --jq '[.[] | select((.author.login // "") != "positron-bot[bot]")] | length')
+          if [ "$REVIEW_COMMENTS" -gt 0 ] || [ "$NON_BOT_COMMITS" -gt 0 ] || [ -n "$PR_REVIEW" ]; then
+            MODE=additive
+          else
+            MODE=reset
+          fi
+          echo "Reuse mode: $MODE (review comments: $REVIEW_COMMENTS, non-bot commits: $NON_BOT_COMMITS, review decision: ${PR_REVIEW:-none})"
+          {
+            echo "exists=true"
+            echo "pr_number=$PR_NUMBER"
+            echo "pr_url=$PR_URL"
+            echo "pr_branch=$PR_BRANCH"
+            echo "mode=$MODE"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Prepare branch and capture pre-update state
+        id: prepare
+        if: steps.detect.outputs.exists == 'true' && inputs.dryrun != true
+        env:
+          PR_BRANCH: ${{ steps.detect.outputs.pr_branch }}
+        run: |
+          git fetch origin "$PR_BRANCH" main
+          git checkout "$PR_BRANCH"
+          # Capture the extension set already on the PR (before any reset/reapply).
+          # Drives the Slack "new extensions" trigger downstream.
+          PRE_SET=$(jq -rn \
+            --argjson old "$(git show origin/main:product.json)" \
+            --argjson new "$(cat product.json)" \
+            '($old.bootstrapExtensions | map({(.name): .version}) | add) as $ov |
+             ($new.bootstrapExtensions | map({(.name): .version}) | add) as $nv |
+             [$nv | to_entries[] | select(.value != $ov[.key]) | .key] | sort | join(" ")')
+          echo "Pre-update extension set: ${PRE_SET:-<empty>}"
+          echo "pre_set=$PRE_SET" >> "$GITHUB_OUTPUT"
+
+      - name: Reset branch to main (clean reapply)
+        if: steps.detect.outputs.exists == 'true' && steps.detect.outputs.mode == 'reset' && inputs.dryrun != true
+        env:
+          PR_BRANCH: ${{ steps.detect.outputs.pr_branch }}
+        run: |
+          echo "Resetting $PR_BRANCH to origin/main; the bump script will reapply today's changes from scratch."
+          git reset --hard origin/main
 
       - name: Download mismatched extensions list
         if: needs.extensions-linux.result == 'failure'
@@ -140,18 +205,34 @@ jobs:
 
       - name: Render test tags
         id: render-tags
+        env:
+          PRE_SET: ${{ steps.prepare.outputs.pre_set }}
         run: |
+          # Compare against origin/main so reused PRs report the *full* bump set,
+          # not just today's incremental change on top of an existing commit.
+          git fetch origin main
           UPDATED=$(jq -rn \
-            --argjson old "$(git show HEAD:product.json)" \
+            --argjson old "$(git show origin/main:product.json)" \
             --argjson new "$(cat product.json)" \
             '($old.bootstrapExtensions | map({(.name): .version}) | add) as $ov |
              ($new.bootstrapExtensions | map({(.name): .version}) | add) as $nv |
-             [$nv | to_entries[] | select(.value != $ov[.key]) | .key] | join(" ")')
+             [$nv | to_entries[] | select(.value != $ov[.key]) | .key] | sort | join(" ")')
           if [ -z "$UPDATED" ]; then
             echo "No bootstrap extension version changes detected."
             echo "updated=" >> "$GITHUB_OUTPUT"
+            echo "new_exts=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          # Extensions newly added on top of the existing PR (empty for a brand-new PR).
+          if [ -z "$PRE_SET" ]; then
+            NEW_EXTS="$UPDATED"
+          else
+            NEW_EXTS=$(comm -23 \
+              <(printf '%s\n' $UPDATED | sort -u) \
+              <(printf '%s\n' $PRE_SET | sort -u) \
+              | tr '\n' ' ' | sed 's/ *$//')
+          fi
+          echo "new_exts=$NEW_EXTS" >> "$GITHUB_OUTPUT"
           TAG_MAP=.github/workflows/extensions-tag-map.json
           TAG_BULLETS=$(echo "$UPDATED" | tr ' ' '\n' | jq -R -s -r --slurpfile map "$TAG_MAP" '
             (split("\n") | map(select(length > 0))) as $exts |
@@ -191,34 +272,54 @@ jobs:
         if: inputs.dryrun != true
         env:
           GH_TOKEN: ${{ steps.bot-token.outputs.token }}
+          EXISTS: ${{ steps.detect.outputs.exists }}
+          MODE: ${{ steps.detect.outputs.mode }}
+          PR_BRANCH: ${{ steps.detect.outputs.pr_branch }}
         run: |
-          # Skip if an open auto-update PR already exists to avoid duplicates
-          EXISTING=$(gh pr list --base main --state open \
-            --json headRefName,url \
-            --jq '.[] | select(.headRefName | startswith("automated/update-extensions")) | .url' \
-            | head -1 || true)
-          if [ -n "$EXISTING" ]; then
-            echo "Open auto-update PR already exists: $EXISTING — skipping"
-            echo "existing_pr=$EXISTING" >> "$GITHUB_OUTPUT"
-            exit 0
+          if [ "$EXISTS" = "true" ]; then
+            BRANCH="$PR_BRANCH"
+            git add product.json
+            if git diff --staged --quiet && git diff --quiet origin/main -- product.json; then
+              echo "Existing PR is already current — nothing to commit or push."
+              exit 0
+            fi
+            if git diff --staged --quiet; then
+              echo "No working-tree changes after update; existing PR commits already cover it."
+              echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+              echo "reused=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            git commit -m "chore: update bootstrap extensions"
+            if [ "$MODE" = "reset" ]; then
+              git push --force-with-lease origin "$BRANCH"
+            else
+              git push origin "$BRANCH"
+            fi
+            echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+            echo "reused=true" >> "$GITHUB_OUTPUT"
+          else
+            BRANCH="automated/update-extensions-$(date +%Y%m%d-%H%M%S)"
+            git checkout -b "$BRANCH"
+            git add product.json
+            if git diff --staged --quiet; then
+              echo "No changes to product.json — skipping PR"
+              exit 0
+            fi
+            git commit -m "chore: update bootstrap extensions"
+            git push origin "$BRANCH"
+            echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+            echo "reused=false" >> "$GITHUB_OUTPUT"
           fi
-          BRANCH="automated/update-extensions-$(date +%Y%m%d-%H%M%S)"
-          git checkout -b "$BRANCH"
-          git add product.json
-          if git diff --staged --quiet; then
-            echo "No changes to product.json — skipping PR"
-            exit 0
-          fi
-          git commit -m "chore: update bootstrap extensions"
-          git push origin "$BRANCH"
-          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
 
-      - name: Create pull request
+      - name: Create or update pull request
         id: create-pr
-        if: steps.push.outputs.branch != ''
+        if: steps.push.outputs.branch != '' && inputs.dryrun != true
         env:
           GH_TOKEN: ${{ steps.bot-token.outputs.token }}
           BRANCH: ${{ steps.push.outputs.branch }}
+          REUSED: ${{ steps.push.outputs.reused }}
+          EXISTING_PR_NUMBER: ${{ steps.detect.outputs.pr_number }}
+          EXISTING_PR_URL: ${{ steps.detect.outputs.pr_url }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           MAP_URL: ${{ github.server_url }}/${{ github.repository }}/blob/main/.github/workflows/extensions-tag-map.json
           UPDATED: ${{ steps.render-tags.outputs.updated }}
@@ -245,34 +346,54 @@ jobs:
             UNMAPPED_LINE="[Unmapped](${MAP_URL}): ${UNMAPPED}
           "
           fi
-          PR_URL=$(gh pr create \
-            --base main \
-            --head "$BRANCH" \
-            --title "$TITLE" \
-            --body "### Summary
+          BODY="### Summary
           Update bootstrap extensions detected as out-of-date by the nightly check.
 
           ${EXT_BULLETS}
 
           ### QA Notes
-          ${TAGS_LINE}${UNMAPPED_LINE}Triggered by [nightly extensions check](${RUN_URL}).")
+          ${TAGS_LINE}${UNMAPPED_LINE}Triggered by [nightly extensions check](${RUN_URL}).
+
+          _This PR is auto-managed by the nightly bootstrap-extensions workflow; the title and body may be overwritten on subsequent runs._"
+          if [ "$REUSED" = "true" ]; then
+            gh pr edit "$EXISTING_PR_NUMBER" --title "$TITLE" --body "$BODY" >/dev/null
+            PR_URL="$EXISTING_PR_URL"
+            echo "Updated existing PR: $PR_URL"
+          else
+            PR_URL=$(gh pr create \
+              --base main \
+              --head "$BRANCH" \
+              --title "$TITLE" \
+              --body "$BODY")
+            echo "Created new PR: $PR_URL"
+          fi
           echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
           echo "updated=$UPDATED" >> "$GITHUB_OUTPUT"
 
       - name: Post PR to Slack
-        if: (steps.push.outputs.existing_pr != '' || steps.create-pr.outputs.pr_url != '') && inputs.dryrun != true
+        if: steps.create-pr.outputs.pr_url != '' && inputs.dryrun != true
         env:
           SLACK_TOKEN: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
-          PR_URL: ${{ steps.create-pr.outputs.pr_url || steps.push.outputs.existing_pr }}
+          PR_URL: ${{ steps.create-pr.outputs.pr_url }}
           UPDATED: ${{ steps.create-pr.outputs.updated }}
+          NEW_EXTS: ${{ steps.render-tags.outputs.new_exts }}
+          REUSED: ${{ steps.push.outputs.reused }}
         run: |
+          # Skip the repost when reusing a PR that didn't gain any new extensions today.
+          if [ "$REUSED" = "true" ] && [ -z "$NEW_EXTS" ]; then
+            echo "Reused existing PR with no new extensions — skipping Slack repost."
+            exit 0
+          fi
+          # Slack bullets reflect today's contribution: the newly added subset for reuse,
+          # or the full set for a brand-new PR.
+          BULLET_EXTS="${NEW_EXTS:-$UPDATED}"
           curl -s -X POST https://slack.com/api/chat.postMessage \
             -H "Authorization: Bearer $SLACK_TOKEN" \
             -H "Content-Type: application/json" \
             -d "$(jq -n \
               --arg channel "#positron-dev" \
               --arg pr_url "$PR_URL" \
-              --arg ext "$UPDATED" \
+              --arg ext "$BULLET_EXTS" \
               '($pr_url | split("/") | last) as $pr_num |
                (if $ext != "" then "\n\n" + ($ext | split(" ") | map("• " + .) | join("\n")) else "" end) as $bullets |
                {
