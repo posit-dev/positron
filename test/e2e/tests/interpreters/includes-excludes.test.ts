@@ -80,9 +80,11 @@ test.describe('Interpreter: Override', {
 		}, { reload: true, waitForReady: true });
 	});
 
-	test('R - Can Override Interpreter Discovery', { tag: [tags.ARK] }, async function ({ sessions, hotKeys }) {
-		// Flaky on first attempt but passes on retry; reload to ensure the override setting
-		// is fully applied before attempting to start the session.
+	test('R - Can Override Interpreter Discovery', { tag: [tags.ARK] }, async function ({ sessions, hotKeys, app }) {
+		// The runtime discovery cache is stored at StorageScope.APPLICATION and survives
+		// window reloads, so R installs registered before the override was written stay
+		// registered. Clear the cache then reload so discovery runs fresh against the override.
+		await app.workbench.quickaccess.runCommand('Clear Interpreter Cache');
 		await hotKeys.reloadWindow(true);
 		await expectSessionStartToFail(sessions, 'r', overrideRPath);
 	});
