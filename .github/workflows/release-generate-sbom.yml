@@ -239,6 +239,7 @@ jobs:
       - name: Generate SBOM
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          PRODUCT_VERSION: ${{ env.PRODUCT_VERSION }}
         run: |
           cd scripts/sbom
 
