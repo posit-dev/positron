@@ -7,7 +7,6 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
 import { LOGGER } from './extension';
-import { fetchP3MPackageMetadata } from './p3mSearch';
 import { RSession } from './session';
 
 /**
@@ -41,14 +40,12 @@ export class RPackageManager {
 	}
 
 	/**
-	 * Fetch supplemental metadata (license, publish date) from P3M for the given
-	 * package names, and ask R which packages are outdated. Ark's `pkg_outdated`
-	 * is the authoritative source for `latestVersion` -- it queries the same
-	 * repositories used to install, so it reflects what an upgrade would
-	 * actually fetch. P3M is a generic upstream mirror and may not match the
-	 * user's configured repos. Version comparison happens in R using
-	 * `utils::old.packages()` (which uses `numeric_version` semantics), since
-	 * R package versions don't play nicely with semver -- see ark PR #625.
+	 * Ask R which packages are outdated and return `latestVersion` for each.
+	 * Ark's `pkg_outdated` (backed by `utils::old.packages()`) queries the
+	 * user's configured repositories, so its `ReposVer` reflects what an
+	 * upgrade would actually fetch. Version comparison happens in R using
+	 * `numeric_version` semantics, since R package versions don't play
+	 * nicely with semver -- see ark PR #625.
 	 * @param packageNames Names of installed R packages to look up
 	 * @param token Optional cancellation token
 	 */
@@ -56,23 +53,19 @@ export class RPackageManager {
 		packageNames: string[],
 		token?: vscode.CancellationToken,
 	): Promise<Map<string, Partial<positron.LanguageRuntimePackage>>> {
-		const [p3mMetadata, outdated] = await Promise.all([
-			fetchP3MPackageMetadata(packageNames, token),
-			this._getOutdatedVersions(token),
-		]);
+		const outdated = await this._getOutdatedVersions(token);
 
+		const metadata = new Map<string, Partial<positron.LanguageRuntimePackage>>();
 		for (const name of packageNames) {
 			const key = name.toLowerCase();
-			const existing = p3mMetadata.get(key) ?? {};
 			const latestFromArk = outdated.get(name);
-			p3mMetadata.set(key, {
-				...existing,
+			metadata.set(key, {
 				outdated: outdated.has(name),
 				...(latestFromArk ? { latestVersion: latestFromArk } : {}),
 			});
 		}
 
-		return p3mMetadata;
+		return metadata;
 	}
 
 	/**
