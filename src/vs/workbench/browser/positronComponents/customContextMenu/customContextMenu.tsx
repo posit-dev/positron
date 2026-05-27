@@ -30,14 +30,18 @@ const SUBMENU_HOVER_DELAY = 300;
 export type CustomContextMenuEntry = CustomContextMenuItem | CustomContextMenuSeparator | CustomContextMenuSubmenu;
 
 /**
- * CustomContextMenuSubmenuOptions interface.
+ * Icon options. A submenu may specify either a codicon name (`icon`) or an image source
+ * (`iconSrc`), but not both. Defined as a discriminated union so callers can't accidentally
+ * set both fields.
  */
-export interface CustomContextMenuSubmenuOptions {
-	/**
-	 * Optional icon to display before the label.
-	 */
-	readonly icon?: string;
+type CustomContextMenuSubmenuIconOptions =
+	| { readonly icon?: string; readonly iconSrc?: never }
+	| { readonly icon?: never; readonly iconSrc?: string };
 
+/**
+ * CustomContextMenuSubmenuOptions type.
+ */
+export type CustomContextMenuSubmenuOptions = CustomContextMenuSubmenuIconOptions & {
 	/**
 	 * The label text for the submenu item.
 	 */
@@ -53,7 +57,7 @@ export interface CustomContextMenuSubmenuOptions {
 	 * is opened to ensure properties like checked state are up to date in the submenu when it opens.
 	 */
 	readonly entries: () => CustomContextMenuEntry[];
-}
+};
 
 /**
  * CustomContextMenuSubmenu class.
@@ -217,15 +221,22 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 	 *
 	 * @returns The rendered component.
 	 */
-	const MenuSeparator = () => {
+	const MenuSeparator = ({ title }: { title?: string }) => {
 		// Render.
 		return (
-			<div
-				className='custom-context-menu-separator'
-				role='separator'
-				// When the mouse enters a menu separator, close the active submenu.
-				onMouseEnter={closeActiveSubmenu}
-			/>
+			<>
+				<div
+					className='custom-context-menu-separator'
+					role='separator'
+					// When the mouse enters a menu separator, close the active submenu.
+					onMouseEnter={closeActiveSubmenu}
+				/>
+				{title && (
+					<div className='custom-context-menu-separator-title'>
+						{title}
+					</div>
+				)}
+			</>
 		);
 	};
 
@@ -261,7 +272,8 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 			<Button
 				className={positronClassNames(
 					'custom-context-menu-item',
-					{ 'checkable': options.checked !== undefined }
+					{ 'checkable': options.checked !== undefined },
+					{ 'destructive': options.destructive }
 				)}
 				disabled={options.disabled}
 				// When the mouse enters a menu item, close the active submenu.
@@ -283,14 +295,27 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 					/>
 				}
 
-				{options.icon &&
-					<div
+				{options.icon
+					? <div
 						className={positronClassNames(
 							'icon',
 							'codicon',
 							`codicon-${options.icon}`,
-							{ 'disabled': options.disabled }
+							{ 'disabled': options.disabled },
+							{ 'destructive': options.destructive }
 						)}
+						title={options.label}
+					/>
+					: options.iconSrc &&
+					<img
+						alt=''
+						className={positronClassNames(
+							'icon',
+							'icon-image',
+							{ 'disabled': options.disabled },
+							{ 'destructive': options.destructive }
+						)}
+						src={options.iconSrc}
 						title={options.label}
 					/>
 				}
@@ -434,8 +459,8 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 				onMouseLeave={cancelHoverTimer}
 				onPressed={openSubmenu}
 			>
-				{options.icon &&
-					<div
+				{options.icon
+					? <div
 						aria-hidden='true'
 						className={positronClassNames(
 							'icon',
@@ -443,6 +468,17 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 							`codicon-${options.icon}`,
 							{ 'disabled': options.disabled }
 						)}
+					/>
+					: options.iconSrc &&
+					<img
+						alt=''
+						aria-hidden='true'
+						className={positronClassNames(
+							'icon',
+							'icon-image',
+							{ 'disabled': options.disabled }
+						)}
+						src={options.iconSrc}
 					/>
 				}
 
@@ -502,7 +538,7 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 					if (entry instanceof CustomContextMenuItem) {
 						return <MenuItem key={index} {...entry.options} />;
 					} else if (entry instanceof CustomContextMenuSeparator) {
-						return <MenuSeparator key={index} />;
+						return <MenuSeparator key={index} title={entry.title} />;
 					} else if (entry instanceof CustomContextMenuSubmenu) {
 						return <MenuSubmenuItem key={index} {...entry.options} />;
 					} else {

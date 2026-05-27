@@ -39,7 +39,7 @@ jobs:
       save_cache: true
       grep: ""
       project: "e2e-windows"
-      display_name: "windows"
+      display_name: "electron-win"
       allow_soft_fail: true
       upload_logs: false
       shards: 3

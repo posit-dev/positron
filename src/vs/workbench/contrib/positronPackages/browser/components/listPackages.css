@@ -45,12 +45,58 @@
 
 .packages-list-item {
 	height: 100%;
-	padding-left: 8px;
-	padding-right: 8px;
+	padding-left: 12px;
+	padding-right: 12px;
+	box-sizing: border-box;
 	display: flex;
-	align-items: center;
 	cursor: pointer;
 	overflow: hidden;
+}
+
+.packages-list-item.item-size-row {
+	align-items: center;
+}
+
+.packages-list-item.item-size-card {
+	align-items: flex-start;
+	/* Align with the search input's outer-left edge (filter-container 8px + input border 1px), plus the 0.5px nudge from .packages-list-container. */
+	padding-left: 10px;
+	padding-right: 11px;
+	padding-top: 6px;
+	padding-bottom: 6px;
+}
+
+.packages-list-item-content {
+	flex: 1 1 auto;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+.packages-list-item.item-size-row .packages-list-item-content {
+	flex-direction: row;
+	align-items: baseline;
+	overflow: hidden;
+}
+
+.packages-list-item-header {
+	display: flex;
+	flex-direction: row;
+	align-items: baseline;
+	overflow: hidden;
+	min-width: 0;
+}
+
+.packages-list-item.item-size-row .packages-list-item-header {
+	flex: 1 1 auto;
+}
+
+/*
+ * In card mode, drop the dot ~4px below the top edge so it reads as belonging
+ * to the whole card (title + description), not the title alone.
+ */
+.packages-list-item.item-size-card .packages-list-item-attached {
+	margin-top: 4px;
 }
 
 /*
@@ -84,8 +130,15 @@
 }
 
 .packages-list-item-name {
-	flex: 0 0 auto;
+	flex: 0 1 auto;
+	min-width: 0;
 	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.packages-list-item.item-size-card .packages-list-item-name {
+	font-weight: bold;
 }
 
 .packages-list-item-version {
@@ -105,6 +158,72 @@
 	color: var(--vscode-notificationsInfoIcon-foreground);
 	font-size: 0.9em;
 }
+
+.packages-list-item-description-row {
+	display: flex;
+	flex-direction: row;
+	align-items: flex-start;
+	min-width: 0;
+	overflow: hidden;
+	gap: 0.5em;
+}
+
+.packages-list-item-description {
+	flex: 1 1 auto;
+	color: var(--vscode-descriptionForeground);
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+	min-width: 0;
+}
+
+.packages-list-item-update-button.positron-button {
+	flex: 0 0 auto;
+	padding: 1px 8px;
+	font-size: 90%;
+	line-height: 1.4;
+	border: 1px solid var(--vscode-button-border, transparent);
+	border-radius: 3px;
+	background-color: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+}
+
+.packages-list-item-update-button.positron-button:hover:not(.disabled) {
+	background-color: var(--vscode-button-hoverBackground);
+}
+
+.packages-list-item .packages-list-item-help {
+	flex: 0 0 auto;
+	margin-left: auto;
+	box-sizing: border-box;
+	width: 27px;
+	height: 17px;
+	padding: 0;
+	background: transparent;
+	border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border));
+	border-radius: 3px;
+	color: inherit;
+	opacity: 0.7;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.packages-list-item .packages-list-item-help .codicon {
+	font-size: 13px;
+}
+
+.packages-list-item:hover .packages-list-item-help {
+	opacity: 0.85;
+}
+
+.packages-list-item .packages-list-item-help:hover {
+	background: var(--vscode-toolbar-hoverBackground);
+	opacity: 1;
+}
+
 
 .positron-packages-list .positron-list-empty {
 	padding: 5px 8px;

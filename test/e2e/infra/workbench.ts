@@ -52,6 +52,7 @@ import { InlineDataExplorer } from '../pages/inlineDataExplorer.js';
 import { InlineQuarto } from '../pages/inlineQuarto.js';
 import { Publisher } from '../pages/publisher.js';
 import { Packages } from '../pages/packages.js';
+import { SuggestWidget } from '../pages/suggestWidget.js';
 
 export interface Commands {
 	runCommand(command: string, options?: { exactLabelMatch?: boolean }): Promise<any>;
@@ -106,6 +107,7 @@ export class Workbench {
 	readonly inlineQuarto: InlineQuarto;
 	readonly publisher: Publisher;
 	readonly packages: Packages;
+	readonly suggestWidget: SuggestWidget;
 
 	constructor(code: Code) {
 		this.hotKeys = new HotKeys(code);
@@ -154,7 +156,8 @@ export class Workbench {
 		this.inlineDataExplorer = new InlineDataExplorer(code.driver.currentPage);
 		this.inlineQuarto = new InlineQuarto(code, this.quickaccess, this.hotKeys);
 		this.publisher = new Publisher(this.quickInput);
-		this.packages = new Packages(code, this.contextMenu, this.quickInput, this.toasts);
+		this.packages = new Packages(code, this.contextMenu, this.quickInput, this.toasts, this.help);
+		this.suggestWidget = new SuggestWidget(code);
 	}
 }
 

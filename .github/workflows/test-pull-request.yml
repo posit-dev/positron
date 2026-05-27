@@ -65,7 +65,7 @@ jobs:
     with:
       save_cache: true
       grep: ${{ needs.pr-tags.outputs.tags }}
-      display_name: "windows"
+      display_name: "electron-win"
       upload_logs: false
       allow_soft_fail: false
     secrets: inherit
@@ -286,7 +286,7 @@ jobs:
     uses: ./.github/workflows/test-unit.yml
     secrets: inherit
     with:
-      save_cache: true  # Only this job saves cache to avoid race conditions
+      save_cache: false  # PRs restore from main only; test-merge.yml saves
 
   ext-host-tests:
     name: test

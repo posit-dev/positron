@@ -70,7 +70,7 @@ export const DataConnectionsPanel = ({ active }: DataConnectionsPanelProps) => {
 		// Disposable store to hold our listeners so we can clean them up on unmount.
 		const disposableStore = new DisposableStore();
 
-		// Subscribe to future changes.
+		// Subscribe to future changes in instances and profiles.
 		disposableStore.add(positronDataConnectionsService.onDidChangeInstances(updatedInstances => {
 			setInstances(updatedInstances);
 		}));
@@ -86,8 +86,6 @@ export const DataConnectionsPanel = ({ active }: DataConnectionsPanelProps) => {
 		// Clean up listeners on unmount.
 		return () => disposableStore.dispose();
 	}, [positronDataConnectionsService]);
-
-
 
 	// PositronListInstance. Items are a discriminated union: 'instance' rows wrap a live
 	// IDataConnectionInstance, 'profile' rows wrap a persisted IDataConnectionProfile. The
@@ -209,7 +207,11 @@ export const DataConnectionsPanel = ({ active }: DataConnectionsPanelProps) => {
 			</PositronActionBarContextProvider>
 			<div className='data-connection-profiles-list'>
 				<PositronList<IDataConnectionListItem, IDataConnectionSection>
-					emptyListRenderer={() => localize('positronDataConnections.noConnections', "No data connections.")}
+					emptyListRenderer={() =>
+						<div className='no-data-connections'>
+							{localize('positronDataConnections.noConnections', "No data connections.")}
+						</div>
+					}
 					id='data-connection-profiles-list'
 					instance={listInstance}
 				/>
