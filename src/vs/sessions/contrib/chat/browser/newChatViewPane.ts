@@ -185,24 +185,19 @@ class NewChatWidget extends Disposable {
 		return this._workspacePicker.selectedProject?.workspace.repositories[0]?.uri;
 	}
 
-	// --- Start Positron ---
-	// FIXME(merge-1.118.0): Upstream's auto-merge of newChatViewPane.ts dropped the
-	// supporting fields/state on `NewChatWidget` (e.g. `_localModelPickerContainer`,
-	// `_cloudModelPicker`, `_toolbarPickersContainer`, `_loadingSpinner`, `_sendButton`,
-	// `_altKeyDown`, `_modelPickerDisposable`, `_pickersContainer`, `_repoPickerContainer`,
-	// `_folderPickerContainer`, `_targetPicker`, `_history`, etc.) that the methods
-	// below relied on. Stubbed out here so the file compiles; the previous behavior
-	// (workspace picker, model picker, toolbar pickers, send button) needs to be
-	// re-ported on top of the new upstream widget structure. See upstream-merge-report.md.
 	private _renderWorkspacePicker(container: HTMLElement): IDisposable {
 		const pickersRow = dom.append(container, dom.$('.session-workspace-picker'));
 		const pickersLabel = dom.append(pickersRow, dom.$('.session-workspace-picker-label'));
 		pickersLabel.textContent = this._workspacePicker.selectedProject
 			? localize('newSessionIn', "New session in")
 			: localize('newSessionChooseWorkspace', "Start by picking a");
-		return Disposable.None;
+
+		this._workspacePicker.render(pickersRow);
+		return this._workspacePicker.onDidSelectWorkspace(() => {
+			const workspace = this._workspacePicker.selectedProject;
+			pickersLabel.textContent = workspace ? localize('newSessionIn', "New session in") : localize('newSessionChooseWorkspace', "Start by picking a");
+		});
 	}
-	// --- End Positron ---
 
 	// --- Send ---
 
