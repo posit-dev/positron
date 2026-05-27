@@ -26,8 +26,10 @@ export class NotebookDebugAdapterFactory extends Disposable implements vscode.De
 		// NOTE: Errors thrown here are displayed to the user in a modal.
 
 		const notebookUri = vscode.Uri.parse(debugSession.configuration.__notebookUri, true);
+
+		// Clear any stale tracking from a previously terminated session.
 		if (this._debuggedNotebookUris.has(notebookUri)) {
-			throw new Error(vscode.l10n.t('Unexpected error: Notebook {0} is already being debugged', notebookUri.toString()));
+			await this._debuggedNotebookUris.delete(notebookUri);
 		}
 
 		const notebook = vscode.workspace.notebookDocuments.find((doc) => isUriEqual(doc.uri, notebookUri));

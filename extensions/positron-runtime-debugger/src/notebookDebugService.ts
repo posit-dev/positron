@@ -61,17 +61,49 @@ async function debugCell(cell: vscode.NotebookCell | PositronContext | undefined
 		}
 	}
 
+	// If already debugging this notebook, execute the cell under the active session.
+	const notebookUriStr = cell.notebook.uri.toString();
+	if (hasActiveDebugSessionForNotebook(notebookUriStr)) {
+		await vscode.commands.executeCommand('notebook.cell.execute', {
+			ranges: [{ start: getCellIndex(cell), end: getCellIndex(cell) + 1 }],
+			document: cell.notebook.uri,
+		});
+		return;
+	}
+
 	// Start a debug session for the cell.
-	// This will, in turn, create a debug adapter for the notebook using the factory defined above.
 	await vscode.debug.startDebugging(undefined, {
 		type: 'notebook',
 		name: path.basename(cell.notebook.uri.fsPath),
 		request: 'attach',
-		// TODO: Get from config.
 		justMyCode: true,
-		__notebookUri: cell.notebook.uri.toString(),
+		__notebookUri: notebookUriStr,
 		__cellUri: cell.document.uri.toString(),
 	});
+}
+
+/** Check if a debug session is active for the given notebook URI. */
+function hasActiveDebugSessionForNotebook(notebookUriStr: string): boolean {
+	return vscode.debug.activeDebugSession?.configuration?.__notebookUri === notebookUriStr;
+}
+
+/** Get the cell index, handling both NotebookCell and PositronContext. */
+function getCellIndex(cell: vscode.NotebookCell | PositronContext): number {
+	if ('index' in cell) {
+		return cell.index;
+	}
+	const notebook = vscode.workspace.notebookDocuments.find(
+		(doc) => doc.uri.toString() === cell.notebook.uri.toString()
+	);
+	if (notebook) {
+		const idx = notebook.getCells().findIndex(
+			(c) => c.document.uri.toString() === cell.document.uri.toString()
+		);
+		if (idx >= 0) {
+			return idx;
+		}
+	}
+	return 0;
 }
 
 /** Get the active notebook cell, if one exists. */
