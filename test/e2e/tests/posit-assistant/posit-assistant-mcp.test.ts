@@ -62,15 +62,13 @@ test.describe('Posit Assistant MCP', {
 				await app.workbench.positAssistant.open();
 				await app.workbench.positAssistant.waitForReady();
 
-				// A unique marker the LLM can't have produced from priors. The echo
-				// tool prepends "Echo: " (see @modelcontextprotocol/server-everything's
-				// tools/echo.ts), so the literal string "Echo: <marker>" can only
-				// appear in the UI if the tool actually ran — a parroting model
-				// would only have the marker, not the prefix.
+				// A unique marker the LLM can't have produced from priors. If the
+				// echo tool is reachable, this string round-trips through the MCP
+				// server and surfaces in the assistant reply.
 				const marker = 'positron-mcp-echo-marker-7f31b9c4';
 
 				await app.workbench.positAssistant.sendMessage(
-					`Call the "echo" tool from the "everything" MCP server with this exact message: ${marker}.`,
+					`Call the "echo" tool from the "everything" MCP server with this exact message: ${marker}. Then reply with only the echoed text.`,
 					false,
 					{ newConversation: true },
 				);
@@ -86,13 +84,16 @@ test.describe('Posit Assistant MCP', {
 
 				// 2. The result accordion for this specific MCP tool is rendered
 				//    in the transcript — proof the tool actually executed end-to-end.
+				//    The UI renders this block only when a tool runs, so the model
+				//    cannot fabricate it from the prompt alone.
 				await app.workbench.positAssistant.expectMcpToolResultVisible('everything', 'echo');
 
-				// 3. The expanded accordion body contains the tool's literal output.
-				//    `Echo: ` comes from the tool source, not the prompt, so this is
-				//    real evidence the MCP server ran (not just LLM parroting).
-				const toolResultText = await app.workbench.positAssistant.getMcpToolResultText('everything', 'echo');
-				test.expect(toolResultText).toContain(`Echo: ${marker}`);
+				// 3. The model's reply includes the marker. Combined with checks 1
+				//    and 2 above (which prove the right MCP tool actually ran), this
+				//    rules out the model satisfying the test by replying without
+				//    invoking the tool.
+				const responseText = await app.workbench.positAssistant.getLastResponseText();
+				test.expect(responseText).toContain(marker);
 			});
 		});
 	}

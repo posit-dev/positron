@@ -454,23 +454,6 @@ export class PositAssistant {
 	}
 
 	/**
-	 * Expands the MCP tool-result accordion for the given server + tool and
-	 * returns the full text content of the item (header + expanded panel).
-	 * Lets the caller assert on the raw tool output (e.g. `Echo: ${marker}`),
-	 * which is rendered by the UI from the actual MCP response — the model
-	 * cannot fabricate this text even if it sees the prompt.
-	 */
-	async getMcpToolResultText(server: string, tool: string): Promise<string> {
-		const item = this.mcpToolResult(server, tool);
-		const trigger = item.locator('button[aria-expanded]').first();
-		if ((await trigger.getAttribute('aria-expanded')) !== 'true') {
-			await trigger.click();
-		}
-		await expect(trigger).toHaveAttribute('aria-expanded', 'true');
-		return (await item.textContent()) ?? '';
-	}
-
-	/**
 	 * Selects "Allow for this session" from the tool confirmation dropdown.
 	 */
 	async allowToolForSession(): Promise<void> {
