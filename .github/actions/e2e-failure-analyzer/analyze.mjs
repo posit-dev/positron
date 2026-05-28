@@ -14,7 +14,7 @@ import { readFileSync, existsSync, appendFileSync, writeFileSync, readdirSync, s
 import { join } from 'node:path';
 
 const WORK_DIR = mustEnv('WORK_DIR');
-const MODEL = process.env.MODEL || 'claude-opus-4-7';
+const MODEL = process.env.MODEL || 'opus';
 const STEP_SUMMARY = process.env.GITHUB_STEP_SUMMARY;
 const MAX_TURNS = parsePosIntEnv('MAX_TURNS', 40);
 // Repo workspace (sparse-checkout root). Optional: when present, the agent

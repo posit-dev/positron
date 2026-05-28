@@ -12,9 +12,9 @@ inputs:
     required: false
     default: ""
   model:
-    description: "Anthropic model identifier"
+    description: "Anthropic model identifier (a tier alias like 'opus' always resolves to the latest)"
     required: false
-    default: "claude-opus-4-7"
+    default: "opus"
   max-turns:
     description: "Maximum agent turns (cost guard)"
     required: false

@@ -16,7 +16,7 @@ import { join } from 'node:path';
 const WORK_DIR = mustEnv('WORK_DIR');
 const REPO_ROOT = mustEnv('REPO_ROOT');
 const SKILL_PATH = mustEnv('SKILL_PATH');
-const MODEL = process.env.MODEL || 'claude-sonnet-4-6';
+const MODEL = process.env.MODEL || 'opus';
 const MAX_TURNS = parsePosIntEnv('MAX_TURNS', 25);
 const PROMPT_WARN_CHARS = parsePosIntEnv('PROMPT_WARN_CHARS', 400_000);
 // Same musl-resolver workaround as e2e-failure-analyzer.
