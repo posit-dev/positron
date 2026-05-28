@@ -47,9 +47,10 @@ export class VisualizeDataFrameAction extends Action2 {
 			menu: {
 				id: MenuId.PositronNotebookInlineDataExplorerHeader,
 				// `positronNotebookCellIsCode` is bound only on the cell-scoped
-				// context key service (see useCellContextKeys). Quarto inline data
-				// explorers render with the global service, so this gate hides the
-				// button there -- visualize today only inserts into notebook cells.
+				// context key service (see PositronNotebookCell.attachContainer).
+				// Quarto inline data explorers render with the global service, so
+				// this gate hides the button there -- visualize today only inserts
+				// into notebook cells.
 				when: ContextKeyExpr.and(
 					ContextKeyExpr.has('positronNotebook.experimental'),
 					ContextKeyExpr.has('positronNotebookCellIsCode'),

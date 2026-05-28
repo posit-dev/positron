@@ -113,7 +113,7 @@ function hashContent(content: string): string {
 	return hash.digest('hex');
 }
 
-export function computeState(): PostinstallState {
+export function computeState(options?: { ignoreNodeVersion?: boolean }): PostinstallState {
 	const fileHashes: Record<string, string> = {};
 	for (const filePath of collectInputFiles()) {
 		const key = path.relative(root, filePath);
@@ -129,7 +129,7 @@ export function computeState(): PostinstallState {
 		fileHashes[arkVirtualKey] = arkSha;
 	}
 	// --- End Positron ---
-	return { nodeVersion: process.versions.node, fileHashes };
+	return { nodeVersion: options?.ignoreNodeVersion ? '' : process.versions.node, fileHashes };
 }
 
 export function computeContents(): Record<string, string> {
@@ -179,18 +179,23 @@ export function readSavedContents(): Record<string, string> | undefined {
 
 // When run directly, output state as JSON for tooling (e.g. the vscode-extras extension).
 if (import.meta.filename === process.argv[1]) {
-	if (process.argv[2] === '--normalize-file') {
-		const filePath = process.argv[3];
+	const args = new Set(process.argv.slice(2));
+
+	if (args.has('--normalize-file')) {
+		const filePath = process.argv[process.argv.indexOf('--normalize-file') + 1];
 		if (!filePath) {
 			process.exit(1);
 		}
 		process.stdout.write(normalizeFileContent(filePath));
 	} else {
+		const ignoreNodeVersion = args.has('--ignore-node-version');
+		const current = computeState({ ignoreNodeVersion });
+		const saved = readSavedState();
 		console.log(JSON.stringify({
 			root,
 			stateContentsFile,
-			current: computeState(),
-			saved: readSavedState(),
+			current,
+			saved: saved && ignoreNodeVersion ? { nodeVersion: '', fileHashes: saved.fileHashes } : saved,
 			files: [...collectInputFiles(), stateFile],
 		}));
 	}

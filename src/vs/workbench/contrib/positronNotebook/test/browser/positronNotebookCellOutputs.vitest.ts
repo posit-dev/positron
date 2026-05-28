@@ -8,7 +8,7 @@
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { CellEditType, CellKind } from '../../../notebook/common/notebookCommon.js';
-import { POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED } from '../../browser/ContextKeysManager.js';
+import { CellContextKeys } from '../../common/cellContextKeys.js';
 import { createTestPositronNotebookInstance, TestCellInput } from './testPositronNotebookInstance.js';
 
 function pngOutputItem() {
@@ -162,23 +162,23 @@ describe('Positron Notebook Cell Outputs', () => {
 
 			// Defaults to false
 			expect(
-				cellContextKeyService.getContextKeyValue(POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.key),
+				cellContextKeyService.getContextKeyValue(CellContextKeys.outputImageTargeted.key),
 				'outputImageTargeted should not be set by default'
 			).toBe(undefined);
 
 			// Can be bound and set to true (as the context menu handler does)
-			const outputImageTargeted = POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.bindTo(cellContextKeyService);
+			const outputImageTargeted = CellContextKeys.outputImageTargeted.bindTo(cellContextKeyService);
 			outputImageTargeted.set(true);
 
 			expect(
-				cellContextKeyService.getContextKeyValue(POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.key),
+				cellContextKeyService.getContextKeyValue(CellContextKeys.outputImageTargeted.key),
 				'outputImageTargeted should be true after being set'
 			).toBe(true);
 
 			// Can be set back to false
 			outputImageTargeted.set(false);
 			expect(
-				cellContextKeyService.getContextKeyValue(POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.key),
+				cellContextKeyService.getContextKeyValue(CellContextKeys.outputImageTargeted.key),
 				'outputImageTargeted should be false after being cleared'
 			).toBe(false);
 		});

@@ -1235,6 +1235,15 @@ declare module 'positron' {
 		 */
 		attached?: boolean;
 
+		/**
+		 * Whether the installed version is strictly older than the latest
+		 * available version. Computed by the language runtime using its own
+		 * native version semantics (`numeric_version` for R, PEP 440 for
+		 * Python) and surfaced as a precomputed boolean so the frontend
+		 * never re-implements version comparison.
+		 */
+		outdated?: boolean;
+
 		/** Optional short description or summary shown in the Packages pane card view. */
 		description?: string;
 	}

@@ -58,9 +58,38 @@ env:
   NODE_VERSION: "22.x"
 
 jobs:
+  authorize:
+    name: Check Authorization
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if actor has write access
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "Checking if ${{ github.actor }} has write access to ${{ github.repository }}..."
+
+          # Get user's permission level for this repository
+          permission=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            /repos/${{ github.repository }}/collaborators/${{ github.actor }}/permission \
+            --jq '.permission')
+
+          echo "Permission level: $permission"
+
+          # Allow write, maintain, or admin
+          if [[ "$permission" == "write" ]] || [[ "$permission" == "maintain" ]] || [[ "$permission" == "admin" ]]; then
+            echo "✓ ${{ github.actor }} has sufficient permissions"
+          else
+            echo "✗ ${{ github.actor }} does not have write access"
+            echo "This workflow requires write access to the repository."
+            exit 1
+          fi
+
   generate-sbom:
     name: Generate SBOM
     runs-on: ubuntu-22.04
+    needs: authorize
     outputs:
       pr-url: ${{ steps.set-pr-url.outputs.url }}
       pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
@@ -77,40 +106,26 @@ jobs:
           path: ${{ github.workspace }}/positron
           submodules: recursive
 
-      - name: Skip SBOM generation in dry-run mode
-        if: ${{ inputs.dry-run }}
-        run: |
-          echo "[DRY-RUN] Skipping SBOM generation"
-          echo "Version: ${{ env.PRODUCT_VERSION }}"
-          echo ""
-          echo "In dry-run mode, the SBOM build and generation steps are skipped."
-          echo "The workflow will complete successfully without creating a PR."
-
       - name: Set up Node.js
-        if: ${{ !inputs.dry-run }}
         uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install Rust and cargo tools
-        if: ${{ !inputs.dry-run }}
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
           source $HOME/.cargo/env
           cargo install cargo-cyclonedx --force --locked
 
       - name: Set Rust PATH
-        if: ${{ !inputs.dry-run }}
         run: |
           echo "PATH=$HOME/.cargo/bin:$PATH" >> $GITHUB_ENV
 
       - name: Install Snyk CLI
-        if: ${{ !inputs.dry-run }}
         run: |
           npm install -g snyk@1.1301.2
 
       - name: Install system dependencies
-        if: ${{ !inputs.dry-run }}
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -125,25 +140,106 @@ jobs:
             zlib1g-dev
 
       - name: Clone Kallichore source for scanning
-        if: ${{ !inputs.dry-run }}
         run: |
           # Read Kallichore version from package.json
           KALLICHORE_VERSION=$(jq -r '.positron.binaryDependencies.kallichore' \
             extensions/positron-supervisor/package.json)
 
-          echo "Cloning Kallichore v${KALLICHORE_VERSION}..."
+          echo "Cloning Kallichore ${KALLICHORE_VERSION}..."
 
-          # Clone the specific version
-          git clone --depth 1 --branch "v${KALLICHORE_VERSION}" \
+          # Clone the specific version (Kallichore uses tags without 'v' prefix)
+          git clone --depth 1 --branch "${KALLICHORE_VERSION}" \
             https://github.com/posit-dev/kallichore.git \
             .sbom-tmp/kallichore
 
           echo "[OK] Cloned Kallichore source"
 
+      - name: Clone bootstrap extensions for scanning
+        run: |
+          echo "Cloning bootstrap extensions from product.json..."
+          mkdir -p .sbom-tmp/bootstrap-extensions
+
+          # Extract name and repo for each extension that has a repo
+          jq -r '.bootstrapExtensions[] | select(.repo) | "\(.name)|\(.repo)"' product.json | \
+          while IFS='|' read -r name repo; do
+            echo "  Cloning ${name}..."
+
+            # Handle repos that point to subdirectories (e.g., /tree/main/path)
+            if [[ "$repo" == *"/tree/"* ]]; then
+              # Extract base repo URL and subdirectory
+              base_repo=$(echo "$repo" | sed 's|/tree/[^/]*/.*||')
+              subdir=$(echo "$repo" | sed 's|.*/tree/[^/]*/||')
+
+              echo "    Detected subdirectory: ${subdir}"
+              # Clone full repo and keep it (needed for workspace dependencies)
+              if git clone --depth 1 "$base_repo" ".sbom-tmp/bootstrap-extensions/${name}" 2>/dev/null; then
+                if [ -d ".sbom-tmp/bootstrap-extensions/${name}/${subdir}" ]; then
+                  # Create a marker file so we know this is a subdirectory repo
+                  echo "${subdir}" > ".sbom-tmp/bootstrap-extensions/${name}/.sbom-subdir"
+                  echo "    [OK] Cloned ${name} (full repo with subdirectory ${subdir})"
+                else
+                  echo "    [WARN] Subdirectory ${subdir} not found in ${name}, skipping"
+                  rm -rf ".sbom-tmp/bootstrap-extensions/${name}"
+                fi
+              else
+                echo "    [WARN] Failed to clone ${name}, skipping"
+              fi
+            else
+              # Regular clone
+              if git clone --depth 1 "$repo" ".sbom-tmp/bootstrap-extensions/${name}" 2>/dev/null; then
+                echo "    [OK] Cloned ${name}"
+              else
+                echo "    [WARN] Failed to clone ${name}, skipping"
+              fi
+            fi
+          done
+
+          echo "[OK] Finished cloning bootstrap extensions"
+
+      - name: Install npm dependencies for bootstrap extensions
+        run: |
+          echo "Installing npm dependencies for bootstrap extensions that need them..."
+
+          for ext_dir in .sbom-tmp/bootstrap-extensions/*/; do
+            ext_name=$(basename "$ext_dir")
+
+            # Check if this is a subdirectory repo (has .sbom-subdir marker)
+            if [ -f "${ext_dir}.sbom-subdir" ]; then
+              # For subdirectory repos, install at root (with legacy peer deps for monorepo conflicts)
+              echo "  Installing dependencies for ${ext_name} (workspace root)..."
+              if [ -f "${ext_dir}package.json" ]; then
+                if (cd "$ext_dir" && npm install --omit=dev --legacy-peer-deps --ignore-scripts --no-audit --no-fund 2>&1 | head -30); then
+                  echo "    [OK] Installed dependencies at root for ${ext_name}"
+                else
+                  echo "    [WARN] npm install failed at root for ${ext_name}"
+                fi
+              fi
+              continue
+            fi
+
+            # Regular extension handling
+            if [ -f "${ext_dir}package.json" ]; then
+              # Skip Rust projects (they have Cargo.toml and package.json is just metadata)
+              if [ -f "${ext_dir}Cargo.toml" ]; then
+                echo "  Skipping ${ext_name} (Rust project)"
+                continue
+              fi
+
+              echo "  Installing dependencies for ${ext_name}..."
+              if (cd "$ext_dir" && npm install --omit=dev --ignore-scripts --no-audit --no-fund 2>&1 | head -20); then
+                echo "    [OK] Installed dependencies for ${ext_name}"
+              else
+                echo "    [WARN] npm install failed for ${ext_name}, will attempt SBOM generation anyway"
+              fi
+            fi
+          done
+
+          echo "[OK] Finished installing dependencies"
+
       - name: Generate SBOM
-        if: ${{ !inputs.dry-run }}
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          PRODUCT_VERSION: ${{ env.PRODUCT_VERSION }}
         run: |
           cd scripts/sbom
 
@@ -168,7 +264,6 @@ jobs:
           npm run generate
 
       - name: Verify SBOM was generated
-        if: ${{ !inputs.dry-run }}
         run: |
           if [ ! -f scripts/sbom/SBOM.json ]; then
             echo "ERROR: SBOM.json was not generated!"
@@ -189,21 +284,21 @@ jobs:
           echo "Short version for filename: ${SHORT_VERSION}"
 
       - name: Upload SBOM as artifact
-        if: ${{ !inputs.dry-run }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Positron__v${{ steps.version.outputs.short_version }}.sbom
           path: ${{ github.workspace }}/positron/scripts/sbom/SBOM.json
           retention-days: 10
 
-      - name: Workflow complete in dry-run mode
+      - name: Dry-run complete - SBOM generated but PR skipped
         if: ${{ inputs.dry-run }}
         run: |
-          echo "[OK] Dry-run mode: Workflow completed successfully"
+          echo "[DRY-RUN] Workflow completed successfully"
           echo "Version: ${{ env.PRODUCT_VERSION }}"
           echo "Short version: ${{ steps.version.outputs.short_version }}"
           echo ""
-          echo "SBOM generation and PR creation were skipped."
+          echo "SBOM was generated and uploaded as artifact."
+          echo "PR creation was skipped (dry-run mode)."
 
       - name: Generate GitHub App token
         if: ${{ !inputs.dry-run }}
@@ -241,7 +336,7 @@ jobs:
       - name: Create Pull Request
         id: create-pr
         if: ${{ !inputs.dry-run }}
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ steps.app-token.outputs.token }}
           path: ${{ github.workspace }}/posit-sboms

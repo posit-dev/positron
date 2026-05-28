@@ -16,6 +16,7 @@ import OpenAI from '../icons/openai.js';
 import PositAi from '../icons/positAi.js';
 import Snowflake from '../icons/snowflake.js';
 import MicrosoftFoundry from '../icons/microsoftFoundry.js';
+import VertexAI from '../icons/vertexai.js';
 
 interface LanguageModelButtonProps {
 	identifier: string;
@@ -55,6 +56,8 @@ export const LanguageModelIcon = (props: { provider: string }) => {
 				return <Claude className='language-model icon' />;
 			case 'google':
 				return <Gemini className='language-model icon' />;
+			case 'google-cloud':
+				return <VertexAI className='language-model icon' />;
 			case 'copilot':
 			case 'copilot-auth':
 				return <GithubCopilot className='language-model icon' />;

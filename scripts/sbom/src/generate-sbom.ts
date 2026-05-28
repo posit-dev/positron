@@ -16,6 +16,7 @@ import {
 } from './utils';
 import { generateNpmSbom, generateRustSbom } from './generators';
 import { getBinaryDependencyProjects } from './binary-dependencies';
+import { getBootstrapExtensions } from './bootstrap-extensions';
 
 async function main() {
 	console.log('=== Positron SBOM Generator ===\n');
@@ -48,12 +49,20 @@ async function main() {
 
 	// Add binary dependencies that should be scanned from source
 	const binaryProjects = getBinaryDependencyProjects();
-	const allProjects = [...PROJECTS, ...binaryProjects];
+
+	// Add bootstrap extensions from product.json
+	const bootstrapProjects = getBootstrapExtensions();
+
+	const allProjects = [...PROJECTS, ...binaryProjects, ...bootstrapProjects];
 
 	console.log(`Generating SBOMs for ${allProjects.length} projects...\n`);
 	if (binaryProjects.length > 0) {
-		console.log(`  (includes ${binaryProjects.length} binary dependencies scanned from source)\n`);
+		console.log(`  (includes ${binaryProjects.length} binary dependencies scanned from source)`);
 	}
+	if (bootstrapProjects.length > 0) {
+		console.log(`  (includes ${bootstrapProjects.length} bootstrap extensions from product.json)`);
+	}
+	console.log('');
 
 	const projectBoms: BOM[] = await Promise.all(
 		allProjects.map((project) => {

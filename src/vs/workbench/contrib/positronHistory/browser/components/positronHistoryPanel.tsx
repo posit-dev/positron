@@ -44,7 +44,7 @@ const positronHistoryToConsoleTooltip = localize('positronHistoryToConsoleToolti
 const positronHistoryToSource = localize('positronHistoryToSource', "To Source");
 const positronHistoryToSourceTooltip = localize('positronHistoryToSourceTooltip', "Insert the selected code at the cursor position in the source editor");
 const positronHistoryCopyTooltip = localize('positronHistoryCopyTooltip', "Copy the selected code to the clipboard");
-const positronHistoryDeleteTooltip = localize('positronHistoryDeleteTooltip', "Delete the selected history entry");
+const positronHistoryDeleteTooltip = localize('positronHistoryDeleteTooltip', "Remove the selected history entry");
 const positronHistorySearch = localize('positronHistorySearch', "Search");
 const positronHistoryClearSearch = localize('positronHistoryClearSearch', "Clear Search");
 const positronHistoryNoMatches = (searchText: string) => localize('positronHistoryNoMatches', "No history entries matching '{0}' were found.", searchText);
@@ -1458,7 +1458,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 						<ActionBarButton
 							ariaLabel={positronHistoryDeleteTooltip}
 							disabled={selectedIndices.size === 0}
-							icon={Codicon.trash}
+							icon={Codicon.close}
 							tooltip={positronHistoryDeleteTooltip}
 							onPressed={handleDelete}
 						/>
@@ -1480,7 +1480,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 							<ActionBarSeparator />
 							<ActionBarButton
 								ariaLabel={positronHistoryClearAllTooltip}
-								icon={Codicon.clearAll}
+								icon={Codicon.trash}
 								tooltip={positronHistoryClearAllTooltip}
 								onPressed={handleClearAll}
 							/>

@@ -321,9 +321,15 @@ function extensionDescriptionArrayToMap(extensions: IExtensionDescription[]): Ex
 }
 
 export function isProposedApiEnabled(extension: IExtensionDescription, proposal: ApiProposalName): boolean {
-	// --- Start PWB: Always allow proposed API
+	// --- Start PWB: Always allow proposed API ---
+	/*
+	if (!extension.enabledApiProposals) {
+		return false;
+	}
+	return true;// extension.enabledApiProposals.includes(proposal);
+   	*/
 	return true;
-	// --- End PWB
+	// --- End PWB ---
 }
 
 export function checkProposedApiEnabled(extension: IExtensionDescription, proposal: ApiProposalName): void {

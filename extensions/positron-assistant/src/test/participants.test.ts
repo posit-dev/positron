@@ -66,6 +66,8 @@ class TestChatResponseStream implements vscode.ChatResponseStream {
 	}
 	warning(message: string | vscode.MarkdownString): void {
 	}
+	info(message: string | vscode.MarkdownString): void {
+	}
 	reference(value: unknown, iconPath?: unknown): void {
 	}
 	reference2(value: vscode.Uri | vscode.Location | string | { variableName: string; value?: vscode.Uri | vscode.Location }, iconPath?: vscode.Uri | vscode.ThemeIcon | { light: vscode.Uri; dark: vscode.Uri }, options?: { status?: { description: string; kind: vscode.ChatResponseReferencePartStatusKind } }): void {

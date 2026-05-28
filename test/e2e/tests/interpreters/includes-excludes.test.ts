@@ -96,7 +96,7 @@ test.describe('Interpreter: Override', {
 		await app.workbench.hotKeys.reloadWindow(true);
 	});
 
-	test('R - Can Override Interpreter Discovery', { tag: [tags.ARK] }, async function ({ sessions }) {
+	test.skip('R - Can Override Interpreter Discovery', { tag: [tags.ARK], annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/13831' }] }, async function ({ sessions }) {
 		await expectSessionStartToFail(sessions, 'r', overrideRPath);
 	});
 

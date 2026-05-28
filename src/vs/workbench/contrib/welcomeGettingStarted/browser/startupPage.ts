@@ -31,6 +31,9 @@ import { IContextKeyService } from '../../../../platform/contextkey/common/conte
 import { AuxiliaryBarMaximizedContext } from '../../../common/contextkeys.js';
 import { mainWindow } from '../../../../base/browser/window.js';
 import { getActiveElement } from '../../../../base/browser/dom.js';
+import { isWeb } from '../../../../base/common/platform.js';
+import { IOnboardingService } from '../../welcomeOnboarding/common/onboardingService.js';
+import { ONBOARDING_STORAGE_KEY } from '../../welcomeOnboarding/common/onboardingTypes.js';
 // --- Start Positron ---
 import { IPositronNewFolderService } from '../../../services/positronNewFolder/common/positronNewFolder.js';
 // --- End Positron ---
@@ -81,7 +84,6 @@ export class StartupPageEditorResolverContribution extends Disposable implements
 export class StartupPageRunnerContribution extends Disposable implements IWorkbenchContribution {
 
 	static readonly ID = 'workbench.contrib.startupPageRunner';
-
 	constructor(
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IEditorService private readonly editorService: IEditorService,
@@ -95,11 +97,14 @@ export class StartupPageRunnerContribution extends Disposable implements IWorkbe
 		@IStorageService private readonly storageService: IStorageService,
 		@INotificationService private readonly notificationService: INotificationService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
+		@IOnboardingService private readonly onboardingService: IOnboardingService,
 		// --- Start Positron ---
-		@IPositronNewFolderService private readonly positronNewFolderService: IPositronNewFolderService
+		@IPositronNewFolderService private readonly positronNewFolderService: IPositronNewFolderService,
 		// --- End Positron ---
 	) {
 		super();
+
+		this.tryShowOnboarding();
 		this.run().then(undefined, onUnexpectedError);
 		this._register(this.editorService.onDidCloseEditor((e) => {
 			if (e.editor instanceof GettingStartedInput) {
@@ -232,6 +237,36 @@ export class StartupPageRunnerContribution extends Disposable implements IWorkbe
 		}
 
 		return true; // do not steal focus
+	}
+
+	private tryShowOnboarding(): void {
+		if (this.environmentService.skipWelcome) {
+			return; // skip welcome flag is set
+		}
+
+		if (isWeb) {
+			return; // not supported on web (e.g. codespaces, github.dev)
+		}
+
+		if (!this.configurationService.getValue<boolean>('workbench.welcomePage.experimentalOnboarding')) {
+			return; // experimental onboarding is disabled
+		}
+
+		if (!this.storageService.isNew(StorageScope.APPLICATION)) {
+			return; // only show onboarding for new users who have never used the product before
+		}
+
+		if (this.storageService.getBoolean(ONBOARDING_STORAGE_KEY, StorageScope.APPLICATION)) {
+			return; // onboarding already completed
+		}
+
+		// Show the onboarding overlay on top of the welcome page
+		this.onboardingService.show();
+
+		// Mark onboarding as completed when dismissed
+		this._register(this.onboardingService.onDidDismiss(() => {
+			this.storageService.store(ONBOARDING_STORAGE_KEY, true, StorageScope.APPLICATION, StorageTarget.USER);
+		}));
 	}
 }
 

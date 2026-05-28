@@ -91,6 +91,7 @@ export const vscodeWebResourceIncludes = [
 
 	// Welcome
 	'out-build/vs/workbench/contrib/welcomeGettingStarted/common/media/**/*.{svg,png}',
+	'out-build/vs/workbench/contrib/welcomeOnboarding/browser/media/*.svg',
 
 	// Extensions
 	'out-build/vs/workbench/contrib/extensions/browser/media/{theme-icon.png,language-icon.svg}',
@@ -132,6 +133,7 @@ const vscodeWebEntryPoints = [
 	buildfile.workerBackgroundTokenization,
 	buildfile.keyboardMaps,
 	buildfile.workbenchWeb,
+	buildfile.sessionsWeb,
 ].flat();
 
 /**

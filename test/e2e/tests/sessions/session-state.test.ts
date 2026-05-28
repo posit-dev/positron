@@ -9,8 +9,9 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Sessions: State', {
-	tag: [tags.WIN, tags.WEB, tags.CONSOLE, tags.SESSIONS, tags.CRITICAL]
+test.describe.skip('Sessions: State', {
+	tag: [tags.WIN, tags.WEB, tags.CONSOLE, tags.SESSIONS, tags.CRITICAL],
+	annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/13831' }]
 }, () => {
 
 	test.beforeEach(async function ({ hotKeys, sessions }) {

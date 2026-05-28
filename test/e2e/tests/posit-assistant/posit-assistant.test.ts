@@ -29,10 +29,6 @@ test.describe('Posit Assistant', {
 				await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess);
 			});
 
-			test.afterAll(async function ({ app }) {
-				await app.workbench.assistant.logoutModelProvider(provider);
-			});
-
 			test(`${provider} - Open Posit Assistant and verify welcome page`, async function ({ app }) {
 				await app.workbench.positAssistant.open();
 				await app.workbench.positAssistant.waitForReady();
