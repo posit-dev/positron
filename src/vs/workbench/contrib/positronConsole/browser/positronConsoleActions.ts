@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -19,7 +19,8 @@ import { KeyChord, KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { ILocalizedString } from '../../../../platform/action/common/action.js';
 import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
-import { PositronConsoleFocused } from '../../../common/contextkeys.js';
+import { PositronConsoleFocused, PositronConsoleInputCursorBoundary } from '../../../common/contextkeys.js';
+import { Context as SuggestContext } from '../../../../editor/contrib/suggest/browser/suggest.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
@@ -1259,6 +1260,16 @@ export function registerPositronConsoleActions() {
 				},
 				f1: true,
 				category,
+				keybinding: {
+					primary: KeyCode.DownArrow,
+					when: ContextKeyExpr.and(
+						PositronConsoleFocused,
+						SuggestContext.Visible.toNegated(),
+						PositronConsoleInputCursorBoundary.notEqualsTo('top'),
+						PositronConsoleInputCursorBoundary.notEqualsTo('none'),
+					),
+					weight: KeybindingWeight.WorkbenchContrib,
+				},
 			});
 		}
 
@@ -1297,6 +1308,16 @@ export function registerPositronConsoleActions() {
 				},
 				f1: true,
 				category,
+				keybinding: {
+					primary: KeyCode.UpArrow,
+					when: ContextKeyExpr.and(
+						PositronConsoleFocused,
+						SuggestContext.Visible.toNegated(),
+						PositronConsoleInputCursorBoundary.notEqualsTo('bottom'),
+						PositronConsoleInputCursorBoundary.notEqualsTo('none'),
+					),
+					weight: KeybindingWeight.WorkbenchContrib,
+				},
 			});
 		}
 
@@ -1335,6 +1356,11 @@ export function registerPositronConsoleActions() {
 				},
 				f1: true,
 				category,
+				keybinding: {
+					primary: KeyMod.CtrlCmd | KeyCode.UpArrow,
+					when: PositronConsoleFocused,
+					weight: KeybindingWeight.WorkbenchContrib,
+				},
 			});
 		}
 
