@@ -20,10 +20,10 @@ suite('Data Connection Integration', () => {
 	 */
 	setup(async () => {
 		// Set the temporary directory.
-		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'positron-sqlite-integration-'));
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'positron-data-driver-sqlite-integration-'));
 
 		// Ensure the extension is activated so the driver is registered.
-		await vscode.extensions.getExtension('positron.positron-sqlite')?.activate();
+		await vscode.extensions.getExtension('positron.positron-data-driver-sqlite')?.activate();
 	});
 
 	/**
@@ -51,7 +51,7 @@ suite('Data Connection Integration', () => {
 			const drivers = await positron.dataConnections.getDrivers();
 
 			// Find the SQLite driver.
-			const sqlite = drivers.find(d => d.id === 'positron-sqlite');
+			const sqlite = drivers.find(d => d.id === 'positron-data-driver-sqlite');
 
 			// Test that it was found and is named properly.
 			assert.ok(sqlite, 'SQLite driver should be registered');
@@ -61,7 +61,7 @@ suite('Data Connection Integration', () => {
 		test('SQLite driver has expected parameters', async () => {
 			// Get the drivers and find the SQLite driver.
 			const drivers = await positron.dataConnections.getDrivers();
-			const sqlite = drivers.find(d => d.id === 'positron-sqlite')!;
+			const sqlite = drivers.find(d => d.id === 'positron-data-driver-sqlite')!;
 
 			// Test the parameters length.
 			assert.strictEqual(sqlite.parameters.length, 2);
@@ -87,7 +87,7 @@ suite('Data Connection Integration', () => {
 			});
 
 			// Connect to the test DB.
-			const conn = await positron.dataConnections.connect('positron-sqlite', {
+			const conn = await positron.dataConnections.connect('positron-data-driver-sqlite', {
 				databasePath: dbPath,
 				readOnly: false,
 			});
@@ -108,7 +108,7 @@ suite('Data Connection Integration', () => {
 			});
 
 			// Connect to the test DB.
-			const conn = await positron.dataConnections.connect('positron-sqlite', {
+			const conn = await positron.dataConnections.connect('positron-data-driver-sqlite', {
 				databasePath: dbPath,
 				readOnly: true,
 			});
@@ -131,7 +131,7 @@ suite('Data Connection Integration', () => {
 			});
 
 			// Connect to the test DB.
-			const conn = await positron.dataConnections.connect('positron-sqlite', {
+			const conn = await positron.dataConnections.connect('positron-data-driver-sqlite', {
 				databasePath: dbPath,
 				readOnly: false,
 			});
@@ -162,7 +162,7 @@ suite('Data Connection Integration', () => {
 			});
 
 			// Connect to the test DB.
-			const conn = await positron.dataConnections.connect('positron-sqlite', {
+			const conn = await positron.dataConnections.connect('positron-data-driver-sqlite', {
 				databasePath: dbPath,
 				readOnly: true,
 			});
@@ -205,7 +205,7 @@ suite('Data Connection Integration', () => {
 			});
 
 			// Connect to the test DB.
-			const conn = await positron.dataConnections.connect('positron-sqlite', {
+			const conn = await positron.dataConnections.connect('positron-data-driver-sqlite', {
 				databasePath: dbPath,
 				readOnly: false,
 			});
@@ -231,7 +231,7 @@ suite('Data Connection Integration', () => {
 			const dbPath = createTestDb('empty.db');
 
 			// Connect to the test DB.
-			const conn = await positron.dataConnections.connect('positron-sqlite', {
+			const conn = await positron.dataConnections.connect('positron-data-driver-sqlite', {
 				databasePath: dbPath,
 				readOnly: false,
 			});
@@ -254,7 +254,7 @@ suite('Data Connection Integration', () => {
 			});
 
 			// Connect to the test DB.
-			const conn = await positron.dataConnections.connect('positron-sqlite', {
+			const conn = await positron.dataConnections.connect('positron-data-driver-sqlite', {
 				databasePath: dbPath,
 				readOnly: false,
 			});
@@ -276,7 +276,7 @@ suite('Data Connection Integration', () => {
 			});
 
 			// Connect to the test DB.
-			const conn = await positron.dataConnections.connect('positron-sqlite', {
+			const conn = await positron.dataConnections.connect('positron-data-driver-sqlite', {
 				databasePath: dbPath,
 				readOnly: true,
 			});
@@ -299,7 +299,7 @@ suite('Data Connection Integration', () => {
 			});
 
 			// Connect to the test DB.
-			const conn = await positron.dataConnections.connect('positron-sqlite', {
+			const conn = await positron.dataConnections.connect('positron-data-driver-sqlite', {
 				databasePath: dbPath,
 				readOnly: false,
 			});
@@ -317,7 +317,7 @@ suite('Data Connection Integration', () => {
 		test('discover driver -> connect -> browse tree -> disconnect', async () => {
 			// 1. Discover the SQLite driver via the main thread service.
 			const drivers = await positron.dataConnections.getDrivers();
-			const sqlite = drivers.find(d => d.id === 'positron-sqlite');
+			const sqlite = drivers.find(d => d.id === 'positron-data-driver-sqlite');
 			assert.ok(sqlite, 'SQLite driver should be registered');
 
 			// 2. Create a real database with schema.
@@ -329,7 +329,7 @@ suite('Data Connection Integration', () => {
 			// 3. Connect through the full stack:
 			//    ext host -> main thread service -> main thread adapter
 			//    -> RPC -> ext host $driverConnect -> SQLiteConnection
-			const conn = await positron.dataConnections.connect('positron-sqlite', {
+			const conn = await positron.dataConnections.connect('positron-data-driver-sqlite', {
 				databasePath: dbPath,
 				readOnly: false,
 			});

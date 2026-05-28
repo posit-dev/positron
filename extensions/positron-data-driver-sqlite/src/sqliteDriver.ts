@@ -34,9 +34,9 @@ export function createSQLiteDriver(
 
 	// Return the driver.
 	return {
-		id: 'positron-sqlite',
+		id: 'positron-data-driver-sqlite',
 		name: 'SQLite',
-		description: vscode.l10n.t('Connect to a local SQLite database file'),
+		description: vscode.l10n.t('Connect to a SQLite database file'),
 		iconSvg,
 		supportedLanguageIds: [],
 		parameters: [

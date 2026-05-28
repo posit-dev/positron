@@ -65,7 +65,7 @@ suite('PostgreSQL Data Connection Integration', () => {
 		await setupClient.query(`CREATE SCHEMA "${testSchema}"`);
 
 		// Ensure the extension is activated so the driver is registered.
-		await vscode.extensions.getExtension('positron.positron-postgresql')?.activate();
+		await vscode.extensions.getExtension('positron.positron-data-driver-postgresql')?.activate();
 	});
 
 	/**
@@ -84,7 +84,7 @@ suite('PostgreSQL Data Connection Integration', () => {
 
 	// Helper: connect to the test database via the Positron driver.
 	async function connectDriver(): Promise<positron.DataConnection> {
-		return positron.dataConnections.connect('positron-postgresql', {
+		return positron.dataConnections.connect('positron-data-driver-postgresql', {
 			host: pgHost,
 			port: pgPort,
 			database: pgDatabase,
@@ -109,7 +109,7 @@ suite('PostgreSQL Data Connection Integration', () => {
 			const drivers = await positron.dataConnections.getDrivers();
 
 			// Find the PostgreSQL driver.
-			const pg = drivers.find(d => d.id === 'positron-postgresql');
+			const pg = drivers.find(d => d.id === 'positron-data-driver-postgresql');
 
 			// Test that it was found and is named properly.
 			assert.ok(pg, 'PostgreSQL driver should be registered');
@@ -119,7 +119,7 @@ suite('PostgreSQL Data Connection Integration', () => {
 		test('PostgreSQL driver has expected parameters', async () => {
 			// Get the drivers and find the PostgreSQL driver.
 			const drivers = await positron.dataConnections.getDrivers();
-			const pg = drivers.find(d => d.id === 'positron-postgresql')!;
+			const pg = drivers.find(d => d.id === 'positron-data-driver-postgresql')!;
 
 			// Test the parameters length.
 			assert.strictEqual(pg.parameters.length, 6);
@@ -479,7 +479,7 @@ suite('PostgreSQL Data Connection Integration', () => {
 
 			// 1. Discover the PostgreSQL driver.
 			const drivers = await positron.dataConnections.getDrivers();
-			const pg = drivers.find(d => d.id === 'positron-postgresql');
+			const pg = drivers.find(d => d.id === 'positron-data-driver-postgresql');
 			assert.ok(pg, 'PostgreSQL driver should be registered');
 
 			// 2. Create schema objects.

@@ -1,5 +1,5 @@
 {
-  "name": "positron-sqlite",
+  "name": "positron-data-driver-sqlite",
   "displayName": "%displayName%",
   "description": "%description%",
   "version": "0.0.1",

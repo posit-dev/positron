@@ -14,7 +14,7 @@ suite('SQLite Driver Tests', () => {
 	let tmpDir: string;
 
 	setup(() => {
-		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'positron-sqlite-test-'));
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'positron-data-driver-sqlite-test-'));
 	});
 
 	teardown(() => {

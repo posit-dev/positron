@@ -17,7 +17,7 @@ run({
 	outdir: outDir,
 	additionalOptions: {
 		// better-sqlite3 is a native module; externalize so it's loaded from
-		// node_modules at runtime (positron-sqlite is registered in
+		// node_modules at runtime (positron-data-driver-sqlite is registered in
 		// extensionsWithNpmDeps so its dependencies are packaged).
 		external: ['vscode', 'positron', 'better-sqlite3'],
 	},

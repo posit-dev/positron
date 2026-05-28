@@ -29,7 +29,7 @@ export function createPostgreSQLDriver(
 
 	// Return the driver.
 	return {
-		id: 'positron-postgresql',
+		id: 'positron-data-driver-postgresql',
 		name: 'PostgreSQL',
 		description: vscode.l10n.t('Connect to a PostgreSQL database server'),
 		iconSvg,
