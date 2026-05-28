@@ -43,17 +43,6 @@ function isActiveElementInOutputSection(cellElement: HTMLElement): boolean {
 	return false;
 }
 
-/**
- * Wraps children in a {@link CellProvider} when the cell is a code cell, so descendants
- * can resolve it via {@link useCell}. Markdown and raw cells render without the provider.
- */
-function MaybeCellProvider({ cell, children }: { cell: IPositronNotebookCell; children: React.ReactNode }) {
-	if (cell.isCodeCell()) {
-		return <CellProvider cell={cell}>{children}</CellProvider>;
-	}
-	return <>{children}</>;
-}
-
 export function NotebookCellWrapper({ cell, children }: {
 	cell: IPositronNotebookCell;
 	children: React.ReactNode;
@@ -221,7 +210,7 @@ export function NotebookCellWrapper({ cell, children }: {
 		}}
 	>
 		<CellScopedContextKeyServiceProvider cell={cell}>
-			<MaybeCellProvider cell={cell}>
+			<CellProvider cell={cell}>
 				<div className='positron-notebooks-cell-action-bar-container'>
 					<NotebookCellActionBar cell={cell} />
 				</div>
@@ -232,7 +221,7 @@ export function NotebookCellWrapper({ cell, children }: {
 				>
 					{children}
 				</NotebookErrorBoundary>
-			</MaybeCellProvider>
+			</CellProvider>
 		</CellScopedContextKeyServiceProvider>
 		<ScreenReaderOnly>
 			{announcement}

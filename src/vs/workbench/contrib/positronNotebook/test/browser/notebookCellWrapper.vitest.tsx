@@ -181,16 +181,16 @@ describe('NotebookCellWrapper onClick', () => {
 	});
 });
 
-describe('NotebookCellWrapper MaybeCellProvider', () => {
+describe('NotebookCellWrapper CellProvider', () => {
 	const ctx = createTestContainer().withNotebookEditorServices().withReactServices().build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 	function CellSpy() {
 		const cell = useCell();
-		return <div data-testid='cell-spy'>{cell ? 'defined' : 'undefined'}</div>;
+		return <div data-testid='cell-spy'>{cell.kind}</div>;
 	}
 
-	function renderWithSpy(notebook: TestPositronNotebookInstance) {
+	function renderCell(notebook: TestPositronNotebookInstance, children: React.ReactNode) {
 		const cell = notebook.cells.get()[0];
 		const environmentBundle = {
 			size: observableValue<ISize>('test-size', { width: 800, height: 600 }),
@@ -200,7 +200,7 @@ describe('NotebookCellWrapper MaybeCellProvider', () => {
 			<NotebookInstanceProvider instance={notebook}>
 				<EnvironentProvider environmentBundle={environmentBundle}>
 					<NotebookCellWrapper cell={cell}>
-						<CellSpy />
+						{children}
 					</NotebookCellWrapper>
 				</EnvironentProvider>
 			</NotebookInstanceProvider>
@@ -212,25 +212,17 @@ describe('NotebookCellWrapper MaybeCellProvider', () => {
 			[['x', 'python', CellKind.Code]],
 			ctx,
 		);
-		renderWithSpy(notebook);
-		expect(screen.getByTestId('cell-spy')).toHaveTextContent('defined');
+		renderCell(notebook, <CellSpy />);
+		expect(screen.getByTestId('cell-spy')).toHaveTextContent(String(CellKind.Code));
 	});
 
-	it('keeps useCell() undefined for markdown cells', () => {
+	it('exposes the cell to descendants for markdown cells', () => {
 		const notebook = createTestPositronNotebookInstance(
 			[['# md', 'markdown', CellKind.Markup]],
 			ctx,
 		);
-		renderWithSpy(notebook);
-		expect(screen.getByTestId('cell-spy')).toHaveTextContent('undefined');
+		renderCell(notebook, <CellSpy />);
+		expect(screen.getByTestId('cell-spy')).toHaveTextContent(String(CellKind.Markup));
 	});
 
-	it('keeps useCell() undefined for raw cells', () => {
-		const notebook = createTestPositronNotebookInstance(
-			[['raw content', 'raw', CellKind.Code]],
-			ctx,
-		);
-		renderWithSpy(notebook);
-		expect(screen.getByTestId('cell-spy')).toHaveTextContent('undefined');
-	});
 });

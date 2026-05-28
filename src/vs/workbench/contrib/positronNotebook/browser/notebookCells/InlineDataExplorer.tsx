@@ -25,7 +25,7 @@ import type { IContextKeyService } from '../../../../../platform/contextkey/comm
 import { useMenu } from '../useMenu.js';
 import { useMenuActions } from '../useMenuActions.js';
 import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
-import { useCell } from './CellProvider.js';
+import { useCodeCell } from './CellProvider.js';
 import type { IInlineDataExplorerActionContext } from './InlineDataExplorerActions.js';
 import { InlineDataExplorerActionButton } from './InlineDataExplorerActionButton.js';
 
@@ -119,7 +119,7 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 	const { commId, shape, title, variablePath, onFallback } = props;
 	const services = PositronReactServices.services;
 	const notebookInstance = useNotebookInstance();
-	const cell = useCell();
+	const cell = useCodeCell();
 	const [state, setState] = useState<InlineDataExplorerState>({ status: 'loading' });
 	const containerRef = useRef<HTMLDivElement>(null);
 	// Don't create DisposableStore in useRef - it will leak on remount.
@@ -238,7 +238,7 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 	// only when we have a cell and the grid is connected and non-stale -- this is
 	// the canonical "ready" state for any registered action.
 	const actionContext: IInlineDataExplorerActionContext | undefined =
-		cell && state.status === 'connected' && !isGridStale
+		state.status === 'connected' && !isGridStale
 			? {
 				documentUri: notebookInstance.uri,
 				sourceLanguage: cell.model.language,

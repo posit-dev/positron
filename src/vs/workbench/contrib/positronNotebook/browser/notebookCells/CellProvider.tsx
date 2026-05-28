@@ -7,28 +7,42 @@
 import React from 'react';
 
 // Other dependencies.
-import { IPositronNotebookCodeCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
+import { IPositronNotebookCell, IPositronNotebookCodeCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
 
 /**
- * React context providing the current notebook code cell to its descendants.
+ * React context providing the current notebook cell to its descendants.
  */
-export const CellContext = React.createContext<IPositronNotebookCodeCell | undefined>(undefined);
+const CellContext = React.createContext<IPositronNotebookCell | undefined>(undefined);
 
 /**
- * Provider component to make a code cell available to its descendants via {@link useCell}.
- *
- * @param props.cell - The code cell for this subtree
- * @param props.children - React children that need access to the cell
+ * Provider component to make a cell available to its descendants via {@link useCell}.
  */
-export function CellProvider({ cell, children }: { cell: IPositronNotebookCodeCell; children: React.ReactNode }) {
+export function CellProvider({ cell, children }: { cell: IPositronNotebookCell; children: React.ReactNode }) {
 	return <CellContext.Provider value={cell}>{children}</CellContext.Provider>;
 }
 
 /**
  * Hook to consume the current cell from React context.
  *
- * @returns The current code cell, or `undefined` when not wrapped in a {@link CellProvider}.
+ * @returns The current cell. Throws if not wrapped in a {@link CellProvider}.
  */
-export function useCell(): IPositronNotebookCodeCell | undefined {
-	return React.useContext(CellContext);
+export function useCell(): IPositronNotebookCell {
+	const cell = React.useContext(CellContext);
+	if (!cell) {
+		throw new Error('useCell must be used within a CellProvider');
+	}
+	return cell;
+}
+
+/**
+ * Hook to consume the current cell narrowed to a code cell.
+ *
+ * @returns The current code cell. Throws if the cell is not a code cell.
+ */
+export function useCodeCell(): IPositronNotebookCodeCell {
+	const cell = useCell();
+	if (!cell.isCodeCell()) {
+		throw new Error('useCodeCell must be used within a code cell');
+	}
+	return cell;
 }
