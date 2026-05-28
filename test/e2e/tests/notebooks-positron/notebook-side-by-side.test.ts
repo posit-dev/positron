@@ -78,17 +78,25 @@ test.describe('Notebook Side-by-Side Isolation', {
 		});
 
 	test('Notebook action buttons target their own notebook, not the focused one',
-		async function ({ app, runCommand }) {
+		async function ({ app, sessions, runCommand }) {
 			const { notebooksPositron, editors } = app.workbench;
+
+			const kernelName = availableRuntimes['python'].name;
+			const interpreterNameNb1 = /Untitled\-1.ipynb/;
+			const interpreterNameNb2 = /Untitled\-2.ipynb/;
 
 			// Set up notebook 1 with Python code
 			await notebooksPositron.newNotebook();
 			await notebooksPositron.kernel.select('Python');
+			await notebooksPositron.kernel.expectToBe(kernelName, { status: 'idle' });
+			await sessions.expectSessionPickerToBe(interpreterNameNb1, { status: 'idle' });
 			await notebooksPositron.addCodeToCell(0, 'print("left_nb")');
 
 			// Set up notebook 2 with different Python code
 			await notebooksPositron.newNotebook();
 			await notebooksPositron.kernel.select('Python');
+			await notebooksPositron.kernel.expectToBe(kernelName, { status: 'idle' });
+			await sessions.expectSessionPickerToBe(interpreterNameNb2, { status: 'idle' });
 			await notebooksPositron.addCodeToCell(0, 'print("right_nb")');
 
 			// Split side-by-side
