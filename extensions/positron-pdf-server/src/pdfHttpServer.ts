@@ -112,20 +112,27 @@ export class PdfHttpServer {
 			res.sendFile(path.join(this.extensionPath!, 'viewer-wrapper.html'));
 		});
 
-		// Serve notebook-specific viewer wrapper (adds "Open With..." button).
-		this.app.get('/viewer-notebook', (_req: express.Request, res: express.Response) => {
-			res.sendFile(path.join(this.extensionPath!, 'viewer-notebook-wrapper.html'));
-		});
-
-		// Serve notebook variant of viewer.html with "Open With..." button injected.
+		// Serve notebook variant of viewer.html with theme preferences and
+		// "Open With..." button injected. Called directly (no wrapper redirect).
 		this.app.get('/pdfjs-notebook/web/viewer.html', async (req: express.Request, res: express.Response) => {
 			try {
 				const viewerPath = path.join(this.extensionPath!, 'pdfjs-dist', 'web', 'viewer.html');
 				let html = await fs.promises.readFile(viewerPath, 'utf-8');
 
+				// Inject theme preferences script before any PDF.js scripts run.
+				const theme = req.query.theme || '0';
+				const themeScript = `<script>
+					try {
+						var prefs = JSON.parse(localStorage.getItem('pdfjs.preferences') || '{}');
+						prefs.viewerCssTheme = ${Number(theme)};
+						prefs.sidebarViewOnLoad = 0;
+						localStorage.setItem('pdfjs.preferences', JSON.stringify(prefs));
+					} catch (e) {}
+				</script>`;
+
 				// Inject keyboard forwarder.
-				const scriptTag = '<script src="/keyboard-forwarder.js"></script>';
-				html = html.replace('<title>PDF.js viewer</title>', `<title>PDF.js viewer</title>\n${scriptTag}`);
+				const keyboardScript = '<script src="/keyboard-forwarder.js"></script>';
+				html = html.replace('<title>PDF.js viewer</title>', `<title>PDF.js viewer</title>\n${themeScript}\n${keyboardScript}`);
 
 				// Inject CSS for the "Open With..." button icon (reuses the Open button's icon).
 				const openWithCss = `<style>

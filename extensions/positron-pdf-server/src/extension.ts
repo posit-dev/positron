@@ -64,8 +64,6 @@ export function activate(context: vscode.ExtensionContext): PdfServerApi {
 		})
 	);
 
-
-	// Register a command that returns a notebook viewer URL for a PDF file path.
 	// Used by the notebook output system to render PDFs inline.
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron.pdfServer.getViewerUrl', async (fsPath: string): Promise<{ viewerUrl: string; pdfId: string }> => {
@@ -74,7 +72,7 @@ export function activate(context: vscode.ExtensionContext): PdfServerApi {
 			const serverUrl = (await httpServer.getExternalUrl()).replace(/\/$/, '');
 			const pdfUrl = `${serverUrl}/pdf/${pdfId}`;
 			const theme = getThemeValue();
-			const viewerUrl = `${serverUrl}/viewer-notebook?file=${encodeURIComponent(pdfUrl)}&theme=${theme}`;
+			const viewerUrl = `${serverUrl}/pdfjs-notebook/web/viewer.html?file=${encodeURIComponent(pdfUrl)}&theme=${theme}`;
 			return { viewerUrl, pdfId };
 		})
 	);
