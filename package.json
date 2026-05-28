@@ -121,7 +121,7 @@
     "@dnd-kit/core": "^6.3.0",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
-    "@github/copilot": "^1.0.34",
+    "@github/copilot": "^1.0.43",
     "@github/copilot-sdk": "^0.2.2",
     "@microsoft/1ds-core-js": "^3.2.13",
     "@microsoft/1ds-post-js": "^3.2.13",
@@ -186,7 +186,7 @@
     "vscode-oniguruma": "1.7.0",
     "vscode-regexpp": "^3.1.0",
     "vscode-textmate": "^9.3.2",
-    "ws": "^8.19.0",
+    "ws": "^8.20.1",
     "yauzl": "^3.0.0",
     "yazl": "^2.4.3"
   },
