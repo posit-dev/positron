@@ -4,12 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
-import { Disposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Event } from '../../../../base/common/event.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
-import { IContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
+import { RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { MenuId, MenuRegistry } from '../../../../platform/actions/common/actions.js';
 import { ResourceContextKey } from '../../../common/contextkeys.js';
-import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IEditorGroup, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
+import { IWorkingCopyService } from '../../../services/workingCopy/common/workingCopyService.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { SAVE_FILE_COMMAND_ID, SAVE_FILE_LABEL } from '../../files/browser/fileConstants.js';
 
@@ -29,36 +31,32 @@ const PositronActiveEditorIsDirtyContext = new RawContextKey<boolean>(
 	localize('positronActiveEditorIsDirty', "Whether the active editor has unsaved changes (ignores in-flight auto-save)"),
 );
 
-// Tracks isDirty() on the globally-active editor and reflects it in the
-// context key above. The single Save button on each editor action bar reads
-// this key via the editor pane's scoped context key service (cascades up to
-// the root CKS, where this tracker binds the key).
+// Tracks `activeEditor.isDirty()` per editor group via the editor parts
+// provider API. The provider binds the context key on each group's scoped
+// context key service and mirrors the active group's value into the global
+// scope, so the Save button on each group's action bar reads its own group's
+// dirty state (with `editorPartsView.bind` semantics, matching upstream's
+// own per-group keys like ActiveEditorDirtyContext).
 //
-// This follows the same scope semantics as the legacy top-action-bar Save
-// button, which read its precondition from the global services.contextKeyService.
+// Re-evaluations happen on:
+//   - any group's active editor change (handled internally by editor parts)
+//   - any working copy dirty change (provided via `onDidChange` below) --
+//     this covers the user-types-into-active-editor flow because the editor
+//     model is the working copy.
 class PositronActiveEditorDirtyTracker extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'workbench.contrib.positronActiveEditorDirtyTracker';
 
-	private readonly _activeEditorDirtyListener = this._register(new MutableDisposable());
-
 	constructor(
-		@IEditorService editorService: IEditorService,
-		@IContextKeyService contextKeyService: IContextKeyService,
+		@IEditorGroupsService editorGroupsService: IEditorGroupsService,
+		@IWorkingCopyService workingCopyService: IWorkingCopyService,
 	) {
 		super();
 
-		const isDirtyKey = PositronActiveEditorIsDirtyContext.bindTo(contextKeyService);
-
-		const refresh = () => {
-			const activeEditor = editorService.activeEditor;
-			isDirtyKey.set(!!activeEditor?.isDirty());
-			this._activeEditorDirtyListener.value = activeEditor?.onDidChangeDirty(() => {
-				isDirtyKey.set(!!activeEditor.isDirty());
-			});
-		};
-
-		refresh();
-		this._register(editorService.onDidActiveEditorChange(refresh));
+		this._register(editorGroupsService.registerContextKeyProvider({
+			contextKey: PositronActiveEditorIsDirtyContext,
+			getGroupContextKeyValue: (group: IEditorGroup) => !!group.activeEditor?.isDirty(),
+			onDidChange: Event.map(workingCopyService.onDidChangeDirty, () => undefined),
+		}));
 	}
 }
 
