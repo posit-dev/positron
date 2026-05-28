@@ -94,7 +94,6 @@ test.describe('Notebook Side-by-Side Isolation', {
 
 			// Set up notebook 2 with different Python code
 			await notebooksPositron.newNotebook();
-			await notebooksPositron.kernel.select('Python');
 			await notebooksPositron.kernel.expectToBe(kernelName, { status: 'idle' });
 			await sessions.expectSessionPickerToBe(interpreterNameNb2, { status: 'idle' });
 			await notebooksPositron.addCodeToCell(0, 'print("right_nb")');
@@ -153,5 +152,4 @@ test.describe('Notebook Side-by-Side Isolation', {
 			// Verify LEFT notebook cell count unchanged
 			await expect(leftNotebook.cells).toHaveCount(leftCountBefore, { timeout: 5000 });
 		});
-
 });
