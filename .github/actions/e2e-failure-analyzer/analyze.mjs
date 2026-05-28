@@ -391,6 +391,12 @@ async function main() {
 			allowedTools: ['Read', 'Glob', 'Grep'],
 			permissionMode: 'bypassPermissions',
 			maxTurns: MAX_TURNS,
+			// Extended thinking is disabled. With thinking on (the adaptive
+			// default), cancelling a parallel tool-call batch corrupts the
+			// in-flight thinking blocks and wedges the session with a repeating
+			// 400 ("thinking blocks ... cannot be modified", claude-code#63192).
+			// The report is built from text blocks only, so no output is lost.
+			thinking: { type: 'disabled' },
 			...(CLAUDE_CODE_PATH ? { pathToClaudeCodeExecutable: CLAUDE_CODE_PATH } : {}),
 		},
 	})) {
