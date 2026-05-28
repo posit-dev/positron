@@ -118,6 +118,39 @@
 			"problemMatcher": []
 		},
 		{
+			"type": "npm",
+			"script": "watch-e2ed",
+			"label": "E2E Tests - Build",
+			"isBackground": true,
+			"group": "test",
+			"presentation": {
+				"reveal": "never",
+				"group": "testWatchers",
+				"close": false
+			},
+			"problemMatcher": [
+				{
+					"base": "$tsc-watch",
+					"owner": "typescript",
+					"source": "watch-e2e",
+					"applyTo": "allDocuments",
+					"fileLocation": ["relative", "${workspaceFolder}/test/e2e"],
+					"pattern": {
+						"regexp": "\\[watch-e2e\\] ([^(]+)\\((\\d+),(\\d+)\\): (error TS\\d+: .+)",
+						"file": 1,
+						"line": 2,
+						"column": 3,
+						"message": 4
+					},
+					"background": {
+						"activeOnStart": true,
+						"beginsPattern": "\\[watch-e2e\\] \\d+:\\d+:\\d+ [AP]M - (Starting compilation|File change detected\\. Starting incremental compilation)",
+						"endsPattern": "\\[watch-e2e\\] \\d+:\\d+:\\d+ [AP]M - Found [0-9]+ errors?\\. Watching for file changes"
+					}
+				}
+			]
+		},
+		{
 			"label": "Positron with E2E Tests - Build",
 			"dependsOn": [
 				"E2E Tests - Build",
