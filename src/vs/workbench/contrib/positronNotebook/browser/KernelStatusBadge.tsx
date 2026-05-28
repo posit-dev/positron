@@ -52,17 +52,16 @@ export function KernelStatusBadge() {
 		() => languageRuntimeService.startupPhase,
 	));
 
+	// The icon reflects session connection state: a live session drives it
+	// via runtimeState, and no session means Disconnected. The two overrides
+	// (Switching, Discovering) intentionally show Active to communicate a
+	// transition the user kicked off or the app is working through, even
+	// though no session is attached during those windows.
 	let runtimeStatus: RuntimeStatus;
 	if (kernelStatus === NotebookKernelStatus.Switching) {
-		// Switching is user intent to transition; show Active immediately
-		// regardless of the now-stale old session's runtime state.
 		runtimeStatus = RuntimeStatus.Active;
 	} else if (runtimeState !== undefined) {
 		runtimeStatus = runtimeStateToRuntimeStatus[runtimeState];
-	} else if (kernelStatus === NotebookKernelStatus.Exited) {
-		runtimeStatus = RuntimeStatus.Disconnected;
-	} else if (kernel) {
-		runtimeStatus = RuntimeStatus.Active;
 	} else if (kernelStatus === NotebookKernelStatus.Discovering) {
 		runtimeStatus = RuntimeStatus.Active;
 	} else {
