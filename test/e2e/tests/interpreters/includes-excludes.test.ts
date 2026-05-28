@@ -64,18 +64,20 @@ test.describe('Interpreter: Excludes', {
 	});
 });
 
-// Electron-only: in web mode the Positron server process (and its extension host) survives
-// window reloads, so runtimes registered before the override setting was written stay in the
-// registry. Only a worker restart wipes them, which the test harness can't trigger between
-// tests. Re-enable @:web once the runtime service supports unregistering stale entries
-// (see comment at runtimeStartup.ts:996).
+// Electron-only. The beforeAll clears the discovery cache and reloads so discovery runs cold
+// against the override. This works in Electron because the reload tears down the renderer and
+// rebuilds the runtime registry from that cold pass. It cannot fix web/chromium: there the
+// Positron server process (and its extension host) survive window reloads, so interpreters
+// registered before the override was written stay in the server-side registry no matter what the
+// client cache holds. Only a worker restart wipes them, which the harness can't trigger between
+// tests. Re-enable @:web once the runtime service unregisters stale entries (see runtimeStartup.ts:996).
 test.describe('Interpreter: Override', {
 	tag: [tags.INTERPRETER]
 }, () => {
 	let overrideRPath: string;
 	let overridePythonPath: string;
 
-	test.beforeAll(async function ({ settings }) {
+	test.beforeAll(async function ({ app, settings }) {
 		overridePythonPath = buildPythonPath('override');
 		overrideRPath = buildRPath('override');
 
@@ -83,6 +85,15 @@ test.describe('Interpreter: Override', {
 			'python.interpreters.override': [overridePythonPath],
 			'positron.r.interpreters.override': [overrideRPath]
 		}, { reload: true, waitForReady: true });
+
+		// The discovery cache (StorageScope.APPLICATION) survives window reloads and pre-registers
+		// cached runtimes WITHOUT re-validating them against the override setting, so the warm reload
+		// above can leave a pre-override interpreter registered (the session then starts and the test
+		// fails). That reload also lets any in-flight discovery settle, so the cache is stable here.
+		// Clear it and reload again so discovery runs cold against the override -- the same state a
+		// fresh worker (retry) gets, which is why retries passed.
+		await app.workbench.quickaccess.runCommand('Clear Interpreter Cache');
+		await app.workbench.hotKeys.reloadWindow(true);
 	});
 
 	test('R - Can Override Interpreter Discovery', { tag: [tags.ARK] }, async function ({ sessions }) {
