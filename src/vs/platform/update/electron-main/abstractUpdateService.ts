@@ -16,7 +16,12 @@ import { ILifecycleMainService, LifecycleMainPhase } from '../../lifecycle/elect
 import { ILogService } from '../../log/common/log.js';
 import { IProductService } from '../../product/common/productService.js';
 import { IRequestService } from '../../request/common/request.js';
+import { StorageScope, StorageTarget } from '../../storage/common/storage.js';
+import { IApplicationStorageMainService } from '../../storage/electron-main/storageMainService.js';
+import { ITelemetryService } from '../../telemetry/common/telemetry.js';
 import { AvailableForDownload, DisablementReason, IUpdateService, State, StateType, UpdateType } from '../common/update.js';
+
+const LAST_KNOWN_VERSION_STORAGE_KEY = 'abstractUpdateService/lastKnownVersion';
 
 export interface IUpdateURLOptions {
 	readonly background?: boolean;
@@ -100,6 +105,7 @@ export abstract class AbstractUpdateService implements IUpdateService {
 	private readonly overwriteUpdatesCheckInterval = new IntervalTimer();
 	// --- End Positron ---
 	private _internalOrg: string | undefined = undefined;
+	protected _suspended = false;
 
 	private readonly _onStateChange = new Emitter<State>();
 	readonly onStateChange: Event<State> = this._onStateChange.event;
@@ -109,9 +115,28 @@ export abstract class AbstractUpdateService implements IUpdateService {
 	}
 
 	protected setState(state: State): void {
-		this.logService.info('update#setState', state.type);
+		if (state.type === StateType.Updating) {
+			this.logService.trace('update#setState', state.type);
+		} else {
+			this.logService.info('update#setState', state.type);
+		}
 		this._state = state;
 		this._onStateChange.fire(state);
+
+		// Clear transient one-time properties from Idle state after delivering the event.
+		// This prevents new windows from seeing stale error/notAvailable messages.
+		if (state.type === StateType.Idle && (state.error || state.notAvailable)) {
+			this._state = State.Idle(state.updateType);
+		}
+
+		// Schedule 5-minute checks when in Ready state and overwrite is supported
+		if (this.supportsUpdateOverwrite) {
+			if (state.type === StateType.Ready) {
+				this.overwriteUpdatesCheckInterval.cancelAndSet(() => this.checkForOverwriteUpdates(), 5 * 60 * 1000);
+			} else {
+				this.overwriteUpdatesCheckInterval.cancel();
+			}
+		}
 	}
 
 	constructor(
@@ -120,6 +145,8 @@ export abstract class AbstractUpdateService implements IUpdateService {
 		@IEnvironmentMainService protected environmentMainService: IEnvironmentMainService,
 		@IRequestService protected requestService: IRequestService,
 		@ILogService protected logService: ILogService,
+		@ITelemetryService protected readonly telemetryService: ITelemetryService,
+		@IApplicationStorageMainService protected readonly applicationStorageMainService: IApplicationStorageMainService,
 		@IMeteredConnectionService protected readonly meteredConnectionService: IMeteredConnectionService,
 		// --- Start Positron ---
 		@IProductService protected readonly productService: IProductService,
@@ -149,6 +176,8 @@ export abstract class AbstractUpdateService implements IUpdateService {
 		}
 		this.enableAutoUpdate = this.configurationService.getValue<boolean>('update.autoUpdate');
 
+		await this.trackVersionChange();
+
 		if (this.environmentMainService.disableUpdates) {
 			this.setState(State.Disabled(DisablementReason.DisabledByEnvironment));
 			this.logService.info('update#ctor - updates are disabled by the environment');
@@ -162,10 +191,18 @@ export abstract class AbstractUpdateService implements IUpdateService {
 		}
 
 		const updateMode = this.configurationService.getValue<'none' | 'manual' | 'start' | 'default'>('update.mode');
+		const updateModeInspection = this.configurationService.inspect<'none' | 'manual' | 'start' | 'default'>('update.mode');
+		const policyDisablesUpdates = updateModeInspection.policyValue !== undefined && !this.getProductQuality(updateModeInspection.policyValue);
+		const quality = this.getProductQuality(updateMode);
 
-		if (updateMode === 'none') {
-			this.setState(State.Disabled(DisablementReason.ManuallyDisabled));
-			this.logService.info('update#ctor - updates are disabled by user preference');
+		if (!quality) {
+			if (policyDisablesUpdates) {
+				this.setState(State.Disabled(DisablementReason.Policy));
+				this.logService.info('update#ctor - updates are disabled by policy');
+			} else {
+				this.setState(State.Disabled(DisablementReason.ManuallyDisabled));
+				this.logService.info('update#ctor - updates are disabled by user preference');
+			}
 			return;
 		}
 
@@ -224,14 +261,80 @@ export abstract class AbstractUpdateService implements IUpdateService {
 
 		return process.env.POSITRON_UPDATE_CHANNEL ?? persistedUpdateChannel;
 	}
+	// --- End Positron ---
 
-	// This is essentially the update 'channel' (aka insiders, stable, etc.). VS Code sets it through the
-	// product.json. Positron will have it configurable for now.
-	// @ts-ignore
+	private async trackVersionChange(): Promise<void> {
+		await this.applicationStorageMainService.whenReady;
+
+		interface ILastKnownVersion {
+			readonly version: string;
+			readonly commit: string | undefined;
+			readonly timestamp: number;
+		}
+
+		let from: ILastKnownVersion | undefined;
+		const raw = this.applicationStorageMainService.get(LAST_KNOWN_VERSION_STORAGE_KEY, StorageScope.APPLICATION);
+		if (typeof raw === 'string') {
+			try {
+				from = JSON.parse(raw);
+			} catch (error) {
+				// ignore
+			}
+		}
+
+		const to: ILastKnownVersion = {
+			version: this.productService.version,
+			commit: this.productService.commit,
+			timestamp: Date.now(),
+		};
+
+		if (from?.commit === to.commit) {
+			return;
+		}
+
+		this.applicationStorageMainService.store(LAST_KNOWN_VERSION_STORAGE_KEY, JSON.stringify(to), StorageScope.APPLICATION, StorageTarget.MACHINE);
+
+		if (!from) {
+			return;
+		}
+
+		type VersionChangeEvent = {
+			fromVersion: string | undefined;
+			fromCommit: string | undefined;
+			fromVersionTime: number | undefined;
+			toVersion: string;
+			toCommit: string | undefined;
+			timeToUpdateMs: number | undefined;
+			updateMode: string | undefined;
+		};
+
+		type VersionChangeClassification = {
+			owner: 'dmitriv';
+			comment: 'Fired when VS Code detects a version change on startup.';
+			fromVersion: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The previous version of VS Code.' };
+			fromCommit: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The commit hash of the previous version.' };
+			fromVersionTime: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Timestamp when the previous version was first detected.' };
+			toVersion: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The current version of VS Code.' };
+			toCommit: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The commit hash of the current version.' };
+			timeToUpdateMs: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Milliseconds between the previous version install and this version install.' };
+			updateMode: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The update mode configured by the user.' };
+		};
+
+		this.telemetryService.publicLog2<VersionChangeEvent, VersionChangeClassification>('update:versionChanged', {
+			fromVersion: from.version,
+			fromCommit: from.commit,
+			fromVersionTime: from.timestamp,
+			toVersion: to.version,
+			toCommit: to.commit,
+			timeToUpdateMs: to.timestamp - from.timestamp,
+			updateMode: this.configurationService.getValue<string>('update.mode'),
+		});
+	}
+
+
 	private getProductQuality(updateMode: string): string | undefined {
 		return updateMode === 'none' ? undefined : this.productService.quality;
 	}
-	// --- End Positron ---
 
 	// --- Start Positron ---
 	private async scheduleCheckForUpdates(delay = 6 * 60 * 60 * 1000): Promise<void> {
@@ -256,6 +359,13 @@ export abstract class AbstractUpdateService implements IUpdateService {
 		this.logService.trace('update#checkForUpdates, state = ', this.state.type);
 
 		this.logService.debug('update#checkForUpdates, languages =', this._activeLanguages.join(', '));
+
+		if (this._suspended) {
+			this.logService.trace('update#checkForUpdates - suspended, skipping');
+			return;
+		}
+
+
 		if (this.state.type !== StateType.Idle) {
 			return;
 		}
@@ -268,7 +378,7 @@ export abstract class AbstractUpdateService implements IUpdateService {
 
 		this.logService.debug('update#checkForUpdates, url =', releaseMetadataUrl);
 
-		this.requestService.request({ url: releaseMetadataUrl }, CancellationToken.None)
+		this.requestService.request({ url: releaseMetadataUrl, callSite: 'update.checkForUpdates' }, CancellationToken.None)
 			.then<IUpdate | null>(asJson)
 			.catch(err => {
 				this.logService.trace('update#checkForUpdates, update request did not return valid update metadata:', err.message);
@@ -305,10 +415,11 @@ export abstract class AbstractUpdateService implements IUpdateService {
 	 *
 	 * @returns the release notes as a string
 	 */
+	// --- Start Positron ---
 	async getReleaseNotes(): Promise<string> {
 		const channel = process.env.POSITRON_UPDATE_CHANNEL ?? this.configurationService.getValue<string>('update.positron.channel');
 		const url = `${this.productService.releaseNotesUrl}/${channel}/release-notes/release-${this.productService.positronVersion}.md`;
-		const releaseNotesResponse = await this.requestService.request({ url }, CancellationToken.None);
+		const releaseNotesResponse = await this.requestService.request({ url, callSite: 'update.getReleaseNotes' }, CancellationToken.None);
 
 		if (process.env.POSITRON_UPDATE_CHANNEL) {
 			this.logService.info('update#getReleaseNotes - using release notes channel from environment variable:', process.env.POSITRON_RELEASE_NOTES_CHANNEL);
@@ -324,6 +435,19 @@ export abstract class AbstractUpdateService implements IUpdateService {
 		return releaseNotesText;
 	}
 	// --- End Positron ---
+
+	/**
+	 * Prevents all update checks (automatic and manual) from running.
+	 * Used by the cross-app update coordinator when another app owns
+	 * the update client.
+	 */
+	suspend(): void {
+		this._suspended = true;
+	}
+
+	resume(): void {
+		this._suspended = false;
+	}
 
 	async downloadUpdate(explicit: boolean): Promise<void> {
 		this.logService.trace('update#downloadUpdate, state = ', this.state.type);
@@ -375,11 +499,17 @@ export abstract class AbstractUpdateService implements IUpdateService {
 			return Promise.resolve(undefined);
 		}
 
+		// Remember the Ready state so we can restore it if the quit is vetoed
+		const readyState = this.state;
+
+		this.setState(State.Restarting(this.state.update));
 		this.logService.trace('update#quitAndInstall(): before lifecycle quit()');
 
 		this.lifecycleMainService.quit(true /* will restart */).then(vetod => {
 			this.logService.trace(`update#quitAndInstall(): after lifecycle quit() with veto: ${vetod}`);
 			if (vetod) {
+				this.logService.info('update#quitAndInstall(): quit was vetoed, restoring Ready state');
+				this.setState(readyState);
 				return;
 			}
 
@@ -399,6 +529,10 @@ export abstract class AbstractUpdateService implements IUpdateService {
 		}
 
 		const pendingUpdateCommit = this._state.update.version;
+
+		if (!pendingUpdateCommit || pendingUpdateCommit === 'unknown') {
+			return false;
+		}
 
 		let isLatest: boolean | undefined;
 
@@ -442,8 +576,17 @@ export abstract class AbstractUpdateService implements IUpdateService {
 			return false;
 		}
 
+		// The constructor returns early (leaving `this.url` undefined) when
+		// updates are disabled by environment, missing product config, or
+		// running unbuilt. Issuing the request anyway throws synchronously
+		// because Node's URL parser rejects undefined urls, and the timer
+		// service's startup barrier never opens. See upstream's matching guard.
+		if (!this.url) {
+			return undefined;
+		}
+
 		try {
-			return this.requestService.request({ url: this.url }, CancellationToken.None)
+			return this.requestService.request({ url: this.url, callSite: 'update.poll' }, CancellationToken.None)
 				.then<IUpdate | null>(asJson)
 				.then(update => {
 					if (!update || !update.version) {

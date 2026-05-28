@@ -141,7 +141,7 @@ export abstract class WebviewPlotClient extends Disposable implements IPositronP
 			throw new Error('No webview to layout');
 		}
 		this._element = ele;
-		this._webview.value.layoutWebviewOverElement(ele);
+		this._webview.value.setAnchorElement(ele);
 	}
 
 	/**

@@ -13,8 +13,15 @@ import { addDisposableListener, getWindow } from '../../../../base/browser/dom.j
  */
 const STABLE_DURATION_MS = 500;
 
-/** Maximum time (ms) to keep the restoration loop running before giving up. */
-const TIMEOUT_MS = 1500;
+/**
+ * Maximum time (ms) to keep the restoration loop running before giving up.
+ * Generous enough to cover slow CI environments where pre-target cells
+ * (especially markdown with mixed content) finish their async render after
+ * the loop has started; shorter timeouts left scroll position stale at the
+ * height the cells had part-way through rendering. The loop short-circuits
+ * via STABLE_DURATION_MS in the common case, so this is a worst-case bound.
+ */
+const TIMEOUT_MS = 5000;
 
 /**
  * Drive an rAF scroll restoration loop on `container`, correcting drift to

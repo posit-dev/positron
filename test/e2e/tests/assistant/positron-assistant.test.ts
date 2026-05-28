@@ -199,9 +199,15 @@ test.describe.skip('Positron Assistant Model Picker Default Indicator', { tag: [
 
 	/**
 	 * Test Case 1: Single Provider with Default Model
-	 * Verifies that when a user configures a default model for a provider:
-	 * 1. The model picker shows "(default)" suffix next to the model name
-	 * 2. The default model appears first in the vendor group
+	 * Verifies that when a user configures a default model for a provider,
+	 * the model picker shows the "(default)" suffix next to the model's name
+	 * and no suffix on the other models.
+	 *
+	 * Note: this test previously also asserted "default model appears first
+	 * in its vendor group." Upstream now hoists the selected/recent model into
+	 * a promoted section above the vendor groups and sorts the remaining
+	 * vendor-group models alphabetically, so the ordering assertion is no
+	 * longer meaningful and has been dropped.
 	 */
 	test.skip('Verify default model indicator and ordering for single provider', async function ({ settings, assistant }) {
 		// Configure the Echo Language Model v2 as the default for the echo provider
@@ -217,11 +223,6 @@ test.describe.skip('Positron Assistant Model Picker Default Indicator', { tag: [
 
 		// Verify that the other Echo model does NOT have "(default)" suffix
 		await assistant.expectModelInPicker(/^Echo$/);
-
-		// Verify default model appears first in vendor group
-		const echoModels = await assistant.getModelPickerItemsForVendor('Echo');
-		expect(echoModels.length).toBeGreaterThanOrEqual(2);
-		expect(echoModels[0].label).toBe('Echo Language Model v2 (default)');
 
 		// Close the dropdown
 		await assistant.closeModelPickerDropdown();

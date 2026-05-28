@@ -151,9 +151,8 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>, option
 					if (!containerRef.current || !notebookInstance.cellsContainer) {
 						return;
 					}
-					webviewElement?.layoutWebviewOverElement(
+					webviewElement?.setAnchorElement(
 						containerRef.current,
-						undefined,
 						notebookInstance.cellsContainer
 					);
 				} catch (err) {

@@ -64,6 +64,7 @@ export const enum LayoutSettings {
 	// --- End Positron ---
 	COMMAND_CENTER = 'window.commandCenter',
 	LAYOUT_ACTIONS = 'workbench.layoutControl.enabled',
+	SHADOWS = 'workbench.shadows',
 	// --- Start Positron ---
 	TOP_ACTION_BAR_VISIBLE = 'workbench.topActionBar.visible'
 	// --- End Positron ---
