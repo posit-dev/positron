@@ -45,8 +45,10 @@ test.describe('Posit Assistant MCP', {
 				await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess);
 			});
 
-			test.afterAll(async function ({ app, cleanup }) {
-				await app.workbench.assistant.logoutModelProvider(provider);
+			test.afterAll(async function ({ cleanup }) {
+				// No logout: the `app` fixture is worker-scoped and tears down
+				// after this spec finishes, so signing out adds no isolation - it
+				// only adds flake surface.
 				await cleanup.removeTestFolder('.positai');
 			});
 
