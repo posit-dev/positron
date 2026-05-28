@@ -81,19 +81,17 @@ test.describe('Interpreter: Override', {
 		overridePythonPath = buildPythonPath('override');
 		overrideRPath = buildRPath('override');
 
+		// The discovery cache (StorageScope.APPLICATION) survives window reloads and pre-registers
+		// cached runtimes WITHOUT re-validating them against the override setting, so a warm reload
+		// with a populated cache can leave a pre-override interpreter registered (its session starts
+		// and the test fails). Clear the cache first so the reload below runs discovery cold against
+		// the override -- the same state a fresh worker (retry) gets, which is why retries passed.
+		await app.workbench.quickaccess.runCommand('Clear Interpreter Cache');
+
 		await settings.set({
 			'python.interpreters.override': [overridePythonPath],
 			'positron.r.interpreters.override': [overrideRPath]
 		}, { reload: true, waitForReady: true });
-
-		// The discovery cache (StorageScope.APPLICATION) survives window reloads and pre-registers
-		// cached runtimes WITHOUT re-validating them against the override setting, so the warm reload
-		// above can leave a pre-override interpreter registered (the session then starts and the test
-		// fails). That reload also lets any in-flight discovery settle, so the cache is stable here.
-		// Clear it and reload again so discovery runs cold against the override -- the same state a
-		// fresh worker (retry) gets, which is why retries passed.
-		await app.workbench.quickaccess.runCommand('Clear Interpreter Cache');
-		await app.workbench.hotKeys.reloadWindow(true);
 	});
 
 	test('R - Can Override Interpreter Discovery', { tag: [tags.ARK] }, async function ({ sessions }) {
