@@ -75,13 +75,15 @@ describe('CellOutputActionBar', () => {
 
 		// The action bar passes the cell through without dereferencing it in this test;
 		// stubInterface gives the typed "never read" stub.
-		const cell = stubInterface<PositronNotebookCodeCell>();
+		const cell = stubInterface<PositronNotebookCodeCell>({
+			scopedContextKeyService: contextKeyService,
+		});
 
 		// RTL's act() batches effects, so the menu is created and actions
 		// resolved in a single render pass.
 		return rtl.render(
 			<NotebookInstanceProvider instance={instance}>
-				<CellScopedContextKeyServiceProvider service={contextKeyService}>
+				<CellScopedContextKeyServiceProvider cell={cell}>
 					<CellOutputActionBar cell={cell} scrollTargetRef={scrollTargetRef} />
 				</CellScopedContextKeyServiceProvider>
 			</NotebookInstanceProvider>
