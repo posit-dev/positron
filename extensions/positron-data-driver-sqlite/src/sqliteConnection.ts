@@ -67,7 +67,7 @@ export class SQLiteConnection implements positron.DataConnection {
 			createGroupNode('Tables', positron.DataConnectionNodeKind.GroupTables, () => this._listObjects('table').map(name => createTableNode(this._db!, name))),
 			createGroupNode('Views', positron.DataConnectionNodeKind.GroupViews, () => this._listObjects('view').map(name => createViewNode(this._db!, name))),
 			createGroupNode('Indexes', positron.DataConnectionNodeKind.GroupIndexes, () => this._listObjects('index').map(name => createIndexNode(this._db!, name))),
-			createGroupNode('Triggers', positron.DataConnectionNodeKind.GroupTriggers, () => this._listObjects('trigger').map(name => createTriggerNode(name))),
+			// createGroupNode('Triggers', positron.DataConnectionNodeKind.GroupTriggers, () => this._listObjects('trigger').map(name => createTriggerNode(name))),
 		];
 	}
 
