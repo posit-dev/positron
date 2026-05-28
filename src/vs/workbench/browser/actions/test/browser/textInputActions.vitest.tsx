@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 /// <reference types="vitest/globals" />
+/// <reference types="@testing-library/jest-dom/vitest" />
 
 import React, { useState } from 'react';
 import { act, render, screen } from '@testing-library/react';

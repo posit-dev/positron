@@ -17,7 +17,6 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ISize } from '../../../../../base/browser/positronReactRenderer.js';
 import { IScopedContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
-import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { CellContextKeys } from '../../common/cellContextKeys.js';
 import { NotebookContextKeys } from '../../common/notebookContextKeys.js';
 import { NotebookInstanceProvider } from '../../browser/NotebookInstanceProvider.js';
@@ -29,21 +28,13 @@ import { createTestPositronNotebookInstance, TestCellInput } from './testPositro
 import { CellSelectionType } from '../../browser/selectionMachine.js';
 import { PositronNotebookCodeCell } from '../../browser/PositronNotebookCells/PositronNotebookCodeCell.js';
 
-// Hoisted mock control: lets individual tests provide a real context key service.
-const { mockUseCellScopedContextKeyService } = vi.hoisted(() => ({
-	mockUseCellScopedContextKeyService: vi.fn(() => undefined as IScopedContextKeyService | undefined),
-}));
-
 // Mock heavy transitive deps that are irrelevant to output focus testing.
 vi.mock('../../browser/notebookCells/NotebookCellActionBar.js', () => ({
 	NotebookCellActionBar: () => null,
 }));
-vi.mock('../../browser/notebookCells/useCellContextKeys.js', () => ({
-	useCellContextKeys: () => undefined,
-}));
 vi.mock('../../browser/notebookCells/CellContextKeyServiceProvider.js', () => ({
 	CellScopedContextKeyServiceProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-	useCellScopedContextKeyService: () => mockUseCellScopedContextKeyService(),
+	useCellScopedContextKeyService: () => undefined,
 }));
 vi.mock('../../browser/notebookCells/CellEditorMonacoWidget.js', () => ({
 	CellEditorMonacoWidget: () => <div data-testid='mock-editor' />,
@@ -109,7 +100,7 @@ describe('Notebook output focus state', () => {
 			const cellContextKeyService = notebook.scopedContextKeyService.createScoped(cellElement);
 			ctx.disposables.add(cellContextKeyService);
 
-			expect(cellContextKeyService.getContextKeyValue(CellContextKeys.outputFocused.key)).toBe(undefined);
+			expect(cellContextKeyService.getContextKeyValue(CellContextKeys.outputFocused.key)).toBe(false);
 
 			const outputFocused = CellContextKeys.outputFocused.bindTo(cellContextKeyService);
 			outputFocused.set(true);
@@ -145,18 +136,9 @@ describe('Notebook output focus state', () => {
 	});
 
 	describe('Output focus sets context key', () => {
-		const contextKeyService = new MockContextKeyService();
-
-		beforeEach(() => {
-			mockUseCellScopedContextKeyService.mockReturnValue(contextKeyService);
-		});
-
-		afterEach(() => {
-			mockUseCellScopedContextKeyService.mockReturnValue(undefined);
-		});
-
 		it('sets positronNotebookOutputFocused to true when output section receives focus', () => {
-			renderCellWithOutput();
+			const { cells } = renderCellWithOutput();
+			const contextKeyService = cells[0].scopedContextKeyService!;
 
 			const outputSection = screen.getByTestId('cell-output');
 			outputSection.focus();
@@ -165,7 +147,8 @@ describe('Notebook output focus state', () => {
 		});
 
 		it('sets positronNotebookOutputFocused to false when output section loses focus', () => {
-			renderCellWithOutput();
+			const { cells } = renderCellWithOutput();
+			const contextKeyService = cells[0].scopedContextKeyService!;
 
 			const outputSection = screen.getByTestId('cell-output');
 			outputSection.focus();
@@ -176,7 +159,8 @@ describe('Notebook output focus state', () => {
 		});
 
 		it('keeps positronNotebookOutputFocused true when focus moves to a child element', () => {
-			renderCellWithOutput();
+			const { cells } = renderCellWithOutput();
+			const contextKeyService = cells[0].scopedContextKeyService!;
 
 			const outputSection = screen.getByTestId('cell-output');
 			outputSection.focus();
