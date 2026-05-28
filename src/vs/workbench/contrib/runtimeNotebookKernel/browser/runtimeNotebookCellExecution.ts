@@ -100,6 +100,13 @@ export class RuntimeNotebookCellExecution extends Disposable {
 			this.handleRuntimeMessageUpdateOutput(message);
 		}));
 
+		// If the session exits unexpectedly (e.g. runtime crash), end the execution.
+		this._register(this._session.onDidEndSession(() => {
+			if (!this._deferred.isSettled) {
+				this.error(new Error('The session exited unexpectedly'));
+			}
+		}));
+
 		this._cellExecution.update([{
 			// Start the execution timer.
 			editType: CellExecutionUpdateType.ExecutionState,
