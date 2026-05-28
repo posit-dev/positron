@@ -22,6 +22,13 @@ test.beforeEach(async ({ app }) => {
 
 test.afterEach(async ({ page, hotKeys }) => {
 	await page.keyboard.press('Escape');
+	// Back out of the connection schema view if a prior test (e.g.,
+	// schema-explorer) left us drilled into a connection; the next test
+	// assumes the list view and the "New Connection" button is only there.
+	const backButton = page.locator('.positron-connections-schema-navigation .codicon-arrow-left');
+	if (await backButton.isVisible()) {
+		await backButton.click();
+	}
 	await clearAnnotations(page);
 	await hotKeys.closeAllEditors();
 });
