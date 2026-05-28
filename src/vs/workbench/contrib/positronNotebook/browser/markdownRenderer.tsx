@@ -17,6 +17,7 @@ import { getWindow } from '../../../../base/browser/dom.js';
 import { escape } from '../../../../base/common/strings.js';
 import { DeferredImage } from './notebookCells/DeferredImage.js';
 import { KatexMath } from './notebookCells/KatexMath.js';
+import { MermaidDiagram } from './notebookCells/MermaidDiagram.js';
 import { NotebookLink } from './notebookCells/NotebookLink.js';
 import { safeSetInnerHtml } from '../../../../base/browser/domSanitize.js';
 import { allowedMarkdownHtmlTags, allowedMarkdownHtmlAttributes } from '../../../../base/browser/markdownRenderer.js';
@@ -76,6 +77,10 @@ function decodeHtmlEntities(text: string): string {
  */
 type ExtendedToken = marked.MarkedToken | MarkedKatexExtension.KatexToken | MarkedSuperSubExtension.SuperSubToken | MarkedFootnoteExtension.FootnoteToken;
 
+export interface MarkdownRenderOptions {
+	readonly onEmbeddedContentDoubleClick?: () => void;
+	readonly onEmbeddedContentFocus?: () => void;
+}
 
 /**
  * Component that renders syntax-highlighted code blocks.
@@ -228,7 +233,8 @@ export class TokenMarkdownRenderer {
 
 	constructor(
 		private extensionService: IExtensionService,
-		private languageService: ILanguageService
+		private languageService: ILanguageService,
+		private readonly options: MarkdownRenderOptions = {}
 	) { }
 
 	/**
@@ -398,7 +404,18 @@ export class TokenMarkdownRenderer {
 	}
 
 	private renderCode(token: marked.Tokens.Code, key: string): React.ReactElement {
-		// Render syntax-highlighted code blocks
+		const lang = token.lang?.split(/\s/)[0].toLowerCase();
+		if (lang === 'mermaid') {
+			return (
+				<MermaidDiagram
+					key={key}
+					source={token.text}
+					onDoubleClick={this.options.onEmbeddedContentDoubleClick}
+					onFocus={this.options.onEmbeddedContentFocus}
+				/>
+			);
+		}
+
 		return (
 			<SyntaxHighlightedCode
 				key={key}
@@ -688,7 +705,8 @@ export class TokenMarkdownRenderer {
 export async function renderNotebookMarkdown(
 	content: string,
 	extensionService: IExtensionService,
-	languageService: ILanguageService
+	languageService: ILanguageService,
+	options?: MarkdownRenderOptions
 ): Promise<React.ReactElement[]> {
 	// Load KaTeX extension
 	const katexExtension = await MarkedKatexSupport.loadExtension(
@@ -706,6 +724,6 @@ export async function renderNotebookMarkdown(
 	const tokens = markedInstance.lexer(content) as ExtendedToken[];
 
 	// Render tokens to React elements
-	const renderer = new TokenMarkdownRenderer(extensionService, languageService);
+	const renderer = new TokenMarkdownRenderer(extensionService, languageService, options);
 	return renderer.render(tokens);
 }
