@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -20,9 +20,9 @@
 	border-radius: 3px;
 	align-items: center;
 	justify-content: center;
-	color: var(--vscode-positronModalDialog-checkboxForeground);
-	background: var(--vscode-positronModalDialog-checkboxBackground);
-	border: 1px solid var(--vscode-positronModalDialog-checkboxBorder);
+	color: var(--vscode-positronCheckbox-foreground);
+	background: var(--vscode-positronCheckbox-background);
+	border: 1px solid var(--vscode-positronCheckbox-border);
 }
 
 .positron-dynamic-modal-dialog-box .checkbox-input[type="checkbox"]:focus {
