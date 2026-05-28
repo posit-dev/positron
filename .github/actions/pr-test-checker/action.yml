@@ -55,7 +55,7 @@ runs:
 
     - name: Set up Node
       if: steps.idempotency.outputs.skip != 'true'
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v6
       with:
         node-version: "20"
 
@@ -157,7 +157,7 @@ runs:
 
     - name: Upload analyzer artifacts
       if: always() && steps.idempotency.outputs.skip != 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: pr-test-checker-${{ inputs.pr-number }}
         path: ${{ steps.prep.outputs.work_dir }}
