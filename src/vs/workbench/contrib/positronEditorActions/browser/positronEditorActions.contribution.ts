@@ -23,10 +23,7 @@ import { SAVE_FILE_COMMAND_ID, SAVE_FILE_LABEL } from '../../files/browser/fileC
 // after the user types (see https://github.com/posit-dev/positron/issues/13530).
 // The Save button must enable on unsaved edits regardless of whether an
 // auto-save is queued, so we maintain our own key.
-//
-// Exported so the regression test in this contrib can reference the same
-// precondition the production menu uses. Not part of any public API.
-export const PositronActiveEditorIsDirtyContext = new RawContextKey<boolean>(
+const PositronActiveEditorIsDirtyContext = new RawContextKey<boolean>(
 	'positronActiveEditorIsDirty',
 	false,
 	localize('positronActiveEditorIsDirty', "Whether the active editor has unsaved changes (ignores in-flight auto-save)"),
