@@ -48,6 +48,11 @@
 	font: inherit;
 }
 
+.positron-tree-twisty:focus,
+.positron-tree-twisty:focus-visible {
+	outline: none !important;
+}
+
 /* The leaf twisty (an empty placeholder for alignment) is not clickable. */
 .positron-tree-twisty-leaf,
 .positron-tree-twisty-loading {

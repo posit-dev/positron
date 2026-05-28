@@ -11,6 +11,9 @@ import { IDataConnectionHandle } from './dataConnectionDriver.js';
  */
 export interface IDataConnectionInstance {
 	readonly id: string;
+	// Id of the IDataConnectionProfile this instance was created from. Every live instance is
+	// derived from a saved profile, so this is always set.
+	readonly profileId: string;
 	readonly driverId: string;
 	readonly driverName: string;
 	readonly iconSvg: string;

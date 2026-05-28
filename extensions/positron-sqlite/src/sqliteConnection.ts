@@ -5,7 +5,13 @@
 
 import * as positron from 'positron';
 import Database from 'better-sqlite3';
-import { createTableNode, createViewNode } from './sqliteNodes.js';
+import {
+	createGroupNode,
+	createIndexNode,
+	createTableNode,
+	createTriggerNode,
+	createViewNode,
+} from './sqliteNodes.js';
 
 /**
  * A live SQLite connection implementing the DataConnection interface.
@@ -51,29 +57,31 @@ export class SQLiteConnection implements positron.DataConnection {
 	}
 
 	/**
-	 * Returns top-level children: user tables and views from sqlite_master.
-	 * Internal sqlite_ tables are excluded.
+	 * Returns top-level children: four category group nodes (Tables, Views, Indexes, Triggers).
+	 * Each group defers its schema query until it is itself expanded.
 	 */
 	async getChildren(): Promise<positron.DataConnectionNode[]> {
 		this._ensureConnected();
 
-		// Prepare SQL to select user tables and views.
+		return [
+			createGroupNode('Tables', () => this._listObjects('table').map(name => createTableNode(this._db!, name))),
+			createGroupNode('Views', () => this._listObjects('view').map(name => createViewNode(this._db!, name))),
+			createGroupNode('Indexes', () => this._listObjects('index').map(name => createIndexNode(this._db!, name))),
+			createGroupNode('Triggers', () => this._listObjects('trigger').map(name => createTriggerNode(name))),
+		];
+	}
+
+	/**
+	 * Lists object names of the given sqlite_master type ('table' | 'view' | 'index' | 'trigger'),
+	 * excluding internal sqlite_-prefixed objects and auto-generated indexes (sqlite_autoindex_*
+	 * is already covered by the sqlite_ filter).
+	 */
+	private _listObjects(type: 'table' | 'view' | 'index' | 'trigger'): string[] {
+		this._ensureConnected();
 		const rows = this._db!.prepare(
-			`SELECT name, type FROM sqlite_master WHERE type IN ('table', 'view') AND name NOT LIKE 'sqlite_%' ORDER BY type, name`
-		).all() as Array<{ name: string; type: string }>;
-
-		// Tables.
-		const tables = rows
-			.filter(row => row.type === 'table')
-			.map(row => createTableNode(this._db!, row.name));
-
-		// Views.
-		const views = rows
-			.filter(row => row.type === 'view')
-			.map(row => createViewNode(this._db!, row.name));
-
-		// Return the node.
-		return [...tables, ...views];
+			`SELECT name FROM sqlite_master WHERE type = ? AND name NOT LIKE 'sqlite_%' ORDER BY name`
+		).all(type) as Array<{ name: string }>;
+		return rows.map(row => row.name);
 	}
 
 	/** Returns whether this connection was opened in read-only mode. */

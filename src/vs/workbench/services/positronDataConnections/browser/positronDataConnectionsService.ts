@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { generateUuid } from '../../../../base/common/uuid.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -223,28 +224,81 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	}
 
 	/**
-	 * Adds or updates a data connection instance.
-	 * @param instance The data connection instance to add or update.
+	 * Opens a connection for the given profile. Looks up the driver, resolves the profile's
+	 * secret parameter values, calls driver.connect(), and registers the resulting instance.
+	 * If a live instance for this profile already exists, returns it without re-connecting.
 	 */
-	addUpdateInstance(instance: IDataConnectionInstance): void {
-		// Add or update the connection instance.
-		const index = this._instances.findIndex(_ => _.id === instance.id);
-		if (index >= 0) {
-			this._instances[index] = instance;
-		} else {
-			this._instances.push(instance);
+	async connect(profileId: string): Promise<IDataConnectionInstance> {
+		// If we already have a live instance for this profile, reuse it.
+		const existing = this.getInstanceForProfile(profileId);
+		if (existing) {
+			return existing;
 		}
 
-		// Log the addition or update.
-		this._logService.trace(`[DataConnections] Added or updated connection instance: ${instance.id}`);
+		// Resolve the profile (with secrets pulled from secret storage).
+		const profile = await this.getProfileWithSecrets(profileId);
+		if (!profile) {
+			throw new Error(`No data connection profile with id '${profileId}'`);
+		}
 
-		// Raise the onDidChangeInstances event.
+		// Resolve the driver.
+		const driver = this.driverManager.getDriver(profile.driverMetadata.id);
+		if (!driver) {
+			throw new Error(`No data connection driver registered for '${profile.driverMetadata.id}'`);
+		}
+
+		// Open the connection. driver.connect throws on failure; let it propagate.
+		const handle = await driver.connect(profile.parameterValues);
+
+		// Build the live instance. Active starts true; an onDidChangeStatus emitter is wired so
+		// future status changes can fan out to listeners (currently nothing fires it).
+		const statusEmitter = this._register(new Emitter<boolean>());
+		const instance: IDataConnectionInstance = {
+			id: generateUuid(),
+			profileId: profile.id,
+			driverId: driver.id,
+			driverName: driver.metadata.name,
+			iconSvg: driver.metadata.iconSvg,
+			connectionHandle: handle,
+			active: true,
+			onDidChangeStatus: statusEmitter.event,
+		};
+
+		this._instances.push(instance);
+		this._logService.trace(`[DataConnections] Connected profile ${profile.id} -> instance ${instance.id}`);
+		this._onDidChangeInstancesEmitter.fire([...this._instances]);
+
+		return instance;
+	}
+
+	/**
+	 * Closes the live connection for the given profile (if one exists). Calls disconnect() on
+	 * the underlying handle, releases ext host resources, and removes the instance.
+	 */
+	async disconnect(profileId: string): Promise<void> {
+		const index = this._instances.findIndex(i => i.profileId === profileId);
+		if (index < 0) {
+			return;
+		}
+
+		const instance = this._instances[index];
+		this._instances.splice(index, 1);
+
+		try {
+			await instance.connectionHandle.disconnect();
+		} catch (err) {
+			// Log but don't throw -- the instance is already gone from our list and the caller
+			// can't recover from a disconnect failure.
+			this._logService.error(`[DataConnections] disconnect() threw for instance ${instance.id}: ${err}`);
+		}
+		instance.connectionHandle.release();
+
+		this._logService.trace(`[DataConnections] Disconnected instance ${instance.id} (profile ${profileId})`);
 		this._onDidChangeInstancesEmitter.fire([...this._instances]);
 	}
 
 	/**
 	 * Gets all data connection instances.
-	 * @returns The data connection instances array.
 	 */
 	getInstances(): IDataConnectionInstance[] {
 		return [...this._instances];
@@ -252,38 +306,16 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 
 	/**
 	 * Gets a data connection instance by id.
-	 * @param id The data connection instance id.
-	 * @returns The matching instance, or undefined if not found.
 	 */
 	getInstance(id: string): IDataConnectionInstance | undefined {
 		return this._instances.find(c => c.id === id);
 	}
 
 	/**
-	 * Removes a data connection instance.
-	 * @param id The data connection instance id to remove.
+	 * Gets the live data connection instance for the given profile, or undefined if none exists.
 	 */
-	removeInstance(id: string): void {
-		// Find the index of the data connection instance by ID.
-		const index = this._instances.findIndex(c => c.id === id);
-
-		// If the data connection instance was found, release its ext host handle and remove it.
-		if (index >= 0) {
-			// Get the data connection instance.
-			const connectionInstance = this._instances[index];
-
-			// Release its ext host handle.
-			connectionInstance.connectionHandle.release();
-
-			// Remove the data connection instance.
-			this._instances.splice(index, 1);
-
-			// Log the removal.
-			this._logService.trace(`[DataConnections] Removed connection instance: ${id}`);
-
-			// Raise the onDidChangeInstances event.
-			this._onDidChangeInstancesEmitter.fire([...this._instances]);
-		}
+	getInstanceForProfile(profileId: string): IDataConnectionInstance | undefined {
+		return this._instances.find(i => i.profileId === profileId);
 	}
 
 	//#endregion IPositronDataConnectionsService Implementation

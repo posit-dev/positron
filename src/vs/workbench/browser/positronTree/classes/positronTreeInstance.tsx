@@ -255,6 +255,37 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 		this._rebuildProjection();
 	}
 
+	/**
+	 * Drops the loaded children for the given node and all of its loaded descendants. After this
+	 * call, the node is back to "expandable, not loaded" -- the next expand re-fetches. Also
+	 * clears any cached errors on the affected ids and removes them from the expanded set so the
+	 * subtree collapses visually.
+	 *
+	 * Used by consumers whose loaded children carry per-fetch resources (e.g. a connection
+	 * handle) that have become stale and need to be re-fetched against a fresh resource.
+	 */
+	dropLoadedChildren(id: string): void {
+		// Walk the loaded subtree under `id` so descendants get cleaned too. The id itself is
+		// not removed from any structural map -- it's the children we drop.
+		const stack: string[] = [id];
+		while (stack.length > 0) {
+			const current = stack.pop()!;
+			const loaded = this._children.get(current);
+			if (loaded === undefined) {
+				continue;
+			}
+			for (const child of loaded) {
+				stack.push(child.id);
+				this._expanded.delete(child.id);
+				this._errors.delete(child.id);
+				this._loading.delete(child.id);
+			}
+			this._children.delete(current);
+		}
+		this._errors.delete(id);
+		this._rebuildProjection();
+	}
+
 	//#endregion Public Methods - Data
 
 	//#region Public Methods - Expansion
@@ -382,6 +413,9 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 				this._children.set(node.id, children);
 			} catch (err) {
 				this._errors.set(node.id, err);
+				// Log so consumers don't have to drill into the projection to see why the error
+				// twisty appeared. The error twisty's title also surfaces the message.
+				console.error(`[PositronTree] getChildren failed for node ${node.id}:`, err);
 			} finally {
 				this._loading.delete(node.id);
 				this._pendingChildrenFetches.delete(node.id);
@@ -545,6 +579,7 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 		};
 
 		const twistyClickable = visible.expandState !== 'leaf' && visible.expandState !== 'loading';
+		const errorMessage = visible.expandState === 'error' ? formatError(this._errors.get(visible.node.id)) : undefined;
 
 		return (
 			<div
@@ -566,6 +601,7 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 					)}
 					disabled={!twistyClickable}
 					tabIndex={-1}
+					title={errorMessage}
 					type='button'
 					onClick={twistyClickable ? onTwistyClick : undefined}
 				>
@@ -579,6 +615,21 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 	}
 
 	//#endregion DataGridInstance Implementation
+}
+
+/**
+ * Stringifies an error captured by _fetchChildren for use as the twisty's tooltip. Falls back
+ * to String(err) when the value isn't an Error instance (some rejected promises carry plain
+ * strings or objects).
+ */
+function formatError(err: unknown): string {
+	if (err === undefined) {
+		return '';
+	}
+	if (err instanceof Error) {
+		return err.message;
+	}
+	return String(err);
 }
 
 /**
