@@ -10,13 +10,15 @@ import { VSBuffer } from '../../../../base/common/buffer.js';
 import { ensureNoLeakedDisposables } from '../../../../test/vitest/vitestUtils.js';
 import { stubInterface } from '../../../../test/vitest/stubInterface.js';
 import { IPositronWebviewPreloadService, NotebookPreloadOutputResults } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
-import { PositronWebviewPreloadService } from './positronWebviewPreloadsService.js';
+import { PositronWebviewPreloadService, extractPdfIframeInfo } from './positronWebviewPreloadsService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronNotebookOutputWebviewService, INotebookOutputWebview } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { IPositronIPyWidgetsService } from '../../../services/positronIPyWidgets/common/positronIPyWidgetsService.js';
 import { IPositronNotebookInstance } from '../../positronNotebook/browser/IPositronNotebookInstance.js';
 import { IOverlayWebview } from '../../webview/browser/webview.js';
 import { URI } from '../../../../base/common/uri.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
 
 /** Minimal stub for IPositronNotebookInstance */
 function stubNotebookInstance(id: string, uri = URI.file('/workspace/notebook.ipynb')): IPositronNotebookInstance {
@@ -65,10 +67,19 @@ describe('PositronWebviewPreloadService - addNotebookOutput rawHtml', () => {
 
 		const ipyWidgetsService = stubInterface<IPositronIPyWidgetsService>();
 
+		const commandService = stubInterface<ICommandService>({
+			executeCommand: vi.fn().mockResolvedValue(undefined),
+		});
+		const editorService = stubInterface<IEditorService>({
+			openEditor: vi.fn().mockResolvedValue(undefined),
+		});
+
 		service = disposables.add(new PositronWebviewPreloadService(
 			runtimeSessionService,
 			outputWebviewService,
 			ipyWidgetsService,
+			commandService,
+			editorService,
 		));
 
 		service.attachNotebookInstance(notebookInstance);
@@ -118,5 +129,40 @@ describe('PositronWebviewPreloadService - addNotebookOutput rawHtml', () => {
 
 		expect(result, 'plain HTML should not create a webview').toBe(undefined);
 		expect(outputWebviewService.rawHtmlCreationCount).toBe(0);
+	});
+});
+
+describe('extractPdfIframeInfo', () => {
+	it('detects an iframe with a .pdf src', () => {
+		const html = '<iframe src="report.pdf" width="800" height="600"></iframe>';
+		expect(extractPdfIframeInfo(html)).toEqual({ src: 'report.pdf', width: '800', height: '600' });
+	});
+
+	it('detects IPython.display.IFrame output (double-quoted, absolute path)', () => {
+		const html = '<iframe src="/home/user/output.pdf" width="1000" height="700"></iframe>';
+		expect(extractPdfIframeInfo(html)).toEqual({ src: '/home/user/output.pdf', width: '1000', height: '700' });
+	});
+
+	it('handles single-quoted attributes', () => {
+		const html = `<iframe src='data/plot.pdf' width='600' height='400'></iframe>`;
+		expect(extractPdfIframeInfo(html)).toEqual({ src: 'data/plot.pdf', width: '600', height: '400' });
+	});
+
+	it('returns src only when width/height are absent', () => {
+		const html = '<iframe src="doc.pdf"></iframe>';
+		expect(extractPdfIframeInfo(html)).toEqual({ src: 'doc.pdf', width: undefined, height: undefined });
+	});
+
+	it('returns undefined for non-PDF iframes', () => {
+		expect(extractPdfIframeInfo('<iframe src="map.html"></iframe>')).toBe(undefined);
+	});
+
+	it('returns undefined for HTML without iframes', () => {
+		expect(extractPdfIframeInfo('<p>hello world</p>')).toBe(undefined);
+	});
+
+	it('is case-insensitive on the .pdf extension', () => {
+		const html = '<iframe src="REPORT.PDF" width="800" height="600"></iframe>';
+		expect(extractPdfIframeInfo(html)).toEqual({ src: 'REPORT.PDF', width: '800', height: '600' });
 	});
 });
