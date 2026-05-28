@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/* eslint-disable no-restricted-globals, no-restricted-syntax */
-
 export function buildWebviewHTML(opts: {
 	content: string;
 	script?: string;
