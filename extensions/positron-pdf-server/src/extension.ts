@@ -8,7 +8,7 @@ import { PdfHttpServer } from './pdfHttpServer';
 import { PdfServerProvider } from './pdfServerProvider';
 
 /**
- * Get the PDF.js theme value based on VS Code's color theme.
+ * Get the PDF.js theme value based on Positron's color theme.
  */
 function getThemeValue(): number {
 	const activeColorTheme = vscode.window.activeColorTheme;
@@ -40,7 +40,7 @@ export function activate(context: vscode.ExtensionContext): PdfServerApi {
 	// Create the PDF server provider for the custom editor.
 	const pdfServerProvider = new PdfServerProvider(context, httpServer);
 
-	// Register the provider with VS Code.
+	// Register the provider with Positron.
 	context.subscriptions.push(
 		vscode.window.registerCustomEditorProvider(
 			PdfServerProvider.viewType,
