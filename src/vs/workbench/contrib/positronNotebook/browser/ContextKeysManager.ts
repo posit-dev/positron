@@ -5,60 +5,9 @@
 
 import * as DOM from '../../../../base/browser/dom.js';
 import { Disposable, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
-import { ContextKeyValue, IContextKey, IScopedContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { NotebookEditorContextKeys } from '../../notebook/browser/viewParts/notebookEditorWidgetContextKeys.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
-import { CellContextKeys } from '../common/cellContextKeys.js';
 import { NotebookContextKeys } from '../common/notebookContextKeys.js';
-
-// Interface for the cell context keys
-export type IPositronNotebookCellContextKeys = {
-	readonly [K in keyof typeof CellContextKeys]: IContextKey<ContextKeyValue>;
-};
-
-/**
- * Bind all cell context keys to a scoped context key service
- */
-export function bindCellContextKeys(service: IScopedContextKeyService): IPositronNotebookCellContextKeys {
-	return {
-		isCode: CellContextKeys.isCode.bindTo(service),
-		isMarkdown: CellContextKeys.isMarkdown.bindTo(service),
-		isRaw: CellContextKeys.isRaw.bindTo(service),
-		isRunning: CellContextKeys.isRunning.bindTo(service),
-		isPending: CellContextKeys.isPending.bindTo(service),
-		isFirst: CellContextKeys.isFirst.bindTo(service),
-		isLast: CellContextKeys.isLast.bindTo(service),
-		isOnly: CellContextKeys.isOnly.bindTo(service),
-		markdownEditorOpen: CellContextKeys.markdownEditorOpen.bindTo(service),
-		isSelected: CellContextKeys.isSelected.bindTo(service),
-		isActive: CellContextKeys.isActive.bindTo(service),
-		canMoveUp: CellContextKeys.canMoveUp.bindTo(service),
-		canMoveDown: CellContextKeys.canMoveDown.bindTo(service),
-		hasOutputs: CellContextKeys.hasOutputs.bindTo(service),
-		imageOutputCount: CellContextKeys.imageOutputCount.bindTo(service),
-		jsonOutputCount: CellContextKeys.jsonOutputCount.bindTo(service),
-		outputIsCollapsed: CellContextKeys.outputIsCollapsed.bindTo(service),
-		outputOverflows: CellContextKeys.outputOverflows.bindTo(service),
-		outputScrolling: CellContextKeys.outputScrolling.bindTo(service),
-		outputFocused: CellContextKeys.outputFocused.bindTo(service),
-		outputImageTargeted: CellContextKeys.outputImageTargeted.bindTo(service),
-		outputJsonTargeted: CellContextKeys.outputJsonTargeted.bindTo(service),
-	} satisfies IPositronNotebookCellContextKeys;
-}
-
-/**
- * Reset all cell context keys to their default values
- */
-export function resetCellContextKeys(keys: IPositronNotebookCellContextKeys | undefined): void {
-	if (!keys) {
-		return;
-	}
-
-	Object.values(keys).forEach(contextKey => {
-		contextKey.reset();
-	});
-}
-
 
 /**
  * Class to handle context keys for positron notebook editor

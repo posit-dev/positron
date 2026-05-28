@@ -43,9 +43,6 @@ vi.mock('../../browser/notebookCells/CellEditorMonacoWidget.js', () => ({
 vi.mock('../../browser/notebookCells/NotebookCellActionBar.js', () => ({
 	NotebookCellActionBar: () => null,
 }));
-vi.mock('../../browser/notebookCells/useCellContextKeys.js', () => ({
-	useCellContextKeys: () => undefined,
-}));
 vi.mock('../../browser/notebookCells/CellContextKeyServiceProvider.js', () => ({
 	CellScopedContextKeyServiceProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 	useCellScopedContextKeyService: () => undefined,
