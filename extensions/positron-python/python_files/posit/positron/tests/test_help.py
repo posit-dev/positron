@@ -230,6 +230,36 @@ def test_show_help_resolves_distribution_name(
     assert help_comm.messages == [show_help_event(f"{mock_pydoc_thread.url}get?key=numpy")]
 
 
+def test_show_help_renders_objects_with_internal_module_paths(
+    running_help_service: HelpService,
+) -> None:
+    """Renders help for objects whose __module__ points to an internal path."""
+    from urllib.request import urlopen
+
+    def fake_abs(x):
+        """Compute the absolute value."""
+
+    fake_abs.__module__ = "tensorflow.python.ops.math_ops"
+    fake_abs.__qualname__ = "abs"
+
+    help_service = running_help_service
+    help_comm = DummyComm(TARGET_NAME)
+    help_service.on_comm_open(help_comm, {})
+    help_comm.messages.clear()
+
+    help_service.show_help(fake_abs)
+
+    assert len(help_comm.messages) == 1
+    event = help_comm.messages[0]
+    url = event["data"]["params"]["content"]
+    assert "get?key=tensorflow.python.ops.math_ops.abs" in url
+
+    with urlopen(url) as f:
+        html = f.read().decode("utf-8")
+    assert "Not found" not in html
+    assert "Compute the absolute value" in html
+
+
 def test_handle_show_help_topic(help_comm, mock_pydoc_thread) -> None:
     msg = json_rpc_request(
         HelpBackendRequest.ShowHelpTopic, {"topic": "logging"}, comm_id="dummy_comm_id"

@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import contextlib
+import inspect
 import logging
 import pydoc
 import re
@@ -20,7 +21,7 @@ from .help_comm import (
     ShowHelpTopicRequest,
 )
 from .positron_comm import CommMessage, PositronComm
-from .pydoc import start_server
+from .pydoc import _object_cache, start_server
 from .utils import JsonRecord, get_qualname
 
 if TYPE_CHECKING:
@@ -179,6 +180,13 @@ class HelpService:
                 if key.startswith(old):
                     key = key.replace(old, new)
                     break
+
+            # Cache the object for the pydoc server so it can render help even when
+            # pydoc.locate() can't resolve the qualname (e.g. torch/tensorflow internals).
+            if isinstance(obj, type) or inspect.ismodule(obj) or callable(obj):
+                _object_cache[key] = obj
+            else:
+                _object_cache[key] = type(obj)
 
         url = f"{self._pydoc_thread.url}get?key={key}"
 
