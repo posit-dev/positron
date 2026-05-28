@@ -10,7 +10,18 @@ on:
       model:
         description: "Anthropic model"
         required: false
-        default: "claude-sonnet-4-5"
+        default: "claude-opus-4-7"
+        type: string
+  workflow_call:
+    inputs:
+      run_url:
+        description: "Full GitHub Actions run URL to analyze"
+        required: true
+        type: string
+      model:
+        description: "Anthropic model"
+        required: false
+        default: "claude-opus-4-7"
         type: string
 
 jobs:

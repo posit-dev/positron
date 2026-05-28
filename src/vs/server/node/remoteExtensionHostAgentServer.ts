@@ -13,7 +13,7 @@ import { VSBuffer } from '../../base/common/buffer.js';
 import { CharCode } from '../../base/common/charCode.js';
 import { isSigPipeError, onUnexpectedError, setUnexpectedErrorHandler } from '../../base/common/errors.js';
 import { isEqualOrParent } from '../../base/common/extpath.js';
-import { Disposable, DisposableStore } from '../../base/common/lifecycle.js';
+import { Disposable, DisposableMap, DisposableStore } from '../../base/common/lifecycle.js';
 import { connectionTokenQueryName, FileAccess, getServerProductSegment, Schemas } from '../../base/common/network.js';
 import { dirname, join } from '../../base/common/path.js';
 import * as perf from '../../base/common/performance.js';
@@ -37,6 +37,7 @@ import { ExtensionHostConnection } from './extensionHostConnection.js';
 import { ManagementConnection } from './remoteExtensionManagement.js';
 import { determineServerConnectionToken, requestHasValidConnectionToken as httpRequestHasValidConnectionToken, ServerConnectionToken, ServerConnectionTokenParseError, ServerConnectionTokenType } from './serverConnectionToken.js';
 import { IServerEnvironmentService, ServerParsedArgs } from './serverEnvironmentService.js';
+import { IServerLifetimeService } from './serverLifetimeService.js';
 import { setupServerServices, SocketServer } from './serverServices.js';
 import { CacheControl, serveError, serveFile, WebClientServer } from './webClientServer.js';
 const require = createRequire(import.meta.url);
@@ -55,8 +56,6 @@ import { IPositronIdleTrackingService } from '../../platform/positronIdleTrackin
 // --- Start PWB: Server proxy support ---
 import { kProxyRegex, VSCODE_STATIC_PREFIX } from './pwbConstants.js';
 // --- End PWB ---
-
-const SHUTDOWN_TIMEOUT = 5 * 60 * 1000;
 
 declare namespace vsda {
 	// the signer is a native module that for historical reasons uses a lower case class name
@@ -77,14 +76,13 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 	private readonly _extHostConnections: { [reconnectionToken: string]: ExtensionHostConnection };
 	private readonly _managementConnections: { [reconnectionToken: string]: ManagementConnection };
 	private readonly _allReconnectionTokens: Set<string>;
+	private readonly _extHostLifetimeTokens = this._register(new DisposableMap<string>());
 	private readonly _webClientServer: WebClientServer | null;
 	private readonly _webEndpointOriginChecker: WebEndpointOriginChecker;
 	private readonly _reconnectionGraceTime: number;
 
 	private readonly _serverBasePath: string | undefined;
 	private readonly _serverProductPath: string;
-
-	private shutdownTimer: Timeout | undefined;
 
 	constructor(
 		private readonly _socketServer: SocketServer<RemoteAgentConnectionContext>,
@@ -96,6 +94,7 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 		@IProductService private readonly _productService: IProductService,
 		@ILogService private readonly _logService: ILogService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
+		@IServerLifetimeService private readonly _serverLifetimeService: IServerLifetimeService,
 		// --- Start Positron ---
 		@IPositronIdleTrackingService private readonly _idleTrackingService: IPositronIdleTrackingService,
 		// --- End Positron ---
@@ -119,8 +118,6 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 		);
 		this._logService.info(`Extension host agent started.`);
 		this._reconnectionGraceTime = this._environmentService.reconnectionGraceTime;
-
-		this._waitThenShutdown(true);
 	}
 
 	public async handleRequest(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
@@ -163,7 +160,7 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 
 		// Delay shutdown
 		if (pathname === '/delay-shutdown') {
-			this._delayShutdown();
+			this._serverLifetimeService.delay();
 			res.writeHead(200);
 			return void res.end('OK');
 		}
@@ -547,10 +544,11 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 				const con = this._instantiationService.createInstance(ExtensionHostConnection, reconnectionToken, remoteAddress, socket, dataChunk);
 				this._extHostConnections[reconnectionToken] = con;
 				this._allReconnectionTokens.add(reconnectionToken);
+				this._extHostLifetimeTokens.set(reconnectionToken, this._serverLifetimeService.active(`ExtensionHost:${reconnectionToken.substring(0, 8)}`));
 				con.onClose(() => {
 					con.dispose();
 					delete this._extHostConnections[reconnectionToken];
-					this._onDidCloseExtHostConnection();
+					this._extHostLifetimeTokens.deleteAndDispose(reconnectionToken);
 				});
 				con.start(startParams);
 			}
@@ -623,72 +621,6 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 		startParams.port = undefined;
 		startParams.break = undefined;
 		return Promise.resolve(startParams);
-	}
-
-	private async _onDidCloseExtHostConnection(): Promise<void> {
-		if (!this._environmentService.args['enable-remote-auto-shutdown']) {
-			return;
-		}
-
-		this._cancelShutdown();
-
-		const hasActiveExtHosts = !!Object.keys(this._extHostConnections).length;
-		if (!hasActiveExtHosts) {
-			console.log('Last EH closed, waiting before shutting down');
-			this._logService.info('Last EH closed, waiting before shutting down');
-			this._waitThenShutdown();
-		}
-	}
-
-	private _waitThenShutdown(initial = false): void {
-		if (!this._environmentService.args['enable-remote-auto-shutdown']) {
-			return;
-		}
-
-		if (this._environmentService.args['remote-auto-shutdown-without-delay'] && !initial) {
-			this._shutdown();
-		} else {
-			this.shutdownTimer = setTimeout(() => {
-				this.shutdownTimer = undefined;
-
-				this._shutdown();
-			}, SHUTDOWN_TIMEOUT);
-		}
-	}
-
-	private _shutdown(): void {
-		const hasActiveExtHosts = !!Object.keys(this._extHostConnections).length;
-		if (hasActiveExtHosts) {
-			console.log('New EH opened, aborting shutdown');
-			this._logService.info('New EH opened, aborting shutdown');
-			return;
-		} else {
-			console.log('Last EH closed, shutting down');
-			this._logService.info('Last EH closed, shutting down');
-			this.dispose();
-			process.exit(0);
-		}
-	}
-
-	/**
-	 * If the server is in a shutdown timeout, cancel it and start over
-	 */
-	private _delayShutdown(): void {
-		if (this.shutdownTimer) {
-			console.log('Got delay-shutdown request while in shutdown timeout, delaying');
-			this._logService.info('Got delay-shutdown request while in shutdown timeout, delaying');
-			this._cancelShutdown();
-			this._waitThenShutdown();
-		}
-	}
-
-	private _cancelShutdown(): void {
-		if (this.shutdownTimer) {
-			console.log('Cancelling previous shutdown timeout');
-			this._logService.info('Cancelling previous shutdown timeout');
-			clearTimeout(this.shutdownTimer);
-			this.shutdownTimer = undefined;
-		}
 	}
 }
 
@@ -952,6 +884,7 @@ export async function createServer(address: string | net.AddressInfo | null, arg
 		output += `\n`;
 		console.log(output);
 	}
+
 	return remoteExtensionHostAgentServer;
 }
 

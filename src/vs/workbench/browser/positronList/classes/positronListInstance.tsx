@@ -66,11 +66,19 @@ export type ListEntry<TItem, TSection> =
 	| { readonly kind: 'section'; readonly section: TSection };
 
 /**
+ * PositronListSelectionMode type. Multiple- or single-selection mode for the list.
+ */
+export type PositronListSelectionMode = 'list-multiple-selection' | 'list-single-selection';
+
+/**
  * PositronListBaseOptions type. Options common to both sectioned and non-sectioned lists.
  */
 type PositronListBaseOptions = {
 	// A value which indicates whether to use the default styling.
 	readonly useDefaultStyling?: boolean;
+
+	// Multiple- or single-selection mode. Defaults to 'list-single-selection'.
+	readonly selectionMode?: PositronListSelectionMode;
 };
 
 /**
@@ -182,7 +190,7 @@ export class PositronListInstance<TItem, TSection = never> extends DataGridInsta
 			cellBorders: false,
 			internalCursor: false,
 			selection: true,
-			selectionMode: 'list',
+			selectionMode: options.selectionMode ?? 'list-single-selection',
 		});
 
 		// Default to applying the built-in focused/selected classes.
@@ -394,9 +402,9 @@ export class PositronListInstance<TItem, TSection = never> extends DataGridInsta
 		_columnIndex: number,
 		rowIndex: number,
 		_pinned: boolean,
-		selectionType: MouseSelectionType
+		mouseSelectionType: MouseSelectionType
 	): Promise<void> {
-		await this.mouseSelectRow(rowIndex, selectionType);
+		await this.mouseSelectRow(rowIndex, mouseSelectionType);
 	}
 
 	/**

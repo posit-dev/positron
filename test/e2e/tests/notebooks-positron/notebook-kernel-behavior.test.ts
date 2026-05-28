@@ -146,10 +146,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		});
 	});
 
-	test.skip('ensure existing notebooks use their correct interpreter kernel',
-		{
-			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7593' }] // <--- test is failing on chromium only
-		},
+	test('ensure existing notebooks use their correct interpreter kernel',
 		async function ({ app, sessions }) {
 			const { notebooksPositron } = app.workbench;
 			const pythonNotebook = path.join('workspaces', 'data-explorer-update-datasets', 'pandas-update-dataframe.ipynb');

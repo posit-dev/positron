@@ -13,6 +13,10 @@
 		"typeRoots": [
 			"./node_modules/@types"
 		],
+		"types": [
+			"node",
+			"mocha"
+		],
 		"paths": {
 			"*": ["./node_modules/*"]
 		},

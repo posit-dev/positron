@@ -13,7 +13,7 @@
 	display: flex;
 	gap: var(--_positron-notebook-cell-action-bar-button-gap);
 	border-radius: var(--vscode-positronNotebook-cell-radius);
-	background-color: var(--vscode-positronNotebook-action-bar-background);
+	background-color: var(--vscode-positronNotebook-actionBarBackground);
 	border: 1px solid var(--vscode-widget-border);
 
 	/* Hidden by default, shown on output hover or keyboard focus */

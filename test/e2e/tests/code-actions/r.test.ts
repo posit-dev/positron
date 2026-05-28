@@ -55,7 +55,9 @@ test.describe('R Code Actions', { tag: [tags.EDITOR, tags.WIN, tags.WEB, tags.AR
 
 		await termLocator.hover();
 
-		await app.code.driver.currentPage.locator('.codicon-light-bulb').click();
+		// Upstream now varies the icon class (codicon-light-bulb vs codicon-lightbulb-sparkle, etc.)
+		// based on whether any provider returns an AI action. Match the widget itself.
+		await app.code.driver.currentPage.locator('.lightBulbWidget').click();
 
 		const generateTemplate = app.code.driver.currentPage.getByText('Generate a roxygen template');
 

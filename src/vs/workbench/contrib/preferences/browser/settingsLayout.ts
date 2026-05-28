@@ -156,6 +156,11 @@ export const tocData: ITOCEntry<string> = {
 					id: 'workbench/screencastmode',
 					label: localize('screencastMode', "Screencast Mode"),
 					settings: ['screencastMode.*']
+				},
+				{
+					id: 'workbench/browser',
+					label: localize('browser', "Browser"),
+					settings: ['workbench.browser.*']
 				}
 			]
 		},
@@ -394,7 +399,7 @@ export const tocData: ITOCEntry<string> = {
 				{
 					id: 'features/packages',
 					label: localize('packages', "Packages"),
-					settings: ['packages.*']
+					settings: ['packages.*', 'positron.packages.*']
 				},
 				{
 					id: 'features/plots',

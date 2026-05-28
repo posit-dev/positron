@@ -15,14 +15,14 @@ import { ILifecycleMainService, IRelaunchHandler, IRelaunchOptions } from '../..
 import { ILogService } from '../../log/common/log.js';
 import { IProductService } from '../../product/common/productService.js';
 import { asJson, IRequestService } from '../../request/common/request.js';
+import { IApplicationStorageMainService } from '../../storage/electron-main/storageMainService.js';
 import { ITelemetryService } from '../../telemetry/common/telemetry.js';
-import { AvailableForDownload, DisablementReason, IUpdate, State, StateType, UpdateType } from '../common/update.js';
+import { AvailableForDownload, IUpdate, State, StateType, UpdateType } from '../common/update.js';
 import { IMeteredConnectionService } from '../../meteredConnection/common/meteredConnection.js';
 // --- Start Positron ---
-// removed unused import
+// removed unused import IUpdateURLOptions
 import { AbstractUpdateService, createUpdateURL, getUpdateRequestHeaders, UpdateErrorClassification } from './abstractUpdateService.js';
 // --- End Positron ---
-import { INodeProcess } from '../../../base/common/platform.js';
 
 // --- Start Positron ---
 import { INativeHostMainService } from '../../native/electron-main/nativeHostMainService.js';
@@ -50,17 +50,17 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 	constructor(
 		@ILifecycleMainService lifecycleMainService: ILifecycleMainService,
 		@IConfigurationService configurationService: IConfigurationService,
-		@ITelemetryService private readonly telemetryService: ITelemetryService,
+		@ITelemetryService telemetryService: ITelemetryService,
 		@IEnvironmentMainService environmentMainService: IEnvironmentMainService,
 		@IRequestService requestService: IRequestService,
 		@ILogService logService: ILogService,
 		@IProductService productService: IProductService,
+		@IApplicationStorageMainService applicationStorageMainService: IApplicationStorageMainService,
 		@IMeteredConnectionService meteredConnectionService: IMeteredConnectionService,
 		@INativeHostMainService nativeHostMainService: INativeHostMainService,
 		@IStateService stateService: IStateService
 	) {
-		super(lifecycleMainService, configurationService, environmentMainService, requestService, logService, meteredConnectionService, productService, nativeHostMainService, stateService, true);
-		// --- End Positron ---
+		super(lifecycleMainService, configurationService, environmentMainService, requestService, logService, telemetryService, applicationStorageMainService, meteredConnectionService, productService, nativeHostMainService, stateService, true);
 
 		lifecycleMainService.setRelaunchHandler(this);
 	}
@@ -82,13 +82,8 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 	}
 
 	protected override async initialize(): Promise<void> {
-		if ((process as INodeProcess).isEmbeddedApp) {
-			this.setState(State.Disabled(DisablementReason.EmbeddedApp));
-			this.logService.info('update#ctor - updates are disabled from embedded app');
-			return;
-		}
-
 		await super.initialize();
+
 		this.onRawError(this.onError, this, this.disposables);
 		this.onRawCheckingForUpdate(this.onCheckingForUpdate, this, this.disposables);
 		this.onRawUpdateAvailable(this.onUpdateAvailable, this, this.disposables);
@@ -126,9 +121,12 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 	}
 	// --- End Positron ---
 
-	// Unused for Positron
-	protected doCheckForUpdates(explicit: boolean): void {
+	protected doCheckForUpdates(explicit: boolean, pendingCommit?: string): void {
+		// --- Start Positron ---
+		// pendingCommit is accepted for compatibility with the abstract base class but is unused
+		// in Positron's update flow; we gate on `this.url` (not `this.quality`).
 		if (!this.url) {
+			// --- End Positron ---
 			return;
 		}
 
@@ -144,6 +142,7 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 		// --- End Positron ---
 
 		if (!url) {
+			this.setState(State.Idle(UpdateType.Archive));
 			return;
 		}
 
@@ -180,24 +179,26 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 
 	/**
 	 * Manually check the update feed URL without triggering Electron's auto-download.
-	 * Used when connection is metered to show update availability without downloading.
+	 * Used when connection is metered or in the embedded app.
+	 * @param canInstall When false, signals that the update cannot be installed from this app.
 	 */
-	private async checkForUpdateNoDownload(url: string): Promise<void> {
+	private async checkForUpdateNoDownload(url: string, canInstall?: boolean): Promise<void> {
 		const headers = getUpdateRequestHeaders(this.productService.version);
 		this.logService.trace('update#checkForUpdateNoDownload - checking update server', { url, headers });
 
 		try {
-			const context = await this.requestService.request({ url, headers }, CancellationToken.None);
+			const context = await this.requestService.request({ url, headers, callSite: 'updateService.darwin.checkForUpdates' }, CancellationToken.None);
 			const statusCode = context.res.statusCode;
 			this.logService.trace('update#checkForUpdateNoDownload - response', { statusCode });
 
 			const update = await asJson<IUpdate>(context);
 			if (!update || !update.url || !update.version || !update.productVersion) {
 				this.logService.trace('update#checkForUpdateNoDownload - no update available');
-				this.setState(State.Idle(UpdateType.Archive));
+				const notAvailable = this.state.type === StateType.CheckingForUpdates && this.state.explicit;
+				this.setState(State.Idle(UpdateType.Archive, undefined, notAvailable || undefined));
 			} else {
 				this.logService.trace('update#checkForUpdateNoDownload - update available', { version: update.version, productVersion: update.productVersion });
-				this.setState(State.AvailableForDownload(update));
+				this.setState(State.AvailableForDownload(update, canInstall));
 			}
 		} catch (err) {
 			this.logService.error('update#checkForUpdateNoDownload - failed to check for update', err);
@@ -208,6 +209,11 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 	private onUpdateAvailable(): void {
 		this.logService.trace('update#onUpdateAvailable - Electron autoUpdater reported update available');
 
+		if (this._suspended) {
+			this.logService.trace('update#onUpdateAvailable - suspended, ignoring');
+			return;
+		}
+
 		if (this.state.type !== StateType.CheckingForUpdates && this.state.type !== StateType.Overwriting) {
 			return;
 		}
@@ -216,7 +222,7 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 	}
 
 	private onUpdateDownloaded(update: IUpdate): void {
-		if (this.state.type !== StateType.Downloading) {
+		if (this._suspended || this.state.type !== StateType.Downloading) {
 			return;
 		}
 
@@ -235,11 +241,17 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 	private onUpdateNotAvailable(): void {
 		this.logService.trace('update#onUpdateNotAvailable - Electron autoUpdater reported no update available');
 
+		if (this._suspended) {
+			this.logService.trace('update#onUpdateNotAvailable - suspended, ignoring');
+			return;
+		}
+
 		if (this.state.type !== StateType.CheckingForUpdates) {
 			return;
 		}
 
-		this.setState(State.Idle(UpdateType.Archive));
+		const notAvailable = this.state.explicit;
+		this.setState(State.Idle(UpdateType.Archive, undefined, notAvailable || undefined));
 	}
 
 	protected override async doDownloadUpdate(state: AvailableForDownload): Promise<void> {

@@ -65,7 +65,7 @@ jobs:
     with:
       save_cache: true
       grep: ${{ needs.pr-tags.outputs.tags }}
-      display_name: "windows"
+      display_name: "electron-win"
       upload_logs: false
       allow_soft_fail: false
     secrets: inherit

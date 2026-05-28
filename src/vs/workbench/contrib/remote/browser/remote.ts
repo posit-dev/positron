@@ -1016,7 +1016,6 @@ export class RemoteAgentConnectionStatusListener extends Disposable implements I
 
 						if (e.handled) {
 							logService.info(`Error handled: Not showing a notification for the error.`);
-							console.log(`Error handled: Not showing a notification for the error.`);
 						} else if (!this._reloadWindowShown) {
 							this._reloadWindowShown = true;
 							dialogService.confirm({

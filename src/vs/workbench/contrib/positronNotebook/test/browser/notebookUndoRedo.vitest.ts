@@ -11,7 +11,7 @@ import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { IEditorPane } from '../../../../common/editor.js';
-import { POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../browser/ContextKeysManager.js';
+import { NotebookContextKeys } from '../../common/notebookContextKeys.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../common/positronNotebookCommon.js';
 import { handleNotebookRedo, handleNotebookUndo } from '../../browser/contrib/undoRedo/positronNotebookUndoRedo.js';
 import { NotebookOperationType } from '../../browser/IPositronNotebookInstance.js';
@@ -312,7 +312,7 @@ describe('PositronNotebookInstance undo/redo', () => {
 			const editorService = stubInterface<IEditorService>({
 				activeEditorPane: makeNotebookEditorPane(notebook),
 			});
-			POSITRON_NOTEBOOK_EDITOR_FOCUSED.bindTo(notebook.scopedContextKeyService).set(false);
+			NotebookContextKeys.editorFocused.bindTo(notebook.scopedContextKeyService).set(false);
 
 			const result = handleNotebookUndo(editorService, ctx.get(IUndoRedoService));
 
@@ -332,7 +332,7 @@ describe('PositronNotebookInstance undo/redo', () => {
 			const editorService = stubInterface<IEditorService>({
 				activeEditorPane: makeNotebookEditorPane(notebook),
 			});
-			POSITRON_NOTEBOOK_EDITOR_FOCUSED.bindTo(notebook.scopedContextKeyService).set(false);
+			NotebookContextKeys.editorFocused.bindTo(notebook.scopedContextKeyService).set(false);
 
 			const result = handleNotebookRedo(editorService, ctx.get(IUndoRedoService));
 
@@ -350,7 +350,7 @@ describe('PositronNotebookInstance undo/redo', () => {
 			const editorService = stubInterface<IEditorService>({
 				activeEditorPane: makeNotebookEditorPane(notebook),
 			});
-			POSITRON_NOTEBOOK_EDITOR_FOCUSED.bindTo(notebook.scopedContextKeyService).set(true);
+			NotebookContextKeys.editorFocused.bindTo(notebook.scopedContextKeyService).set(true);
 
 			const setOpSpy = vi.spyOn(notebook, 'setCurrentOperation');
 
@@ -379,7 +379,7 @@ describe('PositronNotebookInstance undo/redo', () => {
 			const editorService = stubInterface<IEditorService>({
 				activeEditorPane: makeNotebookEditorPane(notebook),
 			});
-			POSITRON_NOTEBOOK_EDITOR_FOCUSED.bindTo(notebook.scopedContextKeyService).set(true);
+			NotebookContextKeys.editorFocused.bindTo(notebook.scopedContextKeyService).set(true);
 
 			const setOpSpy = vi.spyOn(notebook, 'setCurrentOperation');
 

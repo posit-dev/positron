@@ -178,7 +178,7 @@ jobs:
       skip_cache: ${{ inputs.commit != 'latest' }}
       grep: ${{ inputs.grep || '' }}
       project: "e2e-windows"
-      display_name: "windows"
+      display_name: "electron-win"
       allow_soft_fail: false
       upload_logs: false
       shards: 4

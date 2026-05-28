@@ -116,6 +116,13 @@ configurationRegistry.registerConfiguration({
 			description: localize('showReleaseNotes', "Show Release Notes after an update."),
 			tags: ['usesOnlineServices'],
 		},
+		'update.showPostInstallInfo': {
+			type: 'boolean',
+			default: false,
+			scope: ConfigurationScope.APPLICATION,
+			description: localize('showPostInstallInfo', "Show a post-install update tooltip in the title bar instead of opening the release notes editor."),
+			tags: ['usesOnlineServices']
+		},
 		'update.statusBar': {
 			type: 'string',
 			enum: ['hidden', 'actionable', 'detailed'],

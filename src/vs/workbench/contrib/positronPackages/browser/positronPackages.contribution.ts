@@ -90,8 +90,19 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			default: true,
 			scope: ConfigurationScope.APPLICATION,
 			description: nls.localize('positron.packages.enable', 'Show the Packages pane.'),
-			deprecationMessage: nls.localize('positron.packages.enable.deprecated', "Deprecated. Use '#packages.enabled#' instead."),
-			included: false,
+			markdownDeprecationMessage: nls.localize('positron.packages.enable.deprecated', "Deprecated. Use `#packages.enabled#` instead."),
+		},
+		'packages.r.installer': {
+			type: 'string',
+			enum: ['auto', 'pak', 'base'],
+			enumDescriptions: [
+				nls.localize('positron.packages.r.installer.auto', "Use pak if installed; otherwise prompt and fall back to base R."),
+				nls.localize('positron.packages.r.installer.pak', "Always use pak. Silently install it if missing."),
+				nls.localize('positron.packages.r.installer.base', "Always use base R."),
+			],
+			default: 'auto',
+			scope: ConfigurationScope.RESOURCE,
+			markdownDescription: nls.localize('positron.packages.r.installer', "Which package installer to use for installing, updating, and removing R packages. Does not affect projects using renv, which always use renv."),
 			tags: ['preview'],
 		}
 	}

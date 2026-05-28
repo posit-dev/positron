@@ -65,6 +65,7 @@ export const unicodeFilter = Object.freeze<string[]>([
 	'!**/*.{d.ts,json,md}',
 	'!**/*.mp3',
 	'!**/*.tiff',
+	'!**/*.provisionprofile',
 
 	'!build/win32/**',
 	'!extensions/markdown-language-features/notebook-out/*.js',
@@ -81,6 +82,9 @@ export const unicodeFilter = Object.freeze<string[]>([
 	'!extensions/**/snippets/**',
 	'!extensions/**/colorize-fixtures/**',
 	'!extensions/terminal-suggest/src/shell/fishBuiltinsCache.ts',
+
+	// extensions/copilot has its own code style
+	'!extensions/copilot/**',
 
 	'!src/vs/base/browser/dompurify/**',
 	'!src/vs/workbench/services/keybinding/browser/keyboardLayouts/**',
@@ -149,6 +153,9 @@ export const indentationFilter = Object.freeze<string[]>([
 	'!extensions/**/themes/**',
 	'!extensions/**/colorize-fixtures/**',
 
+	// extensions/copilot has its own code style
+	'!extensions/copilot/**',
+
 	// except specific file types
 	'!src/vs/*/**/*.d.ts',
 	'!src/typings/**/*.d.ts',
@@ -191,6 +198,8 @@ export const copyrightFilter = Object.freeze<string[]>([
 	'**',
 	'!**/*.desktop',
 	'!**/*.json',
+	'!**/*.jsonc',
+	'!**/*.jsonl',
 	'!**/*.html',
 	'!**/*.template',
 	'!**/*.md',
@@ -212,6 +221,7 @@ export const copyrightFilter = Object.freeze<string[]>([
 	'!**/*.js.map',
 	'!**/*.wasm',
 	'!**/*.tiff',
+	'!**/*.provisionprofile',
 	'!build/**/*.init',
 	'!build/darwin/patch-dmg.py',
 	'!build/linux/libcxx-fetcher.*',
@@ -234,6 +244,11 @@ export const copyrightFilter = Object.freeze<string[]>([
 	'!extensions/positron-r/resources/testing/**',
 	`!**/*.jsonl`,
 	// --- End Positron ---
+
+	'!extensions/mermaid-chat-features/chat-webview-out/**',
+
+	// extensions/copilot has its own code style
+	'!extensions/copilot/**',
 ]);
 
 export const tsFormattingFilter = Object.freeze<string[]>([
@@ -256,6 +271,9 @@ export const tsFormattingFilter = Object.freeze<string[]>([
 	'!extensions/html-language-features/server/lib/jquery.d.ts',
 	'!extensions/terminal-suggest/src/shell/zshBuiltinsCache.ts',
 	'!extensions/terminal-suggest/src/shell/fishBuiltinsCache.ts',
+
+	// extensions/copilot has its own code style
+	'!extensions/copilot/**',
 ]);
 
 export const eslintFilter = Object.freeze<string[]>([

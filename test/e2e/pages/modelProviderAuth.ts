@@ -302,10 +302,22 @@ export class ModelProviderAuth {
 		await test.step(`Sign out from ${provider} model provider`, async () => {
 			await this.runConfigureProviders();
 			await this.selectModelProvider(provider);
+
+			// If the test failed before sign-in landed (or a prior teardown
+			// already signed out), there's no Sign Out button to click.
+			if (await this.isSignedOut()) {
+				await this.clickCloseButton();
+				return;
+			}
+
 			await this.clickSignOutButton();
 			await this.verifySignInButtonVisible(timeout);
 			await this.clickCloseButton();
 		});
+	}
+
+	async isSignedOut(): Promise<boolean> {
+		return await this.code.driver.currentPage.locator(SIGN_IN_BUTTON).isVisible();
 	}
 
 	async enterApiKey(apiKey: string) {

@@ -70,7 +70,7 @@ export const DataConnectionsPanel = ({ active }: DataConnectionsPanelProps) => {
 		// Disposable store to hold our listeners so we can clean them up on unmount.
 		const disposableStore = new DisposableStore();
 
-		// Subscribe to future changes.
+		// Subscribe to future changes in instances and profiles.
 		disposableStore.add(positronDataConnectionsService.onDidChangeInstances(updatedInstances => {
 			setInstances(updatedInstances);
 		}));
@@ -81,7 +81,7 @@ export const DataConnectionsPanel = ({ active }: DataConnectionsPanelProps) => {
 		// Resync to current state. The lazy useState initializers ran during render; the service
 		// may have fired a change between then and now (effect commit).
 		setInstances(positronDataConnectionsService.getInstances());
-		setProfiles(Array.from({ length: 100 }, () => positronDataConnectionsService.getProfiles()).flat());
+		setProfiles(positronDataConnectionsService.getProfiles());
 
 		// Clean up listeners on unmount.
 		return () => disposableStore.dispose();
