@@ -1942,8 +1942,11 @@ declare module 'positron' {
 		Table = 'table',
 		View = 'view',
 		Field = 'field',
-		// A category container that groups sibling nodes (e.g. "Tables", "Views").
-		Group = 'group',
+		// Category containers that group sibling nodes (e.g. "Tables", "Views").
+		GroupTables = 'group-tables',
+		GroupViews = 'group-views',
+		GroupIndexes = 'group-indexes',
+		GroupTriggers = 'group-triggers',
 		Trigger = 'trigger',
 		Index = 'index',
 	}

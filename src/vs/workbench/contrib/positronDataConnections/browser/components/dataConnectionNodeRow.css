@@ -4,27 +4,28 @@
  *--------------------------------------------------------------------------------------------*/
 
 .data-connection-node-row {
-	display: flex;
-	align-items: center;
-	gap: 6px;
+	height: 100%;
 	width: 100%;
 	min-width: 0;
-	padding: 0 4px;
-	box-sizing: border-box;
+	display: flex;
+	padding-right: 2px;
+	align-items: center;
 }
 
 .data-connection-node-icon {
-	flex: 0 0 auto;
 	font-size: 14px;
+	margin-right: 2px;
 	color: var(--vscode-icon-foreground);
 }
 
-.data-connection-node-name {
-	flex: 1 1 auto;
+.data-connection-node-text {
+	flex: 1;
 	min-width: 0;
 	overflow: hidden;
-	text-overflow: ellipsis;
 	white-space: nowrap;
+	text-overflow: ellipsis;
+	/* Optical nudge: glyph mass sits below the line-box center, so flex centering reads as too low. */
+	transform: translateY(-0.5px);
 }
 
 .data-connection-node-type {

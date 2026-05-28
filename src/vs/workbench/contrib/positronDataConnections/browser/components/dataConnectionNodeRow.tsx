@@ -28,8 +28,14 @@ const kindIcon = (kind: string): string => {
 		case 'column':
 		case 'field':
 			return 'symbol-field';
-		case 'group':
-			return 'folder';
+		case 'group-tables':
+			return 'table';
+		case 'group-views':
+			return 'eye';
+		case 'group-indexes':
+			return 'key';
+		case 'group-triggers':
+			return 'zap';
 		case 'trigger':
 			return 'zap';
 		case 'index':
@@ -50,7 +56,7 @@ interface DataConnectionNodeRowProps {
 export const DataConnectionNodeRow = ({ dto }: DataConnectionNodeRowProps) => (
 	<div className='data-connection-node-row'>
 		<div className={`codicon codicon-${kindIcon(dto.kind)} data-connection-node-icon`} />
-		<div className='data-connection-node-name'>{dto.name}</div>
+		<div className='data-connection-node-text'>{dto.name}</div>
 		{dto.dataType && (
 			<div className='data-connection-node-type'>{dto.dataType}</div>
 		)}

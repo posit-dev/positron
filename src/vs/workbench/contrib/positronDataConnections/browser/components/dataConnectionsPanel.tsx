@@ -14,7 +14,6 @@ import { localize } from '../../../../../nls.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { NewDataConnectionFlow } from '../dialogs/newDataConnectionFlow.js';
 import { PositronTree } from '../../../../browser/positronTree/positronTree.js';
-import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { DataConnectionsTreeInstance } from '../classes/dataConnectionsTreeInstance.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
@@ -29,19 +28,11 @@ const kPaddingLeft = 8;
 const kPaddingRight = 8;
 
 /**
- * DataConnectionsPanelProps interface.
- */
-interface DataConnectionsPanelProps {
-	// Whether the panel is active.
-	active: boolean;
-}
-
-/**
  * DataConnectionsPanel component. Hosts the data connections tree -- active instances are
  * shown first (expandable to schemas / tables via the connection's handle), then persisted
  * profiles (leaves; "connect to use" runs through each profile's actions menu).
  */
-export const DataConnectionsPanel = ({ active }: DataConnectionsPanelProps) => {
+export const DataConnectionsPanel = () => {
 	// Context.
 	const { positronDataConnectionsService } = usePositronReactServicesContext();
 
@@ -85,12 +76,8 @@ export const DataConnectionsPanel = ({ active }: DataConnectionsPanelProps) => {
 	// Render.
 	return (
 		<div
-			className={positronClassNames(
-				'data-connections-panel',
-				{ 'active': active }
-			)}
+			className='data-connections-panel'
 			id='data-connections-panel'
-			role='tabpanel'
 		>
 			<PositronActionBarContextProvider>
 				<PositronDynamicActionBar

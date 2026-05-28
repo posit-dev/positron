@@ -40,8 +40,7 @@ export const DataConnectionEntryRow = ({ entry }: DataConnectionEntryRowProps) =
 	// Reference hooks.
 	const actionsButtonRef = useRef<HTMLButtonElement>(null);
 
-	const { profile, instance } = entry;
-	const connected = instance !== undefined;
+	const { profile } = entry;
 
 	const editProfile = () => {
 		const driver = positronDataConnectionsService.driverManager.getDriver(profile.driverMetadata.id);
@@ -88,6 +87,11 @@ export const DataConnectionEntryRow = ({ entry }: DataConnectionEntryRowProps) =
 			popupAlignment: 'auto',
 			width: 'auto',
 			entries: [
+				new CustomContextMenuItem({
+					icon: 'edit',
+					label: localize('positron.dataConnections.editConnection', "Edit Connection"),
+					onSelected: () => editProfile(),
+				}),
 				new CustomContextMenuSeparator(localize('positron.dataConnections.connectWith', "Connect With")),
 				new CustomContextMenuItem({
 					iconSrc: `data:image/svg+xml;base64,${PYTHON_ICON_BASE64}`,
@@ -104,12 +108,7 @@ export const DataConnectionEntryRow = ({ entry }: DataConnectionEntryRowProps) =
 					label: localize('positron.dataConnections.connectWithSQL', "SQL"),
 					onSelected: () => console.log(`Connect with SQL: ${profile.id} (${profile.connectionName})`),
 				}),
-				new CustomContextMenuSeparator(),
-				new CustomContextMenuItem({
-					icon: 'edit',
-					label: localize('positron.dataConnections.editConnection', "Edit Connection"),
-					onSelected: () => editProfile(),
-				}),
+				// new CustomContextMenuSeparator(),
 				new CustomContextMenuSeparator(),
 				new CustomContextMenuItem({
 					destructive: true,
@@ -123,25 +122,12 @@ export const DataConnectionEntryRow = ({ entry }: DataConnectionEntryRowProps) =
 
 	return (
 		<div className='data-connection-entry-row'>
-			{profile.driverMetadata.iconSvg && (
-				<img
-					alt=''
-					className='data-connection-entry-icon'
-					src={`data:image/svg+xml;base64,${profile.driverMetadata.iconSvg}`}
-				/>
-			)}
+			<div className='codicon codicon-database data-connection-entry-icon' />
 			<div className='data-connection-entry-text'>
 				{profile.connectionName}
 				{' · '}
 				{profile.driverMetadata.name}
 			</div>
-			{connected && (
-				<div
-					aria-label={localize('positron.dataConnections.connected', "Connected")}
-					className='data-connection-entry-status'
-					title={localize('positron.dataConnections.connected', "Connected")}
-				/>
-			)}
 			<button
 				ref={actionsButtonRef}
 				aria-label={localize('positron.dataConnections.actions', "Actions")}

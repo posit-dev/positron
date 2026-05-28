@@ -5,15 +5,17 @@
 
 .data-connection-entry-row {
 	height: 100%;
+	width: 100%;
+	min-width: 0;
 	display: flex;
-	padding: 0 0px;
+	padding-right: 2px;
 	align-items: center;
 }
 
 .data-connection-entry-icon {
-	width: 14px;
-	height: 14px;
-	margin-right: 4px;
+	font-size: 14px;
+	margin-right: 2px;
+	color: var(--vscode-icon-foreground);
 }
 
 .data-connection-entry-text {
@@ -26,23 +28,14 @@
 	transform: translateY(-0.5px);
 }
 
-.data-connection-entry-status {
-	flex: 0 0 auto;
-	width: 8px;
-	height: 8px;
-	margin-right: 8px;
-	border-radius: 50%;
-	background-color: var(--vscode-charts-green);
-}
-
 .data-connection-entry-actions {
 	display: flex;
+	width: 20px;
+	height: 20px;
 	align-items: center;
 	justify-content: center;
 	background: transparent;
 	border: none;
-	padding: 4px;
-	margin-left: 8px;
 	cursor: pointer;
 	color: inherit;
 	border-radius: 4px;

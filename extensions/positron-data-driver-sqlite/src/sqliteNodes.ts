@@ -13,11 +13,12 @@ import * as positron from 'positron';
  */
 export function createGroupNode(
 	name: string,
+	kind: positron.DataConnectionNodeKind,
 	getChildren: () => positron.DataConnectionNode[]
 ): positron.DataConnectionNode {
 	return {
 		name,
-		kind: positron.DataConnectionNodeKind.Group,
+		kind,
 		getChildren() {
 			return Promise.resolve(getChildren());
 		},

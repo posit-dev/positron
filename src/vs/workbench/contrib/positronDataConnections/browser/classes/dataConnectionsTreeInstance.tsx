@@ -80,6 +80,7 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	constructor(private readonly _service: IPositronDataConnectionsService) {
 		super({
 			rowHeight: ROW_HEIGHT,
+			indentWidth: 16,
 			getRoots: async () => buildEntries(_service).map(wrapEntry),
 			// Bound to `this` so the closure can reach _service for the connect-on-expand path.
 			getChildren: node => this._fetchChildrenForNode(node),
