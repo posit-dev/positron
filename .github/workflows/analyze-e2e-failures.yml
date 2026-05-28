@@ -8,9 +8,9 @@ on:
         required: true
         type: string
       model:
-        description: "Anthropic model"
+        description: "Anthropic model (a tier alias like 'opus' always resolves to the latest)"
         required: false
-        default: "claude-opus-4-7"
+        default: "opus"
         type: string
   workflow_call:
     inputs:
@@ -19,9 +19,9 @@ on:
         required: true
         type: string
       model:
-        description: "Anthropic model"
+        description: "Anthropic model (a tier alias like 'opus' always resolves to the latest)"
         required: false
-        default: "claude-opus-4-7"
+        default: "opus"
         type: string
 
 jobs:
