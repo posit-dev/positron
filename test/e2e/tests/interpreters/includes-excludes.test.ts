@@ -64,12 +64,10 @@ test.describe('Interpreter: Excludes', {
 	});
 });
 
-// Electron-only. The beforeAll clears the discovery cache and reloads so discovery runs cold
-// against the override. This works in Electron because the reload tears down the renderer and
-// rebuilds the runtime registry from that cold pass. It cannot fix web/chromium: there the
-// Positron server process (and its extension host) survive window reloads, so interpreters
-// registered before the override was written stay in the server-side registry no matter what the
-// client cache holds. Only a worker restart wipes them, which the harness can't trigger between
+// Electron-only. In web mode the Positron server process (and its extension host) survive window
+// reloads, so interpreters registered before the override was written stay in the server-side
+// registry and remain startable -- which breaks the "overridden-away interpreter can't start"
+// assertions below. Only a worker restart wipes them, which the harness can't trigger between
 // tests. Re-enable @:web once the runtime service unregisters stale entries (see runtimeStartup.ts:996).
 test.describe('Interpreter: Override', {
 	tag: [tags.INTERPRETER]
@@ -77,16 +75,9 @@ test.describe('Interpreter: Override', {
 	let overrideRPath: string;
 	let overridePythonPath: string;
 
-	test.beforeAll(async function ({ app, settings }) {
+	test.beforeAll(async function ({ settings }) {
 		overridePythonPath = buildPythonPath('override');
 		overrideRPath = buildRPath('override');
-
-		// The discovery cache (StorageScope.APPLICATION) survives window reloads and pre-registers
-		// cached runtimes WITHOUT re-validating them against the override setting, so a warm reload
-		// with a populated cache can leave a pre-override interpreter registered (its session starts
-		// and the test fails). Clear the cache first so the reload below runs discovery cold against
-		// the override -- the same state a fresh worker (retry) gets, which is why retries passed.
-		await app.workbench.quickaccess.runCommand('Clear Interpreter Cache');
 
 		await settings.set({
 			'python.interpreters.override': [overridePythonPath],
@@ -95,10 +86,17 @@ test.describe('Interpreter: Override', {
 	});
 
 	test('R - Can Override Interpreter Discovery', { tag: [tags.ARK] }, async function ({ sessions }) {
+		// Gate on settled discovery: start the override (hidden) R first. Once it is running,
+		// discovery has finished registering the override config, so the assertion below is
+		// deterministic. Without this gate, expectSessionStartToFail races discovery -- start()'s
+		// 30s retry-until-found can catch a transient standard-R registration while discovery settles.
+		await sessions.start('rHidden');
 		await expectSessionStartToFail(sessions, 'r', overrideRPath);
 	});
 
 	test('Python - Can Override Interpreter Discovery', async function ({ sessions }) {
+		// Gate on settled discovery (see the R test above) before asserting the standard Python is gone.
+		await sessions.start('pythonHidden');
 		await expectSessionStartToFail(sessions, 'python', overridePythonPath);
 	});
 });
