@@ -119,15 +119,14 @@ export class PdfHttpServer {
 				const viewerPath = path.join(this.extensionPath!, 'pdfjs-dist', 'web', 'viewer.html');
 				let html = await fs.promises.readFile(viewerPath, 'utf-8');
 
-				// Inject theme preferences script before any PDF.js scripts run.
+				// Set theme via pdf.js's webviewerloaded event, which fires after
+				// the viewer is constructed but before it reads preferences.
 				const theme = req.query.theme || '0';
 				const themeScript = `<script>
-					try {
-						var prefs = JSON.parse(localStorage.getItem('pdfjs.preferences') || '{}');
-						prefs.viewerCssTheme = ${Number(theme)};
-						prefs.sidebarViewOnLoad = 0;
-						localStorage.setItem('pdfjs.preferences', JSON.stringify(prefs));
-					} catch (e) {}
+					document.addEventListener('webviewerloaded', function() {
+						PDFViewerApplicationOptions.set('viewerCssTheme', ${Number(theme)});
+						PDFViewerApplicationOptions.set('sidebarViewOnLoad', 0);
+					});
 				</script>`;
 
 				// Inject keyboard forwarder.
