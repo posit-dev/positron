@@ -15,7 +15,7 @@ import { MockContextKeyService } from '../../../../../../platform/keybinding/tes
 import { IPositronNotebookInstance } from '../../../browser/IPositronNotebookInstance.js';
 import { NotebookInstanceProvider } from '../../../browser/NotebookInstanceProvider.js';
 import { CellOutputActionBar } from '../../../browser/notebookCells/CellOutputActionBar.js';
-import { CellScopedContextKeyServiceProvider } from '../../../browser/notebookCells/CellContextKeyServiceProvider.js';
+import { CellProvider } from '../../../browser/notebookCells/CellProvider.js';
 import { PositronNotebookCodeCell } from '../../../browser/PositronNotebookCells/PositronNotebookCodeCell.js';
 import { IMenu, IMenuService, MenuItemAction, SubmenuItemAction } from '../../../../../../platform/actions/common/actions.js';
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
@@ -83,9 +83,9 @@ describe('CellOutputActionBar', () => {
 		// resolved in a single render pass.
 		return rtl.render(
 			<NotebookInstanceProvider instance={instance}>
-				<CellScopedContextKeyServiceProvider cell={cell}>
+				<CellProvider cell={cell}>
 					<CellOutputActionBar cell={cell} scrollTargetRef={scrollTargetRef} />
-				</CellScopedContextKeyServiceProvider>
+				</CellProvider>
 			</NotebookInstanceProvider>
 		);
 	}

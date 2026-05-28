@@ -24,8 +24,7 @@ import { MenuId, MenuItemAction } from '../../../../../platform/actions/common/a
 import type { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { useMenu } from '../useMenu.js';
 import { useMenuActions } from '../useMenuActions.js';
-import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
-import { useCodeCell } from './CellProvider.js';
+import { useCellScopedContextKeyService, useCodeCell } from './CellProvider.js';
 import type { IInlineDataExplorerActionContext } from './InlineDataExplorerActions.js';
 import { InlineDataExplorerActionButton } from './InlineDataExplorerActionButton.js';
 

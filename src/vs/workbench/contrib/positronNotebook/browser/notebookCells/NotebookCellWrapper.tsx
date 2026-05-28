@@ -17,7 +17,6 @@ import { CellSelectionType, SelectionState } from '../selectionMachine.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { useObservedValue } from '../useObservedValue.js';
 import { NotebookCellActionBar } from './NotebookCellActionBar.js';
-import { CellScopedContextKeyServiceProvider } from './CellContextKeyServiceProvider.js';
 import { CellProvider } from './CellProvider.js';
 import { ScreenReaderOnly } from '../../../../../base/browser/ui/positronComponents/ScreenReaderOnly.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
@@ -209,20 +208,18 @@ export function NotebookCellWrapper({ cell, children }: {
 			selectionStateMachine.selectCell(cell, CellSelectionType.Normal);
 		}}
 	>
-		<CellScopedContextKeyServiceProvider cell={cell}>
-			<CellProvider cell={cell}>
-				<div className='positron-notebooks-cell-action-bar-container'>
-					<NotebookCellActionBar cell={cell} />
-				</div>
-				<NotebookErrorBoundary
-					componentName={`Cell[${cellTypeLower}]`}
-					level='cell'
-					logService={services.logService}
-				>
-					{children}
-				</NotebookErrorBoundary>
-			</CellProvider>
-		</CellScopedContextKeyServiceProvider>
+		<CellProvider cell={cell}>
+			<div className='positron-notebooks-cell-action-bar-container'>
+				<NotebookCellActionBar cell={cell} />
+			</div>
+			<NotebookErrorBoundary
+				componentName={`Cell[${cellTypeLower}]`}
+				level='cell'
+				logService={services.logService}
+			>
+				{children}
+			</NotebookErrorBoundary>
+		</CellProvider>
 		<ScreenReaderOnly>
 			{announcement}
 		</ScreenReaderOnly>
