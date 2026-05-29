@@ -113,7 +113,7 @@ export function getPlainTextOutputContent(outputs: ReadonlyArray<{ parsed: Parse
  * @param outputItem Contents of a cells output
  * @returns The output parsed to the known types.
  */
-export function parseOutputData(outputItem: IOutputItemDto): ParsedOutput {
+export function parseOutputData(outputItem: IOutputItemDto, metadata?: Record<string, unknown>): ParsedOutput {
 	const { data, mime } = outputItem;
 	const message = data.toString();
 
@@ -189,9 +189,12 @@ export function parseOutputData(outputItem: IOutputItemDto): ParsedOutput {
 	}
 
 	if (mime === 'image/png') {
+		const imgMeta = (metadata?.[mime] ?? metadata) as { width?: number; height?: number } | undefined;
 		return {
 			type: 'image',
-			dataUrl: `data:image/png;base64,${encodeBase64(VSBuffer.wrap(data.buffer))}`
+			dataUrl: `data:image/png;base64,${encodeBase64(VSBuffer.wrap(data.buffer))}`,
+			width: imgMeta?.width,
+			height: imgMeta?.height,
 		};
 	}
 

@@ -50,6 +50,27 @@ describe('Notebook Output Utils', () => {
 			);
 		});
 
+		it('parses image/png with retina metadata into an image with width and height', () => {
+			const pngData = 'iVBORw0KGgo=';
+			const metadata = { 'image/png': { width: 320, height: 240 } };
+			const result = parseOutputData(makeOutputItem('image/png', pngData), metadata);
+
+			expect(result.type).toBe('image');
+			const img = result as { type: 'image'; dataUrl: string; width?: number; height?: number };
+			expect(img.width).toBe(320);
+			expect(img.height).toBe(240);
+		});
+
+		it('parses image/png without metadata into an image with no dimensions', () => {
+			const pngData = 'iVBORw0KGgo=';
+			const result = parseOutputData(makeOutputItem('image/png', pngData));
+
+			expect(result.type).toBe('image');
+			const img = result as { type: 'image'; dataUrl: string; width?: number; height?: number };
+			expect(img.width).toBeUndefined();
+			expect(img.height).toBeUndefined();
+		});
+
 		it('parses text/plain as text output', () => {
 			const result = parseOutputData(makeOutputItem('text/plain', 'hello'));
 			expect(result.type).toBe('text');
