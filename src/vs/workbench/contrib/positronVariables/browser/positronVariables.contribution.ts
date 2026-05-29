@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -17,7 +17,8 @@ import { PositronVariablesRefreshAction } from './positronVariablesActions.js';
 import { IPositronVariablesService } from '../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { ICommandAndKeybindingRule, KeybindingWeight, KeybindingsRegistry } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from '../../../common/contributions.js';
-import { Extensions as ViewContainerExtensions, IViewDescriptorService, IViewsRegistry } from '../../../common/views.js';
+import { Extensions as ViewContainerExtensions, IViewsRegistry } from '../../../common/views.js';
+import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { POSITRON_VARIABLES_COLLAPSE, POSITRON_VARIABLES_COPY_AS_HTML, POSITRON_VARIABLES_COPY_AS_TEXT, POSITRON_VARIABLES_EXPAND } from './positronVariablesIdentifiers.js';
 import { POSITRON_SESSION_CONTAINER, positronSessionViewIcon } from '../../positronSession/browser/positronSessionContainer.js';
 
@@ -69,7 +70,7 @@ class PositronVariablesContribution extends Disposable implements IWorkbenchCont
 	constructor(
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IPositronVariablesService private readonly _positronVariablesService: IPositronVariablesService,
-		@IViewDescriptorService private readonly _viewDescriptorService: IViewDescriptorService,
+		@IViewsService private readonly _viewsService: IViewsService,
 	) {
 		super();
 		this.registerActions();
@@ -86,34 +87,19 @@ class PositronVariablesContribution extends Disposable implements IWorkbenchCont
 	/**
 	 * Registers the view visibility handler to notify the variables service
 	 * when the Variables pane is explicitly hidden or shown via the "Hide View"
-	 * action.
-	 *
-	 * This doesn't fire when simply switching to another view in the same panel.
+	 * action, or when the view is dragged into a different view container.
 	 */
 	private _registerViewVisibilityHandler(): void {
-		// Get the view container for the Variables view
-		const viewContainer = this._viewDescriptorService.getViewContainerByViewId(POSITRON_VARIABLES_VIEW_ID);
-		if (!viewContainer) {
-			return;
-		}
+		// Set initial visibility state.
+		this._positronVariablesService.setViewVisible(
+			this._viewsService.isViewVisible(POSITRON_VARIABLES_VIEW_ID)
+		);
 
-		const viewContainerModel = this._viewDescriptorService.getViewContainerModel(viewContainer);
-
-		// Set initial visibility state based on whether the view is in the visible descriptors
-		const isVisible = viewContainerModel.isVisible(POSITRON_VARIABLES_VIEW_ID);
-		this._positronVariablesService.setViewVisible(isVisible);
-
-		// Listen for when the view is explicitly shown (via "Show View" or similar)
-		this._register(viewContainerModel.onDidAddVisibleViewDescriptors(added => {
-			if (added.some(ref => ref.viewDescriptor.id === POSITRON_VARIABLES_VIEW_ID)) {
-				this._positronVariablesService.setViewVisible(true);
-			}
-		}));
-
-		// Listen for when the view is explicitly hidden (via "Hide View" context menu)
-		this._register(viewContainerModel.onDidRemoveVisibleViewDescriptors(removed => {
-			if (removed.some(ref => ref.viewDescriptor.id === POSITRON_VARIABLES_VIEW_ID)) {
-				this._positronVariablesService.setViewVisible(false);
+		// Listen for visibility changes on the Variables view regardless of
+		// which container currently hosts it.
+		this._register(this._viewsService.onDidChangeViewVisibility(e => {
+			if (e.id === POSITRON_VARIABLES_VIEW_ID) {
+				this._positronVariablesService.setViewVisible(e.visible);
 			}
 		}));
 	}
