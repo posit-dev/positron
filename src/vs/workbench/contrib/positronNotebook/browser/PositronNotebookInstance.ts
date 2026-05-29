@@ -23,7 +23,7 @@ import { BaseCellEditorOptions } from './BaseCellEditorOptions.js';
 import * as DOM from '../../../../base/browser/dom.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
 import { CellSelectionType, getActiveCell, getEditingCell, getSelectedCells, SelectionState, SelectionStateMachine, toCellRanges } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
-import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
+import { PositronNotebookView } from './PositronNotebookView.js';
 import { IPositronNotebookService } from './positronNotebookService.js';
 import { EditorLayoutMetadata, IDeletionSentinel, IPositronNotebookInstance, IPositronNotebookResolvedScrollPosition, NotebookKernelStatus, NotebookOperationType } from './IPositronNotebookInstance.js';
 import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from '../common/positronNotebookConfig.js';
@@ -57,7 +57,6 @@ import { PixelRatio } from '../../../../base/browser/pixelRatio.js';
 import { IEditorOptions } from '../../../../editor/common/config/editorOptions.js';
 import { FontInfo } from '../../../../editor/common/config/fontInfo.js';
 import { createBareFontInfoFromRawSettings } from '../../../../editor/common/config/fontInfoFromSettings.js';
-import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
 import { IPositronNotebookViewState, IPositronNotebookScrollPosition } from './positronNotebookEditorTypes.js';
 
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
@@ -153,9 +152,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	public readonly container = observableValue<HTMLElement | undefined>('positronNotebookContainer', undefined);
 
-	private _scopedContextKeyService: IContextKeyService | undefined;
-
-	private _scopedInstantiationService = this._register(new MutableDisposable<IInstantiationService>());
+	private _currentView: PositronNotebookView | undefined;
 
 	/**
 	 * Disposables for the editor container event listeners
@@ -305,18 +302,22 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		return this._cellsContainer;
 	}
 
+	get currentView(): PositronNotebookView | undefined {
+		return this._currentView;
+	}
+
 	get scopedContextKeyService(): IContextKeyService {
-		if (!this._scopedContextKeyService) {
+		if (!this._currentView) {
 			throw new Error('scopedContextKeyService is not available - attachView() must be called first');
 		}
-		return this._scopedContextKeyService;
+		return this._currentView.scopedContextKeyService;
 	}
 
 	get scopedInstantiationService(): IInstantiationService {
-		if (!this._scopedInstantiationService.value) {
+		if (!this._currentView) {
 			throw new Error('scopedInstantiationService is not available - attachView() must be called first');
 		}
-		return this._scopedInstantiationService.value;
+		return this._currentView.scopedInstantiationService;
 	}
 
 	/**
@@ -359,7 +360,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	cells;
 	selectionStateMachine;
-	contextManager: PositronNotebookContextKeyManager;
 	visibleRanges: ICellRange[] = [];
 	hoverManager: PositronActionBarHoverManager;
 
@@ -577,10 +577,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._register(this.runtimeSessionService.onWillStartSession(({ session }) => {
 			this._maybeAttachSession(session);
 		}));
-
-		this.contextManager = this._register(
-			this._instantiationService.createInstance(PositronNotebookContextKeyManager, this)
-		);
 
 		// Create hover manager for notebook action button tooltips
 		this.hoverManager = this._register(
@@ -998,6 +994,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._positronNotebookService.unregisterInstance(this);
 		// Remove from the instance map
 		PositronNotebookInstance._instanceMap.delete(this.uri);
+
+		this._currentView?.dispose();
+		this._currentView = undefined;
 
 		super.dispose();
 		this.detachView();
@@ -1918,26 +1917,29 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		editorContainer: HTMLElement
 	) {
 		this.detachView();
-		// Each cell's Monaco editor creates a child dependency-injection
-		// container under this one. That child overrides the context-key
-		// service with one scoped to the cell's DOM. Disposing this container
-		// also disposes every child container under it. The render cache keeps
-		// cell React trees alive across tab switches, and those cells still
-		// reference their child containers. If we rebuild this container on
-		// every attachView, those children get disposed. The next keystroke
-		// in a cached cell would then throw "InstantiationService has been
-		// disposed". Reuse the existing container when the context-key service
-		// hasn't changed.
-		if (this._scopedContextKeyService !== scopedContextKeyService || !this._scopedInstantiationService.value) {
-			this._scopedContextKeyService = scopedContextKeyService;
-			this._scopedInstantiationService.value = this._instantiationService.createChild(
-				new ServiceCollection([IContextKeyService, scopedContextKeyService]));
+
+		if (this._currentView && this._currentView.container === container) {
+			// Reattach existing view (render cache hit for same pane).
+			// Reuses the DI container when the CKS hasn't changed, preserving
+			// child containers created by cell Monaco editors.
+			this._currentView.reattach(scopedContextKeyService, editorContainer);
+		} else {
+			// Fresh view for this pane.
+			this._currentView?.dispose();
+			this._currentView = this._instantiationService.createInstance(
+				PositronNotebookView,
+				this,
+				container,
+				overlayContainer,
+				scopedContextKeyService,
+				editorContainer,
+			);
 		}
+
 		// Set container last -- contributions react to this observable, and they
 		// may need scopedContextKeyService to already be available.
 		this.container.set(container, undefined);
 		this._overlayContainer = overlayContainer;
-		this.contextManager.setContainer(editorContainer);
 
 		this._logService.debug(this.id, 'attachView');
 	}
@@ -2083,6 +2085,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	detachView(): void {
 		this.container.set(undefined, undefined);
 		this._overlayContainer = undefined;
+		// Don't dispose the view here -- the render cache may still hold a
+		// reference to the container + React tree. The view stays alive until
+		// the instance is disposed or a new view replaces it.
 		this._logService.debug(this.id, 'detachView');
 	}
 

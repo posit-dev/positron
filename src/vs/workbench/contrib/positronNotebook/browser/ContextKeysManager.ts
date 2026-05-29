@@ -5,15 +5,19 @@
 
 import * as DOM from '../../../../base/browser/dom.js';
 import { Disposable, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { NotebookEditorContextKeys } from '../../notebook/browser/viewParts/notebookEditorWidgetContextKeys.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 import { NotebookContextKeys } from '../common/notebookContextKeys.js';
 
 /**
- * Class to handle context keys for positron notebook editor
+ * Manages context keys for a positron notebook editor view.
  *
- * This class is responsible for setting up context keys for the positron notebook editor.
- * The context keys are made available for setting in appropriate places.
+ * Binds focus-tracking and VS Code notebook context keys to the view's
+ * scoped context key service. The scoped services are passed explicitly
+ * to `setContainer` so the manager doesn't depend on instance getter
+ * timing (the view may not yet be assigned to the instance when this runs).
  */
 export class PositronNotebookContextKeyManager extends Disposable {
 	//#region Private Properties
@@ -30,11 +34,16 @@ export class PositronNotebookContextKeyManager extends Disposable {
 	//#endregion Constructor & Dispose
 
 	//#region Public Methods
-	setContainer(container: HTMLElement) {
+	/**
+	 * Bind context keys to the given container using the provided scoped services.
+	 */
+	setContainer(
+		container: HTMLElement,
+		scopedContextKeyService: IContextKeyService,
+		scopedInstantiationService: IInstantiationService,
+	) {
 		this._containerDisposables.clear();
 		const disposables = this._containerDisposables;
-
-		const { scopedContextKeyService, scopedInstantiationService } = this._notebookInstance;
 
 		const positronEditorFocus = NotebookContextKeys.editorFocused.bindTo(scopedContextKeyService);
 
