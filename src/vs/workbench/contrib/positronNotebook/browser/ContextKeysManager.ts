@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as DOM from '../../../../base/browser/dom.js';
-import { Disposable, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { NotebookEditorContextKeys } from '../../notebook/browser/viewParts/notebookEditorWidgetContextKeys.js';
@@ -15,53 +15,30 @@ import { NotebookContextKeys } from '../common/notebookContextKeys.js';
  * Manages context keys for a positron notebook editor view.
  *
  * Binds focus-tracking and VS Code notebook context keys to the view's
- * scoped context key service. The scoped services are passed explicitly
- * to `setContainer` so the manager doesn't depend on instance getter
- * timing (the view may not yet be assigned to the instance when this runs).
+ * scoped context key service. Created via the scoped instantiation service
+ * so it receives the pane-level CKS through DI.
  */
 export class PositronNotebookContextKeyManager extends Disposable {
-	//#region Private Properties
-	private readonly _containerDisposables = this._register(new DisposableStore());
-	//#endregion Private Properties
 
-	//#region Constructor & Dispose
 	constructor(
+		editorContainer: HTMLElement,
 		private readonly _notebookInstance: IPositronNotebookInstance,
+		@IContextKeyService contextKeyService: IContextKeyService,
+		@IInstantiationService instantiationService: IInstantiationService,
 	) {
 		super();
-	}
 
-	//#endregion Constructor & Dispose
+		const positronEditorFocus = NotebookContextKeys.editorFocused.bindTo(contextKeyService);
+		this._register(toDisposable(() => positronEditorFocus.reset()));
 
-	//#region Public Methods
-	/**
-	 * Bind context keys to the given container using the provided scoped services.
-	 */
-	setContainer(
-		container: HTMLElement,
-		scopedContextKeyService: IContextKeyService,
-		scopedInstantiationService: IInstantiationService,
-	) {
-		this._containerDisposables.clear();
-		const disposables = this._containerDisposables;
+		this._register(instantiationService.createInstance(NotebookEditorContextKeys, this._notebookInstance));
 
-		const positronEditorFocus = NotebookContextKeys.editorFocused.bindTo(scopedContextKeyService);
-
-		disposables.add(toDisposable(() => positronEditorFocus.reset()));
-
-		// Create the manager for VSCode notebook editor context keys
-		// Extensions may depend on these familiar context keys
-		disposables.add(scopedInstantiationService.createInstance(NotebookEditorContextKeys, this._notebookInstance));
-
-		const focusTracker = disposables.add(DOM.trackFocus(container));
-		disposables.add(focusTracker.onDidFocus(() => {
+		const focusTracker = this._register(DOM.trackFocus(editorContainer));
+		this._register(focusTracker.onDidFocus(() => {
 			positronEditorFocus.set(true);
 		}));
-
-		disposables.add(focusTracker.onDidBlur(() => {
+		this._register(focusTracker.onDidBlur(() => {
 			positronEditorFocus.set(false);
 		}));
 	}
-
-	//#endregion Public Methods
 }

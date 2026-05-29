@@ -23,9 +23,9 @@ import { IPositronNotebookContribution, PositronNotebookExtensionsRegistry } fro
  */
 export class PositronNotebookView extends Disposable {
 
-	private _scopedContextKeyService: IContextKeyService;
-	private _scopedInstantiationService: IInstantiationService;
-	private readonly _contextManager: PositronNotebookContextKeyManager;
+	private readonly _scopedContextKeyService: IContextKeyService;
+	private readonly _scopedInstantiationService: IInstantiationService;
+	private _contextManager!: PositronNotebookContextKeyManager;
 	private readonly _contributions = this._register(new DisposableMap<string, IPositronNotebookContribution>());
 
 	/** The DOM element that the notebook renders into. */
@@ -68,10 +68,6 @@ export class PositronNotebookView extends Disposable {
 		this._scopedInstantiationService = this._instantiationService.createChild(
 			new ServiceCollection([IContextKeyService, scopedContextKeyService])
 		);
-
-		this._contextManager = this._register(
-			this._instantiationService.createInstance(PositronNotebookContextKeyManager, this._instance)
-		);
 	}
 
 	/**
@@ -79,14 +75,11 @@ export class PositronNotebookView extends Disposable {
 	 * `_currentView` is assigned on the instance, because upstream code
 	 * (NotebookEditorContextKeys) reads `instance.scopedContextKeyService`
 	 * which delegates to `_currentView.scopedContextKeyService`.
-	 *
-	 * The proper fix is for PositronNotebookView to implement
-	 * IPositronNotebookEditor directly (like ICodeEditor / INotebookEditor
-	 * are per-pane), so contributions receive the View and can read
-	 * scopedContextKeyService without the round-trip through the instance.
 	 */
 	initializeContributions(): void {
-		this._contextManager.setContainer(this._editorContainer, this._scopedContextKeyService, this._scopedInstantiationService);
+		this._contextManager = this._register(
+			this._scopedInstantiationService.createInstance(PositronNotebookContextKeyManager, this._editorContainer, this._instance)
+		);
 
 		const contributions = PositronNotebookExtensionsRegistry.getNotebookContributions();
 		for (const desc of contributions) {
@@ -98,23 +91,5 @@ export class PositronNotebookView extends Disposable {
 	/** Gets a registered notebook contribution by its ID. */
 	getContribution<T extends IPositronNotebookContribution>(id: string): T | undefined {
 		return this._contributions.get(id) as T | undefined;
-	}
-
-	/**
-	 * Re-attach with the same or different scoped context key service.
-	 * Reuses the instantiation service when the CKS hasn't changed (preserves
-	 * child DI containers created by cell Monaco editors in the render cache).
-	 */
-	reattach(
-		scopedContextKeyService: IScopedContextKeyService,
-		editorContainer: HTMLElement,
-	): void {
-		if (this._scopedContextKeyService !== scopedContextKeyService) {
-			this._scopedContextKeyService = scopedContextKeyService;
-			this._scopedInstantiationService = this._instantiationService.createChild(
-				new ServiceCollection([IContextKeyService, scopedContextKeyService])
-			);
-		}
-		this._contextManager.setContainer(editorContainer, this._scopedContextKeyService, this._scopedInstantiationService);
 	}
 }

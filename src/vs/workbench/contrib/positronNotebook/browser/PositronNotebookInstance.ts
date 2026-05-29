@@ -1909,15 +1909,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		overlayContainer: HTMLElement,
 		editorContainer: HTMLElement
 	) {
-		this.detachView();
-
-		if (this._currentView && this._currentView.container === container) {
-			// Reattach existing view (render cache hit for same pane).
-			// Reuses the DI container when the CKS hasn't changed, preserving
-			// child containers created by cell Monaco editors.
-			this._currentView.reattach(scopedContextKeyService, editorContainer);
-		} else {
-			// Fresh view for this pane.
+		if (!this._currentView || this._currentView.container !== container) {
+			this.detachView();
 			this._currentView?.dispose();
 			this._currentView = this._instantiationService.createInstance(
 				PositronNotebookView,
@@ -1930,8 +1923,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			this._currentView.initializeContributions();
 		}
 
-		// Set container last -- contributions react to this observable, and they
-		// may need scopedContextKeyService to already be available.
 		this.container.set(container, undefined);
 		this._overlayContainer = overlayContainer;
 
