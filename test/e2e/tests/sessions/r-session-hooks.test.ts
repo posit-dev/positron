@@ -73,7 +73,7 @@ test.describe('Sessions: R Session Init Hooks', {
 	});
 
 	test('R - Window reload fires only session_reconnect, not session_init or .Rprofile', {
-		tag: [tags.WIN],
+		tag: [tags.WIN, tags.WEB],
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7593' }]
 	}, async function ({ app, hotKeys }) {
 		test.skip(process.platform === 'linux', 'Session dies after window reload on Linux CI (#7593)');
