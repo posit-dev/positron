@@ -12,6 +12,9 @@ import { isUvInstalled, getAvailablePythonVersions, resetUvCache, isWindowsArm64
 import { Common, InterpreterQuickPickList } from '../../../common/utils/localize';
 import { getWorkspaceFolders } from '../../../common/vscodeApis/workspaceApis';
 import { createUvVenv } from '../../creation/provider/uvCreationProvider';
+import { ExistingVenvAction, deleteEnvironment, pickExistingVenvAction } from '../../creation/provider/venvUtils';
+import { getVenvExecutable, hasVenv } from '../../creation/common/commonUtils';
+import { MultiStepAction } from '../../../common/vscodeApis/windowApis';
 import { refreshEnvironments } from '../../../envExt/api.internal';
 
 /**
@@ -153,6 +156,47 @@ async function createGlobalVenv(
 }
 
 /**
+ * Creates a uv venv at the given folder, reusing the Create Environment "use
+ * existing / delete and recreate" flow when a `.venv` already exists there. uv
+ * fails outright if a `.venv` already exists, so this collision must be handled.
+ *
+ * @param folder The folder to create the venv in (the open workspace, or a
+ *   home-directory stand-in for the global `~/.venv` case).
+ * @param create Creates the venv once any existing one has been resolved.
+ * @returns `venvPython` is the venv's Python executable (from a fresh create or
+ *   an existing env the user chose to keep), or undefined if creation failed or
+ *   the user backed out. `attempted` reports whether creation actually ran, so
+ *   callers only show success/failure messages when a create was tried.
+ */
+async function createVenvHandlingExisting(
+    folder: vscode.WorkspaceFolder,
+    create: () => Promise<string | undefined>,
+): Promise<{ venvPython: string | undefined; attempted: boolean }> {
+    try {
+        const existingVenvAction = (await hasVenv(folder))
+            ? await pickExistingVenvAction(folder)
+            : ExistingVenvAction.Create;
+
+        if (existingVenvAction === ExistingVenvAction.UseExisting) {
+            return { venvPython: getVenvExecutable(folder), attempted: false };
+        }
+        if (existingVenvAction === ExistingVenvAction.Recreate) {
+            if (!(await deleteEnvironment(folder, undefined))) {
+                throw new Error('Failed to delete existing virtual environment');
+            }
+        }
+        return { venvPython: await create(), attempted: true };
+    } catch (ex) {
+        // User backed out of the existing-venv prompt - skip venv creation and
+        // fall back to the base interpreter.
+        if (ex !== MultiStepAction.Back && ex !== MultiStepAction.Cancel) {
+            throw ex;
+        }
+        return { venvPython: undefined, attempted: false };
+    }
+}
+
+/**
  * Shows a quick pick for selecting a Python version to install.
  * @returns The selected version (and identifier on Windows ARM64), or undefined if cancelled
  */
@@ -257,23 +301,41 @@ export async function installPythonViaUv(): Promise<InstallPythonResult> {
 
                     if (createVenv?.id === 'yes') {
                         progress.report({ message: InterpreterQuickPickList.UvInstall.creatingVenv });
-                        venvPython = await createUvVenv(workspaces[0], selected.version, progress);
-                        if (venvPython) {
-                            vscode.window.showInformationMessage(InterpreterQuickPickList.UvInstall.venvCreated);
-                        } else {
-                            // Venv creation failed - warn the user
-                            vscode.window.showWarningMessage(InterpreterQuickPickList.UvInstall.venvCreationFailed);
+                        const workspace = workspaces[0];
+                        const result = await createVenvHandlingExisting(workspace, () =>
+                            createUvVenv(workspace, selected.version, progress),
+                        );
+                        venvPython = result.venvPython;
+                        if (result.attempted) {
+                            if (venvPython) {
+                                vscode.window.showInformationMessage(InterpreterQuickPickList.UvInstall.venvCreated);
+                            } else {
+                                // Venv creation failed - warn the user
+                                vscode.window.showWarningMessage(InterpreterQuickPickList.UvInstall.venvCreationFailed);
+                            }
                         }
                     }
                 } else {
-                    // No workspace - create a global venv at ~/.venv
-                    venvPython = await createGlobalVenv(selected.version, progress);
-                    if (venvPython) {
-                        vscode.window.showInformationMessage(
-                            InterpreterQuickPickList.UvInstall.globalVenvCreated(getGlobalVenvPath()),
-                        );
-                    } else {
-                        vscode.window.showWarningMessage(InterpreterQuickPickList.UvInstall.venvCreationFailed);
+                    // No workspace - create (or reuse) a global venv at ~/.venv. The existing-venv
+                    // helpers are workspace-folder based, so wrap the home directory in a
+                    // WorkspaceFolder to reuse the same use-existing / recreate handling.
+                    const homeFolder: vscode.WorkspaceFolder = {
+                        uri: vscode.Uri.file(os.homedir()),
+                        name: 'home',
+                        index: 0,
+                    };
+                    const result = await createVenvHandlingExisting(homeFolder, () =>
+                        createGlobalVenv(selected.version, progress),
+                    );
+                    venvPython = result.venvPython;
+                    if (result.attempted) {
+                        if (venvPython) {
+                            vscode.window.showInformationMessage(
+                                InterpreterQuickPickList.UvInstall.globalVenvCreated(getGlobalVenvPath()),
+                            );
+                        } else {
+                            vscode.window.showWarningMessage(InterpreterQuickPickList.UvInstall.venvCreationFailed);
+                        }
                     }
                 }
 

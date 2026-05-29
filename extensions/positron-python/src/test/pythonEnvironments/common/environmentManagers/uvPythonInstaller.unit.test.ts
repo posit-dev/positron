@@ -13,6 +13,8 @@ import * as logging from '../../../../client/logging';
 import * as uv from '../../../../client/pythonEnvironments/common/environmentManagers/uv';
 import * as workspaceApis from '../../../../client/common/vscodeApis/workspaceApis';
 import * as uvCreationProvider from '../../../../client/pythonEnvironments/creation/provider/uvCreationProvider';
+import * as commonCreationUtils from '../../../../client/pythonEnvironments/creation/common/commonUtils';
+import * as venvUtils from '../../../../client/pythonEnvironments/creation/provider/venvUtils';
 import * as apiInternal from '../../../../client/envExt/api.internal';
 import { getAvailablePythonVersions } from '../../../../client/pythonEnvironments/common/environmentManagers/uv';
 import { installPythonViaUv } from '../../../../client/pythonEnvironments/common/environmentManagers/uvPythonInstaller';
@@ -285,6 +287,10 @@ suite('UV Python Installer Tests', () => {
         let getWorkspaceFoldersStub: sinon.SinonStub;
         let createUvVenvStub: sinon.SinonStub;
         let getAvailablePythonVersionsStub: sinon.SinonStub;
+        let hasVenvStub: sinon.SinonStub;
+        let pickExistingVenvActionStub: sinon.SinonStub;
+        let deleteEnvironmentStub: sinon.SinonStub;
+        let getVenvExecutableStub: sinon.SinonStub;
 
         const mockProgress = {
             report: sinon.stub(),
@@ -298,6 +304,12 @@ suite('UV Python Installer Tests', () => {
             isUvInstalledStub = sinon.stub(uv, 'isUvInstalled');
             getWorkspaceFoldersStub = sinon.stub(workspaceApis, 'getWorkspaceFolders');
             createUvVenvStub = sinon.stub(uvCreationProvider, 'createUvVenv');
+            // Stub the existing-venv handling helpers. Defaults: no existing venv,
+            // so tests fall through to the create path unless they opt in.
+            hasVenvStub = sinon.stub(commonCreationUtils, 'hasVenv').resolves(false);
+            getVenvExecutableStub = sinon.stub(commonCreationUtils, 'getVenvExecutable');
+            pickExistingVenvActionStub = sinon.stub(venvUtils, 'pickExistingVenvAction');
+            deleteEnvironmentStub = sinon.stub(venvUtils, 'deleteEnvironment').resolves(true);
             // Stub getAvailablePythonVersions from uv module
             getAvailablePythonVersionsStub = sinon.stub(uv, 'getAvailablePythonVersions');
             // Stub refreshEnvironments to avoid actual environment refresh
@@ -519,6 +531,107 @@ suite('UV Python Installer Tests', () => {
 
             assert.strictEqual(result.success, true);
             assert.strictEqual(result.pythonPath, '/usr/local/bin/python3.13');
+        });
+
+        suite('Existing venv handling', () => {
+            const mockWorkspace = { uri: { fsPath: '/test/workspace' }, name: 'test', index: 0 };
+
+            // Sets up a successful install where a workspace is open and the user
+            // accepts venv creation, leaving the existing-venv branch to decide.
+            function arrangeWorkspaceInstall(): void {
+                isUvInstalledStub.resolves(true);
+                getAvailablePythonVersionsStub.resolves([
+                    { version: '3.13', isInstalled: false, identifier: 'cpython-3.13.1-macos-aarch64-none' },
+                ]);
+                // version select, then "yes" to create venv
+                quickPickResponses = [
+                    { version: '3.13', label: 'Python 3.13' },
+                    { id: 'yes', label: 'Yes' },
+                ];
+                execStub.onFirstCall().resolves({ stdout: '' }); // uv python install
+                execStub.onSecondCall().resolves({ stdout: '/usr/local/bin/python3.13' }); // uv python find
+                getWorkspaceFoldersStub.returns([mockWorkspace]);
+            }
+
+            test('Recreate: detects existing venv, prompts, then deletes before recreating', async () => {
+                arrangeWorkspaceInstall();
+                hasVenvStub.resolves(true);
+                pickExistingVenvActionStub.resolves(venvUtils.ExistingVenvAction.Recreate);
+                createUvVenvStub.resolves('/test/workspace/.venv/bin/python');
+
+                const result = await installPythonViaUv();
+
+                assert.strictEqual(result.success, true);
+                assert.strictEqual(result.pythonPath, '/test/workspace/.venv/bin/python');
+                // Intended sequence: detect existing -> prompt action -> delete -> recreate
+                assert.ok(hasVenvStub.calledOnce, 'hasVenv should be called once');
+                assert.ok(pickExistingVenvActionStub.calledOnce, 'pickExistingVenvAction should be called once');
+                assert.ok(deleteEnvironmentStub.calledOnce, 'deleteEnvironment should be called once');
+                assert.ok(createUvVenvStub.calledOnce, 'createUvVenv should be called once');
+                assert.ok(
+                    hasVenvStub.calledBefore(pickExistingVenvActionStub),
+                    'hasVenv should run before the action prompt',
+                );
+                assert.ok(
+                    pickExistingVenvActionStub.calledBefore(deleteEnvironmentStub),
+                    'action prompt should run before delete',
+                );
+                assert.ok(deleteEnvironmentStub.calledBefore(createUvVenvStub), 'delete should run before recreate');
+            });
+
+            test('Use Existing: keeps the existing venv without deleting or recreating', async () => {
+                arrangeWorkspaceInstall();
+                hasVenvStub.resolves(true);
+                pickExistingVenvActionStub.resolves(venvUtils.ExistingVenvAction.UseExisting);
+                getVenvExecutableStub.returns('/test/workspace/.venv/bin/python');
+
+                const result = await installPythonViaUv();
+
+                assert.strictEqual(result.success, true);
+                assert.strictEqual(result.pythonPath, '/test/workspace/.venv/bin/python');
+                assert.ok(getVenvExecutableStub.calledOnce, 'getVenvExecutable should resolve the existing env');
+                assert.ok(!deleteEnvironmentStub.called, 'deleteEnvironment should not be called');
+                assert.ok(!createUvVenvStub.called, 'createUvVenv should not be called');
+            });
+
+            test('No existing venv: creates directly without prompting', async () => {
+                arrangeWorkspaceInstall();
+                hasVenvStub.resolves(false);
+                createUvVenvStub.resolves('/test/workspace/.venv/bin/python');
+
+                const result = await installPythonViaUv();
+
+                assert.strictEqual(result.success, true);
+                assert.ok(!pickExistingVenvActionStub.called, 'should not prompt when no venv exists');
+                assert.ok(!deleteEnvironmentStub.called, 'should not delete when no venv exists');
+                assert.ok(createUvVenvStub.calledOnce, 'createUvVenv should be called once');
+            });
+
+            test('Global recreate: deletes existing ~/.venv before recreating', async () => {
+                isUvInstalledStub.resolves(true);
+                getAvailablePythonVersionsStub.resolves([
+                    { version: '3.13', isInstalled: false, identifier: 'cpython-3.13.1-macos-aarch64-none' },
+                ]);
+                quickPickResponses = [{ version: '3.13', label: 'Python 3.13' }];
+                execStub.onCall(0).resolves({ stdout: '' }); // uv python install
+                execStub.onCall(1).resolves({ stdout: '/usr/local/bin/python3.13' }); // uv python find
+                execStub.onCall(2).resolves({ stdout: '' }); // uv venv (global) recreate
+                // No workspace -> global ~/.venv path
+                getWorkspaceFoldersStub.returns(undefined);
+
+                hasVenvStub.resolves(true);
+                pickExistingVenvActionStub.resolves(venvUtils.ExistingVenvAction.Recreate);
+
+                const result = await installPythonViaUv();
+
+                assert.strictEqual(result.success, true);
+                assert.strictEqual(result.pythonPath, getExpectedGlobalVenvPython());
+                assert.ok(deleteEnvironmentStub.calledOnce, 'deleteEnvironment should be called once');
+                assert.ok(
+                    pickExistingVenvActionStub.calledBefore(deleteEnvironmentStub),
+                    'action prompt should run before delete',
+                );
+            });
         });
 
         test('Handles unexpected errors gracefully', async () => {
