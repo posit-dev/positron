@@ -272,7 +272,7 @@ describe('PositronNotebookInstance', () => {
 		});
 	});
 
-	describe('attachView', () => {
+	describe('attachWidget', () => {
 		function createInstance(): TestPositronNotebookInstance {
 			const id = `attach-${Math.random().toString(36).slice(2)}`;
 			const notebook = ctx.disposables.add(ctx.instantiationService.createInstance(
@@ -299,17 +299,17 @@ describe('PositronNotebookInstance', () => {
 		it('re-attaching with the same scopedContextKeyService preserves the scoped instantiation service', () => {
 			// Each cell's Monaco editor creates a child dependency-injection
 			// container under `scopedInstantiationService`. Disposing this
-			// container also disposes its children. If attachView rebuilt it
+			// container also disposes its children. If attachWidget rebuilt it
 			// on every call, every cached cell's child container would be
 			// disposed and the next keystroke would throw
 			// "InstantiationService has been disposed". Re-attaching with
 			// the same context-key service must reuse the existing container.
 			const notebook = createInstance();
 			const c = makeContainersAndContextKeyService();
-			notebook.attachView(c.editorContainer, c.contextKeyService, c.notebookContainer, c.overlayContainer);
+			notebook.attachWidget(c.editorContainer, c.contextKeyService, c.notebookContainer, c.overlayContainer);
 			const isBefore = notebook.scopedInstantiationService;
 
-			notebook.attachView(c.editorContainer, c.contextKeyService, c.notebookContainer, c.overlayContainer);
+			notebook.attachWidget(c.editorContainer, c.contextKeyService, c.notebookContainer, c.overlayContainer);
 
 			expect(notebook.scopedInstantiationService).toBe(isBefore);
 		});

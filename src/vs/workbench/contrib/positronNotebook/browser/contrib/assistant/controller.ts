@@ -6,7 +6,7 @@
 import { Disposable } from '../../../../../../base/common/lifecycle.js';
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { IPositronNotebookContribution } from '../../positronNotebookExtensions.js';
-import { PositronNotebookView } from '../../PositronNotebookView.js';
+import { PositronNotebookEditorWidget } from '../../PositronNotebookEditorWidget.js';
 import { INotebookCellDTO, INotebookContextDTO, NotebookCellType } from '../../../../../common/positron/notebookAssistant.js';
 import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
 import { getActiveCell, getSelectedCells } from '../../selectionMachine.js';
@@ -19,11 +19,11 @@ export class PositronNotebookAssistantController extends Disposable implements I
 	public static readonly ID = 'positron.notebook.contrib.assistantController';
 
 	private get _notebook(): IPositronNotebookInstance {
-		return this._view.instance;
+		return this._widget.instance;
 	}
 
 	constructor(
-		private readonly _view: PositronNotebookView,
+		private readonly _widget: PositronNotebookEditorWidget,
 	) {
 		super();
 	}

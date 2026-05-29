@@ -23,7 +23,7 @@ import { BaseCellEditorOptions } from './BaseCellEditorOptions.js';
 import * as DOM from '../../../../base/browser/dom.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
 import { CellSelectionType, getActiveCell, getEditingCell, getSelectedCells, SelectionState, SelectionStateMachine, toCellRanges } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
-import { PositronNotebookView } from './PositronNotebookView.js';
+import { PositronNotebookEditorWidget } from './PositronNotebookEditorWidget.js';
 import { IPositronNotebookService } from './positronNotebookService.js';
 import { EditorLayoutMetadata, IDeletionSentinel, IPositronNotebookInstance, IPositronNotebookResolvedScrollPosition, NotebookKernelStatus, NotebookOperationType } from './IPositronNotebookInstance.js';
 import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from '../common/positronNotebookConfig.js';
@@ -117,7 +117,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		const existingInstance = PositronNotebookInstance._instanceMap.get(uri);
 		if (existingInstance) {
-			// Do NOT detach here -- attachView's internal detachView handles
+			// Do NOT detach here -- attachWidget's internal detachWidget handles
 			// any re-attachment, and the unconditional detach this used to do
 			// would tear down a render cached in PositronNotebookEditor.
 			existingInstance._creationOptions = creationOptions;
@@ -152,7 +152,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	public readonly container = observableValue<HTMLElement | undefined>('positronNotebookContainer', undefined);
 
-	private _currentView: PositronNotebookView | undefined;
+	private _currentWidget: PositronNotebookEditorWidget | undefined;
 
 	/**
 	 * Disposables for the editor container event listeners
@@ -301,22 +301,22 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		return this._cellsContainer;
 	}
 
-	get currentView(): PositronNotebookView | undefined {
-		return this._currentView;
+	get currentWidget(): PositronNotebookEditorWidget | undefined {
+		return this._currentWidget;
 	}
 
 	get scopedContextKeyService(): IContextKeyService {
-		if (!this._currentView) {
-			throw new Error('scopedContextKeyService is not available - attachView() must be called first');
+		if (!this._currentWidget) {
+			throw new Error('scopedContextKeyService is not available - attachWidget() must be called first');
 		}
-		return this._currentView.scopedContextKeyService;
+		return this._currentWidget.scopedContextKeyService;
 	}
 
 	get scopedInstantiationService(): IInstantiationService {
-		if (!this._currentView) {
-			throw new Error('scopedInstantiationService is not available - attachView() must be called first');
+		if (!this._currentWidget) {
+			throw new Error('scopedInstantiationService is not available - attachWidget() must be called first');
 		}
-		return this._currentView.scopedInstantiationService;
+		return this._currentWidget.scopedInstantiationService;
 	}
 
 	/**
@@ -988,11 +988,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// Remove from the instance map
 		PositronNotebookInstance._instanceMap.delete(this.uri);
 
-		this._currentView?.dispose();
-		this._currentView = undefined;
+		this._currentWidget?.dispose();
+		this._currentWidget = undefined;
 
 		super.dispose();
-		this.detachView();
+		this.detachWidget();
 	}
 
 	// #endregion
@@ -1900,33 +1900,33 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	/**
-	 * Attaches the notebook view to a DOM container.
+	 * Attaches the notebook widget to a DOM container.
 	 * @param container The DOM element to render the notebook into
 	 */
-	async attachView(
+	async attachWidget(
 		container: HTMLElement,
 		scopedContextKeyService: IScopedContextKeyService,
 		overlayContainer: HTMLElement,
 		editorContainer: HTMLElement
 	) {
-		if (!this._currentView || this._currentView.container !== container) {
-			this.detachView();
-			this._currentView?.dispose();
-			this._currentView = this._instantiationService.createInstance(
-				PositronNotebookView,
+		if (!this._currentWidget || this._currentWidget.container !== container) {
+			this.detachWidget();
+			this._currentWidget?.dispose();
+			this._currentWidget = this._instantiationService.createInstance(
+				PositronNotebookEditorWidget,
 				this,
 				container,
 				overlayContainer,
 				scopedContextKeyService,
 				editorContainer,
 			);
-			this._currentView.initializeContributions();
+			this._currentWidget.initializeContributions();
 		}
 
 		this.container.set(container, undefined);
 		this._overlayContainer = overlayContainer;
 
-		this._logService.debug(this.id, 'attachView');
+		this._logService.debug(this.id, 'attachWidget');
 	}
 
 	/**
@@ -1952,7 +1952,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	getContribution<T extends IPositronNotebookContribution>(id: string): T | undefined {
-		return this._currentView?.getContribution<T>(id);
+		return this._currentWidget?.getContribution<T>(id);
 	}
 
 	/**
@@ -2063,20 +2063,20 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	/**
-	 * Detach the view so contribution lifecycle (find, etc.) sees the
+	 * Detach the widget so contribution lifecycle (find, etc.) sees the
 	 * detach. Does NOT dispose _notebookOptions -- a cached React tree
 	 * retains references to it that must stay valid while parked off-DOM.
 	 */
-	detachView(): void {
+	detachWidget(): void {
 		this.container.set(undefined, undefined);
 		this._overlayContainer = undefined;
-		// Don't dispose the view here -- the render cache may still hold a
-		// reference to the container + React tree. The view stays alive until
-		// the instance is disposed or a new view replaces it.
-		this._logService.debug(this.id, 'detachView');
+		// Don't dispose the widget here -- the render cache may still hold a
+		// reference to the container + React tree. The widget stays alive until
+		// the instance is disposed or a new widget replaces it.
+		this._logService.debug(this.id, 'detachWidget');
 	}
 
-	/** Whether this instance's view is currently attached to `container`. */
+	/** Whether this instance's widget is currently attached to `container`. */
 	isAttachedTo(container: HTMLElement): boolean {
 		return this.container.get() === container;
 	}

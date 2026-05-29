@@ -79,9 +79,9 @@ export function KernelStatusBadge() {
 		label = kernelStatusToLabel[kernelStatus] ?? '';
 	}
 
-	// scopedContextKeyService is only available after attachView() is called.
+	// scopedContextKeyService is only available after attachWidget() is called.
 	// When a notebook replaces a preview tab, the widget may render before
-	// attachView() completes. Use container (set last in attachView) as the
+	// attachWidget() completes. Use container (set last in attachWidget) as the
 	// readiness signal.
 	const container = useObservedValue(notebookInstance.container);
 	const menu = useMenu(

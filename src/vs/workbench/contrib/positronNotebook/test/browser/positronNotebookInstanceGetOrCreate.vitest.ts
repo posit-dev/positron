@@ -30,7 +30,7 @@ describe('PositronNotebookInstance.getOrCreate', () => {
 		const overlayContainer = document.createElement('div');
 		const editorContainer = document.createElement('div');
 		const scopedContextKeyService = ctx.instantiationService.get(IContextKeyService).createScoped(editorContainer);
-		instance.attachView(notebookContainer, scopedContextKeyService, overlayContainer, editorContainer);
+		instance.attachWidget(notebookContainer, scopedContextKeyService, overlayContainer, editorContainer);
 		return notebookContainer;
 	}
 

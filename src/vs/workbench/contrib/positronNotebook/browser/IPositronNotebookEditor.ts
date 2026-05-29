@@ -250,7 +250,7 @@ export interface IChatEditingNotebookEditor extends NotebookEditorChatEditingSub
 	 * Scoped context key service for toolbar/menu context.
 	 * Required by decorators for creating scoped instantiation services.
 	 *
-	 * Note: Positron notebooks throw if accessed before attachView() is called,
+	 * Note: Positron notebooks throw if accessed before attachWidget() is called,
 	 * but by the time decorators are created, it should always be available.
 	 */
 	readonly scopedContextKeyService: IContextKeyService;

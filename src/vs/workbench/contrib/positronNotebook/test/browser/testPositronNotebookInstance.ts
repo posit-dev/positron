@@ -132,7 +132,7 @@ export function instantiateTestNotebookInstance(
 	));
 	notebook.instantiationService = instantiationService;
 
-	// Create the notebook text model directly (before attachView, matching
+	// Create the notebook text model directly (before attachWidget, matching
 	// PositronNotebookEditor.setInput production order).
 	const cellDtos = cells.map((cell) => cellToDto(cell));
 	const model = disposables.add(instantiationService.createInstance(
@@ -150,14 +150,14 @@ export function instantiateTestNotebookInstance(
 	));
 	notebook.setModel(model);
 
-	// Attach view with DOM containers
+	// Attach widget with DOM containers
 	const editorContainer = document.createElement('div');
 	const notebookContainer = document.createElement('div');
 	const overlayContainer = document.createElement('div');
 	editorContainer.appendChild(notebookContainer);
 	editorContainer.appendChild(overlayContainer);
 	const scopedContextKeyService = instantiationService.invokeFunction(accessor => accessor.get(IContextKeyService)).createScoped(editorContainer);
-	notebook.attachView(editorContainer, scopedContextKeyService, notebookContainer, overlayContainer);
+	notebook.attachWidget(editorContainer, scopedContextKeyService, notebookContainer, overlayContainer);
 
 	// Auto-attach test editors to all cells (initial and dynamically added).
 	// This mirrors what React's CellEditorMonacoWidget does in production.

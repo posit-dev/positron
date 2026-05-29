@@ -332,7 +332,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		const cachedRender = this._renderCache.get(input.resource);
 		if (cachedRender) {
 			this._notebookShell!.appendChild(cachedRender.container);
-			notebookInstance.attachView(
+			notebookInstance.attachWidget(
 				cachedRender.container,
 				this._containerScopedContextKeyService!,
 				this._overlayContainer!,
@@ -378,7 +378,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		}
 
 		// Contributions (e.g. find controller) rely on observing detach.
-		notebookInstance?.detachView();
+		notebookInstance?.detachWidget();
 
 		this._control.clear();
 	}
@@ -469,7 +469,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		container.tabIndex = -1;
 		this._notebookShell.appendChild(container);
 
-		input.notebookInstance.attachView(
+		input.notebookInstance.attachWidget(
 			container,
 			this._containerScopedContextKeyService,
 			this._overlayContainer,

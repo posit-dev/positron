@@ -747,8 +747,8 @@ describe('PositronNotebookFindController', () => {
 			const { notebook, find } = findFixture([['hello', 'python', CellKind.Code]]);
 			expect(find.isVisible.get()).toBe(true);
 
-			// Detach view
-			notebook.detachView();
+			// Detach widget
+			notebook.detachWidget();
 			expect(find.isVisible.get()).toBe(false);
 		});
 

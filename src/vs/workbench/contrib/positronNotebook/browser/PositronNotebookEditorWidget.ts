@@ -15,13 +15,13 @@ import { IPositronNotebookContribution, PositronNotebookExtensionsRegistry } fro
  * Per-pane presentation state for a Positron notebook.
  *
  * The editor pane creates and owns this object. Each pane that displays the
- * same notebook gets its own view, while the shared `PositronNotebookInstance`
+ * same notebook gets its own widget, while the shared `PositronNotebookInstance`
  * remains the model coordinator (execution, cell ordering, kernel, lifecycle).
  *
  * Owns: scoped context key service, scoped instantiation service, context
  * manager, container references, contributions.
  */
-export class PositronNotebookView extends Disposable {
+export class PositronNotebookEditorWidget extends Disposable {
 
 	private readonly _scopedContextKeyService: IContextKeyService;
 	private readonly _scopedInstantiationService: IInstantiationService;
@@ -34,7 +34,7 @@ export class PositronNotebookView extends Disposable {
 	/** The overlay container for contributions (find widget, etc.). */
 	readonly overlayContainer: HTMLElement;
 
-	/** The notebook instance (model) backing this view. */
+	/** The notebook instance (model) backing this widget. */
 	get instance(): IPositronNotebookInstance {
 		return this._instance;
 	}
@@ -72,9 +72,9 @@ export class PositronNotebookView extends Disposable {
 
 	/**
 	 * Initialize contributions and context keys. Must be called after
-	 * `_currentView` is assigned on the instance, because upstream code
+	 * `_currentWidget` is assigned on the instance, because upstream code
 	 * (NotebookEditorContextKeys) reads `instance.scopedContextKeyService`
-	 * which delegates to `_currentView.scopedContextKeyService`.
+	 * which delegates to `_currentWidget.scopedContextKeyService`.
 	 */
 	initializeContributions(): void {
 		this._contextManager = this._register(

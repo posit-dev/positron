@@ -40,7 +40,7 @@ describe('PositronNotebookInstance.isAttachedTo', () => {
 		const overlayContainer = document.createElement('div');
 		const editorContainer = document.createElement('div');
 		const scopedContextKeyService = ctx.instantiationService.get(IContextKeyService).createScoped(editorContainer);
-		instance.attachView(notebookContainer, scopedContextKeyService, overlayContainer, editorContainer);
+		instance.attachWidget(notebookContainer, scopedContextKeyService, overlayContainer, editorContainer);
 		return notebookContainer;
 	}
 
@@ -69,11 +69,11 @@ describe('PositronNotebookInstance.isAttachedTo', () => {
 		expect(instance.isAttachedTo(sourceContainer)).toBe(false);
 	});
 
-	it('returns false after detachView clears the container', () => {
+	it('returns false after detachWidget clears the container', () => {
 		const instance = getOrCreate(URI.parse('test:///is-attached-to/detached.ipynb'));
 		const container = attachTo(instance);
 
-		instance.detachView();
+		instance.detachWidget();
 
 		expect(instance.isAttachedTo(container)).toBe(false);
 	});

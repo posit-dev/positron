@@ -42,7 +42,7 @@ describe('disposeNotebookRenderCacheEntry', () => {
 		const overlayContainer = document.createElement('div');
 		const editorContainer = document.createElement('div');
 		const scopedContextKeyService = ctx.instantiationService.get(IContextKeyService).createScoped(editorContainer);
-		instance.attachView(container, scopedContextKeyService, overlayContainer, editorContainer);
+		instance.attachWidget(container, scopedContextKeyService, overlayContainer, editorContainer);
 		return instance;
 	}
 
@@ -77,7 +77,7 @@ describe('disposeNotebookRenderCacheEntry', () => {
 		const overlayContainer = document.createElement('div');
 		const editorContainer = document.createElement('div');
 		const scopedContextKeyService = ctx.instantiationService.get(IContextKeyService).createScoped(editorContainer);
-		instance.attachView(targetContainer, scopedContextKeyService, overlayContainer, editorContainer);
+		instance.attachWidget(targetContainer, scopedContextKeyService, overlayContainer, editorContainer);
 		expect(instance.container.get()).toBe(targetContainer);
 
 		// Source pane's eviction must NOT detach -- the target is using the instance.

@@ -19,7 +19,7 @@ import { IHoverManager } from '../../../../platform/hover/browser/hoverManager.j
 import { IPositronNotebookContribution } from './positronNotebookExtensions.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IPositronNotebookViewState } from './positronNotebookEditorTypes.js';
-import type { PositronNotebookView } from './PositronNotebookView.js';
+import type { PositronNotebookEditorWidget } from './PositronNotebookEditorWidget.js';
 
 /**
  * A resolved scroll position pointing to a live cell and an offset from that cell.
@@ -136,12 +136,12 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	readonly connectedToEditor: boolean;
 
 	/**
-	 * The currently active view for this notebook instance.
+	 * The currently active widget for this notebook instance.
 	 * Temporary indirection: contributions and the React layer access scoped
-	 * services through the instance, which redirects through this view.
-	 * A follow-up PR removes this once the render cache stores views directly.
+	 * services through the instance, which redirects through this widget.
+	 * A follow-up PR removes this once the render cache stores widgets directly.
 	 */
-	readonly currentView: PositronNotebookView | undefined;
+	readonly currentWidget: PositronNotebookEditorWidget | undefined;
 
 	/**
 	 * The DOM element that contains the entire notebook editor (including toolbar, cells, etc.).

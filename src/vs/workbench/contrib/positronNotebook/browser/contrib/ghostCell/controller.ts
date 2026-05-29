@@ -15,7 +15,7 @@ import { RawContextKey, IContextKey } from '../../../../../../platform/contextke
 import { localize } from '../../../../../../nls.js';
 import { IPositronNotebookContribution } from '../../positronNotebookExtensions.js';
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
-import { PositronNotebookView } from '../../PositronNotebookView.js';
+import { PositronNotebookEditorWidget } from '../../PositronNotebookEditorWidget.js';
 import { INotebookExecutionStateService, NotebookExecutionType } from '../../../../notebook/common/notebookExecutionStateService.js';
 import { CellEditType } from '../../../../notebook/common/notebookCommon.js';
 import { CellKind as PositronCellKind } from '../../PositronNotebookCells/IPositronNotebookCell.js';
@@ -80,11 +80,11 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 	private _lastKnownCellCount: number = 0;
 
 	private get _notebook(): IPositronNotebookInstance {
-		return this._view.instance;
+		return this._widget.instance;
 	}
 
 	constructor(
-		private readonly _view: PositronNotebookView,
+		private readonly _widget: PositronNotebookEditorWidget,
 		@ICommandService private readonly _commandService: ICommandService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@INotebookExecutionStateService private readonly _notebookExecutionStateService: INotebookExecutionStateService,
@@ -93,7 +93,7 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 	) {
 		super();
 
-		// Defer context key binding until attachView() has been called, since
+		// Defer context key binding until attachWidget() has been called, since
 		// scopedContextKeyService is not available during construction.
 		// The autorun re-runs when either container or ghostCellState changes,
 		// keeping the context key in sync with the state.
@@ -105,7 +105,7 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 
 			if (!this._ghostCellAwaitingRequestContextKey) {
 				this._ghostCellAwaitingRequestContextKey =
-					POSITRON_NOTEBOOK_GHOST_CELL_AWAITING_REQUEST.bindTo(this._view.scopedContextKeyService);
+					POSITRON_NOTEBOOK_GHOST_CELL_AWAITING_REQUEST.bindTo(this._widget.scopedContextKeyService);
 			}
 
 			const state = this._ghostCellState.read(reader);

@@ -10,7 +10,7 @@ import { IContextKeyService } from '../../../../../platform/contextkey/common/co
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { PositronNotebookInstance } from '../../browser/PositronNotebookInstance.js';
 
-describe('PositronNotebookView', () => {
+describe('PositronNotebookEditorWidget', () => {
 	const ctx = createTestContainer().withNotebookEditorServices().build();
 
 	function getOrCreate(uri: URI): PositronNotebookInstance {
@@ -30,97 +30,97 @@ describe('PositronNotebookView', () => {
 		const overlayContainer = document.createElement('div');
 		const editorContainer = document.createElement('div');
 		const scopedContextKeyService = ctx.instantiationService.get(IContextKeyService).createScoped(editorContainer);
-		instance.attachView(notebookContainer, scopedContextKeyService, overlayContainer, editorContainer);
+		instance.attachWidget(notebookContainer, scopedContextKeyService, overlayContainer, editorContainer);
 		return { notebookContainer, editorContainer };
 	}
 
-	it('creates a view on attachView', () => {
-		const instance = getOrCreate(URI.parse('test:///view/creates.ipynb'));
+	it('creates a widget on attachWidget', () => {
+		const instance = getOrCreate(URI.parse('test:///widget/creates.ipynb'));
 
 		attachTo(instance);
 
-		expect(instance.currentView).toBeDefined();
+		expect(instance.currentWidget).toBeDefined();
 	});
 
-	it('view has scoped context key service', () => {
-		const instance = getOrCreate(URI.parse('test:///view/has-cks.ipynb'));
+	it('widget has scoped context key service', () => {
+		const instance = getOrCreate(URI.parse('test:///widget/has-cks.ipynb'));
 
 		attachTo(instance);
 
-		expect(instance.currentView!.scopedContextKeyService).toBeDefined();
+		expect(instance.currentWidget!.scopedContextKeyService).toBeDefined();
 	});
 
-	it('view has scoped instantiation service', () => {
-		const instance = getOrCreate(URI.parse('test:///view/has-insta.ipynb'));
+	it('widget has scoped instantiation service', () => {
+		const instance = getOrCreate(URI.parse('test:///widget/has-insta.ipynb'));
 
 		attachTo(instance);
 
-		expect(instance.currentView!.scopedInstantiationService).toBeDefined();
+		expect(instance.currentWidget!.scopedInstantiationService).toBeDefined();
 	});
 
-	it('instance scopedContextKeyService redirects through the view', () => {
-		const instance = getOrCreate(URI.parse('test:///view/redirect-cks.ipynb'));
+	it('instance scopedContextKeyService redirects through the widget', () => {
+		const instance = getOrCreate(URI.parse('test:///widget/redirect-cks.ipynb'));
 
 		attachTo(instance);
 
-		expect(instance.scopedContextKeyService).toBe(instance.currentView!.scopedContextKeyService);
+		expect(instance.scopedContextKeyService).toBe(instance.currentWidget!.scopedContextKeyService);
 	});
 
-	it('instance scopedInstantiationService redirects through the view', () => {
-		const instance = getOrCreate(URI.parse('test:///view/redirect-insta.ipynb'));
+	it('instance scopedInstantiationService redirects through the widget', () => {
+		const instance = getOrCreate(URI.parse('test:///widget/redirect-insta.ipynb'));
 
 		attachTo(instance);
 
-		expect(instance.scopedInstantiationService).toBe(instance.currentView!.scopedInstantiationService);
+		expect(instance.scopedInstantiationService).toBe(instance.currentWidget!.scopedInstantiationService);
 	});
 
-	it('re-attaching with same container reuses the view', () => {
-		const instance = getOrCreate(URI.parse('test:///view/reuse.ipynb'));
+	it('re-attaching with same container reuses the widget', () => {
+		const instance = getOrCreate(URI.parse('test:///widget/reuse.ipynb'));
 		const { notebookContainer, editorContainer } = attachTo(instance);
-		const firstView = instance.currentView;
+		const firstWidget = instance.currentWidget;
 
 		// Re-attach same container (simulates render cache hit)
 		const overlayContainer = document.createElement('div');
 		const scopedContextKeyService = ctx.instantiationService.get(IContextKeyService).createScoped(editorContainer);
-		instance.attachView(notebookContainer, scopedContextKeyService, overlayContainer, editorContainer);
+		instance.attachWidget(notebookContainer, scopedContextKeyService, overlayContainer, editorContainer);
 
-		expect(instance.currentView).toBe(firstView);
+		expect(instance.currentWidget).toBe(firstWidget);
 	});
 
-	it('attaching with a different container creates a new view', () => {
-		const instance = getOrCreate(URI.parse('test:///view/new-container.ipynb'));
+	it('attaching with a different container creates a new widget', () => {
+		const instance = getOrCreate(URI.parse('test:///widget/new-container.ipynb'));
 		attachTo(instance);
-		const firstView = instance.currentView;
+		const firstWidget = instance.currentWidget;
 
 		attachTo(instance);
 
-		expect(instance.currentView).not.toBe(firstView);
+		expect(instance.currentWidget).not.toBe(firstWidget);
 	});
 
-	it('two successive attachView calls dispose the first view', () => {
-		const instance = getOrCreate(URI.parse('test:///view/dispose-old.ipynb'));
+	it('two successive attachWidget calls dispose the first widget', () => {
+		const instance = getOrCreate(URI.parse('test:///widget/dispose-old.ipynb'));
 		attachTo(instance);
-		const firstView = instance.currentView!;
-		const disposeSpy = vi.spyOn(firstView, 'dispose');
+		const firstWidget = instance.currentWidget!;
+		const disposeSpy = vi.spyOn(firstWidget, 'dispose');
 
 		attachTo(instance);
 
 		expect(disposeSpy).toHaveBeenCalled();
 	});
 
-	it('detachView does not dispose the view (render cache keeps it alive)', () => {
-		const instance = getOrCreate(URI.parse('test:///view/detach-keeps.ipynb'));
+	it('detachWidget does not dispose the widget (render cache keeps it alive)', () => {
+		const instance = getOrCreate(URI.parse('test:///widget/detach-keeps.ipynb'));
 		attachTo(instance);
-		const view = instance.currentView!;
-		const disposeSpy = vi.spyOn(view, 'dispose');
+		const widget = instance.currentWidget!;
+		const disposeSpy = vi.spyOn(widget, 'dispose');
 
-		instance.detachView();
+		instance.detachWidget();
 
 		expect(disposeSpy).not.toHaveBeenCalled();
 	});
 
-	it('dispose on instance disposes the view', () => {
-		const uri = URI.parse('test:///view/instance-dispose.ipynb');
+	it('dispose on instance disposes the widget', () => {
+		const uri = URI.parse('test:///widget/instance-dispose.ipynb');
 		const instance = PositronNotebookInstance.getOrCreate(
 			'test-instance',
 			uri,
@@ -132,9 +132,9 @@ describe('PositronNotebookView', () => {
 		const overlayContainer = document.createElement('div');
 		const editorContainer = document.createElement('div');
 		const scopedContextKeyService = ctx.instantiationService.get(IContextKeyService).createScoped(editorContainer);
-		instance.attachView(notebookContainer, scopedContextKeyService, overlayContainer, editorContainer);
-		const view = instance.currentView!;
-		const disposeSpy = vi.spyOn(view, 'dispose');
+		instance.attachWidget(notebookContainer, scopedContextKeyService, overlayContainer, editorContainer);
+		const widget = instance.currentWidget!;
+		const disposeSpy = vi.spyOn(widget, 'dispose');
 
 		instance.dispose();
 

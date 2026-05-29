@@ -18,6 +18,6 @@ export function disposeNotebookRenderCacheEntry(entry: ICachedNotebookRender): v
 	entry.container.remove();
 	const instance = PositronNotebookInstance._instanceMap.get(entry.uri);
 	if (instance && instance.isAttachedTo(entry.container)) {
-		instance.detachView();
+		instance.detachWidget();
 	}
 }
