@@ -95,12 +95,14 @@
 	user-select: none;
 }
 
-.memory-usage-meter .memory-low-warning {
+.memory-usage-meter .memory-low-warning.codicon {
 	flex-shrink: 0;
 	display: flex !important;
 	align-items: center;
 	justify-content: center;
 	font-size: 14px !important;
+	/* Chain the .codicon class to outrank the global `.monaco-workbench
+	   .codicon { color: var(--vscode-icon-foreground) }` rule. */
 	color: var(--vscode-editorWarning-foreground);
 }
 

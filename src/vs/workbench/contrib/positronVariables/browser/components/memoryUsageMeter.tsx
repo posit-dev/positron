@@ -76,6 +76,12 @@ interface MemoryUsageMeterProps {
 	 */
 	barWidth?: number;
 	loading?: boolean;
+	/**
+	 * Whether to render the low-memory warning icon when the system is low on
+	 * memory. Defaults to true; the caller sets this to false at very narrow
+	 * widths so the size label can be kept when the icon no longer fits.
+	 */
+	showWarning?: boolean;
 }
 
 /**
@@ -86,7 +92,7 @@ interface MemoryUsageMeterProps {
  * When `loading` is true, renders an empty bar with a "Mem" label. Clicking
  * in this state shows a popup with a "Computing memory usage..." message.
  */
-export const MemoryUsageMeter = ({ snapshot, barWidth, loading }: MemoryUsageMeterProps) => {
+export const MemoryUsageMeter = ({ snapshot, barWidth, loading, showWarning = true }: MemoryUsageMeterProps) => {
 	// Services.
 	const services = usePositronReactServicesContext();
 	const actionBarContext = usePositronActionBarContext();
@@ -142,7 +148,7 @@ export const MemoryUsageMeter = ({ snapshot, barWidth, loading }: MemoryUsageMet
 	// The low-memory warning icon, rendered to the left of the bar when the
 	// system is low on memory. Hooks above run unconditionally; this element is
 	// shared between the loading and loaded render paths.
-	const warningIcon = lowMemoryTooltip ? (
+	const warningIcon = (showWarning && lowMemoryTooltip) ? (
 		<div
 			ref={warningRef}
 			aria-label={lowMemoryTooltip}

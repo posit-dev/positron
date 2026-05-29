@@ -228,6 +228,7 @@ export const ActionBars = (props: PropsWithChildren<{}>) => {
 		const spaceForBar = meterSpace - MEMORY_METER_CHROME_WIDTH - labelWidth - warningWidth;
 
 		if (spaceForBar >= MEMORY_BAR_MIN_WIDTH) {
+			// Bar + label + arrow (+ warning icon when low on memory).
 			const barWidth = Math.min(MEMORY_BAR_MAX_WIDTH, Math.floor(spaceForBar));
 			rightActions.push({
 				fixedWidth: MEMORY_METER_CHROME_WIDTH + barWidth + labelWidth + warningWidth,
@@ -235,10 +236,19 @@ export const ActionBars = (props: PropsWithChildren<{}>) => {
 				component: <MemoryUsageMeter barWidth={barWidth} loading={loading} snapshot={memorySnapshot} />
 			});
 		} else if (meterSpace >= MEMORY_METER_NO_BAR_WIDTH + labelWidth + warningWidth) {
+			// Label + arrow (+ warning icon when low on memory), no bar.
 			rightActions.push({
 				fixedWidth: MEMORY_METER_NO_BAR_WIDTH + labelWidth + warningWidth,
 				separator: true,
 				component: <MemoryUsageMeter loading={loading} snapshot={memorySnapshot} />
+			});
+		} else if (meterSpace >= MEMORY_METER_NO_BAR_WIDTH + labelWidth) {
+			// Too narrow for the warning icon: drop the icon but keep the
+			// label + arrow rather than hiding the meter entirely.
+			rightActions.push({
+				fixedWidth: MEMORY_METER_NO_BAR_WIDTH + labelWidth,
+				separator: true,
+				component: <MemoryUsageMeter loading={loading} showWarning={false} snapshot={memorySnapshot} />
 			});
 		}
 		// Otherwise: hidden entirely.

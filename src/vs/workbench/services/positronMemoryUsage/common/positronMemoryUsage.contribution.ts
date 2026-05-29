@@ -25,18 +25,18 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 				maximum: 60000,
 				markdownDescription: localize('positron.memoryUsage.pollingIntervalMs', "How often to poll for system memory usage, in milliseconds."),
 			},
-			'positron.memoryUsage.lowMemoryThresholdPercent': {
+			'memoryUsage.lowMemoryThresholdPercent': {
 				type: 'number',
 				default: 5,
 				minimum: 0,
 				maximum: 100,
-				markdownDescription: localize('positron.memoryUsage.lowMemoryThresholdPercent', "Show a low-memory warning in the Variables pane when free system memory drops to or below this percentage of total memory. Set to `0` to disable the percentage threshold. When both the percentage and megabyte thresholds are set, the warning appears as soon as either is reached."),
+				markdownDescription: localize('positron.memoryUsage.lowMemoryThresholdPercent', "Show a low-memory warning in the Variables pane when free system memory drops to or below this percentage of total memory. Set to `0` to disable."),
 			},
-			'positron.memoryUsage.lowMemoryThresholdMB': {
+			'memoryUsage.lowMemoryThresholdMB': {
 				type: 'number',
 				default: 0,
 				minimum: 0,
-				markdownDescription: localize('positron.memoryUsage.lowMemoryThresholdMB', "Show a low-memory warning in the Variables pane when free system memory drops to or below this number of megabytes. Set to `0` to disable the megabyte threshold. When both the percentage and megabyte thresholds are set, the warning appears as soon as either is reached."),
+				markdownDescription: localize('positron.memoryUsage.lowMemoryThresholdMB', "Show a low-memory warning in the Variables pane when free system memory drops to or below this number of megabytes. Set to `0` to disable."),
 			}
 		}
 	});
