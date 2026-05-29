@@ -35,6 +35,9 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { WebFileSystemAccess } from '../../../../platform/files/browser/webFileSystemAccess.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
+// --- Start Positron ---
+import { IPositronFileTransferService } from '../../../services/positronFileTransfer/common/positronFileTransferService.js';
+// --- End Positron ---
 
 //#region Browser File Upload (drag and drop, input element)
 
@@ -78,7 +81,10 @@ export class BrowserFileUpload {
 		@IDialogService private readonly dialogService: IDialogService,
 		@IExplorerService private readonly explorerService: IExplorerService,
 		@IEditorService private readonly editorService: IEditorService,
-		@IFileService private readonly fileService: IFileService
+		@IFileService private readonly fileService: IFileService,
+		// --- Start Positron ---
+		@IPositronFileTransferService private readonly fileTransferService: IPositronFileTransferService,
+		// --- End Positron ---
 	) {
 	}
 
@@ -250,6 +256,13 @@ export class BrowserFileUpload {
 				await this.doUploadFileUnbuffered(resource, file, reportProgress);
 			}
 
+			// --- Start Positron ---
+			// Notify subscribers of the Positron extension API that a file was
+			// uploaded. Fires once per file (folders recurse, so each file in
+			// a folder upload triggers its own event).
+			this.fileTransferService.notifyFileUploaded(resource);
+			// --- End Positron ---
+
 			return { isFile: true, resource };
 		}
 
@@ -397,7 +410,10 @@ export class ExternalFileImport {
 		@IEditorService private readonly editorService: IEditorService,
 		@IProgressService private readonly progressService: IProgressService,
 		@INotificationService private readonly notificationService: INotificationService,
-		@IInstantiationService private readonly instantiationService: IInstantiationService
+		@IInstantiationService private readonly instantiationService: IInstantiationService,
+		// --- Start Positron ---
+		@IPositronFileTransferService private readonly fileTransferService: IPositronFileTransferService,
+		// --- End Positron ---
 	) {
 	}
 
@@ -570,6 +586,19 @@ export class ExternalFileImport {
 					this.editorService.openEditor({ resource: item.resource, options: { pinned: true } });
 				}
 			}
+
+			// --- Start Positron ---
+			// Notify subscribers of the Positron extension API that files were
+			// imported into the workspace. Bulk edits operate at the
+			// filesystem level, so we report the top-level destination URI
+			// for each imported resource (folder imports surface as a single
+			// event for the folder itself).
+			for (const edit of resourceFileEdits) {
+				if (edit.newResource) {
+					this.fileTransferService.notifyFileUploaded(edit.newResource);
+				}
+			}
+			// --- End Positron ---
 		}
 	}
 }
@@ -599,7 +628,10 @@ export class FileDownload {
 		@IProgressService private readonly progressService: IProgressService,
 		@ILogService private readonly logService: ILogService,
 		@IFileDialogService private readonly fileDialogService: IFileDialogService,
-		@IStorageService private readonly storageService: IStorageService
+		@IStorageService private readonly storageService: IStorageService,
+		// --- Start Positron ---
+		@IPositronFileTransferService private readonly fileTransferService: IPositronFileTransferService,
+		// --- End Positron ---
 	) {
 	}
 
@@ -694,6 +726,11 @@ export class FileDownload {
 
 			if (!cts.token.isCancellationRequested) {
 				triggerDownload(bufferOrUri, stat.name);
+				// --- Start Positron ---
+				// Notify subscribers of the Positron extension API that a file
+				// was downloaded.
+				this.fileTransferService.notifyFileDownloaded(stat.resource);
+				// --- End Positron ---
 			}
 		}
 	}
@@ -754,6 +791,11 @@ export class FileDownload {
 		const targetFile = await targetFolder.getFileHandle(file.name, { create: true });
 		const targetFileWriter = await targetFile.createWritable();
 
+		// --- Start Positron ---
+		// Upstream returns directly from the inner download call. We await
+		// instead so we can fire onDidDownloadFile after the file has been
+		// written.
+		/*
 		// For large files, write buffered using streams
 		if (file.size > ByteSize.MB) {
 			return this.downloadFileBufferedBrowser(file.resource, targetFileWriter, operation, token);
@@ -761,6 +803,25 @@ export class FileDownload {
 
 		// For small files prefer to write unbuffered to reduce overhead
 		return this.downloadFileUnbufferedBrowser(file.resource, targetFileWriter, operation, token);
+		*/
+
+		// For large files, write buffered using streams
+		if (file.size > ByteSize.MB) {
+			await this.downloadFileBufferedBrowser(file.resource, targetFileWriter, operation, token);
+		}
+
+		// For small files prefer to write unbuffered to reduce overhead
+		else {
+			await this.downloadFileUnbufferedBrowser(file.resource, targetFileWriter, operation, token);
+		}
+
+		// Notify subscribers of the Positron extension API that a file was
+		// downloaded. Fires once per file (folders recurse, so each file in
+		// a folder download triggers its own event).
+		if (!token.isCancellationRequested) {
+			this.fileTransferService.notifyFileDownloaded(file.resource);
+		}
+		// --- End Positron ---
 	}
 
 	private async downloadFolderBrowser(folder: IFileStatWithMetadata, targetFolder: FileSystemDirectoryHandle, operation: IDownloadOperation, token: CancellationToken): Promise<void> {
@@ -843,6 +904,14 @@ export class FileDownload {
 				progressLabel: localize('downloadingBulkEdit', "Downloading {0}", explorerItem.name),
 				progressLocation: ProgressLocation.Window
 			});
+
+			// --- Start Positron ---
+			// Notify subscribers of the Positron extension API that a file
+			// was downloaded. Native downloads copy at the filesystem level,
+			// so folder downloads surface as a single event for the folder
+			// itself rather than per-file.
+			this.fileTransferService.notifyFileDownloaded(explorerItem.resource);
+			// --- End Positron ---
 		} else {
 			cts.cancel(); // User canceled a download. In case there were multiple files selected we should cancel the remainder of the prompts #86100
 		}

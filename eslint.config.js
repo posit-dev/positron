@@ -1050,6 +1050,9 @@ export default tseslint.config(
 						'unlock',
 						'discover',
 						'dispose',
+						// --- Start Positron ---
+						'download',
+						// --- End Positron ---
 						'drop',
 						'edit',
 						'end',
@@ -1071,6 +1074,9 @@ export default tseslint.config(
 						'terminate',
 						'trigger',
 						'unregister',
+						// --- Start Positron ---
+						'upload',
+						// --- End Positron ---
 						'write',
 						'commit'
 					]

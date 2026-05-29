@@ -421,6 +421,14 @@ export interface ExtHostLifecycleShape {
 	$onWillShutdown(reason: ShutdownReason): Promise<void>;
 }
 
+export interface MainThreadFileTransferShape extends IDisposable {
+}
+
+export interface ExtHostFileTransferShape {
+	$onDidUploadFile(resource: UriComponents): void;
+	$onDidDownloadFile(resource: UriComponents): void;
+}
+
 /**
  * Mirrors the workbench's `ShutdownReason` so it can be transferred over RPC
  * without importing renderer-only modules into the extension host.
@@ -450,6 +458,7 @@ export const ExtHostPositronContext = {
 	ExtHostNotebookFeatures: createProxyIdentifier<ExtHostNotebookFeaturesShape>('ExtHostNotebookFeatures'),
 	ExtHostDataConnections: createProxyIdentifier<ExtHostDataConnectionsShape>('ExtHostDataConnections'),
 	ExtHostLifecycle: createProxyIdentifier<ExtHostLifecycleShape>('ExtHostLifecycle'),
+	ExtHostFileTransfer: createProxyIdentifier<ExtHostFileTransferShape>('ExtHostFileTransfer'),
 };
 
 export interface MainThreadPositronEphemeralStorageShape extends IDisposable {
@@ -473,4 +482,5 @@ export const MainPositronContext = {
 	MainThreadPositronEphemeralStorage: createProxyIdentifier<MainThreadPositronEphemeralStorageShape>('MainThreadPositronEphemeralStorage'),
 	MainThreadDataConnections: createProxyIdentifier<MainThreadDataConnectionsShape>('MainThreadDataConnections'),
 	MainThreadLifecycle: createProxyIdentifier<MainThreadLifecycleShape>('MainThreadLifecycle'),
+	MainThreadFileTransfer: createProxyIdentifier<MainThreadFileTransferShape>('MainThreadFileTransfer'),
 };

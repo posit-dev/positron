@@ -116,6 +116,7 @@ import './positron/mainThreadPlotsService.js';
 import './positron/mainThreadNotebookFeatures.js';
 import './positron/mainThreadPositronEphemeralStorage.js';
 import './positron/mainThreadLifecycle.js';
+import './positron/mainThreadFileTransfer.js';
 // --- End Positron ---
 
 export class ExtensionPoints implements IWorkbenchContribution {

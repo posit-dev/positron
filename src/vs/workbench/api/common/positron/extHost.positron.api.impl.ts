@@ -44,6 +44,7 @@ import { ExtHostNotebookFeatures } from './extHostNotebookFeatures.js';
 import { ExtHostPositronEphemeralStorage } from './extHostPositronEphemeralStorage.js';
 import { IExtHostStorage } from '../extHostStorage.js';
 import { ExtHostLifecycle } from './extHostLifecycle.js';
+import { ExtHostFileTransfer } from './extHostFileTransfer.js';
 
 /**
  * Factory interface for creating an instance of the Positron API.
@@ -94,6 +95,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const extHostEnvironment = rpcProtocol.set(ExtHostPositronContext.ExtHostEnvironment, new ExtHostEnvironment(rpcProtocol));
 	const extHostNotebookFeatures = rpcProtocol.set(ExtHostPositronContext.ExtHostNotebookFeatures, new ExtHostNotebookFeatures(rpcProtocol));
 	const extHostLifecycle = rpcProtocol.set(ExtHostPositronContext.ExtHostLifecycle, new ExtHostLifecycle());
+	const extHostFileTransfer = rpcProtocol.set(ExtHostPositronContext.ExtHostFileTransfer, new ExtHostFileTransfer());
 	const storage = accessor.get(IExtHostStorage);
 	const extHostEphemeralStorage = new ExtHostPositronEphemeralStorage(rpcProtocol, accessor.get(ILogService));
 	storage.setPositronEphemeralStorage(extHostEphemeralStorage);
@@ -245,6 +247,12 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 			get onWillShutdown() {
 				return extHostLifecycle.onWillShutdown;
+			},
+			get onDidUploadFile() {
+				return extHostFileTransfer.onDidUploadFile;
+			},
+			get onDidDownloadFile() {
+				return extHostFileTransfer.onDidDownloadFile;
 			},
 		};
 
